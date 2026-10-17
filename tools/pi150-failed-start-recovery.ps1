@@ -71,13 +71,90 @@ function Assert-Pi150FailedStartRecoveryFileMap([object]$Actual,[object]$Expecte
   }
 }
 
-function Assert-Pi150FailedStartRecoveryProcessInventory([object[]]$Processes,[object[]]$Listeners,[int[]]$OwnAncestors) {
+function Get-Pi150FailedStartRecoveryOriginalActors {
+  $attempt='D:\codex-isolated\main-release-packages\f3748d8e03e2-60dc61d1-622cb632\publish-f3748d8e03e2'
+  $actorPath=Join-Path $attempt 'maintenance-first-actor.json'
+  $record=Read-AbsentHelperRecoveryJson $actorPath 'afc64056bc38a28b2c4a8d8d0c500c8d713e82dc717eb6987b68861d1d84d7c5'
+  $failure=Read-AbsentHelperRecoveryJson (Join-Path $attempt 'FAILED.json') 'ff3d41d00616be9f8ed357ff7ecef96cd3dae68a195549eac2aac3f72a3857c8'
+  $startup=Read-AbsentHelperRecoveryJson (Join-Path $attempt '启动服务-started.json') '9e289fb6be316b407900eb5cae9797935be3bf6f50e5a2229473e531c5983584'
+  $outer=$failure.processEvidence;$inner=$outer.engineFailure
+  if($failure.at -isnot [string] -or $failure.at -cne '2026-10-17T11:04:31.123Z' -or
+      $startup.at -isnot [string] -or $startup.at -cne '2026-10-17T11:01:54.171Z' -or
+      $startup.action -isnot [string] -or $startup.action -cne 'Start' -or
+      ($outer.processId -isnot [int] -and $outer.processId -isnot [long]) -or $outer.processId -ne 54580 -or
+      ($outer.exitCode -isnot [int] -and $outer.exitCode -isnot [long]) -or $outer.exitCode -ne 1 -or
+      $outer.stage -isnot [string] -or $outer.stage -cne 'output' -or
+      $outer.outputProtocol -isnot [string] -or $outer.outputProtocol -cne 'direct-exit-files' -or
+      ($inner.processId -isnot [int] -and $inner.processId -isnot [long]) -or $inner.processId -ne 38776 -or
+      ($inner.exitCode -isnot [int] -and $inner.exitCode -isnot [long]) -or $inner.exitCode -ne 1 -or
+      $inner.stage -isnot [string] -or $inner.stage -cne 'completed' -or
+      $inner.outputProtocol -isnot [string] -or $inner.outputProtocol -cne 'direct-exit-file-snapshot'){
+    throw 'Original failed Start termination boundary is unverified'
+  }
+  return @($record.actor,$record.rotationOwner,
+    [pscustomobject]@{processId=38776;startedAt=$startup.at;exitedAt=$failure.at},
+    [pscustomobject]@{processId=54580;startedAt=$startup.at;exitedAt=$failure.at})
+}
+
+function Assert-Pi150FailedStartRecoveryProcessInventory([object[]]$Processes,[object[]]$Listeners,[int[]]$OwnAncestors,[object[]]$OriginalActors=@()) {
   if(@($Listeners | Where-Object {$_.Port -in @(3000,5791,8001,8002,8011,8012,8021,8022,8031,8032,8041,8042,8051,8052,8061,8062,8071,8072,8081,8091,8092,8101,8102,8111,8112,8121)}).Count){throw 'An application listener is still present'}
-  $related=[Collections.Generic.HashSet[int]]::new()
-  foreach($id in @(38776,54580,54152,63044)){[void]$related.Add($id)}
-  do{$changed=$false;foreach($p in $Processes){if($related.Contains([int]$p.ParentProcessId) -and $related.Add([int]$p.ProcessId)){$changed=$true}}}while($changed)
+  $lifetimes=@{}
+  foreach($id in @(38776,54580,54152,63044)){$lifetimes[$id]=[pscustomobject]@{start=$null;reuseAfter=$null;reusedAt=$null}}
+  # Pre-invocation records bind two exact births. The two Start actors instead
+  # have a fixed direct-child exit completion before the sealed FAILED.at. This
+  # is a process lifetime boundary, never a claim of zero deployment effects.
+  if($OriginalActors.Count -ne 0 -and $OriginalActors.Count -ne 4){throw 'Incomplete original actor identities'}
+  $bound=[Collections.Generic.HashSet[int]]::new()
+  foreach($actor in $OriginalActors){
+    if($actor -isnot [pscustomobject] -or ($actor.processId -isnot [int] -and $actor.processId -isnot [long]) -or
+        [int]$actor.processId -notin @(38776,54580,54152,63044) -or -not $bound.Add([int]$actor.processId)){
+      throw 'Original actor identity is invalid'
+    }
+    $lifetime=$lifetimes[[int]$actor.processId]
+    if([int]$actor.processId -in @(54152,63044)){
+      if($actor.creationDate -isnot [string] -or $actor.creationDate -cnotmatch '^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$' -or
+          $actor.executablePath -isnot [string] -or [string]::IsNullOrWhiteSpace($actor.executablePath) -or
+          $actor.commandLine -isnot [string] -or [string]::IsNullOrWhiteSpace($actor.commandLine)){throw 'Original actor creation identity is invalid'}
+      $lifetime.start=[DateTimeOffset]::Parse($actor.creationDate,[Globalization.CultureInfo]::InvariantCulture).UtcDateTime
+      $lifetime.reuseAfter=$lifetime.start
+    }else{
+      if($actor.startedAt -isnot [string] -or $actor.startedAt -cne '2026-10-17T11:01:54.171Z' -or
+          $actor.exitedAt -isnot [string] -or $actor.exitedAt -cne '2026-10-17T11:04:31.123Z'){throw 'Original Start actor termination identity is invalid'}
+      $lifetime.start=[DateTimeOffset]::Parse($actor.startedAt,[Globalization.CultureInfo]::InvariantCulture).UtcDateTime
+      $lifetime.reuseAfter=[DateTimeOffset]::Parse($actor.exitedAt,[Globalization.CultureInfo]::InvariantCulture).UtcDateTime
+    }
+  }
+  foreach($id in @($lifetimes.Keys)){
+    $current=@($Processes|Where-Object {[int]$_.ProcessId -eq $id})
+    if($current.Count -gt 1){throw 'Original actor PID has ambiguous current identity'}
+    if($current.Count -eq 0){continue}
+    $lifetime=$lifetimes[$id];$row=$current[0]
+    if($null -eq $lifetime.start -or $row.CreationDate -isnot [datetime] -or
+        $row.ExecutablePath -isnot [string] -or $row.CommandLine -isnot [string] -or
+        [string]::IsNullOrWhiteSpace([string]$row.ExecutablePath) -or [string]::IsNullOrWhiteSpace([string]$row.CommandLine)){
+      throw 'Original actor or unclassified PID reuse remains'
+    }
+    $created=$row.CreationDate.ToUniversalTime()
+    # Equality can still be the original actor; an earlier timestamp contradicts
+    # the pre-bound historical identity. Neither is proof of unrelated reuse.
+    if($created -le $lifetime.reuseAfter){throw 'Original actor remains or its lifetime identity is inconsistent'}
+    $lifetime.reusedAt=$created
+  }
   foreach($p in $Processes){
-    if($related.Contains([int]$p.ProcessId)){throw 'Original publish/Start actor or descendant remains or PID was reused'}
+    $parentId=[int]$p.ParentProcessId
+    if(-not $lifetimes.ContainsKey($parentId)){continue}
+    $parent=$lifetimes[$parentId]
+    if($p.CreationDate -isnot [datetime] -or $null -eq $parent.start){throw 'A possible original descendant has unknown creation identity'}
+    $created=$p.CreationDate.ToUniversalTime()
+    # ParentProcessId is numeric and survives parent exit. A child predating the
+    # original parent cannot descend from it. A child at/after proven PID reuse
+    # strictly after the new birth belongs to that instance; equal timestamps
+    # cannot establish parent-before-child ordering and remain unsafe.
+    if($created -lt $parent.start){continue}
+    if($null -ne $parent.reusedAt -and $created -gt $parent.reusedAt){continue}
+    throw 'An original actor descendant remains or its parent generation is unknown'
+  }
+  foreach($p in $Processes){
     if($OwnAncestors -contains [int]$p.ProcessId){continue}
     $name=[string]$p.Name;$command=([string]$p.CommandLine).Replace('/','\');$exe=([string]$p.ExecutablePath).Replace('/','\')
     if($name -imatch '^(powershell|pwsh|python|pythonw|waitress-serve|node|workerd|esbuild|wsl)(\.exe)?$'){
@@ -102,7 +179,18 @@ function Complete-Pi150FailedStartRecoveryProcessMetadata([object]$Process) {
     $previousCensus=Get-Variable -Name ReadonlyCensus -Scope Script -ErrorAction SilentlyContinue
     $hadPreviousCensus=$null -ne $previousCensus
     $previousCensusValue=if($hadPreviousCensus){$previousCensus.Value}else{$null}
-    try{. $Library;return Complete-ReadonlyProcessMetadata $Row}
+    try{
+      . $Library
+      # Force the original native double-read even when CIM supplied both
+      # strings, then compare every original nonempty field with that result.
+      $query=$Row|Select-Object *;$query.ExecutablePath=$null;$query.CommandLine=$null
+      $completed=Complete-ReadonlyProcessMetadata $query
+      if((-not [string]::IsNullOrWhiteSpace([string]$Row.ExecutablePath) -and
+            -not [string]::Equals([string]$Row.ExecutablePath,[string]$completed.ExecutablePath,[StringComparison]::OrdinalIgnoreCase)) -or
+          (-not [string]::IsNullOrWhiteSpace([string]$Row.CommandLine) -and
+            -not [string]::Equals([string]$Row.CommandLine,[string]$completed.CommandLine,[StringComparison]::Ordinal))){throw 'Original CIM and native process metadata disagree'}
+      return $completed
+    }
     finally{
       if($hadPreviousCensus){$script:ReadonlyCensus=$previousCensusValue}
       else{Remove-Variable -Name ReadonlyCensus -Scope Script -ErrorAction SilentlyContinue}
@@ -128,13 +216,15 @@ function Assert-Pi150FailedStartRecoverySnapshot {
     if([datetime]$parent[0].CreationDate -gt [datetime]$entry[0].CreationDate){break};$current=[int]$parent[0].ProcessId
   }
   $processes=@(foreach($process in $processes){
-    if($ancestors -notcontains [int]$process.ProcessId -and [string]$process.Name -imatch '^(powershell|pwsh|python|pythonw|waitress-serve|node|workerd|esbuild|wsl)(\.exe)?$' -and
-        ([string]::IsNullOrWhiteSpace([string]$process.CommandLine) -or [string]::IsNullOrWhiteSpace([string]$process.ExecutablePath))){
+    $originalPid=$process.ProcessId -in @(38776,54580,54152,63044)
+    $opaqueRelated=$ancestors -notcontains [int]$process.ProcessId -and [string]$process.Name -imatch '^(powershell|pwsh|python|pythonw|waitress-serve|node|workerd|esbuild|wsl)(\.exe)?$' -and
+      ([string]::IsNullOrWhiteSpace([string]$process.CommandLine) -or [string]::IsNullOrWhiteSpace([string]$process.ExecutablePath))
+    if($originalPid -or $opaqueRelated){
       Complete-Pi150FailedStartRecoveryProcessMetadata $process
     }else{$process}
   })
   $listeners=@([Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners())
-  Assert-Pi150FailedStartRecoveryProcessInventory $processes $listeners $ancestors.ToArray()
+  Assert-Pi150FailedStartRecoveryProcessInventory $processes $listeners $ancestors.ToArray() @(Get-Pi150FailedStartRecoveryOriginalActors)
   # Reuse original native ownership/port checks; never call Stop here.
   Assert-ApplicationProcessesStopped 'Pi150FailedStartRecovery'
   Assert-SalesRetirementWorkerStopped 'Pi150FailedStartRecovery'
@@ -197,7 +287,7 @@ function Assert-Pi150FailedStartRecoveryBindings([ValidateSet('Initial','Request
   if($Stage -cne 'Initial'){Assert-AbsentHelperRecoveryWorkerOwner}
   if($Action -cne 'BeginMaintenance' -or $KeepPostgres -ne $true -or $MaintenanceId -cne 'ca1bc9efd18d4263aeb298353ca93714' -or
       (Get-CanonicalPath $RuntimeRoot) -ine 'D:\teruisi-runtime\django-sales' -or
-      [IO.Path]::GetFullPath($RecoveryProofPath) -ine 'D:\codex-artifacts\pi-publish-recovery-20261017\absent-helper-proof.json'){
+      [IO.Path]::GetFullPath($RecoveryProofPath) -ine 'D:\codex-artifacts\pi-publish-recovery-20261017-v2\absent-helper-proof.json'){
     throw 'Pi150 absent-helper recovery is limited to the exact original operation'
   }
   if(-not (Test-ExactObjectPropertyNames $Proof @('version','operationId','recoveryAttemptId','files','executionFiles','preparedAppId','preparedAppSha256','workerResolved','shortcut','validation','ready')) -or
@@ -225,7 +315,7 @@ function Assert-Pi150FailedStartRecoveryBindings([ValidateSet('Initial','Request
       $validation.powershell7 -isnot [bool] -or $validation.powershell7 -cne $true){throw 'Pi150 private PS5/PS7 validation is incomplete'}
   Assert-Pi150FailedStartRecoveryFileMap $validation.executionFiles $execution
   if(-not (Test-ExactObjectPropertyNames $Proof.ready @('path','sha256')) -or $Proof.ready.path -isnot [string] -or
-      [IO.Path]::GetFullPath($Proof.ready.path) -ine 'D:\codex-artifacts\pi-publish-recovery-20261017\READY.json'){throw 'Pi150 forward READY reference changed'}
+      [IO.Path]::GetFullPath($Proof.ready.path) -ine 'D:\codex-artifacts\pi-publish-recovery-20261017-v2\READY.json'){throw 'Pi150 forward READY reference changed'}
   $ready=Read-AbsentHelperRecoveryJson $Proof.ready.path $Proof.ready.sha256
   if($ready.version -isnot [string] -or $ready.version -cne 'pi150-forward-recovery-v1' -or
       $ready.source -isnot [string] -or (Get-CanonicalPath $ready.source) -ine (Get-CanonicalPath $ExecutionRoot) -or

@@ -62,6 +62,61 @@ foreach($entry in @(
  Reject {Assert-Pi150FailedStartRecoveryProcessInventory @($entry) @() @()} 'late/opaque participant'
 }
 Assert-Pi150FailedStartRecoveryProcessInventory @([pscustomobject]@{ProcessId=10;Name='powershell.exe'}) @() @(10)
+# Reproduce the observed 63044 reuse with its actual birth/image/command. A PID
+# number alone cannot turn this CUA host or its later children into old publisher.
+$actors=@(
+ [pscustomobject]@{processId=54152;creationDate='2026-10-17T10:38:33.0208100Z';executablePath='C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe';commandLine='original bound encoded maintenance'},
+ [pscustomobject]@{processId=63044;creationDate='2026-10-17T10:29:04.3368730Z';executablePath='C:\Program Files\nodejs\node.exe';commandLine='original bound publisher'},
+ [pscustomobject]@{processId=38776;startedAt='2026-10-17T11:01:54.171Z';exitedAt='2026-10-17T11:04:31.123Z'},
+ [pscustomobject]@{processId=54580;startedAt='2026-10-17T11:01:54.171Z';exitedAt='2026-10-17T11:04:31.123Z'})
+$reused=[pscustomobject]@{ProcessId=63044;ParentProcessId=1;Name='node.exe';CreationDate=[DateTimeOffset]::Parse('2026-10-17T19:49:28.268143+08:00').UtcDateTime;ExecutablePath='C:\Users\86137\AppData\Local\OpenAI\Codex\runtimes\cua_node\78fb63cda1a9e2b2\bin\node.exe';CommandLine='"C:\Users\86137\AppData\Local\OpenAI\Codex\runtimes\cua_node\78fb63cda1a9e2b2\bin\node.exe"  ./server.mjs '}
+Assert-Pi150FailedStartRecoveryProcessInventory @($reused) @() @() $actors
+foreach($id in @(54152,63044,38776,54580)){
+ $row=$reused|Select-Object *;$row.ProcessId=$id
+ Assert-Pi150FailedStartRecoveryProcessInventory @($row) @() @() $actors
+ $scoped=$row|Select-Object *;$scoped.CommandLine='node D:\teruisi-runtime\django-sales\late.js'
+ Reject {Assert-Pi150FailedStartRecoveryProcessInventory @($scoped) @() @() $actors} 'four proven reuses retain runtime scope rejection'
+ $encoded=$row|Select-Object *;$encoded.Name='powershell.exe';$encoded.CommandLine='powershell -EncodedCommand QQ=='
+ Reject {Assert-Pi150FailedStartRecoveryProcessInventory @($encoded) @() @() $actors} 'four proven reuses retain encoded rejection'
+}
+foreach($birth in @([DateTimeOffset]::Parse($actors[1].creationDate).UtcDateTime,[DateTimeOffset]::Parse($actors[1].creationDate).UtcDateTime.AddSeconds(-1),$null,'2026-10-17T20:00:00Z')){
+ $row=$reused|Select-Object *;$row.CreationDate=$birth
+ Reject {Assert-Pi150FailedStartRecoveryProcessInventory @($row) @() @() $actors} 'original/same/earlier/unknown birth'
+}
+foreach($field in @('ExecutablePath','CommandLine')){
+ $row=$reused|Select-Object *;$row.$field=$null
+ Reject {Assert-Pi150FailedStartRecoveryProcessInventory @($row) @() @() $actors} 'reused PID metadata unreadable'
+ $row.$field=@('fixture')
+ Reject {Assert-Pi150FailedStartRecoveryProcessInventory @($row) @() @() $actors} 'reused PID metadata array'
+}
+$child=[pscustomobject]@{ProcessId=88;ParentProcessId=63044;Name='idle.exe';CreationDate=$reused.CreationDate.AddSeconds(1)}
+Assert-Pi150FailedStartRecoveryProcessInventory @($reused,$child) @() @() $actors
+$grandchild=[pscustomobject]@{ProcessId=89;ParentProcessId=88;Name='idle.exe';CreationDate=$child.CreationDate.AddSeconds(1)}
+Assert-Pi150FailedStartRecoveryProcessInventory @($reused,$child,$grandchild) @() @() $actors
+foreach($birth in @([DateTimeOffset]::Parse('2026-10-17T10:30:00Z').UtcDateTime,$reused.CreationDate,$null)){
+ $row=$child|Select-Object *;$row.CreationDate=$birth
+ Reject {Assert-Pi150FailedStartRecoveryProcessInventory @($reused,$row) @() @() $actors} 'possible original or unordered descendant'
+}
+$before=$child|Select-Object *;$before.CreationDate=[DateTimeOffset]::Parse($actors[1].creationDate).UtcDateTime.AddSeconds(-1)
+Assert-Pi150FailedStartRecoveryProcessInventory @($reused,$before) @() @() $actors
+Reject {Assert-Pi150FailedStartRecoveryProcessInventory @($child) @() @() $actors} 'missing current parent supplies no reuse upper bound'
+Reject {Assert-Pi150FailedStartRecoveryProcessInventory @($reused,$reused) @() @() $actors} 'duplicate current PID'
+foreach($id in @(38776,54580)){
+ $row=$reused|Select-Object *;$row.ProcessId=$id
+ Assert-Pi150FailedStartRecoveryProcessInventory @($row) @() @() $actors
+ $row.CreationDate=[DateTimeOffset]::Parse('2026-10-17T11:04:31.123Z').UtcDateTime.AddTicks(1)
+ Assert-Pi150FailedStartRecoveryProcessInventory @($row) @() @() $actors
+ foreach($birth in @([DateTimeOffset]::Parse('2026-10-17T11:04:31.123Z').UtcDateTime,[DateTimeOffset]::Parse('2026-10-17T11:03:00Z').UtcDateTime,$null)){
+  $uncertain=$row|Select-Object *;$uncertain.CreationDate=$birth
+  Reject {Assert-Pi150FailedStartRecoveryProcessInventory @($uncertain) @() @() $actors} 'strict original direct-exit upper bound'
+ }
+}
+foreach($command in @('node D:\teruisi-runtime\django-sales\task.js','node D:\codex-isolated\main-release-packages\f3748d8e03e2-60dc61d1-622cb632\source\tools\publish-main.mjs')){
+ $row=$reused|Select-Object *;$row.CommandLine=$command
+ Reject {Assert-Pi150FailedStartRecoveryProcessInventory @($row) @() @() $actors} 'proven reuse still rejects related scope'
+}
+$row=$reused|Select-Object *;$row.Name='powershell.exe';$row.CommandLine='powershell -EncodedCommand QQ=='
+Reject {Assert-Pi150FailedStartRecoveryProcessInventory @($row) @() @() $actors} 'proven reuse still rejects unknown encoded control'
 # The fixed, installed query-only library observes this private test actor only.
 # No service PID or production lifecycle is touched, and its function overrides
 # must stay in the wrapper's child scope.
@@ -74,11 +129,13 @@ $completed=Complete-Pi150FailedStartRecoveryProcessMetadata $opaque
 Check ($completed.ProcessId -eq $PID -and $completed.CreationDate -eq $self.CreationDate -and $completed.ExecutablePath -and $completed.CommandLine) 'native metadata supplements private actor'
 Check ((Resolve-OwnedProcess) -ceq 'private-sentinel') 'overlay replacements stay child scoped'
 Check ($script:ReadonlyCensus.fixture -ceq 'preserved') 'readonly census restored'
+$completed=Complete-Pi150FailedStartRecoveryProcessMetadata $self
+Check ($completed.ProcessId -eq $PID -and $completed.CommandLine) 'complete CIM identity still has stable native observation'
 Remove-Variable -Name ReadonlyCensus -Scope Script
 $script:events=[Collections.Generic.List[string]]::new()
 $RuntimeRoot='D:\teruisi-runtime\django-sales';$RunDirectory=$Scratch;$ExecutionRoot=$Source
 $Action='BeginMaintenance';$KeepPostgres=$true;$MaintenanceId='ca1bc9efd18d4263aeb298353ca93714'
-$RecoveryProofPath='D:\codex-artifacts\pi-publish-recovery-20261017\absent-helper-proof.json';$RecoveryProofSha256='a'*64
+$RecoveryProofPath='D:\codex-artifacts\pi-publish-recovery-20261017-v2\absent-helper-proof.json';$RecoveryProofSha256='a'*64
 $Utf8NoBom=[Text.UTF8Encoding]::new($false)
 $script:gate=$null;$script:maintenance=$null;$script:late=$false
 $script:execution=[pscustomobject]@{}
@@ -86,7 +143,7 @@ foreach($name in @('pi150-failed-start-recovery.ps1','django-local-service.ps1',
  $script:execution|Add-Member -NotePropertyName (Join-Path $Source ('tools\'+$name)) -NotePropertyValue ('b'*64)
 }
 $script:resolved=[pscustomobject]@{status='resolved';releaseId='20261017T100706Z-1090ea88f6fe3094';manifestSha256='5bc9c99602822aa3342e1548e33a7b2ba2b42bb1a446af381bfdcf6a4203041d';guardReceiptSha256=('c'*64);chainStateSha256=('d'*64);successorCount=245}
-$script:proof=[pscustomobject]@{version='teruisi-pi150-failed-start-absent-helper-v1';operationId=$MaintenanceId;recoveryAttemptId=('f'*32);files=$pins;executionFiles=$script:execution;preparedAppId=('e'*32);preparedAppSha256=('a'*64);workerResolved=($script:resolved|ConvertTo-Json|ConvertFrom-Json);shortcut=[pscustomobject]@{path='fixture';sha256=('a'*64)};validation=[pscustomobject]@{path='fixture-validation';sha256=('a'*64)};ready=[pscustomobject]@{path='D:\codex-artifacts\pi-publish-recovery-20261017\READY.json';sha256=('a'*64)}}
+$script:proof=[pscustomobject]@{version='teruisi-pi150-failed-start-absent-helper-v1';operationId=$MaintenanceId;recoveryAttemptId=('f'*32);files=$pins;executionFiles=$script:execution;preparedAppId=('e'*32);preparedAppSha256=('a'*64);workerResolved=($script:resolved|ConvertTo-Json|ConvertFrom-Json);shortcut=[pscustomobject]@{path='fixture';sha256=('a'*64)};validation=[pscustomobject]@{path='fixture-validation';sha256=('a'*64)};ready=[pscustomobject]@{path='D:\codex-artifacts\pi-publish-recovery-20261017-v2\READY.json';sha256=('a'*64)}}
 $script:ready=[pscustomobject]@{version='pi150-forward-recovery-v1';source=$Source;sourceIdentity=[pscustomobject]@{commit=('a'*40);tree=('b'*40)};pkg=[pscustomobject]@{id=('e'*32);receiptSha256=('a'*64)};predecessorDjangoSha256='67696b506801744faf048141b5b4e342e1afa062e48d97669f6e44cf3634fbc2';djangoManifestSha256=('b'*64);facts=[pscustomobject]@{maintenanceId=$MaintenanceId;schemaOperationId='ff28fd7d584547dea301b9f3561ae2aa'}}
 $script:validation=[pscustomobject]@{version='teruisi-pi150-absent-helper-tests-v1';status='passed';productionTouched=$false;powershell5=$true;powershell7=$true;executionFiles=$script:execution}
 function Get-Pi150FailedStartRecoveryExecutionFiles{return $script:execution}
@@ -95,8 +152,21 @@ function Read-AbsentHelperRecoveryJson($path,$sha){
  if($path -ceq $RecoveryProofPath){return $script:proof}
  if($path -ceq 'fixture-validation'){return $script:validation}
  if($path -ceq $script:proof.ready.path){return $script:ready}
+ if($path -like '*maintenance-first-actor.json'){return [pscustomobject]@{actor=$actors[0];rotationOwner=$actors[1]}}
+ if($path -like '*FAILED.json'){return $script:originalFailure}
+ if($path -like '*启动服务-started.json'){return [pscustomobject]@{at='2026-10-17T11:01:54.171Z';action='Start'}}
  return [pscustomobject]@{fixture=$true}
 }
+$script:originalFailure=[pscustomobject]@{at='2026-10-17T11:04:31.123Z';processEvidence=[pscustomobject]@{processId=54580;exitCode=1;stage='output';outputProtocol='direct-exit-files';engineFailure=[pscustomobject]@{processId=38776;exitCode=1;stage='completed';outputProtocol='direct-exit-file-snapshot'}}}
+$originalActors=@(Get-Pi150FailedStartRecoveryOriginalActors)
+Check ($originalActors.Count -eq 4 -and $originalActors[3].processId -eq 54580) 'original sealed actor lifetime records'
+foreach($object in @($script:originalFailure.processEvidence,$script:originalFailure.processEvidence.engineFailure)){
+ foreach($field in @('processId','exitCode','stage','outputProtocol')){
+  $old=$object.$field;$object.$field=@($old);Reject {Get-Pi150FailedStartRecoveryOriginalActors} ('typed original exit field '+$field);$object.$field=$old
+ }
+}
+$old=$script:originalFailure.at;$script:originalFailure.at='2026-10-17T11:04:32Z';Reject {Get-Pi150FailedStartRecoveryOriginalActors} 'original termination boundary changed';$script:originalFailure.at=$old
+$script:originalFailure.at=@($old);Reject {Get-Pi150FailedStartRecoveryOriginalActors} 'original termination boundary nested array';$script:originalFailure.at=$old
 function Read-JsonFile{return [pscustomobject]@{sourceRoot=$Source}}
 function Get-PreparedApplication($id,$sha){if($script:badPrepared){throw 'fixture prepared app changed'};return (Join-Path $Scratch 'prepared')}
 function Invoke-AbsentHelperRecoveryRead{return $script:resolved}
