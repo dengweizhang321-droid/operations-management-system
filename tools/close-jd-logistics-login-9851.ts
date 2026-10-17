@@ -14,6 +14,13 @@ export type Login9851Target = { -readonly [K in keyof typeof jdLogin9851Target]:
 type Options = Omit<PreexportOptions, "target"> & { target?: Login9851Target };
 function fail(code: string): never { throw new Error(`JD_LOGIN_9851_${code}`); }
 const same = (a: unknown, b: unknown) => canonicalLogisticsJson(a) === canonicalLogisticsJson(b);
+export function closureSettingsHash(value: unknown) {
+  const settings = io.object(value), { revision: inventoryRevision, ...frozen } = settings;
+  // _base() attaches the whole inventory domain's revision to every response.
+  // Department/scope revisions and every other raw setting remain frozen.
+  if (inventoryRevision !== undefined && typeof inventoryRevision !== "string") fail("INVENTORY_REVISION_INVALID");
+  return logisticsHash(frozen);
+}
 
 export function read9851Execution(databasePath: string, t: Login9851Target) {
   const db = new DatabaseSync(databasePath, { readOnly: true });
@@ -146,9 +153,18 @@ async function inspect(o: Options, t: Login9851Target, archive?: string) {
   const stores = validateJdStoreRegistry(JSON.parse(registryBytes.toString("utf8")), o.root), store = stores.find(x => x.storeKey === t.storeKey);
   if (!store?.enabled || store.browser.debugPort !== t.debugPort) fail("PROFILE_CHANGED");
   const request = o.request ?? fetch, envelope = await io.readGet(`${plan.baseUrl}/api/inventory/jd-logistics?operation=settings`, request);
-  if (envelope.success !== true || logisticsHash(envelope.data) !== t.settingsHash) fail("SETTINGS_CHANGED");
+  if (envelope.success !== true || closureSettingsHash(envelope.data) !== t.settingsHash) fail("SETTINGS_CHANGED");
   const settings = parseJdLogisticsSettings(envelope.data), config = parseJdLogisticsConfig(JSON.parse(configBytes.toString("utf8")));
-  const selected = selectJdLogisticsOperations(config, settings, stores, new Date(plan.anchorAt));
+  const department = settings.departments.find(x => x.id === t.departmentId);
+  if (!department || department.revision !== t.currentDepartmentRevision
+    || logisticsHash(plan.operations.map(x => x.policyHash)) !== t.originalPolicyHashesHash) fail("DEPARTMENT_VERSION_BINDING_CHANGED");
+  // This is proof of the OLD no-effect plan, never a setting update or a
+  // relaxation of the real pipeline's assertPolicy. The next A uses current.
+  const historicalSettings = structuredClone(settings), historicalDepartment = historicalSettings.departments.find(x => x.id === t.departmentId)!;
+  historicalDepartment.revision = t.originalDepartmentRevision;
+  const unchanged = structuredClone(historicalSettings); unchanged.departments.find(x => x.id === t.departmentId)!.revision = t.currentDepartmentRevision;
+  if (!same(unchanged, settings)) fail("HISTORICAL_SETTINGS_PROOF_INVALID");
+  const selected = selectJdLogisticsOperations(config, historicalSettings, stores, new Date(plan.anchorAt));
   if (selected.length !== 4 || selected.some((s, i) => !same(s, Object.fromEntries(Object.entries(plan.operations[i]).filter(([key]) => key !== "stage"))))) fail("POLICY_OR_SCOPE_REVISION_CHANGED");
   const batches = await historyBatches(plan, t, request); await io.ordinary(o.databasePath);
   const n8n = read9851Execution(o.databasePath, t);

@@ -8,7 +8,7 @@ import test from "node:test";
 import { logisticsPlanHash, type JdLogisticsManifest } from "../lib/jd/logistics-manifest";
 import { logisticsHash, parseJdLogisticsSettings, planJdLogisticsNotifications, selectJdLogisticsOperations } from "../lib/jd/logistics-policy";
 import { validateJdStoreRegistry } from "../lib/jd/store-registry";
-import { closeJdLogisticsLogin9851, read9851Execution, type Login9851Target } from "../tools/close-jd-logistics-login-9851";
+import { closeJdLogisticsLogin9851, closureSettingsHash, read9851Execution, type Login9851Target } from "../tools/close-jd-logistics-login-9851";
 import { jdLogin9851Target } from "../tools/jd-logistics-login-9851-target";
 import { preexportSha256 as sha } from "../tools/close-jd-logistics-preexport";
 const json = (v: unknown) => JSON.stringify(v, null, 2) + "\n";
@@ -27,15 +27,17 @@ async function fixture(t: test.TestContext) {
     enabled: true, sourceVerified: true, contractVersion: "jd-logistics-v1", collectorStoreKey: target.storeKey, authorizedStoreKeys: [target.storeKey], warehouseCode: "",
     ...(sourceKind === "flow" ? { initialStartDate: "2026-10-15", maxSpanDays: 366 } : {}) })) };
   const settings = parseJdLogisticsSettings({ contractVersion: "jd-logistics-v1", departments: [{ id: target.departmentId, businessUnitCode: target.businessUnitCode,
-    storeKeys: [target.storeKey], logisticsEnabled: true, monitorEnabled: false, pushEnabled: false, revision: 1, capabilities: Object.fromEntries(kinds.map(k => [k, true])) }],
+    storeKeys: [target.storeKey], logisticsEnabled: true, monitorEnabled: false, pushEnabled: false, revision: target.currentDepartmentRevision, capabilities: Object.fromEntries(kinds.map(k => [k, true])) }],
     scopeRevisions: kinds.map(sourceKind => ({ sourceKind, departmentId: target.departmentId, revision: 2 })),
     notification: { implemented: true, enabled: false, configured: false, configDigest: "", groupName: "测试群聊", robotName: "志高助手" } });
-  const selections = selectJdLogisticsOperations(config, settings, validateJdStoreRegistry(registry, root), new Date("2026-10-17T00:00:02.345Z"));
+  const oldSettings = structuredClone(settings); oldSettings.departments[0].revision = target.originalDepartmentRevision;
+  const selections = selectJdLogisticsOperations(config, oldSettings, validateJdStoreRegistry(registry, root), new Date("2026-10-17T00:00:02.345Z"));
   const plan: JdLogisticsManifest = { protocolVersion: "jd-logistics-pipeline-v1", workflowKey: "jd-logistics", runId: target.runId, executionId: target.executionId,
     createdAt: "2026-10-17T00:00:02.345Z", updatedAt: "2026-10-17T00:00:07.956Z", anchorAt: "2026-10-17T00:00:02.345Z", baseUrl: "http://localhost:3000",
     planHash: "", stage: "failed", outcome: "pending", notificationPlan: planJdLogisticsNotifications(settings, selections), notification: { stage: "pending" },
     failure: { code: target.failureCode, stage: "run", at: "2026-10-17T00:00:07.956Z" }, operations: selections.map((op, i) => ({ ...op, stage: i === 0 ? "exporting" : "planned" })) };
   plan.planHash = logisticsPlanHash(plan); target.planHash = plan.planHash;
+  target.originalPolicyHashesHash = logisticsHash(plan.operations.map(x => x.policyHash));
   const activeRaw = json({ runId: target.runId, executionId: target.executionId, planHash: target.planHash }), manifestRaw = json(plan);
   target.activeSha256 = sha(activeRaw); target.manifestSha256 = sha(manifestRaw);
   const flowDirectory = path.join(directory, "downloads", target.runId, selections[0].operationId); await mkdir(flowDirectory, { recursive: true });
@@ -114,6 +116,7 @@ test("9851 inspect accepts existing historical data and nonzero revisions withou
 test("9851 apply preserves original failure/history and commits one no-replace active archive", async t => {
   const f = await fixture(t), original = json(f.historical), result = await closeJdLogisticsLogin9851(f.options, "apply");
   assert.equal(result.status, "committed"); assert.equal(await readFile(result.archivePath, "utf8"), f.activeRaw);
+  assert.equal(f.settings.departments[0].revision, 4); assert.equal(f.target.originalDepartmentRevision, 2);
   assert.equal(await readFile(path.join(f.directory, `${f.target.runId}.json`), "utf8"), f.manifestRaw); assert.equal(json(f.historical), original);
   await assert.rejects(readFile(path.join(f.directory, "active.json")), { code: "ENOENT" });
   await assert.rejects(closeJdLogisticsLogin9851(f.options, "apply"), /PATH_ALREADY_EXISTS/);
@@ -136,6 +139,19 @@ test("scope revision drift is rejected even if a caller rebinds the settings dig
   const f = await fixture(t); f.settings.scopeRevisions[0].revision++;
   f.target.settingsHash = logisticsHash(f.settings);
   await assert.rejects(closeJdLogisticsLogin9851(f.options), /POLICY_OR_SCOPE_REVISION_CHANGED/);
+});
+test("only the global inventory revision may advance; department and scope revisions remain frozen", async t => {
+  const f = await fixture(t), original = closureSettingsHash({ ...f.settings, revision: "545:old" });
+  assert.equal(closureSettingsHash({ ...f.settings, revision: "576:new" }), original);
+  f.target.settingsHash = original;
+  f.settings.departments[0].revision++;
+  await assert.rejects(closeJdLogisticsLogin9851(f.options), /SETTINGS_CHANGED/);
+});
+test("the historical policy proof permits only the two fixed department revisions", async t => {
+  const f = await fixture(t); f.target.originalDepartmentRevision = 3;
+  await assert.rejects(closeJdLogisticsLogin9851(f.options), /POLICY_OR_SCOPE_REVISION_CHANGED/);
+  const g = await fixture(t); g.settings.departments[0].revision = 5; g.target.settingsHash = closureSettingsHash(g.settings);
+  await assert.rejects(closeJdLogisticsLogin9851(g.options), /DEPARTMENT_VERSION_BINDING_CHANGED/);
 });
 test("truncated history and unavailable exact current-selection evidence never count as unchanged", async t => {
   const f = await fixture(t); f.state.batchChanged = true;

@@ -16,7 +16,7 @@
 
 ## 验证与保全
 
-12项隔离测试通过：非零revision及历史批次、inspect零写入、一次不可覆盖归档、版本/原执行/并发变化拒绝、空目录门槛、分页和currentSelection缺失、helper/端口/PID变化、原生激活区间、原树额外文件/依赖目录、intent及archive后中断、临近移动的新执行、提交前原件变更。严格TypeScript及三文件ESLint通过，Git空白检查通过。
+14项隔离测试通过：非零revision及历史批次、inspect零写入、一次不可覆盖归档、版本/原执行/并发变化拒绝、空目录门槛、分页和currentSelection缺失、helper/端口/PID变化、原生激活区间、原树额外文件/依赖目录、intent及archive后中断、临近移动的新执行、提交前原件变更，以及仅允许全库存根revision变化、固定部门2/4政策证明。严格TypeScript及三文件ESLint通过，Git空白检查通过。
 
 独立审查复现原helper树额外第五成员未被拒绝的准入漏验，已补完整成员集合精确比较及反例。原调用命令字符串的显示层转义疑点已排除，最终仍使用明确的Windows路径构造。规划请求Astra High，审查请求Sol XHigh；工具未独立返回实际型号。审查及生产现场回执保存在 `D:/codex-artifacts/jd-logistics-rerun-9851-20261017/`。
 
@@ -24,4 +24,6 @@
 
 ## 实际执行状态
 
-本提交为已验证operator候选与操作方案，尚未停用工作流、归档9851或创建新业务execution。后续真实结果以同任务包外CLOSURE-RESULT.json、POSTCHECK.json和RERUN-RESULT.json为准；没有这些实际回执时，不能声称重跑成功或数据已补齐。
+官方UI已短暂停用同一工作流，回读active=false、version196ba保留。前两次只读inspect分别被全库存域根revision推进、旧部门policyHash与当前版本差异拦住；原active与failed manifest未动，未产生闭合intent。经源码与原始基线核对后，仅从settings摘要剔除全库存根revision，其他原始字段完全冻结；部门revision在08:00后、基线捕获前已从2推进4。固定原2/当前4，只在深复制的内存settings中改目标部门4→2即可精确重建旧四源policyHash及所有selection字段，复原后副本须与当前settings全同；不修改实际配置、不放宽正式assertPolicy。该精确闭合证明经独立decision确认；不能据此断言2→4两次历史变更必然只是展示设置。后续新A使用实际当前4。
+
+修正后真实INSPECT-v3取得eligible_intent，当前八历史批次及精确currentSelection、原生运行绑定和空目录通过；尚未apply或创建新业务execution。后续真实结果以同任务包外CLOSURE-RESULT.json、POSTCHECK.json和RERUN-RESULT.json为准；没有这些实际回执时，不能声称重跑成功或数据已补齐。

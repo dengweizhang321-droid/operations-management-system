@@ -23,7 +23,7 @@ export const jdLogin9851Target = Object.freeze({
   "helperCreationDate": "2026-10-17T01:36:44.6047300Z",
   "workflowVersionId": "196ba27b-2207-4ad1-ad5c-af7d0f597048",
   "workflowShapeHash": "73d03867aeba8b9fb64b46b06611f683c0a509ebb55dd920a25a244490d2cf64",
-  "settingsHash": "3b6ef98f1f3cc3a285b01fc53deb28897090ce4ef624aa5d1ac0b8910fd63bd6",
+  "settingsHash": "5927857b52cee84c88a79049e55d5c2f8b5f4298f624086577e8ca362ddec052",
   "batchesHash": "78d1d454c38e6a49ffa6d17941a056d1605a5d3fcec4024f007be45f47fb5080",
   "registrySha256": "fdaaaa1cef550ec34fb58e84cb09df4edb77e1fddc446225d20e0031dd5be332",
   "sourceConfigSha256": "34a9497443a509080f20911c6a6db56511dc95c651258f3da3994bd4bcf50a6d",
@@ -33,5 +33,8 @@ export const jdLogin9851Target = Object.freeze({
   "activationInFile": "9a4c7b3aa9b19d584e49d854c8d0cf122ca7ce85f0375460550b03879bd22008.json",
   "activationInSha256": "97546f9ed70847ac93ee691948d2597d8c562e678a742b5f82f04fb0decd5e39",
   "activationOutFile": "fa333eb546925238fc520c198e4947143e1aea4499d3e55b820b26249c5610d6.json",
-  "activationOutSha256": "1618c41b8eaec47aaf45a7cae728e37f6d8ec77afe4441a3feebbe7e920e0e40"
+  "activationOutSha256": "1618c41b8eaec47aaf45a7cae728e37f6d8ec77afe4441a3feebbe7e920e0e40",
+  "originalDepartmentRevision": 2,
+  "currentDepartmentRevision": 4,
+  "originalPolicyHashesHash": "70ba5a0ffa6aaae131220f82017778cf48fee8925f22845a7f694d4c7ebeaa11"
 });
