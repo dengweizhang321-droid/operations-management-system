@@ -60,7 +60,7 @@ export async function drainPrebuildQueue(directory,prepare,{afterUnlock=async()=
 }
 function spawnPreparation(configFile,config){
  return new Promise((resolve,reject)=>{
-  const child=spawn(process.execPath,[path.join(path.dirname(self),'publish-latest-main.mjs'),'--config',configFile,'--prepare-only','--no-pause'],{cwd:path.dirname(configFile),env:publisherEnvironment(process.env,config.gitDirectory),windowsHide:true,stdio:'inherit'});
+  const child=spawn(process.execPath,[path.join(path.dirname(self),'publish-latest-main.mjs'),'--config',configFile,'--prepare-only','--no-pause'],{cwd:path.dirname(configFile),env:publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment),windowsHide:true,stdio:'inherit'});
   child.once('error',reject);child.once('exit',(code,signal)=>code===0&&!signal?resolve():reject(Error('自动打包未完成，退出码：'+(code??signal))));
  });
 }
@@ -75,7 +75,7 @@ async function main(){
   for(const target of events)await fs.writeFile(path.join(directory,randomUUID()+'.pending.json'),JSON.stringify({target,at:new Date().toISOString()}),{flag:'wx'});
   const output=path.join(directory,'runner-'+randomUUID()+'.log'),fd=openSync(output,'wx');
   try{
-   const child=spawn(process.execPath,[self,'run',configFile],{cwd:config.stateDirectory,detached:true,windowsHide:true,env:publisherEnvironment(process.env,config.gitDirectory),stdio:['ignore',fd,fd]});
+   const child=spawn(process.execPath,[self,'run',configFile],{cwd:config.stateDirectory,detached:true,windowsHide:true,env:publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment),stdio:['ignore',fd,fd]});
    child.once('error',error=>console.error('自动准备未启动：'+error.message));child.unref();
   }finally{closeSync(fd);}
  }else if(mode==='run'){

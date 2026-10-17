@@ -5,6 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
+import {publisherEnvironment} from './publish-latest-main.mjs';
 const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const configFile=process.argv[process.argv.indexOf('--config')+1];
 assert.ok(process.argv.includes('--config')&&path.isAbsolute(configFile),'需要绝对配置路径 --config');
@@ -13,6 +14,8 @@ const git=args=>execFileSync('git',['-C',config.repository,...args],{encoding:'u
 const gitExecutable=execFileSync('C:/Windows/System32/where.exe',['git.exe'],{encoding:'utf8',windowsHide:true}).trim().split(/\r?\n/)[0];
 assert.ok(path.isAbsolute(gitExecutable)&&(await fs.stat(gitExecutable)).isFile(),'无法定位本机Git');
 config.gitDirectory=path.dirname(gitExecutable);
+// Preserve the original bounded base on upgrades, not the installer's shell.
+config.publisherBaseEnvironment=publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment);
 execFileSync(gitExecutable,['--version'],{env:undefined,windowsHide:true});
 let hooksPath='';try{hooksPath=git(['config','--get','core.hooksPath']);}catch(error){if(error.status!==1)throw error;}
 assert.equal(hooksPath,'','已有自定义hooksPath，请先合并钩子，不能覆盖');
