@@ -116,7 +116,7 @@ export function publisherEnvironment(environment=process.env,gitDirectory,baseEn
  // libuv silently inherits this required Windows variable when absent, even
  // with an explicit env object. Empty must also be explicit, never omitted.
  result.LOGONSERVER??='';
- result.PATH=[path.dirname(process.execPath),'C:/Windows/System32','C:/Windows','C:/Windows/System32/WindowsPowerShell/v1.0',gitDirectory].join(path.delimiter);
+ result.PATH=[path.dirname(process.execPath),'C:/Windows/System32','C:/Windows','C:/Windows/System32/WindowsPowerShell/v1.0',gitDirectory].map(entry=>path.win32.normalize(entry)).join(path.delimiter);
  return result;
 }
 async function runPublisher(source,args=[],gitDirectory,baseEnvironment){
