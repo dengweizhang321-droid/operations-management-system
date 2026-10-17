@@ -69,6 +69,14 @@ try {
   })
   $approved = Get-FileSha256 $receiptPath
   if ((Get-PreparedApplication $id $approved) -ine $stage) { throw 'Prepared artifact was not admitted' }
+  $PreparedAppId = $id; $PreparedAppSha256 = $approved
+  $verified = Verify-PreparedApplication
+  if ($verified.status -cne 'prepared_verified' -or $verified.id -cne $id) { throw 'Prepared verification result invalid' }
+  $savedExecutionRoot = $ExecutionRoot
+  try {
+    $ExecutionRoot = Join-Path $root 'other-source'
+    try { Verify-PreparedApplication; throw 'foreign prepared source accepted' } catch { if ($_.Exception.Message -notmatch 'different source') { throw } }
+  } finally { $ExecutionRoot = $savedExecutionRoot }
   $script:predecessor = 'd' * 64
   try { Get-PreparedApplication $id $approved; throw 'stale predecessor accepted' } catch { if ($_.Exception.Message -notmatch 'predecessor changed') { throw } }
   $script:predecessor = 'c' * 64

@@ -1,7 +1,7 @@
 ﻿[CmdletBinding()]
 param(
   [ValidateSet(
-    "Configure", "PrepareApp", "DeployApp", "HardenAcl", "Start", "Stop", "Status", "AggregateStatus",
+    "Configure", "PrepareApp", "VerifyPreparedApp", "DeployApp", "HardenAcl", "Start", "Stop", "Status", "AggregateStatus",
     "ProvisionFinanceRoles", "RollbackApp",
     "StartFinance", "StopFinance", "FinanceStatus",
     "InstallStartup", "RemoveStartup", "PlanSalesD1Retirement", "RetireSalesD1",
@@ -2190,6 +2190,15 @@ function Get-PreparedApplication([string]$Id, [string]$ApprovedSha256) {
   }
   Assert-ApplicationTreeManifest $staging "Prepared Django app" | Out-Null
   return $staging
+}
+
+function Verify-PreparedApplication {
+  $preparedPath = Get-PreparedApplication $PreparedAppId $PreparedAppSha256
+  $preparedManifest = Read-JsonFile (Join-Path $preparedPath 'deployment.json') 'Prepared Django manifest'
+  if ((Get-CanonicalPath $preparedManifest.sourceRoot) -cne (Get-CanonicalPath $ExecutionRoot)) {
+    throw 'Prepared Django app belongs to a different source'
+  }
+  return @{ status = 'prepared_verified'; id = $PreparedAppId }
 }
 
 function Deploy-Application {
@@ -5178,6 +5187,11 @@ if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
     switch ($Action) {
       "Configure" { Invoke-WithServiceMutex { Configure-Service } }
       "PrepareApp" { Prepare-Application | ConvertTo-Json -Compress }
+      "VerifyPreparedApp" {
+        Invoke-WithServiceMutex {
+          Verify-PreparedApplication | ConvertTo-Json -Compress
+        }
+      }
       "DeployApp" { Invoke-WithServiceMutex { Deploy-Application } }
       "RollbackApp" { Invoke-WithServiceMutex { Rollback-Application } }
       "HardenAcl" { Invoke-WithServiceMutex { Set-RuntimeAcl } }

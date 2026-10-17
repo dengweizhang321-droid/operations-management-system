@@ -15,15 +15,16 @@ async function fixture(t,components=['worker'],failAt=null){
  const request={mainCommit:'a'.repeat(40),components,predecessorWorker:{...head},predecessorDjangoSha256:django};
  const context={source:root,out,installedRoot:installed,workerRuntimeRoot:runtime,
   sourceIdentity:async()=>({commit:request.mainCommit,tree:'b'.repeat(40)}),
-  sha:async file=>file===path.join(installed,'deployment.json')?django:'4'.repeat(64),
+  sha:async file=>file===path.join(installed,'deployment.json')?django:path.basename(file).startsWith('app.prepare-')?'9'.repeat(64):'4'.repeat(64),
   progress:{begin(){},complete(){},log(){},success(){event('success');successes++;}},
   api:{workerRuntimeRoot:runtime,workerPreparationIdentity:async()=>{event('identity');return {fixture:true};},workerSourceBindingVersion:'fixture',windowsPathSha256:()=> '5'.repeat(64),canonicalJson:JSON.stringify},
   rotation:{withRotationLock:async cb=>{event('lock');return cb({fixture:true});},assertActiveBatchOwnership:async()=>event('ownership'),resolveEffectiveReleaseChain:async()=>{event('head');return {head:{...head},chainStateSha256:'6'.repeat(64)};},
-   planWorkerReleaseRotation:async options=>{event('plan');assert.equal(options.prepareOnline,true);assert.ok(options.rotationLease.fixture);assert.match(options.sourceBindingSha256,/^[a-f0-9]{64}$/);return {status:'planned',planSha256:'7'.repeat(64),candidateReleaseId:target.releaseId,candidateManifestSha256:target.manifestSha256};},
+   planWorkerReleaseRotation:async options=>{event(options.reusePlanSha256?'reuse':'plan');assert.equal(options.prepareOnline,true);assert.ok(options.rotationLease.fixture);assert.match(options.sourceBindingSha256,/^[a-f0-9]{64}$/);return {status:'planned',planSha256:'7'.repeat(64),candidateReleaseId:target.releaseId,candidateManifestSha256:target.manifestSha256};},
    applyApprovedRotationPlan:async options=>{event('apply');assert.ok(options.rotationLease.fixture);head={...target};return {status:'activated',releaseId:head.releaseId};}},
   runStep:async({script,action,extra})=>{
    event(action);
    if(action==='PrepareApp')return {id:'8'.repeat(32),receiptSha256:'9'.repeat(64)};
+   if(action==='VerifyPreparedApp')return {status:'prepared_verified',id:'8'.repeat(32)};
    if(action==='DeployApp'){django='4'.repeat(64);return null;}
    const maintenanceId=extra[extra.indexOf('-MaintenanceId')+1];
    if(action==='EnterMaintenance'){
@@ -80,7 +81,7 @@ test('existing STARTED never retries an unknown result',async t=>{
  const f=await fixture(t);await fs.mkdir(f.out);await fs.writeFile(path.join(f.out,'STARTED.json'),'{}');
  await assert.rejects(publishPreparedMain(f.request,f.context),/结果未知/);assert.deepEqual(operations(f.events),[]);assert.equal(f.successes,0);
 });
-for(const failure of ['identity','plan','BeginWorkerDrain','StopForRelease','apply','Start','EndWorkerDrain','VerifyStartup','ready'])test('failure at '+failure+' retains FAILED and never retries or writes success',async t=>{
+for(const failure of ['BeginWorkerDrain','StopForRelease','apply','Start','EndWorkerDrain','VerifyStartup','ready'])test('failure at '+failure+' retains FAILED and never retries or writes success',async t=>{
  const f=await fixture(t,['worker'],failure);await assert.rejects(publishPreparedMain(f.request,f.context),/fixture failure/);
  assert.equal(f.successes,0);await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
  const failed=JSON.parse(await fs.readFile(path.join(f.out,'FAILED.json'),'utf8'));assert.equal(failed.automaticRetry,false);
@@ -88,7 +89,7 @@ for(const failure of ['identity','plan','BeginWorkerDrain','StopForRelease','app
  assert.deepEqual(operations(f.events.slice(prior)),[]);
  assert.ok(!f.events.includes('CancelDrain'));assert.ok(!f.events.includes('ExitMaintenance'));
 });
-for(const failure of ['PrepareApp','EnterMaintenance','Stop','DeployApp','HardenAcl','apply','ExitMaintenance','Start'])test('full maintenance failure at '+failure+' stops without replay or automatic cleanup',async t=>{
+for(const failure of ['EnterMaintenance','Stop','DeployApp','HardenAcl','apply','ExitMaintenance','Start'])test('full maintenance failure at '+failure+' stops without replay or automatic cleanup',async t=>{
  const f=await fixture(t,['worker','django'],failure);await assert.rejects(publishPreparedMain(f.request,f.context),/fixture failure/);
  assert.equal(f.successes,0);assert.equal(f.events.filter(e=>e===failure).length,1);
  assert.equal(f.events.at(-1),failure);await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
@@ -117,4 +118,38 @@ test('real Fetch Response consumed by JSON can publish successfully',async t=>{
  assert.equal(response.bodyUsed,true);assert.equal(receipt.status,'deployed_and_ready');assert.equal(f.successes,1);
  assert.equal(JSON.parse(await fs.readFile(path.join(f.out,'SUCCESS.json'),'utf8')).mainCommit,f.request.mainCommit);
  await assert.rejects(fs.access(path.join(f.out,'FAILED.json')));
+});
+
+for(const components of [['worker'],['django'],['worker','django']])test('prepare-only and deploy-only reuse exact '+components.join('+')+' artifacts',async t=>{
+ const f=await fixture(t,components);
+ const prepared=await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ assert.equal(prepared.status,'prepared-only');assert.equal(prepared.publicationPerformed,false);
+ assert.deepEqual(operations(f.events),components.includes('worker')?(components.includes('django')?['plan','PrepareApp']:['plan']):['PrepareApp']);
+ await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));assert.equal(f.successes,0);
+ f.events.length=0;await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ assert.ok(!f.events.includes('plan')&&!f.events.includes('PrepareApp'),'second preparation must reuse');
+ assert.ok(!f.events.includes('apply')&&!f.events.includes('Start'));f.events.length=0;
+ const success=await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ assert.equal(success.status,'deployed_and_ready');assert.ok(!f.events.includes('plan')&&!f.events.includes('PrepareApp'));assert.equal(f.successes,1);
+});
+test('deploy-only without a prepared artifact never builds or starts publication',async t=>{
+ const f=await fixture(t,['worker','django']);
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/尚未准备好/);
+ assert.deepEqual(operations(f.events),[]);await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+});
+for(const failure of ['identity','plan','PrepareApp'])test('preparation failure '+failure+' preserves preparation evidence without a deployment STARTED',async t=>{
+ const f=await fixture(t,['worker','django'],failure);
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,prepareOnly:true}),/fixture failure/);
+ await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
+ const files=await fs.readdir(path.join(f.out,'preparation'));assert.ok(files.some(n=>n.startsWith('FAILED-')));
+ const count=f.events.length;await assert.rejects(publishPreparedMain(f.request,{...f.context,prepareOnly:true}),/未完成记录/);
+ assert.deepEqual(operations(f.events.slice(count)),[]);
+});
+test('source/request drift and native Worker reuse failure stop before maintenance',async t=>{
+ const f=await fixture(t);await publishPreparedMain(f.request,{...f.context,prepareOnly:true});f.events.length=0;
+ f.request.newInput=true;await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/请求已变化/);delete f.request.newInput;
+ f.context.rotation.planWorkerReleaseRotation=async()=>{throw Error('native source/environment/cache mismatch');};
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/native source/);
+ await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));assert.ok(!f.events.includes('BeginWorkerDrain'));
 });

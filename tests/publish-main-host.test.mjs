@@ -50,3 +50,9 @@ test('legacy completedTask requests are rejected instead of displaying historica
  const result=await check({completedTask:{path:'old-task.json',sha256:'0'.repeat(64)}});
  assert.equal(result.status,1);assert.match(result.stderr,/旧任务的历史完成入口/);assert.doesNotMatch(result.stdout,/发布成功/);
 });
+test('prepare-only cannot enter a legacy production deployment path',async()=>{
+ await check({});
+ const result=spawnSync(process.execPath,[script,'--prepare-only'],{encoding:'utf8',windowsHide:true,timeout:30000});
+ assert.equal(result.status,1);assert.match(result.stdout,/仅支持冻结的最新main请求/);assert.doesNotMatch(result.stdout,/发布成功/);
+ await assert.rejects(fs.access(path.join(root,'publish-'+mainCommit.slice(0,12))),{code:'ENOENT'});
+});
