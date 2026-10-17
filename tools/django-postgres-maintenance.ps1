@@ -353,7 +353,7 @@ function Assert-MaintenanceNoKeyGeneration([object]$Evidence) {
   $auditErpCount = 0
   $auditSalesCount = 0
   $scheduleCount = 0
-  $jd12Count = 0; $jd13Count = 0; $jd14Count = 0; $jd15Count = 0; $jd16Count = 0; $tm17Count = 0
+  $jd12Count = 0; $jd13Count = 0; $jd14Count = 0; $jd15Count = 0; $jd16Count = 0; $tm17Count = 0; $pi84Count = 0
   foreach ($migration in @($Evidence.migrations)) {
     if ($migration -isnot [pscustomobject] -or $migration.app -isnot [string] -or $migration.name -isnot [string]) {
       throw "无新增密钥备份迁移必须为标量字符串身份"
@@ -366,6 +366,7 @@ function Assert-MaintenanceNoKeyGeneration([object]$Evidence) {
     elseif ($app -ceq 'finance' -and $name -ceq '0007_finance_erp_targets') { $erpGoalCount++ }
     elseif ($app -ceq 'erp_reference' -and $name -ceq '0003_jackyun_upload_audit_binding') { $auditErpCount++ }
     elseif ($app -ceq 'sales' -and $name -ceq '0011_jackyun_upload_audit_binding') { $auditSalesCount++ }
+    elseif ($app -ceq 'ai_assistant' -and $name -ceq '0084_pi_agent_independent_runtime') { $pi84Count++ }
     elseif ($app -ceq 'ai_assistant' -and $name -ceq '0083_schedule_execution_profile') { $scheduleCount++ }
     elseif ($app -ceq 'inventory' -and $name -ceq '0012_jd_logistics') { $jd12Count++ }
     elseif ($app -ceq 'inventory' -and $name -ceq '0013_jd_logistics_notifications') { $jd13Count++ }
@@ -376,18 +377,19 @@ function Assert-MaintenanceNoKeyGeneration([object]$Evidence) {
     else { $migrationIdentities.Add($app + '.' + $name) }
   }
   $generation = @($Evidence.migrations).Count
-  if (($generation -cnotin @(138,139,140,142,143,146,147,148,149)) -or
+  if (($generation -cnotin @(138,139,140,142,143,146,147,148,149,150)) -or
       ($generation -eq 138 -and ($presenceCount -ne 0 -or $erpGoalCount -ne 0)) -or
       ($generation -eq 139 -and ($presenceCount -ne 1 -or $erpGoalCount -ne 0)) -or
-      ($generation -cin @(140,142,143,146,147,148,149) -and ($presenceCount -ne 1 -or $erpGoalCount -ne 1)) -or
+      ($generation -cin @(140,142,143,146,147,148,149,150) -and ($presenceCount -ne 1 -or $erpGoalCount -ne 1)) -or
       ($generation -cin @(138,139,140) -and ($auditErpCount -ne 0 -or $auditSalesCount -ne 0 -or $scheduleCount -ne 0)) -or
-      ($generation -cin @(142,143,146,147,148,149) -and ($auditErpCount -ne 1 -or $auditSalesCount -ne 1)) -or
-      ($generation -eq 142 -and $scheduleCount -ne 0) -or ($generation -cin @(143,146,147,148,149) -and $scheduleCount -ne 1) -or
-      ($generation -cin @(146,147,148,149) -and ($jd12Count -ne 1 -or $jd13Count -ne 1 -or $jd14Count -ne 1)) -or
-      ($generation -cnotin @(146,147,148,149) -and ($jd12Count -ne 0 -or $jd13Count -ne 0 -or $jd14Count -ne 0)) -or
-      ($generation -cin @(147,148,149) -and $jd15Count -ne 1) -or ($generation -cnotin @(147,148,149) -and $jd15Count -ne 0) -or
-      ($generation -cin @(148,149) -and $jd16Count -ne 1) -or ($generation -cnotin @(148,149) -and $jd16Count -ne 0) -or
-      ($generation -eq 149 -and $tm17Count -ne 1) -or ($generation -ne 149 -and $tm17Count -ne 0) -or
+      ($generation -cin @(142,143,146,147,148,149,150) -and ($auditErpCount -ne 1 -or $auditSalesCount -ne 1)) -or
+      ($generation -eq 142 -and $scheduleCount -ne 0) -or ($generation -cin @(143,146,147,148,149,150) -and $scheduleCount -ne 1) -or
+      ($generation -cin @(146,147,148,149,150) -and ($jd12Count -ne 1 -or $jd13Count -ne 1 -or $jd14Count -ne 1)) -or
+      ($generation -cnotin @(146,147,148,149,150) -and ($jd12Count -ne 0 -or $jd13Count -ne 0 -or $jd14Count -ne 0)) -or
+      ($generation -cin @(147,148,149,150) -and $jd15Count -ne 1) -or ($generation -cnotin @(147,148,149,150) -and $jd15Count -ne 0) -or
+      ($generation -cin @(148,149,150) -and $jd16Count -ne 1) -or ($generation -cnotin @(148,149,150) -and $jd16Count -ne 0) -or
+      ($generation -cin @(149,150) -and $tm17Count -ne 1) -or ($generation -cnotin @(149,150) -and $tm17Count -ne 0) -or
+      ($generation -eq 150 -and $pi84Count -ne 1) -or ($generation -ne 150 -and $pi84Count -ne 0) -or
       $migrationIdentities.Count -ne 138 -or
       [long]$Evidence.tables.django_migrations -ne $generation) {
     throw "无新增密钥备份迁移代际未获核验"

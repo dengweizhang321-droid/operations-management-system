@@ -1,0 +1,42 @@
+✔ source named content remains JSON while existing report and asset content stay attachments (174.5301ms)
+✔ Pi recovery only reconciles the exact durable request and keeps unknown operations fenced (1.8499ms)
+✔ Pi public paths are exact and all reads use their writer owner (62.1338ms)
+✔ Pi passive file transport accommodates an 8 MiB file base64 envelope and remains bounded (72.3715ms)
+✔ Pi event transport preserves complete large UTF-8 replies within its independent bound (17.1998ms)
+✔ Pi route files expose only the intended passive GET and explicit POST (16.0816ms)
+✔ Pi thin route keeps origin, roles and bounded upload parsing, and forces passive downloads (70.7667ms)
+✔ business file routes keep reads and writes on their owning process (51.6447ms)
+✔ volume chunk routes keep bounded coordinates and read-only forwarding (4.4708ms)
+✔ business planning preview is an explicit reader POST and evidence list is read only (4.3843ms)
+✔ AI principal envelope binds exact Unicode identity, method, path, query, body and request ID (2.9619ms)
+✔ business source catalog routes stay bounded and use the owning reader (3.8517ms)
+✔ AI thin transport selects independent reader/writer and preserves revision and replay (2.4635ms)
+✔ admin model settings GET is an exact signed writer read (1.9137ms)
+✔ only exact report-detail GET uses signed writer read without a reader override (3.6906ms)
+✔ AI transport rejects invalid configuration, oversized payloads, redirects, malformed JSON and missing revisions (6.7858ms)
+✔ AI production entry points contain no retired D1 domain implementation or schema bootstrap (154.8644ms)
+✔ DingTalk schedules use the admin-gated thin route and disjoint reader/writer (2.7689ms)
+✔ AI production image path has no R2 binding or storage bridge (2.8268ms)
+✔ fixed budget reference is an exact reader route with GET-only Next export (3.1225ms)
+✔ pandas tool is declared once, visible in both protocols, hidden from viewer and generic MCP (1.6255ms)
+✔ central handler uses writer, server invocation identity and fixed surface; audit does not reveal code (22.7932ms)
+✔ audit failure blocks isolated container dispatch (1.5316ms)
+✔ Pi explicitly admits its reviewed read tools without inheriting legacy agent or future entries (2.8301ms)
+✔ Pi export rejects paths, identity injection and unavailable audit before dispatch (2.1812ms)
+✔ nested Pi dataset discovery, query and export preserve surface and true principal over signed transport (28.8293ms)
+✔ Pi paged netshop reader preserves domain pagination and rejects unsupported scope before transport (3.0851ms)
+✔ record source failures retain actionable codes through the central executor and audit (26.3436ms)
+✔ every explicit dataset resolves to a bounded, callable, read-only central entry (2.2901ms)
+✔ dataset tools share provider schemas, principal filtering and strict input limits (0.9259ms)
+✔ DingTalk registry preserves roles, scopes, provider schemas and private tool exclusions (0.9169ms)
+✔ public and AI dataset calls select reader, bind identity and support cancellation (6.8642ms)
+✔ dataset execution refuses unavailable audit and invalid arguments before calling the handler (0.4563ms)
+✔ registered dataset handlers forward validated input to Django with real identity and audited results (4.1938ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2248.2627

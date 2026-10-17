@@ -1,0 +1,39 @@
+{
+  "version": "pi-agent-private-postgres-v1",
+  "status": "passed",
+  "productionTouched": false,
+  "steps": [
+    "ai_assistant.0084_pi_agent_independent_runtime"
+  ],
+  "codeSha256": "39abbc42f6d9e5c844de919ac6ea0ce62f0573a8bcefb9e47637eefcaaab8c32",
+  "migrationSha256": "9d2b3ae96f3efff65e033b226f1d63d92fedf6cb8ae45930a8602a7c387592e8",
+  "checks": [
+    "atomic-upgrade",
+    "bad-evidence",
+    "defaults-empty",
+    "exact-149-150",
+    "legacy-data-preserved",
+    "legacy-queue-isolation",
+    "lifecycle-routing",
+    "negative-catalogues",
+    "parent-source-binding",
+    "permissions",
+    "pi-state-fencing",
+    "pointer-cas",
+    "rollback",
+    "unknown-no-replay"
+  ],
+  "generations": [
+    149,
+    150
+  ],
+  "parentVariants": [
+    [
+      149,
+      150
+    ]
+  ],
+  "legacyDataPreserved": true,
+  "fullBackupOrRestorePerformed": false,
+  "port": 55531
+}

@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-17",
+  "status": "passed",
+  "tests": 1,
+  "durationSeconds": 23.12,
+  "processExitCode": 0,
+  "database": "isolated PostgreSQL 17.11",
+  "port": 55541,
+  "testDatabaseDestroyed": true,
+  "runnerNamespace": "pi-test-stack-144655cebb",
+  "runnerSourceSha256": "90812210898b7b69269a977a02828a6943adc15651e6ae0c07c664f89fe92407",
+  "runnerImage": "sha256:c393a84818c0c7f941803da2db11b1cd94395b8188b69af7294490468a48e26d",
+  "pi": "1.3.0",
+  "provider": "synthetic HTTP response boundary",
+  "edge": "synthetic HTTP transport boundary",
+  "actual": [
+    "Django state and queue",
+    "PostgreSQL row locks and constraints",
+    "PiRunner HMAC",
+    "rootless container",
+    "native Pi tool loop",
+    "native bash",
+    "asynchronous exports",
+    "operation file bridge",
+    "reviewed excel-report skill",
+    "same-generation persistence",
+    "single-shop generation replacement",
+    "download bytes and XLSX structure"
+  ],
+  "productionOperations": 0,
+  "paidModelRequests": 0
+}

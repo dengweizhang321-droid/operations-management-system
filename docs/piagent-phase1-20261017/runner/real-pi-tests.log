@@ -1,0 +1,26 @@
+test_email_is_hash_identity_not_path (pi_runner.test_protocol.ProtocolTests.test_email_is_hash_identity_not_path) ... ok
+test_fences_are_typed (pi_runner.test_protocol.ProtocolTests.test_fences_are_typed) ... ok
+test_mac_binds_direction_path_nonce_and_body (pi_runner.test_protocol.ProtocolTests.test_mac_binds_direction_path_nonce_and_body) ... ok
+test_published_manifest_matches_bytes (pi_runner.test_protocol.ProtocolTests.test_published_manifest_matches_bytes) ... ok
+test_resource_rejects_absolute_traversal_case_collision_missing (pi_runner.test_protocol.ProtocolTests.test_resource_rejects_absolute_traversal_case_collision_missing) ... ok
+test_same_id_with_changed_payload_rejected (pi_runner.test_protocol.ProtocolTests.test_same_id_with_changed_payload_rejected) ... ok
+test_strict_json_and_lf (pi_runner.test_protocol.ProtocolTests.test_strict_json_and_lf) ... ok
+test_unknown_is_not_replayed (pi_runner.test_protocol.ProtocolTests.test_unknown_is_not_replayed) ... ok
+test_01_real_skill_script_xlsx_and_persistent_rounds (pi_runner.test_real.RealPiTests.test_01_real_skill_script_xlsx_and_persistent_rounds) ... ok
+test_02_handled_no_run (pi_runner.test_real.RealPiTests.test_02_handled_no_run) ... ok
+test_03_abort_actual_settled_and_busy_skill_version (pi_runner.test_real.RealPiTests.test_03_abort_actual_settled_and_busy_skill_version) ... ok
+test_04_idle_atomic_skill_update (pi_runner.test_real.RealPiTests.test_04_idle_atomic_skill_update) ... ok
+test_05_empty_single_and_new_version_creation (pi_runner.test_real.RealPiTests.test_05_empty_single_and_new_version_creation) ... ok
+test_06_real_22_turns_42_local_tools (pi_runner.test_real.RealPiTests.test_06_real_22_turns_42_local_tools) ... ok
+test_07_kernel_and_network_boundaries (pi_runner.test_real.RealPiTests.test_07_kernel_and_network_boundaries) ... ok
+test_08_idle_stop_resume_preserves_home (pi_runner.test_real.RealPiTests.test_08_idle_stop_resume_preserves_home) ... ok
+test_09_soft_workspace_file_limit_stops_exact_container (pi_runner.test_real.RealPiTests.test_09_soft_workspace_file_limit_stops_exact_container) ... ok
+test_10_workspace_cannot_select_trusted_skill_version (pi_runner.test_real.RealPiTests.test_10_workspace_cannot_select_trusted_skill_version) ... ok
+test_11_broker_restart_resumes_only_terminal_workspace (pi_runner.test_real.RealPiTests.test_11_broker_restart_resumes_only_terminal_workspace) ... ok
+test_12_crashed_active_operation_cannot_replay_new_id (pi_runner.test_real.RealPiTests.test_12_crashed_active_operation_cannot_replay_new_id) ... ok
+test_13_signed_frame_keeps_protocol_and_model_binding (pi_runner.test_real.RealPiTests.test_13_signed_frame_keeps_protocol_and_model_binding) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 46.096s
+
+OK

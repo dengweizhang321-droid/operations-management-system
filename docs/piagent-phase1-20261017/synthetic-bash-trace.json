@@ -1,0 +1,85 @@
+{
+  "scope": "synthetic real-Pi stack only; read-only runner ledger; no provider calls",
+  "tools": [
+    {
+      "workspace": "c04e47caf17bdad70bcb0c1fa60f538db9ce2eacc56b2ceaad8098a3f96b025a",
+      "eventSeq": 58,
+      "operationId": "pi-op-59be6969-bd98-4fb5-aa5c-826bc7c5c088",
+      "generation": 1,
+      "epoch": 1,
+      "seq": 1,
+      "isError": false,
+      "text": "(no output)"
+    },
+    {
+      "workspace": "fb82834997a32dae8e44195932819102ff5d373972abc93fcb60d5da2fb2e0f3",
+      "eventSeq": 16,
+      "operationId": "pi-op-5515d350-2998-49de-9307-f5eeb53c4f72",
+      "generation": 2,
+      "epoch": 2,
+      "seq": 2,
+      "isError": true,
+      "text": "cat: /workspace/outputs/context-marker.txt: No such file or directory\n\n\nCommand exited with code 1"
+    },
+    {
+      "workspace": "b2f8ab39fd60c9dca91a4c7d0a443b04cfc250f742f482bbcc40def034f0dd9d",
+      "eventSeq": 58,
+      "operationId": "pi-op-069f8ef9-5d1f-4687-a6e8-7a47b111e895",
+      "generation": 1,
+      "epoch": 1,
+      "seq": 1,
+      "isError": false,
+      "text": "(no output)"
+    },
+    {
+      "workspace": "b2f8ab39fd60c9dca91a4c7d0a443b04cfc250f742f482bbcc40def034f0dd9d",
+      "eventSeq": 86,
+      "operationId": "pi-op-ab42e535-e686-47ed-9e36-119d9469bb58",
+      "generation": 1,
+      "epoch": 1,
+      "seq": 2,
+      "isError": false,
+      "text": "synthetic-persistent-context"
+    },
+    {
+      "workspace": "b964e0dccfe2b1eb43733d06884418a99522a4330871e1d41428cc3802c4b4f8",
+      "eventSeq": 37,
+      "operationId": "pi-op-30962555-9f16-4605-845b-ae399ca43b77",
+      "generation": 2,
+      "epoch": 2,
+      "seq": 3,
+      "isError": false,
+      "text": "(no output)"
+    },
+    {
+      "workspace": "1b88d8102570342d79c36a2964e35852e4c37b4031b98baf36c996cf3ba26e0e",
+      "eventSeq": 58,
+      "operationId": "pi-op-412d3564-1003-4c53-a601-ff1fdc120cad",
+      "generation": 1,
+      "epoch": 1,
+      "seq": 1,
+      "isError": false,
+      "text": "(no output)"
+    },
+    {
+      "workspace": "1b88d8102570342d79c36a2964e35852e4c37b4031b98baf36c996cf3ba26e0e",
+      "eventSeq": 86,
+      "operationId": "pi-op-2718bb7a-27ce-4c9c-959d-83a12e6bc146",
+      "generation": 1,
+      "epoch": 1,
+      "seq": 2,
+      "isError": false,
+      "text": "synthetic-persistent-context"
+    },
+    {
+      "workspace": "81ae2709063e909efa32e10d227035ec1461e39729de59a82e82b34096e50dd3",
+      "eventSeq": 37,
+      "operationId": "pi-op-40d4aebc-2714-4468-975a-719c563be126",
+      "generation": 2,
+      "epoch": 2,
+      "seq": 3,
+      "isError": false,
+      "text": "(no output)"
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+import { startPiDatasetExport, getPiDatasetExport } from "@/lib/ai/pi-export-tools";
+import { readPiNetshopPage } from "@/lib/ai/pi-netshop-tools";
 import { readBusinessPromotionDispatchTool } from "@/lib/ai/business-promotion-dispatch-tools";
 import { getBiCockpitForAi } from "@/lib/bi/ai-tool";
 import { readBusinessMarketV2ToolCandidate, MARKET_V2_TOOL, MARKET_V2_SURFACE } from "@/lib/ai/business-market-v2-tool-candidate";
@@ -133,7 +135,47 @@ const dingTalkReadOnlyExecution: AiToolExecutionPolicy = {
  * The sole declaration point for model-callable application capabilities.
  * Never derive this registry from API routes, database tables, or arbitrary SQL.
  */
+// Pi admission is explicit at each reviewed entry; adding another tool does not grant it.
+function piReadOnly(policy: AiToolExecutionPolicy): AiToolExecutionPolicy {
+  return { ...policy, allowedSurfaces: [...policy.allowedSurfaces, "pi_agent"] };
+}
+
 export const aiToolRegistry = [
+  {
+    name: "get_pi_netshop_performance_page", title: "分页读取网店商品与推广表现",
+    description: "Pi 专用只读分页：复用当前账号获准平台及精确店铺的网店商品或推广领域 reader，返回原分页、覆盖、水位、单位及完整源页。商品维度为 SPU，访客为商品×日累计，金额人民币分。page 从1连续读取；本页不代表全量或跨页原子快照。异步完整导出应通过 start_pi_dataset_export。",
+    inputSchema: { type: "object", properties: {
+      dataset: { type: "string", enum: ["product_daily", "promotion"] },
+      startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" }, endDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+      platform: { type: "string", enum: ["京东", "天猫"] }, shop: { type: "string", minLength: 1, maxLength: 120 },
+      query: { type: "string", maxLength: 100 }, page: { type: "integer", minimum: 1, maximum: 20000 },
+      limit: { type: "integer", minimum: 1, maximum: 20 },
+    }, required: ["dataset"], additionalProperties: false },
+    annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: chatDataRoles, scopePolicy: "principal_scope",
+    execution: { ...synchronousReadOnlyExecution, allowedSurfaces: ["pi_agent"], timeoutMs: 30_000, maxResultCharacters: 40_000, maxCallsPerRequest: 1 },
+    handler: readPiNetshopPage,
+  },
+  {
+    name: "start_pi_dataset_export", title: "异步导出获准数据集",
+    description: "在当前 Pi 会话运行中按当前权限异步连续分页导出系统数据集，返回 exportId。先 describe_system_datasets 发现真实 ID、字段及 querySchema；不接收 SQL、URL、路径或身份。查询必须从第一页开始，结果保留来源、水位、单位、完整性与缺口。使用 get_pi_dataset_export 查询状态及获准文件。",
+    inputSchema: { type: "object", properties: {
+      dataset: { type: "string", pattern: "^[a-z][a-z0-9_]{0,63}$" },
+      queryJson: { type: "string", minLength: 2, maxLength: 16000 },
+      collection: { type: "string", maxLength: 100 },
+      columns: { type: "array", minItems: 1, maxItems: 100, uniqueItems: true, items: { type: "string", maxLength: 160 } },
+    }, required: ["dataset", "queryJson"], additionalProperties: false },
+    annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: chatDataRoles, scopePolicy: "principal_scope",
+    execution: { ...synchronousReadOnlyExecution, allowedSurfaces: ["pi_agent"], maxCallsPerRequest: 1 },
+    handler: startPiDatasetExport,
+  },
+  {
+    name: "get_pi_dataset_export", title: "读取异步导出状态与来源",
+    description: "读取当前账号本会话获准的 Pi 异步导出状态、来源 manifest 与文件 ID；未完成不返回完整数据证明，下载和缓存复用重新鉴权。",
+    inputSchema: { type: "object", properties: { exportId: { type: "string", maxLength: 160 } }, required: ["exportId"], additionalProperties: false },
+    annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: chatDataRoles, scopePolicy: "principal_scope",
+    execution: { ...synchronousReadOnlyExecution, allowedSurfaces: ["pi_agent"], maxCallsPerRequest: 1 },
+    handler: getPiDatasetExport,
+  },
   {
     name: "get_bi_cockpit", title: "查询综合经营驾驶舱",
     description: "读取ERP净销售年度/月度目标进度、经营指标、店铺同比下滑、吉客云类目同比环比、运营待处理、库存/广东仓和平台流量的有界摘要。ERP目标明确独立于财报目标；缺源不补零、不将缺记录或非正基期称正常同比。只支持未受限数据范围，查询截至上海昨天的完整日期。返回逐来源修订，不宣称跨域单一原子快照。",
@@ -426,7 +468,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: ["admin"],
     scopePolicy: "unscoped_only",
-    execution: { ...dingTalkReadOnlyExecution, maxCallsPerRequest: 4 },
+    execution: piReadOnly({ ...dingTalkReadOnlyExecution, maxCallsPerRequest: 4 }),
     handler: queryDatasetRecords,
   },
   {
@@ -451,7 +493,7 @@ export const aiToolRegistry = [
     // DingTalk question. Keep it bounded by the registry contract, while
     // avoiding the generic four-call ceiling that previously forced a final
     // answer before the model could reach the ERP dataset.
-    execution: { ...dingTalkReadOnlyExecution, timeoutMs: 20_000, maxCallsPerRequest: 24 },
+    execution: piReadOnly({ ...dingTalkReadOnlyExecution, timeoutMs: 20_000, maxCallsPerRequest: 24 }),
     handler: describeSystemDatasets,
   },
   {
@@ -471,7 +513,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "principal_scope",
-    execution: { ...dingTalkReadOnlyExecution, timeoutMs: 30_000, maxCallsPerRequest: 2 },
+    execution: piReadOnly({ ...dingTalkReadOnlyExecution, timeoutMs: 30_000, maxCallsPerRequest: 2 }),
     handler: querySystemDataset,
   },
   {
@@ -566,7 +608,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "metadata_safe",
-    execution: { ...dingTalkReadOnlyExecution, allowedSurfaces: [...dingTalkReadOnlyExecution.allowedSurfaces, "business_collection"] },
+    execution: piReadOnly({ ...dingTalkReadOnlyExecution, allowedSurfaces: [...dingTalkReadOnlyExecution.allowedSurfaces, "business_collection"] }),
     handler: (args, context) => callOperationsTool("get_data_freshness", args, context.principal, { signal: context.signal }),
   },
   {
@@ -590,7 +632,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
-    execution: dingTalkReadOnlyExecution,
+    execution: piReadOnly(dingTalkReadOnlyExecution),
     handler: (args, context) => callOperationsTool("get_sales_summary", args, context.principal, { signal: context.signal }),
   },
   {
@@ -618,7 +660,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: chatDataRoles,
     scopePolicy: "principal_scope",
-    execution: { ...dingTalkReadOnlyExecution, maxCallsPerRequest: 2 },
+    execution: piReadOnly({ ...dingTalkReadOnlyExecution, maxCallsPerRequest: 2 }),
     handler: (args, context) => getSalesCategoryAnalysisForAi(args, context.principal),
   },
   {
@@ -643,7 +685,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
-    execution: dingTalkReadOnlyExecution,
+    execution: piReadOnly(dingTalkReadOnlyExecution),
     handler: (args, context) => callOperationsTool("get_inventory_health", args, context.principal, { signal: context.signal }),
   },
   {
@@ -670,7 +712,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
-    execution: dingTalkReadOnlyExecution,
+    execution: piReadOnly(dingTalkReadOnlyExecution),
     handler: (args, context) => callOperationsTool("get_product_performance", args, context.principal, { signal: context.signal }),
   },
   {
@@ -953,7 +995,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: ["admin"],
     scopePolicy: "unscoped_only",
-    execution: { ...synchronousReadOnlyExecution, maxResultCharacters: 40_000, maxCallsPerRequest: 8 },
+    execution: piReadOnly({ ...synchronousReadOnlyExecution, maxResultCharacters: 40_000, maxCallsPerRequest: 8 }),
     handler: (args, context) => getNetshopAnalysisRecords(args, context.principal, context.signal),
   },
   {
@@ -968,7 +1010,7 @@ export const aiToolRegistry = [
       limit: { type: "integer", minimum: 1, maximum: 20, default: 10 }, cursor: { type: "string", maxLength: 1600 },
     }, required: ["platform", "shop", "channel", "startDate", "endDate"], additionalProperties: false },
     annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
-    execution: { ...synchronousReadOnlyExecution, maxResultCharacters: 40_000, maxCallsPerRequest: 8 },
+    execution: piReadOnly({ ...synchronousReadOnlyExecution, maxResultCharacters: 40_000, maxCallsPerRequest: 8 }),
     handler: (args, context) => getSalesAnalysisRecords(args, context.principal, context.signal),
   },
   {
@@ -1093,7 +1135,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "principal_scope",
-    execution: { ...dingTalkReadOnlyExecution, maxResultCharacters: 24_000, maxCallsPerRequest: 2 },
+    execution: piReadOnly({ ...dingTalkReadOnlyExecution, maxResultCharacters: 24_000, maxCallsPerRequest: 2 }),
     handler: (args, context) => getNetshopPerformanceForAi(args, context.principal),
   },
   {
@@ -1177,7 +1219,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "unscoped_only",
-    execution: { ...dingTalkReadOnlyExecution, maxCallsPerRequest: 2 },
+    execution: piReadOnly({ ...dingTalkReadOnlyExecution, maxCallsPerRequest: 2 }),
     handler: (args, context) => args.view === "guangdong"
       ? getInventoryGuangdongPageData(pageToolArguments(args), context)
       : args.view === "inbound"
@@ -1208,7 +1250,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "principal_scope",
-    execution: { ...dingTalkReadOnlyExecution, timeoutMs: 20_000, maxCallsPerRequest: 2 },
+    execution: piReadOnly({ ...dingTalkReadOnlyExecution, timeoutMs: 20_000, maxCallsPerRequest: 2 }),
     handler: (args, context) => args.view === "catalog"
       ? getNetshopProductCatalogPageData(pageToolArguments(args), context)
       : getNetshopProductPerformancePageData(pageToolArguments(args), context),

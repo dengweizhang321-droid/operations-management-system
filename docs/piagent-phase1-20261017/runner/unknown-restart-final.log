@@ -1,0 +1,7 @@
+test_all_nonterminal_session_phases_freeze_on_restart (pi_runner.test_protocol.ProtocolTests.test_all_nonterminal_session_phases_freeze_on_restart) ... ok
+test_12_crashed_active_operation_cannot_replay_new_id (pi_runner.test_real.RealPiTests.test_12_crashed_active_operation_cannot_replay_new_id) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 3.234s
+
+OK

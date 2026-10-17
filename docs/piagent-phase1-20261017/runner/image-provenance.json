@@ -1,0 +1,10 @@
+{
+  "image": "sha256:c393a84818c0c7f941803da2db11b1cd94395b8188b69af7294490468a48e26d",
+  "tag": "pi-phase1:candidate",
+  "piVersion": "1.3.0",
+  "runtimeLockSha256": "fb9fd708f337865b122168e74b3c01ad99ef895f833f5ced061696efe5e0bf7c",
+  "packageLockSha256": "b1d6cda6dba705bafbc7b39ab402fad227ad7680d18952ce3bca0548abb1bf42",
+  "nodeVersion": "24.8.0",
+  "npmVersion": "11.6.2",
+  "baseImage": "python@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea"
+}

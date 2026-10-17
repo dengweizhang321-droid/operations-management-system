@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "baseImage": "python@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea",
+  "piVersion": "1.3.0",
+  "piIntegrity": "sha512-V/WoCjA2hQSe3QLWIUB24cTRdtEdeLiIzkDqU5RMXV6VWuD+KGZnzVBMhglwdnQTySkehZsjt8a3g6Jd2g4nnw==",
+  "node": {
+    "version": "24.8.0",
+    "registryMetadata": "https://registry.npmjs.org/node-linux-x64/24.8.0",
+    "url": "https://registry.npmjs.org/node-linux-x64/-/node-linux-x64-24.8.0.tgz",
+    "mirror": "https://registry.npmmirror.com/node-linux-x64/-/node-linux-x64-24.8.0.tgz",
+    "integrity": "sha512-j1LZ3Y450GFfzv+CgywgQJYffZMvVx3/JySSxc5L/deuyYjSVQj2Yk6fr4MKVGZTva3KAm9qplVd5sdc5MV77A=="
+  },
+  "npm": {
+    "version": "11.6.2",
+    "registryMetadata": "https://registry.npmjs.org/npm/11.6.2",
+    "url": "https://registry.npmjs.org/npm/-/npm-11.6.2.tgz",
+    "mirror": "https://registry.npmmirror.com/npm/-/npm-11.6.2.tgz",
+    "integrity": "sha512-7iKzNfy8lWYs3zq4oFPa8EXZz5xt9gQNKJZau3B1ErLBb6bF7sBJ00x09485DOvRT2l5Gerbl3VlZNT57MxJVA=="
+  }
+}

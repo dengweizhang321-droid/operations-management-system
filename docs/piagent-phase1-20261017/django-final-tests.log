@@ -1,0 +1,17 @@
+2026-10-17 17:24:58,802 level=WARNING logger=django.request message=Forbidden: /api/ai/pi/sessions
+2026-10-17 17:24:59,503 level=ERROR logger=django.request message=Service Unavailable: /api/ai/models
+2026-10-17 17:24:59,506 level=WARNING logger=django.request message=Forbidden: /api/ai/models
+2026-10-17 17:24:59,822 level=WARNING logger=django.request message=Too Many Requests: /api/ai/datasets
+2026-10-17 17:24:59,824 level=WARNING logger=django.request message=Too Many Requests: /api/ai/consumer
+2026-10-17 17:24:59,847 level=WARNING logger=django.request message=Forbidden: /api/ai/datasets/sales_summary/query
+2026-10-17 17:24:59,852 level=WARNING logger=django.request message=Unauthorized: /api/ai/datasets
+2026-10-17 17:24:59,855 level=WARNING logger=django.request message=Not Found: /api/ai/datasets/unknown
+2026-10-17 17:24:59,857 level=WARNING logger=django.request message=Method Not Allowed: /api/ai/datasets
+2026-10-17 17:24:59,860 level=WARNING logger=django.request message=Bad Request: /api/ai/datasets/sales_summary/query
+2026-10-17 17:24:59,876 level=WARNING logger=django.request message=Not Found: /api/ai/datasets/finance_analysis/query
+2026-10-17 17:24:59,880 level=WARNING logger=django.request message=Forbidden: /api/ai/datasets/sales_summary/query
+----------------------------------------------------------------------
+Ran 94 tests in 3.721s
+
+OK
+System check identified no issues (0 silenced).

@@ -50,8 +50,9 @@ test("every explicit dataset resolves to a bounded, callable, read-only central 
   validateToolRegistry(aiToolRegistry);
   const source = await readFile(new URL("../backend/ai_assistant/datasets.py", import.meta.url), "utf8");
   const specs = [...source.matchAll(/^    "([a-z_]+)": \("([a-z_]+)", "([a-z_]+)", (\{[^\n]*\})\),$/gm)];
-  assert.equal(specs.length, 24);
-  assert.equal(new Set(specs.map(v => v[1])).size, 24);
+  assert.equal(specs.filter(v => !v[1].startsWith("pi_")).length, 24);
+  assert.equal(specs.filter(v => v[1].startsWith("pi_")).length, 2);
+  assert.equal(new Set(specs.map(v => v[1])).size, specs.length);
   for (const [, id, name, , selectors] of specs) {
     const entry = aiToolRegistry.find(v => v.name === name);
     assert.ok(entry, id);
@@ -59,6 +60,10 @@ test("every explicit dataset resolves to a bounded, callable, read-only central 
     assert.equal(typeof entry.handler, "function");
     assert.ok(entry.execution.timeoutMs <= 30_000);
     assert.ok(entry.execution.maxResultCharacters <= 40_000);
+    if (id.startsWith("pi_")) {
+      assert.deepEqual(entry.execution.allowedSurfaces, ["pi_agent"]);
+      assert.ok(!getToolsForPrincipal({ ...principal, role: "admin" }, "ai_chat").some(item => item.name === name));
+    }
     assert.ok(!["describe_system_datasets", "query_system_dataset"].includes(name));
     const properties = entry.inputSchema.properties as Record<string, { enum?: string[] }>;
     for (const [key, value] of Object.entries(JSON.parse(selectors))) {

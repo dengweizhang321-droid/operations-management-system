@@ -14,6 +14,8 @@ from system_datasets import catalog as record_catalog
 
 # Stable public dataset ID -> existing central capability, domain, fixed selector.
 DATASETS = {
+    "pi_netshop_product_daily": ("get_pi_netshop_performance_page", "netshop", {"dataset": "product_daily"}),
+    "pi_netshop_promotion": ("get_pi_netshop_performance_page", "netshop", {"dataset": "promotion"}),
     "sales_summary": ("get_sales_summary", "sales", {}),
     "sales_category": ("get_sales_category_analysis", "sales", {}),
     "inventory_health": ("get_inventory_health", "inventory", {}),
@@ -48,11 +50,13 @@ MAX_RESULT_CHARACTERS = 39500
 
 
 def visible(principal, surface=SURFACE):
-    if surface not in {"ai_chat", "dingtalk_chat"}:
+    if surface not in {"ai_chat", "dingtalk_chat", "pi_agent"}:
         raise AiError("数据集查询入口无效", "access_denied", 403)
     entries = transport.catalog(principal, surface)
     selected = {}
     for entry in entries:
+        if surface != "pi_agent" and entry.get("name") == "get_pi_netshop_performance_page":
+            continue
         policy = entry.get("execution", {})
         if (entry.get("risk") == "read_only"
                 and policy.get("mode") == "direct"

@@ -187,6 +187,7 @@ export async function publishPreparedMain(request,context){
     assert.equal(installedSchema.status,'verified');assert.equal(installedSchema.result.status,'schema_installed');assert.equal(installedSchema.result.migrationCount,schema.toGeneration);
     assert.deepEqual(installedSchema.result.steps,schema.steps);
     if(schema.additionKind==='TmallWarehouse')await step('配置天猫库存权限',path.join(installed,'tools/django-inventory-service.ps1'),'ProvisionRoles',[],{json:false});
+    if(schema.additionKind==='PiAgent')await step('配置Pi运行账本权限',path.join(installed,'tools/django-ai.ps1'),'ProvisionRoles',[],{json:false});
     const finalized=await step('完成结构迁移',path.join(installed,'tools/bi-app-adopt.ps1'),'Finalize',adoption,{addJson:false});
     assert.equal(finalized.status,'verified');assert.equal(finalized.result.status,'verified');assert.equal(finalized.result.migrationCount,schema.toGeneration);assert.deepEqual(finalized.result.steps,schema.steps);
     schemaReceipt={operationId,maintenanceId,release:schema,installed:installedSchema,finalized};

@@ -1,0 +1,21 @@
+{
+  "status": "isolated candidate verified, not production",
+  "sourceSha256": "90812210898b7b69269a977a02828a6943adc15651e6ae0c07c664f89fe92407",
+  "image": "sha256:c393a84818c0c7f941803da2db11b1cd94395b8188b69af7294490468a48e26d",
+  "protocolTests": 12,
+  "realPiContainerTests": 14,
+  "windowsCurrentUserDpapiTests": 1,
+  "paidModelCalls": 0,
+  "productionDeployment": false,
+  "realTestLogSha256": "6842ead116ebf9854ffc8b7cf10bf489ff1a90c99a063255aeb3271d98fd8716",
+  "workspaceByteQuota": "soft periodic scan; possible overshoot",
+  "unknownSession": "startup exact verified container stop; retains unknown outcome and volume; state/dispose allowed, replay forbidden",
+  "priorFullSuiteSourceSha256": "c225ef9dc35a9f9382cb64e4b725560cff51756d843b0bdc03b2883b05ae8415",
+  "finalFocusedTests": 15,
+  "finalFocusedLogSha256": "a1ee9c67fb4428d7e50dd1cf6dd19c4eb46a66f4af19cac9ce1f540ca4411aaa",
+  "additionalProtocolTests": 1,
+  "operationReplayTests": 1,
+  "operationReplayLogSha256": "fc6a3278d34f497310d991c7468de50c6c0931200cb5b794ae2e9fde31e5266b",
+  "auditCache": "pending capability/private thinking/providerFrame/file base64 excluded; old rows securely scrubbed; raw SQLite/WAL scan passed",
+  "stopReadiness": "unknown outcome retained; fresh full identity and stopped verification permits stop; live running unknown rejects"
+}

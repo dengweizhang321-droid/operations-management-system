@@ -1,0 +1,15 @@
+{
+  "version": "teruisi-main-schema-recipe-v1",
+  "additionKind": "PiAgent",
+  "fromGeneration": 149,
+  "toGeneration": 150,
+  "steps": [
+    "ai_assistant.0084_pi_agent_independent_runtime"
+  ],
+  "stepFiles": {
+    "backend/ai_assistant/migrations/0084_pi_agent_independent_runtime.py": "e57788b4a59e5a85167e25e2d1252b53bc3c53129a79090dcd707ebc77669dc4"
+  },
+  "validation": "docs/piagent-phase1-20261017/schema-validation.json",
+  "validationSha256": "c30f93c82bd06b98f62409d56fff90c6ec4cc1e06734f2ed56234ced91a31bb1",
+  "codeSha256": "39abbc42f6d9e5c844de919ac6ea0ce62f0573a8bcefb9e47637eefcaaab8c32"
+}

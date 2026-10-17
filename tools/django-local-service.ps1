@@ -1755,6 +1755,22 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   if (-not [string]::IsNullOrWhiteSpace($IntegrationEvidencePath) -and (Test-Path -LiteralPath $IntegrationEvidencePath)) {
     $biEvidence = Read-JsonFile $IntegrationEvidencePath 'BI addition evidence'
   }
+  # Pi150 is a separate, finite child; no legacy execution limits are changed.
+  $piGate = Join-Path $candidateRoot 'tools\pi_agent_addition.py'
+  $piDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('pi-agent-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -ceq 'teruisi-pi-agent-schema-addition-v1' -or $piDeployment -or
+      (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'pi-agent-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $piGate -PathType Leaf)) {throw 'Pi150 requires its exact verifier'}
+    $piCommand = if ($Operation -ceq 'PrepareApp') {if ($null -ne $biEvidence) {'admission'} else {'successor'}} elseif ($Operation -ceq 'DeployApp') {if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'}} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported Pi150 lifecycle operation'}
+    $piArgs = @($piGate,$piCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if ($piCommand -ceq 'admission') {$piArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if ($piCommand -ceq 'deployment') {$piArgs += @('--operation',$IntegrationOperationId)}
+    $piRun = Invoke-BoundedNativeProcess $Python $piArgs $candidateRoot
+    $piProof = ConvertFrom-UniqueNativeJson $piRun 'Verify finite Pi150 schema addition'
+    if ([string]$piProof.status -cne 'verified') {throw 'Pi150 schema addition gate refused'}
+    return
+  }
   # Explicit149 dispatch precedes148; the old verifier and its receipt stay exact.
   $tmallGate = Join-Path $candidateRoot 'tools\tmall_warehouse_addition.py'
   $tmallDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
@@ -2067,6 +2083,11 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\pi_agent_addition.py",
+      "tools\pi_agent_catalog.py",
+      "tools\pi_agent_catalog.json",
+      "tools\pi_agent_candidate.py",
+      "tools\pi_agent_prepare_runtime.py",
       "tools\tmall_warehouse_addition.py",
       "tools\tmall_warehouse_catalog.py",
       "tools\tmall_warehouse_catalog.json",
@@ -3137,6 +3158,7 @@ function Invoke-WithDjangoEnvironment(
     "TERUISI_DJANGO_AI_AUTHORITY_EPOCH", "TERUISI_DJANGO_AI_CUTOVER_ID",
     "AI_SECRET_ENCRYPTION_KEY", "AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST", "AI_ALLOW_LOCAL_MODEL_ENDPOINTS", "TERUISI_DJANGO_AI_EDGE_BASE_URL",
     "TERUISI_PANDAS_RUNNER_KEY_FILE", "TERUISI_PANDAS_RUNNER_IMAGE",
+    "PI_RUNNER_HMAC_SECRET", "PI_RUNNER_HMAC_KEY_FILE", "PI_SKILL_VERSION", "PI_GATEWAY_URL",
     "TERUISI_DJANGO_ERP_AUTHORITY_EPOCH", "TERUISI_DJANGO_ERP_CUTOVER_ID",
     "TERUISI_DJANGO_MAX_HEADER_BYTES", "TERUISI_DJANGO_MAX_BODY_BYTES",
     "DJANGO_SETTINGS_MODULE", "PYTHONUTF8", "PYTHONPATH", "PYTHONHOME"
@@ -3181,6 +3203,10 @@ function Invoke-WithDjangoEnvironment(
     $env:TERUISI_DJANGO_AI_EDGE_BASE_URL = ""
     $env:TERUISI_PANDAS_RUNNER_KEY_FILE = ""
     $env:TERUISI_PANDAS_RUNNER_IMAGE = ""
+    $env:PI_RUNNER_HMAC_SECRET = ""
+    $env:PI_RUNNER_HMAC_KEY_FILE = ""
+    $env:PI_SKILL_VERSION = ""
+    $env:PI_GATEWAY_URL = ""
     $env:TERUISI_DJANGO_ERP_AUTHORITY_EPOCH = ""
     $env:TERUISI_DJANGO_ERP_CUTOVER_ID = ""
     if ($ProcessRole -eq "workflow_writer") {

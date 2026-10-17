@@ -13,7 +13,10 @@ const hex=/^[a-f0-9]{64}$/;
 export const tmallSchema={version:'teruisi-main-schema-release-v1',additionKind:'TmallWarehouse',fromGeneration:147,toGeneration:149,steps:['inventory.0016_jd_product_monitoring','inventory.0017_tmall_warehouse']};
 export const tmall148Schema={...tmallSchema,fromGeneration:148,steps:['inventory.0017_tmall_warehouse']};
 export const tmallMigration='backend/inventory/migrations/0017_tmall_warehouse.py';
+export const piAgentSchema={version:'teruisi-main-schema-release-v1',additionKind:'PiAgent',fromGeneration:149,toGeneration:150,steps:['ai_assistant.0084_pi_agent_independent_runtime']};
+export const piAgentMigration='backend/ai_assistant/migrations/0084_pi_agent_independent_runtime.py';
 const finite=[
+ {schema:piAgentSchema,migrations:[piAgentMigration],recipe:'config/main-schema-releases/ai-0084.json',binder:'pi_agent_candidate.py',evidence:'ai-0084-evidence.json'},
  {schema:monitoringSchema,migrations:[monitoringMigration],recipe:monitoringRecipe,binder:'jd_product_monitoring_candidate.py',evidence:'inventory-0016-evidence.json'},
  {schema:tmallSchema,migrations:[monitoringMigration,tmallMigration],recipe:'config/main-schema-releases/inventory-0017.json',binder:'tmall_warehouse_candidate.py',evidence:'inventory-0017-evidence.json'},
  {schema:tmall148Schema,migrations:[tmallMigration],recipe:'config/main-schema-releases/inventory-0017-from148.json',binder:'tmall_warehouse_candidate.py',evidence:'inventory-0017-evidence.json'}
@@ -31,7 +34,7 @@ export function schemaForRequest(request){
  if(!request.migrate&&!request.releasePlan?.migrate&&!schema&&!request.schemaEvidencePath)return null;
  assert.equal(request.migrate,true,'结构发布必须显式声明迁移');assert.equal(request.releasePlan?.migrate,true,'结构发布范围不一致');
  assert.ok(schema&&typeof schema==='object'&&!Array.isArray(schema),'缺少已审核的结构发布包，请先准备对应迁移材料');
- const spec=requestSpec(schema);assert.ok(spec,'结构发布仅支持已审核的0016或0017有限父链');
+ const spec=requestSpec(schema);assert.ok(spec,'结构发布仅支持已审核的有限父链');
  assert.deepEqual(Object.keys(schema).sort(),[...Object.keys(spec.schema),'recipeSha256','evidencePath','evidenceSha256','validationSha256','codeSha256'].sort(),'结构发布绑定字段不匹配');
  for(const name of ['recipeSha256','evidenceSha256','validationSha256','codeSha256'])assert.match(schema[name]??'',hex,'结构发布摘要无效');
  assert.ok(typeof schema.evidencePath==='string'&&path.isAbsolute(schema.evidencePath),'结构证据必须是绝对路径');

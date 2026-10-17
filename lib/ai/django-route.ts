@@ -31,7 +31,9 @@ export async function forwardAiRequest(request: Request) {
       if (principal.role !== "admin") throw new PublicApiError(403, "access_denied", "AI 管理仅允许管理员。");
       requireUnrestrictedDataScope(principal, "AI 管理");
     }
-    const payload = read || request.method === "DELETE" && !request.headers.get("content-type") ? undefined : await readAiJsonObject(request);
+    const piUpload = request.method === "POST" && /^\/api\/ai\/pi\/sessions\/[A-Za-z0-9_-]{1,160}\/files$/.test(url.pathname);
+    const piMessage = request.method === "POST" && /^\/api\/ai\/pi\/sessions\/[A-Za-z0-9_-]{1,160}\/messages$/.test(url.pathname);
+    const payload = read || request.method === "DELETE" && !request.headers.get("content-type") ? undefined : await readAiJsonObject(request, piUpload ? 720 * 1024 : piMessage ? 800 * 1024 : undefined);
     if (url.pathname === "/api/ai/chat" && payload?.pageContext != null) {
       const context = normalizeAiPageContext(payload.pageContext);
       if (!context) throw new PublicApiError(400, "invalid_request", "AI 页面上下文无效。");
@@ -57,7 +59,7 @@ export async function forwardAiRequest(request: Request) {
           : (url.pathname === "/api/ai/business-plan/preview" || /^\/api\/ai\/(?:reports|business-evidence)\/[A-Za-z0-9_-]{1,160}\/budget-preview$/.test(url.pathname)) && request.method === "POST"
             ? { service: "reader" as const }
             : {}) }, { signal: request.signal });
-      const generatedContent = /^\/api\/ai\/(?:reports|space\/assets)\/[A-Za-z0-9_-]{1,160}\/content$/.test(url.pathname);
+      const generatedContent = /^\/api\/ai\/(?:reports|space\/assets|pi\/files)\/[A-Za-z0-9_-]{1,160}\/content$/.test(url.pathname);
       if (url.pathname.startsWith("/api/ai/artifacts/") || generatedContent) {
         const file = result.data as { base64?: string; content?: string; mimeType: string; fileName: string };
         const bytes = file.base64 ? Uint8Array.from(atob(file.base64), c => c.charCodeAt(0)) : new TextEncoder().encode(file.content ?? "");

@@ -134,7 +134,13 @@ def finish(receipt, principal, payload, status):
 
 def _dispatch(request, path=""):
     try:
+        if path == "pi/gateway":
+            from . import pi_views
+            return pi_views.gateway(request)
         principal = verify_principal(request)
+        if path == "pi" or path.startswith("pi/"):
+            from . import pi_views
+            return pi_views.dispatch(request, path, principal)
         endpoint = path.strip("/")
         routes = {
             r"business-plan/preview": {"POST"},
@@ -830,6 +836,9 @@ def mutate(parts, params, payload, principal, request_id, method):
 
 def consumer(payload, principal, request_id):
     operation = payload.get("operation")
+    if operation in {"pi-export-start", "pi-export-status"}:
+        from . import pi_exports
+        return pi_exports.consumer(payload, principal, request_id)
     if operation == "pandas-analysis":
         from .pandas_sandbox import run
         return run(payload, principal, request_id)
@@ -1014,6 +1023,10 @@ def dispatch(request, path=""):
             headers={"Cache-Control": "no-store"},
         )
     try:
+        if path == "pi/gateway":
+            # Each provider round has the selected model's own long deadline;
+            # the legacy 120-second route budget does not govern Pi.
+            return _dispatch(request, path)
         with transport.request_budget(
             28 if dataset_request else None if path == "chat" else 610 if path == "models" else 195 if path == "scheduler" else 120
         ):

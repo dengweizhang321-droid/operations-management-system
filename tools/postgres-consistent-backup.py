@@ -1088,6 +1088,11 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            from pi_agent_catalog import TABLES as pi_tables
+            if "0084_pi_agent_independent_runtime" not in ai_migrations:
+                expected_ai_tables.difference_update(pi_tables)
+                if set(tables) & set(pi_tables):
+                    raise RuntimeError("Pi tables lack their exact AI migration receipt")
             if "0069_business_market_v2_paid_round_rehearsal" not in ai_migrations:
                 expected_ai_tables.difference_update({
                     "ai_business_market_v2_paid_authorities",

@@ -22,7 +22,8 @@ export async function aiEnvironment(): Promise<Environment> {
   return { ...(globalThis.process?.env ?? {}), ...worker };
 }
 
-export function isPublicAiPath(path: string) { return PUBLIC_PATH.test(path); }
+const PI_PUBLIC_PATH = new RegExp(`^/api/ai/pi/(?:skills|sessions(?:/${ENTITY}(?:/(?:messages|events|abort|files))?)?|files/${ENTITY}(?:/content)?)$`);
+export function isPublicAiPath(path: string) { return PUBLIC_PATH.test(path) || PI_PUBLIC_PATH.test(path); }
 export function isInternalPromotionDispatchPath(path: string) { return INTERNAL_PROMOTION_DISPATCH_PATH.test(path); }
 export function isInternalMarketV2CandidatePath(path: string) { return INTERNAL_MARKET_V2_CANDIDATE_PATH.test(path); }
 export function isInternalMarketV2BaseCandidatePath(path: string) { return INTERNAL_MARKET_V2_BASE_CANDIDATE_PATH.test(path); }
@@ -94,7 +95,9 @@ export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
     || (method === "POST" && (/\/(?:preview|outcome)$/.test(input.path) || input.payload === undefined))
     || !["GET", "POST"].includes(method)))
     throw new PublicApiError(400, "invalid_request", "市场费用审批仅允许精确 writer 请求。");
-  const service = reportDetail || humanCap ? "writer" : input.service ?? ((method === "GET" && !input.path.startsWith("/api/ai/artifacts/") && !/^\/api\/ai\/reports\/[^/]+\/content$/.test(input.path)) || input.path.startsWith("/api/ai/datasets") ? "reader" : "writer");
+  const piPath = PI_PUBLIC_PATH.test(input.path);
+  if (piPath && input.service === "reader") throw new PublicApiError(400, "invalid_request", "Pi Agent 请求必须使用所属 writer 服务。");
+  const service = reportDetail || humanCap || piPath ? "writer" : input.service ?? ((method === "GET" && !input.path.startsWith("/api/ai/artifacts/") && !/^\/api\/ai\/reports\/[^/]+\/content$/.test(input.path)) || input.path.startsWith("/api/ai/datasets") ? "reader" : "writer");
   const endpoint = environment[service === "reader" ? "TERUISI_DJANGO_AI_READER_BASE_URL" : "TERUISI_DJANGO_AI_WRITER_BASE_URL"];
   let base: URL;
   try { base = new URL(endpoint ?? ""); } catch { throw unavailable(); }
@@ -106,7 +109,7 @@ export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
   const query = input.query?.toString() ?? "";
   const headers = await aiHeaders({ secret: environment.TERUISI_DJANGO_INTERNAL_SECRET ?? "", principal, method, path: input.path, query, body, requestId: options.requestId ?? crypto.randomUUID() });
   try {
-    const result = await fetchBoundedJson({ url: new URL(input.path + (query ? `?${query}` : ""), base).toString(), init: { method, headers, ...(body ? { body } : {}), cache: "no-store" }, timeoutMs: v3SourceRead || marketV2Candidate || marketV2BaseCandidate ? 12_000 : input.path === "/api/ai/chat" && method === "POST" ? AI_CHAT_RELAY_TIMEOUT_MS : input.path === "/api/ai/models" && input.payload?.action === "test" ? 630_000 : input.path === "/api/ai/scheduler" ? (input.payload?.queue === "files" ? 650_000 : 220_000) : input.payload?.operation === "analysis-reply" || input.payload?.action === "test" ? 130_000 : 40_000, maxBytes: v3SourceRead || promotionRead || promotionDispatch || marketObservationRead || marketV2Candidate || marketV2BaseCandidate ? 48000 : reportDetail ? REPORT_DETAIL_BYTES : input.path === "/api/ai/chat" ? 8 * 1024 * 1024 : /\/content$/.test(input.path) ? 9 * 1024 * 1024 : 2 * 1024 * 1024, fetcher: options.fetchImpl, signal: options.signal });
+    const result = await fetchBoundedJson({ url: new URL(input.path + (query ? `?${query}` : ""), base).toString(), init: { method, headers, ...(body ? { body } : {}), cache: "no-store" }, timeoutMs: v3SourceRead || marketV2Candidate || marketV2BaseCandidate ? 12_000 : input.path === "/api/ai/chat" && method === "POST" ? AI_CHAT_RELAY_TIMEOUT_MS : input.path === "/api/ai/models" && input.payload?.action === "test" ? 630_000 : input.path === "/api/ai/scheduler" ? (input.payload?.queue === "files" ? 650_000 : 220_000) : input.payload?.operation === "analysis-reply" || input.payload?.action === "test" ? 130_000 : 40_000, maxBytes: v3SourceRead || promotionRead || promotionDispatch || marketObservationRead || marketV2Candidate || marketV2BaseCandidate ? 48000 : reportDetail ? REPORT_DETAIL_BYTES : input.path === "/api/ai/chat" ? 8 * 1024 * 1024 : piPath && /\/content$/.test(input.path) ? 12 * 1024 * 1024 : /\/content$/.test(input.path) ? 9 * 1024 * 1024 : piPath && /\/events$/.test(input.path) ? 4 * 1024 * 1024 : 2 * 1024 * 1024, fetcher: options.fetchImpl, signal: options.signal });
     if (reportDetail && !allowReportDetailBytes(result.data, result.responseBytes, result.response.ok)) throw unavailable();
     if (!result.data || typeof result.data !== "object" || Array.isArray(result.data) || !/application\/json/i.test(result.response.headers.get("content-type") ?? "")) throw unavailable();
     if (!result.response.ok) {

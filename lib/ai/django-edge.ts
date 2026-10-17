@@ -60,7 +60,7 @@ function surface(value: unknown, marketV2Enabled = false): AiToolSurface {
     if (!marketV2Enabled) throw denied();
     return value;
   }
-  if (!["ai_chat", "dingtalk_chat", "ai_agent", "ai_sandbox", "business_collection", "business_agent_v2", "business_agent_budget_v1", "business_agent_integrated_v1", "business_agent_screening_v1", "business_agent_screening_promotion_v1"].includes(String(value))) throw denied();
+  if (!["ai_chat", "dingtalk_chat", "ai_agent", "pi_agent", "ai_sandbox", "business_collection", "business_agent_v2", "business_agent_budget_v1", "business_agent_integrated_v1", "business_agent_screening_v1", "business_agent_screening_promotion_v1"].includes(String(value))) throw denied();
   return value as AiToolSurface;
 }
 function entries(principal: AppPrincipal, value: unknown, marketV2Enabled = false) {

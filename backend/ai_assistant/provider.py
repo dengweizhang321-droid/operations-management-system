@@ -60,10 +60,20 @@ def system_prompt(model, system):
     return system
 
 
-def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=None):
+def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=None, preserve_context=False):
     cfg = options(model)
     system = system_prompt(model, system)
-    transcript, context_info = fit_context(model, transcript, system, tools)
+    if preserve_context:
+        import math
+        from .model_capabilities import estimate_tokens
+        used = estimate_tokens({"system": system, "messages": transcript, "tools": tools})
+        window = cfg["contextWindowTokens"]
+        if used > window-model.max_tokens-max(2048, math.ceil(window*.05)):
+            raise AiError("Pi 上下文超过模型配置预算，请由 Pi 压缩上下文或调整模型配置", "ai_context_budget_exceeded", 400)
+        context_info = {"estimatedInputTokens": used, "contextWindowTokens": window,
+            "reservedOutputTokens": model.max_tokens, "droppedMessages": 0, "tokenCountMethod": "utf8-estimate"}
+    else:
+        transcript, context_info = fit_context(model, transcript, system, tools)
     base = endpoint(model.base_url)
     key = decrypt(model.api_key_encrypted)
     mode = "json" if on_text is None else "sse"

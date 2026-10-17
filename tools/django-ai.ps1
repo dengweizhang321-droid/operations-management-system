@@ -3,7 +3,7 @@ param(
   [ValidateSet(
     "ConfigureCredentials", "ProvisionRoles", "Start", "Stop", "Status",
     "EnableStartup", "DisableStartup", "DingTalkCheck", "StartDingTalk", "StopDingTalk",
-    "EnableDingTalkStartup", "DisableDingTalkStartup", "AutoStartDingTalk", "ConfigureDingTalkBotCredentials", "ConfigurePandas", "PandasCheck"
+    "EnableDingTalkStartup", "DisableDingTalkStartup", "AutoStartDingTalk", "ConfigureDingTalkBotCredentials", "ConfigurePandas", "PandasCheck", "PreparePi", "PiCheck"
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
@@ -11,6 +11,8 @@ param(
   [string]$AiEncryptionSource = "D:\运营管理系统\.dev.vars",
   [string]$ModelOriginAllowlist = "",
   [string]$PandasImage = "",
+  [string]$PiImage = "",
+  [string]$PiSkillVersion = "1.0.0",
   [switch]$Json
 )
 
@@ -18,6 +20,8 @@ $ErrorActionPreference = "Stop"
 $RequestedAiEncryptionSource = $AiEncryptionSource
 $RequestedModelOriginAllowlist = $ModelOriginAllowlist
 $RequestedPandasImage = $PandasImage
+$RequestedPiImage = $PiImage
+$RequestedPiSkillVersion = $PiSkillVersion
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
 $RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
@@ -54,6 +58,119 @@ $PandasKeyPath = Join-Path $RuntimeRoot "secrets\pandas-sandbox.dpapi.json"
 $PandasPidPath = Join-Path $RunDirectory "ai-pandas-wsl.pid.json"
 $PandasWsl = Join-Path $env:SystemRoot "System32\wsl.exe"
 $PandasKeepaliveArguments = @("-d", "TERUISI-Pandas", "-u", "teruisi-pandas", "--exec", "/usr/bin/sleep", "infinity")
+$PiConfigPath = Join-Path $RuntimeRoot "config\pi-agent.json"
+$PiKeyPath = Join-Path $RuntimeRoot "secrets\pi-agent.dpapi.json"
+$PiWorkerPidPath = Join-Path $RunDirectory "django-ai-pi-worker.pid.json"
+$PiWorkerControlPath = Join-Path $RunDirectory "django-ai-pi-worker.control.json"
+
+function Prepare-PiRuntime {
+  Assert-AiRuntimeEntry
+  Assert-AiPortsFree "PreparePi"
+  if ($RequestedPiImage -cnotmatch '^sha256:[a-f0-9]{64}$' -or $RequestedPiSkillVersion -cnotmatch '^[0-9]+\.[0-9]+\.[0-9]+$') { throw "Exact reviewed Pi image and skill version required" }
+  if ((Test-Path -LiteralPath $PiConfigPath) -or (Test-Path -LiteralPath $PiKeyPath) -or (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'config\pi-agent-prepare-intent.json'))) { throw "Existing or unknown Pi preparation retained; inspect the original operation before any retry" }
+  $runtimeSecrets = Read-Secrets; $aiSecrets = Read-AiCredentials
+  try {
+    $authority = Get-AiWriteAuthority $runtimeSecrets $aiSecrets
+    if ([string]$authority.status -cne "postgres") { throw "Pi preparation requires the existing AI authority" }
+    $sourceRun = Invoke-BoundedNativeProcess $Python @('-B','-c','from pi_runner.install_linux import source_digest; print(source_digest())') $BackendRoot
+    if ($sourceRun.ExitCode -ne 0) { throw "Cannot freeze reviewed Pi source" }
+    $sourceDigest = [string](@($sourceRun.Output) -join '').Trim()
+    if ($sourceDigest -cnotmatch '^[a-f0-9]{64}$') { throw "Invalid reviewed Pi source identity" }
+    $prepare = Join-Path $InstalledAppRoot 'tools\pi_agent_prepare_runtime.py'
+    $arguments = @('-B',$prepare,'--runtime',$RuntimeRoot,'--image',$RequestedPiImage,'--source-sha256',$sourceDigest,'--authority-epoch',[string]$authority.authorityEpoch,'--cutover-id',[string]$authority.cutoverId,'--skill-version',$RequestedPiSkillVersion,'--execute')
+    $prepared = Invoke-BoundedNativeProcess $Python $arguments $BackendRoot
+    $proof = ConvertFrom-UniqueNativeJson $prepared 'Prepare independent Pi runtime without starting it'
+    if ($proof.prepared -cne $true -or $proof.started -cne $false) { throw "Pi preparation result unknown; preserve its original intent" }
+    Set-RuntimeAcl
+    $proof | ConvertTo-Json -Compress
+  } finally { $runtimeSecrets = $null; $aiSecrets = $null }
+}
+
+function Read-PiConfig {
+  if (-not (Test-Path -LiteralPath $PiConfigPath -PathType Leaf)) { return $null }
+  $config = Read-JsonFile $PiConfigPath "Pi independent runtime configuration"
+  if (-not (Test-ExactObjectPropertyNames $config @("version", "enabled", "keyFileSha256", "channelKeySha256", "skillVersion", "authorityEpoch", "cutoverId", "runnerImage", "runnerSourceSha256")) -or
+      ($config.version -isnot [int] -and $config.version -isnot [long]) -or $config.version -ne 1 -or $config.enabled -isnot [bool]) {
+    throw "Invalid Pi runtime configuration"
+  }
+  if (-not $config.enabled) { return $null }
+  if ([string]$config.keyFileSha256 -cnotmatch '^[a-f0-9]{64}$' -or [string]$config.channelKeySha256 -cnotmatch '^[a-f0-9]{64}$' -or [string]$config.runnerImage -cnotmatch '^sha256:[a-f0-9]{64}$' -or
+      [string]$config.runnerSourceSha256 -cnotmatch '^[a-f0-9]{64}$' -or [string]$config.skillVersion -cnotmatch '^[0-9]+\.[0-9]+\.[0-9]+$' -or
+      -not (Test-Path -LiteralPath $PiKeyPath -PathType Leaf) -or (Get-FileSha256 $PiKeyPath) -cne [string]$config.keyFileSha256) {
+    throw "Pi runtime key, source or image identity is invalid"
+  }
+  return $config
+}
+
+function Invoke-PiLifecycle([string]$Verb) {
+  if ($Verb -cnotin @("start", "stop", "probe")) { throw "Invalid Pi lifecycle verb" }
+  $nativeRun = Invoke-BoundedNativeProcess $Python @("-B", "-m", "pi_runner.wsl_control", $Verb, "--config", $PiConfigPath, "--key-file", $PiKeyPath) $BackendRoot
+  return ConvertFrom-UniqueNativeJson $nativeRun "Pi independent runner lifecycle"
+}
+
+function Get-PiWorkerArguments([string]$Token) {
+  if ($Token -cnotmatch '^[a-f0-9]{32}$') { throw "Invalid Pi worker lifecycle token" }
+  return @("-u", "-B", "-m", "ai_assistant.pi_worker", "--control-file", $PiWorkerControlPath, "--control-token", $Token)
+}
+
+function Start-PiRuntime([object]$RuntimeSecrets, [object]$AiSecrets, [object]$Authority) {
+  $config = Read-PiConfig
+  if ($null -eq $config) { return $false }
+  if ([string]$config.authorityEpoch -cne [string]$Authority.authorityEpoch -or [string]$config.cutoverId -cne [string]$Authority.cutoverId) { throw "Pi configuration authority changed" }
+  $control = $null
+  if (Test-Path -LiteralPath $PiWorkerControlPath -PathType Leaf) {
+    $control = Read-JsonFile $PiWorkerControlPath "Pi worker lifecycle"
+    if (-not (Test-ExactObjectPropertyNames $control @("version", "token", "intent")) -or $control.version -ne 1 -or [string]$control.intent -cnotin @("running", "stop")) { throw "Invalid Pi worker lifecycle state" }
+  }
+  $token = if ($null -ne $control) { [string]$control.token } else { [Guid]::NewGuid().ToString("N") }
+  $arguments = @(Get-PiWorkerArguments $token)
+  $fingerprint = Get-Sha256Text ((Get-ConfigFingerprint "django-ai-pi-worker" $Python $arguments) + (Get-FileSha256 $AiCredentialPath) + (Get-FileSha256 $PiConfigPath) + (Get-FileSha256 $PiKeyPath) + [string]$Authority.authorityEpoch + [string]$Authority.cutoverId)
+  if (Resolve-OwnedProcess "django-ai-pi-worker" $PiWorkerPidPath $Python $arguments $fingerprint) {
+    if ([string]$control.intent -cne "running") { throw "Pi worker is still stopping" }
+    Invoke-PiLifecycle "probe" | Out-Null
+    return $false
+  }
+  Invoke-PiLifecycle "start" | Out-Null
+  Invoke-PiLifecycle "probe" | Out-Null
+  $token = [Guid]::NewGuid().ToString("N")
+  $arguments = @(Get-PiWorkerArguments $token)
+  $fingerprint = Get-Sha256Text ((Get-ConfigFingerprint "django-ai-pi-worker" $Python $arguments) + (Get-FileSha256 $AiCredentialPath) + (Get-FileSha256 $PiConfigPath) + (Get-FileSha256 $PiKeyPath) + [string]$Authority.authorityEpoch + [string]$Authority.cutoverId)
+  $stoppedPath = "$PiWorkerControlPath.stopped"
+  if (Test-Path -LiteralPath $stoppedPath -PathType Leaf) { Remove-Item -LiteralPath $stoppedPath }
+  Write-AtomicJson $PiWorkerControlPath ([ordered]@{version=1;token=$token;intent="running"})
+  $url = Database-Url "teruisi_ai_writer" $AiSecrets.WriterPassword "teruisi_ai_pi_queue" $WriterStatementTimeoutMs
+  try {
+    Invoke-WithAiEnvironment $RuntimeSecrets $AiSecrets $url "ai_writer" $false $AiWriterMaxBodyBytes $Authority {
+      $check = Invoke-BoundedNativeProcess $Python @("-B", "-m", "ai_assistant.pi_worker", "--check") $BackendRoot
+      $value = ConvertFrom-UniqueNativeJson $check "Pi independent queue preflight"
+      if ([string]$value.status -cne "verified" -or [int]$value.providerCalls -ne 0 -or [string]$value.skillVersion -cne [string]$config.skillVersion) { throw "Pi queue preflight failed" }
+      Start-ManagedProcess "django-ai-pi-worker" $Python $arguments $BackendRoot $PiWorkerPidPath $fingerprint `
+        (Join-Path $LogDirectory "django-ai-pi-worker.$RunId.stdout.log") (Join-Path $LogDirectory "django-ai-pi-worker.$RunId.stderr.log") | Out-Null
+    }
+  } finally { $url = $null }
+  return $true
+}
+
+function Stop-PiRuntime {
+  $config = Read-PiConfig
+  $owned = Resolve-OwnedProcess "django-ai-pi-worker" $PiWorkerPidPath $Python
+  if ($owned) {
+    if ($null -eq $config) { throw "Running Pi worker lacks its exact enabled configuration" }
+    $control = Read-JsonFile $PiWorkerControlPath "Pi worker lifecycle"
+    if (-not (Test-ExactObjectPropertyNames $control @("version", "token", "intent")) -or $control.version -ne 1) { throw "Invalid Pi worker lifecycle state" }
+    Get-PiWorkerArguments ([string]$control.token) | Out-Null
+    Write-AtomicJson $PiWorkerControlPath ([ordered]@{version=1;token=[string]$control.token;intent="stop"})
+    $deadline = [DateTimeOffset]::UtcNow.AddSeconds(45)
+    while (Resolve-OwnedProcess "django-ai-pi-worker" $PiWorkerPidPath $Python) {
+      if ([DateTimeOffset]::UtcNow -ge $deadline) { throw "Pi queue stop remains unknown; writer and runner were preserved" }
+      Start-Sleep -Milliseconds 250
+    }
+    $stopped = Read-JsonFile "$PiWorkerControlPath.stopped" "Pi queue stop receipt"
+    if (-not (Test-ExactObjectPropertyNames $stopped @("version", "token", "status")) -or $stopped.version -ne 1 -or [string]$stopped.token -cne [string]$control.token -or [string]$stopped.status -cne "stopped") { throw "Pi queue stop receipt mismatch" }
+  }
+  Stop-OwnedProcess "django-ai-pi-worker" $PiWorkerPidPath $Python
+  if ($null -ne $config) { Invoke-PiLifecycle "stop" | Out-Null }
+}
 
 function Read-PandasConfig {
   if (-not (Test-Path -LiteralPath $PandasConfigPath)) { return $null }
@@ -313,6 +430,16 @@ function Invoke-WithAiEnvironment(
     $env:AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST = $AiSecrets.ModelOriginAllowlist
     $env:TERUISI_DJANGO_AI_EDGE_BASE_URL = "http://127.0.0.1:3000"
     if ($Role -ceq "ai_writer") {
+      $env:PI_RUNNER_HMAC_SECRET = ""
+      $env:PI_RUNNER_HMAC_KEY_FILE = ""
+      $env:PI_SKILL_VERSION = ""
+      $env:PI_GATEWAY_URL = ""
+      $pi = Read-PiConfig
+      if ($null -ne $pi) {
+        $env:PI_RUNNER_HMAC_KEY_FILE = $PiKeyPath
+        $env:PI_SKILL_VERSION = [string]$pi.skillVersion
+        $env:PI_GATEWAY_URL = "http://127.0.0.1:8112/api/ai/pi/gateway"
+      }
       $pandas = Read-PandasConfig
       if ($null -ne $pandas) {
         $env:TERUISI_PANDAS_RUNNER_KEY_FILE = $PandasKeyPath
@@ -358,6 +485,7 @@ function Start-AiWriter([object]$RuntimeSecrets, [object]$AiSecrets, [object]$Au
   )
   $fingerprint = Get-Sha256Text ((Get-ConfigFingerprint "django-ai-writer" $Waitress $arguments) + (Get-FileHash -LiteralPath $AiCredentialPath -Algorithm SHA256).Hash + [string]$Authority.authorityEpoch + [string]$Authority.cutoverId)
   if ($null -ne (Read-PandasConfig)) { $fingerprint = Get-Sha256Text ($fingerprint + (Get-FileHash -LiteralPath $PandasConfigPath -Algorithm SHA256).Hash) }
+  if ($null -ne (Read-PiConfig)) { $fingerprint = Get-Sha256Text ($fingerprint + (Get-FileSha256 $PiConfigPath) + (Get-FileSha256 $PiKeyPath)) }
   if (Resolve-OwnedProcess "django-ai-writer" $AiWriterPidPath $Waitress $arguments $fingerprint) {
     Wait-DjangoReady "ai-writer" $AiWriterHealthUrl "127.0.0.1:8112"; return $false
   }
@@ -385,7 +513,7 @@ function Start-AiStack([string]$LifecycleAclToken = "") {
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动AI 助理服务" }
   New-Item -ItemType Directory -Path $LogDirectory, $RunDirectory -Force | Out-Null
   $runtimeSecrets = Read-Secrets; $aiSecrets = Read-AiCredentials
-  $readerStarted = $false; $writerStarted = $false
+  $readerStarted = $false; $writerStarted = $false; $piStarted = $false
   try {
     if ((Assert-PostgresConnectionCapacity $runtimeSecrets) -lt 128) { throw "AI 完整运行栈要求 max_connections 至少 128" }
     $authority = Get-AiWriteAuthority $runtimeSecrets $aiSecrets
@@ -411,9 +539,11 @@ function Start-AiStack([string]$LifecycleAclToken = "") {
     $writerStarted = Start-AiWriter $runtimeSecrets $aiSecrets $authority -DeferReady
     Wait-DjangoReady "ai-reader" $AiReaderHealthUrl "127.0.0.1:8111"
     Wait-DjangoReady "ai-writer" $AiWriterHealthUrl "127.0.0.1:8112"
+    $piStarted = Start-PiRuntime $runtimeSecrets $aiSecrets $authority
     Write-Output "Django AI 助理服务已就绪：reader=http://127.0.0.1:8111 writer=http://127.0.0.1:8112。"
   } catch {
     $original = $_.Exception
+    if ($piStarted) { try { Stop-PiRuntime } catch {} }
     if ($writerStarted) { try { Stop-OwnedProcess "django-ai-writer" $AiWriterPidPath $Waitress } catch {} }
     if ($readerStarted) { try { Stop-OwnedProcess "django-ai-reader" $AiReaderPidPath $Waitress } catch {} }
     throw $original
@@ -428,6 +558,7 @@ function Start-AiStack([string]$LifecycleAclToken = "") {
 
 function Stop-AiStack([string]$LifecycleAclToken = "") {
   Assert-AiRuntimeEntry $LifecycleAclToken
+  Stop-PiRuntime
   Stop-OwnedProcess "django-ai-dingtalk-schedule" $DingTalkSchedulePidPath $Python
   Stop-OwnedProcess "django-ai-dingtalk" $DingTalkPidPath $Python
   Stop-OwnedProcess "django-ai-writer" $AiWriterPidPath $Waitress
@@ -657,6 +788,13 @@ function Show-AiStatus {
   } catch { $pandasReady = "not_ready"; $writerReady = "not_ready" }
   $status = [pscustomobject][ordered]@{ AiReader = $reader; AiWriter = $writer; ReaderReadiness = $readerReady; WriterReadiness = $writerReady; CheckedAt = [DateTimeOffset]::UtcNow.ToString("o") }
   $status | Add-Member -NotePropertyName PandasReadiness -NotePropertyValue $pandasReady
+  $piProcess = "stopped"; $piReady = "disabled"
+  try {
+    if ($null -ne (Read-PiConfig)) { $piReady = "not_ready"; Invoke-PiLifecycle "probe" | Out-Null; $piReady = "ready" }
+    if (Resolve-OwnedProcess "django-ai-pi-worker" $PiWorkerPidPath $Python) { $piProcess = "running" }
+  } catch { $piProcess = "ownership_error"; $piReady = "not_ready" }
+  $status | Add-Member -NotePropertyName PiWorker -NotePropertyValue $piProcess
+  $status | Add-Member -NotePropertyName PiRunnerReadiness -NotePropertyValue $piReady
   $dingStartup = "disabled"; $dingProcess = "stopped"; $dingConnection = "stopped"
   try { if (Read-DingTalkStartup) { $dingStartup = "enabled" } } catch { $dingStartup = "invalid" }
   try {
@@ -680,6 +818,8 @@ try {
     "ConfigureCredentials" { Invoke-WithServiceMutex { Configure-AiCredentials } }
     "ConfigureDingTalkBotCredentials" { Invoke-WithServiceMutex { Configure-DingTalkBotCredentials } }
     "ConfigurePandas" { Invoke-WithServiceMutex { Configure-PandasSandbox } }
+    "PreparePi" { Invoke-WithServiceMutex { Prepare-PiRuntime } }
+    "PiCheck" { Assert-AiRuntimeEntry; Invoke-PiLifecycle "probe" | ConvertTo-Json -Compress }
     "PandasCheck" { Assert-AiRuntimeEntry; $config = Read-PandasConfig; if ($null -eq $config) { throw "pandas is not configured" }; Invoke-PandasProbe $config | ConvertTo-Json -Compress }
     "ProvisionRoles" { Invoke-WithServiceMutex { Provision-AiRoles } }
     "Start" { Invoke-WithServiceMutex { Start-AiStack $OrchestratedLifecycleAclToken } }

@@ -134,7 +134,7 @@ AI_TABLES_PRE_MARKET_V2_PAID_REHEARSAL = (*AI_TABLES_PRE_BUDGET_V11_ATTESTATIONS
     "ai_business_promotion_budget_v11_attestations")
 
 # 0069 adds only isolated, SQL-owned paid-round rehearsal rows.
-AI_TABLES = (*AI_TABLES_PRE_MARKET_V2_PAID_REHEARSAL,
+AI_TABLES_PRE_PI_RUNTIME = (*AI_TABLES_PRE_MARKET_V2_PAID_REHEARSAL,
     "ai_business_market_v2_paid_authorities",
     "ai_business_market_v2_round_reservations",
     "ai_business_market_v2_round_events")
@@ -147,7 +147,7 @@ AI_SQL_ONLY_0070 = (
     "protected_business_budget_v11_proof_ticket_claims")
 AI_SQL_ONLY_0071 = (
     "protected_business_v4_report_link_intents", "protected_business_v4_report_source_links")
-AI_FULL_TABLES_PRE_V4_REPORT_LINKS = (*AI_TABLES, *AI_SQL_ONLY_0070)
+AI_FULL_TABLES_PRE_V4_REPORT_LINKS = (*AI_TABLES_PRE_PI_RUNTIME, *AI_SQL_ONLY_0070)
 AI_FULL_TABLES_AFTER_V4_REPORT_LINKS = (
     *AI_FULL_TABLES_PRE_V4_REPORT_LINKS, *AI_SQL_ONLY_0071)
 
@@ -158,3 +158,6 @@ AI_SQL_ONLY_0072 = (
     "protected_business_market_v2_authority_revocations")
 AI_FULL_TABLES_AFTER_MARKET_AUTHORITY_0072 = (
     *AI_FULL_TABLES_AFTER_V4_REPORT_LINKS, *AI_SQL_ONLY_0072)
+
+PI_TABLES = ("ai_pi_sessions", "ai_pi_operations", "ai_pi_dispatches", "ai_pi_events", "ai_pi_files", "ai_pi_exports", "ai_pi_export_pages", "ai_pi_gateway_nonces")
+AI_TABLES = (*AI_TABLES_PRE_PI_RUNTIME, *PI_TABLES)

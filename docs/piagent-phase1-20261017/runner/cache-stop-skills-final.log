@@ -1,0 +1,20 @@
+test_all_nonterminal_session_phases_freeze_on_restart (pi_runner.test_protocol.ProtocolTests.test_all_nonterminal_session_phases_freeze_on_restart) ... ok
+test_command_cache_strips_cap_private_reasoning_and_file_bytes (pi_runner.test_protocol.ProtocolTests.test_command_cache_strips_cap_private_reasoning_and_file_bytes) ... ok
+test_email_is_hash_identity_not_path (pi_runner.test_protocol.ProtocolTests.test_email_is_hash_identity_not_path) ... ok
+test_existing_audit_rows_are_scrubbed_without_losing_public_output (pi_runner.test_protocol.ProtocolTests.test_existing_audit_rows_are_scrubbed_without_losing_public_output) ... ok
+test_fences_are_typed (pi_runner.test_protocol.ProtocolTests.test_fences_are_typed) ... ok
+test_mac_binds_direction_path_nonce_and_body (pi_runner.test_protocol.ProtocolTests.test_mac_binds_direction_path_nonce_and_body) ... ok
+test_published_manifest_matches_bytes (pi_runner.test_protocol.ProtocolTests.test_published_manifest_matches_bytes) ... ok
+test_resource_rejects_absolute_traversal_case_collision_missing (pi_runner.test_protocol.ProtocolTests.test_resource_rejects_absolute_traversal_case_collision_missing) ... ok
+test_same_id_with_changed_payload_rejected (pi_runner.test_protocol.ProtocolTests.test_same_id_with_changed_payload_rejected) ... ok
+test_stop_uses_live_unknown_safety_without_erasing_outcome (pi_runner.test_protocol.ProtocolTests.test_stop_uses_live_unknown_safety_without_erasing_outcome) ... ok
+test_strict_json_and_lf (pi_runner.test_protocol.ProtocolTests.test_strict_json_and_lf) ... ok
+test_unknown_is_not_replayed (pi_runner.test_protocol.ProtocolTests.test_unknown_is_not_replayed) ... ok
+test_12_crashed_active_operation_cannot_replay_new_id (pi_runner.test_real.RealPiTests.test_12_crashed_active_operation_cannot_replay_new_id) ... ok
+test_13_signed_frame_keeps_protocol_and_model_binding (pi_runner.test_real.RealPiTests.test_13_signed_frame_keeps_protocol_and_model_binding) ... ok
+test_14_sales_and_stock_skills_execute_real_scripts (pi_runner.test_real.RealPiTests.test_14_sales_and_stock_skills_execute_real_scripts) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 10.286s
+
+OK

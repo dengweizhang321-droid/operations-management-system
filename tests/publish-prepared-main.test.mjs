@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {publishPreparedMain} from '../tools/publish-prepared-main.mjs';
-import {monitoringSchema,tmallSchema,tmall148Schema} from '../tools/main-schema-release.mjs';
+import {monitoringSchema,tmallSchema,tmall148Schema,piAgentSchema} from '../tools/main-schema-release.mjs';
 
 async function fixture(t,components=['worker'],failAt=null){
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'prepared-publisher-'));
@@ -213,4 +213,27 @@ for(const failure of ['Install','ProvisionRoles','Finalize'])test('149 '+failure
  await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
  f.events.length=0;await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/结果未知/);
  assert.ok(!f.events.includes('Install'));
+});
+
+test('Pi150 provisions only its AI roles after Install and before Finalize',async t=>{
+ const f=await migrationFixture(t,null,piAgentSchema),native=f.context.runStep;
+ f.context.runStep=async args=>{
+  if(args.action==='ProvisionRoles')assert.equal(path.basename(args.script),'django-ai.ps1');
+  return native(args);
+ };
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ assert.ok(!f.events.includes('ProvisionRoles'));f.events.length=0;
+ const result=await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ assert.ok(f.events.indexOf('Install')<f.events.indexOf('ProvisionRoles'));
+ assert.ok(f.events.indexOf('ProvisionRoles')<f.events.indexOf('Finalize'));
+ assert.equal(result.schemaReceipt.finalized.result.migrationCount,150);
+});
+test('Pi150 role provisioning uncertainty preserves the original operation without replay',async t=>{
+ const f=await migrationFixture(t,'ProvisionRoles',piAgentSchema);
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});f.events.length=0;
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/fixture failure/);
+ assert.ok(!f.events.includes('Finalize'));assert.ok(!f.events.includes('apply'));
+ f.events.length=0;
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/结果未知/);
+ assert.ok(!f.events.includes('Install'));assert.ok(!f.events.includes('ProvisionRoles'));
 });
