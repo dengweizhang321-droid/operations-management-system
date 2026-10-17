@@ -117,6 +117,35 @@ async function runPublisher(source,args=[],gitDirectory){
  });
  return check?null:JSON.parse(await fs.readFile(resultFile,'utf8'));
 }
+
+// An advisory check before spawning the native publisher. The native engines
+// still own the rotation lock and revalidate every artifact before deployment.
+export async function inspectMainPreparation(prepared,{git=gitAt}={}){
+ const attempt=path.join(prepared.packet,'publish-'+prepared.targetCommit.slice(0,12));
+ if(await exists(path.join(attempt,'STARTED.json'))&&!await exists(path.join(attempt,'SUCCESS.json')))throw Error('这个目标main已有未知结果的执行记录，禁止自动重试；原日志：'+attempt);
+ if(await exists(path.join(attempt,'SUCCESS.json')))throw Error('目标出现成功记录，请重新从固定入口核对实际线上版本；本次未发布');
+ const preparation=path.join(attempt,'preparation'),file=path.join(preparation,'PREPARED.json');
+ if(!await exists(file))return {status:'not-ready',mainCommit:prepared.targetCommit,publicationPerformed:false,preparationFile:file,logsDirectory:path.join(prepared.packet,'logs')};
+ const receipt=JSON.parse(await fs.readFile(file,'utf8'));
+ assert.equal(receipt.version,'teruisi-main-preparation-v1','准备记录版本无效');
+ assert.equal(receipt.requestSha256,sha(Buffer.from(JSON.stringify(prepared.request))),'准备包的请求不属于本次目标');
+ assert.deepEqual(receipt.sourceIdentity,{commit:prepared.targetCommit,tree:await git(prepared.source,['rev-parse','HEAD^{tree}'])},'准备包的源码版本不属于本次目标');
+ return {status:'ready-for-native-verification',mainCommit:prepared.targetCommit,publicationPerformed:false,preparationFile:file};
+}
+
+export async function deployReadyMain(prepared,{progress,run=runPublisher,git=gitAt,gitDirectory}={}){
+ const readiness=await inspectMainPreparation(prepared,{git});
+ if(readiness.status==='not-ready'){
+  progress.log('========== 发布包尚未就绪，本次未发布 ==========');
+  progress.log('目标main：'+prepared.targetCommit+'。自动打包尚未完成；请等待打包日志显示“打包完成，等待手动发布”后再点击。');
+  progress.log('打包日志目录：'+readiness.logsDirectory+'；若原打包已报错，请保留日志处理，不要重复启动。');
+  return readiness;
+ }
+ progress.begin('发布已准备好的目标main');
+ progress.log('开始原生复验并发布目标 '+prepared.targetCommit+'，独立包：'+prepared.packet);
+ const result=await run(prepared.source,['--deploy-only'],gitDirectory);progress.complete();
+ return result;
+}
 async function main(){
  const {values}=parseArgs({options:{config:{type:'string'},check:{type:'boolean',default:false},'prepare-only':{type:'boolean',default:false},'no-pause':{type:'boolean',default:false}}});
  assert.ok(!(values.check&&values['prepare-only']),'检查与打包模式不能同时使用');
@@ -133,16 +162,15 @@ async function main(){
   }
   if(prepared.status==='non-production'){progress.log('最新main没有生产载荷变更，本次未执行发布。');console.log(JSON.stringify(prepared));return;}
   await fs.writeFile(path.join(config.stateDirectory,'LATEST-PREPARED.json'),JSON.stringify(prepared,null,2)+'\n');
-  if(values.check){await runPublisher(prepared.source,['--check'],config.gitDirectory);progress.log('检查通过：有新main待发布；本次未打包、未部署。');console.log(JSON.stringify({status:prepared.status,targetCommit:prepared.targetCommit,currentCommit:prepared.currentCommit,packet:prepared.packet,source:prepared.source,components:prepared.request.components,migrate:prepared.request.migrate,publicationPerformed:false}));return;}
+  if(values.check){await runPublisher(prepared.source,['--check'],config.gitDirectory);const readiness=await inspectMainPreparation(prepared);progress.log('检查通过：有新main待发布；'+(readiness.status==='not-ready'?'发布包尚未准备完成':'已有准备记录，正式发布时仍需原生复验')+'；本次未打包、未部署。');console.log(JSON.stringify({status:prepared.status,preparationStatus:readiness.status,targetCommit:prepared.targetCommit,currentCommit:prepared.currentCommit,packet:prepared.packet,source:prepared.source,components:prepared.request.components,migrate:prepared.request.migrate,publicationPerformed:false}));return;}
   if(values['prepare-only']){
    progress.begin('准备对应main制品');const result=await runPublisher(prepared.source,['--prepare-only'],config.gitDirectory);assert.equal(result.mainCommit,prepared.targetCommit);progress.complete();
    if(result.status==='already-current'){assert.equal(result.publicationPerformed,false);progress.log('当前线上已经是目标main '+prepared.targetCommit+'；本次没有执行发布。');return;}
    assert.equal(result.status,'prepared-only');assert.equal(result.publicationPerformed,false);
    progress.log('打包完成，等待手动发布。目标main：'+prepared.targetCommit+'；本次未部署。');return;
   }
-  progress.begin('发布已准备好的目标main');
-  progress.log('开始实际发布目标 '+prepared.targetCommit+'，独立包：'+prepared.packet);
-  const result=await runPublisher(prepared.source,['--deploy-only'],config.gitDirectory);progress.complete();
+  const result=await deployReadyMain(prepared,{progress,gitDirectory:config.gitDirectory});
+  if(result.status==='not-ready'){process.exitCode=2;return;}
   assert.equal(result.mainCommit,prepared.targetCommit);
   if(result.status==='already-current'){progress.log('当前线上已经是目标main '+prepared.targetCommit+'；本次没有执行发布。');return;}
   assert.equal(result.status,'deployed_and_ready');assert.equal(result.publicationPerformed,true);

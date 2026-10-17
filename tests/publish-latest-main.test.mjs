@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {prepareLatestMain} from '../tools/publish-latest-main.mjs';
+import {prepareLatestMain,inspectMainPreparation,deployReadyMain} from '../tools/publish-latest-main.mjs';
 import {monitoringSchema} from '../tools/main-schema-release.mjs';
 
 async function fixture(t){
@@ -80,4 +80,56 @@ test('a reviewed0016 addition is bound automatically to the fetched source witho
  }});
  assert.equal(called,1);assert.equal(result.request.migrate,true);assert.equal(result.request.schemaRelease.toGeneration,148);
  assert.equal(result.request.schemaEvidencePath,undefined);assert.equal(result.request.completedTask,undefined);assert.equal(result.request.schemaRelease.evidencePath,path.join(result.packet,'schema','inventory-0016-evidence.json'));
+});
+
+async function readinessFixture(t){
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'main-readiness-'));
+ t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const targetCommit='a'.repeat(40),tree='b'.repeat(40),request={mainCommit:targetCommit,components:['worker','django'],migrate:false};
+ const prepared={packet:root,source:path.join(root,'source'),targetCommit,request};
+ const attempt=path.join(root,'publish-'+targetCommit.slice(0,12)),preparation=path.join(attempt,'preparation');await fs.mkdir(preparation,{recursive:true});
+ const receipt={version:'teruisi-main-preparation-v1',requestSha256:createHash('sha256').update(JSON.stringify(request)).digest('hex'),sourceIdentity:{commit:targetCommit,tree}};
+ const file=path.join(preparation,'PREPARED.json'),logs=[];
+ const git=async(source,args)=>{assert.equal(source,prepared.source);assert.deepEqual(args,['rev-parse','HEAD^{tree}']);return tree;};
+ const progress={log:line=>logs.push(line),begin:line=>logs.push(line),complete:()=>logs.push('complete')};
+ return {prepared,attempt,preparation,file,receipt,git,progress,logs};
+}
+for(const state of ['not-started','preparing','failed'])test('manual entry never starts a publisher for an unready package: '+state,async t=>{
+ const f=await readinessFixture(t);
+ if(state!=='not-started')await fs.writeFile(path.join(f.preparation,'PREPARING.json'),'original preparing');
+ if(state==='failed')await fs.writeFile(path.join(f.preparation,'FAILED-original.json'),'original failed');
+ const before=await fs.readdir(f.preparation);let calls=0;
+ const result=await deployReadyMain(f.prepared,{git:f.git,progress:f.progress,run:async()=>{calls++;throw Error('must not acquire rotation lock');}});
+ assert.equal(result.status,'not-ready');assert.equal(result.publicationPerformed,false);assert.equal(calls,0);
+ assert.deepEqual(await fs.readdir(f.preparation),before);await assert.rejects(fs.access(path.join(f.attempt,'STARTED.json')),{code:'ENOENT'});
+ assert.match(f.logs.join('\n'),/尚未就绪，本次未发布/);assert.doesNotMatch(f.logs.join('\n'),/发布成功|发布失败|开始原生复验|发布已准备好/);
+});
+test('exact prepared receipt delegates once to deploy-only; native result stays authoritative',async t=>{
+ const f=await readinessFixture(t);await fs.writeFile(f.file,JSON.stringify(f.receipt));let calls=0;
+ const original={status:'already-current',mainCommit:f.prepared.targetCommit,publicationPerformed:false};
+ const result=await deployReadyMain(f.prepared,{git:f.git,progress:f.progress,gitDirectory:'fixture-git',run:async(source,args,directory)=>{
+  calls++;assert.equal(source,f.prepared.source);assert.deepEqual(args,['--deploy-only']);assert.equal(directory,'fixture-git');return original;
+ }});
+ assert.equal(result,original);assert.equal(calls,1);assert.doesNotMatch(f.logs.join('\n'),/发布成功/);
+});
+for(const change of ['wrong-request','wrong-commit','wrong-tree','malformed'])test('invalid prepared receipt cannot start a publisher: '+change,async t=>{
+ const f=await readinessFixture(t);
+ if(change==='wrong-request')f.receipt.requestSha256='0'.repeat(64);
+ if(change==='wrong-commit')f.receipt.sourceIdentity.commit='c'.repeat(40);
+ if(change==='wrong-tree')f.receipt.sourceIdentity.tree='d'.repeat(40);
+ await fs.writeFile(f.file,change==='malformed'?'not json':JSON.stringify(f.receipt));let calls=0;
+ await assert.rejects(deployReadyMain(f.prepared,{git:f.git,progress:f.progress,run:async()=>{calls++;}}));assert.equal(calls,0);
+});
+test('unknown deployment takes precedence over missing preparation and preserves original records',async t=>{
+ const f=await readinessFixture(t),file=path.join(f.attempt,'STARTED.json');await fs.writeFile(file,'unknown original');
+ await assert.rejects(inspectMainPreparation(f.prepared,{git:f.git}),/未知结果/);assert.equal(await fs.readFile(file,'utf8'),'unknown original');
+});
+test('a success appearing after target selection must be rechecked against live state',async t=>{
+ const f=await readinessFixture(t);await fs.writeFile(path.join(f.attempt,'SUCCESS.json'),'original success');
+ await assert.rejects(inspectMainPreparation(f.prepared,{git:f.git}),/重新从固定入口/);assert.doesNotMatch(f.logs.join('\n'),/发布成功/);
+});
+test('native lock rejection is never swallowed or retried after readiness passes',async t=>{
+ const f=await readinessFixture(t);await fs.writeFile(f.file,JSON.stringify(f.receipt));let calls=0;
+ await assert.rejects(deployReadyMain(f.prepared,{git:f.git,progress:f.progress,run:async()=>{calls++;throw Error('Worker rotation 唯一锁不可用：EADDRINUSE');}}),/EADDRINUSE/);
+ assert.equal(calls,1);await assert.rejects(fs.access(path.join(f.attempt,'STARTED.json')),{code:'ENOENT'});
 });
