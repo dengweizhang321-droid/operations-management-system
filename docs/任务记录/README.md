@@ -62,6 +62,7 @@
 
 | 任务目录 | 文档数 | 入口 |
 | --- | --- | --- |
+| `tmall-warehouse-monitor-20261017` | 6 | [天猫入仓监控与 n8n 导入](../tmall-warehouse-monitor-20261017/REPORT.md) · [独立审查](../tmall-warehouse-monitor-20261017/REVIEW.md) · [结构发布](../tmall-warehouse-monitor-20261017/schema-REPORT.md) |
 | `jd-logistics-login-20261017` | 2 | [京东物流登录守护与失败诊断](../jd-logistics-login-20261017/REPORT.md) · [独立审查](../jd-logistics-login-20261017/review.md) |
 | `jd-logistics-rerun-9851-20261017` | 2 | [9851精确闭合与9896完整重跑结果](../jd-logistics-rerun-9851-20261017/REPORT.md) · [独立复核](../jd-logistics-rerun-9851-20261017/review.md) |
 | `jd-logistics-integration-20261015` | 6 | [京东物流四源接入与 POP / C仓监控](../jd-logistics-integration-20261015/REPORT.md) |
