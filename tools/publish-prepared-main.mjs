@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {randomUUID,createHash} from 'node:crypto';
 import {manualStepCommand} from './publish-main-command.mjs';
+import {schemaForRequest,verifyMainSchemaRelease} from './main-schema-release.mjs';
 
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const exists=async file=>{try{await fs.access(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};
@@ -13,7 +14,7 @@ const noProgress={begin(){},complete(){},log(){},success(){}};
 
 export function preparedComponents(request){
  assert.match(request.mainCommit??'',/^[a-f0-9]{40}$/,'发布目标必须是冻结的完整提交');
- assert.ok(!request.migrate&&!request.releasePlan?.migrate&&!request.schemaEvidencePath,'通用发布入口尚不支持结构迁移，请生成专用批准入口');
+ schemaForRequest(request);
  assert.ok(Array.isArray(request.components),'缺少发布组件范围');
  assert.ok(request.components.every(c=>c==='worker'||c==='django')&&new Set(request.components).size===request.components.length,'发布组件无效');
  return {worker:request.components.includes('worker'),django:request.components.includes('django')};
@@ -22,6 +23,7 @@ export function preparedComponents(request){
 /** Optional seams runStep/sourceIdentity/sha/fetch are for private fixture engines. */
 export async function publishPreparedMain(request,context){
  const components=preparedComponents(request);
+ const schema=schemaForRequest(request);
  const {source,out,api,rotation,transport}=context;
  const progress=context.progress??noProgress;
  const installed=context.installedRoot??'D:/teruisi-runtime/django-sales/app';
@@ -40,15 +42,18 @@ export async function publishPreparedMain(request,context){
  await fs.mkdir(preparationOut,{recursive:true});
  const save=(name,value)=>fs.writeFile(path.join(out,name),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
  const maintenanceId=randomUUID().replaceAll('-','');
+ const operationId=schema?randomUUID().replaceAll('-',''):null;
+ const schemaArgs=schema?['-IntegrationEvidencePath',schema.evidencePath,'-IntegrationEvidenceSha256',schema.evidenceSha256]:[];
+ const adoption=schema?['-AdditionKind',schema.additionKind,'-SourceRoot',source,'-OperationId',operationId,'-MaintenanceId',maintenanceId,'-SchemaOnly','-Execute']:[];
  let phase='核对前驱',maintenanceStarted=false;
- const step=async(label,script,action,extra=[],{json=true,directory=out}={})=>{
+ const step=async(label,script,action,extra=[],{json=true,addJson=true,directory=out}={})=>{
   phase=label;progress.begin(label);
   const record=(name,value)=>fs.writeFile(path.join(directory,name),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
   await record(label+'-started.json',{at:new Date().toISOString(),script,action,extra});
   let value;
-  if(context.runStep)value=await context.runStep({label,script,action,extra,json});
+  if(context.runStep)value=await context.runStep({label,script,action,extra,json,addJson});
   else{
-   const command=manualStepCommand({systemHost:'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',powerShellDirectory:request.pwshDirectory,script,action,extra});
+   const command=manualStepCommand({systemHost:'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',powerShellDirectory:request.pwshDirectory,script,action,extra,addJson});
    const result=await api.runProcess(command.host,transport.productionCommandArguments(command.host,command.args),{cwd:path.dirname(script),env:transport.productionCommandEnvironment(command.host),timeoutMs:1800000,outputProtocol:'direct-exit-files',cleanup:'preserve',label:'manual-main-'+label});
    await fs.writeFile(path.join(directory,label+'.stdout.log'),result.stdout,{flag:'wx'});
    await fs.writeFile(path.join(directory,label+'.stderr.log'),result.stderr,{flag:'wx'});
@@ -79,6 +84,7 @@ export async function publishPreparedMain(request,context){
    assert.equal(receipt.status,'deployed_and_ready','成功凭证不完整');
    assert.equal(receipt.mainCommit,request.mainCommit,'旧成功凭证不属于本次目标');
    assert.deepEqual(receipt.components,request.components,'成功凭证组件范围不一致');
+   if(schema){assert.equal(receipt.migration,schema.steps[0],'成功凭证缺少本次结构迁移');assert.deepEqual(receipt.schemaReceipt?.release,schema,'成功凭证结构发布范围不一致');assert.equal(receipt.schemaReceipt?.maintenanceId,receipt.maintenanceId);assert.match(receipt.schemaReceipt?.operationId??'',/^[a-f0-9]{32}$/);}
    assert.equal(before.head.releaseId,receipt.workerRelease,'当前Worker已改变');
    assert.equal(before.head.manifestSha256,receipt.workerManifestSha256,'当前Worker manifest已改变');
    assert.equal(djangoBefore,receipt.djangoManifestSha256,'当前Django已改变');
@@ -89,6 +95,7 @@ export async function publishPreparedMain(request,context){
   if(await exists(path.join(out,'STARTED.json')))throw Error('此发布已有STARTED且无SUCCESS，结果未知；禁止自动重试：'+out);
   assert.deepEqual(before.head,request.predecessorWorker,'运行版本已被其他发布改变');
   assert.equal(djangoBefore,request.predecessorDjangoSha256,'后台版本已被其他发布改变');
+  if(schema)await (context.verifySchemaRelease??(()=>verifyMainSchemaRelease(request,source)))();
   const preparationFile=path.join(preparationOut,'PREPARED.json');
   const requestSha256=digest(Buffer.from(JSON.stringify(request)));
   let publicationStarted=false;
@@ -133,13 +140,14 @@ export async function publishPreparedMain(request,context){
     await fs.writeFile(path.join(preparationOut,'worker-plan.json'),JSON.stringify(plan,null,2)+'\n',{flag:'wx'});assert.equal(plan.status,'planned');progress.complete();
    }
    if(components.django){
-    pkg=await step('准备后台',path.join(source,'tools/django-local-service.ps1'),'PrepareApp',[],{directory:preparationOut});
+    pkg=await step('准备后台',path.join(source,'tools/django-local-service.ps1'),'PrepareApp',schemaArgs,{directory:preparationOut});
     assert.match(pkg.id??'',/^[a-f0-9]{32}$/,'后台准备ID无效');assert.match(pkg.receiptSha256??'',/^[a-f0-9]{64}$/,'后台准备凭证无效');
     djangoExpected=await sha(path.join(path.dirname(installed),'app.deploy-'+pkg.id,'deployment.json'));
    }
     assert.deepEqual(await sourceIdentity(),identity,'打包期间源码变化');
     assert.deepEqual((await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true})).head,before.head,'准备期间Worker前驱改变');
     assert.equal(await sha(path.join(installed,'deployment.json')),djangoBefore,'准备期间Django前驱改变');
+    if(schema)await (context.verifySchemaRelease??(()=>verifyMainSchemaRelease(request,source)))();
     const temporary=preparationFile+'.'+randomUUID()+'.tmp';
     await fs.writeFile(temporary,JSON.stringify({version:'teruisi-main-preparation-v1',at:new Date().toISOString(),requestSha256,sourceIdentity:identity,workerPlan:plan,djangoPackage:pkg,djangoManifestSha256:djangoExpected},null,2)+'\n',{flag:'wx'});
     await fs.rename(temporary,preparationFile);
@@ -151,7 +159,8 @@ export async function publishPreparedMain(request,context){
    // Recheck both predecessor bindings after potentially long preparation.
    assert.deepEqual((await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true})).head,before.head,'准备期间Worker前驱改变');
    assert.equal(await sha(path.join(installed,'deployment.json')),djangoBefore,'准备期间Django前驱改变');
-   await save('STARTED.json',{at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,maintenanceId,source,sourceTree:identity.tree??null});
+   if(schema)await (context.verifySchemaRelease??(()=>verifyMainSchemaRelease(request,source)))();
+   await save('STARTED.json',{at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,maintenanceId,source,sourceTree:identity.tree??null,...(schema?{operationId,schemaRelease:schema}:{})});
    publicationStarted=true;
    const oldWorker=path.join(runtime,'releases',before.head.releaseId,'tools/worker-local-service.ps1');
    const targetWorker=plan?path.join(runtime,'releases',plan.candidateReleaseId,'tools/worker-local-service.ps1'):oldWorker;
@@ -167,9 +176,19 @@ export async function publishPreparedMain(request,context){
     const entered=await step('进入维护',path.join(source,'tools/manual-maintenance-start.ps1'),'EnterMaintenance',['-InputPath',admissionPath,'-InputSha256',await sha(admissionPath)]);
     assert.equal(entered.status,'maintenance');assert.equal(entered.maintenanceId,maintenanceId);assert.equal(entered.postgresPreserved,true);
     await step('停止旧前端',oldWorker,'Stop');
-    await step('部署后台',path.join(source,'tools/django-local-service.ps1'),'DeployApp',['-PreparedAppId',pkg.id,'-PreparedAppSha256',pkg.receiptSha256],{json:false});
+    if(schema)await step('登记结构迁移',path.join(source,'tools/bi-app-adopt.ps1'),'Plan',[...adoption,'-PreparedAppId',pkg.id,'-PreparedAppSha256',pkg.receiptSha256,'-CandidateEvidencePath',schema.evidencePath,'-CandidateEvidenceSha256',schema.evidenceSha256],{addJson:false});
+    await step('部署后台',path.join(source,'tools/django-local-service.ps1'),'DeployApp',['-PreparedAppId',pkg.id,'-PreparedAppSha256',pkg.receiptSha256,...(schema?['-IntegrationOperationId',operationId,...schemaArgs]:[])],{json:false});
     assert.equal(await sha(path.join(installed,'deployment.json')),djangoExpected,'后台部署manifest不匹配');
     await step('应用后台权限',path.join(installed,'tools/django-local-service.ps1'),'HardenAcl',[],{json:false});
+   }
+   let schemaReceipt=null;
+   if(schema){
+    const installedSchema=await step('迁移监控字段',path.join(installed,'tools/bi-app-adopt.ps1'),'Install',adoption,{addJson:false});
+    assert.equal(installedSchema.status,'verified');assert.equal(installedSchema.result.status,'schema_installed');assert.equal(installedSchema.result.migrationCount,schema.toGeneration);
+    assert.deepEqual(installedSchema.result.steps,schema.steps);
+    const finalized=await step('完成结构迁移',path.join(installed,'tools/bi-app-adopt.ps1'),'Finalize',adoption,{addJson:false});
+    assert.equal(finalized.status,'verified');assert.equal(finalized.result.status,'verified');assert.equal(finalized.result.migrationCount,schema.toGeneration);assert.deepEqual(finalized.result.steps,schema.steps);
+    schemaReceipt={operationId,maintenanceId,release:schema,installed:installedSchema,finalized};
    }
    if(plan){
     phase='切换前端';progress.begin(phase);await save('WorkerApply-started.json',{planSha256:plan.planSha256});
@@ -187,7 +206,7 @@ export async function publishPreparedMain(request,context){
    assert.equal(after.head.manifestSha256,plan?.candidateManifestSha256??before.head.manifestSha256);
    assert.equal(await sha(path.join(installed,'deployment.json')),djangoExpected,'最终后台manifest不匹配');
    await ready();progress.complete();
-   const receipt={status:'deployed_and_ready',at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,workerRelease:after.head.releaseId,workerManifestSha256:after.head.manifestSha256,djangoManifestSha256:djangoExpected,source,sourceTree:identity.tree??null,djangoPreparedId:pkg?.id??null,maintenanceId,migration:null,backupPerformed:false};
+   const receipt={status:'deployed_and_ready',at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,workerRelease:after.head.releaseId,workerManifestSha256:after.head.manifestSha256,djangoManifestSha256:djangoExpected,source,sourceTree:identity.tree??null,djangoPreparedId:pkg?.id??null,maintenanceId,migration:schema?.steps[0]??null,...(schemaReceipt?{schemaReceipt}:{}),backupPerformed:false};
    await save('SUCCESS.json',receipt);
    progress.success('main版本：'+request.mainCommit+'；步骤详细日志：'+out);
    return {...receipt,receiptPath:path.join(out,'SUCCESS.json')};

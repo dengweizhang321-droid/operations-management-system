@@ -1,0 +1,15 @@
+{
+  "version": "teruisi-main-schema-recipe-v1",
+  "additionKind": "JdProductMonitoring",
+  "fromGeneration": 147,
+  "toGeneration": 148,
+  "steps": [
+    "inventory.0016_jd_product_monitoring"
+  ],
+  "stepFiles": {
+    "backend/inventory/migrations/0016_jd_product_monitoring.py": "3a446544a231f84691579596bca1e3ad7f0f102605ef2d68204360d8adc0d899"
+  },
+  "validation": "docs/manual-main-schema0016-20261017/validation.json",
+  "validationSha256": "92515c6e2a1233c8be32fdf53b92725acdda35e2dfef3796621417f584e27109",
+  "codeSha256": "fee0b4cbe2f128f80672999978ae783935128ddaf73070b1a12878f1693b633b"
+}

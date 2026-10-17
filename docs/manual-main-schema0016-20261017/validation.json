@@ -1,0 +1,31 @@
+{
+  "version": "jd-product-monitoring-private-postgres-v1",
+  "status": "passed",
+  "productionTouched": false,
+  "steps": [
+    "inventory.0016_jd_product_monitoring"
+  ],
+  "codeSha256": "fee0b4cbe2f128f80672999978ae783935128ddaf73070b1a12878f1693b633b",
+  "migrationSha256": "535e5b4a79709808cc3c7488824b2b0cc38656846c85c9c0569d10a2d82e8709",
+  "checks": [
+    "atomic-upgrade",
+    "bad-evidence",
+    "defaults-empty",
+    "exact-147-148",
+    "legacy-data-preserved",
+    "lifecycle-routing",
+    "negative-catalogues",
+    "parent-source-binding",
+    "permissions",
+    "pointer-cas",
+    "rollback",
+    "unknown-no-replay"
+  ],
+  "generations": [
+    147,
+    148
+  ],
+  "legacyDataPreserved": true,
+  "fullBackupOrRestorePerformed": false,
+  "port": 55980
+}

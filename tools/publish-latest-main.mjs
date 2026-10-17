@@ -8,6 +8,7 @@ import {parseArgs} from 'node:util';
 import assert from 'node:assert/strict';
 import {makeReleasePlan} from './release-scope-plan.mjs';
 import {createReleaseProgress} from './publish-main-progress.mjs';
+import {prepareMainSchemaRelease} from './main-schema-release.mjs';
 
 const execute=promisify(execFile),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const exists=async file=>{try{await fs.access(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};
@@ -56,7 +57,7 @@ export async function readLivePublication(config){
  return {mainCommit:commit,source,sourceTree,head:chain.head,djangoManifestSha256:sha(djangoRaw),completedReceiptPath:receiptPath,resolvedOriginalAttempt:path.resolve(path.dirname(receiptPath))!==ordinaryAttempt};
 }
 
-export async function prepareLatestMain(config,{git=gitAt,getLive=readLivePublication,log=()=>{},makePlan=makeReleasePlan}={}){
+export async function prepareLatestMain(config,{git=gitAt,getLive=readLivePublication,log=()=>{},makePlan=makeReleasePlan,prepareSchema=prepareMainSchemaRelease}={}){
  log('获取 origin/main；旧任务 completedTask、旧成功回执和旧续接参数不参与目标选择。');
  await git(config.repository,['fetch','origin','refs/heads/main:refs/remotes/origin/main']);
  const target=await git(config.repository,['rev-parse','--verify','refs/remotes/origin/main^{commit}']);assert.match(target,/^[a-f0-9]{40}$/);
@@ -77,7 +78,7 @@ export async function prepareLatestMain(config,{git=gitAt,getLive=readLivePublic
  assert.equal(await git(source,['status','--porcelain']),'','发布来源存在未提交修改');
  const plan=makePlan({base:live.mainCommit,head:target,cwd:source});assert.equal(plan.headSha,target);assert.equal(plan.baseSha,live.mainCommit);
  if(!plan.components.length)return {status:'non-production',targetCommit:target,currentCommit:live.mainCommit,packet,source,publicationPerformed:false};
- assert.equal(plan.migrate,false,'最新main含新增迁移，必须准备对应结构发布包；本次未部署，禁止套用旧147证明');
+ const schemaRelease=plan.migrate?await prepareSchema({source,packet,plan}):null;
  const cacheLock=sha(await fs.readFile(path.join(source,'package-lock.json')));
  assert.equal(cacheLock,config.cacheLockSha256,'依赖锁已变化，需要先准备对应离线依赖；本次未部署');
  const modules=path.join(source,'node_modules');
@@ -86,7 +87,7 @@ export async function prepareLatestMain(config,{git=gitAt,getLive=readLivePublic
  const request={version:'teruisi-frozen-latest-main-request-v1',latestMainRelease:true,mainCommit:target,deployedCommit:live.mainCommit,
   predecessorWorker:live.head,predecessorDjangoSha256:live.djangoManifestSha256,
   pwshDirectory:config.pwshDirectory,pwshSha256:config.pwshSha256,npmCacheDirectory:config.npmCacheDirectory,
-  components:plan.components,migrate:false,releasePlan:plan,backup:false,fullTests:false};
+  components:plan.components,migrate:plan.migrate,releasePlan:plan,backup:false,fullTests:false,...(schemaRelease?{schemaRelease}:{})};
  await writeOnceOrSame(path.join(packet,'release-scope-plan.json'),plan);
  await writeOnceOrSame(path.join(packet,'main-release-request.json'),request);
  const attempt=path.join(packet,'publish-'+target.slice(0,12));
@@ -132,7 +133,7 @@ async function main(){
   }
   if(prepared.status==='non-production'){progress.log('最新main没有生产载荷变更，本次未执行发布。');console.log(JSON.stringify(prepared));return;}
   await fs.writeFile(path.join(config.stateDirectory,'LATEST-PREPARED.json'),JSON.stringify(prepared,null,2)+'\n');
-  if(values.check){await runPublisher(prepared.source,['--check'],config.gitDirectory);progress.log('检查通过：有新main待发布；本次未打包、未部署。');console.log(JSON.stringify({status:prepared.status,targetCommit:prepared.targetCommit,currentCommit:prepared.currentCommit,packet:prepared.packet,source:prepared.source,components:prepared.request.components,migrate:false,publicationPerformed:false}));return;}
+  if(values.check){await runPublisher(prepared.source,['--check'],config.gitDirectory);progress.log('检查通过：有新main待发布；本次未打包、未部署。');console.log(JSON.stringify({status:prepared.status,targetCommit:prepared.targetCommit,currentCommit:prepared.currentCommit,packet:prepared.packet,source:prepared.source,components:prepared.request.components,migrate:prepared.request.migrate,publicationPerformed:false}));return;}
   if(values['prepare-only']){
    progress.begin('准备对应main制品');const result=await runPublisher(prepared.source,['--prepare-only'],config.gitDirectory);assert.equal(result.mainCommit,prepared.targetCommit);progress.complete();
    if(result.status==='already-current'){assert.equal(result.publicationPerformed,false);progress.log('当前线上已经是目标main '+prepared.targetCommit+'；本次没有执行发布。');return;}

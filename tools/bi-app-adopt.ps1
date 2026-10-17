@@ -1,15 +1,15 @@
 ﻿[CmdletBinding()]
 param([Parameter(Mandatory)][ValidateSet('Plan','Install','Reconcile','Finalize')][string]$Action,
- [ValidateSet('BiErpGoal','JackyunAudit','AiSchedule','JdLogistics','JdMonitorPreferences')][string]$AdditionKind='BiErpGoal',
+ [ValidateSet('BiErpGoal','JackyunAudit','AiSchedule','JdLogistics','JdMonitorPreferences','JdProductMonitoring')][string]$AdditionKind='BiErpGoal',
  [Parameter(Mandatory)][string]$SourceRoot,[Parameter(Mandatory)][string]$OperationId,
  [Parameter(Mandatory)][string]$MaintenanceId,[string]$PreparedAppId='',
  [string]$PreparedAppSha256='', [string]$CandidateEvidencePath='', [string]$CandidateEvidenceSha256='',
  [string]$BackupDirectory='', [string]$BackupManifestSha256='', [string]$RestoreResultPath='', [string]$RestoreResultSha256='', [switch]$WithoutNewBackup, [switch]$SchemaOnly, [switch]$Execute)
 $ErrorActionPreference='Stop'
 $biRequest=@{Action=$Action;AdditionKind=$AdditionKind;SourceRoot=$SourceRoot;OperationId=$OperationId;MaintenanceId=$MaintenanceId;PreparedAppId=$PreparedAppId;PreparedAppSha256=$PreparedAppSha256;CandidateEvidencePath=$CandidateEvidencePath;CandidateEvidenceSha256=$CandidateEvidenceSha256;BackupDirectory=$BackupDirectory;BackupManifestSha256=$BackupManifestSha256;RestoreResultPath=$RestoreResultPath;RestoreResultSha256=$RestoreResultSha256;WithoutNewBackup=$WithoutNewBackup.IsPresent;SchemaOnly=$SchemaOnly.IsPresent;Execute=$Execute.IsPresent}
-if(($biRequest.AdditionKind -cin @('JdLogistics','JdMonitorPreferences')) -ne $biRequest.SchemaOnly -or ($biRequest.SchemaOnly -and ($biRequest.WithoutNewBackup -or $biRequest.BackupDirectory -or $biRequest.BackupManifestSha256 -or $biRequest.RestoreResultPath -or $biRequest.RestoreResultSha256))){throw 'JD requires explicit schema-only policy and cannot claim backup/restore evidence'}
+if(($biRequest.AdditionKind -cin @('JdLogistics','JdMonitorPreferences','JdProductMonitoring')) -ne $biRequest.SchemaOnly -or ($biRequest.SchemaOnly -and ($biRequest.WithoutNewBackup -or $biRequest.BackupDirectory -or $biRequest.BackupManifestSha256 -or $biRequest.RestoreResultPath -or $biRequest.RestoreResultSha256))){throw 'JD requires explicit schema-only policy and cannot claim backup/restore evidence'}
 if($biRequest.WithoutNewBackup -and ($biRequest.AdditionKind -cne 'JackyunAudit' -or $biRequest.BackupDirectory -or $biRequest.BackupManifestSha256 -or $biRequest.RestoreResultPath -or $biRequest.RestoreResultSha256)){throw 'Explicit no-new-backup direction is restricted to the audit addition and cannot claim recovery evidence'}
-if($biRequest.Action -ceq 'Reconcile' -and $biRequest.AdditionKind -cnotin @('JackyunAudit','AiSchedule','JdLogistics','JdMonitorPreferences')){throw 'Reconcile is restricted to the reviewed audit addition'}
+if($biRequest.Action -ceq 'Reconcile' -and $biRequest.AdditionKind -cnotin @('JackyunAudit','AiSchedule','JdLogistics','JdMonitorPreferences','JdProductMonitoring')){throw 'Reconcile is restricted to the reviewed audit addition'}
 if(-not $biRequest.Execute -or $biRequest.OperationId -cnotmatch '^[0-9a-f]{32}$' -or $biRequest.MaintenanceId -cnotmatch '^[0-9a-f]{32}$'){throw 'Explicit BI addition operation required'}
 $biRuntime='D:\teruisi-runtime\django-sales'
 $biPrior=[Environment]::GetEnvironmentVariable('TERUISI_DJANGO_SERVICE_LIBRARY_ONLY','Process')
@@ -58,15 +58,15 @@ Invoke-WithServiceMutex {
   Assert-BiPreparedSource $biPrepared $biSource
   $biRoot=$biSource
  }else{Assert-BiPreparedSource $InstalledAppRoot $biSource}
- $biGateName=if($biRequest.AdditionKind -ceq 'JdMonitorPreferences'){'tools\jd_monitor_preferences_addition.py'}elseif($biRequest.AdditionKind -ceq 'JdLogistics'){'tools\jd_logistics_addition.py'}elseif($biRequest.AdditionKind -ceq 'AiSchedule'){'tools\ai_schedule_addition.py'}elseif($biRequest.AdditionKind -ceq 'JackyunAudit'){'tools\jackyun_audit_addition.py'}else{'tools\bi_app_addition.py'}
+ $biGateName=if($biRequest.AdditionKind -ceq 'JdProductMonitoring'){'tools\jd_product_monitoring_addition.py'}elseif($biRequest.AdditionKind -ceq 'JdMonitorPreferences'){'tools\jd_monitor_preferences_addition.py'}elseif($biRequest.AdditionKind -ceq 'JdLogistics'){'tools\jd_logistics_addition.py'}elseif($biRequest.AdditionKind -ceq 'AiSchedule'){'tools\ai_schedule_addition.py'}elseif($biRequest.AdditionKind -ceq 'JackyunAudit'){'tools\jackyun_audit_addition.py'}else{'tools\bi_app_addition.py'}
  $biGate=Join-Path $biRoot $biGateName
  $biArgs=@($biGate,$biRequest.Action.ToLowerInvariant(),'--root',$biRoot,'--runtime',$biRuntime,'--operation',$biRequest.OperationId,'--maintenance',$biRequest.MaintenanceId)
- if($biRequest.AdditionKind -cin @('JackyunAudit','AiSchedule','JdLogistics','JdMonitorPreferences')){$biArgs+=@('--execute')}
+ if($biRequest.AdditionKind -cin @('JackyunAudit','AiSchedule','JdLogistics','JdMonitorPreferences','JdProductMonitoring')){$biArgs+=@('--execute')}
  if($biRequest.WithoutNewBackup){$biArgs+=@('--without-new-backup')}
  if($biRequest.SchemaOnly){$biArgs+=@('--schema-only')}
  if($biRequest.Action -ceq 'Plan'){
   $biArgs+=@('--candidate-sha',(Get-FileSha256 (Join-Path $biPrepared 'deployment.json')),'--evidence',$biRequest.CandidateEvidencePath,'--evidence-sha',$biRequest.CandidateEvidenceSha256)
-  if ($biRequest.AdditionKind -cin @('AiSchedule','JdLogistics','JdMonitorPreferences')) {$biArgs+=@('--prepared-id',$biRequest.PreparedAppId,'--prepared-receipt-sha',$biRequest.PreparedAppSha256)}
+  if ($biRequest.AdditionKind -cin @('AiSchedule','JdLogistics','JdMonitorPreferences','JdProductMonitoring')) {$biArgs+=@('--prepared-id',$biRequest.PreparedAppId,'--prepared-receipt-sha',$biRequest.PreparedAppSha256)}
  }
  if($biRequest.Action -cin @('Plan','Finalize') -and -not $biRequest.WithoutNewBackup -and -not $biRequest.SchemaOnly){
   $biVerifyTool=Join-Path $InstalledAppRoot 'tools\django-postgres-maintenance.ps1'
@@ -82,7 +82,7 @@ Invoke-WithServiceMutex {
  }
  if($biRequest.Action -cin @('Install','Reconcile') -or ($biRequest.Action -ceq 'Finalize' -and ($biRequest.WithoutNewBackup -or $biRequest.SchemaOnly))){
   $biSecrets=Read-Secrets
-  $biApplicationName=if($biRequest.AdditionKind -ceq 'JdMonitorPreferences'){'teruisi_jd_preferences_schema_append'}elseif($biRequest.AdditionKind -ceq 'JdLogistics'){'teruisi_jd_schema_append'}elseif($biRequest.AdditionKind -ceq 'AiSchedule'){'teruisi_ai_schedule_append'}elseif($biRequest.AdditionKind -ceq 'JackyunAudit'){'teruisi_jackyun_audit_append'}else{'teruisi_bi_goal_append'}
+  $biApplicationName=if($biRequest.AdditionKind -ceq 'JdProductMonitoring'){'teruisi_jd_product_monitoring_schema_append'}elseif($biRequest.AdditionKind -ceq 'JdMonitorPreferences'){'teruisi_jd_preferences_schema_append'}elseif($biRequest.AdditionKind -ceq 'JdLogistics'){'teruisi_jd_schema_append'}elseif($biRequest.AdditionKind -ceq 'AiSchedule'){'teruisi_ai_schedule_append'}elseif($biRequest.AdditionKind -ceq 'JackyunAudit'){'teruisi_jackyun_audit_append'}else{'teruisi_bi_goal_append'}
   $biUrl=Database-Url 'teruisi_sales_owner' $biSecrets.OwnerPassword $biApplicationName $WriterStatementTimeoutMs
   try{Invoke-WithDjangoEnvironment $biSecrets $biUrl 'migration_writer' $false $WriterMaxBodyBytes '' '' { $biRun=Invoke-BoundedNativeProcess $Python $biArgs $biRoot; $biProof=ConvertFrom-UniqueNativeJson $biRun 'Verify exact finite migration result';$biProof | ConvertTo-Json -Depth 12 -Compress }}finally{$biSecrets=$null;$biUrl=$null}
  }else{

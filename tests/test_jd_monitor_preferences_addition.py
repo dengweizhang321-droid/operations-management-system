@@ -154,7 +154,7 @@ foreach($operation in @('PrepareApp','DeployApp','Django migrate')){
 }
 function Read-JsonFile {param($path,$label) return [pscustomobject]@{version='teruisi-jd-monitor-preferences-schema-addition-v1'}}
 $IntegrationEvidencePath='fixture.json'
-function Test-Path {param($LiteralPath,$PathType) return $true}
+function Test-Path {param($LiteralPath,$PathType) return $LiteralPath -notmatch 'jd-product-monitoring' }
 Assert-NoUnapprovedProtectedAiMigration 'PrepareApp'
 if($script:called[1] -cne 'admission' -or $script:called -cnotcontains '--evidence-sha'){throw 'Admission missing exact evidence'}
 $IntegrationOperationId='b'*32

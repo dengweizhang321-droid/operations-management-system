@@ -43,9 +43,11 @@ async function main(){
   assert.equal(resumeMode,false,'最新main发布不能套用旧任务续接');
   assert.equal(request.completedTask,undefined,'最新main发布不能使用旧完成证明');
   assert.equal(request.releasePlan?.headSha,head,'发布范围不属于本次main');assert.equal(request.releasePlan?.baseSha,request.deployedCommit);
-  assert.deepEqual(request.components,request.releasePlan.components);assert.equal(request.releasePlan.migrate,false);
+  assert.deepEqual(request.components,request.releasePlan.components);
+  const {schemaForRequest,verifyMainSchemaRelease}=await import('./main-schema-release.mjs');
+  const schema=schemaForRequest(request);assert.equal(request.releasePlan.migrate,Boolean(schema));
   await verifyPowerShellHost(request,process.argv.includes('--check'));await verifyOfflineCache(request);
-  if(process.argv.includes('--check')){console.log(JSON.stringify({mode:'frozen-latest-main',targetCommit:head,publicationPerformed:false}));return;}
+  if(process.argv.includes('--check')){if(schema)await verifyMainSchemaRelease(request,source);console.log(JSON.stringify({mode:'frozen-latest-main',targetCommit:head,migration:schema?.steps[0]??null,publicationPerformed:false}));return;}
   process.env.PATH=request.pwshDirectory+';'+(process.env.PATH??process.env.Path??'');process.env.WRANGLER_HIDE_BANNER='true';
   process.env.npm_config_cache=request.npmCacheDirectory;process.env.npm_config_offline='true';process.env.npm_config_prefer_online='false';process.env.npm_config_prefer_offline='true';
   const api=await import(pathToFileURL(path.join(source,'tools/worker-local-release.mjs')));
