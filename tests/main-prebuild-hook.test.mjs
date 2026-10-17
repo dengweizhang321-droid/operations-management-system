@@ -97,6 +97,9 @@ test('installed real Git reference hook automatically starts only prepare-only m
  git(['remote','add','origin',remote]);git(['push','--quiet','origin','HEAD:refs/heads/main']);
  for(let n=0;n<200;n++){try{await fs.access(marker);break;}catch{await new Promise(r=>setTimeout(r,25));}}
  const args=JSON.parse(await fs.readFile(marker,'utf8'));assert.ok(args.includes('--prepare-only'));assert.ok(!args.includes('--deploy-only'));
+ await fs.access(path.join(state,'查看打包状态.bat'));
+ const observation=execFileSync(process.execPath,[path.join(state,'control/tools/main-prebuild-status.mjs'),'--config',configFile,'--once'],{encoding:'utf8',windowsHide:true});
+ assert.equal(JSON.parse(observation.trim().split(/\r?\n/).at(-1)).status,'waiting');
  // Wait for the fixture runner's result so cleanup never races its writes.
  const queueDir=path.join(state,'prebuild-queue');for(let n=0;n<200;n++){if((await fs.readdir(queueDir)).some(n=>n.includes('.result.')))break;await new Promise(r=>setTimeout(r,25));}
 });

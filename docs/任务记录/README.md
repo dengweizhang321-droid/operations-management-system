@@ -29,6 +29,7 @@
 | --- | --- | --- |
 | `manual-release-readiness-20261017` | 1 | [手动发布的准备状态提示修复](../manual-release-readiness-20261017/REPORT.md) |
 | `manual-release-identity-20261017` | 1 | [手动发布与自动准备的实际子进程环境一致性](../manual-release-identity-20261017/REPORT.md) |
+| `main-prebuild-notification-20261017` | 1 | [打包状态查看窗口与本地完成提醒](../main-prebuild-notification-20261017/REPORT.md) |
 | `manual-main-schema0016-20261017` | 1 | [京东监控0016结构迁移纳入手动main发布](../manual-main-schema0016-20261017/REPORT.md) |
 | `market-progress-resume-20261015` | 5 | [市场进度状态、轻读与维护续接发布](../market-progress-resume-20261015/PRODUCTION.md) |
 | `ai-schedules-release-20261015` | 4 | [AI定时任务与广东仓正式采用记录](../ai-schedules-release-20261015/PRODUCTION.md) |
