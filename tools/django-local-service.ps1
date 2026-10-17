@@ -2093,6 +2093,12 @@ function Prepare-Application {
       "tools\tmall_warehouse_catalog.json",
       "tools\tmall_warehouse_candidate.py",
       "tools\main-schema-release.mjs",
+      "tools\publish-prepared-main.mjs",
+      "tools\publish-main-command.mjs",
+      "tools\manual-maintenance-start.ps1",
+      "tools\manual-maintenance-lock.psm1",
+      "tools\manual-maintenance-continuation.mjs",
+      "tools\manual-maintenance-continuation.ps1",
       "tools\jd_product_monitoring_addition.py",
       "tools\jd_product_monitoring_catalog.py",
       "tools\jd_monitor_preferences_addition.py",
@@ -5090,9 +5096,26 @@ function Invoke-WithServiceMutex(
       $acquired = $mutex.WaitOne([TimeSpan]::Zero)
       if (-not $acquired) {
         $joinedStart = $Action -ceq "Start"
-        $waitSeconds = if ($joinedStart) { $StartWaitSeconds } else { 30 }
+        # These release transitions must be able to wait behind the existing
+        # report operation, without changing its mutex or replaying effects.
+        $releaseTransition = $Action -in @('BeginMaintenance','CompleteDrain','EndMaintenance','AutoStartDingTalk')
+        $waitSeconds = if ($joinedStart) { $StartWaitSeconds } elseif ($releaseTransition) { 120 } else { 30 }
         if ($joinedStart) { Write-LauncherEvent "INFO" "concurrent_start_waiting" }
-        $acquired = $mutex.WaitOne([TimeSpan]::FromSeconds($waitSeconds))
+        if ($releaseTransition) { Write-LauncherEvent "INFO" "release_mutex_waiting" "action=$Action budgetSeconds=$waitSeconds" }
+        $waitMilliseconds = $waitSeconds * 1000
+        if ($waitMilliseconds -gt 0) {
+          # This controller is also loaded without the Worker transport library.
+          $waitDeadline = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + $waitMilliseconds
+          if ($env:TERUISI_PROCESS_DEADLINE_UNIX_MS) {
+            $inheritedDeadline = 0L
+            if (-not [long]::TryParse($env:TERUISI_PROCESS_DEADLINE_UNIX_MS, [ref]$inheritedDeadline) -or $inheritedDeadline -le 0) { throw 'invalid_process_deadline' }
+            $waitDeadline = [Math]::Min($waitDeadline, $inheritedDeadline)
+          }
+          $waitMilliseconds = [int]($waitDeadline - [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())
+          if ($waitMilliseconds -le 0) { throw 'process_deadline_exhausted' }
+        }
+        $acquired = $mutex.WaitOne([TimeSpan]::FromMilliseconds($waitMilliseconds))
+        if ($acquired -and $waitSeconds -gt 0 -and [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -ge $waitDeadline) { throw 'process_deadline_exhausted' }
       }
     } catch [Threading.AbandonedMutexException] {
       $acquired = $true

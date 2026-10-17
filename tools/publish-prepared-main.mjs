@@ -6,6 +6,7 @@ import {execFileSync} from 'node:child_process';
 import {randomUUID,createHash} from 'node:crypto';
 import {manualStepCommand} from './publish-main-command.mjs';
 import {schemaForRequest,verifyMainSchemaRelease} from './main-schema-release.mjs';
+import {continueFirstMaintenance,isFirstMaintenancePredecessor} from './manual-maintenance-continuation.mjs';
 
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const exists=async file=>{try{await fs.access(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};
@@ -57,8 +58,8 @@ export async function publishPreparedMain(request,context){
    const result=await api.runProcess(command.host,transport.productionCommandArguments(command.host,command.args),{cwd:path.dirname(script),env:transport.productionCommandEnvironment(command.host),timeoutMs:1800000,outputProtocol:'direct-exit-files',cleanup:'preserve',label:'manual-main-'+label});
    await fs.writeFile(path.join(directory,label+'.stdout.log'),result.stdout,{flag:'wx'});
    await fs.writeFile(path.join(directory,label+'.stderr.log'),result.stderr,{flag:'wx'});
-   value=json?JSON.parse(result.stdout.trim()):null;
    await record(label+'-process.json',{processEvidence:result.processEvidence});
+   try{value=json?JSON.parse(result.stdout.trim()):null;}catch(error){error.processEvidence=result.processEvidence;throw error;}
   }
   await record(label+'-result.json',{at:new Date().toISOString(),value});progress.complete();return value;
  };
@@ -160,7 +161,7 @@ export async function publishPreparedMain(request,context){
    assert.deepEqual((await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true})).head,before.head,'准备期间Worker前驱改变');
    assert.equal(await sha(path.join(installed,'deployment.json')),djangoBefore,'准备期间Django前驱改变');
    if(schema)await (context.verifySchemaRelease??(()=>verifyMainSchemaRelease(request,source)))();
-   await save('STARTED.json',{at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,maintenanceId,source,sourceTree:identity.tree??null,...(schema?{operationId,schemaRelease:schema}:{})});
+   await save('STARTED.json',{at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,maintenanceId,source,sourceTree:identity.tree??null,requestSha256,predecessorChainStateSha256:before.chainStateSha256,...(schema?{operationId,schemaRelease:schema}:{})});
    publicationStarted=true;
    const oldWorker=path.join(runtime,'releases',before.head.releaseId,'tools/worker-local-service.ps1');
    const targetWorker=plan?path.join(runtime,'releases',plan.candidateReleaseId,'tools/worker-local-service.ps1'):oldWorker;
@@ -171,9 +172,28 @@ export async function publishPreparedMain(request,context){
     await step('停止旧前端',oldWorker,'StopForRelease',['-MaintenanceId',maintenanceId]);
    }else{
     // Wait for the shared report lock once, then call the complete native entry.
-    const admission={version:'manual-maintenance-first-attempt-v1',workerScript:oldWorker,workerScriptSha256:await sha(oldWorker),workerReceiptSha256:await sha(path.join(runtime,'state/worker-process.json')),djangoManifestSha256:djangoBefore,maintenanceId,preparedAt:new Date().toISOString()};
+    const sourcePins={};
+    for(const name of ['manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs'])sourcePins[name]=await sha(path.join(source,'tools',name));
+    await fs.writeFile(path.join(out,'maintenance-first-request.json'),JSON.stringify(request),{flag:'wx'});
+    const pandasConfig=path.join(path.dirname(installed),'config/pandas-sandbox.json');
+    const admission={version:'manual-maintenance-first-attempt-v2',workerScript:oldWorker,workerScriptSha256:await sha(oldWorker),workerReceiptSha256:await sha(path.join(runtime,'state/worker-process.json')),djangoManifestSha256:djangoBefore,maintenanceId,preparedAt:new Date().toISOString(),source,sourceCommit:identity.commit,sourceTree:identity.tree??null,sourcePins,attempt:out,requestSha256,startedSha256:await sha(path.join(out,'STARTED.json')),rotationOwnerPid:process.pid,releaseId:before.head.releaseId,workerManifestSha256:before.head.manifestSha256,djangoScriptSha256:await sha(path.join(installed,'tools/django-local-service.ps1')),pandasConfigSha256:await exists(pandasConfig)?await sha(pandasConfig):null};
+    admission.workerTransportSha256=await sha(path.join(path.dirname(oldWorker),'process-deadline.ps1'));
     const admissionPath=path.join(out,'maintenance-admission.json');await save('maintenance-admission.json',admission);
-    const entered=await step('进入维护',path.join(source,'tools/manual-maintenance-start.ps1'),'EnterMaintenance',['-InputPath',admissionPath,'-InputSha256',await sha(admissionPath)]);
+    const admissionSha256=await sha(admissionPath);
+    let entered;
+    try{entered=await step('进入维护',path.join(source,'tools/manual-maintenance-start.ps1'),'EnterMaintenance',['-InputPath',admissionPath,'-InputSha256',admissionSha256]);}
+    catch(error){
+     const actorFile=path.join(out,'maintenance-first-actor.json');
+     await save('maintenance-first-FAILED.json',{at:new Date().toISOString(),maintenanceId,admissionSha256,originalActorSha256:await exists(actorFile)?await sha(actorFile):null,error:String(error.message).slice(0,1600),processEvidence:error.processEvidence??null,automaticRetry:false});
+     if(!isFirstMaintenancePredecessor(before.head,djangoBefore))throw error;
+     entered=await continueFirstMaintenance({admission,admissionPath,admissionSha256,originalFailureSha256:await sha(path.join(out,'maintenance-first-FAILED.json')),step,recheck:async()=>{
+      await rotation.assertActiveBatchOwnership(runtime);
+      const current=await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true});
+      assert.deepEqual(current.head,before.head,'首次维护期间前驱变化');assert.equal(current.chainStateSha256,before.chainStateSha256,'首次维护期间前驱链变化');
+      assert.equal(await sha(path.join(installed,'deployment.json')),djangoBefore,'首次维护期间Django变化');
+      assert.deepEqual(await sourceIdentity(),identity,'首次维护期间源码变化');
+     }});
+    }
     assert.equal(entered.status,'maintenance');assert.equal(entered.maintenanceId,maintenanceId);assert.equal(entered.postgresPreserved,true);
     await step('停止旧前端',oldWorker,'Stop');
     if(schema)await step('登记结构迁移',path.join(source,'tools/bi-app-adopt.ps1'),'Plan',[...adoption,'-PreparedAppId',pkg.id,'-PreparedAppSha256',pkg.receiptSha256,'-CandidateEvidencePath',schema.evidencePath,'-CandidateEvidenceSha256',schema.evidenceSha256],{addJson:false});

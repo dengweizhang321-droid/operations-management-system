@@ -29,6 +29,8 @@ CODE_FILES = tuple(dict.fromkeys((*parent.CODE_FILES,
     "tools/pi_agent_addition.py", "tools/pi_agent_catalog.py", "tools/pi_agent_catalog.json",
 
     "tools/pi_agent_candidate.py", "tools/main-schema-release.mjs", "tools/publish-prepared-main.mjs", "tools/pi_agent_prepare_runtime.py", "tools/django-ai.ps1",
+    "tools/publish-main-command.mjs", "tools/manual-maintenance-start.ps1", "tools/manual-maintenance-lock.psm1",
+    "tools/manual-maintenance-continuation.mjs", "tools/manual-maintenance-continuation.ps1",
     "backend/ai_assistant/pi_health.py", "backend/ai_assistant/pi_models.py",
     "backend/ai_assistant/database_contract.py", "backend/ai_assistant/table_manifest.py",
     "backend/ai_assistant/pi_worker.py", "backend/ai_assistant/pi_service.py",
