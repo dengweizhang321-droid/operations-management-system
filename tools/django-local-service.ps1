@@ -32,7 +32,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 if (($RecoveryProofPath -or $RecoveryProofSha256) -and
-    ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -cne "1" -or [string]::IsNullOrWhiteSpace($RecoveryProofPath) -or $RecoveryProofSha256 -cnotmatch "^[a-f0-9]{64}$")) {
+    ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -cne "1" -or [string]::IsNullOrWhiteSpace($RecoveryProofPath) -or $RecoveryProofSha256 -cnotmatch "^[a-f0-9]{64}$" -or
+     -not $KeepPostgres -or $MaintenanceId -cnotin @('779dd3efea0e485aa58aac3acc9e324f','ca1bc9efd18d4263aeb298353ca93714') -or
+     ($MaintenanceId -ceq 'ca1bc9efd18d4263aeb298353ca93714' -and
+       ([IO.Path]::GetFullPath($RecoveryProofPath) -ine 'D:\codex-artifacts\pi-publish-recovery-20261017-v4\absent-helper-proof.json' -or
+        -not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'pi150-failed-start-recovery.ps1') -PathType Leaf))))) {
   throw "Recovery proof is restricted to the paired internal maintenance library request"
 }
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)

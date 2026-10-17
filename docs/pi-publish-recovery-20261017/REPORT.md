@@ -27,4 +27,20 @@
 
 第二批预检进一步复现：原通用传输会给全部argv加引号，WSL专用解析器把选项当shell命令（exit127）。仅此有限观察通过固定Python、无shell的subprocess argv转接，不修改全局传输；保留三项原观察、时间与输出限制，并实际验证双shell到WSL的传输。
 
-实际准备、发布和恢复采用状态以 `D:/codex-artifacts/pi-publish-recovery-20261017-v3` 的原始步骤和最终回执为准；前两批证据在不带版本及v2的同名目录保留。本源码报告不代替生产成功回执。
+第三批先在只读 VerifyPrepared 等待 Django mutex 时失败，原子进程51112未取得锁即退出；独审后将该只读阶段原件与SHA保全，在同一证明及制品上只协调一次重验。重验通过，原生Worker完整复验结束后，EnterMaintenance子进程68080在Worker最外层参数守卫退出（exit1，538ms）。该守卫只接受旧恢复779dd编号，Pi桥要求的原ca1bc编号因此在加载任何库、取得mutex或调用Django前被拒绝。此前仅mock native结果的驱动测试未覆盖这条实际入口，补充真实PS5/PS7入口与跨文件路由验证。
+
+第四批修复只增加Pi原编号的有限入口，保留旧恢复的精确验证，继续由proof版本和内容绑定各自的桥。第三批RECOVERY-STARTED、FAILED及全部原件保留，第四批使用新源码、新制品及新plan，不重放第三批；机器绑定第三批六份原件、原Worker字节和精确direct-exit证据，要求无下游记录、无Pi恢复intent及原双前驱未变。仍保留原maintenanceId和recoveryAttemptId，不换身份绕过unknown。
+
+实际准备、发布和恢复采用状态以 `D:/codex-artifacts/pi-publish-recovery-20261017-v4` 的原始步骤和最终回执为准；前三批证据在不带版本、v2及v3的同名目录保留。本源码报告不代替生产成功回执。
+
+## 用户要求暂停：2026-10-17 21:02
+
+用户明确选择“现在暂停，回家继续”。立即停止新增开发、验证与生产发布。第四批入口修复、驱动与测试差异保存在隔离worktree `D:/.codex/worktrees/pi-publish-recovery/运营管理系统`，未提交、未合并、未准备或采用第四批制品。驱动18项已通过并经独审；新增真实入口测试尚未通过，PS5/PS7的debugger边界停止断言失败，须修正测试后完成入口独审，不能记录为已验证。
+
+生产仍是第三批之前的原双前驱，未进入新维护、未写Pi恢复intent、未Deploy或apply第四批。之前BAT失败后的应用尚未恢复，正式Pi尚未启用。续接须先核对现场、最新main和原证据；WSL只读有界观察sleep会自然到期，不把休眠/重启后的旧观察当成当前证明。保留所有原失败与started，不自动重放。用户在本对话回复“继续发布”后再恢复任务。
+
+## 21:32 用户明确续接
+
+用户回复“继续发布”后，重新核对最新main仍51eb7d76，只有原PostgreSQL监听，无新维护、drain或Pi恢复intent。重新记录有界只读WSL观察，保持无宿主挂载和interop的原配置。
+
+入口测试改为独立私有子进程，在实际生命周期函数的debugger边界记录后以Exit17结束；避免throw被调试器吞掉后误入函数体。真实PS5/PS7参数入口、Worker→Django的Begin/CompleteDrain/End路由及新旧恢复私有契约合计3项全部通过（46.827秒）。该测试不返回模拟原生维护成功，不触生产锁、服务或数据库。原始结果保存在v4的bridge-entry-tests.log。v4驱动18项通过，包含原v3拒绝证据变动拒绝；gate与三条WSL只读adapter字节未改，复用其原有效验证，不重复付费模型、全量测试或备份恢复演练。

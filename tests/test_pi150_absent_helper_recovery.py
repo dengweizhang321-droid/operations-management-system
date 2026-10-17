@@ -254,7 +254,7 @@ Remove-Variable -Name ReadonlyCensus -Scope Script
 $script:events=[Collections.Generic.List[string]]::new()
 $RuntimeRoot='D:\teruisi-runtime\django-sales';$RunDirectory=$Scratch;$ExecutionRoot=$Source
 $Action='BeginMaintenance';$KeepPostgres=$true;$MaintenanceId='ca1bc9efd18d4263aeb298353ca93714'
-$RecoveryProofPath='D:\codex-artifacts\pi-publish-recovery-20261017-v3\absent-helper-proof.json';$RecoveryProofSha256='a'*64
+$RecoveryProofPath='D:\codex-artifacts\pi-publish-recovery-20261017-v4\absent-helper-proof.json';$RecoveryProofSha256='a'*64
 $Utf8NoBom=[Text.UTF8Encoding]::new($false)
 $script:gate=$null;$script:maintenance=$null;$script:late=$false
 $script:execution=[pscustomobject]@{}
@@ -262,7 +262,7 @@ foreach($name in @('pi150-failed-start-recovery.ps1','django-local-service.ps1',
  $script:execution|Add-Member -NotePropertyName (Join-Path $Source ('tools\'+$name)) -NotePropertyValue ('b'*64)
 }
 $script:resolved=[pscustomobject]@{status='resolved';releaseId='20261017T100706Z-1090ea88f6fe3094';manifestSha256='5bc9c99602822aa3342e1548e33a7b2ba2b42bb1a446af381bfdcf6a4203041d';guardReceiptSha256=('c'*64);chainStateSha256=('d'*64);successorCount=245}
-$script:proof=[pscustomobject]@{version='teruisi-pi150-failed-start-absent-helper-v1';operationId=$MaintenanceId;recoveryAttemptId=('f'*32);files=$pins;executionFiles=$script:execution;preparedAppId=('e'*32);preparedAppSha256=('a'*64);workerResolved=($script:resolved|ConvertTo-Json|ConvertFrom-Json);shortcut=[pscustomobject]@{path='fixture';sha256=('a'*64)};validation=[pscustomobject]@{path='fixture-validation';sha256=('a'*64)};ready=[pscustomobject]@{path='D:\codex-artifacts\pi-publish-recovery-20261017-v3\READY.json';sha256=('a'*64)}}
+$script:proof=[pscustomobject]@{version='teruisi-pi150-failed-start-absent-helper-v1';operationId=$MaintenanceId;recoveryAttemptId=('f'*32);files=$pins;executionFiles=$script:execution;preparedAppId=('e'*32);preparedAppSha256=('a'*64);workerResolved=($script:resolved|ConvertTo-Json|ConvertFrom-Json);shortcut=[pscustomobject]@{path='fixture';sha256=('a'*64)};validation=[pscustomobject]@{path='fixture-validation';sha256=('a'*64)};ready=[pscustomobject]@{path='D:\codex-artifacts\pi-publish-recovery-20261017-v4\READY.json';sha256=('a'*64)}}
 $script:ready=[pscustomobject]@{version='pi150-forward-recovery-v1';source=$Source;sourceIdentity=[pscustomobject]@{commit=('a'*40);tree=('b'*40)};pkg=[pscustomobject]@{id=('e'*32);receiptSha256=('a'*64)};predecessorDjangoSha256='67696b506801744faf048141b5b4e342e1afa062e48d97669f6e44cf3634fbc2';djangoManifestSha256=('b'*64);facts=[pscustomobject]@{maintenanceId=$MaintenanceId;schemaOperationId='ff28fd7d584547dea301b9f3561ae2aa'}}
 $script:validation=[pscustomobject]@{version='teruisi-pi150-absent-helper-tests-v1';status='passed';productionTouched=$false;powershell5=$true;powershell7=$true;executionFiles=$script:execution}
 function Get-Pi150FailedStartRecoveryExecutionFiles{return $script:execution}

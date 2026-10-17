@@ -10,7 +10,9 @@ import {makeReleasePlan} from './release-scope-plan.mjs';
 import {manualStepCommand} from './publish-main-command.mjs';
 
 const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const output='D:/codex-artifacts/pi-publish-recovery-20261017-v3';
+const output='D:/codex-artifacts/pi-publish-recovery-20261017-v4';
+const refusedAttempt='D:/codex-artifacts/pi-publish-recovery-20261017-v3';
+const refusedWorker='D:/codex-isolated/main-release-packages/51eb7d76095d-pi150-forward/source/tools/worker-local-service.ps1';
 const original='D:/codex-isolated/main-release-packages/f3748d8e03e2-60dc61d1-622cb632';
 const attempt=path.join(original,'publish-f3748d8e03e2');
 const django='D:/teruisi-runtime/django-sales',worker='D:/teruisi-runtime/teruisi-worker-sales';
@@ -40,6 +42,33 @@ if(!process.argv.includes('--fixed-environment')){
  const log=message=>console.log(new Date().toISOString()+' '+message);
  const identity=()=>({commit:git(['rev-parse','HEAD']),tree:git(['rev-parse','HEAD^{tree}'])});
  const clean=()=>assert.equal(git(['status','--porcelain']),'','Recovery source must be committed and frozen');
+ const refusedEntryFacts=async()=>{
+  // This is a new source-bound candidate after one exact, direct pre-library
+  // rejection. The original mutating-stage records remain immutable; no resume.
+  const pins={
+   'RECOVERY-STARTED.json':'119a46b44a66a19b75260796ff0a9542e192657c4093452eacf2a446cef2c024',
+   'RECOVERY-FAILED.json':'19d38207dade0a3161e7ca26257f3dc810277e8e4be6272e7f2fb4f2936251a9',
+   'EnterMaintenance-started.json':'61425d002c96d4661dadd1ebef3e4297639db9a6b6a58f96c3304ebe0aa138f2',
+   'absent-helper-proof.json':'73bb6e3596e4b9ea2bf11e99643de5d6343b5ae17140b3e027fa7bd80fb9971a',
+   'READY.json':'0bbd4905e9c6cfbf27b986d1b4eec0134474f4a5dca58fe83e39bb28605bb3a7',
+   'execute.log':'273fb939a72617cd1fbd20bc09ef29536bea0151c3d4e52ecfd534ae9da45c7e'
+  };
+  for(const [name,expected] of Object.entries(pins))assert.equal(await hash(path.join(refusedAttempt,name)),expected,'Original rejected entry evidence changed');
+  assert.equal(await hash(refusedWorker),'8ef6d09c23f780657d74e8c591dea543713410783ce2d5fdf165f2093db51a1d');
+  const failure=await read(path.join(refusedAttempt,'RECOVERY-FAILED.json'));
+  assert.equal(failure.automaticRetry,false);
+  assert.equal(failure.processEvidence.processId,68080);assert.equal(failure.processEvidence.exitCode,1);
+  assert.equal(failure.processEvidence.code,'nonzero_exit');assert.equal(failure.processEvidence.stage,'output');
+  assert.equal(failure.processEvidence.outputProtocol,'direct-exit-files');assert.equal(failure.processEvidence.elapsedMs,538);
+  assert.equal(failure.processEvidence.stdoutBytes,0);assert.equal(failure.processEvidence.stdoutSha256,'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+  assert.equal(failure.processEvidence.stderrSha256,'20da975c0429218ac5afb60e14968f98d42d615d0eee9e82e65bd74594303e1a');
+  assert.ok(failure.message.includes('Absent-helper recovery requires its paired proof, exact EnterMaintenance and KeepPostgres'));
+  for(const name of ['EnterMaintenance-result.json','DeployApp-started.json','WorkerApply-started.json','SUCCESS.json'])assert.equal(await exists(path.join(refusedAttempt,name)),false,'Rejected entry has downstream effects');
+  assert.equal(await exists(path.join(django,'run','pi150-failed-start-recovery-'+maintenanceId+'.intent.json')),false,'Original recovery intent must not be replayed');
+  const proof=await read(path.join(refusedAttempt,'absent-helper-proof.json'));
+  assert.equal(proof.operationId,maintenanceId);assert.equal(proof.recoveryAttemptId,'2a4e0e6f1c174839b8434976daa77ed5');
+  return {attempt:refusedAttempt,files:pins,worker:refusedWorker,workerSha256:await hash(refusedWorker),operationId:maintenanceId,recoveryAttemptId:proof.recoveryAttemptId,classification:'direct_entry_guard_rejection_before_libraries_or_mutation'};
+ };
  const originalFacts=async()=>{
   const failed=await read(path.join(attempt,'FAILED.json'));
   assert.equal(failed.mainCommit,originalCommit);assert.equal(failed.phase,'启动服务');
@@ -51,7 +80,7 @@ if(!process.argv.includes('--fixed-environment')){
   const finalized=(await read(path.join(attempt,'完成结构迁移-result.json'))).value;
   assert.equal(finalized.result.migrationCount,150);assert.equal(finalized.result.status,'verified');
   assert.equal((await read(path.join(attempt,'退出维护-result.json'))).value.status,'maintenance_ended');
-  return {originalAttempt:attempt,originalStartedSha256:await hash(path.join(attempt,'STARTED.json')),originalFailureSha256:await hash(path.join(attempt,'FAILED.json')),schemaOperationId:started.operationId,maintenanceId};
+  return {originalAttempt:attempt,originalStartedSha256:await hash(path.join(attempt,'STARTED.json')),originalFailureSha256:await hash(path.join(attempt,'FAILED.json')),schemaOperationId:started.operationId,maintenanceId,priorRefusal:await refusedEntryFacts()};
  };
  const step=async(label,script,action,extra=[],addJson=true)=>{
   await save(label+'-started.json',{at:new Date().toISOString(),script,action,extra});log(label+' 开始');
@@ -97,6 +126,7 @@ if(!process.argv.includes('--fixed-environment')){
   const proofFile=path.join(output,'absent-helper-proof.json'),proof=await read(proofFile);
   const approved=process.argv[3];assert.match(approved??'',/^[a-f0-9]{64}$/);assert.equal(await hash(proofFile),approved);
   assert.equal(proof.operationId,maintenanceId);assert.equal(proof.preparedAppId,ready.pkg.id);
+  assert.equal(proof.recoveryAttemptId,facts.priorRefusal.recoveryAttemptId);
   for(const file of [path.join(output,'RECOVERY-STARTED.json'),path.join(output,'SUCCESS.json')])assert.equal(await exists(file),false,'Original recovery has started; no automatic replay');
   const verified=await step('VerifyPrepared',path.join(source,'tools/django-local-service.ps1'),'VerifyPreparedApp',['-PreparedAppId',ready.pkg.id,'-PreparedAppSha256',ready.pkg.receiptSha256]);assert.equal(verified.status,'prepared_verified');
   // Reuse the exact prepared source-bound plan; do not build or call the old plan.

@@ -24,7 +24,11 @@ $ErrorActionPreference = "Stop"
 if ($RecoveryProofPath -or $RecoveryProofSha256) {
   if ([string]::IsNullOrWhiteSpace($RecoveryProofPath) -or $RecoveryProofSha256 -cnotmatch '^[a-f0-9]{64}$' -or
       $Action -cne 'EnterMaintenance' -or -not $KeepPostgres -or $AllowTestRuntimeRoot -or
-      $MaintenanceId -cne '779dd3efea0e485aa58aac3acc9e324f') {
+      $MaintenanceId -cnotin @('779dd3efea0e485aa58aac3acc9e324f','ca1bc9efd18d4263aeb298353ca93714') -or
+      ($MaintenanceId -ceq 'ca1bc9efd18d4263aeb298353ca93714' -and
+        ([IO.Path]::GetFullPath($RecoveryProofPath) -ine 'D:\codex-artifacts\pi-publish-recovery-20261017-v4\absent-helper-proof.json' -or
+         -not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'django-local-service.ps1') -PathType Leaf) -or
+         -not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'pi150-failed-start-recovery.ps1') -PathType Leaf)))) {
     throw 'Absent-helper recovery requires its paired proof, exact EnterMaintenance and KeepPostgres'
   }
 }
@@ -1618,6 +1622,8 @@ function Assert-WorkerReleaseDrain([string]$OperationId) {
 function Invoke-DjangoLifecycleAction([string]$ControlAction, [string]$OperationId = "", [switch]$PreservePostgres) {
   if ($ControlAction -in @("BeginMaintenance", "EndMaintenance", "CancelDrain", "CompleteDrain", "BeginWorkerDrain")) {
     if ($OperationId -cnotmatch "^[0-9a-f]{32}$") { throw "Invalid maintenance operation id" }
+    if ($RecoveryProofPath -and $ControlAction -ceq 'BeginMaintenance' -and
+        ($OperationId -cne $MaintenanceId -or -not $PreservePostgres)) { throw 'Recovery lifecycle identity or PostgreSQL scope changed' }
     # A reviewed source checkout can establish the gate for its first upgrade;
     # immutable Worker releases use the already-deployed Django controller.
     $maintenanceLibrary = Join-Path $PSScriptRoot "django-local-service.ps1"
@@ -1636,7 +1642,7 @@ function Invoke-DjangoLifecycleAction([string]$ControlAction, [string]$Operation
         $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = "1"
         if ($recoveryPath) {
           if ($maintenanceOperation -cne 'BeginMaintenance') { throw 'Recovery proof cannot enter another Django lifecycle operation' }
-          . $maintenanceController -RuntimeRoot $maintenanceRuntime -MaintenanceId $maintenanceOperationId -RecoveryProofPath $recoveryPath -RecoveryProofSha256 $recoverySha
+          . $maintenanceController -RuntimeRoot $maintenanceRuntime -MaintenanceId $maintenanceOperationId -KeepPostgres:$preserveDatabase -RecoveryProofPath $recoveryPath -RecoveryProofSha256 $recoverySha
         } else {
           . $maintenanceController -RuntimeRoot $maintenanceRuntime -MaintenanceId $maintenanceOperationId
         }

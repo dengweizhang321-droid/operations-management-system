@@ -335,7 +335,7 @@ function Assert-Pi150FailedStartRecoveryBindings([ValidateSet('Initial','Request
   if($Stage -cne 'Initial'){Assert-AbsentHelperRecoveryWorkerOwner}
   if($Action -cne 'BeginMaintenance' -or $KeepPostgres -ne $true -or $MaintenanceId -cne 'ca1bc9efd18d4263aeb298353ca93714' -or
       (Get-CanonicalPath $RuntimeRoot) -ine 'D:\teruisi-runtime\django-sales' -or
-      [IO.Path]::GetFullPath($RecoveryProofPath) -ine 'D:\codex-artifacts\pi-publish-recovery-20261017-v3\absent-helper-proof.json'){
+      [IO.Path]::GetFullPath($RecoveryProofPath) -ine 'D:\codex-artifacts\pi-publish-recovery-20261017-v4\absent-helper-proof.json'){
     throw 'Pi150 absent-helper recovery is limited to the exact original operation'
   }
   if(-not (Test-ExactObjectPropertyNames $Proof @('version','operationId','recoveryAttemptId','files','executionFiles','preparedAppId','preparedAppSha256','workerResolved','shortcut','validation','ready')) -or
@@ -363,7 +363,7 @@ function Assert-Pi150FailedStartRecoveryBindings([ValidateSet('Initial','Request
       $validation.powershell7 -isnot [bool] -or $validation.powershell7 -cne $true){throw 'Pi150 private PS5/PS7 validation is incomplete'}
   Assert-Pi150FailedStartRecoveryFileMap $validation.executionFiles $execution
   if(-not (Test-ExactObjectPropertyNames $Proof.ready @('path','sha256')) -or $Proof.ready.path -isnot [string] -or
-      [IO.Path]::GetFullPath($Proof.ready.path) -ine 'D:\codex-artifacts\pi-publish-recovery-20261017-v3\READY.json'){throw 'Pi150 forward READY reference changed'}
+      [IO.Path]::GetFullPath($Proof.ready.path) -ine 'D:\codex-artifacts\pi-publish-recovery-20261017-v4\READY.json'){throw 'Pi150 forward READY reference changed'}
   $ready=Read-AbsentHelperRecoveryJson $Proof.ready.path $Proof.ready.sha256
   if($ready.version -isnot [string] -or $ready.version -cne 'pi150-forward-recovery-v1' -or
       $ready.source -isnot [string] -or (Get-CanonicalPath $ready.source) -ine (Get-CanonicalPath $ExecutionRoot) -or
