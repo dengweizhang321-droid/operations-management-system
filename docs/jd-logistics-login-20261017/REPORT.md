@@ -22,8 +22,8 @@
 
 - 登录、原登录器及事业部就绪测试 27 项通过、零跳过，包含延迟登录跳转、旧业务 frame 与登录 frame 共存、挑战/拒绝/受限、禁用账号、错误来源、执行所有权撤销、单次提交与真实合成 DOM 登录。
 - 原物流 exporter、pipeline、JH 文档生命周期与工作流测试共 52 项通过、零跳过；覆盖四源日期、共享来源去重、跨 execution、撤销、全文件屏障、响应丢失不重发、批次幂等和精确回查。
-- 两个修改叶子的严格 TypeScript 检查，以及四个本任务代码/测试文件的 ESLint 通过；Git 差异空白检查通过。
-- 调用真实 immutable builder 和真实 helper 的隔离关闭演练通过，完整领取/A/B/C/D/释放、错误释放及顺序拒绝正常，业务写入和下载均为零。最终镜像证据：`C:/Users/86137/AppData/Local/Temp/teruisi-jd-logistics-helper-QKIaNi`。未执行生产构建/切换；用户点击发布入口时再按现行 main 发布流程准备原生制品。
+- 四个本任务代码/测试文件的严格 TypeScript 和 ESLint 检查通过；Git 差异空白检查通过。非 DPAPI 测试夹具已改为注册表支持的 manual 模式，对应单例增量复验通过。
+- 调用真实 immutable builder 和真实 helper 的隔离关闭演练通过，完整领取/A/B/C/D/释放、错误释放及顺序拒绝正常，业务写入和下载均为零。最终镜像证据：`C:/Users/86137/AppData/Local/Temp/teruisi-jd-logistics-helper-QKIaNi`。这是隔离 helper 验证，不是生产切换；正式原生制品通过现行 main 预打包入口准备。
 - 设备店真实 Profile 使用候选守护逐一只读访问四来源，四类事业部匹配均通过；零凭据读取、零导出请求/点击、零导入，浏览器和端口已关闭。报告为 `D:/codex-artifacts/jd-logistics-login-20261017/current-session-four-sources-v2.json`。首个四源 probe 遗漏商品来源的原生查询身份观察，保留 `BUSINESS_UNIT_NOT_READY` 失败证据；补齐与 exporter 一致的观察后验证通过，未为使探测通过放宽正式身份规则。
 - 独立审查按项目 deep-review 请求 `gpt-6.1-sol / XHigh`，实际型号工具未独立确认。审查复现 authorize 后原 Locator 等待跨文档写入合成账号的窗口；ElementHandle 修复后同反例的外来文档写入为 false、内存凭据已清空。审查报告见 [review.md](review.md)。
 
@@ -31,6 +31,6 @@
 
 ## 交付与恢复边界
 
-沿用现有固定人工发布入口 `D:/codex-isolated/main-manual-release-20261016/发布main.bat`；每次点击获取并冻结远端 main，按完整差异决定组件。本次没有 migration，未调用该入口执行生产切换。
+沿用现有固定人工发布入口 `D:/codex-isolated/main-manual-release-20261016/发布main.bat`。交付期间并行 main 已合入 c2bfd275 的预打包优化，已同步最新规范：main 更新后提前准备，用户点击只消费最新 main 对应就绪包，尚未就绪则停止；不使用旧包替代。该并行变更不涉及本次登录守护字节，已有功能验证直接复用。本次八文件完整范围计划为 full（Worker 与 Django），migrate=false；尚未调用发布入口执行生产切换。最终提交、打包状态与收据由本任务包外 DELIVERY.json 记录，不把源码合并称为已上线。
 
 9851 原失败与 active 仍保留，因此只发布登录优化不会自动解除该次未决计划，也不等于今日四源数据已补齐。现有 9542/9556 专用闭合工具限定 manual、inactive、旧制品/进程及初次空库条件，不能直接用于已有正式数据的 9851 trigger；后续必须单独准备与核验精确恢复动作，保留原失败，不删除 active 或重放 B/C。独立 decision 方案已明确区分代码交付、生产控制状态闭合和真实补采授权，本轮未实施恢复机制变更。
