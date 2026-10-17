@@ -26,3 +26,11 @@ node tools/verify-release-candidate.mjs --base cdb2ae60 --out <工作树外不�
 合并、正式制品就绪与生产采用分别报告。仓库交付不代表已安装入口、现有不可变运行包或正在执行的批次已更新；后续生产采用仍需本次对应授权，不回溯阻断既有三个业务任务。
 
 首次真实验证保留两类原失败：旧通知断言/PS7模块环境不齐；随后私有包在长用户TEMP拓扑中 local R2 put 返回 Network connection lost。补充保留底层诊断后，既有短卷根独立Wrangler真实roundtrip通过；包夹具采用该已验证的短路径及独立TEMP/XDG/日志拓扑再验。这里没有断言已经定位该通用错误的唯一底层原因，也不把私有环境调整称为生产缺陷修复。
+
+## 最终隔离验证
+
+冻结源码 `11314867cdd9b55c24fe0c15e51aea63e1c2ec47`，Git tree `0b6aeb12f9d382cc1397006e57105cd624db8a20`。真实验证器在2026-10-18 01:49:52—01:53:51（上海）完成，`candidate-final-2/REPORT.json` 全部10组成功：Node发布95项、Worker47项，PS5/PS7各3组摘要与编排回归，真实参数入口及跨文件路由，以及实际私有包 copy/deploy/hash/ACL/local-R2。临时包和候选工作树已清理；原失败日志保持。
+
+机器终态 `packageIntegrity:true`、`nativeEntryBoundary:true`、`nativeColdStart:false`；完整原生冷启动没有冒称执行。依赖31,336文件、载荷9,119文件、PowerShell模块及5个执行工具均在同轮绑定/末尾复核。定向ESLint零错误/警告，本次规范与说明72个本地链接存在，差异检查通过。独立规划请求Astra High，独立关键审查请求Sol High，工具未独立返回实际底层型号。
+
+本节为验证后的纯资料增量；交付提交与上述受测源码之间只允许文档变化，使用 `SOURCE-VERIFICATION-REUSE.json` 程序核对后复用这些有效结果。用户另有三个已合main待发任务，本轮先保留并推送已验证分支，合main/对应正式制品准备按用户选择衔接；没有生产切换。
