@@ -58,9 +58,9 @@ export async function drainPrebuildQueue(directory,prepare,{afterUnlock=async()=
   if(!(await names()).length)return {status:'drained',handled};
  }
 }
-function spawnPreparation(configFile){
+function spawnPreparation(configFile,config){
  return new Promise((resolve,reject)=>{
-  const child=spawn(process.execPath,[path.join(path.dirname(self),'publish-latest-main.mjs'),'--config',configFile,'--prepare-only','--no-pause'],{cwd:path.dirname(configFile),env:publisherEnvironment(),windowsHide:true,stdio:'inherit'});
+  const child=spawn(process.execPath,[path.join(path.dirname(self),'publish-latest-main.mjs'),'--config',configFile,'--prepare-only','--no-pause'],{cwd:path.dirname(configFile),env:publisherEnvironment(process.env,config.gitDirectory),windowsHide:true,stdio:'inherit'});
   child.once('error',reject);child.once('exit',(code,signal)=>code===0&&!signal?resolve():reject(Error('自动打包未完成，退出码：'+(code??signal))));
  });
 }
@@ -75,11 +75,11 @@ async function main(){
   for(const target of events)await fs.writeFile(path.join(directory,randomUUID()+'.pending.json'),JSON.stringify({target,at:new Date().toISOString()}),{flag:'wx'});
   const output=path.join(directory,'runner-'+randomUUID()+'.log'),fd=openSync(output,'wx');
   try{
-   const child=spawn(process.execPath,[self,'run',configFile],{cwd:config.stateDirectory,detached:true,windowsHide:true,env:publisherEnvironment(),stdio:['ignore',fd,fd]});
+   const child=spawn(process.execPath,[self,'run',configFile],{cwd:config.stateDirectory,detached:true,windowsHide:true,env:publisherEnvironment(process.env,config.gitDirectory),stdio:['ignore',fd,fd]});
    child.once('error',error=>console.error('自动准备未启动：'+error.message));child.unref();
   }finally{closeSync(fd);}
  }else if(mode==='run'){
-  await drainPrebuildQueue(directory,()=>spawnPreparation(configFile));
+  await drainPrebuildQueue(directory,()=>spawnPreparation(configFile,config));
  }else throw Error('Unknown hook mode');
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===path.resolve(self))main().catch(error=>{console.error(error.message);process.exitCode=1;});

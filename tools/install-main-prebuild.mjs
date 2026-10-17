@@ -10,6 +10,10 @@ const configFile=process.argv[process.argv.indexOf('--config')+1];
 assert.ok(process.argv.includes('--config')&&path.isAbsolute(configFile),'需要绝对配置路径 --config');
 const config=JSON.parse(await fs.readFile(configFile,'utf8'));
 const git=args=>execFileSync('git',['-C',config.repository,...args],{encoding:'utf8',windowsHide:true}).trim();
+const gitExecutable=execFileSync('C:/Windows/System32/where.exe',['git.exe'],{encoding:'utf8',windowsHide:true}).trim().split(/\r?\n/)[0];
+assert.ok(path.isAbsolute(gitExecutable)&&(await fs.stat(gitExecutable)).isFile(),'无法定位本机Git');
+config.gitDirectory=path.dirname(gitExecutable);
+execFileSync(gitExecutable,['--version'],{env:undefined,windowsHide:true});
 let hooksPath='';try{hooksPath=git(['config','--get','core.hooksPath']);}catch(error){if(error.status!==1)throw error;}
 assert.equal(hooksPath,'','已有自定义hooksPath，请先合并钩子，不能覆盖');
 const common=git(['rev-parse','--path-format=absolute','--git-common-dir']),hook=path.join(common,'hooks','reference-transaction');
@@ -22,6 +26,7 @@ const hookText='#!/bin/sh\n# TERUISI main-prebuild v1: prepare only, never deplo
 let old;try{old=await fs.readFile(hook,'utf8');}catch(error){if(error.code!=='ENOENT')throw error;}
 assert.ok(!old||old.includes('# TERUISI main-prebuild v1:'),'已有reference-transaction钩子，不能覆盖');
 await fs.writeFile(hook,hookText,{mode:0o755});
+await fs.writeFile(configFile,JSON.stringify(config,null,2)+'\n');
 const bat='@echo off\r\nsetlocal\r\nchcp 65001 >nul\r\n"'+process.execPath+'" "%~dp0control\\tools\\publish-latest-main.mjs" --config "%~dp0main-publisher-config.json" --prepare-only %*\r\nset "release_exit=%errorlevel%"\r\necho.\r\nif /i not "%~1"=="--no-pause" pause\r\nexit /b %release_exit%\r\n';
 await fs.writeFile(path.join(config.stateDirectory,'准备main.bat'),bat);
 const commit=execFileSync('git',['-C',source,'rev-parse','HEAD'],{encoding:'utf8',windowsHide:true}).trim();

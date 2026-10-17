@@ -7,6 +7,7 @@
 - 固定 main 入口新增 `--prepare-only`，默认发布传入 `--deploy-only`。准备原子写 PREPARED，部署才写 STARTED；准备失败与未知发布分别保存。
 - Worker 使用原 online plan/reusePlan，Django 使用原 PrepareApp/DeployApp，新增只读 VerifyPreparedApp 把原完整候选检查放到维护前。组件范围继续复用原 Git 完整差异计划。
 - 本机 reference-transaction hook 监听远端 main 跟踪引用的已提交更新。隐藏 Node 队列合并事件，不依赖模型或常驻轮询。命名管道负责串行，终态票据绑定原始 SHA，避免进程退出或清理断点造成重复准备。
+- 安装时定位并验证本机实际 Git，把其目录同时传入 hook 和手动入口的固定环境；不假设 Git 在默认 Program Files。新增实际 Git 执行测试与 9 项 hook 回归通过。首次实际触发的 fetch ENOENT 保留原票据，发生在候选准备前，修正安装路径后才新建后续准备。
 - 同一精确准备包直接复用其依赖，不再安装；新 main 的新包沿用既有离线 tarball cache 和原 npm ci。新增 node_modules 目录缓存因实测更慢撤回，不交付额外缓存状态或 verifier 协议。
 - 源码复制有界并发 8；构建末尾把同 staging 卷的 node_modules 转移到 release，不再复制第二份。后续完整树验证、原启动/apply 门禁不变。
 - 构建明细日志分别记录源码快照、依赖、Vinext、helper、完整哈希、原合约检查、封包及候选复验，避免把构建封包总耗时称作编译耗时。

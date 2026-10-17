@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {execFile,spawn} from 'node:child_process';
+import {execFile,execFileSync,spawn} from 'node:child_process';
 import {promisify} from 'node:util';
 import {createHash,randomUUID} from 'node:crypto';
 import {pathToFileURL,fileURLToPath} from 'node:url';
@@ -95,21 +95,23 @@ export async function prepareLatestMain(config,{git=gitAt,getLive=readLivePublic
  return {status:'prepared',targetCommit:target,currentCommit:live.mainCommit,packet,source,request,publicationPerformed:false};
 }
 
-export function publisherEnvironment(environment=process.env){
+export function publisherEnvironment(environment=process.env,gitDirectory){
  // Both the Git-triggered prepare and manual BAT use this actual environment.
  // No secrets or environment snapshot is written; the native identity still
  // hashes every variable passed to npm/build. Git's local variables never leak.
  const result={};
+ if(!gitDirectory)gitDirectory=path.dirname(execFileSync('C:/Windows/System32/where.exe',['git.exe'],{encoding:'utf8',windowsHide:true}).trim().split(/\r?\n/)[0]);
+ assert.ok(path.isAbsolute(gitDirectory),'需要本机Git的绝对安装目录');
  const names=['SystemRoot','WINDIR','SystemDrive','COMSPEC','PATHEXT','TEMP','TMP','USERPROFILE','APPDATA','LOCALAPPDATA','PROGRAMDATA','PROGRAMFILES','PROGRAMFILES(X86)','COMMONPROGRAMFILES','COMMONPROGRAMFILES(X86)','HOMEDRIVE','HOMEPATH','USERNAME','USERDOMAIN','OS','PROCESSOR_ARCHITECTURE','NUMBER_OF_PROCESSORS'];
  for(const name of names){const key=Object.keys(environment).find(k=>k.toUpperCase()===name.toUpperCase());if(key)result[name.toUpperCase()]=environment[key];}
- result.PATH=[path.dirname(process.execPath),'C:/Windows/System32','C:/Windows','C:/Windows/System32/WindowsPowerShell/v1.0','C:/Program Files/Git/cmd'].join(path.delimiter);
+ result.PATH=[path.dirname(process.execPath),'C:/Windows/System32','C:/Windows','C:/Windows/System32/WindowsPowerShell/v1.0',gitDirectory].join(path.delimiter);
  return result;
 }
-async function runPublisher(source,args=[]){
+async function runPublisher(source,args=[],gitDirectory){
  const directory=path.resolve(source,'..','invocations');await fs.mkdir(directory,{recursive:true});
  const resultFile=path.join(directory,randomUUID()+'.json'),check=args.includes('--check');
  await new Promise((resolve,reject)=>{
-  const child=spawn(process.execPath,[path.join(source,'tools/publish-main.mjs'),...args,...(check?[]:['--result-file',resultFile])],{cwd:source,env:publisherEnvironment(),windowsHide:true,stdio:'inherit'});
+  const child=spawn(process.execPath,[path.join(source,'tools/publish-main.mjs'),...args,...(check?[]:['--result-file',resultFile])],{cwd:source,env:publisherEnvironment(process.env,gitDirectory),windowsHide:true,stdio:'inherit'});
   child.once('error',reject);child.once('exit',(code,signal)=>signal||code!==0?reject(Error('本次目标发布未完成，退出码：'+(code??signal))):resolve());
  });
  return check?null:JSON.parse(await fs.readFile(resultFile,'utf8'));
@@ -130,16 +132,16 @@ async function main(){
   }
   if(prepared.status==='non-production'){progress.log('最新main没有生产载荷变更，本次未执行发布。');console.log(JSON.stringify(prepared));return;}
   await fs.writeFile(path.join(config.stateDirectory,'LATEST-PREPARED.json'),JSON.stringify(prepared,null,2)+'\n');
-  if(values.check){await runPublisher(prepared.source,['--check']);progress.log('检查通过：有新main待发布；本次未打包、未部署。');console.log(JSON.stringify({status:prepared.status,targetCommit:prepared.targetCommit,currentCommit:prepared.currentCommit,packet:prepared.packet,source:prepared.source,components:prepared.request.components,migrate:false,publicationPerformed:false}));return;}
+  if(values.check){await runPublisher(prepared.source,['--check'],config.gitDirectory);progress.log('检查通过：有新main待发布；本次未打包、未部署。');console.log(JSON.stringify({status:prepared.status,targetCommit:prepared.targetCommit,currentCommit:prepared.currentCommit,packet:prepared.packet,source:prepared.source,components:prepared.request.components,migrate:false,publicationPerformed:false}));return;}
   if(values['prepare-only']){
-   progress.begin('准备对应main制品');const result=await runPublisher(prepared.source,['--prepare-only']);assert.equal(result.mainCommit,prepared.targetCommit);progress.complete();
+   progress.begin('准备对应main制品');const result=await runPublisher(prepared.source,['--prepare-only'],config.gitDirectory);assert.equal(result.mainCommit,prepared.targetCommit);progress.complete();
    if(result.status==='already-current'){assert.equal(result.publicationPerformed,false);progress.log('当前线上已经是目标main '+prepared.targetCommit+'；本次没有执行发布。');return;}
    assert.equal(result.status,'prepared-only');assert.equal(result.publicationPerformed,false);
    progress.log('打包完成，等待手动发布。目标main：'+prepared.targetCommit+'；本次未部署。');return;
   }
   progress.begin('发布已准备好的目标main');
   progress.log('开始实际发布目标 '+prepared.targetCommit+'，独立包：'+prepared.packet);
-  const result=await runPublisher(prepared.source,['--deploy-only']);progress.complete();
+  const result=await runPublisher(prepared.source,['--deploy-only'],config.gitDirectory);progress.complete();
   assert.equal(result.mainCommit,prepared.targetCommit);
   if(result.status==='already-current'){progress.log('当前线上已经是目标main '+prepared.targetCommit+'；本次没有执行发布。');return;}
   assert.equal(result.status,'deployed_and_ready');assert.equal(result.publicationPerformed,true);

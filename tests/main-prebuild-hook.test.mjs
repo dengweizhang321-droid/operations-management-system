@@ -52,6 +52,11 @@ test('kernel queue lock is released when its owner terminates',async t=>{
  await fs.access(signal);assert.equal((await drainPrebuildQueue(root,()=>assert.fail('concurrent owner'))).status,'queued');
  child.kill();await done;let calls=0;await drainPrebuildQueue(root,async()=>{calls++;});assert.equal(calls,1);
 });
+test('fixed environment can execute the actual installed Git outside the default Program Files location',()=>{
+ const gitExecutable=execFileSync('C:/Windows/System32/where.exe',['git.exe'],{encoding:'utf8',windowsHide:true}).trim().split(/\r?\n/)[0];
+ const env=publisherEnvironment(process.env,path.dirname(gitExecutable));
+ assert.match(execFileSync('git',['--version'],{env,encoding:'utf8',windowsHide:true}),/^git version /);
+});
 test('installed real Git reference hook automatically starts only prepare-only mode',async t=>{
  const root=await queue(t),repo=path.join(root,'repo'),state=path.join(root,'state');await fs.mkdir(repo);await fs.mkdir(state);
  const git=args=>execFileSync('git',['-C',repo,...args],{encoding:'utf8',windowsHide:true});
