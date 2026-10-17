@@ -268,6 +268,31 @@ test("managed PID ownership survives venv launchers without weakening identity c
     script,
     /Remove-PreviousBootProcessRecordIfSafe \$PidPath \$record\.creationDate \$record\.startedAt/,
   );
+  assert.match(
+    script,
+    /\$ProcessMetadataUnavailablePrefix = "Process metadata is unavailable; absence is not established:"/,
+  );
+  assert.match(script, /function Get-RecordedProcessSnapshot/);
+  assert.match(
+    script,
+    /if \(\(\[string\]\$_\.Exception\.Message\) -notlike "\$ProcessMetadataUnavailablePrefix\*"\) \{ throw \}/,
+  );
+  assert.match(
+    script,
+    /if \(-not \$ReadOnly -and \(Remove-PreviousBootProcessRecordIfSafe \$PidPath \$CreationDate \$StartedAt\)\) \{/,
+  );
+  assert.match(
+    script,
+    /Get-RecordedProcessSnapshot `\r?\n    \$processId \$PidPath \$record\.creationDate \$record\.startedAt -ReadOnly:\$ReadOnly/,
+  );
+  assert.match(
+    script,
+    /Get-RecordedProcessSnapshot `\r?\n      \(\[int\]\$receipt\.processId\) \$DjangoSupervisorPidPath \$receipt\.creationDate \$receipt\.startedAt/,
+  );
+  assert.match(
+    script,
+    /if \(Test-Path -LiteralPath \$PidPath -PathType Leaf\) \{\r?\n      Remove-Item -LiteralPath \$PidPath -Force/,
+  );
   assert.doesNotMatch(script, /\$snapshot\.ExecutablePath -ieq \(Get-CanonicalPath \$ExpectedLauncher\)/);
 });
 
@@ -810,6 +835,30 @@ for (const shell of ["powershell.exe", "pwsh.exe"]) {
       assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
       assert.match(result.stdout, /PASS: launcher=/);
       assert.match(result.stdout, /descendants=\d+/);
+    },
+  );
+
+  test(
+    `unreadable reused PIDs are cleared only with previous-boot proof in ${shell}`,
+    {
+      skip: process.platform !== "win32"
+        || shellProbe.error !== undefined
+        || shellProbe.status !== 0,
+    },
+    () => {
+      const result = spawnSync(
+        shell,
+        [
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "tests\\django-local-service-previous-boot-record.test.ps1",
+        ],
+        { encoding: "utf8", timeout: 30_000 },
+      );
+      assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stdout, /PASS: previous-boot records are dropped only when provable/);
     },
   );
 

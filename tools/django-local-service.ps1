@@ -132,6 +132,8 @@ $ApplicationFingerprintAlgorithm = "relative-path-file-sha256-ordinal-v2"
 $OrchestratedLifecycleAclContextVariable = "TERUISI_DJANGO_ORCHESTRATED_LIFECYCLE_ACL_CONTEXT"
 $OrchestratedLifecycleAclContextVersion = "teruisi-django-orchestrated-lifecycle-acl-v1"
 $OrchestratedLifecycleAclContextMaxAgeMilliseconds = 900000
+# A numeric PID whose CIM metadata is unreadable is never evidence of absence.
+$ProcessMetadataUnavailablePrefix = "Process metadata is unavailable; absence is not established:"
 
 function Get-CanonicalPath([string]$Path) {
   return [IO.Path]::GetFullPath($Path).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
@@ -2446,8 +2448,32 @@ function Get-ProcessSnapshot([int]$ProcessId, [int]$Attempts = 20) {
     }
     Start-Sleep -Milliseconds 100
   }
-  if ($metadataUnavailable) { throw "Process metadata is unavailable; absence is not established: $ProcessId" }
+  if ($metadataUnavailable) { throw "$ProcessMetadataUnavailablePrefix $ProcessId" }
   return $null
+}
+
+function Get-RecordedProcessSnapshot(
+  [int]$ProcessId,
+  [string]$PidPath,
+  [object]$CreationDate,
+  [object]$StartedAt,
+  [switch]$ReadOnly
+) {
+  # A reused numeric PID can belong to a process whose CIM metadata this account
+  # cannot read (for example another session's svchost after an unexpected
+  # reboot).  Unreadable metadata is never evidence of absence, so the only safe
+  # resolution is proving that the record itself predates the current boot --
+  # exactly like an identity mismatch below.  Every other outcome keeps the
+  # original fail-closed error instead of treating the PID as free.
+  try {
+    return Get-ProcessSnapshot $ProcessId 1
+  } catch {
+    if (([string]$_.Exception.Message) -notlike "$ProcessMetadataUnavailablePrefix*") { throw }
+    if (-not $ReadOnly -and (Remove-PreviousBootProcessRecordIfSafe $PidPath $CreationDate $StartedAt)) {
+      return $null
+    }
+    throw
+  }
 }
 
 function Test-ProcessSnapshotIdentity([object]$Left, [object]$Right) {
@@ -2604,11 +2630,16 @@ function Resolve-OwnedProcess(
     throw "进程所有权记录格式无效：$PidPath"
   }
   $recordCreationDate = ConvertTo-CanonicalCreationDate $record.creationDate
-  $snapshot = Get-ProcessSnapshot $processId 1
+  $snapshot = Get-RecordedProcessSnapshot `
+    $processId $PidPath $record.creationDate $record.startedAt -ReadOnly:$ReadOnly
   if ($null -eq $snapshot) {
     if ($ReadOnly) { return $null }
-    Remove-Item -LiteralPath $PidPath -Force
-    Write-LauncherEvent "WARN" "stale_process_record_removed" $PidPath
+    # A previous-boot residue was already removed by the resolver above, so this
+    # cleanup is idempotent instead of aborting on the missing record file.
+    if (Test-Path -LiteralPath $PidPath -PathType Leaf) {
+      Remove-Item -LiteralPath $PidPath -Force
+      Write-LauncherEvent "WARN" "stale_process_record_removed" $PidPath
+    }
     return $null
   }
   $recordArguments = @($record.arguments | ForEach-Object { [string]$_ })
@@ -2735,7 +2766,8 @@ function Assert-DjangoSupervisorStopped([string]$Operation) {
         [string]$receipt.version -cne "teruisi-django-supervisor-process-v1") {
       throw "$Operation 发现无效 Django supervisor process receipt；拒绝修改运行环境"
     }
-    $snapshot = Get-ProcessSnapshot ([int]$receipt.processId) 1
+    $snapshot = Get-RecordedProcessSnapshot `
+      ([int]$receipt.processId) $DjangoSupervisorPidPath $receipt.creationDate $receipt.startedAt
     if ($null -ne $snapshot) {
       $creation = ConvertTo-CanonicalCreationDate $receipt.creationDate
       if ([string]$snapshot.CreationDate -cne $creation -or
