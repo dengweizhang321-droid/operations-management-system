@@ -1,0 +1,24 @@
+test_cancel_moves_product_out_of_active_statistics_into_inactive_pages_and_restore (inventory.tests.test_jd_product_monitoring.ProductMonitoringTests.test_cancel_moves_product_out_of_active_statistics_into_inactive_pages_and_restore) ... ok
+test_monitoring_validation_is_bounded_isolated_and_other_settings_preserve_state (inventory.tests.test_jd_product_monitoring.ProductMonitoringTests.test_monitoring_validation_is_bounded_isolated_and_other_settings_preserve_state) ... ok
+test_signed_monitoring_write_permissions_and_revision_conflict (inventory.tests.test_jd_product_monitoring.ProductMonitoringTests.test_signed_monitoring_write_permissions_and_revision_conflict) ... Forbidden: /api/inventory/jd-logistics
+2026-10-17 10:36:21,254 level=WARNING logger=django.request message=Forbidden: /api/inventory/jd-logistics
+Forbidden: /api/inventory/jd-logistics
+2026-10-17 10:36:21,255 level=WARNING logger=django.request message=Forbidden: /api/inventory/jd-logistics
+Conflict: /api/inventory/jd-logistics
+2026-10-17 10:36:21,280 level=WARNING logger=django.request message=Conflict: /api/inventory/jd-logistics
+Bad Request: /api/inventory/jd-logistics
+2026-10-17 10:36:21,292 level=WARNING logger=django.request message=Bad Request: /api/inventory/jd-logistics
+Bad Request: /api/inventory/jd-logistics
+2026-10-17 10:36:21,293 level=WARNING logger=django.request message=Bad Request: /api/inventory/jd-logistics
+ok
+test_three_and_fifteen_day_sales_use_source_columns_without_changing_health_or_hashes (inventory.tests.test_jd_product_monitoring.ProductMonitoringTests.test_three_and_fifteen_day_sales_use_source_columns_without_changing_health_or_hashes) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 1.690s
+
+OK
+Planned operations:
+inventory.0016_jd_product_monitoring
+    Add field unmonitored_product_codes to jdlogisticsdepartment
+No changes detected in app 'inventory'
+{"isolatedPostgresql": true, "forwardReverseForward": true, "existingPreferencesPreserved": true, "schemaOnly": true, "productionTouched": false, "tests": 4}

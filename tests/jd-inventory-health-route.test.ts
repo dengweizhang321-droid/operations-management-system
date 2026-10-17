@@ -68,7 +68,7 @@ test("public health TAB query reaches the exact signed reader with all members a
     return Response.json(payload, { headers: { "x-inventory-data-revision": "5:abcdef123456" } });
   });
   for (const healthState of ["all", ...jdInventoryHealthStates]) {
-    expected = new URLSearchParams({ operation: "inventory_monitor", departmentId: "SYNTHETIC-BU", layout: "product", salesWindow: "30", healthState, pageSize: "1" });
+    expected = new URLSearchParams({ operation: "inventory_monitor", departmentId: "SYNTHETIC-BU", layout: "product", salesWindow: "30", healthState, monitoringState: calls % 2 ? "inactive" : "active", pageSize: "1" });
     const response = await route.GET(new Request(`https://test.invalid${path}?${expected}`));
     assert.equal(response.status, 200, JSON.stringify(await response.clone().json()));
     assert.deepEqual(await response.json(), payload);
@@ -81,7 +81,7 @@ test("public health TAB query reaches the exact signed reader with all members a
 test("public health rejects unknown, empty, repeated, or invented query keys before transport", async t => {
   let calls = 0;
   setup(t, async () => { calls++; throw new Error("must not dispatch"); });
-  for (const query of ["healthState=unknown", "healthState=", "healthState=stockout&healthState=replenish", "healthState=all&healthFilter=stockout"]) {
+  for (const query of ["healthState=unknown", "healthState=", "healthState=stockout&healthState=replenish", "healthState=all&healthFilter=stockout", "monitoringState=other", "monitoringState=", "monitoringState=active&monitoringState=inactive", "applyWarehousePreferences=false"]) {
     const response = await route.GET(new Request(`https://test.invalid${path}?operation=inventory_monitor&${query}`));
     assert.equal(response.status, 400);
     assert.equal((await response.json()).code, "invalid_request");

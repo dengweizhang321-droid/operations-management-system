@@ -122,7 +122,7 @@ def _department(identifier):
 
 
 def _department_payload(row):
-    return {"id": row.id, "name": row.name, "businessUnitCode": row.business_unit_code, "storeKeys": row.store_keys, "capabilities": {kind: row.capabilities.get(kind) is True for kind in SOURCE_KINDS}, "logisticsEnabled": row.logistics_enabled, "monitorEnabled": row.monitor_enabled, "pushEnabled": row.push_enabled, "stockoutThresholdDays": row.stockout_threshold_days, "replenishmentCycleDays": row.replenishment_cycle_days, "warehousePreferences": row.warehouse_preferences, "productOrder": row.product_order, "revision": row.revision, "updatedAt": row.updated_at.isoformat()}
+    return {"id": row.id, "name": row.name, "businessUnitCode": row.business_unit_code, "storeKeys": row.store_keys, "capabilities": {kind: row.capabilities.get(kind) is True for kind in SOURCE_KINDS}, "logisticsEnabled": row.logistics_enabled, "monitorEnabled": row.monitor_enabled, "pushEnabled": row.push_enabled, "stockoutThresholdDays": row.stockout_threshold_days, "replenishmentCycleDays": row.replenishment_cycle_days, "warehousePreferences": row.warehouse_preferences, "productOrder": row.product_order, "unmonitoredProductCodes": row.unmonitored_product_codes, "revision": row.revision, "updatedAt": row.updated_at.isoformat()}
 
 
 def _mapping_payload(row):
@@ -392,6 +392,25 @@ def _warehouse_preferences(values, department):
     return result
 
 
+def _product_monitoring(value, department):
+    if not isinstance(value, dict):
+        _error("商品监控设置格式无效")
+    _keys(value, {"goodsCode", "enabled"}, {"goodsCode", "enabled"})
+    goods = _text(value["goodsCode"], "监控商品", 160)
+    if not isinstance(value["enabled"], bool):
+        _error("商品监控开关必须为明确布尔值")
+    if not JdLogisticsFact.objects.filter(department=department, goods_code=goods, goods_code_kind="jd_sku", source_kind__in=["realtime_inventory", "inventory_snapshot"]).exists():
+        _error("商品必须属于当前事业部库存来源")
+    result = set(department.unmonitored_product_codes)
+    if value["enabled"]:
+        result.discard(goods)
+    else:
+        result.add(goods)
+    if len(result) > MAX_ROWS:
+        _error("取消监控商品超过20000项", "query_too_large", 413)
+    return sorted(result)
+
+
 def _move_product(value, department):
     if not isinstance(value, dict):
         _error("商品排序格式无效")
@@ -420,7 +439,7 @@ def mutate(payload, actor):
     if not isinstance(operation, str) or operation not in {"settings", "mapping", "manual"}:
         _error("维护操作无效")
     common = {"operation", "departmentId", "expectedRevision"}
-    fields = {"settings": {"name", "businessUnitCode", "storeKeys", "capabilities", "logisticsEnabled", "monitorEnabled", "pushEnabled", "stockoutThresholdDays", "replenishmentCycleDays", "warehousePreferences", "productMove"}, "mapping": {"goodsCode", "goodsCodeKind", "erpGoodsCode", "erpGoodsName", "status", "note"}, "manual": {"documentNo", "goodsCode", "transferStatus", "erpDocumentNo", "note", "expectedFlowRevision"}}
+    fields = {"settings": {"name", "businessUnitCode", "storeKeys", "capabilities", "logisticsEnabled", "monitorEnabled", "pushEnabled", "stockoutThresholdDays", "replenishmentCycleDays", "warehousePreferences", "productMove", "productMonitoring"}, "mapping": {"goodsCode", "goodsCodeKind", "erpGoodsCode", "erpGoodsName", "status", "note"}, "manual": {"documentNo", "goodsCode", "transferStatus", "erpDocumentNo", "note", "expectedFlowRevision"}}
     _keys(payload, common | fields[operation], common)
     identifier = _text(payload["departmentId"], "事业部ID", 80)
     expected = _integer(payload["expectedRevision"], "人工版本", minimum=0)
@@ -468,6 +487,8 @@ def mutate(payload, actor):
                 row.warehouse_preferences = _warehouse_preferences(payload["warehousePreferences"], row)
             if "productMove" in payload:
                 row.product_order = _move_product(payload["productMove"], row)
+            if "productMonitoring" in payload:
+                row.unmonitored_product_codes = _product_monitoring(payload["productMonitoring"], row)
             row.revision = expected + 1
             row.updated_by, row.updated_at = actor, timezone.now()
             row.save()
@@ -686,6 +707,7 @@ def _inventory_date_pair(live, snapshot):
 
 LIVE_METRICS = ("onHandQuantity", "availableQuantity", "lockedQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity")
 SALES_METRICS = ("sales7dQuantity", "sales30dQuantity")
+EXTRA_SALES_METRICS = ("sales3dQuantity", "sales15dQuantity")
 DERIVED_METRICS = ("postReplenishmentQuantity", "turnoverDays", "availableDays", "availableWithTransitDays", "nativeTurnover30d", "stockoutAvailableDays30d", "suggestedReplenishmentQuantity")
 MATRIX_METRICS = LIVE_METRICS + SALES_METRICS + DERIVED_METRICS
 MAX_MATRIX_COLUMNS = 200
@@ -707,6 +729,22 @@ def _native_turnover(data):
         return None, ["invalid_native_turnover"]
     parsed = float(value)
     return (parsed, []) if math.isfinite(parsed) else (None, ["invalid_native_turnover"])
+
+
+def _extra_source_sales(data, days):
+    # Existing imports retain these exact source columns as textual evidence.
+    # Read them without rewriting old facts or changing import content hashes.
+    field = f"sales{days}dQuantity"
+    attributes = data.get("sourceAttributes", {})
+    raw = attributes.get(f"近{days}天销售出库件数")
+    if raw is None or raw == "":
+        return None, ["missing_" + field]
+    if not isinstance(raw, str) or not re.fullmatch(r"[+-]?\d+", raw.strip()):
+        return None, ["invalid_" + field]
+    quantity = int(raw)
+    if abs(quantity) > 9_007_199_254_740_991:
+        return None, ["invalid_" + field]
+    return quantity, []
 
 
 def _health_counts():
@@ -830,6 +868,9 @@ def _warehouse_metrics(live, snapshot, date_qualifications, sales_window, replen
         reasons[key] = _reasons(live_reasons, ["missing_" + key] if metrics[key] is None else [])
     for key in SALES_METRICS:
         reasons[key] = _reasons(snapshot_reasons, ["missing_" + key] if metrics[key] is None else [])
+    for key, days in zip(EXTRA_SALES_METRICS, (3, 15)):
+        metrics[key], extra_reasons = _extra_source_sales(snapshot_data, days)
+        reasons[key] = _reasons(snapshot_reasons, extra_reasons)
     reasons["postReplenishmentQuantity"] = _reasons(*(reasons[key] for key in ("availableQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity")))
     metrics["postReplenishmentQuantity"] = sum(metrics[key] for key in ("availableQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity")) if not reasons["postReplenishmentQuantity"] else None
     demand_key = "sales7dQuantity" if sales_window == 7 else "sales30dQuantity"
@@ -860,13 +901,13 @@ def _monitor_warning(available_days_30d, threshold, enabled):
 
 def _aggregate_metrics(rows, sales_window, *, scope_total=False, partial_quantities=False):
     metrics, reasons = {}, {}
-    for key in LIVE_METRICS + SALES_METRICS:
-        field_reasons = _reasons(*(row["metricQualifications"][key] for row in rows))
+    for key in LIVE_METRICS + SALES_METRICS + EXTRA_SALES_METRICS:
+        field_reasons = _reasons(*(row["metricQualifications"].get(key, ["missing_" + key]) for row in rows))
         if not rows:
             field_reasons = ["empty_scope"]
-        metrics[key] = sum(row[key] for row in rows) if not field_reasons else None
+        metrics[key] = sum(row.get(key) for row in rows) if not field_reasons else None
         if partial_quantities and field_reasons:
-            known = [row[key] for row in rows if row[key] is not None]
+            known = [row.get(key) for row in rows if row.get(key) is not None]
             metrics[key] = sum(known) if known else None
             if known and len(known) < len(rows):
                 field_reasons = _reasons(field_reasons, ["partial_quantity_sum"])
@@ -943,6 +984,9 @@ def inventory_monitor(filters):
     sales_window = filters.get("salesWindow", 30)
     if layout not in {"warehouse", "product"} or isinstance(sales_window, bool) or sales_window not in {7, 30}:
         _error("库存布局或销量窗口无效")
+    monitoring_state = filters.get("monitoringState", "active")
+    if not isinstance(monitoring_state, str) or monitoring_state not in {"active", "inactive"}:
+        _error("商品监控范围无效")
     health_state = filters.get("healthState", "all")
     if health_state not in HEALTH_FILTER_STATES:
         _error("库存健康筛选无效")
@@ -1003,10 +1047,13 @@ def inventory_monitor(filters):
     if filters.get("applyWarehousePreferences", True):
         # Hide all-dash products in the current warehouse scope, before TABs/pages.
         items = _products_with_inventory_values(items)
+    inactive = {(department_id, code) for department_id, department in departments.items() for code in department.unmonitored_product_codes}
+    inactive_total = len({(row["departmentId"], row["goodsCode"]) for row in items if (row["departmentId"], row["goodsCode"]) in inactive})
+    items = [row for row in items if ((row["departmentId"], row["goodsCode"]) in inactive) == (monitoring_state == "inactive")]
     items, health_counts, health_filter_counts = _health_filter_scope(items, health_state)
     summary = {"monitoredCount": len(items), "qualifiedCount": sum(item["qualified"] for item in items), "stockoutRiskCount": sum(item["warningState"] == "stockout_risk" for item in items)}
     projection = _product_matrix(items, filters, sales_window) if layout == "product" else {**_page(items, filters), "layout": "warehouse", "salesWindow": sales_window, "totals": _aggregate_metrics(items, sales_window, scope_total=True)}
-    projection.update(healthState=health_state, healthCounts=health_counts, healthFilterCounts=health_filter_counts)
+    projection.update(monitoringState=monitoring_state, inactiveTotal=inactive_total, healthState=health_state, healthCounts=health_counts, healthFilterCounts=health_filter_counts)
     from .jd_logistics_notifications import notification_available
     return _base(**projection, summary=summary, notificationAvailable=notification_available(), coverageWarnings=["本页销量采用京东销售出库件数，不是店铺成交订单数。各指标仅按自身依赖计算：缺少7日销量、ERP标签或快照不抹去可计算的实时库存与补货后库存；ERP待对照单独披露。", "系统周转采用现货÷30日销售出库×30；缺货提醒独立采用可用÷30日销售出库×30，固定30日不随7/30显示窗口切换。可售天数采用所选窗口，补货后采用可用＋采购在途＋调拨在途；均先合计数量及需求，不平均分仓天数。", "实时日T可配对截至T或T-1的快照销量，两个日期分别展示；来源时期不可比时合计天数为未知，单品矩阵及其范围合计展示已知数量之和，缺失成员保留依据并标为部分数据；全部未知仍显示未知，不将缺失当零。汇总表示当前范围，不代表全国。", "列按独立来源仓及事业部仓库设置显示，关闭仓库不参与本页明细、合计及健康统计；来源身份与原始名称保留。京东原生30天周转只在来源单仓明细显示，不对其求和或平均；图片和价格缺少来源时为空；通知须独立全局渠道及事业部三开配置，并经服务端当前风险重算、动态目标核验和投递账本约束。"])
 

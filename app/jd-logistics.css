@@ -103,3 +103,12 @@
 .jd-monitor-switch input { width: 18px; height: 18px; accent-color: var(--color-brand, #4265db); }
 .jd-cwarehouse-product-row:has(.jd-monitor-drag):hover { background: var(--color-bg-subtle, #f6f7f9); }
 @media (max-width: 650px) { .jd-monitor-warehouse-row { flex-wrap: wrap; } .jd-logistics-heading-actions { flex-wrap: wrap; } }
+
+.jd-cwarehouse-monitor-action { white-space: nowrap; }
+.jd-monitor-inactive { padding: 16px; }
+.jd-monitor-inactive > summary { cursor: pointer; font-weight: 600; }
+.jd-monitor-inactive > div { margin-top: 16px; }
+.with-monitor-actions > thead > tr > .jd-cwarehouse-total-cell,
+.with-monitor-actions > tbody > .jd-cwarehouse-product-row > .jd-cwarehouse-total-cell { right: 104px; }
+.with-monitor-actions .jd-cwarehouse-monitor-action { position: sticky; right: 0; width: 104px; min-width: 104px; max-width: 104px; background: var(--surface); z-index: 2; }
+.with-monitor-actions > thead > tr > .jd-cwarehouse-monitor-action { z-index: 3; background: var(--color-bg-subtle); }

@@ -1,0 +1,33 @@
+{
+  "productionTouched": false,
+  "started": true,
+  "stopped": true,
+  "port": 54517,
+  "steps": [
+    {
+      "step": "initdb",
+      "exitCode": 0,
+      "seconds": 6.39
+    },
+    {
+      "step": "start",
+      "exitCode": 0,
+      "seconds": 0.36
+    },
+    {
+      "step": "database",
+      "exitCode": 0,
+      "seconds": 0.39
+    },
+    {
+      "step": "verify",
+      "exitCode": 0,
+      "seconds": 4.672
+    },
+    {
+      "step": "stop",
+      "exitCode": 0,
+      "seconds": 1.25
+    }
+  ]
+}

@@ -61,6 +61,19 @@ test("expanded product retains warehouse sources, original turnover and separate
   assert.match(render(decodeCwarehouseProductMonitor(partial), true), /分仓明细未完整返回/);
 });
 
+test("warehouse details show source-native three and fifteen day quantities and put monitoring after totals", () => {
+  const data = fixture();
+  data.items[0].details[0].sales3dQuantity = 3;
+  data.items[0].details[0].sales15dQuantity = 15;
+  const html = renderToStaticMarkup(createElement(ProductMatrix, { data, expandedIds: new Set(["product-one"]), onToggle: () => undefined, onMonitoringChange: () => undefined }));
+  assert.match(html, /3日销量<\/th><th>7日销量<\/th><th>15日销量<\/th><th>30日销量/);
+  assert.match(html, /当前范围合计<\/th><th class="jd-cwarehouse-monitor-action">监控操作/);
+  assert.match(html, /取消监控合成矩阵商品/);
+  data.monitoringState = "inactive";
+  const inactive = renderToStaticMarkup(createElement(ProductMatrix, { data, expandedIds: new Set<string>(), onToggle: () => undefined, onMonitoringChange: () => undefined }));
+  assert.match(inactive, /添加监控合成矩阵商品/);
+});
+
 test("matrix contract rejects duplicate or foreign columns, missing metrics and falsely complete details", () => {
   const duplicate = fixture(); duplicate.columns.push(duplicate.columns[0]); assert.throws(() => decodeCwarehouseProductMonitor(duplicate), /响应不完整/);
   const foreign = fixture(); foreign.items[0].cells[0].columnKey = "unreported-scope"; assert.throws(() => decodeCwarehouseProductMonitor(foreign), /响应不完整/);

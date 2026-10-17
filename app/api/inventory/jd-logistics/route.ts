@@ -6,7 +6,7 @@ import { parseJdLogisticsWorkbook, JD_LOGISTICS_MAX_FILE_BYTES } from "@/lib/inv
 
 const MAX_BYTES = 48 * 1024 * 1024;
 const readOperations = new Set(["options", "overview", "flows", "transfers", "mappings", "products", "batches", "settings", "inventory_monitor", "notifications"]);
-const queryKeys = new Set(["operation", "departmentId", "businessUnitCode", "warehouseCode", "warehouseKey", "goodsCodeKind", "startDate", "endDate", "q", "page", "pageSize", "sourceKind", "batchId", "layout", "salesWindow", "healthState", "deliveryId"]);
+const queryKeys = new Set(["operation", "departmentId", "businessUnitCode", "warehouseCode", "warehouseKey", "goodsCodeKind", "startDate", "endDate", "q", "page", "pageSize", "sourceKind", "batchId", "layout", "salesWindow", "healthState", "monitoringState", "deliveryId"]);
 const healthStates = new Set<string>(["all", ...jdInventoryHealthStates]);
 const fail = (message: string): never => { throw new PublicApiError(400, "invalid_request", message); };
 async function boundedBody(request: Request) {
@@ -34,6 +34,7 @@ async function handle(request: Request) {
     const params = new URL(request.url).searchParams;
     if ([...params.keys()].some(key => !queryKeys.has(key) || params.getAll(key).length > 1)) fail("京东物流查询参数未知或重复");
     if (params.has("healthState") && !healthStates.has(params.get("healthState")!)) fail("库存健康筛选无效");
+    if (params.has("monitoringState") && !["active", "inactive"].includes(params.get("monitoringState")!)) fail("商品监控范围无效");
     if (method === "GET" && !readOperations.has(params.get("operation") ?? "")) fail("请选择有效的京东物流查询操作");
     if (method === "GET" && params.get("operation") === "notifications" && principal.role !== "admin") throw new PublicApiError(403, "access_denied", "仅管理员可查询物流提醒投递结果");
     let payload: Record<string, unknown> | undefined;
