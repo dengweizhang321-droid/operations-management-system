@@ -23,6 +23,7 @@ export function candidateTestEnvironment({gitExe,shell5,shell7,pythonExe,directo
  const environment=publisherEnvironment(process.env);
  environment.PATH=[path.dirname(process.execPath),path.dirname(gitExe),path.dirname(shell7),path.dirname(pythonExe),path.join(environment.SYSTEMROOT,'System32'),path.dirname(shell5)].join(';');
  environment.PSModuleAnalysisCachePath=path.join(directory,'module-cache');
+ environment.PSModulePath=path.join(path.dirname(shell7),'Modules');
  environment.PYTHONDONTWRITEBYTECODE='1';environment.PYTHONIOENCODING='utf-8';
  return environment;
 }
@@ -96,6 +97,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   const environment=candidateTestEnvironment({gitExe,shell5,shell7,pythonExe,directory});
   report.environmentSha256=sha(Buffer.from(JSON.stringify(environment)));
   report.tools=await Promise.all([process.execPath,shell5,shell7,pythonExe,gitExe].map(async file=>({path:file,sha256:sha(await fs.readFile(file))})));
+  report.powerShellModules={root:environment.PSModulePath,tree:await hashTree(environment.PSModulePath)};
   await git(source,['worktree','add','--detach',candidate,commit]);attached=true;
   assert.ok(dependencies||(!profile.worker&&!profile.django&&!profile.publication),'该profile需要显式的只读依赖目录');
   if(dependencies){
@@ -139,6 +141,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   for(const member of report.payload)assert.equal(sha(await fs.readFile(path.join(candidate,member.path))),member.sha256,'验证期间候选字节变化：'+member.path);
   if(report.dependencies)assert.deepEqual(await hashTree(report.dependencies.physicalRoot),report.dependencies.tree,'验证期间依赖字节发生变化');
   for(const tool of report.tools)assert.equal(sha(await fs.readFile(tool.path)),tool.sha256,'验证期间执行工具发生变化：'+tool.path);
+  assert.deepEqual(await hashTree(report.powerShellModules.root),report.powerShellModules.tree,'验证期间PowerShell模块发生变化');
   report.evidence.packageIntegrity=report.checks.some(c=>c.kind==='package-integrity');
   report.evidence.nativeEntryBoundary=report.checks.some(c=>c.kind==='native-entry-boundary');
   report.nativeColdStartReason='Not executed: profiles cover package digests, admission and native command boundaries; no Start/Stop routing semantics changed.';

@@ -73,6 +73,6 @@ test('one-shot and published-record observations never launch a popup',async()=>
 });
 test('desktop command only shows a local message with a validated commit, never a release command',()=>{
  const command=popupCommand({status:'prepared',targetCommit:'a'.repeat(40)}),code=Buffer.from(command.args.at(-1),'base64').toString('utf16le');
- assert.match(code,/WScript.Shell/);assert.match(code,/打包完成/);assert.match(code,/手动发布/);assert.doesNotMatch(code,/Start-Process|Invoke-Expression|\.bat['"]|deploy-only/);
+ assert.match(code,/WScript.Shell/);assert.match(code,/打包完成/);assert.match(code,/发布负责人按本次授权/);assert.doesNotMatch(code,/Start-Process|Invoke-Expression|\.bat['"]|deploy-only/);
  assert.throws(()=>popupCommand({status:'queued',targetCommit:'a'.repeat(40)}));assert.throws(()=>popupCommand({status:'prepared',targetCommit:"';evil"}));
 });
