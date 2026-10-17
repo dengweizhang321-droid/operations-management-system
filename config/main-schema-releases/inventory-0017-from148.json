@@ -1,0 +1,15 @@
+{
+  "version": "teruisi-main-schema-recipe-v1",
+  "additionKind": "TmallWarehouse",
+  "fromGeneration": 148,
+  "toGeneration": 149,
+  "steps": [
+    "inventory.0017_tmall_warehouse"
+  ],
+  "stepFiles": {
+    "backend/inventory/migrations/0017_tmall_warehouse.py": "fbb8e96c56dcec5c5b3acc70cf9dbf186c8e589a17243ed9e3b373bd73c24610"
+  },
+  "validation": "docs/tmall-warehouse-monitor-20261017/schema-validation.json",
+  "validationSha256": "9521a671ba4f443a2abb687ed5f30e5d9b45d74b13bcc8b5f3adca7ffc7b5d97",
+  "codeSha256": "ce713799e3923b5597d58aa9d277d3248dc53cea9f651b813a474c54cdcba9fe"
+}

@@ -491,6 +491,11 @@ REQUIRED_JD_INVENTORY_READER_COLUMNS = {
     "inventory_jd_logistics_mappings": {"id", "department_id", "goods_code", "goods_code_kind", "erp_goods_code", "erp_goods_name", "status", "note", "revision", "updated_by", "updated_at"},
     "inventory_jd_logistics_manual_states": {"id", "department_id", "document_no", "goods_code", "transfer_status", "erp_document_no", "note", "flow_revision", "revision", "updated_by", "updated_at"},
 }
+REQUIRED_TMALL_INVENTORY_READER_COLUMNS = {
+    'inventory_tmall_warehouse_scopes': {'owner_token', 'owner', 'updated_at', 'revision', 'latest_snapshot_date'},
+    'inventory_tmall_warehouse_batches': {'status', 'warehouse_membership', 'owner', 'raw_file_hash', 'scope_revision', 'source_as_of', 'collector_evidence', 'created_at', 'file_name', 'reference_batch_id', 'content_hash', 'row_count', 'snapshot_date', 'source_url', 'actor', 'source_date', 'id', 'collected_at'},
+    'inventory_tmall_warehouse_facts': {'goods_id', 'good_occupied_quantity', 'owner', 'sales_30d_quantity', 'goods_name', 'purchase_in_transit_quantity', 'sales_7d_quantity', 'source_attributes', 'warehouse_key', 'region', 'transfer_in_transit_quantity', 'sales_occupied_quantity', 'snapshot_date', 'defective_quantity', 'on_hand_quantity', 'source_row_number', 'good_available_quantity', 'warehouse', 'warehouse_code', 'available_quantity', 'goods_code', 'id', 'brand', 'batch_id'},
+}
 # BI consumes the established inventory overview, not JD logistics facts.
 REQUIRED_BI_INVENTORY_COLUMNS = {
     "inventory_guangdong_monitor_items": {"product_code", "active", "notes", "lead_days_override", "buffer_days_override", "operator_name_override", "buyer_override", "risk_override", "risk_reason_override", "updated_by", "updated_at"},
@@ -529,8 +534,10 @@ REQUIRED_BI_INVENTORY_COLUMNS = {
 REQUIRED_INVENTORY_COLUMNS = {
     **REQUIRED_BI_INVENTORY_COLUMNS,
     **REQUIRED_JD_INVENTORY_READER_COLUMNS,
+    **REQUIRED_TMALL_INVENTORY_READER_COLUMNS,
 }
 REQUIRED_INVENTORY_WRITER_COLUMNS = {
+    "inventory_tmall_warehouse_audits": {"id", "owner", "batch_id", "actor", "status", "result", "created_at"},
     "inventory_jd_logistics_audits": {"id", "department_id", "operation", "object_key", "actor", "before", "after", "created_at"},
     "inventory_guangdong_monitor_audits": {"id", "action", "source", "raw_hash", "content_hash", "actor", "status", "result", "created_at"},
     **REQUIRED_INVENTORY_COLUMNS,
@@ -571,6 +578,7 @@ REQUIRED_BI_INVENTORY_INDEXES = {
 REQUIRED_INVENTORY_READER_INDEXES = REQUIRED_BI_INVENTORY_INDEXES | {
     "inv_jdl_delivery_guard_idx", "inv_jdl_batch_idx",
     "inv_jdl_fact_scope_idx", "inv_jdl_fact_doc_idx",
+    "inv_tmw_batch_scope_idx", "inv_tmw_fact_scope_idx",
 }
 REQUIRED_INVENTORY_WRITER_INDEXES = REQUIRED_INVENTORY_READER_INDEXES | {
     "inv_attempt_scope_idx", "inv_upload_fingerprint_idx", "inv_upload_expiry_idx",
@@ -578,6 +586,11 @@ REQUIRED_INVENTORY_WRITER_INDEXES = REQUIRED_INVENTORY_READER_INDEXES | {
     "inv_group_delivery_status_idx",
 }
 INVENTORY_WRITER_TABLE_PRIVILEGES = {
+    "inventory_tmall_warehouse_scopes": ('SELECT', 'INSERT', 'UPDATE'),
+    "inventory_tmall_warehouse_batches": ('SELECT', 'INSERT'),
+    "inventory_tmall_warehouse_facts": ('SELECT', 'INSERT', 'DELETE'),
+    "inventory_tmall_warehouse_audits": ('SELECT', 'INSERT'),
+
     "inventory_jd_logistics_deliveries": ("SELECT", "INSERT", "UPDATE"),
     "inventory_jd_logistics_departments": ("SELECT", "INSERT", "UPDATE"),
     "inventory_jd_logistics_scopes": ("SELECT", "INSERT", "UPDATE"),
@@ -613,6 +626,7 @@ INVENTORY_WRITER_TABLE_PRIVILEGES = {
     "inventory_operating_settings": ("SELECT", "UPDATE"),
 }
 INVENTORY_WRITER_AUTO_ID_TABLES = (
+    "inventory_tmall_warehouse_facts",
     "inventory_stock_lines", "inventory_age_lines", "inventory_import_fingerprints",
     "inventory_raw_upload_chunks",
 )
@@ -1761,6 +1775,7 @@ def _validate_inventory_schema(cursor, *, writer: bool, bi_consumer: bool = Fals
         "inventory_replenishment_group_deliveries",
         "inventory_jd_logistics_batches", "inventory_jd_logistics_facts",
         "inventory_jd_logistics_deliveries",
+        "inventory_tmall_warehouse_batches", "inventory_tmall_warehouse_facts",
     )
     present_indexes: set[str] = set()
     for table in indexed_tables:

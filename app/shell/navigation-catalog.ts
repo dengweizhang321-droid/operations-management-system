@@ -23,14 +23,14 @@ export type ModuleKey = (typeof moduleKeys)[number];
 export const moduleViewCatalog = {
   n8n_workflows: {
     defaultView: "jackyun",
-    views: ["jackyun", "tmall", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat", "jd_logistics"],
+    views: ["jackyun", "tmall", "tmall_warehouse", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat", "jd_logistics"],
   },
   dashboard: { defaultView: "overview", views: ["overview"] },
   shop: { defaultView: "analysis", views: ["analysis", "outlets", "platforms", "products", "promotion"] },
   market: { defaultView: "ranking", views: ["ranking", "overview", "compare", "settings"] },
   customer_service: { defaultView: "conversations", views: ["conversations"] },
   sales: { defaultView: "overview", views: ["overview", "channel", "category", "finance", "targets"] },
-  inventory: { defaultView: "overview", views: ["overview", "age", "plan", "stale", "inbound", "guangdong"] },
+  inventory: { defaultView: "overview", views: ["overview", "age", "plan", "stale", "inbound", "tmall_warehouse", "guangdong"] },
   product: { defaultView: "overview", views: ["overview", "calculator"] },
   workflow: { defaultView: "plan", views: ["plan", "inspection", "reviews", "launch", "launch-followup", "variables"] },
   import: { defaultView: "files", views: ["files", "history", "chains"] },

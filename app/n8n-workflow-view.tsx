@@ -8,11 +8,12 @@ import jdMarketWorkflowDefinition from "@/automation/n8n/jd-market-ranking-daily
 import jdPromotionWorkflowDefinition from "@/automation/n8n/jd-promotion-daily.workflow.json";
 import jdPromotionCutMeatWorkflowDefinition from "@/automation/n8n/jd-promotion-cut-meat-20260813-14.workflow.json";
 import jdLogisticsWorkflowDefinition from "@/automation/n8n/jd-logistics-daily.workflow.json";
+import tmallWarehouseWorkflowDefinition from "@/automation/n8n/tmall-warehouse-daily.workflow.json";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import { JackyunRecoveryControls } from "./jackyun-recovery-controls";
 
 type AppRole = "viewer" | "analyst" | "operator" | "admin";
-type WorkflowKey = "jackyun" | "tmall" | "jd" | "jd_market" | "jd_promotion" | "jd_promotion_cut_meat" | "jd_logistics";
+type WorkflowKey = "jackyun" | "tmall" | "tmall_warehouse" | "jd" | "jd_market" | "jd_promotion" | "jd_promotion_cut_meat" | "jd_logistics";
 
 type N8nWorkflowViewProps = {
   currentUser: { role: AppRole } | null;
@@ -35,7 +36,8 @@ type HelperHealthPayload = {
   ok?: boolean;
   stage?: string;
   busy?: boolean;
-  activeWorkflow?: "tmall" | "jackyun" | "jd" | "jd-market" | "jd-promotion" | "jd-logistics" | null;
+  activeWorkflow?: "tmall" | "tmall-warehouse" | "jackyun" | "jd" | "jd-market" | "jd-promotion" | "jd-logistics" | null;
+  tmallWarehouseProfile?: "ready" | "missing" | "invalid";
   jdLogisticsProfile?: "ready" | "missing" | "invalid";
   cookieSource?: "ready" | "missing" | "invalid";
   tmallProfile?: "ready" | "missing" | "invalid";
@@ -74,6 +76,21 @@ type WorkflowConfig = {
 const helperHealthUrl = "http://127.0.0.1:5791/health";
 
 const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
+  tmall_warehouse: {
+    key: "tmall_warehouse", definition: tmallWarehouseWorkflowDefinition as N8nWorkflowDefinition,
+    subtitle: "天猫供应链平台实仓良品库存自动导出、下载、导入与精确批次回查。",
+    tags: ["天猫入仓", "Asia/Shanghai", "独立账号会话"], flowLabel: "A → B → C → D",
+    pipelineTitle: "天猫入仓库存导入", pipelineDescription: "绑定货主与本次采集日，下载原始库存表后校验导入，并回查精确批次及当前快照。",
+    workflowMetric: "天猫入仓导入", scheduleMetric: "待启用", scheduleDescription: "默认关闭；先配置专用会话并完成首次核验", scheduleTriggerLabel: "每日（待启用）",
+    iframeTitle: "天猫入仓监控 n8n 导入工作流",
+    safetyNote: "流程使用天猫供应链独立会话，不复用网店商品推广流程。实时库存以实际采集日保存；缺少销量时不计算周转和建议补货。导出或导入结果未决时停止重发。",
+    stageDetails: {
+      A: { title: "绑定货主与采集日", description: "核对专用账号、完整来源及当前上海日期，持久记录本次执行身份。" },
+      B: { title: "导出、下载并导入", description: "从实仓良品实时库存页导出一次，签收原件并校验字段、行数及文件哈希，调用库存域导入。" },
+      C: { title: "精确批次回查", description: "读取本次批次及重复内容引用，核对货主、日期、内容哈希、明细数与当前事实归属。" },
+      D: { title: "释放会话与执行权", description: "关闭本流程独占浏览器并释放helper；保留导出、下载、导入和回查记录。" },
+    },
+  },
   jd_logistics: {
     key: "jd_logistics",
     definition: jdLogisticsWorkflowDefinition as N8nWorkflowDefinition,
@@ -233,6 +250,7 @@ export function shouldMountN8nWorkflowEditor(
 }
 
 function checkingHelper(key: WorkflowKey): HelperAvailability {
+  if (key === "tmall_warehouse") return { kind: "checking", label: "正在检测天猫入仓采集器", detail: "正在核对供应链专用会话与独立流程配置。" };
   if (key === "jd_logistics") return { kind: "checking", label: "正在检测物流辅助服务", detail: "正在确认物流路由、受控账号会话与默认关闭的来源绑定。" };
   return {
     kind: "checking",
@@ -253,6 +271,11 @@ function checkingHelper(key: WorkflowKey): HelperAvailability {
 
 function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): HelperAvailability {
   if (payload.ok !== true) throw new Error("invalid_health_response");
+  if (key === "tmall_warehouse") {
+    if (payload.tmallWarehouseProfile !== "ready") return { kind: "cookie-missing", label: "天猫入仓来源待配置", detail: "请先配置供应链专用会话并核验登录货主，再启用独立n8n工作流。" };
+    if (payload.busy || payload.stage !== "ready") return { kind: "running", label: "共享采集器忙碌", detail: "等待当前采集流程结束，天猫入仓不抢占其他会话。" };
+    return { kind: "ready", label: "天猫入仓采集配置已就绪", detail: "配置与专用Profile已存在；A节点仍须核验登录货主，工作流安装与启用状态分别核验。" };
+  }
   if (key === "jd_logistics") {
     if (payload.jdLogisticsProfile !== "ready") return { kind: "cookie-missing", label: "京东物流来源待配置", detail: "辅助服务尚未报告物流来源就绪。请先配置事业部与受控账号、核验文件契约；新店默认关闭。" };
     if (payload.busy || payload.stage !== "ready") return { kind: "running", label: "共享采集器忙碌", detail: "等待当前串行流程结束，物流任务不得抢占其他店铺会话。" };

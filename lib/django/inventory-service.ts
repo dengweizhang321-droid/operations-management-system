@@ -23,8 +23,10 @@ export const INVENTORY_CONSUMER_QUERY_PATH = "/api/inventory/consumers/query";
 export const INVENTORY_UPLOADS_PATH = "/api/inventory/uploads";
 export const INVENTORY_UPLOAD_CHUNK_PATH = "/api/inventory/uploads/chunk";
 export const INVENTORY_JD_LOGISTICS_PATH = "/api/inventory/jd-logistics";
+export const INVENTORY_TMALL_WAREHOUSE_PATH = "/api/inventory/tmall-warehouse";
 
 const readerMethods = new Set([
+  `GET ${INVENTORY_TMALL_WAREHOUSE_PATH}`,
   `GET ${INVENTORY_JD_LOGISTICS_PATH}`,
   `GET ${INVENTORY_GUANGDONG_PATH}`,
   `GET ${INVENTORY_GUANGDONG_PATH}/watchlist`,
@@ -42,6 +44,7 @@ const readerMethods = new Set([
   `POST ${INVENTORY_CONSUMER_QUERY_PATH}`,
 ]);
 const writerMethods = new Set([
+  `POST ${INVENTORY_TMALL_WAREHOUSE_PATH}`,
   `POST ${INVENTORY_JD_LOGISTICS_PATH}`,
   `PATCH ${INVENTORY_JD_LOGISTICS_PATH}`,
   `GET ${INVENTORY_IMPORT_RECOVERY_PATH}`,

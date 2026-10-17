@@ -108,6 +108,9 @@ import {
   type JdPromotionN8nStage,
 } from "./jd-promotion-n8n-pipeline";
 import { jdLogisticsHelperRequestError, notifyJdLogisticsN8nPlan, planJdLogisticsN8nRun, publicJdLogisticsPlan, runJdLogisticsN8nPlan, verifyJdLogisticsN8nPlan } from "./jd-logistics-n8n-pipeline";
+import { planTmallWarehouse, publicWarehousePlan, runTmallWarehouse, verifyTmallWarehouse, type WarehousePlan } from "./tmall-warehouse-n8n-pipeline";
+import { warehouseHelperError } from "../lib/tmall-warehouse/policy";
+import { tmallWarehouseProfileStatus } from "./tmall-warehouse-export";
 import type { JdLogisticsManifest } from "../lib/jd/logistics-manifest";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -178,7 +181,7 @@ const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 type PipelineCommand = "master" | "plan" | "fetch" | "import" | "promotion" | "serve";
 export type HelperStage = "ready" | "planned" | "fetched" | "imported" | "promoted" | "running" | "executed" | "verified" | "notifying" | "completed" | "failed";
 export type HelperRoute = "/plan" | "/plan-backfill" | typeof tmallSevenDayBackfillRoute | "/next-day" | "/fetch" | "/import" | "/promotion" | "/product-master" | TmallDirectPmRoute;
-export type CoordinatedWorkflow = "tmall" | "jackyun" | "jd" | "jd-market" | "jd-promotion" | "jd-logistics";
+export type CoordinatedWorkflow = "tmall" | "jackyun" | "jd" | "jd-market" | "jd-promotion" | "jd-logistics" | "tmall-warehouse";
 export type CookieSourceStatus = "ready" | "missing" | "invalid";
 export type TmallProfileStatus = "ready" | "missing" | "invalid";
 
@@ -877,7 +880,7 @@ export function normalizeN8nExecutionId(value: string | string[] | undefined) {
 }
 
 export function parseWorkflowCoordinationKey(value: string | string[] | undefined): CoordinatedWorkflow | null {
-  return typeof value === "string" && ["tmall", "jackyun", "jd", "jd-market", "jd-promotion", "jd-logistics"].includes(value)
+  return typeof value === "string" && ["tmall", "jackyun", "jd", "jd-market", "jd-promotion", "jd-logistics", "tmall-warehouse"].includes(value)
     ? value as CoordinatedWorkflow
     : null;
 }
@@ -1315,6 +1318,9 @@ async function serveCommand(argv: string[]) {
   let jdPromotionPlan: JdPromotionN8nPlan | null = null;
   let jdLogisticsPlan: JdLogisticsManifest | null = null;
   let jdLogisticsCleanupFailed = false;
+  let tmallWarehousePlan: WarehousePlan | null = null;
+  let tmallWarehouseCleanupFailed = false;
+  let claimedTmallWarehouseExecutionId: string | null = null;
   let jdCustomerServicePlan: CustomerServiceN8nPlan | null = null;
   let claimedTmallExecutionId: string | null = null;
   let claimedTmallStoreKey: string | null = null;
@@ -1376,6 +1382,7 @@ async function serveCommand(argv: string[]) {
               ? claimedJdMarketExecutionId
               : requestedWorkflow === "jd-promotion"
                 ? claimedJdPromotionExecutionId
+                : requestedWorkflow === "tmall-warehouse" ? claimedTmallWarehouseExecutionId
                 : requestedWorkflow === "jd-logistics"
                   ? claimedJdLogisticsExecutionId
                 : null;
@@ -1419,6 +1426,7 @@ async function serveCommand(argv: string[]) {
         if (coordinatedWorkflow === "jd-market") claimedJdMarketExecutionId = coordinatedExecutionId;
         if (coordinatedWorkflow === "jd-promotion") claimedJdPromotionExecutionId = coordinatedExecutionId;
         if (coordinatedWorkflow === "jd-logistics") claimedJdLogisticsExecutionId = coordinatedExecutionId;
+        if (coordinatedWorkflow === "tmall-warehouse") claimedTmallWarehouseExecutionId = coordinatedExecutionId;
         inactivityReaper?.arm();
       }
       reply(200, {
@@ -1450,7 +1458,8 @@ async function serveCommand(argv: string[]) {
     const jdMarketRoutes = ["/jd-market/plan", "/jd-market/run", "/jd-market/verify"];
     const jdPromotionRoutes = ["/jd-promotion/plan", "/jd-promotion-cut-meat/plan", "/jd-promotion/run", "/jd-promotion/verify"];
     const jdLogisticsRoutes = ["/jd-logistics/plan", "/jd-logistics/run", "/jd-logistics/verify", "/jd-logistics/notify", "/jd-logistics/release"];
-    if (request.method !== "POST" || ![...tmallRoutes, ...jackyunRoutes, ...jdRoutes, ...jdMarketRoutes, ...jdPromotionRoutes, ...jdLogisticsRoutes].includes(request.url ?? "")) {
+    const tmallWarehouseRoutes = ["/tmall-warehouse/plan", "/tmall-warehouse/run", "/tmall-warehouse/verify", "/tmall-warehouse/release"];
+    if (request.method !== "POST" || ![...tmallRoutes, ...jackyunRoutes, ...jdRoutes, ...jdMarketRoutes, ...jdPromotionRoutes, ...jdLogisticsRoutes, ...tmallWarehouseRoutes].includes(request.url ?? "")) {
       reply(404, { ok: false, error: "not_found" });
       return;
     }
@@ -1461,7 +1470,8 @@ async function serveCommand(argv: string[]) {
     const isJdMarket = jdMarketRoutes.includes(request.url ?? "");
     const isJdPromotion = jdPromotionRoutes.includes(request.url ?? "");
     const isJdLogistics = jdLogisticsRoutes.includes(request.url ?? "");
-    const workflow = isJackyun ? "jackyun" : isJd ? "jd" : isJdMarket ? "jd-market" : isJdPromotion ? "jd-promotion" : isJdLogistics ? "jd-logistics" : "tmall";
+    const isTmallWarehouse = tmallWarehouseRoutes.includes(request.url ?? "");
+    const workflow = isJackyun ? "jackyun" : isJd ? "jd" : isJdMarket ? "jd-market" : isJdPromotion ? "jd-promotion" : isJdLogistics ? "jd-logistics" : isTmallWarehouse ? "tmall-warehouse" : "tmall";
     if (activeWorkflow && activeWorkflow !== workflow) {
       reply(409, { ok: false, error: "workflow_conflict", activeWorkflow });
       return;
@@ -1471,7 +1481,9 @@ async function serveCommand(argv: string[]) {
     const requestTmallStoreKey = workflow === "tmall"
       ? normalizeTmallStoreKey(request.headers[tmallStoreKeyHeader])
       : null;
-    const requestStateError = isJdLogistics
+    const requestStateError = isTmallWarehouse
+      ? warehouseHelperError(stage, busy, request.url!, requestExecutionId, claimedTmallWarehouseExecutionId)
+      : isJdLogistics
       ? jdLogisticsHelperRequestError(stage, busy, request.url!, requestExecutionId, claimedJdLogisticsExecutionId)
       : isJdCustomerService
       ? customerServiceHelperError(stage, busy, request.url!, requestExecutionId, claimedJdExecutionId)
@@ -1578,6 +1590,21 @@ async function serveCommand(argv: string[]) {
         reply(200, result);
         if (stage === "completed" || "recoveryDecision" in result && result.recoveryDecision === "wait") scheduleOneShotServerClose(server, 500);
         else inactivityReaper?.arm();
+      } else if (request.url === "/tmall-warehouse/plan") {
+        tmallWarehousePlan = await planTmallWarehouse({ root: projectRoot, executionId: requestExecutionId!, now: planTime });
+        stage = "planned"; reply(200, publicWarehousePlan(tmallWarehousePlan)); inactivityReaper?.arm();
+      } else if (request.url === "/tmall-warehouse/run") {
+        if (!tmallWarehousePlan) throw new Error("TMALL_WAREHOUSE_PLAN_MISSING");
+        stage = "running";
+        const result = await runTmallWarehouse(tmallWarehousePlan, { root: projectRoot, executionId: requestExecutionId! });
+        stage = "executed"; reply(200, result); inactivityReaper?.arm();
+      } else if (request.url === "/tmall-warehouse/verify") {
+        if (!tmallWarehousePlan) throw new Error("TMALL_WAREHOUSE_PLAN_MISSING");
+        const result = await verifyTmallWarehouse(tmallWarehousePlan, { root: projectRoot, executionId: requestExecutionId! });
+        stage = "completed"; reply(200, result); inactivityReaper?.arm();
+      } else if (request.url === "/tmall-warehouse/release") {
+        reply(tmallWarehouseCleanupFailed ? 409 : 200, { ok: !tmallWarehouseCleanupFailed, stage: "released", workflow: "tmall-warehouse" });
+        scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/jd-logistics/plan") {
         jdLogisticsPlan = await planJdLogisticsN8nRun({ root: projectRoot, now: planTime, executionId: requestExecutionId! });
         stage = jdLogisticsPlan.stage;
@@ -1793,6 +1820,7 @@ async function serveCommand(argv: string[]) {
     } catch (error) {
       stage = "failed";
       if (isJdLogistics && error instanceof Error && error.message === "JD_LOGISTICS_BROWSER_CLEANUP_FAILED") jdLogisticsCleanupFailed = true;
+      if (isTmallWarehouse && error instanceof Error && error.message === "TMALL_WAREHOUSE_BROWSER_CLEANUP_FAILED") tmallWarehouseCleanupFailed = true;
       inactivityReaper?.clear();
       let tmallBrowserCloseError: string | null = null;
       if (workflow === "tmall" && !tmallBrowserClosure) {
@@ -1817,7 +1845,7 @@ async function serveCommand(argv: string[]) {
           ...(tmallBackfill ? { dailyBackfill: publicTmallBackfill(tmallBackfill) } : {}),
         } : {}),
       });
-      if (isJdLogistics) inactivityReaper?.arm();
+      if (isJdLogistics || isTmallWarehouse) inactivityReaper?.arm();
       else scheduleOneShotServerClose(server, 500);
     } finally {
       busy = false;
@@ -1831,6 +1859,7 @@ async function serveCommand(argv: string[]) {
     inactivityReaper?.clear();
     const finish = async () => {
       if (jdLogisticsCleanupFailed) throw new Error("JD_LOGISTICS_BROWSER_CLEANUP_FAILED");
+      if (tmallWarehouseCleanupFailed) throw new Error("TMALL_WAREHOUSE_BROWSER_CLEANUP_FAILED");
       if (slotIdentity.storeKey && tmallBrowserMayBeOpen) await closeTmallWorkflowBrowser(await getRegisteredTmallStore(slotIdentity.storeKey));
     };
     const timeout = setTimeout(() => parentPort?.postMessage({ type: "finished", clean: false }), 30_000);
@@ -1863,7 +1892,7 @@ async function helperProfileHealth() {
     getJdStore("jd-maidehao-operator1").then(store => getJdProfilesStatus([store])).catch(() => "invalid" as const),
   ]);
   return { cookieSource, tmallProfile, jackyunProfile, jdProfiles, jdMarketProfile, jdPromotionProfile, jdPromotionCutMeatProfile,
-    jdLogisticsProfile: jdProfiles };
+    jdLogisticsProfile: jdProfiles, tmallWarehouseProfile: await tmallWarehouseProfileStatus(projectRoot) };
 }
 
 async function main() {

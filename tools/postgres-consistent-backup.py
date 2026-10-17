@@ -855,6 +855,11 @@ def collect_evidence(
             required.update(jd_logistics_tables)
         elif set(tables) & jd_logistics_tables:
             raise RuntimeError("JD logistics tables lack their inventory migration receipt")
+        tmall_tables = {"inventory_tmall_warehouse_scopes", "inventory_tmall_warehouse_batches", "inventory_tmall_warehouse_facts", "inventory_tmall_warehouse_audits"}
+        if "0017_tmall_warehouse" in inventory_migrations:
+            required.update(tmall_tables)
+        elif set(tables) & tmall_tables:
+            raise RuntimeError("Tmall warehouse tables lack their inventory migration receipt")
         workflow_required = {
             "workflow_data_revisions",
             "workflow_write_authority",

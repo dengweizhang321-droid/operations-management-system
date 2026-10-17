@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "productionTouched": false,
+  "productionFilesReadOnly": true,
+  "databaseConnected": false,
+  "credentialsRead": false,
+  "fromGeneration": 147,
+  "toGeneration": 149,
+  "result": {
+    "status": "bound",
+    "generation": 149,
+    "check": "parent-chain-bound",
+    "evidenceSha256": "6c8d96ba13c11ffa539028f3c3b1c7969b1f0fe7da03268f9267f5e5ca9a2180"
+  },
+  "check": {
+    "status": "bound",
+    "generation": 149,
+    "check": "frozen-inputs-unchanged",
+    "evidenceSha256": "6c8d96ba13c11ffa539028f3c3b1c7969b1f0fe7da03268f9267f5e5ca9a2180"
+  }
+}

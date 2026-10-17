@@ -1,0 +1,42 @@
+test_each_original_parent_only_sees_its_captured_source (test_tmall_warehouse_addition.TmallSchemaTests.test_each_original_parent_only_sees_its_captured_source) ... ok
+test_file_only_binder_for_each_parent_rejects_stale_evidence (test_tmall_warehouse_addition.TmallSchemaTests.test_file_only_binder_for_each_parent_rejects_stale_evidence) ... ok
+test_native_exact_generation149_and_adopter_contracts (test_tmall_warehouse_addition.TmallSchemaTests.test_native_exact_generation149_and_adopter_contracts) ... ok
+test_native_lifecycle_routes149_and_retains_failure (test_tmall_warehouse_addition.TmallSchemaTests.test_native_lifecycle_routes149_and_retains_failure) ... ok
+test_only_two_exact_source_deltas_and_unchanged_old_migrations (test_tmall_warehouse_addition.TmallSchemaTests.test_only_two_exact_source_deltas_and_unchanged_old_migrations) ... ok
+test_pointer_cas_keeps_original_unknown_owner (test_tmall_warehouse_addition.TmallSchemaTests.test_pointer_cas_keeps_original_unknown_owner) ... ok
+test_release_dispatch_prefers149_without_falling_back (test_tmall_warehouse_addition.TmallSchemaTests.test_release_dispatch_prefers149_without_falling_back) ... ok
+test_unknown_or_existing_intent_never_replays (test_tmall_warehouse_addition.TmallSchemaTests.test_unknown_or_existing_intent_never_replays) ... ok
+test_atomic_replacement_removes_absent_rows_without_touching_other_owners_dates_or_domains (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_atomic_replacement_removes_absent_rows_without_touching_other_owners_dates_or_domains) ... ok
+test_authority_and_read_only_fence_import (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_authority_and_read_only_fence_import) ... ok
+test_batch_exact_lookup_current_flag_and_historical_warehouse_filter (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_batch_exact_lookup_current_flag_and_historical_warehouse_filter) ... ok
+test_content_idempotency_ignores_filename_hash_order_source_position_but_not_business_change (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_content_idempotency_ignores_filename_hash_order_source_position_but_not_business_change) ... ok
+test_failure_of_readback_rolls_back_publication (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_failure_of_readback_rolls_back_publication) ... ok
+test_invalid_empty_duplicate_cross_owner_and_quantities_only_write_rejection_audit (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_invalid_empty_duplicate_cross_owner_and_quantities_only_write_rejection_audit) ... ok
+test_latest_date_is_per_owner_and_filter_summary_covers_all_pages (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_latest_date_is_per_owner_and_filter_summary_covers_all_pages) ... ok
+test_null_zero_negative_and_partial_sums_are_distinct (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_null_zero_negative_and_partial_sums_are_distinct) ... ok
+test_older_realtime_collection_and_unfenced_historical_upload_cannot_overwrite (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_older_realtime_collection_and_unfenced_historical_upload_cannot_overwrite) ... ok
+test_options_and_response_fact_cap (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_options_and_response_fact_cap) ... ok
+test_provenance_rejects_undated_backdating_and_accepts_shanghai_collection_day (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_provenance_rejects_undated_backdating_and_accepts_shanghai_collection_day) ... ok
+test_realtime_export_without_owner_column_uses_declared_scope_but_rejects_conflict (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_realtime_export_without_owner_column_uses_declared_scope_but_rejects_conflict) ... ok
+test_replenishment_is_fixed_thirty_days_and_sums_each_nonnegative_warehouse_gap (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_replenishment_is_fixed_thirty_days_and_sums_each_nonnegative_warehouse_gap) ... ok
+test_rollback_after_delete_keeps_original_facts_head_and_batches (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_rollback_after_delete_keeps_original_facts_head_and_batches) ... ok
+test_scope_revision_conflict_cannot_replace_current_facts (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_scope_revision_conflict_cannot_replace_current_facts) ... ok
+test_signed_http_permissions_write_replay_query_limits_and_exact_batch (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_signed_http_permissions_write_replay_query_limits_and_exact_batch) ... 2026-10-17 14:18:18,260 level=WARNING logger=django.request message=Forbidden: /api/inventory/tmall-warehouse
+2026-10-17 14:18:18,261 level=WARNING logger=django.request message=Forbidden: /api/inventory/tmall-warehouse
+2026-10-17 14:18:18,261 level=WARNING logger=django.request message=Forbidden: /api/inventory/tmall-warehouse
+2026-10-17 14:18:18,336 level=WARNING logger=django.request message=Forbidden: /api/inventory/tmall-warehouse
+2026-10-17 14:18:18,337 level=WARNING logger=django.request message=Bad Request: /api/inventory/tmall-warehouse
+2026-10-17 14:18:18,337 level=WARNING logger=django.request message=Bad Request: /api/inventory/tmall-warehouse
+2026-10-17 14:18:18,338 level=WARNING logger=django.request message=Bad Request: /api/inventory/tmall-warehouse
+2026-10-17 14:18:18,339 level=WARNING logger=django.request message=Bad Request: /api/inventory/tmall-warehouse
+2026-10-17 14:18:18,340 level=WARNING logger=django.request message=Bad Request: /api/inventory/tmall-warehouse
+2026-10-17 14:18:18,340 level=ERROR logger=django.request message=Service Unavailable: /api/inventory/tmall-warehouse
+2026-10-17 14:18:18,340 level=ERROR logger=django.request message=Service Unavailable: /api/inventory/tmall-warehouse
+ok
+test_warehouse_code_is_identity_and_different_codes_with_same_display_name_stay_separate (inventory.tests.test_tmall_warehouse.TmallWarehouseTests.test_warehouse_code_is_identity_and_different_codes_with_same_display_name_stay_separate) ... ok
+
+----------------------------------------------------------------------
+Ran 25 tests in 4.097s
+
+OK
+{"status": "passed", "productionTouched": false, "validation": "D:\\codex-worktrees\\tmall-warehouse-monitor-20261017\\.codex-tmp\\tmall-warehouse-a6oq52z8\\tmall-warehouse-validation.json"}

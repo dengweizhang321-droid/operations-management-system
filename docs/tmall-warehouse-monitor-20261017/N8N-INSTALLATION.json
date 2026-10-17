@@ -1,0 +1,20 @@
+{
+  "startedAt": "2026-10-17T06:11:13.093Z",
+  "at": "2026-10-17T06:11:42.010Z",
+  "workflowId": "TmallWarehouseDaily2026",
+  "cliVersion": "2.32.7",
+  "exitCode": 0,
+  "created": true,
+  "inactive": true,
+  "originalWorkflowCount": 23,
+  "originalDefinitionsUnchanged": true,
+  "templateHash": "118328d58790ad9016573acafdac7da8a7ad9ddf91499823f029c5254fa16342",
+  "nodesMatch": true,
+  "connectionsMatch": true,
+  "settingsMatch": true,
+  "executed": false,
+  "activated": false,
+  "servicesRestarted": false,
+  "priorAttempt": "N8N-INSTALLATION-attempt1.json",
+  "cliReportedImportSuccess": true
+}

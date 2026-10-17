@@ -1,0 +1,45 @@
+{
+  "version": "tmall-warehouse-private-postgres-v1",
+  "status": "passed",
+  "productionTouched": false,
+  "steps": [
+    "inventory.0016_jd_product_monitoring",
+    "inventory.0017_tmall_warehouse"
+  ],
+  "codeSha256": "ce713799e3923b5597d58aa9d277d3248dc53cea9f651b813a474c54cdcba9fe",
+  "migrationSha256": "77a232fbea2d8778908e4366512890972ab9e8da913ff74404b163f923987af8",
+  "checks": [
+    "atomic-upgrade",
+    "bad-evidence",
+    "concurrent-scope-cas",
+    "defaults-empty",
+    "exact-147-148-149",
+    "legacy-data-preserved",
+    "lifecycle-routing",
+    "negative-catalogues",
+    "parent-source-binding",
+    "permissions",
+    "pointer-cas",
+    "rollback",
+    "unknown-no-replay",
+    "writer-business-import"
+  ],
+  "generations": [
+    147,
+    148,
+    149
+  ],
+  "parentVariants": [
+    [
+      147,
+      149
+    ],
+    [
+      148,
+      149
+    ]
+  ],
+  "legacyDataPreserved": true,
+  "fullBackupOrRestorePerformed": false,
+  "port": 55471
+}

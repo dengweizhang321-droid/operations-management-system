@@ -1,0 +1,456 @@
+{
+  "id": "TmallWarehouseDaily2026",
+  "name": "天猫入仓监控·实时库存下载与导入",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "tmw-manual",
+      "name": "手动完整运行",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "20 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "tmw-schedule",
+      "name": "每天08:20计划入口（待启用）",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -760,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/coordination/claim",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-WORKFLOW-KEY",
+              "value": "tmall-warehouse"
+            },
+            {
+              "name": "X-TERUISI-COORDINATION-ATTEMPT",
+              "value": "={{ $runIndex }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "tmw-claim-领",
+      "name": "领取共享 helper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -520,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "tmw-granted",
+              "leftValue": "={{ $json.coordinationStatus }}",
+              "rightValue": "granted",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "tmw-granted",
+      "name": "已领取执行所有权？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -300,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 5,
+        "unit": "minutes"
+      },
+      "id": "tmw-wait",
+      "name": "等待5分钟后重新领取",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -300,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/tmall-warehouse/plan",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-WORKFLOW-KEY",
+              "value": "tmall-warehouse"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "tmw-plan-A",
+      "name": "A·冻结货主与本轮采集日",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -60,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/tmall-warehouse/run",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-WORKFLOW-KEY",
+              "value": "tmall-warehouse"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 1800000
+        }
+      },
+      "id": "tmw-run-B",
+      "name": "B·导出签收完整校验并导入",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/tmall-warehouse/verify",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-WORKFLOW-KEY",
+              "value": "tmall-warehouse"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "tmw-verify-C",
+      "name": "C·独立核验文件精确批次和当前版本",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/tmall-warehouse/release",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-WORKFLOW-KEY",
+              "value": "tmall-warehouse"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "tmw-release-成",
+      "name": "成功后释放 helper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/tmall-warehouse/release",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-WORKFLOW-KEY",
+              "value": "tmall-warehouse"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "tmw-release-失",
+      "name": "失败后释放原执行 helper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        240
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "errorMessage": "天猫入仓流程未完成；原计划与未决任务已保留，禁止自动重发导出或导入。请核验原 execution、manifest 与源任务。"
+      },
+      "id": "tmw-stop",
+      "name": "保留证据并明确失败",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 天猫供应链实仓良品实时库存\n独立流程，默认禁用。专用浏览器需先人工登录；A 冻结货主与上海采集日，B 在持久导出意图后只点击一次并校验完整行数、原件SHA，C精确回查批次。\n无历史日期与30日销量，不推断缺失数据。登录失效、身份不符、导出/导入未知结果一律人工核查；不重放，不发通知。配置见 docs/tmall-warehouse-monitor-20261017/AUTOMATION.md。",
+        "height": 300,
+        "width": 1400,
+        "color": 3
+      },
+      "id": "tmw-note",
+      "name": "范围与恢复边界",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -420
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "手动完整运行": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "每天08:20计划入口（待启用）": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "领取共享 helper": {
+      "main": [
+        [
+          {
+            "node": "已领取执行所有权？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "已领取执行所有权？": {
+      "main": [
+        [
+          {
+            "node": "A·冻结货主与本轮采集日",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "等待5分钟后重新领取",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "等待5分钟后重新领取": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A·冻结货主与本轮采集日": {
+      "main": [
+        [
+          {
+            "node": "B·导出签收完整校验并导入",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "失败后释放原执行 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B·导出签收完整校验并导入": {
+      "main": [
+        [
+          {
+            "node": "C·独立核验文件精确批次和当前版本",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "失败后释放原执行 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C·独立核验文件精确批次和当前版本": {
+      "main": [
+        [
+          {
+            "node": "成功后释放 helper",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "失败后释放原执行 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "成功后释放 helper": {
+      "main": [
+        [],
+        [
+          {
+            "node": "保留证据并明确失败",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "失败后释放原执行 helper": {
+      "main": [
+        [
+          {
+            "node": "保留证据并明确失败",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Shanghai"
+  },
+  "versionId": "aafc5a8a-8a20-45fa-90c8-51bb2ad38765",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "protocolVersion": "tmall-warehouse-realtime-v1"
+  },
+  "tags": []
+}

@@ -8,6 +8,7 @@ import ImportRunRecordsView from "./import-run-records-view";
 import "./import-monitor.css";
 import CustomerServiceImportCard from "./customer-service-import-card";
 import JdLogisticsView from "./jd-logistics-view";
+import TmallWarehouseView from "./tmall-warehouse-view";
 import { canonicalizeJdLogisticsLocation, readJdLogisticsLocation } from "@/lib/inventory/jd-logistics-contract";
 import {
   type CurrentUser,
@@ -66,6 +67,7 @@ export default function ImportView({ importSource, currentUser, moduleView, onMo
   const inputRef = useRef<HTMLInputElement>(null);
   const activeSection = moduleView;
   const [logisticsImport, setLogisticsImport] = useState(() => typeof window !== "undefined" && readJdLogisticsLocation(window.location.href).workspace === "import");
+  const [tmallImport, setTmallImport] = useState(() => typeof window !== "undefined" && new URL(window.location.href).searchParams.get("tmImport") === "warehouse");
   useEffect(() => {
     const restore = () => {
       const canonical = canonicalizeJdLogisticsLocation(window.location.href);
@@ -73,6 +75,7 @@ export default function ImportView({ importSource, currentUser, moduleView, onMo
       if (location.workspace === "import" && location.importView !== activeSection) { window.location.replace(canonical); return; }
       if (canonical !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.replaceState(window.history.state, "", canonical);
       setLogisticsImport(location.workspace === "import");
+      setTmallImport(new URL(window.location.href).searchParams.get("tmImport") === "warehouse");
     };
     restore(); window.addEventListener("popstate", restore); return () => window.removeEventListener("popstate", restore);
   }, [activeSection]);
@@ -80,14 +83,19 @@ export default function ImportView({ importSource, currentUser, moduleView, onMo
     if (next === activeSection) return;
     onModuleViewChange(next);
     const url = new URL(window.location.href); url.searchParams.set("jdPage", "1");
-    if (next === "chains") { url.searchParams.delete("jdImport"); setLogisticsImport(false); }
+    if (next === "chains") { url.searchParams.delete("jdImport"); url.searchParams.delete("tmImport"); setLogisticsImport(false); setTmallImport(false); }
     window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
   };
   const selectLogistics = (selected: boolean) => {
-    if (selected === logisticsImport) return;
+    if (selected === logisticsImport && !tmallImport) return;
     const url = new URL(window.location.href); url.searchParams.set("jdPage", "1");
     if (selected) url.searchParams.set("jdImport", "logistics"); else url.searchParams.delete("jdImport");
-    window.history.pushState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`); setLogisticsImport(selected);
+    url.searchParams.delete("tmImport");
+    window.history.pushState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`); setLogisticsImport(selected); setTmallImport(false);
+  };
+  const selectTmall = () => {
+    const url = new URL(window.location.href); url.searchParams.delete("jdImport"); url.searchParams.set("tmImport", "warehouse"); url.searchParams.delete("tmPage");
+    window.history.pushState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`); setLogisticsImport(false); setTmallImport(true);
   };
   const canImport = currentUser?.role === "admin";
   const [selectedSource, setSelectedSource] = useState<ImportSourceKey>(() => importSource ?? "sales");
@@ -105,7 +113,7 @@ export default function ImportView({ importSource, currentUser, moduleView, onMo
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyDomainErrors, setHistoryDomainErrors] = useState<string[]>([]);
-  const historyVisible = activeSection === "history" && !logisticsImport;
+  const historyVisible = activeSection === "history" && !logisticsImport && !tmallImport;
   const historyRequestGenerationRef = useRef(0);
   const historyRequestControllerRef = useRef<AbortController | null>(null);
 
@@ -444,9 +452,10 @@ export default function ImportView({ importSource, currentUser, moduleView, onMo
         <button type="button" role="tab" aria-selected={activeSection === "history"} className={activeSection === "history" ? "active" : ""} onClick={() => changeImportSection("history")}>运行记录</button>
         <button type="button" role="tab" aria-selected={activeSection === "chains"} className={activeSection === "chains" ? "active" : ""} onClick={() => changeImportSection("chains")}>链路规则</button>
       </div>
-      {activeSection !== "chains" && <div className="subnav outlet-subnav" role="tablist" aria-label="数据导入来源"><button type="button" role="tab" aria-selected={!logisticsImport} className={!logisticsImport ? "active" : ""} disabled={uploading} onClick={() => selectLogistics(false)}>业务报表</button><button type="button" role="tab" aria-selected={logisticsImport} className={logisticsImport ? "active" : ""} disabled={uploading} onClick={() => selectLogistics(true)}>京东物流</button></div>}
+      {activeSection !== "chains" && <div className="subnav outlet-subnav" role="tablist" aria-label="数据导入来源"><button type="button" role="tab" aria-selected={!logisticsImport && !tmallImport} className={!logisticsImport && !tmallImport ? "active" : ""} disabled={uploading} onClick={() => selectLogistics(false)}>业务报表</button><button type="button" role="tab" aria-selected={logisticsImport} className={logisticsImport ? "active" : ""} disabled={uploading} onClick={() => selectLogistics(true)}>京东物流</button><button type="button" role="tab" aria-selected={tmallImport} className={tmallImport ? "active" : ""} disabled={uploading} onClick={selectTmall}>天猫入仓</button></div>}
       {logisticsImport && activeSection !== "chains" && <JdLogisticsView key={`${JSON.stringify(currentUser)}:${activeSection}:logistics`} currentUser={currentUser} fixedTab="batches" presentation={activeSection === "history" ? "records" : "import"} />}
-      {activeSection === "files" && !logisticsImport && <>
+      {tmallImport && activeSection !== "chains" && <TmallWarehouseView key={`${JSON.stringify(currentUser)}:${activeSection}:tmall`} currentUser={currentUser} presentation={activeSection === "history" ? "batches" : "import"} />}
+      {activeSection === "files" && !logisticsImport && !tmallImport && <>
       <section className="import-grid">
         <article className="panel import-panel">
           <span className="eyebrow">第 1 步</span><h2>选择数据类型</h2><p>销售、库存、主数据、京东与天猫网店数据使用同一套批次校验和导入历史。</p>
@@ -495,7 +504,7 @@ export default function ImportView({ importSource, currentUser, moduleView, onMo
       {feedback && <section className={`import-feedback import-feedback-${feedback.tone}`} role={feedback.tone === "error" ? "alert" : "status"} aria-live="polite"><span className="feedback-symbol">{feedback.tone === "success" ? "✓" : feedback.tone === "duplicate" ? "≡" : feedback.tone === "warning" ? "!" : "×"}</span><div><strong>{feedback.title}</strong><p>{feedback.message}</p>{feedback.details.length > 0 && <ul>{feedback.details.map((detail, index) => <li key={`${detail}-${index}`}>{detail}</li>)}</ul>}</div></section>}
       </>}
       {activeSection === "chains" && <ImportChainRulesView currentUser={currentUser} />}
-      {activeSection === "history" && !logisticsImport && <ImportRunRecordsView history={history} loading={historyLoading} loaded={historyLoaded} errors={historyDomainErrors} onRefresh={() => void loadHistory()} onShowChains={() => onModuleViewChange("chains")} />}
+      {activeSection === "history" && !logisticsImport && !tmallImport && <ImportRunRecordsView history={history} loading={historyLoading} loaded={historyLoaded} errors={historyDomainErrors} onRefresh={() => void loadHistory()} onShowChains={() => onModuleViewChange("chains")} />}
     </>
   );
 }

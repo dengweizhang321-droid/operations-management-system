@@ -1755,6 +1755,22 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   if (-not [string]::IsNullOrWhiteSpace($IntegrationEvidencePath) -and (Test-Path -LiteralPath $IntegrationEvidencePath)) {
     $biEvidence = Read-JsonFile $IntegrationEvidencePath 'BI addition evidence'
   }
+  # Explicit149 dispatch precedes148; the old verifier and its receipt stay exact.
+  $tmallGate = Join-Path $candidateRoot 'tools\tmall_warehouse_addition.py'
+  $tmallDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('tmall-warehouse-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -ceq 'teruisi-tmall-warehouse-schema-addition-v1' -or $tmallDeployment -or
+      (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'tmall-warehouse-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $tmallGate -PathType Leaf)) {throw 'Tmall149 requires its exact verifier'}
+    $tmallCommand = if ($Operation -ceq 'PrepareApp') {if ($null -ne $biEvidence) {'admission'} else {'successor'}} elseif ($Operation -ceq 'DeployApp') {if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'}} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported Tmall149 lifecycle operation'}
+    $tmallArgs = @($tmallGate,$tmallCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if ($tmallCommand -ceq 'admission') {$tmallArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if ($tmallCommand -ceq 'deployment') {$tmallArgs += @('--operation',$IntegrationOperationId)}
+    $tmallRun = Invoke-BoundedNativeProcess $Python $tmallArgs $candidateRoot
+    $tmallProof = ConvertFrom-UniqueNativeJson $tmallRun 'Verify finite Tmall149 schema addition'
+    if ([string]$tmallProof.status -cne 'verified') {throw 'Tmall149 schema addition gate refused'}
+    return
+  }
   # Explicit148 dispatch precedes147; the old verifier and its receipt stay exact.
   $monitoringGate = Join-Path $candidateRoot 'tools\jd_product_monitoring_addition.py'
   $monitoringDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
@@ -2051,6 +2067,11 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\tmall_warehouse_addition.py",
+      "tools\tmall_warehouse_catalog.py",
+      "tools\tmall_warehouse_catalog.json",
+      "tools\tmall_warehouse_candidate.py",
+      "tools\main-schema-release.mjs",
       "tools\jd_product_monitoring_addition.py",
       "tools\jd_product_monitoring_catalog.py",
       "tools\jd_monitor_preferences_addition.py",

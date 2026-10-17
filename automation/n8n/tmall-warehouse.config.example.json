@@ -1,0 +1,8 @@
+{
+  "enabled": false,
+  "owner": "炊之王炊具有限公司",
+  "executablePath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "userDataDir": "<PROJECT_ROOT>/.runtime/tmall-warehouse-browser",
+  "profileName": "Default",
+  "baseUrl": "http://localhost:3000"
+}

@@ -59,7 +59,11 @@ def verify_receipt_generation(cursor, *, jd_permissions=True):
     generation147 = sorted([*generation146, *preferences_steps])
     from jd_product_monitoring_catalog import STEPS as monitoring_steps, verify_catalog as verify_monitoring_catalog
     generation148 = sorted([*generation147, *monitoring_steps])
-    monitoring_installed = receipts == generation148
+    from tmall_warehouse_catalog import STEPS as tmall_steps, verify_catalog as verify_tmall_catalog
+    generation149 = sorted([*generation148, *tmall_steps])
+    tmall_installed = receipts == generation149
+    verify_tmall_catalog(cursor, installed=tmall_installed, permissions=tmall_installed and jd_permissions)
+    monitoring_installed = receipts in (generation148, generation149)
     preferences_installed = receipts == generation147
     jd_installed = receipts == generation146
     if monitoring_installed:
@@ -68,7 +72,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True):
         verify_preferences_catalog(cursor, permissions=jd_permissions)
     else:
         verify_jd_catalog(cursor, installed=jd_installed, permissions=jd_installed and jd_permissions)
-    schedule_installed = receipts in (generation143, generation146, generation147, generation148)
+    schedule_installed = receipts in (generation143, generation146, generation147, generation148, generation149)
     # A receipt-free/partial 0083 must never be mistaken for an old backup.
     # This read-only catalogue has no dependency on adoption finalization.
     verify_schedule_catalog(cursor, installed=schedule_installed)
@@ -91,7 +95,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True):
         from netshop.promotion_presence import verify_cache_catalog
         verify_cache_catalog(cursor)
         return 139
-    if receipts in (parent140, parent142, generation143, generation146, generation147, generation148):
+    if receipts in (parent140, parent142, generation143, generation146, generation147, generation148, generation149):
         audit_installed = receipts != parent140
         verify_audit_catalog(cursor, installed=audit_installed)
         from netshop.promotion_presence import verify_cache_catalog
@@ -105,7 +109,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True):
         cursor.execute("SELECT t.tgtype,p.proname,t.tgenabled FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE t.tgrelid=to_regclass('public.finance_erp_targets') AND t.tgname='finance_erp_target_revision_required' AND NOT t.tgisinternal")
         if cursor.fetchall()!=[(30,"finance_source_mark_revision_required","O")]:
             raise RuntimeError("ERP-goal addition revision guard differs")
-        return 148 if monitoring_installed else 147 if preferences_installed else 146 if jd_installed else 143 if schedule_installed else 142 if audit_installed else 140
+        return 149 if tmall_installed else 148 if monitoring_installed else 147 if preferences_installed else 146 if jd_installed else 143 if schedule_installed else 142 if audit_installed else 140
     raise RuntimeError("no-key backup migration catalogue is not a reviewed generation")
 
 

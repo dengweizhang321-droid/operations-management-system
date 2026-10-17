@@ -6,6 +6,7 @@ from django.db import models
 from django.utils import timezone
 
 from .jd_logistics_models import (JdLogisticsDepartment, JdLogisticsScope, JdLogisticsBatch, JdLogisticsFact, JdLogisticsProductMapping, JdLogisticsTransferManual, JdLogisticsAudit, JdLogisticsDelivery)
+from .tmall_warehouse_models import (TmallWarehouseScope, TmallWarehouseBatch, TmallWarehouseFact, TmallWarehouseAudit)
 
 
 class GuangdongMonitorItem(models.Model):

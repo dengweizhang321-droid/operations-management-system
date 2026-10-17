@@ -11,6 +11,7 @@ import type { ModuleViewKey } from "./shell/navigation-catalog";
 import { InventoryKpiCard } from "./module-view-business-ui";
 import GuangdongInventoryView from "./inventory-guangdong-view";
 import JdLogisticsCwarehouseView from "./jd-logistics-cwarehouse-view";
+import TmallWarehouseView from "./tmall-warehouse-view";
 import { canonicalizeJdLogisticsLocation, readJdLogisticsLocation } from "@/lib/inventory/jd-logistics-contract";
 import InventoryFilterBar, {
   readInventorySharedFilters,
@@ -1513,6 +1514,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       <button type="button" role="tab" aria-selected={activeTab === "plan"} className={activeTab === "plan" ? "active" : ""} onClick={() => onModuleViewChange("plan")}>备货计划</button>
       <button type="button" role="tab" aria-selected={activeTab === "stale"} className={activeTab === "stale" ? "active" : ""} onClick={() => onModuleViewChange("stale")}>滞销清理</button>
       <button type="button" role="tab" aria-selected={activeTab === "inbound"} className={activeTab === "inbound" ? "active" : ""} onClick={() => onModuleViewChange("inbound")}>京东入仓监控</button>
+      <button type="button" role="tab" aria-selected={activeTab === "tmall_warehouse"} className={activeTab === "tmall_warehouse" ? "active" : ""} onClick={() => onModuleViewChange("tmall_warehouse")}>天猫入仓监控</button>
       <button type="button" role="tab" aria-selected={activeTab === "guangdong"} className={activeTab === "guangdong" ? "active" : ""} onClick={() => onModuleViewChange("guangdong")}>广东入仓监控</button>
     </div></>
   );
@@ -1555,6 +1557,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   if (activeTab === "guangdong") return <>{subnav}<GuangdongInventoryView identity={currentUser} key={principalKey} canManage={currentUser?.role === "operator" || currentUser?.role === "admin"} filters={filters} onFiltersChange={updateFilters} onAskAi={onAskAi} onCreatePlan={openGuangdongPlan} planActionId={planActionId} planSaving={planSaving} refreshKey={guangdongRefresh} />{syncFeedback && <div className={`sync-feedback ${syncFeedback.tone}`} role="status"><strong>{syncFeedback.title}</strong><p>{syncFeedback.message}</p></div>}{planModal}</>;
   if (activeTab === "inbound" && jdLocation.workspace === "import") return <>{subnav}<section className="panel data-state" role="status">正在转到数据导入运行记录…</section></>;
   if (activeTab === "inbound") return <>{subnav}<JdLogisticsCwarehouseView key={principalKey} currentUser={currentUser} /></>;
+  if (activeTab === "tmall_warehouse") return <>{subnav}<TmallWarehouseView key={principalKey} currentUser={currentUser} /></>;
 
   const activeInventoryHasData = usesInventoryAgeAnalysis ? ageAnalysis?.hasInventory : usesInboundMonitor ? inboundMonitor?.hasInventory : overview?.hasInventory;
   const activeInventoryAsOf = usesInventoryAgeAnalysis ? ageAnalysis?.sync.inventoryAsOf : usesInboundMonitor ? inboundMonitor?.sync.inventoryAsOf : overview?.sync.inventoryAsOf;

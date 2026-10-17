@@ -4,7 +4,7 @@ import { SearchableMultiSelect, SearchableSelect, type SearchableSelectOption } 
 import { AutomaticFilterFeedback, confirmFilterText, useAutomaticFilter, useFilterDraft } from "./ui/filter-draft";
 import type { InventoryAgeStatus, InventoryHealthStatus, ReplenishmentPlanItem } from "./module-view-shared";
 
-export type InventoryFilterTab = "overview" | "age" | "plan" | "stale" | "inbound" | "guangdong";
+export type InventoryFilterTab = "overview" | "age" | "plan" | "stale" | "inbound" | "tmall_warehouse" | "guangdong";
 export type InventoryWarehouseType = "owned" | "jd_rdc" | "other";
 export type InventoryPlanStatus = "" | ReplenishmentPlanItem["status"];
 

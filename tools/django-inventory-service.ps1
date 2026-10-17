@@ -138,6 +138,7 @@ roles = {
     "teruisi_inventory_writer": os.environ["TERUISI_PROVISION_INVENTORY_WRITER_PASSWORD"],
 }
 reader_tables = (
+    "inventory_tmall_warehouse_scopes", "inventory_tmall_warehouse_batches", "inventory_tmall_warehouse_facts",
     "inventory_guangdong_monitor_items", "inventory_guangdong_supplier_cycles",
     "sales_data_revisions", "sales_import_batches", "sales_order_lines",
     "erp_product_master", "erp_combo_items", "erp_reference_import_batches_pg",
@@ -151,6 +152,11 @@ reader_tables = (
     "inventory_jd_logistics_deliveries",
 )
 writer_privileges = {
+    "inventory_tmall_warehouse_scopes": ('SELECT', 'INSERT', 'UPDATE'),
+    "inventory_tmall_warehouse_batches": ('SELECT', 'INSERT'),
+    "inventory_tmall_warehouse_facts": ('SELECT', 'INSERT', 'DELETE'),
+    "inventory_tmall_warehouse_audits": ('SELECT', 'INSERT'),
+
     "inventory_jd_logistics_departments": ("SELECT", "INSERT", "UPDATE"),
     "inventory_jd_logistics_scopes": ("SELECT", "INSERT", "UPDATE"),
     "inventory_jd_logistics_batches": ("SELECT", "INSERT"),
@@ -178,6 +184,7 @@ writer_privileges = {
     "inventory_operating_settings": ("SELECT", "UPDATE"),
 }
 auto_id_tables = (
+    "inventory_tmall_warehouse_facts",
     "inventory_stock_lines", "inventory_age_lines", "inventory_import_fingerprints",
     "inventory_raw_upload_chunks",
 )

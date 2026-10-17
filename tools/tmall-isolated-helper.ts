@@ -13,7 +13,7 @@ const storeHeader = "x-teruisi-tmall-store-key";
 const executionHeader = "x-teruisi-n8n-execution-id";
 const workflowHeader = "x-teruisi-workflow-key";
 const tmallRoutes = new Set(["/plan", "/plan-backfill", "/plan-seven-day-backfill-v1", "/next-day", "/fetch", "/import", "/promotion", "/promotion-direct-v1", "/product-master", "/product-master-direct-v1"]);
-const legacyPrefixes = ["/jd/", "/jd-market/", "/jd-promotion/", "/jd-promotion-cut-meat/", "/jd-logistics/", "/jackyun/"];
+const legacyPrefixes = ["/jd/", "/jd-market/", "/jd-promotion/", "/jd-promotion-cut-meat/", "/jd-logistics/", "/tmall-warehouse/", "/jackyun/"];
 export type SlotIdentity = { key: string; storeKey: string | null; workflow: string; executionId: string; scheduledAt?: string };
 export type HelperSlot = { port: number; token: string; stop: () => Promise<unknown> };
 export type SlotRecord = SlotIdentity & { status: "starting" | "running" | "closing" | "quarantined"; stage: string; ready: Promise<HelperSlot> };
@@ -65,11 +65,12 @@ export function isolatedRequestIdentity(route: string, headers: IncomingHttpHead
   if (!executionId || !/^[A-Za-z0-9._:-]{1,128}$/.test(executionId)) return null;
   const workflow = route === "/coordination/claim" ? scalar(headers, workflowHeader)
     : tmallRoutes.has(route) ? "tmall"
+      : route.startsWith("/tmall-warehouse/") ? "tmall-warehouse"
       : route.startsWith("/jd-market/") ? "jd-market"
         : route.startsWith("/jd-logistics/") ? "jd-logistics"
         : route.startsWith("/jd-promotion/") || route.startsWith("/jd-promotion-cut-meat/") ? "jd-promotion"
           : route.startsWith("/jd/") ? "jd" : route.startsWith("/jackyun/") ? "jackyun" : null;
-  if (!workflow || !["tmall", "jd", "jd-market", "jd-promotion", "jd-logistics", "jackyun"].includes(workflow)) return null;
+  if (!workflow || !["tmall", "jd", "jd-market", "jd-promotion", "jd-logistics", "tmall-warehouse", "jackyun"].includes(workflow)) return null;
   if (route !== "/coordination/claim" && !tmallRoutes.has(route) && !legacyPrefixes.some(prefix => route.startsWith(prefix))) return null;
   const storeKey = workflow === "tmall" ? scalar(headers, storeHeader) : null;
   const scheduledAt = scalar(headers, "x-teruisi-scheduled-at");

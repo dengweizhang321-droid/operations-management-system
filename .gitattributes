@@ -13,5 +13,11 @@ tools/jd_product_monitoring_catalog.py -text whitespace=cr-at-eol
 tools/jd_product_monitoring_rehearsal.py -text whitespace=cr-at-eol
 tools/jd_product_monitoring_candidate.py -text whitespace=cr-at-eol
 docs/manual-main-schema0016-20261017/validation.json -text whitespace=cr-at-eol
+tools/tmall_warehouse_addition.py -text whitespace=cr-at-eol
+tools/tmall_warehouse_catalog.py -text whitespace=cr-at-eol
+tools/tmall_warehouse_catalog.json -text whitespace=cr-at-eol
+tools/tmall_warehouse_candidate.py -text whitespace=cr-at-eol
+tools/tmall_warehouse_rehearsal.py -text whitespace=cr-at-eol
+docs/tmall-warehouse-monitor-20261017/schema-validation.json -text whitespace=cr-at-eol
 
 tools/django-runtime-supervisor.ps1 -text whitespace=cr-at-eol
