@@ -6,6 +6,7 @@ import os from 'node:os';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {prepareLatestMain} from '../tools/publish-latest-main.mjs';
+import {monitoringSchema} from '../tools/main-schema-release.mjs';
 
 async function fixture(t){
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'latest-main-entry-'));
@@ -62,10 +63,21 @@ test('a historical SUCCESS for a target that is not online cannot become a new s
 test('new migrations never reuse the old schema147 evidence',async t=>{
  const f=await fixture(t);const directory=path.join(f.repository,'backend/inventory/migrations');await fs.mkdir(directory,{recursive:true});await fs.writeFile(path.join(directory,'0016_new.py'),'# fixture migration');
  f.git(f.repository,['add','.']);f.git(f.repository,['commit','--quiet','-m','new migration']);f.git(f.repository,['push','--quiet','origin','main']);
- await assert.rejects(prepareLatestMain(f.config,f.options),/新增迁移/);assert.doesNotMatch(f.logs.join('\n'),/发布成功/);
+ await assert.rejects(prepareLatestMain(f.config,f.options),/结构发布包|迁移缺少/);assert.doesNotMatch(f.logs.join('\n'),/发布成功/);
 });
 test('a half-switched target with STARTED and no SUCCESS cannot short-circuit as already-current',async t=>{
  const f=await fixture(t);const prepared=await prepareLatestMain(f.config,f.options);const attempt=path.join(prepared.packet,'publish-'+f.latest.slice(0,12));await fs.mkdir(attempt);
  await fs.writeFile(path.join(attempt,'STARTED.json'),'half switched');f.live.mainCommit=f.latest;f.live.source=prepared.source;
  await assert.rejects(prepareLatestMain(f.config,f.options),/半切换/);assert.doesNotMatch(f.logs.join('\n'),/发布成功/);
+});
+test('a reviewed0016 addition is bound automatically to the fetched source without old147 fields',async t=>{
+ const f=await fixture(t),directory=path.join(f.repository,'backend/inventory/migrations');await fs.mkdir(directory,{recursive:true});await fs.writeFile(path.join(directory,'0016_jd_product_monitoring.py'),'# synthetic policy seam');
+ f.git(f.repository,['add','.']);f.git(f.repository,['commit','--quiet','-m','reviewed0016']);f.git(f.repository,['push','--quiet','origin','main']);
+ let called=0;
+ const result=await prepareLatestMain(f.config,{...f.options,prepareSchema:async({source,packet,plan})=>{
+  called++;assert.equal(f.git(source,['rev-parse','HEAD']),plan.headSha);assert.equal(plan.migrate,true);
+  return {...monitoringSchema,recipeSha256:'a'.repeat(64),evidencePath:path.join(packet,'schema','inventory-0016-evidence.json'),evidenceSha256:'b'.repeat(64),validationSha256:'c'.repeat(64),codeSha256:'d'.repeat(64)};
+ }});
+ assert.equal(called,1);assert.equal(result.request.migrate,true);assert.equal(result.request.schemaRelease.toGeneration,148);
+ assert.equal(result.request.schemaEvidencePath,undefined);assert.equal(result.request.completedTask,undefined);assert.equal(result.request.schemaRelease.evidencePath,path.join(result.packet,'schema','inventory-0016-evidence.json'));
 });

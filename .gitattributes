@@ -8,5 +8,10 @@ tools/jd_monitor_preferences_addition.py -text whitespace=cr-at-eol
 tools/jd_monitor_preferences_catalog.py -text whitespace=cr-at-eol
 tools/jd_monitor_preferences_catalog.json -text whitespace=cr-at-eol
 tools/jd_monitor_preferences_rehearsal.py -text whitespace=cr-at-eol
+tools/jd_product_monitoring_addition.py -text whitespace=cr-at-eol
+tools/jd_product_monitoring_catalog.py -text whitespace=cr-at-eol
+tools/jd_product_monitoring_rehearsal.py -text whitespace=cr-at-eol
+tools/jd_product_monitoring_candidate.py -text whitespace=cr-at-eol
+docs/manual-main-schema0016-20261017/validation.json -text whitespace=cr-at-eol
 
 tools/django-runtime-supervisor.ps1 -text whitespace=cr-at-eol

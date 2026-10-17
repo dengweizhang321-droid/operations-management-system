@@ -12,6 +12,7 @@ export type JdLogisticsDepartment = {
   replenishmentCycleDays?: number;
   warehousePreferences?: JdWarehousePreference[];
   productOrder?: string[];
+  unmonitoredProductCodes?: string[];
 };
 export type JdWarehousePreference = { warehouseKey: string; enabled: boolean; displayName: string };
 export type JdMonitorWarehouse = { departmentId: string; key: string; code: string; name: string };

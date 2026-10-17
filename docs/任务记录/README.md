@@ -27,6 +27,7 @@
 
 | 任务目录 | 文档数 | 入口 |
 | --- | --- | --- |
+| `manual-main-schema0016-20261017` | 1 | [京东监控0016结构迁移纳入手动main发布](../manual-main-schema0016-20261017/REPORT.md) |
 | `market-progress-resume-20261015` | 5 | [市场进度状态、轻读与维护续接发布](../market-progress-resume-20261015/PRODUCTION.md) |
 | `ai-schedules-release-20261015` | 4 | [AI定时任务与广东仓正式采用记录](../ai-schedules-release-20261015/PRODUCTION.md) |
 | `abc-execution-timing-review-20261010` | 8 | [ABC 执行耗时合理性评估](../abc-execution-timing-review-20261010/REPORT.md) |
@@ -65,6 +66,7 @@
 | `jd-inbound-real-20261015` | 3 | [京东入仓三级菜单与真实文件HTML](../jd-inbound-real-20261015/REPORT.md)、[本地文件读取修复](../jd-inbound-real-20261015/file-protocol-fix.md) |
 | `jd-monitor-compact-20261015` | 2 | [京东库存紧凑布局与补货周期](../jd-monitor-compact-20261015/REPORT.md) |
 | `jd-monitor-hide-no-warehouse-20261017` | 1 | [隐藏无库存数值商品与范围合计](../jd-monitor-hide-no-warehouse-20261017/REPORT.md) |
+| `jd-monitor-products-sales-20261017` | 1 | [单品添加取消监控与3日15日销量](../jd-monitor-products-sales-20261017/REPORT.md) |
 | `jd-inventory-health-20261015` | 2 | [京东库存健康TAB与周转设置](../jd-inventory-health-20261015/REPORT.md) |
 | `jd-manual-cycle-20261015` | 2 | [京东入仓监控手动周转周期](../jd-manual-cycle-20261015/REPORT.md) |
 | `jd-pop-release-20261015` | 2 | [京东入仓监控首次正式发布](../jd-pop-release-20261015/REPORT.md) |

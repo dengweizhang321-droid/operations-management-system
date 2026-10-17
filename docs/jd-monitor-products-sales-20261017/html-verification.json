@@ -1,0 +1,12 @@
+{
+  "windowsFileUrl": true,
+  "cancelCollapsed": true,
+  "restore": true,
+  "localRefreshPersistence": true,
+  "threeDaySales": true,
+  "fifteenDaySales": true,
+  "stickyColumnsDoNotOverlap": true,
+  "mobileExpansion": true,
+  "externalRequests": 0,
+  "pageErrors": []
+}

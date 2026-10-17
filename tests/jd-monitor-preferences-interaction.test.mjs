@@ -15,7 +15,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(predicate, label) { for (let i = 0; i < 300; i++) { if (predicate()) return; await pause(5); } throw new Error(`Timed out: ${label}`); }
 const response = (data, status = 200) => Response.json(status === 200 ? { success: true, data: { contractVersion: "jd-logistics-v1", mode: "live", ...data } } : { success: false, error: data }, { status });
 async function fixture() {
-  const options = { departments: ["SYNTHETIC", "OTHER"].map(id => ({ id, name: id, businessUnitCode: id, revision: 1, warehousePreferences: [] })), warehouses: [], monitorWarehouses: ["W1", "W2"].map(key => ({ key: `code:${key}`, departmentId: "SYNTHETIC", name: key, code: key })) };
+  const options = { departments: ["SYNTHETIC", "OTHER"].map(id => ({ id, name: id, businessUnitCode: id, revision: 1, warehousePreferences: [], unmonitoredProductCodes: [] })), warehouses: [], monitorWarehouses: ["W1", "W2"].map(key => ({ key: `code:${key}`, departmentId: "SYNTHETIC", name: key, code: key })) };
   const calls = [], pending = [], errors = [];
   const vc = new VirtualConsole(); vc.on("jsdomError", error => errors.push(error.message));
   const dom = new JSDOM('<!doctype html><div id="app"></div>', { url: "file:///D:/synthetic-preferences.html?module=inventory&view=inbound&jdTab=monitor&jdDepartment=SYNTHETIC", runScripts: "outside-only", pretendToBeVisual: true, virtualConsole: vc });
@@ -26,7 +26,10 @@ async function fixture() {
     if (method === "PATCH") return new Promise(resolve => pending.push({ body: JSON.parse(init.body), resolve }));
     if (url.searchParams.get("operation") === "options") return response(structuredClone(options));
     const base = matrix(url.searchParams.get("healthState") ?? "all");
-    return response({ ...base, salesWindow: Number(url.searchParams.get("salesWindow")), total: 2, page: 1, items: ["A", "B"].map(goodsCode => ({ ...metrics(), id: goodsCode, goodsCode, goodsName: goodsCode, details: [], detailCount: 0, detailsComplete: true, summary: metrics(), cells: [] })) });
+    const department = options.departments.find(row => row.id === url.searchParams.get("departmentId"));
+    const monitoringState = url.searchParams.get("monitoringState") ?? "active";
+    const codes = ["A", "B"].filter(code => department.unmonitoredProductCodes.includes(code) === (monitoringState === "inactive"));
+    return response({ ...base, monitoringState, inactiveTotal: department.unmonitoredProductCodes.length, salesWindow: Number(url.searchParams.get("salesWindow")), total: codes.length, page: 1, items: codes.map(goodsCode => ({ ...metrics(), id: goodsCode, goodsCode, goodsName: goodsCode, details: [], detailCount: 0, detailsComplete: true, summary: metrics(), cells: [] })) });
   };
   const props = { currentUser: { id: "admin", role: "admin", scope: null } };
   w.eval(await code); w.mount(props);
@@ -38,6 +41,49 @@ function drag(f, handle, target) {
   const event = new f.w.Event("dragstart", { bubbles: true }); Object.defineProperty(event, "dataTransfer", { value: { setData() {} } }); handle.dispatchEvent(event);
   target.dispatchEvent(new f.w.Event("dragover", { bubbles: true, cancelable: true })); target.dispatchEvent(new f.w.Event("drop", { bubbles: true, cancelable: true }));
 }
+
+test("cancel moves a product into a lazy collapsed section and add restores it with the latest revision", async () => {
+  const f = await fixture();
+  try {
+    assert.equal(f.calls.filter(call => call.url.searchParams.get("monitoringState") === "inactive").length, 0);
+    f.w.document.querySelector('[aria-label="取消监控A"]').click();
+    await until(() => f.pending.length === 1, "cancel save");
+    assert.deepEqual(f.pending[0].body.productMonitoring, { goodsCode: "A", enabled: false });
+    assert.equal(f.pending[0].body.expectedRevision, 1);
+    Object.assign(f.options.departments[0], { revision: 2, unmonitoredProductCodes: ["A"] });
+    f.pending[0].resolve(response({ ...f.options.departments[0] }));
+    await until(() => f.w.document.querySelector('.jd-monitor-inactive summary')?.textContent.includes("（1）"), "inactive count");
+    assert.equal(f.w.document.querySelector('[data-goods-code="A"]'), null);
+    const collapsed = f.w.document.querySelector(".jd-monitor-inactive");
+    assert.equal(collapsed.open, false);
+    assert.equal(f.calls.filter(call => call.url.searchParams.get("monitoringState") === "inactive").length, 0);
+    collapsed.open = true;
+    collapsed.dispatchEvent(new f.w.Event("toggle"));
+    await until(() => f.w.document.querySelector('[aria-label="添加监控A"]'), "restore action");
+    const detailIds = [...f.w.document.querySelectorAll('.jd-cwarehouse-expand')].map(node => node.getAttribute("aria-controls"));
+    assert.equal(new Set(detailIds).size, detailIds.length);
+    f.w.document.querySelector('[aria-label="添加监控A"]').click();
+    await until(() => f.pending.length === 2, "restore save");
+    assert.deepEqual(f.pending[1].body.productMonitoring, { goodsCode: "A", enabled: true });
+    assert.equal(f.pending[1].body.expectedRevision, 2);
+    Object.assign(f.options.departments[0], { revision: 3, unmonitoredProductCodes: [] });
+    f.pending[1].resolve(response({ ...f.options.departments[0] }));
+    await until(() => f.w.document.querySelector('[aria-label="取消监控A"]'), "active product restored");
+    assert.equal(f.w.document.querySelector(".jd-monitor-inactive").open, false);
+  } finally { await f.close(); }
+});
+
+test("monitoring CAS rejection keeps the product in place and surfaces a recoverable error", async () => {
+  const f = await fixture();
+  try {
+    f.w.document.querySelector('[aria-label="取消监控A"]').click();
+    await until(() => f.pending.length === 1, "save request");
+    f.pending[0].resolve(response("事业部设置已变化，请刷新后重试", 409));
+    await until(() => f.w.document.querySelector('[role="alert"]'), "conflict message");
+    assert.ok(f.w.document.querySelector('[aria-label="取消监控A"]'));
+    assert.equal(f.w.document.querySelector(".jd-monitor-inactive").open, false);
+  } finally { await f.close(); }
+});
 test("warehouse Dialog saves drag order, alias and switch; rejected CAS preserves draft", async () => {
   const f = await fixture();
   try {

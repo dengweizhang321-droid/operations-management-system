@@ -18,7 +18,7 @@ let hooksPath='';try{hooksPath=git(['config','--get','core.hooksPath']);}catch(e
 assert.equal(hooksPath,'','已有自定义hooksPath，请先合并钩子，不能覆盖');
 const common=git(['rev-parse','--path-format=absolute','--git-common-dir']),hook=path.join(common,'hooks','reference-transaction');
 const target=path.join(config.stateDirectory,'control','tools');await fs.mkdir(target,{recursive:true});
-const names=['publish-latest-main.mjs','publish-main-progress.mjs','release-scope-plan.mjs','main-prebuild-hook.mjs'];
+const names=['publish-latest-main.mjs','publish-main-progress.mjs','release-scope-plan.mjs','main-prebuild-hook.mjs','main-schema-release.mjs'];
 const hashes={};
 for(const name of names){const bytes=await fs.readFile(path.join(source,'tools',name));await fs.writeFile(path.join(target,name),bytes);hashes[name]=createHash('sha256').update(bytes).digest('hex');}
 const quote=value=>"'"+value.replaceAll('\\','/').replaceAll("'","'\\''")+"'";

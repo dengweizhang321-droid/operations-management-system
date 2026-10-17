@@ -1755,6 +1755,22 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   if (-not [string]::IsNullOrWhiteSpace($IntegrationEvidencePath) -and (Test-Path -LiteralPath $IntegrationEvidencePath)) {
     $biEvidence = Read-JsonFile $IntegrationEvidencePath 'BI addition evidence'
   }
+  # Explicit148 dispatch precedes147; the old verifier and its receipt stay exact.
+  $monitoringGate = Join-Path $candidateRoot 'tools\jd_product_monitoring_addition.py'
+  $monitoringDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('jd-product-monitoring-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -ceq 'teruisi-jd-product-monitoring-schema-addition-v1' -or $monitoringDeployment -or
+      (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'jd-product-monitoring-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $monitoringGate -PathType Leaf)) {throw 'JD148 requires its exact verifier'}
+    $monitoringCommand = if ($Operation -ceq 'PrepareApp') {if ($null -ne $biEvidence) {'admission'} else {'successor'}} elseif ($Operation -ceq 'DeployApp') {if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'}} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported JD148 lifecycle operation'}
+    $monitoringArgs = @($monitoringGate,$monitoringCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if ($monitoringCommand -ceq 'admission') {$monitoringArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if ($monitoringCommand -ceq 'deployment') {$monitoringArgs += @('--operation',$IntegrationOperationId)}
+    $monitoringRun = Invoke-BoundedNativeProcess $Python $monitoringArgs $candidateRoot
+    $monitoringProof = ConvertFrom-UniqueNativeJson $monitoringRun 'Verify finite JD148 schema addition'
+    if ([string]$monitoringProof.status -cne 'verified') {throw 'JD148 schema addition gate refused'}
+    return
+  }
   # Explicit147 dispatch precedes146; the old verifier and its receipt stay exact.
   $preferencesGate = Join-Path $candidateRoot 'tools\jd_monitor_preferences_addition.py'
   $preferencesDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
@@ -2035,6 +2051,8 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\jd_product_monitoring_addition.py",
+      "tools\jd_product_monitoring_catalog.py",
       "tools\jd_monitor_preferences_addition.py",
       "tools\jd_monitor_preferences_catalog.py",
       "tools\jd_monitor_preferences_catalog.json",

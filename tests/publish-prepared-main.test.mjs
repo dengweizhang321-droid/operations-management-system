@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {publishPreparedMain} from '../tools/publish-prepared-main.mjs';
+import {monitoringSchema} from '../tools/main-schema-release.mjs';
 
 async function fixture(t,components=['worker'],failAt=null){
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'prepared-publisher-'));
@@ -66,7 +67,7 @@ test('combined uses full native maintenance without any migration operator',asyn
 });
 test('migration requests fail before any engine or result write',async t=>{
  const f=await fixture(t,['django']);f.request.migrate=true;
- await assert.rejects(publishPreparedMain(f.request,f.context),/结构迁移/);assert.deepEqual(f.events,[]);
+ await assert.rejects(publishPreparedMain(f.request,f.context),/结构发布/);assert.deepEqual(f.events,[]);
  await assert.rejects(fs.access(f.out));
 });
 test('existing SUCCESS only reports current when target and both live bindings match',async t=>{
@@ -152,4 +153,46 @@ test('source/request drift and native Worker reuse failure stop before maintenan
  f.context.rotation.planWorkerReleaseRotation=async()=>{throw Error('native source/environment/cache mismatch');};
  await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/native source/);
  await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));assert.ok(!f.events.includes('BeginWorkerDrain'));
+});
+
+async function migrationFixture(t,failAt=null){
+ const f=await fixture(t,['worker','django'],failAt);
+ f.request.migrate=true;f.request.releasePlan={migrate:true};
+ f.request.schemaRelease={...monitoringSchema,recipeSha256:'a'.repeat(64),evidencePath:path.join(f.context.source,'evidence.json'),evidenceSha256:'b'.repeat(64),validationSha256:'c'.repeat(64),codeSha256:'d'.repeat(64)};
+ f.context.verifySchemaRelease=async()=>{f.events.push('schema-check');};
+ const native=f.context.runStep;f.ids=[];
+ f.context.runStep=async args=>{
+  if(['Plan','Install','Finalize'].includes(args.action)){
+   f.events.push(args.action);if(args.action===failAt)throw Error('fixture failure: '+failAt);
+   assert.equal(args.addJson,false);assert.ok(args.extra.includes('-SchemaOnly'));assert.ok(args.extra.includes('JdProductMonitoring'));
+   f.ids.push({operation:args.extra[args.extra.indexOf('-OperationId')+1],maintenance:args.extra[args.extra.indexOf('-MaintenanceId')+1]});
+   return args.action==='Plan'?{status:'verified',result:{status:'prepared'}}:{status:'verified',result:{status:args.action==='Install'?'schema_installed':'verified',migrationCount:148,steps:monitoringSchema.steps}};
+  }
+  if(args.action==='PrepareApp')assert.deepEqual(args.extra,['-IntegrationEvidencePath',f.request.schemaRelease.evidencePath,'-IntegrationEvidenceSha256',f.request.schemaRelease.evidenceSha256]);
+  if(args.action==='DeployApp')assert.ok(args.extra.includes('-IntegrationOperationId'));
+  return native(args);
+ };
+ return f;
+}
+test('148 preparation never migrates; manual deployment binds original operation and native receipts',async t=>{
+ const f=await migrationFixture(t);await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ for(const forbidden of ['Plan','DeployApp','Install','Finalize','EnterMaintenance','apply','Start'])assert.ok(!f.events.includes(forbidden));
+ await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));f.events.length=0;
+ const receipt=await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ assert.deepEqual(operations(f.events).filter(n=>n!=='schema-check'),['reuse','VerifyPreparedApp','EnterMaintenance','Stop','Plan','DeployApp','HardenAcl','Install','Finalize','apply','ExitMaintenance','Start','VerifyStartup','ready']);
+ const started=JSON.parse(await fs.readFile(path.join(f.out,'STARTED.json'),'utf8'));
+ assert.ok(f.ids.every(id=>id.operation===started.operationId&&id.maintenance===started.maintenanceId));
+ assert.equal(receipt.migration,monitoringSchema.steps[0]);assert.equal(receipt.schemaReceipt.operationId,started.operationId);assert.equal(receipt.schemaReceipt.finalized.result.migrationCount,148);
+});
+for(const failure of ['Plan','Install','Finalize'])test('148 failure at '+failure+' retains unknown publication and never replays',async t=>{
+ const f=await migrationFixture(t,failure);await publishPreparedMain(f.request,{...f.context,prepareOnly:true});f.events.length=0;
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/fixture failure/);
+ assert.ok(!f.events.includes('apply'));assert.ok(!f.events.includes('ExitMaintenance'));await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
+ f.events.length=0;await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/结果未知/);assert.ok(!f.events.includes('Install'));
+});
+test('schema evidence drift during reuse is rejected before maintenance',async t=>{
+ const f=await migrationFixture(t);await publishPreparedMain(f.request,{...f.context,prepareOnly:true});f.events.length=0;
+ let checks=0;f.context.verifySchemaRelease=async()=>{if(++checks===2)throw Error('schema evidence drift');};
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/evidence drift/);
+ assert.ok(!f.events.includes('EnterMaintenance'));await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));
 });
