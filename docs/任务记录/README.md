@@ -129,6 +129,7 @@
 
 | 任务目录 | 文档数 | 入口 |
 | --- | --- | --- |
+| `startup-first-batch-20261018` | 1 | [旧进程记录防复发与钉钉重复扫描优化](../startup-first-batch-20261018/REPORT.md) |
 | `ordinary-user-controls-20261014` | 1 | [当前登录账号的普通权限控制](../ordinary-user-controls-20261014/REPORT.md) |
 | `runtime-risk-readonly-audit-20261009` | 3 | [剩余运行风险调查报告](../runtime-risk-readonly-audit-20261009/REPORT.md) |
 | `startup-recovery-continuation-20261012` | 4 | [续接修复报告](../startup-recovery-continuation-20261012/REPORT.md) |
