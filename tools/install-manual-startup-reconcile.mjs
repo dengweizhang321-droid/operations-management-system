@@ -10,7 +10,9 @@ import {knownStartupRecovery as k,recoverySource,environmentHash,canonicalRecove
 const execute=promisify(execFile),root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const state='D:/codex-isolated/main-manual-release-20261016',source=path.resolve(recoverySource),attempt=path.resolve(source,'..','publish-'+k.mainCommit.slice(0,12));
 const read=async f=>JSON.parse(await fs.readFile(f,'utf8')),sha=async f=>createHash('sha256').update(await fs.readFile(f)).digest('hex');
-const driverSha256=await sha(path.join(root,'tools/manual-startup-reconcile.mjs')),kitName='recovery-2f875fb01c79-'+driverSha256.slice(0,12),target=path.join(state,kitName);
+const driverSha256=await sha(path.join(root,'tools/manual-startup-reconcile.mjs'));
+const kitHash=createHash('sha256').update([driverSha256,await sha(path.join(root,'tools/manual-startup-preflight.ps1')),await sha(fileURLToPath(import.meta.url))].join(':')).digest('hex');
+const kitName='recovery-2f875fb01c79-'+kitHash.slice(0,12),target=path.join(state,kitName);
 const main=await read(path.join(state,'main-publisher-config.json')),request=await read(path.resolve(source,'..','main-release-request.json')),prepared=await read(path.join(attempt,'preparation/PREPARED.json')),started=await read(path.join(attempt,'STARTED.json')),failed=await read(path.join(attempt,'FAILED.json'));
 assert.equal(request.mainCommit,k.mainCommit);assert.equal(request.schemaRelease.additionKind,'TmallWarehouse');assert.equal(request.schemaRelease.toGeneration,149);assert.equal(started.maintenanceId,k.maintenanceId);assert.equal(started.operationId,k.operationId);assert.equal(failed.phase,'切换前端');assert.equal(failed.maintenanceStarted,true);assert.equal(failed.processEvidence.engineFailure.stage,'InstallStartup');assert.equal(failed.processEvidence.engineFailure.processId,9332);assert.equal(prepared.workerPlan.planSha256,k.planSha256);
 const planFile='D:/teruisi-runtime/teruisi-worker-sales/state/worker-release-rotation-plans/'+k.planSha256+'.json',plan=await read(planFile);assert.equal(await sha(planFile),k.planSha256);assert.equal(plan.candidate.bindingSha256,k.bindingSha256);
@@ -44,7 +46,16 @@ const entrypointHashes={};for(const item of plan.protectedEntrypoints){const fil
 const l=await fs.lstat(probe.shortcut.path,{bigint:true});assert.ok(l.isFile()&&!l.isSymbolicLink()&&l.nlink===1n);
 const successor='D:/teruisi-runtime/teruisi-worker-sales/state/worker-release-successors/'+plan.predecessor.bindingSha256+'.json';pins.push({path:successor,sha256:await sha(successor)},{path:successor+'.sha256',sha256:await sha(successor+'.sha256')});
 const git=args=>execute('git',['-C',root,...args],{encoding:'utf8',windowsHide:true});
-const config={version:'manual-startup-recovery-2f875fb0-v1',mainCommit:k.mainCommit,driverSha256,preflightFile:path.join(target,'manual-startup-preflight.ps1'),preflightSha256:await sha(helper),environment,originalEnvironmentSha256:environmentHash(environment),executionEnvironmentSha256:environmentHash(env),sid:probe.sid,shortcut:probe.shortcut,shortcutIdentity:{dev:String(l.dev),ino:String(l.ino),size:String(l.size),mtimeNs:String(l.mtimeNs)},shortcutSha256:await sha(probe.shortcut.path),candidate:plan.candidate,successorSha256:await sha(successor),sourceTree:started.sourceTree,djangoPreparedId:prepared.djangoPackage.id,originalFailureSha256:await sha(path.join(attempt,'FAILED.json')),sourceInventorySha256:approvedBinding.identity.sourceInventorySha256,gitFile,gitSha256,schemaRelease:request.schemaRelease,schemaInstalled:(await read(path.join(attempt,'迁移监控字段-result.json'))).value,schemaFinalized:finalized,pins,preparedByCommit:(await git(['rev-parse','HEAD'])).stdout.trim()};
+const config={
+ version:'manual-startup-recovery-2f875fb0-v1',mainCommit:k.mainCommit,driverSha256,
+ preflightFile:path.join(target,'manual-startup-preflight.ps1'),preflightSha256:await sha(helper),
+ environment,originalEnvironmentSha256:environmentHash(environment),executionEnvironmentSha256:environmentHash(env),
+ sid:probe.sid,shortcut:probe.shortcut,shortcutIdentity:{dev:String(l.dev),ino:String(l.ino),size:String(l.size),mtimeNs:String(l.mtimeNs)},shortcutSha256:await sha(probe.shortcut.path),
+ candidate:plan.candidate,successorSha256:await sha(successor),entrypointHashes,sourceTree:started.sourceTree,djangoPreparedId:prepared.djangoPackage.id,
+ originalFailureSha256:await sha(path.join(attempt,'FAILED.json')),sourceInventorySha256:approvedBinding.identity.sourceInventorySha256,gitFile,gitSha256,
+ schemaRelease:request.schemaRelease,schemaInstalled:(await read(path.join(attempt,'迁移监控字段-result.json'))).value,schemaFinalized:finalized,
+ pins,preparedByCommit:(await git(['rev-parse','HEAD'])).stdout.trim()
+};
 assert.equal(await sha('D:/teruisi-runtime/django-sales/app/deployment.json'),k.djangoManifestSha256);
 if(process.argv.includes('--check-only')){console.log(JSON.stringify({status:'recovery-configuration-checked',mainCommit:k.mainCommit,pinCount:pins.length,driverSha256,productionExecuted:false}));process.exit(0);}
 assert.equal((await git(['status','--porcelain'])).stdout.trim(),'','请先提交并审查恢复工具，再安装执行入口');
