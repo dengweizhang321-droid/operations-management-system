@@ -3,7 +3,7 @@ import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 
 // Presentation only: never retries an operation or changes release receipts.
-export function createReleaseProgress(directory,{write=console.log,now=Date.now,heartbeatMs=30000}={}){
+export function createReleaseProgress(directory,{write=console.log,now=Date.now,heartbeatMs=30000,taskName='发布'}={}){
  mkdirSync(directory,{recursive:true});
  const logFile=path.join(directory,'release-'+new Date(now()).toISOString().replaceAll(':','-')+'-'+randomUUID()+'.log');
  writeFileSync(logFile,'',{flag:'wx'});
@@ -18,7 +18,7 @@ export function createReleaseProgress(directory,{write=console.log,now=Date.now,
  };
  const heartbeat=()=>log('[步骤 '+number+'] '+phase+' 进行中，本步已用 '+seconds(phaseStarted)+' 秒，总用时 '+seconds(started)+' 秒，请保持窗口打开。');
  const timer=setInterval(heartbeat,heartbeatMs);timer.unref();
- log('开始发布。进度日志：'+logFile);
+ log('开始'+taskName+'。进度日志：'+logFile);
  return {
   logFile,log,heartbeat,
   begin(label){phase=label;phaseStarted=now();number++;log('[步骤 '+number+'] '+label+' 开始');},

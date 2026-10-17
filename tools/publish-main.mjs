@@ -7,7 +7,6 @@ import {randomUUID,createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {createReleaseProgress} from './publish-main-progress.mjs';
 import {knownResume,loadKnownResume} from './publish-main-known-resume.mjs';
-import {confirmCompletedTask} from './publish-main-completed.mjs';
 import {manualStepCommand} from './publish-main-command.mjs';
 
 const controlRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -39,14 +38,27 @@ async function main(){
  const head=execFileSync('git',['rev-parse','HEAD'],{cwd:source,encoding:'utf8'}).trim();
  assert.equal(head,request.mainCommit,'main来源版本已变化，请使用本次合并后生成的入口');
  assert.equal(execFileSync('git',['status','--porcelain'],{cwd:source,encoding:'utf8'}).trim(),'','发布来源有未提交修改');
+ if(request.latestMainRelease){
+  assert.equal(request.version,'teruisi-frozen-latest-main-request-v1');
+  assert.equal(resumeMode,false,'最新main发布不能套用旧任务续接');
+  assert.equal(request.completedTask,undefined,'最新main发布不能使用旧完成证明');
+  assert.equal(request.releasePlan?.headSha,head,'发布范围不属于本次main');assert.equal(request.releasePlan?.baseSha,request.deployedCommit);
+  assert.deepEqual(request.components,request.releasePlan.components);assert.equal(request.releasePlan.migrate,false);
+  await verifyPowerShellHost(request,process.argv.includes('--check'));await verifyOfflineCache(request);
+  if(process.argv.includes('--check')){console.log(JSON.stringify({mode:'frozen-latest-main',targetCommit:head,publicationPerformed:false}));return;}
+  process.env.PATH=request.pwshDirectory+';'+(process.env.PATH??process.env.Path??'');process.env.WRANGLER_HIDE_BANNER='true';
+  process.env.npm_config_cache=request.npmCacheDirectory;process.env.npm_config_offline='true';process.env.npm_config_prefer_online='false';process.env.npm_config_prefer_offline='true';
+  const api=await import(pathToFileURL(path.join(source,'tools/worker-local-release.mjs')));
+  const rotation=await import(pathToFileURL(path.join(source,'tools/worker-local-release-rotation.mjs')));
+  const transport=await import(pathToFileURL(path.join(source,'tools/release-batch.mjs')));
+  const token=await api.runProcess('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',['-NoProfile','-NonInteractive','-Command','[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)'],{timeoutMs:30000});
+  assert.equal(token.stdout.trim(),'False','请用普通用户执行固定发布入口，不需要管理员权限');
+  const {publishPreparedMain}=await import('./publish-prepared-main.mjs');
+  const out=path.resolve(source,'..','publish-'+head.slice(0,12));
+  await publishPreparedMain(request,{source,out,progress,api,rotation,transport});return;
+ }
  if(request.completedTask){
-  const completed=await confirmCompletedTask(request,{getHead:async()=>{
-   const rotation=await import(pathToFileURL(path.join(source,'tools/worker-local-release-rotation.mjs')));
-   return (await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true})).head;
-  }});
-  if(process.argv.includes('--check'))console.log(JSON.stringify(completed));
-  else{progress.success('本任务已发布，无需重复打包或部署。线上版本：'+completed.publishedCommit+'；成功回执：'+completed.receiptPath);progress.log('库存配置文件核对通过，结构迁移147，服务就绪。');}
-  return;
+  throw Error('这是旧任务的历史完成入口，不能发布最新main；请使用固定发布main.bat入口。本次未执行发布。');
  }
  const originalOut=path.resolve(source,'..','publish-'+head.slice(0,12));
  const resumedOut=path.join(originalOut,'resume-'+knownResume.maintenanceId);
@@ -55,7 +67,7 @@ async function main(){
   assert.equal(completed.mainCommit,knownResume.commit);assert.equal(completed.maintenanceId,knownResume.maintenanceId);
   assert.equal(completed.resumedOriginalFailureSha256,knownResume.records['FAILED.json']);
   if(process.argv.includes('--check'))console.log(JSON.stringify({mode:'already-published',productionExecuted:false}));
-  else progress.success('此main版本已经成功发布，无需重复部署。结果：'+path.join(resumedOut,'SUCCESS.json'));
+  else progress.log('这是已完成的历史续接，本次没有执行发布。结果：'+path.join(resumedOut,'SUCCESS.json'));
   return;
  }
  const resume=resumeMode?await loadKnownResume(originalOut,request,head):null;
@@ -63,7 +75,7 @@ async function main(){
  const out=resume?resumedOut:originalOut;await fs.mkdir(out,{recursive:true});
  const save=async(name,value)=>fs.writeFile(path.join(out,name),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
  progress.log('main版本：'+head+'；步骤详细日志：'+out);
- if(await exists(path.join(out,'SUCCESS.json'))){progress.success('此main版本已经成功发布，无需重复部署。结果：'+path.join(out,'SUCCESS.json'));return;}
+ if(await exists(path.join(out,'SUCCESS.json')))throw Error('此入口存在历史成功记录，请从固定入口核对最新main。本次未执行发布。');
  if(await exists(path.join(out,'STARTED.json')))throw Error('此版本已有执行记录，不能重复执行未知结果。日志目录：'+out);
  const api=await import(pathToFileURL(path.join(source,'tools/worker-local-release.mjs')));
  const rotation=await import(pathToFileURL(path.join(source,'tools/worker-local-release-rotation.mjs')));

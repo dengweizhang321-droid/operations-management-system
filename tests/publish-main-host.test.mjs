@@ -46,3 +46,7 @@ test('normal entry logs a preflight failure without reporting success or startin
  assert.match(await fs.readFile(path.join(root,'logs',logs[0]),'utf8'),/main来源版本已变化/);
  await assert.rejects(fs.access(path.join(root,'publish-'+mainCommit.slice(0,12))),{code:'ENOENT'});
 });
+test('legacy completedTask requests are rejected instead of displaying historical publication success',async()=>{
+ const result=await check({completedTask:{path:'old-task.json',sha256:'0'.repeat(64)}});
+ assert.equal(result.status,1);assert.match(result.stderr,/旧任务的历史完成入口/);assert.doesNotMatch(result.stdout,/发布成功/);
+});
