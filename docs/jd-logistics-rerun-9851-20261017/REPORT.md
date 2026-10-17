@@ -26,4 +26,25 @@
 
 官方UI已短暂停用同一工作流，回读active=false、version196ba保留。前两次只读inspect分别被全库存域根revision推进、旧部门policyHash与当前版本差异拦住；原active与failed manifest未动，未产生闭合intent。经源码与原始基线核对后，仅从settings摘要剔除全库存根revision，其他原始字段完全冻结；部门revision在08:00后、基线捕获前已从2推进4。固定原2/当前4，只在深复制的内存settings中改目标部门4→2即可精确重建旧四源policyHash及所有selection字段，复原后副本须与当前settings全同；不修改实际配置、不放宽正式assertPolicy。该精确闭合证明经独立decision确认；不能据此断言2→4两次历史变更必然只是展示设置。后续新A使用实际当前4。
 
-修正后真实INSPECT-v3取得eligible_intent，当前八历史批次及精确currentSelection、原生运行绑定和空目录通过；尚未apply或创建新业务execution。后续真实结果以同任务包外CLOSURE-RESULT.json、POSTCHECK.json和RERUN-RESULT.json为准；没有这些实际回执时，不能声称重跑成功或数据已补齐。
+修正后真实INSPECT-v3/v4取得eligible_intent。独立预检在共享helper被天猫占用时正确返回WAIT，等待其自然结束后于上海11:08:25取得新鲜PASS。原operator单次apply在11:09:17.924取得committed；原active归档至`outputs/jd-logistics-pipeline/login-9851-18ffecdf11972a5a/active.archived.json`，原9851的error、execution data和failed manifest字节保持，八个历史批次及精确currentSelection不变。独立后置核验PASS，回执为包外CLOSURE-RESULT.json、POSTCHECK.json。
+
+闭合之后另一天猫任务取得共享helper，不将它误记为闭合unknown。按独立decision和复核确认，恢复原196ba发布版本与原图、上海08:00计划后，仅从原manual→coordination/claim入口创建一次9896；未绕开等待直接调用A。9896于11:12:52.715开始，先按原Wait等待5分钟，随后原子claim获准，创建fresh run `jdl-794e9ecf-03e1-4189-bd88-8f3af6f95cc2`，不使用9851的计划或文件。POSTCHECK-INTERPRETATION.json区分health空闲快照与新execution实际admission，唯有claim granted才能进入A。
+
+## 本轮重跑结果：失败，未导入业务数据
+
+9896于11:18:46.970以error结束。前三来源完成新的下载及纯文件校验，第四来源库存快照在导出前报`JD_LOGISTICS_SOURCE_COUNT_UNSTABLE`。
+
+| 来源 | 新文件验证行数 | 终态 |
+| --- | --- | --- |
+| 库存流水 | 352 | validated，未导入 |
+| 启用店铺商品 | 906 | validated，未导入 |
+| 实时库存 | 427 | validated，未导入 |
+| T-1库存快照 | 尚未取得文件 | exporting阶段失败，目录为空、无export-manifest |
+
+该错误定位到`stableSourceRows`：30轮、每轮等待200ms，要求页面总条数与本次响应总数一致，且完整筛选回读hash与准备时一致，连续两次成立。名义等待预算6秒，另含采样读取耗时；原失败未记录每轮具体count或scopeHash，因此不能判定哪一项变化，也不能单独归因为京东响应慢。
+
+四文件屏障阻止所有导入，四项receipt均不存在，C/D未执行，n8n失败释放节点返回released。执行者和独立审查者分别重新解析三份原文件，核对原始/内容SHA、数量及export-manifest；八个历史列表及每个精确批次currentSelection与重跑前摘要完全相同。本轮新增业务导入0、通知0；京东浏览器9224及两锁已释放。当前helper再被其他天猫任务领取，与9896释放成功分开判断。
+
+当前原196ba、每天08:00/AsiaShanghai仍active，9896 failed active、三文件及原失败证据继续保留，防止盲目重发；不能套用仅为9851准备的闭合工具处理9896。本轮没有修复或部署快照稳定性代码，也未再次执行/闭合9896。登录优化候选尚未由本任务上线，实际重跑使用既有1cb版本。
+
+最终机器结果为包外RERUN-RESULT.json及RERUN-REVIEW.json；后者PASS仅表示失败取证可信，其workflowStatus明确为error，不表示工作流成功或数据已补齐。n8n结果页与截图分别为`http://localhost:5678/workflow/JdLogisticsDaily2026/executions/9896`和包外n8n-9896-error.png。
