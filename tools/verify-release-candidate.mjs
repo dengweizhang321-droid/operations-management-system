@@ -36,10 +36,12 @@ export function candidateCompatibilityProfile(changes){
  const supported=new Set(['tools/publish-main.mjs','tools/publish-prepared-main.mjs','tools/publish-latest-main.mjs',
   'tools/main-prebuild-status.mjs','tools/worker-local-release.mjs','tools/django-local-service.ps1','tools/django-ai.ps1','tools/verify-release-candidate.mjs']);
  for(const file of [...proofFiles,...preparationFiles,'tools/worker-local-release-rotation.mjs','tools/pi_workspace_addition.py','config/main-schema-releases/ai-0085.json'])supported.add(file);
+ for(const file of ['tools/main-schema-release.mjs','tools/schema-rejection-observer.mjs','tools/schema-rejection-writer.mjs'])supported.add(file);
  const unsupported=paths.filter(p=>!supported.has(p));
  const schemaProof=paths.some(p=>proofFiles.includes(p)),preparationQueue=paths.some(p=>preparationFiles.includes(p)||p==='tools/publish-latest-main.mjs'||p==='tools/worker-local-release-rotation.mjs');
  return {version:schemaProof||preparationQueue?'release-three-optimizations-v1':'release-compatibility-profile-v1',paths,unsupported,schemaProof,preparationQueue,
   releaseChainPreflight:paths.some(p=>p==='tools/manual-maintenance-process.psm1'||p==='tools/frozen-main-source.mjs')&&paths.every(p=>['tools/manual-maintenance-process.psm1','tools/manual-maintenance-preflight.ps1','tools/frozen-main-source.mjs','tools/manual-maintenance-continuation.mjs','tools/manual-maintenance-continuation.ps1','tools/manual-maintenance-start.ps1','tools/publish-main.mjs','tools/publish-prepared-main.mjs','tools/publish-latest-main.mjs','tools/verify-release-candidate.mjs','tools/install-main-prebuild.mjs','tools/django-local-service.ps1','tools/pi_workspace_addition.py','config/main-schema-releases/ai-0085.json'].includes(p)),
+  schemaAdmissionOnly:paths.includes('tools/main-schema-release.mjs')&&paths.includes('tools/main-prebuild-queue.mjs')&&paths.every(p=>['tools/main-schema-release.mjs','tools/main-prebuild-queue.mjs','tools/publish-latest-main.mjs','tools/schema-rejection-observer.mjs','tools/schema-rejection-writer.mjs','tools/verify-release-candidate.mjs','config/main-schema-releases/ai-0085.json'].includes(p)),
   publication:paths.some(p=>/publish-|main-prebuild|manual-maintenance|verify-release-candidate|release-scope-plan/.test(p)),
   worker:paths.some(p=>/worker-local-release/.test(p)),
   django:paths.includes('tools/django-local-service.ps1'),
@@ -172,7 +174,7 @@ export function compareFixedPreparationAdmissionChange(before,after){
  return core.replace(signature,'assertGeneration=assertControlGeneration}={})').replace(callback,'')===before;
 }
 
-export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,dependencies,python='python.exe',reuseReport}={}){
+export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,dependencies,python='python.exe',reuseReport,reusePreflightReport}={}){
  const source=await assertPrivateCandidateLocation(sourceRoot??process.cwd());
  const verifierRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
  assert.equal((await fs.realpath(source)).toLowerCase(),(await fs.realpath(verifierRoot)).toLowerCase(),'验证器必须来自被验证候选，不能使用其他工作树的旧工具');
@@ -188,6 +190,18 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
  await fs.mkdir(directory,{recursive:false});
  const plan=makeReleasePlan({base:baseCommit,head:commit,cwd:source});
  const profile=candidateCompatibilityProfile(plan.changes);
+ let schemaAdmissionOnly=false,preflightBaseline;
+ if(reusePreflightReport){
+  assert.equal(baseCommit,'a7041338462acb766a50df376777c619557ea4eb');assert.equal(profile.schemaAdmissionOnly,true,'增量超出有限schema admission/ece恢复接缝');
+  const raw=await fs.readFile(reusePreflightReport);assert.equal(sha(raw),'94251c24d5ecd43b535b975fb2de7ea023c3930522ce07f3a4cd5274f1cafdbb');const baseline=JSON.parse(raw);assert.equal(baseline.status,'passed');assert.equal(baseline.commit,'2d9d1d9c8395f8ec44d0003d5c44905bcfa09490');assert.equal(baseline.evidence.packageIntegrity,true);assert.equal(baseline.evidence.nativeEntryBoundary,true);
+  const before=async name=>(await execute('git',['-C',source,'show',baseCommit+':'+name],{encoding:'utf8',windowsHide:true,maxBuffer:4*1024*1024})).stdout;
+  const oldSchema=await before('tools/main-schema-release.mjs'),nextSchema=await fs.readFile(path.join(source,'tools/main-schema-release.mjs'),'utf8'),addition='/** Pure installed-control capability check, before a preparation dispatch. */\nexport function assertMainSchemaPlanSupported(plan){return plan.migrate?planSpec(plan).schema:null;}\n';assert.equal(nextSchema.split(addition).length,2);assert.equal(nextSchema.replace(addition,''),oldSchema,'仅允许结构模块导出原planSpec纯检查');
+  const oldQueue=await before('tools/main-prebuild-queue.mjs'),nextQueue=await fs.readFile(path.join(source,'tools/main-prebuild-queue.mjs'),'utf8'),start=nextQueue.indexOf('// FIXED_SCHEMA_ECE_BEGIN');assert.ok(start>0&&nextQueue.trimEnd().endsWith('// FIXED_SCHEMA_ECE_END'));
+  const core=nextQueue.slice(0,start).trimEnd()+'\n';assert.equal(core.replace(',admitSelectedPreparation=async()=>{}','').replace(';await admitSelectedPreparation(selection);',';').replace("(!await readFixedAdminRejectionResolution(directory,dispatch,terminal)&&!await readFixedSchemaRejectionResolution(directory,dispatch,terminal))","!await readFixedAdminRejectionResolution(directory,dispatch,terminal)"),oldQueue,'旧队列仅允许两个明确准入接缝，旧e2资格保持');
+  schemaAdmissionOnly=true;preflightBaseline={path:path.resolve(reusePreflightReport),sha256:sha(raw),commit:baseline.commit,tree:baseline.tree,evidence:baseline.evidence,inputs:{tools:baseline.tools,dependencies:baseline.dependencies,powerShellModules:baseline.powerShellModules},payload:baseline.payload};
+ }
+ if(profile.schemaAdmissionOnly)assert.ok(schemaAdmissionOnly,'有限schema/ece profile必须绑定已审a704应用证明');
+ if(profile.paths.some(p=>['tools/main-schema-release.mjs','tools/schema-rejection-observer.mjs','tools/schema-rejection-writer.mjs'].includes(p)))assert.equal(schemaAdmissionOnly,true,'新增schema能力/见证入口必须有专用受审增量资格');
  let fixedAdminOnly=false,reusedBaseline;
  if(reuseReport){
   assert.equal(baseCommit,'aaca18485021b6f98107fe168b69c8f57d55ee46','限定增量只复用已核aaca基线');
@@ -203,6 +217,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
  const report={version:'release-candidate-verification-v1',source,baseCommit,commit,tree,plan,profile,startedAt:new Date().toISOString(),
   status:'running',checks:[],evidence:{packageIntegrity:false,nativeEntryBoundary:false,nativeColdStart:false},publicationPerformed:false};
  if(fixedAdminOnly){report.profile={...profile,version:'fixed-admin-e2-preparation-admission-v1',fixedAdminOnly:true};report.reusedBaseline=reusedBaseline;}
+ if(schemaAdmissionOnly){report.profile={...profile,version:'schema-before-native-ece-admission-v1'};report.reusedPreflightBaseline={...preflightBaseline,payload:undefined};}
  const reportFile=path.join(directory,'REPORT.json');
  const write=()=>fs.writeFile(reportFile,JSON.stringify(report,null,2)+'\n');
  await write();
@@ -230,11 +245,17 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    assert.deepEqual(report.dependencies,reusedBaseline.inputs.dependencies,'依赖漂移，不能复用原应用/Pi证明');
    assert.deepEqual(report.powerShellModules,reusedBaseline.inputs.powerShellModules,'PowerShell模块漂移，不能复用原应用/Pi证明');
   }
+  if(schemaAdmissionOnly){assert.deepEqual(report.tools,preflightBaseline.inputs.tools,'执行工具漂移，不能复用');assert.deepEqual(report.dependencies,preflightBaseline.inputs.dependencies,'依赖漂移，不能复用');assert.deepEqual(report.powerShellModules,preflightBaseline.inputs.powerShellModules,'PowerShell模块漂移，不能复用');}
   const members=(await git(candidate,['ls-files','-z'])).split('\0').filter(Boolean);
   report.payload=[];
   for(const name of members){const file=path.join(candidate,name);assert.ok(!(await fs.lstat(file)).isSymbolicLink(),'候选包含链接：'+name);report.payload.push({path:name,sha256:sha(await fs.readFile(file))});}
   report.payloadSha256=sha(Buffer.from(JSON.stringify(report.payload)));
-  if(profile.paths.some(p=>p==='tools/pi_workspace_addition.py'||p==='config/main-schema-releases/ai-0085.json')){
+  if(schemaAdmissionOnly){
+   const mutable=new Set(profile.paths);for(const entry of preflightBaseline.payload)if(!entry.path.startsWith('docs/')&&!entry.path.startsWith('tests/')&&!mutable.has(entry.path))assert.equal(sha(await fs.readFile(path.join(candidate,entry.path))),entry.sha256,'前轮应用/生命周期字节变化：'+entry.path);
+   await run('schema-current-proof-binding',pythonExe,['tests/release-chain-schema-binding.py'],'package-integrity');
+   await run('schema-admission-and-ece',process.execPath,['--test','--test-concurrency=1','tests/main-schema-selected-admission.test.mjs','tests/fixed-schema-rejection.test.mjs','tests/fixed-admin-resolution.test.mjs','tests/main-prebuild-eligibility.test.mjs','tests/main-prebuild-queue-v2.test.mjs','tests/publish-latest-main.test.mjs'],'native-entry-boundary');
+  }
+  if(!schemaAdmissionOnly&&profile.paths.some(p=>p==='tools/pi_workspace_addition.py'||p==='config/main-schema-releases/ai-0085.json')){
    assert.equal(profile.releaseChainPreflight,true,'PiWorkspace改动需要专用结构验证适配器');
    const old=(await execute('git',['-C',source,'show',baseCommit+':tools/pi_workspace_addition.py'],{encoding:'utf8',windowsHide:true})).stdout;
    const next=await fs.readFile(path.join(candidate,'tools/pi_workspace_addition.py'),'utf8');
@@ -273,10 +294,10 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    await run('fixed-admin-queue',process.execPath,['--test','--test-concurrency=1','tests/fixed-admin-resolution.test.mjs','tests/fixed-admin-compatibility.test.mjs','tests/main-prebuild-eligibility.test.mjs','tests/main-prebuild-queue-v2.test.mjs'],'native-entry-boundary');
    await run('fixed-admin-private-bundle',process.execPath,['--test','--test-name-pattern=materials preserve frozen environment','tests/main-control-upgrade.test.mjs','tests/main-prebuild-task.test.mjs','tests/fixed-admin-resolution.test.mjs','tests/main-prebuild-eligibility.test.mjs'],'package-integrity');
   }
-  if(!fixedAdminOnly&&profile.publication)await run('publication',process.execPath,['--test','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs','tests/manual-maintenance-pi-readiness.test.mjs','tests/manual-maintenance-continuation.test.mjs','tests/release-chain-preflight.test.mjs'],'native-entry-boundary');
-  if(!fixedAdminOnly&&profile.preparationQueue&&!profile.releaseChainPreflight)await run('preparation-queue-control',process.execPath,['--test','--test-concurrency=1','tests/main-prebuild-hook.test.mjs','tests/main-prebuild-queue-v2.test.mjs','tests/main-control-upgrade.test.mjs','tests/main-prebuild-task.test.mjs','tests/fixed-admin-resolution.test.mjs','tests/main-prebuild-eligibility.test.mjs'],'native-entry-boundary');
+  if(!fixedAdminOnly&&!schemaAdmissionOnly&&profile.publication)await run('publication',process.execPath,['--test','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs','tests/manual-maintenance-pi-readiness.test.mjs','tests/manual-maintenance-continuation.test.mjs','tests/release-chain-preflight.test.mjs'],'native-entry-boundary');
+  if(!fixedAdminOnly&&!schemaAdmissionOnly&&profile.preparationQueue&&!profile.releaseChainPreflight)await run('preparation-queue-control',process.execPath,['--test','--test-concurrency=1','tests/main-prebuild-hook.test.mjs','tests/main-prebuild-queue-v2.test.mjs','tests/main-control-upgrade.test.mjs','tests/main-prebuild-task.test.mjs','tests/fixed-admin-resolution.test.mjs','tests/main-prebuild-eligibility.test.mjs'],'native-entry-boundary');
   if(profile.worker)await run('worker-integrity',process.execPath,['--test','tests/worker-source-read-once.test.mjs','tests/release-source-binding.test.mjs','tests/release-preparation-runtime-config.test.mjs'],'package-integrity');
-  if(!fixedAdminOnly&&(profile.schemaProof||profile.preparationQueue))await run('optimization-boundaries',process.execPath,['--test','tests/release-optimization-boundaries.test.mjs'],'package-integrity');
+  if(!fixedAdminOnly&&!schemaAdmissionOnly&&(profile.schemaProof||profile.preparationQueue))await run('optimization-boundaries',process.execPath,['--test','tests/release-optimization-boundaries.test.mjs'],'package-integrity');
   if(profile.schemaProof){
    await run('schema-proof-unit',pythonExe,['-m','unittest','discover','-s','tests','-p','test_*addition.py'],'isolated-functions');
    await run('schema-proof-full-history',pythonExe,['-m','unittest','discover','-s','tests','-p','test_schema_proof_flow.py'],'package-integrity');
@@ -297,7 +318,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    await run('pi-worker-native-exit',shell7,['-NoProfile','-NonInteractive','-File','tests/pi-worker-exit.test.ps1','-Native','-Python',pythonExe],'native-pi-worker-exit');
    report.evidence.piWorkerExitObservation=true;
   }
-  if(!fixedAdminOnly&&(profile.publication||profile.django)){
+  if(!fixedAdminOnly&&!schemaAdmissionOnly&&(profile.publication||profile.django)){
    await run('powershell-entry',pythonExe,['-m','unittest','discover','-s','tests','-p','test_pi150_recovery_entry.py'],'native-entry-boundary');
    await run('actual-django-package',shell7,['-NoProfile','-NonInteractive','-File','tests/release-candidate-package.test.ps1'],'package-integrity');
   }
@@ -309,6 +330,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   report.evidence.packageIntegrity=report.checks.some(c=>c.kind==='package-integrity');
   report.evidence.nativeEntryBoundary=report.checks.some(c=>c.kind==='native-entry-boundary');
   if(fixedAdminOnly){report.evidence.unmodifiedApplicationAndPi=reusedBaseline.evidence;report.evidence.fixedAdminQueueResolution=true;}
+  if(schemaAdmissionOnly){report.evidence.unmodifiedApplicationAndPi=preflightBaseline.evidence;report.evidence.fixedSchemaQueueResolution=true;}
   report.nativeColdStartReason=profile.piExitObservation?'Not executed: exact AST-qualified Windows Pi exit observer only; real private empty pi_worker.main and same-token Stop tested, fixed WSL runner lifecycle not executed.':'Not executed: profiles cover package digests, admission and native command boundaries; no Start/Stop routing semantics changed.';
   report.status='passed';
  }catch(error){report.status='failed';report.error=String(error.message);}
@@ -326,6 +348,6 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
 }
 
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
- const {values}=parseArgs({options:{source:{type:'string'},base:{type:'string'},head:{type:'string',default:'HEAD'},out:{type:'string'},dependencies:{type:'string'},python:{type:'string'},'reuse-report':{type:'string'}}});
- verifyReleaseCandidate({sourceRoot:values.source,base:values.base,head:values.head,out:values.out,dependencies:values.dependencies,python:values.python,reuseReport:values['reuse-report']}).then(result=>{console.log(JSON.stringify(result));if(result.status!=='passed')process.exitCode=1;}).catch(error=>{console.error(error.message);process.exitCode=1;});
+ const {values}=parseArgs({options:{source:{type:'string'},base:{type:'string'},head:{type:'string',default:'HEAD'},out:{type:'string'},dependencies:{type:'string'},python:{type:'string'},'reuse-report':{type:'string'},'reuse-preflight-report':{type:'string'}}});
+ verifyReleaseCandidate({sourceRoot:values.source,base:values.base,head:values.head,out:values.out,dependencies:values.dependencies,python:values.python,reuseReport:values['reuse-report'],reusePreflightReport:values['reuse-preflight-report']}).then(result=>{console.log(JSON.stringify(result));if(result.status!=='passed')process.exitCode=1;}).catch(error=>{console.error(error.message);process.exitCode=1;});
 }

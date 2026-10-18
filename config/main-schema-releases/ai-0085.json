@@ -9,7 +9,7 @@
   "stepFiles": {
     "backend/ai_assistant/migrations/0085_pi_workspace_controls.py": "b4bd9ca8d870caa3b747b70446108a67af820610e79273ca35a752e850091d07"
   },
-  "validation": "docs/release-chain-preflight-20261018/schema-validation.json",
-  "validationSha256": "2e5176dc55ad24eb6a79af654f8dede5b3b6dfff3b7aa4edd4c713726d67b618",
-  "codeSha256": "3d5491800b59adaab3567dcb5c2dc5d2a65d6ae3d2293c51d83a55d95421d66d"
+  "validation": "docs/release-schema-admission-20261018/schema-validation.json",
+  "validationSha256": "480cf418af09ac6725d365ae897b8bea89d6abf4a971511b852d8aa0def3b453",
+  "codeSha256": "f951898713de24ae9fc2e5cd5d60372e3cb7fc5cc774369c5da291c245462c1b"
 }

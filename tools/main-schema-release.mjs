@@ -31,6 +31,8 @@ function planSpec(plan){
  const spec=finite.find(spec=>JSON.stringify(sorted)===JSON.stringify(spec.migrations.map(path=>({status:'A',path})).toSorted((a,b)=>a.path.localeCompare(b.path))));
  assert.ok(spec,'最新main含新增或改写迁移，尚无对应结构发布包；本次未部署');return spec;
 }
+/** Pure installed-control capability check, before a preparation dispatch. */
+export function assertMainSchemaPlanSupported(plan){return plan.migrate?planSpec(plan).schema:null;}
 
 export function schemaForRequest(request){
  const schema=request.schemaRelease;

@@ -29,6 +29,8 @@
 
 ## 发布与交付
 
+本轮补充：[结构准备准入与原 ece 请求终止资格](../release-schema-admission-20261018/REPORT.md)。
+
 本轮补充：[发布链路维护前检查](../release-chain-preflight-20261018/REPORT.md)。
 
 本轮补充：[发布兼容性前置与重复读取优化](../release-four-optimizations-20261018/REPORT.md)。
