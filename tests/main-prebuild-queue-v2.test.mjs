@@ -96,3 +96,17 @@ test('deadline crossing at listen delivery and diagnostic exceptions both releas
  let attempts=0;
  await assert.rejects(acquirePreparationRotationLock('private',{requestId:h('a'),deadlineUnixMs:10},{now:()=>now,listen:async()=>{attempts++;const error=Error('denied');error.code='EACCES';throw error;}}),/EACCES/);assert.equal(attempts,1);
 });
+test('only the same full predecessor selection and control generation expose retained preparation',async t=>{
+ for(const change of ['same','chain','config','bundle']){
+  const root=await fixture(t);await submit(root,a);const original=selection(root,a);
+  await drainPreparationQueue(root,{...binding,observe:async()=>original,prepare:prepared});
+  const next=structuredClone(original),nextBinding={...binding};
+  if(change==='chain')next.live.chainStateSha256=h('9');
+  if(change==='config')nextBinding.configSha256=h('9');
+  if(change==='bundle')nextBinding.bundleSha256=h('9');
+  await submitPreparation(root,{...nextBinding,origin:'hook',observedTarget:a});
+  let exposed;
+  await drainPreparationQueue(root,{...nextBinding,observe:async()=>next,prepare:async(selected,dispatch,reusable)=>{exposed=reusable;return prepared(selected);}});
+  assert.equal(Boolean(exposed),change==='same',change);
+ }
+});

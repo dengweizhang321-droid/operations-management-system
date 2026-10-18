@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import {makeReleasePlan} from './release-scope-plan.mjs';
 import {createReleaseProgress} from './publish-main-progress.mjs';
 import {prepareMainSchemaRelease} from './main-schema-release.mjs';
-import {submitPreparation,drainPreparationQueue,ticketResult} from './main-prebuild-queue.mjs';
+import {submitPreparation,drainPreparationQueue,ticketResult,acquireQueueLock} from './main-prebuild-queue.mjs';
 import {readAdoptedControl,assertControlGeneration,controlExecution} from './main-control-dispatch.mjs';
 
 const execute=promisify(execFile),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -186,24 +186,35 @@ export function startPreparationConsumer(configFile,config){
   }finally{await fd.close();}
  });
 }
-export async function drainLatestMainQueue(configFile,{binding,progress,observe=observeLatestMain,once=prepareLatestMainOnce,run=runPublisher}={}){
+export async function drainLatestMainQueue(configFile,{binding,progress,observe=observeLatestMain,once=prepareLatestMainOnce,run=runPublisher,inspect=inspectMainPreparation,assertGeneration=assertControlGeneration}={}){
  binding??=await preparationControlBinding(configFile);
  const config=binding.config,directory=path.join(config.stateDirectory,'prebuild-queue-v2');
  return drainPreparationQueue(directory,{configSha256:binding.state.configSha256,bundleSha256:binding.state.bundleSha256,
-  assertGeneration:()=>assertControlGeneration(binding),observe:()=>observe(config,{log:message=>progress?.log(message)}),
-  prepare:async(selection,dispatch)=>{
+  assertGeneration:()=>assertGeneration(binding),observe:()=>observe(config,{log:message=>progress?.log(message)}),
+  prepare:async(selection,dispatch,reusablePreparation)=>{
    const prepared=await once(config,selection,{log:message=>progress?.log(message)});
    if(['already-current','non-production'].includes(prepared.status))return prepared;
    await writeMainPreparationPointer(config,prepared,'request-frozen');
    // PREPARED remains native evidence. The queue never turns its own ticket
    // receipt into artifact integrity or deployment authorization.
-   await inspectMainPreparation(prepared);
+   const existing=await inspect(prepared);
+   if(existing.status==='ready-for-native-verification'&&reusablePreparation){
+    assert.equal(path.resolve(existing.preparationFile),path.resolve(reusablePreparation.preparationFile));
+    assert.equal(sha(await fs.readFile(existing.preparationFile)),reusablePreparation.preparationSha256,'原生准备回执变化，不能复用原完成结果');
+    await writeMainPreparationPointer(config,prepared,'prepared');
+    return reusablePreparation;
+   }
    const result=await run(prepared.source,['--prepare-only'],config.gitDirectory,config.publisherBaseEnvironment,{deadlineUnixMs:dispatch.deadlineUnixMs});
    assert.equal(result.mainCommit,prepared.targetCommit);assert.equal(result.status,'prepared-only');assert.equal(result.publicationPerformed,false);
-   const readiness=await inspectMainPreparation(prepared);assert.equal(readiness.status,'ready-for-native-verification');
+   const readiness=await inspect(prepared);assert.equal(readiness.status,'ready-for-native-verification');
    await writeMainPreparationPointer(config,prepared,'prepared');
    return {...result,preparationFile:readiness.preparationFile,preparationSha256:sha(await fs.readFile(readiness.preparationFile))};
   }});
+}
+export async function acquireMainPublicationQueue(binding,{assertGeneration=assertControlGeneration}={}){
+ const release=await acquireQueueLock(path.join(binding.config.stateDirectory,'prebuild-queue-v2'));
+ assert.ok(release,'准备队列正在处理，请等待打包完成后再发布；本次未开始发布');
+ try{await assertGeneration(binding);return release;}catch(error){await release();throw error;}
 }
 export async function runLatestMainCli(args=process.argv.slice(2),binding){
  const {values}=parseArgs({args,options:{config:{type:'string'},check:{type:'boolean',default:false},'prepare-only':{type:'boolean',default:false},'no-pause':{type:'boolean',default:false}}});
@@ -217,6 +228,7 @@ export async function runLatestMainCli(args=process.argv.slice(2),binding){
  assert.ok(config.publisherBaseEnvironment,'缺少固定Windows发布环境，请更新发布入口；本次未部署');
  publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment);
  const progress=createReleaseProgress(path.join(config.stateDirectory,'logs'),{taskName:values.check?'发布检查':values['prepare-only']?'打包':'发布'});
+ let releaseQueue;
  try{
   if(values['prepare-only']){
    binding??=await preparationControlBinding(values.config);
@@ -234,6 +246,11 @@ export async function runLatestMainCli(args=process.argv.slice(2),binding){
     if(Date.now()>=until){process.exitCode=2;progress.log('已退出等待，原准备请求仍保留；关闭观察不取消任务：'+submitted.requestId);return {status:'queued-or-running',requestId:submitted.requestId,publicationPerformed:false};}
     await new Promise(resolve=>setTimeout(resolve,500));
    }
+  }
+  if(!values.check&&binding){
+   // Same queue -> rotation order as preparation. Own it before fetch can
+   // emit a physical ref transaction for this very target.
+   releaseQueue=await acquireMainPublicationQueue(binding);
   }
   progress.begin(values.check?'检查最新main（不部署）':'准备本次最新main');
   const prepared=await prepareLatestMain(config,{log:message=>progress.log(message)});
@@ -263,7 +280,14 @@ export async function runLatestMainCli(args=process.argv.slice(2),binding){
   const catalogFile=path.join(config.stateDirectory,'PUBLISHED-MAIN.json'),temporary=catalogFile+'.'+process.pid+'.tmp';
   await fs.writeFile(temporary,JSON.stringify(catalog,null,2)+'\n',{flag:'wx'});await fs.rename(temporary,catalogFile);
   progress.success('已确认本次目标main '+prepared.targetCommit+' 已切换，成功记录属于本次发布。');
- }catch(error){progress.fail(error);process.exitCode=1;}finally{progress.close();}
+ }catch(error){progress.fail(error);process.exitCode=1;}finally{
+  if(releaseQueue){
+   await releaseQueue();
+   // A fetch hook may have queued a ticket while our lease was held.
+   await startPreparationConsumer(values.config,config);
+  }
+  progress.close();
+ }
 }
 export async function writeMainPreparationPointer(config,prepared,status){
  assert.ok(['request-frozen','prepared'].includes(status));

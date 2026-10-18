@@ -5,7 +5,9 @@ import path from 'node:path';
 import os from 'node:os';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {prepareLatestMain,inspectMainPreparation,deployReadyMain} from '../tools/publish-latest-main.mjs';
+import {prepareLatestMain,prepareLatestMainOnce,inspectMainPreparation,deployReadyMain,drainLatestMainQueue,acquireMainPublicationQueue} from '../tools/publish-latest-main.mjs';
+import {submitPreparation,ticketResult,drainPreparationQueue} from '../tools/main-prebuild-queue.mjs';
+import {mainRefEvents} from '../tools/main-prebuild-hook.mjs';
 import {monitoringSchema} from '../tools/main-schema-release.mjs';
 
 async function fixture(t){
@@ -132,4 +134,74 @@ test('native lock rejection is never swallowed or retried after readiness passes
  const f=await readinessFixture(t);await fs.writeFile(f.file,JSON.stringify(f.receipt));let calls=0;
  await assert.rejects(deployReadyMain(f.prepared,{git:f.git,progress:f.progress,run:async()=>{calls++;throw Error('Worker rotation 唯一锁不可用：EADDRINUSE');}}),/EADDRINUSE/);
  assert.equal(calls,1);await assert.rejects(fs.access(path.join(f.attempt,'STARTED.json')),{code:'ENOENT'});
+});
+
+async function queuedFixture(t){
+ const f=await fixture(t);f.live.chainStateSha256='5'.repeat(64);
+ const binding={config:f.config,state:{configSha256:'6'.repeat(64),bundleSha256:'7'.repeat(64)}};
+ const directory=path.join(f.config.stateDirectory,'prebuild-queue-v2');
+ const first=await prepareLatestMain(f.config,f.options);
+ const selection={targetCommit:f.latest,packet:first.packet,live:f.live};
+ const submit=()=>submitPreparation(directory,{origin:'hook',observedTarget:f.latest,...binding.state});
+ let runs=0;
+ const options={binding,assertGeneration:async()=>{},observe:async()=>selection,once:prepareLatestMainOnce,
+  run:async(source,args)=>{
+   runs++;assert.deepEqual(args,['--prepare-only']);
+   const preparation=path.join(first.packet,'publish-'+f.latest.slice(0,12),'preparation');await fs.mkdir(preparation,{recursive:true});
+   const preparationFile=path.join(preparation,'PREPARED.json');
+   await fs.writeFile(preparationFile,JSON.stringify({version:'teruisi-main-preparation-v1',requestSha256:createHash('sha256').update(JSON.stringify(first.request)).digest('hex'),sourceIdentity:{commit:f.latest,tree:f.git(source,['rev-parse','HEAD^{tree}'])},workerPlan:{id:'private-native-fixture'},djangoPackage:null}));
+   return {status:'prepared-only',mainCommit:f.latest,publicationPerformed:false,preparationFile};
+  }};
+ return {...f,binding,directory,first,selection,submit,options,runs:()=>runs};
+}
+test('same-target physical ref tickets reuse exact native preparation without taking rotation again',async t=>{
+ const f=await queuedFixture(t),first=await f.submit();await drainLatestMainQueue('unused',f.options);
+ const original=await ticketResult(f.directory,first.requestId,first.ticketSha256);
+ const later=await f.submit();await drainLatestMainQueue('unused',f.options);
+ const reused=await ticketResult(f.directory,later.requestId,later.ticketSha256);
+ assert.equal(f.runs(),1);assert.equal(reused.status,'prepared');assert.deepEqual(reused.nativeResult,original.nativeResult);
+ // Missing retained dependencies are corruption, never a new build permit.
+ await fs.rename(path.join(f.first.packet,'main-release-request.json'),path.join(f.first.packet,'preserved-request.json'));
+ await f.submit();await assert.rejects(drainLatestMainQueue('unused',f.options),error=>error.code==='ENOENT');assert.equal(f.runs(),1);
+});
+test('a detached native receipt without the retained queue completion still uses native verification',async t=>{
+ const f=await queuedFixture(t);await f.options.run(f.first.source,['--prepare-only']);
+ await f.submit();await drainLatestMainQueue('unused',f.options);assert.equal(f.runs(),2);
+});
+test('modified retained PREPARED never becomes a native replay permit',async t=>{
+ const f=await queuedFixture(t),ticket=await f.submit();await drainLatestMainQueue('unused',f.options);
+ const prior=await ticketResult(f.directory,ticket.requestId,ticket.ticketSha256);
+ await fs.appendFile(prior.nativeResult.preparationFile,' ');await f.submit();
+ await assert.rejects(drainLatestMainQueue('unused',f.options),/Native preparation receipt changed/);assert.equal(f.runs(),1);
+});
+test('publish lease precedes fetch tickets and preparation cannot enter until it releases',async t=>{
+ const f=await queuedFixture(t),release=await acquireMainPublicationQueue(f.binding,{assertGeneration:async()=>{}});
+ const event=await f.submit();
+ assert.equal((await drainLatestMainQueue('unused',f.options)).status,'queued');assert.equal(f.runs(),0);
+ await release();await drainLatestMainQueue('unused',f.options);assert.equal(f.runs(),1);
+ assert.equal((await ticketResult(f.directory,event.requestId,event.ticketSha256)).status,'prepared');
+});
+test('prepare lease refuses publishing before dispatch effects; generation failure releases it',async t=>{
+ const f=await queuedFixture(t);await f.submit();let checked=false;
+ await drainPreparationQueue(f.directory,{...f.binding.state,observe:async()=>{
+  await assert.rejects(acquireMainPublicationQueue(f.binding,{assertGeneration:async()=>{checked=true;}}),/准备队列正在处理/);
+  return f.selection;
+ },prepare:async()=>{throw Error('private unknown');}});
+ assert.equal(checked,false);
+ await assert.rejects(acquireMainPublicationQueue(f.binding,{assertGeneration:async()=>{throw Error('generation changed');}}),/generation changed/);
+ const release=await acquireMainPublicationQueue(f.binding,{assertGeneration:async()=>{}});await release();
+});
+test('actual Git pack-refs physical 0-to-SHA events remain accepted like a genuine first fetch',async t=>{
+ const f=await fixture(t),record=path.join(f.root,'ref-events.txt');
+ const hook=path.join(f.repository,'.git/hooks/reference-transaction');
+ const shellQuote=value=>"'"+value.replaceAll('\\','/').replaceAll("'","'\\''")+"'";
+ await fs.writeFile(hook,'#!/bin/sh\nif [ "$1" = "committed" ]; then cat >> '+shellQuote(record)+'; fi\n');
+ f.git(f.repository,['update-ref','refs/remotes/origin/main',f.old]);
+ await fs.writeFile(record,'');
+ f.git(f.repository,['update-ref','refs/remotes/origin/main',f.latest]);
+ const changed=await fs.readFile(record,'utf8');assert.deepEqual(mainRefEvents('committed',changed),[f.latest]);
+ await fs.writeFile(record,'');f.git(f.repository,['pack-refs','--all']);
+ const packed=await fs.readFile(record,'utf8');
+ assert.ok(packed.split(/\r?\n/).includes('0'.repeat(40)+' '+f.latest+' refs/remotes/origin/main'),packed);
+ assert.deepEqual(mainRefEvents('committed',packed),[f.latest]);
 });
