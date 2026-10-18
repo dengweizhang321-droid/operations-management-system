@@ -35,6 +35,10 @@ def dispatch(request, path, principal):
             return response(service.detail(parts[2], principal))
         if len(parts) == 4:
             name = parts[3]
+            if name == "workspace":
+                from . import pi_workspace
+                return response(pi_workspace.detail(parts[2], params, principal) if request.method == "GET"
+                    else pi_workspace.control(parts[2], payload, principal), 200 if request.method == "GET" else 202)
             if name == "messages" and request.method == "POST":
                 return response(service.prompt(parts[2], payload, principal), 202)
             if name == "abort" and request.method == "POST":

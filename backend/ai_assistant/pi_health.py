@@ -2,7 +2,7 @@
 import importlib
 
 
-def verify(cursor):
+def verify(cursor, *, include_workspace=False):
     migration = importlib.import_module("ai_assistant.migrations.0084_pi_agent_independent_runtime")
     for name, definition in (("ai_pi_state_guard", migration.STATE_GUARD), ("ai_pi_binding_guard", migration.BINDING_GUARD)):
         cursor.execute("SELECT p.prosrc,p.prosecdef,p.proconfig,l.lanname FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang WHERE p.oid=to_regprocedure(%s)", ["public."+name+"()"])
@@ -30,3 +30,26 @@ def verify(cursor):
     index = cursor.fetchone()
     if not index or index[:3] != (True, True, True) or any(value not in (index[3] or "") for value in ("queued", "running", "canceling", "unknown")):
         raise ValueError("Pi unique active-operation fence missing")
+    if include_workspace:
+        verify_workspace(cursor)
+
+
+def verify_workspace(cursor):
+    migration = importlib.import_module("ai_assistant.migrations.0085_pi_workspace_controls")
+    cursor.execute("SELECT p.prosrc,p.prosecdef,p.proconfig,l.lanname FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang WHERE p.oid=to_regprocedure('public.ai_pi_workspace_guard()')")
+    row = cursor.fetchone()
+    if (not row or row[0] != migration.STATE_GUARD.split("$$")[1] or row[1] or row[3] != "plpgsql"
+            or {item.replace(" ", "") for item in (row[2] or [])} != {"search_path=pg_catalog,public"}):
+        raise ValueError("Pi workspace function drift")
+    cursor.execute("SELECT c.relname,t.tgname,t.tgtype,t.tgdeferrable,t.tginitdeferred,t.tgenabled,p.proname "
+        "FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace "
+        "JOIN pg_proc p ON p.oid=t.tgfoid WHERE n.nspname='public' AND c.relname=ANY(%s) AND NOT t.tgisinternal", [list(migration.TABLES)])
+    expected = {(table, "ai_write_fence", 31, False, False, "O", "ai_runtime_write_fence") for table in migration.TABLES}
+    expected.update((table, "ai_immutable_identity", 19, False, False, "O", "ai_immutable_record_guard") for table in migration.TABLES)
+    expected.update((table, "ai_pi_workspace_state", 23, False, False, "O", "ai_pi_workspace_guard") for table in migration.TABLES)
+    if set(cursor.fetchall()) != expected:
+        raise ValueError("Pi workspace trigger drift")
+    cursor.execute("SELECT conname FROM pg_constraint WHERE conrelid IN (SELECT oid FROM pg_class WHERE relname=ANY(%s)) AND convalidated", [list(migration.TABLES)])
+    if not {"ai_pi_control_client_unique", "ai_pi_control_seq_unique", "ai_pi_control_status", "ai_pi_control_fence", "ai_pi_ui_runner_unique",
+            "ai_pi_ui_status", "ai_pi_workspace_status", "ai_pi_control_digest_hash", "ai_pi_workspace_state_bytes", "ai_pi_control_result_bytes"} <= {row[0] for row in cursor.fetchall()}:
+        raise ValueError("Pi workspace constraints missing")

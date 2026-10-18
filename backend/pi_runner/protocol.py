@@ -12,7 +12,7 @@ MAX_REQUEST = 12 * 1024 * 1024
 MAX_RESPONSE = 13 * 1024 * 1024
 MAX_RECORD = 4 * 1024 * 1024
 IDENTITY = ("operationId", "ownerId", "conversationId", "epoch", "generation", "seq")
-COMMANDS = {"create", "prompt", "abort", "state", "dispose", "skills", "ack", "gateway_response"}
+COMMANDS = {"create", "prompt", "abort", "state", "dispose", "skills", "ack", "gateway_response", "workspace"}
 
 
 def encode(value):

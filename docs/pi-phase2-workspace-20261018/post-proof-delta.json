@@ -1,0 +1,27 @@
+{
+  "version": "pi-workspace-post-proof-delta-v1",
+  "realProof": "case-93cbe74de8/RESULT.json",
+  "changes": [
+    {
+      "path": "backend/ai_assistant/pi_worker.py",
+      "realProofSha256": "5b0212be0b36d24f5de0e0409bbd58065690ed75c0914751a6c5c63b3f463a06",
+      "finalSha256": "c23d2597daadebffa0ea398a23ff3119833baff751dacf7677fd2f9ea62c7706"
+    },
+    {
+      "path": "backend/ai_assistant/pi_workspace.py",
+      "realProofSha256": "6ef1845e71055b6e80fb1492ba308d5efc37627a6444d2a206170057879c0155",
+      "finalSha256": "71a5ed6a4e733f4ea4877af406009e92023ac48ae9f68dfbfde1b1e490ce11e9"
+    }
+  ],
+  "scope": [
+    "Reject malformed extension UI responses before pending-state mutation",
+    "Snapshot session shopSelection in every workspace operation",
+    "Append original unknown and exact signed reconciliation events",
+    "Register dependency_fetch activity before external downloads and end only after known handoff or fetch failure",
+    "Keep unresolved activity fences through workspace GET and worker activity-only observations"
+  ],
+  "targetedTests": 31,
+  "testSourceSha256": "e92e22bce9d720e97e6a8484b7524c98669ff4b163bc8cc5c7b2dd6bbcd4ee3d",
+  "realChainReexecutedForTheseDeltas": false,
+  "rationale": "The changed UI admission, single-shop payload, error audit, and dependency-fetch activity paths have dedicated final tests; successful compact, model readback, and pause race paths are unchanged. Runner native activity timing and expiry are separate proof."
+}

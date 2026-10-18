@@ -3,7 +3,7 @@ param(
   [ValidateSet(
     "ConfigureCredentials", "ProvisionRoles", "Start", "Stop", "Status",
     "EnableStartup", "DisableStartup", "DingTalkCheck", "StartDingTalk", "StopDingTalk",
-    "EnableDingTalkStartup", "DisableDingTalkStartup", "AutoStartDingTalk", "ConfigureDingTalkBotCredentials", "ConfigurePandas", "PandasCheck", "PreparePi", "PiCheck"
+    "EnableDingTalkStartup", "DisableDingTalkStartup", "AutoStartDingTalk", "ConfigureDingTalkBotCredentials", "ConfigurePandas", "PandasCheck", "PreparePi", "PreparePiUpgrade", "PiUpgradeCheck", "UpgradePi", "ReconcilePiUpgrade", "PiCheck"
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
@@ -13,6 +13,9 @@ param(
   [string]$PandasImage = "",
   [string]$PiImage = "",
   [string]$PiSkillVersion = "1.0.0",
+  [string]$PiUpgradePlanSha256 = "",
+  [string]$PiPreparedAppId = "",
+  [string]$PiPreparedAppSha256 = "",
   [switch]$Json
 )
 
@@ -22,6 +25,9 @@ $RequestedModelOriginAllowlist = $ModelOriginAllowlist
 $RequestedPandasImage = $PandasImage
 $RequestedPiImage = $PiImage
 $RequestedPiSkillVersion = $PiSkillVersion
+$RequestedPiUpgradePlanSha256 = $PiUpgradePlanSha256
+$RequestedPiPreparedAppId = $PiPreparedAppId
+$RequestedPiPreparedAppSha256 = $PiPreparedAppSha256
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
 $RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
@@ -100,6 +106,88 @@ function Read-PiConfig {
     throw "Pi runtime key, source or image identity is invalid"
   }
   return $config
+}
+
+function Upgrade-PiRuntime([bool]$PrepareOnly, [bool]$ReconcileOnly = $false) {
+  $upgradeExecutionRoot = if ($PrepareOnly) { Get-PiUpgradePreparedExecutionRoot } else { Assert-AiRuntimeEntry; $InstalledAppRoot }
+  $config = Read-PiConfig
+  if ($null -eq $config) { throw 'Independent Pi upgrade requires an existing enabled runtime' }
+  $tool = Join-Path $upgradeExecutionRoot 'tools\pi_agent_upgrade_runtime.py'
+  $upgradeBackendRoot = Join-Path $upgradeExecutionRoot 'backend'
+  $arguments = @('-B',$tool)
+  if ($PrepareOnly) {
+    if ($RequestedPiImage -cnotmatch '^sha256:[a-f0-9]{64}$') { throw 'Exact reviewed successor Pi image required' }
+    $sourceRun = Invoke-BoundedNativeProcess $Python @('-B','-c','from pi_runner.install_linux import source_digest; print(source_digest())') $upgradeBackendRoot
+    if ($sourceRun.ExitCode -ne 0) { throw 'Cannot freeze successor Runner source' }
+    $sourceDigest = [string](@($sourceRun.Output) -join '').Trim()
+    if ($sourceDigest -cnotmatch '^[a-f0-9]{64}$') { throw 'Invalid successor Runner source' }
+    $arguments += @('prepare','--runtime',$RuntimeRoot,'--image',$RequestedPiImage,'--source-sha256',$sourceDigest,'--execute')
+  } else {
+    Assert-AiPortsFree 'UpgradePi'
+    if (Resolve-OwnedProcess 'django-ai-pi-worker' $PiWorkerPidPath $Python) { throw 'Pi worker must finish its exact native stop before independent Runner upgrade' }
+    if ($RequestedPiUpgradePlanSha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Registered immutable Pi upgrade plan hash required' }
+    $upgradeVerb = if ($ReconcileOnly) { 'reconcile' } else { 'apply' }
+    $arguments += @($upgradeVerb,'--runtime',$RuntimeRoot,'--expected-plan-sha256',$RequestedPiUpgradePlanSha256,'--execute')
+  }
+  $result = ConvertFrom-UniqueNativeJson (Invoke-BoundedNativeProcess $Python $arguments $upgradeBackendRoot) 'Independent Pi source upgrade'
+  if ($PrepareOnly) {
+    if ($result.prepared -cne $true -or $result.started -cne $false) { throw 'Independent Runner preparation outcome unknown' }
+  } elseif ($result.upgraded -cne $true -or $result.windowsConfigUpdated -cne $true) { throw 'Independent Runner upgrade outcome unknown; keep the original intent' }
+  Assert-PiUpgradeLeafAcl
+  $result | ConvertTo-Json -Compress
+}
+
+function Assert-PiUpgradeLeafAcl {
+  $allowedValues = @((Get-AllowedAclSids) | ForEach-Object { $_.Value })
+  foreach ($relative in @('config\pi-agent.json','secrets\pi-agent.dpapi.json','config\pi-agent-upgrade-prepared.json','config\pi-agent-upgrade-intent.json','config\pi-agent-upgrade-result.json')) {
+    $path = Join-Path $RuntimeRoot $relative
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
+    $item = Get-Item -LiteralPath $path -Force
+    if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Pi upgrade leaf cannot be a reparse point' }
+    Assert-ExactRuntimeAclEntry $item (Get-RuntimeItemAccessControl $item) $allowedValues (Get-CanonicalPath $RuntimeRoot)
+  }
+}
+
+function Check-PiUpgradePlan {
+  $upgradeExecutionRoot = Get-PiUpgradePreparedExecutionRoot
+  if ($RequestedPiUpgradePlanSha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Registered immutable Pi upgrade plan hash required' }
+  $tool = Join-Path $upgradeExecutionRoot 'tools\pi_agent_upgrade_runtime.py'
+  $upgradeBackendRoot = Join-Path $upgradeExecutionRoot 'backend'
+  $arguments = @('-B',$tool,'check','--runtime',$RuntimeRoot,'--expected-plan-sha256',$RequestedPiUpgradePlanSha256,'--execute')
+  $result = ConvertFrom-UniqueNativeJson (Invoke-BoundedNativeProcess $Python $arguments $upgradeBackendRoot) 'Verify independent Pi upgrade plan'
+  if ($result.checked -cne $true -or $result.started -cne $false) { throw 'Independent Runner upgrade plan verification failed' }
+  $result | ConvertTo-Json -Compress
+}
+
+function Get-PiUpgradePreparedExecutionRoot {
+  if ((Get-CanonicalPath $ExecutionRoot) -ieq (Get-CanonicalPath $InstalledAppRoot)) {
+    Assert-AiRuntimeEntry
+    return $InstalledAppRoot
+  }
+  Assert-DeployedApplication
+  Assert-RuntimeAclHardened
+  $prepared = Get-PreparedApplication $RequestedPiPreparedAppId $RequestedPiPreparedAppSha256
+  $manifest = Read-JsonFile (Join-Path $prepared 'deployment.json') 'Pi prepared application manifest'
+  if ((Get-CanonicalPath $manifest.sourceRoot) -cne (Get-CanonicalPath $ExecutionRoot)) { throw 'Pi prepared application belongs to a different source' }
+  $sourceBackend = Get-CanonicalPath (Join-Path $ExecutionRoot 'backend')
+  $expected = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+  foreach ($file in Get-ChildItem -LiteralPath $sourceBackend -File -Recurse -Force) {
+    $relative = $file.FullName.Substring($sourceBackend.Length + 1)
+    if ($file.Extension -in @('.pyc','.pyo') -or @(($relative -split '[\\/]') | Where-Object {$_ -in @('.runtime','__pycache__','.pytest_cache','.mypy_cache','tests')}).Count) { continue }
+    [void]$expected.Add($relative)
+  }
+  $actual = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+  foreach ($directory in @('backend','config','tools','drizzle')) {
+    foreach ($file in Get-ChildItem -LiteralPath (Join-Path $prepared $directory) -File -Recurse -Force) {
+      if ($file.Extension -in @('.pyc','.pyo') -or $file.FullName -match '[\\/](__pycache__|\.pytest_cache|\.mypy_cache)[\\/]') { continue }
+      $relative = $file.FullName.Substring($prepared.Length + 1)
+      if ($directory -ceq 'backend') { [void]$actual.Add($relative.Substring('backend\'.Length)) }
+      $source = Join-Path $ExecutionRoot $relative
+      if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or (Get-FileSha256 $file.FullName) -cne (Get-FileSha256 $source)) { throw 'Pi prepared application differs from frozen source' }
+    }
+  }
+  if (-not $expected.SetEquals($actual)) { throw 'Pi prepared backend inventory differs from frozen source' }
+  return $prepared
 }
 
 function Invoke-PiLifecycle([string]$Verb) {
@@ -853,6 +941,10 @@ try {
     "ConfigureDingTalkBotCredentials" { Invoke-WithServiceMutex { Configure-DingTalkBotCredentials } }
     "ConfigurePandas" { Invoke-WithServiceMutex { Configure-PandasSandbox } }
     "PreparePi" { Invoke-WithServiceMutex { Prepare-PiRuntime } }
+    "PreparePiUpgrade" { Invoke-WithServiceMutex { Upgrade-PiRuntime $true } }
+    "PiUpgradeCheck" { Invoke-WithServiceMutex { Check-PiUpgradePlan } }
+    "UpgradePi" { Invoke-WithServiceMutex { Upgrade-PiRuntime $false } }
+    "ReconcilePiUpgrade" { Invoke-WithServiceMutex { Upgrade-PiRuntime $false $true } }
     "PiCheck" { Assert-AiRuntimeEntry; Invoke-PiLifecycle "probe" | ConvertTo-Json -Compress }
     "PandasCheck" { Assert-AiRuntimeEntry; $config = Read-PandasConfig; if ($null -eq $config) { throw "pandas is not configured" }; Invoke-PandasProbe $config | ConvertTo-Json -Compress }
     "ProvisionRoles" { Invoke-WithServiceMutex { Provision-AiRoles } }

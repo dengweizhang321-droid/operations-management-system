@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {publishPreparedMain} from '../tools/publish-prepared-main.mjs';
-import {monitoringSchema,tmallSchema,tmall148Schema,piAgentSchema} from '../tools/main-schema-release.mjs';
+import {publishPreparedMain,piWorkspaceImage} from '../tools/publish-prepared-main.mjs';
+import {monitoringSchema,tmallSchema,tmall148Schema,piAgentSchema,piWorkspaceSchema} from '../tools/main-schema-release.mjs';
 
 async function fixture(t,components=['worker'],failAt=null){
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'prepared-publisher-'));
@@ -243,4 +243,43 @@ test('Pi150 role provisioning uncertainty preserves the original operation witho
  f.events.length=0;
  await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/结果未知/);
  assert.ok(!f.events.includes('Install'));assert.ok(!f.events.includes('ProvisionRoles'));
+});
+
+async function workspaceMigrationFixture(t, failAt=null) {
+ const f=await migrationFixture(t,failAt,piWorkspaceSchema), native=f.context.runStep;
+ const prepared={prepared:true,started:false,operationId:'e'.repeat(32),registeredPlanSha256:'f'.repeat(64),planSha256:'1'.repeat(64),sourceSha256:'2'.repeat(64),image:piWorkspaceImage};
+ f.context.runStep=async args=>{
+  if(['PreparePiUpgrade','PiUpgradeCheck','UpgradePi'].includes(args.action)){
+   f.events.push(args.action);if(args.action===failAt)throw Error('fixture failure: '+failAt);
+   if(args.action==='PreparePiUpgrade'){assert.deepEqual(args.extra,['-PiImage',piWorkspaceImage,'-PiPreparedAppId','8'.repeat(32),'-PiPreparedAppSha256','9'.repeat(64)]);return prepared;}
+   if(args.action==='PiUpgradeCheck'){assert.deepEqual(args.extra,['-PiUpgradePlanSha256',prepared.registeredPlanSha256,'-PiPreparedAppId','8'.repeat(32),'-PiPreparedAppSha256','9'.repeat(64)]);return {...prepared,checked:true};}
+   assert.deepEqual(args.extra,['-PiUpgradePlanSha256',prepared.registeredPlanSha256]);
+   assert.equal(args.script,path.join(f.context.installedRoot,'tools/django-ai.ps1'));
+   return {upgraded:true,windowsConfigUpdated:true,sameDpapiOwner:true,sourceSha256:prepared.sourceSha256,image:prepared.image};
+  }
+  return native(args);
+ };
+ return f;
+}
+test('Pi151 prepares the independent Runner without starting it and upgrades after schema before service start',async t=>{
+ const f=await workspaceMigrationFixture(t);await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ assert.ok(f.events.includes('PreparePiUpgrade'));assert.ok(f.events.includes('PiUpgradeCheck'));
+ for(const event of ['UpgradePi','Install','DeployApp','Start','EnterMaintenance'])assert.ok(!f.events.includes(event));
+ const prepared=JSON.parse(await fs.readFile(path.join(f.out,'preparation/PREPARED.json'),'utf8'));assert.equal(prepared.piRunnerUpgrade.image,piWorkspaceImage);
+ f.events.length=0;const result=await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ assert.ok(f.events.indexOf('PiUpgradeCheck')<f.events.indexOf('EnterMaintenance'));
+ assert.ok(f.events.indexOf('Finalize')<f.events.indexOf('UpgradePi'));
+ assert.ok(f.events.indexOf('UpgradePi')<f.events.indexOf('apply'));
+ assert.ok(f.events.indexOf('UpgradePi')<f.events.indexOf('Start'));
+ assert.equal(result.piRunnerUpgrade.upgraded,true);assert.ok(!f.events.includes('PreparePiUpgrade'));
+});
+test('Pi151 upgrade failure keeps the original publication unknown and never starts or replays',async t=>{
+ const f=await workspaceMigrationFixture(t,'UpgradePi');await publishPreparedMain(f.request,{...f.context,prepareOnly:true});f.events.length=0;
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/fixture failure/);
+ assert.ok(!f.events.includes('apply'));assert.ok(!f.events.includes('Start'));
+ f.events.length=0;await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/结果未知/);assert.ok(!f.events.includes('UpgradePi'));
+});
+test('Pi151 failed upgrade preparation check cannot publish PREPARED or enter maintenance',async t=>{
+ const f=await workspaceMigrationFixture(t,'PiUpgradeCheck');await assert.rejects(publishPreparedMain(f.request,{...f.context,prepareOnly:true}),/fixture failure/);
+ await assert.rejects(fs.access(path.join(f.out,'preparation/PREPARED.json')));assert.ok(!f.events.includes('EnterMaintenance'));
 });

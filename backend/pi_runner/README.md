@@ -12,7 +12,9 @@ the complete npm lock. The build uses the exact Python base digest and verified
 Linux Node 24.8.0/npm 11.6.2 archives in
 `containers/pi-agent/runtime-lock.json`; it is not a Docker Hub Node image.
 Mirror downloads are accepted only when the official registry integrity matches.
-Runtime never installs or pulls packages.
+Startup never installs or pulls packages. Explicit user dependency controls
+accept only outside-fetched, byte-verified offline bundles; pip, npm and the
+separately pinned uv binary execute inside the networkless container.
 
 One owner/conversation/epoch/generation has one container and one exclusively
 labelled Docker named volume. There are no host bind mounts. HOME, session files,
@@ -171,3 +173,122 @@ image, volume and Running checks. Django's worker must first fence its operation
 Installed source/image/key fingerprints cannot silently
 change. No installation, service enable, production restart or production cutover
 has been performed by this implementation task.
+
+## Workspace controls (phase two)
+
+The signed command envelope and principal/epoch/generation fences are unchanged.
+The additional `workspace` command takes `{action:"state",afterTerminalSeq:{terminalId:lastSeq}}`,
+`{action:"receipt",controlId}`, `{action:"download",downloadId}`, or
+`{action:"control",controlId,controlSeq,command,payload}`. Control sequences strictly
+increase within a workspace (gaps are permitted). Both ID and sequence are durable
+and unique. Identical retries read the same receipt; changed content or reused/lower
+sequences are rejected. Restart makes interrupted controls/inputs unknown and never
+replays them. GET polling does not extend idle timers.
+
+Controls are `steer`, `follow_up`, `clear_queue`, `bash`, `abort_bash`, `compact`,
+`model_set`, `thinking_set`, `ui_response`, `session_new`, `session_switch`,
+`session_fork`, `session_clone`, `tree`, `stats`, `export_html`, `terminal_create`,
+`terminal_input`, `terminal_resize`, `terminal_close`, `file_list`, `file_read`,
+`file_download`, `file_write`, `file_mkdir`, `file_rename`, `file_delete`, `pause`,
+`wake`, `resource_install`, and registered `upgrade`. Unsupported operations fail
+explicitly. Pi 1.3.0 has no navigation RPC: `session_navigate` reports
+`unsupported_pi_version`; fork/clone/switch use real supported operations.
+
+Steering/follow-up stay attached to the active run. Native acceptance, queueing,
+actual user-message consumption (`completed/disposition=processed`), handled,
+and clear/abort (`completed/disposition=canceled`) have distinct receipts. Native
+bash interprets leading `!` as included in model context, `!!` as excluded.
+`abort_bash` is separate from model abort. Async bash/compact/install/upgrade return
+acceptance and retain their eventual receipt. Compaction binds a fresh authorized
+operation/capability and completes after its real RPC result and passive file
+collection; it does not invent agent_settled.
+
+Native session paths stay in a private registry. The browser switches registered
+session IDs and forks registered user entry IDs. New/clone/fork/switch read back
+actual Pi state. Public trees have bounded navigation metadata/text previews.
+Export invokes the native exporter in `/tmp`, then delivers a separate public HTML
+projection; private thinking/provider frames never enter downloadable HTML.
+
+Ordinary extension UI is separate from `pi-gateway-v1`. The internal route requires
+the exact method/title and active private capability. Select/confirm/input/editor
+have scoped request IDs, typed responses and cancellation. Notify/status/widget/
+title/editor-text effects are durable and bounded. The immutable `/workspace-ui`
+command exercises these controls. Prompt preflight can await ordinary UI: HTTP
+returns persisted dispatch state while one original RPC wait stays alive. Refresh
+does not resend that prompt.
+
+Terminals use a fixed helper with a real Linux controlling PTY and interactive
+bash in the original conversation container/UID/workspace. Four tabs can run;
+eight total are retained. Input has independent inputId/inputSeq/digest and an
+acknowledgement after the PTY write. Lost acknowledgements are unknown, never
+replayed. UTF-8 decoding is incremental, resize uses TIOCSWINSZ, and Ctrl+C uses
+the actual line discipline. Each tab retains 256 KiB with explicit sequence gaps;
+state pages at most 512 KiB across tabs with hasMore. Closing stops its helper.
+
+File paths are relative to `work`, `inputs` or `outputs`. Anchored no-follow
+descriptors reject traversal, links, special files and root mutation. Write/
+rename/delete require expected SHA (null means create-if-absent). Before comparing
+and mutating, the broker proves exclusive owner-volume attachment, pauses every
+Pi/PTY/background process, runs one constrained fixed helper on that named volume,
+proves helper removal, and unpauses the exact owner. Advisory locks alone cannot
+constrain arbitrary user shells. Downloads are immutable broker-private snapshots
+identified by downloadId. Count/bytes are bounded; later edits cannot change them.
+Large/binary reads explicitly disable editing. State history omits file bodies.
+
+`resource_install:{bundle}` checks outside-fetched artifacts and lock digests again.
+Pip/uv use the persistent workspace venv; npm uses the workspace project with
+install scripts disabled. All run offline without credentials. The uv executable,
+version, wheel hash and binary hash are frozen in runtime-lock.json. Receipts keep
+source/version/hash/fetch timestamp. Installs are exclusive and prevent idle stop.
+Pending UI, PTYs, unfinished controls and extra actual PID/start-tick identities
+also prevent idle stop, including detached shell work.
+
+## Registered sandbox upgrades
+
+The browser supplies only `{planId}`. `python -m pi_runner.upgrade_linux --config
+<private-config> --compatibility-proof <proof.json>` registers an operator-prepared
+plan without changing services. It binds from/to images, immutable Runner source,
+protocol and real compatibility evidence: session/history hashes, matching
+workspace/package manifests, Python minor and Node ABI. The current package set
+must match the tested plan. Unknown/busy work cannot upgrade. Browser-supplied
+image/source paths and compatibility assertions are never accepted.
+
+Apply persists the complete original/candidate intent before effects, stops the
+exact idle container, clones its volume from a read-only mount into a fresh
+candidate volume, and starts that candidate with the same owner/conversation/
+generation. It checks actual Pi session/history and dependency/runtime identity.
+The original stopped container and original volume remain retained; candidate
+writes never touch them. Failure keeps unknown and both identities. Startup
+precisely stops interrupted candidates; it never adopts or replays an unknown
+upgrade. Runner source preparation remains the independent fixed `install_linux`
+release and explicit user-unit lifecycle, separate from Django/Worker publication.
+
+Existing installations use `tools/pi_agent_upgrade_runtime.py prepare|check|apply|reconcile`;
+first-use `PreparePi` is never reused as an upgrade. `django-ai.ps1` exposes
+`PreparePiUpgrade`, `PiUpgradeCheck`, `UpgradePi`, and `ReconcilePiUpgrade`.
+Candidate preparation/check require the exact native `PiPreparedAppId` and
+`PiPreparedAppSha256`; the installed predecessor, package receipt and complete
+source inventory are checked before executing the frozen staging tool. Apply and
+reconcile are installed-controller-only and require `PiUpgradePlanSha256`.
+
+Online preparation leaves the old unit/config/state running. Apply requires the
+old worker/unit and its containers fenced/stopped, then takes a fresh SQLite
+backup and copies downloads/receipts/unknown fences into the new immutable
+release. Legacy session images are explicitly recorded as their original image;
+the new source does not attach an old volume to a different image. The exact
+user unit is switched, signed health/readiness verified, and only then the Windows
+configuration is CAS-published. The same CurrentUser DPAPI wrapper/channel key and
+AI authority survive. The predecessor release/state remain retained. A known
+failed, absent successor restores the old unit while leaving it stopped; unknown
+startup keeps both states and blocks replay. Explicit reconciliation verifies the
+same original intent, unit, signed successor and fresh-state binding, then finishes
+only the Windows publication. Exact partial `.new` receipts can be promoted;
+foreign fragments/configuration are retained and rejected.
+
+Internal host dependency fetches use signed `workspace` activity_begin/end with
+independent activityId and activitySeq 1/2, before any outside registry request and
+after offline installation is accepted. Their deadline never renews during GET.
+An active lease prevents idle stop; restart or expiry makes it unknown, precisely
+stops its owner, and exposes activities/hasUnresolvedActivities for Django fencing.
+These actions are not browser controls. Old images expose needsImageUpgrade and
+disable helper capabilities until a separately verified registered image upgrade.

@@ -160,4 +160,5 @@ AI_FULL_TABLES_AFTER_MARKET_AUTHORITY_0072 = (
     *AI_FULL_TABLES_AFTER_V4_REPORT_LINKS, *AI_SQL_ONLY_0072)
 
 PI_TABLES = ("ai_pi_sessions", "ai_pi_operations", "ai_pi_dispatches", "ai_pi_events", "ai_pi_files", "ai_pi_exports", "ai_pi_export_pages", "ai_pi_gateway_nonces")
-AI_TABLES = (*AI_TABLES_PRE_PI_RUNTIME, *PI_TABLES)
+PI_WORKSPACE_TABLES = ("ai_pi_workspaces", "ai_pi_controls", "ai_pi_ui_requests")
+AI_TABLES = (*AI_TABLES_PRE_PI_RUNTIME, *PI_TABLES, *PI_WORKSPACE_TABLES)

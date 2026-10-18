@@ -49,7 +49,7 @@ def command(value):
     if len(raw) > 12 * 1024 * 1024:
         raise AiError("PiRunner 输入超过传输限额", "payload_too_large", 413)
     stamp, nonce, key = str(int(time.time())), uuid.uuid4().hex, secret()
-    timeout = {"create": 60, "prompt": 45, "abort": 45, "dispose": 30, "skills": 45}.get(value.get("command"), 15)
+    timeout = {"create": 60, "prompt": 45, "abort": 45, "dispose": 30, "skills": 45, "workspace": 60}.get(value.get("command"), 15)
     conn = http.client.HTTPConnection("127.0.0.1", PORT, timeout=timeout)
     try:
         conn.request("POST", PATH, raw, {"Content-Type": "application/json", "X-Timestamp": stamp,

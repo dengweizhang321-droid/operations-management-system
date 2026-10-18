@@ -138,6 +138,8 @@ def _model(payload, op, principal):
     model = configuration.resolve_model(op.model_id)
     if model.version != op.model_version:
         raise AiError("模型配置版本已变化，请在新环境开始", "access_denied", 403)
+    from .pi_workspace import effective_model
+    model = effective_model(model, json.loads(op.payload_json).get("thinkingLevel", ""))
     from . import pi_selection
     _, entries = catalog(principal)
     entries = pi_selection.filter_catalog(entries, pi_selection.for_operation(op))

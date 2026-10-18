@@ -222,7 +222,7 @@ def prompt(session_id, payload, principal):
             or any(item not in SKILL_IDS for item in skill_ids) or not isinstance(file_ids, list) or len(file_ids)>16):
         raise AiError("技能或文件标识无效")
     from . import configuration
-    model = configuration.resolve_model(payload.get("modelId"))
+    from .pi_models import PiWorkspace, PiControl
     binding = digest({"payload": payload, "scope": scope, "role": principal.role, "shopSelection": selection})
     with mutation(principal):
         session = get_session(session_id, principal, lock=True)
@@ -235,6 +235,14 @@ def prompt(session_id, payload, principal):
             return {"session": session_record(session), "operation": operation_record(prior), "replayed": True}
         if PiOperation.objects.filter(session=session, status__in=ACTIVE).exists():
             raise AiError("会话已有执行或未知操作，请观察原操作", "pi_operation_active", 409)
+        # Pause/model controls and new prompts share this authority ordering.
+        # The earlier optimistic session read is not a model/admission snapshot.
+        workspace = PiWorkspace.objects.select_for_update().filter(session=session, generation=session.generation).first()
+        if workspace and workspace.status in {"paused", "unknown"}:
+            raise AiError("工作区已暂停或有未知控制，请先处理原回执", "pi_environment_paused", 409)
+        if PiControl.objects.filter(session=session, generation=session.generation, status__in=["prepared", "queued", "sent", "accepted", "unknown"]).exists():
+            raise AiError("工作区控制结果尚未确认", "pi_control_unknown", 409)
+        model = configuration.resolve_model(payload.get("modelId") or (workspace.model_id if workspace else None))
         # A scope change starts a clean environment; no context or file is reused.
         if session.status == "frozen" or canonical(scope) != session.scope_json or canonical(selection) != session.selection_json or session.actor_role != principal.role:
             session.epoch += 1
@@ -260,7 +268,8 @@ def prompt(session_id, payload, principal):
         op = PiOperation.objects.create(id=uid("pi-op"), session=session, client_request_id=key, request_digest=binding,
             epoch=session.epoch, generation=session.generation, seq=session.operation_seq, actor_role=principal.role,
             scope_json=canonical(scope), model_id=model.id, model_version=model.version,
-            skills_json=canonical(selected), payload_json=canonical({"message": message, "fileIds": files, "skillIds": skill_ids, "shopSelection": selection}))
+            skills_json=canonical(selected), payload_json=canonical({"message": message, "fileIds": files, "skillIds": skill_ids, "shopSelection": selection,
+                **({"thinkingLevel": workspace.thinking_level} if workspace and workspace.thinking_level else {})}))
         session.active_operation_id, session.status = op.id, "queued"
         session.save()
         event(session, "user_message", {"text": message}, op)

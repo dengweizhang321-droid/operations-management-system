@@ -4,10 +4,20 @@ import { readFile } from "node:fs/promises";
 import { build } from "esbuild";
 import { isPublicAiPath, requestDjangoAi } from "../lib/django/ai-service";
 import { mergePiEvents, piOperationBlocksSend, piScopeFromDraft, reconcilePiPending, piFailureLabel, piEventDetail, type PiEvent, type PiPending } from "../app/ai-pi-agent-view";
+import { commandFromDraft, reconcileWorkspaceIntents } from "../app/ai-pi-workspace";
 
 const principal = { email: "pi-fixture@example.invalid", displayName: "镜像", role: "analyst" as const, scope: { platforms: ["京东"], warehouses: [], channels: [] } };
 const environment = { TERUISI_DJANGO_INTERNAL_SECRET: "Isolated-Pi-hmac-secret-at-least-32-bytes", TERUISI_DJANGO_AI_READER_BASE_URL: "http://127.0.0.1:18111", TERUISI_DJANGO_AI_WRITER_BASE_URL: "http://127.0.0.1:18112" };
-const paths = ["skills", "sessions", "sessions/s_1", "sessions/s_1/messages", "sessions/s_1/events", "sessions/s_1/abort", "sessions/s_1/files", "files/f_1", "files/f_1/content"];
+const paths = ["skills", "sessions", "sessions/s_1", "sessions/s_1/messages", "sessions/s_1/events", "sessions/s_1/abort", "sessions/s_1/files", "sessions/s_1/workspace", "files/f_1", "files/f_1/content"];
+
+test("workspace controls recover only registered stable IDs and preserve native bash context semantics", () => {
+  assert.deepEqual(commandFromDraft("! printf one"), { command: "bash", payload: { command: "printf one", excludeFromContext: false } });
+  assert.deepEqual(commandFromDraft("!! printf two"), { command: "bash", payload: { command: "printf two", excludeFromContext: true } });
+  assert.equal(commandFromDraft("普通消息"), null);
+  const intents = [{ clientRequestId: "received", command: "steer" }, { clientRequestId: "unknown", command: "terminal_input" }];
+  assert.deepEqual(reconcileWorkspaceIntents(intents, [{ id: "control-1", clientRequestId: "received", controlSeq: 3, command: "steer", status: "queued" }]), intents.slice(1));
+  assert.deepEqual(reconcileWorkspaceIntents(intents, []), intents);
+});
 
 test("Pi failure cause is visible ahead of unknown status, including after refresh", () => {
   const data = JSON.parse(JSON.stringify({code: "invalid_provider_response", status: "unknown", responseDiagnostics: { reason: "tool_arguments_bounds" }}));
@@ -61,7 +71,7 @@ test("Pi event transport preserves complete large UTF-8 replies within its indep
 });
 
 test("Pi route files expose only the intended passive GET and explicit POST", async () => {
-  const routes = { "skills": ["GET"], "sessions": ["GET", "POST"], "sessions/[id]": ["GET"], "sessions/[id]/messages": ["POST"], "sessions/[id]/events": ["GET"], "sessions/[id]/abort": ["POST"], "sessions/[id]/files": ["POST"], "files/[id]": ["GET"], "files/[id]/content": ["GET"] };
+  const routes = { "skills": ["GET"], "sessions": ["GET", "POST"], "sessions/[id]": ["GET"], "sessions/[id]/messages": ["POST"], "sessions/[id]/events": ["GET"], "sessions/[id]/abort": ["POST"], "sessions/[id]/files": ["POST"], "sessions/[id]/workspace": ["GET", "POST"], "files/[id]": ["GET"], "files/[id]/content": ["GET"] };
   for (const [path, methods] of Object.entries(routes)) {
     const source = await readFile(`app/api/ai/pi/${path}/route.ts`, "utf8");
     assert.deepEqual([...source.matchAll(/export const (\w+) = forwardAiRequest/g)].map(match => match[1]), methods);
