@@ -181,6 +181,12 @@ test('publish lease precedes fetch tickets and preparation cannot enter until it
  await release();await drainLatestMainQueue('unused',f.options);assert.equal(f.runs(),1);
  assert.equal((await ticketResult(f.directory,event.requestId,event.ticketSha256)).status,'prepared');
 });
+test('fetch ticket drains as current after publishing the held target without native preparation',async t=>{
+ const f=await queuedFixture(t),release=await acquireMainPublicationQueue(f.binding,{assertGeneration:async()=>{}});
+ const event=await f.submit();assert.equal((await drainLatestMainQueue('unused',f.options)).status,'queued');
+ f.live.mainCommit=f.latest;await release();await drainLatestMainQueue('unused',f.options);
+ assert.equal((await ticketResult(f.directory,event.requestId,event.ticketSha256)).status,'current');assert.equal(f.runs(),0);
+});
 test('prepare lease refuses publishing before dispatch effects; generation failure releases it',async t=>{
  const f=await queuedFixture(t);await f.submit();let checked=false;
  await drainPreparationQueue(f.directory,{...f.binding.state,observe:async()=>{

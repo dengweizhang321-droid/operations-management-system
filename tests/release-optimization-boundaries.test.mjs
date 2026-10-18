@@ -19,7 +19,7 @@ test('rotation waiting does not change apply/CAS/fence/process/entrypoint/startu
  const allowed=new Set(['withRotationLock','acquireRotationLock','acquirePreparationRotationLock']);
  assert.deepEqual(statements(after,allowed),statements(before,allowed));
 });
-test('prepared publication only adds prepare lock wait policy, preserving the whole native callback',async()=>{
+test('readiness changes preserve the native deploy/apply/start/ready callback after admitted maintenance',async()=>{
  const file='tools/publish-prepared-main.mjs',before=execFileSync('git',['show',base+':'+file],{encoding:'utf8',windowsHide:true,maxBuffer:16*1024*1024}).replaceAll('\r\n','\n');
  const after=(await fs.readFile(file,'utf8')).replaceAll('\r\n','\n');
  const policy=` const preparationDeadline=Math.min(Date.now()+1800000,Number(process.env.TERUISI_PROCESS_DEADLINE_UNIX_MS)||Infinity);
@@ -28,6 +28,8 @@ test('prepared publication only adds prepare lock wait policy, preserving the wh
  assert.ok(after.includes(policy));
  // Once the base already carries this reviewed policy, the whole file must
  // remain identical; stripping only the candidate would reject an unchanged file.
- if(before.includes(policy))assert.equal(after,before);
- else assert.equal(after.replace(policy,'').replace(' },preparationWait);',' });'),before);
+ const tail='    assert.equal(entered.status,\'maintenance\');assert.equal(entered.maintenanceId,maintenanceId);assert.equal(entered.postgresPreserved,true);';
+ const oldTail=before.slice(before.indexOf(tail)),nextTail=after.slice(after.indexOf(tail));
+ assert.ok(before.includes(tail)&&after.includes(tail));
+ assert.equal(nextTail.replace(' },preparationWait);',' });'),oldTail.replace(' },preparationWait);',' });'));
 });

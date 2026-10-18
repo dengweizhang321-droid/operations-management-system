@@ -16,6 +16,7 @@ async function fixture(t,components=['worker'],failAt=null){
  const request={mainCommit:'a'.repeat(40),components,predecessorWorker:{...head},predecessorDjangoSha256:django};
  const context={source:root,out,installedRoot:installed,workerRuntimeRoot:runtime,deployOnly:false,
   sourceIdentity:async()=>({commit:request.mainCommit,tree:'b'.repeat(40)}),
+  maintenanceReadiness:async()=>({route:'fixture',sourcePins:Object.fromEntries(['manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs'].map(name=>[name,'4'.repeat(64)]))}),
   sha:async file=>file===path.join(installed,'deployment.json')?django:path.basename(file).startsWith('app.prepare-')?'9'.repeat(64):'4'.repeat(64),
   progress:{begin(){},complete(){},log(){},success(){event('success');successes++;}},
   api:{workerRuntimeRoot:runtime,workerPreparationIdentity:async()=>{event('identity');return {fixture:true};},workerSourceBindingVersion:'fixture',windowsPathSha256:()=> '5'.repeat(64),canonicalJson:JSON.stringify},
