@@ -45,3 +45,9 @@ node --import tsx --test tests/pi-agent-tools.test.ts
 没有生产数据库操作、服务启停、供应商真实调用、浏览器操作、业务补跑或部署；未重复此前真实生产故障测试。本次隔离接缝通过不等于真实单店业务已完成自然收尾验收。
 
 独立只读审查通过，原件为 `D:/codex-artifacts/pi-export-request-identity-20261018/REVIEW.md`。产品三文件与红/绿、私有 PostgreSQL 证据逐字节绑定；普通业务修复没有更改原发布、生命周期和迁移执行逻辑。
+
+## 最终组合版本的结构证明
+
+已无冲突整合最新 main `a7041338`。组合版本含既有 0085；由于本修复改变其受保护代码摘要，使用既有 `tools/pi_workspace_rehearsal.py` 在独立端口 55531 完成一次真实 150→151 轻量 PostgreSQL 演练。14 类原门槛全部通过，旧合成行保留，集群停止且临时口令移除；没有全库备份或恢复，也没有生产迁移。
+
+新原件为 `D:/codex-artifacts/pi-phase2-workspace-20261018/schema/pi-workspace-nbfw41ua/`，仓库保全 [schema-validation.json](schema-validation.json)。`config/main-schema-releases/ai-0085.json` 仅将 validation 路径、原件摘要和代码摘要重绑到新证明；0085 migration 字节、步骤、安装器逻辑与旧证明原件保持。新代码摘要为 `e68c9297cad10196a1a93f870eb775ebb31341d643d2802174b67f37276dc682`。
