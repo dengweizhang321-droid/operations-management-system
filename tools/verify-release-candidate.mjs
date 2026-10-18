@@ -127,7 +127,39 @@ export function stripGateTiming(text){
       if ([string]$verified.status -cne 'verified') { throw 'Protected migration plan is incomplete' }`);
 }
 
-export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,dependencies,python='python.exe'}={}){
+export function compareFixedAdminQueueChange(before,after){
+ before=before.replaceAll('\r\n','\n');after=after.replaceAll('\r\n','\n');
+ const begin='\n// FIXED_ADMIN_E2_BEGIN\n',end='// FIXED_ADMIN_E2_END\n';
+ const start=after.indexOf(begin),stop=after.indexOf(end,start);
+ if(start<0||stop<0||before.includes(begin)||after.indexOf(begin,start+1)!==-1)return false;
+ const block=after.slice(start,stop+end.length);
+ if(sha(Buffer.from(block))!=='942bfda5342275eb27b57c77512720cf11c3ab07e7aaac53a8c5e3559486d563')return false;
+ const changed="      if(!terminal||['unknown','failed','blocked'].includes(terminal.status)){\n       if(!terminal||!await readFixedAdminRejectionResolution(directory,dispatch,terminal))unresolved={dispatch,sha256:read.sha256};\n      }";
+ const original="      if(!terminal||['unknown','failed','blocked'].includes(terminal.status))unresolved={dispatch,sha256:read.sha256};";
+ let remainder=after.slice(0,start)+after.slice(stop+end.length);
+ const replacements=[
+  [changed,original],
+  ["  const admissionBlocked=value.status==='blocked'&&value.admission==='ordinary-user-before-dispatch-v1';\n",''],
+  ["const extra=admissionBlocked?['admission','error']:value.status",'const extra=value.status'],
+  ["  if(admissionBlocked){\n   assert.equal(typeof value.error,'string');\n   for(const name of await entries(directory,'dispatches')){const read=await readQueueObject(path.join(directory,'dispatches',name));validateDispatch(read.value,name);assert.ok(!read.value.tickets.some(ref=>ref.requestId===requestId),'A dispatched ticket cannot become a pre-dispatch admission rejection');}\n   return value;\n  }\n",''],
+  ["   assert.equal(prior.sha256,value.blockedDispatchSha256);\n   return value;","   assert.equal(prior.sha256,value.blockedDispatchSha256);assert.equal(prior.value.configSha256,value.configSha256);assert.equal(prior.value.bundleSha256,value.bundleSha256);return value;"],
+  ['onStage=async()=>{},admitPreparation=async()=>{}})','onStage=async()=>{}})'],
+  ["    try{await admitPreparation();}\n    catch(error){for(const item of pending)await finish(item,'blocked',{admission:'ordinary-user-before-dispatch-v1',error:String(error.message)});break;}\n",''],
+ ];
+ for(const [next,prior] of replacements){if(!remainder.includes(next))return false;remainder=remainder.replace(next,prior);}
+ return remainder===before;
+}
+export function compareFixedPreparationAdmissionChange(before,after){
+ before=before.replaceAll('\r\n','\n');after=after.replaceAll('\r\n','\n');
+ const begin='// PREPARATION_ELIGIBILITY_BEGIN\n',end='// PREPARATION_ELIGIBILITY_END\n',start=after.indexOf(begin),stop=after.indexOf(end,start);
+ if(start<0||stop<0||before.includes(begin)||after.indexOf(begin,start+1)!==-1)return false;
+ if(sha(Buffer.from(after.slice(start,stop+end.length)))!=='8d095e2413bfac310803273f4e1b44bc6b8899a68897b12c7f52bf9118dac2cd')return false;
+ const core=after.slice(0,start)+after.slice(stop+end.length),signature='assertGeneration=assertControlGeneration,admit=assertOrdinaryPreparationContext}={})',callback='admitPreparation:()=>admit(config),';
+ if(!core.includes(signature)||!core.includes(callback))return false;
+ return core.replace(signature,'assertGeneration=assertControlGeneration}={})').replace(callback,'')===before;
+}
+
+export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,dependencies,python='python.exe',reuseReport}={}){
  const source=await assertPrivateCandidateLocation(sourceRoot??process.cwd());
  const verifierRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
  assert.equal((await fs.realpath(source)).toLowerCase(),(await fs.realpath(verifierRoot)).toLowerCase(),'验证器必须来自被验证候选，不能使用其他工作树的旧工具');
@@ -143,8 +175,21 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
  await fs.mkdir(directory,{recursive:false});
  const plan=makeReleasePlan({base:baseCommit,head:commit,cwd:source});
  const profile=candidateCompatibilityProfile(plan.changes);
+ let fixedAdminOnly=false,reusedBaseline;
+ if(reuseReport){
+  assert.equal(baseCommit,'aaca18485021b6f98107fe168b69c8f57d55ee46','限定增量只复用已核aaca基线');
+  assert.ok(profile.paths.includes('tools/main-prebuild-queue.mjs')&&profile.paths.includes('tools/publish-latest-main.mjs')&&profile.paths.every(name=>['tools/main-prebuild-queue.mjs','tools/publish-latest-main.mjs','tools/verify-release-candidate.mjs'].includes(name)),'增量超出固定queue协调/普通用户准入范围');
+  const old=(await execute('git',['-C',source,'show',baseCommit+':tools/main-prebuild-queue.mjs'],{encoding:'utf8',windowsHide:true,maxBuffer:4*1024*1024})).stdout;
+  assert.equal(compareFixedAdminQueueChange(old,await fs.readFile(path.join(source,'tools/main-prebuild-queue.mjs'),'utf8')),true,'固定helper或unresolved接缝以外发生变化');
+  const oldPublisher=(await execute('git',['-C',source,'show',baseCommit+':tools/publish-latest-main.mjs'],{encoding:'utf8',windowsHide:true,maxBuffer:4*1024*1024})).stdout;
+  assert.equal(compareFixedPreparationAdmissionChange(oldPublisher,await fs.readFile(path.join(source,'tools/publish-latest-main.mjs'),'utf8')),true,'普通用户只读准入/回调接缝以外发生变化');
+  const raw=await fs.readFile(reuseReport);assert.equal(sha(raw),'f4d7678e3c34d91c30aa44b05628521efbdfa55fb16d0ac0a2e3f5dc743ee33c','原完整证明变化');
+  const baseline=JSON.parse(raw);assert.equal(baseline.status,'passed');assert.equal(baseline.commit,baseCommit);assert.equal(baseline.evidence.packageIntegrity,true);assert.equal(baseline.evidence.piWorkerExitObservation,true);
+  fixedAdminOnly=true;reusedBaseline={path:path.resolve(reuseReport),sha256:sha(raw),commit:baseline.commit,tree:baseline.tree,evidence:baseline.evidence,inputs:{tools:baseline.tools,dependencies:baseline.dependencies,powerShellModules:baseline.powerShellModules}};
+ }
  const report={version:'release-candidate-verification-v1',source,baseCommit,commit,tree,plan,profile,startedAt:new Date().toISOString(),
   status:'running',checks:[],evidence:{packageIntegrity:false,nativeEntryBoundary:false,nativeColdStart:false},publicationPerformed:false};
+ if(fixedAdminOnly){report.profile={...profile,version:'fixed-admin-e2-preparation-admission-v1',fixedAdminOnly:true};report.reusedBaseline=reusedBaseline;}
  const reportFile=path.join(directory,'REPORT.json');
  const write=()=>fs.writeFile(reportFile,JSON.stringify(report,null,2)+'\n');
  await write();
@@ -166,6 +211,11 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    await fs.symlink(path.resolve(dependencies),path.join(candidate,'node_modules'),'junction');
    const physicalRoot=await fs.realpath(dependencies);
    report.dependencies={physicalRoot,tree:await hashTree(physicalRoot)};
+  }
+  if(fixedAdminOnly){
+   assert.deepEqual(report.tools,reusedBaseline.inputs.tools,'执行工具漂移，不能复用原应用/Pi证明');
+   assert.deepEqual(report.dependencies,reusedBaseline.inputs.dependencies,'依赖漂移，不能复用原应用/Pi证明');
+   assert.deepEqual(report.powerShellModules,reusedBaseline.inputs.powerShellModules,'PowerShell模块漂移，不能复用原应用/Pi证明');
   }
   const members=(await git(candidate,['ls-files','-z'])).split('\0').filter(Boolean);
   report.payload=[];
@@ -198,10 +248,14 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    }catch(error){await fs.writeFile(output,error.stdout??Buffer.alloc(0));await fs.writeFile(errors,error.stderr??Buffer.alloc(0));item.error=String(error.message);item.exitCode=error.code??null;item.status='failed';throw error;}
    finally{item.elapsedMs=Date.now()-started;item.stdoutSha256=sha(await fs.readFile(output));item.stderrSha256=sha(await fs.readFile(errors));await write();}
   }
-  if(profile.publication)await run('publication',process.execPath,['--test','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs','tests/manual-maintenance-pi-readiness.test.mjs'],'native-entry-boundary');
-  if(profile.preparationQueue)await run('preparation-queue-control',process.execPath,['--test','--test-concurrency=1','tests/main-prebuild-hook.test.mjs','tests/main-prebuild-queue-v2.test.mjs','tests/main-control-upgrade.test.mjs'],'native-entry-boundary');
+  if(fixedAdminOnly){
+   await run('fixed-admin-queue',process.execPath,['--test','--test-concurrency=1','tests/fixed-admin-resolution.test.mjs','tests/fixed-admin-compatibility.test.mjs','tests/main-prebuild-eligibility.test.mjs','tests/main-prebuild-queue-v2.test.mjs'],'native-entry-boundary');
+   await run('fixed-admin-private-bundle',process.execPath,['--test','--test-name-pattern=materials preserve frozen environment','tests/main-control-upgrade.test.mjs'],'package-integrity');
+  }
+  if(!fixedAdminOnly&&profile.publication)await run('publication',process.execPath,['--test','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs','tests/manual-maintenance-pi-readiness.test.mjs'],'native-entry-boundary');
+  if(!fixedAdminOnly&&profile.preparationQueue)await run('preparation-queue-control',process.execPath,['--test','--test-concurrency=1','tests/main-prebuild-hook.test.mjs','tests/main-prebuild-queue-v2.test.mjs','tests/main-control-upgrade.test.mjs'],'native-entry-boundary');
   if(profile.worker)await run('worker-integrity',process.execPath,['--test','tests/worker-source-read-once.test.mjs','tests/release-source-binding.test.mjs','tests/release-preparation-runtime-config.test.mjs'],'package-integrity');
-  if(profile.schemaProof||profile.preparationQueue)await run('optimization-boundaries',process.execPath,['--test','tests/release-optimization-boundaries.test.mjs'],'package-integrity');
+  if(!fixedAdminOnly&&(profile.schemaProof||profile.preparationQueue))await run('optimization-boundaries',process.execPath,['--test','tests/release-optimization-boundaries.test.mjs'],'package-integrity');
   if(profile.schemaProof){
    await run('schema-proof-unit',pythonExe,['-m','unittest','discover','-s','tests','-p','test_*addition.py'],'isolated-functions');
    await run('schema-proof-full-history',pythonExe,['-m','unittest','discover','-s','tests','-p','test_schema_proof_flow.py'],'package-integrity');
@@ -222,7 +276,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    await run('pi-worker-native-exit',shell7,['-NoProfile','-NonInteractive','-File','tests/pi-worker-exit.test.ps1','-Native','-Python',pythonExe],'native-pi-worker-exit');
    report.evidence.piWorkerExitObservation=true;
   }
-  if(profile.publication||profile.django){
+  if(!fixedAdminOnly&&(profile.publication||profile.django)){
    await run('powershell-entry',pythonExe,['-m','unittest','discover','-s','tests','-p','test_pi150_recovery_entry.py'],'native-entry-boundary');
    await run('actual-django-package',shell7,['-NoProfile','-NonInteractive','-File','tests/release-candidate-package.test.ps1'],'package-integrity');
   }
@@ -233,6 +287,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   assert.deepEqual(await hashTree(report.powerShellModules.root),report.powerShellModules.tree,'验证期间PowerShell模块发生变化');
   report.evidence.packageIntegrity=report.checks.some(c=>c.kind==='package-integrity');
   report.evidence.nativeEntryBoundary=report.checks.some(c=>c.kind==='native-entry-boundary');
+  if(fixedAdminOnly){report.evidence.unmodifiedApplicationAndPi=reusedBaseline.evidence;report.evidence.fixedAdminQueueResolution=true;}
   report.nativeColdStartReason=profile.piExitObservation?'Not executed: exact AST-qualified Windows Pi exit observer only; real private empty pi_worker.main and same-token Stop tested, fixed WSL runner lifecycle not executed.':'Not executed: profiles cover package digests, admission and native command boundaries; no Start/Stop routing semantics changed.';
   report.status='passed';
  }catch(error){report.status='failed';report.error=String(error.message);}
@@ -250,6 +305,6 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
 }
 
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
- const {values}=parseArgs({options:{source:{type:'string'},base:{type:'string'},head:{type:'string',default:'HEAD'},out:{type:'string'},dependencies:{type:'string'},python:{type:'string'}}});
- verifyReleaseCandidate({sourceRoot:values.source,base:values.base,head:values.head,out:values.out,dependencies:values.dependencies,python:values.python}).then(result=>{console.log(JSON.stringify(result));if(result.status!=='passed')process.exitCode=1;}).catch(error=>{console.error(error.message);process.exitCode=1;});
+ const {values}=parseArgs({options:{source:{type:'string'},base:{type:'string'},head:{type:'string',default:'HEAD'},out:{type:'string'},dependencies:{type:'string'},python:{type:'string'},'reuse-report':{type:'string'}}});
+ verifyReleaseCandidate({sourceRoot:values.source,base:values.base,head:values.head,out:values.out,dependencies:values.dependencies,python:values.python,reuseReport:values['reuse-report']}).then(result=>{console.log(JSON.stringify(result));if(result.status!=='passed')process.exitCode=1;}).catch(error=>{console.error(error.message);process.exitCode=1;});
 }

@@ -186,11 +186,18 @@ export function startPreparationConsumer(configFile,config){
   }finally{await fd.close();}
  });
 }
-export async function drainLatestMainQueue(configFile,{binding,progress,observe=observeLatestMain,once=prepareLatestMainOnce,run=runPublisher,inspect=inspectMainPreparation,assertGeneration=assertControlGeneration}={}){
+// PREPARATION_ELIGIBILITY_BEGIN
+export async function assertOrdinaryPreparationContext(config,{probe=async()=>execute('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',
+ ['-NoProfile','-NonInteractive','-Command','[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)'],
+ {encoding:'utf8',windowsHide:true,timeout:30000,env:publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment)})}={}){
+ const result=await probe();assert.equal(result.stderr?.trim()??'','','Preparation token probe returned an error before DISPATCH');assert.equal(result.stdout.trim(),'False','Preparation requires ordinary-user admission before DISPATCH; no native preparation was started');
+}
+// PREPARATION_ELIGIBILITY_END
+export async function drainLatestMainQueue(configFile,{binding,progress,observe=observeLatestMain,once=prepareLatestMainOnce,run=runPublisher,inspect=inspectMainPreparation,assertGeneration=assertControlGeneration,admit=assertOrdinaryPreparationContext}={}){
  binding??=await preparationControlBinding(configFile);
  const config=binding.config,directory=path.join(config.stateDirectory,'prebuild-queue-v2');
  return drainPreparationQueue(directory,{configSha256:binding.state.configSha256,bundleSha256:binding.state.bundleSha256,
-  assertGeneration:()=>assertGeneration(binding),observe:()=>observe(config,{log:message=>progress?.log(message)}),
+  assertGeneration:()=>assertGeneration(binding),admitPreparation:()=>admit(config),observe:()=>observe(config,{log:message=>progress?.log(message)}),
   prepare:async(selection,dispatch,reusablePreparation)=>{
    const prepared=await once(config,selection,{log:message=>progress?.log(message)});
    if(['already-current','non-production'].includes(prepared.status))return prepared;

@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import {execFileSync} from 'node:child_process';
+import {compareFixedAdminQueueChange,compareFixedPreparationAdmissionChange} from '../tools/verify-release-candidate.mjs';
+test('fixed queue profile accepts only the exact reviewed helper and unresolved call',async()=>{
+ const before=execFileSync('git',['show','aaca18485021b6f98107fe168b69c8f57d55ee46:tools/main-prebuild-queue.mjs'],{encoding:'utf8',windowsHide:true}),after=await fs.readFile('tools/main-prebuild-queue.mjs','utf8');
+ assert.equal(compareFixedAdminQueueChange(before,after),true);
+ for(const changed of [after+'\nextraEffect();',after.replace('await observe()','await unrelatedEffect()'),after.replace("decision:'original-native-preparation-never-started-request-terminated'","decision:'prepared'"),after.replace('await adminReadResolution({file});return true','return true')])assert.equal(compareFixedAdminQueueChange(before,changed),false);
+});
+test('ordinary-user admission profile freezes fetch/dispatch/native routing and exact token query',async()=>{
+ const before=execFileSync('git',['show','aaca18485021b6f98107fe168b69c8f57d55ee46:tools/publish-latest-main.mjs'],{encoding:'utf8',windowsHide:true}),after=await fs.readFile('tools/publish-latest-main.mjs','utf8');
+ assert.equal(compareFixedPreparationAdmissionChange(before,after),true);
+ for(const changed of [after.replace("result.stdout.trim(),'False'","result.stdout.trim(),'True'"),after.replace('admitPreparation:()=>admit(config),',''),after+'\nnewNativeCall();'])assert.equal(compareFixedPreparationAdmissionChange(before,changed),false);
+});
