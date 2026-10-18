@@ -121,7 +121,7 @@
 | `jackyun-7792-receipt-recovery-20261010` | 2 | [吉客云 7792 已提交销售回执与组合装续导](../jackyun-7792-receipt-recovery-20261010/README.md) |
 | `jackyun-browser-preflight-20261013` | 1 | [吉客云浏览器 PID 校验失败的安全闭合](../jackyun-browser-preflight-20261013/REPORT.md) |
 | `jackyun-download-recovery-20261009` | 2 | [吉客云已绑定库存下载重试与自动续跑](../jackyun-download-recovery-20261009/REPORT.md) |
-| `jackyun-full-restart-20261018` | 1 | [吉客云部分失败后的五表重新采集](../jackyun-full-restart-20261018/REPORT.md) |
+| `jackyun-full-restart-20261018` | 2 | [吉客云部分失败后的五表重新采集](../jackyun-full-restart-20261018/REPORT.md) |
 | `jackyun-live-test-20261014` | 4 | [吉客云自动恢复：本次发布与真实恢复结果](../jackyun-live-test-20261014/FINAL_REPORT.md) |
 | `jackyun-unified-recovery-20261013` | 7 | [吉客云完整恢复与重试](../jackyun-unified-recovery-20261013/REPORT.md) |
 | `tmall-seven-day-direct-20261007` | 2 | [天猫六店近七日查缺、P/M 直连与每日货品](../tmall-seven-day-direct-20261007/REPORT.md) |

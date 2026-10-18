@@ -2092,9 +2092,7 @@ async function buildWorkerReleaseInternal({
     await mkdir(path.join(releaseStage, "audit"), { recursive: true });
     detailStarted=Date.now();
     await cp(path.join(buildRoot, "dist"), path.join(releaseStage, "dist"), { recursive: true, errorOnExist: true, force: false });
-    // Same-volume private staging directory: transfer ownership instead of
-    // copying another 31k files. No links and no changes to the final tree.
-    await rename(path.join(buildRoot, "node_modules"), path.join(releaseStage, "node_modules"));
+    await cp(path.join(buildRoot, "node_modules"), path.join(releaseStage, "node_modules"), { recursive: true, errorOnExist: true, force: false });
     await cp(helperBuild.helperRoot, path.join(releaseStage, "helper"), { recursive: true, errorOnExist: true, force: false });
     await copyWorkerReleaseRuntimeArtifacts(buildRoot, releaseStage);
     const contractRelativePath = "audit/sales-retired-code-receipt.json";

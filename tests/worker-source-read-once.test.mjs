@@ -4,9 +4,9 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, writeFile, readFile, open, rm, link, symlink, lstat, utimes, rename } from 'node:fs/promises';
+import { cp, mkdtemp, mkdir, writeFile, readFile, open, rm, link, symlink, lstat, utimes, rename } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-import { hashRelativeFiles, hashRelativeFilesWithInventory, sha256Canonical, treeHashReadBatchBytes, treeHashReadConcurrency } from '../tools/worker-local-release.mjs';
+import { hashTree, hashRelativeFiles, hashRelativeFilesWithInventory, sha256Canonical, treeHashReadBatchBytes, treeHashReadConcurrency } from '../tools/worker-local-release.mjs';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 async function legacy(root, names) {
@@ -61,6 +61,39 @@ async function corpus(root) {
   for(const [name,bytes] of Object.entries(files)){await mkdir(path.dirname(path.join(root,name)),{recursive:true});await writeFile(path.join(root,name),bytes);}
   return Object.keys(files).reverse();
 }
+// Run the original node_modules packing statement against private real trees.
+// Keep the copy and validation implementations in the production module.
+async function dependencyPacker() {
+  const source = await readFile(new URL('../tools/worker-local-release.mjs', import.meta.url), 'utf8');
+  const operations = source.split(/\r?\n/).filter(line => /^\s*await (?:cp|rename)\(path\.join\(buildRoot, "node_modules"\), path\.join\(releaseStage, "node_modules"\)/.test(line));
+  assert.equal(operations.length, 1, 'expected one original dependency packing operation');
+  return new (Object.getPrototypeOf(async function() {}).constructor)('cp', 'rename', 'path', 'buildRoot', 'releaseStage', operations[0]);
+}
+test('dependency packing preserves source and exact nested bytes; final validation rejects changed or missing output',()=>fixture(async root=>{
+  const buildRoot=path.join(root,'build'),releaseStage=path.join(root,'release'),source=path.join(buildRoot,'node_modules'),destination=path.join(releaseStage,'node_modules');
+  await mkdir(source,{recursive:true});await mkdir(releaseStage);await corpus(source);
+  const expected=await hashTree(source),pack=await dependencyPacker(),{api,dispose}=await instrument(root);
+  try {
+    await pack(cp,rename,path,buildRoot,releaseStage);
+    assert.deepEqual(await hashTree(source),expected);
+    assert.deepEqual(await hashTree(destination),expected);
+    await api.validateTree(destination,expected,'copied node_modules');
+    await writeFile(path.join(destination,'z.txt'),'evil');
+    await assert.rejects(api.validateTree(destination,expected,'copied node_modules'),/manifest/);
+    await cp(path.join(source,'z.txt'),path.join(destination,'z.txt'));
+    await rm(path.join(destination,'nested','part'));
+    await assert.rejects(api.validateTree(destination,expected,'copied node_modules'),/manifest/);
+  } finally {dispose();}
+}));
+test('dependency packing refuses existing files without overwriting their bytes',()=>fixture(async root=>{
+  const buildRoot=path.join(root,'build'),releaseStage=path.join(root,'release'),source=path.join(buildRoot,'node_modules'),destination=path.join(releaseStage,'node_modules');
+  await mkdir(source,{recursive:true});await mkdir(destination,{recursive:true});
+  await writeFile(path.join(source,'package.json'),'source');await writeFile(path.join(destination,'package.json'),'existing');
+  const pack=await dependencyPacker();
+  await assert.rejects(pack(cp,rename,path,buildRoot,releaseStage),error=>error.code==='ERR_FS_CP_EEXIST');
+  assert.equal(await readFile(path.join(destination,'package.json'),'utf8'),'existing');
+  assert.equal(await readFile(path.join(source,'package.json'),'utf8'),'source');
+}));
 test('combined source hashes match the original byte protocol and per-file inventory exactly',()=>fixture(async root=>{
   const names=await corpus(root),expected=await legacy(root,names);
   assert.deepEqual(await hashRelativeFilesWithInventory(root,names),expected);
