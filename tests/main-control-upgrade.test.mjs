@@ -5,7 +5,8 @@ import path from 'node:path';
 import os from 'node:os';
 import {execFileSync,spawn,spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {prepareControlUpgrade,adoptControlUpgradeForTest as adoptControlUpgrade,controlFiles,normalizeControlPath} from '../tools/install-main-prebuild.mjs';
+import {prepareControlUpgrade,adoptControlUpgradeForTest as adoptControlUpgrade,controlFiles,normalizeControlPath,nativeOperationBindings} from '../tools/install-main-prebuild.mjs';
+import {knownResume} from '../tools/publish-main-known-resume.mjs';
 import {readAdoptedControl} from '../tools/main-control-dispatch.mjs';
 import {manualStepCommand} from '../tools/publish-main-command.mjs';
 import {productionCommandArguments} from '../tools/release-batch.mjs';
@@ -41,6 +42,80 @@ const cli=(f,args=[])=>spawnSync(process.execPath,[path.join(f.state,'control/to
 test('control path normalization never appends command decode separators',()=>{
  assert.equal(normalizeControlPath('C:\\private\\packet\\source\\tools'), 'c:/private/packet/source/tools');
  assert.equal(normalizeControlPath('C:/private/packet/source/tools').includes('\n'),false);
+});
+async function evidenceFixture(t){
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'control-evidence-')),releases=path.join(directory,'packets');
+ await fs.mkdir(releases);t.after(()=>fs.rm(directory,{recursive:true,force:true,maxRetries:30,retryDelay:100}));
+ const packet=path.join(releases,'private-packet'),publish=path.join(packet,'publish-111111111111'),preparation=path.join(publish,'preparation'),verify=path.join(preparation,'verify-Ab12Cd');
+ await fs.mkdir(verify,{recursive:true});await fs.mkdir(path.join(packet,'source'));
+ const record={at:'2026-10-18T00:00:00.000Z',script:path.join(directory,'installed/tools/django-local-service.ps1'),action:'HardenAcl',extra:[]};
+ const file=path.join(verify,'HardenAcl-started.json');await fs.writeFile(file,JSON.stringify(record));
+ return {directory,releases,packet,publish,preparation,verify,file,record};
+}
+test('native evidence projection reads all producer locations without entering mature source dependency junctions',async t=>{
+ const f=await evidenceFixture(t),target=path.join(f.directory,'dependencies/node_modules');await fs.mkdir(target,{recursive:true});
+ await fs.writeFile(path.join(target,'poison-started.json'),'{unreadable evidence outside projection');
+ const expected=[f.file];
+ for(let n=0;n<27;n++){
+  const packet=n===0?f.packet:path.join(f.releases,'mature-'+n),source=path.join(packet,'source'),publish=path.join(packet,'publish-111111111111');
+  await fs.mkdir(source,{recursive:true});await fs.symlink(target,path.join(source,'node_modules'),'junction');
+  await fs.writeFile(path.join(source,'ignored-started.json'),'{source is not operation evidence');await fs.mkdir(publish,{recursive:true});
+  const file=path.join(publish,'PrepareApp-started.json');await fs.writeFile(file,JSON.stringify({...f.record,action:'PrepareApp'}));expected.push(file);
+ }
+ for(const directory of [f.preparation,path.join(f.publish,'resume-'+knownResume.maintenanceId)]){
+  await fs.mkdir(directory,{recursive:true});const file=path.join(directory,'VerifyPreparedApp-started.json');await fs.writeFile(file,JSON.stringify({...f.record,action:'VerifyPreparedApp'}));expected.push(file);
+ }
+ await fs.writeFile(path.join(f.publish,'WorkerApply-started.json'),JSON.stringify({planSha256:'a'.repeat(64)}));
+ const original=fs.readdir,enumerated=[];t.mock.method(fs,'readdir',async(file,...args)=>{enumerated.push(path.resolve(file));assert.ok(!path.resolve(file).toLowerCase().includes(path.sep+'source'),'Scanner entered source');return original(file,...args);});
+ const found=await nativeOperationBindings(f.releases);assert.equal(found.length,expected.length);
+ assert.deepEqual(found.map(row=>row.operationSha256).sort(),(await Promise.all(expected.map(async file=>createHash('sha256').update(await fs.readFile(file)).digest('hex')))).sort());
+ assert.ok(enumerated.includes(f.verify));assert.ok(!enumerated.includes(target));
+ console.log(JSON.stringify({fixture:'mature-evidence-projection',packetCount:27,sourceDependencyJunctions:27,sourceDirectoriesEnumerated:0,nativeRecords:found.length,producerLocations:['publish-root','preparation','preparation/verify-*','reviewed-resume']}));
+});
+test('native evidence projection rejects actual evidence and parent redirects, including the source root',async t=>{
+ for(const kind of ['release-root','parent','packet','publish','preparation','verify','source','started-directory','started-hardlink','started-junction'])await t.test(kind,async t=>{
+  const f=await evidenceFixture(t),destination=path.join(f.directory,'redirected');
+  let entry=f.file,input=f.releases;
+  if(kind==='parent'){
+   await fs.symlink(f.directory,destination,'junction');input=path.join(destination,'packets');
+  }else if(kind==='started-hardlink')await fs.link(f.file,path.join(f.directory,'hardlink.json'));
+  else if(kind==='started-junction'){
+   await fs.unlink(f.file);await fs.mkdir(destination);await fs.symlink(destination,f.file,'junction');
+  }else{
+   entry=({'release-root':f.releases,packet:f.packet,publish:f.publish,preparation:f.preparation,verify:f.verify,source:path.join(f.packet,'source')})[kind]??f.file;
+   await fs.rename(entry,destination);
+   if(kind==='started-directory')await fs.mkdir(entry);
+   else await fs.symlink(destination,entry,'junction');
+  }
+  await assert.rejects(nativeOperationBindings(input),/redirected|Unsafe release operation evidence|not ordinary/);
+ });
+});
+test('native evidence projection fails closed on partial identities, replacement, directory drift and the existing member bound',async t=>{
+ for(const kind of ['missing-action','missing-script','invalid-at','file-replaced','directory-replaced','record-added','bound'])await t.test(kind,async t=>{
+  const f=await evidenceFixture(t);
+  if(kind.startsWith('missing-')||kind==='invalid-at'){
+   const record={...f.record};if(kind==='invalid-at')record.at='invalid';else delete record[kind.slice(8)];await fs.writeFile(f.file,JSON.stringify(record));
+  }else if(kind==='file-replaced'){
+   const open=fs.open;t.mock.method(fs,'open',async(file,...args)=>{const handle=await open(file,...args);if(file!==f.file)return handle;const read=handle.readFile.bind(handle);handle.readFile=async(...args)=>{const raw=await read(...args);await fs.rename(file,file+'.previous');await fs.writeFile(file,raw);return raw;};return handle;});
+  }else if(kind==='directory-replaced'||kind==='record-added'){
+   const readdir=fs.readdir;let once=false;t.mock.method(fs,'readdir',async(file,...args)=>{const names=await readdir(file,...args);if(file===f.verify&&!once){once=true;if(kind==='directory-replaced'){await fs.rename(file,file+'.previous');await fs.mkdir(file);await fs.writeFile(f.file,JSON.stringify(f.record));}else await fs.writeFile(path.join(file,'late-started.json'),JSON.stringify(f.record));}return names;});
+  }else{const readdir=fs.readdir;t.mock.method(fs,'readdir',async(file,...args)=>file===f.releases?Array.from({length:100001},(_,n)=>'private-'+n):readdir(file,...args));}
+  await assert.rejects(nativeOperationBindings(f.releases),/identity is incomplete|evidence changed|directory replaced|directory changed|exceeds bound/);
+ });
+});
+test('original scanner fails at S4 on mature junctions; the same immutable materials resume with the repaired scanner',async t=>{
+ const f=await fixture(t),releases=path.join(f.directory,'packets'),dependency=path.join(f.directory,'dependency'),source=path.join(releases,'private-packet/source');
+ await fs.mkdir(source,{recursive:true});await fs.mkdir(dependency);await fs.symlink(dependency,path.join(source,'node_modules'),'junction');
+ const original=git(root,['show','2b022c16b36ec0415a85db81b92502f5c2ab81eb:tools/install-main-prebuild.mjs']);
+ const functionText=original.slice(original.indexOf('async function nativeOperationBindings('),original.indexOf('export async function controlProcessSnapshot'));
+ assert.ok(functionText.startsWith('async function nativeOperationBindings('));
+ const baseline=Function('fs','path','assert','exists','bytes','sha','normalizeControlPath','return ('+functionText+');')(fs,path,assert,async file=>{try{await fs.lstat(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}},async file=>{assert.equal(path.resolve(await fs.realpath(file)).toLowerCase(),path.resolve(file).toLowerCase());const stat=await fs.lstat(file);assert.ok(stat.isFile()&&!stat.isSymbolicLink()&&stat.nlink===1);return fs.readFile(file);},raw=>createHash('sha256').update(raw).digest('hex'),normalizeControlPath);
+ const materialNames=['INTENT.json','PREPARED.json','CONFIG.json','HOOK','BRIDGE-HOOK','SHIM.mjs','bundle/MANIFEST.json',...controlFiles.map(name=>'bundle/tools/'+name)],before=await Promise.all(materialNames.map(name=>fs.readFile(path.join(f.out,name))));
+ await assert.rejects(adoptControlUpgrade({directory:f.out,onStage:stage=>stage==='S4'?baseline(releases):undefined}),/Release operation evidence redirected/);
+ assert.equal(JSON.parse(await fs.readFile(path.join(f.state,'CONTROL-INSTALLATION.json'),'utf8')).status,'installing');
+ assert.equal((await adoptControlUpgrade({directory:f.out,resume:true})).status,'adopted');
+ for(let n=0;n<materialNames.length;n++)assert.deepEqual(await fs.readFile(path.join(f.out,materialNames[n])),before[n]);
+ console.log(JSON.stringify({fixture:'same-intent-mature-resume',baselineScope:'exact-2b-nativeOperationBindings-at-S4',baselineRedirectRefused:true,privateRotationPipe:true,materialsUnchanged:true,sourceDependencyJunctionPreserved:(await fs.lstat(path.join(source,'node_modules'))).isSymbolicLink()}));
 });
 test('materials preserve frozen environment; private adoption binds one whole immutable closure',async t=>{
  const f=await fixture(t);assert.equal(f.prepared.status,'bundle-prepared');await assert.rejects(fs.access(path.join(f.state,'CONTROL-INSTALLATION.json')));

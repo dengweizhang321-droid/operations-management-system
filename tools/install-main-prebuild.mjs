@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import {publisherEnvironment} from './publish-latest-main.mjs';
 import {canonical,durableCreate,queuePipe} from './main-prebuild-queue.mjs';
 import {acquirePreparationRotationLock} from './worker-local-release-rotation.mjs';
+import {knownResume} from './publish-main-known-resume.mjs';
 const execute=promisify(execFile),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 export const controlFiles=['publish-latest-main.mjs','publish-main-progress.mjs','release-scope-plan.mjs','main-prebuild-hook.mjs','main-schema-release.mjs','main-prebuild-status.mjs','main-prebuild-queue.mjs','main-control-dispatch.mjs'];
@@ -61,27 +62,55 @@ async function readMaterials(directory){
 }
 function decoded(command){let result=command??'';for(let round=0;round<3;round++){const added=[];for(const match of result.matchAll(/[A-Za-z0-9+/]{80,}={0,2}/g)){try{const raw=Buffer.from(match[0],'base64');for(const encoding of ['utf16le','utf8']){const value=raw.toString(encoding);if(/[\\/:]/.test(value)&&value.length<1048576)added.push(value);}}catch{}}if(added.length)result+='\n'+added.join('\n');}return result.replaceAll('\\','/').replace(/\/{2,}/g,'/').toLowerCase().trimEnd();}
 export function normalizeControlPath(value){return path.resolve(value).replaceAll('\\','/').replace(/\/{2,}/g,'/').toLowerCase();}
-async function nativeOperationBindings(releaseDirectory){
+export async function nativeOperationBindings(releaseDirectory){
  if(!await exists(releaseDirectory))return [];
- const result=[];let inspected=0;
- const visit=async(directory,depth)=>{
-  assert.equal(path.resolve(await fs.realpath(directory)).toLowerCase(),path.resolve(directory).toLowerCase(),'Release evidence directory redirected');
-  for(const name of await fs.readdir(directory)){
-   if(++inspected>100000)throw Error('Release operation evidence exceeds bound');
-   const file=path.join(directory,name),stat=await fs.lstat(file);assert.ok(!stat.isSymbolicLink(),'Release operation evidence redirected');
-   if(stat.isDirectory()&&depth<3)await visit(file,depth+1);
-   else if(stat.isFile()&&name.endsWith('-started.json')){
-    const value=JSON.parse(await bytes(file));
-    if(value.script!==undefined||value.action!==undefined){
-     assert.ok(typeof value.script==='string'&&path.isAbsolute(value.script)&&typeof value.action==='string'&&Number.isFinite(Date.parse(value.at)),'Native operation identity is incomplete');
-     // A completed result cannot make an extant controller unrelated. The
-     // process must still be observed to exit; no STARTED is erased here.
-     result.push({script:normalizeControlPath(value.script),action:value.action.toLowerCase(),startedAt:value.at,operationSha256:sha(await bytes(file)),evidencePathSha256:sha(file)});
-    }
+ const result=[],directories=[];let inspected=0;
+ const identity=stat=>[stat.dev,stat.ino,stat.birthtimeMs];
+ const fileIdentity=stat=>[...identity(stat),stat.size,stat.mtimeMs,stat.ctimeMs,stat.nlink];
+ const physicalStat=async file=>{
+  const stat=await fs.lstat(file);assert.ok(!stat.isSymbolicLink(),'Release operation evidence redirected');
+  assert.equal(path.resolve(await fs.realpath(file)).toLowerCase(),path.resolve(file).toLowerCase(),'Release evidence path redirected');return stat;
+ };
+ const directory=async(file,list=true)=>{
+  const stat=await physicalStat(file);assert.ok(stat.isDirectory(),'Release evidence directory is not ordinary');
+  const names=list?(await fs.readdir(file)).sort():null;
+  inspected+=names?.length??0;assert.ok(inspected<=100000,'Release operation evidence exceeds bound');
+  directories.push({file,identity:identity(stat),names});return names;
+ };
+ const records=async file=>{
+  const names=await directory(file);
+  for(const name of names.filter(name=>name.endsWith('-started.json'))){
+   const evidence=path.join(file,name),before=await physicalStat(evidence);assert.ok(before.isFile()&&before.nlink===1,'Unsafe release operation evidence');
+   const handle=await fs.open(evidence,'r');let raw;
+   try{assert.deepEqual(fileIdentity(await handle.stat()),fileIdentity(before),'Release operation evidence replaced');raw=await handle.readFile();assert.deepEqual(fileIdentity(await handle.stat()),fileIdentity(before),'Release operation evidence changed');}finally{await handle.close();}
+   assert.deepEqual(fileIdentity(await physicalStat(evidence)),fileIdentity(before),'Release operation evidence changed');
+   const value=JSON.parse(raw);
+   if(value.script!==undefined||value.action!==undefined){
+    assert.ok(typeof value.script==='string'&&path.isAbsolute(value.script)&&typeof value.action==='string'&&Number.isFinite(Date.parse(value.at)),'Native operation identity is incomplete');
+    // A result never makes an extant controller unrelated. JSON and its
+    // operation hash come from the same read, without traversing source.
+    result.push({script:normalizeControlPath(value.script),action:value.action.toLowerCase(),startedAt:value.at,operationSha256:sha(raw),evidencePathSha256:sha(evidence)});
    }
   }
+  return names;
  };
- await visit(releaseDirectory,0);return result;
+ for(const name of await directory(releaseDirectory)){
+  const packet=path.join(releaseDirectory,name),stat=await physicalStat(packet);if(!stat.isDirectory())continue;
+  const names=await directory(packet);
+  // Source can contain the preparation's legitimate dependency junction.
+  // Check its root identity, but never enumerate or follow any descendants.
+  if(names.includes('source'))await directory(path.join(packet,'source'),false);
+  for(const name of names.filter(name=>name.startsWith('publish-'))){
+   const publish=path.join(packet,name),published=await records(publish);
+   if(published.includes('resume-'+knownResume.maintenanceId))await records(path.join(publish,'resume-'+knownResume.maintenanceId));
+   if(published.includes('preparation')){
+    const preparation=path.join(publish,'preparation'),prepared=await records(preparation);
+    for(const name of prepared.filter(name=>name.startsWith('verify-')))await records(path.join(preparation,name));
+   }
+  }
+ }
+ for(const saved of directories){assert.deepEqual(identity(await physicalStat(saved.file)),saved.identity,'Release evidence directory replaced');if(saved.names)assert.deepEqual((await fs.readdir(saved.file)).sort(),saved.names,'Release evidence directory changed');}
+ return result;
 }
 export async function controlProcessSnapshot(intent,known=new Map()){
  const code='@(Get-CimInstance Win32_Process|Select-Object ProcessId,ParentProcessId,@{Name="CreationDate";Expression={if($null -ne $_.CreationDate){$_.CreationDate.ToUniversalTime().ToString("o")}else{$null}}},ExecutablePath,CommandLine)|ConvertTo-Json -Depth 3 -Compress';

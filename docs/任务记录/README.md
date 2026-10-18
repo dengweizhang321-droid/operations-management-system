@@ -60,6 +60,7 @@
 | `release-process-deadline` | 4 | [发布任务 A：进程完成协议与共同期限](../release-process-deadline/REPORT.md) |
 | `release-site-blockers-20261011` | 22 | [现场引用阻断核查](../release-site-blockers-20261011/REPORT.md) |
 | `release-three-optimizations-20261018` | 1 | [三项发布提速候选](../release-three-optimizations-20261018/REPORT.md) |
+| `control-evidence-scan-20261018` | 1 | [Control 操作证据扫描阻断修复候选](../control-evidence-scan-20261018/REPORT.md) |
 | `release-wait-optimization-20261008` | 3 | [发布确认后总等待提速：开发交付](../release-wait-optimization-20261008/REPORT.md) |
 
 ## 商品与库存
