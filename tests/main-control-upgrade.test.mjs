@@ -6,6 +6,7 @@ import os from 'node:os';
 import {execFileSync,spawn,spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {prepareControlUpgrade,adoptControlUpgradeForTest as adoptControlUpgrade,controlFiles,normalizeControlPath,nativeOperationBindings} from '../tools/install-main-prebuild.mjs';
+import {readPreparationTask,assertPreparationTask,taskPowerShell} from '../tools/main-prebuild-task.mjs';
 import {knownResume} from '../tools/publish-main-known-resume.mjs';
 import {readAdoptedControl} from '../tools/main-control-dispatch.mjs';
 import {manualStepCommand} from '../tools/publish-main-command.mjs';
@@ -36,6 +37,7 @@ async function fixture(t){
  const originalShell='#!/bin/sh\n# TERUISI main-prebuild v1: prepare only, never deploy.\n'+quote(process.execPath)+' '+quote(path.join(state,'control/tools/main-prebuild-hook.mjs'))+' event '+quote(configFile)+' "$1"\n';
  await fs.writeFile(hook,originalShell);
  const out=path.join(directory,'materials'),prepared=await prepareControlUpgrade({configFile,out,sourceRoot:source});
+ cleanup.push(async()=>{const spec=JSON.parse(await fs.readFile(path.join(out,'INTENT.json'),'utf8')).preparationTask;if(await readPreparationTask(spec)){await assertPreparationTask(spec);for(let n=0;n<120;n++){const count=await taskPowerShell("$s=New-Object -ComObject Schedule.Service;$s.Connect();$t=$s.GetFolder('\\').GetTask($v.name);$t.GetInstances(0).Count|ConvertTo-Json",spec);if(count===0)break;await new Promise(r=>setTimeout(r,250));}await taskPowerShell("$s=New-Object -ComObject Schedule.Service;$s.Connect();$s.GetFolder('\\').DeleteTask($v.name,0);'true'",spec);}});
  return {directory,source,repository,state,configFile,hook,originalShell,out,prepared,cleanup};
 }
 const cli=(f,args=[])=>spawnSync(process.execPath,[path.join(f.state,'control/tools/publish-latest-main.mjs'),'--config',f.configFile,...args],{encoding:'utf8',windowsHide:true,timeout:20000});
@@ -174,7 +176,7 @@ test('resume never overrides a foreign installation pointer or unknown state/ver
  await fs.writeFile(file,original);assert.equal((await adoptControlUpgrade({directory:f.out,resume:true})).status,'adopted');
 });
 test('S3/S4/S5 foreign pointer writes cannot be overwritten by the final adopted publication',async t=>{
- for(const at of ['S3','S4','S5']){
+ for(const at of ['S3','S4','S5','TASK']){
   const f=await fixture(t),file=path.join(f.state,'CONTROL-INSTALLATION.json'),foreign=JSON.stringify({version:'foreign-installation',status:'unknown'})+'\n';
   await assert.rejects(adoptControlUpgrade({directory:f.out,onStage:async stage=>{if(stage===at)await fs.writeFile(file,foreign);}}),/pointer drifted/);
   assert.equal(await fs.readFile(file,'utf8'),foreign);
@@ -215,7 +217,7 @@ test('legacy real process window prevents adopted until exact process exits, wit
  assert.equal((await adoptControlUpgrade({directory:out,resume:true})).status,'adopted');
 });
 test('hard exit at each adoption boundary keeps S2-S5 blocked and S6 authoritative',async t=>{
- for(const stage of ['S1a','S2','S3','S4','S5','S6']){
+ for(const stage of ['S1a','S2','S3','S4','S5','TASK','S6']){
   const f=await fixture(t),code=`import{adoptControlUpgradeForTest as adoptControlUpgrade}from ${JSON.stringify(installer)};await adoptControlUpgrade({directory:${JSON.stringify(f.out)},onStage:stage=>{if(stage===${JSON.stringify(stage)})process.exit(19);}});`;
   const child=spawn(process.execPath,['--input-type=module','-e',code],{windowsHide:true,stdio:'ignore'});assert.equal(await new Promise(resolve=>child.once('exit',resolve)),19);
   if(['S2','S3','S4','S5'].includes(stage))for(const mode of [['--check'],['--prepare-only'],[]])assert.equal(cli(f,mode).status,75);

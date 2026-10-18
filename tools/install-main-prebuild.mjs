@@ -9,10 +9,11 @@ import assert from 'node:assert/strict';
 import {publisherEnvironment} from './publish-latest-main.mjs';
 import {canonical,durableCreate,queuePipe} from './main-prebuild-queue.mjs';
 import {acquirePreparationRotationLock} from './worker-local-release-rotation.mjs';
+import {makePreparationTask,installPreparationTask,readPreparationTask,decodedControlCommand as decoded} from './main-prebuild-task.mjs';
 import {knownResume} from './publish-main-known-resume.mjs';
 const execute=promisify(execFile),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-export const controlFiles=['publish-latest-main.mjs','publish-main-progress.mjs','release-scope-plan.mjs','main-prebuild-hook.mjs','main-schema-release.mjs','main-prebuild-status.mjs','main-prebuild-queue.mjs','main-control-dispatch.mjs'];
+export const controlFiles=['publish-latest-main.mjs','publish-main-progress.mjs','release-scope-plan.mjs','main-prebuild-hook.mjs','main-schema-release.mjs','main-prebuild-status.mjs','main-prebuild-queue.mjs','main-control-dispatch.mjs','main-prebuild-task.mjs','main-prebuild-resolution.mjs'];
 const exists=async file=>{try{await fs.lstat(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};
 async function bytes(file){assert.equal(path.resolve(await fs.realpath(file)).toLowerCase(),path.resolve(file).toLowerCase(),'Redirected control path');const stat=await fs.lstat(file);assert.ok(stat.isFile()&&!stat.isSymbolicLink()&&stat.nlink===1,'Unsafe control file');return fs.readFile(file);}
 const hashOrMissing=async file=>await exists(file)?sha(await bytes(file)):null;
@@ -34,6 +35,10 @@ export async function prepareControlUpgrade({configFile,out,sourceRoot=source}={
  const bundleSha256=sha(Buffer.from(canonical(files))),bundleRoot=path.join(config.stateDirectory,'control-bundles',bundleSha256);
  const manifest={version:'teruisi-main-control-bundle-v2',bundleSha256,sourceCommit:await git(sourceRoot,['rev-parse','HEAD']),sourceTree:await git(sourceRoot,['rev-parse','HEAD^{tree}']),files};
  const bundleManifestSha256=await durableCreate(path.join(out,'bundle/MANIFEST.json'),manifest),dispatcher=path.join(config.stateDirectory,'control/tools/publish-latest-main.mjs'),oldHookEntry=path.join(config.stateDirectory,'control/tools/main-prebuild-hook.mjs');
+ const preparationTask=await makePreparationTask(path.resolve(configFile),config);
+ const oldInstallation=await exists(path.join(config.stateDirectory,'CONTROL-INSTALLATION.json'))?JSON.parse(await bytes(path.join(config.stateDirectory,'CONTROL-INSTALLATION.json'))):null;
+ const oldPreparationTask=oldInstallation?.version==='teruisi-main-control-installation-v3'?oldInstallation.preparationTask:null;
+ assert.deepEqual(await readPreparationTask(preparationTask),oldPreparationTask?.definition??null,'Preparation task is not the exact owned predecessor');
  const configNew=Buffer.from(JSON.stringify(config,null,2)+'\n'),finalHook=Buffer.from(shell(path.join(bundleRoot,'tools/main-prebuild-hook.mjs'),path.resolve(configFile),'prepare only, never deploy.')),
   bridgeHook=Buffer.from(shell(oldHookEntry,path.resolve(configFile),'committed-only transition bridge.'));
  const template=await bytes(path.join(out,'bundle/tools/main-control-dispatch.mjs'));
@@ -41,7 +46,7 @@ export async function prepareControlUpgrade({configFile,out,sourceRoot=source}={
  const shim=Buffer.from(template.toString().replace('const legacyBridge = null;','const legacyBridge = '+JSON.stringify({fixedCli:dispatcher,oldHook:oldHookEntry,configFile:path.resolve(configFile)})+';'));
  for(const [name,raw] of [['CONFIG.json',configNew],['HOOK',finalHook],['BRIDGE-HOOK',bridgeHook],['SHIM.mjs',shim]])await fs.writeFile(path.join(out,name),raw,{flag:'wx'});
  const installId=randomUUID(),intent={version:'teruisi-main-control-upgrade-v2',installId,configFile:path.resolve(configFile),stateDirectory:path.resolve(config.stateDirectory),repository:config.repository,bundleRoot,bundleSha256,bundleManifestSha256,
-  sourceCommit:manifest.sourceCommit,sourceTree:manifest.sourceTree,dispatcher,dispatcherSha256:sha(shim),hook,hookSha256:sha(finalHook),bridgeHookSha256:sha(bridgeHook),configSha256:sha(configNew),
+  preparationTask,oldPreparationTask,sourceCommit:manifest.sourceCommit,sourceTree:manifest.sourceTree,dispatcher,dispatcherSha256:sha(shim),hook,hookSha256:sha(finalHook),bridgeHookSha256:sha(bridgeHook),configSha256:sha(configNew),
   old:{dispatcher:await hashOrMissing(dispatcher),hook:oldHook?sha(oldHook):null,config:sha(configRaw),installation:await hashOrMissing(path.join(config.stateDirectory,'CONTROL-INSTALLATION.json'))},preparedAt:new Date().toISOString()};
  const intentSha256=await durableCreate(path.join(out,'INTENT.json'),intent);
  await durableCreate(path.join(out,'PREPARED.json'),{version:'teruisi-main-control-upgrade-prepared-v2',installId,intentSha256,bundleManifestSha256,adoptionPerformed:false});
@@ -60,7 +65,7 @@ async function readMaterials(directory){
  const common=await git(intent.repository,['rev-parse','--path-format=absolute','--git-common-dir']);assert.equal(path.resolve(intent.hook),path.resolve(common,'hooks/reference-transaction'));
  return {intent,intentSha256:sha(raw),manifest};
 }
-function decoded(command){let result=command??'';for(let round=0;round<3;round++){const added=[];for(const match of result.matchAll(/[A-Za-z0-9+/]{80,}={0,2}/g)){try{const raw=Buffer.from(match[0],'base64');for(const encoding of ['utf16le','utf8']){const value=raw.toString(encoding);if(/[\\/:]/.test(value)&&value.length<1048576)added.push(value);}}catch{}}if(added.length)result+='\n'+added.join('\n');}return result.replaceAll('\\','/').replace(/\/{2,}/g,'/').toLowerCase().trimEnd();}
+
 export function normalizeControlPath(value){return path.resolve(value).replaceAll('\\','/').replace(/\/{2,}/g,'/').toLowerCase();}
 export async function nativeOperationBindings(releaseDirectory){
  if(!await exists(releaseDirectory))return [];
@@ -164,9 +169,10 @@ async function adoptControlUpgradeInternal({directory,resume=false,timeoutMs=300
   await assertOwnInstalling();
   for(const [file,expected] of [[intent.dispatcher,intent.dispatcherSha256],[intent.hook,intent.hookSha256],[intent.configFile,intent.configSha256]])assert.equal(await hashOrMissing(file),expected);
   for(const [name,expected] of Object.entries(manifest.files))assert.equal(await hashOrMissing(path.join(intent.bundleRoot,...name.split('/'))),expected);await onStage('S5');
+  await installPreparationTask(intent.preparationTask,intent.oldPreparationTask,{resume});await onStage('TASK');
   const proof={version:'teruisi-main-control-transition-v2',installId:intent.installId,intentSha256,lockOrder:['v1-queue','v2-queue','native-rotation'],privateTestTopology:privateRotationPipe!==undefined,rotationPipeSha256:sha(privateRotationPipe??'\\\\.\\pipe\\TERUISI.Worker.ReleaseRotation.v1'),frames,legacyWindowConverged:true,productionDeploymentPerformed:false};
   const proofFile=path.join(target,'TRANSITION-'+randomUUID()+'.json');await durableCreate(proofFile,proof);
-  const state={version:'teruisi-main-control-installation-v2',status:'adopted',installId:intent.installId,intentSha256,bundleRoot:intent.bundleRoot,bundleSha256:intent.bundleSha256,bundleManifestSha256:intent.bundleManifestSha256,dispatcherSha256:intent.dispatcherSha256,hook:intent.hook,hookSha256:intent.hookSha256,configSha256:intent.configSha256,transitionProofFile:proofFile,transitionProofSha256:sha(await bytes(proofFile)),adoptedAt:new Date().toISOString()};
+  const state={version:'teruisi-main-control-installation-v3',preparationTask:intent.preparationTask,status:'adopted',installId:intent.installId,intentSha256,bundleRoot:intent.bundleRoot,bundleSha256:intent.bundleSha256,bundleManifestSha256:intent.bundleManifestSha256,dispatcherSha256:intent.dispatcherSha256,hook:intent.hook,hookSha256:intent.hookSha256,configSha256:intent.configSha256,transitionProofFile:proofFile,transitionProofSha256:sha(await bytes(proofFile)),adoptedAt:new Date().toISOString()};
   await assertOwnInstalling();
   await atomic(stateFile,Buffer.from(JSON.stringify(state)+'\n'));while(unlocks.length)await unlocks.pop()();await onStage('S6');await onStage('S7');
   return {status:'adopted',installId:intent.installId,bundleSha256:intent.bundleSha256,adoptionPerformed:true,productionDeploymentPerformed:false};

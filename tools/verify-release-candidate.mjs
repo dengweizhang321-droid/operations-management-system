@@ -32,7 +32,7 @@ export function candidateCompatibilityProfile(changes){
  const files=changes.flatMap(c=>[c.before,c.path].filter(Boolean));
  const paths=files.filter(f=>!f.startsWith('docs/')&&!f.startsWith('tests/')&&!['README.md','AGENTS.md'].includes(f));
  const proofFiles=['bi_app_addition','jackyun_audit_addition','ai_schedule_addition','jd_logistics_addition','jd_monitor_preferences_addition','jd_product_monitoring_addition','tmall_warehouse_addition','pi_agent_addition'].map(name=>'tools/'+name+'.py');
- const preparationFiles=['tools/main-prebuild-hook.mjs','tools/main-prebuild-queue.mjs','tools/main-control-dispatch.mjs','tools/install-main-prebuild.mjs'];
+ const preparationFiles=['tools/main-prebuild-resolution.mjs','tools/main-prebuild-task.mjs','tools/main-prebuild-hook.mjs','tools/main-prebuild-queue.mjs','tools/main-control-dispatch.mjs','tools/install-main-prebuild.mjs'];
  const supported=new Set(['tools/publish-main.mjs','tools/publish-prepared-main.mjs','tools/publish-latest-main.mjs',
   'tools/main-prebuild-status.mjs','tools/worker-local-release.mjs','tools/django-local-service.ps1','tools/verify-release-candidate.mjs']);
  for(const file of [...proofFiles,...preparationFiles,'tools/worker-local-release-rotation.mjs'])supported.add(file);
@@ -173,7 +173,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    finally{item.elapsedMs=Date.now()-started;item.stdoutSha256=sha(await fs.readFile(output));item.stderrSha256=sha(await fs.readFile(errors));await write();}
   }
   if(profile.publication)await run('publication',process.execPath,['--test','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs'],'native-entry-boundary');
-  if(profile.preparationQueue)await run('preparation-queue-control',process.execPath,['--test','--test-concurrency=1','tests/main-prebuild-hook.test.mjs','tests/main-prebuild-queue-v2.test.mjs','tests/main-control-upgrade.test.mjs'],'native-entry-boundary');
+  if(profile.preparationQueue)await run('preparation-queue-control',process.execPath,['--test','--test-concurrency=1','tests/main-prebuild-hook.test.mjs','tests/main-prebuild-queue-v2.test.mjs','tests/main-control-upgrade.test.mjs','tests/main-prebuild-task.test.mjs','tests/main-prebuild-resolution.test.mjs'],'native-entry-boundary');
   if(profile.worker)await run('worker-integrity',process.execPath,['--test','tests/worker-source-read-once.test.mjs','tests/release-source-binding.test.mjs','tests/release-preparation-runtime-config.test.mjs'],'package-integrity');
   if(profile.schemaProof||profile.preparationQueue)await run('optimization-boundaries',process.execPath,['--test','tests/release-optimization-boundaries.test.mjs'],'package-integrity');
   if(profile.schemaProof){

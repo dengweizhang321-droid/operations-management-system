@@ -1,5 +1,7 @@
 /** Read-only local preparation viewer. No fetch, preparation or deployment. */
 import fs from 'node:fs/promises';
+import {knownPreNativeRefusal,readKnownRefusalResolution} from './main-prebuild-resolution.mjs';
+import {readQueueObject} from './main-prebuild-queue.mjs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -59,6 +61,7 @@ async function readTargetStatus(config,targetCommit){
   const changed=await terminalState();if(changed)return changed;
   return {...withPaths,status:'prepared',message:'打包完成，等待发布负责人执行（发布前仍会原生复验）',preparedAt:receipt.at??null,preparationSha256:sha(raw)};
  }
+ if(targetCommit===knownPreNativeRefusal.target){const queue=path.join(config.stateDirectory,'prebuild-queue-v2'),resolutionFile=path.join(queue,'resolutions',knownPreNativeRefusal.dispatchId+'.json');if(await exists(resolutionFile)){const dispatch=await readQueueObject(path.join(queue,'dispatches',knownPreNativeRefusal.dispatchId+'.json'));await readKnownRefusalResolution(queue,dispatch.value,dispatch.sha256);return {...withPaths,status:'coordinated-refusal',message:'???????????????unknown??????????????main??'};}}
  if(await exists(path.join(preparation,'PREPARING.json')))return {...withPaths,status:'preparing',message:'打包尚未完成：已有准备开始记录（中断时也会保留此记录）'};
  return {...withPaths,status:'waiting',message:'尚无原生准备记录：可能排队或前置检查已停止，请查看准备日志'};
 }

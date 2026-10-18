@@ -32,14 +32,16 @@ export async function readAdoptedControl(configFile,expectedBundle){
  const configRaw=await stable(configFile),config=JSON.parse(configRaw);
  const stateFile=path.join(config.stateDirectory,'CONTROL-INSTALLATION.json'),stateRaw=await stable(stateFile),state=JSON.parse(stateRaw);
  assert.equal(stateRaw.toString(),JSON.stringify(state)+'\n','Installation JSON is duplicated or noncanonical');
- assert.deepEqual(Object.keys(state).sort(),['adoptedAt','bundleManifestSha256','bundleRoot','bundleSha256','configSha256','dispatcherSha256','hook','hookSha256','installId','intentSha256','status','transitionProofFile','transitionProofSha256','version']);
- assert.equal(state.version,'teruisi-main-control-installation-v2');assert.equal(state.status,'adopted','Control upgrade incomplete; preparation/deployment refused');
+ assert.ok(['teruisi-main-control-installation-v2','teruisi-main-control-installation-v3'].includes(state.version));
+ assert.deepEqual(Object.keys(state).sort(),[...(state.version==='teruisi-main-control-installation-v3'?['preparationTask']:[]),'adoptedAt','bundleManifestSha256','bundleRoot','bundleSha256','configSha256','dispatcherSha256','hook','hookSha256','installId','intentSha256','status','transitionProofFile','transitionProofSha256','version'].sort());
+ assert.equal(state.status,'adopted','Control upgrade incomplete; preparation/deployment refused');
  assert.ok(/^[a-f0-9-]{36}$/.test(state.installId)&&hex.test(state.intentSha256)&&hex.test(state.bundleManifestSha256)&&hex.test(state.transitionProofSha256));
  assert.equal(sha(configRaw),state.configSha256,'Control config changed');
  const root=path.resolve(config.stateDirectory,'control-bundles',state.bundleSha256);
  assert.equal(path.resolve(state.bundleRoot),root,'Control bundle path changed');
  if(expectedBundle)assert.equal(path.resolve(expectedBundle),root,'Control generation changed; old consumer refused');
- const intent=path.join(config.stateDirectory,'control-upgrades',state.installId,'INTENT.json');assert.equal(sha(await stable(intent)),state.intentSha256);
+ const intent=path.join(config.stateDirectory,'control-upgrades',state.installId,'INTENT.json'),intentRaw=await stable(intent);assert.equal(sha(intentRaw),state.intentSha256);
+ if(state.version==='teruisi-main-control-installation-v3')assert.deepEqual(state.preparationTask,JSON.parse(intentRaw).preparationTask,'Installation task binding changed');
  assert.equal(path.dirname(path.resolve(state.transitionProofFile)),path.dirname(intent),'Transition proof escaped installation');
  assert.ok(/^TRANSITION-[a-f0-9-]{36}\.json$/.test(path.basename(state.transitionProofFile)));
  assert.equal(sha(await stable(state.transitionProofFile)),state.transitionProofSha256);
@@ -52,6 +54,7 @@ export async function readAdoptedControl(configFile,expectedBundle){
  for(const [name,expected] of Object.entries(manifest.files))assert.equal(sha(await stable(path.join(root,...name.split('/')))),expected,'Control bundle changed: '+name);
  assert.equal(sha(await stable(path.join(config.stateDirectory,'control/tools/publish-latest-main.mjs'))),state.dispatcherSha256,'Fixed control gate changed');
  assert.equal(sha(await stable(state.hook)),state.hookSha256,'Git control hook changed');
+ if(state.version==='teruisi-main-control-installation-v3'){const task=await import(pathToFileURL(path.join(root,'tools/main-prebuild-task.mjs')));await task.assertPreparationTask(state.preparationTask);}
  assert.equal(sha(await stable(stateFile)),sha(stateRaw),'Control generation changed during admission');
  return {config,state,stateSha256:sha(stateRaw),bundleRoot:root,configFile:path.resolve(configFile)};
 }
@@ -63,10 +66,11 @@ export async function controlExecution(binding,entry,mode){
  const code='$p=Get-CimInstance Win32_Process -Filter "ProcessId='+process.pid+'";if($null -eq $p -or [string]::IsNullOrEmpty($p.CommandLine) -or [string]::IsNullOrEmpty($p.ExecutablePath)){throw "Control process identity unavailable"};@{pid=$p.ProcessId;createdAt=$p.CreationDate.ToUniversalTime().ToString("o");commandLine=$p.CommandLine;executable=$p.ExecutablePath}|ConvertTo-Json -Compress';
  const environment={...process.env,PSModulePath:path.join(process.env.SYSTEMROOT??process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/Modules')};
  const result=await execute('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(code,'utf16le').toString('base64')],{windowsHide:true,encoding:'utf8',timeout:15000,env:environment});
- const identity=JSON.parse(result.stdout);assert.equal(identity.pid,process.pid);
+ const identity=JSON.parse(result.stdout);
+ const task=await import(pathToFileURL(path.join(binding.bundleRoot,'tools/main-prebuild-task.mjs')));const token=await task.currentPreparationIdentity();assert.equal(identity.pid,process.pid);
  const executionId=randomUUID(),directory=path.join(binding.config.stateDirectory,'control-executions');await fs.mkdir(directory,{recursive:true});
  const value={version:'teruisi-main-control-execution-v2',executionId,installId:binding.state.installId,bundleSha256:binding.state.bundleSha256,bundleManifestSha256:binding.state.bundleManifestSha256,
-  entry,mode,pid:process.pid,createdAt:identity.createdAt,commandLineSha256:sha(identity.commandLine),executableSha256:sha(await fs.readFile(identity.executable)),startedAt:new Date().toISOString()};
+  entry,mode,token,pid:process.pid,createdAt:identity.createdAt,commandLineSha256:sha(identity.commandLine),executableSha256:sha(await fs.readFile(identity.executable)),startedAt:new Date().toISOString()};
  const handle=await fs.open(path.join(directory,executionId+'.json'),'wx');try{await handle.writeFile(JSON.stringify(value)+'\n');await handle.sync();}finally{await handle.close();}
  await assertControlGeneration(binding);return value;
 }

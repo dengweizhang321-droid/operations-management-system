@@ -4,6 +4,7 @@ import path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {createServer} from 'node:net';
 import assert from 'node:assert/strict';
+import {readKnownRefusalResolution} from './main-prebuild-resolution.mjs';
 
 const hex=/^[a-f0-9]{64}$/,id=/^[a-f0-9-]{36}$/,commit=/^[a-f0-9]{40}$/;
 export const queueVersion='teruisi-main-prebuild-queue-v2';
@@ -111,7 +112,7 @@ function validateDispatch(value,name){
  assert.ok(seen.has(value.requestId),'Dispatch winner missing');
 }
 /** observe may fetch/read only. prepare receives its exact frozen selection. */
-export async function drainPreparationQueue(directory,{configSha256,bundleSha256,observe,prepare,assertGeneration=async()=>{},afterUnlock=async()=>{},onStage=async()=>{}}){
+export async function drainPreparationQueue(directory,{configSha256,bundleSha256,observe,prepare,assertGeneration=async()=>{},afterUnlock=async()=>{},onStage=async()=>{},resolutionReader=readKnownRefusalResolution}){
  assert.ok(hex.test(configSha256)&&hex.test(bundleSha256));await initializeQueue(directory);let handled=0;
  for(;;){
   const unlock=await acquireQueueLock(directory);if(!unlock)return {status:'queued',handled};
@@ -132,7 +133,7 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
       assert.ok(id.test(ref.requestId)&&hex.test(ref.ticketSha256));
       const original=tickets.find(t=>t.value.requestId===ref.requestId);assert.ok(original&&original.sha256===ref.ticketSha256,'Dispatch ticket binding changed');
       const terminal=await ticketResult(directory,ref.requestId,ref.ticketSha256);
-      if(!terminal||['unknown','failed','blocked'].includes(terminal.status))unresolved={dispatch,sha256:read.sha256};
+      if((!terminal||['unknown','failed','blocked'].includes(terminal.status))&&!await resolutionReader(directory,dispatch,read.sha256))unresolved={dispatch,sha256:read.sha256};
      }
     }
     const finish=async(item,status,fields={})=>{
