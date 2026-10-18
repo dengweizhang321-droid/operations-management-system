@@ -12,6 +12,8 @@
 
 ## AI助手
 
+本轮补充：[Pi 一期停止边界修复与整链验收](../pi-phase1-closeout-20261018/REPORT.md)。
+
 | 任务目录 | 文档数 | 入口 |
 | --- | --- | --- |
 | `ai-schedules-stability-20261015` | 4 | [AI定时任务稳定性与广东仓隔离试点](../ai-schedules-stability-20261015/REPORT.md) |
