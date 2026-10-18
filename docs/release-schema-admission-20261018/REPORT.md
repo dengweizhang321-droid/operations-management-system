@@ -19,7 +19,7 @@
 
 正式窄候选验证引用前轮 `candidate-final-2/REPORT.json` 的固定 SHA `94251c24d5ecd43b535b975fb2de7ea023c3930522ce07f3a4cd5274f1cafdbb`。要求相同执行工具、依赖、PowerShell 模块及所有未改应用字节；结构模块只允许纯 export 逆投影，旧 queue core 只允许两个已审接缝，保旧 e2 正文。只执行本轮必要控制/队列/固定资格测试，复用前轮真实应用包/CIM/Pi/route 证据，不重复整套应用包、WSL、浏览器或业务 E2E；完整冷启动仍未执行。
 
-原始证据位于 `D:/codex-artifacts/release-schema-admission-20261018/`，正式结果以该目录的候选 `REPORT.json` 为准。本报告不把源码通过当作操作材料或控制采用通过。
+原始证据位于 `D:/codex-artifacts/release-schema-admission-20261018/`。最终 `candidate-final-2/REPORT.json` 为 passed，受测 commit `cc17fe0b1b436af235be980a7caf7d2bef773f97`、tree `1157c849fe87c3b4e0eac9e1a66084e92f0c7441`；当前证明绑定和控制增量两组 exit0，86/86 通过，临时候选工作树已清理。`packageIntegrity/nativeEntryBoundary=true`，完整冷启动 false，前轮应用/Pi 证据单列复用。首轮 478dfcf3 的窄报告通过后，独审要求允许完全可读无关 PS 自然更替；本轮最小 queue/test 修复后另跑最终报告，保首轮原件，CODE_FILES 仍为 f951，未重复 PG。后续本报告纯文档增量不改变受测运行源码、recipe 或证明。本报告不把源码通过当作操作材料或控制采用通过。
 
 ## 操作交接
 
