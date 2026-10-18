@@ -22,11 +22,30 @@ async function atomic(file,raw){await fs.mkdir(path.dirname(file),{recursive:tru
 const quote=value=>"'"+value.replaceAll('\\','/').replaceAll("'","'\\''")+"'";
 function shell(entry,configFile,label){return '#!/bin/sh\n# TERUISI main-prebuild v2: '+label+'\nif [ "$1" != "committed" ]; then exit 0; fi\n'+quote(process.execPath)+' '+quote(entry)+' event '+quote(configFile)+' "$1"\n';}
 function bat(entry,mode){return '@echo off\r\nsetlocal\r\nchcp 65001 >nul\r\n"'+process.execPath+'" "'+entry+'" --config "%~dp0main-publisher-config.json" '+mode+' %*\r\nset "release_exit=%errorlevel%"\r\nif /i not "%~1"=="--no-pause" pause\r\nexit /b %release_exit%\r\n';}
-export async function prepareControlUpgrade({configFile,out,sourceRoot=source}={}){
+export async function validateDependencyUpdate(update,receipt,config,configSha256){
+ assert.deepEqual(Object.keys(update).sort(),['version','oldConfigSha256','dependenciesDirectory','cacheLockSha256','receiptPath','receiptSha256'].sort());
+ assert.equal(update.version,'teruisi-control-dependency-update-v1');assert.equal(update.oldConfigSha256,configSha256,'Dependency update predecessor changed');
+ for(const key of ['cacheLockSha256','receiptSha256'])assert.match(update[key]??'',/^[a-f0-9]{64}$/);
+ assert.equal(receipt.version,'teruisi-offline-dependencies-v1');assert.equal(receipt.administrator,false);assert.equal(receipt.exitCode,0);
+ assert.equal(receipt.packageLockSha256,update.cacheLockSha256);assert.equal(path.resolve(receipt.dependenciesDirectory),path.resolve(update.dependenciesDirectory));
+ const directory=path.resolve(update.dependenciesDirectory),state=path.resolve(config.stateDirectory);
+ assert.ok(directory.toLowerCase().startsWith(state.toLowerCase()+path.sep)&&path.basename(directory)==='node_modules','Dependency update must use private publisher storage');
+ assert.equal(path.resolve(await fs.realpath(directory)),directory,'Dependencies are redirected');assert.ok((await fs.lstat(directory)).isDirectory());
+ assert.match(receipt.modulesLockSha256??'',/^[a-f0-9]{64}$/);assert.equal(sha(await bytes(path.join(directory,'.package-lock.json'))),receipt.modulesLockSha256,'Prepared dependency inventory changed');
+ return {...config,dependenciesDirectory:directory,cacheLockSha256:update.cacheLockSha256};
+}
+export async function prepareControlUpgrade({configFile,out,sourceRoot=source,dependencyUpdateFile}={}){
  assert.ok(path.isAbsolute(configFile??'')&&path.isAbsolute(out??''));assert.equal(await git(sourceRoot,['status','--porcelain']),'','Control source must be frozen and clean');
- const configRaw=await bytes(configFile),config={...JSON.parse(configRaw)};
+ const configRaw=await bytes(configFile);let config={...JSON.parse(configRaw)},dependencyUpdateRaw,dependencyReceiptRaw;
+ if(dependencyUpdateFile){
+  dependencyUpdateRaw=await bytes(path.resolve(dependencyUpdateFile));const update=JSON.parse(dependencyUpdateRaw);
+  dependencyReceiptRaw=await bytes(path.resolve(update.receiptPath));assert.equal(sha(dependencyReceiptRaw),update.receiptSha256,'Dependency receipt changed');
+  config=await validateDependencyUpdate(update,JSON.parse(dependencyReceiptRaw),config,sha(configRaw));
+ }
+ const dependencyOnlyConfig=dependencyUpdateRaw?{...config}:null;
  const executable=(await execute('C:/Windows/System32/where.exe',['git.exe'],{encoding:'utf8',windowsHide:true})).stdout.trim().split(/\r?\n/)[0];
  config.gitDirectory=path.dirname(executable);config.publisherBaseEnvironment=publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment);config.controlProtocol='teruisi-main-control-v2';
+ if(dependencyOnlyConfig)assert.deepEqual(config,dependencyOnlyConfig,'Dependency update cannot change other publisher configuration');
  let custom='';try{custom=await git(config.repository,['config','--get','core.hooksPath']);}catch(error){if(error.code!==1)throw error;}assert.equal(custom,'','Custom hooksPath cannot be overwritten');
  const common=await git(config.repository,['rev-parse','--path-format=absolute','--git-common-dir']),hook=path.join(common,'hooks/reference-transaction'),oldHook=await exists(hook)?await bytes(hook):null;
  assert.ok(!oldHook||/^#!\/bin\/sh\r?\n# TERUISI main-prebuild v[12]:/.test(oldHook.toString()),'Third-party reference hook cannot be overwritten');
@@ -34,6 +53,7 @@ export async function prepareControlUpgrade({configFile,out,sourceRoot=source}={
  // Adoption still performs its fresh controller/evidence census under locks.
  await nativeOperationBindings(config.releaseDirectory??path.join(config.stateDirectory,'unused'));
  await fs.mkdir(out,{recursive:false});await fs.mkdir(path.join(out,'bundle/tools'),{recursive:true});const files={};
+ if(dependencyUpdateRaw){await fs.writeFile(path.join(out,'DEPENDENCY-UPDATE.json'),dependencyUpdateRaw,{flag:'wx'});await fs.writeFile(path.join(out,'DEPENDENCIES.json'),dependencyReceiptRaw,{flag:'wx'});await fs.writeFile(path.join(out,'DEPENDENCY-OLD-CONFIG.json'),configRaw,{flag:'wx'});}
  for(const name of controlFiles){const raw=await bytes(path.join(sourceRoot,'tools',name));files['tools/'+name]=sha(raw);await fs.writeFile(path.join(out,'bundle/tools',name),raw,{flag:'wx'});}
  const bundleSha256=sha(Buffer.from(canonical(files))),bundleRoot=path.join(config.stateDirectory,'control-bundles',bundleSha256);
  const manifest={version:'teruisi-main-control-bundle-v2',bundleSha256,sourceCommit:await git(sourceRoot,['rev-parse','HEAD']),sourceTree:await git(sourceRoot,['rev-parse','HEAD^{tree}']),files};
@@ -50,7 +70,7 @@ export async function prepareControlUpgrade({configFile,out,sourceRoot=source}={
  for(const [name,raw] of [['CONFIG.json',configNew],['HOOK',finalHook],['BRIDGE-HOOK',bridgeHook],['SHIM.mjs',shim]])await fs.writeFile(path.join(out,name),raw,{flag:'wx'});
  const installId=randomUUID(),intent={version:'teruisi-main-control-upgrade-v2',installId,configFile:path.resolve(configFile),stateDirectory:path.resolve(config.stateDirectory),repository:config.repository,bundleRoot,bundleSha256,bundleManifestSha256,
   preparationTask,oldPreparationTask,sourceCommit:manifest.sourceCommit,sourceTree:manifest.sourceTree,dispatcher,dispatcherSha256:sha(shim),hook,hookSha256:sha(finalHook),bridgeHookSha256:sha(bridgeHook),configSha256:sha(configNew),
-  old:{dispatcher:await hashOrMissing(dispatcher),hook:oldHook?sha(oldHook):null,config:sha(configRaw),installation:await hashOrMissing(path.join(config.stateDirectory,'CONTROL-INSTALLATION.json'))},preparedAt:new Date().toISOString()};
+  old:{dispatcher:await hashOrMissing(dispatcher),hook:oldHook?sha(oldHook):null,config:sha(configRaw),installation:await hashOrMissing(path.join(config.stateDirectory,'CONTROL-INSTALLATION.json'))},...(dependencyUpdateRaw?{dependencyUpdateSha256:sha(dependencyUpdateRaw)}:{}),preparedAt:new Date().toISOString()};
  const intentSha256=await durableCreate(path.join(out,'INTENT.json'),intent);
  await durableCreate(path.join(out,'PREPARED.json'),{version:'teruisi-main-control-upgrade-prepared-v2',installId,intentSha256,bundleManifestSha256,adoptionPerformed:false});
  return {status:'bundle-prepared',directory:out,installId,intentSha256,bundleManifestSha256,adoptionPerformed:false};
@@ -61,6 +81,13 @@ async function readMaterials(directory){
  for(const [name,expected] of Object.entries(manifest.files))assert.equal(sha(await bytes(path.join(directory,'bundle',...name.split('/')))),expected,'Prepared closure changed');
  for(const [name,expected] of [['CONFIG.json',intent.configSha256],['HOOK',intent.hookSha256],['BRIDGE-HOOK',intent.bridgeHookSha256],['SHIM.mjs',intent.dispatcherSha256]])assert.equal(sha(await bytes(path.join(directory,name))),expected);
  const config=JSON.parse(await bytes(path.join(directory,'CONFIG.json')));
+ if(intent.dependencyUpdateSha256){
+  const updateRaw=await bytes(path.join(directory,'DEPENDENCY-UPDATE.json'));assert.equal(sha(updateRaw),intent.dependencyUpdateSha256);
+  const update=JSON.parse(updateRaw),receiptRaw=await bytes(path.join(directory,'DEPENDENCIES.json'));assert.equal(sha(receiptRaw),update.receiptSha256);
+  const previousRaw=await bytes(path.join(directory,'DEPENDENCY-OLD-CONFIG.json'));assert.equal(sha(previousRaw),intent.old.config,'Archived dependency predecessor changed');
+  const expected=await validateDependencyUpdate(update,JSON.parse(receiptRaw),JSON.parse(previousRaw),intent.old.config);
+  assert.deepEqual(config,expected,'Dependency material changed unrelated publisher configuration');
+ }
  assert.equal(path.resolve(config.stateDirectory),path.resolve(intent.stateDirectory));assert.equal(config.repository,intent.repository);
  assert.equal(path.resolve(intent.configFile),path.resolve(intent.stateDirectory,'main-publisher-config.json'));
  assert.equal(path.resolve(intent.dispatcher),path.resolve(intent.stateDirectory,'control/tools/publish-latest-main.mjs'));
@@ -158,6 +185,7 @@ async function adoptControlUpgradeInternal({directory,resume=false,timeoutMs=300
   const either=async(file,allowed)=>assert.ok(allowed.includes(await hashOrMissing(file)),'Upgrade predecessor/step drift: '+file);
   await either(intent.dispatcher,[intent.old.dispatcher,...(resume?[intent.dispatcherSha256]:[])]);await either(intent.hook,[intent.old.hook,...(resume?[intent.bridgeHookSha256,intent.hookSha256]:[])]);await either(intent.configFile,[intent.old.config,...(resume?[intent.configSha256]:[])]);
   await assertInstallationCas();
+  if(intent.dependencyUpdateSha256)assert.equal((await readMaterials(directory)).intentSha256,intentSha256,'Dependency materials changed under installation locks');
   await onStage('S1');await atomic(intent.hook,await bytes(path.join(directory,'BRIDGE-HOOK')));await onStage('S1a');
   await atomic(intent.dispatcher,await bytes(path.join(directory,'SHIM.mjs')));await onStage('S2');
   await assertInstallationCas();
@@ -172,6 +200,7 @@ async function adoptControlUpgradeInternal({directory,resume=false,timeoutMs=300
   await assertOwnInstalling();
   for(const [file,expected] of [[intent.dispatcher,intent.dispatcherSha256],[intent.hook,intent.hookSha256],[intent.configFile,intent.configSha256]])assert.equal(await hashOrMissing(file),expected);
   for(const [name,expected] of Object.entries(manifest.files))assert.equal(await hashOrMissing(path.join(intent.bundleRoot,...name.split('/'))),expected);await onStage('S5');
+  if(intent.dependencyUpdateSha256)assert.equal((await readMaterials(directory)).intentSha256,intentSha256,'Dependency materials changed before adoption');
   await installPreparationTask(intent.preparationTask,intent.oldPreparationTask,{resume});await onStage('TASK');
   const proof={version:'teruisi-main-control-transition-v2',installId:intent.installId,intentSha256,lockOrder:['v1-queue','v2-queue','native-rotation'],privateTestTopology:privateRotationPipe!==undefined,rotationPipeSha256:sha(privateRotationPipe??'\\\\.\\pipe\\TERUISI.Worker.ReleaseRotation.v1'),frames,legacyWindowConverged:true,productionDeploymentPerformed:false};
   const proofFile=path.join(target,'TRANSITION-'+randomUUID()+'.json');await durableCreate(proofFile,proof);
@@ -181,5 +210,5 @@ async function adoptControlUpgradeInternal({directory,resume=false,timeoutMs=300
   return {status:'adopted',installId:intent.installId,bundleSha256:intent.bundleSha256,adoptionPerformed:true,productionDeploymentPerformed:false};
  }finally{while(unlocks.length)await unlocks.pop()();}
 }
-async function main(){const {values}=parseArgs({options:{config:{type:'string'},out:{type:'string'},adopt:{type:'string'},resume:{type:'boolean'}}});console.log(JSON.stringify(values.adopt?await adoptControlUpgrade({directory:path.resolve(values.adopt),resume:values.resume}):await prepareControlUpgrade({configFile:values.config,out:values.out})));}
+async function main(){const {values}=parseArgs({options:{config:{type:'string'},out:{type:'string'},adopt:{type:'string'},resume:{type:'boolean'},'dependency-update':{type:'string'}}});assert.ok(!values.adopt||!values['dependency-update'],'Dependency updates must be sealed during material preparation');console.log(JSON.stringify(values.adopt?await adoptControlUpgrade({directory:path.resolve(values.adopt),resume:values.resume}):await prepareControlUpgrade({configFile:values.config,out:values.out,dependencyUpdateFile:values['dependency-update']})));}
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))main().catch(error=>{console.error(error.message);process.exitCode=1;});

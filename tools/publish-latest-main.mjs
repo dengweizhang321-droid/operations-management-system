@@ -194,7 +194,16 @@ export async function assertSelectedPreparationSupported(config,selection,{makeP
  const {assertMainSchemaPlanSupported}=await import('./main-schema-release.mjs');
  return assertMainSchemaPlanSupported(plan);
 }
-export async function drainLatestMainQueue(configFile,{binding,progress,observe=observeLatestMain,once=prepareLatestMainOnce,run=runPublisher,inspect=inspectMainPreparation,assertGeneration=assertControlGeneration,admit=assertOrdinaryPreparationContext,assertConsumerIdentity=assertPreparationConsumer,admitSelected=assertSelectedPreparationSupported}={}){
+export async function assertSelectedDependencyCache(config,selection,{readLock=async()=>{
+ const result=await execute('git',['-C',config.repository,'show',selection.targetCommit+':package-lock.json'],{encoding:null,windowsHide:true,env:publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment)});
+ return result.stdout;
+}}={}){
+ assert.match(selection.targetCommit,/^[a-f0-9]{40}$/,'Frozen dependency target required');
+ assert.match(config.cacheLockSha256??'',/^[a-f0-9]{64}$/,'Bound offline dependency lock required');
+ const raw=await readLock();assert.ok(Buffer.isBuffer(raw),'Dependency admission requires exact Git object bytes');
+ assert.equal(sha(raw),config.cacheLockSha256,'Selected main dependency lock has no matching offline cache; native preparation was not dispatched');
+}
+export async function drainLatestMainQueue(configFile,{binding,progress,observe=observeLatestMain,once=prepareLatestMainOnce,run=runPublisher,inspect=inspectMainPreparation,assertGeneration=assertControlGeneration,admit=assertOrdinaryPreparationContext,assertConsumerIdentity=assertPreparationConsumer,admitSelected=async(config,selection)=>{await assertSelectedPreparationSupported(config,selection);await assertSelectedDependencyCache(config,selection);}}={}){
  binding??=await preparationControlBinding(configFile);
  const config=binding.config,directory=path.join(config.stateDirectory,'prebuild-queue-v2');
  return drainPreparationQueue(directory,{configSha256:binding.state.configSha256,bundleSha256:binding.state.bundleSha256,
