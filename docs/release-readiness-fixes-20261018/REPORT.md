@@ -13,4 +13,10 @@
 
 ## Pi 与首次采用
 
-正在实现，尚未验证或采用。现有 runner 生命周期固定到生产 WSL unit/端口，不能在本机通过 synthetic config 获得私有完整 runner 冷启动；不会添加测试后门或触碰生产。后续证据将明确区分真实私有队列 worker 闭环与完整 Pi runner 冷启动。
+候选 `Stop-PiRuntime` 保留初次精确 Resolve、原 token stop 写入、45 秒总 deadline、最终 ack 和原 Stop-OwnedProcess/runner stop；仅观察循环改为专用只读 helper。退出中的元数据缺项继续等待，fresh CIM 零行才建立 absence；查询异常、多行、任一已知身份字段变化或 receipt/control 原件漂移立即拒绝。unknown 不进入清理或 runner stop。
+
+必要定向验证已通过：PS5/PS7 各 11 个瞬态/失败/身份/超时/原件/ack 用例；PS7 真实 `Start-ManagedProcess` 启动原 `pi_worker.main`，私有空 SQLite、独立 authority、连续两次真实空队列 SELECT 后建立可运行证明，再调用候选 Stop，核同 token 真实 ack、精确进程退出、receipt 清理一次及 stderr 为空。网络完全禁止，生产配置不继承。测试明确把 runner stop 替换为计数接缝，**没有执行固定 WSL runner 生命周期或完整 Pi 冷启动**。使用只读隔离 Python：`D:/codex-artifacts/release-three-optimizations-20261018/venv/Scripts/python.exe`。
+
+AST 边界测试通过：仅固定 SHA 的新增 observer 与 Stop 内精确观察替换/原件绑定获资格，其余函数、参数、分发与路由冻结；增加调用/改 Start/runner/observer 均拒绝。规范记录了该 Windows 观察缺陷的限定资格，候选验证器输出 `piWorkerExitObservation=true`、`nativeColdStart=false`，不把真实 worker 闭环冒称完整 runner 验证。
+
+Pi150 successor gate 已核：它验证原历史 plan/receipt 与当前 migration delta；本次没有 migration，未删除 CODE_FILES 或放松历史 proof 绑定。最终 PrepareApp/DeployApp/Start 仍走原 gate。
