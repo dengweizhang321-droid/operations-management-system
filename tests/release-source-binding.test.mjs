@@ -52,7 +52,7 @@ test('original file/path readers reject missing, changed, hard-linked or redirec
     const code=path.join(source,'file.mjs');await writeFile(code,'export const fixed = true;');await link(code,path.join(source,'second.mjs'));
     await writeFile(path.join(source,'package.json'),'{}');await writeFile(path.join(source,'package-lock.json'),'{}');
     spawnSync('git',['init','-q',source],{windowsHide:true});
-    await assert.rejects(verifyBoundWorkerSource(envelope),/hard-linked/);
+    await assert.rejects(verifyBoundWorkerSource(envelope),/hard-linked|single-link/);
   } finally {await rm(root,{recursive:true,force:true});}
 });
 for(const args of [ ['--source-binding','E:\\missing.json'],['--source-binding-sha256',h('1')],['--source-root','E:\\candidate'],['--source-binding','E:\\missing.json','--source-binding-sha256','bad'],['--source-binding','E:\\missing.json','--source-binding-sha256',h('1'),'--allow-test-runtime-root'] ])test('CLI rejects incomplete/path/test escape before preparation: '+args[0]+' '+args.at(-1),()=>{

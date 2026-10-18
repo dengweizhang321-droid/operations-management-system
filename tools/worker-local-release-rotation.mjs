@@ -65,8 +65,8 @@ const cutoverIdPattern = /^[A-Za-z0-9._:-]{8,128}$/;
 const maximumSuccessors = 256;
 const rotationLockPipe = "\\\\.\\pipe\\TERUISI.Worker.ReleaseRotation.v1";
 const rotationLeases = new WeakSet();
-export async function withRotationLock(operation) {
-  const unlock = await acquireRotationLock();
+export async function withRotationLock(operation, preparationWait) {
+  const unlock = await acquireRotationLock(preparationWait);
   const lease = {};
   rotationLeases.add(lease);
   try { return await operation(lease); }
@@ -922,14 +922,46 @@ async function publishConsumption(runtimeRoot, planRead, successorRead, startupB
   return publishCanonicalWithSidecar(path.join(root, `${planRead.sha256}.json`), value, "rotation consumption");
 }
 
-async function acquireRotationLock() {
-  const server = createServer();
-  server.unref();
-  await new Promise((resolve, reject) => {
-    server.once("error", (error) => reject(new Error(`Worker rotation 唯一锁不可用：${error?.code ?? "unknown"}`)));
-    server.listen(rotationLockPipe, resolve);
-  });
-  return () => new Promise((resolve) => server.close(() => resolve()));
+async function acquireRotationLock(preparationWait) {
+  return acquirePreparationRotationLock(rotationLockPipe, preparationWait);
+}
+
+// Only prepare-only supplies this policy. A failed listen has not entered the
+// callback. Never retry the callback, another error, or an unknown preparation.
+export async function acquirePreparationRotationLock(pipe, policy, {now=Date.now,sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),listen,log=console.log}={}) {
+  const started=now();
+  if(policy!==undefined){
+    assertExactKeys(policy,["requestId","deadlineUnixMs"],"preparation lock wait");
+    if(!hex64.test(policy.requestId??"")||!Number.isSafeInteger(policy.deadlineUnixMs)||policy.deadlineUnixMs>started+1800000)fail("Invalid bounded preparation lock wait");
+  }
+  const tryListen=listen??(()=>new Promise((resolve,reject)=>{
+    const server=createServer(socket=>socket.destroy());server.unref();
+    server.once("error",reject);
+    server.listen(pipe,()=>resolve(()=>new Promise(done=>server.close(done))));
+  }));
+  let attempts=0;
+  const expired=()=>{
+    const error=new Error("Preparation rotation wait expired before callback");
+    error.code="ROTATION_WAIT_EXPIRED_NO_CALLBACK";
+    error.evidence={status:"lock-wait-expired-no-callback",requestId:policy.requestId,startedUnixMs:started,endedUnixMs:now(),attempts,callbackEntered:false};
+    return error;
+  };
+  for(;;){
+    if(policy&&now()>=policy.deadlineUnixMs)throw expired();
+    let unlock;
+    try{
+      unlock=await tryListen();
+    }catch(error){
+      if(!policy||error.code!=="EADDRINUSE")throw new Error(`Worker rotation 唯一锁不可用：${error?.code??"unknown"}`,{cause:error});
+      attempts++;
+      await sleep(Math.min(1000*Math.min(attempts,5),Math.max(0,policy.deadlineUnixMs-now())));
+      continue;
+    }
+    if(policy&&now()>=policy.deadlineUnixMs){await unlock();throw expired();}
+    try{if(policy)log(JSON.stringify({stage:"rotation-wait",requestId:policy.requestId,elapsedMs:now()-started,attempts,acquired:true}));}
+    catch(error){await unlock();throw error;}
+    return unlock;
+  }
 }
 
 async function acquireWorkerServiceMutex() {

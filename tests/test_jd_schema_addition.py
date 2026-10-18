@@ -70,13 +70,13 @@ class JdSchemaTests(unittest.TestCase):
 
     def test_parent_uses_captured143_and_preserves_original_chain(self):
         base = {"old." + str(i) for i in range(142)}
-        with patch.object(addition.parent, "verify_active", return_value=({"migrationCount":143}, {}, Path("original-ai"))) as verify, patch.object(addition.parent, "parent_proof", return_value=(base,"x")), patch.object(common,"sha",return_value="a"*64):
+        with patch.object(addition.parent, "_verify_active_with_base", return_value=({"migrationCount":143}, {}, Path("original-ai"), frozenset(base))) as verify, patch.object(common,"sha",return_value="a"*64):
             result, _ = addition.parent_proof("runtime", "captured143")
             verify.assert_called_once_with("captured143", "runtime")
             self.assertEqual(len(result),143)
 
     def test_parent_rejects_wrong_count(self):
-        with patch.object(addition.parent, "verify_active", return_value=({"migrationCount":142}, {}, Path("original-ai"))), patch.object(addition.parent, "parent_proof", return_value=(set(),"x")), self.assertRaises(ValueError):
+        with patch.object(addition.parent, "_verify_active_with_base", return_value=({"migrationCount":142}, {}, Path("original-ai"), frozenset())), self.assertRaises(ValueError):
             addition.parent_proof("runtime", "captured143")
 
     def test_catalog_rejects_extra_and_missing_table_even_with_count(self):

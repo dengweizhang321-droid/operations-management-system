@@ -43,8 +43,7 @@ def source_delta(root, baseline):
 def parent_proof(runtime, baseline):
     # Call the original 142 verifier with its fixed baseline, never child
     # dispatch or the current 143 source tree.
-    receipt, _, folder = parent.verify_active(baseline, runtime)
-    base140, _ = parent.parent_proof(runtime, folder / "baseline")
+    receipt, _, folder, base140 = parent._verify_active_with_base(baseline, runtime)
     catalogue = base140 | set(parent.STEPS)
     if len(catalogue) != 142 or receipt["migrationCount"] != 142:
         raise ValueError("AI schedule append requires the verified exact 142 parent")
@@ -88,13 +87,17 @@ def valid_rows(value):
 
 
 def load_plan(runtime, operation):
+    return _load_plan_with_base(runtime, operation)[:2]
+
+
+def _load_plan_with_base(runtime, operation):
     folder = directory(runtime, operation)
     if any(folder.glob("*.tmp")) or any(Path(runtime).glob(ACTIVE + ".*.tmp")):
         raise ValueError("Uncertain AI schedule evidence publication; preserve original temporary files")
     plan = common.read(folder / "plan.json")
     if (plan.get("version") != VERSION or plan.get("operationId") != operation or plan.get("steps") != list(STEPS)):
         raise ValueError("AI schedule plan identity changed")
-    _, parent_sha = parent_proof(runtime, folder / "baseline")
+    base, parent_sha = parent_proof(runtime, folder / "baseline")
     evidence = common.read(folder / "candidate.json", plan["candidateEvidenceSha256"])
     if parent_sha != plan["parentReferenceSha256"] or any(plan.get(key) != value for key, value in evidence.items() if key != "status"):
         raise ValueError("AI schedule plan no longer matches exact parent or review")
@@ -102,7 +105,7 @@ def load_plan(runtime, operation):
                                    folder / "before-restore.json", plan["beforeRestoreSha256"], 142)
     bind_prepared_backup(backup, plan["candidateEvidenceSha256"], plan["candidateManifestSha256"],
                          plan["preparedAppId"], plan["preparedReceiptSha256"], plan["maintenanceId"])
-    return folder, plan
+    return folder, plan, frozenset(base)
 
 
 def bind_prepared_backup(backup, evidence_sha, candidate_sha, prepared_id, prepared_receipt_sha, maintenance):
@@ -116,10 +119,14 @@ def bind_prepared_backup(backup, evidence_sha, candidate_sha, prepared_id, prepa
 
 
 def verify_active(root, runtime, *, installed=False):
+    return _verify_active_with_base(root, runtime, installed=installed)[:3]
+
+
+def _verify_active_with_base(root, runtime, *, installed=False):
     pointer = common.read(Path(runtime) / ACTIVE)
     if type(pointer) is not dict or set(pointer) != {"version", "operationId", "receiptSha256"} or pointer["version"] != VERSION:
         raise ValueError("Invalid AI schedule active reference")
-    folder, plan = load_plan(runtime, pointer["operationId"])
+    folder, plan, base = _load_plan_with_base(runtime, pointer["operationId"])
     receipt = common.read(folder / ("installed.json" if installed else "finalized.json"), pointer["receiptSha256"])
     if (receipt.get("version") != VERSION or receipt.get("status") != ("schema_installed" if installed else "verified")
             or receipt.get("planSha256") != common.sha(folder / "plan.json") or receipt.get("steps") != list(STEPS)
@@ -130,7 +137,7 @@ def verify_active(root, runtime, *, installed=False):
     if not installed:
         common.checked_backup(folder / "after-backup.json", receipt["afterBackupSha256"],
                               folder / "after-restore.json", receipt["afterRestoreSha256"], 143)
-    return receipt, plan, folder
+    return receipt, plan, folder, base
 
 
 def apply_steps(connection, base, *, expected_before=None):
@@ -197,8 +204,7 @@ def database_identity(connection):
 
 
 def complete_database(root, runtime):
-    receipt, _, folder = verify_active(root, runtime)
-    base, _ = parent_proof(runtime, folder / "baseline")
+    receipt, _, folder, base = _verify_active_with_base(root, runtime)
     from django.db import connection
     from django.db.migrations.executor import MigrationExecutor
     from django.db.migrations.recorder import MigrationRecorder

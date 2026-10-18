@@ -71,8 +71,7 @@ def source_delta(root, baseline):
 
 
 def parent_proof(runtime, baseline):
-    receipt, _, folder = parent.verify_active(baseline, runtime)
-    _, base = parent.original_parent(runtime, folder / "baseline")
+    receipt, _, folder, base = parent._verify_active_with_base(baseline, runtime)
     catalogue = base | {parent.STEP}
     if len(catalogue) != 140 or receipt["migrationCount"] != 140:
         raise ValueError("Jackyun append requires the verified 140 parent")
@@ -149,13 +148,17 @@ def admission(root, runtime, evidence, evidence_sha):
 
 
 def load_plan(runtime, operation):
+    return _load_plan_with_base(runtime, operation)[:2]
+
+
+def _load_plan_with_base(runtime, operation):
     folder = directory(runtime, operation)
     if any(folder.glob("*.tmp")) or any(Path(runtime).glob(ACTIVE + ".*.tmp")):
         raise ValueError("Unresolved evidence publication; preserve temporary files")
     plan = parent.read(folder / "plan.json")
     if plan.get("version") not in {VERSION, NO_BACKUP_VERSION} or plan.get("operationId") != operation or plan.get("steps") != list(STEPS):
         raise ValueError("Jackyun plan identity changed")
-    _, parent_sha = parent_proof(runtime, folder / "baseline")
+    base, parent_sha = parent_proof(runtime, folder / "baseline")
     if parent_sha != plan["parentReferenceSha256"]:
         raise ValueError("BI parent reference changed")
     evidence = parent.read(folder / "candidate.json", plan["candidateEvidenceSha256"])
@@ -168,7 +171,7 @@ def load_plan(runtime, operation):
     else:
         parent.checked_backup(folder / "before-backup.json", plan["beforeBackupSha256"],
                               folder / "before-restore.json", plan["beforeRestoreSha256"], 140)
-    return folder, plan
+    return folder, plan, frozenset(base)
 
 
 def valid_rows(value):
@@ -184,10 +187,14 @@ def valid_rows(value):
 
 
 def verify_active(root, runtime, *, installed=False):
+    return _verify_active_with_base(root, runtime, installed=installed)[:3]
+
+
+def _verify_active_with_base(root, runtime, *, installed=False):
     pointer = parent.read(Path(runtime) / ACTIVE)
     if set(pointer) != {"version", "operationId", "receiptSha256"} or pointer["version"] not in {VERSION, NO_BACKUP_VERSION}:
         raise ValueError("Invalid Jackyun active reference")
-    folder, plan = load_plan(runtime, pointer["operationId"])
+    folder, plan, base = _load_plan_with_base(runtime, pointer["operationId"])
     receipt = parent.read(folder / ("installed.json" if installed else "finalized.json"), pointer["receiptSha256"])
     if pointer["version"] != plan["version"] or receipt.get("version") != plan["version"] or receipt.get("status") != ("schema_installed" if installed else "verified") \
             or receipt.get("planSha256") != parent.sha(folder / "plan.json") or receipt.get("steps") != list(STEPS) \
@@ -201,12 +208,11 @@ def verify_active(root, runtime, *, installed=False):
             raise ValueError("No-new-backup receipt must honestly record omitted operations")
     elif not installed:
         parent.checked_backup(folder / "after-backup.json", receipt["afterBackupSha256"], folder / "after-restore.json", receipt["afterRestoreSha256"], 142)
-    return receipt, plan, folder
+    return receipt, plan, folder, base
 
 
 def complete_database(root, runtime):
-    receipt, _, folder = verify_active(root, runtime)
-    base, _ = parent_proof(runtime, folder / "baseline")
+    receipt, _, folder, base = _verify_active_with_base(root, runtime)
     from django.db import connection
     from django.db.migrations.executor import MigrationExecutor
     from django.db.migrations.recorder import MigrationRecorder

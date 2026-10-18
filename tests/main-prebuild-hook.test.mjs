@@ -6,7 +6,6 @@ import path from 'node:path';
 import {mainRefEvents,drainPrebuildQueue} from '../tools/main-prebuild-hook.mjs';
 import {publisherEnvironment} from '../tools/publish-latest-main.mjs';
 import {spawn,execFileSync} from 'node:child_process';
-import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 const a='a'.repeat(40),b='b'.repeat(40);
 test('only committed remote main changes trigger; deletion and unrelated refs do not',()=>{
@@ -81,25 +80,5 @@ test('fixed environment can execute the actual installed Git outside the default
  const env=publisherEnvironment(process.env,path.dirname(gitExecutable));
  assert.match(execFileSync('git',['--version'],{env,encoding:'utf8',windowsHide:true}),/^git version /);
 });
-test('installed real Git reference hook automatically starts only prepare-only mode',async t=>{
- const root=await queue(t),repo=path.join(root,'repo'),state=path.join(root,'state');await fs.mkdir(repo);await fs.mkdir(state);
- const git=args=>execFileSync('git',['-C',repo,...args],{encoding:'utf8',windowsHide:true});
- git(['init','--quiet']);await fs.writeFile(path.join(repo,'file'),'fixture');git(['add','.']);git(['-c','user.name=fixture','-c','user.email=fixture@example.invalid','commit','--quiet','-m','fixture']);
- const configFile=path.join(state,'main-publisher-config.json');await fs.writeFile(configFile,JSON.stringify({repository:repo,stateDirectory:state}));
- execFileSync(process.execPath,[fileURLToPath(new URL('../tools/install-main-prebuild.mjs',import.meta.url)),'--config',configFile],{windowsHide:true});
- const installedBase=JSON.parse(await fs.readFile(configFile,'utf8')).publisherBaseEnvironment;
- assert.deepEqual(publisherEnvironment(process.env,undefined,installedBase),installedBase);
- execFileSync(process.execPath,[fileURLToPath(new URL('../tools/install-main-prebuild.mjs',import.meta.url)),'--config',configFile],{windowsHide:true,env:{...process.env,LOGONSERVER:'fixture-new-install-shell'}});
- assert.deepEqual(JSON.parse(await fs.readFile(configFile,'utf8')).publisherBaseEnvironment,installedBase,'installer upgrades must preserve the original build environment');
- const marker=path.join(root,'called.json'),publisher=path.join(state,'control/tools/publish-latest-main.mjs');
- await fs.writeFile(publisher,`import fs from 'node:fs/promises';import path from 'node:path';import{fileURLToPath}from'node:url';export const publisherEnvironment=()=>process.env;if(path.resolve(process.argv[1])===fileURLToPath(import.meta.url))await fs.writeFile(${JSON.stringify(marker)},JSON.stringify(process.argv.slice(2)));`);
- const remote=path.join(root,'remote.git');execFileSync('git',['init','--bare','--quiet',remote],{windowsHide:true});
- git(['remote','add','origin',remote]);git(['push','--quiet','origin','HEAD:refs/heads/main']);
- for(let n=0;n<200;n++){try{await fs.access(marker);break;}catch{await new Promise(r=>setTimeout(r,25));}}
- const args=JSON.parse(await fs.readFile(marker,'utf8'));assert.ok(args.includes('--prepare-only'));assert.ok(!args.includes('--deploy-only'));
- await fs.access(path.join(state,'查看打包状态.bat'));
- const observation=execFileSync(process.execPath,[path.join(state,'control/tools/main-prebuild-status.mjs'),'--config',configFile,'--once'],{encoding:'utf8',windowsHide:true});
- assert.equal(JSON.parse(observation.trim().split(/\r?\n/).at(-1)).status,'waiting');
- // Wait for the fixture runner's result so cleanup never races its writes.
- const queueDir=path.join(state,'prebuild-queue');for(let n=0;n<200;n++){if((await fs.readdir(queueDir)).some(n=>n.includes('.result.')))break;await new Promise(r=>setTimeout(r,25));}
-});
+// Actual installed v2 hook/manual and first-adoption behavior are exercised
+// with the immutable closure in main-control-upgrade.test.mjs.

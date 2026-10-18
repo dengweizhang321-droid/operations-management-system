@@ -31,10 +31,14 @@ export function candidateTestEnvironment({gitExe,shell5,shell7,pythonExe,directo
 export function candidateCompatibilityProfile(changes){
  const files=changes.flatMap(c=>[c.before,c.path].filter(Boolean));
  const paths=files.filter(f=>!f.startsWith('docs/')&&!f.startsWith('tests/')&&!['README.md','AGENTS.md'].includes(f));
+ const proofFiles=['bi_app_addition','jackyun_audit_addition','ai_schedule_addition','jd_logistics_addition','jd_monitor_preferences_addition','jd_product_monitoring_addition','tmall_warehouse_addition','pi_agent_addition'].map(name=>'tools/'+name+'.py');
+ const preparationFiles=['tools/main-prebuild-hook.mjs','tools/main-prebuild-queue.mjs','tools/main-control-dispatch.mjs','tools/install-main-prebuild.mjs'];
  const supported=new Set(['tools/publish-main.mjs','tools/publish-prepared-main.mjs','tools/publish-latest-main.mjs',
   'tools/main-prebuild-status.mjs','tools/worker-local-release.mjs','tools/django-local-service.ps1','tools/verify-release-candidate.mjs']);
+ for(const file of [...proofFiles,...preparationFiles,'tools/worker-local-release-rotation.mjs'])supported.add(file);
  const unsupported=paths.filter(p=>!supported.has(p));
- return {version:'release-compatibility-profile-v1',paths,unsupported,
+ const schemaProof=paths.some(p=>proofFiles.includes(p)),preparationQueue=paths.some(p=>preparationFiles.includes(p)||p==='tools/publish-latest-main.mjs'||p==='tools/worker-local-release-rotation.mjs');
+ return {version:schemaProof||preparationQueue?'release-three-optimizations-v1':'release-compatibility-profile-v1',paths,unsupported,schemaProof,preparationQueue,
   publication:paths.some(p=>/publish-|main-prebuild|manual-maintenance|verify-release-candidate|release-scope-plan/.test(p)),
   worker:paths.some(p=>/worker-local-release/.test(p)),
   django:paths.includes('tools/django-local-service.ps1'),
@@ -64,8 +68,45 @@ export function compareFunctionOnlyChange(before,after){
  if(JSON.stringify(before.other.map(normalize))!==JSON.stringify(after.other.map(normalize)))return false;
  const old=new Map(before.functions.map(f=>[f.name,normalize(f.text)]));
  const next=new Map(after.functions.map(f=>[f.name,normalize(f.text)]));
- for(const name of new Set([...old.keys(),...next.keys()]))if(old.get(name)!==next.get(name)&&!allowed.has(name))return false;
+ for(const name of new Set([...old.keys(),...next.keys()]))if(old.get(name)!==next.get(name)&&!allowed.has(name)){
+  if(name!=='Invoke-DjangoMigrations'||stripGateTiming(next.get(name))!==old.get(name))return false;
+ }
  return true;
+}
+export function usesGateTimingExemption(before,after){
+ const find=value=>value.functions.find(item=>item.name==='Invoke-DjangoMigrations')?.text.replaceAll('\r\n','\n');
+ const old=find(before),next=find(after);return typeof old==='string'&&typeof next==='string'&&old!==next&&stripGateTiming(next)===old;
+}
+export function stripGateTiming(text){
+ if(typeof text!=='string')return text;
+ const release=`  $protectedGateClock = [Diagnostics.Stopwatch]::StartNew()
+  $protectedGateAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $protectedGateOutcome = 'completed'
+  try {
+    Assert-NoUnapprovedProtectedAiMigration "Django migrate"
+  } catch {
+    $protectedGateOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'protected-release-gate' $protectedGateAt $protectedGateClock.ElapsedMilliseconds $protectedGateOutcome } catch { }
+  }`;
+ const database=`      $databaseGateClock = [Diagnostics.Stopwatch]::StartNew()
+      $databaseGateAt = [DateTimeOffset]::UtcNow.ToString('o')
+      $databaseGateOutcome = 'completed'
+      try {
+        $check = Invoke-BoundedNativeProcess $Python @($integrationGate, 'database', '--root', $ExecutionRoot, '--runtime', $RuntimeRoot) $BackendRoot
+        $verified = ConvertFrom-UniqueNativeJson $check 'Verify completed integration migrations'
+        if ([string]$verified.status -cne 'verified') { throw 'Protected migration plan is incomplete' }
+      } catch {
+        $databaseGateOutcome = 'failed'
+        throw
+      } finally {
+        try { Write-DjangoStartupTiming 'database-complete-gate' $databaseGateAt $databaseGateClock.ElapsedMilliseconds $databaseGateOutcome } catch { }
+      }`;
+ if(!text.includes(release)||!text.includes(database))return null;
+ return text.replace(release,'  Assert-NoUnapprovedProtectedAiMigration "Django migrate"').replace(database,`      $check = Invoke-BoundedNativeProcess $Python @($integrationGate, 'database', '--root', $ExecutionRoot, '--runtime', $RuntimeRoot) $BackendRoot
+      $verified = ConvertFrom-UniqueNativeJson $check 'Verify completed integration migrations'
+      if ([string]$verified.status -cne 'verified') { throw 'Protected migration plan is incomplete' }`);
 }
 
 export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,dependencies,python='python.exe'}={}){
@@ -95,6 +136,8 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   const where=async name=>(await execute('C:/Windows/System32/where.exe',[name],{encoding:'utf8',windowsHide:true})).stdout.trim().split(/\r?\n/)[0];
   const shell5='C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',shell7=await where('pwsh.exe'),gitExe=await where('git.exe'),pythonExe=path.isAbsolute(python)?python:await where(python);
   const environment=candidateTestEnvironment({gitExe,shell5,shell7,pythonExe,directory});
+  environment.TERUISI_COMPATIBILITY_BASE=baseCommit;
+  environment.PYTHONPATH=[path.join(candidate,'tools'),path.join(candidate,'tests'),path.join(candidate,'backend')].join(path.delimiter);
   report.environmentSha256=sha(Buffer.from(JSON.stringify(environment)));
   report.tools=await Promise.all([process.execPath,shell5,shell7,pythonExe,gitExe].map(async file=>({path:file,sha256:sha(await fs.readFile(file))})));
   report.powerShellModules={root:environment.PSModulePath,tree:await hashTree(environment.PSModulePath)};
@@ -116,6 +159,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    await fs.writeFile(old,bytes);
    const current=path.join(candidate,'tools/django-local-service.ps1');
    const [a,b]=await Promise.all([functionsOf(old,shell7,environment),functionsOf(current,shell7,environment)]);
+   report.gateTimingChanged=usesGateTimingExemption(a,b);
    report.requiresNativeColdStart=!compareFunctionOnlyChange(a,b);
    assert.equal(report.requiresNativeColdStart,false,'生命周期语义发生变化，需专用隔离冷启动适配器；不能以边界测试代替');
   }
@@ -129,9 +173,22 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    finally{item.elapsedMs=Date.now()-started;item.stdoutSha256=sha(await fs.readFile(output));item.stderrSha256=sha(await fs.readFile(errors));await write();}
   }
   if(profile.publication)await run('publication',process.execPath,['--test','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs'],'native-entry-boundary');
+  if(profile.preparationQueue)await run('preparation-queue-control',process.execPath,['--test','--test-concurrency=1','tests/main-prebuild-hook.test.mjs','tests/main-prebuild-queue-v2.test.mjs','tests/main-control-upgrade.test.mjs'],'native-entry-boundary');
   if(profile.worker)await run('worker-integrity',process.execPath,['--test','tests/worker-source-read-once.test.mjs','tests/release-source-binding.test.mjs','tests/release-preparation-runtime-config.test.mjs'],'package-integrity');
+  if(profile.schemaProof||profile.preparationQueue)await run('optimization-boundaries',process.execPath,['--test','tests/release-optimization-boundaries.test.mjs'],'package-integrity');
+  if(profile.schemaProof){
+   await run('schema-proof-unit',pythonExe,['-m','unittest','discover','-s','tests','-p','test_*addition.py'],'isolated-functions');
+   await run('schema-proof-full-history',pythonExe,['-m','unittest','discover','-s','tests','-p','test_schema_proof_flow.py'],'package-integrity');
+   await run('schema-proof-boundary',pythonExe,['tests/schema-proof-change-boundary.py','--base',baseCommit],'isolated-functions');
+   const baselineTools=path.join(directory,'baseline-python-tools');await fs.mkdir(baselineTools);
+   for(const name of ['bi_app_addition','jackyun_audit_addition','ai_schedule_addition','jd_logistics_addition','jd_monitor_preferences_addition','jd_product_monitoring_addition','tmall_warehouse_addition','pi_agent_addition']){
+    const raw=(await execute('git',['-C',source,'show',baseCommit+':tools/'+name+'.py'],{encoding:'buffer',windowsHide:true,maxBuffer:8*1024*1024})).stdout;await fs.writeFile(path.join(baselineTools,name+'.py'),raw);
+   }
+   await run('schema-private-postgres',pythonExe,['tests/schema-gate-postgres.py','--out',path.join(directory,'private-postgres'),'--baseline',baselineTools,'--skip-measurements'],'real-private-postgres');
+  }
   if(profile.django)for(const [name,host] of [['ps5',shell5],['ps7',shell7]]){
    for(const file of ['django-lifecycle-tree-reuse','django-local-service-fingerprint','django-orchestrated-start-acl'])await run(name+'-'+file,host,['-NoProfile','-NonInteractive','-File','tests/'+file+'.test.ps1'],'isolated-functions');
+   if(report.gateTimingChanged)await run(name+'-migration-gate-timing',host,['-NoProfile','-NonInteractive','-File','tests/django-migration-gate-timing.test.ps1'],'native-entry-boundary');
   }
   if(profile.publication||profile.django){
    await run('powershell-entry',pythonExe,['-m','unittest','discover','-s','tests','-p','test_pi150_recovery_entry.py'],'native-entry-boundary');

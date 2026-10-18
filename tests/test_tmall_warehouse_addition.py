@@ -37,7 +37,7 @@ class TmallSchemaTests(unittest.TestCase):
             base = {"old." + str(i) for i in range(generation - len(owner.STEPS))}
             receipt = {"migrationCount": generation}
             migrations = addition.MONITORING_FILES if generation == 148 else {}
-            with patch.object(addition.common, "migrations", return_value=migrations), patch.object(owner, "verify_active", return_value=(receipt, {}, Path("captured"))) as verifier, patch.object(owner, "parent_proof", return_value=(base, "x")), patch.object(addition.common, "sha", return_value="a" * 64):
+            with patch.object(addition.common, "migrations", return_value=migrations), patch.object(owner, "_verify_active_with_base", return_value=(receipt, {}, Path("captured"), frozenset(base))) as verifier, patch.object(addition.common, "sha", return_value="a" * 64):
                 result, _ = addition.parent_proof("runtime", "original")
                 verifier.assert_called_once_with("original", "runtime")
                 self.assertEqual(len(result), generation)
@@ -169,7 +169,7 @@ $fn=$ast.Find({param($a) $a -is [Management.Automation.Language.FunctionDefiniti
 Invoke-Expression $fn.Extent.Text
 $RuntimeRoot='D:\teruisi-runtime\django-sales';$BackendRoot=Join-Path $env:TMALL_TEST_ROOT 'backend';$Python='private-python'
 $IntegrationEvidencePath='private-evidence';$IntegrationEvidenceSha256='a'*64;$IntegrationOperationId=''
-function Test-Path {param($LiteralPath,$PathType) return $true}
+function Test-Path {param($LiteralPath,$PathType) return $LiteralPath -notmatch 'pi-agent-addition-active|pi_agent_addition' }
 function Read-JsonFile {param($a,$b) return @{version='teruisi-tmall-warehouse-schema-addition-v1'}}
 $script:mode='verified'
 function Invoke-BoundedNativeProcess {param($exe,$nativeArguments,$cwd) $script:route=@($nativeArguments);return @{}}

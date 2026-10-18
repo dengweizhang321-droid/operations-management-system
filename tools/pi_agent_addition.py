@@ -70,8 +70,7 @@ def source_delta(root, baseline):
 
 
 def parent_proof(runtime, baseline):
-    receipt, _, folder = parent.verify_active(baseline, runtime)
-    previous, _ = parent.parent_proof(runtime, folder / "baseline")
+    receipt, _, folder, previous = parent._verify_active_with_base(baseline, runtime)
     catalogue = previous | set(parent.steps_for_base(previous))
     if len(catalogue) != 149 or receipt["migrationCount"] != 149:
         raise ValueError("Pi150 requires its exact verified149 parent")
@@ -148,6 +147,10 @@ def prepared_binding(runtime, prepared_id, receipt_sha, candidate_sha):
 
 
 def load_plan(runtime, operation):
+    return _load_plan_with_base(runtime, operation)[:2]
+
+
+def _load_plan_with_base(runtime, operation):
     folder = directory(runtime, operation)
     if any(folder.glob("*.tmp")) or any(Path(runtime).glob(ACTIVE + ".*.tmp")):
         raise ValueError("Uncertain PiAgent evidence publication; preserve temporary files")
@@ -164,15 +167,19 @@ def load_plan(runtime, operation):
     prepared = prepared_binding(runtime, plan["preparedAppId"], plan["preparedReceiptSha256"], plan["candidateManifestSha256"])
     if prepared["predecessorManifestSha256"] != plan["predecessorSha256"]:
         raise ValueError("PiAgent prepared predecessor differs from plan")
-    return folder, plan
+    return folder, plan, frozenset(base)
 
 
 def verify_active(root, runtime, *, installed=False):
+    return _verify_active_with_base(root, runtime, installed=installed)[:3]
+
+
+def _verify_active_with_base(root, runtime, *, installed=False):
     pointer = common.read(Path(runtime) / ACTIVE)
     if (type(pointer) is not dict or set(pointer) != {"version", "operationId", "receiptSha256", "parentReferenceSha256"}
             or pointer["version"] != VERSION):
         raise ValueError("Invalid PiAgent schema active reference")
-    folder, plan = load_plan(runtime, pointer["operationId"])
+    folder, plan, base = _load_plan_with_base(runtime, pointer["operationId"])
     receipt = common.read(folder / ("installed.json" if installed else "finalized.json"), pointer["receiptSha256"])
     intent = install_intent(folder)
     if (pointer["parentReferenceSha256"] != plan["parentReferenceSha256"]
@@ -186,7 +193,7 @@ def verify_active(root, runtime, *, installed=False):
             or receipt.get("installIntentSha256") != common.sha(folder / "install-intent.json")
             or receipt.get("databasePolicy") != POLICY or not installed and receipt.get("permissionsVerified") is not True):
         raise ValueError("PiAgent schema receipt is incomplete or changed")
-    return receipt, plan, folder
+    return receipt, plan, folder, base
 
 
 def database_identity(connection):
@@ -291,8 +298,7 @@ def check_database(connection, base, *, permissions=True, empty=False, expected=
 
 
 def complete_database(root, runtime):
-    receipt, _, folder = verify_active(root, runtime)
-    base, _ = parent_proof(runtime, folder / "baseline")
+    receipt, _, folder, base = _verify_active_with_base(root, runtime)
     from django.db import connection
     database_identity(connection)
     check_database(connection, base, permissions=True)

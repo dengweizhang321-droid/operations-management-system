@@ -41,12 +41,12 @@ class PreferencesSchemaTests(unittest.TestCase):
 
     def test_parent_original_verifier_only_sees_captured146(self):
         base143 = {"old." + str(i) for i in range(143)}
-        with patch.object(addition.parent, "verify_active", return_value=({"migrationCount": 146}, {}, Path("original146"))) as verify, patch.object(addition.parent, "parent_proof", return_value=(base143, "x")) as parent, patch.object(common, "sha", return_value="a" * 64):
+        with patch.object(addition.parent, "_verify_active_with_base", return_value=({"migrationCount": 146}, {}, Path("original146"), frozenset(base143))) as verify, patch.object(addition.parent, "parent_proof") as parent, patch.object(common, "sha", return_value="a" * 64):
             base, _ = addition.parent_proof("runtime", "captured146")
             verify.assert_called_once_with("captured146", "runtime")
-            parent.assert_called_once_with("runtime", Path("original146/baseline"))
+            parent.assert_not_called()
             self.assertEqual(len(base), 146)
-        with patch.object(addition.parent, "verify_active", return_value=({"migrationCount": 147}, {}, Path("original146"))), patch.object(addition.parent, "parent_proof", return_value=(base143, "x")), self.assertRaises(ValueError):
+        with patch.object(addition.parent, "_verify_active_with_base", return_value=({"migrationCount": 147}, {}, Path("original146"), frozenset(base143))), self.assertRaises(ValueError):
             addition.parent_proof("runtime", "captured146")
 
     def state(self):

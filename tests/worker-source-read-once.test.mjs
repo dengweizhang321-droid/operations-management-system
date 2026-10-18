@@ -50,8 +50,10 @@ async function instrument(root) {
   source+=`\nconst {open,readFile}=globalThis[${JSON.stringify(key)}];\nexport {validateTree};\n`;
   // Native npm discovery is unrelated to source-read reuse. Replace just its
   // identity inputs, so this fixture never reads a real user's npm configuration.
-  source=source.replace('const toolchain = await resolveBundledNpmToolchain();',`const toolchain = {nodeExecutablePath:process.execPath,npmCliPath:'private-fixture',provenance:{fixture:true}};`);
+  const provenance={nodeVersion:process.version,nodeExecutablePathSha256:hash('node'),npmVersion:'fixture',npmPackageRootRelativePath:'npm',npmPackageRootPathSha256:hash('root'),npmCliRelativePath:'npm/cli',npmCliPathSha256:hash('cli'),npmCliSha256:hash('cli-bytes'),npmPackageJsonRelativePath:'npm/package.json',npmPackageJsonPathSha256:hash('package'),npmPackageJsonSha256:hash('package-bytes'),npmPackageTree:{algorithm:'sha256-ordinal-path-length-content-v1',fileCount:1,sha256:hash('tree')},npmCiArguments:[]};
+  source=source.replace('const toolchain = await resolveBundledNpmToolchain();',`const toolchain = {nodeExecutablePath:process.execPath,npmCliPath:'private-fixture',provenance:${JSON.stringify(provenance)}};`);
   source=source.replace('const result = await runProcess(toolchain.nodeExecutablePath, [toolchain.npmCliPath, "config", "get", key], { cwd: sourceRoot, label: "npm configuration identity" });','const result = {stdout:path.join(sourceRoot,"missing-"+key)};');
+  source=source.replace('const identity=await workerPreparationIdentity(value.sourceRoot);','const identity=await workerPreparationIdentity(value.sourceRoot,globalThis['+JSON.stringify(key)+'].devVars);');
   const target=path.join(root,'instrumented.mjs');await writeFile(target,source);
   const api=await import(pathToFileURL(target));
   return {api,state,dispose:()=>{delete globalThis[key];}};
@@ -124,6 +126,37 @@ test('bound snapshot validation uses the same read for tree and inventory and re
     await writeFile(path.join(sourceRoot,'z.txt'),'evil');await assert.rejects(api.validateTree(sourceRoot,expected.tree,'source snapshot',undefined,true),/manifest/);
   } finally {dispose();}
 }));
+test('bound source reads bytes once per call and fresh calls reject same-size restored-mtime changes',()=>fixture(async root=>{
+  const sourceRoot=path.join(root,'bound');await mkdir(sourceRoot);
+  for(const [name,bytes] of Object.entries({'package.json':'{}','package-lock.json':'{}','source.txt':'first'}))await writeFile(path.join(sourceRoot,name),bytes);
+  execFileSync('git',['init','-q',sourceRoot],{windowsHide:true});
+  const config=path.join(root,'private.vars');await writeFile(config,'SYNTHETIC=1');
+  const {api,state,dispose}=await instrument(root);state.devVars=config;
+  try{
+    const identity=await api.workerPreparationIdentity(sourceRoot,config),predecessor={version:'teruisi-local-worker-release-binding-v1',releaseId:'20261010T014638Z-97833d2f2b7e7bc9',manifestSha256:hash('manifest'),guardReceiptSha256:hash('guard')};
+    predecessor.bindingSha256=api.sha256Canonical(predecessor);
+    const value={version:api.workerSourceBindingVersion,sourceRoot,sourceRootPathSha256:api.windowsPathSha256(sourceRoot),predecessor,predecessorChainStateSha256:hash('chain'),identity};
+    const raw=api.canonicalJson(value)+'\n',envelope={raw,sha256:hash(raw)};
+    state.opens.clear();state.reads.clear();state.wholeReads.length=0;
+    assert.deepEqual((await api.verifyBoundWorkerSource(envelope)).identity,identity);
+    for(const name of ['package.json','package-lock.json','source.txt']){
+      const file=path.join(sourceRoot,name);assert.equal(state.opens.get(file),1);assert.equal(state.reads.get(file),(await lstat(file)).size);assert.ok(!state.wholeReads.includes(file));
+    }
+    const file=path.join(sourceRoot,'source.txt'),before=await lstat(file);await writeFile(file,'other');await utimes(file,before.atime,before.mtime);
+    await assert.rejects(api.verifyBoundWorkerSource(envelope),/identity changed/);
+    assert.equal(state.opens.get(file),2);
+  }finally{dispose();}
+}));
+test('source additions or deletions during a controlled identity read are rejected',async()=>{
+  for(const mode of ['add','delete'])await fixture(async root=>{
+    const sourceRoot=path.join(root,'source');await mkdir(sourceRoot);
+    for(const name of ['package.json','package-lock.json','source.txt'])await writeFile(path.join(sourceRoot,name),'{}');
+    execFileSync('git',['init','-q',sourceRoot],{windowsHide:true});const config=path.join(root,'private.vars');await writeFile(config,'SYNTHETIC=1');
+    const {api,state,dispose}=await instrument(root);let changed=false;
+    state.afterRead=async(file,result)=>{if(changed||file!==path.join(sourceRoot,'source.txt')||!result.bytesRead)return;changed=true;if(mode==='add')await writeFile(path.join(sourceRoot,'new.txt'),'new');else await rm(file);};
+    try{await assert.rejects(api.workerPreparationIdentity(sourceRoot,config),/inventory changed|ENOENT|changed/);}finally{dispose();}
+  });
+});
 test('source path escape, nonregular object, hardlink and junction ancestor are rejected',()=>fixture(async root=>{
   const source=path.join(root,'source');await mkdir(source);await writeFile(path.join(source,'file'),'private');
   for(const name of ['../outside','nested/../../outside','D:/outside','\\\\server\\share','file:stream','./file'])await assert.rejects(hashRelativeFilesWithInventory(source,[name]),/路径越界/);

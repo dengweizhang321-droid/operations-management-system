@@ -97,6 +97,8 @@ export async function publishPreparedMain(request,context){
    if(!response.bodyUsed&&!response.body?.locked)await response.body?.cancel();
   }
  };
+ const preparationDeadline=Math.min(Date.now()+1800000,Number(process.env.TERUISI_PROCESS_DEADLINE_UNIX_MS)||Infinity);
+ const preparationWait=context.prepareOnly?{requestId:digest(Buffer.from(JSON.stringify(request))),deadlineUnixMs:preparationDeadline}:undefined;
  return rotation.withRotationLock(async rotationLease=>{
   await rotation.assertActiveBatchOwnership(runtime);
   const before=await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true});
@@ -260,5 +262,5 @@ export async function publishPreparedMain(request,context){
    else await fs.writeFile(path.join(preparationOut,'FAILED-'+randomUUID()+'.json'),JSON.stringify(failure,null,2)+'\n',{flag:'wx'});
    throw error;
   }
- });
+ },preparationWait);
 }

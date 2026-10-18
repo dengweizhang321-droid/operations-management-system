@@ -3474,7 +3474,17 @@ function Invoke-DjangoMigrations(
   $startupPhaseOutcome = 'completed'
   try {
   if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) { throw "缺少 Python 运行文件" }
-  Assert-NoUnapprovedProtectedAiMigration "Django migrate"
+  $protectedGateClock = [Diagnostics.Stopwatch]::StartNew()
+  $protectedGateAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $protectedGateOutcome = 'completed'
+  try {
+    Assert-NoUnapprovedProtectedAiMigration "Django migrate"
+  } catch {
+    $protectedGateOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'protected-release-gate' $protectedGateAt $protectedGateClock.ElapsedMilliseconds $protectedGateOutcome } catch { }
+  }
   $ownerUrl = Database-Url "teruisi_sales_owner" $Secrets.OwnerPassword "teruisi_django_migrate" $WriterStatementTimeoutMs $DatabaseName
   $logPath = Join-Path $LogDirectory "django-migrate.$DatabaseName.$RunId.log"
   $manage = Join-Path $BackendRoot "manage.py"
@@ -3483,9 +3493,19 @@ function Invoke-DjangoMigrations(
     if ((Get-CanonicalPath $RuntimeRoot) -ieq 'D:\teruisi-runtime\django-sales' -and
         (Test-Path -LiteralPath $integrationGate -PathType Leaf)) {
       $env:DJANGO_SETTINGS_MODULE = 'teruisi_backend.settings'
-      $check = Invoke-BoundedNativeProcess $Python @($integrationGate, 'database', '--root', $ExecutionRoot, '--runtime', $RuntimeRoot) $BackendRoot
-      $verified = ConvertFrom-UniqueNativeJson $check 'Verify completed integration migrations'
-      if ([string]$verified.status -cne 'verified') { throw 'Protected migration plan is incomplete' }
+      $databaseGateClock = [Diagnostics.Stopwatch]::StartNew()
+      $databaseGateAt = [DateTimeOffset]::UtcNow.ToString('o')
+      $databaseGateOutcome = 'completed'
+      try {
+        $check = Invoke-BoundedNativeProcess $Python @($integrationGate, 'database', '--root', $ExecutionRoot, '--runtime', $RuntimeRoot) $BackendRoot
+        $verified = ConvertFrom-UniqueNativeJson $check 'Verify completed integration migrations'
+        if ([string]$verified.status -cne 'verified') { throw 'Protected migration plan is incomplete' }
+      } catch {
+        $databaseGateOutcome = 'failed'
+        throw
+      } finally {
+        try { Write-DjangoStartupTiming 'database-complete-gate' $databaseGateAt $databaseGateClock.ElapsedMilliseconds $databaseGateOutcome } catch { }
+      }
     }
     $migrationRun = Invoke-BoundedNativeProcess $Python @($manage, "migrate", "--noinput") $BackendRoot
     Write-NativeDiagnosticLog $logPath "django_migrate" $migrationRun

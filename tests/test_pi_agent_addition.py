@@ -38,11 +38,11 @@ class PiAdditionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             (root/gate.parent.ACTIVE).write_text("{}",encoding="utf8")
-            with patch.object(gate.parent,"verify_active",return_value=({"migrationCount":149},{},root)), patch.object(gate.parent,"parent_proof",return_value=(previous,"b"*64)):
+            with patch.object(gate.parent,"_verify_active_with_base",return_value=({"migrationCount":149},{},root,frozenset(previous))):
                 result,pointer = gate.parent_proof(root,root)
                 self.assertEqual(len(result),149)
                 self.assertEqual(pointer,gate.common.sha(root/gate.parent.ACTIVE))
-            with patch.object(gate.parent,"verify_active",return_value=({"migrationCount":148},{},root)), patch.object(gate.parent,"parent_proof",return_value=(previous,"b"*64)):
+            with patch.object(gate.parent,"_verify_active_with_base",return_value=({"migrationCount":148},{},root,frozenset(previous))):
                 with self.assertRaises(ValueError): gate.parent_proof(root,root)
 
     def test_bad_evidence_and_unsafe_references_fail_before_database(self):

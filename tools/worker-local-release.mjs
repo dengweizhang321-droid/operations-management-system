@@ -465,8 +465,8 @@ export async function readWorkerSourceBinding(target, expectedSha256) {
 export async function verifyBoundWorkerSource(envelope, context={}) {
   const value=validateWorkerSourceBinding(envelope,context);
   await assertBoundWorkerSourceLocation(value.sourceRoot);
-  const files=await listGitSourceFiles(value.sourceRoot);
-  for(const name of files)await readBoundRegularFile(path.join(value.sourceRoot,...name.split("/")),"bound source file");
+  // The controlled identity reader checks paths, single links and read-time
+  // changes while producing both hashes. No digest survives this call.
   const identity=await workerPreparationIdentity(value.sourceRoot);
   validateWorkerSourceBinding(envelope,{...context,identity});
   return {sourceRoot:value.sourceRoot,identity};
@@ -963,6 +963,7 @@ export async function workerPreparationIdentity(sourceRoot, devVarsSource = work
   }
   const sourceFiles = await listGitSourceFiles(sourceRoot);
   const { tree: sourceTree, inventory: sourceInventory } = await hashRelativeFilesWithInventory(sourceRoot, sourceFiles);
+  if (canonicalJson(await listGitSourceFiles(sourceRoot)) !== canonicalJson(sourceFiles)) fail("Source inventory changed while reading");
   return {
     version: "teruisi-worker-preparation-identity-v1",
     sourceTree,

@@ -70,25 +70,26 @@ def admission(root,runtime,evidence,evidence_sha):
     if data.get("predecessorSha256")!=sha(Path(runtime)/"app/deployment.json") or data.get("parentReferenceSha256")!=sha(Path(runtime)/"integration-active-generation.json"): raise ValueError("Candidate predecessor changed")
     if source_delta(root,Path(runtime)/"app")!=data.get("migrationSha256"): raise ValueError("Candidate migration inventory changed")
     return data
-def verify_active(root,runtime,*,installed=False):
+def _verify_active_with_base(root,runtime,*,installed=False):
     pointer=read(Path(runtime)/ACTIVE)
     if set(pointer)!={"version","operationId","receiptSha256"} or pointer["version"]!=VERSION: raise ValueError("Invalid BI active pointer")
     folder=directory(runtime,pointer["operationId"])
     result=read(folder/("installed.json" if installed else "finalized.json"), pointer["receiptSha256"])
     plan=read(folder/"plan.json",result["planSha256"])
-    original_parent(runtime,folder/"baseline")
+    _,base=original_parent(runtime,folder/"baseline")
     if sha(Path(runtime)/"integration-active-generation.json")!=plan["parentReferenceSha256"] or source_delta(root,folder/"baseline")!=plan["migrationSha256"]: raise ValueError("BI parent or migration generation changed")
     if result["version"]!=VERSION or result["step"]!=STEP or result["migrationCount"]!=140 or result.get("migrationSha256")!=plan["migrationSha256"]: raise ValueError("BI installation record invalid")
     if not installed:
         if result.get("status")!="verified": raise ValueError("BI addition not finalized")
         checked_backup(folder/"after-backup.json",result["afterBackupSha256"],folder/"after-restore.json",result["afterRestoreSha256"],140)
-    return result,plan,folder
+    return result,plan,folder,frozenset(base)
+def verify_active(root,runtime,*,installed=False):
+    return _verify_active_with_base(root,runtime,installed=installed)[:3]
 def complete_database(root,runtime):
-    result,plan,folder=verify_active(root,runtime)
+    result,plan,folder,base=_verify_active_with_base(root,runtime)
     from django.db import connection
     from django.db.migrations.executor import MigrationExecutor
     from django.db.migrations.recorder import MigrationRecorder
-    _,base=original_parent(runtime,folder/"baseline")
     with connection.cursor() as cursor:
         cursor.execute("SELECT current_database(),current_user,inet_server_port()")
         if cursor.fetchone()!=("teruisi_sales","teruisi_sales_owner",5432): raise ValueError("Addition database identity changed")

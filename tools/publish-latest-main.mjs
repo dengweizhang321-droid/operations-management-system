@@ -9,6 +9,8 @@ import assert from 'node:assert/strict';
 import {makeReleasePlan} from './release-scope-plan.mjs';
 import {createReleaseProgress} from './publish-main-progress.mjs';
 import {prepareMainSchemaRelease} from './main-schema-release.mjs';
+import {submitPreparation,drainPreparationQueue,ticketResult} from './main-prebuild-queue.mjs';
+import {readAdoptedControl,assertControlGeneration,controlExecution} from './main-control-dispatch.mjs';
 
 const execute=promisify(execFile),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const exists=async file=>{try{await fs.access(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};
@@ -54,10 +56,10 @@ export async function readLivePublication(config){
  const ready=await fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)});
  assert.equal(ready.status,200,'当前运行版本尚未就绪');const health=await ready.json();assert.equal(health.ok,true);assert.equal(health.status,'ready');
  const ordinaryAttempt=path.resolve(source,'..','publish-'+commit.slice(0,12));
- return {mainCommit:commit,source,sourceTree,head:chain.head,djangoManifestSha256:sha(djangoRaw),completedReceiptPath:receiptPath,resolvedOriginalAttempt:path.resolve(path.dirname(receiptPath))!==ordinaryAttempt};
+ return {mainCommit:commit,source,sourceTree,head:chain.head,chainStateSha256:chain.chainStateSha256,djangoManifestSha256:sha(djangoRaw),completedReceiptPath:receiptPath,resolvedOriginalAttempt:path.resolve(path.dirname(receiptPath))!==ordinaryAttempt};
 }
 
-export async function prepareLatestMain(config,{git=gitAt,getLive=readLivePublication,log=()=>{},makePlan=makeReleasePlan,prepareSchema=prepareMainSchemaRelease}={}){
+export async function observeLatestMain(config,{git=gitAt,getLive=readLivePublication,log=()=>{}}={}){
  log('获取 origin/main；旧任务 completedTask、旧成功回执和旧续接参数不参与目标选择。');
  await git(config.repository,['fetch','origin','refs/heads/main:refs/remotes/origin/main']);
  const target=await git(config.repository,['rev-parse','--verify','refs/remotes/origin/main^{commit}']);assert.match(target,/^[a-f0-9]{40}$/);
@@ -66,9 +68,19 @@ export async function prepareLatestMain(config,{git=gitAt,getLive=readLivePublic
  const liveAttempt=path.resolve(live.source,'..','publish-'+live.mainCommit.slice(0,12));
  if(await exists(path.join(liveAttempt,'STARTED.json'))&&!await exists(path.join(liveAttempt,'SUCCESS.json'))&&!live.resolvedOriginalAttempt)throw Error('当前目标有STARTED但无成功完成，不能把半切换当作已发布');
  log('本次目标 main：'+target+'；当前线上：'+live.mainCommit);
+ const name=target.slice(0,12)+'-'+live.head.bindingSha256.slice(0,8)+'-'+live.djangoManifestSha256.slice(0,8);
+ return {targetCommit:target,live,packet:path.join(config.releaseDirectory,name)};
+}
+export async function prepareLatestMain(config,options={}){
+ return prepareLatestMainOnce(config,await observeLatestMain(config,options),options);
+}
+export async function prepareLatestMainOnce(config,selection,{git=gitAt,log=()=>{},makePlan=makeReleasePlan,prepareSchema=prepareMainSchemaRelease}={}){
+ const {targetCommit:target,live}=selection;
+ assert.match(target,/^[a-f0-9]{40}$/);assert.match(live.mainCommit,/^[a-f0-9]{40}$/);
  if(target===live.mainCommit)return {status:'already-current',targetCommit:target,currentCommit:live.mainCommit,publicationPerformed:false};
  const name=target.slice(0,12)+'-'+live.head.bindingSha256.slice(0,8)+'-'+live.djangoManifestSha256.slice(0,8);
  const packet=path.join(config.releaseDirectory,name),source=path.join(packet,'source');
+ assert.equal(path.resolve(selection.packet),path.resolve(packet),'Frozen packet changed');
  await fs.mkdir(packet,{recursive:true});
  if(!await exists(path.join(source,'.git'))){
   await git(config.repository,['worktree','add','-b','codex/manual-main-'+name,source,target]);
@@ -119,11 +131,13 @@ export function publisherEnvironment(environment=process.env,gitDirectory,baseEn
  result.PATH=[path.dirname(process.execPath),'C:/Windows/System32','C:/Windows','C:/Windows/System32/WindowsPowerShell/v1.0',gitDirectory].map(entry=>path.win32.normalize(entry)).join(path.delimiter);
  return result;
 }
-async function runPublisher(source,args=[],gitDirectory,baseEnvironment){
+export async function runPublisher(source,args=[],gitDirectory,baseEnvironment,{deadlineUnixMs}={}){
  const directory=path.resolve(source,'..','invocations');await fs.mkdir(directory,{recursive:true});
  const resultFile=path.join(directory,randomUUID()+'.json'),check=args.includes('--check');
  await new Promise((resolve,reject)=>{
-  const child=spawn(process.execPath,[path.join(source,'tools/publish-main.mjs'),...args,...(check?[]:['--result-file',resultFile])],{cwd:source,env:publisherEnvironment(process.env,gitDirectory,baseEnvironment),windowsHide:true,stdio:'inherit'});
+  const environment=publisherEnvironment(process.env,gitDirectory,baseEnvironment);
+  if(deadlineUnixMs!==undefined){assert.ok(Number.isSafeInteger(deadlineUnixMs));environment.TERUISI_PROCESS_DEADLINE_UNIX_MS=String(deadlineUnixMs);}
+  const child=spawn(process.execPath,[path.join(source,'tools/publish-main.mjs'),...args,...(check?[]:['--result-file',resultFile])],{cwd:source,env:environment,windowsHide:true,stdio:'inherit'});
   child.once('error',reject);child.once('exit',(code,signal)=>signal||code!==0?reject(Error('本次目标发布未完成，退出码：'+(code??signal))):resolve());
  });
  return check?null:JSON.parse(await fs.readFile(resultFile,'utf8'));
@@ -157,15 +171,70 @@ export async function deployReadyMain(prepared,{progress,run=runPublisher,git=gi
  const result=await run(prepared.source,['--deploy-only'],gitDirectory,baseEnvironment);progress.complete();
  return result;
 }
-async function main(){
- const {values}=parseArgs({options:{config:{type:'string'},check:{type:'boolean',default:false},'prepare-only':{type:'boolean',default:false},'no-pause':{type:'boolean',default:false}}});
+export async function preparationControlBinding(configFile){
+ const config=JSON.parse(await fs.readFile(configFile,'utf8'));
+ assert.equal(config.controlProtocol,'teruisi-main-control-v2','Preparation requires the controlled v2 entry');
+ return readAdoptedControl(configFile,path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'));
+}
+export function startPreparationConsumer(configFile,config){
+ const directory=path.join(config.stateDirectory,'prebuild-queue-v2');
+ return fs.mkdir(directory,{recursive:true}).then(async()=>{
+  const output=path.join(directory,'runner-'+randomUUID()+'.log'),fd=await fs.open(output,'wx');
+  try{
+   const child=spawn(process.execPath,[path.join(path.dirname(fileURLToPath(import.meta.url)),'main-prebuild-hook.mjs'),'run',configFile],{cwd:config.stateDirectory,detached:true,windowsHide:true,env:publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment),stdio:['ignore',fd.fd,fd.fd]});
+   await new Promise((resolve,reject)=>{child.once('error',reject);child.once('spawn',resolve);});child.unref();
+  }finally{await fd.close();}
+ });
+}
+export async function drainLatestMainQueue(configFile,{binding,progress,observe=observeLatestMain,once=prepareLatestMainOnce,run=runPublisher}={}){
+ binding??=await preparationControlBinding(configFile);
+ const config=binding.config,directory=path.join(config.stateDirectory,'prebuild-queue-v2');
+ return drainPreparationQueue(directory,{configSha256:binding.state.configSha256,bundleSha256:binding.state.bundleSha256,
+  assertGeneration:()=>assertControlGeneration(binding),observe:()=>observe(config,{log:message=>progress?.log(message)}),
+  prepare:async(selection,dispatch)=>{
+   const prepared=await once(config,selection,{log:message=>progress?.log(message)});
+   if(['already-current','non-production'].includes(prepared.status))return prepared;
+   await writeMainPreparationPointer(config,prepared,'request-frozen');
+   // PREPARED remains native evidence. The queue never turns its own ticket
+   // receipt into artifact integrity or deployment authorization.
+   await inspectMainPreparation(prepared);
+   const result=await run(prepared.source,['--prepare-only'],config.gitDirectory,config.publisherBaseEnvironment,{deadlineUnixMs:dispatch.deadlineUnixMs});
+   assert.equal(result.mainCommit,prepared.targetCommit);assert.equal(result.status,'prepared-only');assert.equal(result.publicationPerformed,false);
+   const readiness=await inspectMainPreparation(prepared);assert.equal(readiness.status,'ready-for-native-verification');
+   await writeMainPreparationPointer(config,prepared,'prepared');
+   return {...result,preparationFile:readiness.preparationFile,preparationSha256:sha(await fs.readFile(readiness.preparationFile))};
+  }});
+}
+export async function runLatestMainCli(args=process.argv.slice(2),binding){
+ const {values}=parseArgs({args,options:{config:{type:'string'},check:{type:'boolean',default:false},'prepare-only':{type:'boolean',default:false},'no-pause':{type:'boolean',default:false}}});
  assert.ok(!(values.check&&values['prepare-only']),'检查与打包模式不能同时使用');
  assert.ok(values.config,'需要固定发布入口配置 --config');
  const config=JSON.parse(await fs.readFile(values.config,'utf8'));
+ if(config.controlProtocol==='teruisi-main-control-v2'){
+  binding??=await preparationControlBinding(values.config);
+  await controlExecution(binding,fileURLToPath(import.meta.url),values['prepare-only']?'prepare-only':values.check?'check':'deploy-ready');
+ }
  assert.ok(config.publisherBaseEnvironment,'缺少固定Windows发布环境，请更新发布入口；本次未部署');
  publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment);
  const progress=createReleaseProgress(path.join(config.stateDirectory,'logs'),{taskName:values.check?'发布检查':values['prepare-only']?'打包':'发布'});
  try{
+  if(values['prepare-only']){
+   binding??=await preparationControlBinding(values.config);
+   const directory=path.join(config.stateDirectory,'prebuild-queue-v2');
+   const submitted=await submitPreparation(directory,{origin:'manual',configSha256:binding.state.configSha256,bundleSha256:binding.state.bundleSha256});
+   await startPreparationConsumer(values.config,config);
+   const until=Date.now()+1800000;
+   for(;;){
+    const result=await ticketResult(directory,submitted.requestId,submitted.ticketSha256);
+    if(result){
+     console.log(JSON.stringify(result));
+     if(!['prepared','current','non-production','superseded'].includes(result.status))throw Error('准备请求需要处理，原记录保留：'+submitted.requestId+' / '+result.status);
+     progress.log(result.status==='prepared'?'打包完成，等待新的上线授权。':'准备请求已完成：'+result.status+'；本次未部署。');return result;
+    }
+    if(Date.now()>=until){process.exitCode=2;progress.log('已退出等待，原准备请求仍保留；关闭观察不取消任务：'+submitted.requestId);return {status:'queued-or-running',requestId:submitted.requestId,publicationPerformed:false};}
+    await new Promise(resolve=>setTimeout(resolve,500));
+   }
+  }
   progress.begin(values.check?'检查最新main（不部署）':'准备本次最新main');
   const prepared=await prepareLatestMain(config,{log:message=>progress.log(message)});
   progress.complete();
@@ -176,15 +245,6 @@ async function main(){
   if(prepared.status==='non-production'){progress.log('最新main没有生产载荷变更，本次未执行发布。');console.log(JSON.stringify(prepared));return;}
   await writeMainPreparationPointer(config,prepared,'request-frozen');
   if(values.check){await runPublisher(prepared.source,['--check'],config.gitDirectory,config.publisherBaseEnvironment);const readiness=await inspectMainPreparation(prepared);progress.log('检查通过：有新main待发布；'+(readiness.status==='not-ready'?'发布包尚未准备完成':'已有准备记录，正式发布时仍需原生复验')+'；本次未打包、未部署。');console.log(JSON.stringify({status:prepared.status,preparationStatus:readiness.status,targetCommit:prepared.targetCommit,currentCommit:prepared.currentCommit,packet:prepared.packet,source:prepared.source,components:prepared.request.components,migrate:prepared.request.migrate,publicationPerformed:false}));return;}
-  if(values['prepare-only']){
-   progress.begin('准备对应main制品');const result=await runPublisher(prepared.source,['--prepare-only'],config.gitDirectory,config.publisherBaseEnvironment);assert.equal(result.mainCommit,prepared.targetCommit);progress.complete();
-   if(result.status==='already-current'){assert.equal(result.publicationPerformed,false);progress.log('当前线上已经是目标main '+prepared.targetCommit+'；本次没有执行发布。');return;}
-   assert.equal(result.status,'prepared-only');assert.equal(result.publicationPerformed,false);
-   const readiness=await inspectMainPreparation(prepared);
-   assert.equal(readiness.status,'ready-for-native-verification');
-   await writeMainPreparationPointer(config,prepared,'prepared');
-   progress.log('打包完成，等待发布负责人执行。目标main：'+prepared.targetCommit+'；本次未部署。');return;
-  }
   const result=await deployReadyMain(prepared,{progress,gitDirectory:config.gitDirectory,baseEnvironment:config.publisherBaseEnvironment});
   if(result.status==='not-ready'){process.exitCode=2;return;}
   assert.equal(result.mainCommit,prepared.targetCommit);
@@ -211,4 +271,4 @@ export async function writeMainPreparationPointer(config,prepared,status){
  await fs.writeFile(temporary,JSON.stringify({...prepared,status,nativePreparationVerified:status==='prepared'},null,2)+'\n',{flag:'wx'});
  await fs.rename(temporary,file);
 }
-if(process.argv[1]&&path.resolve(process.argv[1])===path.resolve(fileURLToPath(import.meta.url)))main().catch(error=>{console.error(error.message);process.exitCode=1;});
+if(process.argv[1]&&path.resolve(process.argv[1])===path.resolve(fileURLToPath(import.meta.url)))runLatestMainCli().catch(error=>{console.error(error.message);process.exitCode=1;});

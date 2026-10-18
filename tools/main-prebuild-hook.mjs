@@ -1,12 +1,12 @@
 /** Local Git trigger. It queues preparation only; never deploys a release. */
 import fs from 'node:fs/promises';
-import {openSync,closeSync} from 'node:fs';
 import path from 'node:path';
-import {spawn} from 'node:child_process';
 import {randomUUID,createHash} from 'node:crypto';
 import {createServer} from 'node:net';
 import {fileURLToPath} from 'node:url';
-import {publisherEnvironment} from './publish-latest-main.mjs';
+import {preparationControlBinding,startPreparationConsumer,drainLatestMainQueue} from './publish-latest-main.mjs';
+import {submitPreparation} from './main-prebuild-queue.mjs';
+import {controlExecution} from './main-control-dispatch.mjs';
 
 const self=fileURLToPath(import.meta.url);
 export function mainRefEvents(action,input){
@@ -58,28 +58,30 @@ export async function drainPrebuildQueue(directory,prepare,{afterUnlock=async()=
   if(!(await names()).length)return {status:'drained',handled};
  }
 }
-function spawnPreparation(configFile,config){
- return new Promise((resolve,reject)=>{
-  const child=spawn(process.execPath,[path.join(path.dirname(self),'publish-latest-main.mjs'),'--config',configFile,'--prepare-only','--no-pause'],{cwd:path.dirname(configFile),env:publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment),windowsHide:true,stdio:'inherit'});
-  child.once('error',reject);child.once('exit',(code,signal)=>code===0&&!signal?resolve():reject(Error('自动打包未完成，退出码：'+(code??signal))));
- });
-}
 async function main(){
  const [mode,configFile,action]=process.argv.slice(2);
  if(!configFile)throw Error('Missing publisher config');
- const config=JSON.parse(await fs.readFile(configFile,'utf8'));
- const directory=path.join(config.stateDirectory,'prebuild-queue');await fs.mkdir(directory,{recursive:true});
+ let input='',events=[];
  if(mode==='event'){
-  let input='';for await(const chunk of process.stdin)input+=chunk;
-  const events=mainRefEvents(action,input);if(!events.length)return;
-  for(const target of events)await fs.writeFile(path.join(directory,randomUUID()+'.pending.json'),JSON.stringify({target,at:new Date().toISOString()}),{flag:'wx'});
-  const output=path.join(directory,'runner-'+randomUUID()+'.log'),fd=openSync(output,'wx');
-  try{
-   const child=spawn(process.execPath,[self,'run',configFile],{cwd:config.stateDirectory,detached:true,windowsHide:true,env:publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment),stdio:['ignore',fd,fd]});
-   child.once('error',error=>console.error('自动准备未启动：'+error.message));child.unref();
-  }finally{closeSync(fd);}
+  if(action!=='committed')return;
+  for await(const chunk of process.stdin)input+=chunk;
+  events=mainRefEvents(action,input);if(!events.length)return;
+ }
+ const config=JSON.parse(await fs.readFile(configFile,'utf8'));
+ let binding;
+ try{binding=await preparationControlBinding(configFile);}
+ catch(error){
+  const deferred=path.join(config.stateDirectory,'upgrade-deferred');await fs.mkdir(deferred,{recursive:true});
+  await fs.writeFile(path.join(deferred,randomUUID()+'.json'),JSON.stringify({version:'teruisi-main-upgrade-deferred-v2',mode,action:action??null,events,input,at:new Date().toISOString(),error:String(error.message)}),{flag:'wx'});
+  throw error;
+ }
+ await controlExecution(binding,self,'hook-'+mode);
+ const directory=path.join(config.stateDirectory,'prebuild-queue-v2');
+ if(mode==='event'){
+  for(const target of events)await submitPreparation(directory,{origin:'hook',observedTarget:target,configSha256:binding.state.configSha256,bundleSha256:binding.state.bundleSha256});
+  await startPreparationConsumer(configFile,config);
  }else if(mode==='run'){
-  await drainPrebuildQueue(directory,()=>spawnPreparation(configFile,config));
+  await drainLatestMainQueue(configFile,{binding});
  }else throw Error('Unknown hook mode');
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===path.resolve(self))main().catch(error=>{console.error(error.message);process.exitCode=1;});

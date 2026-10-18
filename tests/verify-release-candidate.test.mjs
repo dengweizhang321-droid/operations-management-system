@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {candidateCompatibilityProfile,assertPrivateCandidateLocation,compareFunctionOnlyChange,verifyReleaseCandidate,candidateTestEnvironment} from '../tools/verify-release-candidate.mjs';
+import {candidateCompatibilityProfile,assertPrivateCandidateLocation,compareFunctionOnlyChange,verifyReleaseCandidate,candidateTestEnvironment,usesGateTimingExemption} from '../tools/verify-release-candidate.mjs';
+import {execFileSync} from 'node:child_process';
 
 test('actual normalized Windows environment retains its system path without inherited secrets',()=>{
  const env=candidateTestEnvironment({gitExe:'C:/Git/git.exe',shell5:'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',shell7:'C:/PS/pwsh.exe',pythonExe:'C:/Python/python.exe',directory:'C:/private'});
@@ -32,6 +33,16 @@ test('only digest helper changes are exempt from native cold-start evidence',()=
  b.functions[0].text='different-start()';assert.equal(compareFunctionOnlyChange(a,b),false);
  b.functions[0].text='start()';b.other[1]='changed dispatch';assert.equal(compareFunctionOnlyChange(a,b),false);
  b.other[1]='dispatch';b.other.push('new side effect');assert.equal(compareFunctionOnlyChange(a,b),false);
+});
+test('a Django-only exact gate timing exemption is detected independently of Python proof changes',async()=>{
+ const projection=raw=>{const start=raw.indexOf('function Invoke-DjangoMigrations('),end=raw.indexOf('\nfunction ',start+10);return raw.slice(start,end).trimEnd();};
+ const before=projection(execFileSync('git',['show','7ca85e40:tools/django-local-service.ps1'],{encoding:'utf8',windowsHide:true,maxBuffer:4*1024*1024}).replaceAll('\r\n','\n'));
+ const after=projection((await fs.readFile('tools/django-local-service.ps1','utf8')).replaceAll('\r\n','\n'));
+ const a={functions:[{name:'Invoke-DjangoMigrations',text:before}],other:[]},b={functions:[{name:'Invoke-DjangoMigrations',text:after}],other:[]};
+ assert.equal(candidateCompatibilityProfile([{path:'tools/django-local-service.ps1'}]).schemaProof,false);
+ assert.equal(usesGateTimingExemption(a,b),true);assert.equal(compareFunctionOnlyChange(a,b),true);
+ b.functions[0].text=after.replace('"migrate", "--noinput"','"different-action", "--noinput"');
+ assert.equal(usesGateTimingExemption(a,b),false);assert.equal(compareFunctionOnlyChange(a,b),false);
 });
 test('cannot verify dirty candidates or production checkout',async()=>{
  await assert.rejects(verifyReleaseCandidate({sourceRoot:'D:/运营管理系统',base:'HEAD'}),/生产根/);

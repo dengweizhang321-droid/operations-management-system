@@ -43,7 +43,10 @@ try {
   Assert-DeployedApplication
   Assert-RuntimeAclHardened
   Assert-WranglerLocalR2RoundTrip $InstalledAppRoot
-  foreach($relative in @('tools/django-local-service.ps1','tools/django-runtime-supervisor.ps1')) {
+  foreach($relative in @('tools/django-local-service.ps1','tools/django-runtime-supervisor.ps1',
+    'tools/bi_app_addition.py','tools/jackyun_audit_addition.py','tools/ai_schedule_addition.py',
+    'tools/jd_logistics_addition.py','tools/jd_monitor_preferences_addition.py',
+    'tools/jd_product_monitoring_addition.py','tools/tmall_warehouse_addition.py','tools/pi_agent_addition.py')) {
     $sourceFile=Join-Path $workspace $relative;$packFile=Join-Path $InstalledAppRoot $relative
     if ((Get-FileHash -LiteralPath $sourceFile).Hash -cne (Get-FileHash -LiteralPath $packFile).Hash) { throw "Candidate package bytes differ: $relative" }
   }

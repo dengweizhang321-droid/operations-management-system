@@ -52,8 +52,7 @@ def source_delta(root, baseline):
 
 def parent_proof(runtime, baseline):
     # The original146 verifier sees captured146, never the new147 source.
-    receipt, _, folder = parent.verify_active(baseline, runtime)
-    base143, _ = parent.parent_proof(runtime, folder / "baseline")
+    receipt, _, folder, base143 = parent._verify_active_with_base(baseline, runtime)
     catalogue = base143 | set(parent.STEPS)
     if len(catalogue) != 146 or receipt["migrationCount"] != 146:
         raise ValueError("JD schema requires the exact verified146 parent")
@@ -125,6 +124,10 @@ def prepared_binding(runtime, prepared_id, receipt_sha, candidate_sha):
 
 
 def load_plan(runtime, operation):
+    return _load_plan_with_base(runtime, operation)[:2]
+
+
+def _load_plan_with_base(runtime, operation):
     folder = directory(runtime, operation)
     if any(folder.glob("*.tmp")) or any(Path(runtime).glob(ACTIVE + ".*.tmp")):
         raise ValueError("Uncertain JD evidence publication; preserve temporary files")
@@ -132,7 +135,7 @@ def load_plan(runtime, operation):
     if (plan.get("version") != VERSION or plan.get("operationId") != operation
             or plan.get("steps") != list(STEPS) or plan.get("databasePolicy") != POLICY):
         raise ValueError("JD plan identity changed")
-    _, parent_sha = parent_proof(runtime, folder / "baseline")
+    base, parent_sha = parent_proof(runtime, folder / "baseline")
     evidence = common.read(folder / "candidate.json", plan["candidateEvidenceSha256"])
     if (parent_sha != plan["parentReferenceSha256"]
             or any(plan.get(key) != value for key, value in evidence.items() if key != "status")
@@ -141,15 +144,19 @@ def load_plan(runtime, operation):
     prepared = prepared_binding(runtime, plan["preparedAppId"], plan["preparedReceiptSha256"], plan["candidateManifestSha256"])
     if prepared["predecessorManifestSha256"] != plan["predecessorSha256"]:
         raise ValueError("JD prepared predecessor differs from plan")
-    return folder, plan
+    return folder, plan, frozenset(base)
 
 
 def verify_active(root, runtime, *, installed=False):
+    return _verify_active_with_base(root, runtime, installed=installed)[:3]
+
+
+def _verify_active_with_base(root, runtime, *, installed=False):
     pointer = common.read(Path(runtime) / ACTIVE)
     if (type(pointer) is not dict or set(pointer) != {"version", "operationId", "receiptSha256", "parentReferenceSha256"}
             or pointer["version"] != VERSION):
         raise ValueError("Invalid JD schema active reference")
-    folder, plan = load_plan(runtime, pointer["operationId"])
+    folder, plan, base = _load_plan_with_base(runtime, pointer["operationId"])
     receipt = common.read(folder / ("installed.json" if installed else "finalized.json"), pointer["receiptSha256"])
     intent = install_intent(folder)
     if (pointer["parentReferenceSha256"] != plan["parentReferenceSha256"]
@@ -163,7 +170,7 @@ def verify_active(root, runtime, *, installed=False):
             or receipt.get("installIntentSha256") != common.sha(folder / "install-intent.json")
             or receipt.get("databasePolicy") != POLICY or not installed and receipt.get("permissionsVerified") is not True):
         raise ValueError("JD schema receipt is incomplete or changed")
-    return receipt, plan, folder
+    return receipt, plan, folder, base
 
 
 def database_identity(connection):
@@ -266,8 +273,7 @@ def check_database(connection, base, *, permissions=True, empty=False, expected=
 
 
 def complete_database(root, runtime):
-    receipt, _, folder = verify_active(root, runtime)
-    base, _ = parent_proof(runtime, folder / "baseline")
+    receipt, _, folder, base = _verify_active_with_base(root, runtime)
     from django.db import connection
     database_identity(connection)
     check_database(connection, base, permissions=True)
