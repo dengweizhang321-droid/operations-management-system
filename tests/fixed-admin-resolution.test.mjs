@@ -107,3 +107,36 @@ for(const host of ['powershell.exe','pwsh.exe'])test(host+' qualified observer r
  const env={...process.env,FIXED_E2_OBSERVER:file};if(host==='powershell.exe')env.PSModulePath=path.join(process.env.SYSTEMROOT??process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/Modules');
  assert.match(execFileSync(host,['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(code,'utf16le').toString('base64')],{env,windowsHide:true,encoding:'utf8'}),/FINITE_OBSERVER_PRIVATE_PASSED/);
 });
+
+for(const mutation of ['valid','scope','reason','missing-parent','cycle','submillisecond-reuse','original-actor','wrong-code','missing-code'])test('v2 scoped historical reader: '+mutation,async t=>{
+ const f=await fixture(t),raw=await fs.readFile(new URL('./fixtures/fixed-admin-e2-observer-v2.ps1',import.meta.url)),digest=sha(raw);
+ assert.ok(f.queue.fixedAdminObserverQualifications.includes(digest));
+ Object.assign(f.observation,{version:'teruisi-admin-rejection-observation-e2-v2',scope:'original-dispatch-and-known-controller-paths',observerCodeSha256:digest,opaqueExclusions:[{pid:50001,reason:'not-descended-from-original-actors',chain:[{pid:50001,parentPid:50002,birth:'2026-10-18T10:00:00.0001000+00:00',name:'node.exe'},{pid:50002,parentPid:1,birth:'2026-10-17T10:00:00.0000000+00:00',name:'terminal.exe'}]}]});
+ if(mutation==='scope')f.observation.scope='global-no-controller';
+ if(mutation==='reason')f.observation.opaqueExclusions[0].reason='unrelated';
+ if(mutation==='missing-parent')f.observation.opaqueExclusions[0].chain.pop();
+ if(mutation==='cycle')f.observation.opaqueExclusions[0].chain[1].pid=50001;
+ if(mutation==='submillisecond-reuse')f.observation.opaqueExclusions[0].chain[1].birth='2026-10-18T10:00:00.0002000+00:00';
+ if(mutation==='original-actor')f.observation.opaqueExclusions[0].chain[1].pid=f.f.actors[0].pid;
+ if(mutation==='wrong-code')f.observation.observerCodeSha256=f.f.observerSha;
+ const observationRaw=Buffer.from(f.queue.canonical(f.observation));f.resolution.observationSha256=sha(observationRaw);
+ for(const [hash,bytes] of [[sha(observationRaw),observationRaw],...(mutation==='missing-code'?[]:[[digest,raw]])])await f.write(path.join(f.resolution.evidenceDirectory,'objects',hash+'.bin'),bytes);
+ await f.write(f.file,f.queue.canonical(f.resolution));
+ if(mutation==='valid'){assert.equal(await f.queue.readFixedAdminRejectionResolution(f.directory,f.dispatch,f.terminal),true);assert.equal((await f.queue.ticketResult(f.directory,f.f.fixed.requestId,f.f.fixed.ticketSha256)).status,'unknown');}
+ else await assert.rejects(f.queue.readFixedAdminRejectionResolution(f.directory,f.dispatch,f.terminal));
+});
+for(const host of ['powershell.exe','pwsh.exe'])test(host+' v2 opaque ancestry rejects ambiguity at 100ns precision',async()=>{
+ const file=path.resolve('tests/fixtures/fixed-admin-e2-observer-v2.ps1');
+ const code=`$ErrorActionPreference='Stop';$e=$null;$a=[Management.Automation.Language.Parser]::ParseFile($env:FIXED_E2_OBSERVER,[ref]$null,[ref]$e);if($e.Count){throw 'parse'};foreach($n in $a.EndBlock.Statements){if($n -is [Management.Automation.Language.FunctionDefinitionAst]){. ([scriptblock]::Create($n.Extent.Text))}};
+ function Row($Id,$Parent,$Birth){[pscustomobject]@{ProcessId=[int]$Id;ParentProcessId=[int]$Parent;CreationDate=[DateTime]::Parse($Birth).ToUniversalTime();Name='node.exe';CommandLine=$null;ExecutablePath=$null}}
+ function Reject([scriptblock]$Check){$bad=$false;try{& $Check|Out-Null}catch{$bad=$true};if(-not $bad){throw 'unsafe observer accepted'}}
+ $child=Row 50001 50002 '2026-10-18T10:00:00.0001000Z';$parent=Row 50002 1 '2026-10-17T10:00:00.0000000Z';$rows=@($child,$parent);$accepted=@(Assert-NoRelatedControllers $rows);if($accepted.Count -ne 2 -or $accepted[0].reason -cne 'not-descended-from-original-actors' -or $accepted[0].chain.Count -ne 2){throw 'causal scope not proved'};
+ Reject {Get-OpaqueOriginalAncestryExclusion $child @($child)};
+ $parent.CreationDate=[DateTime]::Parse('2026-10-18T10:00:00.0002000Z').ToUniversalTime();Reject {Get-OpaqueOriginalAncestryExclusion $child $rows};
+ $parent.CreationDate=$child.CreationDate;$parent.ParentProcessId=50001;Reject {Get-OpaqueOriginalAncestryExclusion $child $rows};
+ $parent.CreationDate=$null;Reject {Get-OpaqueOriginalAncestryExclusion $child $rows};$child.ParentProcessId=$null;Reject {Get-OpaqueOriginalAncestryExclusion $child $rows};
+ $old=Row 50003 1 '2026-10-17T10:00:00Z';$old.CommandLine='node D:/x/control-bundles/0397f12e5f9a95d1b53d060d0007f89eb863543a5b43f7448ac60b61bfa896b3/tools/main-prebuild-hook.mjs';Reject {Assert-NoRelatedControllers @($old)};
+ $descendant=Row 50004 2552 '2026-10-18T10:00:00Z';Reject {Assert-OriginalActorsExited @($descendant)};Write-Output 'V2_SCOPED_OBSERVER_BOUNDARIES_PASSED'`;
+ const env={...process.env,FIXED_E2_OBSERVER:file};if(host==='powershell.exe')env.PSModulePath=path.join(process.env.SYSTEMROOT??process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/Modules');
+ assert.match(execFileSync(host,['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(code,'utf16le').toString('base64')],{env,windowsHide:true,encoding:'utf8'}),/V2_SCOPED_OBSERVER_BOUNDARIES_PASSED/);
+});

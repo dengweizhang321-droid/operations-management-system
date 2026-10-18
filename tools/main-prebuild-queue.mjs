@@ -228,6 +228,29 @@ const adminActors=Object.freeze([
 ]);
 const adminQueueRoot=path.join(adminFixed.state,'prebuild-queue-v2');
 const adminApprovedObserverSha256='5b3f2d4d4c19f7392ae4ec989d28800b01787ba2c5522e9bd84f80eaa2b7f973';
+const adminScopedObserverSha256='dcb3dd18b81d8c680ac494dd705ed374374fe040469f873708031a84247f571d';
+export const fixedAdminObserverQualifications=Object.freeze([adminApprovedObserverSha256,adminScopedObserverSha256]);
+function adminObservationTicks(value){
+ assert.match(value??'',/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{7}(?:Z|\+00:00)$/);
+ const seconds=value.slice(0,19),milliseconds=Date.parse(seconds+'Z');assert.ok(Number.isFinite(milliseconds));assert.equal(new Date(milliseconds).toISOString().slice(0,19),seconds);
+ return BigInt(milliseconds)*10000n+BigInt(value.slice(20,27));
+}
+function adminValidateScopedObservation(observation){
+ assert.equal(observation.scope,'original-dispatch-and-known-controller-paths');assert.ok(Array.isArray(observation.opaqueExclusions));
+ const earliest=adminObservationTicks('2026-10-18T09:44:12.7474900Z'),excluded=new Set();
+ for(const exclusion of observation.opaqueExclusions){
+  assert.equal(exclusion.reason,'not-descended-from-original-actors');assert.ok(Array.isArray(exclusion.chain)&&exclusion.chain.length>0&&exclusion.chain.length<=128);assert.equal(exclusion.pid,exclusion.chain[0].pid);assert.ok(!excluded.has(exclusion.pid));excluded.add(exclusion.pid);
+  const seen=new Set();
+  for(const [index,row] of exclusion.chain.entries()){
+   assert.ok(Number.isSafeInteger(row.pid)&&row.pid>0&&row.pid<=0xffffffff);assert.ok(Number.isSafeInteger(row.parentPid)&&row.parentPid>=0&&row.parentPid<=0xffffffff);assert.ok(typeof row.name==='string'&&row.name.trim());assert.ok(!seen.has(row.pid));seen.add(row.pid);
+   const birth=adminObservationTicks(row.birth),actor=observation.actors.find(actor=>actor.pid===row.pid);
+   if(actor){assert.equal(actor.state,'reused-unrelated-pid');assert.equal(adminObservationTicks(actor.currentBirth),birth);}
+   if(index===exclusion.chain.length-1)assert.ok(birth<earliest,'Opaque ancestry must reach a preexisting process');
+   else{assert.ok(birth>=earliest,'Opaque ancestry must stop at its first preexisting process');const parent=exclusion.chain[index+1];assert.equal(row.parentPid,parent.pid);assert.ok(adminObservationTicks(parent.birth)<=birth,'Parent PID was reused after child creation');}
+  }
+ }
+}
+
 const controlNames=['publish-latest-main.mjs','publish-main-progress.mjs','release-scope-plan.mjs','main-prebuild-hook.mjs','main-schema-release.mjs','main-prebuild-status.mjs','main-prebuild-queue.mjs','main-control-dispatch.mjs'].map(name=>'tools/'+name).sort();
 const adminSourceFiles=Object.freeze({
  'tools/publish-main.mjs':adminFixed.publisherSha256,
@@ -296,11 +319,11 @@ function adminValidateResolution(value,{originals,observation,adoption}){
  assert.equal(value.version,adminFixed.version);assert.equal(value.decision,adminFixed.decision);assert.equal(value.dispatchId,adminFixed.dispatchId);assert.equal(value.requestId,adminFixed.requestId);assert.equal(value.targetCommit,adminFixed.target);
  assert.equal(value.dispatchSha256,adminFixed.dispatchSha256);assert.equal(value.originalResultSha256,adminFixed.resultSha256);assert.deepEqual(value.originals,originals.originals);
  for(const name of ['nativePreparationStarted','prepared','publicationPerformed','retryOriginal'])assert.equal(value[name],false,name);
- assert.equal(observation.version,'teruisi-admin-rejection-observation-e2-v1');assert.equal(observation.dispatchId,adminFixed.dispatchId);assert.equal(observation.originalsSha256,sha(Buffer.from(canonical(originals))));
+ assert.ok(['teruisi-admin-rejection-observation-e2-v1','teruisi-admin-rejection-observation-e2-v2'].includes(observation.version));if(observation.version.endsWith('-v2'))adminValidateScopedObservation(observation);assert.equal(observation.dispatchId,adminFixed.dispatchId);assert.equal(observation.originalsSha256,sha(Buffer.from(canonical(originals))));
  assert.deepEqual(observation.relatedControllers,[]);assert.equal(observation.packetPublishDirectoryAbsent,true);assert.equal(observation.invocationsEmpty,true);
  assert.ok(Number.isSafeInteger(observation.observerPid)&&observation.observerPid>0);
  assert.ok(Number.isSafeInteger(value.writerPid)&&value.writerPid>0&&value.writerPid!==observation.observerPid);assert.equal(observation.writerPid,value.writerPid);
- assert.equal(observation.observerCodeSha256,adminApprovedObserverSha256);assert.match(observation.observerCommandLineSha256??'',/^[a-f0-9]{64}$/);assert.ok(Number.isFinite(Date.parse(observation.observerCreationDate)));
+ assert.equal(observation.observerCodeSha256,observation.version.endsWith('-v2')?adminScopedObserverSha256:adminApprovedObserverSha256);assert.match(observation.observerCommandLineSha256??'',/^[a-f0-9]{64}$/);assert.ok(Number.isFinite(Date.parse(observation.observerCreationDate)));
  assert.deepEqual(observation.actors.map(row=>({pid:row.pid,originalBirth:row.originalBirth})),adminActors.map(actor=>({pid:actor.pid,originalBirth:actor.birth})));
  for(const row of observation.actors){assert.ok(['absent','reused-unrelated-pid'].includes(row.state));if(row.state==='reused-unrelated-pid'){assert.ok(row.currentBirth&&Date.parse(row.currentBirth)>Date.parse(row.originalBirth));assert.ok(row.currentName);}}
  const delay=Date.parse(value.at)-Date.parse(observation.at);assert.ok(Number.isFinite(delay)&&delay>=0&&delay<60000,'Observation was not fresh at resolution write');
@@ -320,7 +343,7 @@ async function adminReadResolution({file=path.join(adminQueueRoot,'resolutions',
  // Requiring a live source worktree forever would invalidate retention cleanup.
  const original=await adminVerifyOriginals({read:historicalRead,sourceIdentity:async()=>({commit:adminFixed.target,status:''})});
  const observationRaw=await object(value.observationSha256),adoptionRaw=await object(value.adoptionSha256);
- await object(adminApprovedObserverSha256);
+ await object(JSON.parse(observationRaw).observerCodeSha256);
  assert.equal(sha(observationRaw),value.observationSha256);assert.equal(sha(adoptionRaw),value.adoptionSha256);
  const adoption=JSON.parse(adoptionRaw),history=value.historicalAdoption;
  assert.equal(history.bundleManifestSha256,adoption.bundleManifestSha256);assert.equal(history.intentSha256,adoption.intentSha256);assert.equal(history.transitionProofSha256,adoption.transitionProofSha256);

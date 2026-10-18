@@ -28,3 +28,13 @@ reader 只接受上述精确 e2/d4、旧 config/bundle、原 unknown/dispatch/ti
 窄 profile 只在精确 aaca 基线、原报告 SHA、queue helper/准入终态/依赖关联/dispatch 接缝以及 consumer 只读 probe/回调均严格逆投影相等时启用；同时比较原五个执行工具、依赖 physicalRoot/tree 和 PS 模块 root/tree，漂移拒绝复用。任何其它 source 变化不获得减免。
 
 执行者未运行真实 writer、控制采用或应用部署。材料交付后由发布负责人在已授权的本机控制维护与 prepare-only 范围执行；业务版本仍是 19db，应用上线、停启及迁移不在本增量操作范围。
+
+## v2 受保护进程的限定观察修正（0be 增量）
+
+v1 的首次实际 observer 在任何 resolution/evidence 写入前，因为全局无关受保护进程缺少 CIM 路径元数据而拒绝。v1 材料保持封存。v2 的范围明确为 `original-dispatch-and-known-controller-paths`：可见旧 bundle/packet 控制路径始终拒绝；opaque 进程只能凭可读 birth、父 PID 和逐边 birth 不晚于 child 的有界祖先链，证明不是原固定 actor 的后代。链必须到达最早 actor 出生前的进程，缺元数据、缺父身份、循环、父 PID 在 child 出生后重用均拒绝。该结论不证明独立启动的 opaque 进程没有旧路径，不授权未来调用旧 packet。
+
+本次运行时代码仅 queue reader 增加 v2 精确 SHA、scope/reason 与 100ns 时间链校验；保留 v1 原 SHA 历史资格。v2 writer 要求实际 adopted reader 显式支持新 observer SHA，当前仅支持 v1 的 fb 控制包提前拒绝。其余普通用户门禁、queue→rotation、原件 CAS、复制后最后独立 observer、packet 前后未进入 native 条件不变。严格逆投影可恢复 `0be03eca5006e40e1bbfa7edb30b66bbd8625deb` queue 全字节，其余生产入口不变；未增加或放宽固定验证 profile。复用既有 App/Pi 与 a70 组合证明。
+
+新 observer PS5 实际只读运行于 2026-10-18T10:59:37–39Z，通过；输出 SHA `3ba3f4875379e1d4f57f9b22aee056e398699b36f48dc57cc268a6923b97a912`，observer SHA `dcb3dd18b81d8c680ac494dd705ed374374fe040469f873708031a84247f571d`。只写仓库外观察材料，无 queue/native 动作。PS5/PS7 及真实 reader 共 28 项通过（含 v1 历史与 v2 资格/链反例），精确逆投影和原 profile 3 项通过；外部私有编排 6 项通过。前两组原工具回传事后保存转录并注明来源，没有为补日志重复执行。外部编排 stdout/stderr 在运行时直接捕获；它替代独立 observer/角色/adoption/source 接口，只证明私有编排。
+
+新材料与结果：`D:/codex-artifacts/release-readiness-fixes-20261018/queue-admin-resolution-v2`，含 `LIVE-READONLY-RESULT.json`、`BOUNDARY-RESULT.json`、`private-verification/REPORT.json` 和冻结 `MANIFEST.json`。后续由发布负责人正常采用绑定新 source 的控制包，再按固定 operator intent 协调 e2 与 prepare-only。执行者未运行实际采用、writer 或原生准备，业务版本仍由负责人确认 19db；不追加应用停启/迁移。
