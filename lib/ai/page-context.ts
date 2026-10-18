@@ -3,7 +3,7 @@ export const AI_PAGE_CONTEXT_VERSION = 1 as const;
 export const AI_PAGE_CONTEXT_CATALOG = {
   n8n_workflows: {
     label: "自动化中心",
-    views: ["jackyun", "tmall", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat"],
+    views: ["jackyun", "tmall", "tmall_warehouse", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat", "jd_logistics"],
     suggestedTools: ["get_automation_run_status", "search_system_data"],
   },
   dashboard: {
@@ -33,7 +33,7 @@ export const AI_PAGE_CONTEXT_CATALOG = {
   },
   inventory: {
     label: "库存管理",
-    views: ["overview", "age", "plan", "stale", "inbound", "guangdong"],
+    views: ["overview", "age", "plan", "stale", "inbound", "tmall_warehouse", "guangdong"],
     suggestedTools: ["get_data_freshness", "get_inventory_health", "get_inventory_page_data", "list_replenishment_plans", "search_system_data"],
   },
   product: {

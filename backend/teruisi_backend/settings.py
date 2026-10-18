@@ -8,11 +8,13 @@ import uuid
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+from .n8n_status_config import configured_n8n_status_database_path
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Opt-in metadata-only n8n reader. Never falls back to a user's home/profile.
-N8N_STATUS_DATABASE_PATH = os.getenv("TERUISI_N8N_STATUS_DATABASE_PATH", "")
+# Opt-in metadata-only reader; process or explicitly persisted Windows setting.
+N8N_STATUS_DATABASE_PATH = configured_n8n_status_database_path()
 
 
 TRUE_VALUES = {"1", "true", "yes", "on"}

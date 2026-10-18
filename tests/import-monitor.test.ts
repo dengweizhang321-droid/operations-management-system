@@ -18,6 +18,18 @@ test("customer-service monitoring binds exactly one registered workflow to each 
   assert.match(scheduleErrorLabel("provider_error"), /模型服务拒绝/);
 });
 import { normalizeShellLocation } from "../app/shell/navigation-contract";
+
+test("inventory workflows use department and owner rows without inventing sales-store bindings", () => {
+  for (const [key, workflowId, schedule] of [
+    ["jd_logistics", "JdLogisticsDaily2026", "0 8 * * *"],
+    ["tmall_warehouse", "TmallWarehouseDaily2026", "20 8 * * *"],
+  ]) {
+    const rule = catalog.rules.find(rule => rule.workflowId === workflowId);
+    assert.deepEqual(rule?.entityKeys, [key]);
+    assert.deepEqual(rule?.schedules, [schedule]);
+    assert.equal(catalog.rules.filter(rule => rule.chainKey === key).length, 1);
+  }
+});
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ImportChainRulesView from "../app/import-chain-rules-view";
@@ -74,6 +86,10 @@ test("matrix renders workflows across columns and shops down rows", () => {
   const body = html.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1] || "";
   assert.match(head, /n8n 工作流/);
   assert.match(head, /京东 · 商品数据/);
+  assert.match(head, /京东 · 入仓库存/);
+  assert.match(head, /天猫 · 入仓库存/);
+  assert.match(body, /京东入仓监控（事业部）/);
+  assert.match(body, /天猫入仓监控（货主）/);
   assert.doesNotMatch(head, /志高商用设备旗舰店/);
   assert.match(body, /<th scope="row"><strong>志高商用设备旗舰店/);
   assert.match(body, /读取今天状态/);

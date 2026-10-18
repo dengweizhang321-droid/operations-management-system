@@ -76,8 +76,10 @@ def _complete_manual_run(row, evidence, contract):
                     if any(name in run for name in names):
                         return False
                     continue
-            if (len(nodes) != 1 or nodes[0]["type"] != expected["type"] or nodes[0].get("disabled")
-                    or nodes[0].get("continueOnFail") or nodes[0].get("onError", "stopWorkflow") != "stopWorkflow"):
+            on_error = expected.get("onError", "stopWorkflow")
+            if (on_error not in {"stopWorkflow", "continueErrorOutput"}
+                    or len(nodes) != 1 or nodes[0]["type"] != expected["type"] or nodes[0].get("disabled")
+                    or nodes[0].get("continueOnFail") or nodes[0].get("onError", "stopWorkflow") != on_error):
                 return False
             attempts = ref(run[nodes[0]["name"]])
             if not isinstance(attempts, list) or not attempts:

@@ -9,11 +9,11 @@ MODULES = {
     "inventory", "product", "workflow", "import", "settings", "ai",
 }
 VIEWS = {
-    "n8n_workflows": {"jackyun", "tmall", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat"},
+    "n8n_workflows": {"jackyun", "tmall", "tmall_warehouse", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat", "jd_logistics"},
     "dashboard": {"overview"}, "shop": {"analysis", "outlets", "platforms", "products", "promotion"},
     "market": {"ranking", "overview", "compare", "settings"}, "customer_service": {"conversations"},
     "sales": {"overview", "channel", "category", "finance", "targets"},
-    "inventory": {"overview", "age", "plan", "stale", "inbound", "guangdong"},
+    "inventory": {"overview", "age", "plan", "stale", "inbound", "tmall_warehouse", "guangdong"},
     "product": {"overview", "calculator"},
     "workflow": {"plan", "inspection", "reviews", "launch", "launch-followup", "variables"},
     "import": {"files", "history", "continuity"}, "settings": {"parameters", "master", "dingtalk", "permissions"},

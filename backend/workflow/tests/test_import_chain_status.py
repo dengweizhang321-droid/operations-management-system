@@ -4,6 +4,8 @@ import json
 import os
 import sqlite3
 import tempfile
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -21,7 +23,7 @@ class ImportChainStatusTests(SimpleTestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name) / "n8n.sqlite3"
-        self.ids = json.loads(CATALOG.read_text())["workflowIds"]
+        self.ids = json.loads(CATALOG.read_text(encoding="utf8"))["workflowIds"]
         self.now = datetime(2026, 9, 10, 2, 0, tzinfo=timezone.utc)
         with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute('CREATE TABLE workflow_entity(id TEXT, active INTEGER, isArchived INTEGER)')
@@ -67,6 +69,57 @@ class ImportChainStatusTests(SimpleTestCase):
 
     def read(self):
         return read_today_status(now=self.now)
+
+    def test_clean_native_child_resolves_persisted_config_through_settings_and_reads_metadata(self):
+        self.add()
+        # A real new Python process has no inherited application configuration.
+        # Its registry seam contains only this private synthetic DB path.
+        code = '''
+import json, sys, types, runpy
+from contextlib import nullcontext
+sys.modules['winreg'] = types.SimpleNamespace(HKEY_CURRENT_USER=1, KEY_READ=1, REG_SZ=1, REG_EXPAND_SZ=2,
+    OpenKey=lambda *args: nullcontext(1), QueryValueEx=lambda key,name: (sys.argv[1], 1))
+from teruisi_backend import n8n_status_config
+n8n_status_config.sys = types.SimpleNamespace(platform='win32')
+resolved = runpy.run_module('teruisi_backend.settings')['N8N_STATUS_DATABASE_PATH']
+from django.conf import settings
+settings.configure(N8N_STATUS_DATABASE_PATH=resolved)
+from workflow.import_chain_status import read_today_status
+from datetime import datetime, timezone
+result = read_today_status(now=datetime(2026,9,10,2,tzinfo=timezone.utc))
+print(json.dumps({'source': result['source'], 'completed': result['items'][0]['completedToday']}))
+'''
+        base = {k: v for k, v in os.environ.items() if k.upper() in {
+            "SYSTEMROOT", "WINDIR", "SYSTEMDRIVE", "PATH", "TEMP", "TMP", "USERPROFILE", "APPDATA", "LOCALAPPDATA"}}
+        base["PYTHONUTF8"] = "1"
+        result = subprocess.run([sys.executable, "-c", code, str(self.path)], cwd=CATALOG.parents[1],
+                                env=base, text=True, capture_output=True, timeout=15, check=True)
+        self.assertEqual(json.loads(result.stdout), {"source": "n8n_execution_metadata", "completed": True})
+
+    def test_inventory_manual_completion_requires_all_stages_and_successful_release(self):
+        workflows = ("JdLogisticsDaily2026", "TmallWarehouseDaily2026")
+        for workflow in workflows:
+            with self.subTest(workflow=workflow):
+                self.manual(workflow=workflow)
+                item = next(x for x in self.read()["items"] if x["workflowId"] == workflow)
+                self.assertTrue(item["completedToday"])
+        with closing(sqlite3.connect(self.path)) as conn, conn:
+            conn.execute("DELETE FROM execution_entity")
+            conn.execute("DELETE FROM execution_data")
+        for workflow in workflows:
+            mutations = [
+                lambda r, d: r["resultData"]["runData"].pop("成功后释放 helper"),
+                lambda r, d: r["resultData"]["runData"]["成功后释放 helper"][0].update(executionStatus="error"),
+                lambda r, d: next(n for n in d["nodes"] if n["name"].startswith("C·")).update(onError="continueRegularOutput"),
+                lambda r, d: r["startData"].update(destinationNode="成功后释放 helper"),
+                lambda r, d: r["resultData"]["runData"].pop(next(n["name"] for n in d["nodes"] if n["name"].startswith("C·"))),
+            ]
+            if workflow == workflows[0]:
+                mutations.append(lambda r, d: r["resultData"]["runData"].pop(next(n["name"] for n in d["nodes"] if n["name"].startswith("D·"))))
+            for mutate in mutations:
+                self.manual(workflow=workflow, mutate=mutate)
+            item = next(x for x in self.read()["items"] if x["workflowId"] == workflow)
+            self.assertFalse(item["completedToday"])
 
     def test_customer_service_four_stores_are_isolated_and_require_complete_manual_verification(self):
         ids = [i for i in self.ids if i.startswith("JdCustomerService")]

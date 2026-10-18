@@ -55,6 +55,16 @@
       "key": "tmall-masitu",
       "name": "志高马思图专卖店",
       "platform": "天猫"
+    },
+    {
+      "key": "jd_logistics",
+      "name": "京东入仓监控（事业部）",
+      "platform": "京东"
+    },
+    {
+      "key": "tmall_warehouse",
+      "name": "天猫入仓监控（货主）",
+      "platform": "天猫"
     }
   ],
   "chains": [
@@ -155,6 +165,38 @@
         "推广下载、导入并回查",
         "复查并继续下一缺失日",
         "每日货品更新与收尾"
+      ]
+    },
+    {
+      "key": "jd_logistics",
+      "label": "京东 · 入仓库存",
+      "platform": "京东",
+      "modules": [
+        "库存流水",
+        "店铺商品",
+        "实时库存",
+        "T-1库存快照"
+      ],
+      "steps": [
+        "冻结事业部来源与日期计划",
+        "串行下载、完整校验并导入",
+        "精确批次与当前版本回查",
+        "缺货提醒与投递回查",
+        "释放执行所有权"
+      ]
+    },
+    {
+      "key": "tmall_warehouse",
+      "label": "天猫 · 入仓库存",
+      "platform": "天猫",
+      "modules": [
+        "实仓良品实时库存"
+      ],
+      "steps": [
+        "冻结货主与采集日",
+        "导出签收、完整校验并导入",
+        "精确批次与当前版本回查",
+        "释放执行所有权"
       ]
     }
   ],
@@ -362,6 +404,32 @@
       ],
       "definitionFile": "automation/n8n/tmall-masitu-seven-day-gap-loop.workflow.json",
       "masterIntervalDays": 1
+    },
+    {
+      "chainKey": "jd_logistics",
+      "entityKeys": [
+        "jd_logistics"
+      ],
+      "workflowId": "JdLogisticsDaily2026",
+      "name": "京东物流四类数据受控下载与导入",
+      "timezone": "Asia/Shanghai",
+      "schedules": [
+        "0 8 * * *"
+      ],
+      "definitionFile": "automation/n8n/jd-logistics-daily.workflow.json"
+    },
+    {
+      "chainKey": "tmall_warehouse",
+      "entityKeys": [
+        "tmall_warehouse"
+      ],
+      "workflowId": "TmallWarehouseDaily2026",
+      "name": "天猫入仓监控·实时库存下载与导入",
+      "timezone": "Asia/Shanghai",
+      "schedules": [
+        "20 8 * * *"
+      ],
+      "definitionFile": "automation/n8n/tmall-warehouse-daily.workflow.json"
     }
   ]
 }

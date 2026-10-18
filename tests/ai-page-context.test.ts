@@ -38,6 +38,15 @@ test("AI page context is normalized from a strict allowlist", () => {
   assert.equal(normalizeAiPageContext({ module: "__proto__", view: "overview" }), null);
 });
 
+test("inventory and collector destinations create valid page context on navigation and refresh", () => {
+  for (const [module, view] of [["inventory", "tmall_warehouse"], ["n8n_workflows", "tmall_warehouse"], ["n8n_workflows", "jd_logistics"]]) {
+    const context = createAiPageContext({ module, view, startDate: "2026-10-01", endDate: "2026-10-18" });
+    assert.equal(context.view, view);
+    assert.deepEqual(normalizeAiPageContext(JSON.parse(serializeAiPageContextForSystemPrompt(context))), context);
+  }
+  assert.equal(normalizeAiPageContext({ module: "inventory", view: "unregistered_warehouse" }), null);
+});
+
 test("page context stays separate from user text and participates in retry intent", () => {
   const context = createAiPageContext({ module: "inventory", view: "age", startDate: "2026-08-01", endDate: "2026-08-27" });
   const prompt = buildAiPageContextPrompt(context);

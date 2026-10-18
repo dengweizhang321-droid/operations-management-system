@@ -65,7 +65,7 @@ export default function ImportChainRulesView({ currentUser }: { currentUser: Cur
       {statusError && <div className="import-monitor-error" role="alert">今日状态暂时无法核实：{statusError}</div>}
       <div className="data-table-wrap import-matrix-scroll" tabIndex={0} role="region" aria-label="链路与店铺规则矩阵，可横向滚动">
         <table className="data-table import-chain-matrix" data-column-filter-scope="none"><thead>
-          <tr><th rowSpan={2} scope="col">吉客云 / 店铺</th><th colSpan={chains.length} scope="colgroup" className="import-matrix-group">n8n 工作流</th></tr>
+          <tr><th rowSpan={2} scope="col">吉客云 / 店铺 / 库存主体</th><th colSpan={chains.length} scope="colgroup" className="import-matrix-group">n8n 工作流</th></tr>
           <tr>{chains.map((chain) => <th scope="col" key={chain.key}><strong>{chain.label}</strong><small>{chain.modules.length} 个数据模块</small></th>)}</tr>
         </thead><tbody>{entities.map((entity) => <tr key={entity.key}>
           <th scope="row"><strong>{entity.name}</strong><small>{entity.platform}</small></th>
