@@ -5,6 +5,8 @@ from urllib.parse import urlencode
 from django.http import QueryDict
 from django.test import TestCase
 from django.utils import timezone
+from django.db import transaction
+from common.import_recovery import lock_upload_guard
 
 from inventory.errors import InventoryApiError
 from inventory.import_service import import_inventory_payload
@@ -12,10 +14,26 @@ from inventory.models import InventoryImportAttempt, InventoryImportBatch, Inven
 from inventory.recovery import read_recovery
 from inventory.tests import test_imports as fixtures
 from inventory.tests.test_imports import age_payload, stock_payload, stock_row
+from inventory.uploads import release_upload
 
 
 class InventoryRecoveryTests(TestCase):
     setUp = fixtures.InventoryImportTests.setUp
+
+    def test_released_upload_rejects_old_claim(self):
+        payload = stock_payload(stock_row("P1", 2))
+        token = InventoryImportScopeHead.objects.get(dataset="stock").state_token
+        guarded, session = self.guarded(payload, token)
+        release_upload({"action": "release", "uploadId": str(session.id), "ownerToken": session.owner_token}, "admin@example.test")
+        session.refresh_from_db()
+        self.assertEqual(session.status, "ready")
+        self.assertEqual(session.owner_token, "")
+        self.assertEqual(read_recovery(self.query(payload, session), "admin@example.test")["uploadStatus"], "ready")
+        with transaction.atomic(), self.assertRaisesMessage(ValueError, "所有权已变化"):
+            lock_upload_guard(guarded["publicationGuard"], InventoryRawUploadSession, "admin@example.test", "inventory", payload["file"]["rawFileHash"])
+        with self.assertRaisesMessage(InventoryApiError, "所有权已变化"):
+            import_inventory_payload(guarded, "admin@example.test")
+        self.assertEqual(InventoryImportBatch.objects.count(), 0)
 
     def guarded(self, payload, token):
         module = "inventory" if payload["dataset"] == "stock" else "inventory_age"

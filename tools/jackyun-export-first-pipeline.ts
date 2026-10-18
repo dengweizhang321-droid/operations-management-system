@@ -39,6 +39,7 @@ import { runJackyunDownload, type JackyunDownloadRunOptions } from "./jackyun-do
 import type { BrowserHandoff } from "./jackyun-daily-runner";
 import { getJackyunProfileStatus, normalizeJackyunLocalBaseUrl, verifyPublishedJackyunBatches } from "./jackyun-n8n-pipeline";
 import { jackyunSalesPeriod, rollingJackyunSalesStartDate } from "../lib/jackyun/sales-period";
+import { assertNoFreshRestart, assertFreshRestartSuccessor, activateFreshRestart, type FreshRestartOptions } from "../lib/jackyun/fresh-restart";
 
 export const jackyunExportFirstPrefix = "/jackyun/export-first/";
 export const jackyunWebSessionActions = ["plan-web-session", "export-all", "validate", "import", "verify"];
@@ -86,6 +87,8 @@ export type ExportFirstDependencies = {
   readOwnerState?: typeof readN8nJackyunOwnerState;
   humanAuthority?: BoundHumanAuthority;
   repairApiFile?: typeof repairOriginalApiFile;
+  freshRestartEvidence?: FreshRestartOptions["readEvidence"];
+  freshRestartBoundary?: (name: string) => Promise<void>;
 };
 const sha = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
 const nowOf = (deps: ExportFirstDependencies) => (deps.now?.() ?? new Date()).toISOString();
@@ -231,6 +234,12 @@ async function readBoundHandoff(root: string, plan: JackyunExportFirstPlan, poli
   return { handoff, receipt };
 }
 
+export async function verifyFreshRestartHandoff(root: string, plan: JackyunExportFirstPlan, module: JackyunModule) {
+  checkPlan(plan, plan.executionId);
+  const policy = await readJsonFile<Policy>(path.join(root, "config/jackyun-export-first-policy.json"));
+  return (await readBoundHandoff(root, plan, policy, module)).handoff;
+}
+
 async function runImports(root: string, plan: JackyunExportFirstPlan, policy: Policy, dryRun: boolean, deps: ExportFirstDependencies, importRecovery?: ImportRecoveryBinding) {
   // This full revalidation happens before the first upload, including on retries.
   const bound = new Map<JackyunModule, BrowserHandoff>();
@@ -318,6 +327,8 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
   return withJackyunRunLock({ runId, purpose: "n8n_export_first",
     ...(deps.lockDirectory ? { lockDirectory: deps.lockDirectory } : {}) }, async lock => {
     await lock.assertOwned();
+    assertNoFreshRestart(root, [executionId, ...(deps.recoveryRequest?.kind === "retry" ? [deps.recoveryRequest.logicalExecutionId, deps.recoveryRequest.failedExecutionId] : [])]);
+    await assertFreshRestartSuccessor(root, executionId, deps.humanAuthority);
     const assertOwned = lock.assertOwned;
     deps = { ...deps, assertOwned };
     const policy = await readJsonFile<Policy>(path.join(root, "config", "jackyun-export-first-policy.json"));
@@ -338,6 +349,20 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
     let importRecovery: ImportRecoveryBinding | undefined;
     const activePath = path.join(paths(root).pipelineRoot, "active.json");
     let active = await readJsonFileOr<{ runId: string; executionId: string } | null>(activePath, null);
+    if (deps.humanAuthority?.authority.kind === "new" && deps.humanAuthority.authority.supersedes) {
+      if (deps.recoveryRequest?.kind !== "new") throw new Error("从头采集只能使用完整 new 入口。");
+      if (action === "plan-api") {
+        await ensureNewPlanReady();
+        await activateFreshRestart(root, deps.humanAuthority, createExportFirstPlan(executionId, action, nowOf(deps)), {
+          assertOwned, ownerToken: lock.ownerToken, at: nowOf(deps), request: deps.request, readEvidence: deps.freshRestartEvidence,
+          boundary: deps.freshRestartBoundary });
+        active = await readJsonFileOr(activePath, null);
+      } else {
+        const receipt = await readJsonFileOr<{ reservationDigest: string } | null>(path.join(paths(root).pipelineRoot, "fresh-restarts",
+          deps.humanAuthority.authority.supersedes.logicalExecutionId, "activated.json"), null);
+        if (!receipt) throw new Error("从头采集尚未完成 A 激活，禁止业务动作。");
+      }
+    }
     let unifiedResume = false;
     let collectionRetirement: CaptureRetirement | null = null;
     let control = deps.recoveryRequest ? await readRecoveryControl(root,

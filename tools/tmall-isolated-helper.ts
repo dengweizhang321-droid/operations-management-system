@@ -6,6 +6,7 @@ import { readN8nRetryContext, readN8nJackyunRecoveryEntry, readJackyunFailedStop
 import { reserveRetryDispatch } from "../lib/jackyun/retry-dispatch-reservation";
 import { reserveJackyunFailureRetry } from "../lib/jackyun/retry-budget";
 import { readJackyunRecoveryTarget, dispatchHumanJackyunRetry } from "../lib/jackyun/human-retry";
+import { assertNoFreshRestart } from "../lib/jackyun/fresh-restart";
 
 export const isolatedHelperProtocol = "tmall-store-isolation-v1";
 export const isolatedHelperTokenHeader = "x-teruisi-helper-slot-token";
@@ -298,6 +299,7 @@ export async function serveIsolatedHelper(options: {
           const context = readN8nRetryContext(scalar(request.headers, "x-teruisi-source-workflow-id") ?? "", scalar(request.headers, "x-teruisi-failed-execution-id") ?? "", reserve ? retryExecutionId : undefined);
           let newJackyunProtocol = false;
           if (context.workflowId === "J8kY2mQ5vR7sT4pN") {
+            assertNoFreshRestart(options.mutableRoot, [context.originalExecutionId, context.failedExecutionId]);
             newJackyunProtocol = n8nJackyunRequiresRecoveryHeader(context.failedExecutionId, true);
             if (newJackyunProtocol) readN8nJackyunRecoveryEntry(context.failedExecutionId, { allowTerminal: true });
           }

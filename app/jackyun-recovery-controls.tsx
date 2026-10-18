@@ -1,7 +1,9 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { FreshRestartTarget } from "../lib/jackyun/fresh-restart";
 
-type Target = { state: "empty" | "failed" | "waiting" | "completed" | "blocked"; newCollectionAllowed: boolean;
+type Target = { state: "empty" | "failed" | "waiting" | "completed" | "blocked" | "fresh_restart_pending"; newCollectionAllowed: boolean;
+  freshRestartAllowed?: boolean; supersedes?: FreshRestartTarget; freshRestartReason?: string;
   logicalExecutionId?: string; failedExecutionId?: string; snapshotDate?: string; salesStartDate?: string; salesEndDate?: string };
 export function JackyunRecoveryControls() {
   const [target, setTarget] = useState<Target | null>(null), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
@@ -15,14 +17,15 @@ export function JackyunRecoveryControls() {
     } catch (error) { setTarget(null); setMessage(error instanceof Error ? error.message : "原运行状态无法确认。"); }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
-  const submit = async (kind: "retry" | "new") => {
+  const submit = async (kind: "retry" | "new" | "restart") => {
     if (busy || !target || kind === "retry" && (!target.logicalExecutionId || !target.failedExecutionId)) return;
-    const key = `${kind}:${target.logicalExecutionId ?? "empty"}:${target.failedExecutionId ?? "empty"}`;
+    if (kind === "restart" && (!target.freshRestartAllowed || !target.supersedes)) return;
+    const key = `${kind}:${target.logicalExecutionId ?? "empty"}:${target.failedExecutionId ?? "empty"}:${kind === "restart" ? JSON.stringify(target.supersedes) : ""}`;
     if (!pending.current || pending.current.key !== key) pending.current = { key, id: crypto.randomUUID() };
     setBusy(true); setMessage("");
     try {
       const response = await fetch("/api/imports/recovery/run", { method: "POST", headers: { "content-type": "application/json", "x-teruisi-recovery-request-id": pending.current.id },
-        body: JSON.stringify(kind === "new" ? { kind } : { kind, logicalExecutionId: target.logicalExecutionId, failedExecutionId: target.failedExecutionId }) });
+        body: JSON.stringify(kind === "restart" ? { kind: "new", supersedes: target.supersedes } : kind === "new" ? { kind } : { kind, logicalExecutionId: target.logicalExecutionId, failedExecutionId: target.failedExecutionId }) });
       const result = await response.json();
       if (!response.ok || result.ok !== true) throw new Error(result.message ?? result.error ?? "派发结果未确认，请保留同一请求编号并核查原执行。");
       setMessage(result.status === "error" ? "原完整执行已停止。请查看具体障碍，处理后完整重试。" : "完整执行请求已受理。系统会核验原进度，并等待、接续或说明所需人工动作；以五类批次验收为准。");
@@ -37,8 +40,10 @@ export function JackyunRecoveryControls() {
     <div className="report-actions">
       <button type="button" onClick={() => void submit("retry")} disabled={busy || !target || !["failed", "completed"].includes(target.state)}>{busy ? "正在协调" : target?.state === "waiting" ? "等待原运行" : target?.state === "completed" ? "完整复验已完成运行" : "完整重试原运行"}</button>
       <button type="button" onClick={() => void submit("new")} disabled={busy || !target?.newCollectionAllowed}>新采集</button>
+      <button type="button" onClick={() => void submit("restart")} disabled={busy || !target?.freshRestartAllowed}>五表从头重新采集</button>
       <button type="button" onClick={() => void refresh()} disabled={busy}>刷新状态</button>
     </div>
     {message && <p role="status">{message}</p>}
+    {target?.freshRestartReason && <p role="status">{target.freshRestartReason}</p>}
   </section>;
 }

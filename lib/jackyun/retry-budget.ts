@@ -5,6 +5,7 @@ import { readJsonDurableOr, writeJsonDurable } from "./json-file";
 import { readRecoveryControl, controlDigest } from "./recovery-control";
 import { jackyunWorkflowId } from "./preflight-recovery";
 import { readJackyunRecoveryPolicy } from "./recovery-policy";
+import { assertNoFreshRestart } from "./fresh-restart";
 
 type RetryContext = { workflowId: string; failedExecutionId: string; originalExecutionId: string; originalScheduledAt: string };
 type Intent = { version: "jackyun-retry-budget-v1"; context: RetryContext; dispatcherExecutionId: string;
@@ -23,6 +24,7 @@ export async function reserveJackyunFailureRetry(root: string, context: RetryCon
   if (!Number.isFinite(Date.parse(now)) || Date.parse(now) < Date.parse(options.failedStoppedAt)) throw new Error("重试预算时间无效。");
   return withJackyunRunLock({ runId: `n8n-export-first-${context.originalExecutionId}`, purpose: "retry_dispatch",
     ...(options.lockDirectory ? { lockDirectory: options.lockDirectory } : {}) }, async lock => {
+    assertNoFreshRestart(root, [context.originalExecutionId, context.failedExecutionId]);
     const control = await readRecoveryControl(root, context.originalExecutionId);
     const policy = await readJackyunRecoveryPolicy(root), policyDigest = controlDigest(policy);
     if (control?.record.decision === "completed") return { ok: true, reservationStatus: "completed", failedExecutionId: context.failedExecutionId, retryExecutionId: dispatcherExecutionId };
@@ -74,6 +76,7 @@ export async function claimJackyunAutomaticDispatch(root: string, context: Retry
     || BigInt(executionId) <= BigInt(dispatcherExecutionId)) throw new Error("JACKYUN_DISPATCH_MANUAL_ACTION：自动派发消费者身份无效。");
   return withJackyunRunLock({ runId: `dispatch-${executionId}`, purpose: "automatic_dispatch_admission",
     ...(options.lockDirectory ? { lockDirectory: options.lockDirectory } : {}) }, async lock => {
+    assertNoFreshRestart(root, [context.originalExecutionId, context.failedExecutionId]);
     const directory = path.join(root, "outputs/jackyun-export-first/retry-budget", context.originalExecutionId);
     const names = await readdir(directory).catch(error => { if (error.code === "ENOENT") return []; throw error; });
     if (!names.length || names.length > 3 || names.some(n => !/^000[1-3]\.json$/.test(n))) throw new Error("JACKYUN_DISPATCH_MANUAL_ACTION：自动派发缺少完整持久预算或存在未决记录；请协调原派发，禁止重放。");

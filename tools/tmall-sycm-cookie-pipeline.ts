@@ -20,6 +20,7 @@ import { readN8nJackyunRecoveryEntry, assertN8nJackyunAAdmission, n8nJackyunRequ
 import { claimJackyunAutomaticDispatch } from "../lib/jackyun/retry-budget";
 import { parseRecoveryRequest } from "../lib/jackyun/recovery-control";
 import { readHumanRetryAuthority, claimHumanRetryAuthority } from "../lib/jackyun/human-retry";
+import { assertNoFreshRestart } from "../lib/jackyun/fresh-restart";
 import { repairOriginalApiFile } from "./jackyun-api-export";
 import { claimAutomaticJackyunApiResume } from "../lib/jackyun/automatic-api-resume";
 import { inspectSubmittedApiTask } from "./jackyun-api-export";
@@ -1566,6 +1567,7 @@ async function serveCommand(argv: string[]) {
         const recoveryHeader = request.headers["x-teruisi-jackyun-recovery"];
         if (n8nJackyunRequiresRecoveryHeader(requestExecutionId!) && typeof recoveryHeader !== "string") throw new Error("JACKYUN_ENTRY_MANUAL_ACTION：当前完整入口必须提供原恢复绑定，禁止降级到旧计划路径。");
         const recoveryRequest = typeof recoveryHeader === "string" ? parseRecoveryRequest(recoveryHeader) : undefined;
+        assertNoFreshRestart(projectRoot, [requestExecutionId!, ...(recoveryRequest?.kind === "retry" ? [recoveryRequest.logicalExecutionId, recoveryRequest.failedExecutionId] : [])]);
         let failureRetryAttempt: number | undefined;
         if (recoveryRequest && !isDeepStrictEqual(recoveryRequest, readN8nJackyunRecoveryEntry(requestExecutionId!))) throw new Error("完整恢复请求与原入口证据不一致。");
         if (action === "plan" || action === "plan-api") await requireJackyunCredentialReadiness(projectRoot);

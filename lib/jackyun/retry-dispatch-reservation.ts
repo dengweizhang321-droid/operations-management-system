@@ -1,6 +1,7 @@
 import { closeSync, lstatSync, mkdirSync, openSync, readdirSync, writeFileSync, fsyncSync } from "node:fs";
 import path from "node:path";
 import { assertRetryContextIdentity } from "./n8n-retry-context";
+import { assertNoFreshRestart } from "./fresh-restart";
 
 // Operational send intent, not a business-completion receipt. Never expires or
 // auto-releases: response loss and dispatcher restart must not permit another POST.
@@ -8,6 +9,7 @@ export function reserveRetryDispatch(root: string, context: {
   workflowId: string; failedExecutionId: string; originalExecutionId: string; originalScheduledAt: string;
 }, retryExecutionId: string) {
   assertRetryContextIdentity(context.workflowId, context.failedExecutionId);
+  if (context.workflowId === "J8kY2mQ5vR7sT4pN") assertNoFreshRestart(root, [context.originalExecutionId, context.failedExecutionId]);
   if (!path.isAbsolute(root) || !/^[1-9]\d{0,19}$/.test(retryExecutionId)) throw new Error("invalid_retry_reservation");
   const directory = path.join(root, "outputs", "n8n-retry-dispatch");
   for (let cursor = directory; ; cursor = path.dirname(cursor)) {

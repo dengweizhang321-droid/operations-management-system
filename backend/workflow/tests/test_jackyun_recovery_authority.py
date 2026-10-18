@@ -43,3 +43,18 @@ class JackyunRecoveryAuthorityTests(TestCase):
         self.assertEqual(self.authorize(str(uuid.uuid4()), {"kind": "new"}).status_code, 200)
         self.assertEqual(self.authorize(str(uuid.uuid4()), role="operator").status_code, 403)
         self.assertEqual(self.authorize(str(uuid.uuid4()), {"kind": "new", "logicalExecutionId": "8548"}).status_code, 400)
+
+    def test_fresh_restart_authority_is_exact_and_immutable_permission_only(self):
+        target = {"logicalExecutionId": "10037", "sourceExecutionId": "10039", "failedExecutionId": "10048",
+                  "sourceDigest": "1" * 64, "controlDigest": "2" * 64, "activeDigest": "3" * 64}
+        request_id = str(uuid.uuid4())
+        first = self.authorize(request_id, {"kind": "new", "supersedes": target})
+        self.assertEqual(first.status_code, 200, first.content)
+        self.assertEqual(first.json()["supersedes"], target)
+        self.assertEqual(self.authorize(request_id, {"kind": "new", "supersedes": target}).json(), first.json())
+        self.assertEqual(self.authorize(request_id, {"kind": "new", "supersedes": {**target, "sourceDigest": "4" * 64}}).status_code, 409)
+        for invalid in (None, [], {}, {**target, "ownerToken": "injected"}, {**target, "failedExecutionId": "1"}, {**target, "activeDigest": "invalid"}):
+            with self.subTest(target=invalid):
+                self.assertEqual(self.authorize(str(uuid.uuid4()), {"kind": "new", "supersedes": invalid}).status_code, 400)
+        self.assertEqual(self.authorize(str(uuid.uuid4()), {"kind": "retry", "logicalExecutionId": "10037", "failedExecutionId": "10048", "supersedes": target}).status_code, 400)
+        self.assertEqual(self.authorize(str(uuid.uuid4()), {"kind": "new", "supersedes": target}, role="operator").status_code, 403)

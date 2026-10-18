@@ -3,7 +3,7 @@ import { lstatSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { homedir } from "node:os";
 import { jackyunWorkflowId } from "./preflight-recovery";
-import { decodeN8nPreflightEvidence, isProvenJackyunPreclaimWaiter, n8nEvidenceTime } from "./n8n-preflight-decode";
+import { decodeN8nPreflightEvidence, isProvenJackyunPreclaimWaiter, n8nEvidenceTime, assertFreshRestartSerialFailure } from "./n8n-preflight-decode";
 import { assertRetryContextIdentity, decodeN8nRetryContext, decodeN8nFixedPlanContext } from "./n8n-retry-context";
 import { parseRecoveryRequest, type RecoveryRequest } from "./recovery-control";
 
@@ -46,6 +46,34 @@ function openN8nMetadata() {
     const parent = path.dirname(currentPath); if (parent === currentPath) break; currentPath = parent;
   }
   return new DatabaseSync(databasePath, { readOnly: true });
+}
+
+/** Read-only fresh-restart proof. Terminal source and latest attempt plus no
+ * other business owner are required; absence of a retry is never inferred. */
+export function readN8nFreshRestartEvidence(sourceId: string, failedId: string, admittedId?: string) {
+  if (![sourceId, failedId, ...(admittedId ? [admittedId] : [])].every(v => /^[1-9]\d{0,19}$/.test(v))) throw new Error("从头采集执行身份无效。");
+  const db = openN8nMetadata();
+  try {
+    db.exec("PRAGMA query_only=ON; PRAGMA busy_timeout=3000; BEGIN");
+    if (admittedId) {
+      const admitted = db.prepare("SELECT workflowId,status,deletedAt FROM execution_entity WHERE id=?").get(admittedId);
+      if (!admitted || admitted.workflowId !== jackyunWorkflowId || admitted.status !== "running" || admitted.deletedAt !== null) throw new Error("从头采集新 owner 无法确认。");
+    }
+    const live = db.prepare("SELECT id,status FROM execution_entity WHERE workflowId=? AND status NOT IN ('error','success','canceled','crashed') LIMIT 129").all(jackyunWorkflowId);
+    if (live.length > 128 || live.some(row => {
+      if (String(row.id) === admittedId) return false;
+      const raw = row.status === "waiting" ? db.prepare("SELECT data FROM execution_data WHERE executionId=? AND length(data)<=1048576").get(row.id)?.data : null;
+      return typeof raw !== "string" || !isProvenJackyunPreclaimWaiter(raw);
+    })) throw new Error("从头采集仍有旧 owner 或未知在途执行。");
+    const read = (id: string, source: boolean) => {
+      const row = db.prepare("SELECT id,workflowId,status,startedAt,stoppedAt,retrySuccessId,deletedAt FROM execution_entity WHERE id=? AND workflowId=?").get(id, jackyunWorkflowId);
+      const data = db.prepare("SELECT data FROM execution_data WHERE executionId=? AND length(data)<=1048576").get(id)?.data;
+      if (!row || row.status !== "error" || row.deletedAt !== null || row.retrySuccessId !== null || typeof data !== "string") throw new Error("从头采集旧执行缺少精确失败终态。");
+      assertFreshRestartSerialFailure(data, source);
+      return decodeN8nPreflightEvidence(row, data, 0);
+    };
+    return { source: read(sourceId, true), latest: read(failedId, failedId === sourceId) };
+  } finally { db.close(); }
 }
 
 /** The new request is read from the persisted fixed entry node, not inferred

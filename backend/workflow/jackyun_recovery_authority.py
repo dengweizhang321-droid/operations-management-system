@@ -10,20 +10,36 @@ VERSION = "jackyun-human-retry-authority-v1"
 PATH = "/api/workflow/jackyun-recovery-authority"
 
 
+def validate_payload(payload):
+    if not isinstance(payload, dict) or payload.get("kind") not in {"retry", "new"}:
+        raise WorkflowApiError("必须明确选择原逻辑运行重试或新采集")
+    required = {"kind"} if payload["kind"] == "new" else {"kind", "logicalExecutionId", "failedExecutionId"}
+    if payload["kind"] == "new" and "supersedes" in payload:
+        required.add("supersedes")
+        target = payload["supersedes"]
+        if not isinstance(target, dict) or set(target) != {"logicalExecutionId", "failedExecutionId", "sourceExecutionId", "sourceDigest", "controlDigest", "activeDigest"}:
+            raise WorkflowApiError("从头采集必须绑定精确旧运行和摘要")
+        if any(not isinstance(target[k], str) or not re.fullmatch(r"[1-9]\d{0,19}", target[k]) for k in ("logicalExecutionId", "failedExecutionId", "sourceExecutionId")):
+            raise WorkflowApiError("从头采集旧运行身份无效")
+        if not int(target["logicalExecutionId"]) <= int(target["sourceExecutionId"]) <= int(target["failedExecutionId"]):
+            raise WorkflowApiError("从头采集旧运行顺序无效")
+        if any(not isinstance(target[k], str) or not re.fullmatch(r"[a-f0-9]{64}", target[k]) for k in ("sourceDigest", "controlDigest", "activeDigest")):
+            raise WorkflowApiError("从头采集旧运行摘要无效")
+    if set(payload) != required:
+        raise WorkflowApiError("人工恢复授权字段集合无效")
+    if payload["kind"] == "retry":
+        if any(not isinstance(payload[k], str) or not re.fullmatch(r"[1-9]\d{0,19}", payload[k]) for k in required - {"kind"}) or int(payload["failedExecutionId"]) < int(payload["logicalExecutionId"]):
+            raise WorkflowApiError("人工恢复必须绑定精确原运行及失败尝试")
+    return payload
+
+
 def authorize(payload, request_id):
     try:
         if str(uuid.UUID(request_id)) != request_id:
             raise ValueError()
     except (ValueError, AttributeError) as error:
         raise WorkflowApiError("人工恢复请求必须绑定唯一 UUID") from error
-    if not isinstance(payload, dict) or payload.get("kind") not in {"retry", "new"}:
-        raise WorkflowApiError("必须明确选择原逻辑运行重试或新采集")
-    required = {"kind"} if payload["kind"] == "new" else {"kind", "logicalExecutionId", "failedExecutionId"}
-    if set(payload) != required:
-        raise WorkflowApiError("人工恢复授权字段集合无效")
-    if payload["kind"] == "retry":
-        if any(not isinstance(payload[k], str) or not re.fullmatch(r"[1-9]\d{0,19}", payload[k]) for k in required - {"kind"}) or int(payload["failedExecutionId"]) < int(payload["logicalExecutionId"]):
-            raise WorkflowApiError("人工恢复必须绑定精确原运行及失败尝试")
+    validate_payload(payload)
     receipt = WorkflowWriteRequestReceipt.objects.get(request_id=request_id)
     return {"ok": True, "version": VERSION, "authorizationId": request_id, "workflowId": "J8kY2mQ5vR7sT4pN",
             **payload, "createdAt": receipt.created_at.isoformat(), "expiresAt": receipt.expires_at.isoformat()}
@@ -41,4 +57,5 @@ def read_authority(request_id):
     value = receipt.response_payload
     if not isinstance(value, dict) or value.get("version") != VERSION or value.get("authorizationId") != request_id:
         raise WorkflowApiError("人工恢复授权回执不完整", status=409)
+    validate_payload({key: value[key] for key in ("kind", "logicalExecutionId", "failedExecutionId", "supersedes") if key in value})
     return value

@@ -55,6 +55,20 @@ class ImportRecoveryTests(TestCase):
         self.assertEqual(replay["batch"]["id"], current["batch"]["id"])
         self.assertEqual(ErpReferenceImportBatch.objects.count(), 1)
 
+    def test_fresh_upload_same_content_keeps_single_fact_and_batch(self):
+        original = product_payload()
+        first = import_payload(original, "admin@example.test")
+        fresh = product_payload(raw_seed="fresh-export-new-bytes")
+        token = ErpReferenceImportScopeHead.objects.get(scope_key=SOURCE_SCOPE_KEYS["products"]).state_token
+        guarded, session, _ = self.guarded(fresh, token)
+        session.fingerprint = session.fingerprint.replace("n8n-export-first-8548", "n8n-export-first-9002")
+        session.save(update_fields=["fingerprint"])
+        replay = import_payload(guarded, "admin@example.test")
+        self.assertEqual(replay["status"], "duplicate")
+        self.assertEqual(replay["batch"]["id"], first["batch"]["id"])
+        self.assertEqual(ErpReferenceImportBatch.objects.count(), 1)
+        self.assertEqual(ErpProductMaster.objects.count(), len(original["rows"]))
+
     def test_former_upload_owner_cannot_publish_even_identical_content(self):
         payload = product_payload()
         token = ErpReferenceImportScopeHead.objects.get(scope_key=SOURCE_SCOPE_KEYS["products"]).state_token

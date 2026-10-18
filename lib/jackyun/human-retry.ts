@@ -3,17 +3,19 @@ import { lstat, readdir } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 import { readJsonDurableOr as readJsonFileOr, writeJsonDurable } from "./json-file";
 import { readRecoveryControl, controlDigest, recoveryProtocol, type RecoveryRequest } from "./recovery-control";
-import { readN8nJackyunOwnerState, readN8nJackyunPlanContext, readN8nJackyunOriginalPlanContext, readAcceptedJackyunHumanDispatch } from "./n8n-preflight-evidence";
+import { readN8nJackyunOwnerState, readN8nJackyunPlanContext, readN8nJackyunOriginalPlanContext, readAcceptedJackyunHumanDispatch, type readN8nFreshRestartEvidence } from "./n8n-preflight-evidence";
 import { withJackyunRunLock } from "./run-lock";
 import { jackyunWorkflowId } from "./preflight-recovery";
 import { hourlyRetryWebhookPath } from "../../tools/n8n-hourly-retry-policy.mjs";
+import { assertNoFreshRestart, inspectFreshRestart, validFreshRestartTarget, type FreshRestartTarget } from "./fresh-restart";
 
 export type HumanRetryAuthority = { ok: true; version: "jackyun-human-retry-authority-v1"; authorizationId: string;
   workflowId: typeof jackyunWorkflowId; createdAt: string; expiresAt: string }
-  & ({ kind: "new" } | { kind: "retry"; logicalExecutionId: string; failedExecutionId: string });
+  & ({ kind: "new"; supersedes?: FreshRestartTarget } | { kind: "retry"; logicalExecutionId: string; failedExecutionId: string });
 export type BoundHumanAuthority = { authority: HumanRetryAuthority; executionId: string; proofDigest: string };
 type RecoveryTarget = { ok: true; state: string; newCollectionAllowed: boolean; logicalExecutionId?: string; failedExecutionId?: string;
-  sourceExecutionId?: string; snapshotDate?: string; salesStartDate?: string; salesEndDate?: string; originalScheduledAt?: string | null; sourceDigest?: string };
+  sourceExecutionId?: string; snapshotDate?: string; salesStartDate?: string; salesEndDate?: string; originalScheduledAt?: string | null; sourceDigest?: string;
+  freshRestartAllowed?: boolean; supersedes?: FreshRestartTarget; freshRestartReason?: string };
 const uuid = (v: unknown): v is string => typeof v === "string" && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(v);
 
 export async function readHumanRetryAuthority(authorizationId: string, request: typeof fetch = fetch): Promise<HumanRetryAuthority> {
@@ -23,11 +25,12 @@ export async function readHumanRetryAuthority(authorizationId: string, request: 
   const raw = await response.text();
   if (!response.ok || Buffer.byteLength(raw) > 8192) throw new Error("人工恢复授权无法确认或已过期，请重新从系统页面完整重试。");
   const value = JSON.parse(raw) as HumanRetryAuthority;
-  const keys = ["ok", "version", "authorizationId", "workflowId", "kind", "createdAt", "expiresAt", ...(value?.kind === "retry" ? ["logicalExecutionId", "failedExecutionId"] : [])];
+  const keys = ["ok", "version", "authorizationId", "workflowId", "kind", "createdAt", "expiresAt", ...(value?.kind === "retry" ? ["logicalExecutionId", "failedExecutionId"] : value?.supersedes !== undefined ? ["supersedes"] : [])];
   if (!value || Object.keys(value).sort().join() !== keys.sort().join() || value.ok !== true || value.version !== "jackyun-human-retry-authority-v1"
     || value.authorizationId !== authorizationId || value.workflowId !== jackyunWorkflowId || !["new", "retry"].includes(value.kind)
     || !Number.isFinite(Date.parse(value.createdAt)) || !Number.isFinite(Date.parse(value.expiresAt)) || Date.parse(value.createdAt) > Date.now()
     || Date.parse(value.expiresAt) <= Date.now() || Date.parse(value.expiresAt) <= Date.parse(value.createdAt)
+    || value.kind === "new" && value.supersedes !== undefined && !validFreshRestartTarget(value.supersedes)
     || value.kind === "retry" && (!/^[1-9]\d{0,19}$/.test(value.logicalExecutionId) || !/^[1-9]\d{0,19}$/.test(value.failedExecutionId)
       || BigInt(value.failedExecutionId) < BigInt(value.logicalExecutionId))) throw new Error("人工恢复授权范围或回执无效。");
   return value;
@@ -49,7 +52,7 @@ export async function claimHumanRetryAuthority(root: string, authority: HumanRet
   await writeJsonDurable(file, bound, true); return bound;
 }
 
-export async function readJackyunRecoveryTarget(root: string, explicitLogicalId?: string): Promise<RecoveryTarget> {
+export async function readJackyunRecoveryTarget(root: string, explicitLogicalId?: string, options: { request?: typeof fetch; readFreshEvidence?: typeof readN8nFreshRestartEvidence } = {}): Promise<RecoveryTarget> {
   const base = path.join(root, "outputs/jackyun-export-first");
   const active = await readJsonFileOr<{ runId: string; executionId: string } | null>(path.join(base, "active.json"), null);
   if (!active && !explicitLogicalId) {
@@ -72,6 +75,9 @@ export async function readJackyunRecoveryTarget(root: string, explicitLogicalId?
     if (matches[0]) { control = matches[0]; logicalExecutionId = control.record.logicalExecutionId; }
   }
   const sourceExecutionId = control?.record.sourceExecutionId ?? logicalExecutionId;
+  try { assertNoFreshRestart(root, [logicalExecutionId, sourceExecutionId]); }
+  catch (error) { return { ok: true, state: "fresh_restart_pending", newCollectionAllowed: false, logicalExecutionId, sourceExecutionId,
+    freshRestartAllowed: false, freshRestartReason: error instanceof Error ? error.message : "从头采集需要协调原预约。" }; }
   const plan = await readJsonFileOr<{ executionId: string; runId: string; phase: string; runDate: string; asOfDate: string; salesStartDate?: string } | null>(path.join(base, `n8n-export-first-${sourceExecutionId}.json`), null);
   if (!plan || plan.executionId !== sourceExecutionId || plan.runId !== `n8n-export-first-${sourceExecutionId}`) throw new Error("原运行计划或逻辑归属无法确认。");
   const failedExecutionId = control?.record.attemptExecutionId ?? sourceExecutionId;
@@ -80,14 +86,23 @@ export async function readJackyunRecoveryTarget(root: string, explicitLogicalId?
   const context = ["error", "success"].includes(ownerState) ? readN8nJackyunPlanContext(failedExecutionId) : null;
   if (context && context.originalExecutionId !== logicalExecutionId) throw new Error("原计划锚点与逻辑运行不一致。");
   const original = readN8nJackyunOriginalPlanContext(logicalExecutionId);
+  const supersedes = control && state === "failed" ? { logicalExecutionId, failedExecutionId, sourceExecutionId,
+    sourceDigest: controlDigest(plan), controlDigest: control.digest, activeDigest: controlDigest(active) } : undefined;
+  let freshRestartAllowed = false, freshRestartReason: string | undefined;
+  if (supersedes) {
+    try { await inspectFreshRestart(root, supersedes, { request: options.request, readEvidence: options.readFreshEvidence }); freshRestartAllowed = true; }
+    catch (error) { freshRestartReason = error instanceof Error ? error.message : "旧执行证据无法完整确认。"; }
+  }
   return { ok: true, state, logicalExecutionId, failedExecutionId, sourceExecutionId, snapshotDate: plan.runDate,
     salesStartDate: plan.salesStartDate, salesEndDate: plan.asOfDate, originalScheduledAt: original.originalScheduledAt,
-    newCollectionAllowed: state === "completed", sourceDigest: controlDigest(plan) };
+    newCollectionAllowed: state === "completed", sourceDigest: controlDigest(plan), freshRestartAllowed,
+    ...(freshRestartAllowed ? { supersedes } : {}), ...(freshRestartReason ? { freshRestartReason } : {}) };
 }
 
 export async function dispatchHumanJackyunRetry(root: string, authorizationId: string, options: { request?: typeof fetch; lockDirectory?: string } = {}) {
   const request = options.request ?? fetch;
   const authority = await readHumanRetryAuthority(authorizationId, request);
+  if (authority.kind === "retry") assertNoFreshRestart(root, [authority.logicalExecutionId, authority.failedExecutionId]);
   const file = path.join(root, "outputs/jackyun-export-first/human-dispatch", `${authorizationId}.json`);
   const existing = await readJsonFileOr<{ authorityDigest: string; createdAt: string } | null>(file, null);
   if (existing) {
@@ -98,8 +113,12 @@ export async function dispatchHumanJackyunRetry(root: string, authorizationId: s
   }
   const prepared = await withJackyunRunLock({ runId: `human-${authorizationId}`, purpose: "human_retry_dispatch",
     ...(options.lockDirectory ? { lockDirectory: options.lockDirectory } : {}) }, async lock => {
-    const target = await readJackyunRecoveryTarget(root, authority.kind === "retry" ? authority.logicalExecutionId : undefined);
-    if (authority.kind === "new" ? !target.newCollectionAllowed : target.failedExecutionId !== authority.failedExecutionId || !["failed", "completed"].includes(target.state)) {
+    const target = await readJackyunRecoveryTarget(root, authority.kind === "retry" ? authority.logicalExecutionId : undefined, { request });
+    if (authority.kind === "new" && authority.supersedes) {
+      assertNoFreshRestart(root, [authority.supersedes.logicalExecutionId, authority.supersedes.sourceExecutionId]);
+      if (!target.freshRestartAllowed || !isDeepStrictEqual(authority.supersedes, target.supersedes)) throw new Error("从头采集授权已过期或目标变化，请协调原运行。");
+      await inspectFreshRestart(root, authority.supersedes, { request, assertOwned: lock.assertOwned });
+    } else if (authority.kind === "new" ? !target.newCollectionAllowed : target.failedExecutionId !== authority.failedExecutionId || !["failed", "completed"].includes(target.state)) {
       throw new Error("原运行仍有 owner 或目标已变化；请刷新并重试对应逻辑运行，新采集须先协调旧运行。");
     }
     if (authority.kind === "retry" && !target.originalScheduledAt) throw new Error("原计划锚点缺失，请核查精确执行；禁止重新计算原范围。");
