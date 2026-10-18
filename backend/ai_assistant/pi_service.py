@@ -126,11 +126,17 @@ def listing(params, principal):
     fields(params, {"limit"})
     limit = number(params.get("limit", "30"), "limit", 1, 100)
     current_principal(principal)
-    rows = list(PiSession.objects.filter(owner_email=principal.email.lower()).order_by("-updated_at", "id")[:limit + 1])
+    from django.db.models import OuterRef, Subquery
+    latest = PiOperation.objects.filter(session_id=OuterRef("pk")).order_by("-seq").values("status")[:1]
+    rows = list(PiSession.objects.filter(owner_email=principal.email.lower()).annotate(
+        latest_operation_status=Subquery(latest)).order_by("-updated_at", "id")[:limit + 1])
     items = []
     for row in rows[:limit]:
+        last_status = row.latest_operation_status
         row = get_session(row.id, principal)
         value = session_record(row)
+        if row.status != "frozen":
+            value["latestOperationStatus"] = last_status
         if row.status == "frozen":
             value["title"] = "已隔离会话"
         items.append(value)
@@ -236,6 +242,7 @@ def prompt(session_id, payload, principal):
             session.runner_event_seq = 0
             session.scope_json, session.actor_role = canonical(scope), principal.role
             session.selection_json = canonical(selection)
+            session.title = " ".join(message.split())[:60]
         files = []
         for file_id in file_ids:
             f = PiFile.objects.filter(id=identifier(file_id), session=session, generation=session.generation, direction="input").first()
@@ -248,6 +255,8 @@ def prompt(session_id, payload, principal):
         if any(item["status"] != "available" for item in selected):
             raise AiError("所选技能尚未安装", "service_unavailable", 503)
         session.operation_seq += 1
+        if session.title == "新对话":
+            session.title = " ".join(message.split())[:60]
         op = PiOperation.objects.create(id=uid("pi-op"), session=session, client_request_id=key, request_digest=binding,
             epoch=session.epoch, generation=session.generation, seq=session.operation_seq, actor_role=principal.role,
             scope_json=canonical(scope), model_id=model.id, model_version=model.version,

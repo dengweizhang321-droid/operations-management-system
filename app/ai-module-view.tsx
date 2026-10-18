@@ -1,14 +1,14 @@
 "use client";
 
-import { lazy, Suspense, useState, type KeyboardEvent } from "react";
+import { lazy, Suspense, type KeyboardEvent } from "react";
 
 import type { AiPageContext } from "@/lib/ai/page-context";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import type { AppCurrentUser } from "./shell/view-contract";
 
 const AiAssistantView = lazy(() => import("./ai-assistant-view"));
+const AiConversationWorkspace = lazy(() => import("./ai-conversation-workspace"));
 const AiAgentWorkflowView = lazy(() => import("./ai-agent-workflow-view"));
-const AiPiAgentView = lazy(() => import("./ai-pi-agent-view"));
 const AiMemoryView = lazy(() => import("./ai-memory-view"));
 const AiSpaceView = lazy(() => import("./ai-space-view"));
 const AiSpaceManagementView = lazy(() => import("./ai-space-management-view"));
@@ -56,7 +56,6 @@ export default function AiModuleView({
   onModuleViewChange: (view: AiView) => void;
 }) {
   const canManage = currentUser?.role === "admin" && !currentUser.scopeRestricted;
-  const [agentWorkspace, setAgentWorkspace] = useState<"pi" | "workflow">("pi");
   const availableViews = canManage ? aiViews : aiViews.filter((view) => view !== "management" && view !== "scheduled" && view !== "configuration" && view !== "reports" && view !== "skills" && view !== "pipelines");
   const changeWithKeyboard = (event: KeyboardEvent<HTMLButtonElement>, current: AiView) => {
     if (!(["ArrowLeft", "ArrowRight", "Home", "End"] as string[]).includes(event.key)) return;
@@ -91,20 +90,16 @@ export default function AiModuleView({
     {moduleView === "configuration" && (canManage ? <div id="ai-panel-configuration" role="tabpanel" aria-labelledby="ai-tab-configuration"><Suspense fallback={<AiViewLoading label="配置设置" />}><AiPromptSettingsView /></Suspense></div> : <section className="panel" role="alert">配置设置仅允许无数据范围限制的管理员访问。</section>)}
     {moduleView === "assistant" && !externalChat && <div id="ai-panel-assistant" role="region" aria-label="AI 对话" tabIndex={0}>
       <Suspense fallback={<AiViewLoading label={aiViewLabels.assistant} />}>
-        <AiAssistantView currentUser={currentUser} initialContextPrompt={initialContextPrompt} initialPageContext={initialPageContext} workspace="chat" />
+        <AiConversationWorkspace currentUser={currentUser} initialContextPrompt={initialContextPrompt} initialPageContext={initialPageContext} workspace="chat" />
       </Suspense>
     </div>}
     {moduleView === "agents" && <div id="ai-panel-agents" role="tabpanel" aria-labelledby="ai-tab-agents" tabIndex={0}>
-      <div className="subnav" aria-label="Agent 类型">
-        <button type="button" className={agentWorkspace === "pi" ? "active" : ""} aria-pressed={agentWorkspace === "pi"} onClick={() => setAgentWorkspace("pi")}>Pi Agent</button>
-        <button type="button" className={agentWorkspace === "workflow" ? "active" : ""} aria-pressed={agentWorkspace === "workflow"} onClick={() => setAgentWorkspace("workflow")}>Agent 工作流</button>
-      </div>
       <Suspense fallback={<AiViewLoading label={aiViewLabels.agents} />}>
-        {agentWorkspace === "pi" ? <AiPiAgentView key={currentUser?.email ?? "anonymous"} currentUser={currentUser} initialContextPrompt={initialContextPrompt} /> : <AiAgentWorkflowView
+        <AiAgentWorkflowView
           currentUser={currentUser}
           initialContextPrompt={initialContextPrompt}
           initialPageContext={initialPageContext}
-        />}
+        />
       </Suspense>
     </div>}
     {moduleView === "memory" && <div id="ai-panel-memory" role="tabpanel" aria-labelledby="ai-tab-memory" tabIndex={0}>

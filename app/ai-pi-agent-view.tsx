@@ -1,14 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import type { AppCurrentUser } from "./shell/view-contract";
 import { SearchableSelect } from "./ui/searchable-select";
 import { AiMarkdown } from "./ai-chat-workbench";
 
 type PiShopSelection = { platform: "京东" | "天猫"; shop: string };
-type PiSession = { id: string; title: string; status: string; epoch: number; generation: number; scope?: PiScope; shopSelection?: PiShopSelection | null; activeOperationId?: string | null; createClientRequestId?: string; updatedAt: string };
+type PiSession = { id: string; title: string; status: string; latestOperationStatus?: string; epoch: number; generation: number; scope?: PiScope; shopSelection?: PiShopSelection | null; activeOperationId?: string | null; createClientRequestId?: string; updatedAt: string };
 type PiOperation = { id: string; clientRequestId?: string; status: string; kind: string; errorCode?: string; modelId?: string; modelVersion?: number; skills?: { id: string; version: string; sha256: string }[]; skillsLoaded?: boolean };
-type PiFile = { id: string; clientRequestId?: string; fileName: string; mimeType: string; sizeBytes: number; sha256: string; direction: string; manifest?: unknown };
+type PiFile = { id: string; operationId?: string; clientRequestId?: string; fileName: string; mimeType: string; sizeBytes: number; sha256: string; direction: string; manifest?: unknown };
 export type PiEvent = { eventSeq: number; type: string; operationId: string; data: Record<string, unknown>; createdAt: string };
 type PiSkill = { id: string; name: string; description: string; status: string; reason?: string; version?: string; sha256?: string; resources?: unknown };
 type PiModel = { id: string; name: string; modelName: string; isDefault?: boolean };
@@ -64,7 +64,7 @@ function safeManifest(value: unknown) {
   return JSON.stringify(value, null, 2)?.slice(0, 32_000) ?? "未提供来源清单";
 }
 
-export default function AiPiAgentView({ currentUser, initialContextPrompt = "" }: { currentUser: AppCurrentUser | null; initialContextPrompt?: string }) {
+export default function AiPiAgentView({ currentUser, initialContextPrompt = "", embedded = false, composerModeControl }: { currentUser: AppCurrentUser | null; initialContextPrompt?: string; embedded?: boolean; composerModeControl?: ReactNode }) {
   const canWrite = !!currentUser && currentUser.role !== "viewer";
   const storageKey = `ai-pi-v1:${currentUser?.email ?? "anonymous"}`;
   const [sessions, setSessions] = useState<PiSession[]>([]);
@@ -74,6 +74,7 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "" }
   const selectedRef = useRef("");
   const [detail, setDetail] = useState<PiDetail | null>(null);
   const [events, setEvents] = useState<PiEvent[]>([]);
+  const [eventsCaughtUp, setEventsCaughtUp] = useState(false);
   const [skills, setSkills] = useState<PiSkill[]>([]);
   const [models, setModels] = useState<PiModel[]>([]);
   const [modelId, setModelId] = useState("");
@@ -98,6 +99,21 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "" }
   const generation = useRef(0);
   const environmentRef = useRef("");
   const parametersRestoredRef = useRef("");
+  const scroll = useRef<HTMLDivElement>(null);
+  const messageBody = useRef<HTMLDivElement>(null);
+  const lastAnswer = useRef<HTMLElement>(null);
+  const pinned = useRef(true);
+  const pointerScrolling = useRef(false);
+  useEffect(() => { pinned.current = true; }, [sessionId]);
+  useEffect(() => {
+    const body = messageBody.current;
+    if (!body) return;
+    const observer = new ResizeObserver(() => {
+      if (pinned.current && scroll.current?.clientHeight) scroll.current.scrollTop = scroll.current.scrollHeight;
+    });
+    observer.observe(body);
+    return () => observer.disconnect();
+  }, []);
 
   const persistPending = useCallback((items: PiPending[]) => {
     localStorage.setItem(`${storageKey}:pending`, JSON.stringify(items));
@@ -143,6 +159,7 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "" }
 
   useEffect(() => {
     if (!sessionId) return;
+    setEventsCaughtUp(false);
     const controller = new AbortController();
     const currentGeneration = generation.current;
     let cursor = 0;
@@ -170,10 +187,11 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "" }
         if (environmentChanged) setFileIds([]);
         environmentRef.current = environment;
         setDetail(snapshot);
-        setSessions(items => items.map(item => item.id === sessionId ? snapshot.session : item));
+        setSessions(items => items.map(item => item.id === sessionId ? { ...snapshot.session, latestOperationStatus: snapshot.operations[0]?.status } : item));
         const remaining = reconcilePiPending(pendingRef.current, snapshot);
         if (remaining.length !== pendingRef.current.length) persistPending(remaining);
         setEvents(items => mergePiEvents(environmentChanged ? [] : items, page.items));
+        setEventsCaughtUp(!page.hasMore);
         cursor = Math.max(cursor, ...page.items.map(item => item.eventSeq));
         setError("");
         timer = setTimeout(() => { void refresh(); }, page.hasMore ? 100 : 2500);
@@ -265,34 +283,44 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "" }
   const messages = events.filter(item => ["user_message", "assistant_message"].includes(item.type));
   const liveText = events.filter(item => item.type === "text_delta" && !events.some(final => final.type === "assistant_message" && final.operationId === item.operationId)).map(eventText).join("");
   const process = events.filter(item => !["user_message", "assistant_message", "text_delta"].includes(item.type));
+  const latest = detail?.operations[0];
+  const completedFiles = latest?.status === "succeeded" ? detail?.files.filter(file => file.operationId === latest.id && file.direction === "output") ?? [] : [];
+  const displayStatus = frozen ? detail?.operations.some(op => op.status === "unknown") ? "unknown" : detail?.session.status ?? "frozen" : latest?.status ?? detail?.session.status ?? "idle";
+  const finalAnswerSeq = eventsCaughtUp ? messages.filter(item => item.type === "assistant_message" && item.operationId === latest?.id).at(-1)?.eventSeq : undefined;
 
-  return <section className="ai-workbench ai-pi" aria-label="Pi Agent 工作区">
+  return <section className={`ai-workbench ai-pi${embedded ? " ai-pi-embedded" : ""}`} aria-label="Pi Agent 工作区">
     <header className="ai-workbench-top"><div><strong>Pi Agent</strong><span className="ai-workbench-subtitle">技能 · 数据 · 持久执行环境</span></div><button type="button" className="ai-workbench-text" onClick={() => setRevision(value => value + 1)}>刷新记录</button></header>
     <div className="ai-workbench-layout">
       <aside className="ai-workbench-history" aria-label="执行环境">
         <button type="button" className="ai-workbench-new" onClick={() => { void createSession(); }} disabled={!canWrite || !storageReady || busy || pending.some(item => item.kind === "create")}>＋ 新建环境</button>
         <div className="ai-workbench-history-title">执行环境 <small>{sessions.length}</small></div>
-        <div className="ai-workbench-history-list">{sessions.map(item => <div key={item.id} className={`ai-workbench-history-row ${item.id === sessionId ? "is-selected" : ""}`}><button type="button" disabled={busy} onClick={() => selectSession(item.id)}><span><strong>{item.title || "未命名环境"}</strong><small>{stateLabel(item.status)}</small></span></button></div>)}{!sessions.length && <p>{loading ? "正在加载…" : "暂无环境，请创建后开始。"}</p>}</div>
+        <div className="ai-workbench-history-list">{sessions.map(item => <div key={item.id} className={`ai-workbench-history-row ${item.id === sessionId ? "is-selected" : ""}`}><button type="button" disabled={busy} onClick={() => selectSession(item.id)}><span><strong>{item.title || "未命名环境"}</strong><small>{stateLabel(item.latestOperationStatus ?? item.status)}</small></span></button></div>)}{!sessions.length && <p>{loading ? "正在加载…" : "暂无环境，请创建后开始。"}</p>}</div>
         {hasMoreSessions && (listLimit < 100 ? <button type="button" className="ai-workbench-text" onClick={() => setListLimit(value => Math.min(100, value + 30))}>加载更多环境</button> : <p>仅展示最近 100 个环境，列表已截断。</p>)}
         <p className="ai-workbench-history-foot">刷新与断线只恢复已存记录。结果待核实时保留原请求，不自动重新执行。</p>
       </aside>
       <div className="ai-workbench-conversation">
-        <div className="ai-workbench-conversation-title"><h2>{detail?.session.title || "选择或新建执行环境"}</h2>{detail && <span>{stateLabel(detail.session.status)} · 环境代际 {detail.session.epoch} / {detail.session.generation} · {currentScope ? (Object.entries(currentScope).map(([key, values]) => `${({ warehouses: "仓库", channels: "渠道", platforms: "平台" } as Record<string, string>)[key]}：${values.join("、") || "未选择"}`).join("；")) : "当前账号授权范围"}</span>}</div>
+        <div className="ai-workbench-conversation-title"><h2>{detail?.session.title || "选择或新建执行环境"}</h2>{detail && <span>{stateLabel(displayStatus)} · 环境代际 {detail.session.epoch} / {detail.session.generation} · {currentScope ? (Object.entries(currentScope).map(([key, values]) => `${({ warehouses: "仓库", channels: "渠道", platforms: "平台" } as Record<string, string>)[key]}：${values.join("、") || "未选择"}`).join("；")) : "当前账号授权范围"}</span>}</div>
         {detail && <div className="ai-pi-shop-current">{detail.session.shopSelection ? `仅该店：${detail.session.shopSelection.platform} / ${detail.session.shopSelection.shop}` : "当前环境未限定店铺，查询仍受账号数据权限约束"}</div>}
         {!!detail?.operations[0]?.skills?.length && <p className="ai-workbench-subtitle" role="status">本轮技能{detail.operations[0].skillsLoaded ? "已加载" : "等待加载"}：{detail.operations[0].skills.map(skill => `${skill.id} v${skill.version}`).join("、")}</p>}
         {error && <div className="ai-workbench-feedback is-error" role="alert">{error}</div>}
         {notice && <div className="ai-workbench-feedback" role="status">{notice}</div>}
         {frozen && <div className="ai-workbench-feedback is-error" role="alert">{piFailureLabel(detail?.operations.find(operation => operation.status === "unknown")?.errorCode) ?? "当前环境因权限变化或未知结果被冻结，不能继续执行。"}{detail?.session.status === "unknown" || detail?.operations.some(operation => operation.status === "unknown") ? "请先核实原操作，不要重发原任务。" : "请创建新环境，并重新选择当前授权范围。"}</div>}
         {currentPending && <div className="ai-workbench-feedback" role="status">原请求正在核实中。请使用刷新记录查看；同一环境暂不接收新消息。</div>}
-        <div className="ai-workbench-scroll"><div className="ai-workbench-messages">
+        {latest?.status === "succeeded" && !frozen && <div className="ai-pi-completed" role="status"><strong>任务已完成</strong><button type="button" className="ai-workbench-text" disabled={finalAnswerSeq === undefined} onClick={() => lastAnswer.current?.scrollIntoView({ block: "start" })}>{finalAnswerSeq === undefined ? eventsCaughtUp ? "本轮未返回正文" : "正在恢复结果…" : "查看分析结果"}</button>{completedFiles.map(file => <a key={file.id} href={`/api/ai/pi/files/${encodeURIComponent(file.id)}/content`} download>{file.fileName}</a>)}</div>}
+        <div className="ai-workbench-scroll" ref={scroll}
+          onWheel={event => { if (event.deltaY < 0) pinned.current = false; }}
+          onTouchMove={() => { pinned.current = false; }}
+          onPointerDown={() => { pointerScrolling.current = true; }} onPointerUp={() => { pointerScrolling.current = false; }} onPointerCancel={() => { pointerScrolling.current = false; }} onPointerLeave={() => { pointerScrolling.current = false; }}
+          onKeyDown={event => { if (["ArrowUp", "PageUp", "Home"].includes(event.key)) pinned.current = false; if (event.key === "End") pinned.current = true; }}
+          onScroll={() => { const element = scroll.current; if (element?.clientHeight) { if (element.scrollHeight - element.scrollTop - element.clientHeight < 80) pinned.current = true; else if (pointerScrolling.current) pinned.current = false; } }}><div className="ai-workbench-messages" ref={messageBody}>
           {!messages.length && <p className="ai-workbench-subtitle">选择模型与真实技能后提交任务。技能也可以通过 /skill:技能标识 指定。经营结果与生成文件需要人工复核。</p>}
-          {messages.map(item => <article key={item.eventSeq} className={`ai-workbench-message ai-workbench-${item.type === "user_message" ? "user" : "assistant"}`}><div className="ai-workbench-message-content">{item.type === "user_message" ? <p>{eventText(item)}</p> : <AiMarkdown content={eventText(item)} />}</div></article>)}
+          {messages.map(item => <article key={item.eventSeq} ref={item.eventSeq === finalAnswerSeq ? lastAnswer : undefined} className={`ai-workbench-message ai-workbench-${item.type === "user_message" ? "user" : "assistant"}`}><div className="ai-workbench-message-content">{item.type === "user_message" ? <p>{eventText(item)}</p> : <AiMarkdown content={eventText(item)} />}</div></article>)}
           {liveText && <article className="ai-workbench-message ai-workbench-assistant" aria-live="polite"><AiMarkdown content={liveText} partial /></article>}
           {!!process.length && <details className="ai-workbench-execution"><summary>执行过程 · {process.length} 条事件</summary><ol className="ai-pi-events">{process.map(item => <li key={item.eventSeq}><strong>#{item.eventSeq} {({ status: "状态", tool_start: "工具开始", tool_end: "工具完成", error: "执行异常", file_ready: "文件就绪" } as Record<string, string>)[item.type] || item.type}</strong><span>{piEventDetail(item.data)}</span></li>)}</ol></details>}
           {!!detail?.files.length && <section className="ai-pi-files" aria-label="附件与来源"><h3>附件与来源</h3>{detail.files.map(file => <div key={file.id}><a href={`/api/ai/pi/files/${encodeURIComponent(file.id)}/content`} download>{file.fileName}</a><small>{file.direction === "input" ? "上传" : "产物"} · {file.sizeBytes.toLocaleString()} 字节</small>{file.direction === "input" && <label><input type="checkbox" checked={fileIds.includes(file.id)} disabled={!writable || active || attachmentEnvironmentChanged} onChange={() => setFileIds(items => items.includes(file.id) ? items.filter(id => id !== file.id) : [...items, file.id])} />本轮使用</label>}<details><summary>来源清单与校验</summary><pre>{safeManifest(file.manifest)}</pre><code>SHA-256: {file.sha256}</code></details></div>)}</section>}
         </div></div>
         <form className="ai-pi-composer" onSubmit={event => { void send(event); }}>
-          <div className="ai-pi-options"><SearchableSelect ariaLabel="Pi Agent 模型" value={modelId} onChange={setModelId} disabled={!writable || active} options={models.map(model => ({ value: model.id, label: model.name || model.modelName }))} placeholder="暂无可用模型" /><button type="button" className="ai-workbench-text" onClick={() => fileInput.current?.click()} disabled={!writable || active || !detail || attachmentEnvironmentChanged}>上传附件（≤512 KiB）</button><input ref={fileInput} type="file" hidden onChange={event => { void upload(event); }} /></div>
+          <div className="ai-pi-options">{composerModeControl}<SearchableSelect ariaLabel="Pi Agent 模型" value={modelId} onChange={setModelId} disabled={!writable || active} options={models.map(model => ({ value: model.id, label: model.name || model.modelName }))} placeholder="暂无可用模型" /><button type="button" className="ai-workbench-text" onClick={() => fileInput.current?.click()} disabled={!writable || active || !detail || attachmentEnvironmentChanged}>上传附件（≤512 KiB）</button><input ref={fileInput} type="file" hidden onChange={event => { void upload(event); }} /></div>
           <details className="ai-pi-settings"><summary>技能与本轮数据范围{skillIds.length ? ` · 已选 ${skillIds.length} 项` : ""}</summary><fieldset disabled={!writable || active}><legend>可用技能</legend>{skills.length ? skills.map(skill => <label key={skill.id} className="ai-pi-skill"><input type="checkbox" checked={skillIds.includes(skill.id)} disabled={!["enabled", "ready", "available"].includes(skill.status)} onChange={() => setSkillIds(items => items.includes(skill.id) ? items.filter(id => id !== skill.id) : [...items, skill.id])} /><span><strong>{skill.name}</strong> · {stateLabel(skill.status)}<small>{skill.description}{skill.reason ? ` · ${skill.reason}` : ""}</small><small>/skill:{skill.id}{skill.version ? ` · v${skill.version}` : ""}</small></span></label>) : <p>未发现已部署技能。请检查 Runner 与技能清单。</p>}</fieldset><fieldset disabled={!writable || active}><legend>本轮数据范围</legend><p>空白沿用当前环境与账号授权；填写后仅可进一步收窄。改变范围会隔离旧消息与附件；需要附件时，请先以所选范围新建环境。多个值用逗号分隔。</p>{([['warehouses', '仓库'], ['channels', '渠道'], ['platforms', '平台']] as const).map(([key, label]) => <label key={key}>{label}<input value={scope[key]} onChange={event => { setScope(values => ({ ...values, [key]: event.target.value })); setFileIds([]); }} /></label>)}</fieldset><fieldset disabled={!writable || active}><legend>本轮店铺</legend><div className="ai-pi-shop"><SearchableSelect ariaLabel="本轮店铺平台" value={shopPlatform} onChange={value => { setShopPlatform(value as "京东" | "天猫"); setFileIds([]); }} options={[{ value: "京东", label: "京东" }, { value: "天猫", label: "天猫" }]} disabled={!writable || active} /><label>精确店铺名称<input value={shopName} maxLength={200} onChange={event => { setShopName(event.target.value); setFileIds([]); }} placeholder="输入完整精确店名" /></label></div><p>{shopSelection ? `本轮仅该店：${shopSelection.platform} / ${shopSelection.shop}` : "留空沿用当前环境店铺。新建环境时留空则不额外限定店铺。"}</p><p>更换店铺会建立新环境代际，隔离旧消息与附件；需要附件时，先选择店铺并新建环境。</p></fieldset></details>
           <label className="ai-pi-draft-label" htmlFor="pi-agent-prompt">任务</label><textarea id="pi-agent-prompt" value={draft} onChange={event => setDraft(event.target.value)} placeholder="描述任务，或使用 /skill:技能标识 …" rows={3} maxLength={200000} disabled={!canWrite || frozen || busy || currentPending} />
           <div className="ai-pi-actions"><span>{!canWrite ? "当前角色仅可查看" : active ? "任务正在运行，关闭页面后仍由服务端保存进度" : fileIds.length ? `本轮附件 ${fileIds.length} 个` : "按发送开始执行"}</span><button type="button" className="secondary-button" onClick={() => { void abort(); }} disabled={!canWrite || !active || busy || frozen || pending.some(item => item.sessionId === sessionId && item.kind === "abort")}>停止</button><button type="submit" className="primary-button" disabled={!writable || active || !detail || !draft.trim() || !modelId}>发送任务</button></div>

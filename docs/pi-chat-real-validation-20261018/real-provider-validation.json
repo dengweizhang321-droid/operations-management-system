@@ -1,0 +1,31 @@
+{
+  "actualConfiguredProvider": true,
+  "syntheticBusinessSources": true,
+  "productionStateChanged": false,
+  "rounds": [
+    {
+      "status": "succeeded",
+      "generation": 1,
+      "modelCalls": 8,
+      "files": [
+        {
+          "file_name": "quota-report.md",
+          "size_bytes": 3191,
+          "sha256": "4a06ad0bcc6c1f589454951d37f8dd6e72105635740fcafad1380c3920c399cc"
+        },
+        {
+          "file_name": "quota-report.xlsx",
+          "size_bytes": 4117,
+          "sha256": "a0dae38dab9851fb33743a7b764acaf2f8936af445ffafa296c52717eae360b2"
+        }
+      ]
+    },
+    {
+      "status": "succeeded",
+      "generation": 1,
+      "modelCalls": 2,
+      "files": []
+    }
+  ],
+  "actualProviderPosts": 10
+}
