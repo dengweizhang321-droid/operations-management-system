@@ -17,7 +17,7 @@
 
 现有 `pi_workspace_rehearsal.py` 另执行一次轻量私有 PostgreSQL 演练，真实 150→151 结构、权限、事务回滚、数据保持、有限安装器负例和 46 项 Pi 状态测试通过。端口 55531、独立目录/凭据/命名空间；退出确认 PostgreSQL 已停止且口令文件已删除。新证明 [schema-validation.json](schema-validation.json) 绑定当前完整代码摘要 `3d5491800b59adaab3567dcb5c2dc5d2a65d6ae3d2293c51d83a55d95421d66d`；recipe 指向新证明，原 `docs/pi-phase2-workspace-20261018/schema-validation.json` 字节保持。未重跑浏览器、WSL、外部模型或完整业务 E2E。
 
-原始日志在 `D:/codex-artifacts/release-chain-preflight-20261018/`：`targeted-first.log`、`targeted-second.log`、`private-schema-launch.log`、`private-schema-evidence/`。正式候选验证由 `tools/verify-release-candidate.mjs` 在 `candidate-final-1/REPORT.json` 生成，记录最终受测 commit/tree、完整载荷、依赖/工具、真实命令退出码及输出 SHA；其结果以该原件为准。专用 profile 保留包完整性和实际入口检查，不重复无关队列/历史结构/全仓测试；完整冷启动保持未执行。
+原始日志在 `D:/codex-artifacts/release-chain-preflight-20261018/`：`targeted-first.log`、`targeted-second.log`、`private-schema-launch.log`、`private-schema-evidence/`。正式候选验证由 `tools/verify-release-candidate.mjs` 在 `candidate-final-2/REPORT.json` 生成，记录最终受测 commit/tree、完整载荷、依赖/工具、真实命令退出码及输出 SHA；其结果以该原件为准。专用 profile 保留包完整性和实际入口检查，不重复无关队列/历史结构/全仓测试；完整冷启动保持未执行。
 
 ## 交付边界
 

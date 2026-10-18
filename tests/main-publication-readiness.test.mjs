@@ -43,7 +43,7 @@ test('actual packaged Node CLI refuses missing preparation before loading native
  const root=await privateRoot(t),source=path.join(root,'候选包'),tools=path.join(source,'tools');
  await fs.mkdir(tools,{recursive:true});
  for(const name of ['publish-main.mjs','publish-main-progress.mjs','publish-main-known-resume.mjs',
-  'publish-main-command.mjs','publish-prepared-main.mjs','main-schema-release.mjs','manual-maintenance-continuation.mjs']){
+  'publish-main-command.mjs','publish-prepared-main.mjs','main-schema-release.mjs','manual-maintenance-continuation.mjs','frozen-main-source.mjs']){
   const bytes=await fs.readFile(new URL('../tools/'+name,import.meta.url));
   await fs.writeFile(path.join(tools,name),bytes);
   assert.equal(createHash('sha256').update(await fs.readFile(path.join(tools,name))).digest('hex'),createHash('sha256').update(bytes).digest('hex'));
