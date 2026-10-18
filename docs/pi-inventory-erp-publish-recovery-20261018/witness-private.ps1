@@ -12,7 +12,7 @@ function Get-CimInstance{param([string]$ClassName,[object]$ErrorAction)return $s
 function Test-Path{param([string]$LiteralPath)
  if($LiteralPath -match 'WITNESS-[a-f0-9]{32}\.json$' -and -not (Microsoft.PowerShell.Management\Test-Path -LiteralPath $LiteralPath)){
   $requestFile=@(Get-ChildItem -LiteralPath $intent.outputDirectory -Filter 'WITNESS-REQUEST-*.json')[0].FullName;$request=Read-Object $requestFile
-  $high=[pscustomobject]@{pid=99;parentPid=1;name=$script:missingName;creationDate=$script:birth.ToUniversalTime().ToString('o');exe=$exe;command=$script:highCommand}
+  $high=[pscustomobject]@{pid=99;parentPid=1;name=$script:missingName;creationDate=$script:rows[2].CreationDate.ToUniversalTime().ToString('o');exe=$exe;command=$script:highCommand}
   $w=[ordered]@{version='6dc-census-witness-v1';at=[DateTimeOffset]::UtcNow.ToString('o');requestId=$request.requestId;requestSha256=(Hash-File $requestFile);intentSha256=$InputSha256;originalFailureSha256=$intent.originalFailureSha256;observer=$request.observer;owner=$request.owner;elevated=$true;records=@($high)}
   switch($script:mode){'stale'{$w.at=[DateTimeOffset]::UtcNow.AddSeconds(-121).ToString('o')};'future'{$w.at=[DateTimeOffset]::UtcNow.AddSeconds(30).ToString('o')};'request'{$w.requestSha256='a'*64};'owner'{$w.owner=$request.owner.PSObject.Copy();$w.owner.commandLineSha256='b'*64};'observer'{$w.observer=$request.observer.PSObject.Copy();$w.observer.pid=333};'newpid'{$high.pid=100};'birth'{$high.creationDate=[DateTimeOffset]::UtcNow.AddDays(-1).ToString('o')};'parent'{$high.parentPid=7};'name'{$high.name='python.exe'};'duplicate'{$w.records=@($high,$high)};'incomplete'{$high.command=''};'notElevated'{$w.elevated=$false}}
   [IO.File]::WriteAllText($LiteralPath,($w|ConvertTo-Json -Depth 10 -Compress),[Text.UTF8Encoding]::new($false))
@@ -32,8 +32,13 @@ try{
   if($case -ceq 'encodedAlias'){$script:missingName='pwsh.exe';$script:highCommand='pwsh.exe -enc SQBFAFgA'}
   if($case -ceq 'pandas'){$script:missingName='wsl.exe';$script:highCommand='wsl -d TERUISI-Pandas --exec unknown'}
   $script:rows=@([pscustomobject]@{ProcessId=$PID;ParentProcessId=1;Name='powershell.exe';CreationDate=$script:birth;ExecutablePath=$exe;CommandLine='private-observer'},[pscustomobject]@{ProcessId=888;ParentProcessId=1;Name='node.exe';CreationDate=$script:birth;ExecutablePath=$exe;CommandLine='private-owner'},[pscustomobject]@{ProcessId=99;ParentProcessId=1;Name=$script:missingName;CreationDate=$script:birth;ExecutablePath=$null;CommandLine=$null})
+  if($case -ceq 'good'){
+   $cim=[Microsoft.Management.Infrastructure.CimInstance]::new('Win32_Process','root/cimv2')
+   foreach($item in @(@('ProcessId',[uint32]99,'UInt32'),@('ParentProcessId',[uint32]1,'UInt32'),@('Name','node.exe','String'),@('CreationDate',$script:birth,'DateTime'),@('ExecutablePath',$null,'String'),@('CommandLine',$null,'String'))){$cim.CimInstanceProperties.Add([Microsoft.Management.Infrastructure.CimProperty]::Create([string]$item[0],$item[1],[Microsoft.Management.Infrastructure.CimType]::$($item[2]),[Microsoft.Management.Infrastructure.CimFlags]::ReadOnly))}
+   $readOnlyRefused=$false;try{$cim.ExecutablePath='not writable'}catch{$readOnlyRefused=$true};if(-not $readOnlyRefused){throw 'Fixture did not expose real CIM readonly adapter'};$script:rows[2]=$cim
+  }
   $phase='partial';$script:allowedRemaining=@();$refused=$false
-  try{$result=@(Complete-ProcessCensus $script:rows 888);Assert-NoControllers $result 888;if($case -in @('good','genericShell')){if($result.Count -ne 3 -or $result[2].CommandLine -cne $script:highCommand){throw 'Good witness did not resolve exact row'}}}catch{if($case -in @('good','genericShell')){throw};$refused=$true}
+  try{$result=@(Complete-ProcessCensus $script:rows 888);Assert-NoControllers $result 888;if($case -in @('good','genericShell')){if($result.Count -ne 3 -or $result[2].CommandLine -cne $script:highCommand){throw 'Good witness did not resolve exact row'};if($case -ceq 'good' -and ($cim.ExecutablePath -or $cim.CommandLine)){throw 'CIM source was mutated'}}}catch{if($case -in @('good','genericShell')){throw};$refused=$true}
   if($case -in @('good','genericShell')){$script:success++}elseif($refused){$script:rejections++}else{throw ('Expected witness rejection: '+$case)}
  }
  # A second census cannot admit a newly appearing unreadable process via the old witness.
@@ -48,7 +53,15 @@ try{
   switch($piCase){'otherToken'{[IO.File]::WriteAllText($control,'{"version":1,"token":"'+('2'*32)+'","intent":"stop"}');[IO.File]::WriteAllText($ack,'{"version":1,"token":"'+('2'*32)+'","status":"stopped"}')};'receiptDrift'{[IO.File]::WriteAllText($receipt,'drift')};'pid'{$rows=@([pscustomobject]@{ProcessId=3604;ParentProcessId=1})};'child'{$rows=@([pscustomobject]@{ProcessId=999;ParentProcessId=3604})};'duplicate'{[IO.File]::WriteAllText($control,'{"version":1,"token":"'+$token+'","token":"'+$token+'","intent":"stop"}')};'version'{[IO.File]::WriteAllText($control,'{"version":"1","token":"'+$token+'","intent":"stop"}')};'ack'{[IO.File]::WriteAllText($ack,'{"version":1,"token":"'+$token+'","status":"running"}')}}
   $i.piControlSha256=Hash-File $control;$i.piStoppedSha256=Hash-File $ack;$refused=$false;try{Assert-OriginalPiStopped $i $rows $piRoot}catch{if($piCase -ceq 'good'){throw};$refused=$true};if($piCase -ceq 'good'){$script:success++}elseif($refused){$script:rejections++}else{throw ('Pi original binding accepted '+$piCase)}
  }
- @{status='passed';actualPsFunctions=$true;productionReads=$false;positive=$script:success;negative=$script:rejections}|ConvertTo-Json -Compress
+ # The real OS CIM adapter is read-only even when Exe/Cmd were not requested.
+ $selfCim=CimCmdlets\Get-CimInstance Win32_Process -Filter ('ProcessId='+$PID) -Property ProcessId,CreationDate,ParentProcessId,Name -ErrorAction Stop
+ if($selfCim -isnot [Microsoft.Management.Infrastructure.CimInstance] -or $selfCim.ExecutablePath -or $selfCim.CommandLine){throw 'Real limited self CIM fixture invalid'}
+ $oldSetterRejected=$false;try{$selfCim.ExecutablePath='must not write'}catch{$oldSetterRejected=$true};if(-not $oldSetterRejected){throw 'Old real CIM setter unexpectedly accepted'}
+ $projection=@(Copy-ProcessCensusRows @($selfCim));if($projection.Count -ne 1 -or $projection[0] -isnot [pscustomobject]){throw 'Projection did not create independent object'}
+ foreach($key in @('ProcessId','ParentProcessId','Name','CreationDate')){if($projection[0].$key -cne $selfCim.$key){throw 'Projection lost original identity'}}
+ $projection[0].ExecutablePath=$exe;$projection[0].CommandLine='private witness body'
+ if($selfCim.ExecutablePath -or $selfCim.CommandLine -or $projection[0].ExecutablePath -cne $exe){throw 'Projection mutated original CIM source'};$script:success++
+ @{status='passed';actualPsFunctions=$true;realLimitedSelfCimRead=$true;oldRealCimSetterRejected=$oldSetterRejected;productionReads=$false;positive=$script:success;negative=$script:rejections}|ConvertTo-Json -Compress
 }finally{
  $target=[IO.Path]::GetFullPath($privateRoot);$temp=[IO.Path]::GetFullPath([IO.Path]::GetTempPath());if(-not $target.StartsWith($temp,[StringComparison]::OrdinalIgnoreCase)){throw 'Private cleanup escaped temp'};Remove-Item -LiteralPath $target -Recurse -Force
 }

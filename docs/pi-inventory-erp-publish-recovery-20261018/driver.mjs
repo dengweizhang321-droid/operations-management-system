@@ -8,7 +8,7 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 const execute=promisify(execFile),sha=raw=>createHash('sha256').update(raw).digest('hex');
 const root=path.dirname(fileURLToPath(import.meta.url)),intentFile=path.join(root,'RECOVERY-INTENT.json');
-const expectedRoot='D:\\codex-artifacts\\pi-inventory-erp-publish-20261018\\recovery-6dc-v2';
+const expectedRoot='D:\\codex-artifacts\\pi-inventory-erp-publish-20261018\\recovery-6dc-v3';
 export async function regularBytes(file){
  const before=await fs.lstat(file),componentStoreHost=path.resolve(file).toLowerCase()===path.resolve('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe').toLowerCase();
  // Windows owns two normal component-store hardlinks to its PS5 executable.

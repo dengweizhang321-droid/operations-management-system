@@ -19,6 +19,8 @@
 
 必要验证：Node 原编排 34 项通过；实际 PS5/PS7 每 shell 3 正例+28负例通过，包含原 Pi token/receipt/PID、运行根/source/编码控制器、见证过期/错 owner/observer/new PID/birth/parent/name 等；真实 footer+原 gate 模块私有 mutex 下验证双锁、释放 Django 后保 Worker、Boundary 写前与一次 native 替身调用，原 prepared receipt/完整树门禁在第一部署写前拒绝。均不持生产锁、不执行生产生命周期。原夹具失败（Test-Path 替身影响 Hash-File、PS7 JSON 日期自动转换）保留；PS7 已按原规范保留 ISO 字符串。
 
-复审通过并由发布主负责人确认后，冻结外置根 `D:/codex-artifacts/pi-inventory-erp-publish-20261018/recovery-6dc-v2`，生产控制只以普通桌面 Node 运行 `driver.mjs execute <RECOVERY-INTENT SHA>`。每个 WITNESS-REQUEST 出现后仅由高权限只读 `witness.ps1 -RequestPath <原请求> -RequestSha256 <精确 SHA>` 生成完整临时文件、fsync 后原子发布不可覆盖见证。其他任何异常均保新 STARTED/FAILED，不自动重放。发布成功以新外置 RECOVERY-SUCCESS、真实两组件版本/必要服务及 catalog CAS 共同为准。
+复审通过并由发布主负责人确认后，冻结外置根 `D:/codex-artifacts/pi-inventory-erp-publish-20261018/recovery-6dc-v3`，生产控制只以普通桌面 Node 运行 `driver.mjs execute <RECOVERY-INTENT SHA>`。每个 WITNESS-REQUEST 出现后仅由高权限只读 `witness.ps1 -RequestPath <原请求> -RequestSha256 <精确 SHA>` 生成完整临时文件、fsync 后原子发布不可覆盖见证。其他任何异常均保新 STARTED/FAILED，不自动重放。发布成功以新外置 RECOVERY-SUCCESS、真实两组件版本/必要服务及 catalog CAS 共同为准。
 
 V1 新恢复于20:17:56以普通token启动，20:17:57在静态准入因共享origin/main推进848228b1而拒绝；execution目录空，无RECOVERY-STARTED/OWNER、未取rotation或运行native，保留原launcher/失败且不重调v1。V2仅去除可变远端ref等于目标的额外条件；实际调用assertFrozenSource保持冻结来源精确HEAD/tree/clean，原request/包/前驱/原失败及全部守卫不变。4项针对测试验证远端推进仍精确采用6dc、HEAD/tree/dirty任一漂移均拒绝；既有包/前驱等负例直接复用。未采用848，目标仍原6dc。
+
+V2于20:23:02的Observe-1见证填补阶段，真实Win32_Process CIM只读ExecutablePath setter拒绝；未有Enter Boundary/native动作，原恢复STARTED/FAILED/OWNER/Observe失败保全，独立只读取证确认owner/observer退出、pipe不存在、原生产状态SHA未变。V3只将6字段复制到独立PSCustomObject投影后填见证，原CIM不变，保全部guard；追加pin原V2只读失败与独审V2-CIM-REFUSAL、新原参与者排除，不凭换root跳过unknown。PS5/7真实Get-CimInstance自身PID只取4身份字段，复现原setter拒绝；实际helper保持4身份、投影可写且CIM不变。每shell4正例/28负例通过，其他不变验证复用。V1/V2不重调。

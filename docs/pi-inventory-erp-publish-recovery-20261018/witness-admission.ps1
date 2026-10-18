@@ -1,6 +1,7 @@
 # Loaded only after exact manifest pin. No lifecycle operations are exposed.
 function Get-CommandHash([string]$Command){$h=[Security.Cryptography.SHA256]::Create();try{([BitConverter]::ToString($h.ComputeHash([Text.Encoding]::UTF8.GetBytes($Command)))).Replace('-','').ToLowerInvariant()}finally{$h.Dispose()}}
 function New-ProcessBinding([object]$Row){if($null -eq $Row -or -not $Row.CommandLine -or -not $Row.ExecutablePath){throw 'Witness actor identity unavailable'};return @{pid=[int]$Row.ProcessId;creationDate=$Row.CreationDate.ToUniversalTime().ToString('o');executableSha256=(Hash-File $Row.ExecutablePath);commandLineSha256=(Get-CommandHash $Row.CommandLine)}}
+function Copy-ProcessCensusRows([object[]]$Rows){foreach($row in $Rows){[pscustomobject]@{ProcessId=[int]$row.ProcessId;ParentProcessId=[int]$row.ParentProcessId;Name=[string]$row.Name;CreationDate=$row.CreationDate;ExecutablePath=[string]$row.ExecutablePath;CommandLine=[string]$row.CommandLine}}}
 function Complete-ProcessCensus([object[]]$Rows,[int]$Owner){
  $relevant=@($Rows|Where-Object {$_.Name -imatch '^(powershell|pwsh|python|pythonw|waitress-serve|node|workerd|wsl)(\.exe)?$'})
  if(@($relevant|Where-Object {-not $_.CommandLine -or -not $_.ExecutablePath}).Count -eq 0){return $Rows}
@@ -16,7 +17,7 @@ function Complete-ProcessCensus([object[]]$Rows,[int]$Owner){
  $script:liveCensusWitness=@{request=$request;requestSha=$requestSha;requestFile=$requestFile;witnessFile=$witnessFile;witnessSha=$witnessSha;witness=$witness}
  }
  $date=[DateTimeOffset]::Parse($witness.at);if($date -gt [DateTimeOffset]::UtcNow -or ([DateTimeOffset]::UtcNow-$date).TotalSeconds -ge 120){throw 'Cached independent witness stale'}
- $fresh=@(Get-CimInstance Win32_Process -ErrorAction Stop)
+ $fresh=@(Copy-ProcessCensusRows @(Get-CimInstance Win32_Process -ErrorAction Stop))
  foreach($field in @(@('observer',$PID),@('owner',$Owner))){$bound=New-ProcessBinding @($fresh|Where-Object ProcessId -eq $field[1])[0];foreach($key in @('pid','creationDate','executableSha256','commandLineSha256')){if($bound.$key -cne $request.($field[0]).$key){throw 'Witness current actor changed'}}}
  $ids=@();foreach($record in @($witness.records)){if($ids -contains [int]$record.pid){throw 'Witness duplicate PID'};$ids+=[int]$record.pid}
  foreach($row in $fresh){
