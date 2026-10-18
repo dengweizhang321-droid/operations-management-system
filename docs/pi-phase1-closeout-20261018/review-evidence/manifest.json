@@ -1,0 +1,25 @@
+﻿{
+    "files":  [
+                  {
+                      "file":  "pg-concurrency-probe.py",
+                      "sha256":  "861614c7bcf9b9fcbdf26459e0c73f5950f0d38bbd2b195937feb8eeb8de4c4f",
+                      "source":  "D:\\codex-artifacts\\pi-phase1-closeout-20261018\\review\\pg-concurrency-probe.py"
+                  },
+                  {
+                      "file":  "pg-concurrency-evidence.json",
+                      "sha256":  "8fde88be46c7fe3b64643b1fcf020b4b2659e061664849bca0b7aa8daa4aa46c",
+                      "source":  "D:\\codex-artifacts\\pi-phase1-closeout-20261018\\review\\pg-concurrency-evidence.json"
+                  },
+                  {
+                      "file":  "source-binding.json",
+                      "sha256":  "482b5bed3c488faca3732ec2bd9956c92b662bf2a417f9e4a526576aac2b99b2",
+                      "source":  "D:\\codex-artifacts\\pi-phase1-closeout-20261018\\review\\source-binding.json"
+                  },
+                  {
+                      "file":  "independent-verification.json",
+                      "sha256":  "ba571840178100ff18da7f7a67cc4025358753d1641cea8f6aa226c56f3ab0cc",
+                      "source":  "D:\\codex-artifacts\\pi-phase1-closeout-20261018\\review\\independent-verification.json"
+                  }
+              ],
+    "productionTouched":  false
+}

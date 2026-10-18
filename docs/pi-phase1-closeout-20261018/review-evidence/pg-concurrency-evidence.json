@@ -1,0 +1,42 @@
+{
+  "port": 55547,
+  "productionTouched": false,
+  "database": "private minimal-schema PostgreSQL",
+  "networkAndRunner": "not used",
+  "cases": [
+    {
+      "case": "stop commit before admission",
+      "newDispatches": 0,
+      "actualToolCalls": 0,
+      "result": "pi_operation_canceled"
+    },
+    {
+      "case": "admission first, known read returns after stop",
+      "actualToolCalls": 1,
+      "dispatchStatus": "completed",
+      "stopDidNotWaitForRead": true
+    },
+    {
+      "case": "final publication commits before stop",
+      "exportStatus": "succeeded",
+      "publishedFiles": 1
+    },
+    {
+      "case": "stop commits before final publication",
+      "exportStatus": "failed",
+      "errorCode": "pi_operation_canceled",
+      "publishedFiles": 0
+    },
+    {
+      "case": "late page after canceled terminal and next run",
+      "pageReads": 1,
+      "futurePageReads": 0,
+      "exportStatus": "failed",
+      "nextRunStatus": "running",
+      "sameGeneration": true,
+      "nextRunFrozen": false
+    }
+  ],
+  "passed": true,
+  "privatePostgresStopped": true
+}

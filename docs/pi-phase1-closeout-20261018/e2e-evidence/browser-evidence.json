@@ -1,0 +1,977 @@
+{
+  "passed": true,
+  "calls": [
+    {
+      "method": "GET",
+      "path": "/favicon.ico",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/pi/sessions",
+      "status": 201,
+      "payload": {
+        "clientRequestId": "cedea4f1-3d03-4a86-b508-11c2ea4c5004"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/messages",
+      "status": 202,
+      "payload": {
+        "message": "first:权限内合成销售、库存、推广取数，真实Python生成Excel。",
+        "modelId": "model-test",
+        "skillIds": [
+          "excel-report"
+        ],
+        "fileIds": [],
+        "clientRequestId": "db7af5df-c1da-42db-ae32-6ae5e49cff1d"
+      },
+      "responseDroppedAfterDjangoAcceptance": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=4&limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=5&limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=15&limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/files/pi-file-158edc54-759f-48b2-a181-bcb73992b6a0/content",
+      "status": 200,
+      "downloadHeaders": {
+        "cache-control": "private, no-store",
+        "content-disposition": "attachment; filename*=UTF-8''report.xlsx",
+        "content-security-policy": "default-src 'none'; sandbox",
+        "content-type": "application/octet-stream",
+        "x-ai-generated": "true",
+        "x-ai-review-required": "true",
+        "x-content-type-options": "nosniff"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/messages",
+      "status": 202,
+      "payload": {
+        "message": "first:权限内合成销售、库存、推广取数，真实Python生成Excel。",
+        "modelId": "model-test",
+        "skillIds": [
+          "excel-report"
+        ],
+        "fileIds": [],
+        "clientRequestId": "db7af5df-c1da-42db-ae32-6ae5e49cff1d"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/messages",
+      "status": 202,
+      "payload": {
+        "message": "continue:同会话读取上轮context-marker.txt，禁止重新取数。",
+        "modelId": "model-test",
+        "skillIds": [
+          "excel-report"
+        ],
+        "fileIds": [],
+        "clientRequestId": "b61ae039-50e4-4ab5-b92b-b54866476c71"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=29&limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/messages",
+      "status": 202,
+      "payload": {
+        "message": "stop:执行可确定停止的本地等待，随后继续原会话读取旧文件。",
+        "modelId": "model-test",
+        "skillIds": [
+          "excel-report"
+        ],
+        "fileIds": [],
+        "clientRequestId": "2ec04f8d-d747-40dc-84f0-ad38bf5f70a8"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/abort",
+      "status": 202,
+      "payload": {
+        "clientRequestId": "124a0b4f-85e1-4051-932b-a3ae68c436e6"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/messages",
+      "status": 202,
+      "payload": {
+        "message": "continue:停止旧轮后开启新一轮，读取之前context-marker.txt。",
+        "modelId": "model-test",
+        "skillIds": [
+          "excel-report"
+        ],
+        "fileIds": [],
+        "clientRequestId": "f63b8340-3e91-4201-a90f-3c03d1d2fecf"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=47&limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/messages",
+      "status": 202,
+      "payload": {
+        "message": "unknown:合成供应商已受理后响应未知，保持原操作围栏。",
+        "modelId": "model-test",
+        "skillIds": [
+          "excel-report"
+        ],
+        "fileIds": [],
+        "clientRequestId": "fb0c8bc8-165a-43d3-bec0-3535c336ba86"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions?limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/skills",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+      "status": 200
+    }
+  ],
+  "firstRequestId": "db7af5df-c1da-42db-ae32-6ae5e49cff1d",
+  "sameRequestReplay": {
+    "operationId": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+    "replayed": true,
+    "providerPostsUnchanged": true
+  },
+  "postsBeforeReadOnlyRecovery": 4,
+  "postsAtUnknown": 10,
+  "final": {
+    "dispatches": [
+      {
+        "kind": "control:deadline",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "deadline",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:create",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "create",
+        "status": "completed"
+      },
+      {
+        "kind": "control:skills_loaded",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "skills",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:prompt",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "prompt",
+        "status": "completed"
+      },
+      {
+        "kind": "model",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "ec92f4cd-2eb4-4d7e-9c9a-e1adc8eec13b",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:gateway_response",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "ec92f4cd-2eb4-4d7e-9c9a-e1adc8eec13b",
+        "status": "completed"
+      },
+      {
+        "kind": "tool",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "a434a4ce-8c9a-4ce0-9628-97cf78ee0e3d",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:gateway_response",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "a434a4ce-8c9a-4ce0-9628-97cf78ee0e3d",
+        "status": "completed"
+      },
+      {
+        "kind": "tool",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "841042a7-9537-4f04-8bc7-eb17f3b49884",
+        "status": "completed"
+      },
+      {
+        "kind": "export:page",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "pi-export-6e66a20e-265e-4095-8d3f-75caee0e7959.0",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:gateway_response",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "841042a7-9537-4f04-8bc7-eb17f3b49884",
+        "status": "completed"
+      },
+      {
+        "kind": "tool",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "5bad4b34-3e43-4570-8791-b9651572e269",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:gateway_response",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "5bad4b34-3e43-4570-8791-b9651572e269",
+        "status": "completed"
+      },
+      {
+        "kind": "export:page",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "pi-export-9b48e232-2368-4267-8a3b-d05cd1ef323e.0",
+        "status": "completed"
+      },
+      {
+        "kind": "model",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "c07d31f5-fa99-4e5a-a83e-2a554dbebb03",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:gateway_response",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "c07d31f5-fa99-4e5a-a83e-2a554dbebb03",
+        "status": "completed"
+      },
+      {
+        "kind": "tool",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "8e4781cd-b3f8-4fc6-8991-ed10967187a7",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:gateway_response",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "8e4781cd-b3f8-4fc6-8991-ed10967187a7",
+        "status": "completed"
+      },
+      {
+        "kind": "tool",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "c169a2cb-696d-41b4-b4ca-c17b35b53a2f",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:gateway_response",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "c169a2cb-696d-41b4-b4ca-c17b35b53a2f",
+        "status": "completed"
+      },
+      {
+        "kind": "file",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "43e1706d-a63c-4cb9-8beb-6145042f2dd0",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:gateway_response",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "43e1706d-a63c-4cb9-8beb-6145042f2dd0",
+        "status": "completed"
+      },
+      {
+        "kind": "file",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "f26e7dfd-deeb-48f1-8582-e90efdb9cae8",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:gateway_response",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "f26e7dfd-deeb-48f1-8582-e90efdb9cae8",
+        "status": "completed"
+      },
+      {
+        "kind": "model",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "7774cdf9-c4c0-49f5-a617-036a0449bd41",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:gateway_response",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "7774cdf9-c4c0-49f5-a617-036a0449bd41",
+        "status": "completed"
+      },
+      {
+        "kind": "model",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "9402012a-b37c-42af-8623-28df926ba948",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:gateway_response",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "request_id": "9402012a-b37c-42af-8623-28df926ba948",
+        "status": "completed"
+      },
+      {
+        "kind": "control:deadline",
+        "operation_id": "pi-op-2753c244-57f2-463e-b498-4c62e1c6d917",
+        "request_id": "deadline",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:create",
+        "operation_id": "pi-op-2753c244-57f2-463e-b498-4c62e1c6d917",
+        "request_id": "create",
+        "status": "completed"
+      },
+      {
+        "kind": "control:skills_loaded",
+        "operation_id": "pi-op-2753c244-57f2-463e-b498-4c62e1c6d917",
+        "request_id": "skills",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:prompt",
+        "operation_id": "pi-op-2753c244-57f2-463e-b498-4c62e1c6d917",
+        "request_id": "prompt",
+        "status": "completed"
+      },
+      {
+        "kind": "model",
+        "operation_id": "pi-op-2753c244-57f2-463e-b498-4c62e1c6d917",
+        "request_id": "df2f09ae-43bd-4a09-a07d-e302baee0fa7",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:gateway_response",
+        "operation_id": "pi-op-2753c244-57f2-463e-b498-4c62e1c6d917",
+        "request_id": "df2f09ae-43bd-4a09-a07d-e302baee0fa7",
+        "status": "completed"
+      },
+      {
+        "kind": "model",
+        "operation_id": "pi-op-2753c244-57f2-463e-b498-4c62e1c6d917",
+        "request_id": "a87dfd68-a4b7-45b6-9d04-584e56c12237",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:gateway_response",
+        "operation_id": "pi-op-2753c244-57f2-463e-b498-4c62e1c6d917",
+        "request_id": "a87dfd68-a4b7-45b6-9d04-584e56c12237",
+        "status": "completed"
+      },
+      {
+        "kind": "control:deadline",
+        "operation_id": "pi-op-6e04fa79-3ef2-4132-b6fc-5be96c261cee",
+        "request_id": "deadline",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:create",
+        "operation_id": "pi-op-6e04fa79-3ef2-4132-b6fc-5be96c261cee",
+        "request_id": "create",
+        "status": "completed"
+      },
+      {
+        "kind": "control:skills_loaded",
+        "operation_id": "pi-op-6e04fa79-3ef2-4132-b6fc-5be96c261cee",
+        "request_id": "skills",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:prompt",
+        "operation_id": "pi-op-6e04fa79-3ef2-4132-b6fc-5be96c261cee",
+        "request_id": "prompt",
+        "status": "completed"
+      },
+      {
+        "kind": "model",
+        "operation_id": "pi-op-6e04fa79-3ef2-4132-b6fc-5be96c261cee",
+        "request_id": "63fa2d49-eac9-45c8-bad7-bc7f85d1b476",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:gateway_response",
+        "operation_id": "pi-op-6e04fa79-3ef2-4132-b6fc-5be96c261cee",
+        "request_id": "63fa2d49-eac9-45c8-bad7-bc7f85d1b476",
+        "status": "completed"
+      },
+      {
+        "kind": "client:abort",
+        "operation_id": "pi-op-6e04fa79-3ef2-4132-b6fc-5be96c261cee",
+        "request_id": "124a0b4f-85e1-4051-932b-a3ae68c436e6",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:abort",
+        "operation_id": "pi-op-6e04fa79-3ef2-4132-b6fc-5be96c261cee",
+        "request_id": "abort",
+        "status": "completed"
+      },
+      {
+        "kind": "control:deadline",
+        "operation_id": "pi-op-d7df05a8-166f-417a-8a51-ff3c7895b3e1",
+        "request_id": "deadline",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:create",
+        "operation_id": "pi-op-d7df05a8-166f-417a-8a51-ff3c7895b3e1",
+        "request_id": "create",
+        "status": "completed"
+      },
+      {
+        "kind": "control:skills_loaded",
+        "operation_id": "pi-op-d7df05a8-166f-417a-8a51-ff3c7895b3e1",
+        "request_id": "skills",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:prompt",
+        "operation_id": "pi-op-d7df05a8-166f-417a-8a51-ff3c7895b3e1",
+        "request_id": "prompt",
+        "status": "completed"
+      },
+      {
+        "kind": "model",
+        "operation_id": "pi-op-d7df05a8-166f-417a-8a51-ff3c7895b3e1",
+        "request_id": "77f60575-81b6-49a2-8b6a-4af7162c1b63",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:gateway_response",
+        "operation_id": "pi-op-d7df05a8-166f-417a-8a51-ff3c7895b3e1",
+        "request_id": "77f60575-81b6-49a2-8b6a-4af7162c1b63",
+        "status": "completed"
+      },
+      {
+        "kind": "model",
+        "operation_id": "pi-op-d7df05a8-166f-417a-8a51-ff3c7895b3e1",
+        "request_id": "72cc5c91-d3af-4082-875e-a64e7c62fe8f",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:gateway_response",
+        "operation_id": "pi-op-d7df05a8-166f-417a-8a51-ff3c7895b3e1",
+        "request_id": "72cc5c91-d3af-4082-875e-a64e7c62fe8f",
+        "status": "completed"
+      },
+      {
+        "kind": "control:deadline",
+        "operation_id": "pi-op-6ac5fda1-f12c-4be2-84b2-ab5da0e50f22",
+        "request_id": "deadline",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:create",
+        "operation_id": "pi-op-6ac5fda1-f12c-4be2-84b2-ab5da0e50f22",
+        "request_id": "create",
+        "status": "completed"
+      },
+      {
+        "kind": "control:skills_loaded",
+        "operation_id": "pi-op-6ac5fda1-f12c-4be2-84b2-ab5da0e50f22",
+        "request_id": "skills",
+        "status": "completed"
+      },
+      {
+        "kind": "runner:prompt",
+        "operation_id": "pi-op-6ac5fda1-f12c-4be2-84b2-ab5da0e50f22",
+        "request_id": "prompt",
+        "status": "completed"
+      },
+      {
+        "kind": "model",
+        "operation_id": "pi-op-6ac5fda1-f12c-4be2-84b2-ab5da0e50f22",
+        "request_id": "94770d7d-a4ba-469f-9439-5c42f0c39eaf",
+        "status": "unknown"
+      },
+      {
+        "kind": "control:freeze",
+        "operation_id": "pi-op-6ac5fda1-f12c-4be2-84b2-ab5da0e50f22",
+        "request_id": "dispose",
+        "status": "prepared"
+      }
+    ],
+    "files": [
+      {
+        "file_name": "inventory_age.json",
+        "id": "pi-file-1e80bf41-f94d-497e-84fc-d6adc8b6d9cd",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "sha256": "ea6925957cdd3d4df40826f7b8a5f563eb016e5aa832deeab90e41b8da4b1b98",
+        "size_bytes": 70
+      },
+      {
+        "file_name": "pi_netshop_promotion.json",
+        "id": "pi-file-667e8556-220e-47bd-bd61-1c7d1986834a",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "sha256": "df652f8bea61826e28bed5eacd4286db923aab2cbc2f9b230d5021998c92b682",
+        "size_bytes": 82
+      },
+      {
+        "file_name": "context-marker.txt",
+        "id": "pi-file-7de1cc67-95de-47ef-9f8f-a6bf06132d05",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "sha256": "f8e6b2e1bdc26f131d20d5176c553af347d52fc6aa3c2be578b5923c98c1b1c8",
+        "size_bytes": 28
+      },
+      {
+        "file_name": "report.xlsx",
+        "id": "pi-file-158edc54-759f-48b2-a181-bcb73992b6a0",
+        "operation_id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "sha256": "9f6a68dd3489cdb0cdc59cd16620351577c5ba856690a239912a37e727f0fdf8",
+        "size_bytes": 2469
+      }
+    ],
+    "operations": [
+      {
+        "client_request_id": "db7af5df-c1da-42db-ae32-6ae5e49cff1d",
+        "epoch": 1,
+        "error_code": "",
+        "generation": 1,
+        "id": "pi-op-e1d1c21b-2f97-4cb2-8113-59ec54823e1d",
+        "seq": 1,
+        "session_id": "pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+        "status": "succeeded"
+      },
+      {
+        "client_request_id": "b61ae039-50e4-4ab5-b92b-b54866476c71",
+        "epoch": 1,
+        "error_code": "",
+        "generation": 1,
+        "id": "pi-op-2753c244-57f2-463e-b498-4c62e1c6d917",
+        "seq": 2,
+        "session_id": "pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+        "status": "succeeded"
+      },
+      {
+        "client_request_id": "2ec04f8d-d747-40dc-84f0-ad38bf5f70a8",
+        "epoch": 1,
+        "error_code": "",
+        "generation": 1,
+        "id": "pi-op-6e04fa79-3ef2-4132-b6fc-5be96c261cee",
+        "seq": 3,
+        "session_id": "pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+        "status": "canceled"
+      },
+      {
+        "client_request_id": "f63b8340-3e91-4201-a90f-3c03d1d2fecf",
+        "epoch": 1,
+        "error_code": "",
+        "generation": 1,
+        "id": "pi-op-d7df05a8-166f-417a-8a51-ff3c7895b3e1",
+        "seq": 4,
+        "session_id": "pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+        "status": "succeeded"
+      },
+      {
+        "client_request_id": "fb0c8bc8-165a-43d3-bec0-3535c336ba86",
+        "epoch": 1,
+        "error_code": "invalid_provider_response",
+        "generation": 1,
+        "id": "pi-op-6ac5fda1-f12c-4be2-84b2-ab5da0e50f22",
+        "seq": 5,
+        "session_id": "pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+        "status": "unknown"
+      }
+    ],
+    "providerPosts": 10,
+    "sessions": [
+      {
+        "epoch": 1,
+        "generation": 1,
+        "id": "pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+        "status": "unknown"
+      }
+    ],
+    "stopStarted": true
+  },
+  "actualDownload": true,
+  "actualReactComponent": true,
+  "actualWorkerRouteAdapter": true,
+  "workerRuntime": "Node HTTP harness, not workerd",
+  "principalBoundarySynthetic": true
+}

@@ -1,0 +1,26 @@
+﻿{
+    "baseline":  "aaca18485021b6f98107fe168b69c8f57d55ee46",
+    "capturedAt":  "2026-10-18T18:26:07.5136047+08:00",
+    "sources":  [
+                    {
+                        "path":  "backend/ai_assistant/pi_service.py",
+                        "sha256":  "4af4a7985056f7a59f10ee247c95fb10ea237ee2da5cb15f4f2b5ff80d4aabe6"
+                    },
+                    {
+                        "path":  "backend/ai_assistant/pi_gateway.py",
+                        "sha256":  "02a5e91700e6a83a8ff1444013e0b2c0bbda825bc2c810876184c60c5e30a91c"
+                    },
+                    {
+                        "path":  "backend/ai_assistant/pi_exports.py",
+                        "sha256":  "c6fef4354ff8ddbfb9a58eb72914c26de45be7a59f8664c596e8fd6367b210d5"
+                    },
+                    {
+                        "path":  "backend/ai_assistant/pi_worker.py",
+                        "sha256":  "3bb7127ee4126419df9fd82e9e66a38571144e858dbcf6b6c436bd63c66fea3e"
+                    },
+                    {
+                        "path":  "backend/ai_assistant/test_pi_runtime.py",
+                        "sha256":  "7aa3b82526f15310cef64c62923055ec428507924f9776d1ff20035b828bdd56"
+                    }
+                ]
+}

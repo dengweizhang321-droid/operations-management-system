@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "candidateSourceMatchesE2E": {
+    "tests/pi-e2e-run.py": true,
+    "tests/pi-e2e-case.py": true,
+    "tests/pi-e2e-browser.mjs": true,
+    "backend/ai_assistant/pi_service.py": true,
+    "backend/ai_assistant/pi_worker.py": true,
+    "backend/ai_assistant/pi_gateway.py": true,
+    "backend/ai_assistant/pi_exports.py": true,
+    "app/ai-pi-agent-view.tsx": true,
+    "lib/ai/django-route.ts": true,
+    "lib/django/ai-service.ts": true
+  },
+  "downloadSha256": "9f6a68dd3489cdb0cdc59cd16620351577c5ba856690a239912a37e727f0fdf8",
+  "downloadBytes": 2469,
+  "fourNamedSheets": true,
+  "threeFixtureDataRows": true,
+  "privatePgCasesPassed": 5,
+  "privatePgPort": 55547,
+  "stoppedPrivateDataRetainedDueToAutomaticApprovalRejection": true
+}

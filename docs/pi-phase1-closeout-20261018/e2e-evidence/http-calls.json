@@ -1,0 +1,517 @@
+[
+  {
+    "method": "GET",
+    "path": "/favicon.ico",
+    "status": 404
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "POST",
+    "path": "/api/ai/pi/sessions",
+    "status": 201,
+    "payload": {
+      "clientRequestId": "cedea4f1-3d03-4a86-b508-11c2ea4c5004"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+    "status": 200
+  },
+  {
+    "method": "POST",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/messages",
+    "status": 202,
+    "payload": {
+      "message": "first:权限内合成销售、库存、推广取数，真实Python生成Excel。",
+      "modelId": "model-test",
+      "skillIds": [
+        "excel-report"
+      ],
+      "fileIds": [],
+      "clientRequestId": "db7af5df-c1da-42db-ae32-6ae5e49cff1d"
+    },
+    "responseDroppedAfterDjangoAcceptance": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=4&limit=100",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=5&limit=100",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=15&limit=100",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/files/pi-file-158edc54-759f-48b2-a181-bcb73992b6a0/content",
+    "status": 200,
+    "downloadHeaders": {
+      "cache-control": "private, no-store",
+      "content-disposition": "attachment; filename*=UTF-8''report.xlsx",
+      "content-security-policy": "default-src 'none'; sandbox",
+      "content-type": "application/octet-stream",
+      "x-ai-generated": "true",
+      "x-ai-review-required": "true",
+      "x-content-type-options": "nosniff"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+    "status": 200
+  },
+  {
+    "method": "POST",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/messages",
+    "status": 202,
+    "payload": {
+      "message": "first:权限内合成销售、库存、推广取数，真实Python生成Excel。",
+      "modelId": "model-test",
+      "skillIds": [
+        "excel-report"
+      ],
+      "fileIds": [],
+      "clientRequestId": "db7af5df-c1da-42db-ae32-6ae5e49cff1d"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/messages",
+    "status": 202,
+    "payload": {
+      "message": "continue:同会话读取上轮context-marker.txt，禁止重新取数。",
+      "modelId": "model-test",
+      "skillIds": [
+        "excel-report"
+      ],
+      "fileIds": [],
+      "clientRequestId": "b61ae039-50e4-4ab5-b92b-b54866476c71"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=29&limit=100",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+    "status": 200
+  },
+  {
+    "method": "POST",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/messages",
+    "status": 202,
+    "payload": {
+      "message": "stop:执行可确定停止的本地等待，随后继续原会话读取旧文件。",
+      "modelId": "model-test",
+      "skillIds": [
+        "excel-report"
+      ],
+      "fileIds": [],
+      "clientRequestId": "2ec04f8d-d747-40dc-84f0-ad38bf5f70a8"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "POST",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/abort",
+    "status": 202,
+    "payload": {
+      "clientRequestId": "124a0b4f-85e1-4051-932b-a3ae68c436e6"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+    "status": 200
+  },
+  {
+    "method": "POST",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/messages",
+    "status": 202,
+    "payload": {
+      "message": "continue:停止旧轮后开启新一轮，读取之前context-marker.txt。",
+      "modelId": "model-test",
+      "skillIds": [
+        "excel-report"
+      ],
+      "fileIds": [],
+      "clientRequestId": "f63b8340-3e91-4201-a90f-3c03d1d2fecf"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=47&limit=100",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+    "status": 200
+  },
+  {
+    "method": "POST",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/messages",
+    "status": 202,
+    "payload": {
+      "message": "unknown:合成供应商已受理后响应未知，保持原操作围栏。",
+      "modelId": "model-test",
+      "skillIds": [
+        "excel-report"
+      ],
+      "fileIds": [],
+      "clientRequestId": "fb0c8bc8-165a-43d3-bec0-3535c336ba86"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions?limit=30",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/skills",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/ai/pi/sessions/pi-session-667c8806-7697-453d-b5a5-a8fe934e7e2d/events?after=0&limit=100",
+    "status": 200
+  }
+]

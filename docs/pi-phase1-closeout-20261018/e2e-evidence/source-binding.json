@@ -1,0 +1,22 @@
+{
+  "files": {
+    "tests/pi-e2e-run.py": "2d924ae2a8240b1a94e1fe9960760f6ca65265a240770cf6869da0e6b6d7145d",
+    "tests/pi-e2e-case.py": "14bf2611403303a779a35bd9b98e11ad83239a5c2d39b7437d867377d64f5a08",
+    "tests/pi-e2e-browser.mjs": "4213b969fa3c4665a2e8bc03c1534fc944f398ca0cbaf708fff04b3a5f586ad6",
+    "backend/ai_assistant/pi_service.py": "4af4a7985056f7a59f10ee247c95fb10ea237ee2da5cb15f4f2b5ff80d4aabe6",
+    "backend/ai_assistant/pi_worker.py": "3bb7127ee4126419df9fd82e9e66a38571144e858dbcf6b6c436bd63c66fea3e",
+    "backend/ai_assistant/pi_gateway.py": "02a5e91700e6a83a8ff1444013e0b2c0bbda825bc2c810876184c60c5e30a91c",
+    "backend/ai_assistant/pi_exports.py": "c6fef4354ff8ddbfb9a58eb72914c26de45be7a59f8664c596e8fd6367b210d5",
+    "app/ai-pi-agent-view.tsx": "0fd119c8368e25c42e86f0d0bad23e87613f603a31ef09b11ccee07f9c0fff8c",
+    "lib/ai/django-route.ts": "b93a7968490b0688ada8c85c292bf600dc0773cf32881b695b3d806a6308f6b0",
+    "lib/django/ai-service.ts": "172b5928650ffecccbfcfc3012d3523962bb08e1f167c033a3ecc2e086c92012"
+  },
+  "image": "sha256:c393a84818c0c7f941803da2db11b1cd94395b8188b69af7294490468a48e26d",
+  "namespace": "pi-test-e2e-086b2edb230a",
+  "privatePorts": [
+    18143,
+    55543,
+    55562,
+    55563
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "namespace": "pi-test-e2e-086b2edb230a",
+  "containersRemaining": 0,
+  "volumesRemaining": 0,
+  "removedContainers": [],
+  "removedVolumes": [
+    "pi-test-e2e-086b2edb230a-bbf0ba50fcd9f4b971b4c75c9b2920a1-workspace"
+  ],
+  "privateLinuxDirectoryRemoved": true,
+  "portsClosed": [
+    18143,
+    55543,
+    55562,
+    55563
+  ],
+  "runnerProcessExited": true,
+  "postgresStopped": true,
+  "privatePostgresDataRemoved": true
+}

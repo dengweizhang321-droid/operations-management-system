@@ -134,6 +134,7 @@ def transcript(payload, model):
 
 
 def _model(payload, op, principal):
+    service.principal_for_work(op)
     model = configuration.resolve_model(op.model_id)
     if model.version != op.model_version:
         raise AiError("模型配置版本已变化，请在新环境开始", "access_denied", 403)
@@ -159,6 +160,7 @@ def _model(payload, op, principal):
         finally:
             if foreign_thread:
                 connection.close()
+    service.principal_for_work(op)
     with transport.request_cancellation(cancellation), transport.request_budget(min(remaining_seconds(op), options(model)["taskTimeoutMs"] / 1000)), provider.conversation_session(f"pi/{op.session_id}/{op.generation}"):
         value = provider.turn(model, messages, system, tools, retain_reasoning=True, preserve_context=True,
             tool_argument_limits={item["name"]: LOCAL_ARGUMENT_BYTES for item in tools if item["name"] in LOCAL_CODE_TOOLS})
@@ -180,6 +182,7 @@ def _model(payload, op, principal):
 
 
 def _tool(payload, op, principal):
+    service.principal_for_work(op)
     from . import pi_selection
     name = payload.get("name")
     args = payload.get("args", {})
@@ -194,6 +197,9 @@ def _tool(payload, op, principal):
         raise AiError("Pi 工具不在当前授权目录", "access_denied", 403)
     selection = pi_selection.for_operation(op)
     args = pi_selection.bind_arguments(name, args, selection, op.session_id)
+    # Catalog lookup may have blocked while the user stopped. No business call
+    # has been sent yet, so this refusal is known rather than an unknown effect.
+    service.principal_for_work(op)
     result = transport.execute_tool(name, args, principal, surface="pi_agent", request_id=op.id,
         provider_call_id=payload["requestId"], policy_digest=digest(all_entries))
     if result.get("auditStatus") == "unavailable":
@@ -207,10 +213,12 @@ def _tool(payload, op, principal):
 
 
 def _file(payload, op, principal):
+    service.principal_for_work(op)
     from .pi_models import PiFile
     file = PiFile.objects.filter(id=identifier(payload.get("fileId")), operation=op, generation=op.generation).first()
     if not file:
         raise AiError("文件不属于当前 Pi 操作", "access_denied", 403)
+    service.principal_for_work(op)
     return {"id": file.id, "sizeBytes": file.size_bytes, **service.download(file.id, principal, content=True)}, {}, ""
 
 
@@ -236,6 +244,8 @@ def execute(payload, nonce):
                 raise AiError("Pi 网关请求标识内容变化", "conflict", 409)
             if prior.status == "completed":
                 cached = json.loads(prior.response_json)
+                if prior.error_code == "pi_operation_canceled" and cached == {"error": "pi_operation_canceled"}:
+                    raise service.PiWorkCanceled()
                 if payload["kind"] == "model":
                     from .secrets import decrypt
                     return json.loads(decrypt(cached["privateModelResponse"]))
@@ -243,6 +253,9 @@ def execute(payload, nonce):
             raise AiError("Pi 网关调用已受理且结果未知，禁止重发", "pi_dispatch_unknown", 409)
         if payload["kind"] == "model" and PiDispatch.objects.filter(operation=op, kind="model", status__in=["prepared", "sent", "unknown"]).exists():
             raise AiError("同一 Pi 操作已有模型派发，禁止以新标识并发重发", "pi_dispatch_active", 409)
+        # The same authority lock orders stop acceptance and each individual
+        # dispatch admission; no list or whole export is pre-authorized.
+        service.principal_for_work(current)
         dispatch = PiDispatch.objects.create(id=uid("pi-dispatch"), operation=op, kind=payload["kind"], request_id=payload["requestId"],
             request_digest=binding, status="sent")
     try:
@@ -260,6 +273,12 @@ def execute(payload, nonce):
             dispatch.save()
         return result
     except Exception as error:
+        if isinstance(error, service.PiWorkCanceled):
+            with mutation():
+                dispatch.status, dispatch.error_code, dispatch.completed_at = "completed", error.code, timezone.now()
+                dispatch.response_json = canonical({"error": error.code})
+                dispatch.save()
+            raise
         from .provider_contract import InvalidProviderResponse
         # These classes construct fixed, content-free diagnostics. Never retain
         # an arbitrary exception body or supplier response in this public ledger.

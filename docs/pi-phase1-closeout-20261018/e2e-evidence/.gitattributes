@@ -1,0 +1,3 @@
+# Preserve the byte hashes of captured evidence, including native CRLF output.
+* -text whitespace=cr-at-eol
+*.log -diff

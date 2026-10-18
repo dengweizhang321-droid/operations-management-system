@@ -1,0 +1,2 @@
+# These opt-in acceptance entrypoints are bound by raw-byte source hashes.
+pi-e2e-*.py -text whitespace=cr-at-eol

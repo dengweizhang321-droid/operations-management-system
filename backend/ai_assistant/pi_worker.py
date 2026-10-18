@@ -216,16 +216,21 @@ def complete(op, result):
         session = PiSession.objects.select_for_update().get(pk=op.session_id)
         if receipt["eventSeq"] > session.runner_event_seq:
             return False
+        canceled = current.cancel_requested or status == "aborted"
+        if canceled:
+            service.stop_exports(current)
         if PiExport.objects.filter(operation=current, status__in=["queued", "running"]).exists():
             return False
-        for index, item in enumerate(files):
+        # Cancellation preserves previously published files and the workspace,
+        # but the late terminal snapshot must not publish new output files.
+        for index, item in enumerate([] if canceled else files):
             if not isinstance(item, dict) or not isinstance(item.get("base64"), str) or len(item["base64"])>12*1024*1024:
                 raise AiError("PiRunner 文件内容无效", "pi_runner_unknown", 503)
             raw = base64.b64decode(item["base64"], validate=True)
             if hashlib.sha256(raw).hexdigest() != item.get("sha256"):
                 raise AiError("PiRunner 文件哈希不匹配", "pi_runner_unknown", 503)
             service.save_file(session, current, f"{op.id}-{index}", item.get("fileName"), item.get("mimeType"), raw, direction="output")
-        current.status = "canceled" if current.cancel_requested or status == "aborted" else "failed" if status == "failed" else "succeeded"
+        current.status = "canceled" if canceled else "failed" if status == "failed" else "succeeded"
         current.capability_hash, current.lease_token, current.lease_expires_at = "", "", None
         current.updated_at = timezone.now()
         current.save()
@@ -274,7 +279,7 @@ def _heartbeat_loop(op, stopped):
 
 def bridge(op, result):
     """Only HMAC-authenticated runner state can supply bridge requests."""
-    from . import pi_gateway
+    from . import pi_gateway, pi_service as service
     from .policy import AiError
     pending = result.get("state", {}).get("pendingGatewayRequests", result.get("pendingGatewayRequests", []))
     if not isinstance(pending, list) or len(pending)>32:
@@ -282,7 +287,10 @@ def bridge(op, result):
     for payload in pending:
         if not isinstance(payload, dict) or any(payload.get(key) != value for key, value in identity(op).items()):
             raise AiError("Pi 网关桥请求身份无效", "pi_runner_unknown", 503)
-        response = pi_gateway.execute(payload, secrets.token_hex(16))
+        try:
+            response = pi_gateway.execute(payload, secrets.token_hex(16))
+        except service.PiWorkCanceled:
+            return  # The next loop sends abort; it clears Runner's pending work.
         runner_dispatch(op, "gateway_response", {"requestId": payload["requestId"], "response": response}, request_id=payload["requestId"])
 
 
@@ -385,11 +393,16 @@ def perform(op, stopped=None):
             service.principal_for(current)
             from .pi_gateway import remaining_seconds
             remaining_seconds(current)
-            bridge(op, result)
             if current.cancel_requested and not aborted:
                 result = runner_dispatch(op, "abort", {})
                 settled = ingest(op, result) or handled(result) or settled
                 aborted = True
+            elif not current.cancel_requested:
+                bridge(op, result)
+                # A stop can arrive inside a bridge call or its catalog lookup.
+                # Send abort before state polling or admitting the next request.
+                if PiOperation.objects.get(pk=op.pk).cancel_requested:
+                    continue
             if settled and complete(op, result):
                 # ACK is cleanup after durable terminal evidence. A failed ACK
                 # never replays prompt or changes the terminal business result.
