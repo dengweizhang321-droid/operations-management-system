@@ -87,8 +87,8 @@ export async function prepareLatestMainOnce(config,selection,{git=gitAt,log=()=>
   await git(config.repository,['worktree','add','-b','codex/manual-main-'+name,source,target]);
   await git(config.repository,['worktree','lock','--reason','Manual latest-main release source; keep while package is in use',source]);
  }
- assert.equal(await git(source,['rev-parse','HEAD']),target,'发布来源不是本次冻结main');
- assert.equal(await git(source,['status','--porcelain']),'','发布来源存在未提交修改');
+ const {assertFrozenSource}=await import('./frozen-main-source.mjs');
+ await assertFrozenSource({source,mainCommit:target},{git});
  const plan=makePlan({base:live.mainCommit,head:target,cwd:source});assert.equal(plan.headSha,target);assert.equal(plan.baseSha,live.mainCommit);
  if(!plan.components.length)return {status:'non-production',targetCommit:target,currentCommit:live.mainCommit,packet,source,publicationPerformed:false};
  const schemaRelease=plan.migrate?await prepareSchema({source,packet,plan}):null;
@@ -147,6 +147,8 @@ export async function runPublisher(source,args=[],gitDirectory,baseEnvironment,{
 // An advisory check before spawning the native publisher. The native engines
 // still own the rotation lock and revalidate every artifact before deployment.
 export async function inspectMainPreparation(prepared,{git=gitAt}={}){
+ const {assertFrozenSource}=await import('./frozen-main-source.mjs');
+ const identity=await assertFrozenSource({source:prepared.source,mainCommit:prepared.targetCommit,sourceTree:prepared.request.sourceTree},{git});
  const attempt=path.join(prepared.packet,'publish-'+prepared.targetCommit.slice(0,12));
  if(await exists(path.join(attempt,'STARTED.json'))&&!await exists(path.join(attempt,'SUCCESS.json')))throw Error('这个目标main已有未知结果的执行记录，禁止自动重试；原日志：'+attempt);
  if(await exists(path.join(attempt,'SUCCESS.json')))throw Error('目标出现成功记录，请重新从固定入口核对实际线上版本；本次未发布');
@@ -155,7 +157,7 @@ export async function inspectMainPreparation(prepared,{git=gitAt}={}){
  const receipt=JSON.parse(await fs.readFile(file,'utf8'));
  assert.equal(receipt.version,'teruisi-main-preparation-v1','准备记录版本无效');
  assert.equal(receipt.requestSha256,sha(Buffer.from(JSON.stringify(prepared.request))),'准备包的请求不属于本次目标');
- assert.deepEqual(receipt.sourceIdentity,{commit:prepared.targetCommit,tree:await git(prepared.source,['rev-parse','HEAD^{tree}'])},'准备包的源码版本不属于本次目标');
+ assert.deepEqual(receipt.sourceIdentity,identity,'准备包的源码版本不属于本次目标');
  return {status:'ready-for-native-verification',mainCommit:prepared.targetCommit,publicationPerformed:false,preparationFile:file};
 }
 

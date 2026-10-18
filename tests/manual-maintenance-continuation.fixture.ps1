@@ -1,5 +1,6 @@
 param([Parameter(Mandatory)][string]$SourceFile,[Parameter(Mandatory)][string]$TransportFile,[Parameter(Mandatory)][string]$AdapterCommandPath)
 $ErrorActionPreference='Stop'
+Import-Module (Join-Path $PSScriptRoot '../tools/manual-maintenance-process.psm1') -Force
 $tokens=$null;$errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile($SourceFile,[ref]$tokens,[ref]$errors)
 if($errors.Count){throw ($errors|Out-String)}

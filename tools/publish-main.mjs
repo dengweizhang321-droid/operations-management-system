@@ -35,9 +35,8 @@ async function verifyOfflineCache(request){
 async function main(){
  if(!process.argv.includes('--check')){progress=createReleaseProgress(path.resolve(source,'..','logs'),{taskName:process.argv.includes('--prepare-only')?'打包':'发布'});progress.begin('准备发布');}
  const request=await read(requestFile);
- const head=execFileSync('git',['rev-parse','HEAD'],{cwd:source,encoding:'utf8'}).trim();
- assert.equal(head,request.mainCommit,'main来源版本已变化，请使用本次合并后生成的入口');
- assert.equal(execFileSync('git',['status','--porcelain'],{cwd:source,encoding:'utf8'}).trim(),'','发布来源有未提交修改');
+ const {assertFrozenSource}=await import('./frozen-main-source.mjs');
+ const {commit:head}=await assertFrozenSource({source,mainCommit:request.mainCommit,sourceTree:request.sourceTree});
  if(request.latestMainRelease){
   assert.equal(request.version,'teruisi-frozen-latest-main-request-v1');
   assert.equal(resumeMode,false,'最新main发布不能套用旧任务续接');
@@ -50,6 +49,14 @@ async function main(){
   if(process.argv.includes('--check')){
    if(schema)await verifyMainSchemaRelease(request,source);
    const readiness=request.components.includes('django')?await (await import('./manual-maintenance-continuation.mjs')).maintenanceReadiness({source,head:request.predecessorWorker,djangoManifestSha256:request.predecessorDjangoSha256}):null;
+   if(readiness){
+    const os=await import('node:os');const directory=await fs.mkdtemp(path.join(os.tmpdir(),'maintenance-readiness-'));
+    try{
+     const input=path.join(directory,'readiness.json');const raw=JSON.stringify(readiness);await fs.writeFile(input,raw,{flag:'wx'});
+     const result=JSON.parse(execFileSync('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',['-NoProfile','-NonInteractive','-File',path.join(source,'tools/manual-maintenance-preflight.ps1'),'-InputPath',input,'-InputSha256',createHash('sha256').update(raw).digest('hex'),'-Json'],{encoding:'utf8',windowsHide:true,timeout:30000}));
+     assert.equal(result.ready,true);assert.equal(result.route,readiness.route);
+    }finally{await fs.rm(directory,{recursive:true,force:true});}
+   }
    console.log(JSON.stringify({mode:'frozen-latest-main',targetCommit:head,migration:schema?.steps[0]??null,maintenanceReadinessRoute:readiness?.route??null,publicationPerformed:false}));return;
   }
   const {publishPreparedMain,mainPublicationMode,requireMainPreparation}=await import('./publish-prepared-main.mjs');

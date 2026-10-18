@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {piMaintenancePredecessor as k,maintenanceReadiness,assertPiMaintenanceContinuation,continuePiMaintenance} from '../tools/manual-maintenance-continuation.mjs';
+import {piMaintenancePredecessor as k,maintenanceSourceNames,maintenanceReadiness,assertPiMaintenanceContinuation,continuePiMaintenance} from '../tools/manual-maintenance-continuation.mjs';
 import {publishPreparedMain} from '../tools/publish-prepared-main.mjs';
 import {productionCommandArguments,productionCommandEnvironment} from '../tools/release-batch.mjs';
 const id='a'.repeat(32),h='b'.repeat(64),expected={maintenanceId:id,requestSha256:h,startedSha256:h,admissionSha256:h,originalFailureSha256:h};
@@ -47,7 +47,7 @@ test('static readiness binds actual predecessor and existing recovery tools befo
  const pins={'deployment.json':k.djangoManifestSha256,'deployment-manifest.json':k.workerManifestSha256,'worker-local-service.ps1':k.workerScriptSha256,'django-local-service.ps1':k.djangoScriptSha256,'django-ai.ps1':k.djangoAiScriptSha256,'process-deadline.ps1':k.workerTransportSha256};
  const pidSha=createHash('sha256').update(JSON.stringify(pi)).digest('hex');
  const options={source,installed,runtime,head:{releaseId:k.releaseId,manifestSha256:k.workerManifestSha256},djangoManifestSha256:k.djangoManifestSha256,sha:async file=>file.endsWith('.pid.json')?pidSha:pins[path.basename(file)]??h};
- const result=await maintenanceReadiness(options);assert.equal(result.route,'pi19db');assert.deepEqual(result.piWorkerIdentity,pi);assert.equal(Object.keys(result.sourcePins).length,6);
+ const result=await maintenanceReadiness(options);assert.equal(result.route,'pi19db');assert.deepEqual(result.piWorkerIdentity,pi);assert.equal(Object.keys(result.sourcePins).length,maintenanceSourceNames.length);
  options.sha=async file=>path.basename(file)==='django-ai.ps1'?'c'.repeat(64):file.endsWith('.pid.json')?pidSha:pins[path.basename(file)]??h;
  await assert.rejects(maintenanceReadiness(options));
 });
@@ -65,6 +65,7 @@ for(const unknown of [false,true])test('publisher keeps original 19db attempt an
  const sourcePins=Object.fromEntries(['manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs'].map(name=>[name,h]));
  const context={source:root,out,installedRoot:installed,workerRuntimeRoot:runtime,deployOnly:false,sourceIdentity:async()=>({commit:request.mainCommit,tree:'b'.repeat(40)}),sha:async file=>file===path.join(installed,'deployment.json')?django:h,api:{workerRuntimeRoot:runtime},rotation:{withRotationLock:async f=>f({}),assertActiveBatchOwnership:async()=>{},resolveEffectiveReleaseChain:async()=>({head,chainStateSha256:h})},maintenanceReadiness:async()=>({route:'pi19db',sourcePins,piWorkerReceiptSha256:h,piWorkerIdentity:{private:true},piConfigurationSha256:h}),fetch:async()=>new Response(JSON.stringify({ok:true,status:'ready'})),runStep:async({action,script,extra})=>{
   events.push(action);
+  if(path.basename(script)==='manual-maintenance-preflight.ps1'){events.pop();return {ready:true,route:'pi19db'};}
   if(action==='PrepareApp')return {id,receiptSha256:h};
   if(action==='EnterMaintenance'&&path.basename(script)==='manual-maintenance-start.ps1'){admission=JSON.parse(await fs.readFile(extra[1],'utf8'));assert.equal(admission.readinessRoute,'pi19db');throw Error('original Pi metadata unknown');}
   if(path.basename(script)==='manual-maintenance-continuation.ps1'){

@@ -43,6 +43,10 @@ function Check-FirstAttempt {
  if(($admission.rotationOwnerPid -isnot [int] -and -not ($admission.readinessRoute -ceq 'pi19db' -and $admission.rotationOwnerPid -is [long] -and $admission.rotationOwnerPid -le [int]::MaxValue)) -or $admission.rotationOwnerPid -le 0 -or $admission.sourcePins -isnot [pscustomobject]){throw 'Original invocation binding is missing'}
  if((Sha $PSCommandPath) -cne $admission.sourcePins.'manual-maintenance-start.ps1'){throw 'Original adapter source changed'}
  if((Sha (Join-Path $PSScriptRoot 'manual-maintenance-lock.psm1')) -cne $admission.sourcePins.'manual-maintenance-lock.psm1'){throw 'Original mutex adapter changed'}
+ if((Sha (Join-Path $PSScriptRoot 'manual-maintenance-process.psm1')) -cne $admission.sourcePins.'manual-maintenance-process.psm1'){throw 'Original process adapter changed'}
+ Import-Module (Join-Path $PSScriptRoot 'manual-maintenance-process.psm1') -Force
+ if($admission.maintenanceReadiness.route -cne $admission.readinessRoute){throw 'Maintenance readiness route changed'}
+ [void](Assert-MaintenanceReadiness $admission.maintenanceReadiness $djangoRoot $workerRoot $PSScriptRoot)
  Save-OriginalRecord 'maintenance-first-actor.json' @{version='manual-maintenance-original-actor-v1';at=[DateTimeOffset]::UtcNow.ToString('o');admissionSha256=$InputSha256;maintenanceId=$admission.maintenanceId;helperSha256=(Sha $PSCommandPath);actor=(Get-OriginalActor $PID);rotationOwner=(Get-OriginalActor $admission.rotationOwnerPid)}
  $script:originalWorker=$script
  $script:admissionId=$admission.maintenanceId

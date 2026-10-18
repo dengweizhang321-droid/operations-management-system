@@ -29,6 +29,8 @@
 
 ## 发布与交付
 
+本轮补充：[发布链路维护前检查](../release-chain-preflight-20261018/REPORT.md)。
+
 本轮补充：[发布兼容性前置与重复读取优化](../release-four-optimizations-20261018/REPORT.md)。
 
 | 任务目录 | 文档数 | 入口 |
