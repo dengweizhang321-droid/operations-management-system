@@ -1,0 +1,40 @@
+{
+  "version": "pi-workspace-private-postgres-v1",
+  "status": "passed",
+  "productionTouched": false,
+  "steps": [
+    "ai_assistant.0085_pi_workspace_controls"
+  ],
+  "codeSha256": "b95550b3aadf2c5265d8edcacb7d11250d76247e4f86a57d0bd891832722bf43",
+  "migrationSha256": "93b18bd09cf3071c30f05d66490f63f61e18cad7f2a5a2c9f273b909fca05b90",
+  "checks": [
+    "atomic-upgrade",
+    "bad-evidence",
+    "defaults-empty",
+    "exact-150-151",
+    "legacy-data-preserved",
+    "legacy-queue-isolation",
+    "lifecycle-routing",
+    "negative-catalogues",
+    "parent-source-binding",
+    "permissions",
+    "pi-state-fencing",
+    "pointer-cas",
+    "rollback",
+    "unknown-no-replay"
+  ],
+  "generations": [
+    150,
+    151
+  ],
+  "parentVariants": [
+    [
+      150,
+      151
+    ]
+  ],
+  "legacyDataPreserved": true,
+  "fullBackupOrRestorePerformed": false,
+  "preservedPiRows": 3,
+  "port": 55531
+}

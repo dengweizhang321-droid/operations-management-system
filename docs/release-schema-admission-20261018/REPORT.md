@@ -26,3 +26,5 @@
 精确接口、普通 operator 与只读 witness 边界见 [OPERATOR.md](OPERATOR.md)。root 负责独立审查冻结操作材料、采用新固定控制、有限终止原请求、再由原固定普通任务准备最终 main。开发代理没有执行这些操作，也没有应用上线授权。
 
 请求执行模型为 `gpt-6.1-sol/high`；实际底层型号未由工具独立确认。独立审查事实由 root 收尾记录。
+
+远端 main 后续推进 3347 的合并、唯一 recipe 冲突和精确证据复用，见 [MERGE-REUSE.md](MERGE-REUSE.md)；前述 f951 与候选报告保留为原受测版本，最新组合证明另存 sibling，不覆盖旧原件。
