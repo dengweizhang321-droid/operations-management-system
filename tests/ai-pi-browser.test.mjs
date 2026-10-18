@@ -19,6 +19,7 @@ test("actual Pi UI persists request identity and restores by GET after a lost PO
       const saved = JSON.parse(sessionStorage.getItem("server") || "null");
       window.fixture = saved || { sessions: [], operations: [], controls: [], events: [], files: [], calls: [], frozen: false };
       const f = window.fixture;
+      f.workspaceControls ??= [];
       f.calls = [];
       const save = () => sessionStorage.setItem("server", JSON.stringify(f));
       window.fetch = async (input, init = {}) => {
@@ -27,13 +28,21 @@ test("actual Pi UI persists request identity and restores by GET after a lost PO
         f.calls.push({ url, method, payload });
         if (url.endsWith("/sessions/s1") && f.deferS1) return new Promise(resolve => { window.releasePi = () => resolve(Response.json({ session: { ...f.sessions[0], title: "迟到旧环境" }, operations: [], files: [] })); });
         if (method === "POST") {
-          const pending = JSON.parse(localStorage.getItem("ai-pi-v1:fixture@example.invalid:pending"));
+          const controlKey = `ai-pi-v1:fixture@example.invalid:workspace:s1:${f.sessions[0]?.epoch ?? 1}:${f.sessions[0]?.generation ?? 1}`;
+          const pending = JSON.parse(localStorage.getItem(url.endsWith("/workspace") ? controlKey : "ai-pi-v1:fixture@example.invalid:pending"));
           if (!pending.some(item => item.clientRequestId === payload.clientRequestId)) throw Error("request identity was not durable before dispatch");
         }
         if (url.endsWith("/messages") && f.rejectNextMessage) { f.rejectNextMessage = false; save(); return Response.json({ error: "合成参数拒绝" }, { status: 400 }); }
         const session = () => ({ ...f.sessions[0], status: f.frozen ? "frozen" : f.operations.some(item => item.status === "running") ? "running" : "ready", activeOperationId: f.operations.some(item => item.status === "running") ? "op1" : null });
         let result;
-        if (url.endsWith("/skills")) result = { items: [{ id: "source-audit", name: "来源核查", description: "核对已授权数据来源", status: "enabled" }, { id: "off", name: "未部署技能", description: "环境未准备", status: "disabled" }], models: [{ id: "m1", name: "现有模型", modelName: "fixture", isDefault: true }] };
+        if (url.includes("/workspace") && method === "GET") result = { workspace: { status: "ready", controlSeq: f.workspaceControls.length, state: { terminals: [] } }, controls: f.workspaceControls };
+        else if (url.endsWith("/workspace") && method === "POST") {
+          const control = { id: `control-${f.workspaceControls.length + 1}`, clientRequestId: payload.clientRequestId, controlSeq: f.workspaceControls.length + 1, command: payload.command, status: "queued", result: {} };
+          f.workspaceControls.push(control); save();
+          if (f.workspaceControls.length === 1) throw Error("control accepted; response lost");
+          result = { workspace: { status: "ready", state: {} }, control };
+        }
+        else if (url.endsWith("/skills")) result = { items: [{ id: "source-audit", name: "来源核查", description: "核对已授权数据来源", status: "enabled" }, { id: "off", name: "未部署技能", description: "环境未准备", status: "disabled" }], models: [{ id: "m1", name: "现有模型", modelName: "fixture", isDefault: true }] };
         else if (/\/sessions(?:\?|$)/.test(url) && method === "GET") result = { items: f.sessions.map(item => item.id === "s1" ? session() : item) };
         else if (url.endsWith("/sessions") && method === "POST") { const item = { id: "s1", title: "来源分析", status: "ready", epoch: 1, generation: 1, scope: payload.scope ?? null, createClientRequestId: payload.clientRequestId }; f.sessions = [item]; result = { session: item }; }
         else if (url.includes("/events?")) { const after = Number(new URL(url, "https://fixture.invalid").searchParams.get("after")); result = { items: f.events.filter(event => event.eventSeq > after), after, hasMore: false }; }
@@ -66,10 +75,23 @@ test("actual Pi UI persists request identity and restores by GET after a lost PO
     await page.getByLabel("任务", { exact: true }).fill("/skill:source-audit 核对来源");
     await page.getByRole("button", { name: "发送任务", exact: true }).click();
     await page.getByRole("article").getByText("/skill:source-audit 核对来源", { exact: true }).waitFor();
-    assert.equal(await page.getByRole("button", { name: "发送任务", exact: true }).isDisabled(), true);
+    // Phase2 keeps the composer available for a distinct steer/follow_up control.
+    await page.getByLabel("运行中发送方式", { exact: true }).waitFor();
     const sent = await page.evaluate(() => window.fixture.calls.filter(call => call.url.endsWith("/messages") && call.payload.message !== "拒绝夹具"));
     assert.equal(sent.length, 1); assert.deepEqual(sent[0].payload.skillIds, ["source-audit"]); assert.equal(sent[0].payload.scope, undefined); assert.deepEqual(sent[0].payload.fileIds, ["f1"]);
     assert.deepEqual((await page.evaluate(() => window.fixture.calls.find(call => call.url.endsWith("/sessions") && call.method === "POST"))).payload.scope.platforms, ["京东"]);
+    await page.waitForFunction(() => document.querySelector('#pi-agent-prompt').value === "");
+    await page.getByLabel("任务", { exact: true }).fill("第一条插话");
+    await page.getByRole("button", { name: "发送任务", exact: true }).click();
+    await page.waitForFunction(() => window.fixture.workspaceControls.length === 1 && document.querySelector('#pi-agent-prompt').value === "");
+    assert.equal((await page.evaluate(() => window.fixture.calls.filter(call => call.method === "POST" && call.url.endsWith("/workspace")))).length, 1);
+    await page.getByLabel("运行中发送方式", { exact: true }).selectOption("follow_up");
+    await page.getByLabel("任务", { exact: true }).fill("第二条排队");
+    await page.getByRole("button", { name: "发送任务", exact: true }).click();
+    await page.waitForFunction(() => window.fixture.workspaceControls.length === 2);
+    const controls = await page.evaluate(() => window.fixture.workspaceControls);
+    assert.deepEqual(controls.map(item => item.command), ["steer", "follow_up"]);
+    assert.equal(new Set(controls.map(item => item.clientRequestId)).size, 2);
     await page.reload();
     await page.getByRole("article").getByText("/skill:source-audit 核对来源", { exact: true }).waitFor();
     assert.deepEqual(await page.evaluate(() => window.fixture.calls.filter(call => call.method !== "GET")), []);

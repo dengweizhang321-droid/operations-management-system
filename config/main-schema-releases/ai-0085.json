@@ -1,0 +1,15 @@
+{
+  "version": "teruisi-main-schema-recipe-v1",
+  "additionKind": "PiWorkspace",
+  "fromGeneration": 150,
+  "toGeneration": 151,
+  "steps": [
+    "ai_assistant.0085_pi_workspace_controls"
+  ],
+  "stepFiles": {
+    "backend/ai_assistant/migrations/0085_pi_workspace_controls.py": "b4bd9ca8d870caa3b747b70446108a67af820610e79273ca35a752e850091d07"
+  },
+  "validation": "docs/pi-phase2-workspace-20261018/schema-validation.json",
+  "validationSha256": "732748a9ee315a6dd28e13086b213e86e5d657b01cc698d9404b92d4fd979eee",
+  "codeSha256": "27144dc0367fa564ef4032c44aecd9fce4b625c13a945cb91e28482e68006749"
+}

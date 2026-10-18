@@ -1,0 +1,27 @@
+{
+  "passed": true,
+  "codeFiles": 61,
+  "codeSha256": "27144dc0367fa564ef4032c44aecd9fce4b625c13a945cb91e28482e68006749",
+  "sourceInventorySha256": "48bbe51bba9dee1d88e839308be72477edab19c6d1e26cb863d5d7b4e73518ad",
+  "runnerSourceSha256": "f8546ad39b86cc44416ddd86c96579b972a138503275df9e1296c52f9dc7893f",
+  "runnerImage": "sha256:ab4ee452bfc6f66dedac6e874dec7ed492b687d24f217c75e80fc9535a26bbb2",
+  "validationSha256": "732748a9ee315a6dd28e13086b213e86e5d657b01cc698d9404b92d4fd979eee",
+  "migrationSha256": "93b18bd09cf3071c30f05d66490f63f61e18cad7f2a5a2c9f273b909fca05b90",
+  "recipeMatchesRealProof": true,
+  "nativePackageMatchesCurrentSource": true,
+  "runnerAndContainerBindingsMatch": true,
+  "e2eCurrentSourceMatchesExceptQualifiedUiDelta": true,
+  "frontendBuildMatchesExceptQualifiedUiDelta": true,
+  "qualifiedUiDelta": {
+    "path": "app/ai-pi-workspace.tsx",
+    "beforeSha256": "69f404b6f1426f425f41ccf4fc84bc1a1f0784a8a40c767a7db0d25eb64031da",
+    "afterSha256": "635e480bc97b97f5da74c711e892206b2761c84b82bf456f8064e8122d7759f9",
+    "onlyEdit": "{run.hasGap && <p> -> {Boolean(run.hasGap) && <p>",
+    "reason": "Record<string, unknown> cannot directly render as ReactNode; native hasGap values are bool False/True.",
+    "validWireRuntimeBehaviorUnchanged": true,
+    "freshCompleteTypeDiagnostics": 0
+  },
+  "databaseUsed": false,
+  "productionTouched": false,
+  "paidRequests": 0
+}

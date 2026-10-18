@@ -43,6 +43,24 @@ export default function(pi) {
     },
   });
   pi.registerCommand('runner-ping',{description:'Inspect fixed runtime',handler:async()=>{}});
+  pi.registerCommand('workspace-ui',{
+    description:'Open the standard workspace extension UI controls',
+    handler:async(_args,context)=>{
+      context.ui.notify('Workspace extension UI is connected','info');
+      context.ui.setStatus('workspace-ui','Waiting for your response');
+      context.ui.setWidget('workspace-ui',['Standard extension UI'],{placement:'aboveEditor'});
+      context.ui.setTitle('Pi workspace');
+      const selected=await context.ui.select('Workspace action',['Continue','Cancel']);
+      if(selected!=='Continue')return;
+      if(!await context.ui.confirm('Confirm workspace action','Continue with the input and editor controls?'))return;
+      const value=await context.ui.input('Workspace input','Enter text');
+      const edited=await context.ui.editor('Workspace editor',value??'');
+      if(edited!==undefined)context.ui.setEditorText(edited);
+      context.ui.setStatus('workspace-ui',undefined);
+      context.ui.setWidget('workspace-ui',undefined);
+      context.ui.notify('Workspace controls completed','info');
+    },
+  });
   async function gateway(payload,signal) {
     if(!binding||!ctx) throw Error('operation_capability_required');
     if(signal?.aborted) throw Error('aborted');

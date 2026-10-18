@@ -8,6 +8,8 @@ import {manualStepCommand} from './publish-main-command.mjs';
 import {schemaForRequest,verifyMainSchemaRelease} from './main-schema-release.mjs';
 import {continueFirstMaintenance,isFirstMaintenancePredecessor,continuePiMaintenance,isPiMaintenancePredecessor,maintenanceReadiness,piMaintenancePredecessor} from './manual-maintenance-continuation.mjs';
 
+export const piWorkspaceImage='sha256:ab4ee452bfc6f66dedac6e874dec7ed492b687d24f217c75e80fc9535a26bbb2';
+function verifyPiUpgrade(record){assert.equal(record?.prepared,true,'缺少已准备Pi Runner升级');assert.equal(record?.started,false,'准备不能启动Runner');assert.match(record.registeredPlanSha256??'',/^[a-f0-9]{64}$/);assert.match(record.sourceSha256??'',/^[a-f0-9]{64}$/);assert.equal(record.image,piWorkspaceImage,'Runner升级镜像与本次交付不一致');return record;}
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const exists=async file=>{try{await fs.access(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};
 const read=async file=>JSON.parse(await fs.readFile(file,'utf8'));
@@ -124,13 +126,14 @@ export async function publishPreparedMain(request,context){
   const requestSha256=digest(Buffer.from(JSON.stringify(request)));
   let publicationStarted=false;
   try{
-   let plan=null,pkg=null,djangoExpected=djangoBefore;
+   let plan=null,pkg=null,piRunnerUpgrade=null,piUpgradeReceipt=null,reusedPreparation=false,djangoExpected=djangoBefore;
    if(await exists(preparationFile)){
-    const prepared=await read(preparationFile);
+    reusedPreparation=true;const prepared=await read(preparationFile);
     assert.equal(prepared.version,'teruisi-main-preparation-v1');
     assert.equal(prepared.requestSha256,requestSha256,'准备包的请求已变化');
     assert.deepEqual(prepared.sourceIdentity,identity,'准备包的源码版本已变化');
     plan=prepared.workerPlan;pkg=prepared.djangoPackage;djangoExpected=prepared.djangoManifestSha256;
+    if(schema?.additionKind==='PiWorkspace')piRunnerUpgrade=verifyPiUpgrade(prepared.piRunnerUpgrade);
     assert.equal(Boolean(plan),components.worker,'准备包Worker范围不一致');
     assert.equal(Boolean(pkg),components.django,'准备包Django范围不一致');
     if(plan){
@@ -168,13 +171,24 @@ export async function publishPreparedMain(request,context){
     assert.match(pkg.id??'',/^[a-f0-9]{32}$/,'后台准备ID无效');assert.match(pkg.receiptSha256??'',/^[a-f0-9]{64}$/,'后台准备凭证无效');
     djangoExpected=await sha(path.join(path.dirname(installed),'app.deploy-'+pkg.id,'deployment.json'));
    }
+    if(schema?.additionKind==='PiWorkspace'){
+     piRunnerUpgrade=verifyPiUpgrade(await step('准备Pi Runner升级',path.join(source,'tools/django-ai.ps1'),'PreparePiUpgrade',['-PiImage',piWorkspaceImage,'-PiPreparedAppId',pkg.id,'-PiPreparedAppSha256',pkg.receiptSha256],{directory:preparationOut}));
+    }
     assert.deepEqual(await sourceIdentity(),identity,'打包期间源码变化');
     assert.deepEqual((await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true})).head,before.head,'准备期间Worker前驱改变');
     assert.equal(await sha(path.join(installed,'deployment.json')),djangoBefore,'准备期间Django前驱改变');
     if(schema)await (context.verifySchemaRelease??(()=>verifyMainSchemaRelease(request,source)))();
+   if(piRunnerUpgrade){
+    const checked=await step('复验Pi Runner升级计划',path.join(source,'tools/django-ai.ps1'),'PiUpgradeCheck',['-PiUpgradePlanSha256',piRunnerUpgrade.registeredPlanSha256,'-PiPreparedAppId',pkg.id,'-PiPreparedAppSha256',pkg.receiptSha256],{directory:await fs.mkdtemp(path.join(preparationOut,'pi-check-'))});
+    assert.equal(checked.checked,true);verifyPiUpgrade(checked);assert.equal(checked.registeredPlanSha256,piRunnerUpgrade.registeredPlanSha256);assert.equal(checked.sourceSha256,piRunnerUpgrade.sourceSha256);
+   }
     const temporary=preparationFile+'.'+randomUUID()+'.tmp';
-    await fs.writeFile(temporary,JSON.stringify({version:'teruisi-main-preparation-v1',at:new Date().toISOString(),requestSha256,sourceIdentity:identity,workerPlan:plan,djangoPackage:pkg,djangoManifestSha256:djangoExpected},null,2)+'\n',{flag:'wx'});
+    await fs.writeFile(temporary,JSON.stringify({version:'teruisi-main-preparation-v1',at:new Date().toISOString(),requestSha256,sourceIdentity:identity,workerPlan:plan,djangoPackage:pkg,djangoManifestSha256:djangoExpected,...(piRunnerUpgrade?{piRunnerUpgrade}:{})},null,2)+'\n',{flag:'wx'});
     await fs.rename(temporary,preparationFile);
+   }
+   if(piRunnerUpgrade&&reusedPreparation){
+    const checked=await step('复验Pi Runner升级计划',path.join(source,'tools/django-ai.ps1'),'PiUpgradeCheck',['-PiUpgradePlanSha256',piRunnerUpgrade.registeredPlanSha256,'-PiPreparedAppId',pkg.id,'-PiPreparedAppSha256',pkg.receiptSha256],{directory:await fs.mkdtemp(path.join(preparationOut,'pi-check-'))});
+    assert.equal(checked.checked,true);verifyPiUpgrade(checked);assert.equal(checked.registeredPlanSha256,piRunnerUpgrade.registeredPlanSha256);assert.equal(checked.sourceSha256,piRunnerUpgrade.sourceSha256);
    }
    if(context.prepareOnly){
     progress.log('打包完成，等待发布负责人执行。目标main：'+request.mainCommit+'；准备记录：'+preparationFile);
@@ -232,10 +246,14 @@ export async function publishPreparedMain(request,context){
     assert.equal(installedSchema.status,'verified');assert.equal(installedSchema.result.status,'schema_installed');assert.equal(installedSchema.result.migrationCount,schema.toGeneration);
     assert.deepEqual(installedSchema.result.steps,schema.steps);
     if(schema.additionKind==='TmallWarehouse')await step('配置天猫库存权限',path.join(installed,'tools/django-inventory-service.ps1'),'ProvisionRoles',[],{json:false});
-    if(schema.additionKind==='PiAgent')await step('配置Pi运行账本权限',path.join(installed,'tools/django-ai.ps1'),'ProvisionRoles',[],{json:false});
+    if(['PiAgent','PiWorkspace'].includes(schema.additionKind))await step('配置Pi运行账本权限',path.join(installed,'tools/django-ai.ps1'),'ProvisionRoles',[],{json:false});
     const finalized=await step('完成结构迁移',path.join(installed,'tools/bi-app-adopt.ps1'),'Finalize',adoption,{addJson:false});
     assert.equal(finalized.status,'verified');assert.equal(finalized.result.status,'verified');assert.equal(finalized.result.migrationCount,schema.toGeneration);assert.deepEqual(finalized.result.steps,schema.steps);
     schemaReceipt={operationId,maintenanceId,release:schema,installed:installedSchema,finalized};
+   }
+   if(piRunnerUpgrade){
+    piUpgradeReceipt=await step('升级Pi Runner',path.join(installed,'tools/django-ai.ps1'),'UpgradePi',['-PiUpgradePlanSha256',piRunnerUpgrade.registeredPlanSha256]);
+    assert.equal(piUpgradeReceipt.upgraded,true);assert.equal(piUpgradeReceipt.windowsConfigUpdated,true);assert.equal(piUpgradeReceipt.sameDpapiOwner,true);assert.equal(piUpgradeReceipt.sourceSha256,piRunnerUpgrade.sourceSha256);assert.equal(piUpgradeReceipt.image,piRunnerUpgrade.image);
    }
    if(plan){
     phase='切换前端';progress.begin(phase);await save('WorkerApply-started.json',{planSha256:plan.planSha256});
@@ -253,7 +271,7 @@ export async function publishPreparedMain(request,context){
    assert.equal(after.head.manifestSha256,plan?.candidateManifestSha256??before.head.manifestSha256);
    assert.equal(await sha(path.join(installed,'deployment.json')),djangoExpected,'最终后台manifest不匹配');
    await ready();progress.complete();
-   const receipt={status:'deployed_and_ready',at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,workerRelease:after.head.releaseId,workerManifestSha256:after.head.manifestSha256,djangoManifestSha256:djangoExpected,source,sourceTree:identity.tree??null,djangoPreparedId:pkg?.id??null,maintenanceId,migration:schema?.steps[0]??null,...(schemaReceipt?{schemaReceipt}:{}),backupPerformed:false};
+   const receipt={status:'deployed_and_ready',at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,workerRelease:after.head.releaseId,workerManifestSha256:after.head.manifestSha256,djangoManifestSha256:djangoExpected,source,sourceTree:identity.tree??null,djangoPreparedId:pkg?.id??null,maintenanceId,migration:schema?.steps[0]??null,...(schemaReceipt?{schemaReceipt}:{}),...(piUpgradeReceipt?{piRunnerUpgrade:piUpgradeReceipt}:{}),backupPerformed:false};
    await save('SUCCESS.json',receipt);
    progress.success('main版本：'+request.mainCommit+'；步骤详细日志：'+out);
    return {...receipt,receiptPath:path.join(out,'SUCCESS.json')};

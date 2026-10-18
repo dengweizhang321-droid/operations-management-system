@@ -182,7 +182,7 @@ for table in {
     WRITER_PRIVILEGES[table] = ("SELECT",)
 WRITER_PRIVILEGES["ai_data_revisions"] = ("SELECT", "UPDATE")
 for table in {
-    "ai_pi_sessions", "ai_pi_operations", "ai_pi_dispatches", "ai_pi_exports",
+    "ai_pi_sessions", "ai_pi_operations", "ai_pi_dispatches", "ai_pi_exports", "ai_pi_workspaces", "ai_pi_controls", "ai_pi_ui_requests",
     "ai_dingtalk_settings",
     "ai_dingtalk_sessions",
     "ai_dingtalk_receipts",
@@ -236,13 +236,19 @@ def provision(connection, reader_password, writer_password):
     ):
         raise ValueError("Independent AI role passwords are required")
     with connection.transaction(), connection.cursor() as cursor:
-        from .table_manifest import PI_TABLES
+        from .table_manifest import PI_TABLES, PI_WORKSPACE_TABLES
         cursor.execute("SELECT name FROM public.django_migrations WHERE app='ai_assistant' AND name='0084_pi_agent_independent_runtime'")
         pi_receipt = cursor.fetchone() is not None
         cursor.execute("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=ANY(%s)", [list(PI_TABLES)])
         pi_present = {row[0] for row in cursor.fetchall()}
         if bool(pi_present) != pi_receipt or pi_present and pi_present != set(PI_TABLES):
             raise ValueError("Pi schema receipt/table inventory mismatch")
+        cursor.execute("SELECT name FROM public.django_migrations WHERE app='ai_assistant' AND name='0085_pi_workspace_controls'")
+        workspace_receipt = cursor.fetchone() is not None
+        cursor.execute("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=ANY(%s)", [list(PI_WORKSPACE_TABLES)])
+        workspace_present = {row[0] for row in cursor.fetchall()}
+        if bool(workspace_present) != workspace_receipt or workspace_present and workspace_present != set(PI_WORKSPACE_TABLES):
+            raise ValueError("Pi workspace receipt/table inventory mismatch")
         for role, password in [
             ("teruisi_ai_reader", reader_password),
             ("teruisi_ai_writer", writer_password),
@@ -301,6 +307,8 @@ def provision(connection, reader_password, writer_password):
             )
             if not pi_receipt:
                 privileges = {table: allowed for table, allowed in privileges.items() if table not in PI_TABLES}
+            if not workspace_receipt:
+                privileges = {table: allowed for table, allowed in privileges.items() if table not in PI_WORKSPACE_TABLES}
             # Historical isolated upgrade rehearsals provision exact pre-0032
             # schemas with today's code. Only the newly introduced receipt
             # table is conditional; every predecessor grant remains unchanged.

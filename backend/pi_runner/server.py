@@ -34,7 +34,7 @@ def private(path, directory=False):
 
 
 _DROP=object()
-_PRIVATE_KEYS={'capability','thinking','thinkingsignature','reasoning_content','providerframe'}
+_PRIVATE_KEYS={'capability','thinking','thinkingsignature','reasoning_content','providerframe','base64','contentbase64'}
 
 
 def public_value(value):
@@ -83,6 +83,8 @@ class Ledger:
         """)
         if 'container_id' not in {row[1] for row in self.db.execute('PRAGMA table_info(sessions)')}:
             self.db.execute('ALTER TABLE sessions ADD COLUMN container_id TEXT')
+        if 'image' not in {row[1] for row in self.db.execute('PRAGMA table_info(sessions)')}:
+            self.db.execute('ALTER TABLE sessions ADD COLUMN image TEXT')
         # A broker crash cannot be interpreted as no effect or automatic retry.
         self.db.execute("UPDATE commands SET status='unknown' WHERE status='dispatching'")
         self.db.execute("UPDATE gateway SET status='unknown' WHERE status='dispatching'")
@@ -149,13 +151,20 @@ class Session:
         self.last_activity=time.monotonic()
         self.files_collected=False;self.terminal_receipt=None;self.deadline=None
         self.settled_event_seq=None;self.prompt_response_seq=None
+        self.terminals={};self.ui_pending={};self.queued_controls={};self.bash_runs={}
+        self.image=broker.image
 
     def start(self):
         self.proc = self.broker.popen(['start','--attach','--interactive',self.container])
         threading.Thread(target=self.read,daemon=True).start()
         # stderr is drained, bounded and discarded; never persisted as evidence.
         threading.Thread(target=self.drain_stderr,daemon=True).start()
-        self.write({'type':'runner_init','skillVersion':self.skill_version,'skillIds':[s['id'] for s in self.skills]})
+        from .workspace import value_get, register_session
+        bootstrap={'type':'runner_init','skillVersion':self.skill_version,'skillIds':[s['id'] for s in self.skills]}
+        meta=decode(self.broker.docker_command(['image','inspect',self.image],maximum=128000))[0]
+        self.workspace_version=meta.get('Config',{}).get('Labels',{}).get('teruisi.pi.workspace')
+        if self.workspace_version=='2':bootstrap['sessionId']=value_get(self,'currentSessionId','conversation')
+        self.write(bootstrap)
         state = self.rpc('get_state',{},timeout=35)
         if not state.get('success'):
             raise ValueError('pi_startup_failed')
@@ -170,6 +179,10 @@ class Session:
             if command.get('source')=='skill' and not command.get('sourceInfo',{}).get('path','').startswith('/opt/pi/skill-bundles/'+self.skill_version+'/'):
                 raise ValueError('skill_source_mismatch')
         self.commands = commands
+        register_session(self)
+        self.baseline_processes=set(self.broker.process_inventory(self))
+        from .workspace import value_set
+        value_set(self,'baselineProcesses',sorted(self.baseline_processes))
 
     def drain_stderr(self):
         proc=self.proc
@@ -206,6 +219,21 @@ class Session:
             with self.lock:
                 self.pending.pop(rpc_id,None)
 
+    def begin_prompt(self,job,message):
+        """Prompt preflight may await ordinary extension UI for a long time.
+
+        Return the persisted dispatch state promptly, leaving one real RPC wait
+        alive. GET/state and UI controls remain usable without resending prompt.
+        """
+        ready=threading.Event()
+        def send():
+            try:
+                self.rpc('prompt',{'message':message},timeout=max(1,self.deadline-time.monotonic()),rpc_id=job['operationId']+':prompt')
+            except Exception:self.fail('prompt_outcome_unknown')
+            finally:ready.set()
+        threading.Thread(target=send,daemon=True).start()
+        ready.wait(.5)
+
     def fail(self, code):
         with self.lock:
             if self.phase == 'disposed':
@@ -232,18 +260,36 @@ class Session:
                 if kind=='extension_ui_request':
                     if record.get('method')=='input' and record.get('title')=='pi-gateway-v1':
                         threading.Thread(target=self.gateway_call,args=(record,),daemon=True).start()
-                    elif record.get('method') in {'select','input','editor','confirm'}:
-                        self.write({'type':'extension_ui_response','id':record['id'],'cancelled':True})
+                    else:
+                        from .workspace import handle_ui
+                        handle_ui(self,record)
                     continue
                 if kind=='response':
                     with self.lock:
                         waiter=self.pending.get(record.get('id'))
                     if self.active and record.get('id')==self.active['operationId']+':prompt':
                         self.prompt_response_seq=self.broker.ledger.event(self,record)['eventSeq']
+                        disposition=record.get('data',{}).get('disposition')
+                        if self.phase not in {'unknown','disposed','frozen','freezing'}:
+                            if not record.get('success'):
+                                self.phase,self.error='failed','prompt_rejected'
+                            elif disposition=='handled':
+                                self.phase='handled';self.revoked=True;self.files_collected=True
+                                self.terminal_receipt={'operationId':self.active['operationId'],'status':'handled','eventSeq':self.prompt_response_seq,'files':[]}
+                            elif disposition=='started':
+                                if self.phase=='dispatching':self.phase='accepted'
+                            else:self.fail('unexpected_prompt_disposition')
+                            self.broker.save_session(self)
                     if waiter:
                         waiter.put(record)
                     continue
+                if kind=='bash_execution_update':
+                    from .workspace import observe_bash
+                    observe_bash(self,record)
+                    continue
                 if self.active:
+                    from .workspace import observe_event
+                    observe_event(self,record)
                     item=self.broker.ledger.event(self,record)
                     if self.phase in {'disposed','frozen','freezing','unknown'}:continue
                     if kind=='agent_start':
@@ -361,7 +407,7 @@ class Session:
         with self.broker.ledger.lock:
             rows=self.broker.ledger.db.execute('SELECT record FROM events WHERE workspace=? AND event_seq>? ORDER BY event_seq LIMIT 201',(self.key,after)).fetchall()
         events=[decode(row[0]) for row in rows[:200]]
-        return {'status':self.phase,'state':{'phase':self.phase,'error':self.error,'busy':self.phase in {'dispatching','accepted','running','settling'},'image':self.broker.image,'activeOperationId':self.active['operationId'] if self.active else None,
+        return {'status':self.phase,'state':{'phase':self.phase,'error':self.error,'busy':self.phase in {'dispatching','accepted','running','settling'},'image':self.image,'activeOperationId':self.active['operationId'] if self.active else None,
             'workspaceId':self.key,'skillVersion':getattr(self,'skill_version','1.0.0'),'skills':self.skills,'commands':getattr(self,'commands',[]),'model':getattr(self,'model',None),'effectiveModel':getattr(self,'effective_model',None),'restartStopVerified':getattr(self,'restart_stop_verified',False)},
             'events':events,'hasMore':len(rows)>200,'files':self.files if self.phase in {'settled','failed','aborted'} else [],
             'filesCollected':self.files_collected,'terminalReceipt':self.terminal_receipt,
@@ -404,6 +450,8 @@ class Broker:
                 or not 100<=self.limits['workspaceFiles']<=20000 or not 1<=self.limits['idleSeconds']<=86400 or not 1<=self.limits['maxSessions']<=16):
             raise ValueError('invalid_resource_limits')
         self.ledger=Ledger(self.state/'ledger.sqlite3')
+        from .workspace import init_ledger
+        init_ledger(self.ledger)
         from .skills import build
         self.skill_bundles={}
         for root in (Path(__file__).parent/'bundled_skills').iterdir():
@@ -412,6 +460,10 @@ class Broker:
                 if actual!=decode((root/'manifest.json').read_bytes()):raise ValueError('runner_skill_bundle_changed')
                 self.skill_bundles[actual['version']]=actual
         self.preflight()
+        from .workspace import recover_helpers
+        recover_helpers(self)
+        from .upgrade_linux import recover_intents
+        recover_intents(self)
         self.rebuild_unknown_references()
         self.stop_monitor=threading.Event()
         threading.Thread(target=self.monitor,daemon=True).start()
@@ -419,6 +471,12 @@ class Broker:
     def monitor(self):
         while not self.stop_monitor.wait(1):
             for session in list(self.sessions.values()):
+                try:
+                    from .workspace import expire_activities
+                    if expire_activities(session):continue
+                except Exception:
+                    session.fail('activity_stop_unknown');continue
+                if getattr(session,'workspace_maintenance',False):continue
                 if session.phase in {'disposed','unknown','frozen','stopped','updating','creating'} or session.proc is None:continue
                 try:
                     quota=self.transfer(session,{'action':'quota','bytes':self.limits['workspaceBytes'],'files':self.limits['workspaceFiles']})
@@ -431,7 +489,11 @@ class Broker:
                         if state.get('Running'):raise ValueError('quota_stop_unknown')
                         session.phase='frozen'
                         self.save_session(session)
-                    elif session.phase in {'idle','settled','handled','aborted','failed'} and time.monotonic()-session.last_activity>self.limits['idleSeconds']:
+                    elif session.phase in {'idle','settled','handled','aborted','failed'} and not self.workspace_active(session) and time.monotonic()-session.last_activity>self.limits['idleSeconds']:
+                        current=set(self.process_inventory(session))
+                        background=current-getattr(session,'baseline_processes',set())
+                        session.background_process_count=len(background)
+                        if background:continue
                         old=session.proc;session.proc=None;old.stdin.close()
                         try:old.wait(timeout=15)
                         except subprocess.TimeoutExpired as error:raise ValueError('idle_stop_unknown') from error
@@ -442,27 +504,60 @@ class Broker:
     def popen(self,args):
         return subprocess.Popen([self.docker,*args],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=self.env,shell=False,bufsize=0)
 
+    def workspace_active(self,session):
+        with self.ledger.lock:
+            active=self.ledger.db.execute("SELECT 1 FROM workspace_controls WHERE workspace=? AND status IN ('dispatching','accepted','queued') LIMIT 1",(session.key,)).fetchone()
+            activity=self.ledger.db.execute("SELECT 1 FROM workspace_activities WHERE workspace=? AND status='active' LIMIT 1",(session.key,)).fetchone()
+        return bool(active or activity or session.ui_pending or getattr(session,'workspace_maintenance',False)
+                    or getattr(session,'bash_control',None) or any(t.status in {'starting','running'} for t in session.terminals.values()))
+
+    def process_inventory(self,session):
+        # Return only immutable PID/start-tick identities, never shell arguments,
+        # environment, or arbitrary process output. Exclude the observer itself.
+        code="""import os,pathlib,json
+result=[]
+for p in pathlib.Path('/proc').iterdir():
+ if not p.name.isdigit() or int(p.name)==os.getpid():continue
+ try:
+  fields=(p/'stat').read_text().rsplit(')',1)[1].split()
+  if fields[0]!='Z':result.append(p.name+':'+fields[19])
+ except (FileNotFoundError,PermissionError,ProcessLookupError):pass
+print(json.dumps(result))
+"""
+        return decode(self.docker_command(['exec',session.container,'python3','-I','-B','-c',code],maximum=16384))
+
     def managed_containers(self):
         raw=self.docker_command(['ps','-aq','--filter','label=teruisi.pi.namespace='+self.namespace],maximum=10000)
         return raw.decode().split()
 
     def rebuild_unknown_references(self):
         with self.ledger.lock:
-            rows=self.ledger.db.execute('SELECT workspace,identity,container,volume,status,seq,container_id FROM sessions').fetchall()
+            rows=self.ledger.db.execute('SELECT workspace,identity,container,volume,status,seq,container_id,image FROM sessions').fetchall()
         known={row[2]:row for row in rows}
         for container_id in self.managed_containers():
             meta=decode(self.docker_command(['inspect',container_id],maximum=128000))[0]
             name=meta.get('Name','').removeprefix('/')
             row=known.get(name)
-            if not row:raise ValueError('unregistered_namespace_container')
-            key,raw,container,volume,status,seq,saved_id=row;identity=decode(raw)
-            if key!=workspace_key(identity) or container!=self.namespace+'-'+key[:32] or volume!=container+'-workspace':raise ValueError('persisted_workspace_binding_changed')
+            if not row:
+                from .upgrade_linux import retained_reference
+                if retained_reference(self,name,meta.get('Id')):
+                    if meta.get('State',{}).get('Running'):raise ValueError('retained_upgrade_container_running')
+                    continue
+                raise ValueError('unregistered_namespace_container')
+            key,raw,container,volume,status,seq,saved_id,saved_image=row;identity=decode(raw)
+            from .upgrade_linux import retained_reference
+            if key!=workspace_key(identity) or (container!=self.namespace+'-'+key[:32] and not retained_reference(self,container,saved_id)):raise ValueError('persisted_workspace_binding_changed')
+            if volume!=container+'-workspace':
+                with self.ledger.lock:
+                    upgrades=self.ledger.db.execute('SELECT intent FROM workspace_upgrades WHERE workspace=?',(key,)).fetchall()
+                if not any(volume in {decode(item[0]).get('newVolume'),decode(item[0]).get('oldVolume')} for item in upgrades):raise ValueError('persisted_workspace_binding_changed')
             version=identity.get('skillVersion') or '1.0.0'
             bundle=self.skill_bundles.get(version)
             if not bundle:raise ValueError('persisted_skill_version_unavailable')
             selected=identity.get('skillIds',[s['id'] for s in bundle['skills']])
             session=Session(self,identity,container,volume,[s for s in bundle['skills'] if s['id'] in selected])
             session.container_id=saved_id
+            session.image=saved_image or self.image
             session.skill_version=version;session.last_seq=seq
             verified=self.inspect(session)
             if verified.get('Id')!=meta.get('Id'):raise ValueError('startup_container_identity_changed')
@@ -474,6 +569,7 @@ class Broker:
                     # the exact verified container, retaining both unknown outcome
                     # and volume; never adopt/replay its Pi or provider work.
                     if verified.get('State',{}).get('Running'):
+                        if verified.get('State',{}).get('Paused'):self.docker_command(['unpause',verified['Id']])
                         self.docker_command(['stop','--time','2',verified['Id']],timeout=10)
                     stopped=decode(self.docker_command(['inspect',verified['Id']],maximum=128000))[0]
                     if stopped.get('Id')!=verified['Id'] or stopped.get('State',{}).get('Running'):
@@ -482,6 +578,21 @@ class Broker:
                     self.ledger.event(session,{'type':'unknown_container_stopped','stopVerified':True})
                 self.sessions[key]=session
                 self.save_session(session)
+            elif status in {'idle','settled','handled','aborted','failed','stopped'}:
+                from .workspace import value_get
+                session.baseline_processes=set(value_get(session,'baselineProcesses',[]))
+                if verified.get('State',{}).get('Running'):
+                    if verified.get('State',{}).get('Paused'):self.docker_command(['unpause',verified['Id']])
+                    current=set(self.process_inventory(session))
+                    extra=current-session.baseline_processes if session.baseline_processes else current
+                    self.docker_command(['stop','--time','2',verified['Id']],timeout=10)
+                    stopped=decode(self.docker_command(['inspect',verified['Id']],maximum=128000))[0]
+                    if stopped.get('State',{}).get('Running'):raise ValueError('idle_container_stop_unverified')
+                    session.phase='unknown' if extra else 'stopped'
+                    session.error='orphan_background_unknown' if extra else None
+                    session.revoked=bool(extra)
+                else:session.phase='stopped'
+                self.sessions[key]=session;self.save_session(session)
 
     def docker_command(self,args,raw=None,timeout=15,maximum=MAX_RESPONSE):
         proc=self.popen(args)
@@ -536,19 +647,78 @@ class Broker:
             raise ValueError('file_transfer_rejected')
         return result
 
+    def workspace_mutate(self,session,payload):
+        """Freeze *all* model/PTY writers before expected-SHA compare and commit.
+
+        flock cannot coordinate arbitrary user shell programs. The fixed helper
+        therefore runs in a separate constrained container while the exact owner
+        container and every one of its processes are paused by the engine.
+        """
+        with session.lock:
+            session.workspace_maintenance=True
+            original=self.inspect(session)
+            if original['State'].get('Paused') or not original['State'].get('Running'):
+                session.workspace_maintenance=False
+                raise ValueError('workspace_not_running')
+            attached=self.docker_command(['ps','-q','--no-trunc','--filter','volume='+session.volume]).decode().split()
+            if attached!=[session.container_id]:
+                session.workspace_maintenance=False
+                raise ValueError('workspace_shared_writer')
+            helper=session.container+'-files-'+uuid.uuid4().hex[:12]
+            with self.ledger.lock,self.ledger.db:
+                self.ledger.db.execute('INSERT INTO workspace_helpers VALUES (?,?,?,?,?,?)',(session.key,helper,None,session.image,session.volume,'creating'))
+            paused=False
+            try:
+                self.docker_command(['pause',session.container_id])
+                paused=True
+                actual=self.inspect(session)
+                if actual['Id']!=original['Id'] or actual['State'].get('Paused') is not True:raise ValueError('workspace_pause_unknown')
+                args=['create','--pull=never','--name',helper,'--network=none','--read-only','--user=65532:65532',
+                      '--cap-drop=ALL','--security-opt=no-new-privileges:true','--cpus=1','--memory=128m','--memory-swap=128m','--pids-limit=16',
+                      '--ulimit=nofile=64:64','--ulimit=core=0:0','--ulimit=fsize=16777216:16777216','--log-driver=none',
+                      '--ipc=private','--cgroupns=private','--tmpfs=/tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777',
+                      '--label','teruisi.pi.file-helper='+session.key,'--mount','type=volume,src='+session.volume+',dst=/workspace',
+                      '--entrypoint','python3','--interactive',session.image,'-I','-B','/opt/pi/workspace-files.py']
+                helper_id=self.docker_command(args).decode().strip()
+                if not re.fullmatch(r'[a-f0-9]{64}',helper_id):raise ValueError('workspace_helper_identity_unknown')
+                with self.ledger.lock,self.ledger.db:
+                    self.ledger.db.execute("UPDATE workspace_helpers SET id=?,status='dispatching' WHERE workspace=? AND name=?",(helper_id,session.key,helper))
+                result=decode(self.docker_command(['start','--attach','--interactive',helper_id],raw=encode(payload),timeout=25))
+                after=self.inspect(session)
+                if after['Id']!=original['Id'] or after['State'].get('Paused') is not True:raise ValueError('workspace_pause_unknown')
+                return result
+            finally:
+                # A timed-out helper can still be writing. Stop and prove its
+                # absence before allowing the owner container to resume.
+                remaining=self.docker_command(['ps','-aq','--filter','name=^/'+helper+'$']).strip()
+                if remaining:
+                    self.docker_command(['rm','--force',helper])
+                    if self.docker_command(['ps','-aq','--filter','name=^/'+helper+'$']).strip():
+                        session.fail('workspace_helper_unknown')
+                        raise ValueError('workspace_helper_unknown')
+                if paused:
+                    self.docker_command(['unpause',session.container_id])
+                    resumed=self.inspect(session)
+                    if resumed['State'].get('Paused') or not resumed['State'].get('Running'):
+                        session.fail('workspace_resume_unknown')
+                        raise ValueError('workspace_resume_unknown')
+                session.workspace_maintenance=False
+                with self.ledger.lock,self.ledger.db:
+                    self.ledger.db.execute("UPDATE workspace_helpers SET status='complete' WHERE workspace=? AND name=?",(session.key,helper))
+
     def save_session(self,session):
         with self.ledger.lock,self.ledger.db:
             stored={**(session.active or session.identity),'skillVersion':getattr(session,'skill_version',None),'skillIds':[s['id'] for s in session.skills]}
             stored={k:v for k,v in stored.items() if k in {*IDENTITY,'skillVersion','skillIds'}}
             persisted_phase='frozen' if getattr(session,'frozen_workspace',False) and session.phase=='disposed' else session.phase
-            self.ledger.db.execute('INSERT OR REPLACE INTO sessions VALUES (?,?,?,?,?,?,?)',(session.key,encode(stored),session.container,session.volume,persisted_phase,session.last_seq,session.container_id))
+            self.ledger.db.execute('INSERT OR REPLACE INTO sessions VALUES (?,?,?,?,?,?,?,?)',(session.key,encode(stored),session.container,session.volume,persisted_phase,session.last_seq,session.container_id,session.image))
 
     def inspect(self,session):
         container=decode(self.docker_command(['inspect',session.container],maximum=128000))[0]
         host=container['HostConfig'];mounts=container.get('Mounts',[])
         volumes=[m for m in mounts if m.get('Type')=='volume']
         if ((session.container_id and session.container_id!=container.get('Id')) or container.get('Name')!='/'+session.container
-                or container.get('Image')!=self.image or container['Config'].get('User')!='65532:65532' or host.get('NetworkMode')!='none' or not host.get('ReadonlyRootfs')
+                or container.get('Image')!=session.image or container['Config'].get('User')!='65532:65532' or host.get('NetworkMode')!='none' or not host.get('ReadonlyRootfs')
                 or host.get('Privileged') or host.get('Binds') or host.get('Devices') or set(host.get('CapDrop') or [])!={'ALL'} or host.get('SecurityOpt')!=['no-new-privileges:true']
                 or host.get('IpcMode')!='private' or host.get('CgroupnsMode')!='private' or host.get('LogConfig',{}).get('Type')!='none'
                 or host.get('Memory')!=1073741824 or host.get('MemorySwap')!=1073741824 or host.get('NanoCpus')!=1000000000 or host.get('PidsLimit')!=128
@@ -575,17 +745,24 @@ class Broker:
                 selected=job['payload'].get('skillIds',[s['id'] for s in existing.skills])
                 version=job['payload'].get('skillVersion',getattr(existing,'skill_version','1.0.0'))
                 self.update_skills(existing,version,selected)
+                existing.bind(job['payload']['gateway'],job['payload'].get('model'))
                 return existing
             with self.ledger.lock:
                 previous=self.ledger.db.execute('SELECT identity,status,workspace,seq FROM sessions').fetchall()
-            restore_seq=0
+            restore_seq=0;restore_image=self.image;restore_volume=None
             for raw,status,old_key,old_seq in previous:
                 old=decode(raw)
                 if old_key==key and status=='frozen':raise ValueError('frozen_workspace_requires_generation')
                 if old['ownerId']==job['ownerId'] and old['conversationId']==job['conversationId'] and status not in {'disposed','frozen'}:
-                    if old_key==key and status in {'idle','settled','handled','aborted','failed','stopped'}:restore_seq=old_seq
+                    if old_key==key and status in {'idle','settled','handled','aborted','failed','stopped'}:
+                        restore_seq=old_seq
+                        with self.ledger.lock:
+                            image_row=self.ledger.db.execute('SELECT image,volume FROM sessions WHERE workspace=?',(key,)).fetchone()
+                        restore_image=(image_row[0] if image_row else None) or self.image
+                        restore_volume=image_row[1] if image_row else None
                     else:raise ValueError('unresolved_previous_session')
             name=self.namespace+'-'+key[:32];volume=name+'-workspace'
+            if restore_volume:volume=restore_volume
             physical=self.managed_containers()
             if len(physical)>=self.limits['maxSessions']:
                 matching=self.docker_command(['ps','-aq','--filter','name=^/'+name+'$']).strip()
@@ -599,7 +776,7 @@ class Broker:
             args=['create','--pull=never','--name',name,*labels,'--network=none','--read-only','--user=65532:65532','--cap-drop=ALL','--security-opt=no-new-privileges:true',
                   '--cpus=1','--memory=1g','--memory-swap=1g','--pids-limit=128','--ulimit=nofile=256:256','--ulimit=core=0:0','--ulimit=fsize=67108864:67108864',
                   '--restart=no','--log-driver=none','--ipc=private','--cgroupns=private','--shm-size=16m','--tmpfs=/tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777',
-                  '--mount','type=volume,src='+volume+',dst=/workspace','--workdir=/workspace','--interactive',self.image]
+                  '--mount','type=volume,src='+volume+',dst=/workspace','--workdir=/workspace','--interactive',restore_image]
             version=job['payload'].get('skillVersion','1.0.0')
             manifest=self.skill_bundles.get(version)
             if not manifest:raise ValueError('skill_version_unavailable')
@@ -607,6 +784,7 @@ class Broker:
             if not isinstance(selected,list) or len(set(selected))!=len(selected) or not set(selected).issubset({s['id'] for s in manifest['skills']}):raise ValueError('invalid_skill_selection')
             session=Session(self,job,name,volume,[s for s in manifest['skills'] if s['id'] in selected])
             session.skill_version=version
+            session.image=restore_image
             session.last_seq=restore_seq
             self.sessions[key]=session;self.save_session(session)
         try:
@@ -653,6 +831,12 @@ class Broker:
         validate_command(job)
         command,payload=job['command'],job['payload']
         if getattr(self,'closing',False) and command in {'create','prompt','skills'}:raise ValueError('runner_stopping')
+        if command=='workspace':
+            from .workspace import dispatch
+            session=self.sessions.get(workspace_key(job))
+            if session is None:raise ValueError('session_unavailable')
+            if job['seq']<session.last_seq:raise ValueError('stale_sequence')
+            return dispatch(session,job)
         if command not in {'state','gateway_response'}:
             cached=self.ledger.reserve(job)
             if cached is not None:
@@ -686,15 +870,7 @@ class Broker:
                 session.before_files={f['fileName']:f['sha256'] for f in before['files']}
                 imported=self.transfer(session,{'action':'import','files':payload.get('files',[])})
                 session.active=job;session.last_seq=job['seq'];self.save_session(session)
-                response=session.rpc('prompt',{'message':payload['message']},rpc_id=job['operationId']+':prompt')
-                if not response.get('success'):
-                    session.phase,session.error='failed','prompt_rejected'
-                elif response.get('data',{}).get('disposition')=='handled':
-                    session.phase='handled';session.revoked=True;session.files_collected=True
-                    session.terminal_receipt={'operationId':job['operationId'],'status':'handled','eventSeq':session.prompt_response_seq,'files':[]}
-                elif response.get('data',{}).get('disposition')=='started':
-                    if session.phase=='dispatching':session.phase='accepted'
-                else:session.fail('unexpected_prompt_disposition')
+                session.begin_prompt(job,payload['message'])
                 session.input_files=imported['files'];self.save_session(session)
             elif command=='gateway_response':
                 if set(payload)!={'requestId','response'} or not isinstance(payload['response'],dict):raise ValueError('invalid_gateway_response')
@@ -715,6 +891,8 @@ class Broker:
                     for pending in session.gateway_pending.values():
                         if pending['queue'].empty():pending['queue'].put({'error':'aborted'})
                 session.rpc('clear_queue',{})
+                from .workspace import cancel_queues
+                cancel_queues(session)
                 response=session.rpc('abort',{},timeout=20)
                 self.ledger.event(session,{'type':'abort_response','success':response.get('success') is True})
                 if not response.get('success'):session.fail('abort_unknown')
@@ -722,6 +900,8 @@ class Broker:
                 # agent_settled event remains the terminal completion evidence.
                 self.save_session(session)
             elif command=='dispose':
+                from .workspace import close_terminals
+                close_terminals(session)
                 session.frozen_workspace=session.phase in {'unknown','frozen','freezing'}
                 session.revoked=True;session.phase='disposed';self.save_session(session)
                 self.docker_command(['rm','--force',session.container])
@@ -757,12 +937,13 @@ class Broker:
         from .install_linux import source_digest
         self.preflight()
         with self.ledger.lock:
-            unknown=self.ledger.db.execute("SELECT workspace,identity,container,volume,container_id FROM sessions WHERE status='unknown'").fetchall()
+            unknown=self.ledger.db.execute("SELECT workspace,identity,container,volume,container_id,image FROM sessions WHERE status='unknown'").fetchall()
         safe=unsafe=0
-        for key,raw,name,volume,saved_id in unknown:
+        for key,raw,name,volume,saved_id,saved_image in unknown:
             try:
                 identity=decode(raw)
-                if key!=workspace_key(identity) or name!=self.namespace+'-'+key[:32] or volume!=name+'-workspace':raise ValueError('unknown_binding_changed')
+                from .upgrade_linux import retained_reference
+                if key!=workspace_key(identity) or (name!=self.namespace+'-'+key[:32] and not retained_reference(self,name,saved_id)):raise ValueError('unknown_binding_changed')
                 present=self.docker_command(['ps','-aq','--filter','name=^/'+name+'$']).strip()
                 if not present:
                     # Exact absence is safe for stopping the broker, not evidence
@@ -770,12 +951,13 @@ class Broker:
                     if saved_id and self.docker_command(['ps','-aq','--filter','id='+saved_id]).strip():raise ValueError('unknown_container_renamed')
                     safe+=1;continue
                 reference=Session(self,identity,name,volume,[]);reference.container_id=saved_id
+                reference.image=saved_image or self.image
                 actual=self.inspect(reference)
                 if actual.get('State',{}).get('Running') is not False:raise ValueError('unknown_still_running')
                 safe+=1
             except Exception:unsafe+=1
         return {'version':1,'image':self.image,'sourceSha256':source_digest(),'namespace':self.namespace,
-            'activeCount':sum(s.phase in {'dispatching','accepted','running','settling','creating','updating','freezing'} for s in self.sessions.values()),
+            'activeCount':sum(s.phase in {'dispatching','accepted','running','settling','creating','updating','freezing'} or self.workspace_active(s) for s in self.sessions.values()),
             'unresolvedCount':len(unknown),'unsafeUnknownCount':unsafe,'unknownStoppedVerifiedCount':safe,'closing':getattr(self,'closing',False)}
 
     def shutdown(self):
@@ -783,6 +965,8 @@ class Broker:
         waiting=[]
         for session in list(self.sessions.values()):
             if session.phase not in {'idle','settled','handled','aborted','failed'}:continue
+            from .workspace import close_terminals
+            close_terminals(session)
             if session.proc:
                 old=session.proc;session.proc=None;old.stdin.close();waiting.append((session,old))
         deadline=time.monotonic()+20

@@ -33,7 +33,8 @@ export async function forwardAiRequest(request: Request) {
     }
     const piUpload = request.method === "POST" && /^\/api\/ai\/pi\/sessions\/[A-Za-z0-9_-]{1,160}\/files$/.test(url.pathname);
     const piMessage = request.method === "POST" && /^\/api\/ai\/pi\/sessions\/[A-Za-z0-9_-]{1,160}\/messages$/.test(url.pathname);
-    const payload = read || request.method === "DELETE" && !request.headers.get("content-type") ? undefined : await readAiJsonObject(request, piUpload ? 720 * 1024 : piMessage ? 800 * 1024 : undefined);
+    const piWorkspace = request.method === "POST" && /^\/api\/ai\/pi\/sessions\/[A-Za-z0-9_-]{1,160}\/workspace$/.test(url.pathname);
+    const payload = read || request.method === "DELETE" && !request.headers.get("content-type") ? undefined : await readAiJsonObject(request, piUpload ? 720 * 1024 : piMessage ? 800 * 1024 : piWorkspace ? 1600 * 1024 : undefined);
     if (url.pathname === "/api/ai/chat" && payload?.pageContext != null) {
       const context = normalizeAiPageContext(payload.pageContext);
       if (!context) throw new PublicApiError(400, "invalid_request", "AI 页面上下文无效。");

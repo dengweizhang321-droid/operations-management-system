@@ -77,6 +77,8 @@ def claim():
             session.status = "unknown"
             session.save(update_fields=["status"])
             service.event(session, "error", {"code": "pi_worker_lost", "status": "unknown"}, old)
+            from .pi_models import PiControl
+            PiControl.objects.filter(operation=old, status__in=["prepared", "queued", "sent", "accepted"]).update(status="unknown", error_code="pi_worker_lost")
         from .configuration import resolve_model
         from .model_capabilities import options
         while True:
@@ -185,9 +187,18 @@ def ingest(op, result):
                         service.event(session, "assistant_message", {"text": txt}, current)
             elif kind in {"tool_execution_start", "tool_execution_end"}:
                 service.event(session, "tool_start" if kind.endswith("start") else "tool_end", {"name": str(data.get("toolName", ""))[:160]}, current)
+            elif kind == "workspace_ui":
+                from .pi_workspace import public
+                from .policy import passive
+                effect = public(data)
+                passive(effect, 64 * 1024)
+                service.event(session, "workspace_ui", effect, current)
             elif kind == "error":
                 service.event(session, "error", {"code": "pi_agent_error"}, current)
         session.save(update_fields=["runner_event_seq"])
+        if result.get("workspace") or isinstance(result.get("state"), dict) and any(k in result["state"] for k in ("pendingUi", "controls", "terminals", "activities", "hasUnresolvedActivities")):
+            from . import pi_workspace
+            pi_workspace.ingest(session, pi_workspace._workspace(session), current, result)
         current.lease_expires_at, current.updated_at = timezone.now()+timedelta(seconds=120), timezone.now()
         current.save(update_fields=["lease_expires_at", "updated_at"])
     return settled
@@ -237,6 +248,15 @@ def complete(op, result):
         session.status, session.active_operation_id = "idle", ""
         session.save()
         service.event(session, "status", {"status": current.status}, current)
+        from .pi_models import PiUiRequest, PiControl
+        PiUiRequest.objects.filter(operation=current, status="pending").update(status="expired")
+        if current.kind == "workspace:compact":
+            control = PiControl.objects.filter(id=json.loads(current.payload_json).get("controlId"), operation=current).first()
+            if control and control.status not in {"unknown", "failed", "completed", "handled"}:
+                control.status = "failed" if current.status in {"failed", "canceled"} else "completed"
+                control.result_json = json.dumps({"operationId": current.id, "status": current.status})
+                control.error_code = "pi_operation_canceled" if current.status == "canceled" else current.error_code
+                control.save(update_fields=["status", "result_json", "error_code"])
     return True
 
 
@@ -346,10 +366,14 @@ def perform(op, stopped=None):
             dispose_environment(previous, current=op)
         gateway = gateway_capability(op)
         payload = json.loads(op.payload_json)
+        if op.kind == "workspace:compact":
+            payload = {"skillIds": [], "fileIds": [], **payload}
         selected = json.loads(op.skills_json)
         from .configuration import resolve_model
         from .model_capabilities import options
         model = resolve_model(op.model_id)
+        from .pi_workspace import effective_model
+        model = effective_model(model, payload.get("thinkingLevel", ""))
         model_options = options(model)
         model_binding = {"id": model.id, "modelName": "operation-model", "contextWindow": model_options["contextWindowTokens"],
             "maxTokens": model.max_tokens, "reasoning": model.reasoning_mode != "disabled"}
@@ -383,8 +407,25 @@ def perform(op, stopped=None):
             files.append({"id": f.id, "sizeBytes": f.size_bytes, **data})
         from .pi_gateway import remaining_seconds
         remaining_ms = max(1, int(remaining_seconds(op)*1000))
-        accepted = runner_dispatch(op, "prompt", {"message": payload["message"], "skillIds": payload["skillIds"], "gateway": gateway, "files": files,
-            "model": model_binding, "timeoutMs": remaining_ms})
+        if op.kind == "workspace:compact":
+            from .pi_models import PiControl
+            from . import pi_workspace
+            control = PiControl.objects.get(id=payload["controlId"], operation=op)
+            with mutation():
+                if control.status != "queued":
+                    raise AiError("压缩控制已派发，禁止重放", "pi_control_unknown", 409)
+                service.principal_for_work(op)
+                control.status = "sent"; control.save(update_fields=["status"])
+            accepted = runner_dispatch(op, "workspace", {"action": "control", "controlId": control.id, "controlSeq": control.control_seq,
+                "command": "compact", "payload": {"gateway": gateway, "model": model_binding, "timeoutMs": remaining_ms,
+                    **json.loads(control.payload_json)}}, request_id=control.id)
+            receipt = accepted.get("control")
+            if not isinstance(receipt, dict):
+                raise AiError("压缩回执缺失", "pi_control_unknown", 503)
+            with mutation(): pi_workspace._known_result(control, receipt)
+        else:
+            accepted = runner_dispatch(op, "prompt", {"message": payload["message"], "skillIds": payload["skillIds"], "gateway": gateway, "files": files,
+                "model": model_binding, "timeoutMs": remaining_ms})
         settled = ingest(op, accepted) or handled(accepted)
         result = accepted
         aborted = False
@@ -415,7 +456,7 @@ def perform(op, stopped=None):
             result = pi_transport.command({**identity(op), "command": "state", "payload": {"afterEventSeq": session.runner_event_seq}})
             if result.get("status") == "unknown":
                 raise AiError("PiRunner 执行结果未知", "pi_runner_unknown", 503)
-            settled = ingest(op, result) or handled(result) or settled
+            settled = ingest(op, result) or handled(result) or (op.kind == "workspace:compact" and result.get("status") in {"settled", "handled", "failed", "aborted"}) or settled
             stopped.wait(.5)
         freeze(op, "pi_worker_stopped")
     except Exception as error:
@@ -438,6 +479,10 @@ def perform(op, stopped=None):
         else:
             from django.db import DatabaseError
             freeze(op, getattr(error, "code", "pi_worker_database_unknown" if isinstance(error, DatabaseError) else "pi_worker_unknown"))
+            if op.kind == "workspace:compact":
+                from .pi_models import PiControl
+                with mutation():
+                    PiControl.objects.filter(operation=op, status__in=["queued", "sent", "accepted"]).update(status="unknown", error_code=getattr(error, "code", "pi_control_unknown"))
     finally:
         heartbeat_stopped.set()
         renewer.join(timeout=2)

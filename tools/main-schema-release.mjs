@@ -15,7 +15,10 @@ export const tmall148Schema={...tmallSchema,fromGeneration:148,steps:['inventory
 export const tmallMigration='backend/inventory/migrations/0017_tmall_warehouse.py';
 export const piAgentSchema={version:'teruisi-main-schema-release-v1',additionKind:'PiAgent',fromGeneration:149,toGeneration:150,steps:['ai_assistant.0084_pi_agent_independent_runtime']};
 export const piAgentMigration='backend/ai_assistant/migrations/0084_pi_agent_independent_runtime.py';
+export const piWorkspaceSchema={version:'teruisi-main-schema-release-v1',additionKind:'PiWorkspace',fromGeneration:150,toGeneration:151,steps:['ai_assistant.0085_pi_workspace_controls']};
+export const piWorkspaceMigration='backend/ai_assistant/migrations/0085_pi_workspace_controls.py';
 const finite=[
+ {schema:piWorkspaceSchema,migrations:[piWorkspaceMigration],recipe:'config/main-schema-releases/ai-0085.json',binder:'pi_workspace_candidate.py',evidence:'ai-0085-evidence.json'},
  {schema:piAgentSchema,migrations:[piAgentMigration],recipe:'config/main-schema-releases/ai-0084.json',binder:'pi_agent_candidate.py',evidence:'ai-0084-evidence.json'},
  {schema:monitoringSchema,migrations:[monitoringMigration],recipe:monitoringRecipe,binder:'jd_product_monitoring_candidate.py',evidence:'inventory-0016-evidence.json'},
  {schema:tmallSchema,migrations:[monitoringMigration,tmallMigration],recipe:'config/main-schema-releases/inventory-0017.json',binder:'tmall_warehouse_candidate.py',evidence:'inventory-0017-evidence.json'},

@@ -1765,6 +1765,29 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   if (-not [string]::IsNullOrWhiteSpace($IntegrationEvidencePath) -and (Test-Path -LiteralPath $IntegrationEvidencePath)) {
     $biEvidence = Read-JsonFile $IntegrationEvidencePath 'BI addition evidence'
   }
+  # Pi151 is a separate, finite child; no legacy execution limits are changed.
+  $piWorkspaceGate = Join-Path $candidateRoot 'tools\pi_workspace_addition.py'
+  $piWorkspaceDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('pi-workspace-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -ceq 'teruisi-pi-workspace-schema-addition-v1' -or $piWorkspaceDeployment -or
+      (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'pi-workspace-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $piWorkspaceGate -PathType Leaf)) {throw 'Pi151 requires its exact verifier'}
+    $piWorkspaceCommand = if ($Operation -ceq 'PrepareApp') {if ($null -ne $biEvidence) {'admission'} else {'successor'}} elseif ($Operation -ceq 'DeployApp') {if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'}} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported Pi151 lifecycle operation'}
+    $piWorkspaceArgs = @($piWorkspaceGate,$piWorkspaceCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if ($piWorkspaceCommand -ceq 'admission') {$piWorkspaceArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if ($piWorkspaceCommand -ceq 'deployment') {$piWorkspaceArgs += @('--operation',$IntegrationOperationId)}
+    $piWorkspaceRun = Invoke-BoundedNativeProcess $Python $piWorkspaceArgs $candidateRoot
+    if ($piWorkspaceRun -isnot [pscustomobject] -or $piWorkspaceRun.ExitCode -isnot [int] -or
+        $piWorkspaceRun.LaunchFailed -isnot [bool] -or $piWorkspaceRun.LaunchFailed -or
+        $piWorkspaceRun.Diagnostic.OutputTruncated -isnot [bool] -or $piWorkspaceRun.Diagnostic.OutputTruncated -or
+        @($piWorkspaceRun.Output | Where-Object {$_ -is [string] -and $_.TrimStart().StartsWith('{')}).Count -ne 1) {
+      throw 'Pi151 requires one complete typed native JSON object'
+    }
+    $piWorkspaceProof = ConvertFrom-UniqueNativeJson $piWorkspaceRun 'Verify finite Pi151 schema addition'
+    if ($piWorkspaceProof -isnot [pscustomobject] -or $piWorkspaceProof.status -isnot [string] -or
+        $piWorkspaceProof.status -cne 'verified') {throw 'Pi151 schema addition gate refused'}
+    return
+  }
   # Pi150 is a separate, finite child; no legacy execution limits are changed.
   $piGate = Join-Path $candidateRoot 'tools\pi_agent_addition.py'
   $piDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
@@ -2093,6 +2116,11 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\pi_workspace_addition.py",
+      "tools\pi_workspace_catalog.py",
+      "tools\pi_workspace_catalog.json",
+      "tools\pi_workspace_candidate.py",
+      "tools\pi_agent_upgrade_runtime.py",
       "tools\pi_agent_addition.py",
       "tools\pi_agent_catalog.py",
       "tools\pi_agent_catalog.json",

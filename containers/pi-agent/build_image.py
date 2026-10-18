@@ -11,6 +11,7 @@ import subprocess
 import tarfile
 import tempfile
 import urllib.request
+import zipfile
 
 
 def checked(raw,integrity):
@@ -23,6 +24,7 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--distribution',default='TERUISI-Pandas');parser.add_argument('--tag',required=True)
     parser.add_argument('--asset-directory',type=Path);parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--uv-wheel',type=Path)
     args=parser.parse_args()
     if not re.fullmatch(r'pi-[a-z0-9-]+:[a-z0-9.-]+',args.tag):raise ValueError('isolated_pi_tag_required')
     root=Path(__file__).resolve().parents[2]
@@ -35,8 +37,19 @@ def main():
         else:
             with urllib.request.urlopen(metadata['mirror'],timeout=120) as response:raw=response.read(100*1024*1024)
         assets[name]=checked(raw,metadata['integrity'])
+        if asset and not asset.exists():
+            asset.parent.mkdir(parents=True,exist_ok=True)
+            asset.write_bytes(raw)
+    if args.uv_wheel:uv_raw=args.uv_wheel.read_bytes()
+    else:
+        with urllib.request.urlopen(lock['uv']['url'],timeout=120) as response:uv_raw=response.read(60*1024*1024)
+    if len(uv_raw)!=lock['uv']['sizeBytes'] or hashlib.sha256(uv_raw).hexdigest()!=lock['uv']['sha256']:raise ValueError('uv_integrity_mismatch')
+    with zipfile.ZipFile(io.BytesIO(uv_raw)) as archive:uv_binary=archive.read(lock['uv']['binaryPath'])
+    if hashlib.sha256(uv_binary).hexdigest()!=lock['uv']['binarySha256']:raise ValueError('uv_binary_changed')
     with tempfile.TemporaryDirectory(prefix='pi-image-') as temp:
         context=Path(temp)
+        (context/'.pi-build').mkdir()
+        (context/'.pi-build'/'uv').write_bytes(uv_binary)
         # Every extracted entry is checked before extraction (no path traversal,
         # symlink or hardlink is accepted from an upstream package).
         for name,raw in assets.items():
@@ -58,7 +71,7 @@ def main():
         if process.returncode:raise ValueError('image_build_failed')
     raw=subprocess.check_output(['wsl','-d',args.distribution,'--exec','/usr/bin/docker','image','inspect',args.tag,'--format','{{.Id}}'])
     result={'image':raw.decode().strip(),'tag':args.tag,'piVersion':lock['piVersion'],'runtimeLockSha256':hashlib.sha256((root/'containers/pi-agent/runtime-lock.json').read_bytes()).hexdigest(),
-        'packageLockSha256':hashlib.sha256((root/'containers/pi-agent/package-lock.json').read_bytes()).hexdigest(),'nodeVersion':lock['node']['version'],'npmVersion':lock['npm']['version'],'baseImage':lock['baseImage']}
+        'packageLockSha256':hashlib.sha256((root/'containers/pi-agent/package-lock.json').read_bytes()).hexdigest(),'nodeVersion':lock['node']['version'],'npmVersion':lock['npm']['version'],'uvVersion':lock['uv']['version'],'uvBinarySha256':lock['uv']['binarySha256'],'baseImage':lock['baseImage']}
     args.output.write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8')
     print(json.dumps(result))
 

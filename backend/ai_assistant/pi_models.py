@@ -170,4 +170,63 @@ class PiGatewayNonce(models.Model):
         db_table = "ai_pi_gateway_nonces"
 
 
-PI_MODELS = (PiSession, PiOperation, PiDispatch, PiEvent, PiFile, PiExport, PiExportPage, PiGatewayNonce)
+class PiWorkspace(models.Model):
+    session = models.OneToOneField(PiSession, primary_key=True, on_delete=models.PROTECT)
+    generation = models.PositiveBigIntegerField(default=1)
+    control_seq = models.PositiveBigIntegerField(default=0)
+    status = models.TextField(default="uninitialized")
+    model_id = models.TextField(default="")
+    model_version = models.PositiveBigIntegerField(default=0)
+    thinking_level = models.TextField(default="")
+    state_json = models.TextField(default="{}")
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "ai_pi_workspaces"
+        constraints = [models.CheckConstraint(condition=models.Q(status__in=["uninitialized", "ready", "paused", "unknown", "frozen"]), name="ai_pi_workspace_status")]
+
+
+class PiControl(models.Model):
+    id = models.TextField(primary_key=True)
+    session = models.ForeignKey(PiSession, on_delete=models.PROTECT)
+    operation = models.ForeignKey(PiOperation, on_delete=models.PROTECT, null=True)
+    client_request_id = models.TextField()
+    request_digest = models.TextField()
+    epoch = models.PositiveBigIntegerField()
+    generation = models.PositiveBigIntegerField()
+    control_seq = models.PositiveBigIntegerField()
+    command = models.TextField()
+    payload_json = models.TextField(default="{}")
+    status = models.TextField(default="prepared")
+    result_json = models.TextField(default="{}")
+    error_code = models.TextField(default="")
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "ai_pi_controls"
+        constraints = [models.UniqueConstraint(fields=["session", "client_request_id"], name="ai_pi_control_client_unique"),
+            models.UniqueConstraint(fields=["session", "control_seq"], name="ai_pi_control_seq_unique"),
+            models.CheckConstraint(condition=models.Q(status__in=["prepared", "queued", "sent", "accepted", "handled", "completed", "failed", "unknown"]), name="ai_pi_control_status"),
+            models.CheckConstraint(condition=models.Q(epoch__gte=1, generation__gte=1, control_seq__gte=1), name="ai_pi_control_fence")]
+        indexes = [models.Index(fields=["session", "generation", "status"], name="ai_pi_control_pending_idx")]
+
+
+class PiUiRequest(models.Model):
+    id = models.TextField(primary_key=True)
+    session = models.ForeignKey(PiSession, on_delete=models.PROTECT)
+    operation = models.ForeignKey(PiOperation, on_delete=models.PROTECT)
+    generation = models.PositiveBigIntegerField()
+    runner_request_id = models.TextField()
+    request_json = models.TextField()
+    status = models.TextField(default="pending")
+    response_control = models.ForeignKey(PiControl, on_delete=models.PROTECT, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "ai_pi_ui_requests"
+        constraints = [models.UniqueConstraint(fields=["operation", "runner_request_id"], name="ai_pi_ui_runner_unique"),
+            models.CheckConstraint(condition=models.Q(status__in=["pending", "responded", "expired"]), name="ai_pi_ui_status")]
+
+
+PI_MODELS = (PiSession, PiOperation, PiDispatch, PiEvent, PiFile, PiExport, PiExportPage, PiGatewayNonce, PiWorkspace, PiControl, PiUiRequest)

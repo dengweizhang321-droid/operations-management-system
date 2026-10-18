@@ -3,6 +3,7 @@
 @import "./styles/tokens.css";
 @import "./ai-chat-workbench.css";
 @import "./ai-pi-agent.css";
+@import "@xterm/xterm/css/xterm.css";
 
 /* Unified market SKU database */
 .settings-market-master-live > .panel:has(.market-price-review-table) { display: none; }

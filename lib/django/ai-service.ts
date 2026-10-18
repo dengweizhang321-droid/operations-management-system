@@ -22,7 +22,7 @@ export async function aiEnvironment(): Promise<Environment> {
   return { ...(globalThis.process?.env ?? {}), ...worker };
 }
 
-const PI_PUBLIC_PATH = new RegExp(`^/api/ai/pi/(?:skills|sessions(?:/${ENTITY}(?:/(?:messages|events|abort|files))?)?|files/${ENTITY}(?:/content)?)$`);
+const PI_PUBLIC_PATH = new RegExp(`^/api/ai/pi/(?:skills|sessions(?:/${ENTITY}(?:/(?:messages|events|abort|files|workspace))?)?|files/${ENTITY}(?:/content)?)$`);
 export function isPublicAiPath(path: string) { return PUBLIC_PATH.test(path) || PI_PUBLIC_PATH.test(path); }
 export function isInternalPromotionDispatchPath(path: string) { return INTERNAL_PROMOTION_DISPATCH_PATH.test(path); }
 export function isInternalMarketV2CandidatePath(path: string) { return INTERNAL_MARKET_V2_CANDIDATE_PATH.test(path); }
