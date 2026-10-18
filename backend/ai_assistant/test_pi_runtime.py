@@ -57,6 +57,26 @@ class PiRuntimeTests(TestCase):
         self.assertEqual(domain.m.AiAgentJobs.objects.count(), 0)
         self.assertEqual(domain.m.AiWorkflowRuns.objects.count(), 0)
 
+    def test_session_list_uses_latest_task_status_and_first_prompt_title(self):
+        session = self.session()
+        first = self.prompt(session, message="销售推广库存联合分析")
+        result = service.listing({}, self.owner)["items"][0]
+        self.assertEqual(result["title"], "销售推广库存联合分析")
+        self.assertEqual(result["latestOperationStatus"], "queued")
+        self.prompt(session, message="销售推广库存联合分析")
+        with mutation():
+            PiOperation.objects.filter(id=first["operation"]["id"]).update(status="succeeded")
+            PiSession.objects.filter(pk=session).update(status="idle", active_operation_id="")
+        self.assertEqual(service.listing({}, self.owner)["items"][0]["latestOperationStatus"], "succeeded")
+        self.prompt(session, message="新范围的新任务", clientRequestId="new-scope-title", scope={"warehouses": [], "channels": [], "platforms": ["京东"]})
+        self.assertEqual(service.detail(session, self.owner)["session"]["title"], "新范围的新任务")
+
+    def test_pi_system_defaults_to_chinese_progress_and_downloadable_results(self):
+        _, system = gateway.transcript({"messages": [{"role": "user", "content": "测试"}]}, self.model)
+        self.assertIn("默认使用简体中文", system)
+        self.assertIn("数据来源与截止日", system)
+        self.assertIn("不把容器内部路径", system)
+
     def test_client_key_binds_body_and_active_operation_blocks_new_id(self):
         session = self.session()
         a = self.prompt(session)

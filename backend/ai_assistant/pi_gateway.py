@@ -129,7 +129,7 @@ def transcript(payload, model):
                     raise AiError("Pi 工具上下文结构无效")
                 blocks.append({"type": "tool_use", "id": call["id"], "name": call["function"]["name"], "input": json.loads(call["function"]["arguments"])})
             messages.append({"role": role, "content": blocks})
-    system = "\n".join(systems) + "\n系统数据只能由当前授权的中央只读工具查询；本地文件与代码只能在此 Pi 隔离容器中操作。业务金额默认人民币分，展示为元需除以100；业务时区Asia/Shanghai。市场TOP覆盖不能称为完整行业大盘。"
+    system = "\n".join(systems) + "\n默认使用简体中文向用户报告执行进度和最终结果；只有用户明确要求其他语言时才切换。任务完成时必须给出中文结论、数据来源与截止日、口径及缺数说明；生成文件后说明可下载的文件名，不把容器内部路径当成用户下载入口。系统数据只能由当前授权的中央只读工具查询；本地文件与代码只能在此 Pi 隔离容器中操作。业务金额默认人民币分，展示为元需除以100；业务时区Asia/Shanghai。市场TOP覆盖不能称为完整行业大盘。"
     return messages, system
 
 

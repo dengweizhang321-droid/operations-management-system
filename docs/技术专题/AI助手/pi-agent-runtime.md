@@ -1,6 +1,6 @@
 # Pi Agent 一期运行说明
 
-Pi Agent 位于“AI 助理 → Agent → Pi Agent”。原 Chat、Agent 工作流、DAG 与 pandas 沙箱继续使用各自路径。Pi 使用独立 Django 队列、操作账本、独立 Runner 和真实 `@earendil-works/pi-coding-agent@1.3.0` RPC 进程。
+Pi Agent 位于“AI 对话 → 输入区 Agent”，可在同一页面切换 Chat / Agent；两种模式分别保留会话、草稿和请求，切换不停止后台任务。原 Agent 工作流、DAG 与 pandas 沙箱继续使用各自路径。Pi 使用独立 Django 队列、操作账本、独立 Runner 和真实 `@earendil-works/pi-coding-agent@1.3.0` RPC 进程。
 
 ## 使用
 

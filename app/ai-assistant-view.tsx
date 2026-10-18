@@ -478,6 +478,7 @@ function AiAssistantView({
   compact = false,
   contextRequestId = 0,
   contextError = "",
+  composerModeControl,
 }: {
   currentUser: CurrentUser | null;
   initialContextPrompt?: string;
@@ -487,6 +488,7 @@ function AiAssistantView({
   compact?: boolean;
   contextRequestId?: number;
   contextError?: string;
+  composerModeControl?: import("react").ReactNode;
 }) {
   const showChat = workspace === "chat";
   const showManagement = workspace === "management";
@@ -1174,6 +1176,7 @@ function AiAssistantView({
   return <section className={`ai-assistant-grid${compact ? " ai-chat-compact" : ""}`}>
     {contextError && pageContext && <p className="inventory-feedback inventory-feedback-error" role="alert">{contextError}</p>}
     {showChat && <AiChatWorkbench
+      composerModeControl={composerModeControl}
       compact={compact} currentTitle={conversationItems.find(item => item.id === activeConversationId)?.title || ""}
       activeConversationId={activeConversationId} conversations={conversationItems} conversationTotal={conversationPagination.total}
       hasMoreConversations={conversationPagination.hasMore} loadingMoreConversations={loadingMoreConversations}

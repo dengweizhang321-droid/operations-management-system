@@ -5,6 +5,7 @@ import { AI_PAGE_CONTEXT_CATALOG, type AiPageContext, type AiPageModule } from "
 import type { AppCurrentUser } from "./shell/view-contract";
 
 const Chat = lazy(() => import("./ai-assistant-view"));
+const Conversation = lazy(() => import("./ai-conversation-workspace"));
 
 class ChatBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
@@ -49,11 +50,15 @@ export default function AiWorkspaceHost({ currentUser, module, context, contextE
       <button type="button" aria-label="关闭 AI 对话" onClick={onClose}>×</button>
     </header>}
     <ChatBoundary><Suspense fallback={<p role="status">正在恢复本板块对话…</p>}>
-      <Chat currentUser={currentUser} workspaceModule={key} compact={key !== "ai" || !fullPage}
+      {key === "ai" ? <Conversation currentUser={currentUser} workspaceModule={key} compact={!fullPage}
         initialPageContext={key === module ? context : undefined}
         contextError={key === module ? contextError : undefined}
         initialContextPrompt={promptModule === key ? prompt : ""}
-        contextRequestId={promptModule === key ? promptId : 0} />
+        contextRequestId={promptModule === key ? promptId : 0} /> : <Chat currentUser={currentUser} workspaceModule={key} compact
+        initialPageContext={key === module ? context : undefined}
+        contextError={key === module ? contextError : undefined}
+        initialContextPrompt={promptModule === key ? prompt : ""}
+        contextRequestId={promptModule === key ? promptId : 0} />}
     </Suspense></ChatBoundary>
   </section>)}</>;
 }
