@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, writeFile, rm, access } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
@@ -73,8 +73,13 @@ test('actual approved runner survives a PS7-polluted parent while original PS5 A
     const candidates=(original.PSModulePath??'').split(';');
     let incompatible;
     for(const dir of candidates) {
-      if(!/powershell[\\/]Modules$/i.test(dir)||/WindowsPowerShell/i.test(dir))continue;
-      try {await access(path.join(dir,'Microsoft.PowerShell.Security','Microsoft.PowerShell.Security.psd1'));incompatible=dir;break;}catch{}
+      try {
+        const manifest=await readFile(path.join(dir,'Microsoft.PowerShell.Security','Microsoft.PowerShell.Security.psd1'),'utf8');
+        // Portable approved hosts can live anywhere. Select the actual Core-only
+        // Security manifest, then prove the PS5 incompatibility below.
+        if(!/^\s*CompatiblePSEditions\s*=\s*@\(\s*['"]Core['"]\s*\)/mi.test(manifest))continue;
+        incompatible=dir;break;
+      }catch{}
     }
     assert.ok(incompatible,'This Windows integration fixture needs the actual installed PS7 module directory');
     await writeFile(file,'\uFEFF'+String.raw`param([string]$Value,[switch]$Execute)
