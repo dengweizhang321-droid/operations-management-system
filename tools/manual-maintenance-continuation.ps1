@@ -1,6 +1,7 @@
 ﻿param([ValidateSet('Check','EnterMaintenance')][string]$Action='Check',
  [Parameter(Mandatory)][string]$InputPath,[Parameter(Mandatory)][string]$InputSha256,
- [Parameter(Mandatory)][string]$OriginalFailureSha256,[switch]$Json)
+ [Parameter(Mandatory)][string]$OriginalFailureSha256,[ValidateSet('legacy','pi19db')][string]$Route='legacy',
+ [string]$ObservationPath,[string]$ObservationSha256,[switch]$Json)
 $ErrorActionPreference='Stop'
 $djangoFixed='D:\teruisi-runtime\django-sales'
 $workerFixed='D:\teruisi-runtime\teruisi-worker-sales'
@@ -12,11 +13,21 @@ $known=@{
  djangoScriptSha256='2a4d3629d1f80b824ad247ef4b4ce810632090586b87be3686432f5b6aea98e0'
  workerTransportSha256='5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd'
 }
+$script:piMode=$Route -ceq 'pi19db'
+if($script:piMode){$known=@{
+ releaseId='20261018T081823Z-282cee340c57bf41'
+ workerManifestSha256='120911425367ef3a451c40f7a9842f3c1e39fc99b38cfd602b011ae3ed0733fc'
+ djangoManifestSha256='a9e3fdb943dfcc558a69982f9d410aff103872712e26e0d50b0cefe3841693e7'
+ workerScriptSha256='112b091b610b09187110ba478cfff2280b30705dd21e185a8132e683414ec2bc'
+ djangoScriptSha256='d37902ebfbad7a7d6a78bce92e30056fcd6d253c70faa4267089ba5a43df74f2'
+ djangoAiScriptSha256='fc767f83a175642da0922db29770400e50a73d0ca00c56ba840a87d97725455b'
+ workerTransportSha256='5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd'
+}}
 function Hash-File([string]$File){(Get-FileHash -LiteralPath $File -Algorithm SHA256).Hash.ToLowerInvariant()}
 function Read-Object([string]$File){
  $raw=[IO.File]::ReadAllText($File)
  if(-not $raw.TrimStart().StartsWith('{')){throw 'Expected an original JSON object'}
- $value=$raw|ConvertFrom-Json
+ $value=if($script:piMode -and (Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')){$raw|ConvertFrom-Json -DateKind String}else{$raw|ConvertFrom-Json}
  if($value -isnot [pscustomobject]){throw 'Expected a typed original JSON object'}
  return $value
 }
@@ -39,7 +50,7 @@ function Assert-Record([object]$Record,[string]$Version){
   $Record.keepPostgres -isnot [bool] -or $Record.keepPostgres -ne $true){throw 'Original maintenance/drain binding changed'}
 }
 function Assert-Actor([object]$Record,[object]$Current){
- if($Record -isnot [pscustomobject] -or $Record.processId -isnot [int] -or $Record.processId -le 0 -or
+ if($Record -isnot [pscustomobject] -or ($Record.processId -isnot [int] -and -not ($script:piMode -and $Record.processId -is [long] -and $Record.processId -le [int]::MaxValue)) -or $Record.processId -le 0 -or
   $Record.creationDate -isnot [string] -or $Record.commandLine -isnot [string] -or
   $Record.executablePath -isnot [string] -or -not $Record.commandLine -or -not $Record.executablePath){throw 'Original actor was not pre-bound'}
  if($null -ne $Current -and ($Current.CreationDate.ToUniversalTime().ToString('o') -cne $Record.creationDate -or
@@ -77,13 +88,18 @@ function Assert-NoControlParticipants([object[]]$Processes){
   if([int]$process.ParentProcessId -eq $script:actor.actor.processId -and $process.CreationDate -ge [DateTime]::Parse($script:actor.actor.creationDate)){throw 'An original actor descendant still exists'}
   if($name -imatch '^(python|pythonw|waitress-serve|node|workerd|wsl)(\.exe)?$' -and
    ($exe.StartsWith($djangoFixed+'\',[StringComparison]::OrdinalIgnoreCase) -or $exe.StartsWith($workerFixed+'\',[StringComparison]::OrdinalIgnoreCase) -or
-    $command.IndexOf($djangoFixed,[StringComparison]::OrdinalIgnoreCase) -ge 0 -or $command.IndexOf($workerFixed,[StringComparison]::OrdinalIgnoreCase) -ge 0 -or $command -imatch 'TERUISI-Pandas')){throw 'An original application-scope process still exists'}
+    $command.IndexOf($djangoFixed,[StringComparison]::OrdinalIgnoreCase) -ge 0 -or $command.IndexOf($workerFixed,[StringComparison]::OrdinalIgnoreCase) -ge 0 -or $command -imatch 'TERUISI-Pandas')){
+   $allowed=@($script:piAllowed|Where-Object {[int]$_.ProcessId -eq [int]$process.ProcessId -and
+     $_.CreationDate -ceq $process.CreationDate.ToUniversalTime().ToString('o') -and $_.ExecutablePath -ieq $exe -and $_.CommandLine -ceq $command})
+   if(-not $script:piMode -or $allowed.Count -ne 1){throw 'An unverified application or late native lifecycle process still exists'}
+  }
  }
 }
 function Assert-Inputs {
  Require-Hash $InputPath $InputSha256
  $script:admissionRecord=Read-Object $InputPath
  if($script:admissionRecord.version -cne 'manual-maintenance-first-attempt-v2' -or $script:admissionRecord.maintenanceId -isnot [string] -or $script:admissionRecord.maintenanceId -cnotmatch '^[a-f0-9]{32}$'){throw 'Not an original finite first attempt'}
+ if($script:piMode -and $script:admissionRecord.readinessRoute -cne 'pi19db'){throw 'Not the pre-admitted Pi predecessor route'}
  $script:attempt=[IO.Path]::GetFullPath((Split-Path -Parent $InputPath))
  if([IO.Path]::GetFullPath($script:admissionRecord.attempt) -ine $script:attempt){throw 'Original attempt root changed'}
  foreach($key in @('requestSha256','startedSha256')){if($script:admissionRecord.$key -isnot [string] -or $script:admissionRecord.$key -cnotmatch '^[a-f0-9]{64}$'){throw 'Missing original request/source binding'}}
@@ -111,6 +127,7 @@ function Assert-Inputs {
  Require-Hash $script:observerTransport $known.workerTransportSha256
  Require-Hash (Join-Path $djangoFixed 'app\deployment.json') $known.djangoManifestSha256
  Require-Hash (Join-Path $djangoFixed 'app\tools\django-local-service.ps1') $known.djangoScriptSha256
+ if($script:piMode){Require-Hash (Join-Path $djangoFixed 'app\tools\django-ai.ps1') $known.djangoAiScriptSha256}
  $script:actor=Read-Object (Join-Path $script:attempt 'maintenance-first-actor.json')
  if($script:actor.version -cne 'manual-maintenance-original-actor-v1' -or $script:actor.admissionSha256 -cne $InputSha256 -or $script:actor.maintenanceId -cne $script:admissionRecord.maintenanceId){throw 'No matching pre-invocation actor record'}
  Assert-Actor $script:actor.actor $null
@@ -120,9 +137,58 @@ function Assert-Inputs {
  if(Test-Path -LiteralPath (Join-Path $workerFixed 'state\worker-process.json')){throw 'Original Worker receipt remains; stopped ports are insufficient'}
  if($script:admissionRecord.pandasConfigSha256){Require-Hash (Join-Path $djangoFixed 'config\pandas-sandbox.json') $script:admissionRecord.pandasConfigSha256}
  elseif(Test-Path -LiteralPath (Join-Path $djangoFixed 'config\pandas-sandbox.json')){throw 'Pandas scope changed'}
+ if($script:piMode -and (Test-Path -LiteralPath (Join-Path $script:attempt 'maintenance-pi-continuation-STARTED.json'))){throw 'Pi continuation already started; no replay'}
+ if($script:piMode){Require-Hash (Join-Path $djangoFixed 'config\pi-agent.json') $script:admissionRecord.piConfigurationSha256}
+}
+function Assert-PiStop([object[]]$Processes){
+ $identity=$script:admissionRecord.piWorkerIdentity
+ if($identity -isnot [pscustomobject] -or $identity.version -ne 2 -or $identity.service -cne 'django-ai-pi-worker' -or
+  ($identity.processId -isnot [int] -and $identity.processId -isnot [long]) -or $identity.processId -le 0 -or $identity.processId -gt [int]::MaxValue -or $identity.creationDate -isnot [string] -or
+  $identity.commandLine -isnot [string] -or $identity.executablePath -isnot [string]){throw 'No original Pi process identity'}
+ if(@($Processes|Where-Object {[int]$_.ProcessId -eq $identity.processId -or [int]$_.ParentProcessId -eq $identity.processId}).Count){throw 'Pi process, reused PID or descendant still exists'}
+ $run=Join-Path $djangoFixed 'run';$pidFile=Join-Path $run 'django-ai-pi-worker.pid.json'
+ if(Test-Path -LiteralPath $pidFile){Require-Hash $pidFile $script:admissionRecord.piWorkerReceiptSha256}
+ $controlFile=Join-Path $run 'django-ai-pi-worker.control.json';$ackFile=$controlFile+'.stopped'
+ $controlSha=Hash-File $controlFile;$ackSha=Hash-File $ackFile
+ $control=Read-Object $controlFile;$ack=Read-Object $ackFile
+ foreach($tuple in @(@($controlFile,$control,@('version','token','intent')),@($ackFile,$ack,@('version','token','status')))){
+  $names=@($tuple[1].PSObject.Properties.Name)
+  if((($names|Sort-Object) -join ',') -cne (($tuple[2]|Sort-Object) -join ',')){throw 'Pi stop record fields changed'}
+  if([regex]::Matches([IO.File]::ReadAllText($tuple[0]),'"(?:version|token|intent|status)"\s*:').Count -ne 3){throw 'Duplicated Pi stop record fields'}
+ }
+ $arguments=@($identity.arguments);$token=[string]$arguments[-1]
+ if($token -cnotmatch '^[a-f0-9]{32}$' -or ($control.version -isnot [int] -and $control.version -isnot [long]) -or $control.version -ne 1 -or ($ack.version -isnot [int] -and $ack.version -isnot [long]) -or $ack.version -ne 1 -or
+  $control.token -cne $token -or $ack.token -cne $token -or $control.intent -cne 'stop' -or $ack.status -cne 'stopped'){throw 'Pi stop acknowledgement is not bound to original token'}
+ Require-Hash $controlFile $controlSha;Require-Hash $ackFile $ackSha
+ return @{controlSha256=$controlSha;ackSha256=$ackSha}
+}
+function Get-PiRemainingApplicationSnapshots {
+ # Only original native receipt validators can admit a remaining long-lived
+ # service. A Python/WSL control grandchild has no such fixed service receipt.
+ & {
+  $previous=$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY
+  try{
+   $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1'
+   . (Join-Path $djangoFixed 'app\tools\django-local-service.ps1') -RuntimeRoot $djangoFixed -Action MaintenanceStatus
+   $Action='MaintenanceStatus'
+   $services=@('django-reader','django-writer')
+   foreach($domain in @('finance','netshop','market','products','inventory','workflow','customer-service','access-control','erp-reference','ai')){foreach($side in @('reader','writer')){$services+=('django-'+$domain+'-'+$side)}}
+   $services+='django-bi-reader'
+   foreach($service in $services){$owned=Resolve-OwnedProcess $service (Join-Path $RunDirectory ($service+'.pid.json')) $Waitress -ReadOnly;if($owned){$owned;Get-VerifiedProcessDescendants $owned}}
+   foreach($service in @('django-ai-dingtalk','django-ai-dingtalk-schedule','erp-reference-sync')){$owned=Resolve-OwnedProcess $service (Join-Path $RunDirectory ($service+'.pid.json')) $Python -ReadOnly;if($owned){$owned;Get-VerifiedProcessDescendants $owned}}
+   $keepalive=@('-d','TERUISI-Pandas','-u','teruisi-pandas','--exec','/usr/bin/sleep','infinity')
+   $owned=Resolve-OwnedProcess 'ai-pandas-wsl' (Join-Path $RunDirectory 'ai-pandas-wsl.pid.json') (Join-Path $env:SystemRoot 'System32\wsl.exe') $keepalive -ReadOnly
+   if($owned){$owned;Get-VerifiedProcessDescendants $owned}
+  }finally{$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY=$previous}
+ }
+}
+function Assert-OriginalNativeComplete([object]$Complete){
+ if($Complete.admissionSha256 -cne $InputSha256 -or $Complete.maintenanceId -cne $script:admissionRecord.maintenanceId -or $Complete.actorProcessId -ne $script:actor.actor.processId -or ($Complete.exitCode -isnot [int] -and -not ($script:piMode -and $Complete.exitCode -is [long])) -or $Complete.exitCode -ne 0 -or
+  $Complete.value.status -cne 'maintenance' -or $Complete.value.maintenanceId -cne $script:admissionRecord.maintenanceId -or $Complete.value.postgresPreserved -isnot [bool] -or -not $Complete.value.postgresPreserved -or $Complete.value.backendStopped -isnot [bool] -or -not $Complete.value.backendStopped){throw 'Original durable native completion does not match'}
 }
 function Get-ContinuationSnapshot {
  Assert-Inputs
+ if($script:piMode){$script:piAllowed=@(Get-PiRemainingApplicationSnapshots)}
  $processes=@(Get-CimInstance Win32_Process -ErrorAction Stop)
  Assert-RotationOwner $processes
  Assert-NoControlParticipants $processes
@@ -134,11 +200,11 @@ function Get-ContinuationSnapshot {
  $commit=$false;$commitFile=Join-Path $script:attempt 'maintenance-first-native-complete.json'
  if(Test-Path -LiteralPath $commitFile){
   $complete=Read-Object $commitFile
-  if($complete.admissionSha256 -cne $InputSha256 -or $complete.maintenanceId -cne $script:admissionRecord.maintenanceId -or $complete.actorProcessId -ne $script:actor.actor.processId -or $complete.exitCode -isnot [int] -or $complete.exitCode -ne 0 -or
-   $complete.value.status -cne 'maintenance' -or $complete.value.maintenanceId -cne $script:admissionRecord.maintenanceId -or $complete.value.postgresPreserved -isnot [bool] -or -not $complete.value.postgresPreserved -or $complete.value.backendStopped -isnot [bool] -or -not $complete.value.backendStopped){throw 'Original durable native completion does not match'}
+  Assert-OriginalNativeComplete $complete
   $commit=$true
  }
- if(($script:maintenance.drainedStopped -eq $true) -ne $commit){throw 'Original durable completion and current drainedStopped do not agree'}
+ if(-not $script:piMode -and (($script:maintenance.drainedStopped -eq $true) -ne $commit)){throw 'Original durable completion and current drainedStopped do not agree'}
+ if($script:piMode -and $script:maintenance.drainedStopped -eq $true -and -not $commit){throw 'Completed Pi maintenance lacks its original durable native completion'}
  $workerStatusRaw=& $script:worker -Action Status -Json
  if($LASTEXITCODE -ne 0){throw 'Original public Worker Status failed'}
  $workerStatus=($workerStatusRaw -join "`n")|ConvertFrom-Json
@@ -146,6 +212,7 @@ function Get-ContinuationSnapshot {
  # Reject remaining receipts before reusing assertions that could otherwise
  # clean an old supervisor receipt. This observer never performs that cleanup.
  foreach($entry in @(Get-ChildItem -LiteralPath (Join-Path $djangoFixed 'run') -Filter '*.pid.json' -File)){
+  if($script:piMode){continue}
   if($entry.Name -imatch '^(django-.+|ai-pandas-wsl|erp-reference-sync)\.pid\.json$'){throw 'A native application-scope process receipt remains'}
  }
  $desired=Read-Object (Join-Path $djangoFixed 'run\django-supervisor-desired-state.json')
@@ -155,8 +222,14 @@ function Get-ContinuationSnapshot {
  & {
   $previous=$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY
   try{$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1';. (Join-Path $djangoFixed 'app\tools\django-local-service.ps1') -RuntimeRoot $djangoFixed -MaintenanceId $script:admissionRecord.maintenanceId
-   Assert-DeployedApplication;Assert-RuntimeAclHardened
-   Assert-ApplicationDeploymentStopped 'FiniteFirstMaintenanceObserver';Assert-SalesRetirementWorkerStopped 'FiniteFirstMaintenanceObserver'
+   if($script:piMode){
+    $Action='MaintenanceStatus'
+    [void](Assert-PostgresListenerOwnership);if(-not (Test-PostgresReady)){throw 'Owned PostgreSQL is not ready'}
+    if($script:maintenance.drainedStopped -eq $true){Assert-ApplicationDeploymentStopped 'PiMaintenanceObserver';Assert-SalesRetirementWorkerStopped 'PiMaintenanceObserver'}
+   }else{
+    Assert-DeployedApplication;Assert-RuntimeAclHardened
+    Assert-ApplicationDeploymentStopped 'FiniteFirstMaintenanceObserver';Assert-SalesRetirementWorkerStopped 'FiniteFirstMaintenanceObserver'
+   }
   }finally{$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY=$previous}
  }
  # This old Django app predates the shared transport. Its exact Worker manifest
@@ -170,7 +243,7 @@ function Get-ContinuationSnapshot {
   return $capture.Stdout
  }
  $pandas=$null
- if($script:admissionRecord.pandasConfigSha256){
+ if(-not $script:piMode -and $script:admissionRecord.pandasConfigSha256){
   $config=Read-Object (Join-Path $djangoFixed 'config\pandas-sandbox.json')
   if($config.version -ne 1 -or $config.image -isnot [string] -or $config.image -cnotmatch '^sha256:[a-f0-9]{64}$'){throw 'Original Pandas config is invalid'}
   Require-Hash (Join-Path $djangoFixed 'secrets\pandas-sandbox.dpapi.json') $config.keySha256
@@ -187,6 +260,12 @@ function Get-ContinuationSnapshot {
  }
  # A second fresh census follows the slower native/WSL observation.
  $processes=@(Get-CimInstance Win32_Process -ErrorAction Stop);Assert-RotationOwner $processes;Assert-NoControlParticipants $processes
+ if($script:piMode){
+  $pi=Assert-PiStop $processes
+  $script:decision=if($script:maintenance.drainedStopped -eq $true){'coordinate-completed'}else{'enter-same-id-once'}
+  $snapshot=@{version='manual-maintenance-pi-continuation-v1';at=[DateTimeOffset]::UtcNow.ToString('o');requestSha256=$script:admissionRecord.requestSha256;startedSha256=$script:admissionRecord.startedSha256;admissionSha256=$InputSha256;originalFailureSha256=$OriginalFailureSha256;maintenanceId=$script:admissionRecord.maintenanceId;sourceBound=$true;rotationOwnerBound=$true;originalActorBound=$true;originalActorExited=$true;controlParticipants=@();workerReceiptAbsent=$true;postgresPreservedReady=$true;downstreamEffects=@();maintenance=$script:maintenance;drain=$drain;piStopBound=$true;piWorkerAbsent=$true;piStopBinding=$pi;nativeStopIdentityGatePreserved=$true;fullNativeStopScopeVerified=($script:maintenance.drainedStopped -eq $true);durableCompleteCommit=$commit}
+  foreach($key in $known.Keys){$snapshot[$key]=$known[$key]};return $snapshot
+ }
  $script:decision=if($commit){'coordinate-completed'}else{'enter-same-id-once'}
  $snapshot=@{version='manual-maintenance-continuation-v1';requestSha256=$script:admissionRecord.requestSha256;startedSha256=$script:admissionRecord.startedSha256;admissionSha256=$InputSha256;originalFailureSha256=$OriginalFailureSha256;maintenanceId=$script:admissionRecord.maintenanceId;sourceBound=$true;rotationOwnerBound=$true;originalActorBound=$true;originalActorExited=$true;controlParticipants=@();fullNativeStopScopeVerified=$true;workerStatus=$workerStatus;workerReceiptAbsent=$true;applicationProcesses=@();postgresPreservedReady=$true;downstreamEffects=@();maintenance=$script:maintenance;drain=$drain;pandasConfigured=[bool]$script:admissionRecord.pandasConfigSha256;pandas=$pandas;durableCompleteCommit=$commit}
  foreach($key in $known.Keys){$snapshot[$key]=$known[$key]}
@@ -203,10 +282,22 @@ try{
  if($env:TERUISI_PROCESS_DEADLINE_UNIX_MS){$deadline=[long]0;if(-not [long]::TryParse($env:TERUISI_PROCESS_DEADLINE_UNIX_MS,[ref]$deadline)){throw 'Invalid inherited process deadline'};$wait=[int][Math]::Min($wait,[Math]::Max(0,$deadline-[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()));if($wait -le 0){throw 'Inherited process deadline exhausted'}}
  Invoke-ManualMaintenanceGate -WorkerMutexName 'Local\TERUISI.Worker.LocalService.v1' -DjangoMutexName ('Local\TERUISI-DjangoSales-'+$suffix) -WaitMilliseconds $wait -Check {
   $script:before=Get-ContinuationSnapshot
-  if($Action -ceq 'EnterMaintenance'){Save-New (Join-Path $script:attempt 'maintenance-continuation-STARTED.json') @{at=[DateTimeOffset]::UtcNow.ToString('o');admissionSha256=$InputSha256;originalFailureSha256=$OriginalFailureSha256;decision=$script:decision;before=$script:before}}
+  if($script:piMode -and $Action -ceq 'EnterMaintenance'){
+   if([IO.Path]::GetFullPath((Split-Path -Parent $ObservationPath)) -ine $script:attempt -or [IO.Path]::GetFileName($ObservationPath) -cnotmatch '^maintenance-pi-observation-[a-f0-9]{32}\.json$'){throw 'Independent Pi observation path changed'}
+   Require-Hash $ObservationPath $ObservationSha256;$observation=Read-Object $ObservationPath
+   $observedAt=[DateTimeOffset]::Parse($observation.at)
+   if($observedAt -gt [DateTimeOffset]::UtcNow -or ([DateTimeOffset]::UtcNow-$observedAt).TotalSeconds -ge 120 -or
+    $observation.admissionSha256 -cne $InputSha256 -or $observation.originalFailureSha256 -cne $OriginalFailureSha256 -or
+    $observation.maintenanceId -cne $script:admissionRecord.maintenanceId -or $observation.version -cne 'manual-maintenance-pi-continuation-v1' -or
+    $observation.piStopBinding.controlSha256 -cne $script:before.piStopBinding.controlSha256 -or $observation.piStopBinding.ackSha256 -cne $script:before.piStopBinding.ackSha256){throw 'Independent Pi observation is stale or changed'}
+  }
+  if($Action -ceq 'EnterMaintenance'){$record=if($script:piMode){'maintenance-pi-continuation-STARTED.json'}else{'maintenance-continuation-STARTED.json'};$started=@{at=[DateTimeOffset]::UtcNow.ToString('o');admissionSha256=$InputSha256;originalFailureSha256=$OriginalFailureSha256;decision=$script:decision;before=$script:before};if($script:piMode){$started.observationSha256=$ObservationSha256};Save-New (Join-Path $script:attempt $record) $started}
   return $true
  } -Operation {
-  if($Action -ceq 'Check'){$script:before|ConvertTo-Json -Depth 18 -Compress;return}
+  if($Action -ceq 'Check'){
+   if($script:piMode){$file=Join-Path $script:attempt ('maintenance-pi-observation-'+[Guid]::NewGuid().ToString('N')+'.json');Save-New $file $script:before;@{snapshot=$script:before;observationPath=$file;observationSha256=(Hash-File $file)}|ConvertTo-Json -Depth 18 -Compress}
+   else{$script:before|ConvertTo-Json -Depth 18 -Compress};return
+  }
   if($script:decision -ceq 'enter-same-id-once'){
    $raw=& $script:worker -Action EnterMaintenance -MaintenanceId $script:admissionRecord.maintenanceId -KeepPostgres -Json
    if($LASTEXITCODE -ne 0){throw 'The one original same-ID Enter did not complete; no further continuation'}
@@ -214,7 +305,9 @@ try{
    if($native.status -cne 'maintenance' -or $native.maintenanceId -cne $script:admissionRecord.maintenanceId -or $native.postgresPreserved -isnot [bool] -or -not $native.postgresPreserved -or $native.backendStopped -isnot [bool] -or -not $native.backendStopped){throw 'Original same-ID Enter returned an unknown result'}
   }
   $result=@{status='maintenance';maintenanceId=$script:admissionRecord.maintenanceId;postgresPreserved=$true;continuationDecision=$script:decision;before=$script:before;originalStopExitCodeUnknown=$true;currentlyStoppedVerified=$true}
-  Save-New (Join-Path $script:attempt 'maintenance-continuation-COMPLETE.json') $result
+  if($script:piMode){$result.observationSha256=$ObservationSha256}
+  $completeName=if($script:piMode){'maintenance-pi-continuation-COMPLETE.json'}else{'maintenance-continuation-COMPLETE.json'}
+  Save-New (Join-Path $script:attempt $completeName) $result
   $result|ConvertTo-Json -Depth 18 -Compress
  }
 }catch{[Console]::Error.WriteLine($_.Exception.Message);exit 1}

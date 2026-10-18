@@ -118,8 +118,11 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
   const unlock=await acquireQueueLock(directory);if(!unlock)return {status:'queued',handled};
   try{
    for(;;){
-    const tickets=await allTickets(directory),pending=[];
-    for(const item of tickets)if(!await ticketResult(directory,item.value.requestId,item.sha256))pending.push(item);
+    const tickets=await allTickets(directory),pending=[],completed=[];
+    for(const item of tickets){
+     const terminal=await ticketResult(directory,item.value.requestId,item.sha256);
+     if(!terminal)pending.push(item);else if(terminal.status==='prepared')completed.push(terminal);
+    }
     if(!pending.length)break;
     await assertGeneration();
     for(const item of pending)assert.ok(item.value.configSha256===configSha256&&item.value.bundleSha256===bundleSha256,'Queued configuration/code generation differs; preserve original ticket');
@@ -150,6 +153,12 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
     assert.ok(selection.live.head&&hex.test(selection.live.head.bindingSha256)&&hex.test(selection.live.djangoManifestSha256)&&hex.test(selection.live.chainStateSha256),'Observed predecessor is incomplete');
     assert.ok(path.isAbsolute(selection.packet),'Frozen packet identity missing');
     await assertGeneration();
+    let reusablePreparation=null;
+    for(const terminal of completed){
+     if(terminal.configSha256!==configSha256||terminal.bundleSha256!==bundleSha256||terminal.selectedTarget!==selection.targetCommit)continue;
+     const prior=await readQueueObject(path.join(directory,'dispatches',terminal.dispatchId+'.json'));
+     if(canonical(prior.value.selection)===canonical(selection))reusablePreparation=terminal.nativeResult;
+    }
     const winner=pending.at(-1),dispatchId=randomUUID(),dispatch={version:queueVersion,dispatchId,requestId:winner.value.requestId,
      tickets:pending.map(item=>({requestId:item.value.requestId,ticketSha256:item.sha256,observedTarget:item.value.observedTarget})),
      mode:'prepare-only',configSha256,bundleSha256,selectedTarget:selection.targetCommit,selection,
@@ -158,7 +167,7 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
     const dispatchSha256=await durableCreate(path.join(directory,'dispatches',dispatchId+'.json'),dispatch);
     await onStage('after-dispatch');
     let result,error=null;
-    try{await onStage('before-prepare');result=await prepare(selection,dispatch);await onStage('after-prepare');
+    try{await onStage('before-prepare');result=await prepare(selection,dispatch,reusablePreparation);await onStage('after-prepare');
      assert.equal(result.mainCommit??result.targetCommit,selection.targetCommit,'Preparation result target changed');
      assert.equal(result.publicationPerformed,false,'Queue cannot deploy');
      assert.ok(['prepared-only','already-current','non-production'].includes(result.status),'Native preparation did not complete');

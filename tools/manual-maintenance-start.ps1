@@ -19,7 +19,7 @@ function Check-FirstAttempt {
  if($InputSha256 -cnotmatch '^[a-f0-9]{64}$' -or (Sha $InputPath) -cne $InputSha256){throw 'Maintenance admission bytes changed'}
  $raw=[IO.File]::ReadAllText($InputPath)
  if(-not $raw.TrimStart().StartsWith('{')){throw 'Maintenance admission must be an object'}
- $admission=$raw|ConvertFrom-Json
+ $admission=if((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')){$raw|ConvertFrom-Json -DateKind String}else{$raw|ConvertFrom-Json}
  if($admission -isnot [pscustomobject] -or $admission.version -cne 'manual-maintenance-first-attempt-v2'){throw 'Invalid maintenance admission'}
  foreach($field in @('workerScript','workerScriptSha256','workerReceiptSha256','djangoManifestSha256','maintenanceId','preparedAt')){
   if($admission.$field -isnot [string]){throw ('Invalid admission field: '+$field)}
@@ -35,7 +35,12 @@ function Check-FirstAttempt {
  if((Sha $script) -cne $admission.workerScriptSha256){throw 'Original Worker entry changed'}
  if((Sha (Join-Path $workerRoot 'state\worker-process.json')) -cne $admission.workerReceiptSha256){throw 'Original Worker receipt changed'}
  if((Sha (Join-Path $djangoRoot 'app\deployment.json')) -cne $admission.djangoManifestSha256){throw 'Django predecessor changed'}
- if($admission.rotationOwnerPid -isnot [int] -or $admission.rotationOwnerPid -le 0 -or $admission.sourcePins -isnot [pscustomobject]){throw 'Original invocation binding is missing'}
+ if($admission.readinessRoute -ceq 'pi19db'){
+  foreach($pair in @(@('run\django-ai-pi-worker.pid.json',$admission.piWorkerReceiptSha256),@('config\pi-agent.json',$admission.piConfigurationSha256))){
+   if($pair[1] -isnot [string] -or $pair[1] -cnotmatch '^[a-f0-9]{64}$' -or (Sha (Join-Path $djangoRoot $pair[0])) -cne $pair[1]){throw 'Pre-admitted Pi ownership or configuration changed before maintenance'}
+  }
+ }
+ if(($admission.rotationOwnerPid -isnot [int] -and -not ($admission.readinessRoute -ceq 'pi19db' -and $admission.rotationOwnerPid -is [long] -and $admission.rotationOwnerPid -le [int]::MaxValue)) -or $admission.rotationOwnerPid -le 0 -or $admission.sourcePins -isnot [pscustomobject]){throw 'Original invocation binding is missing'}
  if((Sha $PSCommandPath) -cne $admission.sourcePins.'manual-maintenance-start.ps1'){throw 'Original adapter source changed'}
  if((Sha (Join-Path $PSScriptRoot 'manual-maintenance-lock.psm1')) -cne $admission.sourcePins.'manual-maintenance-lock.psm1'){throw 'Original mutex adapter changed'}
  Save-OriginalRecord 'maintenance-first-actor.json' @{version='manual-maintenance-original-actor-v1';at=[DateTimeOffset]::UtcNow.ToString('o');admissionSha256=$InputSha256;maintenanceId=$admission.maintenanceId;helperSha256=(Sha $PSCommandPath);actor=(Get-OriginalActor $PID);rotationOwner=(Get-OriginalActor $admission.rotationOwnerPid)}

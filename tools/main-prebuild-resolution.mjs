@@ -42,7 +42,7 @@ async function originalEvidence(directory,k=knownPreNativeRefusal){
 async function noLateProcesses(directory,original){
  const stateDirectory=path.dirname(directory),executionDirectory=path.join(stateDirectory,'control-executions'),executions=[];
  await physical(executionDirectory,true);
- for(const name of await fs.readdir(executionDirectory)){assert.match(name,/^[a-f0-9-]{36}\.json$/);const raw=await bytes(path.join(executionDirectory,name)),value=JSON.parse(raw);if(value.bundleSha256===original.dispatch.bundleSha256)executions.push({file:name,sha256:sha(raw),pid:value.pid,createdAt:value.createdAt});}
+ for(const name of await fs.readdir(executionDirectory)){assert.match(name,/^[a-f0-9-]{36}\.json$/);const raw=await bytes(path.join(executionDirectory,name)),value=JSON.parse(raw);if(value.bundleSha256===original.dispatch.bundleSha256){assert.equal(value.version,'teruisi-main-control-execution-v2');assert.ok(Number.isSafeInteger(value.pid)&&value.pid>0&&Number.isFinite(Date.parse(value.createdAt))&&/^[a-f0-9]{64}$/.test(value.commandLineSha256)&&/^[a-f0-9]{64}$/.test(value.executableSha256),'Original execution identity incomplete');executions.push({file:name,sha256:sha(raw),pid:value.pid,createdAt:value.createdAt});}}
  assert.ok(executions.length,'Original control execution evidence missing');
  const frames=[];
  for(let round=0;round<2;round++){
@@ -67,8 +67,9 @@ async function readResolution(directory,dispatch,dispatchSha256,k){
  const resolution=(await readQueueObject(file)).value;
  assert.deepEqual(Object.keys(resolution).sort(),['at','control','original','processes','status','version']);assert.equal(resolution.version,'teruisi-main-pre-native-resolution-v1');assert.equal(resolution.status,'closed-before-native');
  assert.equal(dispatchSha256,k.dispatchSha256);assert.deepEqual(resolution.original,await originalEvidence(directory,k));
- assert.ok(resolution.processes.executions.length&&resolution.processes.frames.length===2&&resolution.processes.frames.every(f=>f.noRelatedProcesses===true));
- const control=resolution.control;assert.ok(/^[a-f0-9-]{36}$/.test(control.installId));
+ assert.ok(Number.isFinite(Date.parse(resolution.at))&&resolution.processes.executions.length&&resolution.processes.frames.length===2&&resolution.processes.frames.every(f=>f.noRelatedProcesses===true&&Number.isFinite(Date.parse(f.at))&&/^[a-f0-9]{64}$/.test(f.processSnapshotSha256)));
+ for(const record of resolution.processes.executions){assert.match(record.file,/^[a-f0-9-]{36}\.json$/);const raw=await bytes(path.join(path.dirname(directory),'control-executions',record.file));assert.equal(sha(raw),record.sha256,'Original execution evidence changed');const value=JSON.parse(raw);assert.equal(value.pid,record.pid);assert.equal(value.createdAt,record.createdAt);assert.equal(value.bundleSha256,dispatch.bundleSha256);}
+ const control=resolution.control;assert.deepEqual(Object.keys(control).sort(),['bundleSha256','configSha256','installId','intentSha256']);assert.ok(/^[a-f0-9-]{36}$/.test(control.installId));
  const intent=JSON.parse(await bytes(path.join(path.dirname(directory),'control-upgrades',control.installId,'INTENT.json')));assert.equal(sha(await bytes(path.join(path.dirname(directory),'control-upgrades',control.installId,'INTENT.json'))),control.intentSha256);assert.equal(intent.bundleSha256,control.bundleSha256);assert.equal(intent.configSha256,control.configSha256);
  return resolution;
 }

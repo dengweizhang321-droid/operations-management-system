@@ -20,7 +20,7 @@ async function fixture(t){
  const request={mainCommit:target,predecessorWorker:live.head,predecessorDjangoSha256:live.djangoManifestSha256};await fs.writeFile(path.join(packet,'main-release-request.json'),JSON.stringify(request));await fs.writeFile(path.join(packet,'release-scope-plan.json'),'{}');
  const k={dispatchId:dispatch.dispatchId,requestId:ticket.requestId,target,sourceTree,dispatchSha256,ticketSha256:ticket.ticketSha256,resultSha256,log:'refusal.log',logSha256:sha(await fs.readFile(path.join(packet,'logs/refusal.log'))),requestSha256:sha(JSON.stringify(request)),planSha256:sha('{}'),publisherSha256:sha(await fs.readFile(path.join(source,'tools/publish-main.mjs')))};
  const installId=randomUUID(),intent={bundleSha256:h('6'),configSha256:h('7')},intentFile=path.join(state,'control-upgrades',installId,'INTENT.json');await fs.mkdir(path.dirname(intentFile),{recursive:true});const intentSha256=await durableCreate(intentFile,intent);
- await fs.mkdir(path.join(state,'control-executions'));await fs.writeFile(path.join(state,'control-executions',randomUUID()+'.json'),JSON.stringify({bundleSha256:binding.bundleSha256,pid:4194303,createdAt:'2020-01-01T00:00:00Z'}));
+ await fs.mkdir(path.join(state,'control-executions'));await fs.writeFile(path.join(state,'control-executions',randomUUID()+'.json'),JSON.stringify({version:'teruisi-main-control-execution-v2',commandLineSha256:h('8'),executableSha256:h('9'),bundleSha256:binding.bundleSha256,pid:4194303,createdAt:'2020-01-01T00:00:00Z'}));
  const control={config:{stateDirectory:state},state:{preparationTask:{},installId,intentSha256,...intent}},adapter=privateRefusalResolutionAdapter(directory,k),options={getLive:async()=>live,assertGeneration:async()=>{}};
  return {root,state,directory,packet,source,k,control,adapter,options,dispatch,dispatchSha256,ticket,binding};
 }
@@ -38,10 +38,11 @@ test('private exact resolution preserves unknown and releases only its dispatch 
  assert.equal(calls,1);assert.equal((await ticketResult(f.directory,next.requestId,next.ticketSha256)).status,'current');assert.deepEqual(await fs.readFile(path.join(f.directory,'results',f.ticket.requestId+'.json')),original);
 });
 test('native marker, changed predecessor, original tamper, and actual multiply encoded late process block closure',async t=>{
- for(const kind of ['native','predecessor','tamper','encoded-late'])await t.test(kind,async t=>{
+ for(const kind of ['native','predecessor','tamper','encoded-late','execution-missing'])await t.test(kind,async t=>{
   const f=await fixture(t);let child;
   if(kind==='native')await fs.mkdir(path.join(f.packet,'publish-'+f.k.target.slice(0,12)));
   if(kind==='predecessor')f.options.getLive=async()=>({...f.dispatch.selection.live,mainCommit:'f'.repeat(40)});
+  if(kind==='execution-missing'){const dir=path.join(f.state,'control-executions'),name=(await fs.readdir(dir))[0];await fs.writeFile(path.join(dir,name),JSON.stringify({bundleSha256:f.binding.bundleSha256,pid:4194303,createdAt:'2020-01-01T00:00:00Z'}));}
   if(kind==='tamper')await fs.appendFile(path.join(f.source,'tools/publish-main.mjs'),'// changed');
   if(kind==='encoded-late'){const inner=Buffer.from('powershell '+f.packet,'utf16le').toString('base64'),encoded=Buffer.from("[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('"+inner+"'))",'utf16le').toString('base64');assert.ok(decodedControlCommand(encoded).includes(f.packet.replaceAll('\\','/').toLowerCase()));child=spawn(process.execPath,['-e','setInterval(()=>{},1000)',encoded],{windowsHide:true,stdio:'ignore'});await new Promise(r=>child.once('spawn',r));t.after(()=>new Promise(resolve=>{child.once('exit',resolve);child.kill();}));}
   await assert.rejects(f.adapter.close(f.control,f.options));await assert.rejects(fs.access(path.join(f.directory,'resolutions',f.dispatch.dispatchId+'.json')),{code:'ENOENT'});

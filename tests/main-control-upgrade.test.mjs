@@ -54,6 +54,15 @@ async function evidenceFixture(t){
  const file=path.join(verify,'HardenAcl-started.json');await fs.writeFile(file,JSON.stringify(record));
  return {directory,releases,packet,publish,preparation,verify,file,record};
 }
+test('control material preparation rejects redirected native evidence before creating its intent',async t=>{
+ const f=await fixture(t),releases=path.join(f.directory,'bad-packets'),packet=path.join(releases,'packet'),target=path.join(f.directory,'outside-evidence');
+ await fs.mkdir(packet,{recursive:true});await fs.mkdir(target);
+ await fs.symlink(target,path.join(packet,'publish-private'),'junction');
+ const config=JSON.parse(await fs.readFile(f.configFile,'utf8'));config.releaseDirectory=releases;await fs.writeFile(f.configFile,JSON.stringify(config));
+ const out=path.join(f.directory,'rejected-materials');
+ await assert.rejects(prepareControlUpgrade({configFile:f.configFile,out,sourceRoot:f.source}),/redirected/);
+ await assert.rejects(fs.access(out),error=>error.code==='ENOENT');
+});
 test('native evidence projection reads all producer locations without entering mature source dependency junctions',async t=>{
  const f=await evidenceFixture(t),target=path.join(f.directory,'dependencies/node_modules');await fs.mkdir(target,{recursive:true});
  await fs.writeFile(path.join(target,'poison-started.json'),'{unreadable evidence outside projection');

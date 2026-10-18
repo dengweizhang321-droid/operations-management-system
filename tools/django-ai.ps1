@@ -151,20 +151,39 @@ function Start-PiRuntime([object]$RuntimeSecrets, [object]$AiSecrets, [object]$A
   return $true
 }
 
+function Wait-PiWorkerExit([object]$Expected, [string]$ReceiptSha256, [string]$ControlSha256, [DateTimeOffset]$Deadline) {
+  # This observer is used only after an exact Resolve and our token-bound stop
+  # write. Missing CIM fields during exit are unknown, not proof of absence.
+  while ($true) {
+    if ([DateTimeOffset]::UtcNow -ge $Deadline) { throw "Pi queue stop remains unknown; writer and runner were preserved" }
+    if ((Get-FileSha256 $PiWorkerPidPath) -cne $ReceiptSha256 -or
+        (Get-FileSha256 $PiWorkerControlPath) -cne $ControlSha256) { throw "Pi stop ownership or control record changed" }
+    $rows = @(Get-CimInstance Win32_Process -Filter ("ProcessId = " + [int]$Expected.ProcessId) -ErrorAction Stop)
+    if ($rows.Count -gt 1) { throw "Ambiguous Pi worker process metadata" }
+    if ($rows.Count -eq 0) { return }
+    $current = $rows[0]
+    if (($current.CreationDate -and (Get-ProcessCreation $current) -cne $Expected.CreationDate) -or
+        (-not [string]::IsNullOrWhiteSpace([string]$current.ExecutablePath) -and
+          (Get-CanonicalPath ([string]$current.ExecutablePath)) -ine $Expected.ExecutablePath) -or
+        (-not [string]::IsNullOrWhiteSpace([string]$current.CommandLine) -and
+          [string]$current.CommandLine -cne $Expected.CommandLine)) { throw "Pi worker PID identity changed during stop" }
+    Start-Sleep -Milliseconds 250
+  }
+}
+
 function Stop-PiRuntime {
   $config = Read-PiConfig
+  $receiptSha256 = if (Test-Path -LiteralPath $PiWorkerPidPath -PathType Leaf) { Get-FileSha256 $PiWorkerPidPath } else { $null }
   $owned = Resolve-OwnedProcess "django-ai-pi-worker" $PiWorkerPidPath $Python
   if ($owned) {
+    if ((Get-FileSha256 $PiWorkerPidPath) -cne $receiptSha256) { throw "Pi worker ownership record changed before stop" }
     if ($null -eq $config) { throw "Running Pi worker lacks its exact enabled configuration" }
     $control = Read-JsonFile $PiWorkerControlPath "Pi worker lifecycle"
     if (-not (Test-ExactObjectPropertyNames $control @("version", "token", "intent")) -or $control.version -ne 1) { throw "Invalid Pi worker lifecycle state" }
     Get-PiWorkerArguments ([string]$control.token) | Out-Null
     Write-AtomicJson $PiWorkerControlPath ([ordered]@{version=1;token=[string]$control.token;intent="stop"})
     $deadline = [DateTimeOffset]::UtcNow.AddSeconds(45)
-    while (Resolve-OwnedProcess "django-ai-pi-worker" $PiWorkerPidPath $Python) {
-      if ([DateTimeOffset]::UtcNow -ge $deadline) { throw "Pi queue stop remains unknown; writer and runner were preserved" }
-      Start-Sleep -Milliseconds 250
-    }
+    Wait-PiWorkerExit $owned $receiptSha256 (Get-FileSha256 $PiWorkerControlPath) $deadline
     $stopped = Read-JsonFile "$PiWorkerControlPath.stopped" "Pi queue stop receipt"
     if (-not (Test-ExactObjectPropertyNames $stopped @("version", "token", "status")) -or $stopped.version -ne 1 -or [string]$stopped.token -cne [string]$control.token -or [string]$stopped.status -cne "stopped") { throw "Pi queue stop receipt mismatch" }
   }

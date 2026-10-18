@@ -30,6 +30,9 @@ export async function prepareControlUpgrade({configFile,out,sourceRoot=source}={
  let custom='';try{custom=await git(config.repository,['config','--get','core.hooksPath']);}catch(error){if(error.code!==1)throw error;}assert.equal(custom,'','Custom hooksPath cannot be overwritten');
  const common=await git(config.repository,['rev-parse','--path-format=absolute','--git-common-dir']),hook=path.join(common,'hooks/reference-transaction'),oldHook=await exists(hook)?await bytes(hook):null;
  assert.ok(!oldHook||/^#!\/bin\/sh\r?\n# TERUISI main-prebuild v[12]:/.test(oldHook.toString()),'Third-party reference hook cannot be overwritten');
+ // Discover unsupported mature layouts before creating any install intent.
+ // Adoption still performs its fresh controller/evidence census under locks.
+ await nativeOperationBindings(config.releaseDirectory??path.join(config.stateDirectory,'unused'));
  await fs.mkdir(out,{recursive:false});await fs.mkdir(path.join(out,'bundle/tools'),{recursive:true});const files={};
  for(const name of controlFiles){const raw=await bytes(path.join(sourceRoot,'tools',name));files['tools/'+name]=sha(raw);await fs.writeFile(path.join(out,'bundle/tools',name),raw,{flag:'wx'});}
  const bundleSha256=sha(Buffer.from(canonical(files))),bundleRoot=path.join(config.stateDirectory,'control-bundles',bundleSha256);

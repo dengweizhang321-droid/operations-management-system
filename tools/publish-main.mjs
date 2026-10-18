@@ -47,7 +47,11 @@ async function main(){
   const {schemaForRequest,verifyMainSchemaRelease}=await import('./main-schema-release.mjs');
   const schema=schemaForRequest(request);assert.equal(request.releasePlan.migrate,Boolean(schema));
   await verifyPowerShellHost(request,process.argv.includes('--check'));await verifyOfflineCache(request);
-  if(process.argv.includes('--check')){if(schema)await verifyMainSchemaRelease(request,source);console.log(JSON.stringify({mode:'frozen-latest-main',targetCommit:head,migration:schema?.steps[0]??null,publicationPerformed:false}));return;}
+  if(process.argv.includes('--check')){
+   if(schema)await verifyMainSchemaRelease(request,source);
+   const readiness=request.components.includes('django')?await (await import('./manual-maintenance-continuation.mjs')).maintenanceReadiness({source,head:request.predecessorWorker,djangoManifestSha256:request.predecessorDjangoSha256}):null;
+   console.log(JSON.stringify({mode:'frozen-latest-main',targetCommit:head,migration:schema?.steps[0]??null,maintenanceReadinessRoute:readiness?.route??null,publicationPerformed:false}));return;
+  }
   const {publishPreparedMain,mainPublicationMode,requireMainPreparation}=await import('./publish-prepared-main.mjs');
   const mode=mainPublicationMode(process.argv.slice(2));
   const out=path.resolve(source,'..','publish-'+head.slice(0,12));

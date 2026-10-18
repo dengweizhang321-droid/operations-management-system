@@ -95,6 +95,8 @@ async function publisherFixture(t,negative=false){
   if(args.action==='Start')return {status:'started',manifestSha256:k.workerManifestSha256};
   if(args.action==='VerifyStartup')return {startupVerified:true};return {};
  }};
+ context.maintenanceReadiness=async()=>({route:'legacy',sourcePins:Object.fromEntries(['manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs'].map(name=>[name,hash]))});
+ context.deployOnly=false;
  return {request,context,out,events};
 }
 test('publisher preserves original failure, then advances only after finite proof and native continuation',async t=>{
