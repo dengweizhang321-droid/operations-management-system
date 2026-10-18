@@ -92,7 +92,7 @@ async function readinessFixture(t){
  const attempt=path.join(root,'publish-'+targetCommit.slice(0,12)),preparation=path.join(attempt,'preparation');await fs.mkdir(preparation,{recursive:true});
  const receipt={version:'teruisi-main-preparation-v1',requestSha256:createHash('sha256').update(JSON.stringify(request)).digest('hex'),sourceIdentity:{commit:targetCommit,tree}};
  const file=path.join(preparation,'PREPARED.json'),logs=[];
- const git=async(source,args)=>{assert.equal(source,prepared.source);assert.deepEqual(args,['rev-parse','HEAD^{tree}']);return tree;};
+ const git=async(source,args)=>{assert.equal(source,prepared.source);if(args[0]==='status')return '';if(args[1]==='HEAD')return targetCommit;assert.ok(args[1]==='HEAD^{tree}'||args[1]===targetCommit+'^{tree}');return tree;};
  const progress={log:line=>logs.push(line),begin:line=>logs.push(line),complete:()=>logs.push('complete')};
  return {prepared,attempt,preparation,file,receipt,git,progress,logs};
 }

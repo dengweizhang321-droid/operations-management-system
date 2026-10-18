@@ -14,6 +14,17 @@ export const firstMaintenancePredecessor=Object.freeze({
 });
 const root='D:\\teruisi-runtime\\django-sales';
 const hash=/^[a-f0-9]{64}$/;
+// Reviewed installed native Stop capability, including its actual call site and
+// 45-second receipt/control/ack contract. This is a predecessor qualification,
+// not a fixed publication target or a permission to retry a failed attempt.
+export const nativePiWorkspacePredecessor=Object.freeze({
+ releaseId:'20261018T112936Z-f51e4f3671a64cd3',workerManifestSha256:'9eb5a75ac7d377c786bfc0fdb0ef6c0d8129698cf82e416fccfc07fbdb449fd7',
+ djangoManifestSha256:'ca9c731a0843e7e01d8300f6190bca1377114f228ad5b17c16113e4028a582a9',
+ workerScriptSha256:'112b091b610b09187110ba478cfff2280b30705dd21e185a8132e683414ec2bc',djangoScriptSha256:'d37902ebfbad7a7d6a78bce92e30056fcd6d253c70faa4267089ba5a43df74f2',
+ workerTransportSha256:'5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd',
+ djangoAiScriptSha256:'0ab14dcbd889aacdf0d44847d59b4fd30a4bd5b02e836e6cf77d08eafe5d3d68',
+ candidateAiScriptSha256:'64b2a5fe8f85a0c73463ef0f93ad1e983faa6b690bbb2e3e6b1ab041c6b9acdd'
+});
 export const piMaintenancePredecessor=Object.freeze({
  releaseId:'20261018T081823Z-282cee340c57bf41',workerManifestSha256:'120911425367ef3a451c40f7a9842f3c1e39fc99b38cfd602b011ae3ed0733fc',
  djangoManifestSha256:'a9e3fdb943dfcc558a69982f9d410aff103872712e26e0d50b0cefe3841693e7',
@@ -25,13 +36,39 @@ export const piMaintenancePredecessor=Object.freeze({
 export function isPiMaintenancePredecessor(head,djangoManifestSha256){
  const k=piMaintenancePredecessor;return head?.releaseId===k.releaseId&&head?.manifestSha256===k.workerManifestSha256&&djangoManifestSha256===k.djangoManifestSha256;
 }
-const sourceNames=['manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs'];
+export const maintenanceSourceNames=['manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs','manual-maintenance-process.psm1','manual-maintenance-preflight.ps1'];
 /** Read-only static admission; the native engine still rechecks dynamic facts. */
 export async function maintenanceReadiness({source,head,djangoManifestSha256,installed='D:/teruisi-runtime/django-sales/app',runtime='D:/teruisi-runtime/teruisi-worker-sales',sha=async file=>createHash('sha256').update(await fs.readFile(file)).digest('hex')}={}){
- const sourcePins={};for(const name of sourceNames)sourcePins[name]=await sha(path.join(source,'tools',name));
+ const sourcePins={};for(const name of maintenanceSourceNames)sourcePins[name]=await sha(path.join(source,'tools',name));
+ const pins=Object.entries(sourcePins).map(([relative,sha256])=>({root:'source',relative,sha256}));
+ const pin=async(root,relative,base,expected)=>{const sha256=await sha(path.join(base,relative));if(expected!==undefined)assert.equal(sha256,expected,'维护资格核验后工具发生变化');pins.push({root,relative,sha256});return sha256;};
+ await pin('django','app/deployment.json',path.dirname(installed),djangoManifestSha256);
+ for(const name of ['worker-local-service.ps1','process-deadline.ps1'])await pin('worker',`releases/${head.releaseId}/tools/${name}`,runtime);
+ await pin('worker',`releases/${head.releaseId}/deployment-manifest.json`,runtime,head.manifestSha256);
+ await pin('django','app/tools/django-local-service.ps1',path.dirname(installed));
+ const assertPredecessorPins=k=>{
+  for(const [root,relative,expected] of [['django','app/deployment.json',k.djangoManifestSha256],['django','app/tools/django-local-service.ps1',k.djangoScriptSha256],['worker',`releases/${head.releaseId}/deployment-manifest.json`,k.workerManifestSha256],['worker',`releases/${head.releaseId}/tools/worker-local-service.ps1`,k.workerScriptSha256],['worker',`releases/${head.releaseId}/tools/process-deadline.ps1`,k.workerTransportSha256]])assert.equal(pins.find(p=>p.root===root&&p.relative===relative)?.sha256,expected,'维护前驱资格与最初读取字节不一致');
+ };
+ const finish=async route=>{
+  const result={version:'manual-maintenance-readiness-v1',preparedAt:new Date().toISOString(),releaseId:head.releaseId,route,sourcePins,pins,piWorkerReceiptSha256:null,piConfigurationSha256:null};
+  for(const [field,relative] of [['piWorkerReceiptSha256','run/django-ai-pi-worker.pid.json'],['piConfigurationSha256','config/pi-agent.json']]){
+   const file=path.join(path.dirname(installed),relative);
+   try{await fs.access(file);}catch(error){if(error.code==='ENOENT')continue;throw error;}
+   result[field]=await sha(file);
+   if(field==='piWorkerReceiptSha256'){
+    const raw=await fs.readFile(file);assert.equal(createHash('sha256').update(raw).digest('hex'),result[field],'Pi ownership changed during readiness read');
+    const pi=JSON.parse(raw);assert.equal(pi.version,2);assert.equal(pi.service,'django-ai-pi-worker');
+    assert.ok(Number.isSafeInteger(pi.processId)&&pi.processId>0&&pi.processId<=2147483647);
+    for(const name of ['creationDate','executablePath','commandLine'])assert.ok(typeof pi[name]==='string'&&pi[name]);
+    result.piWorkerIdentity=pi;
+   }
+  }
+  return result;
+ };
  assert.equal(await sha(path.join(installed,'deployment.json')),djangoManifestSha256,'维护前Django前驱变化');
  const known=isPiMaintenancePredecessor(head,djangoManifestSha256)?piMaintenancePredecessor:isFirstMaintenancePredecessor(head,djangoManifestSha256)?firstMaintenancePredecessor:null;
  if(known){
+  assertPredecessorPins(known);
   for(const [name,expected] of [['worker-local-service.ps1',known.workerScriptSha256],['process-deadline.ps1',known.workerTransportSha256]])assert.equal(await sha(path.join(runtime,'releases',head.releaseId,'tools',name)),expected,'维护恢复前驱工具不适用：'+name);
   assert.equal(await sha(path.join(runtime,'releases',head.releaseId,'deployment-manifest.json')),known.workerManifestSha256);
   assert.equal(await sha(path.join(installed,'tools/django-local-service.ps1')),known.djangoScriptSha256);
@@ -45,17 +82,35 @@ export async function maintenanceReadiness({source,head,djangoManifestSha256,ins
    assert.ok(Number.isSafeInteger(piWorkerIdentity.processId)&&piWorkerIdentity.processId>0);
    for(const name of ['creationDate','executablePath','commandLine'])assert.ok(typeof piWorkerIdentity[name]==='string'&&piWorkerIdentity[name]);
    const piConfigurationSha256=await sha(path.join(path.dirname(installed),'config/pi-agent.json'));
-   return {route:'pi19db',sourcePins,piWorkerReceiptSha256,piWorkerIdentity,piConfigurationSha256};
+   await pin('django','app/tools/django-ai.ps1',path.dirname(installed),known.djangoAiScriptSha256);
+   return {...await finish('pi19db'),piWorkerReceiptSha256,piWorkerIdentity,piConfigurationSha256};
   }
-  return {route:'legacy',sourcePins};
+  return finish('legacy');
  }
  // Once this exact observer has been adopted, ordinary successors use native
  // Stop. Unknown controller generations cannot silently enter maintenance.
  const candidate=await fs.readFile(path.join(source,'tools/django-ai.ps1'),'utf8');
  const helper=candidate.replaceAll('\r\n','\n').split('function Wait-PiWorkerExit')[1]?.split('\nfunction Stop-PiRuntime')[0];
  assert.equal(createHash('sha256').update(('function Wait-PiWorkerExit'+(helper??'')).trimEnd()).digest('hex'),'4372d8872c46760d40f7aa346b6476932be8edba7415baba0ae21e9b73293fd3','没有适用于实际前驱的维护恢复材料');
- assert.equal(await sha(path.join(installed,'tools/django-ai.ps1')),await sha(path.join(source,'tools/django-ai.ps1')),'实际前驱缺少已验证的Pi退出观察器；先准备对应恢复材料');
- return {route:'native-exit-observer',sourcePins};
+ const stop=candidate.replaceAll('\r\n','\n').split('function Stop-PiRuntime')[1]?.split('\nfunction Read-PandasConfig')[0];
+ assert.equal(createHash('sha256').update(('function Stop-PiRuntime'+(stop??'')).trimEnd()).digest('hex'),'49725370782414b0c4bea2065161679ba50ed911cfd1439381b7b65d7259b3e6','Pi Stop调用、45秒和receipt/control/ack合同未在已审资格内');
+ const installedAi=await sha(path.join(installed,'tools/django-ai.ps1')),candidateAi=await sha(path.join(source,'tools/django-ai.ps1'));
+ for(const [name,root,relative] of [['worker-local-service.ps1','worker',`releases/${head.releaseId}/tools/worker-local-service.ps1`],['process-deadline.ps1','worker',`releases/${head.releaseId}/tools/process-deadline.ps1`],['django-local-service.ps1','django','app/tools/django-local-service.ps1']]){
+  const expected=await pin('source',name,path.join(source,'tools'));
+  if(installedAi===candidateAi)assert.equal(pins.find(p=>p.root===root&&p.relative===relative)?.sha256,expected,'实际原生控制器代际与候选不一致：'+name);
+ }
+ if(installedAi!==candidateAi){
+  const k=nativePiWorkspacePredecessor;
+  assertPredecessorPins(k);
+  assert.equal(head?.releaseId,k.releaseId,'没有适用于实际前驱的原生Stop能力资格');assert.equal(head?.manifestSha256,k.workerManifestSha256);assert.equal(djangoManifestSha256,k.djangoManifestSha256);
+  for(const [name,expected] of [['worker-local-service.ps1',k.workerScriptSha256],['process-deadline.ps1',k.workerTransportSha256]])assert.equal(await sha(path.join(runtime,'releases',head.releaseId,'tools',name)),expected);
+  assert.equal(await sha(path.join(runtime,'releases',head.releaseId,'deployment-manifest.json')),k.workerManifestSha256);
+  assert.equal(await sha(path.join(installed,'tools/django-local-service.ps1')),k.djangoScriptSha256);
+  assert.equal(installedAi,k.djangoAiScriptSha256,'实际前驱缺少已验证的Pi退出观察器');assert.equal(candidateAi,k.candidateAiScriptSha256,'候选Pi控制器不在已审兼容资格内');
+ }
+ await pin('django','app/tools/django-ai.ps1',path.dirname(installed),installedAi);
+ await pin('source','django-ai.ps1',path.join(source,'tools'),candidateAi);
+ return finish('native-exit-observer');
 }
 export function assertPiMaintenanceContinuation(snapshot,admission,{requireFresh=true}={}){
  assert.equal(snapshot.version,'manual-maintenance-pi-continuation-v1');

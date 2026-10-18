@@ -32,13 +32,14 @@ export function candidateCompatibilityProfile(changes){
  const files=changes.flatMap(c=>[c.before,c.path].filter(Boolean));
  const paths=files.filter(f=>!f.startsWith('docs/')&&!f.startsWith('tests/')&&!['README.md','AGENTS.md'].includes(f));
  const proofFiles=['bi_app_addition','jackyun_audit_addition','ai_schedule_addition','jd_logistics_addition','jd_monitor_preferences_addition','jd_product_monitoring_addition','tmall_warehouse_addition','pi_agent_addition'].map(name=>'tools/'+name+'.py');
- const preparationFiles=['tools/main-prebuild-task.mjs','tools/main-prebuild-hook.mjs','tools/main-prebuild-queue.mjs','tools/main-control-dispatch.mjs','tools/install-main-prebuild.mjs','tools/manual-maintenance-continuation.mjs','tools/manual-maintenance-continuation.ps1','tools/manual-maintenance-start.ps1'];
+ const preparationFiles=['tools/main-prebuild-task.mjs','tools/main-prebuild-hook.mjs','tools/main-prebuild-queue.mjs','tools/main-control-dispatch.mjs','tools/install-main-prebuild.mjs','tools/manual-maintenance-continuation.mjs','tools/manual-maintenance-continuation.ps1','tools/manual-maintenance-start.ps1','tools/manual-maintenance-process.psm1','tools/manual-maintenance-preflight.ps1','tools/frozen-main-source.mjs'];
  const supported=new Set(['tools/publish-main.mjs','tools/publish-prepared-main.mjs','tools/publish-latest-main.mjs',
   'tools/main-prebuild-status.mjs','tools/worker-local-release.mjs','tools/django-local-service.ps1','tools/django-ai.ps1','tools/verify-release-candidate.mjs']);
- for(const file of [...proofFiles,...preparationFiles,'tools/worker-local-release-rotation.mjs'])supported.add(file);
+ for(const file of [...proofFiles,...preparationFiles,'tools/worker-local-release-rotation.mjs','tools/pi_workspace_addition.py','config/main-schema-releases/ai-0085.json'])supported.add(file);
  const unsupported=paths.filter(p=>!supported.has(p));
  const schemaProof=paths.some(p=>proofFiles.includes(p)),preparationQueue=paths.some(p=>preparationFiles.includes(p)||p==='tools/publish-latest-main.mjs'||p==='tools/worker-local-release-rotation.mjs');
  return {version:schemaProof||preparationQueue?'release-three-optimizations-v1':'release-compatibility-profile-v1',paths,unsupported,schemaProof,preparationQueue,
+  releaseChainPreflight:paths.some(p=>p==='tools/manual-maintenance-process.psm1'||p==='tools/frozen-main-source.mjs')&&paths.every(p=>['tools/manual-maintenance-process.psm1','tools/manual-maintenance-preflight.ps1','tools/frozen-main-source.mjs','tools/manual-maintenance-continuation.mjs','tools/manual-maintenance-continuation.ps1','tools/manual-maintenance-start.ps1','tools/publish-main.mjs','tools/publish-prepared-main.mjs','tools/publish-latest-main.mjs','tools/verify-release-candidate.mjs','tools/install-main-prebuild.mjs','tools/django-local-service.ps1','tools/pi_workspace_addition.py','config/main-schema-releases/ai-0085.json'].includes(p)),
   publication:paths.some(p=>/publish-|main-prebuild|manual-maintenance|verify-release-candidate|release-scope-plan/.test(p)),
   worker:paths.some(p=>/worker-local-release/.test(p)),
   django:paths.includes('tools/django-local-service.ps1'),
@@ -70,9 +71,21 @@ export function compareFunctionOnlyChange(before,after){
  const old=new Map(before.functions.map(f=>[f.name,normalize(f.text)]));
  const next=new Map(after.functions.map(f=>[f.name,normalize(f.text)]));
  for(const name of new Set([...old.keys(),...next.keys()]))if(old.get(name)!==next.get(name)&&!allowed.has(name)){
+  if(name==='Prepare-Application'&&stripMaintenancePackageEntries(next.get(name))===old.get(name))continue;
   if(name!=='Invoke-DjangoMigrations'||stripGateTiming(next.get(name))!==old.get(name))return false;
  }
  return true;
+}
+export function stripMaintenancePackageEntries(text){
+ const entries='      "tools\\manual-maintenance-process.psm1",\n      "tools\\manual-maintenance-preflight.ps1",\n      "tools\\frozen-main-source.mjs",\n';
+ if(typeof text!=='string'||text.split(entries).length!==2)return null;
+ return text.replace(entries,'');
+}
+export function compareMaintenanceInventoryOnly(before,after){
+ const normalize=value=>value.replaceAll('\r\n','\n');
+ if(JSON.stringify(before.other.map(normalize))!==JSON.stringify(after.other.map(normalize)))return false;
+ const next=new Map(after.functions.map(f=>[f.name,normalize(f.text)]));
+ return next.size===before.functions.length&&before.functions.every(f=>f.name==='Prepare-Application'?stripMaintenancePackageEntries(next.get(f.name))===normalize(f.text):next.get(f.name)===normalize(f.text));
 }
 export function usesGateTimingExemption(before,after){
  const find=value=>value.functions.find(item=>item.name==='Invoke-DjangoMigrations')?.text.replaceAll('\r\n','\n');
@@ -221,6 +234,14 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   report.payload=[];
   for(const name of members){const file=path.join(candidate,name);assert.ok(!(await fs.lstat(file)).isSymbolicLink(),'候选包含链接：'+name);report.payload.push({path:name,sha256:sha(await fs.readFile(file))});}
   report.payloadSha256=sha(Buffer.from(JSON.stringify(report.payload)));
+  if(profile.paths.some(p=>p==='tools/pi_workspace_addition.py'||p==='config/main-schema-releases/ai-0085.json')){
+   assert.equal(profile.releaseChainPreflight,true,'PiWorkspace改动需要专用结构验证适配器');
+   const old=(await execute('git',['-C',source,'show',baseCommit+':tools/pi_workspace_addition.py'],{encoding:'utf8',windowsHide:true})).stdout;
+   const next=await fs.readFile(path.join(candidate,'tools/pi_workspace_addition.py'),'utf8');
+   const addition='    "tools/manual-maintenance-process.psm1", "tools/manual-maintenance-preflight.ps1", "tools/frozen-main-source.mjs",\n';
+   assert.equal(next.split(addition).length,2,'结构工具库存扩展不精确');assert.equal(next.replace(addition,''),old,'仅允许PiWorkspace CODE_FILES增加三项闭包；其他结构代码必须保持');
+   await run('pi-workspace-current-binding',pythonExe,['tests/release-chain-schema-binding.py'],'package-integrity');
+  }
   if(profile.django){
    const old=path.join(directory,'before-django.ps1');
    const bytes=(await execute('git',['-C',source,'show',baseCommit+':tools/django-local-service.ps1'],{encoding:'buffer',maxBuffer:8*1024*1024,windowsHide:true})).stdout;
@@ -228,7 +249,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    const current=path.join(candidate,'tools/django-local-service.ps1');
    const [a,b]=await Promise.all([functionsOf(old,shell7,environment),functionsOf(current,shell7,environment)]);
    report.gateTimingChanged=usesGateTimingExemption(a,b);
-   report.requiresNativeColdStart=!compareFunctionOnlyChange(a,b);
+   report.requiresNativeColdStart=!(profile.releaseChainPreflight?compareMaintenanceInventoryOnly(a,b):compareFunctionOnlyChange(a,b));
    assert.equal(report.requiresNativeColdStart,false,'生命周期语义发生变化，需专用隔离冷启动适配器；不能以边界测试代替');
   }
   if(profile.piExitObservation){
@@ -252,8 +273,8 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    await run('fixed-admin-queue',process.execPath,['--test','--test-concurrency=1','tests/fixed-admin-resolution.test.mjs','tests/fixed-admin-compatibility.test.mjs','tests/main-prebuild-eligibility.test.mjs','tests/main-prebuild-queue-v2.test.mjs'],'native-entry-boundary');
    await run('fixed-admin-private-bundle',process.execPath,['--test','--test-name-pattern=materials preserve frozen environment','tests/main-control-upgrade.test.mjs','tests/main-prebuild-task.test.mjs','tests/fixed-admin-resolution.test.mjs','tests/main-prebuild-eligibility.test.mjs'],'package-integrity');
   }
-  if(!fixedAdminOnly&&profile.publication)await run('publication',process.execPath,['--test','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs','tests/manual-maintenance-pi-readiness.test.mjs'],'native-entry-boundary');
-  if(!fixedAdminOnly&&profile.preparationQueue)await run('preparation-queue-control',process.execPath,['--test','--test-concurrency=1','tests/main-prebuild-hook.test.mjs','tests/main-prebuild-queue-v2.test.mjs','tests/main-control-upgrade.test.mjs','tests/main-prebuild-task.test.mjs','tests/fixed-admin-resolution.test.mjs','tests/main-prebuild-eligibility.test.mjs'],'native-entry-boundary');
+  if(!fixedAdminOnly&&profile.publication)await run('publication',process.execPath,['--test','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs','tests/manual-maintenance-pi-readiness.test.mjs','tests/manual-maintenance-continuation.test.mjs','tests/release-chain-preflight.test.mjs'],'native-entry-boundary');
+  if(!fixedAdminOnly&&profile.preparationQueue&&!profile.releaseChainPreflight)await run('preparation-queue-control',process.execPath,['--test','--test-concurrency=1','tests/main-prebuild-hook.test.mjs','tests/main-prebuild-queue-v2.test.mjs','tests/main-control-upgrade.test.mjs','tests/main-prebuild-task.test.mjs','tests/fixed-admin-resolution.test.mjs','tests/main-prebuild-eligibility.test.mjs'],'native-entry-boundary');
   if(profile.worker)await run('worker-integrity',process.execPath,['--test','tests/worker-source-read-once.test.mjs','tests/release-source-binding.test.mjs','tests/release-preparation-runtime-config.test.mjs'],'package-integrity');
   if(!fixedAdminOnly&&(profile.schemaProof||profile.preparationQueue))await run('optimization-boundaries',process.execPath,['--test','tests/release-optimization-boundaries.test.mjs'],'package-integrity');
   if(profile.schemaProof){
@@ -266,7 +287,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    }
    await run('schema-private-postgres',pythonExe,['tests/schema-gate-postgres.py','--out',path.join(directory,'private-postgres'),'--baseline',baselineTools,'--skip-measurements'],'real-private-postgres');
   }
-  if(profile.django)for(const [name,host] of [['ps5',shell5],['ps7',shell7]]){
+  if(profile.django&&!profile.releaseChainPreflight)for(const [name,host] of [['ps5',shell5],['ps7',shell7]]){
    for(const file of ['django-lifecycle-tree-reuse','django-local-service-fingerprint','django-orchestrated-start-acl'])await run(name+'-'+file,host,['-NoProfile','-NonInteractive','-File','tests/'+file+'.test.ps1'],'isolated-functions');
    if(report.gateTimingChanged)await run(name+'-migration-gate-timing',host,['-NoProfile','-NonInteractive','-File','tests/django-migration-gate-timing.test.ps1'],'native-entry-boundary');
   }

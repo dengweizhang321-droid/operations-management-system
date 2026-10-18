@@ -68,6 +68,7 @@ function Assert-RotationOwner([object[]]$Processes){
  try{$pipe.Connect(1000);$server=[uint32]0;if(-not [ManualMaintenancePipeOwner]::GetNamedPipeServerProcessId($pipe.SafePipeHandle,[ref]$server) -or $server -ne $owner.processId){throw 'Rotation pipe belongs to another process'}}finally{$pipe.Dispose()}
 }
 function Assert-NoControlParticipants([object[]]$Processes){
+ Assert-MaintenanceProcessVisibility $Processes
  $first=@($Processes|Where-Object {[int]$_.ProcessId -eq $script:actor.actor.processId})
  if($first.Count -gt 0){Assert-Actor $script:actor.actor $first[0];throw 'Original maintenance actor still exists'}
  foreach($process in $Processes){
@@ -111,7 +112,7 @@ function Assert-Inputs {
  $failure=Read-Object (Join-Path $script:attempt 'maintenance-first-FAILED.json')
  if($failure.admissionSha256 -cne $InputSha256 -or $failure.maintenanceId -cne $script:admissionRecord.maintenanceId -or $failure.automaticRetry -isnot [bool] -or $failure.automaticRetry){throw 'Original failure binding changed'}
  Require-Hash (Join-Path $script:attempt 'maintenance-first-actor.json') $failure.originalActorSha256
- $required=@('manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs')
+ $required=@('manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs','manual-maintenance-process.psm1','manual-maintenance-preflight.ps1')
  if($script:admissionRecord.sourcePins -isnot [pscustomobject] -or @($script:admissionRecord.sourcePins.PSObject.Properties.Name).Count -ne $required.Count){throw 'Incomplete continuation source closure'}
  foreach($name in $required){Require-Hash (Join-Path $script:admissionRecord.source ('tools\'+$name)) $script:admissionRecord.sourcePins.$name}
  foreach($key in $known.Keys){if($script:admissionRecord.$key -isnot [string] -or $script:admissionRecord.$key -cne $known[$key]){throw ('Not the admitted old controller pair: '+$key)}}
@@ -189,7 +190,7 @@ function Assert-OriginalNativeComplete([object]$Complete){
 function Get-ContinuationSnapshot {
  Assert-Inputs
  if($script:piMode){$script:piAllowed=@(Get-PiRemainingApplicationSnapshots)}
- $processes=@(Get-CimInstance Win32_Process -ErrorAction Stop)
+ $processes=@(Get-CimInstance Win32_Process -ErrorAction Stop|ConvertTo-MaintenanceProcess)
  Assert-RotationOwner $processes
  Assert-NoControlParticipants $processes
  $script:maintenance=Read-Object (Join-Path $djangoFixed 'run\system-maintenance.json')
@@ -259,7 +260,7 @@ function Get-ContinuationSnapshot {
   $pandas=@{distribution='TERUISI-Pandas';user='teruisi-pandas';unit='teruisi-pandas.service';activeState='inactive';subState='dead';mainPid=0;controlPid=0;containers=@()}
  }
  # A second fresh census follows the slower native/WSL observation.
- $processes=@(Get-CimInstance Win32_Process -ErrorAction Stop);Assert-RotationOwner $processes;Assert-NoControlParticipants $processes
+ $processes=@(Get-CimInstance Win32_Process -ErrorAction Stop|ConvertTo-MaintenanceProcess);Assert-RotationOwner $processes;Assert-NoControlParticipants $processes
  if($script:piMode){
   $pi=Assert-PiStop $processes
   $script:decision=if($script:maintenance.drainedStopped -eq $true){'coordinate-completed'}else{'enter-same-id-once'}
@@ -275,6 +276,8 @@ try{
  # Pin before importing the mutex adapter; no lifecycle code is loaded here.
  Require-Hash $InputPath $InputSha256;$initial=Read-Object $InputPath
  Require-Hash (Join-Path $PSScriptRoot 'manual-maintenance-lock.psm1') $initial.sourcePins.'manual-maintenance-lock.psm1'
+ Require-Hash (Join-Path $PSScriptRoot 'manual-maintenance-process.psm1') $initial.sourcePins.'manual-maintenance-process.psm1'
+ Import-Module (Join-Path $PSScriptRoot 'manual-maintenance-process.psm1') -Force
  Import-Module (Join-Path $PSScriptRoot 'manual-maintenance-lock.psm1') -Force
  $hasher=[Security.Cryptography.SHA256]::Create()
  try{$suffix=([BitConverter]::ToString($hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($djangoFixed)))).Replace('-','').ToLowerInvariant().Substring(0,24)}finally{$hasher.Dispose()}

@@ -79,6 +79,7 @@ async function publisherFixture(t,negative=false){
  const request={mainCommit:'a'.repeat(40),components:['django'],predecessorWorker:head,predecessorDjangoSha256:django};
  let admission;
  const context={source,out,installedRoot:installed,workerRuntimeRoot:runtime,sourceIdentity:async()=>({commit:request.mainCommit,tree:'c'.repeat(40)}),sha:async file=>file===path.join(installed,'deployment.json')?django:file.endsWith('django-local-service.ps1')?k.djangoScriptSha256:file.endsWith('worker-local-service.ps1')?k.workerScriptSha256:hash,api:{workerRuntimeRoot:runtime},rotation:{withRotationLock:async fn=>fn({}),assertActiveBatchOwnership:async()=>{},resolveEffectiveReleaseChain:async()=>({head,chainStateSha256:hash})},fetch:async()=>new Response(JSON.stringify({ok:true,status:'ready'})),runStep:async args=>{
+  if(path.basename(args.script)==='manual-maintenance-preflight.ps1')return {ready:true,route:'legacy'};
   events.push(args.action);
   if(args.action==='PrepareApp')return {id:'d'.repeat(32),receiptSha256:hash};
   if(args.action==='EnterMaintenance'&&path.basename(args.script)==='manual-maintenance-start.ps1'){

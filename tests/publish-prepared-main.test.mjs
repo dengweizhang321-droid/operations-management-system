@@ -24,6 +24,7 @@ async function fixture(t,components=['worker'],failAt=null){
    planWorkerReleaseRotation:async options=>{event(options.reusePlanSha256?'reuse':'plan');assert.equal(options.prepareOnline,true);assert.ok(options.rotationLease.fixture);assert.match(options.sourceBindingSha256,/^[a-f0-9]{64}$/);return {status:'planned',planSha256:'7'.repeat(64),candidateReleaseId:target.releaseId,candidateManifestSha256:target.manifestSha256};},
    applyApprovedRotationPlan:async options=>{event('apply');assert.ok(options.rotationLease.fixture);head={...target};return {status:'activated',releaseId:head.releaseId};}},
   runStep:async({script,action,extra})=>{
+   if(path.basename(script)==='manual-maintenance-preflight.ps1')return {ready:true,route:'fixture'};
    event(action);
    if(action==='PrepareApp')return {id:'8'.repeat(32),receiptSha256:'9'.repeat(64)};
    if(action==='VerifyPreparedApp')return {status:'prepared_verified',id:'8'.repeat(32)};
@@ -50,6 +51,14 @@ async function fixture(t,components=['worker'],failAt=null){
  return {request,context,events,out,get successes(){return successes;},set head(value){head=value;},set django(value){django=value;},set readyStatus(value){readyStatus=value;},set readyBody(value){readyBody=value;}};
 }
 const operations=events=>events.filter(e=>!['lock','ownership','head','identity','success'].includes(e));
+test('known read-only preflight failure retains its attempt and can recheck the same prepared package before STARTED',async t=>{
+ const f=await fixture(t,['django']);const original=f.context.runStep;let checks=0;
+ f.context.runStep=async args=>{if(path.basename(args.script)==='manual-maintenance-preflight.ps1'&&++checks===1)throw Error('visibility unavailable');return original(args);};
+ await assert.rejects(publishPreparedMain(f.request,f.context),/visibility unavailable/);await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));
+ assert.ok(!f.events.includes('EnterMaintenance'));
+ assert.equal((await publishPreparedMain(f.request,f.context)).status,'deployed_and_ready');assert.equal(checks,2);
+ const attempts=(await fs.readdir(f.out)).filter(name=>name.startsWith('maintenance-preflight-'));assert.equal(attempts.length,2);
+});
 test('worker-only calls the real engine boundaries in order without preparing or stopping Django',async t=>{
  const f=await fixture(t);const receipt=await publishPreparedMain(f.request,f.context);
  assert.deepEqual(operations(f.events),['plan','BeginWorkerDrain','StopForRelease','apply','Start','EndWorkerDrain','VerifyStartup','ready']);

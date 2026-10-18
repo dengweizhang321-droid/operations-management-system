@@ -1,4 +1,5 @@
 $ErrorActionPreference='Stop'
+Import-Module (Join-Path $PSScriptRoot '../tools/manual-maintenance-process.psm1') -Force
 $file=Join-Path $PSScriptRoot '../tools/manual-maintenance-continuation.ps1'
 $errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile($file,[ref]$null,[ref]$errors);if($errors.Count){throw 'Parse failure'}
 foreach($node in $ast.EndBlock.Statements){if($node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -cin @('Hash-File','Read-Object','Require-Hash','Assert-Actor','Assert-NoControlParticipants','Assert-PiStop','Assert-OriginalNativeComplete')){. ([scriptblock]::Create($node.Extent.Text))}}
