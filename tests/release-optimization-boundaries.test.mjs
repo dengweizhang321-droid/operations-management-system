@@ -25,5 +25,9 @@ test('prepared publication only adds prepare lock wait policy, preserving the wh
  const policy=` const preparationDeadline=Math.min(Date.now()+1800000,Number(process.env.TERUISI_PROCESS_DEADLINE_UNIX_MS)||Infinity);
  const preparationWait=context.prepareOnly?{requestId:digest(Buffer.from(JSON.stringify(request))),deadlineUnixMs:preparationDeadline}:undefined;
 `;
- assert.ok(after.includes(policy));assert.equal(after.replace(policy,'').replace(' },preparationWait);',' });'),before);
+ assert.ok(after.includes(policy));
+ // Once the base already carries this reviewed policy, the whole file must
+ // remain identical; stripping only the candidate would reject an unchanged file.
+ if(before.includes(policy))assert.equal(after,before);
+ else assert.equal(after.replace(policy,'').replace(' },preparationWait);',' });'),before);
 });

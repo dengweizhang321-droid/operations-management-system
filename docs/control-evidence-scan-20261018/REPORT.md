@@ -12,6 +12,8 @@
 
 该定向安装组于 07:57:24.039–07:59:00.808 UTC 通过 33/33，原始退出码为 0，耗时 96.77 秒；见外部 `control-private-3.json` 及对应原日志。固定候选校验的独立结果以外部回执为准。
 
+首次固定候选的 publication、queue/control 组通过，但既有 prepared-publication 边界测试假定基线尚未引入锁等待策略，对已含相同策略的 2b 基线误报。测试适配为：基线已有精确策略时要求整文件一致；旧基线继续执行原有限差异比较。原失败回执保留，两类基线均定向复验；未修改 verifier 或放宽 runtime 边界。
+
 redirect/身份负例覆盖 releaseRoot 及父链、packet、publish、preparation、verify、source 根、started 候选 junction、文件硬链接、非普通文件、不完整身份、文件替换、目录替换/增员及既有预算。原有真实 File 与嵌套 Base64/JSON EncodedCommand 孤儿子进程、已 link 旧 hook、同 intent resume、外来指针及逐阶段硬退出回归继续使用私有 queue/rotation pipe。普通用户实际文件 symlink 创建尝试返回 EPERM，原失败日志保留；没有提权，该文件 symlink 类型不冒称实测通过。
 
 外部证据索引：
