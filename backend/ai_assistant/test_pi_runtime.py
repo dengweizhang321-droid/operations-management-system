@@ -149,6 +149,137 @@ class PiRuntimeTests(TestCase):
         self.assertEqual(service.detail(session, self.owner)["controlRequests"][0]["clientRequestId"], "stop-1")
         self.assertTrue(service.abort(session, {"clientRequestId": "stop-1"}, self.owner)["replayed"])
 
+    def test_acknowledged_stop_rejects_each_new_gateway_kind_without_freezing_controls(self):
+        op, token = self.running()
+        service.abort(op.session_id, {"clientRequestId": "stop-new-work"}, self.owner)
+        with patch.object(gateway, "_tool") as tool, patch.object(gateway, "_file") as file, patch.object(gateway, "_model") as model:
+            for kind in ("tool", "file", "model"):
+                with self.assertRaises(service.PiWorkCanceled):
+                    gateway.execute(self.request(op, token, kind=kind, requestId="after-stop-"+kind), secrets.token_hex(16))
+            self.assertFalse(tool.called or file.called or model.called)
+        self.assertFalse(PiDispatch.objects.filter(operation=op, kind__in=["tool", "file", "model"]).exists())
+        current = PiOperation.objects.get(pk=op.pk)
+        service.principal_for(current)  # Abort and terminal observation remain authorized.
+        self.assertEqual((current.status, PiSession.objects.get(pk=op.session_id).status), ("canceling", "canceling"))
+
+    def test_stop_while_catalog_blocks_prevents_business_send_and_keeps_known_receipt(self):
+        op, token = self.running()
+        entry = {"name": "synthetic_read", "risk": "read_only"}
+        def catalog(*args):
+            self.assertEqual(PiDispatch.objects.get(operation=op, kind="tool").status, "sent")
+            service.abort(op.session_id, {"clientRequestId": "stop-in-catalog"}, self.owner)
+            return [entry], [entry]
+        payload = self.request(op, token, kind="tool", name=entry["name"], args={})
+        with patch.object(gateway, "catalog", side_effect=catalog), patch.object(gateway.transport, "execute_tool") as execute:
+            with self.assertRaises(service.PiWorkCanceled): gateway.execute(payload, secrets.token_hex(16))
+        self.assertFalse(execute.called)
+        dispatch = PiDispatch.objects.get(operation=op, kind="tool")
+        self.assertEqual((dispatch.status, dispatch.error_code), ("completed", "pi_operation_canceled"))
+        self.assertEqual(PiOperation.objects.get(pk=op.pk).status, "canceling")
+        self.assertFalse(PiDispatch.objects.filter(operation=op, kind="control:freeze").exists())
+
+    def test_known_tool_response_after_stop_is_saved_and_replayed_without_new_read(self):
+        op, token = self.running()
+        entry = {"name": "synthetic_read", "risk": "read_only"}
+        def execute(*args, **kwargs):
+            service.abort(op.session_id, {"clientRequestId": "stop-in-read"}, self.owner)
+            return {"data": {"rows": ["already-admitted"]}, "auditStatus": "recorded"}
+        payload = self.request(op, token, kind="tool", name=entry["name"], args={})
+        with patch.object(gateway, "catalog", return_value=([entry], [entry])), patch.object(gateway.transport, "execute_tool", side_effect=execute) as read:
+            result = gateway.execute(payload, secrets.token_hex(16))
+            self.assertEqual(gateway.execute(payload, secrets.token_hex(16)), result)
+        self.assertEqual(read.call_count, 1)
+        self.assertEqual(PiDispatch.objects.get(operation=op, kind="tool").status, "completed")
+        self.assertEqual(PiOperation.objects.get(pk=op.pk).status, "canceling")
+
+    def test_stop_during_model_catalog_prevents_provider_call_without_unknown(self):
+        op, token = self.running()
+        def catalog(*args):
+            service.abort(op.session_id, {"clientRequestId": "stop-before-provider"}, self.owner)
+            return [], []
+        with patch.object(gateway, "catalog", side_effect=catalog), patch.object(gateway.provider, "turn") as post:
+            with self.assertRaises(service.PiWorkCanceled): gateway.execute(self.request(op, token), secrets.token_hex(16))
+            with self.assertRaises(service.PiWorkCanceled): gateway.execute(self.request(op, token), secrets.token_hex(16))
+        self.assertFalse(post.called)
+        self.assertEqual(PiDispatch.objects.get(operation=op, kind="model").status, "completed")
+        self.assertEqual(PiOperation.objects.get(pk=op.pk).status, "canceling")
+
+    def test_stop_before_file_reader_does_not_fetch_new_bytes(self):
+        op, token = self.running()
+        real_file = gateway._file
+        def before_reader(*args):
+            service.abort(op.session_id, {"clientRequestId": "stop-before-file-reader"}, self.owner)
+            return real_file(*args)
+        with patch.object(gateway, "_file", side_effect=before_reader), patch.object(service, "download") as read:
+            with self.assertRaises(service.PiWorkCanceled):
+                gateway.execute(self.request(op, token, kind="file", fileId="file-not-read"), secrets.token_hex(16))
+        self.assertFalse(read.called)
+        self.assertEqual(PiDispatch.objects.get(operation=op, kind="file").status, "completed")
+
+    def test_new_work_rechecks_stop_after_background_authorization(self):
+        op, _ = self.running()
+        authorize = service.current_principal
+        def background_check(*args, **kwargs):
+            if kwargs.get("background"):
+                service.abort(op.session_id, {"clientRequestId": "stop-during-authorization"}, self.owner)
+            return authorize(*args, **kwargs)
+        with patch.object(service, "current_principal", side_effect=background_check):
+            with self.assertRaises(service.PiWorkCanceled): service.principal_for_work(op)
+        self.assertEqual(PiSession.objects.get(pk=op.session_id).status, "canceling")
+
+    def test_bridge_stop_between_requests_does_not_admit_remaining_list(self):
+        op, token = self.running()
+        entry = {"name": "synthetic_read", "risk": "read_only"}
+        pending = [self.request(op, token, kind="tool", requestId=f"bridge-{index}", name=entry["name"], args={}) for index in range(2)]
+        def execute(*args, **kwargs):
+            service.abort(op.session_id, {"clientRequestId": "stop-in-bridge-first-call"}, self.owner)
+            return {"data": {"rows": []}, "auditStatus": "recorded"}
+        with patch.object(gateway, "catalog", return_value=([entry], [entry])), patch.object(gateway.transport, "execute_tool", side_effect=execute) as read, patch.object(worker, "runner_dispatch", return_value={}) as response:
+            worker.bridge(op, {"pendingGatewayRequests": pending})
+        self.assertEqual((read.call_count, response.call_count), (1, 1))
+        self.assertEqual(list(PiDispatch.objects.filter(operation=op, kind="tool").values_list("request_id", flat=True)), ["bridge-0"])
+        self.assertEqual(PiOperation.objects.get(pk=op.pk).status, "canceling")
+
+    def test_worker_prioritizes_abort_over_pending_bridge_and_continues_same_environment(self):
+        op, token = self.running()
+        commands = []
+        def runner(operation, command, payload, **kwargs):
+            commands.append(command)
+            if command == "create": return {"status": "idle", "state": {"commands": []}}
+            if command == "prompt":
+                service.abort(op.session_id, {"clientRequestId": "stop-before-bridge"}, self.owner)
+                return {"status": "running", "state": {"pendingGatewayRequests": [self.request(op, token, kind="tool")]}}
+            self.assertEqual(command, "abort")
+            return {"status": "aborted", "events": [{**worker.identity(op), "eventSeq": 1, "type": "agent_settled"}],
+                "files": [], "filesCollected": True,
+                "terminalReceipt": {"operationId": op.id, "status": "aborted", "eventSeq": 1, "files": []}}
+        with patch.object(worker, "heartbeat"), patch.object(worker, "runner_dispatch", side_effect=runner), patch.object(worker, "bridge") as bridge, patch("ai_assistant.pi_transport.command", return_value={}) as transport:
+            worker.perform(op)
+        self.assertEqual(commands, ["create", "prompt", "abort"])
+        self.assertFalse(bridge.called)
+        self.assertEqual(transport.call_args.args[0]["command"], "ack")
+        self.assertEqual(PiOperation.objects.get(pk=op.pk).status, "canceled")
+        result = self.prompt(op.session_id, clientRequestId="continue-after-known-stop")
+        self.assertEqual((result["operation"]["epoch"], result["operation"]["generation"]), (op.epoch, op.generation))
+
+    def test_canceled_terminal_receipt_does_not_publish_new_runner_files_or_wait_for_exports(self):
+        op, _ = self.running()
+        with mutation():
+            session = PiSession.objects.select_for_update().get(pk=op.session_id)
+            prior = service.save_file(session, op, "before-stop", "existing.txt", "text/plain", b"keep", direction="output")
+        export = PiExport.objects.create(id="cancel-queued-export", operation=op, request_digest="a"*64, query_json="{}")
+        service.abort(op.session_id, {"clientRequestId": "stop-files"}, self.owner)
+        worker.ingest(op, {"events": [{**worker.identity(op), "eventSeq": 1, "type": "agent_settled"}]})
+        raw = b"late output"
+        sha = hashlib.sha256(raw).hexdigest()
+        self.assertTrue(worker.complete(op, {"status": "aborted", "filesCollected": True,
+            "files": [{"fileName": "late.txt", "mimeType": "text/plain", "sha256": sha, "base64": base64.b64encode(raw).decode()}],
+            "terminalReceipt": {"operationId": op.id, "status": "aborted", "eventSeq": 1, "files": [sha]}}))
+        self.assertEqual(list(PiFile.objects.filter(operation=op).values_list("id", flat=True)), [prior.id])
+        export.refresh_from_db()
+        self.assertEqual((export.status, export.error_code), ("failed", "pi_operation_canceled"))
+        self.assertEqual(PiSession.objects.get(pk=op.session_id).status, "idle")
+
     def test_cancel_during_startup_cannot_reserve_first_prompt(self):
         op, _ = self.running()
         with mutation():
@@ -371,6 +502,64 @@ class PiRuntimeTests(TestCase):
         with self.assertRaises(AiError): pi_exports.consumer({"operation": "pi-export-start", "sessionId": op.session_id, "dataset": "market_overview", "queryJson": "{}"}, self.owner, "top")
         data = {"pagination": {"page": 2, "pageSize": 20, "total": 21, "returned": 1, "hasMore": False}, "sourceRevision": "v2"}
         with self.assertRaises(AiError): pi_exports.pi_page(data, [{"id": 21}], {"page": 2, "limit": 20}, 21, "v1")
+
+    def test_export_stop_during_first_page_blocks_future_reads_and_final_file(self):
+        actor = self.user("export-cancel@example.invalid", "admin", None)
+        op, _ = self.running(actor=actor)
+        row = pi_exports.consumer({"operation": "pi-export-start", "sessionId": op.session_id, "dataset": "pi_netshop_promotion",
+            "queryJson": canonical({"platform": "京东", "shop": "合成店", "limit": 20})}, actor, "cancel-paged-export")
+        reads = []
+        def page(dataset, body, principal, request_id, **kwargs):
+            p = body["query"].get("page", 1)
+            reads.append(p)
+            service.abort(op.session_id, {"clientRequestId": "stop-in-first-page"}, actor)
+            return {"source": {"domain": "netshop"}, "dataCutoffDate": "2026-10-16", "data": {
+                "items": [{"id": i} for i in range(20)], "sourceRevision": "fixture-v1",
+                "pagination": {"page": p, "pageSize": 20, "total": 41, "returned": 20, "hasMore": True},
+                "filtersApplied": {"platforms": ["京东"], "shop": "合成店"}}}
+        with patch.object(pi_exports.datasets, "query", side_effect=page):
+            pi_exports.perform(PiExport.objects.get(pk=row["id"]))
+        result = PiExport.objects.get(pk=row["id"])
+        self.assertEqual(reads, [1])
+        self.assertEqual((result.status, result.error_code, result.file_id), ("failed", "pi_operation_canceled", None))
+        self.assertFalse(PiFile.objects.filter(operation=op).exists())
+        self.assertEqual(PiDispatch.objects.get(operation=op, kind="export:page").status, "completed")
+        self.assertEqual(PiOperation.objects.get(pk=op.pk).status, "canceling")
+
+    def test_export_stop_after_last_page_prevents_manifest_publication(self):
+        actor = self.user("export-finalize-cancel@example.invalid", "admin", None)
+        op, _ = self.running(actor=actor)
+        row = pi_exports.consumer({"operation": "pi-export-start", "sessionId": op.session_id, "dataset": "pi_netshop_promotion",
+            "queryJson": canonical({"platform": "京东", "shop": "合成店", "limit": 20})}, actor, "cancel-final-export")
+        result = {"source": {"domain": "netshop"}, "dataCutoffDate": "2026-10-16", "data": {
+            "items": [{"id": 1}], "sourceRevision": "fixture-v1", "units": {"id": "identifier"},
+            "pagination": {"page": 1, "pageSize": 20, "total": 1, "returned": 1, "hasMore": False},
+            "filtersApplied": {"platforms": ["京东"], "shop": "合成店"}}}
+        original_digest = pi_exports.digest
+        def before_manifest(value):
+            if isinstance(value, list):
+                from .pi_models import PiExportPage
+                self.assertEqual(PiExportPage.objects.filter(export_id=row["id"]).count(), 1)
+                service.abort(op.session_id, {"clientRequestId": "stop-before-manifest"}, actor)
+            return original_digest(value)
+        with patch.object(pi_exports.datasets, "query", return_value=result), patch.object(pi_exports, "digest", side_effect=before_manifest):
+            pi_exports.perform(PiExport.objects.get(pk=row["id"]))
+        export = PiExport.objects.get(pk=row["id"])
+        self.assertEqual((export.status, export.error_code, export.file_id, export.manifest_json), ("failed", "pi_operation_canceled", None, "{}"))
+        self.assertFalse(PiFile.objects.filter(operation=op).exists())
+
+    def test_late_export_failure_cannot_replace_acknowledged_cancel_reason(self):
+        actor = self.user("export-late-failure@example.invalid", "admin", None)
+        op, _ = self.running(actor=actor)
+        row = pi_exports.consumer({"operation": "pi-export-start", "sessionId": op.session_id, "dataset": "pi_netshop_promotion",
+            "queryJson": canonical({"platform": "京东", "shop": "合成店", "limit": 20})}, actor, "late-export-failure")
+        def page(*args, **kwargs):
+            service.abort(op.session_id, {"clientRequestId": "stop-before-late-error"}, actor)
+            raise AiError("合成迟到错误", "synthetic_late_error", 503)
+        with patch.object(pi_exports.datasets, "query", side_effect=page): pi_exports.perform(PiExport.objects.get(pk=row["id"]))
+        export = PiExport.objects.get(pk=row["id"])
+        self.assertEqual((export.status, export.error_code), ("failed", "pi_operation_canceled"))
+        self.assertEqual(PiOperation.objects.get(pk=op.pk).status, "canceling")
 
     def test_database_unique_active_fence(self):
         op, _ = self.running()

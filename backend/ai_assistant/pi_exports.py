@@ -10,7 +10,7 @@ import re
 
 from django.utils import timezone
 from . import datasets, pandas_sandbox, pi_service as service
-from .pi_models import PiSession, PiOperation, PiExport, PiExportPage
+from .pi_models import PiSession, PiOperation, PiExport, PiExportPage, PiDispatch
 from .policy import AiError, canonical, digest, fields, identifier, mutation, passive, scope_covers, uid
 
 PI_PAGED = {"pi_netshop_product_daily", "pi_netshop_promotion"}
@@ -100,7 +100,7 @@ def consumer(payload, principal, request_id):
         op = PiOperation.objects.filter(id=session.active_operation_id, status="running").first()
         if not op or bound_operation is not None and bound_operation.id != op.id:
             raise AiError("Pi 导出必须绑定当前执行操作", "conflict", 409)
-        service.principal_for(op)
+        service.principal_for_work(op)
         if not scope_covers(principal.scope, op.scope_json):
             raise AiError("Pi 导出权限不匹配", "access_denied", 403)
         from . import pi_selection
@@ -137,12 +137,34 @@ def perform(row):
         raise AiError("Pi 导出资源配置无效", "service_unavailable", 503)
     try:
         while True:
-            principal = service.principal_for(PiOperation.objects.get(pk=op.pk))
             from . import pi_selection
             args = pi_selection.validate_dataset(dataset, args, pi_selection.for_operation(op))
             if pages >= max_pages:
                 raise AiError("Pi 导出达到页资源限额，未声明完整", "payload_too_large", 413)
-            envelope = datasets.query(dataset, {"query": args}, principal, f"{row.id}.{pages}", surface="pi_agent")
+            page_key = f"{row.id}.{pages}"
+            # One page, rather than the whole export, is admitted against abort
+            # under the AI authority lock. Do not hold that lock across HTTP.
+            with mutation():
+                principal = service.principal_for_work(op)
+                dispatch = PiDispatch.objects.create(id=uid("pi-export-read"), operation=op, kind="export:page",
+                    request_id=page_key, request_digest=digest({"dataset": dataset, "query": args}), status="sent")
+            try:
+                service.principal_for_work(op)
+                envelope = datasets.query(dataset, {"query": args}, principal, page_key, surface="pi_agent")
+            except service.PiWorkCanceled as error:
+                with mutation():
+                    dispatch.status, dispatch.error_code, dispatch.completed_at = "completed", error.code, timezone.now()
+                    dispatch.response_json = canonical({"error": error.code})
+                    dispatch.save()
+                raise
+            except Exception as error:
+                with mutation():
+                    dispatch.status, dispatch.error_code, dispatch.completed_at = "unknown", getattr(error, "code", "pi_export_read_unknown"), timezone.now()
+                    dispatch.save()
+                raise
+            with mutation():
+                dispatch.status, dispatch.completed_at = "completed", timezone.now()
+                dispatch.save(update_fields=["status", "completed_at"])
             first, last = first or envelope, envelope
             data = envelope["data"]
             parent, current = pandas_sandbox.collection(data, path)
@@ -172,7 +194,7 @@ def perform(row):
                 "domainRevision": data.get("domainRevision", data.get("sourceRevision", data.get("revision"))),
                 "fields": data.get("columns"), "units": data.get("units"), "rows": len(projected)}
             with mutation():
-                service.principal_for(PiOperation.objects.get(pk=op.pk))
+                service.principal_for_work(op)
                 PiExportPage.objects.create(id=uid("pi-export-page"), export=row, ordinal=pages,
                     rows_json=encoded, provenance_json=canonical(provenance))
                 row.progress_json, row.updated_at = canonical({"rows": count, "pages": pages, "bytes": used}), timezone.now()
@@ -205,14 +227,16 @@ def perform(row):
             "sha256": hashlib.sha256(raw).hexdigest(), "consistency": "live_per_page", "pageProvenanceSha256": digest(sources),
             "revisionCoverage": "observed" if all(item["domainRevision"] is not None for item in sources) else "unknown"}
         with mutation():
-            service.principal_for(PiOperation.objects.get(pk=op.pk))
+            service.principal_for_work(op)
             session = PiSession.objects.select_for_update().get(pk=op.session_id)
             f = service.save_file(session, op, row.id, f"{dataset}.json", "application/json", raw, direction="export", manifest=manifest)
             row.file, row.status, row.manifest_json, row.updated_at = f, "succeeded", canonical(manifest), timezone.now()
             row.save()
     except Exception as error:
         with mutation():
-            row.status, row.error_code, row.updated_at = "failed", getattr(error, "code", "pi_export_failed"), timezone.now()
-            row.save(update_fields=["status", "error_code", "updated_at"])
+            # Stop's definite outcome wins over a late page failure. Never turn
+            # an already failed/canceled export back into running/succeeded.
+            PiExport.objects.filter(pk=row.pk, status__in=["queued", "running"]).update(
+                status="failed", error_code=getattr(error, "code", "pi_export_failed"), updated_at=timezone.now())
         if not isinstance(error, AiError):
             raise

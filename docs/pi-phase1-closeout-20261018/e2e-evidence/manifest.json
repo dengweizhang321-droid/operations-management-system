@@ -1,0 +1,16 @@
+{
+  "sourceArtifactDirectory": "D:\\codex-artifacts\\pi-phase1-closeout-20261018\\e2e\\attempt-20261018T182435",
+  "sha256": {
+    "backend-evidence.json": "893b8bd65b925fd1f4f386a3e9faff87fac334a0510160040ad88c53f2dfed7a",
+    "browser-evidence.json": "f27c746b6ec95a53f6149e3aa4465625ee3660eb626583dae19e1b108ac98495",
+    "http-calls.json": "679244c8cb91775b537f5516efe64e8b076d0a0ccb19e285256047548705bdc2",
+    "source-binding.json": "b752e70f566958994835538214b07f5d8a41b8b1b3d46e5f869db55799ee6ed6",
+    "runner-health.json": "c3951514f1a5b408855d584f6cabf4126c5ac81c123555765190ed7806d0ceca",
+    "cleanup.json": "6a5e1580c1a4e7101882d7786c1d3f7e5d834020d167c1cf8b27f3e5e0452ace",
+    "run-result.json": "174b290fc3e622f4ffd743a139391e054010984ccfe9da8fcf491a99727e7dcf",
+    "dispose-attempts.json": "4e1d5fcb2955bf4603af2abae463766319fd1b71f7a89664ffdf844292562fe5",
+    "real-stack.log": "c5ed2f6a27e5d91a6a810d83f6a04301a0fc19a90db76436b151e069561c9ae0",
+    "browser.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "last-snapshot.json": "81281db87080e18a8612ccc56e6e7e98ba5a7f93c248a0ec09e234e998890ab2"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "activeCount": 0,
+  "closing": false,
+  "image": "sha256:c393a84818c0c7f941803da2db11b1cd94395b8188b69af7294490468a48e26d",
+  "namespace": "pi-test-e2e-086b2edb230a",
+  "sourceSha256": "90812210898b7b69269a977a02828a6943adc15651e6ae0c07c664f89fe92407",
+  "unknownStoppedVerifiedCount": 0,
+  "unresolvedCount": 0,
+  "unsafeUnknownCount": 0,
+  "version": 1
+}

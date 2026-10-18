@@ -291,10 +291,20 @@ def abort(session_id, payload, principal):
             session.save()
         op.updated_at = timezone.now()
         op.save()
+        stop_exports(op)
         PiDispatch.objects.create(id=uid("pi-control"), operation=op, kind="client:abort", request_id=payload["clientRequestId"],
             request_digest=digest(payload), status="completed", completed_at=timezone.now())
         event(session, "status", {"status": op.status}, op)
         return {"session": session_record(session), "operation": operation_record(op)}
+
+
+def stop_exports(operation):
+    # Called in the same authority transaction as cancellation/completion. A
+    # slow, already admitted page may finish its read, but cannot publish a file
+    # or hold canceled operation completion open.
+    from .pi_models import PiExport
+    PiExport.objects.filter(operation=operation, status__in=["queued", "running"]).update(
+        status="failed", error_code="pi_operation_canceled", updated_at=timezone.now())
 
 
 def safe_file(file_name, mime_type, raw, maximum):
@@ -385,3 +395,22 @@ def principal_for(operation):
             if (locked.active_operation_id, locked.epoch, locked.generation) == (operation.id, operation.epoch, operation.generation):
                 _freeze(locked)
         raise
+
+
+class PiWorkCanceled(AiError):
+    """A local admission check proved this next unit has not been dispatched."""
+    def __init__(self):
+        super().__init__("Pi 已停止，禁止新增调用或发布产物", "pi_operation_canceled", 409)
+
+
+def principal_for_work(operation):
+    # Controls and terminal observations intentionally keep principal_for's
+    # canceling access. Never send this ordinary stop through its freeze path.
+    current = PiOperation.objects.get(pk=operation.pk)
+    principal = principal_for(current)
+    # Background authorization may involve a remote check. Cancellation can
+    # commit while it runs when this helper is used outside a mutation block.
+    current.refresh_from_db(fields=["cancel_requested", "status"])
+    if current.cancel_requested or current.status != "running":
+        raise PiWorkCanceled()
+    return principal
