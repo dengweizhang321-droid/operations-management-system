@@ -144,7 +144,7 @@ async function queuedFixture(t){
  const selection={targetCommit:f.latest,packet:first.packet,live:f.live};
  const submit=()=>submitPreparation(directory,{origin:'hook',observedTarget:f.latest,...binding.state});
  let runs=0;
- const options={binding,assertGeneration:async()=>{},assertConsumerIdentity:async()=>{},observe:async()=>selection,once:prepareLatestMainOnce,
+ const options={binding,assertGeneration:async()=>{},assertConsumerIdentity:async()=>{},admit:async()=>{},observe:async()=>selection,once:prepareLatestMainOnce,
   run:async(source,args)=>{
    runs++;assert.deepEqual(args,['--prepare-only']);
    const preparation=path.join(first.packet,'publish-'+f.latest.slice(0,12),'preparation');await fs.mkdir(preparation,{recursive:true});

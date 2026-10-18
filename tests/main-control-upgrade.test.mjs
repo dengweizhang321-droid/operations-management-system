@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {execFileSync,spawn,spawnSync} from 'node:child_process';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import {prepareControlUpgrade,adoptControlUpgradeForTest as adoptControlUpgrade,controlFiles,normalizeControlPath,nativeOperationBindings} from '../tools/install-main-prebuild.mjs';
 import {readPreparationTask,assertPreparationTask,taskPowerShell} from '../tools/main-prebuild-task.mjs';
 import {knownResume} from '../tools/publish-main-known-resume.mjs';
@@ -132,6 +132,7 @@ test('materials preserve frozen environment; private adoption binds one whole im
  const f=await fixture(t);assert.equal(f.prepared.status,'bundle-prepared');await assert.rejects(fs.access(path.join(f.state,'CONTROL-INSTALLATION.json')));
  const result=await adoptControlUpgrade({directory:f.out});assert.equal(result.status,'adopted');
  const binding=await readAdoptedControl(f.configFile);assert.equal(binding.state.installId,f.prepared.installId);
+ const installedQueue=await import(pathToFileURL(path.join(binding.bundleRoot,'tools/main-prebuild-queue.mjs')));assert.equal(installedQueue.fixedAdminRejectionVersion,'teruisi-admin-preparation-rejection-e2-v1');assert.equal(typeof installedQueue.readFixedAdminRejectionResolution,'function');
  const proof=JSON.parse(await fs.readFile(binding.state.transitionProofFile,'utf8'));assert.equal(proof.privateTestTopology,true);
  const config=JSON.parse(await fs.readFile(f.configFile,'utf8'));assert.ok(config.publisherBaseEnvironment.LOGONSERVER!==undefined);
  assert.equal(cli(f,['--control-status']).status,0);

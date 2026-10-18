@@ -38,6 +38,14 @@ test('unknown native result and a later same-target event never replay preparati
  await drainPreparationQueue(root,callbacks);assert.equal((await ticketResult(root,ticket.requestId,ticket.ticketSha256)).status,'unknown');
  const later=await submit(root,a);await drainPreparationQueue(root,callbacks);assert.equal(calls,1);assert.equal((await ticketResult(root,later.requestId,later.ticketSha256)).status,'blocked');
 });
+test('a new generation may report an exact old blocking dependency but cannot release its unknown',async t=>{
+ const root=await fixture(t),original=await submit(root,a);let native=0;
+ await drainPreparationQueue(root,{...binding,observe:async()=>selection(root,a),prepare:async()=>{native++;throw Error('original native outcome unknown');}});
+ const prior=await ticketResult(root,original.requestId,original.ticketSha256),newBinding={configSha256:h('6'),bundleSha256:h('7')};
+ const later=await submitPreparation(root,{...newBinding,origin:'manual'});
+ await drainPreparationQueue(root,{...newBinding,observe:()=>assert.fail('old unknown still blocks'),prepare:()=>assert.fail('old unknown cannot grant preparation')});
+ const blocked=await ticketResult(root,later.requestId,later.ticketSha256);assert.equal(blocked.status,'blocked');assert.equal(blocked.blockedDispatchId,prior.dispatchId);assert.equal(blocked.configSha256,newBinding.configSha256);assert.equal(native,1);assert.equal((await ticketResult(root,original.requestId,original.ticketSha256)).status,'unknown');
+});
 test('truncated canonical prepared cannot turn an unknown dispatch into a replay permit',async t=>{
  const root=await fixture(t),ticket=await submit(root,a);let calls=0;
  const callbacks={...binding,observe:async()=>selection(root,a),prepare:async()=>{calls++;throw Error('unknown');}};

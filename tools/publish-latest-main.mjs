@@ -9,7 +9,6 @@ import assert from 'node:assert/strict';
 import {makeReleasePlan} from './release-scope-plan.mjs';
 import {createReleaseProgress} from './publish-main-progress.mjs';
 import {prepareMainSchemaRelease} from './main-schema-release.mjs';
-import {closeKnownPreNativeRefusal} from './main-prebuild-resolution.mjs';
 import {wakePreparationTask,currentPreparationIdentity,assertOrdinaryIdentity} from './main-prebuild-task.mjs';
 import {submitPreparation,drainPreparationQueue,ticketResult,acquireQueueLock} from './main-prebuild-queue.mjs';
 import {readAdoptedControl,assertControlGeneration,controlExecution} from './main-control-dispatch.mjs';
@@ -180,12 +179,18 @@ export async function preparationControlBinding(configFile){
 }
 export async function startPreparationConsumer(configFile){return wakePreparationTask(await preparationControlBinding(configFile));}
 export async function assertPreparationConsumer(binding){assertOrdinaryIdentity(await currentPreparationIdentity(),binding.state.preparationTask?.sid);}
-export async function drainLatestMainQueue(configFile,{binding,progress,observe=observeLatestMain,once=prepareLatestMainOnce,run=runPublisher,inspect=inspectMainPreparation,assertGeneration=assertControlGeneration,assertConsumerIdentity=assertPreparationConsumer}={}){
+// PREPARATION_ELIGIBILITY_BEGIN
+export async function assertOrdinaryPreparationContext(config,{probe=async()=>execute('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',
+ ['-NoProfile','-NonInteractive','-Command','[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)'],
+ {encoding:'utf8',windowsHide:true,timeout:30000,env:publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment)})}={}){
+ const result=await probe();assert.equal(result.stderr?.trim()??'','','Preparation token probe returned an error before DISPATCH');assert.equal(result.stdout.trim(),'False','Preparation requires ordinary-user admission before DISPATCH; no native preparation was started');
+}
+// PREPARATION_ELIGIBILITY_END
+export async function drainLatestMainQueue(configFile,{binding,progress,observe=observeLatestMain,once=prepareLatestMainOnce,run=runPublisher,inspect=inspectMainPreparation,assertGeneration=assertControlGeneration,admit=assertOrdinaryPreparationContext,assertConsumerIdentity=assertPreparationConsumer}={}){
  binding??=await preparationControlBinding(configFile);
- await assertConsumerIdentity(binding);
  const config=binding.config,directory=path.join(config.stateDirectory,'prebuild-queue-v2');
  return drainPreparationQueue(directory,{configSha256:binding.state.configSha256,bundleSha256:binding.state.bundleSha256,
-  assertGeneration:()=>assertGeneration(binding),observe:()=>observe(config,{log:message=>progress?.log(message)}),
+  assertGeneration:()=>assertGeneration(binding),admitPreparation:async()=>{await assertConsumerIdentity(binding);await admit(config);},observe:()=>observe(config,{log:message=>progress?.log(message)}),
   prepare:async(selection,dispatch,reusablePreparation)=>{
    const prepared=await once(config,selection,{log:message=>progress?.log(message)});
    if(['already-current','non-production'].includes(prepared.status))return prepared;
@@ -212,19 +217,17 @@ export async function acquireMainPublicationQueue(binding,{assertGeneration=asse
  try{await assertGeneration(binding);return release;}catch(error){await release();throw error;}
 }
 export async function runLatestMainCli(args=process.argv.slice(2),binding){
- const {values}=parseArgs({args,options:{config:{type:'string'},check:{type:'boolean',default:false},'prepare-only':{type:'boolean',default:false},'close-known-prenative-refusal':{type:'boolean',default:false},'consume-preparation':{type:'boolean',default:false},'no-pause':{type:'boolean',default:false}}});
- assert.ok(!values['close-known-prenative-refusal']||(!values.check&&!values['prepare-only']&&!values['consume-preparation']),'Resolution cannot prepare or deploy');
+ const {values}=parseArgs({args,options:{config:{type:'string'},check:{type:'boolean',default:false},'prepare-only':{type:'boolean',default:false},'consume-preparation':{type:'boolean',default:false},'no-pause':{type:'boolean',default:false}}});
  assert.ok(!values['consume-preparation']||(!values.check&&!values['prepare-only']),'Consumer cannot submit or deploy');
  assert.ok(!(values.check&&values['prepare-only']),'检查与打包模式不能同时使用');
  assert.ok(values.config,'需要固定发布入口配置 --config');
  const config=JSON.parse(await fs.readFile(values.config,'utf8'));
  if(config.controlProtocol==='teruisi-main-control-v2'){
   binding??=await preparationControlBinding(values.config);
-  await controlExecution(binding,fileURLToPath(import.meta.url),values['close-known-prenative-refusal']?'close-known-prenative-refusal':values['consume-preparation']?'consume-preparation':values['prepare-only']?'prepare-only':values.check?'check':'deploy-ready');
+  await controlExecution(binding,fileURLToPath(import.meta.url),values['consume-preparation']?'consume-preparation':values['prepare-only']?'prepare-only':values.check?'check':'deploy-ready');
  }
  assert.ok(config.publisherBaseEnvironment,'缺少固定Windows发布环境，请更新发布入口；本次未部署');
  publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment);
- if(values['close-known-prenative-refusal']){assert.ok(binding,'Controlled resolution required');const result=await closeKnownPreNativeRefusal(binding,{getLive:readLivePublication,assertGeneration:()=>assertControlGeneration(binding)});console.log(JSON.stringify(result));return result;}
  if(values['consume-preparation']){assert.ok(binding,'Controlled consumer required');return drainLatestMainQueue(values.config,{binding});}
  const progress=createReleaseProgress(path.join(config.stateDirectory,'logs'),{taskName:values.check?'发布检查':values['prepare-only']?'打包':'发布'});
  let releaseQueue;
