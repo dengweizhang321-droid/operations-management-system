@@ -1,0 +1,23 @@
+{
+  "at": "2026-10-17T23:26:28.531Z",
+  "target": "d95ad3d96816c3780051e1a0d915e9422e885694",
+  "mergeCompletedAt": "2026-10-18T07:24:22+08:00",
+  "parents": "66923d0991a8254763483ec50405104c3d2f8af3 c2c6749a4178e25c4f9f36f8301bf712078f2012",
+  "incomingFiles": [
+    "docs/inventory-self-operated-owned-20261018/REPORT.md",
+    "docs/inventory-self-operated-owned-20261018/evidence/OWNED-FIX-REAL-FILE.json",
+    "docs/inventory-self-operated-owned-20261018/evidence/PYTHON-PARITY.json",
+    "docs/inventory-self-operated-owned-20261018/evidence/targeted-tests.log",
+    "lib/inventory/warehouse-classification.ts",
+    "tests/warehouse-mapping-settings.test.ts"
+  ],
+  "overlap": [],
+  "conflicts": false,
+  "optimizationTestsReused": 142,
+  "inventoryTestsReused": 27,
+  "components": [
+    "worker",
+    "django"
+  ],
+  "migrate": false
+}

@@ -1,0 +1,672 @@
+{
+  "target": "d95ad3d96816c3780051e1a0d915e9422e885694",
+  "sources": [
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/startup-timing.jsonl",
+      "sha256": "e899b89659c3bad4d9dbcee5ffea06647928f1af2b654ef10ae60b511b5c7617",
+      "snapshotAt": "2026-10-18T00:13:56.358Z"
+    },
+    {
+      "path": "D:/teruisi-runtime/django-sales/logs/launcher.jsonl",
+      "sha256": "0fc1a89b354a8ba8371116b61d132fd89f6e06d40079614232529772e11ef2ba",
+      "snapshotAt": "2026-10-18T00:13:56.365Z"
+    }
+  ],
+  "phaseStart": "2026-10-18T00:07:03.153Z",
+  "phaseEnd": "2026-10-18T00:13:13.254Z",
+  "worker": [
+    {
+      "version": 1,
+      "processId": 22748,
+      "action": "Start",
+      "stage": "Get-DjangoSystemReadiness",
+      "startedAt": "2026-10-18T00:07:07.8092819+00:00",
+      "elapsedMilliseconds": 9547,
+      "outcome": "completed"
+    },
+    {
+      "version": 1,
+      "processId": 22748,
+      "action": "Start",
+      "stage": "Invoke-DjangoStartProcess",
+      "startedAt": "2026-10-18T00:07:17.3725184+00:00",
+      "elapsedMilliseconds": 306377,
+      "outcome": "completed"
+    },
+    {
+      "version": 1,
+      "processId": 22748,
+      "action": "Start",
+      "stage": "Ensure-DjangoSystemReady",
+      "startedAt": "2026-10-18T00:07:07.8054422+00:00",
+      "elapsedMilliseconds": 315960,
+      "outcome": "completed"
+    },
+    {
+      "version": 1,
+      "processId": 22748,
+      "action": "Start",
+      "stage": "Invoke-ReleaseVerification",
+      "startedAt": "2026-10-18T00:12:23.7786867+00:00",
+      "elapsedMilliseconds": 9916,
+      "outcome": "completed"
+    },
+    {
+      "version": 1,
+      "processId": 22748,
+      "action": "Start",
+      "stage": "Start-VerifiedWorkerSupervisor",
+      "startedAt": "2026-10-18T00:12:33.7052870+00:00",
+      "elapsedMilliseconds": 12131,
+      "outcome": "completed"
+    },
+    {
+      "version": 1,
+      "processId": 22748,
+      "action": "Start",
+      "stage": "Invoke-DjangoStartProcess",
+      "startedAt": "2026-10-18T00:12:45.9180282+00:00",
+      "elapsedMilliseconds": 27287,
+      "outcome": "completed"
+    },
+    {
+      "version": 1,
+      "processId": 22748,
+      "action": "Start",
+      "stage": "Start-SystemDingTalkReceiver",
+      "startedAt": "2026-10-18T00:12:45.8450580+00:00",
+      "elapsedMilliseconds": 27364,
+      "outcome": "completed"
+    },
+    {
+      "version": 1,
+      "processId": 22748,
+      "action": "Start",
+      "stage": "Invoke-WorkerSystemStart",
+      "startedAt": "2026-10-18T00:07:07.7718294+00:00",
+      "elapsedMilliseconds": 365442,
+      "outcome": "completed"
+    }
+  ],
+  "django": [
+    {
+      "stage": "Assert-DeployedApplication",
+      "startedAt": "2026-10-18T00:07:17.9540910+00:00",
+      "elapsedMilliseconds": 3563,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Assert-RuntimeAclHardened",
+      "startedAt": "2026-10-18T00:07:21.5237950+00:00",
+      "elapsedMilliseconds": 16797,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Start-Postgres",
+      "startedAt": "2026-10-18T00:07:38.6089557+00:00",
+      "elapsedMilliseconds": 830,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Assert-PostgresConnectionCapacity",
+      "startedAt": "2026-10-18T00:07:39.4436772+00:00",
+      "elapsedMilliseconds": 1279,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "django-migrate",
+      "startedAt": "2026-10-18T00:11:14.7851158+00:00",
+      "elapsedMilliseconds": 2781,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "django-runtime-grants",
+      "startedAt": "2026-10-18T00:11:17.5766114+00:00",
+      "elapsedMilliseconds": 1997,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Invoke-DjangoMigrations",
+      "startedAt": "2026-10-18T00:07:40.7265213+00:00",
+      "elapsedMilliseconds": 218852,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Get-ActiveWriteAuthority",
+      "startedAt": "2026-10-18T00:11:19.5801352+00:00",
+      "elapsedMilliseconds": 1269,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-reader",
+      "startedAt": "2026-10-18T00:11:21.0880570+00:00",
+      "elapsedMilliseconds": 124,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-writer",
+      "startedAt": "2026-10-18T00:11:21.4110110+00:00",
+      "elapsedMilliseconds": 110,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-reader",
+      "startedAt": "2026-10-18T00:11:21.5257174+00:00",
+      "elapsedMilliseconds": 1533,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-writer",
+      "startedAt": "2026-10-18T00:11:23.0611720+00:00",
+      "elapsedMilliseconds": 954,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-finance-reader",
+      "startedAt": "2026-10-18T00:11:24.1972001+00:00",
+      "elapsedMilliseconds": 107,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Get-FinanceWriteAuthority",
+      "startedAt": "2026-10-18T00:11:24.3070007+00:00",
+      "elapsedMilliseconds": 1227,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-finance-writer",
+      "startedAt": "2026-10-18T00:11:25.7529161+00:00",
+      "elapsedMilliseconds": 131,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-finance-reader",
+      "startedAt": "2026-10-18T00:11:25.8863071+00:00",
+      "elapsedMilliseconds": 527,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-finance-writer",
+      "startedAt": "2026-10-18T00:11:26.4157016+00:00",
+      "elapsedMilliseconds": 1033,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Start-ServiceStack",
+      "startedAt": "2026-10-18T00:07:17.9531410+00:00",
+      "elapsedMilliseconds": 249501,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Get-NetshopWriteAuthority",
+      "startedAt": "2026-10-18T00:11:27.9140637+00:00",
+      "elapsedMilliseconds": 1146,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-netshop-reader",
+      "startedAt": "2026-10-18T00:11:29.2696875+00:00",
+      "elapsedMilliseconds": 114,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-netshop-writer",
+      "startedAt": "2026-10-18T00:11:29.6014265+00:00",
+      "elapsedMilliseconds": 120,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-netshop-reader",
+      "startedAt": "2026-10-18T00:11:29.7254717+00:00",
+      "elapsedMilliseconds": 1024,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-netshop-writer",
+      "startedAt": "2026-10-18T00:11:30.7513978+00:00",
+      "elapsedMilliseconds": 561,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Start-NetshopStack",
+      "startedAt": "2026-10-18T00:11:27.5556754+00:00",
+      "elapsedMilliseconds": 3758,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Get-MarketWriteAuthority",
+      "startedAt": "2026-10-18T00:11:31.7018575+00:00",
+      "elapsedMilliseconds": 1049,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-market-reader",
+      "startedAt": "2026-10-18T00:11:32.9954731+00:00",
+      "elapsedMilliseconds": 124,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-market-writer",
+      "startedAt": "2026-10-18T00:11:33.3461797+00:00",
+      "elapsedMilliseconds": 128,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-market-reader",
+      "startedAt": "2026-10-18T00:11:33.4760195+00:00",
+      "elapsedMilliseconds": 1033,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-market-writer",
+      "startedAt": "2026-10-18T00:11:34.5113813+00:00",
+      "elapsedMilliseconds": 577,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Start-MarketStack",
+      "startedAt": "2026-10-18T00:11:31.3484412+00:00",
+      "elapsedMilliseconds": 3741,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Get-ProductsWriteAuthority",
+      "startedAt": "2026-10-18T00:11:35.4793346+00:00",
+      "elapsedMilliseconds": 1032,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-products-reader",
+      "startedAt": "2026-10-18T00:11:36.7560770+00:00",
+      "elapsedMilliseconds": 130,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-products-writer",
+      "startedAt": "2026-10-18T00:11:37.1362023+00:00",
+      "elapsedMilliseconds": 133,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-products-reader",
+      "startedAt": "2026-10-18T00:11:37.2713040+00:00",
+      "elapsedMilliseconds": 1412,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-products-writer",
+      "startedAt": "2026-10-18T00:11:38.6852044+00:00",
+      "elapsedMilliseconds": 611,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Start-ProductsStack",
+      "startedAt": "2026-10-18T00:11:35.1256495+00:00",
+      "elapsedMilliseconds": 4172,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Get-InventoryWriteAuthority",
+      "startedAt": "2026-10-18T00:11:39.8364013+00:00",
+      "elapsedMilliseconds": 1147,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-inventory-reader",
+      "startedAt": "2026-10-18T00:11:41.2385032+00:00",
+      "elapsedMilliseconds": 130,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-inventory-writer",
+      "startedAt": "2026-10-18T00:11:41.6175760+00:00",
+      "elapsedMilliseconds": 123,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-inventory-reader",
+      "startedAt": "2026-10-18T00:11:41.7430911+00:00",
+      "elapsedMilliseconds": 1491,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-inventory-writer",
+      "startedAt": "2026-10-18T00:11:43.2357394+00:00",
+      "elapsedMilliseconds": 1039,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Start-InventoryStack",
+      "startedAt": "2026-10-18T00:11:39.3282094+00:00",
+      "elapsedMilliseconds": 4948,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Get-WorkflowWriteAuthority",
+      "startedAt": "2026-10-18T00:11:44.7859935+00:00",
+      "elapsedMilliseconds": 1059,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-workflow-reader",
+      "startedAt": "2026-10-18T00:11:46.0946515+00:00",
+      "elapsedMilliseconds": 123,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-workflow-writer",
+      "startedAt": "2026-10-18T00:11:46.4667481+00:00",
+      "elapsedMilliseconds": 133,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-workflow-reader",
+      "startedAt": "2026-10-18T00:11:46.6020727+00:00",
+      "elapsedMilliseconds": 1108,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-workflow-writer",
+      "startedAt": "2026-10-18T00:11:47.7116019+00:00",
+      "elapsedMilliseconds": 644,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Start-WorkflowStack",
+      "startedAt": "2026-10-18T00:11:44.3075826+00:00",
+      "elapsedMilliseconds": 4050,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Get-CustomerServiceWriteAuthority",
+      "startedAt": "2026-10-18T00:11:48.7927352+00:00",
+      "elapsedMilliseconds": 1160,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-customer-service-reader",
+      "startedAt": "2026-10-18T00:11:50.1992792+00:00",
+      "elapsedMilliseconds": 126,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-customer-service-writer",
+      "startedAt": "2026-10-18T00:11:50.5845595+00:00",
+      "elapsedMilliseconds": 131,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-customer-service-reader",
+      "startedAt": "2026-10-18T00:11:50.7177358+00:00",
+      "elapsedMilliseconds": 987,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-customer-service-writer",
+      "startedAt": "2026-10-18T00:11:51.7067288+00:00",
+      "elapsedMilliseconds": 558,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Start-CustomerServiceStack",
+      "startedAt": "2026-10-18T00:11:48.3913422+00:00",
+      "elapsedMilliseconds": 3875,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Get-AccessControlWriteAuthority",
+      "startedAt": "2026-10-18T00:11:52.7298102+00:00",
+      "elapsedMilliseconds": 1079,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-access-control-reader",
+      "startedAt": "2026-10-18T00:11:54.0626366+00:00",
+      "elapsedMilliseconds": 123,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-access-control-writer",
+      "startedAt": "2026-10-18T00:11:54.4697530+00:00",
+      "elapsedMilliseconds": 136,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-access-control-reader",
+      "startedAt": "2026-10-18T00:11:54.6080350+00:00",
+      "elapsedMilliseconds": 1008,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-access-control-writer",
+      "startedAt": "2026-10-18T00:11:55.6175827+00:00",
+      "elapsedMilliseconds": 494,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Start-AccessControlStack",
+      "startedAt": "2026-10-18T00:11:52.2978080+00:00",
+      "elapsedMilliseconds": 3815,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Assert-PostgresConnectionCapacity",
+      "startedAt": "2026-10-18T00:11:56.6232914+00:00",
+      "elapsedMilliseconds": 1018,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Get-AiWriteAuthority",
+      "startedAt": "2026-10-18T00:11:57.6436133+00:00",
+      "elapsedMilliseconds": 1058,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-ai-pandas-wsl",
+      "startedAt": "2026-10-18T00:12:00.0506145+00:00",
+      "elapsedMilliseconds": 147,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Start-PandasSandbox",
+      "startedAt": "2026-10-18T00:12:00.0406833+00:00",
+      "elapsedMilliseconds": 7436,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-ai-reader",
+      "startedAt": "2026-10-18T00:12:07.7524465+00:00",
+      "elapsedMilliseconds": 134,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-ai-writer",
+      "startedAt": "2026-10-18T00:12:08.1683561+00:00",
+      "elapsedMilliseconds": 136,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-ai-reader",
+      "startedAt": "2026-10-18T00:12:08.3061933+00:00",
+      "elapsedMilliseconds": 1336,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-ai-writer",
+      "startedAt": "2026-10-18T00:12:09.6445217+00:00",
+      "elapsedMilliseconds": 818,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-ai-pi-worker",
+      "startedAt": "2026-10-18T00:12:14.0082027+00:00",
+      "elapsedMilliseconds": 141,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Start-AiStack",
+      "startedAt": "2026-10-18T00:11:56.1516180+00:00",
+      "elapsedMilliseconds": 18000,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Get-ErpReferenceWriteAuthority",
+      "startedAt": "2026-10-18T00:12:14.6560408+00:00",
+      "elapsedMilliseconds": 1067,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-erp-reference-reader",
+      "startedAt": "2026-10-18T00:12:16.0040500+00:00",
+      "elapsedMilliseconds": 143,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-erp-reference-writer",
+      "startedAt": "2026-10-18T00:12:16.4416404+00:00",
+      "elapsedMilliseconds": 142,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-erp-reference-reader",
+      "startedAt": "2026-10-18T00:12:16.5859959+00:00",
+      "elapsedMilliseconds": 1496,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-erp-reference-writer",
+      "startedAt": "2026-10-18T00:12:18.0834949+00:00",
+      "elapsedMilliseconds": 1052,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Start-ErpReferenceStack",
+      "startedAt": "2026-10-18T00:12:14.1966417+00:00",
+      "elapsedMilliseconds": 4941,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Get-BiMigrationState",
+      "startedAt": "2026-10-18T00:12:19.6239158+00:00",
+      "elapsedMilliseconds": 1108,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "launch-django-bi-reader",
+      "startedAt": "2026-10-18T00:12:21.0378637+00:00",
+      "elapsedMilliseconds": 150,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-bi-reader",
+      "startedAt": "2026-10-18T00:12:21.1900282+00:00",
+      "elapsedMilliseconds": 1946,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Wait-DjangoReady-bi-reader",
+      "startedAt": "2026-10-18T00:12:23.1381430+00:00",
+      "elapsedMilliseconds": 556,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Start-BiStack",
+      "startedAt": "2026-10-18T00:12:19.1689575+00:00",
+      "elapsedMilliseconds": 4527,
+      "outcome": "completed",
+      "processId": 46764
+    },
+    {
+      "stage": "Invoke-EnabledDjangoDomainStarts",
+      "startedAt": "2026-10-18T00:11:27.4984226+00:00",
+      "elapsedMilliseconds": 56198,
+      "outcome": "completed",
+      "processId": 46764
+    }
+  ],
+  "notes": [
+    "Only fixed timing metadata is retained.",
+    "Nested stages overlap and must not be summed.",
+    "Invoke-DjangoMigrations includes protection/gate checks; it is not the time spent applying new schema changes."
+  ]
+}

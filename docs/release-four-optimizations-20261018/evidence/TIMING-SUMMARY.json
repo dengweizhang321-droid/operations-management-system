@@ -1,0 +1,139 @@
+{
+  "version": 1,
+  "timezone": "Asia/Shanghai",
+  "target": "d95ad3d96816c3780051e1a0d915e9422e885694",
+  "status": "deployed_and_ready",
+  "requestObservedAt": "2026-10-17T23:20:43Z",
+  "exactUserMessageTimeAvailable": false,
+  "mainPushedAt": "2026-10-17T23:27:33.5271555+00:00",
+  "priorPreparationStartedAt": "2026-10-17T23:22:58.852Z",
+  "priorPreparationCompletedAt": "2026-10-17T23:36:34.625Z",
+  "targetPreparationStartedAt": "2026-10-17T23:37:01.548Z",
+  "targetPreparedAt": "2026-10-17T23:49:14.060Z",
+  "operatorStartedAt": "2026-10-17T23:50:48.551Z",
+  "nativePublicationStartedAt": "2026-10-17T23:57:59.272Z",
+  "nativeCompletedAt": "2026-10-18T00:13:23.326Z",
+  "finalVerifiedAt": "2026-10-18T00:13:32.365Z",
+  "durations": {
+    "observedRequestToMainPush": 410.527,
+    "queueAndSourceFreezeAfterMainPush": 568.021,
+    "targetPreparation": 732.512,
+    "preparedToOperatorStart": 94.491,
+    "operatorToFinalVerified": 1363.814,
+    "observedRequestToFinalVerified": 3169.365
+  },
+  "phases": [
+    {
+      "step": 1,
+      "name": "准备发布",
+      "start": "2026-10-17T23:50:48.658Z",
+      "explicitCompletionLogged": false,
+      "nextPhaseStartedAt": "2026-10-17T23:50:53.240Z",
+      "observedUntilNextPhaseSeconds": 4.582
+    },
+    {
+      "step": 2,
+      "name": "复验已准备前端",
+      "start": "2026-10-17T23:50:53.240Z",
+      "end": "2026-10-17T23:56:56.452Z",
+      "seconds": 363.212,
+      "explicitCompletionLogged": true
+    },
+    {
+      "step": 3,
+      "name": "复验已准备后台",
+      "start": "2026-10-17T23:56:56.456Z",
+      "end": "2026-10-17T23:57:55.992Z",
+      "seconds": 59.536,
+      "explicitCompletionLogged": true
+    },
+    {
+      "step": 4,
+      "name": "进入维护",
+      "start": "2026-10-17T23:57:59.281Z",
+      "end": "2026-10-18T00:00:38.518Z",
+      "seconds": 159.237,
+      "explicitCompletionLogged": true
+    },
+    {
+      "step": 5,
+      "name": "停止旧前端",
+      "start": "2026-10-18T00:00:38.518Z",
+      "end": "2026-10-18T00:00:43.135Z",
+      "seconds": 4.617,
+      "explicitCompletionLogged": true
+    },
+    {
+      "step": 6,
+      "name": "部署后台",
+      "start": "2026-10-18T00:00:43.135Z",
+      "end": "2026-10-18T00:02:31.082Z",
+      "seconds": 107.947,
+      "explicitCompletionLogged": true
+    },
+    {
+      "step": 7,
+      "name": "应用后台权限",
+      "start": "2026-10-18T00:02:31.083Z",
+      "end": "2026-10-18T00:03:05.653Z",
+      "seconds": 34.57,
+      "explicitCompletionLogged": true
+    },
+    {
+      "step": 8,
+      "name": "切换前端",
+      "start": "2026-10-18T00:03:05.654Z",
+      "end": "2026-10-18T00:06:29.744Z",
+      "seconds": 204.09,
+      "explicitCompletionLogged": true
+    },
+    {
+      "step": 9,
+      "name": "退出维护",
+      "start": "2026-10-18T00:06:29.744Z",
+      "end": "2026-10-18T00:07:03.152Z",
+      "seconds": 33.408,
+      "explicitCompletionLogged": true
+    },
+    {
+      "step": 10,
+      "name": "启动服务",
+      "start": "2026-10-18T00:07:03.153Z",
+      "end": "2026-10-18T00:13:13.254Z",
+      "seconds": 370.101,
+      "explicitCompletionLogged": true
+    },
+    {
+      "step": 11,
+      "name": "确认启动版本",
+      "start": "2026-10-18T00:13:13.254Z",
+      "end": "2026-10-18T00:13:18.246Z",
+      "seconds": 4.992,
+      "explicitCompletionLogged": true
+    },
+    {
+      "step": 12,
+      "name": "确认服务可用",
+      "start": "2026-10-18T00:13:18.247Z",
+      "end": "2026-10-18T00:13:23.326Z",
+      "seconds": 5.079,
+      "explicitCompletionLogged": true
+    }
+  ],
+  "workerRelease": "20261017T233707Z-7a92b68a72ea7589",
+  "workerManifestSha256": "d1e016294a954dd44a5e2d7f4fec10af3fef45ab42be6a7db2a0f74a0d7c4a9c",
+  "djangoManifestSha256": "71ae7608bacd2e626163f8e05d3fe99c904d94b987f9b749614b316c7ae358dc",
+  "newMigration": false,
+  "newFullBackup": false,
+  "existingRecoveryPoint": "daily-20261015T041546Z-e45dddeb5a15",
+  "receiptPath": "D:\\codex-isolated\\main-release-packages\\d95ad3d96816-de03bca5-66cc9293\\publish-d95ad3d96816\\SUCCESS.json",
+  "receiptSha256": "4411635e51c5dc560e6a39ab1337c8914143285010309a233f0e644ef4d59cd5",
+  "progressLogPath": "D:\\codex-isolated\\main-release-packages\\d95ad3d96816-de03bca5-66cc9293\\logs\\release-2026-10-17T23-50-48.656Z-7b72887a-1aec-44e5-a732-984c9bb736c9.log",
+  "progressLogSha256": "1dbc21037057420cbea6c79cecf14a4d5e8f08b6e459d68cd1eef9122d44e43f",
+  "notes": [
+    "Intervals are elapsed wall-clock spans, not a continuous authenticated outage measurement.",
+    "The earlier candidate preparation overlaps initial integration and must not be added to the overall total.",
+    "Step 1 has no explicit completion line in the original logger; its interval to step 2 is separately labeled as observed, not fabricated completion.",
+    "No new schema migration; original Start may still run its no-pending migration/permission commands."
+  ]
+}

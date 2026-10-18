@@ -1,0 +1,18 @@
+{
+  "status": "deployed_and_ready",
+  "at": "2026-10-18T00:13:23.326Z",
+  "mainCommit": "d95ad3d96816c3780051e1a0d915e9422e885694",
+  "components": [
+    "worker",
+    "django"
+  ],
+  "workerRelease": "20261017T233707Z-7a92b68a72ea7589",
+  "workerManifestSha256": "d1e016294a954dd44a5e2d7f4fec10af3fef45ab42be6a7db2a0f74a0d7c4a9c",
+  "djangoManifestSha256": "71ae7608bacd2e626163f8e05d3fe99c904d94b987f9b749614b316c7ae358dc",
+  "source": "D:\\codex-isolated\\main-release-packages\\d95ad3d96816-de03bca5-66cc9293\\source",
+  "sourceTree": "4cb0c542ebf64e77fe071052b6fa3e4398efa6b3",
+  "djangoPreparedId": "41a28fd57d4b487da8613674011bcbf1",
+  "maintenanceId": "269c6b5a233c47efad0b7fcbccb47868",
+  "migration": null,
+  "backupPerformed": false
+}
