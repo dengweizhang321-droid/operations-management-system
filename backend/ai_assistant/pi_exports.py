@@ -51,6 +51,8 @@ def export_record(row):
 
 
 def consumer(payload, principal, request_id):
+    if payload.get("surface", "pi_agent") != "pi_agent":
+        raise AiError("Pi 导出入口无效", "access_denied", 403)
     if payload.get("operation") == "pi-export-status":
         fields(payload, {"operation", "exportId", "surface"}, {"operation", "exportId"})
         row = PiExport.objects.filter(id=identifier(payload["exportId"])).first()
@@ -73,8 +75,6 @@ def consumer(payload, principal, request_id):
         bound_operation = None
     else:
         raise AiError("Pi 导出缺少受信执行身份", "access_denied", 403)
-    if payload.get("surface", "pi_agent") != "pi_agent":
-        raise AiError("Pi 导出入口无效", "access_denied", 403)
     dataset = identifier(payload["dataset"])
     query_raw = payload["queryJson"]
     if not isinstance(query_raw, str) or len(query_raw.encode()) > 16000:

@@ -40,6 +40,17 @@ test("Pi export rejects paths, identity injection and unavailable audit before d
   assert.equal(called, 0);
 });
 
+test("Pi exports require the stable gateway call identity even when an audit invocation exists", async () => {
+  for (const name of ["start_pi_dataset_export", "get_pi_dataset_export"]) {
+    const entry = aiToolRegistry.find(item => item.name === name)!;
+    const args = name === "start_pi_dataset_export" ? { dataset: "inventory_health", queryJson: "{}" } : { exportId: "fixture" };
+    for (const providerCallId of [undefined, "", "invalid:gateway-id"]) {
+      await assert.rejects(entry.handler(args, { principal: actor, surface: "pi_agent", requestId: "pi-parent", invocationId: "fresh-audit-only", providerCallId }),
+        (error: unknown) => (error as { code?: string }).code === "forbidden");
+    }
+  }
+});
+
 test("nested Pi dataset discovery, query and export preserve surface and true principal over signed transport", async t => {
   const savedFetch = globalThis.fetch;
   const env = { TERUISI_DJANGO_INTERNAL_SECRET: "isolated-pi-transport-secret-abcdefghijklmnopqrstuvwxyz", TERUISI_DJANGO_AI_READER_BASE_URL: "http://127.0.0.1:18111", TERUISI_DJANGO_AI_WRITER_BASE_URL: "http://127.0.0.1:18112" };
@@ -61,7 +72,7 @@ test("nested Pi dataset discovery, query and export preserve surface and true pr
   };
   for (const [name, args] of [["describe_system_datasets", {}], ["query_system_dataset", { dataset: "inventory_health", queryJson: "{}" }], ["start_pi_dataset_export", { dataset: "inventory_health", queryJson: "{}" }], ["get_pi_dataset_export", { exportId: "fixture" }]] as const) {
     const entry = aiToolRegistry.find(item => item.name === name)!;
-    await entry.handler(args, { principal: actor, surface: "pi_agent", requestId: `pi-${name}` });
+    await entry.handler(args, { principal: actor, surface: "pi_agent", requestId: `pi-${name}`, providerCallId: `gateway-${name}` });
   }
   assert.deepEqual(operations, ["datasets-describe", "datasets-query", "pi-export-start", "pi-export-status"]);
 });

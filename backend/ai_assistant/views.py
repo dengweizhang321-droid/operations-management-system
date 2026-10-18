@@ -589,6 +589,12 @@ def _dispatch(request, path=""):
             return response(read(parts, params, principal))
         if consumer_read:
             return response(consumer(payload, principal, request_id))
+        if root == "consumer" and payload.get("operation") == "pi-export-status":
+            # This live observation belongs to the AI writer, like the Pi
+            # session it observes. Keep the writer/authority/principal gates
+            # above, but never cache a status snapshot in a write receipt.
+            # The central tool executor retains its normal execution audits.
+            return response(consumer(payload, principal, request_id))
         if not writer:
             return response(read(parts, params, principal))
         if root == "workflow-runs" and len(parts) == 5 and parts[2] == "nodes" and parts[4] == "review":
