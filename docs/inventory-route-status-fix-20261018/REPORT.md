@@ -18,7 +18,7 @@
 
 新增 Django 配置解析器：进程变量存在即优先，包括显式空值禁用；仅缺键且在 Windows 时读取当前用户 `HKCU\Environment` 的同名显式配置。无配置、拒绝读取或非字符串继续返回空值，后续 reader 保留绝对路径、重解析点、只读事务、时间和数量上限。未修改固定发布环境指纹、启动控制器、权限或进程生命周期。
 
-另用实际 `publisherEnvironment → productionCommandEnvironment` 构造过滤后的环境并启动真实新 Python 子进程：确认路径变量不在环境中；旧解析返回 `n8n_status_unavailable/503`，新解析读取已显式持久配置后成功返回 `source=n8n_execution_metadata`，17 个白名单工作流，读取约 0.032 秒。该对照只读 n8n 元数据，不启停正式 reader、不触发业务流程；证据位于 `D:/codex-artifacts/inventory-route-status-fix-20261018/chain-status-evidence.json`。
+另用实际 `publisherEnvironment → productionCommandEnvironment` 构造过滤后的环境并启动真实新 Python 子进程：确认路径变量不在环境中；旧解析返回 `n8n_status_unavailable/503`，新解析读取已显式持久配置后成功返回 `source=n8n_execution_metadata`，17 个白名单工作流，最终采样读取约 0.016 秒。该对照只读 n8n 元数据，不启停正式 reader、不触发业务流程；证据位于 `D:/codex-artifacts/inventory-route-status-fix-20261018/chain-status-evidence.json`。
 
 目录新增 `JdLogisticsDaily2026` 和 `TmallWarehouseDaily2026`，使用事业部/货主库存主体，复用原矩阵。完整手动成功要求原手动入口、所有权门禁、京东 A/B/C/D 或天猫 A/B/C 及成功释放均执行成功；精确匹配库存模板的独立错误输出模式，仍拒绝任何实际错误、局部执行、缺回查或缺成功释放。n8n 执行状态与实际库存批次结果仍分开判断。
 
@@ -36,3 +36,7 @@
 ## 交付边界
 
 本轮未授权生产上线、启停服务、真实下载/导入、启用工作流或发送通知。代码验证、合并推送、原生制品准备及实际采用分别记录；合并或准备不代表已上线。
+
+独立审查请求 `gpt-6.1-sol / high`（工具未另行返回实际底层模型），新上下文直接核对差异、工作流模板、权限/失败边界和封包逻辑，独立复跑上述 22 项 Node、26 项 Django 全通过，无阻断；补读本报告确认推断边界一致。相关执行和审查均按当前模型分工规范派工。
+
+从生产来源 `19db6d2c` 到本次代码的完整 Git 差异范围计划为 Worker + Django，无 migration；生成目录工具和共享运行库使计划采用完整组件流程，验证仅围绕实际改动与直接依赖。部署前沿用原生准入与恢复流程，不重放未知操作；本任务不授权库存补跑或数据写入。
