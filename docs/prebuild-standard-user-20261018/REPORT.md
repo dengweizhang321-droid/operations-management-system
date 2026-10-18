@@ -29,6 +29,10 @@ Task Scheduler 唤醒成功不表示制品完成；原 queue ticket、dispatch�
 - 私有精确闭合与 Task 定向验证 9 项通过，包括已有原生标记、前驱变化、原件篡改，以及真实多层编码命令中的迟到进程均拒绝闭合。没有进行正式构建、服务或业务操作。
 - 原失败日志保留：Task Scheduler 对 UserId 的账号名规范化及 PowerShell 原生调用隐式补回 `PSModulePath` 的初次测试失败，与更正后的通过证据分开。源码/证据在 `D:/codex-artifacts/prebuild-standard-user-20261018/`，最终候选兼容结果单列。
 
+最终候选测试另外发现并修正两处直接边界：PowerShell 模块夹具由目录名猜测改为读取实际 Core 模块声明，仍要求原 PS5 真实失败、受控 runner 真实成功及异常退出拒绝；Task 的 `RunEx` 在传 SID 时同时设置 `TASK_RUN_USE_SESSION_ID | TASK_RUN_USER_SID`。同一受控环境对照中，旧 flags=4 重新复现普通进程二次唤醒缺失，新 flags=12 通过，未增加期限或自动重试。原 `0xC0000142` 失败与修正后证据分开保存，不将其概括为所有同错误码的原因。
+
+已无冲突整合主线的准备复用、发布队列 lease、维护前置与 Pi 变更；本任务验证以最终主线基准和本任务完整差异为范围，不覆盖或重写其他任务的业务验收结论。
+
 源码、控制入口材料准备、控制入口采用、原 dispatch 续接、最终 main 制品准备与应用上线分别报告。不用控制入口安装成功代替应用已上线。
 
 方案咨询请求 `gpt-6-astra / high`，实现与独立关键审查请求 `gpt-6.1-sol / high`；调用工具未额外返回可独立核验的底层模型。方案角色不承担编码或生产操作。
@@ -39,3 +43,5 @@ Task Scheduler 唤醒成功不表示制品完成；原 queue ticket、dispatch�
 - [InteractiveToken 登录类型](https://learn.microsoft.com/en-us/windows/win32/taskschd/principal-logontype)
 - [多实例策略](https://learn.microsoft.com/en-us/windows/win32/taskschd/tasksettings-multipleinstances)
 - [RunEx 唤醒行为](https://learn.microsoft.com/en-us/windows/win32/api/taskschd/nf-taskschd-iregisteredtask-runex)
+- [Task Run 标志位](https://learn.microsoft.com/en-us/windows/win32/api/taskschd/ne-taskschd-task_run_flags)
+- [SchRpcRun 的 SID / 账号名合同](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-tsch/77f2250d-500a-40ee-be18-c82f7079c4f0)

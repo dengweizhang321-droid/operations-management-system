@@ -41,10 +41,11 @@ export async function installPreparationTask(spec,oldSpec,{resume=false}={}){
  await taskPowerShell(taskPrelude+`$d=$s.NewTask(0);$d.Principal.UserId=$v.sid;$d.Principal.LogonType=3;$d.Principal.RunLevel=0;$d.Settings.Enabled=$true;$d.Settings.AllowDemandStart=$true;$d.Settings.MultipleInstances=0;$d.Settings.ExecutionTimeLimit='PT0S';$d.Settings.DisallowStartIfOnBatteries=$false;$d.Settings.StopIfGoingOnBatteries=$false;$d.Settings.StartWhenAvailable=$false;$d.Settings.RunOnlyIfNetworkAvailable=$false;$d.Settings.Hidden=$true;$d.Settings.AllowHardTerminate=$false;$d.Settings.RunOnlyIfIdle=$false;$d.Settings.WakeToRun=$false;$d.Settings.RestartCount=0;$a=$d.Actions.Create(0);$a.Path=$v.definition.path;$a.Arguments=$v.definition.arguments;$a.WorkingDirectory=$v.definition.workingDirectory;[void]$folder.RegisterTaskDefinition($v.name,$d,6,$v.sid,$null,3);'true'`,spec);
  await assertPreparationTask(spec);
 }
+// USE_SESSION_ID (0x4) plus USER_SID (0x8): the user argument is a SID, not an account name.
 export async function wakePreparationTask(binding){
  const spec=binding.state.preparationTask;assert.ok(spec,'Ordinary-user preparation task has not been adopted');await assertPreparationTask(spec);
  const identity=await currentPreparationIdentity();assert.equal(identity.sid,spec.sid,'Preparation caller user changed');
- await taskPowerShell(taskPrelude+`$t=$folder.GetTask($v.spec.name);[void]$t.RunEx($null,4,$v.sessionId,$v.spec.sid);'true'`,{spec,sessionId:identity.sessionId});
+ await taskPowerShell(taskPrelude+`$t=$folder.GetTask($v.spec.name);[void]$t.RunEx($null,12,$v.sessionId,$v.spec.sid);'true'`,{spec,sessionId:identity.sessionId});
  return {status:'consumer-woken',sessionId:identity.sessionId,publicationPerformed:false};
 }
 
