@@ -8,7 +8,7 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 const execute=promisify(execFile),sha=raw=>createHash('sha256').update(raw).digest('hex');
 const root=path.dirname(fileURLToPath(import.meta.url)),intentFile=path.join(root,'RECOVERY-INTENT.json');
-const expectedRoot='D:\\codex-artifacts\\pi-inventory-erp-publish-20261018\\recovery-6dc-v1';
+const expectedRoot='D:\\codex-artifacts\\pi-inventory-erp-publish-20261018\\recovery-6dc-v2';
 export async function regularBytes(file){
  const before=await fs.lstat(file),componentStoreHost=path.resolve(file).toLowerCase()===path.resolve('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe').toLowerCase();
  // Windows owns two normal component-store hardlinks to its PS5 executable.
@@ -36,6 +36,10 @@ export async function atomicCatalog({catalogFile,previousSha256,receipt,receiptF
  assert.equal(sha(await regularBytes(catalogFile)),sha(raw),'Catalog readback differs');return {status:'bound',sha256:sha(raw)};
 }
 
+export async function assertFrozenSource(source,git,identity){
+ const actual={commit:await git(source,['rev-parse','HEAD']),tree:await git(source,['rev-parse','HEAD^{tree}']),status:await git(source,['status','--porcelain'])};
+ assert.deepEqual(actual,{commit:identity.commit,tree:identity.tree,status:''},'Frozen authorized source changed');
+}
 export async function main(args=process.argv.slice(2)){
  assert.equal(path.resolve(root).toLowerCase(),expectedRoot.toLowerCase(),'Operator moved from its sealed directory');
  assert.equal(args.length,2);const [mode,intentSha256]=args;assert.ok(['execute','catalog-only'].includes(mode));assert.match(intentSha256??'',/^[a-f0-9]{64}$/);
@@ -66,8 +70,7 @@ export async function main(args=process.argv.slice(2)){
   for(const [name,digest]of Object.entries(manifest.code))await pinned(path.join(root,name),digest);
   for(const [file,digest]of Object.entries(manifest.native))await pinned(file,digest);
   for(const [logical,physical]of Object.entries(manifest.aliases))assert.equal((await fs.realpath(logical)).toLowerCase(),physical.toLowerCase(),'Prepared dependency alias changed');
-  assert.equal(await git(source,['rev-parse','HEAD']),identity.commit);assert.equal(await git(source,['rev-parse','HEAD^{tree}']),identity.tree);assert.equal(await git(source,['status','--porcelain']),'');
-  assert.equal(await git(config.repository,['rev-parse','refs/remotes/origin/main']),identity.commit,'Observed main changed');
+  await assertFrozenSource(source,git,identity);
   const request=JSON.parse(await regularBytes(facts.requestFile));assert.equal(request.mainCommit,identity.commit);assert.equal(request.migrate,false);assert.deepEqual(request.components,['worker','django']);
   const prepared=JSON.parse(await regularBytes(facts.preparedFile));assert.equal(prepared.requestSha256,facts.requestSha256);assert.equal(prepared.workerPlan.planSha256,identity.plan);assert.equal(prepared.djangoPackage.id,identity.preparedId);assert.equal(prepared.djangoPackage.receiptSha256,identity.preparedSha);
   const verified=JSON.parse(await regularBytes(facts.verifyPreparedResultFile)),verifiedProcess=JSON.parse(await regularBytes(facts.verifyPreparedProcessFile));assert.equal(verified.value.status,'prepared_verified');assert.equal(verified.value.id,identity.preparedId);assert.equal(verifiedProcess.processEvidence.exitCode,0);assert.equal(verifiedProcess.processEvidence.code,'completed');
