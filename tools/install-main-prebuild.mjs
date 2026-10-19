@@ -34,18 +34,44 @@ export async function validateDependencyUpdate(update,receipt,config,configSha25
  assert.match(receipt.modulesLockSha256??'',/^[a-f0-9]{64}$/);assert.equal(sha(await bytes(path.join(directory,'.package-lock.json'))),receipt.modulesLockSha256,'Prepared dependency inventory changed');
  return {...config,dependenciesDirectory:directory,cacheLockSha256:update.cacheLockSha256};
 }
-export async function prepareControlUpgrade({configFile,out,sourceRoot=source,dependencyUpdateFile}={}){
+// One reviewed compatibility closure, derived from the installed native tools.
+// No other main changes or application/runtime files are adopted by this gate.
+export const codeOnlyNativeToolsPins=Object.freeze({
+ 'tools/worker-local-release.mjs':Object.freeze({before:'0f2d229f58b988dc9591699e0d73362ad1f1f8df5367e19844d82d931a99c108',after:'aa1be03ebde6fc5b5f9a50fc986a12756ba8eda69e0549ef111f23d5b9439bd2'}),
+ 'tools/worker-local-release-rotation.mjs':Object.freeze({before:'7dd49103f5b672dae484d3b5e70207d6644657701a5b6be23c85203cad62b72f',after:'5c265b55c0d738c9785809fdf56c72b72160d6814141d2b21c5149740c3c54fb'}),
+ 'tools/d1-retirement-proof.mjs':Object.freeze({before:'87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76',after:'87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76'}),
+});
+export async function validateNativeToolsUpdate(update,config,configSha256){
+ assert.deepEqual(Object.keys(update).sort(),['version','oldConfigSha256','nativeToolsSource'].sort());
+ assert.equal(update.version,'teruisi-code-only-native-tools-update-v1');assert.equal(update.oldConfigSha256,configSha256,'Native tools update predecessor changed');
+ assert.equal(path.resolve(config.nativeToolsSource),path.resolve(config.stateDirectory,'source'),'Native tools predecessor source changed');
+ const files=Object.fromEntries(Object.entries(codeOnlyNativeToolsPins).map(([name,pin])=>[name,pin.after]));
+ const root=path.resolve(update.nativeToolsSource),expected=path.resolve(config.stateDirectory,'native-tools',sha(Buffer.from(canonical(files))));
+ assert.equal(root,expected,'Native tools must use the exact immutable closure path');
+ assert.equal(path.resolve(await fs.realpath(root)),root,'Native tool closure is redirected');
+ assert.deepEqual((await fs.readdir(root)).sort(),['tools']);
+ assert.equal(path.resolve(await fs.realpath(path.join(root,'tools'))),path.join(root,'tools'),'Native tools directory is redirected');
+ assert.deepEqual((await fs.readdir(path.join(root,'tools'))).sort(),Object.keys(files).map(name=>name.slice(6)).sort(),'Native closure member set changed');
+ for(const [name,pin] of Object.entries(codeOnlyNativeToolsPins)){
+  assert.equal(sha(await bytes(path.join(config.nativeToolsSource,...name.split('/')))),pin.before,'Native tools predecessor bytes changed');
+  assert.equal(sha(await bytes(path.join(root,...name.split('/')))),pin.after,'Native tools candidate bytes changed');
+ }
+ return {...config,nativeToolsSource:root};
+}
+export async function prepareControlUpgrade({configFile,out,sourceRoot=source,dependencyUpdateFile,nativeToolsUpdateFile}={}){
  assert.ok(path.isAbsolute(configFile??'')&&path.isAbsolute(out??''));assert.equal(await git(sourceRoot,['status','--porcelain']),'','Control source must be frozen and clean');
- const configRaw=await bytes(configFile);let config={...JSON.parse(configRaw)},dependencyUpdateRaw,dependencyReceiptRaw;
+ assert.ok(!(dependencyUpdateFile&&nativeToolsUpdateFile),'Dependency and native tools updates must be separate exact intents');
+ const configRaw=await bytes(configFile);let config={...JSON.parse(configRaw)},dependencyUpdateRaw,dependencyReceiptRaw,nativeToolsUpdateRaw;
  if(dependencyUpdateFile){
   dependencyUpdateRaw=await bytes(path.resolve(dependencyUpdateFile));const update=JSON.parse(dependencyUpdateRaw);
   dependencyReceiptRaw=await bytes(path.resolve(update.receiptPath));assert.equal(sha(dependencyReceiptRaw),update.receiptSha256,'Dependency receipt changed');
   config=await validateDependencyUpdate(update,JSON.parse(dependencyReceiptRaw),config,sha(configRaw));
  }
- const dependencyOnlyConfig=dependencyUpdateRaw?{...config}:null;
+ if(nativeToolsUpdateFile){nativeToolsUpdateRaw=await bytes(path.resolve(nativeToolsUpdateFile));config=await validateNativeToolsUpdate(JSON.parse(nativeToolsUpdateRaw),config,sha(configRaw));}
+ const updateOnlyConfig=(dependencyUpdateRaw||nativeToolsUpdateRaw)?{...config}:null;
  const executable=(await execute('C:/Windows/System32/where.exe',['git.exe'],{encoding:'utf8',windowsHide:true})).stdout.trim().split(/\r?\n/)[0];
  config.gitDirectory=path.dirname(executable);config.publisherBaseEnvironment=publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment);config.controlProtocol='teruisi-main-control-v2';
- if(dependencyOnlyConfig)assert.deepEqual(config,dependencyOnlyConfig,'Dependency update cannot change other publisher configuration');
+ if(updateOnlyConfig)assert.deepEqual(config,updateOnlyConfig,'Exact update cannot change other publisher configuration');
  let custom='';try{custom=await git(config.repository,['config','--get','core.hooksPath']);}catch(error){if(error.code!==1)throw error;}assert.equal(custom,'','Custom hooksPath cannot be overwritten');
  const common=await git(config.repository,['rev-parse','--path-format=absolute','--git-common-dir']),hook=path.join(common,'hooks/reference-transaction'),oldHook=await exists(hook)?await bytes(hook):null;
  assert.ok(!oldHook||/^#!\/bin\/sh\r?\n# TERUISI main-prebuild v[12]:/.test(oldHook.toString()),'Third-party reference hook cannot be overwritten');
@@ -54,6 +80,7 @@ export async function prepareControlUpgrade({configFile,out,sourceRoot=source,de
  await nativeOperationBindings(config.releaseDirectory??path.join(config.stateDirectory,'unused'));
  await fs.mkdir(out,{recursive:false});await fs.mkdir(path.join(out,'bundle/tools'),{recursive:true});const files={};
  if(dependencyUpdateRaw){await fs.writeFile(path.join(out,'DEPENDENCY-UPDATE.json'),dependencyUpdateRaw,{flag:'wx'});await fs.writeFile(path.join(out,'DEPENDENCIES.json'),dependencyReceiptRaw,{flag:'wx'});await fs.writeFile(path.join(out,'DEPENDENCY-OLD-CONFIG.json'),configRaw,{flag:'wx'});}
+ if(nativeToolsUpdateRaw){await fs.writeFile(path.join(out,'NATIVE-TOOLS-UPDATE.json'),nativeToolsUpdateRaw,{flag:'wx'});await fs.writeFile(path.join(out,'NATIVE-TOOLS-OLD-CONFIG.json'),configRaw,{flag:'wx'});}
  for(const name of controlFiles){const raw=await bytes(path.join(sourceRoot,'tools',name));files['tools/'+name]=sha(raw);await fs.writeFile(path.join(out,'bundle/tools',name),raw,{flag:'wx'});}
  const bundleSha256=sha(Buffer.from(canonical(files))),bundleRoot=path.join(config.stateDirectory,'control-bundles',bundleSha256);
  const manifest={version:'teruisi-main-control-bundle-v2',bundleSha256,sourceCommit:await git(sourceRoot,['rev-parse','HEAD']),sourceTree:await git(sourceRoot,['rev-parse','HEAD^{tree}']),files};
@@ -70,7 +97,7 @@ export async function prepareControlUpgrade({configFile,out,sourceRoot=source,de
  for(const [name,raw] of [['CONFIG.json',configNew],['HOOK',finalHook],['BRIDGE-HOOK',bridgeHook],['SHIM.mjs',shim]])await fs.writeFile(path.join(out,name),raw,{flag:'wx'});
  const installId=randomUUID(),intent={version:'teruisi-main-control-upgrade-v2',installId,configFile:path.resolve(configFile),stateDirectory:path.resolve(config.stateDirectory),repository:config.repository,bundleRoot,bundleSha256,bundleManifestSha256,
   preparationTask,oldPreparationTask,sourceCommit:manifest.sourceCommit,sourceTree:manifest.sourceTree,dispatcher,dispatcherSha256:sha(shim),hook,hookSha256:sha(finalHook),bridgeHookSha256:sha(bridgeHook),configSha256:sha(configNew),
-  old:{dispatcher:await hashOrMissing(dispatcher),hook:oldHook?sha(oldHook):null,config:sha(configRaw),installation:await hashOrMissing(path.join(config.stateDirectory,'CONTROL-INSTALLATION.json'))},...(dependencyUpdateRaw?{dependencyUpdateSha256:sha(dependencyUpdateRaw)}:{}),preparedAt:new Date().toISOString()};
+  old:{dispatcher:await hashOrMissing(dispatcher),hook:oldHook?sha(oldHook):null,config:sha(configRaw),installation:await hashOrMissing(path.join(config.stateDirectory,'CONTROL-INSTALLATION.json'))},...(dependencyUpdateRaw?{dependencyUpdateSha256:sha(dependencyUpdateRaw)}:{}),...(nativeToolsUpdateRaw?{nativeToolsUpdateSha256:sha(nativeToolsUpdateRaw)}:{}),preparedAt:new Date().toISOString()};
  const intentSha256=await durableCreate(path.join(out,'INTENT.json'),intent);
  await durableCreate(path.join(out,'PREPARED.json'),{version:'teruisi-main-control-upgrade-prepared-v2',installId,intentSha256,bundleManifestSha256,adoptionPerformed:false});
  return {status:'bundle-prepared',directory:out,installId,intentSha256,bundleManifestSha256,adoptionPerformed:false};
@@ -87,6 +114,13 @@ async function readMaterials(directory){
   const previousRaw=await bytes(path.join(directory,'DEPENDENCY-OLD-CONFIG.json'));assert.equal(sha(previousRaw),intent.old.config,'Archived dependency predecessor changed');
   const expected=await validateDependencyUpdate(update,JSON.parse(receiptRaw),JSON.parse(previousRaw),intent.old.config);
   assert.deepEqual(config,expected,'Dependency material changed unrelated publisher configuration');
+ }
+ if(intent.nativeToolsUpdateSha256){
+  assert.equal(intent.dependencyUpdateSha256,undefined,'Mixed native/dependency update intent refused');
+  const updateRaw=await bytes(path.join(directory,'NATIVE-TOOLS-UPDATE.json'));assert.equal(sha(updateRaw),intent.nativeToolsUpdateSha256);
+  const previousRaw=await bytes(path.join(directory,'NATIVE-TOOLS-OLD-CONFIG.json'));assert.equal(sha(previousRaw),intent.old.config,'Native tools predecessor archive changed');
+  const expected=await validateNativeToolsUpdate(JSON.parse(updateRaw),JSON.parse(previousRaw),intent.old.config);
+  assert.deepEqual(config,expected,'Native tools material changed unrelated publisher configuration');
  }
  assert.equal(path.resolve(config.stateDirectory),path.resolve(intent.stateDirectory));assert.equal(config.repository,intent.repository);
  assert.equal(path.resolve(intent.configFile),path.resolve(intent.stateDirectory,'main-publisher-config.json'));
@@ -175,7 +209,7 @@ async function adoptControlUpgradeInternal({directory,resume=false,timeoutMs=300
  };
  await assertInstallationCas();
  const target=path.join(intent.stateDirectory,'control-upgrades',intent.installId);await fs.mkdir(target,{recursive:true});
- for(const name of ['INTENT.json','PREPARED.json']){const raw=await bytes(path.join(directory,name)),destination=path.join(target,name);if(await exists(destination))assert.equal(sha(await bytes(destination)),sha(raw));else await fs.writeFile(destination,raw,{flag:'wx'});}
+ for(const name of ['INTENT.json','PREPARED.json',...(intent.nativeToolsUpdateSha256?['NATIVE-TOOLS-UPDATE.json','NATIVE-TOOLS-OLD-CONFIG.json']:[])]){const raw=await bytes(path.join(directory,name)),destination=path.join(target,name);if(await exists(destination))assert.equal(sha(await bytes(destination)),sha(raw));else await fs.writeFile(destination,raw,{flag:'wx'});}
  for(const [name,expected] of Object.entries(manifest.files)){const destination=path.join(intent.bundleRoot,...name.split('/'));await fs.mkdir(path.dirname(destination),{recursive:true});if(await exists(destination))assert.equal(sha(await bytes(destination)),expected,'Immutable bundle differs');else await fs.copyFile(path.join(directory,'bundle',...name.split('/')),destination,1);}
  const destManifest=path.join(intent.bundleRoot,'MANIFEST.json');if(await exists(destManifest))assert.equal(sha(await bytes(destManifest)),intent.bundleManifestSha256);else await fs.copyFile(path.join(directory,'bundle/MANIFEST.json'),destManifest,1);
  await onStage('S0');const deadlineUnixMs=Date.now()+Math.min(timeoutMs,1800000),policy={requestId:intentSha256,deadlineUnixMs},unlocks=[];
@@ -185,7 +219,7 @@ async function adoptControlUpgradeInternal({directory,resume=false,timeoutMs=300
   const either=async(file,allowed)=>assert.ok(allowed.includes(await hashOrMissing(file)),'Upgrade predecessor/step drift: '+file);
   await either(intent.dispatcher,[intent.old.dispatcher,...(resume?[intent.dispatcherSha256]:[])]);await either(intent.hook,[intent.old.hook,...(resume?[intent.bridgeHookSha256,intent.hookSha256]:[])]);await either(intent.configFile,[intent.old.config,...(resume?[intent.configSha256]:[])]);
   await assertInstallationCas();
-  if(intent.dependencyUpdateSha256)assert.equal((await readMaterials(directory)).intentSha256,intentSha256,'Dependency materials changed under installation locks');
+  if(intent.dependencyUpdateSha256||intent.nativeToolsUpdateSha256)assert.equal((await readMaterials(directory)).intentSha256,intentSha256,'Exact update materials changed under installation locks');
   await onStage('S1');await atomic(intent.hook,await bytes(path.join(directory,'BRIDGE-HOOK')));await onStage('S1a');
   await atomic(intent.dispatcher,await bytes(path.join(directory,'SHIM.mjs')));await onStage('S2');
   await assertInstallationCas();
@@ -200,7 +234,7 @@ async function adoptControlUpgradeInternal({directory,resume=false,timeoutMs=300
   await assertOwnInstalling();
   for(const [file,expected] of [[intent.dispatcher,intent.dispatcherSha256],[intent.hook,intent.hookSha256],[intent.configFile,intent.configSha256]])assert.equal(await hashOrMissing(file),expected);
   for(const [name,expected] of Object.entries(manifest.files))assert.equal(await hashOrMissing(path.join(intent.bundleRoot,...name.split('/'))),expected);await onStage('S5');
-  if(intent.dependencyUpdateSha256)assert.equal((await readMaterials(directory)).intentSha256,intentSha256,'Dependency materials changed before adoption');
+  if(intent.dependencyUpdateSha256||intent.nativeToolsUpdateSha256)assert.equal((await readMaterials(directory)).intentSha256,intentSha256,'Exact update materials changed before adoption');
   await installPreparationTask(intent.preparationTask,intent.oldPreparationTask,{resume});await onStage('TASK');
   const proof={version:'teruisi-main-control-transition-v2',installId:intent.installId,intentSha256,lockOrder:['v1-queue','v2-queue','native-rotation'],privateTestTopology:privateRotationPipe!==undefined,rotationPipeSha256:sha(privateRotationPipe??'\\\\.\\pipe\\TERUISI.Worker.ReleaseRotation.v1'),frames,legacyWindowConverged:true,productionDeploymentPerformed:false};
   const proofFile=path.join(target,'TRANSITION-'+randomUUID()+'.json');await durableCreate(proofFile,proof);
@@ -210,5 +244,5 @@ async function adoptControlUpgradeInternal({directory,resume=false,timeoutMs=300
   return {status:'adopted',installId:intent.installId,bundleSha256:intent.bundleSha256,adoptionPerformed:true,productionDeploymentPerformed:false};
  }finally{while(unlocks.length)await unlocks.pop()();}
 }
-async function main(){const {values}=parseArgs({options:{config:{type:'string'},out:{type:'string'},adopt:{type:'string'},resume:{type:'boolean'},'dependency-update':{type:'string'}}});assert.ok(!values.adopt||!values['dependency-update'],'Dependency updates must be sealed during material preparation');console.log(JSON.stringify(values.adopt?await adoptControlUpgrade({directory:path.resolve(values.adopt),resume:values.resume}):await prepareControlUpgrade({configFile:values.config,out:values.out,dependencyUpdateFile:values['dependency-update']})));}
+async function main(){const {values}=parseArgs({options:{config:{type:'string'},out:{type:'string'},adopt:{type:'string'},resume:{type:'boolean'},'dependency-update':{type:'string'},'native-tools-update':{type:'string'}}});assert.ok(!values.adopt||(!values['dependency-update']&&!values['native-tools-update']),'Exact updates must be sealed during material preparation');console.log(JSON.stringify(values.adopt?await adoptControlUpgrade({directory:path.resolve(values.adopt),resume:values.resume}):await prepareControlUpgrade({configFile:values.config,out:values.out,dependencyUpdateFile:values['dependency-update'],nativeToolsUpdateFile:values['native-tools-update']})));}
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))main().catch(error=>{console.error(error.message);process.exitCode=1;});

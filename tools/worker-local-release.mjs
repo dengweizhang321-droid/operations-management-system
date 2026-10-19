@@ -140,6 +140,7 @@ export const workerHelperPort = 5791;
 export const releaseVersion = "teruisi-local-worker-release-v1";
 export const verificationVersion = "teruisi-local-worker-release-verification-v1";
 export const contractReceiptVersion = "teruisi-sales-retired-code-receipt-v1";
+export const codeOnlyContractReceiptVersion = "teruisi-sales-retired-code-receipt-v2";
 export const helperReceiptVersion = "teruisi-worker-helper-build-receipt-v1";
 export const processReceiptVersion = "teruisi-local-worker-process-v1";
 export const supervisorPrelaunchVerificationReceiptVersion = "teruisi-local-worker-supervisor-prelaunch-verification-v1";
@@ -1329,7 +1330,7 @@ function validatePackageLock(packageJson, packageLock) {
   if (!packages["node_modules/vinext"]?.version) fail("package-lock 缺少 Vinext");
 }
 
-async function buildSalesRetiredCodeReceipt(sourceRoot, sourceFiles, sourceFingerprint, buildFingerprint, contractTests, createdAt) {
+async function buildSalesRetiredCodeReceipt(sourceRoot, sourceFiles, sourceFingerprint, buildFingerprint, validation, createdAt) {
   const sourceSet = new Set(sourceFiles);
   const legacyPathsAbsent = legacySalesSourcePaths.map((relativePath) => ({
     relativePath,
@@ -1380,11 +1381,13 @@ async function buildSalesRetiredCodeReceipt(sourceRoot, sourceFiles, sourceFinge
   }
 
   const core = {
-    version: contractReceiptVersion,
+    version: codeOnlyContractReceiptVersion,
     generatedAt: createdAt,
     sourceFingerprint,
     buildFingerprint,
-    status: "passed",
+    status: "code-checked",
+    codeOnly: true,
+    functionalValidationPerformed: false,
     checks: {
       legacySalesSourcePathsAbsent: true,
       salesRoutesUseDjango: true,
@@ -1399,9 +1402,22 @@ async function buildSalesRetiredCodeReceipt(sourceRoot, sourceFiles, sourceFinge
       retirementMigration: { relativePath: migrationPath, sha256: sha256Bytes(migration) },
       retirementOperator: { relativePath: operatorPath, sha256: sha256Bytes(operator), auditVersion: "sales-d1-retirement-v4" },
     },
-    contractTests,
+    codeChecks: validation,
   };
   return withPayloadSha256(core, "receiptPayloadSha256");
+}
+
+function requiredPublicationCodeChecks(sourceFingerprint, buildFingerprint, packageLockSha256, nodeVersion) {
+  return {
+    version: "teruisi-worker-required-code-checks-v1",
+    sourceFingerprint,
+    buildFingerprint,
+    packageLockSha256,
+    nodeVersion,
+    npmCiArguments: [...npmCiArguments],
+    buildCommand: ["node_modules/vinext/dist/cli.js", "build"],
+    sourceClosureVerified: true,
+  };
 }
 
 async function runSalesContractTests(buildRoot, sourceFingerprint, buildFingerprint) {
@@ -2051,12 +2067,13 @@ async function buildWorkerReleaseInternal({
       npmToolchain: npmToolchain.provenance,
     });
     detailStarted=Date.now();
-    const contractTests = await runSalesContractTests(buildRoot, sourceFingerprint, buildFingerprint);
-    buildTiming('原构建合约检查',detailStarted);
-    await assertIsolatedSourceClosure(buildRoot, sourceFiles, sourceTree, "sales contract tests 后的 source closure");
+    // npm ci, Vinext and the immutable helper build above are publication code
+    // checks. Business/SQLite simulations are deliberately not run or claimed.
+    const codeChecks = requiredPublicationCodeChecks(sourceFingerprint, buildFingerprint, packageLockSha256, process.version);
+    await assertIsolatedSourceClosure(buildRoot, sourceFiles, sourceTree, "必需代码构建后的 source closure");
     const createdAt = now.toISOString();
     const contractReceipt = await buildSalesRetiredCodeReceipt(
-      buildRoot, sourceFiles, sourceFingerprint, buildFingerprint, contractTests, createdAt,
+      buildRoot, sourceFiles, sourceFingerprint, buildFingerprint, codeChecks, createdAt,
     );
     const activationFence = workerReleaseActivationFence({ createdAt, sourceFingerprint, buildFingerprint });
     await mkdir(path.join(buildRoot, path.dirname(activationFenceRelativePath)), { recursive: true });
@@ -2173,7 +2190,7 @@ async function buildWorkerReleaseInternal({
       artifacts: {
         keyFiles,
         contractReceipt: {
-          version: contractReceiptVersion,
+          version: contractReceipt.version,
           relativePath: contractRelativePath,
           sha256: contractReceiptSha256,
         },
@@ -3048,7 +3065,7 @@ async function verifyWorkerReleaseInternal({
   if (!candidateVerifier || candidateVerifier.sha256 !== trustedVerifierSha256) fail("candidate Worker verifier key-file 绑定无效");
   const contract = manifest.artifacts.contractReceipt;
   assertExactKeys(contract, ["version", "relativePath", "sha256"], "contract receipt pointer");
-  if (contract.version !== contractReceiptVersion || contract.relativePath !== "audit/sales-retired-code-receipt.json" || !hex64.test(contract.sha256)) {
+  if (![contractReceiptVersion, codeOnlyContractReceiptVersion].includes(contract.version) || contract.relativePath !== "audit/sales-retired-code-receipt.json" || !hex64.test(contract.sha256)) {
     fail("contract receipt pointer 无效");
   }
   const contractPath = path.join(releaseRoot, ...contract.relativePath.split("/"));
@@ -3056,12 +3073,14 @@ async function verifyWorkerReleaseInternal({
   const contractRead = await readCanonicalJson(contractPath, "sales retired code receipt");
   if (contractRead.sha256 !== contract.sha256) fail("contract receipt 原始文件哈希无效");
   const receipt = contractRead.value;
+  const codeOnly = contract.version === codeOnlyContractReceiptVersion;
   assertExactKeys(receipt, [
-    "version", "generatedAt", "sourceFingerprint", "buildFingerprint", "status", "checks", "evidence", "contractTests", "receiptPayloadSha256",
+    "version", "generatedAt", "sourceFingerprint", "buildFingerprint", "status", "checks", "evidence", "receiptPayloadSha256",
+    ...(codeOnly ? ["codeOnly", "functionalValidationPerformed", "codeChecks"] : ["contractTests"]),
   ], "sales retired code receipt");
   validatePayloadSha(receipt, "receiptPayloadSha256", "sales retired code receipt");
-  if (receipt.version !== contractReceiptVersion || receipt.sourceFingerprint !== manifest.source.sourceFingerprint
-    || receipt.buildFingerprint !== manifest.build.buildFingerprint || receipt.status !== "passed") {
+  if (receipt.version !== contract.version || receipt.sourceFingerprint !== manifest.source.sourceFingerprint
+    || receipt.buildFingerprint !== manifest.build.buildFingerprint || receipt.status !== (codeOnly ? "code-checked" : "passed")) {
     fail("sales retired code receipt 身份无效");
   }
   if (requireSalesRetiredCodeReceipt) {
@@ -3082,7 +3101,20 @@ async function verifyWorkerReleaseInternal({
     || receipt.evidence.retirementOperator.auditVersion !== "sales-d1-retirement-v4"
     || sha256Bytes(await readFile(path.join(releaseRoot, manifest.source.snapshotRoot, "tools", "sales-d1-retirement.ts")))
       !== receipt.evidence.retirementOperator.sha256) fail("sales retirement operator v4 未绑定到 source snapshot");
-  await validateContractTests(receipt.contractTests, manifest, releaseRoot);
+  if (codeOnly) {
+    if (receipt.codeOnly !== true || receipt.functionalValidationPerformed !== false || receipt.generatedAt !== manifest.createdAt) {
+      fail("code-only receipt 必须明确未执行功能验证并绑定构建时间");
+    }
+    const expectedChecks = requiredPublicationCodeChecks(manifest.source.sourceFingerprint, manifest.build.buildFingerprint,
+      manifest.source.packageLockSha256, manifest.build.nodeVersion);
+    assertExactKeys(receipt.codeChecks, Object.keys(expectedChecks), "required publication code checks");
+    if (canonicalJson(receipt.codeChecks) !== canonicalJson(expectedChecks)) fail("code-only receipt 未绑定必需构建闭包");
+    const expectedReceipt = await buildSalesRetiredCodeReceipt(sourceSnapshotRoot, await listRegularTreeFiles(sourceSnapshotRoot),
+      manifest.source.sourceFingerprint, manifest.build.buildFingerprint, expectedChecks, manifest.createdAt);
+    if (canonicalJson(receipt) !== canonicalJson(expectedReceipt)) fail("code-only receipt 静态代码证据与精确源快照不一致");
+  } else {
+    await validateContractTests(receipt.contractTests, manifest, releaseRoot);
+  }
   const guardValidation = await validateGuardReceipt(manifest, releaseRoot);
   await validateActivationFence(manifest, releaseRoot, guardValidation.receipt);
   await validateHelperReceipt(manifest, releaseRoot);

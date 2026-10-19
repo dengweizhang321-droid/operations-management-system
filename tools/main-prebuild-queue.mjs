@@ -143,7 +143,7 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
       const original=tickets.find(t=>t.value.requestId===ref.requestId);assert.ok(original&&original.sha256===ref.ticketSha256,'Dispatch ticket binding changed');
       const terminal=await ticketResult(directory,ref.requestId,ref.ticketSha256);
       if(!terminal||['unknown','failed','blocked'].includes(terminal.status)){
-       if(!terminal||(!await readFixedAdminRejectionResolution(directory,dispatch,terminal)&&!await readFixedSchemaRejectionResolution(directory,dispatch,terminal)&&!await readFixedCacheRejectionResolution(directory,dispatch,terminal)&&!await readFixedNativeAbandonmentResolution(directory,dispatch,terminal)&&!await readFixedCleanedPreparationResolution(directory,dispatch,terminal)))unresolved={dispatch,sha256:read.sha256};
+       if(!terminal||(!await readFixedAdminRejectionResolution(directory,dispatch,terminal)&&!await readFixedSchemaRejectionResolution(directory,dispatch,terminal)&&!await readFixedCacheRejectionResolution(directory,dispatch,terminal)&&!await readFixedNativeAbandonmentResolution(directory,dispatch,terminal)&&!await readFixedCleanedPreparationResolution(directory,dispatch,terminal)&&!await readFixedStoppedNpmPreparationResolution(directory,dispatch,terminal)))unresolved={dispatch,sha256:read.sha256};
       }
      }
     }
@@ -157,7 +157,7 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
     try{await admitPreparation();}
     catch(error){for(const item of pending)await finish(item,'blocked',{admission:'ordinary-user-before-dispatch-v1',error:String(error.message)});break;}
     let selection;
-    try{await onStage('before-observe');selection=await observe();await onStage('after-observe');await admitSelectedPreparation(selection);assertFixedNativeNoReplay(directory,selection);assertFixedCleanedNoReplay(directory,selection);}
+    try{await onStage('before-observe');selection=await observe();await onStage('after-observe');await admitSelectedPreparation(selection);assertFixedNativeNoReplay(directory,selection);assertFixedCleanedNoReplay(directory,selection);assertFixedStoppedNpmNoReplay(directory,selection);}
     catch(error){for(const item of pending)await finish(item,'failed',{error:String(error.message)});continue;}
     assert.ok(commit.test(selection.targetCommit)&&selection.live&&commit.test(selection.live.mainCommit));
     assert.ok(selection.live.head&&hex.test(selection.live.head.bindingSha256)&&hex.test(selection.live.djangoManifestSha256)&&hex.test(selection.live.chainStateSha256),'Observed predecessor is incomplete');
@@ -1199,3 +1199,170 @@ export async function writeFixedCleanedPreparationResolution({sourceRoot,out,obs
  }finally{try{await releaseRotation?.();}finally{await releaseQueue();}}
 }
 // FIXED_CLEANED_4AAC_END
+
+
+// FIXED_STOPPED_NPM_F052_BEGIN: one stopped preparation, never a replay permit.
+export const fixedStoppedNpmPreparation=Object.freeze({
+ version:'teruisi-stopped-npm-preparation-f052-v1',
+ decision:'native-worker-preparation-stopped-at-npm-before-contract-tests',
+ state:'D:/codex-isolated/main-manual-release-20261016',
+ packet:'D:/codex-isolated/main-release-packages/a396a7b10930-bcccc8cd-00058fea',
+ target:'a396a7b10930af4e4eaf4db06bf7217748463b48',tree:'b60b42c802791dad880ec2bd3540f232b203ae35',
+ requestId:'d2990829-9621-4495-a2fc-0d777dfe94ee',dispatchId:'f05223b2-d089-4c4a-9702-fd6fbfaa024d',
+ ticketSha256:'39d58e8661489101829ed83b450a0288eceb14e6103105efbc1f18d3a4587fa7',
+ dispatchSha256:'2fac5ac64a5accd3f1f8ddeb3be78998d1feb3641de7df1c78da62bc15113233',
+ resultSha256:'bb965f1f291e7981b9c374147d09cd9edb4f7e60aee50375ed30718e85ad5d21',
+ oldConfigSha256:'9879162ff8955bc616f457ad66a3817a53a92e2e8358c6c40dd87846d7188c58',
+ oldInstallationSha256:'cecec8817bc3f0a3baf3a4bc5cefa6761341829b832dfedc12012ef40395d3c0',
+ oldBundle:'129677e53ce6ef916f07de0df7af234b30befc93876631e10177d49013eb1405',
+ nativeToolsSource:'D:/codex-isolated/main-manual-release-20261016/native-tools/65dcc585b16e7fd1db5fde4648dec81a114df00e1e5c578976e82bcac854414e'
+});
+const stoppedNpmPins=Object.freeze({
+ "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\d2990829-9621-4495-a2fc-0d777dfe94ee.json": "39d58e8661489101829ed83b450a0288eceb14e6103105efbc1f18d3a4587fa7",
+ "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\f05223b2-d089-4c4a-9702-fd6fbfaa024d.json": "2fac5ac64a5accd3f1f8ddeb3be78998d1feb3641de7df1c78da62bc15113233",
+ "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\d2990829-9621-4495-a2fc-0d777dfe94ee.json": "bb965f1f291e7981b9c374147d09cd9edb4f7e60aee50375ed30718e85ad5d21",
+ "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea\\main-release-request.json": "2b0cccebf503d4e42b63a63d5bf19bfe0b8af94018cc46aacaee1683306cef9f",
+ "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea\\release-scope-plan.json": "085d280bf68fd26fe9092236b14281687d19d2d7ff64ae36ccbaa6d3f211372c",
+ "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea\\schema\\ai-0086-evidence.json": "2157de2dbfc9172371e8bf49394b593d56bb5212e4834d7e210cb2b144f3fcd2",
+ "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea\\publish-a396a7b10930\\preparation\\PREPARING.json": "6c9c65c8ac10a4f3cc541fd8e0228570016facd9107f542391a1a2a9d38b26ec",
+ "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea\\publish-a396a7b10930\\preparation\\source-binding.json": "a6e210a4098eab8f74214b4b34e82ac34dc280171c245866783e1c72cb0d0d7d",
+ "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea\\logs\\release-2026-10-19T15-56-55.571Z-e17425a4-7799-4655-9a8c-a465f8fcba7c.log": "f095778b7fe2da6bd65a41c9318fde9253f188a6c6cff43c57408d4107c2008d",
+ "D:\\codex-artifacts\\piagent-phase3-20261019\\OWN-PREPARATION-CANCEL.json": "0155c3aa28d0c2457e5e389e090405fe55a5e6fe8bd6328db7e4aca4f23ba12d",
+ "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea\\publish-a396a7b10930\\preparation\\FAILED-a5cd3395-9e6a-4f8b-bf39-9b9daeb354c8.json": "9e73bf27f06b21da24a7101b054cc707a150b42fcf50638ea4cf456afc381537",
+ "D:\\codex-isolated\\main-manual-release-20261016\\main-publisher-config.json": "9879162ff8955bc616f457ad66a3817a53a92e2e8358c6c40dd87846d7188c58",
+ "D:\\codex-isolated\\main-manual-release-20261016\\CONTROL-INSTALLATION.json": "cecec8817bc3f0a3baf3a4bc5cefa6761341829b832dfedc12012ef40395d3c0",
+ "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\129677e53ce6ef916f07de0df7af234b30befc93876631e10177d49013eb1405\\MANIFEST.json": "8c193342579dd3c406f4b8f222287c9d4cabee5f75961d12c703e6702cfa10fe",
+ "D:\\codex-isolated\\main-manual-release-20261016\\source\\tools\\worker-local-release.mjs": "0f2d229f58b988dc9591699e0d73362ad1f1f8df5367e19844d82d931a99c108",
+ "D:\\codex-isolated\\main-manual-release-20261016\\source\\tools\\worker-local-release-rotation.mjs": "7dd49103f5b672dae484d3b5e70207d6644657701a5b6be23c85203cad62b72f",
+ "D:\\codex-isolated\\main-manual-release-20261016\\source\\tools\\d1-retirement-proof.mjs": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76",
+ "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea\\source\\tools\\publish-main.mjs": "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+ "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea\\source\\tools\\publish-prepared-main.mjs": "76c60012aa83664220c60c0219d3780df1f33b27d23dad0afc908e6e4704e8d7",
+ "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea\\source\\tools\\worker-local-release.mjs": "dad4e7a1625c4d174541c81669b8c65c0e76bef43e723a87d014947cce362103",
+ "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea\\source\\tools\\worker-local-release-rotation.mjs": "8b3ec38f47c247c6b0d69c62ab0efb105f63cada945ec40cf7debe76f5ff35d7"
+});
+const stoppedNativeFiles=Object.freeze({
+ 'tools/worker-local-release.mjs':'aa1be03ebde6fc5b5f9a50fc986a12756ba8eda69e0549ef111f23d5b9439bd2',
+ 'tools/worker-local-release-rotation.mjs':'5c265b55c0d738c9785809fdf56c72b72160d6814141d2b21c5149740c3c54fb',
+ 'tools/d1-retirement-proof.mjs':'87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76'
+});
+const stoppedQueueRoot=path.resolve(fixedStoppedNpmPreparation.state,'prebuild-queue-v2');
+const stoppedPacket=path.resolve(fixedStoppedNpmPreparation.packet);
+const stoppedPreparation=path.join(stoppedPacket,'publish-a396a7b10930/preparation');
+const stoppedNames=['FAILED-a5cd3395-9e6a-4f8b-bf39-9b9daeb354c8.json','PREPARING.json','source-binding.json'];
+const stoppedActors=[50824,22800,52988,18644,60280];
+function stoppedFacts(value){
+ assert.equal(value.version,fixedStoppedNpmPreparation.version);assert.equal(value.decision,fixedStoppedNpmPreparation.decision);
+ assert.equal(value.nativePreparationStarted,true);assert.equal(value.prepared,false);assert.equal(value.publicationPerformed,false);assert.equal(value.retryOriginal,false);
+ assert.equal(value.functionalTestsExecuted,false);assert.equal(value.npmChildStopped,true);
+}
+async function stoppedPutObjects(directory,objects){
+ await fs.mkdir(directory,{recursive:true});for(const [digest,raw]of objects){assert.equal(sha(raw),digest);const file=path.join(directory,digest+'.bin');try{const h=await fs.open(file,'wx');try{await h.writeFile(raw);await h.sync();}finally{await h.close();}}catch(error){if(error.code!=='EEXIST')throw error;assert.deepEqual(await nativeRead(file),raw);}}
+}
+export async function captureFixedStoppedNpmOriginals(out){
+ await assertSchemaArtifactDirectory(out,{allowMissing:true});await fs.mkdir(out,{recursive:false});const objects=new Map();
+ for(const [file,expected]of Object.entries(stoppedNpmPins)){const raw=await nativeRead(file);assert.equal(sha(raw),expected,'Original stopped preparation changed');objects.set(expected,raw);}
+ await stoppedPutObjects(path.join(out,'objects'),objects);await durableCreate(path.join(out,'ORIGINALS.json'),{version:fixedStoppedNpmPreparation.version,files:stoppedNpmPins});
+ return {status:'originals-preserved',directory:out,originalsSha256:sha(await nativeRead(path.join(out,'ORIGINALS.json')))};
+}
+async function stoppedOriginals(archive,objects){
+ const refs=JSON.parse(await nativeRead(path.join(archive,'ORIGINALS.json')));assert.equal(refs.version,fixedStoppedNpmPreparation.version);assert.deepEqual(refs.files,stoppedNpmPins);
+ for(const [file,digest]of Object.entries(stoppedNpmPins)){const raw=await nativeRead(path.join(archive,'objects',digest+'.bin'));assert.equal(sha(raw),digest);objects.set(digest,raw);
+  if(file.startsWith(stoppedPacket+path.sep)||file.startsWith(stoppedQueueRoot+path.sep))assert.equal(sha(await nativeRead(file)),digest,'Original queue/packet evidence changed');}
+ const dispatch=JSON.parse(objects.get(fixedStoppedNpmPreparation.dispatchSha256)),terminal=JSON.parse(objects.get(fixedStoppedNpmPreparation.resultSha256));
+ validateDispatch(dispatch,fixedStoppedNpmPreparation.dispatchId+'.json');assert.equal(terminal.status,'unknown');assert.equal(dispatch.selectedTarget,fixedStoppedNpmPreparation.target);
+ const failed=JSON.parse(objects.get(Object.entries(stoppedNpmPins).find(([name])=>name.endsWith(stoppedNames[0]))[1]));
+ assert.equal(failed.mainCommit,fixedStoppedNpmPreparation.target);assert.equal(failed.maintenanceStarted,false);assert.equal(failed.automaticRetry,false);
+ assert.equal(failed.processEvidence.code,'nonzero_exit');assert.equal(failed.processEvidence.processId,52988);assert.equal(failed.processEvidence.exitCode,4294967295);assert.equal(failed.processEvidence.treeCleanupPending,false);
+ const source=JSON.parse(objects.get(Object.entries(stoppedNpmPins).find(([name])=>name.endsWith('source-binding.json'))[1]));
+ return {dispatch,terminal,source};
+}
+async function stoppedConfig(binding,objects){
+ const put=raw=>{objects.set(sha(raw),raw);return sha(raw);};const oldConfig=JSON.parse(objects.get(fixedStoppedNpmPreparation.oldConfigSha256));
+ const configRaw=await nativeRead(path.join(fixedStoppedNpmPreparation.state,'main-publisher-config.json'));assert.equal(sha(configRaw),binding.state.configSha256);const next=JSON.parse(configRaw);
+ const stripped=value=>{const copy={...value};delete copy.nativeToolsSource;return copy;};assert.deepEqual(stripped(next),stripped(oldConfig));assert.equal(path.resolve(next.nativeToolsSource),path.resolve(fixedStoppedNpmPreparation.nativeToolsSource));put(configRaw);
+ assert.deepEqual((await fs.readdir(next.nativeToolsSource)).sort(),['tools']);assert.deepEqual((await fs.readdir(path.join(next.nativeToolsSource,'tools'))).sort(),Object.keys(stoppedNativeFiles).map(name=>path.basename(name)).sort());
+ for(const [name,digest]of Object.entries(stoppedNativeFiles)){const raw=await nativeRead(path.join(next.nativeToolsSource,name));assert.equal(sha(raw),digest,'Corrected native closure changed');put(raw);}
+ const old=JSON.parse(objects.get(fixedStoppedNpmPreparation.oldInstallationSha256));assert.deepEqual(binding.state.preparationTask,old.preparationTask);assert.notEqual(binding.state.bundleSha256,old.bundleSha256);
+ const adoptedRaw=await nativeRead(path.join(fixedStoppedNpmPreparation.state,'CONTROL-INSTALLATION.json'));assert.equal(sha(adoptedRaw),binding.stateSha256);put(adoptedRaw);
+ const manifestRaw=await nativeRead(path.join(binding.bundleRoot,'MANIFEST.json'));assert.equal(sha(manifestRaw),binding.state.bundleManifestSha256);const manifest=JSON.parse(manifestRaw);assert.deepEqual(Object.keys(manifest.files).sort(),[...schemaControlNames,'tools/frozen-main-source.mjs'].sort());put(manifestRaw);
+ for(const [name,digest]of Object.entries(manifest.files)){const raw=await nativeRead(path.join(binding.bundleRoot,name));assert.equal(sha(raw),digest);put(raw);}
+ for(const [file,digest]of [[path.join(fixedStoppedNpmPreparation.state,'control-upgrades',binding.state.installId,'INTENT.json'),binding.state.intentSha256],[binding.state.transitionProofFile,binding.state.transitionProofSha256]]){const raw=await nativeRead(file);assert.equal(sha(raw),digest);put(raw);}
+ const adoptionIntent=JSON.parse(objects.get(binding.state.intentSha256));assert.equal(adoptionIntent.old.installation,fixedStoppedNpmPreparation.oldInstallationSha256);assert.equal(adoptionIntent.old.config,fixedStoppedNpmPreparation.oldConfigSha256);const updateRaw=await nativeRead(path.join(fixedStoppedNpmPreparation.state,'control-upgrades',binding.state.installId,'NATIVE-TOOLS-UPDATE.json'));assert.equal(sha(updateRaw),adoptionIntent.nativeToolsUpdateSha256);put(updateRaw);const update=JSON.parse(updateRaw);assert.deepEqual(Object.keys(update).sort(),['version','oldConfigSha256','nativeToolsSource'].sort());assert.equal(update.version,'teruisi-code-only-native-tools-update-v1');assert.equal(update.oldConfigSha256,fixedStoppedNpmPreparation.oldConfigSha256);assert.equal(path.resolve(update.nativeToolsSource),path.resolve(fixedStoppedNpmPreparation.nativeToolsSource));
+ const transition=JSON.parse(objects.get(binding.state.transitionProofSha256));assert.equal(transition.productionDeploymentPerformed,false);assert.equal(transition.legacyWindowConverged,true);assert.deepEqual(transition.lockOrder,['v1-queue','v2-queue','native-rotation']);
+ return {manifest,configSha256:put(configRaw),adoptionSha256:put(adoptedRaw)};
+}
+async function stoppedPacketAndMetadata(config,{objects=new Map()}={}){
+ await nativeDirectory(stoppedPacket);assert.deepEqual((await fs.readdir(path.join(stoppedPacket,'publish-a396a7b10930'))).sort(),['preparation']);
+ assert.deepEqual((await fs.readdir(stoppedPreparation)).sort(),stoppedNames);assert.deepEqual(await fs.readdir(path.join(stoppedPacket,'invocations')),[]);
+ const markers=[fixedStoppedNpmPreparation.target,stoppedPacket,sha(await nativeRead(path.join(stoppedPreparation,'source-binding.json')))];
+ const entries=[],put=raw=>{objects.set(sha(raw),raw);return sha(raw);};let count=0;
+ const inspect=async file=>{if(++count>2048)throw Error('Bounded native metadata inventory exceeded');const raw=await nativeRead(file);assert.ok(raw.length<=1024*1024,'Metadata exceeds bound');JSON.parse(raw);const text=nativeNormalize(raw.toString('utf8'));for(const marker of markers)assert.equal(text.includes(nativeNormalize(marker)),false,'Late plan/publication references stopped preparation');entries.push({path:file,sha256:put(raw)});};
+ for(const domain of nativeStateDomains){const directory=path.join(nativeWorkerRoot,'state',domain);await nativeDirectory(directory);const names=await fs.readdir(directory,{withFileTypes:true});assert.ok(names.length<=1024);for(const item of names){assert.equal(item.isSymbolicLink(),false);if(item.isFile()&&item.name.endsWith('.json'))await inspect(path.join(directory,item.name));else if(item.isDirectory()){for(const name of ['deployment-manifest.json','plan.json','prepared.json','consumption.json','successor.json']){const file=path.join(directory,item.name,name);try{await fs.lstat(file);await inspect(file);}catch(error){if(error.code!=='ENOENT')throw error;}}}}}
+ const releaseRoot=path.join(nativeWorkerRoot,'releases');const releases=await fs.readdir(releaseRoot,{withFileTypes:true});assert.ok(releases.length<=256);for(const item of releases){assert.ok(item.isDirectory()&&!item.isSymbolicLink());await inspect(path.join(releaseRoot,item.name,'deployment-manifest.json'));}
+ const {pathToFileURL}=await import('node:url');const rotation=await import(pathToFileURL(path.join(config.nativeToolsSource,'tools/worker-local-release-rotation.mjs')));const chain=await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:false});
+ const dispatch=JSON.parse(await nativeRead(path.join(stoppedQueueRoot,'dispatches',fixedStoppedNpmPreparation.dispatchId+'.json')));
+ assert.deepEqual(chain.head,dispatch.selection.live.head);assert.equal(chain.chainStateSha256,dispatch.selection.live.chainStateSha256);const django=sha(await nativeRead(path.join(nativeDjangoRoot,'app/deployment.json')));assert.equal(django,dispatch.selection.live.djangoManifestSha256);
+ return {at:new Date().toISOString(),head:chain.head,chainStateSha256:chain.chainStateSha256,djangoManifestSha256:django,metadata:entries.sort((a,b)=>a.path.localeCompare(b.path)),packetFiles:stoppedNames,invocationsEmpty:true};
+}
+const stoppedCensusScript='$probe=$PID;$rows=@(Get-CimInstance Win32_Process -ErrorAction Stop|Where-Object{$_.ProcessId -ne $probe}|ForEach-Object{@{processId=[int]$_.ProcessId;parentProcessId=[int]$_.ParentProcessId;name=[string]$_.Name;creationDate=$(if($_.CreationDate){$_.CreationDate.ToUniversalTime().ToString("o")}else{$null});executablePath=[string]$_.ExecutablePath;commandLine=[string]$_.CommandLine}});if($rows.Count -gt 2048){throw "bounded controller census exceeded"};@{rows=$rows}|ConvertTo-Json -Depth 4 -Compress';
+async function stoppedCensus(){const task=await import('./main-prebuild-task.mjs');return (await task.taskPowerShell(stoppedCensusScript,{})).rows;}
+function stoppedActorAbsence(rows){for(const pid of stoppedActors)assert.equal(rows.some(row=>row.processId===pid),false,'Original preparation PID present or reused; preserve unknown');}
+function stoppedMetadataDigest(value){return sha(Buffer.from(canonical({...value,at:null})));}
+function stoppedValidateObservation(value,request){
+ assert.deepEqual(Object.keys(request).sort(),['version','at','epoch','nonce','writer','adoptionSha256','operatorSha256','metadataSha256'].sort());
+ assert.deepEqual(Object.keys(value).sort(),['version','requestSha256','epoch','nonce','at','writer','observer','census','relatedControllers','originalPidsAbsent','taskState','taskInstances','adoptionSha256','operatorSha256','metadataSha256'].sort());assert.equal(value.metadataSha256,request.metadataSha256);
+ assert.equal(value.version,fixedStoppedNpmPreparation.version);assert.equal(value.requestSha256,sha(Buffer.from(canonical(request))));assert.equal(value.epoch,request.epoch);assert.equal(value.nonce,request.nonce);
+ assert.equal(value.writer.processId,request.writer.processId);assert.notEqual(value.observer.processId,value.writer.processId);assert.deepEqual(value.relatedControllers,[]);assert.equal(value.taskState,3);assert.equal(value.taskInstances,0);assert.equal(value.adoptionSha256,request.adoptionSha256);
+ assert.ok(Date.parse(value.at)>=Date.parse(request.at)&&Date.parse(value.at)-Date.parse(request.at)<60000);assert.equal(value.operatorSha256,request.operatorSha256);assert.equal(value.originalPidsAbsent,true);
+ assertSchemaWitnessCensus(value.census,value.census.map(row=>({...row,commandLine:null,executablePath:null})),{protectedActors:[request.writer,value.observer]});for(const pid of stoppedActors)assert.equal(value.census.some(row=>row.processId===pid),false);
+ return value;
+}
+export async function observeFixedStoppedNpmPreparation(request){
+ const {fileURLToPath}=await import('node:url');const self=fileURLToPath(import.meta.url);assert.equal(sha(await nativeRead(self)),request.operatorSha256);
+ const task=await import('./main-prebuild-task.mjs');const rows=await stoppedCensus();stoppedActorAbsence(rows);const observer=rows.find(row=>row.processId===process.pid);assert.ok(observer?.commandLine&&observer.executablePath);const identity={processId:observer.processId,creationDate:observer.creationDate,commandLine:observer.commandLine,executablePath:observer.executablePath};assert.notEqual(identity.processId,request.writer.processId);
+ const related=classifySchemaControllers(rows,{writer:request.writer,observer:identity});assert.deepEqual(related,[]);
+ const binding=await (await import('./main-control-dispatch.mjs')).readAdoptedControl(path.join(fixedStoppedNpmPreparation.state,'main-publisher-config.json'));assert.equal(binding.stateSha256,request.adoptionSha256);
+ const metadata=await stoppedPacketAndMetadata(binding.config);assert.equal(stoppedMetadataDigest(metadata),request.metadataSha256);
+ const taskState=await task.taskPowerShell('$s=New-Object -ComObject Schedule.Service;$s.Connect();$t=$s.GetFolder("\\").GetTask($v.name);@{state=[int]$t.State;instances=[int]$t.GetInstances(0).Count}|ConvertTo-Json -Compress',{name:binding.state.preparationTask.name});
+ return {version:fixedStoppedNpmPreparation.version,requestSha256:sha(Buffer.from(canonical(request))),epoch:request.epoch,nonce:request.nonce,at:new Date().toISOString(),writer:request.writer,observer:identity,census:schemaCensusProjection(rows),relatedControllers:related,originalPidsAbsent:true,taskState:taskState.state,taskInstances:taskState.instances,adoptionSha256:binding.stateSha256,operatorSha256:request.operatorSha256,metadataSha256:stoppedMetadataDigest(metadata)};
+}
+async function stoppedIndependentObservation(request,out){
+ const [{spawn},{fileURLToPath}]=await Promise.all([import('node:child_process'),import('node:url')]);const file=path.join(out,'observation-request.json'),response=path.join(out,'observation.json');await durableCreate(file,request);
+ const allowed=new Set(['PATH','SYSTEMROOT','WINDIR','COMSPEC','TEMP','TMP','APPDATA','LOCALAPPDATA','USERPROFILE','SYSTEMDRIVE']);const env=Object.fromEntries(Object.entries(process.env).filter(([name])=>allowed.has(name.toUpperCase())));
+ const child=spawn(process.execPath,[fileURLToPath(import.meta.url),'--observe-stopped-npm-f052',file,response],{env,windowsHide:true,stdio:'ignore'});const exited=new Promise((resolve,reject)=>{child.once('error',reject);child.once('exit',(code)=>resolve(code));});
+ const until=Date.now()+60000;let raw;for(;;){try{raw=await nativeRead(response);break;}catch(error){if(error.code!=='ENOENT')throw error;}assert.ok(Date.now()<until,'Independent observer did not respond');await new Promise(resolve=>setTimeout(resolve,100));}
+ const observation=stoppedValidateObservation(JSON.parse(raw),request);const rows=await stoppedCensus();stoppedActorAbsence(rows);assertSchemaWitnessCensus(observation.census,rows,{protectedActors:[request.writer,observation.observer]});assert.deepEqual(classifySchemaControllers(rows,{writer:request.writer,observer:observation.observer}),[]);
+ const ack={at:new Date().toISOString(),requestSha256:sha(Buffer.from(canonical(request))),observationSha256:sha(raw),writerPid:process.pid};await durableCreate(response+'.ack',ack);assert.equal(await exited,0,'Independent observer acknowledgement failed');return {request,observation,ack};
+}
+export async function writeFixedStoppedNpmPreparationResolution({sourceRoot,out,originalArchive}={}){
+ const [{execFile},{promisify},{fileURLToPath}]=await Promise.all([import('node:child_process'),import('node:util'),import('node:url')]);const execute=promisify(execFile);const git=async args=>(await execute('git',['-C',sourceRoot,...args],{encoding:'utf8',windowsHide:true})).stdout.trim();
+ assert.equal(path.resolve(sourceRoot,'tools/main-prebuild-queue.mjs'),fileURLToPath(import.meta.url));const sourceIdentity={commit:await git(['rev-parse','HEAD']),tree:await git(['rev-parse','HEAD^{tree}']),status:await git(['status','--porcelain'])};assert.equal(sourceIdentity.status,'');assert.notEqual(sourceIdentity.commit,fixedStoppedNpmPreparation.target);
+ const task=await import('./main-prebuild-task.mjs'),control=await import('./main-control-dispatch.mjs');const binding=await control.readAdoptedControl(path.join(fixedStoppedNpmPreparation.state,'main-publisher-config.json'));task.assertOrdinaryIdentity(await task.currentPreparationIdentity(),binding.state.preparationTask.sid);
+ await assertSchemaArtifactDirectory(out,{allowMissing:true});await fs.mkdir(out,{recursive:false});const unlock=await acquireQueueLock(stoppedQueueRoot);assert.ok(unlock,'Preparation queue is busy');let rotation;
+ try{rotation=await new Promise((resolve,reject)=>{const server=createServer(socket=>socket.destroy());server.once('error',reject);server.listen('\\\\.\\pipe\\TERUISI.Worker.ReleaseRotation.v1',()=>resolve(()=>new Promise(done=>server.close(done))));});
+  const objects=new Map();await stoppedOriginals(originalArchive,objects);const adopted=await stoppedConfig(binding,objects);assert.equal(adopted.manifest.sourceCommit,sourceIdentity.commit);assert.equal(adopted.manifest.sourceTree,sourceIdentity.tree);assert.equal(adopted.manifest.files['tools/main-prebuild-queue.mjs'],sha(await nativeRead(fileURLToPath(import.meta.url))));
+  for(const name of await entries(stoppedQueueRoot,'dispatches')){const d=await readQueueObject(path.join(stoppedQueueRoot,'dispatches',name));validateDispatch(d.value,name);for(const ref of d.value.tickets){const terminal=await ticketResult(stoppedQueueRoot,ref.requestId,ref.ticketSha256);assert.ok(terminal,'Pending dispatch remains');if(['unknown','failed','blocked'].includes(terminal.status)&&d.value.dispatchId!==fixedStoppedNpmPreparation.dispatchId){assert.ok(await readFixedAdminRejectionResolution(stoppedQueueRoot,d.value,terminal)||await readFixedSchemaRejectionResolution(stoppedQueueRoot,d.value,terminal)||await readFixedCacheRejectionResolution(stoppedQueueRoot,d.value,terminal)||await readFixedNativeAbandonmentResolution(stoppedQueueRoot,d.value,terminal)||await readFixedCleanedPreparationResolution(stoppedQueueRoot,d.value,terminal),'Another unresolved dispatch remains');}}}
+  const rows=await stoppedCensus();stoppedActorAbsence(rows);const own=rows.find(row=>row.processId===process.pid);assert.ok(own?.commandLine&&own.executablePath);const writer={processId:own.processId,creationDate:own.creationDate,commandLine:own.commandLine,executablePath:own.executablePath};
+  const initial=await stoppedPacketAndMetadata(binding.config,{objects});const epoch=randomUUID();const request={version:fixedStoppedNpmPreparation.version,at:new Date().toISOString(),epoch,nonce:randomUUID(),writer,adoptionSha256:binding.stateSha256,operatorSha256:adopted.manifest.files['tools/main-prebuild-queue.mjs'],metadataSha256:stoppedMetadataDigest(initial)};const observed=await stoppedIndependentObservation(request,out);
+  const final=await stoppedPacketAndMetadata(binding.config,{objects});assert.equal(stoppedMetadataDigest(final),request.metadataSha256,'Native metadata changed during independent observation');await control.assertControlGeneration(binding);assert.ok(Date.now()-Date.parse(observed.observation.at)<60000,'Fresh observation expired before append');
+  const value={version:fixedStoppedNpmPreparation.version,decision:fixedStoppedNpmPreparation.decision,at:new Date().toISOString(),epoch,dispatchId:fixedStoppedNpmPreparation.dispatchId,dispatchSha256:fixedStoppedNpmPreparation.dispatchSha256,requestId:fixedStoppedNpmPreparation.requestId,originalResultSha256:fixedStoppedNpmPreparation.resultSha256,nativePreparationStarted:true,npmChildStopped:true,functionalTestsExecuted:false,prepared:false,publicationPerformed:false,retryOriginal:false,sourceIdentity,adoptionSha256:binding.stateSha256,configSha256:binding.state.configSha256,originals:stoppedNpmPins,initial,final,evidenceDirectory:path.join(stoppedQueueRoot,'resolutions',fixedStoppedNpmPreparation.dispatchId+'-evidence'),observation:{requestSha256:sha(Buffer.from(canonical(observed.request))),observationSha256:sha(Buffer.from(canonical(observed.observation))),ackSha256:sha(Buffer.from(canonical(observed.ack)))}};
+  for(const item of [observed.request,observed.observation,observed.ack]){const raw=Buffer.from(canonical(item));objects.set(sha(raw),raw);}await fs.mkdir(path.join(stoppedQueueRoot,'resolutions'),{recursive:true});await stoppedPutObjects(path.join(value.evidenceDirectory,'objects'),objects);await durableCreate(path.join(stoppedQueueRoot,'resolutions',fixedStoppedNpmPreparation.dispatchId+'.json'),value);
+  await readStoppedNpmResolution();return {status:fixedStoppedNpmPreparation.decision,resolution:path.join(stoppedQueueRoot,'resolutions',fixedStoppedNpmPreparation.dispatchId+'.json'),prepared:false,retryOriginal:false,publicationPerformed:false};
+ }finally{if(rotation)await rotation();await unlock();}
+}
+async function readStoppedNpmResolution(){
+ const file=path.join(stoppedQueueRoot,'resolutions',fixedStoppedNpmPreparation.dispatchId+'.json');const read=await readQueueObject(file),v=read.value;assert.deepEqual(Object.keys(v).sort(),['version','decision','at','epoch','dispatchId','dispatchSha256','requestId','originalResultSha256','nativePreparationStarted','npmChildStopped','functionalTestsExecuted','prepared','publicationPerformed','retryOriginal','sourceIdentity','adoptionSha256','configSha256','originals','initial','final','evidenceDirectory','observation'].sort());stoppedFacts(v);assert.equal(v.dispatchId,fixedStoppedNpmPreparation.dispatchId);assert.equal(v.dispatchSha256,fixedStoppedNpmPreparation.dispatchSha256);assert.equal(v.requestId,fixedStoppedNpmPreparation.requestId);assert.equal(v.originalResultSha256,fixedStoppedNpmPreparation.resultSha256);assert.deepEqual(v.originals,stoppedNpmPins);assert.notEqual(v.sourceIdentity.commit,fixedStoppedNpmPreparation.target);assert.equal(v.sourceIdentity.status,'');
+ assert.equal(path.resolve(v.evidenceDirectory),path.join(stoppedQueueRoot,'resolutions',fixedStoppedNpmPreparation.dispatchId+'-evidence'));const object=async digest=>{assert.match(digest??'',hex);const raw=await nativeRead(path.join(v.evidenceDirectory,'objects',digest+'.bin'));assert.equal(sha(raw),digest);return raw;};
+ for(const [file,digest]of Object.entries(stoppedNpmPins)){await object(digest);if(file.startsWith(stoppedPacket+path.sep)||file.startsWith(stoppedQueueRoot+path.sep))assert.equal(sha(await nativeRead(file)),digest);}
+ const adopted=JSON.parse(await object(v.adoptionSha256)),manifest=JSON.parse(await object(adopted.bundleManifestSha256)),next=JSON.parse(await object(v.configSha256)),old=JSON.parse(await object(fixedStoppedNpmPreparation.oldConfigSha256));const strip=x=>{const copy={...x};delete copy.nativeToolsSource;return copy;};assert.deepEqual(strip(next),strip(old));assert.equal(path.resolve(next.nativeToolsSource),path.resolve(fixedStoppedNpmPreparation.nativeToolsSource));assert.equal(adopted.status,'adopted');assert.equal(adopted.configSha256,v.configSha256);assert.equal(manifest.sourceCommit,v.sourceIdentity.commit);assert.equal(manifest.sourceTree,v.sourceIdentity.tree);assert.deepEqual(adopted.preparationTask,JSON.parse(await object(fixedStoppedNpmPreparation.oldInstallationSha256)).preparationTask);
+ for(const [name,digest]of Object.entries(manifest.files))await object(digest);for(const digest of Object.values(stoppedNativeFiles))await object(digest);const intent=JSON.parse(await object(adopted.intentSha256)),transition=JSON.parse(await object(adopted.transitionProofSha256));assert.equal(intent.old.installation,fixedStoppedNpmPreparation.oldInstallationSha256);assert.equal(intent.old.config,fixedStoppedNpmPreparation.oldConfigSha256);assert.equal(intent.nativeToolsUpdateSha256,sha(await object(intent.nativeToolsUpdateSha256)));assert.equal(transition.productionDeploymentPerformed,false);assert.equal(transition.legacyWindowConverged,true);
+ const request=JSON.parse(await object(v.observation.requestSha256)),observation=stoppedValidateObservation(JSON.parse(await object(v.observation.observationSha256)),request),ack=JSON.parse(await object(v.observation.ackSha256));assert.equal(request.metadataSha256,stoppedMetadataDigest(v.initial));assert.equal(request.metadataSha256,stoppedMetadataDigest(v.final));assert.deepEqual(Object.keys(ack).sort(),['at','requestSha256','observationSha256','writerPid'].sort());assert.equal(request.epoch,v.epoch);assert.equal(request.adoptionSha256,v.adoptionSha256);assert.equal(request.operatorSha256,manifest.files['tools/main-prebuild-queue.mjs']);assert.equal(ack.requestSha256,v.observation.requestSha256);assert.equal(ack.observationSha256,v.observation.observationSha256);assert.equal(ack.writerPid,request.writer.processId);assert.ok(Date.parse(v.at)>=Date.parse(ack.at)&&Date.parse(v.at)-Date.parse(observation.at)<60000);
+ const dispatch=JSON.parse(await object(fixedStoppedNpmPreparation.dispatchSha256));for(const phase of [v.initial,v.final]){assert.deepEqual(phase.head,dispatch.selection.live.head);assert.equal(phase.chainStateSha256,dispatch.selection.live.chainStateSha256);assert.equal(phase.djangoManifestSha256,dispatch.selection.live.djangoManifestSha256);assert.deepEqual(phase.packetFiles,stoppedNames);assert.equal(phase.invocationsEmpty,true);for(const item of phase.metadata){const raw=await object(item.sha256);for(const marker of [fixedStoppedNpmPreparation.target,stoppedPacket])assert.equal(nativeNormalize(raw.toString('utf8')).includes(nativeNormalize(marker)),false);}}
+ return true;
+}
+export async function readFixedStoppedNpmPreparationResolution(directory,dispatch,terminal){if(path.resolve(directory)!==stoppedQueueRoot||dispatch.dispatchId!==fixedStoppedNpmPreparation.dispatchId||terminal?.requestId!==fixedStoppedNpmPreparation.requestId||terminal.status!=='unknown')return false;try{await fs.lstat(path.join(stoppedQueueRoot,'resolutions',fixedStoppedNpmPreparation.dispatchId+'.json'));}catch(error){if(error.code==='ENOENT')return false;throw error;}return readStoppedNpmResolution();}
+function assertFixedStoppedNpmNoReplay(directory,selection){if(path.resolve(directory)===stoppedQueueRoot){assert.notEqual(selection.targetCommit,fixedStoppedNpmPreparation.target,'The stopped a396 target must not be prepared again');assert.notEqual(path.resolve(selection.packet),stoppedPacket,'Stopped preparation packet cannot be reused');}}
+if(process.argv[2]==='--observe-stopped-npm-f052'){
+ const [{fileURLToPath}]=await Promise.all([import('node:url')]);assert.equal(path.resolve(process.argv[1]),fileURLToPath(import.meta.url));assert.equal(process.argv.length,5);const requestFile=path.resolve(process.argv[3]),output=path.resolve(process.argv[4]);await assertSchemaArtifactDirectory(path.dirname(requestFile));assert.equal(path.dirname(output),path.dirname(requestFile));const request=JSON.parse(await nativeRead(requestFile));const value=await observeFixedStoppedNpmPreparation(request);await durableCreate(output,value);const until=Date.now()+60000;for(;;){try{const ack=JSON.parse(await nativeRead(output+'.ack'));assert.equal(ack.requestSha256,sha(Buffer.from(canonical(request))));assert.equal(ack.observationSha256,sha(Buffer.from(canonical(value))));break;}catch(error){if(error.code!=='ENOENT')throw error;}assert.ok(Date.now()<until,'Observer acknowledgement timed out');await new Promise(resolve=>setTimeout(resolve,100));}
+}
+// FIXED_STOPPED_NPM_F052_END

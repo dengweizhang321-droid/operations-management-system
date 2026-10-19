@@ -23,6 +23,7 @@ import {
   canonicalJson,
   canonicalWindowsPath,
   contractReceiptVersion,
+  codeOnlyContractReceiptVersion,
   releaseVersion,
   runProcess,
   salesRetirementMigrationSha256,
@@ -287,7 +288,7 @@ async function readManifest(runtimeRoot, binding, label) {
   assertExactKeys(guard, ["version", "relativePath", "sha256"], `${label} guard pointer`);
   assertExactKeys(contract, ["version", "relativePath", "sha256"], `${label} contract pointer`);
   if (guard.relativePath !== "audit/legacy-worker-guard-receipt.json" || guard.sha256 !== binding.guardReceiptSha256
-    || contract.version !== contractReceiptVersion || contract.relativePath !== "audit/sales-retired-code-receipt.json"
+    || ![contractReceiptVersion, codeOnlyContractReceiptVersion].includes(contract.version) || contract.relativePath !== "audit/sales-retired-code-receipt.json"
     || !hex64.test(contract.sha256 ?? "")) fail(`${label} manifest receipt pointer 无效`);
   const guardPath = path.join(path.dirname(manifestPath), ...guard.relativePath.split("/"));
   const contractPath = path.join(path.dirname(manifestPath), ...contract.relativePath.split("/"));
