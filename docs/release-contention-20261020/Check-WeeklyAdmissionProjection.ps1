@@ -5,6 +5,7 @@ param(
   [string]$EvidencePath = ''
 )
 $ErrorActionPreference = 'Stop'
+$OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 if ($PSVersionTable.PSVersion.Major -eq 5) {
   $env:PSModulePath = Join-Path $PSHOME 'Modules'
 }
