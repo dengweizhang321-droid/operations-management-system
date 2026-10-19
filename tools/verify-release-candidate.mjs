@@ -49,7 +49,6 @@ export function candidateCompatibilityProfile(changes){
   piExitObservation:paths.includes('tools/django-ai.ps1'),
   nativeColdStartPerformed:false};
 }
-export function candidateRequiresDependencies(profile){return !profile.nativeAbandonmentOnly&&(profile.worker||profile.django||profile.publication);}
 
 export async function assertPrivateCandidateLocation(target){
  const absolute=path.resolve(target);
@@ -241,7 +240,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   report.tools=await Promise.all([process.execPath,shell5,shell7,pythonExe,gitExe].map(async file=>({path:file,sha256:sha(await fs.readFile(file))})));
   report.powerShellModules={root:environment.PSModulePath,tree:await hashTree(environment.PSModulePath)};
   await git(source,['worktree','add','--detach',candidate,commit]);attached=true;
-  assert.ok(dependencies||!candidateRequiresDependencies(profile),'该profile需要显式的只读依赖目录');
+  assert.ok(dependencies||(!profile.worker&&!profile.django&&!profile.publication),'该profile需要显式的只读依赖目录');
   if(dependencies){
    assert.ok((await fs.stat(path.join(dependencies,'typescript','package.json'))).isFile(),'依赖不完整');
    await fs.symlink(path.resolve(dependencies),path.join(candidate,'node_modules'),'junction');

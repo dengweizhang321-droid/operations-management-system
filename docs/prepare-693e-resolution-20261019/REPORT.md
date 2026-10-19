@@ -35,6 +35,6 @@ resolution 以 create-only 原子语义追加，内容寻址归档保存原输�
 
 定向测试包含真实有限 writer 的两次观察/归档、历史 reader、原 unknown 原件、后续新目标一次派发、禁止旧目标重放、其他 unknown 阻断、旧三段字节保持、输入逐字节漂移、过期/nonce/身份/任务状态/库存变化，以及 Windows JSON 路径、失去原父进程的 npm/Vinext 后代和无关 n8n 边界。fixture 仅保存原发布元数据与工具代码，不保存 `.dev.vars` 或业务数据。
 
-`verify-release-candidate.mjs` 增加有限 profile：逆投影必须证明只有追加固定 693e 段及两个明确 queue 接缝；运行相应定向测试与私有十文件控制包导入。该有限 profile 未调用 npm 或应用 builder，允许未传入未消费的 dependencies；其他 publication/Worker/Django profile 仍要求依赖，显式传入的依赖继续完整核验。不以此资格豁免发布/生命周期源码的其他修改，也不重建未变应用包。
+`verify-release-candidate.mjs` 增加有限 profile：逆投影必须证明只有追加固定 693e 段及两个明确 queue 接缝；运行相应定向测试与私有十文件控制包导入。私有采用测试虽不运行 npm 或应用 builder，顶层仍经 release-batch/release-impact 导入 TypeScript，因此保留原显式 dependencies 合同并完整绑定实际依赖；曾尝试省略依赖的 `compat-dd584f41` 中 37 项通过、私有包因真实缺 TypeScript 失败，原回执保留，不能称未消费依赖或据此跳过验证。不以此资格豁免发布/生命周期源码的其他修改，也不重建未变应用包。
 
 真实 collector、ordinary writer、控制安装采用和新目标准备由发布负责人按[操作说明](OPERATOR.md)串行执行。本实现交接时没有调用生产 writer、安装控制、提交新准备或执行应用切换；现场真实观察和采用结果须另附原始证据，不用隔离测试冒充。
