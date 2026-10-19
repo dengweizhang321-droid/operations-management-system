@@ -10,6 +10,6 @@
     "backend/ai_assistant/migrations/0086_pi_business_actions.py": "3435b5970ffb5d5530e60aed6156e7b7e7792fb0cbff5e198ef8a3b264ee4213"
   },
   "validation": "docs/release-contention-20261020/mandatory-code-checks.json",
-  "validationSha256": "4a2b990bac79321c6830450a1e7b22c3bd3d51e4452306f9e9d7fac9dd5b1170",
+  "validationSha256": "4229a04434180412940a810e14b71ae1c6ee40598347fc48dc5410e7d0c5514d",
   "codeSha256": "52a5264dfe3ba90d9ede0751a8978d85c3f3d5b9f396f5a3e631a313574535ee"
 }

@@ -27,12 +27,22 @@ function Start-PrivatePowerShell([string] $Code) {
     $info.RedirectStandardError = $true
     return [Diagnostics.Process]::Start($info)
 }
-function Complete-PrivateProcess($Process) {
+function Complete-PrivateProcess($Process, [bool] $AllowLockDiagnostics = $false) {
     if (-not $Process.WaitForExit(10000)) { $Process.Kill(); throw 'Private fixture process timed out' }
     $code = $Process.ExitCode
     $errorText = $Process.StandardError.ReadToEnd()
     $Process.Dispose()
-    if ($errorText) { throw $errorText }
+    if ($errorText) {
+        if (-not $AllowLockDiagnostics) { throw $errorText }
+        foreach ($line in @($errorText -split '\r?\n' | Where-Object { $_ })) {
+            $prefix = 'TERUISI_LOCK_DIAGNOSTIC '
+            if (-not $line.StartsWith($prefix)) { throw $errorText }
+            $diagnostic = $line.Substring($prefix.Length) | ConvertFrom-Json
+            if ($diagnostic.version -cne 'teruisi-maintenance-lock-diagnostic-v1' -or
+                $diagnostic.lock -cnotin @('worker', 'django') -or
+                $diagnostic.phase -cnotin @('waiting', 'acquired', 'timeout', 'abandoned')) { throw $errorText }
+        }
+    }
     return $code
 }
 function Probe-PrivateMutex([string] $Name, [int] $Wait = 80) {
@@ -149,7 +159,7 @@ try {
     $driver = Join-Path $script:FixtureDirectory 'exit-wrapper.ps1'
     $original = Join-Path $script:FixtureDirectory 'original.ps1'
     $code = '& ''' + $driver.Replace("'", "''") + ''' -ModulePath ''' + MODULE_PATH + ''' -OriginalPath ''' + $original.Replace("'", "''") + ''' -Worker ''' + $worker + ''' -Django ''' + $django + ''''
-    Assert-True ((Complete-PrivateProcess (Start-PrivatePowerShell $code)) -eq EXIT_CODE) 'Wrapper exit code changed'
+    Assert-True ((Complete-PrivateProcess (Start-PrivatePowerShell $code) $true) -eq EXIT_CODE) 'Wrapper exit code changed'
     Assert-True ((Probe-PrivateMutex $worker) -eq 0) 'Wrapper left Worker held or abandoned'
     Assert-True ((Probe-PrivateMutex $django) -eq 0) 'Wrapper left Django held or abandoned'
 } finally { $workerObject.Dispose(); $djangoObject.Dispose() }

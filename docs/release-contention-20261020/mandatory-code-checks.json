@@ -1,7 +1,7 @@
 {
   "version": "pi-business-mandatory-code-checks-v1",
   "status": "code-checked",
-  "at": "2026-10-19T17:22:06.722087+00:00",
+  "at": "2026-10-19T17:26:35.872348+00:00",
   "productionTouched": false,
   "functionalValidationPerformed": false,
   "privatePostgresRehearsalPerformed": false,
@@ -32,7 +32,7 @@
   },
   "parentReferenceSha256": "c1e06ff1b8611c5d4aba5fbc127f43965f45dae6723c32592239f46e2192bd22",
   "syntaxEvidence": "docs/release-contention-20261020/syntax-code-materials.json",
-  "syntaxEvidenceSha256": "7c2a1c55a30301100b75d2c2b69c23194d53d3e8c0c8e544014f2c96ab89af60",
+  "syntaxEvidenceSha256": "f73af668d4bf8fc5e68a48c7e50bd60813eb568429a151445cd391c75a4b0005",
   "scope": "Current exact code syntax and unchanged 151-to152 migration closure only. No business, database, or functional execution.",
   "rawByteNormalization": "LF worktree bytes used for this task proof; old proof preserved.",
   "previousProofSha256": "285f334ae8dd7478a0cb4f9a956447697a255bf5ff047409489a42c7486b8234"
