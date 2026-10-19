@@ -1,0 +1,298 @@
+{
+  "version": "release-process-rereview-evidence-v1",
+  "observedAtUtc": "2026-10-19T17:01:55.190410+00:00",
+  "scope": "read-only source/document review and bounded lifecycle log extraction; no functional or production command execution",
+  "sourceCommit": "a396a7b10930af4e4eaf4db06bf7217748463b48",
+  "original": {
+    "path": "D:\\运营管理系统\\outputs\\release-process-review-20261019.md",
+    "sha256": "b7c5a15aaaf746519b986ed5633ef67dd176e550452a17b3fe0a69eef9b48ba4"
+  },
+  "sourceFiles": [
+    {
+      "path": "tools/django-local-service.ps1",
+      "sha256": "d884882af114840ff1b0061c57439556cfc6a8fd7d0a751896363dd59eecde5d"
+    },
+    {
+      "path": "tools/django-workflow-service.ps1",
+      "sha256": "acf1a2a68af554a4158f3d8df1e21982850a4b6addefa6bb4f897986ee18b49a"
+    },
+    {
+      "path": "tools/publish-prepared-main.mjs",
+      "sha256": "76c60012aa83664220c60c0219d3780df1f33b27d23dad0afc908e6e4704e8d7"
+    },
+    {
+      "path": "tools/main-prebuild-task.mjs",
+      "sha256": "9f05dedcb953fec984d9c6ee3938a6254f7d5875bbe43018ff88869264c7cb62"
+    },
+    {
+      "path": "tools/publish-main-progress.mjs",
+      "sha256": "812d82d352fce8ce43a3b42aabcb2fa53cbcfa9c98b7524a33d0de3b521af714"
+    },
+    {
+      "path": "tools/main-schema-release.mjs",
+      "sha256": "443acb08a0fcb4b0e910951328ce7d06a57c994ccf7ec6d10d2e93e11e3194af"
+    },
+    {
+      "path": "backend/workflow/management/commands/new_product_weekly_report.py",
+      "sha256": "8fc8925d4b331dfb236251740c39df3aff0bcb41fd359f5598f7f53305da76ae"
+    },
+    {
+      "path": "docs/规范/验证与发布.md",
+      "sha256": "eff780993f17be6bf61afac9ecdf980664200a83750d8eb237c25a20087cf00a"
+    }
+  ],
+  "installedSourcePairs": [
+    {
+      "path": "tools/django-workflow-service.ps1",
+      "sourceSha256": "acf1a2a68af554a4158f3d8df1e21982850a4b6addefa6bb4f897986ee18b49a",
+      "installedSha256": "acf1a2a68af554a4158f3d8df1e21982850a4b6addefa6bb4f897986ee18b49a",
+      "equal": true
+    },
+    {
+      "path": "backend/workflow/management/commands/new_product_weekly_report.py",
+      "sourceSha256": "8fc8925d4b331dfb236251740c39df3aff0bcb41fd359f5598f7f53305da76ae",
+      "installedSha256": "8fc8925d4b331dfb236251740c39df3aff0bcb41fd359f5598f7f53305da76ae",
+      "equal": true
+    }
+  ],
+  "controlObservation": {
+    "version": "teruisi-main-control-installation-v3",
+    "status": "adopted",
+    "bundleSha256": "91fe60537a6188fd6b73a4fbf4df282749030167fa41eb64f3eb055dd0b17fa4",
+    "adoptedAt": "2026-10-19T16:47:47.312Z"
+  },
+  "pointerObservations": {
+    "latestPreparation": {
+      "status": "request-frozen",
+      "targetCommit": "a396a7b10930af4e4eaf4db06bf7217748463b48"
+    },
+    "publishedCatalog": {
+      "status": "deployed_and_ready",
+      "mainCommit": "b2ef81c7c6eecdb59894e55021b835b6a8baf0b4",
+      "at": "2026-10-18T19:43:39.056Z"
+    },
+    "djangoDeploymentSourceRoot": "D:\\codex-isolated\\main-release-packages\\e9696b0d2818-fdf50989-54a48ee1\\source",
+    "currentApplicationStateVerified": false,
+    "limitation": "Catalog and manifest alone do not establish complete current deployment success or failure; no automatic replay authorized."
+  },
+  "log": {
+    "path": "D:\\teruisi-runtime\\django-sales\\logs\\launcher.jsonl",
+    "readBound": "last 2200 lines",
+    "sizeBytesAtObservation": 440610,
+    "selected": [
+      {
+        "line": 976,
+        "timestamp": "2026-10-19T21:35:24.3892029+08:00",
+        "runId": "20261019-213445-e17d1317",
+        "action": "BeginMaintenance",
+        "event": "system_maintenance_entered",
+        "message": "ad7d95481eae4ee3b27f20a7e4b9b11e"
+      },
+      {
+        "line": 977,
+        "timestamp": "2026-10-19T21:35:31.7807146+08:00",
+        "runId": "20261019-213531-ed6037ba",
+        "action": "Stop",
+        "event": "action_started",
+        "message": ""
+      },
+      {
+        "line": 980,
+        "timestamp": "2026-10-19T21:36:02.0153424+08:00",
+        "runId": "20261019-213531-ed6037ba",
+        "action": "Stop",
+        "event": "action_failed",
+        "message": "另一个 Django 本机服务操作仍在运行"
+      },
+      {
+        "line": 981,
+        "timestamp": "2026-10-19T21:36:05.4931323+08:00",
+        "runId": "20261019-213500-c9044f13",
+        "action": "RunWeeklyReport",
+        "event": "runtime_acl_verified",
+        "message": "objects=292242 elapsedMilliseconds=31463"
+      },
+      {
+        "line": 984,
+        "timestamp": "2026-10-19T21:40:24.8803999+08:00",
+        "runId": "20261019-214000-cbffcade",
+        "action": "RunWeeklyReport",
+        "event": "runtime_acl_verified",
+        "message": "objects=292242 elapsedMilliseconds=20971"
+      },
+      {
+        "line": 987,
+        "timestamp": "2026-10-19T21:45:47.1886761+08:00",
+        "runId": "20261019-214500-336ecf64",
+        "action": "RunWeeklyReport",
+        "event": "runtime_acl_verified",
+        "message": "objects=292242 elapsedMilliseconds=38717"
+      },
+      {
+        "line": 990,
+        "timestamp": "2026-10-19T21:50:42.0355058+08:00",
+        "runId": "20261019-215000-4c76bcd3",
+        "action": "RunWeeklyReport",
+        "event": "runtime_acl_verified",
+        "message": "objects=292242 elapsedMilliseconds=34480"
+      },
+      {
+        "line": 993,
+        "timestamp": "2026-10-19T21:55:36.9897556+08:00",
+        "runId": "20261019-215500-f403b65e",
+        "action": "RunWeeklyReport",
+        "event": "runtime_acl_verified",
+        "message": "objects=292242 elapsedMilliseconds=28870"
+      },
+      {
+        "line": 996,
+        "timestamp": "2026-10-19T22:00:34.0911658+08:00",
+        "runId": "20261019-220000-f6ffe622",
+        "action": "RunWeeklyReport",
+        "event": "runtime_acl_verified",
+        "message": "objects=292242 elapsedMilliseconds=24962"
+      },
+      {
+        "line": 999,
+        "timestamp": "2026-10-19T22:05:30.8071196+08:00",
+        "runId": "20261019-220500-c1b56784",
+        "action": "RunWeeklyReport",
+        "event": "runtime_acl_verified",
+        "message": "objects=292242 elapsedMilliseconds=23395"
+      },
+      {
+        "line": 1004,
+        "timestamp": "2026-10-19T22:10:33.9021726+08:00",
+        "runId": "20261019-221000-ce71a37c",
+        "action": "RunWeeklyReport",
+        "event": "runtime_acl_verified",
+        "message": "objects=292242 elapsedMilliseconds=25557"
+      },
+      {
+        "line": 1009,
+        "timestamp": "2026-10-19T22:15:30.9207938+08:00",
+        "runId": "20261019-221500-33bcd311",
+        "action": "RunWeeklyReport",
+        "event": "runtime_acl_verified",
+        "message": "objects=292242 elapsedMilliseconds=23675"
+      },
+      {
+        "line": 1012,
+        "timestamp": "2026-10-19T22:20:27.1664470+08:00",
+        "runId": "20261019-222000-4100f74a",
+        "action": "RunWeeklyReport",
+        "event": "runtime_acl_verified",
+        "message": "objects=292242 elapsedMilliseconds=22833"
+      },
+      {
+        "line": 1015,
+        "timestamp": "2026-10-19T22:25:33.2937828+08:00",
+        "runId": "20261019-222500-ecc31782",
+        "action": "RunWeeklyReport",
+        "event": "runtime_acl_verified",
+        "message": "objects=292242 elapsedMilliseconds=25712"
+      },
+      {
+        "line": 1021,
+        "timestamp": "2026-10-19T22:27:46.7676722+08:00",
+        "runId": "20261019-222746-8c113716",
+        "action": "Stop",
+        "event": "action_started",
+        "message": ""
+      },
+      {
+        "line": 1063,
+        "timestamp": "2026-10-19T22:29:37.0148865+08:00",
+        "runId": "20261019-222746-8c113716",
+        "action": "Stop",
+        "event": "action_completed",
+        "message": ""
+      },
+      {
+        "line": 1064,
+        "timestamp": "2026-10-19T22:29:48.4772624+08:00",
+        "runId": "20261019-222948-2bc442d2",
+        "action": "DeployApp",
+        "event": "action_started",
+        "message": ""
+      },
+      {
+        "line": 1073,
+        "timestamp": "2026-10-19T22:30:49.8434214+08:00",
+        "runId": "20261019-222948-2bc442d2",
+        "action": "DeployApp",
+        "event": "action_completed",
+        "message": ""
+      },
+      {
+        "line": 1082,
+        "timestamp": "2026-10-19T22:35:27.0283062+08:00",
+        "runId": "20261019-223500-f3b0982e",
+        "action": "RunWeeklyReport",
+        "event": "runtime_acl_verified",
+        "message": "objects=288205 elapsedMilliseconds=22950"
+      },
+      {
+        "line": 1089,
+        "timestamp": "2026-10-19T22:36:56.2751622+08:00",
+        "runId": "20261019-223656-36ff6f52",
+        "action": "Start",
+        "event": "action_started",
+        "message": ""
+      },
+      {
+        "line": 1099,
+        "timestamp": "2026-10-19T22:37:28.9534273+08:00",
+        "runId": "20261019-223656-36ff6f52",
+        "action": "Start",
+        "event": "startup_phase",
+        "message": "stage=django-migrate startedAt=2026-10-19T14:37:27.0803278+00:00 elapsedMilliseconds=1865 outcome=completed processId=55392"
+      },
+      {
+        "line": 1102,
+        "timestamp": "2026-10-19T22:37:30.8800800+08:00",
+        "runId": "20261019-223656-36ff6f52",
+        "action": "Start",
+        "event": "startup_phase",
+        "message": "stage=Invoke-DjangoMigrations startedAt=2026-10-19T14:37:19.6911323+00:00 elapsedMilliseconds=11188 outcome=completed processId=55392"
+      },
+      {
+        "line": 1118,
+        "timestamp": "2026-10-19T22:37:38.4604393+08:00",
+        "runId": "20261019-223656-36ff6f52",
+        "action": "Start",
+        "event": "startup_phase",
+        "message": "stage=Start-ServiceStack startedAt=2026-10-19T14:36:56.3687421+00:00 elapsedMilliseconds=42091 outcome=completed processId=55392"
+      },
+      {
+        "line": 1215,
+        "timestamp": "2026-10-19T22:38:35.9246888+08:00",
+        "runId": "20261019-223656-36ff6f52",
+        "action": "Start",
+        "event": "action_completed",
+        "message": ""
+      },
+      {
+        "line": 1219,
+        "timestamp": "2026-10-19T22:40:35.9623107+08:00",
+        "runId": "20261019-224000-08fc8198",
+        "action": "RunWeeklyReport",
+        "event": "runtime_acl_verified",
+        "message": "objects=288812 elapsedMilliseconds=26444"
+      }
+    ]
+  },
+  "backupObservation": {
+    "configConclusion": "archive settings in postgresql.conf are commented examples; effective server settings not queried",
+    "directoryNames": [
+      "daily-20260929T012900Z-ad2817875f20",
+      "daily-20261015T035103Z-ae624be091e0",
+      "daily-20261019T121834Z-0047cb15812a"
+    ],
+    "recoverabilityVerified": false
+  },
+  "officialReferences": [
+    "https://docs.djangoproject.com/en/5.2/topics/migrations/#transactions",
+    "https://www.postgresql.org/docs/17/continuous-archiving.html"
+  ]
+}
