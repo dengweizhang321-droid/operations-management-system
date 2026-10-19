@@ -10,6 +10,8 @@ test("JD logistics inactive workflow owns the full manual/scheduled claim A B C 
   assert.equal(nodes.filter(node => node.type === "n8n-nodes-base.manualTrigger").length, 1);
   assert.equal(nodes.filter(node => node.type === "n8n-nodes-base.scheduleTrigger").length, 1);
   const claim = routes.get("/coordination/claim")!;
+  assert.equal(claim.onError, "continueErrorOutput");
+  assert.equal(workflow.connections[claim.name].main[1][0].node, "失败后释放原执行 helper");
   for (const node of nodes.filter(n => n.type === "n8n-nodes-base.manualTrigger" || n.type === "n8n-nodes-base.scheduleTrigger")) {
     assert.equal(workflow.connections[node.name].main[0][0].node, claim.name);
   }

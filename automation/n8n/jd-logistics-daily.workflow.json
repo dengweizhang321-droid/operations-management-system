@@ -60,6 +60,7 @@
       },
       "id": "jdl-claim-领",
       "name": "领取共享 helper",
+      "onError": "continueErrorOutput",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -360,6 +361,13 @@
         [
           {
             "node": "已领取执行所有权？",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "失败后释放原执行 helper",
             "type": "main",
             "index": 0
           }

@@ -1888,6 +1888,9 @@ async function serveCommand(argv: string[]) {
   });
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("helper_slot_address_invalid");
+  // Cover the interval before the first claim reaches this worker as well.
+  // Business requests retain their existing busy guard and clear/re-arm rules.
+  inactivityReaper.arm();
   parentPort?.postMessage({ type: "ready", port: address.port });
   return { ok: true, stage: "serve", address: "127.0.0.1", port, oneShot: true };
 }

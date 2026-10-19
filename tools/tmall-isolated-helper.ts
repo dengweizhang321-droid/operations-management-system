@@ -213,7 +213,7 @@ function reply(response: ServerResponse, status: number, payload: unknown, heade
   response.end(body);
 }
 
-async function forward(request: IncomingMessage, response: ServerResponse, record: SlotRecord) {
+export async function forward(request: IncomingMessage, response: ServerResponse, record: SlotRecord) {
   const slot = await record.ready;
   if (record.status !== "running") throw new Error("helper_slot_not_running");
   await new Promise<void>((resolve, reject) => {
@@ -238,9 +238,11 @@ async function forward(request: IncomingMessage, response: ServerResponse, recor
       });
     });
     upstream.on("error", reject);
-    // Do not cancel a submitted platform action because the n8n HTTP client
-    // disconnected. The isolated worker owns its normal timeout and audit.
-    request.pipe(upstream);
+    // The front door accepts header-only requests. Its IncomingMessage may
+    // already be destroyed after a client deadline while this slot starts;
+    // piping that dead stream never ends the upstream request. Finish it
+    // explicitly, retaining the worker's timeout/cleanup after disconnection.
+    upstream.end();
   });
 }
 
