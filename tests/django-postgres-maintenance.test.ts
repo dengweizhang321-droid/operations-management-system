@@ -468,7 +468,7 @@ test("maintenance validates complete AI backup evidence before and after activat
   assert.match(manifest, /AI_TABLES_PRE_V4_SEALS = \(\*AI_TABLES_PRE_V4_VALIDATION,/);
   assert.match(manifest, /AI_TABLES_PRE_V4_TICKETS = \(\*AI_TABLES_PRE_V4_SEALS, "ai_business_v4_seals"\)/);
   assert.match(manifest, /AI_TABLES_PRE_V4_CONSUMPTIONS = \(\*AI_TABLES_PRE_V4_TICKETS,/);
-  assert.match(manifest, /AI_TABLES = \(\*AI_TABLES_PRE_MARKET_V2_PAID_REHEARSAL,/);
+  assert.match(manifest, /AI_TABLES_PRE_PI_RUNTIME = \(\*AI_TABLES_PRE_MARKET_V2_PAID_REHEARSAL,/);
   const aiTables = historicalAiTables.filter(name => !["ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", "ai_business_volume_chunks", "ai_business_budget_plans", "ai_business_screening_runs", "ai_business_screening_pages"].includes(name));
   assert.ok(aiTables.includes("ai_conversation_workspaces"));
   const base = {
@@ -623,7 +623,40 @@ test("maintenance validates complete AI backup evidence before and after activat
   delete businessMissingChunk.tables.ai_business_evidence_chunks;
   const businessMissingPredecessor = structuredClone(business);
   businessMissingPredecessor.migrations = businessMissingPredecessor.migrations.filter(item => item.name !== "0013_dingtalk_schedule_media");
+  const piTables = ["ai_pi_sessions", "ai_pi_operations", "ai_pi_dispatches", "ai_pi_events", "ai_pi_files", "ai_pi_exports", "ai_pi_export_pages", "ai_pi_gateway_nonces"];
+  const piWorkspaceTables = ["ai_pi_controls", "ai_pi_ui_requests", "ai_pi_workspaces"];
+  const piRuntime = structuredClone(active);
+  piRuntime.migrations.push({ app: "ai_assistant", name: "0083_schedule_execution_profile" }, { app: "ai_assistant", name: "0084_pi_agent_independent_runtime" });
+  Object.assign(piRuntime.tables, Object.fromEntries(piTables.map(name => [name, 0])));
+  const piWorkspace = structuredClone(piRuntime);
+  piWorkspace.migrations.push({ app: "ai_assistant", name: "0085_pi_workspace_controls" });
+  Object.assign(piWorkspace.tables, Object.fromEntries(piWorkspaceTables.map(name => [name, 0])));
+  const piInvalid = [...piTables, ...piWorkspaceTables].map(name => {
+    const evidence = structuredClone(piWorkspace); delete evidence.tables[name]; return evidence;
+  });
+  for (const name of ["0083_schedule_execution_profile", "0084_pi_agent_independent_runtime", "0085_pi_workspace_controls"]) {
+    const missingReceipt = structuredClone(piWorkspace);
+    missingReceipt.migrations = missingReceipt.migrations.filter(item => item.name !== name);
+    piInvalid.push(missingReceipt);
+  }
+  for (const name of ["0084_pi_agent_independent_runtime", "0085_pi_workspace_controls"]) {
+    const duplicateReceipt = structuredClone(piWorkspace);
+    duplicateReceipt.migrations.push({ app: "ai_assistant", name });
+    piInvalid.push(duplicateReceipt);
+  }
+  const unknownPi = structuredClone(piWorkspace);
+  unknownPi.tables.ai_pi_unregistered = 0;
+  piInvalid.push(unknownPi);
+  const piWorkspaceWithoutRuntime = structuredClone(active);
+  piWorkspaceWithoutRuntime.migrations.push({ app: "ai_assistant", name: "0085_pi_workspace_controls" });
+  Object.assign(piWorkspaceWithoutRuntime.tables, Object.fromEntries(piWorkspaceTables.map(name => [name, 0])));
+  piInvalid.push(piWorkspaceWithoutRuntime);
+  const orphanPiRuntime = structuredClone(base);
+  orphanPiRuntime.migrations.push({ app: "ai_assistant", name: "0083_schedule_execution_profile" }, { app: "ai_assistant", name: "0084_pi_agent_independent_runtime" });
+  piInvalid.push(orphanPiRuntime);
   const cases = [
+    ...[piRuntime, piWorkspace].map(evidence => ({ valid: true, evidence })),
+    ...piInvalid.map(evidence => ({ valid: false, evidence })),
     ...[base, beforePrompt, candidate, adopted, active, media, business, files, directory, volumes, budgets, screenings, screeningRuntime, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings].map(evidence => ({ valid: true, evidence })),
     { valid: false, evidence: runtimeWithoutStorage },
     ...screeningsInvalid.map(evidence => ({ valid: false, evidence })),
