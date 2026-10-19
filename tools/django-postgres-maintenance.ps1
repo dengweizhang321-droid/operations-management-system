@@ -748,6 +748,22 @@ function Assert-MaintenanceEvidence(
     )
   }
   $tableNames = @($Evidence.tables.PSObject.Properties.Name)
+  $piRuntimeMigration = @($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0084_pi_agent_independent_runtime" })
+  $piWorkspaceMigration = @($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0085_pi_workspace_controls" })
+  if ($piRuntimeMigration.Count -gt 1 -or $piWorkspaceMigration.Count -gt 1) { throw "Duplicate Pi backup migration receipt" }
+  if ($piRuntimeMigration.Count -eq 1) {
+    if (-not $hasAi -or @($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0083_schedule_execution_profile" }).Count -ne 1) {
+      throw "Pi runtime backup lacks its AI schedule predecessor"
+    }
+    $requiredTables += @(
+      "ai_pi_sessions", "ai_pi_operations", "ai_pi_dispatches", "ai_pi_events",
+      "ai_pi_files", "ai_pi_exports", "ai_pi_export_pages", "ai_pi_gateway_nonces"
+    )
+  }
+  if ($piWorkspaceMigration.Count -eq 1) {
+    if ($piRuntimeMigration.Count -ne 1) { throw "Pi workspace backup lacks its runtime predecessor" }
+    $requiredTables += @("ai_pi_controls", "ai_pi_ui_requests", "ai_pi_workspaces")
+  }
   if (@($Evidence.migrations | Where-Object { $_.app -ceq "inventory" -and $_.name -ceq "0013_jd_logistics_notifications" }).Count -eq 1) {
     $requiredTables += "inventory_jd_logistics_deliveries"
   } elseif ($tableNames -ccontains "inventory_jd_logistics_deliveries") {
