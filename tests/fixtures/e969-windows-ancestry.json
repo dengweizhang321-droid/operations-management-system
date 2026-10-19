@@ -1,0 +1,26 @@
+{
+  "sourceFile": "D:/codex-artifacts/e969-ad7d-maintenance-recovery-20261019/windows-ancestry-boundary.json",
+  "sourceSha256": "c4cd92504fe03ba5104413f474222067abc212b3aca2537f264f5c7397014c90",
+  "at": "2026-10-19T14:07:55.4096298Z",
+  "fullCensusRows": 636,
+  "rows": [
+    {
+      "processId": 0,
+      "parentProcessId": 0,
+      "name": "System Idle Process",
+      "creationDate": "2026-10-17T14:43:47.1027420Z"
+    },
+    {
+      "processId": 4,
+      "parentProcessId": 0,
+      "name": "System",
+      "creationDate": "2026-10-17T14:43:47.1027420Z"
+    },
+    {
+      "processId": 860,
+      "parentProcessId": 4,
+      "name": "smss.exe",
+      "creationDate": "2026-10-17T14:43:47.1198020Z"
+    }
+  ]
+}
