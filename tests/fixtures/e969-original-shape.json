@@ -1,0 +1,427 @@
+{
+  "keys": {
+    "request": [
+      "version",
+      "latestMainRelease",
+      "mainCommit",
+      "deployedCommit",
+      "predecessorWorker",
+      "predecessorDjangoSha256",
+      "pwshDirectory",
+      "pwshSha256",
+      "npmCacheDirectory",
+      "components",
+      "migrate",
+      "releasePlan",
+      "backup",
+      "fullTests"
+    ],
+    "prepared": [
+      "version",
+      "at",
+      "requestSha256",
+      "sourceIdentity",
+      "workerPlan",
+      "djangoPackage",
+      "djangoManifestSha256"
+    ],
+    "start": [
+      "at",
+      "mainCommit",
+      "components",
+      "maintenanceId",
+      "source",
+      "sourceTree",
+      "requestSha256",
+      "predecessorChainStateSha256"
+    ],
+    "failure": [
+      "at",
+      "mainCommit",
+      "phase",
+      "error",
+      "processEvidence",
+      "maintenanceStarted",
+      "automaticRetry"
+    ],
+    "admission": [
+      "version",
+      "workerScript",
+      "workerScriptSha256",
+      "workerReceiptSha256",
+      "djangoManifestSha256",
+      "maintenanceId",
+      "preparedAt",
+      "source",
+      "sourceCommit",
+      "sourceTree",
+      "sourcePins",
+      "attempt",
+      "requestSha256",
+      "startedSha256",
+      "rotationOwnerPid",
+      "releaseId",
+      "workerManifestSha256",
+      "djangoScriptSha256",
+      "pandasConfigSha256",
+      "readinessRoute",
+      "maintenanceReadiness",
+      "workerTransportSha256"
+    ],
+    "actor": [
+      "at",
+      "version",
+      "maintenanceId",
+      "helperSha256",
+      "actor",
+      "admissionSha256",
+      "rotationOwner"
+    ]
+  },
+  "hashes": {
+    "request": "9f44c8f9af2072373719c259a3e12eff49a5ca08ad8e8c6661999f5f070c1ed2",
+    "prepared": "f38d40ce90e6e41949e78535a9d18d9acb2d36dbd53f1016292fdafe83943f71",
+    "start": "deacd712e15b61ceaa2cb7697edb0d887eef209e430e17b2c93263f7b92c0f72",
+    "failure": "2a0ae7b122ff1b35a5b5582f7815305ae76fb724d31d91b69429c5810658a4e5",
+    "admission": "acfba0af3c4be446373c719e696a5db16a2107494076f407f719c14467ea2f7f",
+    "actor": "3d66fc9866c4512d65437e69ca9b14bd7e567123f1ed9462f442e6f8a51d6e27"
+  },
+  "facts": {
+    "request": {
+      "version": "teruisi-frozen-latest-main-request-v1",
+      "latestMainRelease": true,
+      "mainCommit": "e9696b0d28187a4083fd0eba017187dd0a5dba26",
+      "deployedCommit": "3918480da94fc1cbdf72aa17d65406057bc7143a",
+      "predecessorWorker": {
+        "bindingSha256": "fdf509893d76fb416c3daa9ff9c2f2a0b13799fb4a49817a135c78694e7e7743",
+        "guardReceiptSha256": "51f236ef3fa65ed61d79b212ec65277e52f12a0d84488684b6dc6ce743b1d907",
+        "manifestSha256": "0e37f1740f26d7e257755fc8bed2596990edcd0ad86d20c3655c637bf1878e6a",
+        "releaseId": "20261019T104309Z-f28b90a85276e948",
+        "version": "teruisi-local-worker-release-binding-v1"
+      },
+      "predecessorDjangoSha256": "54a48ee1e6caac72cd13fd1f1f6fd077b4aad30326cf97e20ae249e405f3bcca",
+      "pwshDirectory": "D:\\codex-isolated\\main-manual-release-20261016\\control-host",
+      "pwshSha256": "362a356ce7f0940ec74f73a8fc2c990a2cc24a38a11c90bbd8eca947110ad139",
+      "npmCacheDirectory": "D:\\codex-isolated\\main-manual-release-20261016\\npm-cache",
+      "components": [
+        "worker",
+        "django"
+      ],
+      "migrate": false,
+      "releasePlan": {
+        "version": "teruisi-scoped-release-plan-v3",
+        "baseSha": "3918480da94fc1cbdf72aa17d65406057bc7143a",
+        "headSha": "e9696b0d28187a4083fd0eba017187dd0a5dba26",
+        "changes": [
+          {
+            "status": "M",
+            "path": "automation/n8n/jd-logistics-daily.workflow.json"
+          },
+          {
+            "status": "A",
+            "path": "docs/auto-preparation-wake-20261019/REPORT.md"
+          },
+          {
+            "status": "A",
+            "path": "docs/backup-pi-table-inventory-20261019/REPORT.md"
+          },
+          {
+            "status": "A",
+            "path": "docs/helper-claim-cleanup-20261019/REPORT.md"
+          },
+          {
+            "status": "A",
+            "path": "docs/prepare-4aac-resolution-20261019/REPORT.md"
+          },
+          {
+            "status": "A",
+            "path": "docs/prepare-693e-resolution-20261019/OPERATOR.md"
+          },
+          {
+            "status": "A",
+            "path": "docs/prepare-693e-resolution-20261019/REPORT.md"
+          },
+          {
+            "status": "A",
+            "path": "docs/release-cache-admission-20261018/OPERATOR.md"
+          },
+          {
+            "status": "A",
+            "path": "docs/release-cache-admission-20261018/REPORT.md"
+          },
+          {
+            "status": "M",
+            "path": "docs/规范/验证与发布.md"
+          },
+          {
+            "status": "A",
+            "path": "tests/control-dependency-update.test.mjs"
+          },
+          {
+            "status": "M",
+            "path": "tests/django-postgres-maintenance.test.ts"
+          },
+          {
+            "status": "A",
+            "path": "tests/fixed-cache-rejection.test.mjs"
+          },
+          {
+            "status": "A",
+            "path": "tests/fixed-cleaned-preparation.test.mjs"
+          },
+          {
+            "status": "A",
+            "path": "tests/fixed-native-abandonment.test.mjs"
+          },
+          {
+            "status": "A",
+            "path": "tests/fixtures/fixed-cache-0b-evidence.json"
+          },
+          {
+            "status": "A",
+            "path": "tests/fixtures/fixed-cache-0b-plan.json"
+          },
+          {
+            "status": "A",
+            "path": "tests/fixtures/fixed-cleaned-4aac-evidence.json"
+          },
+          {
+            "status": "A",
+            "path": "tests/fixtures/fixed-native-693e-evidence.json"
+          },
+          {
+            "status": "A",
+            "path": "tests/helper-claim-disconnect.test.ts"
+          },
+          {
+            "status": "M",
+            "path": "tests/jd-logistics-workflow.test.ts"
+          },
+          {
+            "status": "M",
+            "path": "tests/main-control-upgrade.test.mjs"
+          },
+          {
+            "status": "A",
+            "path": "tests/main-dependency-selected-admission.test.mjs"
+          },
+          {
+            "status": "M",
+            "path": "tests/main-prebuild-task.test.mjs"
+          },
+          {
+            "status": "A",
+            "path": "tools/cache-rejection-observer.mjs"
+          },
+          {
+            "status": "A",
+            "path": "tools/cache-rejection-writer.mjs"
+          },
+          {
+            "status": "A",
+            "path": "tools/cleaned-preparation-observer.mjs"
+          },
+          {
+            "status": "A",
+            "path": "tools/cleaned-preparation-writer.mjs"
+          },
+          {
+            "status": "M",
+            "path": "tools/install-main-prebuild.mjs"
+          },
+          {
+            "status": "M",
+            "path": "tools/main-prebuild-queue.mjs"
+          },
+          {
+            "status": "M",
+            "path": "tools/main-prebuild-task.mjs"
+          },
+          {
+            "status": "A",
+            "path": "tools/native-abandonment-observer.mjs"
+          },
+          {
+            "status": "A",
+            "path": "tools/native-abandonment-writer.mjs"
+          },
+          {
+            "status": "M",
+            "path": "tools/publish-latest-main.mjs"
+          },
+          {
+            "status": "A",
+            "path": "tools/test-helper-claim-cleanup-smoke.mjs"
+          },
+          {
+            "status": "M",
+            "path": "tools/tmall-isolated-helper.ts"
+          },
+          {
+            "status": "M",
+            "path": "tools/tmall-sycm-cookie-pipeline.ts"
+          },
+          {
+            "status": "M",
+            "path": "tools/verify-release-candidate.mjs"
+          }
+        ],
+        "scope": "full",
+        "components": [
+          "worker",
+          "django"
+        ],
+        "migrate": false,
+        "databaseProtection": "verified-current",
+        "businessDataProcessing": "separate-authorization-required",
+        "validation": [
+          "git-diff-check",
+          "worker-affected-tests",
+          "django-affected-tests",
+          "affected-integration-tests"
+        ],
+        "packaging": [
+          "prepare-worker-immutable-release",
+          "prepare-django-app"
+        ],
+        "deployment": [
+          "verify-current-database-backup",
+          "activate-worker-release",
+          "deploy-django-app",
+          "verify-startup",
+          "verify-affected-function"
+        ],
+        "workflow": [
+          {
+            "step": 4,
+            "id": "validate-change",
+            "actions": [
+              "git-diff-check",
+              "worker-affected-tests",
+              "django-affected-tests",
+              "affected-integration-tests"
+            ]
+          },
+          {
+            "step": 5,
+            "id": "merge-and-package",
+            "actions": [
+              "merge-main",
+              "push-main",
+              "prepare-worker-immutable-release",
+              "prepare-django-app"
+            ]
+          },
+          {
+            "step": 6,
+            "id": "publish",
+            "actions": [
+              "verify-current-database-backup",
+              "activate-worker-release",
+              "deploy-django-app",
+              "verify-startup",
+              "verify-affected-function"
+            ]
+          }
+        ],
+        "domains": [],
+        "unknown": [
+          "automation/n8n/jd-logistics-daily.workflow.json"
+        ],
+        "reasons": [
+          "未知路径升级完整流程:automation/n8n/jd-logistics-daily.workflow.json",
+          "测试:tests/control-dependency-update.test.mjs",
+          "测试:tests/django-postgres-maintenance.test.ts",
+          "测试:tests/fixed-cache-rejection.test.mjs",
+          "测试:tests/fixed-cleaned-preparation.test.mjs",
+          "测试:tests/fixed-native-abandonment.test.mjs",
+          "测试:tests/fixtures/fixed-cache-0b-evidence.json",
+          "测试:tests/fixtures/fixed-cache-0b-plan.json",
+          "测试:tests/fixtures/fixed-cleaned-4aac-evidence.json",
+          "测试:tests/fixtures/fixed-native-693e-evidence.json",
+          "测试:tests/helper-claim-disconnect.test.ts",
+          "测试:tests/jd-logistics-workflow.test.ts",
+          "测试:tests/main-control-upgrade.test.mjs",
+          "测试:tests/main-dependency-selected-admission.test.mjs",
+          "测试:tests/main-prebuild-task.test.mjs",
+          "运行或发布工具:tools/cache-rejection-observer.mjs",
+          "运行或发布工具:tools/cache-rejection-writer.mjs",
+          "运行或发布工具:tools/cleaned-preparation-observer.mjs",
+          "运行或发布工具:tools/cleaned-preparation-writer.mjs",
+          "运行或发布工具:tools/install-main-prebuild.mjs",
+          "运行或发布工具:tools/main-prebuild-queue.mjs",
+          "运行或发布工具:tools/main-prebuild-task.mjs",
+          "运行或发布工具:tools/native-abandonment-observer.mjs",
+          "运行或发布工具:tools/native-abandonment-writer.mjs",
+          "运行或发布工具:tools/publish-latest-main.mjs",
+          "运行或发布工具:tools/test-helper-claim-cleanup-smoke.mjs",
+          "运行或发布工具:tools/tmall-isolated-helper.ts",
+          "运行或发布工具:tools/tmall-sycm-cookie-pipeline.ts",
+          "运行或发布工具:tools/verify-release-candidate.mjs"
+        ],
+        "planSha256": "cc22ce780cf368b5d85ab5a9246a0c735b9f14f3e71f5e728c43cfbcb65c37b1"
+      },
+      "backup": false,
+      "fullTests": false
+    },
+    "prepared": {
+      "version": "teruisi-main-preparation-v1",
+      "at": "2026-10-19T13:26:34.539Z",
+      "requestSha256": "d5ca7fc7d0690b51e1b4ec50c4b59591ef249c77b923d0c3bde7030ed71935f0",
+      "sourceIdentity": {
+        "commit": "e9696b0d28187a4083fd0eba017187dd0a5dba26",
+        "tree": "a8366f7943e9a8492705f709ec0c220c1ac7494a"
+      },
+      "workerPlan": {
+        "status": "planned",
+        "version": "teruisi-local-worker-release-rotation-plan-v1",
+        "planSha256": "370c063f594129556b09e686c26509b89392d12e12735f35f5197d9e4f803909",
+        "planPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\370c063f594129556b09e686c26509b89392d12e12735f35f5197d9e4f803909.json",
+        "predecessorReleaseId": "20261019T104309Z-f28b90a85276e948",
+        "candidateReleaseId": "20261019T130904Z-6b816a5085c6a13e",
+        "candidateManifestSha256": "70d5019b78836129779bbe51539cb0ae427da5ada550b2f901bddce28b0214af",
+        "candidateGuardReceiptSha256": "56064c6f2c6d85d072f531e09503e332af4ee5dabba5511d14d41a622d87a670",
+        "cutoverId": "sales-pg-20260829T204417Z-d9896e904d8092cb"
+      },
+      "djangoPackage": {
+        "id": "fc008837312d4a54be0812e7e61f17a4",
+        "receiptSha256": "a267a14fe10a9877750ea421b5a76320d918e936de868fa40b053374416ecde4",
+        "appFingerprint": "7df771b6529813069d9af58e21577d59df1147c9871246fe58a7f87243251dd6"
+      },
+      "djangoManifestSha256": "00058feaf2c93cd0de55a6e269dc67d73bfd1c659d72a5ea1720073a5615180b"
+    },
+    "start": {
+      "at": "2026-10-19T13:34:39.843Z",
+      "mainCommit": "e9696b0d28187a4083fd0eba017187dd0a5dba26",
+      "components": [
+        "worker",
+        "django"
+      ],
+      "maintenanceId": "ad7d95481eae4ee3b27f20a7e4b9b11e",
+      "source": "D:\\codex-isolated\\main-release-packages\\e9696b0d2818-fdf50989-54a48ee1\\source",
+      "sourceTree": "a8366f7943e9a8492705f709ec0c220c1ac7494a",
+      "requestSha256": "d5ca7fc7d0690b51e1b4ec50c4b59591ef249c77b923d0c3bde7030ed71935f0",
+      "predecessorChainStateSha256": "50bf332117fc76bd2f52d374adabe3d9516cb9a53a0f453213b59329655be1bf"
+    },
+    "failure": {
+      "mainCommit": "e9696b0d28187a4083fd0eba017187dd0a5dba26",
+      "maintenanceStarted": true,
+      "phase": "进入维护",
+      "automaticRetry": false
+    },
+    "admission": {
+      "maintenanceId": "ad7d95481eae4ee3b27f20a7e4b9b11e",
+      "readinessRoute": "native-exit-observer",
+      "sourceCommit": "e9696b0d28187a4083fd0eba017187dd0a5dba26",
+      "sourceTree": "a8366f7943e9a8492705f709ec0c220c1ac7494a"
+    },
+    "actor": {
+      "actor": {
+        "processId": 16244
+      },
+      "rotationOwner": {
+        "processId": 41088
+      }
+    }
+  }
+}
