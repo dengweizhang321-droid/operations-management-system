@@ -1,34 +1,54 @@
-# 四项发布优化与 PiAgent 三期组合发布
+# 四项发布优化与 PiAgent 三期组合上线
 
-## 授权与范围
+两项任务已于上海时间 **2026-10-20 04:26:18** 完成联合上线，原生完成记录于 **2026-10-20 04:26:29** 闭合。最终共同应用来源为 `e52361d5a8fc095713e0ac3553ba078c12fcba9f`，状态 `deployed_and_ready`。当前任务和 PiAgent 三期原合并提交均已核为该来源的祖先。
 
-用户在本会话明确授权：打包完成后，将本轮四项优化与 PiAgent 三期业务执行统一发布。首次冻结应用来源为`4072d666f1f3d85a5a1a93342196587446f08a71`；它包含四项优化与 PiAgent 三期交付，不以聊天名称作为来源证明。
+| 项目 | 实际采用结果 |
+| --- | --- |
+| Worker | `20261019T194715Z-63b9b06109dbb19d` |
+| Worker manifest | `7f09e45c2187ed20eec18fc6122970714462026dd4c6a663cef0a21656ed7dfe` |
+| Django manifest | `779535885a29fe65ea6f7a4e4d91297ef175558181c5c41a86534b10a5126810` |
+| Django prepared ID | `19331dd1f9f54f75ac957c77dd0d3e67` |
+| AI 结构 | 151→152，`ai_assistant.0086_pi_business_actions`，仅结构安装 |
+| Pi Runner / Skills | 1.2.0，镜像 `sha256:4466957e80e75b04fedc888029defa897d9d1b26173a3228558ccdadf169486f` |
+| 操作权限 | 同登录用户普通权限，真实 token `elevated=false / integrityRid=8192` |
+| 完成依据 | 原生 Start、VerifyStartup、同一必需 ready 端点及原 readLivePublication 闭合 |
 
-范围为Worker、Django、AI结构`151→152 / ai_assistant.0086_pi_business_actions`及Pi Runner/Skills 1.2.0升级。原生制品已于2026-10-20 02:06:30（上海时间）准备完成；PREPARED摘要`4cb926c1d0dc8fb2e0a7c2a1f3ddc5ff2d3faf95ee1f5ad310d9103a63e670f8`。准备完成与应用发布完成分别判断。
+## 本轮采用范围
 
-本次不执行真实工作计划/补货写入、n8n补缺、机器人发送、候选工作流激活或业务功能验收。上线后的功能及业务行为由用户检测；只复用必要代码检查和发布工具原生门禁。
+四项发布优化包括：新品周报在同一服务 mutex 内先读维护及排空 gate，有效 gate 延期且不进入昂贵检查；维护前生成来源、请求和入口材料；保留原锁序与等待预算的诊断输出；同一有效结果复用及冻结来源 Git 读取合并。未扩展其他优化。
 
-## 执行与证据
+PiAgent 三期的对话业务入口、正式计划、可编辑补货草稿、补缺与投递预览/确认代码随该共同来源采用，数据库新账本及 Runner/Skills 升级完成。六份 n8n 候选仍未采用或激活，本次未发起真实补缺、投递或业务动作。功能及业务行为由用户上线后自行检测；AI 没有追加功能测试、业务接口验收或浏览器验收。
 
-- 工作树外的原始授权、普通权限Task材料、真实token、原生操作记录保存在`D:/codex-artifacts/combined-release-20261020/`。
-- 当前调用方为管理员，通过同SID/交互session、InteractiveToken/RunLevel0的无触发器一次性Task交给普通进程。实际Node token已确认`elevated=false / integrityRid=8192`，不是只看Task定义。
-- 薄操作入口绑定完整target、控制代际、配置、PREPARED和工具字节，使用原协调器的queue lease→native rotation及`deployReadyMain`，不重新选目标或重建包。原native STARTED/unknown、权限、进程身份、排空、维护及启动门禁保持。
-- 传输入口只接受这次固定发布，无任意命令、定时触发或自动重试。启动前校验已绑定配置的原始字节，清继承环境并拒绝Node/Git启动注入字段。入口及该增量已独立复核。
+## 必要阻断与处理
 
-## 完成状态
+最初4072制品的两次调用均在维护前停止：一次后台复验等待周报 mutex 超时，一次被过旧的维护前驱资格拒绝。补充精确的当前前驱→候选资格后，69b38制品正常进入维护。旧制品、请求与失败记录保留。
 
-原4072制品的两次调用均在维护前拒绝，尚未上线。必要兼容修复69b38d1e已合入main，新制品准备中。此工作单在原生SUCCESS出现后补齐最终版本、迁移、Runner、回执摘要及计时；不能以Task已启动、旧全局成功索引、PREPARED或进度文件作为上线成功。
+69b38已部署后台、安装152结构并配置既定权限，随后 Finalize 因权限目录核对器与正式合约矛盾而拒绝：intents、audits 两表应仅允许 writer 的 SELECT/INSERT，核对器误要求 UPDATE。只读诊断证明实际权限正确、原保全摘要未变。e52361d5只修正两行期望，不增加数据库权限。受审、精确绑定的短命校验器修正桥完成同一原 operation 的 Finalize/CAS，并单独记录有效校验器来源；旧源码、plan、intent均未热改。
 
-## 已保留的发布前拒绝
+修正版通过原生 PrepareApp 和 Worker 准备生成两端共同来源的制品。适配器最初因 sourceRoot 未使用 Windows 规范形式在 WorkerBuild 前拒绝；原后台包与 Runner 成功材料直接复用，仅续接未进入的 Worker 准备。之后原生部署持久修正、升级 Runner、切换 Worker并退出原维护，未重做结构安装或角色配置。
 
-首次调用在02:16:32（上海）复验后台包时，因Django服务mutex等待30秒后未取得锁而退出。精确源码在调用VerifyPreparedApplication回调前拒绝；原生进程exit1及30.632秒、原Task退出、对应日志和未进入维护/部署的状态共同核实，不单凭无STARTED推导结果。前端复验及日志写入已经发生，不称整轮“零作用”。
+首次 Start 在周报持锁时进入并发等待分支，被旧 stopped fence 拒绝，尚未执行启动回调。原进程退出、源码分支和原日志独立核实后，仅在新鲜空闲观察下续接一次原入口 Start，未手改 fence。原生 Start、VerifyStartup均成功；首次 ready 503 的失败保留，随后同一必需端点自然转为200，最终仅协调完成记录，未再调用任何生命周期动作。
 
-独立审查和定向恢复规划支持一次同目标、同原请求、同PREPARED的完整新鲜复核。02:24:45只读观察确认该mutex对象已无持有者；保留首次失败、Task、凭证及发生过的核验，新外层目录仅存独立调用记录，继续原queue→rotation、普通权限和全部原生复验，不修改包、不重建、不跳检查，也不创建替代native请求绕过未知结果。资格和观察记录在外置证据的`premaintenance-recheck-1/`中。
+## 检查及证据
 
-## 当前前驱的精确兼容修复
+必要代码检查复用原四项优化的有效材料；前驱资格补充有83项私有控制/入口检查，ACL修正有24项私有门禁检查及78文件语法、未变迁移闭包检查。恢复桥与各限定尾段均经独立审查，原生动态身份、制品完整性、active-batch、互斥、排空、停稳、CAS及启动门禁保留。没有全库备份或恢复演练，没有重放已经完成的迁移或角色配置。
 
-第二次完整复核已通过Worker、Django和Pi升级计划；02:33:48在维护前被旧前驱资格拒绝。线上实际Django manifest为`00058fea…`，旧记录仅认可`ca9c731a…`。未进入维护或部署，不继续重放4072；原包、请求、两次失败及普通权限回执原样保留。
+实际 schema operation：`02e1a8332e594d75be7c31d21f984f97`；原 maintenance ID：`816f71f9985f4c64933ad9facd91372f`。原69b38发布没有补造SUCCESS，最终采用单独、明确的恢复SUCCESS。外层 UTC/本地时间文本比较失败、准备格式拒绝、Start拒绝和503记录全部保留。
 
-新增`nativePiBusinessPredecessor`精确绑定当前Worker release/manifest、Django manifest、已安装和候选AI/core/Worker/transport完整摘要；旧资格不替换。已安装和候选Wait/Stop函数字节均符合原审定值，实际停止调用链和45秒receipt/control/ack协议未变。core差异只涉及Pi152准入、制品库存与环境字段；维护、排空、锁和停止路由函数字节未变。未知组合仍拒绝，不用context hook代替原资格器。
+外置原始证据：`D:/codex-artifacts/combined-release-20261020/` 与 `D:/codex-artifacts/pi152-finalize-recovery-20261020/`。最终回执：`D:\codex-artifacts\pi152-finalize-recovery-20261020\completion-coordination\SUCCESS.json`，SHA-256 `7d076ead82dcac8375fe8e584795a91415f5868e28a5c961ccaab3a4f4e8ee82`。汇总为后者的 `PRODUCTION.json`。PUBLISHED目录已绑定此回执并由原生读取接口核实。
 
-必要代码检查为83项发布控制/私有入口检查全部通过、78文件语法与未变151→152迁移闭包、真实静态readiness及原生只读preflight Check通过。该次只读Check调用来自当前管理员上下文，未冒称普通权限生产准入；实际发布仍由普通用户原生门禁新鲜检查。未执行功能验收、业务接口或真实业务操作。外部原始日志见`compatibility-tests-configured.log`、`compatibility-preflight.json`、`compatibility-ast.json`。刷新Pi152 code-only证明写入本目录，旧证明原样保留。
+## 时间记录与限制
+
+| 事件 | 上海时间 |
+| --- | --- |
+| 首次记录授权（非原消息精确发出时刻） | 2026-10-20 01:57:32 |
+| 原维护流程STARTED | 2026-10-20 03:13:59 |
+| 修正版完整制品就绪 | 2026-10-20 03:54:51 |
+| 实际恢复尾段开始 | 2026-10-20 03:57:11 |
+| Start-only续接 | 2026-10-20 04:16:05 |
+| 同一总就绪端点首次观察200 | 2026-10-20 04:21:40 |
+| 恢复SUCCESS / 目录闭合 | 2026-10-20 04:26:18 / 2026-10-20 04:26:29 |
+
+首次记录授权至恢复SUCCESS为 **148.8分钟**，包含原准备、拒绝、必要代码修复与恢复，不能只报最后一轮耗时。原维护意图至SUCCESS的跨度为72.3分钟；这不是逐秒测得的连续页面中断时长。Git、文档与记忆收尾另记真实完成时间，不回填更早时刻。
+
+本轮发现进度JSON中的锁记录可能未及时刷新；原stderr已记录Worker/Django锁在43毫秒内取得，实际控制不消费该诊断。此显示问题未插入当前恢复继续修复。上线后的业务验收仍由用户负责。

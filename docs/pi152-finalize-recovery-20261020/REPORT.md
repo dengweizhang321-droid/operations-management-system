@@ -5,3 +5,7 @@
 原维护`816f71f9985f4c64933ad9facd91372f`、旧STARTED/FAILED、安装回执和原intent保留。必要恢复分两段：先以独立受审、精确绑定的校验器修正桥调用原Finalize及CAS并留修正意图/完成回执；再通过原生准备/部署把同一修正持久安装。旧sealed来源、原plan和原代码文件均不热改，不重放结构Install或ProvisionRoles。
 
 这是维护中部分完成后的恢复，不能报告旧完整发布包成功。最终采用的提交、组件、原生回执及时间在实际完成后补齐；功能与业务行为由用户上线后检测。原始证据位于`D:/codex-artifacts/combined-release-20261020/compatibility-release/`。
+
+## 最终采用
+
+已完成上线与目录闭合，Worker和Django共同来源为`e52361d5a8fc095713e0ac3553ba078c12fcba9f`，结构152、Runner/Skills1.2.0。详细过程、实际制品、全部失败保留及时间见[组合发布记录](../combined-release-20261020/PRODUCTION.md)。

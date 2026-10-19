@@ -36,3 +36,7 @@ helper按精确execution读取有界原生元数据，并在每次领取/节点�
 只进行语法、类型依赖、构建/制品及原生部署启动入口所需代码检查。未新增或执行功能测试、权限场景验收、浏览器业务验收、业务演练或真实补缺/外发。
 
 必要检查的实际结果见 [CODE_CHECKS.json](CODE_CHECKS.json)：本次改动文件类型诊断为0，依赖闭包另有9条未修改文件的既有诊断，不宣称全仓类型检查通过。发布工具语法及有限迁移源闭包证据见schema目录。最终提交、制品与部署状态保存在工作树外 `D:/codex-artifacts/piagent-phase3-20261019/DELIVERY.json`，避免为回写最终提交号再改变待发布源码；只有原生PREPARED才证明就绪。结构及准备入口见 [schema/README.md](schema/README.md)，用户自测提示词见 [SELF_TEST_PROMPTS.md](SELF_TEST_PROMPTS.md)，仅交付用户自行执行。
+
+## 2026-10-20 组合生产采用
+
+本任务已随共同来源`e52361d5a8fc095713e0ac3553ba078c12fcba9f`完成生产采用。原候选与检查快照原样保留；实际组件、必要修复和回执见[组合发布记录](../combined-release-20261020/PRODUCTION.md)。Pi三期n8n候选保持未激活，业务功能由用户检测。

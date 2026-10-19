@@ -29,6 +29,8 @@
 
 ## 发布与交付
 
+本轮补充：[四项优化与Pi三期组合上线](../combined-release-20261020/PRODUCTION.md) · [Pi152目录核对器修正与恢复](../pi152-finalize-recovery-20261020/REPORT.md)。
+
 本轮补充：[发布等待四项定向优化](../release-contention-20261020/REPORT.md)。
 
 本轮补充：[发布流程方案复审与优化建议](../release-process-rereview-20261020/REPORT.md)（审查及候选路线，未实施或上线）。
