@@ -60,7 +60,7 @@ function surface(value: unknown, marketV2Enabled = false): AiToolSurface {
     if (!marketV2Enabled) throw denied();
     return value;
   }
-  if (!["ai_chat", "dingtalk_chat", "ai_agent", "pi_agent", "ai_sandbox", "business_collection", "business_agent_v2", "business_agent_budget_v1", "business_agent_integrated_v1", "business_agent_screening_v1", "business_agent_screening_promotion_v1"].includes(String(value))) throw denied();
+  if (!["ai_chat", "dingtalk_chat", "ai_agent", "pi_agent", "pi_business", "ai_sandbox", "business_collection", "business_agent_v2", "business_agent_budget_v1", "business_agent_integrated_v1", "business_agent_screening_v1", "business_agent_screening_promotion_v1"].includes(String(value))) throw denied();
   return value as AiToolSurface;
 }
 function entries(principal: AppPrincipal, value: unknown, marketV2Enabled = false) {
@@ -102,7 +102,13 @@ export async function handleAiEdge(request: Request) {
     } else if (body.action === "execute") {
       exact(body, ["action", "name", "arguments", "surface", "requestId", "providerCallId", "policyDigest"]);
       if (body.policyDigest !== await aiSha256(canonicalAiEdge(entries(principal, body.surface, marketV2Enabled)))) throw denied();
-      result = await executeRegisteredToolCall(text(body.name, 100), body.arguments, { principal, surface: surface(body.surface, marketV2Enabled), requestId: text(body.requestId, 128), providerCallId: typeof body.providerCallId === "string" ? body.providerCallId.slice(0, 200) : undefined, signal: request.signal }, { entries: getMarketV2EnabledRegistry(marketV2Enabled) });
+      result = await executeRegisteredToolCall(text(body.name, 100), body.arguments, { principal, surface: surface(body.surface, marketV2Enabled), persistentPiGateway: body.surface === "pi_business", requestId: text(body.requestId, 128), providerCallId: typeof body.providerCallId === "string" ? body.providerCallId.slice(0, 200) : undefined, signal: request.signal }, { entries: getMarketV2EnabledRegistry(marketV2Enabled) });
+    } else if (body.action === "pi_business_domain") {
+      const { piBusinessN8nDomain } = await import("@/lib/ai/pi-business-n8n");
+      result = await piBusinessN8nDomain(body, principal, request.signal);
+    } else if (body.action === "pi_business_n8n_coverage") {
+      const { piBusinessN8nCoverage } = await import("@/lib/ai/pi-business-n8n");
+      result = await piBusinessN8nCoverage(body, principal, request.signal);
     } else if (body.action === "dataset") result = await dataset(body, principal);
     else throw denied();
     return Response.json(result, { headers: { "cache-control": "no-store" } });

@@ -830,6 +830,7 @@ async function importCommand(argv: string[], expectedStoreKey?: string) {
       targetDateCount: 0,
       processedDateCount: 0,
       coverageConfirmed: true,
+      batches: [],
     };
     await writeJsonAtomic(resultPath, summary);
     return summary;
@@ -862,6 +863,8 @@ async function importCommand(argv: string[], expectedStoreKey?: string) {
     processedDateCount: imported.audit.items.length,
     coverageConfirmed: missingAfterImport.length === 0,
     missingAfterImport,
+    batches: imported.audit.items.map(item => ({ businessDate: item.businessDate, batchId: item.batchId,
+      rowCount: item.rowCount, status: item.status, storeKey: item.storeKey })),
   };
   await writeJsonAtomic(resultPath, summary);
   if (!ok) throw new Error("导入未全部完成或覆盖回查未命中，详见结果清单");

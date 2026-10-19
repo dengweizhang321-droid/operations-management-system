@@ -121,7 +121,7 @@ function Upgrade-PiRuntime([bool]$PrepareOnly, [bool]$ReconcileOnly = $false) {
     if ($sourceRun.ExitCode -ne 0) { throw 'Cannot freeze successor Runner source' }
     $sourceDigest = [string](@($sourceRun.Output) -join '').Trim()
     if ($sourceDigest -cnotmatch '^[a-f0-9]{64}$') { throw 'Invalid successor Runner source' }
-    $arguments += @('prepare','--runtime',$RuntimeRoot,'--image',$RequestedPiImage,'--source-sha256',$sourceDigest,'--execute')
+    $arguments += @('prepare','--runtime',$RuntimeRoot,'--image',$RequestedPiImage,'--source-sha256',$sourceDigest,'--skill-version',$RequestedPiSkillVersion,'--execute')
   } else {
     Assert-AiPortsFree 'UpgradePi'
     if (Resolve-OwnedProcess 'django-ai-pi-worker' $PiWorkerPidPath $Python) { throw 'Pi worker must finish its exact native stop before independent Runner upgrade' }
@@ -133,15 +133,21 @@ function Upgrade-PiRuntime([bool]$PrepareOnly, [bool]$ReconcileOnly = $false) {
   if ($PrepareOnly) {
     if ($result.prepared -cne $true -or $result.started -cne $false) { throw 'Independent Runner preparation outcome unknown' }
   } elseif ($result.upgraded -cne $true -or $result.windowsConfigUpdated -cne $true) { throw 'Independent Runner upgrade outcome unknown; keep the original intent' }
-  Assert-PiUpgradeLeafAcl
+  Assert-PiUpgradeLeafAcl ([string]$result.sourceSha256)
   $result | ConvertTo-Json -Compress
 }
 
-function Assert-PiUpgradeLeafAcl {
+function Assert-PiUpgradeLeafAcl([string]$SourceSha256 = "") {
   $allowedValues = @((Get-AllowedAclSids) | ForEach-Object { $_.Value })
-  foreach ($relative in @('config\pi-agent.json','secrets\pi-agent.dpapi.json','config\pi-agent-upgrade-prepared.json','config\pi-agent-upgrade-intent.json','config\pi-agent-upgrade-result.json')) {
+  $upgradeLeaves = @('config\pi-agent.json','secrets\pi-agent.dpapi.json','config\pi-agent-upgrade-prepared.json','config\pi-agent-upgrade-intent.json','config\pi-agent-upgrade-result.json')
+  if ($SourceSha256 -cmatch '^[a-f0-9]{64}$') {
+    $upgradeDirectory = 'config\pi-agent-upgrades\' + $SourceSha256
+    $upgradeLeaves += @('config\pi-agent-upgrades', $upgradeDirectory)
+    foreach ($name in @('preparing.json','prepared.json','intent.json','result.json')) { $upgradeLeaves += ($upgradeDirectory + '\' + $name) }
+  }
+  foreach ($relative in $upgradeLeaves) {
     $path = Join-Path $RuntimeRoot $relative
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
+    if (-not (Test-Path -LiteralPath $path)) { continue }
     $item = Get-Item -LiteralPath $path -Force
     if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Pi upgrade leaf cannot be a reparse point' }
     Assert-ExactRuntimeAclEntry $item (Get-RuntimeItemAccessControl $item) $allowedValues (Get-CanonicalPath $RuntimeRoot)
@@ -537,6 +543,14 @@ function Invoke-WithAiEnvironment(
     $env:AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST = $AiSecrets.ModelOriginAllowlist
     $env:TERUISI_DJANGO_AI_EDGE_BASE_URL = "http://127.0.0.1:3000"
     if ($Role -ceq "ai_writer") {
+      $env:TERUISI_PI_REPORT_DINGTALK_CONFIG = ""
+      $env:TERUISI_DINGTALK_BOT_CREDENTIALS = ""
+      $piReportConfig = Join-Path $RuntimeRoot "config\dingtalk-ask.json"
+      $piReportCredentials = Join-Path $RuntimeRoot "secrets\dingtalk-bot.dpapi.json"
+      if ((Test-Path -LiteralPath $piReportConfig -PathType Leaf) -and (Test-Path -LiteralPath $piReportCredentials -PathType Leaf)) {
+        $env:TERUISI_PI_REPORT_DINGTALK_CONFIG = $piReportConfig
+        $env:TERUISI_DINGTALK_BOT_CREDENTIALS = $piReportCredentials
+      }
       $env:PI_RUNNER_HMAC_SECRET = ""
       $env:PI_RUNNER_HMAC_KEY_FILE = ""
       $env:PI_SKILL_VERSION = ""

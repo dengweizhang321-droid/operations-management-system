@@ -2,7 +2,8 @@
 
 from django.db import models
 from django.utils import timezone
-from .pi_models import (PiSession, PiOperation, PiDispatch, PiEvent, PiFile, PiExport, PiExportPage, PiGatewayNonce, PiWorkspace, PiControl, PiUiRequest)
+from .pi_models import (PiSession, PiOperation, PiDispatch, PiEvent, PiFile, PiExport, PiExportPage, PiGatewayNonce, PiWorkspace, PiControl, PiUiRequest,
+    PiBusinessIntent, PiBusinessAction, PiBusinessAudit)
 from .dingtalk_models import AiDingTalkSession, AiDingTalkReceipt, AiDingTalkSettings, AiDingTalkSchedule, AiDingTalkScheduleRun
 from .control_models import (
     AiDataRevision,

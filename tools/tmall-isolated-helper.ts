@@ -7,6 +7,7 @@ import { reserveRetryDispatch } from "../lib/jackyun/retry-dispatch-reservation"
 import { reserveJackyunFailureRetry } from "../lib/jackyun/retry-budget";
 import { readJackyunRecoveryTarget, dispatchHumanJackyunRetry } from "../lib/jackyun/human-retry";
 import { assertNoFreshRestart } from "../lib/jackyun/fresh-restart";
+import { admitPiBusinessN8nNode } from "./pi-business-n8n-gate";
 
 export const isolatedHelperProtocol = "tmall-store-isolation-v1";
 export const isolatedHelperTokenHeader = "x-teruisi-helper-slot-token";
@@ -317,6 +318,9 @@ export async function serveIsolatedHelper(options: {
       }
       const identity = request.method === "POST" ? isolatedRequestIdentity(route, request.headers) : null;
       if (!identity) { reply(response, 400, { ok: false, error: "missing_or_invalid_helper_request_identity" }); return; }
+      // Native Pi-origin executions recheck current application authorization
+      // before every claim/dispatch. Retry descendants may not bypass the action.
+      await admitPiBusinessN8nNode(identity.executionId);
       // Existing helper contracts accept header-only requests. Refuse arbitrary
       // bodies and client-supplied internal slot credentials at the front door.
       if (request.headers[isolatedHelperTokenHeader] !== undefined || request.headers["transfer-encoding"] !== undefined

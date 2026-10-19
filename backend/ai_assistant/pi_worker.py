@@ -517,6 +517,11 @@ def _export_loop(stopped):
                 dispose_environment(cleanup.operation)
             except Exception:
                 pass
+        from . import pi_business
+        action = pi_business.claim()
+        if action:
+            pi_business.perform(action, stopped)
+        pi_business.observe_pending_n8n(stopped)
         row = pi_exports.claim()
         if row:
             try:

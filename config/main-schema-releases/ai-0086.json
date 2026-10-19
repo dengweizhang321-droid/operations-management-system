@@ -1,0 +1,15 @@
+{
+  "version": "teruisi-main-schema-recipe-v1",
+  "additionKind": "PiBusiness",
+  "fromGeneration": 151,
+  "toGeneration": 152,
+  "steps": [
+    "ai_assistant.0086_pi_business_actions"
+  ],
+  "stepFiles": {
+    "backend/ai_assistant/migrations/0086_pi_business_actions.py": "3435b5970ffb5d5530e60aed6156e7b7e7792fb0cbff5e198ef8a3b264ee4213"
+  },
+  "validation": "docs/piagent-phase3-20261019/schema/mandatory-code-checks.json",
+  "validationSha256": "285f334ae8dd7478a0cb4f9a956447697a255bf5ff047409489a42c7486b8234",
+  "codeSha256": "4a263708fd2b11eba48b3b0b9e990f178f8667473e9c2fa5a74395270968e0d8"
+}

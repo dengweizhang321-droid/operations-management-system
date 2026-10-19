@@ -22,6 +22,9 @@ def dispatch(request, path, principal):
     payload = body(request) if request.method == "POST" else {}
     if request.method == "POST" and params:
         raise AiError("Pi 写接口不接受查询参数")
+    if parts == ["pi", "business-admission"] and request.method == "POST":
+        from . import pi_business
+        return response(pi_business.admission(payload, principal))
     if parts == ["pi", "skills"] and request.method == "GET":
         fields(params, set())
         from . import models as m
@@ -35,6 +38,10 @@ def dispatch(request, path, principal):
             return response(service.detail(parts[2], principal))
         if len(parts) == 4:
             name = parts[3]
+            if name == "business-actions":
+                from . import pi_business
+                return response(pi_business.listing(parts[2], params, principal) if request.method == "GET"
+                    else pi_business.control(parts[2], payload, principal), 200 if request.method == "GET" else 202)
             if name == "workspace":
                 from . import pi_workspace
                 return response(pi_workspace.detail(parts[2], params, principal) if request.method == "GET"

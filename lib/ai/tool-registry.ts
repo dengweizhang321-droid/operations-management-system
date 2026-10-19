@@ -1,5 +1,6 @@
 import { startPiDatasetExport, getPiDatasetExport } from "@/lib/ai/pi-export-tools";
 import { readPiNetshopPage } from "@/lib/ai/pi-netshop-tools";
+import { preparePiBusinessAction, getPiBusinessAction, getPiBusinessOptions } from "@/lib/ai/pi-business-tools";
 import { readBusinessPromotionDispatchTool } from "@/lib/ai/business-promotion-dispatch-tools";
 import { getBiCockpitForAi } from "@/lib/bi/ai-tool";
 import { readBusinessMarketV2ToolCandidate, MARKET_V2_TOOL, MARKET_V2_SURFACE } from "@/lib/ai/business-market-v2-tool-candidate";
@@ -141,6 +142,69 @@ function piReadOnly(policy: AiToolExecutionPolicy): AiToolExecutionPolicy {
 }
 
 export const aiToolRegistry = [
+  {
+    name: "get_pi_business_options", title: "查询本轮业务执行选项",
+    description: "只读发现本轮用户意图、稳定动作身份、获准接收对象和具体补缺能力边界。选项和技能本身不授予执行权限。",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["operator", "admin"], scopePolicy: "principal_scope",
+    execution: { ...synchronousReadOnlyExecution, allowedSurfaces: ["pi_business"], maxCallsPerRequest: 2 }, handler: getPiBusinessOptions,
+  },
+  {
+    name: "prepare_pi_work_plan", title: "创建经营工作计划",
+    description: "仅本轮用户明确选择创建计划时，以服务端给出的 userIntentId 保存正式运营事务工作计划。目标、事项、负责人、精确店铺、开始和截止日期必须由用户明确提供；歧义先澄清。相同意图恢复和重试沿用原动作，不创建第二份计划。返回持久任务与真实对象链接，排队不表示保存完成。",
+    inputSchema: { type: "object", properties: {
+      userIntentId: { type: "string", minLength: 1, maxLength: 160 }, title: { type: "string", minLength: 1, maxLength: 160 },
+      goal: { type: "string", minLength: 1, maxLength: 500 }, workContent: { type: "string", minLength: 1, maxLength: 1500 },
+      owner: { type: "string", minLength: 1, maxLength: 120 }, shopName: { type: "string", minLength: 1, maxLength: 160 },
+      startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" }, due: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+      category: { type: "string", maxLength: 80 }, priority: { type: "string", enum: ["high", "normal", "low"] },
+    }, required: ["userIntentId", "title", "goal", "workContent", "owner", "shopName", "startDate", "due"], additionalProperties: false },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }, risk: "write", allowedRoles: ["operator", "admin"], scopePolicy: "principal_scope",
+    execution: { environment: "worker_inline", mode: "background_job", allowedSurfaces: ["pi_business"], timeoutMs: 30_000, maxResultCharacters: 32_000, maxCallsPerRequest: 1 },
+    handler: (args, context) => preparePiBusinessAction("prepare_pi_work_plan", args, context),
+  },
+  {
+    name: "prepare_pi_replenishment_draft", title: "保存可编辑补货草稿",
+    description: "在用户本轮明确要求保存草稿且有服务端 userIntentId 时，复用正式库存、在途、近30日销量和领域补货计算保存可编辑草稿。展示来源日期、数量、依据和缺失信息；不创建采购单或调拨单，不发供应商指令。缺失依据不能猜数，相同意图只产生一个草稿。",
+    inputSchema: { type: "object", properties: {
+      userIntentId: { type: "string", minLength: 1, maxLength: 160 }, warehouse: { type: "string", minLength: 1, maxLength: 100 },
+      productCode: { type: "string", minLength: 1, maxLength: 100 }, plannedQuantity: { type: "integer", minimum: 1, maximum: 10000000 },
+      notes: { type: "string", maxLength: 1000 }, acknowledgeStale: { type: "boolean" },
+    }, required: ["userIntentId", "warehouse", "productCode"], additionalProperties: false },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }, risk: "write", allowedRoles: ["operator", "admin"], scopePolicy: "principal_scope",
+    execution: { environment: "worker_inline", mode: "background_job", allowedSurfaces: ["pi_business"], timeoutMs: 30_000, maxResultCharacters: 32_000, maxCallsPerRequest: 1 },
+    handler: (args, context) => preparePiBusinessAction("prepare_pi_replenishment_draft", args, context),
+  },
+  {
+    name: "prepare_pi_gap_execution", title: "预览已注册补缺流程",
+    description: "仅用已登记 capabilityId 解析精确工作流、版本、店铺、数据集和日期。先读权威缺口，无缺口不建执行任务。首批只接受天猫单店固定最近七个完整日的商品与推广整链（含原到期货品节点），不扩大日期，不任意指定 workflowId、URL、请求头。展示预览后由用户在业务卡确认；受理、执行、下载、导入批次及目标覆盖分别报告，未知结果不重发。",
+    inputSchema: { type: "object", properties: {
+      userIntentId: { type: "string", minLength: 1, maxLength: 160 }, capabilityId: { type: "string", enum: ["tmall-seven-day-gap-v1"] },
+      storeKey: { type: "string", minLength: 1, maxLength: 100 }, dataset: { type: "string", enum: ["product_and_promotion"] },
+      startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" }, endDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+    }, required: ["userIntentId", "capabilityId", "storeKey", "dataset", "startDate", "endDate"], additionalProperties: false },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }, risk: "write", allowedRoles: ["operator", "admin"], scopePolicy: "principal_scope",
+    execution: { environment: "worker_inline", mode: "background_job", allowedSurfaces: ["pi_business"], timeoutMs: 30_000, maxResultCharacters: 32_000, maxCallsPerRequest: 1 },
+    handler: (args, context) => preparePiBusinessAction("prepare_pi_gap_execution", args, context),
+  },
+  {
+    name: "prepare_pi_report_delivery", title: "预览报告定向投递",
+    description: "准备本环境已收集的 PDF/XLSX 报告附件和正文、当前有效机器人及指定获准接收对象。recipientId 必须来自本次服务端收件人目录，不猜身份或失败改投。展示正文、文件SHA、渠道及收件人后，用户在业务卡确认一次才派发。仅真实提供商回执证明受理，不编造送达/已读；结果未知不自动重发。",
+    inputSchema: { type: "object", properties: {
+      userIntentId: { type: "string", minLength: 1, maxLength: 160 }, fileId: { type: "string", minLength: 1, maxLength: 160 },
+      recipientId: { type: "string", minLength: 1, maxLength: 160 }, caption: { type: "string", maxLength: 1000 },
+    }, required: ["userIntentId", "fileId", "recipientId"], additionalProperties: false },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true }, risk: "write", allowedRoles: ["operator", "admin"], scopePolicy: "principal_scope",
+    execution: { environment: "worker_inline", mode: "background_job", allowedSurfaces: ["pi_business"], timeoutMs: 30_000, maxResultCharacters: 32_000, maxCallsPerRequest: 1 },
+    handler: (args, context) => preparePiBusinessAction("prepare_pi_report_delivery", args, context),
+  },
+  {
+    name: "get_pi_business_action", title: "查询原业务动作回执",
+    description: "按原 actionId 只读查询持久业务动作、真实对象链接和回执。排队、待确认、取消请求和结果未知不得当成完成；本工具不会重发副作用。",
+    inputSchema: { type: "object", properties: { actionId: { type: "string", minLength: 1, maxLength: 160 } }, required: ["actionId"], additionalProperties: false },
+    annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["operator", "admin"], scopePolicy: "principal_scope",
+    execution: { ...synchronousReadOnlyExecution, allowedSurfaces: ["pi_business"], maxCallsPerRequest: 4 }, handler: getPiBusinessAction,
+  },
   {
     name: "get_pi_netshop_performance_page", title: "分页读取网店商品与推广表现",
     description: "Pi 专用只读分页：复用当前账号获准平台及精确店铺的网店商品或推广领域 reader，返回原分页、覆盖、水位、单位及完整源页。商品维度为 SPU，访客为商品×日累计，金额人民币分。page 从1连续读取；本页不代表全量或跨页原子快照。异步完整导出应通过 start_pi_dataset_export。",

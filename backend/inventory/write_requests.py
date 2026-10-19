@@ -89,6 +89,7 @@ def claim_write_request(
         lock_active_authority()
         expired_ids = list(
             InventoryWriteRequestReceipt.objects.filter(expires_at__lte=now)
+            .exclude(request_id__startswith="pi-business:", method="POST", path="/api/inventory/pi-business")
             .order_by("expires_at")
             .values_list("request_id", flat=True)[:20]
         )
@@ -121,6 +122,8 @@ def claim_write_request(
                     replay_status=receipt.response_status,
                     replay_payload=receipt.response_payload,
                 )
+            if request_id.startswith("pi-business:") and path == "/api/inventory/pi-business":
+                raise InventoryApiError("原业务操作结果尚未确认，只能查询原回执", code="conflict", status=409)
             if receipt.status == "processing" and receipt.updated_at > now - PROCESSING_STALE_AGE:
                 raise InventoryApiError("相同库存写请求仍在处理中", code="conflict", status=409)
             claim_token = uuid.uuid4().hex

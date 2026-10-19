@@ -1,0 +1,58 @@
+{
+  "version": "pi-business-read-only-native-metadata-v1",
+  "observedAt": "2026-10-19T15:35:38.851244+00:00",
+  "productionTouched": false,
+  "businessInterfacesCalled": false,
+  "servicesOperated": false,
+  "controller": {
+    "version": "teruisi-main-control-installation-v3",
+    "status": "adopted",
+    "bundleRoot": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\1559e46576b76ec2e516afd778588fe9e43ad86b0b06062798689be8c727c7b0",
+    "bundleSha256": "1559e46576b76ec2e516afd778588fe9e43ad86b0b06062798689be8c727c7b0",
+    "bundleManifestSha256": "76c9920e75e80142385701fca0ca16a0a56035157f2d368e6f9fd79404f406b2",
+    "adoptedAt": "2026-10-19T13:05:42.013Z"
+  },
+  "controllerFileSha256": "3dde8d6c2c7450886642d36a00a8f776efe64ccc0825f36faf5f96e37af8393b",
+  "published": {
+    "status": "deployed_and_ready",
+    "at": "2026-10-18T19:43:39.056Z",
+    "mainCommit": "b2ef81c7c6eecdb59894e55021b835b6a8baf0b4",
+    "workerRelease": "20261018T162837Z-9a9245927d9aa8d5",
+    "workerManifestSha256": "dd027caf04991a93d6cf04dc07b1f874b6e823d7c7c5f8434835e5dc16153833",
+    "djangoManifestSha256": "4ca6db6eb7e407cb456b7abb4ee29050fa7fe98b07de0d3fffe35e38e3244101"
+  },
+  "publishedFileSha256": "68f9708014dccc3000bf4bf39a59c2a9e6576d2a9a1de79af8cdda0c150c8ed2",
+  "djangoManifestMatchesPublication": false,
+  "schema": {
+    "generation": 151,
+    "status": "verified",
+    "steps": [
+      "ai_assistant.0085_pi_workspace_controls"
+    ],
+    "pointerSha256": "c1e06ff1b8611c5d4aba5fbc127f43965f45dae6723c32592239f46e2192bd22",
+    "finalizedSha256": "da402693a717c9112ffcd46a1c5598b1d940fb8bab1d04b774172a7c4c6b2a7b"
+  },
+  "dependencies": {
+    "dependenciesDirectory": "D:\\codex-isolated\\main-manual-release-20261016\\dependencies-8ec00f\\node_modules",
+    "cacheLockSha256": "8ec00f801aff894796d783595d202811bccbe94296603ae26766864247d4a4ca",
+    "npmCacheDirectory": "D:\\codex-isolated\\main-manual-release-20261016\\npm-cache"
+  },
+  "installedFinite152Registered": false,
+  "scope": "immutable metadata only; not a live health or business acceptance result",
+  "newerNativeSuccess": {
+    "path": "D:\\codex-isolated\\main-release-packages\\e9696b0d2818-fdf50989-54a48ee1\\publish-e9696b0d2818\\SUCCESS.json",
+    "sha256": "c4f17ffbb21ef0a912e58a7d114db99ec16c20780923a64698d419e328efc2ad",
+    "status": "deployed_and_ready",
+    "at": "2026-10-19T14:41:24.729Z",
+    "mainCommit": "e9696b0d28187a4083fd0eba017187dd0a5dba26",
+    "components": [
+      "worker",
+      "django"
+    ],
+    "workerRelease": "20261019T130904Z-6b816a5085c6a13e",
+    "workerManifestSha256": "70d5019b78836129779bbe51539cb0ae427da5ada550b2f901bddce28b0214af",
+    "djangoManifestSha256": "00058feaf2c93cd0de55a6e269dc67d73bfd1c659d72a5ea1720073a5615180b"
+  },
+  "currentDjangoManifestSha256": "00058feaf2c93cd0de55a6e269dc67d73bfd1c659d72a5ea1720073a5615180b",
+  "currentDjangoMatchesNewerNativeSuccess": true
+}

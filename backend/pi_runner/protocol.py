@@ -83,6 +83,8 @@ def validate_manifest(value):
         digest = hashlib.sha256(encode(skill["resources"])).hexdigest()
         if digest != skill["sha256"]:
             raise ValueError("skill_digest_mismatch")
-    if len(ids) != 3:
+    original = {"sales-promotion-inventory", "stock-replenishment", "excel-report"}
+    business = {"create-work-plan", "save-replenishment-draft", "execute-registered-gap", "deliver-report"}
+    if ids != (original | business if value["version"] == "1.2.0" else original):
         raise ValueError("skill_set_mismatch")
     return value

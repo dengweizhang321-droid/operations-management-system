@@ -48,6 +48,49 @@ function openN8nMetadata() {
   return new DatabaseSync(databasePath, { readOnly: true });
 }
 
+/** Native operational metadata only. Never infer a Pi run from the latest run. */
+export function readPiBusinessN8nGate(executionId: string, depth = 0): { actionId: string; dispatchToken: string; executionId: string } | null {
+  if (!/^[1-9]\d{0,19}$/.test(executionId) || depth > 4) throw Error("pi_n8n_binding_invalid");
+  const db = openN8nMetadata();
+  try {
+    db.exec("PRAGMA query_only=ON; PRAGMA busy_timeout=1000; BEGIN");
+    const row = db.prepare("SELECT workflowId,mode,status,deletedAt FROM execution_entity WHERE id=?").get(executionId);
+    if (!row || row.deletedAt !== null) throw Error("pi_n8n_execution_unavailable");
+    if (!["M4xY8kQ2vR6sT9pC", "TmallLiliDaily2026", "TmallTuofengDaily2026", "TmallCuizhiwangDaily2026", "TmallMasituDaily2026", "TmallYiyongDaily2026"].includes(String(row.workflowId)) || row.mode !== "webhook") return null;
+    const data = db.prepare('SELECT data FROM execution_data WHERE executionId=? AND length(data)<=1048576').get(executionId)?.data;
+    if (typeof data !== "string") throw Error("pi_n8n_metadata_not_ready");
+    const values: unknown = JSON.parse(data);
+    if (!Array.isArray(values) || values.length < 1 || values.length > 10000) throw Error("pi_n8n_metadata_invalid");
+    const ref = (value: unknown): unknown => typeof value === "string" && /^\d+$/.test(value) ? values[Number(value)] : value;
+    const object = (value: unknown) => { const item = ref(value); if (!item || typeof item !== "object" || Array.isArray(item)) throw Error("pi_n8n_metadata_invalid"); return item as Record<string, unknown>; };
+    const array = (value: unknown) => { const item = ref(value); if (!Array.isArray(item) || item.length > 128) throw Error("pi_n8n_metadata_invalid"); return item; };
+    const run = object(object(object(values[0]).resultData).runData);
+    const body = (name: string) => {
+      if (!(name in run)) return null;
+      const attempts = array(run[name]); if (attempts.length !== 1) throw Error("pi_n8n_entry_ambiguous");
+      const output = object(attempts[0]); const lanes = array(object(output.data).main);
+      const items = array(lanes[0]); if (items.length !== 1) throw Error("pi_n8n_entry_ambiguous");
+      return object(object(items[0]).json).body;
+    };
+    const entry = body("Pi业务执行入口");
+    if (entry !== null) {
+      const marker = object(object(entry).piBusiness);
+      const actionId = ref(marker.actionId), dispatchToken = ref(marker.dispatchToken);
+      if (typeof actionId !== "string" || !/^pi-action-[A-Za-z0-9_-]{1,120}$/.test(actionId) || typeof dispatchToken !== "string" || !dispatchToken || dispatchToken.length > 200) throw Error("pi_n8n_marker_invalid");
+      return { actionId, dispatchToken, executionId };
+    }
+    const retry = body("失败后每小时安全重试入口");
+    if (retry !== null) {
+      const originalId = ref(object(retry).originalExecutionId);
+      if (typeof originalId === "string" && originalId !== executionId && /^[1-9]\d{0,19}$/.test(originalId)) {
+        const original = readPiBusinessN8nGate(originalId, depth + 1);
+        if (original) throw Error("pi_n8n_descendant_requires_new_user_action");
+      }
+    }
+    return null;
+  } finally { db.close(); }
+}
+
 /** Read-only fresh-restart proof. Terminal source and latest attempt plus no
  * other business owner are required; absence of a retry is never inferred. */
 export function readN8nFreshRestartEvidence(sourceId: string, failedId: string, admittedId?: string) {

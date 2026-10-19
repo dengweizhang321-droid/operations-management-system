@@ -326,7 +326,7 @@ def check():
         if not required <= indexes:
             raise ValueError("AI indexes incomplete")
         from .pi_health import verify as verify_pi
-        verify_pi(cursor, include_workspace=True)
+        verify_pi(cursor, include_workspace=True, include_business=True)
         import importlib
 
         market_profile = importlib.import_module(

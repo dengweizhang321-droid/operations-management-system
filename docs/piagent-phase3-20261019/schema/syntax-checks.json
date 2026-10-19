@@ -1,0 +1,55 @@
+{
+  "version": "pi-business-release-code-syntax-v1",
+  "at": "2026-10-19T15:50:55.041225+00:00",
+  "status": "syntax-checked",
+  "functionalValidationPerformed": false,
+  "databaseConnectionsOpened": false,
+  "pythonFiles": [
+    "tools/pi_business_addition.py",
+    "tools/pi_business_catalog.py",
+    "tools/pi_business_candidate.py",
+    "tools/pi_agent_upgrade_runtime.py",
+    "tools/pi_agent_catalog.py",
+    "tools/pi_workspace_catalog.py",
+    "tools/postgres_no_key_backup.py",
+    "tools/integration_release_gate.py",
+    "backend/ai_assistant/migrations/0086_pi_business_actions.py"
+  ],
+  "nodeFiles": [
+    "tools/main-schema-release.mjs",
+    "tools/publish-prepared-main.mjs"
+  ],
+  "powershellFiles": [
+    "tools/bi-app-adopt.ps1",
+    "tools/django-ai.ps1",
+    "tools/django-local-service.ps1",
+    "tools/django-postgres-maintenance.ps1"
+  ],
+  "checkedFiles": {
+    "tools/pi_business_addition.py": "0b83c317cbad37300fedf2d5922602ce2a82dda6283272ee92a9b73ee85521ce",
+    "tools/pi_business_catalog.py": "ca1cc37eee32b82924f976a39520b58eeb005b8daf400795ec43b06a77f59378",
+    "tools/pi_business_candidate.py": "2cd6e8d278afad0bb4e6e649c43193633d5e4d658682c6482cba1cc97ebb3df8",
+    "tools/pi_agent_upgrade_runtime.py": "fa49ffa7ed1ad21fa2f4412075ebe50bfd993902d6c49018ec0bea9f84f0b75a",
+    "tools/pi_agent_catalog.py": "0f0fb5858c4c1df6147c9328827ce2749527054ee994e10c077d664c1586f5f5",
+    "tools/pi_workspace_catalog.py": "d965c7f6b7c2c8bbed215f1562767375efc0a26691e2b43a991e29e93ccd56bb",
+    "tools/postgres_no_key_backup.py": "398f856aabc232f1ed1fa639f89089622c3dc280bd740c8a82d4e29d622b1ca4",
+    "tools/integration_release_gate.py": "78d6b45ae85ff663231b596cbe5c443235841c31facaec3340ab3c0455a5a172",
+    "backend/ai_assistant/migrations/0086_pi_business_actions.py": "3435b5970ffb5d5530e60aed6156e7b7e7792fb0cbff5e198ef8a3b264ee4213",
+    "tools/main-schema-release.mjs": "443acb08a0fcb4b0e910951328ce7d06a57c994ccf7ec6d10d2e93e11e3194af",
+    "tools/publish-prepared-main.mjs": "76c60012aa83664220c60c0219d3780df1f33b27d23dad0afc908e6e4704e8d7",
+    "tools/bi-app-adopt.ps1": "a3573a22dc83b5b07fcf26fbfacc96cd81f94469c69fa72d5ec29372925eec38",
+    "tools/django-ai.ps1": "3b0ae6c09b1bc49aa12fed622208fee711a387726ede709b2cd421fa1b04cad5",
+    "tools/django-local-service.ps1": "d884882af114840ff1b0061c57439556cfc6a8fd7d0a751896363dd59eecde5d",
+    "tools/django-postgres-maintenance.ps1": "1fb2f9445b3277963b258725bb4a652759788a8e171a323498f6d8285120b23b"
+  },
+  "lastIncrementalCheck": [
+    "backend/ai_assistant/migrations/0086_pi_business_actions.py",
+    "tools/publish-prepared-main.mjs"
+  ],
+  "reusedGatewaySyntaxCheck": {
+    "file": "backend/ai_assistant/pi_gateway.py",
+    "sha256": "0fed8893d18c699cbedcdce12128892f16e915a23828bf75c19c623f78c4ae95",
+    "status": "syntax-checked",
+    "evidence": "business_ledger implementation-agent AST check for the final readonly policy digest change"
+  }
+}

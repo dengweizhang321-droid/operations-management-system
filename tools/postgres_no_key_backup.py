@@ -65,14 +65,19 @@ def verify_receipt_generation(cursor, *, jd_permissions=True):
     generation150 = sorted([*generation149, *pi_steps])
     from pi_workspace_catalog import STEPS as workspace_steps, verify_catalog as verify_workspace_catalog
     generation151 = sorted([*generation150, *workspace_steps])
-    workspace_installed = receipts == generation151
-    pi_installed = receipts in (generation150, generation151)
-    verify_pi_catalog(cursor, installed=pi_installed, permissions=pi_installed and jd_permissions, workspace=workspace_installed)
+    from pi_business_catalog import STEPS as business_steps, verify_catalog as verify_business_catalog
+    generation152 = sorted([*generation151, *business_steps])
+    business_installed = receipts == generation152
+    workspace_installed = receipts in (generation151, generation152)
+    pi_installed = receipts in (generation150, generation151, generation152)
+    verify_pi_catalog(cursor, installed=pi_installed, permissions=pi_installed and jd_permissions, workspace=workspace_installed, business=business_installed)
     if pi_installed:
-        verify_workspace_catalog(cursor, installed=workspace_installed, permissions=workspace_installed and jd_permissions)
-    tmall_installed = receipts in (generation149, generation150, generation151)
+        verify_workspace_catalog(cursor, installed=workspace_installed, permissions=workspace_installed and jd_permissions, business=business_installed)
+    if workspace_installed:
+        verify_business_catalog(cursor, installed=business_installed, permissions=business_installed and jd_permissions)
+    tmall_installed = receipts in (generation149, generation150, generation151, generation152)
     verify_tmall_catalog(cursor, installed=tmall_installed, permissions=tmall_installed and jd_permissions)
-    monitoring_installed = receipts in (generation148, generation149, generation150, generation151)
+    monitoring_installed = receipts in (generation148, generation149, generation150, generation151, generation152)
     preferences_installed = receipts == generation147
     jd_installed = receipts == generation146
     if monitoring_installed:
@@ -81,7 +86,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True):
         verify_preferences_catalog(cursor, permissions=jd_permissions)
     else:
         verify_jd_catalog(cursor, installed=jd_installed, permissions=jd_installed and jd_permissions)
-    schedule_installed = receipts in (generation143, generation146, generation147, generation148, generation149, generation150, generation151)
+    schedule_installed = receipts in (generation143, generation146, generation147, generation148, generation149, generation150, generation151, generation152)
     # A receipt-free/partial 0083 must never be mistaken for an old backup.
     # This read-only catalogue has no dependency on adoption finalization.
     verify_schedule_catalog(cursor, installed=schedule_installed)
@@ -104,7 +109,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True):
         from netshop.promotion_presence import verify_cache_catalog
         verify_cache_catalog(cursor)
         return 139
-    if receipts in (parent140, parent142, generation143, generation146, generation147, generation148, generation149, generation150, generation151):
+    if receipts in (parent140, parent142, generation143, generation146, generation147, generation148, generation149, generation150, generation151, generation152):
         audit_installed = receipts != parent140
         verify_audit_catalog(cursor, installed=audit_installed)
         from netshop.promotion_presence import verify_cache_catalog
@@ -118,7 +123,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True):
         cursor.execute("SELECT t.tgtype,p.proname,t.tgenabled FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE t.tgrelid=to_regclass('public.finance_erp_targets') AND t.tgname='finance_erp_target_revision_required' AND NOT t.tgisinternal")
         if cursor.fetchall()!=[(30,"finance_source_mark_revision_required","O")]:
             raise RuntimeError("ERP-goal addition revision guard differs")
-        return 151 if workspace_installed else 150 if pi_installed else 149 if tmall_installed else 148 if monitoring_installed else 147 if preferences_installed else 146 if jd_installed else 143 if schedule_installed else 142 if audit_installed else 140
+        return 152 if business_installed else 151 if workspace_installed else 150 if pi_installed else 149 if tmall_installed else 148 if monitoring_installed else 147 if preferences_installed else 146 if jd_installed else 143 if schedule_installed else 142 if audit_installed else 140
     raise RuntimeError("no-key backup migration catalogue is not a reviewed generation")
 
 

@@ -7,10 +7,10 @@ STEPS = ("ai_assistant.0085_pi_workspace_controls",)
 FILES = {"backend/ai_assistant/migrations/0085_pi_workspace_controls.py": "b4bd9ca8d870caa3b747b70446108a67af820610e79273ca35a752e850091d07"}
 TABLES = ("ai_pi_controls", "ai_pi_ui_requests", "ai_pi_workspaces")
 
-def inspect_tables(cursor):
+def inspect_tables(cursor, tables=TABLES):
     from postgres_restore_semantics import normalize_dump_expression
     result = {}
-    for table in TABLES:
+    for table in tables:
         target = "public." + table
         cursor.execute("SELECT pg_get_userbyid(relowner),relkind,relpersistence,relrowsecurity,relforcerowsecurity "
                        "FROM pg_class WHERE oid=to_regclass(%s)", [target])
@@ -47,9 +47,9 @@ def inspect_tables(cursor):
     return result
 
 
-def verify_catalog(cursor, *, installed=True, permissions=True):
+def verify_catalog(cursor, *, installed=True, permissions=True, business=False):
     import pi_agent_catalog as parent
-    parent.verify_catalog(cursor, installed=True, permissions=permissions, workspace=installed)
+    parent.verify_catalog(cursor, installed=True, permissions=permissions, workspace=installed, business=business)
     cursor.execute("SELECT relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND relname=ANY(%s) AND relkind IN ('r','p','v','m','f') ORDER BY relname", [list(TABLES)])
     if [row[0] for row in cursor.fetchall()] != (list(TABLES) if installed else []):
         raise ValueError("Pi151 workspace tables absent, partial, extra or unrecorded")

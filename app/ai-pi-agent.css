@@ -71,3 +71,16 @@
 .ai-pi-workspace-panel>fieldset { border:0; margin:0; padding:0; min-width:0; }
 .ai-pi-workspace-menus textarea,.ai-pi-extension-ui textarea { border:1px solid var(--color-border-default); border-radius:5px; padding:7px; background:var(--color-bg-surface,#fff); color:var(--color-text-primary); font-family:inherit; }
 .ai-pi-workspace-menus:has(details[open]) { max-height:45vh; overflow:auto; flex-shrink:0; }
+
+.ai-pi-business { padding: 12px 16px; border-bottom: 1px solid var(--border-color, #dce0e6); max-height: 45vh; overflow: auto; }
+.ai-pi-business-heading, .ai-pi-business-card > header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.ai-pi-business-heading h3 { margin: 0 0 8px; font-size: 14px; }
+.ai-pi-business-card { padding: 12px; margin-top: 8px; border: 1px solid var(--border-color, #dce0e6); border-radius: 8px; background: var(--surface, transparent); font-size: 13px; overflow-wrap: anywhere; }
+.ai-pi-business-card p, .ai-pi-business-card small { color: var(--text-secondary, #64748b); }
+.ai-pi-business-values { margin: 8px 0; }
+.ai-pi-business-values > div { display: grid; grid-template-columns: minmax(80px, 130px) minmax(0, 1fr); gap: 8px; padding: 3px 0; }
+.ai-pi-business-values dt { color: var(--text-secondary, #64748b); }
+.ai-pi-business-values dd { margin: 0; white-space: pre-wrap; }
+.ai-pi-business-choice { margin: 8px 0; padding: 8px 10px; border: 1px solid var(--border-color, #dce0e6); border-radius: 8px; font-size: 12px; }
+.ai-pi-business-choice p { margin: 0 0 6px; color: var(--text-secondary, #64748b); }
+.ai-pi-business-choice label { display: inline-flex; align-items: center; gap: 4px; margin-right: 12px; }
