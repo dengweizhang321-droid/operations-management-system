@@ -195,7 +195,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
  if(nativeAbandonmentOnly){
   const old=(await execute('git',['-C',source,'show',baseCommit+':tools/main-prebuild-queue.mjs'],{encoding:'utf8',windowsHide:true,maxBuffer:4*1024*1024})).stdout;
   const next=await fs.readFile(path.join(source,'tools/main-prebuild-queue.mjs'),'utf8'),marker='// FIXED_NATIVE_693E_BEGIN';assert.equal(next.split(marker).length,2);assert.ok(next.trimEnd().endsWith('// FIXED_NATIVE_693E_END'));
-  const core=next.slice(0,next.indexOf(marker)).trimEnd()+'\n';assert.equal(core.replace('&&!await readFixedNativeAbandonmentResolution(directory,dispatch,terminal)','').replace(';assertFixedNativeNoReplay(directory,selection);',';'),old,'Only the fixed native abandonment reader and original queue blocking/admission seams are permitted');
+  const stripCore=text=>(text.includes(marker)?text.slice(0,text.indexOf(marker)).trimEnd()+'\n':text).replace('&&!await readFixedNativeAbandonmentResolution(directory,dispatch,terminal)','').replace(';assertFixedNativeNoReplay(directory,selection);',';');assert.equal(stripCore(next),stripCore(old),'Only the fixed native abandonment reader and original queue blocking/admission seams are permitted');
  }
  let schemaAdmissionOnly=false,preflightBaseline;
  if(reusePreflightReport){
