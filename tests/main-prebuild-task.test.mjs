@@ -11,6 +11,20 @@ test('ordinary token gate rejects elevated, foreign SID, noninteractive and wron
  const value={sid:'private',sessionId:2,elevated:false,integrityRid:8192};assert.equal(assertOrdinaryIdentity(value,'private'),value);
  for(const change of [{sid:'other'},{sessionId:0},{elevated:true},{integrityRid:12288},{integrityRid:4096}])assert.throws(()=>assertOrdinaryIdentity({...value,...change},'private'));
 });
+test('PS5 identity reader accepts multiple same-session Explorers and fails closed on owner uncertainty',async()=>{
+ const source=await fs.readFile(new URL('../tools/main-prebuild-task.mjs',import.meta.url),'utf8');
+ const literal=source.match(/const identityScript=(`[^`]+`);/);assert.ok(literal);
+ const script=Function('return '+literal[1])();
+ const seam=`function Get-CimInstance {param($ClassName,$Filter);if($ClassName -cne 'Win32_Process' -or $Filter -cne "Name='explorer.exe' AND SessionId=$([Diagnostics.Process]::GetCurrentProcess().SessionId)"){throw 'Unexpected identity query'};if($v.queryFailure){throw 'Private CIM query failure'};foreach($item in $v.explorers){if($item.session -ceq 'current'){$item}}};function Invoke-CimMethod {param($InputObject,$MethodName);if($MethodName -cne 'GetOwnerSid'){throw 'Unexpected owner method'};switch($InputObject.owner){'throw'{throw 'Private owner read failure'};'missing'{return $null};'invalidSid'{return [pscustomobject]@{ReturnValue=[uint32]0;Sid=@('S-1-5-18')}};'failed'{return [pscustomobject]@{ReturnValue=[uint32]2;Sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value}};default{return [pscustomobject]@{ReturnValue=[uint32]0;Sid=$(if($InputObject.owner -ceq 'same'){[Security.Principal.WindowsIdentity]::GetCurrent().User.Value}else{'S-1-0-0'})}}}};`;
+ const same={session:'current',owner:'same'},other={session:'current',owner:'other'};
+ const testPowerShell=payload=>taskPowerShell(seam+script,payload);
+ for(const explorers of [[same],[same,same],[other,same,same,{session:'other',owner:'throw'}]]){
+  const identity=await testPowerShell({explorers});assert.ok(identity.sessionId>0);assert.equal(typeof identity.sid,'string');assert.equal(typeof identity.elevated,'boolean');assert.ok(Number.isSafeInteger(identity.integrityRid));
+ }
+ for(const explorers of [[],[other],[{session:'other',owner:'same'}]])await assert.rejects(testPowerShell({explorers}),/Same-user interactive session required/);
+ for(const owner of ['throw','missing','invalidSid','failed'])await assert.rejects(testPowerShell({explorers:[same,{session:'current',owner}]}),/owner (read failure|unavailable)/);
+ await assert.rejects(testPowerShell({explorers:[same],queryFailure:true}),/Private CIM query failure/);
+});
 test('real on-demand fixed task launches same SID/session at medium integrity from elevated parent',async t=>{
  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'ordinary-prebuild-')),configFile=path.join(directory,'main-publisher-config.json'),result=path.join(directory,'identity.json'),secondary=path.join(directory,'ordinary-wake.json'),specFile=path.join(directory,'task-spec.json'),permitWake=path.join(directory,'permit-self-wake');
  await fs.mkdir(path.join(directory,'control/tools'),{recursive:true});await fs.mkdir(path.join(directory,'prebuild-queue-v2'));await fs.writeFile(configFile,'{}');
