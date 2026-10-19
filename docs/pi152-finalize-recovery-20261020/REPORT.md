@@ -1,0 +1,7 @@
+# Pi152 权限目录核对器修正与同维护恢复
+
+69b38d1e组合发布在原operation `02e1a8332e594d75be7c31d21f984f97` 安装152结构并配置权限后，Finalize拒绝。只读诊断确认旧数据与权限保全摘要符合原intent；实际权限符合业务合约，错误是目录核对器把追加写入的intents、audits两表也要求UPDATE。修复只让这两表要求SELECT/INSERT，actions仍要求SELECT/INSERT/UPDATE，不更改数据库权限或业务数据。
+
+原维护`816f71f9985f4c64933ad9facd91372f`、旧STARTED/FAILED、安装回执和原intent保留。必要恢复分两段：先以独立受审、精确绑定的校验器修正桥调用原Finalize及CAS并留修正意图/完成回执；再通过原生准备/部署把同一修正持久安装。旧sealed来源、原plan和原代码文件均不热改，不重放结构Install或ProvisionRoles。
+
+这是维护中部分完成后的恢复，不能报告旧完整发布包成功。最终采用的提交、组件、原生回执及时间在实际完成后补齐；功能与业务行为由用户上线后检测。原始证据位于`D:/codex-artifacts/combined-release-20261020/compatibility-release/`。

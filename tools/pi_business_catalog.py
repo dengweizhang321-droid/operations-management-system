@@ -121,7 +121,8 @@ def verify_catalog(cursor, *, installed=True, permissions=True):
         cursor.execute("SELECT CASE WHEN a.grantee=c.relowner THEN 'OWNER' WHEN a.grantee=0 THEN 'PUBLIC' ELSE r.rolname END,a.privilege_type,a.is_grantable FROM pg_class c CROSS JOIN LATERAL aclexplode(COALESCE(c.relacl,acldefault('r',c.relowner))) a LEFT JOIN pg_roles r ON r.oid=a.grantee WHERE c.oid=to_regclass(%s)", [target])
         actual_acl = set(cursor.fetchall())
         owner = {( "OWNER", privilege, False) for privilege in ("DELETE","INSERT","MAINTAIN","REFERENCES","SELECT","TRIGGER","TRUNCATE","UPDATE")}
-        wanted_acl = owner | {( "teruisi_ai_writer", privilege, False) for privilege in ("INSERT","SELECT","UPDATE")}
+        writer_privileges = ("INSERT","SELECT","UPDATE") if table == "ai_pi_business_actions" else ("INSERT","SELECT")
+        wanted_acl = owner | {( "teruisi_ai_writer", privilege, False) for privilege in writer_privileges}
         if actual_acl != (wanted_acl if permissions else owner):
             raise ValueError("Pi152 table ACL drift: " + table)
         cursor.execute("SELECT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid=to_regclass(%s) AND attacl IS NOT NULL),EXISTS(SELECT 1 FROM pg_policy WHERE polrelid=to_regclass(%s))", [target,target])

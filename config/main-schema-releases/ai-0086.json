@@ -9,7 +9,7 @@
   "stepFiles": {
     "backend/ai_assistant/migrations/0086_pi_business_actions.py": "3435b5970ffb5d5530e60aed6156e7b7e7792fb0cbff5e198ef8a3b264ee4213"
   },
-  "validation": "docs/combined-release-20261020/mandatory-code-checks.json",
-  "validationSha256": "1be7e64bce651f7ba3a4c9ade6632649062aeac19fb145ebdad81238a3a42dc5",
-  "codeSha256": "56fee40827b3e6eb383a8e7c5a0172eb64f7778ccbff46d9eb68565f63f068d8"
+  "validation": "docs/pi152-finalize-recovery-20261020/mandatory-code-checks.json",
+  "validationSha256": "9ed6bb6242d5384f3adaf0cd14edb5ecfc027fa610a9ade6581b7e69bafa8428",
+  "codeSha256": "a99aa1f544d2fac13152e2e62636fc911f708fe592d33fe8a103e249262de785"
 }
