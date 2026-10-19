@@ -1,0 +1,39 @@
+{
+  "version": "pi-business-mandatory-code-checks-v1",
+  "status": "code-checked",
+  "at": "2026-10-19T18:41:11.887682+00:00",
+  "productionTouched": false,
+  "functionalValidationPerformed": false,
+  "privatePostgresRehearsalPerformed": false,
+  "fullBackupOrRestorePerformed": false,
+  "generations": [
+    151,
+    152
+  ],
+  "parentVariants": [
+    [
+      151,
+      152
+    ]
+  ],
+  "steps": [
+    "ai_assistant.0086_pi_business_actions"
+  ],
+  "checks": [
+    "migration-closure",
+    "node-syntax",
+    "powershell-syntax",
+    "python-syntax"
+  ],
+  "codeSha256": "56fee40827b3e6eb383a8e7c5a0172eb64f7778ccbff46d9eb68565f63f068d8",
+  "migrationSha256": "3fd0be216e80271f92ce44f0dad885d1a1f8cd0a63ae3d6f8e73e049e86bdf21",
+  "migrationFiles": {
+    "backend/ai_assistant/migrations/0086_pi_business_actions.py": "3435b5970ffb5d5530e60aed6156e7b7e7792fb0cbff5e198ef8a3b264ee4213"
+  },
+  "parentReferenceSha256": "c1e06ff1b8611c5d4aba5fbc127f43965f45dae6723c32592239f46e2192bd22",
+  "syntaxEvidence": "docs/combined-release-20261020/syntax-code-materials.json",
+  "syntaxEvidenceSha256": "c8d5e9569b72fdfb0b7d3a10f8bf794ab21b3a8a20dfcd350cece81660aa8b30",
+  "scope": "Current exact code syntax and unchanged 151-to152 migration closure only. No business, database, or functional execution.",
+  "rawByteNormalization": "LF worktree bytes used for this task proof; old proof preserved.",
+  "previousProofSha256": "4229a04434180412940a810e14b71ae1c6ee40598347fc48dc5410e7d0c5514d"
+}

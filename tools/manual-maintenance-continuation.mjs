@@ -25,6 +25,19 @@ export const nativePiWorkspacePredecessor=Object.freeze({
  djangoAiScriptSha256:'0ab14dcbd889aacdf0d44847d59b4fd30a4bd5b02e836e6cf77d08eafe5d3d68',
  candidateAiScriptSha256:'64b2a5fe8f85a0c73463ef0f93ad1e983faa6b690bbb2e3e6b1ab041c6b9acdd'
 });
+// Exact current predecessor -> Pi business candidate. Full controller hashes
+// qualify the unchanged lifecycle call sites, not merely a helper's presence.
+export const nativePiBusinessPredecessor=Object.freeze({
+ releaseId:'20261019T130904Z-6b816a5085c6a13e',
+ workerManifestSha256:'70d5019b78836129779bbe51539cb0ae427da5ada550b2f901bddce28b0214af',
+ djangoManifestSha256:'00058feaf2c93cd0de55a6e269dc67d73bfd1c659d72a5ea1720073a5615180b',
+ workerScriptSha256:'112b091b610b09187110ba478cfff2280b30705dd21e185a8132e683414ec2bc',
+ djangoScriptSha256:'cfd1e942a0b55f5eb8aa3be484db5ece565ec39c6e6aa93ed0aea633b8936e85',
+ workerTransportSha256:'5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd',
+ djangoAiScriptSha256:'64b2a5fe8f85a0c73463ef0f93ad1e983faa6b690bbb2e3e6b1ab041c6b9acdd',
+ candidateAiScriptSha256:'3b0ae6c09b1bc49aa12fed622208fee711a387726ede709b2cd421fa1b04cad5',
+ candidateDjangoScriptSha256:'d884882af114840ff1b0061c57439556cfc6a8fd7d0a751896363dd59eecde5d'
+});
 export const piMaintenancePredecessor=Object.freeze({
  releaseId:'20261018T081823Z-282cee340c57bf41',workerManifestSha256:'120911425367ef3a451c40f7a9842f3c1e39fc99b38cfd602b011ae3ed0733fc',
  djangoManifestSha256:'a9e3fdb943dfcc558a69982f9d410aff103872712e26e0d50b0cefe3841693e7',
@@ -100,13 +113,24 @@ export async function maintenanceReadiness({source,head,djangoManifestSha256,ins
   if(installedAi===candidateAi)assert.equal(pins.find(p=>p.root===root&&p.relative===relative)?.sha256,expected,'实际原生控制器代际与候选不一致：'+name);
  }
  if(installedAi!==candidateAi){
-  const k=nativePiWorkspacePredecessor;
+  const b=nativePiBusinessPredecessor;
+  const k=head?.releaseId===b.releaseId?b:nativePiWorkspacePredecessor;
   assertPredecessorPins(k);
   assert.equal(head?.releaseId,k.releaseId,'没有适用于实际前驱的原生Stop能力资格');assert.equal(head?.manifestSha256,k.workerManifestSha256);assert.equal(djangoManifestSha256,k.djangoManifestSha256);
   for(const [name,expected] of [['worker-local-service.ps1',k.workerScriptSha256],['process-deadline.ps1',k.workerTransportSha256]])assert.equal(await sha(path.join(runtime,'releases',head.releaseId,'tools',name)),expected);
   assert.equal(await sha(path.join(runtime,'releases',head.releaseId,'deployment-manifest.json')),k.workerManifestSha256);
   assert.equal(await sha(path.join(installed,'tools/django-local-service.ps1')),k.djangoScriptSha256);
   assert.equal(installedAi,k.djangoAiScriptSha256,'实际前驱缺少已验证的Pi退出观察器');assert.equal(candidateAi,k.candidateAiScriptSha256,'候选Pi控制器不在已审兼容资格内');
+  if(k===b){
+   for(const [name,expected] of [['worker-local-service.ps1',k.workerScriptSha256],['process-deadline.ps1',k.workerTransportSha256],['django-local-service.ps1',k.candidateDjangoScriptSha256]])assert.equal(sourcePins[name]??pins.find(p=>p.root==='source'&&p.relative===name)?.sha256,expected,'候选生命周期控制器不在已审兼容资格内：'+name);
+   const actual=await fs.readFile(path.join(installed,'tools/django-ai.ps1'));
+   assert.equal(createHash('sha256').update(actual).digest('hex'),installedAi,'维护资格核验后工具发生变化');
+   const text=actual.toString('utf8').replaceAll('\r\n','\n');
+   for(const [start,end,expected] of [['Wait-PiWorkerExit','Stop-PiRuntime','4372d8872c46760d40f7aa346b6476932be8edba7415baba0ae21e9b73293fd3'],['Stop-PiRuntime','Read-PandasConfig','49725370782414b0c4bea2065161679ba50ed911cfd1439381b7b65d7259b3e6']]){
+    const body=text.split('function '+start)[1]?.split('\nfunction '+end)[0];
+    assert.equal(createHash('sha256').update(('function '+start+(body??'')).trimEnd()).digest('hex'),expected,'实际前驱Pi停止协议不在已审兼容资格内');
+   }
+  }
  }
  await pin('django','app/tools/django-ai.ps1',path.dirname(installed),installedAi);
  await pin('source','django-ai.ps1',path.join(source,'tools'),candidateAi);
