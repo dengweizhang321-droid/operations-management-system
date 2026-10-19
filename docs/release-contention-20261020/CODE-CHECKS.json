@@ -1,0 +1,106 @@
+{
+  "version": "release-contention-code-delivery-v1",
+  "status": "code-checked",
+  "verifiedCommit": "0ab16c5b6a8733f63ffdddcef1712746a68c5123",
+  "baseCommit": "0bb9523cbf1e7da0ecb58deb4e53bde8aaf74ac2",
+  "sourceTree": "c75da867f9412b7f1b58db889f897f935b788e74",
+  "reportPath": "D:\\codex-artifacts\\release-contention-20261020\\candidate-code-final\\REPORT.json",
+  "reportSha256": "767331b5046959f8836cfd7ae677e06bf3f24eaef3a2d41fae0db5e5adfe5c8f",
+  "checks": [
+    {
+      "name": "release-contention-boundaries",
+      "kind": "native-entry-boundary",
+      "status": "passed",
+      "exitCode": 0,
+      "elapsedMs": 31371,
+      "stdoutSha256": "9209ebdaae404cf6b6c21863fddc4ad8eaac6f973605357e117f965d09a438d3",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "ps5-weekly-admission-projection",
+      "kind": "isolated-functions",
+      "status": "passed",
+      "exitCode": 0,
+      "elapsedMs": 667,
+      "stdoutSha256": "a2ee433ebdf059ae06f25c225792ac4d8eed39c2500f05965888f3407dd1470f",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "ps5-weekly-admission",
+      "kind": "native-entry-boundary",
+      "status": "passed",
+      "exitCode": 0,
+      "elapsedMs": 2232,
+      "stdoutSha256": "4361bbf2698fa72a5797260b5a51b19a217300eb627b28f814da70b3b8703603",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "ps7-weekly-admission-projection",
+      "kind": "isolated-functions",
+      "status": "passed",
+      "exitCode": 0,
+      "elapsedMs": 785,
+      "stdoutSha256": "7d5d899f178c4dfd9752ed3fb3811d9a8e77ac09d88d6e8c32a5a2e0ca6f418c",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "ps7-weekly-admission",
+      "kind": "native-entry-boundary",
+      "status": "passed",
+      "exitCode": 0,
+      "elapsedMs": 2741,
+      "stdoutSha256": "7242958c51d9701cb1952b7b59ad351818fbd27ec49cec1368ea55e74daa4ee1",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "publication",
+      "kind": "native-entry-boundary",
+      "status": "passed",
+      "exitCode": 0,
+      "elapsedMs": 38427,
+      "stdoutSha256": "25340237ea29c96cea98717738987f36a4ed1d4046ee539bd15fc191763c10fe",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "optimization-boundaries",
+      "kind": "package-integrity",
+      "status": "passed",
+      "exitCode": 0,
+      "elapsedMs": 711,
+      "stdoutSha256": "f2d20714c3a10b3d4791b1f2a5f9ad204a82820b1ebdd082c5b18698c749c353",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "powershell-entry",
+      "kind": "native-entry-boundary",
+      "status": "passed",
+      "exitCode": 0,
+      "elapsedMs": 30750,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "b7fd90a2e94c08b96d05d0d8cb554d5e971d943e335f1b3edabc8ca6ee5a04e5"
+    },
+    {
+      "name": "actual-django-package",
+      "kind": "package-integrity",
+      "status": "passed",
+      "exitCode": 0,
+      "elapsedMs": 89850,
+      "stdoutSha256": "036e3ff2149fd22f876dbcf2631307bb9808b898f5c91ef8c4468838d8fb7de8",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "evidence": {
+    "packageIntegrity": true,
+    "nativeEntryBoundary": true,
+    "nativeColdStart": false
+  },
+  "candidateWorktreeRemoved": true,
+  "independentReview": {
+    "implementationCommit": "329794c2",
+    "incrementalReviewPassed": true,
+    "laterChanges": "Private inspection fixtures only; controller code unchanged."
+  },
+  "functionalValidationPerformed": false,
+  "applicationPublicationPerformed": false,
+  "preparationStatusAtCodeDelivery": "not-observed-for-final-main-yet"
+}
