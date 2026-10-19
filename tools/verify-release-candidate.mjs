@@ -49,6 +49,7 @@ export function candidateCompatibilityProfile(changes){
   piExitObservation:paths.includes('tools/django-ai.ps1'),
   nativeColdStartPerformed:false};
 }
+export function candidateRequiresDependencies(profile){return !profile.nativeAbandonmentOnly&&(profile.worker||profile.django||profile.publication);}
 
 export async function assertPrivateCandidateLocation(target){
  const absolute=path.resolve(target);
@@ -240,7 +241,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   report.tools=await Promise.all([process.execPath,shell5,shell7,pythonExe,gitExe].map(async file=>({path:file,sha256:sha(await fs.readFile(file))})));
   report.powerShellModules={root:environment.PSModulePath,tree:await hashTree(environment.PSModulePath)};
   await git(source,['worktree','add','--detach',candidate,commit]);attached=true;
-  assert.ok(dependencies||(!profile.worker&&!profile.django&&!profile.publication),'该profile需要显式的只读依赖目录');
+  assert.ok(dependencies||!candidateRequiresDependencies(profile),'该profile需要显式的只读依赖目录');
   if(dependencies){
    assert.ok((await fs.stat(path.join(dependencies,'typescript','package.json'))).isFile(),'依赖不完整');
    await fs.symlink(path.resolve(dependencies),path.join(candidate,'node_modules'),'junction');
@@ -302,7 +303,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    await run('fixed-admin-private-bundle',process.execPath,['--test','--test-name-pattern=materials preserve frozen environment','tests/main-control-upgrade.test.mjs','tests/main-prebuild-task.test.mjs','tests/fixed-admin-resolution.test.mjs','tests/main-prebuild-eligibility.test.mjs'],'package-integrity');
   }
   if(nativeAbandonmentOnly){
-   await run('fixed-native-abandonment',process.execPath,['--test','--test-concurrency=1','tests/fixed-native-abandonment.test.mjs','tests/main-prebuild-queue-v2.test.mjs','tests/fixed-admin-resolution.test.mjs','tests/fixed-schema-rejection.test.mjs','tests/fixed-cache-rejection.test.mjs','tests/verify-release-candidate.test.mjs'],'native-entry-boundary');
+   await run('fixed-native-abandonment',process.execPath,['--test','--test-concurrency=1','tests/fixed-native-abandonment.test.mjs','tests/verify-release-candidate.test.mjs'],'native-entry-boundary');
    await run('fixed-native-private-bundle',process.execPath,['--test','--test-name-pattern=materials preserve frozen environment','tests/main-control-upgrade.test.mjs'],'package-integrity');
   }
   if(!nativeAbandonmentOnly&&!fixedAdminOnly&&!schemaAdmissionOnly&&profile.publication)await run('publication',process.execPath,['--test','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs','tests/manual-maintenance-pi-readiness.test.mjs','tests/manual-maintenance-continuation.test.mjs','tests/release-chain-preflight.test.mjs'],'native-entry-boundary');

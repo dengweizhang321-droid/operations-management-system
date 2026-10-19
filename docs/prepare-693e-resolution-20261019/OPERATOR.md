@@ -10,7 +10,7 @@
 node --input-type=module -e "import{collectNativeAbandonmentState}from './tools/main-prebuild-queue.mjs';console.log(JSON.stringify(await collectNativeAbandonmentState()))"
 ```
 
-首次实现的逐叶串行读取真实观察耗时较长，已经改为同域 16 并发；实际耗时以负责人保存的原始输出为准。读取失败不产生 resolution，不删除候选，也不能据文件名/时间推断原操作无作用。正式 writer 内仍重新采集，预先 collector 仅用于兼容性核查。
+首版 16 并发文件读取的真实样本为 123.968 秒，仍不足以支持旧的重复全树/60秒写法；修订把目录各阶段也纳入同域有界并发，并分开静态库存和最终动态采样。读取失败不产生 resolution，不删除候选，也不能据文件名/时间推断原操作无作用。正式 writer 会固定采集初末两次完整库存并输出真实分段计时，不再额外 standalone 全量 probe。
 
 ## 普通 writer 与独立 observer
 
@@ -26,7 +26,9 @@ writer 在双锁内输出每阶段的 `requestFile`、`requestSha256` 与 `respo
 node tools/native-abandonment-observer.mjs --request <requestFile> --sha <requestSha256> --out <responseFile>
 ```
 
-分别响应 `before-archive` 和 `after-archive` 两个不同 nonce。observer 保存自己的精确身份，等待原 writer ACK 才退出；不能用手写 JSON 代替。两次观察必须在原锁和原时间窗中一致。任务应为原 READY、instances=0；任何 actor、后代、可能 builder、未知元数据或相关计划/消费记录出现都保持阻断。
+分别响应 `initial-observation` 和 `final-observation` 两个不同 nonce。writer 在 S0 归档后发首轮请求，在 S1 与 S0 全等并归档后发末轮请求；完整库存各一次。observer 验证请求绑定的 canonical 库存及全部对象 SHA、原件和当前有限 head/fence 入口后，才开始 task/CIM 动态计时，不重扫候选全树。它保存精确身份并等待原 writer ACK 才退出，不能用手写 JSON 代替。
+
+两轮必须属于连续持有双锁的同一 writer epoch（固定整体 20 分钟期限）。每轮 observer 的 `dynamicStartedAt` 到 ACK 必须小于 60 秒；末轮该时间和普通 `censusStartedAt` 到 resolution append 仍都小于 60 秒。首轮和静态库存不冒充最终新鲜事实。最后普通 CIM 之后没有完整 collector 或耗时源码检查。任务应为原 READY、instances=0；任何 actor、后代、可能 builder、未知元数据、S0/S1 不同或相关计划/消费记录出现都保持阻断。
 
 writer 成功只追加：
 
