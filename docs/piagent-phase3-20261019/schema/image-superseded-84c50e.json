@@ -1,0 +1,30 @@
+{
+  "image": "sha256:84c50e10b0eac2109b8d9286c26bd51cf90b51e0eb2123bf68b96ab43ef228f6",
+  "tag": "pi-business-phase3:20261019",
+  "piVersion": "1.3.0",
+  "runtimeLockSha256": "d9da7e07c92d8161863fe82b99f34c82f495d6a3809f55a8c791f5063489e482",
+  "packageLockSha256": "b1d6cda6dba705bafbc7b39ab402fad227ad7680d18952ce3bca0548abb1bf42",
+  "nodeVersion": "24.8.0",
+  "npmVersion": "11.6.2",
+  "uvVersion": "0.13.1",
+  "uvBinarySha256": "db919fb9428cc8ad04377ba3c898e0ec5fbee83700da5b982b1c9539f1e1b34f",
+  "baseImage": "python@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea",
+  "artifactIdentity": {
+    "image": "sha256:84c50e10b0eac2109b8d9286c26bd51cf90b51e0eb2123bf68b96ab43ef228f6",
+    "os": "linux",
+    "architecture": "amd64",
+    "entrypoint": [
+      "node",
+      "/opt/pi/entrypoint.mjs"
+    ],
+    "user": "65532:65532",
+    "volumes": null,
+    "buildReceiptSha256": "d675962f1e69f16cf6f8b6551d5fc5a031a2854d5634c3c5072b8f97960b39ad",
+    "functionalValidationPerformed": false,
+    "containersStarted": false,
+    "wrapperExitCode": 1,
+    "wrapperExitNote": "PowerShell stderr wrapper returned1; builder completed all stages and wrote receipt only after docker build success and exact image inspect. Original log retained."
+  },
+  "status": "superseded-candidate",
+  "supersededReason": "Four new1.2.0 SKILL.md files changed from CRLF to final committed LF; manifest regenerated. Original image/receipt/log retained."
+}

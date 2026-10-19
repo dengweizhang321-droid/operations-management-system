@@ -18,7 +18,7 @@ from .dingtalk_sync import sync_replenishment_plan
 from .dingtalk_group_message import preview_group_message, send_group_message
 from .errors import InventoryApiError
 from .import_service import import_inventory_payload, list_import_batches, record_edge_rejection
-from .plans import import_plans, plan_payload, plan_summary, query_plans, update_plan, upsert_plan
+from .plans import get_plan, import_plans, plan_payload, plan_summary, query_plans, update_plan, upsert_plan
 from .query import inventory_age_analysis, inventory_inbound_monitor, inventory_overview, replenishment_plan_sources
 from .revisions import revision_value
 from .read_cache import snapshot
@@ -375,6 +375,18 @@ def replenishment(request: HttpRequest) -> JsonResponse:
     try:
         if request.method == "GET":
             _principal(request, {"viewer", "analyst", "operator", "admin"})
+            if "id" in request.GET:
+                _unknown(request, {"id"}, "指定备货计划")
+                identifier = _one(request, "id")
+                if not isinstance(identifier, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", identifier):
+                    raise InventoryApiError("备货计划标识无效")
+                def load_plan():
+                    plan = get_plan(identifier)
+                    if plan is None:
+                        raise InventoryApiError("备货计划不存在", code="not_found", status=404)
+                    return {"item": plan_payload(plan)}
+                payload, revision = _consistent_read(load_plan)
+                return _json(payload, revision=revision)
             _unknown(request, {"status", "includeCancelled", "q", "page", "pageSize"}, "备货计划")
             status = _one(request, "status"); include = _one(request, "includeCancelled")
             if status not in {None, "draft", "confirmed", "completed", "cancelled"} or include not in {None, "true", "false"}:

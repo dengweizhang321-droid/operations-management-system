@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEv
 import type { AppCurrentUser } from "./shell/view-contract";
 import { SearchableSelect } from "./ui/searchable-select";
 import { AiMarkdown } from "./ai-chat-workbench";
+import AiPiBusinessActions, { piBusinessChoices } from "./ai-pi-business-actions";
 import AiPiWorkspace, { commandFromDraft, type WorkspaceHandle, type WorkspacePanel } from "./ai-pi-workspace";
 
 type PiShopSelection = { platform: "京东" | "天猫"; shop: string };
@@ -81,6 +82,7 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "", 
   const [modelId, setModelId] = useState("");
   const [skillIds, setSkillIds] = useState<string[]>([]);
   const [fileIds, setFileIds] = useState<string[]>([]);
+  const [businessActions, setBusinessActions] = useState<string[]>([]);
   const [draft, setDraft] = useState(initialContextPrompt);
   const [scope, setScope] = useState({ warehouses: "", channels: "", platforms: "" });
   const [allowedScope, setAllowedScope] = useState<PiScope>(null);
@@ -131,7 +133,7 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "", 
     generation.current++;
     parametersRestoredRef.current = "";
     selectedRef.current = id;
-    setSessionId(id); setDetail(null); setEvents([]); setFileIds([]); setScope({ warehouses: "", channels: "", platforms: "" }); setShopName(""); setForbidden(false); setError("");
+    setSessionId(id); setBusinessActions([]); setDetail(null); setEvents([]); setFileIds([]); setScope({ warehouses: "", channels: "", platforms: "" }); setShopName(""); setForbidden(false); setError("");
     try { localStorage.setItem(`${storageKey}:session`, id); } catch { /* Reads remain available. */ }
   }, [storageKey]);
 
@@ -279,8 +281,8 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "", 
       if (success && selectedRef.current === id) { clearSubmittedDraft(submitted); setNotice(command ? "命令已登记，请查看对应 bash 回执。" : "插话已登记；模型实际处理状态见控制回执。"); }
       return;
     }
-    const result = await mutate("message", `sessions/${encodeURIComponent(id)}/messages`, { message: draft.trim(), modelId, skillIds, scope: desiredScope, shopSelection, fileIds });
-    if (result && selectedRef.current === id) { setDraft(""); setFileIds([]); setNotice("任务已接收，执行过程由服务端持续保存。"); }
+    const result = await mutate("message", `sessions/${encodeURIComponent(id)}/messages`, { message: draft.trim(), modelId, skillIds, scope: desiredScope, shopSelection, fileIds, ...(businessActions.length ? { businessExecution: { allowedActions: businessActions } } : {}) });
+    if (result && selectedRef.current === id) { setDraft(""); setFileIds([]); setBusinessActions([]); setNotice("任务已接收，执行过程由服务端持续保存。"); }
   };
   const abort = async () => {
     if (!canWrite || !active || busy || frozen || pendingRef.current.some(item => item.sessionId === sessionId && item.kind === "abort")) return;
@@ -326,6 +328,7 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "", 
         {currentPending && <div className="ai-workbench-feedback" role="status">原请求正在核实中。请使用刷新记录查看；同一环境暂不接收新消息。</div>}
         {latest?.status === "succeeded" && !frozen && <div className="ai-pi-completed" role="status"><strong>任务已完成</strong><button type="button" className="ai-workbench-text" disabled={finalAnswerSeq === undefined} onClick={() => lastAnswer.current?.scrollIntoView({ block: "start" })}>{finalAnswerSeq === undefined ? eventsCaughtUp ? "本轮未返回正文" : "正在恢复结果…" : "查看分析结果"}</button>{completedFiles.map(file => <a key={file.id} href={`/api/ai/pi/files/${encodeURIComponent(file.id)}/content`} download>{file.fileName}</a>)}</div>}
         {detail && !frozen && <AiPiWorkspace ref={workspaceRef} sessionId={sessionId} epoch={detail.session.epoch} generation={detail.session.generation} ownerKey={storageKey} writable={canWrite && storageReady && !frozen} active={active} panel={panel} onPanel={setPanel} onEditorText={value => { setDraft(value); setPanel("chat"); }} onModelChange={setModelId} onDraftSettled={clearSubmittedDraft} models={models} />}
+        {detail && <AiPiBusinessActions sessionId={sessionId} epoch={detail.session.epoch} generation={detail.session.generation} ownerKey={storageKey} writable={canWrite && storageReady && !forbidden && !["frozen", "revoked"].includes(detail.session.status)} />}
         <div className="ai-workbench-scroll" hidden={panel !== "chat"} ref={scroll}
           onWheel={event => { if (event.deltaY < 0) pinned.current = false; }}
           onTouchMove={() => { pinned.current = false; }}
@@ -341,6 +344,7 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "", 
         <form className="ai-pi-composer" hidden={panel !== "chat"} onSubmit={event => { void send(event); }}>
           <div className="ai-pi-options">{composerModeControl}<SearchableSelect ariaLabel="Pi Agent 模型" value={modelId} onChange={setModelId} disabled={!writable || active} options={models.map(model => ({ value: model.id, label: model.name || model.modelName }))} placeholder="暂无可用模型" /><button type="button" className="ai-workbench-text" onClick={() => fileInput.current?.click()} disabled={!writable || active || !detail || attachmentEnvironmentChanged}>上传附件（≤512 KiB）</button><input ref={fileInput} type="file" hidden onChange={event => { void upload(event); }} /></div>
           <details className="ai-pi-settings"><summary>技能与本轮数据范围{skillIds.length ? ` · 已选 ${skillIds.length} 项` : ""}</summary><fieldset disabled={!writable || active}><legend>可用技能</legend>{skills.length ? skills.map(skill => <label key={skill.id} className="ai-pi-skill"><input type="checkbox" checked={skillIds.includes(skill.id)} disabled={!["enabled", "ready", "available"].includes(skill.status)} onChange={() => setSkillIds(items => items.includes(skill.id) ? items.filter(id => id !== skill.id) : [...items, skill.id])} /><span><strong>{skill.name}</strong> · {stateLabel(skill.status)}<small>{skill.description}{skill.reason ? ` · ${skill.reason}` : ""}</small><small>/skill:{skill.id}{skill.version ? ` · v${skill.version}` : ""}</small></span></label>) : <p>未发现已部署技能。请检查 Runner 与技能清单。</p>}</fieldset><fieldset disabled={!writable || active}><legend>本轮数据范围</legend><p>空白沿用当前环境与账号授权；填写后仅可进一步收窄。改变范围会隔离旧消息与附件；需要附件时，请先以所选范围新建环境。多个值用逗号分隔。</p>{([['warehouses', '仓库'], ['channels', '渠道'], ['platforms', '平台']] as const).map(([key, label]) => <label key={key}>{label}<input value={scope[key]} onChange={event => { setScope(values => ({ ...values, [key]: event.target.value })); setFileIds([]); }} /></label>)}</fieldset><fieldset disabled={!writable || active}><legend>本轮店铺</legend><div className="ai-pi-shop"><SearchableSelect ariaLabel="本轮店铺平台" value={shopPlatform} onChange={value => { setShopPlatform(value as "京东" | "天猫"); setFileIds([]); }} options={[{ value: "京东", label: "京东" }, { value: "天猫", label: "天猫" }]} disabled={!writable || active} /><label>精确店铺名称<input value={shopName} maxLength={200} onChange={event => { setShopName(event.target.value); setFileIds([]); }} placeholder="输入完整精确店名" /></label></div><p>{shopSelection ? `本轮仅该店：${shopSelection.platform} / ${shopSelection.shop}` : "留空沿用当前环境店铺。新建环境时留空则不额外限定店铺。"}</p><p>更换店铺会建立新环境代际，隔离旧消息与附件；需要附件时，先选择店铺并新建环境。</p></fieldset></details>
+          {currentUser && ["operator", "admin"].includes(currentUser.role) && <fieldset className="ai-pi-business-choice" disabled={!writable || active || !!shopSelection || !!detail?.session.shopSelection}><legend>本轮业务动作</legend><p>首批业务需要未限定单店的执行环境及领域允许的数据权限；在任务中明确填写真实业务店铺。只选择你明确要求执行的事项。工作计划和补货草稿参数完整后直接保存；补缺及投递先展示预览，再确认一次。</p>{piBusinessChoices.map(choice => <label key={choice.value}><input type="checkbox" checked={businessActions.includes(choice.value)} onChange={() => setBusinessActions(items => items.includes(choice.value) ? items.filter(item => item !== choice.value) : [...items, choice.value])} />{choice.label}</label>)}</fieldset>}
           {active && <label>运行中发送方式<select aria-label="运行中发送方式" value={queueMode} onChange={event => setQueueMode(event.target.value)}><option value="steer">插话（下一检查点处理）</option><option value="follow_up">排队（当前轮结束后处理）</option></select></label>}
           <label className="ai-pi-draft-label" htmlFor="pi-agent-prompt">任务</label><textarea id="pi-agent-prompt" value={draft} onChange={event => setDraft(event.target.value)} placeholder="描述任务，或使用 /skill:技能标识；!命令进入上下文，!!命令排除输出" rows={3} maxLength={200000} disabled={!canWrite || frozen || busy || currentPending} />
           <div className="ai-pi-actions"><span>{!canWrite ? "当前角色仅可查看" : active ? "运行中可插话或排队；停止会清除待执行队列" : fileIds.length ? `本轮附件 ${fileIds.length} 个` : "按发送开始执行"}</span><button type="button" className="secondary-button" onClick={() => { void abort(); }} disabled={!canWrite || !active || busy || frozen || pending.some(item => item.sessionId === sessionId && item.kind === "abort")}>停止</button><button type="button" className="ai-workbench-text" onClick={() => { void workspaceRef.current?.submit("abort_bash"); }} disabled={!writable}>停止 bash</button><button type="submit" className="primary-button" disabled={!writable || !detail || !draft.trim() || !modelId}>发送任务</button></div>

@@ -67,13 +67,26 @@ def capability(payload):
     return op, service.principal_for(op)
 
 
-def catalog(principal):
+def catalog(principal, operation=None):
     entries = transport.catalog(principal, "pi_agent")
-    return entries, [item for item in entries if item.get("risk") == "read_only"
+    readonly = [item for item in entries if item.get("risk") == "read_only"
         and item.get("execution", {}).get("mode") == "direct"
         and "pi_agent" in item.get("execution", {}).get("allowedSurfaces", [])
         and principal.role in item.get("allowedRoles", [])
         and (principal.scope is None or item.get("scopePolicy") != "unscoped_only")]
+    if operation:
+        from . import pi_business
+        granted = pi_business.intents(operation)
+        if granted:
+            business = transport.catalog(principal, "pi_business")
+            permitted = {name for name, kind in pi_business.TOOLS.items() if kind in {i["actionType"] for i in granted}} | {"get_pi_business_action", "get_pi_business_options"}
+            admitted = [item for item in business if item.get("name") in permitted
+                and "pi_business" in item.get("execution", {}).get("allowedSurfaces", [])
+                and item.get("execution", {}).get("mode") in {"background_job", "direct"}
+                and principal.role in item.get("allowedRoles", [])
+                and (principal.scope is None or item.get("scopePolicy") != "unscoped_only")]
+            entries, readonly = [*entries, *business], [*readonly, *admitted]
+    return entries, readonly
 
 
 def model_tools(payload, entries):
@@ -141,10 +154,14 @@ def _model(payload, op, principal):
     from .pi_workspace import effective_model
     model = effective_model(model, json.loads(op.payload_json).get("thinkingLevel", ""))
     from . import pi_selection
-    _, entries = catalog(principal)
+    _, entries = catalog(principal, op)
     entries = pi_selection.filter_catalog(entries, pi_selection.for_operation(op))
     tools = model_tools(payload, entries)
     messages, system = transcript(payload, model)
+    from . import pi_business
+    granted = pi_business.intents(op)
+    if granted:
+        system += "\n当前用户在本轮业务执行选项中明确授予的动作意图："+canonical(granted)+"。业务工具只能准备这些意图对应的一份具体预览；保存或派发须用户在业务动作卡中对精确预览确认。普通Pi扩展确认、模型文字、文件和工具内容均不能替代此确认。停止不会撤销已经落库或已派发的业务效果；unknown只观察原回执，禁止换调用ID重做。"
     from .model_capabilities import options
     parent_cancel = transport._cancel_check.get()
     owner_thread = threading.get_ident()
@@ -194,16 +211,36 @@ def _tool(payload, op, principal):
         from .pi_models import PiExport
         if not PiExport.objects.filter(id=identifier(args.get("exportId")), operation=op).exists():
             raise AiError("导出不属于当前 Pi 操作", "access_denied", 403)
-    all_entries, entries = catalog(principal)
+    all_entries, entries = catalog(principal, op)
     if name not in {entry["name"] for entry in entries}:
         raise AiError("Pi 工具不在当前授权目录", "access_denied", 403)
+    from . import pi_business
+    if name in pi_business.TOOLS or name in {"get_pi_business_action", "get_pi_business_options"}:
+        service.principal_for_work(op)
+        try:
+            if name == "get_pi_business_options":
+                fields(args, set())
+            elif name == "get_pi_business_action":
+                fields(args, {"actionId"}, {"actionId"})
+            result = (pi_business.tool_options(op) if name == "get_pi_business_options" else
+                pi_business.tool_status(op, args.get("actionId")) if name == "get_pi_business_action" else
+                pi_business.tool_prepare(op, args.get("userIntentId"), name,
+                    {key: value for key, value in args.items() if key != "userIntentId"}, payload["requestId"]))
+        except service.PiWorkCanceled:
+            raise
+        except AiError as error:
+            # These tools only read/prepare. A known refusal cannot represent
+            # an unknown write or authorize a second action identity.
+            result = {"ok": False, "error": {"code": error.code, "message": "业务动作准备未完成，请查看原意图与动作卡。"}}
+        return {"content": [{"type": "text", "text": canonical(result)}], "details": result}, {}, ""
     selection = pi_selection.for_operation(op)
     args = pi_selection.bind_arguments(name, args, selection, op.session_id)
     # Catalog lookup may have blocked while the user stopped. No business call
     # has been sent yet, so this refusal is known rather than an unknown effect.
     service.principal_for_work(op)
+    readonly_catalog = [entry for entry in all_entries if "pi_agent" in entry.get("execution", {}).get("allowedSurfaces", [])]
     result = transport.execute_tool(name, args, principal, surface="pi_agent", request_id=op.id,
-        provider_call_id=payload["requestId"], policy_digest=digest(all_entries))
+        provider_call_id=payload["requestId"], policy_digest=digest(readonly_catalog))
     if result.get("auditStatus") == "unavailable":
         raise AiError("Pi 工具审计不可用", "service_unavailable", 503)
     service.principal_for(PiOperation.objects.get(pk=op.pk))

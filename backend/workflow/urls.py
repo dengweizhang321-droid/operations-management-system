@@ -2,7 +2,7 @@ from django.conf import settings
 from django.urls import path
 from django.views.decorators.http import require_GET
 
-from . import import_chain_views, operations_views, views, bi_status
+from . import import_chain_views, operations_views, views, bi_status, pi_business, pi_business_n8n
 
 
 read_patterns = [
@@ -30,6 +30,8 @@ read_patterns = [
     path("operations-records/<str:record_id>/activity", operations_views.operation_record_activity, name="workflow-operation-record-activity"),
 ]
 write_patterns = [
+    path("pi-business-n8n", pi_business_n8n.endpoint, name="workflow-pi-business-n8n"),
+    path("pi-business", pi_business.endpoint, name="workflow-pi-business"),
     path("new-product-lines/learn/operations/<str:operation_id>", views.new_product_learning_operation, name="workflow-new-product-learning-operation"),
     path("jackyun-recovery-authority", views.jackyun_recovery_authority, name="jackyun-recovery-authority"),
     path("launch-projects", views.launch_projects, name="workflow-launch-projects"),

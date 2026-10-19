@@ -1765,6 +1765,29 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   if (-not [string]::IsNullOrWhiteSpace($IntegrationEvidencePath) -and (Test-Path -LiteralPath $IntegrationEvidencePath)) {
     $biEvidence = Read-JsonFile $IntegrationEvidencePath 'BI addition evidence'
   }
+  # Pi152 is a separate, finite child; no legacy execution limits are changed.
+  $piBusinessGate = Join-Path $candidateRoot 'tools\pi_business_addition.py'
+  $piBusinessDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('pi-business-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -ceq 'teruisi-pi-business-schema-addition-v1' -or $piBusinessDeployment -or
+      (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'pi-business-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $piBusinessGate -PathType Leaf)) {throw 'Pi152 requires its exact verifier'}
+    $piBusinessCommand = if ($Operation -ceq 'PrepareApp') {if ($null -ne $biEvidence) {'admission'} else {'successor'}} elseif ($Operation -ceq 'DeployApp') {if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'}} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported Pi152 lifecycle operation'}
+    $piBusinessArgs = @($piBusinessGate,$piBusinessCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if ($piBusinessCommand -ceq 'admission') {$piBusinessArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if ($piBusinessCommand -ceq 'deployment') {$piBusinessArgs += @('--operation',$IntegrationOperationId)}
+    $piBusinessRun = Invoke-BoundedNativeProcess $Python $piBusinessArgs $candidateRoot
+    if ($piBusinessRun -isnot [pscustomobject] -or $piBusinessRun.ExitCode -isnot [int] -or
+        $piBusinessRun.LaunchFailed -isnot [bool] -or $piBusinessRun.LaunchFailed -or
+        $piBusinessRun.Diagnostic.OutputTruncated -isnot [bool] -or $piBusinessRun.Diagnostic.OutputTruncated -or
+        @($piBusinessRun.Output | Where-Object {$_ -is [string] -and $_.TrimStart().StartsWith('{')}).Count -ne 1) {
+      throw 'Pi152 requires one complete typed native JSON object'
+    }
+    $piBusinessProof = ConvertFrom-UniqueNativeJson $piBusinessRun 'Verify finite Pi152 schema addition'
+    if ($piBusinessProof -isnot [pscustomobject] -or $piBusinessProof.status -isnot [string] -or
+        $piBusinessProof.status -cne 'verified') {throw 'Pi152 schema addition gate refused'}
+    return
+  }
   # Pi151 is a separate, finite child; no legacy execution limits are changed.
   $piWorkspaceGate = Join-Path $candidateRoot 'tools\pi_workspace_addition.py'
   $piWorkspaceDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
@@ -2116,6 +2139,9 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\pi_business_addition.py",
+      "tools\pi_business_catalog.py",
+      "tools\pi_business_candidate.py",
       "tools\pi_workspace_addition.py",
       "tools\pi_workspace_catalog.py",
       "tools\pi_workspace_catalog.json",
@@ -2160,6 +2186,13 @@ function Prepare-Application {
       "config\integration-migration-policy-v3.json",
       "config\integration-migration-policy-v4-netshop-presence.json",
       "config\jd-logistics-notifications.json",
+      "config\tmall-store-accounts.json",
+      "automation\n8n\pi-business\tmall-yijiu-pi-business.candidate.workflow.json",
+      "automation\n8n\pi-business\tmall-lili-pi-business.candidate.workflow.json",
+      "automation\n8n\pi-business\tmall-tuofeng-pi-business.candidate.workflow.json",
+      "automation\n8n\pi-business\tmall-yiyong-pi-business.candidate.workflow.json",
+      "automation\n8n\pi-business\tmall-cuizhiwang-pi-business.candidate.workflow.json",
+      "automation\n8n\pi-business\tmall-masitu-pi-business.candidate.workflow.json",
       "drizzle\0090_sales_write_authority.sql",
       "drizzle\0091_erp_reference_projection.sql",
       "drizzle\0092_sales_domain_retirement.sql",
@@ -2190,7 +2223,9 @@ function Prepare-Application {
       if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
         throw "Django runtime 部署缺少受控 retirement operator 文件：$relative"
       }
-      Copy-Item -LiteralPath $source -Destination (Join-Path $staging $relative) -Force
+      $copyDestination = Join-Path $staging $relative
+      New-Item -ItemType Directory -Path (Split-Path -Parent $copyDestination) -Force | Out-Null
+      Copy-Item -LiteralPath $source -Destination $copyDestination -Force
     }
     $installedIntegrationPolicy = Join-Path $InstalledAppRoot 'config\integration-migration-policy-v3.json'
     $installedGenerationPresent = Test-Path -LiteralPath (Join-Path $RuntimeRoot 'integration-release.json') -PathType Leaf
@@ -3243,6 +3278,7 @@ function Invoke-WithDjangoEnvironment(
     "TERUISI_DJANGO_ACCESS_CONTROL_CUTOVER_ID",
     "TERUISI_DJANGO_AI_AUTHORITY_EPOCH", "TERUISI_DJANGO_AI_CUTOVER_ID",
     "AI_SECRET_ENCRYPTION_KEY", "AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST", "AI_ALLOW_LOCAL_MODEL_ENDPOINTS", "TERUISI_DJANGO_AI_EDGE_BASE_URL",
+    "TERUISI_PI_REPORT_DINGTALK_CONFIG", "TERUISI_DINGTALK_BOT_CREDENTIALS",
     "TERUISI_PANDAS_RUNNER_KEY_FILE", "TERUISI_PANDAS_RUNNER_IMAGE",
     "PI_RUNNER_HMAC_SECRET", "PI_RUNNER_HMAC_KEY_FILE", "PI_SKILL_VERSION", "PI_GATEWAY_URL",
     "TERUISI_DJANGO_ERP_AUTHORITY_EPOCH", "TERUISI_DJANGO_ERP_CUTOVER_ID",
@@ -3287,6 +3323,8 @@ function Invoke-WithDjangoEnvironment(
     $env:AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST = ""
     $env:AI_ALLOW_LOCAL_MODEL_ENDPOINTS = ""
     $env:TERUISI_DJANGO_AI_EDGE_BASE_URL = ""
+    $env:TERUISI_PI_REPORT_DINGTALK_CONFIG = ""
+    $env:TERUISI_DINGTALK_BOT_CREDENTIALS = ""
     $env:TERUISI_PANDAS_RUNNER_KEY_FILE = ""
     $env:TERUISI_PANDAS_RUNNER_IMAGE = ""
     $env:PI_RUNNER_HMAC_SECRET = ""

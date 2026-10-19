@@ -6,6 +6,7 @@ from . import guangdong_views as gd
 from . import bi_projection
 from . import jd_logistics_views
 from . import tmall_warehouse_views
+from . import pi_business
 
 read_patterns = [
     path("tmall-warehouse", tmall_warehouse_views.endpoint, name="inventory-tmall-warehouse"),
@@ -27,6 +28,7 @@ read_patterns = [
     path("consumers/query", views.consumer_query, name="inventory-consumer-query"),
 ]
 write_patterns = [
+    path("pi-business", pi_business.endpoint, name="inventory-pi-business"),
     path("tmall-warehouse", tmall_warehouse_views.endpoint, name="inventory-tmall-warehouse-write"),
     path("jd-logistics", jd_logistics_views.endpoint, name="inventory-jd-logistics-write"),
     path("imports/recovery", views.import_recovery, name="inventory-import-recovery"),

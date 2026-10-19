@@ -1,0 +1,94 @@
+{
+  "kind": "necessary_code_checks",
+  "functionalValidationPerformed": false,
+  "pythonSyntax": {
+    "status": "passed",
+    "files": 40,
+    "evidence": "D:/codex-artifacts/piagent-phase3-20261019/python-syntax.json"
+  },
+  "typescriptClosure": {
+    "rootFiles": [
+      "cloudflare-runtime.d.ts",
+      "app/ai-pi-agent-view.tsx",
+      "app/ai-pi-business-actions.tsx",
+      "lib/ai/tool-registry.ts",
+      "lib/ai/django-edge.ts",
+      "lib/ai/pi-business-n8n.ts",
+      "lib/ai/pi-business-tools.ts",
+      "tools/pi-business-n8n-gate.ts",
+      "tools/tmall-isolated-helper.ts",
+      "tools/tmall-sycm-cookie-pipeline.ts",
+      "app/api/ai/pi/sessions/[id]/business-actions/route.ts"
+    ],
+    "sourceFiles": 960,
+    "changedFileDiagnostics": [],
+    "inheritedDiagnostics": [
+      {
+        "file": "lib/ai/business-market-v2-tool-candidate.ts",
+        "line": 34,
+        "code": 2454,
+        "message": "Variable 'allowed' is used before being assigned."
+      },
+      {
+        "file": "lib/ai/business-market-v2-tool-candidate.ts",
+        "line": 34,
+        "code": 2454,
+        "message": "Variable 'allowed' is used before being assigned."
+      },
+      {
+        "file": "lib/ai/business-market-v2-tool-candidate.ts",
+        "line": 35,
+        "code": 2454,
+        "message": "Variable 'allowed' is used before being assigned."
+      },
+      {
+        "file": "tools/jd-n8n-pipeline.ts",
+        "line": 349,
+        "code": 2345,
+        "message": "Argument of type '{ status: \"planned\"; startDate: string; endDate: string; storeKey: string; step: string; }' is not assignable to parameter of type 'JdN8nOperation'.\n  Types of property 'step' are incompatible.\n    Type 'string' is not assignable to type '\"jd_sku_daily\" | \"spu_daily\" | \"jd_product_master\"'."
+      },
+      {
+        "file": "tools/sales-import-runner.ts",
+        "line": 855,
+        "code": 18047,
+        "message": "'fee' is possibly 'null'."
+      },
+      {
+        "file": "tools/sales-import-runner.ts",
+        "line": 877,
+        "code": 18047,
+        "message": "'fee' is possibly 'null'."
+      },
+      {
+        "file": "tools/tmall-direct-promotion-export.ts",
+        "line": 269,
+        "code": 18048,
+        "message": "'signal' is possibly 'undefined'."
+      },
+      {
+        "file": "tools/tmall-direct-promotion-export.ts",
+        "line": 269,
+        "code": 18048,
+        "message": "'signal' is possibly 'undefined'."
+      },
+      {
+        "file": "tools/tmall-promotion-export.ts",
+        "line": 330,
+        "code": 2345,
+        "message": "Argument of type 'unknown' is not assignable to parameter of type 'string'."
+      }
+    ],
+    "note": "Inherited diagnostics are in unchanged files; no full-repository type-check success is claimed."
+  },
+  "nodeSyntax": {
+    "files": [
+      "tools/generate-pi-business-n8n.mjs",
+      "tools/n8n-metadata-read-boundary.mjs"
+    ],
+    "status": "passed"
+  },
+  "releaseSyntaxEvidence": "schema/syntax-checks.json",
+  "applicationBuild": "pending_native_preparation",
+  "functionalTestsRun": false,
+  "productionBusinessActionsRun": false
+}

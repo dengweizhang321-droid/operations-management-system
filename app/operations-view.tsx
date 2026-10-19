@@ -1009,6 +1009,38 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
     setTaskEditorError("");
     window.requestAnimationFrame(() => document.getElementById("operations-task-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }));
   };
+  useEffect(() => {
+    if (activeTab !== "plan" || !currentUser) return;
+    let controller: AbortController | null = null;
+    const restore = () => {
+      controller?.abort();
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("module") !== "workflow" || params.get("objectType") !== "work_plan") return;
+      const ids = params.getAll("objectId");
+      if (ids.length !== 1 || !/^[A-Za-z0-9_-]{1,128}$/.test(ids[0])) {
+        setFeedback("工作计划链接中的对象ID无效。"); return;
+      }
+      const id = ids[0];
+      const request = new AbortController(); controller = request;
+      void requestJson<{ item: Task }>(`/api/workflow/tasks?id=${encodeURIComponent(id)}`, { signal: request.signal })
+        .then(payload => {
+          if (request.signal.aborted) return;
+          if (!payload.item || payload.item.id !== id) throw new Error("指定工作计划响应不一致。");
+          const task = payload.item;
+          if (canWrite) {
+            setEditingTask(task);
+            setDraft({ title: task.title, workContent: task.workContent, category: task.category, owner: task.owner,
+              shopName: task.shopName, startDate: task.startDate === "待排期" ? "" : task.startDate,
+              due: task.due === "待排期" ? "" : task.due, priority: task.priority });
+            setTaskEditorError("");
+            setFeedback(`已打开指定工作计划“${task.title}”。`);
+            window.requestAnimationFrame(() => document.getElementById("operations-task-editor")?.scrollIntoView({ block: "center" }));
+          } else setSelectedTask(task);
+        }).catch(reason => { if (!request.signal.aborted) setFeedback(messageOf(reason, "指定工作计划读取失败。")); });
+    };
+    restore(); window.addEventListener("popstate", restore);
+    return () => { controller?.abort(); window.removeEventListener("popstate", restore); };
+  }, [activeTab, canWrite, currentUser?.email]);
   const downloadTasks = async () => {
     if (exporting) return;
     setExporting(true); setFeedback("");

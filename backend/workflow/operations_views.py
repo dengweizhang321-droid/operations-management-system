@@ -16,6 +16,8 @@ from .operations import (
     TASK_SOURCES,
     TASK_STATUSES,
     _datetime,
+    _task_exists,
+    _task_item,
     attachment_metadata,
     cleanup_batch,
     cleanup_result,
@@ -136,6 +138,11 @@ def tasks(request: HttpRequest) -> JsonResponse:
     try:
         if request.method == "GET":
             _operations_principal(request, READ_ROLES, unrestricted=True)
+            if "id" in request.GET:
+                _unknown(request, {"id"}, "指定工作计划")
+                identifier = _one(request, "id")
+                payload, revision = _consistent_read(lambda: {"item": _task_item(_task_exists(identifier))})
+                return _json(payload, revision=revision)
             payload, revision = _consistent_read(lambda: list_tasks(_task_options(request)))
             return _json(payload, revision=revision)
         principal = _operations_principal(request, WRITE_ROLES, unrestricted=True)

@@ -215,7 +215,7 @@ function validateRequest(input: WorkflowServiceRequest) {
       || (input.method === "POST" && consumer)
     : (input.method === "GET" && (learningOperation || attachmentCleanup || input.path === WORKFLOW_JACKYUN_RECOVERY_AUTHORITY_PATH))
       || (input.method === "POST" && (collection || productLines || productLineLearning || tasks || taskWritableCollection
-        || templates || records || attachmentCleanup || inventoryWorkItems || input.path === WORKFLOW_JACKYUN_RECOVERY_AUTHORITY_PATH))
+        || templates || records || attachmentCleanup || inventoryWorkItems || input.path === WORKFLOW_JACKYUN_RECOVERY_AUTHORITY_PATH || input.path === "/api/workflow/pi-business-n8n"))
       || (input.method === "PATCH" && (project || stage || productLine || weeklyReportConfig || tasks || templates || record))
       || (input.method === "DELETE" && (project || tasks || taskDeletableCollection || taskAttachment || templates || record));
   if (!allowed) throw unavailable();

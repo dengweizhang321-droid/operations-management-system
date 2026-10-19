@@ -42,8 +42,12 @@ export async function GET(request: Request) {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "备货计划");
     const params = new URL(request.url).searchParams;
-    if ([...params.keys()].some((key) => !["status", "includeCancelled", "q", "page", "pageSize"].includes(key))) {
+    if ([...params.keys()].some((key) => !["id", "status", "includeCancelled", "q", "page", "pageSize"].includes(key))) {
       throw new InventoryQueryContractError("备货计划包含未知查询参数");
+    }
+    if (params.has("id") && (params.getAll("id").length !== 1 || [...params.keys()].some(key => key !== "id")
+      || !/^[A-Za-z0-9_-]{1,128}$/.test(params.get("id") ?? ""))) {
+      throw new InventoryQueryContractError("指定备货计划必须提供唯一的有效ID");
     }
     const status = params.get("status");
     if (status !== null && !["draft", "confirmed", "completed", "cancelled"].includes(status)) {

@@ -162,6 +162,8 @@ def claim_write_request(
         expired_ids = list(
             WorkflowWriteRequestReceipt.objects.filter(expires_at__lte=now)
             .exclude(request_id__startswith=MANUAL_LEARNING_PREFIX, method="POST", path=MANUAL_LEARNING_PATH)
+            .exclude(request_id__startswith="pi-business:", method="POST", path="/api/workflow/pi-business")
+            .exclude(request_id__startswith="pi-business:", method="POST", path="/api/workflow/pi-business-n8n")
             .order_by("expires_at")
             .values_list("request_id", flat=True)[:20]
         )
@@ -194,6 +196,8 @@ def claim_write_request(
                     replay_status=receipt.response_status,
                     replay_payload=receipt.response_payload,
                 )
+            if request_id.startswith("pi-business:") and path in {"/api/workflow/pi-business", "/api/workflow/pi-business-n8n"}:
+                raise WorkflowApiError("原业务操作结果尚未确认，只能查询原回执", code="conflict", status=409)
             if durable_learning:
                 # An unresolved manual operation never becomes a new execution
                 # merely because a timeout, cleanup window or browser changed.

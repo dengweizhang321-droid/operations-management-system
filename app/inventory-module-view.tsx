@@ -5,6 +5,8 @@ import { inventoryWarehouseCategoryLabel } from "@/lib/inventory/warehouse-class
 import { useAiPageDetails } from "./ai-page-context-provider";
 
 import { StableReadContent } from "./ui/stable-read-content";
+import Dialog from "./ui/dialog";
+import { requestJson } from "@/lib/http/api-client";
 import type { ReactNode } from "react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
@@ -495,6 +497,10 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const [filters, setFilters] = useState<InventorySharedFilters>(readInventorySharedFilters);
   const [planActionId, setPlanActionId] = useState("");
   const [planQuantities, setPlanQuantities] = useState<Record<string, number>>({});
+  const [linkedPlanState, setLinkedPlanState] = useState<{ principalKey: string; item: ReplenishmentPlanItem } | null>(null);
+  const [linkedPlanBusy, setLinkedPlanBusy] = useState(false);
+  const [linkedPlanError, setLinkedPlanError] = useState("");
+  const linkedPlanGeneration = useRef(0);
   const [planDraft, setPlanDraft] = useState<ReplenishmentPlanDraft | null>(null);
   const [planDraftScope, setPlanDraftScope] = useState("");
   const [planSaving, setPlanSaving] = useState(false);
@@ -587,6 +593,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const effectiveAgePage = effectivePageForScope(agePage, agePageScopeKey, committedAgePageScopeKey);
   const effectiveInboundPage = effectivePageForScope(inboundPage, inboundPageScopeKey, committedInboundPageScopeKey);
   const principalKey = JSON.stringify(currentUser);
+  const linkedPlan = linkedPlanState?.principalKey === principalKey ? linkedPlanState.item : null;
   const overviewRequestKey = `${principalKey}:${activeTab}:${activeTab === "plan" ? planPageScopeKey : overviewPageScopeKey}:${activeTab === "plan" ? effectivePlanPage : effectiveOverviewPage}`;
   const ageRequestKey = `${principalKey}:${agePageScopeKey}:${effectiveAgePage}`;
   const inboundRequestKey = `${principalKey}:${inboundPageScopeKey}:${effectiveInboundPage}`;
@@ -597,6 +604,43 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const inboundMonitor = !searchPending && inboundState?.key === inboundRequestKey ? inboundState.value : null;
   const canSyncInventory = currentUser?.role === "admin";
   const canManageInventory = currentUser?.role === "admin" || currentUser?.role === "operator";
+  const closeLinkedPlan = useCallback(() => {
+    linkedPlanGeneration.current += 1;
+    setLinkedPlanState(null); setLinkedPlanError(""); setLinkedPlanBusy(false);
+    const location = new URL(window.location.href);
+    if (location.searchParams.get("objectType") === "replenishment_draft") {
+      location.searchParams.delete("objectType"); location.searchParams.delete("objectId");
+      window.history.replaceState(window.history.state, "", `${location.pathname}${location.search}${location.hash}`);
+    }
+  }, []);
+  useEffect(() => {
+    if (activeTab !== "plan" || !currentUser) return;
+    let controller: AbortController | null = null;
+    const restore = () => {
+      controller?.abort();
+      const generation = ++linkedPlanGeneration.current;
+      setLinkedPlanState(null); setLinkedPlanError(""); setLinkedPlanBusy(false);
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("module") !== "inventory" || params.get("objectType") !== "replenishment_draft") return;
+      const ids = params.getAll("objectId");
+      if (ids.length !== 1 || !/^[A-Za-z0-9_-]{1,128}$/.test(ids[0])) {
+        setSyncFeedback({ tone: "error", title: "备货计划链接无效", message: "请使用包含唯一对象ID的正式计划链接。" }); return;
+      }
+      const id = ids[0], request = new AbortController(); controller = request;
+      void requestJson<{ item: ReplenishmentPlanItem }>(`/api/inventory/replenishment?id=${encodeURIComponent(id)}`, { signal: request.signal })
+        .then(payload => {
+          if (request.signal.aborted || generation !== linkedPlanGeneration.current) return;
+          if (!payload.item || payload.item.id !== id) throw new Error("指定备货计划响应不一致。");
+          setLinkedPlanState({ principalKey, item: payload.item });
+          setPlanQuantities(current => ({ ...current, [id]: payload.item.plannedQuantity }));
+        }).catch(reason => {
+          if (!request.signal.aborted && generation === linkedPlanGeneration.current) setSyncFeedback({ tone: "error",
+            title: "指定备货计划读取失败", message: reason instanceof Error ? reason.message : "计划不存在或当前账号无权查看。" });
+        });
+    };
+    restore(); window.addEventListener("popstate", restore);
+    return () => { controller?.abort(); linkedPlanGeneration.current += 1; window.removeEventListener("popstate", restore); };
+  }, [activeTab, principalKey]);
   const selectablePlans = useMemo(
     () => canManageInventory
       ? (overview?.plans ?? []).filter((plan) => plan.status === "draft" || plan.status === "confirmed")
@@ -1144,6 +1188,24 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       setPlanActionId("");
     }
   }, [canManageInventory, planQuantities, refreshActiveInventoryTab]);
+
+  const saveLinkedPlan = useCallback(async () => {
+    if (!linkedPlan || linkedPlan.status !== "draft" || !canManageInventory || linkedPlanBusy) return;
+    const generation = linkedPlanGeneration.current;
+    setLinkedPlanBusy(true); setLinkedPlanError("");
+    try {
+      const item = await requestPlanStatusUpdate(linkedPlan.id, "draft", planQuantities[linkedPlan.id] ?? linkedPlan.plannedQuantity);
+      if (generation !== linkedPlanGeneration.current) return;
+      if (item.id !== linkedPlan.id) throw new Error("备货草稿保存回执不一致。");
+      setLinkedPlanState({ principalKey, item });
+      setSyncFeedback({ tone: "success", title: "备货草稿已保存", message: `${item.productName} · ${formatCount(item.plannedQuantity)} 件` });
+      await refreshActiveInventoryTab();
+    } catch (reason) {
+      if (generation === linkedPlanGeneration.current) setLinkedPlanError(reason instanceof Error ? reason.message : "保存备货草稿失败。");
+    } finally {
+      if (generation === linkedPlanGeneration.current) setLinkedPlanBusy(false);
+    }
+  }, [canManageInventory, linkedPlan, linkedPlanBusy, planQuantities, principalKey, refreshActiveInventoryTab]);
 
   const syncPlanToDingTalk = useCallback(async (plan: ReplenishmentPlanItem) => {
     if (!canManageInventory || plan.status !== "confirmed") return;
@@ -1804,6 +1866,30 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         </>}
       </>}
     </>, <>
+      <Dialog open={Boolean(linkedPlan && activeTab === "plan")} onClose={() => { if (!linkedPlanBusy) closeLinkedPlan(); }}
+        dialogId="inventory-linked-plan" ariaLabel="指定备货计划" className="inventory-work-item-modal">
+        {linkedPlan && <form onSubmit={event => { event.preventDefault(); void saveLinkedPlan(); }}>
+          <header><div><small>{planStatusLabel[linkedPlan.status]}</small><h2>{linkedPlan.productName}</h2>
+            <p>{linkedPlan.productCode} · {linkedPlan.warehouse}</p></div>
+            <button type="button" aria-label="关闭备货计划" disabled={linkedPlanBusy} onClick={closeLinkedPlan}>×</button></header>
+          <div className="inventory-work-item-fields">
+            <label><span>计划ID</span><input readOnly value={linkedPlan.id} /></label>
+            <label><span>库存来源批次</span><input readOnly value={linkedPlan.sourceBatchId} /></label>
+            <label><span>可用库存</span><input readOnly value={formatCount(linkedPlan.currentStockQuantity)} /></label>
+            <label><span>近30日正向销量</span><input readOnly value={linkedPlan.sales30dQuantity === null ? "暂无依据" : formatCount(linkedPlan.sales30dQuantity)} /></label>
+            <label><span>系统建议</span><input readOnly value={formatCount(linkedPlan.suggestedQuantity)} /></label>
+            <label><span>备货数量</span><input autoFocus type="number" min={1} max={10000000} step={1}
+              readOnly={!canManageInventory || linkedPlan.status !== "draft"} disabled={linkedPlanBusy}
+              value={planQuantities[linkedPlan.id] ?? linkedPlan.plannedQuantity}
+              onChange={event => setPlanQuantities(current => ({ ...current, [linkedPlan.id]: Math.max(1, Math.trunc(Number(event.target.value) || 1)) }))} /></label>
+            <label className="inventory-work-item-notes"><span>备注</span><textarea readOnly rows={3} value={linkedPlan.notes || ""} /></label>
+          </div>
+          {linkedPlanError && <p className="error-message" role="alert">{linkedPlanError}</p>}
+          <footer><button type="button" className="secondary-button" disabled={linkedPlanBusy} onClick={closeLinkedPlan}>关闭</button>
+            {canManageInventory && linkedPlan.status === "draft" && <button type="submit" className="primary-button" disabled={linkedPlanBusy}>
+              {linkedPlanBusy ? "保存中…" : "保存草稿"}</button>}</footer>
+        </form>}
+      </Dialog>
       {groupPreview && <div className="modal-backdrop inventory-work-item-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !groupMessageLoading) setGroupPreview(null); }}>
         <section className="inventory-work-item-modal inventory-dingtalk-group-modal" role="dialog" aria-modal="true" aria-labelledby="inventory-dingtalk-group-title">
           <header><div><small>发送前确认</small><h2 id="inventory-dingtalk-group-title">钉钉备货群消息</h2><p>备货计划群与机器人已完成动态精确匹配</p></div><button type="button" aria-label="关闭" disabled={groupMessageLoading} onClick={() => setGroupPreview(null)}>×</button></header>

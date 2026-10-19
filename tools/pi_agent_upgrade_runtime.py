@@ -87,10 +87,51 @@ def invoke(value):
     return records[0]
 
 
+def previous_upgrade_complete(runtime, config, config_raw, key_path):
+    """Retain all records; an unfinished source plan blocks every new target."""
+    plans = runtime / "config/pi-agent-upgrades"
+    candidates = []
+    if plans.exists():
+        entries = sorted(plans.iterdir())
+        if len(entries)>64:raise ValueError("pi_upgrade_history_bound")
+        for folder in entries:
+            if (not re.fullmatch(r"[a-f0-9]{64}",folder.name) or not folder.is_dir()
+                    or folder.is_symlink() or getattr(folder,"is_junction",lambda:False)()):
+                raise ValueError("pi_upgrade_history_identity_changed")
+            candidates.append((folder / "prepared.json", folder / "result.json", folder / "intent.json"))
+    candidates.append((runtime / "config/pi-agent-upgrade-prepared.json", runtime / "config/pi-agent-upgrade-result.json", runtime / "config/pi-agent-upgrade-intent.json"))
+    found_current, existing = False, False
+    key_sha=sha(key_path.read_bytes())
+    for prepared, result_path, intent_path in candidates:
+        fragments=[prepared.with_name(prepared.name+".new"),result_path.with_name(result_path.name+".new"),intent_path.with_name(intent_path.name+".new")]
+        if any(file.exists() for file in fragments):raise ValueError("previous_pi_upgrade_fragment_retained")
+        if not prepared.exists():
+            if result_path.exists() or intent_path.exists() or prepared.parent!=runtime/"config":
+                raise ValueError("previous_pi_upgrade_orphaned_records")
+            continue
+        existing = True
+        if not result_path.is_file() or not intent_path.is_file():raise ValueError("previous_pi_upgrade_incomplete")
+        receipt = json.loads(prepared.read_bytes()); result = json.loads(result_path.read_bytes()); intent = json.loads(intent_path.read_bytes())
+        plan = receipt["plan"]; successor=receipt["newWindowsConfig"]
+        successor_raw=json.dumps(successor,ensure_ascii=False,sort_keys=True,separators=(",",":")).encode()
+        if (result.get("upgraded") is not True or result.get("sourceSha256") != successor["runnerSourceSha256"]
+                or result.get("image") != successor["runnerImage"] or result.get("windowsConfigSha256") != sha(successor_raw)
+                or result.get("windowsKeyFileSha256") != key_sha or receipt.get("windowsKeyFileSha256") != key_sha
+                or result.get("operationId") != plan["operationId"] or result.get("planSha256") != receipt["planSha256"]
+                or intent.get("operationId") != plan["operationId"] or intent.get("registeredPlanSha256") != sha(prepared.read_bytes())
+                or successor["runnerSourceSha256"] != plan["newSourceSha256"] or successor["runnerImage"] != plan["newImage"]
+                or prepared.parent!=runtime/"config" and prepared.parent.name!=plan["newSourceSha256"]):
+            raise ValueError("previous_pi_upgrade_completion_binding_changed")
+        if successor==config:
+            if sha(successor_raw)!=sha(config_raw):raise ValueError("current_pi_config_serialization_changed")
+            found_current=True
+    if existing and not found_current:raise ValueError("previous_pi_upgrade_not_current_completed_predecessor")
+
+
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('action',choices=['prepare','apply','check','reconcile'])
     parser.add_argument('--runtime',required=True);parser.add_argument('--image');parser.add_argument('--source-sha256')
-    parser.add_argument('--expected-plan-sha256');parser.add_argument('--execute',action='store_true')
+    parser.add_argument('--expected-plan-sha256');parser.add_argument('--skill-version');parser.add_argument('--execute',action='store_true')
     args=parser.parse_args();runtime=Path(args.runtime).absolute()
     if os.name!='nt' or runtime!=Path(r'D:\teruisi-runtime\django-sales') or not args.execute:raise ValueError('native_pi_upgrade_required')
     for path in (runtime,*runtime.parents):
@@ -101,12 +142,18 @@ def main():
     config_path=runtime/'config/pi-agent.json';key_path=runtime/'secrets/pi-agent.dpapi.json'
     old_raw=config_path.read_bytes();config=json.loads(old_raw);key=read_key(key_path)
     if (config.get('version')!=1 or config.get('enabled') is not True or sha(key_path.read_bytes())!=config['keyFileSha256']
-            or sha(key)!=config['channelKeySha256']):raise ValueError('existing_pi_owner_key_required')
-    prepared=runtime/'config/pi-agent-upgrade-prepared.json'
+            or sha(key)!=config['channelKeySha256']
+            or not re.fullmatch(r'[a-f0-9]{64}',config.get('runnerSourceSha256',''))):raise ValueError('existing_pi_owner_key_required')
+    plan_directory=runtime/'config/pi-agent-upgrades'/source_digest()
+    prepared=plan_directory/'prepared.json'
     if args.action=='prepare':
         new_sha=source_digest()
+        skill_version=args.skill_version or config['skillVersion']
+        if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',skill_version):raise ValueError('exact_skill_version_required')
+        from pi_runner.skills import build
+        build(root/'backend/pi_runner/bundled_skills'/skill_version)
         if args.source_sha256!=new_sha or not re.fullmatch(r'sha256:[a-f0-9]{64}',args.image or ''):raise ValueError('exact_source_image_required')
-        if config['runnerSourceSha256']==new_sha and config['runnerImage']==args.image:
+        if config['runnerSourceSha256']==new_sha and config['runnerImage']==args.image and config['skillVersion']==skill_version:
             value={'action':'current','namespace':'pi-agent-v1','unitName':'teruisi-pi-runner.service',
                 'unitPath':'/home/teruisi-pandas/.config/systemd/user/teruisi-pi-runner.service',
                 'releaseParent':'/home/teruisi-pandas/.local/share/teruisi-pi-runner/releases','port':8123,
@@ -115,11 +162,16 @@ def main():
         if prepared.exists():
             raw=prepared.read_bytes();saved=json.loads(raw);plan=saved['plan']
             if (saved['oldWindowsConfigSha256']!=sha(old_raw) or saved['windowsKeyFileSha256']!=sha(key_path.read_bytes())
-                    or plan['newSourceSha256']!=new_sha or plan['newImage']!=args.image):raise ValueError('different_registered_upgrade_plan')
+                    or plan['newSourceSha256']!=new_sha or plan['newImage']!=args.image
+                    or saved['newWindowsConfig']['skillVersion']!=skill_version):raise ValueError('different_registered_upgrade_plan')
             result=invoke({**plan,'action':'check','planSha256':saved['planSha256']})
             print(json.dumps({'prepared':True,'started':False,'reused':True,'operationId':plan['operationId'],
                 'registeredPlanSha256':sha(raw),'planSha256':saved['planSha256'],'sourceSha256':new_sha,'image':args.image}));return
+        previous_upgrade_complete(runtime,config,old_raw,key_path)
+        if plan_directory.exists():raise ValueError('pi_upgrade_preparation_fragment_retained')
+        plan_directory.mkdir(parents=True)
         operation=uuid.uuid4().hex;archive=io.BytesIO()
+        publish(plan_directory/'preparing.json',{'operationId':operation,'oldWindowsConfigSha256':sha(old_raw),'newSourceSha256':new_sha,'newImage':args.image,'skillVersion':skill_version})
         with tarfile.open(fileobj=archive,mode='w:gz',format=tarfile.GNU_FORMAT) as bundle:
             for file in sorted((root/'backend/pi_runner').rglob('*')):
                 if not file.is_file() or '__pycache__' in file.parts or file.name.startswith('test_'):continue
@@ -133,7 +185,7 @@ def main():
             'windowsKeyFileSha256':sha(key_path.read_bytes()),'archive':base64.b64encode(archive.getvalue()).decode()}
         result=invoke(value)
         if result.get('prepared') is not True or result.get('started') is not False:raise ValueError('upgrade_preparation_unknown')
-        successor={**config,'runnerImage':args.image,'runnerSourceSha256':new_sha}
+        successor={**config,'runnerImage':args.image,'runnerSourceSha256':new_sha,'skillVersion':skill_version}
         receipt={**result,'newWindowsConfig':successor,'oldWindowsConfigSha256':sha(old_raw),'windowsKeyFileSha256':sha(key_path.read_bytes())}
         publish(prepared,receipt)
         print(json.dumps({'prepared':True,'started':False,'operationId':operation,'registeredPlanSha256':sha(prepared.read_bytes()),'planSha256':result['planSha256'],'sourceSha256':new_sha,'image':args.image}))
@@ -148,7 +200,7 @@ def main():
     if args.action=='check':
         invoke({**plan,'action':'check','planSha256':receipt['planSha256']})
         print(json.dumps({'prepared':True,'checked':True,'started':False,'registeredPlanSha256':sha(raw),'sourceSha256':plan['newSourceSha256'],'image':plan['newImage']}));return
-    intent=runtime/'config/pi-agent-upgrade-intent.json'
+    intent=plan_directory/'intent.json'
     if args.action=='reconcile':
         original=json.loads(intent.read_bytes())
         if original['operationId']!=plan['operationId'] or original['registeredPlanSha256']!=sha(raw):raise ValueError('upgrade_original_intent_changed')
@@ -156,7 +208,7 @@ def main():
     result=invoke({**plan,'action':args.action,'planSha256':receipt['planSha256']})
     if result.get('upgraded') is not True or result.get('sourceSha256')!=plan['newSourceSha256'] or result.get('image')!=plan['newImage']:
         raise ValueError('source_upgrade_response_unknown')
-    result_path=runtime/'config/pi-agent-upgrade-result.json'
+    result_path=plan_directory/'result.json'
     finish_windows(config_path,result_path,receipt,result,sha(key_path.read_bytes()),reconcile=args.action=='reconcile')
     print(json.dumps({**result,'windowsConfigUpdated':True,'sameDpapiOwner':True}))
 

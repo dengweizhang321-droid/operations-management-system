@@ -97,6 +97,8 @@ def send_media(config_reader, session, raw, file_name, kind, caption="", *, befo
         + name + b"\"\r\nContent-Type: application/octet-stream\r\n\r\n" + raw
         + f"\r\n--{boundary}--\r\n".encode())
     upload_url = UPLOAD_API + "?access_token=" + token + "&type=" + kind
+    if before_send is not None:
+        before_send()
     uploaded = transport._bounded_json(upload_url, body,
         headers={"Content-Type": "multipart/form-data; boundary=" + boundary},
         timeout=30, maximum=4096, fixed_addresses=media_addresses(upload_url))
@@ -129,7 +131,7 @@ def send_media(config_reader, session, raw, file_name, kind, caption="", *, befo
         "msgParam": json.dumps(params, ensure_ascii=False, separators=(",", ":")), **target},
         headers={"x-acs-dingtalk-access-token": token},
         timeout=30, maximum=8192, fixed_addresses=media_addresses(endpoint))
-    validate_receipt(reply)
+    return validate_receipt(reply)
 
 
 def open_stream(key, secret):
@@ -202,7 +204,7 @@ def send(config_reader, session, content, *, before_send=None):
         "msgParam": json.dumps({"content": content}, ensure_ascii=False, separators=(",", ":")), **target},
         headers={"x-acs-dingtalk-access-token": token}, timeout=30, maximum=8192,
         fixed_addresses=media_addresses(endpoint))
-    validate_receipt(reply)
+    return validate_receipt(reply)
 
 
 def validate_receipt(reply):
@@ -210,3 +212,6 @@ def validate_receipt(reply):
             or reply.get("invalidStaffIdList") not in (None, [])
             or reply.get("flowControlledStaffIdList") not in (None, [])):
         raise AiError("钉钉发送回执未确认", "delivery_unknown", 503)
+    # Raw provider identifiers remain outside business records and logs.
+    from .policy import digest
+    return {"platform": "dingtalk", "state": "accepted", "receiptSha256": digest(reply["processQueryKey"])}

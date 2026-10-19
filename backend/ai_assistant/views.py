@@ -134,6 +134,9 @@ def finish(receipt, principal, payload, status):
 
 def _dispatch(request, path=""):
     try:
+        if path == "pi/n8n-admission":
+            from . import pi_business_n8n
+            return pi_business_n8n.admission(request)
         if path == "pi/gateway":
             from . import pi_views
             return pi_views.gateway(request)
@@ -589,7 +592,7 @@ def _dispatch(request, path=""):
             return response(read(parts, params, principal))
         if consumer_read:
             return response(consumer(payload, principal, request_id))
-        if root == "consumer" and payload.get("operation") == "pi-export-status":
+        if root == "consumer" and payload.get("operation") in {"pi-export-status", "pi-business-status", "pi-business-options"}:
             # This live observation belongs to the AI writer, like the Pi
             # session it observes. Keep the writer/authority/principal gates
             # above, but never cache a status snapshot in a write receipt.
@@ -842,6 +845,9 @@ def mutate(parts, params, payload, principal, request_id, method):
 
 def consumer(payload, principal, request_id):
     operation = payload.get("operation")
+    if operation in {"pi-business-prepare", "pi-business-status", "pi-business-options"}:
+        from . import pi_business
+        return pi_business.consumer(operation, {key: value for key, value in payload.items() if key != "operation"}, principal)
     if operation in {"pi-export-start", "pi-export-status"}:
         from . import pi_exports
         return pi_exports.consumer(payload, principal, request_id)

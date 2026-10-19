@@ -485,7 +485,7 @@ def signed_headers(path, body, principal, request_id=None):
 
 
 def edge(action, payload, principal):
-    if action not in {"authorize_background", "catalog", "execute", "dataset"}:
+    if action not in {"authorize_background", "catalog", "execute", "dataset", "pi_business_domain"}:
         raise AiError("AI 内部动作不受支持", "access_denied", 403)
     if action != "authorize_background":
         current_principal(principal)

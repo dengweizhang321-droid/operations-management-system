@@ -14,7 +14,7 @@ from .policy import (AiError, canonical, current_principal, digest, fields, iden
 
 ACTIVE = {"queued", "running", "canceling", "unknown"}
 TERMINAL = {"succeeded", "failed", "canceled", "frozen"}
-SKILL_IDS = ("sales-promotion-inventory", "stock-replenishment", "excel-report")
+SKILL_IDS = ("sales-promotion-inventory", "stock-replenishment", "excel-report", "create-work-plan", "save-replenishment-draft", "execute-registered-gap", "deliver-report")
 MAX_INPUT_FILE = 512 * 1024
 MAX_OUTPUT_FILE = 8 * 1024 * 1024
 MIME_TYPES = {"text/plain", "text/csv", "text/markdown", "text/html", "application/json",
@@ -27,8 +27,10 @@ MIME_TYPES = {"text/plain", "text/csv", "text/markdown", "text/html", "applicati
 def operation_record(row, *, skills_loaded=None):
     if skills_loaded is None:
         skills_loaded = PiDispatch.objects.filter(operation=row, kind="control:skills_loaded", status="completed").exists()
+    from . import pi_business
     return {**record(row, "id client_request_id kind status epoch generation seq model_id model_version error_code created_at updated_at"),
-        "executionType": "pi_rpc", "skills": json.loads(row.skills_json), "skillsLoaded": skills_loaded}
+        "executionType": "pi_rpc", "skills": json.loads(row.skills_json), "skillsLoaded": skills_loaded,
+        "businessIntents": pi_business.intents(row)}
 
 
 def session_record(row):
@@ -210,7 +212,9 @@ def skills():
 
 def prompt(session_id, payload, principal):
     from . import pi_selection
-    fields(payload, {"clientRequestId", "message", "modelId", "skillIds", "scope", "fileIds", "shopSelection"}, {"clientRequestId", "message"})
+    from . import pi_business
+    fields(payload, {"clientRequestId", "message", "modelId", "skillIds", "scope", "fileIds", "shopSelection", "businessExecution"}, {"clientRequestId", "message"})
+    business_grants = pi_business.grants(payload.get("businessExecution"))
     key, message = identifier(payload["clientRequestId"], "clientRequestId"), text(payload["message"], "消息", 200000)
     existing_session = get_session(session_id, principal)
     scope = payload.get("scope", json.loads(existing_session.scope_json) if existing_session.status != "frozen" else principal.scope)
@@ -269,7 +273,9 @@ def prompt(session_id, payload, principal):
             epoch=session.epoch, generation=session.generation, seq=session.operation_seq, actor_role=principal.role,
             scope_json=canonical(scope), model_id=model.id, model_version=model.version,
             skills_json=canonical(selected), payload_json=canonical({"message": message, "fileIds": files, "skillIds": skill_ids, "shopSelection": selection,
+                "businessExecution": {"allowedActions": business_grants},
                 **({"thinkingLevel": workspace.thinking_level} if workspace and workspace.thinking_level else {})}))
+        pi_business.create_intents(session, op, business_grants, message, principal)
         session.active_operation_id, session.status = op.id, "queued"
         session.save()
         event(session, "user_message", {"text": message}, op)
@@ -301,6 +307,9 @@ def abort(session_id, payload, principal):
         op.updated_at = timezone.now()
         op.save()
         stop_exports(op)
+        from . import pi_business
+        pi_business.cancel_parent(op)
+        session.refresh_from_db(fields=["event_seq"])
         PiDispatch.objects.create(id=uid("pi-control"), operation=op, kind="client:abort", request_id=payload["clientRequestId"],
             request_digest=digest(payload), status="completed", completed_at=timezone.now())
         event(session, "status", {"status": op.status}, op)

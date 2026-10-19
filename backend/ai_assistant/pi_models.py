@@ -229,4 +229,71 @@ class PiUiRequest(models.Model):
             models.CheckConstraint(condition=models.Q(status__in=["pending", "responded", "expired"]), name="ai_pi_ui_status")]
 
 
-PI_MODELS = (PiSession, PiOperation, PiDispatch, PiEvent, PiFile, PiExport, PiExportPage, PiGatewayNonce, PiWorkspace, PiControl, PiUiRequest)
+class PiBusinessIntent(models.Model):
+    id = models.TextField(primary_key=True)
+    session = models.ForeignKey(PiSession, on_delete=models.PROTECT)
+    parent_operation = models.ForeignKey(PiOperation, on_delete=models.PROTECT)
+    action_id = models.TextField(unique=True)
+    action_type = models.TextField()
+    owner_email = models.TextField()
+    actor_role = models.TextField()
+    scope_json = models.TextField()
+    epoch = models.PositiveBigIntegerField()
+    generation = models.PositiveBigIntegerField()
+    user_message_digest = models.TextField()
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "ai_pi_business_intents"
+        constraints = [models.UniqueConstraint(fields=["parent_operation", "action_type"], name="ai_pi_business_intent_unique")]
+
+
+class PiBusinessAction(models.Model):
+    id = models.TextField(primary_key=True)
+    session = models.ForeignKey(PiSession, on_delete=models.PROTECT)
+    parent_operation = models.ForeignKey(PiOperation, on_delete=models.PROTECT)
+    user_intent = models.OneToOneField(PiBusinessIntent, on_delete=models.PROTECT)
+    invocation_id = models.TextField()
+    action_type = models.TextField()
+    owner_email = models.TextField()
+    actor_role = models.TextField()
+    scope_json = models.TextField()
+    epoch = models.PositiveBigIntegerField()
+    generation = models.PositiveBigIntegerField()
+    status = models.TextField(default="prepared")
+    version = models.PositiveBigIntegerField(default=1)
+    request_digest = models.TextField()
+    parameters_json = models.TextField(default="{}")
+    preview_json = models.TextField(default="{}")
+    preview_digest = models.TextField(default="")
+    target_version = models.TextField(default="")
+    confirmation_digest = models.TextField(default="")
+    confirmation_expires_at = models.DateTimeField(null=True)
+    lease_token = models.TextField(default="")
+    lease_expires_at = models.DateTimeField(null=True)
+    cancel_requested = models.BooleanField(default=False)
+    result_json = models.TextField(default="{}")
+    error_code = models.TextField(default="")
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "ai_pi_business_actions"
+        constraints = [models.CheckConstraint(condition=models.Q(status__in=["prepared", "queued", "claimed", "dispatched", "succeeded", "failed", "canceled", "unknown"]), name="ai_pi_business_action_status")]
+        indexes = [models.Index(fields=["status", "created_at"], name="ai_pi_business_queue_idx")]
+
+
+class PiBusinessAudit(models.Model):
+    id = models.TextField(primary_key=True)
+    action = models.ForeignKey(PiBusinessAction, on_delete=models.PROTECT)
+    event_type = models.TextField()
+    data_json = models.TextField(default="{}")
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "ai_pi_business_audits"
+
+
+PI_MODELS = (PiSession, PiOperation, PiDispatch, PiEvent, PiFile, PiExport, PiExportPage, PiGatewayNonce, PiWorkspace, PiControl, PiUiRequest,
+    PiBusinessIntent, PiBusinessAction, PiBusinessAudit)
