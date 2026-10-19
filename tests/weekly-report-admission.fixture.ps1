@@ -4,6 +4,9 @@ param(
   [string]$EvidencePath = ""
 )
 $ErrorActionPreference = "Stop"
+if ($PSVersionTable.PSVersion.Major -eq 5) {
+  $env:PSModulePath = Join-Path $PSHOME 'Modules'
+}
 if (-not $SourceRoot) { $SourceRoot = Split-Path -Parent $PSScriptRoot }
 $sourceFiles = @{
   base = Join-Path $SourceRoot 'tools\django-local-service.ps1'

@@ -5,6 +5,9 @@ param(
   [string]$EvidencePath = ''
 )
 $ErrorActionPreference = 'Stop'
+if ($PSVersionTable.PSVersion.Major -eq 5) {
+  $env:PSModulePath = Join-Path $PSHOME 'Modules'
+}
 if (-not $SourceRoot) { $SourceRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot) }
 $path = Join-Path $SourceRoot 'tools\django-workflow-service.ps1'
 $source = [IO.File]::ReadAllText($path).Replace("`r`n", "`n").TrimEnd("`n")
