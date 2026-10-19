@@ -51,6 +51,17 @@ async function fixture(t,components=['worker'],failAt=null){
  return {request,context,events,out,get successes(){return successes;},set head(value){head=value;},set django(value){django=value;},set readyStatus(value){readyStatus=value;},set readyBody(value){readyBody=value;}};
 }
 const operations=events=>events.filter(e=>!['lock','ownership','head','identity','success'].includes(e));
+test('missing maintenance material fails before STARTED and the same prepared package can recheck',async t=>{
+ const f=await fixture(t,['django']),original=f.context.sha;let missing=true;
+ f.context.sha=async file=>{if(missing&&file===path.join(f.context.workerRuntimeRoot,'state/worker-process.json'))throw Error('missing material');return original(file);};
+ await assert.rejects(publishPreparedMain(f.request,f.context),/missing material/);
+ await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));assert.ok(!f.events.includes('EnterMaintenance'));
+ missing=false;assert.equal((await publishPreparedMain(f.request,f.context)).status,'deployed_and_ready');
+ assert.equal(f.events.filter(e=>e==='PrepareApp').length,1);
+ const directory=(await fs.readdir(f.out)).find(name=>name.startsWith('publication-materials-'));
+ const inventory=JSON.parse(await fs.readFile(path.join(f.out,directory,'inventory.json'),'utf8'));
+ assert.equal(inventory.diagnosticOnly,true);assert.equal(inventory.mainCommit,f.request.mainCommit);assert.equal(inventory.preparation.reused,true);
+});
 test('known read-only preflight failure retains its attempt and can recheck the same prepared package before STARTED',async t=>{
  const f=await fixture(t,['django']);const original=f.context.runStep;let checks=0;
  f.context.runStep=async args=>{if(path.basename(args.script)==='manual-maintenance-preflight.ps1'&&++checks===1)throw Error('visibility unavailable');return original(args);};

@@ -13,9 +13,10 @@ import {compareFunctionOnlyChange,compareMaintenanceInventoryOnly} from '../tool
 const hash='a'.repeat(64),commit='b'.repeat(40),tree='c'.repeat(40);
 test('approved source ignores advancing origin/main but rejects HEAD/tree/worktree drift',async()=>{
  let head=commit,actualTree=tree,status='',remote='d'.repeat(40);const seen=[];
- const git=async(_,args)=>{seen.push(args);if(args[0]==='status')return status;if(args[1]==='HEAD')return head;if(args[1]==='HEAD^{tree}')return actualTree;if(args[1]===commit+'^{tree}')return tree;return remote;};
+ const git=async(_,args)=>{seen.push(args);if(args[0]==='status')return status;assert.deepEqual(args,['rev-parse','HEAD','HEAD^{tree}',commit+'^{tree}']);return [head,actualTree,tree].join('\n');};
  const options={source:'private',mainCommit:commit,sourceTree:tree};
  assert.deepEqual(await assertFrozenSource(options,{git}),{commit,tree});remote='e'.repeat(40);await assertFrozenSource(options,{git});
+ assert.equal(seen.length,4,'each boundary uses one object observation and one fresh status');
  assert.ok(seen.every(a=>!a.join(' ').includes('origin/main')&&a[0]!=='fetch'));
  head=remote;await assert.rejects(assertFrozenSource(options,{git}));head=commit;actualTree=remote;await assert.rejects(assertFrozenSource(options,{git}));actualTree=tree;status=' M tracked';await assert.rejects(assertFrozenSource(options,{git}));
 });
@@ -23,7 +24,7 @@ test('real copied control bundle contains and imports frozen source checker',asy
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'preflight-control-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
  for(const name of controlFiles)await fs.copyFile(path.resolve('tools',name),path.join(root,name));
  const {inspectMainPreparation}=await import(pathToFileURL(path.join(root,'publish-latest-main.mjs')));
- const result=await inspectMainPreparation({source:root,packet:root,targetCommit:commit,request:{}},{git:async(_,args)=>args[0]==='status'?'':args[1]==='HEAD'?commit:tree});assert.equal(result.status,'not-ready');
+ const result=await inspectMainPreparation({source:root,packet:root,targetCommit:commit,request:{}},{git:async(_,args)=>args[0]==='status'?'':args.length===4?[commit,tree,tree].join('\n'):args[1]==='HEAD'?commit:tree});assert.equal(result.status,'not-ready');
 });
 test('Django package exemption permits exactly three dependency entries',()=>{
  const old='function Prepare-Application {\n      "tools\\manual-maintenance-continuation.ps1",\n      "next",\n}';

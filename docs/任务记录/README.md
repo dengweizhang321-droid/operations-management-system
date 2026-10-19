@@ -29,6 +29,8 @@
 
 ## 发布与交付
 
+本轮补充：[发布等待四项定向优化](../release-contention-20261020/REPORT.md)。
+
 本轮补充：[发布流程方案复审与优化建议](../release-process-rereview-20261020/REPORT.md)（审查及候选路线，未实施或上线）。
 
 本轮补充：[结构准备准入与原 ece 请求终止资格](../release-schema-admission-20261018/REPORT.md)。

@@ -1,0 +1,151 @@
+{
+  "schema": "teruisi-weekly-report-admission-private-v1",
+  "shellVersion": "7.6.5",
+  "privateRuntimeRoot": "C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-weekly-admission-334e754e49b74c278a641238af54c561",
+  "workflowSha256": "853bce0a977af30d85c8df0d445120741c18761dfdd2a7f04b2d5958d049ce53",
+  "baseControllerSha256": "d884882af114840ff1b0061c57439556cfc6a8fd7d0a751896363dd59eecde5d",
+  "checks": [
+    {
+      "name": "open",
+      "action": "RunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "maintenance",
+      "action": "RunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "drain-helpers",
+      "action": "RunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "both-valid-original-readers",
+      "action": "RunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "invalid-maintenance-json",
+      "action": "RunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "valid-maintenance-invalid-drain",
+      "action": "RunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "open",
+      "action": "ForceWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "maintenance",
+      "action": "ForceWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "drain-helpers",
+      "action": "ForceWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "both-valid-original-readers",
+      "action": "ForceWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "invalid-maintenance-json",
+      "action": "ForceWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "valid-maintenance-invalid-drain",
+      "action": "ForceWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "open",
+      "action": "DryRunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "maintenance",
+      "action": "DryRunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "drain-helpers",
+      "action": "DryRunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "both-valid-original-readers",
+      "action": "DryRunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "invalid-maintenance-json",
+      "action": "DryRunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "valid-maintenance-invalid-drain",
+      "action": "DryRunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "drain-requests",
+      "action": "RunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "text-output",
+      "action": "RunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "maintenance-wrong-runtime",
+      "action": "RunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "maintenance-wrong-id",
+      "action": "RunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "maintenance-oversized",
+      "action": "RunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "maintenance-directory",
+      "action": "RunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "drain-wrong-runtime",
+      "action": "RunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "drain-wrong-id",
+      "action": "RunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "drain-oversized",
+      "action": "RunWeeklyReport",
+      "passed": true
+    },
+    {
+      "name": "drain-directory",
+      "action": "RunWeeklyReport",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "businessInvoked": false
+}

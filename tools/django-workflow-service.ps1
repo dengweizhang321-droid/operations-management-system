@@ -587,7 +587,31 @@ function Disable-WorkflowStartup {
   Write-Output "Django 运营事务新品域已退出开机启动链；当前运行进程未改变。"
 }
 
+function Get-NewProductWeeklyReportDeferral {
+  # Called inside the existing service mutex, before runtime verification or
+  # any report work. Both readers retain their original invalid-state errors.
+  $maintenance = Read-SystemMaintenance
+  $drain = Read-AutomationDrain
+  if ($null -eq $maintenance -and $null -eq $drain) { return $null }
+  return [pscustomobject][ordered]@{
+    status = "deferred"
+    sent = $false
+    reason = $(if ($null -ne $maintenance) { "system_maintenance" } else { "automation_drain" })
+    action = $RequestedAction
+    maintenanceId = $(if ($null -ne $maintenance) { [string]$maintenance.id } else { "" })
+    drainId = $(if ($null -ne $drain) { [string]$drain.id } else { "" })
+  }
+}
+
 function Invoke-NewProductWeeklyReport([bool]$DryRun, [bool]$Force = $false) {
+  $deferral = Get-NewProductWeeklyReportDeferral
+  if ($null -ne $deferral) {
+    Write-LauncherEvent "INFO" "weekly_report_deferred" `
+      "action=$RequestedAction reason=$($deferral.reason) maintenanceId=$($deferral.maintenanceId) drainId=$($deferral.drainId)"
+    if ($RequestedJson) { Write-Output ($deferral | ConvertTo-Json -Depth 8 -Compress) }
+    else { $deferral | Format-List }
+    return
+  }
   Assert-WorkflowRuntimeEntry
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝执行新品销售周报" }

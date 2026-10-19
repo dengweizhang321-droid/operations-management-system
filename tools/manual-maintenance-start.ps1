@@ -52,12 +52,33 @@ function Check-FirstAttempt {
  $script:admissionId=$admission.maintenanceId
  return $true
 }
+# DIAGNOSTIC_PATH_BEGIN
+function Get-MaintenanceDiagnosticPath {
+ try {
+  # Before Check-FirstAttempt, diagnostics may only touch this frozen packet's
+  # existing publication directory, never a caller-selected arbitrary root.
+  $packet=[IO.Path]::GetFullPath((Split-Path -Parent (Split-Path -Parent $PSScriptRoot)))
+  $inputFile=[IO.Path]::GetFullPath($InputPath)
+  $directory=Split-Path -Parent $inputFile
+  if ((Split-Path -Leaf $inputFile) -cne 'maintenance-admission.json' -or
+      (Split-Path -Leaf $directory) -cnotmatch '^publish-[a-f0-9]{12}$' -or
+      [IO.Path]::GetFullPath((Split-Path -Parent $directory)) -ine $packet) { return '' }
+  $cursor=$directory
+  while ($cursor) {
+   $entry=Get-Item -LiteralPath $cursor -Force -ErrorAction Stop
+   if (-not $entry.PSIsContainer -or ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint)) { return '' }
+   $cursor=Split-Path -Parent $cursor
+  }
+  return Join-Path $directory 'maintenance-lock-diagnostic.json'
+ } catch { return '' } # Diagnostic rejection does not replace native admission.
+}
+# DIAGNOSTIC_PATH_END
 $digest=[Security.Cryptography.SHA256]::Create()
 try{$suffix=([BitConverter]::ToString($digest.ComputeHash([Text.Encoding]::UTF8.GetBytes($djangoRoot)))).Replace('-','').ToLowerInvariant().Substring(0,24)}finally{$digest.Dispose()}
 try{
  $wait=120000
  if($env:TERUISI_PROCESS_DEADLINE_UNIX_MS){$deadline=[long]0;if(-not [long]::TryParse($env:TERUISI_PROCESS_DEADLINE_UNIX_MS,[ref]$deadline)){throw 'Invalid inherited process deadline'};$wait=[int][Math]::Min($wait,[Math]::Max(0,$deadline-[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()));if($wait -le 0){throw 'Inherited process deadline exhausted'}}
- Invoke-ManualMaintenanceGate -WorkerMutexName 'Local\TERUISI.Worker.LocalService.v1' -DjangoMutexName ('Local\TERUISI-DjangoSales-'+$suffix) -WaitMilliseconds $wait -Check {Check-FirstAttempt} -Operation {
+ Invoke-ManualMaintenanceGate -WorkerMutexName 'Local\TERUISI.Worker.LocalService.v1' -DjangoMutexName ('Local\TERUISI-DjangoSales-'+$suffix) -WaitMilliseconds $wait -DiagnosticPath (Get-MaintenanceDiagnosticPath) -Check {Check-FirstAttempt} -Operation {
   $nativeRaw=& $script:originalWorker -Action EnterMaintenance -MaintenanceId $script:admissionId -KeepPostgres -Json
   if($LASTEXITCODE -ne 0){throw 'Original maintenance entry did not complete; reconcile this attempt'}
   $native=($nativeRaw -join "`n")|ConvertFrom-Json

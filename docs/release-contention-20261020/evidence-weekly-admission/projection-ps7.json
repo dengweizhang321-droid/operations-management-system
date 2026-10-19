@@ -1,0 +1,10 @@
+{
+  "schema": "teruisi-weekly-report-admission-projection-v1",
+  "shellVersion": "7.6.5",
+  "baselineCommit": "8e1411cc",
+  "sourceSha256": "853bce0a977af30d85c8df0d445120741c18761dfdd2a7f04b2d5958d049ce53",
+  "addedHelper": "Get-NewProductWeeklyReportDeferral",
+  "addedPrefixStatements": 2,
+  "restMatchesBaseline": true,
+  "passed": true
+}

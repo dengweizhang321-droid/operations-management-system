@@ -70,7 +70,7 @@ export async function publishPreparedMain(request,context){
  const adoption=schema?['-AdditionKind',schema.additionKind,'-SourceRoot',source,'-OperationId',operationId,'-MaintenanceId',maintenanceId,'-SchemaOnly','-Execute']:[];
  let phase='核对前驱',maintenanceStarted=false;
  const step=async(label,script,action,extra=[],{json=true,addJson=true,directory=out}={})=>{
-  phase=label;progress.begin(label);
+  phase=label;progress.begin(label,{action,script,nativeStderrLog:path.join(directory,label+'.stderr.log'),...(path.basename(script)==='manual-maintenance-start.ps1'?{lockDiagnosticFile:path.join(out,'maintenance-lock-diagnostic.json')}:{})});
   const record=(name,value)=>fs.writeFile(path.join(directory,name),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
   await record(label+'-started.json',{at:new Date().toISOString(),script,action,extra});
   let value;
@@ -204,11 +204,28 @@ export async function publishPreparedMain(request,context){
     const checked=await step('维护前只读检查',path.join(source,'tools/manual-maintenance-preflight.ps1'),'Check',['-InputPath',file,'-InputSha256',await sha(file)],{directory});
     assert.equal(checked.ready,true,'维护恢复入口尚未就绪');assert.equal(checked.route,readiness.route,'维护前检查路线变化');
    }
+   // Assemble all inputs that can fail due to missing materials before STARTED.
+   // This inventory explains existing evidence; it is not another admission.
+   const oldWorker=path.join(runtime,'releases',before.head.releaseId,'tools/worker-local-service.ps1');
+   const targetWorker=plan?path.join(runtime,'releases',plan.candidateReleaseId,'tools/worker-local-service.ps1'):oldWorker;
+   let maintenanceMaterials=null;
+   const workerEntries=[];
+   for(const file of new Set([oldWorker,targetWorker]))workerEntries.push({file,sha256:await sha(file)});
+   if(components.django){
+    const originalRequest=path.join(out,'maintenance-first-request.json'),requestRaw=JSON.stringify(request);
+    if(await exists(originalRequest))assert.equal(await fs.readFile(originalRequest,'utf8'),requestRaw,'维护前原请求已变化');
+    else await fs.writeFile(originalRequest,requestRaw,{flag:'wx'});
+    const pandasConfig=path.join(path.dirname(installed),'config/pandas-sandbox.json');
+    maintenanceMaterials={version:'manual-maintenance-first-attempt-v2',workerScript:oldWorker,workerScriptSha256:await sha(oldWorker),workerReceiptSha256:await sha(path.join(runtime,'state/worker-process.json')),djangoManifestSha256:djangoBefore,maintenanceId,source,sourceCommit:identity.commit,sourceTree:identity.tree??null,sourcePins:readiness.sourcePins,attempt:out,requestSha256,rotationOwnerPid:process.pid,releaseId:before.head.releaseId,workerManifestSha256:before.head.manifestSha256,djangoScriptSha256:await sha(path.join(installed,'tools/django-local-service.ps1')),pandasConfigSha256:await exists(pandasConfig)?await sha(pandasConfig):null,
+     readinessRoute:readiness.route,maintenanceReadiness:readiness,...(readiness.route==='pi19db'?{djangoAiScriptSha256:piMaintenancePredecessor.djangoAiScriptSha256,piWorkerReceiptSha256:readiness.piWorkerReceiptSha256,piWorkerIdentity:readiness.piWorkerIdentity,piConfigurationSha256:readiness.piConfigurationSha256}:{})};
+    maintenanceMaterials.workerTransportSha256=await sha(path.join(path.dirname(oldWorker),'process-deadline.ps1'));
+   }
+   const materialsFile=path.join(await fs.mkdtemp(path.join(out,'publication-materials-')),'inventory.json');
+   await fs.writeFile(materialsFile,JSON.stringify({version:'teruisi-publication-materials-v1',diagnosticOnly:true,at:new Date().toISOString(),mainCommit:request.mainCommit,sourceIdentity:identity,requestSha256,components:request.components,preparation:{file:preparationFile,sha256:await sha(preparationFile),reused:reusedPreparation,workerPlanSha256:plan?.planSha256??null,djangoPackage:pkg??null,djangoManifestSha256:djangoExpected},predecessor:{worker:before.head,chainStateSha256:before.chainStateSha256,djangoManifestSha256:djangoBefore},workerEntries,maintenanceReadiness:readiness,schemaRelease:schema},null,2)+'\n',{flag:'wx'});
+   progress.log('维护前材料已齐备；复用仍有效的原生准备结果，现场身份、锁与排空仍即时检查。材料清单：'+materialsFile);
    assert.deepEqual(await sourceIdentity(),identity,'维护前冻结源码变化');
    await save('STARTED.json',{at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,maintenanceId,source,sourceTree:identity.tree??null,requestSha256,predecessorChainStateSha256:before.chainStateSha256,...(schema?{operationId,schemaRelease:schema}:{})});
    publicationStarted=true;
-   const oldWorker=path.join(runtime,'releases',before.head.releaseId,'tools/worker-local-service.ps1');
-   const targetWorker=plan?path.join(runtime,'releases',plan.candidateReleaseId,'tools/worker-local-service.ps1'):oldWorker;
    maintenanceStarted=true;
    if(!components.django){
     const drained=await step('排空前端请求',oldWorker,'BeginWorkerDrain',['-MaintenanceId',maintenanceId]);
@@ -216,12 +233,7 @@ export async function publishPreparedMain(request,context){
     await step('停止旧前端',oldWorker,'StopForRelease',['-MaintenanceId',maintenanceId]);
    }else{
     // Wait for the shared report lock once, then call the complete native entry.
-    const sourcePins=readiness.sourcePins;
-    await fs.writeFile(path.join(out,'maintenance-first-request.json'),JSON.stringify(request),{flag:'wx'});
-    const pandasConfig=path.join(path.dirname(installed),'config/pandas-sandbox.json');
-    const admission={version:'manual-maintenance-first-attempt-v2',workerScript:oldWorker,workerScriptSha256:await sha(oldWorker),workerReceiptSha256:await sha(path.join(runtime,'state/worker-process.json')),djangoManifestSha256:djangoBefore,maintenanceId,preparedAt:new Date().toISOString(),source,sourceCommit:identity.commit,sourceTree:identity.tree??null,sourcePins,attempt:out,requestSha256,startedSha256:await sha(path.join(out,'STARTED.json')),rotationOwnerPid:process.pid,releaseId:before.head.releaseId,workerManifestSha256:before.head.manifestSha256,djangoScriptSha256:await sha(path.join(installed,'tools/django-local-service.ps1')),pandasConfigSha256:await exists(pandasConfig)?await sha(pandasConfig):null,
-     readinessRoute:readiness.route,maintenanceReadiness:readiness,...(readiness.route==='pi19db'?{djangoAiScriptSha256:piMaintenancePredecessor.djangoAiScriptSha256,piWorkerReceiptSha256:readiness.piWorkerReceiptSha256,piWorkerIdentity:readiness.piWorkerIdentity,piConfigurationSha256:readiness.piConfigurationSha256}:{})};
-    admission.workerTransportSha256=await sha(path.join(path.dirname(oldWorker),'process-deadline.ps1'));
+    const admission={...maintenanceMaterials,preparedAt:new Date().toISOString(),startedSha256:await sha(path.join(out,'STARTED.json'))};
     const admissionPath=path.join(out,'maintenance-admission.json');await save('maintenance-admission.json',admission);
     const admissionSha256=await sha(admissionPath);
     let entered;

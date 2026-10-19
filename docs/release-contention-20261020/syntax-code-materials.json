@@ -1,0 +1,340 @@
+{
+  "version": "release-contention-code-syntax-v1",
+  "at": "2026-10-19T17:22:06.540165+00:00",
+  "functionalValidationPerformed": false,
+  "productionTouched": false,
+  "files": [
+    {
+      "path": "automation/n8n/pi-business/tmall-cuizhiwang-pi-business.candidate.workflow.json",
+      "sha256": "139fc5565a73197b4487c3c621ddb4697233a4b16e6f4df9f12c0ae544b1c1a2"
+    },
+    {
+      "path": "automation/n8n/pi-business/tmall-lili-pi-business.candidate.workflow.json",
+      "sha256": "a0228d473f74f4fdfbb5ce56e2a49440e9b33ef60e652893f7ace9a285e34369"
+    },
+    {
+      "path": "automation/n8n/pi-business/tmall-masitu-pi-business.candidate.workflow.json",
+      "sha256": "38eda5c99ed1cd6bc3d702b04bf4b2773608913862a12ec493805e055daf01f6"
+    },
+    {
+      "path": "automation/n8n/pi-business/tmall-tuofeng-pi-business.candidate.workflow.json",
+      "sha256": "4756a62108ade6659b857ad7c427c3c162f349999f8638a7e1c7ca3af0984a22"
+    },
+    {
+      "path": "automation/n8n/pi-business/tmall-yijiu-pi-business.candidate.workflow.json",
+      "sha256": "d07dbf454f463c7d848d6fe463a91da529543e5972c0e72f58b1d8a58bb15d0c"
+    },
+    {
+      "path": "automation/n8n/pi-business/tmall-yiyong-pi-business.candidate.workflow.json",
+      "sha256": "6eabb7dd2bc3baa016c44a271f8b76d661a5a2a8e2e56440aa8eba731c9f2f13"
+    },
+    {
+      "path": "backend/ai_assistant/database_contract.py",
+      "sha256": "8e73e0cdb87ee7541941529037973fd21d4798ae78c3af4bcd182de8c2ec219a"
+    },
+    {
+      "path": "backend/ai_assistant/migrations/0085_pi_workspace_controls.py",
+      "sha256": "b4bd9ca8d870caa3b747b70446108a67af820610e79273ca35a752e850091d07"
+    },
+    {
+      "path": "backend/ai_assistant/migrations/0086_pi_business_actions.py",
+      "sha256": "3435b5970ffb5d5530e60aed6156e7b7e7792fb0cbff5e198ef8a3b264ee4213"
+    },
+    {
+      "path": "backend/ai_assistant/pi_exports.py",
+      "sha256": "5c9f7c942de195dcb65341d0b5663aee572610b42bfd0c3f1cbbbf41f4c9acd7"
+    },
+    {
+      "path": "backend/ai_assistant/pi_gateway.py",
+      "sha256": "0fed8893d18c699cbedcdce12128892f16e915a23828bf75c19c623f78c4ae95"
+    },
+    {
+      "path": "backend/ai_assistant/pi_health.py",
+      "sha256": "2c830812f5715366d5be56a432928cd51d39167cd295b54c85eb5cfb1a22c047"
+    },
+    {
+      "path": "backend/ai_assistant/pi_models.py",
+      "sha256": "89c5717547ecd0dfed2196ed87d2622668e3f8b83690eda60b1d5aace76bbd05"
+    },
+    {
+      "path": "backend/ai_assistant/pi_selection.py",
+      "sha256": "40abf48206b5759e94276fc32c52b5759d95f58341dc0f0c3dca0181e4271fa6"
+    },
+    {
+      "path": "backend/ai_assistant/pi_service.py",
+      "sha256": "4af550475ef5e0022205d0b3d7a59c0a4163397d67c8e65b3e10fe96640cbec6"
+    },
+    {
+      "path": "backend/ai_assistant/pi_transport.py",
+      "sha256": "1e6a133cf9202c327fd52a47a6924aaa19ed19397180b0ccb72e3baac8d31310"
+    },
+    {
+      "path": "backend/ai_assistant/pi_worker.py",
+      "sha256": "3599bd89df404f618007f36d6747cb6cb571acfebc63501e11b4dbb5997ff7f4"
+    },
+    {
+      "path": "backend/ai_assistant/pi_workspace.py",
+      "sha256": "71a5ed6a4e733f4ea4877af406009e92023ac48ae9f68dfbfde1b1e490ce11e9"
+    },
+    {
+      "path": "backend/ai_assistant/table_manifest.py",
+      "sha256": "96830ed201aceb3c251431d65965f06726fd68973b1070813d2f3b098f5a8fd7"
+    },
+    {
+      "path": "backend/teruisi_backend/health.py",
+      "sha256": "41e75c57309dfb40f55615d6c2d14bb8936545d44fc18ba262c93026a1e20d42"
+    },
+    {
+      "path": "config/integration-migration-policy-v3.json",
+      "sha256": "bdf50b5957be08986e027b527e0279d39da6bd1c4e79c59fa60680876d14711c"
+    },
+    {
+      "path": "config/integration-migration-policy-v4-netshop-presence.json",
+      "sha256": "b91dea169b65f0c696cafcdedb6e359b05380838d5bc1f9e3446c2f26d7701ea"
+    },
+    {
+      "path": "config/tmall-store-accounts.json",
+      "sha256": "5dbdc1f9312b0ee46b121b845b66201d65960495244153c78e0c346f7f9d5866"
+    },
+    {
+      "path": "tools/ai_schedule_addition.py",
+      "sha256": "057b3b81bdc1e39a26b5b79a6b4a2a8e49448c52d11ca1e7dd8cc0fa6fc7a8eb"
+    },
+    {
+      "path": "tools/ai_schedule_addition_catalog.py",
+      "sha256": "81b2ee2e9d54a6b75bc7d6cd6c1da4e7f2079c7d45b60213d106a7da3730f143"
+    },
+    {
+      "path": "tools/bi-app-adopt.ps1",
+      "sha256": "a3573a22dc83b5b07fcf26fbfacc96cd81f94469c69fa72d5ec29372925eec38"
+    },
+    {
+      "path": "tools/bi_app_addition.py",
+      "sha256": "161ea5a80e90c41abff88f02d931fb3a6133777f0c137d7bae5a150d265579d1"
+    },
+    {
+      "path": "tools/django-ai.ps1",
+      "sha256": "3b0ae6c09b1bc49aa12fed622208fee711a387726ede709b2cd421fa1b04cad5"
+    },
+    {
+      "path": "tools/django-integration-install.ps1",
+      "sha256": "c0f5ca005af79da9beccf52eeb7ffd3e1d89c6e66041805d228065837d71e2ec"
+    },
+    {
+      "path": "tools/django-inventory-service.ps1",
+      "sha256": "a0a2fa402b4d31393c243da390337c7ab0e2776d4660b34351fd2056a87aef75"
+    },
+    {
+      "path": "tools/django-local-service.ps1",
+      "sha256": "d884882af114840ff1b0061c57439556cfc6a8fd7d0a751896363dd59eecde5d"
+    },
+    {
+      "path": "tools/django-postgres-maintenance.ps1",
+      "sha256": "1fb2f9445b3277963b258725bb4a652759788a8e171a323498f6d8285120b23b"
+    },
+    {
+      "path": "tools/django-workflow-service.ps1",
+      "sha256": "853bce0a977af30d85c8df0d445120741c18761dfdd2a7f04b2d5958d049ce53"
+    },
+    {
+      "path": "tools/frozen-main-source.mjs",
+      "sha256": "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+    },
+    {
+      "path": "tools/integration_migration_journal.py",
+      "sha256": "cd8b857c90ef113f264b8fcbdf024ce88e7a48b75265e0b70bf776c5b02bf8be"
+    },
+    {
+      "path": "tools/integration_migration_plan.py",
+      "sha256": "94893e1cd60fb2ad693948e8b2d1e686882bc14664310acf7c6b24b8f53a74ec"
+    },
+    {
+      "path": "tools/integration_release_gate.py",
+      "sha256": "78d6b45ae85ff663231b596cbe5c443235841c31facaec3340ab3c0455a5a172"
+    },
+    {
+      "path": "tools/jackyun_audit_addition.py",
+      "sha256": "86f811d848ea892283e81a09b22d01ca22bccc4b13febc835feb8490bb269da7"
+    },
+    {
+      "path": "tools/jackyun_audit_catalog.py",
+      "sha256": "0ec29d8672a0f2900a77efd8c46f26da92facca4e366ccf57ad8ba163cad6e8f"
+    },
+    {
+      "path": "tools/jd_logistics_addition.py",
+      "sha256": "fd50a4d42a86f671b79458964328fd963926f2bc43b4938ab4be07afea48f939"
+    },
+    {
+      "path": "tools/jd_logistics_catalog.json",
+      "sha256": "987d06df53af7b53a5d0980f9ac1ad028ab696411785203b3044a9b98622fc59"
+    },
+    {
+      "path": "tools/jd_logistics_catalog.py",
+      "sha256": "7be356058c31b27e9af1c8ebbad000310bb0a0eedb11f841182f67d3f4ca75ec"
+    },
+    {
+      "path": "tools/jd_monitor_preferences_addition.py",
+      "sha256": "94e93413b02bde911c11cc251c437f9480d8b9b4d1922369c5b29991d9470267"
+    },
+    {
+      "path": "tools/jd_monitor_preferences_catalog.json",
+      "sha256": "06e8c81d81645e1ca7215280beeef928b5a26a39b30bf0607b4ab8183a5602e9"
+    },
+    {
+      "path": "tools/jd_monitor_preferences_catalog.py",
+      "sha256": "baea5a9392f2fdd623002da3115bac68986e893655c12658152b68c0ae56a383"
+    },
+    {
+      "path": "tools/jd_product_monitoring_addition.py",
+      "sha256": "718e1c4d87720fb651f7114f90e599690682aa38c4da46df1413cc77741d6b08"
+    },
+    {
+      "path": "tools/jd_product_monitoring_catalog.py",
+      "sha256": "ad65e36a5e57bfc29345cfa21dba950d4754143f37358882ec4d4a584a347051"
+    },
+    {
+      "path": "tools/main-schema-release.mjs",
+      "sha256": "443acb08a0fcb4b0e910951328ce7d06a57c994ccf7ec6d10d2e93e11e3194af"
+    },
+    {
+      "path": "tools/manual-maintenance-continuation.mjs",
+      "sha256": "ecccdb32adbf463b5891435a150a194e5e980bb74d8ac9c89e411ca58fc2b59d"
+    },
+    {
+      "path": "tools/manual-maintenance-continuation.ps1",
+      "sha256": "359890e622739c501bf9cd6ab525a66aa280077f54d847847e2417f9c69c63a5"
+    },
+    {
+      "path": "tools/manual-maintenance-lock.psm1",
+      "sha256": "70041d738f8e076cc13b8391aaf3a31bcf15399ccfef81fdeb4f7d88f9411476"
+    },
+    {
+      "path": "tools/manual-maintenance-preflight.ps1",
+      "sha256": "1b4dbc31076f7722718eb060d0ff77a8527034584d8afa7de50ddb843a3a6a2f"
+    },
+    {
+      "path": "tools/manual-maintenance-process.psm1",
+      "sha256": "a07a4d1fdb65dba6c5e7caaf27ad463a1613c182f30f56269a2f1e8175c116a5"
+    },
+    {
+      "path": "tools/manual-maintenance-start.ps1",
+      "sha256": "a7ab01a0136cb43aa66d0ce5d289f51bae694a8e62568d5582f3b351fd42bfc9"
+    },
+    {
+      "path": "tools/pi_agent_addition.py",
+      "sha256": "bc394c5bd535c010469ec8493522e958c7769317064f3af08462e951bfe06544"
+    },
+    {
+      "path": "tools/pi_agent_candidate.py",
+      "sha256": "834dfa84b0a8aa24c78e9fb5335c24427652bf17f424a4c9a2dd1e61b43b92da"
+    },
+    {
+      "path": "tools/pi_agent_catalog.json",
+      "sha256": "1e07e1b6dd99385437fe3b9c9691f9aed2c98b1e7fe5189387b68976e7dd4069"
+    },
+    {
+      "path": "tools/pi_agent_catalog.py",
+      "sha256": "0f0fb5858c4c1df6147c9328827ce2749527054ee994e10c077d664c1586f5f5"
+    },
+    {
+      "path": "tools/pi_agent_prepare_runtime.py",
+      "sha256": "818bf6bc1ebbcef27576a4156312f85c94ca132f46cf8f8ad3a9ad7d7714410f"
+    },
+    {
+      "path": "tools/pi_agent_upgrade_runtime.py",
+      "sha256": "fa49ffa7ed1ad21fa2f4412075ebe50bfd993902d6c49018ec0bea9f84f0b75a"
+    },
+    {
+      "path": "tools/pi_business_addition.py",
+      "sha256": "0b83c317cbad37300fedf2d5922602ce2a82dda6283272ee92a9b73ee85521ce"
+    },
+    {
+      "path": "tools/pi_business_candidate.py",
+      "sha256": "2cd6e8d278afad0bb4e6e649c43193633d5e4d658682c6482cba1cc97ebb3df8"
+    },
+    {
+      "path": "tools/pi_business_catalog.py",
+      "sha256": "ca1cc37eee32b82924f976a39520b58eeb005b8daf400795ec43b06a77f59378"
+    },
+    {
+      "path": "tools/pi_workspace_addition.py",
+      "sha256": "a2289bbfd922643b982ed29e1c2240314b53e0b1362ebe7e72fe8430b49383aa"
+    },
+    {
+      "path": "tools/pi_workspace_candidate.py",
+      "sha256": "6ca493bfc897984b1dce9b54a57630e6c64b67b925b31ea028ae5439a915a059"
+    },
+    {
+      "path": "tools/pi_workspace_catalog.json",
+      "sha256": "322293bdd253c5f67801ca99c4a7abf69ba3b3e2124698f8d0cae5aedd20b9b3"
+    },
+    {
+      "path": "tools/pi_workspace_catalog.py",
+      "sha256": "d965c7f6b7c2c8bbed215f1562767375efc0a26691e2b43a991e29e93ccd56bb"
+    },
+    {
+      "path": "tools/postgres_no_key_backup.py",
+      "sha256": "398f856aabc232f1ed1fa639f89089622c3dc280bd740c8a82d4e29d622b1ca4"
+    },
+    {
+      "path": "tools/postgres_restore_semantics.py",
+      "sha256": "66dd0f5a2ab62ff819a73af76538430b74f511675a651a8100175d06082a3f57"
+    },
+    {
+      "path": "tools/protected_ai_shadow_evidence_0073.py",
+      "sha256": "8a542612c00061c71246d889f4f9c3a35d4dd8fa2d22e136ffcf13288cff985f"
+    },
+    {
+      "path": "tools/publish-main-command.mjs",
+      "sha256": "b711a41c401e7619e175347e6ba3490e5d5655d5dca5c9dc840ac345b8a7bfc7"
+    },
+    {
+      "path": "tools/publish-main-progress.mjs",
+      "sha256": "a8c0292fc777862a2880b32b5d7f190624e4e986c41ae857e0b975f209c60267"
+    },
+    {
+      "path": "tools/publish-prepared-main.mjs",
+      "sha256": "a484bfc18e0c5536aaf6ee642f96f323a7556271d76d7a44c3fdedb8bcd74d96"
+    },
+    {
+      "path": "tools/tmall_warehouse_addition.py",
+      "sha256": "4293e4e5d1d29d6560f7dc22b891e5c26edd50d50de4a1179d771d15f366283b"
+    },
+    {
+      "path": "tools/tmall_warehouse_candidate.py",
+      "sha256": "550525a555b642739f3ac6501ff7400f6be544269c20dc0fdd8d0bb0b79a0f6b"
+    },
+    {
+      "path": "tools/tmall_warehouse_catalog.json",
+      "sha256": "bbc108b10a4799a5d2e157ca1fd91ac421d90cf0728292a46995b4adc9ec2d1b"
+    },
+    {
+      "path": "tools/tmall_warehouse_catalog.py",
+      "sha256": "b004da7fd734ad8c6102dd20a11cf041a57fcfc832ac8e91342534fff052dc57"
+    },
+    {
+      "path": "tools/verify-release-candidate.mjs",
+      "sha256": "3e014910c716765ccb1fbf9960f988d8dd68265ad2200057a5e7c3e68beaa908"
+    }
+  ],
+  "powershell": [
+    {
+      "host": "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+      "sha256": "8bb6fa8c283b4d92120b1ef249a9b311b0f804d4cabbe9981159976c8be76a5e",
+      "result": {
+        "parsed": 12,
+        "version": "5.1.26100.9444"
+      },
+      "stdoutSha256": "26b91d5049fced3d8174a051a94254622e98e8c00c61e87b466967f44d22b761"
+    },
+    {
+      "host": "D:/codex-isolated/main-manual-release-20261016/control-host/pwsh.exe",
+      "sha256": "362a356ce7f0940ec74f73a8fc2c990a2cc24a38a11c90bbd8eca947110ad139",
+      "result": {
+        "parsed": 12,
+        "version": "7.6.5"
+      },
+      "stdoutSha256": "67d74397d84bea2afeeeb6fea450c0c9d7f63a542814f564bee3ab5efe9b8fae"
+    }
+  ]
+}
