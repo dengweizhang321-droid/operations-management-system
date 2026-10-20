@@ -1,0 +1,11 @@
+{
+  "namespace": "pi-test-live-resume-20261021-7f4d2a16",
+  "ports": {
+    "55541": "closed",
+    "18123": "closed"
+  },
+  "privateRunnerProcessExitCode": 0,
+  "privateContainersAndVolumesRemoved": true,
+  "productionServiceLifecycleChanged": false,
+  "cleanupComplete": true
+}

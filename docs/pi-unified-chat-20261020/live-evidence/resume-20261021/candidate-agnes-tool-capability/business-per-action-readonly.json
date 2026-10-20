@@ -1,0 +1,62 @@
+{
+  "observedAt": "2026-10-20T22:01:14.888221+00:00",
+  "source": "original private tables readonly; no business control, model, or Runner command",
+  "actions": [
+    {
+      "actionId": "pi-action-8b6d7886-54e7-4179-9842-56d801964259",
+      "status": "succeeded",
+      "errorCode": "",
+      "version": 5,
+      "previewDigest": "77527d205cc76d755c2eb00be5c251c393ee05e5bf8a9f8535f577d9f009b93d",
+      "recipientType": "direct",
+      "body": "[LIVE ACCEPTANCE AGNES TOOL CAPABILITY 20261021 XLSX] Synthetic test only. No business/customer data. Reply not required.",
+      "attachment": {
+        "fileId": "pi-file-74994f56-c1a0-463a-8f1b-5e1028ace68e",
+        "fileName": "abf3a3e7741e-live-acceptance-synthetic.xlsx",
+        "sha256": "5808407b9198903cdc066561b29d70421ce769f4ba89b4432752383cba3b5b1d",
+        "sizeBytes": 3566
+      }
+    },
+    {
+      "actionId": "pi-action-72979c3b-1376-4697-a991-7cccf53f20a4",
+      "status": "succeeded",
+      "errorCode": "",
+      "version": 5,
+      "previewDigest": "61497a85e15c7e14a033922e225b4d6458fbf22a27e94e6f71ebf9cfb4d8ac96",
+      "recipientType": "direct",
+      "body": "[LIVE ACCEPTANCE AGNES TOOL CAPABILITY 20261021 PDF] Synthetic test only. No business/customer data. Reply not required.",
+      "attachment": {
+        "fileId": "pi-file-6e281eb1-481a-4b02-988b-152c407eacfc",
+        "fileName": "f0201a06caf3-live-acceptance-synthetic.pdf",
+        "sha256": "80d2ce183f4e925aff91c3069927dd6676698d4ad11ef8f5b6e7aa08bf66a206",
+        "sizeBytes": 1200
+      }
+    }
+  ],
+  "perActionAuditCounts": {
+    "pi-action-72979c3b-1376-4697-a991-7cccf53f20a4": {
+      "report_delivery_attachment_receipt": 1,
+      "prepared": 1,
+      "report_delivery_reserved": 1,
+      "client:confirm": 1,
+      "dispatch_intent": 1,
+      "report_delivery_body_dispatch": 1,
+      "claimed": 1,
+      "report_delivery_attachment_dispatch": 1,
+      "receipt": 1,
+      "report_delivery_body_receipt": 1
+    },
+    "pi-action-8b6d7886-54e7-4179-9842-56d801964259": {
+      "report_delivery_attachment_receipt": 1,
+      "client:confirm": 1,
+      "report_delivery_reserved": 1,
+      "report_delivery_attachment_dispatch": 1,
+      "report_delivery_body_receipt": 1,
+      "prepared": 1,
+      "claimed": 1,
+      "receipt": 1,
+      "report_delivery_body_dispatch": 1,
+      "dispatch_intent": 1
+    }
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "operationId": "pi-op-3b8f5147-41d6-4a31-b8d0-90e5c4cd2464",
+  "readOnlyTransaction": true,
+  "dispatches": [
+    {
+      "id": "pi-deadline-0ace8185-4cc9-493a-a2a9-8ec1d640f11c",
+      "kind": "control:deadline",
+      "status": "completed",
+      "error_code": "",
+      "request_id": "deadline",
+      "completed_at": "2026-10-21T04:56:15.867643+08:00"
+    },
+    {
+      "id": "pi-dispatch-bff6b8cf-7c68-4a51-abd4-9f89b31b12cc",
+      "kind": "runner:create",
+      "status": "completed",
+      "error_code": "",
+      "request_id": "create",
+      "completed_at": "2026-10-21T04:56:16.259519+08:00"
+    },
+    {
+      "id": "pi-skills-loaded-4e384673-6445-47a3-ab88-55ccb0bb166a",
+      "kind": "control:skills_loaded",
+      "status": "completed",
+      "error_code": "",
+      "request_id": "skills",
+      "completed_at": "2026-10-21T04:56:16.264578+08:00"
+    },
+    {
+      "id": "pi-dispatch-1e9d8349-505d-4bd6-9c8e-74986332334d",
+      "kind": "runner:prompt",
+      "status": "completed",
+      "error_code": "",
+      "request_id": "prompt",
+      "completed_at": "2026-10-21T04:56:16.591201+08:00"
+    },
+    {
+      "id": "pi-dispatch-14e569cb-13d3-461c-8749-3a79b6174721",
+      "kind": "model",
+      "status": "completed",
+      "error_code": "",
+      "request_id": "823387b7-efb9-415f-b243-c577e8cea5c8",
+      "completed_at": "2026-10-21T04:56:20.968565+08:00"
+    },
+    {
+      "id": "pi-dispatch-1a3bf384-7870-4622-8570-65a99f494998",
+      "kind": "runner:gateway_response",
+      "status": "completed",
+      "error_code": "",
+      "request_id": "823387b7-efb9-415f-b243-c577e8cea5c8",
+      "completed_at": "2026-10-21T04:56:21.030580+08:00"
+    },
+    {
+      "id": "pi-dispatch-ac14a238-9f1b-4adb-b52e-12705e4a43d9",
+      "kind": "tool",
+      "status": "completed",
+      "error_code": "",
+      "request_id": "047f1750-2da5-4ebc-983f-f7b6d18dc1f6",
+      "completed_at": "2026-10-21T04:56:22.469775+08:00"
+    },
+    {
+      "id": "pi-dispatch-976583a2-aa7c-455d-b996-1f3d98446505",
+      "kind": "runner:gateway_response",
+      "status": "completed",
+      "error_code": "",
+      "request_id": "047f1750-2da5-4ebc-983f-f7b6d18dc1f6",
+      "completed_at": "2026-10-21T04:56:22.534363+08:00"
+    },
+    {
+      "id": "pi-dispatch-faeffc76-9ec0-49bd-828d-c3c8b6341d76",
+      "kind": "tool",
+      "status": "completed",
+      "error_code": "",
+      "request_id": "96dd2ee1-b79b-455e-b341-1d5120894e95",
+      "completed_at": "2026-10-21T04:56:22.836032+08:00"
+    },
+    {
+      "id": "pi-dispatch-25d80d79-242e-4df8-bed6-2ae6331afdfe",
+      "kind": "runner:gateway_response",
+      "status": "completed",
+      "error_code": "",
+      "request_id": "96dd2ee1-b79b-455e-b341-1d5120894e95",
+      "completed_at": "2026-10-21T04:56:22.877609+08:00"
+    },
+    {
+      "id": "pi-dispatch-07d4a45d-ee72-4e36-888d-fdd866c63994",
+      "kind": "model",
+      "status": "unknown",
+      "error_code": "provider_unavailable",
+      "request_id": "49d0f8c5-6bc6-4445-a638-c15953afbb09",
+      "completed_at": "2026-10-21T04:56:26.931127+08:00"
+    },
+    {
+      "id": "pi-freeze-dca47a91-55d0-4053-943e-6b44c4e6ef88",
+      "kind": "control:freeze",
+      "status": "completed",
+      "error_code": "",
+      "request_id": "dispose",
+      "completed_at": "2026-10-21T04:56:27.210639+08:00"
+    }
+  ],
+  "nativeFreezeReceipt": {
+    "status": "disposed"
+  },
+  "businessActionCount": 0,
+  "bodyAttachmentDispatchCount": 0,
+  "connectionObservationNow": {
+    "current_connections": 128,
+    "max_connections": "128"
+  }
+}

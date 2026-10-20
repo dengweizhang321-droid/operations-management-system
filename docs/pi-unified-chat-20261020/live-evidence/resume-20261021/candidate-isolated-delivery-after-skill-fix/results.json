@@ -1,0 +1,114 @@
+{
+  "realProvider": true,
+  "realPi": true,
+  "privatePostgres": true,
+  "productionLifecycleChanged": false,
+  "recipient": "current principal unique approved direct binding",
+  "robotName": "志高助手",
+  "modelName": "deepseek-v4.1-flash",
+  "modelVersion": 4,
+  "rounds": [
+    {
+      "operationId": "pi-op-3e39123b-d28a-49b9-ae3a-db8f018648e5",
+      "status": "unknown",
+      "errorCode": "provider_rate_limited",
+      "createdAt": "2026-10-20T21:42:53.961334+00:00",
+      "updatedAt": "2026-10-20T21:44:28.316509+00:00",
+      "dispatches": [
+        {
+          "kind": "control:deadline",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:create",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "control:skills_loaded",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:prompt",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "tool",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "unknown",
+          "error_code": "provider_rate_limited"
+        },
+        {
+          "kind": "control:freeze",
+          "status": "prepared",
+          "error_code": ""
+        }
+      ],
+      "usage": [
+        "{\"completion_tokens\":31,\"completion_tokens_details\":{\"reasoning_tokens\":0},\"prompt_tokens\":2991,\"prompt_tokens_details\":{\"cached_tokens\":640},\"total_tokens\":3022}",
+        "{}"
+      ]
+    }
+  ],
+  "deliveries": [],
+  "sourceCommit": "fdd652319fd0b4a51e12256ad25568a23af0a1e6",
+  "worktreeDirtyFixture": true,
+  "modelRuntimeConfiguration": {
+    "max_tokens": 65536,
+    "timeout_ms": 60000,
+    "reasoning_mode": "auto",
+    "generation_options_json": "{\"contextWindowTokens\":1000000,\"includeStreamUsage\":true,\"outputTokenParameter\":\"max_tokens\",\"reasoningEffort\":\"default\",\"reasoningFormat\":\"default\",\"systemPrompt\":\"\",\"taskTimeoutMs\":1000000000,\"temperatureMode\":\"default\",\"thinkingBudgetTokens\":4096}"
+  },
+  "sessionId": "pi-session-2a67edbb-183b-44a8-9939-1123f544e86a",
+  "stagingControls": [
+    {
+      "id": "pi-control-a7c203fc-9942-4d58-8d59-37610188df27",
+      "command": "model_set",
+      "status": "completed"
+    },
+    {
+      "id": "pi-control-e4da48bf-2462-4f0f-a943-8dd26ce64430",
+      "command": "file_write",
+      "status": "completed"
+    },
+    {
+      "id": "pi-control-ff374225-0be2-473a-a86d-50484150402f",
+      "command": "file_download",
+      "status": "completed"
+    },
+    {
+      "id": "pi-control-b7913e06-b9ae-4b6a-86f3-e72191759ed8",
+      "command": "file_write",
+      "status": "completed"
+    },
+    {
+      "id": "pi-control-783831e0-d9c8-42bf-8365-647f05d9a6d5",
+      "command": "file_download",
+      "status": "completed"
+    }
+  ],
+  "reusedRealModelGeneratedSyntheticFiles": true,
+  "independentPurpose": "new candidate acceptance of existing synthetic attachment delivery; no old unknown prompt is replayed"
+}

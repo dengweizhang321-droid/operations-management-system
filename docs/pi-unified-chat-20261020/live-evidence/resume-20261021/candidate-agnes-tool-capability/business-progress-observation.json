@@ -1,0 +1,37 @@
+{
+  "observedAt": "2026-10-20T21:57:10.107863+00:00",
+  "actions": [
+    {
+      "id": "pi-action-8b6d7886-54e7-4179-9842-56d801964259",
+      "status": "succeeded",
+      "errorCode": "",
+      "updatedAt": "2026-10-21T05:56:53.751166+08:00"
+    }
+  ],
+  "auditCounts": {
+    "receipt": 1,
+    "prepared": 1,
+    "report_delivery_body_receipt": 1,
+    "dispatch_intent": 1,
+    "report_delivery_body_dispatch": 1,
+    "report_delivery_attachment_dispatch": 1,
+    "client:confirm": 1,
+    "report_delivery_attachment_receipt": 1,
+    "claimed": 1,
+    "report_delivery_reserved": 1
+  },
+  "privateDbWaitCounts": [
+    [
+      "active",
+      null,
+      null,
+      2
+    ],
+    [
+      "idle",
+      "Client",
+      "ClientRead",
+      2
+    ]
+  ]
+}

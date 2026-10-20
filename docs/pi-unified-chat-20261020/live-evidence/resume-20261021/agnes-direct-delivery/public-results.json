@@ -1,0 +1,171 @@
+{
+  "startedAt": "2026-10-20T20:55:48.649325+00:00",
+  "route": "actual public HTTP Pi API",
+  "newPrivatePostgresStarted": false,
+  "newPrivateRunnerStarted": false,
+  "rounds": [
+    {
+      "id": "pi-op-3b8f5147-41d6-4a31-b8d0-90e5c4cd2464",
+      "clientRequestId": "live-resume-d8dd9eb7329f42e68e8671a9f642855f",
+      "kind": "prompt",
+      "status": "unknown",
+      "epoch": 1,
+      "generation": 1,
+      "seq": 2,
+      "modelId": "ai-model-363b2b27-713a-4aa2-b6d1-8cbb4d6f4f9e",
+      "modelVersion": 3,
+      "errorCode": "provider_unavailable",
+      "createdAt": "2026-10-20T20:56:15.746419Z",
+      "updatedAt": "2026-10-20T20:56:26.935840Z",
+      "executionType": "pi_rpc",
+      "skills": [],
+      "skillsLoaded": true,
+      "businessIntents": [
+        {
+          "userIntentId": "pi-intent-6ba15ee8-91c6-4906-b212-623271275b8e",
+          "actionId": "pi-action-aff50100-2925-4e5d-9c8b-fdf92520d722",
+          "actionType": "deliver_report",
+          "parentOperationId": "pi-op-3b8f5147-41d6-4a31-b8d0-90e5c4cd2464",
+          "expiresAt": "2026-10-21T20:56:15.747419+00:00"
+        }
+      ]
+    }
+  ],
+  "deliveries": [],
+  "mutations": [
+    {
+      "path": "/api/ai/pi/sessions",
+      "clientRequestId": "live-resume-session-74908dbec34e48c99537d7a6918c54c5",
+      "issuedAt": "2026-10-20T20:55:52.907615+00:00"
+    },
+    {
+      "path": "/api/ai/pi/sessions/pi-session-270b014d-7755-4b2e-80a6-1bae8ff3af4f/workspace",
+      "clientRequestId": "live-workspace-9ae3e6b9735d428aa61929ad947775ea",
+      "issuedAt": "2026-10-20T20:55:57.164533+00:00"
+    },
+    {
+      "path": "/api/ai/pi/sessions/pi-session-270b014d-7755-4b2e-80a6-1bae8ff3af4f/workspace",
+      "clientRequestId": "live-workspace-1d19eeca3ea74818b0456d71dcb8e552",
+      "issuedAt": "2026-10-20T20:56:01.009170+00:00"
+    },
+    {
+      "path": "/api/ai/pi/sessions/pi-session-270b014d-7755-4b2e-80a6-1bae8ff3af4f/workspace",
+      "clientRequestId": "live-workspace-43228a99eeaf4571979ce1ba936147da",
+      "issuedAt": "2026-10-20T20:56:04.038619+00:00"
+    },
+    {
+      "path": "/api/ai/pi/sessions/pi-session-270b014d-7755-4b2e-80a6-1bae8ff3af4f/workspace",
+      "clientRequestId": "live-workspace-05afba52a20943589ec120b88e1c7886",
+      "issuedAt": "2026-10-20T20:56:06.371397+00:00"
+    },
+    {
+      "path": "/api/ai/pi/sessions/pi-session-270b014d-7755-4b2e-80a6-1bae8ff3af4f/workspace",
+      "clientRequestId": "live-workspace-23ac656fd95f4b09b095111619caffa3",
+      "issuedAt": "2026-10-20T20:56:09.227749+00:00"
+    },
+    {
+      "path": "/api/ai/pi/sessions/pi-session-270b014d-7755-4b2e-80a6-1bae8ff3af4f/messages",
+      "clientRequestId": "live-resume-d8dd9eb7329f42e68e8671a9f642855f",
+      "issuedAt": "2026-10-20T20:56:13.672145+00:00"
+    },
+    {
+      "path": "/api/ai/pi/sessions/pi-session-270b014d-7755-4b2e-80a6-1bae8ff3af4f/workspace",
+      "clientRequestId": "live-cleanup-11c801cc1eb3439183a8bfe1a042cf77",
+      "issuedAt": "2026-10-20T20:56:27.981042+00:00"
+    }
+  ],
+  "status": "incomplete",
+  "businessAndCustomerDataQueried": false,
+  "modelConfiguration": {
+    "id": "ai-model-363b2b27-713a-4aa2-b6d1-8cbb4d6f4f9e",
+    "name": "特能志 · 文本分析",
+    "modelName": "agnes-2.5-flash",
+    "protocol": "openai_compatible",
+    "version": 3,
+    "maxTokens": 4096,
+    "timeoutMs": 20000,
+    "reasoningMode": "auto",
+    "generationOptions": {
+      "contextWindowTokens": 128000,
+      "taskTimeoutMs": 260000,
+      "outputTokenParameter": "max_tokens",
+      "temperatureMode": "custom",
+      "reasoningFormat": "default",
+      "reasoningEffort": "default",
+      "thinkingBudgetTokens": 4096,
+      "includeStreamUsage": false,
+      "systemPrompt": "对外自我介绍和系统称呼统一使用“运营管理系统 AI 助理”，不使用 TERUISI 英文品牌前缀。历史对话中的旧品牌称呼不作为当前身份。仅调整自称，不改写业务数据、商品品牌、字段名、单位或查询结论。"
+    }
+  },
+  "actor": {
+    "role": "admin",
+    "scopeRestricted": false,
+    "currentAccountUsed": true
+  },
+  "sessionId": "pi-session-270b014d-7755-4b2e-80a6-1bae8ff3af4f",
+  "directTarget": {
+    "recipientId": "pi-recipient-4886981a88bec2eb4a84436ab091e0f6946415c4b858ae87",
+    "recipientType": "direct",
+    "robotName": "志高助手",
+    "policyVersion": 5
+  },
+  "independentPurpose": "deliver existing validated synthetic attachments; does not repeat the prior OpenCode copy prompt",
+  "linkedUnknownOperation": "pi-op-b59d4836-4b87-4990-84e8-c82fa6ff3c02",
+  "originalUnknownRetainedAndDisposed": true,
+  "stagingControls": [
+    {
+      "id": "pi-control-139e45a8-53fe-4d24-a85b-4f7207b55835",
+      "command": "model_set",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "id": "pi-control-d5ef688e-d2c3-469b-81e4-a10b997fb6b8",
+      "command": "file_write",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "id": "pi-control-e0ebaf20-5159-4725-bb3c-ee86b823c018",
+      "command": "file_download",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "id": "pi-control-758b1de9-5be0-4861-869b-46af9d7ac243",
+      "command": "file_write",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "id": "pi-control-ad461981-62f6-4de7-b927-588fa226a5fc",
+      "command": "file_download",
+      "status": "completed",
+      "errorCode": ""
+    }
+  ],
+  "collectedFiles": [
+    {
+      "id": "pi-file-abeeb8da-76cb-4e50-860e-32dfb2c0e09e",
+      "fileName": "abf3a3e7741e-live-acceptance-synthetic.xlsx",
+      "sizeBytes": 3566,
+      "sha256": "5808407b9198903cdc066561b29d70421ce769f4ba89b4432752383cba3b5b1d",
+      "direction": "output"
+    },
+    {
+      "id": "pi-file-cd4d12bd-ed31-42be-a5b3-c17beb095170",
+      "fileName": "f0201a06caf3-live-acceptance-synthetic.pdf",
+      "sizeBytes": 1200,
+      "sha256": "80d2ce183f4e925aff91c3069927dd6676698d4ad11ef8f5b6e7aa08bf66a206",
+      "direction": "output"
+    }
+  ],
+  "failureType": "RuntimeError",
+  "failure": "original model operation unknown provider_unavailable",
+  "cleanup": {
+    "status": "unconfirmed",
+    "failureType": "RuntimeError",
+    "failure": "public API refused 409 invalid_request"
+  },
+  "finishedAt": "2026-10-20T20:56:30.053727+00:00"
+}

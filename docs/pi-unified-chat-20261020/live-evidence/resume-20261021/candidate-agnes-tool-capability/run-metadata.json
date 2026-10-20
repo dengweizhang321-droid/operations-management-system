@@ -1,0 +1,25 @@
+{
+  "namespace": "pi-test-live-resume-20261021-6e9a2d74",
+  "privateDirectory": "D:\\codex-isolated\\piagent-phase3-verification-20261020\\.runtime\\live-stack-3c9a854f",
+  "privateRunnerConfig": "/home/teruisi-pandas/pi-test-live-resume-20261021-6e9a2d74/config.json",
+  "runnerPort": 18123,
+  "postgresPort": 55541,
+  "image": "sha256:87e41e7e4d646d779eba8b552a213d5356c4afa935d42dbb618d19fab7e15956",
+  "sourceCommit": "fdd652319fd0b4a51e12256ad25568a23af0a1e6",
+  "worktreeDirtyFixture": true,
+  "selectedModelId": "ai-model-363b2b27-713a-4aa2-b6d1-8cbb4d6f4f9e",
+  "modelName": "agnes-2.5-flash",
+  "modelVersion": 3,
+  "modelRuntimeFields": {
+    "max_tokens": 4096,
+    "timeout_ms": 20000,
+    "reasoning_mode": "auto",
+    "generation_options_json": "{\"contextWindowTokens\":128000,\"includeStreamUsage\":false,\"outputTokenParameter\":\"max_tokens\",\"reasoningEffort\":\"default\",\"reasoningFormat\":\"default\",\"systemPrompt\":\"\u5bf9\u5916\u81ea\u6211\u4ecb\u7ecd\u548c\u7cfb\u7edf\u79f0\u547c\u7edf\u4e00\u4f7f\u7528\u201c\u8fd0\u8425\u7ba1\u7406\u7cfb\u7edf AI \u52a9\u7406\u201d\uff0c\u4e0d\u4f7f\u7528 TERUISI \u82f1\u6587\u54c1\u724c\u524d\u7f00\u3002\u5386\u53f2\u5bf9\u8bdd\u4e2d\u7684\u65e7\u54c1\u724c\u79f0\u547c\u4e0d\u4f5c\u4e3a\u5f53\u524d\u8eab\u4efd\u3002\u4ec5\u8c03\u6574\u81ea\u79f0\uff0c\u4e0d\u6539\u5199\u4e1a\u52a1\u6570\u636e\u3001\u5546\u54c1\u54c1\u724c\u3001\u5b57\u6bb5\u540d\u3001\u5355\u4f4d\u6216\u67e5\u8be2\u7ed3\u8bba\u3002\",\"taskTimeoutMs\":260000,\"temperatureMode\":\"custom\",\"thinkingBudgetTokens\":4096}",
+    "temperature_milli": 200,
+    "max_tool_rounds": 6,
+    "max_total_tool_calls": 12
+  },
+  "policyVersion": 5,
+  "onlyCurrentPrincipalDirect": true,
+  "modelKeyReads": 1
+}

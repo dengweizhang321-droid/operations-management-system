@@ -1,0 +1,541 @@
+{
+  "realProvider": true,
+  "realPi": true,
+  "privatePostgres": true,
+  "productionLifecycleChanged": false,
+  "recipient": "current principal unique approved direct binding",
+  "robotName": "志高助手",
+  "selectedModelId": "ai-model-363b2b27-713a-4aa2-b6d1-8cbb4d6f4f9e",
+  "modelName": "agnes-2.5-flash",
+  "modelVersion": 3,
+  "rounds": [
+    {
+      "operationId": "pi-op-ece50104-f5cf-4e96-be3f-455ea22567c1",
+      "status": "succeeded",
+      "errorCode": "",
+      "createdAt": "2026-10-20T21:52:28.021765+00:00",
+      "updatedAt": "2026-10-20T21:55:43.733074+00:00",
+      "dispatches": [
+        {
+          "id": "pi-deadline-8eed67c9-177f-47f7-b721-9ded0c917433",
+          "kind": "control:deadline",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-986f0b97-400b-4fc6-8d49-55afd82f52a0",
+          "kind": "runner:create",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-skills-loaded-144c0b2a-994d-42ce-bd34-ca343e70b265",
+          "kind": "control:skills_loaded",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-92abbcef-7dc9-4f3c-a6c8-44d60dd5dd89",
+          "kind": "runner:prompt",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-6ff3d207-d60d-4ff3-b79a-597f8f9754fc",
+          "kind": "model",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-48c0c6c2-0333-47ad-9cde-387bdf8521aa",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-8f3f9ca3-bb30-4540-8932-40f388404212",
+          "kind": "tool",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-fc56c015-6be6-4895-8c5b-4f7686523396",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-d789c33a-e7d6-4f0c-a43f-8aeb1343164c",
+          "kind": "model",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-4ffa2486-4b9d-4c9c-80f4-cf84b03d6b00",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-ac0db53e-23d2-4a06-832a-4db57db7c830",
+          "kind": "tool",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-2851a1f0-fe0b-431f-9349-0d58d8f25650",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-a33c20c9-0c57-461f-a598-12df3ff2657c",
+          "kind": "model",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-3da4495e-e870-4f38-9012-7c814498d02d",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        }
+      ],
+      "usage": [
+        "{\"completion_tokens\":55,\"completion_tokens_details\":{\"reasoning_tokens\":38,\"text_tokens\":17},\"prompt_tokens\":3500,\"total_tokens\":3555}",
+        "{\"completion_tokens\":942,\"completion_tokens_details\":{\"reasoning_tokens\":533,\"text_tokens\":409},\"prompt_tokens\":4413,\"total_tokens\":5355}",
+        "{\"completion_tokens\":406,\"completion_tokens_details\":{\"reasoning_tokens\":27,\"text_tokens\":379},\"prompt_tokens\":6506,\"total_tokens\":6912}"
+      ],
+      "toolEvents": []
+    },
+    {
+      "operationId": "pi-op-95efa5e3-d360-460f-80e1-68e4d2b67317",
+      "status": "succeeded",
+      "errorCode": "",
+      "createdAt": "2026-10-20T21:56:53.780881+00:00",
+      "updatedAt": "2026-10-20T22:00:04.292072+00:00",
+      "dispatches": [
+        {
+          "id": "pi-deadline-4aa07bfb-1dc2-405a-8840-dc7241136125",
+          "kind": "control:deadline",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-b0a1b717-c451-47d6-be2d-5487df9792dc",
+          "kind": "runner:create",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-skills-loaded-c806d626-4c54-4112-a8ec-087089b84129",
+          "kind": "control:skills_loaded",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-03a6a975-3caf-476a-8adc-5a83a9827159",
+          "kind": "runner:prompt",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-80f952a5-6ac9-477d-bacf-b3cf00a086b6",
+          "kind": "model",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-242ef589-2767-42c3-a1a0-6eacedb37429",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-2f4d5c29-6cfc-469d-909f-f2602b75c7c7",
+          "kind": "tool",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-0f2999f0-c7d8-4316-b75c-9bb96d1a42f6",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-fb4d3b48-404d-4dcf-b663-5e1fc61da734",
+          "kind": "model",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-9e1ed9e1-c9a4-42cc-a56e-a2d7e9e88c91",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-3db508f7-4284-4a33-ba92-c30bba6ef8bc",
+          "kind": "tool",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-e6915194-018c-42bf-9aa0-6916056dacb7",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-34217566-e653-492b-8a53-41926499a569",
+          "kind": "model",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-b2682130-ae27-4468-bf4f-257a37818407",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        }
+      ],
+      "usage": [
+        "{\"completion_tokens\":52,\"completion_tokens_details\":{\"reasoning_tokens\":35,\"text_tokens\":17},\"prompt_tokens\":6471,\"total_tokens\":6523}",
+        "{\"completion_tokens\":653,\"completion_tokens_details\":{\"reasoning_tokens\":244,\"text_tokens\":409},\"prompt_tokens\":7384,\"total_tokens\":8037}",
+        "{\"completion_tokens\":394,\"completion_tokens_details\":{\"reasoning_tokens\":20,\"text_tokens\":374},\"prompt_tokens\":9173,\"prompt_tokens_details\":{\"cached_tokens\":6400},\"total_tokens\":9567}"
+      ],
+      "toolEvents": []
+    }
+  ],
+  "deliveries": [
+    {
+      "actionId": "pi-action-8b6d7886-54e7-4179-9842-56d801964259",
+      "status": "succeeded",
+      "errorCode": "",
+      "extension": "xlsx",
+      "previewDigest": "77527d205cc76d755c2eb00be5c251c393ee05e5bf8a9f8535f577d9f009b93d",
+      "attachmentSha256": "5808407b9198903cdc066561b29d70421ce769f4ba89b4432752383cba3b5b1d",
+      "result": {
+        "objectId": "pi-action-8b6d7886-54e7-4179-9842-56d801964259",
+        "objectType": "report_delivery",
+        "receipt": {
+          "actionId": "pi-action-8b6d7886-54e7-4179-9842-56d801964259",
+          "attachment": {
+            "platform": "dingtalk",
+            "receiptSha256": "dcf8df86d4872f1d5be61139ff1a474e4ef2dcff3e5297c69b8d9901156e8d73",
+            "state": "accepted"
+          },
+          "attachmentDispatched": true,
+          "body": {
+            "platform": "dingtalk",
+            "receiptSha256": "fc6a8a4e8f3cb44c17da0fd982a4cd14940156a03672e41d36b4af37f97250fe",
+            "state": "accepted"
+          },
+          "bodyDispatched": true,
+          "mayReplay": false,
+          "state": "accepted_by_platform",
+          "targetVersion": "e1db44f7094d936a2b3f37297e34a9338f4b0422d05fba9a1103bf326f04ce62"
+        },
+        "status": "succeeded"
+      }
+    },
+    {
+      "actionId": "pi-action-72979c3b-1376-4697-a991-7cccf53f20a4",
+      "status": "succeeded",
+      "errorCode": "",
+      "extension": "pdf",
+      "previewDigest": "61497a85e15c7e14a033922e225b4d6458fbf22a27e94e6f71ebf9cfb4d8ac96",
+      "attachmentSha256": "80d2ce183f4e925aff91c3069927dd6676698d4ad11ef8f5b6e7aa08bf66a206",
+      "result": {
+        "objectId": "pi-action-72979c3b-1376-4697-a991-7cccf53f20a4",
+        "objectType": "report_delivery",
+        "receipt": {
+          "actionId": "pi-action-72979c3b-1376-4697-a991-7cccf53f20a4",
+          "attachment": {
+            "platform": "dingtalk",
+            "receiptSha256": "665257228f658472eb97e9d93b763d322e91902610953aa60ccef1573ba7099e",
+            "state": "accepted"
+          },
+          "attachmentDispatched": true,
+          "body": {
+            "platform": "dingtalk",
+            "receiptSha256": "b57ff501425d353566f7d0c85b47ca6693415bba88a02d3a06b84efa59ee4f66",
+            "state": "accepted"
+          },
+          "bodyDispatched": true,
+          "mayReplay": false,
+          "state": "accepted_by_platform",
+          "targetVersion": "59ecf2a8de37b6bfe00de9c8d7ef8e125c0f1fc15a4c61b867ff53e468e90360"
+        },
+        "status": "succeeded"
+      }
+    }
+  ],
+  "sourceCommit": "fdd652319fd0b4a51e12256ad25568a23af0a1e6",
+  "worktreeDirtyFixture": true,
+  "modelRuntimeConfiguration": {
+    "max_tokens": 4096,
+    "timeout_ms": 20000,
+    "reasoning_mode": "auto",
+    "generation_options_json": "{\"contextWindowTokens\":128000,\"includeStreamUsage\":false,\"outputTokenParameter\":\"max_tokens\",\"reasoningEffort\":\"default\",\"reasoningFormat\":\"default\",\"systemPrompt\":\"对外自我介绍和系统称呼统一使用“运营管理系统 AI 助理”，不使用 TERUISI 英文品牌前缀。历史对话中的旧品牌称呼不作为当前身份。仅调整自称，不改写业务数据、商品品牌、字段名、单位或查询结论。\",\"taskTimeoutMs\":260000,\"temperatureMode\":\"custom\",\"thinkingBudgetTokens\":4096}"
+  },
+  "sessionId": "pi-session-a66f7c5a-3340-4f9e-96d5-0ada8554acc9",
+  "stagingControls": [
+    {
+      "id": "pi-control-acd115fa-0047-4fed-a91a-623399f9b9e6",
+      "command": "model_set",
+      "status": "completed"
+    },
+    {
+      "id": "pi-control-f65380f7-2b69-458f-97cf-79ce45c5eeb7",
+      "command": "file_write",
+      "status": "completed"
+    },
+    {
+      "id": "pi-control-bddcd2ef-f259-418d-ab22-7435dfabaece",
+      "command": "file_download",
+      "status": "completed"
+    },
+    {
+      "id": "pi-control-5046a3cc-f1a3-4070-a6d6-8d88d862aca4",
+      "command": "file_write",
+      "status": "completed"
+    },
+    {
+      "id": "pi-control-c11a5fcc-14f5-49bf-a44f-f2fb93bc482f",
+      "command": "file_download",
+      "status": "completed"
+    }
+  ],
+  "reusedRealModelGeneratedSyntheticFiles": true,
+  "independentPurpose": "new candidate acceptance of existing synthetic attachment delivery; no old unknown prompt is replayed",
+  "effects": {
+    "source": "live private ORM counts before test database destruction",
+    "actions": 2,
+    "bodyDispatches": 2,
+    "attachmentDispatches": 2
+  },
+  "status": "passed",
+  "finalOperations": [
+    {
+      "operationId": "pi-op-a933cbe9-1ece-4fdb-969f-615a0114236d",
+      "status": "succeeded",
+      "errorCode": "",
+      "dispatches": [
+        {
+          "id": "pi-deadline-d4894ad6-f611-46e6-8b53-78e1d20f4fbf",
+          "kind": "control:deadline",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-09b7333f-b0fe-4ece-bb51-815e50a2623c",
+          "kind": "runner:create",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispose-17045cde-29c1-4290-85fb-3915ca018fdd",
+          "kind": "control:freeze",
+          "status": "unknown",
+          "errorCode": "pi_cleanup_unknown"
+        }
+      ]
+    },
+    {
+      "operationId": "pi-op-ece50104-f5cf-4e96-be3f-455ea22567c1",
+      "status": "succeeded",
+      "errorCode": "",
+      "dispatches": [
+        {
+          "id": "pi-deadline-8eed67c9-177f-47f7-b721-9ded0c917433",
+          "kind": "control:deadline",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-986f0b97-400b-4fc6-8d49-55afd82f52a0",
+          "kind": "runner:create",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-skills-loaded-144c0b2a-994d-42ce-bd34-ca343e70b265",
+          "kind": "control:skills_loaded",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-92abbcef-7dc9-4f3c-a6c8-44d60dd5dd89",
+          "kind": "runner:prompt",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-6ff3d207-d60d-4ff3-b79a-597f8f9754fc",
+          "kind": "model",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-48c0c6c2-0333-47ad-9cde-387bdf8521aa",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-8f3f9ca3-bb30-4540-8932-40f388404212",
+          "kind": "tool",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-fc56c015-6be6-4895-8c5b-4f7686523396",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-d789c33a-e7d6-4f0c-a43f-8aeb1343164c",
+          "kind": "model",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-4ffa2486-4b9d-4c9c-80f4-cf84b03d6b00",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-ac0db53e-23d2-4a06-832a-4db57db7c830",
+          "kind": "tool",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-2851a1f0-fe0b-431f-9349-0d58d8f25650",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-a33c20c9-0c57-461f-a598-12df3ff2657c",
+          "kind": "model",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-3da4495e-e870-4f38-9012-7c814498d02d",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispose-2fe38091-12bd-4d1b-920e-3432de604b68",
+          "kind": "control:freeze",
+          "status": "unknown",
+          "errorCode": "pi_cleanup_unknown"
+        }
+      ]
+    },
+    {
+      "operationId": "pi-op-95efa5e3-d360-460f-80e1-68e4d2b67317",
+      "status": "succeeded",
+      "errorCode": "",
+      "dispatches": [
+        {
+          "id": "pi-deadline-4aa07bfb-1dc2-405a-8840-dc7241136125",
+          "kind": "control:deadline",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-b0a1b717-c451-47d6-be2d-5487df9792dc",
+          "kind": "runner:create",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-skills-loaded-c806d626-4c54-4112-a8ec-087089b84129",
+          "kind": "control:skills_loaded",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-03a6a975-3caf-476a-8adc-5a83a9827159",
+          "kind": "runner:prompt",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-80f952a5-6ac9-477d-bacf-b3cf00a086b6",
+          "kind": "model",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-242ef589-2767-42c3-a1a0-6eacedb37429",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-2f4d5c29-6cfc-469d-909f-f2602b75c7c7",
+          "kind": "tool",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-0f2999f0-c7d8-4316-b75c-9bb96d1a42f6",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-fb4d3b48-404d-4dcf-b663-5e1fc61da734",
+          "kind": "model",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-9e1ed9e1-c9a4-42cc-a56e-a2d7e9e88c91",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-3db508f7-4284-4a33-ba92-c30bba6ef8bc",
+          "kind": "tool",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-e6915194-018c-42bf-9aa0-6916056dacb7",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-34217566-e653-492b-8a53-41926499a569",
+          "kind": "model",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispatch-b2682130-ae27-4468-bf4f-257a37818407",
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "errorCode": ""
+        },
+        {
+          "id": "pi-dispose-96f4e950-0f5d-40b0-8011-6a64f72b6276",
+          "kind": "control:freeze",
+          "status": "completed",
+          "errorCode": ""
+        }
+      ]
+    }
+  ]
+}

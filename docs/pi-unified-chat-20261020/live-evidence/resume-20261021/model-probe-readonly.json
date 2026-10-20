@@ -1,0 +1,44 @@
+[
+  {
+    "id": "ai-model-35ca8a89-01d4-4693-b649-04b84ed69389",
+    "name": "OpenCode Go",
+    "modelName": "deepseek-v4.1-flash",
+    "status": "enabled",
+    "version": 4,
+    "lastTestResult": "文本连接成功",
+    "lastTestedAt": "2026-10-13T11:26:57.211528Z",
+    "capabilityProbe": {
+      "adapterVersion": "2026-10-15-dns-phase-v2",
+      "connection": {
+        "status": "unverified"
+      },
+      "nonStreaming": {
+        "status": "unverified"
+      },
+      "sse": {
+        "status": "unverified"
+      }
+    }
+  },
+  {
+    "id": "ai-model-363b2b27-713a-4aa2-b6d1-8cbb4d6f4f9e",
+    "name": "特能志 · 文本分析",
+    "modelName": "agnes-2.5-flash",
+    "status": "enabled",
+    "version": 3,
+    "lastTestResult": "文本连接成功",
+    "lastTestedAt": "2026-10-13T14:22:25.138280Z",
+    "capabilityProbe": {
+      "adapterVersion": "2026-10-15-dns-phase-v2",
+      "connection": {
+        "status": "unverified"
+      },
+      "nonStreaming": {
+        "status": "unverified"
+      },
+      "sse": {
+        "status": "unverified"
+      }
+    }
+  }
+]

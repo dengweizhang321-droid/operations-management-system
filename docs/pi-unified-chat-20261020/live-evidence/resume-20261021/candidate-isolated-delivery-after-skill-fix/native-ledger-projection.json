@@ -1,0 +1,62 @@
+{
+  "source": "existing stopped private Runner ledger, read-only; no restart",
+  "commands": [
+    {
+      "operationId": "pi-op-d80f75dd-2034-4ac2-86e6-cfa8b0743194",
+      "command": "create",
+      "status": "complete",
+      "resultStatus": "idle",
+      "error": null
+    },
+    {
+      "operationId": "pi-op-3e39123b-d28a-49b9-ae3a-db8f018648e5",
+      "command": "create",
+      "status": "complete",
+      "resultStatus": "idle",
+      "error": null
+    },
+    {
+      "operationId": "pi-op-3e39123b-d28a-49b9-ae3a-db8f018648e5",
+      "command": "prompt",
+      "status": "complete",
+      "resultStatus": "running",
+      "error": null
+    },
+    {
+      "operationId": "pi-op-3e39123b-d28a-49b9-ae3a-db8f018648e5",
+      "command": "dispose",
+      "status": "complete",
+      "resultStatus": "disposed",
+      "error": null
+    },
+    {
+      "operationId": "pi-op-d80f75dd-2034-4ac2-86e6-cfa8b0743194",
+      "command": "dispose",
+      "status": "rejected",
+      "resultStatus": null,
+      "error": "session_unavailable"
+    }
+  ],
+  "events": [
+    {
+      "eventSeq": 16,
+      "operationId": "pi-op-3e39123b-d28a-49b9-ae3a-db8f018648e5",
+      "type": "tool_execution_start",
+      "toolName": "system_tool",
+      "systemToolName": "get_pi_business_options"
+    },
+    {
+      "eventSeq": 17,
+      "operationId": "pi-op-3e39123b-d28a-49b9-ae3a-db8f018648e5",
+      "type": "tool_execution_end",
+      "toolName": "system_tool"
+    }
+  ],
+  "gatewayCounts": {
+    "complete": 2,
+    "dispatching": 1
+  },
+  "sessionStates": [
+    "disposed"
+  ]
+}

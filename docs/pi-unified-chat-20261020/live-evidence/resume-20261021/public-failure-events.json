@@ -1,0 +1,140 @@
+{
+  "items": [
+    {
+      "eventSeq": 1,
+      "operationId": null,
+      "type": "session_created",
+      "data": {},
+      "createdAt": "2026-10-20T20:47:51.776723+00:00"
+    },
+    {
+      "eventSeq": 2,
+      "operationId": null,
+      "type": "file_ready",
+      "data": {
+        "file": {
+          "clientRequestId": "live-upload-0e53187de86c48a28b6f3c675428914f",
+          "createdAt": "2026-10-20T20:47:55.963807Z",
+          "direction": "input",
+          "fileName": "live-acceptance-synthetic.xlsx",
+          "id": "pi-file-e15248ba-b868-4e02-9403-79b7efe27138",
+          "manifest": {
+            "conversationId": "pi-session-120a3a6c-4149-4076-904d-0d9a0c0a1ccd",
+            "declaredMimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "generation": 1,
+            "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "operationId": null,
+            "owner": "current-principal@redacted.invalid",
+            "sha256": "5808407b9198903cdc066561b29d70421ce769f4ba89b4432752383cba3b5b1d",
+            "sizeBytes": 3566,
+            "sourcePath": null
+          },
+          "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "operationId": null,
+          "sha256": "5808407b9198903cdc066561b29d70421ce769f4ba89b4432752383cba3b5b1d",
+          "sizeBytes": 3566
+        }
+      },
+      "createdAt": "2026-10-20T20:47:55.984809+00:00"
+    },
+    {
+      "eventSeq": 3,
+      "operationId": null,
+      "type": "file_ready",
+      "data": {
+        "file": {
+          "clientRequestId": "live-upload-8d358d9a85944459ae581d5a9d882108",
+          "createdAt": "2026-10-20T20:47:58.060813Z",
+          "direction": "input",
+          "fileName": "live-acceptance-synthetic.pdf",
+          "id": "pi-file-164a3549-a626-4e17-939f-9b5331e6b063",
+          "manifest": {
+            "conversationId": "pi-session-120a3a6c-4149-4076-904d-0d9a0c0a1ccd",
+            "declaredMimeType": "application/pdf",
+            "generation": 1,
+            "mimeType": "application/pdf",
+            "operationId": null,
+            "owner": "current-principal@redacted.invalid",
+            "sha256": "80d2ce183f4e925aff91c3069927dd6676698d4ad11ef8f5b6e7aa08bf66a206",
+            "sizeBytes": 1200,
+            "sourcePath": null
+          },
+          "mimeType": "application/pdf",
+          "operationId": null,
+          "sha256": "80d2ce183f4e925aff91c3069927dd6676698d4ad11ef8f5b6e7aa08bf66a206",
+          "sizeBytes": 1200
+        }
+      },
+      "createdAt": "2026-10-20T20:47:58.064819+00:00"
+    },
+    {
+      "eventSeq": 4,
+      "operationId": "pi-op-b59d4836-4b87-4990-84e8-c82fa6ff3c02",
+      "type": "user_message",
+      "data": {
+        "text": "LIVE ACCEPTANCE: use only the TWO supplied synthetic input files. Do not read any business system data, install dependencies, or send messages. Execute ONE bash command to copy the two supplied paths into /workspace/outputs with the same names live-acceptance-synthetic.xlsx and live-acceptance-synthetic.pdf, then print their sha256 hashes. Do not regenerate or inspect other files. Finish in Chinese."
+      },
+      "createdAt": "2026-10-20T20:48:00.186955+00:00"
+    },
+    {
+      "eventSeq": 5,
+      "operationId": "pi-op-b59d4836-4b87-4990-84e8-c82fa6ff3c02",
+      "type": "status",
+      "data": {
+        "status": "queued"
+      },
+      "createdAt": "2026-10-20T20:48:00.187954+00:00"
+    },
+    {
+      "eventSeq": 6,
+      "operationId": "pi-op-b59d4836-4b87-4990-84e8-c82fa6ff3c02",
+      "type": "status",
+      "data": {
+        "status": "running"
+      },
+      "createdAt": "2026-10-20T20:48:00.615160+00:00"
+    },
+    {
+      "eventSeq": 7,
+      "operationId": "pi-op-b59d4836-4b87-4990-84e8-c82fa6ff3c02",
+      "type": "skills_loaded",
+      "data": {
+        "skills": []
+      },
+      "createdAt": "2026-10-20T20:48:04.355401+00:00"
+    },
+    {
+      "eventSeq": 8,
+      "operationId": "pi-op-b59d4836-4b87-4990-84e8-c82fa6ff3c02",
+      "type": "error",
+      "data": {
+        "code": "provider_unavailable",
+        "responseDiagnostics": {
+          "adapterVersion": "2026-10-15-dns-phase-v2",
+          "protocol": "openai_compatible",
+          "reason": "unavailable",
+          "requestStarted": true,
+          "responseMode": "json",
+          "stage": "response_headers"
+        },
+        "status": "unknown"
+      },
+      "createdAt": "2026-10-20T20:48:10.849884+00:00"
+    }
+  ],
+  "after": 8,
+  "hasMore": false,
+  "session": {
+    "id": "pi-session-120a3a6c-4149-4076-904d-0d9a0c0a1ccd",
+    "title": "LIVE ACCEPTANCE 20261021 synthetic direct receipt",
+    "status": "unknown",
+    "epoch": 1,
+    "generation": 1,
+    "activeOperationId": "pi-op-b59d4836-4b87-4990-84e8-c82fa6ff3c02",
+    "createdAt": "2026-10-20T20:47:51.707215Z",
+    "updatedAt": "2026-10-20T20:48:10.849884Z",
+    "createClientRequestId": "live-resume-session-ef74821aa76741fdb76ce355b146364b",
+    "scope": null,
+    "shopSelection": null
+  }
+}

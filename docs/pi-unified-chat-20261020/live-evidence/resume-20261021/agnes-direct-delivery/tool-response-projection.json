@@ -1,0 +1,18 @@
+{
+  "readOnly": true,
+  "toolResponseProjections": [
+    {
+      "request_id": "047f1750-2da5-4ebc-983f-f7b6d18dc1f6",
+      "options_response": true,
+      "known_error_code": null,
+      "action_status": null
+    },
+    {
+      "request_id": "96dd2ee1-b79b-455e-b341-1d5120894e95",
+      "options_response": false,
+      "known_error_code": "not_found",
+      "action_status": null
+    }
+  ],
+  "businessActionsCreated": 0
+}

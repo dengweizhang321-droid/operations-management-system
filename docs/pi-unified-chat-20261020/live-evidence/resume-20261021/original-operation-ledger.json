@@ -1,0 +1,59 @@
+{
+  "operationId": "pi-op-b59d4836-4b87-4990-84e8-c82fa6ff3c02",
+  "readOnlyTransaction": true,
+  "dispatches": [
+    {
+      "id": "pi-deadline-7c6bf7dd-e6c5-4cff-9ceb-e8b05036ec9e",
+      "kind": "control:deadline",
+      "status": "completed",
+      "error_code": "",
+      "request_id": "deadline",
+      "completed_at": "2026-10-21T04:48:00.594861+08:00"
+    },
+    {
+      "id": "pi-dispatch-5c022a80-84c6-4980-a021-047557765a28",
+      "kind": "runner:create",
+      "status": "completed",
+      "error_code": "",
+      "request_id": "create",
+      "completed_at": "2026-10-21T04:48:04.288372+08:00"
+    },
+    {
+      "id": "pi-skills-loaded-513602e9-eddf-4fd9-a087-106bada5d474",
+      "kind": "control:skills_loaded",
+      "status": "completed",
+      "error_code": "",
+      "request_id": "skills",
+      "completed_at": "2026-10-21T04:48:04.352163+08:00"
+    },
+    {
+      "id": "pi-dispatch-8696c8b6-2684-4167-b7fd-935bf22c8c75",
+      "kind": "runner:prompt",
+      "status": "completed",
+      "error_code": "",
+      "request_id": "prompt",
+      "completed_at": "2026-10-21T04:48:04.760282+08:00"
+    },
+    {
+      "id": "pi-dispatch-ca072969-1d8d-4fa3-a2d6-ba79dbc88b4c",
+      "kind": "model",
+      "status": "unknown",
+      "error_code": "provider_unavailable",
+      "request_id": "535cbf3d-258c-449b-9051-192416a06329",
+      "completed_at": "2026-10-21T04:48:10.840443+08:00"
+    },
+    {
+      "id": "pi-freeze-84119f72-0bf1-43a5-b869-2e0bb0edc13b",
+      "kind": "control:freeze",
+      "status": "completed",
+      "error_code": "",
+      "request_id": "dispose",
+      "completed_at": "2026-10-21T04:48:11.506178+08:00"
+    }
+  ],
+  "nativeFreezeReceipt": {
+    "status": "disposed"
+  },
+  "businessActionCount": 0,
+  "bodyAttachmentDispatchCount": 0
+}

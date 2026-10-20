@@ -1,0 +1,9 @@
+{
+  "source": "successful original provider usage receipts; prices/money unavailable",
+  "modelRequests": 6,
+  "promptTokens": 37447,
+  "completionTokens": 2502,
+  "totalTokens": 39949,
+  "monetaryCost": null,
+  "doesNotAccountForPriorUnknownBilling": true
+}

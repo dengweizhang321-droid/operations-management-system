@@ -1,0 +1,35 @@
+{
+  "commands": [
+    {
+      "operationId": "pi-op-1c59b21c-3f72-4ccf-898c-17cdbf041ede",
+      "command": "create",
+      "status": "complete",
+      "fixedError": null
+    },
+    {
+      "operationId": "pi-op-13a6ce15-1bae-4653-b28f-756e60ee2938",
+      "command": "create",
+      "status": "unknown",
+      "fixedError": "command_outcome_unknown"
+    },
+    {
+      "operationId": "pi-op-13a6ce15-1bae-4653-b28f-756e60ee2938",
+      "command": "dispose",
+      "status": "complete",
+      "fixedError": null
+    },
+    {
+      "operationId": "pi-op-1c59b21c-3f72-4ccf-898c-17cdbf041ede",
+      "command": "dispose",
+      "status": "rejected",
+      "fixedError": "session_unavailable"
+    }
+  ],
+  "sessions": [
+    {
+      "status": "disposed",
+      "seq": 0,
+      "container": "pi-test-live-resume-20261021-7f4d2a16-8866d4dbf7e25a8646aaba170850b7d1"
+    }
+  ]
+}

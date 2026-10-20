@@ -1,0 +1,20 @@
+{
+  "observedAt": "2026-10-20T22:04:46.271877+00:00",
+  "scope": "repository-safe copies only",
+  "originalsPreservedOutsideRepository": true,
+  "operationStatusAndDeliveryReceiptsChanged": false,
+  "records": [
+    {
+      "path": "public-failure-events.json",
+      "emailTokensRedacted": 2,
+      "originalSha256": "8c2e1c78897e7957fac264c0cdfb8409c17db4febef80e2c204c8bf4ec7bf952",
+      "safeSha256": "36a6076c1f6e37f5e39fcbb5b169591590a8b5dc58f883023e23f35e1f30e152"
+    },
+    {
+      "path": "agnes-direct-delivery/public-failure-events.json",
+      "emailTokensRedacted": 2,
+      "originalSha256": "f51c69163afeb52f58048d06fff27f59aefb2c788ad2c4c84a537e19ef3571fd",
+      "safeSha256": "88e38c6c9432f892863099906a4eae07525cb34603c6855a31b3dce8f7a8f9b3"
+    }
+  ]
+}

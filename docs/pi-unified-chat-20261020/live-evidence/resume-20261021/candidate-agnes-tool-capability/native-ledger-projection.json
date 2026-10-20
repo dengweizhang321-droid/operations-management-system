@@ -1,0 +1,139 @@
+{
+  "source": "stopped original native ledger read-only; no Runner restart",
+  "commands": [
+    {
+      "operationId": "pi-op-a933cbe9-1ece-4fdb-969f-615a0114236d",
+      "command": "create",
+      "status": "complete",
+      "resultStatus": "idle",
+      "error": null
+    },
+    {
+      "operationId": "pi-op-ece50104-f5cf-4e96-be3f-455ea22567c1",
+      "command": "create",
+      "status": "complete",
+      "resultStatus": "idle",
+      "error": null
+    },
+    {
+      "operationId": "pi-op-ece50104-f5cf-4e96-be3f-455ea22567c1",
+      "command": "prompt",
+      "status": "complete",
+      "resultStatus": "running",
+      "error": null
+    },
+    {
+      "operationId": "pi-op-ece50104-f5cf-4e96-be3f-455ea22567c1",
+      "command": "ack",
+      "status": "complete",
+      "resultStatus": "settled",
+      "error": null
+    },
+    {
+      "operationId": "pi-op-95efa5e3-d360-460f-80e1-68e4d2b67317",
+      "command": "create",
+      "status": "complete",
+      "resultStatus": "settled",
+      "error": null
+    },
+    {
+      "operationId": "pi-op-95efa5e3-d360-460f-80e1-68e4d2b67317",
+      "command": "prompt",
+      "status": "complete",
+      "resultStatus": "running",
+      "error": null
+    },
+    {
+      "operationId": "pi-op-95efa5e3-d360-460f-80e1-68e4d2b67317",
+      "command": "ack",
+      "status": "complete",
+      "resultStatus": "settled",
+      "error": null
+    },
+    {
+      "operationId": "pi-op-95efa5e3-d360-460f-80e1-68e4d2b67317",
+      "command": "dispose",
+      "status": "complete",
+      "resultStatus": "disposed",
+      "error": null
+    },
+    {
+      "operationId": "pi-op-ece50104-f5cf-4e96-be3f-455ea22567c1",
+      "command": "dispose",
+      "status": "rejected",
+      "resultStatus": null,
+      "error": "session_unavailable"
+    },
+    {
+      "operationId": "pi-op-a933cbe9-1ece-4fdb-969f-615a0114236d",
+      "command": "dispose",
+      "status": "rejected",
+      "resultStatus": null,
+      "error": "session_unavailable"
+    }
+  ],
+  "toolEvents": [
+    {
+      "eventSeq": 16,
+      "operationId": "pi-op-ece50104-f5cf-4e96-be3f-455ea22567c1",
+      "type": "tool_execution_start",
+      "toolName": "system_tool",
+      "systemToolName": "get_pi_business_options"
+    },
+    {
+      "eventSeq": 17,
+      "operationId": "pi-op-ece50104-f5cf-4e96-be3f-455ea22567c1",
+      "type": "tool_execution_end",
+      "toolName": "system_tool",
+      "systemToolName": null
+    },
+    {
+      "eventSeq": 33,
+      "operationId": "pi-op-ece50104-f5cf-4e96-be3f-455ea22567c1",
+      "type": "tool_execution_start",
+      "toolName": "system_tool",
+      "systemToolName": "prepare_pi_report_delivery"
+    },
+    {
+      "eventSeq": 34,
+      "operationId": "pi-op-ece50104-f5cf-4e96-be3f-455ea22567c1",
+      "type": "tool_execution_end",
+      "toolName": "system_tool",
+      "systemToolName": null
+    },
+    {
+      "eventSeq": 65,
+      "operationId": "pi-op-95efa5e3-d360-460f-80e1-68e4d2b67317",
+      "type": "tool_execution_start",
+      "toolName": "system_tool",
+      "systemToolName": "get_pi_business_options"
+    },
+    {
+      "eventSeq": 66,
+      "operationId": "pi-op-95efa5e3-d360-460f-80e1-68e4d2b67317",
+      "type": "tool_execution_end",
+      "toolName": "system_tool",
+      "systemToolName": null
+    },
+    {
+      "eventSeq": 82,
+      "operationId": "pi-op-95efa5e3-d360-460f-80e1-68e4d2b67317",
+      "type": "tool_execution_start",
+      "toolName": "system_tool",
+      "systemToolName": "prepare_pi_report_delivery"
+    },
+    {
+      "eventSeq": 83,
+      "operationId": "pi-op-95efa5e3-d360-460f-80e1-68e4d2b67317",
+      "type": "tool_execution_end",
+      "toolName": "system_tool",
+      "systemToolName": null
+    }
+  ],
+  "gatewayCounts": {
+    "complete": 10
+  },
+  "sessionStates": [
+    "disposed"
+  ]
+}

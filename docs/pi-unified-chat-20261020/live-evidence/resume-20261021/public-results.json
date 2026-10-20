@@ -1,0 +1,96 @@
+{
+  "startedAt": "2026-10-20T20:47:45.464434+00:00",
+  "route": "actual public HTTP Pi API",
+  "newPrivatePostgresStarted": false,
+  "newPrivateRunnerStarted": false,
+  "rounds": [
+    {
+      "id": "pi-op-b59d4836-4b87-4990-84e8-c82fa6ff3c02",
+      "clientRequestId": "live-resume-f0f77aaefce9482fbbdea76af4706ee6",
+      "kind": "prompt",
+      "status": "unknown",
+      "epoch": 1,
+      "generation": 1,
+      "seq": 1,
+      "modelId": "ai-model-35ca8a89-01d4-4693-b649-04b84ed69389",
+      "modelVersion": 4,
+      "errorCode": "provider_unavailable",
+      "createdAt": "2026-10-20T20:48:00.172645Z",
+      "updatedAt": "2026-10-20T20:48:10.844748Z",
+      "executionType": "pi_rpc",
+      "skills": [],
+      "skillsLoaded": true,
+      "businessIntents": []
+    }
+  ],
+  "deliveries": [],
+  "mutations": [
+    {
+      "path": "/api/ai/pi/sessions",
+      "clientRequestId": "live-resume-session-ef74821aa76741fdb76ce355b146364b",
+      "issuedAt": "2026-10-20T20:47:49.660313+00:00"
+    },
+    {
+      "path": "/api/ai/pi/sessions/pi-session-120a3a6c-4149-4076-904d-0d9a0c0a1ccd/files",
+      "clientRequestId": "live-upload-0e53187de86c48a28b6f3c675428914f",
+      "issuedAt": "2026-10-20T20:47:53.907012+00:00"
+    },
+    {
+      "path": "/api/ai/pi/sessions/pi-session-120a3a6c-4149-4076-904d-0d9a0c0a1ccd/files",
+      "clientRequestId": "live-upload-8d358d9a85944459ae581d5a9d882108",
+      "issuedAt": "2026-10-20T20:47:55.999808+00:00"
+    },
+    {
+      "path": "/api/ai/pi/sessions/pi-session-120a3a6c-4149-4076-904d-0d9a0c0a1ccd/messages",
+      "clientRequestId": "live-resume-f0f77aaefce9482fbbdea76af4706ee6",
+      "issuedAt": "2026-10-20T20:47:58.074322+00:00"
+    },
+    {
+      "path": "/api/ai/pi/sessions/pi-session-120a3a6c-4149-4076-904d-0d9a0c0a1ccd/workspace",
+      "clientRequestId": "live-cleanup-d3456dd43bd34c9f8993ec89be20cc91",
+      "issuedAt": "2026-10-20T20:48:12.702681+00:00"
+    }
+  ],
+  "status": "incomplete",
+  "businessAndCustomerDataQueried": false,
+  "modelConfiguration": {
+    "id": "ai-model-35ca8a89-01d4-4693-b649-04b84ed69389",
+    "name": "OpenCode Go",
+    "modelName": "deepseek-v4.1-flash",
+    "protocol": "openai_compatible",
+    "version": 4,
+    "maxTokens": 65536,
+    "timeoutMs": 60000,
+    "reasoningMode": "auto",
+    "generationOptions": {
+      "contextWindowTokens": 1000000,
+      "taskTimeoutMs": 1000000000,
+      "outputTokenParameter": "max_tokens",
+      "temperatureMode": "default",
+      "reasoningFormat": "default",
+      "reasoningEffort": "default",
+      "thinkingBudgetTokens": 4096,
+      "includeStreamUsage": true,
+      "systemPrompt": ""
+    }
+  },
+  "actor": {
+    "role": "admin",
+    "scopeRestricted": false,
+    "currentAccountUsed": true
+  },
+  "sessionId": "pi-session-120a3a6c-4149-4076-904d-0d9a0c0a1ccd",
+  "directTarget": {
+    "recipientId": "pi-recipient-4886981a88bec2eb4a84436ab091e0f6946415c4b858ae87",
+    "recipientType": "direct",
+    "robotName": "志高助手",
+    "policyVersion": 5
+  },
+  "failureType": "RuntimeError",
+  "failure": "original model operation unknown provider_unavailable",
+  "cleanup": {
+    "status": "unknown",
+    "failureType": "RuntimeError"
+  },
+  "finishedAt": "2026-10-20T20:48:14.781207+00:00"
+}

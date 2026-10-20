@@ -1,0 +1,14 @@
+{
+  "method": "GET",
+  "url": "https://opencode.ai/zen/go/v1/models",
+  "headersContainCredentials": false,
+  "body": null,
+  "replaysOriginalModelRequest": false,
+  "priorLocalSignatureMistakeMadeNoRequest": true,
+  "outcome": "json_response",
+  "responseRootKeys": [
+    "data",
+    "object"
+  ],
+  "elapsedSeconds": 1.937
+}

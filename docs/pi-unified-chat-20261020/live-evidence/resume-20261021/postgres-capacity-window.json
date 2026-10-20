@@ -1,0 +1,10 @@
+{
+  "logFile": "postgresql-2026-10-21.log",
+  "sizeBytes": 198660,
+  "targetWindow": "2026-10-21 04:47 through 04:58",
+  "capacityFailureCount": 2,
+  "capacityFailureLines": [
+    "2026-10-21 04:48:10.832 CST [6488] FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute",
+    "2026-10-21 04:56:26.922 CST [6692] FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute"
+  ]
+}

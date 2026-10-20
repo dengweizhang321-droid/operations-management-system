@@ -1,0 +1,76 @@
+{
+  "realProvider": true,
+  "realPi": true,
+  "privatePostgres": true,
+  "productionLifecycleChanged": false,
+  "recipient": "current principal unique approved direct binding",
+  "robotName": "志高助手",
+  "modelName": "deepseek-v4.1-flash",
+  "modelVersion": 4,
+  "rounds": [
+    {
+      "operationId": "pi-op-13a6ce15-1bae-4653-b28f-756e60ee2938",
+      "status": "unknown",
+      "errorCode": "pi_runner_unknown",
+      "createdAt": "2026-10-20T21:23:54.030219+00:00",
+      "updatedAt": "2026-10-20T21:23:59.572881+00:00",
+      "dispatches": [
+        {
+          "kind": "control:deadline",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:create",
+          "status": "unknown",
+          "error_code": "pi_runner_unknown"
+        },
+        {
+          "kind": "control:freeze",
+          "status": "prepared",
+          "error_code": ""
+        }
+      ],
+      "usage": []
+    }
+  ],
+  "deliveries": [],
+  "sourceCommit": "e9d113a4f81ea93511548dd6fdcdee1a34e586f1",
+  "worktreeDirtyFixture": true,
+  "modelRuntimeConfiguration": {
+    "max_tokens": 65536,
+    "timeout_ms": 60000,
+    "reasoning_mode": "auto",
+    "generation_options_json": "{\"contextWindowTokens\":1000000,\"includeStreamUsage\":true,\"outputTokenParameter\":\"max_tokens\",\"reasoningEffort\":\"default\",\"reasoningFormat\":\"default\",\"systemPrompt\":\"\",\"taskTimeoutMs\":1000000000,\"temperatureMode\":\"default\",\"thinkingBudgetTokens\":4096}"
+  },
+  "sessionId": "pi-session-f75b4988-47b0-43c4-99ff-bc5b57fccf6c",
+  "stagingControls": [
+    {
+      "id": "pi-control-727b0010-b2d8-492d-8760-cd53aa39be4b",
+      "command": "model_set",
+      "status": "completed"
+    },
+    {
+      "id": "pi-control-ee693540-d312-48b0-99da-3752bb13d16f",
+      "command": "file_write",
+      "status": "completed"
+    },
+    {
+      "id": "pi-control-394ab58f-8366-4186-b390-8fb6b2d34e5b",
+      "command": "file_download",
+      "status": "completed"
+    },
+    {
+      "id": "pi-control-3831687c-d1ba-4c3b-940d-7828bc8327a0",
+      "command": "file_write",
+      "status": "completed"
+    },
+    {
+      "id": "pi-control-f9ec5fb6-dec4-43ae-9eb1-c9990d52cb1d",
+      "command": "file_download",
+      "status": "completed"
+    }
+  ],
+  "reusedRealModelGeneratedSyntheticFiles": true,
+  "independentPurpose": "new candidate acceptance of existing synthetic attachment delivery; no old unknown prompt is replayed"
+}

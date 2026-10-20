@@ -1,0 +1,22 @@
+# Safety copy of the already executed diagnostic source; do not rerun.
+from pathlib import Path
+import os,sys,json,time
+for k in list(os.environ):
+ if k.startswith(('TERUISI_','DJANGO_','AI_','PI_')):del os.environ[k]
+os.environ.update(DJANGO_SETTINGS_MODULE='teruisi_backend.settings',TERUISI_DJANGO_ENVIRONMENT='test',TERUISI_DJANGO_PROCESS_ROLE='development')
+sys.path.insert(0,str(Path('backend').resolve()))
+from django.conf import settings
+settings.DATABASES={'default':{'ENGINE':'django.db.backends.sqlite3','NAME':':memory:'}}
+import django;django.setup()
+from ai_assistant import transport
+out={'method':'POST','url':'https://opencode.ai/zen/go/v1/chat/completions','headersContainCredentials':False,'body':{},'containsModelOrMessages':False,'replaysOriginalModelRequest':False};t=time.monotonic()
+try:
+ result=transport._bounded_json(out['url'],{}, {},method='POST',timeout=15,maximum=65536)
+ out.update(outcome='json_response',responseRootKeys=sorted(result.keys())[:12])
+except Exception as e:
+ out.update(outcome='refused_or_transport_failure',exceptionType=type(e).__name__,code=getattr(e,'code',None),diagnostics=getattr(e,'diagnostics',{}))
+ cause=e.__cause__;types=[]
+ while cause is not None and len(types)<4:types.append(type(cause).__name__);cause=cause.__cause__
+ out['causeTypes']=types
+out['elapsedSeconds']=round(time.monotonic()-t,3)
+p=Path('docs/pi-unified-chat-20261020/live-evidence/resume-20261021/single-empty-unauthenticated-post.json');p.write_text(json.dumps(out,indent=2),encoding='utf8');print(json.dumps(out))

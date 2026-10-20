@@ -1,0 +1,21 @@
+{
+  "namespace": "pi-test-live-resume-20261021-4ca9e731",
+  "privateDirectory": "D:\\codex-isolated\\piagent-phase3-verification-20261020\\.runtime\\live-stack-faee01b9",
+  "privateRunnerConfig": "/home/teruisi-pandas/pi-test-live-resume-20261021-4ca9e731/config.json",
+  "runnerPort": 18123,
+  "postgresPort": 55541,
+  "image": "sha256:87e41e7e4d646d779eba8b552a213d5356c4afa935d42dbb618d19fab7e15956",
+  "sourceCommit": "fdd652319fd0b4a51e12256ad25568a23af0a1e6",
+  "worktreeDirtyFixture": true,
+  "modelName": "deepseek-v4.1-flash",
+  "modelVersion": 4,
+  "modelRuntimeFields": {
+    "max_tokens": 65536,
+    "timeout_ms": 60000,
+    "reasoning_mode": "auto",
+    "generation_options_json": "{\"contextWindowTokens\":1000000,\"includeStreamUsage\":true,\"outputTokenParameter\":\"max_tokens\",\"reasoningEffort\":\"default\",\"reasoningFormat\":\"default\",\"systemPrompt\":\"\",\"taskTimeoutMs\":1000000000,\"temperatureMode\":\"default\",\"thinkingBudgetTokens\":4096}"
+  },
+  "policyVersion": 5,
+  "onlyCurrentPrincipalDirect": true,
+  "modelKeyReads": 1
+}

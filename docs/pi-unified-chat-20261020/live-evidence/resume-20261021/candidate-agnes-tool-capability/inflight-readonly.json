@@ -1,0 +1,81 @@
+{
+  "observedAt": "2026-10-20T21:54:30.033265+00:00",
+  "source": "passive private readonly query; no provider or runner command",
+  "operations": [
+    {
+      "id": "pi-op-a933cbe9-1ece-4fdb-969f-615a0114236d",
+      "status": "succeeded",
+      "errorCode": "",
+      "createdAt": "2026-10-21T05:52:13.885298+08:00"
+    },
+    {
+      "id": "pi-op-ece50104-f5cf-4e96-be3f-455ea22567c1",
+      "status": "running",
+      "errorCode": "",
+      "createdAt": "2026-10-21T05:52:28.021765+08:00"
+    }
+  ],
+  "dispatches": [
+    {
+      "kind": "control:deadline",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "runner:create",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "control:deadline",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "runner:create",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "control:skills_loaded",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "runner:prompt",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "model",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "runner:gateway_response",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "tool",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "runner:gateway_response",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "model",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "runner:gateway_response",
+      "status": "completed",
+      "errorCode": ""
+    }
+  ],
+  "actions": 0
+}

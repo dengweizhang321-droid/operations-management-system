@@ -144,3 +144,110 @@ A1 使用 AST 读取请求白名单与 1.3.0 manifest 的无副作用核对，�
 独立读取 `test_pi_model_catalog.py`：实际GET与SQL捕获证明禁用思考的父模型仅off、可调目标模型包含high/max，且SQL不读api_key_encrypted/api_key_suffix。`model-catalog-tests.log` 显示该项与技能目录3项共4项通过；更新后的能力浏览器将父快照改为仅off、目标m2目录high/max，显式选择high后精确spawn payload通过。未重复执行既有测试或调用模型。
 
 最终结论：本轮A1–A6与新增确认跨环境缺陷均已在当前候选工作区闭合，A7/A8按上述清晰产品边界闭合；对本次统一壳、公开目录与直接能力接线增量未发现剩余实质阻断。该结论不把源码/合成浏览器证据扩大成生产全部功能验收，真实模型/消息证据由 `live-REPORT.md` 独立说明；不支持的RPC、内部管理与运维面仍按矩阵排除。最后差异格式检查仅发现 `ai-pi-workspace.tsx` 空行尾空格，已交主代理清理，不影响上述契约结论。未合main、未上线的授权边界保持。
+
+## 2026-10-21 恢复验收的未知请求与清理边界复核
+
+用户明确恢复任务后，本次独立审查仍只读；没有重新启动隔离PG/Runner、调用模型/机器人、改生产状态或转派。当前候选HEAD为 `8ac3000e`，恢复验收使用已运行正式公开API。以下只说明原证据所能支持的结论，不替代新的实际投递验收。
+
+### 原失败可确认的事实
+
+证据位于 `live-evidence/resume-20261021/` 的 `public-results.json`、`public-failure-events.json`、`original-operation-ledger.json`、`cleanup-observation.json`、`formal-deployment-observed.json`。已核必要源码与正式来源 `2be62f90` 在 `pi_gateway.py/transport.py/pi_workspace.py/pi_runner/workspace.py` 无差异。
+
+- 新合成会话原操作 `pi-op-b59d4836-4b87-4990-84e8-c82fa6ff3c02` 在唯一模型派发后转为unknown。诊断精确为 `provider_unavailable / stage=response_headers / reason=unavailable / requestStarted=true`，未返回httpStatus；原模型派发身份及unknown保持。
+- `transport.py` 在 `connection.request()` 后进入response_headers，`getresponse()` 的OSError/ValueError/HTTPException归并为该固定错误。现证据不能区分具体网络/HTTP异常，不能断言供应商全站故障、额度不足、模型不支持或产品payload缺陷；请求可能已到达上游，不能判未计费或自动重放。
+- 强制只读账本显示该操作无local admission/tool/file派发、业务动作0、正文/附件发送派发0；原任务是复制两份合成输入，尚未进入业务投递意图。因此“没有外发”有原账本依据，不能把任务unknown说成已经发送但未回执。
+- 原 `control:freeze` 已completed，native保存回执为disposed。`pi_worker.dispose_environment` 只在原operation身份签名dispose返回disposed后写completed；Runner原dispose撤销会话、关闭终端、移除精确容器并核不再存在，保留所属卷和审计。原执行capability也被撤销。原环境已受控处置，无须再pause/dispose、停共享服务或删卷；未知模型调用仍不解冻、不重放。
+- 清理脚本另一次pause失败时没有保留原HTTP错误正文，不能宣称精确状态码或成功。源码对ACTIVE（含unknown）的pause在创建control前拒绝，与公开workspace controls为空相符；它不推翻已完成的原freeze/dispose，也不能把该catch的“cleanup unknown”解释为仍有运行容器。
+
+### 后续独立投递验收边界
+
+在主代理确认的既有“真实模型及本人单聊合成投递验收”授权内，可以继续一个明确不同的投递验收，不为此补修未经证实的产品问题。采用新会话、动态启用模型和新业务意图的理由必须是投递任务本身，而非规避原unknown、换模型重跑原复制提示词或把原b59d改称恢复成功。
+
+继续前最小证据为：当前启用模型ID/版本；已生成合成PDF/XLSX不可变SHA及新环境获准收集身份；真实principal对应的唯一direct对象与机器人动态匹配；仅`deliver_report`的新意图及具体附件/正文/接收对象preview、version和digest。准备、确认、正文与附件提供商回执分别保留；unknown或部分成功不换ID重发/改投。原未知请求和zero-business证据继续关联保存。没有据此授权群发、业务数据查询、发布或旧会话维护。
+
+对模型公开origin的无密钥/无对话/无业务正文GET和DNS诊断只提供连通性线索，不能证明认证模型POST、额度或本次任务已经恢复。独立审查者不执行这些网络或副作用动作；上述结论已直接回传主代理与真实验收负责人。
+
+### 独立新投递任务、空POST诊断及本机容量旁证
+
+后续执行者在独立新会话使用当前已启用Agnes v3模型开展投递验收。独立核对 `tests/pi-live-acceptance-public.py` 的workspace-staging路线和原Django/Runner代码：
+
+- 先通过公开 `model_set` 创建/使用原authority的 `workspace:init` operation；`_new_operation/_create_environment/_finish_init` 沿原身份/代际/租约/截止日与Runner签名路径，不派发模型请求。
+- 合成原字节先核旧MANIFEST SHA，经公开 `file_write` 的 `expectedSha256:null` create-if-absent准备，再经 `file_download` 的原SHA收集。原 `_capture_download` 核不可变downloadId、长度及双方SHA，随后在authority mutation调用原 `save_file(direction=output)`。这不是手改PiFile.direction，也没有绕过文件来源或模型权限；两份产物实际保存的是带路径hash前缀的文件名，后续按确切fileId/SHA辨认。
+- 新任务只授deliver_report意图，明确禁止模型创建/复制文件，保留与原b59d未知请求的关联。前置五个原workspace控制均completed，两文件SHA与合成原件相同。
+
+新增原证据 `agnes-direct-delivery/original-operation-ledger.json` 纠正了最初仅据operation unknown所作的口头推断：Agnes第一条model派发completed，随后两条tool派发completed，第二条model才unknown/provider_unavailable。公开事件仅标system_tool，现已读证据未列确切工具名或领域结果，不能据completed说已经准备或发送报告。业务action数量及正文/附件发送派发仍为0。第二个原control:freeze也completed，native disposed；不需要再次pause/dispose，第二unknown与原意图保持。真实投递验收尚未完成。
+
+独立读取已执行取证源的安全副本 `single-empty-post-command.py.txt`：仅一次原transport `_bounded_json`，精确OpenCode chat路径、headers={}、body={}，不含model/messages/认证，timeout15秒、响应65536字节上限；不调用provider.turn，不读取密钥/旧模型私有响应。本进程仅配置内存SQLite，没有启动PG或Runner；底层沿原公网DNS校验、单地址连接固定、原域名TLS及无代理/重定向/自动重试。实际 `single-empty-unauthenticated-post.json` 结果为HTTP400、约1.734秒，不是401。此证据只能说明空未认证小请求可收到HTTP拒绝，不能证明认证/工具正文请求、额度或原任务恢复。
+
+新的 `postgres-capacity-window.json` 记录04:47–04:58窗口仅两条容量FATAL：04:48:10.832和04:56:26.922，均为普通连接槽耗尽、剩余槽保留给SUPERUSER；分别在两个model unknown落库前约8/9毫秒。事后只读连接观察为128/128。由此可以确认两次失败即时存在本机PG连接容量拒绝，不能继续把它简单归为外部供应商故障。
+
+必要源码还显示共同路径：`pi_gateway._model.cancellation` 的外来监视线程每次查询PiOperation、finally关闭其连接；`transport.watch_socket_cancellation` 每0.25秒调用该check，捕获任何异常便shutdown/detach在途HTTP socket，且未保留原check异常。主线程已有连接的再次check仍可能成功，最终只留下response_headers/provider_unavailable。**源码与两次精确时间旁证高度支持“本机连接耗尽导致取消监视器中断请求”这一因果解释；仍无原watch线程trace/PID归属，不冒称直接捕获原异常或已复现具体线程。**
+
+监视器在权限/状态无法确认时断开请求属于保守失败关闭，不能为减少报错而忽略PG/check异常或让模型继续执行。若进入后续修复，应保留失败关闭、unknown和不重发，按证据处理连接归属/容量以及将固定取消检查失败来源传回主线程；不先增加超时、不无限换模型，不借新ID重做两个未知请求。独立审查者没有执行任何额外网络、模型、外发、生产清理或隔离栈动作。
+
+### 取消监视器候选修复独立增量复审
+
+已直接读取 `transport.py`、`pi_gateway.py`、新增 `pi_cancellation.py` 与直接调用方 `provider.py/chat_stream.py/pandas_sandbox.py/pi_worker.py`，以及新增 `test_pi_live_acceptance_cancellation.py`、原DNS阶段夹具的小幅签名调整、前端固定错误提示。未修改源码，未由审查者启动测试环境、数据库、Runner或外部请求。
+
+当前增量复审无实质阻断：
+
+- Pi的监视连接在所属线程创建独立DatabaseWrapper，仅在该线程替换Django alias，入口建立连接/核autocommit、定时检查复用、退出关闭并恢复原alias；不把owner的DB wrapper跨线程。owner仅在transport前有一次允许的连接老化边界，活动期间不再close_old_connections。连接与statement_timeout从当前配置/原会话更短限制及本轮预算取界，不放宽原权限。
+- watcher首检完成才准入该HTTP连接；首次容量/权限/取消检查失败或首检超时不会调用provider connect/request。原transport的DNS恢复GET也各自走相同首检路径，未带模型正文或凭据。
+- 首个watch失败在锁内保存；即使owner后续查询成功或下层只报socket/JSON错误，HTTP异常分支、成功出口及finally均重新检查该原失败。新固定 `ai_cancellation_check_unavailable` 只提供有限stage/reason/requestStarted/SQLSTATE等元数据，错误正文、SQL、连接串或供应商正文不进入公开诊断；真实取消/权限AiError代码仍原样保留。
+- stop与socket切断使用同锁，先标stopped后清理；迟到检查不得detach已经交还给调用方的socket。清理线程尚未确认退出时返回固定cleanup_unconfirmed/cleanupComplete状态，不能把未清理状态当成功；线程迟到完成仍关闭其自有连接。
+- `principal_for_work`前检及原`principal_for`最终身份、权限、session epoch/generation校验保留，真实用户取消仍在检查中断请求；原gateway dispatch/op unknown、同身份不重放、无新自动重试规则保持。Chat默认无scope取消、pandas现有callable stop使用方式兼容；没有给普通Chat或模型增加业务权限。
+
+已读外置证据 `D:/codex-artifacts/pi-unified-chat-20261020/live/resume-20261021/`：`cancellation-memory-tests.log` 共19项OK，涵盖容量首检零HTTP、首检阻塞/超时、迟到不detach、socket/JSON故障不遮盖首错、成功出口取消、默认无scope、清理未确认、provider→_model→gateway原dispatch/event与不重放，以及原DNS阶段边界。另 `cancellation-ui.log` 的8项前端固定提示/路由检查通过。
+
+`cancellation-private-pg-tests.log` 最终1项OK，真实私有PG核三次watcher查询同一backend PID且不同于owner、owner在活动期间close_at过期仍不重连、实际取消可观测、线程结束后watcher backend已消失；日志尾含PRIVATE_PG_STOPPED、私有cluster已停/端口关闭。首次测试在factory允许的一次老化边界之前取owner PID导致FAIL，原件完整保留为 `cancellation-private-pg-first-baseline-failure.log`；随后把活动期比较基线移到该边界之后，未为过测移除必要前置清理。审查者独立核对了修正与最终日志，没有重复启库。
+
+结论仅适用于当前候选增量：消除0.25秒反复建连并改正检查错误的来源传播，不增加正式PG连接容量，不证明128槽正式负载已恢复，也不把两次历史unknown改写为确定的原线程异常或成功。是否合main/上线仍按用户当次明确授权；本次没有执行这些动作。
+
+### 新私有实投夹具的动态policy读取最小复核
+
+按主代理已确认的当前真实投递授权，仅复核 `tests/pi-live-acceptance-secrets.py` 和case的`effective_config/direct wrapper`增量。启动时一次只读模型完整runtime字段与一次key解密仅经内存/stdin；后续`current_policy`每guard仅短连接读取policy identity/enabled/groups/version，强制readonly、statement_timeout/connect_timeout各5秒，退出关闭，不重新读取模型或解密key。每次还读取当前真实`auth/me`与已核路径的机器人配置，原配置schema/enabled gate、唯一owner/role/scope直接绑定和原`_targets/_prepared`版本/附件字节/transport guard保持。
+
+`dingtalk_transport.send/send_media`的wrapper保存并调用原实际函数，只额外限制direct及原获准绑定；没有伪造正文/附件提供商回执。私有catalog只载候选真实报告工具，background principal shim每次动态核实际账号role与scope，不开放业务数据或其他写动作。当前最小增量无安全阻断；另要求confirm前明确核preview附件fileId/SHA等于本轮预期合成文件，防模型选错两份合成附件导致验收误报。
+
+已通知执行者补这两项确定性断言后，可按主代理既有授权启动一次精确PG55541/Runner18123、namespace `pi-test-live-resume-20261021-7f4d2a16` 的独立候选投递；不新增产品复审或外部探测。此处只记录审查边界，不代表实际执行/发送成功，结果以该次原账本与清理回执为准。审查者未运行这些动作。
+
+### 候选实投的技能切换路径审查（进行中）
+
+该次候选 `candidate-isolated-delivery` 原证据显示：workspace:init create完成且5个staging controls完成，随后新prompt操作 `pi-op-13a6ce15-1bae-4653-b28f-756e60ee2938` 的runner:create为unknown，原native固定错误command_outcome_unknown。没有任何model/tool/business action或正文/附件发送。原native随后dispose完成、sessiondisposed；cleanup.json记录双端口closed、Runner退出0、精确namespace容器卷已删除。Django结果中的control:freeze prepared是较早快照，不覆盖后续native已完成处置。原unknown不重放。
+
+已核 `Broker.create(existing)` 会对比当前技能并调用 `update_skills`：本次workspace:init技能为空，而旧实投run夹具选择excel-report，因此实际走空闲检查、旧Pi退出、新Pi启动和重新绑定路径。现有前端允许合法换技能，不能仅把投递夹具改为空技能就宣称产品切换能力没有问题。另一方面，投递既有附件本身不需要excel-report，夹具简化与产品能力判定应分别说明。
+
+原native没有保存失败的底层阶段/trace，约5秒后的command_outcome_unknown不能证明究竟是退出、启动、目录发现还是绑定失败。旧真实 `test_04_idle_atomic_skill_update` 覆盖1.0→1.1显式skills变更及后续create同技能，未覆盖本次1.3空→excel-report的existing-create重启。
+
+另发现可用无网络假流验证的直接生命周期风险：`Session.read`仅在EOF时检查 `self.proc is proc`，处理正常帧前没有该身份门禁；技能重启等待旧进程退出但不等待旧reader处理完缓冲。旧reader若在新进程启动后继续交付旧setStatus/catalog/agent帧，可能改动当前skills_catalog或phase。已建议执行者用阻塞假stdout流先固定旧proc、替换当前proc和新状态、再释放旧帧，检查不会污染新状态；此源码支持的竞态风险尚未证明就是本次原失败根因。审查者不运行反例或新环境，等待执行者定位/修复后仅做增量复核。
+
+后续事实更新：执行者无付费真实rootless反例 `skill-change-real-before.log` 得到精确栈 `update_skills→start→bind→_bind→thinking_level_requires_explicit_change`。同模型技能重启未恢复先前实际off档，新Pi默认档与旧provider支持集合不符；这已是可复现产品缺陷，不再仅是假设。修复应只恢复重启前已核实际档到原模型，保持用户切换新模型时不支持组合仍要求显式选择；不得泛化强置off或跳过_bind。
+
+旧reader目录污染也已由执行者无网络反例复现。其第一版仅在readline返回后增加proc身份if，独立审查又按根代理提出的第二交错做了纯Python有界检查：mock `server.decode`阻塞，旧reader越过第一个if后切换proc/new catalog，再释放decode，最终catalog仍变old。检查没有写源码或启动任何DB、端口、容器、网络，线程已退出。由此确认单次无锁identity if不足以围住该竞态；已要求proc替换与record应用使用同锁或明确旧reader退出确认，不以第一种延迟readline反例通过替代完整闭合。它仍不被冒称为原13a6失败根因。
+
+第二版把decode放锁外、proc复验与record应用放同session锁，并将proc替换也放同锁，已覆盖上述第二交错；但独立静态复审又发现新锁序反转：`Session.write`依次取write_lock→session.lock，而原`workspace.cancel_queues`在session.lock内调用write，造成相反session.lock→write_lock。并发取消与普通RPC可互等，已作为本增量阻断回传执行者，要求UI取消写出移锁外/按捕获proc发送或统一无反转锁序，并补无网络并发反例。无付费技能切换after日志已成功不替代此锁序问题闭合。
+
+最终增量复审通过：`Session.write`先在session锁内捕获目标proc，释放后再取write_lock做pipe IO；`cancel_queues`在session锁内原子摘录UI及清队列状态，锁外按捕获expected_proc写取消，消除反向锁序且不把旧取消写向新进程。readline/decode及RPC等待在状态锁外，proc身份复验与record应用同session锁；所有相关proc替换也同锁，旧异常/stderr与延迟gateway帧均不再污染新实例。旧模型重启只恢复原已核实际思考档与原支持集合，新model不支持组合仍显式拒绝，未跳过_bind、权限、busy、审核manifest或未知围栏。
+
+已独立读取 `skill-reader-memory-final.log` 的5项OK，覆盖延迟readline、延迟decode及旧坏帧、旧gateway不写新进程、取消/普通写锁序与pipe不持状态锁、用户新model不支持档显式拒绝。另 `skill-change-real-final.log` 的真实无付费1项OK：同环境1.3.0空技能→existing-create excel-report回到idle（1.431秒），实际off档保留，gatewayRequestCount=0、原dispose为disposed、cleanupComplete=true。原before失败及中间无锁guard/锁序缺口均保留证据，不能倒写成已通过。当前相关候选无剩余实质阻断；本审查未重跑实景、未调用模型/机器人、未合main或发布。原实投13a6的command_outcome_unknown仍保持，不因新反例成功改写为已恢复。
+
+### fdd65231 后的Go限流与另一模型独立验收边界
+
+已读取 `candidate-isolated-delivery-after-skill-fix/results.json`、`run-metadata.json`、`cleanup.json`：来源fdd65231；5个staging control、runner:create/skills_loaded/prompt均completed。原操作 `pi-op-3e39123b-d28a-49b9-ae3a-db8f018648e5` 内第一条model和一条tool已completed，第二条model才unknown/provider_rate_limited；不能把整个operation unknown说成首个模型HTTP就失败。真实正文/附件投递未执行，deliveries为空；脚本在模型轮未succeeded时退出，不进入专用业务confirm/perform。原业务action精确计数由执行者另行保全，不能从空deliveries单独推导action数。
+
+当前固定transport源码仅把HTTP429映射为provider_rate_limited；这支持限流判断，但直接原responseDiagnostics.httpStatus证据仍以执行者原件为准，不能事后编造。限流原dispatch/operation保持unknown，不自动重发Go、不调大超时、不换ID恢复该轮。cleanup已明确私有PG55541/Runner18123双端口closed、Runner退出0、精确namespace容器及卷删除。
+
+在主代理已确认的持续多模型/真实消息验收授权内，可以明确开展Agnes工具能力的另一独立验收，当前未见其必然违反原unknown不重放的实质阻断：动态选当前已启用模型及版本、新会话/新意图、使用该模型专属的新caption，旧Go未知和零外发事实明确关联，不把新结果称为原Go任务恢复或Go工具能力通过。新预览仍须核本人唯一direct、不可变合成fileId/SHA、正文、version和digest后单次confirm；已有/新action unknown或部分成功均不通过换actionID、换模型、改投来补发。本审查不新增模型/网络/外发动作，实际是否完成以该次原回执为准。
+
+### Agnes 两份真实投递最终事实复核
+
+独立读取 `candidate-agnes-tool-capability/results.json`、`business-per-action-readonly.json`、原带时间的progress/readonly观察、`run-metadata.json` 与最终 `cleanup.json`，在PDF结果和清理出齐后完成复核。另对这些已保存JSON做纯数据交叉断言，没有重跑环境、模型或外发。
+
+- 来源fdd65231的候选源码、Agnes `agnes-2.5-flash` v3及原4096输出/260秒任务预算保持；两轮operation均succeeded，每轮3条model、2条tool派发全部completed。该结果证明本次候选Agnes报告工具链，不能扩大为Go能力验收或正式已部署。
+- XLSX动作 `8b6d7886…` 与PDF动作 `72979c3b…` 均succeeded。每个原action只出现1次client:confirm、1次dispatch_intent、正文dispatch/receipt各1、附件dispatch/receipt各1。最终真实ORM effects为actions2/bodyDispatches2/attachmentDispatches2；早期模型轮结束时的0发送快照不作最终结论，原时序证据保留。
+- 两项原preview均为direct，正文分别带 `AGNES TOOL CAPABILITY` 和对应XLSX/PDF标记；fileId、previewDigest与结果引用一致。原合成XLSX的SHA为 `5808407b…3b5b1d`、3566字节，PDF为 `80d2ce18…66a206`、1200字节，均与此前原件一致；确认前完整fileId/SHA断言及原targetVersion重新核验保留。两动作最终version均5，各自receipt带独立targetVersion。
+- 两项真实结果的body/attachment均为platform=dingtalk、state=accepted并带各自64位receiptSha256；aggregate均accepted_by_platform、mayReplay=false，objectId/actionId一致。只证明平台受理，不宣称已送达、已读或群投递通过；没有把两项成功回执当同一action的自动重发。
+- 最终namespace `pi-test-live-resume-20261021-6e9a2d74` 精确清理回执：PG55541与Runner18123均closed、Runner退出0、私有容器/卷删除、cleanupComplete=true、productionServiceLifecycleChanged=false。原正式未知请求、Go限流unknown和先前失败原件均保持，没有重放或以本次成功改写。
+- 对该目录JSON检查常见Bearer/access_token/加密密钥字段/DPAPI密钥正文/policyReaderPassword标记，未发现这些敏感输出；提供商回执只保留摘要，未保存真实凭据或原私有模型响应。
+
+最终事实结论：本次候选的两份合成附件、两段正文经原业务确认与真实企业机器人接口分别取得平台受理回执，审计与清理完整，未发现剩余事实矛盾。它仍是隔离候选采用验收，不表示已合main/上线，也不授权继续发送更多测试消息。

@@ -1,0 +1,113 @@
+{
+  "observedAt": "2026-10-20T21:55:57.625358+00:00",
+  "source": "passive original private ORM tables; readonly only",
+  "actions": [
+    {
+      "actionId": "pi-action-8b6d7886-54e7-4179-9842-56d801964259",
+      "status": "dispatched",
+      "errorCode": "",
+      "version": 4,
+      "previewDigest": "77527d205cc76d755c2eb00be5c251c393ee05e5bf8a9f8535f577d9f009b93d",
+      "recipientType": "direct",
+      "body": "[LIVE ACCEPTANCE AGNES TOOL CAPABILITY 20261021 XLSX] Synthetic test only. No business/customer data. Reply not required.",
+      "attachment": {
+        "fileId": "pi-file-74994f56-c1a0-463a-8f1b-5e1028ace68e",
+        "fileName": "abf3a3e7741e-live-acceptance-synthetic.xlsx",
+        "sha256": "5808407b9198903cdc066561b29d70421ce769f4ba89b4432752383cba3b5b1d",
+        "sizeBytes": 3566
+      }
+    }
+  ],
+  "auditCounts": {
+    "prepared": 1,
+    "dispatch_intent": 1,
+    "client:confirm": 1,
+    "claimed": 1
+  },
+  "dispatches": [
+    {
+      "kind": "control:deadline",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "runner:create",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "control:deadline",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "runner:create",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "control:skills_loaded",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "runner:prompt",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "model",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "runner:gateway_response",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "tool",
+      "status": "completed",
+      "errorCode": "",
+      "toolOk": null,
+      "toolErrorCode": null
+    },
+    {
+      "kind": "runner:gateway_response",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "model",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "runner:gateway_response",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "tool",
+      "status": "completed",
+      "errorCode": "",
+      "toolOk": null,
+      "toolErrorCode": null
+    },
+    {
+      "kind": "runner:gateway_response",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "model",
+      "status": "completed",
+      "errorCode": ""
+    },
+    {
+      "kind": "runner:gateway_response",
+      "status": "completed",
+      "errorCode": ""
+    }
+  ]
+}

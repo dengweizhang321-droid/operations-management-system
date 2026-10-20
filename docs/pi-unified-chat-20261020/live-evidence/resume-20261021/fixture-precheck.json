@@ -1,0 +1,12 @@
+{
+  "pureDataFixtureCheck": "passed",
+  "previewSelector": "preview.details.recipient",
+  "preservedAssetsVerified": true,
+  "postgresStarted": false,
+  "runnerStarted": false,
+  "modelCalled": false,
+  "messagesSent": false,
+  "publicHttpFixtureSyntax": "passed",
+  "nestedPreviewContract": "passed",
+  "newPrivateStackRequired": false
+}

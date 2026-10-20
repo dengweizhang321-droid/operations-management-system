@@ -1,0 +1,9 @@
+{
+  "observedAt": "2026-10-21T06:02:49+08:00",
+  "observer": "root read-only Windows port and process observation",
+  "privatePortsChecked": [55541, 55873, 18123],
+  "privateListeningPorts": [],
+  "boundPythonPostgresWslProcesses": [],
+  "processMatchScope": "exact verification worktree or pi-test-live-resume-20261021 namespace",
+  "productionServiceLifecycleChanged": false
+}

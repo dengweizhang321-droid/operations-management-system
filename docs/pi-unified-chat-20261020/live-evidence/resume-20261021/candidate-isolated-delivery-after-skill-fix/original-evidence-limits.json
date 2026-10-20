@@ -1,0 +1,22 @@
+{
+  "operationId": "pi-op-3e39123b-d28a-49b9-ae3a-db8f018648e5",
+  "observedSequence": [
+    "model completed",
+    "system_tool/get_pi_business_options completed",
+    "second model unknown/provider_rate_limited"
+  ],
+  "httpStatus": {
+    "directOriginalDiagnosticPreserved": false,
+    "sourceContract": "backend/ai_assistant/transport.py ProviderHttpError constructs provider_rate_limited only when status == 429",
+    "conclusion": "HTTP429 correspondence by fixed code contract; not a recovered original responseDiagnostics field"
+  },
+  "businessEffects": {
+    "exactOriginalSqlCountsPreserved": false,
+    "preparationToolObserved": false,
+    "confirmationInvoked": false,
+    "deliveryReceipts": 0,
+    "conclusion": "No report action/body/media path reached: sole actual tool was options read; assertion failed before action lookup/confirm. Do not present reconstructed SQL COUNT as native evidence."
+  },
+  "cleanup": "cleanup.json and native-ledger-projection.json preserve original dispose/disposed and closed private resources",
+  "replayAllowed": false
+}

@@ -1,0 +1,16 @@
+{
+  "method": "POST",
+  "url": "https://opencode.ai/zen/go/v1/chat/completions",
+  "headersContainCredentials": false,
+  "body": {},
+  "containsModelOrMessages": false,
+  "replaysOriginalModelRequest": false,
+  "outcome": "refused_or_transport_failure",
+  "exceptionType": "ProviderHttpError",
+  "code": "provider_error",
+  "diagnostics": {
+    "httpStatus": 400
+  },
+  "causeTypes": [],
+  "elapsedSeconds": 1.734
+}
