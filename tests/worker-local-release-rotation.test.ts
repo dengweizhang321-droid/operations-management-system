@@ -89,7 +89,9 @@ test("successor sequence remains bounded while allowing continued forward releas
   assert.equal(successorPayload({ ...input, sequence: 128 }).sequence, 128);
   assert.equal(successorPayload({ ...input, sequence: 129 }).sequence, 129);
   assert.equal(successorPayload({ ...input, sequence: 256 }).sequence, 256);
-  for (const sequence of [0, -1, 1.5, 257, Infinity]) {
+  assert.equal(successorPayload({ ...input, sequence: 257 }).sequence, 257);
+  assert.equal(successorPayload({ ...input, sequence: 512 }).sequence, 512);
+  for (const sequence of [0, -1, 1.5, 513, Infinity]) {
     assert.throws(() => successorPayload({ ...input, sequence }), /sequence/);
   }
 });

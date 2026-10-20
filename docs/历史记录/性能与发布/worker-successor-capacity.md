@@ -1,5 +1,7 @@
 # Worker successor 有界容量评审（2026-09-10）
 
+> 2026-10-20 更新：生产链已达 256/256，新的容量检查点将上限有界扩展至 512；旧记录全部保留，详见 [Worker successor 容量检查点扩展至 512](../../worker-successor-capacity-512-20261020/REPORT.md)。
+
 本次采用前正式链保留 128 条 successor，旧源码的硬上限也是 128；不能继续用旧验证器生成第 129 条。用户已授权检查所有分支并合并发布，本次采用源码级有界扩容至 256，仍完整验证 bootstrap 到 effective head 的全部记录，不做历史压缩或链根轮换。
 
 2026-09-11 已受控激活第 129 条，effective release 为 `20260910T161236Z-c0ab8ed9ff663df9`；当前上限 256。完整采用记录见 [统一发布证据](../../evidence/guangdong-replenishment-health-production-20260911.json)。Worker 发布源固定为 `D:\运营管理系统-sales-django-release`，每次 plan 前必须确认该干净集成树与已验收 main 的提交一致；仅更新生产保护入口根目录并不更新发布源。
