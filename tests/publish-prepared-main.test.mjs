@@ -16,7 +16,7 @@ async function fixture(t,components=['worker'],failAt=null){
  const request={mainCommit:'a'.repeat(40),components,predecessorWorker:{...head},predecessorDjangoSha256:django};
  const context={source:root,out,installedRoot:installed,workerRuntimeRoot:runtime,deployOnly:false,
   sourceIdentity:async()=>({commit:request.mainCommit,tree:'b'.repeat(40)}),
-  maintenanceReadiness:async()=>({route:'fixture',sourcePins:Object.fromEntries(['manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs'].map(name=>[name,'4'.repeat(64)]))}),
+  maintenanceReadiness:async()=>{event('readiness');return {route:'fixture',sourcePins:Object.fromEntries(['manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs'].map(name=>[name,'4'.repeat(64)]))};},
   sha:async file=>file===path.join(installed,'deployment.json')?django:path.basename(file).startsWith('app.prepare-')?'9'.repeat(64):'4'.repeat(64),
   progress:{begin(){},complete(){},log(){},success(){event('success');successes++;}},
   api:{workerRuntimeRoot:runtime,workerPreparationIdentity:async()=>{event('identity');return {fixture:true};},workerSourceBindingVersion:'fixture',windowsPathSha256:()=> '5'.repeat(64),canonicalJson:JSON.stringify},
@@ -50,7 +50,7 @@ async function fixture(t,components=['worker'],failAt=null){
  };
  return {request,context,events,out,get successes(){return successes;},set head(value){head=value;},set django(value){django=value;},set readyStatus(value){readyStatus=value;},set readyBody(value){readyBody=value;}};
 }
-const operations=events=>events.filter(e=>!['lock','ownership','head','identity','success'].includes(e));
+const operations=events=>events.filter(e=>!['lock','ownership','head','identity','readiness','success'].includes(e));
 test('missing maintenance material fails before STARTED and the same prepared package can recheck',async t=>{
  const f=await fixture(t,['django']),original=f.context.sha;let missing=true;
  f.context.sha=async file=>{if(missing&&file===path.join(f.context.workerRuntimeRoot,'state/worker-process.json'))throw Error('missing material');return original(file);};
@@ -302,4 +302,19 @@ test('Pi151 upgrade failure keeps the original publication unknown and never sta
 test('Pi151 failed upgrade preparation check cannot publish PREPARED or enter maintenance',async t=>{
  const f=await workspaceMigrationFixture(t,'PiUpgradeCheck');await assert.rejects(publishPreparedMain(f.request,{...f.context,prepareOnly:true}),/fixture failure/);
  await assert.rejects(fs.access(path.join(f.out,'preparation/PREPARED.json')));assert.ok(!f.events.includes('EnterMaintenance'));
+});
+test('non-canonical preparation source spelling is normalized before the Worker source binding',async t=>{
+ const f=await fixture(t,['worker']);f.context.source='D:/fixture/source/';
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ const binding=JSON.parse(await fs.readFile(path.join(f.out,'preparation/source-binding.json'),'utf8'));
+ assert.equal(binding.sourceRoot,'D:\\fixture\\source');
+});
+test('predecessor qualification runs before expensive reused-package verification',async t=>{
+ const f=await fixture(t,['worker','django']);
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ f.events.length=0;
+ await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ assert.equal(f.events.filter(e=>e==='readiness').length,2);
+ assert.ok(f.events.indexOf('readiness')<f.events.indexOf('reuse'));
+ assert.ok(f.events.indexOf('readiness')<f.events.indexOf('VerifyPreparedApp'));
 });

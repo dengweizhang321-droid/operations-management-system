@@ -15,6 +15,16 @@ const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const exists=async file=>{try{await fs.access(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};
 const read=async file=>JSON.parse(await fs.readFile(file,'utf8'));
 const noProgress={begin(){},complete(){},log(){},success(){}};
+// Worker source bindings persist the Windows spelling of one frozen source.
+// Normalize separators, dot segments and a trailing separator before binding,
+// but preserve case: existing prepared packages bind the original spelling and
+// windowsPathSha256 already folds case for the identity hash.
+export function normalizePreparedSourceRoot(value){
+ assert.ok(typeof value==='string'&&/^[A-Za-z]:[\\/]/.test(value),'发布来源必须是带盘符的绝对 Windows 路径');
+ let normalized=path.win32.normalize(value.replaceAll('/','\\'));
+ if(normalized.length>3)normalized=normalized.replace(/[\\]+$/,'');
+ return normalized;
+}
 
 // A production CLI invocation either prepares or deploys. Its default must
 // never turn a missing package into a build inside the publication attempt.
@@ -51,7 +61,8 @@ export async function publishPreparedMain(request,context){
  const schema=schemaForRequest(request);
  const piUpgradeRequired=['PiWorkspace','PiBusiness'].includes(schema?.additionKind);
  const piUpgradeImage=schema?.additionKind==='PiBusiness'?piBusinessImage:piWorkspaceImage;
- const {source,out,api,rotation,transport}=context;
+ const {out,api,rotation,transport}=context;
+ const source=normalizePreparedSourceRoot(context.source);
  const progress=context.progress??noProgress;
  const installed=context.installedRoot??'D:/teruisi-runtime/django-sales/app';
  const runtime=context.workerRuntimeRoot??api.workerRuntimeRoot;
@@ -135,6 +146,14 @@ export async function publishPreparedMain(request,context){
     if(piUpgradeRequired)piRunnerUpgrade=verifyPiUpgrade(prepared.piRunnerUpgrade,piUpgradeImage);
     assert.equal(Boolean(plan),components.worker,'准备包Worker范围不一致');
     assert.equal(Boolean(pkg),components.django,'准备包Django范围不一致');
+    // Cheap predecessor/controller qualification must fail before the expensive
+    // Worker and prepared-app verification. The full readiness check stays at
+    // the pre-STARTED boundary so dynamic facts are still fresh.
+    if(components.django&&!context.prepareOnly){
+     phase='核对维护前驱资格';progress.begin(phase);
+     await (context.maintenanceReadiness??maintenanceReadiness)({source,head:before.head,djangoManifestSha256:djangoBefore,installed,runtime,sha});
+     progress.complete();
+    }
     if(plan){
      phase='复验已准备前端';progress.begin(phase);
      const bindingFile=path.join(preparationOut,'source-binding.json');

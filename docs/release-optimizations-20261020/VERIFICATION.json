@@ -1,0 +1,37 @@
+{
+  "version": "release-optimizations-verification-v1",
+  "at": "2026-10-20T09:55:00+08:00",
+  "branch": "codex/release-optimizations-20261020",
+  "base": "f5c688452710c939dd50e354a60df20f65c7acf8",
+  "scope": ["predecessor-qualification-first", "source-root-normalization", "pi152-acl-contract-test"],
+  "checks": [
+    {
+      "name": "release-tool-node-tests",
+      "command": "node --test tests/publish-prepared-main.test.mjs tests/publish-main-command.test.mjs tests/publish-latest-main.test.mjs tests/publish-main-progress.test.mjs tests/manual-maintenance-business-readiness.test.mjs tests/manual-maintenance-lock.test.mjs tests/release-source-binding.test.mjs tests/publisher-windows-path.test.mjs",
+      "tests": 133,
+      "passed": 133,
+      "failed": 0,
+      "log": "evidence/node-tests.log"
+    },
+    {
+      "name": "pi152-acl-contract",
+      "command": "python tests/pi152-acl-catalog-boundary.py",
+      "checks": 24,
+      "result": "PI152_ACL_CONTRACT_PASSED tables=3 append_only=2 checks=24 no_database=True",
+      "log": "evidence/acl-contract.log"
+    }
+  ],
+  "syntax": {
+    "nodeCheck": "passed",
+    "pythonCompile": "passed",
+    "gitDiffCheck": "passed"
+  },
+  "environment": {
+    "powershell": "5.1.26100.9444",
+    "powershell7": "not available on this host"
+  },
+  "productionTouched": false,
+  "deploymentPerformed": false,
+  "migrationPerformed": false,
+  "controlBundleAdopted": false
+}

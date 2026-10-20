@@ -29,6 +29,8 @@
 
 ## 发布与交付
 
+本轮补充：[发布流程可避免返工优化（候选）](../release-optimizations-20261020/REPORT.md)。
+
 本轮补充：[四项优化与Pi三期组合上线](../combined-release-20261020/PRODUCTION.md) · [Pi152目录核对器修正与恢复](../pi152-finalize-recovery-20261020/REPORT.md)。
 
 本轮补充：[发布等待四项定向优化](../release-contention-20261020/REPORT.md)。
@@ -43,6 +45,7 @@
 
 | 任务目录 | 文档数 | 入口 |
 | --- | --- | --- |
+| `release-optimizations-20261020` | 4 | [发布流程可避免返工优化（候选）](../release-optimizations-20261020/REPORT.md) |
 | `manual-release-readiness-20261017` | 1 | [手动发布的准备状态提示修复](../manual-release-readiness-20261017/REPORT.md) |
 | `manual-release-identity-20261017` | 1 | [手动发布与自动准备的实际子进程环境一致性](../manual-release-identity-20261017/REPORT.md) |
 | `main-prebuild-notification-20261017` | 1 | [打包状态查看窗口与本地完成提醒](../main-prebuild-notification-20261017/REPORT.md) |
