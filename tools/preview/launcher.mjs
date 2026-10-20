@@ -4,6 +4,7 @@ import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileS
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { dependenciesCurrent, dependencyFingerprint, synchronizeDependencies } from "./dependencies.mjs";
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const runtime = path.join(root, ".runtime/preview");
 const sessionFile = path.join(runtime, "session.json");
@@ -122,7 +123,29 @@ function openPreview(port) {
         return;
     const chrome = [path.join(process.env.PROGRAMFILES ?? "C:/Program Files", "Google/Chrome/Application/chrome.exe"), path.join(process.env.LOCALAPPDATA ?? "", "Google/Chrome/Application/chrome.exe")].find(existsSync);
     if (chrome)
-        spawn(chrome, [`http://127.0.0.1:${port}/?module=inventory`], { detached: true, stdio: "ignore", windowsHide: true }).unref();
+        spawn(chrome, [`--user-data-dir=${path.join(runtime, "chrome-profile")}`, "--no-first-run", "--no-default-browser-check", `http://127.0.0.1:${port}/?module=inventory`], { detached: true, stdio: "ignore", windowsHide: true }).unref();
+}
+async function checkStartup(ports, bindings) {
+    const expected = validatePorts(ports.port);
+    if (Object.keys(expected).some(key => ports[key] !== expected[key])
+        || bindings.TERUISI_RUNTIME_ENV !== "development"
+        || bindings.TERUISI_LOCAL_DIRECT_ACCESS !== "true"
+        || bindings.PREVIEW_READER_URL !== `http://127.0.0.1:${ports.reader}`
+        || bindings.PREVIEW_WRITER_URL !== `http://127.0.0.1:${ports.writer}`)
+        throw new Error("预览会话端口、开发标记或隔离后端配置不一致");
+    const base = `http://127.0.0.1:${ports.port}`;
+    const get = url => fetch(url, { redirect: "error", signal: AbortSignal.timeout(15000) });
+    const responses = await Promise.all([get(base + "/"), get(base + "/@vite/client"),
+        get(bindings.PREVIEW_READER_URL + "/health/live"), get(bindings.PREVIEW_WRITER_URL + "/health/live")]);
+    try {
+        if (responses.some(response => !response.ok)
+            || responses[0].headers.get("X-Teruisi-Preview") !== "synthetic-v1"
+            || !(await responses[1].text()).includes("createHotContext"))
+            throw new Error("预览启动检查失败：响应标识、Vite 开发模块或隔离后端未就绪");
+    }
+    finally { await Promise.all(responses.map(response => response.body?.cancel().catch(() => {}))); }
+    return { port: ports.port, development: true, reader: bindings.PREVIEW_READER_URL,
+        writer: bindings.PREVIEW_WRITER_URL, preview: responses[0].headers.get("X-Teruisi-Preview") };
 }
 async function main() {
     const action = process.argv[2] ?? "start";
@@ -130,7 +153,8 @@ async function main() {
         throw new Error("Use start/status/stop/prepare/snapshot/restore");
     const branch = safePaths();
     if (action === "status") {
-        console.log(await requestControl(action) ?? { status: "stopped" });
+        const current = await requestControl(action);
+        console.log(current ? { status: current.status, url: current.url, branch: current.branch } : { status: "stopped" });
         return;
     }
     if (action === "stop") {
@@ -147,8 +171,15 @@ async function main() {
     const existing = await requestControl("status");
     if (existing) {
         if (action === "start") {
-            console.log(existing);
-            openPreview(Number(new URL(existing.url).port));
+            const current = dependencyFingerprint(root, cleanEnvironment());
+            if (existing.dependencyFingerprint !== current || !dependenciesCurrent(root, current))
+                throw new Error("前端依赖输入已变化或尚未同步；请先运行 npm run preview:stop，再启动同步。运行中不会执行 npm ci");
+            if (existing.status !== "ready") throw new Error("预览仍在准备中，请等待启动窗口就绪");
+            const session = readJson(sessionFile);
+            const { vars } = readJson(path.join(runtime, "wrangler.json"));
+            const checks = await checkStartup(session, vars);
+            console.log({ status: existing.status, url: existing.url, branch: existing.branch, checks });
+            openPreview(session.port);
             return;
         }
         throw new Error("先运行 npm run preview:stop，再准备或恢复数据");
@@ -156,6 +187,7 @@ async function main() {
     const ports = validatePorts(Number(process.env.TERUISI_PREVIEW_PORT ?? 3100));
     const control = await reserve(ports.control);
     let state = "preparing";
+    let installedFingerprint = null;
     const token = randomBytes(32).toString("hex");
     control.on("request", (req, res) => {
         if (req.headers.authorization !== `Bearer ${token}`) {
@@ -163,7 +195,7 @@ async function main() {
             return;
         }
         res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ status: state, url: `http://127.0.0.1:${ports.port}`, branch }));
+        res.end(JSON.stringify({ status: state, url: `http://127.0.0.1:${ports.port}`, branch, dependencyFingerprint: installedFingerprint }));
         if (req.url === "/stop" && req.method === "POST")
             void shutdown();
     });
@@ -180,13 +212,13 @@ async function main() {
         DJANGO_SECRET_KEY: randomBytes(48).toString("hex"), TERUISI_DJANGO_INTERNAL_SECRET: randomBytes(48).toString("hex") };
     const python = path.join(runtime, process.platform === "win32" ? "venv/Scripts/python.exe" : "venv/bin/python");
     try {
-        if (!existsSync(path.join(root, "node_modules/vite/package.json"))) {
-            console.log("正在安装此 worktree 的前端依赖…");
-            if (process.platform === "win32")
-                await run("cmd.exe", ["/d", "/c", "npm ci --no-audit --no-fund"], env);
-            else
-                await run("npm", ["ci", "--no-audit", "--no-fund"], env);
+        // Refuse the complete group before installing or preparing data.
+        const probes = [];
+        try {
+            for (const port of [ports.port, ports.reader, ports.writer]) probes.push(await reserve(port));
         }
+        finally { await Promise.all(probes.map(close)); }
+        installedFingerprint = await synchronizeDependencies(root, env, run);
         if (!existsSync(python)) {
             console.log("正在准备独立 Python 环境（首次运行需要安装依赖）…");
             await run(process.platform === "win32" ? "python" : "python3", ["-m", "venv", path.join(runtime, "venv")], env);
@@ -257,7 +289,11 @@ async function main() {
         vite.once("exit", () => { if (!stopping)
             void shutdown(1); });
         await ready(`http://127.0.0.1:${ports.port}/`);
+        const checks = await checkStartup(ports, bindings);
+        if (dependencyFingerprint(root, env) !== installedFingerprint)
+            throw new Error("启动期间依赖输入发生变化，请停止后重新同步");
         state = "ready";
+        console.log({ checks });
         console.log(`\n演示预览已就绪：http://127.0.0.1:${ports.port}/?module=inventory\n分支：${branch}\n保存代码自动更新；Ctrl+C 或 npm run preview:stop 停止。`);
         openPreview(ports.port);
     }
