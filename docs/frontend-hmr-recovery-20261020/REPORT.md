@@ -129,3 +129,16 @@ eace控制已采用为b8c5cb3a/4f4c7ff4，但尚未启动CMD修复writer；只�
 本增量仅为固定系统host增加专用读取，要求固定路径/SHA、普通文件、无重定向及读取前后dev/ino/birth/size/mtime/ctime/nlink稳定，允许操作系统合法硬链接。原 `nativeRead` 及全部证据/状态文件链接规则逐字节保持，校验摘要为 `29eae39434b6c115f152bda11bca2eead069ec196b1cd4add26791dcf6bc3204`。`cmd-entry-host-qualification` 固定15原件和PREFLIGHT SHA `7b31b41daa3b637c240a0c4e259e973f090dda9ea67560c7df050ab6a50ffa1f`，将eace的 `0d4e1a7f...` 采用作为新一跳中间节点。PREFLIGHT中的out/provenance/resolution absent仅为归档时的历史事实；新writer仍使用原fresh-out、双锁和resolution门禁。四套失败材料、3166对象、原provenance、分类器及协调次数不改。
 
 真实 `native391PgQualification` 已于 `2026-10-20T17:17:53.311Z` 只读实跑通过，原回执chunk `f1e3dd`、exit0；未运行census或业务。新增3项系统host及固定preflight/hop检查通过（chunk `f1c045`、exit0），覆盖真实OS硬链接、重定向/类型/链接数/identity/字节负例及错误归档/集合。语法和diff检查通过，不重复先前8项或整包。CLI与out继续使用原 `--native-391-cmd-entry-repair` 和 `witness-391-cmd-entry-repair`；本提交未采用、启动writer、准备或发布。
+### 已退役 publisher 数值PID复用的精确身份修复
+
+CMD协调的initial OBS/ACK成功，final先取得完整preliminary、重核静态图，随后完整样本因数值PID29740出现而硬拒绝；writer56436于 `2026-10-20T17:26:47.210Z` 自然超时退出1。`failed-witness-391-5` 固定33原件和3194对象，清单 SHA `85b74233bbb90e337de3bf93400857904ba7f6d5d0357cc70eeff192fd632368`。旧拒绝仍有效，不把后来诊断追认成旧现场资格；旧initial动态不复用，全部p1/p2/p3/CMD provenance原字节保留。
+
+原租约、unknown和已钉住发布源码的 `ownerPid:process.pid` / beginLease记录，只能推出旧Node的**出生时间上界**：旧进程在14:33租约事件时已经存在，因此其birth不晚于保守上界 `2026-10-20T14:39:43.525Z`。unknown回执不是旧进程终止时间；不填写精确历史birth或exit，继续保留 `historicalPublisherCreationTimeUnavailable=true`。
+
+每轮完整census独立生成封闭的 `absent` 或 `pg-reused` 资格，绑定request/nonce/epoch、observer身份、投影摘要及时间。出现29740时须完整可见、严格晚于旧birth上界、实际规范PG镜像与4125字节资格吻合；同census父PG须为32400的已知完整身份及规范三参数启动入口，并与本轮新鲜的postmaster.pid PID/startUnix/dataDir/5432/ready交叉核对。原生pidfile原字节和摘要随资格归档供reader复核；父进程归属、文件名或旧诊断不能替代资格。Node/其它镜像、opaque、过早、父不明或原生材料不符均硬拒绝。父PID29740的子进程仅在本轮父有此资格且child.birth不早于新父时排除旧后代可能性，每行继续原namespace/入口分类，不整树豁免。
+
+资格逐sample重新生成，末sample资格必须等于OBS；下一轮PID不存在就记录absent，不能沿用先前PG身份。ordinary ACK从自己的新鲜census独立重建资格并归档安全投影；reader同核primitive类型、PID唯一性、图、时间和原生证据。新入口 `--native-391-retired-publisher-repair D:/codex-artifacts/frontend-hmr-recovery-20261020/witness-391-retired-publisher-repair` 仅接这次固定失败，create-only追加 `retired-publisher-identity-repair.json`；采用链固定增加238的c1ec901节点至新一跳。配置a90、native512、task、CMD资格及采样次数/时限保持，不提供通用下一次续接，不重放5beb或清理partial。
+
+按本次明确范围，同步修正已有精确出生证据的failed writer44996/27260/8972/34444/56436数值PID永久唯一假设。各birth常量逐一对照固定REQUEST摘要核实；只有当前birth严格晚于旧值且身份元数据完整，才排除旧身份。各历史guard角色集合及旧OBS校验范围保持；指向这些父PID的child必须在本轮有完整新父且出生不早于新父，使用100ns精度比较，namespace及普通入口继续独立分类。29740未知历史birth的PG专项不因此扩展到Node或其它镜像。
+
+新增10项定向检查通过（chunk `098af6`、exit0），覆盖真实身份结构、伪PG/镜像变化/过早/父错/opaque、同毫秒早子、q跨census/epoch混用、primitive类型、PG→absent trace、3194归档内容、固定新provenance、五个known writer复用及未来birth；两个直接受影响的OBS/trace正例通过（chunk `de07f9`）。真实只读PgQualification和postmaster读取通过（chunk `47ba4f`、exit0），未运行census、SQL或业务，未启动/停止服务。其余既有结果复用，不跑整包；本提交未采用、启动writer、准备或发布。
