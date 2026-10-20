@@ -603,6 +603,76 @@ function Get-NewProductWeeklyReportDeferral {
   }
 }
 
+function Get-NewProductWeeklyReportReleaseLeaseDeferral {
+  # Pre-mutex admission hint. A valid bounded release lease avoids waiting for
+  # the service mutex and the expensive runtime checks. Any malformed, stale,
+  # expired, dead-owner or oversized lease is treated as absent so the original
+  # maintenance/drain path is never blocked by a bad lease. A valid maintenance
+  # or drain gate keeps its original reason and path.
+  $maximumLifetimeMinutes = 20
+  $maximumBytes = 4096
+  try {
+    $path = Assert-RuntimeChildPath (Join-Path $RunDirectory "release-publication-lease.json")
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
+    $entry = Get-Item -LiteralPath $path -Force
+    if ($entry.PSIsContainer -or $entry.Length -gt $maximumBytes -or
+        ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { return $null }
+    $record = [IO.File]::ReadAllText($path) | ConvertFrom-Json -ErrorAction Stop
+    if (-not (Test-ExactObjectPropertyNames $record @(
+          "version", "ownerPid", "phase", "createdAt", "updatedAt", "expiresAt",
+          "mainCommit", "maintenanceId", "out"
+        )) -or
+        [string]$record.version -cne "teruisi-release-publication-lease-v1") { return $null }
+    $ownerPid = 0
+    if (-not [int]::TryParse([string]$record.ownerPid, [ref]$ownerPid) -or $ownerPid -le 0) { return $null }
+    if ([string]::IsNullOrWhiteSpace([string]$record.phase) -or
+        ([string]$record.phase).Length -gt 128) { return $null }
+    if ([string]$record.mainCommit -cnotmatch "^[0-9a-f]{40}$" -or
+        [string]$record.maintenanceId -cnotmatch "^[0-9a-f]{32}$" -or
+        [string]::IsNullOrWhiteSpace([string]$record.out) -or
+        ([string]$record.out).Length -gt 1024) { return $null }
+    $createdAt = [DateTimeOffset]::MinValue
+    $updatedAt = [DateTimeOffset]::MinValue
+    $expiresAt = [DateTimeOffset]::MinValue
+    if (-not [DateTimeOffset]::TryParse([string]$record.createdAt, [ref]$createdAt) -or
+        -not [DateTimeOffset]::TryParse([string]$record.updatedAt, [ref]$updatedAt) -or
+        -not [DateTimeOffset]::TryParse([string]$record.expiresAt, [ref]$expiresAt)) { return $null }
+    $now = [DateTimeOffset]::UtcNow
+    if ($expiresAt -le $now -or
+        $expiresAt -le $updatedAt -or
+        $createdAt -gt $updatedAt.AddMinutes(2) -or
+        $updatedAt -gt $now.AddMinutes(2) -or
+        $expiresAt -gt $updatedAt.AddMinutes($maximumLifetimeMinutes + 1)) { return $null }
+    $owner = Get-Process -Id $ownerPid -ErrorAction Stop
+    try { if ($owner.HasExited) { return $null } } finally { $owner.Dispose() }
+    $maintenance = Read-SystemMaintenance
+    $drain = Read-AutomationDrain
+    if ($null -ne $maintenance -or $null -ne $drain) { return $null }
+    return [pscustomobject][ordered]@{
+      status = "deferred"
+      sent = $false
+      reason = "release_in_progress"
+      action = $RequestedAction
+      maintenanceId = [string]$record.maintenanceId
+      drainId = ""
+    }
+  } catch {
+    return $null
+  }
+}
+
+function Invoke-NewProductWeeklyReportWithReleaseLease([bool]$DryRun, [bool]$Force = $false) {
+  $leaseDeferral = Get-NewProductWeeklyReportReleaseLeaseDeferral
+  if ($null -ne $leaseDeferral) {
+    Write-LauncherEvent "INFO" "weekly_report_deferred" `
+      "action=$RequestedAction reason=$($leaseDeferral.reason) maintenanceId=$($leaseDeferral.maintenanceId) drainId="
+    if ($RequestedJson) { Write-Output ($leaseDeferral | ConvertTo-Json -Depth 8 -Compress) }
+    else { $leaseDeferral | Format-List }
+    return
+  }
+  Invoke-WithServiceMutex { Invoke-NewProductWeeklyReport $DryRun $Force }
+}
+
 function Invoke-NewProductWeeklyReport([bool]$DryRun, [bool]$Force = $false) {
   $deferral = Get-NewProductWeeklyReportDeferral
   if ($null -ne $deferral) {
@@ -735,9 +805,9 @@ try {
     "DisableStartup" { Invoke-WithServiceMutex { Disable-WorkflowStartup } }
     "EnableWeeklyReport" { Invoke-WithServiceMutex { Set-NewProductWeeklyReportEnabled $true } }
     "DisableWeeklyReport" { Invoke-WithServiceMutex { Set-NewProductWeeklyReportEnabled $false } }
-    "RunWeeklyReport" { Invoke-WithServiceMutex { Invoke-NewProductWeeklyReport $false $false } }
-    "ForceWeeklyReport" { Invoke-WithServiceMutex { Invoke-NewProductWeeklyReport $false $true } }
-    "DryRunWeeklyReport" { Invoke-WithServiceMutex { Invoke-NewProductWeeklyReport $true $false } }
+    "RunWeeklyReport" { Invoke-NewProductWeeklyReportWithReleaseLease $false $false }
+    "ForceWeeklyReport" { Invoke-NewProductWeeklyReportWithReleaseLease $false $true }
+    "DryRunWeeklyReport" { Invoke-NewProductWeeklyReportWithReleaseLease $true $false }
   }
 } catch {
   Write-LauncherEvent "ERROR" "workflow_action_failed" $_.Exception.Message

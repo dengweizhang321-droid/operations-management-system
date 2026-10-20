@@ -31,5 +31,11 @@ test('readiness changes preserve the native deploy/apply/start/ready callback af
  const tail='    assert.equal(entered.status,\'maintenance\');assert.equal(entered.maintenanceId,maintenanceId);assert.equal(entered.postgresPreserved,true);';
  const oldTail=before.slice(before.indexOf(tail)),nextTail=after.slice(after.indexOf(tail));
  assert.ok(before.includes(tail)&&after.includes(tail));
- assert.equal(nextTail.replace(' },preparationWait);',' });'),oldTail.replace(' },preparationWait);',' });'));
+ // The bounded release-lease refresh/cleanup calls are the only permitted
+ // additions after the admitted-maintenance boundary. Strip those exact calls
+ // so the original deploy/apply/start/ready callback equality still holds.
+ const stripLease=text=>text
+  .replace(/^[ \t]*await (?:refreshLease|endLease)\([^\n]*?\);[ \t]*\n/gm,'')
+  .replace(/await (?:refreshLease|endLease)\([^\n]*?\);/g,'');
+ assert.equal(stripLease(nextTail).replace(' },preparationWait);',' });'),stripLease(oldTail).replace(' },preparationWait);',' });'));
 });

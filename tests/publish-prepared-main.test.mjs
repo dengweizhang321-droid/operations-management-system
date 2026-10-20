@@ -3,16 +3,24 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {publishPreparedMain,piWorkspaceImage} from '../tools/publish-prepared-main.mjs';
+import {publishPreparedMain,piWorkspaceImage,releaseLeaseTtlMs} from '../tools/publish-prepared-main.mjs';
 import {monitoringSchema,tmallSchema,tmall148Schema,piAgentSchema,piWorkspaceSchema} from '../tools/main-schema-release.mjs';
 
 async function fixture(t,components=['worker'],failAt=null){
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'prepared-publisher-'));
  t.after(()=>fs.rm(root,{recursive:true,force:true}));
  const events=[],out=path.join(root,'out'),installed=path.join(root,'django','app'),runtime=path.join(root,'worker');
+ const leaseFile=path.join(root,'django','run','release-publication-lease.json'),leaseReadings=[];
  let head={releaseId:'old',manifestSha256:'1'.repeat(64)},django='2'.repeat(64),successes=0,readyStatus=200,readyBody={ok:true,status:'ready'};
  const target={releaseId:'new',manifestSha256:'3'.repeat(64)};
  const event=name=>{events.push(name);if(name===failAt)throw Error('fixture failure: '+name);};
+ const readLease=async action=>{
+  try{
+   const stat=await fs.stat(leaseFile);
+   if(!stat.isFile())return;
+   leaseReadings.push({action,lease:JSON.parse(await fs.readFile(leaseFile,'utf8'))});
+  }catch(error){if(error.code!=='ENOENT')throw error;}
+ };
  const request={mainCommit:'a'.repeat(40),components,predecessorWorker:{...head},predecessorDjangoSha256:django};
  const context={source:root,out,installedRoot:installed,workerRuntimeRoot:runtime,deployOnly:false,
   sourceIdentity:async()=>({commit:request.mainCommit,tree:'b'.repeat(40)}),
@@ -24,6 +32,7 @@ async function fixture(t,components=['worker'],failAt=null){
    planWorkerReleaseRotation:async options=>{event(options.reusePlanSha256?'reuse':'plan');assert.equal(options.prepareOnline,true);assert.ok(options.rotationLease.fixture);assert.match(options.sourceBindingSha256,/^[a-f0-9]{64}$/);return {status:'planned',planSha256:'7'.repeat(64),candidateReleaseId:target.releaseId,candidateManifestSha256:target.manifestSha256};},
    applyApprovedRotationPlan:async options=>{event('apply');assert.ok(options.rotationLease.fixture);head={...target};return {status:'activated',releaseId:head.releaseId};}},
   runStep:async({script,action,extra})=>{
+   await readLease(action);
    if(path.basename(script)==='manual-maintenance-preflight.ps1')return {ready:true,route:'fixture'};
    event(action);
    if(action==='PrepareApp')return {id:'8'.repeat(32),receiptSha256:'9'.repeat(64)};
@@ -46,9 +55,9 @@ async function fixture(t,components=['worker'],failAt=null){
    if(action==='VerifyStartup')return {startupVerified:true};
    return {};
   },
-  fetch:async(url,options)=>{event('ready');assert.equal(options.headers['x-teruisi-local-health'],'1');return {status:readyStatus,json:async()=>{if(readyBody instanceof Error)throw readyBody;return readyBody;},body:{cancel:async()=>{}}};}
+  fetch:async(url,options)=>{await readLease('ready');event('ready');assert.equal(options.headers['x-teruisi-local-health'],'1');return {status:readyStatus,json:async()=>{if(readyBody instanceof Error)throw readyBody;return readyBody;},body:{cancel:async()=>{}}};}
  };
- return {request,context,events,out,get successes(){return successes;},set head(value){head=value;},set django(value){django=value;},set readyStatus(value){readyStatus=value;},set readyBody(value){readyBody=value;}};
+ return {request,context,events,out,leaseFile,get leaseReadings(){return leaseReadings;},get successes(){return successes;},set head(value){head=value;},set django(value){django=value;},set readyStatus(value){readyStatus=value;},set readyBody(value){readyBody=value;}};
 }
 const operations=events=>events.filter(e=>!['lock','ownership','head','identity','success'].includes(e));
 test('missing maintenance material fails before STARTED and the same prepared package can recheck',async t=>{
@@ -85,6 +94,53 @@ test('django-only keeps old Worker and never prepares or applies a Worker releas
 test('combined uses full native maintenance without any migration operator',async t=>{
  const f=await fixture(t,['worker','django']);await publishPreparedMain(f.request,f.context);
  assert.deepEqual(operations(f.events),['plan','PrepareApp','EnterMaintenance','Stop','DeployApp','HardenAcl','apply','ExitMaintenance','Start','VerifyStartup','ready']);
+});
+test('release lease covers preparation, reverification, Start and ready with bounded refreshes',async t=>{
+ const f=await fixture(t,['worker','django']);
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ await assert.rejects(fs.access(f.leaseFile),'prepared-only must remove its lease');
+ f.leaseReadings.length=0;
+ const result=await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ assert.equal(result.status,'deployed_and_ready');
+ const readings=f.leaseReadings;
+ assert.ok(readings.some(r=>r.action==='VerifyPreparedApp'),'reverification must observe the lease');
+ assert.ok(readings.some(r=>r.action==='Start'),'Start must observe the lease');
+ assert.ok(readings.some(r=>r.action==='ready'),'final readiness must observe the lease');
+ const createdAt=readings[0].lease.createdAt;
+ for(const {action,lease} of readings){
+  assert.equal(lease.version,'teruisi-release-publication-lease-v1',action);
+  assert.equal(lease.ownerPid,process.pid,action);
+  assert.equal(lease.mainCommit,f.request.mainCommit,action);
+  assert.match(lease.maintenanceId,/^[a-f0-9]{32}$/,action);
+  assert.equal(lease.out,f.out,action);
+  assert.equal(lease.createdAt,createdAt,action);
+  assert.ok(Date.parse(lease.updatedAt)>=Date.parse(createdAt),action);
+  assert.equal(Date.parse(lease.expiresAt)-Date.parse(lease.updatedAt),releaseLeaseTtlMs,action);
+ }
+ assert.ok(releaseLeaseTtlMs>=15*60*1000&&releaseLeaseTtlMs<=20*60*1000,'lease TTL must stay between 15 and 20 minutes');
+ for(let index=1;index<readings.length;index++)assert.ok(Date.parse(readings[index].lease.updatedAt)>=Date.parse(readings[index-1].lease.updatedAt),'lease updates must not move backwards');
+ await assert.rejects(fs.access(f.leaseFile),'successful publication must remove its lease');
+});
+test('release lease is removed after preparation and deployment exceptions',async t=>{
+ const prepared=await fixture(t,['django'],'PrepareApp');
+ await assert.rejects(publishPreparedMain(prepared.request,{...prepared.context,prepareOnly:true}),/fixture failure/);
+ await assert.rejects(fs.access(prepared.leaseFile),'preparation exception must remove its lease');
+ const deployed=await fixture(t,['worker','django'],'Start');
+ await publishPreparedMain(deployed.request,{...deployed.context,prepareOnly:true});
+ await assert.rejects(publishPreparedMain(deployed.request,{...deployed.context,deployOnly:true}),/fixture failure/);
+ await assert.rejects(fs.access(deployed.leaseFile),'deployment exception must remove its lease');
+});
+test('release lease write failure records a warning and never blocks publication',async t=>{
+ const f=await fixture(t,['worker','django']);
+ await fs.mkdir(f.leaseFile,{recursive:true});
+ const result=await publishPreparedMain(f.request,f.context);
+ assert.equal(result.status,'deployed_and_ready');
+ const warning=JSON.parse(await fs.readFile(path.join(f.out,'LEASE-WARNING.json'),'utf8'));
+ assert.equal(warning.version,'teruisi-release-lease-warning-v1');
+ assert.equal(warning.fallback,'original-maintenance-drain-gate');
+ assert.ok(warning.attempts>=1);
+ assert.ok(warning.error);
+ assert.deepEqual(await fs.readdir(f.leaseFile),[]);
 });
 test('migration requests fail before any engine or result write',async t=>{
  const f=await fixture(t,['django']);f.request.migrate=true;
