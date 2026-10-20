@@ -1,0 +1,208 @@
+{
+  "realProvider": true,
+  "realPi": true,
+  "privatePostgres": true,
+  "productionLifecycleChanged": false,
+  "recipient": "current principal unique approved direct binding",
+  "robotName": "志高助手",
+  "modelName": "deepseek-v4.1-flash",
+  "modelVersion": 4,
+  "rounds": [
+    {
+      "operationId": "pi-op-fcccbcb3-d4d6-46a5-942e-490cf45810a2",
+      "status": "succeeded",
+      "errorCode": "",
+      "dispatches": [
+        {
+          "kind": "control:deadline",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:create",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "control:skills_loaded",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:prompt",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        }
+      ],
+      "usage": [
+        "{\"completion_tokens\":691,\"completion_tokens_details\":{\"reasoning_tokens\":488},\"prompt_tokens\":2458,\"prompt_tokens_details\":{\"cached_tokens\":0},\"total_tokens\":3149}",
+        "{\"completion_tokens\":161,\"completion_tokens_details\":{\"reasoning_tokens\":76},\"prompt_tokens\":3180,\"prompt_tokens_details\":{\"cached_tokens\":2432},\"total_tokens\":3341}",
+        "{\"completion_tokens\":228,\"completion_tokens_details\":{\"reasoning_tokens\":17},\"prompt_tokens\":3946,\"prompt_tokens_details\":{\"cached_tokens\":3072},\"total_tokens\":4174}",
+        "{\"completion_tokens\":445,\"completion_tokens_details\":{\"reasoning_tokens\":44},\"prompt_tokens\":4586,\"prompt_tokens_details\":{\"cached_tokens\":3840},\"total_tokens\":5031}"
+      ]
+    },
+    {
+      "operationId": "pi-op-13fc70fe-fb9e-4b5e-b287-3849600f119d",
+      "status": "canceled",
+      "errorCode": "",
+      "dispatches": [
+        {
+          "kind": "control:deadline",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:create",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "control:skills_loaded",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:prompt",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "client:abort",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "tool",
+          "status": "completed",
+          "error_code": "pi_operation_canceled"
+        },
+        {
+          "kind": "runner:workspace",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:abort",
+          "status": "completed",
+          "error_code": ""
+        }
+      ],
+      "usage": [
+        "{\"completion_tokens\":26,\"completion_tokens_details\":{\"reasoning_tokens\":0},\"prompt_tokens\":5775,\"prompt_tokens_details\":{\"cached_tokens\":0},\"total_tokens\":5801}"
+      ]
+    }
+  ],
+  "deliveries": [],
+  "sessionId": "pi-session-88e1996b-fde4-4d7a-ae58-49390b70a469",
+  "reusedRealModelGeneratedSyntheticFiles": true
+}

@@ -1,0 +1,8 @@
+{
+  "diskOnlyInspection": true,
+  "rawBoundEmployeeIdentifierPresent": false,
+  "privateProviderFrameOrThinkingFieldsPresent": false,
+  "knownPlaintextCredentialPatternPresent": false,
+  "noFormalDatabaseOrModelCallForInspection": true,
+  "credentialFlowReview": "model key only stdin/process memory; provider responses encrypted in disposable DB; public evidence prints only status, dispatch kind, usage and hashed receipts"
+}

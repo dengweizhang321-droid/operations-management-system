@@ -1,0 +1,63 @@
+{
+  "userRequestedStop": true,
+  "sessionId": "pi-session-88e1996b-fde4-4d7a-ae58-49390b70a469",
+  "operation": {
+    "id": "pi-op-13fc70fe-fb9e-4b5e-b287-3849600f119d",
+    "clientRequestId": "live-d04fe1388fd6458fbedc553686d50da6",
+    "kind": "prompt",
+    "status": "canceling",
+    "epoch": 1,
+    "generation": 1,
+    "seq": 2,
+    "modelId": "model-test",
+    "modelVersion": 4,
+    "errorCode": "",
+    "createdAt": "2026-10-20T16:01:45.834344Z",
+    "updatedAt": "2026-10-20T16:02:41.376367Z",
+    "executionType": "pi_rpc",
+    "skills": [
+      {
+        "description": "生成可下载的Excel经营分析报告，强制包含来源、指标口径和缺失数据说明；适用于将已核验分析结果交付为xlsx。",
+        "discovery": "reviewed_bundle_pending_native_discovery",
+        "id": "excel-report",
+        "name": "excel-report",
+        "packageVersion": "1.3.0",
+        "resources": [
+          {
+            "path": "SKILL.md",
+            "sha256": "1ca13bb64205b6abc83d98d8226a7eac39be9af4fa5c2cbe13f2586936d789d3",
+            "sizeBytes": 1166,
+            "type": "instructions"
+          },
+          {
+            "path": "references/report-format.md",
+            "sha256": "25f1a365a62d217f0512383599037c2bf393571cd019b72fbe430d7cbf457444",
+            "sizeBytes": 459,
+            "type": "reference"
+          },
+          {
+            "path": "scripts/create_report.py",
+            "sha256": "172e205c4ec665c5473edf4f4e35d1c3323fc04128328dce698c8fc02c5f346e",
+            "sizeBytes": 3100,
+            "type": "script"
+          }
+        ],
+        "sha256": "a856bc701492b1e99163342ede1e148c6bf1b442dd7960cfe2c63d2928669e25",
+        "status": "available",
+        "version": "1.3.0"
+      }
+    ],
+    "skillsLoaded": true,
+    "businessIntents": [
+      {
+        "userIntentId": "pi-intent-b1e3bf79-6f38-48ce-a2df-8250a458bbe9",
+        "actionId": "pi-action-0e65637c-327d-488b-9b81-e950ce601acd",
+        "actionType": "deliver_report",
+        "parentOperationId": "pi-op-13fc70fe-fb9e-4b5e-b287-3849600f119d",
+        "expiresAt": "2026-10-21T16:01:45.835343+00:00"
+      }
+    ]
+  },
+  "bodyOrAttachmentDispatchCount": 0,
+  "actions": []
+}

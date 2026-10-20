@@ -12,6 +12,8 @@
 
 ## AI助手
 
+本轮补充：[Chat/Pi统一界面、能力接线与真实验收](../pi-unified-chat-20261020/REPORT.md)（未合并；真实投递验收按停止指令中止）。
+
 本轮补充：[PiAgent三期功能验证与修复（未合并）](../piagent-phase3-verification-20261020/REPORT.md)。
 
 本轮补充：[PiAgent二期完整工作环境](../pi-phase2-workspace-20261018/REPORT.md)。

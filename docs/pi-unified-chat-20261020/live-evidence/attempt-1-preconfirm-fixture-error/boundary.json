@@ -1,0 +1,8 @@
+{
+  "failure": "test fixture accessed preview.recipient instead of preview.details.recipient",
+  "failureBeforeConfirmation": true,
+  "externalBodyDispatch": false,
+  "externalAttachmentDispatch": false,
+  "businessStatusAtFailure": "prepared",
+  "source": "case source and unittest KeyError line before business.control confirm"
+}

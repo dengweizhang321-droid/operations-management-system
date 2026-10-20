@@ -28,8 +28,11 @@ def dispatch(request, path, principal):
     if parts == ["pi", "skills"] and request.method == "GET":
         fields(params, set())
         from . import models as m
-        return response({"items": service.skills(), "scope": principal.scope, "models": [configuration.model_record(model, available=True)
-            for model in m.AiModels.objects.only(*configuration.MODEL_AVAILABLE_COLUMNS).filter(status="enabled", model_type__in=["text", "vision"]).order_by("-is_default_text_model", "id")[:100]]})
+        from .pi_native import thinking_levels_for_model
+        model_columns = (*configuration.MODEL_AVAILABLE_COLUMNS, "reasoning_mode", "generation_options_json", "max_tokens")
+        return response({"items": service.skills(), "scope": principal.scope, "models": [
+            {**configuration.model_record(model, available=True), "supportedThinkingLevels": thinking_levels_for_model(model)}
+            for model in m.AiModels.objects.only(*model_columns).filter(status="enabled", model_type__in=["text", "vision"]).order_by("-is_default_text_model", "id")[:100]]})
     if parts == ["pi", "sessions"]:
         return response(service.listing(params, principal) if request.method == "GET" else service.create_session(payload, principal), 200 if request.method == "GET" else 201)
     if len(parts) >= 3 and parts[:2] == ["pi", "sessions"]:

@@ -1,0 +1,15 @@
+{
+  "userRequestedStop": true,
+  "namespace": "pi-test-live-bebf0e560091",
+  "ports": {
+    "55541": "closed",
+    "18123": "closed"
+  },
+  "linux": {
+    "runnerProcessIds": [],
+    "containers": [],
+    "volumes": []
+  },
+  "cleanupComplete": true,
+  "windowsPrivateRunProcessIds": []
+}

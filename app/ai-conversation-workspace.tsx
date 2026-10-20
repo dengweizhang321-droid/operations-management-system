@@ -1,6 +1,7 @@
 "use client";
 
 import { Component, lazy, Suspense, useEffect, useState, type ComponentProps, type ReactNode } from "react";
+import { AiConversationShell } from "./ai-conversation-shell";
 
 const Chat = lazy(() => import("./ai-assistant-view"));
 const Agent = lazy(() => import("./ai-pi-agent-view"));
@@ -32,12 +33,12 @@ export default function AiConversationWorkspace(props: ComponentProps<typeof Cha
     <button type="button" aria-pressed={mode === "chat"} onClick={() => changeMode("chat")}>Chat</button>
     <button type="button" aria-pressed={mode === "agent"} onClick={() => changeMode("agent")}>Agent</button>
   </div>;
-  return <div className="ai-conversation-workspace">
+  return <div className="ai-conversation-workspace"><AiConversationShell key={storageKey} mode={mode} onMode={changeMode}>
     <div className="ai-conversation-surface" hidden={mode !== "chat"}>
       <ModeBoundary control={control}><Suspense fallback={<p role="status">正在恢复对话…</p>}><Chat {...props} composerModeControl={control} /></Suspense></ModeBoundary>
     </div>
     {agentVisited && <div className="ai-conversation-surface" hidden={mode !== "agent"}>
       <ModeBoundary control={control}><Suspense fallback={<p role="status">正在恢复 Agent…</p>}><Agent currentUser={props.currentUser} initialContextPrompt={props.initialContextPrompt} embedded composerModeControl={control} /></Suspense></ModeBoundary>
     </div>}
-  </div>;
+  </AiConversationShell></div>;
 }

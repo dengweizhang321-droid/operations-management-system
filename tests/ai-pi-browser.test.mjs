@@ -10,7 +10,7 @@ test("actual Pi UI persists request identity and restores by GET after a lost PO
   const directory = await mkdtemp(path.join(process.cwd(), ".codex-tmp-pi-ui-"));
   let browser;
   try {
-    const bundle = await build({ stdin: { contents: `import React from 'react'; import {createRoot} from 'react-dom/client'; import Pi from './app/ai-pi-agent-view'; createRoot(document.getElementById('root')).render(React.createElement(Pi,{currentUser:{email:'fixture@example.invalid',displayName:'镜像',role:'analyst',roleLabel:'分析员'}}));`, resolveDir: process.cwd(), loader: "tsx" }, bundle: true, write: false, platform: "browser", format: "iife", define: { "process.env.NODE_ENV": '"production"' } });
+    const bundle = await build({ nodePaths: (process.env.PI_TEST_NODE_MODULES || "").split(path.delimiter).filter(Boolean), stdin: { contents: `import React from 'react'; import {createRoot} from 'react-dom/client'; import Pi from './app/ai-pi-agent-view'; createRoot(document.getElementById('root')).render(React.createElement(Pi,{currentUser:{email:'fixture@example.invalid',displayName:'镜像',role:'analyst',roleLabel:'分析员'}}));`, resolveDir: process.cwd(), loader: "tsx" }, bundle: true, write: false, platform: "browser", format: "iife", define: { "process.env.NODE_ENV": '"production"' } });
     await writeFile(path.join(directory, "ui.js"), bundle.outputFiles[0].text);
     await writeFile(path.join(directory, "index.html"), '<!doctype html><meta charset="utf-8"><title>Pi isolated UI fixture</title><div id="root"></div><script src="ui.js"></script>');
     browser = await chromium.launch({ executablePath: process.env.PI_TEST_BROWSER || "C:/Program Files/Google/Chrome/Application/chrome.exe", headless: true });
@@ -59,7 +59,7 @@ test("actual Pi UI persists request identity and restores by GET after a lost PO
     const errors = []; page.on("pageerror", error => errors.push(error.message));
     const documentUrl = pathToFileURL(path.join(directory, "index.html")).href;
     await page.goto(documentUrl);
-    await page.getByText("技能与本轮数据范围", { exact: false }).click();
+    await page.getByText("技能与上下文", { exact: false }).click();
     await page.getByLabel("来源核查", { exact: false }).check();
     assert.equal(await page.getByLabel("未部署技能", { exact: false }).isDisabled(), true);
     await page.getByLabel("平台", { exact: true }).fill("京东");
@@ -69,10 +69,10 @@ test("actual Pi UI persists request identity and restores by GET after a lost PO
     await page.getByRole("link", { name: "source.txt" }).waitFor();
     assert.match(await page.getByRole("link", { name: "source.txt" }).getAttribute("href"), /\/pi\/files\/f1\/content$/);
     await page.evaluate(() => { window.fixture.rejectNextMessage = true; });
-    await page.getByLabel("任务", { exact: true }).fill("拒绝夹具");
+    await page.getByLabel("Agent 任务", { exact: true }).fill("拒绝夹具");
     await page.getByRole("button", { name: "发送任务", exact: true }).click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem("ai-pi-v1:fixture@example.invalid:pending")).length === 0);
-    await page.getByLabel("任务", { exact: true }).fill("/skill:source-audit 核对来源");
+    await page.getByLabel("Agent 任务", { exact: true }).fill("/skill:source-audit 核对来源");
     await page.getByRole("button", { name: "发送任务", exact: true }).click();
     await page.getByRole("article").getByText("/skill:source-audit 核对来源", { exact: true }).waitFor();
     // Phase2 keeps the composer available for a distinct steer/follow_up control.
@@ -81,12 +81,12 @@ test("actual Pi UI persists request identity and restores by GET after a lost PO
     assert.equal(sent.length, 1); assert.deepEqual(sent[0].payload.skillIds, ["source-audit"]); assert.equal(sent[0].payload.scope, undefined); assert.deepEqual(sent[0].payload.fileIds, ["f1"]);
     assert.deepEqual((await page.evaluate(() => window.fixture.calls.find(call => call.url.endsWith("/sessions") && call.method === "POST"))).payload.scope.platforms, ["京东"]);
     await page.waitForFunction(() => document.querySelector('#pi-agent-prompt').value === "");
-    await page.getByLabel("任务", { exact: true }).fill("第一条插话");
+    await page.getByLabel("Agent 任务", { exact: true }).fill("第一条插话");
     await page.getByRole("button", { name: "发送任务", exact: true }).click();
     await page.waitForFunction(() => window.fixture.workspaceControls.length === 1 && document.querySelector('#pi-agent-prompt').value === "");
     assert.equal((await page.evaluate(() => window.fixture.calls.filter(call => call.method === "POST" && call.url.endsWith("/workspace")))).length, 1);
     await page.getByLabel("运行中发送方式", { exact: true }).selectOption("follow_up");
-    await page.getByLabel("任务", { exact: true }).fill("第二条排队");
+    await page.getByLabel("Agent 任务", { exact: true }).fill("第二条排队");
     await page.getByRole("button", { name: "发送任务", exact: true }).click();
     await page.waitForFunction(() => window.fixture.workspaceControls.length === 2);
     const controls = await page.evaluate(() => window.fixture.workspaceControls);
@@ -102,11 +102,11 @@ test("actual Pi UI persists request identity and restores by GET after a lost PO
     await page.waitForFunction(() => window.fixture.controls.length === 1);
     await page.getByRole("button", { name: "刷新记录" }).click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem("ai-pi-v1:fixture@example.invalid:pending")).length === 0);
-    await page.getByText("技能与本轮数据范围", { exact: false }).click();
+    await page.getByText("技能与上下文", { exact: false }).click();
     await page.getByLabel("精确店铺名称", { exact: true }).fill("合成旗舰店");
     await page.getByText("本轮仅该店：京东 / 合成旗舰店", { exact: true }).waitFor();
-    assert.equal(await page.getByRole("button", { name: "上传附件（≤512 KiB）" }).isDisabled(), true);
-    await page.getByLabel("任务", { exact: true }).fill("接下来只看这家店");
+    assert.equal(await page.getByRole("button", { name: "＋ 附件" }).isDisabled(), true);
+    await page.getByLabel("Agent 任务", { exact: true }).fill("接下来只看这家店");
     await page.getByRole("button", { name: "发送任务", exact: true }).click();
     await page.getByText("仅该店：京东 / 合成旗舰店", { exact: true }).waitFor();
     const next = await page.evaluate(() => window.fixture.calls.filter(call => call.url.endsWith("/messages")).at(-1).payload);
@@ -145,7 +145,7 @@ test("actual Pi UI persists request identity and restores by GET after a lost PO
     await page.getByRole("button", { name: "刷新记录" }).click();
     await page.waitForFunction(() => window.fixture.calls.filter(call => call.url.endsWith("/skills")).length >= 2);
     await page.waitForTimeout(100);
-    await page.getByLabel("任务", { exact: true }).fill("需要重新选择模型的任务");
+    await page.getByLabel("Agent 任务", { exact: true }).fill("需要重新选择模型的任务");
     assert.equal(await page.getByRole("button", { name: "发送任务", exact: true }).isDisabled(), true);
     assert.deepEqual(errors, []);
     await context.close();

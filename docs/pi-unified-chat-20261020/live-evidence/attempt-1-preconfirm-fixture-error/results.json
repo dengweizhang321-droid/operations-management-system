@@ -1,0 +1,413 @@
+{
+  "realProvider": true,
+  "realPi": true,
+  "privatePostgres": true,
+  "productionLifecycleChanged": false,
+  "recipient": "current principal unique approved direct binding",
+  "robotName": "志高助手",
+  "modelName": "deepseek-v4.1-flash",
+  "modelVersion": 4,
+  "rounds": [
+    {
+      "operationId": "pi-op-6906b98b-2b9a-49c0-b25e-2fa66ab7cd64",
+      "status": "succeeded",
+      "errorCode": "",
+      "dispatches": [
+        {
+          "kind": "control:deadline",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:create",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "control:skills_loaded",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:prompt",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "admission",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        }
+      ],
+      "usage": [
+        "{\"completion_tokens\":227,\"completion_tokens_details\":{\"reasoning_tokens\":0},\"prompt_tokens\":2497,\"prompt_tokens_details\":{\"cached_tokens\":512},\"total_tokens\":2724}",
+        "{\"completion_tokens\":223,\"completion_tokens_details\":{\"reasoning_tokens\":24},\"prompt_tokens\":3275,\"prompt_tokens_details\":{\"cached_tokens\":2688},\"total_tokens\":3498}",
+        "{\"completion_tokens\":747,\"completion_tokens_details\":{\"reasoning_tokens\":156},\"prompt_tokens\":4727,\"prompt_tokens_details\":{\"cached_tokens\":3456},\"total_tokens\":5474}",
+        "{\"completion_tokens\":1212,\"completion_tokens_details\":{\"reasoning_tokens\":0},\"prompt_tokens\":6864,\"prompt_tokens_details\":{\"cached_tokens\":6656},\"total_tokens\":8076}",
+        "{\"completion_tokens\":102,\"completion_tokens_details\":{\"reasoning_tokens\":0},\"prompt_tokens\":5531,\"prompt_tokens_details\":{\"cached_tokens\":5376},\"total_tokens\":5633}",
+        "{\"completion_tokens\":266,\"completion_tokens_details\":{\"reasoning_tokens\":15},\"prompt_tokens\":5738,\"prompt_tokens_details\":{\"cached_tokens\":5504},\"total_tokens\":6004}",
+        "{\"completion_tokens\":752,\"completion_tokens_details\":{\"reasoning_tokens\":0},\"prompt_tokens\":6057,\"prompt_tokens_details\":{\"cached_tokens\":5888},\"total_tokens\":6809}",
+        "{\"completion_tokens\":598,\"completion_tokens_details\":{\"reasoning_tokens\":23},\"prompt_tokens\":8640,\"prompt_tokens_details\":{\"cached_tokens\":8064},\"total_tokens\":9238}"
+      ]
+    },
+    {
+      "operationId": "pi-op-61734da3-97ad-4efe-91eb-12899a3f85c5",
+      "status": "succeeded",
+      "errorCode": "",
+      "dispatches": [
+        {
+          "kind": "control:deadline",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:create",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "control:skills_loaded",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:prompt",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "tool",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "tool",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "model",
+          "status": "completed",
+          "error_code": ""
+        },
+        {
+          "kind": "runner:gateway_response",
+          "status": "completed",
+          "error_code": ""
+        }
+      ],
+      "usage": [
+        "{\"completion_tokens\":26,\"completion_tokens_details\":{\"reasoning_tokens\":0},\"prompt_tokens\":9985,\"prompt_tokens_details\":{\"cached_tokens\":896},\"total_tokens\":10011}",
+        "{\"completion_tokens\":219,\"completion_tokens_details\":{\"reasoning_tokens\":15},\"prompt_tokens\":10696,\"prompt_tokens_details\":{\"cached_tokens\":9984},\"total_tokens\":10915}",
+        "{\"completion_tokens\":553,\"completion_tokens_details\":{\"reasoning_tokens\":0},\"prompt_tokens\":11820,\"prompt_tokens_details\":{\"cached_tokens\":10880},\"total_tokens\":12373}"
+      ]
+    }
+  ],
+  "deliveries": [],
+  "sessionId": "pi-session-ca1ba2c4-f50b-4c16-b97b-5ce1a9a4de2d"
+}

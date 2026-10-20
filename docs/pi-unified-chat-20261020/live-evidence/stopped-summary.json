@@ -1,0 +1,15 @@
+{
+  "status": "stopped_on_user_request",
+  "currentAttemptOperationStatus": "canceled",
+  "currentAttemptCompletedRounds": 1,
+  "firstAttemptCompletedRealModelRounds": 2,
+  "externalBodyDispatchCount": 0,
+  "externalAttachmentDispatchCount": 0,
+  "realMessageAcceptance": "not_completed",
+  "remaining": [
+    "XLSX direct delivery actual body/attachment receipt",
+    "PDF direct delivery actual body/attachment receipt"
+  ],
+  "durableMaterialRoot": "D:\\codex-artifacts\\pi-unified-chat-20261020\\live",
+  "newValidationWillNotStart": true
+}

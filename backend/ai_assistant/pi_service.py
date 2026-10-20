@@ -14,7 +14,6 @@ from .policy import (AiError, canonical, current_principal, digest, fields, iden
 
 ACTIVE = {"queued", "running", "canceling", "unknown"}
 TERMINAL = {"succeeded", "failed", "canceled", "frozen"}
-SKILL_IDS = ("sales-promotion-inventory", "stock-replenishment", "excel-report", "create-work-plan", "save-replenishment-draft", "execute-registered-gap", "deliver-report")
 MAX_INPUT_FILE = 512 * 1024
 MAX_OUTPUT_FILE = 8 * 1024 * 1024
 MIME_TYPES = {"text/plain", "text/csv", "text/markdown", "text/html", "application/json",
@@ -227,8 +226,9 @@ def prompt(session_id, payload, principal):
         raise AiError("本轮数据范围超出当前授权", "access_denied", 403)
     selection = pi_selection.normalize(payload.get("shopSelection", json.loads(existing_session.selection_json)), principal)
     skill_ids, file_ids = payload.get("skillIds", []), payload.get("fileIds", [])
-    if (not isinstance(skill_ids, list) or len(skill_ids)>3 or len(set(skill_ids)) != len(skill_ids)
-            or any(item not in SKILL_IDS for item in skill_ids) or not isinstance(file_ids, list) or len(file_ids)>16):
+    if (not isinstance(skill_ids, list) or len(skill_ids)>3
+            or any(not isinstance(item, str) for item in skill_ids) or len(set(skill_ids)) != len(skill_ids)
+            or not isinstance(file_ids, list) or len(file_ids)>16):
         raise AiError("技能或文件标识无效")
     from . import configuration
     from .pi_models import PiWorkspace, PiControl
@@ -275,6 +275,8 @@ def prompt(session_id, payload, principal):
         if sum(PiFile.objects.get(id=f).size_bytes for f in files)>MAX_OUTPUT_FILE:
             raise AiError("本轮附件超过 8 MiB", "payload_too_large", 413)
         selected = [item for item in skills() if item["id"] in skill_ids]
+        if len(selected) != len(skill_ids):
+            raise AiError("所选技能不在当前审核资源包中")
         if any(item["status"] != "available" for item in selected):
             raise AiError("所选技能尚未安装", "service_unavailable", 503)
         session.operation_seq += 1

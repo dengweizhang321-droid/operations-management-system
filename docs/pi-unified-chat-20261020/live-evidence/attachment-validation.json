@@ -1,0 +1,16 @@
+{
+  "pdf": {
+    "pages": 1,
+    "xrefOffsetVerified": true,
+    "eofVerified": true,
+    "sizeBytes": 1200,
+    "sha256": "80d2ce183f4e925aff91c3069927dd6676698d4ad11ef8f5b6e7aa08bf66a206"
+  },
+  "xlsx": {
+    "worksheets": 4,
+    "zipCrcVerified": true,
+    "xmlParsed": true,
+    "syntheticContentVerified": true,
+    "sizeBytes": 3566
+  }
+}
