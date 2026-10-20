@@ -32,6 +32,7 @@ P0-3（周报发布租约）和 P0-4（排队 Start fence）本轮未实施，�
 - `node --check tools/publish-prepared-main.mjs` 通过；`python -m py_compile tests/pi152-acl-catalog-boundary.py` 通过；`git diff --check` 通过。
 - 本机只有 PowerShell 5.1，未运行 PS7；本轮未改 PowerShell 生产脚本。
 - 未执行生产部署、迁移、服务启停、控制包采用或真实发布。
+- `node tools/release-scope-plan.mjs --base f5c68845 --head 0221d7bd` 输出 `scope=full`、`migrate=false`、组件 worker+django，原因是 `package.json` 与发布工具路径；证据见 [evidence/release-scope-plan.json](evidence/release-scope-plan.json)。本轮未准备任何制品。
 
 ## 预计效果
 

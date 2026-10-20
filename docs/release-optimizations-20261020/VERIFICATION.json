@@ -30,6 +30,13 @@
     "powershell": "5.1.26100.9444",
     "powershell7": "not available on this host"
   },
+  "releaseScopePlan": {
+    "scope": "full",
+    "components": ["worker", "django"],
+    "migrate": false,
+    "head": "0221d7bd42899c2aaaf2e84c1cce0d6bdd3d8cc5",
+    "log": "evidence/release-scope-plan.json"
+  },
   "productionTouched": false,
   "deploymentPerformed": false,
   "migrationPerformed": false,
