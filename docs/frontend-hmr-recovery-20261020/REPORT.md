@@ -96,3 +96,11 @@ node tools/main-prebuild-queue.mjs --native-391-observe <REQUEST文件绝对路�
 独审复现了通用 CMD `/d /c` 后绝对 `cmd.exe /c npm` 被当作普通绝对目标的缺口。本增量对通用 CMD 目标的 cmd、PowerShell、pwsh、Node、Python、WSL 及 npm/npx/vite/vinext 命名包装直接拒绝，不递归解析或推断内层执行。PowerShell `-File` 仅接受绝对 `.ps1`，同类解释器/包管理器包装名及 `.exe/.cmd/.bat` 均拒绝；不读取任意 `.ps1` 正文。PG 唯一固定资格保持。
 
 新增一组定向负例通过，覆盖 CMD→CMD/npm、CMD→绝对 Node 的 eval/相对 npm、其它解释器/包管理包装，以及错误 `-File` 类型；语法和 diff 检查通过。此前 7+1 有效结果复用，不重跑整包。本增量未采用或执行现场协调。
+
+### 第二次观察失败的独立有限分支
+
+原 resume writer27260 的 initial 观察因仍有其它任务活动被保守拒绝，随后自然 Observer deadline/退出1；旧 out 只有固定 REQUEST、REJECTION，没有 OBS/ACK/final/resolution。`failed-witness-391-2` 固定21原件及3133对象清单，SHA `55d57aba...`。未保存旧高 observer 的 PID/创建时间，不推造；后续须以完整新鲜 census 排除旧 request/out 调用及等待器，并核旧 writer/潜在后代退出。
+
+新增分支只接受 `--native-391-resume-2 D:/codex-artifacts/frontend-hmr-recovery-20261020/witness-391-resume-2`（全新外部 out）。在同一 queue→rotation 锁内校验两次失败、3121⊆3133、全部对象 SHA 和原 evidence root identity，原 `failed-observation-resume.json` 及所有原件保持；只 create-only 追加 `failed-observation-resume-2.json`。p1 始终对照旧 c4 的 request/epoch/采用事实验证；p2 绑定当前新源码、writer/epoch/out/采用，并同时指向 p1 及两套清单。reader 独立复验两套清单及全部对象。采用链严格增加 `1711fc → 546df → c4 cdfec → 新采用`，配置 a90、native512 和 task 不变；没有循环或任意重试入口，也不重放原5beb准备。
+
+分类器、白名单、原 actor 门禁及 native-tools 未修改；与 c4 的对应源码区间逐字节相同。仅新增四组第二分支负例，覆盖固定失败/p1绑定、3133最后对象损坏、旧 writer/后代/等待器、p2 source/adoption/epoch/旧 out 混用；全部通过，语法及 diff 检查通过。此前检查复用，本轮没有动态进程诊断、控制采用或现场写入。现场仍由唯一负责人在用户确认的稳定窗口执行，使用 `control-materials-391-resume-2` 及新的外部 out。
