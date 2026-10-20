@@ -98,11 +98,37 @@ def prepare(value):
     return {'prepared':True,'started':False,'plan':plan,'planSha256':sha(encode(plan)),'linuxPlanPath':str(new/'source-upgrade-plan.json')}
 
 
+TRANSIENT_STATE_FILES=frozenset({'broker.lock','ledger.sqlite3-wal','ledger.sqlite3-shm'})
+
+
+def checkpoint_ledger(root):
+    """Checkpoint the stopped Runner ledger before hashing or copying it.
+
+    A read-only SQLite backup creates a zero-byte -wal sidecar. The checkpoint
+    makes the durable main file current; the manifest intentionally ignores
+    only these transient sidecars, matching the copy ignore list.
+    """
+    ledger=root/'ledger.sqlite3'
+    if not ledger.exists():return
+    connection=sqlite3.connect(ledger)
+    try:
+        mode=connection.execute('PRAGMA journal_mode').fetchone()
+        if mode and str(mode[0]).lower()=='wal':
+            result=connection.execute('PRAGMA wal_checkpoint(TRUNCATE)').fetchone()
+            if result and int(result[0])!=0:raise ValueError('ledger_checkpoint_busy')
+    finally:
+        connection.close()
+    wal=root/'ledger.sqlite3-wal'
+    if wal.exists() and wal.stat().st_size:raise ValueError('ledger_wal_not_checkpointed')
+
+
 def state_manifest(root):
+    wal=root/'ledger.sqlite3-wal'
+    if wal.exists() and wal.stat().st_size:raise ValueError('ledger_wal_not_checkpointed')
     rows=[]
     for file in sorted(root.rglob('*')):
         if file.is_symlink():raise ValueError('unsafe_runner_state')
-        if file.is_file() and file.name not in {'broker.lock','ledger.sqlite3-shm'}:
+        if file.is_file() and file.name not in TRANSIENT_STATE_FILES:
             rows.append([file.relative_to(root).as_posix(),sha(file.read_bytes())])
     return sha(encode(rows))
 
@@ -180,10 +206,12 @@ def apply(value):
     for container_id in ids:
         meta=decode(subprocess.run([config['docker'],'inspect',container_id],env=docker_env,capture_output=True,check=True,timeout=20).stdout)[0]
         if meta['State']['Running']:raise ValueError('runner_containers_must_be_stopped')
+    checkpoint_ledger(old/'state')
     fresh=state_manifest(old/'state')
     intent={'operationId':plan['operationId'],'status':'copying','freshStateSha256':fresh,'planSha256':sha(raw)}
     atomic(intent_path,encode(intent))
-    # No copied lock inode or WAL can become a second live authority.
+    # No copied lock inode or transient SQLite sidecar can become a second live
+    # authority; the backup below owns the consistent ledger snapshot.
     shutil.rmtree(new/'state')
     shutil.copytree(old/'state',new/'state',ignore=shutil.ignore_patterns('broker.lock','ledger.sqlite3','ledger.sqlite3-wal','ledger.sqlite3-shm'))
     ledger=old/'state/ledger.sqlite3'
