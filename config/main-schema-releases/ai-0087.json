@@ -10,6 +10,6 @@
     "backend/ai_assistant/migrations/0087_pi_native_capabilities.py": "438a85491e92acc8f213794a196b0b59f2194c9ae566cb56926eceeac19777c0"
   },
   "validation": "docs/schema-acl-gate-20261020/pi153-mandatory-code-checks-v2.json",
-  "validationSha256": "f6798101b046dfc0df57d66b19fe81402fd05e415bb4e600a835bedb20e56621",
-  "codeSha256": "bf1f95c176e96b9a6bcfeecde9129553e7fc7190d8209cd303a3516a6038e23f"
+  "validationSha256": "b90d632e0b1729d26de5f9962e98015daab1df1e6fd0da9d5fa752afe966c474",
+  "codeSha256": "76580ec4763599b76ad04fbc2c476771031be892d6bda03892057c446c122b59"
 }

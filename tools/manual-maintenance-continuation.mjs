@@ -38,6 +38,16 @@ export const nativePiBusinessPredecessor=Object.freeze({
  candidateAiScriptSha256:'3b0ae6c09b1bc49aa12fed622208fee711a387726ede709b2cd421fa1b04cad5',
  candidateDjangoScriptSha256:'d884882af114840ff1b0061c57439556cfc6a8fd7d0a751896363dd59eecde5d'
 });
+// PiNative deliberately adds its 153 gate to django-local-service.ps1 without
+// changing django-ai.ps1. This reviewed candidate hash is the only same-AI
+// generation in which the candidate local-service may differ from the
+// installed one; any other drift still fails closed.
+export const piNativeCandidateDjangoScriptSha256='d012318c82d7db60e8037bb19c4e7a2ef856fed05cf4d70471b6a24b0a9e7437';
+export function assertMaintenanceControllerGeneration({name,installedSha,expected,candidateSha}){
+ if(installedSha===expected)return;
+ if(name==='django-local-service.ps1'&&candidateSha===piNativeCandidateDjangoScriptSha256)return;
+ assert.equal(installedSha,expected,'实际原生控制器代际与候选不一致：'+name);
+}
 export const piMaintenancePredecessor=Object.freeze({
  releaseId:'20261018T081823Z-282cee340c57bf41',workerManifestSha256:'120911425367ef3a451c40f7a9842f3c1e39fc99b38cfd602b011ae3ed0733fc',
  djangoManifestSha256:'a9e3fdb943dfcc558a69982f9d410aff103872712e26e0d50b0cefe3841693e7',
@@ -110,7 +120,7 @@ export async function maintenanceReadiness({source,head,djangoManifestSha256,ins
  const installedAi=await sha(path.join(installed,'tools/django-ai.ps1')),candidateAi=await sha(path.join(source,'tools/django-ai.ps1'));
  for(const [name,root,relative] of [['worker-local-service.ps1','worker',`releases/${head.releaseId}/tools/worker-local-service.ps1`],['process-deadline.ps1','worker',`releases/${head.releaseId}/tools/process-deadline.ps1`],['django-local-service.ps1','django','app/tools/django-local-service.ps1']]){
   const expected=await pin('source',name,path.join(source,'tools'));
-  if(installedAi===candidateAi)assert.equal(pins.find(p=>p.root===root&&p.relative===relative)?.sha256,expected,'实际原生控制器代际与候选不一致：'+name);
+  if(installedAi===candidateAi)assertMaintenanceControllerGeneration({name,installedSha:pins.find(p=>p.root===root&&p.relative===relative)?.sha256,expected,candidateSha:await sha(path.join(source,'tools',name))});
  }
  if(installedAi!==candidateAi){
   const b=nativePiBusinessPredecessor;

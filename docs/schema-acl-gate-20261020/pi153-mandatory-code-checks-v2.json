@@ -1,7 +1,7 @@
 {
   "version": "pi-native-mandatory-code-checks-v1",
   "status": "code-checked",
-  "checkedAt": "2026-10-20T04:47:54.452923+00:00",
+  "checkedAt": "2026-10-20T06:32:19.588066+00:00",
   "productionTouched": false,
   "functionalValidationPerformed": false,
   "steps": [
@@ -18,7 +18,7 @@
     ]
   ],
   "fullBackupOrRestorePerformed": false,
-  "codeSha256": "bf1f95c176e96b9a6bcfeecde9129553e7fc7190d8209cd303a3516a6038e23f",
+  "codeSha256": "76580ec4763599b76ad04fbc2c476771031be892d6bda03892057c446c122b59",
   "migrationSha256": "a08ccd8859d00cb31eed4dfaf9c02ad062dfd37a3dac5190c64e9ab059cf7f00",
   "checks": [
     "migration-closure",
@@ -91,7 +91,7 @@
     "tools/publish-main-command.mjs": "b711a41c401e7619e175347e6ba3490e5d5655d5dca5c9dc840ac345b8a7bfc7",
     "tools/manual-maintenance-start.ps1": "a7ab01a0136cb43aa66d0ce5d289f51bae694a8e62568d5582f3b351fd42bfc9",
     "tools/manual-maintenance-lock.psm1": "70041d738f8e076cc13b8391aaf3a31bcf15399ccfef81fdeb4f7d88f9411476",
-    "tools/manual-maintenance-continuation.mjs": "435a2578f01942d6f07901b06975e2c8132bb6e67fff83befa5bafb9ae5573ee",
+    "tools/manual-maintenance-continuation.mjs": "62d66de9a0e5d483149bd46f9683b2ba82acc9b831392851a9da237157a83dd1",
     "tools/manual-maintenance-continuation.ps1": "359890e622739c501bf9cd6ab525a66aa280077f54d847847e2417f9c69c63a5",
     "backend/ai_assistant/pi_health.py": "2c830812f5715366d5be56a432928cd51d39167cd295b54c85eb5cfb1a22c047",
     "backend/ai_assistant/pi_models.py": "0fcbcf59983c80ec102612938893486d64e8d0948f3659082d25e01356741343",
