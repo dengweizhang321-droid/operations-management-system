@@ -1,6 +1,6 @@
 # 前端热更新一期 C：独立复核与统一集成
 
-2026-10-20。本轮 C 是唯一合并与制品准备负责人；授权不包含上线、生产切换、迁移执行或业务外发。本说明在冻结最终提交前完成；最终提交、推送和制品结果由聊天及原生回执报告，不为回填准备结果再次推进 main。
+2026-10-20 起。本轮 C 是唯一合并与制品准备负责人。初始授权仅包含合并与准备；用户后续明确要求“按原流程协调历史 unknown，然后继续准备；然后同步上线”，已追加本次生产发布授权。本说明在冻结最终提交前完成；最终提交、推送、准备和上线结果由聊天及原生回执报告，不为回填成功结果再次推进 main。
 
 ## 精确来源与集成范围
 
@@ -8,7 +8,7 @@
 - A：`cda4d7cd2cd4cc587d118e70b91dfb8d568943be`；[A 交接](A.md)。负责 launcher、dependencies 和 A.md。
 - B：`5353f62d020d5e16e6ee0b0c78208e4f68c50871`；[B 交接](B.md)。负责 package、layout、预览 Vite 配置、README、预览说明和 B.md。
 - 集成分支：`codex/frontend-hmr-phase1-c-20261020`；worktree：`D:/codex-worktrees/frontend-hmr-phase1-c-20261020`。
-- A/B 基于同一 main，文件无重叠；串行无冲突合并。组合代码检查提交为 `d85ba6351f238d9fb6a21069db84d82cfd738e8d`，tree 为 `cdc19f82ca09c8310c24bd0daa112d11518a3e9c`。其后只增加本说明；最终提交保留两位作者原文件的精确 Git blob。
+- A/B 基于同一 main，文件无重叠；串行无冲突合并。组合代码检查提交为 `d85ba6351f238d9fb6a21069db84d82cfd738e8d`，tree 为 `cdc19f82ca09c8310c24bd0daa112d11518a3e9c`。初次集成随后只增加本说明；后续恢复增量见文末。最终提交保留两位作者原文件的精确 Git blob。
 - 主工作区的既有改动与旧 main 检出保留，不在生产目录安装依赖、构建或切分支。C 未修改关键实现或替作者解决冲突。
 
 ## 独立复核结论
@@ -31,12 +31,12 @@ C 直接阅读 A/B 完整差异、相关源码、A.md/B.md 和文档直接依赖
 - C 仅经预览 stop 关闭自有进程，完整四端口重新绑定成功；临时任务退出码 0。源文件 blob 保全、package 单项变化、node --check 和 git diff --check 通过。
 - C 本轮外部证据目录：`D:/codex-artifacts/frontend-hmr-phase1-c-20261020/`，包含 combined.json、startup.log、check-combined.mjs、source-review.json 和 check-source.mjs。运行配置、session、数据库、依赖及随机密钥不入 Git。
 
-未执行浏览器 HMR 操作、业务功能测试、真实权限/scope 场景、preview:verify、全量 smoke、综合验收或生产操作。Miniflare 的 Request.cf 网络元数据超时回退后服务正常就绪，未扩展无关修复。
+上述组合检查未执行浏览器 HMR 操作、业务功能测试、真实权限/scope 场景、preview:verify、全量 smoke、综合验收或生产操作。Miniflare 的 Request.cf 网络元数据超时回退后服务正常就绪，未扩展无关修复。
 
 ## 最终发布范围与准备边界
 
-以当前原生发布目录记录的生产来源 `e52361d5a8fc095713e0ac3553ba078c12fcba9f` 为 base，最终提交为 head，使用现有 release-scope-plan 完整差异生成计划。当前组合预计划包含 Worker 和 Django，并包含 main 已有 `backend/ai_assistant/migrations/0087_pi_native_capabilities.py`，因此为 database-migration；该迁移并非 HMR 新增。即使仅比较本轮增量，package 与 tools 路径也按原规则处理，不强制降为 Worker-only。
+早期目录记录中的 `e52361d5a8fc095713e0ac3553ba078c12fcba9f` 已核实不是当前生产来源；据此生成的迁移预计划不再作为执行依据。实际生产前驱由 Worker/Django 的一致来源及原生 SUCCESS 回执确认，为 `20eea975b7e2132e950de0423adf9ff14507be4a`。以该提交为 base、最终完整提交为 head，沿用原 release-scope-plan：处理 Worker 和 Django，没有 migration 变化，不执行迁移。package、tools 等共享路径按原规则处理，不强制降为 Worker-only；现场仍以原生计划和前驱门禁复核为准。
 
-合并推送后只通过已采用的普通权限准备队列处理最终目标，检查原生 PREPARED 及其提交/制品绑定，不重复手工构建。准备前只读发现历史 dispatch `00385709-d354-4d39-9e7c-bc2b42dd90f1`、目标 `c7b817989050ac5af8d989403a0f5cbbd053ce05` 的 unknown 结果，后续票据曾被原生重放保护阻塞。保留原件，不换 ID 绕过、不重放、不现场修改控制器；本轮实际结果以最终目标票据及原生回执为准，缺 PREPARED 时明确报告制品未就绪。
+合并推送后只通过已采用的普通权限准备队列处理最终目标，检查原生 PREPARED 及其提交/制品绑定，不重复手工构建。历史 dispatch `00385709-d354-4d39-9e7c-bc2b42dd90f1` 的 unknown，以及后续准备中断产生的 `391ee25b-2c47-4c01-af96-36b9a10b8745`，按追加授权和[恢复说明](../frontend-hmr-recovery-20261020/REPORT.md)处理：保留原回执、未完成制品和失败观察，不重放旧目标；必要控制代码从新 main 的独立恢复 worktree 提交，经独立增量复核后采用，不在现场篡改已安装字节，也不以空提交或新 ID 绕过重放门禁。恢复后的最终集成结果仍须覆盖新增控制代码及其必要检查；未变化的有效检查直接复用。
 
-本轮不执行 Deploy、Start/Stop 生产服务、维护、迁移或上线。准备完成才告知用户，后续仍需明确“上线”授权。仅在内容保全且确认无进程、构建、发布和其他任务依赖后，才清理相应分支与 worktree。
+只有对应最终提交的制品就绪，才按已有上线授权执行原生发布及其版本、身份、互斥、排空和启动门禁，不追加业务验收。缺 PREPARED 或最终成功回执时，明确报告未就绪或未上线，不提前宣称成功。仅在内容保全且确认无进程、构建、发布和其他任务依赖后，才清理相应分支与 worktree；保留原生冻结源和恢复证据。
