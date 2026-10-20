@@ -1,0 +1,63 @@
+.netshop-products.np-integrated{padding:0;background:transparent}
+.netshop-products.np-integrated .np-title-row{padding:2px 0 0}
+.netshop-products.np-integrated .np-title-row>.np-toolbar{margin:0}
+.netshop-products.np-integrated .np-subtitle{margin-bottom:0}
+.netshop-products.np-integrated .np-tabs{margin:12px 0}
+.netshop-products.np-integrated .np-context{margin:9px 0 14px}
+.netshop-products.np-integrated .np-integrated-capabilities{position:relative;flex:0 1 150px;font-size:12px;color:var(--np-secondary)}
+.netshop-products.np-integrated .np-integrated-capabilities>summary{padding:7px 0;cursor:pointer}
+.netshop-products.np-integrated .np-integrated-capabilities[open]{flex:1 1 100%}
+.netshop-products.np-integrated .np-integrated-capabilities>p{margin:0}
+.netshop-products .np-integrated-performance,.netshop-products .np-integrated-performance *{min-width:0}
+.netshop-products .np-integrated-summary{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:7px 18px;color:var(--np-secondary);font-size:12px}
+.netshop-products .np-integrated-summary>p{margin:0}
+.netshop-products .np-integrated-counts{display:flex;gap:16px;flex-wrap:wrap}
+.netshop-products .np-integrated-counts>span{display:flex;gap:6px;align-items:baseline}
+.netshop-products .np-integrated-counts .np-value{color:var(--np-ink);font-weight:600}
+.netshop-products .np-integrated-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.netshop-products .np-integrated-kpis .np-metric{padding:14px 13px}
+.netshop-products .np-integrated-kpis .np-metric-foot{gap:2px 10px;margin-top:5px}
+.netshop-products .np-integrated-analysis{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(285px,1fr);gap:14px;align-items:stretch}
+.netshop-products .np-integrated-analysis>.np-panel{display:flex;flex-direction:column}
+.netshop-products .np-integrated-analysis .np-chart{height:auto;min-height:170px;max-height:290px;margin:auto 0}
+.netshop-products .np-integrated-side{align-content:start}
+.netshop-products .np-integrated-side h2{font-size:16px}
+.netshop-products .np-integrated-side .np-panel{padding:14px 16px}
+.netshop-products .np-integrated-side .np-panel-heading{margin-bottom:10px}
+.netshop-products .np-integrated-side a{display:inline-block;margin-top:10px;font-size:12px}
+.netshop-products .np-integrated-facts{display:grid;gap:0;margin:0;font-size:13px}
+.netshop-products .np-integrated-facts>div{display:flex;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid var(--np-line)}
+.netshop-products .np-integrated-facts>div:last-child{border-bottom:0}
+.netshop-products .np-integrated-facts dt{color:var(--np-secondary)}
+.netshop-products .np-integrated-facts dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.netshop-products .np-integrated-chart-foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--np-secondary);padding-top:11px;border-top:1px solid var(--np-line)}
+.netshop-products .np-integrated-table-tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.netshop-products .np-integrated-search{display:flex;align-items:center;gap:7px;flex:1 1 320px}
+.netshop-products .np-integrated-search input{flex:1 1 180px;width:100%}
+.netshop-products .np-integrated-search button{flex:0 0 auto}
+.netshop-products .np-integrated-table-tools>select{max-width:230px}
+.netshop-products .np-integrated-column-tools{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.netshop-products .np-integrated-column-groups{display:flex;align-items:center;gap:4px;padding:3px;border:1px solid var(--np-line);background:var(--np-soft);border-radius:7px}
+.netshop-products .np-integrated-column-groups button{border:0;background:transparent;padding:4px 15px;min-height:30px}
+.netshop-products .np-integrated-column-groups button[aria-pressed=true]{background:var(--np-surface);box-shadow:0 1px 3px #233d2c12;color:var(--np-brand);font-weight:600}
+.netshop-products .np-integrated-column-groups>.np-caption{padding:0 10px}
+.netshop-products .np-integrated-column-options{max-width:100%;font-size:13px}
+.netshop-products .np-integrated-column-options>summary{padding:7px 11px;cursor:pointer;color:var(--np-secondary)}
+.netshop-products .np-integrated-column-options .np-column-picker{margin:7px 0 0}
+.netshop-products .np-integrated-fold{border:1px solid var(--np-line);border-radius:9px;background:var(--np-surface);scroll-margin-top:20px}
+.netshop-products .np-integrated-fold>summary{display:flex;align-items:center;gap:12px;padding:15px 17px;cursor:pointer;list-style:none;font-size:14px;font-weight:600}
+.netshop-products .np-integrated-fold>summary::-webkit-details-marker{display:none}
+.netshop-products .np-integrated-fold>summary:before{content:'›';font-size:20px;line-height:1;color:var(--np-secondary);transition:transform .15s}
+.netshop-products .np-integrated-fold[open]>summary:before{transform:rotate(90deg)}
+.netshop-products .np-integrated-fold>summary small{font-size:12px;font-weight:400;color:var(--np-secondary);margin-left:auto}
+.netshop-products .np-integrated-fold-body{padding:0 16px 16px}
+.netshop-products .np-integrated-structure-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.netshop-products .np-integrated-topic-links{display:flex;gap:8px;flex-wrap:wrap}
+.netshop-products .np-integrated-list{scroll-margin-top:20px}
+.netshop-products.np-integrated .np-integrated-side .np-bar-row{grid-template-columns:75px minmax(30px,1fr) minmax(65px,90px)}
+.netshop-products.np-integrated .np-integrated-performance .np-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1200px){.netshop-products .np-integrated-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.netshop-products .np-integrated-analysis{grid-template-columns:minmax(0,1.5fr) minmax(270px,1fr)}}
+@media(max-width:899px){.netshop-products .np-integrated-analysis{grid-template-columns:minmax(0,1fr)}.netshop-products .np-integrated-side{grid-template-columns:repeat(2,minmax(0,1fr));align-content:start}.netshop-products .np-integrated-analysis .np-chart{max-height:none}.netshop-products.np-integrated .np-integrated-performance .np-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.netshop-products .np-integrated-kpis,.netshop-products .np-integrated-side,.netshop-products .np-integrated-structure-grid{grid-template-columns:minmax(0,1fr)}.netshop-products .np-integrated-kpis .insights-metric>strong{font-size:24px}.netshop-products .np-integrated-fold>summary{flex-wrap:wrap;gap:8px;padding:13px}.netshop-products .np-integrated-fold>summary small{flex-basis:100%;margin-left:18px}.netshop-products .np-integrated-fold-body{padding:0 12px 12px}.netshop-products .np-integrated-table-tools>select{flex:1 1 150px;max-width:none}.netshop-products .np-integrated-search{flex-wrap:wrap}.netshop-products.np-integrated .np-integrated-performance .np-metrics{grid-template-columns:minmax(0,1fr)}}
+
+.netshop-products.np-integrated .np-product-cell>div{min-width:0;max-width:270px}.netshop-products.np-integrated .np-product-cell .np-link{display:block;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
