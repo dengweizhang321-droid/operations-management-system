@@ -1,6 +1,6 @@
 {
   "version": "schema-acl-gate-verification-v1",
-  "at": "2026-10-20T12:32:00+08:00",
+  "at": "2026-10-20T12:38:00+08:00",
   "branch": "codex/schema-acl-gate-20261020",
   "base": "9637fa692fa93d2b134cbecb689a6b15a119c7ac",
   "checks": [
@@ -12,14 +12,17 @@
   ],
   "piBusiness": {
     "codeSha256": "ec91bc4f9ec070a555240e328743dbb0b51dabb0606577376da842edaa47b7d9",
-    "recipeValidationSha256": "c6607399b3812846f5bd59fc956521bf193818ff7a863eb8073be0940d8249c2"
+    "evidence": "docs/schema-acl-gate-20261020/pi152-mandatory-code-checks-v2.json",
+    "recipeValidationSha256": "83516aebc90c4b8ed723dd88e3f6bb53f3c3a3ad91a61264ea85606b800a48a9"
   },
   "piNative": {
     "codeSha256": "f4223f0efd02221370877cd377f9d19609a609dae626f648e5772c7cee8c5b8a",
     "migrationSha256": "a08ccd8859d00cb31eed4dfaf9c02ad062dfd37a3dac5190c64e9ab059cf7f00",
-    "recipeValidationSha256": "e810b6d04ab74afff6f977bb5d527dc2529beadf185e5e46d6c280fcbbfa6d87",
+    "evidence": "docs/schema-acl-gate-20261020/pi153-mandatory-code-checks-v2.json",
+    "recipeValidationSha256": "67ffc3127664ddd5a96aa6b57f4a8b214b117831a38dc3fb284f6a9b1086d57f",
     "binderBound": true
   },
+  "historicalEvidenceBytesPreserved": true,
   "productionTouched": false,
   "deploymentPerformed": false,
   "migrationPerformed": false,

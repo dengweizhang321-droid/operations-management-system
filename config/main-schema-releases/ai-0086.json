@@ -9,7 +9,7 @@
   "stepFiles": {
     "backend/ai_assistant/migrations/0086_pi_business_actions.py": "3435b5970ffb5d5530e60aed6156e7b7e7792fb0cbff5e198ef8a3b264ee4213"
   },
-  "validation": "docs/pi152-finalize-recovery-20261020/mandatory-code-checks.json",
-  "validationSha256": "c6607399b3812846f5bd59fc956521bf193818ff7a863eb8073be0940d8249c2",
+  "validation": "docs/schema-acl-gate-20261020/pi152-mandatory-code-checks-v2.json",
+  "validationSha256": "83516aebc90c4b8ed723dd88e3f6bb53f3c3a3ad91a61264ea85606b800a48a9",
   "codeSha256": "ec91bc4f9ec070a555240e328743dbb0b51dabb0606577376da842edaa47b7d9"
 }

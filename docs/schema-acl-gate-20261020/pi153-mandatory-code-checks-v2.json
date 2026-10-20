@@ -1,0 +1,133 @@
+{
+  "version": "pi-native-mandatory-code-checks-v1",
+  "status": "code-checked",
+  "checkedAt": "2026-10-20T04:34:32.910520+00:00",
+  "productionTouched": false,
+  "functionalValidationPerformed": false,
+  "steps": [
+    "ai_assistant.0087_pi_native_capabilities"
+  ],
+  "generations": [
+    152,
+    153
+  ],
+  "parentVariants": [
+    [
+      152,
+      153
+    ]
+  ],
+  "fullBackupOrRestorePerformed": false,
+  "codeSha256": "f4223f0efd02221370877cd377f9d19609a609dae626f648e5772c7cee8c5b8a",
+  "migrationSha256": "a08ccd8859d00cb31eed4dfaf9c02ad062dfd37a3dac5190c64e9ab059cf7f00",
+  "checks": [
+    "migration-closure",
+    "node-syntax",
+    "powershell-syntax",
+    "python-syntax"
+  ],
+  "evidence": {
+    "frontend-code-checks.json": {
+      "path": "docs/pi-native-capabilities-20261020/frontend-code-checks.json",
+      "sha256": "a71b9211bc8299e6f6d06873cd8d3337662d5a9a5fa7e0ddede8d0c8f9e0ded6"
+    },
+    "backend-code-checks.json": {
+      "path": "docs/pi-native-capabilities-20261020/backend-code-checks.json",
+      "sha256": "9313ce53102a4a59d5bdb5dec1cff2472cf3bcf05cd7439beb48d758c6574c65"
+    },
+    "release-code-syntax.json": {
+      "path": "docs/pi-native-capabilities-20261020/release-code-syntax.json",
+      "sha256": "382f83f6975e4637ab8bb27eff6c5ab326679cb32f4d578e08a4358722b7ce5a"
+    },
+    "powershell-syntax.json": {
+      "path": "docs/pi-native-capabilities-20261020/powershell-syntax.json",
+      "sha256": "e9e9e2e953069c45277b474fde8f4efc6c039777801b7f5a6574dad3b4bf5bba"
+    },
+    "runtime-bindings.json": {
+      "path": "docs/pi-native-capabilities-20261020/runtime-bindings.json",
+      "sha256": "b65c19dea947bf9ebcbc327e9275da1d1cbf7ffbedaf13f2a0fb460275144b6e"
+    }
+  },
+  "sourceFiles": {
+    "tools/jd_monitor_preferences_addition.py": "94e93413b02bde911c11cc251c437f9480d8b9b4d1922369c5b29991d9470267",
+    "tools/jd_monitor_preferences_catalog.py": "baea5a9392f2fdd623002da3115bac68986e893655c12658152b68c0ae56a383",
+    "tools/jd_monitor_preferences_catalog.json": "06e8c81d81645e1ca7215280beeef928b5a26a39b30bf0607b4ab8183a5602e9",
+    "tools/jd_logistics_addition.py": "fd50a4d42a86f671b79458964328fd963926f2bc43b4938ab4be07afea48f939",
+    "tools/jd_logistics_catalog.py": "7be356058c31b27e9af1c8ebbad000310bb0a0eedb11f841182f67d3f4ca75ec",
+    "tools/jd_logistics_catalog.json": "987d06df53af7b53a5d0980f9ac1ad028ab696411785203b3044a9b98622fc59",
+    "tools/postgres_no_key_backup.py": "c525f9a8512dcdf555bc2da69bcc9c5a3a23d9557867be55e9047f2b9c1debfa",
+    "tools/integration_release_gate.py": "634e6dd234b09b0cc9c1bd69ea008781cf24b856013aa88dfc0a86a5ab99e83e",
+    "tools/bi-app-adopt.ps1": "11d15c46990b54769257b7e4b996d7cdcc0fdcd6de596f1cec1a419cc6951237",
+    "tools/django-local-service.ps1": "d012318c82d7db60e8037bb19c4e7a2ef856fed05cf4d70471b6a24b0a9e7437",
+    "tools/django-postgres-maintenance.ps1": "07ade4680bcaafe1b27c3c2849393dcda6d25896aa2f3fa1a9a409cce1e1bdb1",
+    "tools/django-inventory-service.ps1": "a0a2fa402b4d31393c243da390337c7ab0e2776d4660b34351fd2056a87aef75",
+    "tools/ai_schedule_addition.py": "057b3b81bdc1e39a26b5b79a6b4a2a8e49448c52d11ca1e7dd8cc0fa6fc7a8eb",
+    "tools/ai_schedule_addition_catalog.py": "81b2ee2e9d54a6b75bc7d6cd6c1da4e7f2079c7d45b60213d106a7da3730f143",
+    "tools/jackyun_audit_addition.py": "86f811d848ea892283e81a09b22d01ca22bccc4b13febc835feb8490bb269da7",
+    "tools/jackyun_audit_catalog.py": "0ec29d8672a0f2900a77efd8c46f26da92facca4e366ccf57ad8ba163cad6e8f",
+    "tools/bi_app_addition.py": "161ea5a80e90c41abff88f02d931fb3a6133777f0c137d7bae5a150d265579d1",
+    "tools/postgres_restore_semantics.py": "66dd0f5a2ab62ff819a73af76538430b74f511675a651a8100175d06082a3f57",
+    "tools/tmall_warehouse_addition.py": "4293e4e5d1d29d6560f7dc22b891e5c26edd50d50de4a1179d771d15f366283b",
+    "tools/tmall_warehouse_catalog.py": "b004da7fd734ad8c6102dd20a11cf041a57fcfc832ac8e91342534fff052dc57",
+    "tools/tmall_warehouse_catalog.json": "bbc108b10a4799a5d2e157ca1fd91ac421d90cf0728292a46995b4adc9ec2d1b",
+    "tools/jd_product_monitoring_addition.py": "718e1c4d87720fb651f7114f90e599690682aa38c4da46df1413cc77741d6b08",
+    "tools/jd_product_monitoring_catalog.py": "ad65e36a5e57bfc29345cfa21dba950d4754143f37358882ec4d4a584a347051",
+    "tools/tmall_warehouse_candidate.py": "550525a555b642739f3ac6501ff7400f6be544269c20dc0fdd8d0bb0b79a0f6b",
+    "tools/main-schema-release.mjs": "0377105bddfd03d9fc4ad4aaabfa0d9b096006d4a5655baa98c950beb9c671ee",
+    "backend/teruisi_backend/health.py": "41e75c57309dfb40f55615d6c2d14bb8936545d44fc18ba262c93026a1e20d42",
+    "tools/integration_migration_plan.py": "94893e1cd60fb2ad693948e8b2d1e686882bc14664310acf7c6b24b8f53a74ec",
+    "tools/integration_migration_journal.py": "cd8b857c90ef113f264b8fcbdf024ce88e7a48b75265e0b70bf776c5b02bf8be",
+    "tools/protected_ai_shadow_evidence_0073.py": "8a542612c00061c71246d889f4f9c3a35d4dd8fa2d22e136ffcf13288cff985f",
+    "tools/django-integration-install.ps1": "c0f5ca005af79da9beccf52eeb7ffd3e1d89c6e66041805d228065837d71e2ec",
+    "config/integration-migration-policy-v3.json": "bdf50b5957be08986e027b527e0279d39da6bd1c4e79c59fa60680876d14711c",
+    "config/integration-migration-policy-v4-netshop-presence.json": "b91dea169b65f0c696cafcdedb6e359b05380838d5bc1f9e3446c2f26d7701ea",
+    "tools/pi_agent_addition.py": "bc394c5bd535c010469ec8493522e958c7769317064f3af08462e951bfe06544",
+    "tools/pi_agent_catalog.py": "58ba8e6ecde77734a579e66ae85c1529107c598edf42459d2b07ef08a6567c68",
+    "tools/pi_agent_catalog.json": "1e07e1b6dd99385437fe3b9c9691f9aed2c98b1e7fe5189387b68976e7dd4069",
+    "tools/pi_agent_candidate.py": "834dfa84b0a8aa24c78e9fb5335c24427652bf17f424a4c9a2dd1e61b43b92da",
+    "tools/publish-prepared-main.mjs": "c390ca66a1b18ffaddcfa029f7aaadede7b1b3bb2a22049b41f46ca94e7818ea",
+    "tools/pi_agent_prepare_runtime.py": "818bf6bc1ebbcef27576a4156312f85c94ca132f46cf8f8ad3a9ad7d7714410f",
+    "tools/django-ai.ps1": "3b0ae6c09b1bc49aa12fed622208fee711a387726ede709b2cd421fa1b04cad5",
+    "tools/publish-main-command.mjs": "b711a41c401e7619e175347e6ba3490e5d5655d5dca5c9dc840ac345b8a7bfc7",
+    "tools/manual-maintenance-start.ps1": "a7ab01a0136cb43aa66d0ce5d289f51bae694a8e62568d5582f3b351fd42bfc9",
+    "tools/manual-maintenance-lock.psm1": "70041d738f8e076cc13b8391aaf3a31bcf15399ccfef81fdeb4f7d88f9411476",
+    "tools/manual-maintenance-continuation.mjs": "435a2578f01942d6f07901b06975e2c8132bb6e67fff83befa5bafb9ae5573ee",
+    "tools/manual-maintenance-continuation.ps1": "359890e622739c501bf9cd6ab525a66aa280077f54d847847e2417f9c69c63a5",
+    "backend/ai_assistant/pi_health.py": "2c830812f5715366d5be56a432928cd51d39167cd295b54c85eb5cfb1a22c047",
+    "backend/ai_assistant/pi_models.py": "0fcbcf59983c80ec102612938893486d64e8d0948f3659082d25e01356741343",
+    "backend/ai_assistant/database_contract.py": "bea8655dccd89bf7a7e051b5d33a579bad30e4da32f522e2b5edcc1b370c953a",
+    "backend/ai_assistant/table_manifest.py": "e55b75862e9e9990028e04b18d42c893f2cd1dfe0a8aebec0e46ca67c839efff",
+    "backend/ai_assistant/pi_worker.py": "8c807715be15456b296d318456279cf1a0010635453c096111f832a812214395",
+    "backend/ai_assistant/pi_service.py": "63fbfd3d4fcf2cef54ee92ab3d83ee7dd5741ecf9fcc9e8ebae080a32efc5844",
+    "backend/ai_assistant/pi_gateway.py": "e210a05fc8a0917d5cfe5fdf36cd173c0bcc9036015958c56a47416eff49c4e4",
+    "backend/ai_assistant/pi_exports.py": "5c9f7c942de195dcb65341d0b5663aee572610b42bfd0c3f1cbbbf41f4c9acd7",
+    "backend/ai_assistant/pi_transport.py": "1321d0ef8e4a0bb3180f5263b83c80cf95358bd6fdf8e5b3b6cb945a443549fa",
+    "backend/ai_assistant/pi_selection.py": "664a14b143432b31c47b2788a0a9d2a92d94496511fc9868197571c37f20013c",
+    "tools/pi_workspace_addition.py": "a2289bbfd922643b982ed29e1c2240314b53e0b1362ebe7e72fe8430b49383aa",
+    "tools/pi_workspace_catalog.py": "8b458b66363df4b1cb01812b12f9f0eeff4d74490a94e40dde34ab83c611b194",
+    "tools/pi_workspace_catalog.json": "322293bdd253c5f67801ca99c4a7abf69ba3b3e2124698f8d0cae5aedd20b9b3",
+    "tools/pi_workspace_candidate.py": "6ca493bfc897984b1dce9b54a57630e6c64b67b925b31ea028ae5439a915a059",
+    "tools/pi_agent_upgrade_runtime.py": "fa49ffa7ed1ad21fa2f4412075ebe50bfd993902d6c49018ec0bea9f84f0b75a",
+    "tools/manual-maintenance-process.psm1": "a07a4d1fdb65dba6c5e7caaf27ad463a1613c182f30f56269a2f1e8175c116a5",
+    "tools/manual-maintenance-preflight.ps1": "1b4dbc31076f7722718eb060d0ff77a8527034584d8afa7de50ddb843a3a6a2f",
+    "tools/frozen-main-source.mjs": "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882",
+    "backend/ai_assistant/pi_workspace.py": "355b006dc9ebca00fe7e1c9203d561d547040d5be584cffcb6c092981e89050c",
+    "backend/ai_assistant/migrations/0085_pi_workspace_controls.py": "b4bd9ca8d870caa3b747b70446108a67af820610e79273ca35a752e850091d07",
+    "tools/pi_business_addition.py": "0b83c317cbad37300fedf2d5922602ce2a82dda6283272ee92a9b73ee85521ce",
+    "tools/pi_business_catalog.py": "6d257bdd06e808609d97c82e9078b34227b2e2042d2839a38c44620bbcae68e6",
+    "tools/pi_business_candidate.py": "2cd6e8d278afad0bb4e6e649c43193633d5e4d658682c6482cba1cc97ebb3df8",
+    "backend/ai_assistant/migrations/0086_pi_business_actions.py": "3435b5970ffb5d5530e60aed6156e7b7e7792fb0cbff5e198ef8a3b264ee4213",
+    "config/tmall-store-accounts.json": "5dbdc1f9312b0ee46b121b845b66201d65960495244153c78e0c346f7f9d5866",
+    "automation/n8n/pi-business/tmall-yijiu-pi-business.candidate.workflow.json": "d07dbf454f463c7d848d6fe463a91da529543e5972c0e72f58b1d8a58bb15d0c",
+    "automation/n8n/pi-business/tmall-lili-pi-business.candidate.workflow.json": "a0228d473f74f4fdfbb5ce56e2a49440e9b33ef60e652893f7ace9a285e34369",
+    "automation/n8n/pi-business/tmall-tuofeng-pi-business.candidate.workflow.json": "4756a62108ade6659b857ad7c427c3c162f349999f8638a7e1c7ca3af0984a22",
+    "automation/n8n/pi-business/tmall-yiyong-pi-business.candidate.workflow.json": "6eabb7dd2bc3baa016c44a271f8b76d661a5a2a8e2e56440aa8eba731c9f2f13",
+    "automation/n8n/pi-business/tmall-cuizhiwang-pi-business.candidate.workflow.json": "139fc5565a73197b4487c3c621ddb4697233a4b16e6f4df9f12c0ae544b1c1a2",
+    "automation/n8n/pi-business/tmall-masitu-pi-business.candidate.workflow.json": "38eda5c99ed1cd6bc3d702b04bf4b2773608913862a12ec493805e055daf01f6",
+    "tools/pi_native_addition.py": "4d1db614f2c0539b7a4c88ca4facf366063356d53a9805267db86044bff6632a",
+    "tools/pi_native_catalog.py": "68555790ab68fc6559dcffab77f74b8b635cd3036a1ce37aec13e8da1049b9ca",
+    "tools/pi_native_candidate.py": "6663a4fc4b360977d3e31fda662fe06ff5f84dc1515113d98be3d09f8bfa70b2",
+    "backend/ai_assistant/migrations/0087_pi_native_capabilities.py": "438a85491e92acc8f213794a196b0b59f2194c9ae566cb56926eceeac19777c0",
+    "backend/ai_assistant/pi_native_health.py": "796c720b99cfee4f70bd2e17a901b79cf4c4e96870d86673e0118d05ebec7cc9"
+  }
+}

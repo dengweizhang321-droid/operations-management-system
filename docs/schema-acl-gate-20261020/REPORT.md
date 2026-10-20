@@ -17,10 +17,10 @@
 | `tests/pi153-acl-catalog-boundary.py` | 新增 PiNative 153 静态契约检查：7 张 native 表、3 张 append-only、有序 TABLES、`ai_pi_business_delegations` 的 native 归属；63 项正反例，不连数据库、不导入 Django。 |
 | `tests/pi152-acl-catalog-boundary.py` | 沿用并保留有序 TABLES 与 `permissions=False` 负例；27 项检查。 |
 | `tests/schema-acl-contract-gate.test.mjs` | 新增门禁单元测试：选择正确脚本、失败信息、非 Pi 短路；并在当前源码上实际跑通 152/153 两个静态脚本。 |
-| `docs/pi-native-capabilities-20261020/mandatory-code-checks.json` | 重新绑定 `codeSha256` 为当前 PiNative `CODE_FILES` 摘要 `f4223f0efd02...`；更新 `checkedAt`。旧值保留在 Git 历史，未改写历史报告。 |
-| `config/main-schema-releases/ai-0087.json` | 同步 `codeSha256` 和 `validationSha256`（`e810b6d04ab7...`）。 |
-| `docs/pi152-finalize-recovery-20261020/mandatory-code-checks.json` | PiNative 提交修改了 `pi_business_catalog.py`，该文件在 PiBusiness `CODE_FILES` 内，152 证据也因此失配；重新绑定 `codeSha256` 为 `ec91bc4f9ec0...` 并更新 `checkedAt`。 |
-| `config/main-schema-releases/ai-0086.json` | 同步 `codeSha256` 和 `validationSha256`（`c6607399b381...`）。 |
+| `docs/schema-acl-gate-20261020/pi153-mandatory-code-checks-v2.json` | PiNative 的新证据副本，绑定当前 `codeSha256=f4223f0e...`；原 `docs/pi-native-capabilities-20261020/mandatory-code-checks.json` 保持原字节。 |
+| `config/main-schema-releases/ai-0087.json` | 指向 v2 证据，`codeSha256` 与 `validationSha256`（`67ffc312...`）同步。 |
+| `docs/schema-acl-gate-20261020/pi152-mandatory-code-checks-v2.json` | PiBusiness 的新证据副本，绑定当前 `codeSha256=ec91bc4f...`；原 `docs/pi152-finalize-recovery-20261020/mandatory-code-checks.json` 保持原字节。PiNative 提交修改了 `pi_business_catalog.py`，该文件在 PiBusiness `CODE_FILES` 内，152 证据因此需要新副本。 |
+| `config/main-schema-releases/ai-0086.json` | 指向 v2 证据，`codeSha256` 与 `validationSha256`（`83516aeb...`）同步。 |
 
 ## 验证
 
@@ -34,7 +34,8 @@
 
 ## 证据与边界
 
-- PiNative 的 `codeSha256` 变化来自 `main-schema-release.mjs`（在 PiNative `CODE_FILES` 内）；PiBusiness 的变化来自 PiNative 提交对 `pi_business_catalog.py` 的修改。两代证据均只重绑摘要与时间，不修改 migrations、检查类别和历史报告；本次门禁测试未写入 `mandatory-code-checks` 的 `checks` 数组，避免改变证据 schema。
+- 两代旧证据文件保持 origin/main 原字节；新摘要写入 `docs/schema-acl-gate-20261020/*-v2.json`，由 recipe 显式指向。没有改写历史报告或已封存证据。
+- PiNative 的 `codeSha256` 变化来自 `main-schema-release.mjs`（在 PiNative `CODE_FILES` 内）；PiBusiness 的变化来自 PiNative 提交对 `pi_business_catalog.py` 的修改。两代证据均只重绑摘要，不修改 migrations 和检查类别；本次门禁测试未写入 `checks` 数组，避免改变证据 schema。
 - `main-prebuild-queue` 中的历史固定 bundle pin 未改；新的控制包准备/采用需要单独授权。源码门禁在候选 source 的 publisher 路径生效，不依赖已安装控制包。
 - 未执行生产部署、迁移、服务启停、周报发送或控制包 `--adopt`；功能与业务验收仍由用户负责。
-- 合并到 `main` 前仍建议独立 `critical-review`，重点核对门禁位置、两代证据重绑和控制包 pin 的影响。
+- 合并到 `main` 前仍建议独立 `critical-review`，重点核对门禁位置、两代证据新副本和控制包 pin 的影响。
