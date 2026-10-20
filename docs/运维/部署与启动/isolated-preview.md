@@ -1,5 +1,7 @@
 # 前端热更新与隔离演示预览
 
+本说明描述前端热更新一期 A+B 的配套行为：启动器依据 A 提交 `cda4d7cd2cd4cc587d118e70b91dfb8d568943be`，开发入口和横幅由 B 提供。单独检出未包含 A 的分支，不具备下述新增依赖同步、启动检查及专用浏览器 profile 能力；任务分支交付不表示已合入 main 或正式采用。
+
 ## 开发入口与硬前置
 
 必须从最新 `main` 创建独立 `codex/*` 分支和独立 Git worktree，在该 worktree 内运行。**主检出不能启动预览**；仅在主检出新建 `codex/*` 分支也不满足要求。启动器还会拒绝链接运行目录及根目录含 `.env*` / `.dev.vars*` 的 worktree，不要复制生产配置、密钥、数据库连接或共享 `node_modules` 链接。
@@ -13,9 +15,21 @@ npm run dev:hmr
 
 `dev:hmr` 执行 `node tools/preview/launcher.mjs start`，默认不打开浏览器。`npm run preview:isolated` 与 `预览系统.bat` 保留 `start --open`，用于明确需要浏览器预览时。原有正式 `dev` / `start` 仍进入受控启动引擎，`build` 仍为 `vinext build`；新增入口不改变正式启动和发布流程。
 
-需要预装 Node.js（版本要求见 `package.json`）和 Python 3.12+，首次安装需要网络。当前基线在缺少 Vite 依赖时执行 `npm ci`，创建 worktree 独立 Python venv，并按 `backend/requirements.txt` 同步后端依赖；不应仅凭已有 `node_modules` 就推断锁文件已同步。A 部分的最终依赖同步与启动检查行为尚待其最终提交核对，不能把计划中的增强当作当前保证。
+需要预装 Node.js（版本要求见 `package.json`）和 Python 3.12+，首次安装需要网络。启动器创建 worktree 独立 Python venv，并按 `backend/requirements.txt` 同步后端依赖；前端依赖同步规则见下节。
 
-正式页面使用 `http://localhost:3000`；开发页面使用 `http://127.0.0.1:3100/?module=inventory`，避免混用正式站点状态。不同主机名区分 origin/localStorage，但 Cookie 不按端口隔离；多个 `127.0.0.1` 开发端口也不能据此宣称浏览器会话完全隔离。当前基线 `--open` 直接调用 Chrome，未指定独立 `--user-data-dir`；A 最终浏览器 profile 行为仍待交付确认。默认 `dev:hmr` 不创建浏览器窗口。
+正式页面使用 `http://localhost:3000`；开发页面使用 `http://127.0.0.1:3100/?module=inventory`，避免混用正式站点状态。显式 `--open` 使用本 worktree 的 `.runtime/preview/chrome-profile` 专用 Chrome profile，并可复用该会话，不使用正式 profile；未找到 Chrome 时不会打开浏览器。默认 `dev:hmr` 不创建浏览器窗口，停止预览服务也不会自动关闭独立浏览器会话。
+
+手动打开时也应使用独立开发 profile。不同主机名区分 origin/localStorage，但 Cookie 不按端口隔离；仅改端口或在正式 profile 中打开 `127.0.0.1`，不能代替每个 worktree 的专用 profile 隔离。
+
+## 依赖同步与启动检查
+
+首次使用新启动器，即使已有 Vite，也会因缺少有效安装标记执行 `npm ci --no-audit --no-fund`，保留 npm 生命周期及项目 postinstall。后续按锁文件、安装元数据、安装生命周期脚本及其当前本地 Node/ESM 依赖、npm 配置和 Node/npm 版本等输入指纹判断是否需要重装；普通前端源码保存、单独调整 `dev:hmr` 等非安装 scripts 不触发重装。
+
+本树 `node_modules/.teruisi-preview-dependencies.json` 的成功标记还须与安装后隐藏锁文件摘要匹配，且 Vite、Vinext、Cloudflare Vite 插件存在。安装前删除旧标记；安装失败或前后输入变化时不留下成功标记，启动停止。不要仅凭已有 `node_modules` 判断依赖已同步。标记用于同步判断，不是逐文件完整性或防篡改证明；未来新增 shell 安装脚本、动态文件读取、本地 file 依赖或 workspace 时须按真实输入扩展跟踪。
+
+重复 `start` 时先核对当前依赖输入、运行控制器指纹和磁盘成功标记。若输入变化或旧控制器不含指纹，命令拒绝复用并提示先 `preview:stop` 再启动同步，不会在运行中执行 `npm ci`，也不会自动停止原会话；依赖已同步但仍在准备中的会话提示等待。
+
+新启动与复用已就绪会话都会检查实际四端口配置、`development`/本地直连配置、Vite 开发模块、两个隔离后端的 `/health/live` 和首页 `X-Teruisi-Preview: synthetic-v1`。输出仅含端口、开发标识、两个隔离地址、预览响应标识及状态/分支/地址，不打印 token、密钥、完整环境或 npm 配置。启动检查证明开发服务及隔离后端就绪，不证明浏览器 HMR 交互、真实角色/scope、业务功能或 PostgreSQL 等价性。
 
 ## 并行端口与环境横幅
 
@@ -28,7 +42,7 @@ npm run dev:hmr
 | 第二个 Django（内部 reader 调用等） | P + 15001 | 18101 | 18111 |
 | 预览控制器 | P + 10000 | 13100 | 13110 |
 
-例如 3100 与 3101 的 Django 端口会重叠，不能并行使用。第二个端口在实现中名为 `writer`，不表示浏览器可以提交业务写入。启动器遇到占用直接失败，不顺延端口、不停止其他进程；若有冲突，另选完整不冲突组。
+例如 3100 与 3101 的 Django 端口会重叠，不能并行使用。第二个端口在实现中名为 `writer`，不表示浏览器可以提交业务写入。启动器在安装/数据准备前检查完整端口组，并在持久子进程启动前再次检查；遇到占用直接失败，不顺延端口、不停止其他进程。若有冲突，另选完整不冲突组。
 
 ```powershell
 $env:TERUISI_PREVIEW_PORT = '3110'

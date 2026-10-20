@@ -80,6 +80,8 @@ npm run system:logs
 
 当前合成集包含销售、库存、ERP、市场、网店、财务、工作流、年度目标、新品、AI 对话与报告；有数据不代表所有页面及交互均已覆盖。需要保留当前业务演示数据时，按 `stop → snapshot → prepare → start` 操作；快照只覆盖业务 SQLite。端口表、命令、HMR、认证和自动化边界见 [前端热更新与隔离预览说明](docs/运维/部署与启动/isolated-preview.md)。
 
+一期启动器与上述入口须配套采用：按安装输入指纹同步依赖，新启动及已就绪会话复用均检查开发标识和隔离后端；显式打开浏览器使用本 worktree 专用 Chrome profile。精确 A 提交及配套状态见上述说明，源码交付不表示已合 main 或正式采用。
+
 ### macOS / Linux 开发环境
 
 没有正式 runtime 的开发机可使用 SQLite 开发后端：
