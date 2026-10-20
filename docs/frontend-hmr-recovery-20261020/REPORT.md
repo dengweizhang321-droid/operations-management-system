@@ -104,3 +104,12 @@ node tools/main-prebuild-queue.mjs --native-391-observe <REQUEST文件绝对路�
 新增分支只接受 `--native-391-resume-2 D:/codex-artifacts/frontend-hmr-recovery-20261020/witness-391-resume-2`（全新外部 out）。在同一 queue→rotation 锁内校验两次失败、3121⊆3133、全部对象 SHA 和原 evidence root identity，原 `failed-observation-resume.json` 及所有原件保持；只 create-only 追加 `failed-observation-resume-2.json`。p1 始终对照旧 c4 的 request/epoch/采用事实验证；p2 绑定当前新源码、writer/epoch/out/采用，并同时指向 p1 及两套清单。reader 独立复验两套清单及全部对象。采用链严格增加 `1711fc → 546df → c4 cdfec → 新采用`，配置 a90、native512 和 task 不变；没有循环或任意重试入口，也不重放原5beb准备。
 
 分类器、白名单、原 actor 门禁及 native-tools 未修改；与 c4 的对应源码区间逐字节相同。仅新增四组第二分支负例，覆盖固定失败/p1绑定、3133最后对象损坏、旧 writer/后代/等待器、p2 source/adoption/epoch/旧 out 混用；全部通过，语法及 diff 检查通过。此前检查复用，本轮没有动态进程诊断、控制采用或现场写入。现场仍由唯一负责人在用户确认的稳定窗口执行，使用 `control-materials-391-resume-2` 及新的外部 out。
+### 第三次观察失败与有界完整重采
+
+本增量只接 `failed-witness-391-3` 的固定 REQUEST `364c6c26...`、writer8972、REJECTION 和22份原件；3146对象清单 SHA 为 `9cd087547a02bfb98905208ece827dfc4c3968ee3f22cc4d5bfa282783203e91`。reader独立复核3121⊆3133⊆3146及所有对象内容，保留p1、p2原字节，仅create-only追加 `failed-observation-resume-3.json`。固定采用链增加dd的 `76d33026...` 至新节点，配置a90、native512、task及分类器字节不变。工具回执转录明确不提供历史observer PID/birth或native child exit证明；原5beb的unknown、packet、staging和lease不修改、不重放。
+
+同一request/nonce/epoch的observer先create-only领取固定phase claim，最多三次完整census，累计额外自然等待不超过20秒，原request120秒、首次dynamic起点60秒和epoch均不延长。只有birth完整但cmd/exe缺失的opaque集合及同样缺失、在本轮父链可核的后代可保留拒绝样本后重采；混入原actor、29740、namespace、完整但无法解释入口、task/代次/原件变化等硬拒绝立即停止。初次完整后仍须重核全部静态材料，再取得末次完整census；第三次才首次完整不能成功，也没有第四次采样或第四个续接入口。
+
+每份失败样本均以安全投影create-only保存，唯一OBS或REJECTION引用样本。writer在原ACK前核全部claim和样本；归档reader独立验证SHA、顺序、类型、PID唯一性、父链、计数、等待、静态重核屏障和原时限；已有claim、样本或终态拒绝再次观察。当前无法区分枚举竞争与权限缺失，生产父进程归属不构成资格；最终仍要求完整分类通过，ordinary ACK门禁保持。
+
+新增12项定向检查及直接受影响的1项OBS schema检查全部通过，原始工具输出chunk `f1879f`、exit0；覆盖有效二/三次trace接入OBS及reader、第三次首次完整、超限/时限、已有REJECTION、混合硬拒绝、opaque后代、primitive类型、并发claim、三套归档完整性及p3固定绑定。语法和diff检查通过；之前未变检查复用，本轮没有动态进程诊断、整包或业务功能测试，也未执行控制采用、现场resolution或原生准备/发布。普通入口为 `--native-391-resume-3 D:/codex-artifacts/frontend-hmr-recovery-20261020/witness-391-resume-3`，实际操作仍由唯一负责人执行，失败后停止推进。
