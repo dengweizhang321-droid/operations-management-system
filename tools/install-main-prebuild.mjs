@@ -41,18 +41,28 @@ export const codeOnlyNativeToolsPins=Object.freeze({
  'tools/worker-local-release-rotation.mjs':Object.freeze({before:'7dd49103f5b672dae484d3b5e70207d6644657701a5b6be23c85203cad62b72f',after:'5c265b55c0d738c9785809fdf56c72b72160d6814141d2b21c5149740c3c54fb'}),
  'tools/d1-retirement-proof.mjs':Object.freeze({before:'87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76',after:'87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76'}),
 });
+// Second exact closure: retain the adopted v1 tools, changing only the reviewed
+// successor capacity literal. It cannot import any other current-main bytes.
+export const successor512NativeToolsPins=Object.freeze({
+ 'tools/worker-local-release.mjs':Object.freeze({before:codeOnlyNativeToolsPins['tools/worker-local-release.mjs'].after,after:codeOnlyNativeToolsPins['tools/worker-local-release.mjs'].after}),
+ 'tools/worker-local-release-rotation.mjs':Object.freeze({before:codeOnlyNativeToolsPins['tools/worker-local-release-rotation.mjs'].after,after:'778c136602cf1ebb44fd2fbed1ee67a3cf24fbd78a2cc52b8541db5be114b556'}),
+ 'tools/d1-retirement-proof.mjs':codeOnlyNativeToolsPins['tools/d1-retirement-proof.mjs'],
+});
 export async function validateNativeToolsUpdate(update,config,configSha256){
  assert.deepEqual(Object.keys(update).sort(),['version','oldConfigSha256','nativeToolsSource'].sort());
- assert.equal(update.version,'teruisi-code-only-native-tools-update-v1');assert.equal(update.oldConfigSha256,configSha256,'Native tools update predecessor changed');
- assert.equal(path.resolve(config.nativeToolsSource),path.resolve(config.stateDirectory,'source'),'Native tools predecessor source changed');
- const files=Object.fromEntries(Object.entries(codeOnlyNativeToolsPins).map(([name,pin])=>[name,pin.after]));
+ assert.ok(['teruisi-code-only-native-tools-update-v1','teruisi-successor-512-native-tools-update-v2'].includes(update.version),'Unsupported native tools update');assert.equal(update.oldConfigSha256,configSha256,'Native tools update predecessor changed');
+ const version2=update.version==='teruisi-successor-512-native-tools-update-v2',pins=version2?successor512NativeToolsPins:codeOnlyNativeToolsPins;
+ if(version2)assert.equal(configSha256,'49caa8d7a140fa614c2f28389029d07f6de6b503df499094d28e07793490200a','Successor512 requires its exact installed publisher configuration');
+ const predecessor=version2?path.resolve(config.stateDirectory,'native-tools',sha(Buffer.from(canonical(Object.fromEntries(Object.entries(codeOnlyNativeToolsPins).map(([name,pin])=>[name,pin.after])))))):path.resolve(config.stateDirectory,'source');
+ assert.equal(path.resolve(config.nativeToolsSource),predecessor,'Native tools predecessor source changed');
+ const files=Object.fromEntries(Object.entries(pins).map(([name,pin])=>[name,pin.after]));
  const root=path.resolve(update.nativeToolsSource),expected=path.resolve(config.stateDirectory,'native-tools',sha(Buffer.from(canonical(files))));
  assert.equal(root,expected,'Native tools must use the exact immutable closure path');
  assert.equal(path.resolve(await fs.realpath(root)),root,'Native tool closure is redirected');
  assert.deepEqual((await fs.readdir(root)).sort(),['tools']);
  assert.equal(path.resolve(await fs.realpath(path.join(root,'tools'))),path.join(root,'tools'),'Native tools directory is redirected');
  assert.deepEqual((await fs.readdir(path.join(root,'tools'))).sort(),Object.keys(files).map(name=>name.slice(6)).sort(),'Native closure member set changed');
- for(const [name,pin] of Object.entries(codeOnlyNativeToolsPins)){
+ for(const [name,pin] of Object.entries(pins)){
   assert.equal(sha(await bytes(path.join(config.nativeToolsSource,...name.split('/')))),pin.before,'Native tools predecessor bytes changed');
   assert.equal(sha(await bytes(path.join(root,...name.split('/')))),pin.after,'Native tools candidate bytes changed');
  }
