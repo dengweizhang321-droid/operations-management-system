@@ -250,7 +250,8 @@ def _tool(payload, op, principal):
         return {"content": [{"type": "text", "text": canonical(result)}], "details": result}, {}, ""
     from . import pi_business
     if name in pi_business.TOOLS or name in {"get_pi_business_action", "get_pi_business_options"}:
-        pi_native.authorize(op, kind="business" if name in pi_business.TOOLS else "tool", name=name, lock=True)
+        with mutation():
+            pi_native.authorize(op, kind="business" if name in pi_business.TOOLS else "tool", name=name, lock=True)
         service.principal_for_work(op)
         try:
             if name == "get_pi_business_options":
@@ -304,8 +305,12 @@ def _local(payload, op, principal):
     if args["toolName"] not in LOCAL_TOOLS | {"analysis_helper"}:
         raise AiError("本地工具没有登记", "access_denied", 403)
     if payload.get("name") == "local_admit":
-        pi_native.authorize(op, payload.get("admission"), kind="admission", name=args["toolName"], lock=True)
-        return {"admitted": True, "toolCallId": tool_call, "admission": pi_native.admission(op)}, {}, ""
+        # execute() commits the dispatch reservation before calling this handler.
+        # Recheck the tree and capture its admission under the AI authority lock;
+        # PostgreSQL SELECT FOR UPDATE requires an active transaction here.
+        with mutation():
+            pi_native.authorize(op, payload.get("admission"), kind="admission", name=args["toolName"], lock=True)
+            return {"admitted": True, "toolCallId": tool_call, "admission": pi_native.admission(op)}, {}, ""
     if payload.get("name") != "local_complete" or args.get("status") not in {"completed", "failed"}:
         raise AiError("本地工具回执无效")
     admitted = PiDispatch.objects.filter(operation=op, kind="admission", status="completed")
