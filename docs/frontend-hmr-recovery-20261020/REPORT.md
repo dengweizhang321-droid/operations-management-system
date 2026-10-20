@@ -122,3 +122,10 @@ node tools/main-prebuild-queue.mjs --native-391-observe <REQUEST文件绝对路�
 唯一新入口为 `--native-391-cmd-entry-repair D:/codex-artifacts/frontend-hmr-recovery-20261020/witness-391-cmd-entry-repair`。同双锁内复核四套对象及p1/p2/p3原字节，create-only追加 `cmd-entry-repair.json`，固定d12的57c051采用至新一跳；a90配置、native512、task、其它分类规则与3次/20秒/120秒/60秒采样边界保持。旧initial只按精确SHA独立通过旧schema；新OBS必须包含host资格及CMD证明，使用新epoch/out重做两轮，不复用旧动态样本，不提供通用下一次续接。原5beb目标与partial仍不重放、不清理。
 
 新增8项定向检查通过，原始工具输出chunk `1abfa1`、exit0；覆盖CMD还原、伪父链/PID复用、参数大小写、多child、错误host、相对script、无/opaque child、旧initial完整trace与新OBS要求、3166对象末字节破坏及固定修复provenance。仅更新两个直接受影响的测试fixture字段，复用之前未变结果，不运行整包或业务测试。冻结前只做语法、diff与物理LF/Git blob字节核对；未运行现场census、控制采用、resolution、原生准备或发布。
+### 已绑定系统 PowerShell 的硬链接读取修复
+
+eace控制已采用为b8c5cb3a/4f4c7ff4，但尚未启动CMD修复writer；只读预检在读取系统PowerShell时被证据文件的单链接规则拒绝。实际 `C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe` 是ordinary file、非symlink、realpath一致、nlink=2，495616字节；SHA `8bb6fa8c283b4d92120b1ef249a9b311b0f804d4cabbe9981159976c8be76a5e` 与已采用task.hostSha一致（原始只读输出chunk `208db8`）。
+
+本增量仅为固定系统host增加专用读取，要求固定路径/SHA、普通文件、无重定向及读取前后dev/ino/birth/size/mtime/ctime/nlink稳定，允许操作系统合法硬链接。原 `nativeRead` 及全部证据/状态文件链接规则逐字节保持，校验摘要为 `29eae39434b6c115f152bda11bca2eead069ec196b1cd4add26791dcf6bc3204`。`cmd-entry-host-qualification` 固定15原件和PREFLIGHT SHA `7b31b41daa3b637c240a0c4e259e973f090dda9ea67560c7df050ab6a50ffa1f`，将eace的 `0d4e1a7f...` 采用作为新一跳中间节点。PREFLIGHT中的out/provenance/resolution absent仅为归档时的历史事实；新writer仍使用原fresh-out、双锁和resolution门禁。四套失败材料、3166对象、原provenance、分类器及协调次数不改。
+
+真实 `native391PgQualification` 已于 `2026-10-20T17:17:53.311Z` 只读实跑通过，原回执chunk `f1e3dd`、exit0；未运行census或业务。新增3项系统host及固定preflight/hop检查通过（chunk `f1c045`、exit0），覆盖真实OS硬链接、重定向/类型/链接数/identity/字节负例及错误归档/集合。语法和diff检查通过，不重复先前8项或整包。CLI与out继续使用原 `--native-391-cmd-entry-repair` 和 `witness-391-cmd-entry-repair`；本提交未采用、启动writer、准备或发布。
