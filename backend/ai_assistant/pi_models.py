@@ -295,5 +295,111 @@ class PiBusinessAudit(models.Model):
         db_table = "ai_pi_business_audits"
 
 
+class PiNativeState(models.Model):
+    root_session = models.OneToOneField(PiSession, primary_key=True, on_delete=models.PROTECT)
+    mode = models.TextField(default="execute")
+    target_mode = models.TextField(default="execute")
+    transition_status = models.TextField(default="stable")
+    mode_revision = models.PositiveBigIntegerField(default=1)
+    admission_epoch = models.PositiveBigIntegerField(default=1)
+    tree_version = models.PositiveBigIntegerField(default=1)
+    plan_revision = models.PositiveBigIntegerField(default=0)
+    message_seq = models.PositiveBigIntegerField(default=0)
+    max_concurrent_children = models.PositiveIntegerField(default=3)
+    updated_at = models.DateTimeField(default=timezone.now)
+    class Meta:
+        db_table = "ai_pi_native_states"
+        constraints = [models.CheckConstraint(condition=models.Q(mode__in=["plan", "execute"], target_mode__in=["plan", "execute"], transition_status__in=["stable", "switching"]), name="ai_pi_native_mode")]
+
+
+class PiAgent(models.Model):
+    session = models.OneToOneField(PiSession, primary_key=True, on_delete=models.PROTECT)
+    root_session = models.ForeignKey(PiSession, on_delete=models.PROTECT, related_name="native_agents")
+    parent_session = models.ForeignKey(PiSession, on_delete=models.PROTECT, related_name="native_children", null=True)
+    parent_operation = models.ForeignKey(PiOperation, on_delete=models.PROTECT, null=True)
+    lifecycle = models.TextField(default="open")
+    dependencies_json = models.TextField(default="[]")
+    settings_json = models.TextField(default="{}")
+    created_at = models.DateTimeField(default=timezone.now)
+    class Meta:
+        db_table = "ai_pi_agents"
+        constraints = [models.CheckConstraint(condition=models.Q(lifecycle__in=["open", "canceling", "closed"]), name="ai_pi_agent_lifecycle")]
+        indexes = [models.Index(fields=["root_session", "lifecycle"], name="ai_pi_agent_root_idx")]
+
+
+class PiPlanRevision(models.Model):
+    id = models.TextField(primary_key=True)
+    root_session = models.ForeignKey(PiSession, on_delete=models.PROTECT)
+    revision = models.PositiveBigIntegerField()
+    mode_revision = models.PositiveBigIntegerField()
+    tree_version = models.PositiveBigIntegerField()
+    scope_sha256 = models.TextField()
+    plan_json = models.TextField()
+    created_at = models.DateTimeField(default=timezone.now)
+    class Meta:
+        db_table = "ai_pi_plan_revisions"
+        constraints = [models.UniqueConstraint(fields=["root_session", "revision"], name="ai_pi_plan_revision_unique")]
+
+
+class PiAgentMessage(models.Model):
+    id = models.TextField(primary_key=True)
+    root_session = models.ForeignKey(PiSession, on_delete=models.PROTECT)
+    from_session = models.ForeignKey(PiSession, on_delete=models.PROTECT, related_name="native_sent_messages")
+    to_session = models.ForeignKey(PiSession, on_delete=models.PROTECT, related_name="native_received_messages")
+    seq = models.PositiveBigIntegerField()
+    kind = models.TextField()
+    message = models.TextField()
+    created_at = models.DateTimeField(default=timezone.now)
+    class Meta:
+        db_table = "ai_pi_agent_messages"
+        constraints = [models.UniqueConstraint(fields=["root_session", "seq"], name="ai_pi_agent_message_seq")]
+
+
+class PiAgentWait(models.Model):
+    id = models.TextField(primary_key=True)
+    root_session = models.ForeignKey(PiSession, on_delete=models.PROTECT)
+    requester_session = models.ForeignKey(PiSession, on_delete=models.PROTECT, related_name="native_waits")
+    requester_operation = models.ForeignKey(PiOperation, on_delete=models.PROTECT, null=True)
+    agent_ids_json = models.TextField()
+    cursor = models.PositiveBigIntegerField(default=0)
+    deadline_at = models.DateTimeField()
+    status = models.TextField(default="pending")
+    result_json = models.TextField(default="{}")
+    created_at = models.DateTimeField(default=timezone.now)
+    class Meta:
+        db_table = "ai_pi_agent_waits"
+        constraints = [models.CheckConstraint(condition=models.Q(status__in=["pending", "ready", "canceled", "timeout"]), name="ai_pi_agent_wait_status")]
+        indexes = [models.Index(fields=["root_session", "status"], name="ai_pi_agent_wait_root_idx")]
+
+
+class PiFileHandoff(models.Model):
+    id = models.TextField(primary_key=True)
+    source_file = models.ForeignKey(PiFile, on_delete=models.PROTECT)
+    target_session = models.ForeignKey(PiSession, on_delete=models.PROTECT)
+    source_generation = models.PositiveBigIntegerField()
+    target_generation = models.PositiveBigIntegerField()
+    scope_json = models.TextField()
+    sha256 = models.TextField()
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(default=timezone.now)
+    class Meta:
+        db_table = "ai_pi_file_handoffs"
+        constraints = [models.UniqueConstraint(fields=["source_file", "target_session", "target_generation"], name="ai_pi_handoff_unique")]
+
+
+class PiBusinessDelegation(models.Model):
+    intent = models.OneToOneField(PiBusinessIntent, primary_key=True, on_delete=models.PROTECT)
+    owner_session = models.ForeignKey(PiSession, on_delete=models.PROTECT)
+    owner_operation = models.ForeignKey(PiOperation, on_delete=models.PROTECT)
+    version = models.PositiveBigIntegerField(default=1)
+    action_version = models.PositiveBigIntegerField(default=0)
+    admission_epoch = models.PositiveBigIntegerField()
+    status = models.TextField(default="active")
+    created_at = models.DateTimeField(default=timezone.now)
+    class Meta:
+        db_table = "ai_pi_business_delegations"
+        constraints = [models.CheckConstraint(condition=models.Q(status__in=["active", "revoked"]), name="ai_pi_delegation_status")]
+
+
 PI_MODELS = (PiSession, PiOperation, PiDispatch, PiEvent, PiFile, PiExport, PiExportPage, PiGatewayNonce, PiWorkspace, PiControl, PiUiRequest,
-    PiBusinessIntent, PiBusinessAction, PiBusinessAudit)
+    PiBusinessIntent, PiBusinessAction, PiBusinessAudit, PiNativeState, PiAgent, PiPlanRevision, PiAgentMessage, PiAgentWait, PiFileHandoff, PiBusinessDelegation)

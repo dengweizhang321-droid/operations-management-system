@@ -10,6 +10,7 @@ import {continueFirstMaintenance,isFirstMaintenancePredecessor,continuePiMainten
 
 export const piWorkspaceImage='sha256:ab4ee452bfc6f66dedac6e874dec7ed492b687d24f217c75e80fc9535a26bbb2';
 export const piBusinessImage='sha256:4466957e80e75b04fedc888029defa897d9d1b26173a3228558ccdadf169486f';
+export const piNativeImage='sha256:87e41e7e4d646d779eba8b552a213d5356c4afa935d42dbb618d19fab7e15956';
 function verifyPiUpgrade(record,expectedImage=piWorkspaceImage){assert.equal(record?.prepared,true,'缺少已准备Pi Runner升级');assert.equal(record?.started,false,'准备不能启动Runner');assert.match(record.registeredPlanSha256??'',/^[a-f0-9]{64}$/);assert.match(record.sourceSha256??'',/^[a-f0-9]{64}$/);assert.equal(record.image,expectedImage,'Runner升级镜像与本次交付不一致');return record;}
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const exists=async file=>{try{await fs.access(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};
@@ -25,6 +26,9 @@ export function normalizePreparedSourceRoot(value){
  if(normalized.length>3)normalized=normalized.replace(/[\\]+$/,'');
  return normalized;
 }
+export const releaseLeaseVersion='teruisi-release-publication-lease-v1';
+export const releaseLeaseTtlMs=18*60*1000;
+export function releaseLeasePath(installedRoot){return path.join(path.dirname(installedRoot),'run','release-publication-lease.json');}
 
 // A production CLI invocation either prepares or deploys. Its default must
 // never turn a missing package into a build inside the publication attempt.
@@ -59,8 +63,8 @@ export async function publishPreparedMain(request,context){
  const deployOnly=context.deployOnly??!context.prepareOnly;
  const components=preparedComponents(request);
  const schema=schemaForRequest(request);
- const piUpgradeRequired=['PiWorkspace','PiBusiness'].includes(schema?.additionKind);
- const piUpgradeImage=schema?.additionKind==='PiBusiness'?piBusinessImage:piWorkspaceImage;
+ const piUpgradeRequired=['PiWorkspace','PiBusiness','PiNative'].includes(schema?.additionKind);
+ const piUpgradeImage=schema?.additionKind==='PiNative'?piNativeImage:schema?.additionKind==='PiBusiness'?piBusinessImage:piWorkspaceImage;
  const {out,api,rotation,transport}=context;
  const source=normalizePreparedSourceRoot(context.source);
  const progress=context.progress??noProgress;
@@ -80,8 +84,36 @@ export async function publishPreparedMain(request,context){
  const schemaArgs=schema?['-IntegrationEvidencePath',schema.evidencePath,'-IntegrationEvidenceSha256',schema.evidenceSha256]:[];
  const adoption=schema?['-AdditionKind',schema.additionKind,'-SourceRoot',source,'-OperationId',operationId,'-MaintenanceId',maintenanceId,'-SchemaOnly','-Execute']:[];
  let phase='核对前驱',maintenanceStarted=false;
+ const leaseFile=releaseLeasePath(installed);
+ let leaseState=null,leaseWarnings=0;
+ const leaseWarning=async(phaseName,error)=>{
+  leaseWarnings++;
+  try{
+   await fs.mkdir(out,{recursive:true});
+   await fs.writeFile(path.join(out,'LEASE-WARNING.json'),JSON.stringify({version:'teruisi-release-lease-warning-v1',at:new Date().toISOString(),phase:phaseName,error:String(error?.message??error).slice(0,800),attempts:leaseWarnings,fallback:'original-maintenance-drain-gate'},null,2)+'\n');
+  }catch{}
+ };
+ const refreshLease=async phaseName=>{
+  if(!leaseState)return;
+  leaseState.phase=phaseName;
+  const now=new Date(),record={version:releaseLeaseVersion,ownerPid:process.pid,phase:phaseName,createdAt:leaseState.createdAt,updatedAt:now.toISOString(),expiresAt:new Date(now.getTime()+releaseLeaseTtlMs).toISOString(),mainCommit:request.mainCommit,maintenanceId,out},temporary=leaseFile+'.'+randomUUID()+'.tmp';
+  try{
+   await fs.mkdir(path.dirname(leaseFile),{recursive:true});
+   await fs.writeFile(temporary,JSON.stringify(record)+'\n',{flag:'wx'});
+   try{await fs.rename(temporary,leaseFile);}catch(error){await fs.unlink(temporary).catch(()=>{});throw error;}
+  }catch(error){await leaseWarning(phaseName,error);}
+ };
+ const beginLease=async()=>{leaseState={createdAt:new Date().toISOString()};await refreshLease(phase);};
+ const endLease=async()=>{
+  if(!leaseState)return;leaseState=null;
+  try{
+   const saved=JSON.parse(await fs.readFile(leaseFile,'utf8'));
+   if(saved?.ownerPid!==process.pid||saved?.maintenanceId!==maintenanceId)return;
+   await fs.unlink(leaseFile);
+  }catch(error){if(error.code!=='ENOENT')await leaseWarning('清理发布租约',error);}
+ };
  const step=async(label,script,action,extra=[],{json=true,addJson=true,directory=out}={})=>{
-  phase=label;progress.begin(label,{action,script,nativeStderrLog:path.join(directory,label+'.stderr.log'),...(path.basename(script)==='manual-maintenance-start.ps1'?{lockDiagnosticFile:path.join(out,'maintenance-lock-diagnostic.json')}:{})});
+  phase=label;await refreshLease(label);progress.begin(label,{action,script,nativeStderrLog:path.join(directory,label+'.stderr.log'),...(path.basename(script)==='manual-maintenance-start.ps1'?{lockDiagnosticFile:path.join(out,'maintenance-lock-diagnostic.json')}:{})});
   const record=(name,value)=>fs.writeFile(path.join(directory,name),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
   await record(label+'-started.json',{at:new Date().toISOString(),script,action,extra});
   let value;
@@ -94,7 +126,7 @@ export async function publishPreparedMain(request,context){
    await record(label+'-process.json',{processEvidence:result.processEvidence});
    try{value=json?JSON.parse(result.stdout.trim()):null;}catch(error){error.processEvidence=result.processEvidence;throw error;}
   }
-  await record(label+'-result.json',{at:new Date().toISOString(),value});progress.complete();return value;
+  await record(label+'-result.json',{at:new Date().toISOString(),value});await refreshLease(label);progress.complete();return value;
  };
  const ready=async()=>{
   const response=await (context.fetch??fetch)('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)});
@@ -131,11 +163,13 @@ export async function publishPreparedMain(request,context){
   if(await exists(path.join(out,'STARTED.json')))throw Error('此发布已有STARTED且无SUCCESS，结果未知；禁止自动重试：'+out);
   assert.deepEqual(before.head,request.predecessorWorker,'运行版本已被其他发布改变');
   assert.equal(djangoBefore,request.predecessorDjangoSha256,'后台版本已被其他发布改变');
-  if(schema)await (context.verifySchemaRelease??(()=>verifyMainSchemaRelease(request,source)))();
   const preparationFile=path.join(preparationOut,'PREPARED.json');
   const requestSha256=digest(Buffer.from(JSON.stringify(request)));
   let publicationStarted=false;
   try{
+   await beginLease();
+   if(schema)await (context.verifySchemaRelease??(()=>verifyMainSchemaRelease(request,source)))();
+   await refreshLease(phase);
    let plan=null,pkg=null,piRunnerUpgrade=null,piUpgradeReceipt=null,reusedPreparation=false,djangoExpected=djangoBefore;
    if(await exists(preparationFile)){
     reusedPreparation=true;const prepared=await read(preparationFile);
@@ -158,7 +192,9 @@ export async function publishPreparedMain(request,context){
      phase='复验已准备前端';progress.begin(phase);
      const bindingFile=path.join(preparationOut,'source-binding.json');
      assert.equal((await read(bindingFile)).sourceRoot,source,'前端准备包来源不属于本次main');
+     await refreshLease(phase);
      const verified=await rotation.planWorkerReleaseRotation({prepareOnline:true,reusePlanSha256:plan.planSha256,sourceBindingFile:bindingFile,sourceBindingSha256:await sha(bindingFile),rotationLease});
+     await refreshLease(phase);
      assert.equal(verified.planSha256,plan.planSha256);assert.equal(verified.candidateManifestSha256,plan.candidateManifestSha256);
      assert.equal(verified.candidateReleaseId,plan.candidateReleaseId);progress.complete();
     }
@@ -181,7 +217,9 @@ export async function publishPreparedMain(request,context){
     const binding={version:api.workerSourceBindingVersion,sourceRoot:source,sourceRootPathSha256:api.windowsPathSha256(source),predecessor:before.head,predecessorChainStateSha256:before.chainStateSha256,identity:preparationIdentity};
     const raw=api.canonicalJson(binding)+'\n',bindingFile=path.join(preparationOut,'source-binding.json');
     await fs.writeFile(bindingFile,raw,{flag:'wx'});
+    await refreshLease(phase);
     plan=await rotation.planWorkerReleaseRotation({prepareOnline:true,sourceBindingFile:bindingFile,sourceBindingSha256:digest(Buffer.from(raw)),rotationLease});
+    await refreshLease(phase);
     await fs.writeFile(path.join(preparationOut,'worker-plan.json'),JSON.stringify(plan,null,2)+'\n',{flag:'wx'});assert.equal(plan.status,'planned');progress.complete();
    }
    if(components.django){
@@ -190,12 +228,14 @@ export async function publishPreparedMain(request,context){
     djangoExpected=await sha(path.join(path.dirname(installed),'app.deploy-'+pkg.id,'deployment.json'));
    }
     if(piUpgradeRequired){
-     piRunnerUpgrade=verifyPiUpgrade(await step('准备Pi Runner升级',path.join(source,'tools/django-ai.ps1'),'PreparePiUpgrade',['-PiImage',piUpgradeImage,...(schema.additionKind==='PiBusiness'?['-PiSkillVersion','1.2.0']:[]),'-PiPreparedAppId',pkg.id,'-PiPreparedAppSha256',pkg.receiptSha256],{directory:preparationOut}),piUpgradeImage);
+     piRunnerUpgrade=verifyPiUpgrade(await step('准备Pi Runner升级',path.join(source,'tools/django-ai.ps1'),'PreparePiUpgrade',['-PiImage',piUpgradeImage,...(schema.additionKind==='PiNative'?['-PiSkillVersion','1.3.0']:schema.additionKind==='PiBusiness'?['-PiSkillVersion','1.2.0']:[]),'-PiPreparedAppId',pkg.id,'-PiPreparedAppSha256',pkg.receiptSha256],{directory:preparationOut}),piUpgradeImage);
     }
     assert.deepEqual(await sourceIdentity(),identity,'打包期间源码变化');
     assert.deepEqual((await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true})).head,before.head,'准备期间Worker前驱改变');
     assert.equal(await sha(path.join(installed,'deployment.json')),djangoBefore,'准备期间Django前驱改变');
+    await refreshLease(phase);
     if(schema)await (context.verifySchemaRelease??(()=>verifyMainSchemaRelease(request,source)))();
+    await refreshLease(phase);
    if(piRunnerUpgrade){
     const checked=await step('复验Pi Runner升级计划',path.join(source,'tools/django-ai.ps1'),'PiUpgradeCheck',['-PiUpgradePlanSha256',piRunnerUpgrade.registeredPlanSha256,'-PiPreparedAppId',pkg.id,'-PiPreparedAppSha256',pkg.receiptSha256],{directory:await fs.mkdtemp(path.join(preparationOut,'pi-check-'))});
     assert.equal(checked.checked,true);verifyPiUpgrade(checked,piUpgradeImage);assert.equal(checked.registeredPlanSha256,piRunnerUpgrade.registeredPlanSha256);assert.equal(checked.sourceSha256,piRunnerUpgrade.sourceSha256);
@@ -209,14 +249,18 @@ export async function publishPreparedMain(request,context){
     assert.equal(checked.checked,true);verifyPiUpgrade(checked,piUpgradeImage);assert.equal(checked.registeredPlanSha256,piRunnerUpgrade.registeredPlanSha256);assert.equal(checked.sourceSha256,piRunnerUpgrade.sourceSha256);
    }
    if(context.prepareOnly){
+    await endLease();
     progress.log('打包完成，等待发布负责人执行。目标main：'+request.mainCommit+'；准备记录：'+preparationFile);
     return {status:'prepared-only',mainCommit:request.mainCommit,publicationPerformed:false,preparationFile};
    }
    // Recheck both predecessor bindings after potentially long preparation.
    assert.deepEqual((await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true})).head,before.head,'准备期间Worker前驱改变');
    assert.equal(await sha(path.join(installed,'deployment.json')),djangoBefore,'准备期间Django前驱改变');
+   await refreshLease(phase);
    if(schema)await (context.verifySchemaRelease??(()=>verifyMainSchemaRelease(request,source)))();
+   await refreshLease(phase);
    const readiness=components.django?await (context.maintenanceReadiness??maintenanceReadiness)({source,head:before.head,djangoManifestSha256:djangoBefore,installed,runtime,sha}):null;
+   await refreshLease(phase);
    if(readiness){
     const directory=await fs.mkdtemp(path.join(out,'maintenance-preflight-')),file=path.join(directory,'readiness.json');
     await fs.writeFile(file,JSON.stringify(readiness,null,2)+'\n',{flag:'wx'});
@@ -243,6 +287,7 @@ export async function publishPreparedMain(request,context){
    await fs.writeFile(materialsFile,JSON.stringify({version:'teruisi-publication-materials-v1',diagnosticOnly:true,at:new Date().toISOString(),mainCommit:request.mainCommit,sourceIdentity:identity,requestSha256,components:request.components,preparation:{file:preparationFile,sha256:await sha(preparationFile),reused:reusedPreparation,workerPlanSha256:plan?.planSha256??null,djangoPackage:pkg??null,djangoManifestSha256:djangoExpected},predecessor:{worker:before.head,chainStateSha256:before.chainStateSha256,djangoManifestSha256:djangoBefore},workerEntries,maintenanceReadiness:readiness,schemaRelease:schema},null,2)+'\n',{flag:'wx'});
    progress.log('维护前材料已齐备；复用仍有效的原生准备结果，现场身份、锁与排空仍即时检查。材料清单：'+materialsFile);
    assert.deepEqual(await sourceIdentity(),identity,'维护前冻结源码变化');
+   await refreshLease(phase);
    await save('STARTED.json',{at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,maintenanceId,source,sourceTree:identity.tree??null,requestSha256,predecessorChainStateSha256:before.chainStateSha256,...(schema?{operationId,schemaRelease:schema}:{})});
    publicationStarted=true;
    maintenanceStarted=true;
@@ -283,7 +328,7 @@ export async function publishPreparedMain(request,context){
     assert.equal(installedSchema.status,'verified');assert.equal(installedSchema.result.status,'schema_installed');assert.equal(installedSchema.result.migrationCount,schema.toGeneration);
     assert.deepEqual(installedSchema.result.steps,schema.steps);
     if(schema.additionKind==='TmallWarehouse')await step('配置天猫库存权限',path.join(installed,'tools/django-inventory-service.ps1'),'ProvisionRoles',[],{json:false});
-    if(['PiAgent','PiWorkspace','PiBusiness'].includes(schema.additionKind))await step('配置Pi运行账本权限',path.join(installed,'tools/django-ai.ps1'),'ProvisionRoles',[],{json:false});
+    if(['PiAgent','PiWorkspace','PiBusiness','PiNative'].includes(schema.additionKind))await step('配置Pi运行账本权限',path.join(installed,'tools/django-ai.ps1'),'ProvisionRoles',[],{json:false});
     const finalized=await step('完成结构迁移',path.join(installed,'tools/bi-app-adopt.ps1'),'Finalize',adoption,{addJson:false});
     assert.equal(finalized.status,'verified');assert.equal(finalized.result.status,'verified');assert.equal(finalized.result.migrationCount,schema.toGeneration);assert.deepEqual(finalized.result.steps,schema.steps);
     schemaReceipt={operationId,maintenanceId,release:schema,installed:installedSchema,finalized};
@@ -293,8 +338,9 @@ export async function publishPreparedMain(request,context){
     assert.equal(piUpgradeReceipt.upgraded,true);assert.equal(piUpgradeReceipt.windowsConfigUpdated,true);assert.equal(piUpgradeReceipt.sameDpapiOwner,true);assert.equal(piUpgradeReceipt.sourceSha256,piRunnerUpgrade.sourceSha256);assert.equal(piUpgradeReceipt.image,piRunnerUpgrade.image);
    }
    if(plan){
-    phase='切换前端';progress.begin(phase);await save('WorkerApply-started.json',{planSha256:plan.planSha256});
+    phase='切换前端';progress.begin(phase);await refreshLease(phase);await save('WorkerApply-started.json',{planSha256:plan.planSha256});
     const applied=await rotation.applyApprovedRotationPlan({approvedPlanSha256:plan.planSha256,rotationLease});
+    await refreshLease(phase);
     await save('WorkerApply-result.json',applied);assert.ok(['activated','already_activated'].includes(applied.status));assert.equal(applied.releaseId,plan.candidateReleaseId);progress.complete();
    }
    if(components.django){const ended=await step('退出维护',targetWorker,'ExitMaintenance',['-MaintenanceId',maintenanceId]);assert.equal(ended.status,'maintenance_ended');assert.equal(ended.maintenanceId,maintenanceId);}
@@ -307,12 +353,15 @@ export async function publishPreparedMain(request,context){
    assert.equal(after.head.releaseId,plan?.candidateReleaseId??before.head.releaseId);
    assert.equal(after.head.manifestSha256,plan?.candidateManifestSha256??before.head.manifestSha256);
    assert.equal(await sha(path.join(installed,'deployment.json')),djangoExpected,'最终后台manifest不匹配');
+   await refreshLease(phase);
    await ready();progress.complete();
+   await endLease();
    const receipt={status:'deployed_and_ready',at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,workerRelease:after.head.releaseId,workerManifestSha256:after.head.manifestSha256,djangoManifestSha256:djangoExpected,source,sourceTree:identity.tree??null,djangoPreparedId:pkg?.id??null,maintenanceId,migration:schema?.steps[0]??null,...(schemaReceipt?{schemaReceipt}:{}),...(piUpgradeReceipt?{piRunnerUpgrade:piUpgradeReceipt}:{}),backupPerformed:false};
    await save('SUCCESS.json',receipt);
    progress.success('main版本：'+request.mainCommit+'；步骤详细日志：'+out);
    return {...receipt,receiptPath:path.join(out,'SUCCESS.json')};
   }catch(error){
+   await endLease();
    const failure={at:new Date().toISOString(),mainCommit:request.mainCommit,phase,error:String(error.message).slice(0,1600),processEvidence:error.processEvidence??null,maintenanceStarted,automaticRetry:false};
    // Preserve every preparation rejection without turning it into a deployment.
    if(publicationStarted)await save('FAILED.json',failure);

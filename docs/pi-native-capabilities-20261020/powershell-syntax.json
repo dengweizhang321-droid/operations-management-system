@@ -1,0 +1,27 @@
+{
+    "check":  "powershell-parser",
+    "functionalValidationPerformed":  false,
+    "files":  [
+                  {
+                      "path":  "tools/bi-app-adopt.ps1",
+                      "sha256":  "11d15c46990b54769257b7e4b996d7cdcc0fdcd6de596f1cec1a419cc6951237",
+                      "errors":  [
+
+                                 ]
+                  },
+                  {
+                      "path":  "tools/django-local-service.ps1",
+                      "sha256":  "d012318c82d7db60e8037bb19c4e7a2ef856fed05cf4d70471b6a24b0a9e7437",
+                      "errors":  [
+
+                                 ]
+                  },
+                  {
+                      "path":  "tools/django-postgres-maintenance.ps1",
+                      "sha256":  "07ade4680bcaafe1b27c3c2849393dcda6d25896aa2f3fa1a9a409cce1e1bdb1",
+                      "errors":  [
+
+                                 ]
+                  }
+              ]
+}

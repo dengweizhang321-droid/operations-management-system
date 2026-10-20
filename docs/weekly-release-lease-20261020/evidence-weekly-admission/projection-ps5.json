@@ -1,0 +1,13 @@
+{
+    "schema":  "teruisi-weekly-release-lease-projection-v1",
+    "shellVersion":  "5.1.26100.9444",
+    "baselineCommit":  "d498852c8f016c916f13a703bc7396fdfc01883d",
+    "sourceSha256":  "b313f8f521304e6f3a3b4891c6525c21119d2475d5d693fcbba7619504b5b1f1",
+    "addedFunctions":  [
+                           "Get-NewProductWeeklyReportReleaseLeaseDeferral",
+                           "Invoke-NewProductWeeklyReportWithReleaseLease"
+                       ],
+    "dispatchReplacements":  3,
+    "restMatchesBaseline":  true,
+    "passed":  true
+}

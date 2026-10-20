@@ -3,6 +3,7 @@
 import { createAssistantMessageEventStream, getCurrentTools, getCurrentSystemPrompt } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
 import { randomUUID } from 'node:crypto';
+import { installNative } from './native-capabilities.mjs';
 
 function text(content) { return Array.isArray(content) ? content.filter(x=>x.type==='text').map(x=>x.text).join('\n') : String(content??''); }
 function normalize(messages) {
@@ -33,12 +34,14 @@ export default function(pi) {
       const value=JSON.parse(Buffer.from(args,'base64').toString('utf8'));
       if(!value || typeof value.capability!=='string' || value.capability.length>4096) throw Error('invalid_binding');
       binding=value;ctx=context;
+      if(!value.admission||!['plan','execute','switching'].includes(value.admission.mode))throw Error('admission_required');
       if(value.model) {
         const settings=value.model;
         if(!Number.isSafeInteger(settings.contextWindow)||settings.contextWindow<1||!Number.isSafeInteger(settings.maxTokens)||settings.maxTokens<1||typeof settings.reasoning!=='boolean') throw Error('invalid_model_metadata');
         register(settings);
         const model=context.modelRegistry.find('teruisi','operation-model');
         if(!model || !await pi.setModel(model)) throw Error('model_bind_failed');
+        if(value.thinkingLevel!=null)pi.setThinkingLevel(value.thinkingLevel);
       }
     },
   });
@@ -64,7 +67,7 @@ export default function(pi) {
   async function gateway(payload,signal) {
     if(!binding||!ctx) throw Error('operation_capability_required');
     if(signal?.aborted) throw Error('aborted');
-    const request={...payload,requestId:randomUUID(),capability:binding.capability};
+    const request={...payload,admission:binding.admission,requestId:randomUUID(),capability:binding.capability};
     const answer=await ctx.ui.input('pi-gateway-v1',JSON.stringify(request),{signal});
     if(signal?.aborted||answer===undefined) throw Error('aborted');
     const parsed=JSON.parse(answer);
@@ -75,7 +78,23 @@ export default function(pi) {
     name:'system_tool',label:'系统只读工具',description:'Invoke an authorized central system tool. Discover actual dataset and tool names through the gateway; never use SQL, URLs or database connections.',
     parameters:Type.Object({name:Type.String({minLength:1,maxLength:128}),args:Type.Record(Type.String(),Type.Unknown())},{additionalProperties:false}),
     async execute(_id,params,signal){
-      const result=await gateway({kind:'tool',name:params.name,args:params.args},signal);
+      let result=await gateway({kind:'tool',name:params.name,args:params.args,toolCallId:_id},signal);
+      // Registration and timeout live in Django. Poll only the original wait,
+      // keeping Pi's RPC reader responsive and never recreating a lost request.
+      if(params.name==='agent_wait') {
+        let wait=result.details;
+        while(wait?.status==='pending'&&typeof wait.waitId==='string') {
+          await new Promise((resolve,reject)=>{
+            if(signal?.aborted)return reject(Error('aborted'));
+            const done=()=>{signal?.removeEventListener('abort',abort);resolve();};
+            const timer=setTimeout(done,1000);
+            const abort=()=>{clearTimeout(timer);signal?.removeEventListener('abort',abort);reject(Error('aborted'));};
+            signal?.addEventListener('abort',abort,{once:true});
+          });
+          result=await gateway({kind:'tool',name:'agent_wait',args:{waitId:wait.waitId},toolCallId:_id},signal);
+          wait=result.details;
+        }
+      }
       let file=result.details?.data?.file??result.details?.file;
       if(!file) for(const content of result.content??[]) if(content.type==='text') {
         try {const parsed=JSON.parse(content.text);file=parsed.data?.file??parsed.file;}catch{}
@@ -88,6 +107,7 @@ export default function(pi) {
       return result;
     },
   });
+  installNative(pi,()=>binding,gateway);
   function register(metadata) {pi.registerProvider('teruisi',{
     api:'teruisi-gateway',apiKey:'operation-capability',baseUrl:'https://unreachable.invalid',
     models:[{id:'operation-model',name:'Authorized operation model',reasoning:true,input:['text'],

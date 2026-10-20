@@ -327,6 +327,8 @@ def check():
             raise ValueError("AI indexes incomplete")
         from .pi_health import verify as verify_pi
         verify_pi(cursor, include_workspace=True, include_business=True)
+        from .pi_native_health import verify_native
+        verify_native(cursor)
         import importlib
 
         market_profile = importlib.import_module(

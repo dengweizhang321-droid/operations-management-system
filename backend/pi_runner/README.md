@@ -292,3 +292,60 @@ An active lease prevents idle stop; restart or expiry makes it unknown, precisel
 stops its owner, and exposes activities/hasUnresolvedActivities for Django fencing.
 These actions are not browser controls. Old images expose needsImageUpgrade and
 disable helper capabilities until a separately verified registered image upgrade.
+
+## Native capabilities candidate (2026-10-20)
+
+This source requires the fixed native-capabilities image and authenticated
+`admission:{mode,modeRevision,admissionEpoch,rootSessionId,treeVersion,scopeSha256}`
+on create/prompt. Django owns the root-tree mode, grants, independent child
+sessions and cancellation. Every native read/bash/edit/write/analysis helper
+reserves a fresh gateway admission and returns a completion receipt. Tree version
+is a user plan-approval CAS value; spawning a child does not invalidate the
+parent's unchanged mode/epoch snapshot. The container remains offline, without
+host mounts, credentials, or workspace-discovered extensions.
+
+The trusted `questionnaire` tool uses only the existing RPC input method with
+title `pi-questionnaire-v1` and version 1. Runner validates the bounded question
+and answer structure, binds it to the operation/generation/tool call, and projects
+it for Django's one-time UI request ledger. No TUI custom component is used and
+questionnaire answers cannot upgrade execution or business authorization.
+
+`mode_set` persists the new fence before clearing queues, aborting the actual Pi
+run/bash, closing PTYs and observing the remaining process tree. Unknown or
+unresolved activity remains fenced. Plan mode disallows shell, PTY input, general
+file mutation and dependency acquisition/installation. Native reads are confined
+to reviewed selected skill resources and isolated input files. `analysis_helper`
+executes only two fixed stdlib calculations with JSON input/output, no supplied
+code or paths and no writes. Central `plan_save`, `mode_set` and `agent_*` tools
+continue through `system_tool`; their schemas remain solely in the central
+registry. A pending `agent_wait` polls its original durable wait ID, without
+blocking the RPC reader or making a replacement wait.
+
+Model/thinking controls received during a run are recorded as pending and applied
+at an idle safe point. Thinking levels are the actual native Pi/provider
+intersection, including `max` only with an explicit provider mapping. Readback
+must equal the requested level; unsupported levels are rejected rather than
+silently reduced. Workspace exposes requested/effective/pending values. Tree
+projection adds the real `get_fork_messages` choices. Fork/clone preserve files
+and business facts and clear queues; Django handles separate plan drafts and
+excludes authorization and child-tree inheritance.
+
+Skills bundle 1.3.0 uses manifest schema 2. Package version is independent of
+SKILL.md frontmatter; Pi 1.3.0 performs native YAML parsing, fallback naming,
+discovery, diagnostics and deterministic collisions. All resources still require
+exact file hashes and an explicit resource type. Only fixed reviewed roots are
+passed to Pi, with workspace/HOME discovery disabled. Relative resources resolve
+within their reviewed skill root. Disable-model-invocation and allowed-tools are
+applied by the fixed extension; explicit `/skill:name arguments` retains native
+expansion. Workspace distinguishes the catalogue, selection snapshot, successful
+reads, explicit invocation and successful fixed helper execution. General shell
+text is never treated as proof that a particular skill script executed.
+`skills_reload` queues while busy and restarts only the fixed reviewed launcher
+at a safe point, preserving each round's immutable snapshot. Existing 1.0.0,
+1.1.0 and 1.2.0 packages remain byte-compatible.
+
+The Docker build checks JavaScript/Python syntax and resolves the fixed extension
+dependencies. Those are build/startup checks; no feature tests or real model
+calls form part of this candidate's preparation. An actual production upgrade
+still requires the registered Runner/image upgrade and application/schema
+adoption through the existing release controls.

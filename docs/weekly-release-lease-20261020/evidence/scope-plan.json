@@ -1,0 +1,114 @@
+{
+  "version": "teruisi-scoped-release-plan-v3",
+  "baseSha": "d498852c8f016c916f13a703bc7396fdfc01883d",
+  "headSha": "4a9c37c7e686a8defda949b8600f5c6b7ed94cf6",
+  "changes": [
+    {
+      "status": "A",
+      "path": "docs/weekly-release-lease-20261020/Check-WeeklyReleaseLeaseProjection.ps1"
+    },
+    {
+      "status": "M",
+      "path": "tests/publish-prepared-main.test.mjs"
+    },
+    {
+      "status": "M",
+      "path": "tests/release-contention-boundaries.test.mjs"
+    },
+    {
+      "status": "M",
+      "path": "tests/release-optimization-boundaries.test.mjs"
+    },
+    {
+      "status": "M",
+      "path": "tests/verify-release-candidate.test.mjs"
+    },
+    {
+      "status": "M",
+      "path": "tests/weekly-report-admission.fixture.ps1"
+    },
+    {
+      "status": "M",
+      "path": "tools/django-workflow-service.ps1"
+    },
+    {
+      "status": "M",
+      "path": "tools/publish-prepared-main.mjs"
+    },
+    {
+      "status": "M",
+      "path": "tools/verify-release-candidate.mjs"
+    }
+  ],
+  "scope": "full",
+  "components": [
+    "worker",
+    "django"
+  ],
+  "migrate": false,
+  "databaseProtection": "verified-current",
+  "businessDataProcessing": "separate-authorization-required",
+  "validation": [
+    "git-diff-check",
+    "worker-affected-tests",
+    "django-affected-tests",
+    "affected-integration-tests"
+  ],
+  "packaging": [
+    "prepare-worker-immutable-release",
+    "prepare-django-app"
+  ],
+  "deployment": [
+    "verify-current-database-backup",
+    "activate-worker-release",
+    "deploy-django-app",
+    "verify-startup",
+    "verify-affected-function"
+  ],
+  "workflow": [
+    {
+      "step": 4,
+      "id": "validate-change",
+      "actions": [
+        "git-diff-check",
+        "worker-affected-tests",
+        "django-affected-tests",
+        "affected-integration-tests"
+      ]
+    },
+    {
+      "step": 5,
+      "id": "merge-and-package",
+      "actions": [
+        "merge-main",
+        "push-main",
+        "prepare-worker-immutable-release",
+        "prepare-django-app"
+      ]
+    },
+    {
+      "step": 6,
+      "id": "publish",
+      "actions": [
+        "verify-current-database-backup",
+        "activate-worker-release",
+        "deploy-django-app",
+        "verify-startup",
+        "verify-affected-function"
+      ]
+    }
+  ],
+  "domains": [],
+  "unknown": [],
+  "reasons": [
+    "测试:tests/publish-prepared-main.test.mjs",
+    "测试:tests/release-contention-boundaries.test.mjs",
+    "测试:tests/release-optimization-boundaries.test.mjs",
+    "测试:tests/verify-release-candidate.test.mjs",
+    "测试:tests/weekly-report-admission.fixture.ps1",
+    "运行或发布工具:tools/django-workflow-service.ps1",
+    "运行或发布工具:tools/publish-prepared-main.mjs",
+    "运行或发布工具:tools/verify-release-candidate.mjs"
+  ],
+  "planSha256": "71b589983731e3d0b1771f5f9edf5918874cfd165eea78fd2011c7c8dc344b50"
+}

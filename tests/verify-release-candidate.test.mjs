@@ -20,6 +20,12 @@ test('compatibility selection covers release controls and refuses unreviewed ada
  assert.deepEqual(candidateCompatibilityProfile([{before:'tools/unknown.ps1',path:'docs/old.md'}]).unsupported,['tools/unknown.ps1']);
  assert.equal(p.nativeColdStartPerformed,false);
 });
+test('weekly release lease profile is finite and does not admit lifecycle changes',()=>{
+ const p=candidateCompatibilityProfile([{path:'tools/django-workflow-service.ps1'},{path:'tools/publish-prepared-main.mjs'},{path:'tools/verify-release-candidate.mjs'}]);
+ assert.equal(p.releaseContentionOnly,true);assert.equal(p.weeklyReleaseLeaseOnly,true);assert.deepEqual(p.unsupported,[]);
+ const extended=candidateCompatibilityProfile([{path:'tools/django-workflow-service.ps1'},{path:'tools/publish-prepared-main.mjs'},{path:'tools/django-local-service.ps1'}]);
+ assert.equal(extended.weeklyReleaseLeaseOnly,false);
+});
 test('production and junction paths are refused before any candidate execution',async t=>{
  for(const p of ['D:/运营管理系统','D:/运营管理系统/tmp/check','D:/teruisi-runtime/private-looking','D:/运营管理系统-sales-django-release'])await assert.rejects(assertPrivateCandidateLocation(p),/生产根/);
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'candidate-location-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));

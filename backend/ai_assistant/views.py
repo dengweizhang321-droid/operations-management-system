@@ -845,6 +845,9 @@ def mutate(parts, params, payload, principal, request_id, method):
 
 def consumer(payload, principal, request_id):
     operation = payload.get("operation")
+    if operation == "pi-native-tool":
+        from . import pi_native
+        return pi_native.consumer(payload, principal)
     if operation in {"pi-business-prepare", "pi-business-status", "pi-business-options"}:
         from . import pi_business
         return pi_business.consumer(operation, {key: value for key, value in payload.items() if key != "operation"}, principal)

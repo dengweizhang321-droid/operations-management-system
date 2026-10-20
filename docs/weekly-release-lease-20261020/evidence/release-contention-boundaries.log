@@ -1,0 +1,13 @@
+✔ mutex diagnostics leave original ownership, shared deadline and release code identical (69.1244ms)
+✔ maintenance entry only adds the diagnostic sink to the original dual-lock call (69.1625ms)
+✔ all Start/Stop and weekly business code stays byte-identical (188.7545ms)
+✔ contention qualifier is finite and never admits an unknown lifecycle change (1.5184ms)
+✔ schema refresh preserves the exact approved migration and its policy (65.0037ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 508.2955

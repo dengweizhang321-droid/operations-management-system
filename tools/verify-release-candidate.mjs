@@ -40,10 +40,11 @@ export function candidateCompatibilityProfile(changes){
  const contentionFiles=['tools/django-workflow-service.ps1','tools/manual-maintenance-lock.psm1','tools/publish-main-progress.mjs'];
  const contentionAllowed=new Set([...contentionFiles,'tools/manual-maintenance-start.ps1','tools/frozen-main-source.mjs','tools/publish-prepared-main.mjs','tools/verify-release-candidate.mjs','config/main-schema-releases/ai-0086.json']);
  const releaseContentionOnly=paths.some(p=>contentionFiles.includes(p))&&paths.every(p=>contentionAllowed.has(p));
+ const weeklyReleaseLeaseOnly=releaseContentionOnly&&paths.includes('tools/django-workflow-service.ps1')&&paths.includes('tools/publish-prepared-main.mjs')&&paths.every(p=>['tools/django-workflow-service.ps1','tools/publish-prepared-main.mjs','tools/verify-release-candidate.mjs'].includes(p));
  if(releaseContentionOnly)for(const file of contentionAllowed)supported.add(file);
  const unsupported=paths.filter(p=>!supported.has(p));
  const schemaProof=paths.some(p=>proofFiles.includes(p)),preparationQueue=paths.some(p=>preparationFiles.includes(p)||p==='tools/publish-latest-main.mjs'||p==='tools/worker-local-release-rotation.mjs');
- return {version:schemaProof||preparationQueue?'release-three-optimizations-v1':'release-compatibility-profile-v1',paths,unsupported,schemaProof,preparationQueue,releaseContentionOnly,
+ return {version:schemaProof||preparationQueue?'release-three-optimizations-v1':'release-compatibility-profile-v1',paths,unsupported,schemaProof,preparationQueue,releaseContentionOnly,weeklyReleaseLeaseOnly,
   nativeAbandonmentOnly:paths.includes('tools/main-prebuild-queue.mjs')&&paths.every(p=>['tools/main-prebuild-queue.mjs','tools/native-abandonment-observer.mjs','tools/native-abandonment-writer.mjs','tools/verify-release-candidate.mjs'].includes(p)),
   cleanedPreparationOnly:paths.includes('tools/main-prebuild-queue.mjs')&&paths.some(p=>p.startsWith('tools/cleaned-preparation-'))&&paths.every(p=>['tools/main-prebuild-queue.mjs','tools/cleaned-preparation-observer.mjs','tools/cleaned-preparation-writer.mjs','tools/verify-release-candidate.mjs'].includes(p)),
   releaseChainPreflight:paths.some(p=>p==='tools/manual-maintenance-process.psm1'||p==='tools/frozen-main-source.mjs')&&paths.every(p=>['tools/manual-maintenance-process.psm1','tools/manual-maintenance-preflight.ps1','tools/frozen-main-source.mjs','tools/manual-maintenance-continuation.mjs','tools/manual-maintenance-continuation.ps1','tools/manual-maintenance-start.ps1','tools/publish-main.mjs','tools/publish-prepared-main.mjs','tools/publish-latest-main.mjs','tools/verify-release-candidate.mjs','tools/install-main-prebuild.mjs','tools/django-local-service.ps1','tools/pi_workspace_addition.py','config/main-schema-releases/ai-0085.json'].includes(p)),
@@ -233,6 +234,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
  }
  const report={version:'release-candidate-verification-v1',source,baseCommit,commit,tree,plan,profile,startedAt:new Date().toISOString(),
   status:'running',checks:[],evidence:{packageIntegrity:false,nativeEntryBoundary:false,nativeColdStart:false},publicationPerformed:false};
+ if(profile.weeklyReleaseLeaseOnly)report.profile={...profile,version:'weekly-release-lease-v1'};
  if(fixedAdminOnly){report.profile={...profile,version:'fixed-admin-e2-preparation-admission-v1',fixedAdminOnly:true};report.reusedBaseline=reusedBaseline;}
  if(schemaAdmissionOnly){report.profile={...profile,version:'schema-before-native-ece-admission-v1'};report.reusedPreflightBaseline={...preflightBaseline,payload:undefined};}
  const reportFile=path.join(directory,'REPORT.json');
@@ -308,10 +310,18 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    finally{item.elapsedMs=Date.now()-started;item.stdoutSha256=sha(await fs.readFile(output));item.stderrSha256=sha(await fs.readFile(errors));await write();}
   }
   if(profile.releaseContentionOnly){
-   await run('release-contention-boundaries',process.execPath,['--test','tests/release-contention-boundaries.test.mjs','tests/manual-maintenance-lock.test.mjs','tests/publish-main-progress.test.mjs'],'native-entry-boundary');
-   for(const [name,host] of [['ps5',shell5],['ps7',shell7]]){
-    await run(name+'-weekly-admission-projection',host,['-NoProfile','-NonInteractive','-File','docs/release-contention-20261020/Check-WeeklyAdmissionProjection.ps1','-SourceRoot',candidate,'-BaselineCommit',baseCommit],'isolated-functions');
-    await run(name+'-weekly-admission',host,['-NoProfile','-NonInteractive','-File','tests/weekly-report-admission.fixture.ps1','-SourceRoot',candidate],'native-entry-boundary');
+   if(profile.weeklyReleaseLeaseOnly){
+    await run('weekly-release-lease-boundaries',process.execPath,['--test','tests/release-contention-boundaries.test.mjs','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs','tests/manual-maintenance-pi-readiness.test.mjs','tests/manual-maintenance-continuation.test.mjs','tests/release-chain-preflight.test.mjs'],'native-entry-boundary');
+    for(const [name,host] of [['ps5',shell5],['ps7',shell7]]){
+     await run(name+'-weekly-release-lease-projection',host,['-NoProfile','-NonInteractive','-File','docs/weekly-release-lease-20261020/Check-WeeklyReleaseLeaseProjection.ps1','-SourceRoot',candidate,'-BaselineCommit',baseCommit],'isolated-functions');
+     await run(name+'-weekly-release-lease-admission',host,['-NoProfile','-NonInteractive','-File','tests/weekly-report-admission.fixture.ps1','-SourceRoot',candidate],'native-entry-boundary');
+    }
+   }else{
+    await run('release-contention-boundaries',process.execPath,['--test','tests/release-contention-boundaries.test.mjs','tests/manual-maintenance-lock.test.mjs','tests/publish-main-progress.test.mjs'],'native-entry-boundary');
+    for(const [name,host] of [['ps5',shell5],['ps7',shell7]]){
+     await run(name+'-weekly-admission-projection',host,['-NoProfile','-NonInteractive','-File','docs/release-contention-20261020/Check-WeeklyAdmissionProjection.ps1','-SourceRoot',candidate,'-BaselineCommit',baseCommit],'isolated-functions');
+     await run(name+'-weekly-admission',host,['-NoProfile','-NonInteractive','-File','tests/weekly-report-admission.fixture.ps1','-SourceRoot',candidate],'native-entry-boundary');
+    }
    }
   }
   if(fixedAdminOnly){
@@ -327,7 +337,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    await run('historical-693e-reader',process.execPath,['--test','--test-name-pattern=693e twice observed closure','tests/fixed-native-abandonment.test.mjs'],'native-entry-boundary');
    await run('fixed-cleaned-private-bundle',process.execPath,['--test','--test-name-pattern=materials preserve frozen environment','tests/main-control-upgrade.test.mjs'],'package-integrity');
   }
-  if(!cleanedPreparationOnly&&!nativeAbandonmentOnly&&!fixedAdminOnly&&!schemaAdmissionOnly&&profile.publication)await run('publication',process.execPath,['--test','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs','tests/manual-maintenance-pi-readiness.test.mjs','tests/manual-maintenance-continuation.test.mjs','tests/release-chain-preflight.test.mjs'],'native-entry-boundary');
+  if(!cleanedPreparationOnly&&!nativeAbandonmentOnly&&!fixedAdminOnly&&!schemaAdmissionOnly&&profile.publication&&!profile.weeklyReleaseLeaseOnly)await run('publication',process.execPath,['--test','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs','tests/manual-maintenance-pi-readiness.test.mjs','tests/manual-maintenance-continuation.test.mjs','tests/release-chain-preflight.test.mjs'],'native-entry-boundary');
   if(!cleanedPreparationOnly&&!nativeAbandonmentOnly&&!fixedAdminOnly&&!schemaAdmissionOnly&&profile.preparationQueue&&!profile.releaseChainPreflight&&!profile.releaseContentionOnly)await run('preparation-queue-control',process.execPath,['--test','--test-concurrency=1','tests/main-prebuild-hook.test.mjs','tests/main-prebuild-queue-v2.test.mjs','tests/main-control-upgrade.test.mjs','tests/main-prebuild-task.test.mjs','tests/fixed-admin-resolution.test.mjs','tests/fixed-schema-rejection.test.mjs','tests/fixed-cache-rejection.test.mjs','tests/main-prebuild-eligibility.test.mjs','tests/main-dependency-selected-admission.test.mjs','tests/control-dependency-update.test.mjs'],'native-entry-boundary');
   if(profile.worker)await run('worker-integrity',process.execPath,['--test','tests/worker-source-read-once.test.mjs','tests/release-source-binding.test.mjs','tests/release-preparation-runtime-config.test.mjs'],'package-integrity');
   if(!cleanedPreparationOnly&&!nativeAbandonmentOnly&&!fixedAdminOnly&&!schemaAdmissionOnly&&(profile.schemaProof||profile.preparationQueue))await run('optimization-boundaries',process.execPath,['--test','tests/release-optimization-boundaries.test.mjs'],'package-integrity');

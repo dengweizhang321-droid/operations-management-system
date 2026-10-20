@@ -131,6 +131,7 @@ assert set(MODEL_READER_EXTRA_COLUMNS) <= MODEL_READER_COLUMNS
 assert not {"api_key_encrypted", "api_key_suffix", "last_test_result"}.intersection(
     MODEL_READER_COLUMNS)
 APPEND_ONLY = {
+    "ai_pi_plan_revisions", "ai_pi_agent_messages", "ai_pi_file_handoffs",
     "ai_pi_business_intents", "ai_pi_business_audits",
     "ai_pi_events", "ai_pi_files", "ai_pi_export_pages", "ai_pi_gateway_nonces",
     "ai_business_screening_runs",
@@ -183,6 +184,7 @@ for table in {
     WRITER_PRIVILEGES[table] = ("SELECT",)
 WRITER_PRIVILEGES["ai_data_revisions"] = ("SELECT", "UPDATE")
 for table in {
+    "ai_pi_native_states", "ai_pi_agents", "ai_pi_agent_waits", "ai_pi_business_delegations",
     "ai_pi_business_actions",
     "ai_pi_sessions", "ai_pi_operations", "ai_pi_dispatches", "ai_pi_exports", "ai_pi_workspaces", "ai_pi_controls", "ai_pi_ui_requests",
     "ai_dingtalk_settings",
@@ -238,7 +240,7 @@ def provision(connection, reader_password, writer_password):
     ):
         raise ValueError("Independent AI role passwords are required")
     with connection.transaction(), connection.cursor() as cursor:
-        from .table_manifest import PI_TABLES, PI_WORKSPACE_TABLES, PI_BUSINESS_TABLES
+        from .table_manifest import PI_TABLES, PI_WORKSPACE_TABLES, PI_BUSINESS_TABLES, PI_NATIVE_TABLES
         cursor.execute("SELECT name FROM public.django_migrations WHERE app='ai_assistant' AND name='0084_pi_agent_independent_runtime'")
         pi_receipt = cursor.fetchone() is not None
         cursor.execute("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=ANY(%s)", [list(PI_TABLES)])
@@ -257,6 +259,12 @@ def provision(connection, reader_password, writer_password):
         business_present = {row[0] for row in cursor.fetchall()}
         if bool(business_present) != business_receipt or business_present and business_present != set(PI_BUSINESS_TABLES):
             raise ValueError("Pi business receipt/table inventory mismatch")
+        cursor.execute("SELECT name FROM public.django_migrations WHERE app='ai_assistant' AND name='0087_pi_native_capabilities'")
+        native_receipt = cursor.fetchone() is not None
+        cursor.execute("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=ANY(%s)", [list(PI_NATIVE_TABLES)])
+        native_present = {row[0] for row in cursor.fetchall()}
+        if bool(native_present) != native_receipt or native_present and native_present != set(PI_NATIVE_TABLES):
+            raise ValueError("Pi native receipt/table inventory mismatch")
         for role, password in [
             ("teruisi_ai_reader", reader_password),
             ("teruisi_ai_writer", writer_password),
@@ -319,6 +327,8 @@ def provision(connection, reader_password, writer_password):
                 privileges = {table: allowed for table, allowed in privileges.items() if table not in PI_WORKSPACE_TABLES}
             if not business_receipt:
                 privileges = {table: allowed for table, allowed in privileges.items() if table not in PI_BUSINESS_TABLES}
+            if not native_receipt:
+                privileges = {table: allowed for table, allowed in privileges.items() if table not in PI_NATIVE_TABLES}
             # Historical isolated upgrade rehearsals provision exact pre-0032
             # schemas with today's code. Only the newly introduced receipt
             # table is conditional; every predecessor grant remains unchanged.

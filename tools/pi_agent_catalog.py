@@ -47,13 +47,16 @@ def inspect_tables(cursor):
     return result
 
 
-def verify_catalog(cursor, *, installed=True, permissions=True, workspace=False, business=False):
+def verify_catalog(cursor, *, installed=True, permissions=True, workspace=False, business=False, native=False):
     cursor.execute("SELECT relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
         "WHERE n.nspname='public' AND relname LIKE 'ai_pi_%%' "
         "AND relkind IN ('r','p','v','m','f') ORDER BY relname")
     expected_tables = sorted([*TABLES, "ai_pi_controls", "ai_pi_ui_requests", "ai_pi_workspaces"]) if workspace and installed else list(TABLES) if installed else []
     if business and workspace and installed:
         expected_tables = sorted([*expected_tables, "ai_pi_business_actions", "ai_pi_business_audits", "ai_pi_business_intents"])
+    if native and business and workspace and installed:
+        from pi_native_catalog import TABLES as native_tables
+        expected_tables = sorted([*expected_tables, *native_tables])
     if [row[0] for row in cursor.fetchall()] != expected_tables:
         raise ValueError("Pi150 tables absent, partial, extra or unrecorded")
     if not installed:

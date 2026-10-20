@@ -120,6 +120,8 @@ def create_session(payload, principal):
         row = PiSession.objects.create(id=uid("pi-session"), owner_email=principal.email.lower(),
             actor_role=principal.role, client_request_id=key, request_digest=binding, title=title,
             scope_json=canonical(scope), selection_json=canonical(selection))
+        from .pi_native import state_for
+        state_for(row, lock=True)
         event(row, "session_created", {})
         return {"session": session_record(row), "replayed": False}
 
@@ -199,12 +201,15 @@ def skills():
         items = []
         for item in manifest["skills"]:
             source = (root / item["id"] / "SKILL.md").read_text(encoding="utf-8")
-            head = source.split("---", 2)[1]
+            native = manifest.get("schemaVersion") == 2
+            head = source.split("---", 2)[1] if source.startswith("---\n") else ""
             name = re.search(r"^name:\s*(.+)$", head, re.M)
             description = re.search(r"^description:\s*(.+)$", head, re.M)
-            if not name or not description:
+            if (not name or not description) and not native:
                 raise ValueError("skill_frontmatter_missing")
-            items.append({**item, "name": name[1], "description": description[1], "status": "available", "discovery": "configured_bundle"})
+            items.append({**item, "name": name[1] if name else item["id"], "description": description[1] if description else "审核内置技能；原生解析结果见工作区技能目录",
+                "packageVersion": manifest["version"], "status": "available",
+                "discovery": "reviewed_bundle_pending_native_discovery" if native else "configured_bundle"})
         return items
     except (OSError, ValueError, TypeError) as error:
         raise AiError("Pi 技能发现失败，未加载技能", "pi_skills_unavailable", 503) from error
@@ -230,6 +235,10 @@ def prompt(session_id, payload, principal):
     binding = digest({"payload": payload, "scope": scope, "role": principal.role, "shopSelection": selection})
     with mutation(principal):
         session = get_session(session_id, principal, lock=True)
+        from .pi_native import state_for
+        native_state = state_for(session, lock=True)
+        if native_state.transition_status != "stable":
+            raise AiError("模式切换尚未完成，请观察原任务树", "pi_mode_switching", 409)
         prior = PiOperation.objects.filter(session=session, client_request_id=key).first()
         if prior:
             if prior.request_digest != binding:
@@ -249,6 +258,8 @@ def prompt(session_id, payload, principal):
         model = configuration.resolve_model(payload.get("modelId") or (workspace.model_id if workspace else None))
         # A scope change starts a clean environment; no context or file is reused.
         if session.status == "frozen" or canonical(scope) != session.scope_json or canonical(selection) != session.selection_json or session.actor_role != principal.role:
+            from .pi_native import rotate_root_environment
+            rotate_root_environment(session)
             session.epoch += 1
             session.generation += 1
             session.runner_event_seq = 0
@@ -293,7 +304,15 @@ def abort(session_id, payload, principal):
         if prior:
             return {"session": session_record(session), "operation": operation_record(prior.operation), "replayed": True}
         op = PiOperation.objects.filter(id=session.active_operation_id).first()
+        from .pi_native import cancel_tree
+        cancel_tree(session)
+        if op:
+            op.refresh_from_db()
+        session.refresh_from_db()
         if not op or op.status not in ACTIVE:
+            if op:
+                PiDispatch.objects.create(id=uid("pi-control"), operation=op, kind="client:abort", request_id=payload["clientRequestId"],
+                    request_digest=digest(payload), status="completed", completed_at=timezone.now())
             return {"session": session_record(session), "operation": operation_record(op) if op else None}
         op.cancel_requested = True
         # A request to stop cannot resolve an unknown POST or release its fence.

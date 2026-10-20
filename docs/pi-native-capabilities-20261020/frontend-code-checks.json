@@ -1,0 +1,44 @@
+{
+  "checkedAt": "2026-10-20T02:27:20.882Z",
+  "check": "TypeScript compiler diagnostics for changed Pi components and their imports",
+  "functionalValidationPerformed": false,
+  "browserValidationPerformed": false,
+  "changedFileDiagnostics": [],
+  "dependencyDiagnosticsCount": 0,
+  "files": [
+    {
+      "path": "app/ai-pi-agent-view.tsx",
+      "sha256": "850f109233cf784982e1a17065af01b74a5f0b93d541b1ec7d8abc891ac4446d"
+    },
+    {
+      "path": "app/ai-pi-workspace.tsx",
+      "sha256": "c2d502f7ab5e0deff605bf7579472b15a3e53bc8f402fb155af0d61f4bd8cbb6"
+    },
+    {
+      "path": "app/ai-pi-native-controls.tsx",
+      "sha256": "8cf73071ef47bed00bc202517b65332a2cc3e02411cfc7cc4277b2bb03f5ab5b"
+    },
+    {
+      "path": "app/ai-pi-questionnaire.tsx",
+      "sha256": "b21f68e29df4b9bb226acd8569a1f43b5e3db66f0aed55870a23c0e73f44593a"
+    },
+    {
+      "path": "app/ai-pi-agent.css",
+      "sha256": "0139cfa07ebd95e47c694885912e883d9128210aea6117fc5f56717ead4a54b8"
+    }
+  ],
+  "notes": [
+    "No functional tests or browser acceptance executed.",
+    "Prior all-project compiler pass reported 212 diagnostics outside changed Pi components; these were not represented as a passing all-project typecheck.",
+    "Root owns production build and integration checks."
+  ],
+  "contracts": {
+    "native": "GET/POST root native; workspace.native compatibility",
+    "questionnaire": "pendingUi.questionnaire; ui_response.value JSON version 1 answers string map; allowCustom with allowFreeform compatibility",
+    "thinking": "state.thinking requested/effective/pending level/supported; native.thinking fallback",
+    "skills": "state.skills snapshot/discovered/diagnostics/audit; skills_reload POST",
+    "history": "state.tree.tree and forkMessages; session_fork entryId only from native fork messages",
+    "agents": "agent_spawn/list/send/follow_up/wait/cancel/close via existing workspace controls",
+    "plan": "plan_save expectedRevision; mode_set execute binds planRevision modeRevision treeVersion scopeSha256"
+  }
+}
