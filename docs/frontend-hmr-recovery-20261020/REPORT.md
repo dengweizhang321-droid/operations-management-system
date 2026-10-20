@@ -113,3 +113,12 @@ node tools/main-prebuild-queue.mjs --native-391-observe <REQUEST文件绝对路�
 每份失败样本均以安全投影create-only保存，唯一OBS或REJECTION引用样本。writer在原ACK前核全部claim和样本；归档reader独立验证SHA、顺序、类型、PID唯一性、父链、计数、等待、静态重核屏障和原时限；已有claim、样本或终态拒绝再次观察。当前无法区分枚举竞争与权限缺失，生产父进程归属不构成资格；最终仍要求完整分类通过，ordinary ACK门禁保持。
 
 新增12项定向检查及直接受影响的1项OBS schema检查全部通过，原始工具输出chunk `f1879f`、exit0；覆盖有效二/三次trace接入OBS及reader、第三次首次完整、超限/时限、已有REJECTION、混合硬拒绝、opaque后代、primitive类型、并发claim、三套归档完整性及p3固定绑定。语法和diff检查通过；之前未变检查复用，本轮没有动态进程诊断、整包或业务功能测试，也未执行控制采用、现场resolution或原生准备/发布。普通入口为 `--native-391-resume-3 D:/codex-artifacts/frontend-hmr-recovery-20261020/witness-391-resume-3`，实际操作仍由唯一负责人执行，失败后停止推进。
+### CMD 真实 PowerShell 入口识别的具体修复
+
+第三次协调的 initial OBS/ACK 已成功，但 final 的完整样本对40320的相对 shell 入口作硬拒绝，writer34444随后自然超时退出1；没有final OBS/ACK或resolution。`failed-witness-391-4` 固定31原件及3166对象清单，SHA `b4bb61975767d139d75e9b89a0bf47248e054bfe553d2b2ce47f5093cc26a49f`。原材料只有40320/45440命令摘要及绝对脚本提示，没有完整尾参匹配证据；后续诊断时两进程已退场，不能追认为等价或无害。旧hard拒绝和全部旧样本不改，统一工具转录也不冒充native child exit证明。
+
+新资格仅限系统CMD的 `/d`、可选 `/s`、唯一 `/c` 单命令相对 `powershell[.exe]` 和唯一绝对 `.ps1` File入口。必须在未来同一完整census取得唯一真实直接PS子进程，双方PID/birth/父ID完整且child严格晚生，实际PS host为现行task绑定的绝对路径和字节，完整参数尾部逐项精确匹配；不靠PATH、生产父归属或历史script hint。组合、重定向、展开、inline/encoded、相对script、缺失/opaque/多个child、参数不符和身份复用均拒绝。展开后仍由原PS分类器判断，子进程及后代继续独立分类；只记录参数SHA和安全身份投影。
+
+唯一新入口为 `--native-391-cmd-entry-repair D:/codex-artifacts/frontend-hmr-recovery-20261020/witness-391-cmd-entry-repair`。同双锁内复核四套对象及p1/p2/p3原字节，create-only追加 `cmd-entry-repair.json`，固定d12的57c051采用至新一跳；a90配置、native512、task、其它分类规则与3次/20秒/120秒/60秒采样边界保持。旧initial只按精确SHA独立通过旧schema；新OBS必须包含host资格及CMD证明，使用新epoch/out重做两轮，不复用旧动态样本，不提供通用下一次续接。原5beb目标与partial仍不重放、不清理。
+
+新增8项定向检查通过，原始工具输出chunk `1abfa1`、exit0；覆盖CMD还原、伪父链/PID复用、参数大小写、多child、错误host、相对script、无/opaque child、旧initial完整trace与新OBS要求、3166对象末字节破坏及固定修复provenance。仅更新两个直接受影响的测试fixture字段，复用之前未变结果，不运行整包或业务测试。冻结前只做语法、diff与物理LF/Git blob字节核对；未运行现场census、控制采用、resolution、原生准备或发布。
