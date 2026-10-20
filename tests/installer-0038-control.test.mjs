@@ -51,3 +51,11 @@ test('0038 permanent no-replay applies only to its exact queue/target',()=>{
  assert.doesNotThrow(()=>assertFixedInstaller0038NoReplay(path.join(fixed.state,'prebuild-queue-v2'),{targetCommit:'a'.repeat(40)}));
  assert.doesNotThrow(()=>assertFixedInstaller0038NoReplay(path.join(root,'private-queue'),{targetCommit:fixed.target}));
 });
+
+test('0038 PID reuse accepts only children born strictly after the proven reused parent',()=>{
+ const {r,o}=observation(),parent={processId:7544,parentProcessId:100,name:'node.exe',creationDate:'2026-10-20T11:00:00.000Z',commandLineSha256:'0'.repeat(64),executablePathSha256:'1'.repeat(64),controlCandidate:true},child={...parent,processId:7545,parentProcessId:7544,creationDate:'2026-10-20T11:00:01.000Z'};
+ const good=structuredClone(o);good.census.push(parent,child);assert.equal(validateInstaller0038Observation(good,r),good);
+ for(const birth of ['2026-10-20T04:06:00.000Z',parent.creationDate,null,'invalid']){const bad=structuredClone(o);bad.census.push(parent,{...child,creationDate:birth});assert.throws(()=>validateInstaller0038Observation(bad,r));}
+ const absent=structuredClone(o);absent.census.push(child);assert.throws(()=>validateInstaller0038Observation(absent,r));
+ const original=structuredClone(o);original.census.push({...parent,creationDate:'2026-10-20T04:05:59.1478630Z'},child);assert.throws(()=>validateInstaller0038Observation(original,r));
+});
