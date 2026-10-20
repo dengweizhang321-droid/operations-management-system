@@ -1,0 +1,11 @@
+✔ Worker static source reader changes leave all other runtime behavior byte-identical (194.686ms)
+✔ rotation waiting does not change apply/CAS/fence/process/entrypoint/startup boundaries (111.8123ms)
+✔ readiness changes preserve the native deploy/apply/start/ready callback after admitted maintenance (70.9535ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 721.456

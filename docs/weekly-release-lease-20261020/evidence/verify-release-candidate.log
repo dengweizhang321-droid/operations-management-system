@@ -1,0 +1,16 @@
+✔ actual normalized Windows environment retains its system path without inherited secrets (88.9379ms)
+✔ compatibility selection covers release controls and refuses unreviewed adapters (1.3176ms)
+✔ weekly release lease profile is finite and does not admit lifecycle changes (0.2268ms)
+✔ production and junction paths are refused before any candidate execution (11.2493ms)
+✔ only digest helper changes are exempt from native cold-start evidence (0.4197ms)
+✔ a Django-only exact gate timing exemption is detected independently of Python proof changes (70.0272ms)
+✔ cannot verify dirty candidates or production checkout (1.4134ms)
+✔ a verifier cannot issue evidence for a different source checkout (3.8695ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 301.7172

@@ -1,0 +1,82 @@
+{
+    "schema":  "teruisi-weekly-release-lease-evidence-v1",
+    "task":  "P0-3 weekly report release lease",
+    "date":  "2026-10-20",
+    "branch":  "codex/weekly-release-lease-20261020",
+    "baseCommit":  "d498852c8f016c916f13a703bc7396fdfc01883d",
+    "codeCommit":  "4a9c37c7e686a8defda949b8600f5c6b7ed94cf6",
+    "scopePlan":  {
+                      "scope":  "full",
+                      "components":  [
+                                         "worker",
+                                         "django"
+                                     ],
+                      "migrate":  false,
+                      "databaseProtection":  "verified-current",
+                      "businessDataProcessing":  "separate-authorization-required",
+                      "planFile":  "evidence/scope-plan.json",
+                      "planSha256":  "571e219f41828b7a51d422d9d03054650d3e102245c51501294b91deaaffc682"
+                  },
+    "powershell":  {
+                       "ps5":  "5.1.26100.9444",
+                       "ps7":  "not installed",
+                       "ps7Executed":  false
+                   },
+    "node":  "v24.18.0",
+    "weeklyAdmission":  {
+                            "ps5":  {
+                                        "checks":  48,
+                                        "passed":  true,
+                                        "file":  "evidence-weekly-admission/ps5.json",
+                                        "sha256":  "b59ed2734f04816b647ab85be92c6ee1e06cedf6ac6ce547989b4f512f30a821"
+                                    },
+                            "ps7":  null
+                        },
+    "projection":  {
+                       "ps5":  {
+                                   "passed":  true,
+                                   "baselineCommit":  "d498852c8f016c916f13a703bc7396fdfc01883d",
+                                   "file":  "evidence-weekly-admission/projection-ps5.json",
+                                   "sha256":  "707fb362fdae4c24638ef7595de0ca12d576ff91c979a659891d83883577af9a"
+                               },
+                       "ps7":  null
+                   },
+    "nodeTests":  {
+                      "publishPreparedMain":  {
+                                                  "passed":  52,
+                                                  "failed":  0,
+                                                  "file":  "evidence/publish-prepared-main.log",
+                                                  "sha256":  "8d52f28b719a408a8d09c5ad3bfc15da32a5dc45827a19e5ee27b1206c833b4d"
+                                              },
+                      "releaseContentionBoundaries":  {
+                                                          "passed":  5,
+                                                          "failed":  0,
+                                                          "file":  "evidence/release-contention-boundaries.log",
+                                                          "sha256":  "ad922498fd6a9d0e2e3cd5918356e51f71a83d83a3e81e5ea09b7eadae697594"
+                                                      },
+                      "verifyReleaseCandidate":  {
+                                                     "passed":  8,
+                                                     "failed":  0,
+                                                     "file":  "evidence/verify-release-candidate.log",
+                                                     "sha256":  "a9ada808aaf625ee91183fbfb4cc394370929d46d4647500ece4ed94427a097d"
+                                                 },
+                      "releaseOptimizationBoundaries":  {
+                                                            "passed":  3,
+                                                            "failed":  0,
+                                                            "baseCommit":  "d498852c8f016c916f13a703bc7396fdfc01883d",
+                                                            "file":  "evidence/release-optimization-boundaries.log",
+                                                            "sha256":  "315519a005bc00772c513df82b458f035ae5410ff7b2209f680a616eb931cfb3"
+                                                        }
+                  },
+    "gitDiffCheck":  {
+                         "passed":  true,
+                         "file":  "evidence/git-diff-check.log",
+                         "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                     },
+    "verifier":  {
+                     "integrated":  true,
+                     "executed":  false,
+                     "reason":  "pwsh.exe is not installed on this host; verify-release-candidate.mjs resolves PowerShell 7 before any check"
+                 },
+    "productionOperationsPerformed":  false
+}

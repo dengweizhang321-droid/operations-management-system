@@ -1,0 +1,252 @@
+{
+    "schema":  "teruisi-weekly-report-admission-private-v2",
+    "shellVersion":  "5.1.26100.9444",
+    "privateRuntimeRoot":  "C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-weekly-admission-2738723fa64744a1a18d3479f2544f61",
+    "workflowSha256":  "b313f8f521304e6f3a3b4891c6525c21119d2475d5d693fcbba7619504b5b1f1",
+    "baseControllerSha256":  "d012318c82d7db60e8037bb19c4e7a2ef856fed05cf4d70471b6a24b0a9e7437",
+    "leaseFile":  "C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-weekly-admission-2738723fa64744a1a18d3479f2544f61\\run\\release-publication-lease.json",
+    "checks":  [
+                   {
+                       "name":  "open",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "maintenance",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "drain-helpers",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "both-valid-original-readers",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "invalid-maintenance-json",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "valid-maintenance-invalid-drain",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "open",
+                       "action":  "ForceWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "maintenance",
+                       "action":  "ForceWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "drain-helpers",
+                       "action":  "ForceWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "both-valid-original-readers",
+                       "action":  "ForceWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "invalid-maintenance-json",
+                       "action":  "ForceWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "valid-maintenance-invalid-drain",
+                       "action":  "ForceWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "open",
+                       "action":  "DryRunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "maintenance",
+                       "action":  "DryRunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "drain-helpers",
+                       "action":  "DryRunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "both-valid-original-readers",
+                       "action":  "DryRunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "invalid-maintenance-json",
+                       "action":  "DryRunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "valid-maintenance-invalid-drain",
+                       "action":  "DryRunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "drain-requests",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "text-output",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "maintenance-wrong-runtime",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "maintenance-wrong-id",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "maintenance-oversized",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "maintenance-directory",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "drain-wrong-runtime",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "drain-wrong-id",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "drain-oversized",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "drain-directory",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-active",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-active-force",
+                       "action":  "ForceWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-active-dry-run",
+                       "action":  "DryRunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-active-text-output",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-expired",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-dead-owner",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-bad-json",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-directory",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-oversized",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-wrong-version",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-empty-phase",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-invalid-commit",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-invalid-maintenance",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-overlong-lifetime",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-future-updated",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-active-maintenance",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-active-drain",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-active-both-valid",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-active-invalid-maintenance",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   },
+                   {
+                       "name":  "lease-active-mutex-held",
+                       "action":  "RunWeeklyReport",
+                       "passed":  true
+                   }
+               ],
+    "passed":  true,
+    "businessInvoked":  false
+}
