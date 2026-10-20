@@ -1,0 +1,123 @@
+{
+  "version": "teruisi-scoped-release-plan-v3",
+  "baseSha": "9637fa692fa93d2b134cbecb689a6b15a119c7ac",
+  "headSha": "54e2e8f663b3b064d20fb8cc1de387fa990f0235",
+  "changes": [
+    {
+      "status": "M",
+      "path": "config/main-schema-releases/ai-0086.json"
+    },
+    {
+      "status": "M",
+      "path": "config/main-schema-releases/ai-0087.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/schema-acl-gate-20261020/REPORT.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/schema-acl-gate-20261020/VERIFICATION.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/schema-acl-gate-20261020/pi152-mandatory-code-checks-v2.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/schema-acl-gate-20261020/pi152-syntax-code-materials-v2.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/schema-acl-gate-20261020/pi153-mandatory-code-checks-v2.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/schema-acl-gate-20261020/pi153-release-code-syntax-v2.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/任务记录/README.md"
+    },
+    {
+      "status": "A",
+      "path": "tests/pi153-acl-catalog-boundary.py"
+    },
+    {
+      "status": "A",
+      "path": "tests/schema-acl-contract-gate.test.mjs"
+    },
+    {
+      "status": "M",
+      "path": "tools/main-schema-release.mjs"
+    }
+  ],
+  "scope": "full",
+  "components": [
+    "worker",
+    "django"
+  ],
+  "migrate": false,
+  "databaseProtection": "verified-current",
+  "businessDataProcessing": "separate-authorization-required",
+  "validation": [
+    "git-diff-check",
+    "worker-affected-tests",
+    "django-affected-tests",
+    "affected-integration-tests"
+  ],
+  "packaging": [
+    "prepare-worker-immutable-release",
+    "prepare-django-app"
+  ],
+  "deployment": [
+    "verify-current-database-backup",
+    "activate-worker-release",
+    "deploy-django-app",
+    "verify-startup",
+    "verify-affected-function"
+  ],
+  "workflow": [
+    {
+      "step": 4,
+      "id": "validate-change",
+      "actions": [
+        "git-diff-check",
+        "worker-affected-tests",
+        "django-affected-tests",
+        "affected-integration-tests"
+      ]
+    },
+    {
+      "step": 5,
+      "id": "merge-and-package",
+      "actions": [
+        "merge-main",
+        "push-main",
+        "prepare-worker-immutable-release",
+        "prepare-django-app"
+      ]
+    },
+    {
+      "step": 6,
+      "id": "publish",
+      "actions": [
+        "verify-current-database-backup",
+        "activate-worker-release",
+        "deploy-django-app",
+        "verify-startup",
+        "verify-affected-function"
+      ]
+    }
+  ],
+  "domains": [],
+  "unknown": [],
+  "reasons": [
+    "运行或发布工具:config/main-schema-releases/ai-0086.json",
+    "运行或发布工具:config/main-schema-releases/ai-0087.json",
+    "测试:tests/pi153-acl-catalog-boundary.py",
+    "测试:tests/schema-acl-contract-gate.test.mjs",
+    "运行或发布工具:tools/main-schema-release.mjs"
+  ],
+  "planSha256": "ee2b5b34c7bb42b4d119cabef79e3b1a7ca6432faf306703d4462fdf2a378758"
+}

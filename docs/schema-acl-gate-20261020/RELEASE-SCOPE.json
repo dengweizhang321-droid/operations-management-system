@@ -1,0 +1,640 @@
+{
+  "version": "teruisi-scoped-release-plan-v3",
+  "baseSha": "e52361d5a8fc095713e0ac3553ba078c12fcba9f",
+  "headSha": "54e2e8f663b3b064d20fb8cc1de387fa990f0235",
+  "changes": [
+    {
+      "status": "M",
+      "path": "README.md"
+    },
+    {
+      "status": "M",
+      "path": "app/ai-pi-agent-view.tsx"
+    },
+    {
+      "status": "M",
+      "path": "app/ai-pi-agent.css"
+    },
+    {
+      "status": "A",
+      "path": "app/ai-pi-native-controls.tsx"
+    },
+    {
+      "status": "A",
+      "path": "app/ai-pi-questionnaire.tsx"
+    },
+    {
+      "status": "M",
+      "path": "app/ai-pi-workspace.tsx"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/database_contract.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/health.py"
+    },
+    {
+      "status": "A",
+      "path": "backend/ai_assistant/migrations/0087_pi_native_capabilities.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/pi_business.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/pi_gateway.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/pi_models.py"
+    },
+    {
+      "status": "A",
+      "path": "backend/ai_assistant/pi_native.py"
+    },
+    {
+      "status": "A",
+      "path": "backend/ai_assistant/pi_native_health.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/pi_selection.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/pi_service.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/pi_transport.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/pi_worker.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/pi_workspace.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/table_manifest.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/views.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/pi_runner/README.md"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/admission.py"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/bundled_skills/1.3.0/create-work-plan/SKILL.md"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/bundled_skills/1.3.0/deliver-report/SKILL.md"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/bundled_skills/1.3.0/excel-report/SKILL.md"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/bundled_skills/1.3.0/excel-report/references/report-format.md"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/bundled_skills/1.3.0/excel-report/scripts/create_report.py"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/bundled_skills/1.3.0/execute-registered-gap/SKILL.md"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/bundled_skills/1.3.0/manifest.json"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/bundled_skills/1.3.0/native-planning/SKILL.md"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/bundled_skills/1.3.0/sales-promotion-inventory/SKILL.md"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/bundled_skills/1.3.0/sales-promotion-inventory/references/metrics.md"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/bundled_skills/1.3.0/sales-promotion-inventory/scripts/join_summary.py"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/bundled_skills/1.3.0/save-replenishment-draft/SKILL.md"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/bundled_skills/1.3.0/stock-replenishment/SKILL.md"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/bundled_skills/1.3.0/stock-replenishment/references/replenishment.md"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/bundled_skills/1.3.0/stock-replenishment/scripts/replenish.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/pi_runner/protocol.py"
+    },
+    {
+      "status": "A",
+      "path": "backend/pi_runner/questionnaire.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/pi_runner/server.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/pi_runner/skills.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/pi_runner/workspace.py"
+    },
+    {
+      "status": "M",
+      "path": "config/main-schema-releases/ai-0086.json"
+    },
+    {
+      "status": "A",
+      "path": "config/main-schema-releases/ai-0087.json"
+    },
+    {
+      "status": "M",
+      "path": "containers/pi-agent/Dockerfile"
+    },
+    {
+      "status": "M",
+      "path": "containers/pi-agent/entrypoint.mjs"
+    },
+    {
+      "status": "M",
+      "path": "containers/pi-agent/gateway-extension.mjs"
+    },
+    {
+      "status": "A",
+      "path": "containers/pi-agent/native-capabilities.mjs"
+    },
+    {
+      "status": "A",
+      "path": "containers/pi-agent/plan-analysis.py"
+    },
+    {
+      "status": "A",
+      "path": "docs/combined-release-20261020/PRODUCTION.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/combined-release-20261020/PRODUCTION.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/pi-native-capabilities-20261020/BACKEND.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/pi-native-capabilities-20261020/PLAN.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/pi-native-capabilities-20261020/REPORT.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/pi-native-capabilities-20261020/SCHEMA.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/pi-native-capabilities-20261020/SELF_TEST_PROMPTS.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/pi-native-capabilities-20261020/backend-code-checks.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/pi-native-capabilities-20261020/frontend-code-checks.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/pi-native-capabilities-20261020/image.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/pi-native-capabilities-20261020/mandatory-code-checks.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/pi-native-capabilities-20261020/powershell-syntax.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/pi-native-capabilities-20261020/release-code-review.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/pi-native-capabilities-20261020/release-code-syntax.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/pi-native-capabilities-20261020/runtime-bindings.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/pi152-finalize-recovery-20261020/REPORT.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/piagent-phase3-20261019/REPORT.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/release-contention-20261020/REPORT.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-optimizations-20261020/REPORT.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-optimizations-20261020/VERIFICATION.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-optimizations-20261020/evidence/acl-contract.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-optimizations-20261020/evidence/node-tests.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-optimizations-20261020/evidence/release-scope-plan.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/schema-acl-gate-20261020/REPORT.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/schema-acl-gate-20261020/VERIFICATION.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/schema-acl-gate-20261020/pi152-mandatory-code-checks-v2.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/schema-acl-gate-20261020/pi152-syntax-code-materials-v2.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/schema-acl-gate-20261020/pi153-mandatory-code-checks-v2.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/schema-acl-gate-20261020/pi153-release-code-syntax-v2.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/weekly-release-lease-20261020/Check-WeeklyReleaseLeaseProjection.ps1"
+    },
+    {
+      "status": "A",
+      "path": "docs/weekly-release-lease-20261020/DELIVERY.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/weekly-release-lease-20261020/REPORT.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/weekly-release-lease-20261020/evidence-weekly-admission/projection-ps5.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/weekly-release-lease-20261020/evidence-weekly-admission/ps5.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/weekly-release-lease-20261020/evidence/SUMMARY.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/weekly-release-lease-20261020/evidence/git-diff-check.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/weekly-release-lease-20261020/evidence/publish-prepared-main.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/weekly-release-lease-20261020/evidence/release-contention-boundaries.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/weekly-release-lease-20261020/evidence/release-optimization-boundaries.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/weekly-release-lease-20261020/evidence/scope-plan.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/weekly-release-lease-20261020/evidence/verify-release-candidate.log"
+    },
+    {
+      "status": "M",
+      "path": "docs/任务记录/README.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/技术专题/AI助手/pi-agent-runtime.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/文档目录.md"
+    },
+    {
+      "status": "A",
+      "path": "lib/ai/pi-native-tools.ts"
+    },
+    {
+      "status": "M",
+      "path": "lib/ai/tool-registry.ts"
+    },
+    {
+      "status": "M",
+      "path": "package.json"
+    },
+    {
+      "status": "M",
+      "path": "tests/pi152-acl-catalog-boundary.py"
+    },
+    {
+      "status": "A",
+      "path": "tests/pi153-acl-catalog-boundary.py"
+    },
+    {
+      "status": "M",
+      "path": "tests/publish-prepared-main.test.mjs"
+    },
+    {
+      "status": "M",
+      "path": "tests/release-contention-boundaries.test.mjs"
+    },
+    {
+      "status": "M",
+      "path": "tests/release-optimization-boundaries.test.mjs"
+    },
+    {
+      "status": "A",
+      "path": "tests/schema-acl-contract-gate.test.mjs"
+    },
+    {
+      "status": "M",
+      "path": "tests/verify-release-candidate.test.mjs"
+    },
+    {
+      "status": "M",
+      "path": "tests/weekly-report-admission.fixture.ps1"
+    },
+    {
+      "status": "M",
+      "path": "tools/bi-app-adopt.ps1"
+    },
+    {
+      "status": "M",
+      "path": "tools/django-local-service.ps1"
+    },
+    {
+      "status": "M",
+      "path": "tools/django-postgres-maintenance.ps1"
+    },
+    {
+      "status": "M",
+      "path": "tools/django-workflow-service.ps1"
+    },
+    {
+      "status": "M",
+      "path": "tools/integration_release_gate.py"
+    },
+    {
+      "status": "M",
+      "path": "tools/main-schema-release.mjs"
+    },
+    {
+      "status": "M",
+      "path": "tools/pi_agent_catalog.py"
+    },
+    {
+      "status": "M",
+      "path": "tools/pi_business_catalog.py"
+    },
+    {
+      "status": "A",
+      "path": "tools/pi_native_addition.py"
+    },
+    {
+      "status": "A",
+      "path": "tools/pi_native_candidate.py"
+    },
+    {
+      "status": "A",
+      "path": "tools/pi_native_catalog.py"
+    },
+    {
+      "status": "M",
+      "path": "tools/pi_workspace_catalog.py"
+    },
+    {
+      "status": "M",
+      "path": "tools/postgres_no_key_backup.py"
+    },
+    {
+      "status": "M",
+      "path": "tools/publish-prepared-main.mjs"
+    },
+    {
+      "status": "M",
+      "path": "tools/verify-release-candidate.mjs"
+    }
+  ],
+  "scope": "database-migration",
+  "components": [
+    "worker",
+    "django"
+  ],
+  "migrate": true,
+  "databaseProtection": "schema-only-no-new-full-backup-or-restore",
+  "businessDataProcessing": "separate-authorization-required",
+  "validation": [
+    "git-diff-check",
+    "worker-affected-tests",
+    "django-affected-tests",
+    "affected-integration-tests",
+    "django-system-check",
+    "migration-dry-run",
+    "isolated-postgresql-migration-rehearsal"
+  ],
+  "packaging": [
+    "prepare-worker-immutable-release",
+    "prepare-django-app"
+  ],
+  "deployment": [
+    "apply-approved-migrations",
+    "activate-worker-release",
+    "deploy-django-app",
+    "verify-startup",
+    "verify-affected-function"
+  ],
+  "workflow": [
+    {
+      "step": 4,
+      "id": "validate-change",
+      "actions": [
+        "git-diff-check",
+        "worker-affected-tests",
+        "django-affected-tests",
+        "affected-integration-tests",
+        "django-system-check",
+        "migration-dry-run",
+        "isolated-postgresql-migration-rehearsal"
+      ]
+    },
+    {
+      "step": 5,
+      "id": "merge-and-package",
+      "actions": [
+        "merge-main",
+        "push-main",
+        "prepare-worker-immutable-release",
+        "prepare-django-app"
+      ]
+    },
+    {
+      "step": 6,
+      "id": "publish",
+      "actions": [
+        "apply-approved-migrations",
+        "activate-worker-release",
+        "deploy-django-app",
+        "verify-startup",
+        "verify-affected-function"
+      ]
+    }
+  ],
+  "domains": [
+    "ai_assistant",
+    "pi_runner"
+  ],
+  "unknown": [
+    "containers/pi-agent/Dockerfile",
+    "containers/pi-agent/entrypoint.mjs",
+    "containers/pi-agent/gateway-extension.mjs",
+    "containers/pi-agent/native-capabilities.mjs",
+    "containers/pi-agent/plan-analysis.py"
+  ],
+  "reasons": [
+    "前端:app/ai-pi-agent-view.tsx",
+    "前端:app/ai-pi-agent.css",
+    "前端:app/ai-pi-native-controls.tsx",
+    "前端:app/ai-pi-questionnaire.tsx",
+    "前端:app/ai-pi-workspace.tsx",
+    "后端:backend/ai_assistant/database_contract.py",
+    "后端:backend/ai_assistant/health.py",
+    "后端:backend/ai_assistant/migrations/0087_pi_native_capabilities.py",
+    "后端:backend/ai_assistant/pi_business.py",
+    "后端:backend/ai_assistant/pi_gateway.py",
+    "后端:backend/ai_assistant/pi_models.py",
+    "后端:backend/ai_assistant/pi_native.py",
+    "后端:backend/ai_assistant/pi_native_health.py",
+    "后端:backend/ai_assistant/pi_selection.py",
+    "后端:backend/ai_assistant/pi_service.py",
+    "后端:backend/ai_assistant/pi_transport.py",
+    "后端:backend/ai_assistant/pi_worker.py",
+    "后端:backend/ai_assistant/pi_workspace.py",
+    "后端:backend/ai_assistant/table_manifest.py",
+    "后端:backend/ai_assistant/views.py",
+    "后端:backend/pi_runner/README.md",
+    "后端:backend/pi_runner/admission.py",
+    "后端:backend/pi_runner/bundled_skills/1.3.0/create-work-plan/SKILL.md",
+    "后端:backend/pi_runner/bundled_skills/1.3.0/deliver-report/SKILL.md",
+    "后端:backend/pi_runner/bundled_skills/1.3.0/excel-report/SKILL.md",
+    "后端:backend/pi_runner/bundled_skills/1.3.0/excel-report/references/report-format.md",
+    "后端:backend/pi_runner/bundled_skills/1.3.0/excel-report/scripts/create_report.py",
+    "后端:backend/pi_runner/bundled_skills/1.3.0/execute-registered-gap/SKILL.md",
+    "后端:backend/pi_runner/bundled_skills/1.3.0/manifest.json",
+    "后端:backend/pi_runner/bundled_skills/1.3.0/native-planning/SKILL.md",
+    "后端:backend/pi_runner/bundled_skills/1.3.0/sales-promotion-inventory/SKILL.md",
+    "后端:backend/pi_runner/bundled_skills/1.3.0/sales-promotion-inventory/references/metrics.md",
+    "后端:backend/pi_runner/bundled_skills/1.3.0/sales-promotion-inventory/scripts/join_summary.py",
+    "后端:backend/pi_runner/bundled_skills/1.3.0/save-replenishment-draft/SKILL.md",
+    "后端:backend/pi_runner/bundled_skills/1.3.0/stock-replenishment/SKILL.md",
+    "后端:backend/pi_runner/bundled_skills/1.3.0/stock-replenishment/references/replenishment.md",
+    "后端:backend/pi_runner/bundled_skills/1.3.0/stock-replenishment/scripts/replenish.py",
+    "后端:backend/pi_runner/protocol.py",
+    "后端:backend/pi_runner/questionnaire.py",
+    "后端:backend/pi_runner/server.py",
+    "后端:backend/pi_runner/skills.py",
+    "后端:backend/pi_runner/workspace.py",
+    "运行或发布工具:config/main-schema-releases/ai-0086.json",
+    "运行或发布工具:config/main-schema-releases/ai-0087.json",
+    "未知路径升级完整流程:containers/pi-agent/Dockerfile",
+    "未知路径升级完整流程:containers/pi-agent/entrypoint.mjs",
+    "未知路径升级完整流程:containers/pi-agent/gateway-extension.mjs",
+    "未知路径升级完整流程:containers/pi-agent/native-capabilities.mjs",
+    "未知路径升级完整流程:containers/pi-agent/plan-analysis.py",
+    "共享运行库:lib/ai/pi-native-tools.ts",
+    "共享运行库:lib/ai/tool-registry.ts",
+    "前端依赖/构建配置:package.json",
+    "测试:tests/pi152-acl-catalog-boundary.py",
+    "测试:tests/pi153-acl-catalog-boundary.py",
+    "测试:tests/publish-prepared-main.test.mjs",
+    "测试:tests/release-contention-boundaries.test.mjs",
+    "测试:tests/release-optimization-boundaries.test.mjs",
+    "测试:tests/schema-acl-contract-gate.test.mjs",
+    "测试:tests/verify-release-candidate.test.mjs",
+    "测试:tests/weekly-report-admission.fixture.ps1",
+    "运行或发布工具:tools/bi-app-adopt.ps1",
+    "运行或发布工具:tools/django-local-service.ps1",
+    "运行或发布工具:tools/django-postgres-maintenance.ps1",
+    "运行或发布工具:tools/django-workflow-service.ps1",
+    "运行或发布工具:tools/integration_release_gate.py",
+    "运行或发布工具:tools/main-schema-release.mjs",
+    "运行或发布工具:tools/pi_agent_catalog.py",
+    "运行或发布工具:tools/pi_business_catalog.py",
+    "运行或发布工具:tools/pi_native_addition.py",
+    "运行或发布工具:tools/pi_native_candidate.py",
+    "运行或发布工具:tools/pi_native_catalog.py",
+    "运行或发布工具:tools/pi_workspace_catalog.py",
+    "运行或发布工具:tools/postgres_no_key_backup.py",
+    "运行或发布工具:tools/publish-prepared-main.mjs",
+    "运行或发布工具:tools/verify-release-candidate.mjs"
+  ],
+  "planSha256": "95ce47af1068e5ed91a380ac2e992772d9302a810a78bfbc3eb151f838957cbf"
+}
