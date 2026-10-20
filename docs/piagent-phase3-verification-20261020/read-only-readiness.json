@@ -1,0 +1,90 @@
+{
+  "n8nReadOnlyCapabilities": {
+    "items": [
+      {
+        "capabilityId": "tmall-seven-day-gap-v1",
+        "storeKey": "tmall-cuizhiwang",
+        "dataset": "product_and_promotion",
+        "startDate": "2026-10-13",
+        "endDate": "2026-10-19",
+        "adopted": false,
+        "available": false,
+        "shopName": "天猫-志高炊之王专卖店",
+        "reason": "n8n_version_changed"
+      },
+      {
+        "capabilityId": "tmall-seven-day-gap-v1",
+        "storeKey": "tmall-lili",
+        "dataset": "product_and_promotion",
+        "startDate": "2026-10-13",
+        "endDate": "2026-10-19",
+        "adopted": false,
+        "available": false,
+        "shopName": "天猫-志高丽力专卖店",
+        "reason": "n8n_version_changed"
+      },
+      {
+        "capabilityId": "tmall-seven-day-gap-v1",
+        "storeKey": "tmall-masitu",
+        "dataset": "product_and_promotion",
+        "startDate": "2026-10-13",
+        "endDate": "2026-10-19",
+        "adopted": false,
+        "available": false,
+        "shopName": "天猫-志高马思图专卖店",
+        "reason": "n8n_version_changed"
+      },
+      {
+        "capabilityId": "tmall-seven-day-gap-v1",
+        "storeKey": "tmall-tuofeng",
+        "dataset": "product_and_promotion",
+        "startDate": "2026-10-13",
+        "endDate": "2026-10-19",
+        "adopted": false,
+        "available": false,
+        "shopName": "天猫-志高拓丰专卖店",
+        "reason": "n8n_version_changed"
+      },
+      {
+        "capabilityId": "tmall-seven-day-gap-v1",
+        "storeKey": "tmall-yijiu",
+        "dataset": "product_and_promotion",
+        "startDate": "2026-10-13",
+        "endDate": "2026-10-19",
+        "adopted": false,
+        "available": false,
+        "shopName": "天猫-志高亿玖专卖店",
+        "reason": "n8n_version_changed"
+      },
+      {
+        "capabilityId": "tmall-seven-day-gap-v1",
+        "storeKey": "tmall-yiyong",
+        "dataset": "product_and_promotion",
+        "startDate": "2026-10-13",
+        "endDate": "2026-10-19",
+        "adopted": false,
+        "available": false,
+        "shopName": "天猫-志高亿用专卖店",
+        "reason": "n8n_version_changed"
+      }
+    ],
+    "limits": {
+      "platform": "天猫",
+      "lookbackDays": 7,
+      "datasets": [
+        "product_and_promotion"
+      ],
+      "executionPolicy": "原生工作流精确采用后仅补固定范围缺口；无缺口不创建执行；未知结果不重放"
+    }
+  },
+  "reportBaseConfig": {
+    "configFilePresent": true,
+    "credentialFilePresent": true,
+    "enabled": true,
+    "bindingCount": 1,
+    "groupCount": 1
+  },
+  "externalDispatchPerformed": false,
+  "businessWritesPerformed": false,
+  "effectiveBotConfigQueried": false
+}

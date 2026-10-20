@@ -1,0 +1,38 @@
+{
+  "verifiedAt": "2026-10-20T23:23:24.782399+08:00",
+  "baselineCommit": "5bebdee7",
+  "branch": "codex/piagent-phase3-verification-20261020",
+  "checks": {
+    "postgresPassed": 29,
+    "nodeAndBrowserPassed": 16,
+    "failed": 0,
+    "skipped": 0
+  },
+  "productionPublicationPerformed": false,
+  "mainMergePerformed": false,
+  "nativeGapDispatchPerformed": false,
+  "externalDeliveryPerformed": false,
+  "productionMigrationPerformed": false,
+  "evidenceSha256": {
+    "postgres-final.log": "3bfd101c00962ef266aa7778f8520b792f4b64fc48c1d300e44350c0a31c488e",
+    "node-final.log": "2d38a17cfbc7565ce377363517e432828a25dae90e92ee0ab2581c0b89d4790f",
+    "read-only-readiness.json": "3245f348cfe4e58b29f33b55be30ae328705f148607f43d3dfce2fd07eb9759c"
+  },
+  "limitations": [
+    "ORM-created synthetic PostgreSQL schema with exact 0086 business state triggers; no full migration or production ACL validation",
+    "Provider and business network effects replaced at declared boundaries",
+    "Production n8n candidates not adopted: all six graphs mismatch",
+    "Bot base configuration presence only; no real recipient or send test",
+    "Private PostgreSQL stopped; temporary cluster files retained"
+  ],
+  "sourceGitBlobSha256": {
+    "backend/ai_assistant/pi_business.py": "1af668a1da761d17ecdb1ff5631baa1aa9c9179b57fff8b9b1389837e527fd07",
+    "app/ai-pi-business-actions.tsx": "21c634b4356a5f6faf7c99412e4b334fc4a5df391ab15e4996a0059ddb4aa229",
+    "backend/ai_assistant/test_pi_business_verification.py": "2b641e2312a82424101a10bf68bdc60af3493f5597c6ff46051674b1ac5fc0c8",
+    "backend/ai_assistant/test_pi_business_boundaries.py": "0f3aa7870f1198d90f53d4f2bf22cc686153d03497d5c321fd5dff4fc4e83d06",
+    "tests/pi-business-tools.test.ts": "42dfa802cab8b2a5e9eec236a8f8924e87f8a15a2b15a70c8e906251cbc3f85a",
+    "tests/pi-business-browser.test.mjs": "5ed474d17fb7ae9a62fb194bee0cf295a5d24e24765af95a809cc1ae62b7e28a",
+    "tests/run-pi-business-verification.py": "fcd3c330124febc972546be2c2865fee3f031c0e5e28dbe8c3e7f2abe79c7872"
+  },
+  "logEncoding": "Repository log copies are UTF-8/LF; raw output retained in D:/codex-artifacts/piagent-phase3-verification-20261020"
+}

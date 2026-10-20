@@ -79,6 +79,7 @@ export default function AiPiBusinessActions({ sessionId, epoch, generation, owne
     {!!pending.length && <p role="status">原业务请求正在核实。刷新只读取状态，不重新提交。</p>}
     {snapshot.items.map(action => <article key={action.actionId} className="ai-pi-business-card"><header><strong>{titles[action.actionType] ?? "业务动作"}</strong><span>{action.cancelRequested && !["succeeded", "failed", "canceled"].includes(action.status) ? "取消请求 · " : ""}{states[action.status] ?? action.status}</span></header>
       <Value value={action.preview} />
+      {action.status === "prepared" && action.actionType === "save_replenishment_draft" && (action.preview.details as { source?: { inventoryStale?: boolean } } | undefined)?.source?.inventoryStale === true && <p role="alert">库存快照已过期。请核对来源日期及补货依据，确认接受这份过期快照后再执行。</p>}
       {action.status === "prepared" && <p>确认仅适用于以上对象、版本、店铺、日期、数量、正文、渠道和附件。有效期至 {action.confirmationExpiresAt ? new Date(action.confirmationExpiresAt).toLocaleString("zh-CN") : "服务端登记期限"}。</p>}
       {Object.keys(action.result ?? {}).length > 0 && <details open><summary>真实对象与执行回执</summary><Value value={action.result} /></details>}
       {action.errorCode && <p>未完成原因：{action.errorCode}</p>}

@@ -203,6 +203,21 @@ def tool_prepare(operation, user_intent_id, tool_name, parameters, invocation_id
             scope_json=op.scope_json, epoch=op.epoch, generation=op.generation, request_digest=binding,
             parameters_json=canonical(prepared["parameters"]), preview_json=canonical(preview), preview_digest=digest(preview),
             target_version=str(prepared["targetVersion"]), confirmation_expires_at=intent.expires_at)
+        # Selecting this action for the current user message already authorizes
+        # an ordinary plan/draft. Only gap execution and external delivery need
+        # a second confirmation of their concrete preview.
+        auto_queue = (intent.action_type == "create_work_plan" or
+            intent.action_type == "save_replenishment_draft" and
+            prepared["preview"].get("source", {}).get("inventoryStale") is False)
+        # A model-supplied acknowledgeStale flag is not a user's confirmation.
+        # Stale inventory remains a concrete preview for the business card.
+        if auto_queue:
+            action.confirmation_digest = action.preview_digest
+            _principal(action, effect=True)
+            action.status = "queued"
+            action.version += 1
+            action.updated_at = timezone.now()
+            action.save(update_fields=["confirmation_digest", "status", "version", "updated_at"])
         _audit(action, "prepared", {"invocationId": invocation_id, "requestDigest": binding, "previewDigest": action.preview_digest,
             "executorOperationId": operation.id, "executorSessionId": operation.session_id})
         return {"action": action_record(action), "replayed": False}
@@ -504,6 +519,8 @@ def perform(action, stopped=None):
         with transport.request_cancellation(cancel_on_stop):
             result = domains.execute(current, principal)
         passive(result, 128*1024)
+        if not isinstance(result, dict) or result.get("status") not in {"succeeded", "failed", "unknown", "running", "accepted", "queued"}:
+            raise AiError("业务写入器未返回可核实的执行状态", "pi_business_result_unknown", 503)
         with mutation():
             row = PiBusinessAction.objects.select_for_update().get(pk=action.pk)
             if row.lease_token != action.lease_token or row.status not in {"dispatched", "unknown"}:

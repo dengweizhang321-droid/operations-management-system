@@ -1,0 +1,24 @@
+✔ workspace controls recover only registered stable IDs and preserve native bash context semantics (1.3213ms)
+✔ Pi failure cause is visible ahead of unknown status, including after refresh (0.2956ms)
+✔ Pi recovery only reconciles the exact durable request and keeps unknown operations fenced (0.5245ms)
+✔ Pi public paths are exact and all reads use their writer owner (41.2768ms)
+✔ Pi passive file transport accommodates an 8 MiB file base64 envelope and remains bounded (52.9642ms)
+✔ Pi event transport preserves complete large UTF-8 replies within its independent bound (12.9583ms)
+✔ Pi route files expose only the intended passive GET and explicit POST (8.3478ms)
+✔ Pi thin route keeps origin, roles and bounded upload parsing, and forces passive downloads (70.3729ms)
+✔ Pi explicitly admits its reviewed read tools without inheriting legacy agent or future entries (2.9639ms)
+✔ Pi export rejects paths, identity injection and unavailable audit before dispatch (2.9878ms)
+✔ Pi exports require the stable gateway call identity even when an audit invocation exists (1.0657ms)
+✔ nested Pi dataset discovery, query and export preserve surface and true principal over signed transport (22.1081ms)
+✔ Pi paged netshop reader preserves domain pagination and rejects unsupported scope before transport (5.7219ms)
+✔ business card confirms once, refresh restores by GET, stale inventory is explicit and in-flight cancel is not rollback (820.7962ms)
+✔ business tools have matching provider schemas, one explicit surface and no authority in ordinary chat (3.4089ms)
+✔ business prepare refuses a model-only or ephemeral gateway context before transport (1.3385ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1408.3448

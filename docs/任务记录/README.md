@@ -12,6 +12,8 @@
 
 ## AI助手
 
+本轮补充：[PiAgent三期功能验证与修复（未合并）](../piagent-phase3-verification-20261020/REPORT.md)。
+
 本轮补充：[PiAgent二期完整工作环境](../pi-phase2-workspace-20261018/REPORT.md)。
 
 本轮补充：[Pi 一期停止边界修复与整链验收](../pi-phase1-closeout-20261018/REPORT.md)。
