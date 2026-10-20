@@ -7,6 +7,15 @@ import "./styles/shared-theme.css";
 const title = "电商运营中台";
 const description = "销售、库存、商品与运营事务一体化管理平台。";
 
+type PreviewImportMeta = ImportMeta & {
+  env: {
+    DEV: boolean;
+    VITE_TERUISI_PREVIEW?: string;
+    VITE_TERUISI_PREVIEW_PORT?: string;
+    VITE_TERUISI_PREVIEW_BRANCH?: string;
+  };
+};
+
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
   const host =
@@ -47,15 +56,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const previewEnvironment = (import.meta as ImportMeta & {
-    env?: { DEV?: boolean; VITE_TERUISI_PREVIEW?: string };
-  }).env;
+  const previewEnvironment = (import.meta as PreviewImportMeta).env;
   return (
     <html lang="zh-CN">
       <body>
-        {previewEnvironment?.DEV && previewEnvironment?.VITE_TERUISI_PREVIEW === "true" && (
-          <div title="隔离演示环境：保存代码后自动更新" style={{ position: "fixed", bottom: 8, right: 16, zIndex: 99999, background: "#92400e", color: "white", padding: "8px 16px", borderRadius: 8, fontSize: 14 }}>
-            演示预览 · 合成数据 · 仅查询
+        {(import.meta as PreviewImportMeta).env.DEV && previewEnvironment.VITE_TERUISI_PREVIEW === "true" && (
+          <div title="隔离开发环境：前端保存后热更新，禁止业务提交" style={{ position: "fixed", bottom: 8, right: 16, zIndex: 99999, background: "#92400e", color: "white", padding: "8px 16px", borderRadius: 8, fontSize: 14 }}>
+            开发环境 · 合成数据 · 禁止业务提交 · 端口 {previewEnvironment.VITE_TERUISI_PREVIEW_PORT} · {previewEnvironment.VITE_TERUISI_PREVIEW_BRANCH}
           </div>
         )}
         {children}

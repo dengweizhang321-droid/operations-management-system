@@ -8,6 +8,7 @@
   "scripts": {
     "postinstall": "node tools/install-workerd-heap-patch.mjs",
     "preview:isolated": "node tools/preview/launcher.mjs start --open",
+    "dev:hmr": "node tools/preview/launcher.mjs start",
     "preview:prepare": "node tools/preview/launcher.mjs prepare",
     "preview:status": "node tools/preview/launcher.mjs status",
     "preview:stop": "node tools/preview/launcher.mjs stop",
