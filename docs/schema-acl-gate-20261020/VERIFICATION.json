@@ -1,43 +1,28 @@
 {
-    "version":  "schema-acl-gate-verification-v1",
-    "at":  "2026-10-20T12:25:00+08:00",
-    "branch":  "codex/schema-acl-gate-20261020",
-    "base":  "9637fa692fa93d2b134cbecb689a6b15a119c7ac",
-    "checks":  [
-                   {
-                       "name":  "schema-release-tests",
-                       "tests":  9,
-                       "passed":  9,
-                       "failed":  0
-                   },
-                   {
-                       "name":  "publisher-tests",
-                       "tests":  82,
-                       "passed":  82,
-                       "failed":  0
-                   },
-                   {
-                       "name":  "pi152-acl",
-                       "checks":  27,
-                       "passed":  true,
-                       "result":  "PI152_ACL_CONTRACT_PASSED tables=3 append_only=2 checks=27 no_database=True"
-                   },
-                   {
-                       "name":  "pi153-acl",
-                       "checks":  63,
-                       "passed":  true,
-                       "result":  "PI153_ACL_CONTRACT_PASSED tables=7 append_only=3 checks=63 no_database=True"
-                   }
-               ],
-    "piNative":  {
-                     "codeSha256":  "f4223f0efd02221370877cd377f9d19609a609dae626f648e5772c7cee8c5b8a",
-                     "migrationSha256":  "a08ccd8859d00cb31eed4dfaf9c02ad062dfd37a3dac5190c64e9ab059cf7f00",
-                     "recipeValidationSha256":  "e810b6d04ab74afff6f977bb5d527dc2529beadf185e5e46d6c280fcbbfa6d87",
-                     "binderBound":  true
-                 },
-    "productionTouched":  false,
-    "deploymentPerformed":  false,
-    "migrationPerformed":  false,
-    "controlBundleAdopted":  false,
-    "powershell7Executed":  false
+  "version": "schema-acl-gate-verification-v1",
+  "at": "2026-10-20T12:32:00+08:00",
+  "branch": "codex/schema-acl-gate-20261020",
+  "base": "9637fa692fa93d2b134cbecb689a6b15a119c7ac",
+  "checks": [
+    {"name": "schema-release-tests", "tests": 9, "passed": 9, "failed": 0},
+    {"name": "publisher-tests", "tests": 82, "passed": 82, "failed": 0},
+    {"name": "queue-verifier-tests", "tests": 21, "passed": 21, "failed": 0},
+    {"name": "pi152-acl", "checks": 27, "passed": true, "result": "PI152_ACL_CONTRACT_PASSED tables=3 append_only=2 checks=27 no_database=True"},
+    {"name": "pi153-acl", "checks": 63, "passed": true, "result": "PI153_ACL_CONTRACT_PASSED tables=7 append_only=3 checks=63 no_database=True"}
+  ],
+  "piBusiness": {
+    "codeSha256": "ec91bc4f9ec070a555240e328743dbb0b51dabb0606577376da842edaa47b7d9",
+    "recipeValidationSha256": "c6607399b3812846f5bd59fc956521bf193818ff7a863eb8073be0940d8249c2"
+  },
+  "piNative": {
+    "codeSha256": "f4223f0efd02221370877cd377f9d19609a609dae626f648e5772c7cee8c5b8a",
+    "migrationSha256": "a08ccd8859d00cb31eed4dfaf9c02ad062dfd37a3dac5190c64e9ab059cf7f00",
+    "recipeValidationSha256": "e810b6d04ab74afff6f977bb5d527dc2529beadf185e5e46d6c280fcbbfa6d87",
+    "binderBound": true
+  },
+  "productionTouched": false,
+  "deploymentPerformed": false,
+  "migrationPerformed": false,
+  "controlBundleAdopted": false,
+  "powershell7Executed": false
 }

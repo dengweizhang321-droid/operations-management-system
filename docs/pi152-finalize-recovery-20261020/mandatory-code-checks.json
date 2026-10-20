@@ -25,7 +25,7 @@
     "powershell-syntax",
     "python-syntax"
   ],
-  "codeSha256": "a99aa1f544d2fac13152e2e62636fc911f708fe592d33fe8a103e249262de785",
+  "codeSha256": "ec91bc4f9ec070a555240e328743dbb0b51dabb0606577376da842edaa47b7d9",
   "migrationSha256": "3fd0be216e80271f92ce44f0dad885d1a1f8cd0a63ae3d6f8e73e049e86bdf21",
   "migrationFiles": {
     "backend/ai_assistant/migrations/0086_pi_business_actions.py": "3435b5970ffb5d5530e60aed6156e7b7e7792fb0cbff5e198ef8a3b264ee4213"
@@ -35,5 +35,6 @@
   "syntaxEvidenceSha256": "e452bb58b81b134cf9d6cda8a8a3c4ad134765ac98e7e72ec90deedd6d15d00c",
   "scope": "Current exact code syntax and unchanged 151-to152 migration closure only. No business, database, or functional execution.",
   "rawByteNormalization": "LF worktree bytes used for this task proof; old proof preserved.",
-  "previousProofSha256": "1be7e64bce651f7ba3a4c9ade6632649062aeac19fb145ebdad81238a3a42dc5"
+  "previousProofSha256": "1be7e64bce651f7ba3a4c9ade6632649062aeac19fb145ebdad81238a3a42dc5",
+  "checkedAt": "2026-10-20T04:30:30.412537+00:00"
 }
