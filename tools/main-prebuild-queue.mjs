@@ -64,14 +64,16 @@ export async function ticketResult(directory,requestId,ticketSha256){
   const base=['version','requestId','ticketSha256','status','at','configSha256','bundleSha256'];
   const refs=['dispatchId','dispatchSha256','selectedTarget','winnerRequestId'];
   const admissionBlocked=value.status==='blocked'&&value.admission==='ordinary-user-before-dispatch-v1';
-  const extra=admissionBlocked?['admission','error']:value.status==='blocked'?['blockedDispatchId','blockedDispatchSha256','error']:value.status==='failed'?['error']:value.status==='unknown'?[...refs,'error']:value.status==='superseded'?refs:[...refs,'nativeResult'];
+  const incompatibleBlocked=value.status==='blocked'&&value.admission==='incompatible-generation-before-dispatch-v1';
+  const extra=incompatibleBlocked?['admission','rejectedBy','error']:admissionBlocked?['admission','error']:value.status==='blocked'?['blockedDispatchId','blockedDispatchSha256','error']:value.status==='failed'?['error']:value.status==='unknown'?[...refs,'error']:value.status==='superseded'?refs:[...refs,'nativeResult'];
   assert.deepEqual(Object.keys(value).sort(),[...base,...extra].sort(),'Queue terminal schema is incomplete or changed');
   assert.ok(hex.test(value.configSha256)&&hex.test(value.bundleSha256)&&Number.isFinite(Date.parse(value.at)));
   const ticket=await readQueueObject(path.join(directory,'tickets',requestId+'.json'));validateTicket(ticket.value,requestId+'.json');
   assert.equal(ticket.sha256,ticketSha256);assert.equal(ticket.value.configSha256,value.configSha256);assert.equal(ticket.value.bundleSha256,value.bundleSha256);
   if(value.status==='failed'){assert.equal(typeof value.error,'string');return value;}
-  if(admissionBlocked){
+  if(admissionBlocked||incompatibleBlocked){
    assert.equal(typeof value.error,'string');
+   if(incompatibleBlocked){assert.deepEqual(Object.keys(value.rejectedBy).sort(),['bundleSha256','configSha256']);assert.ok(hex.test(value.rejectedBy.configSha256)&&hex.test(value.rejectedBy.bundleSha256));assert.ok(value.rejectedBy.configSha256!==value.configSha256||value.rejectedBy.bundleSha256!==value.bundleSha256,'Generation rejection must identify a different consumer generation');}
    for(const name of await entries(directory,'dispatches')){const read=await readQueueObject(path.join(directory,'dispatches',name));validateDispatch(read.value,name);assert.ok(!read.value.tickets.some(ref=>ref.requestId===requestId),'A dispatched ticket cannot become a pre-dispatch admission rejection');}
    return value;
   }
@@ -118,6 +120,13 @@ function validateDispatch(value,name){
  const seen=new Set();for(const ref of value.tickets){assert.deepEqual(Object.keys(ref).sort(),['observedTarget','requestId','ticketSha256']);assert.ok(id.test(ref.requestId)&&hex.test(ref.ticketSha256)&&!seen.has(ref.requestId));seen.add(ref.requestId);assert.ok(ref.observedTarget===null||commit.test(ref.observedTarget));}
  assert.ok(seen.has(value.requestId),'Dispatch winner missing');
 }
+/** Validate the entire queue before a consumer appends any terminal result. */
+export async function readPreparationQueueInventory(directory){
+ const tickets=await allTickets(directory),byId=new Map(tickets.map(item=>[item.value.requestId,item])),dispatches=[],referenced=new Set(),terminals=new Map();
+ for(const name of await entries(directory,'dispatches')){const read=await readQueueObject(path.join(directory,'dispatches',name));validateDispatch(read.value,name);for(const ref of read.value.tickets){const item=byId.get(ref.requestId);assert.ok(item&&item.sha256===ref.ticketSha256,'Dispatch ticket binding changed');assert.equal(ref.observedTarget,item.value.observedTarget,'Dispatch observed target changed');assert.equal(read.value.configSha256,item.value.configSha256,'Dispatch ticket configuration differs');assert.equal(read.value.bundleSha256,item.value.bundleSha256,'Dispatch ticket code generation differs');referenced.add(ref.requestId);}dispatches.push(read);}
+ for(const name of await entries(directory,'results')){const requestId=name.slice(0,-5),item=byId.get(requestId);assert.ok(item,'Orphan queue terminal');const terminal=await ticketResult(directory,requestId,item.sha256);assert.ok(terminal);terminals.set(requestId,terminal);}
+ return {tickets,dispatches,referenced,terminals};
+}
 /** observe may fetch/read only. prepare receives its exact frozen selection. */
 export async function drainPreparationQueue(directory,{configSha256,bundleSha256,observe,prepare,assertGeneration=async()=>{},afterUnlock=async()=>{},onStage=async()=>{},admitPreparation=async()=>{},admitSelectedPreparation=async()=>{}}){
  assert.ok(hex.test(configSha256)&&hex.test(bundleSha256));await initializeQueue(directory);let handled=0;
@@ -125,14 +134,16 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
   const unlock=await acquireQueueLock(directory);if(!unlock)return {status:'queued',handled};
   try{
    for(;;){
-    const tickets=await allTickets(directory),pending=[],completed=[];
+    const inventory=await readPreparationQueueInventory(directory),tickets=inventory.tickets,pending=[],completed=[];
     for(const item of tickets){
-     const terminal=await ticketResult(directory,item.value.requestId,item.sha256);
+     const terminal=inventory.terminals.get(item.value.requestId);
      if(!terminal)pending.push(item);else if(terminal.status==='prepared')completed.push(terminal);
     }
     if(!pending.length)break;
     await assertGeneration();
-    for(const item of pending)assert.ok(item.value.configSha256===configSha256&&item.value.bundleSha256===bundleSha256,'Queued configuration/code generation differs; preserve original ticket');
+    const incompatible=pending.filter(item=>item.value.configSha256!==configSha256||item.value.bundleSha256!==bundleSha256);
+    for(const item of incompatible)assert.equal(inventory.referenced.has(item.value.requestId),false,'A dispatched incompatible ticket must retain its original operation');
+    if(incompatible.length){await assertGeneration();for(const item of incompatible){await durableCreate(path.join(directory,'results',item.value.requestId+'.json'),{version:queueVersion,requestId:item.value.requestId,ticketSha256:item.sha256,status:'blocked',admission:'incompatible-generation-before-dispatch-v1',at:new Date().toISOString(),configSha256:item.value.configSha256,bundleSha256:item.value.bundleSha256,rejectedBy:{configSha256,bundleSha256},error:'Incompatible control generation before dispatch; original ticket retained'});handled++;}continue;}
     // Any dispatched operation lacking all terminal receipts blocks new work.
     // Partial/invalid dispatch files block too; they are never treated as absent.
     let unresolved=null;

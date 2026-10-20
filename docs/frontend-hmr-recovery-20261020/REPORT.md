@@ -156,3 +156,12 @@ CMD协调的initial OBS/ACK成功，final先取得完整preliminary、重核静�
 两轮独立观察及ordinary ACK均已成功，唯一391 resolution已create-only封存，但最终reader把 `Object.keys(item).sort()` 与未排序的 `['path','size','sha256']` 比较而误拒绝。生产代码仅给此预期数组增加 `.sort()`，字段集合完全不变；不默认缺项、不改payload、不修改source/op/adoption绑定，也不增加provenance或观察次数。已逐项核对整个reader其它keys比较，无同类未排序错误。
 
 真实公开 `readFixedNative391Resolution` 对实际queue/dispatch/result完整读回返回true（chunk `b14b02`、exit0），包括两轮OBS/ACK、全部对象与固定归档链。sealed resolution为1593字节，SHA `d8744634c940e118dd9883cd72fa0d2ae4f42a1a9efe78b6d8e075e2e4aa4dcc`，读取前后原字节完全一致。两个定向检查通过（chunk `faa90e`、exit0），覆盖实际reader字段断言的不同插入顺序正例、缺失/额外/错名负例及整个reader排序比较范围。语法和diff检查通过，之前未变结果复用；本增量未重写任何sealed记录、proof、capsule、OBS或ACK，未新观察、采用、准备或发布。
+### 从未 dispatch 的不兼容控制代次票据
+
+d607控制采用后，三个pending票据中两个hook票仍绑定旧bundle，原consumer在处理任何票之前因代次不一致退出；current manual票也一直保留。本增量不修改或改绑任何原ticket，而是在队列锁和当前generation准入下，先完整验证所有ticket、dispatch及已有terminal：dispatch的原票SHA、observedTarget和config/bundle须一致，坏文件、孤立结果或任何不完整绑定先于首条写入拒绝。
+
+只有不兼容且无任何dispatch引用的票，才create-only写 `blocked` / `incompatible-generation-before-dispatch-v1`，结果仍绑定原ticket的SHA/config/bundle，`rejectedBy`记录不同的consumer配置/代码代次。reader严格限制字段、摘要格式、代次差异和零dispatch引用，不使用原宽泛failed格式，不声称prepared或新目标被dispatch。若任一将关闭票已有dispatch引用，整批在写前拒绝；关闭后重新读取pending，同代票继续原unknown/resolution及noReplay门禁，不自动提交新ticket。没有删除、跳过或重绑票据；无dispatch不表示observe前没有其它副作用。
+
+六组必要控制检查通过（chunk `195409`、exit0），覆盖混合代次、结果原绑定、已完成/unknown dispatch引用、later坏记录零早写、孤立终态、generation CAS/真实队列锁、严格终态负例，以及关闭stale后同代票仍受原unknown门禁。直接受影响的scope检查通过（chunk `415d72`）：从 `FIXED_ADMIN_E2_BEGIN` 至文件尾531369字节与d607完全一致，SHA `b45f2609c2e2e1b4950f9086b1beeb7719a9d7ad82d24bea297ac21a1691a1db`，所有fixed recovery reader、sealed验证和操作入口未改。
+
+新增scanner已对真实队列只读通过（chunk `20bf50`）：64 tickets、21 dispatches、61 terminals，仅f9020d2e/41131240/fc2308d8三张pending，均无引用。公开391 reader完整读回仍true（chunk `88d3b9`），1593字节sealed记录SHA仍为d8744634，原件未变。语法和diff检查通过，其余有效结果复用；未对真实队列写入、采用、自动建票、准备或发布。新控制采用使旧manual代次过时时，也只能按原身份终止，由负责人处理其等待及后续请求。
