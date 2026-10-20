@@ -26,6 +26,7 @@ export const piFailureLabel = (code?: string) => ({
   provider_empty_response: "模型未返回正文或工具调用，执行已暂停。",
   provider_timeout: "等待模型响应超时，执行已暂停。",
   ai_context_budget_exceeded: "对话上下文超过模型配置预算，执行已暂停。",
+  ai_cancellation_check_unavailable: "任务状态暂时无法核验，结果待核实。请保留原任务，不要重复提交。",
 } as Record<string, string>)[code ?? ""];
 export function piEventDetail(data: Record<string, unknown>) {
   const code = typeof data.code === "string" ? data.code : typeof data.errorCode === "string" ? data.errorCode : "";

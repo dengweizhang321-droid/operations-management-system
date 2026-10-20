@@ -23,6 +23,7 @@ test("Pi failure cause is visible ahead of unknown status, including after refre
   const data = JSON.parse(JSON.stringify({code: "invalid_provider_response", status: "unknown", responseDiagnostics: { reason: "tool_arguments_bounds" }}));
   assert.match(piEventDetail(data), /模型响应校验失败.*tool_arguments_bounds/);
   assert.equal(piEventDetail({ errorCode: "legacy_code", status: "unknown" }), "legacy_code");
+  assert.match(piEventDetail({ errorCode: "ai_cancellation_check_unavailable", status: "unknown" }), /任务状态暂时无法核验.*不要重复提交/);
   assert.equal(piEventDetail({status: "running"}), "执行中");
   assert.equal(piFailureLabel("invalid_provider_response"), "模型响应校验失败，执行已暂停。");
   assert.equal(piOperationBlocksSend("unknown"), true);

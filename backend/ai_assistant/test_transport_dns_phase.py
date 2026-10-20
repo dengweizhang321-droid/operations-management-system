@@ -169,7 +169,7 @@ class DnsPhaseTests(SimpleTestCase):
         clock = [100.0]
         sock, connection, _ = self.wire()
         stop = MagicMock()
-        def prepare(*args):
+        def prepare(*args, **kwargs):
             clock[0] += 2
             return stop
         with patch.object(transport.time, "monotonic", side_effect=lambda: clock[0]), patch.object(transport, "watch_socket_cancellation", side_effect=prepare), patch.object(transport, "resolve_addresses", return_value=addresses("8.8.4.4")), transport.request_budget(1):

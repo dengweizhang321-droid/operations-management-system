@@ -11,10 +11,10 @@ import os
 import socket
 import ssl
 import time
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
-from threading import BoundedSemaphore, Event, Thread
+from threading import BoundedSemaphore, Event, Lock, Thread
 from urllib.parse import urlencode, urlsplit
 from django.conf import settings
 from .policy import AiError, canonical, current_principal, uid
@@ -22,6 +22,7 @@ from .provider_contract import InvalidProviderResponse, PROVIDER_ADAPTER_VERSION
 
 _deadline = ContextVar("ai_network_deadline", default=None)
 _cancel_check = ContextVar("ai_network_cancel_check", default=None)
+_cancel_watcher_scope = ContextVar("ai_network_cancel_watcher_scope", default=None)
 _dns_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ai-dns")
 _dns_slots = BoundedSemaphore(4)
 _synthetic_network = ipaddress.ip_network("198.18.0.0/15")
@@ -44,9 +45,35 @@ class ProviderTransportError(AiError):
             self.diagnostics["resolverPhase"] = resolver_phase
 
 
+class CancellationCheckError(ProviderTransportError):
+    """Content-free failure of the authority check, never a provider diagnosis."""
+    def __init__(self, error=None, *, stage="cancel_check", request_started=False, reason=None):
+        from django.db import DatabaseError
+        sql_state = None
+        current = error
+        for _ in range(5):
+            if current is None:
+                break
+            value = getattr(current, "sqlstate", None)
+            if isinstance(value, str) and len(value) == 5 and value.isalnum():
+                sql_state = value
+                break
+            current = current.__cause__
+        reason = reason or ("database_capacity" if sql_state == "53300" else
+            "database_unavailable" if isinstance(error, DatabaseError) else "check_failed")
+        super().__init__(stage=stage, reason=reason, request_started=request_started)
+        self.code = "ai_cancellation_check_unavailable"
+        self.args = ("任务取消或权限检查暂不可用，本次请求结果未知且未自动重试",)
+        if sql_state is not None:
+            self.diagnostics["sqlState"] = sql_state
+
+
 def _network_budget(timeout, stage, request_started=False):
     try:
         return remaining_budget(timeout)
+    except CancellationCheckError as error:
+        error.diagnostics["requestStarted"] = request_started
+        raise
     except AiError as error:
         if error.code == "provider_timeout":
             raise ProviderTransportError(stage=stage, reason="timeout", request_started=request_started) from error
@@ -86,7 +113,12 @@ def request_budget(seconds):
 def remaining_budget(default=120):
     check = _cancel_check.get()
     if check:
-        check()
+        try:
+            check()
+        except AiError:
+            raise
+        except Exception as error:
+            raise CancellationCheckError(error) from error
     deadline = _deadline.get()
     remaining = (
         default if deadline is None else min(default, deadline - time.monotonic())
@@ -103,43 +135,102 @@ def limit_request_budget(seconds):
 
 
 @contextmanager
-def request_cancellation(check):
+def request_cancellation(check, *, watcher_scope=None):
     token = _cancel_check.set(check)
+    scope_token = _cancel_watcher_scope.set(watcher_scope)
     try:
         yield
     finally:
+        _cancel_watcher_scope.reset(scope_token)
         _cancel_check.reset(token)
 
 
-def watch_socket_cancellation(current_socket):
-    """Wake a blocked HTTP read on disconnect, even with a long task deadline."""
-    check = _cancel_check.get()
-    stopped = Event()
-    def watch():
-        while not stopped.wait(.25):
+class _SocketCancellationWatch:
+    def __init__(self, current_socket, check, scope, timeout):
+        self.current_socket, self.check, self.scope, self.timeout = current_socket, check, scope, timeout
+        self.stopped, self.ready, self.finished = Event(), Event(), Event()
+        self.lock = Lock()
+        self.failure = None
+        self.failure_stage = "cancel_preflight"
+        self.admitted = False
+        self.thread = Thread(target=self._watch, name="ai-http-cancellation", daemon=True) if check else None
+        if self.thread:
+            self.thread.start()
+        else:
+            self.admitted = True
+            self.ready.set(); self.finished.set()
+
+    def _fail(self, error, stage):
+        with self.lock:
+            if self.failure is None:
+                self.failure, self.failure_stage = error, stage
+            self.ready.set()
+            # A late DB result must never detach a socket after its caller has
+            # stopped the watcher and may have released/reused the OS handle.
+            if self.stopped.is_set():
+                return
+            owned_socket = self.current_socket()
             try:
-                check()
-            except Exception:
-                owned_socket = current_socket()
+                owned_socket.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            handle = owned_socket.detach()
+            if handle != -1:
+                socket.close(handle)
+
+    def _watch(self):
+        try:
+            with self.scope(self.timeout) if self.scope else nullcontext():
                 try:
-                    owned_socket.shutdown(socket.SHUT_RDWR)
-                except OSError:
-                    pass
-                # Windows select is not woken by local shutdown alone. Detach
-                # transfers ownership so HTTP makefile references cannot defer
-                # closing the handle, and later cleanup cannot close it twice.
-                handle = owned_socket.detach()
-                if handle != -1:
-                    socket.close(handle)
-                    return
-    thread = Thread(target=watch, name="ai-http-cancellation", daemon=True) if check else None
-    if thread:
-        thread.start()
-    def stop():
-        stopped.set()
-        if thread:
-            thread.join(timeout=1)
-    return stop
+                    self.check()
+                    with self.lock:
+                        if not self.stopped.is_set():
+                            self.admitted = True
+                        self.ready.set()
+                    while not self.stopped.wait(.25):
+                        self.check()
+                except Exception as error:
+                    self._fail(error, "cancel_check" if self.admitted else "cancel_preflight")
+        except Exception as error:
+            self._fail(error, "cancel_check" if self.admitted else "cancel_preflight")
+        finally:
+            self.finished.set()
+
+    def raise_if_failed(self, *, request_started=False):
+        with self.lock:
+            error, stage = self.failure, self.failure_stage
+        if error is None:
+            return
+        if isinstance(error, AiError):
+            raise error
+        raise CancellationCheckError(error, stage=stage, request_started=request_started) from error
+
+    def __call__(self):
+        with self.lock:
+            self.stopped.set()
+        if self.thread:
+            self.thread.join(timeout=1)
+        return self.finished.is_set()
+
+    def require_finished(self, *, request_started=False):
+        if not self.finished.is_set():
+            raise CancellationCheckError(stage="cancel_cleanup", request_started=request_started, reason="cleanup_unconfirmed")
+
+
+def watch_socket_cancellation(current_socket, *, timeout=60):
+    """Admit the watcher before HTTP, retain its first failure, and own teardown."""
+    handle = _SocketCancellationWatch(current_socket, _cancel_check.get(), _cancel_watcher_scope.get(), timeout)
+    if not handle.ready.wait(max(0, timeout)):
+        handle._fail(CancellationCheckError(stage="cancel_preflight", reason="check_timeout"), "cancel_preflight")
+    try:
+        handle.raise_if_failed()
+        if not handle.admitted:
+            raise CancellationCheckError(stage="cancel_preflight", reason="check_unavailable")
+    except Exception as error:
+        if not handle() and isinstance(error, CancellationCheckError):
+            error.diagnostics["cleanupComplete"] = False
+        raise
+    return handle
 
 
 def bounded_sse(url, body, headers, *, timeout, collector):
@@ -344,9 +435,11 @@ def _bounded_json(
     connection = None
     phase = "connect"
     request_started = False
-    stop_watching = watch_socket_cancellation(lambda: sock)
+    stop_watching = None
 
     def bounded_socket():
+        if stop_watching is not None:
+            stop_watching.raise_if_failed(request_started=request_started)
         _network_budget(timeout, phase, request_started)
         remaining = timeout - (time.monotonic() - started)
         if remaining <= 0:
@@ -354,6 +447,7 @@ def _bounded_json(
         sock.settimeout(remaining)
 
     try:
+        stop_watching = watch_socket_cancellation(lambda: sock, timeout=remaining)
         bounded_socket()
         sock.connect(target)
         if parts.scheme == "https":
@@ -431,25 +525,38 @@ def _bounded_json(
         _network_budget(timeout, phase, request_started)
         value = (stream_collector.finish() if stream_collector is not None
                  else json.loads(b"".join(chunks).decode("utf-8")))
+        stop_watching.raise_if_failed(request_started=request_started)
         if not isinstance(value, dict):
             raise InvalidProviderResponse("json_root_shape", stage="transport", mode="json")
         return value
     except TimeoutError as error:
+        if stop_watching is not None:
+            stop_watching.raise_if_failed(request_started=request_started)
         _network_budget(timeout, phase, request_started)
         raise ProviderTransportError(stage=phase, reason="timeout", request_started=request_started) from error
     except (json.JSONDecodeError, UnicodeDecodeError, RecursionError) as error:
+        if stop_watching is not None:
+            stop_watching.raise_if_failed(request_started=request_started)
         raise InvalidProviderResponse(
             "utf8_invalid" if isinstance(error, UnicodeDecodeError) else "json_invalid",
             stage="transport", mode="sse" if stream_collector is not None else "json",
         ) from error
     except (OSError, ValueError, http.client.HTTPException) as error:
+        if stop_watching is not None:
+            stop_watching.raise_if_failed(request_started=request_started)
         _network_budget(timeout, phase, request_started)
         raise ProviderTransportError(stage=phase, reason="unavailable", request_started=request_started) from error
     finally:
-        stop_watching()
-        if connection:
-            connection.close()
-        sock.close()
+        if stop_watching is not None:
+            stop_watching()
+        try:
+            if connection:
+                connection.close()
+        finally:
+            sock.close()
+        if stop_watching is not None:
+            stop_watching.raise_if_failed(request_started=request_started)
+            stop_watching.require_finished(request_started=request_started)
 
 
 def signed_headers(path, body, principal, request_id=None):
