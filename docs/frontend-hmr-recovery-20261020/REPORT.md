@@ -151,3 +151,8 @@ CMD协调的initial OBS/ACK成功，final先取得完整preliminary、重核静�
 `retired-publisher-inventory-qualification` 固定18原件和PREFLIGHT SHA `5c0731a69b17dc3d2e092e3f6ebb84ed708516a66989987f963ee20ab77edf49`；3194对象、四个旧provenance和无新观察事实保持，采用链仅加入93的 `41102692...` 节点。保留原空out不删除，未来同一限定flag使用精确新地址 `--native-391-retired-publisher-repair D:/codex-artifacts/frontend-hmr-recovery-20261020/witness-391-retired-publisher-repair-fixed`；唯一新capsule文件名及wx门禁不变，没有新观察失败续接次数。
 
 四项直接回归/范围/归档/capsule检查通过（chunk `d61dab`），新fixed out的受影响provenance检查通过（chunk `eb8639`）；最终完整只读inventory回执为valid且 `verifiedPriorCapsules:4`（chunk `702170`、exit0）。原其它有效结果复用，不重跑整包或业务。本增量未修改已安装bundle，未采用、启动writer、运行census或准备/发布。
+### sealed resolution 的 metadata 键名排序修复
+
+两轮独立观察及ordinary ACK均已成功，唯一391 resolution已create-only封存，但最终reader把 `Object.keys(item).sort()` 与未排序的 `['path','size','sha256']` 比较而误拒绝。生产代码仅给此预期数组增加 `.sort()`，字段集合完全不变；不默认缺项、不改payload、不修改source/op/adoption绑定，也不增加provenance或观察次数。已逐项核对整个reader其它keys比较，无同类未排序错误。
+
+真实公开 `readFixedNative391Resolution` 对实际queue/dispatch/result完整读回返回true（chunk `b14b02`、exit0），包括两轮OBS/ACK、全部对象与固定归档链。sealed resolution为1593字节，SHA `d8744634c940e118dd9883cd72fa0d2ae4f42a1a9efe78b6d8e075e2e4aa4dcc`，读取前后原字节完全一致。两个定向检查通过（chunk `faa90e`、exit0），覆盖实际reader字段断言的不同插入顺序正例、缺失/额外/错名负例及整个reader排序比较范围。语法和diff检查通过，之前未变结果复用；本增量未重写任何sealed记录、proof、capsule、OBS或ACK，未新观察、采用、准备或发布。
