@@ -40,6 +40,23 @@ function planSpec(plan){
 /** Pure installed-control capability check, before a preparation dispatch. */
 export function assertMainSchemaPlanSupported(plan){return plan.migrate?planSpec(plan).schema:null;}
 
+export const schemaAclContractScripts=Object.freeze({
+ PiBusiness:'tests/pi152-acl-catalog-boundary.py',
+ PiNative:'tests/pi153-acl-catalog-boundary.py'
+});
+/** Static, no-database ACL contract gate; runs before a binder can write PREPARED. */
+export async function runSchemaAclContract(source,spec,{runtime='D:/teruisi-runtime/django-sales',run=execute,runAcl}={}){
+ const script=schemaAclContractScripts[spec.schema.additionKind];
+ if(!script)return null;
+ const python=path.join(runtime,'venv/Scripts/python.exe');
+ try{
+  await (runAcl??run)(python,[path.join(source,script)],{cwd:source,env:schemaPreparationEnvironment(),windowsHide:true,timeout:600000,maxBuffer:2*1024*1024});
+ }catch(error){
+  throw Error('结构 ACL 契约校验失败：'+String(error.stderr??error.message).slice(0,1800));
+ }
+ return script;
+}
+
 export function schemaForRequest(request){
  const schema=request.schemaRelease;
  if(!request.migrate&&!request.releasePlan?.migrate&&!schema&&!request.schemaEvidencePath)return null;
@@ -88,6 +105,7 @@ async function invokeBinder(source,spec,args,{runtime='D:/teruisi-runtime/django
 }
 export async function prepareMainSchemaRelease({source,packet,plan},{run,runtime}={}){
  const {recipe,recipeSha256,spec}=await readSchemaRecipe(source,plan);
+ await runSchemaAclContract(source,spec,{run,runtime});
  const requestFile=path.join(packet,'main-release-request.json');
  let previous;
  try{previous=JSON.parse((await regular(requestFile)).toString('utf8'));}catch(error){if(error.code!=='ENOENT')throw error;}
@@ -109,6 +127,7 @@ export async function verifyMainSchemaRelease(request,source,options={}){
  assert.equal(schema.recipeSha256,recipeSha256);assert.equal(schema.validationSha256,recipe.validationSha256);assert.equal(schema.codeSha256,recipe.codeSha256);
  assert.equal(path.resolve(schema.evidencePath),path.resolve(source,'..','schema',spec.evidence),'结构证据不属于本次冻结来源');
  assert.equal(sha(await regular(schema.evidencePath)),schema.evidenceSha256,'本次结构发布证据已变化');
+ await runSchemaAclContract(source,spec,options);
  const result=await invokeBinder(source,spec,['--check',schema.evidencePath,'--evidence-sha',schema.evidenceSha256],options);assert.equal(result.status,'bound');
  return schema;
 }
