@@ -21,14 +21,14 @@ P0-3（周报发布租约）和 P0-4（排队 Start fence）本轮未实施，�
 | --- | --- |
 | `tools/publish-prepared-main.mjs` | 新增 `normalizePreparedSourceRoot`；在复用分支的 Worker 复验前执行一次维护前驱资格检查（仅发布模式，`prepare-only` 不额外收紧）；保留 STARTED 前的完整即时复核。 |
 | `tests/publish-prepared-main.test.mjs` | 新增非规范 source 拼写规范化用例；新增“资格检查早于 Worker 复验/`VerifyPreparedApp`”的顺序用例。 |
-| `tests/pi152-acl-catalog-boundary.py` | 静态读取 migration 与 catalog，验证 actions 可 UPDATE、intents/audits 仅 SELECT/INSERT；覆盖正反例 24 项，不连数据库、不导入 Django。 |
+| `tests/pi152-acl-catalog-boundary.py` | 静态读取 migration 与 catalog，验证 actions 可 UPDATE、intents/audits 仅 SELECT/INSERT；覆盖正反例 27 项，含有序 `TABLES` 与 `permissions=False` 负例，不连数据库、不导入 Django。 |
 | `package.json` | 新增 `check:pi152-acl` 脚本。 |
 | `docs/release-optimizations-20261020/` | 本报告与验证证据。 |
 
 ## 验证
 
 - `node --test` 8 个发布工具测试文件：133 项通过、0 失败，日志见 [evidence/node-tests.log](evidence/node-tests.log)。
-- `python tests/pi152-acl-catalog-boundary.py`：`PI152_ACL_CONTRACT_PASSED tables=3 append_only=2 checks=24 no_database=True`。
+- `python tests/pi152-acl-catalog-boundary.py`：`PI152_ACL_CONTRACT_PASSED tables=3 append_only=2 checks=27 no_database=True`。
 - `node --check tools/publish-prepared-main.mjs` 通过；`python -m py_compile tests/pi152-acl-catalog-boundary.py` 通过；`git diff --check` 通过。
 - 本机只有 PowerShell 5.1，未运行 PS7；本轮未改 PowerShell 生产脚本。
 - 未执行生产部署、迁移、服务启停、控制包采用或真实发布。

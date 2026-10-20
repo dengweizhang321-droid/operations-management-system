@@ -23,6 +23,13 @@ EXPECTED_APPEND_ONLY = {
     "ai_pi_business_audits",
     "ai_pi_business_intents",
 }
+# verify_catalog compares the SQL ORDER BY relname result with list(TABLES),
+# so the catalog's tuple order is itself part of the contract.
+EXPECTED_CATALOG_ORDER = (
+    "ai_pi_business_actions",
+    "ai_pi_business_audits",
+    "ai_pi_business_intents",
+)
 
 
 def top_level_assignments(path, names):
@@ -79,7 +86,7 @@ assert set(migration["APPEND_ONLY"]) == EXPECTED_APPEND_ONLY, migration.get(
 assert set(migration["APPEND_ONLY"]) <= set(migration["TABLES"])
 
 catalog_tables = top_level_assignments(CATALOG, {"TABLES"})["TABLES"]
-assert set(catalog_tables) == EXPECTED_TABLES, catalog_tables
+assert tuple(catalog_tables) == EXPECTED_CATALOG_ORDER, catalog_tables
 
 block = acl_block()
 owner = {
@@ -124,6 +131,14 @@ for table in sorted(EXPECTED_TABLES):
             checks += 1
         else:
             raise AssertionError("Finalize gate accepted wrong ACL: " + table)
+
+    # permissions=False is the owner-only shape; writer grants must be rejected.
+    try:
+        exec(block, {"table": table, "actual_acl": wanted, "permissions": False})
+    except ValueError:
+        checks += 1
+    else:
+        raise AssertionError("Finalize gate accepted writer ACL without permissions: " + table)
 
 print(
     "PI152_ACL_CONTRACT_PASSED "

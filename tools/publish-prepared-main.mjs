@@ -20,7 +20,7 @@ const noProgress={begin(){},complete(){},log(){},success(){}};
 // but preserve case: existing prepared packages bind the original spelling and
 // windowsPathSha256 already folds case for the identity hash.
 export function normalizePreparedSourceRoot(value){
- assert.ok(typeof value==='string'&&/^[A-Za-z]:[\\/]/.test(value),'发布来源必须是带盘符的绝对 Windows 路径');
+ if(typeof value!=='string'||!/^[A-Za-z]:[\\/]/.test(value))return value;
  let normalized=path.win32.normalize(value.replaceAll('/','\\'));
  if(normalized.length>3)normalized=normalized.replace(/[\\]+$/,'');
  return normalized;

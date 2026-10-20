@@ -1,1 +1,1 @@
-PI152_ACL_CONTRACT_PASSED tables=3 append_only=2 checks=24 no_database=True
+PI152_ACL_CONTRACT_PASSED tables=3 append_only=2 checks=27 no_database=True
