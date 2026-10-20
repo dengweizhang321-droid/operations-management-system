@@ -24,3 +24,24 @@ test('native diagnostic leaf rejects directory type and other publish-prefixed f
  const f=await fixture(t);await fs.mkdir(f.log);await assert.rejects(nativeOperationBindings(f.releases),/Unsafe publish-main-check/);await fs.rmdir(f.log);
  for(const name of ['publish-main-check.log.extra','publish-bbbbbbbbbbbb']){const file=path.join(f.packet,name);await fs.writeFile(file,'must not be ignored');await assert.rejects(nativeOperationBindings(f.releases),/not ordinary/);await fs.unlink(file);}
 });
+test('native diagnostic rechecks identity and type after the final packet directory snapshot',async t=>{
+ for(const kind of ['directory','junction','hardlink','replacement-file']){
+  const f=await fixture(t),target=path.join(f.directory,'outside'),originalReaddir=fs.readdir;
+  await fs.writeFile(f.log,'original diagnostic');
+  if(kind==='junction')await fs.mkdir(target);else await fs.writeFile(target,'unrelated file');
+  let packetReads=0,replaced=false;
+  fs.readdir=async function(file,...options){
+   if(path.resolve(file)===path.resolve(f.packet)&&++packetReads===2){
+    await fs.rename(f.log,path.join(f.directory,'retained-original.log'));
+    if(kind==='directory')await fs.mkdir(f.log);
+    else if(kind==='junction')await fs.symlink(target,f.log,'junction');
+    else if(kind==='hardlink')await fs.link(target,f.log);
+    else await fs.writeFile(f.log,'replacement diagnostic');
+    replaced=true;
+   }
+   return originalReaddir.call(fs,file,...options);
+  };
+  try{await assert.rejects(nativeOperationBindings(f.releases),/Unsafe publish-main-check|redirected|diagnostic identity changed/);assert.equal(replaced,true,'Replacement seam did not execute');}
+  finally{fs.readdir=originalReaddir;}
+ }
+});

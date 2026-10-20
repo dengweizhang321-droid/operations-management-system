@@ -143,7 +143,7 @@ async function readMaterials(directory){
 export function normalizeControlPath(value){return path.resolve(value).replaceAll('\\','/').replace(/\/{2,}/g,'/').toLowerCase();}
 export async function nativeOperationBindings(releaseDirectory){
  if(!await exists(releaseDirectory))return [];
- const result=[],directories=[];let inspected=0;
+ const result=[],directories=[],diagnostics=[];let inspected=0;
  const identity=stat=>[stat.dev,stat.ino,stat.birthtimeMs];
  const fileIdentity=stat=>[...identity(stat),stat.size,stat.mtimeMs,stat.ctimeMs,stat.nlink];
  const physicalStat=async file=>{
@@ -184,7 +184,7 @@ export async function nativeOperationBindings(releaseDirectory){
    // This exact diagnostic leaf is not a native operation container. Keep
    // rejecting links, directories and every other publish-* non-directory.
    if(name==='publish-main-check.log'){
-    const diagnostic=await physicalStat(publish);assert.ok(diagnostic.isFile()&&diagnostic.nlink===1,'Unsafe publish-main-check diagnostic log');continue;
+    const diagnostic=await physicalStat(publish);assert.ok(diagnostic.isFile()&&diagnostic.nlink===1,'Unsafe publish-main-check diagnostic log');diagnostics.push({file:publish,identity:identity(diagnostic)});continue;
    }
    const published=await records(publish);
    if(published.includes('resume-'+knownResume.maintenanceId))await records(path.join(publish,'resume-'+knownResume.maintenanceId));
@@ -195,6 +195,7 @@ export async function nativeOperationBindings(releaseDirectory){
   }
  }
  for(const saved of directories){assert.deepEqual(identity(await physicalStat(saved.file)),saved.identity,'Release evidence directory replaced');if(saved.names)assert.deepEqual((await fs.readdir(saved.file)).sort(),saved.names,'Release evidence directory changed');}
+ for(const saved of diagnostics){const diagnostic=await physicalStat(saved.file);assert.ok(diagnostic.isFile()&&diagnostic.nlink===1,'Unsafe publish-main-check diagnostic log');assert.deepEqual(identity(diagnostic),saved.identity,'Publish-main-check diagnostic identity changed');}
  return result;
 }
 export async function controlProcessSnapshot(intent,known=new Map()){
