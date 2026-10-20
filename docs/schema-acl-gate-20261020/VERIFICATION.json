@@ -1,6 +1,6 @@
 {
   "version": "schema-acl-gate-verification-v1",
-  "at": "2026-10-20T12:38:00+08:00",
+  "at": "2026-10-20T12:48:00+08:00",
   "branch": "codex/schema-acl-gate-20261020",
   "base": "9637fa692fa93d2b134cbecb689a6b15a119c7ac",
   "checks": [
@@ -11,16 +11,17 @@
     {"name": "pi153-acl", "checks": 63, "passed": true, "result": "PI153_ACL_CONTRACT_PASSED tables=7 append_only=3 checks=63 no_database=True"}
   ],
   "piBusiness": {
-    "codeSha256": "ec91bc4f9ec070a555240e328743dbb0b51dabb0606577376da842edaa47b7d9",
+    "codeSha256": "207699923dd0e28ead2722e7a9af23d4afd8606412e73b423d770e8ea5ad60fe",
     "evidence": "docs/schema-acl-gate-20261020/pi152-mandatory-code-checks-v2.json",
-    "recipeValidationSha256": "83516aebc90c4b8ed723dd88e3f6bb53f3c3a3ad91a61264ea85606b800a48a9"
+    "syntaxEvidence": "docs/schema-acl-gate-20261020/pi152-syntax-code-materials-v2.json",
+    "recipeValidationSha256": "4fc6ec85eba8"
   },
   "piNative": {
-    "codeSha256": "f4223f0efd02221370877cd377f9d19609a609dae626f648e5772c7cee8c5b8a",
+    "codeSha256": "bf1f95c176e96b9a6bcfeecde9129553e7fc7190d8209cd303a3516a6038e23f",
     "migrationSha256": "a08ccd8859d00cb31eed4dfaf9c02ad062dfd37a3dac5190c64e9ab059cf7f00",
     "evidence": "docs/schema-acl-gate-20261020/pi153-mandatory-code-checks-v2.json",
-    "recipeValidationSha256": "67ffc3127664ddd5a96aa6b57f4a8b214b117831a38dc3fb284f6a9b1086d57f",
-    "binderBound": true
+    "syntaxEvidence": "docs/schema-acl-gate-20261020/pi153-release-code-syntax-v2.json",
+    "recipeValidationSha256": "f6798101b046"
   },
   "historicalEvidenceBytesPreserved": true,
   "productionTouched": false,

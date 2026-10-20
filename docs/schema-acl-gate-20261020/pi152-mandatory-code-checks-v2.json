@@ -25,16 +25,16 @@
     "powershell-syntax",
     "python-syntax"
   ],
-  "codeSha256": "ec91bc4f9ec070a555240e328743dbb0b51dabb0606577376da842edaa47b7d9",
+  "codeSha256": "207699923dd0e28ead2722e7a9af23d4afd8606412e73b423d770e8ea5ad60fe",
   "migrationSha256": "3fd0be216e80271f92ce44f0dad885d1a1f8cd0a63ae3d6f8e73e049e86bdf21",
   "migrationFiles": {
     "backend/ai_assistant/migrations/0086_pi_business_actions.py": "3435b5970ffb5d5530e60aed6156e7b7e7792fb0cbff5e198ef8a3b264ee4213"
   },
   "parentReferenceSha256": "c1e06ff1b8611c5d4aba5fbc127f43965f45dae6723c32592239f46e2192bd22",
-  "syntaxEvidence": "docs/pi152-finalize-recovery-20261020/syntax-code-materials.json",
-  "syntaxEvidenceSha256": "e452bb58b81b134cf9d6cda8a8a3c4ad134765ac98e7e72ec90deedd6d15d00c",
+  "syntaxEvidence": "docs/schema-acl-gate-20261020/pi152-syntax-code-materials-v2.json",
+  "syntaxEvidenceSha256": "c78090f5337076f5b590fdcd04c10a89099a743a853e3986fa10c0268f917c4b",
   "scope": "Current exact code syntax and unchanged 151-to152 migration closure only. No business, database, or functional execution.",
   "rawByteNormalization": "LF worktree bytes used for this task proof; old proof preserved.",
   "previousProofSha256": "1be7e64bce651f7ba3a4c9ade6632649062aeac19fb145ebdad81238a3a42dc5",
-  "checkedAt": "2026-10-20T04:34:32.894598+00:00"
+  "checkedAt": "2026-10-20T04:47:54.452923+00:00"
 }

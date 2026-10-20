@@ -41,20 +41,23 @@ function planSpec(plan){
 export function assertMainSchemaPlanSupported(plan){return plan.migrate?planSpec(plan).schema:null;}
 
 export const schemaAclContractScripts=Object.freeze({
- PiBusiness:'tests/pi152-acl-catalog-boundary.py',
- PiNative:'tests/pi153-acl-catalog-boundary.py'
+ PiBusiness:Object.freeze(['tests/pi152-acl-catalog-boundary.py']),
+ PiNative:Object.freeze(['tests/pi152-acl-catalog-boundary.py','tests/pi153-acl-catalog-boundary.py'])
 });
 /** Static, no-database ACL contract gate; runs before a binder can write PREPARED. */
 export async function runSchemaAclContract(source,spec,{runtime='D:/teruisi-runtime/django-sales',run=execute,runAcl}={}){
- const script=schemaAclContractScripts[spec.schema.additionKind];
- if(!script)return null;
+ const scripts=schemaAclContractScripts[spec.schema.additionKind];
+ if(!scripts)return null;
  const python=path.join(runtime,'venv/Scripts/python.exe');
- try{
-  await (runAcl??run)(python,[path.join(source,script)],{cwd:source,env:schemaPreparationEnvironment(),windowsHide:true,timeout:600000,maxBuffer:2*1024*1024});
- }catch(error){
-  throw Error('结构 ACL 契约校验失败：'+String(error.stderr??error.message).slice(0,1800));
+ for(const script of scripts){
+  try{
+   await (runAcl??run)(python,[path.join(source,script)],{cwd:source,env:schemaPreparationEnvironment(),windowsHide:true,timeout:600000,maxBuffer:2*1024*1024});
+  }catch(error){
+   if(error.code==='ENOENT')throw Error('结构 ACL 契约校验器不可用：'+String(error.message).slice(0,1800));
+   throw Error('结构 ACL 契约校验失败：'+String(error.stderr??error.message).slice(0,1800));
+  }
  }
- return script;
+ return scripts;
 }
 
 export function schemaForRequest(request){
@@ -103,7 +106,7 @@ async function invokeBinder(source,spec,args,{runtime='D:/teruisi-runtime/django
  try{const result=await run(python,[path.join(source,'tools',spec.binder),'--source',source,'--runtime',runtime,'--recipe',path.join(source,spec.recipe),...args],{cwd:source,env:schemaPreparationEnvironment(),windowsHide:true,timeout:600000,maxBuffer:2*1024*1024});return JSON.parse(result.stdout.trim());}
  catch(error){throw Error('结构发布材料校验失败：'+String(error.stderr??error.message).slice(0,1800));}
 }
-export async function prepareMainSchemaRelease({source,packet,plan},{run,runtime}={}){
+export async function prepareMainSchemaRelease({source,packet,plan},{run,runtime,runAcl}={}){
  const {recipe,recipeSha256,spec}=await readSchemaRecipe(source,plan);
  const requestFile=path.join(packet,'main-release-request.json');
  let previous;
@@ -113,7 +116,7 @@ export async function prepareMainSchemaRelease({source,packet,plan},{run,runtime
   await verifyMainSchemaRelease(previous,source,{run,runtime});
   return previous.schemaRelease;
  }
- await runSchemaAclContract(source,spec,{run,runtime});
+ await runSchemaAclContract(source,spec,{run,runtime,runAcl});
  const directory=path.join(packet,'schema');await fs.mkdir(directory,{recursive:true});
  const evidencePath=path.join(directory,spec.evidence);
  const result=await invokeBinder(source,spec,['--output',evidencePath],{run,runtime});assert.equal(result.status,'bound');

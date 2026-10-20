@@ -1,7 +1,7 @@
 {
   "version": "pi-native-mandatory-code-checks-v1",
   "status": "code-checked",
-  "checkedAt": "2026-10-20T04:34:32.910520+00:00",
+  "checkedAt": "2026-10-20T04:47:54.452923+00:00",
   "productionTouched": false,
   "functionalValidationPerformed": false,
   "steps": [
@@ -18,7 +18,7 @@
     ]
   ],
   "fullBackupOrRestorePerformed": false,
-  "codeSha256": "f4223f0efd02221370877cd377f9d19609a609dae626f648e5772c7cee8c5b8a",
+  "codeSha256": "bf1f95c176e96b9a6bcfeecde9129553e7fc7190d8209cd303a3516a6038e23f",
   "migrationSha256": "a08ccd8859d00cb31eed4dfaf9c02ad062dfd37a3dac5190c64e9ab059cf7f00",
   "checks": [
     "migration-closure",
@@ -36,8 +36,8 @@
       "sha256": "9313ce53102a4a59d5bdb5dec1cff2472cf3bcf05cd7439beb48d758c6574c65"
     },
     "release-code-syntax.json": {
-      "path": "docs/pi-native-capabilities-20261020/release-code-syntax.json",
-      "sha256": "382f83f6975e4637ab8bb27eff6c5ab326679cb32f4d578e08a4358722b7ce5a"
+      "path": "docs/schema-acl-gate-20261020/pi153-release-code-syntax-v2.json",
+      "sha256": "62f9464a6dab9b6be7fd4649b9d37f5791f6b10cdc3759a7d990650ba8e62f50"
     },
     "powershell-syntax.json": {
       "path": "docs/pi-native-capabilities-20261020/powershell-syntax.json",
@@ -73,7 +73,7 @@
     "tools/jd_product_monitoring_addition.py": "718e1c4d87720fb651f7114f90e599690682aa38c4da46df1413cc77741d6b08",
     "tools/jd_product_monitoring_catalog.py": "ad65e36a5e57bfc29345cfa21dba950d4754143f37358882ec4d4a584a347051",
     "tools/tmall_warehouse_candidate.py": "550525a555b642739f3ac6501ff7400f6be544269c20dc0fdd8d0bb0b79a0f6b",
-    "tools/main-schema-release.mjs": "0377105bddfd03d9fc4ad4aaabfa0d9b096006d4a5655baa98c950beb9c671ee",
+    "tools/main-schema-release.mjs": "793c0c31a30199d79bb97293df41a88af7bc0e784d205bca03afec9b1decb6f7",
     "backend/teruisi_backend/health.py": "41e75c57309dfb40f55615d6c2d14bb8936545d44fc18ba262c93026a1e20d42",
     "tools/integration_migration_plan.py": "94893e1cd60fb2ad693948e8b2d1e686882bc14664310acf7c6b24b8f53a74ec",
     "tools/integration_migration_journal.py": "cd8b857c90ef113f264b8fcbdf024ce88e7a48b75265e0b70bf776c5b02bf8be",
@@ -85,7 +85,7 @@
     "tools/pi_agent_catalog.py": "58ba8e6ecde77734a579e66ae85c1529107c598edf42459d2b07ef08a6567c68",
     "tools/pi_agent_catalog.json": "1e07e1b6dd99385437fe3b9c9691f9aed2c98b1e7fe5189387b68976e7dd4069",
     "tools/pi_agent_candidate.py": "834dfa84b0a8aa24c78e9fb5335c24427652bf17f424a4c9a2dd1e61b43b92da",
-    "tools/publish-prepared-main.mjs": "c390ca66a1b18ffaddcfa029f7aaadede7b1b3bb2a22049b41f46ca94e7818ea",
+    "tools/publish-prepared-main.mjs": "d472fd1ebd7692c97299abee20d3eb659e62d4764d070c85aae479094fe33054",
     "tools/pi_agent_prepare_runtime.py": "818bf6bc1ebbcef27576a4156312f85c94ca132f46cf8f8ad3a9ad7d7714410f",
     "tools/django-ai.ps1": "3b0ae6c09b1bc49aa12fed622208fee711a387726ede709b2cd421fa1b04cad5",
     "tools/publish-main-command.mjs": "b711a41c401e7619e175347e6ba3490e5d5655d5dca5c9dc840ac345b8a7bfc7",

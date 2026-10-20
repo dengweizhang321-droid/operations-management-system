@@ -1,0 +1,49 @@
+{
+  "functionalValidationPerformed": false,
+  "checks": [
+    "python-syntax",
+    "node-syntax"
+  ],
+  "files": [
+    {
+      "path": "tools/pi_native_addition.py",
+      "sha256": "4d1db614f2c0539b7a4c88ca4facf366063356d53a9805267db86044bff6632a"
+    },
+    {
+      "path": "tools/pi_native_candidate.py",
+      "sha256": "6663a4fc4b360977d3e31fda662fe06ff5f84dc1515113d98be3d09f8bfa70b2"
+    },
+    {
+      "path": "tools/pi_native_catalog.py",
+      "sha256": "68555790ab68fc6559dcffab77f74b8b635cd3036a1ce37aec13e8da1049b9ca"
+    },
+    {
+      "path": "tools/pi_agent_catalog.py",
+      "sha256": "58ba8e6ecde77734a579e66ae85c1529107c598edf42459d2b07ef08a6567c68"
+    },
+    {
+      "path": "tools/pi_workspace_catalog.py",
+      "sha256": "8b458b66363df4b1cb01812b12f9f0eeff4d74490a94e40dde34ab83c611b194"
+    },
+    {
+      "path": "tools/pi_business_catalog.py",
+      "sha256": "6d257bdd06e808609d97c82e9078b34227b2e2042d2839a38c44620bbcae68e6"
+    },
+    {
+      "path": "tools/postgres_no_key_backup.py",
+      "sha256": "c525f9a8512dcdf555bc2da69bcc9c5a3a23d9557867be55e9047f2b9c1debfa"
+    },
+    {
+      "path": "tools/integration_release_gate.py",
+      "sha256": "634e6dd234b09b0cc9c1bd69ea008781cf24b856013aa88dfc0a86a5ab99e83e"
+    },
+    {
+      "path": "tools/main-schema-release.mjs",
+      "sha256": "793c0c31a30199d79bb97293df41a88af7bc0e784d205bca03afec9b1decb6f7"
+    },
+    {
+      "path": "tools/publish-prepared-main.mjs",
+      "sha256": "d472fd1ebd7692c97299abee20d3eb659e62d4764d070c85aae479094fe33054"
+    }
+  ]
+}
