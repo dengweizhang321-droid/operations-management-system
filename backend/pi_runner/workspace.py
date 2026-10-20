@@ -25,7 +25,7 @@ COMMANDS = READ | ASYNC | {'steer', 'follow_up', 'clear_queue', 'abort_bash', 'u
     'session_new', 'session_fork', 'session_clone', 'session_switch', 'session_navigate',
     'model_set', 'thinking_set', 'export_html', 'terminal_create', 'terminal_input',
     'terminal_resize', 'terminal_close', 'file_write', 'file_delete', 'file_mkdir',
-    'file_rename', 'pause', 'wake', 'resource_remove', 'resource_reload'}
+    'file_rename', 'pause', 'wake', 'resource_remove', 'resource_reload','mode_set','skills_reload'}
 FIELDS={'tree':set(),'stats':set(),'steer':{'message'},'follow_up':{'message'},'clear_queue':set(),
  'bash':{'command','excludeFromContext'},'abort_bash':set(),'compact':{'gateway','model','timeoutMs','customInstructions'},
  'ui_response':{'requestId','value','confirmed','cancelled'},'session_new':set(),'session_clone':set(),
@@ -36,7 +36,8 @@ FIELDS={'tree':set(),'stats':set(),'steer':{'message'},'follow_up':{'message'},'
  'file_list':{'path'},'file_read':{'path','expectedSha256'},'file_download':{'path','expectedSha256'},
  'file_write':{'path','expectedSha256','base64'},'file_mkdir':{'path'},'file_delete':{'path','expectedSha256'},
  'file_rename':{'path','target','expectedSha256'},'pause':set(),'wake':set(),'upgrade':{'planId'},
- 'resource_install':{'bundle'},'resource_remove':{'resourceId'},'resource_reload':set()}
+ 'resource_install':{'bundle'},'resource_remove':{'resourceId'},'resource_reload':set(),
+ 'mode_set':{'admission'},'skills_reload':set()}
 
 
 class Rejected(ValueError):
@@ -81,6 +82,8 @@ def activities(session):
 
 
 def activity_control(session,job):
+    from .admission import check
+    if job['payload'].get('action')=='activity_begin':check(session,execute=True)
     payload=job['payload'];action=payload.get('action');activity_id=payload.get('activityId');seq=payload.get('activitySeq')
     begin=action=='activity_begin';expected={'action','activityId','activitySeq','kind','timeoutMs'} if begin else {'action','activityId','activitySeq'}
     if (set(payload)!=expected or not isinstance(activity_id,str) or not re.fullmatch(r'[A-Za-z0-9_.:-]{1,128}',activity_id)
@@ -207,6 +210,10 @@ def register_session(session):
         value_set(session, 'sessions', registry)
     value_set(session, 'currentSessionId', session_id)
     session.pi_state = {k: state.get(k) for k in ('sessionId', 'thinkingLevel', 'messageCount', 'pendingMessageCount', 'isStreaming', 'isCompacting')}
+    available=session.rpc('get_available_thinking_levels',{})
+    if not available.get('success'):raise ValueError('thinking_capabilities_unknown')
+    provider=getattr(session,'provider_thinking_levels',None)
+    session.supported_thinking_levels=[level for level in available.get('data',{}).get('levels',[]) if provider is None or level in provider]
     return state
 
 
@@ -388,6 +395,10 @@ def public_state(session, payload=None):
         'controlSeq': max([0, *[item['controlSeq'] for item in controls(session)]]), 'controls': controls(session),
         'sessions': [{'sessionId': sid, 'current': sid == current} for sid in registry],
         'piState': getattr(session, 'pi_state', {}), 'effectiveModel': getattr(session, 'effective_model', None),
+        'admission':value_get(session,'admission'),'thinking':thinking_state(session),
+        'pendingModel':value_get(session,'pendingModel'),
+        'skills':{**getattr(session,'skills_catalog',{}),'audit':value_get(session,'skillsAudit',[])},
+        'forkMessages':getattr(session,'fork_messages',[]),
         'backgroundProcessCount':getattr(session,'background_process_count',0),
         'bashRuns':bash_state(session),
         'tree': getattr(session, 'public_tree', {'tree': [], 'leafId': None}),
@@ -398,7 +409,8 @@ def public_state(session, payload=None):
         'terminals': [terminal.snapshot(cursors.get(terminal.id, 0),maximum=524288//max(1,len(session.terminals))) for terminal in getattr(session, 'terminals', {}).values()],
         'upgradePlans': plans(session.broker),
         'capabilities': {'piVersion': '1.3.0', 'sessionNavigate': False, 'sessionFork': True, 'sessionClone': True,
-                         'needsImageUpgrade':getattr(session,'workspace_version',None)!='2',
+                         'needsImageUpgrade':getattr(session,'workspace_version',None)!='2' or not getattr(session,'native_capabilities',False),
+                         'nativeCapabilities':getattr(session,'native_capabilities',False),
                          'terminal': getattr(session,'workspace_version',None)=='2',
                          'files':getattr(session,'workspace_version',None)=='2',
                          'dependencies':getattr(session,'workspace_version',None)=='2',
@@ -410,6 +422,20 @@ def handle_ui(session, record):
     from .server import public_event
     if record.get('title') == 'pi-gateway-v1':
         raise ValueError('internal_ui_route_forbidden')
+    if record.get('method')=='setStatus' and record.get('statusKey') in {'pi-skills-v1','pi-skill-audit-v1'}:
+        value=decode(record.get('statusText',''))
+        if not isinstance(value,dict) or len(encode(value))>131072:raise ValueError('skill_catalog_limit')
+        if record['statusKey']=='pi-skills-v1':
+            session.skills_catalog=value
+            value_set(session,'skillsCatalog',value)
+        else:
+            audit=value_get(session,'skillsAudit',[])
+            item={**value,'operationId':(session.active or session.identity)['operationId'],'generation':session.identity['generation']}
+            audit.append(item)
+            while len(audit)>200 or len(encode(audit))>131072:audit.pop(0)
+            value_set(session,'skillsAudit',audit)
+            session.broker.ledger.event(session,{'type':'skill_audit',**item})
+        return
     method = record.get('method')
     if method not in {'select', 'confirm', 'input', 'editor', 'notify', 'setStatus', 'setWidget', 'setTitle', 'set_editor_text'}:
         return
@@ -417,6 +443,11 @@ def handle_ui(session, record):
     safe['requestId'] = safe.pop('id', None)
     safe['operationId'] = (session.active or session.identity)['operationId']
     safe['generation'] = session.identity['generation']
+    if record.get('title')=='pi-questionnaire-v1':
+        from .questionnaire import request
+        questionnaire=request(decode(record.get('placeholder','')))
+        safe['questionnaire']=questionnaire
+        safe['toolCallId']=questionnaire['toolCallId']
     if method in {'select', 'confirm', 'input', 'editor'}:
         if not isinstance(safe['requestId'], str) or len(encode(safe)) > 65536 or len(session.ui_pending)>=20 or len(encode(session.ui_pending))+len(encode(safe))>131072:
             raise ValueError('extension_ui_limit')
@@ -474,6 +505,12 @@ def cancel_queues(session):
         for request_id in list(session.ui_pending):
             session.write({'type': 'extension_ui_response', 'id': request_id, 'cancelled': True})
         session.ui_pending.clear()
+        for key in ('pendingModel','pendingThinking','pendingSkillsReload'):
+            pending=value_get(session,key)
+            if pending:
+                control_update(session,pending['controlId'],'completed',{'disposition':'canceled'})
+                value_set(session,key,None)
+                session.pending_model_gateways.pop(pending['controlId'],None)
 
 
 def checked_rpc(session, name, payload=None, timeout=30,rpc_id=None):
@@ -509,12 +546,104 @@ def public_tree(value):
     return {'tree':tree,'leafId':value.get('leafId'),'truncated':count[0]>500}
 
 
+def thinking_state(session):
+    state=getattr(session,'pi_state',{})
+    return {'requested':value_get(session,'requestedThinking',state.get('thinkingLevel')),
+            'effective':state.get('thinkingLevel'),'pending':value_get(session,'pendingThinking'),
+            'supported':getattr(session,'supported_thinking_levels',[])}
+
+
+def apply_pending(session):
+    """Apply only while Pi and its actual process tree are at a safe point."""
+    with session.metadata_lock:return _apply_pending(session)
+
+
+def _apply_pending(session):
+    if session.phase not in IDLE:return
+    if any(t.status=='running' for t in session.terminals.values()) or getattr(session,'bash_control',None):return
+    if any(value_get(session,key) for key in ('pendingModel','pendingThinking','pendingSkillsReload')):
+        if set(session.broker.process_inventory(session))-set(getattr(session,'baseline_processes',[])):return
+        if any(item['status'] in {'active','unknown'} for item in activities(session)):return
+    pending=value_get(session,'pendingModel')
+    if pending:
+        gateway=session.pending_model_gateways.pop(pending['controlId'],None)
+        if gateway is None:
+            value_set(session,'pendingModel',None)
+            control_update(session,pending['controlId'],'failed',error='pending_model_binding_expired')
+            return
+        try:session.bind(gateway,pending['model'])
+        except ValueError as error:
+            if str(error) not in {'thinking_level_requires_explicit_change','unsupported_thinking_level','invalid_thinking_levels'}:raise
+            value_set(session,'pendingModel',None)
+            control_update(session,pending['controlId'],'failed',error=str(error))
+            return
+        value_set(session,'pendingModel',None)
+        control_update(session,pending['controlId'],'completed',{'effectiveModel':session.effective_model})
+    pending=value_get(session,'pendingThinking')
+    if pending:
+        level=pending['level']
+        if level not in getattr(session,'supported_thinking_levels',[]):
+            control_update(session,pending['controlId'],'failed',error='unsupported_thinking_level')
+            value_set(session,'pendingThinking',None)
+            return
+        checked_rpc(session,'set_thinking_level',{'level':level})
+        state=register_session(session)
+        if state.get('thinkingLevel')!=level:raise ValueError('thinking_readback_unknown')
+        value_set(session,'pendingThinking',None)
+        control_update(session,pending['controlId'],'completed',{'thinkingLevel':level})
+    pending=value_get(session,'pendingSkillsReload')
+    if pending:
+        session.broker.update_skills(session,session.skill_version,[s['id'] for s in session.skills],force=True)
+        value_set(session,'pendingSkillsReload',None)
+        control_update(session,pending['controlId'],'completed',{'skills':getattr(session,'skills_catalog',{})})
+
+
+def set_mode(session, supplied):
+    from .admission import install
+    with session.lock:fence=install(session,supplied)
+    if fence['mode']=='execute':return {'admission':fence,'drained':True}
+    if session.phase=='stopped':
+        if session.broker.inspect(session)['State'].get('Running'):raise ValueError('mode_stopped_identity_unknown')
+        if any(a['status'] in {'active','unknown'} for a in activities(session)):raise ValueError('mode_activity_unknown')
+        session.local_calls.clear()
+        return {'admission':fence,'drained':True,'localCalls':0,'stoppedVerified':True}
+    # The persisted fence precedes every effect. A failed stop remains fenced.
+    checked_rpc(session,'clear_queue')
+    cancel_queues(session)
+    close_terminals(session)
+    if getattr(session,'bash_control',None):checked_rpc(session,'abort_bash')
+    if session.phase in BUSY:
+        checked_rpc(session,'abort',timeout=20)
+        deadline=time.monotonic()+20
+        while session.phase in BUSY and time.monotonic()<deadline:time.sleep(.05)
+        if session.phase not in IDLE:raise ValueError('mode_drain_unknown')
+    deadline=time.monotonic()+20
+    while getattr(session,'executing_controls',set()) and time.monotonic()<deadline:
+        close_terminals(session)
+        if getattr(session,'bash_control',None):checked_rpc(session,'abort_bash')
+        time.sleep(.05)
+    if getattr(session,'executing_controls',set()):raise ValueError('mode_control_drain_unknown')
+    current=set(session.broker.process_inventory(session))
+    baseline=set(getattr(session,'baseline_processes',[]))
+    if current-baseline:raise ValueError('mode_background_processes_unknown')
+    if any(a['status'] in {'active','unknown'} for a in activities(session)):raise ValueError('mode_activity_unknown')
+    # These are actual settled/exit facts; no synthetic tool-complete event.
+    session.local_calls.clear()
+    return {'admission':fence,'drained':True,'localCalls':0}
+
+
 def execute_control(session, job, control_id, command, payload):
     from .server import public_event
     if session.phase in {'unknown', 'frozen', 'freezing', 'disposed'}:
         raise Rejected('workspace_unknown_fenced')
     if session.phase in {'creating','updating'}:raise Rejected('workspace_busy')
     if getattr(session,'workspace_maintenance',False):raise Rejected('workspace_busy')
+    from .admission import check
+    supplied=payload.pop('admission',None) if command!='mode_set' else None
+    if command=='mode_set':return set_mode(session,payload.get('admission'))
+    execution={'bash','terminal_create','terminal_input','file_write','file_delete','file_mkdir','file_rename','resource_install','resource_remove','export_html'}
+    try:check(session,supplied,execute=command in execution)
+    except ValueError as error:raise Rejected(str(error)) from error
     if getattr(session,'resource_installing',None) not in {None,control_id} and command not in READ:
         raise Rejected('workspace_busy')
     leases=activities(session)
@@ -526,7 +655,10 @@ def execute_control(session, job, control_id, command, payload):
         raise Rejected('unsupported_pi_version')
     if command == 'wake':
         if session.phase == 'stopped':
-            session.start()
+            try:session.start()
+            except ValueError as error:
+                if str(error)!='workspace_native_image_upgrade_required':raise
+                raise Rejected(str(error)) from error
             session.phase = 'idle'
             session.broker.save_session(session)
         return {'containerId': session.container_id, 'image': session.image, 'generation': session.identity['generation']}
@@ -576,6 +708,10 @@ def execute_control(session, job, control_id, command, payload):
             raise Rejected('invalid_ui_response')
         if request['method'] == 'select' and 'value' in response and response['value'] not in request.get('options', []):
             raise Rejected('invalid_ui_selection')
+        if request.get('questionnaire') and 'value' in response:
+            from .questionnaire import answer
+            try:answer(request['questionnaire'],decode(response['value']))
+            except ValueError as error:raise Rejected(str(error)) from error
         session.write({'type': 'extension_ui_response', 'id': request_id, **response})
         session.ui_pending.pop(request_id)
         return {'requestId': request_id, 'responded': True}
@@ -653,6 +789,9 @@ def execute_control(session, job, control_id, command, payload):
         if command == 'stats':
             return public_event(checked_rpc(session, 'get_session_stats'))
         result = public_tree(checked_rpc(session, 'get_tree'))
+        from .server import public_event
+        session.fork_messages=public_event(checked_rpc(session,'get_fork_messages')).get('messages',[])[:500]
+        result['forkMessages']=session.fork_messages
         session.public_tree = result
         register_session(session)
         return result
@@ -718,23 +857,59 @@ def execute_control(session, job, control_id, command, payload):
         session.broker.ledger.event(session, {'type': 'compact_completed', 'controlId': control_id})
         session.complete()
         return public_event(result)
+    if command=='skills_reload' and session.phase in BUSY:
+        previous=value_get(session,'pendingSkillsReload')
+        if previous:raise Rejected('skills_reload_pending')
+        value_set(session,'pendingSkillsReload',{'controlId':control_id})
+        return {'disposition':'queued','pendingSkillsReload':True}
+    if command in {'model_set','thinking_set'} and session.phase in BUSY:
+        if command=='model_set':
+            previous=value_get(session,'pendingModel')
+            if previous:
+                control_update(session,previous['controlId'],'completed',{'disposition':'superseded'})
+                session.pending_model_gateways.pop(previous['controlId'],None)
+            session.pending_model_gateways[control_id]=payload.get('gateway')
+            value_set(session,'pendingModel',{'controlId':control_id,'model':payload.get('model')})
+            return {'disposition':'queued','pendingModel':True}
+        level=payload.get('level')
+        if level not in getattr(session,'supported_thinking_levels',[]):raise Rejected('unsupported_thinking_level')
+        value_set(session,'requestedThinking',level)
+        previous=value_get(session,'pendingThinking')
+        if previous:control_update(session,previous['controlId'],'completed',{'disposition':'superseded'})
+        value_set(session,'pendingThinking',{'controlId':control_id,'level':level})
+        return {'disposition':'queued','pendingThinkingLevel':level}
     if session.phase not in IDLE:
         raise Rejected('workspace_busy')
     if command == 'upgrade':
         from .upgrade_linux import apply
         return apply(session,payload.get('planId'))
     if command == 'model_set':
-        session.bind(payload.get('gateway'), payload.get('model'))
+        try:
+            with session.metadata_lock:
+                if session.phase not in IDLE:raise Rejected('workspace_busy')
+                session.bind(payload.get('gateway'), payload.get('model'))
+        except ValueError as error:
+            if str(error) not in {'thinking_level_requires_explicit_change','unsupported_thinking_level','invalid_thinking_levels'}:raise
+            raise Rejected(str(error)) from error
         return {'effectiveModel': session.effective_model}
     if command == 'thinking_set':
         level = payload.get('level')
-        if level not in checked_rpc(session, 'get_available_thinking_levels').get('levels', []):
+        if level not in getattr(session,'supported_thinking_levels',[]):
             raise Rejected('unsupported_thinking_level')
-        checked_rpc(session, 'set_thinking_level', {'level': level})
-        state = register_session(session)
+        value_set(session,'requestedThinking',level)
+        with session.metadata_lock:
+            if session.phase not in IDLE:raise Rejected('workspace_busy')
+            checked_rpc(session, 'set_thinking_level', {'level': level})
+            state = register_session(session)
         if state['thinkingLevel'] != level:
             raise ValueError('thinking_readback_unknown')
         return {'thinkingLevel': level}
+    if command=='skills_reload':
+        # update_skills restarts only a fixed launcher and selected image bundle.
+        with session.metadata_lock:
+            if session.phase not in IDLE:raise Rejected('workspace_busy')
+            session.broker.update_skills(session,session.skill_version,[s['id'] for s in session.skills],force=True)
+        return {'skills':getattr(session,'skills_catalog',{})}
     if command in {'session_new', 'session_switch', 'session_fork', 'session_clone'}:
         register_session(session)
         if command == 'session_switch':
@@ -751,7 +926,8 @@ def execute_control(session, job, control_id, command, payload):
             result = checked_rpc(session, {'session_new': 'new_session', 'session_clone': 'clone'}[command])
         state = register_session(session)
         session.public_tree = public_tree(checked_rpc(session, 'get_tree'))
-        return {**result, 'sessionId': state['sessionId']}
+        checked_rpc(session,'clear_queue');cancel_queues(session)
+        return {**result, 'sessionId': state['sessionId'],'filesReverted':False,'businessReverted':False,'delegationsInherited':False}
     if command == 'export_html':
         path = '/workspace/outputs/session-' + control_id + '.html'
         # Exercise the pinned native exporter, but its full session JSON contains
@@ -823,7 +999,14 @@ def dispatch(session, job):
         return {**{key:job[key] for key in IDENTITY},'control':cached_receipt,'workspace':public_state(session)}
     def run():
         try:
-            if set(args)-FIELDS[command]:raise Rejected('invalid_file_payload' if command.startswith('file_') else 'invalid_control_payload')
+            if set(args)-(FIELDS[command]|{'admission'}):raise Rejected('invalid_file_payload' if command.startswith('file_') else 'invalid_control_payload')
+            if command in {'bash','terminal_create','terminal_input','file_write','file_delete','file_mkdir','file_rename','resource_install','resource_remove','export_html'}:
+                from .admission import check
+                with session.lock:
+                    try:check(session,args.get('admission'),execute=True)
+                    except ValueError as error:raise Rejected(str(error)) from error
+                    if not hasattr(session,'executing_controls'):session.executing_controls=set()
+                    session.executing_controls.add(control_id)
             if command=='resource_install':
                 with session.lock:
                     if (session.phase not in IDLE or getattr(session,'resource_installing',None)
@@ -832,7 +1015,7 @@ def dispatch(session, job):
                         raise Rejected('workspace_busy')
                     session.resource_installing=control_id
             result = execute_control(session, job, control_id, command, args)
-            status = 'queued' if command in {'steer', 'follow_up'} and result.get('disposition') != 'handled' else 'handled' if result.get('disposition') == 'handled' else 'completed'
+            status = 'queued' if result.get('disposition')=='queued' or command in {'steer', 'follow_up'} and result.get('disposition') != 'handled' else 'handled' if result.get('disposition') == 'handled' else 'completed'
             # The real message event can race ahead of the RPC response. Never
             # overwrite proof of consumption with the earlier queued receipt.
             with session.lock:
@@ -847,6 +1030,7 @@ def dispatch(session, job):
             session.fail('control_outcome_unknown')
         finally:
             if getattr(session,'resource_installing',None)==control_id:session.resource_installing=None
+            with session.lock:getattr(session,'executing_controls',set()).discard(control_id)
     if command in ASYNC:
         control_update(session, control_id, 'accepted')
         threading.Thread(target=run, daemon=True).start()

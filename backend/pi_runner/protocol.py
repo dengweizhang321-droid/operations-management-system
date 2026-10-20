@@ -56,7 +56,7 @@ def workspace_key(value):
 
 
 def validate_manifest(value):
-    if not isinstance(value, dict) or set(value) != {"schemaVersion", "version", "skills"} or value['schemaVersion'] != 1 or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',value["version"]):
+    if not isinstance(value, dict) or set(value) != {"schemaVersion", "version", "skills"} or value['schemaVersion'] not in {1,2} or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',value["version"]) or not isinstance(value['skills'],list) or len(value['skills'])>100:
         raise ValueError("invalid_skill_manifest")
     ids, paths = set(), set()
     for skill in value["skills"]:
@@ -68,7 +68,8 @@ def validate_manifest(value):
         if not re.fullmatch(r"[a-f0-9]{64}", skill["sha256"]) or not isinstance(skill["resources"], list):
             raise ValueError("invalid_skill_hash")
         for resource in skill["resources"]:
-            if not isinstance(resource, dict) or set(resource) != {"path", "sha256", "sizeBytes"}:
+            if (not isinstance(resource, dict) or set(resource) != ({"path", "sha256", "sizeBytes", "type"} if value['schemaVersion']==2 else {"path", "sha256", "sizeBytes"})
+                    or value['schemaVersion']==2 and resource.get('type') not in {'instructions','reference','script','data','asset','template'}):
                 raise ValueError("invalid_skill_resource")
             path = resource["path"]
             if (not isinstance(path, str) or not re.fullmatch(r"[A-Za-z0-9_./-]{1,180}", path)
@@ -85,6 +86,6 @@ def validate_manifest(value):
             raise ValueError("skill_digest_mismatch")
     original = {"sales-promotion-inventory", "stock-replenishment", "excel-report"}
     business = {"create-work-plan", "save-replenishment-draft", "execute-registered-gap", "deliver-report"}
-    if ids != (original | business if value["version"] == "1.2.0" else original):
+    if value['schemaVersion']==1 and ids != (original | business if value["version"] == "1.2.0" else original):
         raise ValueError("skill_set_mismatch")
     return value

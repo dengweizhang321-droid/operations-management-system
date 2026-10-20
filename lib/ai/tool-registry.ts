@@ -1,4 +1,5 @@
 import { startPiDatasetExport, getPiDatasetExport } from "@/lib/ai/pi-export-tools";
+import { callPiNativeTool } from "@/lib/ai/pi-native-tools";
 import { readPiNetshopPage } from "@/lib/ai/pi-netshop-tools";
 import { preparePiBusinessAction, getPiBusinessAction, getPiBusinessOptions } from "@/lib/ai/pi-business-tools";
 import { readBusinessPromotionDispatchTool } from "@/lib/ai/business-promotion-dispatch-tools";
@@ -142,6 +143,66 @@ function piReadOnly(policy: AiToolExecutionPolicy): AiToolExecutionPolicy {
 }
 
 export const aiToolRegistry = [
+  {
+    name: "mode_set", title: "切换到计划模式", description: "暂停整棵代理树新增执行并排空已准入工作。模型只能请求计划模式；转执行只能由用户针对当前计划和代理树版本在页面批准。未知效果保留切换中。",
+    inputSchema: { type: "object", properties: { mode: { type: "string", enum: ["plan"] } }, required: ["mode"], additionalProperties: false },
+    allowedRoles: allRoles, scopePolicy: "principal_scope", risk: "write", annotations: { ...readOnlyAnnotations, readOnlyHint: false },
+    execution: { ...synchronousReadOnlyExecution, mode: "background_job", allowedSurfaces: ["pi_business"], maxCallsPerRequest: 2 }, handler: (args, ctx) => callPiNativeTool("mode_set", args, ctx),
+  },
+  {
+    name: "plan_save", title: "保存任务计划版本", description: "持久保存目标、约束、步骤、交付物和待定事项的新不可变版本。保存计划和问答答案都不授予业务执行权限。",
+    inputSchema: { type: "object", properties: { expectedRevision: { type: "integer", minimum: 0 }, plan: { type: "object", properties: {
+      goal: { type: "string", minLength: 1, maxLength: 4000 }, constraints: { type: "array", maxItems: 100, items: { type: "string", maxLength: 4000 } },
+      steps: { type: "array", maxItems: 100, items: { type: "string", maxLength: 4000 } }, deliverables: { type: "array", maxItems: 100, items: { type: "string", maxLength: 4000 } },
+      openQuestions: { type: "array", maxItems: 100, items: { type: "string", maxLength: 4000 } },
+    }, required: ["goal", "constraints", "steps", "deliverables", "openQuestions"], additionalProperties: false } }, required: ["plan"], additionalProperties: false },
+    allowedRoles: allRoles, scopePolicy: "principal_scope", risk: "write", annotations: { ...readOnlyAnnotations, readOnlyHint: false },
+    execution: { ...synchronousReadOnlyExecution, mode: "background_job", allowedSurfaces: ["pi_business"], maxCallsPerRequest: 4 }, handler: (args, ctx) => callPiNativeTool("plan_save", args, ctx),
+  },
+  {
+    name: "agent_spawn", title: "创建独立子代理", description: "创建独立会话、容器、运行和能力。默认继承父代理实际模型、强度、已选技能快照与权限交集；只传显式上下文和不可变文件快照。业务动作必须引用父轮原actionId并转移唯一所有者，不能复制新意图。",
+    inputSchema: { type: "object", properties: { task: { type: "string", minLength: 1, maxLength: 200000 }, title: { type: "string", maxLength: 160 }, context: { type: "string", maxLength: 200000 },
+      fileIds: { type: "array", maxItems: 16, uniqueItems: true, items: { type: "string" } }, dependencies: { type: "array", maxItems: 16, uniqueItems: true, items: { type: "string" } },
+      modelId: { type: "string" }, thinkingLevel: { type: "string", enum: ["off", "minimal", "low", "medium", "high", "xhigh", "max"] },
+      skills: { type: "array", maxItems: 16, uniqueItems: true, items: { type: "string" } }, businessActionIds: { type: "array", maxItems: 4, uniqueItems: true, items: { type: "string" } },
+    }, required: ["task"], additionalProperties: false }, allowedRoles: allRoles, scopePolicy: "principal_scope", risk: "write", annotations: { ...readOnlyAnnotations, readOnlyHint: false },
+    execution: { ...synchronousReadOnlyExecution, mode: "background_job", allowedSurfaces: ["pi_business"], maxCallsPerRequest: 12 }, handler: (args, ctx) => callPiNativeTool("agent_spawn", args, ctx),
+  },
+  {
+    name: "agent_list", title: "查询代理任务树", description: "只读查询当前任务树的真实会话、状态、消息、等待集合、计划版本和交接文件。根轮结束不代表任务树完成。",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false }, allowedRoles: allRoles, scopePolicy: "principal_scope", risk: "read_only", annotations: readOnlyAnnotations,
+    execution: { ...synchronousReadOnlyExecution, allowedSurfaces: ["pi_business"], maxCallsPerRequest: 24 }, handler: (args, ctx) => callPiNativeTool("agent_list", args, ctx),
+  },
+  {
+    name: "agent_send", title: "向代理发送消息", description: "持久投递消息。只发送消息，不唤起空闲代理；需继续执行时调用agent_follow_up。",
+    inputSchema: { type: "object", properties: { agentId: { type: "string" }, message: { type: "string", minLength: 1, maxLength: 200000 } }, required: ["agentId", "message"], additionalProperties: false },
+    allowedRoles: allRoles, scopePolicy: "principal_scope", risk: "write", annotations: { ...readOnlyAnnotations, readOnlyHint: false },
+    execution: { ...synchronousReadOnlyExecution, mode: "background_job", allowedSurfaces: ["pi_business"], maxCallsPerRequest: 24 }, handler: (args, ctx) => callPiNativeTool("agent_send", args, ctx),
+  },
+  {
+    name: "agent_follow_up", title: "继续执行目标代理", description: "持久投递继续任务并唤起空闲代理；运行中则排队，在安全点继续。消息不会授予新的业务意图。",
+    inputSchema: { type: "object", properties: { agentId: { type: "string" }, message: { type: "string", minLength: 1, maxLength: 200000 } }, required: ["agentId", "message"], additionalProperties: false },
+    allowedRoles: allRoles, scopePolicy: "principal_scope", risk: "write", annotations: { ...readOnlyAnnotations, readOnlyHint: false },
+    execution: { ...synchronousReadOnlyExecution, mode: "background_job", allowedSurfaces: ["pi_business"], maxCallsPerRequest: 24 }, handler: (args, ctx) => callPiNativeTool("agent_follow_up", args, ctx),
+  },
+  {
+    name: "agent_wait", title: "异步等待代理进展", description: "先持久登记集合及游标再观察。返回waitId；后续携waitId查询，终态、事件、消息、取消和超时均可唤醒。不阻塞RPC或占据子代理执行槽。",
+    inputSchema: { type: "object", properties: { agentIds: { type: "array", minItems: 1, maxItems: 100, uniqueItems: true, items: { type: "string" } }, waitId: { type: "string" }, cursor: { type: "integer", minimum: 0 }, timeoutMs: { type: "integer", minimum: 1, maximum: 3600000 } }, additionalProperties: false },
+    allowedRoles: allRoles, scopePolicy: "principal_scope", risk: "write", annotations: { ...readOnlyAnnotations, readOnlyHint: false },
+    execution: { ...synchronousReadOnlyExecution, mode: "background_job", allowedSurfaces: ["pi_business"], maxCallsPerRequest: 24 }, handler: (args, ctx) => callPiNativeTool("agent_wait", args, ctx),
+  },
+  {
+    name: "agent_cancel", title: "停止目标代理树", description: "停止目标及后代新增工作、清理等待和撤销委派。已发生或未知业务效果保留原身份与回执，停止不回滚。",
+    inputSchema: { type: "object", properties: { agentId: { type: "string" } }, required: ["agentId"], additionalProperties: false },
+    allowedRoles: allRoles, scopePolicy: "principal_scope", risk: "write", annotations: { ...readOnlyAnnotations, readOnlyHint: false },
+    execution: { ...synchronousReadOnlyExecution, mode: "background_job", allowedSurfaces: ["pi_business"], maxCallsPerRequest: 12 }, handler: (args, ctx) => callPiNativeTool("agent_cancel", args, ctx),
+  },
+  {
+    name: "agent_close", title: "释放已终结代理资源", description: "仅释放已确认终结的目标环境，保留历史、文件和业务回执。问答、等待、交接或未知效果仍存活时拒绝释放。",
+    inputSchema: { type: "object", properties: { agentId: { type: "string" } }, required: ["agentId"], additionalProperties: false },
+    allowedRoles: allRoles, scopePolicy: "principal_scope", risk: "write", annotations: { ...readOnlyAnnotations, readOnlyHint: false },
+    execution: { ...synchronousReadOnlyExecution, mode: "background_job", allowedSurfaces: ["pi_business"], maxCallsPerRequest: 12 }, handler: (args, ctx) => callPiNativeTool("agent_close", args, ctx),
+  },
   {
     name: "get_pi_business_options", title: "查询本轮业务执行选项",
     description: "只读发现本轮用户意图、稳定动作身份、获准接收对象和具体补缺能力边界。选项和技能本身不授予执行权限。",

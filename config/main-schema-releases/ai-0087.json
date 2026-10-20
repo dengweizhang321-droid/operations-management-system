@@ -1,0 +1,15 @@
+{
+  "version": "teruisi-main-schema-recipe-v1",
+  "additionKind": "PiNative",
+  "fromGeneration": 152,
+  "toGeneration": 153,
+  "steps": [
+    "ai_assistant.0087_pi_native_capabilities"
+  ],
+  "stepFiles": {
+    "backend/ai_assistant/migrations/0087_pi_native_capabilities.py": "438a85491e92acc8f213794a196b0b59f2194c9ae566cb56926eceeac19777c0"
+  },
+  "validation": "docs/pi-native-capabilities-20261020/mandatory-code-checks.json",
+  "validationSha256": "107781ac42ce467e5d5e87d1e381886ee5aecf32c0c9131061a30de92f95c44e",
+  "codeSha256": "70f9338562e6a25bb88fd294dd08489f6e39d0272624dcf1deb31dfe566d41b5"
+}

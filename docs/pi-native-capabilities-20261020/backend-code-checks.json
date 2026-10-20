@@ -1,0 +1,125 @@
+{
+  "kind": "required_source_checks_only",
+  "date": "2026-10-20",
+  "pythonSyntax": {
+    "status": "passed",
+    "files": [
+      {
+        "path": "backend/ai_assistant/pi_native.py",
+        "sha256": "6e3b56e5c4ef5a3125fcc5e4d0a1697af0c8bcec99e7c35df10b0501d6f02c86",
+        "syntax": "passed"
+      },
+      {
+        "path": "backend/ai_assistant/pi_native_health.py",
+        "sha256": "796c720b99cfee4f70bd2e17a901b79cf4c4e96870d86673e0118d05ebec7cc9",
+        "syntax": "passed"
+      },
+      {
+        "path": "backend/ai_assistant/pi_service.py",
+        "sha256": "63fbfd3d4fcf2cef54ee92ab3d83ee7dd5741ecf9fcc9e8ebae080a32efc5844",
+        "syntax": "passed"
+      },
+      {
+        "path": "backend/ai_assistant/pi_workspace.py",
+        "sha256": "355b006dc9ebca00fe7e1c9203d561d547040d5be584cffcb6c092981e89050c",
+        "syntax": "passed"
+      },
+      {
+        "path": "backend/ai_assistant/pi_worker.py",
+        "sha256": "8c807715be15456b296d318456279cf1a0010635453c096111f832a812214395",
+        "syntax": "passed"
+      },
+      {
+        "path": "backend/ai_assistant/pi_gateway.py",
+        "sha256": "e210a05fc8a0917d5cfe5fdf36cd173c0bcc9036015958c56a47416eff49c4e4",
+        "syntax": "passed"
+      },
+      {
+        "path": "backend/ai_assistant/pi_business.py",
+        "sha256": "384e86cf1d0ba406bdd44f20463c80f3801b55ecfe7af7c58c46a033ebbf109c",
+        "syntax": "passed"
+      },
+      {
+        "path": "backend/ai_assistant/pi_models.py",
+        "sha256": "0fcbcf59983c80ec102612938893486d64e8d0948f3659082d25e01356741343",
+        "syntax": "passed"
+      },
+      {
+        "path": "backend/ai_assistant/pi_transport.py",
+        "sha256": "1321d0ef8e4a0bb3180f5263b83c80cf95358bd6fdf8e5b3b6cb945a443549fa",
+        "syntax": "passed"
+      },
+      {
+        "path": "backend/ai_assistant/table_manifest.py",
+        "sha256": "e55b75862e9e9990028e04b18d42c893f2cd1dfe0a8aebec0e46ca67c839efff",
+        "syntax": "passed"
+      },
+      {
+        "path": "backend/ai_assistant/database_contract.py",
+        "sha256": "bea8655dccd89bf7a7e051b5d33a579bad30e4da32f522e2b5edcc1b370c953a",
+        "syntax": "passed"
+      },
+      {
+        "path": "backend/ai_assistant/health.py",
+        "sha256": "02c2af9d516d2ecaa662aa86f3fb4f45050c374c4d080946f0a09097b8365552",
+        "syntax": "passed"
+      },
+      {
+        "path": "backend/ai_assistant/views.py",
+        "sha256": "561efb6c3b4439579b830e185f2dfd7cf817234054fbc6889b43c63d881db986",
+        "syntax": "passed"
+      },
+      {
+        "path": "backend/ai_assistant/pi_selection.py",
+        "sha256": "664a14b143432b31c47b2788a0a9d2a92d94496511fc9868197571c37f20013c",
+        "syntax": "passed"
+      },
+      {
+        "path": "backend/ai_assistant/migrations/0087_pi_native_capabilities.py",
+        "sha256": "438a85491e92acc8f213794a196b0b59f2194c9ae566cb56926eceeac19777c0",
+        "syntax": "passed"
+      }
+    ]
+  },
+  "djangoStatic": {
+    "status": "passed",
+    "migration": "0087_pi_native_capabilities",
+    "modelMigrationDrift": false,
+    "tableInventoryMatches": true,
+    "nativeTables": [
+      "ai_pi_native_states",
+      "ai_pi_agents",
+      "ai_pi_plan_revisions",
+      "ai_pi_agent_messages",
+      "ai_pi_agent_waits",
+      "ai_pi_file_handoffs",
+      "ai_pi_business_delegations"
+    ],
+    "exactNativeAcl": true,
+    "databaseConnectionOpened": false
+  },
+  "typescript": {
+    "status": "passed_for_changed_files",
+    "files": [
+      {
+        "path": "lib/ai/tool-registry.ts",
+        "sha256": "cd4bddccce60c3d072b780f50b0a0e24d4f1d6ba43d460470c07daf387a600d9"
+      },
+      {
+        "path": "lib/ai/pi-native-tools.ts",
+        "sha256": "db0fe114f8844e93f767de0cec2eae09641b579fd485b9d979d936622baab082"
+      }
+    ],
+    "changedFileDiagnostics": 0,
+    "repositoryDiagnostics": 213,
+    "method": "TypeScript getPreEmitDiagnostics filtered to changed lib/ai/tool-registry.ts and lib/ai/pi-native-tools.ts"
+  },
+  "notExecuted": [
+    "functional tests",
+    "business API calls",
+    "provider model requests",
+    "production migrations",
+    "service lifecycle actions",
+    "external sends"
+  ]
+}

@@ -38,11 +38,11 @@ def definitions():
     return result
 
 
-def verify_catalog(cursor, *, installed=True, permissions=True):
+def verify_catalog(cursor, *, installed=True, permissions=True, native=False):
     import pi_workspace_catalog as parent
-    parent.verify_catalog(cursor, installed=True, permissions=permissions, business=installed)
+    parent.verify_catalog(cursor, installed=True, permissions=permissions, business=installed, native=native)
     cursor.execute("SELECT relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND relname LIKE 'ai_pi_business_%%' AND relkind IN ('r','p','v','m','f') ORDER BY relname")
-    if [row[0] for row in cursor.fetchall()] != (list(TABLES) if installed else []):
+    if [row[0] for row in cursor.fetchall()] != (sorted([*TABLES, "ai_pi_business_delegations"]) if installed and native else list(TABLES) if installed else []):
         raise ValueError("Pi152 business tables absent, partial, extra or unrecorded")
     if not installed:
         return

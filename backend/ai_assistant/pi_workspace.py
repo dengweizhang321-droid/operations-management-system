@@ -18,8 +18,8 @@ COMMANDS = {"steer", "follow_up", "clear_queue", "bash", "abort_bash", "tree", "
     "session_fork", "session_clone", "session_navigate", "compact", "export_html", "model_set", "thinking_set", "ui_response",
     "terminal_create", "terminal_input", "terminal_resize", "terminal_close", "file_list", "file_read", "file_download",
     "file_write", "file_mkdir", "file_rename", "file_delete",
-    "pause", "wake", "reset", "upgrade", "research_search", "research_read", "dependency_install"}
-RUNNING_COMMANDS = {"steer", "follow_up", "clear_queue", "abort_bash", "ui_response", "pause", "terminal_input", "terminal_resize", "terminal_close"}
+    "pause", "wake", "reset", "upgrade", "research_search", "research_read", "dependency_install", "skills_reload"}
+RUNNING_COMMANDS = {"steer", "follow_up", "clear_queue", "abort_bash", "ui_response", "pause", "terminal_input", "terminal_resize", "terminal_close", "model_set", "thinking_set", "skills_reload"}
 READ_COMMANDS = {"tree", "stats", "file_list", "file_read", "file_download", "export_html"}
 PRIVATE_KEYS = {"pendingGatewayRequests", "gateway", "capability", "capabilityHash", "thinking", "thinkingSignature", "providerFrame", "encryptedRunnerResponse"}
 
@@ -28,7 +28,11 @@ def public(value, depth=0):
     if depth > 20:
         raise AiError("Pi 工作区状态深度超限", "pi_runner_unknown", 503)
     if isinstance(value, dict):
-        return {k: public(v, depth+1) for k, v in value.items() if k not in PRIVATE_KEYS}
+        result = {k: public(v, depth+1) for k, v in value.items() if k not in PRIVATE_KEYS}
+        safe_thinking = value.get("thinking")
+        if isinstance(safe_thinking, dict) and set(safe_thinking) <= {"requested", "effective", "pending", "supported"}:
+            result["thinking"] = public(safe_thinking, depth+1)
+        return result
     if isinstance(value, list):
         return [public(v, depth+1) for v in value]
     return value
@@ -38,7 +42,7 @@ def result_summary(value, maximum=4096):
     raw = canonical(value).encode()
     if len(raw) <= maximum:
         return value
-    metadata = {key: value[key] for key in ("path", "sha256", "sizeBytes", "downloadId", "fileId", "terminalId", "inputId", "inputSeq", "status", "disposition", "effectiveModel", "thinkingLevel", "planId") if isinstance(value, dict) and key in value}
+    metadata = {key: value[key] for key in ("path", "sha256", "sizeBytes", "downloadId", "fileId", "terminalId", "inputId", "inputSeq", "status", "disposition", "effectiveModel", "thinkingLevel", "planId", "planRevision", "rootSessionId", "modeRevision", "treeVersion", "agentId", "sessionId", "operationId", "waitId", "cursor") if isinstance(value, dict) and key in value}
     if isinstance(value, dict) and isinstance(value.get("sources"), list):
         metadata["sources"] = [{key: source[key] for key in ("url", "title", "sha256", "fetchedAt") if key in source}
             for source in value["sources"][:10] if isinstance(source, dict)]
@@ -54,7 +58,8 @@ def control_record(row, *, history=False):
 def workspace_record(session, workspace):
     frozen = session.status == "frozen"
     state = {} if frozen else json.loads(workspace.state_json)
-    return {"epoch": session.epoch, "generation": session.generation, "status": "frozen" if frozen else workspace.status,
+    from .pi_native import snapshot
+    return {"native": snapshot(session), "epoch": session.epoch, "generation": session.generation, "status": "frozen" if frozen else workspace.status,
         "initialized": workspace.status not in {"uninitialized", "frozen"}, "controlSeq": workspace.control_seq,
         "effective": {} if frozen else {"modelId": workspace.model_id, "modelVersion": workspace.model_version, "thinkingLevel": workspace.thinking_level},
         "state": state, "usage": None if frozen else usage_record(session), "updatedAt": workspace.updated_at.isoformat()}
@@ -177,6 +182,10 @@ def _known_result(row, receipt):
         raise AiError("Pi 控制回执状态无效", "pi_control_unknown", 503)
     if row.status in {"completed", "handled", "failed"}:
         return
+    if row.command == "mode_set" and "admission" in json.loads(row.payload_json) and status in {"completed", "handled"}:
+        result = receipt.get("result", {})
+        if result.get("drained") is not True or result.get("admission") != json.loads(row.payload_json)["admission"]:
+            raise AiError("模式切换缺少原版本排空证明", "pi_mode_drain_unknown", 503)
     if row.status == "unknown" and status != "unknown":
         locked = PiSession.objects.select_for_update().get(pk=row.session_id)
         service.event(locked, "workspace_control_reconciled", {"controlId": row.id, "command": row.command,
@@ -228,12 +237,16 @@ def _effective_readback(row, receipt, workspace):
     if receipt.get("status") not in {"completed", "handled"}:
         return
     payload, result = json.loads(row.payload_json), receipt.get("result", {})
+    if row.command in {"session_new", "session_switch", "session_fork", "session_clone"}:
+        from .pi_native import history_changed
+        history_changed(PiSession.objects.select_for_update().get(pk=row.session_id))
     if row.command == "model_set":
         from . import configuration
         from .model_capabilities import options
         model = configuration.resolve_model(payload["modelId"])
         opts = options(model)
-        expected = {"contextWindow": opts["contextWindowTokens"], "maxTokens": model.max_tokens, "reasoning": model.reasoning_mode != "disabled"}
+        from .pi_native import model_binding
+        expected = {k: v for k, v in model_binding(model).items() if k in {"contextWindow", "maxTokens", "reasoning", "supportedThinkingLevels"}}
         if result.get("effectiveModel") != expected:
             raise AiError("实际模型元数据未确认，不能标记切换成功", "pi_effective_model_unknown", 503)
         workspace.model_id, workspace.model_version = model.id, model.version
@@ -294,8 +307,12 @@ def ingest(session, workspace, operation, result, *, snapshot=True):
                 continue
             if request.get("operationId", operation.id) != operation.id:
                 continue
+            from .pi_native import validate_questionnaire
+            validate_questionnaire(request)
             row, _ = PiUiRequest.objects.get_or_create(operation=operation, runner_request_id=runner_id,
                 defaults={"id": uid("pi-ui"), "session": session, "generation": session.generation, "request_json": canonical(public(request))})
+            if row.request_json != canonical(public(request)):
+                raise AiError("原交互问题内容发生变化", "pi_questionnaire_changed", 503)
             if row.status == "pending":
                 ui.append({**public(request), "id": row.id, "requestId": row.id, "operationId": operation.id})
     state["pendingUi"] = ui
@@ -364,7 +381,8 @@ def detail(session_id, params, principal, *, poll=True):
             state = json.loads(workspace.state_json)
             state["observationError"] = error.code
             workspace.state_json = canonical(state)
-    result = {"session": service.session_record(session), "workspace": workspace_record(session, workspace),
+    from .pi_native import snapshot
+    result = {"native": snapshot(session), "session": service.session_record(session), "workspace": workspace_record(session, workspace),
         "controls": [] if session.status == "frozen" else [control_record(c, history=True) for c in PiControl.objects.filter(session=session, generation=session.generation).order_by("-control_seq")[:100]]}
     return result
 
@@ -424,7 +442,7 @@ def _validate(command, payload):
         fields(payload, {"modelId"}, {"modelId"}); identifier(payload["modelId"], "modelId")
     if command == "thinking_set":
         fields(payload, {"level"}, {"level"})
-        if payload["level"] not in {"off", "minimal", "low", "medium", "high", "xhigh"}:
+        if payload["level"] not in {"off", "minimal", "low", "medium", "high", "xhigh", "max"}:
             raise AiError("思考等级无效")
     if command == "ui_response":
         fields(payload, {"requestId", "value", "confirmed", "cancelled"}, {"requestId"}); identifier(payload["requestId"])
@@ -472,9 +490,10 @@ def _create_environment(operation):
     from .model_capabilities import options
     model = configuration.resolve_model(operation.model_id)
     opts = options(model)
-    binding = {"id": model.id, "modelName": "operation-model", "contextWindow": opts["contextWindowTokens"], "maxTokens": model.max_tokens, "reasoning": model.reasoning_mode != "disabled"}
+    from .pi_native import model_binding
+    binding = model_binding(model, json.loads(operation.payload_json).get("thinkingLevel", ""))
     import os
-    return pi_worker.runner_dispatch(operation, "create", {"gateway": pi_worker.gateway_capability(operation), "skillIds": [], "skillVersion": os.getenv("PI_SKILL_VERSION", "1.0.0"), "model": binding})
+    return pi_worker.runner_dispatch(operation, "create", {"admission": pi_worker.native_admission(operation), "gateway": pi_worker.gateway_capability(operation), "skillIds": [], "skillVersion": os.getenv("PI_SKILL_VERSION", "1.0.0"), "model": binding})
 
 
 def _finish_init(operation):
@@ -489,8 +508,22 @@ def _finish_init(operation):
 
 
 def control(session_id, body, principal):
+    from . import pi_native
+    if isinstance(body, dict) and body.get("command") in pi_native.COMMANDS:
+        return pi_native.control(session_id, body, principal)
+    # Targeted messages retain the existing transport and queue semantics.
+    if isinstance(body, dict) and isinstance(body.get("payload"), dict) and body["payload"].get("targetAgentId"):
+        target_payload = dict(body["payload"])
+        target = target_payload.pop("targetAgentId")
+        origin = service.get_session(session_id, principal)
+        with mutation(principal):
+            state = pi_native.state_for(origin, lock=True)
+            member = pi_native._target(state, target)
+        return control(member.session_id, {**body, "payload": target_payload}, principal)
     fields(body, {"clientRequestId", "command", "payload"}, {"clientRequestId", "command", "payload"})
     key = identifier(body["clientRequestId"], "clientRequestId")
+    if key.startswith("native-"):
+        raise AiError("控制标识属于系统保留范围", "access_denied", 403)
     command, payload = body["command"], body["payload"]
     _validate(command, payload)
     current_principal(principal, write=True)
@@ -516,15 +549,19 @@ def control(session_id, body, principal):
             raise AiError("原下载活动尚未确认结束，请观察原回执", "pi_activity_unknown", 409)
         if PiControl.objects.filter(session=session, generation=session.generation, status__in=["sent", "unknown"]).exists() and command != "pause":
             raise AiError("原控制效果尚未确认，请观察原回执", "pi_control_unknown", 409)
-        exclusive = {"dependency_install", "upgrade", "reset", "model_set", "thinking_set", "session_new", "session_switch", "session_fork", "session_clone"}
+        exclusive = {"dependency_install", "upgrade", "reset", "session_new", "session_switch", "session_fork", "session_clone"}
         if command not in READ_COMMANDS and PiControl.objects.filter(session=session, generation=session.generation,
                 command__in=exclusive, status__in=["prepared", "queued", "sent", "accepted", "unknown"]).exists():
             raise AiError("环境变更尚未确定完成，禁止新增写入或终端输入", "pi_control_active", 409)
-        compatible = READ_COMMANDS | {"steer", "follow_up", "clear_queue", "abort_bash", "ui_response", "terminal_create", "terminal_input", "terminal_resize", "terminal_close"}
+        compatible = READ_COMMANDS | {"steer", "follow_up", "clear_queue", "abort_bash", "ui_response", "terminal_create", "terminal_input", "terminal_resize", "terminal_close", "model_set", "thinking_set", "skills_reload"}
         if command not in compatible and PiControl.objects.filter(session=session, generation=session.generation,
                 status__in=["prepared", "queued", "accepted"]).exists():
             raise AiError("原工作区控制尚未完成，请观察原回执", "pi_control_active", 409)
         operation = _operation(session)
+        if command in {"session_new", "session_switch", "session_fork", "session_clone"}:
+            pi_native.history_preflight(session)
+        if operation and command not in {"clear_queue", "abort_bash", "ui_response", "terminal_close", "pause"}:
+            pi_native.authorize(operation, kind="workspace", name=command, lock=True)
         active = operation and operation.status in service.ACTIVE
         if command == "pause" and active:
             raise AiError("暂停环境需要先停止当前操作并确认终态", "pi_operation_active", 409)
@@ -542,6 +579,7 @@ def control(session_id, body, principal):
             if not request:
                 raise AiError("交互请求不存在或已过期", "pi_ui_expired", 409)
             request_kind = json.loads(request.request_json).get("method")
+            pi_native.validate_questionnaire_answer(request, payload)
             if "cancelled" not in payload and ((request_kind == "confirm" and "confirmed" not in payload)
                     or (request_kind in {"select", "input", "editor"} and "value" not in payload)):
                 raise AiError("交互回复类型与请求不匹配")
@@ -596,8 +634,7 @@ def control(session_id, body, principal):
             selected_model = configuration.resolve_model(payload["modelId"])
             opts = options(selected_model)
             from .pi_worker import gateway_capability
-            payload = {"model": {"id": selected_model.id, "modelName": "operation-model", "contextWindow": opts["contextWindowTokens"],
-                "maxTokens": selected_model.max_tokens, "reasoning": selected_model.reasoning_mode != "disabled"}, "gateway": gateway_capability(operation)}
+            payload = {"model": pi_native.model_binding(selected_model, workspace.thinking_level), "gateway": gateway_capability(operation)}
         if command in {"research_search", "research_read"}:
             from .pi_research import execute_public_research
             action = "search" if command == "research_search" else "read"
@@ -634,6 +671,7 @@ def control(session_id, body, principal):
                     raise
             from .pi_worker import identity
             runner_sent = True
+            payload = {**payload, "admission": pi_native.admission(operation)}
             response = pi_transport.command({**identity(operation), "command": "workspace", "payload": {"action": "control",
                 "controlId": row.id, "controlSeq": row.control_seq, "command": "resource_install" if command == "dependency_install" else command, "payload": payload}})
             receipt = response.get("control", response.get("workspace", {}).get("control"))
@@ -654,6 +692,8 @@ def control(session_id, body, principal):
             if response:
                 ingest(current, workspace, operation, response, snapshot=workspace.control_seq == row.control_seq)
             if row.status in {"handled", "completed"}:
+                if command == "clear_queue":
+                    pi_native.clear_agent_queue(current)
                 if command == "pause": workspace.status = "paused"
                 if command == "wake": workspace.status = "ready"
                 workspace.save()
@@ -665,7 +705,8 @@ def control(session_id, body, principal):
         with mutation():
             row.refresh_from_db()
             if row.status not in {"completed", "handled", "failed"}:
-                known_unsent = not runner_sent and environment_known and not activity_uncertain and command not in {"reset", "upgrade"}
+                known_upgrade = getattr(error, "code", "") == "workspace_native_image_upgrade_required"
+                known_unsent = known_upgrade or not runner_sent and environment_known and not activity_uncertain and command not in {"reset", "upgrade"}
                 row.status, row.error_code, row.updated_at = "failed" if known_unsent else "unknown", getattr(error, "code", "pi_control_unknown"), timezone.now()
                 row.save(update_fields=["status", "error_code", "updated_at"])
                 if not known_unsent:
@@ -673,7 +714,10 @@ def control(session_id, body, principal):
                 locked = PiSession.objects.select_for_update().get(pk=row.session_id)
                 service.event(locked, "workspace_control_unknown" if not known_unsent else "workspace_control_failed",
                     {"controlId": row.id, "command": row.command, "status": row.status, "code": row.error_code}, row.operation)
-        if initialize and (runner_sent or not environment_known or activity_uncertain):
+        if initialize and getattr(error, "code", "") == "workspace_native_image_upgrade_required":
+            from .pi_worker import fail_before_prompt
+            fail_before_prompt(operation, error)
+        elif initialize and (runner_sent or not environment_known or activity_uncertain):
             from .pi_gateway import freeze
             freeze(operation, getattr(error, "code", "pi_control_unknown"))
         elif initialize:
@@ -687,6 +731,9 @@ def _rotate(row, session, workspace, operation, principal):
     from . import pi_worker
     # No active/unknown operation or unresolved control can be bypassed by a
     # new generation. The old named volume remains audit evidence.
+    with mutation(principal):
+        from .pi_native import rotate_root_environment
+        rotate_root_environment(service.get_session(session.id, principal, lock=True))
     if operation:
         pi_worker.dispose_environment(operation)
     with mutation(principal):

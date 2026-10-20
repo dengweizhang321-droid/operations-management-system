@@ -163,4 +163,7 @@ PI_TABLES = ("ai_pi_sessions", "ai_pi_operations", "ai_pi_dispatches", "ai_pi_ev
 PI_WORKSPACE_TABLES = ("ai_pi_workspaces", "ai_pi_controls", "ai_pi_ui_requests")
 PI_BUSINESS_TABLES = ("ai_pi_business_intents", "ai_pi_business_actions", "ai_pi_business_audits")
 AI_TABLES_PRE_PI_BUSINESS = (*AI_TABLES_PRE_PI_RUNTIME, *PI_TABLES, *PI_WORKSPACE_TABLES)
-AI_TABLES = (*AI_TABLES_PRE_PI_BUSINESS, *PI_BUSINESS_TABLES)
+AI_TABLES_PRE_PI_NATIVE = (*AI_TABLES_PRE_PI_BUSINESS, *PI_BUSINESS_TABLES)
+PI_NATIVE_TABLES = ("ai_pi_native_states", "ai_pi_agents", "ai_pi_plan_revisions", "ai_pi_agent_messages",
+    "ai_pi_agent_waits", "ai_pi_file_handoffs", "ai_pi_business_delegations")
+AI_TABLES = (*AI_TABLES_PRE_PI_NATIVE, *PI_NATIVE_TABLES)

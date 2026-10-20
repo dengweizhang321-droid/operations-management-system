@@ -17,6 +17,12 @@ PORT = 8123
 MAX_RESPONSE = 13 * 1024 * 1024
 
 
+class NativeImageUpgradeRequired(AiError):
+    """The signed Runner refused before starting a legacy container."""
+    def __init__(self):
+        super().__init__("此保留环境需要先升级原生能力镜像，历史与文件已保留", "workspace_native_image_upgrade_required", 409)
+
+
 def secret():
     path = os.getenv("PI_RUNNER_HMAC_KEY_FILE", "")
     if path:
@@ -56,11 +62,16 @@ def command(value):
             "X-Nonce": nonce, "X-Signature": signature(key, stamp, nonce, raw)})
         reply = conn.getresponse()
         body = reply.read(MAX_RESPONSE + 1)
-        if (reply.status != 200 or len(body) > MAX_RESPONSE
+        if (len(body) > MAX_RESPONSE
                 or reply.getheader("Content-Type", "").split(";")[0] != "application/json"
                 or not hmac.compare_digest(reply.getheader("X-Signature", ""), signature(key, stamp, nonce, body, "response"))):
             raise AiError("PiRunner 响应未知，禁止重发", "pi_runner_unknown", 503)
         result = json.loads(body)
+        if reply.status == 400 and result == {"error": "workspace_native_image_upgrade_required"} and (
+                value.get("command") == "create" or value.get("command") == "workspace" and value.get("payload", {}).get("command") == "wake"):
+            raise NativeImageUpgradeRequired()
+        if reply.status != 200:
+            raise AiError("PiRunner 响应未知，禁止重发", "pi_runner_unknown", 503)
         for field in ("operationId", "ownerId", "conversationId", "epoch", "generation", "seq"):
             if result.get(field) != value[field]:
                 raise AiError("PiRunner 响应身份不匹配", "pi_runner_unknown", 503)

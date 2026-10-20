@@ -47,9 +47,9 @@ def inspect_tables(cursor, tables=TABLES):
     return result
 
 
-def verify_catalog(cursor, *, installed=True, permissions=True, business=False):
+def verify_catalog(cursor, *, installed=True, permissions=True, business=False, native=False):
     import pi_agent_catalog as parent
-    parent.verify_catalog(cursor, installed=True, permissions=permissions, workspace=installed, business=business)
+    parent.verify_catalog(cursor, installed=True, permissions=permissions, workspace=installed, business=business, native=native)
     cursor.execute("SELECT relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND relname=ANY(%s) AND relkind IN ('r','p','v','m','f') ORDER BY relname", [list(TABLES)])
     if [row[0] for row in cursor.fetchall()] != (list(TABLES) if installed else []):
         raise ValueError("Pi151 workspace tables absent, partial, extra or unrecorded")

@@ -10,6 +10,7 @@ import {continueFirstMaintenance,isFirstMaintenancePredecessor,continuePiMainten
 
 export const piWorkspaceImage='sha256:ab4ee452bfc6f66dedac6e874dec7ed492b687d24f217c75e80fc9535a26bbb2';
 export const piBusinessImage='sha256:4466957e80e75b04fedc888029defa897d9d1b26173a3228558ccdadf169486f';
+export const piNativeImage='sha256:87e41e7e4d646d779eba8b552a213d5356c4afa935d42dbb618d19fab7e15956';
 function verifyPiUpgrade(record,expectedImage=piWorkspaceImage){assert.equal(record?.prepared,true,'缺少已准备Pi Runner升级');assert.equal(record?.started,false,'准备不能启动Runner');assert.match(record.registeredPlanSha256??'',/^[a-f0-9]{64}$/);assert.match(record.sourceSha256??'',/^[a-f0-9]{64}$/);assert.equal(record.image,expectedImage,'Runner升级镜像与本次交付不一致');return record;}
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const exists=async file=>{try{await fs.access(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};
@@ -49,8 +50,8 @@ export async function publishPreparedMain(request,context){
  const deployOnly=context.deployOnly??!context.prepareOnly;
  const components=preparedComponents(request);
  const schema=schemaForRequest(request);
- const piUpgradeRequired=['PiWorkspace','PiBusiness'].includes(schema?.additionKind);
- const piUpgradeImage=schema?.additionKind==='PiBusiness'?piBusinessImage:piWorkspaceImage;
+ const piUpgradeRequired=['PiWorkspace','PiBusiness','PiNative'].includes(schema?.additionKind);
+ const piUpgradeImage=schema?.additionKind==='PiNative'?piNativeImage:schema?.additionKind==='PiBusiness'?piBusinessImage:piWorkspaceImage;
  const {source,out,api,rotation,transport}=context;
  const progress=context.progress??noProgress;
  const installed=context.installedRoot??'D:/teruisi-runtime/django-sales/app';
@@ -171,7 +172,7 @@ export async function publishPreparedMain(request,context){
     djangoExpected=await sha(path.join(path.dirname(installed),'app.deploy-'+pkg.id,'deployment.json'));
    }
     if(piUpgradeRequired){
-     piRunnerUpgrade=verifyPiUpgrade(await step('准备Pi Runner升级',path.join(source,'tools/django-ai.ps1'),'PreparePiUpgrade',['-PiImage',piUpgradeImage,...(schema.additionKind==='PiBusiness'?['-PiSkillVersion','1.2.0']:[]),'-PiPreparedAppId',pkg.id,'-PiPreparedAppSha256',pkg.receiptSha256],{directory:preparationOut}),piUpgradeImage);
+     piRunnerUpgrade=verifyPiUpgrade(await step('准备Pi Runner升级',path.join(source,'tools/django-ai.ps1'),'PreparePiUpgrade',['-PiImage',piUpgradeImage,...(schema.additionKind==='PiNative'?['-PiSkillVersion','1.3.0']:schema.additionKind==='PiBusiness'?['-PiSkillVersion','1.2.0']:[]),'-PiPreparedAppId',pkg.id,'-PiPreparedAppSha256',pkg.receiptSha256],{directory:preparationOut}),piUpgradeImage);
     }
     assert.deepEqual(await sourceIdentity(),identity,'打包期间源码变化');
     assert.deepEqual((await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true})).head,before.head,'准备期间Worker前驱改变');
@@ -264,7 +265,7 @@ export async function publishPreparedMain(request,context){
     assert.equal(installedSchema.status,'verified');assert.equal(installedSchema.result.status,'schema_installed');assert.equal(installedSchema.result.migrationCount,schema.toGeneration);
     assert.deepEqual(installedSchema.result.steps,schema.steps);
     if(schema.additionKind==='TmallWarehouse')await step('配置天猫库存权限',path.join(installed,'tools/django-inventory-service.ps1'),'ProvisionRoles',[],{json:false});
-    if(['PiAgent','PiWorkspace','PiBusiness'].includes(schema.additionKind))await step('配置Pi运行账本权限',path.join(installed,'tools/django-ai.ps1'),'ProvisionRoles',[],{json:false});
+    if(['PiAgent','PiWorkspace','PiBusiness','PiNative'].includes(schema.additionKind))await step('配置Pi运行账本权限',path.join(installed,'tools/django-ai.ps1'),'ProvisionRoles',[],{json:false});
     const finalized=await step('完成结构迁移',path.join(installed,'tools/bi-app-adopt.ps1'),'Finalize',adoption,{addJson:false});
     assert.equal(finalized.status,'verified');assert.equal(finalized.result.status,'verified');assert.equal(finalized.result.migrationCount,schema.toGeneration);assert.deepEqual(finalized.result.steps,schema.steps);
     schemaReceipt={operationId,maintenanceId,release:schema,installed:installedSchema,finalized};

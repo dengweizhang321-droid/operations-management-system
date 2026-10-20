@@ -84,3 +84,21 @@
 .ai-pi-business-choice { margin: 8px 0; padding: 8px 10px; border: 1px solid var(--border-color, #dce0e6); border-radius: 8px; font-size: 12px; }
 .ai-pi-business-choice p { margin: 0 0 6px; color: var(--text-secondary, #64748b); }
 .ai-pi-business-choice label { display: inline-flex; align-items: center; gap: 4px; margin-right: 12px; }
+.ai-pi-native-section fieldset,.ai-pi-questionnaire fieldset { border:1px solid var(--color-border-default); border-radius:6px; margin:10px 0; padding:10px; min-width:0; }
+.ai-pi-native-section fieldset>label:has(textarea),.ai-pi-native-section>details>label { display:block; margin:8px 0; }
+.ai-pi-native-section textarea { display:block; width:100%; min-height:65px; max-height:200px; resize:vertical; box-sizing:border-box; }
+.ai-pi-native-section article,.ai-pi-native-receipt { border-top:1px solid var(--color-border-default); padding:8px 0; }
+.ai-pi-native-confirm { border:1px solid var(--color-brand); border-radius:6px; padding:12px; margin:8px 0; }
+.ai-pi-agent-tree,.ai-pi-agent-tree ul,.ai-pi-history-tree ul { list-style:none; margin:6px 0; padding-left:18px; border-left:1px solid var(--color-border-default); }
+.ai-pi-agent-tree button { text-align:left; margin:3px 0; }
+.ai-pi-agent-tree button span,.ai-pi-agent-tree button small { display:block; color:var(--color-text-muted); font-size:11px; margin-top:3px; }
+.ai-pi-agent-tree .is-selected,.ai-pi-agent-tree button[aria-pressed=true] { border-color:var(--color-brand); color:var(--color-brand); }
+.ai-pi-history-tree li { padding:5px 0; overflow-wrap:anywhere; }
+.ai-pi-history-tree button { margin-left:8px; }
+.ai-pi-history-tree .is-current>span { color:var(--color-brand); }
+.ai-pi-questionnaire { max-height:55vh; overflow:auto; flex-shrink:0; }
+.ai-pi-question-option { display:flex; gap:8px; align-items:flex-start; margin:10px 0; }
+.ai-pi-question-option>input { margin-top:3px; }
+.ai-pi-question-option>span { flex:1; min-width:0; }
+.ai-pi-question-option small { margin-top:4px; margin-bottom:0; line-height:1.6; }
+.ai-pi-question-option textarea { min-height:65px; margin-top:6px; box-sizing:border-box; }

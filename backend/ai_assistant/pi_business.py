@@ -48,7 +48,13 @@ def intent_record(row):
 
 
 def intents(operation):
-    return [intent_record(row) for row in PiBusinessIntent.objects.filter(parent_operation=operation).order_by("action_type")]
+    from .pi_models import PiBusinessDelegation
+    original = PiBusinessIntent.objects.filter(parent_operation=operation).exclude(
+        pk__in=PiBusinessDelegation.objects.values("intent_id"))
+    delegated = PiBusinessDelegation.objects.filter(owner_operation=operation, status="active").select_related("intent")
+    return [intent_record(row) for row in original.order_by("action_type")] + [
+        {**intent_record(d.intent), "delegationVersion": d.version, "ownerOperationId": operation.id,
+            "ownerSessionId": operation.session_id} for d in delegated if d.intent.expires_at > timezone.now()]
 
 
 def action_record(row):
@@ -80,10 +86,25 @@ def _principal(action, *, effect=False):
     if not scope_covers(principal.scope, action.scope_json) or not scope_covers(json.loads(session.scope_json), action.scope_json):
         raise AiError("业务动作范围已失效", "pi_business_fenced", 403)
     if effect:
+        from . import pi_native
+        from .pi_models import PiBusinessDelegation, PiAgent
+        state = pi_native.state_for(session, lock=True)
+        if state.mode != "execute" or state.transition_status != "stable":
+            raise AiError("计划或模式切换禁止业务准入", "pi_plan_read_only", 403)
+        delegated = PiBusinessDelegation.objects.select_for_update().filter(intent_id=action.user_intent_id).first()
+        if delegated:
+            executor = PiOperation.objects.select_related("session").get(pk=delegated.owner_operation_id)
+            child = service.get_session(executor.session_id, principal)
+            if (delegated.status != "active" or delegated.admission_epoch != state.admission_epoch
+                    or executor.cancel_requested or executor.status not in {"running", "succeeded"}
+                    or (child.epoch, child.generation) != (executor.epoch, executor.generation)
+                    or child.status in {"unknown", "canceling", "frozen"}
+                    or PiAgent.objects.get(session=child).lifecycle != "open"):
+                raise AiError("原业务动作委派所有者已失效", "pi_business_delegation_revoked", 409)
         workspace = PiWorkspace.objects.filter(session_id=action.session_id, generation=action.generation).first()
         if workspace and workspace.status in {"paused", "unknown", "frozen"}:
             raise AiError("工作区已暂停或控制结果未知", "pi_business_fenced", 409)
-        if action.cancel_requested or op.cancel_requested or op.status not in {"running", "succeeded"} or session.status in {"canceling", "unknown"}:
+        if action.cancel_requested or op.cancel_requested or op.status not in ({"running", "succeeded", "failed"} if delegated else {"running", "succeeded"}) or session.status in {"canceling", "unknown"}:
             raise AiError("已停止新增业务动作；已派发效果须保留原回执", "pi_business_canceled", 409)
         if action.user_intent.expires_at <= timezone.now():
             raise AiError("用户业务意图已过期", "pi_business_intent_expired", 409)
@@ -132,12 +153,25 @@ def tool_prepare(operation, user_intent_id, tool_name, parameters, invocation_id
     invocation_id = identifier(invocation_id, "invocationId")
     binding = digest({"toolName": tool_name, "parameters": parameters})
     def admit():
-        op = PiOperation.objects.select_for_update().get(pk=operation.pk)
-        service.principal_for_work(op)
-        intent = PiBusinessIntent.objects.filter(id=identifier(user_intent_id, "userIntentId"), parent_operation=op,
-            action_type=TOOLS[tool_name], epoch=op.epoch, generation=op.generation).first()
+        executor = PiOperation.objects.select_for_update().get(pk=operation.pk)
+        service.principal_for_work(executor)
+        from .pi_models import PiBusinessDelegation
+        from . import pi_native
+        pi_native.authorize(executor, kind="business", name=tool_name, lock=True)
+        intent = PiBusinessIntent.objects.select_for_update().filter(id=identifier(user_intent_id, "userIntentId"), action_type=TOOLS[tool_name]).first()
+        delegation = PiBusinessDelegation.objects.select_for_update().filter(intent=intent).first() if intent else None
+        state = pi_native.state_for(executor.session)
+        if delegation:
+            if (delegation.owner_operation_id != executor.id or delegation.owner_session_id != executor.session_id
+                    or delegation.status != "active" or delegation.admission_epoch != state.admission_epoch):
+                raise AiError("原业务意图已绑定其他委派所有者", "pi_business_owner_conflict", 409)
+        elif intent and intent.parent_operation_id != executor.id:
+            raise AiError("业务意图不属于此代理", "access_denied", 403)
+        op = PiOperation.objects.get(pk=intent.parent_operation_id) if intent else executor
         if not intent or intent.expires_at <= timezone.now() or intent.user_message_digest != digest(json.loads(op.payload_json).get("message", "")):
             raise AiError("缺少当前用户明确授予的业务意图", "pi_business_intent_required", 403)
+        if intent.owner_email != executor.session.owner_email or not scope_covers(json.loads(executor.scope_json), intent.scope_json):
+            raise AiError("委派范围超出原业务意图", "access_denied", 403)
         old = PiBusinessAction.objects.select_for_update().filter(pk=intent.action_id).first()
         if old:
             if old.request_digest != binding:
@@ -169,13 +203,16 @@ def tool_prepare(operation, user_intent_id, tool_name, parameters, invocation_id
             scope_json=op.scope_json, epoch=op.epoch, generation=op.generation, request_digest=binding,
             parameters_json=canonical(prepared["parameters"]), preview_json=canonical(preview), preview_digest=digest(preview),
             target_version=str(prepared["targetVersion"]), confirmation_expires_at=intent.expires_at)
-        _audit(action, "prepared", {"invocationId": invocation_id, "requestDigest": binding, "previewDigest": action.preview_digest})
+        _audit(action, "prepared", {"invocationId": invocation_id, "requestDigest": binding, "previewDigest": action.preview_digest,
+            "executorOperationId": operation.id, "executorSessionId": operation.session_id})
         return {"action": action_record(action), "replayed": False}
 
 
 def tool_status(operation, action_id):
     principal = service.principal_for_work(operation)
-    row = _owned(operation.session_id, action_id, principal)
+    from .pi_models import PiBusinessDelegation
+    delegation = PiBusinessDelegation.objects.filter(owner_operation=operation, intent__action_id=action_id, status="active").select_related("intent").first()
+    row = _owned(delegation.intent.session_id if delegation else operation.session_id, action_id, principal)
     return {"action": action_record(row)}
 
 

@@ -142,6 +142,7 @@ class Session:
         self.broker, self.identity, self.key = broker, {k:identity[k] for k in IDENTITY}, workspace_key(identity)
         self.container, self.volume, self.skills = container, volume, skills
         self.lock, self.write_lock = threading.RLock(), threading.Lock()
+        self.metadata_lock=threading.RLock()
         self.pending, self.active, self.proc, self.gateway = {}, None, None, None
         self.phase, self.error, self.files = 'creating', None, []
         self.revoked, self.before_files = False, {}
@@ -153,15 +154,19 @@ class Session:
         self.settled_event_seq=None;self.prompt_response_seq=None
         self.terminals={};self.ui_pending={};self.queued_controls={};self.bash_runs={}
         self.image=broker.image
+        self.local_calls={}
+        self.pending_model_gateways={}
 
     def start(self):
+        meta=decode(self.broker.docker_command(['image','inspect',self.image],maximum=128000))[0]
+        self.native_capabilities=meta.get('Config',{}).get('Labels',{}).get('teruisi.pi.native-capabilities')=='1'
+        if not self.native_capabilities:raise ValueError('workspace_native_image_upgrade_required')
         self.proc = self.broker.popen(['start','--attach','--interactive',self.container])
         threading.Thread(target=self.read,daemon=True).start()
         # stderr is drained, bounded and discarded; never persisted as evidence.
         threading.Thread(target=self.drain_stderr,daemon=True).start()
         from .workspace import value_get, register_session
         bootstrap={'type':'runner_init','skillVersion':self.skill_version,'skillIds':[s['id'] for s in self.skills]}
-        meta=decode(self.broker.docker_command(['image','inspect',self.image],maximum=128000))[0]
         self.workspace_version=meta.get('Config',{}).get('Labels',{}).get('teruisi.pi.workspace')
         if self.workspace_version=='2':bootstrap['sessionId']=value_get(self,'currentSessionId','conversation')
         self.write(bootstrap)
@@ -172,9 +177,11 @@ class Session:
             if not self.rpc(*command).get('success'):
                 raise ValueError('pi_settings_rejected')
         commands = self.rpc('get_commands',{}).get('data',{}).get('commands',[])
+        catalog=self.rpc('prompt',{'message':'/runner-catalog'})
+        if not catalog.get('success') or catalog.get('data',{}).get('disposition')!='handled':raise ValueError('skill_catalog_unavailable')
         found = {x.get('name') for x in commands if x.get('source')=='skill'}
-        if found != {'skill:'+x['id'] for x in self.skills}:
-            raise ValueError('skill_discovery_failed')
+        discovered=getattr(self,'skills_catalog',{}).get('selected',[])
+        if found != {'skill:'+x['name'] for x in discovered}:raise ValueError('skill_discovery_failed')
         for command in commands:
             if command.get('source')=='skill' and not command.get('sourceInfo',{}).get('path','').startswith('/opt/pi/skill-bundles/'+self.skill_version+'/'):
                 raise ValueError('skill_source_mismatch')
@@ -308,23 +315,43 @@ class Session:
             self.fail('rpc_protocol_unknown')
         finally:proc.stdout.close()
 
-    def bind(self, gateway, model=None):
+    def bind(self, gateway, model=None, admission=None):
+        with self.metadata_lock:return self._bind(gateway,model,admission)
+
+    def _bind(self, gateway, model=None, admission=None):
         if not isinstance(gateway,dict) or set(gateway)!={'url','capability'} or gateway['url']!=self.broker.gateway_url:
             raise ValueError('invalid_gateway_binding')
         if not isinstance(gateway['capability'],str) or not 16<=len(gateway['capability'])<=4096:
             raise ValueError('invalid_capability')
-        self.gateway=gateway
+        from .admission import install, check
+        if admission is not None:install(self,admission)
+        fence=check(self)
         if model is None:model=getattr(self,'model',None)
         if not isinstance(model,dict) or any(type(model.get(k)) is not int or model[k]<1 for k in ['contextWindow','maxTokens']) or type(model.get('reasoning')) is not bool:
             raise ValueError('model_metadata_required')
-        self.model={k:model[k] for k in ['contextWindow','maxTokens','reasoning']}
-        arg=base64.b64encode(encode({'capability':gateway['capability'],'model':self.model})).decode()
+        projected={k:model[k] for k in ['contextWindow','maxTokens','reasoning']}
+        supported=model.get('supportedThinkingLevels')
+        if supported is not None and (not isinstance(supported,list) or not supported or any(x not in {'off','minimal','low','medium','high','xhigh','max'} for x in supported)):
+            raise ValueError('invalid_thinking_levels')
+        requested=model.get('thinkingLevel') or None
+        if requested is not None and (supported is None or requested not in supported):raise ValueError('unsupported_thinking_level')
+        if supported is not None:
+            previous=getattr(self,'pi_state',{}).get('thinkingLevel')
+            if requested is None and getattr(self,'effective_model',None) and previous and previous not in supported:raise ValueError('thinking_level_requires_explicit_change')
+            if requested is None:requested=previous if previous in supported else supported[-1]
+            projected['thinkingLevelMap']={level:level if level in supported else None for level in ['off','minimal','low','medium','high','xhigh','max']}
+        self.model=projected;self.gateway=gateway;self.provider_thinking_levels=supported
+        arg=base64.b64encode(encode({'capability':gateway['capability'],'model':self.model,'admission':fence,'thinkingLevel':requested})).decode()
         response=self.rpc('prompt',{'message':'/runner-bind '+arg})
         if not response.get('success') or response.get('data',{}).get('disposition')!='handled':
             raise ValueError('capability_bind_failed')
         effective=self.rpc('get_state',{}).get('data',{}).get('model',{})
         if any(effective.get(k)!=v for k,v in self.model.items()):raise ValueError('model_metadata_not_effective')
-        self.effective_model={k:effective[k] for k in self.model}
+        self.effective_model={k:effective[k] for k in ['contextWindow','maxTokens','reasoning']}
+        if self.provider_thinking_levels is not None:self.effective_model['supportedThinkingLevels']=self.provider_thinking_levels
+        from .workspace import register_session
+        actual=register_session(self)
+        if requested is not None and actual.get('thinkingLevel')!=requested:raise ValueError('thinking_readback_unknown')
 
     def gateway_call(self, record):
         job = self.active
@@ -335,13 +362,17 @@ class Session:
             payload=decode(record.get('placeholder',''))
             if not isinstance(payload,dict) or payload.get('capability')!=self.gateway['capability']:
                 raise ValueError('capability_mismatch')
-            if payload.get('kind') not in {'model','tool','file'} or not re.fullmatch(r'[a-f0-9-]{36}',payload.get('requestId','')):
+            if payload.get('kind') not in {'model','tool','file','admission'} or not re.fullmatch(r'[a-f0-9-]{36}',payload.get('requestId','')):
                 raise ValueError('invalid_gateway_request')
             allowed={'model':{'kind','model','messages','tools','options','requestId','capability'},
                      'tool':{'kind','name','args','requestId','capability'},
-                     'file':{'kind','fileId','requestId','capability'}}[payload['kind']]
-            if set(payload)-allowed:
+                     'file':{'kind','fileId','requestId','capability'},
+                     'admission':{'kind','name','args','requestId','capability'}}[payload['kind']]
+            if set(payload)-(allowed|{'admission','toolCallId'}):
                 raise ValueError('invalid_gateway_request')
+            from .admission import check
+            completion=payload['kind']=='admission' and payload.get('name')=='local_complete'
+            if not completion:check(self,payload.get('admission'))
             wire={**{k:job[k] for k in IDENTITY},**payload}
             raw=encode(wire)
             digest=hashlib.sha256(raw).hexdigest()
@@ -360,6 +391,10 @@ class Session:
                 except queue.Empty:continue
             if self.active is not job or self.revoked:
                 raise ValueError('operation_revoked')
+            if payload['kind']=='admission' and not response.get('error'):
+                args=payload.get('args',{})
+                if payload.get('name')=='local_admit':self.local_calls[args['toolCallId']]={'toolName':args['toolName'],'admission':payload['admission']}
+                elif completion:self.local_calls.pop(args.get('toolCallId'),None)
             if payload['kind']=='file':
                 file=response.get('file',response)
                 if file.get('id',payload['fileId'])!=payload['fileId']:
@@ -400,6 +435,10 @@ class Session:
         self.revoked=True
         self.last_activity=time.monotonic()
         self.broker.save_session(self)
+        if self.phase in {'settled','aborted','failed'}:
+            from .workspace import apply_pending
+            try:apply_pending(self)
+            except Exception:self.fail('pending_control_unknown')
 
     def snapshot(self, after=0, operation_id=None):
         if type(after) is not int or after<0:
@@ -479,6 +518,8 @@ class Broker:
                 if getattr(session,'workspace_maintenance',False):continue
                 if session.phase in {'disposed','unknown','frozen','stopped','updating','creating'} or session.proc is None:continue
                 try:
+                    from .workspace import value_get, apply_pending
+                    if any(value_get(session,key) for key in ('pendingModel','pendingThinking','pendingSkillsReload')):apply_pending(session)
                     quota=self.transfer(session,{'action':'quota','bytes':self.limits['workspaceBytes'],'files':self.limits['workspaceFiles']})
                     if quota['exceeded']:
                         session.revoked=True
@@ -745,7 +786,7 @@ print(json.dumps(result))
                 selected=job['payload'].get('skillIds',[s['id'] for s in existing.skills])
                 version=job['payload'].get('skillVersion',getattr(existing,'skill_version','1.0.0'))
                 self.update_skills(existing,version,selected)
-                existing.bind(job['payload']['gateway'],job['payload'].get('model'))
+                existing.bind(job['payload']['gateway'],job['payload'].get('model'),job['payload'].get('admission'))
                 return existing
             with self.ledger.lock:
                 previous=self.ledger.db.execute('SELECT identity,status,workspace,seq FROM sessions').fetchall()
@@ -784,6 +825,8 @@ print(json.dumps(result))
             if not isinstance(selected,list) or len(set(selected))!=len(selected) or not set(selected).issubset({s['id'] for s in manifest['skills']}):raise ValueError('invalid_skill_selection')
             session=Session(self,job,name,volume,[s for s in manifest['skills'] if s['id'] in selected])
             session.skill_version=version
+            from .admission import install
+            install(session,job['payload'].get('admission'))
             session.image=restore_image
             session.last_seq=restore_seq
             self.sessions[key]=session;self.save_session(session)
@@ -808,13 +851,16 @@ print(json.dumps(result))
             session.fail('session_create_unknown')
             raise
 
-    def update_skills(self,session,version,selected):
+    def update_skills(self,session,version,selected,force=False):
         if session.phase not in {'idle','settled','handled','aborted','failed'}:raise ValueError('skill_update_while_busy')
         manifest=self.skill_bundles.get(version)
         if not manifest:raise ValueError('skill_version_unavailable')
         if validate_manifest(self.transfer(session,{'action':'manifest','version':version}))!=manifest:raise ValueError('image_skill_bundle_changed')
         if not isinstance(selected,list) or len(set(selected))!=len(selected) or not set(selected).issubset({s['id'] for s in manifest['skills']}):raise ValueError('invalid_skill_selection')
-        if version==getattr(session,'skill_version','1.0.0') and set(selected)=={s['id'] for s in session.skills}:return
+        if not force and version==getattr(session,'skill_version','1.0.0') and set(selected)=={s['id'] for s in session.skills}:return
+        if self.workspace_active(session) and not force:raise ValueError('skill_update_while_busy')
+        if any(t.status in {'starting','running'} for t in session.terminals.values()) or getattr(session,'bash_control',None):raise ValueError('skill_update_while_busy')
+        if set(self.process_inventory(session))-set(getattr(session,'baseline_processes',[])):raise ValueError('skill_update_while_busy')
         session.phase='updating'
         old=session.proc;session.proc=None
         old.stdin.close()
@@ -825,6 +871,10 @@ print(json.dumps(result))
         session.skill_version=version
         self.save_session(session)
         session.start()
+        if session.gateway and getattr(session,'model',None):
+            metadata={**session.model,'supportedThinkingLevels':getattr(session,'provider_thinking_levels',None)}
+            if metadata['supportedThinkingLevels'] is None:metadata.pop('supportedThinkingLevels')
+            session.bind(session.gateway,metadata)
         session.phase='idle'
 
     def execute(self,job):
@@ -850,22 +900,28 @@ print(json.dumps(result))
                 if session is None:raise ValueError('session_unavailable')
                 if session.active and session.active['operationId']!=job['operationId'] and command not in {'skills','dispose','prompt'}:raise ValueError('operation_mismatch')
             if command=='prompt':
-                if set(payload)-{'message','gateway','files','skillIds','skillVersion','model','timeoutMs'} or not isinstance(payload.get('message'),str) or not 1<=len(payload['message'].encode())<=262144:raise ValueError('invalid_prompt')
+                if set(payload)-{'message','gateway','files','skillIds','skillVersion','model','timeoutMs','admission'} or not isinstance(payload.get('message'),str) or not 1<=len(payload['message'].encode())<=262144:raise ValueError('invalid_prompt')
                 timeout=payload.get('timeoutMs')
                 if type(timeout) is not int or not 1<=timeout<=9007199254740991:raise ValueError('operation_timeout_required')
                 if payload['message'].lstrip().startswith(('/runner-bind','/reload')):raise ValueError('reserved_command')
-                with session.lock:
-                    if session.phase not in {'idle','settled','handled','aborted','failed'}:raise ValueError('session_busy_or_unknown')
-                    if job['seq']<=session.last_seq:raise ValueError('stale_sequence')
-                    session.phase='dispatching';session.error=None;session.files=[];session.revoked=False
-                    session.last_activity=time.monotonic()
-                    session.deadline=session.last_activity+timeout/1000
-                    session.files_collected=False;session.terminal_receipt=None;session.settled_event_seq=None;session.prompt_response_seq=None
-                    session.active=job;session.last_seq=job['seq']
-                    # Persist the new operation fence before capability binding,
-                    # file ingress, or any Pi command can have an effect.
-                    self.save_session(session)
-                session.bind(payload['gateway'],payload.get('model'))
+                from .admission import install, check
+                install(session,payload.get('admission'))
+                if check(session)['mode']=='switching':raise ValueError('mode_switching')
+                from .workspace import apply_pending
+                with session.metadata_lock:
+                    apply_pending(session)
+                    with session.lock:
+                        if session.phase not in {'idle','settled','handled','aborted','failed'}:raise ValueError('session_busy_or_unknown')
+                        if job['seq']<=session.last_seq:raise ValueError('stale_sequence')
+                        session.phase='dispatching';session.error=None;session.files=[];session.revoked=False
+                        session.last_activity=time.monotonic()
+                        session.deadline=session.last_activity+timeout/1000
+                        session.files_collected=False;session.terminal_receipt=None;session.settled_event_seq=None;session.prompt_response_seq=None
+                        session.active=job;session.last_seq=job['seq']
+                        # Persist the new operation fence before capability binding,
+                        # file ingress, or any Pi command can have an effect.
+                        self.save_session(session)
+                session.bind(payload['gateway'],payload.get('model'),payload.get('admission'))
                 before=self.transfer(session,{'action':'export'})
                 session.before_files={f['fileName']:f['sha256'] for f in before['files']}
                 imported=self.transfer(session,{'action':'import','files':payload.get('files',[])})
@@ -926,7 +982,8 @@ print(json.dumps(result))
         except Exception as error:
             rejected={'session_busy','session_busy_or_unknown','skill_update_while_busy','stale_sequence','operation_mismatch','operation_not_terminal',
                       'invalid_prompt','reserved_command','invalid_skill_update','invalid_skill_selection','session_limit','session_unavailable',
-                      'unresolved_previous_session','invalid_gateway_response','gateway_request_unavailable','gateway_response_changed'}
+                      'unresolved_previous_session','invalid_gateway_response','gateway_request_unavailable','gateway_response_changed',
+                      'admission_required','invalid_admission','stale_admission','admission_epoch_changed','admission_root_changed','plan_execution_forbidden','mode_switching','workspace_native_image_upgrade_required'}
             known=isinstance(error,ValueError) and str(error) in rejected
             if command not in {'state','gateway_response'}:
                 self.ledger.finish(job,{'error':str(error) if known else 'command_outcome_unknown'},'rejected' if known else 'unknown')

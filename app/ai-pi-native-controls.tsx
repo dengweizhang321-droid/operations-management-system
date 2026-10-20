@@ -1,0 +1,65 @@
+"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
+
+export type PiPlan = { goal: string; constraints: string[]; steps: string[]; deliverables: string[]; openQuestions: string[] };
+export type PiAgent = { id: string; sessionId: string; parentSessionId?: string | null; title?: string; status: string; activeOperationId?: string | null; modelId?: string; thinkingLevel?: string; messages?: Record<string, unknown>[]; handoffs?: Record<string, unknown>[]; waits?: Record<string, unknown>[] };
+export type PiNative = {
+  rootSessionId: string; parentSessionId?: string | null; mode: "execute" | "plan"; targetMode?: string; transitionStatus: string;
+  modeRevision: number; admissionEpoch: number; treeVersion: number; planRevision: number; plan?: PiPlan;
+  agents: PiAgent[]; waits?: Record<string, unknown>[]; messages?: Record<string, unknown>[]; handoffs?: Record<string, unknown>[];
+  planHistory?: { revision: number; plan: PiPlan; createdAt: string }[]; scopeSha256?: string;
+  thinking?: { requested?: string; effective?: string; pending?: string | { level?: string; controlId?: string } | null; supported?: string[] };
+};
+export type PiSubmit = (command: string, payload?: Record<string, unknown>, draft?: string) => Promise<boolean>;
+const emptyPlan: PiPlan = { goal: "", constraints: [], steps: [], deliverables: [], openQuestions: [] };
+const names: Record<string, string> = { running: "执行中", queued: "排队中", waiting: "等待中", idle: "就绪", succeeded: "已完成", completed: "已完成", canceled: "已取消", cancelled: "已取消", closed: "已关闭", unknown: "结果待核实", failed: "失败", accepted: "已受理", consumed: "已消费", delivered: "已投递", pending: "待处理", registered: "已登记" };
+export const piNativeLabel = (status: string) => names[status] ?? status;
+
+export default function AiPiNativeControls({ native, sessionId, disabled, submit, target, onTarget, files }: { native?: PiNative; sessionId: string; disabled: boolean; submit: PiSubmit; target: string; onTarget: (value: string) => void; files: { id: string; fileName: string }[] }) {
+  const [plan, setPlan] = useState<PiPlan>(emptyPlan);
+  const [baseRevision, setBaseRevision] = useState<number | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [approve, setApprove] = useState(false);
+  const [task, setTask] = useState("");
+  const [context, setContext] = useState("");
+  const [message, setMessage] = useState("");
+  const [waitIds, setWaitIds] = useState<string[]>([]);
+  const [dependencies, setDependencies] = useState<string[]>([]);
+  const [fileIds, setFileIds] = useState<string[]>([]);
+  useEffect(() => { setDirty(false); setBaseRevision(null); setApprove(false); onTarget(""); setWaitIds([]); setDependencies([]); }, [sessionId, onTarget]);
+  useEffect(() => {
+    if (!native || dirty) return;
+    setPlan(native.plan ?? emptyPlan); setBaseRevision(native.planRevision);
+  }, [native, dirty]);
+  useEffect(() => { setApprove(false); }, [native?.modeRevision, native?.treeVersion, native?.planRevision]);
+  if (!native) return null;
+  const selected = native.agents.find(agent => agent.id === target);
+  const stale = baseRevision !== native.planRevision;
+  const children = native.agents.filter(agent => agent.sessionId !== native.rootSessionId);
+  const seen = new Set<string>();
+  const renderTree = (parent: string, depth = 0): ReactNode => native.agents.filter(agent => agent.parentSessionId === parent).map(agent => {
+    if (seen.has(agent.id) || depth > 12) return null;
+    seen.add(agent.id);
+    return <li key={agent.id}><button type="button" className={target === agent.id ? "is-selected" : ""} onClick={() => onTarget(agent.id)} aria-pressed={target === agent.id}><strong>{agent.title || "子代理"}</strong><span>{piNativeLabel(agent.status)} · {agent.modelId || "继承模型"} · {agent.thinkingLevel || "继承强度"}</span><small>{agent.id}</small></button><ul>{renderTree(agent.sessionId, depth + 1)}</ul></li>;
+  });
+  return <>
+    <details className="ai-pi-native-section"><summary>执行模式与计划 · {native.transitionStatus !== "stable" ? `正在切换至${native.targetMode === "plan" ? "计划" : "执行"}` : native.mode === "plan" ? "计划模式" : "执行模式"} · 计划版本 {native.planRevision}</summary>
+      <p>计划模式仅允许权限内读取、固定分析和保存计划。切换时先停止全树新增执行，正在发生的操作需完成排空；未知结果会继续保留。</p>
+      <div className="ai-pi-control-row"><button type="button" disabled={disabled || native.mode === "plan" || native.transitionStatus !== "stable"} onClick={() => { void submit("mode_set", { mode: "plan", modeRevision: native.modeRevision, treeVersion: native.treeVersion }); }}>转为计划模式</button><button type="button" disabled={disabled || native.mode === "execute" || native.transitionStatus !== "stable" || !native.planRevision} onClick={() => setApprove(true)}>按当前计划转执行</button><span role="status">模式版本 {native.modeRevision} · 树版本 {native.treeVersion}</span></div>
+      {approve && <div className="ai-pi-native-confirm" role="dialog" aria-label="执行计划确认"><strong>执行计划版本 {native.planRevision}</strong><p>{native.plan?.goal}</p><p>确认执行当前计划及当前账号数据范围内的步骤。此操作不替代业务动作专用确认。</p><button type="button" disabled={disabled} onClick={() => { void submit("mode_set", { mode: "execute", planRevision: native.planRevision, modeRevision: native.modeRevision, treeVersion: native.treeVersion, ...(native.scopeSha256 ? { scopeSha256: native.scopeSha256 } : {}) }); setApprove(false); }}>确认执行此版本</button><button type="button" onClick={() => setApprove(false)}>取消</button></div>}
+      <fieldset disabled={disabled}><legend>计划草稿</legend><label>目标<textarea value={plan.goal} maxLength={20000} onChange={event => { setPlan(value => ({ ...value, goal: event.target.value })); setDirty(true); }} /></label>{([["constraints", "约束"], ["steps", "步骤"], ["deliverables", "交付物"], ["openQuestions", "待定事项"]] as const).map(([key, name]) => <label key={key}>{name}（每行一项）<textarea value={plan[key].join("\n")} maxLength={30000} onChange={event => { setPlan(value => ({ ...value, [key]: event.target.value.split("\n") })); setDirty(true); }} /></label>)}
+      {stale && dirty && <p role="alert">服务端计划已更新，当前草稿基于旧版本。请先读取最新计划再编辑。</p>}<div className="ai-pi-control-row"><button type="button" disabled={!dirty || stale || baseRevision === null || !plan.goal.trim()} onClick={() => { void submit("plan_save", { plan: { ...plan, ...Object.fromEntries((["constraints", "steps", "deliverables", "openQuestions"] as const).map(key => [key, plan[key].map(line => line.trim()).filter(Boolean)])) }, expectedRevision: baseRevision }).then(ok => { if (ok) setDirty(false); }); }}>保存新版本</button><button type="button" onClick={() => { setPlan(native.plan ?? emptyPlan); setBaseRevision(native.planRevision); setDirty(false); }}>读取最新计划</button></div></fieldset>
+      {!!native.planHistory?.length && <details><summary>计划版本历史</summary>{native.planHistory.map(version => <article key={version.revision}><strong>版本 {version.revision} · {version.createdAt}</strong><p>{version.plan.goal}</p><details><summary>查看完整计划</summary><pre>{JSON.stringify(version.plan, null, 2)}</pre></details><button type="button" disabled={disabled} onClick={() => { setPlan(version.plan); setBaseRevision(native.planRevision); setDirty(true); }}>复制为当前草稿</button></article>)}</details>}
+    </details>
+    <details className="ai-pi-native-section"><summary>协作代理 · {children.length} 个子代理</summary><p>每个子代理使用独立环境与历史；只获得明确提供的上下文、文件和原授权范围。主代理本轮结束不表示整棵树已完成。</p>
+      <div className="ai-pi-control-row"><button type="button" disabled={disabled} onClick={() => { void submit("agent_list"); }}>刷新代理树</button><label>消息目标<select value={target} onChange={event => onTarget(event.target.value)}><option value="">当前主代理</option>{children.map(agent => <option key={agent.id} value={agent.id}>{agent.title || agent.id} · {piNativeLabel(agent.status)}</option>)}</select></label></div>
+      <ul className="ai-pi-agent-tree" aria-label="代理协作树"><li><button type="button" aria-pressed={!target} onClick={() => onTarget("")}>主代理 · {native.rootSessionId === sessionId ? "当前环境" : native.rootSessionId}</button><ul>{renderTree(native.rootSessionId)}</ul></li>{children.filter(agent => !seen.has(agent.id)).map(agent => <li key={agent.id}><button type="button" onClick={() => onTarget(agent.id)}>{agent.title || agent.id} · {piNativeLabel(agent.status)}</button></li>)}</ul>
+      {selected && <section aria-label="目标代理操作"><strong>{selected.title || selected.id} · {piNativeLabel(selected.status)}</strong><textarea aria-label="代理消息" value={message} onChange={event => setMessage(event.target.value)} maxLength={32000} placeholder="发送消息或补充后续任务" /><div className="ai-pi-control-row"><button type="button" disabled={disabled || !message.trim()} onClick={() => { void submit("agent_send", { agentId: target, message: message.trim() }).then(ok => { if (ok) setMessage(""); }); }}>发送消息（不唤起）</button><button type="button" disabled={disabled || !message.trim() || selected.status === "closed"} onClick={() => { void submit("agent_follow_up", { agentId: target, message: message.trim() }).then(ok => { if (ok) setMessage(""); }); }}>续聊 / 排队</button><button type="button" disabled={disabled || ["closed", "canceled", "cancelled"].includes(selected.status)} onClick={() => { void submit("agent_cancel", { agentId: target }); }}>取消子树</button><button type="button" disabled={disabled || !["succeeded", "completed", "failed", "canceled", "cancelled", "idle"].includes(selected.status)} onClick={() => { void submit("agent_close", { agentId: target }); }}>关闭已终结资源</button></div></section>}
+      <details><summary>创建子代理</summary><label>明确任务<textarea aria-label="子代理任务" value={task} onChange={event => setTask(event.target.value)} maxLength={32000} /></label><label>传递上下文<textarea aria-label="子代理上下文" value={context} onChange={event => setContext(event.target.value)} maxLength={64000} /></label><fieldset><legend>明确交接文件</legend>{files.map(file => <label key={file.id}><input type="checkbox" checked={fileIds.includes(file.id)} onChange={() => setFileIds(ids => ids.includes(file.id) ? ids.filter(id => id !== file.id) : [...ids, file.id])} />{file.fileName}</label>)}</fieldset><fieldset><legend>依赖代理</legend>{children.map(agent => <label key={agent.id}><input type="checkbox" checked={dependencies.includes(agent.id)} onChange={() => setDependencies(ids => ids.includes(agent.id) ? ids.filter(id => id !== agent.id) : [...ids, agent.id])} />{agent.title || agent.id}</label>)}</fieldset><button type="button" disabled={disabled || !task.trim() || native.transitionStatus !== "stable"} onClick={() => { void submit("agent_spawn", { task: task.trim(), context, dependencies, fileIds }).then(ok => { if (ok) { setTask(""); setContext(""); setDependencies([]); setFileIds([]); } }); }}>创建独立子代理</button><p>默认继承当前实际模型、思考档和本轮技能快照。</p></details>
+      <fieldset><legend>持久等待集合</legend>{children.map(agent => <label key={agent.id}><input type="checkbox" checked={waitIds.includes(agent.id)} onChange={() => setWaitIds(ids => ids.includes(agent.id) ? ids.filter(id => id !== agent.id) : [...ids, agent.id])} />{agent.title || agent.id}</label>)}<button type="button" disabled={disabled || !waitIds.length} onClick={() => { void submit("agent_wait", { agentIds: waitIds, timeoutMs: 300000 }); }}>登记等待所选代理</button></fieldset>
+      {(native.waits ?? []).map((wait, index) => <div className="ai-pi-native-receipt" key={String(wait.id ?? index)}><strong>等待 · {piNativeLabel(String(wait.status ?? "pending"))}</strong><pre>{JSON.stringify(wait, null, 2)}</pre>{typeof wait.id === "string" && <button type="button" disabled={disabled} onClick={() => { void submit("agent_wait", { waitId: wait.id, ...(typeof wait.cursor === "number" ? { cursor: wait.cursor } : {}) }); }}>读取等待结果</button>}</div>)}
+      <details><summary>代理消息与交接产物</summary>{native.agents.map(agent => <section key={agent.id}><strong>{agent.title || agent.id}</strong>{(agent.messages ?? native.messages?.filter(item => item.toSessionId === agent.sessionId) ?? []).map((item, index) => <article key={String(item.id ?? index)}><small>{String(item.kind ?? "消息")} · #{String(item.seq ?? "")} · {String(item.createdAt ?? "")}</small><p>{String(item.message ?? "")}</p></article>)}{(agent.handoffs ?? native.handoffs?.filter(item => item.targetSessionId === agent.sessionId) ?? []).map((item, index) => <article key={String(item.id ?? index)}><strong>{String(item.fileName ?? "交接文件")} · {piNativeLabel(String(item.status ?? "registered"))}</strong>{typeof item.fileId === "string" && <a href={`/api/ai/pi/files/${encodeURIComponent(item.fileId)}/content`} download>读取交接文件</a>}<pre>{JSON.stringify(item, null, 2)}</pre></article>)}</section>)}</details>
+    </details>
+  </>;
+}

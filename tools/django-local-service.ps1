@@ -1765,6 +1765,29 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   if (-not [string]::IsNullOrWhiteSpace($IntegrationEvidencePath) -and (Test-Path -LiteralPath $IntegrationEvidencePath)) {
     $biEvidence = Read-JsonFile $IntegrationEvidencePath 'BI addition evidence'
   }
+  # Pi153 is a separate, finite child; no legacy execution limits are changed.
+  $piNativeGate = Join-Path $candidateRoot 'tools\pi_native_addition.py'
+  $piNativeDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('pi-native-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -ceq 'teruisi-pi-native-schema-addition-v1' -or $piNativeDeployment -or
+      (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'pi-native-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $piNativeGate -PathType Leaf)) {throw 'Pi153 requires its exact verifier'}
+    $piNativeCommand = if ($Operation -ceq 'PrepareApp') {if ($null -ne $biEvidence) {'admission'} else {'successor'}} elseif ($Operation -ceq 'DeployApp') {if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'}} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported Pi153 lifecycle operation'}
+    $piNativeArgs = @($piNativeGate,$piNativeCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if ($piNativeCommand -ceq 'admission') {$piNativeArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if ($piNativeCommand -ceq 'deployment') {$piNativeArgs += @('--operation',$IntegrationOperationId)}
+    $piNativeRun = Invoke-BoundedNativeProcess $Python $piNativeArgs $candidateRoot
+    if ($piNativeRun -isnot [pscustomobject] -or $piNativeRun.ExitCode -isnot [int] -or
+        $piNativeRun.LaunchFailed -isnot [bool] -or $piNativeRun.LaunchFailed -or
+        $piNativeRun.Diagnostic.OutputTruncated -isnot [bool] -or $piNativeRun.Diagnostic.OutputTruncated -or
+        @($piNativeRun.Output | Where-Object {$_ -is [string] -and $_.TrimStart().StartsWith('{')}).Count -ne 1) {
+      throw 'Pi153 requires one complete typed native JSON object'
+    }
+    $piNativeProof = ConvertFrom-UniqueNativeJson $piNativeRun 'Verify finite Pi153 schema addition'
+    if ($piNativeProof -isnot [pscustomobject] -or $piNativeProof.status -isnot [string] -or
+        $piNativeProof.status -cne 'verified') {throw 'Pi153 schema addition gate refused'}
+    return
+  }
   # Pi152 is a separate, finite child; no legacy execution limits are changed.
   $piBusinessGate = Join-Path $candidateRoot 'tools\pi_business_addition.py'
   $piBusinessDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
@@ -2139,6 +2162,9 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\pi_native_addition.py",
+      "tools\pi_native_catalog.py",
+      "tools\pi_native_candidate.py",
       "tools\pi_business_addition.py",
       "tools\pi_business_catalog.py",
       "tools\pi_business_candidate.py",

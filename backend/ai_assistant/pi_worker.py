@@ -23,7 +23,12 @@ def identity(op):
         "epoch": op.epoch, "generation": op.generation, "seq": op.seq}
 
 
-def runner_dispatch(op, command, payload, *, request_id=None):
+def native_admission(op):
+    from .pi_native import admission
+    return admission(op)
+
+
+def runner_dispatch(op, command, payload, *, request_id=None, terminal_control=False):
     from django.utils import timezone
     from .pi_models import PiDispatch, PiOperation
     from .pi_gateway import freeze
@@ -34,7 +39,16 @@ def runner_dispatch(op, command, payload, *, request_id=None):
     binding = digest(request)
     with mutation():
         current = PiOperation.objects.get(pk=op.pk)
-        service.principal_for(current)
+        if terminal_control:
+            from sales.auth import Principal
+            from .policy import current_principal
+            principal = current_principal(Principal(op.session.owner_email, op.session.owner_email, op.actor_role,
+                json.loads(op.scope_json)), write=True, background=True)
+            session = service.get_session(op.session_id, principal, lock=True)
+            if (session.epoch, session.generation) != (op.epoch, op.generation) or session.status == "frozen":
+                raise AiError("旧环境控制已隔离", "pi_tree_fenced", 403)
+        else:
+            service.principal_for(current)
         if command == "prompt" and current.cancel_requested:
             raise AiError("Pi 已在首次模型派发前停止", "pi_canceled_before_prompt", 409)
         prior = PiDispatch.objects.filter(operation=op, kind="runner:"+command, request_id=request_id).first()
@@ -43,6 +57,9 @@ def runner_dispatch(op, command, payload, *, request_id=None):
             # record after process death is not proof of non-delivery.
             if prior.request_digest != binding or prior.status != "completed":
                 raise AiError("PiRunner 派发已受理且结果未知", "pi_dispatch_unknown", 409)
+            if prior.error_code == "workspace_native_image_upgrade_required":
+                from .pi_transport import NativeImageUpgradeRequired
+                raise NativeImageUpgradeRequired()
             from .secrets import decrypt
             return json.loads(decrypt(json.loads(prior.response_json)["encryptedRunnerResponse"]))
         dispatch = PiDispatch.objects.create(id=uid("pi-dispatch"), operation=op, kind="runner:"+command,
@@ -55,6 +72,12 @@ def runner_dispatch(op, command, payload, *, request_id=None):
             dispatch.save()
         return result
     except Exception as error:
+        from .pi_transport import NativeImageUpgradeRequired
+        if isinstance(error, NativeImageUpgradeRequired):
+            with mutation():
+                dispatch.status, dispatch.error_code, dispatch.response_json, dispatch.completed_at = "completed", error.code, canonical({"rejected": True, "code": error.code}), timezone.now()
+                dispatch.save()
+            raise
         with mutation():
             dispatch.status, dispatch.error_code, dispatch.completed_at = "unknown", getattr(error, "code", "pi_runner_unknown"), timezone.now()
             dispatch.save()
@@ -81,10 +104,15 @@ def claim():
             PiControl.objects.filter(operation=old, status__in=["prepared", "queued", "sent", "accepted"]).update(status="unknown", error_code="pi_worker_lost")
         from .configuration import resolve_model
         from .model_capabilities import options
+        excluded = []
         while True:
-            op = PiOperation.objects.select_for_update().filter(status="queued").order_by("created_at", "id").first()
+            op = PiOperation.objects.select_for_update().filter(status="queued").exclude(pk__in=excluded).order_by("created_at", "id").first()
             if not op:
                 return None
+            from .pi_native import runnable
+            if not runnable(op):
+                excluded.append(op.id)
+                continue
             try:
                 model = resolve_model(op.model_id)
                 if model.version != op.model_version:
@@ -350,6 +378,29 @@ def handled(result):
         and event.get("data", event).get("disposition") == "handled" for event in result.get("events", []))
 
 
+def fail_before_prompt(operation, error):
+    from .pi_models import PiOperation, PiSession, PiDispatch, PiWorkspace
+    from . import pi_service as service
+    from .policy import mutation, canonical
+    with mutation():
+        op = PiOperation.objects.select_for_update().get(pk=operation.pk)
+        session = PiSession.objects.select_for_update().get(pk=op.session_id)
+        if op.status not in {"queued", "running"} or PiDispatch.objects.filter(operation=op, kind="runner:prompt").exists():
+            return
+        op.status, op.error_code = "failed", error.code
+        op.capability_hash, op.lease_token, op.lease_expires_at = "", "", None
+        op.save()
+        session.status, session.active_operation_id = "idle", ""
+        session.save(update_fields=["status", "active_operation_id"])
+        workspace = PiWorkspace.objects.filter(session=session).first()
+        if workspace:
+            state = json.loads(workspace.state_json)
+            state["capabilities"] = {**state.get("capabilities", {}), "nativeCapabilities": False, "needsImageUpgrade": True}
+            workspace.state_json = canonical(state)
+            workspace.save(update_fields=["state_json"])
+        service.event(session, "error", {"code": error.code, "status": "failed", "historyPreserved": True}, op)
+
+
 def perform(op, stopped=None):
     from .pi_models import PiOperation, PiFile, PiSession
     from .pi_gateway import freeze
@@ -375,10 +426,10 @@ def perform(op, stopped=None):
         from .pi_workspace import effective_model
         model = effective_model(model, payload.get("thinkingLevel", ""))
         model_options = options(model)
-        model_binding = {"id": model.id, "modelName": "operation-model", "contextWindow": model_options["contextWindowTokens"],
-            "maxTokens": model.max_tokens, "reasoning": model.reasoning_mode != "disabled"}
+        from .pi_native import model_binding as native_model_binding
+        model_binding = native_model_binding(model, payload.get("thinkingLevel", ""))
         version = selected[0]["version"] if selected else os.getenv("PI_SKILL_VERSION", "1.0.0")
-        created = runner_dispatch(op, "create", {"gateway": gateway, "skillIds": payload["skillIds"], "skillVersion": version,
+        created = runner_dispatch(op, "create", {"admission": native_admission(op), "gateway": gateway, "skillIds": payload["skillIds"], "skillVersion": version,
             "model": model_binding})
         advertised = created.get("skills", created.get("state", {}).get("skills", []))
         if selected:
@@ -405,6 +456,9 @@ def perform(op, stopped=None):
             f = PiFile.objects.get(pk=file_id)
             data = service.download(f.id, principal, content=True)
             files.append({"id": f.id, "sizeBytes": f.size_bytes, **data})
+        from .pi_native import handoff_file
+        for handoff_id in payload.get("handoffIds", []):
+            files.append(handoff_file(handoff_id, op, principal))
         from .pi_gateway import remaining_seconds
         remaining_ms = max(1, int(remaining_seconds(op)*1000))
         if op.kind == "workspace:compact":
@@ -418,13 +472,14 @@ def perform(op, stopped=None):
                 control.status = "sent"; control.save(update_fields=["status"])
             accepted = runner_dispatch(op, "workspace", {"action": "control", "controlId": control.id, "controlSeq": control.control_seq,
                 "command": "compact", "payload": {"gateway": gateway, "model": model_binding, "timeoutMs": remaining_ms,
+                    "admission": native_admission(op),
                     **json.loads(control.payload_json)}}, request_id=control.id)
             receipt = accepted.get("control")
             if not isinstance(receipt, dict):
                 raise AiError("压缩回执缺失", "pi_control_unknown", 503)
             with mutation(): pi_workspace._known_result(control, receipt)
         else:
-            accepted = runner_dispatch(op, "prompt", {"message": payload["message"], "skillIds": payload["skillIds"], "gateway": gateway, "files": files,
+            accepted = runner_dispatch(op, "prompt", {"admission": native_admission(op), "message": payload["message"], "skillIds": payload["skillIds"], "gateway": gateway, "files": files,
                 "model": model_binding, "timeoutMs": remaining_ms})
         settled = ingest(op, accepted) or handled(accepted)
         result = accepted
@@ -435,6 +490,20 @@ def perform(op, stopped=None):
             from .pi_gateway import remaining_seconds
             remaining_seconds(current)
             if current.cancel_requested and not aborted:
+                # Stop always clears the native queue before abort. A clear
+                # failure remains recorded but must never prevent stopping.
+                try:
+                    with mutation():
+                        from .pi_workspace import _workspace
+                        stop_session = PiSession.objects.select_for_update().get(pk=op.session_id)
+                        stop_workspace = _workspace(stop_session)
+                        stop_workspace.control_seq += 1
+                        stop_workspace.save(update_fields=["control_seq"])
+                        stop_seq = stop_workspace.control_seq
+                    runner_dispatch(op, "workspace", {"action": "control", "controlId": "stop-clear-"+op.id,
+                        "controlSeq": stop_seq, "command": "clear_queue", "payload": {}}, request_id="stop-clear-queue")
+                except AiError:
+                    pass
                 result = runner_dispatch(op, "abort", {})
                 settled = ingest(op, result) or handled(result) or settled
                 aborted = True
@@ -460,7 +529,9 @@ def perform(op, stopped=None):
             stopped.wait(.5)
         freeze(op, "pi_worker_stopped")
     except Exception as error:
-        if getattr(error, "code", "") == "pi_canceled_before_prompt":
+        if getattr(error, "code", "") == "workspace_native_image_upgrade_required":
+            fail_before_prompt(op, error)
+        elif getattr(error, "code", "") == "pi_canceled_before_prompt":
             try:
                 dispose_environment(op)
                 from .policy import mutation
@@ -579,17 +650,29 @@ def main():
     thread = threading.Thread(target=export_loop, args=(stopped,), name="pi-export-queue", daemon=True)
     thread.start()
     try:
-        while not stopped.is_set():
-            close_old_connections()
-            op = claim()
-            if op:
+        running = {}
+        def execute_operation(operation):
+            from django.db import connections
+            try:
                 from . import transport
                 from .policy import AiError
                 def canceled():
                     if stopped.is_set():
                         raise AiError("Pi worker 正在停止", "pi_worker_stopped", 503)
                 with transport.request_cancellation(canceled):
-                    perform(op, stopped)
+                    perform(operation, stopped)
+            finally:
+                connections.close_all()
+        while not stopped.is_set():
+            close_old_connections()
+            running = {key: value for key, value in running.items() if value.is_alive()}
+            from .pi_native import scheduler_tick
+            scheduler_tick()
+            op = claim()
+            if op:
+                worker = threading.Thread(target=execute_operation, args=(op,), name="pi-run-"+op.id, daemon=True)
+                running[op.id] = worker
+                worker.start()
             else:
                 stopped.wait(.5)
     except KeyboardInterrupt:
@@ -597,6 +680,10 @@ def main():
     finally:
         stopped.set()
         thread.join(timeout=5)
+        for worker in running.values():
+            worker.join(timeout=5)
+        if any(worker.is_alive() for worker in running.values()):
+            raise SystemExit("Pi worker shutdown is unresolved; no stopped receipt was issued")
         if args.control_file:
             # Receipt contains no model prompt, customer data or channel secret.
             done = Path(str(path)+".stopped")

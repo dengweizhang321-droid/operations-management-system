@@ -94,6 +94,7 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "", 
   const clearSubmittedDraft = useCallback((text: string) => setDraft(value => value.trim() === text.trim() ? "" : value), []);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  const abortInFlight = useRef(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -276,8 +277,10 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "", 
     const id = sessionId;
     const submitted = draft.trim();
     const command = commandFromDraft(draft.trim());
-    if (command || active) {
-      const success = await workspaceRef.current?.submit(command?.command ?? queueMode, command?.payload ?? { message: submitted }, submitted);
+    const targetAgentId = workspaceRef.current?.targetAgentId;
+    if (command || active || targetAgentId) {
+      const controlCommand = command?.command ?? (targetAgentId && !active ? "agent_follow_up" : queueMode);
+      const success = await workspaceRef.current?.submit(controlCommand, command?.payload ?? { message: submitted, ...(targetAgentId ? controlCommand === "agent_follow_up" ? { agentId: targetAgentId } : { targetAgentId } : {}) }, submitted);
       if (success && selectedRef.current === id) { clearSubmittedDraft(submitted); setNotice(command ? "命令已登记，请查看对应 bash 回执。" : "插话已登记；模型实际处理状态见控制回执。"); }
       return;
     }
@@ -285,8 +288,10 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "", 
     if (result && selectedRef.current === id) { setDraft(""); setFileIds([]); setBusinessActions([]); setNotice("任务已接收，执行过程由服务端持续保存。"); }
   };
   const abort = async () => {
-    if (!canWrite || !active || busy || frozen || pendingRef.current.some(item => item.sessionId === sessionId && item.kind === "abort")) return;
-    await mutate("abort", `sessions/${encodeURIComponent(sessionId)}/abort`, {});
+    if (!canWrite || !active || busy || frozen || abortInFlight.current || pendingRef.current.some(item => item.sessionId === sessionId && item.kind === "abort")) return;
+    abortInFlight.current = true; setBusy(true);
+    try { await workspaceRef.current?.submit("clear_queue"); await mutate("abort", `sessions/${encodeURIComponent(sessionId)}/abort`, {}); }
+    finally { abortInFlight.current = false; setBusy(false); }
   };
   const upload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]; event.target.value = "";
@@ -326,8 +331,8 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "", 
         {notice && <div className="ai-workbench-feedback" role="status">{notice}</div>}
         {frozen && <div className="ai-workbench-feedback is-error" role="alert">{piFailureLabel(detail?.operations.find(operation => operation.status === "unknown")?.errorCode) ?? "当前环境因权限变化或未知结果被冻结，不能继续执行。"}{detail?.session.status === "unknown" || detail?.operations.some(operation => operation.status === "unknown") ? "请先核实原操作，不要重发原任务。" : "请创建新环境，并重新选择当前授权范围。"}</div>}
         {currentPending && <div className="ai-workbench-feedback" role="status">原请求正在核实中。请使用刷新记录查看；同一环境暂不接收新消息。</div>}
-        {latest?.status === "succeeded" && !frozen && <div className="ai-pi-completed" role="status"><strong>任务已完成</strong><button type="button" className="ai-workbench-text" disabled={finalAnswerSeq === undefined} onClick={() => lastAnswer.current?.scrollIntoView({ block: "start" })}>{finalAnswerSeq === undefined ? eventsCaughtUp ? "本轮未返回正文" : "正在恢复结果…" : "查看分析结果"}</button>{completedFiles.map(file => <a key={file.id} href={`/api/ai/pi/files/${encodeURIComponent(file.id)}/content`} download>{file.fileName}</a>)}</div>}
-        {detail && !frozen && <AiPiWorkspace ref={workspaceRef} sessionId={sessionId} epoch={detail.session.epoch} generation={detail.session.generation} ownerKey={storageKey} writable={canWrite && storageReady && !frozen} active={active} panel={panel} onPanel={setPanel} onEditorText={value => { setDraft(value); setPanel("chat"); }} onModelChange={setModelId} onDraftSettled={clearSubmittedDraft} models={models} />}
+        {latest?.status === "succeeded" && !frozen && <div className="ai-pi-completed" role="status"><strong>主代理本轮已完成</strong><span>协作树状态见代理面板</span><button type="button" className="ai-workbench-text" disabled={finalAnswerSeq === undefined} onClick={() => lastAnswer.current?.scrollIntoView({ block: "start" })}>{finalAnswerSeq === undefined ? eventsCaughtUp ? "本轮未返回正文" : "正在恢复结果…" : "查看分析结果"}</button>{completedFiles.map(file => <a key={file.id} href={`/api/ai/pi/files/${encodeURIComponent(file.id)}/content`} download>{file.fileName}</a>)}</div>}
+        {detail && !frozen && <AiPiWorkspace ref={workspaceRef} sessionId={sessionId} epoch={detail.session.epoch} generation={detail.session.generation} ownerKey={storageKey} writable={canWrite && storageReady && !frozen} active={active} panel={panel} onPanel={setPanel} onEditorText={value => { setDraft(value); setPanel("chat"); }} onModelChange={setModelId} onDraftSettled={clearSubmittedDraft} models={models} files={detail.files} />}
         {detail && <AiPiBusinessActions sessionId={sessionId} epoch={detail.session.epoch} generation={detail.session.generation} ownerKey={storageKey} writable={canWrite && storageReady && !forbidden && !["frozen", "revoked"].includes(detail.session.status)} />}
         <div className="ai-workbench-scroll" hidden={panel !== "chat"} ref={scroll}
           onWheel={event => { if (event.deltaY < 0) pinned.current = false; }}

@@ -33,7 +33,8 @@ def for_operation(operation):
 
 
 def filter_catalog(entries, selection):
-    return [entry for entry in entries if not selection or entry["name"] in TOOLS]
+    from .pi_native import TOOLS as NATIVE_TOOLS
+    return [entry for entry in entries if not selection or entry["name"] in TOOLS | NATIVE_TOOLS]
 
 
 def _query(query, selection):
