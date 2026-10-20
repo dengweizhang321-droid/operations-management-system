@@ -76,3 +76,17 @@ node tools/main-prebuild-queue.mjs --native-391-observe <REQUEST文件绝对路�
 原 5beb 目标永久禁止重放；只有上述 resolution 完整通过，才可按原固定流程准备包含本次必要恢复代码的真正新 main。此处不删除租约，下一次合法准备由原 beginLease 机制处理。GUI 无窗口执行仅是后续执行方式调整，不作为历史中断原因证明。
 
 新增 `tests/native-391-control.test.mjs` 六组必要控制检查通过，覆盖精确原件与元组篡改、partial/dist/PREPARED/lock、权威 metadata 缺项和标记、publisher PID 复用禁用及后代、晚到 namespace/构建/opaque cmd，以及见证权限/task/代际/时间。一次只读 metadata 检查为 3064 文件、108 目录，约 4.4 秒；不是最终现场独立见证。语法和 diff 检查通过。复用此前有效的候选、控制与 scanner 结果，不重跑整包或业务功能测试；本提交未采用、追加生产 resolution、准备或发布。
+
+### 首次观察失败后的唯一同意图续接
+
+首次 391 协调 writer 在 initial 观察阶段自然超时退出 1；原 request SHA 为 `6523f3e9...`。没有 OBS、ACK 或 resolution。五个短暂 PID 的身份未留存，不追认为无害，也不将该次协调失败变成原生准备成功或新的 native 失败。`failed-witness-391-1` 保全精确 request、writer 回执/输出、cafdd 控制代际及完整十工具闭包；固定 `PRIOR-OBJECTS.json` SHA `c4b188f0...` 绑定原 evidence root identity 和 3121 个排序对象，逐个复验内容摘要。
+
+分类增量改为实际 Windows argv 的 executable/script 目标，不再按任意 cmd 名字或 PowerShell 正文中的 npm/正则文字判断构建。原 actor、父链、29740、原 namespace 与 opaque 门禁保持。相对或任意 inline 程序、不支持的 shell/重定向、引号及参数仍拒绝；通用 CMD 必须 `/d`，固定只读 PowerShell helper 必须 `-NoProfile` 并绑定固定代码、参数和实际父身份。高 observer 拒绝时只在外部目录 create-only 保存安全 REJECTION 投影，不生成成功 OBS、不保存任意 raw 命令。
+
+只增加两项精确展开资格。第一项为独立 PG55873 的完整固定 CMD 模板、绝对 postgres 路径及 SHA；无 `/d` 时还须同轮只读证实 HKCU/HKLM Command Processor AutoRun 为空。其端口、独立 namespace、参数和重定向尾部不能改写，不支持其它重定向。第二项为原始 2397 字节、SHA `22234fbe...` 的 Node realpath bootstrap，以及固定 Node/父 node_repl.exe 字节和完整参数形态；只按源码 runMain 语义展开到实际绝对 kernel/trusted-worker entry，再将全部 tail 参数交回原 namespace/actor/opaque 分类，并保留 PID、创建时间、父身份及完整 argv 摘要。**该资格没有声称 kernel 本身只读，也不允许任意 eval。**
+
+程序入口只读 census 已实测：单条 `login:false` Node 调用的诊断 PowerShell 父链正确归为固定只读 helper，四个实际 bootstrap 正确展开。并行工具出现的其它相对 Python、未知 shell 等仍拒绝；负责人在作者/审查任务静止后做新鲜见证，不终止其它任务，不为它们扩白名单。此观察不是最终现场见证。
+
+新的协调只接受一次显式 `--native-391-resume <全新外部out>`。它复验原 writer 已退出、原 out 仅有 request、无旧 OBS/ACK/resolution 和上述 3121 对象完整原件后，create-only 写入 `failed-observation-resume.json` provenance；原 out、原对象和旧 request 都不覆盖。新 epoch/nonce 及初末见证重新生成，最终 resolution 绑定该 provenance，原 5beb 禁重放。当前采用链严格验证 `1711fc... → cafdd 546df6... → 本增量新采用` 每跳的 adopted/intent/transition/manifest/十文件、同 a90 配置与 task，拒绝更新字段或断链。
+
+采用与现场操作仍由唯一负责人执行。高 observer 先取得 writer 输出的精确 request SHA，再用 **login:false、单条直接 Node 命令**执行 `--native-391-observe`；不在同一 PowerShell Command 中混入赋值、算 SHA 或其它诊断。新增七组 argv/PG/helper/shim/原件/provenance/链路负例，以及原见证 schema 的一项定向增量检查；不重跑整包或业务功能测试。本提交没有执行 resume、控制采用、原生准备或发布。
