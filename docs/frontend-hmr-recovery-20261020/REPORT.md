@@ -142,3 +142,12 @@ CMD协调的initial OBS/ACK成功，final先取得完整preliminary、重核静�
 按本次明确范围，同步修正已有精确出生证据的failed writer44996/27260/8972/34444/56436数值PID永久唯一假设。各birth常量逐一对照固定REQUEST摘要核实；只有当前birth严格晚于旧值且身份元数据完整，才排除旧身份。各历史guard角色集合及旧OBS校验范围保持；指向这些父PID的child必须在本轮有完整新父且出生不早于新父，使用100ns精度比较，namespace及普通入口继续独立分类。29740未知历史birth的PG专项不因此扩展到Node或其它镜像。
 
 新增10项定向检查通过（chunk `098af6`、exit0），覆盖真实身份结构、伪PG/镜像变化/过早/父错/opaque、同毫秒早子、q跨census/epoch混用、primitive类型、PG→absent trace、3194归档内容、固定新provenance、五个known writer复用及未来birth；两个直接受影响的OBS/trace正例通过（chunk `de07f9`）。真实只读PgQualification和postmaster读取通过（chunk `47ba4f`、exit0），未运行census、SQL或业务，未启动/停止服务。其余既有结果复用，不跑整包；本提交未采用、启动writer、准备或发布。
+### 391 ACK 检查作用域回归修复
+
+93控制采用后，ordinary retired-publisher writer在创建新provenance或REQUEST之前，经inventory读取旧0038 resolution时失败。原因是本任务上一轮全局文本替换，把391专属ACK的census/retiredPublisher读取误插入0038 reader，并同时污染了旧0038 writer的ACK构造。本增量精确恢复整个文件头至 `FIXED_NATIVE_391_BEGIN` 的340532字节为238原件，SHA `f4aa3711c96cbf586596ca63f45208b8fbadb1a783463eff5cdcc526c40ef551`；不补默认字段，不降低旧ACK校验，391新协议检查仅保留在391作用域。
+
+真实公开 `readFixedInstallerCheckRejection0038Resolution` 对固定queue及实际dispatch/result返回true（chunk `d8333c`）；薄只读 `--native-391-inventory` 直接调用原同一inventory实现，不吞错、不调用writer、不创建out。另一个同轮替换遗留把原provenance两元对误成三元数组；现由Begin与只读inventory共用固定四对helper，实际核四个原hash，逐个坏bytes均拒绝。旧空out身份在唯一新provenance写入前及后续static核对，reader只复验归档事实。
+
+`retired-publisher-inventory-qualification` 固定18原件和PREFLIGHT SHA `5c0731a69b17dc3d2e092e3f6ebb84ed708516a66989987f963ee20ab77edf49`；3194对象、四个旧provenance和无新观察事实保持，采用链仅加入93的 `41102692...` 节点。保留原空out不删除，未来同一限定flag使用精确新地址 `--native-391-retired-publisher-repair D:/codex-artifacts/frontend-hmr-recovery-20261020/witness-391-retired-publisher-repair-fixed`；唯一新capsule文件名及wx门禁不变，没有新观察失败续接次数。
+
+四项直接回归/范围/归档/capsule检查通过（chunk `d61dab`），新fixed out的受影响provenance检查通过（chunk `eb8639`）；最终完整只读inventory回执为valid且 `verifiedPriorCapsules:4`（chunk `702170`、exit0）。原其它有效结果复用，不重跑整包或业务。本增量未修改已安装bundle，未采用、启动writer、运行census或准备/发布。
