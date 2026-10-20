@@ -8,7 +8,7 @@ import { jdCustomerServiceWorkflow as contract, customerServicePeriod, assertCus
 import { customerServiceStore } from "../lib/jd/customer-service-stores";
 import { withJdChromiumRunLock, defaultJdChromiumRunLockDirectory } from "../lib/jd/chromium-run-lock";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
-import { writeJsonAtomic } from "../lib/jackyun/json-file";
+import { writeJsonAtomic, writeJsonDurable } from "../lib/jackyun/json-file";
 import { validateJdStoreRegistry } from "../lib/jd/store-registry";
 import { launchDedicatedChrome, closeChromeBrowser } from "../lib/jackyun/cdp-client";
 import { connectPlaywrightBrowser } from "../lib/jackyun/playwright-client";
@@ -17,6 +17,7 @@ import { ensureJdStoreAuthenticatedSession } from "./jd-saved-login";
 import { assertCustomerServiceShop, exportCustomerServiceView, openCustomerServicePage, type CustomerServiceExportCheckpoint } from "./jd-customer-service-export";
 import { buildCustomerServiceDailyFiles } from "./jd-customer-service-daily-files";
 import { importCustomerServiceDay, verifyCustomerServiceBatch, type CustomerServiceBatchProof } from "./jd-customer-service-import";
+import { closeCustomerServicePreSubmitFailure, customerServiceControlBytes } from "./jd-customer-service-failure-closure";
 
 export type CustomerServiceN8nPlan = {
   storeKey?: string; shopId?: string; shopName?: string;
@@ -34,8 +35,18 @@ export type CustomerServiceN8nPlan = {
   sourceCounts?: { listRows: number; logSessions: number; ambiguous: number };
   dailyFiles?: Array<{ date: string; sessionSha256: string; chatSha256: string; contentSha256: string; conversationCount: number }>;
   failureCode?: string;
+  failureBoundary?: { version: 1; browserClosed: boolean; step: string };
 };
 function reject(code: string): never { throw new JdCustomerServiceWorkflowError(code); }
+export function customerServiceFailureCode(error: unknown) {
+  if (error instanceof JdCustomerServiceWorkflowError) return error.code;
+  if (error instanceof Error) {
+    if (error.name === "TimeoutError") return /page\.(?:goto|reload)/.test(error.message) ? "CUSTOMER_SERVICE_NAVIGATION_TIMEOUT" : "CUSTOMER_SERVICE_CONTROL_TIMEOUT";
+    if (/登录状态在有界等待后仍无法确认/.test(error.message)) return "CUSTOMER_SERVICE_LOGIN_PENDING";
+    if (/waiting_login：/.test(error.message)) return "LOGIN_GATE_MANUAL_ACTION";
+  }
+  return "CUSTOMER_SERVICE_FAILED_MANUAL_ACTION";
+}
 function filePaths(root: string, executionId: string, storeKey = contract.storeKey as string) {
   const store = customerServiceStore(storeKey);
   if (!/^[A-Za-z0-9_-]{1,96}$/.test(executionId)) reject("INVALID_EXECUTION_ID");
@@ -56,14 +67,15 @@ export async function planCustomerServiceRun(root: string, executionId: string, 
   await mkdir(files.directory, { recursive: true });
   return withJackyunRunLock({ runId: `cs-plan-${executionId}`, purpose: "jd-customer-service-plan", lockDirectory: files.lock }, async () => {
     let active: { executionId?: string } | undefined;
-    try { active = JSON.parse(await readFile(files.active, "utf8")); }
+    try { active = JSON.parse((await customerServiceControlBytes(files.active)).toString("utf8")); }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") reject("ACTIVE_PLAN_INVALID_MANUAL_ACTION"); }
     let recovered: Awaited<ReturnType<typeof inspectCustomerServiceRecovery>> | undefined;
     let recovery: CustomerServiceSourceRecovery | undefined;
+    let closedPreviousBytes: Uint8Array | undefined;
     if (recoverySha256 && !active) reject("SOURCE_RECOVERY_REJECTED_MANUAL_ACTION");
     if (active) {
       if (typeof active.executionId !== "string") reject("ACTIVE_PLAN_INVALID_MANUAL_ACTION");
-      const previousBytes = await readFile(filePaths(root, active.executionId, store.storeKey).plan);
+      const previousBytes = await customerServiceControlBytes(filePaths(root, active.executionId, store.storeKey).plan);
       const previous = JSON.parse(previousBytes.toString("utf8")) as CustomerServiceN8nPlan;
       if (previous.executionId !== active.executionId || previous.version !== 1) reject("ACTIVE_PLAN_INVALID_MANUAL_ACTION");
       assertCustomerServicePlanStore(previous, store.storeKey);
@@ -71,12 +83,23 @@ export async function planCustomerServiceRun(root: string, executionId: string, 
         recovered = await inspectCustomerServiceRecovery({ root, storeKey: store.storeKey, executionId, approvalSha256: recoverySha256, previous, previousBytes, period: customerServicePeriod(now) });
         recovery = { approvalSha256: recoverySha256, originalExecutionId: previous.executionId, kind: recovered.approval.kind };
         await claimCustomerServiceRecovery(root, recovery, store.storeKey, executionId);
-      } else if (previous.stage !== "completed") reject("PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION");
+      } else if (previous.stage !== "completed") {
+        try { await closeCustomerServicePreSubmitFailure(root, previous, previousBytes, executionId, files.directory); }
+        catch { reject("PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION"); }
+        closedPreviousBytes = previousBytes;
+      }
     }
     const createdAt = new Date().toISOString();
     const plan: CustomerServiceN8nPlan = { version: 1, storeKey: store.storeKey, shopName: store.shopName, shopId: store.shopId, executionId, period: customerServicePeriod(now), createdAt, updatedAt: createdAt, stage: "planned", source: recovered?.source ?? {}, proofs: [], ...(recovery ? { sourceRecovery: recovery } : {}) };
-    await writeFile(files.plan, JSON.stringify(plan), { flag: "wx" });
-    await writeJsonAtomic(files.active, { executionId });
+    if (closedPreviousBytes && active) {
+      if (!Buffer.from(await customerServiceControlBytes(filePaths(root, active.executionId!, store.storeKey).plan)).equals(closedPreviousBytes)
+        || !isDeepStrictEqual(JSON.parse((await customerServiceControlBytes(files.active)).toString("utf8")), active)) reject("PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION");
+      await writeJsonDurable(files.plan, plan, true);
+      await writeJsonDurable(files.active, { executionId });
+    } else {
+      await writeFile(files.plan, JSON.stringify(plan), { flag: "wx" });
+      await writeJsonAtomic(files.active, { executionId });
+    }
     return plan;
   });
 }
@@ -101,6 +124,8 @@ export async function runCustomerServicePlan(root: string, plan: CustomerService
   }
   const save = () => { plan.updatedAt = new Date().toISOString(); return writeJsonAtomic(files.plan, plan); };
   plan.stage = "running"; await save();
+  let browserClosed = true;
+  let step = "browser_start";
   try {
     await withJdChromiumRunLock("jd-customer-service", async () => {
       const registry = JSON.parse(await readFile(path.join(root, "config", "jd-store-accounts.json"), "utf8"));
@@ -115,20 +140,23 @@ export async function runCustomerServicePlan(root: string, plan: CustomerService
           profileDirectory: store.browser.userDataDir, profileName: store.browser.profileName,
           port: store.browser.debugPort, startUrl: "about:blank", ...jdBrowserLaunchMode(false) }));
         if (!ownsBrowser) reject("DEDICATED_BROWSER_ALREADY_IN_USE_MANUAL_ACTION");
+        browserClosed = false;
         browser = await connectPlaywrightBrowser(store.browser.debugPort);
         const contexts = browser.contexts();
         if (contexts.length !== 1) reject("BROWSER_CONTEXT_AMBIGUOUS_MANUAL_ACTION");
         const page = await contexts[0].newPage();
         await page.setViewportSize({ width: 1920, height: 1080 });
+        step = "open_customer_service_page";
         await openCustomerServicePage(page, () => ensureJdStoreAuthenticatedSession(page, store), identity.storeKey);
         const assertStore = async () => { await assertCustomerServiceShop(page, false, identity.storeKey); };
         for (const view of ["list", "messages"] as const) {
+          step = `export_${view}`;
           await exportCustomerServiceView({ page, period: plan.period, view, downloadDirectory, assertStore,
             checkpoint: async checkpoint => { plan.source[view] = { ...checkpoint, observedAt: new Date().toISOString() }; await save(); } });
         }
       } finally {
         try { await browser?.close(); }
-        finally { if (ownsBrowser) await closeChromeBrowser(store.browser.debugPort); }
+        finally { if (ownsBrowser) { await closeChromeBrowser(store.browser.debugPort); browserClosed = true; } }
       }
       }
       const sessions = plan.source.list; const chats = plan.source.messages;
@@ -159,10 +187,11 @@ export async function runCustomerServicePlan(root: string, plan: CustomerService
     return publicCustomerServicePlan(plan);
   } catch (error) {
     plan.stage = "failed";
-    plan.failureCode = error instanceof JdCustomerServiceWorkflowError ? error.code : "CUSTOMER_SERVICE_FAILED_MANUAL_ACTION";
+    plan.failureCode = customerServiceFailureCode(error);
+    plan.failureBoundary = { version: 1, browserClosed, step };
     await save();
     // Do not let browser exceptions leak page text or signed download URLs.
-    reject(`${plan.failureCode}_MANUAL_ACTION`);
+    reject(plan.failureCode.endsWith("_MANUAL_ACTION") ? plan.failureCode : `${plan.failureCode}_MANUAL_ACTION`);
   }
 }
 export async function verifyCustomerServicePlan(root: string, plan: CustomerServiceN8nPlan) {

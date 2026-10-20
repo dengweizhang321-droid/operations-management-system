@@ -14,10 +14,56 @@ export type CustomerServiceExportCheckpoint = {
   savedPath?: string; sha256?: string; sizeBytes?: number;
 };
 function reject(code: string): never { throw new JdCustomerServiceWorkflowError(code); }
+const identityApi = "dsm.shop.center.pageframe.navigation.NavigationFacade.findShopInfo";
+type PageGate = { blocked: boolean; blockedSignal: Promise<void>; pending: Set<Promise<void>> };
+const pageGates = new WeakMap<Page, PageGate>();
+
+// Observe only the identity request made by the native page. Do not issue an
+// alternate identity request or substitute another API after JD refuses it.
+export function observeCustomerServicePageGate(page: Page) {
+  if (pageGates.has(page) || typeof page.on !== "function") return;
+  let block!: () => void;
+  const gate: PageGate = { blocked: false, blockedSignal: new Promise<void>(resolve => { block = resolve; }), pending: new Set() };
+  pageGates.set(page, gate);
+  page.on("response", response => {
+    const url = new URL(response.url());
+    if (url.origin !== "https://sff.jd.com" || url.pathname !== "/api" || url.searchParams.get("api") !== identityApi) return;
+    if (gate.pending.size >= 8) return;
+    const inspect = (async () => {
+      if (response.request().frame() !== page.mainFrame() || response.status() !== 200) return;
+      if (Number(response.headers()["content-length"] ?? 0) > 128 * 1024) return;
+      const text = await response.text();
+      if (Buffer.byteLength(text, "utf8") > 128 * 1024) return;
+      const value: unknown = JSON.parse(text);
+      if (value && typeof value === "object" && !Array.isArray(value)
+        && [601, "601"].includes((value as { code: number | string }).code)) { gate.blocked = true; block(); }
+    })().catch(() => undefined);
+    gate.pending.add(inspect);
+    void inspect.finally(() => gate.pending.delete(inspect));
+  });
+}
+async function assertCustomerServicePageGate(page: Page) {
+  const gate = pageGates.get(page);
+  if (gate?.pending.size) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try { await Promise.race([Promise.all([...gate.pending]), new Promise<void>(resolve => { timer = setTimeout(resolve, 3000); })]); }
+    finally { clearTimeout(timer); }
+  }
+  if (gate?.blocked) reject("JD_IDENTITY_RATE_LIMIT_MANUAL_ACTION");
+}
+async function waitForCustomerServiceHeader(page: Page, header: ReturnType<Page["locator"]>, timeout: number) {
+  await assertCustomerServicePageGate(page);
+  const gate = pageGates.get(page);
+  await Promise.race([header.waitFor({ state: "visible", timeout }), ...(gate ? [gate.blockedSignal] : [])]);
+  await assertCustomerServicePageGate(page);
+}
 export async function openCustomerServicePage(page: Page, authenticate: () => Promise<unknown>, storeKey = contract.storeKey as string) {
+  observeCustomerServicePageGate(page);
   await page.goto("https://shop.jd.com/", { waitUntil: "domcontentloaded" });
+  await assertCustomerServicePageGate(page);
   try { await authenticate(); }
   catch (error) {
+    await assertCustomerServicePageGate(page);
     // Some JD dashboards show only short "商品/客服" navigation labels. The
     // generic product-page detector remains pending despite a fully loaded,
     // authenticated vendor dashboard. Require stronger store-bound evidence
@@ -25,10 +71,12 @@ export async function openCustomerServicePage(page: Page, authenticate: () => Pr
     if (!(error instanceof Error) || !/登录状态在有界等待后仍无法确认/.test(error.message)
       || !await customerServiceHomeSessionEvidence(page, storeKey)) throw error;
   }
+  await assertCustomerServicePageGate(page);
   await page.goto(contract.entryUrl, { waitUntil: "domcontentloaded" });
   return assertCustomerServiceShop(page, true, storeKey);
 }
 export async function customerServiceHomeSessionEvidence(page: Page, storeKey: string) {
+  await assertCustomerServicePageGate(page);
   const store = customerServiceStore(storeKey);
   if (page.url() !== "https://shop.jd.com/jdm/home") return false;
   const state = await inspectJdLoginPageState(page);
@@ -39,7 +87,7 @@ export async function customerServiceHomeSessionEvidence(page: Page, storeKey: s
     if (await frame.locator('input[type="password"],#nloginpwd').filter({ visible: true }).count()) return false;
   }
   const header = page.locator(".shop-menu-accountV1__right-account-top-name").filter({ visible: true });
-  try { await header.waitFor({ state: "visible", timeout: 30_000 }); } catch { return false; }
+  try { await waitForCustomerServiceHeader(page, header, 30_000); } catch (error) { if (error instanceof JdCustomerServiceWorkflowError) throw error; return false; }
   if (page.url() !== "https://shop.jd.com/jdm/home" || await header.count() !== 1
     || await header.getAttribute("title") !== store.shopName || (await header.innerText()).trim() !== store.shopName) return false;
   // These must be visible dashboard controls, not hidden menu text, a generic
@@ -53,12 +101,14 @@ export async function customerServiceHomeSessionEvidence(page: Page, storeKey: s
     && finalSurfaces.mainSurface !== "login" && finalSurfaces.loginSubframeCount === 0;
 }
 export async function assertCustomerServiceShop(page: Page, allowInitialReload = false, storeKey = contract.storeKey as string) {
+  await assertCustomerServicePageGate(page);
   const store = customerServiceStore(storeKey);
   if (page.url() !== contract.entryUrl) reject("CHAT_PAGE_MISMATCH");
   const header = page.locator(".shop-menu-accountV1__right-account-top-name").filter({ visible: true });
   let reloaded = false;
-  try { await header.waitFor({ state: "visible", timeout: allowInitialReload ? 45_000 : 15_000 }); }
+  try { await waitForCustomerServiceHeader(page, header, allowInitialReload ? 45_000 : 15_000); }
   catch {
+    await assertCustomerServicePageGate(page);
     // A missing account widget was observed on an otherwise loaded ChatLog.
     // Only the initial, pre-export navigation may reload once. A wrong visible
     // account, login challenge or any later export stage must fail closed.
@@ -73,8 +123,8 @@ export async function assertCustomerServiceShop(page: Page, allowInitialReload =
     }
     await page.reload({ waitUntil: "domcontentloaded" });
     reloaded = true;
-    try { await header.waitFor({ state: "visible", timeout: 30_000 }); }
-    catch { reject("PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION"); }
+    try { await waitForCustomerServiceHeader(page, header, 30_000); }
+    catch { await assertCustomerServicePageGate(page); reject("PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION"); }
   }
   if (page.url() !== contract.entryUrl || await header.count() !== 1
     || await header.getAttribute("title") !== store.shopName

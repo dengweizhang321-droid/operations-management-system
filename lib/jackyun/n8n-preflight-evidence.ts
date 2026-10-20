@@ -6,6 +6,43 @@ import { jackyunWorkflowId } from "./preflight-recovery";
 import { decodeN8nPreflightEvidence, isProvenJackyunPreclaimWaiter, n8nEvidenceTime, assertFreshRestartSerialFailure } from "./n8n-preflight-decode";
 import { assertRetryContextIdentity, decodeN8nRetryContext, decodeN8nFixedPlanContext } from "./n8n-retry-context";
 import { parseRecoveryRequest, type RecoveryRequest } from "./recovery-control";
+import { customerServiceStore } from "../jd/customer-service-stores";
+
+/** Fixed customer-service execution metadata; never reads customer business data. */
+export function readCustomerServiceFailureEvidence(storeKey: string, executionId: string, replacementId: string) {
+  const { workflowId } = customerServiceStore(storeKey);
+  if (![executionId, replacementId].every(id => /^[1-9]\d{0,19}$/.test(id)) || BigInt(replacementId) <= BigInt(executionId)) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+  const db = openN8nMetadata();
+  try {
+    db.exec("PRAGMA query_only=ON; PRAGMA busy_timeout=3000; BEGIN");
+    const old = db.prepare("SELECT workflowId,status,startedAt,stoppedAt,retrySuccessId,deletedAt FROM execution_entity WHERE id=?").get(executionId);
+    const current = db.prepare("SELECT workflowId,status,mode,startedAt,deletedAt FROM execution_entity WHERE id=?").get(replacementId);
+    if (!old || old.workflowId !== workflowId || old.status !== "error" || old.retrySuccessId !== null || old.deletedAt !== null
+      || !current || current.workflowId !== workflowId || current.status !== "running" || current.deletedAt !== null
+      || !["manual", "trigger"].includes(String(current.mode))) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    const startedAt = n8nEvidenceTime(old.startedAt), stoppedAt = n8nEvidenceTime(old.stoppedAt);
+    if (startedAt > stoppedAt || stoppedAt > n8nEvidenceTime(current.startedAt)) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    const active = db.prepare("SELECT id FROM execution_entity WHERE workflowId=? AND deletedAt IS NULL AND status NOT IN ('error','success','canceled','crashed') AND id<>? LIMIT 1").get(workflowId, replacementId);
+    if (active) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    const raw = db.prepare("SELECT data FROM execution_data WHERE executionId=? AND length(data)<=1048576").get(executionId)?.data;
+    if (typeof raw !== "string") throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    const values: unknown = JSON.parse(raw);
+    if (!Array.isArray(values) || !values.length || values.length > 10000) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    const ref = (v: unknown): unknown => typeof v === "string" && /^\d+$/.test(v) ? values[Number(v)] : v;
+    const obj = (v: unknown): Record<string, unknown> => { const x = ref(v); if (!x || typeof x !== "object" || Array.isArray(x)) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID"); return x as Record<string, unknown>; };
+    const result = obj(obj(values[0]).resultData), run = obj(result.runData), error = obj(result.error);
+    const a = "A·固定客服店铺与30天范围", b = "B·双视图导出按日导入";
+    const allowed = new Set(["手动执行客服30天", "每天 09:00 执行", "固定本轮时间", "领取共享 helper", "helper 领取成功？", "等待前序流程释放 helper", a, b]);
+    if (ref(result.lastNodeExecuted) !== b || Object.keys(run).some(name => !allowed.has(name))) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    for (const [name, status] of [[a, "success"], [b, "error"]]) {
+      const attempts = ref(run[name]);
+      if (!Array.isArray(attempts) || attempts.length !== 1 || ref(obj(attempts[0]).executionStatus) !== status) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    }
+    const description = ref(error.description);
+    if (typeof description !== "string" || !/^[A-Z_]{1,160}$/.test(description)) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    return { workflowId, executionId, startedAt, stoppedAt, failureCode: description };
+  } finally { db.close(); }
+}
 
 export type ReplacementExecution = { executionId: string; mode: "manual" | "trigger" | "webhook"; startedAt: string };
 

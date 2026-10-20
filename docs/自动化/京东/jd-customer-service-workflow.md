@@ -28,6 +28,14 @@
 
 导入调用原客服API，每天写入前先保存importingDate；精确回执保存后再分页回查目标批次。成功还需源文件、派生文件、店铺、日期和实际行数核验。任何未决任务阻止新execution覆盖，不自动重放未知提交。
 
+### 提交前失败自动闭合
+
+新完整 execution 的 A 可在原店铺 planning 锁及全局 Chromium 锁内核验旧失败：精确 n8n execution 属于本店、A 唯一成功/B 唯一失败、已终止且无成功重试或其他在途执行；原专用端口确定无监听，原计划/active 字节与店铺绑定不变。旧协议仅接受空 source、空 proofs、无任何来源/派生/恢复/导入字段且专用下载目录不存在；新协议还可接受已确认浏览器关闭、只有 querying/confirming 检查点且下载目录为空的失败。任一 submitting/submitted/downloaded、未知边界或目录/元数据不可核实仍拒绝。
+
+通过后在各店 `failure-closures/<旧execution>-<原计划SHA>.json` 持久保存独占闭合回执，再原子创建新计划并推进 active。旧 failed 计划和 n8n error 原样保留，闭合不表示导入成功；新计划仍使用本次正常的滚动30天，不自动重放旧 execution，也不增加小时重试。此判断依赖原提交前检查点和下载配对后才导入的控制流证明，不把数据库搜索零条当零效果证明。
+
+页面原生店铺信息请求 `NavigationFacade.findShopInfo` 返回业务码601时，记录 `JD_IDENTITY_RATE_LIMIT_MANUAL_ACTION` 并停止本轮；不再把它泛化为页头身份不匹配，不刷新、不切换身份来源或反复提交登录。只被动观察页面请求，唯一页头名称/title校验保持。源码、打包与实际采用分别确认，详见[本次排查与修复](../../jd-customer-service-failure-close-20261020/REPORT.md)。
+
 ## 本次数据边界
 
 两视图确认均为6,956条。源Excel实际6,956行，LOG实际解析6,941通，来源数量相差15；没有据此编造缺失聊天。分拆重解析完整业务值等价。
