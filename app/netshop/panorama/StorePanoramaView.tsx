@@ -17,6 +17,8 @@ import { loadPanoramaContext, loadStorePanorama } from "./data";
 import { panoramaSourceKeys, type PanoramaCapability, type PanoramaErpMetric, type PanoramaFinanceData, type PanoramaSalesData, type PanoramaSectionKey, type PanoramaSource, type StorePanoramaResponse } from "./contract";
 import { decodePanoramaScroll, formatPanoramaNative, formatPanoramaFinanceState, panoramaFinanceRead, panoramaFinanceAnnual, formatPanoramaErpPoint, panoramaErpPlotValue, panoramaErpSeriesLabels, panoramaErpSeriesRows, panoramaChapter, panoramaChapters, panoramaDirectoryQuery, panoramaGrainChange, panoramaPageButtons, panoramaPageSizeChange, panoramaPageSizes, panoramaPresentationScope, panoramaPrincipalKey, panoramaQuery, panoramaScrollStorageKey, panoramaSearchChange, panoramaSeriesChartPoints, panoramaSeriesColumnLabels, panoramaSeriesPeriodLabels, panoramaSeriesRows, panoramaShop, panoramaShopChange, panoramaTokenFamily, type PanoramaSeriesPeriod, type PanoramaErpSeriesChoice } from "./ui-state";
 import "../promotion/promotion.css";
+import { useNetshopIntegratedLayout } from "../shared/integrated-layout";
+import IntegratedStoreOverview from "./IntegratedStoreOverview";
 import "./panorama.css";
 
 const sourceLabels = { products: "平台商品经营", productSeries: "平台店日序列", promotion: "推广归因", sales: "ERP销售", finance: "月度财报与年度目标", workflow: "已记录经营事件" };
@@ -56,7 +58,9 @@ function Gaps({ capabilities, ids }: { capabilities: PanoramaCapability[]; ids?:
   return values.length ? <div className="sp-ability-list">{values.map(capability => <div className="sp-gap" key={capability.id} role="status"><strong>{capabilityLabels[capability.id] ?? capability.id}</strong><p>{capability.message}</p></div>)}</div> : null;
 }
 function Chapter({ id, data, note, tools, children }: { id: PanoramaSectionKey; data: StorePanoramaResponse; note: string; tools?: ReactNode; children: ReactNode }) {
+  const integrated = useNetshopIntegratedLayout();
   const chapter = panoramaChapters.find(([key]) => key === id)!;
+  if (integrated) return <details id={`panorama-${id}`} className="sp-chapter sp-integrated-chapter" data-section-state={data.sections[id].state} aria-labelledby={`panorama-heading-${id}`}><summary><div className="sp-section-head"><div><h2 id={`panorama-heading-${id}`}><span>{chapter[1]}</span>{chapter[2]}</h2><p className="sp-caption">{note}</p></div></div></summary><div className="sp-integrated-chapter-body">{tools && <div className="sp-section-tools">{tools}</div>}{children}</div></details>;
   return <section id={`panorama-${id}`} className="sp-chapter" data-section-state={data.sections[id].state} aria-labelledby={`panorama-heading-${id}`}><header className="sp-section-head"><div><h2 id={`panorama-heading-${id}`}><span>{chapter[1]}</span>{chapter[2]}</h2><p className="sp-caption">{note}</p></div>{tools && <div className="sp-section-tools">{tools}</div>}</header>{children}</section>;
 }
 function Bars({ rows }: { rows: Array<{ label: string; share: MetricValue; payment: MetricValue }> }) {
@@ -163,6 +167,7 @@ function ErpEvidence({ sales }: { sales: PanoramaSalesData }) {
   return <details className="sp-source-details"><summary>ERP原始口径与观察证据（只读）</summary><p className="sp-caption">以下保留拥有者原值。持久化成本或毛利数值不证明原字段存在、历史成本匹配或映射正确；存储零不作为核验后的零成本。</p><h3>精确原始来源身份</h3><ul>{sales.rawOutlets.map((identity, index) => <li key={index}><code>{JSON.stringify(identity)}</code></li>)}</ul>{(["previous", "yearAgo"] as const).map(key => { const owner = sales.owning[key]; if (!owner) return <p key={key} className="sp-caption">同比拥有者读取不可用；保持原比较日期，未缩短窗口。</p>; return <div className="sp-source-group" key={key}><h3>{key === "previous" ? "本期 / 环比原始读取" : "本期 / 同比原始读取"}</h3><p className="sp-caption">本期 {owner.periods.current.startDate} — {owner.periods.current.endDate}；基期 {owner.periods.baseline.startDate} — {owner.periods.baseline.endDate}。</p><div className="sp-table-wrap"><table className="sp-table sp-source-table"><thead><tr><th>拥有者原字段</th><th className="sp-number">本期原值</th><th className="sp-number">基期原值</th></tr></thead><tbody>{Object.entries(moneyLabels).map(([field, label]) => <tr key={field}><td>{label}</td>{(["current", "baseline"] as const).map(period => <td key={period} className="sp-number">{money(owner.periodTotals[period].values[field as keyof typeof moneyLabels])}</td>)}</tr>)}{(["netQuantity", "positiveQuantity", "returnQuantity"] as const).map((field, index) => <tr key={field}><td>{["净原生数量", "正向原生数量", "退货原生数量"][index]}</td>{(["current", "baseline"] as const).map(period => <td key={period} className="sp-number">{formatPanoramaNative({ unit: "NATIVE_INTEGER_QUANTITY", value: owner.periodTotals[period].values[field] })}</td>)}</tr>)}</tbody></table></div>{(["current", "baseline"] as const).map(period => { const observed = owner.periodTotals[period]; return <div className="sp-note" key={period}><strong>{period === "current" ? "本期" : "基期"}导入记录观察</strong><p>{observed.rowCount} 行 · 观察到 {observed.observations.observedDateCount} / {observed.observations.requestedDays} 个请求日期 · 完整性未知。</p><p>观察日范围：{observed.observations.observedDateRanges.map(range => `${range.startDate} — ${range.endDate}`).join("、") || "没有已导入日期记录"}</p><p>{observed.observations.absenceMeaning}</p><p>已导入ERP订单号组：{observed.orders.trustedOrderCount ?? "—"}；缺可靠订单号行：{observed.orders.missingOrderNoRows ?? "—"}。</p><p>ERP已导入订单组净额均值：{formatPanoramaNative(observed.orders.netAmountPerOrder)}；{observed.orders.netAmountPerOrder.reasonCode ? reasonLabels[observed.orders.netAmountPerOrder.reasonCode] : "原生分商"}。</p><p className="sp-caption">原始未舍入均值 {observed.orders.netAmountPerOrder.value ?? "—"} 分/已导入订单组；原分子 {observed.orders.netAmountPerOrder.numerator ?? "—"} 分 / 原分母 {observed.orders.netAmountPerOrder.denominator ?? "—"} 个已导入订单组。按发货业务日期导入记录计算，不作为平台支付客单价或完整店铺订单均值。</p></div>; })}<p className="sp-caption">相关批次（非全局最新证明）：{owner.latestRelevantBatch ? `${owner.latestRelevantBatch.id} · ${owner.latestRelevantBatch.source} · ${owner.latestRelevantBatch.completedAt ?? "未提供完成时间"} · ${owner.latestRelevantBatch.rowCount} 行` : "没有相关批次"}。</p><details><summary>原始单位、成本与订单口径 metadata</summary><pre>{JSON.stringify({ metricMetadata: owner.metricMetadata, metricSemantics: owner.metricSemantics }, null, 2)}</pre></details></div>; })}</details>;
 }
 function PanoramaSections({ data, props, onRetry, onChapter, onSavePosition }: { data: StorePanoramaResponse; props: NetshopColumnProps; onRetry: () => void; onChapter: (id: PanoramaSectionKey) => void; onSavePosition: () => void }) {
+  const integrated = useNetshopIntegratedLayout();
   const products = data.sources.products.state === "ready" ? data.sources.products.data : null;
   const productSeries = data.sources.productSeries.state === "ready" ? data.sources.productSeries.data : null;
   const promotion = data.sources.promotion.state === "ready" ? data.sources.promotion.data : null;
@@ -170,7 +175,7 @@ function PanoramaSections({ data, props, onRetry, onChapter, onSavePosition }: {
   const finance = data.sources.finance.state === "ready" ? data.sources.finance.data : null;
   const workflow = data.sources.workflow.state === "ready" ? data.sources.workflow.data : null;
   const [focus, setFocus] = useState<{ start: string; end: string } | null>(null);
-  const drillProduct = (row: ProductRow) => { onSavePosition(); props.onDrill("products", row.identity, "overview"); };
+  const drillProduct = (row: Pick<ProductRow, "identity">) => { onSavePosition(); props.onDrill("products", row.identity, "overview"); };
   const drillPromotion = () => { onSavePosition(); props.onDrill("promotion", null, "overview"); };
   const focusDate = (start: string, end: string) => { setFocus({ start, end }); document.getElementById(`panorama-promotion-day-${start}`)?.scrollIntoView({ block: "center", behavior: "instant" }); };
   const drillPromotionDate = (startDate: string, endDate: string) => {
@@ -181,7 +186,7 @@ function PanoramaSections({ data, props, onRetry, onChapter, onSavePosition }: {
     props.onContextChange({ promotionPrefs: { schemaVersion: "promotion-ui-v1", sort: "spend_desc", objectDateFocus: { startDate, endDate } } });
   };
   const platformBaseline = products?.sections.baselineReads.previous.state === "ready" ? products.sections.baselineReads.previous.data : null;
-  return <>
+  const legacySections = <>
     <Chapter id="performance" data={data} note="平台成交、ERP净额与广告归因分别展示；实际基期依照当前日期规则。">
       <SourceIssue source={data.sources.products} label={sourceLabels.products} onRetry={onRetry}/>
       {products && <><div className="sp-kpis">{(["payment", "quantity", "visitors", "refundPayment"] as const).map((key, index) => <MetricCard key={key} label={["平台成交", "平台成交件数", "商品访客累计", "平台退款金额"][index]} metric={products.sections.summary[key]} baseline={platformBaseline?.[key]} previous={products.sections.comparisons[key].previous} yearAgo={products.sections.comparisons[key].yearAgo} props={props} onSelect={() => onChapter(key === "visitors" ? "traffic" : key === "refundPayment" ? "margin" : "products")}/>)}</div><p className="sp-caption">平台金额来自商品×日经营源；访客为商品×日累计。搜索、分页不改变这些汇总。</p></>}
@@ -241,6 +246,7 @@ function PanoramaSections({ data, props, onRetry, onChapter, onSavePosition }: {
       <details className="sp-source-details"><summary>读取版本证据</summary><p className="sp-caption">参与源按领域、种类、范围分别核验；不同种类的令牌不作字符串相等比较。</p><ul>{data.joinedSourceRevisions.map(revision => <li key={JSON.stringify([revision.domain, revision.kind, revision.scopeKey])}>{revision.domain} / {revision.kind} · {revision.scopeKey.replace("\u001f", " · ")} · {revision.revision}</li>)}</ul></details>
     </Chapter>
   </>;
+  return integrated ? <><IntegratedStoreOverview data={data} props={props} onSelect={drillProduct} onPromotion={drillPromotion} onProducts={() => { onSavePosition(); props.onDrill("products", null, ""); }} onChapter={onChapter} onRetry={onRetry}/><div className="sp-integrated-source-chapters">{legacySections}</div></> : legacySections;
 }
 
 function SelectedPanorama({ props, refreshNonce, onChapter }: { props: NetshopColumnProps; refreshNonce: number; onChapter: (id: PanoramaSectionKey) => void }) {
@@ -290,6 +296,7 @@ function SelectedPanorama({ props, refreshNonce, onChapter }: { props: NetshopCo
  * The selected cockpit supplies only its non-sticky single-shop controls and
  * top chapter navigation. All metrics remain in their owning source envelopes. */
 export default function StorePanoramaView(props: NetshopColumnProps) {
+  const integrated = useNetshopIntegratedLayout();
   const [dateOpen, setDateOpen] = useState(false), [refreshNonce, setRefreshNonce] = useState(0);
   const principal = panoramaPrincipalKey(props), shop = panoramaShop(props.context);
   const directoryQuery = panoramaDirectoryQuery(props)?.toString() ?? null;
@@ -304,15 +311,15 @@ export default function StorePanoramaView(props: NetshopColumnProps) {
   const directory = useScopedRead<InsightsContext | null>(`${directoryScope}:${directoryEnabled}`, loadDirectory);
   const shops = [...new Set([...(directory.data?.effectiveScope.shopKeys ?? []), ...props.context.outlets])];
   const activeChapter = panoramaChapter(props.context.section);
-  const onChapter = (id: PanoramaSectionKey) => { props.onContextChange({ section: id }); document.getElementById(`panorama-${id}`)?.scrollIntoView({ block: "start", behavior: "instant" }); };
+  const onChapter = (id: PanoramaSectionKey) => { props.onContextChange({ section: id }); const target = document.getElementById(`panorama-${id}`); if (target instanceof HTMLDetailsElement) target.open = true; target?.scrollIntoView({ block: "start", behavior: "instant" }); };
   const refresh = () => {
     if (shop) { try { sessionStorage.setItem(panoramaScrollStorageKey(props), String(window.scrollY)); } catch { /* Only presentation coordinates are stored. */ } }
     setRefreshNonce(value => value + 1);
   };
   const periods = useMemo(() => { try { return resolveNetshopPeriods(props.startDate, props.endDate, props.periodKind); } catch { return null; } }, [props.startDate, props.endDate, props.periodKind]);
   const today = shanghaiIsoToday(), maxDate = props.endDate > today ? props.endDate : today;
-  return <div className="netshop-panorama" data-column="panorama">
-    <div className="sp-title"><div><h1>店铺全景</h1><p>单店章节驾驶舱 · 来源分组呈现</p></div><div className="sp-toolbar"><button type="button" onClick={() => props.onNavigate("import", props.context.dimension === "sku" ? "jd_sku_daily" : shop?.platform === "天猫" ? "tmall_product_daily" : "jd_spu_daily")}>数据导入记录</button></div></div>
+  return <div className={`netshop-panorama${integrated ? " sp-integrated" : ""}`} data-column="panorama">
+    <div className="sp-title"><div><h1>{integrated ? "店铺分析" : "店铺全景"}</h1><p>{integrated ? "经营结果、商品贡献与推广投入，沿同一店铺范围查看" : "单店章节驾驶舱 · 来源分组呈现"}</p></div><div className="sp-toolbar"><button type="button" onClick={() => props.onNavigate("import", props.context.dimension === "sku" ? "jd_sku_daily" : shop?.platform === "天猫" ? "tmall_product_daily" : "jd_spu_daily")}>数据导入记录</button></div></div>
     <InsightFilterBar sticky={false} label="店铺全景经营范围"><div className="sp-filter-row"><label className="sp-filter">平台<select aria-label="全景平台" value={props.context.platforms.length === 1 ? props.context.platforms[0] : shop?.platform ?? ""} onChange={event => props.onContextChange({ platforms: event.target.value ? [event.target.value as "京东" | "天猫"] : [], outlets: [], dimension: "spu", q: "", page: 1, product: null })}><option value="">请选择平台 / 全部授权平台</option><option value="京东">京东</option><option value="天猫">天猫</option></select></label><label className="sp-filter sp-shop-select">店铺<select aria-label="全景平台与店铺" value={shop?.key ?? ""} onChange={event => props.onContextChange(panoramaShopChange(event.target.value))}><option value="">请选择一家授权店铺</option>{shops.map(key => <option key={key} value={key}>{key.replace("\u001f", " · ")}</option>)}</select></label><label className="sp-filter sp-date-selector date-selector">统计期间<button type="button" className="sp-date-trigger" aria-label="选择全景统计期间" aria-expanded={dateOpen} disabled={!props.onApplyPeriod} onClick={() => setDateOpen(value => !value)}>{props.startDate} — {props.endDate}</button>{dateOpen && props.onApplyPeriod && <StatisticalPeriodPicker minDate={`${Number(today.slice(0, 4)) - 1}-01-01`} maxDate={maxDate} startDate={props.startDate} endDate={props.endDate} periodIntent={props.periodKind === "rolling" || props.periodKind === "quarter" ? props.periodKind : undefined} onCancel={() => setDateOpen(false)} onApply={(start, end, intent) => { setDateOpen(false); props.onContextChange({ page: 1, q: "", product: null }); props.onApplyPeriod?.(start, end, intent); }}/>}</label><label className="sp-filter">商品维度<select aria-label="全景商品维度" value={props.context.dimension} onChange={event => props.onContextChange({ dimension: event.target.value as "sku" | "spu", page: 1, product: null })}><option value="spu">SPU</option><option value="sku" disabled={shop?.platform !== "京东"}>京东SKU</option></select></label><label className="sp-filter">平台/推广明细分组<select aria-label="全景序列分组" value={props.context.grain} onChange={event => props.onContextChange(panoramaGrainChange(event.target.value))}><option value="day">逐日</option><option value="week">自然周</option><option value="month">自然月</option></select></label><fieldset className="sp-checks"><legend>比较方式</legend><label><input type="checkbox" checked={props.context.previous} onChange={event => props.onContextChange({ previous: event.target.checked })}/>环比</label><label><input type="checkbox" checked={props.context.yearAgo} onChange={event => props.onContextChange({ yearAgo: event.target.checked })}/>同比</label></fieldset><button type="button" onClick={refresh}>刷新</button></div></InsightFilterBar>
     {!periods && <p className="sp-note" role="status">所选日期或期间规则超出新全景范围；来源读取会报告具体错误。</p>}
     {directory.status === "error" && <p className="sp-note" role="alert">授权店铺目录读取失败：{directory.error}。可重新读取当前范围。</p>}

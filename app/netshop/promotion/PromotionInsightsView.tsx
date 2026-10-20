@@ -18,7 +18,9 @@ import PromotionContributions from "./PromotionContributions";
 import { validatePromotionQuery } from "@/lib/netshop/promotion-insights-query";
 import { CapabilityGap, ComparisonCell, MetricCard, MetricCell, PromotionSection } from "./presentation";
 import { readPromotion } from "./read";
+import { useNetshopIntegratedLayout } from "../shared/integrated-layout";
 import "./promotion.css";
+import "./integrated-promotion.css";
 
 const chapters = [
   ["overview", "效率概览"], ["trend", "趋势与变化"], ["shops", "店铺对比"], ["products", "推广商品"],
@@ -35,10 +37,13 @@ function isObjectKind(value: string): value is PromotionObjectKind { return PROM
 function coverageForRef(data: PromotionInsightsResponse, ref: string) { return data.sections.coverage[ref] ?? data.context.coverageBySource[ref]; }
 
 function ObjectTable({ data, props, onChoose, sort, onSort }: { data: PromotionInsightsResponse; props: NetshopColumnProps; onChoose: (item: ObjectSelection) => void; sort: PromotionSort; onSort: (sort: PromotionSort) => void }) {
+  const integrated = useNetshopIntegratedLayout();
   const s = data.sections, capability = s.objectCapabilities[s.listScope.objectKind];
+  const [queryDraft, setQueryDraft] = useState(props.context.q);
+  useEffect(() => { setQueryDraft(props.context.q); }, [props.context.q, s.listScope.objectKind]);
   return <>
     <div className="promotion-object-toolbar">
-      <label className="promotion-filter">搜索当前对象列表<input aria-label="搜索推广对象" value={props.context.q} placeholder="名称 / ID / 店铺" maxLength={120} onChange={event => props.onContextChange({ q: event.target.value, page: 1 })}/></label>
+      <label className="promotion-filter">搜索当前对象列表<input aria-label="搜索推广对象" value={integrated ? queryDraft : props.context.q} placeholder={integrated ? "名称 / ID / 店铺 · Enter确认" : "名称 / ID / 店铺"} maxLength={120} onChange={event => { if (integrated) setQueryDraft(event.target.value); else props.onContextChange({ q: event.target.value, page: 1 }); }} onKeyDown={event => { if (integrated && event.key === "Enter" && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) { event.preventDefault(); props.onContextChange({ q: queryDraft.trim(), page: 1 }); } }}/></label>
       <label className="promotion-filter">每页条数<select aria-label="推广每页条数" value={props.context.pageSize} onChange={event => props.onContextChange({ pageSize: Number(event.target.value), page: 1 })}>{![20, 50, 100].includes(props.context.pageSize) && <option value={props.context.pageSize}>{props.context.pageSize} 条</option>}{[20, 50, 100].map(n => <option key={n} value={n}>{n} 条</option>)}</select></label>
       <label className="promotion-filter">排序<select aria-label="推广对象排序" value={sort} onChange={event => onSort(event.target.value as PromotionSort)}>{PROMOTION_SORTS.map((key, index) => <option key={key} value={key}>{["花费从高到低", "归因成交从高到低", "ROI 从高到低", "花费增幅从高到低", "花费增幅从低到高"][index]}</option>)}</select></label>
     </div>
@@ -99,6 +104,7 @@ function ObjectDetail({ selected, data, query, onClose, onChoose, onDrill, onInv
 
 export default function PromotionInsightsView(props: NetshopColumnProps) {
   const { context, startDate, endDate, periodKind, onContextChange } = props;
+  const integrated = useNetshopIntegratedLayout();
   const platform = context.platforms.length === 1 ? context.platforms[0] : "京东";
   const objectKind = isObjectKind(context.section) ? context.section : "product";
   const productIdentity = objectKind === "product" && context.product ? encodeProductIdentity(context.product) : null;
@@ -109,6 +115,7 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
   const [chosen, setChosen] = useState<{ response: PromotionInsightsResponse; item: ObjectSelection } | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [trendMetric, setTrendMetric] = useState<"amount" | "roas" | "clicks" | "cpc">("amount");
+  const [integratedEfficiencyTrend, setIntegratedEfficiencyTrend] = useState<"clicks" | "cpc">("clicks");
   const [readGeneration, setReadGeneration] = useState(0);
   const [blocked, setBlocked] = useState<{ baseScope: string; code: string; message: string } | null>(null);
   const binding = useRef<{ baseScope: string; sectionToken: string; snapshotToken: string } | null>(null);
@@ -139,7 +146,15 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
     setChosen({ response: data, item });
   }
   function changeObjectKind(kind: PromotionObjectKind) { setChosen(null); onContextChange({ section: kind, q: "", page: 1, product: kind === "product" && objectKind === "product" ? context.product : null }); }
-  function scrollChapter(key: string) { document.getElementById(`promotion-${key}`)?.scrollIntoView({ block: "start", behavior: "smooth" }); }
+  function scrollChapter(key: string) {
+    const targetKey = integrated && ["products", "plans", "terms"].includes(key) ? "objects" : key;
+    const target = document.getElementById(`promotion-${targetKey}`);
+    if (target?.tagName === "DETAILS") (target as HTMLDetailsElement).open = true;
+    for (let parent = target?.parentElement; parent; parent = parent.parentElement) {
+      if (parent.tagName === "DETAILS") (parent as HTMLDetailsElement).open = true;
+    }
+    target?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
   function selectTrend(from: string, to: string) { setChosen(null); onContextChange({ promotionPrefs: { schemaVersion: "promotion-ui-v1", sort, objectDateFocus: { startDate: from, endDate: to } }, page: 1 }); scrollChapter(objectKind === "product" ? "products" : objectKind === "plan" || objectKind === "unit" ? "plans" : "terms"); }
   const amountLabel = s?.attribution.amountDefinition === "tmall_net_amount" ? "推广净成交（归因）" : "总订单金额（归因）";
   const orderLabel = s?.attribution.orderDefinition === "tmall_net_transactions" ? "归因净成交笔数" : "归因订单行";
@@ -149,21 +164,119 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
   const reportEligible = Boolean(data && s?.diagnostic.status === "available" && s.diagnostic.shopName === "志高商用设备旗舰店" && platform === "京东" && props.currentUser?.role === "admin" && data.context.effectiveScope.shopKeys.length === 1 && data.context.effectiveScope.shopKeys[0] === `京东\u001f${s.diagnostic.shopName}` && data.context.periods.current.days <= 7 && owningRevision);
   const selectedObject = chosen?.response === data && data ? chosen.item : null;
   const sectionTable = data ? <ObjectTable data={data} props={props} onChoose={choose} sort={sort} onSort={next => { setChosen(null); onContextChange({ promotionPrefs: { schemaVersion: "promotion-ui-v1", sort: next, objectDateFocus: focus }, page: 1 }); }}/> : null;
-  return <div className="promotion-insights">
-    <div className="promotion-heading"><h1>推广分析</h1>{context.returnTo && <button type="button" className="secondary-button" onClick={props.onReturn}>返回原列表</button>}<div className="promotion-platform-tabs" role="tablist" aria-label="推广分析平台">{(["京东", "天猫"] as const).map(name => <button type="button" key={name} role="tab" aria-selected={platform === name} onClick={() => { setChosen(null); onContextChange({ platforms: [name], outlets: [], dimension: name === "京东" ? "sku" : "spu", section: "product", q: "", page: 1, product: null }); }}>{name}推广</button>)}</div></div>
-    <nav className="promotion-chapters" aria-label="推广分析分区">{chapters.map(([key, label]) => <button type="button" key={key} onClick={() => scrollChapter(key)}>{label}</button>)}</nav>
-    <InsightFilterBar sticky={false} label="推广经营范围筛选">
+  // Both presentations consume the same bound read and original evidence components.
+  const pageHeading = <div className="promotion-heading"><h1>推广分析</h1>{context.returnTo && <button type="button" className="secondary-button" onClick={props.onReturn}>返回原列表</button>}<div className="promotion-platform-tabs" role="tablist" aria-label="推广分析平台">{(["京东", "天猫"] as const).map(name => <button type="button" key={name} role="tab" aria-selected={platform === name} onClick={() => { setChosen(null); onContextChange({ platforms: [name], outlets: [], dimension: name === "京东" ? "sku" : "spu", section: "product", q: "", page: 1, product: null }); }}>{name}推广</button>)}</div></div>;
+  const scopeFilters = <InsightFilterBar sticky={false} label="推广经营范围筛选">
       <div className="promotion-filter"><span>店铺范围</span><details className="promotion-shop-picker"><summary>{selectedShopKeys.length ? `已选 ${selectedShopKeys.length} 家店铺` : "全部有效店铺"}</summary><div className="promotion-shop-options"><button type="button" className="row-action" onClick={() => { setChosen(null); onContextChange({ outlets: [], page: 1, product: null }); }}>查看全部有效店铺</button>{s?.shops.items.map(shop => <label key={shop.shopKey}><input type="checkbox" aria-label={`选择推广店铺 ${shop.shopName}`} checked={!selectedShopKeys.length || selectedShopKeys.includes(shop.shopKey)} onChange={event => { const current = selectedShopKeys.length ? selectedShopKeys : s.shops.items.map(item => item.shopKey); setChosen(null); onContextChange({ outlets: event.target.checked ? [...current, shop.shopKey].filter((key, index, list) => list.indexOf(key) === index) : current.filter(key => key !== shop.shopKey), page: 1, product: null }); }}/>{shop.platform} · {shop.shopName}</label>)}{!s && selectedShopKeys.map(key => <p key={key}>{key.replace("\u001f", " · ")}</p>)}<p className="promotion-caption">当前列出已读取范围的店铺；查看全部可重新选择多店集合。</p></div></details></div>
       <div className="promotion-filter date-selector promotion-date-selector"><span>统计期间</span><button type="button" className="promotion-date-trigger" aria-label="选择推广统计日期" aria-expanded={pickerOpen} onClick={() => setPickerOpen(value => !value)}>{startDate}—{endDate} ▦</button>{pickerOpen && <StatisticalPeriodPicker minDate={`${Number(today.slice(0, 4)) - 1}-01-01`} maxDate={today} startDate={startDate} endDate={endDate} periodIntent={periodKind === "quarter" ? "quarter" : ["rolling", "last7", "last15", "last30"].includes(periodKind) ? "rolling" : undefined} onCancel={() => setPickerOpen(false)} onApply={(from, to, intent) => { setPickerOpen(false); setChosen(null); props.onApplyPeriod?.(from, to, intent); }}/>}</div>
       <label className="promotion-filter">趋势粒度<select aria-label="推广趋势粒度" value={context.grain} onChange={event => onContextChange({ grain: event.target.value as "day" | "week" | "month", page: 1 })}><option value="day">日</option><option value="week">自然周（首尾截段）</option><option value="month">自然月（首尾截段）</option></select></label>
       <div className="promotion-checks"><label><input type="checkbox" checked={context.previous} onChange={event => onContextChange({ previous: event.target.checked })}/> 环比</label><label><input type="checkbox" checked={context.yearAgo} onChange={event => onContextChange({ yearAgo: event.target.checked })}/> 同比</label></div>
-    </InsightFilterBar>
-    {productIdentity && context.product && <section className="promotion-focus-banner" aria-label="精确商品焦点"><div><strong>精确商品焦点</strong><p>{context.product.platform} · {context.product.shopName} · {context.product.dimension.toUpperCase()} · {context.product.id}</p><p className="promotion-caption">{s?.listScope.productFocus ? s.listScope.productFocus.message : read.status === "loading" && !isBlocked ? "正在按来源核验精确商品关联。" : "当前焦点尚未取得可信匹配结果，可清除焦点后查看原范围。"} 只过滤推广对象与贡献集合，整期汇总、趋势和店铺对比保持原范围。</p></div><button type="button" className="secondary-button" onClick={() => { setChosen(null); onContextChange({ product: null, page: 1 }); }}>清除商品焦点</button></section>}
-    <InsightReadState status={isBlocked ? blocked!.code.endsWith("revision_changed") ? "version_changed" : "error" : read.status} error={isBlocked ? blocked!.message : read.error} onRetry={retry}/>
+    </InsightFilterBar>;
+  const productFocusBanner = productIdentity && context.product && <section className="promotion-focus-banner" aria-label="精确商品焦点"><div><strong>精确商品焦点</strong><p>{context.product.platform} · {context.product.shopName} · {context.product.dimension.toUpperCase()} · {context.product.id}</p><p className="promotion-caption">{s?.listScope.productFocus ? s.listScope.productFocus.message : read.status === "loading" && !isBlocked ? "正在按来源核验精确商品关联。" : "当前焦点尚未取得可信匹配结果，可清除焦点后查看原范围。"} 只过滤推广对象与贡献集合，整期汇总、趋势和店铺对比保持原范围。</p></div><button type="button" className="secondary-button" onClick={() => { setChosen(null); onContextChange({ product: null, page: 1 }); }}>清除商品焦点</button></section>;
+  const readStateNotice = <InsightReadState status={isBlocked ? blocked!.code.endsWith("revision_changed") ? "version_changed" : "error" : read.status} error={isBlocked ? blocked!.message : read.error} onRetry={retry}/>;
+  const rangeSummary = data ? <>
+<div className="promotion-context-line"><span>{platform} · {data.context.effectiveScope.shopKeys.length} 家店铺 · {data.context.periods.current.days} 个自然日</span><span title={data.sectionToken}>来源版本 {data.sectionToken.slice(0, 16)} · {data.columnVersion}</span></div>
+      <div className="promotion-context-line"><span>{context.previous && `环比 ${data.context.periods.previous.startDate}—${data.context.periods.previous.endDate}`}</span><span>{context.yearAgo && `同比 ${data.context.periods.yearAgo.startDate}—${data.context.periods.yearAgo.endDate}`} · {data.context.periods.rule}</span></div>
+  </> : null;
+  const shopComparison = data && s ? (
+<PromotionSection id="promotion-shops" title="店铺投入与效率" note="同一平台下按每家店铺的独立店日覆盖核验；占比不代表交易渠道份额。">
+          {!s.shops.visible ? <p className="promotion-caption">{data.context.effectiveScope.shopKeys.length === 1 ? "当前为单店范围，已收起重复的多店对比。" : "当前范围没有可核验店铺，店铺对比暂无数据。"}</p> : <div className="data-table-wrap"><table className="data-table"><thead><tr><th>店铺</th><th>花费 / 占比</th><th>{amountLabel}</th><th>ROI / 费率</th><th>花费变化</th><th>覆盖</th></tr></thead><tbody>{s.shops.items.map(shop => <tr key={shop.shopKey}><td><button type="button" className="row-action" onClick={() => onContextChange({ outlets: [shop.shopKey], page: 1, product: null })}>{shop.platform} · {shop.shopName}</button></td><td><MetricCell metric={shop.metrics.spend}/><br/><MetricCell metric={shop.spendShare}/></td><td><MetricCell metric={shop.metrics.attributedPayment}/></td><td><MetricCell metric={shop.metrics.roas}/><br/><MetricCell metric={shop.metrics.spendRate}/></td><td>{context.previous ? <ComparisonCell value={shop.comparisons.spend.previous}/> : "—"}{context.yearAgo && <small>同比 <ComparisonCell value={shop.comparisons.spend.yearAgo}/></small>}</td><td>{coverageForRef(data, shop.coverageRef) && <InsightSourceCoverage coverage={coverageForRef(data, shop.coverageRef)!} label="推广"/>}</td></tr>)}</tbody></table></div>}
+        </PromotionSection>
+  ) : null;
+  const efficiencyFacts = data && s ? (
+<PromotionSection className="promotion-efficiency-section" title="流量与归因效率" note="点击不是访客；订单行、订单笔数和客户数分别保留。"><div className="promotion-efficiency"><div className="promotion-efficiency-metric"><InsightMetric label="CTR" metric={s.summary.ctr}/><div className="promotion-comparisons">{context.previous && <span>环比 <ComparisonCell value={s.comparisons.ctr.previous}/></span>}{context.yearAgo && <span>同比 <ComparisonCell value={s.comparisons.ctr.yearAgo}/></span>}</div></div><div className="promotion-efficiency-metric"><InsightDerivedMoneyMetric label="CPC" metric={s.summary.cpc}/><div className="promotion-comparisons">{context.previous && <span>环比 <ComparisonCell value={s.comparisons.cpc.previous}/></span>}{context.yearAgo && <span>同比 <ComparisonCell value={s.comparisons.cpc.yearAgo}/></span>}</div></div></div><div className="promotion-fact-list">{(["impressions", "clicks", "orders"] as const).map((key, index) => <div className="promotion-fact-row" key={key}><span>{["展现", "点击", orderLabel][index]}</span><MetricCell metric={s.summary[key]}/></div>)}</div><p className="promotion-caption">ROI 采用平台归因成交 ÷ 推广花费，不表示利润回报率或广告增量。归因窗口：{s.attribution.window ?? "尚未核验"}。</p></PromotionSection>
+  ) : null;
+  const coverageConditions = data && s ? (
+<PromotionSection title="覆盖与比较条件" note="先核对每个精确店日，再比较整期比率。">{rateCoverage && <><div className="promotion-source-count">{rateCoverage.coveredShopDatePairs}<small> / {rateCoverage.expectedShopDatePairs} 店日</small></div><div className="promotion-progress"><span style={{ width: `${rateCoverage.expectedShopDatePairs ? rateCoverage.coveredShopDatePairs / rateCoverage.expectedShopDatePairs * 100 : 0}%` }}/></div><InsightSourceCoverage coverage={rateCoverage} label="推广与商品配对"/></>}<p className="promotion-caption">整期配对不足时，主推广费率保持空值；部分匹配值单列范围。</p>{s.matchedRange && <details><summary>辅助匹配范围 · {s.matchedRange.scopeLabel}</summary><div className="promotion-fact-list">{(["spend", "payment", "spendRate"] as const).map((key, index) => <div className="promotion-fact-row" key={key}><span>{["匹配花费", "匹配平台成交", "仅匹配范围费率"][index]}</span><MetricCell metric={s.matchedRange!.metrics[key]}/></div>)}</div><ul>{s.matchedRange.shopDates.map(shop => <li key={shop.shopKey}>{shop.shopKey.replace("\u001f", " · ")}：{shop.dates.join("、")}</li>)}</ul></details>}</PromotionSection>
+  ) : null;
+  const shopDistribution = data && s ? (
+<PromotionSection title="店铺投入分布" note="已覆盖花费结构，不是交易渠道份额。"><div className="promotion-structure">{s.shops.items.map(shop => <article key={shop.shopKey}><header><button type="button" className="row-action" onClick={() => onContextChange({ outlets: [shop.shopKey], page: 1 })}>{shop.shopName}</button><MetricCell metric={shop.spendShare}/></header><div className="promotion-progress"><span style={{ width: `${shop.spendShare.status === "available" && shop.spendShare.value !== null ? Math.min(100, Math.max(0, shop.spendShare.value * 100)) : 0}%` }}/></div><span className="promotion-caption">花费 <MetricCell metric={shop.metrics.spend}/> · ROI <MetricCell metric={shop.metrics.roas}/></span></article>)}</div></PromotionSection>
+  ) : null;
+  const observationGuidance = data && s ? (
+<PromotionSection title="值得核查的变化" note="公开观察规则；变化为核查线索，不是原因结论。"><h3>投入与产出</h3><p>先确认本期与基期覆盖、归因口径，再核对花费和归因成交是否同步变化。</p><h3>流量成本与成交效率</h3><p>结合 CPC、CTR 和{orderLabel}查看对象证据。保持同身份与同日期，等待归因成熟后再复盘。</p><p className="promotion-caption">来源版本、范围或归因定义变化时停止比较并重新读取；本页不自动停投或调整预算。</p><button type="button" className="row-action" onClick={() => scrollChapter("diagnostic")}>查看诊断范围与证据</button></PromotionSection>
+  ) : null;
+  const diagnosticPanel = data && s ? (
+<PromotionSection id="promotion-diagnostic" title="诊断与复盘" note="观察事实 → 公开规则 → 证据 → 核查建议 → 观察指标与停止条件。">
+        {reportEligible ? <>
+          <p className="promotion-note">原报告本期 {startDate}—{endDate}；基期 {addIsoDays(startDate, -data.context.periods.current.days)}—{addIsoDays(startDate, -1)}，采用紧邻前等长规则。本页环比采用“{data.context.periods.rule}”，另有去年同期；原报告与页面比较规则分别披露。</p>
+          <p className="promotion-caption">HTML / XLSX 导出保留原报告的完整本期与基期、精确店铺及同一网店来源修订，不导出当前搜索页、本页同比或新贡献榜。</p>
+          <PromotionDiagnosticPanel key={`${platform}:${s.diagnostic.shopName}:${startDate}:${endDate}:${owningRevision}:${authority}:${data.sectionToken}`} shopName={s.diagnostic.shopName!} startDate={startDate} endDate={endDate} allowPaidModel={false} ratioLabel="ROI" expectedOwningRevision={owningRevision} onReadInvalidated={invalidateReport} includeExportProvenance={true}/>
+        </> : <CapabilityGap reason={s.diagnostic.status === "available" ? "原报告须为已核验管理员、指定京东单店、1—7 个完整自然日及可信来源修订；当前条件不足。" : s.diagnostic.message}/>}<p className="promotion-caption">列表搜索和对象日期不裁剪原报告。规则草稿需运营复核；本栏目未启用付费模型解释。</p>
+      </PromotionSection>
+  ) : null;
+  const sourcePanel = data && s ? (
+<PromotionSection id="promotion-sources" title="数据与归因" note="来源、范围、版本、字段存在与映射共同决定可用性。">
+        <div className="promotion-source-grid"><article><h3>金额与订单定义</h3><p>{amountLabel}：{s.attribution.amountDefinition === "jd_total_order_amount" ? "京准通归因总订单金额，不能表达退款后销售净额。" : "天猫推广来源净成交金额，保留原来源退款与归因规则。"}</p><p>{orderLabel}保持来源定义，不替换为客户数。ROI 为归因成交 ÷ 花费、单位倍数，不是利润或广告增量。</p></article><article><h3>归因与可比性</h3><p>归因窗口：{s.attribution.window ?? "来源尚未提供可信窗口"}。归因成交与平台成交的包含关系未核验，不标自然/付费渠道份额，不用相减推算自然成交。</p><p>推广 SKU、触发 SKU、跟单 SKU独立建模。商品映射未关联或多义时停止钻取。</p></article></div>
+        <div className="data-table-wrap"><table className="data-table promotion-capability-table"><thead><tr><th>来源</th><th>字段能力</th><th>范围覆盖</th><th>说明</th></tr></thead><tbody>{s.sourceMatrix.map(source => <tr key={source.sourceId}><td>{source.label}<small>{source.sourceId}</small></td><td>{source.fields.map(field => <p key={field.field}>{field.field}：{field.status === "available" ? "已提供" : `缺口（${field.reasonCode ?? "未核验"}）`}</p>)}</td><td>{coverageForRef(data, source.coverageRef) && <InsightSourceCoverage coverage={coverageForRef(data, source.coverageRef)!} label="当前来源"/>}</td><td>{source.notes.map((note, index) => <p key={index}>{note}</p>)}</td></tr>)}</tbody></table></div>
+        <details><summary>完整修订向量、截止日期与限制</summary><ul>{data.context.freshness.map(source => <li key={source.sourceId}>{source.sourceId} · 截止 {source.dataThrough ?? "无可信截止日期"}</li>)}</ul><ul>{data.context.sourceRevisions.map(source => <li key={`${source.kind}:${source.scopeKey}`}>{source.kind} · {source.scopeKey.replace("\u001f", " · ")} · {source.revision}</li>)}</ul><ul>{[...data.context.limitations, ...s.limitations].map((text, index) => <li key={index}>{text}</li>)}</ul></details>
+      </PromotionSection>
+  ) : null;
+  const objectDetail = data && selectedObject && <ObjectDetail key={`${requestScope}:${selectedObject.rowKey}`} selected={selectedObject} data={data} query={encoded} onClose={() => setChosen(null)} onChoose={choose} onDrill={props.onDrill} onInvalidate={invalidate}/>;
+  if (integrated) return <div className="promotion-insights promotion-integrated">
+    {pageHeading}
+    {scopeFilters}
+    {productFocusBanner}
+    {readStateNotice}
+    {!data && <PromotionSection title="推广经营与对象明细"><p className="promotion-caption">{read.status === "loading" && !isBlocked ? "正在读取当前店铺与期间的可信来源…" : "尚未取得当前范围的可信结果；店铺、期间与商品焦点已保留，可重新读取。"}</p></PromotionSection>}
+    {data && s && <>
+      <div className="promotion-integrated-scope"><span><strong>{platform}</strong> · {data.context.effectiveScope.shopKeys.length} 家店铺 · {startDate}—{endDate}</span><span>摘要与趋势为整期范围；搜索仅筛对象明细</span></div>
+      <div className="promotion-integrated-kpis" id="promotion-overview">
+        {(["spend", "attributedPayment", "roas", "clicks"] as const).map((key, index) => <MetricCard key={key} label={["推广花费", amountLabel, "推广 ROI", "广告点击"][index]} metric={s.summary[key]} previous={s.comparisons[key].previous} yearAgo={s.comparisons[key].yearAgo} showPrevious={context.previous} showYearAgo={context.yearAgo} previousChange={key === "spend" || key === "attributedPayment" ? s.changes[key].previous : undefined} yearAgoChange={key === "spend" || key === "attributedPayment" ? s.changes[key].yearAgo : undefined} note={key === "roas" ? "归因成交 ÷ 花费 · 倍" : undefined}/>)}
+        <article className="promotion-kpi"><InsightDerivedMoneyMetric label="点击成本 CPC" metric={s.summary.cpc}/><div className="promotion-comparisons">{context.previous && <span>环比 <ComparisonCell value={s.comparisons.cpc.previous}/></span>}{context.yearAgo && <span>同比 <ComparisonCell value={s.comparisons.cpc.yearAgo}/></span>}</div></article>
+        <MetricCard label="广告点击率 CTR" metric={s.summary.ctr} previous={s.comparisons.ctr.previous} yearAgo={s.comparisons.ctr.yearAgo} showPrevious={context.previous} showYearAgo={context.yearAgo}/>
+      </div>
+      <nav className="promotion-integrated-nav" aria-label="推广经营章节">{[["trend", "归因趋势"], ["objects", "投放对象"], ["more", "其他分析"], ["sources", "数据与口径"]].map(([key, label]) => <button type="button" key={key} onClick={() => scrollChapter(key)}>{label}</button>)}</nav>
+      <div className="promotion-integrated-overview">
+        <PromotionSection id="promotion-trend" title="广告归因成交趋势" note="沿用推广来源归因口径。点击日期定位对象期间，整期摘要保持不变。">
+          <MetricTrend key={`${requestScope}:integrated-attribution`} points={s.trend.items.map(point => ({ ...point, values: [point.metrics.attributedPayment] }))} labels={[`${amountLabel} / 元`]} onSelect={selectTrend}/>
+        </PromotionSection>
+        <PromotionSection className="promotion-integrated-facts" title="投入与效率一起看" note="事实变化与来源条件分别呈现">
+          <div className="promotion-fact-list">
+            <div className="promotion-fact-row"><span>花费变化</span><div>{context.previous ? <ComparisonCell value={s.comparisons.spend.previous}/> : <span className="promotion-caption">环比未开启</span>}{context.yearAgo && <small>同比 <ComparisonCell value={s.comparisons.spend.yearAgo}/></small>}</div></div>
+            <div className="promotion-fact-row"><span>归因成交变化</span><div>{context.previous ? <ComparisonCell value={s.comparisons.attributedPayment.previous}/> : <span className="promotion-caption">环比未开启</span>}{context.yearAgo && <small>同比 <ComparisonCell value={s.comparisons.attributedPayment.yearAgo}/></small>}</div></div>
+            <div className="promotion-fact-row"><span>推广费率</span><MetricCell metric={s.summary.spendRate}/></div>
+          </div>
+          <p className="promotion-caption">归因窗口：{s.attribution.window ?? "来源尚未核验"}。归因成交不等于平台成交，不推算自然成交或增量利润。</p>
+          <p className="promotion-caption">保本判断：当前页面未提供已核验成本与到手价；ROI 不能单独判断亏损。</p>
+          <button type="button" className="row-action" onClick={() => scrollChapter("sources")}>查看覆盖、比较条件与来源 →</button>
+        </PromotionSection>
+      </div>
+      <PromotionSection id="promotion-objects" title="投放结构与对象明细" note="同一来源的商品、计划、单元与词视角分别阅读，不能重复相加。" tools={<span className="promotion-caption">当前：{objectLabels[objectKind]}</span>}>
+        <div className="promotion-integrated-object-tabs" role="group" aria-label="推广对象视角">{(["plan", "unit", "keyword", "search_term", "product"] as const).map(kind => <button type="button" key={kind} disabled={!s.objectCapabilities[kind].canQuery} title={s.objectCapabilities[kind].message} aria-pressed={objectKind === kind} onClick={() => changeObjectKind(kind)}>{objectLabels[kind]}</button>)}</div>
+        <div className="promotion-integrated-object-scope"><span>{focus ? `已定位对象期间 ${focus.startDate}—${focus.endDate}` : `整期对象 ${startDate}—${endDate}`}</span>{focus && <button type="button" className="row-action" onClick={() => { setChosen(null); onContextChange({ promotionPrefs: { schemaVersion: "promotion-ui-v1", sort, objectDateFocus: null }, page: 1 }); }}>返回整期对象</button>}</div>
+        {objectKind === "product" && <p className="promotion-caption">{platform === "京东" ? "跟单 SKU 分摊视角，不能等同独立投放效果；商品关联按平台、店铺、维度和 ID 核验。" : "推广商品 ID 视角，身份映射须有唯一来源证据。"}</p>}
+        {sectionTable}
+        <details className="promotion-integrated-capabilities"><summary>对象来源能力与缺口</summary><div className="promotion-fact-list">{PROMOTION_OBJECT_KINDS.map(kind => <div className="promotion-fact-row" key={kind}><span>{objectLabels[kind]}</span><p>{s.objectCapabilities[kind].message}</p></div>)}</div></details>
+      </PromotionSection>
+      {objectDetail}
+      <details className="promotion-integrated-fold" id="promotion-more"><summary><strong>其他趋势、贡献与店铺对比</strong><span>展开花费、ROI、流量成本与贡献证据</span></summary><div className="promotion-integrated-fold-body">
+        <div className="promotion-integrated-two">
+          <PromotionSection title="推广花费趋势" note="同一推广来源与完整期间"><MetricTrend key={`${requestScope}:integrated-spend`} points={s.trend.items.map(point => ({ ...point, values: [point.metrics.spend] }))} labels={["推广花费 / 元"]} onSelect={selectTrend}/></PromotionSection>
+          <PromotionSection title="推广 ROI 趋势" note="归因成交 ÷ 花费，单位倍数；缺数不补零"><MetricTrend key={`${requestScope}:integrated-roi`} points={s.trend.items.map(point => ({ ...point, values: [point.metrics.roas] }))} labels={["ROI / 倍"]} onSelect={selectTrend}/></PromotionSection>
+        </div>
+        <PromotionSection title="流量与成本趋势" tools={<div className="promotion-trend-tabs">{([["clicks", "点击"], ["cpc", "CPC"]] as const).map(([key, label]) => <button type="button" key={key} aria-pressed={integratedEfficiencyTrend === key} onClick={() => setIntegratedEfficiencyTrend(key)}>{label}</button>)}</div>}><MetricTrend key={`${requestScope}:integrated-efficiency:${integratedEfficiencyTrend}`} points={s.trend.items.map(point => ({ ...point, values: [point.metrics[integratedEfficiencyTrend]] }))} labels={[integratedEfficiencyTrend === "cpc" ? "CPC / 元/次" : "点击 / 次"]} onSelect={selectTrend}/></PromotionSection>
+        <PromotionSection title="对象贡献与变化" note="按原来源完整集合计算，保留精确对象身份"><PromotionContributions data={data} showPrevious={context.previous} onChoose={choose}/></PromotionSection>
+        <div className="promotion-integrated-two">{efficiencyFacts}{observationGuidance}</div>
+        {shopComparison}
+        {shopDistribution}
+      </div></details>
+      <details className="promotion-integrated-fold"><summary><strong>诊断与复盘</strong><span>查看原报告范围、资格与导出</span></summary><div className="promotion-integrated-fold-body">{diagnosticPanel}</div></details>
+      <details className="promotion-integrated-fold"><summary><strong>数据范围与口径</strong><span>展开覆盖、归因、字段能力与来源版本</span></summary><div className="promotion-integrated-fold-body">
+        {rangeSummary}
+        {coverageConditions}
+        {sourcePanel}
+      </div></details>
+    </>}
+  </div>;
+  return <div className="promotion-insights">
+    {pageHeading}
+    <nav className="promotion-chapters" aria-label="推广分析分区">{chapters.map(([key, label]) => <button type="button" key={key} onClick={() => scrollChapter(key)}>{label}</button>)}</nav>
+    {scopeFilters}
+    {productFocusBanner}
+    {readStateNotice}
     {!data && <div className="promotion-unread-sections">{chapters.map(([key, title]) => <PromotionSection key={key} id={`promotion-${key}`} title={title}><p className="promotion-caption">{read.status === "loading" && !isBlocked ? "正在读取当前范围的可信来源…" : "尚未取得本分区的可信结果；保留当前筛选，重新读取后查看。"}</p></PromotionSection>)}</div>}
     {data && s && <>
-      <div className="promotion-context-line"><span>{platform} · {data.context.effectiveScope.shopKeys.length} 家店铺 · {data.context.periods.current.days} 个自然日</span><span title={data.sectionToken}>来源版本 {data.sectionToken.slice(0, 16)} · {data.columnVersion}</span></div>
-      <div className="promotion-context-line"><span>{context.previous && `环比 ${data.context.periods.previous.startDate}—${data.context.periods.previous.endDate}`}</span><span>{context.yearAgo && `同比 ${data.context.periods.yearAgo.startDate}—${data.context.periods.yearAgo.endDate}`} · {data.context.periods.rule}</span></div>
+      {rangeSummary}
       <div className="promotion-columns" id="promotion-overview"><div className="promotion-main"><div className="promotion-column-label"><span>投入与产出</span><small>本期 {startDate}—{endDate}</small></div>
         <div className="promotion-kpis">{(["spend", "attributedPayment", "roas", "spendRate"] as const).map((key, index) => <MetricCard key={key} label={["推广花费", amountLabel, "ROI", "推广费率"][index]} metric={s.summary[key]} previous={s.comparisons[key].previous} yearAgo={s.comparisons[key].yearAgo} showPrevious={context.previous} showYearAgo={context.yearAgo} previousChange={key === "spend" || key === "attributedPayment" ? s.changes[key].previous : undefined} yearAgoChange={key === "spend" || key === "attributedPayment" ? s.changes[key].yearAgo : undefined} note={key === "roas" ? "平台归因成交 ÷ 花费，单位倍数" : key === "spendRate" ? "同平台 × 店铺 × 日期完整配对" : undefined}/>)}</div>
         <PromotionSection id="promotion-trend" title="投入产出趋势" note="点击日期联动对象列表；顶部仍为整期汇总。缺日或缺字段处断开。" tools={<div className="promotion-trend-tabs">{([["amount", "花费 / 产出"], ["roas", "ROI"], ["clicks", "点击"], ["cpc", "CPC"]] as const).map(([key, label]) => <button type="button" key={key} aria-pressed={trendMetric === key} onClick={() => setTrendMetric(key)}>{label}</button>)}</div>}>
@@ -171,14 +284,12 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
           <div className="promotion-context-line"><span>{focus ? `已定位对象期间 ${focus.startDate}—${focus.endDate}` : "选择趋势日期查看同范围对象"}</span>{focus && <button type="button" className="row-action" onClick={() => { setChosen(null); onContextChange({ promotionPrefs: { schemaVersion: "promotion-ui-v1", sort, objectDateFocus: null }, page: 1 }); }}>返回整期对象</button>}</div>
           <PromotionContributions data={data} showPrevious={context.previous} onChoose={choose}/>
         </PromotionSection>
-        <PromotionSection id="promotion-shops" title="店铺投入与效率" note="同一平台下按每家店铺的独立店日覆盖核验；占比不代表交易渠道份额。">
-          {!s.shops.visible ? <p className="promotion-caption">{data.context.effectiveScope.shopKeys.length === 1 ? "当前为单店范围，已收起重复的多店对比。" : "当前范围没有可核验店铺，店铺对比暂无数据。"}</p> : <div className="data-table-wrap"><table className="data-table"><thead><tr><th>店铺</th><th>花费 / 占比</th><th>{amountLabel}</th><th>ROI / 费率</th><th>花费变化</th><th>覆盖</th></tr></thead><tbody>{s.shops.items.map(shop => <tr key={shop.shopKey}><td><button type="button" className="row-action" onClick={() => onContextChange({ outlets: [shop.shopKey], page: 1, product: null })}>{shop.platform} · {shop.shopName}</button></td><td><MetricCell metric={shop.metrics.spend}/><br/><MetricCell metric={shop.spendShare}/></td><td><MetricCell metric={shop.metrics.attributedPayment}/></td><td><MetricCell metric={shop.metrics.roas}/><br/><MetricCell metric={shop.metrics.spendRate}/></td><td>{context.previous ? <ComparisonCell value={shop.comparisons.spend.previous}/> : "—"}{context.yearAgo && <small>同比 <ComparisonCell value={shop.comparisons.spend.yearAgo}/></small>}</td><td>{coverageForRef(data, shop.coverageRef) && <InsightSourceCoverage coverage={coverageForRef(data, shop.coverageRef)!} label="推广"/>}</td></tr>)}</tbody></table></div>}
-        </PromotionSection>
+        {shopComparison}
       </div><aside className="promotion-aside"><div className="promotion-column-label"><span>效率与核查</span><small>同口径 / 同覆盖</small></div>
-        <PromotionSection className="promotion-efficiency-section" title="流量与归因效率" note="点击不是访客；订单行、订单笔数和客户数分别保留。"><div className="promotion-efficiency"><div className="promotion-efficiency-metric"><InsightMetric label="CTR" metric={s.summary.ctr}/><div className="promotion-comparisons">{context.previous && <span>环比 <ComparisonCell value={s.comparisons.ctr.previous}/></span>}{context.yearAgo && <span>同比 <ComparisonCell value={s.comparisons.ctr.yearAgo}/></span>}</div></div><div className="promotion-efficiency-metric"><InsightDerivedMoneyMetric label="CPC" metric={s.summary.cpc}/><div className="promotion-comparisons">{context.previous && <span>环比 <ComparisonCell value={s.comparisons.cpc.previous}/></span>}{context.yearAgo && <span>同比 <ComparisonCell value={s.comparisons.cpc.yearAgo}/></span>}</div></div></div><div className="promotion-fact-list">{(["impressions", "clicks", "orders"] as const).map((key, index) => <div className="promotion-fact-row" key={key}><span>{["展现", "点击", orderLabel][index]}</span><MetricCell metric={s.summary[key]}/></div>)}</div><p className="promotion-caption">ROI 采用平台归因成交 ÷ 推广花费，不表示利润回报率或广告增量。归因窗口：{s.attribution.window ?? "尚未核验"}。</p></PromotionSection>
-        <PromotionSection title="覆盖与比较条件" note="先核对每个精确店日，再比较整期比率。">{rateCoverage && <><div className="promotion-source-count">{rateCoverage.coveredShopDatePairs}<small> / {rateCoverage.expectedShopDatePairs} 店日</small></div><div className="promotion-progress"><span style={{ width: `${rateCoverage.expectedShopDatePairs ? rateCoverage.coveredShopDatePairs / rateCoverage.expectedShopDatePairs * 100 : 0}%` }}/></div><InsightSourceCoverage coverage={rateCoverage} label="推广与商品配对"/></>}<p className="promotion-caption">整期配对不足时，主推广费率保持空值；部分匹配值单列范围。</p>{s.matchedRange && <details><summary>辅助匹配范围 · {s.matchedRange.scopeLabel}</summary><div className="promotion-fact-list">{(["spend", "payment", "spendRate"] as const).map((key, index) => <div className="promotion-fact-row" key={key}><span>{["匹配花费", "匹配平台成交", "仅匹配范围费率"][index]}</span><MetricCell metric={s.matchedRange!.metrics[key]}/></div>)}</div><ul>{s.matchedRange.shopDates.map(shop => <li key={shop.shopKey}>{shop.shopKey.replace("\u001f", " · ")}：{shop.dates.join("、")}</li>)}</ul></details>}</PromotionSection>
-        <PromotionSection title="店铺投入分布" note="已覆盖花费结构，不是交易渠道份额。"><div className="promotion-structure">{s.shops.items.map(shop => <article key={shop.shopKey}><header><button type="button" className="row-action" onClick={() => onContextChange({ outlets: [shop.shopKey], page: 1 })}>{shop.shopName}</button><MetricCell metric={shop.spendShare}/></header><div className="promotion-progress"><span style={{ width: `${shop.spendShare.status === "available" && shop.spendShare.value !== null ? Math.min(100, Math.max(0, shop.spendShare.value * 100)) : 0}%` }}/></div><span className="promotion-caption">花费 <MetricCell metric={shop.metrics.spend}/> · ROI <MetricCell metric={shop.metrics.roas}/></span></article>)}</div></PromotionSection>
-        <PromotionSection title="值得核查的变化" note="公开观察规则；变化为核查线索，不是原因结论。"><h3>投入与产出</h3><p>先确认本期与基期覆盖、归因口径，再核对花费和归因成交是否同步变化。</p><h3>流量成本与成交效率</h3><p>结合 CPC、CTR 和{orderLabel}查看对象证据。保持同身份与同日期，等待归因成熟后再复盘。</p><p className="promotion-caption">来源版本、范围或归因定义变化时停止比较并重新读取；本页不自动停投或调整预算。</p><button type="button" className="row-action" onClick={() => scrollChapter("diagnostic")}>查看诊断范围与证据</button></PromotionSection>
+        {efficiencyFacts}
+        {coverageConditions}
+        {shopDistribution}
+        {observationGuidance}
       </aside></div>
       <PromotionSection id="promotion-products" title={s.listScope.productFocus ? `推广商品 · 精确 ${s.listScope.productFocus.identity.dimension.toUpperCase()} ${s.listScope.productFocus.identity.id}` : "推广商品"} note={platform === "京东" ? "跟单 SKU 分摊视角，不能等同独立投放效果。商品关联按平台、店铺、维度和 ID核验。" : "推广商品 ID 视角，身份映射须有唯一来源证据。"} tools={<button type="button" className="row-action" onClick={() => changeObjectKind("product")}>查看商品列表</button>}>
         {objectKind === "product" ? sectionTable : <p className="promotion-caption">当前明细视角为{objectLabels[objectKind]}，点击“查看商品列表”切换；上方经营汇总不变。</p>}
@@ -189,19 +300,10 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
       <PromotionSection id="promotion-terms" title="关键词与搜索词" note="关键词与实际搜索词分别保留，缺词关系不推造；匹配方式只使用原始字段。" tools={<div className="promotion-trend-tabs">{(["keyword", "search_term"] as const).map(kind => <button type="button" key={kind} disabled={!s.objectCapabilities[kind].canQuery} aria-pressed={objectKind === kind} onClick={() => changeObjectKind(kind)}>{objectLabels[kind]}</button>)}</div>}>
         {objectKind === "keyword" || objectKind === "search_term" ? sectionTable : s.objectCapabilities.keyword.status !== "available" ? <CapabilityGap reason={s.objectCapabilities.keyword.message}/> : <p className="promotion-caption">选择词视角查看花费、点击、归因金额与订单、ROI、变化及明确来源关系。来源无词记录留在缺身份核查桶。</p>}
       </PromotionSection>
-      {selectedObject && <ObjectDetail key={`${requestScope}:${selectedObject.rowKey}`} selected={selectedObject} data={data} query={encoded} onClose={() => setChosen(null)} onChoose={choose} onDrill={props.onDrill} onInvalidate={invalidate}/>}
-      <PromotionSection id="promotion-diagnostic" title="诊断与复盘" note="观察事实 → 公开规则 → 证据 → 核查建议 → 观察指标与停止条件。">
-        {reportEligible ? <>
-          <p className="promotion-note">原报告本期 {startDate}—{endDate}；基期 {addIsoDays(startDate, -data.context.periods.current.days)}—{addIsoDays(startDate, -1)}，采用紧邻前等长规则。本页环比采用“{data.context.periods.rule}”，另有去年同期；原报告与页面比较规则分别披露。</p>
-          <p className="promotion-caption">HTML / XLSX 导出保留原报告的完整本期与基期、精确店铺及同一网店来源修订，不导出当前搜索页、本页同比或新贡献榜。</p>
-          <PromotionDiagnosticPanel key={`${platform}:${s.diagnostic.shopName}:${startDate}:${endDate}:${owningRevision}:${authority}:${data.sectionToken}`} shopName={s.diagnostic.shopName!} startDate={startDate} endDate={endDate} allowPaidModel={false} ratioLabel="ROI" expectedOwningRevision={owningRevision} onReadInvalidated={invalidateReport} includeExportProvenance={true}/>
-        </> : <CapabilityGap reason={s.diagnostic.status === "available" ? "原报告须为已核验管理员、指定京东单店、1—7 个完整自然日及可信来源修订；当前条件不足。" : s.diagnostic.message}/>}<p className="promotion-caption">列表搜索和对象日期不裁剪原报告。规则草稿需运营复核；本栏目未启用付费模型解释。</p>
-      </PromotionSection>
-      <PromotionSection id="promotion-sources" title="数据与归因" note="来源、范围、版本、字段存在与映射共同决定可用性。">
-        <div className="promotion-source-grid"><article><h3>金额与订单定义</h3><p>{amountLabel}：{s.attribution.amountDefinition === "jd_total_order_amount" ? "京准通归因总订单金额，不能表达退款后销售净额。" : "天猫推广来源净成交金额，保留原来源退款与归因规则。"}</p><p>{orderLabel}保持来源定义，不替换为客户数。ROI 为归因成交 ÷ 花费、单位倍数，不是利润或广告增量。</p></article><article><h3>归因与可比性</h3><p>归因窗口：{s.attribution.window ?? "来源尚未提供可信窗口"}。归因成交与平台成交的包含关系未核验，不标自然/付费渠道份额，不用相减推算自然成交。</p><p>推广 SKU、触发 SKU、跟单 SKU独立建模。商品映射未关联或多义时停止钻取。</p></article></div>
-        <div className="data-table-wrap"><table className="data-table promotion-capability-table"><thead><tr><th>来源</th><th>字段能力</th><th>范围覆盖</th><th>说明</th></tr></thead><tbody>{s.sourceMatrix.map(source => <tr key={source.sourceId}><td>{source.label}<small>{source.sourceId}</small></td><td>{source.fields.map(field => <p key={field.field}>{field.field}：{field.status === "available" ? "已提供" : `缺口（${field.reasonCode ?? "未核验"}）`}</p>)}</td><td>{coverageForRef(data, source.coverageRef) && <InsightSourceCoverage coverage={coverageForRef(data, source.coverageRef)!} label="当前来源"/>}</td><td>{source.notes.map((note, index) => <p key={index}>{note}</p>)}</td></tr>)}</tbody></table></div>
-        <details><summary>完整修订向量、截止日期与限制</summary><ul>{data.context.freshness.map(source => <li key={source.sourceId}>{source.sourceId} · 截止 {source.dataThrough ?? "无可信截止日期"}</li>)}</ul><ul>{data.context.sourceRevisions.map(source => <li key={`${source.kind}:${source.scopeKey}`}>{source.kind} · {source.scopeKey.replace("\u001f", " · ")} · {source.revision}</li>)}</ul><ul>{[...data.context.limitations, ...s.limitations].map((text, index) => <li key={index}>{text}</li>)}</ul></details>
-      </PromotionSection>
+      {objectDetail}
+
+      {diagnosticPanel}
+      {sourcePanel}
     </>}
   </div>;
 }

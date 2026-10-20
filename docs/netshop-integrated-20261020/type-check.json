@@ -1,0 +1,6 @@
+{
+  "kind": "changed-source-type-check",
+  "dependencyResolution": "read-only installed repository packages",
+  "files": 8,
+  "diagnostics": []
+}

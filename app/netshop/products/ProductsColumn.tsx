@@ -8,6 +8,7 @@ import StatisticalPeriodPicker from "../../statistical-period-picker";
 import { shanghaiIsoToday } from "../../module-view-shared";
 import type { NetshopColumnProps } from "../shared/module-slots";
 import { InsightFilterBar } from "../shared/components";
+import { useNetshopIntegratedLayout } from "../shared/integrated-layout";
 import { ProductDetail } from "./ProductDetail";
 import { ProductsCatalog } from "./ProductsCatalog";
 import { ProductsPerformance } from "./ProductsPerformance";
@@ -42,6 +43,7 @@ function usePresentation(key: string, sharedPrefs: ProductsPresentationPrefs | n
 /** Registered by I as the active products slot. The shared shell owns the
  * system/navigation header, dates/history and the exact drill/return route. */
 export function ProductsColumn(props: NetshopColumnProps) {
+  const integrated = useNetshopIntegratedLayout();
   const principal = productPrincipalKey(props);
   const localKey = productsUiStorageKey(props.context, props.startDate, props.endDate, principal, props.periodKind);
   const [ui, onUi] = usePresentation(localKey, props.context.productsPrefs, props.onContextChange);
@@ -61,7 +63,7 @@ export function ProductsColumn(props: NetshopColumnProps) {
   }, [localKey, props.endDate, props.periodKind, props.startDate, readContext]);
   const today = shanghaiIsoToday(), maxDate = props.endDate > today ? props.endDate : today;
   const minimumDate = `${Number(today.slice(0, 4)) - 1}-01-01`;
-  return <div className="netshop-products" data-column="products">
+  return <div className={`netshop-products${integrated ? " np-integrated" : ""}`} data-column="products">
     <div className="np-title-row"><div><div className="np-eyebrow">均衡经营台</div><h1>商品表现</h1><p className="np-subtitle">经营表现、单品详情与货品档案</p></div><div className="np-toolbar"><button type="button" onClick={() => props.onNavigate("import", props.context.dimension === "sku" ? "jd_sku_daily" : props.context.platforms.length === 1 && props.context.platforms[0] === "京东" ? "jd_spu_daily" : "tmall_product_daily")}>数据导入</button></div></div>
     <nav className="np-tabs" aria-label="商品二级页"><button type="button" className={view === "performance" ? "np-active" : ""} aria-pressed={view === "performance"} onClick={() => { if (props.context.product && props.context.returnTo) props.onReturn(); else props.onContextChange({ product: null, section: "", page: 1 }); }}>经营表现</button><button type="button" className={view === "detail" ? "np-active" : ""} aria-pressed={view === "detail"} disabled={!props.context.product} title={!props.context.product ? "从商品明细选择精确商品后进入" : undefined}>单品详情</button><button type="button" className={view === "catalog" ? "np-active" : ""} aria-pressed={view === "catalog"} onClick={() => props.onContextChange({ product: null, section: "catalog", page: 1 })}>货品档案</button></nav>
     <InsightFilterBar sticky={false} label="商品经营范围"><div className="np-filters">
@@ -71,9 +73,10 @@ export function ProductsColumn(props: NetshopColumnProps) {
       {view !== "catalog" && <label>商品维度<select aria-label="商品经营维度" value={props.context.dimension} onChange={event => props.onContextChange({ dimension: event.target.value as "sku" | "spu", product: null, page: 1 })}><option value="spu">SPU</option><option value="sku" disabled={props.context.platforms.length === 0 || props.context.platforms.includes("天猫")}>京东SKU</option></select></label>}
       {view === "performance" && <label>经营类目标签<input list="products-category-labels" aria-label="经营类目标签" value={props.context.category} maxLength={120} placeholder="全部类目标签" onChange={event => props.onContextChange({ category: event.target.value, page: 1 })} /><datalist id="products-category-labels">{(options.principal === principal ? options.categories : []).map(category => <option key={category} value={category} />)}</datalist></label>}
       {view !== "catalog" && <fieldset><legend>两期比较</legend><label><input type="checkbox" checked={props.context.previous} onChange={event => props.onContextChange({ previous: event.target.checked })} />环比</label><label><input type="checkbox" checked={props.context.yearAgo} onChange={event => props.onContextChange({ yearAgo: event.target.checked })} />同比</label></fieldset>}
-      {view !== "catalog" && <label>状态<select aria-label="完整状态筛选尚未具备" disabled><option>完整状态筛选待启用</option></select></label>}
-      {view !== "catalog" && <label>ERP映射<select aria-label="完整ERP映射筛选尚未具备" disabled><option>完整映射筛选待启用</option></select></label>}
-      {view !== "catalog" && <label>资料质量<select aria-label="完整资料质量筛选尚未具备" disabled><option>完整质量筛选待启用</option></select></label>}
+      {view !== "catalog" && !integrated && <label>状态<select aria-label="完整状态筛选尚未具备" disabled><option>完整状态筛选待启用</option></select></label>}
+      {view !== "catalog" && !integrated && <label>ERP映射<select aria-label="完整ERP映射筛选尚未具备" disabled><option>完整映射筛选待启用</option></select></label>}
+      {view !== "catalog" && !integrated && <label>资料质量<select aria-label="完整资料质量筛选尚未具备" disabled><option>完整质量筛选待启用</option></select></label>}
+      {view !== "catalog" && integrated && <details className="np-integrated-capabilities"><summary>更多筛选能力</summary><p className="np-caption">完整状态、ERP映射与资料质量筛选尚未启用；当前仅展示已有经营范围筛选。</p></details>}
     </div></InsightFilterBar>
     {view !== "catalog" && (currentPeriods ? <PeriodContext periods={currentPeriods} previous={props.context.previous} yearAgo={props.context.yearAgo} dimension={props.context.dimension} /> : <p className="np-notice" role="status">所选本期 {props.startDate} — {props.endDate} 超出新商品经营的日期范围或期间规则；来源读取会明确报告错误。</p>)}
     {view === "performance" ? <ProductsPerformance props={props} ui={ui} onUi={onUi} onContextAvailable={onContextAvailable} /> : view === "detail" ? <ProductDetail key={JSON.stringify(props.context.product)} props={props} ui={ui} onUi={onUi} onContextAvailable={onContextAvailable} /> : <ProductsCatalog props={props} ui={ui} onUi={onUi} onShops={onShops} />}
