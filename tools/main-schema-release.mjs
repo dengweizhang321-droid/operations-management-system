@@ -105,7 +105,6 @@ async function invokeBinder(source,spec,args,{runtime='D:/teruisi-runtime/django
 }
 export async function prepareMainSchemaRelease({source,packet,plan},{run,runtime}={}){
  const {recipe,recipeSha256,spec}=await readSchemaRecipe(source,plan);
- await runSchemaAclContract(source,spec,{run,runtime});
  const requestFile=path.join(packet,'main-release-request.json');
  let previous;
  try{previous=JSON.parse((await regular(requestFile)).toString('utf8'));}catch(error){if(error.code!=='ENOENT')throw error;}
@@ -114,6 +113,7 @@ export async function prepareMainSchemaRelease({source,packet,plan},{run,runtime
   await verifyMainSchemaRelease(previous,source,{run,runtime});
   return previous.schemaRelease;
  }
+ await runSchemaAclContract(source,spec,{run,runtime});
  const directory=path.join(packet,'schema');await fs.mkdir(directory,{recursive:true});
  const evidencePath=path.join(directory,spec.evidence);
  const result=await invokeBinder(source,spec,['--output',evidencePath],{run,runtime});assert.equal(result.status,'bound');
