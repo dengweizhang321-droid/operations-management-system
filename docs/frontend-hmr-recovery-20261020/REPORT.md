@@ -90,3 +90,9 @@ node tools/main-prebuild-queue.mjs --native-391-observe <REQUEST文件绝对路�
 新的协调只接受一次显式 `--native-391-resume <全新外部out>`。它复验原 writer 已退出、原 out 仅有 request、无旧 OBS/ACK/resolution 和上述 3121 对象完整原件后，create-only 写入 `failed-observation-resume.json` provenance；原 out、原对象和旧 request 都不覆盖。新 epoch/nonce 及初末见证重新生成，最终 resolution 绑定该 provenance，原 5beb 禁重放。当前采用链严格验证 `1711fc... → cafdd 546df6... → 本增量新采用` 每跳的 adopted/intent/transition/manifest/十文件、同 a90 配置与 task，拒绝更新字段或断链。
 
 采用与现场操作仍由唯一负责人执行。高 observer 先取得 writer 输出的精确 request SHA，再用 **login:false、单条直接 Node 命令**执行 `--native-391-observe`；不在同一 PowerShell Command 中混入赋值、算 SHA 或其它诊断。新增七组 argv/PG/helper/shim/原件/provenance/链路负例，以及原见证 schema 的一项定向增量检查；不重跑整包或业务功能测试。本提交没有执行 resume、控制采用、原生准备或发布。
+
+### 嵌套解释器的保守拒绝增量
+
+独审复现了通用 CMD `/d /c` 后绝对 `cmd.exe /c npm` 被当作普通绝对目标的缺口。本增量对通用 CMD 目标的 cmd、PowerShell、pwsh、Node、Python、WSL 及 npm/npx/vite/vinext 命名包装直接拒绝，不递归解析或推断内层执行。PowerShell `-File` 仅接受绝对 `.ps1`，同类解释器/包管理器包装名及 `.exe/.cmd/.bat` 均拒绝；不读取任意 `.ps1` 正文。PG 唯一固定资格保持。
+
+新增一组定向负例通过，覆盖 CMD→CMD/npm、CMD→绝对 Node 的 eval/相对 npm、其它解释器/包管理包装，以及错误 `-File` 类型；语法和 diff 检查通过。此前 7+1 有效结果复用，不重跑整包。本增量未采用或执行现场协调。
