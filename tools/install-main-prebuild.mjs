@@ -180,7 +180,13 @@ export async function nativeOperationBindings(releaseDirectory){
   // Check its root identity, but never enumerate or follow any descendants.
   if(names.includes('source'))await directory(path.join(packet,'source'),false);
   for(const name of names.filter(name=>name.startsWith('publish-'))){
-   const publish=path.join(packet,name),published=await records(publish);
+   const publish=path.join(packet,name);
+   // This exact diagnostic leaf is not a native operation container. Keep
+   // rejecting links, directories and every other publish-* non-directory.
+   if(name==='publish-main-check.log'){
+    const diagnostic=await physicalStat(publish);assert.ok(diagnostic.isFile()&&diagnostic.nlink===1,'Unsafe publish-main-check diagnostic log');continue;
+   }
+   const published=await records(publish);
    if(published.includes('resume-'+knownResume.maintenanceId))await records(path.join(publish,'resume-'+knownResume.maintenanceId));
    if(published.includes('preparation')){
     const preparation=path.join(publish,'preparation'),prepared=await records(preparation);

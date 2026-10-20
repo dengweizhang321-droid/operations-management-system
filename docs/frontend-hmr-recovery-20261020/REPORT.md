@@ -45,3 +45,11 @@ node tools/main-prebuild-queue.mjs --installer-0038-observe <REQUEST-initial或f
 - `git diff --check`。未做业务功能测试，未运行 binder、原生准备或生产控制。
 
 代码检查和源码提交不等于独立复核、控制采用、原生 PREPARED 或应用上线。后续事实由负责人在外部证据目录记录，不为回填准备结果再次推进 main。
+
+## 控制材料准备的精确日志兼容增量
+
+负责人报告：`eaae8e82` 的原生候选必需检查通过，但首次普通权限 `prepareControlUpgrade` 在 `nativeOperationBindings` 扫描历史 packet 时，将普通文件 `publish-main-check.log` 当作目录，报 `Release evidence directory is not ordinary`。错误在创建新的 `out` 之前，`out` 不存在；没有采用控制、修改固定配置或生产切换。已有历史 packet 与日志原件保留。
+
+本增量只识别这一精确诊断日志叶：须为普通单链接文件、非重定向且 realpath 一致，才从 native operation **目录**扫描中排除；同名目录、symlink/junction、hardlink 及其它任意 `publish-*` 非目录仍拒绝。原 started 证据扫描、源码根与成熟依赖 junction 边界、完整目录清单及替换检查保持。
+
+新增 `tests/native-operation-diagnostic-log.test.mjs` 的四组必要控制检查，覆盖日志正例仍返回原 native record，以及重定向、hardlink、错误类型与真正 publish-commit 文件负例；仅复用此前有效的控制和包检查，不重跑全候选检查或业务功能测试。此增量尚未声明控制材料准备成功或已采用。
