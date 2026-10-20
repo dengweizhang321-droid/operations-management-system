@@ -32,7 +32,7 @@
   },
   "parentReferenceSha256": "c1e06ff1b8611c5d4aba5fbc127f43965f45dae6723c32592239f46e2192bd22",
   "syntaxEvidence": "docs/schema-acl-gate-20261020/pi152-syntax-code-materials-v2.json",
-  "syntaxEvidenceSha256": "c78090f5337076f5b590fdcd04c10a89099a743a853e3986fa10c0268f917c4b",
+  "syntaxEvidenceSha256": "871737b38d6f175c6cd066ffc838773457572431e4664dbd8917fafcdc9f3191",
   "scope": "Current exact code syntax and unchanged 151-to152 migration closure only. No business, database, or functional execution.",
   "rawByteNormalization": "LF worktree bytes used for this task proof; old proof preserved.",
   "previousProofSha256": "1be7e64bce651f7ba3a4c9ade6632649062aeac19fb145ebdad81238a3a42dc5",

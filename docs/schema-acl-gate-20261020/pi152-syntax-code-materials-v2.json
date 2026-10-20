@@ -126,7 +126,7 @@
     },
     {
       "path": "tools/django-local-service.ps1",
-      "sha256": "d884882af114840ff1b0061c57439556cfc6a8fd7d0a751896363dd59eecde5d"
+      "sha256": "d012318c82d7db60e8037bb19c4e7a2ef856fed05cf4d70471b6a24b0a9e7437"
     },
     {
       "path": "tools/django-postgres-maintenance.ps1",
@@ -198,7 +198,7 @@
     },
     {
       "path": "tools/manual-maintenance-continuation.mjs",
-      "sha256": "435a2578f01942d6f07901b06975e2c8132bb6e67fff83befa5bafb9ae5573ee"
+      "sha256": "62d66de9a0e5d483149bd46f9683b2ba82acc9b831392851a9da237157a83dd1"
     },
     {
       "path": "tools/manual-maintenance-continuation.ps1",
