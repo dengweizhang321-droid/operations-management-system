@@ -161,10 +161,11 @@ class Session:
         meta=decode(self.broker.docker_command(['image','inspect',self.image],maximum=128000))[0]
         self.native_capabilities=meta.get('Config',{}).get('Labels',{}).get('teruisi.pi.native-capabilities')=='1'
         if not self.native_capabilities:raise ValueError('workspace_native_image_upgrade_required')
-        self.proc = self.broker.popen(['start','--attach','--interactive',self.container])
-        threading.Thread(target=self.read,daemon=True).start()
+        proc = self.broker.popen(['start','--attach','--interactive',self.container])
+        with self.lock:self.proc = proc
+        threading.Thread(target=self.read,args=(proc,),daemon=True).start()
         # stderr is drained, bounded and discarded; never persisted as evidence.
-        threading.Thread(target=self.drain_stderr,daemon=True).start()
+        threading.Thread(target=self.drain_stderr,args=(proc,),daemon=True).start()
         from .workspace import value_get, register_session
         bootstrap={'type':'runner_init','skillVersion':self.skill_version,'skillIds':[s['id'] for s in self.skills]}
         self.workspace_version=meta.get('Config',{}).get('Labels',{}).get('teruisi.pi.workspace')
@@ -191,24 +192,30 @@ class Session:
         from .workspace import value_set
         value_set(self,'baselineProcesses',sorted(self.baseline_processes))
 
-    def drain_stderr(self):
-        proc=self.proc
+    def drain_stderr(self,proc=None):
+        proc=proc or self.proc
         size = 0
         try:
             while True:
                 raw = proc.stderr.read(4096)
-                if not raw:return
-                size += len(raw)
-                if size > 1024*1024:self.fail('pi_stderr_limit');return
+                with self.lock:
+                    if self.proc is not proc:return
+                    if not raw:return
+                    size += len(raw)
+                    if size > 1024*1024:self.fail('pi_stderr_limit');return
         finally:proc.stderr.close()
 
-    def write(self, record):
+    def write(self, record, expected_proc=None):
         raw=encode(record)+b'\n'
         if len(raw)>MAX_RECORD:
             raise ValueError('rpc_record_limit')
+        with self.lock:
+            if expected_proc is not None and self.proc is not expected_proc:return
+            target=expected_proc or self.proc
         with self.write_lock:
-            self.proc.stdin.write(raw)
-            self.proc.stdin.flush()
+            if target is None:raise ValueError('rpc_process_unavailable')
+            target.stdin.write(raw)
+            target.stdin.flush()
 
     def rpc(self, command, payload, timeout=15, rpc_id=None):
         rpc_id = rpc_id or 'control-'+uuid.uuid4().hex
@@ -248,72 +255,75 @@ class Session:
             self.phase,self.error,self.revoked='unknown',code,True
         self.broker.save_session(self)
 
-    def read(self):
-        proc=self.proc
+    def read(self,proc=None):
+        proc=proc or self.proc
         try:
             while True:
                 # Binary readline splits only LF, preserving U+2028 and U+2029.
                 raw=proc.stdout.readline(MAX_RECORD+1)
+                # A replaced process may release buffered records after its
+                # attach pipe was closed. None belong to the new Pi instance.
+                if self.proc is not proc:return
                 if not raw:
-                    if self.phase not in {'disposed','frozen','freezing','stopped'} and self.proc is proc:
-                        self.fail('pi_process_exited')
+                    with self.lock:
+                        if self.phase not in {'disposed','frozen','freezing','stopped'} and self.proc is proc:
+                            self.fail('pi_process_exited')
                     return
                 if len(raw)>MAX_RECORD or not raw.endswith(b'\n'):
                     raise ValueError('rpc_record_limit')
                 record=decode(raw[:-1].removesuffix(b'\r'))
-                if not isinstance(record,dict) or not isinstance(record.get('type'),str):
-                    raise ValueError('invalid_rpc_record')
-                kind=record['type']
-                if kind=='extension_ui_request':
-                    if record.get('method')=='input' and record.get('title')=='pi-gateway-v1':
-                        threading.Thread(target=self.gateway_call,args=(record,),daemon=True).start()
-                    else:
-                        from .workspace import handle_ui
-                        handle_ui(self,record)
-                    continue
-                if kind=='response':
-                    with self.lock:
-                        waiter=self.pending.get(record.get('id'))
-                    if self.active and record.get('id')==self.active['operationId']+':prompt':
-                        self.prompt_response_seq=self.broker.ledger.event(self,record)['eventSeq']
-                        disposition=record.get('data',{}).get('disposition')
-                        if self.phase not in {'unknown','disposed','frozen','freezing'}:
-                            if not record.get('success'):
-                                self.phase,self.error='failed','prompt_rejected'
-                            elif disposition=='handled':
-                                self.phase='handled';self.revoked=True;self.files_collected=True
-                                self.terminal_receipt={'operationId':self.active['operationId'],'status':'handled','eventSeq':self.prompt_response_seq,'files':[]}
-                            elif disposition=='started':
-                                if self.phase=='dispatching':self.phase='accepted'
-                            else:self.fail('unexpected_prompt_disposition')
-                            self.broker.save_session(self)
-                    if waiter:
-                        waiter.put(record)
-                    continue
-                if kind=='bash_execution_update':
-                    from .workspace import observe_bash
-                    observe_bash(self,record)
-                    continue
-                if self.active:
-                    from .workspace import observe_event
-                    observe_event(self,record)
-                    item=self.broker.ledger.event(self,record)
-                    if self.phase in {'disposed','frozen','freezing','unknown'}:continue
-                    if kind=='agent_start':
-                        self.phase='running'
-                    elif kind=='message_end' and record.get('message',{}).get('role')=='assistant':
-                        stop=record['message'].get('stopReason')
-                        if stop in {'error','aborted'}:
-                            self.error=stop
-                    elif kind=='agent_settled':
-                        # This is Pi's real terminal notification, never synthesized
-                        # from agent_end, silence, or get_state().isStreaming.
-                        self.phase='settling'
-                        self.settled_event_seq=item['eventSeq']
-                        threading.Thread(target=self.complete,daemon=True).start()
+                with self.lock:
+                    # Process replacement uses this same lock. Decode is outside
+                    # it; checking and applying the decoded record are atomic.
+                    if self.proc is not proc:return
+                    self._apply_record(record,proc)
         except Exception:
-            self.fail('rpc_protocol_unknown')
+            with self.lock:
+                if self.proc is proc:self.fail('rpc_protocol_unknown')
         finally:proc.stdout.close()
+
+    def _apply_record(self,record,proc):
+        if not isinstance(record,dict) or not isinstance(record.get('type'),str):raise ValueError('invalid_rpc_record')
+        kind=record['type']
+        if kind=='extension_ui_request':
+            if record.get('method')=='input' and record.get('title')=='pi-gateway-v1':
+                threading.Thread(target=self.gateway_call,args=(record,proc),daemon=True).start()
+            else:
+                from .workspace import handle_ui
+                handle_ui(self,record)
+            return
+        if kind=='response':
+            waiter=self.pending.get(record.get('id'))
+            if self.active and record.get('id')==self.active['operationId']+':prompt':
+                self.prompt_response_seq=self.broker.ledger.event(self,record)['eventSeq']
+                disposition=record.get('data',{}).get('disposition')
+                if self.phase not in {'unknown','disposed','frozen','freezing'}:
+                    if not record.get('success'):self.phase,self.error='failed','prompt_rejected'
+                    elif disposition=='handled':
+                        self.phase='handled';self.revoked=True;self.files_collected=True
+                        self.terminal_receipt={'operationId':self.active['operationId'],'status':'handled','eventSeq':self.prompt_response_seq,'files':[]}
+                    elif disposition=='started':
+                        if self.phase=='dispatching':self.phase='accepted'
+                    else:self.fail('unexpected_prompt_disposition')
+                    self.broker.save_session(self)
+            if waiter:waiter.put_nowait(record)
+            return
+        if kind=='bash_execution_update':
+            from .workspace import observe_bash
+            observe_bash(self,record)
+            return
+        if self.active:
+            from .workspace import observe_event
+            observe_event(self,record)
+            item=self.broker.ledger.event(self,record)
+            if self.phase in {'disposed','frozen','freezing','unknown'}:return
+            if kind=='agent_start':self.phase='running'
+            elif kind=='message_end' and record.get('message',{}).get('role')=='assistant':
+                stop=record['message'].get('stopReason')
+                if stop in {'error','aborted'}:self.error=stop
+            elif kind=='agent_settled':
+                self.phase='settling';self.settled_event_seq=item['eventSeq']
+                threading.Thread(target=self.complete,daemon=True).start()
 
     def bind(self, gateway, model=None, admission=None):
         with self.metadata_lock:return self._bind(gateway,model,admission)
@@ -353,8 +363,10 @@ class Session:
         actual=register_session(self)
         if requested is not None and actual.get('thinkingLevel')!=requested:raise ValueError('thinking_readback_unknown')
 
-    def gateway_call(self, record):
-        job = self.active
+    def gateway_call(self, record, proc=None):
+        with self.lock:
+            if proc is not None and self.proc is not proc:return
+            job = self.active
         request_id = record.get('id')
         try:
             if not job or self.revoked or self.phase not in {'dispatching','accepted','running'}:
@@ -384,12 +396,12 @@ class Session:
             # The outside operation owns the configured timeout. Long model
             # requests are never cut down to a hardcoded local two-minute cap.
             while True:
-                if self.active is not job or self.revoked:raise ValueError('operation_revoked')
+                if self.active is not job or self.revoked or proc is not None and self.proc is not proc:raise ValueError('operation_revoked')
                 remaining=self.deadline-time.monotonic()
                 if remaining<=0:raise ValueError('gateway_result_unknown')
                 try:response=pending['queue'].get(timeout=min(.5,remaining));break
                 except queue.Empty:continue
-            if self.active is not job or self.revoked:
+            if self.active is not job or self.revoked or proc is not None and self.proc is not proc:
                 raise ValueError('operation_revoked')
             if payload['kind']=='admission' and not response.get('error'):
                 args=payload.get('args',{})
@@ -406,17 +418,17 @@ class Session:
                 self.broker.ledger.db.execute('UPDATE gateway SET status=? WHERE operation=? AND request=?',('complete',job['operationId'],payload['requestId']))
             with self.lock:
                 self.gateway_pending.pop(payload['requestId'],None)
-            self.write({'type':'extension_ui_response','id':request_id,'value':encode(response).decode()})
+            self.write({'type':'extension_ui_response','id':request_id,'value':encode(response).decode()},expected_proc=proc)
         except Exception:
             # Requests may have reached the outside provider. Never retry under
             # another request ID, and never treat a transport failure as zero work.
-            if self.active is job and not self.revoked:
-                self.error='gateway_unknown'
-                self.revoked=True
-                self.broker.ledger.event(self,{'type':'gateway_unknown'},job)
             with self.lock:
+                if self.active is job and not self.revoked and (proc is None or self.proc is proc):
+                    self.error='gateway_unknown'
+                    self.revoked=True
+                    self.broker.ledger.event(self,{'type':'gateway_unknown'},job)
                 if isinstance(locals().get('payload'),dict):self.gateway_pending.pop(payload.get('requestId'),None)
-            try:self.write({'type':'extension_ui_response','id':request_id,'value':'{"error":"gateway_unknown"}'})
+            try:self.write({'type':'extension_ui_response','id':request_id,'value':'{"error":"gateway_unknown"}'},expected_proc=proc)
             except (OSError,ValueError):pass
 
     def complete(self):
@@ -535,7 +547,9 @@ class Broker:
                         background=current-getattr(session,'baseline_processes',set())
                         session.background_process_count=len(background)
                         if background:continue
-                        old=session.proc;session.proc=None;old.stdin.close()
+                        with session.lock:old,session.proc=session.proc,None
+                        if old is None:continue
+                        old.stdin.close()
                         try:old.wait(timeout=15)
                         except subprocess.TimeoutExpired as error:raise ValueError('idle_stop_unknown') from error
                         session.phase='stopped';self.save_session(session)
@@ -852,6 +866,10 @@ print(json.dumps(result))
             raise
 
     def update_skills(self,session,version,selected,force=False):
+        with session.metadata_lock:
+            return self._update_skills(session,version,selected,force)
+
+    def _update_skills(self,session,version,selected,force=False):
         if session.phase not in {'idle','settled','handled','aborted','failed'}:raise ValueError('skill_update_while_busy')
         manifest=self.skill_bundles.get(version)
         if not manifest:raise ValueError('skill_version_unavailable')
@@ -861,8 +879,18 @@ print(json.dumps(result))
         if self.workspace_active(session) and not force:raise ValueError('skill_update_while_busy')
         if any(t.status in {'starting','running'} for t in session.terminals.values()) or getattr(session,'bash_control',None):raise ValueError('skill_update_while_busy')
         if set(self.process_inventory(session))-set(getattr(session,'baseline_processes',[])):raise ValueError('skill_update_while_busy')
-        session.phase='updating'
-        old=session.proc;session.proc=None
+        # Restarting the same approved model must restore its last verified
+        # actual level, not reinterpret the fresh Pi process's default level.
+        prior_level=getattr(session,'pi_state',{}).get('thinkingLevel')
+        prior_supported=getattr(session,'provider_thinking_levels',None)
+        metadata={**session.model} if getattr(session,'model',None) else None
+        if metadata is not None and prior_supported is not None:
+            if prior_level not in prior_supported:raise ValueError('thinking_level_restore_unverified')
+            metadata={**metadata,'supportedThinkingLevels':list(prior_supported),'thinkingLevel':prior_level}
+        with session.lock:
+            if session.phase not in {'idle','settled','handled','aborted','failed'}:raise ValueError('skill_update_while_busy')
+            session.phase='updating'
+            old,session.proc=session.proc,None
         old.stdin.close()
         try:old.wait(timeout=15)
         except subprocess.TimeoutExpired as error:
@@ -871,9 +899,7 @@ print(json.dumps(result))
         session.skill_version=version
         self.save_session(session)
         session.start()
-        if session.gateway and getattr(session,'model',None):
-            metadata={**session.model,'supportedThinkingLevels':getattr(session,'provider_thinking_levels',None)}
-            if metadata['supportedThinkingLevels'] is None:metadata.pop('supportedThinkingLevels')
+        if session.gateway and metadata is not None:
             session.bind(session.gateway,metadata)
         session.phase='idle'
 
@@ -1025,7 +1051,8 @@ print(json.dumps(result))
             from .workspace import close_terminals
             close_terminals(session)
             if session.proc:
-                old=session.proc;session.proc=None;old.stdin.close();waiting.append((session,old))
+                with session.lock:old,session.proc=session.proc,None
+                if old:old.stdin.close();waiting.append((session,old))
         deadline=time.monotonic()+20
         for session,proc in waiting:
             try:

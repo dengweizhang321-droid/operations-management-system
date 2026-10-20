@@ -502,8 +502,8 @@ def cancel_queues(session):
         for control_id in list(session.queued_controls):
             control_update(session, control_id, 'completed', {'disposition': 'canceled'})
         session.queued_controls.clear()
-        for request_id in list(session.ui_pending):
-            session.write({'type': 'extension_ui_response', 'id': request_id, 'cancelled': True})
+        proc=session.proc
+        cancelled=list(session.ui_pending)
         session.ui_pending.clear()
         for key in ('pendingModel','pendingThinking','pendingSkillsReload'):
             pending=value_get(session,key)
@@ -511,6 +511,9 @@ def cancel_queues(session):
                 control_update(session,pending['controlId'],'completed',{'disposition':'canceled'})
                 value_set(session,key,None)
                 session.pending_model_gateways.pop(pending['controlId'],None)
+    if proc is not None:
+        for request_id in cancelled:
+            session.write({'type': 'extension_ui_response', 'id': request_id, 'cancelled': True},expected_proc=proc)
 
 
 def checked_rpc(session, name, payload=None, timeout=30,rpc_id=None):
@@ -667,7 +670,8 @@ def execute_control(session, job, control_id, command, payload):
             raise Rejected('workspace_busy')
         close_terminals(session)
         session.broker.inspect(session)
-        proc, session.proc = session.proc, None
+        with session.lock:
+            proc, session.proc = session.proc, None
         if proc:
             proc.stdin.close()
             proc.wait(timeout=15)
