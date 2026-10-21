@@ -111,6 +111,8 @@
 ### 有证据的潜在风险
 
 - **统一 Chat/Pi 会话外壳的 render 期 ref 访问**：`app/ai-conversation-shell.tsx:19` 的 `latest.current = surface` 被 `react-hooks/refs` 判为 Error；`AiConversationShell` 还会在 render 中调用 `registered[...].read()`。这是有意的 latest-ref 模式，但在 React 并发渲染下，废弃 render 可能把 ref 指向未提交的 surface，事件回调可能短暂使用旧闭包。当前无复现证据，重构会触及 Chat/Pi 统一控制层，本轮保留并记录，建议由该模块负责人决定是否改为提交阶段更新 + 稳定回调注册。
+- **AI 页面上下文单项上限与商品搜索不一致**：`lib/ai/page-context.ts:90` 对任一筛选值超过 160 字符或数组超过 20 项时返回 `null`，而 `app/product-module-view.tsx:510` 的商品搜索允许 1000 字符。用户粘贴长查询时，整组 filters 会被丢弃，`app/page.tsx:477-481` 显示“筛选过多/文字过长”。这是既有的 fail-closed 行为，不会发送错误数据，但会丢失其他有效筛选；建议产品/UX 决定是截断查询还是统一放宽上限，本轮未改。
+- **前端/后端上下文长度口径不一致**：前端 `lib/ai/page-context.ts:93` 约 3000 字节，后端 `backend/ai_assistant/page_context.py:74` 为 4000 字符；前端更早失败，组合筛选很多时会先丢 filters。属非阻断的口径差异。
 - **未映射仓库的库存计入回退**：`lib/inventory/warehouse-classification.ts:99-113` 对未配置的“代发/菜鸟/售后/广东/样品”仓库推断为 `includeInInventory: true`；`docs/规范/系统架构.md:11` 要求库存健康分布排除工厂代发、售后、样品、海外等。已配置仓库以 `config/inventory-warehouse-mapping.json` 为准，因此当前生产是否受影响取决于是否存在未映射仓库；本轮未查询生产数据，不能确认。若确认存在，需要业务决定回退规则，不能由代码清理直接改变。
 - **发布工具中的未调用函数**：`tools/worker-local-release.mjs:1425` 的 `runSalesContractTests` 无调用点，但同文件仍在校验 contract test 回执（`validateContractTests`）。这可能表示某条销售合约测试生成路径已被替代，也可能是预留能力；本轮未删除，避免掩盖发布检查缺口，建议发布工具负责人核对。
 
@@ -158,7 +160,9 @@
 ## Git 与制品状态
 
 - 代码提交：`58f292b5 fix(ai): align page context allowlists and product kind`
-- 报告提交：见本目录提交
-- 合并/推送：<待填写>
-- 制品准备：<待填写>；本轮未执行生产服务启停、迁移、部署或上线。
-- 发布授权：等待用户明确说“上线”后再执行生产切换。
+- 首份报告提交：`9d33fe7d docs(audit): record full-system code audit report`
+- 本状态更新：见本次 docs 提交
+- 合并/推送：代码与首份报告已快进合并到 `origin/main`（`988810cf..9d33fe7d`），`git ls-remote` 已核验 `refs/heads/main`。
+- 制品准备：已安装的 `refs/remotes/origin/main` 自动准备 hook 在 16:08:30 创建 v2 ticket `95a85f8f-336e-4039-b036-73033fd67484`，16:09:12 返回 `blocked`：`Prior dispatch lacks a complete terminal result; no preparation replay`。被引用的先前 dispatch `e786aed6-25c2-4cce-b433-4fd21d3ac2c2`（13:09:18）不属于本任务，原记录已保留；本轮没有清除、重放或绕过它，也没有生成 `PREPARED.json`。
+- 独立审查：未参与实现的子代理上下文复核，结论“可合并，未发现阻断”；指出上述 160 字符/20 项与 3000/4000 口径风险。审查未运行 Git/tsc/构建/测试，且当前客户端无法指定规范表模型 ID，实际模型未独立确认。
+- 生产状态：未执行服务启停、迁移、部署或上线；等待用户明确说“上线”，且需先处理被阻断的制品准备。
