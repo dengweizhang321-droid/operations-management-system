@@ -331,7 +331,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    assert.equal(comparePiUpgradeObservationOnly(a,b),true,'只允许两个只读Pi升级观察入口，原生命周期函数必须不变');
    await run('pi-main-resume',process.execPath,['--test','tests/publish-prepared-main.test.mjs','tests/publish-main-resume.test.mjs','tests/publish-main-step.test.mjs','tests/pi-main-resume-profile.test.mjs'],'native-entry-boundary');
    await run('pi-upgrade-readonly',pythonExe,['-B','tests/pi-upgrade-status.test.py'],'native-entry-boundary');
-   for(const [name,host] of [['ps5',shell5],['ps7',shell7]])await run(name+'-pi-upgrade-status',host,['-NoProfile','-NonInteractive','-File','tests/pi-upgrade-status.fixture.ps1'],'native-entry-boundary');
+   for(const [name,host] of [['ps5',shell5],['ps7',shell7]])await run(name+'-pi-upgrade-status',host,['-NoProfile','-NonInteractive','-File','tests/pi-upgrade-status.fixture.ps1','-Controller',path.join(candidate,'tools/django-ai.ps1')],'native-entry-boundary');
    report.evidence.piMainResume=true;
   }
   async function run(name,executable,args,kind){
