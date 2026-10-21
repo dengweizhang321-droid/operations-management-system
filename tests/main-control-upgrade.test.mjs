@@ -128,11 +128,20 @@ test('original scanner fails at S4 on mature junctions; the same immutable mater
  for(let n=0;n<materialNames.length;n++)assert.deepEqual(await fs.readFile(path.join(f.out,materialNames[n])),before[n]);
  console.log(JSON.stringify({fixture:'same-intent-mature-resume',baselineScope:'exact-2b-nativeOperationBindings-at-S4',baselineRedirectRefused:true,privateRotationPipe:true,materialsUnchanged:true,sourceDependencyJunctionPreserved:(await fs.lstat(path.join(source,'node_modules'))).isSymbolicLink()}));
 });
+test('materials build includes the generic resolution operator without control adoption',async t=>{
+ const f=await fixture(t);assert.equal(f.prepared.status,'bundle-prepared');
+ const manifest=JSON.parse(await fs.readFile(path.join(f.out,'bundle/MANIFEST.json'),'utf8'));
+ assert.deepEqual(Object.keys(manifest.files).sort(),controlFiles.map(n=>'tools/'+n).sort());
+ for(const name of ['cleaned-preparation-writer.mjs','cleaned-preparation-observer.mjs'])assert.match(execFileSync(process.execPath,[path.join(f.out,'bundle/tools',name),'--help'],{encoding:'utf8',windowsHide:true}),/Usage:/);
+ const resolution=await import(pathToFileURL(path.join(f.out,'bundle/tools/preparation-resolution.mjs')));assert.equal(typeof resolution.readPreparationResolution,'function');
+ await assert.rejects(fs.access(path.join(f.state,'CONTROL-INSTALLATION.json')));
+ assert.equal(await readPreparationTask(JSON.parse(await fs.readFile(path.join(f.out,'INTENT.json'),'utf8')).preparationTask),null);
+});
 test('materials preserve frozen environment; private adoption binds one whole immutable closure',async t=>{
  const f=await fixture(t);assert.equal(f.prepared.status,'bundle-prepared');await assert.rejects(fs.access(path.join(f.state,'CONTROL-INSTALLATION.json')));
  const result=await adoptControlUpgrade({directory:f.out});assert.equal(result.status,'adopted');
  const binding=await readAdoptedControl(f.configFile);assert.equal(binding.state.installId,f.prepared.installId);
- const installedQueue=await import(pathToFileURL(path.join(binding.bundleRoot,'tools/main-prebuild-queue.mjs')));assert.equal(installedQueue.fixedAdminRejectionVersion,'teruisi-admin-preparation-rejection-e2-v1');assert.equal(typeof installedQueue.readFixedAdminRejectionResolution,'function');
+ const installedResolution=await import(pathToFileURL(path.join(binding.bundleRoot,'tools/preparation-resolution.mjs')));assert.equal(typeof installedResolution.readPreparationResolution,'function');
  const proof=JSON.parse(await fs.readFile(binding.state.transitionProofFile,'utf8'));assert.equal(proof.privateTestTopology,true);
  const config=JSON.parse(await fs.readFile(f.configFile,'utf8'));assert.ok(config.publisherBaseEnvironment.LOGONSERVER!==undefined);
  assert.equal(cli(f,['--control-status']).status,0);

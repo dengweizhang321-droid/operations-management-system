@@ -13,7 +13,7 @@ import {makePreparationTask,installPreparationTask,readPreparationTask,decodedCo
 import {knownResume} from './publish-main-known-resume.mjs';
 const execute=promisify(execFile),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-export const controlFiles=['publish-latest-main.mjs','publish-main-progress.mjs','release-scope-plan.mjs','main-prebuild-hook.mjs','main-schema-release.mjs','main-prebuild-status.mjs','main-prebuild-queue.mjs','main-control-dispatch.mjs','main-prebuild-task.mjs','frozen-main-source.mjs'];
+export const controlFiles=['publish-latest-main.mjs','publish-main-progress.mjs','release-scope-plan.mjs','main-prebuild-hook.mjs','main-schema-release.mjs','main-prebuild-status.mjs','main-prebuild-queue.mjs','main-control-dispatch.mjs','main-prebuild-task.mjs','frozen-main-source.mjs','preparation-resolution.mjs','preparation-resolution-history.mjs','preparation-producer-qualification.mjs','cleaned-preparation-writer.mjs','cleaned-preparation-observer.mjs'];
 const exists=async file=>{try{await fs.lstat(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};
 async function bytes(file){assert.equal(path.resolve(await fs.realpath(file)).toLowerCase(),path.resolve(file).toLowerCase(),'Redirected control path');const stat=await fs.lstat(file);assert.ok(stat.isFile()&&!stat.isSymbolicLink()&&stat.nlink===1,'Unsafe control file');return fs.readFile(file);}
 const hashOrMissing=async file=>await exists(file)?sha(await bytes(file)):null;

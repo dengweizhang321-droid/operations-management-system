@@ -1,0 +1,1 @@
+{"productionActions":false,"negativeFactCases":5,"shellVersion":"5.1.26100.9444","after":"tree-manifest -\u003e installed package/closure version facts","before":"tree-manifest -\u003e CLI --version (15s) + CLI help (15s)","status":"passed","unchangedGateFunctions":6}

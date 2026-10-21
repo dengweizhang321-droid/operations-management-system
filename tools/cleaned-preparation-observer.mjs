@@ -1,43 +1,21 @@
-/** Independent, finite read-only witness. Writes only its requested evidence. */
-import fs from 'node:fs/promises';
+/** Independent elevated read-only observer; never starts/stops services or preparation. */
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {execFile} from 'node:child_process';
-import {promisify,parseArgs} from 'node:util';
+import {parseArgs} from 'node:util';
 import assert from 'node:assert/strict';
-import {canonical,sha,readQueueObject,durableCreate,fixedCleanedPreparation as fixed,verifyCleanedObservationInputs,classifyCleanedControllers,schemaCensusScript,schemaCensusProjection,assertSchemaArtifactDirectory,assertCleanedActorsAbsent} from './main-prebuild-queue.mjs';
+import {canonical,sha,readQueueObject,durableCreate} from './main-prebuild-queue.mjs';
+import {resolutionVersion,loadOperator,stableBytes,collectPreparationState,censusScript,censusProjection,assertCensus,validateObservation,safeDirectory} from './preparation-resolution.mjs';
+import {readAdoptedControl} from './main-control-dispatch.mjs';
 import {taskPowerShell,readPreparationTask,preparationTaskState} from './main-prebuild-task.mjs';
-const execute=promisify(execFile);
-const {values}=parseArgs({options:{request:{type:'string'},sha:{type:'string'},out:{type:'string'}}});
-assert.ok(values.request&&values.sha&&values.out);
-await assertSchemaArtifactDirectory(path.dirname(path.resolve(values.request)));
-const {value:request,sha256}=await readQueueObject(path.resolve(values.request));assert.equal(sha256,values.sha);
-assert.equal(request.version,'teruisi-cleaned-preparation-request-4aac-v1');assert.equal(request.dispatchId,fixed.dispatchId);assert.ok(['initial-observation','final-observation'].includes(request.phase));assert.match(request.nonce,/^[a-f0-9]{32}$/);
-assert.ok(Date.now()>=Date.parse(request.at)&&Date.now()<=request.deadlineUnixMs,'Same-lock witness epoch expired');
-const directory=path.dirname(path.resolve(values.request));assert.ok(directory.toLowerCase().startsWith('d:\\codex-artifacts\\'));assert.equal(path.basename(values.request),'REQUEST-'+request.phase+'.json');assert.equal(path.resolve(values.out),path.join(directory,'OBSERVATION-'+request.phase+'.json'));
-const self=fileURLToPath(import.meta.url),root=path.resolve(path.dirname(self),'..');assert.equal(path.resolve(request.operatorSource),root);const selfSha=sha(await fs.readFile(self));assert.equal(selfSha,request.observerCodeSha256);assert.equal(selfSha,fixed.observerSha256);
-const verifyOperator=async()=>{
- const git=async args=>(await execute('git',['-C',root,...args],{encoding:'utf8',windowsHide:true})).stdout.trim();
- assert.deepEqual({commit:await git(['rev-parse','HEAD']),tree:await git(['rev-parse','HEAD^{tree}']),status:await git(['status','--porcelain'])},request.sourceIdentity);assert.equal(request.sourceIdentity.status,'');
- for(const [name,expected] of Object.entries(request.operatorFiles)){assert.match(name,/^[a-z0-9-]+\.mjs$/);const file=path.join(root,'tools',name),stat=await fs.lstat(file);assert.ok(stat.isFile()&&!stat.isSymbolicLink()&&stat.nlink===1);assert.equal(sha(await fs.readFile(file)),expected,'Operator dependency changed');}
-};
-await verifyOperator();
-const git=async args=>(await execute('git',['-C',path.join(fixed.packet,'source'),...args],{encoding:'utf8',windowsHide:true})).stdout.trim();
-const sourceCommit=await git(['rev-parse','HEAD']),sourceTree=await git(['rev-parse','HEAD^{tree}']);assert.equal(sourceCommit,fixed.target);assert.equal(sourceTree,fixed.tree);assert.equal(await git(['status','--porcelain']),'');
-const packet=await verifyCleanedObservationInputs(request);
-assert.equal(await git(['rev-parse','HEAD']),sourceCommit);assert.equal(await git(['rev-parse','HEAD^{tree}']),sourceTree);assert.equal(await git(['status','--porcelain']),'');await verifyOperator();
-// Static archive/original/head verification has finished. This timestamp starts
-// the actual task/CIM freshness window; no full candidate scan follows it.
-const dynamicStartedAt=new Date().toISOString();
-assert.deepEqual(await readPreparationTask(request.task),request.task.definition);assert.equal(sha(Buffer.from(canonical(request.task.definition))),request.taskDefinitionSha256);const state=await preparationTaskState(request.task);assert.equal(state.state,3);assert.equal(state.instances,0);
-const census=await taskPowerShell(schemaCensusScript);
-assert.ok(Array.isArray(census.rows)&&census.rows.length>0);const observer=census.rows.find(row=>row.processId===process.pid);assert.ok(observer);const observerIdentity=Object.fromEntries(['processId','creationDate','commandLine','executablePath'].map(key=>[key,observer[key]]));
-assert.equal(census.elevated,true);const actors=assertCleanedActorsAbsent(census.rows);
-const relatedControllers=classifyCleanedControllers(census.rows,{writer:request.writer,observer:observerIdentity});assert.deepEqual(relatedControllers,[]);
-const dynamicCompletedAt=new Date().toISOString();
-const value={version:'teruisi-cleaned-preparation-observation-4aac-v1',dispatchId:fixed.dispatchId,requestSha256:sha(Buffer.from(canonical(request))),nonce:request.nonce,phase:request.phase,at:new Date().toISOString(),writer:request.writer,observer:observerIdentity,observerCodeSha256:selfSha,elevated:census.elevated,completeCensus:true,censusCount:census.rows.length,census:schemaCensusProjection(census.rows),relatedControllers,relatedOpaque:0,taskState:state.state,taskInstances:state.instances,taskDefinitionSha256:request.taskDefinitionSha256,sourceCommit,sourceTree,sourceClean:true,packet,actors,operatorSourceIdentity:request.sourceIdentity,operatorFiles:request.operatorFiles,dynamicStartedAt,dynamicCompletedAt,staticEvidenceSha256:sha(Buffer.from(canonical(request.staticEvidence)))};
-await assertSchemaArtifactDirectory(directory);await durableCreate(path.resolve(values.out),value);await assertSchemaArtifactDirectory(directory);console.log(JSON.stringify({status:'read-only-observation-written',file:path.resolve(values.out),sha256:sha(Buffer.from(canonical(value))),elevated:census.elevated,publicationPerformed:false}));
-// Keep the exact observer and its caller transport alive until the ordinary
-// writer has independently matched the fresh cross-token process projection.
-const deadline=Date.parse(dynamicStartedAt)+60000,ack=path.join(directory,'ACK-'+request.phase+'.json');
-for(;;){try{const {value}=await readQueueObject(ack);assert.equal(value.requestSha256,sha256);assert.equal(value.writerPid,request.writer.processId);assert.ok(Date.parse(value.at)<=deadline);break;}catch(error){if(error.code!=='ENOENT')throw error;if(Date.now()>=deadline)throw Error('Ordinary writer did not acknowledge its fresh census');await new Promise(done=>setTimeout(done,100));}}
+const {values}=parseArgs({options:{help:{type:'boolean'},request:{type:'string'},sha:{type:'string'},out:{type:'string'}}});
+if(values.help)console.log('Usage: node cleaned-preparation-observer.mjs --request <REQUEST-initial.json or REQUEST-final.json> --sha <request SHA-256> --out <OBSERVATION-phase.json>\nIndependent read-only elevated witness from the same frozen bundle. Writes only the requested witness and waits for the ordinary writer ACK; no lifecycle actions.');
+else{
+ assert.ok(values.request&&values.sha&&values.out);const requestFile=path.resolve(values.request),{value:r,sha256}=await readQueueObject(requestFile);assert.equal(sha256,values.sha);assert.equal(r.version,resolutionVersion);assert.ok(['initial','final'].includes(r.phase));assert.equal(path.basename(requestFile),'REQUEST-'+r.phase+'.json');const out=path.dirname(requestFile);await safeDirectory(out);assert.equal(path.resolve(values.out),path.join(out,'OBSERVATION-'+r.phase+'.json'));
+ const bundleRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),operator=await loadOperator(bundleRoot);assert.deepEqual(r.operatorFiles,operator.files);const directory=path.dirname(path.dirname(r.evidenceDirectory));assert.equal(path.resolve(r.evidenceDirectory),path.join(directory,'resolutions',r.binding.dispatchId+'-evidence'));
+ const adopted=await readAdoptedControl(path.join(path.dirname(directory),'main-publisher-config.json'),bundleRoot);assert.equal(adopted.stateSha256,r.adoptionSha256);assert.deepEqual(r.task,adopted.state.preparationTask);assert.equal(r.deadlineUnixMs,Date.parse(r.epoch.startedAt)+20*60*1000);assert.ok(Date.now()>=Date.parse(r.at)&&Date.now()<r.deadlineUnixMs);
+ const {value:dispatch,sha256:dispatchSha256}=await readQueueObject(path.join(directory,'dispatches',r.binding.dispatchId+'.json')),terminal=(await readQueueObject(path.join(directory,'results',r.binding.requestId+'.json'))).value;assert.equal(dispatchSha256,r.binding.dispatchSha256);assert.equal(dispatch.requestId,r.binding.requestId);assert.equal(dispatch.selectedTarget,r.binding.selectedTarget);assert.equal(sha(Buffer.from(canonical(terminal))),r.binding.originalResultSha256);
+ const staticRaw=await stableBytes(path.join(r.evidenceDirectory,'objects',r.staticEvidence+'.bin'));assert.equal(sha(staticRaw),r.staticEvidence);const record=JSON.parse(staticRaw),proof=await collectPreparationState(dispatch,terminal,new Map());assert.deepEqual(proof,record.proof,'Independent complete inventory differs');
+ assert.deepEqual(await readPreparationTask(r.task),r.task.definition);const dynamicStartedAt=new Date().toISOString(),state=await preparationTaskState(r.task);assert.equal(state.state,3);assert.equal(state.instances,0);const census=await taskPowerShell(censusScript);assert.equal(census.elevated,true);const self=census.rows.find(x=>x.processId===process.pid);assert.ok(self);const observer=Object.fromEntries(['processId','creationDate','commandLine','executablePath'].map(k=>[k,self[k]]));assertCensus(census.rows,{writer:r.writer,observer,roots:[path.dirname(directory),dispatch.selection.packet]});
+ const o={version:resolutionVersion,requestSha256:sha256,phase:r.phase,nonce:r.nonce,at:new Date().toISOString(),writer:r.writer,observer,observerCodeSha256:operator.files['cleaned-preparation-observer.mjs'],elevated:true,completeCensus:true,census:censusProjection(census.rows),relatedControllers:[],taskState:state.state,taskInstances:state.instances,taskDefinitionSha256:sha(Buffer.from(canonical(r.task.definition))),staticEvidence:r.staticEvidence,dynamicStartedAt,dynamicCompletedAt:new Date().toISOString()};o.at=o.dynamicCompletedAt;validateObservation(o,r);await durableCreate(path.resolve(values.out),o);console.log(JSON.stringify({status:'read-only-observation-written',sha256:sha(Buffer.from(canonical(o))),publicationPerformed:false}));
+ const ackFile=path.join(out,'ACK-'+r.phase+'.json');for(;;){try{const {value:a}=await readQueueObject(ackFile);assert.equal(a.requestSha256,sha256);assert.equal(a.writerPid,r.writer.processId);assert.ok(Date.parse(a.at)-Date.parse(dynamicStartedAt)<60000);break;}catch(e){if(e.code!=='ENOENT')throw e;assert.ok(Date.now()-Date.parse(dynamicStartedAt)<60000,'Ordinary writer ACK expired');await new Promise(done=>setTimeout(done,100));}}
+}

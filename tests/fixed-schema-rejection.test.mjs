@@ -1,3 +1,4 @@
+import {legacyToolFile} from './fixtures/legacy-preparation-tools.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -5,8 +6,8 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
-import {canonical,sha,decodeSchemaControlCommand,classifySchemaControllers,schemaCensusProjection,assertSchemaWitnessCensus,assertSchemaArtifactDirectory} from '../tools/main-prebuild-queue.mjs';
-import {controlFiles} from '../tools/install-main-prebuild.mjs';
+import {canonical,sha,decodeSchemaControlCommand,classifySchemaControllers,schemaCensusProjection,assertSchemaWitnessCensus,assertSchemaArtifactDirectory} from './fixtures/legacy-preparation/main-prebuild-queue.mjs';
+import {controlFiles} from './fixtures/legacy-preparation-tools.mjs';
 const captured=JSON.parse(await fs.readFile('tests/fixtures/fixed-schema-ece-evidence.json','utf8'));
 async function fixture(t){
  const root=path.join('D:/codex-artifacts','schema-resolution-test-'+randomUUID());await fs.mkdir(root,{recursive:true});t.after(async()=>{assert.ok(path.resolve(root).toLowerCase().startsWith('d:\\codex-artifacts\\schema-resolution-test-'));await fs.rm(root,{recursive:true,force:true,maxRetries:15,retryDelay:100});});
@@ -14,8 +15,8 @@ async function fixture(t){
  const dispatchName='prebuild-queue-v2/dispatches/ece64080-a14c-4314-9e91-c7a8c48171fb.json';
  const dispatch=JSON.parse(Buffer.from(captured.objects[captured.files[dispatchName]],'base64'));dispatch.selection.packet=packet;const dispatchRaw=Buffer.from(canonical(dispatch)),dispatchSha=sha(dispatchRaw);
  const resultName='prebuild-queue-v2/results/7964788d-da95-49ec-bb08-2ef409faf711.json',terminal=JSON.parse(Buffer.from(captured.objects[captured.files[resultName]],'base64'));terminal.dispatchSha256=dispatchSha;const terminalRaw=Buffer.from(canonical(terminal)),resultSha=sha(terminalRaw);
- let queueCode=await fs.readFile('tools/main-prebuild-queue.mjs','utf8');queueCode=queueCode.replaceAll(captured.state,state.replaceAll('\\','/')).replaceAll(captured.packet,packet.replaceAll('\\','/')).replaceAll(captured.files[dispatchName],dispatchSha).replaceAll(captured.files[resultName],resultSha);
- const names=[...controlFiles,'schema-rejection-writer.mjs','schema-rejection-observer.mjs'];for(const name of names)await fs.copyFile(path.join('tools',name),path.join(source,'tools',name));await fs.writeFile(path.join(source,'tools/main-prebuild-queue.mjs'),queueCode+'\nexport const fixtureSchema={read:schemaReadResolution,validate:schemaValidateObservation};\n');
+ let queueCode=await fs.readFile(legacyToolFile('main-prebuild-queue.mjs'),'utf8');queueCode=queueCode.replaceAll(captured.state,state.replaceAll('\\','/')).replaceAll(captured.packet,packet.replaceAll('\\','/')).replaceAll(captured.files[dispatchName],dispatchSha).replaceAll(captured.files[resultName],resultSha);
+ const names=[...controlFiles,'schema-rejection-writer.mjs','schema-rejection-observer.mjs'];for(const name of names)await fs.copyFile(legacyToolFile(name),path.join(source,'tools',name));await fs.writeFile(path.join(source,'tools/main-prebuild-queue.mjs'),queueCode+'\nexport const fixtureSchema={read:schemaReadResolution,validate:schemaValidateObservation};\n');
  const queue=await import(pathToFileURL(path.join(source,'tools/main-prebuild-queue.mjs'))),fixed=queue.fixedSchemaRejection;
  const write=async(file,bytes)=>{await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,bytes);};
  for(const [name,digest] of Object.entries(captured.files)){if(name==='CONTROL-INSTALLATION.json')continue;await write(path.join(state,name),name===dispatchName?dispatchRaw:name===resultName?terminalRaw:Buffer.from(captured.objects[digest],'base64'));}
@@ -47,10 +48,10 @@ test('historical reader rejects contract/closure/phase tampering and retains the
  await fs.writeFile(file,original);assert.equal(await f.queue.readFixedSchemaRejectionResolution(f.directory,f.dispatch,f.terminal),true);assert.equal((await f.queue.ticketResult(f.directory,f.fixed.requestId,f.fixed.ticketSha256)).status,'unknown');
 });
 test('old e2 qualification remains byte-for-byte unchanged',async()=>{
- const previous=execFileSync('git',['show','a7041338:tools/main-prebuild-queue.mjs'],{encoding:'utf8',windowsHide:true}),current=await fs.readFile('tools/main-prebuild-queue.mjs','utf8');const block=text=>text.slice(text.indexOf('// FIXED_ADMIN_E2_BEGIN'),text.indexOf('// FIXED_ADMIN_E2_END')+'// FIXED_ADMIN_E2_END'.length);assert.equal(block(current),block(previous));
+ const previous=execFileSync('git',['show','a7041338:tools/main-prebuild-queue.mjs'],{encoding:'utf8',windowsHide:true}),current=await fs.readFile(legacyToolFile('main-prebuild-queue.mjs'),'utf8');const block=text=>text.slice(text.indexOf('// FIXED_ADMIN_E2_BEGIN'),text.indexOf('// FIXED_ADMIN_E2_END')+'// FIXED_ADMIN_E2_END'.length);assert.equal(block(current),block(previous));
 });
 test('actual control bundle imports selected capability and fixed readers without outside dependencies',async t=>{
- const root=path.join('D:/codex-artifacts','schema-resolution-test-'+randomUUID());await fs.mkdir(root);t.after(async()=>{assert.ok(path.resolve(root).toLowerCase().startsWith('d:\\codex-artifacts\\schema-resolution-test-'));await fs.rm(root,{recursive:true,force:true});});for(const name of controlFiles)await fs.copyFile(path.join('tools',name),path.join(root,name));const publisher=await import(pathToFileURL(path.join(root,'publish-latest-main.mjs')));assert.equal((await publisher.assertSelectedPreparationSupported({repository:'private'},{targetCommit:'a'.repeat(40),live:{mainCommit:'b'.repeat(40)}},{makePlan:()=>({baseSha:'b'.repeat(40),headSha:'a'.repeat(40),migrate:true,changes:[{status:'A',path:'backend/ai_assistant/migrations/0085_pi_workspace_controls.py'}]})})).additionKind,'PiWorkspace');const queue=await import(pathToFileURL(path.join(root,'main-prebuild-queue.mjs')));assert.equal(typeof queue.readFixedSchemaRejectionResolution,'function');assert.equal(typeof queue.readFixedAdminRejectionResolution,'function');
+ const root=path.join('D:/codex-artifacts','schema-resolution-test-'+randomUUID());await fs.mkdir(root);t.after(async()=>{assert.ok(path.resolve(root).toLowerCase().startsWith('d:\\codex-artifacts\\schema-resolution-test-'));await fs.rm(root,{recursive:true,force:true});});for(const name of controlFiles)await fs.copyFile(legacyToolFile(name),path.join(root,name));const publisher=await import(pathToFileURL(path.join(root,'publish-latest-main.mjs')));assert.equal((await publisher.assertSelectedPreparationSupported({repository:'private'},{targetCommit:'a'.repeat(40),live:{mainCommit:'b'.repeat(40)}},{makePlan:()=>({baseSha:'b'.repeat(40),headSha:'a'.repeat(40),migrate:true,changes:[{status:'A',path:'backend/ai_assistant/migrations/0085_pi_workspace_controls.py'}]})})).additionKind,'PiWorkspace');const queue=await import(pathToFileURL(path.join(root,'main-prebuild-queue.mjs')));assert.equal(typeof queue.readFixedSchemaRejectionResolution,'function');assert.equal(typeof queue.readFixedAdminRejectionResolution,'function');
 });
 for(const failure of ['stale','wrong-nonce','opaque','task-running','operator-drift','second-phase','fresh-pid-drift','packet-effect'])test('finite writer rejects '+failure+' without resolving original',async t=>{
  const f=await fixture(t),observe=f.options.observe;

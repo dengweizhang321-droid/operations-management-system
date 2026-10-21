@@ -1,5 +1,6 @@
+import {legacyToolFile} from './fixtures/legacy-preparation-tools.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';
-import {native391SystemHostQualification,native391HostPreflightObjects,native391Failed4Objects,validateNative391HostPreflight} from '../tools/main-prebuild-queue.mjs';
+import {native391SystemHostQualification,native391HostPreflightObjects,native391Failed4Objects,validateNative391HostPreflight} from './fixtures/legacy-preparation/main-prebuild-queue.mjs';
 const file='C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',raw=await fs.readFile(file),stat=await fs.lstat(file),digest='8bb6fa8c283b4d92120b1ef249a9b311b0f804d4cabbe9981159976c8be76a5e';
 const snapshot={dev:stat.dev,ino:stat.ino,birthtimeMs:stat.birthtimeMs,size:stat.size,mtimeMs:stat.mtimeMs,ctimeMs:stat.ctimeMs,nlink:2,isFile:()=>true,isSymbolicLink:()=>false};
 function io({before={},after={},bytes=raw,realpath=file}={}){let calls=0;return {realpath:async()=>realpath,lstat:async()=>({...snapshot,...(calls++?after:before)}),readFile:async()=>bytes};}

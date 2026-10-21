@@ -1,3 +1,4 @@
+import {legacyToolFile} from './fixtures/legacy-preparation-tools.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -7,7 +8,7 @@ import {pathToFileURL} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import {createHash,randomUUID} from 'node:crypto';
 const sha=raw=>createHash('sha256').update(raw).digest('hex');
-const source=await fs.readFile(new URL('../tools/main-prebuild-queue.mjs',import.meta.url),'utf8');
+const source=await fs.readFile(new URL('./fixtures/legacy-preparation/main-prebuild-queue.mjs',import.meta.url),'utf8');
 const capture=JSON.parse(await fs.readFile(new URL('./fixtures/fixed-admin-e2-evidence.json',import.meta.url),'utf8'));
 const gitRaw=(commit,name)=>execFileSync('git',['show',commit+':'+name],{windowsHide:true,maxBuffer:4*1024*1024});
 async function fixture(t){

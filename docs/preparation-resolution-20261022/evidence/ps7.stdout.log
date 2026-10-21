@@ -1,0 +1,1 @@
+{"after":"tree-manifest -> installed package/closure version facts","status":"passed","shellVersion":"7.6.6","negativeFactCases":5,"productionActions":false,"before":"tree-manifest -> CLI --version (15s) + CLI help (15s)","unchangedGateFunctions":6}

@@ -1,9 +1,4 @@
-/** One finite operator; never submits tickets or invokes native preparation. */
-import path from 'node:path';
-import {fileURLToPath} from 'node:url';
-import {parseArgs} from 'node:util';
-import {writeFixedNativeAbandonmentResolution} from './main-prebuild-queue.mjs';
-const {values}=parseArgs({options:{out:{type:'string'}}});
-if(!values.out)throw Error('A new private --out evidence directory is required');
-const sourceRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-console.log(JSON.stringify(await writeFixedNativeAbandonmentResolution({sourceRoot,out:path.resolve(values.out)})));
+/** Retired finite operator. All new resolutions use the shared protocol. */
+const help=process.argv.includes('--help');
+const message='Use the adopted frozen bundle: node cleaned-preparation-writer.mjs --help (or cleaned-preparation-observer.mjs --help). This finite entry point cannot write or observe a new resolution.';
+if(help)console.log(message);else{console.error(message);process.exitCode=1;}

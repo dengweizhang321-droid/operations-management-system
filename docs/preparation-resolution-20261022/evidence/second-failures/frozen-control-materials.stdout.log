@@ -1,0 +1,36 @@
+warning: in the working copy of 'tools/main-prebuild-queue.mjs', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'tools/preparation-resolution-history.mjs', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'tools/preparation-resolution.mjs', CRLF will be replaced by LF the next time Git touches it
+{"stage":"rotation-wait","requestId":"d6c544664a8847dcdfefccef6e080408bf379e53934ed00a3fd27e2de2f67e48","elapsedMs":2,"attempts":0,"acquired":true}
+{"stage":"rotation-wait","requestId":"d6c544664a8847dcdfefccef6e080408bf379e53934ed00a3fd27e2de2f67e48","elapsedMs":0,"attempts":0,"acquired":true}
+{"stage":"rotation-wait","requestId":"d6c544664a8847dcdfefccef6e080408bf379e53934ed00a3fd27e2de2f67e48","elapsedMs":0,"attempts":0,"acquired":true}
+✖ materials preserve frozen environment; private adoption binds one whole immutable closure (11302.7365ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11939.1052
+
+✖ failing tests:
+
+test at tests\main-control-upgrade.test.mjs:131:1
+✖ materials preserve frozen environment; private adoption binds one whole immutable closure (11302.7365ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'teruisi-admin-preparation-rejection-e2-v1'
+  
+      at TestContext.<anonymous> (file:///D:/codex-worktrees/a1/tests/main-control-upgrade.test.mjs:135:121)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'teruisi-admin-preparation-rejection-e2-v1',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

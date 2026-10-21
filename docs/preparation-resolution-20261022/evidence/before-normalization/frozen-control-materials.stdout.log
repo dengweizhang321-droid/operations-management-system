@@ -1,0 +1,11 @@
+warning: in the working copy of 'tools/main-prebuild-queue.mjs', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'tools/preparation-resolution.mjs', CRLF will be replaced by LF the next time Git touches it
+✔ materials build includes the generic resolution operator without control adoption (4757.3466ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5436.9402
