@@ -4,7 +4,7 @@
 
 返回 [文档首页](../README.md) · [逐篇文档目录](../文档目录.md)
 
-本轮补充：[Runner升级精确对账与受限发布续接](../release-resume-20261021/REPORT.md)。
+本轮补充：[Runner升级精确对账与受限发布续接](../release-resume-20261021/REPORT.md) · [独立审查](../release-resume-20261021/REVIEW.md)。
 
 ## 运营事务
 

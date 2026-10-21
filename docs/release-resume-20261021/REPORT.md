@@ -16,10 +16,14 @@
 | 发布与续接定向Node检查 | 93项通过：原55项编排及新增catch分支、unknown不重放、一次guard、进程退役、目录单独协调、原字节/真实退出与库存闭包 |
 | Pi只读观测私有Python夹具 | 15项通过；真实内联Linux检查函数使用临时文件树和低层OS替身，不调用WSL/生产 |
 | PS5/PS7原生参数与分派夹具 | 均通过；原ParamBlock、两个公共动作、原mutex和ACL后置顺序，零生产读取和生命周期动作 |
-| 发布候选兼容与包验证 | 待绑定干净候选提交运行，结果另补；不以普通夹具冒称生产冷启动 |
-| 独立增量审查 | 进行中；对账状态、退出未知保护、恢复来源及目录CAS问题已按证据闭合，最终结果另补 |
+| 发布候选兼容与包验证 | 干净候选`f50f9717201fb1a93416c5147cc9aa07442f4988`，原验证器7项全部通过：定向编排、只读观测、PS5/PS7公共入口、Worker完整性、历史入口边界、真实私有PrepareApp/Deploy/hash/ACL/本地R2闭包；原始14份输出摘要已独立核对 |
+| 独立增量审查 | 通过；原始字节、两处直接退出未知保护、原owner退役、一次协调guard、源包限定、恢复来源和目录单独协调均已核对；[审查结论](REVIEW.md) |
 
 PrepareApp仅新增六个实际依赖文件；验证器用精确逆投影核原生命周期函数不变，并将新增getter固定摘要、原公共动作的其余分派保持原字节。没有修改`backend/pi_runner/runtime_upgrade.py`的apply/reconcile、维护锁或Start/Stop引擎语义，不增加全仓测试、全库备份或恢复。
+
+原报告`D:/codex-artifacts/release-resume-20261021/candidate-check/REPORT.json`摘要为`48cadc6db28f80a4275618895d69f5010b1d024b69421e65e36b180bd6c456e4`，`packageIntegrity/nativeEntryBoundary/piMainResume=true`，`nativeColdStart=false`。普通权限单次验证进程直接退出0，临时候选工作树由原验证器清理，单次任务在无实例、已结束且定义摘要精确匹配后删除；没有Stop生产进程。安全字段见[检查摘要](verification-summary.json)。后续只补本文档/审查结果，不变更上述已验证程序字节，不把元数据收尾称为重新运行验证或生产采用。
+
+按映射`2026-10-15-v3`请求Astra High做必要规划，Sol High做边界实施与独立关键审查；工具未返回实际模型ID，未另行独立确认。执行者与审查者上下文分离，审查者未改源码或运行生产。
 
 ## 适用边界
 

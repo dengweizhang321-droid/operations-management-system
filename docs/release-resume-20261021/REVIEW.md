@@ -1,0 +1,11 @@
+# 受限发布续接独立审查
+
+范围：基线`b4488991`至最终程序提交`f50f9717201fb1a93416c5147cc9aa07442f4988`，仅本轮发布编排、原字节保全、只读Pi观测、受限CLI、六文件包库存和候选验证资格。审查者独立读取真实源码、完整相关差异、原生报告与输出，不修改实现，不执行生产观察/发布或追加业务验收。
+
+结论：通过，无已知阻断。Windows已持久完成与尚需Linux原协调分别判断；现有原维护门禁已阻止Start/AutoStart，不另加冗余启动或PID清理。原apply/reconcile、维护锁、Start/Stop函数和分派主体保持；新增观察入口依旧经原mutex、应用/ACL门禁，Verify调用原只读ACL后置检查。
+
+审查中闭合的直接问题：原UpgradePi及Reconcile的timeout/preserve不能借后续mutex推断原进程已退出，已添加真实直接退出证据要求；恢复来源必须写入实际SUCCESS，不能仅传给catalog回调，已改共享尾部receiptExtra；SUCCESS之后目录更新失败只能协调索引，已补原owner退役、原冻结来源及首次CAS固定；CLI只能从原冻结包运行，不能从另一检出拼接直接依赖；私有PS夹具的Mandatory Controller参数已在两个host中显式传入。
+
+审查者实际复跑了29项首批Node反例、15项Python检查、PS5/PS7原生参数/分派夹具及4项profile检查，并读取根代理新增退出/编排测试。最终原候选报告7项全exit0，14份原stdout/stderr摘要逐项一致，真实私有包copy/deploy/hash/ACL/R2通过，候选工作树清理成功；`requiresNativeColdStart=false`且报告明确`nativeColdStart=false`，没有用私有边界检查冒充完整服务冷启动。
+
+本轮只证明候选代码与包边界可交付，不证明已合main、已采用控制入口或已在生产执行新续接。后续只允许复用相同程序字节的结果；应用/入口/依赖或实际前驱变化仍按原规则重新判断。

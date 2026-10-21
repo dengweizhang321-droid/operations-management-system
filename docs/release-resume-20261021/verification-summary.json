@@ -1,0 +1,17 @@
+{
+    "evidence":  {
+                     "packageIntegrity":  true,
+                     "nativeEntryBoundary":  true,
+                     "nativeColdStart":  false,
+                     "piMainResume":  true
+                 },
+    "oneOffTaskDeleted":  true,
+    "ordinaryDirectExitCode":  0,
+    "candidateWorktreeRemoved":  true,
+    "checkCount":  7,
+    "at":  "2026-10-21T05:02:43.3942965+00:00",
+    "reportSha256":  "48cadc6db28f80a4275618895d69f5010b1d024b69421e65e36b180bd6c456e4",
+    "commit":  "f50f9717201fb1a93416c5147cc9aa07442f4988",
+    "status":  "passed",
+    "productionOperationsPerformed":  false
+}
