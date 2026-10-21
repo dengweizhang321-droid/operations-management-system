@@ -263,3 +263,91 @@ A1 使用 AST 读取请求白名单与 1.3.0 manifest 的无副作用核对，�
 PreparePiUpgrade传入精确prepared app ID/SHA。原Get-PiUpgradePreparedExecutionRoot核prepared包属于同sourceRoot并验证backend字节，随后在该真实来源计算Runner source_digest；并非从旧installed模板误读新来源。原PiUpgradeCheck复验同registered plan/source/image，准备与制品复用期间保持原app绑定；维护完整停止、DeployApp/Harden之后、Start之前才UpgradePi。原native升级入口仍检查AI端口空闲/PiWorker停止、旧配置和密钥身份、来源/镜像/协议、CAS及unknown不可重放；未改这些门禁。
 
 已直接读取新增私有假引擎测试源码：no-schema Runner来源变更先prepare-only、不启维护/Upgrade；再复用已准备Worker/Django/Runner计划deploy，PrepareApp/PreparePiUpgrade/UpgradePi各一次，Deploy先于Upgrade、Upgrade先于Start，migration=null。主代理报告该用例与既有combined无迁移用例共2项通过，以及受改Python AST/Node语法检查通过；审查者复用既有检查，不额外运行发布、构建或业务测试。最终合并、制品及生产采用事实由主发布负责人原生回执单独记录，本审查通过不替代这些事实。
+
+### 首次ready准入失败后的同目标再准入边界
+
+目标main为 `2b6447f33d54c4aaf1b8b543ccd3707d73bf5584`，原包 `D:/codex-isolated/main-release-packages/2b6447f33d54-150a41fa-23ba6b9a` 已有PREPARED，实际SHA为 `0e78724e3f5ffdb5aa8ff885d7e89fbaed54beba8554b392f231cba21d619d0a`，包含原Pi升级registeredPlan07316e42…/source1175d4b8…。首次固定CLI日志 `release-2026-10-21T01-17-35.536Z-e227beaa-1b19-459d-b6b8-3ba0b26da998.log` 于01:17:50在“准备本次最新main”的readLivePublication就绪断言503!=200失败。
+
+独立核源码顺序：observeLatestMain先fetch/freeze远端目标并调用readLivePublication，先核effective前驱/成功回执/来源，最后读原ready端点；只有其返回才进入prepareLatestMainOnce及deployReadyMain，后者再调用publishPreparedMain、写STARTED和执行维护/停止/部署。首次失败因此尚未进入本包生产动作段。独立采样本包STARTED/SUCCESS/FAILED及maintenance请求均不存在，正式system-maintenance/automation-drain/release-publication-lease均不存在；当前Django deployment SHA仍23ba6b9a…，精确匹配请求前驱，PUBLISHED-MAIN仍记录2be62f90及原Worker版本。审查者未另执行effective chain解析，当前Worker链以原CLI再次新鲜核验为准。
+
+已读取主发布负责人保存的 `D:/codex-artifacts/pi-unified-chat-20261020/release-20261021/READINESS-AFTER-PREFLIGHT-FAILURE.json`：01:20:33.895Z，对同一原ready端点仅一次有界诊断自然返回HTTP200、ok=true/status=ready，没有服务操作。首次503原body未存，不能猜测具体故障或称已修复某模块。
+
+结论：在原失败日志/准备包保留、冻结目标仍2b6447f3且前驱仍匹配时，可再次调用原固定入口消费同目标已准备包；这是重新通过尚未执行生产动作的准入，不是重放STARTED后的未知部署。原入口仍须重新核ready/身份/前驱/锁，不能跳门禁、重启服务、重建同包或删锁；fixedCLI会重新fetch，须核它再次选择的仍是该冻结目标。仅能称“本次未产生生产维护/停止/部署作用”，不能把fetch、日志、队列锁及finally准备consumer等非生产文件作用泛称全部零作用。本审查没有执行再次发布。
+
+### 普通权限oneoff入口定向审查
+
+第二次原ready已通过，但包内 `publish-main.mjs` 在调用publishPreparedMain之前的verifyPowerShellHost拒绝管理员token（True!=False），日志为packet下 `release-2026-10-21T01-22-49.440Z-1bdb1fbf-d3d4-49ac-bc3e-a62da3b23065.log`。独立重新采样：本包STARTED/FAILED/SUCCESS/maintenance-admission仍不存在，正式maintenance/drain/publicationlease不存在，PREPARED SHA仍0e78724e…。因此这次仍未进入生产维护/停止/部署，不存在需要绕过的已执行生产动作未知结果。
+
+只读审查外置 `Run-Publication-Ordinary.ps1`、`Register-Ordinary-Publication.ps1`、`ORDINARY-TASK-PLAN.json`，无实质阻断：注册前核同安装SID、launcher SHA与已绑定SysPS SHA、task不存在；仅注册一个无trigger/密码、Hidden、InteractiveToken/RunLevel0的按需任务，以RunEx12指定同用户交互session。launcher实际调用已采用currentPreparationIdentity/assertOrdinaryIdentity，核elevated=false、integrity8192及同用户Explorer/session，另核Node SHA、远端目标仍2b和PREPARED精确SHA，再create-only写启动marker并调用原fixedCLI config --no-pause。没有改已有preparation任务、控制包、全局配置或原生管理员token拒绝门禁。
+
+launcher只WaitForExit直接publisher，不等待其长驻服务后代；stdout/exit仅作启动观察，结果明确要求原native完成回执，不能冒作上线成功。按主代理计划，结束后核该oneoff任务非running、精确定义仍匹配再删除，不中断正在运行任务。已通知主代理可在现有上线授权内单次运行该普通权限入口；审查者没有register/run、生产动作或功能验证。原两次失败日志保持，不重建原包；fixedCLI仍自行重新核目标/ready/source/CAS和维护门禁。
+
+### oneoff已退出前启动拒绝后的传输更新
+
+主代理随后观察第一次oneoff为State3、instances0、LastTaskResult1，原launcher marker/result/stdout及native STARTED均不存在。原脚本的create-only marker在Start-Process固定CLI之前，因此marker缺失结合已退出任务支持原CLI尚未被调用；不能仅凭RemoteSigned设置猜测具体拒绝原因。独立文件采样仍见launcher marker/result/native STARTED均false、PREPARED SHA不变。
+
+只读复核外置 `Update-Ordinary-Publication-Transport.ps1` 无实质阻断：仅在原launcher SHA仍匹配、两种STARTED均不存在、原oneoff精确State/instance/退出码及同SID/RunLevel0/InteractiveToken/无trigger/完整Path+原Args+WorkingDir符合时更新。原task XML保全，唯一动作改成EncodedCommand；载荷是同一已审固定脚本正文加有限host-entered与失败trap观察，原普通身份、同交互session、远端目标、PREPARED及create-only marker均保留，未改现有preparation或生产任务、控制包或权限门禁。RunEx仍指定原session/SID，无密码，无新自动触发。
+
+已通知主代理可在既有上线授权内单次执行这次传输更新；它是修正已确认尚未调CLI的启动方式，不是重放生产维护/部署。启动观察与exit仍不充当native成功，正式完成以原native回执为准。审查者未运行更新或发布，也未追加功能测试。
+
+更新脚本首次在任何Update/RunEx之前因COM返回Principal账号名而被严格字符串守卫拒绝。后续仅加与已采用main-prebuild-task Projection相同的NTAccount.Translate→SID规范化，再与当前SID作严格比较；翻译失败仍拒绝。独立读取该两行增量，确认未放宽身份/RunLevel/LogonType/trigger/Path/Args/WorkingDir或改变副作用顺序，允许继续已审传输更新，无需重新整轮评审。
+
+主代理随后定位最初oneoff退出原因：identityProbe错误import固定first-adoption shim，其legacyBridge非null，对node -e的import会按原legacy栅栏exit75；未执行固定CLI。仅新建Reviewed helper，保原8d1…文件与旧task不动，把只读probe改为精确已采用851…bundle的main-control-dispatch库，并显式expectedBundle。独立核该库legacyBridge=null且main只在直接CLI执行时调用；readAdoptedControl仍核generation/manifest/固定dispatcher。新helper实际SHA e77e28ae…43bcc0，Update同时核原/新SHA并读取Reviewed正文；真正Start-Process仍调用原fixedCLI。仅该两处只读库绑定变更通过复审，未绕过实际CLI、token、目标、PREPARED、create-only marker及task前驱门禁，可继续已审单次更新。
+
+### 已进入生产后的Pi升级partial失败事实复核
+
+随后原普通权限入口通过，目标2b6447f3真正写入STARTED（2026-10-21T01:51:51.846Z），maintenanceId `f63867aa0eaa40a29c1c495806788dcd`。此后失败已经不是准入零生产作用，禁止重跑原publisher、维护或DeployApp。
+
+独立读取本包原step result/process/native-complete、当前installed manifest及维护文件，确认：
+
+- 进入维护actor42696 exit0，native-complete同maintenanceId、backendStopped=true/postgresPreserved=true；原actor/rotation owner身份有固定receipt。此处证明原动作完成，不代表审查者已另做当前进程退出核查。
+- 停止旧Worker进程60392 exit0，结果already_stopped且仍指原20261020T183747Z-0b90a81150c2b203；DeployApp35056 exit0、HardenAcl28040 exit0。当前Django deployment实际SHA `79d6d565bfe85b881d4c0099563b998da772f3b044316ccdeddcbe8179f9be98`，精确匹配本次PREPARED新包，sourceRoot为本次2b冻结来源，因此新Django已经installed。
+- WorkerApply-started/result及SUCCESS均不存在；源码顺序在UpgradePi后才切Worker、ExitMaintenance和Start，原执行没有到这些阶段。维护与automation drain仍同f638…，system-maintenance保drainedStopped=true；publication lease已清除，但这不清除原STARTED/FAILED未知边界。
+- 升级Pi Runner原step绑定registeredPlan07316e42…，01:57:54.530Z启动；原FAILED在01:58:27.295Z记录process14748 exit1/nonzero_exit、elapsed32759ms、timeoutType=null、automaticRetry=false。不是超时或launchFailed，不能据exit1推断Linux零作用。
+- Windows升级prepared原operation49207221306343018acd1c36216d6f52、plan c28d…存在，Windows intent为dispatching、result.json不存在；pi-agent.json实际SHA61193a9e…仍精确匹配原oldWindowsConfig，Runner source仍67abe…、image87e41…/skills1.3.0，尚未CAS到1175d4b8…。因此不能宣称升级成功或Windows配置已协调。
+
+执行者正独立读取Linux原journal/intent；其已回传新source intent unknown、当前unit inactive/dead/MainPID0。结合原runtime_upgrade源码，unknown位于状态复制与unit CAS后的start/probe异常分支，当时未能证明候选停止；当前后来inactive不等于旧unit已恢复。原reconcile必须核newUnit/newConfig/key/old fresh state、active及签名identity，当前inactive不能直接协调成功。应等待原journal的确切阶段/原因，不能apply重发、手改config或将当前partial当成未启动。审查者没有任何写入、服务启动、PG/HTTP业务检查或生产恢复动作。
+
+### 同原intent有限恢复闭包独立审查
+
+只读审查外置recovery-f638的Linux start-only、Windows Start-And-Reconcile-Pi、recovery-operator、ordinary launcher与一次性task installer；未执行恢复、真实probe或生产操作。最终封版MATERIAL SHA `b99cc5fc64ecba24fff741c0ba6c94801d507447de8533c1e1dabc39d0327bf1`，35项文件摘要独立逐项匹配；原b1c4…材料保留为pre-review归档。Linux helper为0dd15855…faf8c22、PS helper为c272dc62…cfbbfa。
+
+闭包保持原maintenance f638…、原operation492072…、registered plan07316…、Linux plan c28d…、new source1175…。Linux先用stdlib按原source_digest协议核真实来源字节并拒链接，再导入原校验器；核Windows原dispatching/无result/old config与key、原维护、Linuxunknown intent/old fresh state/new unit/config/key/loaded exact inactive ExecStart、无dropin/nojob/无原controller。独立create-only marker后仅一次systemctl start；只原签名health及verify_probe/stop_readiness，不copy、checkpoint、修改新WAL、stop或重放apply；就绪后仅stdin有界hold，release后直接子进程退出。
+
+Windows helper在原Worker/Django mutex双锁内重新核材料与现场，Django mutex使用原GetFullPath.TrimEnd(runtime)的UTF8 SHA协议，与实际版本一致。原Gate在Operation前释放Django锁，避免其原Reconcile子进程再次取Django锁死锁；helper只调用原ReconcilePiUpgrade一次，不改Windows config/intent。Gate返回释放Worker锁后才发pi-reconciled，root继续持队列/rotation锁并核原失败、source、manifest与前驱。
+
+root operator按原格式publication lease覆盖Reconcile及ExitMaintenance→Start间窗口，复核原persisted升级result与PS native flags，随后只执行原尚未执行的WorkerApply→同维护ID ExitMaintenance→原Start→释放临时WSL hold并确认退出→原VerifyStartup/ready。原STARTED/FAILED保留；新SUCCESS明确manualRecovery=true/automatedPublisherSuccess=false与原失败摘要，最后catalog CAS及原readLivePublication复读，不把helper exit或stdout冒充上线成功。
+
+审查中发现并在执行前闭合两项必然失败：catalog.sourceTree误用git tree字符串，已改用原api.hashRelativeFiles清单摘要对象；prepared.requestSha误与原文件字节SHA比较，已改原JSON.stringify(request)摘要，原文件另由MATERIAL raw SHA绑定。原“确认启动版本”实际尾部marker亦纳入未执行检查。当前最终闭包无剩余实质阻断，已通知主代理在现有上线授权内单次执行；没有增加功能验收。Linux12项无副作用mock自检已读OK，PS5解析及Node语法检查由对应实现者报告复用。成功与否仍待实际原回执，不因本次审查通过而提前声称恢复完成。
+
+### 第一次有限恢复的传输入口失败
+
+上述恢复实际执行后，原 `ENTRY-FAILED.json` 于02:33:33.433Z记录Pi reconciliation controller ended before receipt；pi-helper输出phase=failed/stage=linux-start-once，stderr只证明原Worker/Django双锁已取得及direct_child_reply_invalid。未得到runner-ready/pi-reconciled，未执行WorkerApply。上一轮静态闭包未证实的 `/mnt/d` 可读入口假设已被事实否定：执行者只读观察该脚本路径不存在/不可读，Linux start-only marker连父目录均不存在、unit仍inactive/MainPID0、原unknown intent摘要不变、journal无新Started。应据此判为Linux脚本未进入、未发生该次start，而非重放一个已有start marker的未知动作。
+
+首PS helper仅在成功尾部保存WSL stderr，失败finally直接关闭/Dispose，因而原direct子stderr及exit细节没有保存，不能事后编造Python错误消息或断言其细码。原恢复失败/MATERIAL/日志保持；不能原样重跑旧ENTRY。主代理已限定新transport2只改为原生同款base64脚本传输，并由Windows双锁内传经核验的原records字节快照（不传DPAPI密文），保同f638/OP的Linux marker与原Reconcile，失败必须保存真实WSL stderr/exit。审查者仅等待该传输增量新封版，不执行start/probe/reconcile。
+
+transport2最终差异复审通过：新独立目录 `recovery-f638-transport2` 的MATERIAL SHA `74947a8c5ac6583c26384567c264c85c4fcadc3de5a902e7b9683fa61bf13992`，40项实文件摘要逐项匹配，包含原失败/真实普通launcher exit1/helper日志及原无start证据。旧ENTRY/MATERIAL/失败日志不改；Linux仍使用原f638/OP create-only marker，不以换目录换操作身份绕过原未知。
+
+Linux helper25d91d…使用严格stdin snapshot替代不可达DrvFs：5份原prepared/intent/config/maintenance/drain的base64字节各有固定SHA，key仅sealed文件SHA，不传DPAPI密文。Windows helper82f053…在原双锁Check中新鲜读取这些真实文件、核固定SHA/读取前后SHA/无result与fragment后传入；snapshot本身不被冒称Linux新鲜读取。Linux继续核原Linux intent完整SHA、source bytes、oldfresh、unit/config/key、loaded inactive/noactor及原HMAC门禁，一次start/hold/release规则不变。新初始stdin上限32768，已核实际含LF请求5099字节；同封版脚本base64 bootstrap完整命令20951字符，小于30000界限。
+
+PS仅改原生同款base64 `python -c`传输，消除/mnt/d路径假设；stderr启动即复制落盘，stdout逐行原文、finally保存直接子进程exit，强制证据写入失败不能返回成功。root Node仅增加实际PiController-exit记录，其余原Reconcile→未执行tail/lease/hold释放/catalog规则保留。Linux12项无生命周期/凭据I/O的mock自检已读OK，PS解析/纯数据长度构造检查复用对应执行者结果，审查者未做新生产probe或环境复验。已通知主代理可按既有授权执行该新单次ordinary恢复；最终上线仍待真实native回执。
+
+### transport2实际完成Windows协调后的输出解码失败
+
+transport2已实际取得runner-ready，active/unresolved/unsafeUnknown/unknownStoppedVerified四计数均0，并调用原Reconcile。随后PS等待native stderr的StrictUTF8任务在byteCE解码失败，根ENTRY于02:42:58.756Z以PiStartOnlyAndReconcile失败退出。原stderr正文仍未保存，不能事后补造；保存的helper stderr只证明native-reconcile-once后处理发生编码错误，不能由wrapper失败认定native协调未完成。
+
+独立直接读取原registered目录：result.json实际 `upgraded=true/reconciled=true`，原op492072…/plan c28d…/source1175…/image87e41…绑定一致；当前pi-agent.json内容精确等于prepared.newWindowsConfig，实际SHA9455aa51…fc374等于result.windowsConfigSha256；sealed key实际/原prepared/result均defa7175…。原finish_windows先CAS配置再原子保存result，因此Windows原协调已完成，不能再start-only或Reconcile重放。原Windows intent保留dispatching符合原协议记录，不覆盖该完成result。
+
+独立核原publish和两个recovery目录仍没有WorkerApply/剩余tail/SUCCESS，maintenance/drain仍同f638。已回传主代理可以另封有限“只剩余发布尾部”协调：消费已完成原result/config，排除原owner、核原new unit/source/前驱，执行WorkerApply→同ID ExitMaintenance→原Start→VerifyStartup/ready→真实recoverySUCCESS/catalogCAS。此时原Start已能依据新配置管理正确Runner，不再手工start-only、Reconcile或Linuxhold。新脚本仍需定向审其必要差异；审查者没有生产动作。
+
+有限Tail闭包最终复审通过：`recovery-f638-tail/MATERIAL.json` SHA `bb21fc63e71aa6fb4b5be5d5b6af92dcdea5a1fcbf8f8caf9658df53dd7c661a`，48项实文件摘要独立核均匹配。绑定真实persisted result SHA ddc10d5c…、current successor config9455aa51…及原key；Node不再spawn Linux helper、start-only或Reconcile，不能重放已完成的协调。
+
+新增ACL补证只执行原publicReconcile的只读后置门禁：helper cf00ed3c…在原Gate双锁内核原f638/newconfig/result/plan/key/无fragment与原actor退出，按原library-only方式导入exact installedbase d012…，唯一AST提取exact installedAI 3b0a…的原Assert-PiUpgradeLeafAcl并原样调用，无native dispatcher。ASCII JSON回执保originalWrapperExitCode=null，Node核checked/resultSHA/sourceSHA，不把丢失原stdout/exit冒称成功。原Windows协调成功仅由持久result/config实际一致事实与此原后置门禁支持。
+
+其余仅执行原未到达的WorkerApply、同维护ID ExitMaintenance、原Start、VerifyStartup/ready，原格式lease与rotation/queue锁、SUCCESS恢复标识、MATERIAL/原失败摘要、catalog真实sourceTree对象及CAS保持。已通知主代理可在既有授权内单次运行新Tail ordinary任务，不追加业务验收；是否上线完成仍以该次真实原回执为准，审查者未执行生产。
+
+### 最终实际发布完成（主发布负责人原回执）
+
+2026-10-21，主发布负责人回传 `recovery-f638-tail/SUCCESS.json`：03:06:55.694Z、status=deployed_and_ready，SHA `47277c1bfd4ddecd927c677737cc06c10fa29cb83ce2aa238648a461c9745520`；ENTRY-COMPLETED于03:07:20.524Z完成，ordinary直接进程退出0。目标main2b6447f3的Worker `20261021T005044Z-3e008fa5cc2bacfe`/manifest5a321ddb…、Django manifest79d6d565…、Pi source1175d4b8…/reconciled=true已经实际采用。原Start返回started、VerifyStartup=true，原ready及catalog/readLive均通过。
+
+本轮完成属于有限人工协调后的真实上线，不能称原publisher整轮自动成功：原STARTED/FAILED及两次恢复失败原件保持；Pi协调完成依据原persisted result/config一致及独立调用原只读ACL后置函数，不冒称缺失的原wrapper stdout/exit成功。Tail未重做DeployApp、Upgrade apply、Linux start-only或Reconcile，仅完成原剩余发布段。未执行migration、业务回填、n8n候选激活或追加功能验收。审查者仅按该原完成回执增记，未重新调用接口或复验生产；临时任务清理、最终文档/记忆与main收尾由主发布负责人负责。
