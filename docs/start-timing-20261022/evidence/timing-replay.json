@@ -1,0 +1,44 @@
+{
+  "kind": "offline-budget-substitution-not-execution",
+  "sourceSha256": {
+    "D:/codex-artifacts/release-resume-20261021/publication-start-reconciliation/ORIGINAL-START-TIMING.json": "a187fbe43ade76b7313e06a22d2e623c8602acedcfd98810b57edebb3f3d4ff9",
+    "D:/codex-artifacts/release-resume-20261021/publication-start-reconciliation/recovery/CURRENT-START-RECONCILED.json": "336a823df66f96783f9cbe6fb46550fc2c5d44a00ec8c331df8ce40017634899"
+  },
+  "rows": [
+    {
+      "phase": "DjangoEnsure",
+      "budgetMilliseconds": 480000,
+      "observedMilliseconds": 330886,
+      "exceedsBudget": false,
+      "originalOutcome": "completed"
+    },
+    {
+      "phase": "ReleaseVerification",
+      "budgetMilliseconds": 300000,
+      "observedMilliseconds": 151113,
+      "exceedsBudget": false,
+      "originalOutcome": "completed"
+    },
+    {
+      "phase": "SupervisorStart",
+      "budgetMilliseconds": 120000,
+      "observedMilliseconds": 20677,
+      "exceedsBudget": false,
+      "originalOutcome": "completed"
+    },
+    {
+      "phase": "DingTalkReceiver",
+      "budgetMilliseconds": 180000,
+      "observedMilliseconds": 91520,
+      "observationCensoredByOriginalDeadline": true,
+      "exceedsBudgetAtObservedPoint": false,
+      "eventualReadyWithinBudget": null
+    }
+  ],
+  "coreMeasuredMilliseconds": 502676,
+  "startSucceedsUnderDefaultModel": true,
+  "conditions": "same native core results; no shorter explicit parent deadline; no new gate failure",
+  "originalStartExitedSuccessfully": false,
+  "originalStartDirectExitCode": 1,
+  "receiverFinalOutcomeUnderNewModel": "unknown; ready or independent timeout, does not change Start"
+}

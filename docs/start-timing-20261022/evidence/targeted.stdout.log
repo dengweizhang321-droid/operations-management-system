@@ -1,0 +1,11 @@
+✔ phase budgets, async receiver and failure gates: powershell.exe (6952.7855ms)
+✔ phase budgets, async receiver and failure gates: D:/teruisi-runtime/tools/pwsh/pwsh.exe (7884.5971ms)
+✔ publication receipts and lifecycle gates remain outside this candidate (95.3352ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15008.8421

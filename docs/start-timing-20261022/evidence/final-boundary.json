@@ -1,0 +1,75 @@
+{
+  "base": "f641685b60ca11a674da713e3b7b454f338c622c",
+  "branch": "codex/start-timing-20261022",
+  "protectedFiles": [
+    {
+      "file": "tools/django-local-service.ps1",
+      "gitBlob": "3eccf950eff858946d9eea356188378b23089317",
+      "unchanged": true
+    },
+    {
+      "file": "tools/main-prebuild-queue.mjs",
+      "gitBlob": "7aa1bcec6c9ca41d9ff9e07b7c27dbf87b29ba97",
+      "unchanged": true
+    },
+    {
+      "file": "tools/publish-main-command.mjs",
+      "gitBlob": "043f08bbca2f94ab2def60a9c97bff0af7f18b01",
+      "unchanged": true
+    },
+    {
+      "file": "tools/publish-main-completed.mjs",
+      "gitBlob": "f389c134bd951239a4303ee280ecd6ac346ada09",
+      "unchanged": true
+    },
+    {
+      "file": "tools/publish-main-known-resume.mjs",
+      "gitBlob": "2e2dc993a4f3f0e02dca02edbe661b343c851835",
+      "unchanged": true
+    },
+    {
+      "file": "tools/publish-main-owner.mjs",
+      "gitBlob": "0dfc8727eb2cc223ab1ad3d3b64ad2943ed1b790",
+      "unchanged": true
+    },
+    {
+      "file": "tools/publish-main-pi-reconciliation.mjs",
+      "gitBlob": "50569f6cf51dbbf6be80cf0ff618774bf589a82a",
+      "unchanged": true
+    },
+    {
+      "file": "tools/publish-main-progress.mjs",
+      "gitBlob": "cf7ccce75cce81f79226a697ac8d0e8bff11b3cb",
+      "unchanged": true
+    },
+    {
+      "file": "tools/publish-main-resume.mjs",
+      "gitBlob": "894e4190b066c3b6fae5edbeac3f38076eb28902",
+      "unchanged": true
+    },
+    {
+      "file": "tools/publish-main-status.mjs",
+      "gitBlob": "6f7afe4077c56c79d827bb333663365abd74d7b2",
+      "unchanged": true
+    },
+    {
+      "file": "tools/publish-main-step.mjs",
+      "gitBlob": "70b83be8fdbc13eec04ffd2ad2bd65ab878bc22d",
+      "unchanged": true
+    },
+    {
+      "file": "tools/publish-main-tail.mjs",
+      "gitBlob": "e4cb5b3de59526380ff1be2e692f235a12386828",
+      "unchanged": true
+    },
+    {
+      "file": "tools/release-scope-plan.mjs",
+      "gitBlob": "e7bb1a9b5559264588d98d2f5bd562ebaf857aaa",
+      "unchanged": true
+    }
+  ],
+  "protectedDiffs": 0,
+  "documentationLinksPassed": true,
+  "noBusinessOrDatabaseChanges": true,
+  "operations": "local candidate only; no fetch/pull/push/merge/deploy/service lifecycle"
+}

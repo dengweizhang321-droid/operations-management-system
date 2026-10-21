@@ -10,7 +10,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "process-deadline.ps1")
-if ($Action -cne "Panel") { $env:TERUISI_PROCESS_DEADLINE_UNIX_MS = [string](Get-ProcessDeadline) }
+if ($Action -cne "Panel") { $env:TERUISI_PROCESS_DEADLINE_UNIX_MS = [string](Get-ProcessDeadline -TimeoutMilliseconds $(if ($Action -eq 'Start') { 1800000 } else { 600000 })) }
 Add-Type -AssemblyName System.Net.Http
 $UnifiedStartControlVersion = "teruisi-operations-system-control-v2"
 $SystemControlMutexName = "Local\TERUISI.Operations.SystemControl.v2"
@@ -181,7 +181,7 @@ function Invoke-VisibleServiceAction {
   )
 
   $serviceArguments = @('-NoProfile','-NonInteractive','-File',$ScriptPath) + $Arguments
-  $capture = Invoke-DeadlineProcess -Executable $PowerShellExecutable -Arguments $serviceArguments -WorkingDirectory $ProjectRoot -Deadline (Get-ProcessDeadline)
+  $capture = Invoke-DeadlineProcess -Executable $PowerShellExecutable -Arguments $serviceArguments -WorkingDirectory $ProjectRoot -Deadline (Get-ProcessDeadline -TimeoutMilliseconds $(if ($Arguments -contains 'Start') { 1800000 } else { 600000 }))
   if (-not $Json) {
     foreach ($text in @($capture.Stdout,$capture.Stderr)) { if (-not [string]::IsNullOrWhiteSpace($text)) { Write-Output $text.TrimEnd() } }
   }

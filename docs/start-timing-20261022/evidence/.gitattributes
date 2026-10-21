@@ -1,0 +1,2 @@
+# Preserve native output bytes and hashes, including CRLF and trailing spaces.
+*.log -text -diff

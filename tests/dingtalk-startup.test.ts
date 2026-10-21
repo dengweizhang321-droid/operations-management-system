@@ -18,10 +18,10 @@ for (const shell of ["powershell.exe", "pwsh.exe"]) {
 test("ordinary system startup invokes the receiver after readiness and guarded release startup preserves it", () => {
   const source = readFileSync("tools/worker-local-service.ps1", "utf8");
   const start = source.slice(source.indexOf("function Invoke-WorkerSystemStart"), source.indexOf("function Stop-WorkerOnly"));
-  assert.equal((start.match(/Start-SystemDingTalkReceiver/g) || []).length, 2);
-  assert.ok(start.indexOf("Ensure-DjangoSystemReady") < start.indexOf("Start-SystemDingTalkReceiver"));
-  assert.match(start, /if \(\$status.State -eq "exact_release"\) \{[\s\S]*?if \(-not \$RequireReadyBackend\) \{ Start-SystemDingTalkReceiver \}/);
-  assert.match(start, /\$startResult = Start-VerifiedWorkerSupervisor[^\r\n]+\s+if \(-not \$RequireReadyBackend\) \{ Start-SystemDingTalkReceiver \}\s+return \$startResult/);
+  assert.equal((start.match(/Complete-WorkerSystemStart/g) || []).length, 2);
+  assert.ok(start.indexOf("Ensure-DjangoSystemReady") < start.indexOf("Complete-WorkerSystemStart"));
+  assert.doesNotMatch(start, /Start-SystemDingTalkReceiver/);
+  assert.match(start, /Invoke-WorkerStartPhase 'SupervisorStart'/);
   assert.match(source, /if \(\$Action -eq "Start"\) \{\s+\$startResult = if \(\$JoinedConcurrentLifecycle\) \{ Get-JoinedWorkerStartResult \$identity \} else \{ Invoke-WorkerSystemStart \$identity -RequireReadyBackend:\(\$BackendStartPolicy -eq "RequireReady"\) \}/);
   const joined = source.slice(source.indexOf("function Get-JoinedWorkerStartResult"), source.indexOf("function Invoke-WorkerSystemStart"));
   assert.doesNotMatch(joined, /Start-SystemDingTalkReceiver|Invoke-DjangoStartProcess|Ensure-DjangoSystemReady/);
@@ -43,7 +43,7 @@ function Get-WorkerStatusInternal { @{State=$script:testState;Supervisor=@{Proce
 function Ensure-DjangoSystemReady {param([switch]$RequireReadyBackend);$script:trace.Add('ready');if($script:failReady){throw 'synthetic_not_ready'} }
 function Invoke-ReleaseVerification {$script:trace.Add('verify');@{supervisorPrelaunchReceiptSha256=('a'*64)}}
 function Start-VerifiedWorkerSupervisor {$script:trace.Add('start');@{status='started'}}
-function Start-SystemDingTalkReceiver {$script:trace.Add('receiver')}
+function Start-IndependentDingTalkObservation {$script:trace.Add('receiver');return @{status='observing';requiredForStart=$false}}
 $identity=@{ReleaseId='synthetic';Sha256=('a'*64)}
 $rows=@()
 foreach($state in @('exact_release','stopped')){foreach($guarded in @($false,$true)){

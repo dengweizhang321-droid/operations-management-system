@@ -1,0 +1,33 @@
+{
+  "at": "2026-10-21T14:20:00.509Z",
+  "base": "f641685b60ca11a674da713e3b7b454f338c622c",
+  "sourceSha256": {
+    "tools/worker-local-service.ps1": "d8de804fa7e299dcd8e69bf7a250f13eb333c144d1aafe950d5c8ab369d797c5",
+    "tools/operations-system-control.ps1": "624cf40d3afa582ee77cd659d58292618809cfd15eedf389caf2c679350f7f3e",
+    "tests/start-timing.test.ps1": "8803546766df4477e6eff5c1d131873d752011bba64f088ef43397e531bf8266",
+    "tests/start-timing.test.mjs": "644466adc8ba9390905d7aa6ad4cdb1b7181c98bec1ac386dc79ba983615dc4e",
+    "tests/dingtalk-startup.test.ts": "4d3aeb447c621dca599f718156343fead0664c42b900553041ce31b4b5144b06"
+  },
+  "checks": [
+    {
+      "name": "targeted",
+      "command": "node --test tests/start-timing.test.mjs",
+      "exitCode": 0,
+      "signal": null,
+      "elapsedMilliseconds": 16124,
+      "error": null,
+      "stdoutSha256": "db5c16ae7b5779f1bad5191d8258cec638dc6d2f853398bfcde128085e63434b",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "regression",
+      "command": "node --import tsx --test tests/dingtalk-startup.test.ts tests/operations-system-control.test.ts tests/cold-start-coordination.test.ts",
+      "exitCode": 1,
+      "signal": null,
+      "elapsedMilliseconds": 95443,
+      "error": null,
+      "stdoutSha256": "77654151625464e3da3127570e4c76bc5a2c78ae889b9698517355d65e5eb101",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

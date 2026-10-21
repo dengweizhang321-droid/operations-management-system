@@ -1,5 +1,5 @@
 ﻿param(
-  [ValidateSet("Deploy", "Verify", "Start", "Restart", "RestartFull", "Stop", "Status", "InstallStartup", "VerifyStartup", "RemoveStartup", "EnterMaintenance", "ExitMaintenance", "MaintenanceStatus", "CancelDrain", "BeginWorkerDrain", "StopForRelease", "EndWorkerDrain")]
+  [ValidateSet("Deploy", "Verify", "Start", "ObserveDingTalkStartup", "Restart", "RestartFull", "Stop", "Status", "InstallStartup", "VerifyStartup", "RemoveStartup", "EnterMaintenance", "ExitMaintenance", "MaintenanceStatus", "CancelDrain", "BeginWorkerDrain", "StopForRelease", "EndWorkerDrain")]
   [string]$Action = "Status",
   [string]$SourceRoot,
   [string]$RuntimeRoot = "D:\teruisi-runtime\teruisi-worker-sales",
@@ -17,7 +17,8 @@
   [string]$MaintenanceId,
   [string]$RecoveryProofPath,
   [string]$RecoveryProofSha256,
-  [switch]$FunctionsOnly
+  [switch]$FunctionsOnly,
+  [ValidatePattern('^[a-f0-9]{32}$')][string]$StartupObservationId
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,7 +36,8 @@ if ($RecoveryProofPath -or $RecoveryProofSha256) {
 
 if ($BackendStartPolicy -eq "RequireReady" -and $Action -ne "Start") { throw "BackendStartPolicy RequireReady is restricted to Start" }
 . (Join-Path $PSScriptRoot "process-deadline.ps1")
-$WorkerOperationDeadline = Get-ProcessDeadline
+$WorkerOperationDeadline = if ($Action -in @('Start','RestartFull','ObserveDingTalkStartup')) { Get-ProcessDeadline -TimeoutMilliseconds 1800000 } else { Get-ProcessDeadline }
+$script:WorkerStartPhases = [ordered]@{}
 $FixedRuntimeRoot = "D:\teruisi-runtime\teruisi-worker-sales"
 $FixedSourceRoot = "D:\运营管理系统-sales-django-release"
 $FixedProtectedRoot = "D:\运营管理系统"
@@ -119,7 +121,7 @@ function Enter-WorkerServiceMutex([ValidateRange(0, 900)][int]$StartWaitSeconds 
   try {
     try {
       $acquired = $mutex.WaitOne([TimeSpan]::Zero)
-      if (-not $acquired -and $Action -ceq "Start") {
+      if (-not $acquired -and $Action -in @('Start','ObserveDingTalkStartup')) {
         $joined = $true
         if (-not $Json) { Write-Host "An existing lifecycle operation is running; waiting to verify its result" }
         $acquired = $mutex.WaitOne([Math]::Min($StartWaitSeconds * 1000, (Get-ProcessRemaining $WorkerOperationDeadline)))
@@ -192,6 +194,138 @@ function Write-WorkerStartupTiming([string]$Stage, [string]$StartedAt, [long]$El
   } catch { }
 }
 
+function Get-WorkerStartBudgetMilliseconds([ValidateSet('DjangoEnsure','ReleaseVerification','SupervisorStart','DingTalkReceiver')][string]$Phase) {
+  $defaults = @{ DjangoEnsure=480; ReleaseVerification=300; SupervisorStart=120; DingTalkReceiver=180 }
+  $name = 'TERUISI_START_' + $Phase.ToUpperInvariant() + '_SECONDS'
+  $configured = [Environment]::GetEnvironmentVariable($name)
+  $seconds = [int]$defaults[$Phase]
+  if ($configured -and (-not [int]::TryParse($configured, [ref]$seconds) -or $seconds -lt 1 -or $seconds -gt 900)) {
+    throw "invalid_start_budget:$Phase"
+  }
+  return $seconds * 1000
+}
+
+function Invoke-WorkerStartPhase([string]$Phase, [scriptblock]$Body) {
+  $budget = Get-WorkerStartBudgetMilliseconds $Phase
+  $savedDeadline = $WorkerOperationDeadline
+  $savedEnvironment = $env:TERUISI_PROCESS_DEADLINE_UNIX_MS
+  # Dynamic scope supplies the phase deadline to every existing native gate.
+  # Never extend an explicit caller deadline or replace a transport's evidence.
+  $WorkerOperationDeadline = [Math]::Min($savedDeadline, [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + $budget)
+  $clock = [Diagnostics.Stopwatch]::StartNew()
+  $row = [ordered]@{ phase=$Phase; budgetMilliseconds=$budget; deadlineUnixMs=$WorkerOperationDeadline; startedAt=[DateTimeOffset]::UtcNow.ToString('o'); elapsedMilliseconds=0; outcome='running'; code=$null; processEvidence=$null }
+  $script:WorkerStartPhases[$Phase] = $row
+  try {
+    $env:TERUISI_PROCESS_DEADLINE_UNIX_MS = [string]$WorkerOperationDeadline
+    [void](Get-ProcessRemaining $WorkerOperationDeadline)
+    $value = & $Body
+    [void](Get-ProcessRemaining $WorkerOperationDeadline)
+    $row.outcome = 'completed'; $row.code = 'completed'
+    return $value
+  } catch {
+    $row.processEvidence = $_.Exception.Data['ProcessEvidence']
+    $timedOut = $_.Exception.Message -ceq 'process_deadline_exhausted' -or
+      ($row.processEvidence -and $row.processEvidence.code -eq 'process_deadline_exhausted') -or
+      [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -ge $WorkerOperationDeadline
+    $row.outcome = if ($timedOut) { 'timed_out' } else { 'failed' }
+    $row.code = $Phase + $(if ($timedOut) { '_timeout' } else { '_failed' })
+    $_.Exception.Data['StartPhase'] = $row
+    throw
+  } finally {
+    $row.elapsedMilliseconds = $clock.ElapsedMilliseconds
+    $env:TERUISI_PROCESS_DEADLINE_UNIX_MS = $savedEnvironment
+  }
+}
+
+function Start-IndependentDingTalkObservation([object]$Identity) {
+  if (Test-IsIsolatedTestRuntime) { return @{ status='skipped_isolated'; requiredForStart=$false } }
+  if (-not (Test-Path -LiteralPath (Join-Path $FixedDjangoRuntimeRoot 'config\dingtalk-startup.json'))) {
+    return @{ status='not_configured'; requiredForStart=$false }
+  }
+  $id = [guid]::NewGuid().ToString('N')
+  $logRoot = Join-Path $RuntimeRoot 'logs'
+  $outputPath = Join-Path $logRoot "dingtalk-startup-$id.json"
+  $savedDeadline = $env:TERUISI_PROCESS_DEADLINE_UNIX_MS
+  try {
+    # The observer has its own lifetime; the completed Start budget is not inherited.
+    # It re-enters the original lifecycle mutex and rechecks maintenance/identity.
+    [void](Get-WorkerStartBudgetMilliseconds 'DingTalkReceiver')
+    Assert-NoReparsePath $logRoot
+    [IO.Directory]::CreateDirectory($logRoot) | Out-Null
+    $env:TERUISI_PROCESS_DEADLINE_UNIX_MS = $null
+    $observer = Start-Process -FilePath (Get-DjangoControlPowerShell) -ArgumentList @(
+      '-NoProfile','-NonInteractive','-File',('"' + (Join-Path $PSScriptRoot 'worker-local-service.ps1') + '"'),
+      '-Action','ObserveDingTalkStartup','-ManifestPath',('"' + $Identity.Path + '"'),'-StartupObservationId',$id,'-Json'
+    ) -WorkingDirectory $PSScriptRoot -WindowStyle Hidden -RedirectStandardOutput ($outputPath + '.stdout.log') -RedirectStandardError ($outputPath + '.stderr.log') -PassThru
+    return @{ status='observing'; requiredForStart=$false; observationId=$id; observationPath=$outputPath; observerProcessId=$observer.Id }
+  } catch {
+    return @{ status='dispatch_failed'; requiredForStart=$false; code='DingTalkReceiver_dispatch_failed' }
+  } finally { $env:TERUISI_PROCESS_DEADLINE_UNIX_MS = $savedDeadline }
+}
+
+function Invoke-IndependentDingTalkObservation([object]$Identity) {
+  if (-not $StartupObservationId) { throw 'missing_startup_observation_id' }
+  $script:WorkerDingTalkReadiness = $null
+  $record = [ordered]@{ diagnosticOnly=$true; observationId=$StartupObservationId; releaseId=$Identity.ReleaseId; manifestSha256=$Identity.Sha256; requiredForStart=$false; status='failed'; phase=$null; readiness=$null }
+  try {
+    $receiverResult = Invoke-WorkerStartPhase 'DingTalkReceiver' {
+      $observerLease = Enter-WorkerServiceMutex -StartWaitSeconds 30
+      try {
+        Assert-WorkerMaintenanceInactive
+        if (Read-WorkerAutomationDrain) { return @{status='deferred_drain'} }
+        if ((Get-WorkerStatusInternal $Identity).State -cne 'exact_release') { throw 'receiver_requires_exact_ready_worker' }
+        $native = Start-SystemDingTalkReceiver
+      } finally { $observerLease.Mutex.ReleaseMutex(); $observerLease.Mutex.Dispose() }
+      if ($native.status -in @('disabled','not_configured','skipped_isolated')) { return $native }
+      return (Wait-IndependentDingTalkReady)
+    }
+    $record.status = [string]$receiverResult.status
+  } catch {
+    $record.status = 'failed'
+    if ($_.Exception.Data['StartPhase'].outcome -eq 'timed_out') { $record.status = 'timed_out' }
+  } finally {
+    $record.phase = $script:WorkerStartPhases['DingTalkReceiver']
+    $record.readiness = $script:WorkerDingTalkReadiness
+    Write-IndependentDingTalkObservation $record
+  }
+  return $record
+}
+
+function Wait-IndependentDingTalkReady {
+  while ($true) {
+    [void](Get-ProcessRemaining $WorkerOperationDeadline)
+    $state = Invoke-DjangoStatusJson (Join-Path $DjangoRuntimeTools 'django-ai.ps1') 'Status' 'DingTalk receiver observation'
+    $script:WorkerDingTalkReadiness = [ordered]@{}
+    foreach ($field in @('DingTalkStartup','DingTalkReceiver','DingTalkScheduler','DingTalkConnection')) {
+      $value = [string]$state.$field
+      $script:WorkerDingTalkReadiness[$field] = if ($value -cin @('enabled','disabled','invalid','running','stopped','ownership_error','starting','connected','recovering','unknown')) { $value } else { 'unknown' }
+    }
+    if ($state.DingTalkStartup -ceq 'disabled') { return @{status='disabled'} }
+    if ($state.DingTalkStartup -ceq 'invalid' -or $state.DingTalkReceiver -ceq 'ownership_error' -or $state.DingTalkScheduler -ceq 'ownership_error') { throw 'dingtalk_observation_identity_or_configuration_failed' }
+    if ($state.DingTalkStartup -ceq 'enabled' -and $state.DingTalkReceiver -ceq 'running' -and $state.DingTalkScheduler -ceq 'running' -and $state.DingTalkConnection -ceq 'connected') { return @{status='ready'} }
+    Start-Sleep -Milliseconds ([Math]::Min(1000, (Get-ProcessRemaining $WorkerOperationDeadline)))
+  }
+}
+
+function Write-IndependentDingTalkObservation([object]$Record) {
+  if (-not $StartupObservationId) { throw 'missing_startup_observation_id' }
+  $path = Join-Path $RuntimeRoot "logs\dingtalk-startup-$StartupObservationId.json"
+  Assert-NoReparsePath $path -AllowMissingLeaf
+  # Unique create-only observation; never touches publication STARTED/FAILED.
+  $stream = [IO.File]::Open($path, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::Read)
+  try {
+    $bytes = [Text.UTF8Encoding]::new($false).GetBytes(($Record | ConvertTo-Json -Depth 8 -Compress))
+    $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true)
+  } finally { $stream.Dispose() }
+}
+
+function Complete-WorkerSystemStart([object]$Result, [object]$Identity, [switch]$RequireReadyBackend) {
+  $Result['startCompletedAt'] = [DateTimeOffset]::UtcNow.ToString('o')
+  $Result['startupPhases'] = $script:WorkerStartPhases
+  $Result['dingTalk'] = if ($RequireReadyBackend) { @{status='preserved'; requiredForStart=$false} } else { Start-IndependentDingTalkObservation $Identity }
+  return $Result
+}
+
 function Get-DjangoControlPowerShell {
   $djangoPowerShell = Get-Command "pwsh.exe" -ErrorAction SilentlyContinue
   if (-not $djangoPowerShell) { $djangoPowerShell = Get-Command "pwsh" -ErrorAction SilentlyContinue }
@@ -238,6 +372,7 @@ function Invoke-DjangoStartProcess(
     StdoutTail = $stdoutTail
     StderrTail = $stderrTail
     ProcessEvidence = $capture.Evidence
+    AutomaticStartupDisabled = ($ControlAction -eq 'AutoStartDingTalk' -and $capture.Stdout.Trim() -ceq 'DingTalk automatic startup is disabled.')
   }
   } catch {
     $startupPhaseOutcome = 'failed'
@@ -252,9 +387,9 @@ function Start-SystemDingTalkReceiver {
   $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
   $startupPhaseOutcome = 'completed'
   try {
-  if (Test-IsIsolatedTestRuntime) { return }
+  if (Test-IsIsolatedTestRuntime) { return @{ status='skipped_isolated' } }
   $startup = Join-Path $FixedDjangoRuntimeRoot "config\dingtalk-startup.json"
-  if (-not (Test-Path -LiteralPath $startup)) { return }
+  if (-not (Test-Path -LiteralPath $startup)) { return @{ status='not_configured' } }
   $controller = Join-Path $DjangoRuntimeTools "django-ai.ps1"
   Assert-NoReparsePath $startup
   Assert-NoReparsePath $controller
@@ -264,9 +399,11 @@ function Start-SystemDingTalkReceiver {
   # Do not start from Django's pre-Worker phase: scheduled tools require the ready Worker.
   $result = Invoke-DjangoStartProcess $controller "AutoStartDingTalk"
   if ([int]$result.ExitCode -ne 0) {
+    if ($result.ProcessEvidence) { Throw-WorkerProcessFailure $result.ProcessEvidence }
     throw "System services are running, but configured DingTalk receiver startup failed; check the AI runtime logs."
   }
   if (-not $Json) { Write-Host "DingTalk automatic startup configuration checked by the AI runtime controller" }
+  return @{ status=$(if ($result.AutomaticStartupDisabled) { 'disabled' } else { 'native_completed' }) }
   } catch {
     $startupPhaseOutcome = 'failed'
     throw
@@ -1516,7 +1653,7 @@ function Start-VerifiedWorkerSupervisor(
     $receiptWritten = $true
     $readyStatus = $null
     $startupAnomalyAt = $null
-    for ($attempt = 0; $attempt -lt 360; $attempt++) {
+    while ($true) {
       [void](Get-ProcessRemaining $WorkerOperationDeadline)
       Start-Sleep -Milliseconds 250
       $process.Refresh()
@@ -1728,14 +1865,13 @@ function Invoke-WorkerSystemStart([object]$identity, [switch]$RequireReadyBacken
       throw "Port 3000/5791 or process receipt is unknown/ambiguous; refusing takeover"
     }
 
-    Ensure-DjangoSystemReady -RequireReadyBackend:$RequireReadyBackend
+    Invoke-WorkerStartPhase 'DjangoEnsure' { Ensure-DjangoSystemReady -RequireReadyBackend:$RequireReadyBackend }
 
     $status = Get-WorkerStatusInternal $identity
     if ($status.State -eq "exact_release") {
       # Guarded release Start preserves the existing receiver; enabling one
       # can consume messages and write data beyond a Worker-only switch.
-      if (-not $RequireReadyBackend) { Start-SystemDingTalkReceiver }
-      return ([ordered]@{ status = "already_running"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256; supervisorProcessId = $status.Supervisor.ProcessId })
+      return (Complete-WorkerSystemStart ([ordered]@{ status = "already_running"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256; supervisorProcessId = $status.Supervisor.ProcessId }) $identity -RequireReadyBackend:$RequireReadyBackend)
     }
     if ($status.State -eq "starting_exact_release") { throw "The exact immutable Worker release is already starting" }
     $repairStaleReceipt = $status.State -eq "stale_or_invalid_receipt" -and -not $status.Supervisor -and $status.Receipt
@@ -1749,14 +1885,13 @@ function Invoke-WorkerSystemStart([object]$identity, [switch]$RequireReadyBacken
         throw "Validated stale Worker receipt was cleared but the service did not stabilize as stopped"
       }
     }
-    $releaseVerification = Invoke-ReleaseVerification $identity "stopped" -WriteSupervisorPrelaunchReceipt
+    $releaseVerification = Invoke-WorkerStartPhase 'ReleaseVerification' { Invoke-ReleaseVerification $identity "stopped" -WriteSupervisorPrelaunchReceipt }
     $startupVerificationReceiptSha256 = [string]$releaseVerification.supervisorPrelaunchReceiptSha256
     if ($startupVerificationReceiptSha256 -cnotmatch "^[0-9a-f]{64}$") {
       throw "Worker full verification did not publish an exact supervisor prelaunch receipt"
     }
-    $startResult = Start-VerifiedWorkerSupervisor $identity $startupVerificationReceiptSha256 "started"
-    if (-not $RequireReadyBackend) { Start-SystemDingTalkReceiver }
-    return $startResult
+    $startResult = Invoke-WorkerStartPhase 'SupervisorStart' { Start-VerifiedWorkerSupervisor $identity $startupVerificationReceiptSha256 "started" }
+    return (Complete-WorkerSystemStart $startResult $identity -RequireReadyBackend:$RequireReadyBackend)
   } catch {
     $startupPhaseOutcome = 'failed'
     throw
@@ -1847,6 +1982,11 @@ try {
     exit 0
   }
   if (-not $identity) { throw "No immutable Worker release is installed" }
+
+  if ($Action -eq 'ObserveDingTalkStartup') {
+    Write-Result (Invoke-IndependentDingTalkObservation $identity)
+    exit 0
+  }
 
   if ($Action -eq "Verify") {
     Write-Result (Invoke-ReleaseVerification $identity "stopped-or-exact-release")
@@ -2002,15 +2142,26 @@ try {
     exit 0
   }
 } catch {
+  if ($Action -eq 'ObserveDingTalkStartup' -and $StartupObservationId) {
+    # Preflight/head changes can fail before the observation function is entered.
+    # Preserve those failures independently too; never convert them into Start success.
+    try {
+      Write-IndependentDingTalkObservation ([ordered]@{ diagnosticOnly=$true; observationId=$StartupObservationId; requiredForStart=$false; status='failed'; code='DingTalkReceiver_observer_failed'; phase=$_.Exception.Data['StartPhase']; processEvidence=$_.Exception.Data['ProcessEvidence'] })
+    } catch { }
+  }
   if ($Json) {
     $processEvidence = $_.Exception.Data['ProcessEvidence']
     if (-not $processEvidence) {
       $code = if ($_.Exception.Message -ceq 'process_deadline_exhausted') {'process_deadline_exhausted'} else {'worker_gate_failed'}
       $processEvidence = @{stage=$Action;code=$code;processId=$PID;exitCode=$null;deadlineUnixMs=$WorkerOperationDeadline;timeoutType=$(if($code -eq 'process_deadline_exhausted'){$Action}else{$null})}
     }
-    [Console]::Out.WriteLine((@{status='unknown';processEvidence=$processEvidence}|ConvertTo-Json -Depth 8 -Compress))
+    [Console]::Out.WriteLine((@{status='unknown';processEvidence=$processEvidence;startupPhases=$script:WorkerStartPhases;failedStartPhase=$_.Exception.Data['StartPhase']}|ConvertTo-Json -Depth 8 -Compress))
     [Console]::Error.WriteLine('Worker lifecycle result requires exact reconciliation')
-  } else { [Console]::Error.WriteLine($_.Exception.Message) }
+  } else {
+    $failedPhase = $_.Exception.Data['StartPhase']
+    if ($failedPhase) { [Console]::Error.WriteLine("Worker startup phase=$($failedPhase.phase); code=$($failedPhase.code)") }
+    [Console]::Error.WriteLine($_.Exception.Message)
+  }
   exit 1
 } finally {
   if ($ServiceMutex -and $lockAcquired) { $ServiceMutex.ReleaseMutex(); $ServiceMutex.Dispose() }

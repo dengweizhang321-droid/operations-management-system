@@ -1,0 +1,21 @@
+[33m[PLUGIN_TIMINGS] [0mYour build spent significant time in plugins. Here is a breakdown:
+  - rsc:virtual-client-package (32%)
+  - rsc:use-client (12%)
+  - vinext:react-canary (11%)
+  - rsc:use-server (9%)
+  - vinext:strip-server-exports (8%)
+See https://rolldown.rs/options/checks#plugintimings for more details.
+
+[33m[PLUGIN_TIMINGS] [0mYour build spent significant time in plugins. Here is a breakdown:
+  - rsc:virtual-client-package (43%)
+  - vinext:react-canary (41%)
+  - rsc:scan-strip (3%)
+  - vinext:strip-server-exports (1%)
+  - vinext:optimize-imports (1%)
+See https://rolldown.rs/options/checks#plugintimings for more details.
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
