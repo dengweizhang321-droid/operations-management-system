@@ -3,7 +3,7 @@ param(
   [ValidateSet(
     "ConfigureCredentials", "ProvisionRoles", "Start", "Stop", "Status",
     "EnableStartup", "DisableStartup", "DingTalkCheck", "StartDingTalk", "StopDingTalk",
-    "EnableDingTalkStartup", "DisableDingTalkStartup", "AutoStartDingTalk", "ConfigureDingTalkBotCredentials", "ConfigurePandas", "PandasCheck", "PreparePi", "PreparePiUpgrade", "PiUpgradeCheck", "UpgradePi", "ReconcilePiUpgrade", "PiCheck"
+    "EnableDingTalkStartup", "DisableDingTalkStartup", "AutoStartDingTalk", "ConfigureDingTalkBotCredentials", "ConfigurePandas", "PandasCheck", "PreparePi", "PreparePiUpgrade", "PiUpgradeCheck", "UpgradePi", "ReconcilePiUpgrade", "PiUpgradeStatus", "VerifyPiUpgradeResult", "PiCheck"
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
@@ -152,6 +152,26 @@ function Assert-PiUpgradeLeafAcl([string]$SourceSha256 = "") {
     if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Pi upgrade leaf cannot be a reparse point' }
     Assert-ExactRuntimeAclEntry $item (Get-RuntimeItemAccessControl $item) $allowedValues (Get-CanonicalPath $RuntimeRoot)
   }
+}
+
+function Get-PiUpgradeStatus([bool]$VerifyResult = $false) {
+  Assert-AiRuntimeEntry
+  if ($RequestedPiUpgradePlanSha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Registered immutable Pi upgrade plan hash required' }
+  $tool = Join-Path $InstalledAppRoot 'tools\pi_agent_upgrade_status.py'
+  $arguments = @('-B',$tool,'--runtime',$RuntimeRoot,'--expected-plan-sha256',$RequestedPiUpgradePlanSha256)
+  $result = ConvertFrom-UniqueNativeJson (Invoke-BoundedNativeProcess $Python $arguments $BackendRoot) 'Observe exact independent Pi upgrade without replay'
+  if ([string]$result.status -cnotin @('windows_complete','reconcile_available','blocked') -or
+      [string]$result.registeredPlanSha256 -cne $RequestedPiUpgradePlanSha256 -or $result.postconditionsVerified -isnot [bool] -or $result.postconditionsVerified) {
+    throw 'Independent Runner upgrade observation contract changed'
+  }
+  if ($VerifyResult) {
+    if ([string]$result.status -cne 'windows_complete' -or $null -eq $result.upgradeReceipt -or
+        $result.upgradeReceipt.upgraded -cne $true -or $result.upgradeReceipt.windowsConfigUpdated -cne $true -or
+        $result.upgradeReceipt.sameDpapiOwner -cne $true) { throw 'Independent Runner original Windows completion remains unproved' }
+    Assert-PiUpgradeLeafAcl ([string]$result.sourceSha256)
+    $result.postconditionsVerified = $true
+  }
+  $result | ConvertTo-Json -Depth 8 -Compress
 }
 
 function Check-PiUpgradePlan {
@@ -959,6 +979,8 @@ try {
     "PiUpgradeCheck" { Invoke-WithServiceMutex { Check-PiUpgradePlan } }
     "UpgradePi" { Invoke-WithServiceMutex { Upgrade-PiRuntime $false } }
     "ReconcilePiUpgrade" { Invoke-WithServiceMutex { Upgrade-PiRuntime $false $true } }
+    "PiUpgradeStatus" { Invoke-WithServiceMutex { Get-PiUpgradeStatus } }
+    "VerifyPiUpgradeResult" { Invoke-WithServiceMutex { Get-PiUpgradeStatus $true } }
     "PiCheck" { Assert-AiRuntimeEntry; Invoke-PiLifecycle "probe" | ConvertTo-Json -Compress }
     "PandasCheck" { Assert-AiRuntimeEntry; $config = Read-PandasConfig; if ($null -eq $config) { throw "pandas is not configured" }; Invoke-PandasProbe $config | ConvertTo-Json -Compress }
     "ProvisionRoles" { Invoke-WithServiceMutex { Provision-AiRoles } }

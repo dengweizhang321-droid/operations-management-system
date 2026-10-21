@@ -126,6 +126,25 @@ test('Runner source-only release prepares and adopts the bound Runner without a 
  assert.ok(f.events.indexOf('DeployApp')<f.events.indexOf('UpgradePi'));
  assert.ok(f.events.indexOf('UpgradePi')<f.events.indexOf('Start'));
 });
+
+for(const state of ['windows_complete','reconcile_available','blocked'])test('UpgradePi catch exact state '+state+' never reapplies the upgrade',async t=>{
+ const f=await fixture(t,['worker','django']);f.request.releasePlan={changes:[{path:'backend/pi_runner/server.py'}]};
+ const original=f.context.runStep,prepared={prepared:true,started:false,operationId:'e'.repeat(32),planSha256:'f'.repeat(64),registeredPlanSha256:'c'.repeat(64),sourceSha256:'d'.repeat(64),image:piNativeImage};
+ const receipt={...prepared,upgraded:true,windowsConfigUpdated:true,sameDpapiOwner:true};
+ f.context.runStep=async args=>{
+  const value=await original(args);
+  if(args.action==='PreparePiUpgrade')return prepared;
+  if(args.action==='PiUpgradeCheck')return {...prepared,checked:true};
+  if(args.action==='UpgradePi')throw Error('private native output failure');
+  if(args.action==='PiUpgradeStatus')return {...prepared,status:state,reason:'private_blocked'};
+  if(args.action==='VerifyPiUpgradeResult')return {...prepared,status:'windows_complete',postconditionsVerified:true,upgradeReceipt:receipt};
+  if(args.action==='ReconcilePiUpgrade')return receipt;
+  return value;
+ };
+ if(state==='blocked'){await assert.rejects(publishPreparedMain(f.request,f.context),/private native output failure/);assert.ok(!f.events.includes('Start'));}
+ else assert.equal((await publishPreparedMain(f.request,f.context)).status,'deployed_and_ready');
+ assert.equal(f.events.filter(e=>e==='UpgradePi').length,1);assert.equal(f.events.filter(e=>e==='ReconcilePiUpgrade').length,state==='reconcile_available'?1:0);assert.ok(await fs.stat(path.join(f.out,'PiUpgrade-original-failure.json')));
+});
 test('release lease covers preparation, reverification, Start and ready with bounded refreshes',async t=>{
  const f=await fixture(t,['worker','django']);
  await publishPreparedMain(f.request,{...f.context,prepareOnly:true});

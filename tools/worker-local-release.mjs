@@ -782,7 +782,7 @@ export function processDeadline(timeoutMs = 600_000, inherited = process.env.TER
 export async function runProcess(command, args, {
   cwd, env = process.env, label = "进程", maxOutputBytes = 16 * 1024 * 1024,
   timeoutMs = 600_000, deadlineUnixMs = processDeadline(timeoutMs, env.TERUISI_PROCESS_DEADLINE_UNIX_MS),
-  outputProtocol = "eof", cleanup = "tree",
+  outputProtocol = "eof", cleanup = "tree", captureOutputBuffers = false,
 } = {}) {
   if (!Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 1 || maxOutputBytes > 64 * 1024 * 1024) fail("子进程输出上限无效");
   if (!Number.isSafeInteger(deadlineUnixMs) || !["eof", "direct-exit-files"].includes(outputProtocol) || !["tree", "direct", "preserve"].includes(cleanup)) fail("子进程协议无效");
@@ -850,8 +850,10 @@ export async function runProcess(command, args, {
           }
         } catch { /* No parseable machine failure receipt. */ }
         error.processEvidence = processEvidence;
+        if (captureOutputBuffers) Object.defineProperty(error, "rawOutput", { value: { stdout: Buffer.concat(stdout), stderr: Buffer.concat(stderr) } });
         rejectRun(error);
-      } else resolveRun({ stdout: Buffer.concat(stdout).toString("utf8"), stderr: Buffer.concat(stderr).toString("utf8"), processEvidence });
+      } else resolveRun({ stdout: Buffer.concat(stdout).toString("utf8"), stderr: Buffer.concat(stderr).toString("utf8"), processEvidence,
+        ...(captureOutputBuffers ? { rawOutput: { stdout: Buffer.concat(stdout), stderr: Buffer.concat(stderr) } } : {}) });
     };
     const terminate = () => {
       if (directExited || cleanup === "preserve" || treeCleanupPending) return;

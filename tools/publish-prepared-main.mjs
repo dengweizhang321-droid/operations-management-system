@@ -4,7 +4,10 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import {randomUUID,createHash} from 'node:crypto';
 import {assertFrozenSource} from './frozen-main-source.mjs';
-import {manualStepCommand} from './publish-main-command.mjs';
+import {createMainPublicationStep} from './publish-main-step.mjs';
+import {reconcileMainPiUpgrade,verifyUpgradeReceipt} from './publish-main-pi-reconciliation.mjs';
+import {capturePublicationOwner} from './publish-main-owner.mjs';
+import {finishMainPublication} from './publish-main-tail.mjs';
 import {schemaForRequest,verifyMainSchemaRelease} from './main-schema-release.mjs';
 import {continueFirstMaintenance,isFirstMaintenancePredecessor,continuePiMaintenance,isPiMaintenancePredecessor,maintenanceReadiness,piMaintenancePredecessor} from './manual-maintenance-continuation.mjs';
 
@@ -120,22 +123,7 @@ export async function publishPreparedMain(request,context){
    await fs.unlink(leaseFile);
   }catch(error){if(error.code!=='ENOENT')await leaseWarning('清理发布租约',error);}
  };
- const step=async(label,script,action,extra=[],{json=true,addJson=true,directory=out}={})=>{
-  phase=label;await refreshLease(label);progress.begin(label,{action,script,nativeStderrLog:path.join(directory,label+'.stderr.log'),...(path.basename(script)==='manual-maintenance-start.ps1'?{lockDiagnosticFile:path.join(out,'maintenance-lock-diagnostic.json')}:{})});
-  const record=(name,value)=>fs.writeFile(path.join(directory,name),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
-  await record(label+'-started.json',{at:new Date().toISOString(),script,action,extra});
-  let value;
-  if(context.runStep)value=await context.runStep({label,script,action,extra,json,addJson});
-  else{
-   const command=manualStepCommand({systemHost:'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',powerShellDirectory:request.pwshDirectory,script,action,extra,addJson});
-   const result=await api.runProcess(command.host,transport.productionCommandArguments(command.host,command.args),{cwd:path.dirname(script),env:transport.productionCommandEnvironment(command.host),timeoutMs:1800000,outputProtocol:'direct-exit-files',cleanup:'preserve',label:'manual-main-'+label});
-   await fs.writeFile(path.join(directory,label+'.stdout.log'),result.stdout,{flag:'wx'});
-   await fs.writeFile(path.join(directory,label+'.stderr.log'),result.stderr,{flag:'wx'});
-   await record(label+'-process.json',{processEvidence:result.processEvidence});
-   try{value=json?JSON.parse(result.stdout.trim()):null;}catch(error){error.processEvidence=result.processEvidence;throw error;}
-  }
-  await record(label+'-result.json',{at:new Date().toISOString(),value});await refreshLease(label);progress.complete();return value;
- };
+ const step=createMainPublicationStep({out,request,api,transport,runStep:context.runStep,progress,phase:label=>{phase=label;},refreshLease});
  const ready=async()=>{
   const response=await (context.fetch??fetch)('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)});
   try{
@@ -296,7 +284,8 @@ export async function publishPreparedMain(request,context){
    progress.log('维护前材料已齐备；复用仍有效的原生准备结果，现场身份、锁与排空仍即时检查。材料清单：'+materialsFile);
    assert.deepEqual(await sourceIdentity(),identity,'维护前冻结源码变化');
    await refreshLease(phase);
-   await save('STARTED.json',{at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,maintenanceId,source,sourceTree:identity.tree??null,requestSha256,predecessorChainStateSha256:before.chainStateSha256,...(schema?{operationId,schemaRelease:schema}:{})});
+   const publisherOwner=context.runStep?null:await capturePublicationOwner();
+   await save('STARTED.json',{resumeProtocol:'teruisi-pi-main-resume-v1',publisherOwner,at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,maintenanceId,source,sourceTree:identity.tree??null,requestSha256,predecessorChainStateSha256:before.chainStateSha256,...(schema?{operationId,schemaRelease:schema}:{})});
    publicationStarted=true;
    maintenanceStarted=true;
    if(!components.django){
@@ -342,32 +331,15 @@ export async function publishPreparedMain(request,context){
     schemaReceipt={operationId,maintenanceId,release:schema,installed:installedSchema,finalized};
    }
    if(piRunnerUpgrade){
-    piUpgradeReceipt=await step('升级Pi Runner',path.join(installed,'tools/django-ai.ps1'),'UpgradePi',['-PiUpgradePlanSha256',piRunnerUpgrade.registeredPlanSha256]);
-    assert.equal(piUpgradeReceipt.upgraded,true);assert.equal(piUpgradeReceipt.windowsConfigUpdated,true);assert.equal(piUpgradeReceipt.sameDpapiOwner,true);assert.equal(piUpgradeReceipt.sourceSha256,piRunnerUpgrade.sourceSha256);assert.equal(piUpgradeReceipt.image,piRunnerUpgrade.image);
+    try{piUpgradeReceipt=verifyUpgradeReceipt(await step('升级Pi Runner',path.join(installed,'tools/django-ai.ps1'),'UpgradePi',['-PiUpgradePlanSha256',piRunnerUpgrade.registeredPlanSha256]),piRunnerUpgrade);}
+    catch(error){
+     await save('PiUpgrade-original-failure.json',{at:new Date().toISOString(),error:String(error.message).slice(0,800),processEvidence:error.processEvidence??null});
+     try{piUpgradeReceipt=await reconcileMainPiUpgrade({prepared:piRunnerUpgrade,installed,out,step,originalError:error,requireDirectExit:!context.runStep,requireReconcileDirectExit:!context.runStep});}
+     catch(reconciliationError){reconciliationError.message=String(error.message)+'；Pi协调未闭合：'+reconciliationError.message;throw reconciliationError;}
+    }
+    await save('PiUpgrade-completed.json',{at:new Date().toISOString(),registeredPlanSha256:piRunnerUpgrade.registeredPlanSha256,value:piUpgradeReceipt});
    }
-   if(plan){
-    phase='切换前端';progress.begin(phase);await refreshLease(phase);await save('WorkerApply-started.json',{planSha256:plan.planSha256});
-    const applied=await rotation.applyApprovedRotationPlan({approvedPlanSha256:plan.planSha256,rotationLease});
-    await refreshLease(phase);
-    await save('WorkerApply-result.json',applied);assert.ok(['activated','already_activated'].includes(applied.status));assert.equal(applied.releaseId,plan.candidateReleaseId);progress.complete();
-   }
-   if(components.django){const ended=await step('退出维护',targetWorker,'ExitMaintenance',['-MaintenanceId',maintenanceId]);assert.equal(ended.status,'maintenance_ended');assert.equal(ended.maintenanceId,maintenanceId);}
-   const started=await step('启动服务',targetWorker,'Start',components.django?[]:['-BackendStartPolicy','RequireReady']);
-   assert.ok(['started','already_running'].includes(started.status));assert.equal(started.manifestSha256,plan?.candidateManifestSha256??before.head.manifestSha256);
-   if(!components.django){const ended=await step('结束前端排空',targetWorker,'EndWorkerDrain',['-MaintenanceId',maintenanceId]);assert.equal(ended.status,'worker_drain_ended');assert.equal(ended.maintenanceId,maintenanceId);}
-   const startup=await step('确认启动版本',targetWorker,'VerifyStartup');assert.equal(startup.startupVerified,true);
-   phase='确认服务可用';progress.begin(phase);
-   const after=await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true});
-   assert.equal(after.head.releaseId,plan?.candidateReleaseId??before.head.releaseId);
-   assert.equal(after.head.manifestSha256,plan?.candidateManifestSha256??before.head.manifestSha256);
-   assert.equal(await sha(path.join(installed,'deployment.json')),djangoExpected,'最终后台manifest不匹配');
-   await refreshLease(phase);
-   await ready();progress.complete();
-   await endLease();
-   const receipt={status:'deployed_and_ready',at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,workerRelease:after.head.releaseId,workerManifestSha256:after.head.manifestSha256,djangoManifestSha256:djangoExpected,source,sourceTree:identity.tree??null,djangoPreparedId:pkg?.id??null,maintenanceId,migration:schema?.steps[0]??null,...(schemaReceipt?{schemaReceipt}:{}),...(piUpgradeReceipt?{piRunnerUpgrade:piUpgradeReceipt}:{}),backupPerformed:false};
-   await save('SUCCESS.json',receipt);
-   progress.success('main版本：'+request.mainCommit+'；步骤详细日志：'+out);
-   return {...receipt,receiptPath:path.join(out,'SUCCESS.json')};
+   return await finishMainPublication({request,components,source,identity,installed,out,api,rotation,rotationLease,before,plan,pkg,djangoExpected,maintenanceId,schema,schemaReceipt,piUpgradeReceipt,step,save,sha,ready,refreshLease,endLease,progress,phase:label=>{phase=label;}});
   }catch(error){
    await endLease();
    const failure={at:new Date().toISOString(),mainCommit:request.mainCommit,phase,error:String(error.message).slice(0,1600),processEvidence:error.processEvidence??null,maintenanceStarted,automaticRetry:false};

@@ -31,12 +31,15 @@ export function candidateTestEnvironment({gitExe,shell5,shell7,pythonExe,directo
 export function candidateCompatibilityProfile(changes){
  const files=changes.flatMap(c=>[c.before,c.path].filter(Boolean));
  const paths=files.filter(f=>!f.startsWith('docs/')&&!f.startsWith('tests/')&&!['README.md','AGENTS.md'].includes(f));
+ const piResumeFiles=['tools/publish-main-resume.mjs','tools/publish-main-status.mjs','tools/publish-main-step.mjs','tools/publish-main-tail.mjs','tools/publish-main-owner.mjs','tools/publish-main-pi-reconciliation.mjs','tools/pi_agent_upgrade_status.py','tools/publish-prepared-main.mjs','tools/worker-local-release.mjs','tools/django-ai.ps1','tools/django-local-service.ps1','tools/verify-release-candidate.mjs'];
+ const piMainResumeOnly=paths.includes('tools/publish-main-resume.mjs')&&paths.includes('tools/pi_agent_upgrade_status.py')&&paths.every(p=>piResumeFiles.includes(p));
  const proofFiles=['bi_app_addition','jackyun_audit_addition','ai_schedule_addition','jd_logistics_addition','jd_monitor_preferences_addition','jd_product_monitoring_addition','tmall_warehouse_addition','pi_agent_addition'].map(name=>'tools/'+name+'.py');
  const preparationFiles=['tools/main-prebuild-task.mjs','tools/main-prebuild-hook.mjs','tools/main-prebuild-queue.mjs','tools/main-control-dispatch.mjs','tools/install-main-prebuild.mjs','tools/manual-maintenance-continuation.mjs','tools/manual-maintenance-continuation.ps1','tools/manual-maintenance-start.ps1','tools/manual-maintenance-process.psm1','tools/manual-maintenance-preflight.ps1','tools/frozen-main-source.mjs'];
  const supported=new Set(['tools/publish-main.mjs','tools/publish-prepared-main.mjs','tools/publish-latest-main.mjs',
   'tools/main-prebuild-status.mjs','tools/worker-local-release.mjs','tools/django-local-service.ps1','tools/django-ai.ps1','tools/verify-release-candidate.mjs']);
  for(const file of [...proofFiles,...preparationFiles,'tools/worker-local-release-rotation.mjs','tools/pi_workspace_addition.py','config/main-schema-releases/ai-0085.json'])supported.add(file);
  for(const file of ['tools/main-schema-release.mjs','tools/schema-rejection-observer.mjs','tools/schema-rejection-writer.mjs','tools/cache-rejection-observer.mjs','tools/cache-rejection-writer.mjs','tools/native-abandonment-observer.mjs','tools/native-abandonment-writer.mjs','tools/cleaned-preparation-observer.mjs','tools/cleaned-preparation-writer.mjs'])supported.add(file);
+ if(piMainResumeOnly)for(const file of piResumeFiles)supported.add(file);
  const contentionFiles=['tools/django-workflow-service.ps1','tools/manual-maintenance-lock.psm1','tools/publish-main-progress.mjs'];
  const contentionAllowed=new Set([...contentionFiles,'tools/manual-maintenance-start.ps1','tools/frozen-main-source.mjs','tools/publish-prepared-main.mjs','tools/verify-release-candidate.mjs','config/main-schema-releases/ai-0086.json']);
  const releaseContentionOnly=paths.some(p=>contentionFiles.includes(p))&&paths.every(p=>contentionAllowed.has(p));
@@ -44,7 +47,7 @@ export function candidateCompatibilityProfile(changes){
  if(releaseContentionOnly)for(const file of contentionAllowed)supported.add(file);
  const unsupported=paths.filter(p=>!supported.has(p));
  const schemaProof=paths.some(p=>proofFiles.includes(p)),preparationQueue=paths.some(p=>preparationFiles.includes(p)||p==='tools/publish-latest-main.mjs'||p==='tools/worker-local-release-rotation.mjs');
- return {version:schemaProof||preparationQueue?'release-three-optimizations-v1':'release-compatibility-profile-v1',paths,unsupported,schemaProof,preparationQueue,releaseContentionOnly,weeklyReleaseLeaseOnly,
+ return {version:schemaProof||preparationQueue?'release-three-optimizations-v1':'release-compatibility-profile-v1',paths,unsupported,schemaProof,preparationQueue,releaseContentionOnly,weeklyReleaseLeaseOnly,piMainResumeOnly,
   nativeAbandonmentOnly:paths.includes('tools/main-prebuild-queue.mjs')&&paths.every(p=>['tools/main-prebuild-queue.mjs','tools/native-abandonment-observer.mjs','tools/native-abandonment-writer.mjs','tools/verify-release-candidate.mjs'].includes(p)),
   cleanedPreparationOnly:paths.includes('tools/main-prebuild-queue.mjs')&&paths.some(p=>p.startsWith('tools/cleaned-preparation-'))&&paths.every(p=>['tools/main-prebuild-queue.mjs','tools/cleaned-preparation-observer.mjs','tools/cleaned-preparation-writer.mjs','tools/verify-release-candidate.mjs'].includes(p)),
   releaseChainPreflight:paths.some(p=>p==='tools/manual-maintenance-process.psm1'||p==='tools/frozen-main-source.mjs')&&paths.every(p=>['tools/manual-maintenance-process.psm1','tools/manual-maintenance-preflight.ps1','tools/frozen-main-source.mjs','tools/manual-maintenance-continuation.mjs','tools/manual-maintenance-continuation.ps1','tools/manual-maintenance-start.ps1','tools/publish-main.mjs','tools/publish-prepared-main.mjs','tools/publish-latest-main.mjs','tools/verify-release-candidate.mjs','tools/install-main-prebuild.mjs','tools/django-local-service.ps1','tools/pi_workspace_addition.py','config/main-schema-releases/ai-0085.json'].includes(p)),
@@ -52,7 +55,7 @@ export function candidateCompatibilityProfile(changes){
   publication:paths.some(p=>/publish-|main-prebuild|manual-maintenance|verify-release-candidate|release-scope-plan/.test(p)),
   worker:paths.some(p=>/worker-local-release/.test(p)),
   django:paths.includes('tools/django-local-service.ps1'),
-  piExitObservation:paths.includes('tools/django-ai.ps1'),
+  piExitObservation:paths.includes('tools/django-ai.ps1')&&!piMainResumeOnly,
   nativeColdStartPerformed:false};
 }
 
@@ -95,6 +98,27 @@ export function compareMaintenanceInventoryOnly(before,after){
  if(JSON.stringify(before.other.map(normalize))!==JSON.stringify(after.other.map(normalize)))return false;
  const next=new Map(after.functions.map(f=>[f.name,normalize(f.text)]));
  return next.size===before.functions.length&&before.functions.every(f=>f.name==='Prepare-Application'?stripMaintenancePackageEntries(next.get(f.name))===normalize(f.text):next.get(f.name)===normalize(f.text));
+}
+export const piResumePackageEntries=['pi_agent_upgrade_status.py','publish-main-step.mjs','publish-main-pi-reconciliation.mjs','publish-main-owner.mjs','publish-main-tail.mjs','main-prebuild-task.mjs'];
+export function comparePiResumeInventoryOnly(before,after){
+ const normalize=value=>value.replaceAll('\r\n','\n');
+ if(JSON.stringify(before.other.map(normalize))!==JSON.stringify(after.other.map(normalize)))return false;
+ const next=new Map(after.functions.map(f=>[f.name,normalize(f.text)]));
+ if(next.size!==before.functions.length)return false;
+ return before.functions.every(f=>{
+  let text=next.get(f.name);if(typeof text!=='string')return false;
+  if(f.name==='Prepare-Application')for(const name of piResumePackageEntries){const line='      "tools\\'+name+'",\n';if(text.split(line).length!==2)return false;text=text.replace(line,'');}
+  return text===normalize(f.text);
+ });
+}
+export function comparePiUpgradeObservationOnly(before,after){
+ const normalize=value=>value.replaceAll('\r\n','\n');
+ const old=new Map(before.functions.map(f=>[f.name,normalize(f.text)])),next=new Map(after.functions.map(f=>[f.name,normalize(f.text)]));
+ if(next.size!==old.size+1||old.has('Get-PiUpgradeStatus')||!next.has('Get-PiUpgradeStatus'))return false;
+ if(sha(Buffer.from(next.get('Get-PiUpgradeStatus')))!=='8723f11061f9ad6a048f43adf4f03f70ad8d3adf1e1cf6f68ffbcf6922dd39aa')return false;
+ for(const [name,text]of old)if(next.get(name)!==text)return false;
+ const revert=text=>normalize(text).replace('"PiUpgradeStatus", "VerifyPiUpgradeResult", ','').replace('    "PiUpgradeStatus" { Invoke-WithServiceMutex { Get-PiUpgradeStatus } }\n','').replace('    "VerifyPiUpgradeResult" { Invoke-WithServiceMutex { Get-PiUpgradeStatus $true } }\n','');
+ return JSON.stringify(before.other.map(normalize))===JSON.stringify(after.other.map(revert));
 }
 export function usesGateTimingExemption(before,after){
  const find=value=>value.functions.find(item=>item.name==='Invoke-DjangoMigrations')?.text.replaceAll('\r\n','\n');
@@ -289,7 +313,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    const current=path.join(candidate,'tools/django-local-service.ps1');
    const [a,b]=await Promise.all([functionsOf(old,shell7,environment),functionsOf(current,shell7,environment)]);
    report.gateTimingChanged=usesGateTimingExemption(a,b);
-   report.requiresNativeColdStart=!(profile.releaseChainPreflight?compareMaintenanceInventoryOnly(a,b):compareFunctionOnlyChange(a,b));
+   report.requiresNativeColdStart=!(profile.piMainResumeOnly?comparePiResumeInventoryOnly(a,b):profile.releaseChainPreflight?compareMaintenanceInventoryOnly(a,b):compareFunctionOnlyChange(a,b));
    assert.equal(report.requiresNativeColdStart,false,'生命周期语义发生变化，需专用隔离冷启动适配器；不能以边界测试代替');
   }
   if(profile.piExitObservation){
@@ -299,6 +323,16 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    const [a,b]=await Promise.all([functionsOf(old,shell7,environment),functionsOf(path.join(candidate,'tools/django-ai.ps1'),shell7,environment)]);
    assert.equal(comparePiExitObservationChange(a,b),true,'Pi adapter only permits the reviewed Windows exit observer; routing or other lifecycle changes require native cold start');
    report.piExitObservationOnly=true;
+  }
+  if(profile.piMainResumeOnly){
+   const old=path.join(directory,'before-django-ai.ps1');
+   await fs.writeFile(old,(await execute('git',['-C',source,'show',baseCommit+':tools/django-ai.ps1'],{encoding:'buffer',maxBuffer:4*1024*1024,windowsHide:true})).stdout);
+   const [a,b]=await Promise.all([functionsOf(old,shell7,environment),functionsOf(path.join(candidate,'tools/django-ai.ps1'),shell7,environment)]);
+   assert.equal(comparePiUpgradeObservationOnly(a,b),true,'只允许两个只读Pi升级观察入口，原生命周期函数必须不变');
+   await run('pi-main-resume',process.execPath,['--test','tests/publish-prepared-main.test.mjs','tests/publish-main-resume.test.mjs','tests/publish-main-step.test.mjs','tests/pi-main-resume-profile.test.mjs'],'native-entry-boundary');
+   await run('pi-upgrade-readonly',pythonExe,['-B','tests/pi-upgrade-status.test.py'],'native-entry-boundary');
+   for(const [name,host] of [['ps5',shell5],['ps7',shell7]])await run(name+'-pi-upgrade-status',host,['-NoProfile','-NonInteractive','-File','tests/pi-upgrade-status.fixture.ps1'],'native-entry-boundary');
+   report.evidence.piMainResume=true;
   }
   async function run(name,executable,args,kind){
    const started=Date.now(),item={name,executable,args,kind,startedAt:new Date().toISOString(),status:'running'};report.checks.push(item);await write();
@@ -337,7 +371,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    await run('historical-693e-reader',process.execPath,['--test','--test-name-pattern=693e twice observed closure','tests/fixed-native-abandonment.test.mjs'],'native-entry-boundary');
    await run('fixed-cleaned-private-bundle',process.execPath,['--test','--test-name-pattern=materials preserve frozen environment','tests/main-control-upgrade.test.mjs'],'package-integrity');
   }
-  if(!cleanedPreparationOnly&&!nativeAbandonmentOnly&&!fixedAdminOnly&&!schemaAdmissionOnly&&profile.publication&&!profile.weeklyReleaseLeaseOnly)await run('publication',process.execPath,['--test','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs','tests/manual-maintenance-pi-readiness.test.mjs','tests/manual-maintenance-continuation.test.mjs','tests/release-chain-preflight.test.mjs'],'native-entry-boundary');
+  if(!profile.piMainResumeOnly&&!cleanedPreparationOnly&&!nativeAbandonmentOnly&&!fixedAdminOnly&&!schemaAdmissionOnly&&profile.publication&&!profile.weeklyReleaseLeaseOnly)await run('publication',process.execPath,['--test','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs','tests/manual-maintenance-pi-readiness.test.mjs','tests/manual-maintenance-continuation.test.mjs','tests/release-chain-preflight.test.mjs'],'native-entry-boundary');
   if(!cleanedPreparationOnly&&!nativeAbandonmentOnly&&!fixedAdminOnly&&!schemaAdmissionOnly&&profile.preparationQueue&&!profile.releaseChainPreflight&&!profile.releaseContentionOnly)await run('preparation-queue-control',process.execPath,['--test','--test-concurrency=1','tests/main-prebuild-hook.test.mjs','tests/main-prebuild-queue-v2.test.mjs','tests/main-control-upgrade.test.mjs','tests/main-prebuild-task.test.mjs','tests/fixed-admin-resolution.test.mjs','tests/fixed-schema-rejection.test.mjs','tests/fixed-cache-rejection.test.mjs','tests/main-prebuild-eligibility.test.mjs','tests/main-dependency-selected-admission.test.mjs','tests/control-dependency-update.test.mjs'],'native-entry-boundary');
   if(profile.worker)await run('worker-integrity',process.execPath,['--test','tests/worker-source-read-once.test.mjs','tests/release-source-binding.test.mjs','tests/release-preparation-runtime-config.test.mjs'],'package-integrity');
   if(!cleanedPreparationOnly&&!nativeAbandonmentOnly&&!fixedAdminOnly&&!schemaAdmissionOnly&&(profile.schemaProof||profile.preparationQueue))await run('optimization-boundaries',process.execPath,['--test','tests/release-optimization-boundaries.test.mjs'],'package-integrity');
@@ -351,7 +385,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    }
    await run('schema-private-postgres',pythonExe,['tests/schema-gate-postgres.py','--out',path.join(directory,'private-postgres'),'--baseline',baselineTools,'--skip-measurements'],'real-private-postgres');
   }
-  if(profile.django&&!profile.releaseChainPreflight)for(const [name,host] of [['ps5',shell5],['ps7',shell7]]){
+  if(profile.django&&!profile.releaseChainPreflight&&!profile.piMainResumeOnly)for(const [name,host] of [['ps5',shell5],['ps7',shell7]]){
    for(const file of ['django-lifecycle-tree-reuse','django-local-service-fingerprint','django-orchestrated-start-acl'])await run(name+'-'+file,host,['-NoProfile','-NonInteractive','-File','tests/'+file+'.test.ps1'],'isolated-functions');
    if(report.gateTimingChanged)await run(name+'-migration-gate-timing',host,['-NoProfile','-NonInteractive','-File','tests/django-migration-gate-timing.test.ps1'],'native-entry-boundary');
   }
