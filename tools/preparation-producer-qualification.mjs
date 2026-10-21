@@ -1,0 +1,2 @@
+// Reviewed f641685b producer closure; unknown code generations fail closed.
+export default {"closures":[{"publish-prepared-main.mjs":"e50f8112e0ae6553a4f66632ebfc95a76fba1030041c6d9d96af4273d98ae6d1","worker-local-release-rotation.mjs":"b33b0b8b2a3ff603a902845c7f3191adbe7d39907e529f18870e195abeb50776","worker-local-release.mjs":"6dcd3016f6164a0c897c94ae26ec300b82f69ad122739ea1ba5b843ca95a8333"}],"version":"teruisi-cleaned-producer-qualification-v1"};

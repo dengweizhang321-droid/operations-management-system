@@ -1,0 +1,335 @@
+✔ writer-shaped original actors record is accepted by the actual finite reader; unknown stays unknown (1452.6915ms)
+✔ historical evidence survives old packet cleanup and later control generation (1324.3779ms)
+✔ new target proceeds once without replaying original 4b preparation; additional blocked tickets remain original (1410.1642ms)
+✔ absence of this exact resolution retains original blocker (1291.8712ms)
+✔ new-generation blocked ticket can bind the exact old e2 dependency without changing either generation (1236.7668ms)
+✔ missing-archive fails closed (1311.5956ms)
+✔ changed-original fails closed (1180.5ms)
+✔ wrong-target fails closed (1317.3621ms)
+✔ prepared-claim fails closed (1368.6509ms)
+✔ replay-claim fails closed (1695.6817ms)
+✔ wrong-observer fails closed (1524.2521ms)
+✔ bad-transition fails closed (1318.0964ms)
+✔ extra-member fails closed (1410.1505ms)
+✔ other unknowns and empty dispatch fragments cannot borrow this resolution (1510.7832ms)
+✔ new fully bound blocked terminals stay untouched; real pending still refuses finite writer admission (1516.0219ms)
+#< CLIXML
+✔ powershell.exe qualified observer rejects live actors, metadata ambiguity and late controllers without killing PID reuse (1008.6992ms)
+✔ pwsh.exe qualified observer rejects live actors, metadata ambiguity and late controllers without killing PID reuse (3701.0816ms)
+✔ v2 scoped historical reader: valid (1832.8663ms)
+✔ v2 scoped historical reader: scope (1526.5268ms)
+✔ v2 scoped historical reader: reason (1507.7393ms)
+✔ v2 scoped historical reader: missing-parent (1332.5706ms)
+✔ v2 scoped historical reader: cycle (1289.0764ms)
+✔ v2 scoped historical reader: submillisecond-reuse (1518.8613ms)
+✔ v2 scoped historical reader: original-actor (1375.5787ms)
+✔ v2 scoped historical reader: wrong-code (1326.7842ms)
+<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04"><Obj S="progress" RefId="0"><TN RefId="0"><T>System.Management.Automation.PSCustomObject</T><T>System.Object</T></TN><MS><I64 N="SourceId">1</I64><PR N="Record"><AV>����׼���״�ʹ��ģ�顣</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj></Objs>#< CLIXML
+✔ v2 scoped historical reader: missing-code (1371.1846ms)
+✔ powershell.exe v2 opaque ancestry rejects ambiguity at 100ns precision (1414.7455ms)
+✔ pwsh.exe v2 opaque ancestry rejects ambiguity at 100ns precision (1634.7481ms)
+<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04"><Obj S="progress" RefId="0"><TN RefId="0"><T>System.Management.Automation.PSCustomObject</T><T>System.Object</T></TN><MS><I64 N="SourceId">1</I64><PR N="Record"><AV>����׼���״�ʹ��ģ�顣</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj></Objs>
+✔ 0b twice observed closure preserves unknown and historical reader survives later preparation/adoption (797.4284ms)
+✔ 0b rejects schema-missing before resolution (97.9662ms)
+✔ 0b rejects schema-changed before resolution (108.3058ms)
+✔ 0b rejects extra-schema before resolution (111.8293ms)
+✔ 0b rejects request before resolution (95.3392ms)
+✔ 0b rejects junction before resolution (100.2624ms)
+✔ 0b rejects stale before resolution (148.1167ms)
+✔ 0b rejects nonce before resolution (134.7134ms)
+✔ 0b rejects opaque before resolution (152.4137ms)
+✔ 0b rejects running before resolution (139.9018ms)
+✔ 0b rejects late-effect before resolution (278.224ms)
+✔ 0b rejects old-actor before resolution (151.2725ms)
+✔ 0b rejects actor-summary before resolution (151.6153ms)
+✔ 0b rejects wrong-source-tree before resolution (172.5701ms)
+✔ 0b rejects config-drift before resolution (128.2196ms)
+✔ 0b rejects archive-tamper before resolution (84.5958ms)
+✔ 0b original complete closure rejects each changed original byte (10.0039ms)
+✔ historical 0b reader recomputes actor claims from its archived census (601.9302ms)
+✔ queue recognizes only resolved 0b and blocks a different unknown or pending inventory (795.4137ms)
+✔ 0b actor reuse requires later readable unrelated identity (0.9416ms)
+✔ ordinary reused original PID uses exact complete witness while visible unrelated metadata may be opaque (0.6866ms)
+✔ six and seven fractional-digit actor births at the same instant are never PID reuse (0.3115ms)
+✔ old e2/ece blocks remain exact and actual ten-file control bundle imports new reader (136.8106ms)
+✔ 4aac twice observed closure preserves unknown and historical reader survives later preparation/adoption (641.3833ms)
+✔ 4aac rejects stale before resolution (283.8516ms)
+✔ 4aac rejects nonce before resolution (273.4517ms)
+✔ 4aac rejects opaque before resolution (248.0068ms)
+✔ 4aac rejects running before resolution (245.1524ms)
+✔ 4aac rejects late-effect before resolution (283.4413ms)
+✔ 4aac rejects old-actor before resolution (304.5411ms)
+✔ 4aac rejects actor-summary before resolution (268.0256ms)
+✔ 4aac rejects wrong-source-tree before resolution (254.9313ms)
+✔ 4aac rejects config-drift before resolution (144.0913ms)
+✔ 4aac rejects archive-tamper before resolution (96.2626ms)
+✔ 4aac rejects prepared before resolution (242.8811ms)
+✔ 4aac rejects retry before resolution (271.5406ms)
+✔ 4aac rejects metadata-inventory before resolution (251.7135ms)
+✔ 4aac original complete closure rejects each changed original byte (15.4468ms)
+✔ historical 4aac reader recomputes actor claims from its archived census (797.5068ms)
+✔ queue recognizes only resolved 4aac and blocks a different unknown or pending inventory (804.5757ms)
+✔ 4aac metadata matching refuses each original identity and JSON Windows paths (0.9854ms)
+✔ 4aac is never replayed and new normal dispatches receive one fixed sixty-minute budget (740.7949ms)
+✔ new dispatch deadline is transported unchanged, with no publisher-side reset (146.8434ms)
+✖ all historical finite source blocks and observer bytes remain exact (111.8366ms)
+✔ 4aac actors require exact absence or a later complete unrelated PID identity (2.1333ms)
+✔ 4aac rejects a readable late relative builder without relaxing the cross-token guard (263.1124ms)
+✔ 4aac accepts only the exact proven backup successor and Django pair (1.1766ms)
+✔ 693e twice observed closure preserves unknown and historical reader survives later preparation/adoption (635.754ms)
+✔ 693e rejects stale before resolution (245.1117ms)
+✔ 693e rejects nonce before resolution (220.7393ms)
+✔ 693e rejects opaque before resolution (269.636ms)
+✔ 693e rejects running before resolution (308.2936ms)
+✔ 693e rejects late-effect before resolution (284.5983ms)
+✔ 693e rejects old-actor before resolution (245.5964ms)
+✔ 693e rejects actor-summary before resolution (217.7206ms)
+✔ 693e rejects wrong-source-tree before resolution (220.4125ms)
+✔ 693e rejects config-drift before resolution (118.6889ms)
+✔ 693e rejects archive-tamper before resolution (97.1819ms)
+✔ 693e rejects prepared before resolution (230.6942ms)
+✔ 693e rejects retry before resolution (244.1289ms)
+✔ 693e rejects candidate-inventory before resolution (220.2711ms)
+✔ 693e original complete closure rejects each changed original byte (8.9459ms)
+✔ historical 693e reader recomputes actor claims from its archived census (677.5745ms)
+✔ queue recognizes only resolved 693e and blocks a different unknown or pending inventory (820.818ms)
+✔ 693e actor reuse requires later readable unrelated identity (1.141ms)
+✔ ordinary reused original PID uses exact complete witness while visible unrelated metadata may be opaque (0.8996ms)
+✔ six and seven fractional-digit actor births at the same instant are never PID reuse (0.3079ms)
+✔ old e2/ece blocks remain exact and actual ten-file control bundle imports new reader (147.7213ms)
+✔ 693e matches JSON Windows paths, case and repeated separators without requiring another identity marker (0.7214ms)
+✔ 693e refuses orphaned original descendants and native builder scripts while preserving an unrelated n8n process (1.1111ms)
+✔ 693e historical reader refuses different second candidate inventory even if each object is individually well formed (493.1476ms)
+✔ 693e compatibility is limited to the original queue seam and finite tools (20.5859ms)
+✔ 693e performs exactly two complete inventories with all original checks before the last fresh census (385.9596ms)
+✔ 693e performs token and Git helpers before each high challenge and never after its witness (362.6442ms)
+✔ 693e preserves a rejected low projection and exact new opaque identity before failing closed (237.6464ms)
+✔ 693e retains the no-spawn generation CAS after witness and rejects pointer drift before low sampling (218.1087ms)
+✔ 693e does not attribute another refusal to an incidental new opaque candidate (255.8792ms)
+✔ 693e rejects a challenge timestamp before completion of the exact inventory it references (418.7155ms)
+✔ 693e complete walker bounds parallel reads and rejects membership drift or redirected members (130.4835ms)
+✔ 693e keeps slow complete inventories distinct from the unchanged final sixty-second dynamic fence (638.5027ms)
+✔ 693e resolution never grants a new ticket permission to replay the abandoned target (505.3842ms)
+✔ finite writer archives twice observed pre-native rejection; actual reader preserves original unknown (444.0542ms)
+✔ actual queue consumes only the ece termination and keeps a new unrelated unknown blocking (817.8614ms)
+✔ historical reader rejects contract/closure/phase tampering and retains the original terminal (535.3345ms)
+✔ old e2 qualification remains byte-for-byte unchanged (74.3772ms)
+✔ actual control bundle imports selected capability and fixed readers without outside dependencies (32.4087ms)
+✔ finite writer rejects stale without resolving original (175.1711ms)
+✔ finite writer rejects wrong-nonce without resolving original (175.2938ms)
+✔ finite writer rejects opaque without resolving original (200.95ms)
+✔ finite writer rejects task-running without resolving original (175.3655ms)
+✔ finite writer rejects operator-drift without resolving original (142.2404ms)
+✔ finite writer rejects second-phase without resolving original (195.4872ms)
+✔ finite writer rejects fresh-pid-drift without resolving original (158.7297ms)
+✔ finite writer rejects packet-effect without resolving original (189.0198ms)
+✔ nested encoded controller closure and opaque identities fail closed (3.3896ms)
+✔ read-only witness output refuses a redirected parent before creating any output (2.9262ms)
+✔ exact native v2 retains all v1 tools except the unique reviewed successor literal (51.3824ms)
+✔ 0038 complete original await/import closure is exact and corruption rejects (164.0061ms)
+✔ 0038 packet preserves source and empty schema effects; rejects new native/request members and redirects (12.4282ms)
+✔ 0038 witness rejects stale, wrong privilege/task/generation, actor-present and altered identities (4.3789ms)
+✔ 0038 live evidence rejects fake SUCCESS and mixed Worker/Django/source bindings (1.1887ms)
+✔ 0038 permanent no-replay applies only to its exact queue/target (0.339ms)
+✔ 0038 PID reuse accepts only children born strictly after the proven reused parent (1.3976ms)
+✔ the fixed read-only token probe accepts only unambiguous ordinary-user success (2.0766ms)
+✔ administrator blocks before fetch/DISPATCH; a later ordinary ticket can continue (74.1271ms)
+✔ probe-error blocks before fetch/DISPATCH; a later ordinary ticket can continue (48.8787ms)
+✔ a ticket with an actual dispatch cannot be downgraded into admission-blocked (10.9238ms)
+✔ never-dispatched stale generations get own-bound blocked results while same-generation manual ticket proceeds (97.6973ms)
+✔ stale ticket referenced by any completed or unknown dispatch blocks whole batch before an early free ticket is written (44.2442ms)
+✔ malformed later dispatch, bindings, result or ticket abort before every stale result write (75.4182ms)
+✔ generation CAS and real queue lock reject before stale closure writes (7.5203ms)
+✔ strict generation admission reader rejects missing/extra/rebound/same-generation or malformed fields (26.5775ms)
+✔ after stale closure the same-generation ticket still encounters original unresolved-dispatch gate (65.7634ms)
+✔ only committed remote main changes trigger; deletion and unrelated refs do not (1.4267ms)
+✔ coalesces queued events, keeps new arrivals and excludes parallel runners (16.7747ms)
+✔ an event arriving at unlock is not lost (9.5268ms)
+✔ failed preparation is recorded once, without an automatic retry (6.0838ms)
+✔ a crash after terminal result but before pending cleanup never replays preparation (7.7262ms)
+✔ hook and BAT pass exactly the same explicit environment; no Git locals or secrets (265.0952ms)
+✔ actual Windows children use the frozen base despite different parent shells (572.1925ms)
+✔ an explicitly empty LOGONSERVER cannot be injected again by Windows (243.0404ms)
+✔ frozen base rejects extra executable inputs, ambiguous keys and missing Windows essentials (79.2939ms)
+✔ kernel queue lock is released when its owner terminates (122.2871ms)
+✔ fixed environment can execute the actual installed Git outside the default Program Files location (135.4757ms)
+✔ manual and hooks share one real kernel consumer, coalesce only undispatched targets (110.8515ms)
+✔ unknown native result and a later same-target event never replay preparation (50.9173ms)
+✔ a new generation may report an exact old blocking dependency but cannot release its unknown (48.6559ms)
+✔ truncated canonical prepared cannot turn an unknown dispatch into a replay permit (28.628ms)
+✔ missing dispatch dependency does not turn a retained unknown terminal into absence (29.4697ms)
+✔ native preparation receipt, dispatch tuple, config and code drift reject completion (42.075ms)
+✔ generation change, partial dispatch and unknown filename fail before once (22.4933ms)
+✔ crash before dispatch remains queued; after durable dispatch becomes unknown without once replay (333.1082ms)
+{"stage":"rotation-wait","requestId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","elapsedMs":1011,"attempts":1,"acquired":true}
+✔ real native lock waits only before callback, default remains fail-fast (1013.2748ms)
+✔ deadline crossing at listen delivery and diagnostic exceptions both release acquired lock (0.9616ms)
+✔ only the same full predecessor selection and control generation expose retained preparation (279.4927ms)
+✔ absent pointer, old target and no preparation cannot display ready (17.8738ms)
+✔ shows incomplete and failed records without changing any original files (17.5001ms)
+✔ ready is bound to exact request, commit and component receipts (31.5499ms)
+✔ a new local main arriving during ready sampling cannot display old main ready (10.675ms)
+✔ a terminal record arriving while PREPARED is read suppresses completion: STARTED.json (11.9226ms)
+✔ a terminal record arriving while PREPARED is read suppresses completion: FAILED-new.json (10.6375ms)
+✔ a terminal record arriving during the main-ref recheck suppresses completion: STARTED.json (12.6102ms)
+✔ a terminal record arriving during the main-ref recheck suppresses completion: FAILED-ref-read.json (12.6662ms)
+✔ unknown deployment overrides a prepared package; success is only a historical record (11.7915ms)
+✔ packet outside release root is rejected (7.6037ms)
+✔ watch waits across main changes, notifies exact completed version once and never publishes (14.9987ms)
+✔ partial pointer read is never success; notification failure cannot change prepared state (0.2941ms)
+✔ one-shot and published-record observations never launch a popup (0.1684ms)
+✔ desktop command only shows a local message with a validated commit, never a release command (3.3445ms)
+✔ ordinary token gate rejects elevated, foreign SID, noninteractive and wrong integrity (5.5465ms)
+✔ PS5 identity reader accepts multiple same-session Explorers and fails closed on owner uncertainty (6418.2893ms)
+{"probe":"failed-private-task-diagnostics","directory":"C:\\Users\\86137\\AppData\\Local\\Temp\\ordinary-prebuild-diagnostics-52e0cdea-3222-4893-b02b-043dcbdbc9e3"}
+✖ real on-demand fixed task launches same SID/session at medium integrity from elevated parent (71368.7307ms)
+file:///D:/codex-worktrees/a1/tests/fixtures/native391-sampling-fixture.mjs:1
+import{canonical,sha,native391RetiredPublisherQualification}from'../../tools/main-prebuild-queue.mjs';
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: The requested module '../../tools/main-prebuild-queue.mjs' does not provide an export named 'native391RetiredPublisherQualification'
+    at #asyncInstantiate (node:internal/modules/esm/module_job:327:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:431:5)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.18.0
+✖ tests\native-391-cmd-entry-repair.test.mjs (84.7064ms)
+file:///D:/codex-worktrees/a1/tests/fixtures/native391-sampling-fixture.mjs:1
+import{canonical,sha,native391RetiredPublisherQualification}from'../../tools/main-prebuild-queue.mjs';
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: The requested module '../../tools/main-prebuild-queue.mjs' does not provide an export named 'native391RetiredPublisherQualification'
+    at #asyncInstantiate (node:internal/modules/esm/module_job:327:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:431:5)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.18.0
+✖ tests\native-391-control.test.mjs (79.3413ms)
+✔ queue core change preserves all d607 fixed recovery readers and operator entrypoints byte for byte (4.2614ms)
+✔ 0038 public reader consumes its real archived ACK without391 census or retiredPublisher fields (206.9594ms)
+✔ 391 exact93 inventory preflight preserves empty old out and the unconsumed3194 evidence namespace (84.7244ms)
+✔ 391 admission and readonly inventory verify the same exact four prior capsules before unique provenance (12.0069ms)
+file:///D:/codex-worktrees/a1/tests/fixtures/native391-sampling-fixture.mjs:1
+import{canonical,sha,native391RetiredPublisherQualification}from'../../tools/main-prebuild-queue.mjs';
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: The requested module '../../tools/main-prebuild-queue.mjs' does not provide an export named 'native391RetiredPublisherQualification'
+    at #asyncInstantiate (node:internal/modules/esm/module_job:327:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:431:5)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.18.0
+✖ tests\native-391-p3-sampling.test.mjs (76.5011ms)
+✔ 391 actual reader metadata field assertion accepts insertion order but rejects missing or extra keys (5.0943ms)
+✔ 391 reader all sorted-key comparisons use sorted expected literals or the sorted control inventory (0.2616ms)
+✔ 391 second fixed failure validates request/rejection/result and old p1 against c4 facts (190.7985ms)
+✔ 391 second prior scan checks all3133 including last member corruption (2752.5642ms)
+✔ 391 second coordination exits reject old writer, descendants and request waiters without invented PID (4.3587ms)
+✔ 391 p2 binds new epoch/source/adoption and immutable p1 plus both prior manifests (92.6405ms)
+node:internal/modules/esm/resolve:271
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'D:\codex-worktrees\a1\tests\fixtures\legacy-preparation\main-prebuild-task.mjs' imported from D:\codex-worktrees\a1\tests\fixtures\legacy-preparation\main-prebuild-queue.mjs
+    at finalizeResolution (node:internal/modules/esm/resolve:271:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at defaultResolve (node:internal/modules/esm/resolve:992:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
+    at #resolve (node:internal/modules/esm/loader:683:17)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
+    at node:internal/modules/esm/loader:632:32
+    at TracingChannel.tracePromise (node:diagnostics_channel:362:14) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///D:/codex-worktrees/a1/tests/fixtures/legacy-preparation/main-prebuild-task.mjs'
+}
+
+Node.js v24.18.0
+✖ tests\native-391-resume.test.mjs (73.9048ms)
+file:///D:/codex-worktrees/a1/tests/fixtures/native391-sampling-fixture.mjs:1
+import{canonical,sha,native391RetiredPublisherQualification}from'../../tools/main-prebuild-queue.mjs';
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: The requested module '../../tools/main-prebuild-queue.mjs' does not provide an export named 'native391RetiredPublisherQualification'
+    at #asyncInstantiate (node:internal/modules/esm/module_job:327:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:431:5)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.18.0
+✖ tests\native-391-retired-publisher.test.mjs (76.4079ms)
+✔ 391 fixed task-bound system host accepts stable OS hardlinks and actual system binary (4.299ms)
+✔ 391 system-host exception rejects redirection/type/invalid link count/identity or byte change (3.2782ms)
+✔ 391 fixed eace preflight adoption hop preserves no-writer fact and the same3166 namespace (90.676ms)
+✔ valid generic cleaned resolution accepted; ordinary opaque ACK; repeat is already-resolved and original terminal bytes survive (503.7017ms)
+✔ reader rejects every byte binding, enum, fact, writer token, epoch and deadline mutation (304.4234ms)
+✔ all archived objects verified, including unreferenced object; duplicate/noncanonical resolution rejected (309.4868ms)
+✔ request nonce replay and missing objects reject without creating a new resolution (297.4438ms)
+✔ static proof rejects all original identity needles, extra FAILED file, nonempty staging and unsafe facts (31.5308ms)
+✔ cross-token new opaque process and process identity drift reject; independent witness refuses another controller (29.2471ms)
+✔ resolved dispatch releases future different-target queue work without changing old result; original target replay refuses (562.7707ms)
+✔ frozen bundle CLI help is runnable with package closure and no production effects (207.9614ms)
+✔ eight sealed historical resolutions remain readable through the single reader (read-only original evidence) (13034.4027ms)
+ℹ tests 207
+ℹ suites 0
+ℹ pass 200
+ℹ fail 7
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 167908.8417
+
+✖ failing tests:
+
+test at tests\fixed-cleaned-preparation.test.mjs:72:1
+✖ all historical finite source blocks and observer bytes remain exact (111.8366ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '5b51426b159ca8a06f6d08c9652b806a1899cfb73a916faff95a4b412311f058'
+  - 'c627f8d4a01d61e1a0ffa7e49d32bd0fd3b36577e95aefc99dd006bdb430efe9'
+  
+      at TestContext.<anonymous> (file:///D:/codex-worktrees/a1/tests/fixed-cleaned-preparation.test.mjs:73:558)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '5b51426b159ca8a06f6d08c9652b806a1899cfb73a916faff95a4b412311f058',
+    expected: 'c627f8d4a01d61e1a0ffa7e49d32bd0fd3b36577e95aefc99dd006bdb430efe9',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\main-prebuild-task.test.mjs:28:1
+✖ real on-demand fixed task launches same SID/session at medium integrity from elevated parent (71368.7307ms)
+  Error: ENOENT: no such file or directory, open 'C:\Users\86137\AppData\Local\Temp\ordinary-prebuild-QGAdlL\ordinary-wake.json'
+      at async open (node:internal/fs/promises:640:25)
+      at async Object.readFile (node:internal/fs/promises:1290:14)
+      at async TestContext.<anonymous> (file:///D:/codex-worktrees/a1/tests/main-prebuild-task.test.mjs:46:189)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'C:\\Users\\86137\\AppData\\Local\\Temp\\ordinary-prebuild-QGAdlL\\ordinary-wake.json'
+  }
+
+test at tests\native-391-cmd-entry-repair.test.mjs:1:1
+✖ tests\native-391-cmd-entry-repair.test.mjs (84.7064ms)
+  'test failed'
+
+test at tests\native-391-control.test.mjs:1:1
+✖ tests\native-391-control.test.mjs (79.3413ms)
+  'test failed'
+
+test at tests\native-391-p3-sampling.test.mjs:1:1
+✖ tests\native-391-p3-sampling.test.mjs (76.5011ms)
+  'test failed'
+
+test at tests\native-391-resume.test.mjs:1:1
+✖ tests\native-391-resume.test.mjs (73.9048ms)
+  'test failed'
+
+test at tests\native-391-retired-publisher.test.mjs:1:1
+✖ tests\native-391-retired-publisher.test.mjs (76.4079ms)
+  'test failed'

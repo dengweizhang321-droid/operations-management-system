@@ -1,6 +1,7 @@
+import {legacyToolFile} from './fixtures/legacy-preparation-tools.mjs';
 import{native391SamplingFixture}from'./fixtures/native391-sampling-fixture.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';import path from 'node:path';import{fileURLToPath}from'node:url';
-import{canonical,sha,native391PgQualification,fixedNative391 as fixed,native391Originals,native391OriginalPins,native391SourcePins,native391PacketAndStaging,native391Metadata,validateNative391MetadataInventory,assertNative391MetadataBytes,assertNative391ActorsAbsent,classifyNative391Controllers,native391CensusProjection,assertNative391WitnessCensus,validateNative391Observation,assertFixedNative391NoReplay,readFixedNative391Resolution}from'../tools/main-prebuild-queue.mjs';
+import{canonical,sha,native391PgQualification,fixedNative391 as fixed,native391Originals,native391OriginalPins,native391SourcePins,native391PacketAndStaging,native391Metadata,validateNative391MetadataInventory,assertNative391MetadataBytes,assertNative391ActorsAbsent,classifyNative391Controllers,native391CensusProjection,assertNative391WitnessCensus,validateNative391Observation,assertFixedNative391NoReplay,readFixedNative391Resolution}from'./fixtures/legacy-preparation/main-prebuild-queue.mjs';
 const pgQualification=await native391PgQualification();
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 async function fixture(t){await fs.mkdir(path.join(root,'tmp'),{recursive:true});const dir=await fs.mkdtemp(path.join(root,'tmp/native391-'));t.after(async()=>{assert.ok(dir.startsWith(root+path.sep));await fs.rm(dir,{recursive:true,force:true});});return dir;}

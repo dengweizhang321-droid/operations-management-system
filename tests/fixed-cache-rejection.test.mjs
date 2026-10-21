@@ -1,3 +1,4 @@
+import {legacyToolFile} from './fixtures/legacy-preparation-tools.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -5,8 +6,8 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
-import {canonical,sha,assertCacheActorsAbsent,assertCacheActorWitness,schemaCensusProjection} from '../tools/main-prebuild-queue.mjs';
-import {controlFiles} from '../tools/install-main-prebuild.mjs';
+import {canonical,sha,assertCacheActorsAbsent,assertCacheActorWitness,schemaCensusProjection} from './fixtures/legacy-preparation/main-prebuild-queue.mjs';
+import {controlFiles} from './fixtures/legacy-preparation-tools.mjs';
 const captured=JSON.parse(await fs.readFile('tests/fixtures/fixed-cache-0b-evidence.json','utf8'));
 const object=h=>Buffer.from(captured.objects[h],'base64');
 async function fixture(t){
@@ -14,10 +15,10 @@ async function fixture(t){
  const state=path.join(root,'state'),packet=path.join(root,'packet'),source=path.join(root,'source'),write=async(file,bytes)=>{await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,bytes);};await fs.mkdir(path.join(packet,'source'),{recursive:true});await fs.mkdir(path.join(source,'tools'),{recursive:true});
  const dispatch=JSON.parse(object('577476a6e39a05022c460480dc8d7d50a2663e01f484b6f60cbfebad9026064c'));dispatch.selection.packet=packet;const dispatchRaw=Buffer.from(canonical(dispatch)),dispatchSha=sha(dispatchRaw);
  const terminal=JSON.parse(object('d2e980c5326749cf0e80a4c80fbfc3bec3c234a9d5864f63759fcfdd6d799435'));terminal.dispatchSha256=dispatchSha;const terminalRaw=Buffer.from(canonical(terminal)),resultSha=sha(terminalRaw);
- let code=await fs.readFile('tools/main-prebuild-queue.mjs','utf8');
+ let code=await fs.readFile(legacyToolFile('main-prebuild-queue.mjs'),'utf8');
  for(const [old,next] of [[captured.state,state],[captured.packet,packet]]){code=code.replaceAll(JSON.stringify(path.resolve(old)).slice(1,-1),JSON.stringify(path.resolve(next)).slice(1,-1)).replaceAll(old,next.replaceAll('\\','/'));}
  code=code.replaceAll('577476a6e39a05022c460480dc8d7d50a2663e01f484b6f60cbfebad9026064c',dispatchSha).replaceAll('d2e980c5326749cf0e80a4c80fbfc3bec3c234a9d5864f63759fcfdd6d799435',resultSha);
- for(const name of [...controlFiles,'cache-rejection-observer.mjs','cache-rejection-writer.mjs'])await write(path.join(source,'tools',name),await fs.readFile(path.join('tools',name)));await write(path.join(source,'tools/main-prebuild-queue.mjs'),code);
+ for(const name of [...controlFiles,'cache-rejection-observer.mjs','cache-rejection-writer.mjs'])await write(path.join(source,'tools',name),await fs.readFile(legacyToolFile(name)));await write(path.join(source,'tools/main-prebuild-queue.mjs'),code);
  const queue=await import(pathToFileURL(path.join(source,'tools/main-prebuild-queue.mjs'))),fixed=queue.fixedCacheRejection;
  const originalArchive=structuredClone(captured);originalArchive.objects[dispatchSha]=dispatchRaw.toString('base64');originalArchive.objects[resultSha]=terminalRaw.toString('base64');
  for(const [file,digest] of Object.entries(captured.originals))if(file.includes('prebuild-queue-v2'))await write(path.join(state,path.relative(path.resolve(captured.state),file)),digest==='577476a6e39a05022c460480dc8d7d50a2663e01f484b6f60cbfebad9026064c'?dispatchRaw:digest==='d2e980c5326749cf0e80a4c80fbfc3bec3c234a9d5864f63759fcfdd6d799435'?terminalRaw:object(digest));
@@ -48,7 +49,7 @@ for(const failure of ['schema-missing','schema-changed','extra-schema','request'
  f.options.observe=async r=>{const v=await observe(r);if(failure==='stale')v.at=new Date(Date.now()-61000).toISOString();if(failure==='nonce')v.nonce='f'.repeat(32);if(failure==='opaque')v.relatedOpaque=1;if(failure==='running')v.taskInstances=1;if(failure==='wrong-source-tree')v.sourceTree='f'.repeat(40);if(failure==='actor-summary')v.actors[0]={...v.actors[0],state:'reused-unrelated-pid',currentBirth:new Date().toISOString(),currentName:'node.exe'};if(failure==='late-effect'&&r.phase==='after-archive')await f.write(path.join(f.packet,'main-release-request.json'),'{}');return v;};await assert.rejects(f.queue.writeFixedCacheRejectionResolution(f.options));await assert.rejects(fs.access(path.join(f.directory,'resolutions',f.fixed.dispatchId+'.json')));
 });
 test('0b original complete closure rejects each changed original byte',async()=>{
- const {cacheRejectionOriginals}=await import('../tools/main-prebuild-queue.mjs');await cacheRejectionOriginals({read:async file=>object(captured.originals[file])});for(const changed of Object.keys(captured.originals))await assert.rejects(cacheRejectionOriginals({read:async file=>file===changed?Buffer.from('{}'):object(captured.originals[file])}));
+ const {cacheRejectionOriginals}=await import('./fixtures/legacy-preparation/main-prebuild-queue.mjs');await cacheRejectionOriginals({read:async file=>object(captured.originals[file])});for(const changed of Object.keys(captured.originals))await assert.rejects(cacheRejectionOriginals({read:async file=>file===changed?Buffer.from('{}'):object(captured.originals[file])}));
 });
 test('historical 0b reader recomputes actor claims from its archived census',async t=>{
  const f=await fixture(t);await f.queue.writeFixedCacheRejectionResolution(f.options);const resolution=path.join(f.directory,'resolutions',f.fixed.dispatchId+'.json'),original=JSON.parse(await fs.readFile(resolution)),objects=path.join(f.directory,'resolutions',f.fixed.dispatchId+'-evidence/objects');
@@ -69,6 +70,6 @@ test('six and seven fractional-digit actor births at the same instant are never 
  for(const creationDate of ['2026-10-18T15:27:57.941495Z','2026-10-18T15:27:57.9414950Z']){const row={processId:23116,parentProcessId:1,name:'node.exe',creationDate,commandLine:'node -e console.log(1)',executablePath:process.execPath};assert.throws(()=>assertCacheActorsAbsent([row]));assert.throws(()=>assertCacheActorWitness(schemaCensusProjection([row]),[row]));}
 });
 test('old e2/ece blocks remain exact and actual ten-file control bundle imports new reader',async t=>{
- const previous=execFileSync('git',['show','b2ef81c7:tools/main-prebuild-queue.mjs'],{encoding:'utf8',windowsHide:true}),current=await fs.readFile('tools/main-prebuild-queue.mjs','utf8');for(const kind of ['ADMIN_E2','SCHEMA_ECE']){const block=text=>text.slice(text.indexOf('// FIXED_'+kind+'_BEGIN'),text.indexOf('// FIXED_'+kind+'_END')+('// FIXED_'+kind+'_END').length);assert.equal(block(current),block(previous));}
+ const previous=execFileSync('git',['show','b2ef81c7:tools/main-prebuild-queue.mjs'],{encoding:'utf8',windowsHide:true}),current=await fs.readFile(legacyToolFile('main-prebuild-queue.mjs'),'utf8');for(const kind of ['ADMIN_E2','SCHEMA_ECE']){const block=text=>text.slice(text.indexOf('// FIXED_'+kind+'_BEGIN'),text.indexOf('// FIXED_'+kind+'_END')+('// FIXED_'+kind+'_END').length);assert.equal(block(current),block(previous));}
  const f=await fixture(t);const queue=await import(pathToFileURL(path.join(f.options.adopted.bundleRoot,'tools/main-prebuild-queue.mjs')));assert.equal(typeof queue.readFixedCacheRejectionResolution,'function');assert.equal(controlFiles.length,10);
 });

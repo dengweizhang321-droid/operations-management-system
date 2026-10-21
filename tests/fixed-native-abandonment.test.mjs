@@ -1,3 +1,4 @@
+import {legacyToolFile} from './fixtures/legacy-preparation-tools.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -5,8 +6,8 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
-import {canonical,sha,assertNativeActorsAbsent,assertNativeActorWitness,schemaCensusProjection} from '../tools/main-prebuild-queue.mjs';
-import {controlFiles} from '../tools/install-main-prebuild.mjs';
+import {canonical,sha,assertNativeActorsAbsent,assertNativeActorWitness,schemaCensusProjection} from './fixtures/legacy-preparation/main-prebuild-queue.mjs';
+import {controlFiles} from './fixtures/legacy-preparation-tools.mjs';
 const captured=JSON.parse(await fs.readFile('tests/fixtures/fixed-native-693e-evidence.json','utf8'));
 const object=h=>Buffer.from(captured.objects[h],'base64');
 async function fixture(t){
@@ -14,10 +15,10 @@ async function fixture(t){
  const runtime=path.join(root,'runtime'),state=path.join(root,'state'),packet=path.join(root,'packet'),source=path.join(root,'source'),write=async(file,bytes)=>{await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,bytes);};await fs.mkdir(path.join(packet,'source'),{recursive:true});await fs.mkdir(path.join(source,'tools'),{recursive:true});
  const dispatch=JSON.parse(object('1f771c70d270912b839009dac77019f59ba63e3d1113ba215d83ab34df546f58'));dispatch.selection.packet=packet;const dispatchRaw=Buffer.from(canonical(dispatch)),dispatchSha=sha(dispatchRaw);
  const terminal=JSON.parse(object('2c1da3fb348ba238cf5fadfd54bc221db75db676dad2c9c94d6ac5fae2112f4f'));terminal.dispatchSha256=dispatchSha;const terminalRaw=Buffer.from(canonical(terminal)),resultSha=sha(terminalRaw);
- let code=await fs.readFile('tools/main-prebuild-queue.mjs','utf8');
+ let code=await fs.readFile(legacyToolFile('main-prebuild-queue.mjs'),'utf8');
  for(const [old,next] of [[captured.state,state],[captured.packet,packet],['D:/teruisi-runtime/teruisi-worker-sales',runtime]]){code=code.replaceAll(JSON.stringify(path.resolve(old)).slice(1,-1),JSON.stringify(path.resolve(next)).slice(1,-1)).replaceAll(old.replaceAll('\\','/'),next.replaceAll('\\','/'));}
  code=code.replaceAll('1f771c70d270912b839009dac77019f59ba63e3d1113ba215d83ab34df546f58',dispatchSha).replaceAll('2c1da3fb348ba238cf5fadfd54bc221db75db676dad2c9c94d6ac5fae2112f4f',resultSha);
- for(const name of [...controlFiles,'worker-local-release.mjs','worker-local-release-rotation.mjs','d1-retirement-proof.mjs','native-abandonment-observer.mjs','native-abandonment-writer.mjs'])await write(path.join(source,'tools',name),await fs.readFile(path.join('tools',name)));await write(path.join(source,'tools/main-prebuild-queue.mjs'),code+'\nexport const nativeTestHelpers={walk:nativeWalk,validateObservation:nativeValidateObservation};\n');
+ for(const name of [...controlFiles,'worker-local-release.mjs','worker-local-release-rotation.mjs','d1-retirement-proof.mjs','native-abandonment-observer.mjs','native-abandonment-writer.mjs'])await write(path.join(source,'tools',name),await fs.readFile(legacyToolFile(name)));await write(path.join(source,'tools/main-prebuild-queue.mjs'),code+'\nexport const nativeTestHelpers={walk:nativeWalk,validateObservation:nativeValidateObservation};\n');
  const queue=await import(pathToFileURL(path.join(source,'tools/main-prebuild-queue.mjs'))),fixed=queue.fixedNativeAbandonment;
  const originalArchive=structuredClone(captured);originalArchive.objects[dispatchSha]=dispatchRaw.toString('base64');originalArchive.objects[resultSha]=terminalRaw.toString('base64');
  for(const [file,digest] of Object.entries(captured.originals))if(file.includes('prebuild-queue-v2'))await write(path.join(state,path.relative(path.resolve(captured.state),file)),digest==='1f771c70d270912b839009dac77019f59ba63e3d1113ba215d83ab34df546f58'?dispatchRaw:digest==='2c1da3fb348ba238cf5fadfd54bc221db75db676dad2c9c94d6ac5fae2112f4f'?terminalRaw:object(digest));
@@ -46,7 +47,7 @@ for(const failure of ['stale','nonce','opaque','running','late-effect','old-acto
  f.options.observe=async r=>{const v=await observe(r);if(failure==='stale')v.at=new Date(Date.now()-61000).toISOString();if(failure==='nonce')v.nonce='f'.repeat(32);if(failure==='opaque')v.relatedOpaque=1;if(failure==='running')v.taskInstances=1;if(failure==='wrong-source-tree')v.sourceTree='f'.repeat(40);if(failure==='actor-summary')v.actors[0]={...v.actors[0],state:'reused-unrelated-pid',currentBirth:new Date().toISOString(),currentName:'node.exe'};if(failure==='late-effect'&&r.phase==='final-observation')v.packet.chainStateSha256='f'.repeat(64);if(failure==='candidate-inventory')v.packet.candidateInventorySha256='f'.repeat(64);if(failure==='prepared'||failure==='retry')v.packet[failure]=true;return v;};await assert.rejects(f.queue.writeFixedNativeAbandonmentResolution(f.options));await assert.rejects(fs.access(path.join(f.directory,'resolutions',f.fixed.dispatchId+'.json')));
 });
 test('693e original complete closure rejects each changed original byte',async()=>{
- const {nativeAbandonmentOriginals}=await import('../tools/main-prebuild-queue.mjs');await nativeAbandonmentOriginals({read:async file=>object(captured.originals[file])});for(const changed of Object.keys(captured.originals))await assert.rejects(nativeAbandonmentOriginals({read:async file=>file===changed?Buffer.from('{}'):object(captured.originals[file])}));
+ const {nativeAbandonmentOriginals}=await import('./fixtures/legacy-preparation/main-prebuild-queue.mjs');await nativeAbandonmentOriginals({read:async file=>object(captured.originals[file])});for(const changed of Object.keys(captured.originals))await assert.rejects(nativeAbandonmentOriginals({read:async file=>file===changed?Buffer.from('{}'):object(captured.originals[file])}));
 });
 test('historical 693e reader recomputes actor claims from its archived census',async t=>{
  const f=await fixture(t);await f.queue.writeFixedNativeAbandonmentResolution(f.options);const resolution=path.join(f.directory,'resolutions',f.fixed.dispatchId+'.json'),original=JSON.parse(await fs.readFile(resolution)),objects=path.join(f.directory,'resolutions',f.fixed.dispatchId+'-evidence/objects');
@@ -67,16 +68,16 @@ test('six and seven fractional-digit actor births at the same instant are never 
  for(const creationDate of ['2026-10-19T00:55:23.999450Z','2026-10-19T00:55:23.9994500Z']){const row={processId:30900,parentProcessId:1,name:'node.exe',creationDate,commandLine:'node -e console.log(1)',executablePath:process.execPath};assert.throws(()=>assertNativeActorsAbsent([row]));assert.throws(()=>assertNativeActorWitness(schemaCensusProjection([row]),[row]));}
 });
 test('old e2/ece blocks remain exact and actual ten-file control bundle imports new reader',async t=>{
- const previous=execFileSync('git',['show','e596931d:tools/main-prebuild-queue.mjs'],{encoding:'utf8',windowsHide:true}),current=await fs.readFile('tools/main-prebuild-queue.mjs','utf8');for(const kind of ['ADMIN_E2','SCHEMA_ECE','CACHE_0B']){const block=text=>text.slice(text.indexOf('// FIXED_'+kind+'_BEGIN'),text.indexOf('// FIXED_'+kind+'_END')+('// FIXED_'+kind+'_END').length);assert.equal(block(current),block(previous));}
+ const previous=execFileSync('git',['show','e596931d:tools/main-prebuild-queue.mjs'],{encoding:'utf8',windowsHide:true}),current=await fs.readFile(legacyToolFile('main-prebuild-queue.mjs'),'utf8');for(const kind of ['ADMIN_E2','SCHEMA_ECE','CACHE_0B']){const block=text=>text.slice(text.indexOf('// FIXED_'+kind+'_BEGIN'),text.indexOf('// FIXED_'+kind+'_END')+('// FIXED_'+kind+'_END').length);assert.equal(block(current),block(previous));}
  const f=await fixture(t);const queue=await import(pathToFileURL(path.join(f.options.adopted.bundleRoot,'tools/main-prebuild-queue.mjs')));assert.equal(typeof queue.readFixedNativeAbandonmentResolution,'function');assert.equal(controlFiles.length,10);
 });
 test('693e matches JSON Windows paths, case and repeated separators without requiring another identity marker',async()=>{
- const {assertNativeNoPublicationBytes}=await import('../tools/main-prebuild-queue.mjs');
+ const {assertNativeNoPublicationBytes}=await import('./fixtures/legacy-preparation/main-prebuild-queue.mjs');
  for(const source of ['D:\\codex-isolated\\main-release-packages\\c36ea9964ea0-fee81c63-4ca6db6e','d:/CODEX-ISOLATED/main-release-packages/c36ea9964ea0-fee81c63-4ca6db6e/source'])assert.throws(()=>assertNativeNoPublicationBytes(Buffer.from(JSON.stringify({nested:[{source}]}))));
  assert.doesNotThrow(()=>assertNativeNoPublicationBytes(Buffer.from('{"source":"D:/private/unrelated"}')));
 });
 test('693e refuses orphaned original descendants and native builder scripts while preserving an unrelated n8n process',async()=>{
- const {assertNativeActorsAbsent,classifyNativeControllers}=await import('../tools/main-prebuild-queue.mjs');
+ const {assertNativeActorsAbsent,classifyNativeControllers}=await import('./fixtures/legacy-preparation/main-prebuild-queue.mjs');
  const row=(pid,parent,commandLine)=>({processId:pid,parentProcessId:parent,name:'node.exe',creationDate:'2026-10-19T01:00:00.000Z',commandLine,executablePath:process.execPath});
  assert.throws(()=>assertNativeActorsAbsent([row(50000,30900,'node npm-cli.js run build'),row(50001,50000,'node ./bin/vinext build')]));
  const writer=row(50002,1,'private writer'),observer=row(50003,1,'private observer');

@@ -1,10 +1,11 @@
+import {legacyToolFile} from './fixtures/legacy-preparation-tools.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {validateNativeToolsUpdate,successor512NativeToolsPins,codeOnlyNativeToolsPins} from '../tools/install-main-prebuild.mjs';
-import {canonical,sha,assertFixedInstaller0038NoReplay,installer0038Originals,assertInstaller0038Packet,readFixedInstallerCheckRejection0038Resolution,validateInstaller0038Observation,validateInstaller0038LiveEvidence,schemaCensusProjection,fixedInstallerCheckRejection0038 as fixed} from '../tools/main-prebuild-queue.mjs';
+import {canonical,sha,assertFixedInstaller0038NoReplay,installer0038Originals,assertInstaller0038Packet,readFixedInstallerCheckRejection0038Resolution,validateInstaller0038Observation,validateInstaller0038LiveEvidence,schemaCensusProjection,fixedInstallerCheckRejection0038 as fixed} from './fixtures/legacy-preparation/main-prebuild-queue.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),state=fixed.state,configSha=fixed.configSha256;
 async function privateRoot(t){const base=path.join(root,'tmp');await fs.mkdir(base,{recursive:true});const p=await fs.mkdtemp(path.join(base,'installer0038-control-'));t.after(async()=>{assert.ok(path.resolve(p).startsWith(root+path.sep));await fs.rm(p,{recursive:true,force:true});});return p;}
 test('exact native v2 retains all v1 tools except the unique reviewed successor literal',async t=>{

@@ -1,0 +1,4 @@
+/** Frozen finite-operator test inputs, independent of the replacement production CLI. */
+import path from 'node:path';
+export const controlFiles=['publish-latest-main.mjs','publish-main-progress.mjs','release-scope-plan.mjs','main-prebuild-hook.mjs','main-schema-release.mjs','main-prebuild-status.mjs','main-prebuild-queue.mjs','main-control-dispatch.mjs','main-prebuild-task.mjs','frozen-main-source.mjs'];
+export const legacyToolFile=name=>['main-prebuild-queue.mjs', 'cleaned-preparation-observer.mjs', 'cleaned-preparation-writer.mjs', 'schema-rejection-writer.mjs', 'schema-rejection-observer.mjs', 'cache-rejection-writer.mjs', 'cache-rejection-observer.mjs', 'native-abandonment-writer.mjs', 'native-abandonment-observer.mjs'].includes(name)?path.join('tests/fixtures/legacy-preparation',name):path.join('tools',name);

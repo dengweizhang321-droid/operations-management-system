@@ -1366,7 +1366,7 @@ function Get-WranglerRuntimeFailureDigest([object]$Result) {
   ))
 }
 
-function Assert-WranglerRuntimeCli([string]$AppRoot) {
+function Assert-WranglerRuntimeFacts([string]$AppRoot) {
   $closurePath = Join-Path $AppRoot "runtime-tools\wrangler-dependencies.json"
   $closure = Read-JsonFile $closurePath "Wrangler runtime 依赖清单"
   if ([int]$closure.version -ne 1 -or
@@ -1376,9 +1376,31 @@ function Assert-WranglerRuntimeCli([string]$AppRoot) {
     throw "Wrangler runtime 依赖清单无效"
   }
 
+  # The application-tree caller has already verified every installed byte.
+  # Immutable package facts do not launch Wrangler while closing gates.
+  $packagePath = Join-Path $AppRoot "runtime-tools\node_modules\wrangler\package.json"
+  if (-not ([IO.File]::ReadAllText($closurePath).TrimStart().StartsWith('{')) -or
+      -not ([IO.File]::ReadAllText($packagePath).TrimStart().StartsWith('{'))) {
+    throw "Wrangler runtime 版本事实必须为 JSON 对象"
+  }
+  $package = Read-JsonFile $packagePath "Wrangler package"
+  $rootEntries = @($closure.packages | Where-Object { $_.name -ceq "wrangler" })
+  if ($package -isnot [pscustomobject] -or $package.name -isnot [string] -or
+      $package.version -isnot [string] -or $closure.rootVersion -isnot [string] -or
+      $rootEntries.Count -ne 1 -or $rootEntries[0].version -isnot [string] -or
+      [string]$package.name -cne "wrangler" -or
+      [string]$package.version -cne [string]$closure.rootVersion -or
+      [string]$rootEntries[0].version -cne [string]$closure.rootVersion) {
+    throw "Wrangler runtime 安装版本与依赖清单不一致"
+  }
+  return [string]$closure.rootVersion
+}
+
+function Assert-WranglerRuntimeCli([string]$AppRoot) {
+  $rootVersion = Assert-WranglerRuntimeFacts $AppRoot
   $versionResult = Invoke-WranglerRuntimeProcess $AppRoot @("--version") 15 "version"
   $versionOutput = (([string]$versionResult.Stdout) + ([string]$versionResult.Stderr)).Trim()
-  if ($versionResult.ExitCode -ne 0 -or $versionOutput -cne [string]$closure.rootVersion) {
+  if ($versionResult.ExitCode -ne 0 -or $versionOutput -cne $rootVersion) {
     throw "Wrangler runtime 版本 smoke 失败（outputSha256=$(Get-WranglerRuntimeFailureDigest $versionResult)）"
   }
 
@@ -1549,7 +1571,7 @@ function Assert-ApplicationTreeManifest([string]$AppRoot, [string]$Label) {
   if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
     throw "$Label 缺少受保护启动脚本"
   }
-  Assert-WranglerRuntimeCli $AppRoot
+  Assert-WranglerRuntimeFacts $AppRoot | Out-Null
   return $manifest
 }
 
