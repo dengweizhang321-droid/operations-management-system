@@ -16,12 +16,12 @@ VIEWS = {
     "inventory": {"overview", "age", "plan", "stale", "inbound", "tmall_warehouse", "guangdong"},
     "product": {"overview", "calculator"},
     "workflow": {"plan", "inspection", "reviews", "launch", "launch-followup", "variables"},
-    "import": {"files", "history", "continuity"}, "settings": {"parameters", "master", "dingtalk", "permissions"},
+    "import": {"files", "history", "chains", "continuity"}, "settings": {"parameters", "master", "warehouses", "dingtalk", "backups", "permissions"},
     "ai": {"assistant", "agents", "memory", "sandbox", "space", "management", "scheduled", "configuration", "reports", "skills", "pipelines"},
 }
 FILTERS = {
     "platforms", "shops", "channels", "categories", "warehouses", "brands",
-    "skus", "spus", "productCodes", "months", "scope", "rankingDimension",
+    "skus", "spus", "productCodes", "productKind", "months", "scope", "rankingDimension",
     "query", "status", "dataset", "operationMode", "subcategories",
     "dueFrom", "dueTo", "owner", "selectedIds", "outletKeys", "priceBands", "suppliers",
     "warehouseTypes", "healthStatuses", "ageBuckets", "agents", "robotScopes", "problemTypes",

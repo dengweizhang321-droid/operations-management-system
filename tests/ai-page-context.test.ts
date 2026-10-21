@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   AI_PAGE_CONTEXT_CATALOG,
+  AI_PAGE_FILTER_KEYS,
   buildAiPageContextPrompt,
   createAiPageContext,
   normalizeAiPageContext,
@@ -62,6 +63,40 @@ test("page context stays separate from user text and participates in retry inten
   }, () => "request-2");
   assert.equal(first.clientRequestId, "request-1");
   assert.equal(changed.clientRequestId, "request-2");
+});
+
+test("product kind filter is preserved in page context", () => {
+  const context = createAiPageContext({
+    module: "product",
+    view: "overview",
+    filters: { productKind: "combo", query: "KIT-1" },
+  });
+  assert.deepEqual(context.filters, { productKind: "combo", query: "KIT-1" });
+  assert.equal(
+    normalizeAiPageContext({ module: "product", view: "overview", filters: { productKind: "combo" } })
+      ?.filters?.productKind,
+    "combo",
+  );
+});
+
+test("shell page-context views and filter keys stay inside the backend allowlist", () => {
+  const backend = readFileSync("backend/ai_assistant/page_context.py", "utf8");
+  const backendViews = new Map<string, Set<string>>();
+  for (const match of backend.matchAll(/"([a-z0-9_]+)":\s*\{([^}]*)\}/g)) {
+    backendViews.set(match[1], new Set([...match[2].matchAll(/"([a-z0-9_\-]+)"/g)].map((item) => item[1])));
+  }
+  for (const [moduleKey, definition] of Object.entries(AI_PAGE_CONTEXT_CATALOG)) {
+    const allowed = backendViews.get(moduleKey);
+    assert.ok(allowed, `backend must know ${moduleKey}`);
+    for (const view of definition.views) {
+      assert.ok(allowed.has(view), `backend page context must accept ${moduleKey}/${view}`);
+    }
+  }
+  const filtersBlock = /FILTERS = \{([\s\S]*?)\n\}/.exec(backend)?.[1] ?? "";
+  const backendFilters = new Set([...filtersBlock.matchAll(/"([A-Za-z0-9_]+)"/g)].map((item) => item[1]));
+  for (const key of AI_PAGE_FILTER_KEYS) {
+    assert.ok(backendFilters.has(key), `backend page context must accept filter ${key}`);
+  }
 });
 
 test("chat route validates page context and workflow injects it outside the user message", () => {

@@ -1228,7 +1228,7 @@ export async function getInventoryOverview(
 ) {
   const pagination = normalizeInventoryPagination(options);
   const context = await loadInventoryOverviewContext(db, principal, options, salesReader);
-  const { latestBatch, salesStartDate, salesEndDate, salesWindowDays, settings } = context;
+  const { latestBatch, salesWindowDays, settings } = context;
 
   if (!latestBatch) {
     const dashboard = buildInventoryDashboardResponse(context);

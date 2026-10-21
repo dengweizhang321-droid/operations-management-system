@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchBoundedJson } from "@/lib/ai/bounded-fetch";
 import { correspondingMarketBaselineDate, marketPairs, marketSelector, validateMarketPreview, validateParkedCreate,
-  MARKET_V2_VIEWS, type MarketPair, type MarketPreview, type MarketSource, type MarketView } from "@/lib/ai/business-market-v2-preview";
+  type MarketPair, type MarketPreview, type MarketSource, type MarketView } from "@/lib/ai/business-market-v2-preview";
 
 type Report = { id: string; status: string; createdAt: string };
 type DirectoryPage = { schemaVersion: string; runId: string; evidenceVersion: number; catalogDigest: string;

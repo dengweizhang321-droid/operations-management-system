@@ -6,6 +6,8 @@ import type { ShellPeriodState } from "./shell/navigation-contract";
 import type { ImportSourceKey } from "./shell/navigation-catalog";
 import type { AppCurrentUser } from "./shell/view-contract";
 import { resolveNetshopPeriods } from "@/lib/netshop/periods";
+import type { ProductSummaryItem } from "@/lib/products/summary";
+export type { ProductSummaryItem };
 export type CurrentUser = AppCurrentUser;
 
 export function canManageFinanceTargets(
@@ -110,33 +112,6 @@ export type SalesDashboardResponse = Pick<SalesSummaryResponse,
   "previousStartDate" | "previousEndDate" | "yearAgoStartDate" | "yearAgoEndDate" |
   "current" | "previous" | "yearAgo" | "outlets" | "daily" | "latestBatch"
 > & { projection: "dashboard" };
-
-export type ProductSummaryItem = {
-  productCode: string;
-  productName: string;
-  brand: string;
-  supplierName: string;
-  specification: string;
-  category: string;
-  outlets: Array<{ platform: string; shop: string }>;
-  netQuantity: number;
-  grossSalesCents: number;
-  refundAmountCents: number;
-  netSalesCents: number;
-  costCents: number;
-  feeCents: number;
-  grossProfitCents: number;
-  grossMarginRate: number | null;
-  refundRate: number;
-  shippingRate: number | null;
-  averageSalePriceCents: number | null;
-  averageCostCents: number | null;
-  observedFeeRate: number | null;
-  availableQuantity: number | null;
-  stockValueCents: number | null;
-  knownStockValueCents: number | null;
-  costCoverageRate: number | null;
-};
 
 export type ProductShopFilterOption = {
   key: string;

@@ -67,7 +67,7 @@ export type AiPageModule = keyof typeof AI_PAGE_CONTEXT_CATALOG;
 
 export const AI_PAGE_FILTER_KEYS = [
   "platforms", "shops", "channels", "categories", "warehouses", "brands", "skus", "spus",
-  "productCodes", "months", "scope", "rankingDimension", "query", "status", "dataset",
+  "productCodes", "productKind", "months", "scope", "rankingDimension", "query", "status", "dataset",
   "operationMode", "subcategories", "dueFrom", "dueTo", "owner", "selectedIds",
   "outletKeys", "priceBands", "suppliers", "warehouseTypes", "healthStatuses", "ageBuckets",
   "agents", "robotScopes", "problemTypes", "conversionStatuses", "priorities", "sources",
@@ -198,7 +198,7 @@ function isCalendarDay(value: string) {
 
 const FILTER_LABELS: Record<keyof AiPageFilters, string> = {
   platforms: "平台", shops: "店铺", channels: "渠道", categories: "类目", warehouses: "仓库", brands: "品牌",
-  skus: "SKU", spus: "SPU", productCodes: "货品代码", months: "月份", scope: "榜单范围", rankingDimension: "排行维度",
+  skus: "SKU", spus: "SPU", productCodes: "货品代码", productKind: "商品类型", months: "月份", scope: "榜单范围", rankingDimension: "排行维度",
   query: "搜索条件", status: "状态", dataset: "数据类型", operationMode: "经营模式", subcategories: "细分类目",
   dueFrom: "到期起日", dueTo: "到期上界（不含）", owner: "负责人", selectedIds: "已选记录", outletKeys: "店铺",
   priceBands: "价格带", suppliers: "供应商", warehouseTypes: "仓库类型", healthStatuses: "库存状态", ageBuckets: "库龄段",
