@@ -8,7 +8,7 @@ const dir=path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)
 const host='D:/teruisi-runtime/tools/pwsh/pwsh.exe';
 const env={...process.env,PATH:path.dirname(host)+';'+process.env.PATH};
 const hash=p=>createHash('sha256').update(readFileSync(p)).digest('hex');
-const sources=['tools/worker-local-service.ps1','tools/operations-system-control.ps1','tests/start-timing.test.ps1','tests/start-timing.test.mjs','tests/dingtalk-startup.test.ts','tests/operations-system-control.test.ts'];
+const sources=['tools/worker-local-service.ps1','tools/operations-system-control.ps1','tests/start-timing.test.ps1','tests/start-timing-observation.test.ps1','tests/start-timing.test.mjs','tests/dingtalk-startup.test.ts','tests/operations-system-control.test.ts'];
 const summary={at:new Date().toISOString(),base:spawnSync('git',['rev-parse','origin/main'],{encoding:'utf8'}).stdout.trim(),sourceSha256:Object.fromEntries(sources.map(p=>[p,hash(p)])),checks:[]};
 const parse="$ErrorActionPreference='Stop';foreach($file in @('tools/worker-local-service.ps1','tools/operations-system-control.ps1','tests/start-timing.test.ps1')){$errors=$null;[void][Management.Automation.Language.Parser]::ParseFile((Join-Path (Get-Location) $file),[ref]$null,[ref]$errors);if($errors.Count){throw ($errors|Out-String)}};Write-Output 'PowerShell parse passed'";
 const commands=[
