@@ -195,7 +195,7 @@ function Write-WorkerStartupTiming([string]$Stage, [string]$StartedAt, [long]$El
 }
 
 function Get-WorkerStartBudgetMilliseconds([ValidateSet('DjangoEnsure','ReleaseVerification','SupervisorStart','DingTalkReceiver')][string]$Phase) {
-  $defaults = @{ DjangoEnsure=480; ReleaseVerification=300; SupervisorStart=120; DingTalkReceiver=180 }
+  $defaults = @{ DjangoEnsure=400; ReleaseVerification=220; SupervisorStart=90; DingTalkReceiver=180 }
   $name = 'TERUISI_START_' + $Phase.ToUpperInvariant() + '_SECONDS'
   $configured = [Environment]::GetEnvironmentVariable($name)
   $seconds = [int]$defaults[$Phase]

@@ -16,7 +16,7 @@ foreach($file in $historicalFiles){$historicalContents[$file]=[Convert]::ToBase6
 try {
   $WorkerOperationDeadline = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + 30000
   $outer = $WorkerOperationDeadline
-  $defaults = @{DjangoEnsure=480000;ReleaseVerification=300000;SupervisorStart=120000;DingTalkReceiver=180000}
+  $defaults = @{DjangoEnsure=400000;ReleaseVerification=220000;SupervisorStart=90000;DingTalkReceiver=180000}
   foreach ($phase in $defaults.Keys) {
     Check ((Get-WorkerStartBudgetMilliseconds $phase) -eq $defaults[$phase]) "default:$phase"
     $key = 'TERUISI_START_' + $phase.ToUpperInvariant() + '_SECONDS'
