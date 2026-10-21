@@ -63,8 +63,16 @@ export async function publishPreparedMain(request,context){
  const deployOnly=context.deployOnly??!context.prepareOnly;
  const components=preparedComponents(request);
  const schema=schemaForRequest(request);
- const piUpgradeRequired=['PiWorkspace','PiBusiness','PiNative'].includes(schema?.additionKind);
- const piUpgradeImage=schema?.additionKind==='PiNative'?piNativeImage:schema?.additionKind==='PiBusiness'?piBusinessImage:piWorkspaceImage;
+ // Runner host sources are deployed separately from Django, including fixes
+ // that do not introduce another database migration. The complete frozen Git
+ // diff binds this decision; tests alone do not change the installed Runner.
+ const piRuntimeChanged=(request.releasePlan?.changes??[]).some(change=>[change.path,change.before].some(file=>
+  typeof file==='string'&&file.startsWith('backend/pi_runner/')&&file.endsWith('.py')&&
+  !file.split('/').some(part=>part==='tests'||part.startsWith('test_'))));
+ const piUpgradeKind=['PiWorkspace','PiBusiness','PiNative'].includes(schema?.additionKind)?schema.additionKind:piRuntimeChanged?'PiNative':null;
+ const piUpgradeRequired=piUpgradeKind!==null;
+ assert.ok(!piUpgradeRequired||components.django,'Pi Runner升级必须绑定本次Django准备包');
+ const piUpgradeImage=piUpgradeKind==='PiNative'?piNativeImage:piUpgradeKind==='PiBusiness'?piBusinessImage:piWorkspaceImage;
  const {out,api,rotation,transport}=context;
  const source=normalizePreparedSourceRoot(context.source);
  const progress=context.progress??noProgress;
@@ -228,7 +236,7 @@ export async function publishPreparedMain(request,context){
     djangoExpected=await sha(path.join(path.dirname(installed),'app.deploy-'+pkg.id,'deployment.json'));
    }
     if(piUpgradeRequired){
-     piRunnerUpgrade=verifyPiUpgrade(await step('准备Pi Runner升级',path.join(source,'tools/django-ai.ps1'),'PreparePiUpgrade',['-PiImage',piUpgradeImage,...(schema.additionKind==='PiNative'?['-PiSkillVersion','1.3.0']:schema.additionKind==='PiBusiness'?['-PiSkillVersion','1.2.0']:[]),'-PiPreparedAppId',pkg.id,'-PiPreparedAppSha256',pkg.receiptSha256],{directory:preparationOut}),piUpgradeImage);
+     piRunnerUpgrade=verifyPiUpgrade(await step('准备Pi Runner升级',path.join(source,'tools/django-ai.ps1'),'PreparePiUpgrade',['-PiImage',piUpgradeImage,...(piUpgradeKind==='PiNative'?['-PiSkillVersion','1.3.0']:piUpgradeKind==='PiBusiness'?['-PiSkillVersion','1.2.0']:[]),'-PiPreparedAppId',pkg.id,'-PiPreparedAppSha256',pkg.receiptSha256],{directory:preparationOut}),piUpgradeImage);
     }
     assert.deepEqual(await sourceIdentity(),identity,'打包期间源码变化');
     assert.deepEqual((await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true})).head,before.head,'准备期间Worker前驱改变');

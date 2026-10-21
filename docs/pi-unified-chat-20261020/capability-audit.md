@@ -251,3 +251,15 @@ A1 使用 AST 读取请求白名单与 1.3.0 manifest 的无副作用核对，�
 - 对该目录JSON检查常见Bearer/access_token/加密密钥字段/DPAPI密钥正文/policyReaderPassword标记，未发现这些敏感输出；提供商回执只保留摘要，未保存真实凭据或原私有模型响应。
 
 最终事实结论：本次候选的两份合成附件、两段正文经原业务确认与真实企业机器人接口分别取得平台受理回执，审计与清理完整，未发现剩余事实矛盾。它仍是隔离候选采用验收，不表示已合main/上线，也不授权继续发送更多测试消息。
+
+## 后续已获合main/上线授权后的必需发布适配审查
+
+用户随后明确要求将任务合main并发布上线，已撤销此前禁止；前文“未获发布授权”仅为当时历史状态。独立审查仍只读、无生产动作，不再追加业务验收。已重新读取当前AGENTS/模型映射及相关发布边界，审查最新main合入任务分支后的必要升级适配。
+
+确定原发布缺口：`publish-prepared-main.mjs`此前仅在PiWorkspace/PiBusiness/PiNative结构新增时准备与采用独立Linux Runner；本轮只改Runner源码无migration，单纯DeployApp不会更新Linux user unit指向的独立来源，因而可能造成网页/Django新源码已采用而Runner修复未采用。
+
+对当前最小修复增量复审无实质阻断：完整冻结releasePlan.changes同时检查path/before，非测试`backend/pi_runner/*.py`来源变更触发现有独立升级；仍优先沿旧PiWorkspace/PiBusiness/PiNative schema分支，无schema时明确使用当前153前驱对应Native1.3.0及87e41…固定镜像，并通过piUpgradeKind避免schema=null解引用。强制包含本次Django组件与prepared package，未新增结构迁移、ProvisionRoles或生产全局配置修改。此检测仅宣称覆盖本轮Python源范围；`source_digest`还哈希其他非测试资源，资源/镜像变更仍需对应明确交付，不能把本适配宣传为自动处理任意镜像资源变化。
+
+PreparePiUpgrade传入精确prepared app ID/SHA。原Get-PiUpgradePreparedExecutionRoot核prepared包属于同sourceRoot并验证backend字节，随后在该真实来源计算Runner source_digest；并非从旧installed模板误读新来源。原PiUpgradeCheck复验同registered plan/source/image，准备与制品复用期间保持原app绑定；维护完整停止、DeployApp/Harden之后、Start之前才UpgradePi。原native升级入口仍检查AI端口空闲/PiWorker停止、旧配置和密钥身份、来源/镜像/协议、CAS及unknown不可重放；未改这些门禁。
+
+已直接读取新增私有假引擎测试源码：no-schema Runner来源变更先prepare-only、不启维护/Upgrade；再复用已准备Worker/Django/Runner计划deploy，PrepareApp/PreparePiUpgrade/UpgradePi各一次，Deploy先于Upgrade、Upgrade先于Start，migration=null。主代理报告该用例与既有combined无迁移用例共2项通过，以及受改Python AST/Node语法检查通过；审查者复用既有检查，不额外运行发布、构建或业务测试。最终合并、制品及生产采用事实由主发布负责人原生回执单独记录，本审查通过不替代这些事实。

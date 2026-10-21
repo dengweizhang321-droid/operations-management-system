@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {publishPreparedMain,piWorkspaceImage,releaseLeaseTtlMs} from '../tools/publish-prepared-main.mjs';
+import {publishPreparedMain,piWorkspaceImage,piNativeImage,releaseLeaseTtlMs} from '../tools/publish-prepared-main.mjs';
 import {monitoringSchema,tmallSchema,tmall148Schema,piAgentSchema,piWorkspaceSchema} from '../tools/main-schema-release.mjs';
 
 async function fixture(t,components=['worker'],failAt=null){
@@ -94,6 +94,37 @@ test('django-only keeps old Worker and never prepares or applies a Worker releas
 test('combined uses full native maintenance without any migration operator',async t=>{
  const f=await fixture(t,['worker','django']);await publishPreparedMain(f.request,f.context);
  assert.deepEqual(operations(f.events),['plan','PrepareApp','EnterMaintenance','Stop','DeployApp','HardenAcl','apply','ExitMaintenance','Start','VerifyStartup','ready']);
+});
+
+test('Runner source-only release prepares and adopts the bound Runner without a schema migration',async t=>{
+ const f=await fixture(t,['worker','django']);
+ f.request.releasePlan={changes:[{status:'M',path:'backend/pi_runner/server.py'}]};
+ const original=f.context.runStep;
+ const upgrade={prepared:true,started:false,registeredPlanSha256:'c'.repeat(64),sourceSha256:'d'.repeat(64),image:piNativeImage};
+ f.context.runStep=async args=>{
+  const value=await original(args);
+  if(args.action==='PreparePiUpgrade'){
+   assert.equal(args.extra[args.extra.indexOf('-PiSkillVersion')+1],'1.3.0');
+   assert.equal(args.extra[args.extra.indexOf('-PiImage')+1],piNativeImage);
+   assert.equal(args.extra[args.extra.indexOf('-PiPreparedAppId')+1],'8'.repeat(32));
+   return upgrade;
+  }
+  if(args.action==='PiUpgradeCheck')return {...upgrade,checked:true};
+  if(args.action==='UpgradePi')return {...upgrade,upgraded:true,windowsConfigUpdated:true,sameDpapiOwner:true};
+  return value;
+ };
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ assert.ok(f.events.includes('PreparePiUpgrade'));
+ assert.ok(!f.events.includes('EnterMaintenance')&&!f.events.includes('UpgradePi'));
+ const receipt=await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ assert.equal(receipt.status,'deployed_and_ready');
+ assert.equal(receipt.migration,null);
+ assert.equal(receipt.piRunnerUpgrade.sourceSha256,upgrade.sourceSha256);
+ assert.equal(f.events.filter(e=>e==='PreparePiUpgrade').length,1);
+ assert.equal(f.events.filter(e=>e==='PrepareApp').length,1);
+ assert.equal(f.events.filter(e=>e==='UpgradePi').length,1);
+ assert.ok(f.events.indexOf('DeployApp')<f.events.indexOf('UpgradePi'));
+ assert.ok(f.events.indexOf('UpgradePi')<f.events.indexOf('Start'));
 });
 test('release lease covers preparation, reverification, Start and ready with bounded refreshes',async t=>{
  const f=await fixture(t,['worker','django']);
