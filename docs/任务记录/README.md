@@ -39,6 +39,8 @@
 
 ## 发布与交付
 
+本轮规划：[发布提速 ROI 施工看板](../施工/BOARD.md) · [执行约定](../施工/执行约定.md) · [调整报告](../施工/REPORT.md)（只调整文档，保留已通过任务；未实施代码或生产动作）。
+
 本轮补充：[PiBusiness/PiNative ACL 契约门禁](../schema-acl-gate-20261020/REPORT.md)（已合并，含发布范围计划）。
 
 本轮补充：[发布流程可避免返工优化（候选）](../release-optimizations-20261020/REPORT.md)。
