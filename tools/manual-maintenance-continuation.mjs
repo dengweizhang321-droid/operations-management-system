@@ -50,9 +50,22 @@ export const nativePiBusinessPredecessor=Object.freeze({
 // receipt, worker stop, process-tree termination or signal handling, and adds
 // no external process. Evidence: docs/施工/S04a.md.
 export const piNativeCandidateDjangoScriptSha256='65f057297208b32ac6d3c2e71a12016b1fd4afdc0ed7ea455fbda13181fffb61';
+// S05a (2026-10-22): qualification is per controller, never one shared
+// exception. A controller name owns only its own reviewed candidate hashes; an
+// unregistered name or an unlisted hash for a registered name still fails
+// closed, and a candidate identical to the installed bytes needs no entry.
+// The worker hash below is B1 `codex/start-timing-20261022` (2dd8f23f)
+// tools/worker-local-service.ps1: startup phase budgets/observation plus an
+// independent DingTalk startup observer. Evidence: docs/施工/S05a.md.
+export const piNativeCandidateControllerSha256=Object.freeze({
+ 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256]),
+ 'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058']),
+ 'process-deadline.ps1':Object.freeze([])
+});
 export function assertMaintenanceControllerGeneration({name,installedSha,expected,candidateSha}){
  if(installedSha===expected)return;
- if(name==='django-local-service.ps1'&&candidateSha===piNativeCandidateDjangoScriptSha256)return;
+ const qualified=piNativeCandidateControllerSha256[name];
+ if(qualified&&qualified.includes(candidateSha))return;
  assert.equal(installedSha,expected,'实际原生控制器代际与候选不一致：'+name);
 }
 export const piMaintenancePredecessor=Object.freeze({

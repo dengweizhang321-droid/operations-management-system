@@ -6,7 +6,7 @@ import path from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {createHash} from 'node:crypto';
-import {firstMaintenancePredecessor as k,assertFirstMaintenanceContinuation,continueFirstMaintenance,isFirstMaintenancePredecessor,assertMaintenanceControllerGeneration,piNativeCandidateDjangoScriptSha256} from '../tools/manual-maintenance-continuation.mjs';
+import {firstMaintenancePredecessor as k,assertFirstMaintenanceContinuation,continueFirstMaintenance,isFirstMaintenancePredecessor,assertMaintenanceControllerGeneration,piNativeCandidateDjangoScriptSha256,piNativeCandidateControllerSha256} from '../tools/manual-maintenance-continuation.mjs';
 import {publishPreparedMain} from '../tools/publish-prepared-main.mjs';
 // Execute the actual pure adapter declaration without importing release-impact's
 // TypeScript-dependent deployment analysis into this dependency-free fixture.
@@ -46,6 +46,24 @@ test('S04a: A1-fixed candidate local-service is qualified against the installed 
  assert.throws(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:'a'.repeat(64)}),/实际原生控制器代际与候选不一致：django-local-service\.ps1/);
  assert.throws(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}),/实际原生控制器代际与候选不一致：worker-local-service\.ps1/);
  assert.throws(()=>assertMaintenanceControllerGeneration({name:'process-deadline.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}),/实际原生控制器代际与候选不一致：process-deadline\.ps1/);
+});
+test('S05a: B1 worker controller is qualified per controller; other names still fail closed',()=>{
+ // Exact B1 (codex/start-timing-20261022, 2dd8f23f) worker controller bytes and
+ // the installed controller shipped with 4059afea.
+ const installed='112b091b610b09187110ba478cfff2280b30705dd21e185a8132e683414ec2bc';
+ const candidate='83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058';
+ assert.deepEqual([...piNativeCandidateControllerSha256['worker-local-service.ps1']],[candidate]);
+ assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}));
+ assert.throws(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:'c'.repeat(64)}),/实际原生控制器代际与候选不一致：worker-local-service\.ps1/);
+ // Each name only owns its own hashes: the django generation is not a worker one, nor the reverse.
+ assert.throws(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:piNativeCandidateDjangoScriptSha256}),/worker-local-service\.ps1/);
+ assert.throws(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}),/django-local-service\.ps1/);
+ assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:installed,expected:piNativeCandidateDjangoScriptSha256,candidateSha:piNativeCandidateDjangoScriptSha256}));
+ // A registered name with no reviewed candidate still refuses every drift.
+ assert.deepEqual([...piNativeCandidateControllerSha256['process-deadline.ps1']],[]);
+ assert.throws(()=>assertMaintenanceControllerGeneration({name:'process-deadline.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}),/process-deadline\.ps1/);
+ // An unknown controller name is never a default allow.
+ assert.throws(()=>assertMaintenanceControllerGeneration({name:'foo.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}),/实际原生控制器代际与候选不一致：foo\.ps1/);
 });
 const failures={
  'wrong maintenance ID':s=>s.maintenance.id='c'.repeat(32),
