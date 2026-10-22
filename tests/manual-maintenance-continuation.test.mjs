@@ -36,6 +36,17 @@ test('PiNative local-service generation is the only same-AI controller exception
  assert.throws(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:installed,expected:piNativeCandidateDjangoScriptSha256,candidateSha:piNativeCandidateDjangoScriptSha256}),/不一致/);
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:piNativeCandidateDjangoScriptSha256,expected:piNativeCandidateDjangoScriptSha256,candidateSha:piNativeCandidateDjangoScriptSha256}));
 });
+test('S04a: A1-fixed candidate local-service is qualified against the installed 988810cf controller',()=>{
+ // Exact witness bytes from the S04 refusal (FAILED-c8e0ea7a-…): the installed
+ // controller shipped with 988810cf, the candidate controller with 559e64fd.
+ const installed='c9e72fcc7d56282f7c5bcd5a56ee5c4f75005e74c2f23e0f229f4156496c6878';
+ const candidate='65f057297208b32ac6d3c2e71a12016b1fd4afdc0ed7ea455fbda13181fffb61';
+ assert.equal(piNativeCandidateDjangoScriptSha256,candidate);
+ assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}));
+ assert.throws(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:'a'.repeat(64)}),/实际原生控制器代际与候选不一致：django-local-service\.ps1/);
+ assert.throws(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}),/实际原生控制器代际与候选不一致：worker-local-service\.ps1/);
+ assert.throws(()=>assertMaintenanceControllerGeneration({name:'process-deadline.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}),/实际原生控制器代际与候选不一致：process-deadline\.ps1/);
+});
 const failures={
  'wrong maintenance ID':s=>s.maintenance.id='c'.repeat(32),
  'coerced maintenance keepPG':s=>s.maintenance.keepPostgres='true',
