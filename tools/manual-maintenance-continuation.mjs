@@ -42,7 +42,14 @@ export const nativePiBusinessPredecessor=Object.freeze({
 // changing django-ai.ps1. This reviewed candidate hash is the only same-AI
 // generation in which the candidate local-service may differ from the
 // installed one; any other drift still fails closed.
-export const piNativeCandidateDjangoScriptSha256='d012318c82d7db60e8037bb19c4e7a2ef856fed05cf4d70471b6a24b0a9e7437';
+// S04a (2026-10-22) re-registers that generation for the A1 gate fix
+// (988810cf..559e64fd, 1 file +25 -3): Assert-WranglerRuntimeFacts is split out
+// of Assert-WranglerRuntimeCli as a pure JSON fact check, and the app-tree
+// manifest caller uses it instead of spawning `wrangler --version`. The diff
+// touches no maintenance enter/exit, maintenance lock, drain, STARTED/SUCCESS
+// receipt, worker stop, process-tree termination or signal handling, and adds
+// no external process. Evidence: docs/施工/S04a.md.
+export const piNativeCandidateDjangoScriptSha256='65f057297208b32ac6d3c2e71a12016b1fd4afdc0ed7ea455fbda13181fffb61';
 export function assertMaintenanceControllerGeneration({name,installedSha,expected,candidateSha}){
  if(installedSha===expected)return;
  if(name==='django-local-service.ps1'&&candidateSha===piNativeCandidateDjangoScriptSha256)return;
