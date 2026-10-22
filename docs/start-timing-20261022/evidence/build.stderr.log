@@ -1,17 +1,17 @@
 [33m[PLUGIN_TIMINGS] [0mYour build spent significant time in plugins. Here is a breakdown:
-  - rsc:virtual-client-package (32%)
-  - rsc:use-client (12%)
-  - vinext:react-canary (11%)
-  - rsc:use-server (9%)
-  - vinext:strip-server-exports (8%)
+  - rsc:virtual-client-package (31%)
+  - rsc:scan-strip (15%)
+  - vinext:rsc-client-reference-loaders (13%)
+  - rsc:use-server (8%)
+  - vinext:image-imports (6%)
 See https://rolldown.rs/options/checks#plugintimings for more details.
 
 [33m[PLUGIN_TIMINGS] [0mYour build spent significant time in plugins. Here is a breakdown:
-  - rsc:virtual-client-package (43%)
-  - vinext:react-canary (41%)
-  - rsc:scan-strip (3%)
-  - vinext:strip-server-exports (1%)
-  - vinext:optimize-imports (1%)
+  - rsc:virtual-client-package (64%)
+  - vinext:rsc-client-reference-loaders (9%)
+  - vinext:react-canary (9%)
+  - vinext:optimize-imports (2%)
+  - vinext:og-font-patch (2%)
 See https://rolldown.rs/options/checks#plugintimings for more details.
 
 [plugin builtin:vite-reporter] 

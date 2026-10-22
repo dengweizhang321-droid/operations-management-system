@@ -100,4 +100,4 @@ Start 在原必要组件成功后写入 `startCompletedAt`，返回原 `started`
 
 ### 基线同步
 
-分支 `codex/start-timing-20261022` rebase 到最新 `origin/main`（`61f891a8`）。预期并实际出现的冲突只有 `docs/任务记录/README.md` 与 `docs/文档目录.md`，按「两边新增条目全部保留」处理，未 `--skip`、未用策略参数丢弃任一侧、未 `reset`、未强推。rebase 后按 `evidence/verify.mjs` 重跑全部定向检查，原始输出与退出码见 [verification.json](evidence/verification.json)。
+分支 `codex/start-timing-20261022` rebase 到最新 `origin/main`（`61f891a8`）。预期冲突文件为 `docs/任务记录/README.md` 与 `docs/文档目录.md`；实际 rebase 时因两侧新增条目位于文件中不同位置，三方合并自动成功（无冲突标记），两个文件均保留两边条目（我方“本轮候选：Start 分项预算…”与最新 main 的“本轮补充/本轮新增导航…”并存），未 `--skip`、未用策略参数丢弃任一侧、未 `reset`、未强推。rebase 后按 `evidence/verify.mjs` 重跑全部定向检查，原始输出与退出码见 [verification.json](evidence/verification.json)。

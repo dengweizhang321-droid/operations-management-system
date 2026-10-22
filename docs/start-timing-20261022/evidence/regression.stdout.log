@@ -1,23 +1,23 @@
-✔ powershell.exe: receiver startup approval and singleton fail closed (1010.1983ms)
-✔ pwsh.exe: receiver startup approval and singleton fail closed (969.5164ms)
-✔ ordinary system startup invokes the receiver after readiness and guarded release startup preserves it (1.7449ms)
-✔ real startup function preserves receiver state during release and refuses unready backends (1274.9113ms)
-✔ isolated startup never reaches the production receiver; installed controller failures remain visible (727.1048ms)
-✔ unified controller stays parseable by Windows PowerShell when Chinese text is present (1.6116ms)
-✔ all system page actions explicitly use Google Chrome instead of the Windows default browser (0.2179ms)
-✔ Django domain controllers and operators retain a UTF-8 BOM for Windows PowerShell 5.1 (9.9586ms)
-✔ all public start modes share one nonblocking system mutex (0.4611ms)
-✔ controller checks every authoritative Django PostgreSQL domain (0.4494ms)
-✔ controller delegates mutation to one start engine and performs final health gates (0.206ms)
-✔ controller waits only for the direct start-engine process instead of a durable child pipeline (0.2339ms)
-✔ canonical start engine enforces Django readiness before Worker verification (0.3788ms)
-✔ canonical engine waits only for the direct Django Start controller process (0.4376ms)
-✔ concurrent-start wait reuses a ten-second exact status result (0.3088ms)
-✔ canonical engine clears only an exact validated stale receipt (0.2497ms)
-✔ controller verifies Worker liveness, readiness and helper health without proxying (0.1504ms)
-✔ desktop panel launches the same controller instead of a lower-level service (0.1744ms)
-✔ pause remains narrowly scoped to the exact immutable Worker (0.1837ms)
-✔ controller never invokes legacy build or development launchers (0.2665ms)
+✔ powershell.exe: receiver startup approval and singleton fail closed (1192.6285ms)
+✔ pwsh.exe: receiver startup approval and singleton fail closed (927.5697ms)
+✔ ordinary system startup invokes the receiver after readiness and guarded release startup preserves it (1.2443ms)
+✔ real startup function preserves receiver state during release and refuses unready backends (1463.3727ms)
+✔ isolated startup never reaches the production receiver; installed controller failures remain visible (722.4649ms)
+✔ unified controller stays parseable by Windows PowerShell when Chinese text is present (1.3839ms)
+✔ all system page actions explicitly use Google Chrome instead of the Windows default browser (0.24ms)
+✔ Django domain controllers and operators retain a UTF-8 BOM for Windows PowerShell 5.1 (5.7704ms)
+✔ all public start modes share one nonblocking system mutex (0.3368ms)
+✔ controller checks every authoritative Django PostgreSQL domain (0.4237ms)
+✔ controller delegates mutation to one start engine and performs final health gates (0.1883ms)
+✔ controller waits only for the direct start-engine process instead of a durable child pipeline (0.1486ms)
+✔ canonical start engine enforces Django readiness before Worker verification (0.345ms)
+✔ canonical engine waits only for the direct Django Start controller process (0.3673ms)
+✔ concurrent-start wait reuses a ten-second exact status result (0.2432ms)
+✔ canonical engine clears only an exact validated stale receipt (0.1864ms)
+✔ controller verifies Worker liveness, readiness and helper health without proxying (0.1355ms)
+✔ desktop panel launches the same controller instead of a lower-level service (0.1542ms)
+✔ pause remains narrowly scoped to the exact immutable Worker (0.143ms)
+✔ controller never invokes legacy build or development launchers (0.3186ms)
 ℹ tests 20
 ℹ suites 0
 ℹ pass 20
@@ -25,4 +25,4 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 4337.7337
+ℹ duration_ms 4991.5275

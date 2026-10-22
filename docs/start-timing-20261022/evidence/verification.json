@@ -1,11 +1,12 @@
 {
-  "at": "2026-10-21T14:23:14.438Z",
-  "base": "f641685b60ca11a674da713e3b7b454f338c622c",
+  "at": "2026-10-22T00:46:24.523Z",
+  "base": "61f891a8731b3fcf64c1f352a7ecb8cf200326fd",
   "sourceSha256": {
-    "tools/worker-local-service.ps1": "d8de804fa7e299dcd8e69bf7a250f13eb333c144d1aafe950d5c8ab369d797c5",
+    "tools/worker-local-service.ps1": "83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058",
     "tools/operations-system-control.ps1": "624cf40d3afa582ee77cd659d58292618809cfd15eedf389caf2c679350f7f3e",
-    "tests/start-timing.test.ps1": "8803546766df4477e6eff5c1d131873d752011bba64f088ef43397e531bf8266",
-    "tests/start-timing.test.mjs": "644466adc8ba9390905d7aa6ad4cdb1b7181c98bec1ac386dc79ba983615dc4e",
+    "tests/start-timing.test.ps1": "c544b3f39e695c6f4c1a030ca13d68706f5b74f8d76056941cb2c401ab85bee1",
+    "tests/start-timing-observation.test.ps1": "9599bab94ddd244f7b39748d289ac1233661c6a010e29cf5d534e9ca4dbf08a3",
+    "tests/start-timing.test.mjs": "75a29d7ae80d8bf8b7f971aa4deb6f839ea9d064504317ca5a60e72be7875d3f",
     "tests/dingtalk-startup.test.ts": "4d3aeb447c621dca599f718156343fead0664c42b900553041ce31b4b5144b06",
     "tests/operations-system-control.test.ts": "cc0c995bd6b50f3a2a564b3caeb8d715dd7e65598feeb476bfcec595181611e8"
   },
@@ -15,9 +16,9 @@
       "command": "node --test tests/start-timing.test.mjs",
       "exitCode": 0,
       "signal": null,
-      "elapsedMilliseconds": 15082,
+      "elapsedMilliseconds": 28169,
       "error": null,
-      "stdoutSha256": "c76e2df3bf251fb35f8d1012c6dc09f6dca360cd7c3927654a2256fa8561ebab",
+      "stdoutSha256": "8a87f28e1205fa17a1889663a10fa14af2692a75d6f988213faf2d0589c3e34b",
       "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
@@ -25,9 +26,9 @@
       "command": "node --import tsx --test tests/dingtalk-startup.test.ts tests/operations-system-control.test.ts",
       "exitCode": 0,
       "signal": null,
-      "elapsedMilliseconds": 4405,
+      "elapsedMilliseconds": 5074,
       "error": null,
-      "stdoutSha256": "5d3042c63c08ae0f3f57a9f61c9dc11d00efcf3efd50c096ace6ba18a671e3df",
+      "stdoutSha256": "15ecc20d07464e9e99f53b81a3b1a3bb543288a43b683ac281cc8e410358f4bc",
       "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
@@ -35,7 +36,7 @@
       "command": "node tools/check-django-production-boundary.mjs",
       "exitCode": 0,
       "signal": null,
-      "elapsedMilliseconds": 7773,
+      "elapsedMilliseconds": 7404,
       "error": null,
       "stdoutSha256": "ce0da13f36eb752943f8672301d2cd8e380e48f51564e9b1a2cd254a5a532756",
       "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -45,7 +46,7 @@
       "command": "powershell.exe -NoProfile -NonInteractive -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQA9ACcAUwB0AG8AcAAnADsAZgBvAHIAZQBhAGMAaAAoACQAZgBpAGwAZQAgAGkAbgAgAEAAKAAnAHQAbwBvAGwAcwAvAHcAbwByAGsAZQByAC0AbABvAGMAYQBsAC0AcwBlAHIAdgBpAGMAZQAuAHAAcwAxACcALAAnAHQAbwBvAGwAcwAvAG8AcABlAHIAYQB0AGkAbwBuAHMALQBzAHkAcwB0AGUAbQAtAGMAbwBuAHQAcgBvAGwALgBwAHMAMQAnACwAJwB0AGUAcwB0AHMALwBzAHQAYQByAHQALQB0AGkAbQBpAG4AZwAuAHQAZQBzAHQALgBwAHMAMQAnACkAKQB7ACQAZQByAHIAbwByAHMAPQAkAG4AdQBsAGwAOwBbAHYAbwBpAGQAXQBbAE0AYQBuAGEAZwBlAG0AZQBuAHQALgBBAHUAdABvAG0AYQB0AGkAbwBuAC4ATABhAG4AZwB1AGEAZwBlAC4AUABhAHIAcwBlAHIAXQA6ADoAUABhAHIAcwBlAEYAaQBsAGUAKAAoAEoAbwBpAG4ALQBQAGEAdABoACAAKABHAGUAdAAtAEwAbwBjAGEAdABpAG8AbgApACAAJABmAGkAbABlACkALABbAHIAZQBmAF0AJABuAHUAbABsACwAWwByAGUAZgBdACQAZQByAHIAbwByAHMAKQA7AGkAZgAoACQAZQByAHIAbwByAHMALgBDAG8AdQBuAHQAKQB7AHQAaAByAG8AdwAgACgAJABlAHIAcgBvAHIAcwB8AE8AdQB0AC0AUwB0AHIAaQBuAGcAKQB9AH0AOwBXAHIAaQB0AGUALQBPAHUAdABwAHUAdAAgACcAUABvAHcAZQByAFMAaABlAGwAbAAgAHAAYQByAHMAZQAgAHAAYQBzAHMAZQBkACcA",
       "exitCode": 0,
       "signal": null,
-      "elapsedMilliseconds": 399,
+      "elapsedMilliseconds": 403,
       "error": null,
       "stdoutSha256": "cc85050e1a8343993dbf688e17f863fc0fa2b767cd32b8478cd19bb4e99bbea4",
       "stderrSha256": "be2a813c5e264e6e4b05c9816b17dc6eb039a1cc247767c8927d259fa5541e12"
@@ -55,7 +56,7 @@
       "command": "D:/teruisi-runtime/tools/pwsh/pwsh.exe -NoProfile -NonInteractive -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQA9ACcAUwB0AG8AcAAnADsAZgBvAHIAZQBhAGMAaAAoACQAZgBpAGwAZQAgAGkAbgAgAEAAKAAnAHQAbwBvAGwAcwAvAHcAbwByAGsAZQByAC0AbABvAGMAYQBsAC0AcwBlAHIAdgBpAGMAZQAuAHAAcwAxACcALAAnAHQAbwBvAGwAcwAvAG8AcABlAHIAYQB0AGkAbwBuAHMALQBzAHkAcwB0AGUAbQAtAGMAbwBuAHQAcgBvAGwALgBwAHMAMQAnACwAJwB0AGUAcwB0AHMALwBzAHQAYQByAHQALQB0AGkAbQBpAG4AZwAuAHQAZQBzAHQALgBwAHMAMQAnACkAKQB7ACQAZQByAHIAbwByAHMAPQAkAG4AdQBsAGwAOwBbAHYAbwBpAGQAXQBbAE0AYQBuAGEAZwBlAG0AZQBuAHQALgBBAHUAdABvAG0AYQB0AGkAbwBuAC4ATABhAG4AZwB1AGEAZwBlAC4AUABhAHIAcwBlAHIAXQA6ADoAUABhAHIAcwBlAEYAaQBsAGUAKAAoAEoAbwBpAG4ALQBQAGEAdABoACAAKABHAGUAdAAtAEwAbwBjAGEAdABpAG8AbgApACAAJABmAGkAbABlACkALABbAHIAZQBmAF0AJABuAHUAbABsACwAWwByAGUAZgBdACQAZQByAHIAbwByAHMAKQA7AGkAZgAoACQAZQByAHIAbwByAHMALgBDAG8AdQBuAHQAKQB7AHQAaAByAG8AdwAgACgAJABlAHIAcgBvAHIAcwB8AE8AdQB0AC0AUwB0AHIAaQBuAGcAKQB9AH0AOwBXAHIAaQB0AGUALQBPAHUAdABwAHUAdAAgACcAUABvAHcAZQByAFMAaABlAGwAbAAgAHAAYQByAHMAZQAgAHAAYQBzAHMAZQBkACcA",
       "exitCode": 0,
       "signal": null,
-      "elapsedMilliseconds": 965,
+      "elapsedMilliseconds": 658,
       "error": null,
       "stdoutSha256": "cc85050e1a8343993dbf688e17f863fc0fa2b767cd32b8478cd19bb4e99bbea4",
       "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -65,17 +66,17 @@
       "command": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c npm run build",
       "exitCode": 0,
       "signal": null,
-      "elapsedMilliseconds": 24485,
+      "elapsedMilliseconds": 26168,
       "error": null,
-      "stdoutSha256": "1dc4524f5dee3832c1b1cfab88c1664feec9683ef0f3692599da8bad07aad590",
-      "stderrSha256": "48f6177d81a31d3f350d422e0db9b32c689fd0586f39c3d3cc3e6bb38fb72a76"
+      "stdoutSha256": "be7595df9808cad5f743567d157b7f3e22e89d2b17dfa4d5555f8268aaa52cc2",
+      "stderrSha256": "cc64d3b80911a72adf8883227c629d033a055382bb0c9446419c490e651c896b"
     },
     {
       "name": "diff-check",
       "command": "git diff --check",
       "exitCode": 0,
       "signal": null,
-      "elapsedMilliseconds": 119,
+      "elapsedMilliseconds": 208,
       "error": null,
       "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
