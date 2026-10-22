@@ -1,5 +1,7 @@
 # 任务记录目录
 
+本轮只读分析：[S05c发布耗时、ROI与真实缺口](../s05c-roi-baseline-20261022/REPORT.md) · [独立复核](../s05c-roi-baseline-20261022/REVIEW.md)。
+
 本轮补充：[规范瘦身与限定资格对照](../machine-cleanup-20261022/REPORT.md) · [独立审查](../machine-cleanup-20261022/REVIEW.md)。
 
 一次开发、审查、候选准备、发布和生产采用的记录按任务目录保存。既有任务目录及其非 Markdown 证据保留原位，避免拆散 JSON、截图、清单和校验记录。以下目录按用途分类，不据目录名称推断生产状态。
