@@ -1,0 +1,13 @@
+✔ phase budgets, async receiver and failure gates: powershell.exe (7263.2072ms)
+✔ phase budgets, async receiver and failure gates: D:/teruisi-runtime/tools/pwsh/pwsh.exe (13648.9569ms)
+✔ independent observer process and observation record bounds: powershell.exe (3334.1112ms)
+✔ independent observer process and observation record bounds: D:/teruisi-runtime/tools/pwsh/pwsh.exe (3676.6545ms)
+✔ publication receipts and lifecycle gates remain outside this candidate (88.2769ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 28099.4456

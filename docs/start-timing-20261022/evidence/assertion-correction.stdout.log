@@ -1,0 +1,74 @@
+✔ cold-start coordination with real competing processes (powershell.exe) (42113.7264ms)
+✔ cold-start coordination with real competing processes (pwsh.exe) (44211.5017ms)
+✔ compiled desktop launcher waits for readiness and preserves failures (7710.9361ms)
+✔ powershell.exe: receiver startup approval and singleton fail closed (1161.5645ms)
+✔ pwsh.exe: receiver startup approval and singleton fail closed (1032.5151ms)
+✔ ordinary system startup invokes the receiver after readiness and guarded release startup preserves it (1.4906ms)
+✔ real startup function preserves receiver state during release and refuses unready backends (1335.4127ms)
+✔ isolated startup never reaches the production receiver; installed controller failures remain visible (756.255ms)
+✔ unified controller stays parseable by Windows PowerShell when Chinese text is present (1.5279ms)
+✔ all system page actions explicitly use Google Chrome instead of the Windows default browser (0.3451ms)
+✔ Django domain controllers and operators retain a UTF-8 BOM for Windows PowerShell 5.1 (17.8198ms)
+✔ all public start modes share one nonblocking system mutex (0.428ms)
+✔ controller checks every authoritative Django PostgreSQL domain (0.5348ms)
+✔ controller delegates mutation to one start engine and performs final health gates (0.2096ms)
+✖ controller waits only for the direct start-engine process instead of a durable child pipeline (2.7402ms)
+✔ canonical start engine enforces Django readiness before Worker verification (0.4021ms)
+✔ canonical engine waits only for the direct Django Start controller process (0.4808ms)
+✔ concurrent-start wait reuses a ten-second exact status result (0.3605ms)
+✔ canonical engine clears only an exact validated stale receipt (0.2885ms)
+✔ controller verifies Worker liveness, readiness and helper health without proxying (0.2002ms)
+✔ desktop panel launches the same controller instead of a lower-level service (0.1632ms)
+✔ pause remains narrowly scoped to the exact immutable Worker (0.1442ms)
+✔ controller never invokes legacy build or development launchers (0.2291ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 22
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 95373.1826
+
+✖ failing tests:
+
+test at tests\operations-system-control.test.ts:1:5116
+✖ controller waits only for the direct start-engine process instead of a durable child pipeline (2.7402ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /-Deadline \(Get-ProcessDeadline\)/. Input:
+  
+  'function Invoke-VisibleServiceAction {\n' +
+    '  param(\n' +
+    '    [string]$ScriptPath,\n' +
+    '    [string[]]$Arguments,\n' +
+    '    [string]$Label\n' +
+    '  )\n' +
+    '\n' +
+    "  $serviceArguments = @('-NoProfile','-NonInteractive','-File',$ScriptPath) + $Arguments\n" +
+    "  $capture = Invoke-DeadlineProcess -Executable $PowerShellExecutable -Arguments $serviceArguments -WorkingDirectory $ProjectRoot -Deadline (Get-ProcessDeadline -TimeoutMilliseconds $(if ($Arguments -contains 'Start') { 1800000 } else { 600000 }))\n" +
+    '  if (-not $Json) {\n' +
+    '    foreach ($text in @($capture.Stdout,$capture.Stderr)) { if (-not [string]::IsNullOrWhiteSpace($text)) { Write-Output $text.TrimEnd() } }\n' +
+    '  }\n' +
+    '  if ($null -eq $capture.ExitCode -or $capture.ExitCode -ne 0) {\n' +
+    "    $capture.Evidence.code='nonzero_exit'\n" +
+    '    $failure=[Exception]::new("$Label failed: exit=$($capture.ExitCode); exact reconciliation required")\n' +
+    "    $failure.Data['ProcessEvidence']=$capture.Evidence\n" +
+    '    throw $failure\n' +
+    '  }\n' +
+    '\n' +
+    '}\n' +
+    '\n'
+  
+      at TestContext.<anonymous> (D:\codex-worktrees\b1\tests\operations-system-control.test.ts:118:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: `function Invoke-VisibleServiceAction {\n  param(\n    [string]$ScriptPath,\n    [string[]]$Arguments,\n    [string]$Label\n  )\n\n  $serviceArguments = @('-NoProfile','-NonInteractive','-File',$ScriptPath) + $Arguments\n  $capture = Invoke-DeadlineProcess -Executable $PowerShellExecutable -Arguments $serviceArguments -WorkingDirectory $ProjectRoot -Deadline (Get-ProcessDeadline -TimeoutMilliseconds $(if ($Arguments -contains 'Start') { 1800000 } else { 600000 }))\n  if (-not $Json) {\n    foreach ($text in @($capture.Stdout,$capture.Stderr)) { if (-not [string]::IsNullOrWhiteSpace($text)) { Write-Output $text.TrimEnd() } }\n  }\n  if ($null -eq $capture.ExitCode -or $capture.ExitCode -ne 0) {\n    $capture.Evidence.code='nonzero_exit'\n    $failure=[Exception]::new("$Label failed: exit=$($capture.ExitCode); exact reconciliation required")\n    $failure.Data['ProcessEvidence']=$capture.Evidence\n    throw $failure\n  }\n\n}\n\n`,
+    expected: /-Deadline \(Get-ProcessDeadline\)/,
+    operator: 'match',
+    diff: 'simple'
+  }

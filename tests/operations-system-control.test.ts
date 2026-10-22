@@ -115,7 +115,8 @@ test("controller waits only for the direct start-engine process instead of a dur
     panel.indexOf("function Test-CoreDjangoReady"),
   );
   assert.match(invocationBlock, /Invoke-DeadlineProcess -Executable \$PowerShellExecutable/);
-  assert.match(invocationBlock, /-Deadline \(Get-ProcessDeadline\)/);
+  assert.match(invocationBlock, /-Deadline \(Get-ProcessDeadline -TimeoutMilliseconds/);
+  assert.match(invocationBlock, /\$Arguments -contains 'Start'\) \{ 1800000 \} else \{ 600000 \}/);
   assert.match(invocationBlock, /\$capture\.ExitCode -ne 0/);
   assert.match(invocationBlock, /exact reconciliation required/);
   assert.doesNotMatch(invocationBlock, /WaitForExit\(\)|ReadAllText/);
