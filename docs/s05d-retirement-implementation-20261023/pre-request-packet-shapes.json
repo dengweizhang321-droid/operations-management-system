@@ -1,0 +1,127 @@
+[
+    {
+        "path":  "D:\\codex-isolated\\main-release-packages\\25fe1fa39e7d-ec09ad08-71ae7608",
+        "members":  [
+                        {
+                            "name":  "source",
+                            "directory":  true,
+                            "attributes":  "Directory"
+                        }
+                    ]
+    },
+    {
+        "path":  "D:\\codex-isolated\\main-release-packages\\47e1e89fea91-pi150-forward",
+        "members":  [
+                        {
+                            "name":  "source",
+                            "directory":  true,
+                            "attributes":  "Directory"
+                        }
+                    ]
+    },
+    {
+        "path":  "D:\\codex-isolated\\main-release-packages\\51eb7d76095d-pi150-forward",
+        "members":  [
+                        {
+                            "name":  "source",
+                            "directory":  true,
+                            "attributes":  "Directory"
+                        }
+                    ]
+    },
+    {
+        "path":  "D:\\codex-isolated\\main-release-packages\\a7041338462a-997d0568-ca9c731a",
+        "members":  [
+                        {
+                            "name":  "source",
+                            "directory":  true,
+                            "attributes":  "Directory"
+                        }
+                    ]
+    },
+    {
+        "path":  "D:\\codex-isolated\\main-release-packages\\b1b0e15d7cb7-bcccc8cd-00058fea",
+        "members":  [
+                        {
+                            "name":  "source",
+                            "directory":  true,
+                            "attributes":  "Directory"
+                        }
+                    ]
+    },
+    {
+        "path":  "D:\\codex-isolated\\main-release-packages\\b44889912af8-f6565b40-79d6d565",
+        "members":  [
+                        {
+                            "name":  "source",
+                            "directory":  true,
+                            "attributes":  "Directory"
+                        }
+                    ]
+    },
+    {
+        "path":  "D:\\codex-isolated\\main-release-packages\\bbc9fda1cfda-pi150-forward",
+        "members":  [
+                        {
+                            "name":  "source",
+                            "directory":  true,
+                            "attributes":  "Directory"
+                        }
+                    ]
+    },
+    {
+        "path":  "D:\\codex-isolated\\main-release-packages\\c7b817989050-ba5c1310-77953588",
+        "members":  [
+                        {
+                            "name":  "schema",
+                            "directory":  true,
+                            "attributes":  "Directory"
+                        },
+                        {
+                            "name":  "source",
+                            "directory":  true,
+                            "attributes":  "Directory"
+                        }
+                    ]
+    },
+    {
+        "path":  "D:\\codex-isolated\\main-release-packages\\cecb609c0ecc-614f2724-69977619",
+        "members":  [
+                        {
+                            "name":  "source",
+                            "directory":  true,
+                            "attributes":  "Directory"
+                        }
+                    ]
+    },
+    {
+        "path":  "D:\\codex-isolated\\main-release-packages\\e508d9c39baf-pi150-forward",
+        "members":  [
+                        {
+                            "name":  "source",
+                            "directory":  true,
+                            "attributes":  "Directory"
+                        }
+                    ]
+    },
+    {
+        "path":  "D:\\codex-isolated\\main-release-packages\\e52361d5a8fc-bcccc8cd-7142cf1e",
+        "members":  [
+                        {
+                            "name":  "source",
+                            "directory":  true,
+                            "attributes":  "Directory"
+                        }
+                    ]
+    },
+    {
+        "path":  "D:\\codex-isolated\\main-release-packages\\f5c688452710-ba5c1310-77953588",
+        "members":  [
+                        {
+                            "name":  "source",
+                            "directory":  true,
+                            "attributes":  "Directory"
+                        }
+                    ]
+    }
+]

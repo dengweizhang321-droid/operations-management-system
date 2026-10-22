@@ -1,0 +1,25 @@
+{
+  "version": "s05d-historical-release-shape-observation-v1",
+  "readOnly": true,
+  "diagnosticOnly": true,
+  "failureReleaseIdentified": false,
+  "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20260829T194525Z-9a33f178481e6c8e",
+  "members": ["audit", "tools", ".dev.vars", "deployment-manifest.json", "package-lock.json", "package.json"],
+  "sourceSnapshotPresent": false,
+  "manifestSha256": "8e75e9e63d6ab3d4ad9143b140b816526ab6ca27ffb5eacc7fb055be2745886e",
+  "manifestVersion": "teruisi-local-worker-release-v1",
+  "declaredSource": {
+    "snapshotRoot": "source-snapshot",
+    "rootPathSha256": "d9bb6d23ce9d73973ee85bebccd1f40e177dc3b6bd5c1417460e96ad98421aae",
+    "tree": {
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 868,
+      "sha256": "1eeb4924a43704209e7d4d7131e158d708413336d402f560ef0f3a4940fbe77e"
+    }
+  },
+  "limits": [
+    "Only direct membership and a bounded manifest projection were read.",
+    "No payload, tools or secret contents were read in this observation.",
+    "This alone does not prove protected-chain membership, cleanup history, source difference, zero effects or retirement."
+  ]
+}

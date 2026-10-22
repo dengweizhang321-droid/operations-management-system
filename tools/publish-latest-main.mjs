@@ -12,6 +12,7 @@ import {prepareMainSchemaRelease} from './main-schema-release.mjs';
 import {wakePreparationTask,currentPreparationIdentity,assertOrdinaryIdentity} from './main-prebuild-task.mjs';
 import {submitPreparation,drainPreparationQueue,ticketResult,acquireQueueLock} from './main-prebuild-queue.mjs';
 import {readAdoptedControl,assertControlGeneration,controlExecution} from './main-control-dispatch.mjs';
+import {assertRetirementAdmission} from './preparation-retirement-admission.mjs';
 
 const execute=promisify(execFile),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const exists=async file=>{try{await fs.access(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};
@@ -61,9 +62,11 @@ export async function readLivePublication(config){
 }
 
 export async function observeLatestMain(config,{git=gitAt,getLive=readLivePublication,log=()=>{}}={}){
+ await assertRetirementAdmission(config);
  log('获取 origin/main；旧任务 completedTask、旧成功回执和旧续接参数不参与目标选择。');
  await git(config.repository,['fetch','origin','refs/heads/main:refs/remotes/origin/main']);
  const target=await git(config.repository,['rev-parse','--verify','refs/remotes/origin/main^{commit}']);assert.match(target,/^[a-f0-9]{40}$/);
+ await assertRetirementAdmission(config,target);
  const live=await getLive(config);assert.match(live.mainCommit,/^[a-f0-9]{40}$/);
  assert.ok(typeof live.source==='string'&&path.isAbsolute(live.source),'缺少当前来源身份');
  const liveAttempt=path.resolve(live.source,'..','publish-'+live.mainCommit.slice(0,12));
@@ -78,6 +81,7 @@ export async function prepareLatestMain(config,options={}){
 export async function prepareLatestMainOnce(config,selection,{git=gitAt,log=()=>{},makePlan=makeReleasePlan,prepareSchema=prepareMainSchemaRelease}={}){
  const {targetCommit:target,live}=selection;
  assert.match(target,/^[a-f0-9]{40}$/);assert.match(live.mainCommit,/^[a-f0-9]{40}$/);
+ await assertRetirementAdmission(config,target);
  if(target===live.mainCommit)return {status:'already-current',targetCommit:target,currentCommit:live.mainCommit,publicationPerformed:false};
  const name=target.slice(0,12)+'-'+live.head.bindingSha256.slice(0,8)+'-'+live.djangoManifestSha256.slice(0,8);
  const packet=path.join(config.releaseDirectory,name),source=path.join(packet,'source');
@@ -207,7 +211,7 @@ export async function drainLatestMainQueue(configFile,{binding,progress,observe=
  binding??=await preparationControlBinding(configFile);
  const config=binding.config,directory=path.join(config.stateDirectory,'prebuild-queue-v2');
  return drainPreparationQueue(directory,{configSha256:binding.state.configSha256,bundleSha256:binding.state.bundleSha256,
-  assertGeneration:()=>assertGeneration(binding),admitPreparation:async()=>{await assertConsumerIdentity(binding);await admit(config);},admitSelectedPreparation:selection=>admitSelected(config,selection),observe:()=>observe(config,{log:message=>progress?.log(message)}),
+  assertGeneration:async()=>{await assertGeneration(binding);await assertRetirementAdmission(config);},admitPreparation:async()=>{await assertConsumerIdentity(binding);await admit(config);},admitSelectedPreparation:async selection=>{await assertRetirementAdmission(config,selection.targetCommit);await admitSelected(config,selection);},observe:()=>observe(config,{log:message=>progress?.log(message)}),
   prepare:async(selection,dispatch,reusablePreparation)=>{
    const prepared=await once(config,selection,{log:message=>progress?.log(message)});
    if(['already-current','non-production'].includes(prepared.status))return prepared;
@@ -239,6 +243,7 @@ export async function runLatestMainCli(args=process.argv.slice(2),binding){
  assert.ok(!(values.check&&values['prepare-only']),'检查与打包模式不能同时使用');
  assert.ok(values.config,'需要固定发布入口配置 --config');
  const config=JSON.parse(await fs.readFile(values.config,'utf8'));
+ await assertRetirementAdmission(config);
  if(config.controlProtocol==='teruisi-main-control-v2'){
   binding??=await preparationControlBinding(values.config);
   await controlExecution(binding,fileURLToPath(import.meta.url),values['consume-preparation']?'consume-preparation':values['prepare-only']?'prepare-only':values.check?'check':'deploy-ready');

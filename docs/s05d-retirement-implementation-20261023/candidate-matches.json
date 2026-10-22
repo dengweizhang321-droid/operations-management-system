@@ -1,0 +1,33 @@
+{
+  "at": "2026-10-22T16:56:59.487916+00:00",
+  "sourceBindingSha256": "6fdd3de3d2382629dc64491bb651a2d018958a594e139e650ead3c13ca4e77f3",
+  "needles": {
+    "sourceRoot": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source",
+    "sourceRootPathSha256": "667fbe6271daf8ab023aca93dc77fb45bc332f01077b317e0748be2836555383",
+    "contentTreeSha256": "abe18170a70b35e845660f8b01eb7d20c8946b4dace28a6ed66d55c462e164db"
+  },
+  "matchingMetadata": [
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261022T071208Z-f5db87473edebc45\\deployment-manifest.json",
+      "kind": "worker-release-manifest",
+      "matches": [
+        {
+          "field": ".source.rootPathSha256",
+          "matches": "sourceRootPathSha256"
+        },
+        {
+          "field": ".source.sourceFingerprint",
+          "matches": "contentTreeSha256"
+        },
+        {
+          "field": ".source.tree.sha256",
+          "matches": "contentTreeSha256"
+        }
+      ],
+      "sha256": "f8f96652bed31e0f69c007c88e2bb81f247c9b7afa3b6eed95dfa5d0dc97a073"
+    }
+  ],
+  "objectsObserved": 2390,
+  "missingOrUninspected": [],
+  "limits": "Structural selected-field exact matching only; not a complete source/consumer or artifact-ownership proof."
+}

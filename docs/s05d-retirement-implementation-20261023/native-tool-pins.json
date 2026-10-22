@@ -1,0 +1,26 @@
+{
+    "at":  "2026-10-22T17:21:34.5858294Z",
+    "configPath":  "D:/codex-isolated/main-manual-release-20261016/main-publisher-config.json",
+    "configSha256":  "a90c9b8072e1ed6dd225072aa59e78075ea82639498f9ad74c19fc1be5f77642",
+    "nativeToolsSource":  "D:\\codex-isolated\\main-manual-release-20261016\\native-tools\\d08a3c4de4bd04325bd8e63811775934e97a9f63f757e40b6afec4a3166ddf31",
+    "pins":  [
+                 {
+                     "name":  "worker-local-release.mjs",
+                     "path":  "D:\\codex-isolated\\main-manual-release-20261016\\native-tools\\d08a3c4de4bd04325bd8e63811775934e97a9f63f757e40b6afec4a3166ddf31\\tools\\worker-local-release.mjs",
+                     "bytes":  186712,
+                     "sha256":  "aa1be03ebde6fc5b5f9a50fc986a12756ba8eda69e0549ef111f23d5b9439bd2"
+                 },
+                 {
+                     "name":  "worker-local-release-rotation.mjs",
+                     "path":  "D:\\codex-isolated\\main-manual-release-20261016\\native-tools\\d08a3c4de4bd04325bd8e63811775934e97a9f63f757e40b6afec4a3166ddf31\\tools\\worker-local-release-rotation.mjs",
+                     "bytes":  81715,
+                     "sha256":  "778c136602cf1ebb44fd2fbed1ee67a3cf24fbd78a2cc52b8541db5be114b556"
+                 },
+                 {
+                     "name":  "d1-retirement-proof.mjs",
+                     "path":  "D:\\codex-isolated\\main-manual-release-20261016\\native-tools\\d08a3c4de4bd04325bd8e63811775934e97a9f63f757e40b6afec4a3166ddf31\\tools\\d1-retirement-proof.mjs",
+                     "bytes":  416,
+                     "sha256":  "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76"
+                 }
+             ]
+}

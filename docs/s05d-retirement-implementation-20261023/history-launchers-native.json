@@ -1,0 +1,1125 @@
+{
+  "version": "s05d-history-launcher-projection-v2",
+  "readOnly": true,
+  "supersedesInvalidLiteralTransport": "history-launchers.json",
+  "groups": {
+    "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d": {
+      "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+      "size": 831,
+      "count": 15,
+      "firstPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T012849Z-507f083ed4488610\\运行项目.bat",
+      "body": "@echo off\nsetlocal enabledelayedexpansion\nchcp 65001 >nul\ncd /d \"%~dp0\"\n\necho ==========================================\necho  电扇运营管理系统启动中\n echo ==========================================\n\nwhere node >nul 2>nul\nif errorlevel 1 (\n  echo [错误] 未找到 Node.js，请先安装 Node.js 24.x。\n  pause\n  exit /b 1\n)\n\necho [信息] 正在启动已验证的不可变本地 Worker...\npowershell -NoProfile -ExecutionPolicy Bypass -File \"%~dp0tools\\worker-local-service.ps1\" -Action Start\nif errorlevel 1 (\n  echo [错误] 不可变 Worker 启动失败。\n  pause\n  exit /b 1\n)\n\necho [信息] 等待服务启动...\ntimeout /t 8 /nobreak >nul\n\nstart \"\" \"http://localhost:3000\"\n\necho [完成] 已尝试启动项目并打开浏览器。\necho 如果页面未自动打开，请手动访问 http://localhost:3000\npause\n"
+    },
+    "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724": {
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812,
+      "count": 34,
+      "firstPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T021738Z-24d0db450c0423b3\\运行项目.bat",
+      "body": "@echo off\nsetlocal\nchcp 65001 >nul\ncd /d \"%~dp0\"\n\necho ==========================================\necho  运营管理系统唯一启动总控\necho ==========================================\n\nwhere node >nul 2>nul\nif errorlevel 1 (\n  echo [错误] 未找到 Node.js，请先安装 Node.js 24.x。\n  pause\n  exit /b 1\n)\n\necho [信息] 正在通过唯一引擎按 Django/PostgreSQL -^> Worker 顺序启动...\npowershell -NoProfile -ExecutionPolicy Bypass -File \"%~dp0tools\\worker-local-service.ps1\" -Action Start\nif errorlevel 1 (\n  echo [错误] 唯一启动总控执行失败，请查看上方错误信息。\n  pause\n  exit /b 1\n)\n\nstart \"\" \"http://localhost:3000\"\n\necho [完成] 系统已通过完整启动门禁并打开浏览器。\necho 如果页面未自动打开，请手动访问 http://localhost:3000\npause\n"
+    },
+    "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2": {
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894,
+      "count": 170,
+      "firstPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T010812Z-02d009be8db475a2\\运行项目.bat",
+      "body": "@echo off\r\nsetlocal\r\nchcp 65001 >nul\r\ncd /d \"%~dp0\"\r\n\r\necho ==========================================\r\necho  运营管理系统唯一启动总控\r\necho ==========================================\r\n\r\nwhere node >nul 2>nul\r\nif errorlevel 1 (\r\n  echo [错误] 未找到 Node.js，请先安装 Node.js 24.x。\r\n  pause\r\n  exit /b 1\r\n)\r\n\r\necho [信息] 正在通过唯一总控按 Django/PostgreSQL -^> Worker 顺序启动，并在 Google Chrome 中打开页面...\r\npowershell -NoProfile -ExecutionPolicy Bypass -File \"%~dp0tools\\operations-system-control.ps1\" -Action Start -Open\r\nif errorlevel 1 (\r\n  echo [错误] 唯一启动总控执行失败，请查看上方错误信息。\r\n  pause\r\n  exit /b 1\r\n)\r\n\r\necho [完成] 系统已通过完整启动门禁，并已在 Google Chrome 中打开页面。\r\necho 如果 Google Chrome 未能打开，请安装后手动访问 http://localhost:3000\r\npause\r\n"
+    }
+  },
+  "rows": [
+    {
+      "releaseId": "20260830T012849Z-507f083ed4488610",
+      "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+      "size": 831
+    },
+    {
+      "releaseId": "20260830T020314Z-16b6c1b89ed012a9",
+      "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+      "size": 831
+    },
+    {
+      "releaseId": "20260830T055035Z-1841f7838a7328a2",
+      "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+      "size": 831
+    },
+    {
+      "releaseId": "20260830T124621Z-6b3c88515ea9649a",
+      "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+      "size": 831
+    },
+    {
+      "releaseId": "20260830T132926Z-3b495e47110c8332",
+      "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+      "size": 831
+    },
+    {
+      "releaseId": "20260830T174554Z-5236f559d2f73c08",
+      "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+      "size": 831
+    },
+    {
+      "releaseId": "20260830T180401Z-e9a8cec4b509ac35",
+      "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+      "size": 831
+    },
+    {
+      "releaseId": "20260830T201224Z-0efa51b94c6abe47",
+      "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+      "size": 831
+    },
+    {
+      "releaseId": "20260831T040905Z-53d3104404b114ed",
+      "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+      "size": 831
+    },
+    {
+      "releaseId": "20260901T034620Z-3cf74dcd15558871",
+      "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+      "size": 831
+    },
+    {
+      "releaseId": "20260901T045030Z-917076c7520e4f95",
+      "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+      "size": 831
+    },
+    {
+      "releaseId": "20260901T125642Z-a80fe1339791d44c",
+      "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+      "size": 831
+    },
+    {
+      "releaseId": "20260901T175414Z-37050a4866c0189e",
+      "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+      "size": 831
+    },
+    {
+      "releaseId": "20260901T184109Z-8096f6a12574144c",
+      "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+      "size": 831
+    },
+    {
+      "releaseId": "20260901T192658Z-765c43c274a681d2",
+      "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+      "size": 831
+    },
+    {
+      "releaseId": "20260902T021738Z-24d0db450c0423b3",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260902T024350Z-65e36db247db2a89",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260902T030536Z-f9a415f735c714d7",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260902T032602Z-f8d194772ec918b4",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260902T050024Z-9d24f8381196ce6e",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260902T085357Z-d416a58cd0641adf",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260902T093726Z-b063666136afce4a",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260902T101401Z-98d98f60f17f7761",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260902T141543Z-b1002b5b2f279312",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260902T161554Z-82b90718e2caf6f3",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260902T192513Z-f3f5ba174d94a3f0",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260902T200055Z-6ac80d5e18604594",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T020710Z-40452c6ac90b54e8",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T031149Z-5b34e539a9a6df2e",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T042554Z-27bc098ee0d0457d",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T045340Z-036d9e07169295b4",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T050915Z-ef6e6ed98e451069",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T052036Z-8f41d6ceeb1e80e2",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T052932Z-8c887fa06621d87a",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T054205Z-57a1c1bea72826f1",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T062149Z-47be2596cd7be244",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T062827Z-fbe7d32def14078c",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T075210Z-6e51417f9f16bd16",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T075745Z-a1a7a16c3186da4a",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T094507Z-9256ed8e1d3d2cee",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T103046Z-dd4ff474d99afbde",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T112615Z-98bb5f2ff50199d6",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T114057Z-b792e29d7f95cd7f",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T141301Z-3a7ab41fdf6d214c",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T144454Z-ddc694ae566776ef",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T160752Z-bd8ab9db58c1aadd",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T161840Z-7bafb20bbbc2c850",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T163120Z-0196ee881d701898",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260903T164213Z-2bfa1b9f04e099a0",
+      "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+      "size": 812
+    },
+    {
+      "releaseId": "20260904T010812Z-02d009be8db475a2",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260904T020003Z-ee010fd73fd7e831",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260904T035726Z-80b00295e12cf8e8",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260904T075849Z-b699e9f34bab2f72",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260904T081702Z-a04907331b8bea5e",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260904T094431Z-9fa612b09e459c5b",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260904T100603Z-aa8b042c028f0c45",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260904T102019Z-f0c5c52779240d1b",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260904T133301Z-7834781b7246caed",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260904T140636Z-3c994b980896ab3f",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260904T173529Z-aade7beeba6b7eb3",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260904T174603Z-73a6c115dfad9793",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260904T175625Z-61c15a876f2c685c",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260904T223540Z-40a783da7d4d5867",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260905T022346Z-a8c9656e2efc6ca0",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260905T024235Z-8ab8213dadf5407c",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260905T090134Z-6a5d72609fb56a8a",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260905T144423Z-d3a8b3a71e614840",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260905T150448Z-34bd6e2a530232e5",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260905T153926Z-2b35a94f0222a5e5",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260905T161941Z-2f1ddff054f33ff5",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260905T180043Z-7364a22437c52ae1",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260906T035823Z-fceee410b71f79b0",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260906T071555Z-f197eb1e1b92e1db",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260906T085035Z-568a59bc151c39d7",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260906T102947Z-22414d6a30a05dbf",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260906T110340Z-73a29ca80836ac11",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260906T113045Z-e1a943dd272d5547",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260906T132751Z-95f3eae828758ddc",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260906T135703Z-23f4164b6b5c9dd7",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260906T141849Z-75fb691dce9c14bd",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260906T145453Z-800e92a49927bf7e",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260906T151730Z-e07832f459944ae8",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260906T162140Z-b8acb81749c78a71",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260906T170622Z-647da1953e29d481",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T013343Z-d1f5518ff9392cc3",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T093433Z-45b22a6f2cfced84",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T095941Z-df2f9b59bf17195a",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T101721Z-f9782c6c5b04226f",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T104502Z-8cda3cffde6f7b90",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T131134Z-5a26b0f8cb5c66fb",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T132400Z-f31e0b551c4398d4",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T135636Z-c92330a39da04401",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T141305Z-2ebaddfc2f932323",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T142626Z-6336b68b2bcabc45",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T145827Z-6389440714644877",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T151405Z-779eeee8e24aaddb",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T152625Z-64e39ecfa44871b6",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T153922Z-9653b7538523de1d",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T155257Z-d245b900df532959",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T164126Z-c0bafded45a318c6",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T165637Z-e785442b6222f246",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260907T172756Z-7310be9602671de4",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260908T011213Z-2c54fdabce6753c9",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260908T023322Z-d783739f19e43a9d",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260908T060055Z-c06e40a5d153d39e",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260908T093713Z-64866b73575c4810",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260908T103235Z-6e9bfb8baea02174",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260908T143756Z-fd64783ed0e0d484",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260908T150015Z-f5e22e45a3fab5b0",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260908T164747Z-01eadafc917073fa",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260909T032535Z-cc929a4a0ec45ec2",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260909T034150Z-4e9ba073482f351c",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260909T065210Z-0083ad8b4ebf957d",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260909T082314Z-77039002a8332b1d",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260909T112853Z-668b2a7c9f0f6fa3",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260909T144336Z-1b58b3fe3893624b",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260909T154048Z-c36429c58cc5b463",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260909T165119Z-57c98600b9650dbc",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260910T013929Z-8383c5cdd38757ab",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260910T025022Z-a261f8c2ade2d409",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260910T031940Z-4b512c4fb482286e",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260910T033345Z-954b74d3e05a6399",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260910T083226Z-2c53e5a99e7232d9",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260910T100749Z-a4eaa6fb400fd7e5",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260910T131216Z-674af827668202c9",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260910T134347Z-d8b910e88d62ff0a",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260910T140701Z-0194554bc4bcead5",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260910T161236Z-c0ab8ed9ff663df9",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260911T035534Z-683ed76137b93190",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260911T081342Z-6b7a6a81082f9a5b",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260911T143402Z-fc575f36864bbb8d",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260911T151219Z-9d2563d0433704b8",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260911T165424Z-941a792a6c05e33e",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260912T074346Z-e49e9dd1dc958ecc",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260912T085820Z-cde69efbfa6cb274",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260912T093226Z-588560ad2bfc1239",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260912T095027Z-43c06ff99569edfa",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260912T143827Z-79e971ff2b5bce03",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260912T234549Z-017f8196dda91b2b",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260913T021310Z-a34d51daad87840c",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260913T024434Z-bc351d47b7209e2b",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260913T083423Z-5b9bc1d755228cae",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260913T143708Z-cd14607ae3bd71e3",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260913T162304Z-3733181f1543a083",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260914T094506Z-81d2b9e6d317f82b",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260914T100626Z-4462809b1aa7a958",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260914T103055Z-476613e9da6a6b1d",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260914T143237Z-3aaaa72257429512",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260914T154612Z-36b6fd5a8dbe31f7",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260914T174729Z-5d49f49fa3939989",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260915T022221Z-62869892e2c72ed9",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260915T031124Z-50915712d427032f",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260915T054303Z-5704048d5158895c",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260915T081612Z-730408eeaa9cbc1c",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260915T111613Z-ba786992a7e80cf6",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260915T113701Z-5c7c6173998295bb",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260915T143857Z-c71f254c9e28b6f2",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260915T153430Z-0ef56e4488220fb3",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260915T160134Z-c5775c8b64dd9c4b",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260915T162551Z-78d9ad08f15648ec",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260916T004429Z-914353db1e3250b3",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260916T020314Z-21945e0e18c57de1",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260916T194114Z-df8da4ea6ac81cf6",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260917T145034Z-ecd2f00bb0c113b5",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260917T173846Z-3deb710dd67ba200",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260917T174956Z-18933ad36a8b5c96",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260917T175957Z-94a4e718fdfb027f",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260918T170839Z-56c91d9b2f70bdb5",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260919T054421Z-8396938e0c741f6c",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260920T121250Z-4687b37028eb8feb",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260920T140333Z-59334faade4e48ec",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260921T075914Z-c49fb8780f856435",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260921T154059Z-6c629bc088e46315",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260922T105105Z-d8e06b9d16695c3f",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260922T165537Z-43dfa5ea8751488e",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260923T015424Z-b8038ff004984110",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260923T035640Z-3d8e2a24509c3c03",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260923T150151Z-55a091078c2cad99",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260923T160810Z-66a1c457be10d0fa",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260924T170238Z-67f8e2ddf8f93e16",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260925T213040Z-e45b1332207bc4cf",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260926T151320Z-78a1701b451cdc4a",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260927T020512Z-816d717d5e1b615c",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260927T025729Z-73db9d9489dd6952",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260927T054418Z-9450f55665c5e000",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260927T105151Z-66998bb7f911acb0",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260928T013126Z-a6492ec30545a5df",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260928T112356Z-eeac7bbc96a8c51a",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260929T005710Z-e980ef9414b72995",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260929T091126Z-1efe1a549c7491e5",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260929T100854Z-25db306d29baf4ee",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260929T204151Z-8d7aa5ebc6818f2c",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260929T212634Z-6ad46b5075d9d7ad",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20260930T005003Z-7df88d242a9635ba",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261001T164608Z-4dc26d0ae8921e88",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261004T154501Z-5a6e049ba6ecd7fe",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261004T203845Z-d5c7953e916f69ec",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261005T063949Z-62c5bbb1bc2901ab",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261005T185310Z-463d585110456a95",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261006T014342Z-94be344898f54a4b",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261006T152340Z-339dc621b3f6bce5",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261006T164404Z-05ba8978cfc7b5d4",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261006T192701Z-49ae962c10d7658d",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261006T203946Z-31618ba6b1ec1c5d",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261007T063318Z-774656d6a6c5b31b",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261007T070159Z-8d7fff69f9b30b9f",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261007T132510Z-51b35508b8baf220",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261007T152206Z-00f6e36898869457",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261008T011936Z-cff4c360b86c2416",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261008T023318Z-c203e40de8dde7c8",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261008T035234Z-e5597c1f0932fe82",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261008T050650Z-2757fd03d11fd19b",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261008T064654Z-662c00f82cdea950",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261008T103219Z-f5d9b00e432df6c0",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261008T182600Z-f5d4b05177d17010",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261009T030646Z-9f93e52aa005de7c",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261009T080026Z-d5fb5b62de630ae2",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    },
+    {
+      "releaseId": "20261011T090355Z-21c2645a63247749",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "size": 894
+    }
+  ]
+}

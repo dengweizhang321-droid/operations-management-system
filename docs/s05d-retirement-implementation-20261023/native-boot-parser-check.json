@@ -1,0 +1,12 @@
+{
+  "at": "2026-10-22T17:27:16.034Z",
+  "moduleSha256": "e00fe4ee68faff34b82fbe94317f56e1feb6908fb6f9c7cd40a19ee7fa9da133",
+  "status": "native-parser-compatible",
+  "observationFile": "D:\\codex-artifacts\\s05d-retirement-implementation-20261023\\native-boot-ee9838b6-b54a-41ba-9029-b3daa9fc69ed.json",
+  "observationSha256": "4e9560bbd8bc6486030a88d036028e6158382df669c8934b7facf4f82916a7db",
+  "bootAt": "2026-10-17T14:43:44.5000000Z",
+  "startRecordId": 663477,
+  "bootRecordId": 663485,
+  "retirementProved": false,
+  "reason": "This boot predates source closure; no source closure/restart/seal performed."
+}

@@ -1,0 +1,56 @@
+{
+  "firstTrial": {
+    "result": "Refused at the 2,048-object cap (total fixed-leaf bytes were below 24 MiB); no completed inventory inferred."
+  },
+  "groups": {
+    "releases": {
+      "count": 328,
+      "bytes": 2617475,
+      "maxBytes": 11091
+    },
+    "worker-prepared-builds": {
+      "count": 186,
+      "bytes": 438508,
+      "maxBytes": 4902
+    },
+    "worker-release-publication-staging": {
+      "count": 0,
+      "bytes": 0,
+      "maxBytes": 0
+    },
+    "worker-release-rotation-consumptions": {
+      "count": 522,
+      "bytes": 281097,
+      "maxBytes": 1012
+    },
+    "worker-release-rotation-plans": {
+      "count": 644,
+      "bytes": 1745604,
+      "maxBytes": 7709
+    },
+    "worker-release-successors": {
+      "count": 522,
+      "bytes": 575919,
+      "maxBytes": 2142
+    },
+    "django-prepared": {
+      "count": 132,
+      "bytes": 47673,
+      "maxBytes": 364
+    },
+    "django-candidates": {
+      "count": 54,
+      "bytes": 19314,
+      "maxBytes": 384
+    }
+  },
+  "adjustment": {
+    "objectCap": 3072,
+    "byteCap": 25165824,
+    "reason": "Size-only fixed-leaf census found 2390 leaves/approximately 5.8 MiB; no payload read or unbounded retry."
+  },
+  "completed": {
+    "objects": 2390,
+    "bytesRead": 5726323
+  }
+}

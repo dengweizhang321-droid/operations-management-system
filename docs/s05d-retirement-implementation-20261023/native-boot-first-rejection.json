@@ -1,0 +1,12 @@
+{
+  "at": "2026-10-22T17:25:16.302077+00:00",
+  "version": "s05d-native-boot-compat-trial-v1",
+  "moduleSha256": "096845b4efd8d90be86f5bb6ccfe8ba6b932f6ea58539fb01b7b8e0634424aad",
+  "exitCode": 1,
+  "status": "rejected-before-observation",
+  "source": "Root tool-reported native PS5 collector execution",
+  "errorSummary": "H $raw resolved to built-in alias h=Get-History rather than helper function H; XML could not bind to Int64 Id. No collected observation was written.",
+  "productionMutations": false,
+  "retirementProved": false,
+  "limits": "Sanitized diagnostic summary; not a native recovery or execution terminal receipt."
+}

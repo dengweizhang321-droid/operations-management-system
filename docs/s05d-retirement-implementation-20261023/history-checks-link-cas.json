@@ -1,0 +1,22 @@
+{
+    "version":  "s05d-history-private-check-v1",
+    "productionWrites":  false,
+    "files":  [
+                  {
+                      "sha256":  "1bcc7c965127e74116f7a84608251a83cce18eb76a7b6be9c8e1376398961ea2",
+                      "file":  "tools/preparation-retirement-history.mjs"
+                  },
+                  {
+                      "sha256":  "4079c2a171675a51ff9f7808c2bbde74ad016ea420dda096b60ed26eacdfdb16",
+                      "file":  "tests/preparation-retirement-history.test.mjs"
+                  },
+                  {
+                      "sha256":  "e2f03097b1e8d65df21b3a96a69c02a513305bc1e0fdb8789c45998f22355aca",
+                      "file":  "docs/s05d-retirement-implementation-20261023/history-tests-link-cas.txt"
+                  }
+              ],
+    "incrementPassed":  2,
+    "oldToolExecution":  false,
+    "increment":  "assert same-read hash signature still nlink1 after pre-read metadata gate",
+    "priorChecks":  "history-checks-cas.json"
+}

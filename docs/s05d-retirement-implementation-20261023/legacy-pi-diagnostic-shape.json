@@ -1,0 +1,28 @@
+{
+  "at": "2026-10-22T18:22:41.775266+00:00",
+  "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+  "requestSha256": "b57766782896f5b9ea58a594ec4cf0e666791c280c1aa71a79b1641ec69559d9",
+  "mainCommit": "8411456e8e75219e028dea6d355ec96055a47e03",
+  "components": [
+    "worker",
+    "django"
+  ],
+  "migrate": true,
+  "schemaRelease": {
+    "additionKind": "PiNative"
+  },
+  "directory": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588\\pi-upgrade-failed-evidence",
+  "members": [
+    {
+      "name": "linux-intent.json",
+      "kind": "file",
+      "bytes": 236
+    },
+    {
+      "name": "windows-intent.json",
+      "kind": "file",
+      "bytes": 163
+    }
+  ],
+  "limits": "Direct names/type/size only; no leaf content or Pi/WSL invocation."
+}

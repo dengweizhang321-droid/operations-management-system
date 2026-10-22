@@ -1,0 +1,22 @@
+{
+  "at": "2026-10-22T17:01:21.394299+00:00",
+  "registeredWorktrees": 141,
+  "exactTargetMatches": [
+    {
+      "worktree": "D:/codex-isolated/main-release-packages/36668589cab0-71ecf390-bbc9a5ef/source",
+      "HEAD": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+      "branch": "refs/heads/codex/manual-main-36668589cab0-71ecf390-bbc9a5ef",
+      "locked": "Manual latest-main release source; keep while package is in use",
+      "exists": true,
+      "trackedStatus": ""
+    },
+    {
+      "worktree": "D:/codex-worktrees/merge-20261022",
+      "HEAD": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+      "branch": "refs/heads/merge/a1-b3-20261022",
+      "exists": true,
+      "trackedStatus": ""
+    }
+  ],
+  "limits": "HEAD registry association only; not full fingerprint, live-use or move authorization proof."
+}

@@ -1,0 +1,21 @@
+{
+    "observedAt":  "2026-10-22T18:40:26.2555657Z",
+    "path":  "D:\\teruisi-runtime\\django-sales\\run\\release-publication-lease.json",
+    "sha256":  "d3eb87756b424e3175df710913c408e0839dd2ee060b67dd51b9a5f656199d5c",
+    "bytes":  418,
+    "value":  {
+                  "version":  "teruisi-release-publication-lease-v1",
+                  "ownerPid":  3664,
+                  "phase":  "构建前端",
+                  "createdAt":  "2026-10-22T07:11:51.386Z",
+                  "updatedAt":  "2026-10-22T07:12:08.019Z",
+                  "expiresAt":  "2026-10-22T07:30:08.019Z",
+                  "mainCommit":  "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+                  "maintenanceId":  "54d5b5197f5f4434988111f28ffb8578",
+                  "out":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\publish-36668589cab0"
+              },
+    "systemMaintenancePresent":  false,
+    "automationDrainPresent":  false,
+    "retirementProved":  false,
+    "productionWritePerformed":  false
+}

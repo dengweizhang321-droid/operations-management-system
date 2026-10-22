@@ -1,0 +1,50 @@
+{
+  "at": "2026-10-22T17:02:48.729848+00:00",
+  "needles": {
+    "candidateRelease": "20261022T071208Z-f5db87473edebc45",
+    "candidateManifestSha256": "f8f96652bed31e0f69c007c88e2bb81f247c9b7afa3b6eed95dfa5d0dc97a073",
+    "originalSource": "D:/codex-isolated/main-release-packages/36668589cab0-71ecf390-bbc9a5ef/source",
+    "originalSourcePathSha256": "667fbe6271daf8ab023aca93dc77fb45bc332f01077b317e0748be2836555383",
+    "contentTree": "abe18170a70b35e845660f8b01eb7d20c8946b4dace28a6ed66d55c462e164db"
+  },
+  "fullJsonLeavesScanned": 1453,
+  "sidecarsValidated": 937,
+  "references": [
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261022T071208Z-f5db87473edebc45\\deployment-manifest.json",
+      "kind": "worker-release-manifest",
+      "sha256": "f8f96652bed31e0f69c007c88e2bb81f247c9b7afa3b6eed95dfa5d0dc97a073",
+      "matchingFields": [
+        {
+          "field": ".releaseId",
+          "matches": "candidateRelease"
+        },
+        {
+          "field": ".source.rootPathSha256",
+          "matches": "originalSourcePathSha256"
+        },
+        {
+          "field": ".source.sourceBinding.raw(parsed).identity.sourceTree.sha256",
+          "matches": "contentTree"
+        },
+        {
+          "field": ".source.sourceBinding.raw(parsed).sourceRoot",
+          "matches": "originalSource"
+        },
+        {
+          "field": ".source.sourceBinding.raw(parsed).sourceRootPathSha256",
+          "matches": "originalSourcePathSha256"
+        },
+        {
+          "field": ".source.sourceFingerprint",
+          "matches": "contentTree"
+        },
+        {
+          "field": ".source.tree.sha256",
+          "matches": "contentTree"
+        }
+      ]
+    }
+  ],
+  "limits": "Exact structured equality plus sourceBinding.raw JSON parsing; no payload/source tree/active process/complete native effective chain validation. No match is not a proof of zero effects."
+}

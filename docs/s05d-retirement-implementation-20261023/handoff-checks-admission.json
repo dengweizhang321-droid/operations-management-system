@@ -1,0 +1,37 @@
+{
+    "incrementTests":  1,
+    "files":  [
+                  {
+                      "sha256":  "34101ac94dcc69a8127f12310950042f2df76388b7057b6a5e007b46527713f1",
+                      "file":  "tools/preparation-retirement-handoff.mjs",
+                      "bytes":  49620
+                  },
+                  {
+                      "sha256":  "7ad4e67e94fcdf5996dc2a962045e6f1d10ba6a1a0337058b211dea5312b531c",
+                      "file":  "tools/preparation-retirement-handoff-runner.ps1",
+                      "bytes":  9766
+                  },
+                  {
+                      "sha256":  "ee75fe67ef97caabc5d15b7c8928b9ffba28ff7a571390b73912f4bd948e6764",
+                      "file":  "tests/preparation-retirement-handoff.test.mjs",
+                      "bytes":  16750
+                  },
+                  {
+                      "sha256":  "374bc1fd3245ca6a4964a7f826cc310d6be2fc8e250b096b38f73c3fe30aca9c",
+                      "file":  "docs/s05d-retirement-implementation-20261023/handoff-tests-admission.txt",
+                      "bytes":  480
+                  }
+              ],
+    "increment":  "actual runner admission function: Stopwatch bound; no demand wait; late Explorer; unreadable owner; timeout",
+    "version":  "s05d-handoff-private-check-v1",
+    "taskRegistered":  false,
+    "productionOperationPerformed":  false,
+    "allThirteenRepeated":  false,
+    "priorTwelveChecks":  "handoff-checks-logon.json",
+    "incrementPassed":  1,
+    "actualHosts":  [
+                        "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+                        "D:/codex-isolated/main-manual-release-20261016/control-host/pwsh.exe"
+                    ],
+    "taskStarted":  false
+}

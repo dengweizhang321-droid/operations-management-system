@@ -1,0 +1,2184 @@
+{
+  "at": "2026-10-22T18:16:44.943846+00:00",
+  "scope": "Only releaseDirectory and each packet direct members; no source/payload recursion. Classification is against the draft whitelist, not a safety judgment.",
+  "packetCount": 60,
+  "members": [
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0bb9523cbf1e-bcccc8cd-00058fea",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0bb9523cbf1e-bcccc8cd-00058fea",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0bb9523cbf1e-bcccc8cd-00058fea",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0bb9523cbf1e-bcccc8cd-00058fea",
+      "name": "publish-0bb9523cbf1e",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0bb9523cbf1e-bcccc8cd-00058fea",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0bb9523cbf1e-bcccc8cd-00058fea",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0bb9523cbf1e-bcccc8cd-00058fea",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0efb85410210-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0efb85410210-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0efb85410210-614f2724-69977619",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0efb85410210-614f2724-69977619",
+      "name": "publish-0efb85410210",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0efb85410210-614f2724-69977619",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0efb85410210-614f2724-69977619",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\19db6d2c217e-ec5d0f96-83cdf0d4",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\19db6d2c217e-ec5d0f96-83cdf0d4",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\19db6d2c217e-ec5d0f96-83cdf0d4",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\19db6d2c217e-ec5d0f96-83cdf0d4",
+      "name": "publish-19db6d2c217e",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\19db6d2c217e-ec5d0f96-83cdf0d4",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\19db6d2c217e-ec5d0f96-83cdf0d4",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\20eea975b7e2-7d44de3d-ed93efd0",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\20eea975b7e2-7d44de3d-ed93efd0",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\20eea975b7e2-7d44de3d-ed93efd0",
+      "name": "publish-20eea975b7e2",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\20eea975b7e2-7d44de3d-ed93efd0",
+      "name": "publish-main-check.log",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\20eea975b7e2-7d44de3d-ed93efd0",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\20eea975b7e2-7d44de3d-ed93efd0",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\25fe1fa39e7d-ec09ad08-71ae7608",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b022c16b36e-ec5d0f96-83cdf0d4",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b022c16b36e-ec5d0f96-83cdf0d4",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b022c16b36e-ec5d0f96-83cdf0d4",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b022c16b36e-ec5d0f96-83cdf0d4",
+      "name": "publish-2b022c16b36e",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b022c16b36e-ec5d0f96-83cdf0d4",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b022c16b36e-ec5d0f96-83cdf0d4",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b6447f33d54-150a41fa-23ba6b9a",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b6447f33d54-150a41fa-23ba6b9a",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b6447f33d54-150a41fa-23ba6b9a",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b6447f33d54-150a41fa-23ba6b9a",
+      "name": "publish-2b6447f33d54",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b6447f33d54-150a41fa-23ba6b9a",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b6447f33d54-150a41fa-23ba6b9a",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2be62f90e6dd-f9f646e8-3b7345f2",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2be62f90e6dd-f9f646e8-3b7345f2",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2be62f90e6dd-f9f646e8-3b7345f2",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2be62f90e6dd-f9f646e8-3b7345f2",
+      "name": "publish-2be62f90e6dd",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2be62f90e6dd-f9f646e8-3b7345f2",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2be62f90e6dd-f9f646e8-3b7345f2",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2f875fb01c79-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2f875fb01c79-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2f875fb01c79-614f2724-69977619",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2f875fb01c79-614f2724-69977619",
+      "name": "publish-2f875fb01c79",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2f875fb01c79-614f2724-69977619",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2f875fb01c79-614f2724-69977619",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2f875fb01c79-614f2724-69977619",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef",
+      "name": "publish-36668589cab0",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7",
+      "name": "publish-4059afea8841",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4072d666f1f3-bcccc8cd-00058fea",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4072d666f1f3-bcccc8cd-00058fea",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4072d666f1f3-bcccc8cd-00058fea",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4072d666f1f3-bcccc8cd-00058fea",
+      "name": "publish-4072d666f1f3",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4072d666f1f3-bcccc8cd-00058fea",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4072d666f1f3-bcccc8cd-00058fea",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4072d666f1f3-bcccc8cd-00058fea",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\477a94bf29f2-fee81c63-4ca6db6e",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\477a94bf29f2-fee81c63-4ca6db6e",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\477a94bf29f2-fee81c63-4ca6db6e",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\477a94bf29f2-fee81c63-4ca6db6e",
+      "name": "publish-477a94bf29f2",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\477a94bf29f2-fee81c63-4ca6db6e",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\477a94bf29f2-fee81c63-4ca6db6e",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\47e1e89fea91-pi150-forward",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4a1859686c1e-ba5c1310-77953588",
+      "name": "django-check.log",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4a1859686c1e-ba5c1310-77953588",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4a1859686c1e-ba5c1310-77953588",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4a1859686c1e-ba5c1310-77953588",
+      "name": "PREP-REPORT.md",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4a1859686c1e-ba5c1310-77953588",
+      "name": "publish-4a1859686c1e",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4a1859686c1e-ba5c1310-77953588",
+      "name": "publish-main-check.log",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4a1859686c1e-ba5c1310-77953588",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4a1859686c1e-ba5c1310-77953588",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4a1859686c1e-ba5c1310-77953588",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4b733d1aed4b-c5d5bb6f-a9e3fdb9",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4b733d1aed4b-c5d5bb6f-a9e3fdb9",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4b733d1aed4b-c5d5bb6f-a9e3fdb9",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4b733d1aed4b-c5d5bb6f-a9e3fdb9",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4b733d1aed4b-c5d5bb6f-a9e3fdb9",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef",
+      "name": "publish-51e242dac482",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\51eb7d76095d-pi150-forward",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7",
+      "name": "publish-559e64fd8586",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5663930fe16d-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5663930fe16d-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5663930fe16d-614f2724-69977619",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5663930fe16d-614f2724-69977619",
+      "name": "publish-5663930fe16d",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5663930fe16d-614f2724-69977619",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5663930fe16d-614f2724-69977619",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5663930fe16d-614f2724-69977619",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\593b0edb045b-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\593b0edb045b-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\593b0edb045b-614f2724-69977619",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\593b0edb045b-614f2724-69977619",
+      "name": "publish-593b0edb045b",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\593b0edb045b-614f2724-69977619",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\593b0edb045b-614f2724-69977619",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\593b0edb045b-614f2724-69977619",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5bebdee77bca-f9f646e8-3b7345f2",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5bebdee77bca-f9f646e8-3b7345f2",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5bebdee77bca-f9f646e8-3b7345f2",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5bebdee77bca-f9f646e8-3b7345f2",
+      "name": "publish-5bebdee77bca",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5bebdee77bca-f9f646e8-3b7345f2",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5bebdee77bca-f9f646e8-3b7345f2",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\64238c401955-7d44de3d-ed93efd0",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\64238c401955-7d44de3d-ed93efd0",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\64238c401955-7d44de3d-ed93efd0",
+      "name": "publish-64238c401955",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\64238c401955-7d44de3d-ed93efd0",
+      "name": "publish-main-check.log",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\64238c401955-7d44de3d-ed93efd0",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\64238c401955-7d44de3d-ed93efd0",
+      "name": "rollback-app.err",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\64238c401955-7d44de3d-ed93efd0",
+      "name": "rollback-app.out",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\64238c401955-7d44de3d-ed93efd0",
+      "name": "rollback-start.err",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\64238c401955-7d44de3d-ed93efd0",
+      "name": "rollback-start.out",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\64238c401955-7d44de3d-ed93efd0",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\66ad3e408f4b-fa333eb5-51177d5a",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\66ad3e408f4b-fa333eb5-51177d5a",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\66ad3e408f4b-fa333eb5-51177d5a",
+      "name": "publish-66ad3e408f4b",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\66ad3e408f4b-fa333eb5-51177d5a",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\69b38d1e523e-bcccc8cd-00058fea",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\69b38d1e523e-bcccc8cd-00058fea",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\69b38d1e523e-bcccc8cd-00058fea",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\69b38d1e523e-bcccc8cd-00058fea",
+      "name": "publish-69b38d1e523e",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\69b38d1e523e-bcccc8cd-00058fea",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\69b38d1e523e-bcccc8cd-00058fea",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\69b38d1e523e-bcccc8cd-00058fea",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6dc028139cc6-c5d5bb6f-a9e3fdb9",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6dc028139cc6-c5d5bb6f-a9e3fdb9",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6dc028139cc6-c5d5bb6f-a9e3fdb9",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6dc028139cc6-c5d5bb6f-a9e3fdb9",
+      "name": "publish-6dc028139cc6",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6dc028139cc6-c5d5bb6f-a9e3fdb9",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6dc028139cc6-c5d5bb6f-a9e3fdb9",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6fbbb526270e-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6fbbb526270e-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6fbbb526270e-614f2724-69977619",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6fbbb526270e-614f2724-69977619",
+      "name": "publish-6fbbb526270e",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6fbbb526270e-614f2724-69977619",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6fbbb526270e-614f2724-69977619",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6fbbb526270e-614f2724-69977619",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\7ca85e40c285-ec09ad08-71ae7608",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\7ca85e40c285-ec09ad08-71ae7608",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\7ca85e40c285-ec09ad08-71ae7608",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\7ca85e40c285-ec09ad08-71ae7608",
+      "name": "publish-7ca85e40c285",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\7ca85e40c285-ec09ad08-71ae7608",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "django-check.log",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "pi-upgrade-failed-evidence",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "PREP-REPORT.md",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "PRODUCTION-RECOVERY.md",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "publish-8411456e8e75",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "publish-main-check.log",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "restart-start.err",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "restart-start.out",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "verify-startup.err",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "verify-startup.out",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8da01798a794-ec09ad08-71ae7608",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8da01798a794-ec09ad08-71ae7608",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8da01798a794-ec09ad08-71ae7608",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8da01798a794-ec09ad08-71ae7608",
+      "name": "publish-8da01798a794",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8da01798a794-ec09ad08-71ae7608",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8da01798a794-ec09ad08-71ae7608",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\988810cf4b9c-f6565b40-79d6d565",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\988810cf4b9c-f6565b40-79d6d565",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\988810cf4b9c-f6565b40-79d6d565",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\988810cf4b9c-f6565b40-79d6d565",
+      "name": "publish-988810cf4b9c",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\988810cf4b9c-f6565b40-79d6d565",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\988810cf4b9c-f6565b40-79d6d565",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\9a45d8be6974-c5d5bb6f-a9e3fdb9",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\9a45d8be6974-c5d5bb6f-a9e3fdb9",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\9a45d8be6974-c5d5bb6f-a9e3fdb9",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\9a45d8be6974-c5d5bb6f-a9e3fdb9",
+      "name": "publish-9a45d8be6974",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\9a45d8be6974-c5d5bb6f-a9e3fdb9",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\9a45d8be6974-c5d5bb6f-a9e3fdb9",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea",
+      "name": "publish-a396a7b10930",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\a7041338462a-997d0568-ca9c731a",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b1b0e15d7cb7-bcccc8cd-00058fea",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b2ef81c7c6ee-997d0568-ca9c731a",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b2ef81c7c6ee-997d0568-ca9c731a",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b2ef81c7c6ee-997d0568-ca9c731a",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b2ef81c7c6ee-997d0568-ca9c731a",
+      "name": "publish-b2ef81c7c6ee",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b2ef81c7c6ee-997d0568-ca9c731a",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b2ef81c7c6ee-997d0568-ca9c731a",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b2ef81c7c6ee-997d0568-ca9c731a",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b44889912af8-f6565b40-79d6d565",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b6ac69dc7ce7-a51cce69-9ae5365c",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b6ac69dc7ce7-a51cce69-9ae5365c",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b6ac69dc7ce7-a51cce69-9ae5365c",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b6ac69dc7ce7-a51cce69-9ae5365c",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b6ac69dc7ce7-a51cce69-9ae5365c",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\bbc9fda1cfda-pi150-forward",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c2c6749a4178-de03bca5-66cc9293",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c2c6749a4178-de03bca5-66cc9293",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c2c6749a4178-de03bca5-66cc9293",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c2c6749a4178-de03bca5-66cc9293",
+      "name": "publish-c2c6749a4178",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c2c6749a4178-de03bca5-66cc9293",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c2c6749a4178-de03bca5-66cc9293",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c32434a924c4-a51cce69-9ae5365c",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c32434a924c4-a51cce69-9ae5365c",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c32434a924c4-a51cce69-9ae5365c",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c32434a924c4-a51cce69-9ae5365c",
+      "name": "publish-c32434a924c4",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c32434a924c4-a51cce69-9ae5365c",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c32434a924c4-a51cce69-9ae5365c",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c36ea9964ea0-fee81c63-4ca6db6e",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c36ea9964ea0-fee81c63-4ca6db6e",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c36ea9964ea0-fee81c63-4ca6db6e",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c36ea9964ea0-fee81c63-4ca6db6e",
+      "name": "publish-c36ea9964ea0",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c36ea9964ea0-fee81c63-4ca6db6e",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c36ea9964ea0-fee81c63-4ca6db6e",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c7b817989050-ba5c1310-77953588",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c7b817989050-ba5c1310-77953588",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cb3b1cb7b8e3-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cb3b1cb7b8e3-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cb3b1cb7b8e3-614f2724-69977619",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cb3b1cb7b8e3-614f2724-69977619",
+      "name": "publish-cb3b1cb7b8e3",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cb3b1cb7b8e3-614f2724-69977619",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cb3b1cb7b8e3-614f2724-69977619",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cb3b1cb7b8e3-614f2724-69977619",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cdb2ae60cedd-a51cce69-9ae5365c",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cdb2ae60cedd-a51cce69-9ae5365c",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cdb2ae60cedd-a51cce69-9ae5365c",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cdb2ae60cedd-a51cce69-9ae5365c",
+      "name": "publish-cdb2ae60cedd",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cdb2ae60cedd-a51cce69-9ae5365c",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cdf1c5eb92e5-37756aa0-357789c6",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cdf1c5eb92e5-37756aa0-357789c6",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cdf1c5eb92e5-37756aa0-357789c6",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cdf1c5eb92e5-37756aa0-357789c6",
+      "name": "publish-cdf1c5eb92e5",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cdf1c5eb92e5-37756aa0-357789c6",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cdf1c5eb92e5-37756aa0-357789c6",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ce72ed644256-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ce72ed644256-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ce72ed644256-614f2724-69977619",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ce72ed644256-614f2724-69977619",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ce72ed644256-614f2724-69977619",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cecb609c0ecc-614f2724-69977619",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d498852c8f01-ba5c1310-77953588",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d498852c8f01-ba5c1310-77953588",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d498852c8f01-ba5c1310-77953588",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d498852c8f01-ba5c1310-77953588",
+      "name": "publish-d498852c8f01",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d498852c8f01-ba5c1310-77953588",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d498852c8f01-ba5c1310-77953588",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d498852c8f01-ba5c1310-77953588",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d95ad3d96816-de03bca5-66cc9293",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d95ad3d96816-de03bca5-66cc9293",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d95ad3d96816-de03bca5-66cc9293",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d95ad3d96816-de03bca5-66cc9293",
+      "name": "publish-d95ad3d96816",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d95ad3d96816-de03bca5-66cc9293",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d95ad3d96816-de03bca5-66cc9293",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e07fbe645d9d-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e07fbe645d9d-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e07fbe645d9d-614f2724-69977619",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e07fbe645d9d-614f2724-69977619",
+      "name": "publish-e07fbe645d9d",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e07fbe645d9d-614f2724-69977619",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e07fbe645d9d-614f2724-69977619",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e07fbe645d9d-614f2724-69977619",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e3a72a9ad73d-ec09ad08-71ae7608",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e3a72a9ad73d-ec09ad08-71ae7608",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e3a72a9ad73d-ec09ad08-71ae7608",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e3a72a9ad73d-ec09ad08-71ae7608",
+      "name": "publish-e3a72a9ad73d",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e3a72a9ad73d-ec09ad08-71ae7608",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e3a72a9ad73d-ec09ad08-71ae7608",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e508d9c39baf-pi150-forward",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e52361d5a8fc-bcccc8cd-7142cf1e",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9696b0d2818-fdf50989-54a48ee1",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9696b0d2818-fdf50989-54a48ee1",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9696b0d2818-fdf50989-54a48ee1",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9696b0d2818-fdf50989-54a48ee1",
+      "name": "publish-e9696b0d2818",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9696b0d2818-fdf50989-54a48ee1",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9696b0d2818-fdf50989-54a48ee1",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9a33b8adbc6-a51cce69-9ae5365c",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9a33b8adbc6-a51cce69-9ae5365c",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9a33b8adbc6-a51cce69-9ae5365c",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9a33b8adbc6-a51cce69-9ae5365c",
+      "name": "publish-e9a33b8adbc6",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9a33b8adbc6-a51cce69-9ae5365c",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9a33b8adbc6-a51cce69-9ae5365c",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f3748d8e03e2-60dc61d1-622cb632",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f3748d8e03e2-60dc61d1-622cb632",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f3748d8e03e2-60dc61d1-622cb632",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f3748d8e03e2-60dc61d1-622cb632",
+      "name": "publish-f3748d8e03e2",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f3748d8e03e2-60dc61d1-622cb632",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f3748d8e03e2-60dc61d1-622cb632",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f3748d8e03e2-60dc61d1-622cb632",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f5c688452710-ba5c1310-77953588",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f9507f253046-60dc61d1-622cb632",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f9507f253046-60dc61d1-622cb632",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f9507f253046-60dc61d1-622cb632",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f9507f253046-60dc61d1-622cb632",
+      "name": "publish-f9507f253046",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f9507f253046-60dc61d1-622cb632",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f9507f253046-60dc61d1-622cb632",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f9507f253046-60dc61d1-622cb632",
+      "name": "source",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ff46c025c26d-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ff46c025c26d-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ff46c025c26d-614f2724-69977619",
+      "name": "main-release-request.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ff46c025c26d-614f2724-69977619",
+      "name": "publish-ff46c025c26d",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ff46c025c26d-614f2724-69977619",
+      "name": "release-scope-plan.json",
+      "kind": "file"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ff46c025c26d-614f2724-69977619",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ff46c025c26d-614f2724-69977619",
+      "name": "source",
+      "kind": "directory"
+    }
+  ],
+  "outsideDraftDirectoryWhitelist": [
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0bb9523cbf1e-bcccc8cd-00058fea",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0bb9523cbf1e-bcccc8cd-00058fea",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0bb9523cbf1e-bcccc8cd-00058fea",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0efb85410210-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0efb85410210-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\19db6d2c217e-ec5d0f96-83cdf0d4",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\19db6d2c217e-ec5d0f96-83cdf0d4",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\20eea975b7e2-7d44de3d-ed93efd0",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b022c16b36e-ec5d0f96-83cdf0d4",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b022c16b36e-ec5d0f96-83cdf0d4",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b6447f33d54-150a41fa-23ba6b9a",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b6447f33d54-150a41fa-23ba6b9a",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2be62f90e6dd-f9f646e8-3b7345f2",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2be62f90e6dd-f9f646e8-3b7345f2",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2f875fb01c79-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2f875fb01c79-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2f875fb01c79-614f2724-69977619",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4072d666f1f3-bcccc8cd-00058fea",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4072d666f1f3-bcccc8cd-00058fea",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4072d666f1f3-bcccc8cd-00058fea",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\477a94bf29f2-fee81c63-4ca6db6e",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\477a94bf29f2-fee81c63-4ca6db6e",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4a1859686c1e-ba5c1310-77953588",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4a1859686c1e-ba5c1310-77953588",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4b733d1aed4b-c5d5bb6f-a9e3fdb9",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4b733d1aed4b-c5d5bb6f-a9e3fdb9",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5663930fe16d-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5663930fe16d-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5663930fe16d-614f2724-69977619",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\593b0edb045b-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\593b0edb045b-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\593b0edb045b-614f2724-69977619",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5bebdee77bca-f9f646e8-3b7345f2",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\5bebdee77bca-f9f646e8-3b7345f2",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\64238c401955-7d44de3d-ed93efd0",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\66ad3e408f4b-fa333eb5-51177d5a",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\69b38d1e523e-bcccc8cd-00058fea",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\69b38d1e523e-bcccc8cd-00058fea",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\69b38d1e523e-bcccc8cd-00058fea",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6dc028139cc6-c5d5bb6f-a9e3fdb9",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6dc028139cc6-c5d5bb6f-a9e3fdb9",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6fbbb526270e-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6fbbb526270e-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6fbbb526270e-614f2724-69977619",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\7ca85e40c285-ec09ad08-71ae7608",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\7ca85e40c285-ec09ad08-71ae7608",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "pi-upgrade-failed-evidence",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8da01798a794-ec09ad08-71ae7608",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\8da01798a794-ec09ad08-71ae7608",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\988810cf4b9c-f6565b40-79d6d565",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\988810cf4b9c-f6565b40-79d6d565",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\9a45d8be6974-c5d5bb6f-a9e3fdb9",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\9a45d8be6974-c5d5bb6f-a9e3fdb9",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b2ef81c7c6ee-997d0568-ca9c731a",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b2ef81c7c6ee-997d0568-ca9c731a",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b2ef81c7c6ee-997d0568-ca9c731a",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b6ac69dc7ce7-a51cce69-9ae5365c",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b6ac69dc7ce7-a51cce69-9ae5365c",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c2c6749a4178-de03bca5-66cc9293",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c2c6749a4178-de03bca5-66cc9293",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c32434a924c4-a51cce69-9ae5365c",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c32434a924c4-a51cce69-9ae5365c",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c36ea9964ea0-fee81c63-4ca6db6e",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c36ea9964ea0-fee81c63-4ca6db6e",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\c7b817989050-ba5c1310-77953588",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cb3b1cb7b8e3-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cb3b1cb7b8e3-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cb3b1cb7b8e3-614f2724-69977619",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cdb2ae60cedd-a51cce69-9ae5365c",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cdb2ae60cedd-a51cce69-9ae5365c",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cdf1c5eb92e5-37756aa0-357789c6",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\cdf1c5eb92e5-37756aa0-357789c6",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ce72ed644256-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ce72ed644256-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d498852c8f01-ba5c1310-77953588",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d498852c8f01-ba5c1310-77953588",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d498852c8f01-ba5c1310-77953588",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d95ad3d96816-de03bca5-66cc9293",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d95ad3d96816-de03bca5-66cc9293",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e07fbe645d9d-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e07fbe645d9d-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e07fbe645d9d-614f2724-69977619",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e3a72a9ad73d-ec09ad08-71ae7608",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e3a72a9ad73d-ec09ad08-71ae7608",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9696b0d2818-fdf50989-54a48ee1",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9696b0d2818-fdf50989-54a48ee1",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9a33b8adbc6-a51cce69-9ae5365c",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9a33b8adbc6-a51cce69-9ae5365c",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f3748d8e03e2-60dc61d1-622cb632",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f3748d8e03e2-60dc61d1-622cb632",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f3748d8e03e2-60dc61d1-622cb632",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f9507f253046-60dc61d1-622cb632",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f9507f253046-60dc61d1-622cb632",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\f9507f253046-60dc61d1-622cb632",
+      "name": "schema",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ff46c025c26d-614f2724-69977619",
+      "name": "invocations",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ff46c025c26d-614f2724-69977619",
+      "name": "logs",
+      "kind": "directory"
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\ff46c025c26d-614f2724-69977619",
+      "name": "schema",
+      "kind": "directory"
+    }
+  ]
+}

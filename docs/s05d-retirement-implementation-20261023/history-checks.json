@@ -1,0 +1,45 @@
+{
+    "priorPrivateTests":  6,
+    "oldToolsOrAPIsExecuted":  false,
+    "productionWrites":  false,
+    "files":  [
+                  {
+                      "sha256":  "c93fcac4eab37d81b4335ba280119f066768a88fac035d38cfa85d22c98d3d68",
+                      "file":  "tools/preparation-retirement-history.mjs",
+                      "bytes":  30560
+                  },
+                  {
+                      "sha256":  "e78d182750e6c14b3cf4d730fb8f731da0724c02c915ddf105377ad467a4361d",
+                      "file":  "tests/preparation-retirement-history.test.mjs",
+                      "bytes":  11076
+                  },
+                  {
+                      "sha256":  "0fcf8060cc00ba241706e8b8618fc236ab8f6438918d4caf54bfb752ed6caa95",
+                      "file":  "docs/s05d-retirement-implementation-20261023/history-tests-increment.txt",
+                      "bytes":  598
+                  },
+                  {
+                      "sha256":  "114e3eb74d9d31acb52898e640ae37ca1a8ba4df28c0aae361b91debb91cac05",
+                      "file":  "docs/s05d-retirement-implementation-20261023/history-top-tools.json",
+                      "bytes":  572311
+                  },
+                  {
+                      "sha256":  "4ce6fe679e9af7da980cbb0fea601d7eeeb5ea67b294264e9660b48ca8a0a0ef",
+                      "file":  "docs/s05d-retirement-implementation-20261023/history-native-policy-audit.json",
+                      "bytes":  368056
+                  },
+                  {
+                      "sha256":  "503af423b02ad73f585975b6a24d9ca4693e4fb3d987ba01dbfce4dc1030706c",
+                      "file":  "docs/s05d-retirement-implementation-20261023/history-launchers-native.json",
+                      "bytes":  41340
+                  }
+              ],
+    "version":  "s05d-history-private-check-v1",
+    "fullSevenRepeated":  false,
+    "incrementTests":  2,
+    "taskRegistered":  false,
+    "actualToolBytes":  94730448,
+    "incrementPassed":  2,
+    "actualTopToolsHashed":  1872,
+    "actualHistoryProjected":  221
+}

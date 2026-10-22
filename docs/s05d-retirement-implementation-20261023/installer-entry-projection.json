@@ -1,0 +1,1403 @@
+{
+  "version": "s05d-installer-entry-projection-v1",
+  "at": "2026-10-22T19:40:36.460Z",
+  "readOnly": true,
+  "executedInstaller": false,
+  "sourceListSha256": "fcfdf549efd112fe7ada6f4548d117891352f41f4e16c99f2dd68212a80b4c96",
+  "sourceRoots": 182,
+  "codeBytesRead": 2463922,
+  "rows": [
+    {
+      "root": "D:/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "C:/Users/86137/Documents/Codex/2026-10-15/task/ops-reliability",
+      "role": "registered-git-source",
+      "path": "C:\\Users\\86137\\Documents\\Codex\\2026-10-15\\task\\ops-reliability\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/1a40/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\1a40\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/1c0f/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\1c0f\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/4d2e/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\4d2e\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/5d78/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\5d78\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/ai-agent-workflows/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\ai-agent-workflows\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/bf14/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\bf14\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/c198/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\c198\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/ccf9/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\ccf9\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/cd65/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\cd65\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/de9b/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\de9b\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/dfb4/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\dfb4\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/full-code-audit-20261021/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\full-code-audit-20261021\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34505,
+      "sha256": "33d88bd5cd3d81711c40b250c9dfec43ac1605fd315d44f08596ce9235baba35"
+    },
+    {
+      "root": "D:/.codex/worktrees/jd-logistics-demo/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\jd-logistics-demo\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/jd-logistics-integration/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\jd-logistics-integration\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/jd-zhigao-promotion-diagnosis/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\jd-zhigao-promotion-diagnosis\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/.codex/worktrees/market-annotation-django-release/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\market-annotation-django-release\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/market-annotation-release/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\market-annotation-release\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/netshop-integrated-build/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\netshop-integrated-build\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:/.codex/worktrees/netshop-integrated-html/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\netshop-integrated-html\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/netshop-six-designs/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\netshop-six-designs\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/product-operation-kind/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\product-operation-kind\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/release-integration-review/运营管理系统",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/.codex/worktrees/startup-pid-record-recovery",
+      "role": "registered-git-source",
+      "path": "D:\\.codex\\worktrees\\startup-pid-record-recovery\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-artifacts/prebuild-standard-user-20261018/control-source-delivery",
+      "role": "registered-git-source",
+      "path": "D:\\codex-artifacts\\prebuild-standard-user-20261018\\control-source-delivery\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 24495,
+      "sha256": "e33beb2249f8b9a79b1803df57f2de5226768ae852043dc9f56c2bcd39b6ca48"
+    },
+    {
+      "root": "D:/codex-artifacts/workflow-main-baseline-20261007",
+      "role": "registered-git-source",
+      "path": "D:\\codex-artifacts\\workflow-main-baseline-20261007\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/ai-chat-empty-details-release-20261015/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\ai-chat-empty-details-release-20261015\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/ai-release-candidate-20261013/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\ai-release-candidate-20261013\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/ai-schedule-repeat-fix-20261015/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\ai-schedule-repeat-fix-20261015\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/ai-schedule-repeat-fix-20261015-v2/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\ai-schedule-repeat-fix-20261015-v2\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/ai-schedules-release-20261015/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\ai-schedules-release-20261015\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/auto-wake-control-c36ea996/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\auto-wake-control-c36ea996\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 28359,
+      "sha256": "df6edb149ae5f5e1bdeb346cf35131496793ea2fb78b353897e70270b1a58bd7"
+    },
+    {
+      "root": "D:/codex-isolated/backup-pi-tools-release-20261019/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\backup-pi-tools-release-20261019\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 24520,
+      "sha256": "ebd9bd5780ad754a584c5210d994d3f309cfc7f98475b79140aeac54399f0b97"
+    },
+    {
+      "root": "D:/codex-isolated/combined-release-20261014/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\combined-release-20261014\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/jackyun-credential-release-20261017/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\jackyun-credential-release-20261017\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/jd-absent-helper-recovery-20261016/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\jd-absent-helper-recovery-20261016\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/jd-bi-health-fix-20261016/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\jd-bi-health-fix-20261016\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/jd-inbound-date-20261016/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\jd-inbound-date-20261016\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/jd-inbound-identity-20261016/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\jd-inbound-identity-20261016\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/jd-inbound-jh-document-20261016/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\jd-inbound-jh-document-20261016\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/jd-inbound-receipt-utc-20261016/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\jd-inbound-receipt-utc-20261016\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/jd-inbound-source-contract-20261016/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\jd-inbound-source-contract-20261016\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/jd-monitor-release-20261016/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\jd-monitor-release-20261016\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/jd-pop-identity-fix-20261016/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\jd-pop-identity-fix-20261016\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/jd-pop-release-20261015/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\jd-pop-release-20261015\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/main-manual-release-20261016/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/0bb9523cbf1e-bcccc8cd-00058fea/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\0bb9523cbf1e-bcccc8cd-00058fea\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/0efb85410210-614f2724-69977619/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\0efb85410210-614f2724-69977619\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 3346,
+      "sha256": "4ac1e59106cabc185184601730aea0b4dae468849b306b2a96a65d59cb6d094a"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/19db6d2c217e-ec5d0f96-83cdf0d4/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\19db6d2c217e-ec5d0f96-83cdf0d4\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 23822,
+      "sha256": "6c9e6ba449919913d8948caa36230f299a827cbc684b440bf5a703b6e0f3d4a5"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/20eea975b7e2-7d44de3d-ed93efd0/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\20eea975b7e2-7d44de3d-ed93efd0\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/25fe1fa39e7d-ec09ad08-71ae7608/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\25fe1fa39e7d-ec09ad08-71ae7608\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/2b022c16b36e-ec5d0f96-83cdf0d4/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\2b022c16b36e-ec5d0f96-83cdf0d4\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 21530,
+      "sha256": "95d1ffd6b0990000cf5afe03b1a3c0a7e2568f98ea8cbb37a03f4c4da7a624a4"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/2b6447f33d54-150a41fa-23ba6b9a/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\2b6447f33d54-150a41fa-23ba6b9a\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34505,
+      "sha256": "33d88bd5cd3d81711c40b250c9dfec43ac1605fd315d44f08596ce9235baba35"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/2be62f90e6dd-f9f646e8-3b7345f2/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\2be62f90e6dd-f9f646e8-3b7345f2\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34505,
+      "sha256": "33d88bd5cd3d81711c40b250c9dfec43ac1605fd315d44f08596ce9235baba35"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/2f875fb01c79-614f2724-69977619/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\2f875fb01c79-614f2724-69977619\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/36668589cab0-71ecf390-bbc9a5ef/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34680,
+      "sha256": "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/4059afea8841-93711e55-884d09d7/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34680,
+      "sha256": "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/4072d666f1f3-bcccc8cd-00058fea/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\4072d666f1f3-bcccc8cd-00058fea\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/477a94bf29f2-fee81c63-4ca6db6e/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\477a94bf29f2-fee81c63-4ca6db6e\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 28359,
+      "sha256": "df6edb149ae5f5e1bdeb346cf35131496793ea2fb78b353897e70270b1a58bd7"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/47e1e89fea91-pi150-forward/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\47e1e89fea91-pi150-forward\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/4a1859686c1e-ba5c1310-77953588/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\4a1859686c1e-ba5c1310-77953588\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/4b733d1aed4b-c5d5bb6f-a9e3fdb9/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\4b733d1aed4b-c5d5bb6f-a9e3fdb9\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 23822,
+      "sha256": "6c9e6ba449919913d8948caa36230f299a827cbc684b440bf5a703b6e0f3d4a5"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/51e242dac482-71ecf390-bbc9a5ef/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34680,
+      "sha256": "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/51eb7d76095d-pi150-forward/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\51eb7d76095d-pi150-forward\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/559e64fd8586-93711e55-884d09d7/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34680,
+      "sha256": "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/5663930fe16d-614f2724-69977619/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\5663930fe16d-614f2724-69977619\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 3372,
+      "sha256": "0d72237101c37488815a3640c573806f86e3154087aad4b9fdc749ea68446564"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/593b0edb045b-614f2724-69977619/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\593b0edb045b-614f2724-69977619\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 3372,
+      "sha256": "0d72237101c37488815a3640c573806f86e3154087aad4b9fdc749ea68446564"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/5bebdee77bca-f9f646e8-3b7345f2/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\5bebdee77bca-f9f646e8-3b7345f2\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34505,
+      "sha256": "33d88bd5cd3d81711c40b250c9dfec43ac1605fd315d44f08596ce9235baba35"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/64238c401955-7d44de3d-ed93efd0/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\64238c401955-7d44de3d-ed93efd0\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/69b38d1e523e-bcccc8cd-00058fea/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\69b38d1e523e-bcccc8cd-00058fea\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/6dc028139cc6-c5d5bb6f-a9e3fdb9/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\6dc028139cc6-c5d5bb6f-a9e3fdb9\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 24495,
+      "sha256": "e33beb2249f8b9a79b1803df57f2de5226768ae852043dc9f56c2bcd39b6ca48"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/6fbbb526270e-614f2724-69977619/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\6fbbb526270e-614f2724-69977619\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 3372,
+      "sha256": "0d72237101c37488815a3640c573806f86e3154087aad4b9fdc749ea68446564"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/8411456e8e75-ba5c1310-77953588/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\8411456e8e75-ba5c1310-77953588\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/8da01798a794-ec09ad08-71ae7608/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\8da01798a794-ec09ad08-71ae7608\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/988810cf4b9c-f6565b40-79d6d565/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\988810cf4b9c-f6565b40-79d6d565\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34505,
+      "sha256": "33d88bd5cd3d81711c40b250c9dfec43ac1605fd315d44f08596ce9235baba35"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/9a45d8be6974-c5d5bb6f-a9e3fdb9/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\9a45d8be6974-c5d5bb6f-a9e3fdb9\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 24076,
+      "sha256": "e60715f442d9ae652f90d079c604278466db484b323b22a7f3e08246778c901f"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/a396a7b10930-bcccc8cd-00058fea/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 28359,
+      "sha256": "df6edb149ae5f5e1bdeb346cf35131496793ea2fb78b353897e70270b1a58bd7"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/a7041338462a-997d0568-ca9c731a/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\a7041338462a-997d0568-ca9c731a\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 24520,
+      "sha256": "ebd9bd5780ad754a584c5210d994d3f309cfc7f98475b79140aeac54399f0b97"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/b1b0e15d7cb7-bcccc8cd-00058fea/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\b1b0e15d7cb7-bcccc8cd-00058fea\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 28359,
+      "sha256": "df6edb149ae5f5e1bdeb346cf35131496793ea2fb78b353897e70270b1a58bd7"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/b2ef81c7c6ee-997d0568-ca9c731a/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\b2ef81c7c6ee-997d0568-ca9c731a\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 24520,
+      "sha256": "ebd9bd5780ad754a584c5210d994d3f309cfc7f98475b79140aeac54399f0b97"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/b44889912af8-f6565b40-79d6d565/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\b44889912af8-f6565b40-79d6d565\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34505,
+      "sha256": "33d88bd5cd3d81711c40b250c9dfec43ac1605fd315d44f08596ce9235baba35"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/b6ac69dc7ce7-a51cce69-9ae5365c/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\b6ac69dc7ce7-a51cce69-9ae5365c\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/bbc9fda1cfda-pi150-forward/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\bbc9fda1cfda-pi150-forward\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/c2c6749a4178-de03bca5-66cc9293/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\c2c6749a4178-de03bca5-66cc9293\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/c32434a924c4-a51cce69-9ae5365c/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\c32434a924c4-a51cce69-9ae5365c\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/c36ea9964ea0-fee81c63-4ca6db6e/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\c36ea9964ea0-fee81c63-4ca6db6e\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 28359,
+      "sha256": "df6edb149ae5f5e1bdeb346cf35131496793ea2fb78b353897e70270b1a58bd7"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/c7b817989050-ba5c1310-77953588/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\c7b817989050-ba5c1310-77953588\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/cb3b1cb7b8e3-614f2724-69977619/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\cb3b1cb7b8e3-614f2724-69977619\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 3372,
+      "sha256": "0d72237101c37488815a3640c573806f86e3154087aad4b9fdc749ea68446564"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/cdf1c5eb92e5-37756aa0-357789c6/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\cdf1c5eb92e5-37756aa0-357789c6\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/ce72ed644256-614f2724-69977619/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\ce72ed644256-614f2724-69977619\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 2907,
+      "sha256": "0302468cbbcf66c9f0e919b410fa93f1a6bbbcf9a341b7c336fa68e96b06c6ac"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/cecb609c0ecc-614f2724-69977619/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\cecb609c0ecc-614f2724-69977619\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 3346,
+      "sha256": "4ac1e59106cabc185184601730aea0b4dae468849b306b2a96a65d59cb6d094a"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/d498852c8f01-ba5c1310-77953588/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\d498852c8f01-ba5c1310-77953588\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/d95ad3d96816-de03bca5-66cc9293/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\d95ad3d96816-de03bca5-66cc9293\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/e07fbe645d9d-614f2724-69977619/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\e07fbe645d9d-614f2724-69977619\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 3372,
+      "sha256": "0d72237101c37488815a3640c573806f86e3154087aad4b9fdc749ea68446564"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/e3a72a9ad73d-ec09ad08-71ae7608/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\e3a72a9ad73d-ec09ad08-71ae7608\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/e508d9c39baf-pi150-forward/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\e508d9c39baf-pi150-forward\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/e52361d5a8fc-bcccc8cd-7142cf1e/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\e52361d5a8fc-bcccc8cd-7142cf1e\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/e9696b0d2818-fdf50989-54a48ee1/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\e9696b0d2818-fdf50989-54a48ee1\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 28359,
+      "sha256": "df6edb149ae5f5e1bdeb346cf35131496793ea2fb78b353897e70270b1a58bd7"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/e9a33b8adbc6-a51cce69-9ae5365c/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\e9a33b8adbc6-a51cce69-9ae5365c\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/f3748d8e03e2-60dc61d1-622cb632/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\f3748d8e03e2-60dc61d1-622cb632\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/f5c688452710-ba5c1310-77953588/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\f5c688452710-ba5c1310-77953588\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/f9507f253046-60dc61d1-622cb632/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\f9507f253046-60dc61d1-622cb632\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-isolated/main-release-packages/ff46c025c26d-614f2724-69977619/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\main-release-packages\\ff46c025c26d-614f2724-69977619\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 3633,
+      "sha256": "e02003d367ba4ef7940cefa4625a06c51e8336da0adb007c8e4e5ebd8a345b29"
+    },
+    {
+      "root": "D:/codex-isolated/market-ai-blockers-release-20261014/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\market-ai-blockers-release-20261014\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/market-ai-round2-release-20261015/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\market-ai-round2-release-20261015\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/market-progress-django-20261015/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\market-progress-django-20261015\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/market-progress-reader-final-20261015/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\market-progress-reader-final-20261015\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/market-progress-reader-source-20261015/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\market-progress-reader-source-20261015\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/market-progress-worker-20261015/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\market-progress-worker-20261015\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/market-progress-worker-publish-20261015/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\market-progress-worker-publish-20261015\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/new-product-learning-receipts-20261016/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\new-product-learning-receipts-20261016\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/pi-inventory-erp-publish-recovery-20261018",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\pi-inventory-erp-publish-recovery-20261018\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 24495,
+      "sha256": "e33beb2249f8b9a79b1803df57f2de5226768ae852043dc9f56c2bcd39b6ca48"
+    },
+    {
+      "root": "D:/codex-isolated/product-combo-details-release-20261014/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\product-combo-details-release-20261014\\source\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:/codex-isolated/release-cache-control-de3c1226/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\release-cache-control-de3c1226\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 28359,
+      "sha256": "df6edb149ae5f5e1bdeb346cf35131496793ea2fb78b353897e70270b1a58bd7"
+    },
+    {
+      "root": "D:/codex-isolated/release-readiness-control-0be03eca/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\release-readiness-control-0be03eca\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 24076,
+      "sha256": "e60715f442d9ae652f90d079c604278466db484b323b22a7f3e08246778c901f"
+    },
+    {
+      "root": "D:/codex-isolated/release-readiness-control-9a45d8be/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\release-readiness-control-9a45d8be\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 24076,
+      "sha256": "e60715f442d9ae652f90d079c604278466db484b323b22a7f3e08246778c901f"
+    },
+    {
+      "root": "D:/codex-isolated/release-schema-control-b2ef81c7/source",
+      "role": "registered-git-source",
+      "path": "D:\\codex-isolated\\release-schema-control-b2ef81c7\\source\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 24520,
+      "sha256": "ebd9bd5780ad754a584c5210d994d3f309cfc7f98475b79140aeac54399f0b97"
+    },
+    {
+      "root": "D:/codex-worktrees/a1",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\a1\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34680,
+      "sha256": "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073"
+    },
+    {
+      "root": "D:/codex-worktrees/a3-converge-20261022",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\a3-converge-20261022\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34680,
+      "sha256": "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073"
+    },
+    {
+      "root": "D:/codex-worktrees/b1",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\b1\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34680,
+      "sha256": "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073"
+    },
+    {
+      "root": "D:/codex-worktrees/b3",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\b3\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34505,
+      "sha256": "33d88bd5cd3d81711c40b250c9dfec43ac1605fd315d44f08596ce9235baba35"
+    },
+    {
+      "root": "D:/codex-worktrees/e969-ad7d-maintenance-recovery-20261019",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\e969-ad7d-maintenance-recovery-20261019\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 28359,
+      "sha256": "df6edb149ae5f5e1bdeb346cf35131496793ea2fb78b353897e70270b1a58bd7"
+    },
+    {
+      "root": "D:/codex-worktrees/helper-claim-cleanup-20261019",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\helper-claim-cleanup-20261019\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 28359,
+      "sha256": "df6edb149ae5f5e1bdeb346cf35131496793ea2fb78b353897e70270b1a58bd7"
+    },
+    {
+      "root": "D:/codex-worktrees/jd-9896-rerun-20261017",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\jd-9896-rerun-20261017\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:/codex-worktrees/merge-20261022",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\merge-20261022\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34680,
+      "sha256": "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073"
+    },
+    {
+      "root": "D:/codex-worktrees/pi-upgrade-wal-fix-20261020",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\pi-upgrade-wal-fix-20261020\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:/codex-worktrees/prepare-4aac-cleaned-resolution-20261019",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\prepare-4aac-cleaned-resolution-20261019\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 28359,
+      "sha256": "df6edb149ae5f5e1bdeb346cf35131496793ea2fb78b353897e70270b1a58bd7"
+    },
+    {
+      "root": "D:/codex-worktrees/prepare-693e-resolution-20261019",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\prepare-693e-resolution-20261019\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 28359,
+      "sha256": "df6edb149ae5f5e1bdeb346cf35131496793ea2fb78b353897e70270b1a58bd7"
+    },
+    {
+      "root": "D:/codex-worktrees/prepare-693e-witness-gap-20261019",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\prepare-693e-witness-gap-20261019\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 28359,
+      "sha256": "df6edb149ae5f5e1bdeb346cf35131496793ea2fb78b353897e70270b1a58bd7"
+    },
+    {
+      "root": "D:/codex-worktrees/release-optimizations-20261020",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\release-optimizations-20261020\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:/codex-worktrees/release-roi-plan-20261022",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\release-roi-plan-20261022\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34680,
+      "sha256": "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073"
+    },
+    {
+      "root": "D:/codex-worktrees/s04a-qualify-20261022",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\s04a-qualify-20261022\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34680,
+      "sha256": "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073"
+    },
+    {
+      "root": "D:/codex-worktrees/s05a-qualify-20261022",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\s05a-qualify-20261022\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34680,
+      "sha256": "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073"
+    },
+    {
+      "root": "D:/codex-worktrees/s05c-roi-baseline-20261022",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\s05c-roi-baseline-20261022\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34680,
+      "sha256": "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073"
+    },
+    {
+      "root": "D:/codex-worktrees/s05d-missing-failure-20261022",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\s05d-missing-failure-20261022\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34680,
+      "sha256": "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073"
+    },
+    {
+      "root": "D:/codex-worktrees/s05d-retirement-feasibility-20261023",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\s05d-retirement-feasibility-20261023\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34680,
+      "sha256": "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073"
+    },
+    {
+      "root": "D:/codex-worktrees/s05d-retirement-implementation-20261023",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\s05d-retirement-implementation-20261023\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 35823,
+      "sha256": "fa2f8baf10580bd6fd3fb3ca8ad8286887cdebd6f8fa4f0ab0e2c9f54796d68c"
+    },
+    {
+      "root": "D:/codex-worktrees/schema-acl-gate-20261020",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\schema-acl-gate-20261020\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:/codex-worktrees/start-fence-20261020",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\start-fence-20261020\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:/codex-worktrees/weekly-release-lease-20261020",
+      "role": "registered-git-source",
+      "path": "D:\\codex-worktrees\\weekly-release-lease-20261020\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261013T034151Z-1513c2b267930390\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261013T034151Z-1513c2b267930390\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261013T091815Z-878966319497c4bd\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261013T091815Z-878966319497c4bd\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261013T145450Z-fe391dce49a258cf\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261013T145450Z-fe391dce49a258cf\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T024227Z-c3a176ee85a03642\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T024227Z-c3a176ee85a03642\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T042045Z-3fa896145ddb534d\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T042045Z-3fa896145ddb534d\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T045841Z-0084b48bfe8257bf\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T045841Z-0084b48bfe8257bf\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T124800Z-49f5ec9db80e195b\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T124800Z-49f5ec9db80e195b\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T142300Z-5417c162f772702e\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T142300Z-5417c162f772702e\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T160504Z-80bb62ecc29f92c5\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T160504Z-80bb62ecc29f92c5\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T170130Z-17e3867852424323\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T170130Z-17e3867852424323\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T202834Z-1943995b435ba5c7\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T202834Z-1943995b435ba5c7\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T031454Z-bfb561e8e06db72e\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T031454Z-bfb561e8e06db72e\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T062310Z-4259d14f596d2a40\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T062310Z-4259d14f596d2a40\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T074548Z-58e44a5126de6bba\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T074548Z-58e44a5126de6bba\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T092526Z-d90afd0d40109cc3\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T092526Z-d90afd0d40109cc3\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T152258Z-3ca63e8b9225fb87\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T152258Z-3ca63e8b9225fb87\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T012126Z-dc89c4ec5bfabd85\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T012126Z-dc89c4ec5bfabd85\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T021943Z-228f5e3dc3956a5c\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T021943Z-228f5e3dc3956a5c\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T042259Z-480b1bb8ae3f6605\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T042259Z-480b1bb8ae3f6605\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T052138Z-501da6b1afc58fef\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T052138Z-501da6b1afc58fef\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T172150Z-8a54a65532d4d6de\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T172150Z-8a54a65532d4d6de\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T010147Z-1cbddf98c27cf167\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T010147Z-1cbddf98c27cf167\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": false
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T063128Z-5d4113ddb3c5cada\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T063128Z-5d4113ddb3c5cada\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T082953Z-c9da1765d84847d4\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T082953Z-c9da1765d84847d4\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T100706Z-1090ea88f6fe3094\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T100706Z-1090ea88f6fe3094\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T133831Z-1a1a85cad296924e\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T133831Z-1a1a85cad296924e\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T172142Z-766464458ef7b5ac\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T172142Z-766464458ef7b5ac\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T233707Z-7a92b68a72ea7589\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T233707Z-7a92b68a72ea7589\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T025351Z-b74c749651394192\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T025351Z-b74c749651394192\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 4011,
+      "sha256": "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T081823Z-282cee340c57bf41\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T081823Z-282cee340c57bf41\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 23822,
+      "sha256": "6c9e6ba449919913d8948caa36230f299a827cbc684b440bf5a703b6e0f3d4a5"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T112936Z-f51e4f3671a64cd3\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T112936Z-f51e4f3671a64cd3\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 24495,
+      "sha256": "e33beb2249f8b9a79b1803df57f2de5226768ae852043dc9f56c2bcd39b6ca48"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T162837Z-9a9245927d9aa8d5\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T162837Z-9a9245927d9aa8d5\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 24520,
+      "sha256": "ebd9bd5780ad754a584c5210d994d3f309cfc7f98475b79140aeac54399f0b97"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T104309Z-f28b90a85276e948\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T104309Z-f28b90a85276e948\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 24520,
+      "sha256": "ebd9bd5780ad754a584c5210d994d3f309cfc7f98475b79140aeac54399f0b97"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T130904Z-6b816a5085c6a13e\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T130904Z-6b816a5085c6a13e\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 28359,
+      "sha256": "df6edb149ae5f5e1bdeb346cf35131496793ea2fb78b353897e70270b1a58bd7"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T194715Z-63b9b06109dbb19d\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T194715Z-63b9b06109dbb19d\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261020T064140Z-f275909f63debfae\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261020T064140Z-f275909f63debfae\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261020T095557Z-351fed8469d3cf31\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261020T095557Z-351fed8469d3cf31\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 32474,
+      "sha256": "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261020T183747Z-0b90a81150c2b203\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261020T183747Z-0b90a81150c2b203\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34505,
+      "sha256": "33d88bd5cd3d81711c40b250c9dfec43ac1605fd315d44f08596ce9235baba35"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261021T005044Z-3e008fa5cc2bacfe\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261021T005044Z-3e008fa5cc2bacfe\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34505,
+      "sha256": "33d88bd5cd3d81711c40b250c9dfec43ac1605fd315d44f08596ce9235baba35"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261021T050959Z-309bb3d722f0ee47\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261021T050959Z-309bb3d722f0ee47\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34505,
+      "sha256": "33d88bd5cd3d81711c40b250c9dfec43ac1605fd315d44f08596ce9235baba35"
+    },
+    {
+      "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261022T034924Z-1667fc5e107422e1\\source-snapshot",
+      "role": "retained-consumed-snapshot",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261022T034924Z-1667fc5e107422e1\\source-snapshot\\tools\\install-main-prebuild.mjs",
+      "present": true,
+      "bytes": 34680,
+      "sha256": "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073"
+    }
+  ],
+  "unique": {
+    "33d88bd5cd3d81711c40b250c9dfec43ac1605fd315d44f08596ce9235baba35": {
+      "example": "D:\\.codex\\worktrees\\full-code-audit-20261021\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "bytes": 34505,
+      "count": 10
+    },
+    "38ebe60c3bed5ecc7a3d5abf2d8b00f7eabaeb39d7328b39551eda7602292e27": {
+      "example": "D:\\.codex\\worktrees\\jd-zhigao-promotion-diagnosis\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "bytes": 4011,
+      "count": 26
+    },
+    "a98ffa3bb23a983d067e8f0b9eee497ebaa423f267d34eae3cb855e0de7864bf": {
+      "example": "D:\\.codex\\worktrees\\netshop-integrated-build\\运营管理系统\\tools\\install-main-prebuild.mjs",
+      "bytes": 32474,
+      "count": 20
+    },
+    "e33beb2249f8b9a79b1803df57f2de5226768ae852043dc9f56c2bcd39b6ca48": {
+      "example": "D:\\codex-artifacts\\prebuild-standard-user-20261018\\control-source-delivery\\tools\\install-main-prebuild.mjs",
+      "bytes": 24495,
+      "count": 4
+    },
+    "df6edb149ae5f5e1bdeb346cf35131496793ea2fb78b353897e70270b1a58bd7": {
+      "example": "D:\\codex-isolated\\auto-wake-control-c36ea996\\source\\tools\\install-main-prebuild.mjs",
+      "bytes": 28359,
+      "count": 13
+    },
+    "ebd9bd5780ad754a584c5210d994d3f309cfc7f98475b79140aeac54399f0b97": {
+      "example": "D:\\codex-isolated\\backup-pi-tools-release-20261019\\source\\tools\\install-main-prebuild.mjs",
+      "bytes": 24520,
+      "count": 6
+    },
+    "4ac1e59106cabc185184601730aea0b4dae468849b306b2a96a65d59cb6d094a": {
+      "example": "D:\\codex-isolated\\main-release-packages\\0efb85410210-614f2724-69977619\\source\\tools\\install-main-prebuild.mjs",
+      "bytes": 3346,
+      "count": 2
+    },
+    "6c9e6ba449919913d8948caa36230f299a827cbc684b440bf5a703b6e0f3d4a5": {
+      "example": "D:\\codex-isolated\\main-release-packages\\19db6d2c217e-ec5d0f96-83cdf0d4\\source\\tools\\install-main-prebuild.mjs",
+      "bytes": 23822,
+      "count": 3
+    },
+    "95d1ffd6b0990000cf5afe03b1a3c0a7e2568f98ea8cbb37a03f4c4da7a624a4": {
+      "example": "D:\\codex-isolated\\main-release-packages\\2b022c16b36e-ec5d0f96-83cdf0d4\\source\\tools\\install-main-prebuild.mjs",
+      "bytes": 21530,
+      "count": 1
+    },
+    "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073": {
+      "example": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\tools\\install-main-prebuild.mjs",
+      "bytes": 34680,
+      "count": 15
+    },
+    "0d72237101c37488815a3640c573806f86e3154087aad4b9fdc749ea68446564": {
+      "example": "D:\\codex-isolated\\main-release-packages\\5663930fe16d-614f2724-69977619\\source\\tools\\install-main-prebuild.mjs",
+      "bytes": 3372,
+      "count": 5
+    },
+    "e60715f442d9ae652f90d079c604278466db484b323b22a7f3e08246778c901f": {
+      "example": "D:\\codex-isolated\\main-release-packages\\9a45d8be6974-c5d5bb6f-a9e3fdb9\\source\\tools\\install-main-prebuild.mjs",
+      "bytes": 24076,
+      "count": 3
+    },
+    "0302468cbbcf66c9f0e919b410fa93f1a6bbbcf9a341b7c336fa68e96b06c6ac": {
+      "example": "D:\\codex-isolated\\main-release-packages\\ce72ed644256-614f2724-69977619\\source\\tools\\install-main-prebuild.mjs",
+      "bytes": 2907,
+      "count": 1
+    },
+    "e02003d367ba4ef7940cefa4625a06c51e8336da0adb007c8e4e5ebd8a345b29": {
+      "example": "D:\\codex-isolated\\main-release-packages\\ff46c025c26d-614f2724-69977619\\source\\tools\\install-main-prebuild.mjs",
+      "bytes": 3633,
+      "count": 1
+    },
+    "fa2f8baf10580bd6fd3fb3ca8ad8286887cdebd6f8fa4f0ab0e2c9f54796d68c": {
+      "example": "D:\\codex-worktrees\\s05d-retirement-implementation-20261023\\tools\\install-main-prebuild.mjs",
+      "bytes": 35823,
+      "count": 1
+    }
+  },
+  "elapsedMs": 164
+}

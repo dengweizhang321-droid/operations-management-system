@@ -1,0 +1,237 @@
+{
+    "version":  "s05d-source-guard-rejection-location-v1",
+    "at":  "2026-10-22T21:11:19.3408451Z",
+    "readOnly":  true,
+    "qualificationPerformed":  false,
+    "roots":  510,
+    "matchingMainLeaves":  85,
+    "bytesRead":  3112334,
+    "elapsedMs":  2680,
+    "rejections":  [
+                       {
+                           "root":  "D:/codex-isolated/auto-wake-control-c36ea996/source",
+                           "mainPath":  "D:\\codex-isolated\\auto-wake-control-c36ea996\\source\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-isolated\\auto-wake-control-c36ea996\\source\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/codex-isolated/backup-pi-tools-release-20261019/source",
+                           "mainPath":  "D:\\codex-isolated\\backup-pi-tools-release-20261019\\source\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-isolated\\backup-pi-tools-release-20261019\\source\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/codex-isolated/main-release-packages/0bb9523cbf1e-bcccc8cd-00058fea/source",
+                           "mainPath":  "D:\\codex-isolated\\main-release-packages\\0bb9523cbf1e-bcccc8cd-00058fea\\source\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-isolated\\main-release-packages\\0bb9523cbf1e-bcccc8cd-00058fea\\source\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/codex-isolated/main-release-packages/477a94bf29f2-fee81c63-4ca6db6e/source",
+                           "mainPath":  "D:\\codex-isolated\\main-release-packages\\477a94bf29f2-fee81c63-4ca6db6e\\source\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-isolated\\main-release-packages\\477a94bf29f2-fee81c63-4ca6db6e\\source\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/codex-isolated/main-release-packages/a396a7b10930-bcccc8cd-00058fea/source",
+                           "mainPath":  "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea\\source\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-isolated\\main-release-packages\\a396a7b10930-bcccc8cd-00058fea\\source\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/codex-isolated/main-release-packages/a7041338462a-997d0568-ca9c731a/source",
+                           "mainPath":  "D:\\codex-isolated\\main-release-packages\\a7041338462a-997d0568-ca9c731a\\source\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-isolated\\main-release-packages\\a7041338462a-997d0568-ca9c731a\\source\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/codex-isolated/main-release-packages/b1b0e15d7cb7-bcccc8cd-00058fea/source",
+                           "mainPath":  "D:\\codex-isolated\\main-release-packages\\b1b0e15d7cb7-bcccc8cd-00058fea\\source\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-isolated\\main-release-packages\\b1b0e15d7cb7-bcccc8cd-00058fea\\source\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/codex-isolated/main-release-packages/b2ef81c7c6ee-997d0568-ca9c731a/source",
+                           "mainPath":  "D:\\codex-isolated\\main-release-packages\\b2ef81c7c6ee-997d0568-ca9c731a\\source\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-isolated\\main-release-packages\\b2ef81c7c6ee-997d0568-ca9c731a\\source\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/codex-isolated/main-release-packages/c36ea9964ea0-fee81c63-4ca6db6e/source",
+                           "mainPath":  "D:\\codex-isolated\\main-release-packages\\c36ea9964ea0-fee81c63-4ca6db6e\\source\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-isolated\\main-release-packages\\c36ea9964ea0-fee81c63-4ca6db6e\\source\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/codex-isolated/main-release-packages/e9696b0d2818-fdf50989-54a48ee1/source",
+                           "mainPath":  "D:\\codex-isolated\\main-release-packages\\e9696b0d2818-fdf50989-54a48ee1\\source\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-isolated\\main-release-packages\\e9696b0d2818-fdf50989-54a48ee1\\source\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/codex-isolated/release-cache-control-de3c1226/source",
+                           "mainPath":  "D:\\codex-isolated\\release-cache-control-de3c1226\\source\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-isolated\\release-cache-control-de3c1226\\source\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/codex-isolated/release-schema-control-b2ef81c7/source",
+                           "mainPath":  "D:\\codex-isolated\\release-schema-control-b2ef81c7\\source\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-isolated\\release-schema-control-b2ef81c7\\source\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/codex-worktrees/e969-ad7d-maintenance-recovery-20261019",
+                           "mainPath":  "D:\\codex-worktrees\\e969-ad7d-maintenance-recovery-20261019\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-worktrees\\e969-ad7d-maintenance-recovery-20261019\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/codex-worktrees/helper-claim-cleanup-20261019",
+                           "mainPath":  "D:\\codex-worktrees\\helper-claim-cleanup-20261019\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-worktrees\\helper-claim-cleanup-20261019\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/codex-worktrees/prepare-4aac-cleaned-resolution-20261019",
+                           "mainPath":  "D:\\codex-worktrees\\prepare-4aac-cleaned-resolution-20261019\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-worktrees\\prepare-4aac-cleaned-resolution-20261019\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/codex-worktrees/prepare-693e-resolution-20261019",
+                           "mainPath":  "D:\\codex-worktrees\\prepare-693e-resolution-20261019\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-worktrees\\prepare-693e-resolution-20261019\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/codex-worktrees/prepare-693e-witness-gap-20261019",
+                           "mainPath":  "D:\\codex-worktrees\\prepare-693e-witness-gap-20261019\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\codex-worktrees\\prepare-693e-witness-gap-20261019\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/teruisi-runtime/teruisi-worker-sales/releases/20261018T162837Z-9a9245927d9aa8d5/source-snapshot",
+                           "mainPath":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T162837Z-9a9245927d9aa8d5\\source-snapshot\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T162837Z-9a9245927d9aa8d5\\source-snapshot\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/teruisi-runtime/teruisi-worker-sales/releases/20261019T005631Z-9641179b90868db0/source-snapshot",
+                           "mainPath":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T005631Z-9641179b90868db0\\source-snapshot\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T005631Z-9641179b90868db0\\source-snapshot\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/teruisi-runtime/teruisi-worker-sales/releases/20261019T104309Z-f28b90a85276e948/source-snapshot",
+                           "mainPath":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T104309Z-f28b90a85276e948\\source-snapshot\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T104309Z-f28b90a85276e948\\source-snapshot\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/teruisi-runtime/teruisi-worker-sales/releases/20261019T130904Z-6b816a5085c6a13e/source-snapshot",
+                           "mainPath":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T130904Z-6b816a5085c6a13e\\source-snapshot\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T130904Z-6b816a5085c6a13e\\source-snapshot\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:/teruisi-runtime/teruisi-worker-sales/releases/20261019T172235Z-9287610cf150c076/source-snapshot",
+                           "mainPath":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T172235Z-9287610cf150c076\\source-snapshot\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T172235Z-9287610cf150c076\\source-snapshot\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T162837Z-9a9245927d9aa8d5\\source-snapshot",
+                           "mainPath":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T162837Z-9a9245927d9aa8d5\\source-snapshot\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T162837Z-9a9245927d9aa8d5\\source-snapshot\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T104309Z-f28b90a85276e948\\source-snapshot",
+                           "mainPath":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T104309Z-f28b90a85276e948\\source-snapshot\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T104309Z-f28b90a85276e948\\source-snapshot\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       },
+                       {
+                           "root":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T130904Z-6b816a5085c6a13e\\source-snapshot",
+                           "mainPath":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T130904Z-6b816a5085c6a13e\\source-snapshot\\tools\\publish-main.mjs",
+                           "mainSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                           "guardPath":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T130904Z-6b816a5085c6a13e\\source-snapshot\\tools\\frozen-main-source.mjs",
+                           "guardPresent":  true,
+                           "guardSha256":  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+                           "expectedGuardSha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882"
+                       }
+                   ]
+}

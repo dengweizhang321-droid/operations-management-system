@@ -1,5 +1,7 @@
 # 任务记录目录
 
+本轮施工：[S05d/S05b 四步执行记录](../s05d-retirement-implementation-20261023/REPORT.md) · [授权与范围](../s05d-retirement-implementation-20261023/AUTHORIZATION.md) · [独立方案](../s05d-retirement-implementation-20261023/PLAN.md) · [独立审查](../s05d-retirement-implementation-20261023/REVIEW.md) · [现场续接清单](../s05d-retirement-implementation-20261023/LIVE-RUNBOOK.md)。状态以报告及原生回执为准。
+
 本轮设计验证：[S05d退休、对账、封存可行性](../s05d-retirement-feasibility-20261023/REPORT.md) · [独立方案](../s05d-retirement-feasibility-20261023/PLAN.md) · [源码与隔离证据](../s05d-retirement-feasibility-20261023/FEASIBILITY.md) · [独立审查](../s05d-retirement-feasibility-20261023/REVIEW.md)。生产仍未就绪。
 
 本轮阻塞交付：[S05d缺失失败回执调查](../s05d-missing-failure-20261022/REPORT.md) · [独立规划](../s05d-missing-failure-20261022/PLAN.md) · [隔离实现与检查](../s05d-missing-failure-20261022/IMPLEMENTATION.md) · [独立审查](../s05d-missing-failure-20261022/REVIEW.md)。诊断不等于恢复就绪，S05b未执行。

@@ -21,3 +21,8 @@ tools/tmall_warehouse_rehearsal.py -text whitespace=cr-at-eol
 docs/tmall-warehouse-monitor-20261017/schema-validation.json -text whitespace=cr-at-eol
 
 tools/django-runtime-supervisor.ps1 -text whitespace=cr-at-eol
+tools/preparation-retirement*.mjs -text whitespace=cr-at-eol
+tools/preparation-retirement-handoff-runner.ps1 -text whitespace=cr-at-eol
+tests/preparation-retirement-*.test.mjs -text whitespace=cr-at-eol
+tests/fixtures/s05d-old-source-entry/*.mjs -text whitespace=cr-at-eol
+tests/helpers/preparation-retirement-fixture.mjs -text whitespace=cr-at-eol

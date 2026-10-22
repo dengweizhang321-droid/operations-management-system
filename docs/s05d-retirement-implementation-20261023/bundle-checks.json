@@ -1,0 +1,73 @@
+{
+  "version": "s05d-actual-bundle-private-check-v1",
+  "frozenPins": {
+    "file": "docs/s05d-retirement-implementation-20261023/current-handoff-pins.json",
+    "sha256": "cc573e60ea16b77a2695e85d540cf1c3c9598ea99ddd0655126ac8058528c099"
+  },
+  "installerSha256": "a0865630915a5b60ec08db93939bdb3f50149fb48ecd37a40493ed7b4abca54c",
+  "bundleSha256": "cd2ba86d87a37f4c44fbf6979c85f81b6888742510238f4e8fa0ea125ef31386",
+  "members": 32,
+  "files": {
+    "tools/publish-latest-main.mjs": "16de220734c22ddfa050ae5cef11ab41e9a05d51ba8a8f3e28ec2e2214d05475",
+    "tools/publish-main-progress.mjs": "a8c0292fc777862a2880b32b5d7f190624e4e986c41ae857e0b975f209c60267",
+    "tools/release-scope-plan.mjs": "e32e1e37ae99975b21816a021c266c360bb46c02254586796b09e2a6e3a281b2",
+    "tools/main-prebuild-hook.mjs": "34aab4f4cbfb9f501081a680d12614d072a86c96be0842bef2c832892e4c88e5",
+    "tools/main-schema-release.mjs": "793c0c31a30199d79bb97293df41a88af7bc0e784d205bca03afec9b1decb6f7",
+    "tools/main-prebuild-status.mjs": "9010056cc8b1ead2cfd4ba17ad5e427f0a0849f6b77ab708b8c3443795e12dc3",
+    "tools/main-prebuild-queue.mjs": "f0bf372f21ddf535c14c25fdaf2428ca3a0145f9a3182055d7348456f7cdf378",
+    "tools/main-control-dispatch.mjs": "3dae7ceb2257dbea3cc3c168c895b97c34228a3f6c01229fb2cec2b6006625a7",
+    "tools/main-prebuild-task.mjs": "9f05dedcb953fec984d9c6ee3938a6254f7d5875bbe43018ff88869264c7cb62",
+    "tools/frozen-main-source.mjs": "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882",
+    "tools/preparation-resolution.mjs": "8f088c60571184ba141aee7be037d785fc51a9f8065afb979f5bab327283e50f",
+    "tools/preparation-resolution-history.mjs": "28811bd41c716bce1005588715c58cf2a8e453cc7f3c48f41697e1fb4daaff7d",
+    "tools/preparation-producer-qualification.mjs": "edfa4c307291d8bb4091f323dbd9090dfd0ce6dd3aa064a6f52828a74b9dbe56",
+    "tools/cleaned-preparation-writer.mjs": "45d8cceb6ee72dddec4ba43ed5e0183b80dc05502265271c2f358397abe6735b",
+    "tools/cleaned-preparation-observer.mjs": "c202cf888115e7842c1716c89f1946485dab1e3c26d08f93022de2293cd41d6d",
+    "tools/preparation-retirement-admission.mjs": "dd53e7c0f0e56779967aa64ea1644351d1ee08c00527e4037388b6b86a9c1c24",
+    "tools/preparation-retirement-archive.mjs": "adadf242b7ff0a6a87b9b672b0cc655de95bc249cbcd6c517aaef686fd1b6be6",
+    "tools/preparation-retirement-boot.mjs": "e00fe4ee68faff34b82fbe94317f56e1feb6908fb6f9c7cd40a19ee7fa9da133",
+    "tools/preparation-retirement-collector.mjs": "591265c9347b06bb8e10012544a5bdefbe7774c3504a6687bdc798da91bbbf4f",
+    "tools/preparation-retirement-evidence.mjs": "e818c8b821c8bf521ba3a7781206aae69307eb67bf19d5ac32dd07a9b9d83df7",
+    "tools/preparation-retirement-entry.mjs": "a8c8b368cd14710e36d5303b8df868814a6d7776d8ffba337bf1ae29cd7075f5",
+    "tools/preparation-retirement-fs.mjs": "3fac306a413ed25bb14f36a70dd772cf82d435cedc781d5e639ee5b19c3e6113",
+    "tools/preparation-retirement-handoff.mjs": "da1e08c8b1d8b0adf2285c5a3d31f7dce4c3b2ff35a05e4f3b375c302111c397",
+    "tools/preparation-retirement-handoff-runner.ps1": "7ad4e67e94fcdf5996dc2a962045e6f1d10ba6a1a0337058b211dea5312b531c",
+    "tools/preparation-retirement-history.mjs": "1bcc7c965127e74116f7a84608251a83cce18eb76a7b6be9c8e1376398961ea2",
+    "tools/preparation-retirement-native.mjs": "63c925d9649646723627ed9ffe82704b0055fbb08dcaca950aeaabf9c4f3c467",
+    "tools/preparation-retirement-observer.mjs": "fbfdec89b0843befe2e497627159eb7beef33733409abbad6cddd7b401935f60",
+    "tools/preparation-retirement-qualification.mjs": "e40c6a9a755fdcdf5c5c783c48ff1292ffbb30cf976c8b28455653fd3a89bfb0",
+    "tools/preparation-retirement-ref.mjs": "f7f4ceb0de38a5ad7ee9a8daf284dfa484fea99117b44705d8ee3f08298cffa6",
+    "tools/preparation-retirement-source.mjs": "9edd123d29daba63921e994750c0ea11cdf9f2beacaf36d198d25c9352c56d47",
+    "tools/preparation-retirement-witness.mjs": "4018bb6a61f336ae5c77c34a9c7c642b663b242e09deda56cea0e34c9edf5ab8",
+    "tools/preparation-retirement.mjs": "7cbf5677417fe58017f6c77f15d10f2ca53e7cfa03191d91ef3a7aabd5dd516d"
+  },
+  "tests": 4,
+  "passed": 4,
+  "failed": 0,
+  "exitCode": 0,
+  "runCount": 1,
+  "rawLog": {
+    "file": "docs/s05d-retirement-implementation-20261023/bundle-tests.txt",
+    "sha256": "4cba3d40e21bb1e6c47d137a8d972569cfd36fca958a29dc8fde29efa73878f4"
+  },
+  "testSource": {
+    "file": "tests/preparation-retirement-bundle.test.mjs",
+    "sha256": "0387e9b6af80a52c8d2bfe797da9aa3d734e76d0b6d8922434da268a2e99056a"
+  },
+  "freshFirstEntries": [
+    "publish-latest-main.mjs",
+    "main-prebuild-queue.mjs",
+    "preparation-retirement.mjs",
+    "preparation-retirement-observer.mjs",
+    "preparation-retirement-handoff.mjs"
+  ],
+  "cliOnlyHelp": [
+    "cleaned-preparation-writer.mjs",
+    "cleaned-preparation-observer.mjs"
+  ],
+  "productionOperationPerformed": false,
+  "configurationAPIInvoked": false,
+  "taskRegistered": false,
+  "businessVerificationPerformed": false,
+  "scope": "actual-list temp copy, relative closure, fresh library imports, confirmed no-write help/parse rejection, missing boot member no-fallback"
+}

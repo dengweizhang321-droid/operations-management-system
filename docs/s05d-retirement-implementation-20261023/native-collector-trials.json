@@ -1,0 +1,594 @@
+{
+    "version":  1,
+    "readOnly":  true,
+    "retirementProved":  false,
+    "trials":  [
+                   {
+                       "path":  "D:\\codex-artifacts\\s05d-retirement-implementation-20261023\\inspect-1f2f67df-560a-4bbf-9c30-66d5d1add02f.result.json",
+                       "sha256":  "e32bd7f0d449194842e3618b2ba59101880b54c3103e06de02e618e6457f6d5f",
+                       "result":  {
+                                      "at":  "2026-10-22T18:04:34.676Z",
+                                      "elapsedMs":  1687,
+                                      "pins":  {
+                                                   "collector":  "71576d9ada1de540ee83e895e5bd71d022c05d8708e2e6d192b02e0dbbea543c",
+                                                   "native":  "a501105c71ec15f65361e05e2fd3b2589e3f9f948d16956dfbee10fd71d63cd6",
+                                                   "fs":  "6278d779bfbc3923602b2ae4d7f6580f0b2cf45b283eeb87d7a078b1712c2d0f",
+                                                   "admission":  "1ece82fc6da512517327b90fe1ade80965e0fcee5928c29969473d1d1242f92b",
+                                                   "qualification":  "e40c6a9a755fdcdf5c5c783c48ff1292ffbb30cf976c8b28455653fd3a89bfb0",
+                                                   "boot":  "e00fe4ee68faff34b82fbe94317f56e1feb6908fb6f9c7cd40a19ee7fa9da133"
+                                               },
+                                      "status":  "readonly-inspection-rejected",
+                                      "complete":  false,
+                                      "error":  "Expected values to be strictly equal:\n+ actual - expected\n\n+ \u0027undefined\u0027\n- \u0027function\u0027\n",
+                                      "retirementProved":  false
+                                  }
+                   },
+                   {
+                       "path":  "D:\\codex-artifacts\\s05d-retirement-implementation-20261023\\inspect-82c724ea-8c23-47c3-8a74-7886b16778be.result.json",
+                       "sha256":  "b7a1f103914baf50c31b0633bf12b2a7dd1d07d048de76311701acc9fa70ecc6",
+                       "result":  {
+                                      "at":  "2026-10-22T18:14:49.309Z",
+                                      "elapsedMs":  54362,
+                                      "pins":  {
+                                                   "collector":  "4a6f4ef3016ddf492304d223eb80aabe62638b3c24367e7c6eb27a516aa89baf",
+                                                   "native":  "e277a6d1917bcf1466ad899d0080152f969fa22cabab784eaf54bbe047b3d245",
+                                                   "source":  "47747f6d37dea0ca5b39ef416ae0da5da8e9847c873aeed1233ca771fea2b279",
+                                                   "fs":  "6278d779bfbc3923602b2ae4d7f6580f0b2cf45b283eeb87d7a078b1712c2d0f",
+                                                   "admission":  "1ece82fc6da512517327b90fe1ade80965e0fcee5928c29969473d1d1242f92b",
+                                                   "qualification":  "e40c6a9a755fdcdf5c5c783c48ff1292ffbb30cf976c8b28455653fd3a89bfb0",
+                                                   "boot":  "e00fe4ee68faff34b82fbe94317f56e1feb6908fb6f9c7cd40a19ee7fa9da133"
+                                               },
+                                      "status":  "readonly-inspection-rejected",
+                                      "complete":  false,
+                                      "error":  "Unclassified executable packet directory",
+                                      "stack":  [
+                                                    "    at collectClosure (file:///D:/codex-worktrees/s05d-retirement-implementation-20261023/tools/preparation-retirement-collector.mjs:81:374)",
+                                                    "    at async file:///D:/codex-worktrees/s05d-retirement-implementation-20261023/[eval1]:7:244"
+                                                ],
+                                      "retirementProved":  false
+                                  }
+                   },
+                   {
+                       "path":  "D:\\codex-artifacts\\s05d-retirement-implementation-20261023\\inspect-7db54de8-f912-4cf3-af04-dbd6eeff9aa3.result.json",
+                       "sha256":  "4a064a794d15d7f7819cf51f57673933ea35de6a25e1b633d372d4603accec64",
+                       "result":  {
+                                      "startedAt":  "2026-10-22T18:33:17.520Z",
+                                      "readOnly":  true,
+                                      "complete":  false,
+                                      "retirementProved":  false,
+                                      "pins":  {
+                                                   "collector":  "92c07d3b107ae7684cb7dd1131fbce1e3669898fd05d00fc13a3aa4a19c7277c",
+                                                   "native":  "e277a6d1917bcf1466ad899d0080152f969fa22cabab784eaf54bbe047b3d245",
+                                                   "source":  "47747f6d37dea0ca5b39ef416ae0da5da8e9847c873aeed1233ca771fea2b279",
+                                                   "fs":  "6278d779bfbc3923602b2ae4d7f6580f0b2cf45b283eeb87d7a078b1712c2d0f",
+                                                   "admission":  "1ece82fc6da512517327b90fe1ade80965e0fcee5928c29969473d1d1242f92b",
+                                                   "qualification":  "e40c6a9a755fdcdf5c5c783c48ff1292ffbb30cf976c8b28455653fd3a89bfb0",
+                                                   "boot":  "e00fe4ee68faff34b82fbe94317f56e1feb6908fb6f9c7cd40a19ee7fa9da133"
+                                               },
+                                      "error":  "Unclassified registered release packet",
+                                      "stack":  [
+                                                    "Error: Unclassified registered release packet",
+                                                    "    at collectClosure (file:///D:/codex-worktrees/s05d-retirement-implementation-20261023/tools/preparation-retirement-collector.mjs:74:338)",
+                                                    "    at async file:///D:/codex-artifacts/s05d-retirement-implementation-20261023/inspect-trial.mjs:17:20"
+                                                ],
+                                      "elapsedMs":  1921
+                                  }
+                   },
+                   {
+                       "path":  "D:\\codex-artifacts\\s05d-retirement-implementation-20261023\\inspect-5ff690e0-62a2-4bf9-8bba-9231db263dd7.result.json",
+                       "sha256":  "327ce616ffa955dedff03d2b668809b16899fd44a9ffa8fe20994cd67361a239",
+                       "result":  {
+                                      "startedAt":  "2026-10-22T18:39:41.309Z",
+                                      "readOnly":  true,
+                                      "complete":  false,
+                                      "retirementProved":  false,
+                                      "pins":  {
+                                                   "collector":  "356da7e4e2ee05b409f29d177c24246570cd60e16a5a5094d1100b63ed2f5e3b",
+                                                   "native":  "e277a6d1917bcf1466ad899d0080152f969fa22cabab784eaf54bbe047b3d245",
+                                                   "source":  "47747f6d37dea0ca5b39ef416ae0da5da8e9847c873aeed1233ca771fea2b279",
+                                                   "fs":  "6278d779bfbc3923602b2ae4d7f6580f0b2cf45b283eeb87d7a078b1712c2d0f",
+                                                   "admission":  "1ece82fc6da512517327b90fe1ade80965e0fcee5928c29969473d1d1242f92b",
+                                                   "qualification":  "e40c6a9a755fdcdf5c5c783c48ff1292ffbb30cf976c8b28455653fd3a89bfb0",
+                                                   "boot":  "e00fe4ee68faff34b82fbe94317f56e1feb6908fb6f9c7cd40a19ee7fa9da133"
+                                               },
+                                      "error":  "Native maintenance/drain/publication lease remains; retirement requires an idle publication boundary\n\ntrue !== false\n",
+                                      "stack":  [
+                                                    "AssertionError [ERR_ASSERTION]: Native maintenance/drain/publication lease remains; retirement requires an idle publication boundary",
+                                                    "",
+                                                    "true !== false",
+                                                    "",
+                                                    "    at collectClosure (file:///D:/codex-worktrees/s05d-retirement-implementation-20261023/tools/preparation-retirement-collector.mjs:88:243)"
+                                                ],
+                                      "elapsedMs":  3155
+                                  }
+                   },
+                   {
+                       "path":  "D:\\codex-artifacts\\s05d-retirement-implementation-20261023\\inspect-b75b70d0-b987-46f3-9744-37145b377581.result.json",
+                       "sha256":  "6807827c0e220e8392287b5c5cd5185fa23f4d41ef08ac295b2e8dc117115d2f",
+                       "result":  {
+                                      "startedAt":  "2026-10-22T18:58:09.200Z",
+                                      "readOnly":  true,
+                                      "complete":  false,
+                                      "retirementProved":  false,
+                                      "pins":  {
+                                                   "collector":  "ea1bba1d3ae03b31c5462668a1cd52884779e511b098512549528f139d330621",
+                                                   "native":  "e277a6d1917bcf1466ad899d0080152f969fa22cabab784eaf54bbe047b3d245",
+                                                   "source":  "9edd123d29daba63921e994750c0ea11cdf9f2beacaf36d198d25c9352c56d47",
+                                                   "fs":  "6278d779bfbc3923602b2ae4d7f6580f0b2cf45b283eeb87d7a078b1712c2d0f",
+                                                   "admission":  "1ece82fc6da512517327b90fe1ade80965e0fcee5928c29969473d1d1242f92b",
+                                                   "qualification":  "e40c6a9a755fdcdf5c5c783c48ff1292ffbb30cf976c8b28455653fd3a89bfb0",
+                                                   "boot":  "e00fe4ee68faff34b82fbe94317f56e1feb6908fb6f9c7cd40a19ee7fa9da133"
+                                               },
+                                      "error":  "Original/indistinguishable source is in a consumed/live immutable release\n\ntrue !== false\n",
+                                      "stack":  [
+                                                    "AssertionError [ERR_ASSERTION]: Original/indistinguishable source is in a consumed/live immutable release",
+                                                    "",
+                                                    "true !== false",
+                                                    "",
+                                                    "    at collectClosure (file:///D:/codex-worktrees/s05d-retirement-implementation-20261023/tools/preparation-retirement-collector.mjs:112:10)"
+                                                ],
+                                      "elapsedMs":  46934
+                                  }
+                   },
+                   {
+                       "path":  "D:\\codex-artifacts\\s05d-retirement-implementation-20261023\\inspect-eeb3b895-6187-4f9f-9512-97da5659c611.result.json",
+                       "sha256":  "161664d6c4fdae05aae6a593f1a49db76af0c17456383b3b305f2aa5ba8319d4",
+                       "result":  {
+                                      "startedAt":  "2026-10-22T20:27:04.830Z",
+                                      "readOnly":  true,
+                                      "complete":  false,
+                                      "retirementProved":  false,
+                                      "pinManifestSha256":  "497c59f5408844c0e1b3944a9897ac32ad1eecce14ff53ea6d333cf36dcae982",
+                                      "pins":  {
+                                                   "tools/cleaned-preparation-observer.mjs":  {
+                                                                                                  "sha256":  "c202cf888115e7842c1716c89f1946485dab1e3c26d08f93022de2293cd41d6d",
+                                                                                                  "size":  5325
+                                                                                              },
+                                                   "tools/cleaned-preparation-writer.mjs":  {
+                                                                                                "sha256":  "45d8cceb6ee72dddec4ba43ed5e0183b80dc05502265271c2f358397abe6735b",
+                                                                                                "size":  4533
+                                                                                            },
+                                                   "tools/frozen-main-source.mjs":  {
+                                                                                        "sha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882",
+                                                                                        "size":  1160
+                                                                                    },
+                                                   "tools/install-main-prebuild.mjs":  {
+                                                                                           "sha256":  "a0865630915a5b60ec08db93939bdb3f50149fb48ecd37a40493ed7b4abca54c",
+                                                                                           "size":  41952
+                                                                                       },
+                                                   "tools/main-control-dispatch.mjs":  {
+                                                                                           "sha256":  "3dae7ceb2257dbea3cc3c168c895b97c34228a3f6c01229fb2cec2b6006625a7",
+                                                                                           "size":  9795
+                                                                                       },
+                                                   "tools/main-prebuild-hook.mjs":  {
+                                                                                        "sha256":  "34aab4f4cbfb9f501081a680d12614d072a86c96be0842bef2c832892e4c88e5",
+                                                                                        "size":  5122
+                                                                                    },
+                                                   "tools/main-prebuild-queue.mjs":  {
+                                                                                         "sha256":  "f0bf372f21ddf535c14c25fdaf2428ca3a0145f9a3182055d7348456f7cdf378",
+                                                                                         "size":  20321
+                                                                                     },
+                                                   "tools/main-prebuild-status.mjs":  {
+                                                                                          "sha256":  "9010056cc8b1ead2cfd4ba17ad5e427f0a0849f6b77ab708b8c3443795e12dc3",
+                                                                                          "size":  8124
+                                                                                      },
+                                                   "tools/main-prebuild-task.mjs":  {
+                                                                                        "sha256":  "9f05dedcb953fec984d9c6ee3938a6254f7d5875bbe43018ff88869264c7cb62",
+                                                                                        "size":  11887
+                                                                                    },
+                                                   "tools/main-schema-release.mjs":  {
+                                                                                         "sha256":  "793c0c31a30199d79bb97293df41a88af7bc0e784d205bca03afec9b1decb6f7",
+                                                                                         "size":  12146
+                                                                                     },
+                                                   "tools/preparation-producer-qualification.mjs":  {
+                                                                                                        "sha256":  "edfa4c307291d8bb4091f323dbd9090dfd0ce6dd3aa064a6f52828a74b9dbe56",
+                                                                                                        "size":  456
+                                                                                                    },
+                                                   "tools/preparation-resolution-history.mjs":  {
+                                                                                                    "sha256":  "28811bd41c716bce1005588715c58cf2a8e453cc7f3c48f41697e1fb4daaff7d",
+                                                                                                    "size":  5373
+                                                                                                },
+                                                   "tools/preparation-resolution.mjs":  {
+                                                                                            "sha256":  "8f088c60571184ba141aee7be037d785fc51a9f8065afb979f5bab327283e50f",
+                                                                                            "size":  66369
+                                                                                        },
+                                                   "tools/preparation-retirement-admission.mjs":  {
+                                                                                                      "sha256":  "dd53e7c0f0e56779967aa64ea1644351d1ee08c00527e4037388b6b86a9c1c24",
+                                                                                                      "size":  4848
+                                                                                                  },
+                                                   "tools/preparation-retirement-archive.mjs":  {
+                                                                                                    "sha256":  "e87f06b7dd783f7680c9a8a6b9c2719247bd18c9ef8655e1cbe11259f3fe53f6",
+                                                                                                    "size":  14638
+                                                                                                },
+                                                   "tools/preparation-retirement-boot.mjs":  {
+                                                                                                 "sha256":  "e00fe4ee68faff34b82fbe94317f56e1feb6908fb6f9c7cd40a19ee7fa9da133",
+                                                                                                 "size":  7304
+                                                                                             },
+                                                   "tools/preparation-retirement-collector.mjs":  {
+                                                                                                      "sha256":  "79df7339f4d798aeac25de66c2edd9e07f391ff555d34749a29c836600e2ec07",
+                                                                                                      "size":  52485
+                                                                                                  },
+                                                   "tools/preparation-retirement-entry.mjs":  {
+                                                                                                  "sha256":  "a8c8b368cd14710e36d5303b8df868814a6d7776d8ffba337bf1ae29cd7075f5",
+                                                                                                  "size":  7174
+                                                                                              },
+                                                   "tools/preparation-retirement-evidence.mjs":  {
+                                                                                                     "sha256":  "e818c8b821c8bf521ba3a7781206aae69307eb67bf19d5ac32dd07a9b9d83df7",
+                                                                                                     "size":  2384
+                                                                                                 },
+                                                   "tools/preparation-retirement-fs.mjs":  {
+                                                                                               "sha256":  "3fac306a413ed25bb14f36a70dd772cf82d435cedc781d5e639ee5b19c3e6113",
+                                                                                               "size":  11984
+                                                                                           },
+                                                   "tools/preparation-retirement-handoff-runner.ps1":  {
+                                                                                                           "sha256":  "7ad4e67e94fcdf5996dc2a962045e6f1d10ba6a1a0337058b211dea5312b531c",
+                                                                                                           "size":  9766
+                                                                                                       },
+                                                   "tools/preparation-retirement-handoff.mjs":  {
+                                                                                                    "sha256":  "da1e08c8b1d8b0adf2285c5a3d31f7dce4c3b2ff35a05e4f3b375c302111c397",
+                                                                                                    "size":  50024
+                                                                                                },
+                                                   "tools/preparation-retirement-history.mjs":  {
+                                                                                                    "sha256":  "1bcc7c965127e74116f7a84608251a83cce18eb76a7b6be9c8e1376398961ea2",
+                                                                                                    "size":  31100
+                                                                                                },
+                                                   "tools/preparation-retirement-native.mjs":  {
+                                                                                                   "sha256":  "e6daedc7765a8d60f62cec93318c2ebafffbd77ef6309c93228514aa9780c5d0",
+                                                                                                   "size":  9296
+                                                                                               },
+                                                   "tools/preparation-retirement-observer.mjs":  {
+                                                                                                     "sha256":  "fbfdec89b0843befe2e497627159eb7beef33733409abbad6cddd7b401935f60",
+                                                                                                     "size":  1586
+                                                                                                 },
+                                                   "tools/preparation-retirement-qualification.mjs":  {
+                                                                                                          "sha256":  "e40c6a9a755fdcdf5c5c783c48ff1292ffbb30cf976c8b28455653fd3a89bfb0",
+                                                                                                          "size":  980
+                                                                                                      },
+                                                   "tools/preparation-retirement-ref.mjs":  {
+                                                                                                "sha256":  "f7f4ceb0de38a5ad7ee9a8daf284dfa484fea99117b44705d8ee3f08298cffa6",
+                                                                                                "size":  2328
+                                                                                            },
+                                                   "tools/preparation-retirement-source.mjs":  {
+                                                                                                   "sha256":  "9edd123d29daba63921e994750c0ea11cdf9f2beacaf36d198d25c9352c56d47",
+                                                                                                   "size":  3348
+                                                                                               },
+                                                   "tools/preparation-retirement-witness.mjs":  {
+                                                                                                    "sha256":  "4018bb6a61f336ae5c77c34a9c7c642b663b242e09deda56cea0e34c9edf5ab8",
+                                                                                                    "size":  19757
+                                                                                                },
+                                                   "tools/preparation-retirement.mjs":  {
+                                                                                            "sha256":  "42cd5b0d124cb7c310d40174c2365426dc701d77cb8127f393438d716b4af1b1",
+                                                                                            "size":  48644
+                                                                                        },
+                                                   "tools/publish-latest-main.mjs":  {
+                                                                                         "sha256":  "16de220734c22ddfa050ae5cef11ab41e9a05d51ba8a8f3e28ec2e2214d05475",
+                                                                                         "size":  29197
+                                                                                     },
+                                                   "tools/publish-main-progress.mjs":  {
+                                                                                           "sha256":  "a8c0292fc777862a2880b32b5d7f190624e4e986c41ae857e0b975f209c60267",
+                                                                                           "size":  4354
+                                                                                       },
+                                                   "tools/release-scope-plan.mjs":  {
+                                                                                        "sha256":  "e32e1e37ae99975b21816a021c266c360bb46c02254586796b09e2a6e3a281b2",
+                                                                                        "size":  5777
+                                                                                    }
+                                               },
+                                      "error":  "Own bounded read-only trial exceeded 120000ms",
+                                      "pinsUnchanged":  true,
+                                      "elapsedMs":  120014
+                                  }
+                   },
+                   {
+                       "path":  "D:\\codex-artifacts\\s05d-retirement-implementation-20261023\\inspect-239a1a8b-8ab1-42b5-9ff1-c63f9d99eb41.result.json",
+                       "sha256":  "5a21321cf55f51c21ba081230b98abee9592fc002fe8afaa7988f081f9145af9",
+                       "result":  {
+                                      "startedAt":  "2026-10-22T20:37:01.971Z",
+                                      "codeRoot":  "D:/codex-artifacts/s05d-retirement-implementation-20261023/inspect-code-af933629-1e78-41a4-a2b4-144758c476b4",
+                                      "readOnly":  true,
+                                      "complete":  false,
+                                      "retirementProved":  false,
+                                      "productionWriterReady":  false,
+                                      "pinManifestSha256":  "12544892f8ff8ef962902905f703da728b6f3cd149c654d48bd3e0e517849f04",
+                                      "pins":  {
+                                                   "tools/cleaned-preparation-observer.mjs":  {
+                                                                                                  "sha256":  "c202cf888115e7842c1716c89f1946485dab1e3c26d08f93022de2293cd41d6d",
+                                                                                                  "size":  5325
+                                                                                              },
+                                                   "tools/cleaned-preparation-writer.mjs":  {
+                                                                                                "sha256":  "45d8cceb6ee72dddec4ba43ed5e0183b80dc05502265271c2f358397abe6735b",
+                                                                                                "size":  4533
+                                                                                            },
+                                                   "tools/frozen-main-source.mjs":  {
+                                                                                        "sha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882",
+                                                                                        "size":  1160
+                                                                                    },
+                                                   "tools/install-main-prebuild.mjs":  {
+                                                                                           "sha256":  "a0865630915a5b60ec08db93939bdb3f50149fb48ecd37a40493ed7b4abca54c",
+                                                                                           "size":  41952
+                                                                                       },
+                                                   "tools/main-control-dispatch.mjs":  {
+                                                                                           "sha256":  "3dae7ceb2257dbea3cc3c168c895b97c34228a3f6c01229fb2cec2b6006625a7",
+                                                                                           "size":  9795
+                                                                                       },
+                                                   "tools/main-prebuild-hook.mjs":  {
+                                                                                        "sha256":  "34aab4f4cbfb9f501081a680d12614d072a86c96be0842bef2c832892e4c88e5",
+                                                                                        "size":  5122
+                                                                                    },
+                                                   "tools/main-prebuild-queue.mjs":  {
+                                                                                         "sha256":  "f0bf372f21ddf535c14c25fdaf2428ca3a0145f9a3182055d7348456f7cdf378",
+                                                                                         "size":  20321
+                                                                                     },
+                                                   "tools/main-prebuild-status.mjs":  {
+                                                                                          "sha256":  "9010056cc8b1ead2cfd4ba17ad5e427f0a0849f6b77ab708b8c3443795e12dc3",
+                                                                                          "size":  8124
+                                                                                      },
+                                                   "tools/main-prebuild-task.mjs":  {
+                                                                                        "sha256":  "9f05dedcb953fec984d9c6ee3938a6254f7d5875bbe43018ff88869264c7cb62",
+                                                                                        "size":  11887
+                                                                                    },
+                                                   "tools/main-schema-release.mjs":  {
+                                                                                         "sha256":  "793c0c31a30199d79bb97293df41a88af7bc0e784d205bca03afec9b1decb6f7",
+                                                                                         "size":  12146
+                                                                                     },
+                                                   "tools/preparation-producer-qualification.mjs":  {
+                                                                                                        "sha256":  "edfa4c307291d8bb4091f323dbd9090dfd0ce6dd3aa064a6f52828a74b9dbe56",
+                                                                                                        "size":  456
+                                                                                                    },
+                                                   "tools/preparation-resolution-history.mjs":  {
+                                                                                                    "sha256":  "28811bd41c716bce1005588715c58cf2a8e453cc7f3c48f41697e1fb4daaff7d",
+                                                                                                    "size":  5373
+                                                                                                },
+                                                   "tools/preparation-resolution.mjs":  {
+                                                                                            "sha256":  "8f088c60571184ba141aee7be037d785fc51a9f8065afb979f5bab327283e50f",
+                                                                                            "size":  66369
+                                                                                        },
+                                                   "tools/preparation-retirement-admission.mjs":  {
+                                                                                                      "sha256":  "dd53e7c0f0e56779967aa64ea1644351d1ee08c00527e4037388b6b86a9c1c24",
+                                                                                                      "size":  4848
+                                                                                                  },
+                                                   "tools/preparation-retirement-archive.mjs":  {
+                                                                                                    "sha256":  "e87f06b7dd783f7680c9a8a6b9c2719247bd18c9ef8655e1cbe11259f3fe53f6",
+                                                                                                    "size":  14638
+                                                                                                },
+                                                   "tools/preparation-retirement-boot.mjs":  {
+                                                                                                 "sha256":  "e00fe4ee68faff34b82fbe94317f56e1feb6908fb6f9c7cd40a19ee7fa9da133",
+                                                                                                 "size":  7304
+                                                                                             },
+                                                   "tools/preparation-retirement-collector.mjs":  {
+                                                                                                      "sha256":  "52256b4a51d8b4e901e1cdb6729910c08c144b3ff7c00ea672853eac9450c146",
+                                                                                                      "size":  54441
+                                                                                                  },
+                                                   "tools/preparation-retirement-entry.mjs":  {
+                                                                                                  "sha256":  "a8c8b368cd14710e36d5303b8df868814a6d7776d8ffba337bf1ae29cd7075f5",
+                                                                                                  "size":  7174
+                                                                                              },
+                                                   "tools/preparation-retirement-evidence.mjs":  {
+                                                                                                     "sha256":  "e818c8b821c8bf521ba3a7781206aae69307eb67bf19d5ac32dd07a9b9d83df7",
+                                                                                                     "size":  2384
+                                                                                                 },
+                                                   "tools/preparation-retirement-fs.mjs":  {
+                                                                                               "sha256":  "3fac306a413ed25bb14f36a70dd772cf82d435cedc781d5e639ee5b19c3e6113",
+                                                                                               "size":  11984
+                                                                                           },
+                                                   "tools/preparation-retirement-handoff-runner.ps1":  {
+                                                                                                           "sha256":  "7ad4e67e94fcdf5996dc2a962045e6f1d10ba6a1a0337058b211dea5312b531c",
+                                                                                                           "size":  9766
+                                                                                                       },
+                                                   "tools/preparation-retirement-handoff.mjs":  {
+                                                                                                    "sha256":  "da1e08c8b1d8b0adf2285c5a3d31f7dce4c3b2ff35a05e4f3b375c302111c397",
+                                                                                                    "size":  50024
+                                                                                                },
+                                                   "tools/preparation-retirement-history.mjs":  {
+                                                                                                    "sha256":  "1bcc7c965127e74116f7a84608251a83cce18eb76a7b6be9c8e1376398961ea2",
+                                                                                                    "size":  31100
+                                                                                                },
+                                                   "tools/preparation-retirement-native.mjs":  {
+                                                                                                   "sha256":  "e6daedc7765a8d60f62cec93318c2ebafffbd77ef6309c93228514aa9780c5d0",
+                                                                                                   "size":  9296
+                                                                                               },
+                                                   "tools/preparation-retirement-observer.mjs":  {
+                                                                                                     "sha256":  "fbfdec89b0843befe2e497627159eb7beef33733409abbad6cddd7b401935f60",
+                                                                                                     "size":  1586
+                                                                                                 },
+                                                   "tools/preparation-retirement-qualification.mjs":  {
+                                                                                                          "sha256":  "e40c6a9a755fdcdf5c5c783c48ff1292ffbb30cf976c8b28455653fd3a89bfb0",
+                                                                                                          "size":  980
+                                                                                                      },
+                                                   "tools/preparation-retirement-ref.mjs":  {
+                                                                                                "sha256":  "f7f4ceb0de38a5ad7ee9a8daf284dfa484fea99117b44705d8ee3f08298cffa6",
+                                                                                                "size":  2328
+                                                                                            },
+                                                   "tools/preparation-retirement-source.mjs":  {
+                                                                                                   "sha256":  "9edd123d29daba63921e994750c0ea11cdf9f2beacaf36d198d25c9352c56d47",
+                                                                                                   "size":  3348
+                                                                                               },
+                                                   "tools/preparation-retirement-witness.mjs":  {
+                                                                                                    "sha256":  "4018bb6a61f336ae5c77c34a9c7c642b663b242e09deda56cea0e34c9edf5ab8",
+                                                                                                    "size":  19757
+                                                                                                },
+                                                   "tools/preparation-retirement.mjs":  {
+                                                                                            "sha256":  "42cd5b0d124cb7c310d40174c2365426dc701d77cb8127f393438d716b4af1b1",
+                                                                                            "size":  48644
+                                                                                        },
+                                                   "tools/publish-latest-main.mjs":  {
+                                                                                         "sha256":  "16de220734c22ddfa050ae5cef11ab41e9a05d51ba8a8f3e28ec2e2214d05475",
+                                                                                         "size":  29197
+                                                                                     },
+                                                   "tools/publish-main-progress.mjs":  {
+                                                                                           "sha256":  "a8c0292fc777862a2880b32b5d7f190624e4e986c41ae857e0b975f209c60267",
+                                                                                           "size":  4354
+                                                                                       },
+                                                   "tools/release-scope-plan.mjs":  {
+                                                                                        "sha256":  "e32e1e37ae99975b21816a021c266c360bb46c02254586796b09e2a6e3a281b2",
+                                                                                        "size":  5777
+                                                                                    }
+                                               },
+                                      "progressEvents":  276,
+                                      "error":  "Own bounded read-only trial exceeded 120000ms",
+                                      "pinsUnchanged":  true,
+                                      "elapsedMs":  120008
+                                  }
+                   },
+                   {
+                       "path":  "D:/codex-artifacts/s05d-retirement-implementation-20261023/inspect-b397213c-a15c-4761-a070-4f4b63a7c13f.result.json",
+                       "sha256":  "5e9ed77332189b922a42250ede9dcc1d17d8e150722fbe5760d4fc68e353d6d3",
+                       "result":  {
+                                      "startedAt":  "2026-10-22T21:09:24.894Z",
+                                      "codeRoot":  "D:\\codex-artifacts\\s05d-retirement-implementation-20261023\\inspect-code-d49861f3-a4c9-46b0-8272-125f7086da48",
+                                      "readOnly":  true,
+                                      "writeAuthority":  false,
+                                      "complete":  false,
+                                      "retirementProved":  false,
+                                      "productionWriterReady":  false,
+                                      "pinManifestSha256":  "e2e41c04bcb676a0dc95246b815abee6d72b616364e49e0ddb23efd78f699375",
+                                      "pins":  {
+                                                   "tools/cleaned-preparation-observer.mjs":  {
+                                                                                                  "sha256":  "c202cf888115e7842c1716c89f1946485dab1e3c26d08f93022de2293cd41d6d",
+                                                                                                  "size":  5325
+                                                                                              },
+                                                   "tools/cleaned-preparation-writer.mjs":  {
+                                                                                                "sha256":  "45d8cceb6ee72dddec4ba43ed5e0183b80dc05502265271c2f358397abe6735b",
+                                                                                                "size":  4533
+                                                                                            },
+                                                   "tools/frozen-main-source.mjs":  {
+                                                                                        "sha256":  "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882",
+                                                                                        "size":  1160
+                                                                                    },
+                                                   "tools/install-main-prebuild.mjs":  {
+                                                                                           "sha256":  "a0865630915a5b60ec08db93939bdb3f50149fb48ecd37a40493ed7b4abca54c",
+                                                                                           "size":  41952
+                                                                                       },
+                                                   "tools/main-control-dispatch.mjs":  {
+                                                                                           "sha256":  "3dae7ceb2257dbea3cc3c168c895b97c34228a3f6c01229fb2cec2b6006625a7",
+                                                                                           "size":  9795
+                                                                                       },
+                                                   "tools/main-prebuild-hook.mjs":  {
+                                                                                        "sha256":  "34aab4f4cbfb9f501081a680d12614d072a86c96be0842bef2c832892e4c88e5",
+                                                                                        "size":  5122
+                                                                                    },
+                                                   "tools/main-prebuild-queue.mjs":  {
+                                                                                         "sha256":  "f0bf372f21ddf535c14c25fdaf2428ca3a0145f9a3182055d7348456f7cdf378",
+                                                                                         "size":  20321
+                                                                                     },
+                                                   "tools/main-prebuild-status.mjs":  {
+                                                                                          "sha256":  "9010056cc8b1ead2cfd4ba17ad5e427f0a0849f6b77ab708b8c3443795e12dc3",
+                                                                                          "size":  8124
+                                                                                      },
+                                                   "tools/main-prebuild-task.mjs":  {
+                                                                                        "sha256":  "9f05dedcb953fec984d9c6ee3938a6254f7d5875bbe43018ff88869264c7cb62",
+                                                                                        "size":  11887
+                                                                                    },
+                                                   "tools/main-schema-release.mjs":  {
+                                                                                         "sha256":  "793c0c31a30199d79bb97293df41a88af7bc0e784d205bca03afec9b1decb6f7",
+                                                                                         "size":  12146
+                                                                                     },
+                                                   "tools/preparation-producer-qualification.mjs":  {
+                                                                                                        "sha256":  "edfa4c307291d8bb4091f323dbd9090dfd0ce6dd3aa064a6f52828a74b9dbe56",
+                                                                                                        "size":  456
+                                                                                                    },
+                                                   "tools/preparation-resolution-history.mjs":  {
+                                                                                                    "sha256":  "28811bd41c716bce1005588715c58cf2a8e453cc7f3c48f41697e1fb4daaff7d",
+                                                                                                    "size":  5373
+                                                                                                },
+                                                   "tools/preparation-resolution.mjs":  {
+                                                                                            "sha256":  "8f088c60571184ba141aee7be037d785fc51a9f8065afb979f5bab327283e50f",
+                                                                                            "size":  66369
+                                                                                        },
+                                                   "tools/preparation-retirement-admission.mjs":  {
+                                                                                                      "sha256":  "dd53e7c0f0e56779967aa64ea1644351d1ee08c00527e4037388b6b86a9c1c24",
+                                                                                                      "size":  4848
+                                                                                                  },
+                                                   "tools/preparation-retirement-archive.mjs":  {
+                                                                                                    "sha256":  "adadf242b7ff0a6a87b9b672b0cc655de95bc249cbcd6c517aaef686fd1b6be6",
+                                                                                                    "size":  14837
+                                                                                                },
+                                                   "tools/preparation-retirement-boot.mjs":  {
+                                                                                                 "sha256":  "e00fe4ee68faff34b82fbe94317f56e1feb6908fb6f9c7cd40a19ee7fa9da133",
+                                                                                                 "size":  7304
+                                                                                             },
+                                                   "tools/preparation-retirement-collector.mjs":  {
+                                                                                                      "sha256":  "591265c9347b06bb8e10012544a5bdefbe7774c3504a6687bdc798da91bbbf4f",
+                                                                                                      "size":  56441
+                                                                                                  },
+                                                   "tools/preparation-retirement-entry.mjs":  {
+                                                                                                  "sha256":  "a8c8b368cd14710e36d5303b8df868814a6d7776d8ffba337bf1ae29cd7075f5",
+                                                                                                  "size":  7174
+                                                                                              },
+                                                   "tools/preparation-retirement-evidence.mjs":  {
+                                                                                                     "sha256":  "e818c8b821c8bf521ba3a7781206aae69307eb67bf19d5ac32dd07a9b9d83df7",
+                                                                                                     "size":  2384
+                                                                                                 },
+                                                   "tools/preparation-retirement-fs.mjs":  {
+                                                                                               "sha256":  "3fac306a413ed25bb14f36a70dd772cf82d435cedc781d5e639ee5b19c3e6113",
+                                                                                               "size":  11984
+                                                                                           },
+                                                   "tools/preparation-retirement-handoff-runner.ps1":  {
+                                                                                                           "sha256":  "7ad4e67e94fcdf5996dc2a962045e6f1d10ba6a1a0337058b211dea5312b531c",
+                                                                                                           "size":  9766
+                                                                                                       },
+                                                   "tools/preparation-retirement-handoff.mjs":  {
+                                                                                                    "sha256":  "da1e08c8b1d8b0adf2285c5a3d31f7dce4c3b2ff35a05e4f3b375c302111c397",
+                                                                                                    "size":  50024
+                                                                                                },
+                                                   "tools/preparation-retirement-history.mjs":  {
+                                                                                                    "sha256":  "1bcc7c965127e74116f7a84608251a83cce18eb76a7b6be9c8e1376398961ea2",
+                                                                                                    "size":  31100
+                                                                                                },
+                                                   "tools/preparation-retirement-native.mjs":  {
+                                                                                                   "sha256":  "63c925d9649646723627ed9ffe82704b0055fbb08dcaca950aeaabf9c4f3c467",
+                                                                                                   "size":  9391
+                                                                                               },
+                                                   "tools/preparation-retirement-observer.mjs":  {
+                                                                                                     "sha256":  "fbfdec89b0843befe2e497627159eb7beef33733409abbad6cddd7b401935f60",
+                                                                                                     "size":  1586
+                                                                                                 },
+                                                   "tools/preparation-retirement-qualification.mjs":  {
+                                                                                                          "sha256":  "e40c6a9a755fdcdf5c5c783c48ff1292ffbb30cf976c8b28455653fd3a89bfb0",
+                                                                                                          "size":  980
+                                                                                                      },
+                                                   "tools/preparation-retirement-ref.mjs":  {
+                                                                                                "sha256":  "f7f4ceb0de38a5ad7ee9a8daf284dfa484fea99117b44705d8ee3f08298cffa6",
+                                                                                                "size":  2328
+                                                                                            },
+                                                   "tools/preparation-retirement-source.mjs":  {
+                                                                                                   "sha256":  "9edd123d29daba63921e994750c0ea11cdf9f2beacaf36d198d25c9352c56d47",
+                                                                                                   "size":  3348
+                                                                                               },
+                                                   "tools/preparation-retirement-witness.mjs":  {
+                                                                                                    "sha256":  "4018bb6a61f336ae5c77c34a9c7c642b663b242e09deda56cea0e34c9edf5ab8",
+                                                                                                    "size":  19757
+                                                                                                },
+                                                   "tools/preparation-retirement.mjs":  {
+                                                                                            "sha256":  "7cbf5677417fe58017f6c77f15d10f2ca53e7cfa03191d91ef3a7aabd5dd516d",
+                                                                                            "size":  51608
+                                                                                        },
+                                                   "tools/publish-latest-main.mjs":  {
+                                                                                         "sha256":  "16de220734c22ddfa050ae5cef11ab41e9a05d51ba8a8f3e28ec2e2214d05475",
+                                                                                         "size":  29197
+                                                                                     },
+                                                   "tools/publish-main-progress.mjs":  {
+                                                                                           "sha256":  "a8c0292fc777862a2880b32b5d7f190624e4e986c41ae857e0b975f209c60267",
+                                                                                           "size":  4354
+                                                                                       },
+                                                   "tools/release-scope-plan.mjs":  {
+                                                                                        "sha256":  "e32e1e37ae99975b21816a021c266c360bb46c02254586796b09e2a6e3a281b2",
+                                                                                        "size":  5777
+                                                                                    }
+                                               },
+                                      "progressEvents":  486,
+                                      "measurements":  {
+
+                                                       },
+                                      "error":  "Frozen source identity reader changed",
+                                      "stack":  [
+                                                    "AssertionError [ERR_ASSERTION]: Frozen source identity reader changed",
+                                                    "    at qualifyRetirementSourceEntries (file:///D:/codex-artifacts/s05d-retirement-implementation-20261023/inspect-code-d49861f3-a4c9-46b0-8272-125f7086da48/tools/preparation-retirement-entry.mjs:70:328)",
+                                                    "    at async collectClosure (file:///D:/codex-artifacts/s05d-retirement-implementation-20261023/inspect-code-d49861f3-a4c9-46b0-8272-125f7086da48/tools/preparation-retirement-collector.mjs:156:212)",
+                                                    "    at async file:///D:/codex-artifacts/s05d-retirement-implementation-20261023/inspect-closure-cas-trial.mjs:27:57"
+                                                ],
+                                      "pinsUnchanged":  true,
+                                      "elapsedMs":  54497
+                                  }
+                   }
+               ]
+}
