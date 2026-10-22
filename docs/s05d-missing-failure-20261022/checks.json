@@ -1,0 +1,104 @@
+{
+    "performedProductionAudit":  false,
+    "earlierTrial":  {
+                         "exitCode":  1,
+                         "reason":  "Synthetic fixture omitted live.mainCommit required by existing validateDispatch; corrected fixture only.",
+                         "failed":  1,
+                         "passed":  8
+                     },
+    "version":  "s05d-isolated-checks-v1",
+    "checks":  [
+                   {
+                       "completedAt":  "2026-10-22T16:04:38.4192980Z",
+                       "exitCode":  0,
+                       "command":  [
+                                       "node",
+                                       "--test",
+                                       "tests/preparation-missing-failure-audit.test.mjs"
+                                   ],
+                       "startedAt":  "2026-10-22T16:04:37.1674064Z",
+                       "output":  [
+                                      "✔ missing FAILED remains blocked with byte pins and a bounded, explicit evidence gap; audit is read-only (66.1516ms)",
+                                      "✔ publication markers, source build remnants and user-created claims cannot establish zero effects or retirement (45.9268ms)",
+                                      "✔ missing required packet input or a real FAILED record is not this diagnostic shape (65.0942ms)",
+                                      "✔ wrong request target and terminal/dispatch/winning-ticket/config bindings refuse diagnosis (55.3886ms)",
+                                      "✔ hard-linked or oversized packet evidence fails closed before returning a diagnostic (29.8846ms)",
+                                      "✔ many empty directories hit the global directory bound (273.654ms)",
+                                      "✔ the original cleaned validator requires FAILED, and unknown decisions never become recoveries (17.0558ms)",
+                                      "✔ diagnosing unknown does not unblock a later ticket or call observe/preparation (68.3848ms)",
+                                      "✔ CLI emits diagnostic stdout only and refuses proof or write options (469.2004ms)",
+                                      "ℹ tests 9",
+                                      "ℹ suites 0",
+                                      "ℹ pass 9",
+                                      "ℹ fail 0",
+                                      "ℹ cancelled 0",
+                                      "ℹ skipped 0",
+                                      "ℹ todo 0",
+                                      "ℹ duration_ms 1181.9044"
+                                  ]
+                   },
+                   {
+                       "completedAt":  "2026-10-22T16:04:40.0201866Z",
+                       "exitCode":  0,
+                       "command":  [
+                                       "node",
+                                       "--test",
+                                       "--test-name-pattern",
+                                       "^(valid generic cleaned resolution accepted|superseded-by-later-publication converges)",
+                                       "tests/preparation-resolution.test.mjs",
+                                       "tests/preparation-superseded-resolution.test.mjs"
+                                   ],
+                       "startedAt":  "2026-10-22T16:04:38.4198438Z",
+                       "output":  [
+                                      "✔ valid generic cleaned resolution accepted; ordinary opaque ACK; repeat is already-resolved and original terminal bytes survive (466.4397ms)",
+                                      "✔ superseded-by-later-publication converges the e786 evidence shape and the queue recognises it (1447.9917ms)",
+                                      "ℹ tests 2",
+                                      "ℹ suites 0",
+                                      "ℹ pass 2",
+                                      "ℹ fail 0",
+                                      "ℹ cancelled 0",
+                                      "ℹ skipped 0",
+                                      "ℹ todo 0",
+                                      "ℹ duration_ms 1547.7246"
+                                  ]
+                   },
+                   {
+                       "completedAt":  "2026-10-22T16:04:40.0671887Z",
+                       "exitCode":  0,
+                       "command":  [
+                                       "node",
+                                       "--check",
+                                       "tools/preparation-missing-failure-audit.mjs"
+                                   ],
+                       "startedAt":  "2026-10-22T16:04:40.0201866Z",
+                       "output":  [
+
+                                  ]
+                   },
+                   {
+                       "completedAt":  "2026-10-22T16:04:40.1132070Z",
+                       "exitCode":  0,
+                       "command":  [
+                                       "node",
+                                       "--check",
+                                       "tests/preparation-missing-failure-audit.test.mjs"
+                                   ],
+                       "startedAt":  "2026-10-22T16:04:40.0671887Z",
+                       "output":  [
+
+                                  ]
+                   }
+               ],
+    "checkedFiles":  [
+                         {
+                             "path":  "tools/preparation-missing-failure-audit.mjs",
+                             "sha256":  "6de52377da4c79986de577c0d796e103acc6a3250ef7b3d1e0a3b825e60d09f8",
+                             "bytes":  12441
+                         },
+                         {
+                             "path":  "tests/preparation-missing-failure-audit.test.mjs",
+                             "sha256":  "37135d0dac0ab57e91177792e7ecaebccf59941c92d6363dc1648f4e41e7039f",
+                             "bytes":  10799
+                         }
+                     ]
+}

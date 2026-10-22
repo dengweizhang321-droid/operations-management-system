@@ -1,0 +1,70 @@
+{
+    "scope":  "Incremental request/PREPARING Git-tree schema and CLI compatibility only; original two decision checks not repeated.",
+    "performedProductionAudit":  false,
+    "checkedFiles":  [
+                         {
+                             "path":  "tools/preparation-missing-failure-audit.mjs",
+                             "sha256":  "749be4a4a33b96fbb5d6efb23b206a4d13959727b6d83f22f19c5b52e23a12d6",
+                             "bytes":  13519
+                         },
+                         {
+                             "path":  "tests/preparation-missing-failure-audit.test.mjs",
+                             "sha256":  "9455ffcf6509ca546491b357cf8b959eb831b6348678739be1381e057108ad04",
+                             "bytes":  13064
+                         }
+                     ],
+    "version":  "s05d-schema-fix-checks-v1",
+    "checks":  [
+                   {
+                       "completedAt":  "2026-10-22T16:09:06.2584171Z",
+                       "exitCode":  0,
+                       "command":  [
+                                       "node",
+                                       "--test",
+                                       "--test-name-pattern",
+                                       "^(missing FAILED remains|Git tree|CLI emits)",
+                                       "tests/preparation-missing-failure-audit.test.mjs"
+                                   ],
+                       "startedAt":  "2026-10-22T16:09:05.4366106Z",
+                       "output":  [
+                                      "✔ missing FAILED remains blocked with byte pins and a bounded, explicit evidence gap; audit is read-only (65.2225ms)",
+                                      "✔ Git tree comes from PREPARING when the real request schema omits it; optional cross-checks remain strict (154.5619ms)",
+                                      "✔ CLI emits diagnostic stdout only and refuses proof or write options (446.7572ms)",
+                                      "ℹ tests 3",
+                                      "ℹ suites 0",
+                                      "ℹ pass 3",
+                                      "ℹ fail 0",
+                                      "ℹ cancelled 0",
+                                      "ℹ skipped 0",
+                                      "ℹ todo 0",
+                                      "ℹ duration_ms 751.384"
+                                  ]
+                   },
+                   {
+                       "completedAt":  "2026-10-22T16:09:06.3067475Z",
+                       "exitCode":  0,
+                       "command":  [
+                                       "node",
+                                       "--check",
+                                       "tools/preparation-missing-failure-audit.mjs"
+                                   ],
+                       "startedAt":  "2026-10-22T16:09:06.2594840Z",
+                       "output":  [
+
+                                  ]
+                   },
+                   {
+                       "completedAt":  "2026-10-22T16:09:06.3539309Z",
+                       "exitCode":  0,
+                       "command":  [
+                                       "node",
+                                       "--check",
+                                       "tests/preparation-missing-failure-audit.test.mjs"
+                                   ],
+                       "startedAt":  "2026-10-22T16:09:06.3067475Z",
+                       "output":  [
+
+                                  ]
+                   }
+               ]
+}

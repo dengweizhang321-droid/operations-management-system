@@ -1,5 +1,7 @@
 # 任务记录目录
 
+本轮阻塞交付：[S05d缺失失败回执调查](../s05d-missing-failure-20261022/REPORT.md) · [独立规划](../s05d-missing-failure-20261022/PLAN.md) · [隔离实现与检查](../s05d-missing-failure-20261022/IMPLEMENTATION.md) · [独立审查](../s05d-missing-failure-20261022/REVIEW.md)。诊断不等于恢复就绪，S05b未执行。
+
 本轮只读分析：[S05c发布耗时、ROI与真实缺口](../s05c-roi-baseline-20261022/REPORT.md) · [独立复核](../s05c-roi-baseline-20261022/REVIEW.md)。
 
 本轮补充：[规范瘦身与限定资格对照](../machine-cleanup-20261022/REPORT.md) · [独立审查](../machine-cleanup-20261022/REVIEW.md)。
