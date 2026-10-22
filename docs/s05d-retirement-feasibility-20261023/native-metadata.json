@@ -1,0 +1,497 @@
+{
+    "version":  "s05d-retirement-native-metadata-v1",
+    "at":  "2026-10-22T16:22:35.3889865Z",
+    "readOnly":  true,
+    "installation":  {
+                         "path":  "D:\\codex-isolated\\main-manual-release-20261016\\CONTROL-INSTALLATION.json",
+                         "textSha256":  "74724dfae400f312e1907ee1f565faf28d46c3842f29916c0f8f2d9f143e4b0e",
+                         "status":  "adopted",
+                         "installId":  "ade68625-9378-4358-b31f-e2139c5953e2",
+                         "bundleSha256":  "83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8"
+                     },
+    "lastBootUpTimeUtc":  "2026-10-17T14:43:44.5000000Z",
+    "task":  {
+                 "name":  "TERUISI.MainPreparation.cfc552356306346dbeb66ac8",
+                 "state":  3,
+                 "instances":  0,
+                 "enabled":  true,
+                 "triggers":  0,
+                 "actions":  1,
+                 "userMatchesInstalled":  true,
+                 "logonType":  3,
+                 "runLevel":  0,
+                 "pathMatchesInstalled":  true,
+                 "argumentsMatchInstalled":  true,
+                 "workingDirectoryMatchesInstalled":  true,
+                 "allowDemandStart":  true,
+                 "multipleInstances":  1,
+                 "restartCount":  0,
+                 "startWhenAvailable":  false,
+                 "allowHardTerminate":  false
+             },
+    "acl":  [
+                {
+                    "path":  "D:\\codex-isolated",
+                    "owner":  "current-user",
+                    "protected":  false,
+                    "rules":  [
+                                  {
+                                      "principal":  "Administrators",
+                                      "rights":  "FullControl",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "Administrators",
+                                      "rights":  "268435456",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "SYSTEM",
+                                      "rights":  "FullControl",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "SYSTEM",
+                                      "rights":  "268435456",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:3c9e12064be76223b44331797d1730687f8f647d0571ff974daafb5f00c971cd",
+                                      "rights":  "Modify, Synchronize",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:3c9e12064be76223b44331797d1730687f8f647d0571ff974daafb5f00c971cd",
+                                      "rights":  "-536805376",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:46600cfb1a733f09a79e58b1312119c4a227958eccffe36f15df0d1690bf3e77",
+                                      "rights":  "ReadAndExecute, Synchronize",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:46600cfb1a733f09a79e58b1312119c4a227958eccffe36f15df0d1690bf3e77",
+                                      "rights":  "-1610612736",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  }
+                              ]
+                },
+                {
+                    "path":  "D:\\codex-isolated\\main-manual-release-20261016",
+                    "owner":  "current-user",
+                    "protected":  false,
+                    "rules":  [
+                                  {
+                                      "principal":  "Administrators",
+                                      "rights":  "FullControl",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "Administrators",
+                                      "rights":  "268435456",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "SYSTEM",
+                                      "rights":  "FullControl",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "SYSTEM",
+                                      "rights":  "268435456",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:3c9e12064be76223b44331797d1730687f8f647d0571ff974daafb5f00c971cd",
+                                      "rights":  "Modify, Synchronize",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:3c9e12064be76223b44331797d1730687f8f647d0571ff974daafb5f00c971cd",
+                                      "rights":  "-536805376",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:46600cfb1a733f09a79e58b1312119c4a227958eccffe36f15df0d1690bf3e77",
+                                      "rights":  "ReadAndExecute, Synchronize",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:46600cfb1a733f09a79e58b1312119c4a227958eccffe36f15df0d1690bf3e77",
+                                      "rights":  "-1610612736",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  }
+                              ]
+                },
+                {
+                    "path":  "D:\\codex-isolated\\main-release-packages",
+                    "owner":  "current-user",
+                    "protected":  false,
+                    "rules":  [
+                                  {
+                                      "principal":  "Administrators",
+                                      "rights":  "FullControl",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "Administrators",
+                                      "rights":  "268435456",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "SYSTEM",
+                                      "rights":  "FullControl",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "SYSTEM",
+                                      "rights":  "268435456",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:3c9e12064be76223b44331797d1730687f8f647d0571ff974daafb5f00c971cd",
+                                      "rights":  "Modify, Synchronize",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:3c9e12064be76223b44331797d1730687f8f647d0571ff974daafb5f00c971cd",
+                                      "rights":  "-536805376",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:46600cfb1a733f09a79e58b1312119c4a227958eccffe36f15df0d1690bf3e77",
+                                      "rights":  "ReadAndExecute, Synchronize",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:46600cfb1a733f09a79e58b1312119c4a227958eccffe36f15df0d1690bf3e77",
+                                      "rights":  "-1610612736",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  }
+                              ]
+                },
+                {
+                    "path":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef",
+                    "owner":  "current-user",
+                    "protected":  false,
+                    "rules":  [
+                                  {
+                                      "principal":  "Administrators",
+                                      "rights":  "FullControl",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "Administrators",
+                                      "rights":  "268435456",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "SYSTEM",
+                                      "rights":  "FullControl",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "SYSTEM",
+                                      "rights":  "268435456",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:3c9e12064be76223b44331797d1730687f8f647d0571ff974daafb5f00c971cd",
+                                      "rights":  "Modify, Synchronize",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:3c9e12064be76223b44331797d1730687f8f647d0571ff974daafb5f00c971cd",
+                                      "rights":  "-536805376",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:46600cfb1a733f09a79e58b1312119c4a227958eccffe36f15df0d1690bf3e77",
+                                      "rights":  "ReadAndExecute, Synchronize",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:46600cfb1a733f09a79e58b1312119c4a227958eccffe36f15df0d1690bf3e77",
+                                      "rights":  "-1610612736",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  }
+                              ]
+                },
+                {
+                    "path":  "D:\\teruisi-runtime",
+                    "owner":  "current-user",
+                    "protected":  false,
+                    "rules":  [
+                                  {
+                                      "principal":  "Administrators",
+                                      "rights":  "FullControl",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "Administrators",
+                                      "rights":  "268435456",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "SYSTEM",
+                                      "rights":  "FullControl",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "SYSTEM",
+                                      "rights":  "268435456",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:3c9e12064be76223b44331797d1730687f8f647d0571ff974daafb5f00c971cd",
+                                      "rights":  "Modify, Synchronize",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:3c9e12064be76223b44331797d1730687f8f647d0571ff974daafb5f00c971cd",
+                                      "rights":  "-536805376",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:46600cfb1a733f09a79e58b1312119c4a227958eccffe36f15df0d1690bf3e77",
+                                      "rights":  "ReadAndExecute, Synchronize",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:46600cfb1a733f09a79e58b1312119c4a227958eccffe36f15df0d1690bf3e77",
+                                      "rights":  "-1610612736",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  }
+                              ]
+                },
+                {
+                    "path":  "D:\\teruisi-runtime\\teruisi-worker-sales",
+                    "owner":  "current-user",
+                    "protected":  false,
+                    "rules":  [
+                                  {
+                                      "principal":  "Administrators",
+                                      "rights":  "FullControl",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "Administrators",
+                                      "rights":  "268435456",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "SYSTEM",
+                                      "rights":  "FullControl",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "SYSTEM",
+                                      "rights":  "268435456",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:3c9e12064be76223b44331797d1730687f8f647d0571ff974daafb5f00c971cd",
+                                      "rights":  "Modify, Synchronize",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:3c9e12064be76223b44331797d1730687f8f647d0571ff974daafb5f00c971cd",
+                                      "rights":  "-536805376",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:46600cfb1a733f09a79e58b1312119c4a227958eccffe36f15df0d1690bf3e77",
+                                      "rights":  "ReadAndExecute, Synchronize",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "None",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "sid-sha256:46600cfb1a733f09a79e58b1312119c4a227958eccffe36f15df0d1690bf3e77",
+                                      "rights":  "-1610612736",
+                                      "type":  "Allow",
+                                      "inherited":  true,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "InheritOnly"
+                                  }
+                              ]
+                },
+                {
+                    "path":  "D:\\teruisi-runtime\\django-sales",
+                    "owner":  "current-user",
+                    "protected":  true,
+                    "rules":  [
+                                  {
+                                      "principal":  "SYSTEM",
+                                      "rights":  "FullControl",
+                                      "type":  "Allow",
+                                      "inherited":  false,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "Administrators",
+                                      "rights":  "FullControl",
+                                      "type":  "Allow",
+                                      "inherited":  false,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "None"
+                                  },
+                                  {
+                                      "principal":  "current-user",
+                                      "rights":  "FullControl",
+                                      "type":  "Allow",
+                                      "inherited":  false,
+                                      "inheritance":  "ContainerInherit, ObjectInherit",
+                                      "propagation":  "None"
+                                  }
+                              ]
+                }
+            ],
+    "limits":  [
+                   "Fixed roots only; no recursive ACL traversal or handle census.",
+                   "ACL projection is not an effective access token check.",
+                   "Task state is an observation, not a persistent admission fence.",
+                   "No task, service, process, runtime, registry, or queue mutations."
+               ]
+}

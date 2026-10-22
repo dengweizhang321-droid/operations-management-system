@@ -1,0 +1,1206 @@
+{
+  "version": "s05d-retirement-file-metadata-v1",
+  "at": "2026-10-22T16:23:16.905047+00:00",
+  "queueJsonLeaves": {
+    "tickets\\01472067-94d1-4661-a14f-142687cbadd8.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\01472067-94d1-4661-a14f-142687cbadd8.json",
+      "bytes": 367,
+      "sha256": "94810f54136b32bd906e9404f507bec37c75e79066db424b546e14255f408ded"
+    },
+    "tickets\\05408813-a5ed-40cb-9890-13db65861db8.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\05408813-a5ed-40cb-9890-13db65861db8.json",
+      "bytes": 403,
+      "sha256": "fabca0013232198d8b5b869aed1a95cabf07e633c14e29b1c6260e389f425c5b"
+    },
+    "tickets\\0c8bbd7b-e4c7-473c-a4c4-df0829641c31.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\0c8bbd7b-e4c7-473c-a4c4-df0829641c31.json",
+      "bytes": 403,
+      "sha256": "4c01fee0044d09a3fe4f4fe56c6c809357150f2a07f58c32f7ced49f1645b0e1"
+    },
+    "tickets\\15d210b9-2ce4-4c49-8f73-7773b1593893.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\15d210b9-2ce4-4c49-8f73-7773b1593893.json",
+      "bytes": 403,
+      "sha256": "0b8a2e56141681fa106337d4aa5a98a01aca302feba27a81b431dab282fc03bb"
+    },
+    "tickets\\1747c989-59c7-4cc4-844d-980a852d5a49.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\1747c989-59c7-4cc4-844d-980a852d5a49.json",
+      "bytes": 403,
+      "sha256": "1bc36c90a96e8b31631adea2f22cb46a8c3fb961e3eb8aa36d0fd8f787871e85"
+    },
+    "tickets\\180d78e5-9100-4100-9917-4af9b758299f.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\180d78e5-9100-4100-9917-4af9b758299f.json",
+      "bytes": 403,
+      "sha256": "8f1aa118e22274f5805d42bbe22a05ad85af2330d00d80194179e494578acc4b"
+    },
+    "tickets\\18fe4655-67b1-4ddf-8891-7d2ae2643e32.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\18fe4655-67b1-4ddf-8891-7d2ae2643e32.json",
+      "bytes": 403,
+      "sha256": "7146632c57a28d39d20a6be15cfc35b43bd184e4f565e810c70e9266d69dc273"
+    },
+    "tickets\\1a26f95c-fa39-4e8d-a0a2-a2a75eb84687.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\1a26f95c-fa39-4e8d-a0a2-a2a75eb84687.json",
+      "bytes": 403,
+      "sha256": "976790242f9bc289cd4084239cb9ef24d04d4b31728c7033dcecfea861140393"
+    },
+    "tickets\\1f924696-029a-4771-8dd3-d59b3d62ffa3.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\1f924696-029a-4771-8dd3-d59b3d62ffa3.json",
+      "bytes": 367,
+      "sha256": "85c921615a039668a897d1d027a17a81331b78b7d191df82819d118a2db34043"
+    },
+    "tickets\\27d7ae93-3d1a-45e4-a6d5-08ba3d863c16.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\27d7ae93-3d1a-45e4-a6d5-08ba3d863c16.json",
+      "bytes": 367,
+      "sha256": "acae3397ecc005c72628714ad15729dd51287f1df05935775c4bd1f7107e3e25"
+    },
+    "tickets\\2c20f828-094d-40b4-a570-628f55c610c8.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\2c20f828-094d-40b4-a570-628f55c610c8.json",
+      "bytes": 403,
+      "sha256": "fef21e4e08d30fb1c38e50a8f664a4d9a18d5d7782998aa1d94b4df9c210ec24"
+    },
+    "tickets\\2c90e2a2-24c1-4dc1-9811-ae7c4888a6e8.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\2c90e2a2-24c1-4dc1-9811-ae7c4888a6e8.json",
+      "bytes": 403,
+      "sha256": "5afbeb1252b5e052de2b7300e32f5d7c63f0089bb122f286be03a1c57ef8a45e"
+    },
+    "tickets\\2d1ea536-4ee6-45c6-88de-4810da515f4a.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\2d1ea536-4ee6-45c6-88de-4810da515f4a.json",
+      "bytes": 403,
+      "sha256": "2502c4f770fe1d56456fbd1e06adbecc28e9d8efdb9361e53b8b27e51e064957"
+    },
+    "tickets\\312551f9-e7d4-43c7-b0ea-78e673e4b972.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\312551f9-e7d4-43c7-b0ea-78e673e4b972.json",
+      "bytes": 403,
+      "sha256": "c169a28aba321d7c816baf6783b54d78f23597520ffd9277315081a074f6f43d"
+    },
+    "tickets\\317fc378-566d-4c23-9fdc-05671177f5c0.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\317fc378-566d-4c23-9fdc-05671177f5c0.json",
+      "bytes": 403,
+      "sha256": "1de04fa3a9cc5300a7cb5e76b99fd25a547925c00c3ba87cfc9f564e08d0e2a7"
+    },
+    "tickets\\33b37684-6a8c-48f7-ac42-ae2c4e55d2c5.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\33b37684-6a8c-48f7-ac42-ae2c4e55d2c5.json",
+      "bytes": 403,
+      "sha256": "e1276dd8b7921f7166d0ccc5018831550821b65b3fad5f9a361d25c017260a25"
+    },
+    "tickets\\3868f023-6626-4558-af1c-3bc507f51678.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\3868f023-6626-4558-af1c-3bc507f51678.json",
+      "bytes": 403,
+      "sha256": "032ec408ced4ec0118676a8f0256a62a943592b3ab0c26a8a21ec2a413e074b5"
+    },
+    "tickets\\39160c07-f998-42ef-8acc-76a1eff6c63a.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\39160c07-f998-42ef-8acc-76a1eff6c63a.json",
+      "bytes": 403,
+      "sha256": "dd77378d39da1840e6a16d7e9242ab6a8badeddd46924d6ee8a2d0c53eb01728"
+    },
+    "tickets\\41131240-849c-4bac-a08c-973aa3433c8b.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\41131240-849c-4bac-a08c-973aa3433c8b.json",
+      "bytes": 403,
+      "sha256": "9b6dd5193420be7035aaa5cae5eb728de066330b8056f02f05e9547886640017"
+    },
+    "tickets\\41731e64-ab04-40a8-aea0-1e2ae65e4555.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\41731e64-ab04-40a8-aea0-1e2ae65e4555.json",
+      "bytes": 403,
+      "sha256": "c1b36fee77f810a73cf858e41555a10afb09616f31d6503ad18fa35a255eab34"
+    },
+    "tickets\\4504f1ea-69bb-45c0-a843-bccc894467fd.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\4504f1ea-69bb-45c0-a843-bccc894467fd.json",
+      "bytes": 403,
+      "sha256": "fca0cdbb44f865d53a3bc6919ef904f7146a1227f9627cb64deee52d7d943f79"
+    },
+    "tickets\\484335bd-4804-4730-8429-2c4f2f4d0535.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\484335bd-4804-4730-8429-2c4f2f4d0535.json",
+      "bytes": 403,
+      "sha256": "cdb24bebb68e03d50ee85b7aed381394541614a91b744c81147df8655fd2e372"
+    },
+    "tickets\\4e856a38-c0af-42f8-8cd5-e94268d689bb.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\4e856a38-c0af-42f8-8cd5-e94268d689bb.json",
+      "bytes": 403,
+      "sha256": "69b8a6561e3feff3c89b61b9afae85eb7b88d371631a6d57cc2fe98b8aa343bd"
+    },
+    "tickets\\564ea10f-6ad5-4bbf-ba06-a7527106d814.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\564ea10f-6ad5-4bbf-ba06-a7527106d814.json",
+      "bytes": 403,
+      "sha256": "3b2b2859e9fc0e8e9fcfb13e9a91f1e611d0d80e49a503219240cd02a4fe5e03"
+    },
+    "tickets\\57653527-4883-4265-94c1-5fb6a918be79.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\57653527-4883-4265-94c1-5fb6a918be79.json",
+      "bytes": 403,
+      "sha256": "b50718803f056ab9043f58720b4158c9c2e7e523de14a5ece0a5f60f0f28e4c0"
+    },
+    "tickets\\57d9b499-b5f0-424b-969e-ad1f396eef82.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\57d9b499-b5f0-424b-969e-ad1f396eef82.json",
+      "bytes": 403,
+      "sha256": "f41c70b1d5b113d02dd84b2a1b76868ea4f87e424676471304fd71b8605a426f"
+    },
+    "tickets\\5e2ddf63-d590-4d05-83ee-75c2059e8bfe.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\5e2ddf63-d590-4d05-83ee-75c2059e8bfe.json",
+      "bytes": 403,
+      "sha256": "515ac6c2e7506bc29fc3ac0a031293bba022a54e9d2defffdc3daba7d0a9844a"
+    },
+    "tickets\\5e855006-352a-4015-96e0-6644302d6a24.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\5e855006-352a-4015-96e0-6644302d6a24.json",
+      "bytes": 367,
+      "sha256": "2e22c9d4b6401432837e3ca772ae9e8bf7840206da850317ef66ffd1a84fc746"
+    },
+    "tickets\\5ef20ef4-11ff-441a-b2df-f236b9faf0c9.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\5ef20ef4-11ff-441a-b2df-f236b9faf0c9.json",
+      "bytes": 367,
+      "sha256": "eaa6708b2f0fe998ee7cdd3566914a40124a123bc3473c9b08713a5ca3effd8a"
+    },
+    "tickets\\63a31a07-e6d0-45e4-b1dc-9ca95d66def5.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\63a31a07-e6d0-45e4-b1dc-9ca95d66def5.json",
+      "bytes": 367,
+      "sha256": "2089fae255d10cc1d2475617575e0c3b70cfdbed6702be705ff8b9af41a21084"
+    },
+    "tickets\\6cae4a83-29b3-4980-85fc-95a20276d752.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\6cae4a83-29b3-4980-85fc-95a20276d752.json",
+      "bytes": 403,
+      "sha256": "a1c1151e3b5b1e847d606e4b66fa1930d5c1a4a4370a3533fa29b9e5c8a52b23"
+    },
+    "tickets\\6f454a0b-3ca9-411f-86fd-ee0dcd74d69b.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\6f454a0b-3ca9-411f-86fd-ee0dcd74d69b.json",
+      "bytes": 403,
+      "sha256": "6b9ddd2bc75f8b06f19e0495a31b886b8c03bdbb03be4008d6c3feb59fa18d46"
+    },
+    "tickets\\7041d946-d505-4ae3-a298-c5e2ae79165d.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\7041d946-d505-4ae3-a298-c5e2ae79165d.json",
+      "bytes": 403,
+      "sha256": "537ab32b85ef4704600411396b3533d6b76cf4044f30c1b903c7e324d2c0158a"
+    },
+    "tickets\\738910aa-f384-4c30-81d7-4b19dfa987a9.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\738910aa-f384-4c30-81d7-4b19dfa987a9.json",
+      "bytes": 403,
+      "sha256": "ad1cd0852baddd97af5c853557cc4a9a56bcc5eeeb6f3b50d182658efaaee0a9"
+    },
+    "tickets\\77398db7-6d2d-4298-9159-5af5497ddd14.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\77398db7-6d2d-4298-9159-5af5497ddd14.json",
+      "bytes": 403,
+      "sha256": "7f53aa5669963641c58eb14b54833a6155a625c27ac3d684a8cf3e57c5795151"
+    },
+    "tickets\\773d38e0-19a5-47b3-ae7c-b69119885857.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\773d38e0-19a5-47b3-ae7c-b69119885857.json",
+      "bytes": 367,
+      "sha256": "41446f1ce8dc71a8750d5406894ef2138ab57fc99a60869eff7ce0ee8d12c294"
+    },
+    "tickets\\78fc932a-4a4c-47cf-9f1b-3fc0955e72b3.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\78fc932a-4a4c-47cf-9f1b-3fc0955e72b3.json",
+      "bytes": 403,
+      "sha256": "1b77c4dcd8bb2fb93d82d647eb8673fe0abbad9c0d605793899de1b9b6b3a722"
+    },
+    "tickets\\7964788d-da95-49ec-bb08-2ef409faf711.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\7964788d-da95-49ec-bb08-2ef409faf711.json",
+      "bytes": 403,
+      "sha256": "7035d2df9de4bb4d8dd15607467f8f547603957109a1075a2c8ae31a8a2e7cde"
+    },
+    "tickets\\7aa530d1-c899-45de-89ca-1dcebf78ed33.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\7aa530d1-c899-45de-89ca-1dcebf78ed33.json",
+      "bytes": 403,
+      "sha256": "a0a972b81e8ccfbef17d12984c9fc55128f15573bb2ad844ca167824cb8297c4"
+    },
+    "tickets\\7b1ad035-d982-4ae2-9f18-88ce3d5eb4dc.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\7b1ad035-d982-4ae2-9f18-88ce3d5eb4dc.json",
+      "bytes": 403,
+      "sha256": "150603de7841f85f36930272a865d5b1379db28bb02e8a3c5b20e1b4d3e6e5e7"
+    },
+    "tickets\\7daa753a-1c22-4862-b629-b231396e20d6.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\7daa753a-1c22-4862-b629-b231396e20d6.json",
+      "bytes": 403,
+      "sha256": "c50cfb7ebd640578591deaca97ecf90f180b44007e70a716cc29d496827f1c21"
+    },
+    "tickets\\7f5acffb-d81a-436c-9d22-bc1fa18d05e1.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\7f5acffb-d81a-436c-9d22-bc1fa18d05e1.json",
+      "bytes": 403,
+      "sha256": "c64b4d96afff603db401cbb568f5d5a4d5540232bbd9a936edfcfe2bb7aed286"
+    },
+    "tickets\\863e1fac-fe1c-4136-986e-c26ef30e4a7f.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\863e1fac-fe1c-4136-986e-c26ef30e4a7f.json",
+      "bytes": 403,
+      "sha256": "80e5e1f80d83532825e061b34b719e4148f1a43136998e95b1785ec2a62cf0b1"
+    },
+    "tickets\\8a8f68da-b5b8-454e-8efa-2aecc630aa11.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\8a8f68da-b5b8-454e-8efa-2aecc630aa11.json",
+      "bytes": 403,
+      "sha256": "d788db3161416969a0554346ea63bf85c7388c927a9c6664b9b759fdee77f9a0"
+    },
+    "tickets\\8b9182da-77c9-4154-bada-ebfd1035d065.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\8b9182da-77c9-4154-bada-ebfd1035d065.json",
+      "bytes": 403,
+      "sha256": "765cee5e84cc4c6005083494e4b91bd47642e8f7940b924e7915f9869001f91e"
+    },
+    "tickets\\9010af8a-2de5-403f-bf6a-833af4901b0f.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\9010af8a-2de5-403f-bf6a-833af4901b0f.json",
+      "bytes": 403,
+      "sha256": "a063e9a38f0220f2acd8d62cfbcc6fb663969b5cd08c3e25758a838b54c11ee4"
+    },
+    "tickets\\90ad20da-5558-4980-9cd3-a605c59aaeaa.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\90ad20da-5558-4980-9cd3-a605c59aaeaa.json",
+      "bytes": 403,
+      "sha256": "cb33a1ce781565a04a3258e90880c6c22a3c61bd3476ca5297c0cd8e90bf90c2"
+    },
+    "tickets\\92d920db-e788-44a2-b7ad-eec432d99403.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\92d920db-e788-44a2-b7ad-eec432d99403.json",
+      "bytes": 403,
+      "sha256": "5715c9686f7b0d1bbd664d288f0a8d1c47bf66a9ce8c242806d879bc1c7a3799"
+    },
+    "tickets\\932106cf-28c5-4b5a-a8ce-b9d0f3acff19.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\932106cf-28c5-4b5a-a8ce-b9d0f3acff19.json",
+      "bytes": 367,
+      "sha256": "325576c326a7ca78b9250f9dd78dc373a21c0ed474b378a386a7880745223d14"
+    },
+    "tickets\\958bafa0-ad75-44d3-96d5-9c793db78585.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\958bafa0-ad75-44d3-96d5-9c793db78585.json",
+      "bytes": 403,
+      "sha256": "146e30b1615a8aec057d8f7e29d5517c168c18d8e009586a93558784f1a71e6a"
+    },
+    "tickets\\95a85f8f-336e-4039-b036-73033fd67484.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\95a85f8f-336e-4039-b036-73033fd67484.json",
+      "bytes": 403,
+      "sha256": "c988ed06eb422d8408ea5091dd2de99aee586214050e8d2db5c8e9f3ea18bb35"
+    },
+    "tickets\\9dda7698-8f7b-4d31-b246-59cdef1def7a.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\9dda7698-8f7b-4d31-b246-59cdef1def7a.json",
+      "bytes": 403,
+      "sha256": "3a1122a71fcf562e41723546c33afdccaaacf59daa33ddb03185bd3160f5aeab"
+    },
+    "tickets\\9e5307b3-efd4-4754-9594-17ee7a0d9b8b.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\9e5307b3-efd4-4754-9594-17ee7a0d9b8b.json",
+      "bytes": 403,
+      "sha256": "532817f2f69e26828b23d3609da84316d67f6e8aaeb561aa0865344de13d8a70"
+    },
+    "tickets\\9e6a93ee-f90c-42ab-88c7-82e1de164996.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\9e6a93ee-f90c-42ab-88c7-82e1de164996.json",
+      "bytes": 403,
+      "sha256": "932e59032a7c851fdf4149f9b5a68b4fda94e055e45697df34b8ca7c7ebafc24"
+    },
+    "tickets\\9f8bfbfe-aa72-4470-a472-aa998a2d78e8.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\9f8bfbfe-aa72-4470-a472-aa998a2d78e8.json",
+      "bytes": 403,
+      "sha256": "e7aa9b13eb2585b07adc32344b8b46d74054548e2442d58f5a934004097ccc08"
+    },
+    "tickets\\a2d60ac5-5cf1-4569-972d-4a59cac59d79.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\a2d60ac5-5cf1-4569-972d-4a59cac59d79.json",
+      "bytes": 403,
+      "sha256": "1799ecba265b5ee1f85df13f4e68902a33cdbdf83272759dce823b8af7551ad4"
+    },
+    "tickets\\a4877f12-2d56-457d-9251-b6cd6301b428.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\a4877f12-2d56-457d-9251-b6cd6301b428.json",
+      "bytes": 403,
+      "sha256": "5db7f17e73e78d485e9bd1ee486f9dd40335cb900c0919d3047e2224478aa065"
+    },
+    "tickets\\a89af920-d57a-4367-a9e5-8fc33fa0f73b.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\a89af920-d57a-4367-a9e5-8fc33fa0f73b.json",
+      "bytes": 403,
+      "sha256": "1b0676e32d2ef3b607a3c6d0b505dd4dba2585c6891881a7f8899be14ccbd5cf"
+    },
+    "tickets\\a907f9d7-d778-4570-8b2c-dc75de617500.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\a907f9d7-d778-4570-8b2c-dc75de617500.json",
+      "bytes": 403,
+      "sha256": "f6c654e9f49de7b61d0fa2bed9b55c72fbf103f98068769b1b2f75de3a2bcd52"
+    },
+    "tickets\\a9b49c5b-0222-4c72-b903-6030dcfde4b4.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\a9b49c5b-0222-4c72-b903-6030dcfde4b4.json",
+      "bytes": 367,
+      "sha256": "7046e5bd75a0cafb9a0dad58d8713dac9920f5eb0aac0e56723f39840e5c4ccf"
+    },
+    "tickets\\ac4fe7fe-fef1-4b7e-a32e-7681660888f6.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\ac4fe7fe-fef1-4b7e-a32e-7681660888f6.json",
+      "bytes": 403,
+      "sha256": "17f467c5adefda0ba7f1dd0fc6973b594e5fd970c4248af89f84c4d7f72f6796"
+    },
+    "tickets\\b4dea4a4-9e3f-4cc8-8a42-73c6ec5babe7.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\b4dea4a4-9e3f-4cc8-8a42-73c6ec5babe7.json",
+      "bytes": 367,
+      "sha256": "356f622c1101c843b7091e1280eb3ca2fc4d6d72eb79a758917638c1a8539463"
+    },
+    "tickets\\b5f3a030-5238-4d78-98dd-cb593a142567.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\b5f3a030-5238-4d78-98dd-cb593a142567.json",
+      "bytes": 367,
+      "sha256": "e7e728608b97cf7a561697a0f89b91a796839bd594bce8f39c3969adc22e5ec0"
+    },
+    "tickets\\b9e17170-7c6c-4f57-85de-9c597add7d99.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\b9e17170-7c6c-4f57-85de-9c597add7d99.json",
+      "bytes": 403,
+      "sha256": "ef6e607b112b82660b3d339d3e52b7db4b9b7fef926ba06aa34d3005edbdb904"
+    },
+    "tickets\\c06b2a77-9c9e-435a-969e-fa2ac461d462.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\c06b2a77-9c9e-435a-969e-fa2ac461d462.json",
+      "bytes": 367,
+      "sha256": "74e9c4e8e2f813334b10134ad74b033cf4c9b1d7a9fe525bac2044d3679a0ed5"
+    },
+    "tickets\\c511c6a2-040a-4c9a-85fe-a14d2c044f12.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\c511c6a2-040a-4c9a-85fe-a14d2c044f12.json",
+      "bytes": 367,
+      "sha256": "6c578e4957eaa46984bff3d1574f8a15b28ee8765f4662ab416a133c48d20d39"
+    },
+    "tickets\\c7f5d73d-68c2-4883-8737-7378842b42c2.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\c7f5d73d-68c2-4883-8737-7378842b42c2.json",
+      "bytes": 403,
+      "sha256": "669b875a81bb94b4d962c62d5782132db6a312055f0d3125334afa4b1b47a4fc"
+    },
+    "tickets\\c96b9a41-914a-4ce4-bc5e-c2d8c479266e.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\c96b9a41-914a-4ce4-bc5e-c2d8c479266e.json",
+      "bytes": 367,
+      "sha256": "6778a27ffa7a8c8aeb8a454b184e4894fcf8b70412a2d428fbd9064aba96bfb9"
+    },
+    "tickets\\cb8ee3b9-3909-43f7-92b3-2015af1a7175.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\cb8ee3b9-3909-43f7-92b3-2015af1a7175.json",
+      "bytes": 403,
+      "sha256": "7a9f7a1b3267ee2e26150748811d2506c703206226e56409da19df75f923a965"
+    },
+    "tickets\\cf761cdf-98f2-4ba0-b40e-3b7127e47d38.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\cf761cdf-98f2-4ba0-b40e-3b7127e47d38.json",
+      "bytes": 367,
+      "sha256": "50e6918a984e7acbb9c9ac02e2656b996159bd73c2e5e6074a707286b53a896d"
+    },
+    "tickets\\d17ecced-b872-4935-b0cf-ffd362cc1fcc.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\d17ecced-b872-4935-b0cf-ffd362cc1fcc.json",
+      "bytes": 403,
+      "sha256": "c01fc1ed54a94159fb24c57bfea6eb5e3f1346c5e2377b0c1aa1e15f17be6d34"
+    },
+    "tickets\\d2990829-9621-4495-a2fc-0d777dfe94ee.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\d2990829-9621-4495-a2fc-0d777dfe94ee.json",
+      "bytes": 403,
+      "sha256": "39d58e8661489101829ed83b450a0288eceb14e6103105efbc1f18d3a4587fa7"
+    },
+    "tickets\\d3c93454-048d-44c5-b2be-8a3d16920231.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\d3c93454-048d-44c5-b2be-8a3d16920231.json",
+      "bytes": 403,
+      "sha256": "77c41a38d2e5b39fffe24e1e7926e02c4f56a59d4567d3672ebe0f9c0c2cf770"
+    },
+    "tickets\\d3ed3b78-5704-4998-ac7b-027c128a3f93.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\d3ed3b78-5704-4998-ac7b-027c128a3f93.json",
+      "bytes": 367,
+      "sha256": "515228fa95422bfc3ab18618b629c600acd73670d5294d41ca03740e30a39001"
+    },
+    "tickets\\d4dbd5aa-56b0-4705-834b-d6ee7dff1c79.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\d4dbd5aa-56b0-4705-834b-d6ee7dff1c79.json",
+      "bytes": 403,
+      "sha256": "9257a54490f074083525a9e2eeb83cd5139ce0092673973a7917ff74b45aabd9"
+    },
+    "tickets\\d6742ea6-30d2-4e7c-b58e-3c6399a50ee1.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\d6742ea6-30d2-4e7c-b58e-3c6399a50ee1.json",
+      "bytes": 403,
+      "sha256": "c1d9cd4c95de3b66a5767faa1b66848b3c7b665d0655d4fa92b71ed046b6187d"
+    },
+    "tickets\\da5cb926-1d39-44de-948c-97d1733f6f9d.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\da5cb926-1d39-44de-948c-97d1733f6f9d.json",
+      "bytes": 403,
+      "sha256": "ecdb8c4b1fe108c3fd1461165f37503f6a555c1ff5e50d9b6c8138c2f86ca027"
+    },
+    "tickets\\e2bf1b02-28af-46c9-a4b4-918a0ca05c13.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\e2bf1b02-28af-46c9-a4b4-918a0ca05c13.json",
+      "bytes": 403,
+      "sha256": "9f68d159d131889069bca41a95873a0c7e50ccc88f02e9c1d0a5caf327b04286"
+    },
+    "tickets\\e52a0d47-17d5-4e35-8e54-35414ac4dc1e.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\e52a0d47-17d5-4e35-8e54-35414ac4dc1e.json",
+      "bytes": 403,
+      "sha256": "acdec7d9c9b7f4f569dc8c53b61509827655ce6845d33145205221145cb01c65"
+    },
+    "tickets\\f9020d2e-ac8c-4aec-ab9b-785b5f224139.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\f9020d2e-ac8c-4aec-ab9b-785b5f224139.json",
+      "bytes": 403,
+      "sha256": "369aefccc6a0733ca4cda66cc3c397b22c9aac03ac3f440c121ebd9934efb02b"
+    },
+    "tickets\\f996919a-47b2-41b6-8e42-ea8fe33beb26.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\f996919a-47b2-41b6-8e42-ea8fe33beb26.json",
+      "bytes": 403,
+      "sha256": "3c86fcf28d477a47be3c90cb6ebd68deaa01f257dc2a6a06aac3b48cb46d6e65"
+    },
+    "tickets\\f9e9ea34-fa70-42e6-958b-e63bfa7f95cc.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\f9e9ea34-fa70-42e6-958b-e63bfa7f95cc.json",
+      "bytes": 403,
+      "sha256": "f7170609b7f49e0df193ddd041da1228a43515437718d863b61761f464a292e2"
+    },
+    "tickets\\fa55c75f-7ebd-4858-97a8-fc6ebace53c2.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\fa55c75f-7ebd-4858-97a8-fc6ebace53c2.json",
+      "bytes": 403,
+      "sha256": "84587788fce11c399a08911be3c30694bb6e182af269498b134a4196778a935b"
+    },
+    "tickets\\fc2308d8-ba74-43ad-816c-2ee593f207b3.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\fc2308d8-ba74-43ad-816c-2ee593f207b3.json",
+      "bytes": 367,
+      "sha256": "1ab078a8f8ccabb3b22600d2258aa5ccc4f376d7f8aef4ec85c6a2a97a7b4475"
+    },
+    "tickets\\ff535b10-5c71-4938-a99b-faf78f5997ed.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\ff535b10-5c71-4938-a99b-faf78f5997ed.json",
+      "bytes": 403,
+      "sha256": "ebc9b66767fe70c1a3392067ba5824ef223800273c6d417c62e5f75b0fc2d3ba"
+    },
+    "dispatches\\00385709-d354-4d39-9e7c-bc2b42dd90f1.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\00385709-d354-4d39-9e7c-bc2b42dd90f1.json",
+      "bytes": 1834,
+      "sha256": "1c6a539fd8bf9a619b68fd631f8fe0d83b4e0a1ba55d91587ca92bb2f901cb8d"
+    },
+    "dispatches\\01defeae-36a2-46dc-8182-59f8e8c32ca9.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\01defeae-36a2-46dc-8182-59f8e8c32ca9.json",
+      "bytes": 1856,
+      "sha256": "a79ba2ec897d3e4a7bc22e306ba78f78da16649e17df721deca8581bae4638e1"
+    },
+    "dispatches\\0b4674f2-287d-453a-9094-a8f3245886a0.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\0b4674f2-287d-453a-9094-a8f3245886a0.json",
+      "bytes": 1813,
+      "sha256": "577476a6e39a05022c460480dc8d7d50a2663e01f484b6f60cbfebad9026064c"
+    },
+    "dispatches\\1158f29c-2452-49ff-bf8a-ceeb19bb6f31.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\1158f29c-2452-49ff-bf8a-ceeb19bb6f31.json",
+      "bytes": 1796,
+      "sha256": "7984515ddd9939fa1da5221162b948a3b48e2fd2e906c59c9dcfb0607384837a"
+    },
+    "dispatches\\18373a74-fac8-43a0-9285-9a52e3324b39.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\18373a74-fac8-43a0-9285-9a52e3324b39.json",
+      "bytes": 1856,
+      "sha256": "c9565d674f163a29d420bca30a70150439791a0f98e60c67d9ab7f3239bada1f"
+    },
+    "dispatches\\2c276cdd-d950-415b-95f3-bc3cab52ac3d.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\2c276cdd-d950-415b-95f3-bc3cab52ac3d.json",
+      "bytes": 1867,
+      "sha256": "35c79a7aa371fab7f2fd8dec336e264e6c14a586bb28c171af67194c79622d29"
+    },
+    "dispatches\\2ea8a4ca-fb41-420d-ac68-8d11bf7ba22e.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\2ea8a4ca-fb41-420d-ac68-8d11bf7ba22e.json",
+      "bytes": 1856,
+      "sha256": "d70fd254ff57b7ae0abf7c140713d04db45c7a533587ca13bac6ccbc61ba3aa4"
+    },
+    "dispatches\\33e66bb1-4e90-42a3-8232-4131c2b4dbbb.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\33e66bb1-4e90-42a3-8232-4131c2b4dbbb.json",
+      "bytes": 1810,
+      "sha256": "27b6399df39b6cbf669793bc68f970a2484a644b660eb7115a95e41c3f92011d"
+    },
+    "dispatches\\391ee25b-2c47-4c01-af96-36b9a10b8745.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\391ee25b-2c47-4c01-af96-36b9a10b8745.json",
+      "bytes": 1818,
+      "sha256": "90cdd98977b34ce5b74af10c2fe72a21cd1784c4ad87d1b526d2eb4cc1138d76"
+    },
+    "dispatches\\44ac7bfa-8d33-4c50-8ce5-793a56cb35cf.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\44ac7bfa-8d33-4c50-8ce5-793a56cb35cf.json",
+      "bytes": 1818,
+      "sha256": "640164a314f8ecd1958e14a36807f19cd092fbb8a98fabcb8ba56ab62bae316a"
+    },
+    "dispatches\\44cc8f2c-6f05-4b7e-a34d-ac0afd56e02f.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\44cc8f2c-6f05-4b7e-a34d-ac0afd56e02f.json",
+      "bytes": 1856,
+      "sha256": "cba47979f7159fcaea197d60dd148c28fd45319fd75b03e4c0a2d0a2a6cacf44"
+    },
+    "dispatches\\4aac89ca-952b-4779-b0fa-3e6764dab39d.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\4aac89ca-952b-4779-b0fa-3e6764dab39d.json",
+      "bytes": 1812,
+      "sha256": "b0a45571e21f8c8691b696c6b6b8fa6c92777033172f247b9f7964ffaae70746"
+    },
+    "dispatches\\4be815e2-5ffb-439f-99d8-84c496d80052.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\4be815e2-5ffb-439f-99d8-84c496d80052.json",
+      "bytes": 1810,
+      "sha256": "c19d9a13ad529b1151e3e00f3430ca4b77749fac4f717d5f35eca3ec456d48cb"
+    },
+    "dispatches\\506c9819-b229-4a55-91d8-9a903f62df5d.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\506c9819-b229-4a55-91d8-9a903f62df5d.json",
+      "bytes": 1818,
+      "sha256": "1ebfdb11e4fbc4ab91811453328a1d30a9f05334dbf5e1a937de210d4a027b3c"
+    },
+    "dispatches\\507f703e-bb3b-4643-a701-4f881b424401.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\507f703e-bb3b-4643-a701-4f881b424401.json",
+      "bytes": 1810,
+      "sha256": "d6e5d117890b6541aa172e35e3ce60a739d3143b85a86b423435ea9462210f8d"
+    },
+    "dispatches\\57dc35fc-f01b-480f-9efd-ea7cd93abd86.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\57dc35fc-f01b-480f-9efd-ea7cd93abd86.json",
+      "bytes": 1848,
+      "sha256": "cddc49f7c77a82a18f96a8ad53015fcfb40128aafef15f1fe57352bcca2a047c"
+    },
+    "dispatches\\693e15d4-3390-49b1-9b7c-48fa4f737d48.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\693e15d4-3390-49b1-9b7c-48fa4f737d48.json",
+      "bytes": 1850,
+      "sha256": "1f771c70d270912b839009dac77019f59ba63e3d1113ba215d83ab34df546f58"
+    },
+    "dispatches\\6a0168ca-321d-4687-9397-726da2c6a711.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\6a0168ca-321d-4687-9397-726da2c6a711.json",
+      "bytes": 1834,
+      "sha256": "d26753a5252ddcf32726844685ed3f4ea8eb8d32cb97a1ac89583c8bbd7cabcd"
+    },
+    "dispatches\\7d7775d1-17ba-4b65-a6f2-9f73d69aaa9d.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\7d7775d1-17ba-4b65-a6f2-9f73d69aaa9d.json",
+      "bytes": 1776,
+      "sha256": "c3d6abf6f292354eee47cd231a5101f6705c3182aac0b7ffa0da0ff72883401d"
+    },
+    "dispatches\\99f26d4d-4043-4a5a-bdff-c9e495866965.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\99f26d4d-4043-4a5a-bdff-c9e495866965.json",
+      "bytes": 1856,
+      "sha256": "39513c23ba174b7f168411c52a81230a610e29d25cb00aced35374e367403010"
+    },
+    "dispatches\\9a934abf-685c-48f5-a26c-dafdcf897fb8.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\9a934abf-685c-48f5-a26c-dafdcf897fb8.json",
+      "bytes": 1834,
+      "sha256": "d3b0c132d866d2bcecd2d7748e4f3bef2c224c2d7d5b1e4328572ae8aa780cd3"
+    },
+    "dispatches\\a2bcefc5-c163-4bfd-adb7-a71125042717.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\a2bcefc5-c163-4bfd-adb7-a71125042717.json",
+      "bytes": 1834,
+      "sha256": "b0ee44b18a803b5a524200734ac71398aa5a5372a01d180a23630b07a1789ab2"
+    },
+    "dispatches\\a3d53227-8976-4762-8be6-6f8c28107b5b.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\a3d53227-8976-4762-8be6-6f8c28107b5b.json",
+      "bytes": 1856,
+      "sha256": "443a9bfd07bc47afb0b2560ccfe2101fa274f305f3636153bde24515ce535dfb"
+    },
+    "dispatches\\baf0ac0d-b6b2-4593-b363-6cd3821f1425.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\baf0ac0d-b6b2-4593-b363-6cd3821f1425.json",
+      "bytes": 1839,
+      "sha256": "7bd123bb2cdbd38f4fbebcb9b95ff1e73b405b05877c241507054834ff3228f9"
+    },
+    "dispatches\\c97f8bc3-1cb2-4ebc-91bb-a543c62b680f.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\c97f8bc3-1cb2-4ebc-91bb-a543c62b680f.json",
+      "bytes": 1856,
+      "sha256": "47ef23a083750c1dc9a962a0ffc8c23feaf3544d165ef5361f4543879d38a490"
+    },
+    "dispatches\\d24b0844-bbd5-4ce4-8ec9-4a14809a70f1.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\d24b0844-bbd5-4ce4-8ec9-4a14809a70f1.json",
+      "bytes": 1829,
+      "sha256": "18b9de80c58dba65eacfb9d480a59e86d5ea85a39218b93062f9b19ff9ed7475"
+    },
+    "dispatches\\dba51173-e25d-4f4d-b5c3-e585daa70b42.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\dba51173-e25d-4f4d-b5c3-e585daa70b42.json",
+      "bytes": 1818,
+      "sha256": "5bc15a304a01a5eb98ca184dd2023a6fd3c59ff0db61445cdf366f6d249cc507"
+    },
+    "dispatches\\e2a76305-5a58-4814-8418-a35270a55efe.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\e2a76305-5a58-4814-8418-a35270a55efe.json",
+      "bytes": 1867,
+      "sha256": "d3fb28ce5a7f62c57c0be3d4d533d8eaa33f63ff1159332042ce3faed68649d2"
+    },
+    "dispatches\\e786aed6-25c2-4cce-b433-4fd21d3ac2c2.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\e786aed6-25c2-4cce-b433-4fd21d3ac2c2.json",
+      "bytes": 1839,
+      "sha256": "dcafd243fe0dd25b916a61f7ca84364fa3e7f44979fdda1684751d5ca9557172"
+    },
+    "dispatches\\ece64080-a14c-4314-9e91-c7a8c48171fb.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\ece64080-a14c-4314-9e91-c7a8c48171fb.json",
+      "bytes": 1851,
+      "sha256": "cf14be54c343d7fd171729f916acf017b0f7e27c4fa9908922d7851335a62487"
+    },
+    "dispatches\\f05223b2-d089-4c4a-9702-fd6fbfaa024d.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\f05223b2-d089-4c4a-9702-fd6fbfaa024d.json",
+      "bytes": 1856,
+      "sha256": "2fac5ac64a5accd3f1f8ddeb3be78998d1feb3641de7df1c78da62bc15113233"
+    },
+    "dispatches\\f697b299-7911-4332-8411-9636e95cf07a.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\f697b299-7911-4332-8411-9636e95cf07a.json",
+      "bytes": 1856,
+      "sha256": "cf352ad04669beb98036d6854d568f977ed42586f656ec33d3abccc37f1fefca"
+    },
+    "dispatches\\fb40640f-57f6-4b9c-9b6e-606f292b603f.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\fb40640f-57f6-4b9c-9b6e-606f292b603f.json",
+      "bytes": 1848,
+      "sha256": "fb10c707c7d2387985add5b97b94b184782bb7e67094cfe543ffd8d007815f5c"
+    },
+    "results\\01472067-94d1-4661-a14f-142687cbadd8.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\01472067-94d1-4661-a14f-142687cbadd8.json",
+      "bytes": 700,
+      "sha256": "47541afc75d55c6109fd81ed4fe29a46a21cc0a5d7b2ef1b341c78977fd937b1"
+    },
+    "results\\05408813-a5ed-40cb-9890-13db65861db8.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\05408813-a5ed-40cb-9890-13db65861db8.json",
+      "bytes": 624,
+      "sha256": "354e8b164ac42f324ae5c849d294f13baeeeb1b37985231ad5f1967c60d1c641"
+    },
+    "results\\0c8bbd7b-e4c7-473c-a4c4-df0829641c31.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\0c8bbd7b-e4c7-473c-a4c4-df0829641c31.json",
+      "bytes": 624,
+      "sha256": "a15fa9aa73589e7cadc7744bf5e2dbdad46f6b99e16c55386c6ddddb22eb02c2"
+    },
+    "results\\15d210b9-2ce4-4c49-8f73-7773b1593893.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\15d210b9-2ce4-4c49-8f73-7773b1593893.json",
+      "bytes": 624,
+      "sha256": "72d304f129325e8e59ee4d08c9d3882f5bccafa5c5060e943fbdd58ec0580263"
+    },
+    "results\\1747c989-59c7-4cc4-844d-980a852d5a49.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\1747c989-59c7-4cc4-844d-980a852d5a49.json",
+      "bytes": 624,
+      "sha256": "34aa3c6661cd912cabf578a9f8b9f2c001c64dc645556826a1d8663aa57482a7"
+    },
+    "results\\180d78e5-9100-4100-9917-4af9b758299f.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\180d78e5-9100-4100-9917-4af9b758299f.json",
+      "bytes": 624,
+      "sha256": "e271a7bcab768e1177c3e881434cd4689defcea9675fdc30a071d9d87c3db906"
+    },
+    "results\\18fe4655-67b1-4ddf-8891-7d2ae2643e32.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\18fe4655-67b1-4ddf-8891-7d2ae2643e32.json",
+      "bytes": 1020,
+      "sha256": "73c06fca072de30e382beeaf31ca04aff5f6d2f8453071375bbca83947813a2d"
+    },
+    "results\\1a26f95c-fa39-4e8d-a0a2-a2a75eb84687.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\1a26f95c-fa39-4e8d-a0a2-a2a75eb84687.json",
+      "bytes": 700,
+      "sha256": "c8780ffaf63deabc6ffc60154e238dd0d8f91599d545e1c115d30559ee88cac2"
+    },
+    "results\\1f924696-029a-4771-8dd3-d59b3d62ffa3.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\1f924696-029a-4771-8dd3-d59b3d62ffa3.json",
+      "bytes": 1005,
+      "sha256": "e397e8519a2525683a848bcb4e25de46fb91ebf5a91245b0cc3d3c5059583a1d"
+    },
+    "results\\27d7ae93-3d1a-45e4-a6d5-08ba3d863c16.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\27d7ae93-3d1a-45e4-a6d5-08ba3d863c16.json",
+      "bytes": 624,
+      "sha256": "cd16a15717e27b1364284564eca4b59d683a1a512dd084f65651dc356b84b205"
+    },
+    "results\\2c20f828-094d-40b4-a570-628f55c610c8.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\2c20f828-094d-40b4-a570-628f55c610c8.json",
+      "bytes": 1020,
+      "sha256": "a163ddad36acef1be600c0a6da3f6f4892faa0b478a9946f25d1450437683cea"
+    },
+    "results\\2c90e2a2-24c1-4dc1-9811-ae7c4888a6e8.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\2c90e2a2-24c1-4dc1-9811-ae7c4888a6e8.json",
+      "bytes": 700,
+      "sha256": "18902a84d305b3045759a1fde5d506b2a4a70d9b7e10b106cb9f9d5a23f777ad"
+    },
+    "results\\2d1ea536-4ee6-45c6-88de-4810da515f4a.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\2d1ea536-4ee6-45c6-88de-4810da515f4a.json",
+      "bytes": 624,
+      "sha256": "6645b5bb9a8567a9c1c38ef1425f97d4442a47455b416426d89d090f472841b2"
+    },
+    "results\\312551f9-e7d4-43c7-b0ea-78e673e4b972.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\312551f9-e7d4-43c7-b0ea-78e673e4b972.json",
+      "bytes": 624,
+      "sha256": "12752faa448b98a69514464baa23ee2be746aa626373e6d19e87cdd2d9df38b8"
+    },
+    "results\\317fc378-566d-4c23-9fdc-05671177f5c0.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\317fc378-566d-4c23-9fdc-05671177f5c0.json",
+      "bytes": 624,
+      "sha256": "f17bedb6e169874f398d4140bf259a1a5fc9c240f6263e4b695bfcf0d93faccb"
+    },
+    "results\\33b37684-6a8c-48f7-ac42-ae2c4e55d2c5.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\33b37684-6a8c-48f7-ac42-ae2c4e55d2c5.json",
+      "bytes": 624,
+      "sha256": "d8f87bf9f1776e67f9c3b9fd0082ec3d77f28ffe4cfbf211a23a4c693612bd35"
+    },
+    "results\\3868f023-6626-4558-af1c-3bc507f51678.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\3868f023-6626-4558-af1c-3bc507f51678.json",
+      "bytes": 624,
+      "sha256": "66fc86b9dedd95d57dd51469caa6d079f251f024ea9f0f3cdef62ee21866fe90"
+    },
+    "results\\39160c07-f998-42ef-8acc-76a1eff6c63a.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\39160c07-f998-42ef-8acc-76a1eff6c63a.json",
+      "bytes": 624,
+      "sha256": "78d579a06aa4667ba4054fc236a775906778874a026894e0970d0a304a7df4d8"
+    },
+    "results\\41131240-849c-4bac-a08c-973aa3433c8b.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\41131240-849c-4bac-a08c-973aa3433c8b.json",
+      "bytes": 713,
+      "sha256": "7c99ac9aad232fbfdca7d75222bba28fae7249f031bb7dfa51c8c4469556cd22"
+    },
+    "results\\41731e64-ab04-40a8-aea0-1e2ae65e4555.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\41731e64-ab04-40a8-aea0-1e2ae65e4555.json",
+      "bytes": 624,
+      "sha256": "de22ff3d9bf0b7eba5e0d0d7546fc10805af9387541c7f403cec1437af770832"
+    },
+    "results\\4504f1ea-69bb-45c0-a843-bccc894467fd.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\4504f1ea-69bb-45c0-a843-bccc894467fd.json",
+      "bytes": 624,
+      "sha256": "f32ac2d19fdffa5a1c6f597ad68957c7d6e09a0e409090473d0913c202c471db"
+    },
+    "results\\484335bd-4804-4730-8429-2c4f2f4d0535.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\484335bd-4804-4730-8429-2c4f2f4d0535.json",
+      "bytes": 624,
+      "sha256": "fb78851af8d2f4ae50d601ba76192c6efd2996778ca63211140944ee48552cb3"
+    },
+    "results\\4e856a38-c0af-42f8-8cd5-e94268d689bb.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\4e856a38-c0af-42f8-8cd5-e94268d689bb.json",
+      "bytes": 486,
+      "sha256": "4fbca4d02b4a54e0a2dbdc5859b5084d8fab96606f1aa7e2b08c52151e1562f0"
+    },
+    "results\\564ea10f-6ad5-4bbf-ba06-a7527106d814.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\564ea10f-6ad5-4bbf-ba06-a7527106d814.json",
+      "bytes": 624,
+      "sha256": "ea4d029172bf9e26786b3c8a2906c2b58bae21a213cb537eff6b87046b64d9b2"
+    },
+    "results\\57653527-4883-4265-94c1-5fb6a918be79.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\57653527-4883-4265-94c1-5fb6a918be79.json",
+      "bytes": 624,
+      "sha256": "713f0a45b5c28ec506633c08e7571c2f0534de71b69e8430e7aa11564e87da96"
+    },
+    "results\\57d9b499-b5f0-424b-969e-ad1f396eef82.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\57d9b499-b5f0-424b-969e-ad1f396eef82.json",
+      "bytes": 624,
+      "sha256": "258c3d4d848b0d513d663a9adf0021fd86c8e90cfd6fe4c88df0461c10152324"
+    },
+    "results\\5e2ddf63-d590-4d05-83ee-75c2059e8bfe.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\5e2ddf63-d590-4d05-83ee-75c2059e8bfe.json",
+      "bytes": 624,
+      "sha256": "56e575c6a2b00421438954fe8f15ffb73dde416c2d45b82df974a9e53e27be4c"
+    },
+    "results\\5e855006-352a-4015-96e0-6644302d6a24.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\5e855006-352a-4015-96e0-6644302d6a24.json",
+      "bytes": 1005,
+      "sha256": "306f1d085d6204e1879298a56d1a7c177b96345c00b10afa5b1ab170de3b5be0"
+    },
+    "results\\5ef20ef4-11ff-441a-b2df-f236b9faf0c9.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\5ef20ef4-11ff-441a-b2df-f236b9faf0c9.json",
+      "bytes": 1005,
+      "sha256": "f286d805ac6dbebd6e9f97ab503f06173a2ac003d51c07d9afa4aa4eabf118eb"
+    },
+    "results\\63a31a07-e6d0-45e4-b1dc-9ca95d66def5.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\63a31a07-e6d0-45e4-b1dc-9ca95d66def5.json",
+      "bytes": 1005,
+      "sha256": "570516fc63aa6ad1bc0a19263fa3989eb8a1401d2db5bd8f774b941f723dde6f"
+    },
+    "results\\6cae4a83-29b3-4980-85fc-95a20276d752.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\6cae4a83-29b3-4980-85fc-95a20276d752.json",
+      "bytes": 624,
+      "sha256": "1aec6d10df12c9525c595355888c5f884f43a8729679b390da4fb0a1ae2ed354"
+    },
+    "results\\6f454a0b-3ca9-411f-86fd-ee0dcd74d69b.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\6f454a0b-3ca9-411f-86fd-ee0dcd74d69b.json",
+      "bytes": 624,
+      "sha256": "bf4542b469d2cee11bc326eb34a18336b4599df5d4414228610cff90c5aa07d5"
+    },
+    "results\\7041d946-d505-4ae3-a298-c5e2ae79165d.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\7041d946-d505-4ae3-a298-c5e2ae79165d.json",
+      "bytes": 1005,
+      "sha256": "cd4d9b7dbb58aec7a8053ed0c999c02bcce3999ea2905ef0bd4f79d9b28eb70c"
+    },
+    "results\\738910aa-f384-4c30-81d7-4b19dfa987a9.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\738910aa-f384-4c30-81d7-4b19dfa987a9.json",
+      "bytes": 713,
+      "sha256": "caf8814a48b822fd7c389c0ad203bf16f1a44417edaae8ad6ecff6ae4da3a136"
+    },
+    "results\\77398db7-6d2d-4298-9159-5af5497ddd14.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\77398db7-6d2d-4298-9159-5af5497ddd14.json",
+      "bytes": 624,
+      "sha256": "120b28e0a9ca87ea35f29c13a307e2dff9df3599149a0617e35b9540264a41e8"
+    },
+    "results\\773d38e0-19a5-47b3-ae7c-b69119885857.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\773d38e0-19a5-47b3-ae7c-b69119885857.json",
+      "bytes": 894,
+      "sha256": "d2e980c5326749cf0e80a4c80fbfc3bec3c234a9d5864f63759fcfdd6d799435"
+    },
+    "results\\78fc932a-4a4c-47cf-9f1b-3fc0955e72b3.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\78fc932a-4a4c-47cf-9f1b-3fc0955e72b3.json",
+      "bytes": 624,
+      "sha256": "4b03277287c8ff5d53feca7dab880e75bf7b28fe78faa693dcbde351628fdca5"
+    },
+    "results\\7964788d-da95-49ec-bb08-2ef409faf711.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\7964788d-da95-49ec-bb08-2ef409faf711.json",
+      "bytes": 739,
+      "sha256": "4f47838d15eb5ac8445181680fea1b79bad3a7e3a37b85b5bcccfbb6c3550789"
+    },
+    "results\\7aa530d1-c899-45de-89ca-1dcebf78ed33.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\7aa530d1-c899-45de-89ca-1dcebf78ed33.json",
+      "bytes": 1005,
+      "sha256": "c1ac89ece55cfa3b7cf4ed648ce7d92140e09ba1865e083d6e636bd11988fc39"
+    },
+    "results\\7b1ad035-d982-4ae2-9f18-88ce3d5eb4dc.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\7b1ad035-d982-4ae2-9f18-88ce3d5eb4dc.json",
+      "bytes": 624,
+      "sha256": "ec69a6f4757fd6cb1998e49aca2a5f8acca65b409f314d40e2c47868cca14208"
+    },
+    "results\\7daa753a-1c22-4862-b629-b231396e20d6.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\7daa753a-1c22-4862-b629-b231396e20d6.json",
+      "bytes": 624,
+      "sha256": "4f80f03c18022131006e7d51f78871132582552312156284ab582fb674c05865"
+    },
+    "results\\7f5acffb-d81a-436c-9d22-bc1fa18d05e1.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\7f5acffb-d81a-436c-9d22-bc1fa18d05e1.json",
+      "bytes": 624,
+      "sha256": "aa0e42c9ebdd62fbf60cde6fe87c38c292e622345999f2bfbb14f0669906d0ae"
+    },
+    "results\\863e1fac-fe1c-4136-986e-c26ef30e4a7f.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\863e1fac-fe1c-4136-986e-c26ef30e4a7f.json",
+      "bytes": 700,
+      "sha256": "2c1da3fb348ba238cf5fadfd54bc221db75db676dad2c9c94d6ac5fae2112f4f"
+    },
+    "results\\8a8f68da-b5b8-454e-8efa-2aecc630aa11.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\8a8f68da-b5b8-454e-8efa-2aecc630aa11.json",
+      "bytes": 1005,
+      "sha256": "12efc1e181964f657a5753e401a465812abd53cb1b45ef33310bd14aa1d9aa86"
+    },
+    "results\\8b9182da-77c9-4154-bada-ebfd1035d065.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\8b9182da-77c9-4154-bada-ebfd1035d065.json",
+      "bytes": 1005,
+      "sha256": "c691adaac98ee9ae56b651bbd27ecea27b63fdb7a2d8d443f9b5320b44214d15"
+    },
+    "results\\9010af8a-2de5-403f-bf6a-833af4901b0f.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\9010af8a-2de5-403f-bf6a-833af4901b0f.json",
+      "bytes": 1005,
+      "sha256": "79c7675f205a97391426b73727d69ab5744f1b25069d8e5171a8a8a7c07151d2"
+    },
+    "results\\90ad20da-5558-4980-9cd3-a605c59aaeaa.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\90ad20da-5558-4980-9cd3-a605c59aaeaa.json",
+      "bytes": 624,
+      "sha256": "9ccfb6f78ce69d563796ce1b760783c4e209175f4b60810c3e029e7dff5f4a41"
+    },
+    "results\\92d920db-e788-44a2-b7ad-eec432d99403.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\92d920db-e788-44a2-b7ad-eec432d99403.json",
+      "bytes": 1005,
+      "sha256": "8722c9547b11d63c8b8ead4664be1101e5cd8c704229477cdb9ce0c88a2a27ae"
+    },
+    "results\\932106cf-28c5-4b5a-a8ce-b9d0f3acff19.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\932106cf-28c5-4b5a-a8ce-b9d0f3acff19.json",
+      "bytes": 1005,
+      "sha256": "48a0d86fa7980966e04249ff22112a17ab361c4172abe43e180b62bbf8fa7e8a"
+    },
+    "results\\958bafa0-ad75-44d3-96d5-9c793db78585.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\958bafa0-ad75-44d3-96d5-9c793db78585.json",
+      "bytes": 1005,
+      "sha256": "7108ca6ad4ed917f122f928f7304ca7cdfa4f60bad5f0e10f0690b9a3fa31c62"
+    },
+    "results\\95a85f8f-336e-4039-b036-73033fd67484.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\95a85f8f-336e-4039-b036-73033fd67484.json",
+      "bytes": 624,
+      "sha256": "7bb0ddfa408b330ddf9a9adb37ae606d76da7187e9977921ecb8152066051e65"
+    },
+    "results\\9dda7698-8f7b-4d31-b246-59cdef1def7a.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\9dda7698-8f7b-4d31-b246-59cdef1def7a.json",
+      "bytes": 624,
+      "sha256": "902c37460701f90881f53cfa46c7aa190ff7dc5b26c500a773a60fb18e83f81f"
+    },
+    "results\\9e5307b3-efd4-4754-9594-17ee7a0d9b8b.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\9e5307b3-efd4-4754-9594-17ee7a0d9b8b.json",
+      "bytes": 486,
+      "sha256": "d89828c3564b59110adc0e11a68e992898e9e15cfb66dd62f2c35cc52b06e6f1"
+    },
+    "results\\9e6a93ee-f90c-42ab-88c7-82e1de164996.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\9e6a93ee-f90c-42ab-88c7-82e1de164996.json",
+      "bytes": 1005,
+      "sha256": "d2f70795b3af9808342fa4f92f9bf2d632834036e67cc0f7e0b7ee8d35c12d06"
+    },
+    "results\\9f8bfbfe-aa72-4470-a472-aa998a2d78e8.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\9f8bfbfe-aa72-4470-a472-aa998a2d78e8.json",
+      "bytes": 1020,
+      "sha256": "757f8be2e48366674f6aec63a0c22523c805717fda2de2e068f2b806a1192fda"
+    },
+    "results\\a2d60ac5-5cf1-4569-972d-4a59cac59d79.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\a2d60ac5-5cf1-4569-972d-4a59cac59d79.json",
+      "bytes": 624,
+      "sha256": "63c29690bbd070a436d042bc02af7d242aa028b3cb7649796422c55ab66e5540"
+    },
+    "results\\a4877f12-2d56-457d-9251-b6cd6301b428.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\a4877f12-2d56-457d-9251-b6cd6301b428.json",
+      "bytes": 624,
+      "sha256": "d9128b79d1054b6731e06b71b666d9b706f02a863f3dab7c2579e092360c936f"
+    },
+    "results\\a89af920-d57a-4367-a9e5-8fc33fa0f73b.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\a89af920-d57a-4367-a9e5-8fc33fa0f73b.json",
+      "bytes": 624,
+      "sha256": "63a240f655cd83ce1010e22edee3a142f615e5e9063f3df5eaeded7dc6580512"
+    },
+    "results\\a907f9d7-d778-4570-8b2c-dc75de617500.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\a907f9d7-d778-4570-8b2c-dc75de617500.json",
+      "bytes": 624,
+      "sha256": "00fb4aef1e6d1a698f84e2cb4d684606c638743220d494e520ae9e73e4a8bca8"
+    },
+    "results\\a9b49c5b-0222-4c72-b903-6030dcfde4b4.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\a9b49c5b-0222-4c72-b903-6030dcfde4b4.json",
+      "bytes": 700,
+      "sha256": "caae97addd840024cebdeb3cf72bd611e4158ef469a0d072f2c96161b8175a42"
+    },
+    "results\\ac4fe7fe-fef1-4b7e-a32e-7681660888f6.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\ac4fe7fe-fef1-4b7e-a32e-7681660888f6.json",
+      "bytes": 624,
+      "sha256": "a3cbf5ed7e64ac3fc2eac992bca0b7253186763ab1ae52ae0f47a489b245dbdb"
+    },
+    "results\\b4dea4a4-9e3f-4cc8-8a42-73c6ec5babe7.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\b4dea4a4-9e3f-4cc8-8a42-73c6ec5babe7.json",
+      "bytes": 1005,
+      "sha256": "c4285f925567ebdc66c36643e1ef9750a8394e94225ec119825354a25357967a"
+    },
+    "results\\b5f3a030-5238-4d78-98dd-cb593a142567.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\b5f3a030-5238-4d78-98dd-cb593a142567.json",
+      "bytes": 624,
+      "sha256": "3352a5553d26c76ab50fc738089a0e7b1f4278c08f371c140093510e6fa9f099"
+    },
+    "results\\b9e17170-7c6c-4f57-85de-9c597add7d99.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\b9e17170-7c6c-4f57-85de-9c597add7d99.json",
+      "bytes": 624,
+      "sha256": "d4b5046c591ef22a7b8e0be69e26df5c8e4e9dba62c7be2e47cf39ee803f125e"
+    },
+    "results\\c06b2a77-9c9e-435a-969e-fa2ac461d462.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\c06b2a77-9c9e-435a-969e-fa2ac461d462.json",
+      "bytes": 1005,
+      "sha256": "1da075f7de3dcbf915d728d24088252bb5624493794f023f35d26e3eb4e05bc5"
+    },
+    "results\\c511c6a2-040a-4c9a-85fe-a14d2c044f12.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\c511c6a2-040a-4c9a-85fe-a14d2c044f12.json",
+      "bytes": 1005,
+      "sha256": "5e4eed3ed3cdfc527370f84f995667411a6f9491ddc93fd8731791c37e5e182e"
+    },
+    "results\\c7f5d73d-68c2-4883-8737-7378842b42c2.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\c7f5d73d-68c2-4883-8737-7378842b42c2.json",
+      "bytes": 624,
+      "sha256": "c22017101c5e04b49b56748548d912a5c12a95694ca786b6014cfaef2d45d475"
+    },
+    "results\\c96b9a41-914a-4ce4-bc5e-c2d8c479266e.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\c96b9a41-914a-4ce4-bc5e-c2d8c479266e.json",
+      "bytes": 1005,
+      "sha256": "286c40ae547e23ddbc564b12a6708a236b34358170eb2b41007773c9e22592d5"
+    },
+    "results\\cb8ee3b9-3909-43f7-92b3-2015af1a7175.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\cb8ee3b9-3909-43f7-92b3-2015af1a7175.json",
+      "bytes": 624,
+      "sha256": "39e4634ba6b632136775eade5b3fd1f68e58d0b3a8ee6eb8df2bdef3fad2804a"
+    },
+    "results\\cf761cdf-98f2-4ba0-b40e-3b7127e47d38.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\cf761cdf-98f2-4ba0-b40e-3b7127e47d38.json",
+      "bytes": 624,
+      "sha256": "d415a35844e9ba924a5188803302aa83a6d7a06e13e00758575914b4a6d81140"
+    },
+    "results\\d17ecced-b872-4935-b0cf-ffd362cc1fcc.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\d17ecced-b872-4935-b0cf-ffd362cc1fcc.json",
+      "bytes": 1005,
+      "sha256": "bb4381733511374c4c08aa055e73fc5dd28ff230d3bc9ebe78f3069227dbc087"
+    },
+    "results\\d2990829-9621-4495-a2fc-0d777dfe94ee.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\d2990829-9621-4495-a2fc-0d777dfe94ee.json",
+      "bytes": 700,
+      "sha256": "bb965f1f291e7981b9c374147d09cd9edb4f7e60aee50375ed30718e85ad5d21"
+    },
+    "results\\d3c93454-048d-44c5-b2be-8a3d16920231.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\d3c93454-048d-44c5-b2be-8a3d16920231.json",
+      "bytes": 624,
+      "sha256": "c44a8ebefb1a9b9af6512021fd40ebcc671cd1926c9f67d5ac661f8694d2d7b4"
+    },
+    "results\\d3ed3b78-5704-4998-ac7b-027c128a3f93.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\d3ed3b78-5704-4998-ac7b-027c128a3f93.json",
+      "bytes": 624,
+      "sha256": "11a710e36ea63c5f3076c145236b7a239e3edf22a56b6cbf2ba0da4a8e97ce23"
+    },
+    "results\\d4dbd5aa-56b0-4705-834b-d6ee7dff1c79.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\d4dbd5aa-56b0-4705-834b-d6ee7dff1c79.json",
+      "bytes": 700,
+      "sha256": "ac8b2ed476f023098ac1f7f291d48ab7da4012edd6b1d6204ac8d66a2b9f604f"
+    },
+    "results\\d6742ea6-30d2-4e7c-b58e-3c6399a50ee1.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\d6742ea6-30d2-4e7c-b58e-3c6399a50ee1.json",
+      "bytes": 762,
+      "sha256": "169d2d99f133a0758978395279d14d63d4ca6b354ca5bf1673b8fa8e831a946a"
+    },
+    "results\\da5cb926-1d39-44de-948c-97d1733f6f9d.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\da5cb926-1d39-44de-948c-97d1733f6f9d.json",
+      "bytes": 1005,
+      "sha256": "b1d881ce25e80361514ec8cf473dfae574d250864396460e57cfc8979fd1292a"
+    },
+    "results\\e2bf1b02-28af-46c9-a4b4-918a0ca05c13.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\e2bf1b02-28af-46c9-a4b4-918a0ca05c13.json",
+      "bytes": 624,
+      "sha256": "d3ff2072e29dc35d948e3093aa0f552db9a57a62310976bdbabd760b3e7504e0"
+    },
+    "results\\e52a0d47-17d5-4e35-8e54-35414ac4dc1e.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\e52a0d47-17d5-4e35-8e54-35414ac4dc1e.json",
+      "bytes": 624,
+      "sha256": "2d508d1d4565c8f60a46bf9cbd8b5a0756c73387f3bfd285e129163805bbca24"
+    },
+    "results\\f9020d2e-ac8c-4aec-ab9b-785b5f224139.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\f9020d2e-ac8c-4aec-ab9b-785b5f224139.json",
+      "bytes": 713,
+      "sha256": "1d51c69bdaeff9498d19385ab2e46d8405c269a5f12dac4295f652aa3704ea13"
+    },
+    "results\\f996919a-47b2-41b6-8e42-ea8fe33beb26.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\f996919a-47b2-41b6-8e42-ea8fe33beb26.json",
+      "bytes": 1020,
+      "sha256": "16b257d56e5c0f893ec1fa8cbd9ac5e181e5272e4734dae7db3bcdbbf27817b5"
+    },
+    "results\\f9e9ea34-fa70-42e6-958b-e63bfa7f95cc.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\f9e9ea34-fa70-42e6-958b-e63bfa7f95cc.json",
+      "bytes": 624,
+      "sha256": "183553c12a8a06367e6ac3a938afd370b8f7a6bcd79a91ff297b5f4dcd2c38ff"
+    },
+    "results\\fa55c75f-7ebd-4858-97a8-fc6ebace53c2.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\fa55c75f-7ebd-4858-97a8-fc6ebace53c2.json",
+      "bytes": 624,
+      "sha256": "ee992d4e4e5110d8e760c37955ce04394f0aa299ed5b71bcf723e1ed2e399523"
+    },
+    "results\\fc2308d8-ba74-43ad-816c-2ee593f207b3.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\fc2308d8-ba74-43ad-816c-2ee593f207b3.json",
+      "bytes": 713,
+      "sha256": "9443f66c2ba2e82ed838960e2c1c9f70bd1eb651dc460693dc363678da454991"
+    },
+    "results\\ff535b10-5c71-4938-a99b-faf78f5997ed.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\ff535b10-5c71-4938-a99b-faf78f5997ed.json",
+      "bytes": 624,
+      "sha256": "e97cbde7f79bef796d9672d84e6860ab2b3816c2133c99661e31eb6d71323ae0"
+    },
+    "resolutions\\00385709-d354-4d39-9e7c-bc2b42dd90f1.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\resolutions\\00385709-d354-4d39-9e7c-bc2b42dd90f1.json",
+      "bytes": 1439,
+      "sha256": "f857583cbce708a38f9aaafb6314cc073c9bb07bbc33e084d53f04197050163d"
+    },
+    "resolutions\\0b4674f2-287d-453a-9094-a8f3245886a0.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\resolutions\\0b4674f2-287d-453a-9094-a8f3245886a0.json",
+      "bytes": 7364,
+      "sha256": "1808a3d4f2cc559dfb182f9ee623f6af1f3549291b97585f0b3cadfc1544dde0"
+    },
+    "resolutions\\391ee25b-2c47-4c01-af96-36b9a10b8745.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\resolutions\\391ee25b-2c47-4c01-af96-36b9a10b8745.json",
+      "bytes": 1593,
+      "sha256": "d8744634c940e118dd9883cd72fa0d2ae4f42a1a9efe78b6d8e075e2e4aa4dcc"
+    },
+    "resolutions\\4aac89ca-952b-4779-b0fa-3e6764dab39d.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\resolutions\\4aac89ca-952b-4779-b0fa-3e6764dab39d.json",
+      "bytes": 10267,
+      "sha256": "ca271f05fb6f1ce44ddbcd8ee1d958f0d1c1546aa930d2ec8f4d41bd04aef2f9"
+    },
+    "resolutions\\693e15d4-3390-49b1-9b7c-48fa4f737d48.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\resolutions\\693e15d4-3390-49b1-9b7c-48fa4f737d48.json",
+      "bytes": 9975,
+      "sha256": "33bac6bfa17812376baec56337aca335448f92d8f7d740c6849f23e4b7c7fcf4"
+    },
+    "resolutions\\e2a76305-5a58-4814-8418-a35270a55efe.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\resolutions\\e2a76305-5a58-4814-8418-a35270a55efe.json",
+      "bytes": 8329,
+      "sha256": "21df482628d3625cb05de4f10f826ddf5630ca609b7821c7f821ac5b8724fe2c"
+    },
+    "resolutions\\e786aed6-25c2-4cce-b433-4fd21d3ac2c2.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\resolutions\\e786aed6-25c2-4cce-b433-4fd21d3ac2c2.json",
+      "bytes": 5949,
+      "sha256": "d4c91a9ab91fb99745229528d5037108c21e1facfeffa6435dc7c13c34ebe7f5"
+    },
+    "resolutions\\ece64080-a14c-4314-9e91-c7a8c48171fb.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\resolutions\\ece64080-a14c-4314-9e91-c7a8c48171fb.json",
+      "bytes": 5261,
+      "sha256": "4ea0c782fa515e7989fa0b64dc529bc09f80d119fbf86a6699e14c857756141b"
+    },
+    "resolutions\\f05223b2-d089-4c4a-9702-fd6fbfaa024d.json": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\resolutions\\f05223b2-d089-4c4a-9702-fd6fbfaa024d.json",
+      "bytes": 432770,
+      "sha256": "2300c80cd41cc03a7cbb4f23fa0b535a7ef81b89185cb36bbfe37fdead9b43b8"
+    }
+  },
+  "controlExecutionWindow": {
+    "startUtc": "2026-10-22T07:10:00Z",
+    "endUtc": "2026-10-22T07:32:00Z",
+    "enumerated": 205,
+    "matching": [
+      {
+        "path": "D:\\codex-isolated\\main-manual-release-20261016\\control-executions\\38b3e67d-e0a7-4581-96f7-cd76b98014b8.json",
+        "bytes": 897,
+        "sha256": "3d57a6ca235589194905fb18854b89ba59b878353edef188aaa979c95723c870",
+        "version": "teruisi-main-control-execution-v2",
+        "executionId": "38b3e67d-e0a7-4581-96f7-cd76b98014b8",
+        "installId": "ade68625-9378-4358-b31f-e2139c5953e2",
+        "bundleSha256": "83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8",
+        "entry": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8\\tools\\main-prebuild-hook.mjs",
+        "mode": "hook-event",
+        "pid": 6252,
+        "createdAt": "2026-10-22T07:10:23.2176700Z",
+        "startedAt": "2026-10-22T07:10:26.745Z",
+        "commandLineSha256": "16905cef36155875ee5867df5ed1961172ef6fa0271c1dc535515ef99b295bc2",
+        "executableSha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de",
+        "token": {
+          "sessionId": 1,
+          "elevated": false,
+          "integrityLevel": null,
+          "integrityRid": 8192
+        },
+        "bindingLimit": "Control entry identity only; no child tree/dispatch association inferred."
+      },
+      {
+        "path": "D:\\codex-isolated\\main-manual-release-20261016\\control-executions\\56b3ffb4-4f3d-46ed-a738-4fb9bcd27f43.json",
+        "bytes": 908,
+        "sha256": "5566f66aa1da03b2cc9d4295ca536fed15d2b7cea0013a32fb7a7db3044c7b65",
+        "version": "teruisi-main-control-execution-v2",
+        "executionId": "56b3ffb4-4f3d-46ed-a738-4fb9bcd27f43",
+        "installId": "ade68625-9378-4358-b31f-e2139c5953e2",
+        "bundleSha256": "83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8",
+        "entry": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8\\tools\\publish-latest-main.mjs",
+        "mode": "consume-preparation",
+        "pid": 57140,
+        "createdAt": "2026-10-22T07:10:31.3858420Z",
+        "startedAt": "2026-10-22T07:10:34.600Z",
+        "commandLineSha256": "8bb3645be3697a844e421dc10ae0f5bbfe73dedae8206f27eeae131754b321b0",
+        "executableSha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de",
+        "token": {
+          "sessionId": 1,
+          "elevated": false,
+          "integrityLevel": null,
+          "integrityRid": 8192
+        },
+        "bindingLimit": "Control entry identity only; no child tree/dispatch association inferred."
+      }
+    ]
+  },
+  "staging": {
+    "root": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging",
+    "entries": [
+      {
+        "name": "deploy-2bad88cd-83fb-4530-a445-fb5e2644bf16",
+        "dev": 13287504573497524484,
+        "ino": 8725724278455169,
+        "birthtime": 1792371713.076527,
+        "mtime": 1792372125.8644204,
+        "isLink": false,
+        "isDirectory": true,
+        "directChildren": [
+          "build",
+          "helper-build"
+        ]
+      },
+      {
+        "name": "deploy-4dbf5566-92e1-4b5b-89c8-20c767b6e957",
+        "dev": 13287504573497524484,
+        "ino": 2814749772845189,
+        "birthtime": 1792507122.0786562,
+        "mtime": 1792507153.8494747,
+        "isLink": false,
+        "isDirectory": true,
+        "directChildren": [
+          "build",
+          "release"
+        ]
+      },
+      {
+        "name": "deploy-aaddbf82-2a23-4202-9485-eb4b7682741a",
+        "dev": 13287504573497524484,
+        "ino": 4222124654548095,
+        "birthtime": 1791902862.72214,
+        "mtime": 1791902878.2843564,
+        "isLink": false,
+        "isDirectory": true,
+        "directChildren": [
+          "build",
+          "release"
+        ]
+      },
+      {
+        "name": "deploy-ef98303c-2b71-4236-9b7a-d50b6f4d53fa",
+        "dev": 13287504573497524484,
+        "ino": 2533274793429241,
+        "birthtime": 1792559704.6410193,
+        "mtime": 1792560182.4852493,
+        "isLink": false,
+        "isDirectory": true,
+        "directChildren": [
+          "build",
+          "helper-build"
+        ]
+      },
+      {
+        "name": "deploy-fca7de7a-978e-42f6-a752-b168d69903ea",
+        "dev": 13287504573497524484,
+        "ino": 2533274798414127,
+        "birthtime": 1792653460.41863,
+        "mtime": 1792653956.0782,
+        "isLink": false,
+        "isDirectory": true,
+        "directChildren": [
+          "build",
+          "helper-build"
+        ]
+      }
+    ]
+  },
+  "pins": [
+    {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\CONTROL-INSTALLATION.json",
+      "bytes": 9450,
+      "sha256": "74724dfae400f312e1907ee1f565faf28d46c3842f29916c0f8f2d9f143e4b0e"
+    },
+    {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\main-publisher-config.json",
+      "bytes": 2270,
+      "sha256": "a90c9b8072e1ed6dd225072aa59e78075ea82639498f9ad74c19fc1be5f77642"
+    }
+  ],
+  "limits": [
+    "No recursive staging contents, runtime payloads, process census or complete effect/consumption inventory.",
+    "Entry names, absence and timestamps are not ownership or zero-effect proofs.",
+    "No source/control/native operators executed; only bounded file metadata read."
+  ]
+}

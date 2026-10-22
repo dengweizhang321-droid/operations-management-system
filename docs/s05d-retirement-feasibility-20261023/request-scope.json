@@ -1,0 +1,24 @@
+{
+  "at": "2026-10-22T16:31:05.278221+00:00",
+  "request": {
+    "path": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\main-release-request.json",
+    "sha256": "1f43dd8d5e978dd6b79cada8b7210a45a0a0abba6c3ad072454a3098a3a00b32",
+    "mainCommit": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+    "components": [
+      "worker",
+      "django"
+    ],
+    "migrate": false,
+    "schemaReleasePresent": false,
+    "schemaRelease": null,
+    "changeCount": 36,
+    "piRuntimeChanges": []
+  },
+  "producer": {
+    "originalPath": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\tools\\publish-prepared-main.mjs",
+    "sha256": "e50f8112e0ae6553a4f66632ebfc95a76fba1030041c6d9d96af4273d98ae6d1",
+    "matchesResearchSource": true
+  },
+  "scopeConclusion": "Exact request has no schemaRelease and no Pi runner source changes; publishPreparedMain computes no Pi upgrade. This excludes that branch, not all external effects of arbitrary child tools.",
+  "limits": "This is scoped static reasoning over original request and producer; no source execution or WSL query."
+}

@@ -1,0 +1,25 @@
+{
+  "at": "2026-10-22T16:37:16.913126+00:00",
+  "markdownFiles": 9,
+  "linksChecked": 1345,
+  "brokenLinks": [],
+  "productionSourceUnchanged": true,
+  "gitDiffCheck": true,
+  "queueJsonLeavesUnchanged": 212,
+  "previousDirectEvidenceUnchanged": 12,
+  "originalProducerAndControlPinsVerified": 20,
+  "boundedLifecycleLeavesVerified": 23,
+  "boundaryScriptPinsVerified": true,
+  "privateAclEvidence": {
+    "version": "s05d-private-open-handle-acl-v1",
+    "newWriteHandleDenied": true,
+    "passed": true,
+    "originalLeafDaclRestored": true,
+    "privateDirectoryRemoved": true,
+    "productionAclChanged": false,
+    "scope": "One generated private temporary leaf only; no parent, runtime, account, service or production control changed.",
+    "originalOpenHandleStillWrote": true
+  },
+  "retirementPerformed": false,
+  "productionReady": false
+}

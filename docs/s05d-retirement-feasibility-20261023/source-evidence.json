@@ -1,0 +1,167 @@
+{
+    "scope":  "Exact small named source files only. No execution or recursive dependency inventory.",
+    "version":  "s05d-retirement-source-pins-v1",
+    "pins":  [
+                 {
+                     "candidateSha256":  "e50f8112e0ae6553a4f66632ebfc95a76fba1030041c6d9d96af4273d98ae6d1",
+                     "bytes":  30921,
+                     "originalSha256":  "e50f8112e0ae6553a4f66632ebfc95a76fba1030041c6d9d96af4273d98ae6d1",
+                     "path":  "tools/publish-prepared-main.mjs",
+                     "original":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\tools\\publish-prepared-main.mjs",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "6dcd3016f6164a0c897c94ae26ec300b82f69ad122739ea1ba5b843ca95a8333",
+                     "bytes":  191969,
+                     "originalSha256":  "6dcd3016f6164a0c897c94ae26ec300b82f69ad122739ea1ba5b843ca95a8333",
+                     "path":  "tools/worker-local-release.mjs",
+                     "original":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\tools\\worker-local-release.mjs",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "b33b0b8b2a3ff603a902845c7f3191adbe7d39907e529f18870e195abeb50776",
+                     "bytes":  83446,
+                     "originalSha256":  "b33b0b8b2a3ff603a902845c7f3191adbe7d39907e529f18870e195abeb50776",
+                     "path":  "tools/worker-local-release-rotation.mjs",
+                     "original":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\tools\\worker-local-release-rotation.mjs",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "65f057297208b32ac6d3c2e71a12016b1fd4afdc0ed7ea455fbda13181fffb61",
+                     "bytes":  288383,
+                     "originalSha256":  "65f057297208b32ac6d3c2e71a12016b1fd4afdc0ed7ea455fbda13181fffb61",
+                     "path":  "tools/django-local-service.ps1",
+                     "original":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\tools\\django-local-service.ps1",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "f97cf7e2bc532407cdf86501de57097ce6e4f626eaf68f73ee6ab308532e0e73",
+                     "bytes":  63318,
+                     "originalSha256":  "f97cf7e2bc532407cdf86501de57097ce6e4f626eaf68f73ee6ab308532e0e73",
+                     "path":  "tools/django-ai.ps1",
+                     "original":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\tools\\django-ai.ps1",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "fa49ffa7ed1ad21fa2f4412075ebe50bfd993902d6c49018ec0bea9f84f0b75a",
+                     "bytes":  15423,
+                     "originalSha256":  "fa49ffa7ed1ad21fa2f4412075ebe50bfd993902d6c49018ec0bea9f84f0b75a",
+                     "path":  "tools/pi_agent_upgrade_runtime.py",
+                     "original":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\tools\\pi_agent_upgrade_runtime.py",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "6d564f5362f2fe32360a816c050144c7d215b839ee88325b9638fdbcdef3d47d",
+                     "bytes":  17368,
+                     "originalSha256":  "6d564f5362f2fe32360a816c050144c7d215b839ee88325b9638fdbcdef3d47d",
+                     "path":  "backend/pi_runner/runtime_upgrade.py",
+                     "original":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\backend\\pi_runner\\runtime_upgrade.py",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                     "bytes":  19250,
+                     "originalSha256":  "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063",
+                     "path":  "tools/publish-main.mjs",
+                     "original":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\tools\\publish-main.mjs",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "9bddf1dcd573169af1009ee08bc85b16989f89b0d9fed5bbec101e3b7425c48c",
+                     "bytes":  2424,
+                     "originalSha256":  "9bddf1dcd573169af1009ee08bc85b16989f89b0d9fed5bbec101e3b7425c48c",
+                     "path":  "vite.config.ts",
+                     "original":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\vite.config.ts",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "4b3ae653c6d0d6fda49eb5f358211b73215b36dc9e943b974bcbea6d2c1f29c6",
+                     "bytes":  1351,
+                     "originalSha256":  "4b3ae653c6d0d6fda49eb5f358211b73215b36dc9e943b974bcbea6d2c1f29c6",
+                     "path":  "build/sites-vite-plugin.ts",
+                     "original":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\build\\sites-vite-plugin.ts",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "0634508859843194bf178de678c0c587a0e774f88453422833c390cc085eb392",
+                     "bytes":  2089,
+                     "originalSha256":  "0634508859843194bf178de678c0c587a0e774f88453422833c390cc085eb392",
+                     "path":  "tools/install-workerd-heap-patch.mjs",
+                     "original":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\tools\\install-workerd-heap-patch.mjs",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "c4c7f6a0422370d7ac7c2c75bff2ad0c77f19d507d07cc8d98dcc8440f1d5056",
+                     "bytes":  6147,
+                     "originalSha256":  "c4c7f6a0422370d7ac7c2c75bff2ad0c77f19d507d07cc8d98dcc8440f1d5056",
+                     "path":  "package.json",
+                     "original":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\package.json",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "8ec00f801aff894796d783595d202811bccbe94296603ae26766864247d4a4ca",
+                     "bytes":  440085,
+                     "originalSha256":  "8ec00f801aff894796d783595d202811bccbe94296603ae26766864247d4a4ca",
+                     "path":  "package-lock.json",
+                     "original":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\package-lock.json",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "68334ca9733c6f3652245534ed41d0bdae2ab5e70588729d17fc8edb81731fbc",
+                     "bytes":  8762,
+                     "originalSha256":  "68334ca9733c6f3652245534ed41d0bdae2ab5e70588729d17fc8edb81731fbc",
+                     "path":  "tools/main-control-dispatch.mjs",
+                     "original":  "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8\\tools\\main-control-dispatch.mjs",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "c36f206c97c6fc1ed44604d72c5828bd080951e5fc0176164ce5d1072198ba77",
+                     "bytes":  4706,
+                     "originalSha256":  "c36f206c97c6fc1ed44604d72c5828bd080951e5fc0176164ce5d1072198ba77",
+                     "path":  "tools/main-prebuild-hook.mjs",
+                     "original":  "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8\\tools\\main-prebuild-hook.mjs",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "9f05dedcb953fec984d9c6ee3938a6254f7d5875bbe43018ff88869264c7cb62",
+                     "bytes":  11887,
+                     "originalSha256":  "9f05dedcb953fec984d9c6ee3938a6254f7d5875bbe43018ff88869264c7cb62",
+                     "path":  "tools/main-prebuild-task.mjs",
+                     "original":  "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8\\tools\\main-prebuild-task.mjs",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "f0bf372f21ddf535c14c25fdaf2428ca3a0145f9a3182055d7348456f7cdf378",
+                     "bytes":  20321,
+                     "originalSha256":  "f0bf372f21ddf535c14c25fdaf2428ca3a0145f9a3182055d7348456f7cdf378",
+                     "path":  "tools/main-prebuild-queue.mjs",
+                     "original":  "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8\\tools\\main-prebuild-queue.mjs",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "38650683fa7463874175d00c5eb496c3b792a21241a59c63015f35de26df8f2c",
+                     "bytes":  65704,
+                     "originalSha256":  "38650683fa7463874175d00c5eb496c3b792a21241a59c63015f35de26df8f2c",
+                     "path":  "tools/preparation-resolution.mjs",
+                     "original":  "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8\\tools\\preparation-resolution.mjs",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073",
+                     "bytes":  34680,
+                     "originalSha256":  "2364c118d042ec429c9096f2cc10073679124a4044722e29518f5b68c4d3d073",
+                     "path":  "tools/install-main-prebuild.mjs",
+                     "original":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\tools\\install-main-prebuild.mjs",
+                     "identical":  true
+                 },
+                 {
+                     "candidateSha256":  "4d1db614f2c0539b7a4c88ca4facf366063356d53a9805267db86044bff6632a",
+                     "bytes":  23044,
+                     "originalSha256":  "4d1db614f2c0539b7a4c88ca4facf366063356d53a9805267db86044bff6632a",
+                     "path":  "tools/pi_native_addition.py",
+                     "original":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source\\tools\\pi_native_addition.py",
+                     "identical":  true
+                 }
+             ],
+    "at":  "2026-10-22T16:26:45.9398029Z"
+}

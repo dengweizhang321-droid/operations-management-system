@@ -1,0 +1,24 @@
+{
+  "version": "s05d-private-acl-check-v1",
+  "authorization": "Root explicitly authorized a single generated private temporary leaf only; no production roots, parent ACL, accounts or services.",
+  "finalCommand": ["powershell.exe", "-NoProfile", "-NonInteractive", "-File", "docs/s05d-retirement-feasibility-20261023/private-open-handle-acl.ps1"],
+  "finalExitCode": 0,
+  "finalToolOutput": {
+    "version": "s05d-private-open-handle-acl-v1",
+    "newWriteHandleDenied": true,
+    "passed": true,
+    "originalLeafDaclRestored": true,
+    "privateDirectoryRemoved": true,
+    "productionAclChanged": false,
+    "scope": "One generated private temporary leaf only; no parent, runtime, account, service or production control changed.",
+    "originalOpenHandleStillWrote": true
+  },
+  "earlierTrial": {
+    "exitCode": 1,
+    "failure": "ReadAllText opened its comparison read with an incompatible sharing mode while the private writer handle was still open, producing an IOException.",
+    "correction": "Use a dedicated read FileStream with FileShare.ReadWrite | FileShare.Delete; the DACL experiment was unchanged.",
+    "finally": "Original leaf DACL restore and private-directory cleanup ran without a reported cleanup error; a subsequent exact Test-Path of the first generated directory returned false.",
+    "firstPrivateDirectoryStillExists": false
+  },
+  "limits": ["One native Windows private-leaf counterexample only.", "Does not validate a broker, new identity, production ACL migration or complete retirement protocol."]
+}

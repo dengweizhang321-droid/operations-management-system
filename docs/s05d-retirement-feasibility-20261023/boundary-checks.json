@@ -1,0 +1,43 @@
+{
+    "at":  "2026-10-22T16:32:00.8374194Z",
+    "version":  "s05d-retirement-boundary-checks-v1",
+    "exitCode":  0,
+    "limits":  [
+                   "Counterexamples and unchanged old code branches only; no new barrier validated.",
+                   "Private temp paths and private lock; no production lifecycle, task, queue, build, network or database actions."
+               ],
+    "output":  [
+                   "✔ real old publisher refuses fresh re-entry with PREPARING but no PREPARED before candidate planning (18.2776ms)",
+                   "✔ real old publisher already past PREPARING gate ignores a new fence and completes later writes (20.4696ms)",
+                   "✔ a released private named-pipe lock does not revoke an independent child writer or its open file handle (82.395ms)",
+                   "✔ separate stable-byte SHA checks cannot distinguish an A to B to A change (6.0456ms)",
+                   "✔ existing observer fails closed for an opaque possible controller (1.1295ms)",
+                   "✔ a proposed sealed resolution is not a valid resolution in the unchanged old reader (5.5515ms)",
+                   "ℹ tests 6",
+                   "ℹ suites 0",
+                   "ℹ pass 6",
+                   "ℹ fail 0",
+                   "ℹ cancelled 0",
+                   "ℹ skipped 0",
+                   "ℹ todo 0",
+                   "ℹ duration_ms 218.3927"
+               ],
+    "command":  [
+                    "node",
+                    "--test",
+                    "--test-timeout=30000",
+                    "docs/s05d-retirement-feasibility-20261023/retirement-boundaries.test.mjs"
+                ],
+    "pins":  [
+                 {
+                     "path":  "docs/s05d-retirement-feasibility-20261023/retirement-boundaries.test.mjs",
+                     "sha256":  "4f879bb65388a77475e0323b4cd1f2cd15af8ab4324e5be4a4622540b5e01d5e",
+                     "bytes":  6359
+                 },
+                 {
+                     "path":  "docs/s05d-retirement-feasibility-20261023/private-open-handle-acl.ps1",
+                     "sha256":  "f8332b5157cc8788f628c80e69f65bf7dcced8bfd03c9df2c61ffbab99279460",
+                     "bytes":  3524
+                 }
+             ]
+}

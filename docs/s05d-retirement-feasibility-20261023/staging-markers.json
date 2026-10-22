@@ -1,0 +1,81 @@
+{
+  "at": "2026-10-22T16:25:00.727287+00:00",
+  "a3SourceBindingSha256": "6fdd3de3d2382629dc64491bb651a2d018958a594e139e650ead3c13ca4e77f3",
+  "a3ContentTreeSha256": "abe18170a70b35e845660f8b01eb7d20c8946b4dace28a6ed66d55c462e164db",
+  "markers": [
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-2bad88cd-83fb-4530-a445-fb5e2644bf16\\build\\.runtime\\worker-release-activation-fence.json",
+      "present": true,
+      "bytes": 358,
+      "sha256": "a0ecd98ddafa08f5a127b385359f5da1bddb953a0f6cdb729ab8204ee3b93291",
+      "fields": {
+        "version": "teruisi-local-worker-release-activation-fence-v1",
+        "createdAt": "2026-10-19T00:56:31.261Z",
+        "sourceFingerprint": "749333181b288a2350a9d33f26ab550ce619865661cc7f980c702a5ab79f7724",
+        "buildFingerprint": "3bd753326538569e557965f97e5942fd357651a783a0437a8730c17aa0e3da5e",
+        "payloadSha256": "06af52aa9dc12f4dd002c999004ec990ae3e18ca6df2ea971d41dadba0731c0e"
+      },
+      "sameContentTree": false,
+      "uniqueDispatchOwnershipProved": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-2bad88cd-83fb-4530-a445-fb5e2644bf16\\release\\deployment-manifest.json",
+      "present": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-4dbf5566-92e1-4b5b-89c8-20c767b6e957\\build\\.runtime\\worker-release-activation-fence.json",
+      "present": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-4dbf5566-92e1-4b5b-89c8-20c767b6e957\\release\\deployment-manifest.json",
+      "present": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-aaddbf82-2a23-4202-9485-eb4b7682741a\\build\\.runtime\\worker-release-activation-fence.json",
+      "present": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-aaddbf82-2a23-4202-9485-eb4b7682741a\\release\\deployment-manifest.json",
+      "present": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-ef98303c-2b71-4236-9b7a-d50b6f4d53fa\\build\\.runtime\\worker-release-activation-fence.json",
+      "present": true,
+      "bytes": 358,
+      "sha256": "f4038e69fd1b7558f288149bcf2febe1adb26fa6554ecb5fcd0c7469c1cc9b93",
+      "fields": {
+        "version": "teruisi-local-worker-release-activation-fence-v1",
+        "createdAt": "2026-10-21T05:09:59.739Z",
+        "sourceFingerprint": "1aa1a52dc7d1cad830f365cfc0f78ae7331acd48f1506a39c31917089c24a31a",
+        "buildFingerprint": "eea03560b7dd01b86a3df689be0d577480bc0bc67b5cbdc1ad080283085a78dc",
+        "payloadSha256": "78c1041f5d08e91fd57e93c8abbb39ff373c33bb1969a97eaa29ea78d6582a3a"
+      },
+      "sameContentTree": false,
+      "uniqueDispatchOwnershipProved": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-ef98303c-2b71-4236-9b7a-d50b6f4d53fa\\release\\deployment-manifest.json",
+      "present": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\.runtime\\worker-release-activation-fence.json",
+      "present": true,
+      "bytes": 358,
+      "sha256": "feb08fb7f4712dbb28ea3ea1079dd26ca86ad2e0dced0f0362632f543b0591f4",
+      "fields": {
+        "version": "teruisi-local-worker-release-activation-fence-v1",
+        "createdAt": "2026-10-22T07:12:08.021Z",
+        "sourceFingerprint": "abe18170a70b35e845660f8b01eb7d20c8946b4dace28a6ed66d55c462e164db",
+        "buildFingerprint": "577b84858cb3178ec39e9dbabd5fab99e2f324fff2cfb3cd80ca81169eb0d6ad",
+        "payloadSha256": "a7707f76215b0639a80a08f23208556c2c3dc02c41bc593d823fe3da65f94f16"
+      },
+      "sameContentTree": true,
+      "uniqueDispatchOwnershipProved": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\release\\deployment-manifest.json",
+      "present": false
+    }
+  ],
+  "scope": "Only two named metadata leaves per previously enumerated staging directory; no recursive source/build scan; missing marker is not zero-effect proof."
+}
