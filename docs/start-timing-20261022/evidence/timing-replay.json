@@ -7,21 +7,21 @@
   "rows": [
     {
       "phase": "DjangoEnsure",
-      "budgetMilliseconds": 480000,
+      "budgetMilliseconds": 400000,
       "observedMilliseconds": 330886,
       "exceedsBudget": false,
       "originalOutcome": "completed"
     },
     {
       "phase": "ReleaseVerification",
-      "budgetMilliseconds": 300000,
+      "budgetMilliseconds": 220000,
       "observedMilliseconds": 151113,
       "exceedsBudget": false,
       "originalOutcome": "completed"
     },
     {
       "phase": "SupervisorStart",
-      "budgetMilliseconds": 120000,
+      "budgetMilliseconds": 90000,
       "observedMilliseconds": 20677,
       "exceedsBudget": false,
       "originalOutcome": "completed"
