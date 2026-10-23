@@ -1,0 +1,8 @@
+{
+  "driver": "D:/codex-worktrees/s05d-field-validation-20261023/docs/s05d-field-validation-20261023/readonly-four-objects.mjs",
+  "driverSha256": "475f965556c7c3fec70459808c0168a96fd06d602da312c2da5fe318e93077ff",
+  "codeRoot": "D:/codex-artifacts/s05d-field-validation-20261023/inspect-code-5f1cef12-2d2a-41fc-bf95-7762e7eb349f",
+  "budgetMs": 1200000,
+  "scope": "Only the original four object snapshots and same-invocation all-object snapshot CAS; global closure remains blocked",
+  "globalClosureSucceeded": false
+}

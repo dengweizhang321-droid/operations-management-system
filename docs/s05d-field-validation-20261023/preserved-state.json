@@ -1,0 +1,33 @@
+{
+    "at":  "2026-10-23T07:01:44.5503574Z",
+    "files":  [
+                  {
+                      "sha256":  "a90c9b8072e1ed6dd225072aa59e78075ea82639498f9ad74c19fc1be5f77642",
+                      "path":  "D:/codex-isolated/main-manual-release-20261016/main-publisher-config.json"
+                  },
+                  {
+                      "sha256":  "74724dfae400f312e1907ee1f565faf28d46c3842f29916c0f8f2d9f143e4b0e",
+                      "path":  "D:/codex-isolated/main-manual-release-20261016/CONTROL-INSTALLATION.json"
+                  },
+                  {
+                      "sha256":  "582301cd2a8a7be84faf25ac762fd31de130c6bd984c360de05c1f068d11f987",
+                      "path":  "D:/运营管理系统/.git/hooks/reference-transaction"
+                  },
+                  {
+                      "sha256":  "b3381f4f57277171d4667e2945c9bc389c4c10531bfaf7406b90fe39f171982e",
+                      "path":  "D:/codex-isolated/main-manual-release-20261016/retirement-handoff/runs/c6be141b-9f7a-488a-9671-f97807c26458/RUN.json"
+                  },
+                  {
+                      "sha256":  "410ec508cd248918c556af39374ba918f779dab3da1ddab9182ddac20e4249ef",
+                      "path":  "D:/codex-isolated/main-manual-release-20261016/retirement-handoff/runs/c6be141b-9f7a-488a-9671-f97807c26458/EXIT.json"
+                  },
+                  {
+                      "sha256":  "fdcfa19f05ebe25087dd3e1be38e606b20df4833a74f8b787f9a17a0316b1d52",
+                      "path":  "D:/codex-isolated/main-manual-release-20261016/retirement-handoff/runs/28a038c6-34ae-482b-9855-965cf0adc307/RUN.json"
+                  },
+                  {
+                      "sha256":  "04fd357c974ba97eff18525fbfea72d68a7b9caa1903e90373c87325f98f4adb",
+                      "path":  "D:/codex-isolated/main-manual-release-20261016/retirement-handoff/runs/28a038c6-34ae-482b-9855-965cf0adc307/EXIT.json"
+                  }
+              ]
+}
