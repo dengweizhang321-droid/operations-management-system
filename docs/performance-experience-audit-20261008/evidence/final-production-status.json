@@ -1,0 +1,26 @@
+{
+  "version": "teruisi-operations-system-control-v2",
+  "state": "Running",
+  "backendState": "Ready",
+  "workerState": "exact_release",
+  "releaseId": "20261008T103219Z-f5d9b00e432df6c0",
+  "supervisorProcessId": 30224,
+  "portProcessId": 43876,
+  "url": "http://localhost:3000/",
+  "reason": null,
+  "components": {
+    "core": true,
+    "finance": true,
+    "netshop": true,
+    "market": true,
+    "products": true,
+    "workflow": true,
+    "inventory": true,
+    "customerService": true,
+    "accessControl": true,
+    "erpReference": true,
+    "bi": true,
+    "ai": true
+  },
+  "checkedAt": "2026-10-08T22:52:58.3758652+08:00"
+}

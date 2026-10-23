@@ -1,0 +1,12 @@
+{
+  "version": "task-d-independent-owner-byte-binding-v1",
+  "ownerManifestSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+  "sourceFilesDeclared": 1256,
+  "actualInstalledSourceMatches": 1256,
+  "privateFilesDeclared": 1264,
+  "actualPrivateFileMatches": 1264,
+  "badPaths": [],
+  "networkOrDatabaseCallsPerformed": 0,
+  "ownerTestsReran": false,
+  "isolationGuardReview": "initial interface gaps found; fixes pending; successful 25 tests retained"
+}

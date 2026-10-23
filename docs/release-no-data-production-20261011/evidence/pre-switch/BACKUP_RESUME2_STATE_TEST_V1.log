@@ -1,0 +1,15 @@
+✔ resume2 allows only exact single reconciled event and two passed operations (3.6857ms)
+✔ resume2 rejects old unresolved WAL (1.3939ms)
+✔ resume2 rejects another head (0.8874ms)
+✔ resume2 rejects another proof (1.4528ms)
+✔ resume2 rejects gate present (0.7091ms)
+✔ resume2 rejects wrong owner (1.1692ms)
+✔ resume2 rejects process alive (1.6707ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 123.5925

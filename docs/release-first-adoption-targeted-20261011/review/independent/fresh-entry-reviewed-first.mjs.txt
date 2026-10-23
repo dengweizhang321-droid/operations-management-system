@@ -1,0 +1,56 @@
+// Task-specific first-adoption entry: original engine, full fresh collector, no session.
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {randomUUID} from 'node:crypto';
+const candidate='D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749';
+const moduleAt=name=>pathToFileURL(path.join(candidate,'tools',name)).href;
+const {hash,canonical,safeRead,safeFileDigest}=await import(moduleAt('release-impact.mjs'));
+const {verifyBatch,validateNoDataCollector,executeBatch,runApprovedOperation,writeOnce}=await import(moduleAt('release-batch.mjs'));
+const {collectBatchAdmission}=await import(moduleAt('release-batch-admission.mjs'));
+const {workerRuntimeRoot,processDeadline}=await import(moduleAt('worker-local-release.mjs'));
+const self=fileURLToPath(import.meta.url),mode='fresh-no-reuse-v1';
+export async function executeFreshAdoption(command,specPath,approved,approvedAt) {
+  assert.ok(['qualify','execute'].includes(command));assert.ok(path.isAbsolute(specPath));
+  if(command==='execute')assert.match(approvedAt??'',/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?Z$/,'Actual explicit approval timestamp required');
+  else assert.equal(approvedAt,undefined);
+  const raw=await safeRead(specPath),spec=JSON.parse(raw),batch=spec.batch,collector=spec.collector;
+  verifyBatch(batch,approved);assert.equal(batch.version,'teruisi-release-batch-v4');
+  assert.equal(batch.binding.artifactSha256,'6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4');
+  assert.equal(batch.binding.workerPlanSha256,'0afdb3de501e415e707670a471d245c24a6043139571099a8b9433b617a89881');
+  assert.equal(hash(await safeRead(path.join(candidate,'deployment-manifest.json'))),batch.binding.artifactSha256);
+  assert.equal(path.resolve(spec.journalRoot),path.join(workerRuntimeRoot,'state','release-batches'));
+  assert.equal(batch.collectorSha256,hash(collector));validateNoDataCollector(collector);
+  assert.equal(path.resolve(collector.args[2]),path.resolve(specPath));
+  if(collector.cwd)assert.equal(path.resolve(collector.cwd),process.cwd());
+  assert.ok(Array.isArray(batch.tests.evidence));
+  const entries=batch.tests.evidence.filter(e=>e.kind==='first-adoption-execution');assert.equal(entries.length,1);
+  const entry=entries[0];assert.deepEqual(Object.keys(entry).sort(),['kind','mode','path','sha256']);
+  assert.equal(entry.mode,mode);assert.ok(path.isAbsolute(entry.path));assert.equal(path.resolve(entry.path),path.resolve(self));
+  for(const op of batch.operations)processDeadline(op.command?.timeoutMs);
+  const testsPin=collector.files.find(file=>path.resolve(file.path)===path.resolve(collector.args[3]));assert.ok(testsPin,'Raw tests evidence must be pinned');
+  const verifyInputs=async()=>{
+    assert.equal(await safeFileDigest(self),entry.sha256,'Approved entrypoint bytes changed');
+    assert.equal(hash(await safeRead(specPath)),hash(raw),'Approved spec bytes changed');
+    assert.equal(await safeFileDigest(testsPin.path),testsPin.sha256,'Tests evidence bytes changed');
+  };
+  const verifyPins=async()=>{await verifyInputs();for(const file of collector.files)assert.equal(await safeFileDigest(file.path),file.sha256,'Collector bytes changed');
+  };
+  let lastAdmission=null;
+  const assertFresh=current=>{assert.equal(current?.batchSha256,approved);assert.ok(Number.isSafeInteger(current.observedAtMs));const age=Date.now()-current.observedAtMs;assert.ok(Number.isFinite(age)&&age>=0&&age<=5000,'Stale live admission');};
+  const collectCurrent=async(_batch,_lease,op)=>{
+      await verifyPins();
+      const attemptRoot=path.join(spec.journalRoot,'_observations',`${batch.id}-${randomUUID()}`);
+      const current=await collectBatchAdmission(batch,collector.args[3],op?.phase??'admission',{step:op?.step??op?.kind,
+        onStatusAttempt:record=>writeOnce(path.join(attemptRoot,`${record.attempt}.json`),{version:'teruisi-status-attempt-v1',batchSha256:approved,observation:record})});
+      assertFresh(current);lastAdmission=current;return current;
+  };
+  if(command==='qualify')return {executionMode:mode,...await collectCurrent()};
+  await verifyPins();
+  return executeBatch({batch,approved,approvedAt,root:spec.journalRoot,run:runApprovedOperation,collectCurrent,
+    beforeOperation:async()=>{await verifyInputs();assertFresh(lastAdmission);}});
+}
+if(process.argv[1]&&path.resolve(process.argv[1])===path.resolve(self)) {
+  assert.equal(process.argv.length,process.argv[2]==='execute'?6:5);
+  executeFreshAdoption(...process.argv.slice(2)).then(result=>console.log(canonical(result))).catch(error=>{console.error(error.message);process.exitCode=1;});
+}

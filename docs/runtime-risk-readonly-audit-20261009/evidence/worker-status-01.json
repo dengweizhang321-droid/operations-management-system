@@ -1,0 +1,24 @@
+{
+  "phase": "worker",
+  "startedAt": "2026-10-09T13:29:59.961Z",
+  "script": "D:\\运营管理系统\\tools\\worker-local-service.ps1",
+  "args": [
+    "-Action",
+    "Status",
+    "-Json"
+  ],
+  "scriptSha256": "bc98f84683dbf5da0769be5eb4e0533c5c5c7eb35252d26c87613f38440f6e15",
+  "readOnly": true,
+  "environment": "Existing PS5 readonly transport, native nested processes unchanged; natural watchdog/jobs remain active; no additional workload injected.",
+  "status": "returned",
+  "data": {
+    "version": "teruisi-local-worker-status-v1",
+    "state": "exact_release",
+    "reason": null,
+    "releaseId": "20261009T080026Z-d5fb5b62de630ae2",
+    "supervisorProcessId": 32284,
+    "portProcessId": 4848
+  },
+  "completedAt": "2026-10-09T13:30:14.828Z",
+  "elapsedMs": 14866.5695
+}

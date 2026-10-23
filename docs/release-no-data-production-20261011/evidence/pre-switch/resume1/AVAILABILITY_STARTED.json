@@ -1,0 +1,12 @@
+{
+  "startedAt": "2026-10-11T16:12:18.942Z",
+  "processId": 49676,
+  "method": "GET",
+  "url": "http://127.0.0.1:3000/assets/index-BcwbDyNL.css",
+  "expectedSha256": "f3840707d1b7958f81eae4655dc15bd271eb370298972939cda5e88f2bc24c15",
+  "intervalMs": 30000,
+  "timeoutMs": 3000,
+  "maxBodyBytes": 2097152,
+  "maxWindowMs": 21600000,
+  "limits": "Static Worker resource reachability only, not full business UI availability. Existing natural watchdog reports are sampled without invoking Check or service actions."
+}

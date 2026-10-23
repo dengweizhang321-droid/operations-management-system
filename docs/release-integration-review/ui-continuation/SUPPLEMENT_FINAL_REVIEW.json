@@ -1,0 +1,100 @@
+{
+  "version": "teruisi-ab-ui-supplement-sealed-review-v1",
+  "status": "passed",
+  "reviewDate": "2026-10-10",
+  "timezone": "Asia/Shanghai",
+  "reviewer": "/root/preparation_review",
+  "scope": "Readonly byte, canonical scope, file closure, evidence linkage and pure schema review of the final sealed supplement; no execution approval",
+  "manifestPath": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\supplement.json",
+  "supplementSha256": "0bcad05b44a127e63bb0c38ad16046d282eb529e47cf0c7d9022fac248f6cac2",
+  "manifestFileSha256": "9776837c7ce7ac271848659217135c58b9df85563f13a13b77ad8b44e4ef3dda",
+  "scopeHashRecomputedMatches": true,
+  "rawFileHashRecomputedMatches": true,
+  "filesExpected": 22,
+  "filesVerified": 22,
+  "fileFailures": [],
+  "regularSingleLinkFiles": true,
+  "safePathAncestors": true,
+  "fileMetadataStableAcrossReads": true,
+  "pureSupplementSchemaPassed": true,
+  "pureJournalStateSchemaPassed": true,
+  "schemaValidationUsedSyntheticCurrentTimeOnly": true,
+  "schemaValidationIsNotHumanApproval": true,
+  "originalBatch": {
+    "sha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+    "rawFileSha256": "896d20483fea390636293c7952b4792b5ca2e1f64f76f60ec6e5c3a15381b347",
+    "rawFileUnchanged": true,
+    "canonicalHashUnchanged": true,
+    "originalOperationSha256": "ae14c5d034b7fb2954d2306636bfff7c04f04020770d9f8bb07f0c040ca74143",
+    "originalOperationHashMatches": true,
+    "assertionsUnchanged": true,
+    "coversUnchanged": true,
+    "bindingUnchanged": true,
+    "tailOperationIdsUnchanged": true
+  },
+  "failureEvidence": {
+    "failedEventSha256": "b68be115be0dc4061a1aca79df78eaabf2ed858e76e2c1bdb96c8c178e507556",
+    "failedAt": "2026-10-10T08:08:11.698Z",
+    "proofFileSha256": "dd58294f47b4a1f093e352a551c171b7a5e162ff234fa2639419d3ae906a5db3",
+    "observationsSha256": "278d136b85303cb31b85839b7ffee055f3ae6ad5cc379c80ef2403274c8d9e8e",
+    "failedEventReceiptSha256": "93fcf197c48b28d51109cac58be5c4db286404aca10037ff09b5507c0db9a1a0",
+    "proofCanonicalReceiptMatches": true,
+    "proofRequestedResolution": "failed",
+    "proofCompleted": false,
+    "oldFailedOperationPassed": false,
+    "walEventsChecked": 45,
+    "walCanonicalBytesAndHashChainPassed": true,
+    "latestTargetStillExactFailed": true,
+    "unresolvedOperations": 0,
+    "activeOwnerMatches": true,
+    "priorNineStillPassed": true,
+    "remainingElevenNotExecuted": true
+  },
+  "independentReviews": {
+    "ui": {
+      "status": "passed",
+      "reviewSha256": "eee24f1475caa6a23115fc9df8b07467e0dbe9b19b0d2b31c698eb32320a0c2d",
+      "uiSha256": "2ae444e2bc6f337c6940a7f15a37b5d569257aeed76b3c98058955fe8ddb6118",
+      "helperSha256": "5055f2d5c80cbc5bd1e99cc951010cbc0aab587b3298a05ed0f8a90e0ef80f71"
+    },
+    "controller": {
+      "status": "passed",
+      "reviewSha256": "3266c338a25c45b47552370652a26096460d6da26b112ea7a06fb494097b4939",
+      "controllerSha256": "97e66370260154a38387b77f3d852112d9583d51f0682b37a9080deaa9032570"
+    },
+    "combinedReviewSha256": "289f01c2ab209a615f5f8d454ff117e95188b5756d728346f04162b84b07d4d5",
+    "combinedMetadataLinksBothActualReviews": true,
+    "aggregationIsNotThirdIndependentImplementationReview": true
+  },
+  "sealedFixtureLogs": [
+    { "file": "UI_FINAL_TESTS.log", "passed": 16, "failed": 0, "sha256": "99066f2cc21c1d74cd682e1d3994636ed92c0042ab2ba84c2d27d72f9f3e4c88" },
+    { "file": "independent-deadline-final.log", "passed": 5, "failed": 0, "sha256": "b39ac9c508ff136e00aab136b58978d4da589fcd378ea88ad86e5b1f12b17a34" },
+    { "file": "CONTROLLER_FINAL_TESTS.log", "passed": 17, "failed": 0, "sha256": "1af6ac6089dc17e238b126330a520d48db416f0f8e289a395d377525ae62ff2f" },
+    { "file": "INDEPENDENT_CONTROLLER_SECOND.log", "passed": 8, "failed": 0, "sha256": "4ebbe8e874fb2e2e1f0d68382c82da4fa223b125d4a4493903104078c30fc00f" }
+  ],
+  "logsAreSeparateSuitesNotOneFullSuite": true,
+  "testsRerunDuringSealedReview": false,
+  "sealImplementationInspected": "Copies, combined review, supplement.json and sealed-supplement.json use open(wx), writeFile, sync and close; persisted matching files and delivery receipt checked, not a syscall trace",
+  "humanSupplementApprovalEvidencePresent": false,
+  "productionOutputsPresent": false,
+  "absentAtCapture": [
+    "human-supplement-approval.json", "supplement-approval.json", "supplement-intent.json", "supplement-started.json",
+    "supplement-result.json", "production-ui-audit.json", "production-ui-result.json"
+  ],
+  "productionOperationsPerformedByReviewer": 0,
+  "sealedDirectoryModifiedByReviewer": false,
+  "initialReadCorrection": {
+    "reportedIssue": "originalApprovedAt appeared without .000 milliseconds after PowerShell conversion",
+    "cause": "PowerShell ConvertFrom-Json auto-parsed ISO strings as DateTime and ConvertTo-Json rendered the value differently",
+    "rawJsonValue": "2026-10-10T05:28:51.000Z",
+    "nodeJsonParseAndPureValidatorPassed": true,
+    "classification": "Reviewer/tool conversion false alarm, not a sealed artifact defect; original seal not changed"
+  },
+  "remainingKnownSealedArtifactBlockers": [],
+  "remainingRequirements": [
+    "Real user explicit approval of this final supplement SHA and new approval timestamp/item evidence",
+    "Recheck all original and supplementary pins, active owner and exact runtime/state under the original lock before execution",
+    "Actual new UI must independently pass; original failed attempts stay failed",
+    "Original remaining operations, post-backup/restore and full closeout must complete before AB9 is complete"
+  ]
+}

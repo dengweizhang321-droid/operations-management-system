@@ -1,0 +1,79 @@
+{
+  "kind": "isolated-memory-orm-seam-negative-probe",
+  "utc": "2026-10-08T14:20:45.741247+00:00",
+  "reviewed_head": "a37b5ffdbe9e6705cf4daa9545231e93b4378c5d",
+  "sources": [
+    {
+      "path": "backend\\market\\query.py",
+      "sha256": "0fb1d2884fb8089387cbc2a311f4ced87826f872d982d73921e7860fcf6c74ec",
+      "functions": [
+        {
+          "name": "_official_price",
+          "first_line": 295,
+          "last_line": 305
+        },
+        {
+          "name": "item_trend",
+          "first_line": 1519,
+          "last_line": 1576
+        }
+      ]
+    },
+    {
+      "path": "backend\\market\\admin.py",
+      "sha256": "c348b257b65b5c23b69431adf73a02bc17a86138471c4ea5d1b2eb53ec81fd92",
+      "functions": [
+        {
+          "name": "comparison",
+          "first_line": 569,
+          "last_line": 645
+        }
+      ]
+    }
+  ],
+  "scope_example": {
+    "source_records": 4,
+    "requested_dates": [
+      "2026-01-01",
+      "2026-01-31"
+    ],
+    "hypothetical_gmv_cents_if_date_applied": 100,
+    "expected_by_current_ui_disclosure": 1000,
+    "classification": "confirmed documented full-history behavior, not a proven date-filter bug",
+    "actual_gmv_cents": [
+      1000,
+      1000
+    ],
+    "actual_trend_months_per_item": [
+      [
+        "2026-01",
+        "2026-02"
+      ],
+      [
+        "2026-01",
+        "2026-02"
+      ]
+    ]
+  },
+  "price_contract_example": {
+    "snapshot_confirmation_status": "confirmed",
+    "snapshot_price_type": "定金",
+    "qualified_price_by_existing_helper": null,
+    "comparison_market_prices": [
+      100,
+      100
+    ],
+    "production_presence_of_this_snapshot_shape": "unknown"
+  },
+  "truncation_example": {
+    "source_records": 61,
+    "totalMonths": 2,
+    "returned_records": 60,
+    "returned_months": [
+      "2026-02"
+    ],
+    "actual_truncated": false,
+    "expected_truncated": true
+  },
+  "limitations": "Function-body proof with synthetic ORM seam; not an API, browser, PostgreSQL or production replay. No timing claim."
+}

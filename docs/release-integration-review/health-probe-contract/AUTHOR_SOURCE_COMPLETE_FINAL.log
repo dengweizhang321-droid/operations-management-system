@@ -1,0 +1,31 @@
+✔ three known bounded probes survive repeated readiness filtering exactly (3.0045ms)
+✔ old source status has unchanged snapshot shape and no fabricated health trace (0.1748ms)
+✔ unknown probe names, private values and all response bodies are discarded (0.1824ms)
+✔ missing and malformed probe fields stay null instead of becoming healthy (0.1723ms)
+✔ failure and no-request facts survive alongside completed native metadata (0.5744ms)
+✔ unknown version or invalid envelope cannot provide a valid diagnostic (0.1079ms)
+✔ same 3.5s ready response fails original 3s gate and passes bounded 5s gate (8415.2333ms)
+✔ helper HTTP500 preserves strict rejection and bounded probe evidence (823.1061ms)
+✔ live missing marker preserves strict rejection and bounded probe evidence (797.0652ms)
+✔ live JSON array preserves strict rejection and bounded probe evidence (778.3635ms)
+✔ helper string boolean preserves strict rejection and bounded probe evidence (953.7242ms)
+✔ helper invalid JSON preserves strict rejection and bounded probe evidence (1040.1522ms)
+✔ ready wrong marker preserves strict rejection and bounded probe evidence (796.331ms)
+✔ ready exact Django degraded preserves strict rejection and bounded probe evidence (809.3055ms)
+✔ ready other503 preserves strict rejection and bounded probe evidence (779.5641ms)
+✔ ready degraded array marker preserves strict rejection and bounded probe evidence (880.9504ms)
+✔ ready degraded array code preserves strict rejection and bounded probe evidence (1060.4179ms)
+✔ ready degraded wrong case preserves strict rejection and bounded probe evidence (814.7153ms)
+✔ live timeout preserves strict rejection and bounded probe evidence (3788.8069ms)
+✔ ready beyond5000 preserves strict rejection and bounded probe evidence (5786.4851ms)
+✔ inherited remaining deadline bounds all probes without renewal (1340.1503ms)
+✔ already expired deadline issues no fixture network request (718.0035ms)
+✔ a healthy cached value cannot survive an expired inherited deadline (791.2329ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 31884.2748

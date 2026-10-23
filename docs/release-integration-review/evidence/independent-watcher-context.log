@@ -1,0 +1,41 @@
+✔ CSS values are proven; rules/resources/security properties remain byte-bound (7.5695ms)
+✔ bounded static PNG replacement is allowed; SVG/new/deleted/redirected resource is rejected (4.0945ms)
+✔ pure local Boolean button toggle is proven, aliases/custom calls/server components are not (28.0141ms)
+✔ API/server execution, frontend writes, permissions, dependencies, config and mixed changes stay strict (5.0741ms)
+✔ actual production predecessor snapshots bind the real four-file delta and reject its ownership/permission logic (7487.5368ms)
+ℹ {"afterFiles":5050,"afterSourceSha256":"8662394ff24c116685c1342ed6b8b9fa5dd58d8ffa7c0bb869be31e49e5e0646","beforeFiles":5050,"beforeSourceSha256":"70a562eadb2ee993ae3e80188f9a1e064f8605012a218507dba507a101aefa0e","changed":["app/customer-service-view.tsx","app/globals.css","app/page.tsx","app/ui/stable-read-content.tsx"],"completeSnapshots":true,"level":"strict","source":"immutable-source-snapshot"}
+✔ new admission modules are copied and key-file bound in the immutable release (1.7388ms)
+✔ database decisions are sealed; rehashed omissions, duplicate lifecycles and arbitrary display writes fail (24.3479ms)
+✔ unknown BeginWorkerDrain retains ownership and is never replayed (128.8013ms)
+✔ unknown EndWorkerDrain retains ownership and is never replayed (217.4833ms)
+✔ recovery failure at any boundary blocks; sealed full DB steps cannot be skipped (74.9029ms)
+✔ same-batch content evidence is bounded, forced at switch barriers and cannot be mutated by callers (4.6422ms)
+✔ content change invalidates sourceSha256 even with unchanged timestamps (0.6626ms)
+✔ content change invalidates sourceInventorySha256 even with unchanged timestamps (0.3004ms)
+✔ content change invalidates toolchain even with unchanged timestamps (0.3712ms)
+✔ content change invalidates configuration even with unchanged timestamps (0.256ms)
+✔ evidence checked before work is rechecked after; other batches/concurrent use/disposal are refused (0.9513ms)
+✔ full verification observation race and unsuccessful result never seed reusable evidence (0.3657ms)
+✔ expiry covers the whole observation and source changes after admission block before WAL intent (65.9255ms)
+✔ snapshot inventory includes environment examples and same-mtime tampering is detected by bytes (16.0798ms)
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-N1CYwd","event":"rename","name":"unrelated.txt"}
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-N1CYwd","event":"rename","name":"unrelated.txt"}
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-N1CYwd","event":"rename","name":"unrelated.txt"}
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-N1CYwd","event":"change","name":"unrelated.txt"}
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-N1CYwd","event":"change","name":"unrelated.txt"}
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-N1CYwd","event":"change","name":"unrelated.txt"}
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-N1CYwd","event":"rename","name":"absent"}
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-N1CYwd","event":"rename","name":"absent"}
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-N1CYwd","event":"rename","name":"absent"}
+✔ missing config parent creation invalidates; unrelated ancestor siblings do not (3562.9308ms)
+✔ shared process deadline is transport metadata; other inherited configuration stays bound (0.683ms)
+✔ timings are disjoint children and retain failure status without sensitive diagnostics (0.848ms)
+✔ failed live collector stages persist in the actual journal without error values (58.4579ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12101.6158

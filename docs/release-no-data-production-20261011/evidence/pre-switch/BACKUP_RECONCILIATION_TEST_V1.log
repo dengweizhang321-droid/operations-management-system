@@ -1,0 +1,33 @@
+✔ exact captured Backup stdout plus independent Verify yields only five original outputs (3.0462ms)
+✔ reject changed WAL head (1.0851ms)
+✔ reject extra WAL event / repeated invocation (0.3372ms)
+✔ reject wrong owner (0.6463ms)
+✔ reject maintenance present (0.8339ms)
+✔ reject drain present (0.3014ms)
+✔ reject old Node still alive (0.3224ms)
+✔ reject backup process still alive (0.3769ms)
+✔ reject unconfirmed process exit (0.4237ms)
+✔ reject unrelated stdout (0.4695ms)
+✔ reject audit receipt edited (0.7005ms)
+✔ reject retention incomplete (0.488ms)
+✔ reject release cleanup disguised as passed (0.4331ms)
+✔ reject wrong manifest backup (0.4026ms)
+✔ reject wrong dump (0.363ms)
+✔ reject wrong content (0.3363ms)
+✔ reject Verify wrong backup (0.3151ms)
+✔ reject Verify claims state change (0.31ms)
+✔ reject Verify failed (0.7258ms)
+✔ reject Verify old point args (0.4028ms)
+✔ reject Verify stdout drift (0.2919ms)
+✔ reject Verify predated failure (11.4676ms)
+✔ reject missing backup outputs cannot be called confirmed (0.3262ms)
+✔ maintenanceId cannot be fabricated into event (0.7889ms)
+✔ original writeOnce/journalState read the supplemental event and preserve unknown history; second append refuses (961.6994ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1105.9668

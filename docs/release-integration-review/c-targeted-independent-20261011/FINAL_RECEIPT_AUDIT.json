@@ -1,0 +1,38 @@
+{
+  "version": "teruisi-c-targeted-independent-original-receipts-v1",
+  "startedAt": "2026-10-11T09:33:09.118Z",
+  "finishedAt": "2026-10-11T09:33:09.141Z",
+  "status": "passed",
+  "manifestSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+  "receipts": [
+    {
+      "name": "contractReceipt",
+      "relativePath": "audit/sales-retired-code-receipt.json",
+      "sha256": "2ddba12e2269f11c0703b20d56a76d72c43d6e8d18f1cbd77d9dcff2f35c84e8",
+      "version": "teruisi-sales-retired-code-receipt-v1"
+    },
+    {
+      "name": "d1RetirementReceipt",
+      "relativePath": "audit/global-d1-retirement.json",
+      "sha256": "d522a3c0f7cfb6a7c1e224de905e392e9bc5523f259e7df6f26e724404c1ec71",
+      "version": "teruisi-global-d1-retirement-binding-v1"
+    },
+    {
+      "name": "guardReceipt",
+      "relativePath": "audit/legacy-worker-guard-receipt.json",
+      "sha256": "92eff2b54a9227f954a7f223a698f1c3c0e9d45168a7dc758188523311812e01",
+      "version": "teruisi-legacy-worker-guard-receipt-v1"
+    },
+    {
+      "name": "helperReceipt",
+      "relativePath": "audit/helper-build-receipt.json",
+      "sha256": "bb50133bd473fbb99bdce2b7a1012a5f1233f167159986e9eda3c2b41f06021e",
+      "version": "teruisi-worker-helper-build-receipt-v1"
+    }
+  ],
+  "readFiles": 5,
+  "rootAndAncestorIdentityVerified": true,
+  "fileMetadataStable": true,
+  "productionActions": 0,
+  "receiptSemanticsOrLiveAdmissionNotCertified": true
+}

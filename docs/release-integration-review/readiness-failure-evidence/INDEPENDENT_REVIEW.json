@@ -1,0 +1,78 @@
+{
+  "version": "teruisi-readiness-evidence-fix-independent-review-v1",
+  "reviewer": "/root/preparation_review",
+  "independent": true,
+  "nonAuthor": true,
+  "acceptedCandidate": true,
+  "acceptedEvidenceFixCandidate": true,
+  "productionExecutionApproved": false,
+  "blockingFindings": [],
+  "reviewedAt": "2026-10-10T18:14:12.230Z",
+  "diffBaseCommit": "a3d41827995647e7cd368edf0bf83f44658a4eff",
+  "sourceSha256": {
+    "tools/release-batch.mjs": "077404b8174a2334bc9726fe0bee070f4b4f6f44888d4f1d7cfa42cafeb42e95",
+    "tools/release-batch-admission.mjs": "cf0922b3bafd0a909e21c8b3c1cddebeb0102d8cf9c433e8842a944260e3dfa6",
+    "tools/release-readonly-retry.mjs": "648d5107fce2839b5a9b7ca09298de56edd7a4b188f6ac30bcf241cdc9c9f834"
+  },
+  "authorTestSha256": "4fb508ee0f3e6d6e3cab0f839a171a6f95bc3e0125ed79bc604303bf861a1ac1",
+  "tests": {
+    "independentSynthetic": {
+      "tests": 21,
+      "pass": 21,
+      "fail": 0,
+      "durationMs": 116.7489,
+      "log": "INDEPENDENT_TESTS_SOURCE_FIRST.log",
+      "logSha256": "27cd40772e689ec5b7d437c7e762b1584b4ad8becb5b0c8662712b29066dfa20",
+      "testSha256": "d55a80059d3c05ecf514910dd4a613fdbedaf19bee02cda0dd43270293574b01",
+      "usesSyntheticTransportOnly": true,
+      "childrenSpawned": 0
+    },
+    "authorReportedTests": 10,
+    "authorResultsNotAddedToIndependentCount": true,
+    "initialIndependentLoaderFailure": {
+      "file": "INDEPENDENT_TESTS_FIRST.log",
+      "sha256": "545316073e7a7a092cdee8e328fa2706a203a93043524e4af2ea165541e7de01",
+      "cause": "Reviewer fixture used four upward directories instead of three. Corrected import; no source tests executed in that loader failure.",
+      "countsAsSourceDefect": false
+    }
+  },
+  "reviewedBehavior": [
+    "Batch and admission retain actual invoke/result process evidence on parse/full-readiness/assertion exceptions.",
+    "Error objects carry only a bounded readinessEvidence built at source; raw Status/PII does not escape public exceptions.",
+    "safeObservationError repeats filtering on readinessEvidence/readiness and processEvidence/process, preserving fixed snapshot and process through multiple passes.",
+    "Snapshot contains fixed state/backend/worker enums, releaseMatchesExpected, 12 boolean-or-null components, known missing names, counts; unknown values/extra names/reason/stdout/argv are excluded.",
+    "All original assertions, exact release check, 12 component exactness, four allowed transient codes/four attempts, 2000ms retry wait and total deadline remain unchanged."
+  ],
+  "resolvedIndependentFindings": [
+    {
+      "id": "DIAG-RAW-ERROR",
+      "finding": "Initial query catch attached the full parsed raw Status to the exported error.",
+      "fixVerified": "Both catches now attach safeReadinessFailure output to readinessEvidence; public batch/admission exception serialization contains no synthetic private markers."
+    },
+    {
+      "id": "DIAG-RESERIALIZE",
+      "finding": "Initial safeObservationError did not preserve already sanitized process/readiness.",
+      "fixVerified": "Separate sanitizeReadinessFailure retains limited snapshot match/count/missing information and actual inner process through repeated serialization."
+    }
+  ],
+  "productionState": {
+    "actualNotReadyResolved": false,
+    "oldOperation21UnknownUnchanged": true,
+    "old97HeadUnchangedByThisReview": true,
+    "oldAdoptedBAndE295E442Unmodified": true,
+    "newStatusOrBusinessQuery": false,
+    "noDeployment": true,
+    "noNextProductionScopeOrRetry": true
+  },
+  "limitations": [
+    "This is a diagnostic evidence development fix, not a backend readiness repair or actual acceptance result.",
+    "All independent execution used synthetic returned transport values and immutable function text; no production call or real subprocess ran in this review.",
+    "Old21 process/status evidence cannot be recovered retroactively by this patch.",
+    "Production adoption still requires separately reviewed exact source/artifact scope and user authorization; old frozen protocols cannot silently inherit main code."
+  ],
+  "checks": {
+    "preciseThreeSourceDiffReviewed": true,
+    "allFourFileShaVerified": true,
+    "jsonAndDiffChecks": true
+  }
+}

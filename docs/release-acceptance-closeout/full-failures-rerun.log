@@ -1,0 +1,14 @@
+✔ Windows managed-process round trip accepts protected venv launchers in powershell.exe (20085.9213ms)
+✔ accelerated exact ACL verification stays inside its startup budget in pwsh.exe (12877.9777ms)
+✔ real isolated Chromium observes an embedded login and exactly one post-login query (1664.9677ms)
+✔ real normalized JD import preserves promoted role when first generic SKU is trigger or attribution (1027.9732ms)
+✔ all exact promoted-SKU projection aliases survive the actual importer (1083.5014ms)
+✔ trigger/attribution/generic SKU alone never becomes the promoted SKU (381.104ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 40997.3832

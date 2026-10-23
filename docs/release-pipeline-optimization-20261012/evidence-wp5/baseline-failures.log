@@ -1,0 +1,283 @@
+✖ approved runner rejects invalid and retains bounded diagnostics (382.8053ms)
+✖ approved runner rejects nonzero and retains bounded diagnostics (127.7602ms)
+✖ approved runner rejects flood and retains bounded diagnostics (166.2821ms)
+✖ original nested PS5 adapter: ready (33.2049ms)
+✖ original nested PS5 adapter: engine-failed (20.2575ms)
+✖ original nested PS5 adapter: wrong-version (17.1344ms)
+✖ original nested PS5 adapter: incomplete (20.4108ms)
+✖ original nested PS5 adapter: bad-json (23.057ms)
+✖ original nested PS5 adapter: maintenance (20.5519ms)
+✖ original nested PS5 adapter: deadline (18.2024ms)
+✖ original nested PS5 adapter: drain (23.7383ms)
+✖ original nested PS5 adapter: missing-identity (27.1872ms)
+✖ original nested PS5 adapter: fake-components (25.2618ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 0
+ℹ fail 13
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1236.6098
+
+✖ failing tests:
+
+test at tests\release-process-deadline.test.mjs:67:50
+✖ approved runner rejects invalid and retains bounded diagnostics (382.8053ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:72:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:71:3
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:67:50
+✖ approved runner rejects nonzero and retains bounded diagnostics (127.7602ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:72:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:71:3
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:67:50
+✖ approved runner rejects flood and retains bounded diagnostics (166.2821ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:72:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:71:3
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: ready (33.2049ms)
+  TypeError: Cannot read properties of undefined (reading 'mode')
+      at runApprovedOperation (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tools/release-batch.mjs:517:21)
+      at file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:227:19
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: engine-failed (20.2575ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: wrong-version (17.1344ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: incomplete (20.4108ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: bad-json (23.057ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: maintenance (20.5519ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: deadline (18.2024ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: drain (23.7383ms)
+  TypeError: Cannot read properties of undefined (reading 'mode')
+      at runApprovedOperation (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tools/release-batch.mjs:517:21)
+      at file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:227:19
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: missing-identity (27.1872ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: fake-components (25.2618ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp5/base-source/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

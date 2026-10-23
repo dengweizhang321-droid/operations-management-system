@@ -54,7 +54,7 @@
 
 [结构化证据](evidence.json) 包含原版节点连接、坐标和查询记录，部署绑定及修复源码摘要。原始响应均为虚构合成数据，保存在本 worktree `.runtime/shared-filter-evidence/`；完整测试/构建日志位于 `.runtime/shared-filter-checks/`。这些目录为本次预览和证据依赖，暂不清理。
 
-可复跑：先按 `docs/ISOLATED_PREVIEW.md` 在独立 worktree 使用 `TERUISI_PREVIEW_PORT=3781` 启动既有预览，然后执行 `node tools/shared-filter-regression.mjs`；工具只接受 3100–3899 的回环预览，不调用生产接口。`tools/shared-filter-probe.mjs` 仅允许原版 pin 且 app 无改动的 worktree；`tools/shared-filter-baseline-input.mjs` 将原版库存文件单独打包，不回退当前修复源码。
+可复跑：先按 `docs/运维/部署与启动/isolated-preview.md` 在独立 worktree 使用 `TERUISI_PREVIEW_PORT=3781` 启动既有预览，然后执行 `node tools/shared-filter-regression.mjs`；工具只接受 3100–3899 的回环预览，不调用生产接口。`tools/shared-filter-probe.mjs` 仅允许原版 pin 且 app 无改动的 worktree；`tools/shared-filter-baseline-input.mjs` 将原版库存文件单独打包，不回退当前修复源码。
 
 未使用真实 Windows 输入法候选窗、其他浏览器/移动触摸设备或真实生产多账号验证；Chrome IME 组合与提交测试不能冒作所有输入法已验收。市场/网店/运营事务等其他使用 SearchableMultiSelect 的页面进行了代码调用检查和全库相关测试，但没有逐个页面重复实际浏览器业务验证；其即时生效接口仍保持原语义。未进行独立非作者审查或生产 PostgreSQL 范围验算，本轮没有更改后端过滤逻辑。
 

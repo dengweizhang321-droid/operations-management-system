@@ -1,0 +1,870 @@
+{
+  "version": "teruisi-ab-execution-timing-v1",
+  "capturedAt": "2026-10-10T11:04:43.208Z",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "sourceCommit": "5faac8151f59d66de72c3caead8cad916ea547da",
+  "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+  "workerManifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+  "djangoManifestSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+  "originalApprovedAt": "2026-10-10T05:28:51.000Z",
+  "supplementApprovedAt": "2026-10-10T08:41:31.000Z",
+  "metadataApprovedAt": "2026-10-10T10:34:17.000Z",
+  "events": 87,
+  "journalHead": "316f341eafafe08c3366fc79ca2c36b96258d2b00fcd9767a82a32cd62f7ce7d",
+  "active": {
+    "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+    "id": "integration-ab-v2-20261010-c22d8dd69a"
+  },
+  "operations": [
+    {
+      "id": "reuse-reviewed-worker",
+      "phase": "prepare",
+      "mutating": false,
+      "status": "passed",
+      "latestAt": "2026-10-10T05:41:51.322Z",
+      "latestEventSha256": "e602cf9cba1c0a4eafc32bd2fe1dd6c14a2d9e671fefb9d12d6392b573cfe51e",
+      "latestReceiptSha256": "096d9d1ec6a14d5a4e965980dab810dd81ce9ff0fb5e77d61235e3bcd5cd4a8b",
+      "outputs": null,
+      "attempts": 1,
+      "recordedExecutionMs": 234270.1191
+    },
+    {
+      "id": "backup-pre",
+      "phase": "backup-pre",
+      "mutating": true,
+      "status": "passed",
+      "latestAt": "2026-10-10T05:55:24.800Z",
+      "latestEventSha256": "f6f601f54772dce042008f71b026ea75c68914fd2c1f29d3c3ca33bc89844ac7",
+      "latestReceiptSha256": "894833c3b3e207c7649ba477aeeb07ebf188609f86ca9c79a26d3300ef7cbc9e",
+      "outputs": {
+        "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261010T054420Z-3f75a3055cf6",
+        "backupId": "daily-20261010T054420Z-3f75a3055cf6",
+        "contentSha256": "f5d70989427467cbd63cf44117854be2c14cd6f738c991dc353bdc91038b6af2",
+        "dumpSha256": "28f3c000e35d1718482bf49702b7001e943b6e420250284836c107659e8588af",
+        "manifestSha256": "aa5f8b30c910223d726e573560fba32933701f4b28831bfcf42cb54e5d7509df"
+      },
+      "attempts": 1,
+      "recordedExecutionMs": 735974.1799999999
+    },
+    {
+      "id": "restore-pre",
+      "phase": "restore-pre",
+      "mutating": true,
+      "status": "passed",
+      "latestAt": "2026-10-10T06:08:24.641Z",
+      "latestEventSha256": "67f0c947264ed1eed898f3faac72423e904d8e9da06e6284251f8a69ea27fbaa",
+      "latestReceiptSha256": "735ca688a90252ccb74ba335c57847753a7677bec4f52568792706f1762eff53",
+      "outputs": {
+        "backupId": "daily-20261010T054420Z-3f75a3055cf6",
+        "dumpSha256": "28f3c000e35d1718482bf49702b7001e943b6e420250284836c107659e8588af"
+      },
+      "attempts": 1,
+      "recordedExecutionMs": 704334.9557999999
+    },
+    {
+      "id": "entermaintenance",
+      "phase": "drain",
+      "mutating": true,
+      "status": "passed",
+      "latestAt": "2026-10-10T06:16:26.798Z",
+      "latestEventSha256": "720bac949f1eb131a9e451e33125c5b01eb7749e3bd43ecc667bb62572a95273",
+      "latestReceiptSha256": "7f9012d9d9226b3689908bbcc605f615d8d1228375930c6973e1369f5508857a",
+      "outputs": {
+        "maintenanceId": "11bf4a85aac56cecff7180a8fbb459f6"
+      },
+      "attempts": 1,
+      "recordedExecutionMs": 264728.84569999995
+    },
+    {
+      "id": "apply-reviewed-worker",
+      "phase": "switch",
+      "mutating": true,
+      "status": "passed",
+      "latestAt": "2026-10-10T06:19:56.831Z",
+      "latestEventSha256": "b7fedb40062b891a39e8f057e66cf26ab34671c8be22298b8f5f6d2a18e774dd",
+      "latestReceiptSha256": "5aa2362661d262c12b0c9b7443c1d62b16c2973360370fa9319b066fc29575a5",
+      "outputs": null,
+      "attempts": 1,
+      "recordedExecutionMs": 142539.28399999999
+    },
+    {
+      "id": "exitmaintenance",
+      "phase": "switch",
+      "mutating": true,
+      "status": "passed",
+      "latestAt": "2026-10-10T06:21:35.712Z",
+      "latestEventSha256": "f6ddaaa63a8347a0e21ce6f015d2cc41e8efadd7df202bde6f98ed4ed486a68c",
+      "latestReceiptSha256": "318d8a967fe6f525287b0450e8a5820a201a4871b67f44670b166d900d8f1e80",
+      "outputs": {
+        "maintenanceId": "11bf4a85aac56cecff7180a8fbb459f6"
+      },
+      "attempts": 1,
+      "recordedExecutionMs": 43794.5083999997
+    },
+    {
+      "id": "startworker",
+      "phase": "switch",
+      "mutating": true,
+      "status": "passed",
+      "latestAt": "2026-10-10T06:29:21.667Z",
+      "latestEventSha256": "03f79238a372cacfed7210f505528d312b3f986b031e9366dc06000d150a5442",
+      "latestReceiptSha256": "306454e6461747082378fcd6dd22741aabc09c584f0a79d1430a370cd7853e88",
+      "outputs": {
+        "maintenanceId": "11bf4a85aac56cecff7180a8fbb459f6",
+        "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113"
+      },
+      "attempts": 1,
+      "recordedExecutionMs": 405787.88560000015
+    },
+    {
+      "id": "preserve-pre-recovery",
+      "phase": "acceptance",
+      "mutating": false,
+      "status": "passed",
+      "latestAt": "2026-10-10T06:31:09.452Z",
+      "latestEventSha256": "b18f6c1008813d3fd4f691a6aaa1df21b6d735539c7f7c5e748f00b3069d141f",
+      "latestReceiptSha256": "49079725b65b59eb692dfc7a309f255bc36619b97fef136dc3e1b5c771273321",
+      "outputs": {},
+      "attempts": 1,
+      "recordedExecutionMs": 1653.749700000044
+    },
+    {
+      "id": "verify-all-resources",
+      "phase": "acceptance",
+      "mutating": false,
+      "status": "passed",
+      "latestAt": "2026-10-10T06:32:56.378Z",
+      "latestEventSha256": "fbfee11bc3b1568695b2bdbe15a164f9c4d3a70c4a15dbbd0e08bd86bec5b4f7",
+      "latestReceiptSha256": "2d68996ebc7f5fb10eabb78893dc11f54abb68aa944b1339fda31dab92f10923",
+      "outputs": {},
+      "attempts": 1,
+      "recordedExecutionMs": 2990.7423000000417
+    },
+    {
+      "id": "actual-readonly-ui",
+      "phase": "acceptance",
+      "mutating": false,
+      "status": "passed",
+      "latestAt": "2026-10-10T09:00:42.362Z",
+      "latestEventSha256": "c6271487b9139e053ef4d5b66cc0cb832be5b40624273d6e5e93593259771d7d",
+      "latestReceiptSha256": "96e54223093ac54fc4f7d3bfd04c5bcedef36975ec4e7c7bfa156ba230498c75",
+      "outputs": {},
+      "attempts": 4,
+      "recordedExecutionMs": 82144.364
+    },
+    {
+      "id": "unsigned-reader-permission-denials",
+      "phase": "acceptance",
+      "mutating": false,
+      "status": "passed",
+      "latestAt": "2026-10-10T09:02:27.339Z",
+      "latestEventSha256": "e75ece2f8920776a633dd19118321a748c27fd6ab466918d5a7a9b3f50c4d53f",
+      "latestReceiptSha256": "b8f4db6c039497cb93831292d389f3100f5ea2381bb04528b7634b4231cf6ca8",
+      "outputs": {},
+      "attempts": 1,
+      "recordedExecutionMs": 526.8989999999758
+    },
+    {
+      "id": "complete-component-readiness",
+      "phase": "acceptance",
+      "mutating": false,
+      "status": "passed",
+      "latestAt": "2026-10-10T09:05:06.688Z",
+      "latestEventSha256": "ba84b8f11aecaa05b3474c63d7d7c8b048cd418283090a475653e6ac6d9bb755",
+      "latestReceiptSha256": "13c9d14a172c2e2be35bc961a6f76ae17b50eb2c5ef13a172d44554cd588c344",
+      "outputs": {},
+      "attempts": 1,
+      "recordedExecutionMs": 52346.08089999994
+    },
+    {
+      "id": "verifystartup",
+      "phase": "acceptance",
+      "mutating": false,
+      "status": "passed",
+      "latestAt": "2026-10-10T09:07:06.732Z",
+      "latestEventSha256": "060101e566ae72aeebc3b622166a91122b417161e726587df9b36fcfec340372",
+      "latestReceiptSha256": "053cfe2e9729f4027ec031d09014b6c8e4156191c33cbb211afded67a2121192",
+      "outputs": {},
+      "attempts": 1,
+      "recordedExecutionMs": 17712.852199999965
+    },
+    {
+      "id": "install-reviewed-watchdog",
+      "phase": "acceptance",
+      "mutating": true,
+      "status": "passed",
+      "latestAt": "2026-10-10T09:09:12.966Z",
+      "latestEventSha256": "a84e182491a95ca0f8fdc41e0237954b9a5a3604ada6b38ea94aab0991587dc7",
+      "latestReceiptSha256": "54981989faab653ed611d2d652c2b96af15bee1fe923955521d90e0b932abca1",
+      "outputs": {},
+      "attempts": 1,
+      "recordedExecutionMs": 22914.49510000006
+    },
+    {
+      "id": "two-natural-watchdogs",
+      "phase": "acceptance",
+      "mutating": false,
+      "status": "passed",
+      "latestAt": "2026-10-10T09:33:13.719Z",
+      "latestEventSha256": "47aff59ae9ca52f17ffaf07d48eb50b4e62bebce6d8a48b217fd2a1e260abb50",
+      "latestReceiptSha256": "c6a5954749e7d599bdedecdb278a2241a917abfb70839b50fd8146682b75e5f6",
+      "outputs": {},
+      "attempts": 2,
+      "recordedExecutionMs": 141062.9979
+    },
+    {
+      "id": "backup-post",
+      "phase": "backup-post",
+      "mutating": true,
+      "status": "passed",
+      "latestAt": "2026-10-10T10:37:17.677Z",
+      "latestEventSha256": "c61b37e251337abd6d520742c776add236845e91a52406cf948fb184cb5b1c05",
+      "latestReceiptSha256": "afa87a175247037a6028c40c5992f028c8788f8d0e30e01156538c1313ab8687",
+      "outputs": {
+        "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261010T093506Z-8a5a7107b3f6",
+        "backupId": "daily-20261010T093506Z-8a5a7107b3f6",
+        "contentSha256": "b2a042fd4e5287ab30642180365d05a74694f7d07ed490c83454bd40f50cf6ce",
+        "dumpSha256": "bd3c532a8f897eea2f09f3b60270543993abcda802bd2147c3937539dfc680c8",
+        "manifestSha256": "4cc95143e5feffbd801388cb5de8dd59e269f099ce193afbdc4cfaba310e0f88"
+      },
+      "attempts": 1,
+      "recordedExecutionMs": 584678.5589000001
+    },
+    {
+      "id": "restore-post",
+      "phase": "restore-post",
+      "mutating": true,
+      "status": "passed",
+      "latestAt": "2026-10-10T10:57:05.027Z",
+      "latestEventSha256": "0bb19357d636cfdb249101f700251702017f71c232cf0d4f4310a8830be5467c",
+      "latestReceiptSha256": "380e142743f1613eb865bb518d56378b46e9fbdf0748df240384542d70ce7261",
+      "outputs": {
+        "backupId": "daily-20261010T093506Z-8a5a7107b3f6",
+        "dumpSha256": "bd3c532a8f897eea2f09f3b60270543993abcda802bd2147c3937539dfc680c8"
+      },
+      "attempts": 1,
+      "recordedExecutionMs": 751709.1404
+    },
+    {
+      "id": "preserve-post-recovery",
+      "phase": "closeout",
+      "mutating": false,
+      "status": "passed",
+      "latestAt": "2026-10-10T11:00:08.112Z",
+      "latestEventSha256": "eff0aac7f059c9335faf2a7bb4cd3f5c487973c3e5f3d0900282fbe9702c0be6",
+      "latestReceiptSha256": "9d579160a4f0450c656b4b07335d971e7842ffb86674bfd85a777acb80292896",
+      "outputs": {},
+      "attempts": 1,
+      "recordedExecutionMs": 1850.1164000001736
+    },
+    {
+      "id": "full-postgresql-deep-comparison",
+      "phase": "closeout",
+      "mutating": false,
+      "status": "unknown",
+      "latestAt": "2026-10-10T11:03:09.704Z",
+      "latestEventSha256": "316f341eafafe08c3366fc79ca2c36b96258d2b00fcd9767a82a32cd62f7ce7d",
+      "latestReceiptSha256": null,
+      "outputs": null,
+      "attempts": 1,
+      "recordedExecutionMs": 402.66210000007413
+    },
+    {
+      "id": "original-historical-audits-preserved",
+      "phase": "closeout",
+      "mutating": false,
+      "status": "not-started",
+      "latestAt": null,
+      "latestEventSha256": null,
+      "latestReceiptSha256": null,
+      "outputs": null,
+      "attempts": 0,
+      "recordedExecutionMs": 0
+    },
+    {
+      "id": "exact-final-readiness",
+      "phase": "closeout",
+      "mutating": false,
+      "status": "not-started",
+      "latestAt": null,
+      "latestEventSha256": null,
+      "latestReceiptSha256": null,
+      "outputs": null,
+      "attempts": 0,
+      "recordedExecutionMs": 0
+    }
+  ],
+  "unresolved": [
+    {
+      "at": "2026-10-10T11:03:09.704Z",
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "durationMs": 402.66210000007413,
+      "error": {
+        "code": "UNCLASSIFIED_FAILURE",
+        "messageSha256": null,
+        "process": {
+          "cleanup": "direct",
+          "code": "nonzero_exit",
+          "deadlineUnixMs": 1791630789304,
+          "elapsedMs": 295,
+          "exitCode": 1,
+          "outputProtocol": "direct-exit-files",
+          "processId": 23196,
+          "stage": "output",
+          "stderrBytes": 50,
+          "stderrSha256": "89f830ac2a279106b931debec167604a4fe6bfe72dae915a0aaa2ade4af282b1",
+          "stdoutBytes": 0,
+          "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "version": 1
+        },
+        "retryable": false
+      },
+      "eventSha256": "316f341eafafe08c3366fc79ca2c36b96258d2b00fcd9767a82a32cd62f7ce7d",
+      "observationAttempts": [],
+      "operationId": "full-postgresql-deep-comparison",
+      "outputs": null,
+      "phase": "closeout",
+      "previous": "f4b4ad745a1d68c2ee3935e1f1a93f8623071e5fce05c1a3f760713bee4df105",
+      "processEvidence": {
+        "cleanup": "direct",
+        "code": "nonzero_exit",
+        "deadlineUnixMs": 1791630789304,
+        "elapsedMs": 295,
+        "exitCode": 1,
+        "nativeCode": null,
+        "outputProtocol": "direct-exit-files",
+        "processId": 23196,
+        "signal": null,
+        "stage": "output",
+        "stderrBytes": 50,
+        "stderrSha256": "89f830ac2a279106b931debec167604a4fe6bfe72dae915a0aaa2ade4af282b1",
+        "stdoutBytes": 0,
+        "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "timeoutType": null,
+        "treeCleanupExitCode": null,
+        "treeCleanupPending": false,
+        "version": 1
+      },
+      "reason": "nonzero_exit",
+      "receiptSha256": null,
+      "status": "unknown",
+      "timing": null
+    }
+  ],
+  "phases": {
+    "durationMs": {
+      "queue": 599.6272999999997,
+      "prepare": 1379691.0542000001,
+      "backup-pre": 813470.5954999999,
+      "restore-pre": 779835.5447999998,
+      "drain": 482150.7729000002,
+      "switch": 774851.7892,
+      "acceptance": 1591841.3086999997,
+      "business": 0,
+      "backup-post": 657996.281,
+      "restore-post": 825032.3054000001,
+      "closeout": 364663.55580000044
+    },
+    "approvedToCompleteMs": null,
+    "elapsedSinceApprovalMs": 20058704,
+    "switchExecutionMs": 774851.7892,
+    "switchSpanMs": 1039598,
+    "completed": false,
+    "waits": [
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 238374.66590000002
+      },
+      {
+        "phase": "prepare",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 74445.3126
+      },
+      {
+        "phase": "backup-pre",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 77496.4155
+      },
+      {
+        "phase": "restore-pre",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 75500.58899999992
+      },
+      {
+        "phase": "drain",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 217421.92720000027
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 67488.59350000042
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 55081.40969999973
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 60160.10800000001
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 106126.06199999992
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 103930.14869999979
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 97453.4972000001
+      },
+      {
+        "phase": "acceptance",
+        "reason": "nonzero_exit",
+        "durationMs": 20317.374199999962
+      },
+      {
+        "phase": "acceptance",
+        "reason": "independently-reconciled",
+        "durationMs": 0
+      },
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 163315.1923
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 117973.826
+      },
+      {
+        "phase": "acceptance",
+        "reason": "nonzero_exit",
+        "durationMs": 16706.33799999999
+      },
+      {
+        "phase": "acceptance",
+        "reason": "independently-reconciled",
+        "durationMs": 0
+      },
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 184516.4335
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 109861.26690000002
+      },
+      {
+        "phase": "acceptance",
+        "reason": "nonzero_exit",
+        "durationMs": 26866.651000000013
+      },
+      {
+        "phase": "acceptance",
+        "reason": "independently-reconciled",
+        "durationMs": 0
+      },
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 171955.2375
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 107764.4196
+      },
+      {
+        "phase": "acceptance",
+        "reason": "explicitly-approved-readonly-validation-supplement",
+        "durationMs": 18254.000800000038
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 104443.83239999996
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 106997.73369999998
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 102324.8849999999
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 103313.98509999993
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 101060.2034
+      },
+      {
+        "phase": "acceptance",
+        "reason": "nonzero_exit",
+        "durationMs": 15453.4081
+      },
+      {
+        "phase": "acceptance",
+        "reason": "independently-reconciled",
+        "durationMs": 0
+      },
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 138925.6335
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 109239.26760000002
+      },
+      {
+        "phase": "backup-post",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 73317.72209999996
+      },
+      {
+        "phase": "backup-post",
+        "reason": "nonzero_exit",
+        "durationMs": 584678.5589000001
+      },
+      {
+        "phase": "backup-post",
+        "reason": "independently-reconciled-completed-backup-with-outputs",
+        "durationMs": 0
+      },
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 173888.4598
+      },
+      {
+        "phase": "restore-post",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 73323.16500000001
+      },
+      {
+        "phase": "closeout",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 181228.62400000007
+      },
+      {
+        "phase": "closeout",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 181182.15330000012
+      },
+      {
+        "phase": "closeout",
+        "reason": "nonzero_exit",
+        "durationMs": 402.66210000007413
+      }
+    ]
+  },
+  "necessaryAcceptanceClosedAt": null,
+  "engineCompletedAt": null,
+  "fullDeliveryClosedAt": null,
+  "originalApprovalToCaptureMs": 20152208,
+  "unallocatedWallThroughLastEventMs": 12388571.165199999,
+  "historicalFailures": [
+    {
+      "operationId": "actual-readonly-ui",
+      "status": "unknown",
+      "at": "2026-10-10T06:34:54.155Z",
+      "eventSha256": "e6c4030141133998e820b37c13bbfdb7a1590b861e4f51e6338b7aed6c987872",
+      "durationMs": 20317.374199999962,
+      "reason": "nonzero_exit"
+    },
+    {
+      "operationId": "actual-readonly-ui",
+      "status": "failed",
+      "at": "2026-10-10T06:45:45.754Z",
+      "eventSha256": "c6a2fe106d958b02baaf73e5487adff04c0494e90a4f8130c0cc52a30ea433d8",
+      "durationMs": null,
+      "reason": "independently-reconciled"
+    },
+    {
+      "operationId": "actual-readonly-ui",
+      "status": "unknown",
+      "at": "2026-10-10T06:51:24.696Z",
+      "eventSha256": "aa968486f130adae1668d57de263a69a1eeed0f421a80f42f7efdd349c2ac1cf",
+      "durationMs": 16706.33799999999,
+      "reason": "nonzero_exit"
+    },
+    {
+      "operationId": "actual-readonly-ui",
+      "status": "failed",
+      "at": "2026-10-10T07:05:30.917Z",
+      "eventSha256": "56de9da03502904b326918be1c56be6a3a8b5fe37910a3a06624eba1dfe5d3d7",
+      "durationMs": null,
+      "reason": "independently-reconciled"
+    },
+    {
+      "operationId": "actual-readonly-ui",
+      "status": "unknown",
+      "at": "2026-10-10T07:10:54.013Z",
+      "eventSha256": "e414c03dc2c89b553529cfe5afaf973cb4860688a82e1bd6f9ebe05b67117377",
+      "durationMs": 26866.651000000013,
+      "reason": "nonzero_exit"
+    },
+    {
+      "operationId": "actual-readonly-ui",
+      "status": "failed",
+      "at": "2026-10-10T08:08:11.698Z",
+      "eventSha256": "b68be115be0dc4061a1aca79df78eaabf2ed858e76e2c1bdb96c8c178e507556",
+      "durationMs": null,
+      "reason": "independently-reconciled"
+    },
+    {
+      "operationId": "two-natural-watchdogs",
+      "status": "unknown",
+      "at": "2026-10-10T09:11:09.484Z",
+      "eventSha256": "820c48abe81018f38dfc4d6942b3d63429cece85e5e3168bb491363db66c2389",
+      "durationMs": 15453.4081,
+      "reason": "nonzero_exit"
+    },
+    {
+      "operationId": "two-natural-watchdogs",
+      "status": "failed",
+      "at": "2026-10-10T09:26:40.995Z",
+      "eventSha256": "da320d92036efb0cf7932668885a7bb626139d32807b54a3c76f040d785de670",
+      "durationMs": null,
+      "reason": "independently-reconciled"
+    },
+    {
+      "operationId": "backup-post",
+      "status": "unknown",
+      "at": "2026-10-10T09:44:11.721Z",
+      "eventSha256": "420fd5e13e5b637c1a6d62f6fad1e16dccd19c8f1f2c26c8302db892c34fcd09",
+      "durationMs": 584678.5589000001,
+      "reason": "nonzero_exit"
+    },
+    {
+      "operationId": "full-postgresql-deep-comparison",
+      "status": "unknown",
+      "at": "2026-10-10T11:03:09.704Z",
+      "eventSha256": "316f341eafafe08c3366fc79ca2c36b96258d2b00fcd9767a82a32cd62f7ce7d",
+      "durationMs": 402.66210000007413,
+      "reason": "nonzero_exit"
+    }
+  ],
+  "queue": [
+    {
+      "name": "integration-ab-v2-20261010-c22d8dd69a-3050e4ca-5cbe-40d8-92c0-c460edcd1dc4",
+      "approvedAt": "2026-10-10T05:28:51.000Z",
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "requestedAt": "2026-10-10T10:40:25.962Z",
+      "acquired": {
+        "acquiredAt": "2026-10-10T10:40:25.968Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 6.829800000000091
+      },
+      "blocked": {
+        "at": "2026-10-10T11:03:09.707Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 0,
+        "reason": "stage-blocked"
+      }
+    },
+    {
+      "name": "integration-ab-v2-20261010-c22d8dd69a-42657dad-72cb-4ab3-97e6-403cfec4579d",
+      "approvedAt": "2026-10-10T05:28:51.000Z",
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "requestedAt": "2026-10-10T09:26:59.831Z",
+      "acquired": {
+        "acquiredAt": "2026-10-10T09:26:59.837Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 6.79239999999993
+      },
+      "blocked": {
+        "at": "2026-10-10T09:44:11.725Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 0,
+        "reason": "stage-blocked"
+      }
+    },
+    {
+      "name": "integration-ab-v2-20261010-c22d8dd69a-dbf5a30c-c88c-47bf-8f17-61665d4abd93",
+      "approvedAt": "2026-10-10T05:28:51.000Z",
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "requestedAt": "2026-10-10T07:05:32.679Z",
+      "acquired": {
+        "acquiredAt": "2026-10-10T07:05:32.686Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 7.278699999999958
+      },
+      "blocked": {
+        "at": "2026-10-10T07:10:54.016Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 0,
+        "reason": "stage-blocked"
+      }
+    },
+    {
+      "name": "integration-ab-v2-20261010-c22d8dd69a-dca9deb5-5f31-4372-a4c5-36d788899e50",
+      "approvedAt": "2026-10-10T05:28:51.000Z",
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "requestedAt": "2026-10-10T06:46:26.617Z",
+      "acquired": {
+        "acquiredAt": "2026-10-10T06:46:26.625Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 8.642499999999927
+      },
+      "blocked": {
+        "at": "2026-10-10T06:51:24.699Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 0,
+        "reason": "stage-blocked"
+      }
+    },
+    {
+      "name": "integration-ab-v2-20261010-c22d8dd69a-eae9907b-a351-4847-807a-72ef4460fe17",
+      "approvedAt": "2026-10-10T05:28:51.000Z",
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "requestedAt": "2026-10-10T05:32:44.208Z",
+      "acquired": {
+        "acquiredAt": "2026-10-10T05:32:44.215Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 7.062800000000038
+      },
+      "blocked": {
+        "at": "2026-10-10T06:34:54.158Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 0,
+        "reason": "stage-blocked"
+      }
+    },
+    {
+      "name": "integration-ab-v2-20261010-c22d8dd69a-fc0e1d57-a1a6-4511-9643-9497b6f19e49",
+      "approvedAt": "2026-10-10T05:28:51.000Z",
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "requestedAt": "2026-10-10T08:55:44.188Z",
+      "acquired": {
+        "acquiredAt": "2026-10-10T08:55:44.305Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 116.75269999999728
+      },
+      "blocked": {
+        "at": "2026-10-10T09:11:09.487Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 0,
+        "reason": "stage-blocked"
+      }
+    }
+  ],
+  "queueCoverage": "Only shared release-batch _queue records from original approval; no assertion about unrecorded work or OS contention",
+  "availability": {
+    "segments": [
+      {
+        "folder": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2/production",
+        "prefixSha256": "9801c4e6f2f128c622b8263064c8b054c93e413a32fc91ac6d959e57e4e85ad7",
+        "first": "2026-10-10T05:32:32.970Z",
+        "last": "2026-10-10T08:05:51.803Z",
+        "count": 3670,
+        "unavailableSamples": 322,
+        "maxGapMs": 2544,
+        "intervals": [
+          {
+            "firstUnavailable": "2026-10-10T06:06:06.592Z",
+            "lastUnavailable": "2026-10-10T06:06:16.613Z",
+            "samples": 5,
+            "previousAvailable": "2026-10-10T06:06:04.083Z",
+            "nextAvailable": "2026-10-10T06:06:19.127Z",
+            "observedSpanMs": 10021,
+            "conservativeBoundMs": 15055
+          },
+          {
+            "firstUnavailable": "2026-10-10T06:13:25.250Z",
+            "lastUnavailable": "2026-10-10T06:26:37.489Z",
+            "samples": 317,
+            "previousAvailable": "2026-10-10T06:13:22.739Z",
+            "nextAvailable": "2026-10-10T06:26:39.995Z",
+            "observedSpanMs": 792239,
+            "conservativeBoundMs": 798536
+          }
+        ]
+      },
+      {
+        "folder": "E:/codex-artifacts/release-integration-review-20261010/AB-ui-supplement-20261010-0820-final/production",
+        "prefixSha256": "2b5d7b5ed3cb80438fd729051aff56c4ab36c65bb38bfa30b51e95e22669a9f1",
+        "first": "2026-10-10T08:43:26.714Z",
+        "last": "2026-10-10T10:15:23.909Z",
+        "count": 2201,
+        "unavailableSamples": 15,
+        "maxGapMs": 2545,
+        "intervals": [
+          {
+            "firstUnavailable": "2026-10-10T09:06:15.749Z",
+            "lastUnavailable": "2026-10-10T09:06:25.798Z",
+            "samples": 5,
+            "previousAvailable": "2026-10-10T09:06:13.248Z",
+            "nextAvailable": "2026-10-10T09:06:28.309Z",
+            "observedSpanMs": 10049,
+            "conservativeBoundMs": 15076
+          },
+          {
+            "firstUnavailable": "2026-10-10T09:54:12.503Z",
+            "lastUnavailable": "2026-10-10T09:54:22.529Z",
+            "samples": 5,
+            "previousAvailable": "2026-10-10T09:54:09.990Z",
+            "nextAvailable": "2026-10-10T09:54:25.034Z",
+            "observedSpanMs": 10026,
+            "conservativeBoundMs": 15522
+          },
+          {
+            "firstUnavailable": "2026-10-10T10:02:06.526Z",
+            "lastUnavailable": "2026-10-10T10:02:16.559Z",
+            "samples": 5,
+            "previousAvailable": "2026-10-10T10:02:04.023Z",
+            "nextAvailable": "2026-10-10T10:02:19.073Z",
+            "observedSpanMs": 10033,
+            "conservativeBoundMs": 15126
+          }
+        ]
+      },
+      {
+        "folder": "E:/codex-artifacts/release-integration-review-20261010/AB-backup-metadata-20261010-1025-final/production",
+        "prefixSha256": "f4aa1406cbf99baa03d54bd5ad0c63976d63633ae5927b3679d66f54e1b93e64",
+        "first": "2026-10-10T10:36:04.328Z",
+        "last": "2026-10-10T11:04:39.350Z",
+        "count": 685,
+        "unavailableSamples": 0,
+        "maxGapMs": 2520,
+        "intervals": []
+      }
+    ],
+    "blindGaps": [
+      {
+        "from": "2026-10-10T05:28:51.000Z",
+        "to": "2026-10-10T05:32:32.970Z"
+      },
+      {
+        "from": "2026-10-10T08:05:51.803Z",
+        "to": "2026-10-10T08:43:26.714Z"
+      },
+      {
+        "from": "2026-10-10T10:15:23.909Z",
+        "to": "2026-10-10T10:36:04.328Z"
+      }
+    ],
+    "claims": "GET response headers/status samples only. Gaps remain unknown; switch span is not downtime; no customer response payload."
+  },
+  "calculation": "Only parent WAL durationMs added; nested process/observation/engine durations are subdivisions, never counted again. Unallocated wall includes human decisions, coordination, investigation and gaps without invented attribution."
+}

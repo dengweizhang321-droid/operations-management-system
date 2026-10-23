@@ -1,0 +1,21 @@
+{
+    "version":  "teruisi-postgres-restore-rehearsal-v1",
+    "status":  "completed",
+    "rehearsalId":  "0d2c8cfba17c",
+    "startedAt":  "2026-10-12T01:46:14.2419094+00:00",
+    "completedAt":  "2026-10-12T01:56:55.9417664+00:00",
+    "backupId":  "daily-20261011T162958Z-49bdf7f519aa",
+    "backupManifestSha256":  "a46097b7b68a3967527c4fc101063d557089fc97228012c3b0fe8f42e6d598ed",
+    "dumpSha256":  "e88b7cbbae5b2aa30449373a21de7e3d7400912718132088d07e4166a169b148",
+    "expectedContentSha256":  "f261acde08c84455f4f8c75b99486130e4b17f26dbde6c9a29933a1940fc2c83",
+    "restoredContentSha256":  "f261acde08c84455f4f8c75b99486130e4b17f26dbde6c9a29933a1940fc2c83",
+    "isolatedPort":  55433,
+    "productionDatabaseTouched":  false,
+    "serviceStateChanged":  false,
+    "cleanupStatus":  "isolated_data_removed",
+    "profileRestoreVerified":  true,
+    "sequenceHealthVerified":  true,
+    "profileContentSha256":  "bf54fe9cf644ae3c1e3ee62e5b895cc9db61282a5d41435dd954e964087c62d4",
+    "policySyntaxEquivalenceVerified":  false,
+    "policySyntaxWitnessSha256":  ""
+}

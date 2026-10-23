@@ -1,0 +1,51 @@
+{
+  "localClosure": [
+    {
+      "path": "tools/release-closeout-report.mjs",
+      "sourceSha": "2538b8d5",
+      "sha256": "4fa19af7f938018a52df30d626e1159b87ad6973d7c9ad750a2be2d6214ea668",
+      "localLiteralImports": [
+        "tools/release-impact.mjs",
+        "tools/release-readonly-retry.mjs",
+        "tools/worker-local-release.mjs"
+      ]
+    },
+    {
+      "path": "tools/release-readonly-retry.mjs",
+      "sourceSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "1139287b2f9633dce57d7ea0b525e082c66382f521577c594817119f3f234ef6",
+      "localLiteralImports": [
+        "tools/worker-local-release.mjs"
+      ]
+    },
+    {
+      "path": "tools/worker-local-release.mjs",
+      "sourceSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+      "localLiteralImports": []
+    },
+    {
+      "path": "tools/release-impact.mjs",
+      "sourceSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164",
+      "localLiteralImports": [
+        "tools/worker-local-release.mjs"
+      ]
+    }
+  ],
+  "builtinsOrPackages": [
+    "node:child_process",
+    "node:crypto",
+    "node:fs",
+    "node:fs/promises",
+    "node:net",
+    "node:os",
+    "node:path",
+    "node:perf_hooks",
+    "node:sqlite",
+    "node:url",
+    "node:zlib",
+    "typescript"
+  ],
+  "boundary": "All literal import dependencies listed. Only safeProcessEvidence/safeObservationError/canonical/hash/safeRead and filesystem journal/report path are invoked; other lifecycle/build exports remain dormant."
+}

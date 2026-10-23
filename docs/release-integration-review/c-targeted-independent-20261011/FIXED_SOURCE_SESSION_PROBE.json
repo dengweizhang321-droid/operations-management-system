@@ -1,0 +1,24 @@
+{
+  "version": "teruisi-c-fixed-source-native-session-one-probe-v1",
+  "startedAt": "2026-10-11T10:40:04.955Z",
+  "finishedAt": "2026-10-11T10:40:20.027Z",
+  "status": "failed",
+  "sourceRoot": "D:/codex-isolated/release-first-adoption-targeted-20261011/adoption-source-v3",
+  "helperSha256": "b7355e8f36efe8be54dc1980334f87f109372b1bd743639160064d4034235bf6",
+  "sourceSha256": "dc1dbeeded593980c6712e7afabde0a053dfd13d8f6c4bb9375718330af2b8fb",
+  "batchSha256": "f0bb923070dc0741a6b76885b6fe08f54710928b0eda1398a9cab8452d1d6c9e",
+  "steps": [],
+  "failure": {
+    "type": "Error",
+    "knownFixedDiagnostic": "Inputs changed while evidence session was held",
+    "messageSha256": "7d2ea56a6ccb45a08e6a1274976dab021578d6100621f157d7bdb9df4304b0ce"
+  },
+  "identityMatchingSourceBinding": false,
+  "configurationValuesNotExported": true,
+  "onlySourceNodeNpmGitConfigurationInputsRead": true,
+  "fullBuiltPayloadNotRepeated": true,
+  "fullAdmissionOrReadyChecksNotPerformed": true,
+  "declaredFreshEntryOrBatchNotChanged": true,
+  "original214of215NotRewritten": true,
+  "productionActions": 0
+}

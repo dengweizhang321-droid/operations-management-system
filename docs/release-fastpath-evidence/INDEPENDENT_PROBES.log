@@ -1,0 +1,12 @@
+{"probe":"passive-text","expected":"display","actual":"display","passed":true}
+{"probe":"conditional-resource","expected":"strict","actual":"strict","passed":true}
+{"probe":"submit-control","expected":"strict","actual":"strict","passed":true}
+{"probe":"conditional-assignment","expected":"strict","actual":"strict","passed":true}
+{"probe":"tagged-template","expected":"strict","actual":"strict","passed":true}
+{"probe":"constructor","expected":"strict","actual":"strict","passed":true}
+{"probe":"other-event","expected":"strict","actual":"strict","passed":true}
+{"probe":"customized-builtin","expected":"strict","actual":"strict","passed":true}
+{"probe":"return-side-effect","expected":"strict","actual":"strict","passed":true}
+{"probe":"return-side-effect","expected":"strict","actual":"strict","passed":true}
+{"probe":"return-side-effect","expected":"strict","actual":"strict","passed":true}
+{"probe":"actual-byte-change-during-recheck","passed":true,"productionOperatorCalls":0}

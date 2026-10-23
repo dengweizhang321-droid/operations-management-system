@@ -1,0 +1,82 @@
+{
+  "version": "teruisi-c3032-technical-seams-independent-review-v1",
+  "reviewer": "/root/preparation_review",
+  "independent": true,
+  "nonAuthor": true,
+  "acceptedTechnicalRepairs": true,
+  "acceptedFinalProductionBatch": false,
+  "productionExecutionApproved": false,
+  "newProtectionPolicyAccepted": false,
+  "blockingFindingsWithinTargetedTechnicalScope": [],
+  "worktreeBase": "030024542ef76be081f69023fefb0601dd4d06b5",
+  "candidateReleaseId": "20261011T051645Z-3032ae332a32f1a0",
+  "candidateRoot": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T051645Z-3032ae332a32f1a0",
+  "objectsActuallyHashedBeforeAndAfter": {
+    "deployment-manifest.json": "58cc236e09f097f2c7aec054af9699fc7c0aca3bda1cd79d1c47cbf06efd1a8f",
+    "tools/release-batch-admission.mjs": "10a783535add546ed8f3e28930bad416d8d9d27f7acbe126d48f393a47db7415",
+    "tools/release-batch.mjs": "18f556319c7b14dbdcd32305584032f645abf1b3d6cb1827b9cee3b1ea6fa358",
+    "tools/release-impact.mjs": "24403c32b7788f53d585e51535c57fe870603e8f728ba1eb21c1c5b25cc5f548",
+    "tools/release-no-data-observation.mjs": "ab29843bca7c9afa7ad328fb6ba33d2f330f0c49dbb59fe50965d7a041508d4d",
+    "tools/worker-local-release.mjs": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+    "tools/worker-local-release-rotation.mjs": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+    "tools/release-readonly-retry.mjs": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab"
+  },
+  "objectsStable": true,
+  "oldFindingsDisposition": {
+    "B01": "Closed in this collector: complete slow content/recovery checks and final chain/Django/journal checks precede final Worker/helper and Status; actual observation time is retained and invalid/backward/>5000ms age rejects",
+    "UCF_DIAG_Collector": "Closed for the previously identified admission query: actual native process and bounded readiness are attached to NotReady error and retained on failed attempt",
+    "ObserverWAL": "Closed: successful/failing create-only fsync evidence goes to sibling _observations; original canonical event files remain byte-identical and journal reopens with correct passed/unknown state",
+    "oldF308Results": "Remain historical failures; no old file/report rewritten and no old failure relabeled normally successful"
+  },
+  "independentTests": {
+    "script": "independent-technical-seams.cjs",
+    "scriptSha256": "059a1889da7c3ee57af05ecab7edf19cd2e0f870b0e295f4972e88961c1213dd",
+    "stdout": "INDEPENDENT_TECHNICAL_TESTS.stdout.log",
+    "stdoutSha256": "00a2611ba5d174971ca2e6e7accf0a3daef2fec5562c440e99d28628d6f18483",
+    "stderr": "INDEPENDENT_TECHNICAL_TESTS.stderr.log",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "seedCommit": "0a1e1ad6342e457e75914d8c77c9d26c89a40721",
+    "seedPath": "tests/release-admission-observation-age.test.mjs",
+    "seedRawSha256": "c79b960eb09343c0f4df96238e7e5544a8a1c12dfbcb2c57949711a07d4a256d",
+    "seedUse": "Fixed Git scaffold only; independently authored eight cases and mutations, not the other owner's14-test suite. Original full collector/retry/readiness/bounded projection and observer/journal/writer bodies execute in VM.",
+    "cases": 8,
+    "pass": 8,
+    "fail": 0,
+    "exitCode": 0,
+    "elapsedMs": 96.67790000000001,
+    "results": [
+      "Slow bound-source scan preserves true native-return time; original source-binding/migration-closure seam calls remain required",
+      "Head manifestPath drift with other chain strings unchanged rejects before Status",
+      "Django digest drift during scan rejects before Status",
+      "WAL head drift during scan rejects before Status",
+      "Attempt persistence5001ms and backward age reject while retaining attempts/status/stages",
+      "Actual retry/readiness code keeps nonretryable NotReady PID123 and bounded state in error and persisted attempt; synthetic raw reason absent",
+      "Actual observer success writes fsynced sibling evidence; actual append and canonical journal remain readable with passed state",
+      "Actual observer failure writes fsynced sibling failure evidence; actual append and journal retain unknown and unchanged original event bytes"
+    ],
+    "productionModuleImports": 0,
+    "productionActions": 0,
+    "networkRequests": 0,
+    "payloadOrProbeChildProcesses": 0,
+    "readonlyGitMetadataSubprocesses": 1,
+    "stdoutNativeChildrenMeaning": "Payload/probe children only; the setup Git show used one read-only metadata child",
+    "privateTempRemoved": true,
+    "logPreservation": "Original tool-return stdout saved without rerunning for preservation; no stderr returned. Script is the actual executed file."
+  },
+  "scopeLimits": [
+    "SourceBinding tuple/identity and migration closure external reads use assertion-bearing controlled seams. This verifies original collector call/order/inputs, not complete live source-binding or migration qualification; no gate was edited out of frozen source.",
+    "Only observation body is synthetic in observer tests; actual wrapper, create-only/fsync writer, append, validation and journal bodies run against one bounded private temp root.",
+    "Manifest and seven small runtime objects were hashed before/after; no full dist/node_modules tree or database dump rehash by this reviewer. Root handles full source/tree/log audit; another reviewer handles install guards and rollback.",
+    "Django1e11 verifier/rotation byte identities remain same as3032 Worker tools; actual install/consumer invocation is not accepted by these VM tests.",
+    "The unchanged generic release-batch.runApprovedOperation readOnlyRetry.query still lacks a parse/assert catch attaching returned native/bounded readiness. Collector UCF-DIAG closure must not be generalized to that separate runner path; future exact batch use requires an explicit diagnosis design.",
+    "No production readiness, restoration, adoption or release-minute performance established.96.678ms is private VM test duration.",
+    "No signature for subsequent new owner source, protection policy, new artifact/batch or production approval"
+  ],
+  "latestHumanProtectionRequirement": {
+    "firstAdoptionPreBackupCount": 1,
+    "targetedNewRestoreToolConsumerChainRehearsalCount": 1,
+    "oldV4FourDatabaseFlow": "Historical reference only; not imposed as the current human requirement",
+    "strategyStillInDevelopment": true,
+    "approvedOrExecutedByThisReview": false
+  }
+}

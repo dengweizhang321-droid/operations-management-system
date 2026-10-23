@@ -1,0 +1,39 @@
+✔ WP3: failure, not-executed, unknown and independent reconciliation remain separate with original exit1 (36.1427ms)
+✔ WP3: matching fingerprint cannot hide a missing required check (25.5198ms)
+✔ WP3: recomputed test hash cannot hide sourceSha256 drift (16.8549ms)
+✔ WP3: recomputed test hash cannot hide artifactSha256 drift (19.1872ms)
+✔ WP3: validator version or byte closure must match its sealed digest (38.2452ms)
+✔ WP3: exact plan rejects changed candidateReleaseId (26.2707ms)
+✔ WP3: exact plan rejects changed predecessorReleaseId (22.8883ms)
+✔ WP3: exact plan rejects changed predecessorManifestSha256 (26.7139ms)
+✔ WP3: changed plan bytes and batch bytes are rejected (22.7163ms)
+✖ WP3: runtime freshness is separate from static completeness, including unknown and future (102.7574ms)
+✔ WP3: final V2 delivery preserves supersession and separates necessary, completed and delivery times (64.6845ms)
+✔ independent: completion interval cannot absorb work recorded after completion (0.3895ms)
+✔ independent: receipt whitelist rejects or removes unexpected sensitive field types (17.9749ms)
+✔ independent: incomplete batch timing remains uncompleted even with a stale closeout event (15.8096ms)
+✔ independent: interrupted operation report preserves already fsynced attempt metadata (13.3513ms)
+✔ independent: source/version projection cannot retain sensitive nested release identifiers (11.1922ms)
+✔ independent: independent runtime projection rejects sensitive nested identity fields (10.6276ms)
+✔ independent: report can preserve valid failure states from the actual system Status contract (10.659ms)
+✔ independent: observation sidecar timestamp is validated before projecting evidence (13.2812ms)
+✔ independent: report CLI does not print malformed evidence payload fragments (298.0693ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 19
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1117.8174
+
+✖ failing tests:
+
+test at tests\release-closeout-independent.test.mjs:107:1
+✖ WP3: runtime freshness is separate from static completeness, including unknown and future (102.7574ms)
+  SyntaxError: Unexpected token 'u', ..."heckedAt":undefined,"... is not valid JSON
+      at JSON.parse (<anonymous>)
+      at generateCloseoutDraft (file:///D:/codex-isolated/release-wp3-receipts-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/release-closeout-report.mjs:228:22)
+      at async TestContext.<anonymous> (file:///D:/codex-isolated/release-wp3-receipts-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-closeout-independent.test.mjs:112:15)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)

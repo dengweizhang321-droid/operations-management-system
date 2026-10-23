@@ -1,0 +1,27 @@
+{
+  "version":"teruisi-fresh-entry-second-draft-pending-review-v1",
+  "independent":true,
+  "acceptedEntryCandidate":false,
+  "productionExecutionApproved":false,
+  "status":"await-final-freeze-source-changed-before-semantic-tests",
+  "staticReadSha256":"5649f6e300f4b9b14ce1e45e49b7bcc22ca2bc87346641880114603f6f7ef071",
+  "pretestActualSha256":"fbebcb39e1df98e21a94ea1730a4302e58dcd635e091379f89a8106336e34a0a",
+  "static5649Conclusions":[
+    "Old preimport issue is addressed structurally: builtin bootstrap checks exact raw batch/collector/self, all module files and manifest keyFiles, complete dependency tree and TypeScript resolution before dynamic imports.",
+    "Normal stale assertion now attaches current stages/attempts, writes fixed create-only evidence and throws. No real31k tree check or semantic success was run here.",
+    "Remaining static seam: freshness writeOnce can throw EACCES or another ledger error and mask the already constructed stale error with its returned current evidence. Uniform safe retention is needed on that write-failure branch before accepting this draft.",
+    "Correction: original executeBatch427 persists successful current admission stages/status attempts before428 beforeOperation. A later verifyInputs error does not erase that WAL. Supplemental thrown-error diagnostics may be incomplete, but this is not a new claim that all sampling evidence is lost or a P1 source blocker."
+  ],
+  "executionEvidence":{
+    "test":"fresh-entry-independent-second.test.mjs",
+    "testSha256":"2d94dcab771bbf52feee2ae14ea944925ac784a319c0d4c11569396299228a0e",
+    "log":"FRESH_ENTRY_INDEPENDENT_SECOND.log",
+    "logSha256":"a65937d1705a912b42ef1363b8e40f1d8d850fc67e8855efa191fba6a66a8177",
+    "stderrSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "durationMs":93.4899,
+    "outcome":"Exact source-SHA gate rejected changed input before four semantic callbacks; zero semantic cases executed. This is not a functional test result for5649 orfbeb.",
+    "virtualModelsPlanned":"Builtin file/tree/pins reader seams and fake original API mirror WAL-before-beforeOperation ordering. They do not claim a true31k dependency hash, real collector or native operation."
+  },
+  "next":"Root will obtain final exact freeze; then test only that exact byte and inspect final spec. Old b7 snapshot/0-2 and this SHA rejection remain preserved.",
+  "actions":{"productionCalls":0,"collectorOrQualifyExecute":0,"fullTreeReads":0,"implementationChanges":0,"semanticTestsExecuted":0}
+}

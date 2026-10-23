@@ -1,0 +1,1922 @@
+[
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:52.837133+00:00",
+    "stage": "fixture_setup",
+    "sequence": 1,
+    "phase": "start",
+    "sampleCount": 12,
+    "productionWrites": 0
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:52.897138+00:00",
+    "stage": "fixture_setup",
+    "sequence": 1,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 59.949,
+    "sqlCount": 54,
+    "sqlMs": 47.99,
+    "slowestQueries": [
+      {
+        "kind": "INSERT",
+        "sqlSha256": "fd025dc0e229f2a7f4eaea0d5e85cd57afdf079b541bdefe25fa3589b34c6fdc",
+        "durationMs": 11.624
+      },
+      {
+        "kind": "INSERT",
+        "sqlSha256": "c48a81e20bf91d6f0cdcff85fc1b46de1f2f282f1e3c52749394d4bcfb4691ff",
+        "durationMs": 6.036
+      },
+      {
+        "kind": "INSERT",
+        "sqlSha256": "cea67b7a18c622d444085e719c028815c7d0dc30e5957725b7dc4c69b1e1eea5",
+        "durationMs": 4.328
+      }
+    ],
+    "sampleCount": 12,
+    "productionWrites": 0
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:52.897138+00:00",
+    "stage": "create_plan",
+    "sequence": 2,
+    "phase": "start",
+    "sampleCount": 12
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:52.992664+00:00",
+    "stage": "create_plan",
+    "sequence": 2,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 94.256,
+    "sqlCount": 83,
+    "sqlMs": 49.475,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "44f6858ce21dbf891faf243f232eccc70df790796df811fb7946b831e01f40ad",
+        "durationMs": 5.009
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "404dc4e2c2dbc3995426ea03ad832d7fa751c793662d3ba51a8cd42395c21b26",
+        "durationMs": 4.757
+      },
+      {
+        "kind": "INSERT",
+        "sqlSha256": "33489d4d2d7a09823bddd5fe9fc5193ff6f6c59047cd013e9d497c409a4d1f3e",
+        "durationMs": 3.58
+      }
+    ],
+    "sampleCount": 12
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:52.992664+00:00",
+    "stage": "read_created_plan",
+    "sequence": 3,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.014663+00:00",
+    "stage": "read_created_plan",
+    "sequence": 3,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 22.412,
+    "sqlCount": 21,
+    "sqlMs": 8.088,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "2b2c442fd004033cf0bc38cebcd3b7d1fcd12116686a74d200f0dfab69e65fea",
+        "durationMs": 1.039
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "5a944ff47264d79ab24be755580bf885bba85a095d0337f47c3b84cba1dfa252",
+        "durationMs": 0.575
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "51ecf0b242e4330ac6675bde9fa9931acec46a990ffcbc99dc7d6516919eef33",
+        "durationMs": 0.488
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.014663+00:00",
+    "stage": "accept_start",
+    "sequence": 4,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.026664+00:00",
+    "stage": "accept_start",
+    "sequence": 4,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 11.885,
+    "sqlCount": 22,
+    "sqlMs": 5.057,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "9601ed226bfe5cf1790742ab37fa0b3f5559ed701a30e8ca5c7699a100490ac5",
+        "durationMs": 0.364
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "e6140642b4f27aa8f41e6bee44004c224471bae1f6436d631f018acaf4e9a968",
+        "durationMs": 0.338
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "94e87c06ad47976fd57971bab7e10c06ae6245e0f28236dbbe6bcfe9b1d5d86d",
+        "durationMs": 0.337
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.027664+00:00",
+    "stage": "select_dispatch",
+    "sequence": 5,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.037681+00:00",
+    "stage": "select_dispatch",
+    "sequence": 5,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 10.407,
+    "sqlCount": 7,
+    "sqlMs": 3.292,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "c98d0b52670ee9c58d7833a4f23357998e9983cfcde330d31e72ca7094e55a3e",
+        "durationMs": 1.138
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "47645486108b9fc7b2a4add2b8822d0d8f0385f4c912e726bc294961200e9127",
+        "durationMs": 0.52
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "a3916a358a043c2f422594f350f82e2ef1593c9192a633a1fa0d2602f4066f8a",
+        "durationMs": 0.474
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.037681+00:00",
+    "stage": "acquire_coordinator",
+    "sequence": 6,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.049674+00:00",
+    "stage": "acquire_coordinator",
+    "sequence": 6,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 11.307,
+    "sqlCount": 20,
+    "sqlMs": 4.281,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "47645486108b9fc7b2a4add2b8822d0d8f0385f4c912e726bc294961200e9127",
+        "durationMs": 0.44
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "29a285bde83c07324f92fcbf1999f195164e5fb199482dd81929b3bb9a878ec1",
+        "durationMs": 0.332
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "e6140642b4f27aa8f41e6bee44004c224471bae1f6436d631f018acaf4e9a968",
+        "durationMs": 0.313
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.049674+00:00",
+    "stage": "claim_item",
+    "sequence": 7,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.077667+00:00",
+    "stage": "claim_item",
+    "sequence": 7,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 27.704,
+    "sqlCount": 30,
+    "sqlMs": 11.343,
+    "slowestQueries": [
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "4a4e95b03c3a057cdf18ad8406e9649de7b9cad1f04c48ff1e06f0e76a0e5c3e",
+        "durationMs": 2.006
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "7e8ec225b2e4bbb7b29c151030578cdef81cd55dc262ce93e9fe55975ceee6ac",
+        "durationMs": 1.477
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "015173f53df7501e036df8451c40711311d5117bba235e41281ac9476f7eaaeb",
+        "durationMs": 0.699
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.077667+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "A1",
+    "recognitionMode": "full"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.077667+00:00",
+    "stage": "claim_item",
+    "sequence": 8,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.104573+00:00",
+    "stage": "claim_item",
+    "sequence": 8,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 26.733,
+    "sqlCount": 30,
+    "sqlMs": 10.191,
+    "slowestQueries": [
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "4a4e95b03c3a057cdf18ad8406e9649de7b9cad1f04c48ff1e06f0e76a0e5c3e",
+        "durationMs": 1.318
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "7e8ec225b2e4bbb7b29c151030578cdef81cd55dc262ce93e9fe55975ceee6ac",
+        "durationMs": 1.27
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "015173f53df7501e036df8451c40711311d5117bba235e41281ac9476f7eaaeb",
+        "durationMs": 0.764
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.105111+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "A5",
+    "recognitionMode": "full"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.105111+00:00",
+    "stage": "claim_item",
+    "sequence": 9,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.128994+00:00",
+    "stage": "claim_item",
+    "sequence": 9,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 23.884,
+    "sqlCount": 30,
+    "sqlMs": 8.625,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "7e8ec225b2e4bbb7b29c151030578cdef81cd55dc262ce93e9fe55975ceee6ac",
+        "durationMs": 0.986
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "4a4e95b03c3a057cdf18ad8406e9649de7b9cad1f04c48ff1e06f0e76a0e5c3e",
+        "durationMs": 0.84
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "015173f53df7501e036df8451c40711311d5117bba235e41281ac9476f7eaaeb",
+        "durationMs": 0.482
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.128994+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "A3",
+    "recognitionMode": "full"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.128994+00:00",
+    "stage": "claim_item",
+    "sequence": 10,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.154928+00:00",
+    "stage": "claim_item",
+    "sequence": 10,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 26.109,
+    "sqlCount": 30,
+    "sqlMs": 9.678,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "7e8ec225b2e4bbb7b29c151030578cdef81cd55dc262ce93e9fe55975ceee6ac",
+        "durationMs": 1.569
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "4a4e95b03c3a057cdf18ad8406e9649de7b9cad1f04c48ff1e06f0e76a0e5c3e",
+        "durationMs": 0.686
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "015173f53df7501e036df8451c40711311d5117bba235e41281ac9476f7eaaeb",
+        "durationMs": 0.625
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.155928+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "A2",
+    "recognitionMode": "full"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.155928+00:00",
+    "stage": "claim_item",
+    "sequence": 11,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.247468+00:00",
+    "stage": "claim_item",
+    "sequence": 11,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 91.774,
+    "sqlCount": 30,
+    "sqlMs": 10.029,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "7e8ec225b2e4bbb7b29c151030578cdef81cd55dc262ce93e9fe55975ceee6ac",
+        "durationMs": 1.34
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "4a4e95b03c3a057cdf18ad8406e9649de7b9cad1f04c48ff1e06f0e76a0e5c3e",
+        "durationMs": 0.871
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "57895623dccb460e09cea1ae6d4d719589789c735dc2c8b2580ef8244ebb7a76",
+        "durationMs": 0.594
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.247468+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "A6",
+    "recognitionMode": "full"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.248468+00:00",
+    "stage": "claim_item",
+    "sequence": 12,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.273448+00:00",
+    "stage": "claim_item",
+    "sequence": 12,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 25.209,
+    "sqlCount": 30,
+    "sqlMs": 9.51,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "7e8ec225b2e4bbb7b29c151030578cdef81cd55dc262ce93e9fe55975ceee6ac",
+        "durationMs": 1.163
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "4a4e95b03c3a057cdf18ad8406e9649de7b9cad1f04c48ff1e06f0e76a0e5c3e",
+        "durationMs": 0.828
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "015173f53df7501e036df8451c40711311d5117bba235e41281ac9476f7eaaeb",
+        "durationMs": 0.527
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.273448+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "A4",
+    "recognitionMode": "full"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.273448+00:00",
+    "stage": "claim_item",
+    "sequence": 13,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.298964+00:00",
+    "stage": "claim_item",
+    "sequence": 13,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 25.199,
+    "sqlCount": 30,
+    "sqlMs": 9.315,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "7e8ec225b2e4bbb7b29c151030578cdef81cd55dc262ce93e9fe55975ceee6ac",
+        "durationMs": 1.053
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "4a4e95b03c3a057cdf18ad8406e9649de7b9cad1f04c48ff1e06f0e76a0e5c3e",
+        "durationMs": 0.721
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "015173f53df7501e036df8451c40711311d5117bba235e41281ac9476f7eaaeb",
+        "durationMs": 0.56
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.298964+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "B4",
+    "recognitionMode": "price_only"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.298964+00:00",
+    "stage": "claim_item",
+    "sequence": 14,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.322969+00:00",
+    "stage": "claim_item",
+    "sequence": 14,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 23.466,
+    "sqlCount": 30,
+    "sqlMs": 8.509,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "7e8ec225b2e4bbb7b29c151030578cdef81cd55dc262ce93e9fe55975ceee6ac",
+        "durationMs": 0.898
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "4a4e95b03c3a057cdf18ad8406e9649de7b9cad1f04c48ff1e06f0e76a0e5c3e",
+        "durationMs": 0.638
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "297799f642b08607439dc401302814f9a4961a67969aac866fac818438375c32",
+        "durationMs": 0.479
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.322969+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "B6",
+    "recognitionMode": "price_only"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.322969+00:00",
+    "stage": "claim_item",
+    "sequence": 15,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.347964+00:00",
+    "stage": "claim_item",
+    "sequence": 15,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 24.917,
+    "sqlCount": 30,
+    "sqlMs": 9.074,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "7e8ec225b2e4bbb7b29c151030578cdef81cd55dc262ce93e9fe55975ceee6ac",
+        "durationMs": 0.927
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "4a4e95b03c3a057cdf18ad8406e9649de7b9cad1f04c48ff1e06f0e76a0e5c3e",
+        "durationMs": 0.792
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "47645486108b9fc7b2a4add2b8822d0d8f0385f4c912e726bc294961200e9127",
+        "durationMs": 0.559
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.347964+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "B1",
+    "recognitionMode": "price_only"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.347964+00:00",
+    "stage": "claim_item",
+    "sequence": 16,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.372981+00:00",
+    "stage": "claim_item",
+    "sequence": 16,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 24.471,
+    "sqlCount": 30,
+    "sqlMs": 9.288,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "7e8ec225b2e4bbb7b29c151030578cdef81cd55dc262ce93e9fe55975ceee6ac",
+        "durationMs": 1.086
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "4a4e95b03c3a057cdf18ad8406e9649de7b9cad1f04c48ff1e06f0e76a0e5c3e",
+        "durationMs": 0.712
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "015173f53df7501e036df8451c40711311d5117bba235e41281ac9476f7eaaeb",
+        "durationMs": 0.55
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.372981+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "B5",
+    "recognitionMode": "price_only"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.372981+00:00",
+    "stage": "claim_item",
+    "sequence": 17,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.399998+00:00",
+    "stage": "claim_item",
+    "sequence": 17,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 27.088,
+    "sqlCount": 30,
+    "sqlMs": 10.129,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "7e8ec225b2e4bbb7b29c151030578cdef81cd55dc262ce93e9fe55975ceee6ac",
+        "durationMs": 0.902
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "4a4e95b03c3a057cdf18ad8406e9649de7b9cad1f04c48ff1e06f0e76a0e5c3e",
+        "durationMs": 0.759
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "57895623dccb460e09cea1ae6d4d719589789c735dc2c8b2580ef8244ebb7a76",
+        "durationMs": 0.667
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.400999+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "B3",
+    "recognitionMode": "price_only"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.400999+00:00",
+    "stage": "claim_item",
+    "sequence": 18,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.426140+00:00",
+    "stage": "claim_item",
+    "sequence": 18,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 24.836,
+    "sqlCount": 30,
+    "sqlMs": 9.116,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "7e8ec225b2e4bbb7b29c151030578cdef81cd55dc262ce93e9fe55975ceee6ac",
+        "durationMs": 1.052
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "4a4e95b03c3a057cdf18ad8406e9649de7b9cad1f04c48ff1e06f0e76a0e5c3e",
+        "durationMs": 0.655
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "47645486108b9fc7b2a4add2b8822d0d8f0385f4c912e726bc294961200e9127",
+        "durationMs": 0.607
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.426140+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "B2",
+    "recognitionMode": "price_only"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:36:53.434141+00:00",
+    "stage": "model_batch",
+    "phase": "start",
+    "variant": "no-thinking",
+    "concurrency": 12
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:01.486083+00:00",
+    "stage": "complete_item",
+    "sequence": 19,
+    "phase": "start",
+    "sampleId": "B1",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:01.509905+00:00",
+    "stage": "complete_item",
+    "sequence": 19,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 23.839,
+    "sqlCount": 30,
+    "sqlMs": 8.772,
+    "slowestQueries": [
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "8a566caf8b51cec772b0197360f05ce10e0319b18f1123200b0b9c128743e997",
+        "durationMs": 0.909
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "75a823fd770497df4755b6f4f33b3c801673d1260337bd1ff75e233dab62b9ab",
+        "durationMs": 0.646
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "6614de7c8f8cad5fa81bf2ba410648d963961bccb7498d88d180148e08f21237",
+        "durationMs": 0.507
+      }
+    ],
+    "sampleId": "B1",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:01.510948+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "B1",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "storedError": "",
+    "upstreamError": null,
+    "timingPersisted": true
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:03.499328+00:00",
+    "stage": "complete_item",
+    "sequence": 20,
+    "phase": "start",
+    "sampleId": "B2",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:03.523246+00:00",
+    "stage": "complete_item",
+    "sequence": 20,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 24.091,
+    "sqlCount": 30,
+    "sqlMs": 8.652,
+    "slowestQueries": [
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "8a566caf8b51cec772b0197360f05ce10e0319b18f1123200b0b9c128743e997",
+        "durationMs": 0.859
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "75a823fd770497df4755b6f4f33b3c801673d1260337bd1ff75e233dab62b9ab",
+        "durationMs": 0.544
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "6614de7c8f8cad5fa81bf2ba410648d963961bccb7498d88d180148e08f21237",
+        "durationMs": 0.535
+      }
+    ],
+    "sampleId": "B2",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:03.524247+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "B2",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "storedError": "",
+    "upstreamError": null,
+    "timingPersisted": true
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:03.805184+00:00",
+    "stage": "complete_item",
+    "sequence": 21,
+    "phase": "start",
+    "sampleId": "B4",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:03.826888+00:00",
+    "stage": "complete_item",
+    "sequence": 21,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 21.678,
+    "sqlCount": 30,
+    "sqlMs": 7.67,
+    "slowestQueries": [
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "8a566caf8b51cec772b0197360f05ce10e0319b18f1123200b0b9c128743e997",
+        "durationMs": 0.747
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "6614de7c8f8cad5fa81bf2ba410648d963961bccb7498d88d180148e08f21237",
+        "durationMs": 0.569
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "75a823fd770497df4755b6f4f33b3c801673d1260337bd1ff75e233dab62b9ab",
+        "durationMs": 0.476
+      }
+    ],
+    "sampleId": "B4",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:03.827888+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "B4",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "storedError": "",
+    "upstreamError": null,
+    "timingPersisted": true
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.445526+00:00",
+    "stage": "complete_item",
+    "sequence": 22,
+    "phase": "start",
+    "sampleId": "A4",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.469191+00:00",
+    "stage": "complete_item",
+    "sequence": 22,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 23.672,
+    "sqlCount": 30,
+    "sqlMs": 8.839,
+    "slowestQueries": [
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "f41c749302659b12f814682044bf8095ca945fae961abbe99d5e7f0279a2b332",
+        "durationMs": 1.012
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "204dd6d6b397090899ce07afc9e8e553293aede2d85b3e3e0c8c0dedb841c9c6",
+        "durationMs": 0.775
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "6614de7c8f8cad5fa81bf2ba410648d963961bccb7498d88d180148e08f21237",
+        "durationMs": 0.507
+      }
+    ],
+    "sampleId": "A4",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.470198+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "A4",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "storedError": "",
+    "upstreamError": null,
+    "timingPersisted": true
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.588808+00:00",
+    "stage": "complete_item",
+    "sequence": 23,
+    "phase": "start",
+    "sampleId": "B3",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.611859+00:00",
+    "stage": "complete_item",
+    "sequence": 23,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 22.721,
+    "sqlCount": 30,
+    "sqlMs": 8.132,
+    "slowestQueries": [
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "8a566caf8b51cec772b0197360f05ce10e0319b18f1123200b0b9c128743e997",
+        "durationMs": 0.796
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "75a823fd770497df4755b6f4f33b3c801673d1260337bd1ff75e233dab62b9ab",
+        "durationMs": 0.529
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "6614de7c8f8cad5fa81bf2ba410648d963961bccb7498d88d180148e08f21237",
+        "durationMs": 0.452
+      }
+    ],
+    "sampleId": "B3",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.612906+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "B3",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "storedError": "",
+    "upstreamError": null,
+    "timingPersisted": true
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.612906+00:00",
+    "stage": "complete_item",
+    "sequence": 24,
+    "phase": "start",
+    "sampleId": "A3",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.636492+00:00",
+    "stage": "complete_item",
+    "sequence": 24,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 23.503,
+    "sqlCount": 30,
+    "sqlMs": 9.515,
+    "slowestQueries": [
+      {
+        "kind": "INSERT",
+        "sqlSha256": "a2c32507ac0398fa862c7b075a36463d6185fb16e6b7958c4bc028c4676f8a42",
+        "durationMs": 1.485
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "f41c749302659b12f814682044bf8095ca945fae961abbe99d5e7f0279a2b332",
+        "durationMs": 0.787
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "204dd6d6b397090899ce07afc9e8e553293aede2d85b3e3e0c8c0dedb841c9c6",
+        "durationMs": 0.584
+      }
+    ],
+    "sampleId": "A3",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.637554+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "A3",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "storedError": "",
+    "upstreamError": null,
+    "timingPersisted": true
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.648794+00:00",
+    "stage": "complete_item",
+    "sequence": 25,
+    "phase": "start",
+    "sampleId": "A5",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.671814+00:00",
+    "stage": "complete_item",
+    "sequence": 25,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 23.445,
+    "sqlCount": 30,
+    "sqlMs": 8.71,
+    "slowestQueries": [
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "8a566caf8b51cec772b0197360f05ce10e0319b18f1123200b0b9c128743e997",
+        "durationMs": 1.088
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "75a823fd770497df4755b6f4f33b3c801673d1260337bd1ff75e233dab62b9ab",
+        "durationMs": 0.703
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "6614de7c8f8cad5fa81bf2ba410648d963961bccb7498d88d180148e08f21237",
+        "durationMs": 0.51
+      }
+    ],
+    "sampleId": "A5",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.672814+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "A5",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "storedError": "",
+    "upstreamError": null,
+    "timingPersisted": true
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.730720+00:00",
+    "stage": "complete_item",
+    "sequence": 26,
+    "phase": "start",
+    "sampleId": "A1",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.756353+00:00",
+    "stage": "complete_item",
+    "sequence": 26,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 25.273,
+    "sqlCount": 30,
+    "sqlMs": 9.28,
+    "slowestQueries": [
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "8a566caf8b51cec772b0197360f05ce10e0319b18f1123200b0b9c128743e997",
+        "durationMs": 1.04
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "75a823fd770497df4755b6f4f33b3c801673d1260337bd1ff75e233dab62b9ab",
+        "durationMs": 0.683
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "6614de7c8f8cad5fa81bf2ba410648d963961bccb7498d88d180148e08f21237",
+        "durationMs": 0.539
+      }
+    ],
+    "sampleId": "A1",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.758353+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "A1",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "storedError": "",
+    "upstreamError": null,
+    "timingPersisted": true
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.853834+00:00",
+    "stage": "complete_item",
+    "sequence": 27,
+    "phase": "start",
+    "sampleId": "B6",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.876998+00:00",
+    "stage": "complete_item",
+    "sequence": 27,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 23.259,
+    "sqlCount": 30,
+    "sqlMs": 8.991,
+    "slowestQueries": [
+      {
+        "kind": "INSERT",
+        "sqlSha256": "1756d715ce2275f773264fe4cbc0789e4125686be7498642943214741ffb2626",
+        "durationMs": 1.044
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "8a566caf8b51cec772b0197360f05ce10e0319b18f1123200b0b9c128743e997",
+        "durationMs": 0.752
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "75a823fd770497df4755b6f4f33b3c801673d1260337bd1ff75e233dab62b9ab",
+        "durationMs": 0.529
+      }
+    ],
+    "sampleId": "B6",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:05.877993+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "B6",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "storedError": "",
+    "upstreamError": null,
+    "timingPersisted": true
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:06.088761+00:00",
+    "stage": "complete_item",
+    "sequence": 28,
+    "phase": "start",
+    "sampleId": "A6",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:06.110778+00:00",
+    "stage": "complete_item",
+    "sequence": 28,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 22.605,
+    "sqlCount": 30,
+    "sqlMs": 8.286,
+    "slowestQueries": [
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "8a566caf8b51cec772b0197360f05ce10e0319b18f1123200b0b9c128743e997",
+        "durationMs": 0.852
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "75a823fd770497df4755b6f4f33b3c801673d1260337bd1ff75e233dab62b9ab",
+        "durationMs": 0.544
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "6614de7c8f8cad5fa81bf2ba410648d963961bccb7498d88d180148e08f21237",
+        "durationMs": 0.515
+      }
+    ],
+    "sampleId": "A6",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:06.111771+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "A6",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "storedError": "",
+    "upstreamError": null,
+    "timingPersisted": true
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:06.220402+00:00",
+    "stage": "complete_item",
+    "sequence": 29,
+    "phase": "start",
+    "sampleId": "B5",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:06.244459+00:00",
+    "stage": "complete_item",
+    "sequence": 29,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 23.971,
+    "sqlCount": 30,
+    "sqlMs": 8.631,
+    "slowestQueries": [
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "8a566caf8b51cec772b0197360f05ce10e0319b18f1123200b0b9c128743e997",
+        "durationMs": 0.816
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "75a823fd770497df4755b6f4f33b3c801673d1260337bd1ff75e233dab62b9ab",
+        "durationMs": 0.573
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "6614de7c8f8cad5fa81bf2ba410648d963961bccb7498d88d180148e08f21237",
+        "durationMs": 0.483
+      }
+    ],
+    "sampleId": "B5",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:06.245464+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "B5",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "storedError": "",
+    "upstreamError": null,
+    "timingPersisted": true
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.833179+00:00",
+    "stage": "complete_item",
+    "sequence": 30,
+    "phase": "start",
+    "sampleId": "A2",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.857950+00:00",
+    "stage": "complete_item",
+    "sequence": 30,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 24.291,
+    "sqlCount": 31,
+    "sqlMs": 9.015,
+    "slowestQueries": [
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "c68e00a6783d830a2e3541d387ebf7accb461bcdf2b4ce585379fa7be3c1d100",
+        "durationMs": 1.042
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "6a74dd5d69280b2277ee157452b7f0d106be2a0d5f5f23e2ea96326aa1a91a79",
+        "durationMs": 0.706
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "6614de7c8f8cad5fa81bf2ba410648d963961bccb7498d88d180148e08f21237",
+        "durationMs": 0.546
+      }
+    ],
+    "sampleId": "A2",
+    "modelOutcome": "success"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.858958+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "A2",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "storedError": "",
+    "upstreamError": null,
+    "timingPersisted": true
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.858958+00:00",
+    "stage": "model_batch",
+    "phase": "end",
+    "durationMs": 14422.0,
+    "providerReport": "D:\\codex-artifacts\\market-annotation-chain-audit-20261014\\model-trace-e07121fe-d33b-464e-85cc-271c404db3ec.json"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.858958+00:00",
+    "stage": "release_coordinator",
+    "sequence": 31,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.867153+00:00",
+    "stage": "release_coordinator",
+    "sequence": 31,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 7.755,
+    "sqlCount": 16,
+    "sqlMs": 3.011,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "e366712ada48d61d23222a212bd49a9c2c945279020e5fc8fa899020ba61d7e6",
+        "durationMs": 0.271
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "4a4e95b03c3a057cdf18ad8406e9649de7b9cad1f04c48ff1e06f0e76a0e5c3e",
+        "durationMs": 0.266
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "9601ed226bfe5cf1790742ab37fa0b3f5559ed701a30e8ca5c7699a100490ac5",
+        "durationMs": 0.254
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.868152+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 32,
+    "phase": "start",
+    "sampleId": "B1"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.881990+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 32,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 14.365,
+    "sqlCount": 23,
+    "sqlMs": 5.763,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "35f21cc174a10e59b4148c5f263cd633a87c44c7c5aa1753d1ad8b5bf45ad473",
+        "durationMs": 0.714
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "f09c4364754dbe7734ce4dd7fbb03d51031ee226b72363190be67fcbe10b9e90",
+        "durationMs": 0.476
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "25ee15563aef54a2f4b1ac780cabd7329ef384b63a13826aa5d9dfc029e82a9c",
+        "durationMs": 0.346
+      }
+    ],
+    "sampleId": "B1"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.883001+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 33,
+    "phase": "start",
+    "sampleId": "B2"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.897014+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 33,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 13.971,
+    "sqlCount": 23,
+    "sqlMs": 5.357,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "35f21cc174a10e59b4148c5f263cd633a87c44c7c5aa1753d1ad8b5bf45ad473",
+        "durationMs": 0.682
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "f09c4364754dbe7734ce4dd7fbb03d51031ee226b72363190be67fcbe10b9e90",
+        "durationMs": 0.363
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "25ee15563aef54a2f4b1ac780cabd7329ef384b63a13826aa5d9dfc029e82a9c",
+        "durationMs": 0.324
+      }
+    ],
+    "sampleId": "B2"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.898525+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 34,
+    "phase": "start",
+    "sampleId": "B4"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.913247+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 34,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 14.484,
+    "sqlCount": 23,
+    "sqlMs": 5.57,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "35f21cc174a10e59b4148c5f263cd633a87c44c7c5aa1753d1ad8b5bf45ad473",
+        "durationMs": 0.681
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "f09c4364754dbe7734ce4dd7fbb03d51031ee226b72363190be67fcbe10b9e90",
+        "durationMs": 0.351
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "25ee15563aef54a2f4b1ac780cabd7329ef384b63a13826aa5d9dfc029e82a9c",
+        "durationMs": 0.339
+      }
+    ],
+    "sampleId": "B4"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.913247+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 35,
+    "phase": "start",
+    "sampleId": "A4"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.927668+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 35,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 14.155,
+    "sqlCount": 23,
+    "sqlMs": 5.594,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "35f21cc174a10e59b4148c5f263cd633a87c44c7c5aa1753d1ad8b5bf45ad473",
+        "durationMs": 0.659
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "0159ac5cd89b74e4f5c41dc01ccbc0728fcf5865c0e16a9a50e9f0e273bf0cd8",
+        "durationMs": 0.425
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "25ee15563aef54a2f4b1ac780cabd7329ef384b63a13826aa5d9dfc029e82a9c",
+        "durationMs": 0.368
+      }
+    ],
+    "sampleId": "A4"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.928667+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 36,
+    "phase": "start",
+    "sampleId": "B3"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.942674+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 36,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 13.895,
+    "sqlCount": 23,
+    "sqlMs": 5.413,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "35f21cc174a10e59b4148c5f263cd633a87c44c7c5aa1753d1ad8b5bf45ad473",
+        "durationMs": 0.678
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "25ee15563aef54a2f4b1ac780cabd7329ef384b63a13826aa5d9dfc029e82a9c",
+        "durationMs": 0.443
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "f09c4364754dbe7734ce4dd7fbb03d51031ee226b72363190be67fcbe10b9e90",
+        "durationMs": 0.34
+      }
+    ],
+    "sampleId": "B3"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.943673+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 37,
+    "phase": "start",
+    "sampleId": "A3"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.957343+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 37,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 14.084,
+    "sqlCount": 23,
+    "sqlMs": 5.294,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "35f21cc174a10e59b4148c5f263cd633a87c44c7c5aa1753d1ad8b5bf45ad473",
+        "durationMs": 0.694
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "25ee15563aef54a2f4b1ac780cabd7329ef384b63a13826aa5d9dfc029e82a9c",
+        "durationMs": 0.361
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "0159ac5cd89b74e4f5c41dc01ccbc0728fcf5865c0e16a9a50e9f0e273bf0cd8",
+        "durationMs": 0.356
+      }
+    ],
+    "sampleId": "A3"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.958343+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 38,
+    "phase": "start",
+    "sampleId": "A5"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.972662+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 38,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 14.107,
+    "sqlCount": 23,
+    "sqlMs": 5.45,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "35f21cc174a10e59b4148c5f263cd633a87c44c7c5aa1753d1ad8b5bf45ad473",
+        "durationMs": 0.698
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "f09c4364754dbe7734ce4dd7fbb03d51031ee226b72363190be67fcbe10b9e90",
+        "durationMs": 0.355
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "25ee15563aef54a2f4b1ac780cabd7329ef384b63a13826aa5d9dfc029e82a9c",
+        "durationMs": 0.321
+      }
+    ],
+    "sampleId": "A5"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.973676+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 39,
+    "phase": "start",
+    "sampleId": "A1"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.987923+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 39,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 13.762,
+    "sqlCount": 23,
+    "sqlMs": 5.222,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "35f21cc174a10e59b4148c5f263cd633a87c44c7c5aa1753d1ad8b5bf45ad473",
+        "durationMs": 0.717
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "f09c4364754dbe7734ce4dd7fbb03d51031ee226b72363190be67fcbe10b9e90",
+        "durationMs": 0.338
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "25ee15563aef54a2f4b1ac780cabd7329ef384b63a13826aa5d9dfc029e82a9c",
+        "durationMs": 0.336
+      }
+    ],
+    "sampleId": "A1"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:07.988929+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 40,
+    "phase": "start",
+    "sampleId": "B6"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:08.003476+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 40,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 14.607,
+    "sqlCount": 23,
+    "sqlMs": 5.847,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "35f21cc174a10e59b4148c5f263cd633a87c44c7c5aa1753d1ad8b5bf45ad473",
+        "durationMs": 0.983
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "f09c4364754dbe7734ce4dd7fbb03d51031ee226b72363190be67fcbe10b9e90",
+        "durationMs": 0.395
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "25ee15563aef54a2f4b1ac780cabd7329ef384b63a13826aa5d9dfc029e82a9c",
+        "durationMs": 0.366
+      }
+    ],
+    "sampleId": "B6"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:08.004480+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 41,
+    "phase": "start",
+    "sampleId": "A6"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:08.018275+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 41,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 13.791,
+    "sqlCount": 23,
+    "sqlMs": 5.468,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "35f21cc174a10e59b4148c5f263cd633a87c44c7c5aa1753d1ad8b5bf45ad473",
+        "durationMs": 0.788
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "f09c4364754dbe7734ce4dd7fbb03d51031ee226b72363190be67fcbe10b9e90",
+        "durationMs": 0.339
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "25ee15563aef54a2f4b1ac780cabd7329ef384b63a13826aa5d9dfc029e82a9c",
+        "durationMs": 0.309
+      }
+    ],
+    "sampleId": "A6"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:08.019280+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 42,
+    "phase": "start",
+    "sampleId": "B5"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:08.034490+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 42,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 15.064,
+    "sqlCount": 23,
+    "sqlMs": 5.802,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "35f21cc174a10e59b4148c5f263cd633a87c44c7c5aa1753d1ad8b5bf45ad473",
+        "durationMs": 0.832
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "f09c4364754dbe7734ce4dd7fbb03d51031ee226b72363190be67fcbe10b9e90",
+        "durationMs": 0.54
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "25ee15563aef54a2f4b1ac780cabd7329ef384b63a13826aa5d9dfc029e82a9c",
+        "durationMs": 0.334
+      }
+    ],
+    "sampleId": "B5"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:08.034490+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 43,
+    "phase": "start",
+    "sampleId": "A2"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:08.049075+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 43,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 14.496,
+    "sqlCount": 23,
+    "sqlMs": 5.664,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "35f21cc174a10e59b4148c5f263cd633a87c44c7c5aa1753d1ad8b5bf45ad473",
+        "durationMs": 0.678
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "0936a2563462e2f801fb4e7710f9e5a72cf9f46795791e3a4704520ede65bc10",
+        "durationMs": 0.552
+      },
+      {
+        "kind": "UPDATE",
+        "sqlSha256": "f1050a23bbb0a5b2505a0f3ff98524a4c6fdd3162597122a4b563eb276253636",
+        "durationMs": 0.311
+      }
+    ],
+    "sampleId": "A2"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:08.050070+00:00",
+    "stage": "commit_reviewed_results",
+    "sequence": 44,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:08.192993+00:00",
+    "stage": "commit_reviewed_results",
+    "sequence": 44,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 142.989,
+    "sqlCount": 169,
+    "sqlMs": 61.425,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "02c6e8e866cb4706cf690307a5717ba2e4f1c9b466d7704f896d43122794f09b",
+        "durationMs": 4.456
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "6740a04cdcd69c7e5f3bc17b17176c6b525e3f731f1db6224d9678f83611448e",
+        "durationMs": 1.533
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "5defcdfb316a052683f2c35bd00efef2780c03581b11299ab5bff5ba7bfb1ec7",
+        "durationMs": 1.478
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:08.192993+00:00",
+    "stage": "commit_receipt_replay",
+    "sequence": 45,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:08.196560+00:00",
+    "stage": "commit_receipt_replay",
+    "sequence": 45,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 3.053,
+    "sqlCount": 3,
+    "sqlMs": 0.885,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "9601ed226bfe5cf1790742ab37fa0b3f5559ed701a30e8ca5c7699a100490ac5",
+        "durationMs": 0.34
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "46ec8c6fc40959f5ec25eb63d05b7b9d65ca01ffdfbb37479ea3e4eee96391ee",
+        "durationMs": 0.317
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "0a040e0902085acb22b594132f688a656d5e0c741540e7b5ec3b1518315b65da",
+        "durationMs": 0.228
+      }
+    ]
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:08.196560+00:00",
+    "stage": "final_progress_read",
+    "sequence": 46,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_02_session_header_non_thinking_chain-10ad8b6a",
+    "at": "2026-10-14T14:37:08.215564+00:00",
+    "stage": "final_progress_read",
+    "sequence": 46,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 18.751,
+    "sqlCount": 21,
+    "sqlMs": 6.596,
+    "slowestQueries": [
+      {
+        "kind": "SELECT",
+        "sqlSha256": "2b2c442fd004033cf0bc38cebcd3b7d1fcd12116686a74d200f0dfab69e65fea",
+        "durationMs": 0.651
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "ca7b103061e51ca0af246ef9558f1b83e666448ca2214380cd2e09b2918b55f0",
+        "durationMs": 0.448
+      },
+      {
+        "kind": "SELECT",
+        "sqlSha256": "51ecf0b242e4330ac6675bde9fa9931acec46a990ffcbc99dc7d6516919eef33",
+        "durationMs": 0.415
+      }
+    ]
+  }
+]

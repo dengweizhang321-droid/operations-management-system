@@ -1,0 +1,16 @@
+✔ first deadline helper upgrade is guarded, installed, read back and recoverable from an old eleven-entry predecessor (684.8774ms)
+✔ new candidate cannot omit the helper guard or replace it with foreign bytes (158.4412ms)
+✔ rotation plan binds predecessor CAS, immutable evidence and protected-entrypoint before/after hashes (135.2822ms)
+✔ rotation planning accepts a stopped verifier upgrade mixed with predecessor protected entrypoints (200.0218ms)
+✔ new rotation plans reject a candidate whose guarded batch entrypoint is absent from the immutable release (111.814ms)
+✔ new rotation plans reject manifest keyFiles drift before inspecting the protected root (111.9029ms)
+✔ test-only apply core activates and idempotently replays an approved first successor (712.6872ms)
+✔ apply resumes a half-installed protected entrypoint set while predecessor launch stays fail-closed (624.315ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3400.6921

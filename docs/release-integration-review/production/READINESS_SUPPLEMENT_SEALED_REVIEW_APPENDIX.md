@@ -1,0 +1,9 @@
+# 封存复核的最终文档附录
+
+仅静态核对最后PLAN和production/REPORT文档更新，接受，无新增阻断。原封存JSON SHA `50fdec38e75dbe8487eaa230fb2d88408b1867f763c5bd540eb4d788a7a80e84`、MD `60d7dff182d4a64b130d72acba59df3d212b97f0db85b32546291b42cc84a227`保持原字节，不覆写4771实核结果，也不再次扫描或执行native。
+
+PLAN此前SHA `f81f4ea9cc011bb455cc2744e646c4316e52827e071633f729b09b190d1866ac`，最终SHA **`6c9dcecf6630ede411bbd0bcab529d115ae2cd9d37445608b636fa8af222615b`**；production/REPORT最终SHA `0c14624bb5a5621f0b88225896f553d7ec9d07c1c5624bae9207f67e1b5dc608`。变化仅把待seal描述更新为实际4771/41/byte/time通过及“seal已通过”的批准前提；命令、唯一范围、1cae完整scope、历史失败/条件释放与新真人批准边界不变。
+
+新artifact可审查，原AB仍blocked，原19/21unknown、原20passed和source88保持；没有新批准或执行，不宣称实际NotReady已修好。作者/独立测试及准备/hash时间不冒充生产结果。旧较早的未批准/未开始快照在production/REPORT明确作为历史保留。
+
+本附录不批准生产执行。机器附录见 [READINESS_SUPPLEMENT_SEALED_REVIEW_APPENDIX.json](READINESS_SUPPLEMENT_SEALED_REVIEW_APPENDIX.json)。

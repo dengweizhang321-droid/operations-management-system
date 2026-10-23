@@ -1,0 +1,25 @@
+✖ V4 must not clear previous-package references when a relevant interpreter command line is unreadable (2.8869ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 118.4421
+
+✖ failing tests:
+
+test at docs\release-integration-review\c-final-independent-20261011\guard-null-process-counterexample.test.mjs:16:1
+✖ V4 must not clear previous-package references when a relevant interpreter command line is unreadable (2.8869ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-c-final-independent-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/c-final-independent-20261011/guard-null-process-counterexample.test.mjs:23:3)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /unknown|unreadable|incomplete/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }

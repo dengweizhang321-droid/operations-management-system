@@ -1,0 +1,38 @@
+{
+  "version":"teruisi-fresh-entry-v2-fixed-byte-independent-review-v1",
+  "independent":true,
+  "acceptedEntryCandidate":true,
+  "acceptedSealedBatchOrRealClosureQualification":false,
+  "productionExecutionApproved":false,
+  "blockingFindings":[],
+  "scope":"Only exact fresh-adoption-entry-v2.mjs6989 source and four isolated builtin/tree/pin/API models; not any unsealed new spec, real31k dependency tree, collector run, production adoption or C performance.",
+  "entryPath":"E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry-v2.mjs",
+  "entrySha256":"69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99",
+  "beforeAfterSHAMatched":true,
+  "snapshot":"fresh-entry-reviewed-v2.mjs.txt",
+  "snapshotSha256":"69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99",
+  "rootLiteral":{"expression":"path.resolve('D:/teruisi-runtime/teruisi-worker-sales')","evaluatedOriginalFixedRootMatched":true,"absolute":true,"controlCharacters":0,"log":"FRESH_ENTRY_V2_LITERAL.log","logSha256":"338f9317b7a120259ca439f558a2b3c57532aade63cc1ae8b2420146108a93b8"},
+  "verifiedBoundaries":[
+    "Builtin bootstrap structural checks precede candidate imports. Model full closure passes before3 virtual imports, and drifted release-impact pin rejects with0 imports; no target module is executed by this test.",
+    "Normal stale current produces STALE_ADMISSION_SNAPSHOT carrying original returned admissionStages/observationAttempts and writes fixed evidence before throw.",
+    "Injected freshness writeOnce EACCES still throws primary STALE_ADMISSION_SNAPSHOT, preserves current stages/attempts and evidenceSaveFailure.code=EACCES; it does not turn failure into success.",
+    "beforeOperation input EACCES is after the modeled original admission append; original427-428 source ordering retains sampling WAL stages/attempts. This is not alleged total evidence loss.",
+    "Static original verifyBatch/validateNoDataCollector remain; exact tests.evidence self/mode pin and full fresh collect without session preserve phase/step/onStatusAttempt/writeOnce/original operator semantics. Heavy pin checks precede sample and input recheck is followed by freshness rejection."
+  ],
+  "isolatedTests":{
+    "passed":4,"failed":0,"durationMs":133.4159,
+    "test":"fresh-entry-independent-v2.test.mjs","testSha256":"a8a2c8f77e7dc3e7048f31691b21e58a2d47adeb3c6ba8ce94a9d35f04eb4fa6",
+    "log":"FRESH_ENTRY_INDEPENDENT_V2_FINAL.log","logSha256":"f8961226cac4cdee5c41cb9cbe751fab92b8e4b98b839e2ae46a81cbe172c681",
+    "stderrSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "seams":"Actual entry text evaluated in VM with checkedFile/completeTree/digest results and API supplied by virtual fixtures. Engine validator functions are stubs; fake engine preserves original WAL-before-beforeOperation sequence. No product modules, actual tree/collector/native/CLI or production file writes.",
+    "syntaxCheck":"Actual6989 entry node --check exit0."
+  },
+  "fixtureCorrectionsAndFailurePreservation":[
+    "V2 first model0/4,135.3783ms was cross-realm deepStrictEqual prototype mismatch for returned synthetic tree; every field matched. Corrected only virtual tree return to JSON.parse within VM.",
+    "V2 fixed-model0/4,250.788ms was the fixture TS package raw response matched slash paths only on Windows; corrected fixture separator normalization. Original actor assertions/root unchanged.",
+    "FRESH_ENTRY_INDEPENDENT_V2.log and FIXED_MODEL.log both preserved; neither counted as source failures or successful boundary coverage.",
+    "Original b7 meaningful0/2,5649 source-drift gate and8bf genuine root0/4/literal failures remain unchanged. No old failure becomes success and counts are not added together."
+  ],
+  "remainingGates":["New exact spec must bind new v2 filename/selfSHA/mode and actual closure, raw tests, full19 operations/journal/approval; no pre-signature here.","Actual builtin completeTree/nodeModules identity/manifest and real native fresh collector qualification still need separately captured evidence.","Old in-process214/215 failures remain; this public API entry is a fresh first-adoption execution mode, not proof C session optimization or speed passed.","Production exact batch approval remains required."],
+  "actions":{"productionExecuteQualifyCollector":0,"realTreeOrPayloadScan":0,"productImports":0,"implementationChanges":0,"privateModels":4}
+}

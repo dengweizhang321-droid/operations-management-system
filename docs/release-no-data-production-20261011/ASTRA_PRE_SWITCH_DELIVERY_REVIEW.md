@@ -1,0 +1,19 @@
+# Pre-switch Git delivery review
+
+2026-10-12. Scope: this task's `docs/release-no-data-production-20261011` only. This is a delivery review of implementation, records and archived evidence, not final release acceptance. No production command, environment/cipher read, candidate modification or process query was performed.
+
+**Git conclusion:** no additional concrete blocker to committing this bounded task directory was found. Git status showed only this untracked task directory; no application/runtime source or configuration change is included. The scripts are explicit task tools with fixed paths/batch/proof/entry constraints; they do not modify the original engine or supply a generic privileged command broker. Frozen failures and superseded wrappers remain identifiable. The directory-local `-text` attributes preserve the exact script/evidence bytes rather than changing their sealed hashes through line-ending conversion.
+
+Evidence independently checked:
+
+- The pre-switch inventory has exactly 49 entries. Every archived byte count and SHA256 matches its inventory. This includes the original ten-event WAL snapshot retaining backup-pre unknown, actual backup audit, original Verify receipts, failures and review records.
+- The recorded four-suite regression log reports 45/45 passed. Its 39 recorded source bindings all still match current files. Newly added waiting transport was separately syntax/static-reviewed; it is not included retroactively in those 45 tests. Earlier 10/10, 25/25 and 35/35 records describe their respective iterations and are not additive totals.
+- The resource archive reports 55 samples, zero resource failures, 19 distinct natural watchdog snapshots, 13 healthy and 6 not healthy, across 2026-10-11T16:12:18.951Z–16:39:19.877Z. Static CSS reachability does not demonstrate uninterrupted business readiness. The six non-healthy snapshots remain present and must not be collapsed into an all-green claim.
+- No dump, complete database backup manifest, `.env`, DPAPI ciphertext file or cipher metadata manifest is present in the Git task directory. A bounded high-confidence credential-pattern scan found no matches. The reviewed environment code stores actual values only through memory/pipes and a separately protected transient ciphertext file; public records retain hashes and field names. This review did not open the live ciphertext or capture environment values.
+- AGY's original nonempty responses and corrections are retained. Nonzero_exit with timeoutType null is not relabeled a timeout. Text review and isolated tests are not represented as production append or Restore proof.
+
+`PRODUCTION.md` correctly distinguishes a real completed backup/archive plus database retention from the failed outer operation, blocked release retention, unresolved original WAL result, and still-required isolated Restore/acceptance. The successful 15-stage admission does not establish final release success. The original environment failure, subsequent exact-environment restoration, UAC cancellation and PS5 encoding launch failure are explicitly recorded rather than hidden from elapsed release cost.
+
+At this review's boundary, Root reports the V3 reconciliation process is performing its full bootstrap and the bounded resume2 waiter has started. This reviewer has not independently observed a successful actual CAS/readback or final release result, and the archived pre-switch state must not be described as either. The human's delegated same-release decision authority remains limited to the approved release objective and does not authorize arbitrary state rewriting or weakened acceptance.
+
+After actual reconciliation and execution results arrive, append their exact WAL/receipt/owner-release evidence separately. Do not replace this pre-switch snapshot, reinterpret it as a success snapshot, or mark the production rollout accepted merely because this Git delivery is ready.

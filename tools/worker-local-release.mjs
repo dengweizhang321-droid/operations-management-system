@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+import { mkdtempSync, openSync, closeSync, fstatSync, readSync, unlinkSync, rmdirSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { createHash, randomUUID } from "node:crypto";
 import {
   copyFile,
@@ -138,6 +140,7 @@ export const workerHelperPort = 5791;
 export const releaseVersion = "teruisi-local-worker-release-v1";
 export const verificationVersion = "teruisi-local-worker-release-verification-v1";
 export const contractReceiptVersion = "teruisi-sales-retired-code-receipt-v1";
+export const codeOnlyContractReceiptVersion = "teruisi-sales-retired-code-receipt-v2";
 export const helperReceiptVersion = "teruisi-worker-helper-build-receipt-v1";
 export const processReceiptVersion = "teruisi-local-worker-process-v1";
 export const supervisorPrelaunchVerificationReceiptVersion = "teruisi-local-worker-supervisor-prelaunch-verification-v1";
@@ -158,7 +161,11 @@ export const salesRetirementMigrationSha256 = "f981a62efd0515a7f64dd9f174151b8cf
 // mutable-root, resource and health tests.  The trusted Django verifier uses
 // this as the build-code trust root; the candidate cannot self-certify a
 // weakened bundle builder.
-export const trustedHelperBuilderSha256 = "ccf1e8252dce50b7cbe20fa84ea9dfa654b03ec689993d3504f469e7c366ad38";
+export const trustedHelperBuilderSha256 = "d92131f6bf5dbc5eb22c7d3b6925f31e22eff971859d80019a5921c7a0987d09";
+const trustedHelperBuilderByVersion = Object.freeze({
+  "teruisi-worker-helper-build-v1": "ccf1e8252dce50b7cbe20fa84ea9dfa654b03ec689993d3504f469e7c366ad38",
+  "teruisi-worker-helper-build-v2": trustedHelperBuilderSha256,
+});
 
 const salesContractTestFiles = Object.freeze([
   "tests/sales-d1-retirement.test.ts",
@@ -215,7 +222,7 @@ const requiredHelperResourceOutputPaths = Object.freeze([
   "jd-credential-vault.ps1",
   "tmall-credential-vault.ps1",
 ]);
-export const workerGuardEntrypointPaths = Object.freeze([
+export const workerLegacyGuardEntrypointPaths = Object.freeze([
   "package.json",
   "运行项目.bat",
   "tools/operations-system-control.ps1",
@@ -228,6 +235,7 @@ export const workerGuardEntrypointPaths = Object.freeze([
   "tools/worker-local-service.ps1",
   activationFenceRelativePath,
 ]);
+export const workerGuardEntrypointPaths = Object.freeze([...workerLegacyGuardEntrypointPaths, "tools/process-deadline.ps1"]);
 export const workerGuardCheckNames = Object.freeze([
   "packageScriptsControlled",
   "batchEntrypointControlled",
@@ -244,12 +252,30 @@ export const workerReleaseBundledSourcePaths = Object.freeze([
   ...workerGuardEntrypointPaths,
   "package-lock.json",
   "tools/worker-local-runtime-supervisor.mjs",
+  "tools/release-batch.mjs",
+  "tools/release-no-data-observation.mjs",
+  "tools/release-impact.mjs",
+  "tools/release-batch-admission.mjs",
+  "tools/release-admission-timing.mjs",
+  "tools/release-preparation-evidence.mjs",
+  "tools/release-readonly-retry.mjs",
+  "tools/release-daily-backup.mjs",
+  "tools/release-lifecycle-step.ps1",
 ]);
 export const workerReleaseKeyFilePaths = Object.freeze([
   "dist/server/index.js",
   "dist/server/wrangler.json",
   ...workerGuardEntrypointPaths,
   "tools/worker-local-runtime-supervisor.mjs",
+  "tools/release-batch.mjs",
+  "tools/release-no-data-observation.mjs",
+  "tools/release-impact.mjs",
+  "tools/release-batch-admission.mjs",
+  "tools/release-admission-timing.mjs",
+  "tools/release-preparation-evidence.mjs",
+  "tools/release-readonly-retry.mjs",
+  "tools/release-daily-backup.mjs",
+  "tools/release-lifecycle-step.ps1",
   "helper/tmall-workflow-helper.mjs",
 ]);
 const modulePath = fileURLToPath(import.meta.url);
@@ -367,6 +393,112 @@ function isWithinWindowsPath(parent, child) {
   return childValue === parentValue || childValue.startsWith(`${parentValue}\\`);
 }
 
+export const workerSourceBindingVersion = "teruisi-worker-source-binding-v1";
+const sourceExcludedRoots=Object.freeze([workerRuntimeRoot,workerProtectedSourceRoot,workerPersistRoot,workerSourceRoot,workerLegacySourceRoot,"D:\\teruisi-runtime\\django-sales"]);
+export function validateWorkerSourceBinding(envelope, { predecessor, predecessorChainStateSha256, identity } = {}) {
+  assertExactKeys(envelope, ["raw", "sha256"], "source binding envelope");
+  if (typeof envelope.raw !== "string" || Buffer.byteLength(envelope.raw) > 1024 * 1024
+    || !hex64.test(envelope.sha256 ?? "") || sha256Bytes(Buffer.from(envelope.raw)) !== envelope.sha256) fail("Source binding bytes changed");
+  let value;
+  try { value = JSON.parse(envelope.raw); } catch { fail("Source binding is not JSON"); }
+  assertExactKeys(value, ["version", "sourceRoot", "sourceRootPathSha256", "predecessor", "predecessorChainStateSha256", "identity"], "source binding");
+  if (value.version !== workerSourceBindingVersion || envelope.raw !== `${canonicalJson(value)}\n`) fail("Source binding must be exact canonical v1 bytes");
+  if (typeof value.sourceRoot !== "string" || !path.win32.isAbsolute(value.sourceRoot)
+    || path.win32.normalize(value.sourceRoot) !== value.sourceRoot || value.sourceRoot.endsWith("\\")
+    || windowsPathSha256(value.sourceRoot) !== value.sourceRootPathSha256) fail("Source binding path is not canonical and bound");
+  for (const protectedRoot of sourceExcludedRoots) {
+    if (isWithinWindowsPath(protectedRoot, value.sourceRoot) || isWithinWindowsPath(value.sourceRoot, protectedRoot)) fail("Bound source overlaps an existing protected/runtime/source authority");
+  }
+  const prior = value.predecessor;
+  assertExactKeys(prior, ["version", "releaseId", "manifestSha256", "guardReceiptSha256", "bindingSha256"], "source predecessor");
+  const { bindingSha256, ...core } = prior;
+  if (prior.version !== "teruisi-local-worker-release-binding-v1" || !releaseIdPattern.test(prior.releaseId ?? "")
+    || ![prior.manifestSha256, prior.guardReceiptSha256, bindingSha256, value.predecessorChainStateSha256].every(v => hex64.test(v ?? ""))
+    || sha256Canonical(core) !== bindingSha256) fail("Source binding predecessor is invalid");
+  const inputs = value.identity;
+  assertExactKeys(inputs, ["version", "sourceTree", "sourceInventorySha256", "nodeExecutableSha256", "runtimeConfigurationSha256", "externalNpmConfiguration", "toolchain", "environmentSha256"], "source preparation identity");
+  assertExactKeys(inputs.sourceTree, ["algorithm", "fileCount", "sha256"], "source binding tree");
+  if (inputs.version !== "teruisi-worker-preparation-identity-v1" || inputs.sourceTree.algorithm !== treeHashAlgorithm
+    || !Number.isSafeInteger(inputs.sourceTree.fileCount) || inputs.sourceTree.fileCount < 1
+    || ![inputs.sourceTree.sha256,inputs.sourceInventorySha256,inputs.nodeExecutableSha256,inputs.runtimeConfigurationSha256,inputs.environmentSha256].every(v=>hex64.test(v??""))) fail("Incomplete source preparation identity");
+  assertExactKeys(inputs.externalNpmConfiguration,["userconfig","globalconfig"],"source npm configuration");
+  for(const item of Object.values(inputs.externalNpmConfiguration)) {
+    assertExactKeys(item,["pathSha256","contentSha256"],"source npm configuration item");
+    if(!hex64.test(item.pathSha256??"") || !(item.contentSha256===null||hex64.test(item.contentSha256??"")))fail("Invalid bound npm configuration");
+  }
+  assertExactKeys(inputs.toolchain,["nodeVersion","nodeExecutablePathSha256","npmVersion","npmPackageRootRelativePath","npmPackageRootPathSha256","npmCliRelativePath","npmCliPathSha256","npmCliSha256","npmPackageJsonRelativePath","npmPackageJsonPathSha256","npmPackageJsonSha256","npmPackageTree","npmCiArguments"],"source toolchain");
+  if (predecessor && canonicalJson(prior) !== canonicalJson(predecessor)) fail("Source binding actual predecessor changed");
+  if (predecessorChainStateSha256 && value.predecessorChainStateSha256 !== predecessorChainStateSha256) fail("Source binding predecessor chain changed");
+  if (identity && canonicalJson(inputs) !== canonicalJson(identity)) fail("Bound source/configuration/toolchain identity changed");
+  return value;
+}
+async function readBoundRegularFile(target, label) {
+  const before=await assertRegularFile(target,label);
+  if(before.nlink!==1)fail(`${label} must not be hard-linked`);
+  const raw=await readStableRegularFile(target,label),after=await assertRegularFile(target,label);
+  if(after.nlink!==1||before.ino!==after.ino||before.dev!==after.dev||before.ctimeMs!==after.ctimeMs)fail(`${label} changed while reading`);
+  return raw;
+}
+export async function assertBoundWorkerSourceLocation(sourceRoot) {
+  await assertNoReparsePoint(sourceRoot,{label:"bound source root"});
+  const physicalSource=await realpath(sourceRoot);
+  if(!(await lstat(sourceRoot)).isDirectory())fail("Bound source must be a directory");
+  for(const protectedRoot of sourceExcludedRoots) {
+    let existing=protectedRoot;
+    while(true) {
+      try { await lstat(existing);break; }
+      catch(error) { if(error.code!=="ENOENT")throw error;const parent=path.dirname(existing);if(parent===existing)throw error;existing=parent; }
+    }
+    await assertNoReparsePoint(existing,{label:"source excluded root ancestor"});
+    const physicalProtected=path.resolve(await realpath(existing),path.relative(existing,protectedRoot));
+    if(isWithinWindowsPath(physicalProtected,physicalSource)||isWithinWindowsPath(physicalSource,physicalProtected))fail("Bound source physically overlaps an existing authority");
+  }
+}
+export async function readWorkerSourceBinding(target, expectedSha256) {
+  if(typeof target!=="string"||!path.win32.isAbsolute(target)||!hex64.test(expectedSha256??""))fail("Exact absolute source-binding file and SHA-256 required");
+  if((await assertRegularFile(target,"source binding input")).size>1024*1024)fail("Source binding input exceeds bounded size");
+  const raw=(await readBoundRegularFile(target,"source binding input")).toString("utf8");
+  const envelope={raw,sha256:expectedSha256},value=validateWorkerSourceBinding(envelope);
+  if(isWithinWindowsPath(value.sourceRoot,target))fail("Source binding input must be outside its own source inventory");
+  await assertBoundWorkerSourceLocation(value.sourceRoot);
+  return envelope;
+}
+export async function verifyBoundWorkerSource(envelope, context={}) {
+  const value=validateWorkerSourceBinding(envelope,context);
+  await assertBoundWorkerSourceLocation(value.sourceRoot);
+  // The controlled identity reader checks paths, single links and read-time
+  // changes while producing both hashes. No digest survives this call.
+  const identity=await workerPreparationIdentity(value.sourceRoot);
+  validateWorkerSourceBinding(envelope,{...context,identity});
+  return {sourceRoot:value.sourceRoot,identity};
+}
+export function assertWorkerSourceBindingTuple({sourceBinding,manifest,plan,receipt}) {
+  const envelope=sourceBinding??manifest?.source?.sourceBinding??plan?.sourceBinding;
+  if(!envelope) {
+    if(manifest?.source?.sourceBinding || plan?.sourceBinding || receipt?.sourceBinding)fail("Unexpected source binding tuple");
+    return workerSourceRoot;
+  }
+  const value=validateWorkerSourceBinding(envelope,plan?{predecessor:plan.predecessor,predecessorChainStateSha256:plan.predecessorChainStateSha256}:{});
+  for(const item of [manifest?.source,plan,receipt].filter(Boolean))if(canonicalJson(item.sourceBinding)!==canonicalJson(envelope))fail("Source binding tuple differs");
+  if(manifest && (manifest.source.rootPathSha256!==value.sourceRootPathSha256 || canonicalJson(manifest.source.tree)!==canonicalJson(value.identity.sourceTree)))fail("Manifest does not bind source input");
+  if(receipt && canonicalJson(receipt.identity)!==canonicalJson(value.identity))fail("Prepared receipt does not bind source identity");
+  return value.sourceRoot;
+}
+export function workerSourceRootForBatch(batch) {
+  if(!batch.sourceBinding) {
+    if(Object.hasOwn(batch.binding,"sourceBindingSha256"))fail("Batch source binding is missing");
+    return workerSourceRoot;
+  }
+  const value=validateWorkerSourceBinding(batch.sourceBinding);
+  if(batch.binding.sourceBindingSha256!==batch.sourceBinding.sha256
+    ||batch.binding.sourceSha256!==value.identity.sourceTree.sha256
+    ||batch.binding.sourceInventorySha256!==value.identity.sourceInventorySha256
+    ||batch.binding.predecessorSha256!==value.predecessor.bindingSha256
+    ||batch.binding.toolchainSha256!==sha256Canonical({node:value.identity.nodeExecutableSha256,toolchain:value.identity.toolchain})
+    ||batch.binding.configurationSha256!==sha256Canonical({environment:value.identity.environmentSha256,runtime:value.identity.runtimeConfigurationSha256,npm:value.identity.externalNpmConfiguration}))fail("Batch source binding identity differs");
+  return value.sourceRoot;
+}
+
 export function assertWorkerManifestProvenance(manifest, { allowTestRuntimeRoot = false } = {}) {
   const source = assertPlainObject(manifest?.source, "manifest source provenance");
   const build = assertPlainObject(manifest?.build, "manifest build provenance");
@@ -408,6 +540,12 @@ export function assertWorkerManifestProvenance(manifest, { allowTestRuntimeRoot 
     windowsPathSha256(workerLegacySourceRoot),
     windowsPathSha256(workerSourceRoot),
   ]);
+  if (source.sourceBinding) {
+    assertWorkerSourceBindingTuple({manifest});
+    const inputs=validateWorkerSourceBinding(source.sourceBinding).identity;
+    if(Object.entries(inputs.toolchain).some(([key,value])=>canonicalJson(build[key])!==canonicalJson(value)))fail("Manifest build differs from bound source toolchain");
+    acceptedProductionSourceRoots.add(source.rootPathSha256);
+  }
   if (!allowTestRuntimeRoot && (
     !acceptedProductionSourceRoots.has(source.rootPathSha256)
     || canonicalWindowsPath(runtime.protectedSourceRoot) !== canonicalWindowsPath(workerProtectedSourceRoot)
@@ -624,131 +762,168 @@ function processDiagnosticExcerpt(buffer, cwd, env, command, args) {
   return `${sanitized.slice(0, side)}...[redacted/truncated]...${sanitized.slice(-side)}`;
 }
 
+export function safeProcessEvidence(value) {
+  if (!value || typeof value !== "object") return null;
+  const result = {};
+  for (const key of ["version","processId","exitCode","deadlineUnixMs","elapsedMs","stdoutBytes","stderrBytes"]) {
+    if (value[key] === null || Number.isSafeInteger(value[key])) result[key] = value[key];
+  }
+  for (const key of ["code","stage","timeoutType","outputProtocol","cleanup","nativeCode"]) {
+    if (typeof value[key] === "string" && /^[a-z][a-z0-9_-]{0,39}$/i.test(value[key])) result[key] = value[key];
+  }
+  for (const key of ["stdoutSha256","stderrSha256"]) if (/^[a-f0-9]{64}$/.test(value[key] ?? "")) result[key] = value[key];
+  return result;
+}
+export function processDeadline(timeoutMs = 600_000, inherited = process.env.TERUISI_PROCESS_DEADLINE_UNIX_MS) {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 1_800_000) fail("子进程时限无效");
+  if (inherited !== undefined && (!/^\d+$/.test(String(inherited)) || !Number.isSafeInteger(Number(inherited)))) fail("子进程绝对期限无效");
+  return Math.min(Date.now() + timeoutMs, inherited === undefined ? Infinity : Number(inherited));
+}
 export async function runProcess(command, args, {
-  cwd,
-  env = process.env,
-  label = "进程",
-  maxOutputBytes = 16 * 1024 * 1024,
-  timeoutMs = 10 * 60 * 1000,
+  cwd, env = process.env, label = "进程", maxOutputBytes = 16 * 1024 * 1024,
+  timeoutMs = 600_000, deadlineUnixMs = processDeadline(timeoutMs, env.TERUISI_PROCESS_DEADLINE_UNIX_MS),
+  outputProtocol = "eof", cleanup = "tree", captureOutputBuffers = false,
 } = {}) {
-  if (!Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 1 || maxOutputBytes > 64 * 1024 * 1024) {
-    fail("子进程输出上限无效");
-  }
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30 * 60 * 1000) {
-    fail("子进程时限无效");
-  }
+  if (!Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 1 || maxOutputBytes > 64 * 1024 * 1024) fail("子进程输出上限无效");
+  if (!Number.isSafeInteger(deadlineUnixMs) || !["eof", "direct-exit-files"].includes(outputProtocol) || !["tree", "direct", "preserve"].includes(cleanup)) fail("子进程协议无效");
+  const deadline = Math.min(deadlineUnixMs, processDeadline(timeoutMs, env.TERUISI_PROCESS_DEADLINE_UNIX_MS));
+  const started = performance.now();
   return new Promise((resolveRun, rejectRun) => {
-    const stdout = [];
-    const stderr = [];
-    let outputBytes = 0;
-    let outputChunks = 0;
-    let forcedFailure = null;
-    let settled = false;
-    let child;
-    let timeout;
-    let killGrace;
-    const clearTimers = () => {
-      if (timeout) clearTimeout(timeout);
-      if (killGrace) clearTimeout(killGrace);
-    };
-    const failureError = (reason) => {
-      const stdoutBuffer = Buffer.concat(stdout);
-      const stderrBuffer = Buffer.concat(stderr);
-      const diagnostics = [];
-      if (stderrBuffer.length > 0) diagnostics.push(`stderr=${processDiagnosticExcerpt(stderrBuffer, cwd, env, command, args)}`);
-      if (stdoutBuffer.length > 0) diagnostics.push(`stdout=${processDiagnosticExcerpt(stdoutBuffer, cwd, env, command, args)}`);
-      return new Error(`${label}失败：${reason}${diagnostics.length > 0 ? ` (${diagnostics.join("; ")})` : ""}`);
-    };
-    const rejectOnce = (error) => {
-      if (settled) return;
-      settled = true;
-      clearTimers();
-      rejectRun(error);
-    };
-    const resolveOnce = (value) => {
-      if (settled) return;
-      settled = true;
-      clearTimers();
-      resolveRun(value);
-    };
-    try {
-      child = spawn(command, args, {
-        cwd,
-        env,
-        shell: false,
-        windowsHide: true,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-    } catch (error) {
-      const code = error && typeof error === "object" && typeof error.code === "string" ? error.code : "unknown";
-      rejectOnce(new Error(`${label}启动失败：code=${code}`));
-      return;
-    }
-    const terminateControlledTree = (reason) => {
-      if (!forcedFailure) forcedFailure = reason;
-      if (process.platform === "win32" && Number.isSafeInteger(child.pid) && child.pid > 0) {
-        try {
-          const killer = spawn("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"], {
-            shell: false,
-            windowsHide: true,
-            stdio: "ignore",
-          });
-          killer.once("error", () => {
-            try { child.kill("SIGKILL"); } catch {}
-          });
-          killer.once("close", () => {
-            try { child.kill("SIGKILL"); } catch {}
-          });
-        } catch {
-          try { child.kill("SIGKILL"); } catch {}
+    const stdout = [], stderr = [];
+    let bytes = 0, chunks = 0, child, killer, timer, cleanupTimer, poll, root, handles = [];
+    let treeCleanupPending = false, treeCleanupExitCode = null, nativeCode = null;
+    let settled = false, directExited = false, exitCode = null, exitSignal = null, forcedFailure = null;
+    const evidence = (code, stage) => ({ version: 1, code, stage, processId: child?.pid ?? null, exitCode,
+      signal: exitSignal, timeoutType: code === "process_timeout" ? stage : null,
+      deadlineUnixMs: deadline, elapsedMs: Math.round(performance.now() - started), outputProtocol, cleanup,
+      stdoutBytes: stdout.reduce((n,b)=>n+b.length,0), stderrBytes: stderr.reduce((n,b)=>n+b.length,0),
+      treeCleanupExitCode, treeCleanupPending, nativeCode,
+      stdoutSha256: sha256Bytes(Buffer.concat(stdout)), stderrSha256: sha256Bytes(Buffer.concat(stderr)) });
+    const snapshot = () => {
+      if (!handles.length) return;
+      let total = 0;
+      for (const [i,fd] of handles.entries()) {
+        const length = fstatSync(fd).size;
+        total += length;
+        if (total > maxOutputBytes) throw new Error("output_limit");
+        const buffer = Buffer.alloc(length);
+        let offset = 0;
+        while (offset < length) {
+          const count = readSync(fd, buffer, offset, length-offset, offset);
+          if (!count) throw new Error("output_incomplete");
+          offset += count;
         }
-      } else {
-        try { child.kill("SIGKILL"); } catch {}
-      }
-      if (!killGrace) {
-        killGrace = setTimeout(() => {
-          child.stdout.destroy();
-          child.stderr.destroy();
-          rejectOnce(failureError(forcedFailure));
-        }, 5_000);
-        killGrace.unref();
+        (i === 0 ? stdout : stderr).push(buffer);
       }
     };
-    const collect = (chunks, chunk) => {
-      outputBytes += chunk.length;
-      outputChunks += 1;
-      if (outputBytes <= maxOutputBytes && outputChunks <= 8_192) chunks.push(chunk);
-      if (!forcedFailure && (outputBytes > maxOutputBytes || outputChunks > 8_192)) {
-        terminateControlledTree(outputBytes > maxOutputBytes
-          ? `输出超过 ${maxOutputBytes} 字节上限`
-          : "输出 chunk 数超过 8192 上限");
-      }
-    };
-    child.stdout.on("data", (chunk) => collect(stdout, chunk));
-    child.stderr.on("data", (chunk) => collect(stderr, chunk));
-    timeout = setTimeout(() => {
+    const finish = (code, reason, stage = directExited ? "output" : "direct-exit") => {
       if (settled) return;
-      terminateControlledTree(forcedFailure ?? `超过 ${timeoutMs}ms 时限`);
-    }, timeoutMs);
-    timeout.unref();
-    child.once("error", (error) => {
-      const code = error && typeof error === "object" && typeof error.code === "string" ? error.code : "unknown";
-      rejectOnce(new Error(`${label}启动失败：code=${code}`));
-    });
-    child.once("close", (code, signal) => {
-      const stdoutBuffer = Buffer.concat(stdout);
-      const stderrBuffer = Buffer.concat(stderr);
-      if (forcedFailure || code !== 0 || signal) {
-        const reason = forcedFailure ?? (signal ? `signal=${signal}` : `exit=${code ?? "unknown"}`);
-        rejectOnce(failureError(reason));
-        return;
+      settled = true;
+      clearTimeout(timer); clearTimeout(cleanupTimer); clearInterval(poll);
+      child?.stdout?.destroy(); child?.stderr?.destroy(); child?.unref();
+      // Never wait for cleanup/EOF after the original deadline. A cleanup helper
+      // is itself bounded by that same deadline, and lifecycle descendants survive.
+      if (Date.now() >= deadline) { try { killer?.kill(); } catch { /* already exited */ } }
+      try { snapshot(); } catch { code = "output_limit"; reason = `输出超过 ${maxOutputBytes} 字节上限或无法完整读取`; }
+      for (const fd of handles) { try { closeSync(fd); } catch {} }
+      handles = [];
+      if (root) {
+        for (const name of ["stdout", "stderr"]) { try { unlinkSync(path.join(root,name)); } catch {} }
+        try { rmdirSync(root); } catch {}
       }
-      resolveOnce({ stdout: stdoutBuffer.toString("utf8"), stderr: stderrBuffer.toString("utf8") });
+      if (!code && Date.now() >= deadline) { code = "process_timeout"; reason = `超过 ${timeoutMs}ms 时限`; stage = "output"; }
+      const processEvidence = evidence(code ?? "completed", stage);
+      if (code) {
+        const diagnostics = [];
+        if (stderr.length) diagnostics.push(`stderr=${processDiagnosticExcerpt(Buffer.concat(stderr),cwd,env,command,args)}`);
+        if (stdout.length) diagnostics.push(`stdout=${processDiagnosticExcerpt(Buffer.concat(stdout),cwd,env,command,args)}`);
+        const error = new Error(`${label}失败：${reason}${diagnostics.length ? ` (${diagnostics.join("; ")})` : ""}`);
+        // Only fixed metadata from the adapter failure receipt enters the WAL;
+        // stderr/URLs/configuration/body text stay out of durable diagnostics.
+        try {
+          const receipt = JSON.parse(Buffer.concat(stdout).toString("utf8"));
+          if (receipt.status === "unknown") {
+            if (/^[a-z][a-z0-9_-]{0,39}$/.test(receipt.failureCode ?? "")) processEvidence.completionCode = receipt.failureCode;
+            processEvidence.engine = (Array.isArray(receipt.engineEvidence) ? receipt.engineEvidence : []).slice(0,8).map(safeProcessEvidence);
+            processEvidence.engineFailure = safeProcessEvidence(receipt.processEvidence);
+            if (["engine","candidate-identity","full-readiness","maintenance","receipt"].includes(receipt.stage)) processEvidence.completionStage = receipt.stage;
+          }
+        } catch { /* No parseable machine failure receipt. */ }
+        error.processEvidence = processEvidence;
+        if (captureOutputBuffers) Object.defineProperty(error, "rawOutput", { value: { stdout: Buffer.concat(stdout), stderr: Buffer.concat(stderr) } });
+        rejectRun(error);
+      } else resolveRun({ stdout: Buffer.concat(stdout).toString("utf8"), stderr: Buffer.concat(stderr).toString("utf8"), processEvidence,
+        ...(captureOutputBuffers ? { rawOutput: { stdout: Buffer.concat(stdout), stderr: Buffer.concat(stderr) } } : {}) });
+    };
+    const terminate = () => {
+      if (directExited || cleanup === "preserve" || treeCleanupPending) return;
+      if (cleanup === "tree" && process.platform === "win32" && child?.pid) {
+        try {
+          treeCleanupPending = true;
+          killer = spawn("taskkill.exe", ["/PID",String(child.pid),"/T","/F"], {windowsHide:true,stdio:"ignore"});
+          killer.unref();
+          const killerDeadline = setTimeout(()=>{ try { killer.kill(); } catch {} },Math.max(1,deadline-Date.now()));
+          killerDeadline.unref();
+          killer.once("close",(code)=>{
+            clearTimeout(killerDeadline); treeCleanupPending = false; treeCleanupExitCode = code;
+            if (directExited && forcedFailure) finish(forcedFailure.code,forcedFailure.reason,forcedFailure.stage);
+          });
+          killer.once("error", () => { treeCleanupPending = false; try { child.kill("SIGKILL"); } catch {} });
+        } catch { try { child.kill("SIGKILL"); } catch {} }
+      } else { try { child?.kill("SIGKILL"); } catch {} }
+    };
+    if (Date.now() >= deadline) { finish("process_timeout",`超过 ${timeoutMs}ms 时限`,"spawn"); return; }
+    try {
+      if (outputProtocol === "direct-exit-files") {
+        root = mkdtempSync(path.join(tmpdir(),"teruisi-process-"));
+        handles = [openSync(path.join(root,"stdout"),"wx+"), openSync(path.join(root,"stderr"),"wx+")];
+      }
+      child = spawn(command,args,{cwd,env:{...env,TERUISI_PROCESS_DEADLINE_UNIX_MS:String(deadline)},shell: false,windowsHide:true,
+        stdio:handles.length ? ["ignore",...handles] : ["ignore","pipe","pipe"]});
+    } catch { finish("spawn_failed","启动失败","spawn"); return; }
+    const collect = (target,chunk) => {
+      if (settled) return;
+      bytes += chunk.length; chunks++;
+      if (bytes <= maxOutputBytes && chunks <= 8192) target.push(chunk);
+      if (bytes > maxOutputBytes || chunks > 8192) {
+        forcedFailure = {code:"output_limit",reason:`输出超过 ${maxOutputBytes} 字节上限或 chunk 数超过 8192 上限`};
+        terminate();
+      }
+    };
+    child.stdout?.on("data",chunk=>collect(stdout,chunk));
+    child.stderr?.on("data",chunk=>collect(stderr,chunk));
+    child.once("error",error=>{nativeCode=/^[A-Z][A-Z0-9_]{0,39}$/.test(error.code ?? "") ? error.code : null;finish("spawn_failed","启动失败","spawn");});
+    child.once("exit",(code,signal)=>{
+      directExited = true; exitCode = code; exitSignal = signal;
+      if (forcedFailure) { if (!treeCleanupPending) finish(forcedFailure.code,forcedFailure.reason,forcedFailure.stage); return; }
+      if (code !== 0 || signal) { finish("nonzero_exit",signal ? `signal=${signal}` : `exit=${code ?? "unknown"}`); return; }
+      if (outputProtocol === "direct-exit-files") finish(null,null,"completed");
     });
+    child.once("close",(code,signal)=>{
+      if (settled || treeCleanupPending) return;
+      exitCode = code; exitSignal = signal;
+      finish(forcedFailure?.code ?? (code !== 0 || signal ? "nonzero_exit" : null),forcedFailure?.reason ?? `exit=${code ?? "unknown"}`,forcedFailure?.stage ?? "completed");
+    });
+    const remaining = Math.max(1,deadline-Date.now());
+    // Reserve a small part of the ORIGINAL budget for ordinary build/test tree
+    // cleanup; a lifecycle operation never receives that broad cleanup policy.
+    if (cleanup !== "preserve") cleanupTimer = setTimeout(()=>{
+      if (settled) return;
+      forcedFailure = {code:"process_timeout",reason:`超过 ${timeoutMs}ms 时限`,stage:directExited ? "output" : "direct-exit"};
+      terminate();
+    },Math.max(1,remaining-(cleanup === "direct" ? Math.min(50,Math.floor(remaining/20)) : Math.min(5000,Math.floor(remaining*(remaining>5000 ? 0.2 : 0.7))))));
+    timer = setTimeout(()=>{ if (!directExited && cleanup !== "preserve") { try { child.kill("SIGKILL"); } catch {} } finish("process_timeout",`超过 ${timeoutMs}ms 时限`,forcedFailure?.stage ?? (directExited ? "output" : "direct-exit")); },remaining);
+    if (handles.length) poll = setInterval(()=>{
+      try {
+        if (handles.reduce((n,fd)=>n+fstatSync(fd).size,0) > maxOutputBytes) {
+          terminate(); finish("output_limit",`输出超过 ${maxOutputBytes} 字节上限`);
+        }
+      } catch { finish("output_unavailable","输出快照不可读取"); }
+    },50);
   });
 }
 
-async function listGitSourceFiles(sourceRoot) {
+export async function listGitSourceFiles(sourceRoot) {
   const { stdout } = await runProcess("git.exe", ["-C", sourceRoot, "ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
     label: "Git 源文件盘点",
   });
@@ -769,6 +944,39 @@ async function listGitSourceFiles(sourceRoot) {
     fail("源树缺少 package.json/package-lock.json");
   }
   return files;
+}
+
+// A prepared immutable release can be reused, never an arbitrary dist. Bind
+// the complete source inventory (including untracked source), exact executable,
+// bundled npm closure and inherited build configuration without logging values.
+export function preparationEnvironmentSha256(environment) {
+  // Transport metadata is per call, never a build/configuration input. All
+  // other inherited variables remain part of the original exact identity.
+  return sha256Canonical(Object.fromEntries(Object.entries(environment).filter(([key])=>key.toUpperCase() !== 'TERUISI_PROCESS_DEADLINE_UNIX_MS')));
+}
+export async function workerPreparationIdentity(sourceRoot, devVarsSource = workerDevVarsSource) {
+  const toolchain = await resolveBundledNpmToolchain();
+  await assertRegularFile(process.execPath, "preparation Node executable");
+  const externalNpmConfiguration = {};
+  for (const key of ["userconfig", "globalconfig"]) {
+    const result = await runProcess(toolchain.nodeExecutablePath, [toolchain.npmCliPath, "config", "get", key], { cwd: sourceRoot, label: "npm configuration identity" });
+    const target = path.resolve(sourceRoot, result.stdout.trim());
+    await assertNoReparsePoint(target, { allowMissingLeaf: true, label: "npm external configuration" });
+    externalNpmConfiguration[key] = { pathSha256: windowsPathSha256(target), contentSha256: await pathExists(target) ? sha256Bytes(await readStableRegularFile(target, "npm external configuration")) : null };
+  }
+  const sourceFiles = await listGitSourceFiles(sourceRoot);
+  const { tree: sourceTree, inventory: sourceInventory } = await hashRelativeFilesWithInventory(sourceRoot, sourceFiles);
+  if (canonicalJson(await listGitSourceFiles(sourceRoot)) !== canonicalJson(sourceFiles)) fail("Source inventory changed while reading");
+  return {
+    version: "teruisi-worker-preparation-identity-v1",
+    sourceTree,
+    sourceInventorySha256: sha256Canonical(sourceInventory),
+    nodeExecutableSha256: sha256Bytes(await readStableRegularFile(process.execPath, "preparation Node executable")),
+    runtimeConfigurationSha256: sha256Bytes(await readStableRegularFile(devVarsSource, "preparation runtime configuration")),
+    externalNpmConfiguration,
+    toolchain: toolchain.provenance,
+    environmentSha256: preparationEnvironmentSha256(process.env),
+  };
 }
 
 export async function hashRelativeFiles(root, relativeFiles) {
@@ -806,6 +1014,81 @@ export async function hashRelativeFiles(root, relativeFiles) {
     start = end;
   }
   return { algorithm: treeHashAlgorithm, fileCount: metadata.length, sha256: digest.digest("hex") };
+}
+
+// Source tree and inventory consume the same controlled bytes. No contents or
+// file identities survive this call. Keep the published ordinal/path/length/
+// content protocol; large files are streamed alone to bound retained bytes.
+export async function hashRelativeFilesWithInventory(root, relativeFiles) {
+  const digest = createHash("sha256"), inventory = Object.create(null);
+  const metadata = await mapBounded([...relativeFiles].sort(ordinalCompare), treeHashMetadataConcurrency, async (relative) => {
+    const normalized = relative.replaceAll("\\", "/");
+    if (!normalized || normalized.split("/").some((part) => !part || part === "." || part === "..")
+      || path.posix.isAbsolute(normalized) || path.win32.isAbsolute(normalized) || normalized.includes(":")) fail("哈希文件路径越界");
+    const absolute = path.join(root, ...normalized.split("/"));
+    const before = await assertRegularFile(absolute, "source digest file");
+    if (before.nlink !== 1 || !Number.isSafeInteger(before.size) || before.size < 0) fail("Source digest requires a single-link bounded regular file");
+    return { normalized, absolute, before, size: before.size };
+  });
+  const sameFile = (left, right) => ["dev", "ino", "size", "mtimeMs", "ctimeMs", "nlink"].every((key) => left[key] === right[key]);
+  function prefix(item) {
+    const name = Buffer.from(item.normalized, "utf8"), nameLength = Buffer.alloc(4), contentLength = Buffer.alloc(8);
+    nameLength.writeUInt32BE(name.length);
+    contentLength.writeBigUInt64BE(BigInt(item.size));
+    digest.update(nameLength).update(name).update(contentLength);
+  }
+  async function readControlled(item, streamed) {
+    const handle = await open(item.absolute, "r");
+    try {
+      const opened = await handle.stat();
+      if (!opened.isFile() || !sameFile(item.before, opened)) fail("Source digest file changed before reading");
+      const fileDigest = createHash("sha256");
+      const content = Buffer.alloc(streamed ? Math.min(item.size, 1024 * 1024) : item.size);
+      let position = 0;
+      if (streamed) prefix(item);
+      while (position < item.size) {
+        const offset = streamed ? 0 : position;
+        const length = Math.min(content.length - offset, item.size - position);
+        const { bytesRead } = await handle.read(content, offset, length, position);
+        if (bytesRead === 0) fail("Source digest file truncated while reading");
+        const bytes = content.subarray(offset, offset + bytesRead);
+        fileDigest.update(bytes);
+        if (streamed) digest.update(bytes);
+        position += bytesRead;
+      }
+      const extra = await handle.read(Buffer.alloc(1), 0, 1, position);
+      const afterHandle = await handle.stat(), afterPath = await assertRegularFile(item.absolute, "source digest file");
+      if (extra.bytesRead !== 0 || !sameFile(item.before, afterHandle) || !sameFile(item.before, afterPath)) fail("Source digest file changed while reading");
+      return { content, sha256: fileDigest.digest("hex") };
+    } finally {
+      await handle.close();
+    }
+  }
+  let start = 0;
+  while (start < metadata.length) {
+    const first = metadata[start];
+    if (first.size > treeHashReadBatchBytes) {
+      inventory[first.normalized] = (await readControlled(first, true)).sha256;
+      start += 1;
+      continue;
+    }
+    let end = start, batchBytes = 0;
+    while (end < metadata.length && end - start < treeHashReadConcurrency) {
+      const nextBytes = metadata[end].size;
+      if (batchBytes + nextBytes > treeHashReadBatchBytes) break;
+      batchBytes += nextBytes;
+      end += 1;
+    }
+    const batch = metadata.slice(start, end);
+    const contents = await mapBounded(batch, treeHashReadConcurrency, (item) => readControlled(item, false));
+    for (let index = 0; index < batch.length; index += 1) {
+      prefix(batch[index]);
+      digest.update(contents[index].content);
+      inventory[batch[index].normalized] = contents[index].sha256;
+    }
+    start = end;
+  }
+  return { tree: { algorithm: treeHashAlgorithm, fileCount: metadata.length, sha256: digest.digest("hex") }, inventory };
 }
 
 async function mapBounded(items, concurrency, operation) {
@@ -859,12 +1142,16 @@ export async function hashTree(root, options = {}) {
 }
 
 async function copySourceSnapshot(sourceRoot, destination, files) {
-  for (const relative of files) {
+  await mapBounded(files, 8, async (relative) => {
     const source = path.join(sourceRoot, ...relative.split("/"));
     const target = path.join(destination, ...relative.split("/"));
     await mkdir(path.dirname(target), { recursive: true });
     await copyFile(source, target);
-  }
+  });
+}
+
+function buildTiming(label,started,details='') {
+  console.log(`[${new Date().toISOString()}] [构建明细] ${label}：${Date.now()-started} ms${details?'；'+details:''}`);
 }
 
 async function listIsolatedSourceFiles(root) {
@@ -1045,7 +1332,7 @@ function validatePackageLock(packageJson, packageLock) {
   if (!packages["node_modules/vinext"]?.version) fail("package-lock 缺少 Vinext");
 }
 
-async function buildSalesRetiredCodeReceipt(sourceRoot, sourceFiles, sourceFingerprint, buildFingerprint, contractTests, createdAt) {
+async function buildSalesRetiredCodeReceipt(sourceRoot, sourceFiles, sourceFingerprint, buildFingerprint, validation, createdAt) {
   const sourceSet = new Set(sourceFiles);
   const legacyPathsAbsent = legacySalesSourcePaths.map((relativePath) => ({
     relativePath,
@@ -1096,11 +1383,13 @@ async function buildSalesRetiredCodeReceipt(sourceRoot, sourceFiles, sourceFinge
   }
 
   const core = {
-    version: contractReceiptVersion,
+    version: codeOnlyContractReceiptVersion,
     generatedAt: createdAt,
     sourceFingerprint,
     buildFingerprint,
-    status: "passed",
+    status: "code-checked",
+    codeOnly: true,
+    functionalValidationPerformed: false,
     checks: {
       legacySalesSourcePathsAbsent: true,
       salesRoutesUseDjango: true,
@@ -1115,9 +1404,22 @@ async function buildSalesRetiredCodeReceipt(sourceRoot, sourceFiles, sourceFinge
       retirementMigration: { relativePath: migrationPath, sha256: sha256Bytes(migration) },
       retirementOperator: { relativePath: operatorPath, sha256: sha256Bytes(operator), auditVersion: "sales-d1-retirement-v4" },
     },
-    contractTests,
+    codeChecks: validation,
   };
   return withPayloadSha256(core, "receiptPayloadSha256");
+}
+
+function requiredPublicationCodeChecks(sourceFingerprint, buildFingerprint, packageLockSha256, nodeVersion) {
+  return {
+    version: "teruisi-worker-required-code-checks-v1",
+    sourceFingerprint,
+    buildFingerprint,
+    packageLockSha256,
+    nodeVersion,
+    npmCiArguments: [...npmCiArguments],
+    buildCommand: ["node_modules/vinext/dist/cli.js", "build"],
+    sourceClosureVerified: true,
+  };
 }
 
 async function runSalesContractTests(buildRoot, sourceFingerprint, buildFingerprint) {
@@ -1206,11 +1508,14 @@ export function helperPathContainsMutableState(relativePath) {
 }
 
 export async function validateHelperBuilderEvidence(evidence, sourceRoot, helperRoot) {
+  const builderText = await readFile(path.join(sourceRoot, "tools/build-worker-helper.mjs"), "utf8");
+  const declaredBuilderVersion = /^const version = "(teruisi-worker-helper-build-v[12])";$/m.exec(builderText)?.[1];
+  if (!declaredBuilderVersion || declaredBuilderVersion !== evidence?.version) fail("helper builder evidence 版本与精确源码不一致");
   assertExactKeys(evidence, [
     "version", "entryRelativePath", "inputFiles", "mutableRootRewritePaths", "importMetaNeutralizedPaths",
     "immutableResourceUrlPaths", "mutableConfigPaths", "resourceInputFiles", "resourceOutputFiles", "outputSha256",
   ], "helper builder evidence");
-  if (evidence.version !== "teruisi-worker-helper-build-v1"
+  if (!["teruisi-worker-helper-build-v1", "teruisi-worker-helper-build-v2"].includes(evidence.version)
     || evidence.entryRelativePath !== "tools/tmall-sycm-cookie-pipeline.ts"
     || !hex64.test(evidence.outputSha256 ?? "") || !Array.isArray(evidence.inputFiles)
     || evidence.inputFiles.length < 1 || !Array.isArray(evidence.mutableRootRewritePaths)
@@ -1275,7 +1580,7 @@ export async function validateHelperBuilderEvidence(evidence, sourceRoot, helper
   );
   assertExactSortedPaths(
     evidence.immutableResourceUrlPaths,
-    requiredHelperImmutableResourceUrlPaths,
+    evidence.version === "teruisi-worker-helper-build-v2" ? ["lib/jackyun/json-file.ts", ...requiredHelperImmutableResourceUrlPaths] : requiredHelperImmutableResourceUrlPaths,
     "helper immutable resource URL",
   );
   assertExactSortedPaths(
@@ -1296,15 +1601,16 @@ export async function validateHelperBuilderEvidence(evidence, sourceRoot, helper
     }
     if (canonicalJson(paths) !== canonicalJson([...expectedPaths])) fail(`${label}集合无效`);
   };
+  const atomicPublisher = evidence.version === "teruisi-worker-helper-build-v2";
   await validateResourceFiles(
     evidence.resourceInputFiles,
-    requiredHelperResourceInputPaths,
+    atomicPublisher ? ["tools/jackyun-json-publish.ps1", ...requiredHelperResourceInputPaths] : requiredHelperResourceInputPaths,
     sourceRoot,
     "helper immutable resource input",
   );
   await validateResourceFiles(
     evidence.resourceOutputFiles,
-    requiredHelperResourceOutputPaths,
+    atomicPublisher ? ["jackyun-json-publish.ps1", ...requiredHelperResourceOutputPaths] : requiredHelperResourceOutputPaths,
     helperRoot,
     "helper immutable resource output",
   );
@@ -1636,6 +1942,7 @@ async function buildWorkerReleaseInternal({
   publicationMode,
   retirementProof,
   verifyPreparationPredecessor,
+  sourceBinding,
 } = {}) {
   if (!["first-deploy", "rotation-candidate"].includes(publicationMode)) fail("Worker release publication mode 无效");
   if (verifyPreparationPredecessor !== undefined &&
@@ -1651,7 +1958,13 @@ async function buildWorkerReleaseInternal({
   devVarsSource = path.resolve(devVarsSource);
   persistRoot = path.resolve(persistRoot);
   sourceD1Path = path.resolve(sourceD1Path);
-  if (!allowTestRuntimeRoot && canonicalWindowsPath(sourceRoot) !== canonicalWindowsPath(workerSourceRoot)) {
+  if (sourceBinding) {
+    if (allowTestRuntimeRoot || publicationMode !== "rotation-candidate" || !verifyPreparationPredecessor) fail("Bound source requires original online production candidate preparation");
+    const bound = validateWorkerSourceBinding(sourceBinding);
+    if (sourceRoot !== bound.sourceRoot) fail("Candidate source differs from exact source binding");
+    await verifyBoundWorkerSource(sourceBinding);
+  }
+  if (!allowTestRuntimeRoot && !sourceBinding && canonicalWindowsPath(sourceRoot) !== canonicalWindowsPath(workerSourceRoot)) {
     fail(`Worker 新发布源必须固定为隔离集成树 ${workerSourceRoot}`);
   }
   if (!allowTestRuntimeRoot && (canonicalWindowsPath(devVarsSource) !== canonicalWindowsPath(workerDevVarsSource)
@@ -1693,6 +2006,7 @@ async function buildWorkerReleaseInternal({
   const buildRoot = path.join(stageRoot, "build");
   const releaseStage = path.join(stageRoot, "release");
   try {
+    const sourceStarted=Date.now();
     await mkdir(buildRoot, { recursive: true });
     const sourceFiles = await listGitSourceFiles(sourceRoot);
     assertNoWranglerSourceConflict(sourceFiles);
@@ -1703,6 +2017,7 @@ async function buildWorkerReleaseInternal({
     if (canonicalJson(copiedSourceTree) !== canonicalJson(sourceTree)) fail("隔离源快照在复制后发生变化");
     await mkdir(path.join(releaseStage, "source-snapshot"), { recursive: true });
     await copySourceSnapshot(buildRoot, path.join(releaseStage, "source-snapshot"), sourceFiles);
+    buildTiming('源码完整快照及两次复制',sourceStarted);
 
     const projectPackageJsonPath = path.join(buildRoot, "package.json");
     const projectPackageLockPath = path.join(buildRoot, "package-lock.json");
@@ -1713,18 +2028,22 @@ async function buildWorkerReleaseInternal({
     validatePackageLock(packageJson, packageLock);
     const packageLockSha256 = sha256Bytes(packageLockRaw);
 
+    let detailStarted=Date.now();
     await runProcess(npmToolchain.nodeExecutablePath, [npmToolchain.npmCliPath, ...npmCiArguments], {
       cwd: buildRoot,
       label: "隔离 node_modules 闭包安装",
     });
+    buildTiming('离线依赖安装',detailStarted);
     await assertBundledNpmToolchainProvenance(npmToolchain.provenance);
     await assertNoReparsePoint(path.join(buildRoot, "node_modules"), { label: "构建 node_modules" });
     await assertVinextScratchAbsent(buildRoot, sourceFiles);
+    detailStarted=Date.now();
     await runProcess(process.execPath, [path.join(buildRoot, "node_modules", "vinext", "dist", "cli.js"), "build"], {
       cwd: buildRoot,
       env: { ...process.env, VITE_TERUISI_LOCAL_BUILD: "true" },
       label: "Vinext Worker 构建",
     });
+    buildTiming('Vinext编译',detailStarted);
     await consumeVinextBuildScratch(buildRoot, sourceFiles);
     const postBuildSourceTree = await assertIsolatedSourceClosure(
       buildRoot, sourceFiles, sourceTree, "npm ci/Vinext 构建后的 source closure",
@@ -1732,11 +2051,15 @@ async function buildWorkerReleaseInternal({
     if (canonicalJson(postBuildSourceTree) !== canonicalJson(sourceTree)) {
       fail("npm ci/Vinext 构建修改了隔离 source snapshot，拒绝生成证据");
     }
+    detailStarted=Date.now();
     const helperBuild = await buildWorkerHelperBundle(buildRoot, stageRoot);
+    buildTiming('helper构建',detailStarted);
     await assertIsolatedSourceClosure(buildRoot, sourceFiles, sourceTree, "immutable helper build 后的 source closure");
 
+    detailStarted=Date.now();
     const distTree = await hashTree(path.join(buildRoot, "dist"), { excluded: new Set(["server/.dev.vars"]) });
     const nodeModulesTree = await hashTree(path.join(buildRoot, "node_modules"));
+    buildTiming('产物完整哈希',detailStarted);
     const buildFingerprint = sha256Canonical({
       packageLockSha256,
       distTree,
@@ -1745,11 +2068,14 @@ async function buildWorkerReleaseInternal({
       helperBuildEvidenceSha256: helperBuild.evidenceSha256,
       npmToolchain: npmToolchain.provenance,
     });
-    const contractTests = await runSalesContractTests(buildRoot, sourceFingerprint, buildFingerprint);
-    await assertIsolatedSourceClosure(buildRoot, sourceFiles, sourceTree, "sales contract tests 后的 source closure");
+    detailStarted=Date.now();
+    // npm ci, Vinext and the immutable helper build above are publication code
+    // checks. Business/SQLite simulations are deliberately not run or claimed.
+    const codeChecks = requiredPublicationCodeChecks(sourceFingerprint, buildFingerprint, packageLockSha256, process.version);
+    await assertIsolatedSourceClosure(buildRoot, sourceFiles, sourceTree, "必需代码构建后的 source closure");
     const createdAt = now.toISOString();
     const contractReceipt = await buildSalesRetiredCodeReceipt(
-      buildRoot, sourceFiles, sourceFingerprint, buildFingerprint, contractTests, createdAt,
+      buildRoot, sourceFiles, sourceFingerprint, buildFingerprint, codeChecks, createdAt,
     );
     const activationFence = workerReleaseActivationFence({ createdAt, sourceFingerprint, buildFingerprint });
     await mkdir(path.join(buildRoot, path.dirname(activationFenceRelativePath)), { recursive: true });
@@ -1784,6 +2110,7 @@ async function buildWorkerReleaseInternal({
     }, "receiptPayloadSha256");
     await mkdir(path.join(releaseStage, "tools"), { recursive: true });
     await mkdir(path.join(releaseStage, "audit"), { recursive: true });
+    detailStarted=Date.now();
     await cp(path.join(buildRoot, "dist"), path.join(releaseStage, "dist"), { recursive: true, errorOnExist: true, force: false });
     await cp(path.join(buildRoot, "node_modules"), path.join(releaseStage, "node_modules"), { recursive: true, errorOnExist: true, force: false });
     await cp(helperBuild.helperRoot, path.join(releaseStage, "helper"), { recursive: true, errorOnExist: true, force: false });
@@ -1803,6 +2130,7 @@ async function buildWorkerReleaseInternal({
     await validateTree(path.join(releaseStage, "dist"), distTree, "copied dist", { excluded: new Set(["server/.dev.vars"]) });
     await validateTree(path.join(releaseStage, "node_modules"), nodeModulesTree, "copied node_modules");
     await validateTree(path.join(releaseStage, "helper"), helperBuild.helperTree, "copied helper bundle");
+    buildTiming('封包转移及完整复验',detailStarted);
     const releaseId = `${timestampId(now)}-${sha256Canonical({
       sourceFingerprint, buildFingerprint, contractReceiptSha256, guardReceiptSha256,
       ...(retirementProof ? { retirementProofSha256: retirementProof.proofSha256 } : {}),
@@ -1811,6 +2139,7 @@ async function buildWorkerReleaseInternal({
     const releaseRoot = path.join(runtimeRoot, "releases", releaseId);
     if (await pathExists(releaseRoot)) fail("目标 release 已存在，拒绝覆盖");
 
+    if(sourceBinding) await verifyBoundWorkerSource(sourceBinding);
     const keyFiles = await deploymentKeyFiles(releaseStage);
     await assertBundledNpmToolchainProvenance(npmToolchain.provenance);
     const manifestCore = {
@@ -1823,6 +2152,7 @@ async function buildWorkerReleaseInternal({
         sourceFingerprint,
         snapshotRoot: "source-snapshot",
         tree: sourceTree,
+        ...(sourceBinding ? {sourceBinding} : {}),
       },
       build: {
         ...npmToolchain.provenance,
@@ -1862,7 +2192,7 @@ async function buildWorkerReleaseInternal({
       artifacts: {
         keyFiles,
         contractReceipt: {
-          version: contractReceiptVersion,
+          version: contractReceipt.version,
           relativePath: contractRelativePath,
           sha256: contractReceiptSha256,
         },
@@ -1909,6 +2239,7 @@ async function buildWorkerReleaseInternal({
     await rename(releaseStage, releaseRoot);
     const manifestPath = path.join(releaseRoot, manifestFileName);
     const manifestSha256 = sha256Bytes(await readFile(manifestPath));
+    detailStarted=Date.now();
     try {
       await verifyWorkerReleaseInternal({
         manifestPath,
@@ -1925,6 +2256,7 @@ async function buildWorkerReleaseInternal({
       await rm(releaseRoot, { recursive: true, force: true }).catch(() => {});
       throw error;
     }
+    buildTiming('原生候选完整复验',detailStarted);
     if (verifyPreparationPredecessor) {
       await verifyPreparationPredecessor();
     } else {
@@ -1988,14 +2320,16 @@ function validatePayloadSha(record, fieldName, label) {
   if (sha256Canonical(core) !== value) fail(`${label}自哈希无效`);
 }
 
-async function validateTree(root, expected, label, options) {
+async function validateTree(root, expected, label, options, withInventory = false) {
   assertExactKeys(expected, ["algorithm", "fileCount", "sha256"], `${label} tree`);
   if (expected.algorithm !== treeHashAlgorithm || !Number.isSafeInteger(expected.fileCount) || expected.fileCount < 1 || !hex64.test(expected.sha256)) {
     fail(`${label} tree 契约无效`);
   }
   await assertNoReparsePoint(root, { label: `${label} root` });
-  const actual = await hashTree(root, options);
+  const digests = withInventory ? await hashRelativeFilesWithInventory(root, await listRegularTreeFiles(root, options)) : null;
+  const actual = digests ? digests.tree : await hashTree(root, options);
   if (canonicalJson(actual) !== canonicalJson(expected)) fail(`${label} tree 内容与 manifest 不一致`);
+  return digests;
 }
 
 async function verifyHardLinks(manifest, releaseRoot) {
@@ -2512,8 +2846,10 @@ async function validateContractTests(contractTests, manifest, releaseRoot) {
 async function validateHelperReceipt(manifest, releaseRoot) {
   const trustedBuilderPath = path.join(releaseRoot, manifest.source.snapshotRoot, "tools", "build-worker-helper.mjs");
   await assertRegularFile(trustedBuilderPath, "trusted immutable helper builder source");
-  if (!hex64.test(trustedHelperBuilderSha256)
-    || sha256Bytes(await readFile(trustedBuilderPath)) !== trustedHelperBuilderSha256) {
+  const trustedBuilderRaw = await readFile(trustedBuilderPath);
+  const exactVersion = /^const version = "(teruisi-worker-helper-build-v[12])";$/m.exec(trustedBuilderRaw.toString("utf8"))?.[1];
+  const trustedDigest = trustedHelperBuilderByVersion[exactVersion];
+  if (!hex64.test(trustedDigest ?? "") || sha256Bytes(trustedBuilderRaw) !== trustedDigest) {
     fail("immutable helper builder 未匹配 Django trusted verifier 固定 SHA-256");
   }
   const pointer = manifest.artifacts.helperReceipt;
@@ -2547,6 +2883,12 @@ async function validateHelperReceipt(manifest, releaseRoot) {
 
 export async function verifyWorkerRelease(options = {}) {
   return verifyWorkerReleaseInternal(options);
+}
+
+export async function verifyPreparedWorkerCandidate(options, verifyPreparationPredecessor) {
+  if (typeof verifyPreparationPredecessor !== "function") fail("Preparation requires an exact predecessor verifier");
+  const result = await verifyWorkerReleaseInternal({ ...options, writeSupervisorPrelaunchReceipt: false }, verifyPreparationPredecessor);
+  return { ...result, status: "preparation_only" };
 }
 
 // Only the candidate builder can substitute a fully verified predecessor for
@@ -2591,7 +2933,7 @@ async function verifyWorkerReleaseInternal({
   validatePayloadSha(manifest, "manifestPayloadSha256", "Worker release manifest");
   if (manifest.version !== releaseVersion || manifest.releaseId !== releaseId) fail("Worker release manifest 身份无效");
 
-  assertExactKeys(manifest.source, ["rootPathSha256", "packageLockSha256", "sourceFingerprint", "snapshotRoot", "tree"], "manifest source");
+  assertExactKeys(manifest.source, ["rootPathSha256", "packageLockSha256", "sourceFingerprint", "snapshotRoot", "tree", ...(manifest.source.sourceBinding ? ["sourceBinding"] : [])], "manifest source");
   assertExactKeys(manifest.build, [
     "nodeVersion", "nodeExecutablePathSha256", "npmVersion", "npmPackageRootRelativePath", "npmPackageRootPathSha256",
     "npmCliRelativePath", "npmCliPathSha256", "npmCliSha256",
@@ -2675,7 +3017,10 @@ async function verifyWorkerReleaseInternal({
 
   if (manifest.source.snapshotRoot !== "source-snapshot") fail("manifest source snapshot 路径无效");
   const sourceSnapshotRoot = path.join(releaseRoot, manifest.source.snapshotRoot);
-  await validateTree(sourceSnapshotRoot, manifest.source.tree, "source snapshot");
+  const sourceDigests = await validateTree(sourceSnapshotRoot, manifest.source.tree, "source snapshot", undefined, Boolean(manifest.source.sourceBinding));
+  if(manifest.source.sourceBinding) {
+    if(sha256Canonical(sourceDigests.inventory)!==validateWorkerSourceBinding(manifest.source.sourceBinding).identity.sourceInventorySha256)fail("Bound source snapshot inventory changed");
+  }
   const snapshotPackageLock = path.join(sourceSnapshotRoot, "package-lock.json");
   await assertRegularFile(snapshotPackageLock, "source snapshot package-lock.json");
   if (sha256Bytes(await readFile(snapshotPackageLock)) !== manifest.source.packageLockSha256) {
@@ -2722,7 +3067,7 @@ async function verifyWorkerReleaseInternal({
   if (!candidateVerifier || candidateVerifier.sha256 !== trustedVerifierSha256) fail("candidate Worker verifier key-file 绑定无效");
   const contract = manifest.artifacts.contractReceipt;
   assertExactKeys(contract, ["version", "relativePath", "sha256"], "contract receipt pointer");
-  if (contract.version !== contractReceiptVersion || contract.relativePath !== "audit/sales-retired-code-receipt.json" || !hex64.test(contract.sha256)) {
+  if (![contractReceiptVersion, codeOnlyContractReceiptVersion].includes(contract.version) || contract.relativePath !== "audit/sales-retired-code-receipt.json" || !hex64.test(contract.sha256)) {
     fail("contract receipt pointer 无效");
   }
   const contractPath = path.join(releaseRoot, ...contract.relativePath.split("/"));
@@ -2730,12 +3075,14 @@ async function verifyWorkerReleaseInternal({
   const contractRead = await readCanonicalJson(contractPath, "sales retired code receipt");
   if (contractRead.sha256 !== contract.sha256) fail("contract receipt 原始文件哈希无效");
   const receipt = contractRead.value;
+  const codeOnly = contract.version === codeOnlyContractReceiptVersion;
   assertExactKeys(receipt, [
-    "version", "generatedAt", "sourceFingerprint", "buildFingerprint", "status", "checks", "evidence", "contractTests", "receiptPayloadSha256",
+    "version", "generatedAt", "sourceFingerprint", "buildFingerprint", "status", "checks", "evidence", "receiptPayloadSha256",
+    ...(codeOnly ? ["codeOnly", "functionalValidationPerformed", "codeChecks"] : ["contractTests"]),
   ], "sales retired code receipt");
   validatePayloadSha(receipt, "receiptPayloadSha256", "sales retired code receipt");
-  if (receipt.version !== contractReceiptVersion || receipt.sourceFingerprint !== manifest.source.sourceFingerprint
-    || receipt.buildFingerprint !== manifest.build.buildFingerprint || receipt.status !== "passed") {
+  if (receipt.version !== contract.version || receipt.sourceFingerprint !== manifest.source.sourceFingerprint
+    || receipt.buildFingerprint !== manifest.build.buildFingerprint || receipt.status !== (codeOnly ? "code-checked" : "passed")) {
     fail("sales retired code receipt 身份无效");
   }
   if (requireSalesRetiredCodeReceipt) {
@@ -2756,7 +3103,20 @@ async function verifyWorkerReleaseInternal({
     || receipt.evidence.retirementOperator.auditVersion !== "sales-d1-retirement-v4"
     || sha256Bytes(await readFile(path.join(releaseRoot, manifest.source.snapshotRoot, "tools", "sales-d1-retirement.ts")))
       !== receipt.evidence.retirementOperator.sha256) fail("sales retirement operator v4 未绑定到 source snapshot");
-  await validateContractTests(receipt.contractTests, manifest, releaseRoot);
+  if (codeOnly) {
+    if (receipt.codeOnly !== true || receipt.functionalValidationPerformed !== false || receipt.generatedAt !== manifest.createdAt) {
+      fail("code-only receipt 必须明确未执行功能验证并绑定构建时间");
+    }
+    const expectedChecks = requiredPublicationCodeChecks(manifest.source.sourceFingerprint, manifest.build.buildFingerprint,
+      manifest.source.packageLockSha256, manifest.build.nodeVersion);
+    assertExactKeys(receipt.codeChecks, Object.keys(expectedChecks), "required publication code checks");
+    if (canonicalJson(receipt.codeChecks) !== canonicalJson(expectedChecks)) fail("code-only receipt 未绑定必需构建闭包");
+    const expectedReceipt = await buildSalesRetiredCodeReceipt(sourceSnapshotRoot, await listRegularTreeFiles(sourceSnapshotRoot),
+      manifest.source.sourceFingerprint, manifest.build.buildFingerprint, expectedChecks, manifest.createdAt);
+    if (canonicalJson(receipt) !== canonicalJson(expectedReceipt)) fail("code-only receipt 静态代码证据与精确源快照不一致");
+  } else {
+    await validateContractTests(receipt.contractTests, manifest, releaseRoot);
+  }
   const guardValidation = await validateGuardReceipt(manifest, releaseRoot);
   await validateActivationFence(manifest, releaseRoot, guardValidation.receipt);
   await validateHelperReceipt(manifest, releaseRoot);

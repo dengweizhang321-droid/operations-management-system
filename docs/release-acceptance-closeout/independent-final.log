@@ -1,0 +1,72 @@
+Independent final isolation validation. UTC 2026-10-09 16:33:35 UTC. Exit 0.
+Tested source bytes unchanged during test: true.
+
+✔ independent: completion interval cannot absorb work recorded after completion (2.396ms)
+✔ independent: receipt whitelist rejects or removes unexpected sensitive field types (45.1006ms)
+✔ independent: incomplete batch timing remains uncompleted even with a stale closeout event (26.4986ms)
+✔ independent: interrupted operation report preserves already fsynced attempt metadata (20.686ms)
+✔ independent: source/version projection cannot retain sensitive nested release identifiers (16.3003ms)
+✔ independent: independent runtime projection rejects sensitive nested identity fields (15.8468ms)
+✔ independent: report can preserve valid failure states from the actual system Status contract (16.6012ms)
+✔ independent: observation sidecar timestamp is validated before projecting evidence (20.9727ms)
+✔ independent: report CLI does not print malformed evidence payload fragments (371.0491ms)
+✔ independent: total deadline includes persistent attempt evidence (0.9545ms)
+✔ independent: expired binding validation prevents starting another native probe (0.2448ms)
+✔ independent: actual inherited output EOF remains inside native probe deadline (2967.7644ms)
+ℹ {"parentExitMs":389.3453999999999,"eofMs":2249.1773,"inheritedHoldMs":1859.8319}
+✔ independent: permanent identity mismatch does not retry after a transient query (1.0278ms)
+✔ independent: HTTP icon query, other HTTPS origin and static-suffix writes remain dangerous (0.7478ms)
+✔ independent: allowed business GET network failure invalidates real UI audit (0.4546ms)
+✔ independent: complete readiness requires the actual twelve domain names (0.4426ms)
+✔ independent: fixed snapshot and verified source receipt isolation regressions (239.5167ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4836.8617
+
+
+Tested file SHA-256:
+[
+  {
+    "Path": "D:\\.codex\\worktrees\\release-acceptance-closeout\\运营管理系统\\tools\\release-history-preservation.py",
+    "Hash": "7653551728C9F65E25AF38FE8163A81F868C0C0AF69C42434C6831583E94CC27"
+  },
+  {
+    "Path": "D:\\.codex\\worktrees\\release-acceptance-closeout\\运营管理系统\\tools\\release-acceptance-ui.mjs",
+    "Hash": "1A513F01B1B78D868F36B6176C6D8BE4551173DBFE9087DEC6DD81CC6AAE6348"
+  },
+  {
+    "Path": "D:\\.codex\\worktrees\\release-acceptance-closeout\\运营管理系统\\tools\\release-readonly-retry.mjs",
+    "Hash": "455C71E008793245212090E0DF423055771C7CA20EB56DBB2099F98877C43490"
+  },
+  {
+    "Path": "D:\\.codex\\worktrees\\release-acceptance-closeout\\运营管理系统\\tools\\release-closeout-report.mjs",
+    "Hash": "36079B8656F19C73C32255AA0EEA894914A5A71D24AC288CD9BB50A350228021"
+  },
+  {
+    "Path": "D:\\.codex\\worktrees\\release-acceptance-closeout\\运营管理系统\\tools\\release-batch.mjs",
+    "Hash": "0B84EF012F7B951EE81E683DF618F0C283908DCE803E6EEC9F149115244BFE7E"
+  },
+  {
+    "Path": "D:\\.codex\\worktrees\\release-acceptance-closeout\\运营管理系统\\tools\\release-batch-admission.mjs",
+    "Hash": "A1843CBD9B5F0C103EEC764501B7246C3A963A5A4170FA445E81780C2A414887"
+  },
+  {
+    "Path": "D:\\.codex\\worktrees\\release-acceptance-closeout\\运营管理系统\\tests\\release-closeout-independent.test.mjs",
+    "Hash": "AA3B22BB055A149208A23489DF46241E3246054417056FD104DA8493D93B35CE"
+  },
+  {
+    "Path": "D:\\.codex\\worktrees\\release-acceptance-closeout\\运营管理系统\\tests\\release-closeout-independent.test.py",
+    "Hash": "D57ED8EA7DA452E60C347FE794BD0874028E7A9ABBFA79E0B2C723BAF02220A5"
+  },
+  {
+    "Path": "D:\\.codex\\worktrees\\release-acceptance-closeout\\运营管理系统\\tests\\release-closeout-independent.test.ts",
+    "Hash": "383F2D4A91A8A592F83878C055FF7F76B34F66A4986661E586AB93FDE3CC373E"
+  }
+]
+
+

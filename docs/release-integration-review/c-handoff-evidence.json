@@ -1,0 +1,167 @@
+{
+  "version": "task-d-stage1-c-handoff-receipt-v1",
+  "capturedAtUtc": "2026-10-09T18:27:49.1309686+00:00",
+  "source": "Task C handoff message plus independent readonly Git/archive verification",
+  "humanPhase2NoticeReceived": false,
+  "implementationCommit": "2b10f6021a0b5bda1f52424604bf697b17218e3c",
+  "remoteMainObserved": "2b1b70160de4ec2619c41ba895084dfba205b79a",
+  "remoteMainVerifiedBy": "git fetch and git ls-remote",
+  "ancestry": [
+    {
+      "task": "C",
+      "commit": "2b10f6021a0b5bda1f52424604bf697b17218e3c",
+      "isAncestor": true
+    },
+    {
+      "task": "A included by C",
+      "commit": "5fb351821a921273d98c04527e15c79efd47480a",
+      "isAncestor": true
+    },
+    {
+      "task": "B included by C",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "isAncestor": true
+    }
+  ],
+  "reviewedSourceFiles": [
+    {
+      "path": "tools/release-impact.mjs",
+      "reviewedSha256": "d3e321a310156583d80aa7d7486f22e5bdfa2b997d611f1f2abc93c68f8217fe",
+      "gitBlobSha256": "d3e321a310156583d80aa7d7486f22e5bdfa2b997d611f1f2abc93c68f8217fe",
+      "matches": true
+    },
+    {
+      "path": "tools/release-batch.mjs",
+      "reviewedSha256": "5f343a31a5b3772df10f7f97927188802f7ffe367b61783721f5fad1f3277c14",
+      "gitBlobSha256": "5f343a31a5b3772df10f7f97927188802f7ffe367b61783721f5fad1f3277c14",
+      "matches": true
+    },
+    {
+      "path": "tools/release-batch-admission.mjs",
+      "reviewedSha256": "64dc16dea8eb2720bdd8964c9fe13d5b03f8ebe38778f189f3fefa89a6050ce9",
+      "gitBlobSha256": "64dc16dea8eb2720bdd8964c9fe13d5b03f8ebe38778f189f3fefa89a6050ce9",
+      "matches": true
+    },
+    {
+      "path": "tools/release-preparation-evidence.mjs",
+      "reviewedSha256": "6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5",
+      "gitBlobSha256": "6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5",
+      "matches": true
+    },
+    {
+      "path": "tools/release-admission-timing.mjs",
+      "reviewedSha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66",
+      "gitBlobSha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66",
+      "matches": true
+    },
+    {
+      "path": "tools/worker-local-release.mjs",
+      "reviewedSha256": "6cbc49a8fb050ad83e53932e9483304a53cdd6d9c3735037ea69a6e2322dcf7d",
+      "gitBlobSha256": "6cbc49a8fb050ad83e53932e9483304a53cdd6d9c3735037ea69a6e2322dcf7d",
+      "matches": true
+    },
+    {
+      "path": "tools/release-readonly-retry.mjs",
+      "reviewedSha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab",
+      "gitBlobSha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab",
+      "matches": true
+    },
+    {
+      "path": "tools/process-deadline.ps1",
+      "reviewedSha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "gitBlobSha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "matches": true
+    },
+    {
+      "path": "tools/release-lifecycle-step.ps1",
+      "reviewedSha256": "f7f56eeab2eb854c6b9d29d61a56caa7f491a170f6bb6df69dd472f5d8858a65",
+      "gitBlobSha256": "f7f56eeab2eb854c6b9d29d61a56caa7f491a170f6bb6df69dd472f5d8858a65",
+      "matches": true
+    }
+  ],
+  "sourceHashMatches": 9,
+  "archiveRoot": "E:\\codex-artifacts\\release-fastpath-evidence-20261010\\2b1b7016",
+  "archiveExpected": 44,
+  "archiveVerified": 44,
+  "archiveFailures": [],
+  "deliveryReceiptSha256": "a164c1d999062cee1980104ff76c9379b73a937c57ff729a231c4ad2ddee580a",
+  "sealedEvidence": [
+    {
+      "commit": "2b1b70160de4ec2619c41ba895084dfba205b79a",
+      "path": "docs/release-fastpath-evidence/REPORT.md",
+      "gitBlob": "4caf3e6b1cfe223b8abf133994f0cfd70bd09743"
+    },
+    {
+      "commit": "2b1b70160de4ec2619c41ba895084dfba205b79a",
+      "path": "docs/release-fastpath-evidence/HANDOFF_D.md",
+      "gitBlob": "4c4e1064d90c6d2c02224c69a9a6dd83b42ed6ef"
+    },
+    {
+      "commit": "2b1b70160de4ec2619c41ba895084dfba205b79a",
+      "path": "docs/release-fastpath-evidence/DELIVERY.md",
+      "gitBlob": "effe1221e990fcc6925c065c658d04b72d69b0b5"
+    },
+    {
+      "commit": "2b1b70160de4ec2619c41ba895084dfba205b79a",
+      "path": "docs/release-fastpath-evidence/INDEPENDENT_REVIEW.md",
+      "gitBlob": "9b07b26a9f222adb5f6570cd88c2ed4cbe41a59a"
+    },
+    {
+      "commit": "2b1b70160de4ec2619c41ba895084dfba205b79a",
+      "path": "docs/release-fastpath-evidence/INDEPENDENT_SOURCE_SHA256.json",
+      "gitBlob": "2318b3c3236554c59ef756760458674d595d9dc8"
+    },
+    {
+      "commit": "2b1b70160de4ec2619c41ba895084dfba205b79a",
+      "path": "docs/release-fastpath-evidence/final-abc.log",
+      "gitBlob": "993ed9a7fe57d6b195415c8d77a600ad8385f3ec"
+    },
+    {
+      "commit": "2b1b70160de4ec2619c41ba895084dfba205b79a",
+      "path": "docs/release-fastpath-evidence/INDEPENDENT_TESTS.log",
+      "gitBlob": "35b8a1fa5eec10df07e4206c27f8594e0732f68c"
+    },
+    {
+      "commit": "2b1b70160de4ec2619c41ba895084dfba205b79a",
+      "path": "docs/release-fastpath-evidence/INDEPENDENT_PROBES.log",
+      "gitBlob": "6d57700ea7f4288c7c14e049b7e52cd23145eb94"
+    },
+    {
+      "commit": "2b1b70160de4ec2619c41ba895084dfba205b79a",
+      "path": "docs/release-fastpath-evidence/unit-concurrency2.log",
+      "gitBlob": "044b928363a85a4cf2ac353ba0a22be9c1c99277"
+    },
+    {
+      "commit": "2b1b70160de4ec2619c41ba895084dfba205b79a",
+      "path": "docs/release-fastpath-evidence/timing.json",
+      "gitBlob": "4e51857263ebfc2c5063d38d8d001c1cf5387042"
+    },
+    {
+      "commit": "2b1b70160de4ec2619c41ba895084dfba205b79a",
+      "path": "docs/release-fastpath-evidence/build-final-abc.log",
+      "gitBlob": "fbcc6a585cd90a542eec49b7053a0dd06536f6b7"
+    },
+    {
+      "commit": "2b1b70160de4ec2619c41ba895084dfba205b79a",
+      "path": "docs/release-fastpath-evidence/lint-final-abc.log",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    }
+  ],
+  "testsRerunByD": false,
+  "DIntegrationPerformed": false,
+  "productionCandidatePreparedByD": false,
+  "productionOperationsPerformed": false,
+  "fourStateSummary": {
+    "source": "C exact delivery available",
+    "isolatedValidation": "sealed author/independent logs available; D not rerun",
+    "productionCandidate": "not prepared by D",
+    "adoption": "not performed by D; no current production recheck"
+  },
+  "limits": [
+    "Task message does not replace human phase-two notice",
+    "No D final combination acceptance",
+    "No production-scale net performance result",
+    "C full-unit evidence predates final A/B inclusion; 206 final joint and 166 independent logs are separate",
+    "Daily backup/recovery qualification remains unproven by D"
+  ]
+}

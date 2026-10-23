@@ -1,0 +1,10 @@
+{
+  "status": "independent-expression-failed",
+  "root": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-13756685c1cd191c",
+  "reviewerAssumption": "config/ask.json was the startup companion",
+  "assertion": "globalFiles.has(config/ask.json)",
+  "actualBoundPath": "D:/teruisi-runtime/django-sales/config/dingtalk-ask.json",
+  "implementationChanged": false,
+  "productionOperationsPerformed": 0,
+  "outcome": "Correct the independent reader to the actual declared path; retain this failed inspection record."
+}

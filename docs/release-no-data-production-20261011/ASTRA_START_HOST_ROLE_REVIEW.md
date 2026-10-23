@@ -1,0 +1,20 @@
+# Host/role divergence and actual PID-record removals
+
+This follow-up inspected source and existing files only. No Status, native/CIM query, service command, SQL, lock or production mutation was invoked by this reviewer.
+
+The exact controller selects pwsh.exe, then pwsh, then powershell.exe from PATH (operations-system-control.ps1 lines36–39). Invoke-JsonServiceAction launches the selected host with -NoProfile -ExecutionPolicy Bypass -File and -Json. Thus the frozen lifecycle adapter's initial Worker Status explicitly uses System32 Windows PowerShell, while its subsequent control Status may ask PowerShell7 to run Worker and Django status. This source fact does not establish that the host difference caused the failure. These children inherit their caller's token; no implicit elevation appears in this path.
+
+There is no source basis for asserting an unhandled Worker JSON date conversion defect: Worker ConvertFrom-ExactJson uses -DateKind String when supported. Django ConvertTo-CanonicalCreationDate explicitly handles DateTime, DateTimeOffset and exact roundtrip strings. Worker Test-ExactProcessArguments rejects missing ExecutablePath or CommandLine; the supervisor mismatch message also covers this metadata failure, not just an actual changed creation date. Root's existing ordinary-token CONTROL_NORMAL stdout reports foreign_or_ambiguous and all12 components false, but cannot identify the administrator completion failure's specific cause.
+
+A separate concrete problem exists in the installed original Django status path. Get-ProcessSnapshot requires process, ExecutablePath, CommandLine and CreationDate; after its bounded attempts it returns null if any are unavailable. Resolve-OwnedProcess treats that null as stale and deletes the PID record, then writes stale_process_record_removed. Consequently insufficient metadata visibility can reach deletion without proof of kernel process absence. This is materially stronger than saying Status may clean up a genuinely exited process. No fix has been applied to the installed or frozen code.
+
+The existing launcher log confirms that this deletion branch actually ran during startup:
+
+- AggregateStatus run20261012-100127-ffef52d2: 12 records removed at10:01:29–10:01:41 local time, covering core, finance, netshop, market, products and inventory reader/writer.
+- AggregateStatus run20261012-100227-d88f59f5: 11 records removed at10:02:37–10:02:48, covering workflow, customer service, access control, ERP reference and AI reader/writer plus BI reader.
+
+These times precede the10:09 normal-token diagnostic. The log alone does not establish which actor/token ran those two earlier queries, nor whether each service was alive at its individual removal. Do not attribute them to the later normal diagnostic, the watchdog or a PowerShell host without additional actual evidence.
+
+A bounded existing-log readback and current PID filename inventory are preserved in [STARTUP_STALE_RECEIPT_LOG_READBACK.json](evidence/STARTUP_STALE_RECEIPT_LOG_READBACK.json), SHA2565f4678cea1f9a631d04fdff6d9a5e4ac1f41bcc16b4086a24360557b46bc163e. It contains23 exact non-sensitive event lines with individual hashes, not business logs. The observed run directory had only ai-pandas-wsl, django-ai-dingtalk-schedule, django-ai-dingtalk, django and projection-sync PID JSON filenames; it did not contain those23 per-domain ownership receipts. No missing receipt was synthesized.
+
+Current full readiness may therefore remain blocked even if the processes serve requests: without exact ownership receipts the original status can report foreign_port_owner. The next administrator capture must preserve the complete output and distinguish this condition from health timeout, process exit or role visibility. Any recovery of ownership metadata requires trustworthy original per-process startup evidence and exact present native identity; a port response or same executable name cannot authorize attachment. Replaying Start or weakening the original readiness gate is not justified by this review.

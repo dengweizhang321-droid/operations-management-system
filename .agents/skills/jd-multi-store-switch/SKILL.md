@@ -22,7 +22,7 @@ description: 管理京东多店铺的独立 Chromium 会话、Windows DPAPI 登�
 2. 对启用 DPAPI 模式的每个店铺，要求操作员运行 `npm run jd:credential:setup -- -StoreKey <店铺键>` 交互录入；不得代替用户读取、记录或转述账号密码。
 3. 需要首次登录或安全验证时，只打开对应 Profile 让操作员处理；确认页面 `shopName + shopId` 与注册表一致，不一致时停止。
 
-人工维护时显式增加 `--interactive-login`；它可能继续当前业务步骤，不是纯查看器。定时任务不传该参数，且它不能与 `--no-visible-recovery` 混用。详细操作先读 `docs/京东多店铺账号切换与串行执行手册.md`。
+人工维护时显式增加 `--interactive-login`；它可能继续当前业务步骤，不是纯查看器。定时任务不传该参数，且它不能与 `--no-visible-recovery` 混用。详细操作先读 `docs/自动化/京东/京东多店铺账号切换与串行执行手册.md`。
 
 ## 执行命令
 
@@ -52,7 +52,7 @@ npm run jd:all-stores -- --mode all --start-date 2026-07-01 --end-date 2026-07-1
 - 商智提交清单必须同时绑定 `storeKey + shopName + shopId + dimension + 日期范围`。历史清单缺少店铺绑定时只允许在当前页头身份已精确匹配后兼容恢复；已确认在错误店铺下生成的清单只能原样归档，不能拿错误店铺任务补写指纹。
 - 不要通过重复点击登录/导出、刷新后盲选最新任务、绕过安全验证或换用另一店凭据来“恢复”。先检查当前 storeKey 的 Profile、凭据就绪状态、端口、审计 JSON 和下载目录。
 - 修复后只重跑失败店铺；确认结果后再继续后续店铺。
-- 若需要审查刚运行遇到的坑、修复程序或验证跨店数据隔离，改用 `jd-multi-store-pipeline-review` Skill，并先读 `docs/京东多店铺统一下载与导入-审查修复与稳定性手册.md`。
+- 若需要审查刚运行遇到的坑、修复程序或验证跨店数据隔离，改用 `jd-multi-store-pipeline-review` Skill，并先读 `docs/自动化/京东/京东多店铺统一下载与导入-审查修复与稳定性手册.md`。
 
 ## 相关文件
 

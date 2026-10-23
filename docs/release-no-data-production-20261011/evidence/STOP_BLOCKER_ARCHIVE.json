@@ -1,0 +1,388 @@
+{
+  "observedAt": "2026-10-11T18:05:45.422Z",
+  "entries": [
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_STOP_RECONCILIATION_CALL.json",
+      "target": "AGY_STOP_RECONCILIATION_CALL.json",
+      "sha256": "686ea613c0edba882d6577c92a9fbb0b77c1ccb9694dd91c0d4c338129fbe8bb",
+      "bytes": 206
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_STOP_RECONCILIATION_PROMPT.txt",
+      "target": "AGY_STOP_RECONCILIATION_PROMPT.txt",
+      "sha256": "de27c02a9959284897f638af8c242ac9f854ef8f0a5e76b98850c867352be193",
+      "bytes": 2475
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_STOP_RECONCILIATION_RESULT.md",
+      "target": "AGY_STOP_RECONCILIATION_RESULT.md",
+      "sha256": "2cd55581872daf16f8c232504ab64e234b45ffd10a31af1351f104f6c43df179",
+      "bytes": 1552
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_STOP_RECONCILIATION_STDERR.log",
+      "target": "AGY_STOP_RECONCILIATION_STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_STOP_RECONCILIATION_STREAM.ndjson",
+      "target": "AGY_STOP_RECONCILIATION_STREAM.ndjson",
+      "sha256": "7352d5aef145a71ec5b8b23421b5e2588620aa9ddab5c4e52a0d8eb9aacc3d50",
+      "bytes": 18254
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/ASTRA_STOP_RECONCILIATION_HANDOFF_V1.json",
+      "target": "ASTRA_STOP_RECONCILIATION_HANDOFF_V1.json",
+      "sha256": "6cd5023abdb036285e05991d253ccb0c13d456b20270e4905180130bca4b3613",
+      "bytes": 2494
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/ASTRA_STOP_RECONCILIATION_HANDOFF_V2.json",
+      "target": "ASTRA_STOP_RECONCILIATION_HANDOFF_V2.json",
+      "sha256": "c78892a59f9add63d83d0060c25147eb175d452c7a822aa4be47dfc0f5180cf8",
+      "bytes": 2010
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/RESUME_STOPPED_STATE_V2_TEST.log",
+      "target": "RESUME_STOPPED_STATE_V2_TEST.log",
+      "sha256": "7740b96dc5e207e0994394cfefcea0406732e3ce034147c8b0fe905c5d576c44",
+      "bytes": 700
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_BASELINE.stderr.log",
+      "target": "STOP_BASELINE.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_BASELINE.stdout.json",
+      "target": "STOP_BASELINE.stdout.json",
+      "sha256": "d48b68f8eac2761cc9fe1b859e7d58c29be6f485e648fc9437d5a7ada7313111",
+      "bytes": 3735
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_BASELINE_CAPTURE.json",
+      "target": "STOP_BASELINE_CAPTURE.json",
+      "sha256": "cefe46ed4127fd52773a96f0e0a058c4661e30f14cb5d1d9f3f9e26e001869b1",
+      "bytes": 440
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_COLLECTOR_INITIAL_SOURCE.mjs",
+      "target": "STOP_COLLECTOR_INITIAL_SOURCE.mjs",
+      "sha256": "c30d7cef96064b6399ff04e2a304a8604513f4bb6671c3207d94718693d714fa",
+      "bytes": 5406
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_RECONCILIATION_INTENT_V1.json",
+      "target": "STOP_RECONCILIATION_INTENT_V1.json",
+      "sha256": "ef4a4583220abb13c22217c490485380607618de5a6338800ef200c36a80602b",
+      "bytes": 1112
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_RECONCILIATION_INTENT_V2.json",
+      "target": "STOP_RECONCILIATION_INTENT_V2.json",
+      "sha256": "3f645b69942d5b77fff3d3ed368ee51a5b671b4a2f9e0a324ddd150896d029c6",
+      "bytes": 1112
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_RECONCILIATION_TEST_V1.log",
+      "target": "STOP_RECONCILIATION_TEST_V1.log",
+      "sha256": "2b4fe21cb79ec7fde2743da50bb23270a758ad763dd9c4fad8fc034bd9d3b00c",
+      "bytes": 1446
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_RECONCILIATION_TEST_V2.log",
+      "target": "STOP_RECONCILIATION_TEST_V2.log",
+      "sha256": "9914ed95d55c86e5d86d88bc43271e6e24d0c8b7a7b66319f4a1d195804a19d2",
+      "bytes": 1661
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_RESUME3_V1-runner.mjs",
+      "target": "STOP_RESUME3_V1-runner.mjs",
+      "sha256": "63b91770e5c3f8dcdc7ff6f35554dbe54ad523924b46b7e7729df334aaff594c",
+      "bytes": 4879
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_RESUME3_V1-state.mjs",
+      "target": "STOP_RESUME3_V1-state.mjs",
+      "sha256": "2efdc9f98bb6ac56b1df40a024e9f3079ef1cddb7dd4d797bc2ea3a1c8e5602e",
+      "bytes": 2012
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_RESUME3_V2-runner.mjs",
+      "target": "STOP_RESUME3_V2-runner.mjs",
+      "sha256": "3722c1c4038fcdd3f15a4c97b454e95498711596b632e178991d33d3f795966b",
+      "bytes": 5135
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_RESUME_V3_UAC_CANCELLED.json",
+      "target": "STOP_RESUME_V3_UAC_CANCELLED.json",
+      "sha256": "e5fbb523318279f808add4b0fcf2e9a7c98a08d028c0194e85aaca4af72bf5e8",
+      "bytes": 466
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_TEST_WAL_19.json",
+      "target": "STOP_TEST_WAL_19.json",
+      "sha256": "8531b04ce283241f6c3cc4ebfa8ec714b30b65d580dffa0eb2eaa95e7eb91e60",
+      "bytes": 29822
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_V1-collect-stop-postcondition.mjs",
+      "target": "STOP_V1-collect-stop-postcondition.mjs",
+      "sha256": "89b752b1be12dc418d2f593332eabdad5e3ad5393ef4b06613a5b7d5f0690f1a",
+      "bytes": 6012
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_V1-reconcile-stopped-worker-once.mjs",
+      "target": "STOP_V1-reconcile-stopped-worker-once.mjs",
+      "sha256": "145ed27d5e3415700701d1f2c9997b95b58f80fffeed9928c686776ff1957109",
+      "bytes": 7544
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_V1-stop-reconciliation-state.mjs",
+      "target": "STOP_V1-stop-reconciliation-state.mjs",
+      "sha256": "eca8f9cc7a37edcb84af54f7130ec1c6c9c731c0df325cf09d666d1b908ecf70",
+      "bytes": 5417
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/ACTUAL_RESUME_HEAD.json",
+      "target": "resume2/ACTUAL_RESUME_HEAD.json",
+      "sha256": "ad62c76dabeb5baadb367505f27ab78f3d034da6c6d644027dd90548b487748f",
+      "bytes": 337
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/AVAILABILITY.ndjson",
+      "target": "resume2/AVAILABILITY.ndjson",
+      "sha256": "8b6b2a003f2d7b2977eb19fdf20f23c6897a928eab8382c12199589f6031fe49",
+      "bytes": 30025
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/AVAILABILITY_FINISHED.json",
+      "target": "resume2/AVAILABILITY_FINISHED.json",
+      "sha256": "ccb17b1be6ebefe749acb67f647d7b7f371d1fd258d66ecd5094dd9f6957fc08",
+      "bytes": 149
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/AVAILABILITY_STARTED.json",
+      "target": "resume2/AVAILABILITY_STARTED.json",
+      "sha256": "b249dd20c51a7fb534cc6d569b8962e7e29b3ce1699d55ea499581c473a97133",
+      "bytes": 514
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/CAPTURE_NORMAL.ps1",
+      "target": "resume2/CAPTURE_NORMAL.ps1",
+      "sha256": "09c6f87a633c8d201a2a8d5c137cacdaa669f7a933cc8bf50b537167d97e991e",
+      "bytes": 1481
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/DIRECT_PROCESS.json",
+      "target": "resume2/DIRECT_PROCESS.json",
+      "sha256": "71b7cd5849f03ac66adcd54fcecf5509a748856b11eb063be0eed151c13f01f3",
+      "bytes": 146
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/ENV_RESTORED.json",
+      "target": "resume2/ENV_RESTORED.json",
+      "sha256": "038f4355e213e7235560bbf24a25c08566f0857c7672afcfdcbd748f2873c517",
+      "bytes": 1094
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/FINISHED.json",
+      "target": "resume2/FINISHED.json",
+      "sha256": "a6490b313fbf3ade9e08a5e6ee1db0a8e048ef7d716933559741385dd166bc62",
+      "bytes": 266
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/LAUNCH_WAIT_UTF8.ps1",
+      "target": "resume2/LAUNCH_WAIT_UTF8.ps1",
+      "sha256": "0ebb3237efdb2bfc34d103930baf30006385bdfce13ed604e287f184cd9a08e5",
+      "bytes": 760
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/STARTED.json",
+      "target": "resume2/STARTED.json",
+      "sha256": "cdd189147adcf09ffdccab09d40900f43a8e007c8cb7126ce1059678df1a067c",
+      "bytes": 925
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/STDERR.log",
+      "target": "resume2/STDERR.log",
+      "sha256": "86098159a1834d96ff8b3e210a1ac65b2b65ed435ede3c7e004d20e0f3df4ebb",
+      "bytes": 50
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/STDOUT.log",
+      "target": "resume2/STDOUT.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/WAIT_BINDING.json",
+      "target": "resume2/WAIT_BINDING.json",
+      "sha256": "2a976db77797d57b2068124c6be92eac442378855ae3f5d63d7db8f38a0b667e",
+      "bytes": 3460
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/WAIT_BOOTSTRAP.ps1",
+      "target": "resume2/WAIT_BOOTSTRAP.ps1",
+      "sha256": "27631c8004159860418c424bf9d642015e8f8090b0c3cf7da1329395f707217a",
+      "bytes": 1603
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/WAIT_BOOTSTRAP_BINDING.json",
+      "target": "resume2/WAIT_BOOTSTRAP_BINDING.json",
+      "sha256": "c331c2ede2f96d6c5d2ba8e9f9be2bf0d61485109590ea1183332c152dcd48a7",
+      "bytes": 196
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/WAIT_STARTED.json",
+      "target": "resume2/WAIT_STARTED.json",
+      "sha256": "6c254df1c8c56ccd1b0a2e7d4e5cac67008b8d40e431f239e0e573a7ee7c1816",
+      "bytes": 168
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/BOOTSTRAP.ps1",
+      "target": "resume3/BOOTSTRAP.ps1",
+      "sha256": "7b6b0b727c642ff75053b2295420e1c26ab86d4786760cfbdf0b0eb1afd288ae",
+      "bytes": 1734
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/BOOTSTRAP_BINDING.json",
+      "target": "resume3/BOOTSTRAP_BINDING.json",
+      "sha256": "754a34cfda09d949ebd94b8dce5650603cb702680c25a30e435fc22aab1f9c0e",
+      "bytes": 290
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/BOOTSTRAP_BINDING_V2.json",
+      "target": "resume3/BOOTSTRAP_BINDING_V2.json",
+      "sha256": "901e9dccd072d15ac4ae736b137e97d95fa3ff502950525c8fb7a01c25a233c5",
+      "bytes": 290
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/BOOTSTRAP_BINDING_V3.json",
+      "target": "resume3/BOOTSTRAP_BINDING_V3.json",
+      "sha256": "c01b33ca78873af4bdfde261b01e41aa2cd63a9a4564cb7780b1fe7d289a7b39",
+      "bytes": 290
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/BOOTSTRAP_V1.ps1",
+      "target": "resume3/BOOTSTRAP_V1.ps1",
+      "sha256": "7b6b0b727c642ff75053b2295420e1c26ab86d4786760cfbdf0b0eb1afd288ae",
+      "bytes": 1734
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/BOOTSTRAP_V2.ps1",
+      "target": "resume3/BOOTSTRAP_V2.ps1",
+      "sha256": "44e920ae54d6fb6811b5535dc69c7e1bed280cad436c1e2508c1fa082f0684c6",
+      "bytes": 1740
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/BOOTSTRAP_V3.ps1",
+      "target": "resume3/BOOTSTRAP_V3.ps1",
+      "sha256": "7d7b6d751c017dea4966a2f8aea2f83d4f6ececb3efc57b97154e0d77985ffaf",
+      "bytes": 1740
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/CAPTURE_NORMAL.ps1",
+      "target": "resume3/CAPTURE_NORMAL.ps1",
+      "sha256": "f11f1efee8f50654d0a82e6d2222feb1a34555aab5824eaa4015a88ff351762a",
+      "bytes": 1479
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/CHAIN_BINDING.json",
+      "target": "resume3/CHAIN_BINDING.json",
+      "sha256": "8a48f9c77f796c6d6b1e17f448030c97415fc98db7f22be6946767d4188a88f9",
+      "bytes": 5041
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/CHAIN_BINDING_V1.json",
+      "target": "resume3/CHAIN_BINDING_V1.json",
+      "sha256": "8a48f9c77f796c6d6b1e17f448030c97415fc98db7f22be6946767d4188a88f9",
+      "bytes": 5041
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/CHAIN_BINDING_V2.json",
+      "target": "resume3/CHAIN_BINDING_V2.json",
+      "sha256": "1860d2f909fda41c8d390dde5140ccfd36ea41dd2c01b3194c25d9bd883c0d00",
+      "bytes": 5041
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/CHAIN_BINDING_V3.json",
+      "target": "resume3/CHAIN_BINDING_V3.json",
+      "sha256": "ff49fedc2cf5542adb4c5ec399679e2bdf27f5bfbc43fdd2e70ab512ce1a1fdc",
+      "bytes": 5212
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/RUN_FIXED_STOP_RECONCILIATION_AND_RESUME.cmd",
+      "target": "resume3/RUN_FIXED_STOP_RECONCILIATION_AND_RESUME.cmd",
+      "sha256": "fc4e912ba2cb0cbd39c93258a5a277795fbb8bef483cecd9d2a794b944781b0c",
+      "bytes": 467
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000010.json",
+      "target": "wal/000010.json",
+      "sha256": "f5ed9adcca75869cd6db9cb3678b903b5ef3cb3a9be8512a35dd55d9e79a4607",
+      "bytes": 859
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000011.json",
+      "target": "wal/000011.json",
+      "sha256": "ec2fde65dccca20e05ea6c5c86de080de94f8d8a7b07cdd50674851757f111b7",
+      "bytes": 341
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000012.json",
+      "target": "wal/000012.json",
+      "sha256": "9a55d11d36a9216490eebd0ec2f32cf17a70d36293eeb46a94439163d62ee028",
+      "bytes": 2075
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000013.json",
+      "target": "wal/000013.json",
+      "sha256": "467fd44fc005eb2d3ac6375c77e7349401cf17a95321872bcf79d345dddcb26f",
+      "bytes": 2077
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000014.json",
+      "target": "wal/000014.json",
+      "sha256": "361d0e3fa43793a9f331ab857e1a8a8e74398acf083a0e75d7c2318b5d43485a",
+      "bytes": 351
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000015.json",
+      "target": "wal/000015.json",
+      "sha256": "7cc254aaef62183150949a3aa9ebc7a6cf4704b94c621d0b7b5e937bf6359ed7",
+      "bytes": 1476
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000016.json",
+      "target": "wal/000016.json",
+      "sha256": "f436db0cdd041daa34e294290f717d1c34b2f584997518d810cba32c6398c6a8",
+      "bytes": 1961
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000017.json",
+      "target": "wal/000017.json",
+      "sha256": "def4bd27652b0bd5ecefb0f4aeec0cec61154cf210534b48b71a5531f26aa76d",
+      "bytes": 347
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000018.json",
+      "target": "wal/000018.json",
+      "sha256": "541e7d274f997d3ce083bee04486f72c76a115c036872e2155a4652b6a60e14f",
+      "bytes": 2084
+    }
+  ],
+  "samples": 42,
+  "failedSamples": 10,
+  "first": "2026-10-11T17:11:36.190Z",
+  "last": "2026-10-11T17:32:06.874Z",
+  "firstFailure": "2026-10-11T17:27:36.805Z",
+  "lastSuccess": "2026-10-11T17:27:06.783Z",
+  "intervalMs": 30000,
+  "limits": "Static-resource sample only. Observation ended with the failed entry at 17:32; subsequent maintenance remains open and has no continuous resource sample. Not full business uptime or final acceptance.",
+  "cipherBytesArchived": false,
+  "cipherManifestArchived": false,
+  "environmentValuesArchived": false
+}

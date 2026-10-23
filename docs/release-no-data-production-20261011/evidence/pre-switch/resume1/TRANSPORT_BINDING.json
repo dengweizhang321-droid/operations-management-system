@@ -1,0 +1,58 @@
+{
+  "version": "exact-env-same-batch-resume-transport-v1",
+  "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+  "handoffSha256": "12b48404b6fabfbf1fcbf6991b0545d08694c210fc4421c25ef2e709e305fc96",
+  "files": [
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\exact-env-transport.mjs",
+      "sha256": "6129a0f6387b9606ab47bd09bfb43bbbde7ef7a5eee2235fdf6a779ead155252"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\env-dpapi.ps1",
+      "sha256": "2c4f64ef6efef9dfd087e151b135f04304172dcdafa8fadac4f6bb46b6a09f59"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\capture-approved-env.mjs",
+      "sha256": "47da7e7beb8a93a119e1eef77b1f759b045bcf8fc1a473655e744882006e5a02"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\run-approved-env-resume.mjs",
+      "sha256": "62a1518620576a893e450ce3988c5c8679f016cfc87e0973c40088c16f6b5462"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\resume-admission-state.mjs",
+      "sha256": "5e83e0df0dffcc6e90a0fa5919b889a75d0b46aa6e9bccff087704ac11e908f6"
+    },
+    {
+      "path": "C:/Program Files/nodejs/node.exe",
+      "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume1/ENV_CIPHER_MANIFEST.json",
+      "sha256": "a996c27a4a5a14e08c15ef456affb24a72860da7320921edcf85d04937dc76c2"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/APPROVAL.json",
+      "sha256": "dfd9e3dc69b61c1fb7761fa058d5ee66a519782de1d8d830b28a57df29be835a"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json",
+      "sha256": "960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b"
+    },
+    {
+      "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry-v2.mjs",
+      "sha256": "69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/FINISHED.json",
+      "sha256": "7030ccd7999ec5cf75aeb904998a6de490a53b26d7e592bb58fed20b41d300ee"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/DIRECT_PROCESS.json",
+      "sha256": "324698368e1305fdfa7cf13d8b8016f8721820e47704a37b124052cb0905f79e"
+    }
+  ],
+  "node": "C:/Program Files/nodejs/node.exe",
+  "runner": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\run-approved-env-resume.mjs",
+  "cipherManifestSha256": "a996c27a4a5a14e08c15ef456affb24a72860da7320921edcf85d04937dc76c2"
+}

@@ -1,0 +1,26 @@
+{
+  "phase": "supervisor",
+  "startedAt": "2026-10-09T13:18:37.178Z",
+  "script": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-runtime-supervisor.ps1",
+  "args": [
+    "-Action",
+    "Status"
+  ],
+  "scriptSha256": "85d2bdd121a415ff3a2e3e0c1edf208fc0ba2304444d7d3cc69cb71bcb533a11",
+  "readOnly": true,
+  "environment": "Existing PS5 readonly transport, native nested processes unchanged; natural watchdog/jobs remain active; no additional workload injected.",
+  "status": "returned",
+  "data": {
+    "status": "completed",
+    "desiredState": "running",
+    "supervisorProcess": "running",
+    "health": "healthy",
+    "code": "all_components_ready",
+    "lastHealthyAt": "2026-10-09T13:18:16.2832592+00:00",
+    "restartAttemptsInWindow": 1,
+    "pendingAlertCount": 302,
+    "serviceStateChanged": false
+  },
+  "completedAt": "2026-10-09T13:18:39.978Z",
+  "elapsedMs": 2798.8990999999996
+}

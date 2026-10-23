@@ -20,7 +20,7 @@
 
 ## 获得明确上线授权后的执行顺序
 
-1. **准备精确候选。** 复查其他在途发布及固定准备源是否被使用，不覆盖脏树或共享准备源。按 `docs/STARTUP_RELEASE_OPTIMIZATION.md` 将干净、锁定依赖的发布来源固定为 ed208d3d，经原工具执行 `plan --prepare-online --json`。记录完整候选 release、manifest、plan SHA、实际前驱、来源摘要及构建验证；线上保护入口保持原字节。前驱或来源变化则停止采用并重新说明。
+1. **准备精确候选。** 复查其他在途发布及固定准备源是否被使用，不覆盖脏树或共享准备源。按 `docs/运维/部署与启动/startup-release-optimization.md` 将干净、锁定依赖的发布来源固定为 ed208d3d，经原工具执行 `plan --prepare-online --json`。记录完整候选 release、manifest、plan SHA、实际前驱、来源摘要及构建验证；线上保护入口保持原字节。前驱或来源变化则停止采用并重新说明。
 2. **前置门禁及备份。** 核验已安装启动入口、原数据库/n8n/Django 进程身份、后端就绪、helper 与应用任务排空状态。使用原备份/Verify/独立恢复工具，遵守 E 盘三份/两保护策略；后备份淘汰前先保全前份完整比较元数据。备份异常、未知在途任务或权限不一致则不进入切换。
 3. **仅停止 Worker。** 从已安装的唯一 Worker 生命周期入口执行原 `Stop`，不带 `IncludeBackend`。确认前驱 Worker/helper/supervisor 停止，Django、数据库和 n8n 的身份保持；不使用任务管理器终止业务服务或放宽等待门禁。
 4. **准确采用并启动。** 原 rotation 工具 `apply --approved-plan-sha256 <本次新计划SHA> --json` 复验并采用，采集真实直接退出码；随后原唯一 Worker `Start`，按完整就绪屏障回读。未知 apply 结果先核验持久回执，不重放或伪称成功。

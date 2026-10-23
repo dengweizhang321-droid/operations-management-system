@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "candidate": {
+    "installedPredecessorScriptSha256": "aefa5e6d85d9a28a3e84405b77b0dc89caa2b3c341fa8a088744ee6388a0111b",
+    "root": "E:\\codex-artifacts\\watchdog-stability-20261011\\candidate",
+    "installedLauncherSourceSha256": "8a0bc0aed704b33fbe107194218704b7b5130893ce18cad9995b387f772a30c7",
+    "installedTransportSha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+    "completeBackendRuntimePrepared": false,
+    "files": [
+      {
+        "path": "tools/operations-system-watchdog.ps1",
+        "sha256": "f5e982e07c177a7054f22ac2c5f815c2d7b797f2141ab3c899c0eca8cc841f2e"
+      },
+      {
+        "path": "tools/process-deadline.ps1",
+        "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+      },
+      {
+        "path": "tools/watchdog-launcher/NoConsoleLauncher.cs",
+        "sha256": "8a0bc0aed704b33fbe107194218704b7b5130893ce18cad9995b387f772a30c7"
+      }
+    ]
+  },
+  "verification": {
+    "finalCombined": {
+      "failed": 0,
+      "passed": 68
+    },
+    "isolatedBuild": "passed",
+    "firstCombined": {
+      "reason": "preexisting_static_health_assertion",
+      "passed": 67,
+      "failed": 1
+    },
+    "pairedNativeTransportProbe": "passed",
+    "finalPairedDiagnosticsAssertions": 42,
+    "modifiedTypeScriptLint": "passed",
+    "finalPairedWatchdogAssertions": 36,
+    "healthProbe": {
+      "failed": 0,
+      "passed": 17
+    },
+    "diffCheck": "passed"
+  },
+  "remaining": [
+    "Underlying intermittent core failure root cause remains unproven",
+    "Full backend diagnostics require a separately prepared exact runtime candidate"
+  ],
+  "production": {
+    "messagesSentByThisTask": false,
+    "businessDataWritten": false,
+    "restarted": false,
+    "installed": false
+  },
+  "baseSha": "7f05da96c6cad16d7d6c43da1f21deed117101b2",
+  "sourceFiles": [
+    {
+      "path": "tools/operations-system-watchdog.ps1",
+      "sha256": "f5e982e07c177a7054f22ac2c5f815c2d7b797f2141ab3c899c0eca8cc841f2e"
+    },
+    {
+      "path": "tools/operations-system-control.ps1",
+      "sha256": "b7acd2bc6c9c92dc80eb9f4730fd8037ba83df6b3bc951769f9d368d15252b6d"
+    },
+    {
+      "path": "tools/django-local-service.ps1",
+      "sha256": "30414433d498480106fb3f79468a3413ac5224ff357cd622421d83792bfc43ab"
+    },
+    {
+      "path": "tests/watchdog-diagnostics.test.ps1",
+      "sha256": "95e6343d3f2b9e3f3833563d1e76dfc8ef1dfbd7d2012568acd0a59b4157bf6b"
+    },
+    {
+      "path": "tests/core-readiness-diagnostics.test.ps1",
+      "sha256": "0de857c681bc11473d2939c41bd15282c84e28d5c88456f38badacfe530c0ae2"
+    },
+    {
+      "path": "tests/watchdog-diagnostics.test.ts",
+      "sha256": "e2cebf24d0ddf1e4d9a4943450d803798c430bbb6605c8ca4fa5a79f5533d34d"
+    },
+    {
+      "path": "tests/operations-system-control.test.ts",
+      "sha256": "47774a38c82e78a4c5d875bccc2002fd7b5dcd9c55032285c8c7601f9ff37b01"
+    }
+  ]
+}

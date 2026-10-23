@@ -1,0 +1,307 @@
+{
+  "version": "task-d-final-ab-batch-v2",
+  "status": "sealed-not-approved",
+  "root": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2",
+  "batchId": "integration-ab-v2-20261010-c22d8dd69a",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "batchFileSha256": "896d20483fea390636293c7952b4792b5ca2e1f64f76f60ec6e5c3a15381b347",
+  "batchBytes": 12854217,
+  "sourceCommit": "5faac8151f59d66de72c3caead8cad916ea547da",
+  "candidate": "20261010T014638Z-97833d2f2b7e7bc9",
+  "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+  "workerPlanSha256": "266a8574000a90cbeb5baf12fcba7bc2f4a8a06f0262f3b47d4ad73b9d0ddaee",
+  "predecessor": {
+    "bindingSha256": "53fea00a825b87d50b3bc7f436386041cc2c521729b19b934bad1997a09461ce",
+    "guardReceiptSha256": "bacf64dbe46b314ac0793c0606f3dfc0480cf429e0970c0a4b3e3baa1855b784",
+    "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+    "releaseId": "20261009T080026Z-d5fb5b62de630ae2",
+    "version": "teruisi-local-worker-release-binding-v1"
+  },
+  "djangoManifestSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+  "operations": [
+    {
+      "covers": [],
+      "id": "reuse-reviewed-worker",
+      "mutating": false,
+      "phase": "prepare"
+    },
+    {
+      "covers": [],
+      "id": "backup-pre",
+      "mutating": true,
+      "phase": "backup-pre"
+    },
+    {
+      "covers": [],
+      "id": "restore-pre",
+      "mutating": true,
+      "phase": "restore-pre"
+    },
+    {
+      "covers": [],
+      "id": "entermaintenance",
+      "mutating": true,
+      "phase": "drain"
+    },
+    {
+      "covers": [],
+      "id": "apply-reviewed-worker",
+      "mutating": true,
+      "phase": "switch"
+    },
+    {
+      "covers": [],
+      "id": "exitmaintenance",
+      "mutating": true,
+      "phase": "switch"
+    },
+    {
+      "covers": [],
+      "id": "startworker",
+      "mutating": true,
+      "phase": "switch"
+    },
+    {
+      "covers": [],
+      "id": "preserve-pre-recovery",
+      "mutating": false,
+      "phase": "acceptance"
+    },
+    {
+      "covers": [
+        "resources"
+      ],
+      "id": "verify-all-resources",
+      "mutating": false,
+      "phase": "acceptance"
+    },
+    {
+      "covers": [
+        "task-specific"
+      ],
+      "id": "actual-readonly-ui",
+      "mutating": false,
+      "phase": "acceptance"
+    },
+    {
+      "covers": [
+        "permissions"
+      ],
+      "id": "unsigned-reader-permission-denials",
+      "mutating": false,
+      "phase": "acceptance"
+    },
+    {
+      "covers": [
+        "components"
+      ],
+      "id": "complete-component-readiness",
+      "mutating": false,
+      "phase": "acceptance"
+    },
+    {
+      "covers": [
+        "startup"
+      ],
+      "id": "verifystartup",
+      "mutating": false,
+      "phase": "acceptance"
+    },
+    {
+      "covers": [],
+      "id": "install-reviewed-watchdog",
+      "mutating": true,
+      "phase": "acceptance"
+    },
+    {
+      "covers": [
+        "natural-watchdog"
+      ],
+      "id": "two-natural-watchdogs",
+      "mutating": false,
+      "phase": "acceptance"
+    },
+    {
+      "covers": [],
+      "id": "backup-post",
+      "mutating": true,
+      "phase": "backup-post"
+    },
+    {
+      "covers": [],
+      "id": "restore-post",
+      "mutating": true,
+      "phase": "restore-post"
+    },
+    {
+      "covers": [],
+      "id": "preserve-post-recovery",
+      "mutating": false,
+      "phase": "closeout"
+    },
+    {
+      "covers": [
+        "business",
+        "migrations",
+        "writes"
+      ],
+      "id": "full-postgresql-deep-comparison",
+      "mutating": false,
+      "phase": "closeout"
+    },
+    {
+      "covers": [],
+      "id": "original-historical-audits-preserved",
+      "mutating": false,
+      "phase": "closeout"
+    },
+    {
+      "covers": [],
+      "id": "exact-final-readiness",
+      "mutating": false,
+      "phase": "closeout"
+    }
+  ],
+  "productionApproval": false,
+  "productionAdopted": false,
+  "collectorFiles": 4502,
+  "pythonInventoryFiles": 7918,
+  "primaryEntrypoints": [
+    {
+      "archive": null,
+      "candidateSha256": "ce38493daf69c5e122a78a56877bb29f0e9753c3705e0b2301597385cc72a890",
+      "currentSha256": "ce38493daf69c5e122a78a56877bb29f0e9753c3705e0b2301597385cc72a890",
+      "predecessorSha256": "ce38493daf69c5e122a78a56877bb29f0e9753c3705e0b2301597385cc72a890",
+      "relativePath": "package.json",
+      "willChange": false
+    },
+    {
+      "archive": null,
+      "candidateSha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "currentSha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "predecessorSha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "relativePath": "运行项目.bat",
+      "willChange": false
+    },
+    {
+      "archive": "primary-before-2.bin",
+      "candidateSha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+      "currentSha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638",
+      "predecessorSha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638",
+      "relativePath": "tools/operations-system-control.ps1",
+      "willChange": true
+    },
+    {
+      "archive": null,
+      "candidateSha256": "383351ab2ad69c7889a831e2e11646e6d3e8d4e43f87b02e0d5b53d13e1ed74f",
+      "currentSha256": "383351ab2ad69c7889a831e2e11646e6d3e8d4e43f87b02e0d5b53d13e1ed74f",
+      "predecessorSha256": "383351ab2ad69c7889a831e2e11646e6d3e8d4e43f87b02e0d5b53d13e1ed74f",
+      "relativePath": "tools/start-local-worker.mjs",
+      "willChange": false
+    },
+    {
+      "archive": "primary-before-4.bin",
+      "candidateSha256": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210",
+      "currentSha256": "1bb5adea6d6c72ad0eceab30af17f2511e086ad0b2c40cb6845c0be8dc6aab6e",
+      "predecessorSha256": "1bb5adea6d6c72ad0eceab30af17f2511e086ad0b2c40cb6845c0be8dc6aab6e",
+      "relativePath": "tools/worker-authority-guard.mjs",
+      "willChange": true
+    },
+    {
+      "archive": null,
+      "candidateSha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76",
+      "currentSha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76",
+      "predecessorSha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76",
+      "relativePath": "tools/d1-retirement-proof.mjs",
+      "willChange": false
+    },
+    {
+      "archive": null,
+      "candidateSha256": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295",
+      "currentSha256": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295",
+      "predecessorSha256": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295",
+      "relativePath": "tools/collect-d1-retirement-proof.mjs",
+      "willChange": false
+    },
+    {
+      "archive": "primary-before-7.bin",
+      "candidateSha256": "bba3e24da195576e991f162084159314652c7077f0c7f0a3647319911203c0fa",
+      "currentSha256": "0e5d1c45d215158a5b765e1ea47345a940a10b41fcd0d0b645dc89cc5fd48e32",
+      "predecessorSha256": "0e5d1c45d215158a5b765e1ea47345a940a10b41fcd0d0b645dc89cc5fd48e32",
+      "relativePath": "tools/worker-local-release.mjs",
+      "willChange": true
+    },
+    {
+      "archive": "primary-before-8.bin",
+      "candidateSha256": "4c12dedf527e68a372061bc2d0f78ded9083246b8d37596990d718c6500591fe",
+      "currentSha256": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd",
+      "predecessorSha256": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd",
+      "relativePath": "tools/worker-local-release-rotation.mjs",
+      "willChange": true
+    },
+    {
+      "archive": "primary-before-9.bin",
+      "candidateSha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "currentSha256": "bc98f84683dbf5da0769be5eb4e0533c5c5c7eb35252d26c87613f38440f6e15",
+      "predecessorSha256": "bc98f84683dbf5da0769be5eb4e0533c5c5c7eb35252d26c87613f38440f6e15",
+      "relativePath": "tools/worker-local-service.ps1",
+      "willChange": true
+    },
+    {
+      "archive": "primary-before-10.bin",
+      "candidateSha256": "d7c38840b6662dc5bc1b6f7ffbbd4fefa44671bd942699c37b78b2a49c6b779b",
+      "currentSha256": "b4200aa85d551f0e9c63123437dbd15cb18cb45ad4976dcb65b8d0d0aa6f72df",
+      "predecessorSha256": "b4200aa85d551f0e9c63123437dbd15cb18cb45ad4976dcb65b8d0d0aa6f72df",
+      "relativePath": ".runtime/worker-release-activation-fence.json",
+      "willChange": true
+    },
+    {
+      "archive": null,
+      "candidateSha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "currentSha256": null,
+      "predecessorSha256": null,
+      "relativePath": "tools/process-deadline.ps1",
+      "willChange": true
+    }
+  ],
+  "originalGitPatch": {
+    "status": "preserved-primary-unchanged",
+    "baseCommit": "2f55c3965e60b139381b6cc31ed868bcfe99a7bf",
+    "files": [
+      "tools/worker-local-release.mjs",
+      "tools/worker-local-release-rotation.mjs",
+      "tools/worker-local-service.ps1"
+    ],
+    "patchSha256": "6d0d3c8b9f884f9c053fcfae1cb5b1b64f7f79591b21a3c68672dbe8bc53e30e",
+    "patchBytes": 21315,
+    "executedOrApplied": false
+  },
+  "notificationBoundary": "Original watchdog installation updates/enables/starts existing task; existing automatic recovery/incident-notification policy may run. No manual message/TestNotification.",
+  "limitations": [
+    "Original Python cache invalidation (mtime/size/hash) and OS runtime trust; no new cryptographic pyc verification",
+    "Complete PostgreSQL public profile, excluding R2/n8n payloads",
+    "Real pre/post backups/restores and switched-candidate acceptance still require exact approval",
+    "ABC alternative candidate preserved; its batch is not sealed/currently eligible",
+    "Native scheduler latest unknown; recovery fast path refused"
+  ],
+  "supersededAttempt": {
+    "root": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-13756685c1cd191c",
+    "batchSha256": "0fc66a5f7ad209a6c1f5772c7582470a4fb262f4e40c013c5b7ff063ab75756a",
+    "batchFileSha256": "007b11f0f9bbf82ead4befd40ceec8a93d7f4e136e45b18ce3b05d0e1f726c85",
+    "reason": "Readonly UI navigation cancelled an in-flight sales read; original failure preserved"
+  },
+  "readonlyUi": {
+    "status": "passed",
+    "cases": 4,
+    "log": "batch-v2-ui-authority-final.log",
+    "productionWrites": 0,
+    "adoptedReleaseStillPredecessor": true
+  },
+  "readonlyAdmission": {
+    "status": "passed",
+    "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+    "observedAtMs": 1791607396869,
+    "log": "batch-v2-admission-authority-final.json",
+    "scope": "Original collector readonly admission and complete source/artifact/head identity; not phase acceptance or approval"
+  }
+}

@@ -1,0 +1,154 @@
+{
+  "observedAt": "2026-10-09T13:42:43.714Z",
+  "mode": "Read existing state files/source only; no runtime probe, notifications or lifecycle action",
+  "mainBase": "0b45017836dab43a85cedcbae7d80f0169c4484b",
+  "files": {
+    "watchdogLatest": {
+      "path": "D:/teruisi-runtime/operations-watchdog/latest.json",
+      "sha256": "a9817d1950a923abbd07558d8811ed480fe3307549a35f69357c2f4d56de7ab6",
+      "value": {
+        "supervisorHealth": "unprobed",
+        "supervisor": "unprobed",
+        "system": "unprobed",
+        "worker": "unprobed",
+        "ports": [
+          {
+            "pid": 66052,
+            "port": 5791
+          },
+          {
+            "pid": 4080,
+            "port": 5432
+          },
+          {
+            "pid": 4848,
+            "port": 3000
+          }
+        ],
+        "probeError": true,
+        "probes": {
+          "helper": {
+            "ok": true,
+            "status": 200
+          },
+          "homepage": {
+            "ok": true,
+            "status": 200
+          },
+          "live": {
+            "ok": true,
+            "status": 200
+          },
+          "ready": {
+            "ok": true,
+            "status": 200
+          }
+        },
+        "healthy": false,
+        "business": {
+          "checkedAt": "2026-10-09T13:37:44.9907786+00:00",
+          "status": "unknown",
+          "reason": "no_confirmed_failure",
+          "version": "market-read-probe-v1"
+        },
+        "at": "2026-10-09T13:40:34.0724022+00:00",
+        "components": {},
+        "backend": "unprobed",
+        "admission": {
+          "mode": "running",
+          "fence": "7a0d20ae5153456e890a774298f3ca620fc00a6eaf64d721e558e3579142fe23"
+        }
+      }
+    },
+    "watchdogState": {
+      "path": "D:/teruisi-runtime/operations-watchdog/state.json",
+      "sha256": "b6561f1f750f0eb46249d972642453a74721327670f877f1e7c36a4e85fe57f2",
+      "value": {
+        "lastMode": "running",
+        "decision": "alert_only",
+        "incident": "4e31b0f1bab54ab8822bea57d1ad01c9",
+        "lastCheck": "2026-10-09T13:41:46.5118494+00:00",
+        "notification": "identity_failed",
+        "lastHealthy": "2026-10-09T20:07:27.3509321+08:00",
+        "failures": 28,
+        "version": "teruisi-operations-watchdog-v2",
+        "lastFence": "7a0d20ae5153456e890a774298f3ca620fc00a6eaf64d721e558e3579142fe23",
+        "attempts": [
+          "2026-10-09T18:47:06.9643406+08:00",
+          "2026-10-09T18:53:02.356583+08:00",
+          "2026-10-09T18:59:01.9601637+08:00"
+        ],
+        "firstFailure": "2026-10-09T20:09:50.654316+08:00",
+        "identityAttempts": 3,
+        "lastIdentityAttempt": "2026-10-09T20:43:37.1786739+08:00",
+        "notificationReason": "identity:preflight_failed",
+        "marketFailureOpen": false
+      }
+    },
+    "djangoSupervisorState": {
+      "path": "D:/teruisi-runtime/django-sales/monitoring/django-runtime/state.json",
+      "sha256": "8b60f00d3af016b861864356e866e1810228625bb1b4b0da0158f5f4fcf5f488",
+      "value": {
+        "version": "teruisi-django-supervisor-state-v1",
+        "updatedAt": "2026-10-09T13:38:42.1909368+00:00",
+        "desiredState": "running",
+        "health": "healthy",
+        "code": "all_components_ready",
+        "recoverable": false,
+        "statusFingerprint": "f57880ca387fe56cd672241bba20aa91e3ff4cf92bf420157c1360e21dca5f33",
+        "consecutiveFailures": 0,
+        "restartWindowStartedAt": "2026-10-07T23:39:37.2265755+00:00",
+        "restartAttemptsInWindow": 1,
+        "nextRestartEligibleAt": "2026-10-07T23:39:56.1176312+00:00",
+        "lastHealthyAt": "2026-10-09T13:38:42.1909368+00:00",
+        "lastRestartAttemptAt": "2026-10-07T23:39:41.1114802+00:00",
+        "lastAlertAt": "2026-10-09T12:31:11.2549252+00:00",
+        "lastAlertKey": "recovered:django_runtime_recovered:f57880ca387fe56cd672241bba20aa91e3ff4cf92bf420157c1360e21dca5f33",
+        "supervisorProcessId": 37532,
+        "supervisorScriptSha256": "85d2bdd121a415ff3a2e3e0c1edf208fc0ba2304444d7d3cc69cb71bcb533a11"
+      }
+    },
+    "workerReceipt": {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/worker-process.json",
+      "sha256": "74c4e04a121db44570109993280de8487c5b8f439299717da0d2ab54e6ff94a3",
+      "value": {
+        "manifestPathSha256": "78333325da2551ba1fc91322267cbf63963429302d66dfa26b2a25ac531a6a7a",
+        "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+        "receiptPayloadSha256": "64e9f1d92f9d08cb5a872e8a513998d3f8582e74c364196b5fa22c9957f827a1",
+        "releaseId": "20261009T080026Z-d5fb5b62de630ae2",
+        "supervisorCreationDate": "2026-10-09T10:46:05.7201520Z",
+        "supervisorEntrypointPathSha256": "984b08ea66503b8e635f9d73ef27c86b91616257a7af009ab93a0a7c295db652",
+        "supervisorPid": 32284,
+        "version": "teruisi-local-worker-process-v1"
+      }
+    }
+  },
+  "source": {
+    "installedWatchdog": {
+      "path": "D:/teruisi-runtime/operations-watchdog/operations-system-watchdog.ps1",
+      "sha256": "99593a800321569257bf8e31fdd64dda8b558f9bacdeed316ca7000a301c162a",
+      "repositorySourceSha256": "99593a800321569257bf8e31fdd64dda8b558f9bacdeed316ca7000a301c162a",
+      "samePhysicalBytesAsMainSource": true
+    },
+    "installedController": {
+      "path": "D:/运营管理系统/tools/operations-system-control.ps1",
+      "sha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638",
+      "repositorySourceSha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638",
+      "samePhysicalBytesAsMainSource": true
+    },
+    "primaryWorkerService": {
+      "path": "D:/运营管理系统/tools/worker-local-service.ps1",
+      "sha256": "bc98f84683dbf5da0769be5eb4e0533c5c5c7eb35252d26c87613f38440f6e15",
+      "repositorySourceSha256": "bc98f84683dbf5da0769be5eb4e0533c5c5c7eb35252d26c87613f38440f6e15",
+      "samePhysicalBytesAsMainSource": true
+    },
+    "deployedDjangoService": {
+      "path": "D:/teruisi-runtime/django-sales/app/tools/django-local-service.ps1",
+      "sha256": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c"
+    }
+  },
+  "limitations": {
+    "processStopTrace": "A single Register-CimIndicationEvent Win32_ProcessStopTrace subscription was denied by OS access control; no escalation/retry; no subscription was established. Exact exit-status timeline for a natural watchdog subprocess remains unknown.",
+    "knownProductionPackageOnly": true
+  }
+}

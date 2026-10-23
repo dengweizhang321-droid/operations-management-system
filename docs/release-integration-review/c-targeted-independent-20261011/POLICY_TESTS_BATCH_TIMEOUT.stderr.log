@@ -1,0 +1,1 @@
+{"status":"rejected","casesCompleted":6,"errorType":"Error","vmLine":669,"fixedSourceLine":"  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 1_800_000) fail(\"子进程时限无效\");","messageSha256":"cdecf367dc2ccbae2485fe6b41fa4cce271fc690c4f8d9d3ffc83eb48a218a31"}

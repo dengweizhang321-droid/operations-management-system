@@ -1,0 +1,40 @@
+{
+  "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+  "codeCommits": {
+    "S1": "97282a6bced9752f32deb35ba346475e3a32a11c",
+    "S2": "da7f110f54fb67e069e767c1f91cf1584cd82847"
+  },
+  "results": [
+    {
+      "name": "s1-lifecycle",
+      "exitCode": 0,
+      "signal": null,
+      "elapsedMs": 40173
+    },
+    {
+      "name": "s2-independent",
+      "exitCode": 0,
+      "signal": null,
+      "elapsedMs": 1188
+    },
+    {
+      "name": "s2-fingerprints",
+      "exitCode": 0,
+      "signal": null,
+      "elapsedMs": 409
+    },
+    {
+      "name": "s2-timing",
+      "exitCode": 0,
+      "signal": null,
+      "elapsedMs": 776
+    },
+    {
+      "name": "changed-lint",
+      "exitCode": 0,
+      "signal": null,
+      "elapsedMs": 33281
+    }
+  ],
+  "qualification": "Executed exact fixed code/test bytes on the independent subset worktree. Not a complete CI/L3 or production readiness receipt."
+}

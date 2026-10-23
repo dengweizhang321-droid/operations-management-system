@@ -1,0 +1,118 @@
+{
+  "version": "teruisi-completed-backup-sealed-scope-independent-review-v1",
+  "status": "passed",
+  "verdict": "metadata-candidate-ready-for-exact-human-approval-only",
+  "reviewer": "/root/preparation_review",
+  "reviewedAt": "2026-10-10T10:28:25.000Z",
+  "reviewMode": "Read-only files, pure JSON schema/canonical digest and original journal hash-chain inspection; no metadata API or production tail call",
+  "sealedScope": {
+    "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-backup-metadata-20261010-1025-final\\metadata-scope.json",
+    "scopeSha256": "7389a4d45c9ac8356eae7a6cb50bf987ea647703fbd68ec8f63f83dbf949640c",
+    "rawFileSha256": "278733b22abb3ba77193bbcc4bb634774834bbeb9c5ec1c97ede49850319c514",
+    "canonicalDigestRecomputedFromRawNodeJsonParse": true,
+    "sealedAt": "2026-10-10T10:25:53.660Z",
+    "sourceCommit": "a9f2bd327fc6cfbd7248ee4da7dd9f5488743fd3",
+    "adoptedSourceCommit": "5faac8151f59d66de72c3caead8cad916ea547da",
+    "apiSha256": "3fabc2009287d12088559f882e7b326903aeb8b0a1f8eb29cda6faf7f17b5865",
+    "callerSha256": "7b0e27fc5a0af121daa184366a186f972e569a0c05924255515f099c65b11105",
+    "bothModulesMatchIndependentReviewedBytes": true
+  },
+  "originalAuthority": {
+    "rawFileSha256": "896d20483fea390636293c7952b4792b5ca2e1f64f76f60ec6e5c3a15381b347",
+    "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+    "id": "integration-ab-v2-20261010-c22d8dd69a",
+    "originalBatchUnchanged": true,
+    "operationSha256": "fd174c64b0866bf3bdbd642de40196a1c167d90ac502fd499eab6b0d4279320e",
+    "operationDigestRecomputedFromExactOriginalBackupPost": true
+  },
+  "filePins": {
+    "currentClosure": "Original collector.files plus original operations16–21 command files",
+    "currentDeclaredEntries": 16667,
+    "currentUniquePaths": 4505,
+    "currentClosureConflicts": 0,
+    "allCurrentPinsExactlyCovered": true,
+    "totalScopePins": 4539,
+    "uniqueAbsoluteScopePinPaths": 4539,
+    "additionalPins": 34,
+    "allAdditionalFilesRawDigestVerified": true,
+    "allAdditionalFilesSingleLinkAndNoSymlinkAncestors": true,
+    "exactOriginalContractAndValidatorRawDigestVerified": true,
+    "current4505DiskFilesRehashedDuringThisReview": false,
+    "executionRequiresUnchangedCallerToRehashAll4539PinsUnderItsOriginalPolicy": true
+  },
+  "independentImplementationEvidence": {
+    "reviewJsonSha256": "8e266a183a3c2a51ee57fe7860687c1b9dd31c22a78faf7bfed16077036b8a5b",
+    "reviewMarkdownSha256": "fef812aa01d832c42f44af4841b1a8ba1cbe7eb6800ccbf5ecb6c337c044166f",
+    "finalTestLogSha256": "8183cb23bfd8f05a28f49b750f3c38c6195ef907e734e7f3307298b193bb817c",
+    "passed": 15,
+    "failed": 0,
+    "skipped": 0,
+    "actualOriginalJournalStateAndWriteOnceTestedInOwnedTemporaryJournals": true,
+    "testsRerunForThisScopeReview": false
+  },
+  "journalAtReview": {
+    "all75EventDigestsAndPreviousLinksVerified": true,
+    "eventCount": 75,
+    "headSha256": "420fd5e13e5b637c1a6d62f6fad1e16dccd19c8f1f2c26c8302db892c34fcd09",
+    "originalBackupPostStatus": "unknown",
+    "originalBackupPostExitCode": 1,
+    "prior15LatestPassed": true,
+    "tail17To21NotStarted": true,
+    "exactlyOneLatestStartedOrUnknown": true,
+    "activeStillOriginalBatch": true,
+    "noReconciliationEventPresent": true
+  },
+  "actualOutputCandidate": {
+    "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261010T093506Z-8a5a7107b3f6",
+    "backupId": "daily-20261010T093506Z-8a5a7107b3f6",
+    "manifestSha256": "4cc95143e5feffbd801388cb5de8dd59e269f099ce193afbdc4cfaba310e0f88",
+    "dumpSha256": "bd3c532a8f897eea2f09f3b60270543993abcda802bd2147c3937539dfc680c8",
+    "contentSha256": "b2a042fd4e5287ab30642180365d05a74694f7d07ed490c83454bd40f50cf6ce",
+    "exactlyFiveFieldsMatchRealNativeResultAndIndependentProof": true,
+    "nativeResultSerializationMatchesOriginalUnknownStdout1319BytesSha256": true,
+    "manifestAndSidecarRawDigestsVerified": true,
+    "dumpRehashedDuringThisReview": false
+  },
+  "scopeBoundaries": {
+    "newAction": "one guarded append-only completed-backup metadata reconciliation",
+    "metadataOnly": true,
+    "originalShellSucceeded": false,
+    "nativeBackupReplayed": false,
+    "tailExecutedByThisCaller": false,
+    "productionDataRestoreAuthorized": false,
+    "CAdoptionAuthorized": false,
+    "humanMetadataApprovalFilePresent": false,
+    "productionExecutionOutputsPresent": false,
+    "productionReconciliationExecuted": false,
+    "preciseNewHumanApprovalRequired": true,
+    "independentReviewDoesNotAuthorizeExecution": true
+  },
+  "remainingBlockers": {
+    "releaseRetentionStatus": "blocked",
+    "originalShellExit1AndUnknownPreserved": true,
+    "strictFullComparisonBlocked": true,
+    "strictComparisonMismatchNotWaived": true,
+    "changedProfileTables": [
+      "market_write_request_receipts",
+      "workflow_task_activity_logs",
+      "workflow_task_comments",
+      "workflow_write_request_receipts",
+      "workflow_data_revisions",
+      "workflow_tasks"
+    ],
+    "preRecoveryDirectory": "E:\\运营管理系统业务数据\\daily-20261010T054420Z-3f75a3055cf6",
+    "preRecoveryDirectoryExistsAtReview": false,
+    "preRecoveryPayloadCurrentlyAvailable": false,
+    "fullBatchCompleted": false,
+    "currentBackendHealthProvenByMetadata": false,
+    "dynamicAdmissionNotWaived": true,
+    "published10_18CoreNotReadyAnd10_19RecoveryRemainHistoricalObservationsOnly": true
+  },
+  "limitations": [
+    "No Status, HTTP/UI, collector, Backup, Restore, lock acquisition, reconciliation, tail or production writes were performed.",
+    "This review verifies complete original pin-set coverage and all34 added file bytes; it intentionally does not duplicate the full4505 disk hash scan or946874951-byte dump stream verification. The sealed unchanged caller/API must do those checks at execution.",
+    "The first inline checker assumed an operationSha256 property on the original unknown event that the adopted WAL schema does not contain. The checker was corrected to bind the canonical original operation through the unchanged authority and exact event/hash chain; this was not a source defect or skipped assertion.",
+    "Approval, health, active owner, journal head, file pins and dump identity can change after this read-only snapshot. Exact new human approval and runtime guards remain mandatory.",
+    "No new diagnosis establishes why the native process exited1, legitimizes six profile-table differences or restores the deleted pre payload."
+  ]
+}

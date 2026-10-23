@@ -1,0 +1,73 @@
+{
+  "cases": [
+    {
+      "status": "passed",
+      "worker": "exact_release",
+      "controllerCalled": true,
+      "supervisorCalled": true,
+      "healthy": true,
+      "case": "healthy",
+      "backend": "Ready",
+      "httpFixtureCalls": 4,
+      "system": "Running",
+      "probeError": false,
+      "controllerSucceeded": true,
+      "errorDetailsStored": false,
+      "componentCount": 12
+    },
+    {
+      "status": "passed",
+      "worker": "unprobed",
+      "controllerCalled": true,
+      "supervisorCalled": false,
+      "healthy": false,
+      "case": "controller-failure",
+      "backend": "unprobed",
+      "httpFixtureCalls": 4,
+      "system": "unprobed",
+      "probeError": true,
+      "controllerSucceeded": false,
+      "errorDetailsStored": false,
+      "componentCount": 0
+    },
+    {
+      "status": "passed",
+      "worker": "unprobed",
+      "controllerCalled": true,
+      "supervisorCalled": true,
+      "healthy": false,
+      "case": "supervisor-failure",
+      "backend": "unprobed",
+      "httpFixtureCalls": 4,
+      "system": "unprobed",
+      "probeError": true,
+      "controllerSucceeded": true,
+      "errorDetailsStored": false,
+      "componentCount": 0
+    },
+    {
+      "status": "passed",
+      "worker": "exact_release",
+      "controllerCalled": true,
+      "supervisorCalled": true,
+      "healthy": false,
+      "case": "monitor-failure",
+      "backend": "Ready",
+      "httpFixtureCalls": 4,
+      "system": "Running",
+      "probeError": true,
+      "controllerSucceeded": true,
+      "errorDetailsStored": false,
+      "componentCount": 0
+    }
+  ],
+  "status": "passed",
+  "installedFunctionSha256": "99593a800321569257bf8e31fdd64dda8b558f9bacdeed316ca7000a301c162a",
+  "at": "2026-10-09T13:30:47.6138862+00:00",
+  "productionWrites": 0,
+  "productionRequests": 0,
+  "recoveryActions": 0,
+  "historicalActualFailureCauseProved": false,
+  "mode": "isolated real-function replay with captured successful Status DTOs",
+  "externalMessages": 0
+}

@@ -1,0 +1,18 @@
+{"nativeLeaf":"normal","processId":50872,"exitCode":0,"code":"completed","deadlineUnixMs":1791652005935,"elapsedMs":68,"cleanup":"direct","outputProtocol":"direct-exit-files","stdoutBytes":30,"stderrBytes":16,"spawned":true,"childExitIndependentlyObserved":true,"preSpawnRefusalIndependentlyObserved":false}
+✔ real leaf normal stdout/stderr and exact direct exit0 (72.8418ms)
+{"nativeLeaf":"nonzero","processId":43260,"exitCode":7,"code":"nonzero_exit","deadlineUnixMs":1791652006007,"elapsedMs":57,"cleanup":"direct","outputProtocol":"direct-exit-files","stdoutBytes":13,"stderrBytes":15,"spawned":true,"childExitIndependentlyObserved":true,"preSpawnRefusalIndependentlyObserved":false}
+✔ real leaf nonzero exit keeps true direct metadata (59.7497ms)
+{"nativeLeaf":"inherited-timeout","processId":30336,"exitCode":null,"code":"process_timeout","deadlineUnixMs":1791652003417,"elapsedMs":342,"cleanup":"direct","outputProtocol":"direct-exit-files","stdoutBytes":5,"stderrBytes":0,"spawned":true,"childExitIndependentlyObserved":true,"preSpawnRefusalIndependentlyObserved":false}
+✔ real leaf inherited deadline bounds larger timeout and own child terminates (343.9818ms)
+{"nativeLeaf":"second-call-refused-before-spawn","processId":null,"exitCode":null,"code":"process_timeout","deadlineUnixMs":1791652003611,"elapsedMs":0,"cleanup":"direct","outputProtocol":"direct-exit-files","stdoutBytes":0,"stderrBytes":0,"spawned":false,"childExitIndependentlyObserved":false,"preSpawnRefusalIndependentlyObserved":true}
+✔ real leaf second call cannot reset an already elapsed inherited deadline (224.7903ms)
+{"nativeLeaf":"late-exit0-rejected","processId":71820,"exitCode":null,"code":"process_timeout","deadlineUnixMs":1791652003756,"elapsedMs":623,"cleanup":"direct","outputProtocol":"direct-exit-files","stdoutBytes":12,"stderrBytes":0,"spawned":true,"childExitIndependentlyObserved":true,"preSpawnRefusalIndependentlyObserved":false}
+✔ real exit0/output after inherited deadline is rejected when parent callbacks are delayed (627.1728ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1455.4059

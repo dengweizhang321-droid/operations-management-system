@@ -1,0 +1,49 @@
+{
+  "version": "astra-backup-reconciliation-handoff-v2",
+  "files": [
+    {
+      "path": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/reconcile-backup-once.mjs",
+      "sha256": "87d1f9f233f7a4afaf6b1ef206f406b6f9c09e9f63547e35851302e9d8eb59f5"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/backup-reconcile-bootstrap.mjs",
+      "sha256": "13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/reconcile-backup-once.test.mjs",
+      "sha256": "9f8d6bedd4f004bdb9286d2513c116de2d6d14f250fee7c69f784841b3165edb"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/run-approved-backup-resume.mjs",
+      "sha256": "2bf424605592585ee7a20363c4a00fbfa1927cf8a7479360f68bf862ced298b0"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/resume-reconciled-backup-state.mjs",
+      "sha256": "0a761bda4debd38927bf2d315b4391611905fb122023921bf1828511b3c8ec46"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/resume-reconciled-backup-state.test.mjs",
+      "sha256": "14177a18483364a5735a99abe1fe719efee9c511bbd9cd61ebcbd5699318481a"
+    }
+  ],
+  "proof": {
+    "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/BACKUP_RECONCILIATION_PROOF_V2.json",
+    "sha256": "086378566509ddc2e427c45ca97bdd68410fb3f9fe75b82137db8d9b26179605"
+  },
+  "tests": {
+    "reconciliation": 28,
+    "resume2State": 7,
+    "productionExecuted": false,
+    "nativeTargetQueriesExecuted": false
+  },
+  "changes": [
+    "Exact system PowerShell nlink2 and SHA; all other files nlink1.",
+    "Fixed PID14972/36576 require both CIM absence and OpenProcess0x1000 ERROR_INVALID_PARAMETER87; successful handles closed and refused, other errors refused.",
+    "Resume2 is static prepared only; Root must supply actual appended event head in frozen transport argv and create new exact bc79 DPAPI manifest.",
+    "Original nonzero_exit timeoutType null; 600033ms is elapsed duration, not evidence of process timeout."
+  ],
+  "priorV1SourceCopies": [
+    "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/V1-reconcile-backup-once.mjs",
+    "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/V1-reconcile-backup-once.test.mjs"
+  ]
+}

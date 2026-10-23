@@ -1,0 +1,55 @@
+{
+  "reviewDate": "2026-10-10",
+  "head": "2b10f6021a0b5bda1f52424604bf697b17218e3c",
+  "implementationStableAcrossTests": true,
+  "files": [
+    {
+      "path": "tools/release-impact.mjs",
+      "sha256": "d3e321a310156583d80aa7d7486f22e5bdfa2b997d611f1f2abc93c68f8217fe"
+    },
+    {
+      "path": "tools/release-batch.mjs",
+      "sha256": "5f343a31a5b3772df10f7f97927188802f7ffe367b61783721f5fad1f3277c14"
+    },
+    {
+      "path": "tools/release-batch-admission.mjs",
+      "sha256": "64dc16dea8eb2720bdd8964c9fe13d5b03f8ebe38778f189f3fefa89a6050ce9"
+    },
+    {
+      "path": "tools/release-preparation-evidence.mjs",
+      "sha256": "6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5"
+    },
+    {
+      "path": "tools/release-admission-timing.mjs",
+      "sha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66"
+    },
+    {
+      "path": "tools/worker-local-release.mjs",
+      "sha256": "6cbc49a8fb050ad83e53932e9483304a53cdd6d9c3735037ea69a6e2322dcf7d"
+    },
+    {
+      "path": "tools/release-readonly-retry.mjs",
+      "sha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab"
+    },
+    {
+      "path": "tools/process-deadline.ps1",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+    },
+    {
+      "path": "tools/release-lifecycle-step.ps1",
+      "sha256": "f7f56eeab2eb854c6b9d29d61a56caa7f491a170f6bb6df69dd472f5d8858a65"
+    }
+  ],
+  "independentTests": {
+    "passed": 166,
+    "failed": 0,
+    "durationMs": 70075.6523,
+    "log": "INDEPENDENT_TESTS.log"
+  },
+  "independentProbes": {
+    "passed": 12,
+    "failed": 0,
+    "log": "INDEPENDENT_PROBES.log"
+  },
+  "productionOperatorCalls": 0
+}

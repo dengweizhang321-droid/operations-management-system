@@ -1,0 +1,73 @@
+{
+  "version": "teruisi-ab-approved-api-invocation-readonly-review-v1",
+  "status": "passed",
+  "reviewDate": "2026-10-10",
+  "timezone": "Asia/Shanghai",
+  "reviewer": "/root/preparation_review",
+  "scope": "Static and readonly file/interface review of the actual thin invoker; invoker and production API not executed",
+  "sourcePath": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\production\\execute-reviewed-api.mjs",
+  "sourceSha256": "545e99899203f77371b532161ce0055272db4b7fc5acf950e131b2e8886fecc7",
+  "approvedSupplementSha256": "0bcad05b44a127e63bb0c38ad16046d282eb529e47cf0c7d9022fac248f6cac2",
+  "manifestFileSha256": "9776837c7ce7ac271848659217135c58b9df85563f13a13b77ad8b44e4ef3dda",
+  "controllerSha256": "97e66370260154a38387b77f3d852112d9583d51f0682b37a9080deaa9032570",
+  "authorityFileSha256": "896d20483fea390636293c7952b4792b5ca2e1f64f76f60ec6e5c3a15381b347",
+  "existingHumanApproval": {
+    "approvedAt": "2026-10-10T08:41:31.000Z",
+    "userItemId": "01a124f9-78a0-75b3-bd46-c484e6734b12",
+    "sameExactSupplement": true,
+    "notReusedOriginalAbApproval": true
+  },
+  "scopeConclusion": "The described and reviewed invocation uses executeSupplement already present in the approved controller and the existing pinned AB safeFileDigest OS-host policy; it does not require changing controller or supplement scope and is not a new authorization",
+  "guardsInspected": {
+    "authorityAndManifestRawHashesFixed": true,
+    "manifestAndApprovalOutputRootFixed": true,
+    "humanTimestampAndItemExact": true,
+    "controllerAndImpactPinnedBeforeImport": true,
+    "typescriptPackageAndEntryPinnedBeforeImpactImport": true,
+    "compilerPackageNameMainNoExportsVerified": true,
+    "actualCompilerResolutionObserved": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261010T014638Z-97833d2f2b7e7bc9\\node_modules\\typescript\\lib\\typescript.js",
+    "actualCompilerResolutionMatchesPinnedEntry": true,
+    "fullDeclaredPinEntriesRetained": 4914,
+    "fullUniquePinPathsRetained": 4534,
+    "supplement22RequireSingleLinks": true,
+    "runtimeFromOriginalPinnedModules": true,
+    "originalExecuteBatchVerifyBatchAndRotationLockRetained": true,
+    "collectorExeArgsCwdUnchanged": true,
+    "collectorSupplementAndOriginalPinsRecheckedEachCall": true,
+    "collectorBatchShaAndFiveSecondFreshnessRetained": true,
+    "runApprovedOperationUnchanged": true,
+    "noMocksOrNoopRuntime": true,
+    "noCandidateAuthorityManifestOrControllerChanges": true
+  },
+  "existingOsHostException": {
+    "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+    "observedNlink": 2,
+    "actualHashMatchesOriginalPin": true,
+    "policySource": "Original adopted tools/release-impact.mjs safeFileDigest lines 43–51",
+    "newExceptionIntroduced": false,
+    "hostNotSkippedFromDigestVerification": true
+  },
+  "closedBootstrapFinding": {
+    "initialInvokerSha256": "5b0548b656f2158900efbcbf7976e26ff30d5be8d06c8899410d971193510baf",
+    "finding": "Impact was imported before its directly imported TypeScript package/entry were pinned",
+    "authorFix": "Actual invoker now checks original-pinned compiler package and entry before importing impact, with name/main/no-exports assertions",
+    "finalSourceInspected": true
+  },
+  "absentAtCapture": [
+    "production/api-call-preflight.json", "supplement-approval.json", "supplement-intent.json", "supplement-started.json",
+    "supplement-result.json", "production-ui-audit.json", "production-ui-result.json"
+  ],
+  "invokerExecutedByReviewer": false,
+  "publicProductionApiCalledByReviewer": false,
+  "full4534DigestLoopExecutedByReviewer": false,
+  "heavyTestsPerformedByReviewer": false,
+  "productionOperationsPerformedByReviewer": 0,
+  "remainingKnownInvocationBlockers": [],
+  "executionConditions": [
+    "Use exactly this inspected caller source SHA and unchanged approved files",
+    "All caller runtime pin/state/approval checks must actually pass under the original engine and lock",
+    "Any change to runtime functions, collector rules, assertions, scope, candidate or exception policy is outside this conclusion",
+    "No diagnostic success or review can substitute for the new UI result or convert old failed attempts to success"
+  ]
+}

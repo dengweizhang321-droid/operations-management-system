@@ -1,0 +1,191 @@
+{
+  "authorizedRequestMaximum": 50,
+  "actualProviderRequests": 20,
+  "variants": {
+    "current": {
+      "requests": 4,
+      "validPredictions": 0,
+      "httpStatuses": {
+        "400": 4
+      }
+    },
+    "no-thinking": {
+      "requests": 14,
+      "validPredictions": 14,
+      "httpStatuses": {
+        "200": 14
+      }
+    },
+    "session-header": {
+      "requests": 2,
+      "validPredictions": 0,
+      "httpStatuses": {
+        "400": 1,
+        "200": 1
+      }
+    }
+  },
+  "successfulIsolatedChain": {
+    "samples": 12,
+    "A": 6,
+    "B": 6,
+    "validPredictions": 12,
+    "committed": 12,
+    "wallSeconds": 15.318426,
+    "stages": {
+      "fixture_setup": {
+        "count": 1,
+        "totalMs": 59.949,
+        "meanMs": 59.949,
+        "sqlCount": 54
+      },
+      "create_plan": {
+        "count": 1,
+        "totalMs": 94.256,
+        "meanMs": 94.256,
+        "sqlCount": 83
+      },
+      "read_created_plan": {
+        "count": 1,
+        "totalMs": 22.412,
+        "meanMs": 22.412,
+        "sqlCount": 21
+      },
+      "accept_start": {
+        "count": 1,
+        "totalMs": 11.885,
+        "meanMs": 11.885,
+        "sqlCount": 22
+      },
+      "select_dispatch": {
+        "count": 1,
+        "totalMs": 10.407,
+        "meanMs": 10.407,
+        "sqlCount": 7
+      },
+      "acquire_coordinator": {
+        "count": 1,
+        "totalMs": 11.307,
+        "meanMs": 11.307,
+        "sqlCount": 20
+      },
+      "claim_item": {
+        "count": 12,
+        "totalMs": 371.39,
+        "meanMs": 30.949,
+        "sqlCount": 360
+      },
+      "complete_item": {
+        "count": 12,
+        "totalMs": 282.348,
+        "meanMs": 23.529,
+        "sqlCount": 361
+      },
+      "model_batch": {
+        "count": 1,
+        "totalMs": 14422.0,
+        "meanMs": 14422.0,
+        "sqlCount": 0
+      },
+      "release_coordinator": {
+        "count": 1,
+        "totalMs": 7.755,
+        "meanMs": 7.755,
+        "sqlCount": 16
+      },
+      "human_review_simulated": {
+        "count": 12,
+        "totalMs": 170.781,
+        "meanMs": 14.232,
+        "sqlCount": 276
+      },
+      "commit_reviewed_results": {
+        "count": 1,
+        "totalMs": 142.989,
+        "meanMs": 142.989,
+        "sqlCount": 169
+      },
+      "commit_receipt_replay": {
+        "count": 1,
+        "totalMs": 3.053,
+        "meanMs": 3.053,
+        "sqlCount": 3
+      },
+      "final_progress_read": {
+        "count": 1,
+        "totalMs": 18.751,
+        "meanMs": 18.751,
+        "sqlCount": 21
+      }
+    },
+    "claimOrder": [
+      "A1",
+      "A5",
+      "A3",
+      "A2",
+      "A6",
+      "A4",
+      "B4",
+      "B6",
+      "B1",
+      "B5",
+      "B3",
+      "B2"
+    ],
+    "finalQueues": {
+      "A": {
+        "pending": 0,
+        "processing": 0,
+        "completed": 6,
+        "exception": 0
+      },
+      "B": {
+        "pending": 0,
+        "processing": 0,
+        "completed": 6,
+        "exception": 0
+      }
+    }
+  },
+  "creationScale": [
+    {
+      "sampleCount": 200,
+      "durationMs": 784.241,
+      "sqlCount": 929,
+      "sqlMs": 311.816
+    },
+    {
+      "sampleCount": 1000,
+      "durationMs": 3707.841,
+      "sqlCount": 4531,
+      "sqlMs": 1390.571
+    }
+  ],
+  "frozenQueryComparisons": [
+    {
+      "staleStatsMs": 14177.479,
+      "hashJoinMs": 21.569,
+      "analyzeMs": 163.428,
+      "freshStatsMs": 20.252,
+      "sameSelectedItem": true,
+      "sameFrozenSnapshotForFirstPair": true
+    },
+    {
+      "staleStatsMs": 13700.982,
+      "hashJoinMs": 22.708,
+      "analyzeMs": 187.056,
+      "freshStatsMs": 21.063,
+      "sameSelectedItem": true,
+      "sameFrozenSnapshotForFirstPair": true
+    }
+  ],
+  "boundaries": [
+    "Historical production observations and current replay are separate evidence",
+    "Provider requests are real, through the deployed vision adapter in Node",
+    "Domain writes use a disposable PostgreSQL database and signed Django Client requests",
+    "Public image API substitutes for native R2 access; image transformation was not benchmarked",
+    "Human review is simulated, not a semantic accuracy gold set",
+    "Later repetition stopped before provider calls because the production environment entered maintenance",
+    "No production annotation/task/model configuration or database statistics were changed"
+  ]
+}

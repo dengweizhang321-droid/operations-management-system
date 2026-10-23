@@ -1,0 +1,8 @@
+{
+  "sourceCommit": "433b41adbb99bc72502b0e54472378a7667be94e",
+  "command": "serial joint release entrypoints",
+  "exitCode": 1,
+  "elapsedMs": 97868.2862,
+  "productionAccess": false,
+  "log": "joint-entrypoints.log"
+}

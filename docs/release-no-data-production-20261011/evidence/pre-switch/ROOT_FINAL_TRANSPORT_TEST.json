@@ -1,0 +1,174 @@
+{
+  "version": "root-final-transport-regression-v1",
+  "startedAt": "2026-10-11T17:04:44.209Z",
+  "finishedAt": "2026-10-11T17:04:49.234Z",
+  "exitCode": 0,
+  "errorCode": null,
+  "tests": [
+    "exact-env-transport.test.mjs",
+    "resume-admission-state.test.mjs",
+    "reconcile-backup-once.test.mjs",
+    "resume-reconciled-backup-state.test.mjs"
+  ],
+  "bindings": [
+    {
+      "name": "archive-first-attempt.mjs",
+      "sha256": "6180707fc0b0b5869c1804f75c76d5fb86f6a89db5ae81ae736f5a8cb540b8a2"
+    },
+    {
+      "name": "backup-reconcile-bootstrap.mjs",
+      "sha256": "13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25"
+    },
+    {
+      "name": "build-transport-v2.mjs",
+      "sha256": "d857b8c0728b5100d82ff9d40623c1f728c2a685569624a4a24cc65799558fe0"
+    },
+    {
+      "name": "capture-approved-env.mjs",
+      "sha256": "47da7e7beb8a93a119e1eef77b1f759b045bcf8fc1a473655e744882006e5a02"
+    },
+    {
+      "name": "capture-backup-resume-env.mjs",
+      "sha256": "2787defd3b68b747e0b024cd46c209d539001bf5b71df02ec26008b0f24cd954"
+    },
+    {
+      "name": "check-synthetic-child-env.mjs",
+      "sha256": "244b20475f15fa1e8bf71d03248c80879607d3dbb7f4e2bf249e45888aba228e"
+    },
+    {
+      "name": "diagnose-environment-assignment.mjs",
+      "sha256": "f48667b1155c2c0e822cebccac9073a54dfefd1ea0b127d74a206cecb530e29f"
+    },
+    {
+      "name": "diagnose-normal-identity.mjs",
+      "sha256": "7bd9b0612fd53923fbb34ac5346f87baf8904a38cdb1c36818369c58677408ac"
+    },
+    {
+      "name": "exact-env-transport.mjs",
+      "sha256": "6129a0f6387b9606ab47bd09bfb43bbbde7ef7a5eee2235fdf6a779ead155252"
+    },
+    {
+      "name": "exact-env-transport.test.mjs",
+      "sha256": "9f238a6ba0314148229266999e5b86b2a8bb852871ee29550bee9ad60e02f0d9"
+    },
+    {
+      "name": "observe-approved-batch.mjs",
+      "sha256": "12751739f04d74b7e1a0d5a36578d187f6c8a293f93c2f5e8e045d934860e9f4"
+    },
+    {
+      "name": "observe-backup-resume-batch.mjs",
+      "sha256": "c738b530d5166ab6b478bce249df91473b0de064e3b8f46600791cba29ec76fb"
+    },
+    {
+      "name": "observe-resumed-batch.mjs",
+      "sha256": "d721187cf39494d2d518b16c3420b404ed6831fa81f24bcc4e204e81e9f6be2d"
+    },
+    {
+      "name": "prepare-approved-entry-v2.mjs",
+      "sha256": "b160bee3f488f814fe9b84e9efdb264912775240ef1551856e7c64c06826d7f1"
+    },
+    {
+      "name": "prepare-approved-entry.mjs",
+      "sha256": "34310d871e71ef393c5cffdd0bf3028a2b569dc839e5c6e9a03e4f4b3eaf6565"
+    },
+    {
+      "name": "prepare-backup-reconciliation.mjs",
+      "sha256": "e79c92e77cb85f8049de7737f17231b966a7359aace8643ac162ecdc85b819a5"
+    },
+    {
+      "name": "prepare-backup-resume-observers.mjs",
+      "sha256": "e3a6641c97e7beed47f34fd8bdb5aa5924e712a3cb52aae4789c790db46222e2"
+    },
+    {
+      "name": "prepare-backup-resume-transport.mjs",
+      "sha256": "5243348eb9bbc9df37711c0ba20d840fb682c02d6810c31f60a0cb0fce9e47da"
+    },
+    {
+      "name": "prepare-exact-env-resume.mjs",
+      "sha256": "acb1acace0c80f2d316932532ae95d60cbfc039c4aaa9f36d634bb25fcdf0ec6"
+    },
+    {
+      "name": "prepare-reconciliation-v3.mjs",
+      "sha256": "ff81b99aaaea3fada6a987eda4be33b0fa9805d449a1ff61b0e4456e1a7abf19"
+    },
+    {
+      "name": "prepare-resume-observers.mjs",
+      "sha256": "4d9890ce121a9a28e9158b675995c9c4d889edc23bfc8a633dbe016a32575403"
+    },
+    {
+      "name": "reconcile-backup-once.mjs",
+      "sha256": "87d1f9f233f7a4afaf6b1ef206f406b6f9c09e9f63547e35851302e9d8eb59f5"
+    },
+    {
+      "name": "reconcile-backup-once.test.mjs",
+      "sha256": "9f8d6bedd4f004bdb9286d2513c116de2d6d14f250fee7c69f784841b3165edb"
+    },
+    {
+      "name": "resume-admission-state.mjs",
+      "sha256": "5e83e0df0dffcc6e90a0fa5919b889a75d0b46aa6e9bccff087704ac11e908f6"
+    },
+    {
+      "name": "resume-admission-state.test.mjs",
+      "sha256": "d06f68d12504375d561fe62479663b84b41686e02fb6149354647e4f53e7bffc"
+    },
+    {
+      "name": "resume-reconciled-backup-state.mjs",
+      "sha256": "0a761bda4debd38927bf2d315b4391611905fb122023921bf1828511b3c8ec46"
+    },
+    {
+      "name": "resume-reconciled-backup-state.test.mjs",
+      "sha256": "14177a18483364a5735a99abe1fe719efee9c511bbd9cd61ebcbd5699318481a"
+    },
+    {
+      "name": "review-backup-reconciliation-agy-v2.mjs",
+      "sha256": "95fd50fe604b21b7790cc7c50805fb892c45a40d3e557439d1fb98b3ba7cbe32"
+    },
+    {
+      "name": "review-backup-reconciliation-agy.mjs",
+      "sha256": "10d2f0451e9c4da883e0c1fb4b20a83b7590d671f409e5406a5d84da92e7aaa7"
+    },
+    {
+      "name": "run-approved-backup-resume.mjs",
+      "sha256": "2bf424605592585ee7a20363c4a00fbfa1927cf8a7479360f68bf862ced298b0"
+    },
+    {
+      "name": "run-approved-batch-v2.mjs",
+      "sha256": "34cd926401d09cbe806c586b4d426e6a5e9656c22192daeb838085957ce9a7b0"
+    },
+    {
+      "name": "run-approved-batch.mjs",
+      "sha256": "eef325c0e64604bb21f532947d8a6ee45c53f5f8abfae349319a8193c05d8158"
+    },
+    {
+      "name": "run-approved-env-resume.mjs",
+      "sha256": "62a1518620576a893e450ce3988c5c8679f016cfc87e0973c40088c16f6b5462"
+    },
+    {
+      "name": "run-fixed-reconciliation.mjs",
+      "sha256": "b5bffcc3e21fb37b6895cde3daf55e449d5f45fbb4eeced0878a581ce0c2706f"
+    },
+    {
+      "name": "sample-approved-availability.mjs",
+      "sha256": "f77b77a43cd9622e81e5314261d43737463bcbf92c900b1c034f3907ec571604"
+    },
+    {
+      "name": "sample-backup-resume-availability.mjs",
+      "sha256": "cc158d10e0005a9a0c0d55a260674ec204b1b0514af1f17feed6527d11bf712a"
+    },
+    {
+      "name": "sample-resumed-availability.mjs",
+      "sha256": "521ebf778a8e40e1f6b9a695d5f0483ee556a22c3e06ae121daa2a92f64b13f5"
+    },
+    {
+      "name": "verify-existing-backup.mjs",
+      "sha256": "fe5f1cd64cfb2932e82cb4cc5fe9c4ef8f68fe1d4bdc97b081fef24076bf9b0f"
+    },
+    {
+      "name": "verify-production-transport.mjs",
+      "sha256": "20d41e865e9ef1f575e4efcc0c081801358dcf1c32fb5f09e7530f13e32685a2"
+    }
+  ],
+  "stdoutSha256": "5bf6c2f6743908ff7ec8b13dfa36126b6454496b26a518ee483b85843c2775ef",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "productionExecution": false
+}

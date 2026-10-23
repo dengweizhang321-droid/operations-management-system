@@ -1,0 +1,35 @@
+{
+  "oldFileCount": 2948,
+  "newFileCount": 2948,
+  "differences": [
+    {
+      "path": ".wrangler/cache/cf.json",
+      "beforeSha256": "e826978056a68415e8c4740af3e5d1b3686f6e260bd23cc7d375704615b22c7c",
+      "afterSha256": "9e81f03148a291a2fdb755f839405d45f1f0562ec3e8ae6de3811bc979bd44ba",
+      "newlineOnly": false
+    },
+    {
+      "path": "backend/market/annotation_runtime.py",
+      "beforeSha256": "3233c391da8401218922df91ba4e9adf438c11d4ebcea54cf96574781d6fb7ea",
+      "afterSha256": "2d3b9dc0b6fcb9060d2d9531b3179e027b0ed212468d8f71b81dd65027c1e7fc",
+      "newlineOnly": false
+    },
+    {
+      "path": "backend/market/annotations.py",
+      "beforeSha256": "480947a34203ad242c3db448075000aaa62bb712eb5d80b834ee01e2c8a9c54f",
+      "afterSha256": "d6155dc93314b4611e1499325bcbe1b3791d9263322c008150411e2de7a81cb2",
+      "newlineOnly": false
+    },
+    {
+      "path": "deployment.json",
+      "beforeSha256": "ab8da2178572fb974489bc37f5abeb2d2725f5232a909d958eae0d0c24556d9f",
+      "afterSha256": "a28626fef72a099cd0fd631928a94539668219d2c57da82bbc4d1c32d1226530",
+      "newlineOnly": false
+    }
+  ],
+  "id": "92b652ce31aa4dae80b37eae7d843a76",
+  "receiptSha256": "be6d499c5e9394d42189f827369e05592161485183c195c5285a1d2a289129cf",
+  "appFingerprint": "abeaee20a07a991e4a725c1cfb633efe6a673eb45153ede332056bc4f3ad3c14",
+  "allMigrationBytesUnchanged": true,
+  "allOtherRuntimeBytesUnchanged": true
+}

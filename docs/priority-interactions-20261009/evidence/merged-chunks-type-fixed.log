@@ -1,0 +1,9 @@
+✔ 分片导入四店精确绑定；无绑定、跨店重放及旧回执均拒绝 (359.8506ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 809.5899

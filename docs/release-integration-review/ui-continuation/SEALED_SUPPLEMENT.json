@@ -1,0 +1,17 @@
+{
+  "preparedAt": "2026-10-10T08:21:35.422Z",
+  "status": "prepared-awaiting-explicit-supplement-approval",
+  "supplementSha256": "0bcad05b44a127e63bb0c38ad16046d282eb529e47cf0c7d9022fac248f6cac2",
+  "manifestPath": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\supplement.json",
+  "manifestFileSha256": "9776837c7ce7ac271848659217135c58b9df85563f13a13b77ad8b44e4ef3dda",
+  "files": 22,
+  "sourceCommit": "5faac8151f59d66de72c3caead8cad916ea547da",
+  "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+  "uiSha256": "2ae444e2bc6f337c6940a7f15a37b5d569257aeed76b3c98058955fe8ddb6118",
+  "helperSha256": "5055f2d5c80cbc5bd1e99cc951010cbc0aab587b3298a05ed0f8a90e0ef80f71",
+  "controllerSha256": "97e66370260154a38387b77f3d852112d9583d51f0682b37a9080deaa9032570",
+  "originalFailedEventSha256": "b68be115be0dc4061a1aca79df78eaabf2ed858e76e2c1bdb96c8c178e507556",
+  "humanApproved": false,
+  "productionExecuted": false,
+  "originalBatchCompleted": false
+}

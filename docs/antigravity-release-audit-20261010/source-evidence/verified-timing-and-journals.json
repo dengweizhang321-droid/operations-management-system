@@ -1,0 +1,2028 @@
+{
+  "capturedAtUtc": "2026-10-10T06:22:46.533Z",
+  "baseline": "0308adb9f4ab37b5012ac36ea9e65dafcbe648d0",
+  "snapshotHashesVerified": 6,
+  "journalEventsVerified": 205,
+  "limits": [
+    "Read-only verification of existing evidence; no production state actions.",
+    "Admission times are subsets of phase times, never additional.",
+    "Unaccounted residual includes coordination and uninstrumented intervals; not idle time.",
+    "Overlapping approval intervals cannot be summed as exclusive work or downtime.",
+    "Record chains authenticate internal consistency, not every external assertion."
+  ],
+  "timingRows": [
+    {
+      "id": "customer",
+      "approvedAt": "2026-10-09T00:40:46Z",
+      "closedAt": "2026-10-09T03:03:20.676Z",
+      "deliveredAt": "2026-10-09T03:27:47.6617309+00:00",
+      "approvedToBatchMinutes": 142.57793333333333,
+      "approvedToDeliveryMinutes": 167.02768333333333,
+      "deliveryAfterBatchMinutes": 24.44975,
+      "priorBatchWaitMinutes": 0,
+      "backupRestorePhaseMinutes": 55.39743686666667,
+      "admissionMinutesIncludedInPhases": 33.46492447000001,
+      "phaseAccountedMinutes": 104.10365137666669,
+      "residualMinutesNotProvenIdle": 38.474281956666644,
+      "deliveryIsDocumentationRecord": false
+    },
+    {
+      "id": "jackyun",
+      "approvedAt": "2026-10-09T00:41:37.000Z",
+      "closedAt": "2026-10-09T05:18:52.563Z",
+      "deliveredAt": "2026-10-09T13:20:55.8645630+08:00",
+      "approvedToBatchMinutes": 277.25938333333335,
+      "approvedToDeliveryMinutes": 279.3144,
+      "deliveryAfterBatchMinutes": 2.0550166666666665,
+      "priorBatchWaitMinutes": 145.11283333333333,
+      "backupRestorePhaseMinutes": 50.61240301333332,
+      "admissionMinutesIncludedInPhases": 22.94375529166666,
+      "phaseAccountedMinutes": 85.99243776333331,
+      "residualMinutesNotProvenIdle": 191.26694557000002,
+      "deliveryIsDocumentationRecord": true
+    },
+    {
+      "id": "interaction",
+      "approvedAt": "2026-10-09T09:19:39.000Z",
+      "closedAt": "2026-10-09T12:26:02.677Z",
+      "deliveredAt": "2026-10-09T12:41:37.100Z",
+      "approvedToBatchMinutes": 186.39461666666668,
+      "approvedToDeliveryMinutes": 201.96833333333333,
+      "deliveryAfterBatchMinutes": 15.573716666666666,
+      "priorBatchWaitMinutes": 0,
+      "backupRestorePhaseMinutes": 53.204426158333334,
+      "admissionMinutesIncludedInPhases": 42.02680703333333,
+      "phaseAccountedMinutes": 139.37641464833334,
+      "residualMinutesNotProvenIdle": 47.018202018333334,
+      "deliveryIsDocumentationRecord": false
+    }
+  ],
+  "journals": [
+    {
+      "id": "release-customer-combined-20261009",
+      "batchSha": "9a7bb676efb1c76d4d3daad3c1533e3690d000fa8b47a58946beb65afed58bd9",
+      "eventCount": 10,
+      "sequenceCanonicalHashChainVerified": true,
+      "sourceDirectory": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/release-customer-combined-20261009",
+      "finalEvent": {
+        "at": "2026-10-08T18:02:09.658Z",
+        "phase": "closeout",
+        "status": "cancelled",
+        "reason": "explicit-zero-switch-cancellation",
+        "previous": "396e89637bc7dc1cdb976c0bc5e7d92a304f270256a2fdda3776b93319ef2952",
+        "eventSha256": "ddf210ea1b4ec0710dad166d691677313120cd84aafa141956c0adc036204f2d"
+      },
+      "latestOperations": {
+        "reuse-final-worker": "passed",
+        "op-backup-pre": "failed"
+      },
+      "events": [
+        {
+          "at": "2026-10-08T17:37:04.000Z",
+          "phase": "queue",
+          "status": "approved",
+          "durationMs": 14.518199999999979,
+          "previous": null,
+          "eventSha256": "83e71e12794eec9b9375f4acfa7e841de45d31145d20fec93ebca62a2e63c756"
+        },
+        {
+          "at": "2026-10-08T17:41:47.965Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "live-predecessor-and-integrity-revalidation",
+          "durationMs": 216001.1443,
+          "previous": "83e71e12794eec9b9375f4acfa7e841de45d31145d20fec93ebca62a2e63c756",
+          "eventSha256": "d654657ea7237e72c8a03a1b2b92a2fac23d2d174392905e1c625da5e456bbe0"
+        },
+        {
+          "at": "2026-10-08T17:42:26.146Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 38178.222099999984,
+          "previous": "d654657ea7237e72c8a03a1b2b92a2fac23d2d174392905e1c625da5e456bbe0",
+          "eventSha256": "d757f882a66b0e1a0ccf738b38de9b79fa9e9d28b296733851dd9bf471098131"
+        },
+        {
+          "at": "2026-10-08T17:42:26.149Z",
+          "phase": "prepare",
+          "status": "started",
+          "operationId": "reuse-final-worker",
+          "previous": "d757f882a66b0e1a0ccf738b38de9b79fa9e9d28b296733851dd9bf471098131",
+          "eventSha256": "82c7846fa0a6c10f674f353bdd1c904afa0c7b49f75945d63bab4339263b7723"
+        },
+        {
+          "at": "2026-10-08T17:45:21.781Z",
+          "phase": "prepare",
+          "status": "passed",
+          "reason": null,
+          "operationId": "reuse-final-worker",
+          "durationMs": 175632.37189999997,
+          "previous": "82c7846fa0a6c10f674f353bdd1c904afa0c7b49f75945d63bab4339263b7723",
+          "eventSha256": "c3dea6c7931d20ac8ee7aaf8e92228e2d5253dd774158934eb9b1f5443db25c7"
+        },
+        {
+          "at": "2026-10-08T17:46:04.626Z",
+          "phase": "backup-pre",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 42842.086699999985,
+          "previous": "c3dea6c7931d20ac8ee7aaf8e92228e2d5253dd774158934eb9b1f5443db25c7",
+          "eventSha256": "f187a93d3d93c47b44930dec8c49d5dc813e167b3c605ba98bf8a377a30dc7cb"
+        },
+        {
+          "at": "2026-10-08T17:46:04.629Z",
+          "phase": "backup-pre",
+          "status": "started",
+          "operationId": "op-backup-pre",
+          "previous": "f187a93d3d93c47b44930dec8c49d5dc813e167b3c605ba98bf8a377a30dc7cb",
+          "eventSha256": "f308f8c3cff921d00a6fde4efab8a2e2d1e2a5da3d515b43a40765ac558fe386"
+        },
+        {
+          "at": "2026-10-08T17:46:17.055Z",
+          "phase": "backup-pre",
+          "status": "unknown",
+          "reason": "operator-failed-or-result-unavailable",
+          "operationId": "op-backup-pre",
+          "durationMs": 12426.510299999965,
+          "previous": "f308f8c3cff921d00a6fde4efab8a2e2d1e2a5da3d515b43a40765ac558fe386",
+          "eventSha256": "58c26a0cbf4fd6f400468b1c0f82d8bf8536db841aa47996464fca760e320e2f"
+        },
+        {
+          "at": "2026-10-08T17:59:23.087Z",
+          "phase": "backup-pre",
+          "status": "failed",
+          "reason": "independently-reconciled",
+          "operationId": "op-backup-pre",
+          "previous": "58c26a0cbf4fd6f400468b1c0f82d8bf8536db841aa47996464fca760e320e2f",
+          "eventSha256": "396e89637bc7dc1cdb976c0bc5e7d92a304f270256a2fdda3776b93319ef2952"
+        },
+        {
+          "at": "2026-10-08T18:02:09.658Z",
+          "phase": "closeout",
+          "status": "cancelled",
+          "reason": "explicit-zero-switch-cancellation",
+          "previous": "396e89637bc7dc1cdb976c0bc5e7d92a304f270256a2fdda3776b93319ef2952",
+          "eventSha256": "ddf210ea1b4ec0710dad166d691677313120cd84aafa141956c0adc036204f2d"
+        }
+      ]
+    },
+    {
+      "id": "release-customer-ps5-fixed-20261009",
+      "batchSha": "8f6ed5eff8f63d088b5523d71a929856445db016d1c986396376390b470462af",
+      "eventCount": 71,
+      "sequenceCanonicalHashChainVerified": true,
+      "sourceDirectory": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/release-customer-ps5-fixed-20261009",
+      "finalEvent": {
+        "at": "2026-10-09T03:03:20.676Z",
+        "phase": "closeout",
+        "status": "completed",
+        "previous": "50a585e9720286df620212b2b5d592f88021552e53ea2ed3162587018a361c1a",
+        "eventSha256": "c12e6522f4aacb94e9e1ea2e7490b62a85b5dbea221c79ac20a07b2bfe39a717"
+      },
+      "latestOperations": {
+        "reuse-final-worker": "passed",
+        "op-backup-pre": "passed",
+        "op-restore-pre": "passed",
+        "step-entermaintenance": "passed",
+        "step-deployapp": "passed",
+        "step-hardenacl": "passed",
+        "apply-final-worker": "passed",
+        "step-exitmaintenance": "passed",
+        "step-startworker": "passed",
+        "check-live-resources": "passed",
+        "check-unchanged-business-permissions": "passed",
+        "customer-historical-query-preserved": "passed",
+        "customer-four-shop-production-ui": "passed",
+        "step-aggregatestatus": "passed",
+        "step-verifystartup": "passed",
+        "two-new-natural-watchdogs": "passed",
+        "op-backup-post": "passed",
+        "op-restore-post": "passed",
+        "final-readiness-closeout": "passed"
+      },
+      "events": [
+        {
+          "at": "2026-10-09T00:40:46.000Z",
+          "phase": "queue",
+          "status": "approved",
+          "durationMs": 12.672800000000052,
+          "previous": null,
+          "eventSha256": "4fdc77ecdc02271413a796e8e61139805c22f2efb77703ff1a54b27b34e7e9e7"
+        },
+        {
+          "at": "2026-10-09T00:45:24.658Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "live-predecessor-and-integrity-revalidation",
+          "durationMs": 218856.2173,
+          "previous": "4fdc77ecdc02271413a796e8e61139805c22f2efb77703ff1a54b27b34e7e9e7",
+          "eventSha256": "7665e79cc244aaf9f70f01414646319697a1e3630e778eba66eb39dc0ece4bf9"
+        },
+        {
+          "at": "2026-10-09T00:46:04.584Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 39922.68580000001,
+          "previous": "7665e79cc244aaf9f70f01414646319697a1e3630e778eba66eb39dc0ece4bf9",
+          "eventSha256": "bf16f9917b22d6c27a539cf2ecfc08ea77e967e8fbbead0485418950fb81d28a"
+        },
+        {
+          "at": "2026-10-09T00:46:04.589Z",
+          "phase": "prepare",
+          "status": "started",
+          "operationId": "reuse-final-worker",
+          "previous": "bf16f9917b22d6c27a539cf2ecfc08ea77e967e8fbbead0485418950fb81d28a",
+          "eventSha256": "3f2c844a97f33ef55660439be1d2f8b25e85f72cd96134416013c3dedccaf7b4"
+        },
+        {
+          "at": "2026-10-09T00:51:00.107Z",
+          "phase": "prepare",
+          "status": "passed",
+          "reason": null,
+          "operationId": "reuse-final-worker",
+          "durationMs": 295518.4175,
+          "previous": "3f2c844a97f33ef55660439be1d2f8b25e85f72cd96134416013c3dedccaf7b4",
+          "eventSha256": "cd928b6151ec5fc28fd764d20e2903cf400e357d90e1cbd1a9a09a2839edf4a7"
+        },
+        {
+          "at": "2026-10-09T00:51:40.513Z",
+          "phase": "backup-pre",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 40402.79330000002,
+          "previous": "cd928b6151ec5fc28fd764d20e2903cf400e357d90e1cbd1a9a09a2839edf4a7",
+          "eventSha256": "8b9c990545493698141e6065f34e8a18f2487cdd719f04a4dee94afd8f9a58cd"
+        },
+        {
+          "at": "2026-10-09T00:51:40.517Z",
+          "phase": "backup-pre",
+          "status": "started",
+          "operationId": "op-backup-pre",
+          "previous": "8b9c990545493698141e6065f34e8a18f2487cdd719f04a4dee94afd8f9a58cd",
+          "eventSha256": "599cfc248e6a44ccfa324100287e293c4381390033ae930cc9e93c2973b01080"
+        },
+        {
+          "at": "2026-10-09T01:06:19.458Z",
+          "phase": "backup-pre",
+          "status": "passed",
+          "reason": null,
+          "operationId": "op-backup-pre",
+          "durationMs": 878940.7517,
+          "previous": "599cfc248e6a44ccfa324100287e293c4381390033ae930cc9e93c2973b01080",
+          "eventSha256": "6de2009bb05eb012138cc9d586238044ed8077ee61523a4f124a7c617659201d"
+        },
+        {
+          "at": "2026-10-09T01:07:04.932Z",
+          "phase": "restore-pre",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 45470.42470000009,
+          "previous": "6de2009bb05eb012138cc9d586238044ed8077ee61523a4f124a7c617659201d",
+          "eventSha256": "998fd5f987cd423989fb097c31912844021c054e3c7e7648555f2a2994a3164f"
+        },
+        {
+          "at": "2026-10-09T01:07:04.935Z",
+          "phase": "restore-pre",
+          "status": "started",
+          "operationId": "op-restore-pre",
+          "previous": "998fd5f987cd423989fb097c31912844021c054e3c7e7648555f2a2994a3164f",
+          "eventSha256": "808920564826cc16853e29942d905a73805515cc8e4e59fae6f4f1d3d5c47f5d"
+        },
+        {
+          "at": "2026-10-09T01:20:48.523Z",
+          "phase": "restore-pre",
+          "status": "passed",
+          "reason": null,
+          "operationId": "op-restore-pre",
+          "durationMs": 823588.4005000002,
+          "previous": "808920564826cc16853e29942d905a73805515cc8e4e59fae6f4f1d3d5c47f5d",
+          "eventSha256": "357132e912de9a2d8a9640ea4cd4e39f397e3cf5fd9425e34f181366036498c4"
+        },
+        {
+          "at": "2026-10-09T01:24:12.437Z",
+          "phase": "drain",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 203911.32970000012,
+          "previous": "357132e912de9a2d8a9640ea4cd4e39f397e3cf5fd9425e34f181366036498c4",
+          "eventSha256": "58786dc00880108b4203c0788624af126c392820a194990596fcd4e825ec5da9"
+        },
+        {
+          "at": "2026-10-09T01:24:12.441Z",
+          "phase": "drain",
+          "status": "started",
+          "operationId": "step-entermaintenance",
+          "previous": "58786dc00880108b4203c0788624af126c392820a194990596fcd4e825ec5da9",
+          "eventSha256": "6e6f6693912501318dd1e8d1bcafadab7cf13d453d376f540ce4e5d2a3bfeb2c"
+        },
+        {
+          "at": "2026-10-09T01:29:01.712Z",
+          "phase": "drain",
+          "status": "passed",
+          "reason": null,
+          "operationId": "step-entermaintenance",
+          "durationMs": 289271.7474000002,
+          "previous": "6e6f6693912501318dd1e8d1bcafadab7cf13d453d376f540ce4e5d2a3bfeb2c",
+          "eventSha256": "a9205c28a5f19ef884b2c82b05b6f1695eb8e01007556c7d404506a8fbfdad26"
+        },
+        {
+          "at": "2026-10-09T01:29:35.111Z",
+          "phase": "switch",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 33395.7359000002,
+          "previous": "a9205c28a5f19ef884b2c82b05b6f1695eb8e01007556c7d404506a8fbfdad26",
+          "eventSha256": "8ed883ce149028cc60b8e76b03a23bfa61c7bdca8bed489f1f1e70a716ab0eb1"
+        },
+        {
+          "at": "2026-10-09T01:29:35.114Z",
+          "phase": "switch",
+          "status": "started",
+          "operationId": "step-deployapp",
+          "previous": "8ed883ce149028cc60b8e76b03a23bfa61c7bdca8bed489f1f1e70a716ab0eb1",
+          "eventSha256": "46f302260a440f50a674e04e867bd7404208aefc6391af93a3673062a599636a"
+        },
+        {
+          "at": "2026-10-09T01:31:00.040Z",
+          "phase": "switch",
+          "status": "passed",
+          "reason": null,
+          "operationId": "step-deployapp",
+          "durationMs": 84927.14540000027,
+          "previous": "46f302260a440f50a674e04e867bd7404208aefc6391af93a3673062a599636a",
+          "eventSha256": "683183fcb58f0e5a6e277cd9c7278bf7cfacb100a58fc88fc52c9becabc69bd9"
+        },
+        {
+          "at": "2026-10-09T01:31:32.884Z",
+          "phase": "switch",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 32840.64009999996,
+          "previous": "683183fcb58f0e5a6e277cd9c7278bf7cfacb100a58fc88fc52c9becabc69bd9",
+          "eventSha256": "6c5bd87132349b3e7e499d1efeacbc1b21fd5468a9c3a727e8d5a1bf92c68362"
+        },
+        {
+          "at": "2026-10-09T01:31:32.887Z",
+          "phase": "switch",
+          "status": "started",
+          "operationId": "step-hardenacl",
+          "previous": "6c5bd87132349b3e7e499d1efeacbc1b21fd5468a9c3a727e8d5a1bf92c68362",
+          "eventSha256": "1d15367ab443b6290d14e699cc3d42ca93f68e2aadc61b971c407c5a29e48cd9"
+        },
+        {
+          "at": "2026-10-09T01:31:58.044Z",
+          "phase": "switch",
+          "status": "passed",
+          "reason": null,
+          "operationId": "step-hardenacl",
+          "durationMs": 25156.95269999979,
+          "previous": "1d15367ab443b6290d14e699cc3d42ca93f68e2aadc61b971c407c5a29e48cd9",
+          "eventSha256": "3ad77c4f7350fac56703d8e984366fc30591b48db9f9e5def1ed2ab8802731f4"
+        },
+        {
+          "at": "2026-10-09T01:32:29.389Z",
+          "phase": "switch",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 31340.74599999981,
+          "previous": "3ad77c4f7350fac56703d8e984366fc30591b48db9f9e5def1ed2ab8802731f4",
+          "eventSha256": "fffd3a6907eb50286b0104ae7d30d7c1802b1f4b74d1fbbd5fee33c2a6fe0cc6"
+        },
+        {
+          "at": "2026-10-09T01:32:29.392Z",
+          "phase": "switch",
+          "status": "started",
+          "operationId": "apply-final-worker",
+          "previous": "fffd3a6907eb50286b0104ae7d30d7c1802b1f4b74d1fbbd5fee33c2a6fe0cc6",
+          "eventSha256": "2ab3155b0126af8297ae550e0b2e0b3e4a72e01c62e7d9671a7927920fe30a56"
+        },
+        {
+          "at": "2026-10-09T01:34:44.004Z",
+          "phase": "switch",
+          "status": "passed",
+          "reason": null,
+          "operationId": "apply-final-worker",
+          "durationMs": 134612.9210000001,
+          "previous": "2ab3155b0126af8297ae550e0b2e0b3e4a72e01c62e7d9671a7927920fe30a56",
+          "eventSha256": "5ffcd8500874b24aa038586cc9d6c0e2aea6203034bdbd4aeab91adff67ec96d"
+        },
+        {
+          "at": "2026-10-09T01:35:16.401Z",
+          "phase": "switch",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 32394.04230000032,
+          "previous": "5ffcd8500874b24aa038586cc9d6c0e2aea6203034bdbd4aeab91adff67ec96d",
+          "eventSha256": "896126b7639b3a47fa970779c1acfd3d4551f1a38cf431fac25137fc67661c12"
+        },
+        {
+          "at": "2026-10-09T01:35:16.404Z",
+          "phase": "switch",
+          "status": "started",
+          "operationId": "step-exitmaintenance",
+          "previous": "896126b7639b3a47fa970779c1acfd3d4551f1a38cf431fac25137fc67661c12",
+          "eventSha256": "37d049dccdc2a3e1b512be9cc462aff042a721c81fcb2560490f98be47170a45"
+        },
+        {
+          "at": "2026-10-09T01:35:56.375Z",
+          "phase": "switch",
+          "status": "passed",
+          "reason": null,
+          "operationId": "step-exitmaintenance",
+          "durationMs": 39971.0597000001,
+          "previous": "37d049dccdc2a3e1b512be9cc462aff042a721c81fcb2560490f98be47170a45",
+          "eventSha256": "5913e8c4e6fd2effcfc6e89ba655d76c2103a8fda41e029cb255e57c80fda55a"
+        },
+        {
+          "at": "2026-10-09T01:36:28.966Z",
+          "phase": "switch",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 32587.78109999979,
+          "previous": "5913e8c4e6fd2effcfc6e89ba655d76c2103a8fda41e029cb255e57c80fda55a",
+          "eventSha256": "c0f874db9fdf6bcba5458bf4a74e88fae281b95f66c13e093404aebb8f692ecd"
+        },
+        {
+          "at": "2026-10-09T01:36:28.969Z",
+          "phase": "switch",
+          "status": "started",
+          "operationId": "step-startworker",
+          "previous": "c0f874db9fdf6bcba5458bf4a74e88fae281b95f66c13e093404aebb8f692ecd",
+          "eventSha256": "e31e70541e949aef7b7bb4042db36848a13b8975d978d3109c0e5d23b9910aac"
+        },
+        {
+          "at": "2026-10-09T01:55:26.086Z",
+          "phase": "switch",
+          "status": "passed",
+          "reason": "independently-reconciled",
+          "operationId": "step-startworker",
+          "previous": "e31e70541e949aef7b7bb4042db36848a13b8975d978d3109c0e5d23b9910aac",
+          "eventSha256": "aa570981f50bc35c60757e336ce531bd6f70880801d8aa04574ad95c04468d1a"
+        },
+        {
+          "at": "2026-10-09T01:55:50.962Z",
+          "phase": "queue",
+          "status": "resumed",
+          "durationMs": 77.82580000000007,
+          "previous": "aa570981f50bc35c60757e336ce531bd6f70880801d8aa04574ad95c04468d1a",
+          "eventSha256": "80fc68080ca095acde977c3b1bd906814d43ccb60c91c05bb4a58c2bfa6e2a2f"
+        },
+        {
+          "at": "2026-10-09T01:57:56.427Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "live-predecessor-and-integrity-revalidation",
+          "durationMs": 125461.1355,
+          "previous": "80fc68080ca095acde977c3b1bd906814d43ccb60c91c05bb4a58c2bfa6e2a2f",
+          "eventSha256": "9db21583e84edd67913631efed9c3b42f4ec41cca5a1868b4c344c25e6b7fb57"
+        },
+        {
+          "at": "2026-10-09T01:59:10.196Z",
+          "phase": "acceptance",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 73766.6172,
+          "previous": "9db21583e84edd67913631efed9c3b42f4ec41cca5a1868b4c344c25e6b7fb57",
+          "eventSha256": "a8df4c3a913b4abbd5740754a9a873b9ac962ac2422ea5e8e56dce6c609573d8"
+        },
+        {
+          "at": "2026-10-09T01:59:10.199Z",
+          "phase": "acceptance",
+          "status": "started",
+          "operationId": "check-live-resources",
+          "previous": "a8df4c3a913b4abbd5740754a9a873b9ac962ac2422ea5e8e56dce6c609573d8",
+          "eventSha256": "2cac9f116cade68d57ed3c24d0d8f11cd68b7c7844328310b9421a2e7a09735a"
+        },
+        {
+          "at": "2026-10-09T01:59:11.086Z",
+          "phase": "acceptance",
+          "status": "passed",
+          "reason": null,
+          "operationId": "check-live-resources",
+          "durationMs": 886.233200000017,
+          "previous": "2cac9f116cade68d57ed3c24d0d8f11cd68b7c7844328310b9421a2e7a09735a",
+          "eventSha256": "c03d19560ff16274739ee8433eaeefbf240dbec515f7de6df0f4fa84c99f8129"
+        },
+        {
+          "at": "2026-10-09T02:00:24.170Z",
+          "phase": "acceptance",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 73081.17360000001,
+          "previous": "c03d19560ff16274739ee8433eaeefbf240dbec515f7de6df0f4fa84c99f8129",
+          "eventSha256": "09306e5252451006e4d7be4b7b337bc1a026fd2c96db46180760b5bf2bcbb272"
+        },
+        {
+          "at": "2026-10-09T02:00:24.173Z",
+          "phase": "acceptance",
+          "status": "started",
+          "operationId": "check-unchanged-business-permissions",
+          "previous": "09306e5252451006e4d7be4b7b337bc1a026fd2c96db46180760b5bf2bcbb272",
+          "eventSha256": "7743b04d0ef9a3bfbfc94d94ae1dc8f262da922c74197fea9012f10bba4b3297"
+        },
+        {
+          "at": "2026-10-09T02:00:26.287Z",
+          "phase": "acceptance",
+          "status": "passed",
+          "reason": null,
+          "operationId": "check-unchanged-business-permissions",
+          "durationMs": 2113.472999999998,
+          "previous": "7743b04d0ef9a3bfbfc94d94ae1dc8f262da922c74197fea9012f10bba4b3297",
+          "eventSha256": "fff246dd9c2fe3abe884d3d02a4fc21045238b3d96456754eb880d73c816639d"
+        },
+        {
+          "at": "2026-10-09T02:01:59.432Z",
+          "phase": "acceptance",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 93142.51020000002,
+          "previous": "fff246dd9c2fe3abe884d3d02a4fc21045238b3d96456754eb880d73c816639d",
+          "eventSha256": "7ba03f2c37f9fcfb8f93496b007de44a1a18fd301f6a4bdeeff33849e20cf5da"
+        },
+        {
+          "at": "2026-10-09T02:01:59.437Z",
+          "phase": "acceptance",
+          "status": "started",
+          "operationId": "customer-historical-query-preserved",
+          "previous": "7ba03f2c37f9fcfb8f93496b007de44a1a18fd301f6a4bdeeff33849e20cf5da",
+          "eventSha256": "387afd730f73d779b827fbcf1a5b01d040e2bcf5873b09b4039427ad960bd4dd"
+        },
+        {
+          "at": "2026-10-09T02:02:02.628Z",
+          "phase": "acceptance",
+          "status": "unknown",
+          "reason": "operator-failed-or-result-unavailable",
+          "operationId": "customer-historical-query-preserved",
+          "durationMs": 3191.0488999999943,
+          "previous": "387afd730f73d779b827fbcf1a5b01d040e2bcf5873b09b4039427ad960bd4dd",
+          "eventSha256": "446783512591dee02458d1f269d9ddf31549498bec852a141402b828e1689275"
+        },
+        {
+          "at": "2026-10-09T02:10:53.274Z",
+          "phase": "acceptance",
+          "status": "passed",
+          "reason": "independently-reconciled",
+          "operationId": "customer-historical-query-preserved",
+          "previous": "446783512591dee02458d1f269d9ddf31549498bec852a141402b828e1689275",
+          "eventSha256": "f4f4f230cce1bceb795b3aaee0b97b662e663fc5e1530bbfb92cf351f7a2d373"
+        },
+        {
+          "at": "2026-10-09T02:11:03.924Z",
+          "phase": "queue",
+          "status": "resumed",
+          "durationMs": 78.68420000000003,
+          "previous": "f4f4f230cce1bceb795b3aaee0b97b662e663fc5e1530bbfb92cf351f7a2d373",
+          "eventSha256": "1218001d2f167386e99d6eb5644de5efd4c66ee269ba2fe9d991ef4a4e33fe3c"
+        },
+        {
+          "at": "2026-10-09T02:12:53.625Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "live-predecessor-and-integrity-revalidation",
+          "durationMs": 109697.79250000001,
+          "previous": "1218001d2f167386e99d6eb5644de5efd4c66ee269ba2fe9d991ef4a4e33fe3c",
+          "eventSha256": "3c4a332eb9f9ff26e21e283c15c159244be911eaae47c2dcc63621e048b0b1b1"
+        },
+        {
+          "at": "2026-10-09T02:14:10.401Z",
+          "phase": "acceptance",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 76772.2244,
+          "previous": "3c4a332eb9f9ff26e21e283c15c159244be911eaae47c2dcc63621e048b0b1b1",
+          "eventSha256": "c9f93190f94f1a74ef6ba8dd005a0f60ff2f0c643b81344c0fda826e49d012e4"
+        },
+        {
+          "at": "2026-10-09T02:14:10.404Z",
+          "phase": "acceptance",
+          "status": "started",
+          "operationId": "customer-four-shop-production-ui",
+          "previous": "c9f93190f94f1a74ef6ba8dd005a0f60ff2f0c643b81344c0fda826e49d012e4",
+          "eventSha256": "a478ab034926f887bc02871f46a0235876e5488bf180211d38bf2898ba5d57c9"
+        },
+        {
+          "at": "2026-10-09T02:14:15.697Z",
+          "phase": "acceptance",
+          "status": "unknown",
+          "reason": "operator-failed-or-result-unavailable",
+          "operationId": "customer-four-shop-production-ui",
+          "durationMs": 5292.823699999979,
+          "previous": "a478ab034926f887bc02871f46a0235876e5488bf180211d38bf2898ba5d57c9",
+          "eventSha256": "a4adc9fe96b7b5b3766a74809284542a024f577959b95238d1f88f3d9b87eeba"
+        },
+        {
+          "at": "2026-10-09T02:18:41.546Z",
+          "phase": "acceptance",
+          "status": "passed",
+          "reason": "independently-reconciled",
+          "operationId": "customer-four-shop-production-ui",
+          "previous": "a4adc9fe96b7b5b3766a74809284542a024f577959b95238d1f88f3d9b87eeba",
+          "eventSha256": "73a5893dd1adc1c58d09b3deaa0451599dabea1c2f54eed17dd952e13cb5d29a"
+        },
+        {
+          "at": "2026-10-09T02:18:51.519Z",
+          "phase": "queue",
+          "status": "resumed",
+          "durationMs": 92.69720000000007,
+          "previous": "73a5893dd1adc1c58d09b3deaa0451599dabea1c2f54eed17dd952e13cb5d29a",
+          "eventSha256": "04435061fcd754547ebe04a07c2c1f799572ecf048e2e03f7348dc788002e77d"
+        },
+        {
+          "at": "2026-10-09T02:20:46.205Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "live-predecessor-and-integrity-revalidation",
+          "durationMs": 114680.0515,
+          "previous": "04435061fcd754547ebe04a07c2c1f799572ecf048e2e03f7348dc788002e77d",
+          "eventSha256": "6fb3bc4ec9e35e6fb960472f45548f1cff595b159188cb343427607e4ff6a432"
+        },
+        {
+          "at": "2026-10-09T02:22:03.274Z",
+          "phase": "acceptance",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 77065.14550000001,
+          "previous": "6fb3bc4ec9e35e6fb960472f45548f1cff595b159188cb343427607e4ff6a432",
+          "eventSha256": "b1f93721f9be052774962f083a75a741b086ef6ee29de9519a15eee54491f32a"
+        },
+        {
+          "at": "2026-10-09T02:22:03.276Z",
+          "phase": "acceptance",
+          "status": "started",
+          "operationId": "step-aggregatestatus",
+          "previous": "b1f93721f9be052774962f083a75a741b086ef6ee29de9519a15eee54491f32a",
+          "eventSha256": "627b5fb9b7d0ce5d577ccd30699bcc359d1d4edc651f25ea7fb92120f585d19f"
+        },
+        {
+          "at": "2026-10-09T02:22:26.501Z",
+          "phase": "acceptance",
+          "status": "passed",
+          "reason": null,
+          "operationId": "step-aggregatestatus",
+          "durationMs": 23225.131999999983,
+          "previous": "627b5fb9b7d0ce5d577ccd30699bcc359d1d4edc651f25ea7fb92120f585d19f",
+          "eventSha256": "310be46120843753d7d2c30c8e43bfd2ca795ed8e30f2e24a96f6c14ccbd63d3"
+        },
+        {
+          "at": "2026-10-09T02:23:39.850Z",
+          "phase": "acceptance",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 73345.8744,
+          "previous": "310be46120843753d7d2c30c8e43bfd2ca795ed8e30f2e24a96f6c14ccbd63d3",
+          "eventSha256": "81463ca210fd04ee8a3eb33c79192a9657002a38560d0650c5140e23eef4ed4e"
+        },
+        {
+          "at": "2026-10-09T02:23:39.853Z",
+          "phase": "acceptance",
+          "status": "started",
+          "operationId": "step-verifystartup",
+          "previous": "81463ca210fd04ee8a3eb33c79192a9657002a38560d0650c5140e23eef4ed4e",
+          "eventSha256": "74e97bc41e382e6d1e3c4c2e6bb9cfd09e1912641e79d0a92b8663442f09aba2"
+        },
+        {
+          "at": "2026-10-09T02:23:45.803Z",
+          "phase": "acceptance",
+          "status": "passed",
+          "reason": null,
+          "operationId": "step-verifystartup",
+          "durationMs": 5950.14380000002,
+          "previous": "74e97bc41e382e6d1e3c4c2e6bb9cfd09e1912641e79d0a92b8663442f09aba2",
+          "eventSha256": "10d3b771e317002b5e735cb59bb992621ff05bfdee77cc9573ca2bc87acdb321"
+        },
+        {
+          "at": "2026-10-09T02:24:58.134Z",
+          "phase": "acceptance",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 72326.55900000001,
+          "previous": "10d3b771e317002b5e735cb59bb992621ff05bfdee77cc9573ca2bc87acdb321",
+          "eventSha256": "3915d5f3327ce9d7a81b162c26cbdac682bd1a4f05cfebf87a04ae9be36ede9a"
+        },
+        {
+          "at": "2026-10-09T02:24:58.137Z",
+          "phase": "acceptance",
+          "status": "started",
+          "operationId": "two-new-natural-watchdogs",
+          "previous": "3915d5f3327ce9d7a81b162c26cbdac682bd1a4f05cfebf87a04ae9be36ede9a",
+          "eventSha256": "f38382aac6d6d8cfbabccc67bc2a60cefd742fed6d2d0e2c340fa9a8007432bd"
+        },
+        {
+          "at": "2026-10-09T02:27:13.439Z",
+          "phase": "acceptance",
+          "status": "passed",
+          "reason": null,
+          "operationId": "two-new-natural-watchdogs",
+          "durationMs": 135301.94420000003,
+          "previous": "f38382aac6d6d8cfbabccc67bc2a60cefd742fed6d2d0e2c340fa9a8007432bd",
+          "eventSha256": "a9db177f4ba773d2b2cd933670664da18c0ec25aaf512468271cee7eae70b39e"
+        },
+        {
+          "at": "2026-10-09T02:27:52.430Z",
+          "phase": "backup-post",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 38988.71799999999,
+          "previous": "a9db177f4ba773d2b2cd933670664da18c0ec25aaf512468271cee7eae70b39e",
+          "eventSha256": "74ae4a90ca490f9655f8077dd2025c24d308d4a7b9762206cd5ca569c29e3c9b"
+        },
+        {
+          "at": "2026-10-09T02:27:52.433Z",
+          "phase": "backup-post",
+          "status": "started",
+          "operationId": "op-backup-post",
+          "previous": "74ae4a90ca490f9655f8077dd2025c24d308d4a7b9762206cd5ca569c29e3c9b",
+          "eventSha256": "e29d055ed46d2d405f977e1fbf01259f23dba1bf0daaaba546974c91e9828cf3"
+        },
+        {
+          "at": "2026-10-09T02:39:33.904Z",
+          "phase": "backup-post",
+          "status": "passed",
+          "reason": null,
+          "operationId": "op-backup-post",
+          "durationMs": 701471.0851000001,
+          "previous": "e29d055ed46d2d405f977e1fbf01259f23dba1bf0daaaba546974c91e9828cf3",
+          "eventSha256": "55f6d6f2280f42377f52ec5cf0534abe458413488c20488b56b5fe2a3836a580"
+        },
+        {
+          "at": "2026-10-09T02:40:17.470Z",
+          "phase": "restore-post",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 43564.278099999996,
+          "previous": "55f6d6f2280f42377f52ec5cf0534abe458413488c20488b56b5fe2a3836a580",
+          "eventSha256": "a8afb1ceeec638890b05f9dbe8a22edcc15718b12830946512d4075c88e609f1"
+        },
+        {
+          "at": "2026-10-09T02:40:17.472Z",
+          "phase": "restore-post",
+          "status": "started",
+          "operationId": "op-restore-post",
+          "previous": "a8afb1ceeec638890b05f9dbe8a22edcc15718b12830946512d4075c88e609f1",
+          "eventSha256": "da5056970739d2d8bb96c20c1c6b8bd955b12d34c4859b9685eebded506e5e09"
+        },
+        {
+          "at": "2026-10-09T02:52:48.893Z",
+          "phase": "restore-post",
+          "status": "passed",
+          "reason": null,
+          "operationId": "op-restore-post",
+          "durationMs": 751419.7605999999,
+          "previous": "da5056970739d2d8bb96c20c1c6b8bd955b12d34c4859b9685eebded506e5e09",
+          "eventSha256": "7fd286ff2e463e48e22a0992a4cd6133c968fc8f3be6651ebac50ebca1af8a06"
+        },
+        {
+          "at": "2026-10-09T02:55:31.008Z",
+          "phase": "closeout",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 162112.3713,
+          "previous": "7fd286ff2e463e48e22a0992a4cd6133c968fc8f3be6651ebac50ebca1af8a06",
+          "eventSha256": "0816fd18cc784c77322094737a4bcefea5559ccdb87884021ad51b789350f999"
+        },
+        {
+          "at": "2026-10-09T02:55:31.012Z",
+          "phase": "closeout",
+          "status": "started",
+          "operationId": "final-readiness-closeout",
+          "previous": "0816fd18cc784c77322094737a4bcefea5559ccdb87884021ad51b789350f999",
+          "eventSha256": "6f45b5b993275dcaae0420fb1d9519868a69c15974b64c09be21fa0d7200bf2a"
+        },
+        {
+          "at": "2026-10-09T02:56:08.100Z",
+          "phase": "closeout",
+          "status": "unknown",
+          "reason": "operator-failed-or-result-unavailable",
+          "operationId": "final-readiness-closeout",
+          "durationMs": 37087.6277999999,
+          "previous": "6f45b5b993275dcaae0420fb1d9519868a69c15974b64c09be21fa0d7200bf2a",
+          "eventSha256": "2d1eb856fee82b6bd75a95868ac570224147f59360f91a4164fdddb58eb878b5"
+        },
+        {
+          "at": "2026-10-09T03:00:28.432Z",
+          "phase": "closeout",
+          "status": "passed",
+          "reason": "independently-reconciled",
+          "operationId": "final-readiness-closeout",
+          "previous": "2d1eb856fee82b6bd75a95868ac570224147f59360f91a4164fdddb58eb878b5",
+          "eventSha256": "3cd7b7b0a0774eff7229bb9a6cb244954fd57422acfe3dceed9355c82ca5bcbc"
+        },
+        {
+          "at": "2026-10-09T03:00:37.901Z",
+          "phase": "queue",
+          "status": "resumed",
+          "durationMs": 135.06619999999998,
+          "previous": "3cd7b7b0a0774eff7229bb9a6cb244954fd57422acfe3dceed9355c82ca5bcbc",
+          "eventSha256": "2218afd9302209fdd9b8d3292c435be2cc95613385fc0157b9d7bea8f6997d0a"
+        },
+        {
+          "at": "2026-10-09T03:03:20.673Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "live-predecessor-and-integrity-revalidation",
+          "durationMs": 162768.6208,
+          "previous": "2218afd9302209fdd9b8d3292c435be2cc95613385fc0157b9d7bea8f6997d0a",
+          "eventSha256": "50a585e9720286df620212b2b5d592f88021552e53ea2ed3162587018a361c1a"
+        },
+        {
+          "at": "2026-10-09T03:03:20.676Z",
+          "phase": "closeout",
+          "status": "completed",
+          "previous": "50a585e9720286df620212b2b5d592f88021552e53ea2ed3162587018a361c1a",
+          "eventSha256": "c12e6522f4aacb94e9e1ea2e7490b62a85b5dbea221c79ac20a07b2bfe39a717"
+        }
+      ]
+    },
+    {
+      "id": "jackyun-download-recovery-20261009",
+      "batchSha": "a27663b41b52e1bcd642c6cd8f916572d720c8f1b0562141d2ff6fcbce5a685b",
+      "eventCount": 6,
+      "sequenceCanonicalHashChainVerified": true,
+      "sourceDirectory": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/jackyun-download-recovery-20261009",
+      "finalEvent": {
+        "at": "2026-10-09T03:34:38.910Z",
+        "phase": "closeout",
+        "status": "cancelled",
+        "reason": "explicit-zero-switch-cancellation",
+        "previous": "9dbc7cb8b5c31ffbdc6adfca2111ae5c20e54f6822e73162ec775b2a466572fb",
+        "eventSha256": "040548c2584d31eda1240ed3f27aa289ef96fc50148a44f0d10e6e005bb2631d"
+      },
+      "latestOperations": {
+        "reuse-jackyun-worker": "failed"
+      },
+      "events": [
+        {
+          "at": "2026-10-09T00:41:37.000Z",
+          "phase": "queue",
+          "status": "approved",
+          "durationMs": 15.688800000000015,
+          "previous": null,
+          "eventSha256": "138aa7ade13259c9baf980388906b3cbef99322c90e2388fb078b898ab2d2674"
+        },
+        {
+          "at": "2026-10-09T03:24:20.230Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "live-predecessor-and-integrity-revalidation",
+          "durationMs": 197565.9492,
+          "previous": "138aa7ade13259c9baf980388906b3cbef99322c90e2388fb078b898ab2d2674",
+          "eventSha256": "aca4f9fdc97514073a66f086c84a429d71bf6a37ed41e33b76fbdbcdfa02ece7"
+        },
+        {
+          "at": "2026-10-09T03:24:56.600Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 36365.87670000002,
+          "previous": "aca4f9fdc97514073a66f086c84a429d71bf6a37ed41e33b76fbdbcdfa02ece7",
+          "eventSha256": "0684c79ef90afce44611c34e5bdcdbf8f7bff51584ca3955b6d0d466cc848728"
+        },
+        {
+          "at": "2026-10-09T03:24:56.603Z",
+          "phase": "prepare",
+          "status": "started",
+          "operationId": "reuse-jackyun-worker",
+          "previous": "0684c79ef90afce44611c34e5bdcdbf8f7bff51584ca3955b6d0d466cc848728",
+          "eventSha256": "c5aa6d718084cc65e0f98ff68efe8b02f6dd35aadda785dfcd5a7302619103b5"
+        },
+        {
+          "at": "2026-10-09T03:34:38.846Z",
+          "phase": "prepare",
+          "status": "failed",
+          "reason": "independently-reconciled",
+          "operationId": "reuse-jackyun-worker",
+          "previous": "c5aa6d718084cc65e0f98ff68efe8b02f6dd35aadda785dfcd5a7302619103b5",
+          "eventSha256": "9dbc7cb8b5c31ffbdc6adfca2111ae5c20e54f6822e73162ec775b2a466572fb"
+        },
+        {
+          "at": "2026-10-09T03:34:38.910Z",
+          "phase": "closeout",
+          "status": "cancelled",
+          "reason": "explicit-zero-switch-cancellation",
+          "previous": "9dbc7cb8b5c31ffbdc6adfca2111ae5c20e54f6822e73162ec775b2a466572fb",
+          "eventSha256": "040548c2584d31eda1240ed3f27aa289ef96fc50148a44f0d10e6e005bb2631d"
+        }
+      ]
+    },
+    {
+      "id": "jackyun-download-recovery-v2-20261009",
+      "batchSha": "766b56d15fc86754a47e753701c6388a444d2d9b467127091a6d9ea9ebac281f",
+      "eventCount": 53,
+      "sequenceCanonicalHashChainVerified": true,
+      "sourceDirectory": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/jackyun-download-recovery-v2-20261009",
+      "finalEvent": {
+        "at": "2026-10-09T05:18:52.563Z",
+        "phase": "closeout",
+        "status": "completed",
+        "previous": "a98656999757be09a1d82736d82a5d48789a1a63cb251f4b9219f26c964a343d",
+        "eventSha256": "f2d3097eef4ecfe3b4de61e60ae41e8a1c85c13e46359ba0c2aa141cf84cf65e"
+      },
+      "latestOperations": {
+        "reuse-jackyun-worker": "passed",
+        "op-backup-pre": "passed",
+        "op-restore-pre": "passed",
+        "step-entermaintenance": "passed",
+        "apply-jackyun-worker": "passed",
+        "confirm-classifier-publication": "passed",
+        "step-exitmaintenance": "passed",
+        "step-startworker": "passed",
+        "jackyun-source-and-assets": "passed",
+        "step-aggregatestatus": "passed",
+        "step-verifystartup": "passed",
+        "natural-watchdogs": "passed",
+        "op-backup-post": "passed",
+        "op-restore-post": "passed",
+        "preserve-post-recovery": "passed",
+        "readiness-closeout": "passed"
+      },
+      "events": [
+        {
+          "at": "2026-10-09T00:41:37.000Z",
+          "phase": "queue",
+          "status": "approved",
+          "durationMs": 15.799599999999998,
+          "previous": null,
+          "eventSha256": "2ebed94aadc174ffc6c41673ff8d39adc2e2915b0caacb9e6a13e609732db929"
+        },
+        {
+          "at": "2026-10-09T03:44:30.798Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "live-predecessor-and-integrity-revalidation",
+          "durationMs": 190272.0629,
+          "previous": "2ebed94aadc174ffc6c41673ff8d39adc2e2915b0caacb9e6a13e609732db929",
+          "eventSha256": "c80f1ef6cd06190626a99b656c32990030b25d5b9ba95ec73d86725a9cfb743c"
+        },
+        {
+          "at": "2026-10-09T03:45:09.799Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 38998.57620000001,
+          "previous": "c80f1ef6cd06190626a99b656c32990030b25d5b9ba95ec73d86725a9cfb743c",
+          "eventSha256": "a11a322c08a051190ffd043f76e22b637aede50044a1d1959feebfd79078f7f9"
+        },
+        {
+          "at": "2026-10-09T03:45:09.802Z",
+          "phase": "prepare",
+          "status": "started",
+          "operationId": "reuse-jackyun-worker",
+          "previous": "a11a322c08a051190ffd043f76e22b637aede50044a1d1959feebfd79078f7f9",
+          "eventSha256": "21954713a2f3d50974b36c9677f70fb50be34606dc248e6f9fa2d60fbd14d543"
+        },
+        {
+          "at": "2026-10-09T03:49:21.048Z",
+          "phase": "prepare",
+          "status": "passed",
+          "reason": null,
+          "operationId": "reuse-jackyun-worker",
+          "durationMs": 251245.5677,
+          "previous": "21954713a2f3d50974b36c9677f70fb50be34606dc248e6f9fa2d60fbd14d543",
+          "eventSha256": "9511d8a34be6cbcbf8eead7707c8db456e24e59b0a7edebef7733507056d8828"
+        },
+        {
+          "at": "2026-10-09T03:50:01.006Z",
+          "phase": "backup-pre",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 39955.06580000004,
+          "previous": "9511d8a34be6cbcbf8eead7707c8db456e24e59b0a7edebef7733507056d8828",
+          "eventSha256": "f4acd714bcfed266991243371ff2eac29f2b355722f9a7c9ab547ff3ce9c817b"
+        },
+        {
+          "at": "2026-10-09T03:50:01.009Z",
+          "phase": "backup-pre",
+          "status": "started",
+          "operationId": "op-backup-pre",
+          "previous": "f4acd714bcfed266991243371ff2eac29f2b355722f9a7c9ab547ff3ce9c817b",
+          "eventSha256": "fde73f7ece2e53c620d5cee96875d7b6307987d2b581c9577258615d54c20629"
+        },
+        {
+          "at": "2026-10-09T04:02:20.333Z",
+          "phase": "backup-pre",
+          "status": "passed",
+          "reason": null,
+          "operationId": "op-backup-pre",
+          "durationMs": 739324.5999,
+          "previous": "fde73f7ece2e53c620d5cee96875d7b6307987d2b581c9577258615d54c20629",
+          "eventSha256": "83fa772cac1d659b70214213beaeff3b044dc5d1539765e415ad715c5acba530"
+        },
+        {
+          "at": "2026-10-09T04:02:59.643Z",
+          "phase": "restore-pre",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 39307.092399999965,
+          "previous": "83fa772cac1d659b70214213beaeff3b044dc5d1539765e415ad715c5acba530",
+          "eventSha256": "6b8b145effa25d5b5820981d71d9252266a15b39e24758fe55f27938e26bff79"
+        },
+        {
+          "at": "2026-10-09T04:02:59.646Z",
+          "phase": "restore-pre",
+          "status": "started",
+          "operationId": "op-restore-pre",
+          "previous": "6b8b145effa25d5b5820981d71d9252266a15b39e24758fe55f27938e26bff79",
+          "eventSha256": "224f62aae06d630a7246548a5cb2f3a0ce7a103a6aa4fbe38b8d49bc092f0458"
+        },
+        {
+          "at": "2026-10-09T04:15:02.538Z",
+          "phase": "restore-pre",
+          "status": "passed",
+          "reason": null,
+          "operationId": "op-restore-pre",
+          "durationMs": 722892.3642,
+          "previous": "224f62aae06d630a7246548a5cb2f3a0ce7a103a6aa4fbe38b8d49bc092f0458",
+          "eventSha256": "ff4ccbf04b22da4ca497c99e1838a6a2ab510a556eabcbcb98c6cb1f5e8192a0"
+        },
+        {
+          "at": "2026-10-09T04:18:14.748Z",
+          "phase": "drain",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 192205.96959999995,
+          "previous": "ff4ccbf04b22da4ca497c99e1838a6a2ab510a556eabcbcb98c6cb1f5e8192a0",
+          "eventSha256": "2c3a0e994764b3331f2f46c16e4e2b9724d3a0fa00870be91ca13cf2c6524aa7"
+        },
+        {
+          "at": "2026-10-09T04:18:14.751Z",
+          "phase": "drain",
+          "status": "started",
+          "operationId": "step-entermaintenance",
+          "previous": "2c3a0e994764b3331f2f46c16e4e2b9724d3a0fa00870be91ca13cf2c6524aa7",
+          "eventSha256": "1d86f7fe302572903d289f84412feecada35341aab28368170945e536584cf9e"
+        },
+        {
+          "at": "2026-10-09T04:22:47.011Z",
+          "phase": "drain",
+          "status": "passed",
+          "reason": null,
+          "operationId": "step-entermaintenance",
+          "durationMs": 272260.25749999983,
+          "previous": "1d86f7fe302572903d289f84412feecada35341aab28368170945e536584cf9e",
+          "eventSha256": "dd053eac43c150620fed70611f23cade3c100aab209985711654f4bf49569b65"
+        },
+        {
+          "at": "2026-10-09T04:23:20.841Z",
+          "phase": "switch",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 33827.42749999976,
+          "previous": "dd053eac43c150620fed70611f23cade3c100aab209985711654f4bf49569b65",
+          "eventSha256": "e39959b0b2518b2316bfa0b43898aa387e3cc9aeac60aef98b0af28ba78fa541"
+        },
+        {
+          "at": "2026-10-09T04:23:20.844Z",
+          "phase": "switch",
+          "status": "started",
+          "operationId": "apply-jackyun-worker",
+          "previous": "e39959b0b2518b2316bfa0b43898aa387e3cc9aeac60aef98b0af28ba78fa541",
+          "eventSha256": "e3e33883d9085d3b7c7350221225107405802c012b88f11da8084f35c6115390"
+        },
+        {
+          "at": "2026-10-09T04:25:33.215Z",
+          "phase": "switch",
+          "status": "passed",
+          "reason": null,
+          "operationId": "apply-jackyun-worker",
+          "durationMs": 132370.15040000016,
+          "previous": "e3e33883d9085d3b7c7350221225107405802c012b88f11da8084f35c6115390",
+          "eventSha256": "879a4d49e5da5755d46afc2c5c77c3d401495b91fa4c38a8c5be6a1537a6fb3d"
+        },
+        {
+          "at": "2026-10-09T04:26:03.708Z",
+          "phase": "switch",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 30489.781399999745,
+          "previous": "879a4d49e5da5755d46afc2c5c77c3d401495b91fa4c38a8c5be6a1537a6fb3d",
+          "eventSha256": "5153a9e488f350c7ebd4b01af7d6836287aee9e0944afd909774f1d267e7acab"
+        },
+        {
+          "at": "2026-10-09T04:26:03.710Z",
+          "phase": "switch",
+          "status": "started",
+          "operationId": "confirm-classifier-publication",
+          "previous": "5153a9e488f350c7ebd4b01af7d6836287aee9e0944afd909774f1d267e7acab",
+          "eventSha256": "a135265c1533d279b44549559cd91a21aa8de60802bd0219cb85e3724a0947dc"
+        },
+        {
+          "at": "2026-10-09T04:26:34.050Z",
+          "phase": "switch",
+          "status": "passed",
+          "reason": null,
+          "operationId": "confirm-classifier-publication",
+          "durationMs": 30340.04879999999,
+          "previous": "a135265c1533d279b44549559cd91a21aa8de60802bd0219cb85e3724a0947dc",
+          "eventSha256": "d89b4f8c0e24cc642e447832b9d8b0ef60fad7032640b55445a5ca48720f1e8a"
+        },
+        {
+          "at": "2026-10-09T04:27:04.834Z",
+          "phase": "switch",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 30780.27960000001,
+          "previous": "d89b4f8c0e24cc642e447832b9d8b0ef60fad7032640b55445a5ca48720f1e8a",
+          "eventSha256": "880ddc23ae99de5afd3e8d58b0a1fc58cc44f8494a700acfc74994916505f7c0"
+        },
+        {
+          "at": "2026-10-09T04:27:04.837Z",
+          "phase": "switch",
+          "status": "started",
+          "operationId": "step-exitmaintenance",
+          "previous": "880ddc23ae99de5afd3e8d58b0a1fc58cc44f8494a700acfc74994916505f7c0",
+          "eventSha256": "435b94b53f5246ead48d429d11be567b7e54639d0503fb2a9fc848e45031d003"
+        },
+        {
+          "at": "2026-10-09T04:27:41.391Z",
+          "phase": "switch",
+          "status": "passed",
+          "reason": null,
+          "operationId": "step-exitmaintenance",
+          "durationMs": 36554.35770000005,
+          "previous": "435b94b53f5246ead48d429d11be567b7e54639d0503fb2a9fc848e45031d003",
+          "eventSha256": "7916461cbedd4ce739b2b3ca2a54feef405308f4b3cdfc422b0172d5d8647798"
+        },
+        {
+          "at": "2026-10-09T04:28:14.768Z",
+          "phase": "switch",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 33374.183000000194,
+          "previous": "7916461cbedd4ce739b2b3ca2a54feef405308f4b3cdfc422b0172d5d8647798",
+          "eventSha256": "b3fe1bd294c9e839ef4290e6912381a81bca9bb795a1c87cea2816989908c58f"
+        },
+        {
+          "at": "2026-10-09T04:28:14.772Z",
+          "phase": "switch",
+          "status": "started",
+          "operationId": "step-startworker",
+          "previous": "b3fe1bd294c9e839ef4290e6912381a81bca9bb795a1c87cea2816989908c58f",
+          "eventSha256": "05a21631b844b1939de33d80b2f2f25f88a05482e663a152c2173d6d42034656"
+        },
+        {
+          "at": "2026-10-09T04:39:46.714Z",
+          "phase": "switch",
+          "status": "passed",
+          "reason": "independently-reconciled",
+          "operationId": "step-startworker",
+          "previous": "05a21631b844b1939de33d80b2f2f25f88a05482e663a152c2173d6d42034656",
+          "eventSha256": "6df5781c2c3ede297105182f9752341f23adfe82687fb34577c79aad486dde4a"
+        },
+        {
+          "at": "2026-10-09T04:39:47.229Z",
+          "phase": "queue",
+          "status": "resumed",
+          "durationMs": 52.3184,
+          "previous": "6df5781c2c3ede297105182f9752341f23adfe82687fb34577c79aad486dde4a",
+          "eventSha256": "b6d29a5b500e1aa5902d20614a7f213cf1ef37f5458c7adb5c4b8878cfcf643e"
+        },
+        {
+          "at": "2026-10-09T04:42:10.155Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "live-predecessor-and-integrity-revalidation",
+          "durationMs": 142923.8223,
+          "previous": "b6d29a5b500e1aa5902d20614a7f213cf1ef37f5458c7adb5c4b8878cfcf643e",
+          "eventSha256": "e6a532becb268a09e07dadbb5e8ab0f51774a29666848dd504c0050c1262cfd1"
+        },
+        {
+          "at": "2026-10-09T04:43:21.496Z",
+          "phase": "acceptance",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 71338.1261,
+          "previous": "e6a532becb268a09e07dadbb5e8ab0f51774a29666848dd504c0050c1262cfd1",
+          "eventSha256": "e15f5b25824f7d4889966141f34ac5a538920d910a215348ffd545ac5af09e35"
+        },
+        {
+          "at": "2026-10-09T04:43:21.499Z",
+          "phase": "acceptance",
+          "status": "started",
+          "operationId": "jackyun-source-and-assets",
+          "previous": "e15f5b25824f7d4889966141f34ac5a538920d910a215348ffd545ac5af09e35",
+          "eventSha256": "d33b6454009a57128abadf47c3f8512937eaa27695acf64fa296dd8dff2de1c8"
+        },
+        {
+          "at": "2026-10-09T04:43:22.727Z",
+          "phase": "acceptance",
+          "status": "passed",
+          "reason": null,
+          "operationId": "jackyun-source-and-assets",
+          "durationMs": 1227.247000000003,
+          "previous": "d33b6454009a57128abadf47c3f8512937eaa27695acf64fa296dd8dff2de1c8",
+          "eventSha256": "1a1738c41768b2b11b00df666edc1d6766afcea183d90bfa8f6db784316ad4e1"
+        },
+        {
+          "at": "2026-10-09T04:44:29.222Z",
+          "phase": "acceptance",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 66492.1042,
+          "previous": "1a1738c41768b2b11b00df666edc1d6766afcea183d90bfa8f6db784316ad4e1",
+          "eventSha256": "2853d09780075a08f1582a517084034143d3668c7cf1ef1c423d8f6d57d4f4ac"
+        },
+        {
+          "at": "2026-10-09T04:44:29.225Z",
+          "phase": "acceptance",
+          "status": "started",
+          "operationId": "step-aggregatestatus",
+          "previous": "2853d09780075a08f1582a517084034143d3668c7cf1ef1c423d8f6d57d4f4ac",
+          "eventSha256": "e566dfb24efc1f8d79bb62afc6b8d562dab3455959481a642e5294c546ce4768"
+        },
+        {
+          "at": "2026-10-09T04:44:51.280Z",
+          "phase": "acceptance",
+          "status": "passed",
+          "reason": null,
+          "operationId": "step-aggregatestatus",
+          "durationMs": 22055.472899999993,
+          "previous": "e566dfb24efc1f8d79bb62afc6b8d562dab3455959481a642e5294c546ce4768",
+          "eventSha256": "922132a84d9349b273c927013ab470b81bbeabebdb207575db0f2b776a9d63fe"
+        },
+        {
+          "at": "2026-10-09T04:46:04.069Z",
+          "phase": "acceptance",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 72786.1423,
+          "previous": "922132a84d9349b273c927013ab470b81bbeabebdb207575db0f2b776a9d63fe",
+          "eventSha256": "4a1b6e554ab2608e1a2c1a0b482a4068f2adc66a0fc5f5e151bd1b14b8d2690e"
+        },
+        {
+          "at": "2026-10-09T04:46:04.072Z",
+          "phase": "acceptance",
+          "status": "started",
+          "operationId": "step-verifystartup",
+          "previous": "4a1b6e554ab2608e1a2c1a0b482a4068f2adc66a0fc5f5e151bd1b14b8d2690e",
+          "eventSha256": "1df19bf089bbd1f52783aca8c68049f0e59b043981a7e84b7bc6d17c62131ee2"
+        },
+        {
+          "at": "2026-10-09T04:46:09.379Z",
+          "phase": "acceptance",
+          "status": "passed",
+          "reason": null,
+          "operationId": "step-verifystartup",
+          "durationMs": 5306.289700000023,
+          "previous": "1df19bf089bbd1f52783aca8c68049f0e59b043981a7e84b7bc6d17c62131ee2",
+          "eventSha256": "82f2dc846f651c54e4ffc369f26780f8bcad4f846a201be997b25eb501d6b2d9"
+        },
+        {
+          "at": "2026-10-09T04:47:16.618Z",
+          "phase": "acceptance",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 67236.12919999997,
+          "previous": "82f2dc846f651c54e4ffc369f26780f8bcad4f846a201be997b25eb501d6b2d9",
+          "eventSha256": "558e1f6b44cbb20afa1698f2f3b2b94162173ac678aafa0a44d4905fec2ae72a"
+        },
+        {
+          "at": "2026-10-09T04:47:16.621Z",
+          "phase": "acceptance",
+          "status": "started",
+          "operationId": "natural-watchdogs",
+          "previous": "558e1f6b44cbb20afa1698f2f3b2b94162173ac678aafa0a44d4905fec2ae72a",
+          "eventSha256": "204bc438872a215015ebb91e20ef62dc3a01f50818df6b931caa8567bb2feed8"
+        },
+        {
+          "at": "2026-10-09T04:49:16.857Z",
+          "phase": "acceptance",
+          "status": "passed",
+          "reason": null,
+          "operationId": "natural-watchdogs",
+          "durationMs": 120236.09240000002,
+          "previous": "204bc438872a215015ebb91e20ef62dc3a01f50818df6b931caa8567bb2feed8",
+          "eventSha256": "feecaeeb6f71485c11e9c36d3943d5c21c2aa07e5236aa160d9839202f9c36b4"
+        },
+        {
+          "at": "2026-10-09T04:49:54.988Z",
+          "phase": "backup-post",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 38128.733099999954,
+          "previous": "feecaeeb6f71485c11e9c36d3943d5c21c2aa07e5236aa160d9839202f9c36b4",
+          "eventSha256": "df721be8e7ea4a9b05b6c44d1b62378ee1c8e27f3e6bc3752b1672dcd5dcde8c"
+        },
+        {
+          "at": "2026-10-09T04:49:54.992Z",
+          "phase": "backup-post",
+          "status": "started",
+          "operationId": "op-backup-post",
+          "previous": "df721be8e7ea4a9b05b6c44d1b62378ee1c8e27f3e6bc3752b1672dcd5dcde8c",
+          "eventSha256": "e3ae8b678393d71518e012f446e6ee718823aafb8e40986117d24e2274f837af"
+        },
+        {
+          "at": "2026-10-09T05:01:38.291Z",
+          "phase": "backup-post",
+          "status": "passed",
+          "reason": null,
+          "operationId": "op-backup-post",
+          "durationMs": 703299.624,
+          "previous": "e3ae8b678393d71518e012f446e6ee718823aafb8e40986117d24e2274f837af",
+          "eventSha256": "19a213c93ac557effcc130bd4c1e6c102df91654ff15e7fccec44263b272a82a"
+        },
+        {
+          "at": "2026-10-09T05:02:16.798Z",
+          "phase": "restore-post",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 38503.44179999991,
+          "previous": "19a213c93ac557effcc130bd4c1e6c102df91654ff15e7fccec44263b272a82a",
+          "eventSha256": "75ca5b334ae24e9752c8bb8c361794fe940e49a587ce386c8cacb8599c042005"
+        },
+        {
+          "at": "2026-10-09T05:02:16.801Z",
+          "phase": "restore-post",
+          "status": "started",
+          "operationId": "op-restore-post",
+          "previous": "75ca5b334ae24e9752c8bb8c361794fe940e49a587ce386c8cacb8599c042005",
+          "eventSha256": "0bbefc26147f8b86997c44db119947999be1e6ecef711bc117d63632304e6ab9"
+        },
+        {
+          "at": "2026-10-09T05:14:12.135Z",
+          "phase": "restore-post",
+          "status": "passed",
+          "reason": null,
+          "operationId": "op-restore-post",
+          "durationMs": 715333.2596,
+          "previous": "0bbefc26147f8b86997c44db119947999be1e6ecef711bc117d63632304e6ab9",
+          "eventSha256": "e251bec0671f775527cf19afacd23ac804580aac647b5dc7ed1b9aab38880003"
+        },
+        {
+          "at": "2026-10-09T05:16:53.174Z",
+          "phase": "closeout",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 161037.0360999999,
+          "previous": "e251bec0671f775527cf19afacd23ac804580aac647b5dc7ed1b9aab38880003",
+          "eventSha256": "eafb0411b69a5429bb820d02bddfefd6fb650e37aec78881dbc10286741478eb"
+        },
+        {
+          "at": "2026-10-09T05:16:53.177Z",
+          "phase": "closeout",
+          "status": "started",
+          "operationId": "preserve-post-recovery",
+          "previous": "eafb0411b69a5429bb820d02bddfefd6fb650e37aec78881dbc10286741478eb",
+          "eventSha256": "852682fa7b32873b0c04b6590e195bc394343c82e1c2cb4afdbbf55e7a765bed"
+        },
+        {
+          "at": "2026-10-09T05:16:53.818Z",
+          "phase": "closeout",
+          "status": "passed",
+          "reason": null,
+          "operationId": "preserve-post-recovery",
+          "durationMs": 640.9797000000253,
+          "previous": "852682fa7b32873b0c04b6590e195bc394343c82e1c2cb4afdbbf55e7a765bed",
+          "eventSha256": "c8f2949b42a88d85b647a79f637563588baf92284eb28cba8f8dc7590fe429e5"
+        },
+        {
+          "at": "2026-10-09T05:18:22.790Z",
+          "phase": "closeout",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 88969.34400000004,
+          "previous": "c8f2949b42a88d85b647a79f637563588baf92284eb28cba8f8dc7590fe429e5",
+          "eventSha256": "e8a290602cb88f698127e9bd160bab52bfa74f8d314042592ef57a8a7f7a4417"
+        },
+        {
+          "at": "2026-10-09T05:18:22.793Z",
+          "phase": "closeout",
+          "status": "started",
+          "operationId": "readiness-closeout",
+          "previous": "e8a290602cb88f698127e9bd160bab52bfa74f8d314042592ef57a8a7f7a4417",
+          "eventSha256": "965b9ad791f76ea2b430d95a2fa5ab98b6745d583acfa75e46a17a66ce295880"
+        },
+        {
+          "at": "2026-10-09T05:18:52.560Z",
+          "phase": "closeout",
+          "status": "passed",
+          "reason": null,
+          "operationId": "readiness-closeout",
+          "durationMs": 29766.518800000194,
+          "previous": "965b9ad791f76ea2b430d95a2fa5ab98b6745d583acfa75e46a17a66ce295880",
+          "eventSha256": "a98656999757be09a1d82736d82a5d48789a1a63cb251f4b9219f26c964a343d"
+        },
+        {
+          "at": "2026-10-09T05:18:52.563Z",
+          "phase": "closeout",
+          "status": "completed",
+          "previous": "a98656999757be09a1d82736d82a5d48789a1a63cb251f4b9219f26c964a343d",
+          "eventSha256": "f2d3097eef4ecfe3b4de61e60ae41e8a1c85c13e46359ba0c2aa141cf84cf65e"
+        }
+      ]
+    },
+    {
+      "id": "priority-interactions-20261009",
+      "batchSha": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+      "eventCount": 65,
+      "sequenceCanonicalHashChainVerified": true,
+      "sourceDirectory": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/priority-interactions-20261009",
+      "finalEvent": {
+        "at": "2026-10-09T12:26:02.677Z",
+        "phase": "closeout",
+        "status": "completed",
+        "previous": "658479aaea58bbd12c892d3f2cb67ef4a573a963d0ce410ccf19d5c076ee2787",
+        "eventSha256": "637086161ff547664972c8fc48a319d56ef30e4b52d2e8b1ff56e0644db2cb4d"
+      },
+      "latestOperations": {
+        "reuse-priority-worker": "passed",
+        "op-backup-pre": "passed",
+        "op-restore-pre": "passed",
+        "step-entermaintenance": "passed",
+        "apply-priority-worker": "passed",
+        "step-exitmaintenance": "passed",
+        "step-startworker": "passed",
+        "priority-source-assets": "passed",
+        "priority-production-ui": "passed",
+        "step-aggregatestatus": "passed",
+        "step-verifystartup": "passed",
+        "natural-watchdogs": "passed",
+        "op-backup-post": "passed",
+        "op-restore-post": "passed",
+        "preserve-post-recovery": "passed",
+        "readiness-closeout": "passed"
+      },
+      "events": [
+        {
+          "at": "2026-10-09T09:19:39.000Z",
+          "phase": "queue",
+          "status": "approved",
+          "durationMs": 13.390099999999961,
+          "previous": null,
+          "eventSha256": "73d6ce574ad3e6505512d692b12bbe59afd934588d2915ae5e710d7304612807"
+        },
+        {
+          "at": "2026-10-09T09:29:05.931Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "live-predecessor-and-integrity-revalidation",
+          "durationMs": 198407.773,
+          "previous": "73d6ce574ad3e6505512d692b12bbe59afd934588d2915ae5e710d7304612807",
+          "eventSha256": "1b246afdf13a211ae67ecf5d959b81a85ccd3230e12c4cc20659f8e4f89335a9"
+        },
+        {
+          "at": "2026-10-09T09:29:43.127Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 37193.458199999994,
+          "previous": "1b246afdf13a211ae67ecf5d959b81a85ccd3230e12c4cc20659f8e4f89335a9",
+          "eventSha256": "8072eb61960b3071d2de9d43c20e5a283fbe32f2705b5770844f56c993d41d49"
+        },
+        {
+          "at": "2026-10-09T09:29:43.131Z",
+          "phase": "prepare",
+          "status": "started",
+          "operationId": "reuse-priority-worker",
+          "previous": "8072eb61960b3071d2de9d43c20e5a283fbe32f2705b5770844f56c993d41d49",
+          "eventSha256": "b42bc9b30b87b66044367bbed4b19e648bb0a06dfc21ffa97fb77298694ced96"
+        },
+        {
+          "at": "2026-10-09T09:33:38.930Z",
+          "phase": "prepare",
+          "status": "passed",
+          "reason": null,
+          "operationId": "reuse-priority-worker",
+          "durationMs": 235799.6664,
+          "previous": "b42bc9b30b87b66044367bbed4b19e648bb0a06dfc21ffa97fb77298694ced96",
+          "eventSha256": "06459dd1d9f9e12114a46a946c680339f28381fa5cb27618f3208b844d0167ee"
+        },
+        {
+          "at": "2026-10-09T09:34:16.800Z",
+          "phase": "backup-pre",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 37867.82170000003,
+          "previous": "06459dd1d9f9e12114a46a946c680339f28381fa5cb27618f3208b844d0167ee",
+          "eventSha256": "fdac0b38a7009de2009483495bee933eba85a66f1077a536596b1922bab4a9e6"
+        },
+        {
+          "at": "2026-10-09T09:34:16.803Z",
+          "phase": "backup-pre",
+          "status": "started",
+          "operationId": "op-backup-pre",
+          "previous": "fdac0b38a7009de2009483495bee933eba85a66f1077a536596b1922bab4a9e6",
+          "eventSha256": "4c39f05387ab6dbb5bc80969bef4a9e1e3ede443ae5eaf67b1488d647b6e72d4"
+        },
+        {
+          "at": "2026-10-09T09:46:25.158Z",
+          "phase": "backup-pre",
+          "status": "passed",
+          "reason": null,
+          "operationId": "op-backup-pre",
+          "durationMs": 728354.7549,
+          "previous": "4c39f05387ab6dbb5bc80969bef4a9e1e3ede443ae5eaf67b1488d647b6e72d4",
+          "eventSha256": "db366d3ec04d8a5214751c5ad63d2e8f8cf2769a8c20e09401802927b83873b1"
+        },
+        {
+          "at": "2026-10-09T09:47:05.137Z",
+          "phase": "restore-pre",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 39976.206099999836,
+          "previous": "db366d3ec04d8a5214751c5ad63d2e8f8cf2769a8c20e09401802927b83873b1",
+          "eventSha256": "3a3420cae77e64bb95a2abe3ac792214bb9488492c1b33162ceec4028132315e"
+        },
+        {
+          "at": "2026-10-09T09:47:05.140Z",
+          "phase": "restore-pre",
+          "status": "started",
+          "operationId": "op-restore-pre",
+          "previous": "3a3420cae77e64bb95a2abe3ac792214bb9488492c1b33162ceec4028132315e",
+          "eventSha256": "8d5d107b282b5a5acc2dabe94223426e53523c4f8259a87b714c957cac30d771"
+        },
+        {
+          "at": "2026-10-09T09:59:41.875Z",
+          "phase": "restore-pre",
+          "status": "passed",
+          "reason": null,
+          "operationId": "op-restore-pre",
+          "durationMs": 756734.9897999999,
+          "previous": "8d5d107b282b5a5acc2dabe94223426e53523c4f8259a87b714c957cac30d771",
+          "eventSha256": "27d21d239553bdf4802b048fa9532dfc01a741c2eaab6e6744cd7d9b77475a91"
+        },
+        {
+          "at": "2026-10-09T10:05:08.186Z",
+          "phase": "drain",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 326307.8894,
+          "previous": "27d21d239553bdf4802b048fa9532dfc01a741c2eaab6e6744cd7d9b77475a91",
+          "eventSha256": "e24bd3d5535d563ffdc801bc664a61c83e868823012201ffcb6958c0fc1514fc"
+        },
+        {
+          "at": "2026-10-09T10:05:08.192Z",
+          "phase": "drain",
+          "status": "started",
+          "operationId": "step-entermaintenance",
+          "previous": "e24bd3d5535d563ffdc801bc664a61c83e868823012201ffcb6958c0fc1514fc",
+          "eventSha256": "4df3857816ef31cc3886bfe1f3b080a93a6b2edf1f05a6d7f84c82fb371f9b39"
+        },
+        {
+          "at": "2026-10-09T10:05:44.551Z",
+          "phase": "drain",
+          "status": "unknown",
+          "reason": "operator-failed-or-result-unavailable",
+          "operationId": "step-entermaintenance",
+          "durationMs": 36358.937200000044,
+          "previous": "4df3857816ef31cc3886bfe1f3b080a93a6b2edf1f05a6d7f84c82fb371f9b39",
+          "eventSha256": "e774cfc5d5605f314bf4f9638802a1c9a4f3df28cc111d48fed06cc33d7908cb"
+        },
+        {
+          "at": "2026-10-09T10:27:27.601Z",
+          "phase": "drain",
+          "status": "failed",
+          "reason": "independently-reconciled",
+          "operationId": "step-entermaintenance",
+          "previous": "e774cfc5d5605f314bf4f9638802a1c9a4f3df28cc111d48fed06cc33d7908cb",
+          "eventSha256": "2e9403969ed3f1c5650aad6eca0ab1f4769f9b985a8efd63fb8221fcbc04be47"
+        },
+        {
+          "at": "2026-10-09T10:27:28.227Z",
+          "phase": "queue",
+          "status": "resumed",
+          "durationMs": 29.649599999999964,
+          "previous": "2e9403969ed3f1c5650aad6eca0ab1f4769f9b985a8efd63fb8221fcbc04be47",
+          "eventSha256": "c0d6fe4036e113c4cdf592aa8f0e1c8789e12eec1ccb0f9e941b404bdb81e2a1"
+        },
+        {
+          "at": "2026-10-09T10:30:51.618Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "live-predecessor-and-integrity-revalidation",
+          "durationMs": 203388.4605,
+          "previous": "c0d6fe4036e113c4cdf592aa8f0e1c8789e12eec1ccb0f9e941b404bdb81e2a1",
+          "eventSha256": "6ee49f62a4dea60cb24e58a8db095b002d240fecc8117d8bf48589cfae3474cb"
+        },
+        {
+          "at": "2026-10-09T10:34:02.835Z",
+          "phase": "drain",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 191214.6136,
+          "previous": "6ee49f62a4dea60cb24e58a8db095b002d240fecc8117d8bf48589cfae3474cb",
+          "eventSha256": "7833069442ac4929f4fc0a326e240a920f64f519ab9ea5d4c749786776395d93"
+        },
+        {
+          "at": "2026-10-09T10:34:02.840Z",
+          "phase": "drain",
+          "status": "started",
+          "operationId": "step-entermaintenance",
+          "previous": "7833069442ac4929f4fc0a326e240a920f64f519ab9ea5d4c749786776395d93",
+          "eventSha256": "56ee02bbcc876d5281080ddc69ba4f31e5ae81ac41172e2b01b6d6ce9c4f149f"
+        },
+        {
+          "at": "2026-10-09T10:38:54.313Z",
+          "phase": "drain",
+          "status": "passed",
+          "reason": null,
+          "operationId": "step-entermaintenance",
+          "durationMs": 291473.0643,
+          "previous": "56ee02bbcc876d5281080ddc69ba4f31e5ae81ac41172e2b01b6d6ce9c4f149f",
+          "eventSha256": "415f0da0ee5751ee47e32da940c8ccd3cc9ef7199560f2e4163d070c799e8763"
+        },
+        {
+          "at": "2026-10-09T10:39:28.788Z",
+          "phase": "switch",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 34472.15490000008,
+          "previous": "415f0da0ee5751ee47e32da940c8ccd3cc9ef7199560f2e4163d070c799e8763",
+          "eventSha256": "a9967cb2f88b18aad75db4d18133a435a2b4e3e361d73427e4f10dc11c2295c8"
+        },
+        {
+          "at": "2026-10-09T10:39:28.790Z",
+          "phase": "switch",
+          "status": "started",
+          "operationId": "apply-priority-worker",
+          "previous": "a9967cb2f88b18aad75db4d18133a435a2b4e3e361d73427e4f10dc11c2295c8",
+          "eventSha256": "70908ea03ded7fd898f5e10d8a7d9f61c65d700d2e798eb41a9341e36b837b69"
+        },
+        {
+          "at": "2026-10-09T10:41:47.036Z",
+          "phase": "switch",
+          "status": "passed",
+          "reason": null,
+          "operationId": "apply-priority-worker",
+          "durationMs": 138245.74140000006,
+          "previous": "70908ea03ded7fd898f5e10d8a7d9f61c65d700d2e798eb41a9341e36b837b69",
+          "eventSha256": "1c2e2ef5bc821a68412b0e0f2f7a63885385fb70ea5c3343a481651277613b92"
+        },
+        {
+          "at": "2026-10-09T10:42:17.764Z",
+          "phase": "switch",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 30724.706000000006,
+          "previous": "1c2e2ef5bc821a68412b0e0f2f7a63885385fb70ea5c3343a481651277613b92",
+          "eventSha256": "9295ee58a7664d7ba2329bce52fb8f70e44c87dab1747ca63bf1884f55555448"
+        },
+        {
+          "at": "2026-10-09T10:42:17.767Z",
+          "phase": "switch",
+          "status": "started",
+          "operationId": "step-exitmaintenance",
+          "previous": "9295ee58a7664d7ba2329bce52fb8f70e44c87dab1747ca63bf1884f55555448",
+          "eventSha256": "4ce5cd2368b8882244cf093d59b5ee69aad732a548cc0811b622193a2d2707e4"
+        },
+        {
+          "at": "2026-10-09T10:42:53.016Z",
+          "phase": "switch",
+          "status": "passed",
+          "reason": null,
+          "operationId": "step-exitmaintenance",
+          "durationMs": 35248.826100000064,
+          "previous": "4ce5cd2368b8882244cf093d59b5ee69aad732a548cc0811b622193a2d2707e4",
+          "eventSha256": "64c3ba7ae4de40580843b6ece1b65a2821f734ee4d894e0a488a1e546e4e637d"
+        },
+        {
+          "at": "2026-10-09T10:43:23.609Z",
+          "phase": "switch",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 30590.584100000095,
+          "previous": "64c3ba7ae4de40580843b6ece1b65a2821f734ee4d894e0a488a1e546e4e637d",
+          "eventSha256": "a1bd76c437a6956aed95bad2d50580dbae84d31fe42a7ead1a04f64227dc487d"
+        },
+        {
+          "at": "2026-10-09T10:43:23.612Z",
+          "phase": "switch",
+          "status": "started",
+          "operationId": "step-startworker",
+          "previous": "a1bd76c437a6956aed95bad2d50580dbae84d31fe42a7ead1a04f64227dc487d",
+          "eventSha256": "4bb2a8f4b0e44b4d51607685788f9d4cfe34155215819932429430697cc75d61"
+        },
+        {
+          "at": "2026-10-09T11:13:28.944Z",
+          "phase": "switch",
+          "status": "unknown",
+          "reason": "operator-failed-or-result-unavailable",
+          "operationId": "step-startworker",
+          "durationMs": 1805331.1869,
+          "previous": "4bb2a8f4b0e44b4d51607685788f9d4cfe34155215819932429430697cc75d61",
+          "eventSha256": "3b6b999dca6a79d2374aa35140205a07e10cee7d95cd01627507435154b22513"
+        },
+        {
+          "at": "2026-10-09T11:18:51.126Z",
+          "phase": "switch",
+          "status": "passed",
+          "reason": "independently-reconciled",
+          "operationId": "step-startworker",
+          "previous": "3b6b999dca6a79d2374aa35140205a07e10cee7d95cd01627507435154b22513",
+          "eventSha256": "2534e3a2dc13955129bfabcd8204123273dd771871984a4459bf74eaf23107d7"
+        },
+        {
+          "at": "2026-10-09T11:18:51.774Z",
+          "phase": "queue",
+          "status": "resumed",
+          "durationMs": 55.57510000000002,
+          "previous": "2534e3a2dc13955129bfabcd8204123273dd771871984a4459bf74eaf23107d7",
+          "eventSha256": "00618a02fb92c35969668a98891899d591a481b48e992fe9be83a950373cffa4"
+        },
+        {
+          "at": "2026-10-09T11:20:55.902Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "live-predecessor-and-integrity-revalidation",
+          "durationMs": 124125.5325,
+          "previous": "00618a02fb92c35969668a98891899d591a481b48e992fe9be83a950373cffa4",
+          "eventSha256": "7e91e0f866fae6aad6ebead1c6f8f7679dfedd698f5c503eb1bda113455ba3a3"
+        },
+        {
+          "at": "2026-10-09T11:22:13.198Z",
+          "phase": "acceptance",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 77292.72510000001,
+          "previous": "7e91e0f866fae6aad6ebead1c6f8f7679dfedd698f5c503eb1bda113455ba3a3",
+          "eventSha256": "87fd8875446df0c10f7caf656c81e5bcb5da144b0e6d74b2c4e3fdbbacef49b5"
+        },
+        {
+          "at": "2026-10-09T11:22:13.201Z",
+          "phase": "acceptance",
+          "status": "started",
+          "operationId": "priority-source-assets",
+          "previous": "87fd8875446df0c10f7caf656c81e5bcb5da144b0e6d74b2c4e3fdbbacef49b5",
+          "eventSha256": "41e484da00ed732b453e9430c0e623aaf079a49762eff7082aa29dc4f6ffbfdd"
+        },
+        {
+          "at": "2026-10-09T11:22:14.067Z",
+          "phase": "acceptance",
+          "status": "passed",
+          "reason": null,
+          "operationId": "priority-source-assets",
+          "durationMs": 865.7466999999888,
+          "previous": "41e484da00ed732b453e9430c0e623aaf079a49762eff7082aa29dc4f6ffbfdd",
+          "eventSha256": "91888bbc66aefb8f886e29216dfb6c226bfbdcc8773a29e96a6630e504c352e1"
+        },
+        {
+          "at": "2026-10-09T11:23:30.830Z",
+          "phase": "acceptance",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 76760.2125,
+          "previous": "91888bbc66aefb8f886e29216dfb6c226bfbdcc8773a29e96a6630e504c352e1",
+          "eventSha256": "ad6a77083d7612933b12e0e2f5b25ddc6bf2ba45c24094345f2453a92daaf4b2"
+        },
+        {
+          "at": "2026-10-09T11:23:30.833Z",
+          "phase": "acceptance",
+          "status": "started",
+          "operationId": "priority-production-ui",
+          "previous": "ad6a77083d7612933b12e0e2f5b25ddc6bf2ba45c24094345f2453a92daaf4b2",
+          "eventSha256": "e3a6beb6afbf6a76e7fb085c20fc186b791cd6c80c377d490e2df6b2890fe8a9"
+        },
+        {
+          "at": "2026-10-09T11:24:43.154Z",
+          "phase": "acceptance",
+          "status": "unknown",
+          "reason": "operator-failed-or-result-unavailable",
+          "operationId": "priority-production-ui",
+          "durationMs": 72320.73980000004,
+          "previous": "e3a6beb6afbf6a76e7fb085c20fc186b791cd6c80c377d490e2df6b2890fe8a9",
+          "eventSha256": "675a390002e382856bbef1ed8fac8a561407c6734cade630e04390b83b3b442e"
+        },
+        {
+          "at": "2026-10-09T11:32:48.503Z",
+          "phase": "acceptance",
+          "status": "passed",
+          "reason": "independently-reconciled",
+          "operationId": "priority-production-ui",
+          "previous": "675a390002e382856bbef1ed8fac8a561407c6734cade630e04390b83b3b442e",
+          "eventSha256": "6bae83a0e780ca27d4f34211b6719963f289a08dfbc83b8b2880246c6643ae2d"
+        },
+        {
+          "at": "2026-10-09T11:32:50.388Z",
+          "phase": "queue",
+          "status": "resumed",
+          "durationMs": 80.7539999999999,
+          "previous": "6bae83a0e780ca27d4f34211b6719963f289a08dfbc83b8b2880246c6643ae2d",
+          "eventSha256": "289bd405efc716e357b51db752707205d5234c4b0fe521573144b1feea426373"
+        },
+        {
+          "at": "2026-10-09T11:34:53.825Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "live-predecessor-and-integrity-revalidation",
+          "durationMs": 123434.56839999999,
+          "previous": "289bd405efc716e357b51db752707205d5234c4b0fe521573144b1feea426373",
+          "eventSha256": "739a9894dcae9c44c70245d3e1ba41d605c27305cd1f14afd3c05f7f749d2332"
+        },
+        {
+          "at": "2026-10-09T11:36:11.523Z",
+          "phase": "acceptance",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 77693.7106,
+          "previous": "739a9894dcae9c44c70245d3e1ba41d605c27305cd1f14afd3c05f7f749d2332",
+          "eventSha256": "46bb974ca05074a343677976da47d50ec780bcc25689e84f9fd165efc0cff755"
+        },
+        {
+          "at": "2026-10-09T11:36:11.526Z",
+          "phase": "acceptance",
+          "status": "started",
+          "operationId": "step-aggregatestatus",
+          "previous": "46bb974ca05074a343677976da47d50ec780bcc25689e84f9fd165efc0cff755",
+          "eventSha256": "8d61047494dafcb50908fedd51793658c5ad3a47cf48e996c87ab80fd9620dea"
+        },
+        {
+          "at": "2026-10-09T11:36:33.240Z",
+          "phase": "acceptance",
+          "status": "passed",
+          "reason": null,
+          "operationId": "step-aggregatestatus",
+          "durationMs": 21714.423499999975,
+          "previous": "8d61047494dafcb50908fedd51793658c5ad3a47cf48e996c87ab80fd9620dea",
+          "eventSha256": "5ea1e081412dd0d0574fb821746a36f5a9ad520432a5fade854bc60fa599412c"
+        },
+        {
+          "at": "2026-10-09T11:37:49.421Z",
+          "phase": "acceptance",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 76178.03079999998,
+          "previous": "5ea1e081412dd0d0574fb821746a36f5a9ad520432a5fade854bc60fa599412c",
+          "eventSha256": "410ab111913d0074e31c06f16052a6877b0ca7a8ce7596cf5e304f1160b03447"
+        },
+        {
+          "at": "2026-10-09T11:37:49.425Z",
+          "phase": "acceptance",
+          "status": "started",
+          "operationId": "step-verifystartup",
+          "previous": "410ab111913d0074e31c06f16052a6877b0ca7a8ce7596cf5e304f1160b03447",
+          "eventSha256": "41a5a030cdd2a4aa7956c992f028ade0cac55e6af919f8dfdd2a471fa7231974"
+        },
+        {
+          "at": "2026-10-09T11:37:55.027Z",
+          "phase": "acceptance",
+          "status": "passed",
+          "reason": null,
+          "operationId": "step-verifystartup",
+          "durationMs": 5601.92690000002,
+          "previous": "41a5a030cdd2a4aa7956c992f028ade0cac55e6af919f8dfdd2a471fa7231974",
+          "eventSha256": "b75ab467a9da7fc50325cbd0be08030d0b47f6e19aad4e73a1bfd3a16df84e19"
+        },
+        {
+          "at": "2026-10-09T11:39:10.853Z",
+          "phase": "acceptance",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 75823.65050000005,
+          "previous": "b75ab467a9da7fc50325cbd0be08030d0b47f6e19aad4e73a1bfd3a16df84e19",
+          "eventSha256": "8982158fb46a3ca5837e6a470c66853d2c8e5bffb77fce4e3cd00aa806bf3326"
+        },
+        {
+          "at": "2026-10-09T11:39:10.856Z",
+          "phase": "acceptance",
+          "status": "started",
+          "operationId": "natural-watchdogs",
+          "previous": "8982158fb46a3ca5837e6a470c66853d2c8e5bffb77fce4e3cd00aa806bf3326",
+          "eventSha256": "30924bdd489f9e14106a64b42a89aa56a351b84260f03f56114685d0f841ce4d"
+        },
+        {
+          "at": "2026-10-09T11:41:11.156Z",
+          "phase": "acceptance",
+          "status": "passed",
+          "reason": null,
+          "operationId": "natural-watchdogs",
+          "durationMs": 120299.88069999998,
+          "previous": "30924bdd489f9e14106a64b42a89aa56a351b84260f03f56114685d0f841ce4d",
+          "eventSha256": "edd58b380e9de0106dfb6e2ff60664aa64269ee14b7c23634e3a4238f3bd258d"
+        },
+        {
+          "at": "2026-10-09T11:41:52.112Z",
+          "phase": "backup-post",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 40952.8861,
+          "previous": "edd58b380e9de0106dfb6e2ff60664aa64269ee14b7c23634e3a4238f3bd258d",
+          "eventSha256": "a654ff0379b7d9c6110517d0fd26223db2a963fa873a20b9a7ee463f196ea142"
+        },
+        {
+          "at": "2026-10-09T11:41:52.116Z",
+          "phase": "backup-post",
+          "status": "started",
+          "operationId": "op-backup-post",
+          "previous": "a654ff0379b7d9c6110517d0fd26223db2a963fa873a20b9a7ee463f196ea142",
+          "eventSha256": "7ce460b3ae0141cbf4f9bb5958680f340dc592a80c2907443533b27cdd48a561"
+        },
+        {
+          "at": "2026-10-09T11:54:10.516Z",
+          "phase": "backup-post",
+          "status": "passed",
+          "reason": null,
+          "operationId": "op-backup-post",
+          "durationMs": 738400.1396999999,
+          "previous": "7ce460b3ae0141cbf4f9bb5958680f340dc592a80c2907443533b27cdd48a561",
+          "eventSha256": "d6d5e67ae008deacff5901b2139c2f4c977d6d3688397433c9d0a6b51cd1cda7"
+        },
+        {
+          "at": "2026-10-09T11:54:54.868Z",
+          "phase": "restore-post",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 44349.19839999988,
+          "previous": "d6d5e67ae008deacff5901b2139c2f4c977d6d3688397433c9d0a6b51cd1cda7",
+          "eventSha256": "5edabb718d53b7d665bcf90881cb58663eb453cfbebea5c937fb4120a0429e70"
+        },
+        {
+          "at": "2026-10-09T11:54:54.873Z",
+          "phase": "restore-post",
+          "status": "started",
+          "operationId": "op-restore-post",
+          "previous": "5edabb718d53b7d665bcf90881cb58663eb453cfbebea5c937fb4120a0429e70",
+          "eventSha256": "da81a3b4da41efef9a3f03a22653371a36143c188618f5c993719fa34f4177d3"
+        },
+        {
+          "at": "2026-10-09T12:08:20.504Z",
+          "phase": "restore-post",
+          "status": "passed",
+          "reason": null,
+          "operationId": "op-restore-post",
+          "durationMs": 805629.5728000002,
+          "previous": "da81a3b4da41efef9a3f03a22653371a36143c188618f5c993719fa34f4177d3",
+          "eventSha256": "cbe14db6f90f122b14882c7500547b8dac8d05659f8c91ebd7ce33323a0103a1"
+        },
+        {
+          "at": "2026-10-09T12:13:59.503Z",
+          "phase": "queue",
+          "status": "resumed",
+          "durationMs": 119.99689999999998,
+          "previous": "cbe14db6f90f122b14882c7500547b8dac8d05659f8c91ebd7ce33323a0103a1",
+          "eventSha256": "5f4fe0fe06a0de5388e5756616a4ae2bb5aebf32bc98767174afba1bb808a327"
+        },
+        {
+          "at": "2026-10-09T12:16:51.972Z",
+          "phase": "prepare",
+          "status": "admission",
+          "reason": "live-predecessor-and-integrity-revalidation",
+          "durationMs": 172465.28089999998,
+          "previous": "5f4fe0fe06a0de5388e5756616a4ae2bb5aebf32bc98767174afba1bb808a327",
+          "eventSha256": "19ae9597188aaabfca23d675a2c6fa912cfbd2c733788865ab6e64968f3adab7"
+        },
+        {
+          "at": "2026-10-09T12:21:34.080Z",
+          "phase": "closeout",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 282104.07899999997,
+          "previous": "19ae9597188aaabfca23d675a2c6fa912cfbd2c733788865ab6e64968f3adab7",
+          "eventSha256": "4f6c38b7c4ae1cb59c3635a452e3e15c1061ad1fef217c9b7835af06989f006e"
+        },
+        {
+          "at": "2026-10-09T12:21:34.084Z",
+          "phase": "closeout",
+          "status": "started",
+          "operationId": "preserve-post-recovery",
+          "previous": "4f6c38b7c4ae1cb59c3635a452e3e15c1061ad1fef217c9b7835af06989f006e",
+          "eventSha256": "d7490b4a08e36cbe0fda124215f6856ba4573a484e5d640f881621f02036a337"
+        },
+        {
+          "at": "2026-10-09T12:21:34.358Z",
+          "phase": "closeout",
+          "status": "passed",
+          "reason": null,
+          "operationId": "preserve-post-recovery",
+          "durationMs": 273.50699999998324,
+          "previous": "d7490b4a08e36cbe0fda124215f6856ba4573a484e5d640f881621f02036a337",
+          "eventSha256": "5f4c0275e94db3f6e7b896eae2b0c57bd032546277027908ae35a3165794d522"
+        },
+        {
+          "at": "2026-10-09T12:25:14.647Z",
+          "phase": "closeout",
+          "status": "admission",
+          "reason": "operation-boundary-revalidation",
+          "durationMs": 220284.87969999993,
+          "previous": "5f4c0275e94db3f6e7b896eae2b0c57bd032546277027908ae35a3165794d522",
+          "eventSha256": "57fd8e8d19da6876e1094f943af336305969e6d840e0b655e98d478b3745bdff"
+        },
+        {
+          "at": "2026-10-09T12:25:14.650Z",
+          "phase": "closeout",
+          "status": "started",
+          "operationId": "readiness-closeout",
+          "previous": "57fd8e8d19da6876e1094f943af336305969e6d840e0b655e98d478b3745bdff",
+          "eventSha256": "31a32ed1a4730c01e93a38fa21d4bc718bc57ce3e120f3cffba5d5c973a93151"
+        },
+        {
+          "at": "2026-10-09T12:26:02.674Z",
+          "phase": "closeout",
+          "status": "passed",
+          "reason": null,
+          "operationId": "readiness-closeout",
+          "durationMs": 48023.98710000003,
+          "previous": "31a32ed1a4730c01e93a38fa21d4bc718bc57ce3e120f3cffba5d5c973a93151",
+          "eventSha256": "658479aaea58bbd12c892d3f2cb67ef4a573a963d0ce410ccf19d5c076ee2787"
+        },
+        {
+          "at": "2026-10-09T12:26:02.677Z",
+          "phase": "closeout",
+          "status": "completed",
+          "previous": "658479aaea58bbd12c892d3f2cb67ef4a573a963d0ce410ccf19d5c076ee2787",
+          "eventSha256": "637086161ff547664972c8fc48a319d56ef30e4b52d2e8b1ff56e0644db2cb4d"
+        }
+      ]
+    }
+  ]
+}

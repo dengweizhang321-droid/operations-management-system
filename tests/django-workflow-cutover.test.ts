@@ -67,7 +67,17 @@ const maintenance = readFileSync(new URL("../tools/django-postgres-maintenance.p
 const weeklyWorkflow = JSON.parse(readFileSync(
   new URL("../automation/n8n/new-product-weekly-dingtalk.workflow.json", import.meta.url),
   "utf8",
-)) as { id: string; active: boolean; nodes: Array<{ type: string; parameters?: { command?: string } }> };
+)) as {
+  id: string;
+  active: boolean;
+  nodes: Array<{
+    name: string;
+    type: string;
+    parameters?: { command?: string; rule?: { interval?: Array<{ field?: string; expression?: string }> } };
+  }>;
+  connections: Record<string, { main: unknown[][] }>;
+  settings?: { timezone?: string };
+};
 
 
 test("workflow runtime has isolated ports, roles, authority and a strict DML allowlist", () => {
@@ -124,6 +134,23 @@ test("new-product weekly DingTalk scheduler is inactive and uses the protected l
   assert.match(service, /"EnableWeeklyReport"/);
   assert.match(service, /configure_new_product_weekly_report/);
   assert.match(service, /new_product_weekly_report/);
+});
+
+test("new-product weekly DingTalk scheduler fires every Monday at 09:00 in the Shanghai timezone", () => {
+  const trigger = weeklyWorkflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
+  assert.ok(trigger, "weekly report workflow must keep a schedule trigger");
+  const interval = trigger.parameters?.rule?.interval?.[0];
+  assert.equal(interval?.field, "cronExpression");
+  assert.equal(interval?.expression, "0 9 * * 1");
+  assert.equal(weeklyWorkflow.settings?.timezone, "Asia/Shanghai");
+  assert.ok(
+    weeklyWorkflow.connections[trigger.name],
+    "schedule trigger must stay wired to the weekly report command node",
+  );
+  assert.ok(
+    !JSON.stringify(weeklyWorkflow).includes("*/5 * * * *"),
+    "weekly report must not keep the five minute polling cadence",
+  );
 });
 
 test("terminal workflow retirement is stopped, evidence-bound and Django-only", () => {

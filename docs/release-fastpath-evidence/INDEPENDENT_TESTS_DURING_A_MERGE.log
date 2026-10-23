@@ -1,0 +1,120 @@
+file:///D:/.codex/worktrees/release-fastpath-evidence/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/worker-local-release.mjs:253
+<<<<<<< HEAD
+^^
+
+SyntaxError: Unexpected token '<<'
+    at compileSourceTextModule (node:internal/modules/esm/utils:318:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:89:18)
+    at #translate (node:internal/modules/esm/loader:434:20)
+    at afterLoad (node:internal/modules/esm/loader:502:29)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:507:12)
+    at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:560:36)
+    at afterResolve (node:internal/modules/esm/loader:607:52)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:613:12)
+    at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33)
+    at ModuleJob.link (node:internal/modules/esm/module_job:253:17)
+
+Node.js v24.18.0
+✖ tests\release-acceptance-closeout.test.mjs (130.9193ms)
+file:///D:/.codex/worktrees/release-fastpath-evidence/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/worker-local-release.mjs:253
+<<<<<<< HEAD
+^^
+
+SyntaxError: Unexpected token '<<'
+    at compileSourceTextModule (node:internal/modules/esm/utils:318:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:89:18)
+    at #translate (node:internal/modules/esm/loader:434:20)
+    at afterLoad (node:internal/modules/esm/loader:502:29)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:507:12)
+    at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:560:36)
+    at afterResolve (node:internal/modules/esm/loader:607:52)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:613:12)
+    at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33)
+    at ModuleJob.link (node:internal/modules/esm/module_job:253:17)
+
+Node.js v24.18.0
+✖ tests\release-batch-powershell-environment.test.mjs (279.3213ms)
+file:///D:/.codex/worktrees/release-fastpath-evidence/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/worker-local-release.mjs:253
+<<<<<<< HEAD
+^^
+
+SyntaxError: Unexpected token '<<'
+    at compileSourceTextModule (node:internal/modules/esm/utils:318:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:89:18)
+    at #translate (node:internal/modules/esm/loader:434:20)
+    at afterLoad (node:internal/modules/esm/loader:502:29)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:507:12)
+    at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:560:36)
+    at afterResolve (node:internal/modules/esm/loader:607:52)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:613:12)
+    at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33)
+    at ModuleJob.link (node:internal/modules/esm/module_job:253:17)
+
+Node.js v24.18.0
+✖ tests\release-closeout-independent.test.mjs (241.8951ms)
+file:///D:/.codex/worktrees/release-fastpath-evidence/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/worker-local-release.mjs:253
+<<<<<<< HEAD
+^^
+
+SyntaxError: Unexpected token '<<'
+    at compileSourceTextModule (node:internal/modules/esm/utils:318:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:89:18)
+    at #translate (node:internal/modules/esm/loader:434:20)
+    at afterLoad (node:internal/modules/esm/loader:502:29)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:507:12)
+    at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:560:36)
+    at afterResolve (node:internal/modules/esm/loader:607:52)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:613:12)
+    at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33)
+    at ModuleJob.link (node:internal/modules/esm/module_job:253:17)
+
+Node.js v24.18.0
+✖ tests\release-fastpath-evidence.test.mjs (248.7209ms)
+file:///D:/.codex/worktrees/release-fastpath-evidence/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/worker-local-release.mjs:253
+<<<<<<< HEAD
+^^
+
+SyntaxError: Unexpected token '<<'
+    at compileSourceTextModule (node:internal/modules/esm/utils:318:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:89:18)
+    at #translate (node:internal/modules/esm/loader:434:20)
+    at afterLoad (node:internal/modules/esm/loader:502:29)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:507:12)
+    at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:560:36)
+    at afterResolve (node:internal/modules/esm/loader:607:52)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:613:12)
+    at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33)
+    at ModuleJob.link (node:internal/modules/esm/module_job:253:17)
+
+Node.js v24.18.0
+✖ tests\release-wait-optimization.test.mjs (246.0111ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 0
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1156.6209
+
+✖ failing tests:
+
+test at tests\release-acceptance-closeout.test.mjs:1:1
+✖ tests\release-acceptance-closeout.test.mjs (130.9193ms)
+  'test failed'
+
+test at tests\release-batch-powershell-environment.test.mjs:1:1
+✖ tests\release-batch-powershell-environment.test.mjs (279.3213ms)
+  'test failed'
+
+test at tests\release-closeout-independent.test.mjs:1:1
+✖ tests\release-closeout-independent.test.mjs (241.8951ms)
+  'test failed'
+
+test at tests\release-fastpath-evidence.test.mjs:1:1
+✖ tests\release-fastpath-evidence.test.mjs (248.7209ms)
+  'test failed'
+
+test at tests\release-wait-optimization.test.mjs:1:1
+✖ tests\release-wait-optimization.test.mjs (246.0111ms)
+  'test failed'

@@ -1,0 +1,86 @@
+{
+  "databaseRecovery": [],
+  "snapshot": {
+    "components": {
+      "market": true,
+      "ai": true,
+      "finance": true,
+      "inventory": true,
+      "products": true,
+      "workflow": true,
+      "netshop": true,
+      "core": false,
+      "erpReference": true,
+      "bi": true,
+      "accessControl": true,
+      "customerService": true
+    },
+    "admission": {
+      "fence": "d01e5b5f951b9c1d40ef2c26aa1a084402204f04a9c7f5924b58b213df39164b",
+      "mode": "running"
+    },
+    "backend": "NotReady",
+    "supervisorPid": 48744,
+    "healthy": false,
+    "worker": "exact_release",
+    "system": "BackendUnavailable",
+    "probeError": false,
+    "ports": [
+      {
+        "pid": 66488,
+        "port": 5791
+      },
+      {
+        "pid": 4080,
+        "port": 5432
+      },
+      {
+        "pid": 57920,
+        "port": 3000
+      }
+    ],
+    "processDiagnostic": null,
+    "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+    "supervisorHealth": "healthy",
+    "supervisor": "running",
+    "at": "2026-10-11T08:07:27.1696218+00:00",
+    "workerPid": 57920,
+    "business": {
+      "checkedAt": "2026-10-11T08:06:34.5846122+00:00",
+      "status": "unknown",
+      "version": "market-read-probe-v1",
+      "reason": "no_confirmed_failure"
+    },
+    "probes": {
+      "live": {
+        "status": 200,
+        "ok": true
+      },
+      "ready": {
+        "status": 200,
+        "ok": true
+      },
+      "homepage": {
+        "status": 200,
+        "ok": true
+      },
+      "helper": {
+        "status": 200,
+        "ok": true
+      }
+    }
+  },
+  "capturedAt": "2026-10-11T08:08:15.5419497+00:00",
+  "events": [
+    {
+      "time": "2026-10-11T08:00:26.1098579Z",
+      "id": 1001,
+      "provider": "Windows Error Reporting"
+    },
+    {
+      "time": "2026-10-11T08:00:17.9256639Z",
+      "id": 1000,
+      "provider": "Application Error"
+    }
+  ]
+}

@@ -1,0 +1,2507 @@
+[
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": null,
+    "at": "2026-10-14T15:46:34.054991+00:00",
+    "stage": "audit_source_binding"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": null,
+    "at": "2026-10-14T15:46:34.059803+00:00",
+    "stage": "fixture_setup",
+    "sequence": 1,
+    "phase": "start",
+    "sampleCount": 12
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": null,
+    "at": "2026-10-14T15:46:34.117952+00:00",
+    "stage": "fixture_setup",
+    "sequence": 1,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 58.342,
+    "sqlCount": 54,
+    "sqlMs": 46.155,
+    "sampleCount": 12
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": null,
+    "at": "2026-10-14T15:46:34.118485+00:00",
+    "stage": "create_plan",
+    "sequence": 2,
+    "phase": "start",
+    "sampleCount": 12
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": null,
+    "at": "2026-10-14T15:46:34.213491+00:00",
+    "stage": "create_plan",
+    "sequence": 2,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 95.575,
+    "sqlCount": 83,
+    "sqlMs": 50.726,
+    "sampleCount": 12
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.214510+00:00",
+    "stage": "read_created_plan",
+    "sequence": 3,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.237114+00:00",
+    "stage": "read_created_plan",
+    "sequence": 3,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 23.032,
+    "sqlCount": 21,
+    "sqlMs": 8.728
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.237647+00:00",
+    "stage": "accept_start",
+    "sequence": 4,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.250374+00:00",
+    "stage": "accept_start",
+    "sequence": 4,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 12.737,
+    "sqlCount": 22,
+    "sqlMs": 5.138
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.250374+00:00",
+    "stage": "select_dispatch",
+    "sequence": 5,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.260884+00:00",
+    "stage": "select_dispatch",
+    "sequence": 5,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 9.926,
+    "sqlCount": 7,
+    "sqlMs": 2.944
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.260884+00:00",
+    "stage": "acquire_coordinator",
+    "sequence": 6,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.272488+00:00",
+    "stage": "acquire_coordinator",
+    "sequence": 6,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 11.259,
+    "sqlCount": 20,
+    "sqlMs": 4.196
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.272488+00:00",
+    "stage": "claim_item",
+    "sequence": 7,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.299005+00:00",
+    "stage": "claim_item",
+    "sequence": 7,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 26.618,
+    "sqlCount": 32,
+    "sqlMs": 11.571
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.299005+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "A3",
+    "recognitionMode": "full",
+    "attemptId": "4e2d134861f360a58d01259d69ba3f44968059feafa76fba0209ba8056ad0059",
+    "imageSha256": "d26b83ec65d8840c7de7fc5fd6cbff2e3817ceda45aa2a8ee7c3826a2bf0f521",
+    "modelResultState": "not_called"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.299005+00:00",
+    "stage": "claim_item",
+    "sequence": 8,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.325004+00:00",
+    "stage": "claim_item",
+    "sequence": 8,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 25.433,
+    "sqlCount": 32,
+    "sqlMs": 9.868
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.325004+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "A4",
+    "recognitionMode": "full",
+    "attemptId": "ea79a187287a6bd3687f9908354775ec0c4496a1413f46b014a873096dd0b584",
+    "imageSha256": "fa7ca808e826087c26a62e4f6caacedeab85d6a1518b5945916d2fe33be9c567",
+    "modelResultState": "not_called"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.325004+00:00",
+    "stage": "claim_item",
+    "sequence": 9,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.351109+00:00",
+    "stage": "claim_item",
+    "sequence": 9,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 25.927,
+    "sqlCount": 32,
+    "sqlMs": 9.479
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.352107+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "A1",
+    "recognitionMode": "full",
+    "attemptId": "f6dc5974452489e6f9c5ed09dff18989b3aefd9065d6c6d745516448574637de",
+    "imageSha256": "6a282f0f065885114f9a837b20c5596cd9d3acc64dd84cbf57623d89f83b5421",
+    "modelResultState": "not_called"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.352107+00:00",
+    "stage": "claim_item",
+    "sequence": 10,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.443046+00:00",
+    "stage": "claim_item",
+    "sequence": 10,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 91.671,
+    "sqlCount": 32,
+    "sqlMs": 10.779
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.444048+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "A6",
+    "recognitionMode": "full",
+    "attemptId": "b51dca2d243aee8662a7e3462fb9e77db3b3c7987ea8801677a2a18d2b9c4f39",
+    "imageSha256": "282bdc37aa68b0a0af5603b2acfbb9ecc558d610beb14f0bcdcb0609be689a78",
+    "modelResultState": "not_called"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.444048+00:00",
+    "stage": "claim_item",
+    "sequence": 11,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.470634+00:00",
+    "stage": "claim_item",
+    "sequence": 11,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 27.148,
+    "sqlCount": 32,
+    "sqlMs": 10.842
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.471634+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "A2",
+    "recognitionMode": "full",
+    "attemptId": "86777ed5e62bd4f7b8377fea20e3af50c8b7f3cf2528290d6f84414abd4f803b",
+    "imageSha256": "81cf9d997ca56442fa7a6eed989a3605e635c1637b9fb1aa13c5bb2c6933af4c",
+    "modelResultState": "not_called"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.471634+00:00",
+    "stage": "claim_item",
+    "sequence": 12,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.497698+00:00",
+    "stage": "claim_item",
+    "sequence": 12,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 26.155,
+    "sqlCount": 32,
+    "sqlMs": 8.75
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.497698+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "A5",
+    "recognitionMode": "full",
+    "attemptId": "3c1f7a508576fb08e28cffdf5f544c9a101a268ef7095c0c666e8a94aff8cb48",
+    "imageSha256": "9af18927ee2ce5831be8c586967c48e8c05069926a794eb82646a2743e188b6e",
+    "modelResultState": "not_called"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.497698+00:00",
+    "stage": "claim_item",
+    "sequence": 13,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.524235+00:00",
+    "stage": "claim_item",
+    "sequence": 13,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 26.488,
+    "sqlCount": 32,
+    "sqlMs": 9.838
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.525236+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "B4",
+    "recognitionMode": "price_only",
+    "attemptId": "93b3e0f7326821ccefe59a2107dbcbfecd88f5d43e6be5b1d988cbd1ec05a946",
+    "imageSha256": "5100ce4a92d0d0562a0249cecfbfcca5ef0917b91a7e5d74a401a100e96719b0",
+    "modelResultState": "not_called"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.525236+00:00",
+    "stage": "claim_item",
+    "sequence": 14,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.552067+00:00",
+    "stage": "claim_item",
+    "sequence": 14,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 27.122,
+    "sqlCount": 32,
+    "sqlMs": 9.939
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.553073+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "B6",
+    "recognitionMode": "price_only",
+    "attemptId": "6b2c6706504eabe2e2a3d29c4b06317e141f9fc9f54f82fd3240fb795ab85f6b",
+    "imageSha256": "f9bfdc6f3882032f8b80023e50803982f9dda02bb749493f1f73975358edd671",
+    "modelResultState": "not_called"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.553073+00:00",
+    "stage": "claim_item",
+    "sequence": 15,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.581205+00:00",
+    "stage": "claim_item",
+    "sequence": 15,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 28.164,
+    "sqlCount": 32,
+    "sqlMs": 10.4
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.581205+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "B5",
+    "recognitionMode": "price_only",
+    "attemptId": "ebaa908bc4a964f2aaed7a721dd6f2a359b13057724dc81030d5d099dcb21efd",
+    "imageSha256": "80d8c5658c3228be8e2dbd132c1d55154a956a1cab089abf61a750e7f7962b3d",
+    "modelResultState": "not_called"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.581205+00:00",
+    "stage": "claim_item",
+    "sequence": 16,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.608922+00:00",
+    "stage": "claim_item",
+    "sequence": 16,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 27.59,
+    "sqlCount": 32,
+    "sqlMs": 10.302
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.608922+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "B3",
+    "recognitionMode": "price_only",
+    "attemptId": "93c2631a46cf00d42e52152236338abe25a87034dbf00507142056a33696dfbc",
+    "imageSha256": "bb1e345b8634633bcf794d6c7b27ac88992e336cd5457cf9a13c14251ced125d",
+    "modelResultState": "not_called"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.609922+00:00",
+    "stage": "claim_item",
+    "sequence": 17,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.637922+00:00",
+    "stage": "claim_item",
+    "sequence": 17,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 28.637,
+    "sqlCount": 32,
+    "sqlMs": 10.061
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.638928+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "B2",
+    "recognitionMode": "price_only",
+    "attemptId": "ec2f9526dd6b3032fed5085e98988301f9aafd0bb7d260bfaf381c1e641a4fb2",
+    "imageSha256": "46befe03678128f726f406a60c124263882b3c4a9339adbc418aeab3428d76e7",
+    "modelResultState": "not_called"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.638928+00:00",
+    "stage": "claim_item",
+    "sequence": 18,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.667073+00:00",
+    "stage": "claim_item",
+    "sequence": 18,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 27.769,
+    "sqlCount": 32,
+    "sqlMs": 9.538
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.667073+00:00",
+    "stage": "claimed_identity",
+    "sampleId": "B1",
+    "recognitionMode": "price_only",
+    "attemptId": "4e21cd3275826ac059c7047a955fe84dd179709d6a7061a68f79a4ed7d976142",
+    "imageSha256": "5c9c1a34abc358dab55d2d339e3c3d815d3622a90a96cdc84e193ea122b6a838",
+    "modelResultState": "not_called"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:34.710289+00:00",
+    "stage": "model_batch",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A3",
+    "at": "2026-10-14T15:46:38.293Z",
+    "stage": "vision_attempt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A4",
+    "at": "2026-10-14T15:46:38.293Z",
+    "stage": "vision_attempt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A1",
+    "at": "2026-10-14T15:46:38.293Z",
+    "stage": "vision_attempt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A6",
+    "at": "2026-10-14T15:46:38.293Z",
+    "stage": "vision_attempt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A2",
+    "at": "2026-10-14T15:46:38.293Z",
+    "stage": "vision_attempt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A5",
+    "at": "2026-10-14T15:46:38.293Z",
+    "stage": "vision_attempt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B4",
+    "at": "2026-10-14T15:46:38.293Z",
+    "stage": "vision_attempt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B6",
+    "at": "2026-10-14T15:46:38.293Z",
+    "stage": "vision_attempt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B5",
+    "at": "2026-10-14T15:46:38.293Z",
+    "stage": "vision_attempt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B3",
+    "at": "2026-10-14T15:46:38.293Z",
+    "stage": "vision_attempt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B2",
+    "at": "2026-10-14T15:46:38.293Z",
+    "stage": "vision_attempt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B1",
+    "at": "2026-10-14T15:46:38.293Z",
+    "stage": "vision_attempt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A3",
+    "at": "2026-10-14T15:46:38.294Z",
+    "stage": "model_configuration_read",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A4",
+    "at": "2026-10-14T15:46:38.294Z",
+    "stage": "model_configuration_read",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A6",
+    "at": "2026-10-14T15:46:38.294Z",
+    "stage": "model_configuration_read",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A5",
+    "at": "2026-10-14T15:46:38.294Z",
+    "stage": "model_configuration_read",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A2",
+    "at": "2026-10-14T15:46:38.295Z",
+    "stage": "model_configuration_read",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A1",
+    "at": "2026-10-14T15:46:38.295Z",
+    "stage": "model_configuration_read",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B5",
+    "at": "2026-10-14T15:46:38.295Z",
+    "stage": "model_configuration_read",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B6",
+    "at": "2026-10-14T15:46:38.295Z",
+    "stage": "model_configuration_read",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B4",
+    "at": "2026-10-14T15:46:38.295Z",
+    "stage": "model_configuration_read",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B3",
+    "at": "2026-10-14T15:46:38.295Z",
+    "stage": "model_configuration_read",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B2",
+    "at": "2026-10-14T15:46:38.295Z",
+    "stage": "model_configuration_read",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B1",
+    "at": "2026-10-14T15:46:38.295Z",
+    "stage": "model_configuration_read",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A4",
+    "at": "2026-10-14T15:46:38.334Z",
+    "stage": "model_configuration_read",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 39.897
+  },
+  {
+    "sampleId": "A3",
+    "at": "2026-10-14T15:46:38.335Z",
+    "stage": "model_configuration_read",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 40.697
+  },
+  {
+    "sampleId": "A6",
+    "at": "2026-10-14T15:46:38.336Z",
+    "stage": "model_configuration_read",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 41.562
+  },
+  {
+    "sampleId": "A4",
+    "at": "2026-10-14T15:46:38.336Z",
+    "stage": "model_configuration"
+  },
+  {
+    "sampleId": "A3",
+    "at": "2026-10-14T15:46:38.336Z",
+    "stage": "model_configuration"
+  },
+  {
+    "sampleId": "A6",
+    "at": "2026-10-14T15:46:38.336Z",
+    "stage": "model_configuration"
+  },
+  {
+    "sampleId": "A4",
+    "at": "2026-10-14T15:46:38.338Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A2",
+    "at": "2026-10-14T15:46:38.338Z",
+    "stage": "model_configuration_read",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 43.881
+  },
+  {
+    "sampleId": "A3",
+    "at": "2026-10-14T15:46:38.339Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A6",
+    "at": "2026-10-14T15:46:38.339Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A5",
+    "at": "2026-10-14T15:46:38.340Z",
+    "stage": "model_configuration_read",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 45.112
+  },
+  {
+    "sampleId": "A2",
+    "at": "2026-10-14T15:46:38.340Z",
+    "stage": "model_configuration"
+  },
+  {
+    "sampleId": "A1",
+    "at": "2026-10-14T15:46:38.341Z",
+    "stage": "model_configuration_read",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 46.519
+  },
+  {
+    "sampleId": "A5",
+    "at": "2026-10-14T15:46:38.342Z",
+    "stage": "model_configuration"
+  },
+  {
+    "sampleId": "A2",
+    "at": "2026-10-14T15:46:38.344Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A1",
+    "at": "2026-10-14T15:46:38.345Z",
+    "stage": "model_configuration"
+  },
+  {
+    "sampleId": "A5",
+    "at": "2026-10-14T15:46:38.346Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A1",
+    "at": "2026-10-14T15:46:38.346Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B6",
+    "at": "2026-10-14T15:46:38.359Z",
+    "stage": "model_configuration_read",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 64.265
+  },
+  {
+    "sampleId": "B6",
+    "at": "2026-10-14T15:46:38.360Z",
+    "stage": "model_configuration"
+  },
+  {
+    "sampleId": "B5",
+    "at": "2026-10-14T15:46:38.361Z",
+    "stage": "model_configuration_read",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 65.944
+  },
+  {
+    "sampleId": "B6",
+    "at": "2026-10-14T15:46:38.361Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B1",
+    "at": "2026-10-14T15:46:38.363Z",
+    "stage": "model_configuration_read",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 68.099
+  },
+  {
+    "sampleId": "B5",
+    "at": "2026-10-14T15:46:38.363Z",
+    "stage": "model_configuration"
+  },
+  {
+    "sampleId": "B4",
+    "at": "2026-10-14T15:46:38.364Z",
+    "stage": "model_configuration_read",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 69.317
+  },
+  {
+    "sampleId": "B1",
+    "at": "2026-10-14T15:46:38.365Z",
+    "stage": "model_configuration"
+  },
+  {
+    "sampleId": "B5",
+    "at": "2026-10-14T15:46:38.365Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B4",
+    "at": "2026-10-14T15:46:38.365Z",
+    "stage": "model_configuration"
+  },
+  {
+    "sampleId": "B3",
+    "at": "2026-10-14T15:46:38.366Z",
+    "stage": "model_configuration_read",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 70.823
+  },
+  {
+    "sampleId": "B2",
+    "at": "2026-10-14T15:46:38.368Z",
+    "stage": "model_configuration_read",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 72.678
+  },
+  {
+    "sampleId": "B1",
+    "at": "2026-10-14T15:46:38.369Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B4",
+    "at": "2026-10-14T15:46:38.370Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B3",
+    "at": "2026-10-14T15:46:38.370Z",
+    "stage": "model_configuration"
+  },
+  {
+    "sampleId": "B2",
+    "at": "2026-10-14T15:46:38.370Z",
+    "stage": "model_configuration"
+  },
+  {
+    "sampleId": "B3",
+    "at": "2026-10-14T15:46:38.372Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B2",
+    "at": "2026-10-14T15:46:38.374Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A3",
+    "at": "2026-10-14T15:46:38.417Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 77.804
+  },
+  {
+    "sampleId": "A3",
+    "at": "2026-10-14T15:46:38.429Z",
+    "stage": "credential_decrypt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A3",
+    "at": "2026-10-14T15:46:38.431Z",
+    "stage": "credential_decrypt",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 2.188
+  },
+  {
+    "sampleId": "A3",
+    "at": "2026-10-14T15:46:38.433Z",
+    "stage": "provider_post",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A6",
+    "at": "2026-10-14T15:46:38.463Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 124.14
+  },
+  {
+    "sampleId": "A6",
+    "at": "2026-10-14T15:46:38.477Z",
+    "stage": "credential_decrypt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A5",
+    "at": "2026-10-14T15:46:38.479Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 132.932
+  },
+  {
+    "sampleId": "A5",
+    "at": "2026-10-14T15:46:38.489Z",
+    "stage": "credential_decrypt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A6",
+    "at": "2026-10-14T15:46:38.489Z",
+    "stage": "credential_decrypt",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 12.039
+  },
+  {
+    "sampleId": "A6",
+    "at": "2026-10-14T15:46:38.491Z",
+    "stage": "provider_post",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A5",
+    "at": "2026-10-14T15:46:38.492Z",
+    "stage": "credential_decrypt",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 3.239
+  },
+  {
+    "sampleId": "A5",
+    "at": "2026-10-14T15:46:38.494Z",
+    "stage": "provider_post",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B5",
+    "at": "2026-10-14T15:46:38.496Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 130.874
+  },
+  {
+    "sampleId": "B5",
+    "at": "2026-10-14T15:46:38.502Z",
+    "stage": "credential_decrypt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B4",
+    "at": "2026-10-14T15:46:38.504Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 134.632
+  },
+  {
+    "sampleId": "A1",
+    "at": "2026-10-14T15:46:38.506Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 159.856
+  },
+  {
+    "sampleId": "A4",
+    "at": "2026-10-14T15:46:38.507Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 169.209
+  },
+  {
+    "sampleId": "B1",
+    "at": "2026-10-14T15:46:38.507Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 138.619
+  },
+  {
+    "sampleId": "B5",
+    "at": "2026-10-14T15:46:38.508Z",
+    "stage": "credential_decrypt",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 6.591
+  },
+  {
+    "sampleId": "B4",
+    "at": "2026-10-14T15:46:38.510Z",
+    "stage": "credential_decrypt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A1",
+    "at": "2026-10-14T15:46:38.515Z",
+    "stage": "credential_decrypt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B1",
+    "at": "2026-10-14T15:46:38.516Z",
+    "stage": "credential_decrypt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A4",
+    "at": "2026-10-14T15:46:38.525Z",
+    "stage": "credential_decrypt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B2",
+    "at": "2026-10-14T15:46:38.526Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 152.698
+  },
+  {
+    "sampleId": "A2",
+    "at": "2026-10-14T15:46:38.527Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 183.572
+  },
+  {
+    "sampleId": "B6",
+    "at": "2026-10-14T15:46:38.528Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 166.99
+  },
+  {
+    "sampleId": "B3",
+    "at": "2026-10-14T15:46:38.529Z",
+    "stage": "cached_image_read_via_public_api",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 156.801
+  },
+  {
+    "sampleId": "B5",
+    "at": "2026-10-14T15:46:38.529Z",
+    "stage": "provider_post",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B2",
+    "at": "2026-10-14T15:46:38.531Z",
+    "stage": "credential_decrypt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A2",
+    "at": "2026-10-14T15:46:38.538Z",
+    "stage": "credential_decrypt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B6",
+    "at": "2026-10-14T15:46:38.552Z",
+    "stage": "credential_decrypt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B3",
+    "at": "2026-10-14T15:46:38.557Z",
+    "stage": "credential_decrypt",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B4",
+    "at": "2026-10-14T15:46:38.557Z",
+    "stage": "credential_decrypt",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 47.819
+  },
+  {
+    "sampleId": "A1",
+    "at": "2026-10-14T15:46:38.557Z",
+    "stage": "credential_decrypt",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 42.672
+  },
+  {
+    "sampleId": "B1",
+    "at": "2026-10-14T15:46:38.558Z",
+    "stage": "credential_decrypt",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 41.345
+  },
+  {
+    "sampleId": "A4",
+    "at": "2026-10-14T15:46:38.558Z",
+    "stage": "credential_decrypt",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 33.665
+  },
+  {
+    "sampleId": "B4",
+    "at": "2026-10-14T15:46:38.560Z",
+    "stage": "provider_post",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A1",
+    "at": "2026-10-14T15:46:38.561Z",
+    "stage": "provider_post",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B2",
+    "at": "2026-10-14T15:46:38.562Z",
+    "stage": "credential_decrypt",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 30.836
+  },
+  {
+    "sampleId": "A2",
+    "at": "2026-10-14T15:46:38.562Z",
+    "stage": "credential_decrypt",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 24.227
+  },
+  {
+    "sampleId": "B1",
+    "at": "2026-10-14T15:46:38.562Z",
+    "stage": "provider_post",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A4",
+    "at": "2026-10-14T15:46:38.563Z",
+    "stage": "provider_post",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B3",
+    "at": "2026-10-14T15:46:38.564Z",
+    "stage": "credential_decrypt",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 6.816
+  },
+  {
+    "sampleId": "B6",
+    "at": "2026-10-14T15:46:38.564Z",
+    "stage": "credential_decrypt",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 12.549
+  },
+  {
+    "sampleId": "B2",
+    "at": "2026-10-14T15:46:38.565Z",
+    "stage": "provider_post",
+    "phase": "start"
+  },
+  {
+    "sampleId": "A2",
+    "at": "2026-10-14T15:46:38.566Z",
+    "stage": "provider_post",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B3",
+    "at": "2026-10-14T15:46:38.567Z",
+    "stage": "provider_post",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B6",
+    "at": "2026-10-14T15:46:38.570Z",
+    "stage": "provider_post",
+    "phase": "start"
+  },
+  {
+    "sampleId": "B1",
+    "at": "2026-10-14T15:46:41.896Z",
+    "stage": "provider_post",
+    "phase": "end",
+    "httpStatus": 200,
+    "durationMs": 3334.15,
+    "finishReason": "stop",
+    "contentCharacters": 205,
+    "errorCode": null
+  },
+  {
+    "sampleId": "B1",
+    "at": "2026-10-14T15:46:41.896Z",
+    "stage": "response_validation",
+    "phase": "start",
+    "httpStatus": 200
+  },
+  {
+    "sampleId": "B1",
+    "at": "2026-10-14T15:46:41.898Z",
+    "stage": "response_validation",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 1.292
+  },
+  {
+    "sampleId": "B1",
+    "at": "2026-10-14T15:46:41.898Z",
+    "stage": "vision_attempt",
+    "phase": "end",
+    "outcome": "success",
+    "durationMs": 3605
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:41.899997+00:00",
+    "stage": "response_validation",
+    "phase": "end",
+    "sampleId": "B1",
+    "outcome": "success",
+    "modelResultState": "received_not_stored",
+    "failureCode": null
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:41.899997+00:00",
+    "stage": "complete_item",
+    "sequence": 19,
+    "phase": "start",
+    "sampleId": "B1"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:41.928613+00:00",
+    "stage": "complete_item",
+    "sequence": 19,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 28.349,
+    "sqlCount": 29,
+    "sqlMs": 10.754,
+    "sampleId": "B1"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:41.930176+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "B1",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "timingPersisted": true,
+    "modelResultState": "stored_success"
+  },
+  {
+    "sampleId": "B4",
+    "at": "2026-10-14T15:46:43.100Z",
+    "stage": "provider_post",
+    "phase": "end",
+    "httpStatus": 200,
+    "durationMs": 4540.095,
+    "finishReason": "stop",
+    "contentCharacters": 195,
+    "errorCode": null
+  },
+  {
+    "sampleId": "B4",
+    "at": "2026-10-14T15:46:43.100Z",
+    "stage": "response_validation",
+    "phase": "start",
+    "httpStatus": 200
+  },
+  {
+    "sampleId": "B4",
+    "at": "2026-10-14T15:46:43.101Z",
+    "stage": "response_validation",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 0.544
+  },
+  {
+    "sampleId": "B4",
+    "at": "2026-10-14T15:46:43.101Z",
+    "stage": "vision_attempt",
+    "phase": "end",
+    "outcome": "success",
+    "durationMs": 4808
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:43.102160+00:00",
+    "stage": "response_validation",
+    "phase": "end",
+    "sampleId": "B4",
+    "outcome": "success",
+    "modelResultState": "received_not_stored",
+    "failureCode": null
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:43.102160+00:00",
+    "stage": "complete_item",
+    "sequence": 20,
+    "phase": "start",
+    "sampleId": "B4"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:43.126888+00:00",
+    "stage": "complete_item",
+    "sequence": 20,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 23.887,
+    "sqlCount": 29,
+    "sqlMs": 8.836,
+    "sampleId": "B4"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:43.127944+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "B4",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "timingPersisted": true,
+    "modelResultState": "stored_success"
+  },
+  {
+    "sampleId": "B2",
+    "at": "2026-10-14T15:46:43.446Z",
+    "stage": "provider_post",
+    "phase": "end",
+    "httpStatus": 200,
+    "durationMs": 4880.966,
+    "finishReason": "stop",
+    "contentCharacters": 205,
+    "errorCode": null
+  },
+  {
+    "sampleId": "B2",
+    "at": "2026-10-14T15:46:43.446Z",
+    "stage": "response_validation",
+    "phase": "start",
+    "httpStatus": 200
+  },
+  {
+    "sampleId": "B2",
+    "at": "2026-10-14T15:46:43.447Z",
+    "stage": "response_validation",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 0.447
+  },
+  {
+    "sampleId": "B2",
+    "at": "2026-10-14T15:46:43.447Z",
+    "stage": "vision_attempt",
+    "phase": "end",
+    "outcome": "success",
+    "durationMs": 5154
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:43.448382+00:00",
+    "stage": "response_validation",
+    "phase": "end",
+    "sampleId": "B2",
+    "outcome": "success",
+    "modelResultState": "received_not_stored",
+    "failureCode": null
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:43.448382+00:00",
+    "stage": "complete_item",
+    "sequence": 21,
+    "phase": "start",
+    "sampleId": "B2"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:43.471120+00:00",
+    "stage": "complete_item",
+    "sequence": 21,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 23.294,
+    "sqlCount": 29,
+    "sqlMs": 8.548,
+    "sampleId": "B2"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:43.472125+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "B2",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "timingPersisted": true,
+    "modelResultState": "stored_success"
+  },
+  {
+    "sampleId": "A2",
+    "at": "2026-10-14T15:46:43.996Z",
+    "stage": "provider_post",
+    "phase": "end",
+    "httpStatus": 200,
+    "durationMs": 5430.678,
+    "finishReason": "stop",
+    "contentCharacters": 225,
+    "errorCode": null
+  },
+  {
+    "sampleId": "A2",
+    "at": "2026-10-14T15:46:43.997Z",
+    "stage": "response_validation",
+    "phase": "start",
+    "httpStatus": 200
+  },
+  {
+    "sampleId": "A2",
+    "at": "2026-10-14T15:46:43.997Z",
+    "stage": "response_validation",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 0.387
+  },
+  {
+    "sampleId": "A2",
+    "at": "2026-10-14T15:46:43.997Z",
+    "stage": "vision_attempt",
+    "phase": "end",
+    "outcome": "success",
+    "durationMs": 5704
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:43.998833+00:00",
+    "stage": "response_validation",
+    "phase": "end",
+    "sampleId": "A2",
+    "outcome": "success",
+    "modelResultState": "received_not_stored",
+    "failureCode": null
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:43.998833+00:00",
+    "stage": "complete_item",
+    "sequence": 22,
+    "phase": "start",
+    "sampleId": "A2"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.022848+00:00",
+    "stage": "complete_item",
+    "sequence": 22,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 24.398,
+    "sqlCount": 29,
+    "sqlMs": 9.45,
+    "sampleId": "A2"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.024981+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "A2",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "timingPersisted": true,
+    "modelResultState": "stored_success"
+  },
+  {
+    "sampleId": "B3",
+    "at": "2026-10-14T15:46:44.072Z",
+    "stage": "provider_post",
+    "phase": "end",
+    "httpStatus": 200,
+    "durationMs": 5504.937,
+    "finishReason": "stop",
+    "contentCharacters": 193,
+    "errorCode": null
+  },
+  {
+    "sampleId": "A1",
+    "at": "2026-10-14T15:46:44.073Z",
+    "stage": "provider_post",
+    "phase": "end",
+    "httpStatus": 200,
+    "durationMs": 5511.571,
+    "finishReason": "stop",
+    "contentCharacters": 216,
+    "errorCode": null
+  },
+  {
+    "sampleId": "B5",
+    "at": "2026-10-14T15:46:44.073Z",
+    "stage": "provider_post",
+    "phase": "end",
+    "httpStatus": 200,
+    "durationMs": 5543.427,
+    "finishReason": "stop",
+    "contentCharacters": 242,
+    "errorCode": null
+  },
+  {
+    "sampleId": "B3",
+    "at": "2026-10-14T15:46:44.073Z",
+    "stage": "response_validation",
+    "phase": "start",
+    "httpStatus": 200
+  },
+  {
+    "sampleId": "A1",
+    "at": "2026-10-14T15:46:44.073Z",
+    "stage": "response_validation",
+    "phase": "start",
+    "httpStatus": 200
+  },
+  {
+    "sampleId": "B5",
+    "at": "2026-10-14T15:46:44.073Z",
+    "stage": "response_validation",
+    "phase": "start",
+    "httpStatus": 200
+  },
+  {
+    "sampleId": "B3",
+    "at": "2026-10-14T15:46:44.073Z",
+    "stage": "response_validation",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 0.331
+  },
+  {
+    "sampleId": "B5",
+    "at": "2026-10-14T15:46:44.073Z",
+    "stage": "response_validation",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 0.402
+  },
+  {
+    "sampleId": "A1",
+    "at": "2026-10-14T15:46:44.074Z",
+    "stage": "response_validation",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 0.585
+  },
+  {
+    "sampleId": "B3",
+    "at": "2026-10-14T15:46:44.074Z",
+    "stage": "vision_attempt",
+    "phase": "end",
+    "outcome": "success",
+    "durationMs": 5780
+  },
+  {
+    "sampleId": "B5",
+    "at": "2026-10-14T15:46:44.074Z",
+    "stage": "vision_attempt",
+    "phase": "end",
+    "outcome": "success",
+    "durationMs": 5781
+  },
+  {
+    "sampleId": "A1",
+    "at": "2026-10-14T15:46:44.074Z",
+    "stage": "vision_attempt",
+    "phase": "end",
+    "outcome": "success",
+    "durationMs": 5781
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.075135+00:00",
+    "stage": "response_validation",
+    "phase": "end",
+    "sampleId": "B3",
+    "outcome": "success",
+    "modelResultState": "received_not_stored",
+    "failureCode": null
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.075135+00:00",
+    "stage": "complete_item",
+    "sequence": 23,
+    "phase": "start",
+    "sampleId": "B3"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.098067+00:00",
+    "stage": "complete_item",
+    "sequence": 23,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 23.454,
+    "sqlCount": 29,
+    "sqlMs": 8.544,
+    "sampleId": "B3"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.099075+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "B3",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "timingPersisted": true,
+    "modelResultState": "stored_success"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.100074+00:00",
+    "stage": "response_validation",
+    "phase": "end",
+    "sampleId": "B5",
+    "outcome": "success",
+    "modelResultState": "received_not_stored",
+    "failureCode": null
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.100074+00:00",
+    "stage": "complete_item",
+    "sequence": 24,
+    "phase": "start",
+    "sampleId": "B5"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.125795+00:00",
+    "stage": "complete_item",
+    "sequence": 24,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 25.638,
+    "sqlCount": 29,
+    "sqlMs": 9.591,
+    "sampleId": "B5"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.126829+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "B5",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "timingPersisted": true,
+    "modelResultState": "stored_success"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.126829+00:00",
+    "stage": "response_validation",
+    "phase": "end",
+    "sampleId": "A1",
+    "outcome": "success",
+    "modelResultState": "received_not_stored",
+    "failureCode": null
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.127353+00:00",
+    "stage": "complete_item",
+    "sequence": 25,
+    "phase": "start",
+    "sampleId": "A1"
+  },
+  {
+    "sampleId": "A5",
+    "at": "2026-10-14T15:46:44.142Z",
+    "stage": "provider_post",
+    "phase": "end",
+    "httpStatus": 200,
+    "durationMs": 5648.737,
+    "finishReason": "stop",
+    "contentCharacters": 219,
+    "errorCode": null
+  },
+  {
+    "sampleId": "A5",
+    "at": "2026-10-14T15:46:44.143Z",
+    "stage": "response_validation",
+    "phase": "start",
+    "httpStatus": 200
+  },
+  {
+    "sampleId": "A5",
+    "at": "2026-10-14T15:46:44.143Z",
+    "stage": "response_validation",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 0.367
+  },
+  {
+    "sampleId": "A5",
+    "at": "2026-10-14T15:46:44.143Z",
+    "stage": "vision_attempt",
+    "phase": "end",
+    "outcome": "success",
+    "durationMs": 5850
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.149667+00:00",
+    "stage": "complete_item",
+    "sequence": 25,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 22.695,
+    "sqlCount": 29,
+    "sqlMs": 8.408,
+    "sampleId": "A1"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.150709+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "A1",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "timingPersisted": true,
+    "modelResultState": "stored_success"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.151231+00:00",
+    "stage": "response_validation",
+    "phase": "end",
+    "sampleId": "A5",
+    "outcome": "success",
+    "modelResultState": "received_not_stored",
+    "failureCode": null
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.151231+00:00",
+    "stage": "complete_item",
+    "sequence": 26,
+    "phase": "start",
+    "sampleId": "A5"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.173167+00:00",
+    "stage": "complete_item",
+    "sequence": 26,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 21.933,
+    "sqlCount": 29,
+    "sqlMs": 7.948,
+    "sampleId": "A5"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.174169+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "A5",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "timingPersisted": true,
+    "modelResultState": "stored_success"
+  },
+  {
+    "sampleId": "A3",
+    "at": "2026-10-14T15:46:44.320Z",
+    "stage": "provider_post",
+    "phase": "end",
+    "httpStatus": 200,
+    "durationMs": 5886.818,
+    "finishReason": "stop",
+    "contentCharacters": 239,
+    "errorCode": null
+  },
+  {
+    "sampleId": "A3",
+    "at": "2026-10-14T15:46:44.320Z",
+    "stage": "response_validation",
+    "phase": "start",
+    "httpStatus": 200
+  },
+  {
+    "sampleId": "A3",
+    "at": "2026-10-14T15:46:44.321Z",
+    "stage": "response_validation",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 0.433
+  },
+  {
+    "sampleId": "A3",
+    "at": "2026-10-14T15:46:44.321Z",
+    "stage": "vision_attempt",
+    "phase": "end",
+    "outcome": "success",
+    "durationMs": 6028
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.322268+00:00",
+    "stage": "response_validation",
+    "phase": "end",
+    "sampleId": "A3",
+    "outcome": "success",
+    "modelResultState": "received_not_stored",
+    "failureCode": null
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.322268+00:00",
+    "stage": "complete_item",
+    "sequence": 27,
+    "phase": "start",
+    "sampleId": "A3"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.349268+00:00",
+    "stage": "complete_item",
+    "sequence": 27,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 27.144,
+    "sqlCount": 29,
+    "sqlMs": 10.291,
+    "sampleId": "A3"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.350269+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "A3",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "timingPersisted": true,
+    "modelResultState": "stored_success"
+  },
+  {
+    "sampleId": "A4",
+    "at": "2026-10-14T15:46:44.586Z",
+    "stage": "provider_post",
+    "phase": "end",
+    "httpStatus": 200,
+    "durationMs": 6022.152,
+    "finishReason": "stop",
+    "contentCharacters": 228,
+    "errorCode": null
+  },
+  {
+    "sampleId": "A4",
+    "at": "2026-10-14T15:46:44.586Z",
+    "stage": "response_validation",
+    "phase": "start",
+    "httpStatus": 200
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.587718+00:00",
+    "stage": "response_validation",
+    "phase": "end",
+    "sampleId": "A4",
+    "outcome": "success",
+    "modelResultState": "received_not_stored",
+    "failureCode": null
+  },
+  {
+    "sampleId": "A4",
+    "at": "2026-10-14T15:46:44.587Z",
+    "stage": "response_validation",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 0.556
+  },
+  {
+    "sampleId": "A4",
+    "at": "2026-10-14T15:46:44.587Z",
+    "stage": "vision_attempt",
+    "phase": "end",
+    "outcome": "success",
+    "durationMs": 6294
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.588721+00:00",
+    "stage": "complete_item",
+    "sequence": 28,
+    "phase": "start",
+    "sampleId": "A4"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.612719+00:00",
+    "stage": "complete_item",
+    "sequence": 28,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 24.443,
+    "sqlCount": 29,
+    "sqlMs": 9.269,
+    "sampleId": "A4"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.613718+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "A4",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "timingPersisted": true,
+    "modelResultState": "stored_success"
+  },
+  {
+    "sampleId": "A6",
+    "at": "2026-10-14T15:46:44.686Z",
+    "stage": "provider_post",
+    "phase": "end",
+    "httpStatus": 200,
+    "durationMs": 6195.132,
+    "finishReason": "stop",
+    "contentCharacters": 221,
+    "errorCode": null
+  },
+  {
+    "sampleId": "A6",
+    "at": "2026-10-14T15:46:44.686Z",
+    "stage": "response_validation",
+    "phase": "start",
+    "httpStatus": 200
+  },
+  {
+    "sampleId": "A6",
+    "at": "2026-10-14T15:46:44.687Z",
+    "stage": "response_validation",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 0.376
+  },
+  {
+    "sampleId": "A6",
+    "at": "2026-10-14T15:46:44.687Z",
+    "stage": "vision_attempt",
+    "phase": "end",
+    "outcome": "success",
+    "durationMs": 6394
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.688259+00:00",
+    "stage": "response_validation",
+    "phase": "end",
+    "sampleId": "A6",
+    "outcome": "success",
+    "modelResultState": "received_not_stored",
+    "failureCode": null
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.688767+00:00",
+    "stage": "complete_item",
+    "sequence": 29,
+    "phase": "start",
+    "sampleId": "A6"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.713255+00:00",
+    "stage": "complete_item",
+    "sequence": 29,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 24.732,
+    "sqlCount": 29,
+    "sqlMs": 9.109,
+    "sampleId": "A6"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:44.714248+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "A6",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "timingPersisted": true,
+    "modelResultState": "stored_success"
+  },
+  {
+    "sampleId": "B6",
+    "at": "2026-10-14T15:46:45.357Z",
+    "stage": "provider_post",
+    "phase": "end",
+    "httpStatus": 200,
+    "durationMs": 6787.697,
+    "finishReason": "stop",
+    "contentCharacters": 183,
+    "errorCode": null
+  },
+  {
+    "sampleId": "B6",
+    "at": "2026-10-14T15:46:45.358Z",
+    "stage": "response_validation",
+    "phase": "start",
+    "httpStatus": 200
+  },
+  {
+    "sampleId": "B6",
+    "at": "2026-10-14T15:46:45.358Z",
+    "stage": "response_validation",
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 0.534
+  },
+  {
+    "sampleId": "B6",
+    "at": "2026-10-14T15:46:45.359Z",
+    "stage": "vision_attempt",
+    "phase": "end",
+    "outcome": "success",
+    "durationMs": 7066
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.360684+00:00",
+    "stage": "response_validation",
+    "phase": "end",
+    "sampleId": "B6",
+    "outcome": "success",
+    "modelResultState": "received_not_stored",
+    "failureCode": null
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.360684+00:00",
+    "stage": "complete_item",
+    "sequence": 30,
+    "phase": "start",
+    "sampleId": "B6"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.396828+00:00",
+    "stage": "complete_item",
+    "sequence": 30,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 36.344,
+    "sqlCount": 30,
+    "sqlMs": 13.509,
+    "sampleId": "B6"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.398828+00:00",
+    "stage": "stored_outcome",
+    "sampleId": "B6",
+    "status": "review_pending",
+    "attemptCount": 1,
+    "timingPersisted": true,
+    "modelResultState": "stored_success"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.423759+00:00",
+    "stage": "model_batch",
+    "phase": "end",
+    "durationMs": 10719.0
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.423759+00:00",
+    "stage": "release_coordinator",
+    "sequence": 31,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.435182+00:00",
+    "stage": "release_coordinator",
+    "sequence": 31,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 11.177,
+    "sqlCount": 16,
+    "sqlMs": 4.369
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.436232+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 32,
+    "phase": "start",
+    "sampleId": "B1"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.455211+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 32,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 18.818,
+    "sqlCount": 23,
+    "sqlMs": 7.522,
+    "sampleId": "B1"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.457290+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 33,
+    "phase": "start",
+    "sampleId": "B4"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.475243+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 33,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 18.276,
+    "sqlCount": 23,
+    "sqlMs": 7.2,
+    "sampleId": "B4"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.476241+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 34,
+    "phase": "start",
+    "sampleId": "B2"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.494242+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 34,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 18.118,
+    "sqlCount": 23,
+    "sqlMs": 7.413,
+    "sampleId": "B2"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.496241+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 35,
+    "phase": "start",
+    "sampleId": "A2"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.514243+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 35,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 18.077,
+    "sqlCount": 23,
+    "sqlMs": 6.868,
+    "sampleId": "A2"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.515243+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 36,
+    "phase": "start",
+    "sampleId": "B3"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.532241+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 36,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 17.116,
+    "sqlCount": 23,
+    "sqlMs": 6.703,
+    "sampleId": "B3"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.533241+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 37,
+    "phase": "start",
+    "sampleId": "B5"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.552192+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 37,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 18.665,
+    "sqlCount": 23,
+    "sqlMs": 7.675,
+    "sampleId": "B5"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.553193+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 38,
+    "phase": "start",
+    "sampleId": "A1"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.572744+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 38,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 18.801,
+    "sqlCount": 23,
+    "sqlMs": 7.698,
+    "sampleId": "A1"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.573780+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 39,
+    "phase": "start",
+    "sampleId": "A5"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.592061+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 39,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 18.332,
+    "sqlCount": 23,
+    "sqlMs": 7.281,
+    "sampleId": "A5"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.593565+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 40,
+    "phase": "start",
+    "sampleId": "A3"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.612618+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 40,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 18.931,
+    "sqlCount": 23,
+    "sqlMs": 7.416,
+    "sampleId": "A3"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.613727+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 41,
+    "phase": "start",
+    "sampleId": "A4"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.634470+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 41,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 20.587,
+    "sqlCount": 23,
+    "sqlMs": 8.42,
+    "sampleId": "A4"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.635523+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 42,
+    "phase": "start",
+    "sampleId": "A6"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.657592+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 42,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 22.211,
+    "sqlCount": 23,
+    "sqlMs": 9.489,
+    "sampleId": "A6"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.658592+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 43,
+    "phase": "start",
+    "sampleId": "B6"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.680075+00:00",
+    "stage": "human_review_simulated",
+    "sequence": 43,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 21.023,
+    "sqlCount": 23,
+    "sqlMs": 8.624,
+    "sampleId": "B6"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.680075+00:00",
+    "stage": "commit_reviewed_results",
+    "sequence": 44,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.909162+00:00",
+    "stage": "commit_reviewed_results",
+    "sequence": 44,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 228.704,
+    "sqlCount": 169,
+    "sqlMs": 100.444
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.909162+00:00",
+    "stage": "commit_receipt_replay",
+    "sequence": 45,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.912161+00:00",
+    "stage": "commit_receipt_replay",
+    "sequence": 45,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 2.804,
+    "sqlCount": 3,
+    "sqlMs": 0.726
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.912161+00:00",
+    "stage": "final_progress_read",
+    "sequence": 46,
+    "phase": "start"
+  },
+  {
+    "auditRun": "chain-test_final_candidate_chain-b9dd1c35",
+    "jobId": "market-annotation-job-f99e1d9e-8bbc-441c-bf7e-7af6c69cfc60",
+    "at": "2026-10-14T15:46:45.935146+00:00",
+    "stage": "final_progress_read",
+    "sequence": 46,
+    "phase": "end",
+    "outcome": "ok",
+    "durationMs": 22.475,
+    "sqlCount": 21,
+    "sqlMs": 8.337
+  }
+]

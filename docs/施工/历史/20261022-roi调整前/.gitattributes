@@ -1,0 +1,2 @@
+# Preserve the original local document bytes, including line endings.
+*.md -text whitespace=cr-at-eol

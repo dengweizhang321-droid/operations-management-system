@@ -1,0 +1,85 @@
+{
+  "kind": "isolated-memory-cache-lock-probe",
+  "utc": "2026-10-08T14:16:25.149031+00:00",
+  "reviewed_head": "a37b5ffdbe9e6705cf4daa9545231e93b4378c5d",
+  "sample_count_per_domain": 1,
+  "production_performance_claim": false,
+  "results": [
+    {
+      "domain": "inventory",
+      "source": {
+        "path": "backend\\inventory\\read_cache.py",
+        "sha256": "036104e955f1d9d1783441a241d9f556d636941791cda7604ce7559a7508c7ed",
+        "first_line": 22,
+        "last_line": 60
+      },
+      "error_source": {
+        "path": "backend\\inventory\\errors.py",
+        "sha256": "612f1f3ce56afe71efe6795662eee8b3eab8817de01d07b445c972ae44aa7045",
+        "first_line": 1,
+        "last_line": 11
+      },
+      "warm_hit_no_contention_ms": 0.0247000134550035,
+      "samples": [
+        {
+          "injected_hold_seconds": 0.2,
+          "hold_description": "release after fixed hold",
+          "warm_follower_completed_before_release": false,
+          "outcome": "success",
+          "elapsed_ms": 201.60799997393042,
+          "value_unchanged": true
+        },
+        {
+          "injected_hold_seconds": null,
+          "hold_description": "release after warmed follower returns",
+          "warm_follower_completed_before_release": true,
+          "outcome": "error",
+          "elapsed_ms": 5003.231599985156,
+          "status": 503,
+          "code": "service_unavailable",
+          "message": "��湫���������ڸ��£����Ժ�����"
+        }
+      ],
+      "warm_loader_calls": 1,
+      "cold_loader_calls": 2
+    },
+    {
+      "domain": "products",
+      "source": {
+        "path": "backend\\products\\summary_cache.py",
+        "sha256": "d72af5e58b076e31070fb44260740709208d6ed031368a331452f78069d02863",
+        "first_line": 13,
+        "last_line": 49
+      },
+      "error_source": {
+        "path": "backend\\products\\errors.py",
+        "sha256": "2720653f2414b65493af565a3bb2e6c0dd11e1d9e25abe5ac9e3f2856a62de54",
+        "first_line": 1,
+        "last_line": 11
+      },
+      "warm_hit_no_contention_ms": 0.028300040867179632,
+      "samples": [
+        {
+          "injected_hold_seconds": 0.2,
+          "hold_description": "release after fixed hold",
+          "warm_follower_completed_before_release": false,
+          "outcome": "success",
+          "elapsed_ms": 200.62440005131066,
+          "value_unchanged": true
+        },
+        {
+          "injected_hold_seconds": null,
+          "hold_description": "release after warmed follower returns",
+          "warm_follower_completed_before_release": true,
+          "outcome": "error",
+          "elapsed_ms": 5013.770300021861,
+          "status": 503,
+          "code": "service_unavailable",
+          "message": "��Ʒ�����������ڸ��£����Ժ�����"
+        }
+      ],
+      "warm_loader_calls": 1,
+      "cold_loader_calls": 2
+    }
+  ]
+}

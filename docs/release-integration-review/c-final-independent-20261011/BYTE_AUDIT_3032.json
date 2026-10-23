@@ -1,0 +1,233 @@
+{
+  "version": "teruisi-c-3032-independent-byte-audit-v1",
+  "startedAt": "2026-10-11T07:13:49.805Z",
+  "finishedAt": "2026-10-11T07:17:42.295Z",
+  "releaseId": "20261011T051645Z-3032ae332a32f1a0",
+  "manifestSha256": "58cc236e09f097f2c7aec054af9699fc7c0aca3bda1cd79d1c47cbf06efd1a8f",
+  "planSha256": "3fb9b0fe083862da5a1a426b444a91365b2ec4fdecb0c4191c2c18f0a12ccb5b",
+  "preparedReceiptSha256": "6accd380f62dd6cfcae325f4460106fd166c34f99c578405b3a2098a22dc0af1",
+  "sourceBindingSha256": "dc45c01f2c9ea7398fae6c55c10d6408e59fdc9177d45fc7e81fd3172f367912",
+  "predecessor": {
+    "bindingSha256": "094e10d4508986d62e5d90bf99041271fb7527f9a8b5d33f1dfb386529cee548",
+    "guardReceiptSha256": "672f80420f154969d4bf221f542dacfbab3dc0360ca25c95c3c686792be7f013",
+    "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+    "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+    "version": "teruisi-local-worker-release-binding-v1"
+  },
+  "predecessorChainStateSha256": "aaf62994c75c3ca46362328fed6acc76f812808a2e852566782e5e0ba897e0d9",
+  "source": {
+    "before": {
+      "fileCount": 5157,
+      "sha256": "92c2656c064c6a202239f4f010f0d241e90ae19fb35638cd328727a7ac64973c"
+    },
+    "after": {
+      "fileCount": 5160,
+      "sha256": "ef5cc058391988586de4cf2b64289a13f0f3682a1a38db5569213f704323e1d1",
+      "inventorySha256": "dd769ec44a9833f876326c0df4b858a91ee2a656a636c33d5b402a87c0335d20"
+    }
+  },
+  "changed": [
+    {
+      "path": "tools/release-admission-timing.mjs",
+      "before": null,
+      "after": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66"
+    },
+    {
+      "path": "tools/release-batch-admission.mjs",
+      "before": "1bb6dc999e7b0b0e3e091505288574e93b4a22287435e226e97369734a2a92c6",
+      "after": "10a783535add546ed8f3e28930bad416d8d9d27f7acbe126d48f393a47db7415"
+    },
+    {
+      "path": "tools/release-batch.mjs",
+      "before": "0b2eb39f495fa7ec92f598c24d2c2d585bf6fe9c8a4eef6278e14a71eb21c944",
+      "after": "18f556319c7b14dbdcd32305584032f645abf1b3d6cb1827b9cee3b1ea6fa358"
+    },
+    {
+      "path": "tools/release-impact.mjs",
+      "before": "ad101d63a295ca79ee53c601cbe44c1525de47870505e2059947ba676b5c0944",
+      "after": "24403c32b7788f53d585e51535c57fe870603e8f728ba1eb21c1c5b25cc5f548"
+    },
+    {
+      "path": "tools/release-lifecycle-step.ps1",
+      "before": "f7f56eeab2eb854c6b9d29d61a56caa7f491a170f6bb6df69dd472f5d8858a65",
+      "after": "c63e8fbaa5b02a13589538ab03468d07511b27a1dec44279a893d29c8467dbce"
+    },
+    {
+      "path": "tools/release-no-data-observation.mjs",
+      "before": null,
+      "after": "ab29843bca7c9afa7ad328fb6ba33d2f330f0c49dbb59fe50965d7a041508d4d"
+    },
+    {
+      "path": "tools/release-preparation-evidence.mjs",
+      "before": null,
+      "after": "6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5"
+    },
+    {
+      "path": "tools/worker-local-release-rotation.mjs",
+      "before": "4c12dedf527e68a372061bc2d0f78ded9083246b8d37596990d718c6500591fe",
+      "after": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+    },
+    {
+      "path": "tools/worker-local-release.mjs",
+      "before": "bba3e24da195576e991f162084159314652c7077f0c7f0a3647319911203c0fa",
+      "after": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    },
+    {
+      "path": "tools/worker-local-service.ps1",
+      "before": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "after": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e"
+    }
+  ],
+  "payload": [
+    {
+      "name": "dist",
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 164,
+      "sha256": "7684758fc8cac41f747f44e94b0e884ae28b65d1d2f4c087531a62a8864dd83a",
+      "excluded": [
+        "server/.dev.vars"
+      ]
+    },
+    {
+      "name": "helper",
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 3,
+      "sha256": "cfb60da77dc101b6ada84497b5f97cd152ae674bac9496e7d2d58b336656c6a5",
+      "excluded": []
+    },
+    {
+      "name": "node_modules",
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 31248,
+      "sha256": "9fed34ef1096350805a458f75452c328c3c6fd2262f8d6960fafb5ccd4aee2eb",
+      "excluded": []
+    }
+  ],
+  "keyFiles": [
+    {
+      "relativePath": "dist/server/index.js",
+      "sha256": "e98ac714653714124b7a5da401c1c3180aa85325ef73a66551555d2d020fee8b"
+    },
+    {
+      "relativePath": "dist/server/wrangler.json",
+      "sha256": "02d3aee3ea1f98b10ca47ab909227dd0d0cff4bd981e7dcf35a0e810963504ca"
+    },
+    {
+      "relativePath": "package.json",
+      "sha256": "ce38493daf69c5e122a78a56877bb29f0e9753c3705e0b2301597385cc72a890"
+    },
+    {
+      "relativePath": "运行项目.bat",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2"
+    },
+    {
+      "relativePath": "tools/operations-system-control.ps1",
+      "sha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810"
+    },
+    {
+      "relativePath": "tools/start-local-worker.mjs",
+      "sha256": "383351ab2ad69c7889a831e2e11646e6d3e8d4e43f87b02e0d5b53d13e1ed74f"
+    },
+    {
+      "relativePath": "tools/worker-authority-guard.mjs",
+      "sha256": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210"
+    },
+    {
+      "relativePath": "tools/d1-retirement-proof.mjs",
+      "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76"
+    },
+    {
+      "relativePath": "tools/collect-d1-retirement-proof.mjs",
+      "sha256": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295"
+    },
+    {
+      "relativePath": "tools/worker-local-release.mjs",
+      "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    },
+    {
+      "relativePath": "tools/worker-local-release-rotation.mjs",
+      "sha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+    },
+    {
+      "relativePath": "tools/worker-local-service.ps1",
+      "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e"
+    },
+    {
+      "relativePath": ".runtime/worker-release-activation-fence.json",
+      "sha256": "824329581e5755b70abaee000c4901e6d1aa7bb999e0435b98606a23850bfe11"
+    },
+    {
+      "relativePath": "tools/process-deadline.ps1",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+    },
+    {
+      "relativePath": "tools/worker-local-runtime-supervisor.mjs",
+      "sha256": "cb34aec172c4f96d54043b12273e8dca8ac7f70fe8102212ccc7ba35aa18e3a8"
+    },
+    {
+      "relativePath": "tools/release-batch.mjs",
+      "sha256": "18f556319c7b14dbdcd32305584032f645abf1b3d6cb1827b9cee3b1ea6fa358"
+    },
+    {
+      "relativePath": "tools/release-no-data-observation.mjs",
+      "sha256": "ab29843bca7c9afa7ad328fb6ba33d2f330f0c49dbb59fe50965d7a041508d4d"
+    },
+    {
+      "relativePath": "tools/release-impact.mjs",
+      "sha256": "24403c32b7788f53d585e51535c57fe870603e8f728ba1eb21c1c5b25cc5f548"
+    },
+    {
+      "relativePath": "tools/release-batch-admission.mjs",
+      "sha256": "10a783535add546ed8f3e28930bad416d8d9d27f7acbe126d48f393a47db7415"
+    },
+    {
+      "relativePath": "tools/release-admission-timing.mjs",
+      "sha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66"
+    },
+    {
+      "relativePath": "tools/release-preparation-evidence.mjs",
+      "sha256": "6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5"
+    },
+    {
+      "relativePath": "tools/release-readonly-retry.mjs",
+      "sha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab"
+    },
+    {
+      "relativePath": "tools/release-daily-backup.mjs",
+      "sha256": "4b77088b234734fcfedeb658c81c489771d26f320b0a66a1a5286417a7857705"
+    },
+    {
+      "relativePath": "tools/release-lifecycle-step.ps1",
+      "sha256": "c63e8fbaa5b02a13589538ab03468d07511b27a1dec44279a893d29c8467dbce"
+    },
+    {
+      "relativePath": "helper/tmall-workflow-helper.mjs",
+      "sha256": "41f428a77b4919971402e29b1f1c2e581f48ec83e7f2ba02e25d1acbaf538cdd"
+    }
+  ],
+  "configurationHardLinkIdentityVerifiedWithoutReadingValues": true,
+  "bindingTupleAndSidecarsMatch": true,
+  "fullBuiltPayloadIndependentlyRehashed": true,
+  "stableInputFiles": 41773,
+  "inputDrift": [],
+  "git": {
+    "sourceCommit": "9fa82567f9456ea7a81733e80d57218ad0ca5e00",
+    "mergeCommit": "95ce9be52df2e8d4f6499dfbd1d249742d15bbd2",
+    "deliveryCommit": "030024542ef76be081f69023fefb0601dd4d06b5",
+    "commitsExistAndIncluded": true
+  },
+  "candidateRegression": {
+    "passed": 166,
+    "failed": 0,
+    "logSha256": "be46b9a6dffae86665616cfbf6bf505cb48b07757a3474a39cc9d8f333bc58e3",
+    "harnessSha256": "6d7421840866315ad39826ca855dd98917186b9f357f7e1a5475b6ac6251e5f3",
+    "rerunByThisAudit": false,
+    "assertionPreservationNeedsReview": true
+  },
+  "newProtectionSchemeUserInstruction": "One pre-release backup plus one isolated rehearsal of new recovery-tool consumption chain; no post-release repeat",
+  "V4FourDatabaseBatchNotApprovedForNewInstruction": true,
+  "newProtectionSourceAndBatchNotAccepted": true,
+  "productionActions": 0,
+  "livePermissionsMaintenanceDrainAndProcessIdentityNotCollected": true,
+  "noPerformanceBenefitClaimed": true
+}
