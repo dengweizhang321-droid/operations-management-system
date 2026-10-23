@@ -1,0 +1,323 @@
+{
+  "version": "s05b-control-report-evidence-v1",
+  "at": "2026-10-23T10:05:06.615Z",
+  "source": {
+    "root": "D:/codex-worktrees/s05d-diagnostic-cleanup-20261023",
+    "commit": "a1750fd2d2395ab5f7e31789ee1b9566ceaa1697",
+    "tree": "e382534538bd818e95560d832948f08d707ebc40",
+    "branch": "codex/s05d-diagnostic-cleanup-20261023",
+    "clean": true,
+    "files": {
+      "tools/install-main-prebuild.mjs": "a0865630915a5b60ec08db93939bdb3f50149fb48ecd37a40493ed7b4abca54c",
+      "tools/publish-latest-main.mjs": "1fa234d5f3bdc5ba5fa028d91756d53a7ed79569e5a054270c73e280f22c67ac",
+      "tools/publish-main-progress.mjs": "a8c0292fc777862a2880b32b5d7f190624e4e986c41ae857e0b975f209c60267",
+      "tools/release-scope-plan.mjs": "e32e1e37ae99975b21816a021c266c360bb46c02254586796b09e2a6e3a281b2",
+      "tools/main-prebuild-hook.mjs": "34aab4f4cbfb9f501081a680d12614d072a86c96be0842bef2c832892e4c88e5",
+      "tools/main-schema-release.mjs": "793c0c31a30199d79bb97293df41a88af7bc0e784d205bca03afec9b1decb6f7",
+      "tools/main-prebuild-status.mjs": "9010056cc8b1ead2cfd4ba17ad5e427f0a0849f6b77ab708b8c3443795e12dc3",
+      "tools/main-prebuild-queue.mjs": "9df065e0775520254aed42077f9f96c9d1d7c801293aa2124f3411a488307755",
+      "tools/main-control-dispatch.mjs": "3dae7ceb2257dbea3cc3c168c895b97c34228a3f6c01229fb2cec2b6006625a7",
+      "tools/main-prebuild-task.mjs": "9f05dedcb953fec984d9c6ee3938a6254f7d5875bbe43018ff88869264c7cb62",
+      "tools/frozen-main-source.mjs": "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882",
+      "tools/preparation-resolution.mjs": "8fb1c147e27ab1202076af3046d977b8aa024ef6814277be4f0846b71512a2ed",
+      "tools/preparation-resolution-history.mjs": "28811bd41c716bce1005588715c58cf2a8e453cc7f3c48f41697e1fb4daaff7d",
+      "tools/preparation-producer-qualification.mjs": "edfa4c307291d8bb4091f323dbd9090dfd0ce6dd3aa064a6f52828a74b9dbe56",
+      "tools/cleaned-preparation-writer.mjs": "45d8cceb6ee72dddec4ba43ed5e0183b80dc05502265271c2f358397abe6735b",
+      "tools/cleaned-preparation-observer.mjs": "c202cf888115e7842c1716c89f1946485dab1e3c26d08f93022de2293cd41d6d",
+      "tools/preparation-retirement-admission.mjs": "a11c4b6f46d4d362b5164b7f440f958aa86332d21f4302ddcc21421750e058db",
+      "tools/preparation-retirement-archive.mjs": "1fef3adbc1c1c6f4eee7f6a182ea8ccc525870eac00e5b3ad76d3a6f70b10230",
+      "tools/preparation-retirement-boot.mjs": "e00fe4ee68faff34b82fbe94317f56e1feb6908fb6f9c7cd40a19ee7fa9da133",
+      "tools/preparation-retirement-collector.mjs": "07a9a0989748d74260dc73c88c62a0c9cc4c01b7038c6395130901559ca3479e",
+      "tools/preparation-retirement-evidence.mjs": "e818c8b821c8bf521ba3a7781206aae69307eb67bf19d5ac32dd07a9b9d83df7",
+      "tools/preparation-retirement-entry.mjs": "c61ff0428e4d392a111f04a2977064e7e77deb6dfcfb7ad0871b991201bdd256",
+      "tools/preparation-retirement-fs.mjs": "8befa5711ac354aa92c089c60cbf431d6d1e38d698bcbd2555177234a40aed62",
+      "tools/preparation-retirement-handoff.mjs": "4a9384bfc6ba10300139c769b2f796ff3ffa0baa2be6d256b9eff1bf7dd5e5ac",
+      "tools/preparation-retirement-handoff-runner.ps1": "7ad4e67e94fcdf5996dc2a962045e6f1d10ba6a1a0337058b211dea5312b531c",
+      "tools/preparation-retirement-history.mjs": "3ebf251a19f8f06d164acc9dca6e2395cef7c6c10c7cd440f282e805582c9e9f",
+      "tools/preparation-retirement-native.mjs": "63c925d9649646723627ed9ffe82704b0055fbb08dcaca950aeaabf9c4f3c467",
+      "tools/preparation-retirement-observer.mjs": "fbfdec89b0843befe2e497627159eb7beef33733409abbad6cddd7b401935f60",
+      "tools/preparation-retirement-qualification.mjs": "e40c6a9a755fdcdf5c5c783c48ff1292ffbb30cf976c8b28455653fd3a89bfb0",
+      "tools/preparation-retirement-ref.mjs": "f7f4ceb0de38a5ad7ee9a8daf284dfa484fea99117b44705d8ee3f08298cffa6",
+      "tools/preparation-retirement-source.mjs": "9edd123d29daba63921e994750c0ea11cdf9f2beacaf36d198d25c9352c56d47",
+      "tools/preparation-retirement-witness.mjs": "4018bb6a61f336ae5c77c34a9c7c642b663b242e09deda56cea0e34c9edf5ab8",
+      "tools/preparation-retirement.mjs": "2e87f9695090aec53fd38a85e9badd9851209da6d872901ada84ca364b3f56fb",
+      "tools/worker-local-release-rotation.mjs": "b33b0b8b2a3ff603a902845c7f3191adbe7d39907e529f18870e195abeb50776",
+      "tools/publish-main-known-resume.mjs": "515c7a2ccdce60b277aeb42252ba2f61495002ebf828d5aa201aaeff387f61dc",
+      "tools/d1-retirement-proof.mjs": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76",
+      "tools/worker-local-release.mjs": "6dcd3016f6164a0c897c94ae26ec300b82f69ad122739ea1ba5b843ca95a8333",
+      "tools/collect-d1-retirement-proof.mjs": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295"
+    }
+  },
+  "pins": {
+    "file": "D:\\codex-worktrees\\s05d-diagnostic-cleanup-20261023\\docs\\s05d-same-operation-validation-20261023\\pins.json",
+    "sha256": "fe38442e33f8bff8a90d2ec839eb34cc71170edef745b518a70ad1e1239c561c",
+    "files": {
+      "tools/preparation-retirement-diagnostic.mjs": {
+        "sha256": "a27b356994372af294243bc46f6a9b630bea5e29021e60a5c72c95561b1f619c",
+        "size": 21384
+      },
+      "tools/preparation-retirement.mjs": {
+        "sha256": "2e87f9695090aec53fd38a85e9badd9851209da6d872901ada84ca364b3f56fb",
+        "size": 65042
+      },
+      "tools/preparation-retirement-admission.mjs": {
+        "sha256": "a11c4b6f46d4d362b5164b7f440f958aa86332d21f4302ddcc21421750e058db",
+        "size": 5546
+      },
+      "tools/preparation-resolution.mjs": {
+        "sha256": "8fb1c147e27ab1202076af3046d977b8aa024ef6814277be4f0846b71512a2ed",
+        "size": 66481
+      },
+      "tools/main-prebuild-queue.mjs": {
+        "sha256": "9df065e0775520254aed42077f9f96c9d1d7c801293aa2124f3411a488307755",
+        "size": 21041
+      },
+      "tools/publish-latest-main.mjs": {
+        "sha256": "1fa234d5f3bdc5ba5fa028d91756d53a7ed79569e5a054270c73e280f22c67ac",
+        "size": 31236
+      },
+      "tools/preparation-retirement-entry.mjs": {
+        "sha256": "c61ff0428e4d392a111f04a2977064e7e77deb6dfcfb7ad0871b991201bdd256",
+        "size": 7718
+      },
+      "tests/preparation-retirement-diagnostic.test.mjs": {
+        "sha256": "025be73964d8a512e8eedf42fb50cb45181cd85d173c8eccecddad3c5d02519a",
+        "size": 8331
+      },
+      "tests/preparation-retirement-integration.test.mjs": {
+        "sha256": "07c09e1f518dfd98849feb1d0a0aa7428abbf4ac043c95b07ed6b2e178c11994",
+        "size": 16872
+      },
+      "tests/preparation-retirement-scope.test.mjs": {
+        "sha256": "97b33733338afb04ddb3d80c9bf26a8fea70126bd7e363415153eb645c53a0e5",
+        "size": 5984
+      }
+    }
+  },
+  "executables": {
+    "node": {
+      "file": "C:\\Program Files\\nodejs\\node.exe",
+      "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de",
+      "size": 92534088
+    },
+    "powerShell": {
+      "file": "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+      "sha256": "8bb6fa8c283b4d92120b1ef249a9b311b0f804d4cabbe9981159976c8be76a5e"
+    },
+    "git": {
+      "file": "D:\\git\\Git\\cmd\\git.exe",
+      "sha256": "22fead8244ef3a7225fb800099a4e43eca8bcec0466774917669599c2f19a05a",
+      "size": 46936
+    }
+  },
+  "host": {
+    "root": "D:\\codex-isolated\\main-manual-release-20261016\\retirement-handoff\\hosts\\71b4a448664bfca46b9be99277f02f9a7a39f10f2990f7419d4ae4b9240ca1ec",
+    "files": {
+      "preparation-retirement-handoff.mjs": "4a9384bfc6ba10300139c769b2f796ff3ffa0baa2be6d256b9eff1bf7dd5e5ac",
+      "preparation-retirement-handoff-runner.ps1": "7ad4e67e94fcdf5996dc2a962045e6f1d10ba6a1a0337058b211dea5312b531c"
+    }
+  },
+  "expectedCandidateBundleSha256": "b810d75106c3019267a4480641bcb2c0f02f4de5854538d3b649fcdb826e4a88",
+  "oldGeneration": {
+    "stateSha256": "74724dfae400f312e1907ee1f565faf28d46c3842f29916c0f8f2d9f143e4b0e",
+    "configSha256": "a90c9b8072e1ed6dd225072aa59e78075ea82639498f9ad74c19fc1be5f77642",
+    "bundleSha256": "83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8",
+    "installId": "ade68625-9378-4358-b31f-e2139c5953e2",
+    "bundleManifestSha256": "b5d68b96c1cbbe41e18f4fc8bf72fdb47b2e633a530c2a1225dfe1c322ba7fce"
+  },
+  "currentGeneration": {
+    "file": "D:\\codex-isolated\\main-manual-release-20261016\\CONTROL-INSTALLATION.json",
+    "sha256": "74724dfae400f312e1907ee1f565faf28d46c3842f29916c0f8f2d9f143e4b0e",
+    "status": "adopted",
+    "installId": "ade68625-9378-4358-b31f-e2139c5953e2",
+    "bundleSha256": "83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8",
+    "nativeReaderVerified": true
+  },
+  "prepare": {
+    "runId": "1d5123a6-ce79-4196-bc1d-ebe4e79b7637",
+    "runFile": "D:\\codex-isolated\\main-manual-release-20261016\\retirement-handoff\\runs\\1d5123a6-ce79-4196-bc1d-ebe4e79b7637\\RUN.json",
+    "runSha256": "d88cc369c8a593cb9510605a6e9936147aeab15c47feb04674551eff45ddd656",
+    "status": "failed-or-unknown-no-replay",
+    "nativeCompleted": false,
+    "directExitCode": 1,
+    "outputComplete": true,
+    "error": "Handoff parent has another child\n+ actual - expected\n\n  [\n+   31928,\n    6392\n  ]\n",
+    "startedAt": "2026-10-23T09:59:14.543Z",
+    "directExitAt": "2026-10-23T09:59:22.1817725Z",
+    "files": {
+      "ATTEMPT.json": {
+        "size": 256,
+        "sha256": "03e4b27ac70fc34b80163d1b6d7bee2776c3f695571514af7e552f2d3ea21436"
+      },
+      "CONFIG-PREIMAGE.json": {
+        "size": 2270,
+        "sha256": "a90c9b8072e1ed6dd225072aa59e78075ea82639498f9ad74c19fc1be5f77642"
+      },
+      "EXIT.json": {
+        "size": 703,
+        "sha256": "7180b69b9485082ac3af52d8e6fd9e357ffbb31f59f4bd80d324f1859ccd7082"
+      },
+      "PARENT.json": {
+        "size": 609,
+        "sha256": "b278347e58e160473295f4815c21efdb1f8c5c2964db6d26f56ddaff5757130b"
+      },
+      "REQUESTED.json": {
+        "size": 214,
+        "sha256": "d7c457657cbe689a084211cc861fb045bb2d4cf2ebd36634471c778994fd2fde"
+      },
+      "RESULT.json": {
+        "size": 688,
+        "sha256": "b74559cf2b1fb596150d3af92c1171158a32623441f6a2e11a865670a7cd5a5a"
+      },
+      "RUN.json": {
+        "size": 7374,
+        "sha256": "d88cc369c8a593cb9510605a6e9936147aeab15c47feb04674551eff45ddd656"
+      },
+      "STARTED.json": {
+        "size": 493,
+        "sha256": "8ae8ac4116e4e3e6eb6569e55692b61038ecf3ae83051db1269ae45066b32506"
+      },
+      "stderr.log": {
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stdout.log": {
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "TASK.json": {
+        "size": 3415,
+        "sha256": "1639be08056855da05c8a4755dddbcfcc157774e7a50cbe5bb6bc74c4d36bd01"
+      }
+    }
+  },
+  "adopt": {
+    "invoked": false,
+    "reason": "New prepare failed; no complete native PREPARED receipt"
+  },
+  "materials": {
+    "path": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\control-upgrade",
+    "exists": false
+  },
+  "oldUnknownPreserved": [
+    {
+      "runId": "c6be141b-9f7a-488a-9671-f97807c26458",
+      "directory": "D:\\codex-isolated\\main-manual-release-20261016\\retirement-handoff\\runs\\c6be141b-9f7a-488a-9671-f97807c26458",
+      "originalFilesMatched": 9,
+      "frozenSourceFilesMatched": 38,
+      "runSha256": "b3381f4f57277171d4667e2945c9bc389c4c10531bfaf7406b90fe39f171982e",
+      "hostSha256": "da1e08c8b1d8b0adf2285c5a3d31f7dce4c3b2ff35a05e4f3b375c302111c397",
+      "runnerSha256": "7ad4e67e94fcdf5996dc2a962045e6f1d10ba6a1a0337058b211dea5312b531c",
+      "preserved": true,
+      "replayed": false
+    },
+    {
+      "runId": "28a038c6-34ae-482b-9855-965cf0adc307",
+      "directory": "D:\\codex-isolated\\main-manual-release-20261016\\retirement-handoff\\runs\\28a038c6-34ae-482b-9855-965cf0adc307",
+      "originalFilesMatched": 9,
+      "frozenSourceFilesMatched": 38,
+      "runSha256": "fdcfa19f05ebe25087dd3e1be38e606b20df4833a74f8b787f9a17a0316b1d52",
+      "hostSha256": "8a306aff8bb12ebc6ef75de790a2b9a3a120e52f184b460cfc0483e817eadf74",
+      "runnerSha256": "7ad4e67e94fcdf5996dc2a962045e6f1d10ba6a1a0337058b211dea5312b531c",
+      "preserved": true,
+      "replayed": false
+    }
+  ],
+  "mainRefs": {
+    "main": "2f55c3965e60b139381b6cc31ed868bcfe99a7bf",
+    "originMain": "36668589cab03d5d2d9d98383fb58eeb19c391ee"
+  },
+  "evidence": {
+    "frozen-inputs.json": {
+      "file": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\frozen-inputs.json",
+      "size": 9269,
+      "sha256": "5a71d313d5bf41e01d1a6c56768f67ee5e72531075c9bd98cf91cc3126b24ae5"
+    },
+    "freeze-inputs.mjs": {
+      "file": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\freeze-inputs.mjs",
+      "size": 5751,
+      "sha256": "8d5fff51ac6cb91158475ebf9d2d95bd76e499555a93f87a178e9a8042958c6a"
+    },
+    "prepare-handoff-created.json": {
+      "file": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\prepare-handoff-created.json",
+      "size": 385,
+      "sha256": "8ee2727210b66ebaff4736a9b1cfa757cb5945d326cc76d37de69ed196d48a1f"
+    },
+    "prepare-run-verified.json": {
+      "file": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\prepare-run-verified.json",
+      "size": 1737,
+      "sha256": "a47887dcd62457d3594a509cba0129bfacfe8f6b28141bee3fd3d70defcbceab"
+    },
+    "prepare-registered.json": {
+      "file": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\prepare-registered.json",
+      "size": 128,
+      "sha256": "2e891b050df7226bb0b6c1bb6682952a62c9b8856e2b195793e0fbada8844165"
+    },
+    "prepare-requested.json": {
+      "file": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\prepare-requested.json",
+      "size": 104,
+      "sha256": "fffbd5c974fba313174bf7ee04ddb7bdb4eeaa8da397cba22114c203a48c37e5"
+    },
+    "prepare-status.json": {
+      "file": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\prepare-status.json",
+      "size": 838,
+      "sha256": "d68392a2dadd13de2f27b87940977b915113123fd93084cf7568ee04472a72ef"
+    },
+    "final-state.json": {
+      "file": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\final-state.json",
+      "size": 4510,
+      "sha256": "7d5a8ac0540191af6e36b3e92c7e1382ccb19c1fd31cc4d24816bf05cc5026f0"
+    },
+    "old-unknown-evidence-20261023-01.json": {
+      "file": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\old-unknown-evidence-20261023-01.json",
+      "size": 38646,
+      "sha256": "2bc6955138e48fe14c8042e945322cc671addc9eac86f2bdba6792fb2c9f1b1f"
+    },
+    "old-task-userid-normalization-20261023-01.json": {
+      "file": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\old-task-userid-normalization-20261023-01.json",
+      "size": 1152,
+      "sha256": "303338dcbc0f7bdcad1988ea99f6549bdf86c2447276a61c6701007f1a7b2185"
+    },
+    "OLD-UNKNOWN-REVIEW.md": {
+      "file": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\OLD-UNKNOWN-REVIEW.md",
+      "size": 5597,
+      "sha256": "9fe921fad6e8fc3cddac38f35d11a431bc6868537804301d981dd76843397df1"
+    },
+    "review-old-unknown-20261023-01.ps1": {
+      "file": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\review-old-unknown-20261023-01.ps1",
+      "size": 8412,
+      "sha256": "bb6ab70f9108f9a122edf303c44027b783f5ecfea42fc820a4d9553e21d2f6e6"
+    },
+    "review-old-unknown-20261023-02.ps1": {
+      "file": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\review-old-unknown-20261023-02.ps1",
+      "size": 8415,
+      "sha256": "ac3c0fd573c80e2f9411a6383e55cb5b8b54f750f380f612355bc1b52612b3dd"
+    },
+    "verify-run.mjs": {
+      "file": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\verify-run.mjs",
+      "size": 3888,
+      "sha256": "38d13d040a5ac2ca96a682506f64cc2beb47ce7c573188eea1f06589354ada37"
+    },
+    "record-final-state.mjs": {
+      "file": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\record-final-state.mjs",
+      "size": 5280,
+      "sha256": "b2bba5f01151d3d23b7268a7880a0e7cd62e2d42b79dc3999bafe5532a18a210"
+    },
+    "build-evidence-index.mjs": {
+      "file": "D:\\codex-artifacts\\s05b-control-adoption-20261023\\build-evidence-index.mjs",
+      "size": 3218,
+      "sha256": "56c40504a068a83a05b6aeb1a81c5a986efdc703a86ddbffda22a3dd75490cf3"
+    }
+  },
+  "stop": {
+    "retry": false,
+    "cleanup": false,
+    "codeChange": false,
+    "retirement": false,
+    "sourceClose": false,
+    "reboot": false,
+    "seal": false,
+    "queueRecovery": false,
+    "applicationDeployment": false
+  }
+}
