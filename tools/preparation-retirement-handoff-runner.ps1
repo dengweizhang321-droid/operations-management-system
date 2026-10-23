@@ -104,6 +104,13 @@ try{
 $resultFile=[IO.Path]::Combine([string]$run.directory,'RESULT.json')
 $resultSha=$null
 if(Test-Path -LiteralPath $resultFile){Assert-HandoffPhysical $resultFile;$resultSha=Get-HandoffDigest $resultFile}
-Write-HandoffCreateOnly ([IO.Path]::Combine([string]$run.directory,'EXIT.json')) @{version='teruisi-preparation-retirement-handoff-v1';runId=[string]$run.runId;runSha256=$RunSha256;phase=[string]$run.phase;pid=$process.Id;createdAt=$childCreatedAt;exitCode=$directCode;directExitAt=$directAt;outputComplete=$outputComplete;stdoutSha256=(Get-HandoffDigest $outFile);stderrSha256=(Get-HandoffDigest $errFile);stdoutBytes=([IO.FileInfo]::new($outFile)).Length;stderrBytes=([IO.FileInfo]::new($errFile)).Length;resultSha256=$resultSha;parentSha256=(Get-HandoffDigest ([IO.Path]::Combine([string]$run.directory,'PARENT.json')))}
+$exitRecord=@{version='teruisi-preparation-retirement-handoff-v1';runId=[string]$run.runId;runSha256=$RunSha256;phase=[string]$run.phase;pid=$process.Id;createdAt=$childCreatedAt;exitCode=$directCode;directExitAt=$directAt;outputComplete=$outputComplete;stdoutSha256=(Get-HandoffDigest $outFile);stderrSha256=(Get-HandoffDigest $errFile);stdoutBytes=([IO.FileInfo]::new($outFile)).Length;stderrBytes=([IO.FileInfo]::new($errFile)).Length;resultSha256=$resultSha;parentSha256=(Get-HandoffDigest ([IO.Path]::Combine([string]$run.directory,'PARENT.json')))}
+if($run.PSObject.Properties.Name -ccontains 'diagnostic'){
+ $diagnosticFile=[IO.Path]::Combine([string]$run.directory,'DIAGNOSTIC.json')
+ $diagnosticSha=$null
+ if(Test-Path -LiteralPath $diagnosticFile){Assert-HandoffPhysical $diagnosticFile;$diagnosticSha=Get-HandoffDigest $diagnosticFile}
+ $exitRecord.diagnosticSha256=$diagnosticSha
+}
+Write-HandoffCreateOnly ([IO.Path]::Combine([string]$run.directory,'EXIT.json')) $exitRecord
 $process.Dispose()
 exit $directCode
