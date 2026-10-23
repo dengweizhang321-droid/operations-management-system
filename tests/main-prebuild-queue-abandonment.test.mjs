@@ -96,6 +96,18 @@ test('a held or unprobeable rotation lock and a missing terminal keep the dispat
  assert.equal(probes,0);assert.equal(await exists(path.join(f.queue,'abandoned')),false);
  await assert.rejects(drainPreparationQueue(f.queue,{...binding,...noWork,abandonment:{}}),/explicit rotation lock probe/);
 });
+test('abandonment is evaluated only after ordinary preparation admission; a rejected host writes no abandonment record',async t=>{
+ const f=await fixture(t),old=await unknownDispatch(f),order=[];
+ const probe=async()=>{order.push('probe');return true;};
+ const first=await submit(f);
+ await drainPreparationQueue(f.queue,{...binding,...noWork,admitPreparation:async()=>{order.push('admit');throw Error('elevated host cannot prepare');},abandonment:{graceMs:0,probeRotationLock:probe}});
+ const blocked=await result(f,first);assert.equal(blocked.status,'blocked');assert.equal(blocked.blockedDispatchId,old.dispatchId);assert.equal(blocked.error,'Prior dispatch lacks a complete terminal result; no preparation replay');
+ assert.deepEqual(order,['admit'],'no rotation probe and no abandonment write without admission');assert.equal(await exists(path.join(f.queue,'abandoned')),false);
+ assert.deepEqual(await fs.readFile(old.resultFile),old.original);
+ order.length=0;const second=await submit(f);
+ await drainPreparationQueue(f.queue,{...binding,admitPreparation:async()=>{order.push('admit');},abandonment:{graceMs:0,probeRotationLock:probe},observe:observer(f),prepare:prepared});
+ assert.equal(order[0],'admit');assert.equal(order[1],'probe');assert.ok(await exists(abandonFile(f,old)));assert.equal((await result(f,second)).status,'prepared');
+});
 test('tampered, orphan or premature abandonment records and changed unknown bytes fail closed',async t=>{
  const f=await fixture(t),old=await unknownDispatch(f);await submit(f);
  await drainPreparationQueue(f.queue,{...binding,abandonment:{graceMs:0,probeRotationLock:async()=>true},observe:observer(f),prepare:prepared});

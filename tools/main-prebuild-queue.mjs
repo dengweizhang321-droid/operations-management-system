@@ -249,7 +249,11 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
      await invalidateRetirementScope('queue-terminal-write');
      await durableCreate(path.join(directory,'results',item.value.requestId+'.json'),{version:queueVersion,requestId:item.value.requestId,ticketSha256:item.sha256,status,at:new Date().toISOString(),configSha256,bundleSha256,...fields});handled++;
     };
-    if(unresolved&&abandonment){
+    // The irreversible abandonment write needs the same ordinary-user consumer
+    // admission as a preparation; a rejected host leaves the dispatch blocking.
+    let abandonmentAdmitted=false;
+    if(unresolved&&abandonment){try{await admitPreparation();abandonmentAdmitted=true;}catch{abandonmentAdmitted=false;}}
+    if(unresolved&&abandonmentAdmitted){
      // Fail closed: all tickets unknown and unresolved, past deadline+grace, no
      // publication-stage marker, and the native rotation lock is free.
      let abandoned=0;
