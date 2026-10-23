@@ -17,18 +17,46 @@ export async function retirementEntity(file){
  catch(error){if(error.code==='ENOENT')return null;throw error;}
 }
 export async function hashRetirementFile(file){
+ return hashRetirementFileWithBuffer(file);
+}
+// The buffer is private to a single in-flight inventory slot, never caller supplied.
+async function hashRetirementFileWithBuffer(file,reusableBuffer){
  const before=await retirementEntity(file);assert.equal(before?.type,'file','Retirement file absent');const h=await fs.open(file,'r');
- try{const a=await h.stat({bigint:true});assert.equal(String(a.dev),before.dev);assert.equal(String(a.ino),before.ino);const hash=createHash('sha256'),buffer=Buffer.alloc(512*1024);let offset=0;for(;;){const r=await h.read(buffer,0,buffer.length,offset);if(!r.bytesRead)break;hash.update(buffer.subarray(0,r.bytesRead));offset+=r.bytesRead;assert.ok(offset<=4*1024*1024*1024,'Retirement file byte bound');}const b=await h.stat({bigint:true});for(const k of ['dev','ino','size','mtimeNs','ctimeNs'])assert.equal(a[k],b[k],'Retirement file changed');assert.deepEqual(await retirementEntity(file),before,'Retirement file replaced');return {size:offset,sha256:hash.digest('hex'),dev:before.dev,ino:before.ino,nlink:before.nlink,mtimeNs:String(a.mtimeNs),ctimeNs:String(a.ctimeNs)};}
+ try{const a=await h.stat({bigint:true});assert.equal(String(a.dev),before.dev);assert.equal(String(a.ino),before.ino);const hash=createHash('sha256'),buffer=reusableBuffer??Buffer.alloc(512*1024);let offset=0;for(;;){const r=await h.read(buffer,0,buffer.length,offset);if(!r.bytesRead)break;hash.update(buffer.subarray(0,r.bytesRead));offset+=r.bytesRead;assert.ok(offset<=4*1024*1024*1024,'Retirement file byte bound');}const b=await h.stat({bigint:true});for(const k of ['dev','ino','size','mtimeNs','ctimeNs'])assert.equal(a[k],b[k],'Retirement file changed');assert.deepEqual(await retirementEntity(file),before,'Retirement file replaced');return {size:offset,sha256:hash.digest('hex'),dev:before.dev,ino:before.ino,nlink:before.nlink,mtimeNs:String(a.mtimeNs),ctimeNs:String(a.ctimeNs)};}
  finally{await h.close();}
 }
 /** This inventories bytes, not effect ownership. Links need a separate qualified role. */
 export async function inventoryRetirementTree(root,{maxFiles=250000,maxBytes=32*1024**3,allowedHardlinks=[],allowedJunctions=[]}={}){
- root=retirementPath(root);const files=[],directories=[],junctions=[];let bytes=0;
+ root=retirementPath(root);const files=[],directories=[],junctions=[],buffers=[];let bytes=0,pending=[],failure;
+ // Four slots per inventory, including nested directories. Drain before recursion
+ // and directory CAS so buffers cannot alias and no work survives a rejection.
+ async function drain(){await Promise.all(pending);pending=[];if(failure)throw failure;}
+ function schedule(file,relative){
+  assert.ok(files.length<maxFiles,'Retirement file bound');
+  const index=files.length,slot=pending.length;files.push(null);
+  buffers[slot]??=Buffer.alloc(512*1024);
+  const work=hashRetirementFileWithBuffer(file,buffers[slot]).then(item=>{
+   if(item.nlink!=='1')assert.ok(allowedHardlinks.some(x=>x.path===relative&&x.dev===item.dev&&x.ino===item.ino),'Unqualified multi-link retirement file');
+   bytes+=item.size;assert.ok(bytes<=maxBytes,'Retirement tree byte bound');
+   files[index]={path:relative,...item};
+  }).catch(error=>{failure??=error;});
+  pending.push(work);
+ }
  async function walk(dir){const entity=await retirementEntity(dir);assert.equal(entity?.type,'directory');assert.ok(directories.length<maxFiles,'Retirement directory bound');const names=(await fs.readdir(dir)).sort();assert.ok(names.length<=maxFiles,'Retirement child bound');directories.push(path.relative(root,dir).replaceAll('\\','/'));
-  for(const name of names){const file=path.join(dir,name),relative=path.relative(root,file).replaceAll('\\','/'),link=allowedJunctions.find(x=>x.path===relative);if(link){const stat=await fs.lstat(file,{bigint:true});assert.ok(stat.isSymbolicLink(),'Declared dependency junction changed type');assert.equal(String(stat.dev),link.dev);assert.equal(String(stat.ino),link.ino);assert.equal(await fs.readlink(file),link.linkText);junctions.push({...link});continue;}const s=await retirementEntity(file);assert.ok(s,'Retirement member disappeared');if(s.type==='directory')await walk(file);else{assert.equal(s.type,'file');assert.ok(files.length<maxFiles,'Retirement file bound');const item=await hashRetirementFile(file);if(item.nlink!=='1')assert.ok(allowedHardlinks.some(x=>x.path===relative&&x.dev===item.dev&&x.ino===item.ino),'Unqualified multi-link retirement file');bytes+=item.size;assert.ok(bytes<=maxBytes,'Retirement tree byte bound');files.push({path:relative,...item});}}
+  for(const name of names){
+   if(failure)throw failure;
+   const file=path.join(dir,name),relative=path.relative(root,file).replaceAll('\\','/'),link=allowedJunctions.find(x=>x.path===relative);
+   if(link){const stat=await fs.lstat(file,{bigint:true});assert.ok(stat.isSymbolicLink(),'Declared dependency junction changed type');assert.equal(String(stat.dev),link.dev);assert.equal(String(stat.ino),link.ino);assert.equal(await fs.readlink(file),link.linkText);junctions.push({...link});continue;}
+   const s=await retirementEntity(file);assert.ok(s,'Retirement member disappeared');
+   if(failure)throw failure;
+   if(s.type==='directory'){await drain();await walk(file);}
+   else{assert.equal(s.type,'file');schedule(file,relative);if(pending.length===4)await drain();}
+  }
+  await drain();
   assert.deepEqual((await fs.readdir(dir)).sort(),names,'Retirement directory changed');assert.deepEqual(await retirementEntity(dir),entity,'Retirement directory identity changed');
  }
- await walk(root);assert.equal(junctions.length,allowedJunctions.length,'Declared dependency junction absent');return {version:retirementFsVersion,directories,files,junctions,bytes,treeSha256:sha(Buffer.from(canonical({directories,junctions,files:files.map(({path,size,sha256})=>({path,size,sha256}))})))};
+ try{await walk(root);}catch(error){failure??=error;await Promise.all(pending);throw failure;}
+ assert.equal(junctions.length,allowedJunctions.length,'Declared dependency junction absent');return {version:retirementFsVersion,directories,files,junctions,bytes,treeSha256:sha(Buffer.from(canonical({directories,junctions,files:files.map(({path,size,sha256})=>({path,size,sha256}))})))};
 }
 export async function retirementGit(cwd,args,git={}){cwd=retirementPath(cwd);const env={...process.env};for(const key of Object.keys(env))if(/^GIT_/i.test(key))delete env[key];env.GIT_OPTIONAL_LOCKS='0';let executable=git.executable;if(executable){assert.ok(path.isAbsolute(executable));assert.match(git.sha256??'',hex);assert.equal((await hashRetirementFile(executable)).sha256,git.sha256,'Git executable changed');}else{assert.ok(isRetirementChild(os.tmpdir(),cwd),'Pinned absolute Git executable required outside private temporary fixtures');executable='git';}const result=await execute(executable,['-c','core.longpaths=true','-C',cwd,...args],{encoding:'utf8',windowsHide:true,timeout:30000,maxBuffer:2*1024*1024,env});return result.stdout.trimEnd();}
 export function parseRetirementWorktrees(text){
