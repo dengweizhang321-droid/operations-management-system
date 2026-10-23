@@ -44,6 +44,32 @@ Assert-HandoffPhysical ([string]$run.host.entry)
 Assert-HandoffPhysical ([string]$run.host.runner)
 if($PSCommandPath -ine [string]$run.host.runner -or (Get-HandoffDigest $PSCommandPath) -cne [string]$run.host.runnerSha256){throw 'Runner must use its frozen exact path'}
 if((Get-HandoffDigest ([string]$run.host.entry)) -cne [string]$run.host.entrySha256){throw 'Fixed Node host changed'}
+$ownedConsole=$run.PSObject.Properties.Name -ccontains 'console'
+if($ownedConsole){
+ if([string]$run.console.version -cne 'teruisi-handoff-owned-console-v1' -or [string]$run.phase -cnotin @('control-prepare','control-adopt') -or [bool]$run.afterLogon){throw 'Owned console is restricted to fixed control phases'}
+ # The GUI verifies the actual newly created PS before any Add-Type/compiler or Node.
+ $guiPsFile=[IO.Path]::Combine([string]$run.directory,'GUI-PS.json')
+ $guiClock=[Diagnostics.Stopwatch]::StartNew()
+ $guiPs=$null
+ do{
+  if(Test-Path -LiteralPath $guiPsFile){
+   Assert-HandoffPhysical $guiPsFile
+   $guiFrame=$null
+   try{$guiFrame=[IO.File]::ReadAllText($guiPsFile,[Text.UTF8Encoding]::new($false,$true))}catch{
+    $guiReadError=$_.Exception
+    while($null -ne $guiReadError.InnerException){$guiReadError=$guiReadError.InnerException}
+    if($guiReadError -isnot [IO.IOException] -or ($guiReadError.HResult -band 65535) -notin @(32,33)){throw}
+   }
+   if($null -ne $guiFrame -and $guiFrame.EndsWith("`n",[StringComparison]::Ordinal)){
+    if($guiFrame.IndexOf("`n",[StringComparison]::Ordinal) -ne ($guiFrame.Length-1) -or $guiFrame.Contains("`r")){throw 'GUI proof must be one compact JSON line'}
+    $guiPs=$guiFrame|ConvertFrom-Json;break
+   }
+  }
+  if($guiClock.ElapsedMilliseconds -ge 15000){throw 'GUI PS proof unavailable; no replay'}
+  [Threading.Thread]::Sleep(25)
+ }while($true)
+ if([string]$guiPs.version -cne [string]$run.console.version -or [string]$guiPs.runId -cne [string]$run.runId -or [string]$guiPs.runSha256 -cne $RunSha256 -or [int]$guiPs.parent.processId -ne $PID -or $guiPs.strictRoleProven -isnot [bool] -or $guiPs.strictRoleProven){throw 'GUI PS binding changed'}
+}
 # Consume the one-shot before any identity/Explorer wait can fail. No automatic replay.
 foreach($name in @('ATTEMPT.json','STARTED.json','RESULT.json','EXIT.json','PARENT.json','stdout.log','stderr.log')){if(Test-Path -LiteralPath ([IO.Path]::Combine([string]$run.directory,$name))){throw 'Handoff run was previously attempted; no replay'}}
 Write-HandoffCreateOnly ([IO.Path]::Combine([string]$run.directory,'ATTEMPT.json')) @{version='teruisi-preparation-retirement-handoff-v1';runId=[string]$run.runId;runSha256=$RunSha256;phase=[string]$run.phase;pid=$PID;at=[DateTime]::UtcNow.ToString('o')}
@@ -81,7 +107,7 @@ $process.StartInfo.FileName=$Node
 $process.StartInfo.Arguments='"'+[string]$run.host.entry+'" --action execute --run "'+$RunFile+'" --run-sha '+$RunSha256
 $process.StartInfo.WorkingDirectory=[string]$run.directory
 $process.StartInfo.UseShellExecute=$false
-$process.StartInfo.CreateNoWindow=$true
+$process.StartInfo.CreateNoWindow=-not $ownedConsole
 $process.StartInfo.RedirectStandardOutput=$true
 $process.StartInfo.RedirectStandardError=$true
 $process.StartInfo.EnvironmentVariables.Clear()
