@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {execFile,execFileSync,spawn} from 'node:child_process';
 import {promisify} from 'node:util';
+import {createServer} from 'node:net';
 import {createHash,randomUUID} from 'node:crypto';
 import {pathToFileURL,fileURLToPath} from 'node:url';
 import {parseArgs} from 'node:util';
@@ -10,7 +11,7 @@ import {makeReleasePlan} from './release-scope-plan.mjs';
 import {createReleaseProgress} from './publish-main-progress.mjs';
 import {prepareMainSchemaRelease} from './main-schema-release.mjs';
 import {wakePreparationTask,currentPreparationIdentity,assertOrdinaryIdentity} from './main-prebuild-task.mjs';
-import {submitPreparation,drainPreparationQueue,ticketResult,acquireQueueLock} from './main-prebuild-queue.mjs';
+import {submitPreparation,drainPreparationQueue,ticketResult,acquireQueueLock,readPreparationQueueInventory,retiredPreparationPackets,isRetiredPacket,preparationPacketSlot,assertPreparationPacket,inspectPreparationAttempt,defaultAbandonmentGraceMs,nativePreparationFailureVersion} from './main-prebuild-queue.mjs';
 import {readAdoptedControl,assertControlGeneration,controlExecution} from './main-control-dispatch.mjs';
 import {assertRetirementAdmission,withRetirementReadScope,invalidateRetirementReadScope} from './preparation-retirement-admission.mjs';
 
@@ -61,7 +62,7 @@ export async function readLivePublication(config){
  return {mainCommit:commit,source,sourceTree,head:chain.head,chainStateSha256:chain.chainStateSha256,djangoManifestSha256:sha(djangoRaw),completedReceiptPath:receiptPath,resolvedOriginalAttempt:path.resolve(path.dirname(receiptPath))!==ordinaryAttempt};
 }
 
-export async function observeLatestMain(config,{git=gitAt,getLive=readLivePublication,log=()=>{},retirementScope}={}){
+export async function observeLatestMain(config,{git=gitAt,getLive=readLivePublication,log=()=>{},retirementScope,retiredPackets=new Set()}={}){
  await assertRetirementAdmission(config,undefined,{scope:retirementScope});
  log('获取 origin/main；旧任务 completedTask、旧成功回执和旧续接参数不参与目标选择。');
  await invalidateRetirementReadScope(retirementScope,'publisher-fetch');
@@ -74,17 +75,22 @@ export async function observeLatestMain(config,{git=gitAt,getLive=readLivePublic
  if(await exists(path.join(liveAttempt,'STARTED.json'))&&!await exists(path.join(liveAttempt,'SUCCESS.json'))&&!live.resolvedOriginalAttempt)throw Error('当前目标有STARTED但无成功完成，不能把半切换当作已发布');
  log('本次目标 main：'+target+'；当前线上：'+live.mainCommit);
  const name=target.slice(0,12)+'-'+live.head.bindingSha256.slice(0,8)+'-'+live.djangoManifestSha256.slice(0,8);
- return {targetCommit:target,live,packet:path.join(config.releaseDirectory,name)};
+ // A retired packet (failed or abandoned preparation) is never reused; the
+ // same target and predecessor prepare again in the next '-rN' slot.
+ return {targetCommit:target,live,packet:preparationPacketSlot(config.releaseDirectory,name,retiredPackets)};
 }
 export async function prepareLatestMain(config,options={}){
  return prepareLatestMainOnce(config,await observeLatestMain(config,options),options);
 }
-export async function prepareLatestMainOnce(config,selection,{git=gitAt,log=()=>{},makePlan=makeReleasePlan,prepareSchema=prepareMainSchemaRelease,retirementScope}={}){
+export async function prepareLatestMainOnce(config,selection,{git=gitAt,log=()=>{},makePlan=makeReleasePlan,prepareSchema=prepareMainSchemaRelease,retirementScope,retiredPackets}={}){
  const {targetCommit:target,live}=selection;
  assert.match(target,/^[a-f0-9]{40}$/);assert.match(live.mainCommit,/^[a-f0-9]{40}$/);
  await assertRetirementAdmission(config,target,{scope:retirementScope});
  if(target===live.mainCommit)return {status:'already-current',targetCommit:target,currentCommit:live.mainCommit,publicationPerformed:false};
- const name=target.slice(0,12)+'-'+live.head.bindingSha256.slice(0,8)+'-'+live.djangoManifestSha256.slice(0,8);
+ const base=target.slice(0,12)+'-'+live.head.bindingSha256.slice(0,8)+'-'+live.djangoManifestSha256.slice(0,8);
+ // The frozen selection names the base slot or a later '-rN' slot after a retirement.
+ const name=assertPreparationPacket(config.releaseDirectory,base,selection.packet);
+ assert.ok(!isRetiredPacket(retiredPackets,selection.packet),'该准备包已退役，永不再准备或发布；本次未准备');
  const packet=path.join(config.releaseDirectory,name),source=path.join(packet,'source');
  assert.equal(path.resolve(selection.packet),path.resolve(packet),'Frozen packet changed');
  await invalidateRetirementReadScope(retirementScope,'publisher-freeze-source');
@@ -140,19 +146,68 @@ export function publisherEnvironment(environment=process.env,gitDirectory,baseEn
 }
 export async function runPublisher(source,args=[],gitDirectory,baseEnvironment,{deadlineUnixMs}={}){
  const directory=path.resolve(source,'..','invocations');await fs.mkdir(directory,{recursive:true});
- const resultFile=path.join(directory,randomUUID()+'.json'),check=args.includes('--check');
+ const resultFile=path.join(directory,randomUUID()+'.json'),check=args.includes('--check'),prepareOnly=args.includes('--prepare-only');
  await new Promise((resolve,reject)=>{
   const environment=publisherEnvironment(process.env,gitDirectory,baseEnvironment);
   if(deadlineUnixMs!==undefined){assert.ok(Number.isSafeInteger(deadlineUnixMs));environment.TERUISI_PROCESS_DEADLINE_UNIX_MS=String(deadlineUnixMs);}
   const child=spawn(process.execPath,[path.join(source,'tools/publish-main.mjs'),...args,...(check?[]:['--result-file',resultFile])],{cwd:source,env:environment,windowsHide:true,stdio:'inherit'});
-  child.once('error',reject);child.once('exit',(code,signal)=>signal||code!==0?reject(Error('本次目标发布未完成，退出码：'+(code??signal))):resolve());
+  child.once('error',reject);child.once('exit',(code,signal)=>{
+   if(!signal&&code===0)return resolve();
+   const error=Error('本次目标发布未完成，退出码：'+(code??signal));
+   // Only a strictly valid native preparation-failure result is structured;
+   // a missing or invalid one keeps today's plain error (queue 'unknown').
+   if(!prepareOnly)return reject(error);
+   readNativePreparationFailure(resultFile,path.resolve(source,'..')).then(terminal=>{if(terminal)error.preparationTerminal=terminal;reject(error);},()=>reject(error));
+  });
  });
  return check?null:JSON.parse(await fs.readFile(resultFile,'utf8'));
+}
+const sameFile=(left,right)=>path.resolve(left).toLowerCase()===path.resolve(right).toLowerCase();
+/** Validate tools/publish-main.mjs --prepare-only failure result; null unless every field is exact. */
+export async function readNativePreparationFailure(resultFile,packet){
+ try{
+  resultFile=path.resolve(resultFile);packet=path.resolve(packet);
+  if(!sameFile(path.dirname(resultFile),path.join(packet,'invocations'))||!/^[a-f0-9-]{36}\.json$/.test(path.basename(resultFile)))return null;
+  const stat=await fs.lstat(resultFile);if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||stat.size>64*1024)return null;
+  const raw=await fs.readFile(resultFile),value=JSON.parse(raw.toString('utf8'));
+  if(!value||typeof value!=='object'||Array.isArray(value))return null;
+  if(JSON.stringify(Object.keys(value).sort())!==JSON.stringify(['error','failureReceipt','mainCommit','maintenanceStarted','phase','publicationPerformed','publicationStarted','status','version']))return null;
+  if(value.version!==nativePreparationFailureVersion||value.status!=='preparation-failed'||value.publicationPerformed!==false||value.publicationStarted!==false||value.maintenanceStarted!==false)return null;
+  if(typeof value.phase!=='string'||!value.phase.length||value.phase.length>200||typeof value.error!=='string'||value.error.length>1600)return null;
+  let target=null;try{target=JSON.parse(await fs.readFile(path.join(packet,'main-release-request.json'),'utf8')).mainCommit;}catch{target=null;}
+  if(typeof target!=='string'||!/^[a-f0-9]{40}$/.test(target))target=null;
+  if(value.mainCommit!==null&&(target===null||value.mainCommit!==target))return null;
+  const receipt=value.failureReceipt;
+  if(receipt!==null){
+   if(!receipt||typeof receipt!=='object'||Array.isArray(receipt)||JSON.stringify(Object.keys(receipt).sort())!=='["path","sha256"]'||target===null)return null;
+   if(typeof receipt.path!=='string'||!path.isAbsolute(receipt.path)||!sameFile(path.dirname(receipt.path),path.join(packet,'publish-'+target.slice(0,12),'preparation')))return null;
+   if(!/^FAILED-[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\.json$/.test(path.basename(receipt.path))||typeof receipt.sha256!=='string'||!/^[a-f0-9]{64}$/.test(receipt.sha256))return null;
+   if(sha(await fs.readFile(receipt.path))!==receipt.sha256)return null;
+  }
+  return {kind:'native-preparation-failed',resultFile,resultSha256:sha(raw),phase:value.phase};
+ }catch{return null;}
+}
+export const rotationLockPipe='\\\\.\\pipe\\TERUISI.Worker.ReleaseRotation.v1';
+/** True only when the native rotation lock could be taken and released now. */
+export function probeRotationLock(pipe=rotationLockPipe){
+ return new Promise(resolve=>{
+  const server=createServer(socket=>socket.destroy());
+  server.once('error',()=>resolve(false));
+  try{server.listen(pipe,()=>server.close(error=>resolve(!error)));}catch{resolve(false);}
+ });
+}
+/** Read-only retired packet set for check/deploy; empty without a v2 queue. */
+export async function readRetiredPackets(config){
+ const directory=path.join(config.stateDirectory,'prebuild-queue-v2');
+ if(!await exists(path.join(directory,'dispatches')))return new Set();
+ return retiredPreparationPackets(await readPreparationQueueInventory(directory));
 }
 
 // An advisory check before spawning the native publisher. The native engines
 // still own the rotation lock and revalidate every artifact before deployment.
-export async function inspectMainPreparation(prepared,{git=gitAt}={}){
+export async function inspectMainPreparation(prepared,{git=gitAt,retiredPackets}={}){
+ // A failed or abandoned preparation packet is retired: never verified, never deployed.
+ if(isRetiredPacket(retiredPackets,prepared.packet))throw Error('该准备包已退役（准备失败或结果未知后另起新包），永不用于发布；本次未发布：'+prepared.packet);
  const {assertFrozenSource}=await import('./frozen-main-source.mjs');
  const identity=await assertFrozenSource({source:prepared.source,mainCommit:prepared.targetCommit,sourceTree:prepared.request.sourceTree},{git});
  const attempt=path.join(prepared.packet,'publish-'+prepared.targetCommit.slice(0,12));
@@ -167,8 +222,8 @@ export async function inspectMainPreparation(prepared,{git=gitAt}={}){
  return {status:'ready-for-native-verification',mainCommit:prepared.targetCommit,publicationPerformed:false,preparationFile:file};
 }
 
-export async function deployReadyMain(prepared,{progress,run=runPublisher,git=gitAt,gitDirectory,baseEnvironment,retirementScope}={}){
- const readiness=await inspectMainPreparation(prepared,{git});
+export async function deployReadyMain(prepared,{progress,run=runPublisher,git=gitAt,gitDirectory,baseEnvironment,retirementScope,retiredPackets}={}){
+ const readiness=await inspectMainPreparation(prepared,{git,retiredPackets});
  if(readiness.status==='not-ready'){
   progress.log('========== 发布包尚未就绪，本次未发布 ==========');
   progress.log('目标main：'+prepared.targetCommit+'。原生制品尚未完成；准备成功后由发布负责人继续。');
@@ -210,25 +265,29 @@ export async function assertSelectedDependencyCache(config,selection,{readLock=a
  const raw=await readLock();assert.ok(Buffer.isBuffer(raw),'Dependency admission requires exact Git object bytes');
  assert.equal(sha(raw),config.cacheLockSha256,'Selected main dependency lock has no matching offline cache; native preparation was not dispatched');
 }
-export async function drainLatestMainQueue(configFile,{binding,progress,observe=observeLatestMain,once=prepareLatestMainOnce,run=runPublisher,inspect=inspectMainPreparation,assertGeneration=assertControlGeneration,admit=assertOrdinaryPreparationContext,assertConsumerIdentity=assertPreparationConsumer,admitSelected=async(config,selection)=>{await assertSelectedPreparationSupported(config,selection);await assertSelectedDependencyCache(config,selection);},retirementScope}={}){
+export async function drainLatestMainQueue(configFile,{binding,progress,observe=observeLatestMain,once=prepareLatestMainOnce,run=runPublisher,inspect=inspectMainPreparation,assertGeneration=assertControlGeneration,admit=assertOrdinaryPreparationContext,assertConsumerIdentity=assertPreparationConsumer,admitSelected=async(config,selection)=>{await assertSelectedPreparationSupported(config,selection);await assertSelectedDependencyCache(config,selection);},probeRotation=probeRotationLock,abandonmentGraceMs=defaultAbandonmentGraceMs,retirementScope}={}){
  binding??=await preparationControlBinding(configFile);
  const config=binding.config,directory=path.join(config.stateDirectory,'prebuild-queue-v2');
- if(retirementScope===undefined)return withRetirementReadScope(config,scope=>drainLatestMainQueue(configFile,{binding,progress,observe,once,run,inspect,assertGeneration,admit,assertConsumerIdentity,admitSelected,retirementScope:scope}));
+ if(retirementScope===undefined)return withRetirementReadScope(config,scope=>drainLatestMainQueue(configFile,{binding,progress,observe,once,run,inspect,assertGeneration,admit,assertConsumerIdentity,admitSelected,probeRotation,abandonmentGraceMs,retirementScope:scope}));
+ // Consumer code that fails before the native process starts is a structured
+ // rejection; native failures carry only what runPublisher validated.
+ const beforeNative=async(stage,operation)=>{try{return await operation();}catch(error){if(error&&typeof error==='object')error.preparationTerminal={kind:'rejected-before-native',stage};throw error;}};
  return drainPreparationQueue(directory,{retirementScope,invalidateRetirementScope:reason=>invalidateRetirementReadScope(retirementScope,reason),configSha256:binding.state.configSha256,bundleSha256:binding.state.bundleSha256,
-  assertGeneration:async()=>{await assertGeneration(binding);await assertRetirementAdmission(config,undefined,{scope:retirementScope});},admitPreparation:async()=>{await assertConsumerIdentity(binding);await admit(config);},admitSelectedPreparation:async selection=>{await assertRetirementAdmission(config,selection.targetCommit,{scope:retirementScope});await admitSelected(config,selection);},observe:()=>observe(config,{retirementScope,log:message=>progress?.log(message)}),
+  abandonment:{graceMs:abandonmentGraceMs,probeRotationLock:()=>probeRotation(),inspectAttempt:inspectPreparationAttempt},
+  assertGeneration:async()=>{await assertGeneration(binding);await assertRetirementAdmission(config,undefined,{scope:retirementScope});},admitPreparation:async()=>{await assertConsumerIdentity(binding);await admit(config);},admitSelectedPreparation:async selection=>{await assertRetirementAdmission(config,selection.targetCommit,{scope:retirementScope});await admitSelected(config,selection);},observe:({retiredPackets}={})=>observe(config,{retirementScope,retiredPackets,log:message=>progress?.log(message)}),
   prepare:async(selection,dispatch,reusablePreparation)=>{
-   const prepared=await once(config,selection,{retirementScope,log:message=>progress?.log(message)});
+   const prepared=await beforeNative('freeze-source',()=>once(config,selection,{retirementScope,log:message=>progress?.log(message)}));
    if(['already-current','non-production'].includes(prepared.status))return prepared;
-   await writeMainPreparationPointer(config,prepared,'request-frozen',{retirementScope});
+   await beforeNative('pointer-write',()=>writeMainPreparationPointer(config,prepared,'request-frozen',{retirementScope}));
    // PREPARED remains native evidence. The queue never turns its own ticket
    // receipt into artifact integrity or deployment authorization.
-   const existing=await inspect(prepared);
-   if(existing.status==='ready-for-native-verification'&&reusablePreparation){
+   const existing=await beforeNative('inspect',()=>inspect(prepared));
+   if(existing.status==='ready-for-native-verification'&&reusablePreparation)return beforeNative('reuse-check',async()=>{
     assert.equal(path.resolve(existing.preparationFile),path.resolve(reusablePreparation.preparationFile));
     assert.equal(sha(await fs.readFile(existing.preparationFile)),reusablePreparation.preparationSha256,'原生准备回执变化，不能复用原完成结果');
     await writeMainPreparationPointer(config,prepared,'prepared',{retirementScope});
     return reusablePreparation;
-   }
+   });
    await invalidateRetirementReadScope(retirementScope,'publisher-native-prepare');
    const result=await run(prepared.source,['--prepare-only'],config.gitDirectory,config.publisherBaseEnvironment,{deadlineUnixMs:dispatch.deadlineUnixMs});
    assert.equal(result.mainCommit,prepared.targetCommit);assert.equal(result.status,'prepared-only');assert.equal(result.publicationPerformed,false);
@@ -290,7 +349,9 @@ async function runLatestMainCliOperation(values,config,binding,retirementScope){
    releaseQueue=await acquireMainPublicationQueue(binding);
   }
   progress.begin(values.check?'检查最新main（不部署）':'准备本次最新main');
-  const prepared=await prepareLatestMain(config,{retirementScope,log:message=>progress.log(message)});
+  // Same retired packet set as the consumer; deploy reads it under the queue lock.
+  const retiredPackets=await readRetiredPackets(config);
+  const prepared=await prepareLatestMain(config,{retirementScope,retiredPackets,log:message=>progress.log(message)});
   progress.complete();
   if(prepared.status==='already-current'){
    progress.log('当前线上已经是目标main '+prepared.targetCommit+'；本次没有执行发布。');
@@ -298,8 +359,8 @@ async function runLatestMainCliOperation(values,config,binding,retirementScope){
   }
   if(prepared.status==='non-production'){progress.log('最新main没有生产载荷变更，本次未执行发布。');console.log(JSON.stringify(prepared));return;}
   await writeMainPreparationPointer(config,prepared,'request-frozen',{retirementScope});
-  if(values.check){await invalidateRetirementReadScope(retirementScope,'publisher-native-check');await runPublisher(prepared.source,['--check'],config.gitDirectory,config.publisherBaseEnvironment);const readiness=await inspectMainPreparation(prepared);progress.log('检查通过：有新main待发布；'+(readiness.status==='not-ready'?'发布包尚未准备完成':'已有准备记录，正式发布时仍需原生复验')+'；本次未打包、未部署。');console.log(JSON.stringify({status:prepared.status,preparationStatus:readiness.status,targetCommit:prepared.targetCommit,currentCommit:prepared.currentCommit,packet:prepared.packet,source:prepared.source,components:prepared.request.components,migrate:prepared.request.migrate,publicationPerformed:false}));return;}
-  const result=await deployReadyMain(prepared,{progress,retirementScope,gitDirectory:config.gitDirectory,baseEnvironment:config.publisherBaseEnvironment});
+  if(values.check){await invalidateRetirementReadScope(retirementScope,'publisher-native-check');await runPublisher(prepared.source,['--check'],config.gitDirectory,config.publisherBaseEnvironment);const readiness=await inspectMainPreparation(prepared,{retiredPackets});progress.log('检查通过：有新main待发布；'+(readiness.status==='not-ready'?'发布包尚未准备完成':'已有准备记录，正式发布时仍需原生复验')+'；本次未打包、未部署。');console.log(JSON.stringify({status:prepared.status,preparationStatus:readiness.status,targetCommit:prepared.targetCommit,currentCommit:prepared.currentCommit,packet:prepared.packet,source:prepared.source,components:prepared.request.components,migrate:prepared.request.migrate,publicationPerformed:false}));return;}
+  const result=await deployReadyMain(prepared,{progress,retirementScope,retiredPackets,gitDirectory:config.gitDirectory,baseEnvironment:config.publisherBaseEnvironment});
   if(result.status==='not-ready'){process.exitCode=2;return;}
   assert.equal(result.mainCommit,prepared.targetCommit);
   if(result.status==='already-current'){progress.log('当前线上已经是目标main '+prepared.targetCommit+'；本次没有执行发布。');return;}

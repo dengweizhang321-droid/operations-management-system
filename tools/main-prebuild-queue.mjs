@@ -8,6 +8,16 @@ import {readPreparationResolution,resolutionForbidsTargetReplay} from './prepara
 
 const hex=/^[a-f0-9]{64}$/,id=/^[a-f0-9-]{36}$/,commit=/^[a-f0-9]{40}$/;
 export const queueVersion='teruisi-main-prebuild-queue-v2';
+// S05d: a preparation-stage outcome never blocks the queue forever. A known
+// rejection is a dispatched 'failed' terminal bound to its evidence; an old
+// preparation-stage unknown keeps its bytes and gets a separate abandonment
+// record retiring its packet. Publication-stage evidence always keeps blocking.
+export const abandonmentVersion='teruisi-preparation-abandonment-v1';
+export const nativePreparationFailureVersion='teruisi-native-preparation-failure-v1';
+export const publicationMarkers=['STARTED.json','SUCCESS.json','FAILED.json','WorkerApply-started.json','maintenance-first-FAILED.json'];
+export const defaultAbandonmentGraceMs=15*60*1000;
+const preparationTerminalKinds=['native-preparation-failed','rejected-before-native'],preparationAttemptMembers=['preparation','LEASE-WARNING.json'],maxPacketSlots=64;
+const packetKey=packet=>path.resolve(packet).toLowerCase();
 export const sha=raw=>createHash('sha256').update(raw).digest('hex');
 const ordered=value=>Array.isArray(value)?value.map(ordered):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(k=>[k,ordered(value[k])])):value;
 export const canonical=value=>JSON.stringify(ordered(value))+'\n';
@@ -40,6 +50,67 @@ export async function submitPreparation(directory,{origin,observedTarget=null,co
  return {requestId,ticketSha256,ticket};
 }
 const entries=async(directory,leaf)=>{const names=await fs.readdir(path.join(directory,leaf));assert.ok(names.every(name=>id.test(name.slice(0,-5))&&name.endsWith('.json')),'Unknown or partial queue artifact');return names.sort();};
+const optionalEntries=async(directory,leaf)=>{try{return await entries(directory,leaf);}catch(error){if(error.code==='ENOENT')return [];throw error;}};
+/** Closed set of structured preparation terminals; extra keys or kinds fail closed. */
+export async function validatePreparationTerminal(value,dispatch){
+ assert.ok(value&&typeof value==='object'&&!Array.isArray(value),'Preparation terminal must be an object');
+ assert.ok(preparationTerminalKinds.includes(value.kind),'Unknown preparation terminal kind');
+ if(value.kind==='rejected-before-native'){assert.deepEqual(Object.keys(value).sort(),['kind','stage'],'Preparation terminal schema changed');assert.ok(typeof value.stage==='string'&&/^[a-z][a-z0-9-]{0,63}$/.test(value.stage),'Preparation rejection stage invalid');return value;}
+ assert.deepEqual(Object.keys(value).sort(),['kind','phase','resultFile','resultSha256'],'Preparation terminal schema changed');
+ assert.ok(typeof value.phase==='string'&&value.phase.length>0&&value.phase.length<=200,'Native failure phase invalid');
+ assert.ok(typeof value.resultFile==='string'&&path.isAbsolute(value.resultFile)&&/^[a-f0-9-]{36}\.json$/.test(path.basename(value.resultFile)),'Native failure result path invalid');
+ assert.equal(path.dirname(packetKey(value.resultFile)),packetKey(path.join(dispatch.selection.packet,'invocations')),'Native failure result is outside the dispatched packet');
+ assert.ok(hex.test(value.resultSha256),'Native failure result digest invalid');
+ const stat=await fs.lstat(value.resultFile);assert.ok(stat.isFile()&&!stat.isSymbolicLink()&&stat.size<=64*1024,'Unsafe native failure result');
+ assert.equal(sha(await fs.readFile(value.resultFile)),value.resultSha256,'Native failure result changed');
+ return value;
+}
+/** Read-only: names in the attempt directory besides preparation evidence are publication-stage markers. */
+export async function inspectPreparationAttempt(dispatch){
+ const attempt=path.join(dispatch.selection.packet,'publish-'+dispatch.selectedTarget.slice(0,12));let names;
+ try{const stat=await fs.lstat(attempt);if(!stat.isDirectory()||stat.isSymbolicLink())return {markers:['<attempt-not-directory>'],preparedReceiptPresent:false};names=await fs.readdir(attempt);}
+ catch(error){if(error.code==='ENOENT')return {markers:[],preparedReceiptPresent:false};throw error;}
+ let preparedReceiptPresent=false;
+ if(names.includes('preparation'))try{await fs.lstat(path.join(attempt,'preparation','PREPARED.json'));preparedReceiptPresent=true;}catch(error){if(error.code!=='ENOENT')throw error;}
+ return {markers:names.filter(name=>!preparationAttemptMembers.includes(name)).sort(),preparedReceiptPresent};
+}
+function validateAbandonment(value,name,dispatchRead,terminals){
+ const dispatch=dispatchRead.value;
+ assert.deepEqual(Object.keys(value).sort(),['at','basis','consumePermitted','dispatchId','dispatchSha256','originalResultSha256','packet','selectedTarget','version','winnerRequestId'],'Preparation abandonment schema changed');
+ assert.equal(value.version,abandonmentVersion);assert.equal(value.dispatchId+'.json',name);assert.equal(value.dispatchId,dispatch.dispatchId);
+ assert.equal(value.dispatchSha256,dispatchRead.sha256,'Abandoned dispatch changed');assert.equal(value.winnerRequestId,dispatch.requestId);
+ assert.equal(value.selectedTarget,dispatch.selectedTarget);assert.equal(value.packet,dispatch.selection.packet);assert.equal(value.consumePermitted,false,'An abandoned packet is never consumed');
+ const basis=value.basis;assert.ok(basis&&typeof basis==='object'&&!Array.isArray(basis));
+ assert.deepEqual(Object.keys(basis).sort(),['deadlineUnixMs','graceMs','preparedReceiptPresent','publicationMarkersChecked','rotationLockFree'],'Preparation abandonment basis changed');
+ assert.equal(basis.deadlineUnixMs,dispatch.deadlineUnixMs);assert.ok(Number.isSafeInteger(basis.graceMs)&&basis.graceMs>=0);
+ assert.deepEqual(basis.publicationMarkersChecked,publicationMarkers);assert.equal(typeof basis.preparedReceiptPresent,'boolean');assert.equal(basis.rotationLockFree,true);
+ const at=Date.parse(value.at);assert.ok(Number.isFinite(at)&&at>=dispatch.deadlineUnixMs+basis.graceMs,'Abandonment precedes its eligibility');
+ for(const ref of dispatch.tickets){const terminal=terminals.get(ref.requestId);assert.ok(terminal&&terminal.status==='unknown'&&terminal.dispatchId===dispatch.dispatchId,'Only an all-unknown dispatch can be abandoned');}
+ assert.equal(sha(Buffer.from(canonical(terminals.get(dispatch.requestId)))),value.originalResultSha256,'Abandoned unknown result changed');
+}
+/** Packets of failed-dispatched and abandoned dispatches are never prepared or consumed again. */
+export function retiredPreparationPackets(inventory){
+ const retired=new Set();
+ for(const {value:dispatch} of inventory.dispatches){
+  const failed=dispatch.tickets.some(ref=>{const terminal=inventory.terminals.get(ref.requestId);return terminal?.status==='failed'&&terminal.preparationTerminal!==undefined;});
+  if(failed||inventory.abandonments?.has(dispatch.dispatchId))retired.add(packetKey(dispatch.selection.packet));
+ }
+ return retired;
+}
+export function isRetiredPacket(retired,packet){return Boolean(retired?.has(packetKey(packet)));}
+/** '<target12>-<binding8>-<django8>' unless retired, then '-r2'...'-r64'. */
+export function preparationPacketSlot(releaseDirectory,base,retired=new Set()){
+ assert.match(base,/^[a-f0-9]{12}-[a-f0-9]{8}-[a-f0-9]{8}$/,'Packet base invalid');assert.ok(path.isAbsolute(releaseDirectory),'Absolute release directory required');
+ for(let slot=1;slot<=maxPacketSlots;slot++){const packet=path.join(releaseDirectory,slot===1?base:base+'-r'+slot);if(!isRetiredPacket(retired,packet))return packet;}
+ throw Error('同一目标与前驱的准备包已退役 '+maxPacketSlots+' 次，请人工核查；本次未准备');
+}
+/** The packet must be the base slot or a later '-rN' slot of the same base, directly under releaseDirectory. */
+export function assertPreparationPacket(releaseDirectory,base,packet){
+ assert.equal(packetKey(path.dirname(path.resolve(packet))),packetKey(releaseDirectory),'Frozen packet changed');
+ const match=/^([a-f0-9]{12}-[a-f0-9]{8}-[a-f0-9]{8})(?:-r([1-9][0-9]?))?$/.exec(path.basename(path.resolve(packet)));
+ assert.ok(match&&match[1]===base&&(match[2]===undefined||(Number(match[2])>=2&&Number(match[2])<=maxPacketSlots)),'Frozen packet changed');
+ return path.basename(path.resolve(packet));
+}
 function validateTicket(value,name){
  assert.deepEqual(Object.keys(value).sort(),['bundleSha256','configSha256','mode','observedTarget','origin','queuedAt','requestId','version']);
  assert.equal(value.version,queueVersion);assert.equal(value.requestId+'.json',name);assert.ok(id.test(value.requestId));
@@ -65,12 +136,13 @@ export async function ticketResult(directory,requestId,ticketSha256){
   const refs=['dispatchId','dispatchSha256','selectedTarget','winnerRequestId'];
   const admissionBlocked=value.status==='blocked'&&value.admission==='ordinary-user-before-dispatch-v1';
   const incompatibleBlocked=value.status==='blocked'&&value.admission==='incompatible-generation-before-dispatch-v1';
-  const extra=incompatibleBlocked?['admission','rejectedBy','error']:admissionBlocked?['admission','error']:value.status==='blocked'?['blockedDispatchId','blockedDispatchSha256','error']:value.status==='failed'?['error']:value.status==='unknown'?[...refs,'error']:value.status==='superseded'?refs:[...refs,'nativeResult'];
+  const dispatchedFailed=value.status==='failed'&&Object.hasOwn(value,'dispatchId');
+  const extra=incompatibleBlocked?['admission','rejectedBy','error']:admissionBlocked?['admission','error']:value.status==='blocked'?['blockedDispatchId','blockedDispatchSha256','error']:dispatchedFailed?[...refs,'error','preparationTerminal']:value.status==='failed'?['error']:value.status==='unknown'?[...refs,'error']:value.status==='superseded'?refs:[...refs,'nativeResult'];
   assert.deepEqual(Object.keys(value).sort(),[...base,...extra].sort(),'Queue terminal schema is incomplete or changed');
   assert.ok(hex.test(value.configSha256)&&hex.test(value.bundleSha256)&&Number.isFinite(Date.parse(value.at)));
   const ticket=await readQueueObject(path.join(directory,'tickets',requestId+'.json'));validateTicket(ticket.value,requestId+'.json');
   assert.equal(ticket.sha256,ticketSha256);assert.equal(ticket.value.configSha256,value.configSha256);assert.equal(ticket.value.bundleSha256,value.bundleSha256);
-  if(value.status==='failed'){assert.equal(typeof value.error,'string');return value;}
+  if(value.status==='failed'&&!dispatchedFailed){assert.equal(typeof value.error,'string');return value;}
   if(admissionBlocked||incompatibleBlocked){
    assert.equal(typeof value.error,'string');
    if(incompatibleBlocked){assert.deepEqual(Object.keys(value.rejectedBy).sort(),['bundleSha256','configSha256']);assert.ok(hex.test(value.rejectedBy.configSha256)&&hex.test(value.rejectedBy.bundleSha256));assert.ok(value.rejectedBy.configSha256!==value.configSha256||value.rejectedBy.bundleSha256!==value.bundleSha256,'Generation rejection must identify a different consumer generation');}
@@ -89,6 +161,7 @@ export async function ticketResult(directory,requestId,ticketSha256){
   assert.equal(dispatch.configSha256,value.configSha256);assert.equal(dispatch.bundleSha256,value.bundleSha256);
   assert.ok(dispatch.tickets.some(ref=>ref.requestId===requestId&&ref.ticketSha256===ticketSha256),'Terminal belongs to another dispatch');
   if(value.status==='unknown'){assert.equal(typeof value.error,'string');return value;}
+  if(dispatchedFailed){assert.equal(typeof value.error,'string');await validatePreparationTerminal(value.preparationTerminal,dispatch);return value;}
   if(value.status==='superseded'){assert.ok(ticket.value.observedTarget&&ticket.value.observedTarget!==value.selectedTarget);return value;}
   const result=value.nativeResult;assert.ok(result&&typeof result==='object'&&!Array.isArray(result));
   assert.equal(result.mainCommit??result.targetCommit,value.selectedTarget);assert.equal(result.publicationPerformed,false);
@@ -125,11 +198,17 @@ export async function readPreparationQueueInventory(directory){
  const tickets=await allTickets(directory),byId=new Map(tickets.map(item=>[item.value.requestId,item])),dispatches=[],referenced=new Set(),terminals=new Map();
  for(const name of await entries(directory,'dispatches')){const read=await readQueueObject(path.join(directory,'dispatches',name));validateDispatch(read.value,name);for(const ref of read.value.tickets){const item=byId.get(ref.requestId);assert.ok(item&&item.sha256===ref.ticketSha256,'Dispatch ticket binding changed');assert.equal(ref.observedTarget,item.value.observedTarget,'Dispatch observed target changed');assert.equal(read.value.configSha256,item.value.configSha256,'Dispatch ticket configuration differs');assert.equal(read.value.bundleSha256,item.value.bundleSha256,'Dispatch ticket code generation differs');referenced.add(ref.requestId);}dispatches.push(read);}
  for(const name of await entries(directory,'results')){const requestId=name.slice(0,-5),item=byId.get(requestId);assert.ok(item,'Orphan queue terminal');const terminal=await ticketResult(directory,requestId,item.sha256);assert.ok(terminal);terminals.set(requestId,terminal);}
- return {tickets,dispatches,referenced,terminals};
+ const abandonments=new Map();
+ for(const name of await optionalEntries(directory,'abandoned')){const dispatch=dispatches.find(read=>read.value.dispatchId+'.json'===name);assert.ok(dispatch,'Orphan preparation abandonment');const read=await readQueueObject(path.join(directory,'abandoned',name));validateAbandonment(read.value,name,dispatch,terminals);abandonments.set(read.value.dispatchId,{...read,name});}
+ return {tickets,dispatches,referenced,terminals,abandonments};
 }
 /** observe may fetch/read only. prepare receives its exact frozen selection. */
-export async function drainPreparationQueue(directory,{configSha256,bundleSha256,observe,prepare,assertGeneration=async()=>{},afterUnlock=async()=>{},onStage=async()=>{},admitPreparation=async()=>{},admitSelectedPreparation=async()=>{},retirementScope,invalidateRetirementScope}){
- assert.ok(hex.test(configSha256)&&hex.test(bundleSha256));if(retirementScope!==undefined)assert.equal(typeof invalidateRetirementScope,'function','A retirement scope requires an explicit invalidation callback');invalidateRetirementScope??=async()=>{};await invalidateRetirementScope('queue-initialize');await initializeQueue(directory);let handled=0,firstIteration=true;
+export async function drainPreparationQueue(directory,{configSha256,bundleSha256,observe,prepare,assertGeneration=async()=>{},afterUnlock=async()=>{},onStage=async()=>{},admitPreparation=async()=>{},admitSelectedPreparation=async()=>{},retirementScope,invalidateRetirementScope,abandonment}){
+ assert.ok(hex.test(configSha256)&&hex.test(bundleSha256));if(retirementScope!==undefined)assert.equal(typeof invalidateRetirementScope,'function','A retirement scope requires an explicit invalidation callback');invalidateRetirementScope??=async()=>{};
+ // Abandonment is evaluated only when the consumer passes it explicitly.
+ if(abandonment!==undefined)assert.ok(abandonment&&typeof abandonment.probeRotationLock==='function','Abandonment requires an explicit rotation lock probe');
+ const graceMs=abandonment?.graceMs??defaultAbandonmentGraceMs,inspectAttempt=abandonment?.inspectAttempt??inspectPreparationAttempt,now=abandonment?.now??Date.now;assert.ok(Number.isSafeInteger(graceMs)&&graceMs>=0,'Abandonment grace invalid');
+ await invalidateRetirementScope('queue-initialize');await initializeQueue(directory);let handled=0,firstIteration=true;
  for(;;){
   const unlock=await acquireQueueLock(directory);if(!unlock)return {status:'queued',handled};
   try{
@@ -148,7 +227,7 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
     // Any dispatched operation lacking all terminal receipts blocks new work.
     // Partial/invalid dispatch files block too; they are never treated as absent.
     let unresolved=null;
-    const resolvedDispatches=new Map();
+    const resolvedDispatches=new Map(),unresolvedDispatches=new Map();
     for(const name of await entries(directory,'dispatches')){
      const read=await readQueueObject(path.join(directory,'dispatches',name)),dispatch=read.value;
      validateDispatch(dispatch,name);
@@ -156,9 +235,13 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
       assert.ok(id.test(ref.requestId)&&hex.test(ref.ticketSha256));
       const original=tickets.find(t=>t.value.requestId===ref.requestId);assert.ok(original&&original.sha256===ref.ticketSha256,'Dispatch ticket binding changed');
       const terminal=await ticketResult(directory,ref.requestId,ref.ticketSha256);
+      // Structured preparation failures and abandoned preparation unknowns
+      // retire their packet instead of blocking every later preparation.
+      if(terminal?.status==='failed'&&terminal.preparationTerminal!==undefined)continue;
+      if(terminal?.status==='unknown'&&inventory.abandonments.has(dispatch.dispatchId))continue;
       if(!terminal||['unknown','failed','blocked'].includes(terminal.status)){
        if(!resolvedDispatches.has(dispatch.dispatchId))resolvedDispatches.set(dispatch.dispatchId,!!terminal&&await readPreparationResolution(directory,dispatch,inventory.terminals.get(dispatch.requestId),{retirementScope}));
-       if(!terminal||!resolvedDispatches.get(dispatch.dispatchId))unresolved={dispatch,sha256:read.sha256};
+       if(!terminal||!resolvedDispatches.get(dispatch.dispatchId)){unresolved={dispatch,sha256:read.sha256};unresolvedDispatches.set(dispatch.dispatchId,unresolved);}
       }
      }
     }
@@ -166,6 +249,24 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
      await invalidateRetirementScope('queue-terminal-write');
      await durableCreate(path.join(directory,'results',item.value.requestId+'.json'),{version:queueVersion,requestId:item.value.requestId,ticketSha256:item.sha256,status,at:new Date().toISOString(),configSha256,bundleSha256,...fields});handled++;
     };
+    if(unresolved&&abandonment){
+     // Fail closed: all tickets unknown and unresolved, past deadline+grace, no
+     // publication-stage marker, and the native rotation lock is free.
+     let abandoned=0;
+     for(const {dispatch,sha256} of unresolvedDispatches.values()){
+      if(!dispatch.tickets.every(ref=>{const terminal=inventory.terminals.get(ref.requestId);return terminal?.status==='unknown'&&terminal.dispatchId===dispatch.dispatchId;}))continue;
+      if(resolvedDispatches.get(dispatch.dispatchId)||now()<dispatch.deadlineUnixMs+graceMs)continue;
+      let attempt;try{attempt=await inspectAttempt(dispatch);}catch{continue;}
+      if(!attempt||!Array.isArray(attempt.markers)||attempt.markers.length||typeof attempt.preparedReceiptPresent!=='boolean')continue;
+      let free=false;try{free=await abandonment.probeRotationLock()===true;}catch{free=false;}if(!free)continue;
+      await invalidateRetirementScope('queue-abandonment-write');await fs.mkdir(path.join(directory,'abandoned'),{recursive:true});
+      await durableCreate(path.join(directory,'abandoned',dispatch.dispatchId+'.json'),{version:abandonmentVersion,dispatchId:dispatch.dispatchId,dispatchSha256:sha256,winnerRequestId:dispatch.requestId,selectedTarget:dispatch.selectedTarget,packet:dispatch.selection.packet,
+       originalResultSha256:sha(Buffer.from(canonical(inventory.terminals.get(dispatch.requestId)))),at:new Date(now()).toISOString(),
+       basis:{deadlineUnixMs:dispatch.deadlineUnixMs,graceMs,publicationMarkersChecked:publicationMarkers,preparedReceiptPresent:attempt.preparedReceiptPresent,rotationLockFree:true},consumePermitted:false});
+      abandoned++;
+     }
+     if(abandoned)continue;
+    }
     if(unresolved){
      for(const item of pending)await finish(item,'blocked',{blockedDispatchId:unresolved.dispatch.dispatchId,blockedDispatchSha256:unresolved.sha256,error:'Prior dispatch lacks a complete terminal result; no preparation replay'});
      break;
@@ -173,7 +274,8 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
     try{await admitPreparation();}
     catch(error){for(const item of pending)await finish(item,'blocked',{admission:'ordinary-user-before-dispatch-v1',error:String(error.message)});break;}
     let selection;
-    try{await onStage('before-observe');selection=await observe();await onStage('after-observe');await admitSelectedPreparation(selection);for(const prior of inventory.dispatches){if(resolvedDispatches.get(prior.value.dispatchId)&&resolutionForbidsTargetReplay(prior.value.dispatchId))assert.notEqual(selection.targetCommit,prior.value.selectedTarget,'Resolved original target cannot be replayed');}}
+    const retiredPackets=retiredPreparationPackets(inventory);
+    try{await onStage('before-observe');selection=await observe({retiredPackets});await onStage('after-observe');assert.ok(!(typeof selection?.packet==='string'&&isRetiredPacket(retiredPackets,selection.packet)),'Frozen packet is retired; it is never prepared or consumed again');await admitSelectedPreparation(selection);for(const prior of inventory.dispatches){if(resolvedDispatches.get(prior.value.dispatchId)&&resolutionForbidsTargetReplay(prior.value.dispatchId))assert.notEqual(selection.targetCommit,prior.value.selectedTarget,'Resolved original target cannot be replayed');}}
     catch(error){for(const item of pending)await finish(item,'failed',{error:String(error.message)});continue;}
     assert.ok(commit.test(selection.targetCommit)&&selection.live&&commit.test(selection.live.mainCommit));
     assert.ok(selection.live.head&&hex.test(selection.live.head.bindingSha256)&&hex.test(selection.live.djangoManifestSha256)&&hex.test(selection.live.chainStateSha256),'Observed predecessor is incomplete');
@@ -198,11 +300,18 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
      assert.equal(result.publicationPerformed,false,'Queue cannot deploy');
      assert.ok(['prepared-only','already-current','non-production'].includes(result.status),'Native preparation did not complete');
     }catch(failure){error=failure;}
+    // A structured preparation terminal becomes a dispatched 'failed' only when
+    // its shape and evidence validate and no publication-stage marker exists.
+    let preparationTerminal=null;
+    if(error&&error.preparationTerminal!==undefined){
+     try{await validatePreparationTerminal(error.preparationTerminal,dispatch);const attempt=await inspectAttempt(dispatch);if(Array.isArray(attempt?.markers)&&attempt.markers.length===0)preparationTerminal=JSON.parse(JSON.stringify(error.preparationTerminal));}catch{preparationTerminal=null;}
+    }
     // Never claim the target read before fetch is prepared when fetch selected
     // another commit. Manual latest requests with null target bind selection.
     for(const item of pending){
      const reference={dispatchId,dispatchSha256,selectedTarget:selection.targetCommit,winnerRequestId:winner.value.requestId};
-     if(error)await finish(item,'unknown',{...reference,error:String(error.message)});
+     if(error&&preparationTerminal)await finish(item,'failed',{...reference,error:String(error.message),preparationTerminal});
+     else if(error)await finish(item,'unknown',{...reference,error:String(error.message)});
      else if(item.value.observedTarget&&item.value.observedTarget!==selection.targetCommit)await finish(item,'superseded',reference);
      else await finish(item,result.status==='prepared-only'?'prepared':result.status==='already-current'?'current':'non-production',{...reference,nativeResult:result});
     }

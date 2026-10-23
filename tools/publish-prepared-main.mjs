@@ -345,7 +345,12 @@ export async function publishPreparedMain(request,context){
    const failure={at:new Date().toISOString(),mainCommit:request.mainCommit,phase,error:String(error.message).slice(0,1600),processEvidence:error.processEvidence??null,maintenanceStarted,automaticRetry:false};
    // Preserve every preparation rejection without turning it into a deployment.
    if(publicationStarted)await save('FAILED.json',failure);
-   else await fs.writeFile(path.join(preparationOut,'FAILED-'+randomUUID()+'.json'),JSON.stringify(failure,null,2)+'\n',{flag:'wx'});
+   else{
+    const failureFile=path.join(preparationOut,'FAILED-'+randomUUID()+'.json');
+    await fs.writeFile(failureFile,JSON.stringify(failure,null,2)+'\n',{flag:'wx'});
+    // The prepare-only entry binds this receipt into its structured result.
+    if(error&&typeof error==='object'){error.preparationFailureFile=failureFile;error.preparationPhase=phase;}
+   }
    throw error;
   }
  },preparationWait);

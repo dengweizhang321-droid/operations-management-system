@@ -273,10 +273,12 @@ test('omitted programmatic mode also refuses inline preparation',async t=>{
  await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));
 });
 for(const failure of ['identity','plan','PrepareApp'])test('preparation failure '+failure+' preserves preparation evidence without a deployment STARTED',async t=>{
- const f=await fixture(t,['worker','django'],failure);
- await assert.rejects(publishPreparedMain(f.request,{...f.context,prepareOnly:true}),/fixture failure/);
+ const f=await fixture(t,['worker','django'],failure);let failed;
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,prepareOnly:true}).catch(error=>{failed=error;throw error;}),/fixture failure/);
  await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
  const files=await fs.readdir(path.join(f.out,'preparation'));assert.ok(files.some(n=>n.startsWith('FAILED-')));
+ // S05d: the prepare-only entry binds exactly this receipt into its structured result.
+ assert.equal(path.resolve(path.dirname(failed.preparationFailureFile)),path.resolve(f.out,'preparation'));assert.ok(files.includes(path.basename(failed.preparationFailureFile)));assert.ok(typeof failed.preparationPhase==='string'&&failed.preparationPhase.length>0);
  const count=f.events.length;await assert.rejects(publishPreparedMain(f.request,{...f.context,prepareOnly:true}),/未完成记录/);
  assert.deepEqual(operations(f.events.slice(count)),[]);
 });

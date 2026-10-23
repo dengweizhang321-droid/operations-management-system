@@ -15,7 +15,16 @@ const source=resumeMode?knownResume.source:controlRoot;
 const requestFile=path.resolve(controlRoot,'..','main-release-request.json');
 const read=async file=>JSON.parse(await fs.readFile(file,'utf8'));
 const exists=async file=>{try{await fs.access(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};
-let progress;
+let progress,preparationFailure=null;
+// S05d: a prepare-only invocation that fails leaves one structured result in
+// its validated --result-file, so the queue need not record 'unknown'.
+async function recordPreparationFailure(error){
+ if(!preparationFailure||await exists(preparationFailure.file))return;
+ let failureReceipt=null;const receipt=error?.preparationFailureFile;
+ if(typeof receipt==='string'&&path.isAbsolute(receipt))try{failureReceipt={path:receipt,sha256:createHash('sha256').update(await fs.readFile(receipt)).digest('hex')};}catch{failureReceipt=null;}
+ const phase=typeof error?.preparationPhase==='string'&&error.preparationPhase?error.preparationPhase.slice(0,200):'native-entry';
+ await fs.writeFile(preparationFailure.file,JSON.stringify({version:'teruisi-native-preparation-failure-v1',status:'preparation-failed',mainCommit:preparationFailure.mainCommit,publicationPerformed:false,publicationStarted:false,maintenanceStarted:false,phase,error:String(error?.message??error).slice(0,1600),failureReceipt})+'\n',{flag:'wx'});
+}
 
 async function verifyPowerShellHost(request,smoke=false){
  const executable=path.join(request.pwshDirectory,'pwsh.exe');
@@ -33,8 +42,15 @@ async function verifyOfflineCache(request){
 }
 
 async function main(){
+ if(process.argv.includes('--prepare-only')&&process.argv.includes('--result-file')){
+  const file=path.resolve(process.argv[process.argv.indexOf('--result-file')+1]??'');
+  assert.equal(path.dirname(file),path.resolve(source,'..','invocations'),'调用结果必须写入本包独立记录目录');
+  assert.equal(await exists(file),false,'调用结果文件已存在，禁止覆盖或开始部署');
+  preparationFailure={file,mainCommit:null};
+ }
  if(!process.argv.includes('--check')){progress=createReleaseProgress(path.resolve(source,'..','logs'),{taskName:process.argv.includes('--prepare-only')?'打包':'发布'});progress.begin('准备发布');}
  const request=await read(requestFile);
+ if(preparationFailure&&/^[a-f0-9]{40}$/.test(request?.mainCommit??''))preparationFailure.mainCommit=request.mainCommit;
  const {assertFrozenSource}=await import('./frozen-main-source.mjs');
  const {commit:head}=await assertFrozenSource({source,mainCommit:request.mainCommit,sourceTree:request.sourceTree});
  if(request.latestMainRelease){
@@ -189,4 +205,4 @@ async function main(){
   }catch(error){await save('FAILED.json',{at:new Date().toISOString(),phase,error:String(error.message).slice(0,1600),processEvidence:error.processEvidence??null,maintenanceStarted,automaticRetry:false});throw error;}
  });
 }
-main().catch(error=>{if(progress)progress.fail(error);else console.error('\n发布已停止：'+error.message);process.exitCode=1;}).finally(()=>progress?.close());
+main().catch(async error=>{try{await recordPreparationFailure(error);}catch(recordError){console.error('准备失败结构化记录未写入：'+recordError.message);}if(progress)progress.fail(error);else console.error('\n发布已停止：'+error.message);process.exitCode=1;}).finally(()=>progress?.close());
