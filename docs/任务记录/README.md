@@ -1,5 +1,7 @@
 # 任务记录目录
 
+本轮只读核对：[S05d 十一个历史候选](../s05d-history-candidates-20261023/REPORT.md) · [逐项归属与引用](../s05d-history-candidates-20261023/OWNERSHIP.md) · [独立审查](../s05d-history-candidates-20261023/REVIEW.md)。
+
 本轮增量：[S05d guard 兼容与封存读取末次复验](../s05d-guard-cas-fix-20261023/REPORT.md) · [实施与最小检查](../s05d-guard-cas-fix-20261023/IMPLEMENTATION.md) · [独立复审](../s05d-guard-cas-fix-20261023/REVIEW.md)。
 
 本轮施工：[S05d/S05b 四步执行记录](../s05d-retirement-implementation-20261023/REPORT.md) · [授权与范围](../s05d-retirement-implementation-20261023/AUTHORIZATION.md) · [独立方案](../s05d-retirement-implementation-20261023/PLAN.md) · [独立审查](../s05d-retirement-implementation-20261023/REVIEW.md) · [现场续接清单](../s05d-retirement-implementation-20261023/LIVE-RUNBOOK.md)。状态以报告及原生回执为准。

@@ -1,0 +1,3176 @@
+{
+  "version": "s05d-eleven-candidate-ownership-v1",
+  "at": "2026-10-23T01:49:47.368Z",
+  "readOnly": true,
+  "complete": true,
+  "deleteAuthorized": false,
+  "retirementProved": false,
+  "productionCodeChanged": false,
+  "rows": [
+    {
+      "releaseId": "20260901T110013Z-97fd5e59dfbda47c",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T110013Z-97fd5e59dfbda47c",
+      "manifestSha256": "e5026d512970fbd2911d93268eae36a0a2cdadd4f0126dedd25f3b17328c09e2",
+      "createdAt": "2026-09-01T11:00:13.441Z",
+      "source": {
+        "packageLockSha256": "6a7a36db259ede7ec8c104b5f67faa25ab763b01dff0bee1ce775c3d988205dd",
+        "rootPathSha256": "e6d71e9519eff95d117ebefaf7228f70df6f34fbd102b30d9465b8ca46c5e7dd",
+        "snapshotRoot": "source-snapshot",
+        "sourceFingerprint": "fa4abac45687afea40191aa372c42c1b77a6bae389a7a7c58dee2e58ca089bec",
+        "tree": {
+          "algorithm": "sha256-ordinal-path-length-content-v1",
+          "fileCount": 1012,
+          "sha256": "fa4abac45687afea40191aa372c42c1b77a6bae389a7a7c58dee2e58ca089bec"
+        }
+      },
+      "sourceTreeDiffersFromA3": true,
+      "sourcePathHashDiffersFromA3": true,
+      "protectedInEffectiveChain": false,
+      "top": [
+        ".dev.vars",
+        ".runtime",
+        "audit",
+        "deployment-manifest.json",
+        "package-lock.json",
+        "package.json",
+        "tools",
+        "运行项目.bat"
+      ],
+      "missingPayload": [
+        "source-snapshot",
+        "dist",
+        "helper",
+        "node_modules"
+      ],
+      "retainedFiles": [
+        {
+          "relative": ".dev.vars",
+          "type": "file",
+          "size": 2402,
+          "nlink": 425,
+          "dev": "1722990852",
+          "ino": "1688849860718099",
+          "contentRead": false
+        },
+        {
+          "relative": "deployment-manifest.json",
+          "type": "file",
+          "size": 6536,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "562949954494628",
+          "sha256": "e5026d512970fbd2911d93268eae36a0a2cdadd4f0126dedd25f3b17328c09e2",
+          "contentRead": true
+        },
+        {
+          "relative": "package-lock.json",
+          "type": "file",
+          "size": 382752,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977783862",
+          "sha256": "6a7a36db259ede7ec8c104b5f67faa25ab763b01dff0bee1ce775c3d988205dd",
+          "contentRead": true
+        },
+        {
+          "relative": "package.json",
+          "type": "file",
+          "size": 3879,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977783852",
+          "sha256": "be5ccd488dc23736454781064706a7c2f03e014717683552d04ce22ae0a627f6",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "运行项目.bat",
+          "type": "file",
+          "size": 831,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977783853",
+          "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": ".runtime/worker-release-activation-fence.json",
+          "type": "file",
+          "size": 358,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977783861",
+          "sha256": "d26cb87b33d575d6e0ff054bba57405c00842352960506461a8c9f19b9b27af5",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "audit/helper-build-receipt.json",
+          "type": "file",
+          "size": 10445,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977783866",
+          "sha256": "ec3094c6d7884fb5674bf105f974498b370242d780019a467fceb21b9326c78c",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/legacy-worker-guard-receipt.json",
+          "type": "file",
+          "size": 2797,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977783865",
+          "sha256": "65afc9717161a826983ffcbe29339a6a3cbb15e53b4b257c2076d47e44251880",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/sales-retired-code-receipt.json",
+          "type": "file",
+          "size": 3698,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977783864",
+          "sha256": "9822a888f9def24d7961933f00d2edfcdae83700703dc654cb7996c37a562532",
+          "contentRead": true
+        },
+        {
+          "relative": "tools/operations-system-control.ps1",
+          "type": "file",
+          "size": 28823,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977783854",
+          "sha256": "f1e12c16b76599fea8bb1169c56d61b481133047887796baf9967e0d5d3a78c4",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/start-local-worker.mjs",
+          "type": "file",
+          "size": 25263,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977783855",
+          "sha256": "d13fab177d9e386131853202d1527ebe722e9e769e8872e05550a7d78c9af9f6",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-authority-guard.mjs",
+          "type": "file",
+          "size": 23053,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977783856",
+          "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release-rotation.mjs",
+          "type": "file",
+          "size": 66232,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977783858",
+          "sha256": "16aa7ace6d149ad65fdf9644f7587f2ceda079315f4de788d1e8ca25eb69c147",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release.mjs",
+          "type": "file",
+          "size": 144825,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977783857",
+          "sha256": "0d945b0d4c83307171c0affeaba1df6410abb3487368e077fe7fca6bc1c57c0d",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-runtime-supervisor.mjs",
+          "type": "file",
+          "size": 16784,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977783863",
+          "sha256": "e9976759043a0dbd9f48b0dbc6bd41b990ebe493a0dd71ee6480e0130a733218",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-service.ps1",
+          "type": "file",
+          "size": 60568,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977783859",
+          "sha256": "13ae865b045b1e53fd75a9a1b4a5b369a935809305003d186c81d5a26d514275",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        }
+      ],
+      "unenteredDirectories": [],
+      "logicalBytesEnumerated": 779246,
+      "manifestKeyFilesMissing": [
+        "dist/server/index.js",
+        "dist/server/wrangler.json",
+        "helper/tmall-workflow-helper.mjs"
+      ],
+      "actualToolPolicyMatches": [
+        {
+          "name": "operations-system-control.ps1",
+          "sha256": "f1e12c16b76599fea8bb1169c56d61b481133047887796baf9967e0d5d3a78c4",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "start-local-worker.mjs",
+          "sha256": "d13fab177d9e386131853202d1527ebe722e9e769e8872e05550a7d78c9af9f6",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-authority-guard.mjs",
+          "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release-rotation.mjs",
+          "sha256": "16aa7ace6d149ad65fdf9644f7587f2ceda079315f4de788d1e8ca25eb69c147",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release.mjs",
+          "sha256": "0d945b0d4c83307171c0affeaba1df6410abb3487368e077fe7fca6bc1c57c0d",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-runtime-supervisor.mjs",
+          "sha256": "e9976759043a0dbd9f48b0dbc6bd41b990ebe493a0dd71ee6480e0130a733218",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-service.ps1",
+          "sha256": "13ae865b045b1e53fd75a9a1b4a5b369a935809305003d186c81d5a26d514275",
+          "knownPreviouslyReviewedBytes": true
+        }
+      ],
+      "referenceDocuments": [
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\ab30ef0354a8a0a1e8a22110ab9bd2ebb8b3d4a0ad1b34d58b8cc3c0aeebec2f.json",
+          "role": "worker-release-rotation-plans",
+          "fields": [
+            ".candidate.manifestSha256",
+            ".candidate.releaseId"
+          ]
+        }
+      ]
+    },
+    {
+      "releaseId": "20260901T164914Z-d12b11511f5e621e",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T164914Z-d12b11511f5e621e",
+      "manifestSha256": "e7ebe2ee3e14f4e69472c87aeef64ceb82e7d4aca0c3a4cf3d1fc932c2615daf",
+      "createdAt": "2026-09-01T16:49:14.029Z",
+      "source": {
+        "packageLockSha256": "6a7a36db259ede7ec8c104b5f67faa25ab763b01dff0bee1ce775c3d988205dd",
+        "rootPathSha256": "e6d71e9519eff95d117ebefaf7228f70df6f34fbd102b30d9465b8ca46c5e7dd",
+        "snapshotRoot": "source-snapshot",
+        "sourceFingerprint": "165446bedaaa0ddc55f6ac8c2036abf02094802b0400746f7ec54b206010b141",
+        "tree": {
+          "algorithm": "sha256-ordinal-path-length-content-v1",
+          "fileCount": 1054,
+          "sha256": "165446bedaaa0ddc55f6ac8c2036abf02094802b0400746f7ec54b206010b141"
+        }
+      },
+      "sourceTreeDiffersFromA3": true,
+      "sourcePathHashDiffersFromA3": true,
+      "protectedInEffectiveChain": false,
+      "top": [
+        ".dev.vars",
+        ".runtime",
+        "audit",
+        "deployment-manifest.json",
+        "package-lock.json",
+        "package.json",
+        "tools",
+        "运行项目.bat"
+      ],
+      "missingPayload": [
+        "source-snapshot",
+        "dist",
+        "helper",
+        "node_modules"
+      ],
+      "retainedFiles": [
+        {
+          "relative": ".dev.vars",
+          "type": "file",
+          "size": 2402,
+          "nlink": 425,
+          "dev": "1722990852",
+          "ino": "1688849860718099",
+          "contentRead": false
+        },
+        {
+          "relative": "deployment-manifest.json",
+          "type": "file",
+          "size": 6536,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "2251799814890156",
+          "sha256": "e7ebe2ee3e14f4e69472c87aeef64ceb82e7d4aca0c3a4cf3d1fc932c2615daf",
+          "contentRead": true
+        },
+        {
+          "relative": "package-lock.json",
+          "type": "file",
+          "size": 382752,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977961709",
+          "sha256": "6a7a36db259ede7ec8c104b5f67faa25ab763b01dff0bee1ce775c3d988205dd",
+          "contentRead": true
+        },
+        {
+          "relative": "package.json",
+          "type": "file",
+          "size": 3879,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977961699",
+          "sha256": "be5ccd488dc23736454781064706a7c2f03e014717683552d04ce22ae0a627f6",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "运行项目.bat",
+          "type": "file",
+          "size": 831,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977961700",
+          "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": ".runtime/worker-release-activation-fence.json",
+          "type": "file",
+          "size": 358,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977961708",
+          "sha256": "7c9276573b1d0c559145a382358cf1322056fbdf826609a3bea95cc393ff0658",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "audit/helper-build-receipt.json",
+          "type": "file",
+          "size": 10445,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977961713",
+          "sha256": "4b062b6a17f42fe554994f53fe6f8b47948539b9671ce674b128f2f67c679af4",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/legacy-worker-guard-receipt.json",
+          "type": "file",
+          "size": 2797,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977961712",
+          "sha256": "27a22db37384ecca201a22b98b79bd7bc5ad72d9a0ecd9a7616fb990e35b2d84",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/sales-retired-code-receipt.json",
+          "type": "file",
+          "size": 3698,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977961711",
+          "sha256": "ea0fbf015ebd11043ffc2ddc41226cd4b0012e0af07975042a2971f37ef20269",
+          "contentRead": true
+        },
+        {
+          "relative": "tools/operations-system-control.ps1",
+          "type": "file",
+          "size": 28823,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977961701",
+          "sha256": "f1e12c16b76599fea8bb1169c56d61b481133047887796baf9967e0d5d3a78c4",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/start-local-worker.mjs",
+          "type": "file",
+          "size": 25263,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977961702",
+          "sha256": "d13fab177d9e386131853202d1527ebe722e9e769e8872e05550a7d78c9af9f6",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-authority-guard.mjs",
+          "type": "file",
+          "size": 23053,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977961703",
+          "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release-rotation.mjs",
+          "type": "file",
+          "size": 66232,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977961705",
+          "sha256": "16aa7ace6d149ad65fdf9644f7587f2ceda079315f4de788d1e8ca25eb69c147",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release.mjs",
+          "type": "file",
+          "size": 144825,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977961704",
+          "sha256": "0d945b0d4c83307171c0affeaba1df6410abb3487368e077fe7fca6bc1c57c0d",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-runtime-supervisor.mjs",
+          "type": "file",
+          "size": 16784,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977961710",
+          "sha256": "e9976759043a0dbd9f48b0dbc6bd41b990ebe493a0dd71ee6480e0130a733218",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-service.ps1",
+          "type": "file",
+          "size": 60568,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474977961706",
+          "sha256": "13ae865b045b1e53fd75a9a1b4a5b369a935809305003d186c81d5a26d514275",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        }
+      ],
+      "unenteredDirectories": [],
+      "logicalBytesEnumerated": 779246,
+      "manifestKeyFilesMissing": [
+        "dist/server/index.js",
+        "dist/server/wrangler.json",
+        "helper/tmall-workflow-helper.mjs"
+      ],
+      "actualToolPolicyMatches": [
+        {
+          "name": "operations-system-control.ps1",
+          "sha256": "f1e12c16b76599fea8bb1169c56d61b481133047887796baf9967e0d5d3a78c4",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "start-local-worker.mjs",
+          "sha256": "d13fab177d9e386131853202d1527ebe722e9e769e8872e05550a7d78c9af9f6",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-authority-guard.mjs",
+          "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release-rotation.mjs",
+          "sha256": "16aa7ace6d149ad65fdf9644f7587f2ceda079315f4de788d1e8ca25eb69c147",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release.mjs",
+          "sha256": "0d945b0d4c83307171c0affeaba1df6410abb3487368e077fe7fca6bc1c57c0d",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-runtime-supervisor.mjs",
+          "sha256": "e9976759043a0dbd9f48b0dbc6bd41b990ebe493a0dd71ee6480e0130a733218",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-service.ps1",
+          "sha256": "13ae865b045b1e53fd75a9a1b4a5b369a935809305003d186c81d5a26d514275",
+          "knownPreviouslyReviewedBytes": true
+        }
+      ],
+      "referenceDocuments": [
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\6e49d82ad21a20e2e6eca651d14e7d7b7eb227c3027e5e205202e13286cfa551.json",
+          "role": "worker-release-rotation-plans",
+          "fields": [
+            ".candidate.manifestSha256",
+            ".candidate.releaseId"
+          ]
+        }
+      ]
+    },
+    {
+      "releaseId": "20260902T083840Z-4772d42b42ae2a81",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T083840Z-4772d42b42ae2a81",
+      "manifestSha256": "82e91d54ca616778e7921ae23c1d83bb1ded1ed60f95000377ecc9e1c250749d",
+      "createdAt": "2026-09-02T08:38:40.722Z",
+      "source": {
+        "packageLockSha256": "6a7a36db259ede7ec8c104b5f67faa25ab763b01dff0bee1ce775c3d988205dd",
+        "rootPathSha256": "e6d71e9519eff95d117ebefaf7228f70df6f34fbd102b30d9465b8ca46c5e7dd",
+        "snapshotRoot": "source-snapshot",
+        "sourceFingerprint": "7771d89fc8d0932dabe803ba32f76ac7e440eac6c84fac839049cc506b413e34",
+        "tree": {
+          "algorithm": "sha256-ordinal-path-length-content-v1",
+          "fileCount": 1055,
+          "sha256": "7771d89fc8d0932dabe803ba32f76ac7e440eac6c84fac839049cc506b413e34"
+        }
+      },
+      "sourceTreeDiffersFromA3": true,
+      "sourcePathHashDiffersFromA3": true,
+      "protectedInEffectiveChain": false,
+      "top": [
+        ".dev.vars",
+        ".runtime",
+        "audit",
+        "deployment-manifest.json",
+        "package-lock.json",
+        "package.json",
+        "tools",
+        "运行项目.bat"
+      ],
+      "missingPayload": [
+        "source-snapshot",
+        "dist",
+        "helper",
+        "node_modules"
+      ],
+      "retainedFiles": [
+        {
+          "relative": ".dev.vars",
+          "type": "file",
+          "size": 2402,
+          "nlink": 425,
+          "dev": "1722990852",
+          "ino": "1688849860718099",
+          "contentRead": false
+        },
+        {
+          "relative": "deployment-manifest.json",
+          "type": "file",
+          "size": 6536,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908410672",
+          "sha256": "82e91d54ca616778e7921ae23c1d83bb1ded1ed60f95000377ecc9e1c250749d",
+          "contentRead": true
+        },
+        {
+          "relative": "package-lock.json",
+          "type": "file",
+          "size": 382752,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908377480",
+          "sha256": "6a7a36db259ede7ec8c104b5f67faa25ab763b01dff0bee1ce775c3d988205dd",
+          "contentRead": true
+        },
+        {
+          "relative": "package.json",
+          "type": "file",
+          "size": 4006,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978278614",
+          "sha256": "8e4a18c1fa404979ce7328e78a096ee2839965cd8b9f72c3653ec47b899fa86a",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "运行项目.bat",
+          "type": "file",
+          "size": 812,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978278615",
+          "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": ".runtime/worker-release-activation-fence.json",
+          "type": "file",
+          "size": 358,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978278624",
+          "sha256": "ee96789ed1a19665c2ea9769c59ee0a8010ebb7e7be5c7fb8492a4a090ad33d8",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "audit/helper-build-receipt.json",
+          "type": "file",
+          "size": 10445,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978278628",
+          "sha256": "5284fb3e1e9d9c2b10a9afc82d7c23cb2c886cc8db17a3fddb13e4aa989bc37c",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/legacy-worker-guard-receipt.json",
+          "type": "file",
+          "size": 2797,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978278627",
+          "sha256": "1a1293d22a3f066385dfdbf9934fb757879650bbb822f256c11a870af7dd8fa5",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/sales-retired-code-receipt.json",
+          "type": "file",
+          "size": 3698,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978278626",
+          "sha256": "1b50d94d74b7d40b00baaad238b8dfec3994b41989bae94cf665a33ff5404eb5",
+          "contentRead": true
+        },
+        {
+          "relative": "tools/operations-system-control.ps1",
+          "type": "file",
+          "size": 37829,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978278616",
+          "sha256": "7f2e25211da9c56526ffbcdc303905a0c217f3ec3729091114883411f8ef0696",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/start-local-worker.mjs",
+          "type": "file",
+          "size": 25263,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978278617",
+          "sha256": "d13fab177d9e386131853202d1527ebe722e9e769e8872e05550a7d78c9af9f6",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-authority-guard.mjs",
+          "type": "file",
+          "size": 23053,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978278619",
+          "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release-rotation.mjs",
+          "type": "file",
+          "size": 66232,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978278621",
+          "sha256": "16aa7ace6d149ad65fdf9644f7587f2ceda079315f4de788d1e8ca25eb69c147",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release.mjs",
+          "type": "file",
+          "size": 144825,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978278620",
+          "sha256": "0d945b0d4c83307171c0affeaba1df6410abb3487368e077fe7fca6bc1c57c0d",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-runtime-supervisor.mjs",
+          "type": "file",
+          "size": 16784,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978278625",
+          "sha256": "e9976759043a0dbd9f48b0dbc6bd41b990ebe493a0dd71ee6480e0130a733218",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-service.ps1",
+          "type": "file",
+          "size": 69306,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978278622",
+          "sha256": "571ef0ae298d2ae3fc92b61258d4840cdad449571ebc85666b292a2851db8146",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        }
+      ],
+      "unenteredDirectories": [],
+      "logicalBytesEnumerated": 797098,
+      "manifestKeyFilesMissing": [
+        "dist/server/index.js",
+        "dist/server/wrangler.json",
+        "helper/tmall-workflow-helper.mjs"
+      ],
+      "actualToolPolicyMatches": [
+        {
+          "name": "operations-system-control.ps1",
+          "sha256": "7f2e25211da9c56526ffbcdc303905a0c217f3ec3729091114883411f8ef0696",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "start-local-worker.mjs",
+          "sha256": "d13fab177d9e386131853202d1527ebe722e9e769e8872e05550a7d78c9af9f6",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-authority-guard.mjs",
+          "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release-rotation.mjs",
+          "sha256": "16aa7ace6d149ad65fdf9644f7587f2ceda079315f4de788d1e8ca25eb69c147",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release.mjs",
+          "sha256": "0d945b0d4c83307171c0affeaba1df6410abb3487368e077fe7fca6bc1c57c0d",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-runtime-supervisor.mjs",
+          "sha256": "e9976759043a0dbd9f48b0dbc6bd41b990ebe493a0dd71ee6480e0130a733218",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-service.ps1",
+          "sha256": "571ef0ae298d2ae3fc92b61258d4840cdad449571ebc85666b292a2851db8146",
+          "knownPreviouslyReviewedBytes": true
+        }
+      ],
+      "referenceDocuments": [
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\50dc28126e2c8c131d2cfc3552f8bbeca8456d71d6a8f550a342533f8f5721f1.json",
+          "role": "worker-release-rotation-plans",
+          "fields": [
+            ".candidate.manifestSha256",
+            ".candidate.releaseId"
+          ]
+        }
+      ]
+    },
+    {
+      "releaseId": "20260903T042106Z-dbc7eaae4c8d7a3d",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T042106Z-dbc7eaae4c8d7a3d",
+      "manifestSha256": "c5640416ef8615dc40b55459f56baf077297ffc5e70d1da3d3f18f7ac6f25813",
+      "createdAt": "2026-09-03T04:21:06.160Z",
+      "source": {
+        "packageLockSha256": "6a7a36db259ede7ec8c104b5f67faa25ab763b01dff0bee1ce775c3d988205dd",
+        "rootPathSha256": "e6d71e9519eff95d117ebefaf7228f70df6f34fbd102b30d9465b8ca46c5e7dd",
+        "snapshotRoot": "source-snapshot",
+        "sourceFingerprint": "bc57db9a3fe8a1f468d14e8eccbb8691cbe7b95809434eb1c4276767e3d5f9f7",
+        "tree": {
+          "algorithm": "sha256-ordinal-path-length-content-v1",
+          "fileCount": 1154,
+          "sha256": "bc57db9a3fe8a1f468d14e8eccbb8691cbe7b95809434eb1c4276767e3d5f9f7"
+        }
+      },
+      "sourceTreeDiffersFromA3": true,
+      "sourcePathHashDiffersFromA3": true,
+      "protectedInEffectiveChain": false,
+      "top": [
+        ".dev.vars",
+        ".runtime",
+        "audit",
+        "deployment-manifest.json",
+        "package-lock.json",
+        "package.json",
+        "tools",
+        "运行项目.bat"
+      ],
+      "missingPayload": [
+        "source-snapshot",
+        "dist",
+        "helper",
+        "node_modules"
+      ],
+      "retainedFiles": [
+        {
+          "relative": ".dev.vars",
+          "type": "file",
+          "size": 2402,
+          "nlink": 425,
+          "dev": "1722990852",
+          "ino": "1688849860718099",
+          "contentRead": false
+        },
+        {
+          "relative": "deployment-manifest.json",
+          "type": "file",
+          "size": 6536,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908607017",
+          "sha256": "c5640416ef8615dc40b55459f56baf077297ffc5e70d1da3d3f18f7ac6f25813",
+          "contentRead": true
+        },
+        {
+          "relative": "package-lock.json",
+          "type": "file",
+          "size": 382752,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908607012",
+          "sha256": "6a7a36db259ede7ec8c104b5f67faa25ab763b01dff0bee1ce775c3d988205dd",
+          "contentRead": true
+        },
+        {
+          "relative": "package.json",
+          "type": "file",
+          "size": 4006,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908607002",
+          "sha256": "8e4a18c1fa404979ce7328e78a096ee2839965cd8b9f72c3653ec47b899fa86a",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "运行项目.bat",
+          "type": "file",
+          "size": 812,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908607003",
+          "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": ".runtime/worker-release-activation-fence.json",
+          "type": "file",
+          "size": 358,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908607011",
+          "sha256": "248a7f2e324ea9215eb07b885df363ecf2639c8e452ae76c385bec20bca005e8",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "audit/helper-build-receipt.json",
+          "type": "file",
+          "size": 10983,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908607016",
+          "sha256": "f9bd9e6a8313bef3d376b7a4eb382090b20bc6e59acb541f4f0d92979206caad",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/legacy-worker-guard-receipt.json",
+          "type": "file",
+          "size": 2797,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908607015",
+          "sha256": "3858f47f3cf9736a6de42d0a200924d1348704983edceaa0ea204d04af9133a8",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/sales-retired-code-receipt.json",
+          "type": "file",
+          "size": 3697,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908607014",
+          "sha256": "ae5dad241b09c65f53aaa8afd6644823e41b852ff8b55e3f6ed5a238d0ce7aa9",
+          "contentRead": true
+        },
+        {
+          "relative": "tools/operations-system-control.ps1",
+          "type": "file",
+          "size": 38630,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908607004",
+          "sha256": "ab1d0c46c534e7445a055efdd15cb0e9a90336ce5ef7ce2bdd6655d071f1f91c",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/start-local-worker.mjs",
+          "type": "file",
+          "size": 25263,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908607005",
+          "sha256": "d13fab177d9e386131853202d1527ebe722e9e769e8872e05550a7d78c9af9f6",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-authority-guard.mjs",
+          "type": "file",
+          "size": 23053,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908607006",
+          "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release-rotation.mjs",
+          "type": "file",
+          "size": 66633,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908607008",
+          "sha256": "7b3217bc89a56d29aa6d8e7fd9053ab844bcd3483662eb47cba506092eacc2b1",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release.mjs",
+          "type": "file",
+          "size": 146622,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908607007",
+          "sha256": "901d8140089d68046e858812054212b48779ec525d233e3c45bcc5fdb4328acc",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-runtime-supervisor.mjs",
+          "type": "file",
+          "size": 16784,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908607013",
+          "sha256": "e9976759043a0dbd9f48b0dbc6bd41b990ebe493a0dd71ee6480e0130a733218",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-service.ps1",
+          "type": "file",
+          "size": 69863,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "1125899908607009",
+          "sha256": "7599d8bb21455e33d34c6523c0eb556d46d55cb8fc2ab1a0cb3d0bb712f715f7",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        }
+      ],
+      "unenteredDirectories": [],
+      "logicalBytesEnumerated": 801191,
+      "manifestKeyFilesMissing": [
+        "dist/server/index.js",
+        "dist/server/wrangler.json",
+        "helper/tmall-workflow-helper.mjs"
+      ],
+      "actualToolPolicyMatches": [
+        {
+          "name": "operations-system-control.ps1",
+          "sha256": "ab1d0c46c534e7445a055efdd15cb0e9a90336ce5ef7ce2bdd6655d071f1f91c",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "start-local-worker.mjs",
+          "sha256": "d13fab177d9e386131853202d1527ebe722e9e769e8872e05550a7d78c9af9f6",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-authority-guard.mjs",
+          "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release-rotation.mjs",
+          "sha256": "7b3217bc89a56d29aa6d8e7fd9053ab844bcd3483662eb47cba506092eacc2b1",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release.mjs",
+          "sha256": "901d8140089d68046e858812054212b48779ec525d233e3c45bcc5fdb4328acc",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-runtime-supervisor.mjs",
+          "sha256": "e9976759043a0dbd9f48b0dbc6bd41b990ebe493a0dd71ee6480e0130a733218",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-service.ps1",
+          "sha256": "7599d8bb21455e33d34c6523c0eb556d46d55cb8fc2ab1a0cb3d0bb712f715f7",
+          "knownPreviouslyReviewedBytes": true
+        }
+      ],
+      "referenceDocuments": []
+    },
+    {
+      "releaseId": "20260903T050156Z-e813392551d650bb",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T050156Z-e813392551d650bb",
+      "manifestSha256": "6d2ce7f9da3b6f0521e6b29d685cc401128925d15ea77bb94aea3b1ed0ec10ec",
+      "createdAt": "2026-09-03T05:01:56.189Z",
+      "source": {
+        "packageLockSha256": "6a7a36db259ede7ec8c104b5f67faa25ab763b01dff0bee1ce775c3d988205dd",
+        "rootPathSha256": "e6d71e9519eff95d117ebefaf7228f70df6f34fbd102b30d9465b8ca46c5e7dd",
+        "snapshotRoot": "source-snapshot",
+        "sourceFingerprint": "ad0cf94901f50e7a70047533a7ba732515b6037b75252a693e716ec105cc508a",
+        "tree": {
+          "algorithm": "sha256-ordinal-path-length-content-v1",
+          "fileCount": 1161,
+          "sha256": "ad0cf94901f50e7a70047533a7ba732515b6037b75252a693e716ec105cc508a"
+        }
+      },
+      "sourceTreeDiffersFromA3": true,
+      "sourcePathHashDiffersFromA3": true,
+      "protectedInEffectiveChain": false,
+      "top": [
+        ".dev.vars",
+        ".runtime",
+        "audit",
+        "deployment-manifest.json",
+        "package-lock.json",
+        "package.json",
+        "tools",
+        "运行项目.bat"
+      ],
+      "missingPayload": [
+        "source-snapshot",
+        "dist",
+        "helper",
+        "node_modules"
+      ],
+      "retainedFiles": [
+        {
+          "relative": ".dev.vars",
+          "type": "file",
+          "size": 2402,
+          "nlink": 425,
+          "dev": "1722990852",
+          "ino": "1688849860718099",
+          "contentRead": false
+        },
+        {
+          "relative": "deployment-manifest.json",
+          "type": "file",
+          "size": 6536,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978679689",
+          "sha256": "6d2ce7f9da3b6f0521e6b29d685cc401128925d15ea77bb94aea3b1ed0ec10ec",
+          "contentRead": true
+        },
+        {
+          "relative": "package-lock.json",
+          "type": "file",
+          "size": 382752,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978679684",
+          "sha256": "6a7a36db259ede7ec8c104b5f67faa25ab763b01dff0bee1ce775c3d988205dd",
+          "contentRead": true
+        },
+        {
+          "relative": "package.json",
+          "type": "file",
+          "size": 4770,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978679674",
+          "sha256": "f2b983dece3707ce500bad781aca9d9c98aa10f65e0ff16c8499d88e23790107",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "运行项目.bat",
+          "type": "file",
+          "size": 812,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978679675",
+          "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": ".runtime/worker-release-activation-fence.json",
+          "type": "file",
+          "size": 358,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978679683",
+          "sha256": "c02c9e3f22bf858991fb8e610ae557f05c916a2901a566a2c59fe70c12a18cc3",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "audit/helper-build-receipt.json",
+          "type": "file",
+          "size": 10983,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978679688",
+          "sha256": "c1cce208f51f3d7f8cf7c20cdee0a5e13bc35bb286abfe67e26fa2dac0cf1cf3",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/legacy-worker-guard-receipt.json",
+          "type": "file",
+          "size": 2797,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978679687",
+          "sha256": "159b3291cf6cd7041bdfcd288656458fcbdbcc3313db296cc0050861be4b1e4c",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/sales-retired-code-receipt.json",
+          "type": "file",
+          "size": 3698,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978679686",
+          "sha256": "0aa713b6024337dcee7b14ada5871b381b1e7dd0b57bc416e31c0de657ef3446",
+          "contentRead": true
+        },
+        {
+          "relative": "tools/operations-system-control.ps1",
+          "type": "file",
+          "size": 38630,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978679676",
+          "sha256": "ab1d0c46c534e7445a055efdd15cb0e9a90336ce5ef7ce2bdd6655d071f1f91c",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/start-local-worker.mjs",
+          "type": "file",
+          "size": 25263,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978679677",
+          "sha256": "d13fab177d9e386131853202d1527ebe722e9e769e8872e05550a7d78c9af9f6",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-authority-guard.mjs",
+          "type": "file",
+          "size": 23053,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978679678",
+          "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release-rotation.mjs",
+          "type": "file",
+          "size": 66633,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978679680",
+          "sha256": "7b3217bc89a56d29aa6d8e7fd9053ab844bcd3483662eb47cba506092eacc2b1",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release.mjs",
+          "type": "file",
+          "size": 146622,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978679679",
+          "sha256": "901d8140089d68046e858812054212b48779ec525d233e3c45bcc5fdb4328acc",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-runtime-supervisor.mjs",
+          "type": "file",
+          "size": 16784,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978679685",
+          "sha256": "e9976759043a0dbd9f48b0dbc6bd41b990ebe493a0dd71ee6480e0130a733218",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-service.ps1",
+          "type": "file",
+          "size": 69863,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474978679681",
+          "sha256": "7599d8bb21455e33d34c6523c0eb556d46d55cb8fc2ab1a0cb3d0bb712f715f7",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        }
+      ],
+      "unenteredDirectories": [],
+      "logicalBytesEnumerated": 801956,
+      "manifestKeyFilesMissing": [
+        "dist/server/index.js",
+        "dist/server/wrangler.json",
+        "helper/tmall-workflow-helper.mjs"
+      ],
+      "actualToolPolicyMatches": [
+        {
+          "name": "operations-system-control.ps1",
+          "sha256": "ab1d0c46c534e7445a055efdd15cb0e9a90336ce5ef7ce2bdd6655d071f1f91c",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "start-local-worker.mjs",
+          "sha256": "d13fab177d9e386131853202d1527ebe722e9e769e8872e05550a7d78c9af9f6",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-authority-guard.mjs",
+          "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release-rotation.mjs",
+          "sha256": "7b3217bc89a56d29aa6d8e7fd9053ab844bcd3483662eb47cba506092eacc2b1",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release.mjs",
+          "sha256": "901d8140089d68046e858812054212b48779ec525d233e3c45bcc5fdb4328acc",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-runtime-supervisor.mjs",
+          "sha256": "e9976759043a0dbd9f48b0dbc6bd41b990ebe493a0dd71ee6480e0130a733218",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-service.ps1",
+          "sha256": "7599d8bb21455e33d34c6523c0eb556d46d55cb8fc2ab1a0cb3d0bb712f715f7",
+          "knownPreviouslyReviewedBytes": true
+        }
+      ],
+      "referenceDocuments": [
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\da042dd64f101c692c0beef050e1fd0b7d07bfc2965f010339f184113fc98a45.json",
+          "role": "worker-release-rotation-plans",
+          "fields": [
+            ".candidate.manifestSha256",
+            ".candidate.releaseId"
+          ]
+        }
+      ]
+    },
+    {
+      "releaseId": "20260903T140732Z-627476acd7561b9e",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T140732Z-627476acd7561b9e",
+      "manifestSha256": "f1f0fba1bc03dfbceb549ac1a6fb0cf9ce6e2251f9294a829fbc0c27fb4f57d4",
+      "createdAt": "2026-09-03T14:07:32.621Z",
+      "source": {
+        "packageLockSha256": "6a7a36db259ede7ec8c104b5f67faa25ab763b01dff0bee1ce775c3d988205dd",
+        "rootPathSha256": "e6d71e9519eff95d117ebefaf7228f70df6f34fbd102b30d9465b8ca46c5e7dd",
+        "snapshotRoot": "source-snapshot",
+        "sourceFingerprint": "74dfd213573df03aebe8dfb340f6844c437844fc9f37aaa2011e177a1dbbc4b9",
+        "tree": {
+          "algorithm": "sha256-ordinal-path-length-content-v1",
+          "fileCount": 1185,
+          "sha256": "74dfd213573df03aebe8dfb340f6844c437844fc9f37aaa2011e177a1dbbc4b9"
+        }
+      },
+      "sourceTreeDiffersFromA3": true,
+      "sourcePathHashDiffersFromA3": true,
+      "protectedInEffectiveChain": false,
+      "top": [
+        ".dev.vars",
+        ".runtime",
+        "audit",
+        "deployment-manifest.json",
+        "package-lock.json",
+        "package.json",
+        "tools",
+        "运行项目.bat"
+      ],
+      "missingPayload": [
+        "source-snapshot",
+        "dist",
+        "helper",
+        "node_modules"
+      ],
+      "retainedFiles": [
+        {
+          "relative": ".dev.vars",
+          "type": "file",
+          "size": 2402,
+          "nlink": 425,
+          "dev": "1722990852",
+          "ino": "1688849860718099",
+          "contentRead": false
+        },
+        {
+          "relative": "deployment-manifest.json",
+          "type": "file",
+          "size": 6536,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474979221323",
+          "sha256": "f1f0fba1bc03dfbceb549ac1a6fb0cf9ce6e2251f9294a829fbc0c27fb4f57d4",
+          "contentRead": true
+        },
+        {
+          "relative": "package-lock.json",
+          "type": "file",
+          "size": 382752,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474979221318",
+          "sha256": "6a7a36db259ede7ec8c104b5f67faa25ab763b01dff0bee1ce775c3d988205dd",
+          "contentRead": true
+        },
+        {
+          "relative": "package.json",
+          "type": "file",
+          "size": 4770,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474979221308",
+          "sha256": "f2b983dece3707ce500bad781aca9d9c98aa10f65e0ff16c8499d88e23790107",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "运行项目.bat",
+          "type": "file",
+          "size": 812,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474979221309",
+          "sha256": "ac4a2830fb318fda1a81b860b19be90075a416528fe22bad7404c866f7380724",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": ".runtime/worker-release-activation-fence.json",
+          "type": "file",
+          "size": 358,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474979221317",
+          "sha256": "6a82782270db6e1189dd94c590cbbe59d596708090f7d7746a587741e07de697",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "audit/helper-build-receipt.json",
+          "type": "file",
+          "size": 10983,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474979221322",
+          "sha256": "99e968abba3e2fd9f52713a7365de42fcfa3a32ef8bd82b7b718268d4e19f097",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/legacy-worker-guard-receipt.json",
+          "type": "file",
+          "size": 2797,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474979221321",
+          "sha256": "c144b337dceae9dab4927fa40528fc333cdc7790d9d2b505b6276640e49aa907",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/sales-retired-code-receipt.json",
+          "type": "file",
+          "size": 3698,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474979221320",
+          "sha256": "b540fced88f347d9394540b23dfc1296cba96fc44766cf94ef6dc46960b9a11e",
+          "contentRead": true
+        },
+        {
+          "relative": "tools/operations-system-control.ps1",
+          "type": "file",
+          "size": 38615,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474979221310",
+          "sha256": "f8065066bb8473ff7c493b9a0caf2ff851dbc72014669783760bbf1dc696c75c",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/start-local-worker.mjs",
+          "type": "file",
+          "size": 25263,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474979221311",
+          "sha256": "d13fab177d9e386131853202d1527ebe722e9e769e8872e05550a7d78c9af9f6",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-authority-guard.mjs",
+          "type": "file",
+          "size": 23053,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474979221312",
+          "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release-rotation.mjs",
+          "type": "file",
+          "size": 66634,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474979221314",
+          "sha256": "c5bfad6c3e19c82fcef288dbfc01d0327a7a0f50dcc759788adee3775b6efd35",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release.mjs",
+          "type": "file",
+          "size": 154359,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474979221313",
+          "sha256": "f4fd64f0eca398637bf614ecc939681119c479447a6fc881e76340b85bc0372c",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-runtime-supervisor.mjs",
+          "type": "file",
+          "size": 16653,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474979221319",
+          "sha256": "43256c8074b9cdab0cbe837e91a802f13fc958e61b95e87a8b51dfb6aaae6dc2",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-service.ps1",
+          "type": "file",
+          "size": 71526,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474979221315",
+          "sha256": "afaf19a5d856ec3b35fb0aab3a00be88878081e7273d3f8720788fbd9c7aa6a9",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        }
+      ],
+      "unenteredDirectories": [],
+      "logicalBytesEnumerated": 811211,
+      "manifestKeyFilesMissing": [
+        "dist/server/index.js",
+        "dist/server/wrangler.json",
+        "helper/tmall-workflow-helper.mjs"
+      ],
+      "actualToolPolicyMatches": [
+        {
+          "name": "operations-system-control.ps1",
+          "sha256": "f8065066bb8473ff7c493b9a0caf2ff851dbc72014669783760bbf1dc696c75c",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "start-local-worker.mjs",
+          "sha256": "d13fab177d9e386131853202d1527ebe722e9e769e8872e05550a7d78c9af9f6",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-authority-guard.mjs",
+          "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release-rotation.mjs",
+          "sha256": "c5bfad6c3e19c82fcef288dbfc01d0327a7a0f50dcc759788adee3775b6efd35",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release.mjs",
+          "sha256": "f4fd64f0eca398637bf614ecc939681119c479447a6fc881e76340b85bc0372c",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-runtime-supervisor.mjs",
+          "sha256": "43256c8074b9cdab0cbe837e91a802f13fc958e61b95e87a8b51dfb6aaae6dc2",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-service.ps1",
+          "sha256": "afaf19a5d856ec3b35fb0aab3a00be88878081e7273d3f8720788fbd9c7aa6a9",
+          "knownPreviouslyReviewedBytes": true
+        }
+      ],
+      "referenceDocuments": []
+    },
+    {
+      "releaseId": "20260904T171710Z-1bd7be5db9ffede6",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T171710Z-1bd7be5db9ffede6",
+      "manifestSha256": "085719738c947c2be8d01b7e3dfcd3250e877e3c4cf93993c46e8fed312e12fb",
+      "createdAt": "2026-09-04T17:17:10.528Z",
+      "source": {
+        "packageLockSha256": "2d9084027147c4bc9d9eac38fa79be24fc0c83f3d6c7f298cd37fb1a84b4d897",
+        "rootPathSha256": "e6d71e9519eff95d117ebefaf7228f70df6f34fbd102b30d9465b8ca46c5e7dd",
+        "snapshotRoot": "source-snapshot",
+        "sourceFingerprint": "c71ffa255edb1e950d7dc6c9c0148546a219247e185db07fd367e15202ea3f03",
+        "tree": {
+          "algorithm": "sha256-ordinal-path-length-content-v1",
+          "fileCount": 1257,
+          "sha256": "c71ffa255edb1e950d7dc6c9c0148546a219247e185db07fd367e15202ea3f03"
+        }
+      },
+      "sourceTreeDiffersFromA3": true,
+      "sourcePathHashDiffersFromA3": true,
+      "protectedInEffectiveChain": false,
+      "top": [
+        ".dev.vars",
+        ".runtime",
+        "audit",
+        "deployment-manifest.json",
+        "package-lock.json",
+        "package.json",
+        "tools",
+        "运行项目.bat"
+      ],
+      "missingPayload": [
+        "source-snapshot",
+        "dist",
+        "helper",
+        "node_modules"
+      ],
+      "retainedFiles": [
+        {
+          "relative": ".dev.vars",
+          "type": "file",
+          "size": 2402,
+          "nlink": 425,
+          "dev": "1722990852",
+          "ino": "1688849860718099",
+          "contentRead": false
+        },
+        {
+          "relative": "deployment-manifest.json",
+          "type": "file",
+          "size": 6536,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "2251799815958777",
+          "sha256": "085719738c947c2be8d01b7e3dfcd3250e877e3c4cf93993c46e8fed312e12fb",
+          "contentRead": true
+        },
+        {
+          "relative": "package-lock.json",
+          "type": "file",
+          "size": 382277,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "2251799815958772",
+          "sha256": "2d9084027147c4bc9d9eac38fa79be24fc0c83f3d6c7f298cd37fb1a84b4d897",
+          "contentRead": true
+        },
+        {
+          "relative": "package.json",
+          "type": "file",
+          "size": 4917,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "2251799815958762",
+          "sha256": "19f633882ec017c2a49f629f222d27f2251ed574888814e6cc3a641dc310c175",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "运行项目.bat",
+          "type": "file",
+          "size": 894,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "2251799815958763",
+          "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": ".runtime/worker-release-activation-fence.json",
+          "type": "file",
+          "size": 358,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "2251799815958771",
+          "sha256": "92bb34915adf6ae7990657cdaa32aec534b4d0e6b27ff22f8c6aae6df36e9856",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "audit/helper-build-receipt.json",
+          "type": "file",
+          "size": 10983,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "2251799815958776",
+          "sha256": "fd081e761b41971d33f90c58d6f85755ac3ac8ec44105b0a40d9dc40a95b7170",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/legacy-worker-guard-receipt.json",
+          "type": "file",
+          "size": 2797,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "2251799815958775",
+          "sha256": "629a96c3f601730f8b94458466dab9d3c8a941cb0579172a2081c5c675553ba4",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/sales-retired-code-receipt.json",
+          "type": "file",
+          "size": 3698,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "2251799815958774",
+          "sha256": "159f53151f98a1f803c3942c73934b37819380f2c97db8b404df8d0c462e1f34",
+          "contentRead": true
+        },
+        {
+          "relative": "tools/operations-system-control.ps1",
+          "type": "file",
+          "size": 42618,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "2251799815958764",
+          "sha256": "ee80d4be20f76354c6b4725168f58fd46026551690decc494e2ee714c6ab3391",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/start-local-worker.mjs",
+          "type": "file",
+          "size": 25263,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "2251799815958765",
+          "sha256": "d13fab177d9e386131853202d1527ebe722e9e769e8872e05550a7d78c9af9f6",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-authority-guard.mjs",
+          "type": "file",
+          "size": 23053,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "2251799815958766",
+          "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release-rotation.mjs",
+          "type": "file",
+          "size": 66634,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "2251799815958768",
+          "sha256": "c5bfad6c3e19c82fcef288dbfc01d0327a7a0f50dcc759788adee3775b6efd35",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release.mjs",
+          "type": "file",
+          "size": 154440,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "2251799815958767",
+          "sha256": "a438830b536f484c1f0f0dc1fe2cda96876bb14daa15ab085ade9eb0bd78a2d1",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-runtime-supervisor.mjs",
+          "type": "file",
+          "size": 16653,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "2251799815958773",
+          "sha256": "43256c8074b9cdab0cbe837e91a802f13fc958e61b95e87a8b51dfb6aaae6dc2",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-service.ps1",
+          "type": "file",
+          "size": 81885,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "2251799815958769",
+          "sha256": "64dfd4085d091d68c806ccbd136fb4ae3016b7e276cbc08f86445949272f9878",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        }
+      ],
+      "unenteredDirectories": [],
+      "logicalBytesEnumerated": 825408,
+      "manifestKeyFilesMissing": [
+        "dist/server/index.js",
+        "dist/server/wrangler.json",
+        "helper/tmall-workflow-helper.mjs"
+      ],
+      "actualToolPolicyMatches": [
+        {
+          "name": "operations-system-control.ps1",
+          "sha256": "ee80d4be20f76354c6b4725168f58fd46026551690decc494e2ee714c6ab3391",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "start-local-worker.mjs",
+          "sha256": "d13fab177d9e386131853202d1527ebe722e9e769e8872e05550a7d78c9af9f6",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-authority-guard.mjs",
+          "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release-rotation.mjs",
+          "sha256": "c5bfad6c3e19c82fcef288dbfc01d0327a7a0f50dcc759788adee3775b6efd35",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release.mjs",
+          "sha256": "a438830b536f484c1f0f0dc1fe2cda96876bb14daa15ab085ade9eb0bd78a2d1",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-runtime-supervisor.mjs",
+          "sha256": "43256c8074b9cdab0cbe837e91a802f13fc958e61b95e87a8b51dfb6aaae6dc2",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-service.ps1",
+          "sha256": "64dfd4085d091d68c806ccbd136fb4ae3016b7e276cbc08f86445949272f9878",
+          "knownPreviouslyReviewedBytes": true
+        }
+      ],
+      "referenceDocuments": [
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\899425684fd9d0538cc8941c760d01ed1cbd3711775a5741c281f9d2dad284f5.json",
+          "role": "worker-release-rotation-plans",
+          "fields": [
+            ".candidate.manifestSha256",
+            ".candidate.releaseId"
+          ]
+        }
+      ]
+    },
+    {
+      "releaseId": "20260905T175520Z-9732204d73443f0e",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T175520Z-9732204d73443f0e",
+      "manifestSha256": "01a5990313333921fafd93585551093359991502d8f7da6a12c793d78ed7e5a9",
+      "createdAt": "2026-09-05T17:55:20.179Z",
+      "source": {
+        "packageLockSha256": "2d9084027147c4bc9d9eac38fa79be24fc0c83f3d6c7f298cd37fb1a84b4d897",
+        "rootPathSha256": "e6d71e9519eff95d117ebefaf7228f70df6f34fbd102b30d9465b8ca46c5e7dd",
+        "snapshotRoot": "source-snapshot",
+        "sourceFingerprint": "d886068789d65c234e2d2013afc7d2d8668a5ce93289704315655fc919155a59",
+        "tree": {
+          "algorithm": "sha256-ordinal-path-length-content-v1",
+          "fileCount": 1453,
+          "sha256": "d886068789d65c234e2d2013afc7d2d8668a5ce93289704315655fc919155a59"
+        }
+      },
+      "sourceTreeDiffersFromA3": true,
+      "sourcePathHashDiffersFromA3": true,
+      "protectedInEffectiveChain": false,
+      "top": [
+        ".dev.vars",
+        ".runtime",
+        "audit",
+        "deployment-manifest.json",
+        "package-lock.json",
+        "package.json",
+        "tools",
+        "运行项目.bat"
+      ],
+      "missingPayload": [
+        "source-snapshot",
+        "dist",
+        "helper",
+        "node_modules"
+      ],
+      "retainedFiles": [
+        {
+          "relative": ".dev.vars",
+          "type": "file",
+          "size": 2402,
+          "nlink": 425,
+          "dev": "1722990852",
+          "ino": "1688849860718099",
+          "contentRead": false
+        },
+        {
+          "relative": "deployment-manifest.json",
+          "type": "file",
+          "size": 6536,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "117656540265262696",
+          "sha256": "01a5990313333921fafd93585551093359991502d8f7da6a12c793d78ed7e5a9",
+          "contentRead": true
+        },
+        {
+          "relative": "package-lock.json",
+          "type": "file",
+          "size": 382277,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474980377533",
+          "sha256": "2d9084027147c4bc9d9eac38fa79be24fc0c83f3d6c7f298cd37fb1a84b4d897",
+          "contentRead": true
+        },
+        {
+          "relative": "package.json",
+          "type": "file",
+          "size": 4998,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474980377523",
+          "sha256": "1ef9b29dc96efeab58f1106dc1db96e2b70b656e314de1e56e0131cb9fde02d2",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "运行项目.bat",
+          "type": "file",
+          "size": 894,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474980377524",
+          "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": ".runtime/worker-release-activation-fence.json",
+          "type": "file",
+          "size": 358,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474980377532",
+          "sha256": "5c0e9db0d1921212a77fa19e418c65f29bbb1c0e452f680c07250e836af5742c",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "audit/helper-build-receipt.json",
+          "type": "file",
+          "size": 11111,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474980377537",
+          "sha256": "11ded2e42a1d250bec88759e63fa81a6ca03590b136675f8d9cc5fbca6aecdc2",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/legacy-worker-guard-receipt.json",
+          "type": "file",
+          "size": 2797,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474980377536",
+          "sha256": "3bc5f8b95862ff7f75136d129df0eb62d8a1d28af78ecbb9742bad5746c985bb",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/sales-retired-code-receipt.json",
+          "type": "file",
+          "size": 3700,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474980377535",
+          "sha256": "5aba14149cd47ccf045ec257e23188df382507d39462a77dfdd5e3908e1020cb",
+          "contentRead": true
+        },
+        {
+          "relative": "tools/operations-system-control.ps1",
+          "type": "file",
+          "size": 44555,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474980377525",
+          "sha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/start-local-worker.mjs",
+          "type": "file",
+          "size": 25284,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474980377526",
+          "sha256": "383351ab2ad69c7889a831e2e11646e6d3e8d4e43f87b02e0d5b53d13e1ed74f",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-authority-guard.mjs",
+          "type": "file",
+          "size": 23053,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474980377527",
+          "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release-rotation.mjs",
+          "type": "file",
+          "size": 66634,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474980377529",
+          "sha256": "c5bfad6c3e19c82fcef288dbfc01d0327a7a0f50dcc759788adee3775b6efd35",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release.mjs",
+          "type": "file",
+          "size": 154440,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474980377528",
+          "sha256": "a438830b536f484c1f0f0dc1fe2cda96876bb14daa15ab085ade9eb0bd78a2d1",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-runtime-supervisor.mjs",
+          "type": "file",
+          "size": 16653,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474980377534",
+          "sha256": "43256c8074b9cdab0cbe837e91a802f13fc958e61b95e87a8b51dfb6aaae6dc2",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-service.ps1",
+          "type": "file",
+          "size": 83478,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474980377530",
+          "sha256": "a683c659505923988764780ca744a2e1876c8a3c48a250712b9427fe36571465",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        }
+      ],
+      "unenteredDirectories": [],
+      "logicalBytesEnumerated": 829170,
+      "manifestKeyFilesMissing": [
+        "dist/server/index.js",
+        "dist/server/wrangler.json",
+        "helper/tmall-workflow-helper.mjs"
+      ],
+      "actualToolPolicyMatches": [
+        {
+          "name": "operations-system-control.ps1",
+          "sha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "start-local-worker.mjs",
+          "sha256": "383351ab2ad69c7889a831e2e11646e6d3e8d4e43f87b02e0d5b53d13e1ed74f",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-authority-guard.mjs",
+          "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release-rotation.mjs",
+          "sha256": "c5bfad6c3e19c82fcef288dbfc01d0327a7a0f50dcc759788adee3775b6efd35",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release.mjs",
+          "sha256": "a438830b536f484c1f0f0dc1fe2cda96876bb14daa15ab085ade9eb0bd78a2d1",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-runtime-supervisor.mjs",
+          "sha256": "43256c8074b9cdab0cbe837e91a802f13fc958e61b95e87a8b51dfb6aaae6dc2",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-service.ps1",
+          "sha256": "a683c659505923988764780ca744a2e1876c8a3c48a250712b9427fe36571465",
+          "knownPreviouslyReviewedBytes": true
+        }
+      ],
+      "referenceDocuments": [
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\f9915956a2ae1edc17818f2f9b94f1de109e885c2e422cb2a037d81d3d368abb.json",
+          "role": "worker-release-rotation-plans",
+          "fields": [
+            ".candidate.manifestSha256",
+            ".candidate.releaseId"
+          ]
+        }
+      ]
+    },
+    {
+      "releaseId": "20260909T080530Z-96bf0ec48b5423c2",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T080530Z-96bf0ec48b5423c2",
+      "manifestSha256": "069691f2ec88f1375e5feeb4cfccfcb0ec601abb303762b5fbebacf012213171",
+      "createdAt": "2026-09-09T08:05:30.638Z",
+      "source": {
+        "packageLockSha256": "2d9084027147c4bc9d9eac38fa79be24fc0c83f3d6c7f298cd37fb1a84b4d897",
+        "rootPathSha256": "e6d71e9519eff95d117ebefaf7228f70df6f34fbd102b30d9465b8ca46c5e7dd",
+        "snapshotRoot": "source-snapshot",
+        "sourceFingerprint": "30c49117e7187915f1c69c7fca787a6ad97dd14565c687d375e544f7f8b84ac1",
+        "tree": {
+          "algorithm": "sha256-ordinal-path-length-content-v1",
+          "fileCount": 1595,
+          "sha256": "30c49117e7187915f1c69c7fca787a6ad97dd14565c687d375e544f7f8b84ac1"
+        }
+      },
+      "sourceTreeDiffersFromA3": true,
+      "sourcePathHashDiffersFromA3": true,
+      "protectedInEffectiveChain": false,
+      "top": [
+        ".dev.vars",
+        ".runtime",
+        "audit",
+        "deployment-manifest.json",
+        "package-lock.json",
+        "package.json",
+        "tools",
+        "运行项目.bat"
+      ],
+      "missingPayload": [
+        "source-snapshot",
+        "dist",
+        "helper",
+        "node_modules"
+      ],
+      "retainedFiles": [
+        {
+          "relative": ".dev.vars",
+          "type": "file",
+          "size": 2402,
+          "nlink": 425,
+          "dev": "1722990852",
+          "ino": "1688849860718099",
+          "contentRead": false
+        },
+        {
+          "relative": "deployment-manifest.json",
+          "type": "file",
+          "size": 6995,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "562949958630182",
+          "sha256": "069691f2ec88f1375e5feeb4cfccfcb0ec601abb303762b5fbebacf012213171",
+          "contentRead": true
+        },
+        {
+          "relative": "package-lock.json",
+          "type": "file",
+          "size": 382277,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981919521",
+          "sha256": "2d9084027147c4bc9d9eac38fa79be24fc0c83f3d6c7f298cd37fb1a84b4d897",
+          "contentRead": true
+        },
+        {
+          "relative": "package.json",
+          "type": "file",
+          "size": 5249,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981919509",
+          "sha256": "cd1df7938ddba31ca44ec2e68ac97bd8bda2ee95c6aee4bca40f0c31d699c197",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "运行项目.bat",
+          "type": "file",
+          "size": 894,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981919510",
+          "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": ".runtime/worker-release-activation-fence.json",
+          "type": "file",
+          "size": 358,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981919520",
+          "sha256": "de737e9f06afd15746eb6652144aa4f0c973fa8642cea4245a8acbff61bec03e",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "audit/global-d1-retirement.json",
+          "type": "file",
+          "size": 5667,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "17451448556274932",
+          "sha256": "52063a4e6e0a54bc07332cd94b6462496e079c86350ca367159d5d5c99ae043a",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/helper-build-receipt.json",
+          "type": "file",
+          "size": 12325,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981919525",
+          "sha256": "61e033821dfd27845f33e01f9ca7a0e15960588e9600f3ea3114d07a154bc412",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/legacy-worker-guard-receipt.json",
+          "type": "file",
+          "size": 3055,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981919524",
+          "sha256": "4ef6637dd5f57453e4e2b4950d3335cee19a5ab46ccb9e85cd82bcec2442e684",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/sales-retired-code-receipt.json",
+          "type": "file",
+          "size": 3697,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981919523",
+          "sha256": "b646c5721b88c69ba49bf421a36dae1b4c3129ade5d6102229d05981512d97a3",
+          "contentRead": true
+        },
+        {
+          "relative": "tools/collect-d1-retirement-proof.mjs",
+          "type": "file",
+          "size": 13885,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981919515",
+          "sha256": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/d1-retirement-proof.mjs",
+          "type": "file",
+          "size": 416,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981919514",
+          "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/operations-system-control.ps1",
+          "type": "file",
+          "size": 44555,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981919511",
+          "sha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/start-local-worker.mjs",
+          "type": "file",
+          "size": 25284,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981919512",
+          "sha256": "383351ab2ad69c7889a831e2e11646e6d3e8d4e43f87b02e0d5b53d13e1ed74f",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-authority-guard.mjs",
+          "type": "file",
+          "size": 17844,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981919513",
+          "sha256": "1bb5adea6d6c72ad0eceab30af17f2511e086ad0b2c40cb6845c0be8dc6aab6e",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release-rotation.mjs",
+          "type": "file",
+          "size": 70315,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981919517",
+          "sha256": "1c1cc7dc20fec281da6f4053298419a070a9b13ff15d1bab9c1e745aae623fc7",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release.mjs",
+          "type": "file",
+          "size": 162176,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981919516",
+          "sha256": "ed711ac54f53fe825d8c7c927324456b91a58774566e645a4fc5d92dc0995ade",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-runtime-supervisor.mjs",
+          "type": "file",
+          "size": 16653,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981919522",
+          "sha256": "43256c8074b9cdab0cbe837e91a802f13fc958e61b95e87a8b51dfb6aaae6dc2",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-service.ps1",
+          "type": "file",
+          "size": 83478,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981919518",
+          "sha256": "a683c659505923988764780ca744a2e1876c8a3c48a250712b9427fe36571465",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        }
+      ],
+      "unenteredDirectories": [],
+      "logicalBytesEnumerated": 857525,
+      "manifestKeyFilesMissing": [
+        "dist/server/index.js",
+        "dist/server/wrangler.json",
+        "helper/tmall-workflow-helper.mjs"
+      ],
+      "actualToolPolicyMatches": [
+        {
+          "name": "collect-d1-retirement-proof.mjs",
+          "sha256": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "d1-retirement-proof.mjs",
+          "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "operations-system-control.ps1",
+          "sha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "start-local-worker.mjs",
+          "sha256": "383351ab2ad69c7889a831e2e11646e6d3e8d4e43f87b02e0d5b53d13e1ed74f",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-authority-guard.mjs",
+          "sha256": "1bb5adea6d6c72ad0eceab30af17f2511e086ad0b2c40cb6845c0be8dc6aab6e",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release-rotation.mjs",
+          "sha256": "1c1cc7dc20fec281da6f4053298419a070a9b13ff15d1bab9c1e745aae623fc7",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release.mjs",
+          "sha256": "ed711ac54f53fe825d8c7c927324456b91a58774566e645a4fc5d92dc0995ade",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-runtime-supervisor.mjs",
+          "sha256": "43256c8074b9cdab0cbe837e91a802f13fc958e61b95e87a8b51dfb6aaae6dc2",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-service.ps1",
+          "sha256": "a683c659505923988764780ca744a2e1876c8a3c48a250712b9427fe36571465",
+          "knownPreviouslyReviewedBytes": true
+        }
+      ],
+      "referenceDocuments": [
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\244ddc4e03129afc766e88ff7abb563a4d3d04bac8068870453b868dae40b423.json",
+          "role": "worker-release-rotation-plans",
+          "fields": [
+            ".candidate.manifestSha256",
+            ".candidate.releaseId"
+          ]
+        }
+      ]
+    },
+    {
+      "releaseId": "20260909T081318Z-8ff55574021b20ff",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T081318Z-8ff55574021b20ff",
+      "manifestSha256": "d70058597a1cc164d8333e43009980d7cd928b1c06a97963383a815f3454c36d",
+      "createdAt": "2026-09-09T08:13:18.527Z",
+      "source": {
+        "packageLockSha256": "2d9084027147c4bc9d9eac38fa79be24fc0c83f3d6c7f298cd37fb1a84b4d897",
+        "rootPathSha256": "e6d71e9519eff95d117ebefaf7228f70df6f34fbd102b30d9465b8ca46c5e7dd",
+        "snapshotRoot": "source-snapshot",
+        "sourceFingerprint": "30c49117e7187915f1c69c7fca787a6ad97dd14565c687d375e544f7f8b84ac1",
+        "tree": {
+          "algorithm": "sha256-ordinal-path-length-content-v1",
+          "fileCount": 1595,
+          "sha256": "30c49117e7187915f1c69c7fca787a6ad97dd14565c687d375e544f7f8b84ac1"
+        }
+      },
+      "sourceTreeDiffersFromA3": true,
+      "sourcePathHashDiffersFromA3": true,
+      "protectedInEffectiveChain": false,
+      "top": [
+        ".dev.vars",
+        ".runtime",
+        "audit",
+        "deployment-manifest.json",
+        "package-lock.json",
+        "package.json",
+        "tools",
+        "运行项目.bat"
+      ],
+      "missingPayload": [
+        "source-snapshot",
+        "dist",
+        "helper",
+        "node_modules"
+      ],
+      "retainedFiles": [
+        {
+          "relative": ".dev.vars",
+          "type": "file",
+          "size": 2402,
+          "nlink": 425,
+          "dev": "1722990852",
+          "ino": "1688849860718099",
+          "contentRead": false
+        },
+        {
+          "relative": "deployment-manifest.json",
+          "type": "file",
+          "size": 6995,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954475",
+          "sha256": "d70058597a1cc164d8333e43009980d7cd928b1c06a97963383a815f3454c36d",
+          "contentRead": true
+        },
+        {
+          "relative": "package-lock.json",
+          "type": "file",
+          "size": 382277,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954469",
+          "sha256": "2d9084027147c4bc9d9eac38fa79be24fc0c83f3d6c7f298cd37fb1a84b4d897",
+          "contentRead": true
+        },
+        {
+          "relative": "package.json",
+          "type": "file",
+          "size": 5249,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954457",
+          "sha256": "cd1df7938ddba31ca44ec2e68ac97bd8bda2ee95c6aee4bca40f0c31d699c197",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "运行项目.bat",
+          "type": "file",
+          "size": 894,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954458",
+          "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": ".runtime/worker-release-activation-fence.json",
+          "type": "file",
+          "size": 358,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954468",
+          "sha256": "894361e9f2aa533cb3acfb86ce293e7c3a8a4529ce234e7c43cbaa1c3487f5ee",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "audit/global-d1-retirement.json",
+          "type": "file",
+          "size": 5667,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954474",
+          "sha256": "e4491113dabce7c69919818b29d24d0983476c0989a979cbd2175a4dbebd3177",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/helper-build-receipt.json",
+          "type": "file",
+          "size": 12325,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954473",
+          "sha256": "7095c515e7df65cf2a0229db1dd5131ab796873d78d1e2f7737d04593dc2de72",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/legacy-worker-guard-receipt.json",
+          "type": "file",
+          "size": 3055,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954472",
+          "sha256": "3d3006a403522a102732bc9de25bc3c451b38c6343a65331fd1a91faf4c0af2e",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/sales-retired-code-receipt.json",
+          "type": "file",
+          "size": 3698,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954471",
+          "sha256": "50a572a7b3c00cac940bbd2e9b8a8492cc70588c307d48fb4c92392acff7e5af",
+          "contentRead": true
+        },
+        {
+          "relative": "tools/collect-d1-retirement-proof.mjs",
+          "type": "file",
+          "size": 13885,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954463",
+          "sha256": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/d1-retirement-proof.mjs",
+          "type": "file",
+          "size": 416,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954462",
+          "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/operations-system-control.ps1",
+          "type": "file",
+          "size": 44555,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954459",
+          "sha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/start-local-worker.mjs",
+          "type": "file",
+          "size": 25284,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954460",
+          "sha256": "383351ab2ad69c7889a831e2e11646e6d3e8d4e43f87b02e0d5b53d13e1ed74f",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-authority-guard.mjs",
+          "type": "file",
+          "size": 17844,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954461",
+          "sha256": "1bb5adea6d6c72ad0eceab30af17f2511e086ad0b2c40cb6845c0be8dc6aab6e",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release-rotation.mjs",
+          "type": "file",
+          "size": 70315,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954465",
+          "sha256": "1c1cc7dc20fec281da6f4053298419a070a9b13ff15d1bab9c1e745aae623fc7",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release.mjs",
+          "type": "file",
+          "size": 162176,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954464",
+          "sha256": "ed711ac54f53fe825d8c7c927324456b91a58774566e645a4fc5d92dc0995ade",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-runtime-supervisor.mjs",
+          "type": "file",
+          "size": 16653,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954470",
+          "sha256": "43256c8074b9cdab0cbe837e91a802f13fc958e61b95e87a8b51dfb6aaae6dc2",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-service.ps1",
+          "type": "file",
+          "size": 83478,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474981954466",
+          "sha256": "a683c659505923988764780ca744a2e1876c8a3c48a250712b9427fe36571465",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        }
+      ],
+      "unenteredDirectories": [],
+      "logicalBytesEnumerated": 857526,
+      "manifestKeyFilesMissing": [
+        "dist/server/index.js",
+        "dist/server/wrangler.json",
+        "helper/tmall-workflow-helper.mjs"
+      ],
+      "actualToolPolicyMatches": [
+        {
+          "name": "collect-d1-retirement-proof.mjs",
+          "sha256": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "d1-retirement-proof.mjs",
+          "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "operations-system-control.ps1",
+          "sha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "start-local-worker.mjs",
+          "sha256": "383351ab2ad69c7889a831e2e11646e6d3e8d4e43f87b02e0d5b53d13e1ed74f",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-authority-guard.mjs",
+          "sha256": "1bb5adea6d6c72ad0eceab30af17f2511e086ad0b2c40cb6845c0be8dc6aab6e",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release-rotation.mjs",
+          "sha256": "1c1cc7dc20fec281da6f4053298419a070a9b13ff15d1bab9c1e745aae623fc7",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release.mjs",
+          "sha256": "ed711ac54f53fe825d8c7c927324456b91a58774566e645a4fc5d92dc0995ade",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-runtime-supervisor.mjs",
+          "sha256": "43256c8074b9cdab0cbe837e91a802f13fc958e61b95e87a8b51dfb6aaae6dc2",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-service.ps1",
+          "sha256": "a683c659505923988764780ca744a2e1876c8a3c48a250712b9427fe36571465",
+          "knownPreviouslyReviewedBytes": true
+        }
+      ],
+      "referenceDocuments": [
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\922c8110b24680f8843ad2f13165619fe1664fe495db5acd2b0c13547919c1c7.json",
+          "role": "worker-release-rotation-plans",
+          "fields": [
+            ".candidate.manifestSha256",
+            ".candidate.releaseId"
+          ]
+        }
+      ]
+    },
+    {
+      "releaseId": "20260910T160720Z-21fced515f9eb124",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T160720Z-21fced515f9eb124",
+      "manifestSha256": "1ce648d91e64e0d08e1c7dd4e0a3f37239c70427f6b776fb531a24c5224ac5fb",
+      "createdAt": "2026-09-10T16:07:20.466Z",
+      "source": {
+        "packageLockSha256": "93f3f3d9b7f3152fbcb33b5e967f078087825fbc7820ecb94a68bfda6d17e4b2",
+        "rootPathSha256": "e6d71e9519eff95d117ebefaf7228f70df6f34fbd102b30d9465b8ca46c5e7dd",
+        "snapshotRoot": "source-snapshot",
+        "sourceFingerprint": "b4de2204ee9a6c06bf2164a254ae0d1043f9e3bbfadb706301b4c31119503214",
+        "tree": {
+          "algorithm": "sha256-ordinal-path-length-content-v1",
+          "fileCount": 1677,
+          "sha256": "b4de2204ee9a6c06bf2164a254ae0d1043f9e3bbfadb706301b4c31119503214"
+        }
+      },
+      "sourceTreeDiffersFromA3": true,
+      "sourcePathHashDiffersFromA3": true,
+      "protectedInEffectiveChain": false,
+      "top": [
+        ".dev.vars",
+        ".runtime",
+        "audit",
+        "deployment-manifest.json",
+        "package-lock.json",
+        "package.json",
+        "tools",
+        "运行项目.bat"
+      ],
+      "missingPayload": [
+        "source-snapshot",
+        "dist",
+        "helper",
+        "node_modules"
+      ],
+      "retainedFiles": [
+        {
+          "relative": ".dev.vars",
+          "type": "file",
+          "size": 2402,
+          "nlink": 425,
+          "dev": "1722990852",
+          "ino": "1688849860718099",
+          "contentRead": false
+        },
+        {
+          "relative": "deployment-manifest.json",
+          "type": "file",
+          "size": 6995,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455484",
+          "sha256": "1ce648d91e64e0d08e1c7dd4e0a3f37239c70427f6b776fb531a24c5224ac5fb",
+          "contentRead": true
+        },
+        {
+          "relative": "package-lock.json",
+          "type": "file",
+          "size": 439342,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455478",
+          "sha256": "93f3f3d9b7f3152fbcb33b5e967f078087825fbc7820ecb94a68bfda6d17e4b2",
+          "contentRead": true
+        },
+        {
+          "relative": "package.json",
+          "type": "file",
+          "size": 5758,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455466",
+          "sha256": "f16231397a349df55ee45c23afb92ebc7ba6001d736b520e5dc7cc7cc5914675",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "运行项目.bat",
+          "type": "file",
+          "size": 894,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455467",
+          "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": ".runtime/worker-release-activation-fence.json",
+          "type": "file",
+          "size": 358,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455477",
+          "sha256": "b886358baff23d791c442e3318c721ea3720e2eeb2159cf67b5752665717b2c5",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "audit/global-d1-retirement.json",
+          "type": "file",
+          "size": 5667,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "562949959166139",
+          "sha256": "9ff118ce748722390572fb08c95ed604589aacde952428e3e8a5fb7730ed3f0b",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/helper-build-receipt.json",
+          "type": "file",
+          "size": 12450,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455482",
+          "sha256": "e295719237587c46b0a48d43afe835779b6e39d8b52496ed3d22ba8ed282f9e1",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/legacy-worker-guard-receipt.json",
+          "type": "file",
+          "size": 3055,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455481",
+          "sha256": "e6c1e27e3c31659a2d31b82af69d5f2f3bed40ddcc8ec38a4f1c42345361eff0",
+          "contentRead": true
+        },
+        {
+          "relative": "audit/sales-retired-code-receipt.json",
+          "type": "file",
+          "size": 3699,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455480",
+          "sha256": "5831b364928c935368114478f174601f0aacaedea56a3ea171a8e38803e22001",
+          "contentRead": true
+        },
+        {
+          "relative": "tools/collect-d1-retirement-proof.mjs",
+          "type": "file",
+          "size": 13885,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455472",
+          "sha256": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/d1-retirement-proof.mjs",
+          "type": "file",
+          "size": 416,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455471",
+          "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/operations-system-control.ps1",
+          "type": "file",
+          "size": 44555,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455468",
+          "sha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/start-local-worker.mjs",
+          "type": "file",
+          "size": 25284,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455469",
+          "sha256": "383351ab2ad69c7889a831e2e11646e6d3e8d4e43f87b02e0d5b53d13e1ed74f",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-authority-guard.mjs",
+          "type": "file",
+          "size": 17844,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455470",
+          "sha256": "1bb5adea6d6c72ad0eceab30af17f2511e086ad0b2c40cb6845c0be8dc6aab6e",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release-rotation.mjs",
+          "type": "file",
+          "size": 70315,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455474",
+          "sha256": "1c1cc7dc20fec281da6f4053298419a070a9b13ff15d1bab9c1e745aae623fc7",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-release.mjs",
+          "type": "file",
+          "size": 162176,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455473",
+          "sha256": "ed711ac54f53fe825d8c7c927324456b91a58774566e645a4fc5d92dc0995ade",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-runtime-supervisor.mjs",
+          "type": "file",
+          "size": 16653,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455479",
+          "sha256": "43256c8074b9cdab0cbe837e91a802f13fc958e61b95e87a8b51dfb6aaae6dc2",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        },
+        {
+          "relative": "tools/worker-local-service.ps1",
+          "type": "file",
+          "size": 83478,
+          "nlink": 1,
+          "dev": "1722990852",
+          "ino": "281474982455475",
+          "sha256": "a683c659505923988764780ca744a2e1876c8a3c48a250712b9427fe36571465",
+          "contentRead": true,
+          "matchesManifestKeyFile": true
+        }
+      ],
+      "unenteredDirectories": [],
+      "logicalBytesEnumerated": 915226,
+      "manifestKeyFilesMissing": [
+        "dist/server/index.js",
+        "dist/server/wrangler.json",
+        "helper/tmall-workflow-helper.mjs"
+      ],
+      "actualToolPolicyMatches": [
+        {
+          "name": "collect-d1-retirement-proof.mjs",
+          "sha256": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "d1-retirement-proof.mjs",
+          "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "operations-system-control.ps1",
+          "sha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "start-local-worker.mjs",
+          "sha256": "383351ab2ad69c7889a831e2e11646e6d3e8d4e43f87b02e0d5b53d13e1ed74f",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-authority-guard.mjs",
+          "sha256": "1bb5adea6d6c72ad0eceab30af17f2511e086ad0b2c40cb6845c0be8dc6aab6e",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release-rotation.mjs",
+          "sha256": "1c1cc7dc20fec281da6f4053298419a070a9b13ff15d1bab9c1e745aae623fc7",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-release.mjs",
+          "sha256": "ed711ac54f53fe825d8c7c927324456b91a58774566e645a4fc5d92dc0995ade",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-runtime-supervisor.mjs",
+          "sha256": "43256c8074b9cdab0cbe837e91a802f13fc958e61b95e87a8b51dfb6aaae6dc2",
+          "knownPreviouslyReviewedBytes": true
+        },
+        {
+          "name": "worker-local-service.ps1",
+          "sha256": "a683c659505923988764780ca744a2e1876c8a3c48a250712b9427fe36571465",
+          "knownPreviouslyReviewedBytes": true
+        }
+      ],
+      "referenceDocuments": []
+    }
+  ],
+  "references": [
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\244ddc4e03129afc766e88ff7abb563a4d3d04bac8068870453b868dae40b423.json",
+      "role": "worker-release-rotation-plans",
+      "sha256": "244ddc4e03129afc766e88ff7abb563a4d3d04bac8068870453b868dae40b423",
+      "sidecarPresent": true,
+      "hits": [
+        {
+          "releaseId": "20260909T080530Z-96bf0ec48b5423c2",
+          "field": ".candidate.manifestSha256",
+          "value": "069691f2ec88f1375e5feeb4cfccfcb0ec601abb303762b5fbebacf012213171"
+        },
+        {
+          "releaseId": "20260909T080530Z-96bf0ec48b5423c2",
+          "field": ".candidate.releaseId",
+          "value": "20260909T080530Z-96bf0ec48b5423c2"
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\50dc28126e2c8c131d2cfc3552f8bbeca8456d71d6a8f550a342533f8f5721f1.json",
+      "role": "worker-release-rotation-plans",
+      "sha256": "50dc28126e2c8c131d2cfc3552f8bbeca8456d71d6a8f550a342533f8f5721f1",
+      "sidecarPresent": true,
+      "hits": [
+        {
+          "releaseId": "20260902T083840Z-4772d42b42ae2a81",
+          "field": ".candidate.manifestSha256",
+          "value": "82e91d54ca616778e7921ae23c1d83bb1ded1ed60f95000377ecc9e1c250749d"
+        },
+        {
+          "releaseId": "20260902T083840Z-4772d42b42ae2a81",
+          "field": ".candidate.releaseId",
+          "value": "20260902T083840Z-4772d42b42ae2a81"
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\6e49d82ad21a20e2e6eca651d14e7d7b7eb227c3027e5e205202e13286cfa551.json",
+      "role": "worker-release-rotation-plans",
+      "sha256": "6e49d82ad21a20e2e6eca651d14e7d7b7eb227c3027e5e205202e13286cfa551",
+      "sidecarPresent": true,
+      "hits": [
+        {
+          "releaseId": "20260901T164914Z-d12b11511f5e621e",
+          "field": ".candidate.manifestSha256",
+          "value": "e7ebe2ee3e14f4e69472c87aeef64ceb82e7d4aca0c3a4cf3d1fc932c2615daf"
+        },
+        {
+          "releaseId": "20260901T164914Z-d12b11511f5e621e",
+          "field": ".candidate.releaseId",
+          "value": "20260901T164914Z-d12b11511f5e621e"
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\899425684fd9d0538cc8941c760d01ed1cbd3711775a5741c281f9d2dad284f5.json",
+      "role": "worker-release-rotation-plans",
+      "sha256": "899425684fd9d0538cc8941c760d01ed1cbd3711775a5741c281f9d2dad284f5",
+      "sidecarPresent": true,
+      "hits": [
+        {
+          "releaseId": "20260904T171710Z-1bd7be5db9ffede6",
+          "field": ".candidate.manifestSha256",
+          "value": "085719738c947c2be8d01b7e3dfcd3250e877e3c4cf93993c46e8fed312e12fb"
+        },
+        {
+          "releaseId": "20260904T171710Z-1bd7be5db9ffede6",
+          "field": ".candidate.releaseId",
+          "value": "20260904T171710Z-1bd7be5db9ffede6"
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\922c8110b24680f8843ad2f13165619fe1664fe495db5acd2b0c13547919c1c7.json",
+      "role": "worker-release-rotation-plans",
+      "sha256": "922c8110b24680f8843ad2f13165619fe1664fe495db5acd2b0c13547919c1c7",
+      "sidecarPresent": true,
+      "hits": [
+        {
+          "releaseId": "20260909T081318Z-8ff55574021b20ff",
+          "field": ".candidate.manifestSha256",
+          "value": "d70058597a1cc164d8333e43009980d7cd928b1c06a97963383a815f3454c36d"
+        },
+        {
+          "releaseId": "20260909T081318Z-8ff55574021b20ff",
+          "field": ".candidate.releaseId",
+          "value": "20260909T081318Z-8ff55574021b20ff"
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\ab30ef0354a8a0a1e8a22110ab9bd2ebb8b3d4a0ad1b34d58b8cc3c0aeebec2f.json",
+      "role": "worker-release-rotation-plans",
+      "sha256": "ab30ef0354a8a0a1e8a22110ab9bd2ebb8b3d4a0ad1b34d58b8cc3c0aeebec2f",
+      "sidecarPresent": true,
+      "hits": [
+        {
+          "releaseId": "20260901T110013Z-97fd5e59dfbda47c",
+          "field": ".candidate.manifestSha256",
+          "value": "e5026d512970fbd2911d93268eae36a0a2cdadd4f0126dedd25f3b17328c09e2"
+        },
+        {
+          "releaseId": "20260901T110013Z-97fd5e59dfbda47c",
+          "field": ".candidate.releaseId",
+          "value": "20260901T110013Z-97fd5e59dfbda47c"
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\da042dd64f101c692c0beef050e1fd0b7d07bfc2965f010339f184113fc98a45.json",
+      "role": "worker-release-rotation-plans",
+      "sha256": "da042dd64f101c692c0beef050e1fd0b7d07bfc2965f010339f184113fc98a45",
+      "sidecarPresent": true,
+      "hits": [
+        {
+          "releaseId": "20260903T050156Z-e813392551d650bb",
+          "field": ".candidate.manifestSha256",
+          "value": "6d2ce7f9da3b6f0521e6b29d685cc401128925d15ea77bb94aea3b1ed0ec10ec"
+        },
+        {
+          "releaseId": "20260903T050156Z-e813392551d650bb",
+          "field": ".candidate.releaseId",
+          "value": "20260903T050156Z-e813392551d650bb"
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\f9915956a2ae1edc17818f2f9b94f1de109e885c2e422cb2a037d81d3d368abb.json",
+      "role": "worker-release-rotation-plans",
+      "sha256": "f9915956a2ae1edc17818f2f9b94f1de109e885c2e422cb2a037d81d3d368abb",
+      "sidecarPresent": true,
+      "hits": [
+        {
+          "releaseId": "20260905T175520Z-9732204d73443f0e",
+          "field": ".candidate.manifestSha256",
+          "value": "01a5990313333921fafd93585551093359991502d8f7da6a12c793d78ed7e5a9"
+        },
+        {
+          "releaseId": "20260905T175520Z-9732204d73443f0e",
+          "field": ".candidate.releaseId",
+          "value": "20260905T175520Z-9732204d73443f0e"
+        }
+      ]
+    }
+  ],
+  "readBytes": 12753741,
+  "readFiles": 2076,
+  "observation": {
+    "path": "D:/codex-artifacts/s05d-guard-cas-fix-20261023/inspect-be589986-49fe-413c-b3cd-8ecdb25e8e72.observation.json",
+    "sha256": "0f92c078993b1cf3e8b6893ecf9510f57f6070b19ee80aa2b043c8a27f7e40ae",
+    "binding": {
+      "dispatchId": "a3d53227-8976-4762-8be6-6f8c28107b5b",
+      "requestId": "2c90e2a2-24c1-4dc1-9811-ae7c4888a6e8",
+      "selectedTarget": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+      "dispatchSha256": "443a9bfd07bc47afb0b2560ccfe2101fa274f305f3636153bde24515ce535dfb",
+      "originalResultSha256": "18902a84d305b3045759a1fde5d506b2a4a70d9b7e10b106cb9f9d5a23f777ad"
+    }
+  },
+  "priorToolPolicy": {
+    "path": "D:\\codex-worktrees\\s05d-history-candidates-20261023\\docs\\s05d-retirement-implementation-20261023\\history-top-tools.json",
+    "sha256": "114e3eb74d9d31acb52898e640ae37ca1a8ba4df28c0aae361b91debb91cac05"
+  },
+  "chain": {
+    "head": {
+      "bindingSha256": "71ecf390109f488973e0f29023e4436638e54c454d4e1833ebb4375738089075",
+      "guardReceiptSha256": "8771202a73073ce8a45a4861f767e33586063fcd831d4d4ea65c82299c6c9815",
+      "manifestSha256": "60b8710acaf305525f1e5b86157fbc53e2ddcee2ec31544bea352bfa6a352296",
+      "releaseId": "20261022T034924Z-1667fc5e107422e1",
+      "version": "teruisi-local-worker-release-binding-v1"
+    },
+    "chainStateSha256": "7dca5e28e66ba257275e1f916af8661233fe8be4e6e1e424bc7c49f55a214f59",
+    "protectedCount": 262,
+    "successors": 261,
+    "matchesObservation": true
+  },
+  "referenceScan": {
+    "scope": [
+      "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-prepared-builds",
+      "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-publication-staging",
+      "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans",
+      "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-consumptions",
+      "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-successors"
+    ],
+    "leaves": 1874,
+    "jsonLeaves": 937,
+    "allRecordedBytesMatchObservation": true,
+    "matchedDocuments": 8
+  },
+  "nativePins": {
+    "worker-local-release.mjs": "aa1be03ebde6fc5b5f9a50fc986a12756ba8eda69e0549ef111f23d5b9439bd2",
+    "worker-local-release-rotation.mjs": "778c136602cf1ebb44fd2fbed1ee67a3cf24fbd78a2cc52b8541db5be114b556",
+    "d1-retirement-proof.mjs": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76"
+  },
+  "elapsedMs": 7738
+}
