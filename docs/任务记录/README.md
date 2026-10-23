@@ -1,5 +1,7 @@
 # 任务记录目录
 
+本轮限定推进：[S05d D1/D2 真实入口补证](../s05d-real-entry-d12-20261023/REPORT.md) · [证据索引](../s05d-real-entry-d12-20261023/evidence-index.json)。D1三次有依据实验仍未满足入口判据，D2未进入、新Task为零；程序未改，已停止。
+
 本轮限定研究：[S05d 固定 GUI 薄启动器](../s05d-gui-launcher-20261023/REPORT.md) · [证据索引](../s05d-gui-launcher-20261023/evidence-index.json)。唯一私有运行未证明完整链，正式代码未改、新 Task 为零，已停止。
 
 本轮停止交付：[S05d 普通权限父子链修复（未通过）](../s05d-parent-chain-fix-20261023/REPORT.md) · [独立增量审查](../s05d-parent-chain-fix-20261023/REVIEW.md) · [仓库外证据索引](../s05d-parent-chain-fix-20261023/evidence-index.json)。

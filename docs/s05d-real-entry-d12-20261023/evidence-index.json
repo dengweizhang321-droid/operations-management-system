@@ -1,0 +1,136 @@
+{
+  "version": "s05d-d12-delivery-evidence-v1",
+  "observedAt": "2026-10-23T15:24:45.541Z",
+  "source": {
+    "root": "D:/codex-worktrees/s05d-real-entry-d12-20261023",
+    "baselineCommit": "5f261a00d02a4711b90826879f21b889c1b517ac",
+    "programBaseline": "4a13ae7831b989ba3fc5e5b170c1390c3ec936a1",
+    "codeCommit": "c7b88eaaee625d61101f79c77b34aa5e255a01a9",
+    "branch": "codex/s05d-real-entry-d12-20261023",
+    "programCodeChanged": false
+  },
+  "refs": {
+    "main": "2f55c3965e60b139381b6cc31ed868bcfe99a7bf",
+    "originMain": "36668589cab03d5d2d9d98383fb58eeb19c391ee"
+  },
+  "d1": {
+    "passed": false,
+    "workBudgetStartUtc": "2026-10-23T15:06:20Z",
+    "evidenceCollectionClosedAt": "2026-10-23T15:19:56.3306147Z",
+    "elapsedRoundedSeconds": 816.331,
+    "elapsedBasis": "Budget start to evidence closure, including preparation and review; not process runtime or Git delivery",
+    "priorityBudgetMinutes": 30,
+    "newGuiRuns": 3,
+    "entryExecuted": null,
+    "runnerInvoked": null,
+    "nodeInvoked": null,
+    "actualExceptionCaptured": false,
+    "rootCauseDetermined": false,
+    "staticConsoleBufferDependencyExists": true,
+    "staticHostExceptionDefaultZeroReturnExists": true,
+    "stages": [
+      {
+        "directory": "D:\\codex-artifacts\\s05d-real-entry-d12-20261023\\private\\d1-01-entry-canary",
+        "exeSha256": "23f69e95ed56d9aa6a956a8aa95f9c94a22b3a917e7ee39e9aea83b5ce075f72",
+        "expectedExitCode": 23,
+        "psExitCode": 0,
+        "guiExitCode": 0,
+        "outputComplete": true,
+        "stdoutBytes": 0,
+        "stderrBytes": 0,
+        "candidatePassed": false
+      },
+      {
+        "directory": "D:\\codex-artifacts\\s05d-real-entry-d12-20261023\\private\\d1-02-encoded-canary",
+        "exeSha256": "0b4379aeba6483a0cf9f814f1fa57210731209217d122c298aca68dec80a8a99",
+        "expectedExitCode": 23,
+        "psExitCode": 0,
+        "guiExitCode": 0,
+        "outputComplete": true,
+        "stdoutBytes": 0,
+        "stderrBytes": 0,
+        "candidatePassed": false
+      },
+      {
+        "directory": "D:\\codex-artifacts\\s05d-real-entry-d12-20261023\\private\\d1-03-stdin-pipe",
+        "exeSha256": "34ca60654303a189f020782a87088a2b0e1745ed6eb369a07a4f9a9128eee4b7",
+        "expectedExitCode": 23,
+        "psExitCode": 0,
+        "guiExitCode": 0,
+        "outputComplete": true,
+        "stdoutBytes": 0,
+        "stderrBytes": 0,
+        "candidatePassed": false
+      }
+    ]
+  },
+  "d2": {
+    "entered": false,
+    "taskRegistrations": 0,
+    "taskRuns": 0,
+    "fullValidatorPassed": false,
+    "diagnosticExitClosed": false
+  },
+  "preservation": {
+    "oldRunCount": 4,
+    "oldFilesVerifiedUnchanged": 246,
+    "newEvidenceFilesVerified": 94,
+    "oldTasksModified": false,
+    "oldUnknownsReplayed": false
+  },
+  "scope": {
+    "nativePrepare": false,
+    "nativeAdopt": false,
+    "retirement": false,
+    "sourceMovement": false,
+    "reboot": false,
+    "seal": false,
+    "queueRecovery": false,
+    "applicationPrepare": false,
+    "deployment": false,
+    "killedProcesses": false,
+    "elevation": false
+  },
+  "evidence": {
+    "baseline.json": {
+      "file": "D:\\codex-artifacts\\s05d-real-entry-d12-20261023\\baseline.json",
+      "sha256": "be296b6aa8b6db360b26b1581d8a799f19c2c72348830b7cdcdee65fd28397b7",
+      "size": 67124
+    },
+    "capture-baseline.mjs": {
+      "file": "D:\\codex-artifacts\\s05d-real-entry-d12-20261023\\capture-baseline.mjs",
+      "sha256": "97420e390f1e4470d288f5040e0cab00aa5a749224162f10ae6a59feaace32da",
+      "size": 2091
+    },
+    "closeout-evidence.mjs": {
+      "file": "D:\\codex-artifacts\\s05d-real-entry-d12-20261023\\closeout-evidence.mjs",
+      "sha256": "d49de9828d151dac178d1d204a4fba598e9c3dd82b2facc4193ae12cec89b5a0",
+      "size": 4118
+    },
+    "REVIEW.md": {
+      "file": "D:\\codex-artifacts\\s05d-real-entry-d12-20261023\\REVIEW.md",
+      "sha256": "54f9571dcaf75e1e43a396cede9a993d502ff7cf7df8ad07ea4e32125a57a7ee",
+      "size": 6069
+    },
+    "private/D1-RESULT.md": {
+      "file": "D:\\codex-artifacts\\s05d-real-entry-d12-20261023\\private\\D1-RESULT.md",
+      "sha256": "7d92c50ee9d86d23ceafdc43497de9ce42c229f2c719025613111e33944dd371",
+      "size": 8411
+    },
+    "private/D1-RESULT.json": {
+      "file": "D:\\codex-artifacts\\s05d-real-entry-d12-20261023\\private\\D1-RESULT.json",
+      "sha256": "8e1af36a363f7fbc7731f2ce9488afbce1baf04ee686595eefcd057489e7ea20",
+      "size": 9544
+    },
+    "private/D1-RESULT-ADDENDUM.md": {
+      "file": "D:\\codex-artifacts\\s05d-real-entry-d12-20261023\\private\\D1-RESULT-ADDENDUM.md",
+      "sha256": "5dbbfe740e4a20e58310725cbfb2d7793b3a3295722752bb59e3fd135e095de6",
+      "size": 1841
+    },
+    "private/D1-evidence-index-v2.json": {
+      "file": "D:\\codex-artifacts\\s05d-real-entry-d12-20261023\\private\\D1-evidence-index-v2.json",
+      "sha256": "b8e285c6e45ed50432b7239e79607109eef230712c1902902219185d1da3f9f4",
+      "size": 23923
+    }
+  }
+}
