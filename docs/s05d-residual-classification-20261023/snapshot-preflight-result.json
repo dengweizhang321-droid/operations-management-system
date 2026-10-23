@@ -1,0 +1,37 @@
+{
+  "startedAt": "2026-10-23T03:22:00.751Z",
+  "readOnly": true,
+  "writeAuthority": false,
+  "complete": false,
+  "writerReady": false,
+  "productionGateProved": false,
+  "codeRoot": "D:/codex-artifacts/s05d-residual-classification-20261023/inspect-code-d1468c7b-6ba6-4565-a5d3-9b6dd41369aa",
+  "codePinsSha256": "80b90eb29f7fa4eb9e830b7a33763fb0d2144133537e5bf3d29f15fb0f89e36c",
+  "actionListObservationSha256": "cbdab9cbdaca750354df19a92d5ad4448b34b957af10a74d844f339da2cf0f54",
+  "scope": "Fresh object snapshots and same-call all-object stat CAS only; previous closure is an action list, never reused as a writer/hash proof",
+  "objects": [
+    {
+      "source": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source",
+      "role": "git-source",
+      "roleMs": 3183.3944999999994,
+      "snapshotMs": 21146.701,
+      "files": 9654,
+      "bytes": 159152641,
+      "snapshotFile": "D:/codex-artifacts/s05d-residual-classification-20261023/snapshot-9a75927e-00d6-43f4-9ba1-e345ab5591a5.object-1.json",
+      "snapshotFileSha256": "945c140149299914ae33a3befcec25b0e57aa2ad74b3e16246dd84e59b40cbea"
+    },
+    {
+      "source": "D:\\codex-worktrees\\merge-20261022",
+      "role": "git-source",
+      "roleMs": 3569.9994000000006,
+      "snapshotMs": 19126.486999999997,
+      "files": 9654,
+      "bytes": 159152647,
+      "snapshotFile": "D:/codex-artifacts/s05d-residual-classification-20261023/snapshot-9a75927e-00d6-43f4-9ba1-e345ab5591a5.object-2.json",
+      "snapshotFileSha256": "47063c207d161b5d204a22582514a7991f655a0352c27218ea89335d62c928ef"
+    }
+  ],
+  "error": "Own read-only snapshot compatibility budget exceeded 300000ms",
+  "pinsUnchanged": true,
+  "elapsedMs": 300043
+}

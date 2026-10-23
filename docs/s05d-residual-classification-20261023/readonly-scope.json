@@ -1,0 +1,87 @@
+{
+    "sourceActions":  [
+                          {
+                              "source":  "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source",
+                              "role":  "git-source",
+                              "kind":  "git-worktree"
+                          },
+                          {
+                              "source":  "D:\\codex-worktrees\\merge-20261022",
+                              "role":  "git-source",
+                              "kind":  "git-worktree"
+                          },
+                          {
+                              "source":  "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea",
+                              "role":  "possible-original-staging-source",
+                              "kind":  "directory"
+                          },
+                          {
+                              "source":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261022T071208Z-f5db87473edebc45",
+                              "role":  "worker-candidate-release",
+                              "kind":  "directory"
+                          }
+                      ],
+    "artifactActions":  [
+
+                        ],
+    "retainedResiduals":  [
+                              {
+                                  "path":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T110013Z-97fd5e59dfbda47c",
+                                  "version":  "teruisi-preparation-retained-unconsumed-residual-v1",
+                                  "kind":  "retained-unconsumed-residual"
+                              },
+                              {
+                                  "path":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T164914Z-d12b11511f5e621e",
+                                  "version":  "teruisi-preparation-retained-unconsumed-residual-v1",
+                                  "kind":  "retained-unconsumed-residual"
+                              },
+                              {
+                                  "path":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T083840Z-4772d42b42ae2a81",
+                                  "version":  "teruisi-preparation-retained-unconsumed-residual-v1",
+                                  "kind":  "retained-unconsumed-residual"
+                              },
+                              {
+                                  "path":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T042106Z-dbc7eaae4c8d7a3d",
+                                  "version":  "teruisi-preparation-retained-unconsumed-residual-v1",
+                                  "kind":  "retained-unconsumed-residual"
+                              },
+                              {
+                                  "path":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T050156Z-e813392551d650bb",
+                                  "version":  "teruisi-preparation-retained-unconsumed-residual-v1",
+                                  "kind":  "retained-unconsumed-residual"
+                              },
+                              {
+                                  "path":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T140732Z-627476acd7561b9e",
+                                  "version":  "teruisi-preparation-retained-unconsumed-residual-v1",
+                                  "kind":  "retained-unconsumed-residual"
+                              },
+                              {
+                                  "path":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T171710Z-1bd7be5db9ffede6",
+                                  "version":  "teruisi-preparation-retained-unconsumed-residual-v1",
+                                  "kind":  "retained-unconsumed-residual"
+                              },
+                              {
+                                  "path":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T175520Z-9732204d73443f0e",
+                                  "version":  "teruisi-preparation-retained-unconsumed-residual-v1",
+                                  "kind":  "retained-unconsumed-residual"
+                              },
+                              {
+                                  "path":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T080530Z-96bf0ec48b5423c2",
+                                  "version":  "teruisi-preparation-retained-unconsumed-residual-v1",
+                                  "kind":  "retained-unconsumed-residual"
+                              },
+                              {
+                                  "path":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T081318Z-8ff55574021b20ff",
+                                  "version":  "teruisi-preparation-retained-unconsumed-residual-v1",
+                                  "kind":  "retained-unconsumed-residual"
+                              },
+                              {
+                                  "path":  "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T160720Z-21fced515f9eb124",
+                                  "version":  "teruisi-preparation-retained-unconsumed-residual-v1",
+                                  "kind":  "retained-unconsumed-residual"
+                              }
+                          ],
+    "consumedHistoryCount":  221,
+    "observationPath":  "D:/codex-artifacts/s05d-residual-classification-20261023/inspect-b0a2ddc1-7453-4cbf-b580-eb1e7dd3ab88.observation.json",
+    "observationSha256":  "cbdab9cbdaca750354df19a92d5ad4448b34b957af10a74d844f339da2cf0f54"
+}

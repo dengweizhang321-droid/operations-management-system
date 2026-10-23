@@ -1,0 +1,182 @@
+{
+  "artifacts": {
+    "contractReceipt": {
+      "relativePath": "audit/sales-retired-code-receipt.json",
+      "sha256": "9822a888f9def24d7961933f00d2edfcdae83700703dc654cb7996c37a562532",
+      "version": "teruisi-sales-retired-code-receipt-v1"
+    },
+    "guardReceipt": {
+      "relativePath": "audit/legacy-worker-guard-receipt.json",
+      "sha256": "65afc9717161a826983ffcbe29339a6a3cbb15e53b4b257c2076d47e44251880",
+      "version": "teruisi-legacy-worker-guard-receipt-v1"
+    },
+    "helperReceipt": {
+      "relativePath": "audit/helper-build-receipt.json",
+      "sha256": "ec3094c6d7884fb5674bf105f974498b370242d780019a467fceb21b9326c78c",
+      "version": "teruisi-worker-helper-build-receipt-v1"
+    },
+    "keyFiles": [
+      {
+        "relativePath": "dist/server/index.js",
+        "sha256": "cfa31fb631c9afd7df3e8409680a420eba09898d3d6ef3b22d6c1c99d9b890f0"
+      },
+      {
+        "relativePath": "dist/server/wrangler.json",
+        "sha256": "7aa6fef5ff952daf2a45307f40ffc220ed227dbf3a5fccfcf38d16c81e6a83b9"
+      },
+      {
+        "relativePath": "package.json",
+        "sha256": "be5ccd488dc23736454781064706a7c2f03e014717683552d04ce22ae0a627f6"
+      },
+      {
+        "relativePath": "运行项目.bat",
+        "sha256": "5569b450edc6bfe406abde60751a79d0befe2736ed869c58bb09ea902775122d"
+      },
+      {
+        "relativePath": "tools/operations-system-control.ps1",
+        "sha256": "f1e12c16b76599fea8bb1169c56d61b481133047887796baf9967e0d5d3a78c4"
+      },
+      {
+        "relativePath": "tools/start-local-worker.mjs",
+        "sha256": "d13fab177d9e386131853202d1527ebe722e9e769e8872e05550a7d78c9af9f6"
+      },
+      {
+        "relativePath": "tools/worker-authority-guard.mjs",
+        "sha256": "dbe13fdbc71b5bdf6be64666cb75ef3f817110d7f2cd33549a94482ebebfec72"
+      },
+      {
+        "relativePath": "tools/worker-local-release.mjs",
+        "sha256": "0d945b0d4c83307171c0affeaba1df6410abb3487368e077fe7fca6bc1c57c0d"
+      },
+      {
+        "relativePath": "tools/worker-local-release-rotation.mjs",
+        "sha256": "16aa7ace6d149ad65fdf9644f7587f2ceda079315f4de788d1e8ca25eb69c147"
+      },
+      {
+        "relativePath": "tools/worker-local-service.ps1",
+        "sha256": "13ae865b045b1e53fd75a9a1b4a5b369a935809305003d186c81d5a26d514275"
+      },
+      {
+        "relativePath": ".runtime/worker-release-activation-fence.json",
+        "sha256": "d26cb87b33d575d6e0ff054bba57405c00842352960506461a8c9f19b9b27af5"
+      },
+      {
+        "relativePath": "tools/worker-local-runtime-supervisor.mjs",
+        "sha256": "e9976759043a0dbd9f48b0dbc6bd41b990ebe493a0dd71ee6480e0130a733218"
+      },
+      {
+        "relativePath": "helper/tmall-workflow-helper.mjs",
+        "sha256": "7db5d2dd3d8b1f7268a3a7d3e07e792e16b224afdf20ed4c0cf5e9d62ef8060e"
+      }
+    ]
+  },
+  "build": {
+    "buildFingerprint": "e668eb10a04135f94d936947a06f5ddbd69992f810828021812519e3e265ed95",
+    "buildRoot": "dist",
+    "distTree": {
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 222,
+      "sha256": "88ce1dee5ced3e050691f4a80304931ac1072b05e503622ea52e222469d6a818"
+    },
+    "helperBuildEvidenceSha256": "2e71fe2bd9754b1422551765f9ed9bf9a14a742b228ca38db476f9cac5063ddb",
+    "helperRoot": "helper",
+    "helperTree": {
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 3,
+      "sha256": "1cd9f212ffaecd78fb2bd62b24def565342e210415c1585b3b7e7657ed325b38"
+    },
+    "nodeExecutablePathSha256": "46674df7e50081977073a3d38239a6782e73328bda5843f5d5a85d4118d98357",
+    "nodeModulesRoot": "node_modules",
+    "nodeModulesTree": {
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 29932,
+      "sha256": "be8a030751e67e048becd5a5e52b09d132b574091632456e5498665832356b2c"
+    },
+    "nodeVersion": "v24.18.0",
+    "npmCiArguments": [
+      "ci",
+      "--ignore-scripts=false",
+      "--no-audit",
+      "--no-fund"
+    ],
+    "npmCliPathSha256": "57ece324fae98034e1309ab5eb1d2361786771dadf9fbaecd36474306f04f86b",
+    "npmCliRelativePath": "node_modules/npm/bin/npm-cli.js",
+    "npmCliSha256": "3ce7cba6f5128dd5f54c98b6a5036b0f850496878cc2e21044b675fe3c594e3e",
+    "npmPackageJsonPathSha256": "ab0c081df626276ddff51e6e96055d9ee7219d4abde225678196dca9d9aeaef2",
+    "npmPackageJsonRelativePath": "node_modules/npm/package.json",
+    "npmPackageJsonSha256": "c9e4dbbf3a23089937d9ee161b59b6ab6368a54de5663167c03bd45062afb004",
+    "npmPackageRootPathSha256": "8b93cea70024afbcd321c297211d56129146c74748b4b1c9d7eaef4b9651bd32",
+    "npmPackageRootRelativePath": "node_modules/npm",
+    "npmPackageTree": {
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 1917,
+      "sha256": "0d376b4dd1c9c5bf698d5e8d9ede5bcb988bcc96b65092bbf26c14bd8394f70f"
+    },
+    "npmVersion": "11.16.0"
+  },
+  "createdAt": "2026-09-01T11:00:13.441Z",
+  "manifestPayloadSha256": "21bb0a8953b75006a439779a671eb28d35c53ef2b791a2e53973db0937017961",
+  "processIdentity": {
+    "fixedHelperArguments": [
+      "serve",
+      "--port",
+      "5791"
+    ],
+    "fixedWranglerArguments": [
+      "dev",
+      "--config",
+      "dist/server/wrangler.json",
+      "--port",
+      "3000",
+      "--ip",
+      "127.0.0.1",
+      "--persist-to",
+      "D:\\运营管理系统\\.wrangler\\state"
+    ],
+    "helperEntrypoint": "helper/tmall-workflow-helper.mjs",
+    "manifestFile": "deployment-manifest.json",
+    "processReceipt": "state/worker-process.json",
+    "processReceiptVersion": "teruisi-local-worker-process-v1",
+    "serviceControl": "tools/worker-local-service.ps1",
+    "supervisorEntrypoint": "tools/worker-local-runtime-supervisor.mjs",
+    "wranglerCliEntrypoint": "node_modules/wrangler/wrangler-dist/cli.js",
+    "wranglerEntrypoint": "node_modules/wrangler/bin/wrangler.js"
+  },
+  "releaseId": "20260901T110013Z-97fd5e59dfbda47c",
+  "runtime": {
+    "cliOverridesAllowed": false,
+    "devVars": {
+      "mode": "hard-link-only",
+      "releaseLink": ".dev.vars",
+      "sourcePath": "D:\\运营管理系统\\.dev.vars",
+      "workerLink": "dist/server/.dev.vars"
+    },
+    "helperHost": "127.0.0.1",
+    "helperMode": "supervisor_managed_immutable_bundle",
+    "helperMutableRoot": "D:\\运营管理系统",
+    "helperMutableRootPathSha256": "18b402e92d18e750e0296c70633eb19bbf405420c0ae25268942bdc7c38005eb",
+    "helperPort": 5791,
+    "host": "127.0.0.1",
+    "persistRoot": "D:\\运营管理系统\\.wrangler\\state",
+    "persistRootPathSha256": "707232242c7126c9190e3f2641c1cbd99a3443a967d93e9a4e97259279c6d116",
+    "port": 3000,
+    "protectedSourceRoot": "D:\\运营管理系统",
+    "protectedSourceRootPathSha256": "18b402e92d18e750e0296c70633eb19bbf405420c0ae25268942bdc7c38005eb",
+    "releaseRootPathSha256": "8bdb9d7cb4c85f95fb16a5e680900bad2f90c99d809bb894ee1f426ccb6f2612",
+    "runtimeRootPathSha256": "24ba924929b4146f432691844f6b4a4ba67ad1d8e5a237225f70c32b2544c9a9",
+    "sourceD1Path": "D:\\运营管理系统\\.wrangler\\state\\v3\\d1\\miniflare-D1DatabaseObject\\faaf2b0445ab934c3aac48ddf0cdfade8f9bac050be98993748742cdd2cb05fb.sqlite",
+    "sourceD1PathSha256": "f0d4996d3d9ee2768996b95271957fb3ccd744657cfcc59269811f9267057ec5"
+  },
+  "source": {
+    "packageLockSha256": "6a7a36db259ede7ec8c104b5f67faa25ab763b01dff0bee1ce775c3d988205dd",
+    "rootPathSha256": "e6d71e9519eff95d117ebefaf7228f70df6f34fbd102b30d9465b8ca46c5e7dd",
+    "snapshotRoot": "source-snapshot",
+    "sourceFingerprint": "fa4abac45687afea40191aa372c42c1b77a6bae389a7a7c58dee2e58ca089bec",
+    "tree": {
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 1012,
+      "sha256": "fa4abac45687afea40191aa372c42c1b77a6bae389a7a7c58dee2e58ca089bec"
+    }
+  },
+  "version": "teruisi-local-worker-release-v1"
+}

@@ -1,0 +1,12 @@
+✔ both bounded residual shapes retain original addresses and plans, without weakening consumed history (279.1601ms)
+✔ only paired candidate plan references qualify; other fields, native receipts and invalid sidecars refuse (187.7695ms)
+✔ unknown code/source restoration and late retained-leaf/link changes fail; external source obligations remain required (255.6575ms)
+✔ exact old verifier, with only earlier provenance transports substituted, reaches its real missing-source payload refusal (15.5525ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 833.0393
