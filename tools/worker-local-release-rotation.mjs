@@ -80,6 +80,30 @@ async function lockForOperation(lease) {
   }
   return acquireRotationLock();
 }
+// S16 timing split (log only). Same [构建明细] stdout channel as buildTiming in
+// worker-local-release.mjs, but the stage key and number come first in ASCII so
+// a mis-decoded runner log cannot swallow digits. Results, errors and effect
+// order are unchanged; a failing logger is ignored.
+export function preparationTimingLine(stage, elapsedMs, outcome, label, at = new Date()) {
+  return `[${at.toISOString()}] [构建明细] stage=${stage} elapsedMs=${elapsedMs} outcome=${outcome} ${label}`;
+}
+export function logPreparationTiming(stage, label, startedMs, outcome = "ok", { log = console.log, now = Date.now } = {}) {
+  try {
+    const ended = now();
+    log(preparationTimingLine(stage, ended - startedMs, outcome, label, new Date(ended)));
+  } catch { /* diagnostic only */ }
+}
+export async function timePreparationStage(stage, label, operation, options = {}) {
+  const started = (options.now ?? Date.now)();
+  let outcome = "failed";
+  try {
+    const value = await operation();
+    outcome = "ok";
+    return value;
+  } finally {
+    logPreparationTiming(stage, label, started, outcome, options);
+  }
+}
 export async function assertActiveBatchOwnership(runtimeRoot, batchSha256) {
   const target = path.join(runtimeRoot, "state", "release-batches", "active.json");
   if (!(await exists(target))) return;
@@ -1091,19 +1115,21 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
   if (sourceBindingFile !== undefined && (!prepareOnline || allowTestRuntimeRoot || adoptD1ControlRetirement)) fail("Source binding requires original online successor preparation");
   if (prepareOnline && adoptD1ControlRetirement) fail("Initial retirement adoption still requires a stopped release");
   if (reusePlanSha256 && (!prepareOnline || adoptD1ControlRetirement)) fail("Reuse requires online successor preparation");
-  const releaseLock = await lockForOperation(rotationLease);
+  const releaseLock = await timePreparationStage("rotation-lock", "轮换锁获取", () => lockForOperation(rotationLease));
   let serviceLock;
   try {
-    await assertActiveBatchOwnership(workerRuntimeRoot, batchSha256);
-    serviceLock = await acquireWorkerServiceMutex();
+    await timePreparationStage("batch-ownership", "批次归属核对", () => assertActiveBatchOwnership(workerRuntimeRoot, batchSha256));
+    serviceLock = await timePreparationStage("head.service-lock", "首段服务锁等待", () => acquireWorkerServiceMutex());
     // A verifier update necessarily creates a short, stopped-only mixed state:
     // the source/protected copy can already be the candidate while the immutable
     // effective head is still the predecessor.  Resolve the append-only chain
     // without treating that intentional mismatch as an installed-head success;
     // the predecessor's immutable verifier below still proves it is stopped.
-    const before = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: prepareOnline });
-    await verifyReleaseWithOwnVerifier(before, { allowTestRuntimeRoot,
-      processPolicy: prepareOnline ? "stopped-or-exact-release" : "stopped" });
+    const before = await timePreparationStage("head.chain-resolve", "首段生效链解析", () =>
+      resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: prepareOnline }));
+    await timePreparationStage("head.predecessor-self-verify", "首段前驱完整自校验", () =>
+      verifyReleaseWithOwnVerifier(before, { allowTestRuntimeRoot,
+        processPolicy: prepareOnline ? "stopped-or-exact-release" : "stopped" }));
     const evidence = await readCutoverEvidence({ ...before.bootstrap.authority, rawSha256: before.bootstrap.authoritySha256 });
     if (before.records.length > 0) {
       const established = before.records[before.records.length - 1].value.lineage;
@@ -1127,12 +1153,16 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
     // Rotation remains serialized; each boundary reacquires the lifecycle lock
     // and validates the current installed predecessor with its own verifier.
     if (prepareOnline) { await serviceLock(); serviceLock = null; }
+    let predecessorCheckCount = 0;
     const verifyPreparationPredecessor = prepareOnline ? async () => {
-      const unlock = await acquireWorkerServiceMutex();
+      const stage = `predecessor-boundary#${++predecessorCheckCount}`, label = `前驱边界校验#${predecessorCheckCount}`;
+      const unlock = await timePreparationStage(`${stage}.service-lock`, `${label}/服务锁等待`, () => acquireWorkerServiceMutex());
       try {
-        const current = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: true });
-        return await verifyPreparationHeadUnchanged(before, current, (head) =>
-          verifyReleaseWithOwnVerifier(head, { allowTestRuntimeRoot, processPolicy: "stopped-or-exact-release" }));
+        const current = await timePreparationStage(`${stage}.chain-resolve`, `${label}/生效链解析`, () =>
+          resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: true }));
+        return await timePreparationStage(`${stage}.self-verify`, `${label}/前驱完整自校验`, () =>
+          verifyPreparationHeadUnchanged(before, current, (head) =>
+            verifyReleaseWithOwnVerifier(head, { allowTestRuntimeRoot, processPolicy: "stopped-or-exact-release" })));
       } finally { await unlock(); }
     } : undefined;
     const initialPlan = reusePlanSha256 ? await loadApprovedPlan(workerRuntimeRoot,reusePlanSha256,before.bootstrap) : null;
@@ -1141,10 +1171,11 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
     if(sourceBinding && (!prepareOnline || allowTestRuntimeRoot))fail("Bound source cannot use stopped/test preparation");
     const sourceContext={predecessor:before.head,predecessorChainStateSha256:before.chainStateSha256};
     const sourceRoot=sourceBinding?validateWorkerSourceBinding(sourceBinding,sourceContext).sourceRoot:workerSourceRoot;
-    const sampleSource = async()=>{
+    let sourceSampleCount = 0;
+    const sampleSource = async()=>timePreparationStage(`source-identity#${++sourceSampleCount}`, `源码身份采样#${sourceSampleCount}`, async()=>{
       if(sourceBindingFile!==undefined)await readWorkerSourceBinding(sourceBindingFile,sourceBindingSha256);
       return sourceBinding?(await verifyBoundWorkerSource(sourceBinding,sourceContext)).identity:workerPreparationIdentity(sourceRoot);
-    };
+    });
     const preparationIdentity = await sampleSource();
     let built;
     // Multiple chats asking for the same final composition converge on one
@@ -1180,15 +1211,16 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
       const reused = await readManifest(workerRuntimeRoot, previous.plan.candidate, "reusable candidate");
       assertWorkerSourceBindingTuple({sourceBinding,manifest:reused.manifest,plan:previous.plan,receipt:receipt.value});
       if (reused.manifest.source.sourceFingerprint !== preparationIdentity.sourceTree.sha256) fail("Prepared candidate source mismatch");
-      await verifyPreparedWorkerCandidate({ manifestPath: reused.manifestPath, approvedManifestSha256: reused.manifestSha256,
-        expectedSourceD1PathSha256: before.bootstrap.authority.sourceD1PathSha256, expectedPersistRootPathSha256: before.bootstrap.authority.persistRootPathSha256,
-        requireSalesRetiredCodeReceipt: true, allowTestRuntimeRoot }, verifyPreparationPredecessor);
+      await timePreparationStage("reuse.candidate-verify", "复用候选完整复验", () =>
+        verifyPreparedWorkerCandidate({ manifestPath: reused.manifestPath, approvedManifestSha256: reused.manifestSha256,
+          expectedSourceD1PathSha256: before.bootstrap.authority.sourceD1PathSha256, expectedPersistRootPathSha256: before.bootstrap.authority.persistRootPathSha256,
+          requireSalesRetiredCodeReceipt: true, allowTestRuntimeRoot }, verifyPreparationPredecessor));
       if (canonicalJson(await sampleSource()) !== canonicalJson(preparationIdentity)) fail("Preparation inputs changed during reuse");
       return { status: "planned", reused: true, planSha256: previous.sha256, planPath: previous.path,
         predecessorReleaseId: previous.plan.predecessor.releaseId, candidateReleaseId: previous.plan.candidate.releaseId,
         candidateManifestSha256: previous.plan.candidate.manifestSha256, candidateGuardReceiptSha256: previous.plan.candidate.guardReceiptSha256 };
     }
-    built = await buildWorkerReleaseCandidate({
+    built = await timePreparationStage("candidate-build", "候选构建（含前驱边界校验）", () => buildWorkerReleaseCandidate({
       sourceRoot,
       ...(sourceBinding?{sourceBinding}:{}),
       runtimeRoot: workerRuntimeRoot,
@@ -1199,14 +1231,17 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
       verifyPreparationPredecessor,
       now,
       allowTestRuntimeRoot,
-    });
+    }));
     if (canonicalJson(await sampleSource()) !== canonicalJson(preparationIdentity)) fail("Preparation inputs changed during build");
     if (prepareOnline) {
-      serviceLock = await acquireWorkerServiceMutex();
-      const current = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: true });
-      await verifyPreparationHeadUnchanged(before, current, (head) =>
-        verifyReleaseWithOwnVerifier(head, { allowTestRuntimeRoot, processPolicy: "stopped-or-exact-release" }));
+      serviceLock = await timePreparationStage("tail.service-lock", "尾段服务锁等待", () => acquireWorkerServiceMutex());
+      const current = await timePreparationStage("tail.chain-resolve", "尾段生效链解析", () =>
+        resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: true }));
+      await timePreparationStage("tail.predecessor-self-verify", "尾段前驱完整自校验", () =>
+        verifyPreparationHeadUnchanged(before, current, (head) =>
+          verifyReleaseWithOwnVerifier(head, { allowTestRuntimeRoot, processPolicy: "stopped-or-exact-release" })));
     }
+    const planPublicationStarted = Date.now();
     const after = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: false });
     if (after.chainStateSha256 !== before.chainStateSha256 || after.head.bindingSha256 !== before.head.bindingSha256) {
       fail("rotation candidate 构建期间 effective head 发生变化；候选保留但不得生成计划");
@@ -1252,6 +1287,7 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
       candidateManifestSha256: candidate.manifestSha256, identity: preparationIdentity,
       ...(sourceBinding?{sourceBinding}:{}),
     }, "prepared build identity");
+    logPreparationTiming("plan-publication", "轮换计划与准备身份落盘", planPublicationStarted);
     return {
       status: "planned",
       version: rotationPlanVersion,
