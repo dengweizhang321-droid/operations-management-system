@@ -1,0 +1,31 @@
+{
+  "schema": "codex-reviewed-working-source-snapshot-v1",
+  "createdAt": "2026-10-23T11:12:35.065214+00:00",
+  "worktreeId": "wt001",
+  "sourceHead": "5146cc3d7795b62d9fdc173573f7892a2f372019",
+  "approvalSha256": "9c944ab794a588b24e90a2fd7f73fbd06f138da2c17c80fd06c60695cf083c06",
+  "includedCount": 2,
+  "deletionCount": 0,
+  "exclusionCount": 0,
+  "completeWorkingSource": true,
+  "trackedExclusionsPreserveSourceHead": false,
+  "included": [
+    {
+      "path": "docs/ops-reliability-20261015/REAL-DATA-VALIDATION.md",
+      "oid": "9f7a4b127f6ea94debaaff3fff548150741eaf76",
+      "mode": "100644",
+      "sha256": "ca351f1899f667928fbf30e450f04202d987f914ae19917be64f5cc3c2ad3ce2",
+      "bytes": 7524
+    },
+    {
+      "path": "docs/ops-reliability-20261015/REPORT.md",
+      "oid": "6e7a286813ae1d915efa602e69f3048efca119b1",
+      "mode": "100644",
+      "sha256": "9b1d79f1980271a615e21939345762d338227b95a055e81017e101b8c1849ca6",
+      "bytes": 6051
+    }
+  ],
+  "deletions": [],
+  "exclusions": [],
+  "purpose": "Reviewed source backup only; not main integration or deployable approval."
+}
