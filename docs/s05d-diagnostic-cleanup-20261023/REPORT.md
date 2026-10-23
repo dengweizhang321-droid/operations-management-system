@@ -22,12 +22,25 @@
 
 已完成并通过增量独审：固定仓库外诊断入口及有限生命周期回执、前置准确来源分类、共享四槽完整 snapshot CAS、同实现组合计时、owned 诊断总预算监督。保留原属性读取点，不为省一次读取合并检查边界。来源两项复用已有通过结果，最后直接检查 8/8、19.918 秒，涵盖实际文件/Git、变化与中断/drain、诊断隔离/超时和原私有恢复集成。见 [STABILITY-IMPLEMENTATION.md](STABILITY-IMPLEMENTATION.md)、[stability-pins.json](stability-pins.json) 和 [REVIEW.md](REVIEW.md)。
 
-原普通权限 handoff 成功及不受影响的检查直接复用；不重跑全仓测试、不构建、不增加生产试跑。不改 40/60 秒门禁、原两个 decision、unknown/no-replay 或迟到作用保护。固定入口的一次真实 `--mode preflight` 尚待完成；只读结果始终不代表普通写者/锁/退休 intent 已取得。
+原普通权限 handoff 成功及不受影响的检查直接复用；不重跑全仓测试、不构建、不增加生产试跑。不改 40/60 秒门禁、原两个 decision、unknown/no-replay 或迟到作用保护。
+
+## 固定入口实际只读结果
+
+提交 `94dd1142` 已推独立分支后，执行一次固定 CLI `--mode preflight`。原件位于 `D:/codex-artifacts/preparation-retirement-diagnostics/feb0126f-e9ba-40f7-9fb3-064f88d38fa5`，见 [field-result.json](field-result.json)。
+
+- 新鲜全局 closure 已完成：原四来源、零 artifact action、11 个历史残留仍原位保留，旧诊断工作树不再登记。此前 44 个文件造成的来源范围阻点已闭合。
+- 四个来源全部新读及统一复验完成，共 101,861 个清单项；子进程 `readonly-completed`、直接 EXIT=0，总用时 460.646 秒。没有移动任何正式来源。
+- 同一只读组合测得 37.170 秒，其中 closure CAS 18.090 秒、snapshot CAS 13.092 秒。普通写者资格、旧 83 代际尚无退休协议等实际检查被拒，且锁、冻结退休 intent、关闭后退休证明仍缺。因此结果明确 `diagnostic-partial/admissionPassed=false`，不能将 37.170 或 13.092 秒写成完整生产 40 秒门禁通过或已有稳定余量。
+- 原父 CLI 在子进程完成后显示 status 时因不存在的可选文件报错退出 1，原事实保留。已窄修可选文件读取：缺失才返回空，现存坏文件仍拒；1/1 私有检查后只用新 `--status` 读取旧原件，exit 0、显示原 partial。RUN/RESULT/EXIT/PINS 摘要前后相同，未重放 frozen-run，也未重扫全量数据。见[状态复核](../s05d-same-operation-validation-20261023/diagnostic-status-recheck.json)及[独审](REVIEW.md)。
 
 ## 整体目标尚未闭合的额外发现
 
 按用户“整个发布流程稳定”要求继续核实际调用链，发现常规队列的 generation、旧 unknown resolution、observe/admit/freeze 等路径都会读取退休回执，退休 schema 又会全量核验 archive；一次新准备可多次触达，次数取决于实际分支。当前四槽 CAS 不消除重复全读。原历史 catalog、消费链及 target ban 不能替代当前档案字节验证，不直接套用缓存或只保 marker。准确调用点及后续边界见 [STABILITY-PLAN.md](STABILITY-PLAN.md) 的追加分析。
 
-因此本轮候选只能称已完成上述局部稳定性工程，不能称整个发布稳定目标已闭合。下一步需在同次操作内复用与跨操作免全读之间明确证据模型及范围；新保护没有设计和审定前不放宽现有验证。
+用户已明确选择“先消除同一次操作内的重复全验，保留跨次完整核验”。这一限定增量现已实现并获独审通过，见[方案](../s05d-same-operation-validation-20261023/SAME-OPERATION-PLAN.md)、[实施](../s05d-same-operation-validation-20261023/IMPLEMENTATION.md)和[独审](../s05d-same-operation-validation-20261023/REVIEW.md)。
 
-本页此时只确认清理成功，尚未把新鲜全局 closure 或完整组合时限标为通过。后续实际证据及交付状态在本页更新；控制准备/采用、新 dispatch、正式来源移动、重启、数据库/服务变更与应用上线不在本轮执行范围。
+显式 opaque scope 只在当前进程、当前操作的同一只读阶段保存已经完整验证的 archive snapshot。各原门禁仍重读证据、重收当前 closure、执行所有档案 stat/member/link 和 boot/ref/native/control 等动态检查；取源、派发、来源/材料写入、native 调用、等待、下一轮和锁释放边界清空。无 scope、新操作、失效之后均全读；不缓存 true、旧 closure 或跨次证明，不改变原 unknown 或两个旧 decision。缓存资源有界，超限回到原全验，不因此拒绝合法业务。
+
+实际私有 reader 计数与变化/生命周期/队列边界首批 4/4（29.603 秒），末三个小边界复核 3/3（0.236 秒）；最后 checkpoint 与 void 回调仅静态增量核对，没有再跑重型场景。没有重跑本轮完整现场扫描，因为新改动是已封存退休档案的 reader 复用与协调器接线，本案尚无真实 SEALED 可供生产回归，原只读路径与证据仍按其原版本解释。不同阶段依然可能全读多次，不承诺每轮只全读一次或发布总耗时。
+
+**本轮已完成：证据保全清理、来源范围闭合、固定诊断流程、有限并发完整复验、同次只读阶段复用及必要独审。** 这是发布控制链的稳定性工程交付，不是“未来每轮必过”或完整生产准入认证。跨操作全读成本仍在；新控制实际采用、普通写者完整动态准入、退休/封存与真实发布尚未完成。控制准备/采用、新 dispatch、正式来源移动、重启、数据库/服务变更与应用上线均未执行；交付只推独立分支，不推进 main。

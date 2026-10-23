@@ -1,0 +1,11 @@
+✔ opaque scope binds even empty registry, survives dirty without identity migration, and rejects forged/closed/config-drift tokens (31.6229ms)
+✔ empty registry concurrency, cancellation and non-awaited reads drain without late success or scope revival (7.0632ms)
+✔ real publisher fetch and queue mutation/next-target/unlock routes invalidate without creating a source or changing old unknown behavior (68.2017ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 236.0283

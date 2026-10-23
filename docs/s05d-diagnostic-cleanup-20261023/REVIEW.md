@@ -76,4 +76,18 @@ tracked HEAD 保全为 167,034,880 字节 tar，实际 SHA `9f51422aba873b9eb0d8
 - 来源前置两项复用 [stability-checks-2.txt](stability-checks-2.txt) 的 6/6、5.603 秒批次中对应结果：same HEAD extra/missing 在 native release 前拒绝，真实区别来源保持通过，collection 后新增登记由最终 CAS 拒绝；不是此次重新执行了 6 项。
 - 原 handoff Hidden=false 同链现场正例及未受影响的包结构证据继续复用，不新增 Task/全仓检查。现有生产模块只增同路径命名导入，controlFiles 与 handoff 未改；standalone 新入口的独立冻结加载已由上述私有缺 import 反例覆盖。
 
-本阶段尚无新固定 CLI 的实际完整只读结果，不能预填性能余量或全局 closure 已闭合。常规队列反复调用 retired reader 的成本正在另项定点评估，未列为本增量已解决；不把本次清理或子项通过写成整个发布流程已认证。仍无 main 合并、控制采用、新 dispatch、4 正式源移动、boot 或上线。
+常规队列反复调用 retired reader 的成本正在另项定点评估，未列为本增量已解决；不把本次清理或子项通过写成整个发布流程已认证。仍无 main 合并、控制采用、新 dispatch、4 正式源移动、boot 或上线。
+
+## 94dd 固定入口实际读取与状态显示修正
+
+已核实际 run `D:/codex-artifacts/preparation-retirement-diagnostics/feb0126f-e9ba-40f7-9fb3-064f88d38fa5` 的 RESULT/EXIT、closure/snapshots 与冻结 pins，并对照 [field-result.json](field-result.json)。**本次新鲜全局 closure、原 4 对象完整快照及末尾组合中的 closure/snapshot CAS 已完成。** 子 RESULT 为 readonly-completed，直接子进程 EXIT 0，总耗时 460.646 秒；原 4 源、0 artifact action、11 项 retained residual，已清理的旧诊断树不在登记集合中。4 snapshot 共 101,861 叶，逐对象计数/字节数与此前原范围相同。39 件冻结工具实际 SHA 均吻合 PINS，无差异。
+
+closure 实际 SHA 为 `b537a41046344af66ff1288719075be9618b3d486c284990c79a3bcaad1a1a2d`；snapshots 为 `f72f2f45f652da76a4b262dd82b8f78497d1508a6dd4cb5aa499f1bd8bab96bb`，均吻合索引。RUN/RESULT/EXIT/PINS 实际摘要分别为 `07acfe56…bc7f` / `1e1593e5…b64c` / `5f05fe1e…b197` / `66095ff6…c358`。
+
+这次测得的只读部分组合为 37.170 秒：adoption-before 0.983、closure CAS 18.090、snapshot CAS 13.092、动态观察 4.296、tail 0.709 秒。**13.092 秒仅是 snapshot 子项，37.170 秒也不是完整生产准入通过。** 实际为高 token，ordinary 拒绝；当前旧 83 控制包未采用退休能力，adoption/ref 均拒绝。结果正确保留 diagnostic-partial、admissionPassed/recoveryEligible=false，并明确无 writer lock、冻结 retirement intent 和 source-close 后退休证明；没有达到方案要求的完整性能余量证明。
+
+原父 CLI 在子进程完成后显示状态时仍 exit 1，主负责人将实际 exec completion 的 `Retirement file absent` 记录于 field-result，不能把子 EXIT 0 写成原全 CLI 成功。静态定位为 optional WATCHDOG 不存在时先经 hashRetirementFile 抛断言，原 catch 只认 ENOENT；读取本身没有重放。
+
+随后只审了状态窄修：optionalJson 仅在实体确实缺失时返回 null，存在时仍走原完整 hash/JSON/链接校验；坏文件不能被当作缺失。实际 diagnostic 叶 SHA `a27b356994372af294243bc46f6a9b630bea5e29021e60a5c72c95561b1f619c`。新目录 [status-checks.txt](../s05d-same-operation-validation-20261023/status-checks.txt) 为单项 1/1、exit 0、6.284 秒，覆盖缺 RESULT/WATCHDOG 与存在坏 JSON。独审读取源码与原输出，未重跑。
+
+主负责人仅用修后 `--status` 读取旧 run，0.282 秒、exit 0，正确保留 readonly-completed 与内部 partial；[diagnostic-status-recheck.json](../s05d-same-operation-validation-20261023/diagnostic-status-recheck.json) 的原四件前后 SHA 相同，独审实际复核吻合。没有改旧冻结代码/日志，没有新全读、Task 或 frozen-run 重放。原父 CLI 失败事实不被这次显示修正覆盖。

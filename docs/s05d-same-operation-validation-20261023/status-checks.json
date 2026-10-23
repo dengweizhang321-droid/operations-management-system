@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-23T08:48:33.299Z",
+  "completedAt": "2026-10-23T08:48:39.652Z",
+  "args": [
+    "--test",
+    "--test-timeout=30000",
+    "--test-name-pattern=status accepts absent optional",
+    "tests/preparation-retirement-diagnostic.test.mjs"
+  ],
+  "exitCode": 0,
+  "node": "v24.18.0",
+  "fullReadOrReplay": false
+}

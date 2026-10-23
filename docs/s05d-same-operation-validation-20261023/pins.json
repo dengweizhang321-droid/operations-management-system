@@ -1,0 +1,48 @@
+{
+  "version": "s05d-same-operation-candidate-v1",
+  "files": {
+    "tools/preparation-retirement-diagnostic.mjs": {
+      "sha256": "a27b356994372af294243bc46f6a9b630bea5e29021e60a5c72c95561b1f619c",
+      "size": 21384
+    },
+    "tools/preparation-retirement.mjs": {
+      "sha256": "2e87f9695090aec53fd38a85e9badd9851209da6d872901ada84ca364b3f56fb",
+      "size": 65042
+    },
+    "tools/preparation-retirement-admission.mjs": {
+      "sha256": "a11c4b6f46d4d362b5164b7f440f958aa86332d21f4302ddcc21421750e058db",
+      "size": 5546
+    },
+    "tools/preparation-resolution.mjs": {
+      "sha256": "8fb1c147e27ab1202076af3046d977b8aa024ef6814277be4f0846b71512a2ed",
+      "size": 66481
+    },
+    "tools/main-prebuild-queue.mjs": {
+      "sha256": "9df065e0775520254aed42077f9f96c9d1d7c801293aa2124f3411a488307755",
+      "size": 21041
+    },
+    "tools/publish-latest-main.mjs": {
+      "sha256": "1fa234d5f3bdc5ba5fa028d91756d53a7ed79569e5a054270c73e280f22c67ac",
+      "size": 31236
+    },
+    "tools/preparation-retirement-entry.mjs": {
+      "sha256": "c61ff0428e4d392a111f04a2977064e7e77deb6dfcfb7ad0871b991201bdd256",
+      "size": 7718
+    },
+    "tests/preparation-retirement-diagnostic.test.mjs": {
+      "sha256": "025be73964d8a512e8eedf42fb50cb45181cd85d173c8eccecddad3c5d02519a",
+      "size": 8331
+    },
+    "tests/preparation-retirement-integration.test.mjs": {
+      "sha256": "07c09e1f518dfd98849feb1d0a0aa7428abbf4ac043c95b07ed6b2e178c11994",
+      "size": 16872
+    },
+    "tests/preparation-retirement-scope.test.mjs": {
+      "sha256": "97b33733338afb04ddb3d80c9bf26a8fea70126bd7e363415153eb645c53a0e5",
+      "size": 5984
+    }
+  },
+  "productionModulesAdded": 0,
+  "controlFileCount": 32,
+  "actualModelVerified": false
+}
