@@ -1,0 +1,109 @@
+# 2026-10-24 夜间施工：按审查第 4 节重排执行
+
+用户 2026-10-24 认可[发布慢因与施工方案审查](../施工/发布慢因与施工方案审查.md#4-按缩短时间最多重排建议未采用)第 4 节重排并授权今晚执行 S05d、S05b、S05、S08、S16；新分支从 `codex/release-process-review-20261024`（`a6cc9fcd`）拉出，不合入 main。用户未调整沙箱设置。
+
+## 结论
+
+- 代码三单已在分支 `codex/release-rework-20261024` 提交（草稿仓库，早上由脚本推送）：S05d `24dd52ac`、S08 `c35de78e`、S16 `22193950`，文档为本提交。沙箱内能运行的直接相关测试均通过，个别失败都是沙箱限制且与基线相同；起子进程的测试沙箱内无法运行，已列入早上推送脚本，未通过前不推送。
+- S05b、S05 未执行。原因不是代码阻断，而是沙箱不能在真实仓库提交、不能推送、不能以普通用户运行 installer 和发布入口；control installer 又要求干净的已提交控制源码。按代码核对，正常路径上没有会拒绝新字节的断言（见 [S05B-RUNBOOK](S05B-RUNBOOK.md#s05b-代码阻断核对只读代码2026-10-24)）。
+- 队列现状未变：85 张票全有终态，a3d53227 仍是唯一未收敛的 unknown，自 10-22 15:30 起阻塞。今晚没有写队列、控制包、配置或任何生产目录。
+
+## 逐单结果
+
+| 单号 | 今晚结果 | 提交 / 文件 | 状态 |
+| --- | --- | --- | --- |
+| S05d（扩大为通用机制） | ①确定未动生产的准备失败写结构化终态：原生 prepare-only 失败写 `teruisi-native-preparation-failure-v1` 记录，控制侧严格校验后记带 dispatch 绑定的 failed；消费者在调用原生前的拒绝记 `rejected-before-native`。②准备阶段 unknown：期限加 15 分钟、无任何上线阶段标记、轮换锁空闲、无 resolution 时写 `abandoned/<dispatchId>.json`，原 unknown 字节不动，同一目标改用 `<base>-r2` 新目录；上线阶段 unknown 仍阻塞。发布入口拒绝已退休包 | `24dd52ac`：`tools/main-prebuild-queue.mjs`、`publish-latest-main.mjs`、`publish-main.mjs`、`publish-prepared-main.mjs`，新测试 `main-prebuild-queue-abandonment`、`publish-main-preparation-failure`，扩展 `publish-prepared-main` | 通过（代码，通用机制）；待 S05b 采用 |
+| S08 + 发布工具冻结与解耦 | 新增经测试约束的仅控制包集合，目前可证明 2 个文件；只改它们时 scope `control-only`、components 为空；其他变更集输出逐字节不变；写出冻结规则 | `c35de78e`：`tools/release-scope-plan.mjs`，新测试 `release-scope-control-only` | 通过（代码）；分类器待 S09 采用 |
+| S16 | 首尾段分项计时（仅日志，作用顺序逐项比对不变）；docs/tests/demos 排除、同进程哈希复用、依赖硬链接三项按证据不实施，给出设计与待确认事项 | `22193950`：`tools/worker-local-release-rotation.mjs`，新测试 `worker-preparation-timing`；分析见 [S16-ANALYSIS](S16-ANALYSIS.md) | 进行中：计时已提交，待随真实发布取数；其余候选待确认 |
+| S05b | 写出早上执行手册和准备脚本；未 prepare、未 adopt | [S05B-RUNBOOK](S05B-RUNBOOK.md) | 待执行（转用户早上） |
+| S05 | 候选与批次分析：候选 36668589（B1），生产 4059afea 到候选为完整 Worker+Django，新旧分类器结果相同；S08/S16 不在本批 | [S05-CANDIDATE](S05-CANDIDATE.md) | 阻塞（待 S05b 采用） |
+
+各提交身份 `Codex <codex@openai.com>`，父链 `a6cc9fcd` ← `24dd52ac` ← `c35de78e` ← `22193950` ← 本文档提交。
+
+### S05d 兼容性要点
+
+- 新队列叶 `abandoned/` 懒创建；队列根的现有读者只枚举 tickets/dispatches/results/resolutions，生产根下已有 runner 日志，新叶不会被拒。对生产队列只读运行新版 `readPreparationQueueInventory`：85 票、33 dispatch，abandonments 0，退休集合为空，a3d53227 符合放弃条件（采用后、有新票、轮换锁空闲时）。
+- 不加 abandonment 选项时队列行为与原来一致，原有测试结果与基线相同。
+- 已知限制：`preparation-retirement-entry.mjs` 固定了 publish-latest-main/publish-main 字节，`preparation-producer-qualification.mjs` 固定了 publish-prepared-main 等字节，只影响个案退休流程，正常路径不用；`-rN` 分支名不被 ref 栅栏正则匹配，进程内仍由 `assertRetirementAdmission` 把关；check 模式不持队列锁读清单，并发写入时可能失败关闭。
+
+### S08 仅控制包分类
+
+只改下表“仅控制包”文件（可另带 docs/tests）时不触发约 27 分钟的应用准备；其余 31 个控制包成员仍按完整处理，没有放宽为 tools/** 轻量。
+
+| 类别 | 路径 | 判定 | 应用准备 |
+| --- | --- | --- | --- |
+| 文档/离线测试 | docs/、README.md、AGENTS.md、tests/ | non-production | 不触发 |
+| 仅控制包（已证明） | tools/main-prebuild-hook.mjs、tools/main-prebuild-status.mjs | control-only，components []，另记 controlOnly 字段与原因“仅控制包:路径” | 不触发，只经控制包采用（S09） |
+| 共享控制/原生 | 其余 31 个 controlFiles 及 publish-main*.mjs、publish-prepared-main.mjs、worker-local-release*.mjs、release-batch* 等原生工具 | full | 完整 Worker+Django |
+| Worker | app/、components/、public/、styles/、app/api/、worker/ | worker | 仅 Worker |
+| Django | backend/<域>/ | django（migrations 另走迁移） | 仅 Django |
+| 共享依赖/运行配置 | lib/、package*.json、tsconfig、wrangler、vite/vinext/eslint 配置、backend 运行配置、config/、*.ps1/*.bat/*.cmd、install-main-prebuild.mjs | full | 完整 |
+| 未知 | 其他路径；大小写不同的路径；仅控制文件改名后的新路径 | full | 完整 |
+
+闭包证据由 `tests/release-scope-control-only.test.mjs` 强制：两项都在 controlFiles 中；从 publish-main.mjs、publish-prepared-main.mjs 及被控制包以外文件点名的控制文件出发按保守字面量规则传递遍历，两项不可达，且 frozen-main-source、main-schema-release、publish-main-progress 等已知共享文件必须在闭包内；tools/、backend/、app/、lib/、worker/、config/ 等目录中除控制包成员和 install-main-prebuild.mjs、verify-release-candidate.mjs 外无文件点名它们。hook 与 status 只从 bundleRoot 运行。
+
+采用方式：分类器本身是共享控制文件，只有 S09 采用含 `c35de78e` 的控制包后才生效；S05d 改了原生发布工具，首个带它们的批次仍需完整准备。当前收益窄：生产 48 个包中 12 个的范围含这两个文件，但都混有其他代码，按新规则仍为完整。
+
+冻结规则（已写入 [S08](../施工/S08.md)）：控制工具改动集中成批经 S09 一次采用；原生发布工具改动只随真实应用发布合入；新增仅控制文件须同时列入 controlFiles 与 controlOnlyTools 并通过测试；共享文件改为仅控制须先切断非控制引用并另行审查。
+
+### S16 摘要
+
+首段 339 秒、尾段 384 秒的主体按代码对照是“前驱完整自校验”（一次非复用准备 5 次）和 5 次源码身份采样，不是复制或编译；一次前驱自校验推断约 150 至 185 秒，待新计时核实。最大候选是减少前驱复验次数（D-1 去掉被 P5 支配的 P4，D-2 中间边界改轻量），需改受保护 verifier，须先取实数再单独审查。详见 [S16-ANALYSIS](S16-ANALYSIS.md)。
+
+## 测试
+
+沙箱内（`run-test.ps1`，管道名经预加载改到 `\\.\pipe\LOCAL\`）：
+
+| 文件 | 结果 | 说明 |
+| --- | --- | --- |
+| main-prebuild-queue-abandonment（新） | 13/13 | 去掉标记检查和 failed 跳过后 4 项失败 |
+| release-scope-control-only（新） | 5/5 | 把非仅控制文件加入集合后 2 项失败 |
+| worker-preparation-timing（新） | 6/6 | 去掉两个包装后 1 项失败 |
+| publish-prepared-main | 58/58 | 含新增断言 |
+| main-prebuild-queue-v2 | 10/11 | 与基线相同；失败项起子 node，沙箱限制 |
+| main-prebuild-generation-rejection | 6/6 | |
+| main-prebuild-status | 14/14 | |
+| publish-main-completed | 4/4 | |
+| main-prebuild-eligibility、main-dependency-selected-admission、main-schema-selected-admission | 4/4、2/2、2/2 | |
+| release-scope-plan | 9/9 | 跳过起 git 的 1 项 |
+| preparation-retirement-scope / -admission / -inventory-concurrency | 2/3、1/3、0/4 | 沙箱临时目录 realpath EPERM；scope 在基线上相同 |
+
+超时或无法运行（起子进程或需 tsx）：publish-latest-main、publish-main-preparation-failure、publish-main-step、preparation-resolution、preparation-missing-failure-audit、preparation-superseded-resolution、main-publication-readiness、main-prebuild-hook、main-control-upgrade、preparation-retirement-entry/-ref/-collector/-integration、fixed-native-abandonment、fixed-schema-rejection、fixed-cache-rejection、fixed-cleaned-preparation、fixed-admin-resolution、verify-release-candidate、pi150-forward-recovery、native-391-control、start-timing、tests/worker-local-release-rotation.test.ts、tests/worker-local-release.test.ts。全部在早上脚本中于沙箱外运行。原生失败记录路径另在临时副本中直接运行 `node tools/publish-main.mjs` 手工核过：prepare-only 退出 1 写出有效记录并被控制侧接受，deploy-only 与越界路径不写。所有改动的 .mjs 均通过 `node --check`。
+
+## 今晚遇到的环境限制
+
+- `D:\codex-worktrees\*`、`D:\codex-isolated\*` 对沙箱只读；可写的只有工作区。
+- 真实仓库的 reference-transaction hook 需要 Git 自带 msys `sh.exe`，沙箱内启动即失败（0xC0000022），所以不能在真实仓库建分支或提交。
+- github.com 不可达，不能 fetch/push，origin/main 只能看本地视图 36668589。
+- node 不能起子进程（git、cmd、powershell 都挂起），起子进程的测试只能延后。
+- 命名管道只能在 `\\.\pipe\LOCAL\` 下创建；测试经预加载改名，产品代码保持真实管道名。
+- 沙箱内 realpath 对生产目录返回 EPERM，installer 的发布包普查无法预跑。
+
+做法：在 `D:\运营管理系统\.codex-tmp\rework-20261024\repo` 建草稿仓库（objects/info/alternates 指向真实仓库对象库），在其中提交；早上脚本把分支取入真实仓库并推送。
+
+## 需要用户执行的动作（按顺序）
+
+1. 双击 `D:\运营管理系统\.codex-tmp\rework-20261024\1-检查并推送.bat`：测试、白名单核对、取入真实仓库、`push -u`、建工作树。不动 main，不涉及生产。
+2. 双击 `2-S05b-准备控制包.bat`：建控制源码工作树（24dd52ac）并 prepare，不采用。
+3. 手工输入脚本 2 打印的 `--adopt` 命令：生产控制采用（S05b）。
+4. 双击生产目录的 `准备main.bat`：新消费者写 a3d53227 放弃记录，并把 36668589 准备到 `-r2` 新目录（约 28 分钟）。
+5. 制品 prepared 后双击 `发布main.bat`：S05 上线（约 20 分钟，含维护窗口）。
+6. 以后：用户决定把分支合入 main，再走 S09（采用 S08 分类器的控制包）与 S17（S16 计时取数与结算）。
+
+细节、风险与可逆性见 [S05B-RUNBOOK](S05B-RUNBOOK.md)。
+
+## 遗留与未完成
+
+- S05b、S05 未执行，原因见上；不能写成已采用或已上线。
+- 早上脚本中有 2 个已知预期失败，不阻断推送但会显示：`preparation-retirement-collector`（S05d 改了 publish-prepared-main.mjs，个案退休流程的生产者资格固定旧字节，测试断言“Fixture must pin actual reviewed producer bytes”，需另行重新资格化，个案退休流程已被通用放弃机制取代）；`start-timing` 中“publication receipts and lifecycle gates remain outside this candidate”（按候选的守卫，只要分支改了队列/发布工具就会触发，不是行为回归）。其他失败若在 a6cc9fcd 基线上同样失败，记为既有问题；否则中止推送。
+- 控制源码选 24dd52ac 而非分支头，是为了不提前采用 S08 分类器（S09 未授权）；用户若决定同批采用，换用 22193950。
+- S16 其余三项未实施，待新计时与独立审查；S09、S17、S06/S07 未动。
+- installer 的发布包普查、全局 hooksPath、首次退休协议采用分支只能在早上实测。
+- 模型分工：今晚使用的子代理工具不能指定模型 ID 或推理强度，[任务模型分工](../规范/任务模型分工.md)的映射无法显式套用；独立审查由本功能之后的单独审查上下文执行。
+
+## 证据
+
+- 分支提交与差异：草稿仓库 `git log a6cc9fcd..HEAD`、`git diff --name-only a6cc9fcd HEAD`。
+- 队列：`D:\codex-isolated\main-manual-release-20261016\prebuild-queue-v2\`（tickets 85、dispatches 33、results 85、resolutions 9，无 abandoned），只读。
+- 控制：`CONTROL-INSTALLATION.json`（installId ade68625…，bundle 83e4158f…，2026-10-22T00:54:17Z），只读。
+- 生产：`PUBLISHED-MAIN.json`（4059afea…，2026-10-22T05:34:48.011Z），只读。
