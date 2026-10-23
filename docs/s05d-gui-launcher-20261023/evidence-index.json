@@ -1,0 +1,163 @@
+{
+  "version": "s05d-gui-private-failed-delivery-v2",
+  "observedAt": "2026-10-23T14:55:02.084Z",
+  "source": {
+    "root": "D:/codex-worktrees/s05d-gui-launcher-20261023",
+    "baselineCommit": "4a13ae7831b989ba3fc5e5b170c1390c3ec936a1",
+    "codeCommit": "c7b88eaaee625d61101f79c77b34aa5e255a01a9",
+    "branch": "codex/s05d-gui-launcher-20261023",
+    "programCodeChanged": false
+  },
+  "refs": {
+    "main": "2f55c3965e60b139381b6cc31ed868bcfe99a7bf",
+    "originMain": "36668589cab03d5d2d9d98383fb58eeb19c391ee"
+  },
+  "privateCandidate": {
+    "actualRuns": 1,
+    "formalTaskRegistrations": 0,
+    "formalTaskRuns": 0,
+    "exeSha256": "b6292471e566b05da6286b6896d45a7f2158985e056cad6021326697135cb116",
+    "subsystem": 2,
+    "flags": 524296,
+    "ordinaryGuiObserved": true,
+    "psActualIdentityComplete": false,
+    "runnerInvoked": null,
+    "runnerExecutionEstablished": false,
+    "writerObserved": false,
+    "fullValidatorInvoked": false,
+    "privateFeasibilityPassed": false,
+    "realControlPrepareEligible": false,
+    "missingEvidence": [
+      "ps-version.json",
+      "ps-observations.jsonl",
+      "ps-console-samples.jsonl",
+      "ATTEMPT.json",
+      "PARENT.json",
+      "EXIT.json",
+      "stdout.log",
+      "stderr.log"
+    ]
+  },
+  "oldEvidencePreservation": {
+    "oldRunCount": 4,
+    "filesVerifiedUnchanged": 204,
+    "allUnchanged": true,
+    "oldTasksModified": false,
+    "unknownsReplayed": false
+  },
+  "scope": {
+    "nativePrepare": false,
+    "nativeAdopt": false,
+    "retirement": false,
+    "sourceMovement": false,
+    "reboot": false,
+    "seal": false,
+    "queueRecovery": false,
+    "applicationPrepare": false,
+    "deployment": false,
+    "retry": false,
+    "killedProcesses": false
+  },
+  "evidence": {
+    "baseline.json": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\baseline.json",
+      "size": 58789,
+      "sha256": "5e57098a7266ba0be2783dac02468d22f9cfd142a2232c631d2a68f2d847a8a6"
+    },
+    "capture-baseline.mjs": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\capture-baseline.mjs",
+      "size": 2464,
+      "sha256": "d1f304df5ae13461f04e721d751e711b40629ede7dfe6642f117453d2d4f9502"
+    },
+    "INCREMENTAL-REVIEW-BOUNDARY.md": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\INCREMENTAL-REVIEW-BOUNDARY.md",
+      "size": 4350,
+      "sha256": "b5d1d99d2145cb2dc41e64f52af475d2e5352208bb3c5d04b0df29bc8ff8a61a"
+    },
+    "REVIEW.md": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\REVIEW.md",
+      "size": 4707,
+      "sha256": "dadc1bcc6c546e1acb467df2ef0a0c822ed6abaee11d85ac6434efad0d3d9745"
+    },
+    "PRIVATE-FAILURE-INDEPENDENT-REVIEW.md": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\PRIVATE-FAILURE-INDEPENDENT-REVIEW.md",
+      "size": 4892,
+      "sha256": "34147874ca45cdd6a601550d75ee3e5bf7e7b79ad1f850bbccfc3ec5d02c7752"
+    },
+    "closeout-evidence.mjs": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\closeout-evidence.mjs",
+      "size": 3917,
+      "sha256": "3bb3f87da74f9f09189d57bf667bdd4301afd12f8500aef82d3812880ca34fc6"
+    },
+    "private/PRIVATE-RESULT.md": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\private\\PRIVATE-RESULT.md",
+      "size": 8564,
+      "sha256": "97c4b50fc85c51f915164864fb539b700535b1c2bf251c11a35461008a263c3a"
+    },
+    "private/private-evidence-index.json": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\private\\private-evidence-index.json",
+      "size": 13073,
+      "sha256": "0dad8e96f2c64448baeb064fa2eb83372a806891fe018debb1bd92b1ae9bedeb"
+    },
+    "private/build-manifest.json": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\private\\build-manifest.json",
+      "size": 2945,
+      "sha256": "e69ce55b532be5f465865a53f0241e085b59e4e7eb683cecc05df1a2f0b0d738"
+    },
+    "private/SHELL-CONSUMED.json": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\private\\SHELL-CONSUMED.json",
+      "size": 227,
+      "sha256": "f6faa7882a57db2f7ac3bfdffaa623fecbe0bf4c2405b745786ba04090c46c77"
+    },
+    "private/creation-request.json": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\private\\creation-request.json",
+      "size": 544,
+      "sha256": "e21d4b6fa75a1c1fd6a0be9244e5d3d612f9990424aa92cfc6b4e2279cd78686"
+    },
+    "private/launcher-start.json": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\private\\launcher-start.json",
+      "size": 517,
+      "sha256": "ee79feeb91b3493a8b6467969d2948fb15be110014ad69847145a8b2528ece4d"
+    },
+    "private/gui-handle-binding.json": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\private\\gui-handle-binding.json",
+      "size": 547,
+      "sha256": "a708e6e5946d4e0bfcadf3f89475dbd56e480111b3037ab4a84113e725b74870"
+    },
+    "private/gui-direct-exit.json": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\private\\gui-direct-exit.json",
+      "size": 232,
+      "sha256": "421effcd5ba79a9b25b810d14a797be97cb295ccee0b333224f078b6256b9459"
+    },
+    "private/ps-created.json": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\private\\ps-created.json",
+      "size": 50,
+      "sha256": "f1e151b50dc76c133b71932b6e3da80f860031599e1f01e15f14b9b2b6c56c4c"
+    },
+    "private/ps-direct-exit.json": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\private\\ps-direct-exit.json",
+      "size": 150,
+      "sha256": "57a16001ea3ad8ba7726cc57cf217eee57902f9341099a1413309c1ca3eddfc3"
+    },
+    "private/ps-output-completion.json": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\private\\ps-output-completion.json",
+      "size": 195,
+      "sha256": "4c75d416fbc1bf5bc2efe50dbde432abcb4c5c89e4a89d2f168a4a850d1e8235"
+    },
+    "private/topology.jsonl": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\private\\topology.jsonl",
+      "size": 129,
+      "sha256": "1b78ce4ff2182ff06076f81d404e1f4e7f21798954b94b417e11d8e11a62874c"
+    },
+    "private/process-events.json": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\private\\process-events.json",
+      "size": 31,
+      "sha256": "b889e3c1bddb04a42501094010bad84b11855c51543109f79a15d356ff252afd"
+    },
+    "private/PREFLIGHT-FAILURE.md": {
+      "file": "D:\\codex-artifacts\\s05d-gui-launcher-20261023\\private\\PREFLIGHT-FAILURE.md",
+      "size": 1778,
+      "sha256": "9ae74c3e2641bf2cb5ec4ee1f8eb9fb329b090b3fe113e360f36ec430543253b"
+    }
+  }
+}
