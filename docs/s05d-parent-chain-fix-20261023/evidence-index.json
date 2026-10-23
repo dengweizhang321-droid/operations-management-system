@@ -1,0 +1,207 @@
+{
+  "schema": "s05d-parent-chain-fix-evidence-index-v1",
+  "generatedAtUtc": "2026-10-23T10:42:44.119753+00:00",
+  "status": "repair-not-passed-stopped",
+  "remoteMainObserved": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+  "localMainUnchanged": "2f55c3965e60b139381b6cc31ed868bcfe99a7bf",
+  "originMainUnchanged": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+  "baseline": "a1750fd2d2395ab5f7e31789ee1b9566ceaa1697",
+  "reviewedDiagnosticCodeCommit": "c7b88eaaee625d61101f79c77b34aa5e255a01a9",
+  "sourcePins": [
+    {
+      "path": "tools/preparation-retirement-handoff.mjs",
+      "bytes": 64627,
+      "sha256": "223cc6560e99a906343a2f1b9220c89fc24ab8ea4567a4c651d51ea4cf1b232b"
+    },
+    {
+      "path": "tools/preparation-retirement-handoff-runner.ps1",
+      "bytes": 10129,
+      "sha256": "7454869466ff050758be0c0b6239632289fce396191a01949d22b14f5fc2b1e9"
+    }
+  ],
+  "newScheduledTasksCreated": 1,
+  "newScheduledTasksRun": 1,
+  "secondScheduledTaskUsed": false,
+  "nativePrepareCalls": 0,
+  "nativeAdoptCalls": 0,
+  "productionActions": 0,
+  "taskCleanupPerformed": false,
+  "scope": "diagnostic boundary and refusal evidence; no successful complete preflight or production repair",
+  "artifacts": [
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/historical-evidence.json",
+      "bytes": 22163,
+      "sha256": "fc1b100cfe113c00600f9b41b7f1c7c6289f6d86cf32307b56376c126768b135"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/first-run.json",
+      "bytes": 1464,
+      "sha256": "f1fe369c882ba54310d3aa3295ea4a213132bab587ca06acefe78f142c3f5380"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/first-register.json",
+      "bytes": 141,
+      "sha256": "1b942088a0acccad58b51327616dfb1554887c26ff67fb1c00a877e5c0654bf5"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/driver-first-error-index.json",
+      "bytes": 1029,
+      "sha256": "507e01cd8e4e56a2d6c38f7ed7c94fcd28bfeddcf7e6893aa4e2d73c25cc0cce"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/first-readonly-quiescence.json",
+      "bytes": 1413,
+      "sha256": "db234f046df184548ed8a40e2de7afc07768c4622b3e19ef9814a778245942ae"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/private-checks-final.json",
+      "bytes": 884,
+      "sha256": "24afba2fe55d95699fa311d0366547d6a4293d5c17cb4046f1e3bd89959f1cae"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/private-checks-final.mjs",
+      "bytes": 3604,
+      "sha256": "04472bcca1a08cd28b4ce4caf606334cb7c3bdd95dddbf24cd693717de33e6af"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/diagnostic-validator-checks.json",
+      "bytes": 184,
+      "sha256": "c8f7d17642b20e6ac308876266e6a1683545d9681fda81764aa1ad4acbfbb683"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/diagnostic-validator-checks.mjs",
+      "bytes": 4241,
+      "sha256": "c756e77b88739d8afb407217d27ef23f1fca4e5d9e5e3ba362256f276f6886d8"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/diagnostic-entry.mjs",
+      "bytes": 2446,
+      "sha256": "c6abfd0ed43827605316f2bc34ebe4a985b0f970e27d13d68c564824e0ff9c62"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/DIAGNOSTIC-DESIGN.md",
+      "bytes": 4853,
+      "sha256": "735adb60b9d14c934baf1a326390b92971ad9d4370dca3ca048d489996d7b298"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/IMPLEMENTATION-STOP.md",
+      "bytes": 6965,
+      "sha256": "8851943259a626eee6d03d7f21705067c5339654fe4183ca9738f7d789ed0c19"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/TOPOLOGY-CONSULT.md",
+      "bytes": 5466,
+      "sha256": "406e7c93550d62684c373112b9b70fb909a229c548dfb313f893a2a2e813f929"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/FINAL-REVIEW.md",
+      "bytes": 6830,
+      "sha256": "a2f0d2d53c6a747bcf808b2189631382a730835b3f422d175e7afb7b629505af"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/native-startup-function-actual-token.json",
+      "bytes": 682,
+      "sha256": "3d37072596d7b96c86f9b6e26f9183b9c264be69a5e06ae5623a3fb4cb2e0f5b"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/native-startup-function-token-seam.json",
+      "bytes": 1065,
+      "sha256": "717bfe5683d26825aa07bebdf7f735685dcd33c34e63e8876d90e1cf88fea468"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/native-startup-function-token-seam-inspect.json",
+      "bytes": 1273,
+      "sha256": "dafad6fbf2d2c2e7eb3374841857a3d0ee9eb247bea4986a75d3164149068c41"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/no-console-api-probe.json",
+      "bytes": 232,
+      "sha256": "8186a1cea750d33748319c52ccfbd54fff46567c97a3d20d34bfceca6b24cdd1"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/detached-console-api-probe.json",
+      "bytes": 371,
+      "sha256": "937f3d76462145987eefa16b12bee9ba343347a1758ee7c29ce72588bb1dd4c5"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/unproven-topology-exact.patch",
+      "bytes": 26791,
+      "sha256": "66ee693fd9f87118b76c0c738eb226f29d05beebc4b713cbe4b83fac17037f25"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/unproven-topology/preservation.json",
+      "bytes": 742,
+      "sha256": "ae87ec8f12f1222eec317831418731a06b9250beea4176f2a164fdc3f3308199"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/unproven-topology/patch-check.json",
+      "bytes": 357,
+      "sha256": "62d101caf5d469f9ea00a5924cd4c2ec8078d730e40826086ab5aa160539a15d"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/unproven-topology/tools/preparation-retirement-handoff.mjs",
+      "bytes": 66191,
+      "sha256": "929ae64fd8fdaa34461bcac99da24217dee80f7a0758a7f914b7bf78fddd8d38"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/unproven-topology/tools/preparation-retirement-handoff-runner.ps1",
+      "bytes": 15675,
+      "sha256": "9a5d162ecaf14e5c43e2cd1eee7bc1e366f4b22f1615a88855cd3f8ae2f2868a"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/retirement-handoff/runs/8a9f0261-13ad-4ff3-9b1a-94357e97e450/RUN.json",
+      "bytes": 7520,
+      "sha256": "1a84d90a1afcd6e2a073ecd7af7b50bef2bbaa96cb6114b7edb4ea6b27ef9e33"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/retirement-handoff/runs/8a9f0261-13ad-4ff3-9b1a-94357e97e450/TASK.json",
+      "bytes": 3434,
+      "sha256": "383b31e0590e674224ba570ea07c820ee2f34b334a3cd48c81bb044cbd4cb102"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/retirement-handoff/runs/8a9f0261-13ad-4ff3-9b1a-94357e97e450/REQUESTED.json",
+      "bytes": 214,
+      "sha256": "65656601a68ee4d03ad9df43ba2b5caaab3f1696ed8bb872d140c786842596a9"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/retirement-handoff/runs/8a9f0261-13ad-4ff3-9b1a-94357e97e450/ATTEMPT.json",
+      "bytes": 256,
+      "sha256": "85fff3388e0ca33995279e0d346ca194dc838d2442b8060831cd64b5e31b6581"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/retirement-handoff/runs/8a9f0261-13ad-4ff3-9b1a-94357e97e450/PARENT.json",
+      "bytes": 609,
+      "sha256": "a75b5c738a4e20215fb3257b33cb41e40b01136e290947eb423e55d68a756f4a"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/retirement-handoff/runs/8a9f0261-13ad-4ff3-9b1a-94357e97e450/STARTED.json",
+      "bytes": 494,
+      "sha256": "eab3214a5987044f596a33b20083854bfefcdea043089ac00731888a91ec20d4"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/retirement-handoff/runs/8a9f0261-13ad-4ff3-9b1a-94357e97e450/PARENT-OBSERVATION.json",
+      "bytes": 6253,
+      "sha256": "3be1ce7885c4755e8a312873ef2d4da7087becf8a28e8f8972dd2ae811d555f0"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/retirement-handoff/runs/8a9f0261-13ad-4ff3-9b1a-94357e97e450/RESULT.json",
+      "bytes": 689,
+      "sha256": "d8f7f9555125e47dd1093b7ccb9eb39ee1a48c6ca757dda152194ed0fdd0bf0f"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/retirement-handoff/runs/8a9f0261-13ad-4ff3-9b1a-94357e97e450/EXIT.json",
+      "bytes": 728,
+      "sha256": "9d1643992189046b338e227a5ad58109e4b8e60b083afcd247c1f2878cf4db14"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/retirement-handoff/runs/8a9f0261-13ad-4ff3-9b1a-94357e97e450/stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-parent-chain-fix-20261023/retirement-handoff/runs/8a9f0261-13ad-4ff3-9b1a-94357e97e450/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

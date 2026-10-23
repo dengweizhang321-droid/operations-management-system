@@ -1,5 +1,7 @@
 # 任务记录目录
 
+本轮停止交付：[S05d 普通权限父子链修复（未通过）](../s05d-parent-chain-fix-20261023/REPORT.md) · [独立增量审查](../s05d-parent-chain-fix-20261023/REVIEW.md) · [仓库外证据索引](../s05d-parent-chain-fix-20261023/evidence-index.json)。
+
 本轮施工：[旧残留有限分类与 S05b 准入](../s05d-residual-classification-20261023/REPORT.md) · [限定方案](../s05d-residual-classification-20261023/PLAN-ADDENDUM.md) · [实施](../s05d-residual-classification-20261023/IMPLEMENTATION.md) · [独审](../s05d-residual-classification-20261023/REVIEW.md) · [采用记录](../s05d-residual-classification-20261023/S05B-RUNBOOK.md)。
 
 本轮只读核对：[S05d 十一个历史候选](../s05d-history-candidates-20261023/REPORT.md) · [逐项归属与引用](../s05d-history-candidates-20261023/OWNERSHIP.md) · [独立审查](../s05d-history-candidates-20261023/REVIEW.md)。
