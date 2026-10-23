@@ -1,5 +1,7 @@
 # 任务记录目录
 
+本轮云端备份：[完整源码与分支备份](../full-cloud-backup-20261023/REPORT.md) · [精确引用及快照索引](../full-cloud-backup-20261023/cloud-backup-catalog.json)。仅备份，不合main或发布。
+
 本轮补充：[规范瘦身与限定资格对照](../machine-cleanup-20261022/REPORT.md) · [独立审查](../machine-cleanup-20261022/REVIEW.md)。
 
 一次开发、审查、候选准备、发布和生产采用的记录按任务目录保存。既有任务目录及其非 Markdown 证据保留原位，避免拆散 JSON、截图、清单和校验记录。以下目录按用途分类，不据目录名称推断生产状态。

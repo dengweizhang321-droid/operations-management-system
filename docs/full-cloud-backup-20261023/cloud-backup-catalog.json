@@ -1,0 +1,1065 @@
+{
+  "schema": "teruisi-cloud-source-backup-v1",
+  "date": "2026-10-23",
+  "repository": "https://github.com/dengweizhang321-droid/operations-management-system",
+  "scope": "source/documents/history; credentials, live databases, local business exports and ignored runtime content excluded",
+  "remoteMainPreserved": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+  "originalLocalMainPreserved": "2f55c3965e60b139381b6cc31ed868bcfe99a7bf",
+  "historyRefVerificationUtc": "2026-10-23T11:00:42.790236+00:00",
+  "historyReferences": [
+    {
+      "sourceRef": "refs/heads/codex/a1-prep-queue-20261022",
+      "oid": "92238ab136bf74fe32aafd500c57b79556cb3ec0",
+      "targetRef": "refs/heads/codex/a1-prep-queue-20261022",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/a3-predecessor-drift-resolution-20261022",
+      "oid": "d019021b12695ed0204cccdc3be684a63998067b",
+      "targetRef": "refs/heads/codex/a3-predecessor-drift-resolution-20261022",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/ai-chat-empty-details-artifact",
+      "oid": "2a8aaef992e60aa95bb317800b94f1abaf62ec4f",
+      "targetRef": "refs/heads/codex/ai-chat-empty-details-artifact",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/ai-chat-empty-details-release",
+      "oid": "ea7aaae8a517e6fd795de264edeaaf093a4c5ad5",
+      "targetRef": "refs/heads/codex/ai-chat-empty-details-release",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/ai-schedule-repeat-final",
+      "oid": "5cfdc9e346f83cddbe96bc2e21720cc67217e53f",
+      "targetRef": "refs/heads/codex/ai-schedule-repeat-final",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/ai-schedule-repeat-release",
+      "oid": "1e2a74a143b377621fcb86bc0a3da5a849b0048b",
+      "targetRef": "refs/heads/codex/ai-schedule-repeat-release",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/ai-schedules-release-20261015",
+      "oid": "1e23af06d38d39eb29b0db3950918e0e5a18b916",
+      "targetRef": "refs/heads/codex/ai-schedules-release-20261015",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/backup-pi-deploy-20261019",
+      "oid": "3918480da94fc1cbdf72aa17d65406057bc7143a",
+      "targetRef": "refs/heads/codex/backup-pi-deploy-20261019",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/combined-release-20261014",
+      "oid": "fa711c5a8679b3c8e28fafa217d5117552c30e65",
+      "targetRef": "refs/heads/codex/combined-release-20261014",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/django-pid-record-boot-recovery-20261017",
+      "oid": "f2b8d2bbb1ead5447bbbcf72e5bc1f86426f76e9",
+      "targetRef": "refs/heads/codex/django-pid-record-boot-recovery-20261017",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/e969-ad7d-maintenance-recovery-20261019",
+      "oid": "d0efc4789780ff477d8ea1dde35cc862b5b9a432",
+      "targetRef": "refs/heads/codex/e969-ad7d-maintenance-recovery-20261019",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/full-code-audit-20261021",
+      "oid": "09db8f9a100d79b4117a874513c6c472a17335f1",
+      "targetRef": "refs/heads/codex/full-code-audit-20261021",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/helper-claim-cleanup-20261019",
+      "oid": "e596931d0f692b4e55993750642f7b70d9f0668e",
+      "targetRef": "refs/heads/codex/helper-claim-cleanup-20261019",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/jd-9896-rerun-20261017",
+      "oid": "983f8b28e3e282946cfc37c6be6303b6e8115345",
+      "targetRef": "refs/heads/codex/jd-9896-rerun-20261017",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/jd-absent-helper-package",
+      "oid": "278415728cdf35df47e13f4eb050192972f84789",
+      "targetRef": "refs/heads/codex/jd-absent-helper-package",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/jd-bi-health-package",
+      "oid": "2522b9b153ce8a362afd9252eed6111c5fabeb58",
+      "targetRef": "refs/heads/codex/jd-bi-health-package",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/jd-inbound-date-package",
+      "oid": "6587ca38c8b6a4db7df72cd0d2d0bc0da175c736",
+      "targetRef": "refs/heads/codex/jd-inbound-date-package",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/jd-inbound-identity-package",
+      "oid": "b28562f46af3569be647808756a56758e88cb69c",
+      "targetRef": "refs/heads/codex/jd-inbound-identity-package",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/jd-inbound-jh-document-package",
+      "oid": "b64719f807f3e3b7b13c7274ec0bed6c02b76494",
+      "targetRef": "refs/heads/codex/jd-inbound-jh-document-package",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/jd-inbound-receipt-utc-package",
+      "oid": "fca631ff4a9e4d5fc65f019d29c9507f44aa2734",
+      "targetRef": "refs/heads/codex/jd-inbound-receipt-utc-package",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/jd-inbound-source-contract-package",
+      "oid": "0fdb0185d2f34e0b7b114f6513b4d7d2077dbe41",
+      "targetRef": "refs/heads/codex/jd-inbound-source-contract-package",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/jd-logistics-demo",
+      "oid": "1d1278088013afdaddf961d35266c7fee6b65fc8",
+      "targetRef": "refs/heads/codex/jd-logistics-demo",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/jd-logistics-integration",
+      "oid": "dc1e80d997993b6c8947598a387fa073c7ab1756",
+      "targetRef": "refs/heads/codex/jd-logistics-integration",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/jd-monitor-release-20261016",
+      "oid": "c932ae26557400c67843f038fcb31f6961a6a409",
+      "targetRef": "refs/heads/codex/jd-monitor-release-20261016",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/jd-pop-identity-fix",
+      "oid": "4aaa472c92e2f1cf10157ad4ba919a792ae8e692",
+      "targetRef": "refs/heads/codex/jd-pop-identity-fix",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/jd-pop-package",
+      "oid": "6a6b6dae6758da06c126a80c2b5768ece5d56e66",
+      "targetRef": "refs/heads/codex/jd-pop-package",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/jd-zhigao-promotion-diagnosis",
+      "oid": "5d1df2650febd6336b17972fe2427ce7735a7e25",
+      "targetRef": "refs/heads/codex/jd-zhigao-promotion-diagnosis",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/machine-cleanup-20261022",
+      "oid": "e0317a3c6fc32545f85559edde0a8589f058b1f0",
+      "targetRef": "refs/heads/codex/machine-cleanup-20261022",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/main-manual-release-20261016",
+      "oid": "7dcd013f7985e35b8f80cda6698311e2be9c3472",
+      "targetRef": "refs/heads/codex/main-manual-release-20261016",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/maintenance-predecessor-qualify-20261022",
+      "oid": "63aa1f324c92f191fd9cca13d4ae2a1f29277f9d",
+      "targetRef": "refs/heads/codex/maintenance-predecessor-qualify-20261022",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-0bb9523cbf1e-bcccc8cd-00058fea",
+      "oid": "0bb9523cbf1e7da0ecb58deb4e53bde8aaf74ac2",
+      "targetRef": "refs/heads/codex/manual-main-0bb9523cbf1e-bcccc8cd-00058fea",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-0efb85410210-614f2724-69977619",
+      "oid": "0efb854102106b3eac85823ce7f148188f0f615f",
+      "targetRef": "refs/heads/codex/manual-main-0efb85410210-614f2724-69977619",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-19db6d2c217e-ec5d0f96-83cdf0d4",
+      "oid": "19db6d2c217ea6a27fe22e9e29e38a70c3420dee",
+      "targetRef": "refs/heads/codex/manual-main-19db6d2c217e-ec5d0f96-83cdf0d4",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-20eea975b7e2-7d44de3d-ed93efd0",
+      "oid": "20eea975b7e2132e950de0423adf9ff14507be4a",
+      "targetRef": "refs/heads/codex/manual-main-20eea975b7e2-7d44de3d-ed93efd0",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-25fe1fa39e7d-ec09ad08-71ae7608",
+      "oid": "25fe1fa39e7d6223d20fd3b4c7e7bbe84462222d",
+      "targetRef": "refs/heads/codex/manual-main-25fe1fa39e7d-ec09ad08-71ae7608",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-2b022c16b36e-ec5d0f96-83cdf0d4",
+      "oid": "2b022c16b36ec0415a85db81b92502f5c2ab81eb",
+      "targetRef": "refs/heads/codex/manual-main-2b022c16b36e-ec5d0f96-83cdf0d4",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-2b6447f33d54-150a41fa-23ba6b9a",
+      "oid": "2b6447f33d54c4aaf1b8b543ccd3707d73bf5584",
+      "targetRef": "refs/heads/codex/manual-main-2b6447f33d54-150a41fa-23ba6b9a",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-2be62f90e6dd-f9f646e8-3b7345f2",
+      "oid": "2be62f90e6dd720bd3ac3f02951f8e90e6069e0c",
+      "targetRef": "refs/heads/codex/manual-main-2be62f90e6dd-f9f646e8-3b7345f2",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-2f875fb01c79-614f2724-69977619",
+      "oid": "2f875fb01c790c5539d407bae5acf9c90aa33612",
+      "targetRef": "refs/heads/codex/manual-main-2f875fb01c79-614f2724-69977619",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-36668589cab0-71ecf390-bbc9a5ef",
+      "oid": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+      "targetRef": "refs/heads/codex/manual-main-36668589cab0-71ecf390-bbc9a5ef",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-4059afea8841-93711e55-884d09d7",
+      "oid": "4059afea884151d881e3eb87159e401c2c1579c3",
+      "targetRef": "refs/heads/codex/manual-main-4059afea8841-93711e55-884d09d7",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-4072d666f1f3-bcccc8cd-00058fea",
+      "oid": "4072d666f1f3d85a5a1a93342196587446f08a71",
+      "targetRef": "refs/heads/codex/manual-main-4072d666f1f3-bcccc8cd-00058fea",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-477a94bf29f2-fee81c63-4ca6db6e",
+      "oid": "477a94bf29f256561787284f5e095a4a7a11c662",
+      "targetRef": "refs/heads/codex/manual-main-477a94bf29f2-fee81c63-4ca6db6e",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-47e1e89f-pi150-forward",
+      "oid": "47e1e89fea914cbc71b44a5055188daa550e558e",
+      "targetRef": "refs/heads/codex/manual-main-47e1e89f-pi150-forward",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-4a1859686c1e-ba5c1310-77953588",
+      "oid": "4a1859686c1e9d32892c06ef2eca3f0d9d2b5a45",
+      "targetRef": "refs/heads/codex/manual-main-4a1859686c1e-ba5c1310-77953588",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-4b733d1aed4b-c5d5bb6f-a9e3fdb9",
+      "oid": "4b733d1aed4bdc619adccb37debd61d57f1ce6fb",
+      "targetRef": "refs/heads/codex/manual-main-4b733d1aed4b-c5d5bb6f-a9e3fdb9",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-51e242dac482-71ecf390-bbc9a5ef",
+      "oid": "51e242dac482f4dfcd43268c10db7945f90925e1",
+      "targetRef": "refs/heads/codex/manual-main-51e242dac482-71ecf390-bbc9a5ef",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-51eb7d76-pi150-forward",
+      "oid": "51eb7d76095db2ea0c24ac95ec827615e68e0d11",
+      "targetRef": "refs/heads/codex/manual-main-51eb7d76-pi150-forward",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-559e64fd8586-93711e55-884d09d7",
+      "oid": "559e64fd85860748566acea623c22a16173b9874",
+      "targetRef": "refs/heads/codex/manual-main-559e64fd8586-93711e55-884d09d7",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-5663930fe16d-614f2724-69977619",
+      "oid": "5663930fe16d329cf5410840b20462a51072be76",
+      "targetRef": "refs/heads/codex/manual-main-5663930fe16d-614f2724-69977619",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-593b0edb045b-614f2724-69977619",
+      "oid": "593b0edb045bfe965318fad8893826f18202954a",
+      "targetRef": "refs/heads/codex/manual-main-593b0edb045b-614f2724-69977619",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-5bebdee77bca-f9f646e8-3b7345f2",
+      "oid": "5bebdee77bca92bedbc65a16d896b727862859dc",
+      "targetRef": "refs/heads/codex/manual-main-5bebdee77bca-f9f646e8-3b7345f2",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-64238c401955-7d44de3d-ed93efd0",
+      "oid": "64238c401955faca2d33d1ef95adbe8dacfc83bc",
+      "targetRef": "refs/heads/codex/manual-main-64238c401955-7d44de3d-ed93efd0",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-66ad3e408f4b-fa333eb5-51177d5a",
+      "oid": "66ad3e408f4b979dcb476fd89d98abc676724d9f",
+      "targetRef": "refs/heads/codex/manual-main-66ad3e408f4b-fa333eb5-51177d5a",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-69b38d1e523e-bcccc8cd-00058fea",
+      "oid": "69b38d1e523e636693d26e2f682b182088e475aa",
+      "targetRef": "refs/heads/codex/manual-main-69b38d1e523e-bcccc8cd-00058fea",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-6dc028139cc6-c5d5bb6f-a9e3fdb9",
+      "oid": "6dc028139cc6e561dcad68d76c9d673596d9ec82",
+      "targetRef": "refs/heads/codex/manual-main-6dc028139cc6-c5d5bb6f-a9e3fdb9",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-6fbbb526270e-614f2724-69977619",
+      "oid": "6fbbb526270e6fc678db83df2586401ccb90d9ff",
+      "targetRef": "refs/heads/codex/manual-main-6fbbb526270e-614f2724-69977619",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-7ca85e40c285-ec09ad08-71ae7608",
+      "oid": "7ca85e40c2857ede3a55c4fffda1b3945aeb4f1f",
+      "targetRef": "refs/heads/codex/manual-main-7ca85e40c285-ec09ad08-71ae7608",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-8411456e8e75-ba5c1310-77953588",
+      "oid": "8411456e8e75219e028dea6d355ec96055a47e03",
+      "targetRef": "refs/heads/codex/manual-main-8411456e8e75-ba5c1310-77953588",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-8da01798a794-ec09ad08-71ae7608",
+      "oid": "8da01798a794e4e3adf0e08747edf8e18d71cb94",
+      "targetRef": "refs/heads/codex/manual-main-8da01798a794-ec09ad08-71ae7608",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-988810cf4b9c-f6565b40-79d6d565",
+      "oid": "988810cf4b9cccc6d9a3eea905f15e3b67989d8f",
+      "targetRef": "refs/heads/codex/manual-main-988810cf4b9c-f6565b40-79d6d565",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-9a45d8be6974-c5d5bb6f-a9e3fdb9",
+      "oid": "9a45d8be69740495b0f30f2532d16d1e764074e3",
+      "targetRef": "refs/heads/codex/manual-main-9a45d8be6974-c5d5bb6f-a9e3fdb9",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-a396a7b10930-bcccc8cd-00058fea",
+      "oid": "a396a7b10930af4e4eaf4db06bf7217748463b48",
+      "targetRef": "refs/heads/codex/manual-main-a396a7b10930-bcccc8cd-00058fea",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-a7041338462a-997d0568-ca9c731a",
+      "oid": "a7041338462acb766a50df376777c619557ea4eb",
+      "targetRef": "refs/heads/codex/manual-main-a7041338462a-997d0568-ca9c731a",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-b1b0e15d7cb7-bcccc8cd-00058fea",
+      "oid": "b1b0e15d7cb73a981a9ba0001fc4bcaeca794bc7",
+      "targetRef": "refs/heads/codex/manual-main-b1b0e15d7cb7-bcccc8cd-00058fea",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-b2ef81c7c6ee-997d0568-ca9c731a",
+      "oid": "b2ef81c7c6eecdb59894e55021b835b6a8baf0b4",
+      "targetRef": "refs/heads/codex/manual-main-b2ef81c7c6ee-997d0568-ca9c731a",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-b44889912af8-f6565b40-79d6d565",
+      "oid": "b44889912af8968815205c54a16f88f3c6ad3c0e",
+      "targetRef": "refs/heads/codex/manual-main-b44889912af8-f6565b40-79d6d565",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-b6ac69dc7ce7-a51cce69-9ae5365c",
+      "oid": "b6ac69dc7ce702c2c44391deaf421e6c52ddbac4",
+      "targetRef": "refs/heads/codex/manual-main-b6ac69dc7ce7-a51cce69-9ae5365c",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-bbc9fda1-pi150-forward",
+      "oid": "bbc9fda1cfda545f3772ce18f7f9977bf58f9f32",
+      "targetRef": "refs/heads/codex/manual-main-bbc9fda1-pi150-forward",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-c2c6749a4178-de03bca5-66cc9293",
+      "oid": "c2c6749a4178e25c4f9f36f8301bf712078f2012",
+      "targetRef": "refs/heads/codex/manual-main-c2c6749a4178-de03bca5-66cc9293",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-c32434a924c4-a51cce69-9ae5365c",
+      "oid": "c32434a924c4cdd5731860ee229a123d15204058",
+      "targetRef": "refs/heads/codex/manual-main-c32434a924c4-a51cce69-9ae5365c",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-c36ea9964ea0-fee81c63-4ca6db6e",
+      "oid": "c36ea9964ea0e57b73f0173b27d6991b4d5e19a7",
+      "targetRef": "refs/heads/codex/manual-main-c36ea9964ea0-fee81c63-4ca6db6e",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-c7b817989050-ba5c1310-77953588",
+      "oid": "c7b817989050ac5af8d989403a0f5cbbd053ce05",
+      "targetRef": "refs/heads/codex/manual-main-c7b817989050-ba5c1310-77953588",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-cb3b1cb7b8e3-614f2724-69977619",
+      "oid": "cb3b1cb7b8e30e5fd0b3e9a53009d8999f3f5bb2",
+      "targetRef": "refs/heads/codex/manual-main-cb3b1cb7b8e3-614f2724-69977619",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-cdb2ae60cedd-a51cce69-9ae5365c",
+      "oid": "cdb2ae60cedd0d05693a089c27b9204db92e62f5",
+      "targetRef": "refs/heads/codex/manual-main-cdb2ae60cedd-a51cce69-9ae5365c",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-cdf1c5eb92e5-37756aa0-357789c6",
+      "oid": "cdf1c5eb92e584e65e693cdf3e55b2a9a036a28c",
+      "targetRef": "refs/heads/codex/manual-main-cdf1c5eb92e5-37756aa0-357789c6",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-ce72ed644256-614f2724-69977619",
+      "oid": "ce72ed644256a8b984944cc3827ac63707d69997",
+      "targetRef": "refs/heads/codex/manual-main-ce72ed644256-614f2724-69977619",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-cecb609c0ecc-614f2724-69977619",
+      "oid": "cecb609c0ecc60990152c55ce556e87091f5be31",
+      "targetRef": "refs/heads/codex/manual-main-cecb609c0ecc-614f2724-69977619",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-d498852c8f01-ba5c1310-77953588",
+      "oid": "d498852c8f016c916f13a703bc7396fdfc01883d",
+      "targetRef": "refs/heads/codex/manual-main-d498852c8f01-ba5c1310-77953588",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-d95ad3d96816-de03bca5-66cc9293",
+      "oid": "d95ad3d96816c3780051e1a0d915e9422e885694",
+      "targetRef": "refs/heads/codex/manual-main-d95ad3d96816-de03bca5-66cc9293",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-e07fbe645d9d-614f2724-69977619",
+      "oid": "e07fbe645d9dcba86e032a42970ad5c5fe8470d1",
+      "targetRef": "refs/heads/codex/manual-main-e07fbe645d9d-614f2724-69977619",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-e3a72a9ad73d-ec09ad08-71ae7608",
+      "oid": "e3a72a9ad73d99ff66ee580be767b99278755fd1",
+      "targetRef": "refs/heads/codex/manual-main-e3a72a9ad73d-ec09ad08-71ae7608",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-e508d9c3-pi150-forward",
+      "oid": "e508d9c39baf7ad342475e72456b406d9c9de31e",
+      "targetRef": "refs/heads/codex/manual-main-e508d9c3-pi150-forward",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-e9696b0d2818-fdf50989-54a48ee1",
+      "oid": "e9696b0d28187a4083fd0eba017187dd0a5dba26",
+      "targetRef": "refs/heads/codex/manual-main-e9696b0d2818-fdf50989-54a48ee1",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-e9a33b8adbc6-a51cce69-9ae5365c",
+      "oid": "e9a33b8adbc6852c87ec96bfdf129cb13d2830ed",
+      "targetRef": "refs/heads/codex/manual-main-e9a33b8adbc6-a51cce69-9ae5365c",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-f3748d8e03e2-60dc61d1-622cb632",
+      "oid": "f3748d8e03e27073af8c7e599036861ae16e46dd",
+      "targetRef": "refs/heads/codex/manual-main-f3748d8e03e2-60dc61d1-622cb632",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-f5c688452710-ba5c1310-77953588",
+      "oid": "f5c688452710c939dd50e354a60df20f65c7acf8",
+      "targetRef": "refs/heads/codex/manual-main-f5c688452710-ba5c1310-77953588",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-f9507f253046-60dc61d1-622cb632",
+      "oid": "f9507f2530463d11e3b02bb5e679d2bf3f7e49d3",
+      "targetRef": "refs/heads/codex/manual-main-f9507f253046-60dc61d1-622cb632",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/manual-main-ff46c025c26d-614f2724-69977619",
+      "oid": "ff46c025c26d99d29f7133157881a89a1d0c50d8",
+      "targetRef": "refs/heads/codex/manual-main-ff46c025c26d-614f2724-69977619",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/market-ai-blockers-release-20261014",
+      "oid": "86fa943dceef009c674a0ea46573101c76787016",
+      "targetRef": "refs/heads/codex/market-ai-blockers-release-20261014",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/market-ai-round2-release-20261015",
+      "oid": "d3c664cd18ada5eaf6a5a1d376e4681db47919ca",
+      "targetRef": "refs/heads/codex/market-ai-round2-release-20261015",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/market-annotation-django-release",
+      "oid": "2154f9e4bafbe343b809ec3783fcd5925386dc72",
+      "targetRef": "refs/heads/codex/market-annotation-django-release",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/market-annotation-release",
+      "oid": "68e7de7b00d2153d3acb76acd16c7a4fde6083a4",
+      "targetRef": "refs/heads/codex/market-annotation-release",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/market-progress-django-source-20261015",
+      "oid": "83d4afa6ef598431556f0a4effde40d7d0778676",
+      "targetRef": "refs/heads/codex/market-progress-django-source-20261015",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/market-progress-reader-final-20261015",
+      "oid": "843457334d767dce855db01bffa572c16a894e6b",
+      "targetRef": "refs/heads/codex/market-progress-reader-final-20261015",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/market-progress-reader-source-20261015",
+      "oid": "84d0e5132a0cd54cbead50ec1904de489e05160e",
+      "targetRef": "refs/heads/codex/market-progress-reader-source-20261015",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/market-progress-worker-publish-20261015",
+      "oid": "323cc7b515adc79b87faef3e246b47be23922d31",
+      "targetRef": "refs/heads/codex/market-progress-worker-publish-20261015",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/market-progress-worker-source-20261015",
+      "oid": "49fcdccf1b47900bd701bd68337800e9a58076ac",
+      "targetRef": "refs/heads/codex/market-progress-worker-source-20261015",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/netshop-integrated-20261020",
+      "oid": "b0ba1dd6d6cd14e1549bcc35e23b638a592ef9ee",
+      "targetRef": "refs/heads/codex/netshop-integrated-20261020",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/netshop-integrated-html-20261016",
+      "oid": "5992e9f31860373c215b7b24f13894bfefd0b730",
+      "targetRef": "refs/heads/codex/netshop-integrated-html-20261016",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/netshop-six-designs-20261016",
+      "oid": "20b6a944e6069bd58e58784d0d53ff253d35f4c9",
+      "targetRef": "refs/heads/codex/netshop-six-designs-20261016",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/new-product-learning-package-20261016",
+      "oid": "be171dbed61212f076c06a0e5c6300751710a4a1",
+      "targetRef": "refs/heads/codex/new-product-learning-package-20261016",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/ops-reliability-20261015",
+      "oid": "5146cc3d7795b62d9fdc173573f7892a2f372019",
+      "targetRef": "refs/heads/codex/ops-reliability-20261015",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/pi-inventory-erp-publish-recovery-20261018",
+      "oid": "6a7abf9d3fc67ddc728bf9fac0790a8967117375",
+      "targetRef": "refs/heads/codex/pi-inventory-erp-publish-recovery-20261018",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/pi-upgrade-wal-fix-20261020",
+      "oid": "20eea975b7e2132e950de0423adf9ff14507be4a",
+      "targetRef": "refs/heads/codex/cloud-heads-20261023/codex/pi-upgrade-wal-fix-20261020",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/prepare-4aac-cleaned-resolution-20261019",
+      "oid": "e9696b0d28187a4083fd0eba017187dd0a5dba26",
+      "targetRef": "refs/heads/codex/prepare-4aac-cleaned-resolution-20261019",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/prepare-693e-resolution-20261019",
+      "oid": "f6dda12f1b6146c6de5dc0b00c68481fecfb2d72",
+      "targetRef": "refs/heads/codex/prepare-693e-resolution-20261019",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/prepare-693e-witness-gap-20261019",
+      "oid": "477a94bf29f256561787284f5e095a4a7a11c662",
+      "targetRef": "refs/heads/codex/prepare-693e-witness-gap-20261019",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/product-combo-details-release-20261014",
+      "oid": "1d848e8fe3142766129d2536bb68d84d5f2dcbfe",
+      "targetRef": "refs/heads/codex/product-combo-details-release-20261014",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/product-combo-margin-20261014",
+      "oid": "7c7da2ba29e99a4d808c7e1e3865d581630c08f9",
+      "targetRef": "refs/heads/codex/product-combo-margin-20261014",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/release-optimizations-20261020",
+      "oid": "9637fa692fa93d2b134cbecb689a6b15a119c7ac",
+      "targetRef": "refs/heads/codex/release-optimizations-20261020",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/release-roi-plan-20261022",
+      "oid": "dacf78620586d1a7ded05d90babc50fe1bc120ed",
+      "targetRef": "refs/heads/codex/release-roi-plan-20261022",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/s05b-control-adoption-20261023",
+      "oid": "2304ac6f026da45cce91adec7411bc94ba9b1a3e",
+      "targetRef": "refs/heads/codex/s05b-control-adoption-20261023",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/s05c-roi-baseline-20261022",
+      "oid": "a6eb508d8c0e6a325bb607d8e081fbe01dd400cf",
+      "targetRef": "refs/heads/codex/s05c-roi-baseline-20261022",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/s05d-diagnostic-cleanup-20261023",
+      "oid": "a1750fd2d2395ab5f7e31789ee1b9566ceaa1697",
+      "targetRef": "refs/heads/codex/s05d-diagnostic-cleanup-20261023",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/s05d-field-validation-20261023",
+      "oid": "e79781186d51e1cbe5ebb69f98b5f964fafd39ed",
+      "targetRef": "refs/heads/codex/s05d-field-validation-20261023",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/s05d-guard-cas-fix-20261023",
+      "oid": "244cfa9152acab6f71964ec6ee1117a0caf43ff5",
+      "targetRef": "refs/heads/codex/s05d-guard-cas-fix-20261023",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/s05d-handoff-staging-diagnostic-20261023",
+      "oid": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+      "targetRef": "refs/heads/codex/s05d-handoff-staging-diagnostic-20261023",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/s05d-history-candidates-20261023",
+      "oid": "c7f94a7929673c27871511ad799c3e137002e31e",
+      "targetRef": "refs/heads/codex/s05d-history-candidates-20261023",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/s05d-minimal-fixes-20261023",
+      "oid": "9925e6ac0a616f7c83c710f2a98993a7a58dad42",
+      "targetRef": "refs/heads/codex/s05d-minimal-fixes-20261023",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/s05d-missing-failure-20261022",
+      "oid": "3abdc6e9cf1c69856511f60c07fb3c8a561e90a3",
+      "targetRef": "refs/heads/codex/s05d-missing-failure-20261022",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/s05d-parent-chain-fix-20261023",
+      "oid": "4a13ae7831b989ba3fc5e5b170c1390c3ec936a1",
+      "targetRef": "refs/heads/codex/s05d-parent-chain-fix-20261023",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/s05d-residual-classification-20261023",
+      "oid": "7cec8f37d2797736ea68ac4cba79fbb41f5d7423",
+      "targetRef": "refs/heads/codex/s05d-residual-classification-20261023",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/s05d-retirement-feasibility-20261023",
+      "oid": "6d8efc50d2b09150103ae33292bbfe4449b2c2b1",
+      "targetRef": "refs/heads/codex/s05d-retirement-feasibility-20261023",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/s05d-retirement-implementation-20261023",
+      "oid": "a116fc55f1bacad7110c4587bf4f7830e7ebf2b8",
+      "targetRef": "refs/heads/codex/s05d-retirement-implementation-20261023",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/schema-acl-gate-20261020",
+      "oid": "8411456e8e75219e028dea6d355ec96055a47e03",
+      "targetRef": "refs/heads/codex/schema-acl-gate-20261020",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/start-fence-20261020",
+      "oid": "f5c688452710c939dd50e354a60df20f65c7acf8",
+      "targetRef": "refs/heads/codex/start-fence-20261020",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/start-timing-20261022",
+      "oid": "2dd8f23fd8dcc1c9e11450307fb30f91e483d6d8",
+      "targetRef": "refs/heads/codex/start-timing-20261022",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/weekly-release-lease-20261020",
+      "oid": "c7b817989050ac5af8d989403a0f5cbbd053ce05",
+      "targetRef": "refs/heads/codex/weekly-release-lease-20261020",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/codex/worker-predecessor-qualify-20261022",
+      "oid": "4892a258a23191aceaaa98c6b4ce65f844a489b7",
+      "targetRef": "refs/heads/codex/worker-predecessor-qualify-20261022",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/main",
+      "oid": "2f55c3965e60b139381b6cc31ed868bcfe99a7bf",
+      "targetRef": "refs/heads/codex/cloud-heads-20261023/main",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/heads/merge/a1-b3-20261022",
+      "oid": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+      "targetRef": "refs/heads/merge/a1-b3-20261022",
+      "presentBeforeThisBackup": false,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/tags/archive/agent-share-full-system-code-20260831",
+      "oid": "492acffbe6fc95eeb1c3641b011bc37de0176c38",
+      "targetRef": "refs/tags/archive/agent-share-full-system-code-20260831",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/tags/rollback/pre-integration-20260928",
+      "oid": "4b1def2bdbc6f4f469cb20967bc6567d2237c7ec",
+      "targetRef": "refs/tags/rollback/pre-integration-20260928",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    },
+    {
+      "sourceRef": "refs/tags/rollback/pre-optimization-integration-20260929",
+      "oid": "c01423285ececd0e7fc7b2bf1d65d2b601ec4f66",
+      "targetRef": "refs/tags/rollback/pre-optimization-integration-20260929",
+      "presentBeforeThisBackup": true,
+      "verified": true
+    }
+  ],
+  "workingSnapshots": [
+    {
+      "worktreeId": "wt000",
+      "label": "primary-working-tree",
+      "sourceHead": "2f55c3965e60b139381b6cc31ed868bcfe99a7bf",
+      "ref": "refs/heads/codex/cloud-snapshot-20261023/wt000",
+      "commit": "3b2581587d36d200fec5a909b8a24dc8fbed45ce",
+      "tree": "1aae48fbf078f8277c73c3f320a8e0997855774f",
+      "manifest": ".codex-cloud-backup/manifest.json",
+      "includedWorkingFiles": 1515,
+      "deletedPaths": 364,
+      "excludedLocalFiles": 11,
+      "verified": true,
+      "url": "https://github.com/dengweizhang321-droid/operations-management-system/tree/codex/cloud-snapshot-20261023/wt000"
+    },
+    {
+      "worktreeId": "wt001",
+      "label": "ops-reliability",
+      "sourceHead": "5146cc3d7795b62d9fdc173573f7892a2f372019",
+      "ref": "refs/heads/codex/cloud-snapshot-20261023/wt001",
+      "commit": "9a5f5047cf2764a21efe841e1927acb1cd34e4a1",
+      "tree": "db8364028ea5344231a579b25b7babd7a36e7321",
+      "manifest": ".codex-cloud-backup/manifest.json",
+      "includedWorkingFiles": 2,
+      "deletedPaths": 0,
+      "excludedLocalFiles": 0,
+      "verified": true,
+      "url": "https://github.com/dengweizhang321-droid/operations-management-system/tree/codex/cloud-snapshot-20261023/wt001"
+    },
+    {
+      "worktreeId": "wt006",
+      "label": "ai-agent-workflows-historical-cancelled-candidate",
+      "sourceHead": "da0d62bdd92bef118f617d0ce592a8e60682c231",
+      "ref": "refs/heads/codex/cloud-snapshot-20261023/wt006",
+      "commit": "056fe3bd7d8e172b2b2d558356f0da3abb9810ce",
+      "tree": "b92a9bef6d4550c21ca503e85027cdd5490a08ba",
+      "manifest": ".codex-cloud-backup/manifest.json",
+      "includedWorkingFiles": 17,
+      "deletedPaths": 0,
+      "excludedLocalFiles": 0,
+      "verified": true,
+      "url": "https://github.com/dengweizhang321-droid/operations-management-system/tree/codex/cloud-snapshot-20261023/wt006"
+    },
+    {
+      "worktreeId": "wt017",
+      "label": "market-annotation-django-release",
+      "sourceHead": "2154f9e4bafbe343b809ec3783fcd5925386dc72",
+      "ref": "refs/heads/codex/cloud-snapshot-20261023/wt017",
+      "commit": "d0aec23e731a2125a63f21c223cb054fc3db8783",
+      "tree": "46105b5bb30de75cf12e6860f887c159648eb3a7",
+      "manifest": ".codex-cloud-backup/manifest.json",
+      "includedWorkingFiles": 2,
+      "deletedPaths": 0,
+      "excludedLocalFiles": 0,
+      "verified": true,
+      "url": "https://github.com/dengweizhang321-droid/operations-management-system/tree/codex/cloud-snapshot-20261023/wt017"
+    },
+    {
+      "worktreeId": "wt115",
+      "label": "product-combo-details-release",
+      "sourceHead": "1d848e8fe3142766129d2536bb68d84d5f2dcbfe",
+      "ref": "refs/heads/codex/cloud-snapshot-20261023/wt115",
+      "commit": "a5b8df4f93f3b984e3303beb763b12890fca872b",
+      "tree": "07177703f24f1e77edee356284f5ca0b0b0fbeb4",
+      "manifest": ".codex-cloud-backup/manifest.json",
+      "includedWorkingFiles": 4,
+      "deletedPaths": 0,
+      "excludedLocalFiles": 0,
+      "verified": true,
+      "url": "https://github.com/dengweizhang321-droid/operations-management-system/tree/codex/cloud-snapshot-20261023/wt115"
+    },
+    {
+      "worktreeId": "wt126",
+      "label": "jd-9896-rerun",
+      "sourceHead": "983f8b28e3e282946cfc37c6be6303b6e8115345",
+      "ref": "refs/heads/codex/cloud-snapshot-20261023/wt126",
+      "commit": "d93da9bb14c09077911e0a48571424c34c14d6db",
+      "tree": "2a939496bd6a617274776fd67b6536f49381088f",
+      "manifest": ".codex-cloud-backup/manifest.json",
+      "includedWorkingFiles": 3,
+      "deletedPaths": 0,
+      "excludedLocalFiles": 0,
+      "verified": true,
+      "url": "https://github.com/dengweizhang321-droid/operations-management-system/tree/codex/cloud-snapshot-20261023/wt126"
+    },
+    {
+      "worktreeId": "wt150",
+      "label": "weekly-release-lease",
+      "sourceHead": "c7b817989050ac5af8d989403a0f5cbbd053ce05",
+      "ref": "refs/heads/codex/cloud-snapshot-20261023/wt150",
+      "commit": "cbd05249332aa80ea93229b99283e372b4a15038",
+      "tree": "475c27d8c5982ba2c235381351e0ca4f107ae01d",
+      "manifest": ".codex-cloud-backup/manifest.json",
+      "includedWorkingFiles": 1,
+      "deletedPaths": 0,
+      "excludedLocalFiles": 0,
+      "verified": true,
+      "url": "https://github.com/dengweizhang321-droid/operations-management-system/tree/codex/cloud-snapshot-20261023/wt150"
+    }
+  ],
+  "workingSnapshotState": "completed-and-remote-verified",
+  "doesNotAuthorizeDeployment": true,
+  "finalContentVerificationUtc": "2026-10-23T11:14:36.708350+00:00",
+  "preexistingRemoteReferencesPreserved": 119,
+  "sourceSnapshotIntervalUtc": {
+    "start": "2026-10-23T11:06:11.800017+00:00",
+    "end": "2026-10-23T11:12:49.029008+00:00"
+  },
+  "notAtomicSnapshot": true
+}
