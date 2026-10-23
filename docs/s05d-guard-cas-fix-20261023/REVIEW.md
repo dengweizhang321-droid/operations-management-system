@@ -25,3 +25,11 @@ publisher 固定自身 source/相邻 request，先调用 guard 再进入 check/p
 已核 `D:/codex-artifacts/s05d-guard-cas-fix-20261023/inspect-b3dbba29-2096-4988-b690-51273e49c91c.result.json`：`readOnly=true`、`writeAuthority=false`、491 个阶段事件、`pinsUnchanged=true`，冻结清单 SHA 为 `e12512f75903c8273b6878846345adc65db8be3ba33e7f8c9b5a07edc09e83c9`。collector 已返回，原始 `collectMs=99571.691`；总计 `120032ms` 时触及本次自设 120 秒诊断预算，closure CAS 尚未完成，未形成完整 observation，`complete/retirementProved/productionWriterReady` 均为 false。
 
 这不是生产 40 秒/60 秒门禁的成功或失败证据，也不推翻两处代码修复的窄审通过。当前仅完成代码修复与不完整的真实只读核验，无生产写入或退休操作。按用户要求停止加时、重跑及新增检查；是否允许另一轮 180 秒诊断由主负责人等待用户答复，本审查不预先执行。
+
+## 获授权后的只读完成与范围结论
+
+用户随后授权 180 秒或更长只读；负责人只执行一轮，在 **94.585 秒**完成，无需再延长。已独立核 `inspect-be589986-49fe-413c-b3cd-8ecdb25e8e72.result.json` 及同名 `observation.json` 原始数据：`complete=true`、`readOnly=true`、`writeAuthority=false`、492 个阶段事件、`pinsUnchanged=true`；collect 为 **79.416 秒**，本次 closure CAS 为 **12.751 秒**，完整 observation 为 **10,989,211 字节**，绑定仍是原 a3 dispatch / target 366。前次预算中断原件保持，不追改为成功。
+
+实际 action 投影已核：15 件 source actions 包含 2 个 Git 来源、1 个 staging、1 个以 `native-source-tuple` 绑定的原 a3 candidate，以及 **11 个 9 月 1–10 日旧 release**，其归属仅为 `conservative-no-positive-difference`；16 件 artifact actions 是 8 个 rotation plan 与 8 个 sidecar。11 件旧 release 的 manifest tree/root-path SHA 均与原 a3 不同，但本轮没有据 metadata 单独证明可排除，也没有证明它们属于原 a3。不能把保守纳入自动当作本案专属或搬移授权。
+
+**只读 collect + closure CAS 组合已通过，两处代码修复通过结论保持；现场 scope、完整 archive/末次 CAS 总预算及原生退休门禁仍未就绪，S05d/S05b 现场保持 blocked。** 12.751 秒只覆盖本次 closure CAS，不代表全部 archive snapshot、统一复验及身份/任务/boot/control 门禁已实测。负责人先向用户说明新增范围问题，未经新决定不扩大修复或退休范围。本次独审只读现存原件与 action 投影，未新增扫描、测试、代码或生产动作。

@@ -1,0 +1,313 @@
+{
+  "startedAt": "2026-10-23T01:08:14.863Z",
+  "codeRoot": "D:\\codex-artifacts\\s05d-guard-cas-fix-20261023\\inspect-code-804d1cdc-0e96-4185-a45e-bb22ba80d872",
+  "readOnly": true,
+  "writeAuthority": false,
+  "complete": true,
+  "retirementProved": false,
+  "productionWriterReady": false,
+  "pinManifestSha256": "e12512f75903c8273b6878846345adc65db8be3ba33e7f8c9b5a07edc09e83c9",
+  "pins": {
+    "tools/cleaned-preparation-observer.mjs": {
+      "sha256": "c202cf888115e7842c1716c89f1946485dab1e3c26d08f93022de2293cd41d6d",
+      "size": 5325
+    },
+    "tools/cleaned-preparation-writer.mjs": {
+      "sha256": "45d8cceb6ee72dddec4ba43ed5e0183b80dc05502265271c2f358397abe6735b",
+      "size": 4533
+    },
+    "tools/frozen-main-source.mjs": {
+      "sha256": "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882",
+      "size": 1160
+    },
+    "tools/install-main-prebuild.mjs": {
+      "sha256": "a0865630915a5b60ec08db93939bdb3f50149fb48ecd37a40493ed7b4abca54c",
+      "size": 41952
+    },
+    "tools/main-control-dispatch.mjs": {
+      "sha256": "3dae7ceb2257dbea3cc3c168c895b97c34228a3f6c01229fb2cec2b6006625a7",
+      "size": 9795
+    },
+    "tools/main-prebuild-hook.mjs": {
+      "sha256": "34aab4f4cbfb9f501081a680d12614d072a86c96be0842bef2c832892e4c88e5",
+      "size": 5122
+    },
+    "tools/main-prebuild-queue.mjs": {
+      "sha256": "f0bf372f21ddf535c14c25fdaf2428ca3a0145f9a3182055d7348456f7cdf378",
+      "size": 20321
+    },
+    "tools/main-prebuild-status.mjs": {
+      "sha256": "9010056cc8b1ead2cfd4ba17ad5e427f0a0849f6b77ab708b8c3443795e12dc3",
+      "size": 8124
+    },
+    "tools/main-prebuild-task.mjs": {
+      "sha256": "9f05dedcb953fec984d9c6ee3938a6254f7d5875bbe43018ff88869264c7cb62",
+      "size": 11887
+    },
+    "tools/main-schema-release.mjs": {
+      "sha256": "793c0c31a30199d79bb97293df41a88af7bc0e784d205bca03afec9b1decb6f7",
+      "size": 12146
+    },
+    "tools/preparation-producer-qualification.mjs": {
+      "sha256": "edfa4c307291d8bb4091f323dbd9090dfd0ce6dd3aa064a6f52828a74b9dbe56",
+      "size": 456
+    },
+    "tools/preparation-resolution-history.mjs": {
+      "sha256": "28811bd41c716bce1005588715c58cf2a8e453cc7f3c48f41697e1fb4daaff7d",
+      "size": 5373
+    },
+    "tools/preparation-resolution.mjs": {
+      "sha256": "8f088c60571184ba141aee7be037d785fc51a9f8065afb979f5bab327283e50f",
+      "size": 66369
+    },
+    "tools/preparation-retirement-admission.mjs": {
+      "sha256": "dd53e7c0f0e56779967aa64ea1644351d1ee08c00527e4037388b6b86a9c1c24",
+      "size": 4848
+    },
+    "tools/preparation-retirement-archive.mjs": {
+      "sha256": "adadf242b7ff0a6a87b9b672b0cc655de95bc249cbcd6c517aaef686fd1b6be6",
+      "size": 14837
+    },
+    "tools/preparation-retirement-boot.mjs": {
+      "sha256": "e00fe4ee68faff34b82fbe94317f56e1feb6908fb6f9c7cd40a19ee7fa9da133",
+      "size": 7304
+    },
+    "tools/preparation-retirement-collector.mjs": {
+      "sha256": "591265c9347b06bb8e10012544a5bdefbe7774c3504a6687bdc798da91bbbf4f",
+      "size": 56441
+    },
+    "tools/preparation-retirement-entry.mjs": {
+      "sha256": "5e4347eb7f73fe4db7b949cef4922285b594a1a87c4fb15a976ceac87f551bf2",
+      "size": 7476
+    },
+    "tools/preparation-retirement-evidence.mjs": {
+      "sha256": "e818c8b821c8bf521ba3a7781206aae69307eb67bf19d5ac32dd07a9b9d83df7",
+      "size": 2384
+    },
+    "tools/preparation-retirement-fs.mjs": {
+      "sha256": "3fac306a413ed25bb14f36a70dd772cf82d435cedc781d5e639ee5b19c3e6113",
+      "size": 11984
+    },
+    "tools/preparation-retirement-handoff-runner.ps1": {
+      "sha256": "7ad4e67e94fcdf5996dc2a962045e6f1d10ba6a1a0337058b211dea5312b531c",
+      "size": 9766
+    },
+    "tools/preparation-retirement-handoff.mjs": {
+      "sha256": "da1e08c8b1d8b0adf2285c5a3d31f7dce4c3b2ff35a05e4f3b375c302111c397",
+      "size": 50024
+    },
+    "tools/preparation-retirement-history.mjs": {
+      "sha256": "1bcc7c965127e74116f7a84608251a83cce18eb76a7b6be9c8e1376398961ea2",
+      "size": 31100
+    },
+    "tools/preparation-retirement-native.mjs": {
+      "sha256": "63c925d9649646723627ed9ffe82704b0055fbb08dcaca950aeaabf9c4f3c467",
+      "size": 9391
+    },
+    "tools/preparation-retirement-observer.mjs": {
+      "sha256": "fbfdec89b0843befe2e497627159eb7beef33733409abbad6cddd7b401935f60",
+      "size": 1586
+    },
+    "tools/preparation-retirement-qualification.mjs": {
+      "sha256": "e40c6a9a755fdcdf5c5c783c48ff1292ffbb30cf976c8b28455653fd3a89bfb0",
+      "size": 980
+    },
+    "tools/preparation-retirement-ref.mjs": {
+      "sha256": "f7f4ceb0de38a5ad7ee9a8daf284dfa484fea99117b44705d8ee3f08298cffa6",
+      "size": 2328
+    },
+    "tools/preparation-retirement-source.mjs": {
+      "sha256": "9edd123d29daba63921e994750c0ea11cdf9f2beacaf36d198d25c9352c56d47",
+      "size": 3348
+    },
+    "tools/preparation-retirement-witness.mjs": {
+      "sha256": "4018bb6a61f336ae5c77c34a9c7c642b663b242e09deda56cea0e34c9edf5ab8",
+      "size": 19757
+    },
+    "tools/preparation-retirement.mjs": {
+      "sha256": "fcecd9b9ae3b51a8e749d7ff54c3450d58252c20dbb5159c6f5de80763541fd6",
+      "size": 52055
+    },
+    "tools/publish-latest-main.mjs": {
+      "sha256": "16de220734c22ddfa050ae5cef11ab41e9a05d51ba8a8f3e28ec2e2214d05475",
+      "size": 29197
+    },
+    "tools/publish-main-progress.mjs": {
+      "sha256": "a8c0292fc777862a2880b32b5d7f190624e4e986c41ae857e0b975f209c60267",
+      "size": 4354
+    },
+    "tools/release-scope-plan.mjs": {
+      "sha256": "e32e1e37ae99975b21816a021c266c360bb46c02254586796b09e2a6e3a281b2",
+      "size": 5777
+    }
+  },
+  "progressEvents": 492,
+  "measurements": {
+    "collectMs": 79416.16739999999,
+    "closureCasMs": 12751.228199999998
+  },
+  "closureComplete": true,
+  "observationSha256": "0f92c078993b1cf3e8b6893ecf9510f57f6070b19ee80aa2b043c8a27f7e40ae",
+  "observationBytes": 10989211,
+  "sourceActions": [
+    {
+      "source": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source",
+      "role": "git-source",
+      "kind": "git-worktree"
+    },
+    {
+      "source": "D:\\codex-worktrees\\merge-20261022",
+      "role": "git-source",
+      "kind": "git-worktree"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea",
+      "role": "possible-original-staging-source",
+      "kind": "directory"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T110013Z-97fd5e59dfbda47c",
+      "role": "worker-candidate-release",
+      "kind": "directory"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T164914Z-d12b11511f5e621e",
+      "role": "worker-candidate-release",
+      "kind": "directory"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T083840Z-4772d42b42ae2a81",
+      "role": "worker-candidate-release",
+      "kind": "directory"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T042106Z-dbc7eaae4c8d7a3d",
+      "role": "worker-candidate-release",
+      "kind": "directory"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T050156Z-e813392551d650bb",
+      "role": "worker-candidate-release",
+      "kind": "directory"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T140732Z-627476acd7561b9e",
+      "role": "worker-candidate-release",
+      "kind": "directory"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T171710Z-1bd7be5db9ffede6",
+      "role": "worker-candidate-release",
+      "kind": "directory"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T175520Z-9732204d73443f0e",
+      "role": "worker-candidate-release",
+      "kind": "directory"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T080530Z-96bf0ec48b5423c2",
+      "role": "worker-candidate-release",
+      "kind": "directory"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T081318Z-8ff55574021b20ff",
+      "role": "worker-candidate-release",
+      "kind": "directory"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T160720Z-21fced515f9eb124",
+      "role": "worker-candidate-release",
+      "kind": "directory"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261022T071208Z-f5db87473edebc45",
+      "role": "worker-candidate-release",
+      "kind": "directory"
+    }
+  ],
+  "artifactActions": [
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\244ddc4e03129afc766e88ff7abb563a4d3d04bac8068870453b868dae40b423.json",
+      "role": "worker-release-rotation-plans",
+      "kind": "file"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\244ddc4e03129afc766e88ff7abb563a4d3d04bac8068870453b868dae40b423.json.sha256",
+      "role": "worker-release-rotation-plans-sidecar",
+      "kind": "file"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\50dc28126e2c8c131d2cfc3552f8bbeca8456d71d6a8f550a342533f8f5721f1.json",
+      "role": "worker-release-rotation-plans",
+      "kind": "file"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\50dc28126e2c8c131d2cfc3552f8bbeca8456d71d6a8f550a342533f8f5721f1.json.sha256",
+      "role": "worker-release-rotation-plans-sidecar",
+      "kind": "file"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\6e49d82ad21a20e2e6eca651d14e7d7b7eb227c3027e5e205202e13286cfa551.json",
+      "role": "worker-release-rotation-plans",
+      "kind": "file"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\6e49d82ad21a20e2e6eca651d14e7d7b7eb227c3027e5e205202e13286cfa551.json.sha256",
+      "role": "worker-release-rotation-plans-sidecar",
+      "kind": "file"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\899425684fd9d0538cc8941c760d01ed1cbd3711775a5741c281f9d2dad284f5.json",
+      "role": "worker-release-rotation-plans",
+      "kind": "file"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\899425684fd9d0538cc8941c760d01ed1cbd3711775a5741c281f9d2dad284f5.json.sha256",
+      "role": "worker-release-rotation-plans-sidecar",
+      "kind": "file"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\922c8110b24680f8843ad2f13165619fe1664fe495db5acd2b0c13547919c1c7.json",
+      "role": "worker-release-rotation-plans",
+      "kind": "file"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\922c8110b24680f8843ad2f13165619fe1664fe495db5acd2b0c13547919c1c7.json.sha256",
+      "role": "worker-release-rotation-plans-sidecar",
+      "kind": "file"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\ab30ef0354a8a0a1e8a22110ab9bd2ebb8b3d4a0ad1b34d58b8cc3c0aeebec2f.json",
+      "role": "worker-release-rotation-plans",
+      "kind": "file"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\ab30ef0354a8a0a1e8a22110ab9bd2ebb8b3d4a0ad1b34d58b8cc3c0aeebec2f.json.sha256",
+      "role": "worker-release-rotation-plans-sidecar",
+      "kind": "file"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\da042dd64f101c692c0beef050e1fd0b7d07bfc2965f010339f184113fc98a45.json",
+      "role": "worker-release-rotation-plans",
+      "kind": "file"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\da042dd64f101c692c0beef050e1fd0b7d07bfc2965f010339f184113fc98a45.json.sha256",
+      "role": "worker-release-rotation-plans-sidecar",
+      "kind": "file"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\f9915956a2ae1edc17818f2f9b94f1de109e885c2e422cb2a037d81d3d368abb.json",
+      "role": "worker-release-rotation-plans",
+      "kind": "file"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\f9915956a2ae1edc17818f2f9b94f1de109e885c2e422cb2a037d81d3d368abb.json.sha256",
+      "role": "worker-release-rotation-plans-sidecar",
+      "kind": "file"
+    }
+  ],
+  "pinsUnchanged": true,
+  "elapsedMs": 94585
+}

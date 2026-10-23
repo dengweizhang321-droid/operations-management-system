@@ -1,0 +1,54 @@
+{
+    "at":  "2026-10-23T01:13:00.2066331Z",
+    "userAuthorizedAdditionalRead":  true,
+    "readOnly":  true,
+    "budgetMs":  180000,
+    "heapMiB":  512,
+    "logs":  [
+                 {
+                     "path":  "D:/codex-artifacts/s05d-guard-cas-fix-20261023/inspect-be589986-49fe-413c-b3cd-8ecdb25e8e72.result.json",
+                     "bytes":  12813,
+                     "sha256":  "2034465647f621dbe97ebcce1b53a2ece401fd75e0e81fcdaeb1c87ed2025d87"
+                 },
+                 {
+                     "path":  "D:/codex-artifacts/s05d-guard-cas-fix-20261023/inspect-be589986-49fe-413c-b3cd-8ecdb25e8e72.observation.json",
+                     "bytes":  10989211,
+                     "sha256":  "0f92c078993b1cf3e8b6893ecf9510f57f6070b19ee80aa2b043c8a27f7e40ae"
+                 },
+                 {
+                     "path":  "D:/codex-artifacts/s05d-guard-cas-fix-20261023/inspect-be589986-49fe-413c-b3cd-8ecdb25e8e72.stages.jsonl",
+                     "bytes":  87735,
+                     "sha256":  "f9c4cbbcb55ba7e3d71630a37400e4b54e5fbf7fa053e24869615ba8b19fb179"
+                 },
+                 {
+                     "path":  "D:/codex-artifacts/s05d-guard-cas-fix-20261023/inspect-be589986-49fe-413c-b3cd-8ecdb25e8e72.progress.jsonl",
+                     "bytes":  646,
+                     "sha256":  "8459508f384bd6492c89347f45f7ca6692ec85d0a8398c05a9e5d0b52f249d3a"
+                 }
+             ],
+    "stageEvents":  492,
+    "lastStages":  [
+                       {
+                           "stage":  "complete",
+                           "metadata":  3328,
+                           "sourceActions":  15,
+                           "artifactActions":  16,
+                           "elapsedMs":  79414,
+                           "trialElapsedMs":  81721
+                       },
+                       {
+                           "stage":  "same-call-closure-cas-start",
+                           "trialElapsedMs":  81721
+                       },
+                       {
+                           "stage":  "same-call-closure-cas-complete",
+                           "trialElapsedMs":  94473
+                       }
+                   ],
+    "rssSamples":  18,
+    "peakRssMiB":  277.55,
+    "complete":  true,
+    "retirementProved":  false,
+    "writerReady":  false,
+    "scopeReviewPending":  true
+}
