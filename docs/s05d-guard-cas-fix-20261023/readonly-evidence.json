@@ -1,0 +1,50 @@
+{
+    "at":  "2026-10-23T01:01:29.6223266Z",
+    "readOnly":  true,
+    "budgetMs":  120000,
+    "heapMiB":  512,
+    "logs":  [
+                 {
+                     "path":  "D:/codex-artifacts/s05d-guard-cas-fix-20261023/inspect-b3dbba29-2096-4988-b690-51273e49c91c.result.json",
+                     "bytes":  5756,
+                     "sha256":  "ea05846b04af8cdd3708d1bdf1881312e256c071383d7e0da765ed380496864e"
+                 },
+                 {
+                     "path":  "D:/codex-artifacts/s05d-guard-cas-fix-20261023/inspect-b3dbba29-2096-4988-b690-51273e49c91c.stages.jsonl",
+                     "bytes":  87671,
+                     "sha256":  "0a76b896fa1ddec2735150e30ffd18239049205fe1afb79849b1badbc4afa5fc"
+                 },
+                 {
+                     "path":  "D:/codex-artifacts/s05d-guard-cas-fix-20261023/inspect-b3dbba29-2096-4988-b690-51273e49c91c.progress.jsonl",
+                     "bytes":  830,
+                     "sha256":  "4cf1f493f7da1428e3c6ce3ef95bef63e7f947a73afa401b342d91098418c45c"
+                 }
+             ],
+    "stageEvents":  491,
+    "lastStages":  [
+                       {
+                           "stage":  "final-static-recheck-start",
+                           "metadata":  3328,
+                           "roots":  9,
+                           "directories":  265,
+                           "elapsedMs":  94175,
+                           "trialElapsedMs":  96638
+                       },
+                       {
+                           "stage":  "complete",
+                           "metadata":  3328,
+                           "sourceActions":  15,
+                           "artifactActions":  16,
+                           "elapsedMs":  99569,
+                           "trialElapsedMs":  102032
+                       },
+                       {
+                           "stage":  "same-call-closure-cas-start",
+                           "trialElapsedMs":  102033
+                       }
+                   ],
+    "rssSamples":  23,
+    "peakRssMiB":  262.98,
+    "writerReady":  false,
+    "extendedTrialNotYetAuthorized":  true
+}

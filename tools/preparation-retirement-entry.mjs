@@ -49,6 +49,11 @@ export const retirementEntryPolicies=Object.freeze({
   "e02003d367ba4ef7940cefa4625a06c51e8336da0adb007c8e4e5ebd8a345b29"
  ],
  "guards": {
+  // The exact older reader uses separate HEAD/tree queries, not an atomic snapshot.
+  // Its paired 228e publisher binds its own source before check/preparation.
+  "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6": {
+   "kind": "fixed-frozen-source-reader-sequential-identities"
+  },
   "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882": {
    "kind": "fixed-frozen-source-reader"
   }
