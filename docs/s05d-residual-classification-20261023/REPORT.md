@@ -30,6 +30,12 @@
 
 ## 现场止点
 
-控制采用必须使用固定普通权限 handoff 和原 installer，绑定最终干净代码、材料 SHA、原/新代际及原生 direct-exit 回执。当前还没有生成或执行本轮材料，未注册现场任务、关闭来源或重启。
+控制采用必须使用固定普通权限 handoff 和原 installer，绑定最终干净代码、材料 SHA、原/新代际及原生 direct-exit 回执。代码提交 `86a3cf15db4e62b6345123a45ad718981804d624` 已推独立分支，并建干净冻结 control-source。首次 handoff `c6be141b-9f7a-488a-9671-f97807c26458` 已注册并只运行一次；普通权限父进程确认为 medium，但在运行实例数核验得到 0，进入 native control-prepare 之前拒绝。完整 stderr、绑定 direct EXIT=1 和冻结代码顺序支持此调用边界，见 [原始摘要索引](handoff-first-attempt.json) 和 [增量独审](REVIEW.md)。
+
+原工具状态 `attempted-unknown-no-replay` 保留，不重放、不补造 RESULT；原任务已退出且无运行实例，无触发器，保留任务及证据。控制材料尚未生成、尚未采用，原 config/CONTROL-INSTALLATION/hook 摘要不变。下一步仅按 [最小诊断方案](HANDOFF-ISSUE-PLAN.md) 检查一个独立空任务的实例可见性，不放宽唯一实例门禁。没有关闭来源、重启或封存。
+
+该一次空任务诊断随后完成：显式 owner=user、user RX、BA/SYSTEM full 及 Scheduler 自动增加的 user FR 下，普通 4 次/高权限 6 次均看到唯一同 RunEx GUID，实际普通进程链身份正确；约 15 秒退出并只清理该诊断任务。支持此组合在本机该拓扑可用，不单独确定 owner 或 ACE 是旧故障根因。见[诊断](HANDOFF-DIAGNOSTIC.md)。正在限定修正新任务权限构造和回读核验，旧实例数/token/no-replay 门禁不放宽；新修复和实际采用结果需另行审定。
+
+该单叶小修随后完成并通过[增量独审](HANDOFF-FIX-REVIEW.md)：handoff SHA `8a306aff8bb12ebc6ef75de790a2b9a3a120e52f184b460cfc0483e817eadf74`，单项权限构造/实际回读解析/拒绝检查 1/1、503.603 ms，无 Task API 调用。所有未来阶段的新交接任务共用显式 owner/DACL 及必要入口回读，唯一实例/普通身份/no-replay 不变，旧冻结 host 与原件不改。可以冻结新 source/host 做一次限定 control-prepare；依据是本次已核前 native 拒绝及已验证小修，不提供通用 unknown 重试能力。实际控制采用仍待原生完成回执。
 
 现场新缺口须用具体证据说明，不能绕过门禁或临时扩大范围。来源关闭、完整 boot、双轮观察/ACK、最终封存及 S05b 完成分别以实际原生回执记录；代码通过和只读检查不代替它们。

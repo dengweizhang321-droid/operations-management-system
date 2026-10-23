@@ -54,3 +54,13 @@ consumer 资格限本次实际出现、已审全文 SHA 的 5 个 Worker 家族�
 这留下实际 archive 前像兼容性与吞吐准入缺口，没有产生结构拒绝，也不是生产 40/60 秒协议门禁的失败或通过。两处 Git 的局部完成结果不能替代同调用全部对象的前像与统一 CAS，不据此开始来源移动或封存。
 
 本轮没有已知代码阻断要求把上述缺口或“尚未退休”作为新 reader 控制安装的前置。原顺序本就允许先完成控制 prepare/adopt，再关闭来源及执行退休门禁；因此可由主负责人按最终冻结代码、同配置、普通权限 handoff 与原生采用门禁继续控制材料准备/采用。该顺序判断仅适用于控制采用，不豁免后续移动、完整 archive 准入、full boot、observer/ACK 或 SEALED 门禁。
+
+## 首次真实 handoff：native prepare 前拒绝
+
+已对 run `c6be141b-9f7a-488a-9671-f97807c26458` 的原始 RUN、ATTEMPT、PARENT、直接 EXIT、完整 stdout/stderr 及冻结 host/runner 代码完成只读核对，索引见 [handoff-first-attempt.json](handoff-first-attempt.json)。本段只整理该次已有证据，没有重跑任务或检查。
+
+RUN 实际摘要 `b3381f4f…1982e` 与各回执绑定相同；PARENT 为同 SID、session 1、medium 8192、非 elevated，摘要 `31581f77…fcb4` 与 EXIT 一致。runner 对固定 Node PID 40860 使用直接进程 WaitForExit，记录 exit 1、`outputComplete=true`；stdout 为 0 字节，stderr 为完整 92 字节，实际摘要 `fc375738…4035` 与 EXIT 绑定，仅报 `Runner task instance count is ambiguous / 0 !== 1`。实际 host `da1e08c8…c397`、runner `7ad4e67e…531c` 与 RUN 固定摘要一致。
+
+可以确认**本次未进入 native prepare**，依据是完整绑定退出证据与冻结代码顺序：`executeHandoff` 第 78 行在 load、ordinary identity、unchanged、task definition 和 state 4 检查后，于 instances 必须等于 1 的断言抛出；第 83 行 STARTED 及第 87 行 installer 动态导入、`prepareControlUpgrade` 均在其后不可达。STARTED/RESULT/materials 缺失只作旁证，不单独据其推断未调用。索引记录控制配置 `a90c9b80…7642`、安装 `74724dfa…4b0e`、hook `582301cd…f987` 仍保持原摘要；尚无 native 完成回执。
+
+原状态继续保留 `attempted-unknown-no-replay`，不得因已定位这一次前置拒绝而重放同 run。实例计数可见性根因尚未由本段证据证明，不降低 instances 门禁，不预先批准尚未发生的空 Task 诊断或新修复。该 handoff 阻断与先前 snapshot 300 秒未完成是两项独立事实；本段没有控制采用、来源关闭、重启或退休成功结论。
