@@ -1,0 +1,38 @@
+{
+  "schema": "codex-reviewed-working-source-snapshot-v1",
+  "createdAt": "2026-10-23T11:12:46.157998+00:00",
+  "worktreeId": "wt126",
+  "sourceHead": "983f8b28e3e282946cfc37c6be6303b6e8115345",
+  "approvalSha256": "9c944ab794a588b24e90a2fd7f73fbd06f138da2c17c80fd06c60695cf083c06",
+  "includedCount": 3,
+  "deletionCount": 0,
+  "exclusionCount": 0,
+  "completeWorkingSource": true,
+  "trackedExclusionsPreserveSourceHead": false,
+  "included": [
+    {
+      "path": "tests/jd-logistics-known-three-downloads-9896-closure.test.ts",
+      "oid": "b198f3ef09eb7b9bc947b10e106e3d458e55f6ec",
+      "mode": "100644",
+      "sha256": "9739128f6d8bbc42ee23383a56227756e200c88c4a13d4f0f83a663abbea0e74",
+      "bytes": 36533
+    },
+    {
+      "path": "tools/close-jd-logistics-known-three-downloads-9896.ts",
+      "oid": "0cdc27c0cbb49ae3da32775a03d918b922345cd3",
+      "mode": "100644",
+      "sha256": "927bc30f42190babb8bf86c0218f974b89f6f27f9f0f1c5d91acad102fa7449b",
+      "bytes": 39152
+    },
+    {
+      "path": "tools/jd-logistics-known-three-downloads-9896-target.ts",
+      "oid": "cdf17f050de02aa725d5cceae84709116ae23993",
+      "mode": "100644",
+      "sha256": "03c98df90de733625ccdfa9470c5c56a6eaa294cc7a3ecef4b8d16218ca31a44",
+      "bytes": 9627
+    }
+  ],
+  "deletions": [],
+  "exclusions": [],
+  "purpose": "Reviewed source backup only; not main integration or deployable approval."
+}

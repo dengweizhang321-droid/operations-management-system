@@ -47,6 +47,8 @@ export const jdKnownThreeDownloads9896Target = Object.freeze({
   "activationInSha256": "1618c41b8eaec47aaf45a7cae728e37f6d8ec77afe4441a3feebbe7e920e0e40",
   "activationOutFile": "614f272463a8b894080f05a255704521637ef4fc41d66dc46b004455633c9c55.json",
   "activationOutSha256": "eb48430f082d21b6870cb2bd47213d11f65c89fa5ca6586e2a0539035f31d17d",
+  "bridgeActivationFile": "37756aa0736006b9092bea6b7634cb641bf67a77a886064696ad2220bfe7b956.json",
+  "bridgeActivationSha256": "43ed62a4f4dd983f4e1a696ea86144670a6058d6ada382aef24d8e9ac3652b8d",
   "currentActivationFile": "37756aa0736006b9092bea6b7634cb641bf67a77a886064696ad2220bfe7b956.json",
   "currentActivationSha256": "43ed62a4f4dd983f4e1a696ea86144670a6058d6ada382aef24d8e9ac3652b8d",
   "downloads": [

@@ -171,11 +171,16 @@ async function originalCode(runtime: string, t: KnownThreeDownloads9896Target, e
     if (logisticsHash(payload) !== payloadSha256) fail("ACTIVATION_PAYLOAD_CHANGED");
     return record as { version: string; sequence: number; predecessor: unknown; successor: { releaseId: string; manifestSha256: string }; activatedAt: string };
   };
-  const before = await activation(t.activationInFile, t.activationInSha256), after = await activation(t.activationOutFile, t.activationOutSha256), current = await activation(t.currentActivationFile, t.currentActivationSha256);
-  if (before.sequence + 1 !== after.sequence || after.sequence + 1 !== current.sequence || !equal(before.successor, after.predecessor) || !equal(after.successor, current.predecessor)
+  const before = await activation(t.activationInFile, t.activationInSha256), after = await activation(t.activationOutFile, t.activationOutSha256);
+  // One exact intervening release: retain original 243/244 evidence, then
+  // accept only the independently pinned new 245 head after formal adoption.
+  const bridge = await activation(t.bridgeActivationFile, t.bridgeActivationSha256), current = await activation(t.currentActivationFile, t.currentActivationSha256);
+  if (before.sequence + 1 !== after.sequence || after.sequence + 1 !== bridge.sequence || bridge.sequence !== 244 || current.sequence !== 245 || bridge.sequence + 1 !== current.sequence
+    || !equal(before.successor, after.predecessor) || !equal(after.successor, bridge.predecessor) || !equal(bridge.successor, current.predecessor)
     || before.successor.releaseId !== t.originalReleaseId || before.successor.manifestSha256 !== t.originalReleaseManifestSha256
     || current.successor.releaseId !== t.releaseId || current.successor.manifestSha256 !== t.releaseManifestSha256
-    || !(Date.parse(before.activatedAt) < execution.startedAt && execution.stoppedAt < Date.parse(after.activatedAt) && Date.parse(after.activatedAt) < Date.parse(current.activatedAt))) fail("ORIGINAL_EXECUTION_CODE_INTERVAL_CHANGED");
+    || !(Date.parse(before.activatedAt) < execution.startedAt && execution.stoppedAt < Date.parse(after.activatedAt)
+      && Date.parse(after.activatedAt) < Date.parse(bridge.activatedAt) && Date.parse(bridge.activatedAt) < Date.parse(current.activatedAt))) fail("ORIGINAL_EXECUTION_CODE_INTERVAL_CHANGED");
   // A pinned old record and process receipt alone cannot prove the current
   // effective head. Reject later records, forks, gaps and orphan sidecars.
   const successorRoot = path.join(runtime, "state/worker-release-successors");
@@ -193,7 +198,7 @@ async function originalCode(runtime: string, t: KnownThreeDownloads9896Target, e
     || i > 0 && (entry.record.sequence !== chain[i - 1].record.sequence + 1 || !equal(chain[i - 1].record.successor, entry.record.predecessor)))
     || chain.at(-1)?.name !== t.currentActivationFile) fail("CURRENT_EFFECTIVE_HEAD_CHANGED");
   return { releaseId: t.originalReleaseId, exporterSha256: t.originalExporterSha256, pipelineSha256: t.originalPipelineSha256, helperTreeSha256: t.originalHelperTreeSha256,
-    activationInSha256: t.activationInSha256, activationOutSha256: t.activationOutSha256, currentActivationSha256: t.currentActivationSha256 };
+    activationInSha256: t.activationInSha256, activationOutSha256: t.activationOutSha256, bridgeActivationSha256: t.bridgeActivationSha256, currentActivationSha256: t.currentActivationSha256 };
 }
 async function inspect(options: KnownThreeDownloads9896Options, target: KnownThreeDownloads9896Target, archivedActivePath?: string) {
   const directory = path.join(options.root, "outputs/jd-logistics-pipeline"), activePath = path.join(directory, "active.json");

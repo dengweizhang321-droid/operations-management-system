@@ -26,7 +26,7 @@ const aName = "A·冻结事业部来源与日期计划", bName = "B·串行下�
 async function fixture(t: test.TestContext) {
   const root = await mkdtemp(path.join(tmpdir(), "jd-three-9896-private-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const target = { ...structuredClone(jdKnownThreeDownloads9896Target), supervisorPid: 111, helperPid: 222 } as KnownThreeDownloads9896Target;
+  const target = { ...structuredClone(jdKnownThreeDownloads9896Target), supervisorPid: 111, helperPid: 222, currentActivationFile: "b".repeat(64) + ".json" } as KnownThreeDownloads9896Target;
   const runtime = path.join(root, "runtime"), directory = path.join(root, "outputs/jd-logistics-pipeline"), databasePath = path.join(root, "n8n.sqlite");
   const release = path.join(runtime, "releases", target.releaseId), original = path.join(runtime, "releases", target.originalReleaseId), successorRoot = path.join(runtime, "state/worker-release-successors");
   for (const dir of [path.join(root, "config"), directory, successorRoot, ...[release, original].flatMap(base => [path.join(base, "helper"), path.join(base, "audit"), path.join(base, "source-snapshot/tools"), path.join(base, "source-snapshot/lib/jd")])]) await mkdir(dir, { recursive: true });
@@ -91,9 +91,9 @@ async function fixture(t: test.TestContext) {
     await writeFile(path.join(base, "audit/helper-build-receipt.json"), receipt); await writeFile(path.join(base, "deployment-manifest.json"), deployment); await writeFile(path.join(base, "source-snapshot/tools/jd-logistics-export.ts"), source); await writeFile(path.join(base, "source-snapshot/tools/jd-logistics-n8n-pipeline.ts"), pipeline); await writeFile(path.join(base, "source-snapshot/lib/jd/logistics-policy.ts"), policy);
   }
   await writeFile(path.join(runtime, "state/worker-process.json"), json({ releaseId: target.releaseId, manifestSha256: target.releaseManifestSha256, supervisorPid: 111, supervisorCreationDate: target.supervisorCreationDate }));
-  const oldBinding = { releaseId: target.originalReleaseId, manifestSha256: target.originalReleaseManifestSha256 }, middle = { releaseId: "middle", manifestSha256: "middle" }, currentBinding = { releaseId: target.releaseId, manifestSha256: target.releaseManifestSha256 };
+  const oldBinding = { releaseId: target.originalReleaseId, manifestSha256: target.originalReleaseManifestSha256 }, middle = { releaseId: "middle", manifestSha256: "middle" }, bridgeBinding = { releaseId: "bridge-c9da", manifestSha256: "bridge" }, currentBinding = { releaseId: target.releaseId, manifestSha256: target.releaseManifestSha256 };
   const activation = async (name: string, payload: object) => { const raw = json({ version: "teruisi-local-worker-release-successor-v1", ...payload, payloadSha256: logisticsHash({ version: "teruisi-local-worker-release-successor-v1", ...payload }) }); await writeFile(path.join(successorRoot, name), raw); await writeFile(path.join(successorRoot, name + ".sha256"), sha(raw)); return sha(raw); };
-  target.activationInSha256 = await activation(target.activationInFile, { sequence: 242, activatedAt: "2026-10-17T01:01:47Z", predecessor: {}, successor: oldBinding }); target.activationOutSha256 = await activation(target.activationOutFile, { sequence: 243, activatedAt: "2026-10-17T06:31:28Z", predecessor: oldBinding, successor: middle }); target.currentActivationSha256 = await activation(target.currentActivationFile, { sequence: 244, activatedAt: "2026-10-17T08:29:53Z", predecessor: middle, successor: currentBinding });
+  target.activationInSha256 = await activation(target.activationInFile, { sequence: 242, activatedAt: "2026-10-17T01:01:47Z", predecessor: {}, successor: oldBinding }); target.activationOutSha256 = await activation(target.activationOutFile, { sequence: 243, activatedAt: "2026-10-17T06:31:28Z", predecessor: oldBinding, successor: middle }); target.bridgeActivationSha256 = await activation(target.bridgeActivationFile, { sequence: 244, activatedAt: "2026-10-17T08:29:53Z", predecessor: middle, successor: bridgeBinding }); target.currentActivationSha256 = await activation(target.currentActivationFile, { sequence: 245, activatedAt: "2026-10-17T10:59:53Z", predecessor: bridgeBinding, successor: currentBinding });
   const historical = kinds.map(sourceKind => { const items = [1, 2].map(i => ({ batchId: `${sourceKind}-${i}`, sourceKind, departmentId: target.departmentId, businessUnitCode: target.businessUnitCode, collectorEvidence: { runId: "old-run", executionId: "old-execution" } })); return { sourceKind, total: 2, items, details: items.map(item => ({ ...item, currentSelection: { current: true, contentHash: "old", scopeRevision: 2 } })) }; }); target.batchesHash = logisticsHash(historical);
   const state = { busy: false, portClosed: true, pid: 222, birth: target.helperCreationDate, exactMissing: false, truncated: false, pageTotal: 2 };
   const request: typeof fetch = async (input, init) => {
@@ -108,7 +108,7 @@ async function fixture(t: test.TestContext) {
   const changeDb = (sql: string) => { const db = new DatabaseSync(databasePath); try { db.exec(sql); } finally { db.close(); } };
   const savePlan = async () => { const raw = json(plan); target.manifestSha256 = sha(raw); await writeFile(path.join(directory, `${target.runId}.json`), raw); };
   const saveExport = async (i: number) => { const raw = json(originals[i].exported); target.downloads[i].exportManifestSha256 = sha(raw); await writeFile(originals[i].exportPath, raw); };
-  return { root, runtime, release, original, target, options, directory, databasePath, plan, settings, state, historical, originals, snapshotDirectory, runDirectory, activeRaw, manifestRaw, runData, saveN8n, changeDb, savePlan, saveExport, activation, successorRoot, currentBinding, oldBinding, middle, recovery: path.join(directory, `known-three-downloads-9896-${target.executionId}-${target.activeSha256.slice(0, 16)}`) };
+  return { root, runtime, release, original, target, options, directory, databasePath, plan, settings, state, historical, originals, snapshotDirectory, runDirectory, activeRaw, manifestRaw, runData, saveN8n, changeDb, savePlan, saveExport, activation, successorRoot, currentBinding, oldBinding, middle, bridgeBinding, recovery: path.join(directory, `known-three-downloads-9896-${target.executionId}-${target.activeSha256.slice(0, 16)}`) };
 }
 
 test("9896 exact flattened Wait graph, current settings and separate code trees close only active", async t => {
@@ -171,7 +171,7 @@ test("historical code time interval, both installed trees and current effective 
     const f = await fixture(t);
     if (mode === "old-exporter") await writeFile(path.join(f.original, "source-snapshot/tools/jd-logistics-export.ts"), "changed"); if (mode === "old-tree") await writeFile(path.join(f.original, "helper/tmall-workflow-helper.mjs"), "changed"); if (mode === "old-receipt") await writeFile(path.join(f.original, "audit/helper-build-receipt.json"), "{}"); if (mode === "current-tree") await writeFile(path.join(f.release, "helper/tmall-workflow-helper.mjs"), "changed"); if (mode === "policy") await writeFile(path.join(f.release, "source-snapshot/lib/jd/logistics-policy.ts"), "changed"); if (mode === "pipeline") await writeFile(path.join(f.release, "source-snapshot/tools/jd-logistics-n8n-pipeline.ts"), "changed");
     if (mode === "interval") f.target.activationOutSha256 = await f.activation(f.target.activationOutFile, { sequence: 243, activatedAt: "2026-10-17T03:00:00Z", predecessor: f.oldBinding, successor: f.middle });
-    if (mode === "new-head") await f.activation("a".repeat(64) + ".json", { sequence: 245, activatedAt: "2026-10-17T10:00:00Z", predecessor: f.currentBinding, successor: { releaseId: "new", manifestSha256: "new" } });
+    if (mode === "new-head") await f.activation("a".repeat(64) + ".json", { sequence: 246, activatedAt: "2026-10-17T11:10:00Z", predecessor: f.currentBinding, successor: { releaseId: "new", manifestSha256: "new" } });
     await assert.rejects(close(f.options, "apply"));
   });
 });
@@ -199,4 +199,17 @@ test("late evidence changes and interrupted archive never produce a committed re
 
 test("Windows no-replace move preserves both source and occupied destination", async t => {
   const f = await fixture(t), source = path.join(f.root, "move-source.json"), destination = path.join(f.root, "move-dest.json"); await writeFile(source, "source"); await writeFile(destination, "destination"); await assert.rejects(io.moveNoReplace(source, destination)); assert.equal(await readFile(source, "utf8"), "source"); assert.equal(await readFile(destination, "utf8"), "destination");
+});
+
+test("bridge 244 and exact adopted 245 reject missing chain, false predecessor or any future head", async t => {
+  for (const mode of ["missing", "bridge-sha", "wrong-pred", "wrong-successor", "future-head", "rebound-future-head"] as const) await t.test(mode, async t => {
+    const f = await fixture(t);
+    if (mode === "missing") await rm(path.join(f.successorRoot, f.target.bridgeActivationFile));
+    if (mode === "bridge-sha") await writeFile(path.join(f.successorRoot, f.target.bridgeActivationFile), "{}");
+    if (mode === "wrong-pred") f.target.bridgeActivationSha256 = await f.activation(f.target.bridgeActivationFile, { sequence: 244, activatedAt: "2026-10-17T08:29:53Z", predecessor: {}, successor: f.bridgeBinding });
+    if (mode === "wrong-successor") f.target.currentActivationSha256 = await f.activation(f.target.currentActivationFile, { sequence: 245, activatedAt: "2026-10-17T10:59:53Z", predecessor: f.middle, successor: f.currentBinding });
+    if (mode === "future-head") await f.activation("a".repeat(64) + ".json", { sequence: 246, activatedAt: "2026-10-17T11:10:00Z", predecessor: f.currentBinding, successor: { releaseId: "future", manifestSha256: "future" } });
+    if (mode === "rebound-future-head") f.target.currentActivationSha256 = await f.activation(f.target.currentActivationFile, { sequence: 246, activatedAt: "2026-10-17T11:10:00Z", predecessor: f.bridgeBinding, successor: f.currentBinding });
+    await assert.rejects(close(f.options, "apply")); assert.equal(await readFile(path.join(f.directory, "active.json"), "utf8"), f.activeRaw); await assert.rejects(readFile(path.join(f.recovery, "committed.json")), { code: "ENOENT" });
+  });
 });
