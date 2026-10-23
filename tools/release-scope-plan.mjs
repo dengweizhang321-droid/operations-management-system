@@ -19,8 +19,13 @@ export function parseNameStatus(raw){
   return changes;
 }
 
+// Control-bundle members proven to stay outside every application, runtime and
+// native-publisher path (tests/release-scope-control-only.test.mjs enforces it).
+// They take effect only through control-bundle adoption; other tools stay full.
+export const controlOnlyTools=Object.freeze(['tools/main-prebuild-hook.mjs','tools/main-prebuild-status.mjs']);
+
 export function classifyRelease(changes){
-  const state={worker:false,django:false,migrate:false,persistence:false,full:false,domains:new Set(),reasons:[],unknown:[]};
+  const state={worker:false,django:false,migrate:false,persistence:false,full:false,domains:new Set(),reasons:[],unknown:[],controlOnly:[]};
   const classify=p=>{
     const value=norm(p);
     if(/^(docs\/|README\.md$|AGENTS\.md$)/.test(value))return;
@@ -32,6 +37,7 @@ export function classifyRelease(changes){
     if(/^(app\/|components\/|public\/|styles\/)/.test(value)){state.worker=true;state.reasons.push(`前端:${value}`);return;}
     if(/^lib\//.test(value)){state.worker=true;state.persistence=true;state.reasons.push(`共享运行库:${value}`);return;}
     if(/^(package(?:-lock)?\.json|tsconfig.*\.json|next-env\.d\.ts|wrangler.*|(?:vite|vinext|eslint).*config.*)$/.test(value)){state.worker=true;state.full=true;state.reasons.push(`前端依赖/构建配置:${value}`);return;}
+    if(controlOnlyTools.includes(value)){if(!state.controlOnly.includes(value))state.controlOnly.push(value);state.reasons.push(`仅控制包:${value}`);return;}
     if(/^(config\/|tools\/|.*\.(?:ps1|bat|cmd)$)/.test(value)){state.worker=true;state.django=true;state.persistence=true;state.full=true;state.reasons.push(`运行或发布工具:${value}`);return;}
     if(/^\.github\//.test(value)){state.reasons.push(`CI:${value}`);return;}
     state.worker=true;state.django=true;state.persistence=true;state.full=true;state.unknown.push(value);state.reasons.push(`未知路径升级完整流程:${value}`);
@@ -39,7 +45,7 @@ export function classifyRelease(changes){
   for(const change of changes){if(change.before)classify(change.before);classify(change.path);}
   const components=[state.worker&&'worker',state.django&&'django'].filter(Boolean);
   const code=components.length>0;
-  const scope=!code?'non-production':state.migrate?'database-migration':state.full?'full':state.worker&&state.django?'combined':state.django?'backend':state.persistence?'worker-persistence':'frontend-worker';
+  const scope=!code?(state.controlOnly.length?'control-only':'non-production'):state.migrate?'database-migration':state.full?'full':state.worker&&state.django?'combined':state.django?'backend':state.persistence?'worker-persistence':'frontend-worker';
   const validation=['git-diff-check',...(state.worker?['worker-affected-tests']:[]),...(state.django?['django-affected-tests']:[]),...(state.full?['affected-integration-tests']:[]),...(state.migrate?['django-system-check','migration-dry-run','isolated-postgresql-migration-rehearsal']:[])];
   const packaging=[...(state.worker?['prepare-worker-immutable-release']:[]),...(state.django?['prepare-django-app']:[])];
   // New schema deliveries follow the confirmed schema-only policy. Business
@@ -51,7 +57,7 @@ export function classifyRelease(changes){
     {step:5,id:'merge-and-package',actions:['merge-main','push-main',...packaging]},
     {step:6,id:'publish',actions:deployment},
   ];
-  return {scope,components,migrate:state.migrate,databaseProtection:state.migrate?'schema-only-no-new-full-backup-or-restore':state.persistence?'verified-current':'not-required',businessDataProcessing:'separate-authorization-required',validation,packaging,deployment,workflow,domains:[...state.domains].sort(),unknown:state.unknown,reasons:state.reasons};
+  return {scope,components,migrate:state.migrate,databaseProtection:state.migrate?'schema-only-no-new-full-backup-or-restore':state.persistence?'verified-current':'not-required',businessDataProcessing:'separate-authorization-required',validation,packaging,deployment,workflow,domains:[...state.domains].sort(),unknown:state.unknown,reasons:state.reasons,...(state.controlOnly.length?{controlOnly:state.controlOnly}:{})};
 }
 
 export function makeReleasePlan({base,head='HEAD',cwd=root}){
