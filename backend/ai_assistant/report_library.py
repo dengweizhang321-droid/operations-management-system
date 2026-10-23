@@ -2,7 +2,7 @@
 import json
 import re
 from copy import deepcopy
-from . import models as m, prompt_settings
+from . import models as m, prompt_settings, workflow_presets
 from .policy import AiError, canonical, current_principal, digest, fields, integer, mutation, text
 
 SCENES = {"weekly": "网店经营周报", "inventory": "库存健康报告", "promotion": "推广复盘"}
@@ -105,11 +105,16 @@ def read(principal, params):
     version = integer(int(params["version"]), "版本", 0) if "version" in params else None
     page = integer(int(params.get("page", 1)), "页码", 1, 100000)
     history = list(m.AiLibraryRevision.objects.order_by("-version").values("version", "created_by", "created_at")[(page-1)*20:page*20+1])
-    return {"item": snapshot(version), "scenes": SCENES, "domains": prompt_settings.DOMAINS, "history": history[:20], "hasMore": len(history) > 20}
+    item = snapshot(version)
+    return {"item": item, "scenes": SCENES, "domains": prompt_settings.DOMAINS,
+            "history": history[:20], "hasMore": len(history) > 20,
+            "recommended": workflow_presets.catalog(item["config"])}
 
 
 def save(body, principal):
     current_principal(principal, admin=True)
+    if isinstance(body, dict) and "installRecommendation" in body:
+        return install_recommendation(body, principal)
     fields(body, {"kind", "item", "expectedVersion"}, {"kind", "item", "expectedVersion"})
     item = validate_item(body["kind"], body["item"])
     expected = integer(body["expectedVersion"], "版本", 0)
@@ -128,6 +133,38 @@ def save(body, principal):
         config = validate(config)
         m.AiLibraryRevision.objects.create(version=expected+1, config_json=canonical(config), created_by=principal.email.lower())
     return {"item": snapshot(expected+1)}
+
+
+def install_recommendation(body, principal):
+    """Install a complete bundle in one existing append-only library revision.
+
+    Existing identifiers are never overwritten, including user-customized ones.
+    A complete prior installation is a no-op; partial collisions require review.
+    """
+    current_principal(principal, admin=True)
+    fields(body, {"installRecommendation", "expectedVersion"}, {"installRecommendation", "expectedVersion"})
+    preset = workflow_presets.find(slug(body["installRecommendation"]))
+    if preset is None:
+        raise AiError("推荐工作流不存在", "not_found", 404)
+    expected = integer(body["expectedVersion"], "版本", 0)
+    with mutation(principal):
+        current_principal(principal, admin=True)
+        old = snapshot()
+        if old["version"] != expected:
+            raise AiError("资源库已更新，请重新加载后添加", "version_conflict", 409)
+        config = old["config"]
+        present = workflow_presets.presence(preset, config)
+        if all(present):
+            return {"item": old, "installedRecommendation": preset["id"],
+                    "pipelineId": preset["pipelineId"], "replayed": True}
+        if any(present):
+            raise AiError("推荐工作流的部分标识已被使用，请先核对现有技能、模板和流水线；未覆盖任何配置", "recommendation_conflict", 409)
+        for kind, items in preset["bundle"].items():
+            config[kind].extend(items)
+        config = validate(config)
+        m.AiLibraryRevision.objects.create(version=expected+1, config_json=canonical(config), created_by=principal.email.lower())
+    return {"item": snapshot(expected+1), "installedRecommendation": preset["id"],
+            "pipelineId": preset["pipelineId"], "replayed": False}
 
 
 def guidance(question, context, tools, selected_ids=None, library=None):

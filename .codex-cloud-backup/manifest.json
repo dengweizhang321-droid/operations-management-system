@@ -1,0 +1,136 @@
+{
+  "schema": "codex-reviewed-working-source-snapshot-v1",
+  "createdAt": "2026-10-23T11:12:39.066187+00:00",
+  "worktreeId": "wt006",
+  "sourceHead": "da0d62bdd92bef118f617d0ce592a8e60682c231",
+  "approvalSha256": "9c944ab794a588b24e90a2fd7f73fbd06f138da2c17c80fd06c60695cf083c06",
+  "includedCount": 17,
+  "deletionCount": 0,
+  "exclusionCount": 0,
+  "completeWorkingSource": true,
+  "trackedExclusionsPreserveSourceHead": false,
+  "included": [
+    {
+      "path": "README.md",
+      "oid": "2f13cf826ee25235372fb9dd5689af386c8b1cad",
+      "mode": "100644",
+      "sha256": "003b3bf3f8899726b02bf8c40892eaced0b06d9fefeb8a2b450c9aaa9b3f08b2",
+      "bytes": 8740
+    },
+    {
+      "path": "app/ai-agent-workflow-view.tsx",
+      "oid": "9f976aeafe8d0c6d290d7b9403581a00abf1ea69",
+      "mode": "100644",
+      "sha256": "b47c0f2db2b89650cc776a4bf3da0493020d8ae873e81ef93e09389471b1bc73",
+      "bytes": 28299
+    },
+    {
+      "path": "app/ai-module-view.tsx",
+      "oid": "e025885c6780323d235b2653ef0cd326250dc40d",
+      "mode": "100644",
+      "sha256": "1a207926e35a0818734dd1c489a085e1cbe9742284ed27c393b87a7d02f312d8",
+      "bytes": 7124
+    },
+    {
+      "path": "app/ai-report-workbench-view.tsx",
+      "oid": "6a658ec39eb14f24b62e4ff2bcb459976fd9eb00",
+      "mode": "100644",
+      "sha256": "53021f2bb11b5504ad0d76e19a66088ed2ce8fe3bca9b86419dfcc796fca9655",
+      "bytes": 36794
+    },
+    {
+      "path": "app/ai-report-workbench.css",
+      "oid": "863046e22ef6e05741fd98fe3426657828d6af8f",
+      "mode": "100644",
+      "sha256": "ddd44523e4130e319dffeed8a985658373db6757d8e035888c8127187a0e09ad",
+      "bytes": 5925
+    },
+    {
+      "path": "backend/ai_assistant/report_library.py",
+      "oid": "09fac1e4db034347177e31a31625bbcfbe48e605",
+      "mode": "100644",
+      "sha256": "d96b2d56f5f75294d2cd355e7d5495f2ec9f33bff8cb9159c3c343fe946e828a",
+      "bytes": 12503
+    },
+    {
+      "path": "backend/ai_assistant/test_report_recommendations_review.py",
+      "oid": "6bbaf12287d283245e34b8417f1a472ca036669c",
+      "mode": "100644",
+      "sha256": "bafc7c355dad820e25b00d6020d06d7fceaac943272daf91e9dbad1e0de93e58",
+      "bytes": 6720
+    },
+    {
+      "path": "backend/ai_assistant/test_workflow_presets.py",
+      "oid": "703ec62ab345f96ee60e13959e5cd8ad23136b52",
+      "mode": "100644",
+      "sha256": "e09199263231a19c22bbd16c2970822f69ae8a0e92a6eade0f8df3ca4a082c3b",
+      "bytes": 9069
+    },
+    {
+      "path": "backend/ai_assistant/workflow_presets.py",
+      "oid": "3f9ee1b7b6a21e1100dd76d1cd6cba2998912e67",
+      "mode": "100644",
+      "sha256": "8dbe331badb6eed87778ee5a90079f764c3b1c05c88ec9ee5f827221a4089f20",
+      "bytes": 9047
+    },
+    {
+      "path": "docs/AI_OPERATIONS_WORKFLOWS.md",
+      "oid": "f99db8a4e8c8c2b0327eec0094658315c1f9c2a6",
+      "mode": "100644",
+      "sha256": "45875271c407f780870efbe3eb4fb89ff138804f3587f8c0eeb213200ae5fa25",
+      "bytes": 4802
+    },
+    {
+      "path": "docs/ai-agent-workflows-20261009/INDEPENDENT_REVIEW.md",
+      "oid": "4faf1a56bfa828cd381f268da0edce72eddad59d",
+      "mode": "100644",
+      "sha256": "d3ad6b7f6c2403d9db2bec60e14e015da6b2ae77921a79a797247ee1a58113b0",
+      "bytes": 3593
+    },
+    {
+      "path": "docs/ai-agent-workflows-20261009/RENDERED_BASELINE_REVIEW.md",
+      "oid": "54581dbbced46ab74fdfa1f6eddf8cc7afd1a3ef",
+      "mode": "100644",
+      "sha256": "4c3f825acdd0339d10ae5261232b7dd26860f90f2f9f6eeb0135b650ca423ed3",
+      "bytes": 2711
+    },
+    {
+      "path": "docs/ai-agent-workflows-20261009/postgres-review.json",
+      "oid": "be9411a4d7d9047f7d5fae72643e110335b14faf",
+      "mode": "100644",
+      "sha256": "efbc950f657d5b1731ddf0e2c9ec645a94dd6240b72e3db3f60c77411b718c1c",
+      "bytes": 1592
+    },
+    {
+      "path": "docs/ai-agent-workflows-20261009/rendered-baseline-review.json",
+      "oid": "51ade8335d335974cb43fc488e1dc522dcadcde2",
+      "mode": "100644",
+      "sha256": "455ce5a62decdc5607685dc1782e94de1644720a461b5564d0b2e28810b2ea8e",
+      "bytes": 12901
+    },
+    {
+      "path": "lib/ai/report-workflow-period.ts",
+      "oid": "877a9361bde7abbd6a30b71268435e79aadf6d83",
+      "mode": "100644",
+      "sha256": "b23a5957071cc2fd14ad6638bfabf695886ea22c06cf9a0caca6245d2cf80664",
+      "bytes": 676
+    },
+    {
+      "path": "tests/report-workflow-period.test.ts",
+      "oid": "c950eddaf3b2c10285ee59b09361672361834fac",
+      "mode": "100644",
+      "sha256": "f5612fce6b8202d2dcb057102566a887fc9eab7dd867f4106bdf28478b522bac",
+      "bytes": 755
+    },
+    {
+      "path": "tools/verify-ai-workflow-recommendations-ui.mjs",
+      "oid": "b961fd7003982e55e44ad97106055f6e97c5b453",
+      "mode": "100644",
+      "sha256": "6c0538a666267c7dba95d6850f09e805752656da06ca3f3889bbf5ca192efeaa",
+      "bytes": 13728
+    }
+  ],
+  "deletions": [],
+  "exclusions": [],
+  "purpose": "Reviewed source backup only; not main integration or deployable approval."
+}

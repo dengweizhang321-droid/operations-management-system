@@ -16,7 +16,7 @@
 | 库存与商品 | 库存健康、库龄、广东入仓监控、备货计划及商品经营；[库存管理说明](docs/INVENTORY_MANAGEMENT.md) |
 | 运营事务 | 工作计划、巡店、评价、新品上架、上新跟进和变量配置；[上新跟进与周报](docs/NEW_PRODUCT_WEEKLY_FOLLOWUP.md) |
 | 客服与数据导入 | 客服资料解析与分析、文件导入、运行记录及链路规则；[导入监控](docs/IMPORT_MONITOR.md)、[客服工作流](docs/JD_CUSTOMER_SERVICE_WORKFLOW.md) |
-| AI 助理 | 对话、Agent 工作流、全局记忆、分析沙箱、AI 空间与管理；[配置说明](docs/AI_ASSISTANT_SETUP.md)、[能力与限制](docs/AI_PLATFORM_ARCHITECTURE.md) |
+| AI 助理 | 对话、Agent 工作流、全局记忆、分析沙箱、AI 空间与管理；[配置说明](docs/AI_ASSISTANT_SETUP.md)、[能力与限制](docs/AI_PLATFORM_ARCHITECTURE.md)、[六类运营工作流配置](docs/AI_OPERATIONS_WORKFLOWS.md) |
 | 系统管理 | 用户权限、机器人配置和数据库备份；[备份与恢复](docs/BACKUP_RETENTION.md) |
 
 ## 页面导航

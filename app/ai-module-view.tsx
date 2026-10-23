@@ -98,6 +98,7 @@ export default function AiModuleView({
           currentUser={currentUser}
           initialContextPrompt={initialContextPrompt}
           initialPageContext={initialPageContext}
+          onOpenWorkflows={canManage ? () => onModuleViewChange("pipelines") : undefined}
         />
       </Suspense>
     </div>}

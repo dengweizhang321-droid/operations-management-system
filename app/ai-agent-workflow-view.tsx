@@ -166,10 +166,12 @@ export default function AiAgentWorkflowView({
   currentUser,
   initialContextPrompt = "",
   initialPageContext = null,
+  onOpenWorkflows,
 }: {
   currentUser: AppCurrentUser | null;
   initialContextPrompt?: string;
   initialPageContext?: AiPageContext | null;
+  onOpenWorkflows?: () => void;
 }) {
   const canMutate = currentUser?.role === "analyst" || currentUser?.role === "operator" || currentUser?.role === "admin";
   const agentExecutorAvailable = true;
@@ -395,6 +397,9 @@ export default function AiAgentWorkflowView({
   };
 
   return <section className="ai-sandbox-workspace">
+    {onOpenWorkflows && <article className="panel ai-admin-card">
+      <div className="section-header"><div><h3>从经营工作流开始</h3><p>选择经营日报、库存补货、推广复盘或新品跟进，配置取数方法和报告要求，试运行后再正式分析。</p></div><button type="button" className="primary-button" onClick={onOpenWorkflows}>打开推荐工作流</button></div>
+    </article>}
     <article className="panel ai-sandbox-hero">
       <div><span className="eyebrow">DURABLE AGENT ORCHESTRATION</span><h2>Agent 与多 Agent 工作流</h2><p>正式 Agent 以一次模型调用或一次只读工具调用为一个持久微步；多 Agent DAG 支持依赖传递和人工复核。</p></div>
       <div className="ai-sandbox-badges"><span>逐轮派发账本</span><span>持久任务状态</span><span>最多 24 节点</span><span>支持 dry-run</span></div>

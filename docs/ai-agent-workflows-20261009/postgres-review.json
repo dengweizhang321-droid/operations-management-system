@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "ai-agent-workflows-independent-postgres-v1",
+  "date": "2026-10-09",
+  "timezone": "Asia/Shanghai",
+  "status": "passed",
+  "database": "private synthetic PostgreSQL 17.11",
+  "port": 55891,
+  "tests": 34,
+  "failures": 0,
+  "skips": 0,
+  "testSeconds": 25.745,
+  "productionOperations": false,
+  "paidModelCalls": false,
+  "externalMessages": false,
+  "runtime": ".runtime/ai-pg-d10473062a01",
+  "stopped": true,
+  "temporaryPasswordRemoved": true,
+  "testLogSha256": "d5dbceff29667e0d41f0389d1e2663882936e9246d947613b8d1eaeeb30a33d4",
+  "sourceSha256": {
+    "backend/ai_assistant/report_library.py": "d96b2d56f5f75294d2cd355e7d5495f2ec9f33bff8cb9159c3c343fe946e828a",
+    "backend/ai_assistant/workflow_presets.py": "8dbe331badb6eed87778ee5a90079f764c3b1c05c88ec9ee5f827221a4089f20",
+    "backend/ai_assistant/test_report_library.py": "1df0c182c85696ca45785cec1fabdca4931b27f12e8b3447ad50a87749c04f11",
+    "backend/ai_assistant/test_workflow_presets.py": "e09199263231a19c22bbd16c2970822f69ae8a0e92a6eade0f8df3ca4a082c3b",
+    "backend/ai_assistant/test_report_recommendations_review.py": "bafc7c355dad820e25b00d6020d06d7fceaac943272daf91e9dbad1e0de93e58",
+    "backend/ai_assistant/policy.py": "7c9ded1e6a4d178e730f88a3afd76eae877fc34077cb80f41a146267147d137f",
+    "tools/ai-postgres-rehearsal.py": "9e95bd84ddbe7678a0da99c5cd8a10243bafea57bbd0d51b91c0ea0eb9d7294c"
+  },
+  "testLabels": [
+    "ai_assistant.test_report_library",
+    "ai_assistant.test_workflow_presets",
+    "ai_assistant.test_report_recommendations_review"
+  ]
+}

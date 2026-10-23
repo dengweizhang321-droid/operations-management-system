@@ -1,0 +1,283 @@
+{
+  "schemaVersion": "ai-workflows-rendered-baseline-v1",
+  "date": "2026-10-09",
+  "baselineRevision": "da0d62bdd92bef118f617d0ce592a8e60682c231",
+  "baselineRoot": ".runtime\\rendered-baseline-da0d62bdd92b",
+  "method": "git archive exact baseline minimal read dependencies; unchanged full test file; original --test-name-pattern; parent node_modules resolution",
+  "testNames": [
+    "wires the sales import and PostgreSQL analytics capabilities",
+    "keeps sales overview multi-selects mounted while filtered results refresh",
+    "wires product profitability to synchronized sales and inventory facts",
+    "exposes the centrally registered, fail-closed Codex MCP connection"
+  ],
+  "baselineExitCode": 1,
+  "baselineFailedNames": [
+    "wires the sales import and PostgreSQL analytics capabilities",
+    "keeps sales overview multi-selects mounted while filtered results refresh",
+    "wires product profitability to synchronized sales and inventory facts",
+    "exposes the centrally registered, fail-closed Codex MCP connection"
+  ],
+  "allFourReproduced": true,
+  "currentSourceEqualsBaseline": true,
+  "sourceFiles": [
+    {
+      "path": ".codex/config.toml",
+      "baselineSha256": "dd4ef8b5f7015a288db6b2aeaf1f3faebfbb74ccb2d65ba8f06df035985cc400",
+      "currentSha256": "dd4ef8b5f7015a288db6b2aeaf1f3faebfbb74ccb2d65ba8f06df035985cc400",
+      "currentIdentical": true
+    },
+    {
+      "path": ".openai/hosting.json",
+      "baselineSha256": "e2f39785fb02fa185f485766043e76e724e8f36d95cd70bccb852badde14b96a",
+      "currentSha256": "e2f39785fb02fa185f485766043e76e724e8f36d95cd70bccb852badde14b96a",
+      "currentIdentical": true
+    },
+    {
+      "path": "AGENTS.md",
+      "baselineSha256": "16e895f6ed243b8548ee8f765779b8d5f2647e8464e26b5bd37c484a15aacb63",
+      "currentSha256": "16e895f6ed243b8548ee8f765779b8d5f2647e8464e26b5bd37c484a15aacb63",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/api/imports/sales/chunks/route.ts",
+      "baselineSha256": "a0d0a99dce57edc9e2daa080c20302a7a00ee4fe2cf8b8962129b281ee20eed8",
+      "currentSha256": "a0d0a99dce57edc9e2daa080c20302a7a00ee4fe2cf8b8962129b281ee20eed8",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/api/imports/sales/route.ts",
+      "baselineSha256": "d2e0c565567d0209ecf6f169f6a2d561ddc56d872e14099df21845fed71f38b2",
+      "currentSha256": "d2e0c565567d0209ecf6f169f6a2d561ddc56d872e14099df21845fed71f38b2",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/api/products/summary/route.ts",
+      "baselineSha256": "13b4b0c892f83203dffd942d299efb4404858cfb60a08ca0d22169cec7a444b1",
+      "currentSha256": "13b4b0c892f83203dffd942d299efb4404858cfb60a08ca0d22169cec7a444b1",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/api/sales/summary/route.ts",
+      "baselineSha256": "511d9ad5ce43854bb4231732dc30cec8b0b8ccd94c9558aac198c0a7ae6f52a8",
+      "currentSha256": "511d9ad5ce43854bb4231732dc30cec8b0b8ccd94c9558aac198c0a7ae6f52a8",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/dashboard-module-view.tsx",
+      "baselineSha256": "4e11a8e0a68835585c3ae5653f7e550993281c7124d76d257267e774d3236ab3",
+      "currentSha256": "4e11a8e0a68835585c3ae5653f7e550993281c7124d76d257267e774d3236ab3",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/import-module-view.tsx",
+      "baselineSha256": "7b0ac2420b5219a44669f6974a4d055d1eb90be03f653b2d9e6fe3bc6b45a462",
+      "currentSha256": "7b0ac2420b5219a44669f6974a4d055d1eb90be03f653b2d9e6fe3bc6b45a462",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/inventory-module-view.tsx",
+      "baselineSha256": "c451c3b7fcac47007beb826115b76ba0c7a277f082a4039945e39a2df81113d8",
+      "currentSha256": "c451c3b7fcac47007beb826115b76ba0c7a277f082a4039945e39a2df81113d8",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/layout.tsx",
+      "baselineSha256": "3116274d36c921e1edad906b05966f9d5d02e8172b38a2efd39956e21e2792de",
+      "currentSha256": "3116274d36c921e1edad906b05966f9d5d02e8172b38a2efd39956e21e2792de",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/mcp/route.ts",
+      "baselineSha256": "bc8107fafc2916299efd19b5ed22db730a08cb97c48055ec2df2f3d3e25f596b",
+      "currentSha256": "bc8107fafc2916299efd19b5ed22db730a08cb97c48055ec2df2f3d3e25f596b",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/module-view-business-ui.tsx",
+      "baselineSha256": "0cbd98513f0ebfec65db7f53df5bb3c9d46b03061e33bed1674693ba87b46d58",
+      "currentSha256": "0cbd98513f0ebfec65db7f53df5bb3c9d46b03061e33bed1674693ba87b46d58",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/page.tsx",
+      "baselineSha256": "5fe99cda3d669fe91377bb1ca343a0974c747a94ffad515f7544a1b429fe68c7",
+      "currentSha256": "5fe99cda3d669fe91377bb1ca343a0974c747a94ffad515f7544a1b429fe68c7",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/product-module-view.tsx",
+      "baselineSha256": "90edff74c5c9b4b3a78246d4a547d6c8cd8501786801ed4e331efa1c85878f37",
+      "currentSha256": "90edff74c5c9b4b3a78246d4a547d6c8cd8501786801ed4e331efa1c85878f37",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/sales-filter-bar.tsx",
+      "baselineSha256": "f146851f96af204f7404d9029c0ef8ec6ff6d7946ae366423d87e227e388b1b4",
+      "currentSha256": "f146851f96af204f7404d9029c0ef8ec6ff6d7946ae366423d87e227e388b1b4",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/sales-module-view.tsx",
+      "baselineSha256": "a39975326a02f4658919a98651ba52fe0d7f6cf5cdf1ae2130438088d98521ce",
+      "currentSha256": "a39975326a02f4658919a98651ba52fe0d7f6cf5cdf1ae2130438088d98521ce",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/shop-module-view.tsx",
+      "baselineSha256": "f50c38f006e0644bb84d9c44cc2f57825b132d9a4b11b7053290a02aefcb7443",
+      "currentSha256": "f50c38f006e0644bb84d9c44cc2f57825b132d9a4b11b7053290a02aefcb7443",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/statistical-period-picker.tsx",
+      "baselineSha256": "455baeb563c248d5e06cf0fdca62e30b948435dc29fe0ff606afd185b7481147",
+      "currentSha256": "455baeb563c248d5e06cf0fdca62e30b948435dc29fe0ff606afd185b7481147",
+      "currentIdentical": true
+    },
+    {
+      "path": "app/ui/searchable-select.tsx",
+      "baselineSha256": "3f60601102c6915468d1e2b43a47429528446f04fdcef448efccf6a4cf74bde9",
+      "currentSha256": "3f60601102c6915468d1e2b43a47429528446f04fdcef448efccf6a4cf74bde9",
+      "currentIdentical": true
+    },
+    {
+      "path": "backend/ai_assistant/views.py",
+      "baselineSha256": "710c641cdc4092e4270428859e81be4a957d986cf91a03b771bfc293590c2d45",
+      "currentSha256": "710c641cdc4092e4270428859e81be4a957d986cf91a03b771bfc293590c2d45",
+      "currentIdentical": true
+    },
+    {
+      "path": "backend/products/query.py",
+      "baselineSha256": "3ae1004115ba9d08575103c6f11bb4bdc95e2ffa64eb48ab989e1c8cda5937f6",
+      "currentSha256": "3ae1004115ba9d08575103c6f11bb4bdc95e2ffa64eb48ab989e1c8cda5937f6",
+      "currentIdentical": true
+    },
+    {
+      "path": "backend/sales/models.py",
+      "baselineSha256": "f13ede1811af98dcf5fa8b1c4f3df47009e9bc6569db377f9e2c1e477662845b",
+      "currentSha256": "f13ede1811af98dcf5fa8b1c4f3df47009e9bc6569db377f9e2c1e477662845b",
+      "currentIdentical": true
+    },
+    {
+      "path": "backend/sales/query.py",
+      "baselineSha256": "a9d1c4a2618ba1c2d373962c81e74eab0465fb7b30d10dc020a60f0e8a16764b",
+      "currentSha256": "a9d1c4a2618ba1c2d373962c81e74eab0465fb7b30d10dc020a60f0e8a16764b",
+      "currentIdentical": true
+    },
+    {
+      "path": "backend/sales/summary.py",
+      "baselineSha256": "bc3b45f4444ba696f6de373a966058b5be90d706de9a48085bd5bc3889579f29",
+      "currentSha256": "bc3b45f4444ba696f6de373a966058b5be90d706de9a48085bd5bc3889579f29",
+      "currentIdentical": true
+    },
+    {
+      "path": "db/schema.ts",
+      "baselineSha256": "52bc772dac663debd560fe8731f38b203e52f91b95d7ae3713a6bd466386f302",
+      "currentSha256": "52bc772dac663debd560fe8731f38b203e52f91b95d7ae3713a6bd466386f302",
+      "currentIdentical": true
+    },
+    {
+      "path": "drizzle/0008_young_sunspot.sql",
+      "baselineSha256": "85bd3d99d19f379879519c9a45f32be8f6d1769f6e156c42b25f676056c40880",
+      "currentSha256": "85bd3d99d19f379879519c9a45f32be8f6d1769f6e156c42b25f676056c40880",
+      "currentIdentical": true
+    },
+    {
+      "path": "lib/ai/mcp-execution-budget.ts",
+      "baselineSha256": "426a456df1987c4746aadd0c4c40b0a3692228fe5679a7190b7ce7f7e1604ec0",
+      "currentSha256": "426a456df1987c4746aadd0c4c40b0a3692228fe5679a7190b7ce7f7e1604ec0",
+      "currentIdentical": true
+    },
+    {
+      "path": "lib/ai/tool-audit.ts",
+      "baselineSha256": "c898ce6ba86619dc43c105db6b07aef79923de0fed34399f227aaa893f831ed7",
+      "currentSha256": "c898ce6ba86619dc43c105db6b07aef79923de0fed34399f227aaa893f831ed7",
+      "currentIdentical": true
+    },
+    {
+      "path": "lib/ai/tool-registry-contract.ts",
+      "baselineSha256": "144f8b81ae23f6db4e2f6603a7a176c128fe54926bf5db78d48a977d3ca9c505",
+      "currentSha256": "144f8b81ae23f6db4e2f6603a7a176c128fe54926bf5db78d48a977d3ca9c505",
+      "currentIdentical": true
+    },
+    {
+      "path": "lib/ai/tool-registry.ts",
+      "baselineSha256": "bfa7a25e4766f50296815e76e2ccf7225f05dfb1f895b32c2fcc10c04a29cbb6",
+      "currentSha256": "bfa7a25e4766f50296815e76e2ccf7225f05dfb1f895b32c2fcc10c04a29cbb6",
+      "currentIdentical": true
+    },
+    {
+      "path": "lib/imports/inventory-stock.ts",
+      "baselineSha256": "7eebc6d9f8c64df5d65aa9c17d1de9d69cc0edf6df4cd7cf9e5a54ca98f03068",
+      "currentSha256": "7eebc6d9f8c64df5d65aa9c17d1de9d69cc0edf6df4cd7cf9e5a54ca98f03068",
+      "currentIdentical": true
+    },
+    {
+      "path": "lib/inventory/database.ts",
+      "baselineSha256": "65537c1ec3672cf8f779ff45f14a622e82305d4f563d21e1b4c90f0a9931072f",
+      "currentSha256": "65537c1ec3672cf8f779ff45f14a622e82305d4f563d21e1b4c90f0a9931072f",
+      "currentIdentical": true
+    },
+    {
+      "path": "lib/products/summary.ts",
+      "baselineSha256": "6c439f6481e31e3ac7f3fa8ee2e2dde8680fe39f99ce489d84362c682aef32b8",
+      "currentSha256": "6c439f6481e31e3ac7f3fa8ee2e2dde8680fe39f99ce489d84362c682aef32b8",
+      "currentIdentical": true
+    },
+    {
+      "path": "lib/sales/chunked-upload.ts",
+      "baselineSha256": "12db8b5367196dd579f73dc7cbd584496023b5bd6e86d876ad2286c8e2508102",
+      "currentSha256": "12db8b5367196dd579f73dc7cbd584496023b5bd6e86d876ad2286c8e2508102",
+      "currentIdentical": true
+    },
+    {
+      "path": "package.json",
+      "baselineSha256": "ce38493daf69c5e122a78a56877bb29f0e9753c3705e0b2301597385cc72a890",
+      "currentSha256": "ce38493daf69c5e122a78a56877bb29f0e9753c3705e0b2301597385cc72a890",
+      "currentIdentical": true
+    },
+    {
+      "path": "public/og.png",
+      "baselineSha256": "3f681cb4480c8ef99dd1a16d7d7e0294357b3da2da4ae8525d8a8de8f15a658e",
+      "currentSha256": "3f681cb4480c8ef99dd1a16d7d7e0294357b3da2da4ae8525d8a8de8f15a658e",
+      "currentIdentical": true
+    },
+    {
+      "path": "tests/rendered-html.test.mjs",
+      "baselineSha256": "942b83cd96b9eb60aff2b4962ee6d87e66e65450cf58f8ca2edff9645048151f",
+      "currentSha256": "942b83cd96b9eb60aff2b4962ee6d87e66e65450cf58f8ca2edff9645048151f",
+      "currentIdentical": true
+    }
+  ],
+  "baselineLogSha256": "aa07cbd5eed1ab95cf842cf743ded4eb34e72d80f8ec2f166f1a38649272692b",
+  "originalFullLogSha256": "286ba2419e5d8f7a9ceff21f2b64451ddcf2ee14cd23429fc7a385e28d52c303",
+  "productionBuildOrServiceRun": false,
+  "limitations": [
+    "Only the four source assertions were rerun; no claim that the complete baseline build suite passes",
+    "Global TypeScript and ESLint debt is not assessed here"
+  ],
+  "baselineAssertions": [
+    {
+      "testName": "wires the sales import and PostgreSQL analytics capabilities",
+      "line": 180,
+      "regex": "/aria-multiselectable/"
+    },
+    {
+      "testName": "keeps sales overview multi-selects mounted while filtered results refresh",
+      "line": 271,
+      "regex": "/if \\(!summary && !error\\)[\\s\\S]*?<>{salesSubnav}{sharedFilterBar\\(\\)}/"
+    },
+    {
+      "testName": "wires product profitability to synchronized sales and inventory facts",
+      "line": 388,
+      "regex": "/shopOptions\\.some\\(\\(option\\) => option\\.value === item\\)/"
+    },
+    {
+      "testName": "exposes the centrally registered, fail-closed Codex MCP connection",
+      "line": 900,
+      "regex": "/get_data_freshness/"
+    }
+  ],
+  "sameFailedRegexesAsCurrent": true,
+  "sourceFileCount": 38
+}
