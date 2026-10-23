@@ -1,0 +1,31 @@
+{
+  "schema": "codex-reviewed-working-source-snapshot-v1",
+  "createdAt": "2026-10-23T11:12:42.125879+00:00",
+  "worktreeId": "wt017",
+  "sourceHead": "2154f9e4bafbe343b809ec3783fcd5925386dc72",
+  "approvalSha256": "9c944ab794a588b24e90a2fd7f73fbd06f138da2c17c80fd06c60695cf083c06",
+  "includedCount": 2,
+  "deletionCount": 0,
+  "exclusionCount": 0,
+  "completeWorkingSource": true,
+  "trackedExclusionsPreserveSourceHead": false,
+  "included": [
+    {
+      "path": "backend/erp_reference/migrations/0003_jackyun_upload_audit_binding.py",
+      "oid": "a5c95757fe403ce0e58f8352a825e5403c3595f5",
+      "mode": "100644",
+      "sha256": "b31eedd7783551d12cbcfd224e9b53cb2ff7e1c03d68581c9cb01a09650464d8",
+      "bytes": 721
+    },
+    {
+      "path": "backend/sales/migrations/0011_jackyun_upload_audit_binding.py",
+      "oid": "30cfc05fb698696d84e9423f6fc9137c95ac9292",
+      "mode": "100644",
+      "sha256": "b4be882a2e34d6f2c44ae78adf2df41fb9bd34fb10ac7a72508dd7f858d88195",
+      "bytes": 846
+    }
+  ],
+  "deletions": [],
+  "exclusions": [],
+  "purpose": "Reviewed source backup only; not main integration or deployable approval."
+}
