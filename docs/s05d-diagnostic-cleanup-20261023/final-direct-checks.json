@@ -1,0 +1,15 @@
+{
+  "at": "2026-10-23T08:13:59.499Z",
+  "completedAt": "2026-10-23T08:14:19.507Z",
+  "args": [
+    "--test",
+    "--test-timeout=60000",
+    "tests/preparation-retirement-diagnostic.test.mjs",
+    "tests/preparation-retirement-integration.test.mjs",
+    "tests/preparation-retirement-stability-cas.test.mjs"
+  ],
+  "exitCode": 0,
+  "node": "v24.18.0",
+  "productionRun": false,
+  "scope": "changed watchdog/untracked and cancellation plus directly affected existing private integration"
+}

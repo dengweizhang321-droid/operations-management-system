@@ -1,0 +1,27 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import {runRetirementFourSlots,retirementEntity} from '../tools/preparation-retirement-fs.mjs';
+import {snapshotRetirementObject,assertRetirementSnapshotUnchanged,assertRetirementSnapshotsUnchanged} from '../tools/preparation-retirement-archive.mjs';
+import {retirementCasCombinationForTest} from '../tools/preparation-retirement.mjs';
+async function fixture(t){const root=await fs.mkdtemp(path.join(os.tmpdir(),'s05d-retirement-test-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));const objects=[];for(let i=0;i<4;i++){const dir=path.join(root,'object-'+i);await fs.mkdir(path.join(dir,'nested'),{recursive:true});for(let j=0;j<32;j++)await fs.writeFile(path.join(dir,'nested',j+'.txt'),'private '+i+'/'+j);const action={kind:'directory'},snapshot=await snapshotRetirementObject(action,dir,{qualifiedLinks:[]});objects.push({root:dir,snapshot});}return {root,objects};}
+test('all four real snapshots pass together and retain leaf, directory and junction refusal boundaries',async t=>{
+ const f=await fixture(t);for(const row of f.objects)assert.equal(await assertRetirementSnapshotUnchanged(row.root,row.snapshot),true);assert.equal(await assertRetirementSnapshotsUnchanged(f.objects),true);
+ const cancellation=new AbortController();cancellation.abort();await assert.rejects(snapshotRetirementObject({kind:'directory'},f.objects[2].root,{qualifiedLinks:[],signal:cancellation.signal}),/cancelled/);
+ const leaf=path.join(f.objects[0].root,'nested','0.txt');await fs.appendFile(leaf,' changed');await assert.rejects(assertRetirementSnapshotsUnchanged(f.objects),/Archive leaf changed/);
+ const row=f.objects[1];await fs.writeFile(path.join(row.root,'new.txt'),'new member');await assert.rejects(assertRetirementSnapshotUnchanged(row.root,row.snapshot),/directory identity|membership/);
+ const source=path.join(f.root,'junction-object'),target=path.join(f.root,'dependencies');await fs.mkdir(source);await fs.mkdir(target);await fs.symlink(target,path.join(source,'node_modules'),'junction');const stat=await fs.lstat(path.join(source,'node_modules'),{bigint:true}),dependency={path:'node_modules',dev:String(stat.dev),ino:String(stat.ino),linkText:await fs.readlink(path.join(source,'node_modules'))},snapshot=await snapshotRetirementObject({kind:'directory',dependency},source,{qualifiedLinks:[]});await assertRetirementSnapshotUnchanged(source,snapshot);await fs.unlink(path.join(source,'node_modules'));await fs.mkdir(path.join(source,'node_modules'));await assert.rejects(assertRetirementSnapshotUnchanged(source,snapshot));
+});
+test('four slots are shared across simultaneous batches; first failure drains in-flight checks and claims no later job',async()=>{
+ let active=0,peak=0;const check=async()=>{active++;peak=Math.max(peak,active);await new Promise(r=>setTimeout(r,1));active--;};await Promise.all([runRetirementFourSlots(16,check),runRetirementFourSlots(16,check)]);assert.equal(peak,4);assert.equal(active,0);
+ let started=0,finished=0,release;const gate=new Promise(r=>{release=r;});const work=runRetirementFourSlots(20,async index=>{started++;if(index===0){await new Promise(r=>setTimeout(r,2));throw undefined;}await gate;finished++;});await new Promise(r=>setTimeout(r,10));assert.equal(started,4);release();let rejected=false;await work.then(()=>assert.fail('A falsy thrown value must still reject'),error=>{rejected=true;assert.equal(error,undefined);});assert.equal(rejected,true);assert.equal(finished,3);assert.equal(started,4);
+});
+test('deadline and cancellation stop claiming and drain all acquired reads',async()=>{
+ for(const cancel of [false,true]){let started=0,finished=0,release;const gate=new Promise(r=>{release=r;}),controller=new AbortController(),deadlineMs=cancel?Infinity:performance.now()+10;const work=runRetirementFourSlots(20,async()=>{started++;await gate;finished++;},{deadlineMs,signal:controller.signal});await new Promise(r=>setTimeout(r,15));if(cancel)controller.abort();release();await assert.rejects(work,/deadline|cancelled/);assert.equal(started,4);assert.equal(finished,4);}
+});
+test('the common combination includes every callback and rejects the original forty-second budget',async t=>{
+ const f=await fixture(t),order=[];const options={root:f.root,objects:f.objects,before:[{name:'adoption-original-before',run:async()=>order.push('before')}],closureCheck:async()=>order.push('closure'),after:[{name:'ordinary-task-boot-ref-native',run:async()=>order.push('fresh')},{name:'adoption-original-tail',run:async()=>order.push('tail')}]};const result=await retirementCasCombinationForTest(options);assert.deepEqual(order,['before','closure','fresh','tail']);assert.deepEqual(result.stages.map(x=>x.name),['adoption-original-before','closure-cas','snapshot-cas','ordinary-task-boot-ref-native','adoption-original-tail']);assert.equal(result.objects,4);assert.equal(result.files,128);
+ let clock=0;await assert.rejects(retirementCasCombinationForTest({...options,clock:()=>clock,after:[{name:'tail',run:async()=>{clock=40000;}}]}),error=>{assert.match(error.message,/40 second budget/);assert.equal(error.retirementCasMeasurement.elapsedMs,40000);assert.equal(error.retirementCasMeasurement.stages.at(-1).name,'tail');return true;});assert.ok(await retirementEntity(f.objects[0].root));
+});

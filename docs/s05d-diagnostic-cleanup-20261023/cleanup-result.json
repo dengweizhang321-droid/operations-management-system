@@ -1,0 +1,12 @@
+{
+    "branchPreserved":  "codex/s05d-handoff-staging-diagnostic-20261023",
+    "manifestSha256":  "ae9192d5d975530718f69e79ad9347db15d4b5da4f29ccedd3d5dbbc40ca455e",
+    "forceWorktreeRemoval":  false,
+    "backup":  "D:\\codex-artifacts\\s05d-diagnostic-cleanup-20261023\\preserved-3f15a48b-c867-473e-95df-5875dda958db",
+    "at":  "2026-10-23T07:32:16.6594472Z",
+    "removedDiagnosticFiles":  44,
+    "registrationAbsent":  true,
+    "target":  "D:\\codex-worktrees\\s05d-handoff-staging-diagnostic-20261023",
+    "productionOperation":  false,
+    "worktreeAbsent":  true
+}

@@ -10,6 +10,16 @@ import {canonical,sha,durableCreate,readQueueObject} from './main-prebuild-queue
 const execute=promisify(execFile);
 export const retirementFsVersion='teruisi-preparation-retirement-objects-v1';
 const hex=/^[a-f0-9]{64}$/;
+// One process-wide four-slot limit, also shared by concurrent object batches.
+// A failed batch stops claiming work and drains every acquired operation.
+let retirementCheckSlots=0;const retirementCheckWaiters=[];
+async function checkSlot(){if(retirementCheckSlots>=4)await new Promise(resolve=>retirementCheckWaiters.push(resolve));else retirementCheckSlots++;let released=false;return ()=>{assert.equal(released,false);released=true;const next=retirementCheckWaiters.shift();if(next)next();else retirementCheckSlots--;};}
+export async function runRetirementFourSlots(count,check,{deadlineMs=Infinity,signal}={}){
+ assert.ok(Number.isSafeInteger(count)&&count>=0&&count<=1000000);assert.equal(typeof check,'function');let next=0,failure,failed=false;const fail=error=>{if(!failed){failed=true;failure=error;}};
+ const expired=()=>{if(signal?.aborted)fail(Error('Retirement CAS cancelled'));if(performance.now()>=deadlineMs)fail(Error('Retirement CAS deadline expired'));};
+ await Promise.all(Array.from({length:Math.min(4,count)},async()=>{for(;;){expired();if(failed||next>=count)return;const release=await checkSlot();try{expired();if(failed||next>=count)return;const index=next++;await check(index);expired();}catch(error){fail(error);}finally{release();}if(failed)return;}}));
+ if(failed)throw failure;expired();if(failed)throw failure;return true;
+}
 export function retirementPath(value){assert.ok(typeof value==='string'&&path.isAbsolute(value),'Absolute retirement object required');return path.resolve(value);}
 export function isRetirementChild(root,target){const relative=path.relative(retirementPath(root),retirementPath(target));return relative!==''&&!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative);}
 export async function retirementEntity(file){
@@ -20,13 +30,14 @@ export async function hashRetirementFile(file){
  return hashRetirementFileWithBuffer(file);
 }
 // The buffer is private to a single in-flight inventory slot, never caller supplied.
-async function hashRetirementFileWithBuffer(file,reusableBuffer){
+async function hashRetirementFileWithBuffer(file,reusableBuffer,signal){
+ assert.ok(!signal?.aborted,'Retirement inventory cancelled');
  const before=await retirementEntity(file);assert.equal(before?.type,'file','Retirement file absent');const h=await fs.open(file,'r');
- try{const a=await h.stat({bigint:true});assert.equal(String(a.dev),before.dev);assert.equal(String(a.ino),before.ino);const hash=createHash('sha256'),buffer=reusableBuffer??Buffer.alloc(512*1024);let offset=0;for(;;){const r=await h.read(buffer,0,buffer.length,offset);if(!r.bytesRead)break;hash.update(buffer.subarray(0,r.bytesRead));offset+=r.bytesRead;assert.ok(offset<=4*1024*1024*1024,'Retirement file byte bound');}const b=await h.stat({bigint:true});for(const k of ['dev','ino','size','mtimeNs','ctimeNs'])assert.equal(a[k],b[k],'Retirement file changed');assert.deepEqual(await retirementEntity(file),before,'Retirement file replaced');return {size:offset,sha256:hash.digest('hex'),dev:before.dev,ino:before.ino,nlink:before.nlink,mtimeNs:String(a.mtimeNs),ctimeNs:String(a.ctimeNs)};}
+ try{const a=await h.stat({bigint:true});assert.equal(String(a.dev),before.dev);assert.equal(String(a.ino),before.ino);const hash=createHash('sha256'),buffer=reusableBuffer??Buffer.alloc(512*1024);let offset=0;for(;;){assert.ok(!signal?.aborted,'Retirement inventory cancelled');const r=await h.read(buffer,0,buffer.length,offset);if(!r.bytesRead)break;hash.update(buffer.subarray(0,r.bytesRead));offset+=r.bytesRead;assert.ok(offset<=4*1024*1024*1024,'Retirement file byte bound');}const b=await h.stat({bigint:true});for(const k of ['dev','ino','size','mtimeNs','ctimeNs'])assert.equal(a[k],b[k],'Retirement file changed');assert.deepEqual(await retirementEntity(file),before,'Retirement file replaced');return {size:offset,sha256:hash.digest('hex'),dev:before.dev,ino:before.ino,nlink:before.nlink,mtimeNs:String(a.mtimeNs),ctimeNs:String(a.ctimeNs)};}
  finally{await h.close();}
 }
 /** This inventories bytes, not effect ownership. Links need a separate qualified role. */
-export async function inventoryRetirementTree(root,{maxFiles=250000,maxBytes=32*1024**3,allowedHardlinks=[],allowedJunctions=[]}={}){
+export async function inventoryRetirementTree(root,{maxFiles=250000,maxBytes=32*1024**3,allowedHardlinks=[],allowedJunctions=[],signal}={}){
  root=retirementPath(root);const files=[],directories=[],junctions=[],buffers=[];let bytes=0,pending=[],failure;
  // Four slots per inventory, including nested directories. Drain before recursion
  // and directory CAS so buffers cannot alias and no work survives a rejection.
@@ -35,7 +46,7 @@ export async function inventoryRetirementTree(root,{maxFiles=250000,maxBytes=32*
   assert.ok(files.length<maxFiles,'Retirement file bound');
   const index=files.length,slot=pending.length;files.push(null);
   buffers[slot]??=Buffer.alloc(512*1024);
-  const work=hashRetirementFileWithBuffer(file,buffers[slot]).then(item=>{
+  const work=hashRetirementFileWithBuffer(file,buffers[slot],signal).then(item=>{
    if(item.nlink!=='1')assert.ok(allowedHardlinks.some(x=>x.path===relative&&x.dev===item.dev&&x.ino===item.ino),'Unqualified multi-link retirement file');
    bytes+=item.size;assert.ok(bytes<=maxBytes,'Retirement tree byte bound');
    files[index]={path:relative,...item};

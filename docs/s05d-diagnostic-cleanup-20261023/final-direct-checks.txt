@@ -1,0 +1,16 @@
+✔ diagnostics freeze tools only outside sources, reject overlap, and refuse missing frozen imports without production fallback (6087.3976ms)
+✔ closeout is an auditable retained/blocked/removed state, never an automatic removal or source exclusion (12676.0839ms)
+✔ owned diagnostic watchdog cancels gracefully or terminates only its own bounded child (1013.3993ms)
+✔ private actual collector/Git/evidence composition survives post-artifact observer failure, seals same intent, and the full private reader rejects late closure/archive/address mutations (19043.0824ms)
+✔ all four real snapshots pass together and retain leaf, directory and junction refusal boundaries (359.3821ms)
+✔ four slots are shared across simultaneous batches; first failure drains in-flight checks and claims no later job (125.3815ms)
+✔ deadline and cancellation stop claiming and drain all acquired reads (46.5115ms)
+✔ the common combination includes every callback and rejects the original forty-second budget (263.165ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19917.5769
