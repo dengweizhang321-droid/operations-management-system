@@ -70,6 +70,8 @@
 
 超时或无法运行（起子进程或需 tsx）：publish-latest-main、publish-main-preparation-failure、publish-main-step、preparation-resolution、preparation-missing-failure-audit、preparation-superseded-resolution、main-publication-readiness、main-prebuild-hook、main-control-upgrade、preparation-retirement-entry/-ref/-collector/-integration、fixed-native-abandonment、fixed-schema-rejection、fixed-cache-rejection、fixed-cleaned-preparation、fixed-admin-resolution、verify-release-candidate、pi150-forward-recovery、native-391-control、start-timing、tests/worker-local-release-rotation.test.ts、tests/worker-local-release.test.ts。全部在早上脚本中于沙箱外运行。原生失败记录路径另在临时副本中直接运行 `node tools/publish-main.mjs` 手工核过：prepare-only 退出 1 写出有效记录并被控制侧接受，deploy-only 与越界路径不写。所有改动的 .mjs 均通过 `node --check`。
 
+早上脚本（`1-检查并推送.bat`/`push-rework.ps1`、`2-S05b-准备控制包.bat`/`s05b-prepare.ps1`，位于 `D:\运营管理系统\.codex-tmp\rework-20261024\`）：BAT 内容仅 ASCII，ps1 为带 BOM 的 UTF-8，PowerShell 5.1 解析错误 0；脚本本身未执行。推送脚本的白名单与 `git diff --name-only a6cc9fcd HEAD` 逐项相同（26 个文件）。其测试辅助函数单独在沙箱内用 release-scope-control-only 核过：进程内隔离时 5/5 计数解析正确；默认隔离在沙箱内挂起时，限时终止 20 秒内返回（沙箱内 taskkill 自身会挂起，已改为有界等待加直接结束父进程）。
+
 ## 今晚遇到的环境限制
 
 - `D:\codex-worktrees\*`、`D:\codex-isolated\*` 对沙箱只读；可写的只有工作区。
@@ -83,7 +85,7 @@
 
 ## 需要用户执行的动作（按顺序）
 
-1. 双击 `D:\运营管理系统\.codex-tmp\rework-20261024\1-检查并推送.bat`：测试、白名单核对、取入真实仓库、`push -u`、建工作树。不动 main，不涉及生产。
+1. 双击 `D:\运营管理系统\.codex-tmp\rework-20261024\1-检查并推送.bat`：白名单核对、取入真实仓库本地、建工作树、沙箱外测试、通过后 `push -u`。不动 main，不涉及生产。
 2. 双击 `2-S05b-准备控制包.bat`：建控制源码工作树（24dd52ac）并 prepare，不采用。
 3. 手工输入脚本 2 打印的 `--adopt` 命令：生产控制采用（S05b）。
 4. 双击生产目录的 `准备main.bat`：新消费者写 a3d53227 放弃记录，并把 36668589 准备到 `-r2` 新目录（约 28 分钟）。

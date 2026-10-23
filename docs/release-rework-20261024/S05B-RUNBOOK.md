@@ -29,7 +29,7 @@
 
 | 序 | 动作 | 性质 | 可逆性 |
 | --- | --- | --- | --- |
-| 1 | 双击 `D:\运营管理系统\.codex-tmp\rework-20261024\1-检查并推送.bat` | 开发：测试、把分支取入真实仓库、推送、建分支工作树 | 可逆（远端分支可由用户删除）；不碰 main 与生产 |
+| 1 | 双击 `D:\运营管理系统\.codex-tmp\rework-20261024\1-检查并推送.bat` | 开发：把分支取入真实仓库、建工作树、测试、推送 | 可逆（远端分支可由用户删除）；不碰 main 与生产 |
 | 2 | 建控制源码工作树（脚本 2 自动完成） | 开发 | 可逆（`git worktree remove`） |
 | 3 | 双击 `2-S05b-准备控制包.bat`，只做 prepare | 读生产，只写材料目录 | 可逆（未采用前可删材料目录） |
 | 4 | 手工输入 adopt 命令 | **生产控制采用** | 不能一键回退 |
@@ -38,7 +38,7 @@
 
 ### 1. 检查并推送
 
-脚本按顺序：确认草稿仓库分支和提交链（a6cc9fcd 之后）；核对变更文件全部在白名单内；在沙箱外运行全部受影响测试（今晚沙箱内无法运行的起子进程测试都在内）；失败测试会在 a6cc9fcd 基线上复跑，基线也失败的记为既有问题，另有 2 个已知预期失败（见 [REPORT](REPORT.md#遗留与未完成)），其余任何失败都中止且不推送；`git fetch <草稿仓库> codex/release-rework-20261024:codex/release-rework-20261024`（分支已存在且提交不同则中止）；`git push -u origin codex/release-rework-20261024`；建 `D:\codex-worktrees\release-rework-20261024`。不用 --force、--no-verify，不动 main，不 fetch origin（避免在采用前生成新 hook 票）。
+脚本按顺序：确认草稿仓库分支和提交链（a6cc9fcd 之后）；核对变更文件全部在白名单内；`git fetch <草稿仓库> codex/release-rework-20261024:codex/release-rework-20261024` 取入真实仓库（仅本地分支；已存在且提交不同则中止）；建 `D:\codex-worktrees\release-rework-20261024`；在该工作树中于沙箱外运行全部受影响测试（今晚沙箱内无法运行的起子进程测试都在内，每个文件限时 900 秒）；失败测试在 `D:\codex-worktrees\release-rework-20261024-base`（需要时才建，detached 于 a6cc9fcd）复跑，基线也失败的记为既有问题，另有 2 个已知预期失败（见 [REPORT](REPORT.md#遗留与未完成)），其余任何失败都中止且不推送；全部可接受才 `git push -u origin codex/release-rework-20261024`。测试摘要写在 `D:\运营管理系统\.codex-tmp\rework-20261024\morning-tests-<时间>\SUMMARY.txt`。不用 --force、--no-verify，不动 main，不 fetch origin（避免在采用前生成新 hook 票）。先取入再测试，是为了在用户本人的工作树（有 origin/main、归属正常）里运行，测试失败时分支只在本地、不会推送。
 
 ### 2、3. 准备控制包（不采用）
 
