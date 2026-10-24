@@ -268,24 +268,48 @@ async function consumerFixture(t){
  const config={repository,stateDirectory,releaseDirectory:path.join(root,'packets'),dependenciesDirectory,cacheLockSha256:createHash('sha256').update(lock).digest('hex'),pwshDirectory:'fixture-host',pwshSha256:'4'.repeat(64),npmCacheDirectory:'fixture-cache'};
  return {root,git,old,latest,live:liveRecord,config};
 }
-test('documents the consumer: STARTED without SUCCESS in the selected packet makes the dispatch unknown (not failed or retired) and blocks the next ticket; nothing is rewritten',async t=>{
+// The consumer path: a hook ticket or a prepare run after a publication failed while entering maintenance.
+async function consumerRun(t,{probeRotation=async()=>true}={}){
  const f=await consumerFixture(t),binding={config:f.config,state:{configSha256:'6'.repeat(64),bundleSha256:'7'.repeat(64)}};
  const directory=path.join(f.config.stateDirectory,'prebuild-queue-v2'),submit=()=>submitPreparation(directory,{origin:'hook',observedTarget:f.latest,...binding.state});
- const first=await prepareLatestMain(f.config,{getLive:async()=>f.live,log:()=>{}});
- const attempt=path.join(first.packet,'publish-'+f.latest.slice(0,12));await fs.mkdir(attempt,{recursive:true});await fs.writeFile(path.join(attempt,'STARTED.json'),'original unknown');
- const packets=[];
+ const packets=[],used=[];let runs=0;
+ const runtime=path.join(f.root,'runtime');await fs.mkdir(path.join(runtime,'run'),{recursive:true});
  const options={binding,assertGeneration:async()=>{},assertConsumerIdentity:async()=>{},admit:async()=>{},admitSelected:async()=>{},once:prepareLatestMainOnce,
   observe:async(config,{retiredPackets})=>{const packet=preparationPacketSlot(config.releaseDirectory,packetBaseName(f.latest,f.live),retiredPackets);packets.push(path.basename(packet));return {targetCommit:f.latest,packet,live:f.live};},
-  run:async(source)=>{const packet=path.dirname(source),preparation=path.join(packet,'publish-'+f.latest.slice(0,12),'preparation');await fs.mkdir(preparation,{recursive:true});const preparationFile=path.join(preparation,'PREPARED.json');
+  // Real proof logic with stubbed live facts; the real retirement write under the queue lock.
+  retireNotEntered:(config,selection,opts)=>retireNotEnteredPublication(config,selection,{...opts,inspect:(cfg,sel,o)=>inspectNotEnteredPublication(cfg,sel,{...o,probe:probeWith(aclFailure),probeRotation,fetchReady:readyOk,runtimeRoot:runtime})}),
+  run:async(source)=>{runs++;const packet=path.dirname(source);used.push(path.basename(packet));const preparation=path.join(packet,'publish-'+f.latest.slice(0,12),'preparation');await fs.mkdir(preparation,{recursive:true});const preparationFile=path.join(preparation,'PREPARED.json');
    await fs.writeFile(preparationFile,JSON.stringify({version:'teruisi-main-preparation-v1',requestSha256:createHash('sha256').update(JSON.stringify(JSON.parse(await fs.readFile(path.join(packet,'main-release-request.json'),'utf8')))).digest('hex'),sourceIdentity:{commit:f.latest,tree:f.git(source,['rev-parse','HEAD^{tree}'])},workerPlan:{id:'private-native-fixture'},djangoPackage:null}));
    return {status:'prepared-only',mainCommit:f.latest,publicationPerformed:false,preparationFile};}};
- const one=await submit();await drainLatestMainQueue('unused',options);
- const unknown=await ticketResult(directory,one.requestId,one.ticketSha256);
-  assert.equal(unknown.status,'unknown');assert.equal(unknown.preparationTerminal,undefined);assert.match(unknown.error,/未知结果的执行记录/);
- assert.equal(retiredPreparationPackets(await readPreparationQueueInventory(directory)).has(key(first.packet)),false,'an unknown dispatch does not retire its packet');
- const two=await submit();await drainLatestMainQueue('unused',options);
- const next=await ticketResult(directory,two.requestId,two.ticketSha256);
- assert.equal(next.status,'blocked');assert.equal(next.error,'Prior dispatch lacks a complete terminal result; no preparation replay');assert.deepEqual(packets,[packetBaseName(f.latest,f.live)],'the blocked queue never observes a next slot'); assert.equal(await fs.readFile(path.join(attempt,'STARTED.json'),'utf8'),'original unknown','original bytes are untouched');
+ const ticket=async()=>{const item=await submit();await drainLatestMainQueue('unused',options);return ticketResult(directory,item.requestId,item.ticketSha256);};
+ // 1. an ordinary preparation, then the native publisher fails while entering maintenance
+ const first=await ticket();assert.equal(first.status,'prepared');
+ const inventory=await readPreparationQueueInventory(directory),packet=inventory.dispatches[0].value.selection.packet,attempt=path.join(packet,'publish-'+f.latest.slice(0,12));
+ const evidence={'STARTED.json':{mainCommit:f.latest,maintenanceId,publisherOwner:owner,predecessorChainStateSha256:f.live.chainStateSha256},'FAILED.json':{phase:'进入维护',automaticRetry:false,mainCommit:f.latest},
+  'maintenance-admission.json':{maintenanceId},'maintenance-first-FAILED.json':{maintenanceId,automaticRetry:false},'maintenance-first-actor.json':{maintenanceId,actor,rotationOwner}};
+ for(const [name,value] of Object.entries(evidence))await fs.writeFile(path.join(attempt,name),JSON.stringify(value,null,2)+'\n');
+ const before=new Map();for(const name of await fs.readdir(attempt))if(name!=='preparation')before.set(name,await fs.readFile(path.join(attempt,name)));
+ return {f,directory,packet,attempt,before,packets,used,ticket,runs:()=>runs};
+}
+test('consumer: a provably not-entered publication retires its packet and the same target prepares in -r2; nothing is rewritten',async t=>{
+ const c=await consumerRun(t),runsBefore=c.runs();
+ const second=await c.ticket();
+ assert.equal(second.status,'prepared');assert.equal(c.used.at(-1),packetBaseName(c.f.latest,c.f.live)+'-r2');assert.equal(c.runs(),runsBefore+1);
+ const inventory=await readPreparationQueueInventory(c.directory);
+ assert.equal(inventory.publicationRetirements.size,1);assert.ok(retiredPreparationPackets(inventory).has(key(c.packet)));
+ assert.equal([...inventory.terminals.values()].filter(terminal=>['unknown','blocked','failed'].includes(terminal.status)).length,0,'no unknown, blocked or failed terminal is written');
+ for(const [name,bytes] of c.before)assert.deepEqual(await fs.readFile(path.join(c.attempt,name)),bytes,name);
+ assert.equal(await exists(path.join(c.attempt,'SUCCESS.json')),false);
+ const third=await c.ticket();assert.equal(third.status,'prepared');assert.equal(c.packets.at(-1),packetBaseName(c.f.latest,c.f.live)+'-r2','the new slot is reused, not retired again');
+});
+test('consumer: when the proof is refused the attempt keeps blocking exactly as before (unknown, then blocked)',async t=>{
+ const c=await consumerRun(t,{probeRotation:async()=>false});
+ const second=await c.ticket();
+ assert.equal(second.status,'unknown');assert.equal(second.preparationTerminal,undefined);assert.match(second.error,/未知结果的执行记录/);
+ const inventory=await readPreparationQueueInventory(c.directory);assert.equal(inventory.publicationRetirements.size,0);assert.equal(retiredPreparationPackets(inventory).has(key(c.packet)),false);
+ const third=await c.ticket();assert.equal(third.status,'blocked');assert.equal(third.error,'Prior dispatch lacks a complete terminal result; no preparation replay');
+ assert.ok(!c.packets.some(name=>name.endsWith('-r2'))&&!c.used.some(name=>name.endsWith('-r2')),'a blocked queue never observes or prepares a next slot');
+ for(const [name,bytes] of c.before)assert.deepEqual(await fs.readFile(path.join(c.attempt,name)),bytes,name);
 });
 async function readinessFixture(t){
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'publication-preflight-'));

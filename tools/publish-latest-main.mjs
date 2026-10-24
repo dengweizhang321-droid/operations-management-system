@@ -389,16 +389,23 @@ export async function assertSelectedDependencyCache(config,selection,{readLock=a
  const raw=await readLock();assert.ok(Buffer.isBuffer(raw),'Dependency admission requires exact Git object bytes');
  assert.equal(sha(raw),config.cacheLockSha256,'Selected main dependency lock has no matching offline cache; native preparation was not dispatched');
 }
-export async function drainLatestMainQueue(configFile,{binding,progress,observe=observeLatestMain,once=prepareLatestMainOnce,run=runPublisher,inspect=inspectMainPreparation,assertGeneration=assertControlGeneration,admit=assertOrdinaryPreparationContext,assertConsumerIdentity=assertPreparationConsumer,admitSelected=async(config,selection)=>{await assertSelectedPreparationSupported(config,selection);await assertSelectedDependencyCache(config,selection);},probeRotation=probeRotationLock,abandonmentGraceMs=defaultAbandonmentGraceMs,retirementScope}={}){
+export async function drainLatestMainQueue(configFile,{binding,progress,observe=observeLatestMain,once=prepareLatestMainOnce,run=runPublisher,inspect=inspectMainPreparation,assertGeneration=assertControlGeneration,admit=assertOrdinaryPreparationContext,assertConsumerIdentity=assertPreparationConsumer,admitSelected=async(config,selection)=>{await assertSelectedPreparationSupported(config,selection);await assertSelectedDependencyCache(config,selection);},probeRotation=probeRotationLock,abandonmentGraceMs=defaultAbandonmentGraceMs,retirementScope,retireNotEntered=retireNotEnteredPublication}={}){
  binding??=await preparationControlBinding(configFile);
  const config=binding.config,directory=path.join(config.stateDirectory,'prebuild-queue-v2');
- if(retirementScope===undefined)return withRetirementReadScope(config,scope=>drainLatestMainQueue(configFile,{binding,progress,observe,once,run,inspect,assertGeneration,admit,assertConsumerIdentity,admitSelected,probeRotation,abandonmentGraceMs,retirementScope:scope}));
+ if(retirementScope===undefined)return withRetirementReadScope(config,scope=>drainLatestMainQueue(configFile,{binding,progress,observe,once,run,inspect,assertGeneration,admit,assertConsumerIdentity,admitSelected,probeRotation,abandonmentGraceMs,retirementScope:scope,retireNotEntered}));
  // Consumer code that fails before the native process starts is a structured
  // rejection; native failures carry only what runPublisher validated.
  const beforeNative=async(stage,operation)=>{try{return await operation();}catch(error){if(error&&typeof error==='object')error.preparationTerminal={kind:'rejected-before-native',stage};throw error;}};
  return drainPreparationQueue(directory,{retirementScope,invalidateRetirementScope:reason=>invalidateRetirementReadScope(retirementScope,reason),configSha256:binding.state.configSha256,bundleSha256:binding.state.bundleSha256,
   abandonment:{graceMs:abandonmentGraceMs,probeRotationLock:()=>probeRotation(),inspectAttempt:inspectPreparationAttempt},
-  assertGeneration:async()=>{await assertGeneration(binding);await assertRetirementAdmission(config,undefined,{scope:retirementScope});},admitPreparation:async()=>{await assertConsumerIdentity(binding);await admit(config);},admitSelectedPreparation:async selection=>{await assertRetirementAdmission(config,selection.targetCommit,{scope:retirementScope});await admitSelected(config,selection);},observe:({retiredPackets}={})=>observe(config,{retirementScope,retiredPackets,log:message=>progress?.log(message)}),
+  assertGeneration:async()=>{await assertGeneration(binding);await assertRetirementAdmission(config,undefined,{scope:retirementScope});},admitPreparation:async()=>{await assertConsumerIdentity(binding);await admit(config);},admitSelectedPreparation:async selection=>{await assertRetirementAdmission(config,selection.targetCommit,{scope:retirementScope});await admitSelected(config,selection);},observe:async({retiredPackets}={})=>{
+    const log=message=>progress?.log(message),selection=await observe(config,{retirementScope,retiredPackets,log});
+    // Already under the queue lock. A publication that failed while entering maintenance and provably changed nothing retires its packet here,
+    // so the same target prepares in the next '-rN' slot instead of leaving an unknown attempt that blocks every later ticket.
+    if(selection&&typeof selection.packet==='string'&&selection.live&&selection.targetCommit!==selection.live.mainCommit&&await retireNotEntered(config,selection,{retirementScope,log}))
+     return {...selection,packet:preparationPacketSlot(config.releaseDirectory,packetBaseName(selection.targetCommit,selection.live),await readRetiredPackets(config))};
+    return selection;
+   },
   prepare:async(selection,dispatch,reusablePreparation)=>{
    const prepared=await beforeNative('freeze-source',()=>once(config,selection,{retirementScope,log:message=>progress?.log(message)}));
    if(['already-current','non-production'].includes(prepared.status))return prepared;
