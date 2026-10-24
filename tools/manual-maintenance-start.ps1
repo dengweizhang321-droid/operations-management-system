@@ -80,7 +80,7 @@ try{
  if($env:TERUISI_PROCESS_DEADLINE_UNIX_MS){$deadline=[long]0;if(-not [long]::TryParse($env:TERUISI_PROCESS_DEADLINE_UNIX_MS,[ref]$deadline)){throw 'Invalid inherited process deadline'};$wait=[int][Math]::Min($wait,[Math]::Max(0,$deadline-[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()));if($wait -le 0){throw 'Inherited process deadline exhausted'}}
  Invoke-ManualMaintenanceGate -WorkerMutexName 'Local\TERUISI.Worker.LocalService.v1' -DjangoMutexName ('Local\TERUISI-DjangoSales-'+$suffix) -WaitMilliseconds $wait -DiagnosticPath (Get-MaintenanceDiagnosticPath) -Check {Check-FirstAttempt} -Operation {
   $nativeRaw=& $script:originalWorker -Action EnterMaintenance -MaintenanceId $script:admissionId -KeepPostgres -Json
-  if($LASTEXITCODE -ne 0){throw 'Original maintenance entry did not complete; reconcile this attempt'}
+  if($LASTEXITCODE -ne 0){$nativeText=(@($nativeRaw)|ForEach-Object{[string]$_}) -join ' ';if($nativeText.Length -gt 800){$nativeText=$nativeText.Substring(0,800)};throw ('Original maintenance entry did not complete; reconcile this attempt; native='+$nativeText)}
   $native=($nativeRaw -join "`n")|ConvertFrom-Json
   if($native -isnot [pscustomobject] -or $native.status -cne 'maintenance' -or $native.maintenanceId -cne $script:admissionId -or $native.postgresPreserved -isnot [bool] -or -not $native.postgresPreserved -or $native.backendStopped -isnot [bool] -or -not $native.backendStopped){throw 'Original maintenance result is unknown'}
   Save-OriginalRecord 'maintenance-first-native-complete.json' @{at=[DateTimeOffset]::UtcNow.ToString('o');admissionSha256=$InputSha256;maintenanceId=$script:admissionId;actorProcessId=[int]$PID;exitCode=0;value=$native}

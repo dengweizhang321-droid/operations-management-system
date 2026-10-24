@@ -16,6 +16,17 @@ export const abandonmentVersion='teruisi-preparation-abandonment-v1';
 export const nativePreparationFailureVersion='teruisi-native-preparation-failure-v1';
 export const publicationMarkers=['STARTED.json','SUCCESS.json','FAILED.json','WorkerApply-started.json','maintenance-first-FAILED.json'];
 export const defaultAbandonmentGraceMs=15*60*1000;
+// Publication-stage failure that provably changed nothing: the native publisher
+// wrote STARTED/FAILED while entering maintenance, yet the live system is still
+// exactly the packet's predecessor. The packet is retired (never resumed or
+// re-run) and keeps every byte; the same target prepares in the next '-rN'.
+export const publicationRetirementVersion='teruisi-publication-not-entered-v1';
+export const notEnteredPhases=['进入维护'];
+export const notEnteredRequiredMembers=['FAILED.json','STARTED.json','maintenance-admission.json','maintenance-first-FAILED.json'];
+export const notEnteredEvidenceMembers=[...notEnteredRequiredMembers,'maintenance-first-actor.json','maintenance-first-request.json'];
+const notEnteredFixedMembers=new Set(['preparation','LEASE-WARNING.json',...notEnteredEvidenceMembers,'maintenance-lock-diagnostic.json','进入维护-started.json','进入维护.stdout.log','进入维护.stderr.log','进入维护-process.json']);
+/** Only names a pre-mutation maintenance-entry failure can leave; anything else keeps blocking. */
+export function isNotEnteredAttemptMember(name){return notEnteredFixedMembers.has(name)||/^(?:maintenance-preflight|publication-materials)-[A-Za-z0-9]{6}$/.test(name);}
 const preparationTerminalKinds=['native-preparation-failed','rejected-before-native'],preparationAttemptMembers=['preparation','LEASE-WARNING.json'],maxPacketSlots=64;
 const packetKey=packet=>path.resolve(packet).toLowerCase();
 export const sha=raw=>createHash('sha256').update(raw).digest('hex');
@@ -93,9 +104,57 @@ export function retiredPreparationPackets(inventory){
  const retired=new Set();
  for(const {value:dispatch} of inventory.dispatches){
   const failed=dispatch.tickets.some(ref=>{const terminal=inventory.terminals.get(ref.requestId);return terminal?.status==='failed'&&terminal.preparationTerminal!==undefined;});
-  if(failed||inventory.abandonments?.has(dispatch.dispatchId))retired.add(packetKey(dispatch.selection.packet));
+  if(failed||inventory.abandonments?.has(dispatch.dispatchId)||inventory.publicationRetirements?.has(dispatch.dispatchId))retired.add(packetKey(dispatch.selection.packet));
  }
  return retired;
+}
+function validatePublicationRetirementShape(value){
+ assert.deepEqual(Object.keys(value).sort(),['at','attempt','basis','consumePermitted','dispatchId','dispatchSha256','evidence','packet','reason','selectedTarget','version'],'Publication retirement schema changed');
+ assert.equal(value.version,publicationRetirementVersion);assert.ok(id.test(value.dispatchId)&&hex.test(value.dispatchSha256)&&commit.test(value.selectedTarget));
+ assert.equal(value.consumePermitted,false,'A retired publication packet is never consumed');assert.ok(Number.isFinite(Date.parse(value.at)));
+ assert.ok(value.reason===null||(typeof value.reason==='string'&&value.reason.length<=1600),'Publication retirement reason invalid');
+ assert.ok(typeof value.packet==='string'&&path.isAbsolute(value.packet)&&typeof value.attempt==='string'&&path.isAbsolute(value.attempt));
+ assert.equal(packetKey(value.attempt),packetKey(path.join(value.packet,'publish-'+value.selectedTarget.slice(0,12))),'Publication retirement attempt is outside its packet');
+ const evidence=value.evidence;assert.ok(evidence&&typeof evidence==='object'&&!Array.isArray(evidence));
+ for(const name of notEnteredRequiredMembers)assert.ok(hex.test(evidence[name]??''),'Publication retirement lacks required evidence: '+name);
+ for(const [name,digest] of Object.entries(evidence))assert.ok(notEnteredEvidenceMembers.includes(name)&&hex.test(digest),'Unknown publication retirement evidence');
+ const basis=value.basis;assert.ok(basis&&typeof basis==='object'&&!Array.isArray(basis));
+ assert.deepEqual(Object.keys(basis).sort(),['actorsExited','attemptMembers','chainStateSha256','djangoManifestSha256','healthReady','liveMainCommit','maintenanceId','maintenanceMarkersAbsent','phase','rotationLockFree','workerBindingSha256'],'Publication retirement basis changed');
+ assert.ok(notEnteredPhases.includes(basis.phase)&&/^[a-f0-9]{32}$/.test(basis.maintenanceId)&&commit.test(basis.liveMainCommit));
+ assert.ok(hex.test(basis.chainStateSha256)&&hex.test(basis.djangoManifestSha256)&&hex.test(basis.workerBindingSha256));
+ for(const flag of ['actorsExited','healthReady','maintenanceMarkersAbsent','rotationLockFree'])assert.equal(basis[flag],true,'Publication retirement basis is not proven: '+flag);
+ assert.ok(Array.isArray(basis.attemptMembers)&&basis.attemptMembers.every(isNotEnteredAttemptMember)&&JSON.stringify(basis.attemptMembers)===JSON.stringify([...basis.attemptMembers].sort()));
+ assert.ok(!basis.attemptMembers.includes('SUCCESS.json'));for(const name of notEnteredRequiredMembers)assert.ok(basis.attemptMembers.includes(name));
+}
+async function validatePublicationRetirement(value,name,dispatchRead,terminals){
+ validatePublicationRetirementShape(value);
+ const dispatch=dispatchRead.value;
+ assert.equal(value.dispatchId+'.json',name);assert.equal(value.dispatchId,dispatch.dispatchId);assert.equal(value.dispatchSha256,dispatchRead.sha256,'Retired publication dispatch changed');
+ assert.equal(value.selectedTarget,dispatch.selectedTarget);assert.equal(packetKey(value.packet),packetKey(dispatch.selection.packet));
+ assert.equal(terminals.get(dispatch.requestId)?.status,'prepared','Only a prepared packet can be retired after publication');
+ assert.equal(value.basis.liveMainCommit,dispatch.selection.live.mainCommit,'Retired publication predecessor differs from its preparation');
+ assert.equal(value.basis.workerBindingSha256,dispatch.selection.live.head.bindingSha256);assert.equal(value.basis.djangoManifestSha256,dispatch.selection.live.djangoManifestSha256);
+ assert.equal(value.basis.chainStateSha256,dispatch.selection.live.chainStateSha256);
+ // The original publication evidence must survive byte for byte.
+ for(const [member,digest] of Object.entries(value.evidence))assert.equal(sha(await fs.readFile(path.join(value.attempt,member))),digest,'Retired publication evidence changed: '+member);
+ assert.equal(await fs.access(path.join(value.attempt,'SUCCESS.json')).then(()=>true,error=>{if(error.code==='ENOENT')return false;throw error;}),false,'A retired publication gained a success record');
+}
+/** Under the queue lock: append one not-entered retirement; the caller proved the live system unchanged. */
+export async function writePublicationRetirement(directory,record){
+ validatePublicationRetirementShape(record);
+ const inventory=await readPreparationQueueInventory(directory);
+ const dispatchRead=inventory.dispatches.find(read=>read.value.dispatchId===record.dispatchId);assert.ok(dispatchRead,'Publication retirement names no dispatch');
+ assert.ok(!inventory.publicationRetirements.has(record.dispatchId),'Publication already retired');
+ await validatePublicationRetirement(record,record.dispatchId+'.json',dispatchRead,inventory.terminals);
+ await fs.mkdir(path.join(directory,'publication-retired'),{recursive:true});
+ const digest=await durableCreate(path.join(directory,'publication-retired',record.dispatchId+'.json'),record);
+ const after=await readPreparationQueueInventory(directory);assert.ok(after.publicationRetirements.has(record.dispatchId));
+ return {file:path.join(directory,'publication-retired',record.dispatchId+'.json'),sha256:digest};
+}
+/** The dispatch whose prepared terminal produced this packet, or null. */
+export function preparedDispatchForPacket(inventory,packet){
+ const found=inventory.dispatches.filter(read=>packetKey(read.value.selection.packet)===packetKey(packet)&&inventory.terminals.get(read.value.requestId)?.status==='prepared');
+ return found.length===1?found[0]:null;
 }
 export function isRetiredPacket(retired,packet){return Boolean(retired?.has(packetKey(packet)));}
 /** '<target12>-<binding8>-<django8>' unless retired, then '-r2'...'-r64'. */
@@ -200,7 +259,9 @@ export async function readPreparationQueueInventory(directory){
  for(const name of await entries(directory,'results')){const requestId=name.slice(0,-5),item=byId.get(requestId);assert.ok(item,'Orphan queue terminal');const terminal=await ticketResult(directory,requestId,item.sha256);assert.ok(terminal);terminals.set(requestId,terminal);}
  const abandonments=new Map();
  for(const name of await optionalEntries(directory,'abandoned')){const dispatch=dispatches.find(read=>read.value.dispatchId+'.json'===name);assert.ok(dispatch,'Orphan preparation abandonment');const read=await readQueueObject(path.join(directory,'abandoned',name));validateAbandonment(read.value,name,dispatch,terminals);abandonments.set(read.value.dispatchId,{...read,name});}
- return {tickets,dispatches,referenced,terminals,abandonments};
+ const publicationRetirements=new Map();
+ for(const name of await optionalEntries(directory,'publication-retired')){const dispatch=dispatches.find(read=>read.value.dispatchId+'.json'===name);assert.ok(dispatch,'Orphan publication retirement');const read=await readQueueObject(path.join(directory,'publication-retired',name));await validatePublicationRetirement(read.value,name,dispatch,terminals);publicationRetirements.set(read.value.dispatchId,{...read,name});}
+ return {tickets,dispatches,referenced,terminals,abandonments,publicationRetirements};
 }
 /** observe may fetch/read only. prepare receives its exact frozen selection. */
 export async function drainPreparationQueue(directory,{configSha256,bundleSha256,observe,prepare,assertGeneration=async()=>{},afterUnlock=async()=>{},onStage=async()=>{},admitPreparation=async()=>{},admitSelectedPreparation=async()=>{},retirementScope,invalidateRetirementScope,abandonment}){

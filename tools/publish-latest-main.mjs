@@ -11,7 +11,7 @@ import {makeReleasePlan} from './release-scope-plan.mjs';
 import {createReleaseProgress} from './publish-main-progress.mjs';
 import {prepareMainSchemaRelease} from './main-schema-release.mjs';
 import {wakePreparationTask,currentPreparationIdentity,assertOrdinaryIdentity} from './main-prebuild-task.mjs';
-import {submitPreparation,drainPreparationQueue,ticketResult,acquireQueueLock,readPreparationQueueInventory,retiredPreparationPackets,isRetiredPacket,preparationPacketSlot,assertPreparationPacket,inspectPreparationAttempt,defaultAbandonmentGraceMs,nativePreparationFailureVersion} from './main-prebuild-queue.mjs';
+import {submitPreparation,drainPreparationQueue,ticketResult,acquireQueueLock,readPreparationQueueInventory,retiredPreparationPackets,isRetiredPacket,preparationPacketSlot,assertPreparationPacket,inspectPreparationAttempt,defaultAbandonmentGraceMs,nativePreparationFailureVersion,publicationRetirementVersion,notEnteredPhases,notEnteredRequiredMembers,notEnteredEvidenceMembers,isNotEnteredAttemptMember,preparedDispatchForPacket,writePublicationRetirement} from './main-prebuild-queue.mjs';
 import {readAdoptedControl,assertControlGeneration,controlExecution} from './main-control-dispatch.mjs';
 import {assertRetirementAdmission,withRetirementReadScope,invalidateRetirementReadScope} from './preparation-retirement-admission.mjs';
 
@@ -74,11 +74,12 @@ export async function observeLatestMain(config,{git=gitAt,getLive=readLivePublic
  const liveAttempt=path.resolve(live.source,'..','publish-'+live.mainCommit.slice(0,12));
  if(await exists(path.join(liveAttempt,'STARTED.json'))&&!await exists(path.join(liveAttempt,'SUCCESS.json'))&&!live.resolvedOriginalAttempt)throw Error('当前目标有STARTED但无成功完成，不能把半切换当作已发布');
  log('本次目标 main：'+target+'；当前线上：'+live.mainCommit);
- const name=target.slice(0,12)+'-'+live.head.bindingSha256.slice(0,8)+'-'+live.djangoManifestSha256.slice(0,8);
+ const name=packetBaseName(target,live);
  // A retired packet (failed or abandoned preparation) is never reused; the
  // same target and predecessor prepare again in the next '-rN' slot.
  return {targetCommit:target,live,packet:preparationPacketSlot(config.releaseDirectory,name,retiredPackets)};
 }
+export function packetBaseName(target,live){return target.slice(0,12)+'-'+live.head.bindingSha256.slice(0,8)+'-'+live.djangoManifestSha256.slice(0,8);}
 export async function prepareLatestMain(config,options={}){
  return prepareLatestMainOnce(config,await observeLatestMain(config,options),options);
 }
@@ -222,14 +223,130 @@ export async function inspectMainPreparation(prepared,{git=gitAt,retiredPackets}
  return {status:'ready-for-native-verification',mainCommit:prepared.targetCommit,publicationPerformed:false,preparationFile:file};
 }
 
-export async function deployReadyMain(prepared,{progress,run=runPublisher,git=gitAt,gitDirectory,baseEnvironment,retirementScope,retiredPackets}={}){
+// PUBLICATION_GUARD_BEGIN
+// Read-only checks the live Django controller performs when entering
+// maintenance, run BEFORE the native publisher writes STARTED. A failure here
+// leaves the prepared packet reusable instead of turning it into an unknown.
+export const liveDjangoRuntime='D:/teruisi-runtime/django-sales',liveDjangoController=liveDjangoRuntime+'/app/tools/django-local-service.ps1';
+export const publicationProbeVersion='teruisi-publication-precondition-probe-v1',publicationProbeChecks=['Assert-RuntimeAclHardened','Assert-DeployedApplication'];
+const windowsPowerShell='C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe';
+export function publicationProbeScript(input){
+ const encoded=Buffer.from(JSON.stringify(input),'utf8').toString('base64');
+ // Probe variables carry a pg prefix: the dot-sourced controller shares this scope and must not overwrite them.
+ return ["$ErrorActionPreference='Stop'","$utf8=[Text.UTF8Encoding]::new($false);[Console]::OutputEncoding=$utf8",
+  "$pgInput=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('"+encoded+"'))|ConvertFrom-Json",
+  "$pgResult=[ordered]@{version='"+publicationProbeVersion+"';checks=[ordered]@{};actors=@()}",
+  "$pgChecks=@($pgInput.checks);$pgController=[string]$pgInput.controller;$pgRoot=[string]$pgInput.runtimeRoot;$pgDjango=[bool]$pgInput.checkDjango",
+  // A recorded actor counts as alive when its PID exists with a creation time within 2s.
+  "foreach($pgActor in @($pgInput.actors)){$pgAlive=$false;$pgProc=Get-CimInstance Win32_Process -Filter ('ProcessId='+[int]$pgActor.processId) -ErrorAction SilentlyContinue;if($pgProc -and $pgProc.CreationDate){$pgAlive=[Math]::Abs(($pgProc.CreationDate.ToUniversalTime()-[DateTime]::Parse([string]$pgActor.creationDate).ToUniversalTime()).TotalSeconds) -lt 2};$pgResult.actors+=[ordered]@{processId=[int]$pgActor.processId;alive=[bool]$pgAlive}}",
+  "if($pgDjango){$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1';. $pgController -RuntimeRoot $pgRoot;foreach($pgCheck in $pgChecks){try{& $pgCheck|Out-Null;$pgResult.checks[$pgCheck]=[ordered]@{ok=$true}}catch{$pgMessage=[string]$_.Exception.Message;$pgResult.checks[$pgCheck]=[ordered]@{ok=$false;message=$pgMessage.Substring(0,[Math]::Min(600,$pgMessage.Length))}}}}",
+  "[Console]::Out.WriteLine(($pgResult|ConvertTo-Json -Depth 5 -Compress))"].join('\n');
+}
+async function runPowerShellProbe(config,script){
+ const result=await execute(windowsPowerShell,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],
+  {encoding:'utf8',windowsHide:true,timeout:600000,maxBuffer:1024*1024,env:publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment)});
+ return result.stdout;
+}
+/** Read-only: live Django maintenance preconditions and liveness of recorded actors. */
+export async function probePublicationPreconditions(config,{actors=[],checkDjango=true,run=runPowerShellProbe}={}){
+ const input={actors:actors.map(actor=>({processId:actor.processId,creationDate:actor.creationDate})),checkDjango,controller:path.win32.normalize(liveDjangoController),runtimeRoot:path.win32.normalize(liveDjangoRuntime),checks:publicationProbeChecks};
+ for(const actor of input.actors)assert.ok(Number.isSafeInteger(actor.processId)&&actor.processId>0&&Number.isFinite(Date.parse(actor.creationDate)),'记录的进程身份无效');
+ const stdout=String(await run(config,publicationProbeScript(input))),line=stdout.trim().split(/\r?\n/).filter(text=>text.trim().startsWith('{')).at(-1);
+ assert.ok(line,'发布前检查没有返回结果');const value=JSON.parse(line);
+ assert.equal(value.version,publicationProbeVersion,'发布前检查结果版本无效');
+ const actorResults=Array.isArray(value.actors)?value.actors:value.actors?[value.actors]:[];
+ assert.equal(actorResults.length,input.actors.length,'进程检查结果数量不符');
+ for(const [index,item] of actorResults.entries())assert.ok(item.processId===input.actors[index].processId&&typeof item.alive==='boolean','进程检查结果无效');
+ const checks=value.checks&&typeof value.checks==='object'?value.checks:{};
+ if(checkDjango)for(const name of publicationProbeChecks)assert.ok(checks[name]&&typeof checks[name].ok==='boolean','发布前检查缺少：'+name);
+ return {checks,actors:actorResults};
+}
+export function preconditionFailures(probe){return Object.entries(probe.checks).filter(([,value])=>value.ok!==true).map(([name,value])=>name+'：'+(value.message||'未知原因'));}
+const hardenHint='。修复办法：以普通权限运行 powershell -NoProfile -ExecutionPolicy Bypass -File "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-local-service.ps1" -Action HardenAcl，完成后重新双击 发布main.bat';
+export function describePreconditionFailures(failures){return failures.join('；')+(failures.some(text=>text.startsWith('Assert-RuntimeAclHardened'))?hardenHint:'');}
+async function assertNoMaintenanceMarkers(runtimeRoot=liveDjangoRuntime){for(const name of ['system-maintenance.json','automation-drain.json'])assert.equal(await exists(path.join(runtimeRoot,'run',name)),false,'当前仍有维护或排空状态：'+name);}
+/** Throws before any native publication write when entering maintenance would be refused. */
+export async function assertPublicationPreconditions(config,{probe=probePublicationPreconditions,log=()=>{},runtimeRoot=liveDjangoRuntime}={}){
+ try{await assertNoMaintenanceMarkers(runtimeRoot);}catch(error){throw Error('发布前检查未通过，本次未开始发布，发布包保持可用：'+error.message);}
+ const failures=preconditionFailures(await probe(config,{checkDjango:true}));
+ if(failures.length)throw Error('发布前检查未通过，本次未开始发布，发布包保持可用：'+describePreconditionFailures(failures));
+ log('发布前检查通过：后台运行目录权限与部署清单符合进入维护的要求。');
+}
+/** Non-fatal variant for prepare/check: report whether a later publication would pass. */
+export async function reportPublicationPreconditions(config,{probe=probePublicationPreconditions,log=()=>{},runtimeRoot=liveDjangoRuntime}={}){
+ try{await assertPublicationPreconditions(config,{probe,log,runtimeRoot});return true;}
+ catch(error){log('注意：现在发布会被拒绝。'+error.message.replace('，本次未开始发布，发布包保持可用',''));return false;}
+}
+async function readJsonObject(file){const value=JSON.parse(await fs.readFile(file,'utf8'));assert.ok(value&&typeof value==='object'&&!Array.isArray(value),'记录格式无效：'+path.basename(file));return value;}
+/**
+ * Read-only proof that a publication attempt failed while entering maintenance
+ * and changed nothing. Returns null when the attempt has no STARTED record.
+ */
+export async function inspectNotEnteredPublication(config,selection,{inventory,probe=probePublicationPreconditions,probeRotation=probeRotationLock,fetchReady=()=>fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)}),now=()=>new Date(),runtimeRoot=liveDjangoRuntime}={}){
+ const {packet,targetCommit:target,live}=selection,attempt=path.join(packet,'publish-'+target.slice(0,12));
+ let names;try{names=(await fs.readdir(attempt)).sort();}catch(error){if(error.code==='ENOENT')return null;throw error;}
+ if(!names.includes('STARTED.json'))return null;
+ const reasons=[];const refuse=text=>{reasons.push(text);return {eligible:false,reasons,attempt};};
+ if(names.includes('SUCCESS.json'))return refuse('已有成功记录');
+ const unknown=names.filter(name=>!isNotEnteredAttemptMember(name));if(unknown.length)return refuse('发布记录含维护开始后才会出现的文件：'+unknown.join('、'));
+ const missing=notEnteredRequiredMembers.filter(name=>!names.includes(name));if(missing.length)return refuse('缺少失败证据：'+missing.join('、'));
+ const started=await readJsonObject(path.join(attempt,'STARTED.json')),failed=await readJsonObject(path.join(attempt,'FAILED.json'));
+ const firstFailed=await readJsonObject(path.join(attempt,'maintenance-first-FAILED.json')),admission=await readJsonObject(path.join(attempt,'maintenance-admission.json'));
+ const actorRecord=names.includes('maintenance-first-actor.json')?await readJsonObject(path.join(attempt,'maintenance-first-actor.json')):null;
+ if(!notEnteredPhases.includes(failed.phase))return refuse('失败步骤不是进入维护：'+failed.phase);
+ if(failed.automaticRetry!==false||firstFailed.automaticRetry!==false)return refuse('失败记录不是终态');
+ if(started.mainCommit!==target||(failed.mainCommit!==undefined&&failed.mainCommit!==target))return refuse('失败记录不属于本次目标');
+ if(!/^[a-f0-9]{32}$/.test(started.maintenanceId??'')||firstFailed.maintenanceId!==started.maintenanceId||admission.maintenanceId!==started.maintenanceId||(actorRecord&&actorRecord.maintenanceId!==started.maintenanceId))return refuse('维护编号不一致');
+ if(names.includes('进入维护-process.json')){const record=await readJsonObject(path.join(attempt,'进入维护-process.json'));if(!Number.isSafeInteger(record.processEvidence?.exitCode))return refuse('进入维护进程没有退出码');}
+ const request=await readJsonObject(path.join(packet,'main-release-request.json'));
+ if(request.mainCommit!==target||request.deployedCommit!==live.mainCommit)return refuse('线上版本已不是该包的前一版本');
+ try{assert.deepEqual(request.predecessorWorker,live.head);}catch{return refuse('线上前端版本已变化');}
+ if(request.predecessorDjangoSha256!==live.djangoManifestSha256)return refuse('线上后台版本已变化');
+ if(started.predecessorChainStateSha256!==live.chainStateSha256)return refuse('前端版本链已变化');
+ try{await assertNoMaintenanceMarkers(runtimeRoot);}catch(error){return refuse(error.message);}
+ let health;try{const ready=await fetchReady();if(ready.status!==200)return refuse('当前服务未就绪');health=await ready.json();}catch{return refuse('当前服务未就绪');}
+ if(health?.ok!==true||health.status!=='ready')return refuse('当前服务未就绪');
+ if(!await probeRotation())return refuse('仍有发布或准备持有轮换锁');
+ const dispatchRead=preparedDispatchForPacket(inventory,packet);if(!dispatchRead)return refuse('找不到准备出这个包的队列记录');
+ if(!started.publisherOwner)return refuse('原发布缺少可核验的进程身份');
+ const actors=[started.publisherOwner,actorRecord?.actor,actorRecord?.rotationOwner].filter(Boolean);
+ const probed=await probe(config,{actors,checkDjango:true});
+ if(probed.actors.some(item=>item.alive))return refuse('原发布进程仍在运行');
+ const failures=preconditionFailures(probed);
+ const evidence={};for(const name of notEnteredEvidenceMembers)if(names.includes(name))evidence[name]=sha(await fs.readFile(path.join(attempt,name)));
+ const record={version:publicationRetirementVersion,at:now().toISOString(),dispatchId:dispatchRead.value.dispatchId,dispatchSha256:dispatchRead.sha256,selectedTarget:target,packet,attempt,consumePermitted:false,evidence,
+  reason:failures.length?describePreconditionFailures(failures).slice(0,1600):null,
+  basis:{phase:failed.phase,maintenanceId:started.maintenanceId,liveMainCommit:live.mainCommit,workerBindingSha256:live.head.bindingSha256,chainStateSha256:live.chainStateSha256,djangoManifestSha256:live.djangoManifestSha256,maintenanceMarkersAbsent:true,healthReady:true,rotationLockFree:true,actorsExited:true,attemptMembers:names}};
+ return {eligible:true,record,attempt,failures};
+}
+/** Under the queue lock: retire a provably not-entered publication so the target prepares again. */
+export async function retireNotEnteredPublication(config,selection,{retirementScope,log=()=>{},inspect=inspectNotEnteredPublication}={}){
+ const directory=path.join(config.stateDirectory,'prebuild-queue-v2');
+ if(!await exists(path.join(directory,'dispatches')))return null;
+ const inventory=await readPreparationQueueInventory(directory);
+ const result=await inspect(config,selection,{inventory});
+ if(!result)return null;
+ if(!result.eligible){log('上次发布没有成功记录，且不能证明系统未被改动（'+result.reasons.join('；')+'）；按规则保留原记录并停止，请交 AI 排查：'+result.attempt);return null;}
+ await invalidateRetirementReadScope(retirementScope,'publication-retirement-write');
+ const written=await writePublicationRetirement(directory,result.record);
+ log('上次发布在“进入维护”时失败，已核实线上系统未被改动（版本、维护标记、服务、进程均与发布前一致）。原记录全部保留，该包已退役：'+selection.packet);
+ if(result.record.reason)log('失败原因（只读诊断）：'+result.record.reason);
+ log('退役记录：'+written.file);
+ return written;
+}
+// PUBLICATION_GUARD_END
+
+export async function deployReadyMain(prepared,{progress,run=runPublisher,git=gitAt,gitDirectory,baseEnvironment,retirementScope,retiredPackets,preflight=async()=>{}}={}){
  const readiness=await inspectMainPreparation(prepared,{git,retiredPackets});
  if(readiness.status==='not-ready'){
   progress.log('========== 发布包尚未就绪，本次未发布 ==========');
-  progress.log('目标main：'+prepared.targetCommit+'。原生制品尚未完成；准备成功后由发布负责人继续。');
+  progress.log('目标main：'+prepared.targetCommit+'。原生制品尚未完成；请先双击 准备main.bat，准备成功后再双击 发布main.bat。');
   progress.log('打包日志目录：'+readiness.logsDirectory+'；若原打包已报错，请保留日志处理，不要重复启动。');
   return readiness;
  }
+ progress.begin('发布前检查');
+ await preflight();
+ progress.complete();
  progress.begin('发布已准备好的目标main');
  progress.log('开始原生复验并发布目标 '+prepared.targetCommit+'，独立包：'+prepared.packet);
  await invalidateRetirementReadScope(retirementScope,'publisher-native-deploy');
@@ -337,7 +454,9 @@ async function runLatestMainCliOperation(values,config,binding,retirementScope){
     if(result){
      console.log(JSON.stringify(result));
      if(!['prepared','current','non-production','superseded'].includes(result.status))throw Error('准备请求需要处理，原记录保留：'+submitted.requestId+' / '+result.status);
-     progress.log(result.status==='prepared'?'打包完成，等待新的上线授权。':'准备请求已完成：'+result.status+'；本次未部署。');return result;
+     progress.log(result.status==='prepared'?'打包完成，等待新的上线授权。':'准备请求已完成：'+result.status+'；本次未部署。');
+     if(result.status==='prepared')await reportPublicationPreconditions(config,{log:message=>progress.log(message)});
+     return result;
     }
     if(Date.now()>=until){process.exitCode=2;progress.log('已退出等待，原准备请求仍保留；关闭观察不取消任务：'+submitted.requestId);return {status:'queued-or-running',requestId:submitted.requestId,publicationPerformed:false};}
     await new Promise(resolve=>setTimeout(resolve,500));
@@ -350,8 +469,18 @@ async function runLatestMainCliOperation(values,config,binding,retirementScope){
   }
   progress.begin(values.check?'检查最新main（不部署）':'准备本次最新main');
   // Same retired packet set as the consumer; deploy reads it under the queue lock.
-  const retiredPackets=await readRetiredPackets(config);
-  const prepared=await prepareLatestMain(config,{retirementScope,retiredPackets,log:message=>progress.log(message)});
+  let retiredPackets=await readRetiredPackets(config);
+  let selection=await observeLatestMain(config,{retirementScope,retiredPackets,log:message=>progress.log(message)});
+  if(!values.check&&releaseQueue&&selection.targetCommit!==selection.live.mainCommit){
+   // A publication that failed while entering maintenance and provably changed
+   // nothing retires its packet; the same target then needs a new preparation.
+   if(await retireNotEnteredPublication(config,selection,{retirementScope,log:message=>progress.log(message)})){
+    retiredPackets=await readRetiredPackets(config);
+    selection={...selection,packet:preparationPacketSlot(config.releaseDirectory,packetBaseName(selection.targetCommit,selection.live),retiredPackets)};
+    progress.log('下一步：先双击 准备main.bat 在新包 '+path.basename(selection.packet)+' 重新准备（约 25 分钟），完成后再双击 发布main.bat。');
+   }
+  }
+  const prepared=await prepareLatestMainOnce(config,selection,{retirementScope,retiredPackets,log:message=>progress.log(message)});
   progress.complete();
   if(prepared.status==='already-current'){
    progress.log('当前线上已经是目标main '+prepared.targetCommit+'；本次没有执行发布。');
@@ -359,8 +488,8 @@ async function runLatestMainCliOperation(values,config,binding,retirementScope){
   }
   if(prepared.status==='non-production'){progress.log('最新main没有生产载荷变更，本次未执行发布。');console.log(JSON.stringify(prepared));return;}
   await writeMainPreparationPointer(config,prepared,'request-frozen',{retirementScope});
-  if(values.check){await invalidateRetirementReadScope(retirementScope,'publisher-native-check');await runPublisher(prepared.source,['--check'],config.gitDirectory,config.publisherBaseEnvironment);const readiness=await inspectMainPreparation(prepared,{retiredPackets});progress.log('检查通过：有新main待发布；'+(readiness.status==='not-ready'?'发布包尚未准备完成':'已有准备记录，正式发布时仍需原生复验')+'；本次未打包、未部署。');console.log(JSON.stringify({status:prepared.status,preparationStatus:readiness.status,targetCommit:prepared.targetCommit,currentCommit:prepared.currentCommit,packet:prepared.packet,source:prepared.source,components:prepared.request.components,migrate:prepared.request.migrate,publicationPerformed:false}));return;}
-  const result=await deployReadyMain(prepared,{progress,retirementScope,retiredPackets,gitDirectory:config.gitDirectory,baseEnvironment:config.publisherBaseEnvironment});
+  if(values.check){await invalidateRetirementReadScope(retirementScope,'publisher-native-check');await runPublisher(prepared.source,['--check'],config.gitDirectory,config.publisherBaseEnvironment);const readiness=await inspectMainPreparation(prepared,{retiredPackets});await reportPublicationPreconditions(config,{log:message=>progress.log(message)});progress.log('检查通过：有新main待发布；'+(readiness.status==='not-ready'?'发布包尚未准备完成':'已有准备记录，正式发布时仍需原生复验')+'；本次未打包、未部署。');console.log(JSON.stringify({status:prepared.status,preparationStatus:readiness.status,targetCommit:prepared.targetCommit,currentCommit:prepared.currentCommit,packet:prepared.packet,source:prepared.source,components:prepared.request.components,migrate:prepared.request.migrate,publicationPerformed:false}));return;}
+  const result=await deployReadyMain(prepared,{progress,retirementScope,retiredPackets,gitDirectory:config.gitDirectory,baseEnvironment:config.publisherBaseEnvironment,preflight:()=>assertPublicationPreconditions(config,{log:message=>progress.log(message)})});
   if(result.status==='not-ready'){process.exitCode=2;return;}
   assert.equal(result.mainCommit,prepared.targetCommit);
   if(result.status==='already-current'){progress.log('当前线上已经是目标main '+prepared.targetCommit+'；本次没有执行发布。');return;}

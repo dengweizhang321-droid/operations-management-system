@@ -2155,8 +2155,11 @@ try {
       $code = if ($_.Exception.Message -ceq 'process_deadline_exhausted') {'process_deadline_exhausted'} else {'worker_gate_failed'}
       $processEvidence = @{stage=$Action;code=$code;processId=$PID;exitCode=$null;deadlineUnixMs=$WorkerOperationDeadline;timeoutType=$(if($code -eq 'process_deadline_exhausted'){$Action}else{$null})}
     }
-    [Console]::Out.WriteLine((@{status='unknown';processEvidence=$processEvidence;startupPhases=$script:WorkerStartPhases;failedStartPhase=$_.Exception.Data['StartPhase']}|ConvertTo-Json -Depth 8 -Compress))
-    [Console]::Error.WriteLine('Worker lifecycle result requires exact reconciliation')
+    # Keep the real refusal reason (bounded) so a failed lifecycle step is diagnosable from its record.
+    $errorMessage = [string]$_.Exception.Message
+    if ($errorMessage.Length -gt 600) { $errorMessage = $errorMessage.Substring(0, 600) }
+    [Console]::Out.WriteLine((@{status='unknown';processEvidence=$processEvidence;startupPhases=$script:WorkerStartPhases;failedStartPhase=$_.Exception.Data['StartPhase'];errorMessage=$errorMessage}|ConvertTo-Json -Depth 8 -Compress))
+    [Console]::Error.WriteLine('Worker lifecycle result requires exact reconciliation: ' + $errorMessage)
   } else {
     $failedPhase = $_.Exception.Data['StartPhase']
     if ($failedPhase) { [Console]::Error.WriteLine("Worker startup phase=$($failedPhase.phase); code=$($failedPhase.code)") }
