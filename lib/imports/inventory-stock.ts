@@ -47,11 +47,19 @@ export type InventoryStockIssue = {
   field: string;
 };
 
+export type InventoryStockWarning = {
+  code: "ROUNDED_DECIMAL_QUANTITY";
+  message: string;
+  sourceRowNumber: number;
+  field: string;
+};
+
 export type InventoryStockParseResult = {
   sheetName: string;
   headers: string[];
   rows: InventoryStockRow[];
   errors: InventoryStockIssue[];
+  warnings: InventoryStockWarning[];
   coverage: {
     hasOnHandQuantity: boolean;
     hasAvailableQuantity: boolean;
@@ -185,8 +193,9 @@ export function parseInventoryStockXlsx(
 
   const rows: InventoryStockRow[] = [];
   const errors: InventoryStockIssue[] = [];
+  const warnings: InventoryStockWarning[] = [];
   for (const row of candidateRows) {
-    const parsed = parseRow(row, header.indexByCanonical, workbook.date1904, errors, options.warehouseMapping);
+    const parsed = parseRow(row, header.indexByCanonical, workbook.date1904, errors, warnings, options.warehouseMapping);
     if (parsed) rows.push(parsed);
     if (errors.length >= 200) break;
   }
@@ -237,7 +246,7 @@ export function parseInventoryStockXlsx(
     hasSnapshotDate: header.indexByCanonical.has("snapshotDate"),
   };
 
-  return { sheetName: workbook.sheetName, headers: header.headers, rows, errors, coverage, totals };
+  return { sheetName: workbook.sheetName, headers: header.headers, rows, errors, warnings, coverage, totals };
 }
 
 function locateHeader(rows: XlsxRow[]): HeaderLocation {
@@ -278,6 +287,7 @@ function parseRow(
   indexes: Map<CanonicalHeader, number>,
   date1904: boolean,
   errors: InventoryStockIssue[],
+  warnings: InventoryStockWarning[],
   warehouseMapping?: InventoryWarehouseMapping,
 ): InventoryStockRow | null {
   const beforeErrors = errors.length;
@@ -288,10 +298,10 @@ function parseRow(
   const text = (field: CanonicalHeader) => cellToText(raw(field)).trim();
   const warehouse = requiredText(text("warehouse"), "warehouse", "仓库名称", row.rowNumber, errors);
   const productCode = requiredText(text("productCode"), "productCode", "货品编号", row.rowNumber, errors);
-  const lockedQuantity = optionalInteger(raw("lockedQuantity"), "lockedQuantity", "锁定数量", row.rowNumber, errors, true);
-  const inTransitQuantity = optionalInteger(raw("inTransitQuantity"), "inTransitQuantity", "在途数量", row.rowNumber, errors, true);
-  let onHandQuantity = optionalInteger(raw("onHandQuantity"), "onHandQuantity", "库存数量", row.rowNumber, errors);
-  let availableQuantity = optionalInteger(raw("availableQuantity"), "availableQuantity", "可用库存", row.rowNumber, errors);
+  const lockedQuantity = optionalQuantity(raw("lockedQuantity"), "lockedQuantity", "锁定数量", row.rowNumber, errors, warnings, true);
+  const inTransitQuantity = optionalQuantity(raw("inTransitQuantity"), "inTransitQuantity", "在途数量", row.rowNumber, errors, warnings, true);
+  let onHandQuantity = optionalQuantity(raw("onHandQuantity"), "onHandQuantity", "库存数量", row.rowNumber, errors, warnings);
+  let availableQuantity = optionalQuantity(raw("availableQuantity"), "availableQuantity", "可用库存", row.rowNumber, errors, warnings);
 
   if (!indexes.has("availableQuantity") && indexes.has("onHandQuantity")) {
     availableQuantity = onHandQuantity - lockedQuantity;
@@ -320,8 +330,8 @@ function parseRow(
   const inventoryAgeDays = isBlank(raw("inventoryAgeDays"))
     ? null
     : optionalDays(raw("inventoryAgeDays"), "inventoryAgeDays", "库龄", row.rowNumber, errors);
-  const sales7dQuantity = optionalInteger(raw("sales7dQuantity"), "sales7dQuantity", "前7天销量", row.rowNumber, errors);
-  const sales30dQuantity = optionalInteger(raw("sales30dQuantity"), "sales30dQuantity", "前30天销量", row.rowNumber, errors);
+  const sales7dQuantity = optionalQuantity(raw("sales7dQuantity"), "sales7dQuantity", "前7天销量", row.rowNumber, errors, warnings);
+  const sales30dQuantity = optionalQuantity(raw("sales30dQuantity"), "sales30dQuantity", "前30天销量", row.rowNumber, errors, warnings);
 
   if (errors.length > beforeErrors) return null;
   const classification = classifyInventoryWarehouse(warehouse, warehouseMapping);
@@ -364,17 +374,21 @@ function requiredText(
   return value;
 }
 
-function optionalInteger(
+// 数量类字段（库存数量/可用库存/锁定数量/在途数量/前7/30天销量）允许来源系统输出小数；
+// 非整数值四舍五入为整数并记录 warning（保留原值与行号），不再作为阻断错误。
+// 非数字、无穷大、超出安全整数范围、以及 nonNegative 时的负数仍然是阻断错误。
+function optionalQuantity(
   value: XlsxCellValue,
   field: string,
   label: string,
   rowNumber: number,
   errors: InventoryStockIssue[],
+  warnings: InventoryStockWarning[],
   nonNegative = false,
 ) {
   if (isBlank(value)) return 0;
   const parsed = parseDecimal(value);
-  if (parsed === null || !Number.isSafeInteger(parsed) || (nonNegative && parsed < 0)) {
+  if (parsed === null || !Number.isFinite(parsed) || (nonNegative && parsed < 0)) {
     errors.push({
       code: "INVALID_NUMBER",
       message: nonNegative && parsed !== null && parsed < 0 ? `${label}不能为负数` : `${label}不是有效整数`,
@@ -383,7 +397,19 @@ function optionalInteger(
     });
     return 0;
   }
-  return parsed;
+  if (Number.isSafeInteger(parsed)) return parsed;
+  const rounded = Math.round(parsed);
+  if (!Number.isSafeInteger(rounded)) {
+    errors.push({ code: "INVALID_NUMBER", message: `${label}不是有效整数`, sourceRowNumber: rowNumber, field });
+    return 0;
+  }
+  warnings.push({
+    code: "ROUNDED_DECIMAL_QUANTITY",
+    message: `${label}第${rowNumber}行为小数 ${parsed}，已四舍五入为 ${rounded}`,
+    sourceRowNumber: rowNumber,
+    field,
+  });
+  return rounded;
 }
 
 function optionalMoneyCents(

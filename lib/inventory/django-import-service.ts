@@ -206,7 +206,9 @@ export async function importInventoryStockToDjango(
   const missingNames = rows.filter((row) => !row.productName).length;
   const missingSuppliers = rows.filter((row) => !row.supplier).length;
   const excludedByWarehouseMapping = rows.filter((row) => !row.includeInInventory).length;
+  const roundedQuantityWarnings = parsed.warnings.map(mapIssue);
   const warnings = [
+    ...roundedQuantityWarnings,
     ...(retainedZeroCostRows ? [{ code: "RETAINED_ZERO_UNIT_COST", message: `${retainedZeroCostRows} 行明确零成本库存已保留，库存金额按 0 计并参与补货计算` }] : []),
     ...(missingNames ? [{ code: "MISSING_PRODUCT_NAME", message: `${missingNames} 行缺少货品名称，页面将使用销售明细中的名称补全` }] : []),
     ...(missingSuppliers ? [{ code: "MISSING_SPEC_SUPPLIER", message: `${missingSuppliers} 行缺少规格默认供应商，页面将回退 ERP 货品档案并标明来源` }] : []),
