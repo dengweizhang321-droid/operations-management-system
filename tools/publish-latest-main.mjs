@@ -239,6 +239,10 @@ export function publicationProbeScript(input){
   "$pgChecks=@($pgInput.checks);$pgController=[string]$pgInput.controller;$pgRoot=[string]$pgInput.runtimeRoot;$pgDjango=[bool]$pgInput.checkDjango",
   // A recorded actor counts as alive when its PID exists with a creation time within 2s.
   "foreach($pgActor in @($pgInput.actors)){$pgAlive=$false;$pgProc=Get-CimInstance Win32_Process -Filter ('ProcessId='+[int]$pgActor.processId) -ErrorAction SilentlyContinue;if($pgProc -and $pgProc.CreationDate){$pgAlive=[Math]::Abs(($pgProc.CreationDate.ToUniversalTime()-[DateTime]::Parse([string]$pgActor.creationDate).ToUniversalTime()).TotalSeconds) -lt 2};$pgResult.actors+=[ordered]@{processId=[int]$pgActor.processId;alive=[bool]$pgAlive}}",
+  // Process snapshot for the foreign-child check (evaluated in Node): service roots from the run records and the Worker receipt, plus every process with its parent id.
+  "$pgSnapshot=[ordered]@{roots=@();processes=@()}",
+  "if($pgInput.checkProcesses){$pgRootList=New-Object System.Collections.ArrayList;if(Test-Path -LiteralPath ([string]$pgInput.runDirectory) -PathType Container){foreach($pgFile in @(Get-ChildItem -LiteralPath ([string]$pgInput.runDirectory) -Filter '*.pid.json' -File)){try{$pgRec=[IO.File]::ReadAllText($pgFile.FullName,[Text.Encoding]::UTF8)|ConvertFrom-Json}catch{continue};if($pgRec -and $pgRec.processId){[void]$pgRootList.Add([ordered]@{source=[string]$pgFile.Name;processId=[int]$pgRec.processId;creationDate=$(if($pgRec.creationDate){([DateTime]::Parse([string]$pgRec.creationDate)).ToUniversalTime().ToString('o')}else{$null})})}}};if(Test-Path -LiteralPath ([string]$pgInput.workerReceipt) -PathType Leaf){try{$pgRec=[IO.File]::ReadAllText([string]$pgInput.workerReceipt,[Text.Encoding]::UTF8)|ConvertFrom-Json;if($pgRec.supervisorPid){[void]$pgRootList.Add([ordered]@{source='worker-process.json';processId=[int]$pgRec.supervisorPid;creationDate=$(if($pgRec.supervisorCreationDate){([DateTime]::Parse([string]$pgRec.supervisorCreationDate)).ToUniversalTime().ToString('o')}else{$null})})}}catch{}};$pgSnapshot.roots=@($pgRootList);$pgSnapshot.processes=@(Get-CimInstance Win32_Process -ErrorAction Stop|ForEach-Object{[ordered]@{processId=[int]$_.ProcessId;parentProcessId=[int]$_.ParentProcessId;name=[string]$_.Name;creationDate=$(if($_.CreationDate){$_.CreationDate.ToUniversalTime().ToString('o')}else{$null});readable=[bool]($_.CreationDate -and $_.ExecutablePath -and $_.CommandLine)}})}",
+  "$pgResult.snapshot=$pgSnapshot",
   // Everything after the dot-source stays inside this scriptblock: the functions it defines are only visible here.
   "$pgRun={param($__pgController,$__pgRoot,$__pgNames);. $__pgController -RuntimeRoot $__pgRoot;$__pgOut=[ordered]@{};foreach($__pgName in $__pgNames){try{& $__pgName|Out-Null;$__pgOut[$__pgName]=[ordered]@{ok=$true}}catch{$__pgMessage=[string]$_.Exception.Message;$__pgOut[$__pgName]=[ordered]@{ok=$false;message=$__pgMessage.Substring(0,[Math]::Min(600,$__pgMessage.Length))}}};return $__pgOut}",
   "if($pgDjango){$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1';$pgFound=@(& $pgRun $pgController $pgRoot $pgChecks|Where-Object{$_ -is [System.Collections.Specialized.OrderedDictionary]});foreach($pgKey in $pgFound[$pgFound.Count-1].Keys){$pgResult.checks[$pgKey]=$pgFound[$pgFound.Count-1][$pgKey]}}",
@@ -249,9 +253,40 @@ async function runPowerShellProbe(config,script){
   {encoding:'utf8',windowsHide:true,timeout:600000,maxBuffer:1024*1024,env:publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment)});
  return result.stdout;
 }
-/** Read-only (except the controller's own diagnostic log line): live Django maintenance preconditions and liveness of recorded actors. */
-export async function probePublicationPreconditions(config,{actors=[],checkDjango=true,run=runPowerShellProbe,controller=liveDjangoController,runtimeRoot=liveDjangoRuntime}={}){
- const input={actors:actors.map(actor=>({processId:actor.processId,creationDate:actor.creationDate})),checkDjango,controller:path.win32.normalize(controller),runtimeRoot:path.win32.normalize(runtimeRoot),checks:publicationProbeChecks};
+export const liveWorkerReceipt='D:/teruisi-runtime/teruisi-worker-sales/state/worker-process.json',foreignChildrenCheck='Assert-NoForeignServiceChildren';
+const asList=value=>Array.isArray(value)?value:value===undefined||value===null?[]:[value];
+export const foreignChildrenAdvice='该程序的父进程号与后台服务进程相同，停止服务时会被误判或误杀；请先退出该程序（例如 360 办公的 readertray.exe）或重启电脑后再发布';
+/**
+ * Pure evaluation of a probe snapshot. The live controller walks a service root's
+ * children by ParentProcessId, so a process that merely carries a recycled parent id
+ * is either misjudged (unreadable) or killed (readable). A child older than its
+ * claimed parent can only be a recycled id; an unreadable child cannot be verified.
+ */
+export function evaluateForeignServiceChildren(snapshot){
+ const processes=new Map(),byParent=new Map();
+ for(const item of asList(snapshot?.processes)){processes.set(item.processId,item);if(item.parentProcessId!==item.processId){if(!byParent.has(item.parentProcessId))byParent.set(item.parentProcessId,[]);byParent.get(item.parentProcessId).push(item);}}
+ const flagged=[],seen=new Set();
+ for(const root of asList(snapshot?.roots)){
+  const live=processes.get(root.processId);
+  // A stale record (dead pid, or a different process now holding the pid) is not a live service root.
+  if(!live||!live.creationDate||(root.creationDate&&!(Math.abs(Date.parse(live.creationDate)-Date.parse(root.creationDate))<2000)))continue;
+  const queue=[live];seen.add(live.processId);
+  while(queue.length){
+   const parent=queue.shift();
+   for(const child of byParent.get(parent.processId)??[]){
+    if(seen.has(child.processId))continue;seen.add(child.processId);
+    const reason=child.readable!==true||!child.creationDate?'身份无法读取':Date.parse(child.creationDate)<Date.parse(parent.creationDate)?'创建时间早于其声称的父进程':null;
+    if(reason){flagged.push({processId:child.processId,name:child.name,parentProcessId:parent.processId,parentName:parent.name,reason});continue;}
+    queue.push(child);
+   }
+  }
+ }
+ if(!flagged.length)return {ok:true};
+ const list=flagged.slice(0,5).map(item=>item.name+'（进程号 '+item.processId+'，声称的父进程 '+item.parentProcessId+' '+item.parentName+'，'+item.reason+'）').join('；');
+ return {ok:false,message:('发现 '+flagged.length+' 个程序：'+list+(flagged.length>5?'等':'')+'。'+foreignChildrenAdvice).slice(0,1500)};
+}/** Read-only (except the controller's own diagnostic log line): live Django maintenance preconditions and liveness of recorded actors. */
+export async function probePublicationPreconditions(config,{actors=[],checkDjango=true,checkProcesses=checkDjango,run=runPowerShellProbe,controller=liveDjangoController,runtimeRoot=liveDjangoRuntime,runDirectory=liveDjangoRuntime+'/run',workerReceipt=liveWorkerReceipt}={}){
+ const input={actors:actors.map(actor=>({processId:actor.processId,creationDate:actor.creationDate})),checkDjango,controller:path.win32.normalize(controller),runtimeRoot:path.win32.normalize(runtimeRoot),checks:publicationProbeChecks,checkProcesses,runDirectory:path.win32.normalize(runDirectory),workerReceipt:path.win32.normalize(workerReceipt)};
  for(const actor of input.actors)assert.ok(Number.isSafeInteger(actor.processId)&&actor.processId>0&&Number.isFinite(Date.parse(actor.creationDate)),'记录的进程身份无效');
  const stdout=String(await run(config,publicationProbeScript(input))),line=stdout.trim().split(/\r?\n/).filter(text=>text.trim().startsWith('{')).at(-1);
  assert.ok(line,'发布前检查没有返回结果');const value=JSON.parse(line);
@@ -261,6 +296,7 @@ export async function probePublicationPreconditions(config,{actors=[],checkDjang
  for(const [index,item] of actorResults.entries())assert.ok(item.processId===input.actors[index].processId&&typeof item.alive==='boolean','进程检查结果无效');
  const checks=value.checks&&typeof value.checks==='object'?value.checks:{};
  if(checkDjango)for(const name of publicationProbeChecks)assert.ok(checks[name]&&typeof checks[name].ok==='boolean','发布前检查缺少：'+name);
+ if(checkProcesses){assert.ok(value.snapshot&&typeof value.snapshot==='object','发布前检查缺少进程快照');checks[foreignChildrenCheck]=evaluateForeignServiceChildren(value.snapshot);}
  return {checks,actors:actorResults};
 }
 export function preconditionFailures(probe){return Object.entries(probe.checks).filter(([,value])=>value.ok!==true).map(([name,value])=>name+'：'+(value.message||'未知原因'));}
@@ -284,7 +320,45 @@ async function readJsonObject(file){const value=JSON.parse(await fs.readFile(fil
  * Read-only proof that a publication attempt failed while entering maintenance
  * and changed nothing. Returns null when the attempt has no STARTED record.
  */
-export async function inspectNotEnteredPublication(config,selection,{inventory,probe=probePublicationPreconditions,probeRotation=probeRotationLock,fetchReady=()=>fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)}),now=()=>new Date(),runtimeRoot=liveDjangoRuntime}={}){
+export const maintenanceLogWindowBytes=32*1024*1024;
+async function readLogTail(file){
+ const handle=await fs.open(file,'r');
+ try{
+  const {size}=await handle.stat(),start=Math.max(0,size-maintenanceLogWindowBytes),buffer=Buffer.alloc(size-start);
+  let read=0;while(read<buffer.length){const {bytesRead}=await handle.read(buffer,read,buffer.length-read,start+read);if(!bytesRead)break;read+=bytesRead;}
+  const lines=buffer.subarray(0,read).toString('utf8').split(/\r?\n/);
+  if(start>0)lines.shift();
+  return {lines,truncated:start>0};
+ }finally{await handle.close();}
+}
+/**
+ * Read-only: did this maintenance id ever enter (and later end) according to the Django launcher log?
+ * Reads the last 32 MiB of launcher.jsonl and of each rotated sibling (launcher.jsonl.N), newest first.
+ * Throws when the log is missing or its readable window does not reach back to sinceMs.
+ */
+export async function scanMaintenanceLog(runtimeRoot,maintenanceId,sinceMs){
+ const directory=path.join(runtimeRoot,'logs'),rank=name=>name==='launcher.jsonl'?0:Number(name.split('.').at(-1));
+ const names=(await fs.readdir(directory)).filter(name=>/^launcher\.jsonl(?:\.\d+)?$/.test(name)).sort((x,y)=>rank(x)-rank(y));
+ assert.ok(names[0]==='launcher.jsonl','后台启动器日志不存在');
+ const events=[];
+ for(const name of names){
+  const {lines,truncated}=await readLogTail(path.join(directory,name));let firstTimestamp=null;
+  for(const line of lines){
+   if(!line.trim().startsWith('{'))continue;
+   const mentions=line.includes(maintenanceId);
+   if(!mentions&&firstTimestamp!==null)continue;
+   let item;try{item=JSON.parse(line);}catch{continue;}
+   const at=Date.parse(item?.timestamp);if(!Number.isFinite(at))continue;
+   if(firstTimestamp===null)firstTimestamp=at;
+   if(mentions&&item.message===maintenanceId&&['system_maintenance_entered','system_maintenance_ended'].includes(item.event))events.push({event:item.event,at});
+  }
+  if(truncated&&(firstTimestamp===null||firstTimestamp>sinceMs))throw Error('日志读取窗口没有覆盖到发布开始时间：'+name);
+  if(firstTimestamp!==null&&firstTimestamp<=sinceMs)break;
+ }
+ const entered=events.filter(item=>item.event==='system_maintenance_entered'&&item.at>=sinceMs).sort((x,y)=>x.at-y.at)[0]??null;
+ const ended=entered?events.filter(item=>item.event==='system_maintenance_ended'&&item.at>entered.at).sort((x,y)=>x.at-y.at)[0]??null:null;
+ return {entered:entered?new Date(entered.at).toISOString():null,ended:ended?new Date(ended.at).toISOString():null};
+}export async function inspectNotEnteredPublication(config,selection,{inventory,probe=probePublicationPreconditions,probeRotation=probeRotationLock,fetchReady=()=>fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)}),now=()=>new Date(),runtimeRoot=liveDjangoRuntime,readMaintenanceLog=scanMaintenanceLog}={}){
  const {packet,targetCommit:target,live}=selection,attempt=path.join(packet,'publish-'+target.slice(0,12));
  let names;try{names=(await fs.readdir(attempt)).sort();}catch(error){if(error.code==='ENOENT')return null;throw error;}
  if(!names.includes('STARTED.json'))return null;
@@ -305,6 +379,10 @@ export async function inspectNotEnteredPublication(config,selection,{inventory,p
   if(!Number.isSafeInteger(evidence?.exitCode)||evidence.exitCode===0)return refuse('进入维护进程没有非零退出码');
   if(evidence.treeCleanupPending!==false)return refuse('进入维护进程的子进程清理未完成');
  }
+ // Did this maintenance id ever enter? Only a launcher log that proves it can say; an entered one must also have ended.
+ const sinceMs=Date.parse(started.at);if(!Number.isFinite(sinceMs))return refuse('发布开始记录没有有效时间');
+ let maintenance;try{maintenance=await readMaintenanceLog(runtimeRoot,started.maintenanceId,sinceMs);}catch(error){return refuse('无法读取后台启动器日志，不能判断是否进入过维护：'+error.message);}
+ if(maintenance.entered&&!maintenance.ended)return refuse('该次发布已进入维护，且没有结束维护的记录');
  const request=await readJsonObject(path.join(packet,'main-release-request.json'));
  if(request.mainCommit!==target||request.deployedCommit!==live.mainCommit)return refuse('线上版本已不是该包的前一版本');
  try{assert.deepEqual(request.predecessorWorker,live.head);}catch{return refuse('线上前端版本已变化');}
@@ -323,7 +401,7 @@ export async function inspectNotEnteredPublication(config,selection,{inventory,p
  const evidence={};for(const name of notEnteredEvidenceMembers)if(names.includes(name))evidence[name]=sha(await fs.readFile(path.join(attempt,name)));
  const record={version:publicationRetirementVersion,at:now().toISOString(),dispatchId:dispatchRead.value.dispatchId,dispatchSha256:dispatchRead.sha256,selectedTarget:target,packet,attempt,consumePermitted:false,evidence,
   reason:failures.length?describePreconditionFailures(failures).slice(0,1600):null,
-  basis:{phase:failed.phase,maintenanceId:started.maintenanceId,liveMainCommit:live.mainCommit,workerBindingSha256:live.head.bindingSha256,chainStateSha256:live.chainStateSha256,djangoManifestSha256:live.djangoManifestSha256,maintenanceMarkersAbsent:true,healthReady:true,rotationLockFree:true,actorsExited:true,attemptMembers:names}};
+  basis:{phase:failed.phase,maintenanceId:started.maintenanceId,liveMainCommit:live.mainCommit,workerBindingSha256:live.head.bindingSha256,chainStateSha256:live.chainStateSha256,djangoManifestSha256:live.djangoManifestSha256,maintenanceMarkersAbsent:true,healthReady:true,rotationLockFree:true,actorsExited:true,attemptMembers:names,maintenanceEntered:Boolean(maintenance.entered),maintenanceEndedAt:maintenance.entered?maintenance.ended:null}};
  return {eligible:true,record,attempt,failures};
 }
 /** Under the queue lock: retire a provably not-entered publication so the target prepares again. */
@@ -336,7 +414,7 @@ export async function retireNotEnteredPublication(config,selection,{retirementSc
  if(!result.eligible)return {status:'refused',reasons:result.reasons,attempt:result.attempt};
  await invalidateRetirementReadScope(retirementScope,'publication-retirement-write');
  const written=await writePublicationRetirement(directory,result.record);
- log('上次发布在“进入维护”时失败，已核实线上系统未被改动（版本、维护标记、服务、进程均与发布前一致）。原记录全部保留，该包已退役：'+selection.packet);
+ if(result.record.basis.maintenanceEntered)log('上次发布已进入维护但已人工恢复为发布前版本（版本、标记、服务、进程已核实）；原记录全部保留，该包已退役：'+selection.packet);else log('上次发布在“进入维护”时失败，已核实线上系统未被改动（版本、维护标记、服务、进程均与发布前一致）。原记录全部保留，该包已退役：'+selection.packet);
  if(result.record.reason)log('失败原因（只读诊断）：'+result.record.reason);
  log('退役记录：'+written.file);
  return {status:'retired',...written};

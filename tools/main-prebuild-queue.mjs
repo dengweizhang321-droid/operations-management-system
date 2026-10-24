@@ -20,7 +20,8 @@ export const defaultAbandonmentGraceMs=15*60*1000;
 // wrote STARTED/FAILED while entering maintenance, yet the live system is still
 // exactly the packet's predecessor. The packet is retired (never resumed or
 // re-run) and keeps every byte; the same target prepares in the next '-rN'.
-export const publicationRetirementVersion='teruisi-publication-not-entered-v1';
+// v1 (not entered) stays readable; v2 adds whether maintenance was entered and, if so, when it ended. Only v2 is written.
+export const publicationRetirementVersionV1='teruisi-publication-not-entered-v1',publicationRetirementVersion='teruisi-publication-retired-v2';
 export const notEnteredPhases=['进入维护'];
 export const notEnteredRequiredMembers=['FAILED.json','STARTED.json','maintenance-admission.json','maintenance-first-FAILED.json'];
 export const notEnteredEvidenceMembers=[...notEnteredRequiredMembers,'maintenance-first-actor.json','maintenance-first-request.json','进入维护-process.json','进入维护.stdout.log','进入维护.stderr.log'];
@@ -110,7 +111,7 @@ export function retiredPreparationPackets(inventory){
 }
 function validatePublicationRetirementShape(value){
  assert.deepEqual(Object.keys(value).sort(),['at','attempt','basis','consumePermitted','dispatchId','dispatchSha256','evidence','packet','reason','selectedTarget','version'],'Publication retirement schema changed');
- assert.equal(value.version,publicationRetirementVersion);assert.ok(id.test(value.dispatchId)&&hex.test(value.dispatchSha256)&&commit.test(value.selectedTarget));
+ assert.ok([publicationRetirementVersionV1,publicationRetirementVersion].includes(value.version),'Unknown publication retirement version');assert.ok(id.test(value.dispatchId)&&hex.test(value.dispatchSha256)&&commit.test(value.selectedTarget));
  assert.equal(value.consumePermitted,false,'A retired publication packet is never consumed');assert.ok(Number.isFinite(Date.parse(value.at)));
  assert.ok(value.reason===null||(typeof value.reason==='string'&&value.reason.length<=1600),'Publication retirement reason invalid');
  assert.ok(typeof value.packet==='string'&&path.isAbsolute(value.packet)&&typeof value.attempt==='string'&&path.isAbsolute(value.attempt));
@@ -119,7 +120,11 @@ function validatePublicationRetirementShape(value){
  for(const name of notEnteredRequiredMembers)assert.ok(hex.test(evidence[name]??''),'Publication retirement lacks required evidence: '+name);
  for(const [name,digest] of Object.entries(evidence))assert.ok(notEnteredEvidenceMembers.includes(name)&&hex.test(digest),'Unknown publication retirement evidence');
  const basis=value.basis;assert.ok(basis&&typeof basis==='object'&&!Array.isArray(basis));
- assert.deepEqual(Object.keys(basis).sort(),['actorsExited','attemptMembers','chainStateSha256','djangoManifestSha256','healthReady','liveMainCommit','maintenanceId','maintenanceMarkersAbsent','phase','rotationLockFree','workerBindingSha256'],'Publication retirement basis changed');
+ const basisKeys=['actorsExited','attemptMembers','chainStateSha256','djangoManifestSha256','healthReady','liveMainCommit','maintenanceId','maintenanceMarkersAbsent','phase','rotationLockFree','workerBindingSha256'];
+ if(value.version===publicationRetirementVersion){basisKeys.push('maintenanceEndedAt','maintenanceEntered');assert.equal(typeof basis.maintenanceEntered,'boolean','Publication retirement maintenanceEntered must be boolean');
+  if(basis.maintenanceEntered)assert.ok(typeof basis.maintenanceEndedAt==='string'&&Number.isFinite(Date.parse(basis.maintenanceEndedAt)),'A publication that entered maintenance must record when it ended');
+  else assert.equal(basis.maintenanceEndedAt,null,'A not-entered publication records no maintenance end');}
+ assert.deepEqual(Object.keys(basis).sort(),basisKeys.sort(),'Publication retirement basis changed');
  assert.ok(notEnteredPhases.includes(basis.phase)&&/^[a-f0-9]{32}$/.test(basis.maintenanceId)&&commit.test(basis.liveMainCommit));
  assert.ok(hex.test(basis.chainStateSha256)&&hex.test(basis.djangoManifestSha256)&&hex.test(basis.workerBindingSha256));
  for(const flag of ['actorsExited','healthReady','maintenanceMarkersAbsent','rotationLockFree'])assert.equal(basis[flag],true,'Publication retirement basis is not proven: '+flag);
@@ -144,7 +149,7 @@ async function assertPublicationEvidenceIntact(value){
 }
 /** Under the queue lock: append one not-entered retirement; the caller proved the live system unchanged. */
 export async function writePublicationRetirement(directory,record){
- validatePublicationRetirementShape(record);
+ validatePublicationRetirementShape(record);assert.equal(record.version,publicationRetirementVersion,'Only the current publication retirement version is written');
  const inventory=await readPreparationQueueInventory(directory);
  const dispatchRead=inventory.dispatches.find(read=>read.value.dispatchId===record.dispatchId);assert.ok(dispatchRead,'Publication retirement names no dispatch');
  assert.ok(!inventory.publicationRetirements.has(record.dispatchId),'Publication already retired');
