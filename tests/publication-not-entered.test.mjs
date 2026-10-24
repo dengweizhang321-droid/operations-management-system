@@ -5,8 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
-import {submitPreparation,drainPreparationQueue,readPreparationQueueInventory,retiredPreparationPackets,preparationPacketSlot,writePublicationRetirement,preparedDispatchForPacket,isNotEnteredAttemptMember,publicationRetirementVersion,canonical,sha} from '../tools/main-prebuild-queue.mjs';
-import {inspectNotEnteredPublication,retireNotEnteredPublication,probePublicationPreconditions,publicationProbeScript,publicationProbeVersion,assertPublicationPreconditions,reportPublicationPreconditions,describePreconditionFailures,deployReadyMain} from '../tools/publish-latest-main.mjs';
+import {submitPreparation,drainPreparationQueue,readPreparationQueueInventory,retiredPreparationPackets,preparationPacketSlot,writePublicationRetirement,preparedDispatchForPacket,ticketResult,isNotEnteredAttemptMember,publicationRetirementVersion,canonical,sha} from '../tools/main-prebuild-queue.mjs';
+import {inspectNotEnteredPublication,retireNotEnteredPublication,probePublicationPreconditions,publicationProbeScript,publicationProbeVersion,assertPublicationPreconditions,reportPublicationPreconditions,describePreconditionFailures,deployReadyMain,prepareLatestMain,prepareLatestMainOnce,drainLatestMainQueue,packetBaseName,preconditionFailures} from '../tools/publish-latest-main.mjs';
 // S19: publication preflight and not-entered retirement. Everything runs against
 // temp directories and stubs; the single real process is a read-only PowerShell
 // 5.1 smoke of the probe script with checkDjango:false (never touches the live runtime).
@@ -99,7 +99,11 @@ const refusals={
  'maintenance marker':{mutate:async f=>fs.writeFile(path.join(f.runtime,'run','system-maintenance.json'),'{}'),reason:/维护或排空/},
  'drain marker':{mutate:async f=>fs.writeFile(path.join(f.runtime,'run','automation-drain.json'),'{}'),reason:/维护或排空/},
  'owner identity missing':{mutate:async f=>{const file=path.join(f.attempt,'STARTED.json'),value=JSON.parse(await fs.readFile(file,'utf8'));delete value.publisherOwner;await fs.writeFile(file,JSON.stringify(value));},reason:/进程身份/},
- 'unprepared packet':{selection:f=>({...f.selection,packet:path.join(f.packages,'elsewhere')}),skip:true}};
+ 'exit code 0':{prep:{attemptFiles:{'进入维护-started.json':{},'进入维护-process.json':{processEvidence:{exitCode:0,treeCleanupPending:false}}}},reason:/非零退出码/},
+ 'started without process record':{prep:{attemptFiles:{'进入维护-started.json':{}}},reason:/没有结束记录/},
+ 'process exit code not an integer':{prep:{attemptFiles:{'进入维护-started.json':{},'进入维护-process.json':{processEvidence:{exitCode:null,treeCleanupPending:false}}}},reason:/非零退出码/},
+ 'tree cleanup pending':{prep:{attemptFiles:{'进入维护-started.json':{},'进入维护-process.json':{processEvidence:{exitCode:1,treeCleanupPending:true}}}},reason:/清理未完成/},
+ 'tree cleanup unknown':{prep:{attemptFiles:{'进入维护-started.json':{},'进入维护-process.json':{processEvidence:{exitCode:1}}}},reason:/清理未完成/}, 'unprepared packet':{selection:f=>({...f.selection,packet:path.join(f.packages,'elsewhere')}),skip:true}};
 for(const [name,spec] of Object.entries(refusals)){
  if(spec.skip)continue;
  test('refuses to retire: '+name,async t=>{
@@ -140,20 +144,45 @@ test('a dispatch whose terminal is not prepared cannot be retired',async t=>{
  await assert.rejects(writePublicationRetirement(f.queue,{...record,dispatchId:dispatchRead.value.dispatchId,dispatchSha256:dispatchRead.sha256,packet:dispatchRead.value.selection.packet,attempt:path.join(dispatchRead.value.selection.packet,'publish-'+a.slice(0,12))}),/Only a prepared packet/);
  assert.equal(preparedDispatchForPacket(inventory,dispatchRead.value.selection.packet),null);
 });
-test('stored records fail closed on tampered evidence, a success record, an orphan or non-canonical bytes',async t=>{
+test('stored records bind only queue-internal data: a later change to the attempt neither breaks the inventory nor un-retires the packet',async t=>{
  const f=await failedEntry(t),record=(await inspect(f)).record,written=await writePublicationRetirement(f.queue,record),original=await fs.readFile(written.file);
- const started=path.join(f.attempt,'STARTED.json'),startedBytes=await fs.readFile(started);
- for(const name of Object.keys(record.evidence)){const file=path.join(f.attempt,name),bytes=await fs.readFile(file);await fs.writeFile(file,Buffer.concat([bytes,Buffer.from(' ')]));await assert.rejects(readPreparationQueueInventory(f.queue),/evidence changed/,name);await fs.writeFile(file,bytes);}
- assert.deepEqual(await fs.readFile(started),startedBytes);await readPreparationQueueInventory(f.queue);
- await fs.writeFile(path.join(f.attempt,'SUCCESS.json'),'{}');await assert.rejects(readPreparationQueueInventory(f.queue),/success record/);await fs.rm(path.join(f.attempt,'SUCCESS.json'));
+ const stillRetired=async label=>{const inventory=await readPreparationQueueInventory(f.queue);assert.equal(inventory.publicationRetirements.size,1,label);assert.ok(retiredPreparationPackets(inventory).has(key(f.packet)),label);};
+ await stillRetired('initial');
+ for(const name of Object.keys(record.evidence)){const file=path.join(f.attempt,name),bytes=await fs.readFile(file);await fs.writeFile(file,Buffer.concat([bytes,Buffer.from(' ')]));await stillRetired('changed '+name);await fs.rm(file);await stillRetired('deleted '+name);await fs.writeFile(file,bytes);}
+ await fs.writeFile(path.join(f.attempt,'SUCCESS.json'),'{}');await stillRetired('success added');
+ for(const name of await fs.readdir(f.attempt))if(name!=='preparation')await fs.rm(path.join(f.attempt,name),{recursive:true});await stillRetired('all publication evidence removed');
  for(const [value,pattern] of [[{...JSON.parse(original),consumePermitted:true},/never consumed/],[{...JSON.parse(original),basis:{...JSON.parse(original).basis,liveMainCommit:'1'.repeat(40)}},/predecessor differs/],[{...JSON.parse(original),extra:true},/schema/]]){await fs.writeFile(written.file,canonical(value));await assert.rejects(readPreparationQueueInventory(f.queue),pattern);}
  await fs.writeFile(written.file,original.toString('utf8').trimEnd());await assert.rejects(readPreparationQueueInventory(f.queue),/Noncanonical/);
- await fs.writeFile(written.file,original);await readPreparationQueueInventory(f.queue);
+ await fs.writeFile(written.file,original);await stillRetired('restored');
  const orphan=path.join(f.queue,'publication-retired',randomUUID()+'.json');await fs.writeFile(orphan,original);await assert.rejects(readPreparationQueueInventory(f.queue),/Orphan publication retirement/);await fs.rm(orphan);
- await readPreparationQueueInventory(f.queue);
+ await stillRetired('orphan removed');
 });
-
-test('a failing preflight throws before the publisher runs and before STARTED exists; a passing one runs it once',async t=>{
+test('writing a retirement still verifies the attempt bytes and refuses a success record',async t=>{
+ const f=await failedEntry(t),record=(await inspect(f)).record;
+ await fs.writeFile(path.join(f.attempt,'SUCCESS.json'),'{}');await assert.rejects(writePublicationRetirement(f.queue,record),/success record/);await fs.rm(path.join(f.attempt,'SUCCESS.json'));
+ const file=path.join(f.attempt,'FAILED.json'),bytes=await fs.readFile(file);await fs.writeFile(file,Buffer.concat([bytes,Buffer.from(' ')]));await assert.rejects(writePublicationRetirement(f.queue,record),/evidence changed/);
+ assert.equal(await exists(path.join(f.queue,'publication-retired')),false);await fs.writeFile(file,bytes);await writePublicationRetirement(f.queue,record);
+});
+test('preparedDispatchForPacket accepts duplicate prepared dispatches with identical selections (earliest wins) and rejects differing ones',async()=>{
+ const packet=path.join(os.tmpdir(),'packet-x'),selection={targetCommit:a,packet,live:structuredClone(live)};
+ const make=(dispatchId,dispatchedAt,over={})=>({value:{dispatchId,requestId:'req-'+dispatchId,dispatchedAt,selection:structuredClone({...selection,...over})},sha256:h('a')});
+ const early=make('b-late-id','2026-10-24T01:00:00.000Z'),tie=make('a-early-id','2026-10-24T01:00:00.000Z'),later=make('0-first-id','2026-10-24T03:00:00.000Z');
+ const inventory=(...reads)=>({dispatches:reads,terminals:new Map(reads.map(read=>[read.value.requestId,{status:'prepared'}]))});
+ assert.equal(preparedDispatchForPacket(inventory(later,early),packet).value.dispatchId,'b-late-id','earliest dispatchedAt');
+ assert.equal(preparedDispatchForPacket(inventory(early,tie,later),packet).value.dispatchId,'a-early-id','tie goes to the smaller dispatchId');
+ assert.equal(preparedDispatchForPacket(inventory(early,make('other','2026-10-24T02:00:00.000Z',{targetCommit:'b'.repeat(40)})),packet),null,'differing selections');
+ assert.equal(preparedDispatchForPacket(inventory(early,make('live-moved','2026-10-24T02:00:00.000Z',{live:{...live,mainCommit:'1'.repeat(40)}})),packet),null);
+ const mixed=inventory(early,tie);mixed.terminals.set(tie.value.requestId,{status:'failed'});assert.equal(preparedDispatchForPacket(mixed,packet).value.dispatchId,'b-late-id','only prepared dispatches count');
+ assert.equal(preparedDispatchForPacket(inventory(),packet),null);assert.equal(preparedDispatchForPacket(inventory(early),path.join(os.tmpdir(),'elsewhere')),null);
+});
+test('a failed maintenance process record is required, non-zero and fully cleaned up; its logs are hashed as evidence',async t=>{
+ const processRecord=exitCode=>({processEvidence:{exitCode,treeCleanupPending:false}});
+ const f=await failedEntry(t,{attemptFiles:{'进入维护-started.json':{at:'x'},'进入维护-process.json':processRecord(1),'进入维护.stdout.log':'out','进入维护.stderr.log':'err'}});
+ const result=await inspect(f);assert.equal(result.eligible,true);
+ for(const name of ['进入维护-process.json','进入维护.stdout.log','进入维护.stderr.log'])assert.equal(result.record.evidence[name],sha(await fs.readFile(path.join(f.attempt,name))),name);
+ assert.equal(result.record.evidence['进入维护-started.json'],undefined,'only the listed evidence members are hashed');
+ await writePublicationRetirement(f.queue,result.record);
+});test('a failing preflight throws before the publisher runs and before STARTED exists; a passing one runs it once',async t=>{
  const f=await readinessFixture(t);await fs.writeFile(f.file,JSON.stringify(f.receipt));const order=[];
  const failing=()=>assertPublicationPreconditions({}, {probe:probeWith(aclFailure),runtimeRoot:f.root,log:line=>order.push(line)});
  await assert.rejects(deployReadyMain(f.prepared,{git:f.git,progress:f.progress,preflight:failing,run:async()=>{order.push('run');}}),error=>{assert.match(error.message,/Assert-RuntimeAclHardened/);assert.match(error.message,/HardenAcl/);assert.match(error.message,/发布包保持可用/);return true;});
@@ -209,6 +238,55 @@ test('real Windows PowerShell 5.1 smoke: actor liveness without touching the Dja
  assert.match(publicationProbeScript({actors:[],checkDjango:false,controller:'x',runtimeRoot:'y',checks:[]}),/checkDjango|pgDjango/);
 });
 
+test('the probe isolates the dot-sourced controller and round-trips a Chinese failure message (stub controller, real PowerShell 5.1)',{skip:process.platform!=='win32'||!await exists(powershell5)},async t=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'probe-stub-controller-'));t.after(()=>fs.rm(dir,{recursive:true,force:true,maxRetries:20,retryDelay:50}));
+ const controller=path.join(dir,'stub controller.ps1'),runtimeRoot=path.join(dir,'runtime root');await fs.mkdir(runtimeRoot);
+ const stub=['param([string]$RuntimeRoot = "unset")',
+  // Top-level variables named like the probe's own; they must not leak into the probe.
+  "$pgResult = 'hijacked'","$pgInput = 'hijacked'","$pgChecks = 'hijacked'","$pgController = 'hijacked'","$pgRoot = 'hijacked'","$pgDjango = $false","$pgRun = 'hijacked'","$pgFound = 'hijacked'","$pgKey = 'hijacked'","$__pgOut = 'hijacked'","$__pgName = 'hijacked'","$ErrorActionPreference = 'Continue'",
+  "Write-Output 'noise from the controller'",
+  "function Assert-RuntimeAclHardened { throw '"+aclMessage+"' }",
+  "function Assert-DeployedApplication { if ($RuntimeRoot -ne '"+runtimeRoot.replace(/'/g,"''")+"') { throw 'runtime root was not passed' } }"].join('\r\n')+'\r\n';
+ await fs.writeFile(controller,Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),Buffer.from(stub,'utf8')]));
+ const probed=await probePublicationPreconditions({}, {actors:[],checkDjango:true,run:runReal,controller,runtimeRoot});
+ assert.deepEqual(probed.actors,[]);
+ assert.deepEqual(probed.checks,{'Assert-RuntimeAclHardened':{ok:false,message:aclMessage},'Assert-DeployedApplication':{ok:true}});
+ assert.deepEqual(preconditionFailures(probed),['Assert-RuntimeAclHardened：'+aclMessage]);
+ assert.match(describePreconditionFailures(preconditionFailures(probed)),/HardenAcl/);
+});
+
+async function consumerFixture(t){
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'publication-consumer-'));t.after(()=>fs.rm(root,{recursive:true,force:true,maxRetries:20,retryDelay:50}));
+ const repository=path.join(root,'repo'),remote=path.join(root,'remote.git');await fs.mkdir(repository);
+ const git=(cwd,args)=>execFileSync('git',['-C',cwd,...args],{encoding:'utf8',windowsHide:true,stdio:['ignore','pipe','pipe']}).trim();
+ execFileSync('git',['init','--bare','--quiet',remote]);git(repository,['init','--quiet','--initial-branch=main']);git(repository,['config','user.name','fixture']);git(repository,['config','user.email','fixture@example.invalid']);
+ await fs.mkdir(path.join(repository,'app'));await fs.writeFile(path.join(repository,'app/view.tsx'),'old');const lock=Buffer.from('{}\n');await fs.writeFile(path.join(repository,'package-lock.json'),lock);await fs.writeFile(path.join(repository,'.gitignore'),'node_modules/\n');
+ git(repository,['add','.']);git(repository,['commit','--quiet','-m','old online']);const old=git(repository,['rev-parse','HEAD']);git(repository,['remote','add','origin',remote]);git(repository,['push','--quiet','origin','main']);
+ await fs.writeFile(path.join(repository,'app/view.tsx'),'new merged task');git(repository,['add','.']);git(repository,['commit','--quiet','-m','new merged task']);const latest=git(repository,['rev-parse','HEAD']);git(repository,['push','--quiet','origin','main']);
+ const stateDirectory=path.join(root,'state'),dependenciesDirectory=path.join(root,'dependencies');await fs.mkdir(stateDirectory);await fs.mkdir(dependenciesDirectory);
+ const liveRecord={mainCommit:old,source:repository,head:{releaseId:'old',bindingSha256:'1'.repeat(64),manifestSha256:'2'.repeat(64)},djangoManifestSha256:'3'.repeat(64),chainStateSha256:'5'.repeat(64)};
+ const config={repository,stateDirectory,releaseDirectory:path.join(root,'packets'),dependenciesDirectory,cacheLockSha256:createHash('sha256').update(lock).digest('hex'),pwshDirectory:'fixture-host',pwshSha256:'4'.repeat(64),npmCacheDirectory:'fixture-cache'};
+ return {root,git,old,latest,live:liveRecord,config};
+}
+test('documents the consumer: STARTED without SUCCESS in the selected packet makes the dispatch unknown (not failed or retired) and blocks the next ticket; nothing is rewritten',async t=>{
+ const f=await consumerFixture(t),binding={config:f.config,state:{configSha256:'6'.repeat(64),bundleSha256:'7'.repeat(64)}};
+ const directory=path.join(f.config.stateDirectory,'prebuild-queue-v2'),submit=()=>submitPreparation(directory,{origin:'hook',observedTarget:f.latest,...binding.state});
+ const first=await prepareLatestMain(f.config,{getLive:async()=>f.live,log:()=>{}});
+ const attempt=path.join(first.packet,'publish-'+f.latest.slice(0,12));await fs.mkdir(attempt,{recursive:true});await fs.writeFile(path.join(attempt,'STARTED.json'),'original unknown');
+ const packets=[];
+ const options={binding,assertGeneration:async()=>{},assertConsumerIdentity:async()=>{},admit:async()=>{},admitSelected:async()=>{},once:prepareLatestMainOnce,
+  observe:async(config,{retiredPackets})=>{const packet=preparationPacketSlot(config.releaseDirectory,packetBaseName(f.latest,f.live),retiredPackets);packets.push(path.basename(packet));return {targetCommit:f.latest,packet,live:f.live};},
+  run:async(source)=>{const packet=path.dirname(source),preparation=path.join(packet,'publish-'+f.latest.slice(0,12),'preparation');await fs.mkdir(preparation,{recursive:true});const preparationFile=path.join(preparation,'PREPARED.json');
+   await fs.writeFile(preparationFile,JSON.stringify({version:'teruisi-main-preparation-v1',requestSha256:createHash('sha256').update(JSON.stringify(JSON.parse(await fs.readFile(path.join(packet,'main-release-request.json'),'utf8')))).digest('hex'),sourceIdentity:{commit:f.latest,tree:f.git(source,['rev-parse','HEAD^{tree}'])},workerPlan:{id:'private-native-fixture'},djangoPackage:null}));
+   return {status:'prepared-only',mainCommit:f.latest,publicationPerformed:false,preparationFile};}};
+ const one=await submit();await drainLatestMainQueue('unused',options);
+ const unknown=await ticketResult(directory,one.requestId,one.ticketSha256);
+  assert.equal(unknown.status,'unknown');assert.equal(unknown.preparationTerminal,undefined);assert.match(unknown.error,/未知结果的执行记录/);
+ assert.equal(retiredPreparationPackets(await readPreparationQueueInventory(directory)).has(key(first.packet)),false,'an unknown dispatch does not retire its packet');
+ const two=await submit();await drainLatestMainQueue('unused',options);
+ const next=await ticketResult(directory,two.requestId,two.ticketSha256);
+ assert.equal(next.status,'blocked');assert.equal(next.error,'Prior dispatch lacks a complete terminal result; no preparation replay');assert.deepEqual(packets,[packetBaseName(f.latest,f.live)],'the blocked queue never observes a next slot'); assert.equal(await fs.readFile(path.join(attempt,'STARTED.json'),'utf8'),'original unknown','original bytes are untouched');
+});
 async function readinessFixture(t){
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'publication-preflight-'));
  t.after(()=>fs.rm(root,{recursive:true,force:true}));

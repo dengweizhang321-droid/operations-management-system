@@ -23,7 +23,7 @@ export const defaultAbandonmentGraceMs=15*60*1000;
 export const publicationRetirementVersion='teruisi-publication-not-entered-v1';
 export const notEnteredPhases=['进入维护'];
 export const notEnteredRequiredMembers=['FAILED.json','STARTED.json','maintenance-admission.json','maintenance-first-FAILED.json'];
-export const notEnteredEvidenceMembers=[...notEnteredRequiredMembers,'maintenance-first-actor.json','maintenance-first-request.json'];
+export const notEnteredEvidenceMembers=[...notEnteredRequiredMembers,'maintenance-first-actor.json','maintenance-first-request.json','进入维护-process.json','进入维护.stdout.log','进入维护.stderr.log'];
 const notEnteredFixedMembers=new Set(['preparation','LEASE-WARNING.json',...notEnteredEvidenceMembers,'maintenance-lock-diagnostic.json','进入维护-started.json','进入维护.stdout.log','进入维护.stderr.log','进入维护-process.json']);
 /** Only names a pre-mutation maintenance-entry failure can leave; anything else keeps blocking. */
 export function isNotEnteredAttemptMember(name){return notEnteredFixedMembers.has(name)||/^(?:maintenance-preflight|publication-materials)-[A-Za-z0-9]{6}$/.test(name);}
@@ -135,7 +135,10 @@ async function validatePublicationRetirement(value,name,dispatchRead,terminals){
  assert.equal(value.basis.liveMainCommit,dispatch.selection.live.mainCommit,'Retired publication predecessor differs from its preparation');
  assert.equal(value.basis.workerBindingSha256,dispatch.selection.live.head.bindingSha256);assert.equal(value.basis.djangoManifestSha256,dispatch.selection.live.djangoManifestSha256);
  assert.equal(value.basis.chainStateSha256,dispatch.selection.live.chainStateSha256);
- // The original publication evidence must survive byte for byte.
+ // Queue-internal bindings only: reading the inventory never touches packet files.
+}
+/** Write-time only: the packet's original publication evidence is intact and has no success record. */
+async function assertPublicationEvidenceIntact(value){
  for(const [member,digest] of Object.entries(value.evidence))assert.equal(sha(await fs.readFile(path.join(value.attempt,member))),digest,'Retired publication evidence changed: '+member);
  assert.equal(await fs.access(path.join(value.attempt,'SUCCESS.json')).then(()=>true,error=>{if(error.code==='ENOENT')return false;throw error;}),false,'A retired publication gained a success record');
 }
@@ -146,15 +149,18 @@ export async function writePublicationRetirement(directory,record){
  const dispatchRead=inventory.dispatches.find(read=>read.value.dispatchId===record.dispatchId);assert.ok(dispatchRead,'Publication retirement names no dispatch');
  assert.ok(!inventory.publicationRetirements.has(record.dispatchId),'Publication already retired');
  await validatePublicationRetirement(record,record.dispatchId+'.json',dispatchRead,inventory.terminals);
+ await assertPublicationEvidenceIntact(record);
  await fs.mkdir(path.join(directory,'publication-retired'),{recursive:true});
  const digest=await durableCreate(path.join(directory,'publication-retired',record.dispatchId+'.json'),record);
  const after=await readPreparationQueueInventory(directory);assert.ok(after.publicationRetirements.has(record.dispatchId));
  return {file:path.join(directory,'publication-retired',record.dispatchId+'.json'),sha256:digest};
 }
-/** The dispatch whose prepared terminal produced this packet, or null. */
+/** The earliest dispatch whose prepared terminal produced this packet; several are accepted only when their selections are identical, else null. */
 export function preparedDispatchForPacket(inventory,packet){
  const found=inventory.dispatches.filter(read=>packetKey(read.value.selection.packet)===packetKey(packet)&&inventory.terminals.get(read.value.requestId)?.status==='prepared');
- return found.length===1?found[0]:null;
+ if(!found.length)return null;
+ const selection=canonical(found[0].value.selection);if(found.some(read=>canonical(read.value.selection)!==selection))return null;
+ return [...found].sort((x,y)=>(Date.parse(x.value.dispatchedAt)-Date.parse(y.value.dispatchedAt))||(x.value.dispatchId<y.value.dispatchId?-1:x.value.dispatchId>y.value.dispatchId?1:0))[0];
 }
 export function isRetiredPacket(retired,packet){return Boolean(retired?.has(packetKey(packet)));}
 /** '<target12>-<binding8>-<django8>' unless retired, then '-r2'...'-r64'. */

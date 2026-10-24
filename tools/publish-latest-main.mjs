@@ -224,22 +224,24 @@ export async function inspectMainPreparation(prepared,{git=gitAt,retiredPackets}
 }
 
 // PUBLICATION_GUARD_BEGIN
-// Read-only checks the live Django controller performs when entering
-// maintenance, run BEFORE the native publisher writes STARTED. A failure here
+// Read-only (except the controller's own diagnostic log line) checks the live
+// Django controller performs when entering maintenance, run BEFORE the native publisher writes STARTED. A failure here
 // leaves the prepared packet reusable instead of turning it into an unknown.
 export const liveDjangoRuntime='D:/teruisi-runtime/django-sales',liveDjangoController=liveDjangoRuntime+'/app/tools/django-local-service.ps1';
 export const publicationProbeVersion='teruisi-publication-precondition-probe-v1',publicationProbeChecks=['Assert-RuntimeAclHardened','Assert-DeployedApplication'];
 const windowsPowerShell='C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe';
 export function publicationProbeScript(input){
  const encoded=Buffer.from(JSON.stringify(input),'utf8').toString('base64');
- // Probe variables carry a pg prefix: the dot-sourced controller shares this scope and must not overwrite them.
+ // The controller is dot-sourced inside its own scriptblock scope, so its top-level variables cannot reach the probe's.
  return ["$ErrorActionPreference='Stop'","$utf8=[Text.UTF8Encoding]::new($false);[Console]::OutputEncoding=$utf8",
   "$pgInput=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('"+encoded+"'))|ConvertFrom-Json",
   "$pgResult=[ordered]@{version='"+publicationProbeVersion+"';checks=[ordered]@{};actors=@()}",
   "$pgChecks=@($pgInput.checks);$pgController=[string]$pgInput.controller;$pgRoot=[string]$pgInput.runtimeRoot;$pgDjango=[bool]$pgInput.checkDjango",
   // A recorded actor counts as alive when its PID exists with a creation time within 2s.
   "foreach($pgActor in @($pgInput.actors)){$pgAlive=$false;$pgProc=Get-CimInstance Win32_Process -Filter ('ProcessId='+[int]$pgActor.processId) -ErrorAction SilentlyContinue;if($pgProc -and $pgProc.CreationDate){$pgAlive=[Math]::Abs(($pgProc.CreationDate.ToUniversalTime()-[DateTime]::Parse([string]$pgActor.creationDate).ToUniversalTime()).TotalSeconds) -lt 2};$pgResult.actors+=[ordered]@{processId=[int]$pgActor.processId;alive=[bool]$pgAlive}}",
-  "if($pgDjango){$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1';. $pgController -RuntimeRoot $pgRoot;foreach($pgCheck in $pgChecks){try{& $pgCheck|Out-Null;$pgResult.checks[$pgCheck]=[ordered]@{ok=$true}}catch{$pgMessage=[string]$_.Exception.Message;$pgResult.checks[$pgCheck]=[ordered]@{ok=$false;message=$pgMessage.Substring(0,[Math]::Min(600,$pgMessage.Length))}}}}",
+  // Everything after the dot-source stays inside this scriptblock: the functions it defines are only visible here.
+  "$pgRun={param($__pgController,$__pgRoot,$__pgNames);. $__pgController -RuntimeRoot $__pgRoot;$__pgOut=[ordered]@{};foreach($__pgName in $__pgNames){try{& $__pgName|Out-Null;$__pgOut[$__pgName]=[ordered]@{ok=$true}}catch{$__pgMessage=[string]$_.Exception.Message;$__pgOut[$__pgName]=[ordered]@{ok=$false;message=$__pgMessage.Substring(0,[Math]::Min(600,$__pgMessage.Length))}}};return $__pgOut}",
+  "if($pgDjango){$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1';$pgFound=@(& $pgRun $pgController $pgRoot $pgChecks|Where-Object{$_ -is [System.Collections.Specialized.OrderedDictionary]});foreach($pgKey in $pgFound[$pgFound.Count-1].Keys){$pgResult.checks[$pgKey]=$pgFound[$pgFound.Count-1][$pgKey]}}",
   "[Console]::Out.WriteLine(($pgResult|ConvertTo-Json -Depth 5 -Compress))"].join('\n');
 }
 async function runPowerShellProbe(config,script){
@@ -247,9 +249,9 @@ async function runPowerShellProbe(config,script){
   {encoding:'utf8',windowsHide:true,timeout:600000,maxBuffer:1024*1024,env:publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment)});
  return result.stdout;
 }
-/** Read-only: live Django maintenance preconditions and liveness of recorded actors. */
-export async function probePublicationPreconditions(config,{actors=[],checkDjango=true,run=runPowerShellProbe}={}){
- const input={actors:actors.map(actor=>({processId:actor.processId,creationDate:actor.creationDate})),checkDjango,controller:path.win32.normalize(liveDjangoController),runtimeRoot:path.win32.normalize(liveDjangoRuntime),checks:publicationProbeChecks};
+/** Read-only (except the controller's own diagnostic log line): live Django maintenance preconditions and liveness of recorded actors. */
+export async function probePublicationPreconditions(config,{actors=[],checkDjango=true,run=runPowerShellProbe,controller=liveDjangoController,runtimeRoot=liveDjangoRuntime}={}){
+ const input={actors:actors.map(actor=>({processId:actor.processId,creationDate:actor.creationDate})),checkDjango,controller:path.win32.normalize(controller),runtimeRoot:path.win32.normalize(runtimeRoot),checks:publicationProbeChecks};
  for(const actor of input.actors)assert.ok(Number.isSafeInteger(actor.processId)&&actor.processId>0&&Number.isFinite(Date.parse(actor.creationDate)),'记录的进程身份无效');
  const stdout=String(await run(config,publicationProbeScript(input))),line=stdout.trim().split(/\r?\n/).filter(text=>text.trim().startsWith('{')).at(-1);
  assert.ok(line,'发布前检查没有返回结果');const value=JSON.parse(line);
@@ -297,7 +299,12 @@ export async function inspectNotEnteredPublication(config,selection,{inventory,p
  if(failed.automaticRetry!==false||firstFailed.automaticRetry!==false)return refuse('失败记录不是终态');
  if(started.mainCommit!==target||(failed.mainCommit!==undefined&&failed.mainCommit!==target))return refuse('失败记录不属于本次目标');
  if(!/^[a-f0-9]{32}$/.test(started.maintenanceId??'')||firstFailed.maintenanceId!==started.maintenanceId||admission.maintenanceId!==started.maintenanceId||(actorRecord&&actorRecord.maintenanceId!==started.maintenanceId))return refuse('维护编号不一致');
- if(names.includes('进入维护-process.json')){const record=await readJsonObject(path.join(attempt,'进入维护-process.json'));if(!Number.isSafeInteger(record.processEvidence?.exitCode))return refuse('进入维护进程没有退出码');}
+ if(names.includes('进入维护-started.json')||names.includes('进入维护-process.json')){
+  if(!names.includes('进入维护-process.json'))return refuse('进入维护进程没有结束记录');
+  const evidence=(await readJsonObject(path.join(attempt,'进入维护-process.json'))).processEvidence;
+  if(!Number.isSafeInteger(evidence?.exitCode)||evidence.exitCode===0)return refuse('进入维护进程没有非零退出码');
+  if(evidence.treeCleanupPending!==false)return refuse('进入维护进程的子进程清理未完成');
+ }
  const request=await readJsonObject(path.join(packet,'main-release-request.json'));
  if(request.mainCommit!==target||request.deployedCommit!==live.mainCommit)return refuse('线上版本已不是该包的前一版本');
  try{assert.deepEqual(request.predecessorWorker,live.head);}catch{return refuse('线上前端版本已变化');}
