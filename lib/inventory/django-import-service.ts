@@ -225,6 +225,10 @@ export async function importInventoryStockToDjango(
     ...(!parsed.coverage.hasSales30dQuantity ? [{ code: "MISSING_AGE_SALES", message: "报表未提供前30天销量，滞销清理将只显示库龄风险" }] : []),
     ...(excludedBrushWarehouseRows ? [{ code: "EXCLUDED_BRUSH_WAREHOUSE", message: `已剔除刷刷仓 ${excludedBrushWarehouseRows} 行，不写入经营分析数据` }] : []),
   ];
+  // Django 侧 warnings 字段硬性上限 200（backend/inventory/import_service.py 的 MAX_WARNINGS），
+  // 超限会被整批拒绝。parsed.warnings 已在解析层按同一上限截断，这里对叠加汇总告警后的最终
+  // 数组再做一次防御性截断，避免两边口径变化时静默超限导致整批拒绝。
+  const boundedWarnings = warnings.slice(0, 200);
   const result = await service.requestJson<InventoryImportExecution>(input.principal, {
     method: "POST",
     path: INVENTORY_IMPORTS_PATH,
@@ -237,7 +241,7 @@ export async function importInventoryStockToDjango(
       sourceRowCount: parsed.totals.sourceRowCount,
       excludedCount: excludedBrushWarehouseRows,
       rows,
-      warnings,
+      warnings: boundedWarnings,
       totals: { ...parsed.totals, ...summarize(rows, parsed.totals.sourceRowCount), coverage: parsed.coverage, excludedBrushWarehouseRows, excludedZeroCostRows: 0, retainedZeroCostRows },
     },
   }, options);

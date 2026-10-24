@@ -191,13 +191,32 @@ export function parseInventoryStockXlsx(
     );
   }
 
+  // 与 errors 使用同一上限（200）：下游 Django 侧对 warnings 数组同样有 MAX_WARNINGS=200
+  // 的硬性校验，超限会被整批拒绝（backend/inventory/import_service.py）。这里主动截断并
+  // 保留一条可追溯的汇总提示，避免"小数行多"把故障模式从"小数阻断"平移成"warning 超限阻断"。
+  const MAX_INVENTORY_STOCK_WARNINGS = 200;
+  let roundedQuantityOverflow = 0;
+
   const rows: InventoryStockRow[] = [];
   const errors: InventoryStockIssue[] = [];
   const warnings: InventoryStockWarning[] = [];
   for (const row of candidateRows) {
-    const parsed = parseRow(row, header.indexByCanonical, workbook.date1904, errors, warnings, options.warehouseMapping);
+    const rowWarnings: InventoryStockWarning[] = [];
+    const parsed = parseRow(row, header.indexByCanonical, workbook.date1904, errors, rowWarnings, options.warehouseMapping);
     if (parsed) rows.push(parsed);
+    for (const warning of rowWarnings) {
+      if (warnings.length < MAX_INVENTORY_STOCK_WARNINGS - 1) warnings.push(warning);
+      else roundedQuantityOverflow += 1;
+    }
     if (errors.length >= 200) break;
+  }
+  if (roundedQuantityOverflow > 0) {
+    warnings.push({
+      code: "ROUNDED_DECIMAL_QUANTITY",
+      message: `还有 ${roundedQuantityOverflow} 条小数数量四舍五入提示未显示，已达上限 ${MAX_INVENTORY_STOCK_WARNINGS}`,
+      sourceRowNumber: 0,
+      field: "",
+    });
   }
 
   const warehouses = new Set(rows.map((row) => row.warehouse));
@@ -303,6 +322,9 @@ function parseRow(
   let onHandQuantity = optionalQuantity(raw("onHandQuantity"), "onHandQuantity", "库存数量", row.rowNumber, errors, warnings);
   let availableQuantity = optionalQuantity(raw("availableQuantity"), "availableQuantity", "可用库存", row.rowNumber, errors, warnings);
 
+  // 推导只在对应表头整列缺失时触发（而不是单元格为空时触发）。此时参与推导的
+  // onHandQuantity/availableQuantity/lockedQuantity 已经过 optionalQuantity 规范化为安全整数，
+  // 整数之间的加减法不会再产生小数，因此"先取整再推导"不会比"先推导再取整"引入额外偏差。
   if (!indexes.has("availableQuantity") && indexes.has("onHandQuantity")) {
     availableQuantity = onHandQuantity - lockedQuantity;
   }
@@ -376,7 +398,21 @@ function requiredText(
 
 // 数量类字段（库存数量/可用库存/锁定数量/在途数量/前7/30天销量）允许来源系统输出小数；
 // 非整数值四舍五入为整数并记录 warning（保留原值与行号），不再作为阻断错误。
-// 非数字、无穷大、超出安全整数范围、以及 nonNegative 时的负数仍然是阻断错误。
+// 目前库存与销量数量共用同一套容错规则；二者业务口径是否需要拆分（例如销量允许负数调整、
+// 库存不允许）留待业务确认，本次不擅自拆分。本函数也不读取"单位"列区分量纲（例如 PCS 与
+// 箱/包等不同计量单位是否都适合四舍五入），是否需要按单位区分容错规则同样留待业务确认。
+// 非数字、无穷大、超出安全整数范围仍然是阻断错误。
+//
+// 负数整数：行为完全不变。真实数据证实 onHandQuantity/availableQuantity 等未传
+// nonNegative 的字段，历来允许负整数通过（表示超卖/欠货等既有业务状态），本次不扩大
+// 阻断范围，只传 nonNegative=true 的字段（锁定数量/在途数量）才像修复前一样阻断负数。
+//
+// 负数小数：无论是否传 nonNegative，一律阻断（这是本次新增的容错边界，不是收紧原有负整数
+// 校验）。原因：取整只用于消除小数/精度表示问题，不能用于把负值这种业务异常信号改写成
+// 更"好看"的数字——Math.round 对负数向零偏移（Math.round(-3.5) === -3，不是 -4），
+// 如果负小数也走四舍五入通过，会把真实负值悄悄改小。同时 (-0.5, 0) 区间的负小数四舍五入
+// 后是 -0，-0 < 0 为 false，必须用 Object.is 识别 -0 并同样阻断，否则这一区间的负值
+// 信号会被吞掉而不留痕（原有负整数校验不受此影响，因为整数负值本身就不会产生 -0）。
 function optionalQuantity(
   value: XlsxCellValue,
   field: string,
@@ -388,16 +424,24 @@ function optionalQuantity(
 ) {
   if (isBlank(value)) return 0;
   const parsed = parseDecimal(value);
-  if (parsed === null || !Number.isFinite(parsed) || (nonNegative && parsed < 0)) {
-    errors.push({
-      code: "INVALID_NUMBER",
-      message: nonNegative && parsed !== null && parsed < 0 ? `${label}不能为负数` : `${label}不是有效整数`,
-      sourceRowNumber: rowNumber,
-      field,
-    });
+  if (parsed === null || !Number.isFinite(parsed)) {
+    errors.push({ code: "INVALID_NUMBER", message: `${label}不是有效整数`, sourceRowNumber: rowNumber, field });
     return 0;
   }
-  if (Number.isSafeInteger(parsed)) return parsed;
+  if (Number.isSafeInteger(parsed)) {
+    // 整数路径：行为与修复前完全一致，只有 nonNegative=true 才阻断负数。
+    if (nonNegative && parsed < 0) {
+      errors.push({ code: "INVALID_NUMBER", message: `${label}不能为负数`, sourceRowNumber: rowNumber, field });
+      return 0;
+    }
+    return parsed;
+  }
+  // 小数路径：负小数（含四舍五入后落在 -0 的区间）一律阻断，不论 nonNegative。
+  const isNegativeDecimal = parsed < 0 || Object.is(parsed, -0);
+  if (isNegativeDecimal) {
+    errors.push({ code: "INVALID_NUMBER", message: `${label}不能为负数`, sourceRowNumber: rowNumber, field });
+    return 0;
+  }
   const rounded = Math.round(parsed);
   if (!Number.isSafeInteger(rounded)) {
     errors.push({ code: "INVALID_NUMBER", message: `${label}不是有效整数`, sourceRowNumber: rowNumber, field });
