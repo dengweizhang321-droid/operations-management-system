@@ -78,6 +78,6 @@
 
 ## 7. 已知限制
 
-- tools/preparation-producer-qualification.mjs 的 closures[0] 固定了 publish-prepared-main.mjs、worker-local-release-rotation.mjs、worker-local-release.mjs 的字节，preparation-retirement-qualification.mjs 复用它，tests/preparation-retirement-collector.test.mjs 断言仓库实际字节等于固定值。S05d（24dd52ac）已改 publish-prepared-main.mjs，该测试在基线已失败；本次再改 rotation，不改变该测试结果。资格检查看的是 packet 自带的冻结源码，a3d53227 的 packet 不受影响，新包走 S05d 的结构化终态。
+- tools/preparation-producer-qualification.mjs 的 closures[0] 固定了 publish-prepared-main.mjs、worker-local-release-rotation.mjs、worker-local-release.mjs 的字节，preparation-retirement-qualification.mjs 复用它，tests/preparation-retirement-collector.test.mjs 断言仓库实际字节等于固定值。S05d（24dd52ac）已改 publish-prepared-main.mjs，该测试在基线已失败；本次再改 rotation，不改变该测试结果。资格检查看的是 packet 自带的冻结源码，a3d53227 的 packet 不受影响，新包走 S05d 的结构化终态。（10-24 早上更正：该测试在基线通过，S05d 起才失败；同一固定也用于管理员 resolution。已追加 S05d 与 S05d+S16 两个资格闭包，第一个闭包不变，夹具改读冻结的原审查字节，见[夜间报告](REPORT.md#2026-10-24-早上推送脚本中止与修复)。）
 - install-main-prebuild.mjs 的 codeOnlyNativeToolsPins、successor512NativeToolsPins 固定的是 nativeToolsSource 的字节，与应用源码无关，不受影响。
 - 新计时行进入发布器 stdout（runner 日志）；runner 日志的 GBK 误解码未修，只是把 ASCII 字段放前面以免丢数。
