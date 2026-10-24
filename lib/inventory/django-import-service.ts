@@ -207,8 +207,12 @@ export async function importInventoryStockToDjango(
   const missingSuppliers = rows.filter((row) => !row.supplier).length;
   const excludedByWarehouseMapping = rows.filter((row) => !row.includeInInventory).length;
   const roundedQuantityWarnings = parsed.warnings.map(mapIssue);
-  const warnings = [
-    ...roundedQuantityWarnings,
+  // S5：固定业务告警（列缺失/日期不一致/刷刷仓剔除等）排在最前，小数明细排在最后。
+  // 下面会对整个数组按 Django 侧硬性上限 200 截断；小数明细最多可达 199 条且自带
+  // "还有 N 条未显示"的汇总兜底，固定业务告警没有任何兜底——一旦被截掉就是静默丢失，
+  // 而且固定告警（例如"报表未提供采购在途"）通常比某一行小数被取整更重要，
+  // 所以必须保证固定告警优先占位，超限时被截掉的应该是明细而不是固定告警。
+  const fixedWarnings = [
     ...(retainedZeroCostRows ? [{ code: "RETAINED_ZERO_UNIT_COST", message: `${retainedZeroCostRows} 行明确零成本库存已保留，库存金额按 0 计并参与补货计算` }] : []),
     ...(missingNames ? [{ code: "MISSING_PRODUCT_NAME", message: `${missingNames} 行缺少货品名称，页面将使用销售明细中的名称补全` }] : []),
     ...(missingSuppliers ? [{ code: "MISSING_SPEC_SUPPLIER", message: `${missingSuppliers} 行缺少规格默认供应商，页面将回退 ERP 货品档案并标明来源` }] : []),
@@ -225,9 +229,11 @@ export async function importInventoryStockToDjango(
     ...(!parsed.coverage.hasSales30dQuantity ? [{ code: "MISSING_AGE_SALES", message: "报表未提供前30天销量，滞销清理将只显示库龄风险" }] : []),
     ...(excludedBrushWarehouseRows ? [{ code: "EXCLUDED_BRUSH_WAREHOUSE", message: `已剔除刷刷仓 ${excludedBrushWarehouseRows} 行，不写入经营分析数据` }] : []),
   ];
+  const warnings = [...fixedWarnings, ...roundedQuantityWarnings];
   // Django 侧 warnings 字段硬性上限 200（backend/inventory/import_service.py 的 MAX_WARNINGS），
-  // 超限会被整批拒绝。parsed.warnings 已在解析层按同一上限截断，这里对叠加汇总告警后的最终
-  // 数组再做一次防御性截断，避免两边口径变化时静默超限导致整批拒绝。
+  // 超限会被整批拒绝。parsed.warnings 已在解析层按同一上限截断，这里对叠加固定告警后的最终
+  // 数组再做一次防御性截断，避免两边口径变化时静默超限导致整批拒绝；固定告警排在最前，
+  // 超限时被截掉的只会是排在最后的小数明细。
   const boundedWarnings = warnings.slice(0, 200);
   const result = await service.requestJson<InventoryImportExecution>(input.principal, {
     method: "POST",

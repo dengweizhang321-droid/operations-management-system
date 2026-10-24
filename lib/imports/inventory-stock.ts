@@ -324,7 +324,11 @@ function parseRow(
 
   // 推导只在对应表头整列缺失时触发（而不是单元格为空时触发）。此时参与推导的
   // onHandQuantity/availableQuantity/lockedQuantity 已经过 optionalQuantity 规范化为安全整数，
-  // 整数之间的加减法不会再产生小数，因此"先取整再推导"不会比"先推导再取整"引入额外偏差。
+  // 但"先取整再推导"在极端场景下可能与"先推导再取整"相差 1 个单位（例如整列缺失、
+  // onHand=10.5、locked=0.4 时：先取整再推导得 11-0=11；若改成先用原始小数推导再取整，
+  // 得 round(10.5-0.4)=round(10.1)=10，相差 1）。真实报表两列（onHandQuantity 与
+  // availableQuantity）均存在，不会触发本推导路径，故未按该极端场景调整顺序。
+
   if (!indexes.has("availableQuantity") && indexes.has("onHandQuantity")) {
     availableQuantity = onHandQuantity - lockedQuantity;
   }
@@ -410,9 +414,10 @@ function requiredText(
 // 负数小数：无论是否传 nonNegative，一律阻断（这是本次新增的容错边界，不是收紧原有负整数
 // 校验）。原因：取整只用于消除小数/精度表示问题，不能用于把负值这种业务异常信号改写成
 // 更"好看"的数字——Math.round 对负数向零偏移（Math.round(-3.5) === -3，不是 -4），
-// 如果负小数也走四舍五入通过，会把真实负值悄悄改小。同时 (-0.5, 0) 区间的负小数四舍五入
-// 后是 -0，-0 < 0 为 false，必须用 Object.is 识别 -0 并同样阻断，否则这一区间的负值
-// 信号会被吞掉而不留痕（原有负整数校验不受此影响，因为整数负值本身就不会产生 -0）。
+// 如果负小数也走四舍五入通过，会把真实负值悄悄改小。下面用 parsed < 0 判断取整前的原始值
+// 即可覆盖所有负小数（包括 (-0.5, 0) 区间，例如 -0.4）：-0 本身是安全整数
+// （Number.isSafeInteger(-0) === true），已在上面的整数分支被拦截返回，不会进入到这里，
+// 因此这里不需要也不应该再额外用 Object.is 判断 -0——那样的分支永远不可达。
 function optionalQuantity(
   value: XlsxCellValue,
   field: string,
@@ -436,9 +441,9 @@ function optionalQuantity(
     }
     return parsed;
   }
-  // 小数路径：负小数（含四舍五入后落在 -0 的区间）一律阻断，不论 nonNegative。
-  const isNegativeDecimal = parsed < 0 || Object.is(parsed, -0);
-  if (isNegativeDecimal) {
+  // 小数路径：负小数一律阻断，不论 nonNegative。parsed < 0 已覆盖所有负小数；
+  // -0 不会走到这里（见上方注释），故不需要 Object.is(parsed, -0) 这一判断。
+  if (parsed < 0) {
     errors.push({ code: "INVALID_NUMBER", message: `${label}不能为负数`, sourceRowNumber: rowNumber, field });
     return 0;
   }
