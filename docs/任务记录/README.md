@@ -1,6 +1,6 @@
 # 任务记录目录
 
-本轮夜间施工：[按审查第 4 节重排执行](../release-rework-20261024/REPORT.md) · [S05 候选](../release-rework-20261024/S05-CANDIDATE.md) · [S05b 早上执行手册](../release-rework-20261024/S05B-RUNBOOK.md) · [S16 热点分析](../release-rework-20261024/S16-ANALYSIS.md)。S05d/S08/S16 代码在未合入 main 的分支提交；S05b、S05 未执行，转用户早上操作。
+本轮夜间施工：[按审查第 4 节重排执行](../release-rework-20261024/REPORT.md) · [S05 候选](../release-rework-20261024/S05-CANDIDATE.md) · [S05b 早上执行手册](../release-rework-20261024/S05B-RUNBOOK.md) · [S16 热点分析](../release-rework-20261024/S16-ANALYSIS.md)。S05b、S05 已于当天完成：控制包 `01b0fc5f` 采用，生产升至 main `36668589`（经 r2、r3 两次失败后 r4 成功，见报告“全天结果”）；新增 [S19 发布守卫](../施工/S19.md)。S05d/S08/S16 代码在未合入 main 的分支提交。
 
 本轮限定推进：[S05d D1/D2 真实入口补证](../s05d-real-entry-d12-20261023/REPORT.md) · [证据索引](../s05d-real-entry-d12-20261023/evidence-index.json)。D1三次有依据实验仍未满足入口判据，D2未进入、新Task为零；程序未改，已停止。
 

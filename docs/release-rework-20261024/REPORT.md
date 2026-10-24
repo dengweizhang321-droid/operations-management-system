@@ -2,7 +2,92 @@
 
 用户 2026-10-24 认可[发布慢因与施工方案审查](../施工/发布慢因与施工方案审查.md#4-按缩短时间最多重排建议未采用)第 4 节重排并授权今晚执行 S05d、S05b、S05、S08、S16；新分支从 `codex/release-process-review-20261024`（`a6cc9fcd`）拉出，不合入 main。用户未调整沙箱设置。
 
-## 结论
+## 全天结果
+
+2026-10-24 晚更新，以本节为准。下文“结论”至“证据”各节保留夜间与早上时点的原文，其中“S05b、S05 未执行”“队列现状未变”“生产仍为 4059afea”等已过时，不改写，仅在状态格加注。时钟时间除标 UTC/Z 外均为本地时间（UTC+8）。
+
+**结果：生产由 `4059afea` 经 `准备main.bat`、`发布main.bat` 升至 main `36668589`（`36668589cab03d5d2d9d98383fb58eeb19c391ee`）。** 原生回执 SUCCESS，时间 2026-10-24T11:48:38.700Z；`PUBLISHED-MAIN.json` 为 `36668589`；新 Worker release `20261024T103936Z-9933ad187e45ba6b`；健康检查 200；无遗留维护标记。成功依据原生回执；功能由用户检测，本记录不含业务功能验收。
+
+### 经过
+
+| 步骤 | 结果 |
+| --- | --- |
+| 1 推送 | 全部改动分支 `codex/release-rework-20261024` 由 `087a8348` 推到 `a0b732b1`；控制分支 `codex/release-rework-20261024-control` 由 `d1b60496` 推到 `01b0fc5f`。测试 62 通过、1 个预期失败（start-timing）、8 个既有失败（基线同样失败）。未动 main |
+| 2 S05b 控制采用 | 采用 `01b0fc5f`：材料 `D:\codex-artifacts\release-rework-20261024\control-upgrade-01b0fc5f-20261024-112309`，installId `0b99f8cc-93d4-4233-bc87-ebdaa59e2e8a`，采用于 03:23:47Z，替换 `ade68625` / `83e4158f` |
+| 3 准备main（r2） | 新消费者对 a3d53227 写放弃记录 `prebuild-queue-v2\abandoned\a3d53227-8976-4762-8be6-6f8c28107b5b.json`（`consumePermitted:false`）；a3d53227 的阻塞解除。准备包 `-r2`，dispatch `c6d69d0c-e77c-440d-b6c5-6a0ebd6641f4` |
+| 4 发布 r2（事故 1） | 11:53 在“进入维护”失败，未发生任何变更；见下 |
+| 5 S19 | 新分支 `codex/release-publish-guard-20261024` 提交 `6a1ad1b0`、`cf663fde`、`54a934b5`、`c2633140`，采用 `c2633140`；r2 以“未进入维护”退休；准备 `-r3`，dispatch `0ecdd036-27e3-40cc-a9a1-f6afb97e4eb2`。见 [S19](../施工/S19.md) |
+| 6 发布 r3（事故 2） | 15:22–15:48 约 26 分钟中断，恢复到 `4059afea`；见下 |
+| 7 S19b | 提交 `1fe61f2d`、`4d745901`，采用 `4d745901`；r3 在 18:37:55 由 发布main 以“已进入后恢复”退休 |
+| 8 准备main（r4） | 18:38:41–19:00:40，约 22 分钟；dispatch `a564df59-f00b-42d1-9e5d-ea17b8fcf3cf`，PREPARED sha `d002c5d5…`；19:01 发布前检查通过 |
+| 9 发布 r4 | 19:27:49 起，总计 1257 秒，SUCCESS |
+
+### 事故 1：r2 在进入维护前失败（11:53）
+
+- 现象：在“进入维护”阶段失败，`Assert-RuntimeAclHardened` 报 `root expected=3 actual=11`；失败发生在任何变更之前，没有生产变更。
+- 原因：Django 运行时根目录 ACL 多出 8 个 `S-1-15-2` 能力 SID（Codex Windows 沙箱留下）。
+- 处理：用 `HardenAcl` 收紧；处理前 SDDL 已保存为 `django-sales-root-acl-before-harden.sddl.txt`。该过程首次运行遇 pg_wal 轮换，第二次成功，用时 19 分钟。
+- 对应 S19：第 1 项维护前只读预检、第 2 项未进入维护的发布退休、第 3 项每日权限核对、第 4 项失败原因透出。
+
+### 事故 2：r3 进入维护后停不掉 Django，约 26 分钟中断（15:22–15:48）
+
+- 时间线：维护 `eab781702edf4c43abae59da32c6c268` 于 15:22:29 进入；Django Stop 失败，报“Process metadata is unavailable; absence is not established: 14720”。
+- 根因：pid 14720 是 360 办公 `readertray.exe`（进程元数据不可读），它记录的 ParentProcessId 11412 是过期数字，已被 reader waitress 9936 的 conhost 重用。原生 Django 控制器据此把它当作服务后裔，造成 pid 复用的假后裔，无法证明已停。
+- 恢复（按现有协议，没有手工删标记、没有伪造记录）：只停止经身份核对的 reader 进程树；`Django Stop -KeepPostgres` 完成停止（末尾有一条 Pi runner 迟到错误）；Worker `ExitMaintenance -MaintenanceId` 用精确 id，记录 `maintenance_ended`；Worker Start 时发现 PATH 上没有 pwsh（Worker 需要），补上固定的 pwsh 后启动，15:48 回到 `4059afea`。
+- 附带：PowerShell 7.6.8 已用 winget 按用户安装（MSIX，`WindowsApps\pwsh.exe` 在用户 PATH），使开机快捷方式能找到 pwsh；未做重启实测。
+- 对应 S19b：`Assert-NoForeignServiceChildren` 预检与“已进入后恢复”的退休。原生控制器的后裔遍历仍未改，见下“遗留”。
+
+### r4 发布分项计时
+
+发布main 19:27:49 起，总计 1257 秒。
+
+| 阶段 | 秒 |
+| --- | --- |
+| 准备本次最新 main | 20 |
+| 发布前检查 | 46 |
+| 内层发布合计 | 1180 |
+| 其中：准备发布 | 7 |
+| 其中：核对维护前驱资格 | 0 |
+| 其中：复验已准备前端（维护前） | 322 |
+| 其中：复验已准备后台（维护前） | 71 |
+| 其中：维护前只读检查 | 1 |
+| 其中：进入维护 | 228 |
+| 其中：停止旧前端 | 5 |
+| 其中：部署后台 | 60 |
+| 其中：应用后台权限 | 43 |
+| 其中：切换前端 | 213 |
+| 其中：退出维护 | 41 |
+| 其中：启动服务 | 162 |
+| 其中：确认启动版本 | 6 |
+| 其中：确认服务可用 | 7 |
+
+- 业务中断窗口：约 19:35:48（进入维护开始）至 19:48:24（启动服务完成），约 12.6 分钟（进入维护、停止旧前端、部署后台、应用后台权限、切换前端、退出维护、启动服务合计 752 秒）。这是维护与启动时间线，不是独立的用户可用性采样；后者未观测。维护 ≤2 分钟的目标未达成。
+- 最大 5 项：复验已准备前端 322、进入维护 228、切换前端 213、启动服务 162、复验已准备后台 71，合计 996 秒；复验前端与后台在维护之前，另三项在维护窗口内（603 秒，占窗口 80%）。
+- 各子阶段之和 1166 秒，与内层 1180 秒差 14 秒；20 + 46 + 1180 与总计 1257 差 11 秒，均为未单列的间隙，未观测。
+- 准备 r4 约 22 分钟，对比 51e242da 基线约 28 分钟：口径、样本和变更类型不同，只有一个样本，不据此宣称降幅。r4 的目标 `36668589` 不含 S16 分项计时（`22193950` 未合入 main），所以准备侧首尾分项数据未取得。详见 [S16 热点分析](S16-ANALYSIS.md#8-r4-实测)。
+
+### 各单结果（全天）
+
+| 单号 | 结果 |
+| --- | --- |
+| S05d | 随 S05b 采用并现场生效：放弃记录已写、a3d53227 解除阻塞、r2 到 r4 在新目录准备。独审复审结论未见记录，状态保持“待复审” |
+| S05b | 通过：控制采用 `01b0fc5f` 完成，a3d53227 已有有效放弃记录 |
+| S05 | 通过：B1 随 `36668589` 上线（第 3 次发布尝试，r4）；r2、r3 失败见上 |
+| S19 / S19b | 事故驱动新增，已采用；见 [S19](../施工/S19.md) |
+| S08、S16 | 已推送，仍未合入 main；S08 待 S09 采用；S16 计时待合入 main 后的准备取数，r4 发布侧数据见 S16 分析 |
+
+### 遗留
+
+- (a) 原生 Django 控制器遍历后裔时，应先核对子进程 CreationDate 不早于父进程，再信任 ParentProcessId；属原生改动，需资格化。
+- (b) 原生 Worker 的 `-Json` 模式吞掉真实错误；需单独改动并重新做 controller-generation 资格。
+- (c) 把 `D:\teruisi-runtime` 排除出 Codex 沙箱，避免再留能力 SID。
+- (d) `publish-latest-main.mjs:412` 的日志顺序小问题。
+- (e) pwsh 发现机制的重启测试。
+- (f) S16：r4 数据显示发布前的“复验已准备前端”（322 秒）以及维护内的进入维护、切换前端、启动服务是削减目标，见 S16 分析与 S06/S07。
+
+生产路径（`D:\teruisi-runtime`、`D:\codex-isolated`、`D:\codex-artifacts`）本次文档任务只读。
+
+## 结论（夜间与早上时点原文；最终状态见上节“全天结果”）
 
 - 代码三单已在分支 `codex/release-rework-20261024` 提交（草稿仓库，早上由脚本推送）：S05d `24dd52ac`、S08 `c35de78e`、S16 `22193950`，文档为其后的提交。沙箱内能运行的直接相关测试均通过，个别失败都是沙箱限制且与基线相同；起子进程的测试沙箱内无法运行，已列入早上推送脚本，未通过前不推送。
 - S05b、S05 未执行。原因不是代码阻断，而是沙箱不能在真实仓库提交、不能推送、不能以普通用户运行 installer 和发布入口；control installer 又要求干净的已提交控制源码。按代码核对，正常路径上没有会拒绝新字节的断言（见 [S05B-RUNBOOK](S05B-RUNBOOK.md#s05b-代码阻断核对只读代码2026-10-24)）。
@@ -13,11 +98,11 @@
 
 | 单号 | 今晚结果 | 提交 / 文件 | 状态 |
 | --- | --- | --- | --- |
-| S05d（扩大为通用机制） | ①确定未动生产的准备失败写结构化终态：原生 prepare-only 失败写 `teruisi-native-preparation-failure-v1` 记录，控制侧严格校验后记带 dispatch 绑定的 failed；消费者在调用原生前的拒绝记 `rejected-before-native`。②准备阶段 unknown：期限加 15 分钟、无任何上线阶段标记、轮换锁空闲、无 resolution 时写 `abandoned/<dispatchId>.json`，原 unknown 字节不动，同一目标改用 `<base>-r2` 新目录；上线阶段 unknown 仍阻塞。发布入口拒绝已退休包 | `24dd52ac`：`tools/main-prebuild-queue.mjs`、`publish-latest-main.mjs`、`publish-main.mjs`、`publish-prepared-main.mjs`，新测试 `main-prebuild-queue-abandonment`、`publish-main-preparation-failure`，扩展 `publish-prepared-main`；审查修复 `b7db5541`（控制分支 `d1b60496`）：放弃判定移到准入之后；10-24 早上生产者资格修复 `54b3aa0d`（控制分支 `01b0fc5f`） | 代码已提交；早上脚本因新失败中止，已修复，沙箱外测试待重跑；独审 v1 意见已处理，待复审；待 S05b 采用 |
+| S05d（扩大为通用机制） | ①确定未动生产的准备失败写结构化终态：原生 prepare-only 失败写 `teruisi-native-preparation-failure-v1` 记录，控制侧严格校验后记带 dispatch 绑定的 failed；消费者在调用原生前的拒绝记 `rejected-before-native`。②准备阶段 unknown：期限加 15 分钟、无任何上线阶段标记、轮换锁空闲、无 resolution 时写 `abandoned/<dispatchId>.json`，原 unknown 字节不动，同一目标改用 `<base>-r2` 新目录；上线阶段 unknown 仍阻塞。发布入口拒绝已退休包 | `24dd52ac`：`tools/main-prebuild-queue.mjs`、`publish-latest-main.mjs`、`publish-main.mjs`、`publish-prepared-main.mjs`，新测试 `main-prebuild-queue-abandonment`、`publish-main-preparation-failure`，扩展 `publish-prepared-main`；审查修复 `b7db5541`（控制分支 `d1b60496`）：放弃判定移到准入之后；10-24 早上生产者资格修复 `54b3aa0d`（控制分支 `01b0fc5f`） | 代码已提交；早上脚本因新失败中止，已修复，沙箱外测试待重跑；独审 v1 意见已处理，待复审；待 S05b 采用（夜间时点。后续：已推送，已随 S05b 采用并现场生效，见[全天结果](#全天结果)） |
 | S08 + 发布工具冻结与解耦 | 新增经测试约束的仅控制包集合，目前可证明 2 个文件；只改它们时 scope `control-only`、components 为空；其他变更集输出逐字节不变；写出冻结规则 | `c35de78e`：`tools/release-scope-plan.mjs`，新测试 `release-scope-control-only` | 代码已提交；沙箱外测试待早上脚本；独审 v1 意见已处理，待复审；分类器待 S09 采用 |
 | S16 | 首尾段分项计时（仅日志，作用顺序逐项比对不变）；docs/tests/demos 排除、同进程哈希复用、依赖硬链接三项按证据不实施，给出设计与待确认事项 | `22193950`：`tools/worker-local-release-rotation.mjs`，新测试 `worker-preparation-timing`；分析见 [S16-ANALYSIS](S16-ANALYSIS.md) | 进行中：计时已提交，待随真实发布取数；其余候选待确认 |
-| S05b | 写出早上执行手册和准备脚本；未 prepare、未 adopt | [S05B-RUNBOOK](S05B-RUNBOOK.md) | 待执行（转用户早上） |
-| S05 | 候选与批次分析：候选 36668589（B1），生产 4059afea 到候选为完整 Worker+Django，新旧分类器结果相同；S08/S16 不在本批 | [S05-CANDIDATE](S05-CANDIDATE.md) | 阻塞（待 S05b 采用） |
+| S05b | 写出早上执行手册和准备脚本；未 prepare、未 adopt | [S05B-RUNBOOK](S05B-RUNBOOK.md) | 待执行（转用户早上）（夜间时点。后续：当天 11:23 已采用，通过，见[全天结果](#全天结果)） |
+| S05 | 候选与批次分析：候选 36668589（B1），生产 4059afea 到候选为完整 Worker+Django，新旧分类器结果相同；S08/S16 不在本批 | [S05-CANDIDATE](S05-CANDIDATE.md) | 阻塞（待 S05b 采用）（夜间时点。后续：r4 于 19:48 上线，通过，见[全天结果](#全天结果)） |
 
 各提交身份 `Codex <codex@openai.com>`，父链 `a6cc9fcd` ← `24dd52ac` ← `c35de78e` ← `22193950` ← `606aee50`（文档）← `8eaded4b`（文档）← `b7db5541`（S05d 审查修复）← `087a8348`（审查处理文档）← `54b3aa0d`（生产者资格修复，cherry-pick 自控制分支）← 早上中止记录文档提交（分支头，即含本段的提交）。控制分支 `codex/release-rework-20261024-control`：`a6cc9fcd` ← `24dd52ac` ← `d1b60496`（cherry-pick 自 `b7db5541`）← `01b0fc5f`（生产者资格修复，分支头 `01b0fc5ff7aaf0e44d7c9192f498ed6637970709`）。两个分支都从 `codex/release-process-review-20261024`（`a6cc9fcd`）拉出，均不合入 main。（逐单表中的状态词初稿写为“通过”，独审 v1 指出早于沙箱外测试与审查，已更正；早上脚本通过且复审无阻断后再改。）
 
@@ -86,6 +171,8 @@
 
 ## 需要用户执行的动作（按顺序）
 
+（夜间时点计划；第 1 至 5 步当天均已执行，经过与偏差见[全天结果](#全天结果)，第 6 步仍待用户决定。）
+
 1. 双击 `D:\运营管理系统\.codex-tmp\rework-20261024\1-检查并推送.bat`：白名单核对、取入真实仓库本地、建工作树、沙箱外测试、通过后 `push -u`。不动 main，不涉及生产。10-24 早上第一次运行已中止且未推送；修复后仍双击同一文件：脚本把上次已取入的本地分支和工作树从 `087a8348`/`d1b60496` 只按快进升级到新分支头（其他值不覆盖并中止），测试时给工作树临时接入依赖，结束后移除。
 2. 双击 `2-S05b-准备控制包.bat`：建控制源码工作树（`01b0fc5f`，控制分支；原为 `d1b60496`）并 prepare，不采用。
 3. 手工输入脚本 2 打印的 `--adopt` 命令：生产控制采用（S05b）。
@@ -96,6 +183,8 @@
 细节、风险与可逆性见 [S05B-RUNBOOK](S05B-RUNBOOK.md)。
 
 ## 遗留与未完成
+
+（夜间时点。S05b、S05 已于当天完成，最新遗留见[全天结果](#遗留)。）
 
 - S05b、S05 未执行，原因见上；不能写成已采用或已上线。
 - 早上脚本中只有 1 个已知预期失败，不阻断推送但会显示：`start-timing` 中“publication receipts and lifecycle gates remain outside this candidate”（按候选的守卫，只要分支改了队列/发布工具就会触发，不是行为回归），只允许该 1 个测试以 doesNotMatch 断言失败。`preparation-retirement-collector` 必须通过。（初稿另把 collector 列为已知预期失败，理由是“个案退休流程已被通用放弃机制取代”，判断有误：同一字节固定也用于管理员 resolution，10-24 早上 preparation-resolution 等因此新失败；已更正，见[早上推送脚本中止与修复](#2026-10-24-早上推送脚本中止与修复)。）其他失败只有每个失败测试在 a6cc9fcd 基线上都以同名失败才记为既有问题；超时、缺依赖包、无法解析都中止推送。
