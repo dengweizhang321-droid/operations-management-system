@@ -393,7 +393,15 @@ test('real PowerShell 5.1 snapshot: live roots come from the run records and the
  const snapshot=JSON.parse(raw.trim().split(/\r?\n/).filter(line=>line.startsWith('{')).at(-1)).snapshot;
  assert.deepEqual(asArray(snapshot.roots).map(root=>root.source).sort(),['django-dead.pid.json','django-self.pid.json','worker-process.json']);
  const self=asArray(snapshot.processes).find(item=>item.processId===process.pid);assert.ok(self&&self.readable===true&&Math.abs(Date.parse(self.creationDate)-Date.parse(creation))<2000&&self.parentProcessId>0);
- assert.equal(probed.checks['Assert-NoForeignServiceChildren'].ok,true,'node and its ordinary children are not foreign');
+ assert.deepEqual(asArray(snapshot.unreadable),['broken.pid.json']);
+ assert.equal(probed.checks['Assert-NoForeignServiceChildren'].ok,false);assert.match(probed.checks['Assert-NoForeignServiceChildren'].message,/broken\.pid\.json/);
+ // An unparseable receipt is named too; an absent receipt is fine.
+ await fs.rm(path.join(run,'broken.pid.json'));await fs.writeFile(receipt,'{ nope');
+ const badReceipt=await probePublicationPreconditions({}, {actors:[],checkDjango:false,checkProcesses:true,runDirectory:run,workerReceipt:receipt,run:runReal});
+ assert.equal(badReceipt.checks['Assert-NoForeignServiceChildren'].ok,false);assert.match(badReceipt.checks['Assert-NoForeignServiceChildren'].message,/worker-process\.json/);
+ await fs.rm(receipt);
+ const fine=await probePublicationPreconditions({}, {actors:[],checkDjango:false,checkProcesses:true,runDirectory:run,workerReceipt:receipt,run:runReal});
+ assert.equal(fine.checks['Assert-NoForeignServiceChildren'].ok,true,'node and its ordinary children are not foreign; an absent receipt is fine');
 });
 
 test('v1 records stay readable and keep the packet retired; v2 shape rules; only v2 is written',async t=>{
@@ -423,9 +431,9 @@ async function readOnlyShape(entry,record){
  try{return await readPreparationQueueInventory(entry.queue);}finally{await fs.rm(file,{force:true});}
 }
 test('deploy path and consumer path both retire an entered-then-restored publication with a v2 record',async t=>{
- const f=await logFixture(t,{'launcher.jsonl':enteredLine+endedLine}),config={stateDirectory:path.join(f.root,'state')};await fs.mkdir(config.stateDirectory,{recursive:true});await fs.rename(f.queue,path.join(config.stateDirectory,'prebuild-queue-v2'));
+ const f=await logFixture(t,{'launcher.jsonl':earlyLine+enteredLine+endedLine}),config={stateDirectory:path.join(f.root,'state')};await fs.mkdir(config.stateDirectory,{recursive:true});await fs.rename(f.queue,path.join(config.stateDirectory,'prebuild-queue-v2'));
  const logs=[],outcome=await retireNotEnteredPublication(config,f.selection,{log:line=>logs.push(line),inspect:(cfg,selection,o)=>inspectNotEnteredPublication(cfg,selection,stubs(f,{inventory:o.inventory,readMaintenanceLog:undefined,runtimeRoot:f.runtime}))});
- assert.equal(outcome.status,'retired');assert.match(logs.join('\n'),/上次发布已进入维护但已人工恢复为发布前版本（版本、标记、服务、进程已核实）；原记录全部保留，该包已退役/);
+ assert.equal(outcome.status,'retired');assert.match(logs.join('\n'),/上次发布已进入维护但已人工恢复为发布前版本（版本、标记、服务、进程已核实）；原记录全部保留，该包已退役：.*。下一次发布会再次完整检查全部服务/);
  assert.equal(JSON.parse(await fs.readFile(outcome.file,'utf8')).version,'teruisi-publication-retired-v2');
  const c=await consumerRun(t,{readMaintenanceLog:async()=>({entered:'2026-10-24T01:22:29.000Z',ended:'2026-10-24T01:50:00.000Z'})});
  const second=await c.ticket();assert.equal(second.status,'prepared');assert.equal(c.used.at(-1),packetBaseName(c.f.latest,c.f.live)+'-r2');
@@ -445,7 +453,7 @@ async function logFixture(t,files){
 }
 const real=f=>({readMaintenanceLog:undefined,runtimeRoot:f.runtime});
 const since=Date.parse('2026-10-24T01:00:00.000Z');
-const enteredLine=logLine('system_maintenance_entered',maintenanceId,'2026-10-24T09:22:29.000+08:00'),endedLine=logLine('system_maintenance_ended',maintenanceId,'2026-10-24T09:50:00.000+08:00');
+const earlyLine=logLine('ai_action_failed','x','2026-10-24T08:00:00.000+08:00'),enteredLine=logLine('system_maintenance_entered',maintenanceId,'2026-10-24T09:22:29.000+08:00'),endedLine=logLine('system_maintenance_ended',maintenanceId,'2026-10-24T09:50:00.000+08:00');
 test('scanMaintenanceLog: entered and ended, rotated siblings, other ids and events before STARTED are handled',async t=>{
  const other='f'.repeat(32),noise=logLine('ai_action_failed','x','2026-10-24T03:00:00.000+08:00');
  const f=await logFixture(t,{'launcher.jsonl':noise+logLine('system_maintenance_entered',other,'2026-10-24T09:20:00.000+08:00')+enteredLine+endedLine});
@@ -468,26 +476,55 @@ test('scanMaintenanceLog fails closed: no log, and a 32 MiB window that does not
  await fs.writeFile(path.join(f.runtime,'logs','launcher.jsonl.1'),'');await assert.rejects(scanMaintenanceLog(f.runtime,maintenanceId,since),/后台启动器日志不存在/);
  const filler=logLine('ai_action_failed','x'.repeat(900),'2026-10-24T12:00:00.000+08:00'),big=filler.repeat(Math.ceil(maintenanceLogWindowBytes/filler.length)+10);
  await fs.writeFile(path.join(f.runtime,'logs','launcher.jsonl'),big);
- await assert.rejects(scanMaintenanceLog(f.runtime,maintenanceId,since),/没有覆盖到发布开始时间/);
+ await assert.rejects(scanMaintenanceLog(f.runtime,maintenanceId,since),/启动器日志窗口没有覆盖到发布开始时间，无法证明是否进入过维护/);
  // An entered line that fell out of the window is exactly why a truncated window that starts after STARTED must refuse.
  await fs.writeFile(path.join(f.runtime,'logs','launcher.jsonl'),enteredLine+big);
- await assert.rejects(scanMaintenanceLog(f.runtime,maintenanceId,since),/没有覆盖到发布开始时间/);
+ await assert.rejects(scanMaintenanceLog(f.runtime,maintenanceId,since),/启动器日志窗口没有覆盖到发布开始时间，无法证明是否进入过维护/);
 });
 test('entered then restored: v2 retirement with the real log scan; entered without ended, unreadable log and not-entered all behave',async t=>{
- const f=await logFixture(t,{'launcher.jsonl':enteredLine+endedLine}),result=await inspect(f,real(f));
+ const f=await logFixture(t,{'launcher.jsonl':earlyLine+enteredLine+endedLine}),result=await inspect(f,real(f));
  assert.equal(result.eligible,true);assert.equal(result.record.version,publicationRetirementVersion);assert.equal(publicationRetirementVersion,'teruisi-publication-retired-v2');
  assert.equal(result.record.basis.maintenanceEntered,true);assert.equal(result.record.basis.maintenanceEndedAt,'2026-10-24T01:50:00.000Z');
  await writePublicationRetirement(f.queue,result.record);
  const stored=JSON.parse(await fs.readFile(path.join(f.queue,'publication-retired',f.dispatchRead.value.dispatchId+'.json'),'utf8'));assert.equal(stored.basis.maintenanceEntered,true);
  assert.ok(retiredPreparationPackets(await readPreparationQueueInventory(f.queue)).has(key(f.packet)));
- const open=await logFixture(t,{'launcher.jsonl':enteredLine}),refused=await inspect(open,real(open));assert.equal(refused.eligible,false);assert.match(refused.reasons.join(),/已进入维护，且没有结束维护的记录/);
+ const open=await logFixture(t,{'launcher.jsonl':earlyLine+enteredLine}),refused=await inspect(open,real(open));assert.equal(refused.eligible,false);assert.match(refused.reasons.join(),/已进入维护，且没有结束维护的记录/);
  for(const [label,over,pattern] of [['rotation busy',{probeRotation:async()=>false},/轮换锁/],['health',{fetchReady:async()=>({status:503,json:async()=>({})})},/未就绪/],['actor alive',{probe:probeWith(aclFailure,[owner.processId])},/仍在运行/]]){
-  const g=await logFixture(t,{'launcher.jsonl':enteredLine+endedLine}),r=await inspect(g,{...real(g),...over});assert.equal(r.eligible,false,label);assert.match(r.reasons.join(),pattern,label);
+  const g=await logFixture(t,{'launcher.jsonl':earlyLine+enteredLine+endedLine}),r=await inspect(g,{...real(g),...over});assert.equal(r.eligible,false,label);assert.match(r.reasons.join(),pattern,label);
  }
- const marker=await logFixture(t,{'launcher.jsonl':enteredLine+endedLine});await fs.writeFile(path.join(marker.runtime,'run','system-maintenance.json'),'{}');const m=await inspect(marker,real(marker));assert.equal(m.eligible,false);assert.match(m.reasons.join(),/维护或排空/);
+ const marker=await logFixture(t,{'launcher.jsonl':earlyLine+enteredLine+endedLine});await fs.writeFile(path.join(marker.runtime,'run','system-maintenance.json'),'{}');const m=await inspect(marker,real(marker));assert.equal(m.eligible,false);assert.match(m.reasons.join(),/维护或排空/);
  const none=await failedEntry(t),unreadable=await inspect(none,real(none));assert.equal(unreadable.eligible,false);assert.match(unreadable.reasons.join(),/无法读取后台启动器日志/);
- const quiet=await logFixture(t,{'launcher.jsonl':logLine('ai_action_failed','x','2026-10-24T10:00:00.000+08:00')}),q=await inspect(quiet,real(quiet));
+ const quiet=await logFixture(t,{'launcher.jsonl':earlyLine+logLine('ai_action_failed','x','2026-10-24T10:00:00.000+08:00')}),q=await inspect(quiet,real(quiet));
  assert.equal(q.eligible,true);assert.equal(q.record.basis.maintenanceEntered,false);assert.equal(q.record.basis.maintenanceEndedAt,null);await writePublicationRetirement(quiet.queue,q.record);
- const bad=await logFixture(t,{'launcher.jsonl':enteredLine+endedLine});const file=path.join(bad.attempt,'STARTED.json'),value=JSON.parse(await fs.readFile(file,'utf8'));value.at='yesterday';await fs.writeFile(file,JSON.stringify(value));
+ const bad=await logFixture(t,{'launcher.jsonl':earlyLine+enteredLine+endedLine});const file=path.join(bad.attempt,'STARTED.json'),value=JSON.parse(await fs.readFile(file,'utf8'));value.at='yesterday';await fs.writeFile(file,JSON.stringify(value));
  const b=await inspect(bad,real(bad));assert.equal(b.eligible,false);assert.match(b.reasons.join(),/没有有效时间/);
+});
+
+
+// ---- S19b review fixes: short log window and unreadable records fail closed ----------------------------------
+test('scanMaintenanceLog refuses when no log file reaches back to STARTED; the base case still works',async t=>{
+ const later=logLine('ai_action_failed','x','2026-10-24T10:00:00.000+08:00');
+ // base case: the first record is at or before STARTED
+ const base=await logFixture(t,{'launcher.jsonl':earlyLine+later});
+ assert.deepEqual(await scanMaintenanceLog(base.runtime,maintenanceId,since),{entered:null,ended:null});
+ // only an old rotated file exists, and its first record is later than STARTED (the newest file is missing too)
+ const only3=await logFixture(t,{'launcher.jsonl.3':later});
+ await assert.rejects(scanMaintenanceLog(only3.runtime,maintenanceId,since),/后台启动器日志不存在/);
+ // the newest file and .3 both start after STARTED: the history before them is gone, so not-entered cannot be proven
+ const gap=await logFixture(t,{'launcher.jsonl':later,'launcher.jsonl.3':logLine('ai_action_failed','x','2026-10-24T09:30:00.000+08:00')});
+ await assert.rejects(scanMaintenanceLog(gap.runtime,maintenanceId,since),/启动器日志窗口没有覆盖到发布开始时间，无法证明是否进入过维护/);
+ // empty files give no coverage either
+ const empty=await logFixture(t,{'launcher.jsonl':''});
+ await assert.rejects(scanMaintenanceLog(empty.runtime,maintenanceId,since),/启动器日志窗口没有覆盖到发布开始时间/);
+ // the same gap makes the retirement refuse
+ const f=await logFixture(t,{'launcher.jsonl':later,'launcher.jsonl.3':later}),refused=await inspect(f,real(f));
+ assert.equal(refused.eligible,false);assert.match(refused.reasons.join(),/无法读取后台启动器日志.*窗口没有覆盖到发布开始时间/);
+});
+test('unreadable run records or Worker receipt fail the foreign-children check by name; an absent receipt is fine',()=>{
+ const snapshot=unreadable=>({roots:[{source:'a',processId:100,creationDate:T0}],processes:[proc(100,1,'w.exe',T0),proc(101,100,'c.exe',T1)],unreadable});
+ assert.deepEqual(evaluateForeignServiceChildren(snapshot([])),{ok:true});assert.deepEqual(evaluateForeignServiceChildren(snapshot(undefined)),{ok:true});
+ const one=evaluateForeignServiceChildren(snapshot(['worker-process.json']));assert.equal(one.ok,false);assert.match(one.message,/worker-process\.json/);
+ const lone=evaluateForeignServiceChildren(snapshot('django-reader.pid.json'));assert.equal(lone.ok,false);assert.match(lone.message,/django-reader\.pid\.json/);
+ const both=evaluateForeignServiceChildren({roots:[{source:'a',processId:100,creationDate:T0}],processes:[proc(100,1,'w.exe',T0),proc(101,100,'x.exe',OLD,false)],unreadable:['a.pid.json']});
+ assert.match(both.message,/a\.pid\.json/);assert.match(both.message,/x\.exe/);assert.ok(both.message.includes(foreignChildrenAdvice));
 });

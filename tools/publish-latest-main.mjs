@@ -240,8 +240,8 @@ export function publicationProbeScript(input){
   // A recorded actor counts as alive when its PID exists with a creation time within 2s.
   "foreach($pgActor in @($pgInput.actors)){$pgAlive=$false;$pgProc=Get-CimInstance Win32_Process -Filter ('ProcessId='+[int]$pgActor.processId) -ErrorAction SilentlyContinue;if($pgProc -and $pgProc.CreationDate){$pgAlive=[Math]::Abs(($pgProc.CreationDate.ToUniversalTime()-[DateTime]::Parse([string]$pgActor.creationDate).ToUniversalTime()).TotalSeconds) -lt 2};$pgResult.actors+=[ordered]@{processId=[int]$pgActor.processId;alive=[bool]$pgAlive}}",
   // Process snapshot for the foreign-child check (evaluated in Node): service roots from the run records and the Worker receipt, plus every process with its parent id.
-  "$pgSnapshot=[ordered]@{roots=@();processes=@()}",
-  "if($pgInput.checkProcesses){$pgRootList=New-Object System.Collections.ArrayList;if(Test-Path -LiteralPath ([string]$pgInput.runDirectory) -PathType Container){foreach($pgFile in @(Get-ChildItem -LiteralPath ([string]$pgInput.runDirectory) -Filter '*.pid.json' -File)){try{$pgRec=[IO.File]::ReadAllText($pgFile.FullName,[Text.Encoding]::UTF8)|ConvertFrom-Json}catch{continue};if($pgRec -and $pgRec.processId){[void]$pgRootList.Add([ordered]@{source=[string]$pgFile.Name;processId=[int]$pgRec.processId;creationDate=$(if($pgRec.creationDate){([DateTime]::Parse([string]$pgRec.creationDate)).ToUniversalTime().ToString('o')}else{$null})})}}};if(Test-Path -LiteralPath ([string]$pgInput.workerReceipt) -PathType Leaf){try{$pgRec=[IO.File]::ReadAllText([string]$pgInput.workerReceipt,[Text.Encoding]::UTF8)|ConvertFrom-Json;if($pgRec.supervisorPid){[void]$pgRootList.Add([ordered]@{source='worker-process.json';processId=[int]$pgRec.supervisorPid;creationDate=$(if($pgRec.supervisorCreationDate){([DateTime]::Parse([string]$pgRec.supervisorCreationDate)).ToUniversalTime().ToString('o')}else{$null})})}}catch{}};$pgSnapshot.roots=@($pgRootList);$pgSnapshot.processes=@(Get-CimInstance Win32_Process -ErrorAction Stop|ForEach-Object{[ordered]@{processId=[int]$_.ProcessId;parentProcessId=[int]$_.ParentProcessId;name=[string]$_.Name;creationDate=$(if($_.CreationDate){$_.CreationDate.ToUniversalTime().ToString('o')}else{$null});readable=[bool]($_.CreationDate -and $_.ExecutablePath -and $_.CommandLine)}})}",
+  "$pgSnapshot=[ordered]@{roots=@();processes=@();unreadable=@()}",
+  "if($pgInput.checkProcesses){$pgRootList=New-Object System.Collections.ArrayList;$pgBad=New-Object System.Collections.ArrayList;if(Test-Path -LiteralPath ([string]$pgInput.runDirectory) -PathType Container){foreach($pgFile in @(Get-ChildItem -LiteralPath ([string]$pgInput.runDirectory) -Filter '*.pid.json' -File)){try{$pgRec=[IO.File]::ReadAllText($pgFile.FullName,[Text.Encoding]::UTF8)|ConvertFrom-Json;if($null -eq $pgRec){throw 'empty'}}catch{[void]$pgBad.Add([string]$pgFile.Name);continue};if($pgRec.processId){[void]$pgRootList.Add([ordered]@{source=[string]$pgFile.Name;processId=[int]$pgRec.processId;creationDate=$(if($pgRec.creationDate){([DateTime]::Parse([string]$pgRec.creationDate)).ToUniversalTime().ToString('o')}else{$null})})}}};if(Test-Path -LiteralPath ([string]$pgInput.workerReceipt) -PathType Leaf){try{$pgRec=[IO.File]::ReadAllText([string]$pgInput.workerReceipt,[Text.Encoding]::UTF8)|ConvertFrom-Json;if($null -eq $pgRec){throw 'empty'};if($pgRec.supervisorPid){[void]$pgRootList.Add([ordered]@{source='worker-process.json';processId=[int]$pgRec.supervisorPid;creationDate=$(if($pgRec.supervisorCreationDate){([DateTime]::Parse([string]$pgRec.supervisorCreationDate)).ToUniversalTime().ToString('o')}else{$null})})}}catch{[void]$pgBad.Add([IO.Path]::GetFileName([string]$pgInput.workerReceipt))}};$pgSnapshot.roots=@($pgRootList);$pgSnapshot.unreadable=@($pgBad);$pgSnapshot.processes=@(Get-CimInstance Win32_Process -ErrorAction Stop|ForEach-Object{[ordered]@{processId=[int]$_.ProcessId;parentProcessId=[int]$_.ParentProcessId;name=[string]$_.Name;creationDate=$(if($_.CreationDate){$_.CreationDate.ToUniversalTime().ToString('o')}else{$null});readable=[bool]($_.CreationDate -and $_.ExecutablePath -and $_.CommandLine)}})}",
   "$pgResult.snapshot=$pgSnapshot",
   // Everything after the dot-source stays inside this scriptblock: the functions it defines are only visible here.
   "$pgRun={param($__pgController,$__pgRoot,$__pgNames);. $__pgController -RuntimeRoot $__pgRoot;$__pgOut=[ordered]@{};foreach($__pgName in $__pgNames){try{& $__pgName|Out-Null;$__pgOut[$__pgName]=[ordered]@{ok=$true}}catch{$__pgMessage=[string]$_.Exception.Message;$__pgOut[$__pgName]=[ordered]@{ok=$false;message=$__pgMessage.Substring(0,[Math]::Min(600,$__pgMessage.Length))}}};return $__pgOut}",
@@ -265,7 +265,7 @@ export const foreignChildrenAdvice='该程序的父进程号与后台服务进�
 export function evaluateForeignServiceChildren(snapshot){
  const processes=new Map(),byParent=new Map();
  for(const item of asList(snapshot?.processes)){processes.set(item.processId,item);if(item.parentProcessId!==item.processId){if(!byParent.has(item.parentProcessId))byParent.set(item.parentProcessId,[]);byParent.get(item.parentProcessId).push(item);}}
- const flagged=[],seen=new Set();
+ const unreadable=[...new Set(asList(snapshot?.unreadable).map(String))],flagged=[],seen=new Set();
  for(const root of asList(snapshot?.roots)){
   const live=processes.get(root.processId);
   // A stale record (dead pid, or a different process now holding the pid) is not a live service root.
@@ -281,9 +281,12 @@ export function evaluateForeignServiceChildren(snapshot){
    }
   }
  }
- if(!flagged.length)return {ok:true};
+ const parts=[];
+ if(unreadable.length)parts.push('无法解析进程记录文件：'+unreadable.slice(0,5).join('、')+(unreadable.length>5?'等':'')+'，不能确认哪些进程属于后台服务，请交 AI 检查这些文件后再发布');
+ if(!flagged.length&&!parts.length)return {ok:true};
+ if(!flagged.length)return {ok:false,message:parts.join('；').slice(0,1500)};
  const list=flagged.slice(0,5).map(item=>item.name+'（进程号 '+item.processId+'，声称的父进程 '+item.parentProcessId+' '+item.parentName+'，'+item.reason+'）').join('；');
- return {ok:false,message:('发现 '+flagged.length+' 个程序：'+list+(flagged.length>5?'等':'')+'。'+foreignChildrenAdvice).slice(0,1500)};
+ return {ok:false,message:(parts.concat('发现 '+flagged.length+' 个程序：'+list+(flagged.length>5?'等':'')+'。'+foreignChildrenAdvice).join('；')).slice(0,1500)};
 }/** Read-only (except the controller's own diagnostic log line): live Django maintenance preconditions and liveness of recorded actors. */
 export async function probePublicationPreconditions(config,{actors=[],checkDjango=true,checkProcesses=checkDjango,run=runPowerShellProbe,controller=liveDjangoController,runtimeRoot=liveDjangoRuntime,runDirectory=liveDjangoRuntime+'/run',workerReceipt=liveWorkerReceipt}={}){
  const input={actors:actors.map(actor=>({processId:actor.processId,creationDate:actor.creationDate})),checkDjango,controller:path.win32.normalize(controller),runtimeRoot:path.win32.normalize(runtimeRoot),checks:publicationProbeChecks,checkProcesses,runDirectory:path.win32.normalize(runDirectory),workerReceipt:path.win32.normalize(workerReceipt)};
@@ -340,7 +343,7 @@ export async function scanMaintenanceLog(runtimeRoot,maintenanceId,sinceMs){
  const directory=path.join(runtimeRoot,'logs'),rank=name=>name==='launcher.jsonl'?0:Number(name.split('.').at(-1));
  const names=(await fs.readdir(directory)).filter(name=>/^launcher\.jsonl(?:\.\d+)?$/.test(name)).sort((x,y)=>rank(x)-rank(y));
  assert.ok(names[0]==='launcher.jsonl','后台启动器日志不存在');
- const events=[];
+ const events=[],uncovered='启动器日志窗口没有覆盖到发布开始时间，无法证明是否进入过维护';let covered=false;
  for(const name of names){
   const {lines,truncated}=await readLogTail(path.join(directory,name));let firstTimestamp=null;
   for(const line of lines){
@@ -352,13 +355,16 @@ export async function scanMaintenanceLog(runtimeRoot,maintenanceId,sinceMs){
    if(firstTimestamp===null)firstTimestamp=at;
    if(mentions&&item.message===maintenanceId&&['system_maintenance_entered','system_maintenance_ended'].includes(item.event))events.push({event:item.event,at});
   }
-  if(truncated&&(firstTimestamp===null||firstTimestamp>sinceMs))throw Error('日志读取窗口没有覆盖到发布开始时间：'+name);
-  if(firstTimestamp!==null&&firstTimestamp<=sinceMs)break;
+  if(truncated&&(firstTimestamp===null||firstTimestamp>sinceMs))throw Error(uncovered);
+  if(firstTimestamp!==null&&firstTimestamp<=sinceMs){covered=true;break;}
  }
+ // Fail closed: if no file reaches back to STARTED.at, an entered event could lie before the readable history.
+ if(!covered)throw Error(uncovered);
  const entered=events.filter(item=>item.event==='system_maintenance_entered'&&item.at>=sinceMs).sort((x,y)=>x.at-y.at)[0]??null;
  const ended=entered?events.filter(item=>item.event==='system_maintenance_ended'&&item.at>entered.at).sort((x,y)=>x.at-y.at)[0]??null:null;
  return {entered:entered?new Date(entered.at).toISOString():null,ended:ended?new Date(ended.at).toISOString():null};
-}export async function inspectNotEnteredPublication(config,selection,{inventory,probe=probePublicationPreconditions,probeRotation=probeRotationLock,fetchReady=()=>fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)}),now=()=>new Date(),runtimeRoot=liveDjangoRuntime,readMaintenanceLog=scanMaintenanceLog}={}){
+}
+export async function inspectNotEnteredPublication(config,selection,{inventory,probe=probePublicationPreconditions,probeRotation=probeRotationLock,fetchReady=()=>fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)}),now=()=>new Date(),runtimeRoot=liveDjangoRuntime,readMaintenanceLog=scanMaintenanceLog}={}){
  const {packet,targetCommit:target,live}=selection,attempt=path.join(packet,'publish-'+target.slice(0,12));
  let names;try{names=(await fs.readdir(attempt)).sort();}catch(error){if(error.code==='ENOENT')return null;throw error;}
  if(!names.includes('STARTED.json'))return null;
@@ -414,7 +420,7 @@ export async function retireNotEnteredPublication(config,selection,{retirementSc
  if(!result.eligible)return {status:'refused',reasons:result.reasons,attempt:result.attempt};
  await invalidateRetirementReadScope(retirementScope,'publication-retirement-write');
  const written=await writePublicationRetirement(directory,result.record);
- if(result.record.basis.maintenanceEntered)log('上次发布已进入维护但已人工恢复为发布前版本（版本、标记、服务、进程已核实）；原记录全部保留，该包已退役：'+selection.packet);else log('上次发布在“进入维护”时失败，已核实线上系统未被改动（版本、维护标记、服务、进程均与发布前一致）。原记录全部保留，该包已退役：'+selection.packet);
+ if(result.record.basis.maintenanceEntered)log('上次发布已进入维护但已人工恢复为发布前版本（版本、标记、服务、进程已核实）；原记录全部保留，该包已退役：'+selection.packet+'。下一次发布会再次完整检查全部服务');else log('上次发布在“进入维护”时失败，已核实线上系统未被改动（版本、维护标记、服务、进程均与发布前一致）。原记录全部保留，该包已退役：'+selection.packet);
  if(result.record.reason)log('失败原因（只读诊断）：'+result.record.reason);
  log('退役记录：'+written.file);
  return {status:'retired',...written};
