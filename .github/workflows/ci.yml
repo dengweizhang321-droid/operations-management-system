@@ -57,18 +57,23 @@ jobs:
       - name: Django production boundary audit
         run: npm run check:backend-boundary
 
-      # lint 当前基线有 56 个 error（53 个 no-explicit-any 集中在
-      # close-jd-logistics-* 与 jd-logistics-* 的一次性脚本和测试里，
-      # 2 个 no-assign-module-variable 在 tests/main-prebuild-*.mjs，
-      # 1 个 react-hooks/refs 在 app/ai-conversation-shell.tsx）。
+      # 门禁是"不允许新增 error"，不是"必须零 error"：要求立刻清零会让第一个
+      # PR 红在与它无关的历史债上，CI 从第一天失去信任。修掉历史 error 后把
+      # LINT_ERROR_BASELINE 一起调低（error 数低于基线时本步会打 notice 提醒）。
       #
-      # 所以这里的门禁是"不允许新增 error"，不是"必须零 error"：
-      # 要求立刻清零会让第一个 PR 就红在与它无关的历史债上。
-      # 修掉历史 error 后把 LINT_ERROR_BASELINE 一起调低。
+      # 本机 worktree 在 origin/main 同一提交上的构成（56 个）：
+      #   53  @typescript-eslint/no-explicit-any   集中在 close-jd-logistics-*
+      #                                            与 jd-logistics-* 的一次性脚本和测试
+      #    2  @next/next/no-assign-module-variable  tests/main-prebuild-*.mjs
+      #    1  react-hooks/refs                      app/ai-conversation-shell.tsx
+      # app/ + lib/ + worker/ 三个生产目录合计只有 1 个，所以"不许新增"是安全的。
       - name: Lint (no new errors beyond baseline)
         shell: pwsh
         env:
-          LINT_ERROR_BASELINE: '56'
+          # 必须用 runner 实测值，不是本地值：门禁跑在 runner 上。
+          # 首次运行 runner 报 35，本机 worktree 同一提交报 56。用 56 的话
+          # runner 永远触发不了阻断，门禁形同虚设。差异原因见下方注释。
+          LINT_ERROR_BASELINE: '35'
         run: |
           # 统计口径用 stylish 的尾行（"✖ N problems (N errors, M warnings)"）。
           # 不用 -f json + ConvertFrom-Json：实测 Windows PowerShell 5.1 对
@@ -92,6 +97,21 @@ jobs:
             exit 1
           }
           Write-Host "eslint errors=$errors baseline=$baseline"
+          # 始终打出按规则的构成，便于和本地基线对账。
+          # 首次运行发现 runner 报 35 而本地报 56，差 21——原因未定，可能与
+          # npm 11 的 allowScripts 拦下 unrs-resolver 等原生模块的 install
+          # script 有关（即使传了 --ignore-scripts=false 仍被警告未执行），
+          # 导致依赖类型信息的规则在 runner 上静默少报。有了这份构成就能定位。
+          $byRule = [regex]::Matches($out, '(?m)^\s+\d+:\d+\s+error\s+.*?\s{2,}([@\w/-]+)\s*$') |
+            ForEach-Object { $_.Groups[1].Value } | Group-Object | Sort-Object Count -Descending
+          if ($byRule) {
+            $sum = ($byRule | Measure-Object Count -Sum).Sum
+            # 这份构成是辅助信息，不参与判定。它只匹配单行的 error 条目，
+            # 消息跨多行的规则（如 react-hooks/refs 会附 React 文档和代码片段）
+            # 抽不出来，所以 sum 可能小于 errors。判定只认上面的 $errors。
+            Write-Host "按规则构成（抽出 $sum / $errors，多行消息的规则不计）："
+            $byRule | ForEach-Object { Write-Host "  $($_.Count)  $($_.Name)" }
+          }
           if ($errors -gt $baseline) {
             Write-Host "::error::本次改动新增了 $($errors - $baseline) 个 lint error（基线 $baseline）"
             # 输出 eslint 的原始报告便于定位。它打的是 runner 上的绝对路径
@@ -102,6 +122,10 @@ jobs:
           if ($errors -lt $baseline) {
             Write-Host "::notice::lint error 已降到 $errors（基线 $baseline），可把 LINT_ERROR_BASELINE 调低"
           }
+          # 必须显式 exit 0：npx eslint 在有 error 时返回非 0，而 pwsh 会把
+          # run 块里最后一个原生命令的退出码当成整步结果。$ErrorActionPreference
+          # 只影响脚本是否继续执行，不影响最终退出码。
+          exit 0
 
       - name: Build
         run: npm run build
