@@ -14,7 +14,7 @@
 | 材料目录 | `D:\codex-artifacts\release-rework-20261024\control-upgrade-<时间戳>`（每次新建，不复用） |
 | 阻塞 dispatch | `a3d53227-8976-4762-8be6-6f8c28107b5b`，1 张票 unknown，目标 `36668589cab0…`，期限 2026-10-22 16:11:22 +08:00，包 `D:\codex-isolated\main-release-packages\36668589cab0-71ecf390-bbc9a5ef`（`publish-36668589cab0` 下只有 `preparation\PREPARING.json`、`source-binding.json`） |
 
-控制源码为什么用单独的控制分支而不是全部改动分支：两者的 33 个控制文件只差 `tools/release-scope-plan.mjs`（S08 分类器）。用全部改动分支会把 S08 分类器一并带进生产控制，等于提前做 S09 采用，而 S09 不在今晚授权内。S16 改的是原生工具，不在控制包内。初稿用 `24dd52ac`；独审 v1 要求把放弃判定移到准入之后，修复提交在全部改动分支上是 `b7db5541`，在控制分支上是 cherry-pick 出的 `d1b60496`（父提交 `24dd52ac`，两处 `tools/main-prebuild-queue.mjs` 字节相同）。10-24 早上又加生产者资格修复：控制分支上是 `01b0fc5f`（父提交 `d1b60496`），全部改动分支上是 cherry-pick 出的 `54b3aa0d`，修复文件两边字节相同，所以下文一律用 `01b0fc5f`。若用户决定同时采用 S08（即 S09），换用全部改动分支上的 `54b3aa0d`（原写 `b7db5541`，控制文件与分支头相同），其余步骤不变；此时须同步改 `s05b-prepare.ps1` 的固定提交。
+控制源码为什么用单独的控制分支而不是全部改动分支：两者的 33 个控制文件只差 `tools/release-scope-plan.mjs`（S08 分类器）。用全部改动分支会把 S08 分类器一并带进生产控制，等于提前做 S09 采用，而 S09 不在今晚授权内。S16 改的是原生工具，不在控制包内。初稿用 `24dd52ac`；独审 v1 要求把放弃判定移到准入之后，修复提交在全部改动分支上是 `b7db5541`，在控制分支上是 cherry-pick 出的 `d1b60496`（父提交 `24dd52ac`，两处 `tools/main-prebuild-queue.mjs` 字节相同）。10-24 早上又加生产者资格修复：控制分支上是 `01b0fc5f`（父提交 `d1b60496`），全部改动分支上是 cherry-pick 出的 `54b3aa0d`，修复文件两边字节相同，所以下文一律用 `01b0fc5f`。若用户决定同时采用 S08（即 S09），换用全部改动分支上的 `54b3aa0d`（原写 `b7db5541`，控制文件与分支头相同），其余步骤不变；此时 `s05b-prepare.ps1` 不能直接使用：它第 4 步要求 `origin/<$ControlBranch>` 恰等于 `$ControlCommit`，只改固定提交不够，而全部改动分支的远端头是 `54b3aa0d` 之后的文档提交。S09 须另写准备步骤（同时改 `$ControlBranch` 与 `$ControlCommit`，并重新审查）。
 
 ## 前置核对（只读）
 
@@ -38,7 +38,7 @@
 
 ### 1. 检查并推送
 
-脚本按顺序：确认草稿仓库两个分支头分别等于脚本里固定的审查过的提交（`codex/release-rework-20261024` 与 `codex/release-rework-20261024-control`），不等即中止；确认控制分支含 `24dd52ac`、不含 S08 提交 `c35de78e`；两个分支相对 a6cc9fcd 的变更文件必须与各自白名单完全相等，两分支在 tools/ 下只差 `release-scope-plan.mjs`、`worker-local-release-rotation.mjs`；`git fetch <草稿仓库>` 把两个分支取入真实仓库（仅本地分支）；本地分支已存在时，等于新分支头则跳过，等于上次取入的 `087a8348`（全部改动分支）或 `d1b60496`（控制分支）则只按快进升级（检出该分支的工作树须停在旧提交且无已跟踪改动），其他值不覆盖并中止；建 `D:\codex-worktrees\release-rework-20261024` 与控制测试工作树 `D:\codex-worktrees\release-rework-20261024-control-test`（detached；已存在且停在旧提交时切到新提交）；测试前给各测试工作树建 node_modules 目录联接，指向锁文件一致的依赖副本 `D:\运营管理系统\.codex-tmp\rework-20261024\deps-8ec00f`，结束或中止时只删除脚本自己建的联接；在两个工作树中于沙箱外分别运行受影响测试（全部改动分支 39 个文件，控制分支 32 个 S05d 相关文件；今晚沙箱内无法运行的起子进程测试都在内，每个文件限时 900 秒）。判定按每个文件的 JUnit 结果逐个失败测试进行：超时、缺依赖包（环境失败）、无法解析的失败都中止；缺绝对或相对路径的模块文件按普通失败处理；只有 start-timing 1 个已知预期失败，须失败测试名、失败个数和断言文字全部符合（见 [REPORT](REPORT.md#遗留与未完成)），collector 必须通过（10-24 早上前曾被错列为已知预期）；其余失败在 `D:\codex-worktrees\release-rework-20261024-base`（需要时才建，detached 于 a6cc9fcd）复跑，只有本次每个失败测试在基线上都以同名失败才记为既有问题，否则中止且不推送；全部可接受才 `git push --atomic -u origin codex/release-rework-20261024 codex/release-rework-20261024-control`。有既有问题时脚本会提示：状态词改为“通过”前须逐个看日志确认与本分支无关。测试摘要写在 `D:\运营管理系统\.codex-tmp\rework-20261024\morning-tests-<时间>\SUMMARY.txt`。不用 --force、--no-verify，不动 main，不 fetch origin（避免在采用前生成新 hook 票）。先取入再测试，是为了在用户本人的工作树（有 origin/main、归属正常）里运行，测试失败时分支只在本地、不会推送。
+脚本按顺序：确认草稿仓库两个分支头分别等于脚本里固定的审查过的提交（`codex/release-rework-20261024` 与 `codex/release-rework-20261024-control`），不等即中止；确认控制分支含 `24dd52ac`、不含 S08 提交 `c35de78e`；两个分支相对 a6cc9fcd 的变更文件必须与各自白名单完全相等，两分支在 tools/ 下只差 `release-scope-plan.mjs`、`worker-local-release-rotation.mjs`；`git fetch <草稿仓库>` 把两个分支取入真实仓库（仅本地分支）；本地分支已存在时，等于新分支头则跳过，等于上次取入的 `087a8348`（全部改动分支）或 `d1b60496`（控制分支）则只按快进升级（检出该分支的工作树须停在旧提交且无已跟踪改动），其他值不覆盖并中止；建 `D:\codex-worktrees\release-rework-20261024` 与控制测试工作树 `D:\codex-worktrees\release-rework-20261024-control-test`（detached；已存在且停在旧提交时切到新提交）；测试前给各测试工作树建 node_modules 目录联接，指向锁文件一致的依赖副本 `D:\运营管理系统\.codex-tmp\rework-20261024\deps-8ec00f`，结束或中止时删除脚本新建或复用的指向该副本的联接（不递归）；在两个工作树中于沙箱外分别运行受影响测试（全部改动分支 39 个文件，控制分支 32 个 S05d 相关文件；今晚沙箱内无法运行的起子进程测试都在内，每个文件限时 900 秒）。判定按每个文件的 JUnit 结果逐个失败测试进行：超时、缺依赖包或缺 `node_modules` 内的模块文件（环境失败）、无法解析的失败都中止；缺 `node_modules` 外的绝对或相对路径模块文件按普通失败处理；只有 start-timing 1 个已知预期失败，须失败测试名、失败个数和断言文字全部符合（见 [REPORT](REPORT.md#遗留与未完成)），collector 必须通过（10-24 早上前曾被错列为已知预期）；其余失败在 `D:\codex-worktrees\release-rework-20261024-base`（需要时才建，detached 于 a6cc9fcd）复跑，只有本次每个失败测试在基线上都以同名失败才记为既有问题，否则中止且不推送；全部可接受才 `git push --atomic -u origin codex/release-rework-20261024 codex/release-rework-20261024-control`。有既有问题时脚本会提示：状态词改为“通过”前须逐个看日志确认与本分支无关。测试摘要写在 `D:\运营管理系统\.codex-tmp\rework-20261024\morning-tests-<时间>\SUMMARY.txt`。不用 --force、--no-verify，不动 main，不 fetch origin（避免在采用前生成新 hook 票）。先取入再测试，是为了在用户本人的工作树（有 origin/main、归属正常）里运行，测试失败时分支只在本地、不会推送。
 
 ### 2、3. 准备控制包（不采用）
 
@@ -110,7 +110,7 @@
 
 ## 10-24 早上中止后的更新
 
-- 第一次运行第 1 步时，preparation-resolution、preparation-superseded-resolution、preparation-retirement-integration 新失败，collector 被错当已知预期，脚本中止，未推送。根因：生产者资格文件固定的字节被 S05d/S16 改动，管理员 resolution 也用它。已追加资格闭包并冻结原审查字节，详见[夜间报告](REPORT.md#2026-10-24-早上推送脚本中止与修复)。
+- 第一次运行第 1 步时，preparation-resolution、preparation-superseded-resolution、preparation-retirement-integration 新失败，另有缺依赖等环境失败，collector 被错当已知预期，脚本中止，未推送。根因：生产者资格文件固定的字节被 S05d/S16 改动，管理员 resolution 也用它。已追加资格闭包并冻结原审查字节，详见[夜间报告](REPORT.md#2026-10-24-早上推送脚本中止与修复)。
 - 新分支头：控制分支 `01b0fc5ff7aaf0e44d7c9192f498ed6637970709`，即本手册的控制源码；全部改动分支为 `54b3aa0d` 之后的文档提交。`push-rework.ps1` 与 `s05b-prepare.ps1` 已按新提交更新。
 - 用户操作不变：重新双击 `1-检查并推送.bat`，脚本自动把上次取入的分支与工作树快进升级，通过后再双击 `2-S05b-准备控制包.bat`。
 
