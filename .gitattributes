@@ -25,5 +25,6 @@ tools/preparation-retirement*.mjs -text whitespace=cr-at-eol
 tools/preparation-retirement-handoff-runner.ps1 -text whitespace=cr-at-eol
 tests/preparation-retirement-*.test.mjs -text whitespace=cr-at-eol
 tests/fixtures/s05d-old-source-entry/*.mjs -text whitespace=cr-at-eol
+tests/fixtures/reviewed-producer-f641685b/*.mjs -text whitespace=cr-at-eol
 tests/helpers/preparation-retirement-fixture.mjs -text whitespace=cr-at-eol
 tests/fixtures/s05d-old-source-entry/residual-verifier-manifest.json -text whitespace=cr-at-eol
