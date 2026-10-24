@@ -2155,8 +2155,20 @@ try {
       $code = if ($_.Exception.Message -ceq 'process_deadline_exhausted') {'process_deadline_exhausted'} else {'worker_gate_failed'}
       $processEvidence = @{stage=$Action;code=$code;processId=$PID;exitCode=$null;deadlineUnixMs=$WorkerOperationDeadline;timeoutType=$(if($code -eq 'process_deadline_exhausted'){$Action}else{$null})}
     }
-    [Console]::Out.WriteLine((@{status='unknown';processEvidence=$processEvidence;startupPhases=$script:WorkerStartPhases;failedStartPhase=$_.Exception.Data['StartPhase']}|ConvertTo-Json -Depth 8 -Compress))
+    # The reconciliation contract below is unchanged: status stays 'unknown' and
+    # the existing keys keep their shapes, so every consumer that parses this
+    # line keeps working. What was missing is the operator-facing cause: the
+    # real exception text went nowhere in -Json mode (the non-Json branch below
+    # has always printed it), which is why the 2026-10-24 incidents surfaced
+    # only as a generic failure. Add it as an extra diagnostic field and echo it
+    # to stderr; stdout stays a single JSON line.
+    $failureMessage = [string]$_.Exception.Message
+    $failureType = $_.Exception.GetType().FullName
+    [Console]::Out.WriteLine((@{status='unknown';processEvidence=$processEvidence;startupPhases=$script:WorkerStartPhases;failedStartPhase=$_.Exception.Data['StartPhase'];failureMessage=$failureMessage;failureType=$failureType}|ConvertTo-Json -Depth 8 -Compress))
     [Console]::Error.WriteLine('Worker lifecycle result requires exact reconciliation')
+    $failedPhase = $_.Exception.Data['StartPhase']
+    if ($failedPhase) { [Console]::Error.WriteLine("Worker startup phase=$($failedPhase.phase); code=$($failedPhase.code)") }
+    if ($failureMessage) { [Console]::Error.WriteLine($failureMessage) }
   } else {
     $failedPhase = $_.Exception.Data['StartPhase']
     if ($failedPhase) { [Console]::Error.WriteLine("Worker startup phase=$($failedPhase.phase); code=$($failedPhase.code)") }

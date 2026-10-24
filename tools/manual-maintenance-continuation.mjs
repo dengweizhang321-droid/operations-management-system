@@ -71,6 +71,22 @@ export const piNativeCandidateDjangoScriptSha256='65f057297208b32ac6d3c2e71a1201
 // ISO-8601 snapshot strings (no timezone skew). Evidence:
 // D:\teruisi-ops\release-20261025\A项-停服务误认进程-审查证据.md.
 export const aDescendantCreationGuardDjangoScriptSha256='4ba1fcaf3cd1568a64098a9d2d32039f850ec2db1da4f81aa97fa3ab9530723a';
+// B项 (2026-10-25) registers the worker controller that reports the real
+// failure cause in -Json mode. The terminal catch block used to write only the
+// fixed string 'Worker lifecycle result requires exact reconciliation' to
+// stderr and dropped $_.Exception.Message entirely, so a -Json caller saw a
+// generic failure with no cause — the reason the 2026-10-24 r2/r3 incidents
+// took extra diagnosis. The non-Json branch had always printed that text.
+// The reconciliation contract is deliberately preserved: status stays
+// 'unknown' and processEvidence / startupPhases / failedStartPhase keep their
+// existing shapes, so every consumer parsing that stdout line is unaffected.
+// Added are two extra JSON keys (failureMessage, failureType) plus the phase
+// and message lines on stderr. Nothing in maintenance enter/exit, the
+// maintenance lock, drain, STARTED/SUCCESS receipts, worker start/stop
+// sequencing, process-tree termination or signal handling is touched; no
+// external process is added; no assertion is relaxed and no new failure path
+// is introduced (this code runs only after a failure already happened).
+export const bWorkerJsonFailureCauseScriptSha256='36c9a0ac2d7b49ff492f0b1a0c04ef90828909bdff7e7da6393713afccba6186';
 // S05a (2026-10-22): qualification is per controller, never one shared
 // exception. A controller name owns only its own reviewed candidate hashes; an
 // unregistered name or an unlisted hash for a registered name still fails
@@ -80,7 +96,7 @@ export const aDescendantCreationGuardDjangoScriptSha256='4ba1fcaf3cd1568a64098a9
 // independent DingTalk startup observer. Evidence: docs/施工/S05a.md.
 export const piNativeCandidateControllerSha256=Object.freeze({
  'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256]),
- 'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058']),
+ 'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256]),
  'process-deadline.ps1':Object.freeze([])
 });
 export function assertMaintenanceControllerGeneration({name,installedSha,expected,candidateSha}){
