@@ -1,0 +1,147 @@
+name: CI
+
+# 阶段 0 最小 CI：把"改动有没有破坏构建和既有测试"从人工挪到自动。
+#
+# 为什么是 windows-latest：生产跑在 Windows 单机上，发布链是 PowerShell，
+# 依赖里有 workerd/sharp 这类平台二进制。在 ubuntu 上跑等于验证了一个
+# 生产永远不会用的组合。
+#
+# 本 workflow 不做功能验收，也不碰生产：不连数据库、不起服务、不访问
+# D:\teruisi-runtime。它只回答"这份代码能不能装、能不能编、既有测试还过不过"。
+#
+# 注意：公开仓库的 Actions 运行日志是公开可见的。新增步骤前确认它的输出
+# 不包含机器内部路径、端口布局或凭据。
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 同一分支的新推送取消旧运行，避免排队堆积
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  node:
+    name: Node (lint / build / test)
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # package.json engines 要求 >=22.13.0；本地开发机当前是 24.x
+          node-version: '24'
+          cache: npm
+
+      # 与发布链一致：worker-local-release.mjs 用的是
+      # npm ci --ignore-scripts=false。postinstall 会给 node_modules 里的
+      # Miniflare 打 heap 补丁，并校验其源码哈希——升级 wrangler 时它会拒绝，
+      # 所以单独成步，失败时能一眼看出是补丁拒绝而不是构建问题。
+      - name: Install dependencies
+        run: npm ci --ignore-scripts=false --no-audit --no-fund
+
+      - name: Verify Miniflare heap patch applied
+        run: node tools/install-workerd-heap-patch.mjs
+
+      # 现成的静态门禁，不连数据库、不起服务。
+      # 守的是生产代码的导入边界，比通用 lint 更贴近本项目关心的问题。
+      - name: Django production boundary audit
+        run: npm run check:backend-boundary
+
+      # lint 当前基线有 56 个 error（53 个 no-explicit-any 集中在
+      # close-jd-logistics-* 与 jd-logistics-* 的一次性脚本和测试里，
+      # 2 个 no-assign-module-variable 在 tests/main-prebuild-*.mjs，
+      # 1 个 react-hooks/refs 在 app/ai-conversation-shell.tsx）。
+      #
+      # 所以这里的门禁是"不允许新增 error"，不是"必须零 error"：
+      # 要求立刻清零会让第一个 PR 就红在与它无关的历史债上。
+      # 修掉历史 error 后把 LINT_ERROR_BASELINE 一起调低。
+      - name: Lint (no new errors beyond baseline)
+        shell: pwsh
+        env:
+          LINT_ERROR_BASELINE: '56'
+        run: |
+          # 统计口径用 stylish 的尾行（"✖ N problems (N errors, M warnings)"）。
+          # 不用 -f json + ConvertFrom-Json：实测 Windows PowerShell 5.1 对
+          # eslint 的深层嵌套 JSON 会报解析错误，而 3.4 MB 全量输出解析也慢。
+          # 抓尾行跨 PowerShell 版本都一致。
+          # --quiet 只报 error；eslint 有 error 时退出码非 0，故用 $ErrorActionPreference
+          # 放行、按文本自行判定。
+          $ErrorActionPreference = 'Continue'
+          $out = npx eslint . --quiet --ignore-pattern dist --ignore-pattern .next `
+            --ignore-pattern .runtime --ignore-pattern .codex-tmp `
+            --ignore-pattern .vite-sites-cache --ignore-pattern tmp `
+            --ignore-pattern outputs 2>&1 | Out-String
+          $baseline = [int]$env:LINT_ERROR_BASELINE
+          if ($out -match '(\d+)\s+error') {
+            $errors = [int]$Matches[1]
+          } elseif ($out -notmatch '\S') {
+            $errors = 0   # 无输出 = 无 error
+          } else {
+            Write-Host "::error::无法从 eslint 输出解析 error 数，门禁失效，按失败处理"
+            Write-Host $out
+            exit 1
+          }
+          Write-Host "eslint errors=$errors baseline=$baseline"
+          if ($errors -gt $baseline) {
+            Write-Host "::error::本次改动新增了 $($errors - $baseline) 个 lint error（基线 $baseline）"
+            # 输出 eslint 的原始报告便于定位。它打的是 runner 上的绝对路径
+            # （D:\a\<repo>\<repo>\...），不含本机内部布局，公开日志可见无妨。
+            Write-Host $out
+            exit 1
+          }
+          if ($errors -lt $baseline) {
+            Write-Host "::notice::lint error 已降到 $errors（基线 $baseline），可把 LINT_ERROR_BASELINE 调低"
+          }
+
+      - name: Build
+        run: npm run build
+
+      # 单测暂不阻断，原因见下。npm test 会先跑一次 build，所以用 test:unit
+      # 避免重复构建（上一步已 build 过）。
+      #
+      # 本地在 origin/main 干净基线上实测：619 个测试文件跑 22 分 30 秒，
+      # 且有失败——例如 worker-supervisor-process-integration.test.ts 会真的
+      # 起 workerd 子进程、等 readiness、测重启围栏，在 28 秒超时后失败。
+      # 这类测试共 31 个（起真实进程或开端口：supervisor / watchdog /
+      # workerd / 发布链 / isolated-preview 等）。
+      #
+      # 如果第一版就阻断，CI 会从第一天起长红，而且红的原因与被测 PR 无关，
+      # 结果是所有人学会忽略它——那比没有 CI 更糟。所以先不阻断、只记录基线；
+      # 等摸清哪些能在 runner 上稳定跑，再把那个子集提成阻断项。
+      - name: Unit tests (baseline only, not blocking yet)
+        continue-on-error: true
+        timeout-minutes: 35
+        run: npm run test:unit
+
+  python-contracts:
+    name: Python static contracts
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      # 纯 ast 静态检查，不 import Django、不连数据库，所以不需要
+      # pip install -r backend/requirements.txt。
+      #
+      # Django 自身的 622 个测试文件本阶段不接：settings.py 在没有
+      # TERUISI_DJANGO_DATABASE_URL 时会落到 SQLite，所以跑得起来，但其中
+      # 有依赖 PostgreSQL 触发器和表结构的部分（如 finance 的
+      # 0003_finance_source_revision_guard）。接它需要在 CI 起 PG 服务，
+      # 单独一步做，不和本次最小 CI 混在一起。
+      - name: Pi152 ACL contract
+        run: python -I tests/pi152-acl-catalog-boundary.py
