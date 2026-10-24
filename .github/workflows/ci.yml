@@ -70,10 +70,9 @@ jobs:
       - name: Lint (no new errors beyond baseline)
         shell: pwsh
         env:
-          # 必须用 runner 实测值，不是本地值：门禁跑在 runner 上。
-          # 首次运行 runner 报 35，本机 worktree 同一提交报 56。用 56 的话
-          # runner 永远触发不了阻断，门禁形同虚设。差异原因见下方注释。
-          LINT_ERROR_BASELINE: '35'
+          # 56 = origin/main 36668589 的实测 error 数，本机与 runner 一致。
+          # （曾短暂改成 35，那是上一版正则抓错列号得到的假数字，见下方说明。）
+          LINT_ERROR_BASELINE: '56'
         run: |
           # 统计口径用 stylish 的尾行（"✖ N problems (N errors, M warnings)"）。
           # 不用 -f json + ConvertFrom-Json：实测 Windows PowerShell 5.1 对
@@ -87,21 +86,27 @@ jobs:
             --ignore-pattern .vite-sites-cache --ignore-pattern tmp `
             --ignore-pattern outputs 2>&1 | Out-String
           $baseline = [int]$env:LINT_ERROR_BASELINE
-          if ($out -match '(\d+)\s+error') {
+          # 只认尾行汇总 "✖ N problems (N errors, M warnings)"。
+          # 不能用宽松的 '(\d+)\s+error'：stylish 的每条明细形如
+          # "  19:35  error  Unexpected any..."，那个正则会先匹配到
+          # 行:列 里的列号。第一版就是这么错的——它抓到列号 35 当成
+          # error 数，本地恰好另有 56 个 error 才没被发现，runner 上
+          # 同样抓到 35，于是看起来像"两边差 21"，实际两边一致、
+          # 而门禁锚在一个无意义的数字上，等于失效。
+          if ($out -match '\((\d+)\s+errors?,') {
             $errors = [int]$Matches[1]
           } elseif ($out -notmatch '\S') {
-            $errors = 0   # 无输出 = 无 error
+            $errors = 0   # 无输出 = 零 error（eslint 全通过时不打尾行）
           } else {
             Write-Host "::error::无法从 eslint 输出解析 error 数，门禁失效，按失败处理"
             Write-Host $out
             exit 1
           }
           Write-Host "eslint errors=$errors baseline=$baseline"
-          # 始终打出按规则的构成，便于和本地基线对账。
-          # 首次运行发现 runner 报 35 而本地报 56，差 21——原因未定，可能与
-          # npm 11 的 allowScripts 拦下 unrs-resolver 等原生模块的 install
-          # script 有关（即使传了 --ignore-scripts=false 仍被警告未执行），
-          # 导致依赖类型信息的规则在 runner 上静默少报。有了这份构成就能定位。
+          # 始终打出按规则的构成。它是这次定位正则 bug 的关键证据：
+          # runner 报 "抽出 55 / 35" —— 按规则抽出 55 条却说总数 35，
+          # 自相矛盾，说明总数的来源有问题，而非 runner 少报了 error。
+          # 保留它，下次口径出问题同样能一眼看出。
           $byRule = [regex]::Matches($out, '(?m)^\s+\d+:\d+\s+error\s+.*?\s{2,}([@\w/-]+)\s*$') |
             ForEach-Object { $_.Groups[1].Value } | Group-Object | Sort-Object Count -Descending
           if ($byRule) {
