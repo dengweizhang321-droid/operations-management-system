@@ -329,18 +329,20 @@ export async function inspectNotEnteredPublication(config,selection,{inventory,p
 /** Under the queue lock: retire a provably not-entered publication so the target prepares again. */
 export async function retireNotEnteredPublication(config,selection,{retirementScope,log=()=>{},inspect=inspectNotEnteredPublication}={}){
  const directory=path.join(config.stateDirectory,'prebuild-queue-v2');
- if(!await exists(path.join(directory,'dispatches')))return null;
+ if(!await exists(path.join(directory,'dispatches')))return {status:'none'};
  const inventory=await readPreparationQueueInventory(directory);
  const result=await inspect(config,selection,{inventory});
- if(!result)return null;
- if(!result.eligible){log('上次发布没有成功记录，且不能证明系统未被改动（'+result.reasons.join('；')+'）；按规则保留原记录并停止，请交 AI 排查：'+result.attempt);return null;}
+ if(!result)return {status:'none'};
+ if(!result.eligible)return {status:'refused',reasons:result.reasons,attempt:result.attempt};
  await invalidateRetirementReadScope(retirementScope,'publication-retirement-write');
  const written=await writePublicationRetirement(directory,result.record);
  log('上次发布在“进入维护”时失败，已核实线上系统未被改动（版本、维护标记、服务、进程均与发布前一致）。原记录全部保留，该包已退役：'+selection.packet);
  if(result.record.reason)log('失败原因（只读诊断）：'+result.record.reason);
  log('退役记录：'+written.file);
- return written;
+ return {status:'retired',...written};
 }
+/** One sentence for both callers: why a STARTED attempt without a provable not-entered state is left untouched. */
+export function describeRefusedRetirement(refused){return '上一次发布有开始记录，但现在不能证明系统未被改动（'+refused.reasons.join('；')+'）；本次未准备，原记录保留，稍后重试或交 AI 排查';}
 // PUBLICATION_GUARD_END
 
 export async function deployReadyMain(prepared,{progress,run=runPublisher,git=gitAt,gitDirectory,baseEnvironment,retirementScope,retiredPackets,preflight=async()=>{}}={}){
@@ -402,8 +404,15 @@ export async function drainLatestMainQueue(configFile,{binding,progress,observe=
     const log=message=>progress?.log(message),selection=await observe(config,{retirementScope,retiredPackets,log});
     // Already under the queue lock. A publication that failed while entering maintenance and provably changed nothing retires its packet here,
     // so the same target prepares in the next '-rN' slot instead of leaving an unknown attempt that blocks every later ticket.
-    if(selection&&typeof selection.packet==='string'&&selection.live&&selection.targetCommit!==selection.live.mainCommit&&await retireNotEntered(config,selection,{retirementScope,log}))
-     return {...selection,packet:preparationPacketSlot(config.releaseDirectory,packetBaseName(selection.targetCommit,selection.live),await readRetiredPackets(config))};
+    if(selection&&typeof selection.packet==='string'&&selection.live&&selection.targetCommit!==selection.live.mainCommit){
+     const outcome=await retireNotEntered(config,selection,{retirementScope,log});
+     // A refused proof defers this ticket before any dispatch; the attempt and the queue are left exactly as they were.
+     if(outcome?.status==='refused')throw Error(describeRefusedRetirement(outcome));
+     if(outcome?.status==='retired'){
+      log('准备队列在核实期间被占用（最长约 10 分钟）；此时双击 发布main 会提示“准备队列正在处理”，稍后再试即可。');
+      return {...selection,packet:preparationPacketSlot(config.releaseDirectory,packetBaseName(selection.targetCommit,selection.live),await readRetiredPackets(config))};
+     }
+    }
     return selection;
    },
   prepare:async(selection,dispatch,reusablePreparation)=>{
@@ -488,7 +497,9 @@ async function runLatestMainCliOperation(values,config,binding,retirementScope){
   if(!values.check&&releaseQueue&&selection.targetCommit!==selection.live.mainCommit){
    // A publication that failed while entering maintenance and provably changed
    // nothing retires its packet; the same target then needs a new preparation.
-   if(await retireNotEnteredPublication(config,selection,{retirementScope,log:message=>progress.log(message)})){
+   const outcome=await retireNotEnteredPublication(config,selection,{retirementScope,log:message=>progress.log(message)});
+   if(outcome.status==='refused')progress.log(describeRefusedRetirement(outcome)+'：'+outcome.attempt);
+   if(outcome.status==='retired'){
     retiredPackets=await readRetiredPackets(config);
     selection={...selection,packet:preparationPacketSlot(config.releaseDirectory,packetBaseName(selection.targetCommit,selection.live),retiredPackets)};
     progress.log('下一步：先双击 准备main.bat 在新包 '+path.basename(selection.packet)+' 重新准备（约 25 分钟），完成后再双击 发布main.bat。');

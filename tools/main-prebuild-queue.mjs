@@ -269,7 +269,7 @@ export async function readPreparationQueueInventory(directory){
  for(const name of await optionalEntries(directory,'publication-retired')){const dispatch=dispatches.find(read=>read.value.dispatchId+'.json'===name);assert.ok(dispatch,'Orphan publication retirement');const read=await readQueueObject(path.join(directory,'publication-retired',name));await validatePublicationRetirement(read.value,name,dispatch,terminals);publicationRetirements.set(read.value.dispatchId,{...read,name});}
  return {tickets,dispatches,referenced,terminals,abandonments,publicationRetirements};
 }
-/** observe may fetch/read only. prepare receives its exact frozen selection. */
+/** observe may fetch/read, and may append one publication-retired record under the queue lock it already runs in (a provably not-entered publication retires its packet; a refused proof throws and nothing is dispatched). prepare receives its exact frozen selection. */
 export async function drainPreparationQueue(directory,{configSha256,bundleSha256,observe,prepare,assertGeneration=async()=>{},afterUnlock=async()=>{},onStage=async()=>{},admitPreparation=async()=>{},admitSelectedPreparation=async()=>{},retirementScope,invalidateRetirementScope,abandonment}){
  assert.ok(hex.test(configSha256)&&hex.test(bundleSha256));if(retirementScope!==undefined)assert.equal(typeof invalidateRetirementScope,'function','A retirement scope requires an explicit invalidation callback');invalidateRetirementScope??=async()=>{};
  // Abandonment is evaluated only when the consumer passes it explicitly.

@@ -70,7 +70,7 @@ test('a passing probe is still eligible and records no reason; retireNotEnteredP
  const config={stateDirectory:path.join(f.root,'state')};
  const queueLink=path.join(config.stateDirectory,'prebuild-queue-v2');await fs.mkdir(config.stateDirectory,{recursive:true});await fs.rename(f.queue,queueLink);
  const written=await retireNotEnteredPublication(config,f.selection,{retirementScope:undefined,log:line=>logs.push(line),inspect:(cfg,selection,options)=>inspectNotEnteredPublication(cfg,selection,stubs({...f,inventory:options.inventory,runtime:f.runtime},{inventory:options.inventory,probe:probeWith(aclFailure)}))});
- assert.ok(written&&await exists(written.file));assert.match(logs.join('\n'),/已核实线上系统未被改动/);assert.match(logs.join('\n'),/Assert-RuntimeAclHardened/);
+ assert.equal(written.status,'retired');assert.ok(await exists(written.file));assert.match(logs.join('\n'),/已核实线上系统未被改动/);assert.match(logs.join('\n'),/Assert-RuntimeAclHardened/);
  assert.equal((await readPreparationQueueInventory(queueLink)).publicationRetirements.size,1);
 });
 test('no STARTED record (or no attempt directory) gives null',async t=>{
@@ -269,7 +269,8 @@ async function consumerFixture(t){
  return {root,git,old,latest,live:liveRecord,config};
 }
 // The consumer path: a hook ticket or a prepare run after a publication failed while entering maintenance.
-async function consumerRun(t,{probeRotation=async()=>true}={}){
+async function consumerRun(t,{rotationFree=true}={}){
+ let freeNow=rotationFree;const probeRotation=async()=>freeNow;
  const f=await consumerFixture(t),binding={config:f.config,state:{configSha256:'6'.repeat(64),bundleSha256:'7'.repeat(64)}};
  const directory=path.join(f.config.stateDirectory,'prebuild-queue-v2'),submit=()=>submitPreparation(directory,{origin:'hook',observedTarget:f.latest,...binding.state});
  const packets=[],used=[];let runs=0;
@@ -289,7 +290,7 @@ async function consumerRun(t,{probeRotation=async()=>true}={}){
   'maintenance-admission.json':{maintenanceId},'maintenance-first-FAILED.json':{maintenanceId,automaticRetry:false},'maintenance-first-actor.json':{maintenanceId,actor,rotationOwner}};
  for(const [name,value] of Object.entries(evidence))await fs.writeFile(path.join(attempt,name),JSON.stringify(value,null,2)+'\n');
  const before=new Map();for(const name of await fs.readdir(attempt))if(name!=='preparation')before.set(name,await fs.readFile(path.join(attempt,name)));
- return {f,directory,packet,attempt,before,packets,used,ticket,runs:()=>runs};
+ return {f,directory,packet,attempt,before,packets,used,ticket,setRotationFree:value=>{freeNow=value;},runs:()=>runs};
 }
 test('consumer: a provably not-entered publication retires its packet and the same target prepares in -r2; nothing is rewritten',async t=>{
  const c=await consumerRun(t),runsBefore=c.runs();
@@ -302,14 +303,30 @@ test('consumer: a provably not-entered publication retires its packet and the sa
  assert.equal(await exists(path.join(c.attempt,'SUCCESS.json')),false);
  const third=await c.ticket();assert.equal(third.status,'prepared');assert.equal(c.packets.at(-1),packetBaseName(c.f.latest,c.f.live)+'-r2','the new slot is reused, not retired again');
 });
-test('consumer: when the proof is refused the attempt keeps blocking exactly as before (unknown, then blocked)',async t=>{
- const c=await consumerRun(t,{probeRotation:async()=>false});
+test('consumer: a refused proof defers the ticket before any dispatch (failed, no dispatch, packet not retired); a later ticket retires and prepares once the proof passes',async t=>{
+ const c=await consumerRun(t,{rotationFree:false}),dispatchesBefore=(await fs.readdir(path.join(c.directory,'dispatches'))).sort(),runsBefore=c.runs();
  const second=await c.ticket();
- assert.equal(second.status,'unknown');assert.equal(second.preparationTerminal,undefined);assert.match(second.error,/未知结果的执行记录/);
+ assert.equal(second.status,'failed');assert.equal(second.preparationTerminal,undefined);assert.equal(second.dispatchId,undefined);
+ assert.match(second.error,/上一次发布有开始记录，但现在不能证明系统未被改动（.*轮换锁.*）；本次未准备，原记录保留，稍后重试或交 AI 排查/);
+ assert.deepEqual((await fs.readdir(path.join(c.directory,'dispatches'))).sort(),dispatchesBefore,'no dispatch file is created for the deferred ticket');
+ assert.equal(c.runs(),runsBefore);assert.ok(!c.used.some(name=>name.endsWith('-r2')));
  const inventory=await readPreparationQueueInventory(c.directory);assert.equal(inventory.publicationRetirements.size,0);assert.equal(retiredPreparationPackets(inventory).has(key(c.packet)),false);
- const third=await c.ticket();assert.equal(third.status,'blocked');assert.equal(third.error,'Prior dispatch lacks a complete terminal result; no preparation replay');
- assert.ok(!c.packets.some(name=>name.endsWith('-r2'))&&!c.used.some(name=>name.endsWith('-r2')),'a blocked queue never observes or prepares a next slot');
  for(const [name,bytes] of c.before)assert.deepEqual(await fs.readFile(path.join(c.attempt,name)),bytes,name);
+ // The queue is not blocked: once the proof passes the next ticket retires the packet and prepares the same target in -r2.
+ c.setRotationFree(true);const third=await c.ticket();
+ assert.equal(third.status,'prepared');assert.equal(c.used.at(-1),packetBaseName(c.f.latest,c.f.live)+'-r2');
+ assert.equal((await readPreparationQueueInventory(c.directory)).publicationRetirements.size,1);
+ for(const [name,bytes] of c.before)assert.deepEqual(await fs.readFile(path.join(c.attempt,name)),bytes,name);
+});
+test('retireNotEnteredPublication reports none, refused and retired distinctly',async t=>{
+ const f=await failedEntry(t),config={stateDirectory:path.join(f.root,'state')};await fs.mkdir(config.stateDirectory,{recursive:true});
+ const queueLink=path.join(config.stateDirectory,'prebuild-queue-v2');await fs.rename(f.queue,queueLink);
+ const via=over=>retireNotEnteredPublication(config,f.selection,{log:()=>{},inspect:(cfg,selection,o)=>inspectNotEnteredPublication(cfg,selection,stubs({...f,runtime:f.runtime},{inventory:o.inventory,...over}))});
+ assert.deepEqual(await retireNotEnteredPublication({stateDirectory:path.join(f.root,'empty')},f.selection,{}),{status:'none'});
+ await fs.rm(path.join(f.attempt,'STARTED.json'));const none=await via({});assert.deepEqual(none,{status:'none'});
+ await fs.writeFile(path.join(f.attempt,'STARTED.json'),JSON.stringify({at:'x',mainCommit:a,maintenanceId,publisherOwner:owner,predecessorChainStateSha256:live.chainStateSha256}));
+ const refused=await via({probeRotation:async()=>false});assert.equal(refused.status,'refused');assert.match(refused.reasons.join(),/轮换锁/);assert.equal(refused.attempt,f.attempt);assert.equal(await exists(path.join(queueLink,'publication-retired')),false);
+ const retired=await via({});assert.equal(retired.status,'retired');assert.ok(await exists(retired.file));assert.match(retired.sha256,/^[a-f0-9]{64}$/);
 });
 async function readinessFixture(t){
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'publication-preflight-'));
