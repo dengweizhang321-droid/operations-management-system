@@ -50,6 +50,27 @@ export const nativePiBusinessPredecessor=Object.freeze({
 // receipt, worker stop, process-tree termination or signal handling, and adds
 // no external process. Evidence: docs/施工/S04a.md.
 export const piNativeCandidateDjangoScriptSha256='65f057297208b32ac6d3c2e71a12016b1fd4afdc0ed7ea455fbda13181fffb61';
+// A项 (2026-10-25) registers the descendant-verification fix. Unlike the
+// entries above, this diff DOES touch process-tree walking, so it is stated
+// plainly rather than claimed inert: Get-VerifiedProcessDescendants gains two
+// guard lines (+13 lines total, all additions, no original line changed or
+// removed) that skip an enumerated child whose CreationDate is missing or
+// precedes its claimed parent's. Windows recycles PIDs, so ParentProcessId
+// equality alone admitted reused-PID phantoms; the 2026-10-24 r3 incident
+// stalled Django Stop for ~26 minutes when PID 14720 (readertray.exe, metadata
+// unreadable) named stale parent 11412. Both guards only ever REMOVE a
+// candidate from the descendant set via `continue`; they never add one, never
+// widen what gets terminated, and never relax an existing assertion. The
+// identity re-check at :2632, the root PID-reuse checks in
+// Stop-VerifiedProcessTree, maintenance enter/exit, the maintenance lock,
+// drain, STARTED/SUCCESS receipts, worker stop and signal handling are all
+// untouched, and no external process is added. CreationDate is read off the
+// CIM row rather than through Get-ProcessCreation because that helper casts to
+// [datetime] and throws on a null — precisely the phantom case this must
+// survive. Same-kind [datetime] comparison verified against live CIM rows and
+// ISO-8601 snapshot strings (no timezone skew). Evidence:
+// D:\teruisi-ops\release-20261025\A项-停服务误认进程-审查证据.md.
+export const aDescendantCreationGuardDjangoScriptSha256='4ba1fcaf3cd1568a64098a9d2d32039f850ec2db1da4f81aa97fa3ab9530723a';
 // S05a (2026-10-22): qualification is per controller, never one shared
 // exception. A controller name owns only its own reviewed candidate hashes; an
 // unregistered name or an unlisted hash for a registered name still fails
@@ -58,7 +79,7 @@ export const piNativeCandidateDjangoScriptSha256='65f057297208b32ac6d3c2e71a1201
 // tools/worker-local-service.ps1: startup phase budgets/observation plus an
 // independent DingTalk startup observer. Evidence: docs/施工/S05a.md.
 export const piNativeCandidateControllerSha256=Object.freeze({
- 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256]),
+ 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256]),
  'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058']),
  'process-deadline.ps1':Object.freeze([])
 });
