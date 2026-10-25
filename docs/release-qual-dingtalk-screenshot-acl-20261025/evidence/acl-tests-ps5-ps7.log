@@ -1,0 +1,75 @@
+===== ps5-dingtalk-screenshot-acl (verify-A) =====
+PASS: three required ACEs
+PASS: AppContainer read-only on root and Chrome (explicit)
+PASS: AppContainer read-only on root only
+PASS: AppContainer read-only inherited on Chrome
+PASS: eight AppContainer SIDs read-only
+PASS: AppContainer read + WriteData rejected
+PASS: AppContainer read + AppendData rejected
+PASS: AppContainer read + WriteExtendedAttributes rejected
+PASS: AppContainer read + WriteAttributes rejected
+PASS: AppContainer read + Delete rejected
+PASS: AppContainer read + DeleteSubdirectoriesAndFiles rejected
+PASS: AppContainer read + ChangePermissions rejected
+PASS: AppContainer read + TakeOwnership rejected
+PASS: AppContainer read + FullControl rejected
+PASS: AppContainer read + Modify rejected
+PASS: AppContainer GenericRead bit (unknown/generic mask) rejected
+PASS: AppContainer zero rights rejected
+PASS: AppContainer Deny read-only rejected
+PASS: non-AppContainer read-only rejected
+PASS: capability SID S-1-15-2-1 rejected
+PASS: capability SID S-1-15-2-2 rejected
+PASS: short SID S-1-15-2-1-2-3-4-5-6 (six subauth) rejected
+PASS: long SID S-1-15-2 with eight subauth rejected
+PASS: non-package authority S-1-15-3-... rejected
+PASS: AppContainer on Chrome with write bit rejected
+PASS: missing required ACE (root) rejected
+PASS: missing required ACE (Chrome), padded with AppContainer rejected
+PASS: required ACE downgraded to read-only rejected
+PASS: required ACE duplicated rejected
+PASS: unprotected root rejected
+PASS: protected Chrome rejected
+PASS: root required ACE inherited rejected
+PASS: DingTalk screenshot ACL tolerance matrix
+
+===== ps7-dingtalk-screenshot-acl (verify-A) =====
+PASS: three required ACEs
+PASS: AppContainer read-only on root and Chrome (explicit)
+PASS: AppContainer read-only on root only
+PASS: AppContainer read-only inherited on Chrome
+PASS: eight AppContainer SIDs read-only
+PASS: AppContainer read + WriteData rejected
+PASS: AppContainer read + AppendData rejected
+PASS: AppContainer read + WriteExtendedAttributes rejected
+PASS: AppContainer read + WriteAttributes rejected
+PASS: AppContainer read + Delete rejected
+PASS: AppContainer read + DeleteSubdirectoriesAndFiles rejected
+PASS: AppContainer read + ChangePermissions rejected
+PASS: AppContainer read + TakeOwnership rejected
+PASS: AppContainer read + FullControl rejected
+PASS: AppContainer read + Modify rejected
+PASS: AppContainer GenericRead bit (unknown/generic mask) rejected
+PASS: AppContainer zero rights rejected
+PASS: AppContainer Deny read-only rejected
+PASS: non-AppContainer read-only rejected
+PASS: capability SID S-1-15-2-1 rejected
+PASS: capability SID S-1-15-2-2 rejected
+PASS: short SID S-1-15-2-1-2-3-4-5-6 (six subauth) rejected
+PASS: long SID S-1-15-2 with eight subauth rejected
+PASS: non-package authority S-1-15-3-... rejected
+PASS: AppContainer on Chrome with write bit rejected
+PASS: missing required ACE (root) rejected
+PASS: missing required ACE (Chrome), padded with AppContainer rejected
+PASS: required ACE downgraded to read-only rejected
+PASS: required ACE duplicated rejected
+PASS: unprotected root rejected
+PASS: protected Chrome rejected
+PASS: root required ACE inherited rejected
+PASS: DingTalk screenshot ACL tolerance matrix
+
+===== ps5-dingtalk-startup-acl (verify-A) =====
+PASS: automatic audits 3 -> 1; live authority checks retained; manifest invalidation, independent entry and failure cleanup
+
+===== ps7-dingtalk-startup-acl (verify-A) =====
+PASS: automatic audits 3 -> 1; live authority checks retained; manifest invalidation, independent entry and failure cleanup
