@@ -1,0 +1,79 @@
+{
+ "version": "release-candidate-verification-v1",
+ "status": "passed",
+ "baseCommit": "b092eb2bd83a1b778211e54da2daf74d94664db3",
+ "commit": "9c3c35008d92d8af808e819e59bff9586aa0269c",
+ "tree": "898484ec3ddfa5c44f2cde360c720458cdb2be70",
+ "startedAt": "2026-10-25T14:00:04.552Z",
+ "completedAt": "2026-10-25T14:13:03.690Z",
+ "evidence": {
+  "packageIntegrity": true,
+  "nativeEntryBoundary": true,
+  "nativeColdStart": false,
+  "dingtalkScreenshotAclTolerance": true
+ },
+ "publicationPerformed": false,
+ "environmentSha256": "84f226f8d4cfeb53c0d67dc2b6fc7b1538cbdde8e1dc3db193798e5b62012a31",
+ "profile": {
+  "version": "release-three-optimizations-v1",
+  "paths": [
+   "tools/django-ai.ps1",
+   "tools/manual-maintenance-continuation.mjs",
+   "tools/verify-release-candidate.mjs"
+  ],
+  "unsupported": [],
+  "schemaProof": false,
+  "preparationQueue": true,
+  "releaseContentionOnly": false,
+  "weeklyReleaseLeaseOnly": false,
+  "piMainResumeOnly": false,
+  "nativeAbandonmentOnly": false,
+  "cleanedPreparationOnly": false,
+  "releaseChainPreflight": false,
+  "schemaAdmissionOnly": false,
+  "publication": true,
+  "worker": false,
+  "django": false,
+  "piExitObservation": false,
+  "dingtalkScreenshotAclOnly": true,
+  "nativeColdStartPerformed": false
+ },
+ "checks": [
+  {
+   "name": "ps5-dingtalk-screenshot-acl",
+   "status": "passed"
+  },
+  {
+   "name": "ps7-dingtalk-screenshot-acl",
+   "status": "passed"
+  },
+  {
+   "name": "ps5-dingtalk-startup-acl",
+   "status": "passed"
+  },
+  {
+   "name": "ps7-dingtalk-startup-acl",
+   "status": "passed"
+  },
+  {
+   "name": "publication",
+   "status": "passed"
+  },
+  {
+   "name": "preparation-queue-control",
+   "status": "passed"
+  },
+  {
+   "name": "optimization-boundaries",
+   "status": "passed"
+  },
+  {
+   "name": "powershell-entry",
+   "status": "passed"
+  },
+  {
+   "name": "actual-django-package",
+   "status": "passed"
+  }
+ ]
+}
