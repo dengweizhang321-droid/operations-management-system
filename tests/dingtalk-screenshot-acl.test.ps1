@@ -22,7 +22,7 @@ $sidApp='S-1-15-2-1111111111-2222222222-3333333333-4044444444-1555555555-2666666
 $sidOther='S-1-5-32-545'
 $script:events=@()
 function Write-LauncherEvent([string]$Level,[string]$Event,[string]$Message='') { $script:events += "$Level|$Event|$Message" }
-function Write-Host { }
+function Write-Warning { param([Parameter(ValueFromPipeline=$true)]$Message) }
 function Get-Item { param([string]$LiteralPath,[switch]$Force) [pscustomobject]@{PSIsContainer=$true;Attributes=[IO.FileAttributes]::Directory} }
 function New-Rule([string]$Sid,[int]$Rights,[bool]$Inherited,[string]$Type='Allow') {
   [pscustomobject]@{
@@ -83,6 +83,12 @@ Expect-Reject 'AppContainer GenericRead bit (unknown/generic mask)' { Set-Fixtur
 Expect-Reject 'AppContainer zero rights' { Set-Fixture -RootExtra @(New-Rule $sidApp 0 $false) }
 Expect-Reject 'AppContainer Deny read-only' { Set-Fixture -RootExtra @(New-Rule $sidApp $readExec $false 'Deny') }
 Expect-Reject 'non-AppContainer read-only' { Set-Fixture -RootExtra @(New-Rule $sidOther $readExec $false) }
+# Capability-style and malformed S-1-15-2- SIDs are NOT full AppContainer package SIDs: reject.
+Expect-Reject 'capability SID S-1-15-2-1' { Set-Fixture -RootExtra @(New-Rule 'S-1-15-2-1' $readExec $false) }
+Expect-Reject 'capability SID S-1-15-2-2' { Set-Fixture -RootExtra @(New-Rule 'S-1-15-2-2' $readExec $false) }
+Expect-Reject 'short SID S-1-15-2-1-2-3-4-5-6 (six subauth)' { Set-Fixture -RootExtra @(New-Rule 'S-1-15-2-1-2-3-4-5-6' $readExec $false) }
+Expect-Reject 'long SID S-1-15-2 with eight subauth' { Set-Fixture -RootExtra @(New-Rule 'S-1-15-2-1-2-3-4-5-6-7-8' $readExec $false) }
+Expect-Reject 'non-package authority S-1-15-3-...' { Set-Fixture -RootExtra @(New-Rule 'S-1-15-3-1-2-3-4-5-6-7' $readExec $false) }
 Expect-Reject 'AppContainer on Chrome with write bit' {
   Set-Fixture -RootExtra @(New-Rule $sidApp $readExec $false) -ChromeExtra @(New-Rule $sidApp ($readExec -bor [int]$FSR::WriteData) $true)
 }

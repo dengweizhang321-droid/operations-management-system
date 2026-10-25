@@ -823,7 +823,7 @@ function Assert-DingTalkScreenshotProfile {
   if ($tolerated.Count -gt 0) {
     $note = "已放过 AppContainer 只读 ACE: " + ($tolerated -join "; ")
     Write-LauncherEvent "WARN" "dingtalk_screenshot_acl_appcontainer_readonly_tolerated" $note
-    Write-Host $note
+    Write-Warning $note
   }
 }
 
@@ -832,13 +832,15 @@ function Test-AppContainerReadOnlyAce([object]$Rule, [string]$Sid) {
   # merely reads. Tolerate exactly that shape and nothing else: Allow + read/execute bits only.
   # Judged by bit mask (never by rights name); Deny, any write/delete/permission/owner bit,
   # generic or unknown bits, and every non-AppContainer principal stay rejected.
+  # The SID must be a full AppContainer package SID (S-1-15-2- + exactly seven decimal
+  # sub-authorities); the shorter capability-style SIDs (e.g. S-1-15-2-1) are rejected.
   $readOnlyMask = [int][Security.AccessControl.FileSystemRights]::ReadData -bor
     [int][Security.AccessControl.FileSystemRights]::ReadExtendedAttributes -bor
     [int][Security.AccessControl.FileSystemRights]::ExecuteFile -bor
     [int][Security.AccessControl.FileSystemRights]::ReadAttributes -bor
     [int][Security.AccessControl.FileSystemRights]::ReadPermissions -bor
     [int][Security.AccessControl.FileSystemRights]::Synchronize
-  if (-not $Sid.StartsWith("S-1-15-2-", [StringComparison]::Ordinal) -or
+  if ($Sid -cnotmatch '^S-1-15-2-\d+(-\d+){6}$' -or
       $Rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow) { return $false }
   $rights = [int]$Rule.FileSystemRights
   return ($rights -ne 0 -and ($rights -band (-bnot $readOnlyMask)) -eq 0)
