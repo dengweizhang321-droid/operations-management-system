@@ -116,6 +116,27 @@ export const piMaintenancePredecessor=Object.freeze({
 export function isPiMaintenancePredecessor(head,djangoManifestSha256){
  const k=piMaintenancePredecessor;return head?.releaseId===k.releaseId&&head?.manifestSha256===k.workerManifestSha256&&djangoManifestSha256===k.djangoManifestSha256;
 }
+// Q14 (2026-10-25): one exact installed -> candidate django-ai.ps1 pair, never a
+// general exception. The candidate (33043e9d) changes only
+// Assert-DingTalkScreenshotProfile and adds Test-AppContainerReadOnlyAce; the
+// verifier (dingtalkScreenshotAclOnly) proves by syntax tree that every other
+// function and every top-level statement is byte-identical, so the reviewed Pi
+// stop protocol (Wait-PiWorkerExit / Stop-PiRuntime) is untouched. Only the
+// whole-file hashes are consumed here; the function hashes belong to the
+// verifier. A one-bit difference on either side, or the reverse direction,
+// leaves the pair unregistered and fails closed. Evidence:
+// docs/release-qual-dingtalk-screenshot-acl-20261025/REPORT.md.
+export const dingtalkScreenshotAclQualification=Object.freeze({
+ installedAiSha256:'f97cf7e2bc532407cdf86501de57097ce6e4f626eaf68f73ee6ab308532e0e73',
+ candidateAiSha256:'55b6701ac0f38e7aed6abea441085aa2b77f0a5f8d1a3f6c81651829ae6f9aba',
+ assertProfileBeforeSha256:'e960f78453d3a08aea1d7e4299f5ccbf51c905189a5516132fa7660311abb61c',
+ assertProfileAfterSha256:'a12db3ee9ef8834fedc871df5700a7e7fa820d815ee60ef70cf98364e4cec789',
+ appContainerAceSha256:'801fd43a50668ae3b6f274353efd0adaec9db3ffb1936dc41ac79f81a6ab4f16'
+});
+export function isDingTalkScreenshotAclPair(installedAiSha256,candidateAiSha256){
+ const q=dingtalkScreenshotAclQualification;
+ return installedAiSha256===q.installedAiSha256&&candidateAiSha256===q.candidateAiSha256;
+}
 export const maintenanceSourceNames=['manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs','manual-maintenance-process.psm1','manual-maintenance-preflight.ps1'];
 /** Read-only static admission; the native engine still rechecks dynamic facts. */
 export async function maintenanceReadiness({source,head,djangoManifestSha256,installed='D:/teruisi-runtime/django-sales/app',runtime='D:/teruisi-runtime/teruisi-worker-sales',sha=async file=>createHash('sha256').update(await fs.readFile(file)).digest('hex')}={}){
@@ -175,11 +196,26 @@ export async function maintenanceReadiness({source,head,djangoManifestSha256,ins
  const stop=candidate.replaceAll('\r\n','\n').split('function Stop-PiRuntime')[1]?.split('\nfunction Read-PandasConfig')[0];
  assert.equal(createHash('sha256').update(('function Stop-PiRuntime'+(stop??'')).trimEnd()).digest('hex'),'49725370782414b0c4bea2065161679ba50ed911cfd1439381b7b65d7259b3e6','Pi Stop调用、45秒和receipt/control/ack合同未在已审资格内');
  const installedAi=await sha(path.join(installed,'tools/django-ai.ps1')),candidateAi=await sha(path.join(source,'tools/django-ai.ps1'));
+ // Q14: the exact DingTalk-screenshot ACL pair keeps the installed Pi stop
+ // protocol, so it is judged like the same-AI generation: every other
+ // controller must still be the installed bytes or a registered candidate.
+ const dingtalkAcl=installedAi!==candidateAi&&isDingTalkScreenshotAclPair(installedAi,candidateAi);
  for(const [name,root,relative] of [['worker-local-service.ps1','worker',`releases/${head.releaseId}/tools/worker-local-service.ps1`],['process-deadline.ps1','worker',`releases/${head.releaseId}/tools/process-deadline.ps1`],['django-local-service.ps1','django','app/tools/django-local-service.ps1']]){
   const expected=await pin('source',name,path.join(source,'tools'));
-  if(installedAi===candidateAi)assertMaintenanceControllerGeneration({name,installedSha:pins.find(p=>p.root===root&&p.relative===relative)?.sha256,expected,candidateSha:await sha(path.join(source,'tools',name))});
+  if(installedAi===candidateAi||dingtalkAcl)assertMaintenanceControllerGeneration({name,installedSha:pins.find(p=>p.root===root&&p.relative===relative)?.sha256,expected,candidateSha:await sha(path.join(source,'tools',name))});
  }
- if(installedAi!==candidateAi){
+ if(dingtalkAcl){
+  // The installed bytes must still be the qualified ones and still carry the
+  // reviewed Pi exit-observation and Stop protocol (the candidate was checked above).
+  const actual=await fs.readFile(path.join(installed,'tools/django-ai.ps1'));
+  assert.equal(createHash('sha256').update(actual).digest('hex'),installedAi,'维护资格核验后工具发生变化');
+  const text=actual.toString('utf8').replaceAll('\r\n','\n');
+  for(const [start,end,expected] of [['Wait-PiWorkerExit','Stop-PiRuntime','4372d8872c46760d40f7aa346b6476932be8edba7415baba0ae21e9b73293fd3'],['Stop-PiRuntime','Read-PandasConfig','49725370782414b0c4bea2065161679ba50ed911cfd1439381b7b65d7259b3e6']]){
+   const body=text.split('function '+start)[1]?.split('\nfunction '+end)[0];
+   assert.equal(createHash('sha256').update(('function '+start+(body??'')).trimEnd()).digest('hex'),expected,'实际前驱Pi停止协议不在已审兼容资格内');
+  }
+ }
+ if(!dingtalkAcl&&installedAi!==candidateAi){
   const b=nativePiBusinessPredecessor;
   const k=head?.releaseId===b.releaseId?b:nativePiWorkspacePredecessor;
   assertPredecessorPins(k);

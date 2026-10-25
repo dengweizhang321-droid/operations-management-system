@@ -1,0 +1,236 @@
+[
+ {
+  "label": "A: base=qualification tip 610da67a (stand-in for main after the qualification merge), head=merge of 33043e9d",
+  "status": "passed",
+  "error": null,
+  "baseCommit": "610da67a5007f2471256c16e8be007aed5232ef2",
+  "commit": "d8fcd7193746026369f95c79822910bc8682ec97",
+  "tree": "0a38460c1df95f3d71af82d06606374bd2765015",
+  "startedAt": "2026-10-25T07:37:20.846Z",
+  "completedAt": "2026-10-25T07:37:55.046Z",
+  "changedFiles": [
+   "M docs/规范/安全与AI工具.md",
+   "A tests/dingtalk-screenshot-acl.test.ps1",
+   "M tests/dingtalk-startup.test.ts",
+   "M tools/django-ai.ps1"
+  ],
+  "profile": {
+   "version": "release-compatibility-profile-v1",
+   "paths": [
+    "tools/django-ai.ps1"
+   ],
+   "unsupported": [],
+   "schemaProof": false,
+   "preparationQueue": false,
+   "releaseContentionOnly": false,
+   "weeklyReleaseLeaseOnly": false,
+   "piMainResumeOnly": false,
+   "nativeAbandonmentOnly": false,
+   "cleanedPreparationOnly": false,
+   "releaseChainPreflight": false,
+   "schemaAdmissionOnly": false,
+   "publication": false,
+   "worker": false,
+   "django": false,
+   "piExitObservation": false,
+   "dingtalkScreenshotAclOnly": true,
+   "nativeColdStartPerformed": false
+  },
+  "dingtalkScreenshotAclOnly": true,
+  "evidence": {
+   "packageIntegrity": false,
+   "nativeEntryBoundary": false,
+   "nativeColdStart": false,
+   "dingtalkScreenshotAclTolerance": true
+  },
+  "nativeColdStartReason": "Not executed: exact AST-qualified DingTalk screenshot ACL tolerance only (Assert-DingTalkScreenshotProfile plus one added helper); every other function and Start/Stop routing, including the Pi stop protocol, is byte-identical.",
+  "tools": [
+   {
+    "path": "C:\\Program Files\\nodejs\\node.exe",
+    "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"
+   },
+   {
+    "path": "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+    "sha256": "8bb6fa8c283b4d92120b1ef249a9b311b0f804d4cabbe9981159976c8be76a5e"
+   },
+   {
+    "path": "C:\\Program Files\\WindowsApps\\Microsoft.PowerShell_7.6.8.0_x64__8wekyb3d8bbwe\\pwsh.exe",
+    "sha256": "b90c0f48ca4b13c9426a7863f3d469baf310ca517721dd0b55551b80ec9fee2a"
+   },
+   {
+    "path": "C:\\Users\\86137\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+    "sha256": "03168c01b7b7491423350e82c26fee71f35b43694d1319d3c668bda6903a0c38"
+   },
+   {
+    "path": "D:\\git\\Git\\cmd\\git.exe",
+    "sha256": "22fead8244ef3a7225fb800099a4e43eca8bcec0466774917669599c2f19a05a"
+   }
+  ],
+  "payloadSha256": "dd6fe6f9f928ba0a03d63c1aa30a75f6629bac203ffa506c7620f91dd2d83a9d",
+  "candidateWorktreeRemoved": true,
+  "checks": [
+   {
+    "name": "ps5-dingtalk-screenshot-acl",
+    "status": "passed",
+    "exitCode": 0,
+    "elapsedMs": 1547,
+    "kind": "isolated-functions",
+    "stdoutSha256": "08ac89af24d8ba1a2098ebf1a92f002fb7d337635c5587c136df339850413eaa",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   {
+    "name": "ps7-dingtalk-screenshot-acl",
+    "status": "passed",
+    "exitCode": 0,
+    "elapsedMs": 977,
+    "kind": "isolated-functions",
+    "stdoutSha256": "08ac89af24d8ba1a2098ebf1a92f002fb7d337635c5587c136df339850413eaa",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   {
+    "name": "ps5-dingtalk-startup-acl",
+    "status": "passed",
+    "exitCode": 0,
+    "elapsedMs": 1326,
+    "kind": "isolated-functions",
+    "stdoutSha256": "5dc4e3b6fda3ef511acbd73c2f2597bec66f87cd5cb89f6f2a605fadbc166e19",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   {
+    "name": "ps7-dingtalk-startup-acl",
+    "status": "passed",
+    "exitCode": 0,
+    "elapsedMs": 1187,
+    "kind": "isolated-functions",
+    "stdoutSha256": "5dc4e3b6fda3ef511acbd73c2f2597bec66f87cd5cb89f6f2a605fadbc166e19",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   }
+  ]
+ },
+ {
+  "label": "B: base=origin/main 525ad36b, head=same merge (carrier files included, so the generic publication step runs)",
+  "status": "failed",
+  "error": "Command failed: C:\\Program Files\\nodejs\\node.exe --test tests/main-publication-readiness.test.mjs tests/publish-prepared-main.test.mjs tests/publish-latest-main.test.mjs tests/publish-main-command.test.mjs tests/main-prebuild-status.test.mjs tests/verify-release-candidate.test.mjs tests/release-batch-powershell-environment.test.mjs tests/manual-maintenance-pi-readiness.test.mjs tests/manual-maintenance-continuation.test.mjs tests/release-chain-preflight.test.mjs\n",
+  "baseCommit": "525ad36b9551ef2f7e7cc0e40c10c4f29b814511",
+  "commit": "d8fcd7193746026369f95c79822910bc8682ec97",
+  "tree": "0a38460c1df95f3d71af82d06606374bd2765015",
+  "startedAt": "2026-10-25T07:39:07.467Z",
+  "completedAt": "2026-10-25T07:41:37.302Z",
+  "changedFiles": [
+   "M docs/规范/历史记录/发布限定资格-20261022.md",
+   "M docs/规范/安全与AI工具.md",
+   "M docs/规范/验证与发布.md",
+   "M docs/运维/部署与启动/发布门禁执行细则.md",
+   "A tests/dingtalk-screenshot-acl.test.ps1",
+   "M tests/dingtalk-startup.test.ts",
+   "M tests/manual-maintenance-continuation.test.mjs",
+   "M tests/verify-release-candidate.test.mjs",
+   "M tools/django-ai.ps1",
+   "M tools/manual-maintenance-continuation.mjs",
+   "M tools/verify-release-candidate.mjs"
+  ],
+  "profile": {
+   "version": "release-three-optimizations-v1",
+   "paths": [
+    "tools/django-ai.ps1",
+    "tools/manual-maintenance-continuation.mjs",
+    "tools/verify-release-candidate.mjs"
+   ],
+   "unsupported": [],
+   "schemaProof": false,
+   "preparationQueue": true,
+   "releaseContentionOnly": false,
+   "weeklyReleaseLeaseOnly": false,
+   "piMainResumeOnly": false,
+   "nativeAbandonmentOnly": false,
+   "cleanedPreparationOnly": false,
+   "releaseChainPreflight": false,
+   "schemaAdmissionOnly": false,
+   "publication": true,
+   "worker": false,
+   "django": false,
+   "piExitObservation": false,
+   "dingtalkScreenshotAclOnly": true,
+   "nativeColdStartPerformed": false
+  },
+  "dingtalkScreenshotAclOnly": true,
+  "evidence": {
+   "packageIntegrity": false,
+   "nativeEntryBoundary": false,
+   "nativeColdStart": false,
+   "dingtalkScreenshotAclTolerance": true
+  },
+  "nativeColdStartReason": null,
+  "tools": [
+   {
+    "path": "C:\\Program Files\\nodejs\\node.exe",
+    "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"
+   },
+   {
+    "path": "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+    "sha256": "8bb6fa8c283b4d92120b1ef249a9b311b0f804d4cabbe9981159976c8be76a5e"
+   },
+   {
+    "path": "C:\\Program Files\\WindowsApps\\Microsoft.PowerShell_7.6.8.0_x64__8wekyb3d8bbwe\\pwsh.exe",
+    "sha256": "b90c0f48ca4b13c9426a7863f3d469baf310ca517721dd0b55551b80ec9fee2a"
+   },
+   {
+    "path": "C:\\Users\\86137\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+    "sha256": "03168c01b7b7491423350e82c26fee71f35b43694d1319d3c668bda6903a0c38"
+   },
+   {
+    "path": "D:\\git\\Git\\cmd\\git.exe",
+    "sha256": "22fead8244ef3a7225fb800099a4e43eca8bcec0466774917669599c2f19a05a"
+   }
+  ],
+  "payloadSha256": "dd6fe6f9f928ba0a03d63c1aa30a75f6629bac203ffa506c7620f91dd2d83a9d",
+  "candidateWorktreeRemoved": true,
+  "checks": [
+   {
+    "name": "ps5-dingtalk-screenshot-acl",
+    "status": "passed",
+    "exitCode": 0,
+    "elapsedMs": 1257,
+    "kind": "isolated-functions",
+    "stdoutSha256": "08ac89af24d8ba1a2098ebf1a92f002fb7d337635c5587c136df339850413eaa",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   {
+    "name": "ps7-dingtalk-screenshot-acl",
+    "status": "passed",
+    "exitCode": 0,
+    "elapsedMs": 1110,
+    "kind": "isolated-functions",
+    "stdoutSha256": "08ac89af24d8ba1a2098ebf1a92f002fb7d337635c5587c136df339850413eaa",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   {
+    "name": "ps5-dingtalk-startup-acl",
+    "status": "passed",
+    "exitCode": 0,
+    "elapsedMs": 1479,
+    "kind": "isolated-functions",
+    "stdoutSha256": "5dc4e3b6fda3ef511acbd73c2f2597bec66f87cd5cb89f6f2a605fadbc166e19",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   {
+    "name": "ps7-dingtalk-startup-acl",
+    "status": "passed",
+    "exitCode": 0,
+    "elapsedMs": 1275,
+    "kind": "isolated-functions",
+    "stdoutSha256": "5dc4e3b6fda3ef511acbd73c2f2597bec66f87cd5cb89f6f2a605fadbc166e19",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   {
+    "name": "publication",
+    "status": "failed",
+    "exitCode": 1,
+    "elapsedMs": 42815,
+    "kind": "native-entry-boundary",
+    "stdoutSha256": "4226d4ecf5ffdb7c2451aeeb5e3ac7e3c212dfe26d828d9adbe8779191ddd66d",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   }
+  ]
+ }
+]
