@@ -7,6 +7,7 @@ import { runScheduledDjangoMarketAnnotation } from "../lib/market/django-annotat
 import { runDjangoMarketImageCacheBatch } from "../lib/market/django-image-cache-runner";
 import { runDjangoMarketNetshopProjectionSync } from "../lib/market/django-netshop-projection-runner";
 import { enforceDynamicCachePolicy } from "./cache-policy";
+import { evaluateSameOriginWriteGate } from "./same-origin-write-gate";
 
 interface Env {
   ASSETS: Fetcher;
@@ -184,6 +185,9 @@ const worker = {
         },
       }, allowedWidths);
     }
+
+    const crossSiteWriteRejection = evaluateSameOriginWriteGate(request);
+    if (crossSiteWriteRejection) return crossSiteWriteRejection;
 
     const response = await handler.fetch(request, env, ctx);
     return enforceDynamicCachePolicy(request, response);
