@@ -13,6 +13,15 @@ for (const shell of ["powershell.exe", "pwsh.exe"]) {
     assert.equal(result.status, 0, result.error?.message || result.stderr || result.stdout);
     assert.match(result.stdout, /isolated state and process tests passed/);
   });
+
+  test(`${shell}: screenshot profile ACL tolerates only AppContainer read-only ACEs`, () => {
+    const result = spawnSync(shell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File",
+      path.resolve("tests/dingtalk-screenshot-acl.test.ps1")],
+    { encoding: "utf8", windowsHide: true, timeout: 60000,
+      env: shell === "powershell.exe" ? { ...process.env, PSModulePath: path.join(process.env.SystemRoot || "C:\\Windows", "System32/WindowsPowerShell/v1.0/Modules") } : process.env });
+    assert.equal(result.status, 0, result.error?.message || result.stderr || result.stdout);
+    assert.match(result.stdout, /DingTalk screenshot ACL tolerance matrix/);
+  });
 }
 
 test("ordinary system startup invokes the receiver after readiness and guarded release startup preserves it", () => {
