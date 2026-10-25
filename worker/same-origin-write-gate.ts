@@ -26,10 +26,51 @@ const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
  *   signed_headers() helper. The pattern is deliberately exact (no wildcard
  *   segment) so future routes added under /api/ai/internal/ are NOT
  *   accidentally exempted.
+ *
+ * Local automation below runs in Node (including n8n-triggered tools), not
+ * in a browser. These server-to-server calls naturally send neither Origin
+ * nor Sec-Fetch-Site. Only the exact write paths are exempted; their existing
+ * route authentication and import checks remain responsible for admission.
+ *
+ * - /api/imports/erp/chunks: Jackyun (吉客云) products, inventory age and
+ *   combos uploads in tools/jackyun-download-runner.ts,
+ *   tools/manual-jackyun-import.ts and tools/erp-reference-import-runner.mjs.
+ * - /api/imports/inventory/chunks: Jackyun stock uploads in
+ *   tools/jackyun-download-runner.ts and tools/manual-jackyun-import.ts.
+ * - /api/imports/sales/chunks: Jackyun sales uploads in
+ *   tools/sales-import-runner.ts and tools/erp-sales-automation.ts.
+ * - /api/imports/recovery/finish: Jackyun import reconciliation through
+ *   lib/jackyun/import-coordination.ts, called by the download/sales runners.
+ * - /api/netshop/import: JD (京东) SKU/SPU, product master and promotion
+ *   imports in tools/jdsz-product-detail-export.ts, tools/jackyun-ware-export.ts
+ *   and tools/jd-promotion-export.ts; Tmall (天猫) imports in
+ *   tools/tmall-multi-store-import-runner.ts, tools/tmall-product-master-export.ts
+ *   and tools/tmall-promotion-export.ts.
+ * - /api/customer-service/import: JD customer-service workbook imports in
+ *   tools/jd-customer-service-import.ts.
+ * - /api/market/import: JD market ranking imports in
+ *   tools/jd-market-ranking-daily.ts.
+ * - /api/market/images/repair: JD market image repairs in
+ *   tools/jd-market-image-repair.ts.
+ * - /api/market/images/cache: JD market image cache jobs in
+ *   tools/jd-market-image-repair.ts.
+ * - /api/market/annotations/worker: market image annotation automation in
+ *   tools/market-annotation-runner.ts and tools/market-annotation-cloud-pump.ts;
+ *   these callers retain their existing Bearer token authentication.
  */
 const EXEMPT_PATH_PATTERNS: readonly RegExp[] = [
   /^\/api\/ai\/webhooks\/[^/]+\/?$/,
   /^\/api\/ai\/internal\/edge\/?$/,
+  /^\/api\/imports\/erp\/chunks\/?$/,
+  /^\/api\/imports\/inventory\/chunks\/?$/,
+  /^\/api\/imports\/sales\/chunks\/?$/,
+  /^\/api\/imports\/recovery\/finish\/?$/,
+  /^\/api\/netshop\/import\/?$/,
+  /^\/api\/customer-service\/import\/?$/,
+  /^\/api\/market\/import\/?$/,
+  /^\/api\/market\/images\/repair\/?$/,
+  /^\/api\/market\/images\/cache\/?$/,
+  /^\/api\/market\/annotations\/worker\/?$/,
 ];
 
 function isExemptPath(pathname: string): boolean {
