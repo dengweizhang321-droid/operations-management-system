@@ -1,0 +1,29 @@
+✔ WP3: failure, not-executed, unknown and independent reconciliation remain separate with original exit1 (37.9536ms)
+✔ WP3: matching fingerprint cannot hide a missing required check (25.2244ms)
+✔ WP3: recomputed test hash cannot hide sourceSha256 drift (18.2746ms)
+✔ WP3: recomputed test hash cannot hide artifactSha256 drift (17.1372ms)
+✔ WP3: recomputed test hash cannot hide predecessorSourceSha256 drift (17.9759ms)
+✔ WP3: validator version or byte closure must match its sealed digest (35.7824ms)
+✔ WP3: exact plan rejects changed candidateReleaseId (24.78ms)
+✔ WP3: exact plan rejects changed predecessorReleaseId (25.7532ms)
+✔ WP3: exact plan rejects changed predecessorManifestSha256 (26.0216ms)
+✔ WP3: changed plan bytes and batch bytes are rejected (22.6233ms)
+✔ WP3: runtime freshness is separate from static completeness, including unknown and future (99.154ms)
+✔ WP3: final V2 delivery preserves supersession and separates necessary, completed and delivery times (78.6002ms)
+✔ independent: completion interval cannot absorb work recorded after completion (0.3094ms)
+✔ independent: receipt whitelist rejects or removes unexpected sensitive field types (15.9549ms)
+✔ independent: incomplete batch timing remains uncompleted even with a stale closeout event (13.6789ms)
+✔ independent: interrupted operation report preserves already fsynced attempt metadata (14.378ms)
+✔ independent: source/version projection cannot retain sensitive nested release identifiers (14.9916ms)
+✔ independent: independent runtime projection rejects sensitive nested identity fields (13.3851ms)
+✔ independent: report can preserve valid failure states from the actual system Status contract (12.9989ms)
+✔ independent: observation sidecar timestamp is validated before projecting evidence (15.7175ms)
+✔ independent: report CLI does not print malformed evidence payload fragments (304.1777ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1161.1222

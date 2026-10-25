@@ -1,0 +1,734 @@
+{
+  "version": "teruisi-ab-continuation-entry-anomaly-independent-v1",
+  "observedAt": "2026-10-10T09:13:15.379Z",
+  "status": "confirmed-ab-worker-exit-automatic-restart-cause-unresolved",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "supplementSha256": "0bcad05b44a127e63bb0c38ad16046d282eb529e47cf0c7d9022fac248f6cac2",
+  "candidate": {
+    "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+    "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+    "sourceCommit": "5faac8151f59d66de72c3caead8cad916ea547da",
+    "djangoManifestSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+    "pinnedSupervisorSha256": "cb34aec172c4f96d54043b12273e8dca8ac7f70fe8102212ccc7ba35aa18e3a8"
+  },
+  "availability": {
+    "source": "E:/codex-artifacts/release-integration-review-20261010/AB-ui-supplement-20261010-0820-final/production/entry-observations.jsonl",
+    "capturedPrefixSha256": "3639b83ac1dd5acb61f18b384afbd2baae3d8fa7a550a3809a872f44dd854976",
+    "capturedPrefixBytes": 88830,
+    "capturedFile": "D:/.codex/worktrees/release-integration-review/运营管理系统/docs/release-integration-review/production/INDEPENDENT_CONTINUATION_OBSERVER_CAPTURE.jsonl",
+    "countInCapturedPrefix": 675,
+    "lastCapturedAt": "2026-10-10T09:11:36.828Z",
+    "failures": [
+      {
+        "at": "2026-10-10T09:06:15.749Z",
+        "completedAt": "2026-10-10T09:06:15.759Z",
+        "latencyMs": 10,
+        "status": 500,
+        "html": false,
+        "available": false
+      },
+      {
+        "at": "2026-10-10T09:06:18.262Z",
+        "completedAt": "2026-10-10T09:06:18.265Z",
+        "latencyMs": 3,
+        "available": false,
+        "errorCode": "ECONNREFUSED"
+      },
+      {
+        "at": "2026-10-10T09:06:20.775Z",
+        "completedAt": "2026-10-10T09:06:20.777Z",
+        "latencyMs": 2,
+        "available": false,
+        "errorCode": "ECONNREFUSED"
+      },
+      {
+        "at": "2026-10-10T09:06:23.289Z",
+        "completedAt": "2026-10-10T09:06:23.290Z",
+        "latencyMs": 1,
+        "available": false,
+        "errorCode": "ECONNREFUSED"
+      },
+      {
+        "at": "2026-10-10T09:06:25.798Z",
+        "completedAt": "2026-10-10T09:06:27.814Z",
+        "latencyMs": 2016,
+        "available": false,
+        "errorCode": "TimeoutError"
+      }
+    ],
+    "lastAvailableBefore": {
+      "at": "2026-10-10T09:06:13.248Z",
+      "completedAt": "2026-10-10T09:06:13.259Z",
+      "latencyMs": 11,
+      "status": 200,
+      "html": true,
+      "available": true
+    },
+    "firstAvailableAfter": {
+      "at": "2026-10-10T09:06:28.309Z",
+      "completedAt": "2026-10-10T09:06:28.324Z",
+      "latencyMs": 15,
+      "status": 200,
+      "html": true,
+      "available": true
+    },
+    "observedFailureSpanMs": 10049,
+    "adjacent200BoundMs": 15061
+  },
+  "timeline": [
+    {
+      "line": 1427,
+      "version": 1,
+      "at": "2026-10-10T09:04:28.128Z",
+      "sequence": 166,
+      "pid": 48744,
+      "ppid": 39420,
+      "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+      "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+      "event": "heartbeat",
+      "uptimeMs": 9481227,
+      "rss": 83763200,
+      "heapUsed": 16653984,
+      "freeMemory": 2300166144,
+      "totalMemory": 34003079168
+    },
+    {
+      "line": 1428,
+      "version": 1,
+      "at": "2026-10-10T09:05:28.140Z",
+      "sequence": 167,
+      "pid": 48744,
+      "ppid": 39420,
+      "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+      "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+      "event": "heartbeat",
+      "uptimeMs": 9541240,
+      "rss": 83816448,
+      "heapUsed": 17136800,
+      "freeMemory": 2550849536,
+      "totalMemory": 34003079168
+    },
+    {
+      "line": 1429,
+      "version": 1,
+      "at": "2026-10-10T09:06:16.858Z",
+      "sequence": 168,
+      "pid": 48744,
+      "ppid": 39420,
+      "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+      "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+      "event": "child_exit",
+      "role": "worker",
+      "childPid": 42728,
+      "code": 1,
+      "uptimeMs": 9589958,
+      "rss": 83845120,
+      "heapUsed": 17367984,
+      "freeMemory": 2952843264,
+      "totalMemory": 34003079168
+    },
+    {
+      "line": 1430,
+      "version": 1,
+      "at": "2026-10-10T09:06:16.864Z",
+      "sequence": 169,
+      "pid": 48744,
+      "ppid": 39420,
+      "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+      "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+      "event": "restart_scheduled",
+      "role": "worker",
+      "delayMs": 1000,
+      "uptimeMs": 9589964,
+      "rss": 83861504,
+      "heapUsed": 17445832,
+      "freeMemory": 2967212032,
+      "totalMemory": 34003079168
+    },
+    {
+      "line": 1431,
+      "version": 1,
+      "at": "2026-10-10T09:06:17.870Z",
+      "sequence": 170,
+      "pid": 48744,
+      "ppid": 39420,
+      "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+      "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+      "event": "launch_validation",
+      "role": "worker",
+      "uptimeMs": 9590971,
+      "rss": 83865600,
+      "heapUsed": 17459560,
+      "freeMemory": 3057569792,
+      "totalMemory": 34003079168
+    },
+    {
+      "line": 1432,
+      "version": 1,
+      "at": "2026-10-10T09:06:21.363Z",
+      "sequence": 171,
+      "pid": 48744,
+      "ppid": 39420,
+      "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+      "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+      "event": "child_spawn",
+      "role": "worker",
+      "childPid": 44348,
+      "uptimeMs": 9594463,
+      "rss": 100544512,
+      "heapUsed": 14120608,
+      "freeMemory": 2979405824,
+      "totalMemory": 34003079168
+    },
+    {
+      "line": 1433,
+      "version": 1,
+      "at": "2026-10-10T09:06:28.152Z",
+      "sequence": 172,
+      "pid": 48744,
+      "ppid": 39420,
+      "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+      "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+      "event": "heartbeat",
+      "uptimeMs": 9601253,
+      "rss": 100544512,
+      "heapUsed": 14184568,
+      "freeMemory": 1801232384,
+      "totalMemory": 34003079168
+    },
+    {
+      "line": 1434,
+      "version": 1,
+      "at": "2026-10-10T09:07:28.157Z",
+      "sequence": 173,
+      "pid": 48744,
+      "ppid": 39420,
+      "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+      "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+      "event": "heartbeat",
+      "uptimeMs": 9661256,
+      "rss": 100548608,
+      "heapUsed": 15049200,
+      "freeMemory": 2696220672,
+      "totalMemory": 34003079168
+    },
+    {
+      "line": 1435,
+      "version": 1,
+      "at": "2026-10-10T09:08:28.159Z",
+      "sequence": 174,
+      "pid": 48744,
+      "ppid": 39420,
+      "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+      "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+      "event": "heartbeat",
+      "uptimeMs": 9721258,
+      "rss": 100548608,
+      "heapUsed": 15962880,
+      "freeMemory": 2257457152,
+      "totalMemory": 34003079168
+    }
+  ],
+  "proxyError": {
+    "path": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-10_06-26-38_188.log",
+    "at": "2026-10-10T09:06:15.759Z",
+    "outer": "Error inside ProxyWorker",
+    "cause": "Network connection lost.",
+    "stack": "Wrangler ProxyController / Miniflare loopback",
+    "knownSurfaceOnly": true
+  },
+  "supervisorContinuity": {
+    "supervisorPid": 48744,
+    "supervisorCreationUtc": "2026-10-10T06:26:26.7917950Z",
+    "oldWorkerRootPid": 42728,
+    "newWorkerRootPid": 44348,
+    "currentChain": [
+      {
+        "ProcessId": 48744,
+        "ParentProcessId": 39420,
+        "Name": "node.exe",
+        "creationUtc": "2026-10-10T06:26:26.7917950Z"
+      },
+      {
+        "ProcessId": 44348,
+        "ParentProcessId": 48744,
+        "Name": "node.exe",
+        "creationUtc": "2026-10-10T09:06:21.3578880Z"
+      },
+      {
+        "ProcessId": 26892,
+        "ParentProcessId": 44348,
+        "Name": "node.exe",
+        "creationUtc": "2026-10-10T09:06:21.4138690Z"
+      },
+      {
+        "ProcessId": 18720,
+        "ParentProcessId": 26892,
+        "Name": "workerd.exe",
+        "creationUtc": "2026-10-10T09:06:25.2088070Z"
+      }
+    ],
+    "currentPort3000Listener": [
+      {
+        "LocalAddress": "127.0.0.1",
+        "LocalPort": 3000,
+        "OwningProcess": 18720
+      }
+    ],
+    "windowsApplicationEventWindow": "09:05..09:08UTC",
+    "windowsApplicationEventStatus": "no-matching-events",
+    "windowsApplicationEvents": []
+  },
+  "watchdogAfter": {
+    "at": "2026-10-10T09:12:25.9685325+00:00",
+    "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+    "supervisorPid": 48744,
+    "workerPid": 18720,
+    "healthy": true,
+    "system": "Running",
+    "backend": "Ready",
+    "admission": {
+      "mode": "running",
+      "fence": "d01e5b5f951b9c1d40ef2c26aa1a084402204f04a9c7f5924b58b213df39164b"
+    }
+  },
+  "phaseBoundary": {
+    "op12": {
+      "file": "000056.json",
+      "at": "2026-10-10T09:05:06.688Z",
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "durationMs": 52346.08089999994,
+      "eventSha256": "ba84b8f11aecaa05b3474c63d7d7c8b048cd418283090a475653e6ac6d9bb755",
+      "observationAttempts": [
+        {
+          "at": "2026-10-10T09:04:23.659Z",
+          "attempt": 1,
+          "durationMs": 43026.027199999895,
+          "error": null,
+          "stage": "acceptance-status",
+          "status": "passed"
+        }
+      ],
+      "operationId": "complete-component-readiness",
+      "outputs": {},
+      "phase": "acceptance",
+      "previous": "98fba3fed6c6ad34265d25fa0259214440a9349fa071541ef5e7da6f8b6c5a77",
+      "processEvidence": {
+        "cleanup": "direct",
+        "code": "completed",
+        "deadlineUnixMs": 1791623132011,
+        "elapsedMs": 34673,
+        "exitCode": 0,
+        "nativeCode": null,
+        "outputProtocol": "direct-exit-files",
+        "processId": 55156,
+        "signal": null,
+        "stage": "completed",
+        "stderrBytes": 616,
+        "stderrSha256": "aa4c6b5187e8a52a4b02316c91eb0c7a4cfdce4cdea9b9d7ecfe2faa1d97cce4",
+        "stdoutBytes": 518,
+        "stdoutSha256": "f7b884ab602bb8b79b565ad3cf3dc473ed7a5ea8feaf44f97b92888e081ae22e",
+        "timeoutType": null,
+        "treeCleanupExitCode": null,
+        "treeCleanupPending": false,
+        "version": 1
+      },
+      "reason": null,
+      "receiptSha256": "13c9d14a172c2e2be35bc961a6f76ae17b50eb2c5ef13a172d44554cd588c344",
+      "status": "passed",
+      "timing": {}
+    },
+    "admissionBeforeVerifyStartup": {
+      "file": "000057.json",
+      "at": "2026-10-10T09:06:49.015Z",
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "durationMs": 102324.8849999999,
+      "eventSha256": "976e351e6672a715528c11e9052f30121fd7e63bc0107c1aa41a9b30fe3953e1",
+      "observationAttempts": [
+        {
+          "at": "2026-10-10T09:06:02.116Z",
+          "attempt": 1,
+          "durationMs": 34019.6943,
+          "error": null,
+          "stage": "acceptance-admission-status",
+          "status": "passed"
+        }
+      ],
+      "phase": "acceptance",
+      "previous": "ba84b8f11aecaa05b3474c63d7d7c8b048cd418283090a475653e6ac6d9bb755",
+      "reason": "operation-boundary-revalidation",
+      "status": "admission"
+    },
+    "verifyStartupStarted": {
+      "file": "000058.json",
+      "at": "2026-10-10T09:06:49.019Z",
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "eventSha256": "359af9637951dc07c132a88814af08b04f7c9b05e71256835d500df8f1092a91",
+      "operationId": "verifystartup",
+      "phase": "acceptance",
+      "previous": "976e351e6672a715528c11e9052f30121fd7e63bc0107c1aa41a9b30fe3953e1",
+      "status": "started"
+    },
+    "operationEventsWithinObservedFailureWindow": [],
+    "interpretation": "No lifecycle/Restore operation was running in this observed failure window according to the original journal; original readonly collector boundary admission was in progress. Op12 had already completed and VerifyStartup had not started."
+  },
+  "journal": {
+    "records": 66,
+    "head": "820c48abe81018f38dfc4d6942b3d63429cece85e5e3168bb491363db66c2389",
+    "active": {
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "id": "integration-ab-v2-20261010-c22d8dd69a"
+    },
+    "chainVerified": true,
+    "windowEvents": [
+      {
+        "file": "000053.json",
+        "at": "2026-10-10T09:04:14.339Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 106997.73369999998,
+        "eventSha256": "3d55c7c4efdd1a538cd6a9d93285c6092dc59aa2259c0ea3fd39400fb659755b",
+        "observationAttempts": [
+          {
+            "at": "2026-10-10T09:03:26.481Z",
+            "attempt": 1,
+            "durationMs": 35729.629700000005,
+            "error": null,
+            "stage": "acceptance-admission-status",
+            "status": "passed"
+          }
+        ],
+        "phase": "acceptance",
+        "previous": "e75ece2f8920776a633dd19118321a748c27fd6ab466918d5a7a9b3f50c4d53f",
+        "reason": "operation-boundary-revalidation",
+        "status": "admission"
+      },
+      {
+        "file": "000054.json",
+        "at": "2026-10-10T09:04:14.342Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "eventSha256": "08b5a529548a420316e324c6685e760264c50d54d1a48b181eb0cc84f4f333b2",
+        "operationId": "complete-component-readiness",
+        "phase": "acceptance",
+        "previous": "3d55c7c4efdd1a538cd6a9d93285c6092dc59aa2259c0ea3fd39400fb659755b",
+        "status": "started"
+      },
+      {
+        "file": "000055.json",
+        "at": "2026-10-10T09:05:06.685Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "eventSha256": "98fba3fed6c6ad34265d25fa0259214440a9349fa071541ef5e7da6f8b6c5a77",
+        "observation": {
+          "at": "2026-10-10T09:04:23.659Z",
+          "attempt": 1,
+          "durationMs": 43026.027199999895,
+          "error": null,
+          "stage": "acceptance-status",
+          "status": "passed"
+        },
+        "operationRef": "complete-component-readiness",
+        "phase": "acceptance",
+        "previous": "08b5a529548a420316e324c6685e760264c50d54d1a48b181eb0cc84f4f333b2",
+        "status": "observation-attempt"
+      },
+      {
+        "file": "000056.json",
+        "at": "2026-10-10T09:05:06.688Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 52346.08089999994,
+        "eventSha256": "ba84b8f11aecaa05b3474c63d7d7c8b048cd418283090a475653e6ac6d9bb755",
+        "observationAttempts": [
+          {
+            "at": "2026-10-10T09:04:23.659Z",
+            "attempt": 1,
+            "durationMs": 43026.027199999895,
+            "error": null,
+            "stage": "acceptance-status",
+            "status": "passed"
+          }
+        ],
+        "operationId": "complete-component-readiness",
+        "outputs": {},
+        "phase": "acceptance",
+        "previous": "98fba3fed6c6ad34265d25fa0259214440a9349fa071541ef5e7da6f8b6c5a77",
+        "processEvidence": {
+          "cleanup": "direct",
+          "code": "completed",
+          "deadlineUnixMs": 1791623132011,
+          "elapsedMs": 34673,
+          "exitCode": 0,
+          "nativeCode": null,
+          "outputProtocol": "direct-exit-files",
+          "processId": 55156,
+          "signal": null,
+          "stage": "completed",
+          "stderrBytes": 616,
+          "stderrSha256": "aa4c6b5187e8a52a4b02316c91eb0c7a4cfdce4cdea9b9d7ecfe2faa1d97cce4",
+          "stdoutBytes": 518,
+          "stdoutSha256": "f7b884ab602bb8b79b565ad3cf3dc473ed7a5ea8feaf44f97b92888e081ae22e",
+          "timeoutType": null,
+          "treeCleanupExitCode": null,
+          "treeCleanupPending": false,
+          "version": 1
+        },
+        "reason": null,
+        "receiptSha256": "13c9d14a172c2e2be35bc961a6f76ae17b50eb2c5ef13a172d44554cd588c344",
+        "status": "passed",
+        "timing": {}
+      },
+      {
+        "file": "000057.json",
+        "at": "2026-10-10T09:06:49.015Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 102324.8849999999,
+        "eventSha256": "976e351e6672a715528c11e9052f30121fd7e63bc0107c1aa41a9b30fe3953e1",
+        "observationAttempts": [
+          {
+            "at": "2026-10-10T09:06:02.116Z",
+            "attempt": 1,
+            "durationMs": 34019.6943,
+            "error": null,
+            "stage": "acceptance-admission-status",
+            "status": "passed"
+          }
+        ],
+        "phase": "acceptance",
+        "previous": "ba84b8f11aecaa05b3474c63d7d7c8b048cd418283090a475653e6ac6d9bb755",
+        "reason": "operation-boundary-revalidation",
+        "status": "admission"
+      },
+      {
+        "file": "000058.json",
+        "at": "2026-10-10T09:06:49.019Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "eventSha256": "359af9637951dc07c132a88814af08b04f7c9b05e71256835d500df8f1092a91",
+        "operationId": "verifystartup",
+        "phase": "acceptance",
+        "previous": "976e351e6672a715528c11e9052f30121fd7e63bc0107c1aa41a9b30fe3953e1",
+        "status": "started"
+      },
+      {
+        "file": "000059.json",
+        "at": "2026-10-10T09:07:06.732Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 17712.852199999965,
+        "eventSha256": "060101e566ae72aeebc3b622166a91122b417161e726587df9b36fcfec340372",
+        "operationId": "verifystartup",
+        "outputs": {},
+        "phase": "acceptance",
+        "previous": "359af9637951dc07c132a88814af08b04f7c9b05e71256835d500df8f1092a91",
+        "processEvidence": {
+          "cleanup": "direct",
+          "code": "completed",
+          "deadlineUnixMs": 1791625009064,
+          "elapsedMs": 7634,
+          "engine": [
+            {
+              "cleanup": "Preserve",
+              "code": "completed",
+              "deadlineUnixMs": 1791623820206,
+              "elapsedMs": 6379,
+              "exitCode": 0,
+              "outputProtocol": "direct-exit-file-snapshot",
+              "processId": 3776,
+              "stage": "completed",
+              "stderrBytes": 0,
+              "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdoutBytes": 221,
+              "stdoutSha256": "e4f5f009be942eeb72077da7f3c6a8c3c454eaadac8ca8d8a009a76d87c89c1f",
+              "version": 1
+            }
+          ],
+          "exitCode": 0,
+          "nativeCode": null,
+          "outputProtocol": "direct-exit-files",
+          "processId": 9240,
+          "signal": null,
+          "stage": "completed",
+          "stderrBytes": 616,
+          "stderrSha256": "aa4c6b5187e8a52a4b02316c91eb0c7a4cfdce4cdea9b9d7ecfe2faa1d97cce4",
+          "stdoutBytes": 570,
+          "stdoutSha256": "c17210707d516b1d192f3df53db3ec33a91408c9010f52baca31bb237d1c1edc",
+          "timeoutType": null,
+          "treeCleanupExitCode": null,
+          "treeCleanupPending": false,
+          "version": 1
+        },
+        "reason": null,
+        "receiptSha256": "053cfe2e9729f4027ec031d09014b6c8e4156191c33cbb211afded67a2121192",
+        "status": "passed",
+        "timing": {}
+      },
+      {
+        "file": "000060.json",
+        "at": "2026-10-10T09:08:50.048Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "durationMs": 103313.98509999993,
+        "eventSha256": "bf5fd0eed7b97b8358701f4ba38a3dd694d790ac3414d5d92754841d9791e73b",
+        "observationAttempts": [
+          {
+            "at": "2026-10-10T09:08:02.464Z",
+            "attempt": 1,
+            "durationMs": 34969.4562,
+            "error": null,
+            "stage": "acceptance-admission-status",
+            "status": "passed"
+          }
+        ],
+        "phase": "acceptance",
+        "previous": "060101e566ae72aeebc3b622166a91122b417161e726587df9b36fcfec340372",
+        "reason": "operation-boundary-revalidation",
+        "status": "admission"
+      },
+      {
+        "file": "000061.json",
+        "at": "2026-10-10T09:08:50.051Z",
+        "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+        "eventSha256": "b844f40f4b027e121d5181a1705f5aaad5895b895ada7fffe42995fc7e3da5d1",
+        "operationId": "install-reviewed-watchdog",
+        "phase": "acceptance",
+        "previous": "bf5fd0eed7b97b8358701f4ba38a3dd694d790ac3414d5d92754841d9791e73b",
+        "status": "started"
+      }
+    ]
+  },
+  "timeoutAndCleanup": {
+    "op12CompletedExit0": true,
+    "op12TimeoutType": null,
+    "op12TreeCleanupPending": false,
+    "admissionObservationAttempts": [
+      {
+        "at": "2026-10-10T09:06:02.116Z",
+        "attempt": 1,
+        "durationMs": 34019.6943,
+        "error": null,
+        "stage": "acceptance-admission-status",
+        "status": "passed"
+      }
+    ],
+    "recordedTimeoutOrTreeCleanupInWindow": false,
+    "limits": "Admission WAL retains status attempt timing, not complete nested collector process termination traces; absence of recorded timeout does not independently rule out every external/OS termination."
+  },
+  "comparisonToPrior": {
+    "priorAt": "2026-10-10T06:06:06.606Z",
+    "sameProxySurface": true,
+    "differentCandidate": true,
+    "roughThreeHourWallIntervalIsOnlyTimingCoincidence": true,
+    "rootCause": "unresolved; cannot attribute to restore CPU contention or A cleanup merely from timing"
+  },
+  "reviewerProductionOperations": 0,
+  "limits": [
+    "Source/supervisor/owner evidence is a targeted physical hash and metadata check, not a new whole candidate source/artifact validation.",
+    "Live-source hashes refer to the captured byte prefix/count; files can append later. Observer prefix is preserved independently.",
+    "The first local metadata probe incorrectly looked for the runtime supervisor in command.files; its real byte pin is candidate deployment-manifest artifacts.keyFiles, now independently matched. No candidate failure was inferred from that probe.",
+    "Old06:06 report remains unchanged. Both interruption intervals remain separate from maintenance and must count in observed availability.",
+    "No new Status/GET/UI/Backup/Restore/Install/lifecycle/external send, heavy test or dump scan was performed.",
+    "Exact service outage duration, root workerd failure, and the full cause chain remain unproved."
+  ],
+  "sources": [
+    {
+      "path": "D:/.codex/worktrees/release-integration-review/运营管理系统/docs/release-integration-review/production/INDEPENDENT_CONTINUATION_OBSERVER_CAPTURE.jsonl",
+      "bytesCaptured": 88830,
+      "sha256": "3639b83ac1dd5acb61f18b384afbd2baae3d8fa7a550a3809a872f44dd854976",
+      "liveFile": false,
+      "digestScope": "bytes read"
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-ui-supplement-20261010-0820-final/production/entry-observations.jsonl",
+      "bytesCaptured": 93963,
+      "sha256": "bc7ccb4d3b0db7c47d424e622f62ec0f6126d48c937dc970dd20504ae755e5cc",
+      "liveFile": true,
+      "digestScope": "captured prefix, not final future file"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+      "bytesCaptured": 493136,
+      "sha256": "175af7df990305cea04a6aa42b78485890fc379e076fa9cc1d481f9369478df7",
+      "liveFile": true,
+      "digestScope": "captured prefix, not final future file"
+    },
+    {
+      "path": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-10_06-26-38_188.log",
+      "bytesCaptured": 377390,
+      "sha256": "86c8b01250ea7538213ea6095af64706a343a38d8a99d30197e0f21f0cbdff19",
+      "liveFile": false,
+      "digestScope": "bytes read"
+    },
+    {
+      "path": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-10_09-06-23_129.log",
+      "bytesCaptured": 47231,
+      "sha256": "5482671594adf59a04adae1b7549a86c6a5721ffdd43c105bf117896107c34f3",
+      "liveFile": true,
+      "digestScope": "captured prefix, not final future file"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/worker-20261010-142626.stderr.log",
+      "bytesCaptured": 24154,
+      "sha256": "390989a4fbc966a0476e224bdbfd64033c0e7762f1e17092ab689415f4517ab4",
+      "liveFile": true,
+      "digestScope": "captured prefix, not final future file"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/worker-process.json",
+      "bytesCaptured": 534,
+      "sha256": "a319e45850aaae5b2e65d0642e55603c31b23881c0ab8750045a23782dc4cc9b",
+      "liveFile": false,
+      "digestScope": "bytes read"
+    },
+    {
+      "path": "D:/teruisi-runtime/operations-watchdog/latest.json",
+      "bytesCaptured": 1438,
+      "sha256": "2925b6f3c930e7306f24c61652072c06c263c417e0330bf305dcc0d5fc3a2a71",
+      "liveFile": true,
+      "digestScope": "captured prefix, not final future file"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-integration-review/运营管理系统/docs/release-integration-review/production/INDEPENDENT_CONTINUATION_PROCESS_CAPTURE.json",
+      "bytesCaptured": 907,
+      "sha256": "c049e79ab420cd975a7f0a2380b58d6d805d8cabda670ccd287a71bc90faf71e",
+      "liveFile": false,
+      "digestScope": "bytes read"
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2/approved-batch.json",
+      "bytesCaptured": 12854217,
+      "sha256": "896d20483fea390636293c7952b4792b5ca2e1f64f76f60ec6e5c3a15381b347",
+      "liveFile": false,
+      "digestScope": "bytes read"
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2/candidate-handoff.json",
+      "bytesCaptured": 34394,
+      "sha256": "a2ec59b6119a6f6382953c9f2c620345a3fdaaf1a3367773e7c6200ddd3f6e13",
+      "liveFile": false,
+      "digestScope": "bytes read"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/deployment-manifest.json",
+      "bytesCaptured": 7867,
+      "sha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+      "liveFile": false,
+      "digestScope": "bytes read"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/tools/worker-local-runtime-supervisor.mjs",
+      "bytesCaptured": 26690,
+      "sha256": "cb34aec172c4f96d54043b12273e8dca8ac7f70fe8102212ccc7ba35aa18e3a8",
+      "liveFile": false,
+      "digestScope": "bytes read"
+    },
+    {
+      "path": "D:/teruisi-runtime/django-sales/app/deployment.json",
+      "bytesCaptured": 334,
+      "sha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+      "liveFile": false,
+      "digestScope": "bytes read"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/active.json",
+      "bytesCaptured": 128,
+      "sha256": "7c5af7f44a5aa80579bc9ac2a5038ad5ab757a90dc837de4977513d8be7b0cbf",
+      "liveFile": false,
+      "digestScope": "bytes read"
+    }
+  ]
+}

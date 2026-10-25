@@ -1,0 +1,236 @@
+Codex Doctor v0.164.0-alpha.11.1 · windows-x86_64
+
+Notes
+   ↑ desktop      build 26.1021.3705.0 available
+   ⚠ rollouts     1,736 active files · 4.77 GB on disk
+   ⚠ sandbox      filesystem unrestricted · network enabled
+   ⚠ security     Microsoft Defender can interfere with Codex. Verify Codex exclusions.
+   ⚠ search       search command could not be verified - Install ripgrep or repair the bundled Codex package.
+   ⚠ git          this worktree is not on a Windows Dev Drive; moving it to a trusted Dev Drive can significantly improve repository and filesystem performance - create a trusted Windows Dev Drive for source repositories: https://learn.microsoft.com/en-us/windows/dev-drive/
+   ⚠ config       config loaded
+   ⚠ updates      update configuration is locally consistent
+   ⚠ mcp          MCP configuration has optional issues - Set the missing MCP env vars or disable the affected server.
+   ⚠ title        terminal title configuration contains unknown item identifiers
+   ⚠ threads      3 issues - rollout files are missing from the state DB; state DB rows point at missing or unusable rollout files
+─────────────────────────────────────────────────────────────
+
+Environment
+  ✓ system       zh-CN
+      os                       Windows 10.0.26200 (Windows 11 CoreCountrySpecific) [64-bit]
+      OS language              zh-CN
+      VISUAL                   not set
+      EDITOR                   not set
+  ✓ disk         sufficient free disk space (82.8 GiB)
+      warning threshold        5.0 GiB
+      failure threshold        1.0 GiB
+      CODEX_HOME available     82.8 GiB
+      worktree available       82.8 GiB
+  ⚠ security     Microsoft Defender can interfere with Codex. Verify Codex exclusions.
+      endpoint products        Microsoft Defender
+      exclusion targets        signed Codex app; codex.exe; codex-windows-sandbox-setup.exe; codex-command-runner.exe; codex-code-mode-host.exe
+    ▸ Codex exclusions         not verified (expected Codex application and helper exclusions)
+    → Microsoft Defender: Add a certificate or executable-path exclusion for Codex and its helpers. If Attack Surface Reduction blocks Codex, add a rule exclusion. If Controlled Folder Access blocks Codex, allow the app.
+  ✓ runtime      other
+      version                  0.164.0-alpha.11.1
+      install method           other
+      commit                   unknown
+      executable               C:\Users\86137\AppData\Local\OpenAI\Codex\bin\8925276705115dea\codex.exe
+  ✓ install      consistent
+      context                  other
+      managed by               npm: no · bun: no · pnpm: no · Vite+: no · package root —
+      PATH entries (1)         C:\Users\86137\AppData\Roaming\npm\codex.cmd
+  ⚠ search       search command could not be verified — Install ripgrep or repair the bundled Codex package.
+      search command           rg.exe
+      search provider          system
+      search command readiness cannot find binary path
+  ⚠ git          this worktree is not on a Windows Dev Drive; moving it to a trusted Dev Drive can significantly improve repository and filesystem performance — create a trusted Windows Dev Drive for source repositories: https://learn.microsoft.com/en-us/windows/dev-drive/
+  ✓ git          git executable found; execution not verified
+      selected git             D:\git\Git\mingw64\bin\git.exe
+      repo detected            true
+      repo root                D:\运营管理系统
+      .git entry               directory
+      PATH entries (2)         D:\git\Git\mingw64\bin\git.exe
+                               D:\git\Git\cmd\git.exe
+      git execution            not inspected (PATH helpers are not executed)
+  ✓ terminal     unknown · TERM=xterm-256color
+      terminal                 unknown
+      TERM                     xterm-256color
+      stdin is terminal        false
+      stdout is terminal       false
+      stderr is terminal       false
+      terminal size            120x30
+      color output             disabled (stdout is not a terminal)
+      console input code page  936
+      console output code page 936
+      stdout console mode      unavailable
+      stderr console mode      unavailable
+  ⚠ title        terminal title configuration contains unknown item identifiers
+      title source             configured
+      title items              activity, project-name, run-state
+      activity item            true
+      project source           git repo root
+      project value            运营管理系统
+    ▸ terminal title invalid items "thread-name" (expected known terminal title item identifiers)
+    → Remove or replace the unknown entries in [tui].terminal_title.
+  ✓ state        databases healthy
+      CODEX_HOME               D:\.codex (dir)
+      log dir                  D:\.codex\log (missing)
+      sqlite home              D:\.codex (dir)
+      state DB                 D:\.codex\state_5.sqlite (file) · integrity ok
+      log DB                   D:\.codex\logs_2.sqlite (file) · integrity ok
+      goals DB                 D:\.codex\goals_1.sqlite (file) · integrity ok
+      memories DB              D:\.codex\memories_1.sqlite (file) · integrity ok
+      active rollouts          1,736 files · 4.77 GB (avg 2.82 MB)
+      archived rollouts        17 files · 76.94 MB (avg 4.53 MB)
+      memories v2 DB           D:\.codex\memories_v2_1.sqlite (missing)
+      memories v2 DB integrity skipped (missing)
+      queue DB                 D:\.codex\queue_1.sqlite (file)
+      queue DB integrity       ok
+      thread history DB        D:\.codex\thread_history_1.sqlite (file)
+      thread history DB integrity ok
+  ⚠ threads      3 issues - rollout files are missing from the state DB; state DB rows point at missing or unusable rollout files
+      default model provider   openai
+      rollout DB active files  1736
+      rollout DB archived files 17
+      rollout DB scan errors   0
+      rollout DB malformed file names 0
+      rollout DB scan cap reached false
+      rollout DB rows          1710
+      rollout DB active rows   1693
+      rollout DB archived rows 17
+      rollout DB missing active rows 363
+      rollout DB missing archived rows 0
+      rollout DB stale rows    320
+      rollout DB archive mismatches 0
+      rollout DB duplicate rollout thread ids 34
+      rollout DB duplicate DB paths 0
+      rollout DB model providers openai=1674, custom=36
+      rollout DB sources       vscode=814, subagent:thread_spawn=802, cli=61, subagent:other=33
+      rollout DB missing active sample D:\.codex\sessions\2026\10\17\rollout-2026-10-17T00-22-11-01a14585-6236-7ca0-b1a2-159e371f27a8.jsonl.zst
+      rollout DB missing active sample D:\.codex\sessions\2026\10\17\rollout-2026-10-17T04-28-31-01a14666-e79e-7013-8220-67fe9bfc51aa.jsonl.zst
+      rollout DB missing active sample D:\.codex\sessions\2026\10\17\rollout-2026-10-17T13-50-01-01a14868-f858-7021-891c-f55e460df350.jsonl.zst
+      rollout DB missing active sample D:\.codex\sessions\2026\10\17\rollout-2026-10-17T13-58-23-01a14868-f858-7021-891c-f55e460df350_01a14870-a3fa-77d0-a449-5bdcd14deb16.jsonl.zst
+      rollout DB missing active sample D:\.codex\sessions\2026\10\17\rollout-2026-10-17T15-01-26-01a148aa-5c4b-71d0-89ce-cd4f9360d5a1.jsonl
+      rollout DB stale row sample C:\Users\86137\.codex\sessions\2026\06\10\rollout-2026-06-10T09-06-27-019eaf10-ff1b-79a0-9728-f86b247f6b3c.jsonl
+      rollout DB stale row sample C:\Users\86137\.codex\sessions\2026\06\11\rollout-2026-06-11T09-36-28-019eb452-d8c3-7353-9f3e-22476889838b.jsonl
+      rollout DB stale row sample C:\Users\86137\.codex\sessions\2026\06\11\rollout-2026-06-11T17-46-52-019eb613-cf23-79c1-8183-109ae49cc46e.jsonl
+      rollout DB stale row sample \\?\D:\.codex\sessions\2026\06\17\rollout-2026-06-17T12-27-22-019ed3d5-76f6-7a40-b121-eef561772f81.jsonl
+      rollout DB stale row sample \\?\D:\.codex\sessions\2026\06\17\rollout-2026-06-17T11-44-13-019ed3ad-f546-74f3-87af-b32895db01e7.jsonl
+      rollout DB duplicate rollout thread id sample 01a021ed-b8f7-70b3-87bc-c4cf8e003868
+      rollout DB duplicate rollout thread id sample 01a021f1-bea0-7132-8511-64446638dd19
+      rollout DB duplicate rollout thread id sample 01a02313-a0e7-7c20-bfc6-07d7a8b30dbd
+      rollout DB duplicate rollout thread id sample 01a0290f-d1bd-7391-a278-015c246b4da7
+      rollout DB duplicate rollout thread id sample 01a0313d-521f-77e1-b44e-01f3828d9a58
+    → Attach the doctor report to a bug report so support can inspect samples.
+
+Configuration
+  ⚠ config       config loaded
+      model                    gpt-6-astra · openai
+      cwd                      D:\运营管理系统\.agents\tasks\sandbox-deny-20261024
+      config.toml              D:\.codex\config.toml
+      config.toml parse        ok
+      MCP servers              3
+      feature flags            63 enabled · 0 overridden (full list with --all)
+      configuration scope      invocation config, including cloud-managed policy
+      active thread overrides  not inspected
+      configured TUI mode      fullscreen
+      startup warnings         1
+      startup warning skills   0
+      startup warning hooks    0
+      startup warning plugins  0
+      startup warning MCP      1
+      startup warning deprecated 1
+      startup warning          Codex is ignoring 2 unrecognized configuration settings. Check for typos or deprecated settings.
+  user (D:\.codex\config.toml): `disable_response_storage` is ignored.
+  user (D:\.codex\config.toml): `mcp_servers.吉客云.type` is ignored.
+      configuration load ms    14
+  ✓ auth         auth is configured
+      auth storage mode        File
+      auth.json path (file backend/fallback) D:\.codex\auth.json
+      stored auth mode         chatgpt
+      stored API key           false
+      stored ChatGPT tokens    true
+      stored agent identity    false
+  ⚠ mcp          MCP configuration has optional issues — Set the missing MCP env vars or disable the affected server.
+      configured servers       3
+      disabled servers         0
+      stdio servers            1
+      streamable_http servers  2
+      node_repl                env var BROWSER_USE_ACCESS_EXECUTOR_ID is not set
+      node_repl                env var BROWSER_USE_ACCESS_PIPE_PATH is not set
+      node_repl                env var BROWSER_USE_ACCESS_VERIFYING_IDENTITY is not set
+      node_repl                env var CODEX_WINDOWS_REGISTERED_CORE is not set
+  ✓ sandbox      unrestricted fs + enabled network · approval Never
+      approval policy          Never
+      filesystem sandbox       unrestricted
+      denied-read rules        0
+      denied-read glob rules   0
+      glob scan max depth      unbounded
+      managed filesystem source none
+      network sandbox          enabled
+      linux helper             none
+      sandbox backend          elevated
+      denied-read restrictions false
+      sandbox provisioning     complete
+  ✓ sandbox      no explicit filesystem paths to probe
+
+Desktop App
+  ✓ desktop      the desktop application is installed
+      version                  26.1021.2667.0
+      running                  false
+      log directory            $HOME\AppData\Local\Codex/Logs
+  ✓ desktop      the desktop application is not running
+  ✓ desktop      no locally visible recent Codex security enforcement was found
+
+Updates
+  ⚠ updates      update configuration is locally consistent
+      startup update check     true
+      update action            manual or unknown
+      version cache            D:\.codex\version.json
+      cached latest version    0.164.0
+      last checked at          2026-10-24 08:15 UTC
+      latest version probe     version request timed out
+      desktop update status    available
+      desktop latest build     26.1021.3705.0
+      desktop application      OpenAI.Codex
+
+Connectivity
+  ✓ network      no proxy env vars
+      proxy env vars           none
+      respect system proxy     disabled
+      managed proxy            not configured
+  ✓ websocket    connected (HTTP 101 Switching Protocols) · 15s timeout
+      model provider           openai
+      provider name            OpenAI
+      wire API                 responses
+      supports websockets      true
+      proxy env vars           none
+      connect timeout          15000 ms
+      auth mode                chatgpt
+      endpoint                 wss://chatgpt.com/backend-api/<redacted>
+      DNS                      1 IPv4, 0 IPv6, first IPv4
+      handshake result         HTTP 101 Switching Protocols
+      reasoning header         false
+      server model present     false
+  ✓ reachability active provider endpoints are reachable over HTTP
+      reachability mode        ChatGPT auth
+      ChatGPT inference URL    https://chatgpt.com/backend-api/<redacted> reachable (HTTP 405)
+      desktop assets CDN       https://persistent.oaistatic.com/codex-app-prod/<redacted> reachable (HTTP 200)
+
+Background Server
+  ○ app-server   not running (ephemeral mode)
+      daemon state dir         D:\.codex\app-server-daemon
+      settings                 D:\.codex\app-server-daemon\settings.json (missing)
+      pid file                 D:\.codex\app-server-daemon\app-server.pid (missing)
+      update-loop pid file     D:\.codex\app-server-daemon\app-server-updater.pid (missing)
+      dedicated pid file       D:\.codex\app-server-daemon\daemon.pid (missing)
+      dedicated update-loop pid file D:\.codex\app-server-daemon\daemon-updater.pid (missing)
+      control socket           D:\.codex\app-server-control\app-server-control.sock
+      status                   not running
+      mode                     ephemeral
+
+─────────────────────────────────────────────────────────────
+16 ok · 1 idle · 11 notes · 8 warn · 0 fail degraded
+
+--summary compact output           --all expand truncated lists
+--json redacted report

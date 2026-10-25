@@ -1,0 +1,131 @@
+{
+  "version": "task-d-independent-current-frozen-support-v1",
+  "root": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "additional": [
+    {
+      "name": "collector.mjs",
+      "bytes": 1952,
+      "sha256": "4147f5267f35a24fe025b5ad92b89f4eda1b7a078aedb1d45de3383a1dfc929f"
+    },
+    {
+      "name": "python-closure.mjs",
+      "bytes": 1660,
+      "sha256": "6dee00c17e11898459e03d8910ae943b5ec8e67ac248e0358e4e7a2ea501b6f6"
+    },
+    {
+      "name": "python-closure.json",
+      "bytes": 2094614,
+      "sha256": "55080419e7f9746f2b4f49a9debacfb44938e3b5b53c02a350eda8c20e3d912b"
+    },
+    {
+      "name": "primary-entrypoint-preservation.json",
+      "bytes": 4350,
+      "sha256": "c7e4cdd3d220bafdf42700d570192594e66f13c30a4dfa756f253827dac441e4"
+    }
+  ],
+  "supportTreeSHA256": "e096576a7ab3c27b7efedfd348734362866d925e6a60acc6a1644e9744400855",
+  "supportTreeDigestScheme": "SHA256(JSON.stringify(en-locale relativePath sorted [{relativePath,sha256}]))",
+  "sourceSupportFiles": 21,
+  "supportTree": [
+    {
+      "relativePath": "adapter-independent.test.mjs",
+      "sha256": "1cd7ae32a5abc8e4b3d24f7c557072155fa4c90b4916b89abbb3aa77dd73ff60"
+    },
+    {
+      "relativePath": "adapter.mjs",
+      "sha256": "8d5f3f1f705c5b0264683b546b731eeddb9dbff3ff5102bea7ed5042d28ed714"
+    },
+    {
+      "relativePath": "capture-readonly.mjs",
+      "sha256": "bde08dfa1ca1858e4853d2777c4ab18cb9980b9a6f5c30803b19e352d0c4c252"
+    },
+    {
+      "relativePath": "collector.mjs",
+      "sha256": "4147f5267f35a24fe025b5ad92b89f4eda1b7a078aedb1d45de3383a1dfc929f"
+    },
+    {
+      "relativePath": "diagnose-ui.mjs",
+      "sha256": "2ee8d63490cc88dca16fa612ea05057e894018f53bb4e5f098659398e4962363"
+    },
+    {
+      "relativePath": "isolation_guards_independent_test.py",
+      "sha256": "171ff7fe2e98f27e1f93e766f14e5199776b6c8b93f1728e2c55ecf23f6f0563"
+    },
+    {
+      "relativePath": "isolation_guards_test.py",
+      "sha256": "976d99f9471b375a14fec0dfbb62d6763569fb4637b2f295efcd7a6649fa4973"
+    },
+    {
+      "relativePath": "isolation_guards.py",
+      "sha256": "c07ca0164d1319e148052446000d9f86974f07d6d4f5fd12f20771ee7e6093c3"
+    },
+    {
+      "relativePath": "owner-isolated-tests.py",
+      "sha256": "1b97d91f4c4aea9a50bb5b7f6d82adcfae1846d3ae745edcdc1d096045751016"
+    },
+    {
+      "relativePath": "prepare-owner-test-source.mjs",
+      "sha256": "b800c1e6fcc70a53ecd830a1c7d809d524e93c65d9a0014393003772c0efcaca"
+    },
+    {
+      "relativePath": "python-closure.mjs",
+      "sha256": "6dee00c17e11898459e03d8910ae943b5ec8e67ac248e0358e4e7a2ea501b6f6"
+    },
+    {
+      "relativePath": "python-closure.test.mjs",
+      "sha256": "198e3ad03507a7390b1839c50b45e96f9876b1eb4d2abc13801f06aa74d46b20"
+    },
+    {
+      "relativePath": "read-watchdog-task.ps1",
+      "sha256": "60c797bc4845f2324fa2406a9314a8d9f36b96d5b5bb42df1256dcfa099280bd"
+    },
+    {
+      "relativePath": "review-sealed-independent.mjs",
+      "sha256": "6d44121a6aa9232774bf98c21df0e67036100917e4825293dbd5f99580dd1d3f"
+    },
+    {
+      "relativePath": "seal.mjs",
+      "sha256": "e53d3a7145fd23d7002bb73d21e02639af0b000322e0a84e9e304af848b0692e"
+    },
+    {
+      "relativePath": "ui-audit-independent.test.mjs",
+      "sha256": "477957161d96892f683798d4f23c78a6c003ebbb7ced46d528ee4ceed8fc95ec"
+    },
+    {
+      "relativePath": "ui-audit.mjs",
+      "sha256": "904d57eece6d64283d8b8b1e1ecf10faf3f197b270f00d96facf6f1e234eed57"
+    },
+    {
+      "relativePath": "ui-setup.mjs",
+      "sha256": "9037aa137670aa9dea6c72982b9138644ea61cf3969eec23b841227ff5e7a9f1"
+    },
+    {
+      "relativePath": "validators-independent.test.mjs",
+      "sha256": "f425f8cdb20ade2a3df6d5a315eac18ae7eb490cb29a194177376b05f7de9f46"
+    },
+    {
+      "relativePath": "validators.mjs",
+      "sha256": "7ada759aa35fabc1cf12ba22e51d4b517b2c7dae5c83315feb485188c33b3f2e"
+    },
+    {
+      "relativePath": "validators.test.mjs",
+      "sha256": "c6d93fb748042982706a92fb2a1a23f5fdd030abda3e67b76cdf20dc13996f99"
+    }
+  ],
+  "originalGitPatch": {
+    "baseCommit": "2f55c3965e60b139381b6cc31ed868bcfe99a7bf",
+    "files": [
+      "tools/worker-local-release.mjs",
+      "tools/worker-local-release-rotation.mjs",
+      "tools/worker-local-service.ps1"
+    ],
+    "sha256": "6d0d3c8b9f884f9c053fcfae1cb5b1b64f7f79591b21a3c68672dbe8bc53e30e",
+    "bytes": 21315,
+    "livePrimaryPatchMatches": true,
+    "executedOrApplied": false
+  },
+  "physicalCopiesStillMatch": true,
+  "productionOperationsPerformed": 0,
+  "actualCollectorCalled": false
+}

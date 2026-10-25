@@ -1,0 +1,35 @@
+{
+  "action": "RestoreRehearsal",
+  "elapsedMs": 706423.0375,
+  "process": {
+    "version": 1,
+    "processId": 34380,
+    "exitCode": 0,
+    "deadlineUnixMs": 1791597612957,
+    "elapsedMs": 706422,
+    "stdoutBytes": 946,
+    "stderrBytes": 2397,
+    "code": "completed",
+    "stage": "completed",
+    "outputProtocol": "direct-exit-files",
+    "cleanup": "preserve",
+    "stdoutSha256": "2b56ee732e9403b2027d63539f4b11d5712913430fb8f8b1ac0616484ae02187",
+    "stderrSha256": "972400180e1836ed8e3a3b75bedf3c9e17c44b66431ca7198710ab8ce5d5bfe3"
+  },
+  "receiptSha256": "2b56ee732e9403b2027d63539f4b11d5712913430fb8f8b1ac0616484ae02187",
+  "result": {
+    "status": "completed",
+    "backupId": "daily-20261009T114230Z-7117da1c1055",
+    "rehearsalId": "4088f7ed4793",
+    "backupManifestSha256": "c3def80e40bf8ebad3e0d3e3a2c09a64b2d4d99bd6cf95d48c41b7b12ff62400",
+    "dumpSha256": "c58c008b90079bf1ac9612a6f16bff3f6899ff854fe265f31c94c85acdc8ed49",
+    "expectedContentSha256": "8c640b74691222c76176798d86e554e7c259f381a1f91dd81c361ac25d81f904",
+    "restoredContentSha256": "8c640b74691222c76176798d86e554e7c259f381a1f91dd81c361ac25d81f904",
+    "profileRestoreVerified": true,
+    "sequenceHealthVerified": true,
+    "productionDatabaseTouched": false,
+    "serviceStateChanged": false,
+    "cleanupStatus": "isolated_data_removed",
+    "completedAt": "2026-10-10T01:41:59.2827696+00:00"
+  }
+}

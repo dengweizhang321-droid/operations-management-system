@@ -1,0 +1,112 @@
+{
+  "version": "task-d-stage2-handoff-gate-v1",
+  "notificationText": "ABC 已全部交付，开始集成验收",
+  "notificationObservedAtUtc": "2026-10-10T00:45:18.5254944+00:00",
+  "productionApproval": false,
+  "remoteMain": "2b1b70160de4ec2619c41ba895084dfba205b79a",
+  "implementations": [
+    {
+      "task": "A",
+      "implementationCommit": "67622d61ee326dc610c498356e518ec2ec7fdd81",
+      "inRemoteMain": true
+    },
+    {
+      "task": "B",
+      "implementationCommit": "9b9c76d4cab19283005a86b267d673bce7168130",
+      "inRemoteMain": true
+    },
+    {
+      "task": "C",
+      "implementationCommit": "2b10f6021a0b5bda1f52424604bf697b17218e3c",
+      "inRemoteMain": true
+    }
+  ],
+  "aOriginalPhysicalFiles": [
+    {
+      "path": "tools/process-deadline.ps1",
+      "expectedSha256": "544f74179cb373a9d87e919cca8092ee27c4f162175fb02968cf7bd7afb38840",
+      "actualSha256": "544f74179cb373a9d87e919cca8092ee27c4f162175fb02968cf7bd7afb38840",
+      "matches": true
+    },
+    {
+      "path": "tools/release-lifecycle-step.ps1",
+      "expectedSha256": "821a779c42e02be3e7d27bae9c74a8e73fd7da4b6e08af4f21de69ae5f76ba0d",
+      "actualSha256": "821a779c42e02be3e7d27bae9c74a8e73fd7da4b6e08af4f21de69ae5f76ba0d",
+      "matches": true
+    },
+    {
+      "path": "tools/worker-local-release.mjs",
+      "expectedSha256": "5e2d0acd886b8a5672f72e003b7fd902953af836a2fc2b296a005fc9712849be",
+      "actualSha256": "5e2d0acd886b8a5672f72e003b7fd902953af836a2fc2b296a005fc9712849be",
+      "matches": true
+    },
+    {
+      "path": "tools/worker-local-release-rotation.mjs",
+      "expectedSha256": "80cb7aff688119a3cebc0bad8b099a47fbb841fe51eae5e75d65d36baba4b45a",
+      "actualSha256": "80cb7aff688119a3cebc0bad8b099a47fbb841fe51eae5e75d65d36baba4b45a",
+      "matches": true
+    },
+    {
+      "path": "tools/worker-authority-guard.mjs",
+      "expectedSha256": "bbe7547d641d9a9f29bb04c3960a5cd7024e5155d30d09067e2d84c70d54118f",
+      "actualSha256": "bbe7547d641d9a9f29bb04c3960a5cd7024e5155d30d09067e2d84c70d54118f",
+      "matches": true
+    },
+    {
+      "path": "tools/worker-local-service.ps1",
+      "expectedSha256": "66abb7d816f9141a22e9d44bac168f7c46c1ce38d2fbd45df7e2caeb9de0a4be",
+      "actualSha256": "66abb7d816f9141a22e9d44bac168f7c46c1ce38d2fbd45df7e2caeb9de0a4be",
+      "matches": true
+    },
+    {
+      "path": "tools/operations-system-control.ps1",
+      "expectedSha256": "77e1fccb3d4dcdea2c809a3bfa905230afec1b1ab1a8e3e8931fe42e1ad003df",
+      "actualSha256": "77e1fccb3d4dcdea2c809a3bfa905230afec1b1ab1a8e3e8931fe42e1ad003df",
+      "matches": true
+    },
+    {
+      "path": "tools/operations-system-watchdog.ps1",
+      "expectedSha256": "9b01d43a251817d047a4dd760fd58ec7e390ece6ba4657e7fb103c8463b473e0",
+      "actualSha256": "9b01d43a251817d047a4dd760fd58ec7e390ece6ba4657e7fb103c8463b473e0",
+      "matches": true
+    },
+    {
+      "path": "tools/release-batch.mjs",
+      "expectedSha256": "784d0116e641a4b2c9361e0b6925642b5e0d8cc8aefe32386f931c3cc753d6e2",
+      "actualSha256": "784d0116e641a4b2c9361e0b6925642b5e0d8cc8aefe32386f931c3cc753d6e2",
+      "matches": true
+    },
+    {
+      "path": "tools/release-batch-admission.mjs",
+      "expectedSha256": "a6bed5497f794026b2c97ab4562c336a5f43a2a2f1f205cff7958cf172274655",
+      "actualSha256": "a6bed5497f794026b2c97ab4562c336a5f43a2a2f1f205cff7958cf172274655",
+      "matches": true
+    },
+    {
+      "path": "tools/release-readonly-retry.mjs",
+      "expectedSha256": "39b8ad3589838c5984df33cfe375795049d9fd1382080d4ffdc6cf8eef8ce59b",
+      "actualSha256": "39b8ad3589838c5984df33cfe375795049d9fd1382080d4ffdc6cf8eef8ce59b",
+      "matches": true
+    }
+  ],
+  "bPreservationExpected": 59,
+  "bPreservationVerified": 59,
+  "cPreservationExpected": 44,
+  "cPreservationVerified": 44,
+  "reviews": {
+    "A": "final independent review binds 67622d61; original full failures retained",
+    "B": "final independent source SHA and final logs bind 9b9c76d4; old full failures retained",
+    "C": "final independent review binds 2b10f602; 206 author joint / 166 independent; pre-final full separate"
+  },
+  "openDeliveryItems": [
+    "None blocking source handoff identified"
+  ],
+  "unverifiedAdoptionPrerequisites": [
+    "Current actual predecessor and owning Django version",
+    "Qualified retained recovery point/daily schedule/latest result",
+    "Final D combination tests and non-author review",
+    "Production-scale comparative timing",
+    "Exact scoped release candidates and approval"
+  ],
+  "sourceHandoffComplete": true
+}

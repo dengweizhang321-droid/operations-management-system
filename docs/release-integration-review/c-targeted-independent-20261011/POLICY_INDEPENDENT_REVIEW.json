@@ -1,0 +1,98 @@
+{
+  "version": "teruisi-targeted-v4-actual-package-independent-review-v1",
+  "reviewer": "/root/preparation_review",
+  "independent": true,
+  "nonAuthor": true,
+  "acceptedPolicyMechanismWithinReviewedScope": true,
+  "acceptedExact872dBatchForExecution": false,
+  "productionExecutionApproved": false,
+  "candidateReleaseId": "20261011T075658Z-aed7ddc1be340f5c",
+  "candidateManifestSha256": "306e92da4a0598e27746b7cba1b29d60fc8616564b6f644610540a343c5f8ce6",
+  "candidateSourceSha256": "c279cfb7f1cf6f7c4d72a1ef32f50be428956e6917a5e176d2126ce14da09ea1",
+  "actualThreeModules": {
+    "tools/release-impact.mjs": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164",
+    "tools/release-batch.mjs": "e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc",
+    "tools/release-batch-admission.mjs": "e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5"
+  },
+  "actualSpec": "E:/codex-artifacts/release-first-adoption-targeted-20261011/ADOPTION_BATCH_V2.json",
+  "actualSpecRawSha256": "b7555bd9c00ef050f744556220478e9ffaef0ab09042e9b0a4a9814ea069a1b2",
+  "actualBatchSha256": "872d7e411d16ac974b0abd1404b7d41ed4c4707d99c2a01750ae182a73206df3",
+  "objectsStableBeforeAfter": true,
+  "blockingFindings": [
+    {
+      "id": "V4-ACTUAL-TIMEOUT",
+      "scope": "Exact ADOPTION_BATCH_V2 configuration, not a production incident",
+      "locations": ["ADOPTION_BATCH_V2.batch.operations backup-pre.command.timeoutMs", "ADOPTION_BATCH_V2.batch.operations restore-installed.command.timeoutMs", "tools/release-batch.mjs runApprovedOperation entry", "tools/worker-local-release.mjs processDeadline"],
+      "actualDeclaredTimeoutMs": 3600000,
+      "originalMaximumTimeoutMs": 1800000,
+      "trigger": "Actual Backup or Restore operation reaches processDeadline(op.command.timeoutMs)",
+      "observed": "Both reject with 子进程时限无效 before any native invocation; pure verifyBatch nevertheless accepts the structural spec",
+      "required": "Produce a new unapproved exact batch with supported timeout declarations and preserve originalV2/SHA/failure evidence; do not enlarge or bypass the original A cap merely to pass. Reverify that new metadata/actual runner input."
+    }
+  ],
+  "verifiedPolicy": [
+    "Only v4 strict full-ten-tools and dual-Django inventory qualification enables targeted-first-adoption; each after tool hash must equal actual executing package bytes",
+    "Exactly one installed preBackup, one fixed installed Node retention planner consumer and one same-point isolated Restore; no prior recovery reuse",
+    "Backup precedes EnterMaintenance/Stop/apply/Deploy/Harden; consumer and Restore follow Deploy/Harden and precede Exit/Start",
+    "Consumer is readonly, fixed Node plus one installed release-payload-retention.mjs script and no --execute; installed Django/tool bytes and exact successor chain rechecked",
+    "Rehashed omission, duplicate/post operation, different operator/point, changed readonly consumer or removed restore isolation assertions reject",
+    "Actual e0d restore block declares const backup locally before checking receipt.backupId; corrected lexical scope confirmed under an explicitly synthetic legal30000ms input",
+    "Same-point manifest/dump/content, productionDatabaseTouched=false, profile/sequence/cleanup contracts remain; bad receipt retains native evidence and rejects",
+    "Original v2/v3 strict defaults remain full; no global policy reduction",
+    "executeBatch body is byte-identical to reviewed3032, retaining unknown/no replay and original WAL behavior; observer helper remains the already reviewed ab298 bytes"
+  ],
+  "policyTests": {
+    "script": "independent-policy-seams.cjs",
+    "scriptSha256": "7dd20478851f3261aa04ec57200d2e59933db331133f5dd2335cf7a0ac46d511",
+    "stdout": "POLICY_TESTS_FINAL.stdout.log",
+    "stdoutSha256": "83889576533d8c536d91005a1dcab16dffb0ab748342dce28a42130cad034320",
+    "cases": 8,
+    "expectedReviewerAssertionsPassed": 8,
+    "candidateAllSafeClaimed": false,
+    "elapsedMs": 5628.8159,
+    "exitCode": 0,
+    "method": "Execute actual frozen impact qualification, batch validator, consumer and original runner function text in VM against actual872d spec. Node metadata file reads are real; SourceBinding external schema helper has an assertion-bearing fixed-envelope seam; native retention/Restore responses are synthetic, no production module import or native operator call.",
+    "actualOversizedTimeoutRefusalIsPartOfResult": true,
+    "syntheticLegalTimeout": "30000ms only in clearly labelled cloned runner fixture; it does not alter or approve actual872d",
+    "firstFixtureLoad": { "log": "POLICY_TESTS_FIRST.stderr.log", "sha256": "0f54ce0025f355dbf4c687eb71a7ea96b7eb7f37452322e9983f84b0ed7b357e", "cause": "VM omitted imported workerSourceRootForBatch dependency; helper/seam was supplied without changing candidate; no production defect inferred" },
+    "realBatchRefusal": { "script": "independent-policy-seams.BATCH_TIMEOUT.cjs", "log": "POLICY_TESTS_BATCH_TIMEOUT.stderr.log", "sha256": "e3bff51c960610302cbf0b9a0aa38dee9ff9ce086e917e1a43492f121473dafa", "firstSixGroupsCompleted": 6, "isNotAFullPassingRun": true }
+  },
+  "originalCGates": {
+    "script": "independent-continuation-seams.cjs",
+    "scriptSha256": "fd7823152ed8e3f13b5fd282e83d31371464993eeaa25d1990a6f95fc346cec4",
+    "stdout": "CONTINUATION_TESTS.stdout.log",
+    "stdoutSha256": "1ffb5c6385eda814e74d5705f7c62b179b476515076c1b334959f60cb4dca8d0",
+    "seedCommit": "0a1e1ad6342e457e75914d8c77c9d26c89a40721",
+    "seedRawSha256": "c79b960eb09343c0f4df96238e7e5544a8a1c12dfbcb2c57949711a07d4a256d",
+    "cases": 3,
+    "pass": 3,
+    "elapsedMs": 12.35929999999999,
+    "scope": "Whole actual collector function with controlled outside reads: slow bound scan/5001ms attempt refusal, final WAL drift refusal, actual nonretryable complete-readiness diagnosis",
+    "manifestAndSevenCoreObjectsStable": true,
+    "unchangedExecuteBatchBodySha256": "10a8584b8eb9ebd5a8cbecad3d2c2385fa7122fa094b21c82e261049c01a6b43",
+    "previous3032ObserverAndUnknownEvidenceRemainsScoped": true
+  },
+  "author197Evidence": {
+    "record": "E:/codex-artifacts/release-first-adoption-targeted-20261011/CANDIDATE_REGRESSION_FINAL_V3.json",
+    "reportedPass": 197,
+    "reportedFail": 0,
+    "reportedStdoutSha256": "470770493222b913812f15f8ad983e2f493e479819b58eb0e7de44908a100c75",
+    "reportedHarnessSha256": "54dc2516af34950c6dfe273603a22784c22f386bfee51a8ba75dde03654154e5",
+    "rerunByReviewer": false,
+    "doesNotCoverExact872dTimeoutValues": true,
+    "priorTransplantFailureNotErased": true
+  },
+  "productionAndLimits": {
+    "productionActions": 0,
+    "productionModuleImports": 0,
+    "pgDumpOrPgRestoreProcesses": 0,
+    "nativePayloadChildren": 0,
+    "realBackupRestoreOrConsumerExecutionClaimed": false,
+    "fullBuildOrWholePayloadRehashByReviewer": false,
+    "standardSourceSessionFailureRecordsRetained": true,
+    "unknownLiveAdmissionIsSafeBlockNotAdmissionPass": true,
+    "livePredecessorOwnershipSessionAndReadinessNotProvedBySimulation": true,
+    "newBatchOrSubsequentSourceNotSigned": true
+  },
+  "disposition": "Targeted mechanism and scoped C technical seams are reviewable; exact872d execution remains blocked by actual timeout declarations and pending real admissibility/final approval. Once a corrected new batch exists, check its own bytes; never rewrite old evidence or translate synthetic Restore into real rehearsal."
+}

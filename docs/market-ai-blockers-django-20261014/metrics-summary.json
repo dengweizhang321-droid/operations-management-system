@@ -1,0 +1,24 @@
+{
+  "oldQueryStaleStats": 14177.186,
+  "fixedQueryStaleStats": 24.324,
+  "oldQueryAccurateStats": 29.667,
+  "fixedQueryAccurateStats": 24.549,
+  "actualClaimMs": 135.411,
+  "initialClaimMs": {
+    "min": 239.832,
+    "max": 1054.814,
+    "mean": 641.684
+  },
+  "completionMs": {
+    "min": 183.044,
+    "max": 847.422,
+    "mean": 520.602
+  },
+  "refillClaimMs": {
+    "min": 103.478,
+    "max": 1556.507
+  },
+  "activeAfter": 11,
+  "newCompleted": 12,
+  "sourceSha256": "2920502cc1ec6610fb384c73840a3399634509bfeefbe669e8764304c735a72b"
+}

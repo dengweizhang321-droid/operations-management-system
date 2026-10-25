@@ -1,0 +1,986 @@
+{
+  "browser": "154.0.8037.98",
+  "viewport": {
+    "width": 1440,
+    "height": 1000
+  },
+  "browserCache": "normal enabled",
+  "serverCache": "uncontrolled",
+  "timing": "observedCompleteMs is after required known requests and double rAF; not exact paint",
+  "results": [
+    {
+      "name": "bi-repeat-entry",
+      "status": "observed",
+      "actionResolvedMs": 95,
+      "observedCompleteMs": 19058,
+      "dom": {
+        "url": "/?module=null",
+        "rows": 97,
+        "nodes": 1202,
+        "scrollY": 0,
+        "scrollHeight": 3057,
+        "busy": 0,
+        "retained": 0,
+        "dialogs": 0,
+        "usedHeap": 5246112
+      },
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "method": "GET",
+          "status": 200,
+          "ms": 25,
+          "bytes": 158,
+          "timing": {
+            "startTime": 1791469744864.836,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.263,
+            "responseStart": 5.337,
+            "responseEnd": 6.098
+          },
+          "scale": {}
+        },
+        {
+          "path": "/api/bi/cockpit",
+          "method": "GET",
+          "status": 200,
+          "ms": 14591,
+          "bytes": 27534,
+          "timing": {
+            "startTime": 1791469745179.612,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.163,
+            "responseStart": 14588.583,
+            "responseEnd": 14589.598
+          },
+          "scale": {}
+        },
+        {
+          "path": "/api/bi/flow",
+          "method": "GET",
+          "status": 200,
+          "ms": 3345,
+          "bytes": 3824,
+          "timing": {
+            "startTime": 1791469759856.704,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.197,
+            "responseStart": 3342.035,
+            "responseEnd": 3343.356
+          },
+          "scale": {}
+        }
+      ]
+    },
+    {
+      "name": "bi-refresh",
+      "status": "observed",
+      "actionResolvedMs": 86,
+      "observedCompleteMs": 11487,
+      "dom": {
+        "url": "/?module=null",
+        "rows": 97,
+        "nodes": 1202,
+        "scrollY": 0,
+        "scrollHeight": 3057,
+        "busy": 0,
+        "retained": 0,
+        "dialogs": 0,
+        "usedHeap": 6792404
+      },
+      "requests": [
+        {
+          "path": "/api/bi/cockpit",
+          "method": "GET",
+          "status": 200,
+          "ms": 9224,
+          "bytes": 27535,
+          "timing": {
+            "startTime": 1791469763880.02,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.239,
+            "responseStart": 9224.608,
+            "responseEnd": 9226.006
+          },
+          "scale": {}
+        },
+        {
+          "path": "/api/bi/flow",
+          "method": "GET",
+          "status": 200,
+          "ms": 1715,
+          "bytes": 3824,
+          "timing": {
+            "startTime": 1791469763880.507,
+            "domainLookupStart": 0.088,
+            "domainLookupEnd": 0.104,
+            "connectStart": 0.104,
+            "secureConnectionStart": -1,
+            "connectEnd": 1.391,
+            "requestStart": 1.485,
+            "responseStart": 1715.985,
+            "responseEnd": 1717.063
+          },
+          "scale": {}
+        },
+        {
+          "path": "/api/bi/flow",
+          "method": "GET",
+          "status": 200,
+          "ms": 1631,
+          "bytes": 3824,
+          "timing": {
+            "startTime": 1791469773121.524,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.703,
+            "responseStart": 1633.598,
+            "responseEnd": 1634.614
+          },
+          "scale": {}
+        }
+      ]
+    },
+    {
+      "name": "bi-single-platform",
+      "status": "observed",
+      "actionResolvedMs": 27,
+      "observedCompleteMs": 3614,
+      "dom": {
+        "url": "/?module=null",
+        "rows": 40,
+        "nodes": 774,
+        "scrollY": 0,
+        "scrollHeight": 2550,
+        "busy": 0,
+        "retained": 0,
+        "dialogs": 0,
+        "usedHeap": 7970389
+      },
+      "requests": [
+        {
+          "path": "/api/bi/cockpit",
+          "method": "GET",
+          "status": 200,
+          "ms": 2986,
+          "bytes": 10389,
+          "timing": {
+            "startTime": 1791469775401.164,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.229,
+            "responseStart": 2986.205,
+            "responseEnd": 2987.979
+          },
+          "scale": {}
+        },
+        {
+          "path": "/api/bi/flow",
+          "method": "GET",
+          "status": 200,
+          "ms": 50,
+          "bytes": 320,
+          "timing": {
+            "startTime": 1791469778411.653,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.254,
+            "responseStart": 50.458,
+            "responseEnd": 51.518
+          },
+          "scale": {}
+        }
+      ]
+    },
+    {
+      "name": "shop-balanced-entry",
+      "status": "observed",
+      "actionResolvedMs": 45,
+      "observedCompleteMs": 1338,
+      "dom": {
+        "url": "/?module=shop",
+        "rows": 6,
+        "nodes": 837,
+        "scrollY": 0,
+        "scrollHeight": 2417,
+        "busy": 0,
+        "retained": 0,
+        "dialogs": 0,
+        "usedHeap": 12007724
+      },
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "method": "GET",
+          "status": 200,
+          "ms": 17,
+          "bytes": 158,
+          "timing": {
+            "startTime": 1791469779123.146,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.223,
+            "responseStart": 7.343,
+            "responseEnd": 8.453
+          },
+          "scale": {}
+        },
+        {
+          "path": "/api/netshop/store-overview",
+          "method": "GET",
+          "status": 200,
+          "ms": 301,
+          "bytes": 6460,
+          "timing": {
+            "startTime": 1791469779433.046,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.201,
+            "responseStart": 299.719,
+            "responseEnd": 300.675
+          },
+          "scale": {
+            "shops": 6
+          }
+        },
+        {
+          "path": "/api/netshop/store-overview",
+          "method": "GET",
+          "status": 200,
+          "ms": 177,
+          "bytes": 5797,
+          "timing": {
+            "startTime": 1791469779751.905,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.236,
+            "responseStart": 177.276,
+            "responseEnd": 178.228
+          },
+          "scale": {
+            "shops": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "shop-balanced-page2",
+      "status": "observed",
+      "actionResolvedMs": 457,
+      "observedCompleteMs": 1326,
+      "dom": {
+        "url": "/?module=shop",
+        "rows": 4,
+        "nodes": 781,
+        "scrollY": 0,
+        "scrollHeight": 2329,
+        "busy": 0,
+        "retained": 0,
+        "dialogs": 0,
+        "usedHeap": 14307880
+      },
+      "requests": [
+        {
+          "path": "/api/netshop/store-overview",
+          "method": "GET",
+          "status": 200,
+          "ms": 229,
+          "bytes": 6485,
+          "timing": {
+            "startTime": 1791469780897.361,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.234,
+            "responseStart": 230.823,
+            "responseEnd": 232.255
+          },
+          "scale": {
+            "shops": 6
+          }
+        },
+        {
+          "path": "/api/netshop/store-overview",
+          "method": "GET",
+          "status": 200,
+          "ms": 102,
+          "bytes": 5797,
+          "timing": {
+            "startTime": 1791469781157.908,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.254,
+            "responseStart": 101.543,
+            "responseEnd": 103.085
+          },
+          "scale": {
+            "shops": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "product-entry",
+      "status": "observed",
+      "actionResolvedMs": 45,
+      "observedCompleteMs": 1756,
+      "dom": {
+        "url": "/?module=product",
+        "rows": 50,
+        "nodes": 1827,
+        "scrollY": 0,
+        "scrollHeight": 3816,
+        "busy": 0,
+        "retained": 0,
+        "dialogs": 0,
+        "usedHeap": 6814971
+      },
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "method": "GET",
+          "status": 200,
+          "ms": 14,
+          "bytes": 158,
+          "timing": {
+            "startTime": 1791469781949.941,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.24,
+            "responseStart": 9.425,
+            "responseEnd": 10.666
+          },
+          "scale": {}
+        },
+        {
+          "path": "/api/products/summary",
+          "method": "GET",
+          "status": 200,
+          "ms": 699,
+          "bytes": 7377,
+          "timing": {
+            "startTime": 1791469782308.9011,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.192,
+            "responseStart": 696.458,
+            "responseEnd": 697.373
+          },
+          "scale": {
+            "total": 696,
+            "items": 50,
+            "sourceRevision": "48:45"
+          }
+        },
+        {
+          "path": "/api/products/summary",
+          "method": "GET",
+          "status": 200,
+          "ms": 157,
+          "bytes": 1533,
+          "timing": {
+            "startTime": 1791469783009.413,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.177,
+            "responseStart": 98.793,
+            "responseEnd": 99.723
+          },
+          "scale": {
+            "total": 696,
+            "sourceRevision": "48:45"
+          }
+        }
+      ]
+    },
+    {
+      "name": "product-page2",
+      "status": "observed",
+      "actionResolvedMs": 88,
+      "observedCompleteMs": 745,
+      "dom": {
+        "url": "/?module=product",
+        "rows": 50,
+        "nodes": 1827,
+        "scrollY": 2815,
+        "scrollHeight": 3888,
+        "busy": 0,
+        "retained": 0,
+        "dialogs": 0,
+        "usedHeap": 11006908
+      },
+      "requests": [
+        {
+          "path": "/api/products/summary",
+          "method": "GET",
+          "status": 200,
+          "ms": 127,
+          "bytes": 6634,
+          "timing": {
+            "startTime": 1791469783763.748,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.237,
+            "responseStart": 125.244,
+            "responseEnd": 126.114
+          },
+          "scale": {
+            "total": 696,
+            "items": 50,
+            "sourceRevision": "48:45"
+          }
+        }
+      ]
+    },
+    {
+      "name": "product-detail",
+      "status": "observed",
+      "actionResolvedMs": 50,
+      "observedCompleteMs": 2869,
+      "dom": {
+        "url": "/?module=product",
+        "rows": 0,
+        "nodes": 403,
+        "scrollY": 0,
+        "scrollHeight": 1715,
+        "busy": 0,
+        "retained": 0,
+        "dialogs": 0,
+        "usedHeap": 12213910
+      },
+      "requests": [
+        {
+          "path": "/api/sales/summary",
+          "method": "GET",
+          "status": 200,
+          "ms": 2335,
+          "bytes": 3211,
+          "timing": {
+            "startTime": 1791469784545.937,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.715,
+            "responseStart": 2343.262,
+            "responseEnd": 2344.279
+          },
+          "scale": {
+            "shops": 4,
+            "startDate": "2026-10-01",
+            "endDate": "2026-10-07"
+          }
+        }
+      ]
+    },
+    {
+      "name": "product-return",
+      "status": "probe-incomplete",
+      "error": "locator.click: Timeout 6000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: /返回/ }).first()\u001b[22m\n\u001b[2m    - locator resolved to <button type=\"button\" class=\"product-detail-back\">← 返回商品经营</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"product-detail-heading-main\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"product-detail-heading-main\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is not stable\u001b[22m\n\u001b[2m  2 × retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"shell-masthead\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"product-detail-heading-main\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"product-detail-heading-main\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"shell-masthead\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m  - retrying click action\u001b[22m\n\u001b[2m    - waiting 500ms\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is visible, enabled and stable\u001b[22m\n\u001b[2m    - scrolling into view if needed\u001b[22m\n\u001b[2m    - done scrolling\u001b[22m\n\u001b[2m    - <div class=\"shell-masthead\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m  2 × retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"product-detail-heading-main\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m  - retrying click action\u001b[22m\n\u001b[2m    - waiting 500ms\u001b[22m\n",
+      "requests": []
+    },
+    {
+      "name": "product-sort",
+      "status": "probe-incomplete",
+      "error": "locator.click: Timeout 6000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: /排序/ }).first()\u001b[22m\n",
+      "requests": []
+    },
+    {
+      "name": "customer-entry",
+      "status": "observed",
+      "actionResolvedMs": 32,
+      "observedCompleteMs": 2971,
+      "dom": {
+        "url": "/?module=customer_service",
+        "rows": 30,
+        "nodes": 1689,
+        "scrollY": 0,
+        "scrollHeight": 3380,
+        "busy": 0,
+        "retained": 0,
+        "dialogs": 0,
+        "usedHeap": 7323779
+      },
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "method": "GET",
+          "status": 200,
+          "ms": 11,
+          "bytes": 158,
+          "timing": {
+            "startTime": 1791469799535.1118,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.247,
+            "responseStart": 6.829,
+            "responseEnd": 11.821
+          },
+          "scale": {}
+        },
+        {
+          "path": "/api/customer-service/analyze",
+          "method": "GET",
+          "status": 200,
+          "ms": 97,
+          "bytes": 60,
+          "timing": {
+            "startTime": 1791469799841.937,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.23,
+            "responseStart": 94.509,
+            "responseEnd": 95.633
+          },
+          "scale": {}
+        },
+        {
+          "path": "/api/customer-service/conversations",
+          "method": "GET",
+          "status": 200,
+          "ms": 2129,
+          "bytes": 16424,
+          "timing": {
+            "startTime": 1791469799842.602,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.156,
+            "responseStart": 2128.024,
+            "responseEnd": 2128.796
+          },
+          "scale": {
+            "total": 3299,
+            "items": 30,
+            "shops": 5
+          }
+        }
+      ]
+    },
+    {
+      "name": "customer-detail",
+      "status": "observed",
+      "actionResolvedMs": 61,
+      "observedCompleteMs": 701,
+      "dom": {
+        "url": "/?module=customer_service",
+        "rows": 30,
+        "nodes": 1729,
+        "scrollY": 0,
+        "scrollHeight": 3380,
+        "busy": 0,
+        "retained": 0,
+        "dialogs": 1,
+        "usedHeap": 8374699
+      },
+      "requests": [
+        {
+          "path": "/api/customer-service/conversations",
+          "method": "GET",
+          "status": 200,
+          "ms": 74,
+          "bytes": 903,
+          "timing": {
+            "startTime": 1791469802569.5032,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.166,
+            "responseStart": 82.211,
+            "responseEnd": 83.259
+          },
+          "scale": {}
+        }
+      ]
+    },
+    {
+      "name": "customer-return",
+      "status": "observed",
+      "actionResolvedMs": 43,
+      "observedCompleteMs": 705,
+      "dom": {
+        "url": "/?module=customer_service",
+        "rows": 30,
+        "nodes": 1689,
+        "scrollY": 0,
+        "scrollHeight": 3380,
+        "busy": 0,
+        "retained": 0,
+        "dialogs": 0,
+        "usedHeap": 8818549
+      },
+      "requests": []
+    },
+    {
+      "name": "workflow-entry",
+      "status": "observed",
+      "actionResolvedMs": 39,
+      "observedCompleteMs": 1017,
+      "dom": {
+        "url": "/?module=workflow",
+        "rows": 50,
+        "nodes": 2172,
+        "scrollY": 0,
+        "scrollHeight": 5753,
+        "busy": 0,
+        "retained": 0,
+        "dialogs": 0,
+        "usedHeap": 11996575
+      },
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "method": "GET",
+          "status": 200,
+          "ms": 12,
+          "bytes": 158,
+          "timing": {
+            "startTime": 1791469804165.6343,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.242,
+            "responseStart": 9.329,
+            "responseEnd": 11.159
+          },
+          "scale": {}
+        },
+        {
+          "path": "/api/workflow/templates",
+          "method": "GET",
+          "status": 200,
+          "ms": 88,
+          "bytes": 52,
+          "timing": {
+            "startTime": 1791469804479.6702,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.18,
+            "responseStart": 86.355,
+            "responseEnd": 87.552
+          },
+          "scale": {
+            "items": 0
+          }
+        },
+        {
+          "path": "/api/workflow/tasks",
+          "method": "GET",
+          "status": 200,
+          "ms": 94,
+          "bytes": 6966,
+          "timing": {
+            "startTime": 1791469804525.9158,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.224,
+            "responseStart": 94.04,
+            "responseEnd": 95.246
+          },
+          "scale": {
+            "total": 81,
+            "items": 50
+          }
+        },
+        {
+          "path": "/api/workflow/tasks",
+          "method": "GET",
+          "status": 200,
+          "ms": 41,
+          "bytes": 693,
+          "timing": {
+            "startTime": 1791469804526.4138,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 1.8,
+            "responseStart": 38.457,
+            "responseEnd": 41.168
+          },
+          "scale": {
+            "total": 0,
+            "items": 0
+          }
+        },
+        {
+          "path": "/api/workflow/tasks",
+          "method": "GET",
+          "status": 200,
+          "ms": 44,
+          "bytes": 688,
+          "timing": {
+            "startTime": 1791469804526.605,
+            "domainLookupStart": 0.077,
+            "domainLookupEnd": 0.094,
+            "connectStart": 0.094,
+            "secureConnectionStart": -1,
+            "connectEnd": 1.791,
+            "requestStart": 1.86,
+            "responseStart": 43.669,
+            "responseEnd": 45.005
+          },
+          "scale": {
+            "total": 0,
+            "items": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "workflow-detail",
+      "status": "probe-incomplete",
+      "error": "locator.click: Timeout 6000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: /协作详情|查看详情|详情/ }).first()\u001b[22m\n",
+      "requests": []
+    },
+    {
+      "name": "ai-assistant-entry",
+      "status": "observed",
+      "actionResolvedMs": 43,
+      "observedCompleteMs": 1032,
+      "dom": {
+        "url": "/?module=ai",
+        "rows": 0,
+        "nodes": 588,
+        "scrollY": 0,
+        "scrollHeight": 1000,
+        "busy": 0,
+        "retained": 0,
+        "dialogs": 0,
+        "usedHeap": 9630187
+      },
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "method": "GET",
+          "status": 200,
+          "ms": 15,
+          "bytes": 158,
+          "timing": {
+            "startTime": 1791469811265.801,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.223,
+            "responseStart": 9.205,
+            "responseEnd": 10.297
+          },
+          "scale": {}
+        },
+        {
+          "path": "/api/ai/conversations",
+          "method": "GET",
+          "status": 200,
+          "ms": 42,
+          "bytes": 2745,
+          "timing": {
+            "startTime": 1791469811592.39,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.256,
+            "responseStart": 39.87,
+            "responseEnd": 40.753
+          },
+          "scale": {
+            "total": 62,
+            "items": 30
+          }
+        },
+        {
+          "path": "/api/ai/chat",
+          "method": "GET",
+          "status": 200,
+          "ms": 50,
+          "bytes": 531,
+          "timing": {
+            "startTime": 1791469811664.531,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.291,
+            "responseStart": 48.281,
+            "responseEnd": 49.358
+          },
+          "scale": {
+            "total": 1,
+            "items": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "import-source-select",
+      "status": "observed",
+      "actionResolvedMs": 446,
+      "observedCompleteMs": 1108,
+      "dom": {
+        "url": "/?module=import",
+        "rows": 0,
+        "nodes": 313,
+        "scrollY": 0,
+        "scrollHeight": 1000,
+        "busy": 0,
+        "retained": 0,
+        "dialogs": 0,
+        "usedHeap": 7590345
+      },
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "method": "GET",
+          "status": 200,
+          "ms": 12,
+          "bytes": 158,
+          "timing": {
+            "startTime": 1791469812393.073,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.27,
+            "responseStart": 7.638,
+            "responseEnd": 9.739
+          },
+          "scale": {}
+        }
+      ]
+    },
+    {
+      "name": "settings-local-draft",
+      "status": "observed",
+      "actionResolvedMs": 889,
+      "observedCompleteMs": 1555,
+      "dom": {
+        "url": "/?module=settings",
+        "rows": 0,
+        "nodes": 310,
+        "scrollY": 0,
+        "scrollHeight": 1000,
+        "busy": 0,
+        "retained": 0,
+        "dialogs": 0,
+        "usedHeap": 10097551
+      },
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "method": "GET",
+          "status": 200,
+          "ms": 17,
+          "bytes": 158,
+          "timing": {
+            "startTime": 1791469813540.966,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.217,
+            "responseStart": 6.083,
+            "responseEnd": 7.097
+          },
+          "scale": {}
+        },
+        {
+          "path": "/api/settings",
+          "method": "GET",
+          "status": 200,
+          "ms": 212,
+          "bytes": 185,
+          "timing": {
+            "startTime": 1791469813849.948,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.241,
+            "responseStart": 207.902,
+            "responseEnd": 208.844
+          },
+          "scale": {}
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

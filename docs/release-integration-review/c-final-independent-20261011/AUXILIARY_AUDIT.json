@@ -1,0 +1,46 @@
+{
+  "version": "teruisi-c-3032-auxiliary-receipt-audit-v1",
+  "at": "2026-10-11T07:19:46.334Z",
+  "manifestSha256": "58cc236e09f097f2c7aec054af9699fc7c0aca3bda1cd79d1c47cbf06efd1a8f",
+  "receipts": [
+    {
+      "name": "contractReceipt",
+      "path": "audit/sales-retired-code-receipt.json",
+      "sha256": "37bb012209bbc0f08b26cbe2fde0ed5ad0b55836d3212ac2086832b86434ac9a",
+      "version": "teruisi-sales-retired-code-receipt-v1"
+    },
+    {
+      "name": "d1RetirementReceipt",
+      "path": "audit/global-d1-retirement.json",
+      "sha256": "e2f7831967d2e0a8f6373a8d644bcad6ad0045b64068bc4f11a0a07ebefb5ba0",
+      "version": "teruisi-global-d1-retirement-binding-v1"
+    },
+    {
+      "name": "guardReceipt",
+      "path": "audit/legacy-worker-guard-receipt.json",
+      "sha256": "dc1d63ce61e411a9eb67b79100a3f54adb4f8e63b89d7d0ce305bb6c4f22e515",
+      "version": "teruisi-legacy-worker-guard-receipt-v1"
+    },
+    {
+      "name": "helperReceipt",
+      "path": "audit/helper-build-receipt.json",
+      "sha256": "308e4d1ad3f0fec82253b8333e93b83f88246d50129a8643c3b47c0abf4739ff",
+      "version": "teruisi-worker-helper-build-receipt-v1"
+    }
+  ],
+  "COriginalHelpers": [
+    {
+      "path": "tools/release-admission-timing.mjs",
+      "sha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66",
+      "originalLimitedABCCommit": "9d41ce4fa2c7ee4d47ba1bfda0f0967d7727be9c",
+      "exactOriginalBytes": true
+    },
+    {
+      "path": "tools/release-preparation-evidence.mjs",
+      "sha256": "6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5",
+      "originalLimitedABCCommit": "9d41ce4fa2c7ee4d47ba1bfda0f0967d7727be9c",
+      "exactOriginalBytes": true
+    }
+  ],
+  "productionActions": 0
+}

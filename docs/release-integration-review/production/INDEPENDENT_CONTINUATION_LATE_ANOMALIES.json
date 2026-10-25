@@ -1,0 +1,556 @@
+{
+  "version": "teruisi-continuation-late-entry-anomalies-independent-v1",
+  "reviewedAt": "2026-10-10T10:22:47.523Z",
+  "status": "two-more-ab-worker-exits-and-automatic-restarts-confirmed-causes-unresolved",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "supplementSha256": "0bcad05b44a127e63bb0c38ad16046d282eb529e47cf0c7d9022fac248f6cac2",
+  "candidate": {
+    "sourceCommit": "5faac8151f59d66de72c3caead8cad916ea547da",
+    "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+    "workerManifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+    "djangoManifestSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9"
+  },
+  "frozenObserver": {
+    "path": "E:/codex-artifacts/release-integration-review-20261010/AB-ui-supplement-20261010-0820-final/production/entry-observations.jsonl",
+    "sha256": "2b5d7b5ed3cb80438fd729051aff56c4ab36c65bb38bfa30b51e95e22669a9f1",
+    "bytes": 289579,
+    "samples": 2201,
+    "unavailableSamples": 15,
+    "first": "2026-10-10T08:43:26.714Z",
+    "last": "2026-10-10T10:15:23.909Z",
+    "finishedAt": "2026-10-10T10:15:26.411Z",
+    "normalExplicitStop": true,
+    "deadlineReached": false
+  },
+  "lateIncidents": [
+    {
+      "firstFailure": "2026-10-10T09:54:12.503Z",
+      "lastFailure": "2026-10-10T09:54:22.529Z",
+      "failedSamples": [
+        {
+          "at": "2026-10-10T09:54:12.503Z",
+          "completedAt": "2026-10-10T09:54:12.519Z",
+          "latencyMs": 16,
+          "status": 500,
+          "html": false,
+          "available": false
+        },
+        {
+          "at": "2026-10-10T09:54:15.013Z",
+          "completedAt": "2026-10-10T09:54:15.016Z",
+          "latencyMs": 3,
+          "available": false,
+          "errorCode": "ECONNREFUSED"
+        },
+        {
+          "at": "2026-10-10T09:54:17.520Z",
+          "completedAt": "2026-10-10T09:54:17.521Z",
+          "latencyMs": 1,
+          "available": false,
+          "errorCode": "ECONNREFUSED"
+        },
+        {
+          "at": "2026-10-10T09:54:20.020Z",
+          "completedAt": "2026-10-10T09:54:20.022Z",
+          "latencyMs": 2,
+          "available": false,
+          "errorCode": "ECONNREFUSED"
+        },
+        {
+          "at": "2026-10-10T09:54:22.529Z",
+          "completedAt": "2026-10-10T09:54:22.530Z",
+          "latencyMs": 1,
+          "available": false,
+          "errorCode": "ECONNREFUSED"
+        }
+      ],
+      "before": {
+        "at": "2026-10-10T09:54:09.990Z",
+        "completedAt": "2026-10-10T09:54:09.999Z",
+        "latencyMs": 9,
+        "status": 200,
+        "html": true,
+        "available": true
+      },
+      "after": {
+        "at": "2026-10-10T09:54:25.034Z",
+        "completedAt": "2026-10-10T09:54:25.512Z",
+        "latencyMs": 478,
+        "status": 200,
+        "html": true,
+        "available": true
+      },
+      "failureSampleStartSpanMs": 10026,
+      "neighborRequestStartSpanMs": 15044,
+      "neighborConfirmed200ConservativeSpanMs": 15522,
+      "timeline": [
+        {
+          "line": 1481,
+          "version": 1,
+          "at": "2026-10-10T09:54:12.885Z",
+          "sequence": 220,
+          "pid": 48744,
+          "ppid": 39420,
+          "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+          "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+          "event": "child_exit",
+          "role": "worker",
+          "childPid": 44348,
+          "code": 1,
+          "uptimeMs": 12465985,
+          "rss": 96813056,
+          "heapUsed": 15041176,
+          "freeMemory": 3441438720,
+          "totalMemory": 34003079168
+        },
+        {
+          "line": 1482,
+          "version": 1,
+          "at": "2026-10-10T09:54:12.889Z",
+          "sequence": 221,
+          "pid": 48744,
+          "ppid": 39420,
+          "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+          "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+          "event": "restart_scheduled",
+          "role": "worker",
+          "delayMs": 2000,
+          "uptimeMs": 12465989,
+          "rss": 96813056,
+          "heapUsed": 15078712,
+          "freeMemory": 3442294784,
+          "totalMemory": 34003079168
+        },
+        {
+          "line": 1483,
+          "version": 1,
+          "at": "2026-10-10T09:54:14.904Z",
+          "sequence": 222,
+          "pid": 48744,
+          "ppid": 39420,
+          "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+          "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+          "event": "launch_validation",
+          "role": "worker",
+          "uptimeMs": 12468003,
+          "rss": 96813056,
+          "heapUsed": 15086624,
+          "freeMemory": 3403567104,
+          "totalMemory": 34003079168
+        },
+        {
+          "line": 1484,
+          "version": 1,
+          "at": "2026-10-10T09:54:18.980Z",
+          "sequence": 223,
+          "pid": 48744,
+          "ppid": 39420,
+          "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+          "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+          "event": "child_spawn",
+          "role": "worker",
+          "childPid": 40148,
+          "uptimeMs": 12472080,
+          "rss": 101687296,
+          "heapUsed": 14596928,
+          "freeMemory": 3273187328,
+          "totalMemory": 34003079168
+        },
+        {
+          "line": 1485,
+          "version": 1,
+          "at": "2026-10-10T09:54:28.501Z",
+          "sequence": 224,
+          "pid": 48744,
+          "ppid": 39420,
+          "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+          "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+          "event": "heartbeat",
+          "uptimeMs": 12481601,
+          "rss": 101687296,
+          "heapUsed": 14602320,
+          "freeMemory": 3122642944,
+          "totalMemory": 34003079168
+        }
+      ],
+      "workerExit": {
+        "at": "2026-10-10T09:54:12.885Z",
+        "pid": 44348,
+        "code": 1
+      },
+      "scheduledRestartDelayMs": 2000,
+      "newWorkerRoot": {
+        "at": "2026-10-10T09:54:18.980Z",
+        "pid": 40148
+      },
+      "proxyError": {
+        "path": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-10_09-06-23_129.log",
+        "at": "2026-10-10T09:54:12.520Z",
+        "outer": "Error inside ProxyWorker",
+        "cause": "Network connection lost.",
+        "nativeRootCause": "unknown"
+      }
+    },
+    {
+      "firstFailure": "2026-10-10T10:02:06.526Z",
+      "lastFailure": "2026-10-10T10:02:16.559Z",
+      "failedSamples": [
+        {
+          "at": "2026-10-10T10:02:06.526Z",
+          "completedAt": "2026-10-10T10:02:06.545Z",
+          "latencyMs": 19,
+          "status": 500,
+          "html": false,
+          "available": false
+        },
+        {
+          "at": "2026-10-10T10:02:09.041Z",
+          "completedAt": "2026-10-10T10:02:09.042Z",
+          "latencyMs": 1,
+          "available": false,
+          "errorCode": "ECONNREFUSED"
+        },
+        {
+          "at": "2026-10-10T10:02:11.551Z",
+          "completedAt": "2026-10-10T10:02:11.553Z",
+          "latencyMs": 2,
+          "available": false,
+          "errorCode": "ECONNREFUSED"
+        },
+        {
+          "at": "2026-10-10T10:02:14.052Z",
+          "completedAt": "2026-10-10T10:02:14.053Z",
+          "latencyMs": 1,
+          "available": false,
+          "errorCode": "ECONNREFUSED"
+        },
+        {
+          "at": "2026-10-10T10:02:16.559Z",
+          "completedAt": "2026-10-10T10:02:16.561Z",
+          "latencyMs": 2,
+          "available": false,
+          "errorCode": "ECONNREFUSED"
+        }
+      ],
+      "before": {
+        "at": "2026-10-10T10:02:04.023Z",
+        "completedAt": "2026-10-10T10:02:04.033Z",
+        "latencyMs": 10,
+        "status": 200,
+        "html": true,
+        "available": true
+      },
+      "after": {
+        "at": "2026-10-10T10:02:19.073Z",
+        "completedAt": "2026-10-10T10:02:19.149Z",
+        "latencyMs": 76,
+        "status": 200,
+        "html": true,
+        "available": true
+      },
+      "failureSampleStartSpanMs": 10033,
+      "neighborRequestStartSpanMs": 15050,
+      "neighborConfirmed200ConservativeSpanMs": 15126,
+      "timeline": [
+        {
+          "line": 1493,
+          "version": 1,
+          "at": "2026-10-10T10:02:07.230Z",
+          "sequence": 232,
+          "pid": 48744,
+          "ppid": 39420,
+          "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+          "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+          "event": "child_exit",
+          "role": "worker",
+          "childPid": 40148,
+          "code": 1,
+          "uptimeMs": 12940330,
+          "rss": 98066432,
+          "heapUsed": 16049840,
+          "freeMemory": 2702180352,
+          "totalMemory": 34003079168
+        },
+        {
+          "line": 1494,
+          "version": 1,
+          "at": "2026-10-10T10:02:07.234Z",
+          "sequence": 233,
+          "pid": 48744,
+          "ppid": 39420,
+          "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+          "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+          "event": "restart_scheduled",
+          "role": "worker",
+          "delayMs": 4000,
+          "uptimeMs": 12940334,
+          "rss": 98066432,
+          "heapUsed": 16121888,
+          "freeMemory": 2702106624,
+          "totalMemory": 34003079168
+        },
+        {
+          "line": 1495,
+          "version": 1,
+          "at": "2026-10-10T10:02:11.240Z",
+          "sequence": 234,
+          "pid": 48744,
+          "ppid": 39420,
+          "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+          "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+          "event": "launch_validation",
+          "role": "worker",
+          "uptimeMs": 12944340,
+          "rss": 98066432,
+          "heapUsed": 16129696,
+          "freeMemory": 2377293824,
+          "totalMemory": 34003079168
+        },
+        {
+          "line": 1496,
+          "version": 1,
+          "at": "2026-10-10T10:02:15.422Z",
+          "sequence": 235,
+          "pid": 48744,
+          "ppid": 39420,
+          "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+          "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+          "event": "child_spawn",
+          "role": "worker",
+          "childPid": 66676,
+          "uptimeMs": 12948522,
+          "rss": 102391808,
+          "heapUsed": 13668200,
+          "freeMemory": 3137224704,
+          "totalMemory": 34003079168
+        },
+        {
+          "line": 1497,
+          "version": 1,
+          "at": "2026-10-10T10:02:28.551Z",
+          "sequence": 236,
+          "pid": 48744,
+          "ppid": 39420,
+          "estimatedStartedAt": "2026-10-10T06:26:26.900Z",
+          "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+          "event": "heartbeat",
+          "uptimeMs": 12961651,
+          "rss": 102400000,
+          "heapUsed": 13793648,
+          "freeMemory": 2248769536,
+          "totalMemory": 34003079168
+        }
+      ],
+      "workerExit": {
+        "at": "2026-10-10T10:02:07.230Z",
+        "pid": 40148,
+        "code": 1
+      },
+      "scheduledRestartDelayMs": 4000,
+      "newWorkerRoot": {
+        "at": "2026-10-10T10:02:15.422Z",
+        "pid": 66676
+      },
+      "proxyError": {
+        "path": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-10_09-54-19_811.log",
+        "at": "2026-10-10T10:02:06.546Z",
+        "outer": "Error inside ProxyWorker",
+        "cause": "Network connection lost.",
+        "nativeRootCause": "unknown"
+      }
+    }
+  ],
+  "earlierReportsRemainUnmodified": true,
+  "prior0906BoundClarification": {
+    "neighborRequestStartSpanMs": 15061,
+    "finalConservativeConfirmed200SpanMs": 15076,
+    "explanation": "Earlier independent09:06 report used next available request start. Final conservative bound includes its15ms response confirmation. Neither is exact downtime."
+  },
+  "supervisor": {
+    "pid": 48744,
+    "creationUtc": "2026-10-10T06:26:26.7917950Z",
+    "sameManifestAcrossBothIncidents": true,
+    "childSequence": [
+      44348,
+      40148,
+      66676
+    ],
+    "restartBackoffMs": [
+      2000,
+      4000
+    ]
+  },
+  "wal": {
+    "records": 75,
+    "head": "420fd5e13e5b637c1a6d62f6fad1e16dccd19c8f1f2c26c8302db892c34fcd09",
+    "active": {
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "id": "integration-ab-v2-20261010-c22d8dd69a"
+    },
+    "lastOperation": "backup-post",
+    "lastStatus": "unknown",
+    "lastAt": "2026-10-10T09:44:11.721Z",
+    "lateIncidentWindowEvents": [],
+    "operations17to21NotStarted": true,
+    "allCanonicalHashChainVerified": true
+  },
+  "timeoutAndCleanup": {
+    "lastBackupProcessEvidence": {
+      "cleanup": "preserve",
+      "code": "nonzero_exit",
+      "deadlineUnixMs": 1791626667045,
+      "elapsedMs": 574658,
+      "exitCode": 1,
+      "nativeCode": null,
+      "outputProtocol": "direct-exit-files",
+      "processId": 69376,
+      "signal": null,
+      "stage": "output",
+      "stderrBytes": 2428,
+      "stderrSha256": "d3bea73cde7a844806baa4ff1a08185e1aa84c8c490d3b7947b68eb121ce50b0",
+      "stdoutBytes": 1319,
+      "stdoutSha256": "49b85219faffedc5c185f8257f2f401ae2eb8f08d53bf6cfa9f9eb7d5a0202d8",
+      "timeoutType": null,
+      "treeCleanupExitCode": null,
+      "treeCleanupPending": false,
+      "version": 1
+    },
+    "lateIncidentsAfterOriginalEngineStopped": true,
+    "recordedTimeoutOrTreeCleanupEvidence": false,
+    "sourceFinishClearsBothTimers": true,
+    "preserveCleanupDoesNotKillTree": true,
+    "rootCauseLimit": "No complete OS/native workerd termination trace is available; cannot rule out every external termination or infer CPU/memory/observer causality."
+  },
+  "postObserverPassiveSnapshots": {
+    "unhealthyToolObserved": {
+      "originalPath": "D:/teruisi-runtime/operations-watchdog/latest.json",
+      "snapshotAt": "2026-10-10T10:18:25.6460405+00:00",
+      "healthy": false,
+      "system": "BackendUnavailable",
+      "backend": "NotReady",
+      "core": false,
+      "homepageLiveReadyHelperHttp200": true,
+      "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+      "supervisorPid": 48744,
+      "workerPid": 25236,
+      "source": "actual Get-Content readonly tool response observed during this review",
+      "originalRawFilePreserved": false,
+      "originalRawSha256": null,
+      "preservationLimit": "Original task atomically replaced latest with10:19 snapshot before raw capture. Earlier tool-visible semantic observation is recorded without reconstructing an original raw file or digest."
+    },
+    "subsequentNaturalSnapshot": {
+      "snapshotAt": "2026-10-10T10:19:25.5945706+00:00",
+      "healthy": true,
+      "system": "Running",
+      "backend": "Ready",
+      "core": true,
+      "supervisorPid": 48744,
+      "workerPid": 25236,
+      "rawCapturedPath": "D:/.codex/worktrees/release-integration-review/运营管理系统/docs/release-integration-review/production/INDEPENDENT_POST_OBSERVER_PASSIVE_STATUS-101925.json",
+      "rawSha256": "8c2261887f470c080ef3e0cfdef81aa653854860350f4cb8c52018713e07e0f6",
+      "existingEvidenceCapturedAt": "2026-10-10T10:20:53.2034922+00:00",
+      "databaseRecovery": []
+    },
+    "conclusion": "A naturally later healthy snapshot exists. Neither snapshot establishes permanent current state or closes the batch; future tail admission must obtain fresh exact complete readiness."
+  },
+  "timing": {
+    "originalApprovedAt": "2026-10-10T05:28:51.000Z",
+    "frozenSnapshotCapturedAt": "2026-10-10T10:15:27.752Z",
+    "originalApprovalToCaptureMs": 17196752,
+    "originalApprovalToCaptureMinutes": 286.6125333333333,
+    "originalApprovalToLastSampleMs": 17192909,
+    "originalApprovalToLastSampleMinutes": 286.5484833333333,
+    "necessaryAcceptanceClosedAt": null,
+    "fullBatchClosedAt": null
+  },
+  "fullBatchComplete": false,
+  "reviewerProductionOperations": 0,
+  "limits": [
+    "All availability values are GET header/status samples. Failure start span and conservative neighboring200 confirmation bound are distinct; neither proves exact user downtime.",
+    "Observer is now frozen; service health after10:15:23.909 is outside this observer scope, represented only by individually timestamped passive snapshots.",
+    "Both failures occurred after backup-post unknown/engine halt; no new WAL steps, Restore or lifecycle operation ran in their windows.",
+    "Same ProxyWorker Network connection lost surface does not establish fixed periodic timing, CPU pressure, A regression, observer causality or native kill cause.",
+    "Current isolated healthy snapshots do not overwrite four independent crash intervals (06:06 plus09:06,09:54,10:02), maintenance, corefalse observation or unresolved obligations.",
+    "The first local report probe required latest healthy=true and encountered the real10:18 unhealthy snapshot; that local assumption was removed from reporting, not from any production assertion.",
+    "No new Status/GET/UI/lifecycle/backup/restore/database query/business read/production write or external send was performed."
+  ],
+  "sources": [
+    {
+      "path": "D:/.codex/worktrees/release-integration-review/运营管理系统/docs/release-integration-review/production/backup-post-blocked-final.json",
+      "bytesCaptured": 27663,
+      "sha256": "6df9d6bb237470c10a4718056aa58a63c8ce881ed04277b2bd80399274cf88e9",
+      "liveFile": false,
+      "digestScope": "complete bytes read"
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-ui-supplement-20261010-0820-final/production/observer-finished.json",
+      "bytesCaptured": 118,
+      "sha256": "67afe64615bc823942f8278b60d266bb18da981f12669a7ab68e4f3bb57e817f",
+      "liveFile": false,
+      "digestScope": "complete bytes read"
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-ui-supplement-20261010-0820-final/production/entry-observations.jsonl",
+      "bytesCaptured": 289579,
+      "sha256": "2b5d7b5ed3cb80438fd729051aff56c4ab36c65bb38bfa30b51e95e22669a9f1",
+      "liveFile": false,
+      "digestScope": "complete bytes read"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+      "bytesCaptured": 520180,
+      "sha256": "c6fa9d618a1e7cb6c885ed6439abaed0fc40a9bdab7f1b8f9ab9ff7a6d534d4a",
+      "liveFile": true,
+      "digestScope": "captured prefix at review, may append"
+    },
+    {
+      "path": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-10_09-06-23_129.log",
+      "bytesCaptured": 152182,
+      "sha256": "9361c5028994ae12316a1dbdaa1923ea049cd57c79b3fc81e79189822bf6b171",
+      "liveFile": false,
+      "digestScope": "complete bytes read"
+    },
+    {
+      "path": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-10_09-54-19_811.log",
+      "bytesCaptured": 71490,
+      "sha256": "59858d321a2af528b49e4c099e1b7dcf8da908760b6e9deb7633c2dd9fec19bd",
+      "liveFile": false,
+      "digestScope": "complete bytes read"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/active.json",
+      "bytesCaptured": 128,
+      "sha256": "7c5af7f44a5aa80579bc9ac2a5038ad5ab757a90dc837de4977513d8be7b0cbf",
+      "liveFile": false,
+      "digestScope": "complete bytes read"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/worker-process.json",
+      "bytesCaptured": 534,
+      "sha256": "a319e45850aaae5b2e65d0642e55603c31b23881c0ab8750045a23782dc4cc9b",
+      "liveFile": false,
+      "digestScope": "complete bytes read"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-integration-review/运营管理系统/docs/release-integration-review/production/INDEPENDENT_POST_OBSERVER_PASSIVE_STATUS-101925.json",
+      "bytesCaptured": 1438,
+      "sha256": "8c2261887f470c080ef3e0cfdef81aa653854860350f4cb8c52018713e07e0f6",
+      "liveFile": false,
+      "digestScope": "complete bytes read"
+    },
+    {
+      "path": "D:/teruisi-runtime/operations-watchdog/evidence/8e3d893683d343aeaf5653b7e3442732-latest.json",
+      "bytesCaptured": 1694,
+      "sha256": "62da9cc4a90f4adf00e94c56ff15400588f1e5c4b05607b5c776974083fa0171",
+      "liveFile": false,
+      "digestScope": "complete bytes read"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/tools/worker-local-release.mjs",
+      "bytesCaptured": 172767,
+      "sha256": "bba3e24da195576e991f162084159314652c7077f0c7f0a3647319911203c0fa",
+      "liveFile": false,
+      "digestScope": "complete bytes read"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+﻿{
+    "task_id":  "task-release-rework-20261024-fix",
+    "task_description":  "Morning push script aborted on new test failures. Fix the real regression (producer qualification pins broken by S05d/S16 producer edits), fix the environment failures (test worktrees without node_modules), commit to the scratch repo branches (control first, cherry-pick to rework, docs on rework), and update push-rework.ps1 / s05b-prepare.ps1 / RUNBOOK so the user can re-run by double-click, upgrading existing local branches and worktrees by fast-forward only.",
+    "status":  "completed",
+    "feature_order":  [
+                          "FEAT-001",
+                          "FEAT-002",
+                          "FEAT-003"
+                      ],
+    "blocked_reason":  null,
+    "verification":  {
+                         "build":  "pass",
+                         "tests":  "pass",
+                         "test_quality":  "pass",
+                         "summary":  "node --check passes on all changed .mjs; PS 5.1 parse 0 errors for both scripts. Sandbox: publish-prepared-main 58/58, abandonment 14/14, retirement-scope 3/3, retirement-admission 3/3, worker-preparation-timing 6/6, preparation-resolution 7/10 ok incl. all 6 morning failures (3 spawn tests TIMEOUT in sandbox). superseded-resolution, collector, integration, entry and other spawn tests are deferred to push-rework.ps1 outside the sandbox (authoritative gate). Test quality: no new tests; resolution tests already fail without the new closures (observed this morning), collector/integration fixtures fail if reverted to repo bytes (observed this morning)."
+                     },
+    "review":  "v1 APPROVED (2026-10-24-103418-review.md); 5 non-blocking issues all addressed in follow-up (script env rule + junction cleanup; docs commit a0b732b1). Final heads: rework a0b732b1da2713e94e99df4d7289ab822a6a4643, control 01b0fc5ff7aaf0e44d7c9192f498ed6637970709."
+}

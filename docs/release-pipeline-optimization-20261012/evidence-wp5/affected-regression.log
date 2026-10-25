@@ -1,0 +1,25 @@
+✔ lifecycle service stays parseable by Windows PowerShell 5.1 with Chinese text (1.9497ms)
+✔ Start never bypasses the unified controller and the single start engine (0.2861ms)
+✔ Stop halts the Worker through its identity gate before the Django stack, under the panel mutex (0.2004ms)
+✔ hot restart keeps Django/PostgreSQL running and performs one gated Worker restart (0.2583ms)
+✔ child scripts are waited on through file redirection, never an inherited pipeline (0.2617ms)
+✔ background mode detaches a hidden process and binds its receipt to the process start time (0.2277ms)
+✔ lifecycle service helpers pass their PowerShell unit test when a shell is available (1231.0649ms)
+✔ powershell.exe: lifecycle wrapper preserves failing direct exits and releases its lock (7218.4779ms)
+✔ pwsh.exe: lifecycle wrapper preserves failing direct exits and releases its lock (7378.3815ms)
+✔ batch launcher and npm scripts route every action to the lifecycle service (0.6623ms)
+✔ legacy launcher delegates browser opening to the Chrome-aware unified controller (0.1409ms)
+✔ batch launcher opens and exits its menu through real cmd.exe (486.0981ms)
+✔ prepared Django deployment and overlapping readers (powershell.exe) (2185.2206ms)
+✔ prepared Django deployment and overlapping readers (pwsh.exe) (2498.373ms)
+✔ online preparation verifies the exact predecessor at every boundary and propagates unknown process failures (1.0059ms)
+✔ lifecycle interleavings and persistent maintenance (powershell.exe) (4004.4965ms)
+✔ lifecycle interleavings and persistent maintenance (pwsh.exe) (6893.8987ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 32631.6106

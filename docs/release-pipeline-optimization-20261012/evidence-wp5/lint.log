@@ -1,0 +1,382 @@
+
+> teruisi-operations-frontend@0.1.0 lint
+> eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .runtime --ignore-pattern .codex-tmp --ignore-pattern .vite-sites-cache --ignore-pattern tmp --ignore-pattern outputs
+
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\app\ai-business-market-v2-preview.tsx
+  6:3  warning  'MARKET_V2_VIEWS' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\app\netshop\products\ProductsPrimitives.tsx
+  31:145  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\app\shop-module-view.tsx
+  1103:19   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  1336:503  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\demos\bi-cockpit\app.js
+   1:46  warning  'promotion' is defined but never used                                  @typescript-eslint/no-unused-vars
+   1:95  warning  'addDays' is defined but never used                                    @typescript-eslint/no-unused-vars
+   2:18  warning  'titles' is defined but never used                                     @typescript-eslint/no-unused-vars
+  31:55  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\demos\bi-cockpit\demo01\layout.js
+  3:30  warning  'money' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\demos\bi-cockpit\reference\app.js
+   3:23  warning  'addDays' is defined but never used          @typescript-eslint/no-unused-vars
+  32:7   warning  'info' is assigned a value but never used    @typescript-eslint/no-unused-vars
+  40:10  warning  'todoDescription' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\demos\bi-cockpit\reference\model.js
+  39:19  warning  '_legacyDailyTarget' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\demos\bi-cockpit\reference\panels.js
+  2:62  warning  'delta' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\demos\bi-cockpit\shared\data.js
+  92:115  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\demos\bi-cockpit\shared\ui.js
+   1:34   warning  'promotion' is defined but never used    @typescript-eslint/no-unused-vars
+   1:71   warning  'createModel' is defined but never used  @typescript-eslint/no-unused-vars
+  42:737  warning  'idx' is defined but never used          @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\performance-experience-audit-20261008\tools\final-readonly-operations.mjs
+  7:699  warning  'r' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\performance-experience-audit-20261008\tools\inspect-page.mjs
+  2:17  warning  'writeFile' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\performance-experience-audit-20261008\tools\package-evidence.mjs
+  1:42  warning  'readdir' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\performance-experience-audit-20261008\tools\production-chains.mjs
+  12:25  warning  'r' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\performance-experience-audit-20261008\tools\production-survey.mjs
+  17:33  warning  'r' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\performance-experience-audit-20261008\tools\retained-progress-soak.mjs
+  10:825  warning  'r' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-c-preparation\agy\run-review.mjs
+  2:8  warning  'assert' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-final-closeout-20261012\archive-final-evidence.mjs
+  1:32  warning  'path' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-final-closeout-20261012\request-natural-only-closeout.mjs
+  1:33  warning  'path' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-final-closeout-20261012\request-natural-reobserve.mjs
+  1:33  warning  'path' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-final-closeout-20261012\run-final-closeout-v2.mjs
+  4:209  warning  'head49' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-final-closeout-20261012\run-final-closeout.mjs
+  4:209  warning  'head49' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-final-closeout-20261012\run-natural-only-v2.mjs
+  2:99  warning  'spawn' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-final-closeout-20261012\run-natural-only.mjs
+  2:99  warning  'spawn' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-first-adoption-targeted-20261011\adapters\guard-ig04-process.test.mjs
+  3:8  warning  'vm' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-first-adoption-targeted-20261011\review\independent\fresh-entry-independent-second.test.mjs
+  25:24  warning  'o' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-first-adoption-targeted-20261011\review\independent\fresh-entry-independent-third.test.mjs
+  25:24  warning  'o' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-first-adoption-targeted-20261011\review\independent\fresh-entry-independent-v2.test.mjs
+  26:24  warning  'o' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\backup-reconciliation\reconcile-completed-backup.independent.test.mjs
+  32:45  warning  '_old' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\batch-v2\seal.mjs
+  170:9  warning  'batchPath' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\c-acceptance-20261011\independent-isolated-seams.FIRST.cjs
+  1:10   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:43   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:65   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:89   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:113  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:139  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:193  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\c-acceptance-20261011\independent-isolated-seams.cjs
+  1:10   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:43   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:65   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:89   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:113  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:139  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:193  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\c-final-independent-20261011\independent-technical-seams.cjs
+  1:10   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:43   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:67   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:91   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:113  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:135  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:172  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  1:226  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\c-final-independent-20261011\installation-audit.mjs
+  6:7  warning  'out' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\c-targeted-independent-20261011\fresh-entry-independent-second.test.mjs
+  25:24  warning  'o' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\c-targeted-independent-20261011\fresh-entry-independent-third.test.mjs
+  25:24  warning  'o' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\c-targeted-independent-20261011\fresh-entry-independent-v2.test.mjs
+  26:24  warning  'o' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\c-targeted-independent-20261011\independent-continuation-seams.cjs
+  1:7    warning  'fs' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  1:10   error    A `require()` style import is forbidden            @typescript-eslint/no-require-imports
+  1:43   error    A `require()` style import is forbidden            @typescript-eslint/no-require-imports
+  1:67   error    A `require()` style import is forbidden            @typescript-eslint/no-require-imports
+  1:88   warning  'os' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  1:91   error    A `require()` style import is forbidden            @typescript-eslint/no-require-imports
+  1:113  error    A `require()` style import is forbidden            @typescript-eslint/no-require-imports
+  1:135  error    A `require()` style import is forbidden            @typescript-eslint/no-require-imports
+  1:172  error    A `require()` style import is forbidden            @typescript-eslint/no-require-imports
+  1:214  warning  'randomUUID' is assigned a value but never used    @typescript-eslint/no-unused-vars
+  1:226  error    A `require()` style import is forbidden            @typescript-eslint/no-require-imports
+  3:249  warning  'hash' is assigned a value but never used          @typescript-eslint/no-unused-vars
+  6:65   warning  'batchText' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  6:119  warning  'observerText' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\c-targeted-independent-20261011\independent-policy-seams.BATCH_TIMEOUT.cjs
+   1:10   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   1:34   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   1:58   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   1:84   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   1:127  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   1:166  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:177  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\c-targeted-independent-20261011\independent-policy-seams.FIRST.cjs
+   1:10   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   1:34   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   1:58   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   1:84   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   1:127  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   1:166  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:177  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\c-targeted-independent-20261011\independent-policy-seams.cjs
+   1:10   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   1:34   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   1:58   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   1:84   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   1:127  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   1:166  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:177  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\c-unified-candidate-20261011\INDEPENDENT_VM_FIRST.cjs
+  2:10   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:32   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:56   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:84   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:117  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:160  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\c-unified-candidate-20261011\INDEPENDENT_VM_FULL_MODE.cjs
+  2:10   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:32   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:56   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:84   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:127  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\production\HEALTH_PROBE_FULL_DELIVERY_INDEPENDENT.mjs
+  22:9  warning  'agy' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\production\run-antigravity-ab-review.mjs
+  2:8  warning  'assert' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\source-witness\before-image-independent.mjs
+  67:524  warning  'oldRow' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\ui-continuation\supplement-controller.independent.test.mjs
+  16:29  warning  '_old' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-integration-review\ui-continuation\supplement-controller.test.mjs
+  14:33  warning  'supplementSha256' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-adoption-20261011\adapters\audit-all-references-v4.mjs
+  21:139  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-adoption-20261011\adapters\seal-adoption-batch-v4.mjs
+  14:120  warning  'plan' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\backup-reconcile-bootstrap.mjs
+  5:9  warning  'fileURLToPath' is defined but never used  @typescript-eslint/no-unused-vars
+  6:9  warning  'randomUUID' is defined but never used     @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\capture-approved-env.mjs
+  2:18  warning  'readFile' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\capture-backup-resume-env.mjs
+  2:18  warning  'readFile' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\capture-stop-resume-env.mjs
+  2:18  warning  'readFile' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\evidence\pre-switch\V1-reconcile-backup-once.mjs
+  7:9  warning  'readFile' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\evidence\stop-blocker\STOP_RESUME3_V1-runner.mjs
+  2:91  warning  'spawnSync' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\evidence\stop-blocker\STOP_RESUME3_V1-state.mjs
+  1:54  warning  'reconciliationEvent' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\evidence\stop-blocker\STOP_RESUME3_V2-runner.mjs
+  2:91  warning  'spawnSync' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\live-reference-no-wsl-audit.mjs
+  47:7  warning  'hostBootstrap' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  72:9  warning  'hostPolicy' is assigned a value but never used     @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\previous-no-wsl-receiver.mjs
+  4:23  warning  'fileURLToPath' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\reconcile-backup-once.mjs
+  7:9  warning  'readFile' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\resume-reconciled-backup-state.mjs
+  2:15  warning  'canonical' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\resume-stopped-state.mjs
+  1:54  warning  'reconciliationEvent' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\resume-stopped-state.test.mjs
+  24:310  warning  'eventSha256' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\review-backup-reconciliation-agy.mjs
+  1:18  warning  'readFile' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\review-no-running-wsl-agy.mjs
+  1:18  warning  'readFile' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\review-no-running-wsl-final-agy.mjs
+  1:18  warning  'readFile' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\review-permanent-stop-route-agy-v3.mjs
+  1:18  warning  'readFile' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\review-permanent-stop-route-agy.mjs
+  1:18  warning  'readFile' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\review-stop-reconciliation-agy.mjs
+  1:18  warning  'readFile' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\run-approved-backup-resume.mjs
+  2:91  warning  'spawnSync' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\run-approved-stop-resume.mjs
+  2:91  warning  'spawnSync' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-no-data-production-20261011\verify-existing-backup.mjs
+  2:32  warning  'lstat' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\release-site-blockers-20261011\check-phase-operation-pins.mjs
+  7:136  warning  'm' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\startup-recovery-continuation-20261012\archive-continuation.mjs
+  1:33  warning  'path' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\startup-recovery-continuation-20261012\continuation-context.mjs
+  1:8   warning  'fs' is defined but never used         @typescript-eslint/no-unused-vars
+  2:15  warning  'hash' is defined but never used       @typescript-eslint/no-unused-vars
+  2:73  warning  'canonical' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\startup-recovery-continuation-20261012\diagnose-exact-display.mjs
+  3:312  error  Do not assign to the variable `module`. See: https://nextjs.org/docs/messages/no-assign-module-variable  @next/next/no-assign-module-variable
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\startup-recovery-continuation-20261012\reconcile-original-start-once.mjs
+  17:268  warning  'installation' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\startup-recovery-continuation-20261012\request-approved-continuation.mjs
+  1:33  warning  'path' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\startup-recovery-continuation-20261012\request-display-closeout.mjs
+  1:33  warning  'path' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\startup-recovery-continuation-20261012\request-original-closeout.mjs
+  1:33  warning  'path' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\startup-recovery-continuation-20261012\run-display-closeout-chain.mjs
+  4:218  warning  'head49' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\startup-recovery-continuation-20261012\run-original-closeout-chain.mjs
+  4:219  warning  'head49' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\startup-recovery-integration-20261012\recovery-transport.mjs
+  1:8   warning  'fs' is defined but never used    @typescript-eslint/no-unused-vars
+  2:15  warning  'hash' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\startup-status-receipt-safety-20261012\fence-original-bootstrap.mjs
+  5:9  warning  'fileURLToPath' is defined but never used  @typescript-eslint/no-unused-vars
+  6:9  warning  'randomUUID' is defined but never used     @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\watchdog-census-transport-20261012\request-corrected-closeout.mjs
+  1:33  warning  'path' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\watchdog-census-transport-20261012\run-census-closeout-corrected.mjs
+  4:209  warning  'head49' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\watchdog-census-transport-20261012\run-census-install-corrected.mjs
+  2:147  warning  'fileURLToPath' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\watchdog-native-census-20261012\census-runtime-context.mjs
+  1:32  warning  'path' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\docs\watchdog-native-census-20261012\run-census-closeout-chain.mjs
+  4:209  warning  'head49' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\lib\inventory\overview.ts
+  1231:24  warning  'salesStartDate' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  1231:40  warning  'salesEndDate' is assigned a value but never used    @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\tests\census-install-contract.test.mjs
+  2:7  warning  'E' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\tests\django-erp-reference-service.test.ts
+  9:3  warning  'ERP_REFERENCE_UPLOAD_CHUNK_PATH' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\tests\import-content-dedup-database.test.ts
+  40:34  warning  '_db' is defined but never used    @typescript-eslint/no-unused-vars
+  41:35  warning  '_args' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\tests\jd-customer-service-export.test.ts
+  100:41  warning  'selector' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\tests\jd-n8n-pipeline.test.ts
+  138:17  warning  'runOptions' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\tests\netshop-store-overview-decoder.test.ts
+  5:7  warning  'shopKey' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\tools\erp-sales-automation.ts
+  171:16  warning  'uniqueVisible' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\tools\jackyun-sales-export-only.ts
+  352:16  warning  'findOssUrl' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\tools\jd-n8n-pipeline.ts
+  466:11  warning  'store' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+✖ 175 problems (63 errors, 112 warnings)
+

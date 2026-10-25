@@ -1,0 +1,27 @@
+{
+  "checked": "read-only original evidence/report fact check",
+  "status": "journal-completed-review-required",
+  "acceptancePassed": null,
+  "steps": 19,
+  "receipts": 8,
+  "executionLogs": 5,
+  "failures": 3,
+  "reconciliations": 4,
+  "approvedToCompleteMs": 8554676,
+  "executionCoveredMs": 6246206.4091796875,
+  "waitingOrUninstrumentedMs": 2308469.5908203125,
+  "documentCloseoutMs": 1466985,
+  "approvedToDeliveryMs": 10021661,
+  "sourceCommit": "e1f384e1e348b666da30d78e35d408aa882415b8",
+  "journalHead": "c12e6522f4aacb94e9e1ea2e7490b62a85b5dbea221c79ac20a07b2bfe39a717",
+  "observedRuntime": {
+    "checkedAt": "2026-10-09T10:58:37.6545287+08:00",
+    "releaseId": "20261008T182600Z-f5d4b05177d17010",
+    "state": "Running",
+    "backendState": "Ready",
+    "workerState": "exact_release",
+    "componentsReady": 12,
+    "componentCount": 12
+  },
+  "evidenceGaps": []
+}

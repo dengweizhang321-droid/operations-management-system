@@ -1,0 +1,839 @@
+{
+  "sourceSha": "a37b5ffdbe9e6705cf4daa9545231e93b4378c5d",
+  "origin": "http://127.0.0.1:3781",
+  "syntheticOnly": true,
+  "realAppAndCss": true,
+  "startedAt": "2026-10-08T14:26:58.601Z",
+  "viewport": {
+    "width": 1440,
+    "height": 1000
+  },
+  "notes": [
+    "No production requests. API fixtures explicitly exercise UI behavior only.",
+    "Raw samples, no P95 claim. Browser timing excludes SQL/Worker/backend measurements.",
+    "IME is Chromium CDP composition, not native Windows candidate-window acceptance."
+  ],
+  "cases": [
+    {
+      "name": "customer-text-no-enter",
+      "startedAt": "2026-10-08T14:26:59.437Z",
+      "syntheticOnly": true,
+      "status": "observed",
+      "requests": [
+        {
+          "id": 1,
+          "atMs": 505,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/auth/me",
+          "fixture": true,
+          "fixtureBytes": 147,
+          "injectedDelayMs": 0,
+          "responseAtMs": 516,
+          "status": 200,
+          "finishedAtMs": 522
+        },
+        {
+          "id": 2,
+          "atMs": 821,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/analyze",
+          "fixture": true,
+          "fixtureBytes": 19,
+          "injectedDelayMs": 0,
+          "responseAtMs": 888,
+          "status": 200,
+          "finishedAtMs": 889
+        },
+        {
+          "id": 3,
+          "atMs": 823,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=true&startDate=2026-10-01&endDate=2026-10-08",
+          "fixture": true,
+          "fixtureBytes": 1377,
+          "injectedDelayMs": 0,
+          "responseAtMs": 888,
+          "status": 200,
+          "finishedAtMs": 889
+        },
+        {
+          "id": 4,
+          "atMs": 1426,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=false&startDate=2026-10-01&endDate=2026-10-08&skuIds=SYNTHETIC-UNCONFIRMED",
+          "fixture": true,
+          "fixtureBytes": 1377,
+          "injectedDelayMs": 0,
+          "responseAtMs": 1435,
+          "status": 200,
+          "finishedAtMs": 1436
+        }
+      ],
+      "pageErrors": [],
+      "routeErrors": [],
+      "observations": [
+        {
+          "label": "typed_without_enter_800ms",
+          "atMs": 1968,
+          "value": "SYNTHETIC-UNCONFIRMED",
+          "newRequests": [
+            {
+              "id": 4,
+              "atMs": 1426,
+              "method": "GET",
+              "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=false&startDate=2026-10-01&endDate=2026-10-08&skuIds=SYNTHETIC-UNCONFIRMED",
+              "fixture": true,
+              "fixtureBytes": 1377,
+              "injectedDelayMs": 0,
+              "responseAtMs": 1435,
+              "status": 200,
+              "finishedAtMs": 1436
+            }
+          ]
+        },
+        {
+          "label": "explicit_enter_after_pause",
+          "atMs": 2480,
+          "newRequests": []
+        }
+      ],
+      "screenshots": [
+        "customer-text-no-enter-after-unconfirmed-text.png"
+      ],
+      "completedAt": "2026-10-08T14:27:01.966Z",
+      "elapsedMs": 2529
+    },
+    {
+      "name": "customer-ime",
+      "startedAt": "2026-10-08T14:27:02.150Z",
+      "syntheticOnly": true,
+      "status": "observed",
+      "requests": [
+        {
+          "id": 1,
+          "atMs": 445,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/auth/me",
+          "fixture": true,
+          "fixtureBytes": 147,
+          "injectedDelayMs": 0,
+          "responseAtMs": 469,
+          "status": 200,
+          "finishedAtMs": 474
+        },
+        {
+          "id": 2,
+          "atMs": 767,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/analyze",
+          "fixture": true,
+          "fixtureBytes": 19,
+          "injectedDelayMs": 0,
+          "responseAtMs": 839,
+          "status": 200,
+          "finishedAtMs": 839
+        },
+        {
+          "id": 3,
+          "atMs": 768,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=true&startDate=2026-10-01&endDate=2026-10-08",
+          "fixture": true,
+          "fixtureBytes": 1377,
+          "injectedDelayMs": 0,
+          "responseAtMs": 839,
+          "status": 200,
+          "finishedAtMs": 839
+        },
+        {
+          "id": 4,
+          "atMs": 1397,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=false&startDate=2026-10-01&endDate=2026-10-08&skuIds=%E5%95%86%E7%94%A8",
+          "fixture": true,
+          "fixtureBytes": 1377,
+          "injectedDelayMs": 0,
+          "responseAtMs": 1412,
+          "status": 200,
+          "finishedAtMs": 1413
+        }
+      ],
+      "pageErrors": [],
+      "routeErrors": [],
+      "observations": [
+        {
+          "label": "during_composition_800ms",
+          "atMs": 1949,
+          "value": "商用",
+          "newRequests": [
+            {
+              "id": 4,
+              "atMs": 1397,
+              "method": "GET",
+              "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=false&startDate=2026-10-01&endDate=2026-10-08&skuIds=%E5%95%86%E7%94%A8",
+              "fixture": true,
+              "fixtureBytes": 1377,
+              "injectedDelayMs": 0,
+              "responseAtMs": 1412,
+              "status": 200,
+              "finishedAtMs": 1413
+            }
+          ],
+          "limitation": "Chromium CDP, no native Windows IME candidate window"
+        },
+        {
+          "label": "composition_commit_enter229",
+          "atMs": 2682,
+          "value": "商用",
+          "newRequests": []
+        }
+      ],
+      "screenshots": [
+        "customer-ime-composition.png"
+      ],
+      "completedAt": "2026-10-08T14:27:04.891Z",
+      "elapsedMs": 2741
+    },
+    {
+      "name": "customer-draft-dropdown",
+      "startedAt": "2026-10-08T14:27:05.067Z",
+      "syntheticOnly": true,
+      "status": "observed",
+      "requests": [
+        {
+          "id": 1,
+          "atMs": 454,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/auth/me",
+          "fixture": true,
+          "fixtureBytes": 147,
+          "injectedDelayMs": 0,
+          "responseAtMs": 471,
+          "status": 200,
+          "finishedAtMs": 473
+        },
+        {
+          "id": 2,
+          "atMs": 770,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/analyze",
+          "fixture": true,
+          "fixtureBytes": 19,
+          "injectedDelayMs": 0,
+          "responseAtMs": 831,
+          "status": 200,
+          "finishedAtMs": 831
+        },
+        {
+          "id": 3,
+          "atMs": 771,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=true&startDate=2026-10-01&endDate=2026-10-08",
+          "fixture": true,
+          "fixtureBytes": 1377,
+          "injectedDelayMs": 0,
+          "responseAtMs": 831,
+          "status": 200,
+          "finishedAtMs": 831
+        },
+        {
+          "id": 4,
+          "atMs": 1223,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=false&startDate=2026-10-01&endDate=2026-10-08&shopName=%E5%90%88%E6%88%90%E5%BA%97B",
+          "fixture": true,
+          "fixtureBytes": 1377,
+          "injectedDelayMs": 0,
+          "responseAtMs": 1231,
+          "status": 200,
+          "finishedAtMs": 1231
+        },
+        {
+          "id": 5,
+          "atMs": 1400,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=false&startDate=2026-10-01&endDate=2026-10-08&shopName=%E5%90%88%E6%88%90%E5%BA%97B&skuIds=SYNTHETIC-DRAFT-KEEP",
+          "fixture": true,
+          "fixtureBytes": 1377,
+          "injectedDelayMs": 0,
+          "responseAtMs": 1414,
+          "status": 200,
+          "finishedAtMs": 1414
+        }
+      ],
+      "pageErrors": [],
+      "routeErrors": [],
+      "observations": [
+        {
+          "label": "dropdown_while_text_unconfirmed",
+          "atMs": 2145,
+          "value": "SYNTHETIC-DRAFT-KEEP",
+          "newRequests": [
+            {
+              "id": 4,
+              "atMs": 1223,
+              "method": "GET",
+              "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=false&startDate=2026-10-01&endDate=2026-10-08&shopName=%E5%90%88%E6%88%90%E5%BA%97B",
+              "fixture": true,
+              "fixtureBytes": 1377,
+              "injectedDelayMs": 0,
+              "responseAtMs": 1231,
+              "status": 200,
+              "finishedAtMs": 1231
+            },
+            {
+              "id": 5,
+              "atMs": 1400,
+              "method": "GET",
+              "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=false&startDate=2026-10-01&endDate=2026-10-08&shopName=%E5%90%88%E6%88%90%E5%BA%97B&skuIds=SYNTHETIC-DRAFT-KEEP",
+              "fixture": true,
+              "fixtureBytes": 1377,
+              "injectedDelayMs": 0,
+              "responseAtMs": 1414,
+              "status": 200,
+              "finishedAtMs": 1414
+            }
+          ],
+          "menuVisible": true
+        }
+      ],
+      "screenshots": [
+        "customer-draft-dropdown-dropdown-draft.png"
+      ],
+      "completedAt": "2026-10-08T14:27:07.340Z",
+      "elapsedMs": 2273
+    },
+    {
+      "name": "customer-stale-pending",
+      "startedAt": "2026-10-08T14:27:07.616Z",
+      "syntheticOnly": true,
+      "status": "observed",
+      "requests": [
+        {
+          "id": 1,
+          "atMs": 722,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/auth/me",
+          "fixture": true,
+          "fixtureBytes": 147,
+          "injectedDelayMs": 0,
+          "responseAtMs": 744,
+          "status": 200,
+          "finishedAtMs": 745
+        },
+        {
+          "id": 2,
+          "atMs": 1043,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/analyze",
+          "fixture": true,
+          "fixtureBytes": 19,
+          "injectedDelayMs": 0,
+          "responseAtMs": 1133,
+          "status": 200,
+          "finishedAtMs": 1134
+        },
+        {
+          "id": 3,
+          "atMs": 1045,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=true&startDate=2026-10-01&endDate=2026-10-08",
+          "fixture": true,
+          "fixtureBytes": 1377,
+          "injectedDelayMs": 0,
+          "responseAtMs": 1134,
+          "status": 200,
+          "finishedAtMs": 1134
+        },
+        {
+          "id": 4,
+          "atMs": 1407,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=false&startDate=2026-10-01&endDate=2026-10-08&shopName=%E5%90%88%E6%88%90%E5%BA%97B",
+          "fixture": true,
+          "fixtureBytes": 1377,
+          "injectedDelayMs": 2500,
+          "responseAtMs": 3923,
+          "status": 200,
+          "finishedAtMs": 3923
+        },
+        {
+          "id": 5,
+          "atMs": 1995,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/conversations?id=101",
+          "fixture": true,
+          "fixtureBytes": 1140,
+          "injectedDelayMs": 0,
+          "responseAtMs": 2001,
+          "status": 200,
+          "finishedAtMs": 2011
+        }
+      ],
+      "pageErrors": [],
+      "routeErrors": [],
+      "observations": [
+        {
+          "label": "new_shop_pending_400ms",
+          "atMs": 1828,
+          "url": "http://127.0.0.1:3781/?module=customer_service",
+          "activeElement": "搜索客服店铺筛选",
+          "customerBusy": "true",
+          "customerRows": [
+            "2026-10-07 10:00:00SYNTHETIC-CUSTOMER-101合成店A合成客服合成组SKUID SYNTHETIC-SKU-101SPU SYNTHETIC-SPU-101吉客云编号 SYNTHETIC-ERP-101合成类目1会话消息总数待标注⌄待标注⌄待标注⌄待 AI 分析服务问题暂无小结已匹配时间 + 顾客AI分析查看会话"
+          ],
+          "rowButtons": [
+            {
+              "text": "待标注⌄",
+              "aria": "101机器人内容",
+              "disabled": false,
+              "inertAncestor": false
+            },
+            {
+              "text": "待标注⌄",
+              "aria": "101问题类型",
+              "disabled": false,
+              "inertAncestor": false
+            },
+            {
+              "text": "待标注⌄",
+              "aria": "101订单转化",
+              "disabled": false,
+              "inertAncestor": false
+            },
+            {
+              "text": "AI分析",
+              "aria": null,
+              "disabled": false,
+              "inertAncestor": false
+            },
+            {
+              "text": "查看会话",
+              "aria": null,
+              "disabled": false,
+              "inertAncestor": false
+            }
+          ],
+          "alerts": [],
+          "retainedLabels": [],
+          "backupRows": []
+        },
+        {
+          "label": "old_detail_click_eligibility",
+          "atMs": 1949,
+          "enabled": true
+        },
+        {
+          "label": "old_detail_opened",
+          "atMs": 2074,
+          "dialogText": "2026-10-07 10:00:00\nSYNTHETIC-CUSTOMER-101 · 合成客服\nSKUID SYNTHETIC-SKU-101 · 已匹配\n×\n咨询类型：商品咨询\n吉客云编号：SYNTHETIC-ERP-101\n吉客云类目：合成类目\n响应：2s\n时长：3 分钟\n服务问题\n会话小结\n保存详情标注\n合成客服\n2026-10-07 10:00:00\n\n合成审查夹具，没有真实客户信息。",
+          "newRequests": [
+            {
+              "id": 4,
+              "atMs": 1407,
+              "method": "GET",
+              "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=false&startDate=2026-10-01&endDate=2026-10-08&shopName=%E5%90%88%E6%88%90%E5%BA%97B",
+              "fixture": true,
+              "fixtureBytes": 1377,
+              "injectedDelayMs": 2500,
+              "responseAtMs": 3923,
+              "status": 200,
+              "finishedAtMs": 3923
+            },
+            {
+              "id": 5,
+              "atMs": 1995,
+              "method": "GET",
+              "url": "http://127.0.0.1:3781/api/customer-service/conversations?id=101",
+              "fixture": true,
+              "fixtureBytes": 1140,
+              "injectedDelayMs": 0,
+              "responseAtMs": 2001,
+              "status": 200,
+              "finishedAtMs": 2011
+            }
+          ]
+        },
+        {
+          "label": "after_new_shop_response",
+          "atMs": 5164,
+          "url": "http://127.0.0.1:3781/?module=customer_service",
+          "activeElement": "关闭",
+          "customerBusy": "false",
+          "customerRows": [
+            "2026-10-07 10:00:00SYNTHETIC-CUSTOMER-202合成店B合成客服合成组SKUID SYNTHETIC-SKU-202SPU SYNTHETIC-SPU-202吉客云编号 SYNTHETIC-ERP-202合成类目1会话消息总数待标注⌄待标注⌄待标注⌄待 AI 分析服务问题暂无小结已匹配时间 + 顾客AI分析查看会话"
+          ],
+          "rowButtons": [
+            {
+              "text": "待标注⌄",
+              "aria": "202机器人内容",
+              "disabled": false,
+              "inertAncestor": true
+            },
+            {
+              "text": "待标注⌄",
+              "aria": "202问题类型",
+              "disabled": false,
+              "inertAncestor": true
+            },
+            {
+              "text": "待标注⌄",
+              "aria": "202订单转化",
+              "disabled": false,
+              "inertAncestor": true
+            },
+            {
+              "text": "AI分析",
+              "aria": null,
+              "disabled": false,
+              "inertAncestor": true
+            },
+            {
+              "text": "查看会话",
+              "aria": null,
+              "disabled": false,
+              "inertAncestor": true
+            }
+          ],
+          "alerts": [],
+          "retainedLabels": [],
+          "backupRows": []
+        }
+      ],
+      "screenshots": [
+        "customer-stale-pending-old-row-pending.png",
+        "customer-stale-pending-old-detail-opened.png"
+      ],
+      "completedAt": "2026-10-08T14:27:12.780Z",
+      "elapsedMs": 5164
+    },
+    {
+      "name": "customer-stale-failure",
+      "startedAt": "2026-10-08T14:27:13.103Z",
+      "syntheticOnly": true,
+      "status": "observed",
+      "requests": [
+        {
+          "id": 1,
+          "atMs": 599,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/auth/me",
+          "fixture": true,
+          "fixtureBytes": 147,
+          "injectedDelayMs": 0,
+          "responseAtMs": 625,
+          "status": 200,
+          "finishedAtMs": 630
+        },
+        {
+          "id": 2,
+          "atMs": 922,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/analyze",
+          "fixture": true,
+          "fixtureBytes": 19,
+          "injectedDelayMs": 0,
+          "responseAtMs": 999,
+          "status": 200,
+          "finishedAtMs": 1000
+        },
+        {
+          "id": 3,
+          "atMs": 924,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=true&startDate=2026-10-01&endDate=2026-10-08",
+          "fixture": true,
+          "fixtureBytes": 1377,
+          "injectedDelayMs": 0,
+          "responseAtMs": 999,
+          "status": 200,
+          "finishedAtMs": 1000
+        },
+        {
+          "id": 4,
+          "atMs": 1316,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=false&startDate=2026-10-01&endDate=2026-10-08&shopName=%E5%90%88%E6%88%90%E5%BA%97B",
+          "fixture": true,
+          "fixtureBytes": 34,
+          "injectedDelayMs": 150,
+          "responseAtMs": 1481,
+          "status": 503,
+          "finishedAtMs": 1481
+        },
+        {
+          "id": 5,
+          "atMs": 2161,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/customer-service/conversations?id=101",
+          "fixture": true,
+          "fixtureBytes": 1140,
+          "injectedDelayMs": 0,
+          "responseAtMs": 2164,
+          "status": 200,
+          "finishedAtMs": 2164
+        }
+      ],
+      "pageErrors": [],
+      "routeErrors": [],
+      "observations": [
+        {
+          "label": "new_shop_failed",
+          "atMs": 2038,
+          "url": "http://127.0.0.1:3781/?module=customer_service",
+          "activeElement": "搜索客服店铺筛选",
+          "customerBusy": "false",
+          "customerRows": [
+            "2026-10-07 10:00:00SYNTHETIC-CUSTOMER-101合成店A合成客服合成组SKUID SYNTHETIC-SKU-101SPU SYNTHETIC-SPU-101吉客云编号 SYNTHETIC-ERP-101合成类目1会话消息总数待标注⌄待标注⌄待标注⌄待 AI 分析服务问题暂无小结已匹配时间 + 顾客AI分析查看会话"
+          ],
+          "rowButtons": [
+            {
+              "text": "待标注⌄",
+              "aria": "101机器人内容",
+              "disabled": false,
+              "inertAncestor": false
+            },
+            {
+              "text": "待标注⌄",
+              "aria": "101问题类型",
+              "disabled": false,
+              "inertAncestor": false
+            },
+            {
+              "text": "待标注⌄",
+              "aria": "101订单转化",
+              "disabled": false,
+              "inertAncestor": false
+            },
+            {
+              "text": "AI分析",
+              "aria": null,
+              "disabled": false,
+              "inertAncestor": false
+            },
+            {
+              "text": "查看会话",
+              "aria": null,
+              "disabled": false,
+              "inertAncestor": false
+            }
+          ],
+          "alerts": [
+            "SYNTHETIC_LIST_FAILURE"
+          ],
+          "retainedLabels": [],
+          "backupRows": []
+        },
+        {
+          "label": "failed_scope_old_detail_eligibility",
+          "atMs": 2137,
+          "enabled": true
+        },
+        {
+          "label": "failed_scope_old_detail_opened",
+          "atMs": 2208,
+          "dialogText": "2026-10-07 10:00:00\nSYNTHETIC-CUSTOMER-101 · 合成客服\nSKUID SYNTHETIC-SKU-101 · 已匹配\n×\n咨询类型：商品咨询\n吉客云编号：SYNTHETIC-ERP-101\n吉客云类目：合成类目\n响应：2s\n时长：3 分钟\n服务问题\n会话小结\n保存详情标注\n合成客服\n2026-10-07 10:00:00\n\n合成审查夹具，没有真实客户信息。",
+          "newRequests": [
+            {
+              "id": 4,
+              "atMs": 1316,
+              "method": "GET",
+              "url": "http://127.0.0.1:3781/api/customer-service/conversations?page=1&pageSize=30&includeOptions=false&startDate=2026-10-01&endDate=2026-10-08&shopName=%E5%90%88%E6%88%90%E5%BA%97B",
+              "fixture": true,
+              "fixtureBytes": 34,
+              "injectedDelayMs": 150,
+              "responseAtMs": 1481,
+              "status": 503,
+              "finishedAtMs": 1481
+            },
+            {
+              "id": 5,
+              "atMs": 2161,
+              "method": "GET",
+              "url": "http://127.0.0.1:3781/api/customer-service/conversations?id=101",
+              "fixture": true,
+              "fixtureBytes": 1140,
+              "injectedDelayMs": 0,
+              "responseAtMs": 2164,
+              "status": 200,
+              "finishedAtMs": 2164
+            }
+          ]
+        }
+      ],
+      "screenshots": [
+        "customer-stale-failure-old-row-after-failure.png",
+        "customer-stale-failure-old-detail-after-failure.png"
+      ],
+      "completedAt": "2026-10-08T14:27:15.408Z",
+      "elapsedMs": 2305
+    },
+    {
+      "name": "backup-slow-six-seconds",
+      "startedAt": "2026-10-08T14:27:15.636Z",
+      "syntheticOnly": true,
+      "status": "observed",
+      "requests": [
+        {
+          "id": 1,
+          "atMs": 440,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/auth/me",
+          "fixture": true,
+          "fixtureBytes": 147,
+          "injectedDelayMs": 0,
+          "responseAtMs": 456,
+          "status": 200,
+          "finishedAtMs": 462
+        },
+        {
+          "id": 2,
+          "atMs": 759,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/access-control/backups",
+          "fixture": true,
+          "fixtureBytes": 318,
+          "injectedDelayMs": 6000,
+          "failedAtMs": 5775,
+          "failure": "net::ERR_ABORTED"
+        },
+        {
+          "id": 3,
+          "atMs": 5775,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/access-control/backups",
+          "fixture": true,
+          "fixtureBytes": 318,
+          "injectedDelayMs": 6000,
+          "failedAtMs": 10776,
+          "failure": "net::ERR_ABORTED"
+        },
+        {
+          "id": 4,
+          "atMs": 10776,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/access-control/backups",
+          "fixture": true,
+          "fixtureBytes": 318,
+          "injectedDelayMs": 6000,
+          "failedAtMs": 15770,
+          "failure": "net::ERR_ABORTED"
+        },
+        {
+          "id": 5,
+          "atMs": 15770,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/access-control/backups",
+          "fixture": true,
+          "fixtureBytes": 318,
+          "injectedDelayMs": 6000
+        }
+      ],
+      "pageErrors": [],
+      "routeErrors": [],
+      "observations": [
+        {
+          "label": "after_16s_with_6s_each_response",
+          "atMs": 17032,
+          "url": "http://127.0.0.1:3781/?module=settings&view=backups",
+          "activeElement": "BODY",
+          "customerRows": [],
+          "rowButtons": [],
+          "alerts": [],
+          "retainedLabels": [],
+          "backupRows": [],
+          "backupText": "数据库备份E 盘最多保留 3 个完整恢复点，受保护备份占用名额。新备份验证成功后再清理旧份。立即备份备份时间大小恢复点操作导入备份包选择系统导出的 ZIP 备份包。上传后先校验，再按需进行隔离恢复验证；生产数据库恢复须另外确认维护窗口。 我确认这是本人可信来源的系统备份上传并校验 最近任务保留原任务编号，失败或结果未知时不会自动重放。"
+        }
+      ],
+      "screenshots": [
+        "backup-slow-six-seconds-six-second-responses.png"
+      ],
+      "completedAt": "2026-10-08T14:27:32.717Z",
+      "elapsedMs": 17081
+    },
+    {
+      "name": "backup-error-recovery",
+      "startedAt": "2026-10-08T14:27:32.913Z",
+      "syntheticOnly": true,
+      "status": "observed",
+      "requests": [
+        {
+          "id": 1,
+          "atMs": 431,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/auth/me",
+          "fixture": true,
+          "fixtureBytes": 147,
+          "injectedDelayMs": 0,
+          "responseAtMs": 447,
+          "status": 200,
+          "finishedAtMs": 453
+        },
+        {
+          "id": 2,
+          "atMs": 749,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/access-control/backups",
+          "fixture": true,
+          "fixtureBytes": 42,
+          "injectedDelayMs": 0,
+          "responseAtMs": 773,
+          "status": 503,
+          "finishedAtMs": 774
+        },
+        {
+          "id": 3,
+          "atMs": 5758,
+          "method": "GET",
+          "url": "http://127.0.0.1:3781/api/access-control/backups",
+          "fixture": true,
+          "fixtureBytes": 318,
+          "injectedDelayMs": 0,
+          "responseAtMs": 5760,
+          "status": 200,
+          "finishedAtMs": 5760
+        }
+      ],
+      "pageErrors": [],
+      "routeErrors": [],
+      "observations": [
+        {
+          "label": "first_read_failed",
+          "atMs": 1297,
+          "url": "http://127.0.0.1:3781/?module=settings&view=backups",
+          "activeElement": "BODY",
+          "customerRows": [],
+          "rowButtons": [],
+          "alerts": [
+            "SYNTHETIC_BACKUP_FIRST_FAILURE"
+          ],
+          "retainedLabels": [],
+          "backupRows": [],
+          "backupText": "数据库备份E 盘最多保留 3 个完整恢复点，受保护备份占用名额。新备份验证成功后再清理旧份。立即备份SYNTHETIC_BACKUP_FIRST_FAILURE备份时间大小恢复点操作导入备份包选择系统导出的 ZIP 备份包。上传后先校验，再按需进行隔离恢复验证；生产数据库恢复须另外确认维护窗口。 我确认这是本人可信来源的系统备份上传并校验 最近任务保留原任务编号，失败或结果未知时不会自动重放。"
+        },
+        {
+          "label": "successful_poll_after_failure",
+          "atMs": 6815,
+          "url": "http://127.0.0.1:3781/?module=settings&view=backups",
+          "activeElement": "BODY",
+          "customerRows": [],
+          "rowButtons": [],
+          "alerts": [
+            "SYNTHETIC_BACKUP_FIRST_FAILURE"
+          ],
+          "retainedLabels": [],
+          "backupRows": [
+            "2026/10/7 08:00:000.0 MB已保护SYNTHETIC-BACKUP-ONLY导出 解除保护"
+          ],
+          "backupText": "数据库备份E 盘最多保留 3 个完整恢复点，受保护备份占用名额。新备份验证成功后再清理旧份。立即备份SYNTHETIC_BACKUP_FIRST_FAILURE备份时间大小恢复点操作2026/10/7 08:00:000.0 MB已保护SYNTHETIC-BACKUP-ONLY导出 解除保护导入备份包选择系统导出的 ZIP 备份包。上传后先校验，再按需进行隔离恢复验证；生产数据库恢复须另外确认维护窗口。 我确认这是本人可信来源的系统备份上传并校验 最近任务保留原任务编号，失败或结果未知时不会自动重放。"
+        }
+      ],
+      "screenshots": [
+        "backup-error-recovery-after-recovery.png"
+      ],
+      "completedAt": "2026-10-08T14:27:39.792Z",
+      "elapsedMs": 6879
+    }
+  ],
+  "completedAt": "2026-10-08T14:27:40.282Z"
+}

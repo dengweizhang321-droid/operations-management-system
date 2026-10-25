@@ -1,0 +1,351 @@
+{
+  "version": "teruisi-independent-frozen-timing-v1",
+  "independent": true,
+  "status": "failed-before-original-tail",
+  "reviewerExecutedProductionActions": false,
+  "scopeSha256": "295d8923fb794079faf5cc9c74f92f12d8bd78a3ccbbce4b9dcbb19e00fcc458",
+  "scopeRawSha256": "bf82070e60d613a169a059af7374dc3bca43862264b4f222c10e9c6d7412421b",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "frozenEvidenceAt": "2026-10-10T16:14:39.083Z",
+  "closure": {
+    "necessaryAcceptanceClosedAt": null,
+    "approvalToNecessaryAcceptanceMs": null,
+    "fullDeliveryClosedAt": null,
+    "approvalToFullDeliveryMs": null,
+    "originalEngineCompleted": false,
+    "oldOperation19Status": "unknown",
+    "originalStrictEquality": false,
+    "exactTransitionAcceptanceRecordedAt": "2026-10-10T16:07:17.063Z",
+    "oldOperations20And21Started": false,
+    "activeOwnershipReleased": false
+  },
+  "journal": {
+    "actualEventCount": 89,
+    "head": "ee784dfd718bc16aabcc2868667ac5b5d707bf3a582624a4f722019a050d7485",
+    "hashAndPreviousChainValid": true,
+    "allRawCanonicalLf": true,
+    "newEvents": [
+      {
+        "index": 87,
+        "status": "supplement-admission",
+        "at": "2026-10-10T16:07:16.824Z",
+        "durationMs": 245423.7965
+      },
+      {
+        "index": 88,
+        "status": "exact-transition-acceptance-passed",
+        "at": "2026-10-10T16:07:17.063Z",
+        "proofDurationMs": 12444.826999999997,
+        "lockAcquireMs": 1.6851000000006024
+      }
+    ],
+    "activeFileSha256": "7c5af7f44a5aa80579bc9ac2a5038ad5ab757a90dc837de4977513d8be7b0cbf",
+    "oldHistoryPreserved": true,
+    "preInvocationRawSnapshotNotClaimed": true
+  },
+  "clocks": {
+    "originalApprovalAt": "2026-10-10T05:28:51.000Z",
+    "newScopeApprovalAt": "2026-10-10T15:59:48.000Z",
+    "originalApprovalToAttemptFailureMs": 38475046,
+    "originalApprovalToFrozenEvidenceMs": 38748083,
+    "newApprovalToAttemptFailureMs": 618046,
+    "newApprovalToFrozenEvidenceMs": 891083,
+    "newApprovalToCallerStartMs": 175604,
+    "newApprovalDoesNotResetOriginalClock": true,
+    "confirmedPauseCheckpoint": {
+      "from": "2026-10-10T11:58:54.000Z",
+      "to": "2026-10-10T14:19:06.000Z",
+      "lowerBoundMs": 8412000,
+      "exactPauseInstructionTimeKnown": false,
+      "subtractingThisDoesNotProveMachineExecutionDuration": true
+    }
+  },
+  "actualInvocation": {
+    "processId": 23656,
+    "startedAt": "2026-10-10T16:02:43.604Z",
+    "finishedAt": "2026-10-10T16:10:06.046Z",
+    "exitCode": 1,
+    "elapsedMs": 442440.71969999996,
+    "wallTimestampMs": 442442,
+    "stdoutBytes": 0,
+    "stderrBytes": 206,
+    "stderrSha256": "356e425f8d366127eb6aacdcf9090161dc5f2f94e947e4dc47ac29ad09e135b0",
+    "successfulAdmissionCount": 1,
+    "secondAdmission": {
+      "status": "failed",
+      "stage": "closeout-admission-status",
+      "at": "2026-10-10T16:09:29.948Z",
+      "code": "STATUS_NOT_READY",
+      "retryable": false,
+      "attempt": 1,
+      "childDurationMs": 35919.28760000001,
+      "enclosingAfterAcceptanceToCallerExitMs": 168983,
+      "enclosingSpanIsNotExactAdmissionTimer": true
+    },
+    "thirdAdmissionAttempted": false
+  },
+  "recordedOldStageEnvelopesMs": {
+    "queue": {
+      "admissionMs": 0,
+      "operationMs": 0,
+      "otherMs": 599.6272999999997,
+      "totalRecordedMs": 599.6272999999997
+    },
+    "prepare": {
+      "admissionMs": 1145420.9351000001,
+      "operationMs": 234270.1191,
+      "otherMs": 0,
+      "totalRecordedMs": 1379691.0542000001
+    },
+    "backup-pre": {
+      "admissionMs": 77496.4155,
+      "operationMs": 735974.1799999999,
+      "otherMs": 0,
+      "totalRecordedMs": 813470.5954999999
+    },
+    "restore-pre": {
+      "admissionMs": 75500.58899999992,
+      "operationMs": 704334.9557999999,
+      "otherMs": 0,
+      "totalRecordedMs": 779835.5447999998
+    },
+    "drain": {
+      "admissionMs": 217421.92720000027,
+      "operationMs": 264728.84569999995,
+      "otherMs": 0,
+      "totalRecordedMs": 482150.7729000002
+    },
+    "switch": {
+      "admissionMs": 182730.11120000016,
+      "operationMs": 592121.6779999998,
+      "otherMs": 0,
+      "totalRecordedMs": 774851.7892
+    },
+    "acceptance": {
+      "admissionMs": 1270489.1275999998,
+      "operationMs": 321352.18110000005,
+      "otherMs": 0,
+      "totalRecordedMs": 1591841.3086999997
+    },
+    "backup-post": {
+      "admissionMs": 73317.72209999996,
+      "operationMs": 584678.5589000001,
+      "otherMs": 0,
+      "totalRecordedMs": 657996.281
+    },
+    "restore-post": {
+      "admissionMs": 73323.16500000001,
+      "operationMs": 751709.1404,
+      "otherMs": 0,
+      "totalRecordedMs": 825032.3054000001
+    },
+    "closeout": {
+      "admissionMs": 362410.7773000002,
+      "operationMs": 2252.7785000002477,
+      "otherMs": 0,
+      "totalRecordedMs": 364663.55580000044
+    }
+  },
+  "oldRecordedEnvelopesSumMs": 7670132.8348,
+  "newRecordedSuccessAdmissionAndProofMs": 257868.6235,
+  "queue": {
+    "oldRecordedQueueEnvelopesMs": 599.6272999999997,
+    "oldLockAcquireSubsetMs": 153.35889999999722,
+    "newLockAcquireMs": 1.6851000000006024,
+    "otherBatchQueueWaitProvedMs": null,
+    "noOtherBatchRequestFoundInExaminedQueueRecords": true,
+    "unrecordedOtherActivityCannotBeExcluded": true
+  },
+  "failureCoordinationIntervals": [
+    {
+      "operationId": "actual-readonly-ui",
+      "fromEvent": 31,
+      "fromStatus": "unknown",
+      "fromAt": "2026-10-10T06:34:54.155Z",
+      "toEvent": 32,
+      "toStatus": "failed",
+      "toAt": "2026-10-10T06:45:45.754Z",
+      "wallMs": 651599,
+      "originalAttemptDurationMs": 20317.374199999962,
+      "additiveToGross": false
+    },
+    {
+      "operationId": "actual-readonly-ui",
+      "fromEvent": 37,
+      "fromStatus": "unknown",
+      "fromAt": "2026-10-10T06:51:24.696Z",
+      "toEvent": 38,
+      "toStatus": "failed",
+      "toAt": "2026-10-10T07:05:30.917Z",
+      "wallMs": 846221,
+      "originalAttemptDurationMs": 16706.33799999999,
+      "additiveToGross": false
+    },
+    {
+      "operationId": "actual-readonly-ui",
+      "fromEvent": 43,
+      "fromStatus": "unknown",
+      "fromAt": "2026-10-10T07:10:54.013Z",
+      "toEvent": 44,
+      "toStatus": "failed",
+      "toAt": "2026-10-10T08:08:11.698Z",
+      "wallMs": 3437685,
+      "originalAttemptDurationMs": 26866.651000000013,
+      "additiveToGross": false
+    },
+    {
+      "operationId": "two-natural-watchdogs",
+      "fromEvent": 65,
+      "fromStatus": "unknown",
+      "fromAt": "2026-10-10T09:11:09.484Z",
+      "toEvent": 66,
+      "toStatus": "failed",
+      "toAt": "2026-10-10T09:26:40.995Z",
+      "wallMs": 931511,
+      "originalAttemptDurationMs": 15453.4081,
+      "additiveToGross": false
+    },
+    {
+      "operationId": "backup-post",
+      "fromEvent": 74,
+      "fromStatus": "unknown",
+      "fromAt": "2026-10-10T09:44:11.721Z",
+      "toEvent": 75,
+      "toStatus": "passed",
+      "toAt": "2026-10-10T10:37:17.677Z",
+      "wallMs": 3185956,
+      "originalAttemptDurationMs": 584678.5589000001,
+      "additiveToGross": false
+    }
+  ],
+  "oldComparisonToNewAcceptance": {
+    "from": "2026-10-10T11:03:09.704Z",
+    "to": "2026-10-10T16:07:17.063Z",
+    "wallMs": 18247359,
+    "oldComparisonRemainsUnknown": true,
+    "includesPausePreparationReviewAndHumanWait": true,
+    "additiveToGross": false
+  },
+  "entryObservations": {
+    "new": {
+      "sampleCount": 238,
+      "failedCount": 0,
+      "intervalMs": 2500,
+      "startedAt": "2026-10-10T16:02:33.574Z",
+      "firstSampleAt": "2026-10-10T16:02:33.577Z",
+      "lastSampleAt": "2026-10-10T16:12:27.525Z",
+      "finishedAt": "2026-10-10T16:12:30.031Z",
+      "sha256": "0d4c50e27ed154e83b88da88305ff9ea7cd20c926772f53654deb2252f1748e3",
+      "responseBodyPersisted": false,
+      "allHttp200HtmlHeader": true,
+      "provesBackendReadiness": false
+    },
+    "previousSegments": [
+      {
+        "samples": 3670,
+        "failedSamples": 322,
+        "firstAt": "2026-10-10T05:32:32.970Z",
+        "lastAt": "2026-10-10T08:05:51.803Z",
+        "sha256": "9801c4e6f2f128c622b8263064c8b054c93e413a32fc91ac6d959e57e4e85ad7"
+      },
+      {
+        "samples": 2201,
+        "failedSamples": 15,
+        "firstAt": "2026-10-10T08:43:26.714Z",
+        "lastAt": "2026-10-10T10:15:23.909Z",
+        "sha256": "2b5d7b5ed3cb80438fd729051aff56c4ab36c65bb38bfa30b51e95e22669a9f1"
+      },
+      {
+        "samples": 685,
+        "failedSamples": 0,
+        "firstAt": "2026-10-10T10:36:04.328Z",
+        "lastAt": "2026-10-10T11:04:39.350Z",
+        "sha256": "f4aa1406cbf99baa03d54bd5ad0c63976d63633ae5927b3679d66f54e1b93e64"
+      }
+    ],
+    "unobservedGapsMs": [
+      221970,
+      2254911,
+      1240419,
+      17874227
+    ],
+    "switchPhaseIsNotDowntime": true,
+    "continuousDowntimeProvedMs": null
+  },
+  "laterDiagnostic": {
+    "startedAt": "2026-10-10T16:14:03.267Z",
+    "finishedAt": "2026-10-10T16:14:39.083Z",
+    "backendState": "Ready",
+    "componentsTrue": 12,
+    "notOriginalOperation21": true,
+    "cannotEraseFailedAdmission": true,
+    "continuousReadinessProved": false
+  },
+  "evidence": {
+    "productionDirectory": "E:/codex-artifacts/release-integration-review-20261010/AB-exact-closeout-20261010-1530-final/production",
+    "humanReceiptSha256": "c70ac58556ffca976c0d19c0abebf5858da545b034c3b09048dd82f7fe8a3970",
+    "files": [
+      {
+        "file": "execute-start.json",
+        "sha256": "2f3bc651b32847036394c13f2ab46ce221cf04a0cdd038ea4f640c233f7dade1"
+      },
+      {
+        "file": "execute-finished.json",
+        "sha256": "cb369fceb0c900da5132560152dd7f464023ed766fa0dfd19cd0896980069707"
+      },
+      {
+        "file": "observer-start.json",
+        "sha256": "39f10a6321c7de7868317af793b0e39282fb073c1f5393febb1e82d1d24b4d3d"
+      },
+      {
+        "file": "observer-finished.json",
+        "sha256": "bf327bd73709763e4d5a86deea43bfea74433e39a81f3febed17ceaa8fec2a71"
+      },
+      {
+        "file": "observer-stop.json",
+        "sha256": "9d056508c00dc0d896b49f450bcfd05e2dbff252ae3eefe983e0491355964785"
+      },
+      {
+        "file": "passive-status.process.json",
+        "sha256": "2dae828efd13ff01d505762a64ab313ee2e8148c53d4a0f268534ea9e54beb54"
+      },
+      {
+        "file": "passive-status.stdout.json",
+        "sha256": "7ad819e68973fb26659975c8b46fbefcebb7f755e33c013129d1d89e16eb252f"
+      }
+    ],
+    "failedObservation": {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/_observations/integration-ab-v2-20261010-c22d8dd69a-795cf0fe-1590-432a-9047-64b3840ed049/1.json",
+      "sha256": "3d38bf1c696089e91395c25835ab4d4a1aae04075dfd3d7e9fedba75f5378bda"
+    },
+    "lastEventRawSha256": [
+      {
+        "file": "000086.json",
+        "sha256": "9aae39d02fea73f11551ab79073b593753513bc1e84117a365d517bf08d34462"
+      },
+      {
+        "file": "000087.json",
+        "sha256": "bf75131261fa96521e9ea6ede6e59335407b482260e0140f98d1418801571dca"
+      },
+      {
+        "file": "000088.json",
+        "sha256": "916c67e4c9074832c8fe3dfc35cb5df4569d1a6cee70ecbc1701176118672567"
+      }
+    ]
+  },
+  "accountingRules": [
+    "Stage totals include admission and operation envelopes; child process/stage timers are subsets.",
+    "Coordination and pause spans are within the original gross clock and cannot be added again.",
+    "The failed second admission is only measured by its child observation and enclosing wall span; no invented third admission duration.",
+    "Preapproval candidate preparation, human wait, documentation, and unallocated wall time are not silently removed or declared zero.",
+    "11.588 seconds of prior sealed evidence hashing is verification work, not a production release duration."
+  ],
+  "limitations": [
+    "This is a frozen failed attempt, not necessary acceptance or full delivery closure.",
+    "Post-backup native effects coordination preserves original nonzero shell and cleanup blocked evidence.",
+    "Exact transitions acceptance preserves original strict comparison unknown and false equality.",
+    "Later Ready is a diagnostic snapshot; HTTP sampling has gaps and cannot establish continuous backend health.",
+    "Old stage timers do not independently isolate all investigation, documentation, human waiting, or preapproval preparation costs."
+  ],
+  "productionResumeAuthorizedByThisReview": false
+}

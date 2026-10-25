@@ -1,0 +1,20 @@
+✔ independent natural malformed JSON is rejected with original bytes preserved (14.8933ms)
+✔ independent natural invalid-at cannot be skipped while hunting two healthy records (9.6903ms)
+✔ independent natural missing-at cannot be skipped while hunting two healthy records (8.586ms)
+✔ independent natural fresh unhealthy record is retained and rejected (9.7127ms)
+✔ independent create-only recovery preservation refuses replacement and retains original (7.8044ms)
+✔ independent UI icon exception binds exact version/origin/type and always aborts (0.9821ms)
+✔ independent UI synthetic cancellation requires original time/window/error/path (0.3151ms)
+✔ independent UI delayed abort permits only an older declared request within five seconds (0.148ms)
+✔ independent UI blocked icon needs independent normal HTTP bytes (1.8558ms)
+✔ independent UI late pre-window success cannot prove cancellation recovery (4.0353ms)
+✔ independent UI network failure never becomes an expected synthetic abort (0.5159ms)
+✔ independent UI actual POST attempt fails even when aborted with no production write (0.3296ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 331.3745

@@ -1,0 +1,315 @@
+{
+  "version": "teruisi-post-restore-independent-closeout-v1",
+  "observedAt": "2026-10-10T11:01:15.833Z",
+  "status": "exact-new-point-isolated-restore-closed",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "metadataScopeSha256": "7389a4d45c9ac8356eae7a6cb50bf987ea647703fbd68ec8f63f83dbf949640c",
+  "originalApprovedAt": "2026-10-10T05:28:51.000Z",
+  "metadataApprovedAt": "2026-10-10T10:34:17.000Z",
+  "nativeAudit": {
+    "path": "D:/teruisi-runtime/django-sales/audits/postgres-operations/834b7dfd7f0445a791cef1f4a1fdec39.json",
+    "id": "834b7dfd7f0445a791cef1f4a1fdec39",
+    "status": "completed",
+    "phase": "restore_cleanup",
+    "failure": null,
+    "rawSha256": "55dc7f0eb13c800a170e8ae52b7d93cc52d5dedd29658123edcf419054270781",
+    "resultDeepEqualsPublishedRestore": true
+  },
+  "backupIdentity": {
+    "backupId": "daily-20261010T093506Z-8a5a7107b3f6",
+    "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261010T093506Z-8a5a7107b3f6",
+    "manifestSha256": "4cc95143e5feffbd801388cb5de8dd59e269f099ce193afbdc4cfaba310e0f88",
+    "dumpSha256": "bd3c532a8f897eea2f09f3b60270543993abcda802bd2147c3937539dfc680c8",
+    "contentSha256": "b2a042fd4e5287ab30642180365d05a74694f7d07ed490c83454bd40f50cf6ce",
+    "profileSha256": "2e1375d4a4a0c2a2670291f291d1a116ed68fcaa40a1207d240e0a529bf7a443",
+    "softwareTupleAndDatabaseContractPassed": true,
+    "evidenceTables": 295,
+    "profileTables": 296,
+    "rolesAndCatalogContractPassed": true,
+    "recomputedProfileChecksumPassed": true
+  },
+  "rehearsal": {
+    "id": "34d6af76d635",
+    "port": 55593,
+    "startedAt": "2026-10-10T10:45:37.1809511+00:00",
+    "completedAt": "2026-10-10T10:57:04.9062910+00:00",
+    "profileRestoreVerified": true,
+    "sequenceHealthVerified": true,
+    "restoredContentEqualsOwnBackup": true,
+    "productionDatabaseTouched": false,
+    "serviceStateChanged": false,
+    "cleanupStatus": "isolated_data_removed",
+    "policySyntaxEquivalenceVerified": false,
+    "policySyntaxWitnessSha256": ""
+  },
+  "publishedRestoreRawSha256": "974139be7e7bd00d8e9904952d02a6b4ec931777a0cb75d001d04a54098c2645",
+  "publishedRestoreSidecarSha256": "736ab97746b4bf8bdddec0df9509512d96ddd5a3c027809d2e03ceb322238611",
+  "parsedReceiptCanonicalSha256": "380e142743f1613eb865bb518d56378b46e9fbdf0748df240384542d70ce7261",
+  "parentWal": {
+    "started": {
+      "file": "000079.json",
+      "at": "2026-10-10T10:44:33.318Z",
+      "eventSha256": "8d277c0cd7d5c3f4181da0af6d860ec50b029e57a54984f3e74e3ee5984648c8"
+    },
+    "passed": {
+      "file": "000080.json",
+      "at": "2026-10-10T10:57:05.027Z",
+      "eventSha256": "0bb19357d636cfdb249101f700251702017f71c232cf0d4f4310a8830be5467c",
+      "receiptSha256": "380e142743f1613eb865bb518d56378b46e9fbdf0748df240384542d70ce7261",
+      "durationMs": 751709.1404
+    },
+    "processEvidence": {
+      "cleanup": "preserve",
+      "code": "completed",
+      "deadlineUnixMs": 1791630873321,
+      "elapsedMs": 740324,
+      "exitCode": 0,
+      "nativeCode": null,
+      "outputProtocol": "direct-exit-files",
+      "processId": 52032,
+      "signal": null,
+      "stage": "completed",
+      "stderrBytes": 2396,
+      "stderrSha256": "00514b8fdfa18a4ede13b04915957fff898a8263e6468bebf80105a591c2c485",
+      "stdoutBytes": 946,
+      "stdoutSha256": "a67c77634ebf040a93e90730bd42f61d65ca62f3e3d178caf77a84a709f3a99b",
+      "timeoutType": null,
+      "treeCleanupExitCode": null,
+      "treeCleanupPending": false,
+      "version": 1
+    },
+    "rawAndCanonicalDigestAreDistinct": true
+  },
+  "isolatedCleanup": {
+    "dataDirectoryAbsent": true,
+    "noListener55593": true,
+    "osObservationAt": "2026-10-10T10:59:53.1897643+00:00",
+    "originalPgShutdownUtc": "2026-10-10T10:57:00.823Z",
+    "originalPgClosedUtc": "2026-10-10T10:57:01.390Z",
+    "formalPgPid": 4080,
+    "formalPgCreationUtc": "2026-10-04T14:26:47.0957370Z",
+    "samePidAndCreationAsStoredBaseline": true,
+    "meaning": "Confirms isolated cleanup and unchanged formal process identity, not a direct production SQL/no-business-change measurement."
+  },
+  "noReplayFirst16": [
+    {
+      "id": "reuse-reviewed-worker",
+      "expectedStarted": 1,
+      "actualStarted": 1
+    },
+    {
+      "id": "backup-pre",
+      "expectedStarted": 1,
+      "actualStarted": 1
+    },
+    {
+      "id": "restore-pre",
+      "expectedStarted": 1,
+      "actualStarted": 1
+    },
+    {
+      "id": "entermaintenance",
+      "expectedStarted": 1,
+      "actualStarted": 1
+    },
+    {
+      "id": "apply-reviewed-worker",
+      "expectedStarted": 1,
+      "actualStarted": 1
+    },
+    {
+      "id": "exitmaintenance",
+      "expectedStarted": 1,
+      "actualStarted": 1
+    },
+    {
+      "id": "startworker",
+      "expectedStarted": 1,
+      "actualStarted": 1
+    },
+    {
+      "id": "preserve-pre-recovery",
+      "expectedStarted": 1,
+      "actualStarted": 1
+    },
+    {
+      "id": "verify-all-resources",
+      "expectedStarted": 1,
+      "actualStarted": 1
+    },
+    {
+      "id": "actual-readonly-ui",
+      "expectedStarted": 4,
+      "actualStarted": 4
+    },
+    {
+      "id": "unsigned-reader-permission-denials",
+      "expectedStarted": 1,
+      "actualStarted": 1
+    },
+    {
+      "id": "complete-component-readiness",
+      "expectedStarted": 1,
+      "actualStarted": 1
+    },
+    {
+      "id": "verifystartup",
+      "expectedStarted": 1,
+      "actualStarted": 1
+    },
+    {
+      "id": "install-reviewed-watchdog",
+      "expectedStarted": 1,
+      "actualStarted": 1
+    },
+    {
+      "id": "two-natural-watchdogs",
+      "expectedStarted": 2,
+      "actualStarted": 2
+    },
+    {
+      "id": "backup-post",
+      "expectedStarted": 1,
+      "actualStarted": 1
+    }
+  ],
+  "restorePostStartedAttempts": 1,
+  "oldBackupUnknownAndExit1Preserved": true,
+  "releaseRetentionStatus": "blocked",
+  "oldPreDumpRetained": false,
+  "newDumpRehashedByThisReview": false,
+  "fullPinsRehashed": false,
+  "journal": {
+    "records": 84,
+    "head": "eff0aac7f059c9335faf2a7bb4cd3f5c487973c3e5f3d0900282fbe9702c0be6",
+    "active": {
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "id": "integration-ab-v2-20261010-c22d8dd69a"
+    },
+    "wholeCanonicalHashChainPassed": true
+  },
+  "tailAtCapture": [
+    {
+      "id": "preserve-post-recovery",
+      "status": "passed",
+      "at": "2026-10-10T11:00:08.112Z",
+      "eventSha256": "eff0aac7f059c9335faf2a7bb4cd3f5c487973c3e5f3d0900282fbe9702c0be6",
+      "started": 1
+    },
+    {
+      "id": "full-postgresql-deep-comparison",
+      "status": "not-started",
+      "at": null,
+      "eventSha256": null,
+      "started": 0
+    },
+    {
+      "id": "original-historical-audits-preserved",
+      "status": "not-started",
+      "at": null,
+      "eventSha256": null,
+      "started": 0
+    },
+    {
+      "id": "exact-final-readiness",
+      "status": "not-started",
+      "at": null,
+      "eventSha256": null,
+      "started": 0
+    }
+  ],
+  "knownFullComparisonBlocker": {
+    "dataLayerDifferences": 10,
+    "profileTablesChanged": 6,
+    "frozenPureComparatorAlreadyRejected": true,
+    "notWaived": true,
+    "restoreEqualityMeaning": "Exact new archive is internally recoverable; this does not establish before-after business content equality or authorized delta provenance."
+  },
+  "worker": {
+    "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+    "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+    "sourceCommit": "5faac8151f59d66de72c3caead8cad916ea547da",
+    "djangoOwnerContract": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9"
+  },
+  "fullBatchComplete": false,
+  "reviewerProductionCommands": 0,
+  "limits": [
+    "This closes the actual isolatedpostRestore only; remaining18–21 reflect captured WAL and may advance.",
+    "policySyntaxEquivalenceVerified=false is preserved, no claim of extra SQL-policy witness verification.",
+    "Original runtime operator/source contract and restore evidence provide full-profile recovery identity. Reviewer did not run SQL, new health probe, Restore/Verify or acquire any lock.",
+    "Parent751709ms includes child740324ms and native reported duration; never add them again.",
+    "Previous availability/backend failures, old pre point deletion, original cleanupblocked and six-table content drift remain unresolved evidence."
+  ],
+  "sources": [
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2/approved-batch.json",
+      "bytes": 12854217,
+      "sha256": "896d20483fea390636293c7952b4792b5ca2e1f64f76f60ec6e5c3a15381b347"
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2/candidate-handoff.json",
+      "bytes": 34394,
+      "sha256": "a2ec59b6119a6f6382953c9f2c620345a3fdaaf1a3367773e7c6200ddd3f6e13"
+    },
+    {
+      "path": "D:/teruisi-runtime/django-sales/audits/postgres-operations/834b7dfd7f0445a791cef1f4a1fdec39.json",
+      "bytes": 1361,
+      "sha256": "55dc7f0eb13c800a170e8ae52b7d93cc52d5dedd29658123edcf419054270781"
+    },
+    {
+      "path": "E:/运营管理系统业务数据/daily-20261010T093506Z-8a5a7107b3f6/backup-manifest.json",
+      "bytes": 253843,
+      "sha256": "4cc95143e5feffbd801388cb5de8dd59e269f099ce193afbdc4cfaba310e0f88"
+    },
+    {
+      "path": "E:/运营管理系统业务数据/daily-20261010T093506Z-8a5a7107b3f6/backup-manifest.json.sha256",
+      "bytes": 66,
+      "sha256": "5bfa00de8bfa2e03e6eb46cde7cd0c13f85018bc6085a29dbadeaf5fbb59aaf8"
+    },
+    {
+      "path": "E:/TERUISI-Postgres-Rehearsals/restore-34d6af76d635/rehearsal-result.json",
+      "bytes": 1098,
+      "sha256": "974139be7e7bd00d8e9904952d02a6b4ec931777a0cb75d001d04a54098c2645"
+    },
+    {
+      "path": "E:/TERUISI-Postgres-Rehearsals/restore-34d6af76d635/rehearsal-result.json.sha256",
+      "bytes": 66,
+      "sha256": "736ab97746b4bf8bdddec0df9509512d96ddd5a3c027809d2e03ceb322238611"
+    },
+    {
+      "path": "E:/TERUISI-Postgres-Rehearsals/restore-34d6af76d635/postgres.log",
+      "bytes": 16038,
+      "sha256": "ae36d82df3abf749fc81d2b383f160f5f81e8d5a6925b16630ee697dce11fb1a"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-integration-review/运营管理系统/docs/release-integration-review/production/INDEPENDENT_POST_RESTORE_CLEANUP_OBSERVATION.json",
+      "bytes": 433,
+      "sha256": "4777be0f7d75188a07109228f81be08c34a44bb8465f301e4f4b2a442869d3cb"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-integration-review/运营管理系统/docs/release-integration-review/evidence/restore-closeout.json",
+      "bytes": 632,
+      "sha256": "a5be38ccf456e083f0321e4dd73a04e80e999aa9353a80668beeb3f9fc8c450b"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-integration-review/运营管理系统/docs/release-integration-review/production/backup-post-blocked-final.json",
+      "bytes": 27663,
+      "sha256": "6df9d6bb237470c10a4718056aa58a63c8ce881ed04277b2bd80399274cf88e9"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-integration-review/运营管理系统/docs/release-integration-review/production/INDEPENDENT_POST_BACKUP_DUMP_VERIFICATION.json",
+      "bytes": 5164,
+      "sha256": "8fd3b90cb8ef9bc4fdc1fbe0947314bbf9b245f77cf36c066fede6900b629590"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/active.json",
+      "bytes": 128,
+      "sha256": "7c5af7f44a5aa80579bc9ac2a5038ad5ab757a90dc837de4977513d8be7b0cbf"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/worker-process.json",
+      "bytes": 534,
+      "sha256": "a319e45850aaae5b2e65d0642e55603c31b23881c0ab8750045a23782dc4cc9b"
+    }
+  ]
+}

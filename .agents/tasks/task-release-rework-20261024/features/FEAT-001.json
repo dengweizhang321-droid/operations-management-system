@@ -1,0 +1,22 @@
+{
+  "id": "FEAT-001",
+  "type": "chore",
+  "description": "Confirm the sandbox baseline in the scratch repo before any change: the scratch repo is on branch codex/release-rework-20261024 at a6cc9fcd with a clean status, and record pass/fail counts of the directly affected test files using the sandbox runner. Planner already observed: main-prebuild-queue-v2 10/11 (the 'crash before dispatch' test spawns a child node without the pipe shim, sandbox-limited), main-prebuild-generation-rejection 6/6, release-scope-plan TIMEOUT (spawns git), preparation-resolution TIMEOUT (spawns children).",
+  "status": "completed",
+  "steps": [
+    "In PowerShell: $env:GIT_CONFIG_GLOBAL='NUL'; & D:\\git\\Git\\cmd\\git.exe -c safe.directory=* -C D:\\运营管理系统\\.codex-tmp\\rework-20261024\\repo status --short --branch ; and log --oneline -1. Expect branch codex/release-rework-20261024, HEAD a6cc9fcd, clean.",
+    "Run: powershell -NoProfile -ExecutionPolicy Bypass -File D:\\运营管理系统\\.codex-tmp\\rework-20261024\\run-test.ps1 main-prebuild-queue-v2 main-prebuild-generation-rejection publish-latest-main publish-main-step publish-main-completed main-prebuild-status -TimeoutSec 120 (separately, one call per 2-3 files so a hang does not eat the tool timeout).",
+    "For each failing/timeout test, look at %TEMP%\\rework-tests\\<name>.out and classify the cause as sandbox-limited (child_process spawn, git, powershell) or real. Do not fix anything in this feature.",
+    "Write the baseline table (file, tests, pass, fail, cause) into this feature's findings field."
+  ],
+  "acceptance_criteria": [
+    "findings lists baseline counts for every file run and the cause of each failure/timeout",
+    "No file in the scratch repo is modified (git status clean)"
+  ],
+  "verification": [
+    "git -C <scratch repo> status --short prints nothing",
+    "run-test.ps1 output captured in findings"
+  ],
+  "blocked_reason": null,
+  "findings": "Baseline 2026-10-24 (no code changes). Scratch repo D:\\运营管理系统\\.codex-tmp\\rework-20261024\\repo: branch codex/release-rework-20261024, HEAD a6cc9fcde743fcbcc3d984af15ac10720f7ccd4f, git status --short empty (clean, before and after test runs). Runner run-test.ps1 -TimeoutSec 120; note its own summary regex does not print the 'ℹ tests/pass/fail' lines (exit= shows empty), so read %TEMP%\\rework-tests\\<name>.out with Select-String '^\\S+ (tests|pass|fail|cancelled) '. Baseline table (file | tests | pass | fail | cause): (1) main-prebuild-queue-v2 | 11 | 10 | 1 | sandbox-limited: 'crash before dispatch remains queued...' (tests/main-prebuild-queue-v2.test.mjs:82) spawns a child node via child_process.spawn without the pipe preload shim and expects exit 19; child exits 0 (assert 0 !== 19 at line 87), so the child's queue lock pipe is outside \\\\.\\pipe\\LOCAL\\. Must re-run outside sandbox. (2) main-prebuild-generation-rejection | 6 | 6 | 0 | -. (3) publish-latest-main | TIMEOUT, 0 bytes output | sandbox-limited: first test fixture calls execFileSync('git', init/bare...) (line 18-19), child git hangs. Re-run outside sandbox. (4) publish-main-step | TIMEOUT after 1 pass (7 tests in file) | sandbox-limited: tests call runProcess(process.execPath,...) from tools/worker-local-release.mjs, i.e. child node spawn; first spawn completed, second hung. Re-run outside sandbox. (5) publish-main-completed | 4 | 4 | 0 | -. (6) main-prebuild-status | 14 | 14 | 0 | -. Not re-run here (planner observation kept): release-scope-plan TIMEOUT (spawns git), preparation-resolution TIMEOUT (spawns children). Morning out-of-sandbox re-run list: main-prebuild-queue-v2, publish-latest-main, publish-main-step, release-scope-plan, preparation-resolution. Tonight's authorization recorded from user steering: S05d, S05b, S05, S08, S16; new branches start from codex/release-process-review-20261024 and are not merged into main; user declined sandbox settings changes (no sh.exe/github.com access tonight)."
+}

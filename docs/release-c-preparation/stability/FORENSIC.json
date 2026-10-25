@@ -1,0 +1,1191 @@
+{
+  "version": "teruisi-c-stability-historical-forensic-v1",
+  "observedAt": "2026-10-11T03:39:00.613Z",
+  "reviewer": "/root/combined_independent_review",
+  "baseCommit": "ba656eabbb93d17d6e2f57d51ea3d13b27d1f50d",
+  "readonly": true,
+  "productionRequestsLifecycleLocksSqlByReviewer": 0,
+  "sourceOrPinnedArtifactsModified": false,
+  "otherTasksMessaged": false,
+  "userHypothesis": "A Worker exit may be related to work executed in another conversation",
+  "hypothesisStatus": "Neither confirmed nor ruled out by these process logs; root is correlating trusted task timelines",
+  "windows": [
+    {
+      "id": "D5-0606",
+      "from": "2026-10-10T06:05:00Z",
+      "to": "2026-10-10T06:08:00Z",
+      "frameworkFile": "wrangler-2026-10-10_01-44-59_259.log",
+      "supervisorPid": 2924,
+      "exitedPid": 64644,
+      "replacementPid": 15520,
+      "events": [
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 1250,
+          "at": "2026-10-10T06:05:52.600Z",
+          "event": "heartbeat",
+          "supervisorPid": 2924,
+          "childPid": null,
+          "role": null,
+          "code": null,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "eb18a642ab37258fd647c27a29a4cb558ac3c506c7464bd11ada5d35abd9b5ec"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 1251,
+          "at": "2026-10-10T06:06:07.683Z",
+          "event": "child_exit",
+          "supervisorPid": 2924,
+          "childPid": 64644,
+          "role": "worker",
+          "code": 1,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "bbc33d81c1123df390a73fe45bdc90e72be17b045e14fba1b2177b3de3fd24cb"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 1252,
+          "at": "2026-10-10T06:06:07.688Z",
+          "event": "restart_scheduled",
+          "supervisorPid": 2924,
+          "childPid": null,
+          "role": "worker",
+          "code": null,
+          "signal": null,
+          "delayMs": 1000,
+          "rawRecordSha256": "b94c5253e8aae1fe56bfc5ba515f3902ff43d435833b40188815382c95b55377"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 1253,
+          "at": "2026-10-10T06:06:08.690Z",
+          "event": "launch_validation",
+          "supervisorPid": 2924,
+          "childPid": null,
+          "role": "worker",
+          "code": null,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "3586de2f9612d4b185dcef5e464575ca53d18e922ab3b2b23423348397589b57"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 1254,
+          "at": "2026-10-10T06:06:11.714Z",
+          "event": "child_spawn",
+          "supervisorPid": 2924,
+          "childPid": 15520,
+          "role": "worker",
+          "code": null,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "db3f27697259cf08d9e8b0bf7cf45f25d274494cffd3c4395d1b226d805d3c5a"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 1255,
+          "at": "2026-10-10T06:06:52.604Z",
+          "event": "heartbeat",
+          "supervisorPid": 2924,
+          "childPid": null,
+          "role": null,
+          "code": null,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "0ec4b9b7b01ac1a668628c7b30dc06f0bc4882495bb5cef33c7ef00d6be8a993"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 1256,
+          "at": "2026-10-10T06:07:52.607Z",
+          "event": "heartbeat",
+          "supervisorPid": 2924,
+          "childPid": null,
+          "role": null,
+          "code": null,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "047e90e087fd0ef0b1e3ccf52769a9bd39ea34a8f34aa8156f78beaba91129ec"
+        }
+      ],
+      "frameworkLog": "C:\\Users\\86137\\AppData\\Roaming\\xdg.config\\.wrangler\\logs\\wrangler-2026-10-10_01-44-59_259.log",
+      "framework": [
+        {
+          "line": 17872,
+          "at": "2026-10-10T06:06:06.606Z",
+          "knownErrors": [
+            "Error inside ProxyWorker"
+          ],
+          "rawLineSha256": "5b14fcd7bdc3eb0653e76dcfdfee6a90016576b4f63646d0a4a89011fcc5b1f5"
+        },
+        {
+          "line": 17883,
+          "at": "2026-10-10T06:06:06.606Z",
+          "knownErrors": [
+            "Network connection lost"
+          ],
+          "rawLineSha256": "8db894e6d900bb9eeaa35585f8c5eb8bc74f5c83b19d140d65d051849a89c623"
+        },
+        {
+          "line": 17884,
+          "at": "2026-10-10T06:06:06.606Z",
+          "knownErrors": [
+            "Network connection lost"
+          ],
+          "rawLineSha256": "8306007ccf875aaaabf669cdb778988baf5b700501b0c337dcf772de7cc075af"
+        }
+      ],
+      "djangoLauncherUTCEvents": [],
+      "workerStartupTimingEvents": [],
+      "observedWorkerExit": {
+        "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+        "line": 1251,
+        "at": "2026-10-10T06:06:07.683Z",
+        "event": "child_exit",
+        "supervisorPid": 2924,
+        "childPid": 64644,
+        "role": "worker",
+        "code": 1,
+        "signal": null,
+        "delayMs": null,
+        "rawRecordSha256": "bbc33d81c1123df390a73fe45bdc90e72be17b045e14fba1b2177b3de3fd24cb"
+      },
+      "observedScheduledRecovery": {
+        "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+        "line": 1252,
+        "at": "2026-10-10T06:06:07.688Z",
+        "event": "restart_scheduled",
+        "supervisorPid": 2924,
+        "childPid": null,
+        "role": "worker",
+        "code": null,
+        "signal": null,
+        "delayMs": 1000,
+        "rawRecordSha256": "b94c5253e8aae1fe56bfc5ba515f3902ff43d435833b40188815382c95b55377"
+      },
+      "observedReplacement": {
+        "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+        "line": 1254,
+        "at": "2026-10-10T06:06:11.714Z",
+        "event": "child_spawn",
+        "supervisorPid": 2924,
+        "childPid": 15520,
+        "role": "worker",
+        "code": null,
+        "signal": null,
+        "delayMs": null,
+        "rawRecordSha256": "db3f27697259cf08d9e8b0bf7cf45f25d274494cffd3c4395d1b226d805d3c5a"
+      },
+      "livenessTerminationObserved": false,
+      "supervisorSignalOrExitObserved": false,
+      "recordedBackendMutativeActionObserved": false,
+      "intentionalOrUnintentional": "unresolved",
+      "otherConversationCause": "unresolved"
+    },
+    {
+      "id": "AB-1743",
+      "from": "2026-10-10T17:42:00Z",
+      "to": "2026-10-10T17:45:00Z",
+      "frameworkFile": "wrangler-2026-10-10_10-02-16_024.log",
+      "supervisorPid": 48744,
+      "exitedPid": 66676,
+      "replacementPid": 52084,
+      "events": [
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 1825,
+          "at": "2026-10-10T17:42:05.774Z",
+          "event": "heartbeat",
+          "supervisorPid": 48744,
+          "childPid": null,
+          "role": null,
+          "code": null,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "e06d3fe43424c70c59cd77c1358064e15fb9148cd1a1b10a371e814ac03fd157"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 1826,
+          "at": "2026-10-10T17:43:05.773Z",
+          "event": "heartbeat",
+          "supervisorPid": 48744,
+          "childPid": null,
+          "role": null,
+          "code": null,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "628eef3064c5173394facdc1cc6a5024834da171f8c4d2dc7340c984eea4aa8f"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 1827,
+          "at": "2026-10-10T17:43:12.744Z",
+          "event": "child_exit",
+          "supervisorPid": 48744,
+          "childPid": 66676,
+          "role": "worker",
+          "code": 1,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "8958f95a8c6361c4248d5d44029c003597643b26d30b9a10383db78da9d0423d"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 1828,
+          "at": "2026-10-10T17:43:12.751Z",
+          "event": "restart_scheduled",
+          "supervisorPid": 48744,
+          "childPid": null,
+          "role": "worker",
+          "code": null,
+          "signal": null,
+          "delayMs": 8000,
+          "rawRecordSha256": "402d87646a574f4ddd99ba53862f5b081b284c67e799dc84a3610ba16adc66e1"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 1829,
+          "at": "2026-10-10T17:43:20.757Z",
+          "event": "launch_validation",
+          "supervisorPid": 48744,
+          "childPid": null,
+          "role": "worker",
+          "code": null,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "9e54825eaa549c867bcefab9d20d7e4e8be1c5bf8a1d99cffce320d1b19e9788"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 1830,
+          "at": "2026-10-10T17:43:24.475Z",
+          "event": "child_spawn",
+          "supervisorPid": 48744,
+          "childPid": 52084,
+          "role": "worker",
+          "code": null,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "a748937a11bd9d59799bc711e03c47262c7671fe2e0b2e746948468acaf3c4cd"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 1831,
+          "at": "2026-10-10T17:44:05.776Z",
+          "event": "heartbeat",
+          "supervisorPid": 48744,
+          "childPid": null,
+          "role": null,
+          "code": null,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "349dd6774cdbcf6aad93acc4afa4581cab0151b587474194aa3f9c8c6476b409"
+        }
+      ],
+      "frameworkLog": "C:\\Users\\86137\\AppData\\Roaming\\xdg.config\\.wrangler\\logs\\wrangler-2026-10-10_10-02-16_024.log",
+      "framework": [
+        {
+          "line": 21796,
+          "at": "2026-10-10T17:43:12.374Z",
+          "knownErrors": [
+            "Error inside ProxyWorker"
+          ],
+          "rawLineSha256": "5b14fcd7bdc3eb0653e76dcfdfee6a90016576b4f63646d0a4a89011fcc5b1f5"
+        },
+        {
+          "line": 21807,
+          "at": "2026-10-10T17:43:12.374Z",
+          "knownErrors": [
+            "Network connection lost"
+          ],
+          "rawLineSha256": "8db894e6d900bb9eeaa35585f8c5eb8bc74f5c83b19d140d65d051849a89c623"
+        },
+        {
+          "line": 21808,
+          "at": "2026-10-10T17:43:12.374Z",
+          "knownErrors": [
+            "Network connection lost"
+          ],
+          "rawLineSha256": "8306007ccf875aaaabf669cdb778988baf5b700501b0c337dcf772de7cc075af"
+        }
+      ],
+      "djangoLauncherUTCEvents": [
+        {
+          "line": 3543,
+          "utcAt": "2026-10-10T17:42:02.471Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "a9c75d64b68d002abc0210dd6f80f2c4b26ce046a2b551650e3148933e9349b3"
+        },
+        {
+          "line": 3544,
+          "utcAt": "2026-10-10T17:42:19.531Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "4f82f494b896b8b59f62c4726a11988df217688019cccb484a9955fe3a3888c9"
+        },
+        {
+          "line": 3545,
+          "utcAt": "2026-10-10T17:42:23.859Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "121f4d20578dae99f6990f460fc4a69510ffd8decde2c059b8a7f9dce7b4df23"
+        },
+        {
+          "line": 3546,
+          "utcAt": "2026-10-10T17:42:27.083Z",
+          "action": "AggregateStatus",
+          "actionSha256": "c8aa2a2ac8e69ec7e7132e18ecf71a77ac9495cb4b2d368c162ee0e045ab2c20",
+          "rawRecordSha256": "f5fc5f27d6c724bace4d7a11dd8ccc64a2a06a65828d06c7cbf99dbb3afa5af2"
+        },
+        {
+          "line": 3547,
+          "utcAt": "2026-10-10T17:42:41.080Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "d552e64143e69fa414e39558668d87da39be616b86e71e1fdcf01276af149fe4"
+        },
+        {
+          "line": 3548,
+          "utcAt": "2026-10-10T17:42:46.164Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "3f188a4f0e86b686ca80029e915d3499b66fbb7c1cbbaddaefaf328d007d9015"
+        },
+        {
+          "line": 3549,
+          "utcAt": "2026-10-10T17:42:46.654Z",
+          "action": "AggregateStatus",
+          "actionSha256": "c8aa2a2ac8e69ec7e7132e18ecf71a77ac9495cb4b2d368c162ee0e045ab2c20",
+          "rawRecordSha256": "ea5ca1636d2ae74f7a293e2708c0e5457b49fe2b11ddd34ac35e33fe275ad165"
+        },
+        {
+          "line": 3550,
+          "utcAt": "2026-10-10T17:43:05.014Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "1f6bb39e7a606510724cbe9c8e219911b28c0518e121c19ae0e8862e477702ec"
+        },
+        {
+          "line": 3551,
+          "utcAt": "2026-10-10T17:43:13.130Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "c5e669694d2e148f1e83c25a60807a540d3159a3f00fc743cab7fdd00b57e197"
+        },
+        {
+          "line": 3552,
+          "utcAt": "2026-10-10T17:43:27.524Z",
+          "action": "AggregateStatus",
+          "actionSha256": "c8aa2a2ac8e69ec7e7132e18ecf71a77ac9495cb4b2d368c162ee0e045ab2c20",
+          "rawRecordSha256": "bae08596eb9f3ad824c8b844fd7e4017975ce6cce78aefca710bdb03302d962b"
+        },
+        {
+          "line": 3553,
+          "utcAt": "2026-10-10T17:43:32.292Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "a73657e49d5df244fdfe60970af13ee0448258cdd32838b0c571c718788d2b11"
+        },
+        {
+          "line": 3554,
+          "utcAt": "2026-10-10T17:43:37.748Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "a4ad0dedb59cf43250a0a5f5cfe76013ff991f1451084991b07c3d3eb41b2ea2"
+        },
+        {
+          "line": 3555,
+          "utcAt": "2026-10-10T17:43:49.552Z",
+          "action": "AggregateStatus",
+          "actionSha256": "c8aa2a2ac8e69ec7e7132e18ecf71a77ac9495cb4b2d368c162ee0e045ab2c20",
+          "rawRecordSha256": "b52bbea52786758017307ff06ce9cab31569a936b6566014035637329fabb618"
+        },
+        {
+          "line": 3556,
+          "utcAt": "2026-10-10T17:43:56.643Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "8171e3f0c0b1dd3ede559febc4aa553b1a7af3078ec2739bd501e5776181903a"
+        },
+        {
+          "line": 3557,
+          "utcAt": "2026-10-10T17:44:13.378Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "562b42419275b762b1fee0f08573cbac63cf7bd7f4f4459635f7646bb2334e3e"
+        },
+        {
+          "line": 3558,
+          "utcAt": "2026-10-10T17:44:22.808Z",
+          "action": "AggregateStatus",
+          "actionSha256": "c8aa2a2ac8e69ec7e7132e18ecf71a77ac9495cb4b2d368c162ee0e045ab2c20",
+          "rawRecordSha256": "c3fc9290c0420f95112e53832b69a96cb0130b3432126a9d53cc9424aea222c4"
+        },
+        {
+          "line": 3559,
+          "utcAt": "2026-10-10T17:44:33.029Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "53a1ef0eca6aa8ef88bed9e6e4c200517b7dfa500986589844b822e4e688d183"
+        },
+        {
+          "line": 3560,
+          "utcAt": "2026-10-10T17:44:41.858Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "3884337c825f588f8e8e9143e7a2cb764275038805e3314a6d9e23099d4728cf"
+        },
+        {
+          "line": 3561,
+          "utcAt": "2026-10-10T17:44:46.316Z",
+          "action": "AggregateStatus",
+          "actionSha256": "c8aa2a2ac8e69ec7e7132e18ecf71a77ac9495cb4b2d368c162ee0e045ab2c20",
+          "rawRecordSha256": "a43332fccf9eb02bca5144b108ac806bfdd527fc5c75feb481bab33dc983abd7"
+        }
+      ],
+      "workerStartupTimingEvents": [],
+      "observedWorkerExit": {
+        "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+        "line": 1827,
+        "at": "2026-10-10T17:43:12.744Z",
+        "event": "child_exit",
+        "supervisorPid": 48744,
+        "childPid": 66676,
+        "role": "worker",
+        "code": 1,
+        "signal": null,
+        "delayMs": null,
+        "rawRecordSha256": "8958f95a8c6361c4248d5d44029c003597643b26d30b9a10383db78da9d0423d"
+      },
+      "observedScheduledRecovery": {
+        "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+        "line": 1828,
+        "at": "2026-10-10T17:43:12.751Z",
+        "event": "restart_scheduled",
+        "supervisorPid": 48744,
+        "childPid": null,
+        "role": "worker",
+        "code": null,
+        "signal": null,
+        "delayMs": 8000,
+        "rawRecordSha256": "402d87646a574f4ddd99ba53862f5b081b284c67e799dc84a3610ba16adc66e1"
+      },
+      "observedReplacement": {
+        "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+        "line": 1830,
+        "at": "2026-10-10T17:43:24.475Z",
+        "event": "child_spawn",
+        "supervisorPid": 48744,
+        "childPid": 52084,
+        "role": "worker",
+        "code": null,
+        "signal": null,
+        "delayMs": null,
+        "rawRecordSha256": "a748937a11bd9d59799bc711e03c47262c7671fe2e0b2e746948468acaf3c4cd"
+      },
+      "livenessTerminationObserved": false,
+      "supervisorSignalOrExitObserved": false,
+      "recordedBackendMutativeActionObserved": false,
+      "intentionalOrUnintentional": "unresolved",
+      "otherConversationCause": "unresolved"
+    },
+    {
+      "id": "AB-0059",
+      "from": "2026-10-11T00:58:00Z",
+      "to": "2026-10-11T01:01:00Z",
+      "frameworkFile": "wrangler-2026-10-10_17-43-27_776.log",
+      "supervisorPid": 48744,
+      "exitedPid": 52084,
+      "replacementPid": 51028,
+      "events": [
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 2265,
+          "at": "2026-10-11T00:58:08.330Z",
+          "event": "heartbeat",
+          "supervisorPid": 48744,
+          "childPid": null,
+          "role": null,
+          "code": null,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "ff43fb2ee87ee6114b3187b36acbf2282adc990dcebb9034652c47b11bbd18c9"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 2266,
+          "at": "2026-10-11T00:59:08.333Z",
+          "event": "heartbeat",
+          "supervisorPid": 48744,
+          "childPid": null,
+          "role": null,
+          "code": null,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "cd88162c6da78cd5185ec88462b37f8e6ff0dd8da21ac6568675ac29663532dc"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 2267,
+          "at": "2026-10-11T00:59:19.502Z",
+          "event": "child_exit",
+          "supervisorPid": 48744,
+          "childPid": 52084,
+          "role": "worker",
+          "code": 1,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "05b3f7f15d653b857d9defad4130dc59ed2828957d3da9e615c1183a1890836d"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 2268,
+          "at": "2026-10-11T00:59:19.509Z",
+          "event": "restart_scheduled",
+          "supervisorPid": 48744,
+          "childPid": null,
+          "role": "worker",
+          "code": null,
+          "signal": null,
+          "delayMs": 16000,
+          "rawRecordSha256": "fcacb5db55ac89dcbaf668e0e31b63a93c0f04a225bd4c6d3007f7910e571616"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 2269,
+          "at": "2026-10-11T00:59:35.512Z",
+          "event": "launch_validation",
+          "supervisorPid": 48744,
+          "childPid": null,
+          "role": "worker",
+          "code": null,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "a6a56a303a9781811f669c4c9dc01bb01d7d53adc300e41fc5dfa187b828e6bd"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 2270,
+          "at": "2026-10-11T00:59:39.749Z",
+          "event": "child_spawn",
+          "supervisorPid": 48744,
+          "childPid": 51028,
+          "role": "worker",
+          "code": null,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "d875b7be580ceb272d050364973d0b042797645ddc7d6bf3976c107d83310c43"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+          "line": 2271,
+          "at": "2026-10-11T01:00:08.339Z",
+          "event": "heartbeat",
+          "supervisorPid": 48744,
+          "childPid": null,
+          "role": null,
+          "code": null,
+          "signal": null,
+          "delayMs": null,
+          "rawRecordSha256": "e61cd47ac2e65f118a1c42d059060d955424ea5487f6c04d026bbb050efddf09"
+        }
+      ],
+      "frameworkLog": "C:\\Users\\86137\\AppData\\Roaming\\xdg.config\\.wrangler\\logs\\wrangler-2026-10-10_17-43-27_776.log",
+      "framework": [
+        {
+          "line": 28713,
+          "at": "2026-10-11T00:59:19.145Z",
+          "knownErrors": [
+            "Error inside ProxyWorker"
+          ],
+          "rawLineSha256": "5b14fcd7bdc3eb0653e76dcfdfee6a90016576b4f63646d0a4a89011fcc5b1f5"
+        },
+        {
+          "line": 28724,
+          "at": "2026-10-11T00:59:19.145Z",
+          "knownErrors": [
+            "Network connection lost"
+          ],
+          "rawLineSha256": "8db894e6d900bb9eeaa35585f8c5eb8bc74f5c83b19d140d65d051849a89c623"
+        },
+        {
+          "line": 28725,
+          "at": "2026-10-11T00:59:19.145Z",
+          "knownErrors": [
+            "Network connection lost"
+          ],
+          "rawLineSha256": "8306007ccf875aaaabf669cdb778988baf5b700501b0c337dcf772de7cc075af"
+        }
+      ],
+      "djangoLauncherUTCEvents": [
+        {
+          "line": 6984,
+          "utcAt": "2026-10-11T00:58:16.296Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "c4ba7cb8da4ec5b7305a72d8a85784e874e231d056d34b760ea22bfd183c0939"
+        },
+        {
+          "line": 6985,
+          "utcAt": "2026-10-11T00:58:22.107Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "c67bcb266008104d03637fd3a33922fc5a98ebbe1fd3d13910065fe2e8c0ed10"
+        },
+        {
+          "line": 6986,
+          "utcAt": "2026-10-11T00:58:30.437Z",
+          "action": "AggregateStatus",
+          "actionSha256": "c8aa2a2ac8e69ec7e7132e18ecf71a77ac9495cb4b2d368c162ee0e045ab2c20",
+          "rawRecordSha256": "6ff68d384e40cf3391381858c51221f62bf536acbf345d9a01b9c005bf485ad6"
+        },
+        {
+          "line": 6987,
+          "utcAt": "2026-10-11T00:58:41.530Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "c3d7e9423b50f588385dc2d3a23a04124662a06ea3862b99a1adb0a74203ffd2"
+        },
+        {
+          "line": 6988,
+          "utcAt": "2026-10-11T00:58:48.211Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "5c8e629ab45469774487f3a076677fca7467519cd3593597e7c2c45e15acda66"
+        },
+        {
+          "line": 6989,
+          "utcAt": "2026-10-11T00:58:54.279Z",
+          "action": "AggregateStatus",
+          "actionSha256": "c8aa2a2ac8e69ec7e7132e18ecf71a77ac9495cb4b2d368c162ee0e045ab2c20",
+          "rawRecordSha256": "fa843404fa3a07b184fa1f4ec87d7e7ba58b31b0cf3ea04666f834a9bfa9c330"
+        },
+        {
+          "line": 6990,
+          "utcAt": "2026-10-11T00:59:12.121Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "d011e9b6d7b73472a405f6e19c8483d471579e075e1e01c48444fcf233de4f3b"
+        },
+        {
+          "line": 6991,
+          "utcAt": "2026-10-11T00:59:21.776Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "b322cfeea6179c68c16d3dec1f82cd19ae1eb61a2e1b75a5e9490c9ed337be2c"
+        },
+        {
+          "line": 6992,
+          "utcAt": "2026-10-11T00:59:28.312Z",
+          "action": "AggregateStatus",
+          "actionSha256": "c8aa2a2ac8e69ec7e7132e18ecf71a77ac9495cb4b2d368c162ee0e045ab2c20",
+          "rawRecordSha256": "ae7cd04f9ca5a7a799a1c7ec50095f55e435ae03aa7a34f6ce3692da50e4fd5b"
+        },
+        {
+          "line": 6993,
+          "utcAt": "2026-10-11T00:59:42.131Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "8fb9260c084ad0a2f5d26c159d12a6d483a16d8311cd4e3b44798e0fc73972d8"
+        },
+        {
+          "line": 6994,
+          "utcAt": "2026-10-11T00:59:48.701Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "4bfa2043139de7b08385e01f5a0c603d3538a58fb8222c84314ceb52bee3519b"
+        },
+        {
+          "line": 6995,
+          "utcAt": "2026-10-11T00:59:53.487Z",
+          "action": "AggregateStatus",
+          "actionSha256": "c8aa2a2ac8e69ec7e7132e18ecf71a77ac9495cb4b2d368c162ee0e045ab2c20",
+          "rawRecordSha256": "2e01086b19f613ddbb643ed7ed96f8c70d708b6e6145aea89652db229893779e"
+        },
+        {
+          "line": 6996,
+          "utcAt": "2026-10-11T01:00:20.854Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "a4f636cc0ce97df40838d55cc7fd057859f43cda392064e53079cd4de9ae09a1"
+        },
+        {
+          "line": 6997,
+          "utcAt": "2026-10-11T01:00:33.585Z",
+          "action": "AggregateStatus",
+          "actionSha256": "c8aa2a2ac8e69ec7e7132e18ecf71a77ac9495cb4b2d368c162ee0e045ab2c20",
+          "rawRecordSha256": "a93790412485a469e97696aea344118ee3967e746952639b1cd97430dbfbef9a"
+        },
+        {
+          "line": 6998,
+          "utcAt": "2026-10-11T01:00:34.118Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "602695bd0d15166f880477e8a0a49331e353b7722acad05a537597a89b5a0d48"
+        },
+        {
+          "line": 6999,
+          "utcAt": "2026-10-11T01:00:53.453Z",
+          "action": "Status",
+          "actionSha256": "920e413c7d411b61ef3e8c63b1cb6ad058d5f95f8b481dbafe60248387d8c355",
+          "rawRecordSha256": "fa438e90135a4bc73c7d5fe5c2463920d482ef997a8094658e5f468705531b8f"
+        }
+      ],
+      "workerStartupTimingEvents": [],
+      "observedWorkerExit": {
+        "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+        "line": 2267,
+        "at": "2026-10-11T00:59:19.502Z",
+        "event": "child_exit",
+        "supervisorPid": 48744,
+        "childPid": 52084,
+        "role": "worker",
+        "code": 1,
+        "signal": null,
+        "delayMs": null,
+        "rawRecordSha256": "05b3f7f15d653b857d9defad4130dc59ed2828957d3da9e615c1183a1890836d"
+      },
+      "observedScheduledRecovery": {
+        "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+        "line": 2268,
+        "at": "2026-10-11T00:59:19.509Z",
+        "event": "restart_scheduled",
+        "supervisorPid": 48744,
+        "childPid": null,
+        "role": "worker",
+        "code": null,
+        "signal": null,
+        "delayMs": 16000,
+        "rawRecordSha256": "fcacb5db55ac89dcbaf668e0e31b63a93c0f04a225bd4c6d3007f7910e571616"
+      },
+      "observedReplacement": {
+        "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+        "line": 2270,
+        "at": "2026-10-11T00:59:39.749Z",
+        "event": "child_spawn",
+        "supervisorPid": 48744,
+        "childPid": 51028,
+        "role": "worker",
+        "code": null,
+        "signal": null,
+        "delayMs": null,
+        "rawRecordSha256": "d875b7be580ceb272d050364973d0b042797645ddc7d6bf3976c107d83310c43"
+      },
+      "livenessTerminationObserved": false,
+      "supervisorSignalOrExitObserved": false,
+      "recordedBackendMutativeActionObserved": false,
+      "intentionalOrUnintentional": "unresolved",
+      "otherConversationCause": "unresolved"
+    }
+  ],
+  "latestControlledStopDiagnostic": {
+    "version": "teruisi-worker-stop-diagnostic-v1",
+    "at": "2026-10-10T06:13:23.4367694+00:00",
+    "phase": "supervisor_absent",
+    "action": "EnterMaintenance",
+    "supervisorPid": 2924,
+    "supervisorCreationDate": "2026-10-10T01:44:50.7825770Z",
+    "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+    "insideAnyReviewedExitWindow": false,
+    "historyComplete": false
+  },
+  "recentRotationMetadata": [
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-consumptions\\266a8574000a90cbeb5baf12fcba7bc2f4a8a06f0262f3b47d4ad73b9d0ddaee.json",
+      "publishedFileMtimeUtc": "2026-10-10T06:19:56.799Z",
+      "declaredActivatedAt": "2026-10-10T01:46:38.826Z",
+      "status": "activated",
+      "planSha256": "266a8574000a90cbeb5baf12fcba7bc2f4a8a06f0262f3b47d4ad73b9d0ddaee",
+      "declaredTimestampInsideAnyExitWindow": false,
+      "note": "Field activatedAt and publication mtime are distinct facts; neither is inferred to be a process stop time."
+    }
+  ],
+  "coverageBoundaries": [
+    {
+      "source": "worker-local-runtime-supervisor.mjs",
+      "lines": [
+        279,
+        288,
+        293,
+        442,
+        449,
+        532
+      ],
+      "captures": "child spawn/exit and scheduled automatic recovery; named liveness_termination; catchable supervisor signal",
+      "doesNotCapture": "The command/calling task that externally terminates a child, force termination intent, or every OS/network root cause"
+    },
+    {
+      "source": "worker-local-service.ps1",
+      "lines": [
+        1188,
+        1225,
+        1295,
+        1300,
+        1315,
+        1332,
+        1350
+      ],
+      "captures": "Latest full-supervisor controlled-stop diagnostic only; overwritten state file",
+      "doesNotCapture": "Restart-ExactWorkerChild does not call Write-WorkerStopDiagnostic. No complete append-only hot-restart/Terminate command history in this file."
+    },
+    {
+      "source": "startup-timing.jsonl",
+      "captures": "Selected startup phase timing events",
+      "doesNotCapture": "Every child-only termination, external Stop-Process/taskkill command or arbitrary build performed in another worktree"
+    },
+    {
+      "source": "Django launcher.jsonl",
+      "captures": "Installed backend operator actions, normalized by actual timezone offset",
+      "doesNotCapture": "Worker-only operations or unrelated shell commands outside this operator"
+    }
+  ],
+  "wordingCorrection": {
+    "previousEffectStatementsRetained": true,
+    "automaticRecoveryDoesNotProveUnintendedExit": true,
+    "recommended": "Worker exit1 and supervisor recovery are established; whether an explicit task operation caused/expected the termination remains unresolved.",
+    "noEvidenceHereThatOrdinaryBuildTerminatedFormalWorker": true,
+    "doNotTreatMissingAuditAsNoHumanOperation": true,
+    "authorizedMaintenanceStartedAfterD5ExitWindow": "2026-10-10T06:12:02.069Z",
+    "knownAuthorizedLifecycleInsideThreeExitWindows": false
+  },
+  "nextTaskTimelineEvidenceRequired": [
+    "Exact command/tool arguments and start/finish UTC from the other conversation, not title/task-stopped/branch existence",
+    "Target PID plus creation time and parent lineage; distinguish Wrangler root, workerd descendant and supervisor",
+    "Actual exit/timeout/tree-cleanup result and whether generic process-name/port cleanup targeted formal3000/5791 or isolated-owned children",
+    "Build/cache/cwd path ownership and any mutable shared workerd/Miniflare/cache/profile changes; completion evidence",
+    "Temporal match to each supervisor/framework error record, without assuming overlap alone proves causation"
+  ],
+  "frameworkBasis": {
+    "versions": {
+      "wrangler": "4.92.0",
+      "miniflare": "4.20260515.0",
+      "workerd": "1.20260515.1"
+    },
+    "firstBoundary": "Wrangler cli.js311625-311632 onProxyWorkerMessage(type=error) emits reason Error inside ProxyWorker; cli.js311742-311755 wraps error as ProxyController with cast cause.",
+    "secondBoundary": "Miniflare index.js88260-88278 dispatches custom loopback service(request,this) and reports thrown errors as500.",
+    "establishes": "Known reported transport/proxy failure surface",
+    "doesNotEstablish": "Originating URL/request, external terminator, ordinary observer body cancellation, CPU/OOM, cache/build contention, or automatic-monitor mis-kill"
+  },
+  "minimumPrivateReproductionPlan": {
+    "notExecuted": true,
+    "rootSerialSchedulingRequired": true,
+    "noProductionURLsOrLifecycle": true,
+    "pinnedVersionsRequired": {
+      "wrangler": "4.92.0",
+      "miniflare": "4.20260515.0",
+      "workerd": "1.20260515.1"
+    },
+    "privateResources": [
+      "fresh temp source/cache/persist/profile/log root; no production release mutation",
+      "random explicit loopback ports outside3000/5791/5432/555xx; harmless Worker/HTTP fixtures",
+      "synthetic responses only; no business data/credentials/Django/R2/n8n/DWS"
+    ],
+    "cases": [
+      "Baseline healthy fetch and complete consume/discard body",
+      "Explicitly stop only the fixture Wrangler parent, and separately only its owned workerd descendant; record intent/PID/creation/exit and compare observed proxy error",
+      "Abrupt close/reset of only the fixture proxy/outbound socket without process termination",
+      "Consumer cancellation/abort and server disposal as distinct isolated actions, alongside ordinary response completion",
+      "Concurrent private build/cache activity in separate versus deliberately shared fixture-only paths; never target actual runtime",
+      "If a first failure reproduces, reduce to that boundary before any production repair; keep identity/owned-tree gates and max5/10min rate guard"
+    ],
+    "measurements": [
+      "Actual native child and descendant PID/creation/argv hash and confirmed exit; no generic name-based termination",
+      "Action intent UTC, framework message/error, HTTP outcome and bounded request phase/event correlation",
+      "No blanket suppression of ProxyWorker errors or HTTP200 substitution for failure",
+      "Lossy/absent trace classified as unknown, not clean/success"
+    ],
+    "notADeploymentApproval": true
+  },
+  "limits": [
+    "Only these selected existing runtime logs/source/receipts were read; no genuine Status/HTTP/SQL/lifecycle/build or heavy reproduction was executed.",
+    "No complete OS process-termination audit was supplied. The latest stop file and startup records are observational partial sources, not proof of absence of commands.",
+    "Mutable logs keep appending; raw-read SHA identifies each captured read snapshot. Only fixed event/error facts and SHA were written, never raw customer/credential/log payload.",
+    "If root finds an explicit matching operation, classify it as planned/task-induced or out-of-scope as the real authorization/timing shows; do not keep calling it a proven spontaneous crash.",
+    "The prior AB109 typed closure and existing new health proof are historical acceptance facts; they do not fix or erase these production stability events."
+  ],
+  "originalReports": [
+    {
+      "path": "docs/release-integration-review/production/INDEPENDENT_PRE_RESTORE_ENTRY_ANOMALY.json",
+      "sha256": "289907a4a10eee409b7718be992f74162759dbfc2c285e872d89ce0df8a9a0f1",
+      "modified": false
+    },
+    {
+      "path": "docs/release-integration-review/production/FINAL_TAIL_RUNTIME_FAILURE_REVIEW.json",
+      "sha256": "449cbea9c039cb2aeedb8de70b01d8b9a3ca00d55abd6646b4c1e59653090be7",
+      "modified": false
+    },
+    {
+      "path": "docs/release-integration-review/production/HEALTH_PROBE_ENTRY_ANOMALY_REVIEW.json",
+      "sha256": "449f7af4f7fc1b77c78cf2aa6564917f96681cab1b8766b06b81c31cbc411aac",
+      "modified": false
+    }
+  ],
+  "sources": [
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+      "bytes": 833655,
+      "rawReadSha256": "35b9f914ad2f7b7d876ecbc8bc6ec26d78bbe9136d2a1c5f2f4ec3ad5a9deb27",
+      "observedAt": "2026-10-11T03:39:00.455Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-1.jsonl",
+      "bytes": 1048409,
+      "rawReadSha256": "5396d4e881978ac9a7c53f285d708c7794dd5b664b076272c8989e135167222b",
+      "observedAt": "2026-10-11T03:39:00.467Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "D:/teruisi-runtime/django-sales/logs/launcher.jsonl",
+      "bytes": 1522396,
+      "rawReadSha256": "3d1bdac3fdc55e0f0b9e5a914af80ae06a797fc4a1e03b56150cfab3a4051f85",
+      "observedAt": "2026-10-11T03:39:00.480Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/startup-timing.jsonl",
+      "bytes": 60967,
+      "rawReadSha256": "f809c45bb37f91a0c6f81a82a414e878f692b95820ceadb3969341a1924ba484",
+      "observedAt": "2026-10-11T03:39:00.492Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-10_01-44-59_259.log",
+      "bytes": 592494,
+      "rawReadSha256": "c6987bac7d121ee6127c0af5a1d718d335c72ab50cae5c506c855f9d8b49e453",
+      "observedAt": "2026-10-11T03:39:00.501Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-10_10-02-16_024.log",
+      "bytes": 720195,
+      "rawReadSha256": "cf6415d46dd100965e7debb6ca19125f82f104ee566412bc24193a1a97b23f7a",
+      "observedAt": "2026-10-11T03:39:00.522Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-10_17-43-27_776.log",
+      "bytes": 934719,
+      "rawReadSha256": "dd5fe16d17df74631211cc21ccf102d12be71ffbc80cb7968d5dd4bd34ae1683",
+      "observedAt": "2026-10-11T03:39:00.549Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/worker-last-controlled-stop.json",
+      "bytes": 306,
+      "rawReadSha256": "474e5d17f31dfc598dd4d7147634a63f7b9eb52afd1629d207c576992cb0e87e",
+      "observedAt": "2026-10-11T03:39:00.568Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/worker-release-rotation-consumptions/266a8574000a90cbeb5baf12fcba7bc2f4a8a06f0262f3b47d4ad73b9d0ddaee.json",
+      "bytes": 1012,
+      "rawReadSha256": "615662ff02fe63f3c8e34cc2e0feb0a6608d54c827f80bcd14a78fdc7cbe5ef5",
+      "observedAt": "2026-10-11T03:39:00.579Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "D:/运营管理系统/tools/worker-local-service.ps1",
+      "bytes": 103962,
+      "rawReadSha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "observedAt": "2026-10-11T03:39:00.607Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "D:/运营管理系统/tools/operations-system-control.ps1",
+      "bytes": 42443,
+      "rawReadSha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+      "observedAt": "2026-10-11T03:39:00.608Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/tools/worker-local-runtime-supervisor.mjs",
+      "bytes": 26690,
+      "rawReadSha256": "cb34aec172c4f96d54043b12273e8dca8ac7f70fe8102212ccc7ba35aa18e3a8",
+      "observedAt": "2026-10-11T03:39:00.608Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/node_modules/wrangler/package.json",
+      "bytes": 6002,
+      "rawReadSha256": "b659402d435053012c1843c226a701964abbeb4ce8a9a560d57c5be0ced4916d",
+      "observedAt": "2026-10-11T03:39:00.609Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/node_modules/miniflare/package.json",
+      "bytes": 4015,
+      "rawReadSha256": "c3b5ee81d42c56d71e1fd448b134d38ee2d7e14f6418f1ab26d0cba400e163b2",
+      "observedAt": "2026-10-11T03:39:00.609Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/node_modules/workerd/package.json",
+      "bytes": 676,
+      "rawReadSha256": "db07f3fbd0cb0f43a9502f22aede4f96170469287066788d98a5e555a562431b",
+      "observedAt": "2026-10-11T03:39:00.610Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "docs/release-integration-review/production/INDEPENDENT_PRE_RESTORE_ENTRY_ANOMALY.json",
+      "bytes": 12543,
+      "rawReadSha256": "289907a4a10eee409b7718be992f74162759dbfc2c285e872d89ce0df8a9a0f1",
+      "observedAt": "2026-10-11T03:39:00.611Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "docs/release-integration-review/production/FINAL_TAIL_RUNTIME_FAILURE_REVIEW.json",
+      "bytes": 12483,
+      "rawReadSha256": "449cbea9c039cb2aeedb8de70b01d8b9a3ca00d55abd6646b4c1e59653090be7",
+      "observedAt": "2026-10-11T03:39:00.612Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "docs/release-integration-review/production/HEALTH_PROBE_ENTRY_ANOMALY_REVIEW.json",
+      "bytes": 25820,
+      "rawReadSha256": "449f7af4f7fc1b77c78cf2aa6564917f96681cab1b8766b06b81c31cbc411aac",
+      "observedAt": "2026-10-11T03:39:00.613Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261009T080026Z-d5fb5b62de630ae2/tools/worker-local-service.ps1",
+      "bytes": 102908,
+      "rawReadSha256": "bc98f84683dbf5da0769be5eb4e0533c5c5c7eb35252d26c87613f38440f6e15",
+      "observedAt": "2026-10-11T03:40:53.823Z",
+      "rawCustomerPayloadPersisted": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/tools/worker-local-service.ps1",
+      "bytes": 103962,
+      "rawReadSha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "observedAt": "2026-10-11T03:40:53.825Z",
+      "rawCustomerPayloadPersisted": false
+    }
+  ],
+  "actualAuthorizedLifecycleFromOriginalWal": [
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\integration-ab-v2-20261010-c22d8dd69a\\000012.json",
+      "at": "2026-10-10T06:12:02.069Z",
+      "operationId": "entermaintenance",
+      "status": "started",
+      "eventSha256": "d4ee70abb1073b7a5b357fa775bd2f1a02c76e7eaed486e7936876db710b1da0",
+      "rawSha256": "b31d67b81c317add4f5beeda5c38199b1db5d047533f2c557e02f9b55c9a2f1c"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\integration-ab-v2-20261010-c22d8dd69a\\000013.json",
+      "at": "2026-10-10T06:16:26.798Z",
+      "operationId": "entermaintenance",
+      "status": "passed",
+      "eventSha256": "720bac949f1eb131a9e451e33125c5b01eb7749e3bd43ecc667bb62572a95273",
+      "rawSha256": "1a6da8cd264f1a4427f812511e6f0d3e74fb2dae3e5a7a84e968738c209f3828"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\integration-ab-v2-20261010-c22d8dd69a\\000015.json",
+      "at": "2026-10-10T06:17:34.292Z",
+      "operationId": "apply-reviewed-worker",
+      "status": "started",
+      "eventSha256": "7608bb254c2017593110f3af7c05c8fb6f04152931aa8c3b8edcf8308a2bfe7b",
+      "rawSha256": "7d3b5d87c33164693ebac07c269d68e0d1940f01ac0f9e0b3516867eb5e81034"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\integration-ab-v2-20261010-c22d8dd69a\\000016.json",
+      "at": "2026-10-10T06:19:56.831Z",
+      "operationId": "apply-reviewed-worker",
+      "status": "passed",
+      "eventSha256": "b7fedb40062b891a39e8f057e66cf26ab34671c8be22298b8f5f6d2a18e774dd",
+      "rawSha256": "ad1d9c7d9008a6a511733ca19dfa4554b752e26c510dc42868ae9be9725ea437"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\integration-ab-v2-20261010-c22d8dd69a\\000018.json",
+      "at": "2026-10-10T06:20:51.918Z",
+      "operationId": "exitmaintenance",
+      "status": "started",
+      "eventSha256": "9bc78697b167c27afdaf34a166bf23947a073c87550575b8e19c827ebba196bf",
+      "rawSha256": "a4d41e5192c95800a97461ac6c2a51c08abc1bed5e6018acdce6d54d40a1d142"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\integration-ab-v2-20261010-c22d8dd69a\\000019.json",
+      "at": "2026-10-10T06:21:35.712Z",
+      "operationId": "exitmaintenance",
+      "status": "passed",
+      "eventSha256": "f6ddaaa63a8347a0e21ce6f015d2cc41e8efadd7df202bde6f98ed4ed486a68c",
+      "rawSha256": "d19d1a2297981c595f0c9a32855450d5557cd040782eba6c665b9fcdbe555c0d"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\integration-ab-v2-20261010-c22d8dd69a\\000021.json",
+      "at": "2026-10-10T06:22:35.879Z",
+      "operationId": "startworker",
+      "status": "started",
+      "eventSha256": "4832fd3e587fa22f736e628abb043f0952d4bc5c6746797ef2cb4a370d1c2e23",
+      "rawSha256": "5e081e666dfb864df84f8c8fb128f7419f6c9c2faec75ce266e3e81cbd1081bb"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\integration-ab-v2-20261010-c22d8dd69a\\000022.json",
+      "at": "2026-10-10T06:29:21.667Z",
+      "operationId": "startworker",
+      "status": "passed",
+      "eventSha256": "03f79238a372cacfed7210f505528d312b3f986b031e9366dc06000d150a5442",
+      "rawSha256": "f34b9bf18604ade8c7016256b379099e82c0f64ecfa769fda274eeb4e5e67a10"
+    }
+  ],
+  "historicalWrapperCoverage": [
+    {
+      "id": "D5",
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261009T080026Z-d5fb5b62de630ae2/tools/worker-local-service.ps1",
+      "sha256": "bc98f84683dbf5da0769be5eb4e0533c5c5c7eb35252d26c87613f38440f6e15",
+      "hotRestartCallsStopDiagnostic": false,
+      "hotRestartUsesExactForceStop": true,
+      "hasOverwrittenStopDiagnostic": true
+    },
+    {
+      "id": "AB",
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/tools/worker-local-service.ps1",
+      "sha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "hotRestartCallsStopDiagnostic": false,
+      "hotRestartUsesExactForceStop": true,
+      "hasOverwrittenStopDiagnostic": true
+    }
+  ],
+  "rootTaskTimelineHandoff": {
+    "source": "Trusted parent Root handoff based on original task API turns; this reviewer did not query/message other tasks",
+    "verifiedIndependentlyByThisReviewer": false,
+    "sidebarUpdatedAtUsed": false,
+    "reportedFacts": [
+      {
+        "task": "高收益任务",
+        "originalTurnRange": "2026-10-10T09:53Z..10:18Z",
+        "covers1743Or0059": false
+      },
+      {
+        "task": "NoData任务",
+        "originalTurnEnd": "2026-10-10T15:47Z",
+        "nextOriginalTurn": "2026-10-11T03:06Z",
+        "covers1743Or0059": false
+      },
+      {
+        "task": "前端AGY任务",
+        "originalTurnEnded": "2026-10-09",
+        "covers1743Or0059": false
+      },
+      {
+        "task": "记录群工作",
+        "originalTurnStart": "2026-10-11T01:02:42Z",
+        "startsAfter0059Exit": true
+      },
+      {
+        "task": "freeze-bootstrap-payload helper",
+        "reportedStopCommand": "Private Node only, PID/creation identity checked",
+        "originalTurn": "2026-10-10T11:18Z paused turn",
+        "targetsFormalWorkerd": false,
+        "covers1743Or0059": false
+      }
+    ],
+    "specificOtherConversationStillUnidentified": true,
+    "otherActorsOrNormalApiLoadOrExplicitHotRestartOrExternalKillAllNotExcluded": true
+  }
+}

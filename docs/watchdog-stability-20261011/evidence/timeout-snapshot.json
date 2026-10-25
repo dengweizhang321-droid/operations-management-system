@@ -1,0 +1,54 @@
+{
+  "events": [],
+  "capturedAt": "2026-10-11T09:05:30.0081503+00:00",
+  "snapshot": {
+    "backend": "unprobed",
+    "components": {},
+    "business": {
+      "checkedAt": "2026-10-11T09:02:19.9241859+00:00",
+      "status": "unknown",
+      "version": "market-read-probe-v1",
+      "reason": "no_confirmed_failure"
+    },
+    "admission": {
+      "fence": "d01e5b5f951b9c1d40ef2c26aa1a084402204f04a9c7f5924b58b213df39164b",
+      "mode": "running"
+    },
+    "system": "unprobed",
+    "supervisorHealth": "unprobed",
+    "supervisor": "unprobed",
+    "worker": "unprobed",
+    "processDiagnostic": {
+      "code": "process_deadline_exhausted",
+      "stage": "snapshot-final",
+      "process": null
+    },
+    "healthy": false,
+    "at": "2026-10-11T09:04:29.3655040+00:00",
+    "ports": [],
+    "probes": {
+      "helper": {
+        "status": 0,
+        "ok": false,
+        "reason": "snapshot_deadline"
+      },
+      "homepage": {
+        "status": 0,
+        "ok": false,
+        "reason": "snapshot_deadline"
+      },
+      "ready": {
+        "status": 0,
+        "ok": false,
+        "reason": "snapshot_deadline"
+      },
+      "live": {
+        "status": 0,
+        "ok": false,
+        "reason": "snapshot_deadline"
+      }
+    },
+    "probeError": true
+  },
+  "databaseRecovery": []
+}

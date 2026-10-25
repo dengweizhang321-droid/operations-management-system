@@ -1,0 +1,71 @@
+{
+  "version": "task-d-independent-evidence-manifest-v1",
+  "reviewedCommit": "58bce3f7709f36b5eb8c61f324d34facb65f4e67",
+  "files": [
+    {
+      "path": "docs/release-integration-review/evidence/independent-daily-original.log",
+      "bytes": 5202,
+      "sha256": "c19ee354c2ed35ed9be51ff9a03c0f8052b2eb8c2e5e57cd27ef0a10b5436cef"
+    },
+    {
+      "path": "docs/release-integration-review/evidence/independent-daily-midreview.log",
+      "bytes": 820,
+      "sha256": "eb02c0881cdfb5dce842dc754e08a645363e872df1322359193a315845a3e4ad"
+    },
+    {
+      "path": "docs/release-integration-review/evidence/independent-daily-final.log",
+      "bytes": 1262,
+      "sha256": "c0868b19979f6892138bbade85657aea9cba46a7268014c43805b898d3220bd7"
+    },
+    {
+      "path": "docs/release-integration-review/evidence/independent-process-probes.log",
+      "bytes": 1635,
+      "sha256": "d9baf2cce524b302cb7b402e8dc90a73661b6aa4670b537111df8431100d0294"
+    },
+    {
+      "path": "docs/release-integration-review/evidence/independent-process-probes-final.log",
+      "bytes": 1674,
+      "sha256": "3535dd0540734e1e3e34278351ed2f0fc3758b14aa6346ca742cac27754e795d"
+    },
+    {
+      "path": "docs/release-integration-review/evidence/independent-combined-final.log",
+      "bytes": 2827,
+      "sha256": "43ae58b15ece1405a26abb3b5f06d0cfd6d2b321ec04359e44ac9734312c5343"
+    },
+    {
+      "path": "docs/release-integration-review/evidence/independent-watcher-diagnostic-1.log",
+      "bytes": 1558,
+      "sha256": "0d33244353cb5615fa6cfc614baedabff8659118a486c06f876271904b1962fe"
+    },
+    {
+      "path": "docs/release-integration-review/evidence/independent-watcher-context.log",
+      "bytes": 4218,
+      "sha256": "759a67a7f89a49f71b2bb460a28b4d0369163afecf987396654fbe32bbc3fefd"
+    },
+    {
+      "path": "docs/release-integration-review/evidence/joint-entrypoints.log",
+      "bytes": 16431,
+      "sha256": "5014ae157569cc8eee42290694a3ff1bb446a35afcd97b76ef1d957da41142d9"
+    },
+    {
+      "path": "tests/release-integration-independent.mjs",
+      "bytes": 8089,
+      "sha256": "79d155143a1033f13c736ef876e9b0976049a422b38a8843ae8967c84654e273"
+    },
+    {
+      "path": "tests/release-integration-process-independent.mjs",
+      "bytes": 4150,
+      "sha256": "8030eadec7b42140187ecae540340636e5532acee916ce57d0b947679a4c7085"
+    },
+    {
+      "path": "tests/release-integration-watch-diagnostic.mjs",
+      "bytes": 564,
+      "sha256": "1b5c798fa0b49e0c656e84aebbe073e7eecdbffd15ae2ba9edeffb6109384c6d"
+    },
+    {
+      "path": "tests/release-integration-independent.test.ts",
+      "bytes": 159,
+      "sha256": "7d4d1c2304ba7073cd4b698b66a6f44c8759627b5026e653f4f61e7430c3f248"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "productionCallsInTheseFailures": 0,
+  "items": [
+    {"tool": "runtime-risk-readonly-probe.mjs initial bootstrap", "exit": 1, "error": "ERR_MODULE_NOT_FOUND typescript", "cause": "Fresh documentation worktree has no dependency install; static module import failed before any probe started.", "resolution": "Reuse existing readonly transport by importing its unchanged formal preparation source module; no install or dependency moves."},
+    {"tool": "runtime-watchdog-retention-replay.ps1 first fixture run", "exit": 1, "error": "Failed fixture allows recovery", "cause": "Harness omitted required State/Now arguments of Get-WatchDecision; null State correctly led to confirm_failure before the two-failure threshold, not recovery.", "resolution": "Supply isolated failures=2/empty attempts/current fixture timestamp; original function, recovery safety assertion and production code unchanged."}
+  ]
+}

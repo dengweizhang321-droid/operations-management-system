@@ -1,0 +1,120 @@
+{
+  "version": "teruisi-sealed-exact-scope-independent-review-v1",
+  "independent": true,
+  "acceptedSealedScopeCandidate": true,
+  "productionExecutionApproved": false,
+  "blockingFindings": [],
+  "reviewer": "/root/preparation_review",
+  "reviewedAt": "2026-10-10T15:36:41.698Z",
+  "scopePath": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-exact-closeout-20261010-1530-final\\exact-acceptance-scope.json",
+  "scopeSha256": "295d8923fb794079faf5cc9c74f92f12d8bd78a3ccbbce4b9dcbb19e00fcc458",
+  "scopeFileSha256": "bf82070e60d613a169a059af7374dc3bca43862264b4f222c10e9c6d7412421b",
+  "sourceCommit": "60d68879ce0f41ceb5389180b85660c532cbb508",
+  "sealedAt": "2026-10-10T15:28:43.231Z",
+  "canonicalRecomputedFromRawNodeJsonParse": true,
+  "rawSidecarMatched": true,
+  "fileVerification": {
+    "totalPins": 4589,
+    "oldDeclaredEntries": 16667,
+    "oldUniquePaths": 4505,
+    "allOldCurrentClosurePinsCovered": true,
+    "currentClosure": "Original collector.files plus original operations16–21 command files",
+    "newPins": 84,
+    "all4589RawDigestsStreamVerified": true,
+    "caseInsensitiveDuplicatePaths": 0,
+    "totalBytes": "1796755679",
+    "serialDurationMs": 11588,
+    "serial": true,
+    "allFileIdentityBeforeAfterUnchanged": true,
+    "realPathsAndNoSymlinkAncestorsVerified": true,
+    "onlyLegacyHardlinkException": {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "nlink": 2,
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5"
+    },
+    "noNewHardlinkException": true
+  },
+  "modules": {
+    "apiSha256": "b4d5c0876086712dfa63b8f6192a6827ae5730dfab920bb22d6bc7c17b1343f9",
+    "callerSha256": "465ad68a9f6c9b8494e969aac61b2299214860ea896e62067e836e359cca1c04",
+    "sealerSha256": "055f66d0fb025dd0b9be4aae8160487096b12e9a0ee245dfea85f3b1361b66a5",
+    "transitionRuleSha256": "22ffac76c3c75c27f2fb1cc2f3bde65bdff2979ed14708de045afe73281e6d7f",
+    "copyParserSha256": "0d8bc1bc4f10abec8c5ac74c32144471647835cf3353da24b1a8777738f679de",
+    "allFiveMatchExactGitSource": true,
+    "privateInputSha256": "3a214c764366bb9b0bce5c929eb54b12d4d2a37941fa6b1bed39b565ca9a8b6a",
+    "originalValidatorSha256": "7ada759aa35fabc1cf12ba22e51d4b517b2c7dae5c83315feb485188c33b3f2e",
+    "originalContractSha256": "a2ec59b6119a6f6382953c9f2c620345a3fdaaf1a3367773e7c6200ddd3f6e13"
+  },
+  "independentReviews": {
+    "BEFORE_IMAGE_INDEPENDENT_REVIEW.json": "6eb33ef77832afcc81becfdeb1520fde878956e84a6d99e0c684700a2b963cd2",
+    "EXACT_TRANSITION_REVIEW.json": "2e9efd77bed291a58f4f3c3eeb717678330c4b757e2284e96ae8c6a9da739979",
+    "EXACT_CLOSEOUT_INDEPENDENT_REVIEW.json": "ff2d4870c0a573759c329fcee53e29cb290c8781bfc4df6c0e590c8010c268cd",
+    "EXACT_CALLER_INDEPENDENT_REVIEW.json": "786c5f9831e4b259308b936fb6f517dbb810b0f1c18436db69a8e9ed31b1371a"
+  },
+  "recoveryEvidence": {
+    "preRestoreSha256": "e7b1853689df984338da716f0948171de5ed31e6820106534b0451d4aa77421d",
+    "postRestoreSha256": "974139be7e7bd00d8e9904952d02a6b4ec931777a0cb75d001d04a54098c2645",
+    "bothRestoreRawAndSidecarsPinnedAndMatched": true,
+    "bothRecordedCompletedAndProfileRestoreVerified": true,
+    "bothRecordedProductionDatabaseTouched": false,
+    "postDumpBytes": "946874951",
+    "postDumpSha256": "bd3c532a8f897eea2f09f3b60270543993abcda802bd2147c3937539dfc680c8",
+    "postDumpRehashedDuringThisReview": true,
+    "newRestoreRunByReviewer": false,
+    "preFullDumpRecovered": false
+  },
+  "journalAtRead": {
+    "events": 87,
+    "head": "316f341eafafe08c3366fc79ca2c36b96258d2b00fcd9767a82a32cd62f7ce7d",
+    "oldComparisonStatus": "unknown",
+    "oldExitCode": 1,
+    "prior18Passed": true,
+    "tailNotStarted": true,
+    "activeSha256": "7c5af7f44a5aa80579bc9ac2a5038ad5ab757a90dc837de4977513d8be7b0cbf",
+    "active": {
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "id": "integration-ab-v2-20261010-c22d8dd69a"
+    },
+    "all87RawCanonicalAndHashLinksVerified": true,
+    "exactlyOneLatestUnknown": true,
+    "noSupplementEventPresent": true
+  },
+  "exactActionScope": {
+    "newTypedAcceptance": true,
+    "preserveOriginal19Unknown": true,
+    "originalStrictEquality": false,
+    "oldEngineCompleted": false,
+    "originalReadonlyOperationIds": [
+      "original-historical-audits-preserved",
+      "exact-final-readiness"
+    ],
+    "bothExactOriginalOperationHashesVerified": true,
+    "releaseExactActiveOwnershipAfterCompleteAcceptance": true,
+    "journalAppendOnly": true,
+    "databaseWrites": 0,
+    "serviceLifecycleActions": 0,
+    "backupReplays": 0,
+    "restores": 0,
+    "workerDeployments": 0,
+    "externalSends": 0,
+    "CAdopted": false,
+    "newMainNoDataPolicyRuntimeIntroduced": false
+  },
+  "executionState": {
+    "newHumanApprovalFilePresent": false,
+    "productionOutputDirectoryPresent": false,
+    "productionSupplementApproved": false,
+    "productionSupplementExecuted": false,
+    "actualTail20And21Started": false,
+    "activeOwnershipReleased": false,
+    "callerOrApiInvokedByReviewer": false,
+    "productionLockAcquiredByReviewer": false
+  },
+  "limitations": [
+    "This is a point-in-time actual sealed candidate check, not production execution approval or dynamic readiness verification. At invocation, original full admission, file/dump/head/owner checks remain mandatory.",
+    "Only original exact System32 host hardlink policy was retained; no exception was introduced for new modules/evidence/private input/dump.",
+    "Original19 unknown and strict equality false remain, with old engine completed false. Source consistency does not falsify the old contract or recover historical signed envelopes.",
+    "Existing Restore receipts and post dump were checked; no new Restore or service/data action was run, and the deleted pre full recovery package was not recovered.",
+    "The sourceCommit60d68879 was verified for all five sealed modules. A later main merge/document does not change this295d scope or adopt C/no-data-policy functions."
+  ]
+}

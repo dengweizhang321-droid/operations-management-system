@@ -15,7 +15,7 @@ npm run jdsz:product-detail-export -- --start-date YYYY-MM-DD --end-date YYYY-MM
 
 脚本位置：`tools/jdsz-product-detail-export.ts`。
 
-需要理解事故背景、耗时或人工排障时，阅读 [`docs/京东商智商品明细SKU日数据下载.md`](../../../docs/京东商智商品明细SKU日数据下载.md)。
+需要理解事故背景、耗时或人工排障时，阅读 [`docs/自动化/京东/京东商智商品明细SKU日数据下载.md`](../../../docs/自动化/京东/京东商智商品明细SKU日数据下载.md)。
 
 ## 执行流程
 

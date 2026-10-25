@@ -1,0 +1,76 @@
+{
+  "version": "teruisi-c-3032-harness-preservation-audit-v1",
+  "at": "2026-10-11T07:24:43.930Z",
+  "sourceCommit": "9fa82567f9456ea7a81733e80d57218ad0ca5e00",
+  "candidateManifestSha256": "58cc236e09f097f2c7aec054af9699fc7c0aca3bda1cd79d1c47cbf06efd1a8f",
+  "harnessSha256": "6d7421840866315ad39826ca855dd98917186b9f357f7e1a5475b6ac6251e5f3",
+  "testsExpected": 166,
+  "files": [
+    {
+      "name": "release-tools-no-migration.test.mjs",
+      "originalSha256": "06657151e6fd15888cb358281d9fb49cc1b7cc9c6197cc0b7fde2c27da4c1857",
+      "harnessSha256": "a767d5b38e3a7eee21a093dd8e88f1d6a4e35b3bbd98775d3d23819deecf627c",
+      "gitSourceMaterialization": "exact-git-bytes",
+      "onlyExactDocumentedPathSubstitutions": true
+    },
+    {
+      "name": "release-admission-observation-age.test.mjs",
+      "originalSha256": "305627384da009d0deb217abd6ed6558b68f419d890d07e9470daed3f8902a69",
+      "harnessSha256": "b0d5fb4197823bf96f0691cab6052a4485b1e1134f165ffb76f35bb6bd51cc26",
+      "gitSourceMaterialization": "CRLF-checkout-materialization-for-test-source-only",
+      "onlyExactDocumentedPathSubstitutions": true
+    },
+    {
+      "name": "release-source-binding.test.mjs",
+      "originalSha256": "0cbe77b501b72c2f3520b33841540420dac9ab0af2dea4589f6571ae69baf4a4",
+      "harnessSha256": "d47a29ca5a252f08dddec37842b8a2ce2075de65088c753970d5584bd942d55a",
+      "gitSourceMaterialization": "exact-git-bytes",
+      "onlyExactDocumentedPathSubstitutions": true
+    },
+    {
+      "name": "release-no-data-policy.test.mjs",
+      "originalSha256": "c195d237dc64529e4a9ef51af565edc003feea2967db3a84890db0bed506c83a",
+      "harnessSha256": "77dc4383aa6d09f39a7d628c06d27eacbf0b2c8d03b33e7e7b4c8d821a3616f2",
+      "gitSourceMaterialization": "exact-git-bytes",
+      "onlyExactDocumentedPathSubstitutions": true
+    },
+    {
+      "name": "release-no-data-observation.test.mjs",
+      "originalSha256": "2fa5253edeb655730525f996887a675b79c06106593b3197b0200a23a91826bc",
+      "harnessSha256": "4e6fd4eb3e38929304f8826e023e4288ae1ebecd0b14c16bcf563cdafd3a7840",
+      "gitSourceMaterialization": "exact-git-bytes",
+      "onlyExactDocumentedPathSubstitutions": true
+    },
+    {
+      "name": "release-no-data-backend-start.test.mjs",
+      "originalSha256": "16af70eb3ebfbd231f531c8b5fe9009b4acc1a05d686b8634e4778aa3ea2d54a",
+      "harnessSha256": "6ec76ee33b3de512ff0dbe45c525aa9ef29232bfa51cfb2579edff8b6f9b756a",
+      "gitSourceMaterialization": "exact-git-bytes",
+      "onlyExactDocumentedPathSubstitutions": true
+    },
+    {
+      "name": "release-wait-optimization.test.mjs",
+      "originalSha256": "5180773df85f15b846c797cd96f00ec4e5f601f670719b54f53ff4be388ff2bf",
+      "harnessSha256": "b9f8cf0e34b5db75297d9298a19b10df7f18458ea9b82c6d54b465d4b4a0ad4f",
+      "gitSourceMaterialization": "exact-git-bytes",
+      "onlyExactDocumentedPathSubstitutions": true
+    },
+    {
+      "name": "release-fastpath-evidence.test.mjs",
+      "originalSha256": "ac57c98d6c3429d204536480255f8be2a0dd726f1230b1e9f80077510ad19171",
+      "harnessSha256": "2dad26c2ed9bd69e514a3d49828c9ef53818ff7819f010349189249b399f16c8",
+      "gitSourceMaterialization": "exact-git-bytes",
+      "onlyExactDocumentedPathSubstitutions": true
+    },
+    {
+      "name": "release-no-data-backend-start.test.ps1",
+      "originalSha256": "61f82f51dbe6ddd420e6e33b098768c281eac51ff1d57374063582b1d8d24cc4",
+      "harnessSha256": "39841e94b85abfde4f634a903e73320f28af4adff60ae2b9036f26b2cc0ebc7a",
+      "gitSourceMaterialization": "exact-git-bytes",
+      "onlyExactDocumentedPathSubstitutions": true
+    }
+  ],
+  "assertionsAndFixtureActionsPreserved": true,
+  "testsRerun": false,
+  "productionOperations": 0
+}

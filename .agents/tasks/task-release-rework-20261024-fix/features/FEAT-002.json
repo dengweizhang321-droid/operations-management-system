@@ -1,0 +1,43 @@
+﻿{
+    "id":  "FEAT-002",
+    "type":  "docs",
+    "description":  "Record the morning abort, root cause, fix and the new commit identities in the rework branch docs (one docs commit on codex/release-rework-20261024 only; the control branch gets no docs). Depends on FEAT-001 (needs the new control head and fix commit SHAs).",
+    "status":  "completed",
+    "steps":  [
+                  "Read FEAT-001 findings for the new control head, the fix commit on control, the cherry-pick on rework.",
+                  "docs/release-rework-20261024/REPORT.md: add a section \u0027## 2026-10-24 早上推送脚本中止与修复\u0027 stating: run log D:\\运营管理系统\\.codex-tmp\\rework-20261024\\morning-tests-20261024-084540\\SUMMARY.txt; root cause (preparation-producer-qualification.mjs pins producer bytes; used not only by case retirement but also by the admin resolution writer/validator; tests build packets from current bytes); correction of the earlier wrong statement in \u0027已知限制\u0027 and \u0027遗留与未完成\u0027 that the pin \u0027only affects case retirement\u0027 and that collector failures are \u0027known expected\u0027 (fix the original sentences too, marking them as corrected, consistent with how the v1 correction was noted); the fix (append S05d and S05d+S16 closures after the f641685b closure, which stays first for the a3d53227 retirement; frozen reviewed bytes fixture); environment failures cause (fresh worktrees without node_modules) and the script change (junction to a lock-matched copy of the offline dependency dir, sha 8ec00f80..., removed after tests); the 2 pre-existing fixed-admin-resolution pwsh.exe failures and start-timing known-expected remain; new branch identities (control head full SHA, rework head = the commit containing this document, parent = cherry-pick SHA). Update the commit chain paragraph and the \u0027需要用户执行的动作\u0027 list (step 1 now upgrades the existing local branches/worktrees from 087a8348/d1b60496 by fast-forward only).",
+                  "In the same REPORT section also record: fixed-schema-rejection (1 test) and main-publication-readiness (1 test) were classified 环境失败 but are, by code reading, pre-existing at base a6cc9fcd (their test copy lists lack preparation-retirement-admission.mjs / publish-main-step.mjs, both already imported at base); the script now lets such missing-file failures go through the baseline re-run, which decides 既有问题 vs 新失败 on the user machine. Do not claim they passed. Also note that with the qualification fix, preparation-retirement-collector is no longer an allowed known failure (it must pass).",
+                  "docs/release-rework-20261024/S05B-RUNBOOK.md: replace every occurrence of the control commit d1b60496 (full and short) used as the S05b control source with the new control head, keep a one-line note that d1b60496 was superseded on 2026-10-24 morning by the qualification fix; update any mention of the rework head 087a8348 accordingly; update step 1 text to describe the fast-forward upgrade of existing local branches and worktrees and that collector is no longer an allowed known failure.",
+                  "docs/施工/S05d.md: fix the known-limitation wording about preparation-producer-qualification.mjs (now re-qualified; closures[0] kept for case retirement) and the status line if it mentions only the old commits. Check docs/施工/BOARD.md and docs/施工/文件索引.md for references to d1b60496/087a8348 or the collector known failure and update only those lines.",
+                  "Keep docs concise, Chinese, no em dashes, no unrelated edits. Do not modify docs under docs/规范 or AGENTS.md.",
+                  "Commit on codex/release-rework-20261024 only: \u0027docs: record morning abort and producer re-qualification for release rework\u0027 (identity Codex \u003ccodex@openai.com\u003e). Record the new rework head full SHA in findings. End with clean status on codex/release-rework-20261024."
+              ],
+    "acceptance_criteria":  [
+                                "REPORT.md, S05B-RUNBOOK.md and S05d.md describe root cause, fix and new identities; no remaining claim that the qualification pin only affects case retirement or that collector failures are expected (except marked as corrected history)",
+                                "RUNBOOK names the new control head as the S05b control source",
+                                "Only docs files change in this commit; control branch untouched",
+                                "No em dashes in changed lines"
+                            ],
+    "verification":  [
+                         "git -c safe.directory=* -C \u003cscratch\u003e show --stat HEAD lists only docs files",
+                         "Select-String for \u0027d1b60496\u0027 and \u0027087a8348\u0027 in docs/release-rework-20261024 and docs/施工 shows only intentional historical mentions",
+                         "Select-String for the em dash character (U+2014) in changed docs returns nothing new"
+                     ],
+    "blocked_reason":  null,
+    "findings":  {
+                     "docs_commit":  "342836cd6db7ad27bbf153d51cb6e5134ce17ad3",
+                     "new_rework_head":  "342836cd6db7ad27bbf153d51cb6e5134ce17ad3 (parent 54b3aa0d77d433b7999ead15384b80798657687c = 087a8348 + cherry-pick + this docs commit)",
+                     "control_head_unchanged":  "01b0fc5ff7aaf0e44d7c9192f498ed6637970709 (not touched)",
+                     "changed_files":  [
+                                           "docs/release-rework-20261024/REPORT.md",
+                                           "docs/release-rework-20261024/S05B-RUNBOOK.md",
+                                           "docs/release-rework-20261024/S16-ANALYSIS.md",
+                                           "docs/施工/BOARD.md",
+                                           "docs/施工/S05b.md",
+                                           "docs/施工/S05d.md"
+                                       ],
+                     "whitelist_note":  "For FEAT-003: verified git diff --name-only a6cc9fcd 342836cd has 33 files = the old 26 (a6cc9fcd..087a8348) plus the 7 FEAT-001 fix paths (.gitattributes, tests/fixtures/reviewed-producer-f641685b/{publish-prepared-main,worker-local-release-rotation,worker-local-release}.mjs, tests/helpers/preparation-retirement-fixture.mjs, tests/preparation-retirement-collector.test.mjs, tools/preparation-producer-qualification.mjs); the 6 docs files were already in the old diff. Control whitelist is unaffected by this docs commit.",
+                     "content":  "REPORT.md: new section '## 2026-10-24 早上推送脚本中止与修复' (anchor #2026-10-24-早上推送脚本中止与修复) with failure table, root cause, fix, sandbox checks, script changes (ff upgrade from 087a8348/d1b60496, deps-8ec00f junction, collector removed from known expected, env rule only for bare packages; fixed-schema-rejection/main-publication-readiness pre-existing by code reading, decided by baseline re-run, not claimed passed), new identities; 结论 bullet; S05d row; commit chain; 已知限制 and 遗留 sentences corrected and marked; 用户动作 steps 1/2; v1 table rows 1 and 7 annotated. RUNBOOK: control source 01b0fc5f full SHA with superseded note, rationale paragraph, step 1 text (ff upgrade, junction, only start-timing expected, collector must pass, missing module files go to baseline), step 2/3 SHA, code-check table rows, v1 bullet annotated, new section '10-24 早上中止后的更新'. S16-ANALYSIS.md §7 wrong 'baseline already fails' statement corrected. S05d.md status line, v1 paragraph note, new 早上 paragraph. S05b.md control source note. BOARD.md S05d row and new 2026-10-24 早上 history paragraph. 文件索引.md had no relevant references, unchanged.",
+                     "verification":  "show --stat HEAD lists only the 6 docs files; all 6 remain LF-only, no BOM, trailing newline, 0 U+2014; remaining d1b60496/087a8348 mentions are all historical or the ff-upgrade source heads; scratch repo clean on codex/release-rework-20261024. No build/test (docs only)."
+                 }
+}

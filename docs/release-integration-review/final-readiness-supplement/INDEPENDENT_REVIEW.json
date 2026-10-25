@@ -1,0 +1,118 @@
+{
+  "version": "teruisi-final-readiness-supplement-independent-review-v1",
+  "reviewer": "/root/preparation_review",
+  "independent": true,
+  "nonAuthor": true,
+  "acceptedReadinessCandidate": true,
+  "productionExecutionApproved": false,
+  "blockingFindings": [],
+  "reviewedAt": "2026-10-10T18:54:23.781Z",
+  "apiSha256": "23a390da164b26801d9f8ddb12a7bec73ba3a4242225b3561b2d3a33812ed266",
+  "callerSha256": "1a0867c0e1b96b5515a69322f18b8f7863118f896b31c3359c9b7bd916beef94",
+  "runtimeSha256": "e765dcd0aeaf29cdde75090bb1358ba6be74eb5d1551d8a9327257add53e155f",
+  "sealerSha256": "7254587f79705f994cb82ffb059f0f5cbdcffd99a9d1eda3b13ae87852296a16",
+  "statusEvidenceSha256": "750827647fcc2c17171f239c687da1e49c832dd967aa591e2b4f5b9923b8a68b",
+  "legacySha256": {
+    "release-batch.mjs": "8f87aefdecb09700b672b00a5a54a3a217f586a7e8d78833d171d65fdb308f16",
+    "release-batch-admission.mjs": "a55b143d353acf00709b55d00caac91a0298ac8c9fa979c054cabd638e9e9db4",
+    "release-readonly-retry.mjs": "529f8c6eab2b29c66fd6f1496f4743b7b789bc90684e9536e16bb51b7ffb00b2",
+    "collector.mjs": "fc22fc4eff13205044764d7434c16fcbcf9bad10f254fbc465fc9564b14eae41"
+  },
+  "nineRuntimeModulesUnchangedDuringFinalTests": true,
+  "baseline": {
+    "sourceCommit": "0587600aa0c9fc7c206be2010eacf95da15386d5",
+    "legacyDonorCommit": "257445088d",
+    "legacyFromActualF4AndE9Only": true,
+    "old4718AndCurrent4505AndSource4589CoverageRequired": true,
+    "expectedRecords": 97,
+    "expectedHead": "d60a34f1aebce3bf2629a1d2c9b7e1c7f451c40fd74e44b9ac67388ef5cfdf19",
+    "prior442RawSha256": "13d1204ee1b2e3957f8043e280b63a835bd8efd1da892447c1eacdd96209457c",
+    "priorHumanApprovalSha256": "bcc3a26d5e92716eeb345bc656388d9b120353502b695f41215e71df653a0b39",
+    "original19And21RemainUnknown": true,
+    "original20NotReplayed": true,
+    "source88NotReappended": true,
+    "newDistinctOperationId": "diagnostic-final-readiness-supplement"
+  },
+  "scopeChecks": [
+    "Pre-import old and new closure plus exact original descriptors/argv/cwd/phase/Python inventory verified by caller guards.",
+    "Native returned stdout bytes/SHA and process proof are validated, bounded snapshot wx/fsync persisted before all original assertions.",
+    "Capture write failures block; parse failure persists only hash/process; arbitrary reason/status bodies/extra names/PII are excluded.",
+    "Actual PID/stdout SHA must match the persisted successful capture; all12 true/no missing/no extra/exact release required.",
+    "Original assertions and four transient retries/NotReady nonretry/common55min inherited deadline remain; full hashing before collector and sample age<=5000ms before started.",
+    "New validation writes only its own status; original19/21unknown, 20receipt and accepted88 stay pinned; same mutex and canonical create-only CAS remain.",
+    "Pending readiness does not claim necessary closure. Only typed owner ack plus independent actual ENOENT under deadline can precede completed necessaryClosed:true.",
+    "All metadata/WAL failures after a returned result retain actual receipt/process/status; double ledger failure also retains confirmed ownership boolean/null and absence-observation point.",
+    "Cyclic helper/protocol imports initialize without CLI invocation; legacy imports resolve exact old immutable paths, no main v3/C/no-data import."
+  ],
+  "tests": {
+    "independent": {
+      "tests": 26,
+      "pass": 26,
+      "fail": 0,
+      "durationMs": 8197.0004,
+      "log": "INDEPENDENT_TESTS_FORMAT_FINAL.log",
+      "logSha256": "27fc6936ea0ad2ae4bed8ffc7e5b26cb8ffc2e5368d0df23616555d00e0bec86",
+      "script": "independent.test.mjs",
+      "scriptSha256": "33852c815ab595360f781ed47abdd8a1981eaa9a3d8f894ed976a325262f6052",
+      "model": "Author metadata fixture reused only as isolated input model; adversarial tests and assertions independently authored; own native capture file tests use private temp directories.",
+      "productionCalls": 0,
+      "nativeChildrenSpawned": 0
+    },
+    "first": {
+      "tests": 25,
+      "pass": 24,
+      "fail": 1,
+      "log": "INDEPENDENT_TESTS_FIRST.log",
+      "logSha256": "5ca8db33d58dc3e61b52567d4776165dc6c145412b719249823728b0fe670e28",
+      "failure": "Acknowledged owner absence lost from safe error after both post-release WAL writes fail; original failure preserved."
+    },
+    "legacyReadOnlyMechanicalCheck": {
+      "exitCode": 0,
+      "logSha256": "8c04e78800e28b2b9a2d848fe144ed1250aa8901747beea089db19faa35f154a",
+      "independentGit257ProjectionAndOldImportPathsCheck": true
+    },
+    "overlappingAuthorSuitesNotAdded": true
+  },
+  "resolvedFindings": [
+    {
+      "id": "R1",
+      "finding": "Necessary closure was recorded before actual owner release.",
+      "resolution": "Distinct pending false followed by typed ack/ENOENT and then completed true; failed/late release cannot preclaim closure."
+    },
+    {
+      "id": "R2",
+      "finding": "Metadata rejection after a real returned native result lost the result evidence.",
+      "resolution": "Unknown and all later metadata catches safely retain process/receipt/status before persistence or rethrow."
+    },
+    {
+      "id": "R3",
+      "finding": "Both post-release ledger writes failing erased confirmed physical release evidence.",
+      "resolution": "Safe error and repeated sanitization retain true/null ownershipReleased plus actual absence-observation time, without forging an event over foreign CAS."
+    }
+  ],
+  "prepareOnlyDriver": {
+    "staticReviewed": true,
+    "executedByReviewer": false,
+    "path": "D:/.codex/worktrees/release-integration-review/运营管理系统/docs/release-integration-review/production/prepare-readiness-capture.mjs",
+    "sha256": "ff49642766860bfe4c015691a0274c23827d31ed1fc8c9a97bd915f7a18cd24c",
+    "notProductionCandidateModule": true,
+    "fixedNodeCwdUniqueExternalRootAndWxFsyncLogs": true,
+    "beforeSpawnFiveSmallReviewedModulesHashed": true,
+    "sealerConstantPreserved": true
+  },
+  "limitations": [
+    "This accepts development code for sealing review only; no new physical scope or production execution is approved.",
+    "No actual Status/collector/HTTP/SQL/rotation lock/service or production operation ran in this review; no large dump/4k rehash or new native suite.",
+    "Library imports were used only to verify the cyclic module graph; no CLI main or runtime production function invoked.",
+    "Actual NotReady cause and the old97 failed readiness remain unclosed; old missing evidence is not retroactively repaired.",
+    "Native synthetic response values and temporary evidence files do not prove production readiness or release timing."
+  ],
+  "finalFormattingOnly": {
+    "change": "Removed one superfluous EOF empty line; retained one LF, runtime logic unchanged",
+    "nineRuntimeModulesUnchangedDuringExactByteRetest": true,
+    "previous26LogPreserved": true,
+    "author43LogReadOnly": "AUTHOR_FORMAT_FINAL.log",
+    "author43LogSha256": "29fa3c5fd9d526b7c1868821b613e850782c598cfa595c94e0018e742834f51d",
+    "authorAndRepeatedIndependentCountsNotSummed": true
+  }
+}

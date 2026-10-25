@@ -1,0 +1,283 @@
+{
+  "version": 1,
+  "scope": "isolated content/derived-identity and private native-process fixtures; not production release time",
+  "startedAt": "2026-10-09T17:22:34.343Z",
+  "completed": false,
+  "stages": [
+    {
+      "stage": "classification",
+      "durationMs": 404.6093999999939
+    },
+    {
+      "stage": "source-content-sequential",
+      "durationMs": 7932.374899999995
+    },
+    {
+      "stage": "source-content-bounded",
+      "durationMs": 3106.2111000000004
+    },
+    {
+      "stage": "toolchain-content-and-version",
+      "durationMs": 890.079700000002
+    },
+    {
+      "stage": "build-and-dependencies-content",
+      "durationMs": 58962.73860000001
+    }
+  ],
+  "samples": [
+    {
+      "mode": "baseline",
+      "durationMs": 101062.1218,
+      "identitySha256": "b9641dbf7f57632b6d923990ceca5ce9a0114c4bac6d6f4e7df1689aa50483da",
+      "stages": [
+        {
+          "stage": "full-preparation-identity",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 19135.452100000024
+        },
+        {
+          "stage": "full-preparation-identity",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 16253.592100000009
+        },
+        {
+          "stage": "full-preparation-identity",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 17439.647999999986
+        },
+        {
+          "stage": "full-preparation-identity",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 17189.40479999999
+        },
+        {
+          "stage": "full-preparation-identity",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 15329.5821
+        },
+        {
+          "stage": "full-preparation-identity",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 15714.19260000001
+        }
+      ]
+    },
+    {
+      "mode": "optimized",
+      "durationMs": 74124.2021,
+      "identitySha256": "b9641dbf7f57632b6d923990ceca5ce9a0114c4bac6d6f4e7df1689aa50483da",
+      "stages": [
+        {
+          "stage": "full-preparation-identity",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 16305.858000000007
+        },
+        {
+          "stage": "npm-config-resolution",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 213.96549999999115
+        },
+        {
+          "stage": "npm-config-resolution",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 207.79839999999967
+        },
+        {
+          "stage": "source-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 2751.160600000003
+        },
+        {
+          "stage": "toolchain-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 387.0127999999968
+        },
+        {
+          "stage": "configuration-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 4.186699999991106
+        },
+        {
+          "stage": "source-content-final",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 3098.529899999994
+        },
+        {
+          "stage": "source-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 3316.3531000000075
+        },
+        {
+          "stage": "toolchain-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 516.1183999999776
+        },
+        {
+          "stage": "configuration-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 4.245200000004843
+        },
+        {
+          "stage": "source-content-final",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 2778.6784000000334
+        },
+        {
+          "stage": "source-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 2705.274999999965
+        },
+        {
+          "stage": "toolchain-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 344.9265000000014
+        },
+        {
+          "stage": "configuration-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 3.6684000000241213
+        },
+        {
+          "stage": "source-content-final",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 2523.883700000006
+        },
+        {
+          "stage": "source-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 2608.7539000000106
+        },
+        {
+          "stage": "toolchain-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 333.53210000001127
+        },
+        {
+          "stage": "configuration-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 3.6670999999623746
+        },
+        {
+          "stage": "source-content-final",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 2506.262999999977
+        },
+        {
+          "stage": "full-preparation-identity",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 15711.909600000014
+        },
+        {
+          "stage": "npm-config-resolution",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 232.51559999998426
+        },
+        {
+          "stage": "npm-config-resolution",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 233.82380000001285
+        },
+        {
+          "stage": "source-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 2805.1202999999514
+        },
+        {
+          "stage": "toolchain-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 378.73569999996107
+        },
+        {
+          "stage": "configuration-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 4.492299999983516
+        },
+        {
+          "stage": "source-content-final",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 2801.2888000000385
+        },
+        {
+          "stage": "source-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 2668.706199999957
+        },
+        {
+          "stage": "toolchain-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 416.38850000000093
+        },
+        {
+          "stage": "configuration-content",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 3.894399999990128
+        },
+        {
+          "stage": "source-content-final",
+          "category": "mutable-input",
+          "status": "passed",
+          "durationMs": 2898.0337999999756
+        }
+      ]
+    }
+  ],
+  "sourceSha256": "27e17bd151f4caef0368ad096612479ae1ba5c5178482b1f95a7c1be70503ee4",
+  "sourceInventorySha256": "2b71435a01fc845084e14876df1eeb4d129367f8b784ba0df9ec8a4a9e985fc6",
+  "fileCount": 5180,
+  "classification": "strict",
+  "buildPayloadSha256": "ccc9f19ffb2b574ef048cb50de8b8e062e4b15303a8f22fcd22ec815752dcfd1",
+  "buildPayload": {
+    "dist": {
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 164,
+      "sha256": "9d6eae333d5eeeaca6f652b4b8508970b8c6d0adaaa3e4ce7c0396fe60ef9a0a"
+    },
+    "dependencies": {
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 31249,
+      "sha256": "3e61387314d739541e4e09d5b74cd97911f3758a26862454f447d48413b32bce"
+    }
+  },
+  "identityPhases": [
+    "admission",
+    "prepare",
+    "closeout"
+  ],
+  "isolatedCleanup": "passed"
+}

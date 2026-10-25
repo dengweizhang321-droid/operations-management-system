@@ -1,0 +1,73 @@
+{
+  "version": "astra-admin-record-crosscheck-v1",
+  "files": [
+    {
+      "name": "ADMIN_READONLY_PACKET_V2.json",
+      "sha256": "9e906d1e53ee9acf67b909be0198520e137d9cc08d1b8fbc3aa5adf7f709df38"
+    },
+    {
+      "name": "ADMIN_READONLY_COMPLETED_V1.json",
+      "sha256": "cb3f1605238bf94eafc19f9f8fcbdeb30fb2461f00903f46daac9792c5d95310"
+    },
+    {
+      "name": "ADMIN_REFERENCE_DIAGNOSTIC_V1.json",
+      "sha256": "4e964f0ec062f07115728dc5cb09ec05a3a794a09a29f865494927dd8b3dbd69"
+    },
+    {
+      "name": "ADMIN_CAPTURE_SUMMARY_V1.json",
+      "sha256": "35081bb894944f358ed14589a005294a4fbbb3032a1f57e25aa51f85385379f2"
+    }
+  ],
+  "sources": [
+    {
+      "kind": "collector",
+      "sha256": "764efb896666bac3656bbe7acc98833f98cf9babfbd2f20441803c368d84f50e"
+    },
+    {
+      "kind": "evaluator",
+      "sha256": "0901f108929cd223fc14a3b6371319a1bc6115606f96b020e0c60167a84ac2ed"
+    },
+    {
+      "kind": "launcher",
+      "sha256": "59276d18da0eb6cee4cf3e1909e1759b4d7ffbfaa1df1be0893225c8ef2e6c05"
+    }
+  ],
+  "instanceChecks": [
+    {
+      "processId": 236,
+      "matchesAtMicrosecond": true,
+      "nativeMinusCim100ns": "0"
+    },
+    {
+      "processId": 280,
+      "matchesAtMicrosecond": true,
+      "nativeMinusCim100ns": "5"
+    },
+    {
+      "processId": 1700,
+      "matchesAtMicrosecond": true,
+      "nativeMinusCim100ns": "6"
+    },
+    {
+      "processId": 6548,
+      "matchesAtMicrosecond": true,
+      "nativeMinusCim100ns": "4"
+    },
+    {
+      "processId": 53880,
+      "matchesAtMicrosecond": true,
+      "nativeMinusCim100ns": "8"
+    },
+    {
+      "processId": 47936,
+      "matchesAtMicrosecond": true,
+      "nativeMinusCim100ns": "5"
+    }
+  ],
+  "status": "records-consistent-still-blocked",
+  "unknown": 5,
+  "knownReferences": 0,
+  "nativeProbeCalls": 0,
+  "productionActions": 0,
+  "limitations": "Three saved records are internally consistent; completion does not embed result SHA. Raw full process inventory/image paths were intentionally not retained; this cannot independently replay all predicates or attest current live state."
+}

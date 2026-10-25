@@ -1,0 +1,97 @@
+{
+  "observedAt": "2026-10-08T14:19:20.5135520Z",
+  "sourceHead": "a37b5ffdbe9e6705cf4daa9545231e93b4378c5d",
+  "deploymentRoot": "D:\\teruisi-runtime\\django-sales\\app\\backend",
+  "files": [
+    {
+      "path": "inventory/read_cache.py",
+      "sourceSha256": "036104e955f1d9d1783441a241d9f556d636941791cda7604ce7559a7508c7ed",
+      "deployedSha256": "036104e955f1d9d1783441a241d9f556d636941791cda7604ce7559a7508c7ed",
+      "equal": true
+    },
+    {
+      "path": "inventory/regions.py",
+      "sourceSha256": "bd942e918e800fc66fca512609bbf714b08b464c587fb5705835b17d7c229c19",
+      "deployedSha256": "bd942e918e800fc66fca512609bbf714b08b464c587fb5705835b17d7c229c19",
+      "equal": true
+    },
+    {
+      "path": "inventory/query.py",
+      "sourceSha256": "2625dfa0389ab75394716e87547408ec3aa991ac81040097f91fc901bbe13d0b",
+      "deployedSha256": "2625dfa0389ab75394716e87547408ec3aa991ac81040097f91fc901bbe13d0b",
+      "equal": true
+    },
+    {
+      "path": "products/summary_cache.py",
+      "sourceSha256": "d72af5e58b076e31070fb44260740709208d6ed031368a331452f78069d02863",
+      "deployedSha256": "d72af5e58b076e31070fb44260740709208d6ed031368a331452f78069d02863",
+      "equal": true
+    },
+    {
+      "path": "products/query.py",
+      "sourceSha256": "3ae1004115ba9d08575103c6f11bb4bdc95e2ffa64eb48ab989e1c8cda5937f6",
+      "deployedSha256": "3ae1004115ba9d08575103c6f11bb4bdc95e2ffa64eb48ab989e1c8cda5937f6",
+      "equal": true
+    },
+    {
+      "path": "sales/calculation_cache.py",
+      "sourceSha256": "f7e4cf8f1e7f8b6e291b151711649a515e690e5603c70fbfa983bbca4f8834d4",
+      "deployedSha256": "f7e4cf8f1e7f8b6e291b151711649a515e690e5603c70fbfa983bbca4f8834d4",
+      "equal": true
+    },
+    {
+      "path": "sales/summary.py",
+      "sourceSha256": "bc3b45f4444ba696f6de373a966058b5be90d706de9a48085bd5bc3889579f29",
+      "deployedSha256": "bc3b45f4444ba696f6de373a966058b5be90d706de9a48085bd5bc3889579f29",
+      "equal": true
+    },
+    {
+      "path": "bi/cockpit.py",
+      "sourceSha256": "333c804f4c65acb03ecd21b6a9a967bff26fe47d0eef4b7ff54030d3f4d38d95",
+      "deployedSha256": "333c804f4c65acb03ecd21b6a9a967bff26fe47d0eef4b7ff54030d3f4d38d95",
+      "equal": true
+    },
+    {
+      "path": "bi/source_reader.py",
+      "sourceSha256": "df5889487d47bef2abe9764500bff496a3900bbdde83796f5483d328a281e03f",
+      "deployedSha256": "df5889487d47bef2abe9764500bff496a3900bbdde83796f5483d328a281e03f",
+      "equal": true
+    },
+    {
+      "path": "market/admin.py",
+      "sourceSha256": "c348b257b65b5c23b69431adf73a02bc17a86138471c4ea5d1b2eb53ec81fd92",
+      "deployedSha256": "c348b257b65b5c23b69431adf73a02bc17a86138471c4ea5d1b2eb53ec81fd92",
+      "equal": true
+    },
+    {
+      "path": "market/query.py",
+      "sourceSha256": "0fb1d2884fb8089387cbc2a311f4ced87826f872d982d73921e7860fcf6c74ec",
+      "deployedSha256": "0fb1d2884fb8089387cbc2a311f4ced87826f872d982d73921e7860fcf6c74ec",
+      "equal": true
+    },
+    {
+      "path": "market/ranking_query.py",
+      "sourceSha256": "3a552430c44e24da6f2deb7adf009ae2cb027beb5d40a3327dee1f5aa7182a42",
+      "deployedSha256": "3a552430c44e24da6f2deb7adf009ae2cb027beb5d40a3327dee1f5aa7182a42",
+      "equal": true
+    },
+    {
+      "path": "market/views.py",
+      "sourceSha256": "d58afe57263059cee7a86ccc0b92b494e8ff900227e09100e1b85e48d4e19b15",
+      "deployedSha256": "d58afe57263059cee7a86ccc0b92b494e8ff900227e09100e1b85e48d4e19b15",
+      "equal": true
+    },
+    {
+      "path": "netshop/store_overview.py",
+      "sourceSha256": "425a5dadbaf2a82ba74fed28097f174bcec919c3a22a73683a5e86102dd03c6d",
+      "deployedSha256": "425a5dadbaf2a82ba74fed28097f174bcec919c3a22a73683a5e86102dd03c6d",
+      "equal": true
+    },
+    {
+      "path": "netshop/sales_client.py",
+      "sourceSha256": "800b39b5a56335eb5f25943c599220e635d4bd71cc2f922399d8a48ac6adfd39",
+      "deployedSha256": "800b39b5a56335eb5f25943c599220e635d4bd71cc2f922399d8a48ac6adfd39",
+      "equal": true
+    }
+  ]
+}

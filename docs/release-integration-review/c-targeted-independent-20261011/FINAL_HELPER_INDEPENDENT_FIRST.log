@@ -1,0 +1,15 @@
+✔ fixed baseline precedes watcher installation; matching access-only notification is re-read, not ignored (102.8853ms)
+✔ notification after runtime hash and after collection remains pending until complete synchronous validation (65.6564ms)
+✔ same-content new inode with unchanged link count is not accepted as access metadata (55.2409ms)
+✔ source/npm/unknown and fixed rename notifications remain irreversible invalidation (279.9203ms)
+✔ genuine private Windows file change notification cannot bless unchanged bytes with changed identity timestamps (69.3115ms)
+✔ same-inode alternative path and external npmrc links retain strict single-link read rules (68.6517ms)
+✔ without watch events Node/source/npm/environment drift still invalidates reused complete input snapshots (279.8337ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1069.5223

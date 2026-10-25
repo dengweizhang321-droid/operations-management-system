@@ -1,0 +1,8 @@
+{
+  "sourceCommit": "58bce3f7709f36b5eb8c61f324d34facb65f4e67",
+  "command": "serial final joint plus lifecycle regression",
+  "exitCode": 0,
+  "elapsedMs": 480595.3717,
+  "productionAccess": false,
+  "log": "joint-and-lifecycle-final.log"
+}

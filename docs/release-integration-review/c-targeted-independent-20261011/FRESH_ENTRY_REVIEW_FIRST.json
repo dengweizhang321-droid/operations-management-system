@@ -1,0 +1,56 @@
+{
+  "version": "teruisi-fresh-adoption-entry-independent-first-review-v1",
+  "independent": true,
+  "acceptedEntryCandidate": false,
+  "productionExecutionApproved": false,
+  "reviewedEntrySha256": "b7c1edb6b05da5dac5791e1474ca0e01047d216e8e9763c2aa80d05012ed72c2",
+  "shaBeforeAndAfterMatched": true,
+  "entryPath": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.mjs",
+  "snapshot": "fresh-entry-reviewed-first.mjs.txt",
+  "snapshotSha256": "b7c1edb6b05da5dac5791e1474ca0e01047d216e8e9763c2aa80d05012ed72c2",
+  "newSpecReviewed": false,
+  "blockingFindings": [
+    {
+      "id":"NRT-ENTRY01",
+      "priority":"P1",
+      "line":8,
+      "relatedLines":[9,10,11,17,23,35],
+      "trigger":"Four candidate modules are dynamically imported and can run top-level code before manifest/spec/self/direct-closure byte validation. A later validateNoDataCollector cannot undo already executed drifted module effects.",
+      "counterexample":"The actual entry prefix in virtual imports executes4 unvalidated imports before any safeRead/verification; expected0 fails.",
+      "minimumFix":"Builtin-only bootstrap must validate fixed target manifest/keyFiles, collector direct executable closure and exact self/spec binding before importing any candidate module. Retain all original verifyBatch/validateNoDataCollector checks after import. Do not depend solely on an unstated outer driver."
+    },
+    {
+      "id":"NRT-ENTRY02",
+      "priority":"P2",
+      "line":46,
+      "relatedLines":[37,41,45,51],
+      "trigger":"After collectBatchAdmission returned current, assertFresh can reject without attaching its already returned stages/status attempts. Similar beforeOperation verifyInputs/fresh failures can lose lastAdmission metadata from failure evidence; no operation may be markedpassed to hide the failure.",
+      "counterexample":"Virtual qualify reaches actual stale assertion with collector result containing known stages/attempts; caught error has no admissionStages (undefined), expected retention fails.",
+      "minimumFix":"Safely retain returned fixed stages/status observation attempts on errors after current/lastAdmission exists, including input/freshness boundary rejection. Preserve actual classification/metadata where available; never force-write a foreign WAL or manufacture native/raw output."
+    }
+  ],
+  "propertiesObserved": [
+    "Calls original verifyBatch with approved SHA, fixes targeted version/21c manifest/plan, checks fixed journalRoot and canonical collector binding, and invokes original validateNoDataCollector.",
+    "Retains in-process descriptor while explicitly binding public-API execution mode fresh-no-reuse-v1 in exactly one tests.evidence entry with self path/SHA. It is a new reviewed execution entry, not unchanged CLI dispatch.",
+    "Every collect calls original collectBatchAdmission without session and with actual phase/step; retains original onStatusAttempt/writeOnce and original runApprovedOperation in executeBatch.",
+    "Complete collector file pin scan precedes collection; verifyInputs occurs before actual operation followed by fresh<=5000ms check. No heavy collector pin scan is placed after dynamic sample.",
+    "Direct collector rejection naturally carries original stages/attempts to executeBatch; this improves on child-CLI metadata loss. ENTRY02 concerns post-return adapter checks, not a change to NotReady classification.",
+    "Original inherited processDeadline validation, NotReady nonretry, unknown nonreplay, permission/drain/identity and required-operation assertions remain delegated to original modules."
+  ],
+  "isolatedCounterexamples": {
+    "test":"fresh-entry-independent-first.test.mjs",
+    "testSha256":"6ed9ada6c1cabad932cdcd400a0749e15fdc4cee011af09e0aaa01a138b5ec2e",
+    "log":"FRESH_ENTRY_INDEPENDENT_FIRST.log",
+    "logSha256":"48f70aa7cde1542dcd617d0df26731c78adc799654687c11a5c2bf3837916b82",
+    "passed":0,
+    "failed":2,
+    "durationMs":109.9295,
+    "seams":"Exact entry source transformed only to inject virtual imports/I/O and fixed clock; original engine validators are stubs to isolate dispatch/returned-error retention. No product imports, actual CLI, qualification, collector, files root changes or production calls. Minimal stages fixture contains only metadata needed for the loss assertion; this is not whole protocol verification."
+  },
+  "pendingAfterFix": [
+    "Freeze corrected entry raw SHA and independent tests; review new exact spec/self mode pin/full closure/argv/cwd/approval before accepting.",
+    "Preserve original b7c snapshot and counterexample failures; not retroactively passed.",
+    "A standalone fresh qualification does not prove old214/215 sessions passed or C speed-up."
+  ],
+  "actions":{"productionExecuteOrQualify":0,"realCollector":0,"productImports":0,"fullTreeScan":0,"implementationChanges":0,"privateCounterexamples":2}
+}

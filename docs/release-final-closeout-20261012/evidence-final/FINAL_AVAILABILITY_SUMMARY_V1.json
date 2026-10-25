@@ -1,0 +1,181 @@
+{
+  "at": "2026-10-12T11:11:40.767Z",
+  "final": true,
+  "summaries": [
+    {
+      "file": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AVAILABILITY.ndjson",
+      "sha256": "2a496958797caa3bc3239248932fd82ba0cc2302b5d412f19903336fb0790efd",
+      "records": 7,
+      "firstAt": "2026-10-11T15:34:04.916Z",
+      "lastAt": "2026-10-11T15:37:05.021Z",
+      "maxGapMs": 30027,
+      "targets": {
+        "static": {
+          "count": 7,
+          "statuses": {
+            "200": 7
+          },
+          "nonExpectedFirst": null,
+          "nonExpectedLast": null
+        }
+      }
+    },
+    {
+      "file": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume1/AVAILABILITY.ndjson",
+      "sha256": "419c65c2eae676b38cf9a409512a35b1309a490f4e09f18cd637c82be85fab5f",
+      "records": 55,
+      "firstAt": "2026-10-11T16:12:18.951Z",
+      "lastAt": "2026-10-11T16:39:19.877Z",
+      "maxGapMs": 30035,
+      "targets": {
+        "static": {
+          "count": 55,
+          "statuses": {
+            "200": 55
+          },
+          "nonExpectedFirst": null,
+          "nonExpectedLast": null
+        }
+      }
+    },
+    {
+      "file": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/AVAILABILITY.ndjson",
+      "sha256": "8b6b2a003f2d7b2977eb19fdf20f23c6897a928eab8382c12199589f6031fe49",
+      "records": 42,
+      "firstAt": "2026-10-11T17:11:36.190Z",
+      "lastAt": "2026-10-11T17:32:06.874Z",
+      "maxGapMs": 30041,
+      "targets": {
+        "static": {
+          "count": 42,
+          "statuses": {
+            "200": 32,
+            "ECONNREFUSED": 10
+          },
+          "nonExpectedFirst": "2026-10-11T17:27:36.805Z",
+          "nonExpectedLast": "2026-10-11T17:32:06.874Z"
+        }
+      }
+    },
+    {
+      "file": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/AVAILABILITY.ndjson",
+      "sha256": "00198721945d82d596605b950f7d4f44a94075e65c4a53115ab8d7a63b728504",
+      "records": 27,
+      "firstAt": "2026-10-12T00:40:19.665Z",
+      "lastAt": "2026-10-12T00:53:19.897Z",
+      "maxGapMs": 30017,
+      "targets": {
+        "static": {
+          "count": 27,
+          "statuses": {
+            "ECONNREFUSED": 27
+          },
+          "nonExpectedFirst": "2026-10-12T00:40:19.665Z",
+          "nonExpectedLast": "2026-10-12T00:53:19.897Z"
+        }
+      }
+    },
+    {
+      "file": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/AVAILABILITY.ndjson",
+      "sha256": "7b52b8e75ea9e98d4ea806bcd5643cce74c87c438340f7edfe9c546fec75ddb2",
+      "records": 82,
+      "firstAt": "2026-10-12T01:25:53.904Z",
+      "lastAt": "2026-10-12T02:06:24.647Z",
+      "maxGapMs": 30039,
+      "targets": {
+        "static": {
+          "count": 82,
+          "statuses": {
+            "200": 5,
+            "ECONNREFUSED": 77
+          },
+          "nonExpectedFirst": "2026-10-12T01:25:53.904Z",
+          "nonExpectedLast": "2026-10-12T02:03:54.537Z"
+        }
+      }
+    },
+    {
+      "file": "E:/codex-artifacts/startup-recovery-integration-20261012/approved-recovery-v1/AVAILABILITY.ndjson",
+      "sha256": "4ec7bfb15811f1d07e275c8237e8d55c09146493c4a5d8134725da1eef9e174b",
+      "records": 665,
+      "firstAt": "2026-10-12T05:37:53.560Z",
+      "lastAt": "2026-10-12T11:10:09.778Z",
+      "maxGapMs": 30058,
+      "targets": {
+        "static": {
+          "count": 665,
+          "statuses": {
+            "200": 654,
+            "ECONNREFUSED": 11
+          },
+          "nonExpectedFirst": "2026-10-12T05:45:53.925Z",
+          "nonExpectedLast": "2026-10-12T05:50:54.045Z"
+        },
+        "ready": {
+          "count": 665,
+          "statuses": {
+            "404": 654,
+            "ECONNREFUSED": 11
+          },
+          "nonExpectedFirst": "2026-10-12T05:37:53.560Z",
+          "nonExpectedLast": "2026-10-12T11:10:09.778Z"
+        },
+        "unsigned-reader": {
+          "count": 665,
+          "statuses": {
+            "401": 529,
+            "503": 127,
+            "ECONNREFUSED": 9
+          },
+          "nonExpectedFirst": "2026-10-12T05:44:23.870Z",
+          "nonExpectedLast": "2026-10-12T06:56:27.179Z"
+        }
+      }
+    },
+    {
+      "file": "E:/codex-artifacts/startup-recovery-integration-20261012/approved-recovery-v1/AVAILABILITY_V2.ndjson",
+      "sha256": "a3d06108e187806dadf6e6d4422558aad8c7c6ec3ba49a1657fe94b2e28233f8",
+      "records": 599,
+      "firstAt": "2026-10-12T05:50:35.909Z",
+      "lastAt": "2026-10-12T11:10:09.416Z",
+      "maxGapMs": 33079,
+      "targets": {
+        "static": {
+          "count": 599,
+          "statuses": {
+            "200": 598,
+            "ECONNREFUSED": 1
+          },
+          "nonExpectedFirst": "2026-10-12T05:50:35.909Z",
+          "nonExpectedLast": "2026-10-12T05:50:35.909Z"
+        },
+        "ready": {
+          "count": 599,
+          "statuses": {
+            "200": 588,
+            "ECONNREFUSED": 1,
+            "deadline": 10
+          },
+          "nonExpectedFirst": "2026-10-12T05:50:35.909Z",
+          "nonExpectedLast": "2026-10-12T10:42:24.487Z"
+        },
+        "unsigned-reader": {
+          "count": 599,
+          "statuses": {
+            "401": 480,
+            "503": 119
+          },
+          "nonExpectedFirst": "2026-10-12T05:53:46.205Z",
+          "nonExpectedLast": "2026-10-12T06:56:43.313Z"
+        }
+      }
+    }
+  ],
+  "limits": [
+    "V1 ready 404 lacks required local-health header and is not interpreted as ready failure",
+    "unsigned-reader 401 is expected unauthenticated denial",
+    "unobserved gaps are not backfilled",
+    "HTTP samples are not continuous business availability or natural acceptance"
+  ],
+  "rawLogSourcesPreserved": true
+}

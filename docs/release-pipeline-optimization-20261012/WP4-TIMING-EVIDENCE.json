@@ -1,0 +1,2741 @@
+{
+  "version": "wp4-timing-offline-extraction-v1",
+  "dateShanghai": "2026-10-12",
+  "baseSha": "b3c6018cca6c2b2b5c8fa6c5b52e376f3a84f354",
+  "dependencySha": "74c5e6330b88248c7ebcc778e32310c5b46631d3",
+  "method": "Saved files only; UTC timestamps. Nested stages and sampled failures are not continuous downtime.",
+  "pins": [
+    {
+      "path": "E:/codex-artifacts/watchdog-native-census-20261012/FINAL_DELIVERY_RECEIPT_V1.json",
+      "sha256": "6b4d5ef9a94c6fef3ec3ef7f0435dc6dd52282abe895e58c754e3db11c106e57"
+    },
+    {
+      "path": "E:/codex-artifacts/watchdog-native-census-20261012/FINAL_DELIVERY_RECEIPT_V2.json",
+      "sha256": "d9134646c97d75fe9f94b5adff7be474142bd4cc29854c36f07f96988ee9b394"
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/DELIVERY_COMPLETED.json",
+      "sha256": "d0f2f693e011df2ba3476ea6449658677efa525762f6d8a155a627c904561681"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/apply-worker.json",
+      "sha256": "8583068849f69d0debd9099f359bb398aab849a12fa6b003ec832b35c9680521"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/backup-status.json",
+      "sha256": "fc07229a103e05ab623d2b0ff7f8af7d138fd8740badfecc0456ef8a5423d9c4"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/deploy-django.json",
+      "sha256": "cb222278eaba6c081d89c55b74cc9723fa0c46276bfc210b4d6d1d0a95cc3c3f"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/enter-maintenance.json",
+      "sha256": "d735717df523172f55856c35d1bf292e954e5eed3da9edb9d35262826526a0ec"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/exit-maintenance.json",
+      "sha256": "f40496d727cad8cbc1fef831aeae3a106a141f2ecd273dfade3a67172ad5f980"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/final-status.json",
+      "sha256": "1c0b123de448f1f5674e1e0433660dc504b474b3acfbf58d0eee2a959b4cf772"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/frozen-content.json",
+      "sha256": "3b471639d4dcd91677bc10a7f425a0649850b70e6d16fedd822293c361398fb7"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/harden-django.json",
+      "sha256": "3752e9cf6942dd1b6d97ee157170de4e7917f456fa168d18d95a948a917fc22e"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/post-backup.json",
+      "sha256": "23b164c34817d23de91823feb2093c0efd62c3ed6a6fd63add591bdb195ba70d"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/post-restore.json",
+      "sha256": "62123fde7c4f42be9db8422e10f3e89206cbcd54aa894b4e61b717e059e4f39d"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/post-verify.json",
+      "sha256": "5e0beecc9721b9c6357cadb7d0eb3189f5b56f5f10abf158c1c4e841531b5304"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/pre-backup.json",
+      "sha256": "7cd91b7baec855bf4b561f78a66f65fe0501b76d8825d16ed4356261f445ffaf"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/pre-restore-bound.json",
+      "sha256": "2c391a0b1ab95484dc4687db9981e17d25185b3d2e33603d9ca672ad524ea00f"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/pre-restore.json",
+      "sha256": "8562002692f6661af81218b9c617270e0172f28118299b6663b076b8956ccfe0"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/pre-verify.json",
+      "sha256": "5522a755d36a34e721995bd01531e29fd62df0537ed54c655301c2010fd4e703"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/start-system.json",
+      "sha256": "546161025f632e0da8bdcb30de5155d8468576135c08bf426cd2fa3c486014dd"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/system-status.json",
+      "sha256": "dfe6f8fccbb5cbc4062b2ba0411b20b164ec3db85500b5d835d5cbdb3090c91f"
+    },
+    {
+      "path": "E:/codex-artifacts/five-performance-production-20261006/verify-startup.json",
+      "sha256": "f635f20fb38906bbde2f63daf575257c0b90e5f7ebb52c56aae1c1ac6eb4854c"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/apply-worker.result.json",
+      "sha256": "e4eb14306307f76fff8c80db8594021e7e0ef7fa91a006c122149d8833bb1cbb"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/deploy-django.result.json",
+      "sha256": "5b3bc0e8ca5279afe869dc7374283495b1cc3df7a105ba20dff5e48b45a39a65"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/enter-maintenance.result.json",
+      "sha256": "d8fdd6dc1e71504d29faac8c6101eb0e3c73622876f50807e62abbdbd9d14998"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/exit-maintenance-retry.result.json",
+      "sha256": "719b3364a9f9b22ca5a789a896f269b2bdcefac51a812f994a3966111965bdad"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/exit-maintenance.result.json",
+      "sha256": "1cbb3f3e34d048bb7f27bc9549d327d749cba944f33e53d74398929ae50a1a7d"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/harden-django.result.json",
+      "sha256": "cc91a7dfc4674c450cf73cc14b58fe39fcc4434bfda1d9ab1a1667a770f7e00d"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/post-backup.result.json",
+      "sha256": "503fbd39349ab846d52995cf5127f6f8922c9437c093e5956308339000922d65"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/post-restore.result.json",
+      "sha256": "48870ab98701c6c26c1bafd5d717b0dc99cb392c9d4f242a86360b9af3c92b97"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/post-system-status-final.result.json",
+      "sha256": "b2f268d6b35849d0e852de43be495d5ab974973af4170f6230a72cd1f2403138"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/post-system-status.result.json",
+      "sha256": "131745e7e9025d0304b327e01e05bd588d3fd8475af6195746116c55ea6def93"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/post-verify.result.json",
+      "sha256": "7c402064a2be333695f03eca1eb04ef8d6489a88c82c8ac1eacc31806aae8c57"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/pre-backup-status.result.json",
+      "sha256": "0d8668752e7dc42fedb840b34aa431e8790b6a58acf21baa33feff54cbbc7c70"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/pre-backup.result.json",
+      "sha256": "116b62e8415570fa1e2a59f4c04b86162cc5cd5d4d63243897d6a1a35d31b67b"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/pre-maintenance-status.result.json",
+      "sha256": "e842704f526e3f6de8a5c0649e1d717e184dbe073093ef62409ab6daae70de85"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/pre-restore.result.json",
+      "sha256": "3ddcfa67d61c771d1eb75e20ea43d303950a2304bb5acac5be0fcf1290093170"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/pre-system-status.result.json",
+      "sha256": "c3db6ec777302e08da113fe33b2ce97ff251040c18de894cfd950fcb4f1a782a"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/pre-verify.result.json",
+      "sha256": "aa22971c3fc4b619b55a98ead2c298b1bf5f6817d2586c665f2cb997d69a7916"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/start-worker-retry.result.json",
+      "sha256": "34f44ce6f04cdbc004f6f55f8f783e9f0fbbd97e80aa84272136999cdbdce7da"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/start-worker.result.json",
+      "sha256": "ae068bc88a5e884bad02181a61f581f540ff100bbf97ad2fbe3e706dca3ddd37"
+    },
+    {
+      "path": "E:/codex-artifacts/product-overview-production-20261005/operations/startup-binding.result.json",
+      "sha256": "cec8ce6d8138f9cf5f2620e67d3be05220bcd0887a9da8b59c0a6dd0189a6579"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-production-20261006/apply-worker.json",
+      "sha256": "3d89d5d7d96204a222f850294e3e266599f05340b22ca6ec5b7e02e0d48e8c3e"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-production-20261006/deploy-django.json",
+      "sha256": "c6b0973658627c8f554cd37eb65911a36877a83bcda1085c62e598a81d8ed847"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-production-20261006/enter-maintenance.json",
+      "sha256": "3431be3a3f7209061dae37faba98b140f0158b95c3e10b01f79fe7446693895a"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-production-20261006/exit-maintenance.json",
+      "sha256": "531062c3b6e564544b35f1b0f8dc88afbf126f9d02e8b63f7280da935e332f8b"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-production-20261006/finalize-addition.json",
+      "sha256": "58490fee32a6cc473123f301b247f460b76e73f1089a6fe4619887fcb0c37b25"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-production-20261006/harden-django.json",
+      "sha256": "12bf09687f136fc8d59af2e9eff9a3e488b8240d2c6923aaf0df8e94e3c50f37"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-production-20261006/install-addition.json",
+      "sha256": "fb756579fa4056d853a9300adaa18b6211afcba4cf85aed4c440455ffd068206"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-production-20261006/plan-addition-git-fixed.json",
+      "sha256": "5f5783c5fc2862af3f7a78de0bb736a7bdc866ae37fce24464ba9721602868f8"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-production-20261006/plan-addition.json",
+      "sha256": "2c2bd720c09d32fa4b3ff3158e0fd10794d4b6d9ac972959e0428a83917c8e0d"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-production-20261006/post-backup.json",
+      "sha256": "68572f28a134e42a08c03356acca7ea8360468f21ac687736fecf1edef934238"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-production-20261006/post-restore.json",
+      "sha256": "dad2a6dace7be35dd606b434b32107bc3a3d74cc50b82a02a4e2320b29aa451e"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-production-20261006/post-verify.json",
+      "sha256": "3e8f3178ad41d28cd1ca6b553613ea4e91a369c8a4e8fa66275c7c96d64ff608"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-production-20261006/pre-backup.json",
+      "sha256": "2df304757c2bae1b1c6b3cb7ad76610fb9b136fb1d227c41752867f30daff511"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-production-20261006/pre-restore.json",
+      "sha256": "646ef2c1e83351419deaff16ee9fdbbc4fa108295ac670f771ebf371857c1b53"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-production-20261006/pre-verify.json",
+      "sha256": "7dae34568f57f21c025fb3c171d612a206808145f5251663cfd25419dd985b06"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-production-20261006/start-system.json",
+      "sha256": "a2ebfc27760fc9c13c77c99651921e2b15777dc03f4f81c1e3629e5d05e8c677"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-transport-production-20261006/deploy-django.json",
+      "sha256": "82904158823da84fff514639164fe759e1c48f7224fdb52ca30065e459456aec"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-transport-production-20261006/enter-maintenance.json",
+      "sha256": "dbd0fe961dd7e5dbd726057b278b957efcf08fce7ae6e1935612efcab418fdaf"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-transport-production-20261006/exit-maintenance.json",
+      "sha256": "19062903ff0c68ce1650672fda8183d00947b74b2452c72139028327d0416d9d"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-transport-production-20261006/frozen-content.json",
+      "sha256": "5d1df27d393d592a073aed85fbf0cfa762af2432f43fdf66bc57be7046e625c8"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-transport-production-20261006/harden-django.json",
+      "sha256": "4469ec702a41f4995cc6fd480e1f8c8ec45a8e4e108fee50d768931e8bb08fd2"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-transport-production-20261006/post-backup.json",
+      "sha256": "d8139c649838524a9dae5baea288888f0f7ba437d408874d317121bd0dcba5ba"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-transport-production-20261006/post-restore.json",
+      "sha256": "ab3f6c74af5f383651afd94d75dad41fbbb5031591cf4bf09d7033b4109d0366"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-transport-production-20261006/post-verify.json",
+      "sha256": "18b1ac9b746963a629f11503e810e3781f822d3ac9afdbb0dc4daebb98490316"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-transport-production-20261006/pre-backup.json",
+      "sha256": "81d1b69d058f88586a419b6488795915b6f2e0f2b4c99a8c57de2696083fa100"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-transport-production-20261006/pre-restore.json",
+      "sha256": "0f8601c2c1144d1ba775e43471477398eaff16465a004c456e9ec0765c17cfd8"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-transport-production-20261006/pre-verify.json",
+      "sha256": "570304421445fd2025d72987e00fcf5cca132da5d2ffe6a203232bf271d658b4"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-transport-production-20261006/start-system.json",
+      "sha256": "b8d308825a8042b7214de9716f82fc3d07b3ddbec2bf8b81813449b52d05bf89"
+    },
+    {
+      "path": "E:/codex-artifacts/bi-transport-production-20261006/status.json",
+      "sha256": "0fcfceeca3dfeeaed9396a46be4ddf7ff41408c990647454f92a1bc8a4c06775"
+    },
+    {
+      "path": "docs/release-acceptance-closeout/historical-draft-final/report.json",
+      "sha256": "86287e00626e89cb64fa006c559155e7c019c46464aef9c2de589a18d3eefb09"
+    },
+    {
+      "path": "docs/release-final-closeout-20261012/evidence-final/MANIFEST.json",
+      "sha256": "c9e171a605e87262c9ef981d42b88399aafdbb12c4987ebd33241ad0d1081e4d"
+    },
+    {
+      "path": "docs/release-final-closeout-20261012/evidence-final/FINAL_AVAILABILITY_SUMMARY_V1.json",
+      "sha256": "2e28a4a7e08e86dde38a3d11f68a40e18b788ae24e2704d1856734fc57e2cc9d"
+    },
+    {
+      "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry-v2.mjs",
+      "sha256": "69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99"
+    },
+    {
+      "path": "docs/evidence/startup-release-optimization-production-20260921.json",
+      "sha256": "76a13f1746d399a18c7df7d35c579a6804e3ed1a9393f5f1821144912b660a7b"
+    },
+    {
+      "path": "docs/evidence/jackyun-5478-production-20261005.json",
+      "sha256": "2713c6212c14690aa7e80830cdfd971924fade12b949dd5dae84093ff098cff3"
+    },
+    {
+      "path": "D:/codex-artifacts/jackyun-5478-production-20261005/pre-restore-rehearsal.json",
+      "sha256": "6c4778e77da1f58c3a72b5f95aa0c2228a1a2c7e7329a16f087701d3e0a20e48"
+    },
+    {
+      "path": "D:/codex-artifacts/jackyun-5478-production-20261005/post-restore-rehearsal.json",
+      "sha256": "e29a9a19eddd576039f3b29d0b33fe2cbecbd020839fe06c19d7f63ff673b12a"
+    }
+  ],
+  "f15Wal": [
+    {
+      "file": "wal-000000.json",
+      "at": "2026-10-11T15:25:28Z",
+      "phase": "queue",
+      "operationId": null,
+      "status": "approved",
+      "durationMs": 14.903999999980442,
+      "reason": null,
+      "eventSha256": "b4c170264066cff4ec5a70ec9852d1955e5323b3e9845eba71d7ac0efb80468d",
+      "previous": null
+    },
+    {
+      "file": "wal-000001.json",
+      "at": "2026-10-11T15:36:50.153Z",
+      "phase": "prepare",
+      "operationId": null,
+      "status": "admission-failed",
+      "durationMs": 51630.62969999999,
+      "reason": "operation-boundary-failed",
+      "eventSha256": "d6335eaa2fc58aed0fa4dfb29203e2f0e442f0e13497d9f61a100e0f5585f887",
+      "previous": "b4c170264066cff4ec5a70ec9852d1955e5323b3e9845eba71d7ac0efb80468d"
+    },
+    {
+      "file": "wal-000002.json",
+      "at": "2026-10-11T16:16:31.893Z",
+      "phase": "queue",
+      "operationId": null,
+      "status": "resumed",
+      "durationMs": 17.304100000008475,
+      "reason": null,
+      "eventSha256": "179d3fb03dbe32e353c0fa85bd56ae8e1bdeae86c4f0b402043c7c97c2fb18cf",
+      "previous": "d6335eaa2fc58aed0fa4dfb29203e2f0e442f0e13497d9f61a100e0f5585f887"
+    },
+    {
+      "file": "wal-000003.json",
+      "at": "2026-10-11T16:20:40.644Z",
+      "phase": "prepare",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 248748.57280000002,
+      "reason": "live-predecessor-and-integrity-revalidation",
+      "eventSha256": "f6f7e4216e651f99302f1578d9640a0e9206658b7f82eaca43f54cd5b10cd865",
+      "previous": "179d3fb03dbe32e353c0fa85bd56ae8e1bdeae86c4f0b402043c7c97c2fb18cf"
+    },
+    {
+      "file": "wal-000004.json",
+      "at": "2026-10-11T16:22:16.160Z",
+      "phase": "prepare",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 95513.3010000001,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "5a94b8ecb4e073808a4300f849750179d1cc69136fc6d588c27609db37e7a270",
+      "previous": "f6f7e4216e651f99302f1578d9640a0e9206658b7f82eaca43f54cd5b10cd865"
+    },
+    {
+      "file": "wal-000005.json",
+      "at": "2026-10-11T16:22:16.176Z",
+      "phase": "prepare",
+      "operationId": "op-prepare",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "728909b6208ea53bbe589ee4be8291f4b7153df26e26f4ac8de8cd1223f1f269",
+      "previous": "5a94b8ecb4e073808a4300f849750179d1cc69136fc6d588c27609db37e7a270"
+    },
+    {
+      "file": "wal-000006.json",
+      "at": "2026-10-11T16:27:23.785Z",
+      "phase": "prepare",
+      "operationId": "op-prepare",
+      "status": "passed",
+      "durationMs": 307608.32310000004,
+      "reason": null,
+      "eventSha256": "249b4b9797b5ec4069e722d2f9f2ca725c7278af32ce3b8609ef46e9de198196",
+      "previous": "728909b6208ea53bbe589ee4be8291f4b7153df26e26f4ac8de8cd1223f1f269"
+    },
+    {
+      "file": "wal-000007.json",
+      "at": "2026-10-11T16:29:07.831Z",
+      "phase": "backup-pre",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 104043.87659999996,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "662e45cfee7bf598521f8af9bb6e2aa8304029315f24b9da9503aa94cea90de9",
+      "previous": "249b4b9797b5ec4069e722d2f9f2ca725c7278af32ce3b8609ef46e9de198196"
+    },
+    {
+      "file": "wal-000008.json",
+      "at": "2026-10-11T16:29:07.853Z",
+      "phase": "backup-pre",
+      "operationId": "backup-pre",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "8a8ad38a02f4bfc9233beb0e34de2ff256a72dce5e198d37d3fbfe5d73ea2b64",
+      "previous": "662e45cfee7bf598521f8af9bb6e2aa8304029315f24b9da9503aa94cea90de9"
+    },
+    {
+      "file": "wal-000009.json",
+      "at": "2026-10-11T16:39:07.994Z",
+      "phase": "backup-pre",
+      "operationId": "backup-pre",
+      "status": "unknown",
+      "durationMs": 600141.8923,
+      "reason": "nonzero_exit",
+      "eventSha256": "f59b6598f16ba14290b80fc2a3dc22e0c6ff6c30a33bb61d82dc8759a571ca99",
+      "previous": "8a8ad38a02f4bfc9233beb0e34de2ff256a72dce5e198d37d3fbfe5d73ea2b64"
+    },
+    {
+      "file": "wal-000010.json",
+      "at": "2026-10-11T17:12:38.480Z",
+      "phase": "backup-pre",
+      "operationId": "backup-pre",
+      "status": "passed",
+      "durationMs": null,
+      "reason": "independently-reconciled",
+      "eventSha256": "1dece550efb4af55b792426714af4338b0f95a400a77b7789af55e455f89be49",
+      "previous": "f59b6598f16ba14290b80fc2a3dc22e0c6ff6c30a33bb61d82dc8759a571ca99"
+    },
+    {
+      "file": "wal-000011.json",
+      "at": "2026-10-11T17:17:31.044Z",
+      "phase": "queue",
+      "operationId": null,
+      "status": "resumed",
+      "durationMs": 29.347899999993388,
+      "reason": null,
+      "eventSha256": "14d53a8dd761a1d4c80125f3f28c083e9dfc2e73a16b311a30d77cee8ed2a7ec",
+      "previous": "1dece550efb4af55b792426714af4338b0f95a400a77b7789af55e455f89be49"
+    },
+    {
+      "file": "wal-000012.json",
+      "at": "2026-10-11T17:21:46.167Z",
+      "phase": "prepare",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 255121.376,
+      "reason": "live-predecessor-and-integrity-revalidation",
+      "eventSha256": "5c4c806d3300649e71d505ddbed4b4d0977ffac18bc7806bdb6fe639a8adfcf8",
+      "previous": "14d53a8dd761a1d4c80125f3f28c083e9dfc2e73a16b311a30d77cee8ed2a7ec"
+    },
+    {
+      "file": "wal-000013.json",
+      "at": "2026-10-11T17:26:18.905Z",
+      "phase": "drain",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 272735.75419999997,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "32b5b1e3de63e1fb92de4e3ddf9be12182d9a69e74eb3576c7cfdcff760d9071",
+      "previous": "5c4c806d3300649e71d505ddbed4b4d0977ffac18bc7806bdb6fe639a8adfcf8"
+    },
+    {
+      "file": "wal-000014.json",
+      "at": "2026-10-11T17:26:18.922Z",
+      "phase": "drain",
+      "operationId": "op-entermaintenance-drain",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "b927834f25e9c02bddf7a5dc0dc1d9286d62ec927189e32326c8ff10acd44bf9",
+      "previous": "32b5b1e3de63e1fb92de4e3ddf9be12182d9a69e74eb3576c7cfdcff760d9071"
+    },
+    {
+      "file": "wal-000015.json",
+      "at": "2026-10-11T17:30:38.835Z",
+      "phase": "drain",
+      "operationId": "op-entermaintenance-drain",
+      "status": "passed",
+      "durationMs": 259911.07440000016,
+      "reason": null,
+      "eventSha256": "8ddc0f29606ba1ea9a4cfd20b4bf93a265121efe05aa8abf5ed368ad2d608d31",
+      "previous": "b927834f25e9c02bddf7a5dc0dc1d9286d62ec927189e32326c8ff10acd44bf9"
+    },
+    {
+      "file": "wal-000016.json",
+      "at": "2026-10-11T17:31:53.109Z",
+      "phase": "switch",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 74272.32920000004,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "fb961d0240f43d37eb6a9aed19ed2c3555f82f46a6f25703a70d1a03b7094f10",
+      "previous": "8ddc0f29606ba1ea9a4cfd20b4bf93a265121efe05aa8abf5ed368ad2d608d31"
+    },
+    {
+      "file": "wal-000017.json",
+      "at": "2026-10-11T17:31:53.123Z",
+      "phase": "switch",
+      "operationId": "op-stopworker-switch",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "9080f5a0ab0d7cd8a4bbde6aba93d4c3f78921193180562dcb9ebd312dc5fcbd",
+      "previous": "fb961d0240f43d37eb6a9aed19ed2c3555f82f46a6f25703a70d1a03b7094f10"
+    },
+    {
+      "file": "wal-000018.json",
+      "at": "2026-10-11T17:31:58.488Z",
+      "phase": "switch",
+      "operationId": "op-stopworker-switch",
+      "status": "unknown",
+      "durationMs": 5365.306600000011,
+      "reason": "nonzero_exit",
+      "eventSha256": "290394e394a67bd4e095c052caf9302702028435af8c799678db8a4d30af62c9",
+      "previous": "9080f5a0ab0d7cd8a4bbde6aba93d4c3f78921193180562dcb9ebd312dc5fcbd"
+    },
+    {
+      "file": "wal-000019.json",
+      "at": "2026-10-12T00:44:37.078Z",
+      "phase": "switch",
+      "operationId": "op-stopworker-switch",
+      "status": "passed",
+      "durationMs": null,
+      "reason": "independently-reconciled",
+      "eventSha256": "8a3a82a6c226b21bac6219a515db9227bffba31d0acbdc6fd262ae27f8dc9d4e",
+      "previous": "290394e394a67bd4e095c052caf9302702028435af8c799678db8a4d30af62c9"
+    },
+    {
+      "file": "wal-000020.json",
+      "at": "2026-10-12T00:45:57.801Z",
+      "phase": "queue",
+      "operationId": null,
+      "status": "resumed",
+      "durationMs": 37.65260000000126,
+      "reason": null,
+      "eventSha256": "6f2c4baace49cb18322b472752c5d0b8c7b6233f368de35349f7cc6eb5179795",
+      "previous": "8a3a82a6c226b21bac6219a515db9227bffba31d0acbdc6fd262ae27f8dc9d4e"
+    },
+    {
+      "file": "wal-000021.json",
+      "at": "2026-10-12T00:48:13.588Z",
+      "phase": "prepare",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 135785.3797,
+      "reason": "live-predecessor-and-integrity-revalidation",
+      "eventSha256": "780b014d0fc955ffce48d1001a7b622e3cc7d1e67b4922cfddd62b8894b2d473",
+      "previous": "6f2c4baace49cb18322b472752c5d0b8c7b6233f368de35349f7cc6eb5179795"
+    },
+    {
+      "file": "wal-000022.json",
+      "at": "2026-10-12T00:49:51.969Z",
+      "phase": "switch",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 98377.2701,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "c00365f6554c2176db1eacf6f7e2d51bd4b3a70b8c94f7bcbe08663286eaf85e",
+      "previous": "780b014d0fc955ffce48d1001a7b622e3cc7d1e67b4922cfddd62b8894b2d473"
+    },
+    {
+      "file": "wal-000023.json",
+      "at": "2026-10-12T00:49:51.982Z",
+      "phase": "switch",
+      "operationId": "op-apply",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "8cd398ec0e0d481fc335c78bb11183c4affcca0ecb878816d0c46d00c259a596",
+      "previous": "c00365f6554c2176db1eacf6f7e2d51bd4b3a70b8c94f7bcbe08663286eaf85e"
+    },
+    {
+      "file": "wal-000024.json",
+      "at": "2026-10-12T00:51:37.457Z",
+      "phase": "switch",
+      "operationId": "op-apply",
+      "status": "passed",
+      "durationMs": 105475.21220000001,
+      "reason": null,
+      "eventSha256": "c2f75a6e8ffbfe0635a02136c9d054917a70069fca9eee9479f135fbdbd22fd9",
+      "previous": "8cd398ec0e0d481fc335c78bb11183c4affcca0ecb878816d0c46d00c259a596"
+    },
+    {
+      "file": "wal-000025.json",
+      "at": "2026-10-12T00:52:46.302Z",
+      "phase": "switch",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 68842.2586,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "08206226b3e21478f80be3c7a2d2c40b7543943e79e06d7142b2a18e85580e38",
+      "previous": "c2f75a6e8ffbfe0635a02136c9d054917a70069fca9eee9479f135fbdbd22fd9"
+    },
+    {
+      "file": "wal-000026.json",
+      "at": "2026-10-12T00:52:46.316Z",
+      "phase": "switch",
+      "operationId": "previous-reference-guard",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "7dce05ebfc21d3feae2b8344942d0f485ca64074af20c19b3f3e69ce7e54a255",
+      "previous": "08206226b3e21478f80be3c7a2d2c40b7543943e79e06d7142b2a18e85580e38"
+    },
+    {
+      "file": "wal-000027.json",
+      "at": "2026-10-12T00:53:08.518Z",
+      "phase": "switch",
+      "operationId": "previous-reference-guard",
+      "status": "unknown",
+      "durationMs": 22201.886,
+      "reason": "nonzero_exit",
+      "eventSha256": "a40e765dddd23ea17f5f5edd6eab068bf56c12d58a70d03115c96b1070f84fbc",
+      "previous": "7dce05ebfc21d3feae2b8344942d0f485ca64074af20c19b3f3e69ce7e54a255"
+    },
+    {
+      "file": "wal-000028.json",
+      "at": "2026-10-12T01:32:56.808Z",
+      "phase": "switch",
+      "operationId": "previous-reference-guard",
+      "status": "passed",
+      "durationMs": null,
+      "reason": "independently-reconciled",
+      "eventSha256": "c7dfd925caa08213507d7903abd700b2e0b1373cec472c2ccbe265cd3767cd75",
+      "previous": "a40e765dddd23ea17f5f5edd6eab068bf56c12d58a70d03115c96b1070f84fbc"
+    },
+    {
+      "file": "wal-000029.json",
+      "at": "2026-10-12T01:34:16.185Z",
+      "phase": "queue",
+      "operationId": null,
+      "status": "resumed",
+      "durationMs": 52.595999999990454,
+      "reason": null,
+      "eventSha256": "69dd3ffe94edfd94c4616279f831bfe23bdf7bd0ab27b626588510a2ad33475c",
+      "previous": "c7dfd925caa08213507d7903abd700b2e0b1373cec472c2ccbe265cd3767cd75"
+    },
+    {
+      "file": "wal-000030.json",
+      "at": "2026-10-12T01:36:24.004Z",
+      "phase": "prepare",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 127815.9047,
+      "reason": "live-predecessor-and-integrity-revalidation",
+      "eventSha256": "55224a50bafc5683521723dee877dd64ec1051c54ed9b99811b8e7dcfa135211",
+      "previous": "69dd3ffe94edfd94c4616279f831bfe23bdf7bd0ab27b626588510a2ad33475c"
+    },
+    {
+      "file": "wal-000031.json",
+      "at": "2026-10-12T01:37:31.673Z",
+      "phase": "switch",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 67667.08790000001,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "acf2b5bd50f7b9c6f03a0f52def0816fc523f312ca3269d5317896025f22b47e",
+      "previous": "55224a50bafc5683521723dee877dd64ec1051c54ed9b99811b8e7dcfa135211"
+    },
+    {
+      "file": "wal-000032.json",
+      "at": "2026-10-12T01:37:31.687Z",
+      "phase": "switch",
+      "operationId": "op-deployapp-switch",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "5f34a576163fa17a10bae27c6254ff997341e10494229b870124afb70d3d9c56",
+      "previous": "acf2b5bd50f7b9c6f03a0f52def0816fc523f312ca3269d5317896025f22b47e"
+    },
+    {
+      "file": "wal-000033.json",
+      "at": "2026-10-12T01:38:46.599Z",
+      "phase": "switch",
+      "operationId": "op-deployapp-switch",
+      "status": "passed",
+      "durationMs": 74912.46759999997,
+      "reason": null,
+      "eventSha256": "a1652b56d2bd8489ffa510daf0484d5c6ceb4d92f8e53bbc5f99967374e464f3",
+      "previous": "5f34a576163fa17a10bae27c6254ff997341e10494229b870124afb70d3d9c56"
+    },
+    {
+      "file": "wal-000034.json",
+      "at": "2026-10-12T01:39:57.226Z",
+      "phase": "switch",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 70623.7439,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "9cc596919598b566f76c0f0d701b49ecfa6499fa7c7b40a67060d145accab9c7",
+      "previous": "a1652b56d2bd8489ffa510daf0484d5c6ceb4d92f8e53bbc5f99967374e464f3"
+    },
+    {
+      "file": "wal-000035.json",
+      "at": "2026-10-12T01:39:57.240Z",
+      "phase": "switch",
+      "operationId": "op-hardenacl-switch",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "4c2ca04855cc43e8f1ea5956b63abd299b07a08cd6f07e9e61e43b4dca716135",
+      "previous": "9cc596919598b566f76c0f0d701b49ecfa6499fa7c7b40a67060d145accab9c7"
+    },
+    {
+      "file": "wal-000036.json",
+      "at": "2026-10-12T01:40:21.892Z",
+      "phase": "switch",
+      "operationId": "op-hardenacl-switch",
+      "status": "passed",
+      "durationMs": 24651.27960000001,
+      "reason": null,
+      "eventSha256": "60d0e3cd1ff657ce8bd0c4c11d6b552f8389b72b3efa77ff38e484c6f32767c5",
+      "previous": "4c2ca04855cc43e8f1ea5956b63abd299b07a08cd6f07e9e61e43b4dca716135"
+    },
+    {
+      "file": "wal-000037.json",
+      "at": "2026-10-12T01:41:30.729Z",
+      "phase": "switch",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 68834.67830000003,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "9f98add340c296d7780b0760b685bbf11bb3a2d4ad5f81ae80c9758aa85eb7ed",
+      "previous": "60d0e3cd1ff657ce8bd0c4c11d6b552f8389b72b3efa77ff38e484c6f32767c5"
+    },
+    {
+      "file": "wal-000038.json",
+      "at": "2026-10-12T01:41:30.742Z",
+      "phase": "switch",
+      "operationId": "installed-recovery-consumer",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "524ab0b02452ddbffec143559ff4907f68ae5a6649068d5ebd2d333fa551634f",
+      "previous": "9f98add340c296d7780b0760b685bbf11bb3a2d4ad5f81ae80c9758aa85eb7ed"
+    },
+    {
+      "file": "wal-000039.json",
+      "at": "2026-10-12T01:44:40.269Z",
+      "phase": "switch",
+      "operationId": "installed-recovery-consumer",
+      "status": "passed",
+      "durationMs": 189526.47659999994,
+      "reason": null,
+      "eventSha256": "fb38d95476e9961209de2f212e69911136d1f8a04bd7ed313cf7f0a30c270ddd",
+      "previous": "524ab0b02452ddbffec143559ff4907f68ae5a6649068d5ebd2d333fa551634f"
+    },
+    {
+      "file": "wal-000040.json",
+      "at": "2026-10-12T01:45:49.195Z",
+      "phase": "switch",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 68922.78760000004,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "245344107b9bd8fb6ac9ad41c2dcbcd3797eb04f41609a7c1de6eeb32af5de7f",
+      "previous": "fb38d95476e9961209de2f212e69911136d1f8a04bd7ed313cf7f0a30c270ddd"
+    },
+    {
+      "file": "wal-000041.json",
+      "at": "2026-10-12T01:45:49.209Z",
+      "phase": "switch",
+      "operationId": "restore-installed",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "90668ea620cf5c1c1615781c6466bb08574ceaf618e7f95cc19b2b4bb91b416a",
+      "previous": "245344107b9bd8fb6ac9ad41c2dcbcd3797eb04f41609a7c1de6eeb32af5de7f"
+    },
+    {
+      "file": "wal-000042.json",
+      "at": "2026-10-12T01:56:56.034Z",
+      "phase": "switch",
+      "operationId": "restore-installed",
+      "status": "passed",
+      "durationMs": 666825.6435000001,
+      "reason": null,
+      "eventSha256": "c0b89f1c2589eb03c7b2106cbe98d020547a7f87f154452de760b9eeb68b3d3b",
+      "previous": "90668ea620cf5c1c1615781c6466bb08574ceaf618e7f95cc19b2b4bb91b416a"
+    },
+    {
+      "file": "wal-000043.json",
+      "at": "2026-10-12T01:58:16.317Z",
+      "phase": "switch",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 80279.96289999993,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "131110a1cfdab8d978e14d01b2064b687d53bb05577fa43421097abd03578de2",
+      "previous": "c0b89f1c2589eb03c7b2106cbe98d020547a7f87f154452de760b9eeb68b3d3b"
+    },
+    {
+      "file": "wal-000044.json",
+      "at": "2026-10-12T01:58:16.330Z",
+      "phase": "switch",
+      "operationId": "op-exitmaintenance-switch",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "ff7e9f5c042a74850ee6e69daecf4f87456aaa3dcc9c17909d81bc22cd91af25",
+      "previous": "131110a1cfdab8d978e14d01b2064b687d53bb05577fa43421097abd03578de2"
+    },
+    {
+      "file": "wal-000045.json",
+      "at": "2026-10-12T01:58:57.974Z",
+      "phase": "switch",
+      "operationId": "op-exitmaintenance-switch",
+      "status": "passed",
+      "durationMs": 41643.49369999999,
+      "reason": null,
+      "eventSha256": "93b655214daad02b5f815a1da83d96ffdd9aa5ee3646effa6f3ae5b7d4a4b9ac",
+      "previous": "ff7e9f5c042a74850ee6e69daecf4f87456aaa3dcc9c17909d81bc22cd91af25"
+    },
+    {
+      "file": "wal-000046.json",
+      "at": "2026-10-12T02:00:06.669Z",
+      "phase": "switch",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 68693.36490000016,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "6860ea39778f70253694aad3e47bade5af1aa364f668e798cb4a1d0687c1199c",
+      "previous": "93b655214daad02b5f815a1da83d96ffdd9aa5ee3646effa6f3ae5b7d4a4b9ac"
+    },
+    {
+      "file": "wal-000047.json",
+      "at": "2026-10-12T02:00:06.682Z",
+      "phase": "switch",
+      "operationId": "op-startworker-switch",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "a3d7ccbf574f315036a7132f52d6266a92b23485e0b0963a4449c8c00cbf73c9",
+      "previous": "6860ea39778f70253694aad3e47bade5af1aa364f668e798cb4a1d0687c1199c"
+    },
+    {
+      "file": "wal-000048.json",
+      "at": "2026-10-12T02:05:55.216Z",
+      "phase": "switch",
+      "operationId": "op-startworker-switch",
+      "status": "unknown",
+      "durationMs": 348533.20570000005,
+      "reason": "nonzero_exit",
+      "eventSha256": "1a614e58caf56a243ea8dead3ce1609993fd993c3ed39cac296bf83c64617bd4",
+      "previous": "a3d7ccbf574f315036a7132f52d6266a92b23485e0b0963a4449c8c00cbf73c9"
+    },
+    {
+      "file": "wal-000049.json",
+      "at": "2026-10-12T07:22:10.556Z",
+      "phase": "switch",
+      "operationId": "op-startworker-switch",
+      "status": "passed",
+      "durationMs": null,
+      "reason": "independently-reconciled",
+      "eventSha256": "5062ef203bb96318e437be820eb86ec5964644405b21215375a2ad11ba294e46",
+      "previous": "1a614e58caf56a243ea8dead3ce1609993fd993c3ed39cac296bf83c64617bd4"
+    },
+    {
+      "file": "wal-000050.json",
+      "at": "2026-10-12T07:27:05.259Z",
+      "phase": "queue",
+      "operationId": null,
+      "status": "resumed",
+      "durationMs": 57.114500000025146,
+      "reason": null,
+      "eventSha256": "ad62efded9d8ba478a024df8c523c7bc71da7f1a3b108c4dc163d4e3a03b7fc9",
+      "previous": "5062ef203bb96318e437be820eb86ec5964644405b21215375a2ad11ba294e46"
+    },
+    {
+      "file": "wal-000051.json",
+      "at": "2026-10-12T07:31:34.836Z",
+      "phase": "prepare",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 269574.9376,
+      "reason": "live-predecessor-and-integrity-revalidation",
+      "eventSha256": "c5349da1f2eff166f4de95a36553f2efc704e127320da925a3d613cb0211eedb",
+      "previous": "ad62efded9d8ba478a024df8c523c7bc71da7f1a3b108c4dc163d4e3a03b7fc9"
+    },
+    {
+      "file": "wal-000052.json",
+      "at": "2026-10-12T07:33:57.174Z",
+      "phase": "acceptance",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 142334.78709999996,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "eb44d382ba1fc450a7dfbec80c5ef5c63695f5d1c8c5f1fb99fbe5c548062304",
+      "previous": "c5349da1f2eff166f4de95a36553f2efc704e127320da925a3d613cb0211eedb"
+    },
+    {
+      "file": "wal-000053.json",
+      "at": "2026-10-12T07:33:57.191Z",
+      "phase": "acceptance",
+      "operationId": "observe-display",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "f264e1642b0a58a252f68af34d775e5ded641120a9b30a2baf4400e816e6128b",
+      "previous": "eb44d382ba1fc450a7dfbec80c5ef5c63695f5d1c8c5f1fb99fbe5c548062304"
+    },
+    {
+      "file": "wal-000054.json",
+      "at": "2026-10-12T07:33:58.980Z",
+      "phase": "acceptance",
+      "operationId": "observe-display",
+      "status": "unknown",
+      "durationMs": 1788.39300000004,
+      "reason": "no-data-observation-failed",
+      "eventSha256": "049ed41a62780e8e96f92def16f4e71226ddfc679931ca098906ab6a972691fc",
+      "previous": "f264e1642b0a58a252f68af34d775e5ded641120a9b30a2baf4400e816e6128b"
+    },
+    {
+      "file": "wal-000055.json",
+      "at": "2026-10-12T08:06:32.924Z",
+      "phase": "acceptance",
+      "operationId": "observe-display",
+      "status": "passed",
+      "durationMs": null,
+      "reason": "independently-reconciled",
+      "eventSha256": "fcd7630e8c2623bfcfcde4cb624e683fc03d3f6ab166c9c9bc110cb31f1d7b06",
+      "previous": "049ed41a62780e8e96f92def16f4e71226ddfc679931ca098906ab6a972691fc"
+    },
+    {
+      "file": "wal-000056.json",
+      "at": "2026-10-12T08:11:30.859Z",
+      "phase": "queue",
+      "operationId": null,
+      "status": "resumed",
+      "durationMs": 65.77269999997225,
+      "reason": null,
+      "eventSha256": "b216c987abd5e7293de764dcb628d79cd90ff5f9c59bd90fbfccace1ea86552b",
+      "previous": "fcd7630e8c2623bfcfcde4cb624e683fc03d3f6ab166c9c9bc110cb31f1d7b06"
+    },
+    {
+      "file": "wal-000057.json",
+      "at": "2026-10-12T08:14:59.272Z",
+      "phase": "prepare",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 208410.11929999996,
+      "reason": "live-predecessor-and-integrity-revalidation",
+      "eventSha256": "a7d115fc830e8f88346fb6e0a18f2e4d73b72b108178bbc1b57f84e33d56c759",
+      "previous": "b216c987abd5e7293de764dcb628d79cd90ff5f9c59bd90fbfccace1ea86552b"
+    },
+    {
+      "file": "wal-000058.json",
+      "at": "2026-10-12T08:17:21.846Z",
+      "phase": "acceptance",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 142571.45579999994,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "523f087d5aceebd1e7523ef3cf02646418525883bab2831956bd6691303ca13e",
+      "previous": "a7d115fc830e8f88346fb6e0a18f2e4d73b72b108178bbc1b57f84e33d56c759"
+    },
+    {
+      "file": "wal-000059.json",
+      "at": "2026-10-12T08:17:21.868Z",
+      "phase": "acceptance",
+      "operationId": "observe-permissions",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "22988f7ad1aabd6d14c629769215fd9b01d59f2dca026dd097ce09b21d304a7b",
+      "previous": "523f087d5aceebd1e7523ef3cf02646418525883bab2831956bd6691303ca13e"
+    },
+    {
+      "file": "wal-000060.json",
+      "at": "2026-10-12T08:17:21.951Z",
+      "phase": "acceptance",
+      "operationId": "observe-permissions",
+      "status": "passed",
+      "durationMs": 82.94850000005681,
+      "reason": null,
+      "eventSha256": "7d93d6094580d80f980b8c8db558ae61136359c6ec499149a09d956d2c769cc8",
+      "previous": "22988f7ad1aabd6d14c629769215fd9b01d59f2dca026dd097ce09b21d304a7b"
+    },
+    {
+      "file": "wal-000061.json",
+      "at": "2026-10-12T08:19:21.721Z",
+      "phase": "acceptance",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 119766.71089999995,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "573be4eab0f23517dafff97e955753dc76cf2d0ffd50fdc58ee32e40bd0fdc20",
+      "previous": "7d93d6094580d80f980b8c8db558ae61136359c6ec499149a09d956d2c769cc8"
+    },
+    {
+      "file": "wal-000062.json",
+      "at": "2026-10-12T08:19:21.748Z",
+      "phase": "acceptance",
+      "operationId": "unchanged-business-closure",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "0490b8a10bea6585ec7834953cebd02944e48cb2481517bc6773b873fc08e278",
+      "previous": "573be4eab0f23517dafff97e955753dc76cf2d0ffd50fdc58ee32e40bd0fdc20"
+    },
+    {
+      "file": "wal-000063.json",
+      "at": "2026-10-12T08:19:32.722Z",
+      "phase": "acceptance",
+      "operationId": "unchanged-business-closure",
+      "status": "passed",
+      "durationMs": 10973.765899999999,
+      "reason": null,
+      "eventSha256": "35a05311d174605f889ab1cd0530cfd0857b16281306ed7d7dde24544aa7fbba",
+      "previous": "0490b8a10bea6585ec7834953cebd02944e48cb2481517bc6773b873fc08e278"
+    },
+    {
+      "file": "wal-000064.json",
+      "at": "2026-10-12T08:21:38.489Z",
+      "phase": "acceptance",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 125765.01890000002,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "00e91930ea24fa33ea22efedb5ebc288b26cae75563c2360b3b3ef98b0822408",
+      "previous": "35a05311d174605f889ab1cd0530cfd0857b16281306ed7d7dde24544aa7fbba"
+    },
+    {
+      "file": "wal-000065.json",
+      "at": "2026-10-12T08:21:38.505Z",
+      "phase": "acceptance",
+      "operationId": "op-verifystartup-acceptance",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "d8ed44288f215b3bf2d132ca9e3cf70ae44d4f49111917a6ee381a11b2db8656",
+      "previous": "00e91930ea24fa33ea22efedb5ebc288b26cae75563c2360b3b3ef98b0822408"
+    },
+    {
+      "file": "wal-000066.json",
+      "at": "2026-10-12T08:21:45.377Z",
+      "phase": "acceptance",
+      "operationId": "op-verifystartup-acceptance",
+      "status": "passed",
+      "durationMs": 6872.420500000007,
+      "reason": null,
+      "eventSha256": "55355cc31c9ef15648f845e3981ac01c24512d5b705670de4546c2c38fda3fbc",
+      "previous": "d8ed44288f215b3bf2d132ca9e3cf70ae44d4f49111917a6ee381a11b2db8656"
+    },
+    {
+      "file": "wal-000067.json",
+      "at": "2026-10-12T08:23:44.456Z",
+      "phase": "acceptance",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 119076.21230000001,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "a64527eb50153b25ca33467ace6e0446dbe50411ba45d52fac9ef108f2b1a84e",
+      "previous": "55355cc31c9ef15648f845e3981ac01c24512d5b705670de4546c2c38fda3fbc"
+    },
+    {
+      "file": "wal-000068.json",
+      "at": "2026-10-12T08:23:44.472Z",
+      "phase": "acceptance",
+      "operationId": "op-aggregatestatus-acceptance",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "a33c9f269b21f5659552374fe26247c732699ebb1e1c09a7f347c0ac8fe61544",
+      "previous": "a64527eb50153b25ca33467ace6e0446dbe50411ba45d52fac9ef108f2b1a84e"
+    },
+    {
+      "file": "wal-000069.json",
+      "at": "2026-10-12T08:24:05.464Z",
+      "phase": "acceptance",
+      "operationId": "op-aggregatestatus-acceptance",
+      "status": "passed",
+      "durationMs": 20990.9598999999,
+      "reason": null,
+      "eventSha256": "a6326794161389d9c9b07ed3c8bcdf8abb9313a59f8eccdc3eea60ed2d4d5e39",
+      "previous": "a33c9f269b21f5659552374fe26247c732699ebb1e1c09a7f347c0ac8fe61544"
+    },
+    {
+      "file": "wal-000070.json",
+      "at": "2026-10-12T08:26:18.490Z",
+      "phase": "acceptance",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 133023.57199999993,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "56ae396b39503ee065434e7c188b968d0d2feec64cccb7a4f46da9f30db0d656",
+      "previous": "a6326794161389d9c9b07ed3c8bcdf8abb9313a59f8eccdc3eea60ed2d4d5e39"
+    },
+    {
+      "file": "wal-000071.json",
+      "at": "2026-10-12T08:26:18.505Z",
+      "phase": "acceptance",
+      "operationId": "observe-natural-watchdog",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "2925653941c7c224a67992aee330cb002a72f41329f3c3c3fa3194590be41f37",
+      "previous": "56ae396b39503ee065434e7c188b968d0d2feec64cccb7a4f46da9f30db0d656"
+    },
+    {
+      "file": "wal-000072.json",
+      "at": "2026-10-12T08:28:33.770Z",
+      "phase": "acceptance",
+      "operationId": "observe-natural-watchdog",
+      "status": "unknown",
+      "durationMs": 135264.60030000005,
+      "reason": "no-data-observation-failed",
+      "eventSha256": "5ae2756079dea7853701d3791afd99d98fb985719b5c8634f1b0033b37fe79fc",
+      "previous": "2925653941c7c224a67992aee330cb002a72f41329f3c3c3fa3194590be41f37"
+    },
+    {
+      "file": "wal-000073.json",
+      "at": "2026-10-12T10:57:00.190Z",
+      "phase": "acceptance",
+      "operationId": "observe-natural-watchdog",
+      "status": "passed",
+      "durationMs": null,
+      "reason": "independently-reconciled",
+      "eventSha256": "227675e2a6bd7066525dea46750b436d9fd2ae287d676e4595d8d0ba687eafde",
+      "previous": "5ae2756079dea7853701d3791afd99d98fb985719b5c8634f1b0033b37fe79fc"
+    },
+    {
+      "file": "wal-000074.json",
+      "at": "2026-10-12T11:01:47.160Z",
+      "phase": "queue",
+      "operationId": null,
+      "status": "resumed",
+      "durationMs": 86.5289000000339,
+      "reason": null,
+      "eventSha256": "25d5b6349aefe348b2287eba0606e2313a8dc3bbcf8c3ec48a47111d5217052e",
+      "previous": "227675e2a6bd7066525dea46750b436d9fd2ae287d676e4595d8d0ba687eafde"
+    },
+    {
+      "file": "wal-000075.json",
+      "at": "2026-10-12T11:04:59.619Z",
+      "phase": "prepare",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 192455.22139999998,
+      "reason": "live-predecessor-and-integrity-revalidation",
+      "eventSha256": "7eafc57ea968e398190b9699d3e2167d6d4430e1ae933d7f59bf64fb9caaf8ec",
+      "previous": "25d5b6349aefe348b2287eba0606e2313a8dc3bbcf8c3ec48a47111d5217052e"
+    },
+    {
+      "file": "wal-000076.json",
+      "at": "2026-10-12T11:08:04.839Z",
+      "phase": "closeout",
+      "operationId": null,
+      "status": "admission",
+      "durationMs": 185216.7846,
+      "reason": "operation-boundary-revalidation",
+      "eventSha256": "e457edcd814aeca6177ce51932927d8c8bdde40162b29302a0c016f2a722840b",
+      "previous": "7eafc57ea968e398190b9699d3e2167d6d4430e1ae933d7f59bf64fb9caaf8ec"
+    },
+    {
+      "file": "wal-000077.json",
+      "at": "2026-10-12T11:08:04.862Z",
+      "phase": "closeout",
+      "operationId": "op-verifystartup-closeout",
+      "status": "started",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "2c138a1f391fab7301d17e226b72a82fd73d6342aed32943576033c0fa6ac1b4",
+      "previous": "e457edcd814aeca6177ce51932927d8c8bdde40162b29302a0c016f2a722840b"
+    },
+    {
+      "file": "wal-000078.json",
+      "at": "2026-10-12T11:08:10.973Z",
+      "phase": "closeout",
+      "operationId": "op-verifystartup-closeout",
+      "status": "passed",
+      "durationMs": 6110.809400000027,
+      "reason": null,
+      "eventSha256": "dcfe189c107d96f479836c3f099402a27d8c9c9635151bbef78a556070a9c053",
+      "previous": "2c138a1f391fab7301d17e226b72a82fd73d6342aed32943576033c0fa6ac1b4"
+    },
+    {
+      "file": "wal-000079.json",
+      "at": "2026-10-12T11:08:10.976Z",
+      "phase": "closeout",
+      "operationId": null,
+      "status": "completed",
+      "durationMs": null,
+      "reason": null,
+      "eventSha256": "0f15cef55c6f108e45cf8b7c45d8d9f365d0d0d5ca750131a8d7cff9e9daf8b5",
+      "previous": "dcfe189c107d96f479836c3f099402a27d8c9c9635151bbef78a556070a9c053"
+    }
+  ],
+  "admissions": {
+    "count": 26,
+    "seconds": 3544.4724683,
+    "failedAdmissionSeconds": 51.63062969999999,
+    "stages": {
+      "classification": {
+        "count": 26,
+        "seconds": 5.764892
+      },
+      "django-identity": {
+        "count": 26,
+        "seconds": 0.048441
+      },
+      "journal": {
+        "count": 26,
+        "seconds": 1.165345
+      },
+      "django-migration-closure": {
+        "count": 26,
+        "seconds": 312.559608
+      },
+      "effective-chain-and-guards": {
+        "count": 26,
+        "seconds": 89.860615
+      },
+      "no-data-deployment-inputs": {
+        "count": 26,
+        "seconds": 0.002163
+      },
+      "source-and-toolchain-initial": {
+        "count": 26,
+        "seconds": 795.761283
+      },
+      "predecessor-source": {
+        "count": 26,
+        "seconds": 61.944922
+      },
+      "tests-evidence": {
+        "count": 26,
+        "seconds": 0.17352
+      },
+      "complete-artifact-and-head": {
+        "count": 10,
+        "seconds": 1043.104408
+      },
+      "source-and-toolchain-final": {
+        "count": 26,
+        "seconds": 761.419582
+      },
+      "effective-chain-final": {
+        "count": 26,
+        "seconds": 87.383222
+      },
+      "django-identity-final": {
+        "count": 26,
+        "seconds": 0.024155
+      },
+      "journal-final": {
+        "count": 26,
+        "seconds": 1.119835
+      },
+      "worker-helper-process-identity": {
+        "count": 26,
+        "seconds": 132.20861
+      },
+      "complete-status": {
+        "count": 7,
+        "seconds": 233.601147
+      }
+    },
+    "byPhase": {
+      "prepare": {
+        "count": 8,
+        "seconds": 1533.424812
+      },
+      "backup-pre": {
+        "count": 1,
+        "seconds": 104.043877
+      },
+      "drain": {
+        "count": 1,
+        "seconds": 272.735754
+      },
+      "switch": {
+        "count": 9,
+        "seconds": 666.513483
+      },
+      "acceptance": {
+        "count": 6,
+        "seconds": 782.537757
+      },
+      "closeout": {
+        "count": 1,
+        "seconds": 185.216785
+      }
+    }
+  },
+  "f15UnknownResolution": [
+    {
+      "operationId": "backup-pre",
+      "unknownAt": "2026-10-11T16:39:07.994Z",
+      "resolvedAt": "2026-10-11T17:12:38.480Z",
+      "unknownToResolutionSeconds": 2010.486,
+      "failedExecutionSeconds": 600.1418923
+    },
+    {
+      "operationId": "op-stopworker-switch",
+      "unknownAt": "2026-10-11T17:31:58.488Z",
+      "resolvedAt": "2026-10-12T00:44:37.078Z",
+      "unknownToResolutionSeconds": 25958.59,
+      "failedExecutionSeconds": 5.365306600000011
+    },
+    {
+      "operationId": "previous-reference-guard",
+      "unknownAt": "2026-10-12T00:53:08.518Z",
+      "resolvedAt": "2026-10-12T01:32:56.808Z",
+      "unknownToResolutionSeconds": 2388.29,
+      "failedExecutionSeconds": 22.201886
+    },
+    {
+      "operationId": "op-startworker-switch",
+      "unknownAt": "2026-10-12T02:05:55.216Z",
+      "resolvedAt": "2026-10-12T07:22:10.556Z",
+      "unknownToResolutionSeconds": 18975.34,
+      "failedExecutionSeconds": 348.53320570000005
+    },
+    {
+      "operationId": "observe-display",
+      "unknownAt": "2026-10-12T07:33:58.980Z",
+      "resolvedAt": "2026-10-12T08:06:32.924Z",
+      "unknownToResolutionSeconds": 1953.944,
+      "failedExecutionSeconds": 1.78839300000004
+    },
+    {
+      "operationId": "observe-natural-watchdog",
+      "unknownAt": "2026-10-12T08:28:33.770Z",
+      "resolvedAt": "2026-10-12T10:57:00.190Z",
+      "unknownToResolutionSeconds": 8906.42,
+      "failedExecutionSeconds": 135.26460030000004
+    }
+  ],
+  "deliveries": [
+    {
+      "source": "E:/codex-artifacts/watchdog-native-census-20261012/FINAL_DELIVERY_RECEIPT_V1.json",
+      "receipt": {
+        "version": "release-final-delivery-receipt-v1",
+        "deliveredAt": "2026-10-12T11:16:11.352Z",
+        "commit": "1a39c3dce8657cdd452c95345528f48f759cea04",
+        "remoteMain": "1a39c3dce8657cdd452c95345528f48f759cea04",
+        "remoteBranch": "1a39c3dce8657cdd452c95345528f48f759cea04",
+        "gitFilesVerified": 117,
+        "worktreeClean": true,
+        "productionCompletedAt": "2026-10-12T11:08:10.976Z",
+        "necessaryAcceptanceAt": "2026-10-12T11:08:10.973Z",
+        "approvalAt": "2026-10-11T15:25:28Z",
+        "necessaryElapsedMs": 70962973,
+        "allDeliveryElapsedMs": 71443352,
+        "memoryUpdated": true,
+        "projectMemorySha256": "46b46d47c6037cb8b0b1cacf16501826f9f20859b747b7132fb468ae3b90f3b1",
+        "workflowMemorySha256": "1000ff7eaae5dbc2d16ac72f537688017d132ffcceb14208af05f6005d9e4e05",
+        "operationsPassed": 19,
+        "walRecords": 80,
+        "worktreeRetainedForEvidenceReferences": true
+      }
+    },
+    {
+      "source": "E:/codex-artifacts/watchdog-native-census-20261012/FINAL_DELIVERY_RECEIPT_V2.json",
+      "receipt": {
+        "version": "release-final-delivery-receipt-v2",
+        "deliveredAt": "2026-10-12T11:17:33.160Z",
+        "commit": "b3c6018cca6c2b2b5c8fa6c5b52e376f3a84f354",
+        "remoteMain": "b3c6018cca6c2b2b5c8fa6c5b52e376f3a84f354",
+        "remoteBranch": "b3c6018cca6c2b2b5c8fa6c5b52e376f3a84f354",
+        "gitFilesVerified": 117,
+        "worktreeClean": true,
+        "productionCompletedAt": "2026-10-12T11:08:10.976Z",
+        "necessaryAcceptanceAt": "2026-10-12T11:08:10.973Z",
+        "approvalAt": "2026-10-11T15:25:28Z",
+        "necessaryElapsedMs": 70962973,
+        "allDeliveryElapsedMs": 71525160,
+        "memoryUpdated": true,
+        "projectMemorySha256": "a207b89b1a6469bf538fdc9e35f3fb9d922379ad72834453b7e243bd25bdc171",
+        "workflowMemorySha256": "1000ff7eaae5dbc2d16ac72f537688017d132ffcceb14208af05f6005d9e4e05",
+        "operationsPassed": 19,
+        "walRecords": 80,
+        "worktreeRetainedForEvidenceReferences": true,
+        "supersedes": "FINAL_DELIVERY_RECEIPT_V1.json",
+        "historicalTestClaimClarified": true
+      }
+    },
+    {
+      "source": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/DELIVERY_COMPLETED.json",
+      "receipt": {
+        "status": "fully-delivered",
+        "completedAt": "2026-10-09T03:27:47.6617309+00:00",
+        "approvedAt": "2026-10-09T00:40:46Z",
+        "approvedToAllDeliveryCloseoutMs": 10021661.7309,
+        "firstApprovalToAllDeliveryCloseoutMs": 35443661.7309,
+        "officialBatchCompletedAt": "2026-10-09T03:03:20.676Z",
+        "officialApprovedToBatchCompleteMs": 8554676,
+        "independentReview": "passed-with-four-independent-reconciliations",
+        "remoteMainCommit": "48792efb3d454e9f3355bef92efc5424b1429a13",
+        "developmentWorktreeArchived": true,
+        "localTaskBranchDeleted": true,
+        "runtimePackagesAndOtherCandidatePreserved": true,
+        "actualBusinessImportsByThisBatch": 0,
+        "backupScheduleStatus": "PAUSED"
+      }
+    }
+  ],
+  "historicalControllers": {
+    "five-performance": [
+      {
+        "file": "apply-worker.json",
+        "startedAt": "2026-10-05T21:18:06.939361+00:00",
+        "finishedAt": "2026-10-05T21:20:43.352969+00:00",
+        "seconds": 156.413608,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "backup-status.json",
+        "startedAt": "2026-10-05T21:52:03.943045+00:00",
+        "finishedAt": "2026-10-05T21:52:12.896804+00:00",
+        "seconds": 8.953759,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "deploy-django.json",
+        "startedAt": "2026-10-05T21:15:52.746094+00:00",
+        "finishedAt": "2026-10-05T21:17:04.761358+00:00",
+        "seconds": 72.015264,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "enter-maintenance.json",
+        "startedAt": "2026-10-05T21:08:07.306594+00:00",
+        "finishedAt": "2026-10-05T21:11:25.730639+00:00",
+        "seconds": 198.424045,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "exit-maintenance.json",
+        "startedAt": "2026-10-05T21:42:41.232591+00:00",
+        "finishedAt": "2026-10-05T21:43:18.905632+00:00",
+        "seconds": 37.673041,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "final-status.json",
+        "startedAt": "2026-10-05T21:48:29.123697+00:00",
+        "finishedAt": "2026-10-05T21:48:36.042092+00:00",
+        "seconds": 6.918395,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "frozen-content.json",
+        "startedAt": "2026-10-05T21:11:33.085349+00:00",
+        "finishedAt": "2026-10-05T21:15:35.732487+00:00",
+        "seconds": 242.647138,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "harden-django.json",
+        "startedAt": "2026-10-05T21:17:34.400245+00:00",
+        "finishedAt": "2026-10-05T21:18:00.257355+00:00",
+        "seconds": 25.85711,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "post-backup.json",
+        "startedAt": "2026-10-05T21:21:31.603388+00:00",
+        "finishedAt": "2026-10-05T21:30:48.096815+00:00",
+        "seconds": 556.493427,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "post-restore.json",
+        "startedAt": "2026-10-05T21:31:24.100706+00:00",
+        "finishedAt": "2026-10-05T21:41:08.323664+00:00",
+        "seconds": 584.222958,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "post-verify.json",
+        "startedAt": "2026-10-05T21:31:10.804869+00:00",
+        "finishedAt": "2026-10-05T21:31:12.969649+00:00",
+        "seconds": 2.16478,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "pre-backup.json",
+        "startedAt": "2026-10-05T20:32:33.401011+00:00",
+        "finishedAt": "2026-10-05T20:43:08.289214+00:00",
+        "seconds": 634.888203,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "pre-restore-bound.json",
+        "startedAt": "2026-10-05T20:51:19.048972+00:00",
+        "finishedAt": "2026-10-05T21:01:35.837600+00:00",
+        "seconds": 616.788628,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "pre-restore.json",
+        "startedAt": "2026-10-05T20:48:01.745579+00:00",
+        "finishedAt": "2026-10-05T20:48:38.261447+00:00",
+        "seconds": 36.515868,
+        "exitCode": 1,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "pre-verify.json",
+        "startedAt": "2026-10-05T20:46:45.455711+00:00",
+        "finishedAt": "2026-10-05T20:46:47.915654+00:00",
+        "seconds": 2.459943,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "start-system.json",
+        "startedAt": "2026-10-05T21:43:52.347434+00:00",
+        "finishedAt": "2026-10-05T21:47:44.319094+00:00",
+        "seconds": 231.97166,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "system-status.json",
+        "startedAt": "2026-10-05T21:49:56.534799+00:00",
+        "finishedAt": "2026-10-05T21:50:26.889776+00:00",
+        "seconds": 30.354977,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "verify-startup.json",
+        "startedAt": "2026-10-05T21:51:10.192339+00:00",
+        "finishedAt": "2026-10-05T21:51:14.518277+00:00",
+        "seconds": 4.325938,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      }
+    ],
+    "product-overview": [
+      {
+        "file": "apply-worker.result.json",
+        "startedAt": "2026-10-05T13:13:02.901572+00:00",
+        "finishedAt": "2026-10-05T13:15:44.272735+00:00",
+        "seconds": 161.371163,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "deploy-django.result.json",
+        "startedAt": "2026-10-05T13:08:39.790298+00:00",
+        "finishedAt": "2026-10-05T13:09:40.703626+00:00",
+        "seconds": 60.913328,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "enter-maintenance.result.json",
+        "startedAt": "2026-10-05T13:05:32.316161+00:00",
+        "finishedAt": "2026-10-05T13:07:59.592025+00:00",
+        "seconds": 147.275864,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "exit-maintenance-retry.result.json",
+        "startedAt": "2026-10-05T13:38:12.759034+00:00",
+        "finishedAt": "2026-10-05T13:38:39.376687+00:00",
+        "seconds": 26.617653,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "exit-maintenance.result.json",
+        "startedAt": "2026-10-05T13:35:01.816056+00:00",
+        "finishedAt": "2026-10-05T13:35:36.906068+00:00",
+        "seconds": 35.090012,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": "Erroneous capture wrapper exit0; original operation failed"
+      },
+      {
+        "file": "harden-django.result.json",
+        "startedAt": "2026-10-05T13:11:06.122553+00:00",
+        "finishedAt": "2026-10-05T13:11:26.471339+00:00",
+        "seconds": 20.348786,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "post-backup.result.json",
+        "startedAt": "2026-10-05T13:13:13.984390+00:00",
+        "finishedAt": "2026-10-05T13:21:56.170521+00:00",
+        "seconds": 522.186131,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "post-restore.result.json",
+        "startedAt": "2026-10-05T13:23:04.092812+00:00",
+        "finishedAt": "2026-10-05T13:33:00.482144+00:00",
+        "seconds": 596.389332,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "post-system-status-final.result.json",
+        "startedAt": "2026-10-05T13:43:22.909576+00:00",
+        "finishedAt": "2026-10-05T13:43:50.592237+00:00",
+        "seconds": 27.682661,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "post-system-status.result.json",
+        "startedAt": "2026-10-05T13:36:15.034657+00:00",
+        "finishedAt": "2026-10-05T13:36:32.389801+00:00",
+        "seconds": 17.355144,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "post-verify.result.json",
+        "startedAt": "2026-10-05T13:23:01.876926+00:00",
+        "finishedAt": "2026-10-05T13:23:04.000356+00:00",
+        "seconds": 2.12343,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "pre-backup-status.result.json",
+        "startedAt": "2026-10-05T12:32:12.460363+00:00",
+        "finishedAt": "2026-10-05T12:32:21.373419+00:00",
+        "seconds": 8.913056,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "pre-backup.result.json",
+        "startedAt": "2026-10-05T12:34:15.216424+00:00",
+        "finishedAt": "2026-10-05T12:48:31.361004+00:00",
+        "seconds": 856.14458,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "pre-maintenance-status.result.json",
+        "startedAt": "2026-10-05T12:32:08.111480+00:00",
+        "finishedAt": "2026-10-05T12:32:12.362646+00:00",
+        "seconds": 4.251166,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "pre-restore.result.json",
+        "startedAt": "2026-10-05T12:49:52.782879+00:00",
+        "finishedAt": "2026-10-05T13:00:51.679776+00:00",
+        "seconds": 658.896897,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "pre-system-status.result.json",
+        "startedAt": "2026-10-05T12:31:15.285799+00:00",
+        "finishedAt": "2026-10-05T12:31:44.449873+00:00",
+        "seconds": 29.164074,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "pre-verify.result.json",
+        "startedAt": "2026-10-05T12:49:50.162720+00:00",
+        "finishedAt": "2026-10-05T12:49:52.684436+00:00",
+        "seconds": 2.521716,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "start-worker-retry.result.json",
+        "startedAt": "2026-10-05T13:38:49.677758+00:00",
+        "finishedAt": "2026-10-05T13:42:54.475561+00:00",
+        "seconds": 244.797803,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "start-worker.result.json",
+        "startedAt": "2026-10-05T13:36:01.466081+00:00",
+        "finishedAt": "2026-10-05T13:36:05.358319+00:00",
+        "seconds": 3.892238,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": "Erroneous capture wrapper exit0; original operation failed"
+      },
+      {
+        "file": "startup-binding.result.json",
+        "startedAt": "2026-10-05T13:45:07.560814+00:00",
+        "finishedAt": "2026-10-05T13:45:12.345390+00:00",
+        "seconds": 4.784576,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      }
+    ],
+    "bi-addition": [
+      {
+        "file": "apply-worker.json",
+        "startedAt": "2026-10-06T02:03:23.070680+00:00",
+        "finishedAt": "2026-10-06T02:05:32.164743+00:00",
+        "seconds": 129.094063,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "deploy-django.json",
+        "startedAt": "2026-10-06T01:57:31.708943+00:00",
+        "finishedAt": "2026-10-06T01:58:14.593396+00:00",
+        "seconds": 42.884453,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "enter-maintenance.json",
+        "startedAt": "2026-10-06T01:15:59.858580+00:00",
+        "finishedAt": "2026-10-06T01:20:08.458873+00:00",
+        "seconds": 248.600293,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "exit-maintenance.json",
+        "startedAt": "2026-10-06T02:31:34.089007+00:00",
+        "finishedAt": "2026-10-06T02:32:07.652658+00:00",
+        "seconds": 33.563651,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "finalize-addition.json",
+        "startedAt": "2026-10-06T02:29:50.474856+00:00",
+        "finishedAt": "2026-10-06T02:30:53.928822+00:00",
+        "seconds": 63.453966,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "harden-django.json",
+        "startedAt": "2026-10-06T01:59:13.169989+00:00",
+        "finishedAt": "2026-10-06T01:59:37.891576+00:00",
+        "seconds": 24.721587,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "install-addition.json",
+        "startedAt": "2026-10-06T02:00:59.329126+00:00",
+        "finishedAt": "2026-10-06T02:01:38.965604+00:00",
+        "seconds": 39.636478,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "plan-addition-git-fixed.json",
+        "startedAt": "2026-10-06T01:55:48.844659+00:00",
+        "finishedAt": "2026-10-06T01:56:42.033849+00:00",
+        "seconds": 53.18919,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "plan-addition.json",
+        "startedAt": "2026-10-06T01:46:18.767453+00:00",
+        "finishedAt": "2026-10-06T01:46:53.118628+00:00",
+        "seconds": 34.351175,
+        "exitCode": 1,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "post-backup.json",
+        "startedAt": "2026-10-06T02:06:39.351157+00:00",
+        "finishedAt": "2026-10-06T02:16:43.187212+00:00",
+        "seconds": 603.836055,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "post-restore.json",
+        "startedAt": "2026-10-06T02:18:15.335792+00:00",
+        "finishedAt": "2026-10-06T02:28:44.136398+00:00",
+        "seconds": 628.800606,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "post-verify.json",
+        "startedAt": "2026-10-06T02:18:04.110417+00:00",
+        "finishedAt": "2026-10-06T02:18:06.306306+00:00",
+        "seconds": 2.195889,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "pre-backup.json",
+        "startedAt": "2026-10-06T01:21:03.963582+00:00",
+        "finishedAt": "2026-10-06T01:32:22.515693+00:00",
+        "seconds": 678.552111,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "pre-restore.json",
+        "startedAt": "2026-10-06T01:33:45.243188+00:00",
+        "finishedAt": "2026-10-06T01:44:00.901856+00:00",
+        "seconds": 615.658668,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "pre-verify.json",
+        "startedAt": "2026-10-06T01:33:33.988613+00:00",
+        "finishedAt": "2026-10-06T01:33:36.224427+00:00",
+        "seconds": 2.235814,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "start-system.json",
+        "startedAt": "2026-10-06T02:32:32.576007+00:00",
+        "finishedAt": "2026-10-06T02:36:18.938284+00:00",
+        "seconds": 226.362277,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      }
+    ],
+    "bi-transport": [
+      {
+        "file": "deploy-django.json",
+        "startedAt": "2026-10-06T03:33:50.552775+00:00",
+        "finishedAt": "2026-10-06T03:35:34.327578+00:00",
+        "seconds": 103.774803,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "enter-maintenance.json",
+        "startedAt": "2026-10-06T03:16:31.564936+00:00",
+        "finishedAt": "2026-10-06T03:21:51.470336+00:00",
+        "seconds": 319.9054,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "exit-maintenance.json",
+        "startedAt": "2026-10-06T05:52:52.780118+00:00",
+        "finishedAt": "2026-10-06T05:53:31.808672+00:00",
+        "seconds": 39.028554,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "frozen-content.json",
+        "startedAt": "2026-10-06T03:25:02.233182+00:00",
+        "finishedAt": "2026-10-06T03:29:09.717700+00:00",
+        "seconds": 247.484518,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "harden-django.json",
+        "startedAt": "2026-10-06T03:38:03.175440+00:00",
+        "finishedAt": "2026-10-06T03:38:33.253089+00:00",
+        "seconds": 30.077649,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "post-backup.json",
+        "startedAt": "2026-10-06T03:40:41.082288+00:00",
+        "finishedAt": "2026-10-06T03:51:13.614747+00:00",
+        "seconds": 632.532459,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "post-restore.json",
+        "startedAt": "2026-10-06T04:09:38.889866+00:00",
+        "finishedAt": "2026-10-06T04:20:00.559964+00:00",
+        "seconds": 621.670098,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "post-verify.json",
+        "startedAt": "2026-10-06T04:09:07.263983+00:00",
+        "finishedAt": "2026-10-06T04:09:09.965269+00:00",
+        "seconds": 2.701286,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "pre-backup.json",
+        "startedAt": "2026-10-06T02:48:57.189769+00:00",
+        "finishedAt": "2026-10-06T02:59:48.972337+00:00",
+        "seconds": 651.782568,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "pre-restore.json",
+        "startedAt": "2026-10-06T03:01:45.400508+00:00",
+        "finishedAt": "2026-10-06T03:13:14.242544+00:00",
+        "seconds": 688.842036,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "pre-verify.json",
+        "startedAt": "2026-10-06T03:01:34.043991+00:00",
+        "finishedAt": "2026-10-06T03:01:36.392994+00:00",
+        "seconds": 2.349003,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "start-system.json",
+        "startedAt": "2026-10-06T05:56:33.426981+00:00",
+        "finishedAt": "2026-10-06T06:01:44.586826+00:00",
+        "seconds": 311.159845,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      },
+      {
+        "file": "status.json",
+        "startedAt": "2026-10-06T06:00:12.763892+00:00",
+        "finishedAt": "2026-10-06T06:00:49.934288+00:00",
+        "seconds": 37.170396,
+        "exitCode": 0,
+        "directController": true,
+        "qualification": null
+      }
+    ]
+  },
+  "customerHistorical": {
+    "batch": "8f6ed5eff8f63d088b5523d71a929856445db016d1c986396376390b470462af",
+    "timing": {
+      "approvedAt": "2026-10-09T00:40:46.000Z",
+      "approvedToCompleteMs": 8554676,
+      "approvedToDeliveryMs": 10021661,
+      "completedAt": "2026-10-09T03:03:20.676Z",
+      "documentCloseoutMs": 1466985,
+      "executionCoveredMs": 6246206.4091796875,
+      "observedApprovalSpanMs": 8554676,
+      "qualification": "Durations are recorded execution; interval union prevents overlap. Residual includes coordination, waits and uninstrumented work; it is not all idle time. Coordination spans and document closeout are separate, never added twice.",
+      "reconciliations": [
+        {
+          "operationId": "step-startworker",
+          "resolution": "passed",
+          "startedToResolutionMs": 1137117,
+          "unknownToResolutionMs": null
+        },
+        {
+          "operationId": "customer-historical-query-preserved",
+          "resolution": "passed",
+          "startedToResolutionMs": 533837,
+          "unknownToResolutionMs": 530646
+        },
+        {
+          "operationId": "customer-four-shop-production-ui",
+          "resolution": "passed",
+          "startedToResolutionMs": 271142,
+          "unknownToResolutionMs": 265849
+        },
+        {
+          "operationId": "final-readiness-closeout",
+          "resolution": "passed",
+          "startedToResolutionMs": 297420,
+          "unknownToResolutionMs": 260332
+        }
+      ],
+      "recordedByPhase": {
+        "acceptance": 715460.9031,
+        "backup-post": 740459.8031000001,
+        "backup-pre": 919343.545,
+        "closeout": 199199.9990999999,
+        "drain": 493183.07710000034,
+        "prepare": 1066904.9208999998,
+        "queue": 396.9462000000002,
+        "restore-post": 794984.0386999999,
+        "restore-pre": 869058.8252000003,
+        "switch": 447227.02420000033
+      },
+      "recordedExecutionSumMs": 6246219.082600001,
+      "waitingOrUninstrumentedMs": 2308469.5908203125
+    },
+    "operations": [
+      {
+        "id": "reuse-final-worker",
+        "phase": "prepare",
+        "evidence": [
+          {
+            "at": "2026-10-09T00:46:04.589Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T00:51:00.107Z",
+            "status": "passed",
+            "durationMs": 295518.4175,
+            "reason": null
+          }
+        ]
+      },
+      {
+        "id": "op-backup-pre",
+        "phase": "backup-pre",
+        "evidence": [
+          {
+            "at": "2026-10-09T00:51:40.517Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T01:06:19.458Z",
+            "status": "passed",
+            "durationMs": 878940.7517,
+            "reason": null
+          }
+        ]
+      },
+      {
+        "id": "op-restore-pre",
+        "phase": "restore-pre",
+        "evidence": [
+          {
+            "at": "2026-10-09T01:07:04.935Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T01:20:48.523Z",
+            "status": "passed",
+            "durationMs": 823588.4005000002,
+            "reason": null
+          }
+        ]
+      },
+      {
+        "id": "step-entermaintenance",
+        "phase": "drain",
+        "evidence": [
+          {
+            "at": "2026-10-09T01:24:12.441Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T01:29:01.712Z",
+            "status": "passed",
+            "durationMs": 289271.7474000002,
+            "reason": null
+          }
+        ]
+      },
+      {
+        "id": "step-deployapp",
+        "phase": "switch",
+        "evidence": [
+          {
+            "at": "2026-10-09T01:29:35.114Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T01:31:00.040Z",
+            "status": "passed",
+            "durationMs": 84927.14540000027,
+            "reason": null
+          }
+        ]
+      },
+      {
+        "id": "step-hardenacl",
+        "phase": "switch",
+        "evidence": [
+          {
+            "at": "2026-10-09T01:31:32.887Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T01:31:58.044Z",
+            "status": "passed",
+            "durationMs": 25156.95269999979,
+            "reason": null
+          }
+        ]
+      },
+      {
+        "id": "apply-final-worker",
+        "phase": "switch",
+        "evidence": [
+          {
+            "at": "2026-10-09T01:32:29.392Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T01:34:44.004Z",
+            "status": "passed",
+            "durationMs": 134612.9210000001,
+            "reason": null
+          }
+        ]
+      },
+      {
+        "id": "step-exitmaintenance",
+        "phase": "switch",
+        "evidence": [
+          {
+            "at": "2026-10-09T01:35:16.404Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T01:35:56.375Z",
+            "status": "passed",
+            "durationMs": 39971.0597000001,
+            "reason": null
+          }
+        ]
+      },
+      {
+        "id": "step-startworker",
+        "phase": "switch",
+        "evidence": [
+          {
+            "at": "2026-10-09T01:36:28.969Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T01:55:26.086Z",
+            "status": "passed",
+            "durationMs": null,
+            "reason": "independently-reconciled"
+          }
+        ]
+      },
+      {
+        "id": "check-live-resources",
+        "phase": "acceptance",
+        "evidence": [
+          {
+            "at": "2026-10-09T01:59:10.199Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T01:59:11.086Z",
+            "status": "passed",
+            "durationMs": 886.233200000017,
+            "reason": null
+          }
+        ]
+      },
+      {
+        "id": "check-unchanged-business-permissions",
+        "phase": "acceptance",
+        "evidence": [
+          {
+            "at": "2026-10-09T02:00:24.173Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T02:00:26.287Z",
+            "status": "passed",
+            "durationMs": 2113.472999999998,
+            "reason": null
+          }
+        ]
+      },
+      {
+        "id": "customer-historical-query-preserved",
+        "phase": "acceptance",
+        "evidence": [
+          {
+            "at": "2026-10-09T02:01:59.437Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T02:02:02.628Z",
+            "status": "unknown",
+            "durationMs": 3191.0488999999943,
+            "reason": "operator-failed-or-result-unavailable"
+          },
+          {
+            "at": "2026-10-09T02:10:53.274Z",
+            "status": "passed",
+            "durationMs": null,
+            "reason": "independently-reconciled"
+          }
+        ]
+      },
+      {
+        "id": "customer-four-shop-production-ui",
+        "phase": "acceptance",
+        "evidence": [
+          {
+            "at": "2026-10-09T02:14:10.404Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T02:14:15.697Z",
+            "status": "unknown",
+            "durationMs": 5292.823699999979,
+            "reason": "operator-failed-or-result-unavailable"
+          },
+          {
+            "at": "2026-10-09T02:18:41.546Z",
+            "status": "passed",
+            "durationMs": null,
+            "reason": "independently-reconciled"
+          }
+        ]
+      },
+      {
+        "id": "step-aggregatestatus",
+        "phase": "acceptance",
+        "evidence": [
+          {
+            "at": "2026-10-09T02:22:03.276Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T02:22:26.501Z",
+            "status": "passed",
+            "durationMs": 23225.131999999983,
+            "reason": null
+          }
+        ]
+      },
+      {
+        "id": "step-verifystartup",
+        "phase": "acceptance",
+        "evidence": [
+          {
+            "at": "2026-10-09T02:23:39.853Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T02:23:45.803Z",
+            "status": "passed",
+            "durationMs": 5950.14380000002,
+            "reason": null
+          }
+        ]
+      },
+      {
+        "id": "two-new-natural-watchdogs",
+        "phase": "acceptance",
+        "evidence": [
+          {
+            "at": "2026-10-09T02:24:58.137Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T02:27:13.439Z",
+            "status": "passed",
+            "durationMs": 135301.94420000003,
+            "reason": null
+          }
+        ]
+      },
+      {
+        "id": "op-backup-post",
+        "phase": "backup-post",
+        "evidence": [
+          {
+            "at": "2026-10-09T02:27:52.433Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T02:39:33.904Z",
+            "status": "passed",
+            "durationMs": 701471.0851000001,
+            "reason": null
+          }
+        ]
+      },
+      {
+        "id": "op-restore-post",
+        "phase": "restore-post",
+        "evidence": [
+          {
+            "at": "2026-10-09T02:40:17.472Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T02:52:48.893Z",
+            "status": "passed",
+            "durationMs": 751419.7605999999,
+            "reason": null
+          }
+        ]
+      },
+      {
+        "id": "final-readiness-closeout",
+        "phase": "closeout",
+        "evidence": [
+          {
+            "at": "2026-10-09T02:55:31.012Z",
+            "status": "started",
+            "durationMs": null,
+            "reason": null
+          },
+          {
+            "at": "2026-10-09T02:56:08.100Z",
+            "status": "unknown",
+            "durationMs": 37087.6277999999,
+            "reason": "operator-failed-or-result-unavailable"
+          },
+          {
+            "at": "2026-10-09T03:00:28.432Z",
+            "status": "passed",
+            "durationMs": null,
+            "reason": "independently-reconciled"
+          }
+        ]
+      }
+    ]
+  },
+  "sampledFailureRuns": [
+    {
+      "file": "availability-2.ndjson",
+      "target": "static",
+      "previousExpectedAt": "2026-10-11T17:27:06.783Z",
+      "firstFailureAt": "2026-10-11T17:27:36.805Z",
+      "lastFailureAt": "2026-10-11T17:32:06.874Z",
+      "nextExpectedAt": null,
+      "sampleCount": 10,
+      "codes": [
+        "ECONNREFUSED"
+      ]
+    },
+    {
+      "file": "availability-3.ndjson",
+      "target": "static",
+      "previousExpectedAt": null,
+      "firstFailureAt": "2026-10-12T00:40:19.665Z",
+      "lastFailureAt": "2026-10-12T00:53:19.897Z",
+      "nextExpectedAt": null,
+      "sampleCount": 27,
+      "codes": [
+        "ECONNREFUSED"
+      ]
+    },
+    {
+      "file": "availability-4.ndjson",
+      "target": "static",
+      "previousExpectedAt": null,
+      "firstFailureAt": "2026-10-12T01:25:53.904Z",
+      "lastFailureAt": "2026-10-12T02:03:54.537Z",
+      "nextExpectedAt": "2026-10-12T02:04:24.545Z",
+      "sampleCount": 77,
+      "codes": [
+        "ECONNREFUSED"
+      ]
+    },
+    {
+      "file": "availability-5.ndjson",
+      "target": "static",
+      "previousExpectedAt": "2026-10-12T05:45:23.906Z",
+      "firstFailureAt": "2026-10-12T05:45:53.925Z",
+      "lastFailureAt": "2026-10-12T05:50:54.045Z",
+      "nextExpectedAt": "2026-10-12T05:51:24.064Z",
+      "sampleCount": 11,
+      "codes": [
+        "ECONNREFUSED"
+      ]
+    },
+    {
+      "file": "availability-5.ndjson",
+      "target": "unsigned-reader",
+      "previousExpectedAt": "2026-10-12T05:43:53.854Z",
+      "firstFailureAt": "2026-10-12T05:44:23.870Z",
+      "lastFailureAt": "2026-10-12T05:48:53.992Z",
+      "nextExpectedAt": "2026-10-12T05:49:24.008Z",
+      "sampleCount": 10,
+      "codes": [
+        "503",
+        "ECONNREFUSED"
+      ]
+    },
+    {
+      "file": "availability-5.ndjson",
+      "target": "unsigned-reader",
+      "previousExpectedAt": "2026-10-12T05:53:24.161Z",
+      "firstFailureAt": "2026-10-12T05:53:54.186Z",
+      "lastFailureAt": "2026-10-12T06:56:27.179Z",
+      "nextExpectedAt": "2026-10-12T06:56:57.207Z",
+      "sampleCount": 126,
+      "codes": [
+        "503"
+      ]
+    },
+    {
+      "file": "availability-6.ndjson",
+      "target": "static",
+      "previousExpectedAt": null,
+      "firstFailureAt": "2026-10-12T05:50:35.909Z",
+      "lastFailureAt": "2026-10-12T05:50:35.909Z",
+      "nextExpectedAt": "2026-10-12T05:51:05.928Z",
+      "sampleCount": 1,
+      "codes": [
+        "ECONNREFUSED"
+      ]
+    },
+    {
+      "file": "availability-6.ndjson",
+      "target": "ready",
+      "previousExpectedAt": null,
+      "firstFailureAt": "2026-10-12T05:50:35.909Z",
+      "lastFailureAt": "2026-10-12T05:50:35.909Z",
+      "nextExpectedAt": "2026-10-12T05:51:05.928Z",
+      "sampleCount": 1,
+      "codes": [
+        "ECONNREFUSED"
+      ]
+    },
+    {
+      "file": "availability-6.ndjson",
+      "target": "ready",
+      "previousExpectedAt": "2026-10-12T07:08:59.303Z",
+      "firstFailureAt": "2026-10-12T07:09:31.079Z",
+      "lastFailureAt": "2026-10-12T07:09:31.079Z",
+      "nextExpectedAt": "2026-10-12T07:10:04.112Z",
+      "sampleCount": 1,
+      "codes": [
+        "deadline"
+      ]
+    },
+    {
+      "file": "availability-6.ndjson",
+      "target": "ready",
+      "previousExpectedAt": "2026-10-12T07:28:47.063Z",
+      "firstFailureAt": "2026-10-12T07:29:19.561Z",
+      "lastFailureAt": "2026-10-12T07:29:19.561Z",
+      "nextExpectedAt": "2026-10-12T07:29:52.595Z",
+      "sampleCount": 1,
+      "codes": [
+        "deadline"
+      ]
+    },
+    {
+      "file": "availability-6.ndjson",
+      "target": "ready",
+      "previousExpectedAt": "2026-10-12T08:09:22.016Z",
+      "firstFailureAt": "2026-10-12T08:09:54.628Z",
+      "lastFailureAt": "2026-10-12T08:09:54.628Z",
+      "nextExpectedAt": "2026-10-12T08:10:27.707Z",
+      "sampleCount": 1,
+      "codes": [
+        "deadline"
+      ]
+    },
+    {
+      "file": "availability-6.ndjson",
+      "target": "ready",
+      "previousExpectedAt": "2026-10-12T09:54:42.672Z",
+      "firstFailureAt": "2026-10-12T09:55:14.407Z",
+      "lastFailureAt": "2026-10-12T09:55:14.407Z",
+      "nextExpectedAt": "2026-10-12T09:55:47.447Z",
+      "sampleCount": 1,
+      "codes": [
+        "deadline"
+      ]
+    },
+    {
+      "file": "availability-6.ndjson",
+      "target": "ready",
+      "previousExpectedAt": "2026-10-12T09:56:51.735Z",
+      "firstFailureAt": "2026-10-12T09:57:23.706Z",
+      "lastFailureAt": "2026-10-12T09:57:23.706Z",
+      "nextExpectedAt": "2026-10-12T09:57:56.741Z",
+      "sampleCount": 1,
+      "codes": [
+        "deadline"
+      ]
+    },
+    {
+      "file": "availability-6.ndjson",
+      "target": "ready",
+      "previousExpectedAt": "2026-10-12T10:08:38.010Z",
+      "firstFailureAt": "2026-10-12T10:09:10.180Z",
+      "lastFailureAt": "2026-10-12T10:09:10.180Z",
+      "nextExpectedAt": "2026-10-12T10:09:43.212Z",
+      "sampleCount": 1,
+      "codes": [
+        "deadline"
+      ]
+    },
+    {
+      "file": "availability-6.ndjson",
+      "target": "ready",
+      "previousExpectedAt": "2026-10-12T10:21:29.336Z",
+      "firstFailureAt": "2026-10-12T10:22:01.711Z",
+      "lastFailureAt": "2026-10-12T10:22:01.711Z",
+      "nextExpectedAt": "2026-10-12T10:22:34.756Z",
+      "sampleCount": 1,
+      "codes": [
+        "deadline"
+      ]
+    },
+    {
+      "file": "availability-6.ndjson",
+      "target": "ready",
+      "previousExpectedAt": "2026-10-12T10:37:33.725Z",
+      "firstFailureAt": "2026-10-12T10:38:05.779Z",
+      "lastFailureAt": "2026-10-12T10:38:05.779Z",
+      "nextExpectedAt": "2026-10-12T10:38:38.812Z",
+      "sampleCount": 1,
+      "codes": [
+        "deadline"
+      ]
+    },
+    {
+      "file": "availability-6.ndjson",
+      "target": "ready",
+      "previousExpectedAt": "2026-10-12T10:38:38.812Z",
+      "firstFailureAt": "2026-10-12T10:39:10.952Z",
+      "lastFailureAt": "2026-10-12T10:39:10.952Z",
+      "nextExpectedAt": "2026-10-12T10:39:44.017Z",
+      "sampleCount": 1,
+      "codes": [
+        "deadline"
+      ]
+    },
+    {
+      "file": "availability-6.ndjson",
+      "target": "ready",
+      "previousExpectedAt": "2026-10-12T10:41:52.761Z",
+      "firstFailureAt": "2026-10-12T10:42:24.487Z",
+      "lastFailureAt": "2026-10-12T10:42:24.487Z",
+      "nextExpectedAt": "2026-10-12T10:42:57.523Z",
+      "sampleCount": 1,
+      "codes": [
+        "deadline"
+      ]
+    },
+    {
+      "file": "availability-6.ndjson",
+      "target": "unsigned-reader",
+      "previousExpectedAt": "2026-10-12T05:53:14.149Z",
+      "firstFailureAt": "2026-10-12T05:53:46.205Z",
+      "lastFailureAt": "2026-10-12T06:56:43.313Z",
+      "nextExpectedAt": "2026-10-12T06:57:15.296Z",
+      "sampleCount": 119,
+      "codes": [
+        "503"
+      ]
+    }
+  ],
+  "lifecycleBlockedProxy": {
+    "f15": {
+      "start": "2026-10-11T17:30:38.835Z",
+      "endBeforeExitCall": "2026-10-12T01:58:16.330Z",
+      "seconds": 30457.495,
+      "continuousHttpDowntimeMeasured": false
+    },
+    "five-performance": {
+      "start": "2026-10-05T21:11:25.730639+00:00",
+      "endBeforeExitCall": "2026-10-05T21:42:41.232591+00:00",
+      "seconds": 1875.501952,
+      "continuousHttpDowntimeMeasured": false
+    },
+    "product-overview": {
+      "start": "2026-10-05T13:07:59.592025+00:00",
+      "endBeforeExitCall": "2026-10-05T13:38:12.759034+00:00",
+      "seconds": 1813.167009,
+      "continuousHttpDowntimeMeasured": false
+    },
+    "bi-addition": {
+      "start": "2026-10-06T01:20:08.458873+00:00",
+      "endBeforeExitCall": "2026-10-06T02:31:34.089007+00:00",
+      "seconds": 4285.630134,
+      "continuousHttpDowntimeMeasured": false
+    },
+    "bi-transport": {
+      "start": "2026-10-06T03:21:51.470336+00:00",
+      "endBeforeExitCall": "2026-10-06T05:52:52.780118+00:00",
+      "seconds": 9061.309782,
+      "continuousHttpDowntimeMeasured": false
+    },
+    "customer-historical": {
+      "start": "2026-10-09T01:29:01.712Z",
+      "endBeforeExitCall": "2026-10-09T01:35:16.404Z",
+      "seconds": 374.692,
+      "continuousHttpDowntimeMeasured": false
+    }
+  },
+  "offlineModel": {
+    "name": "maintenance-overlap",
+    "restoreWallSeconds": 666.825,
+    "overlapWithBlockedProxySeconds": 666.825,
+    "savingProven": false,
+    "productionRehearsal": false,
+    "limitation": "Arithmetic only; relocation/parallelism/backup policy unvalidated."
+  },
+  "verification": {
+    "archivedManifestFiles": 112,
+    "rawSizeShaMismatch": 0,
+    "walRecords": 80,
+    "previousLinksAndMonotonicTimes": true,
+    "nodeCanonicalEventShaMismatch": 0,
+    "businessEffects": 0,
+    "historicalDeliveryInputShaMatches": true
+  },
+  "historicalPartialRestoreTimings": [
+    {
+      "source": "D:/codex-artifacts/jackyun-5478-production-20261005/pre-restore-rehearsal.json",
+      "startedAt": "2026-10-04T16:22:16.7846476+00:00",
+      "completedAt": "2026-10-04T16:31:42.8387456+00:00",
+      "qualification": "Internal restoration interval; no direct controller duration claim"
+    },
+    {
+      "source": "D:/codex-artifacts/jackyun-5478-production-20261005/post-restore-rehearsal.json",
+      "startedAt": "2026-10-04T17:45:23.5261327+00:00",
+      "completedAt": "2026-10-04T17:55:03.1768951+00:00",
+      "qualification": "Internal restoration interval; no direct controller duration claim"
+    }
+  ]
+}

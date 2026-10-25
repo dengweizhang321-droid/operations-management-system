@@ -1,0 +1,177 @@
+✖ Node direct exit files: hold does not wait for inherited stdout/stderr (100.1703ms)
+✖ Node direct exit files: nonzero-hold does not wait for inherited stdout/stderr (78.6533ms)
+✖ EOF transport retains exit0 but fails within the same deadline while both streams are held (99.7451ms)
+✖ probe direct cleanup leaves its simulated service alive and no direct probe (830.836ms)
+✔ an exhausted inherited deadline starts no child (2.7192ms)
+✔ approved runner rejects invalid and retains bounded diagnostics (600.8105ms)
+✔ approved runner rejects nonzero and retains bounded diagnostics (317.0369ms)
+✔ approved runner rejects flood and retains bounded diagnostics (303.8074ms)
+✖ powershell.exe: shared transport and watchdog hold both streams without a late EOF wait (445.5517ms)
+✖ pwsh.exe: shared transport and watchdog hold both streams without a late EOF wait (2933.0165ms)
+✔ original nested PS5 adapter: ready (4259.9419ms)
+✖ original nested PS5 adapter: engine-failed (4366.6906ms)
+✔ original nested PS5 adapter: wrong-version (2932.9707ms)
+✔ original nested PS5 adapter: incomplete (3981.0666ms)
+✔ original nested PS5 adapter: bad-json (2272.7065ms)
+✔ original nested PS5 adapter: maintenance (4418.2716ms)
+✔ original nested PS5 adapter: deadline (2518.9762ms)
+✔ original nested PS5 adapter: drain (4531.1889ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 11
+ℹ fail 7
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 35347.3592
+
+✖ failing tests:
+
+test at tests\release-process-deadline.test.mjs:25:44
+✖ Node direct exit files: hold does not wait for inherited stdout/stderr (100.1703ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(alive(pids.service))
+  
+      at file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:33:10
+      at async fixture (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:17:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:25:44
+✖ Node direct exit files: nonzero-hold does not wait for inherited stdout/stderr (78.6533ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(alive(pids.service))
+  
+      at file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:33:10
+      at async fixture (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:17:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:35:1
+✖ EOF transport retains exit0 but fails within the same deadline while both streams are held (99.7451ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:37:3
+      at async fixture (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:17:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:42:1
+✖ probe direct cleanup leaves its simulated service alive and no direct probe (830.836ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(alive(pids.service))
+  
+      at file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:46:86
+      at async fixture (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:17:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:61:51
+✖ powershell.exe: shared transport and watchdog hold both streams without a late EOF wait (445.5517ms)
+  AssertionError [ERR_ASSERTION]: . : 无法运行脚本“operations-system-watchdog.ps1”，因为该脚本包含用于 Windows PowerShell 7.0 的 "#requires" 语句。该脚本需要使用的 Windows PowerShel
+  l 版本与当前运行的 Windows PowerShell 版本 5.1.26100.9168 不匹配。
+  所在位置 C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-M11VI4\harness.ps1:3 字符: 3
+  + . 'D:\.codex\worktrees\release-process-deadline\运营管理系统\tools\operatio ...
+  +   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      + CategoryInfo          : ResourceUnavailable: (operations-system-watchdog.ps1:String) [], ScriptRequiresException
+      + FullyQualifiedErrorId : ScriptRequiresUnmatchedPSVersion
+   
+  Invoke-WatchProcess : 无法将“Invoke-WatchProcess”项识别为 cmdlet、函数、脚本文件或可运行程序的名称。请检查名称的拼写，如果包括路径，请确保路径正确，然后再试一次。
+  所在位置 C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-M11VI4\harness.ps1:6 字符: 9
+  + $result=Invoke-WatchProcess 'C:\Program Files\nodejs\node.exe' @('D:\ ...
+  +         ~~~~~~~~~~~~~~~~~~~
+      + CategoryInfo          : ObjectNotFound: (Invoke-WatchProcess:String) [], CommandNotFoundException
+      + FullyQualifiedErrorId : CommandNotFoundException
+   
+  Get-ProcessDeadline : 无法将“Get-ProcessDeadline”项识别为 cmdlet、函数、脚本文件或可运行程序的名称。请检查名称的拼写，如果包括路径，请确保路径正确，然后再试一次。
+  所在位置 C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-M11VI4\harness.ps1:8 字符: 242
+  + ...  -WorkingDirectory $WatchdogRoot -Deadline (Get-ProcessDeadline 3000)
+  +                                                 ~~~~~~~~~~~~~~~~~~~
+      + CategoryInfo          : ObjectNotFound: (Get-ProcessDeadline:String) [], CommandNotFoundException
+      + FullyQualifiedErrorId : CommandNotFoundException
+   
+  real exit was lost
+  所在位置 C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-M11VI4\harness.ps1:9 字符: 29
+  + if($capture.ExitCode -ne 9){throw 'real exit was lost'}
+  +                             ~~~~~~~~~~~~~~~~~~~~~~~~~~
+      + CategoryInfo          : OperationStopped: (real exit was lost:String) [], RuntimeException
+      + FullyQualifiedErrorId : real exit was lost
+   
+  
+  
+  1 !== 0
+  
+      at file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:78:10
+      at async fixture (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:17:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:61:51
+✖ pwsh.exe: shared transport and watchdog hold both streams without a late EOF wait (2933.0165ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(alive(pids.service))
+  
+      at file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:80:119
+      at async fixture (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:17:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:83:123
+✖ original nested PS5 adapter: engine-failed (4366.6906ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:130:10
+      at async fixture (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:17:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }

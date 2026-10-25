@@ -1,0 +1,33 @@
+{
+  "base": "b8cbdd435e12970d572328978f352f5ce1605830",
+  "branch": "codex/market-ai-blockers-vision-20261014",
+  "tests": 126,
+  "passed": 126,
+  "realModelCalls": 0,
+  "files": [
+    {
+      "path": "lib/market/annotation-model.ts",
+      "sha256": "b6227fe8ab134faf0f8dc18de08638b709b28ca5f67626f6598dab9eec39fac8"
+    },
+    {
+      "path": "lib/market/annotation-failure.ts",
+      "sha256": "e7575763a8930329962e15641f96c0cba28bae6bfe1bef0e972fa0e242496af9"
+    },
+    {
+      "path": "lib/market/django-annotation-runner.ts",
+      "sha256": "7604ffb445d325939236ba9d8612544ae6c8553e482cab7e613fb0a735b3f21b"
+    },
+    {
+      "path": "tests/market-vision-adapter.test.ts",
+      "sha256": "14f394077e688d4c60d8e7f1dcf0f044325954a40cba11bdd730a7a2468ab82b"
+    },
+    {
+      "path": "tests/market-annotation-runner.test.ts",
+      "sha256": "ac2abba5c8d0c5a96bf3288d39f1e66944915ea1481dfcc9964db743c92ec686"
+    },
+    {
+      "path": "tests/market-annotation.test.ts",
+      "sha256": "08904f4b41e0b38a2434a654845fa4b2a4045b67cdbd90a7284ed92b3c073151"
+    }
+  ]
+}

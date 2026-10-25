@@ -1,0 +1,21 @@
+{
+  "task_id": "task-release-rework-20261024",
+  "task_description": "Execute the user-approved section-4 reorder of docs/施工/发布慢因与施工方案审查.md overnight within tonight's authorization (S05d, S05b, S05, S08, S16): S05d general mechanism (structured preparation terminals, abandonment of preparation-stage unknown into a new packet directory), S08 control-only classification and tool freeze, S16 verify-first hot spots, S05 non-production candidate analysis, board/ticket sync, and morning double-click scripts + S05b runbook because the AI sandbox cannot commit to the real repo, push, or run production entry points. New branches codex/release-rework-20261024 and codex/release-rework-20261024-control from codex/release-process-review-20261024 (a6cc9fcd), not merged into main.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004", "FEAT-005"],
+  "blocked_reason": null,
+  "verification": {
+    "build": "pass",
+    "tests": "pass",
+    "test_quality": "pass",
+    "summary": "No build step for tools; node --check passes on all changed tools/*.mjs. Sandbox runner (pipe shim) on rework head 087a8348: main-prebuild-queue-abandonment 14/14, release-scope-control-only 5/5, worker-preparation-timing 6/6, publish-prepared-main 58/58, main-prebuild-generation-rejection 6/6, main-prebuild-status 14/14, publish-main-completed 4/4, main-prebuild-queue-v2 10/11 (same sandbox-limited child-spawn test as baseline); control head d1b60496: abandonment 14/14, generation-rejection 6/6, queue-v2 10/11, status 14/14, publish-prepared-main 58/58. Tests that spawn child processes or need tsx cannot run in the sandbox; push-rework.ps1 runs 39 (rework) + 32 (control) files outside the sandbox and pushes only if acceptable. Test quality reviewed (end-to-end queue drives, invariant tests, mutation checks reported by coders)."
+  },
+  "review": {
+    "v1": "2026-10-24-045813-review.md NEEDS_CHANGES (8 issues) -> addressed in b7db5541/d1b60496/087a8348 and scripts",
+    "v2": "2026-10-24-052333-review.md APPROVED; 2 non-blocking doc notes left open: (1) admission rejection is swallowed so a blocked record looks the same as 'abandonment conditions not met', and S05B-RUNBOOK step 5 does not list admission among the abandonment conditions; (2) the runbook's S09 switch note (use b7db5541) is incomplete because s05b-prepare.ps1 also pins origin/<control branch>; S09 is not authorized tonight."
+  },
+  "branches": {
+    "codex/release-rework-20261024": "087a8348c0b2360267966e179054cd1c5e328dbf",
+    "codex/release-rework-20261024-control": "d1b6049648bc6511431467f126c8e8f38ae8789a"
+  }
+}

@@ -1,0 +1,77 @@
+✔ manual PG row bytes retain physical key order, UTF8 strings, JSONB spaces and bigint tokens (1.0736ms)
+✔ 32-byte binary sort is independent of text hex and preserves repeated row hashes (0.5073ms)
+✔ COPY literal null, UTF8 byte octal and actual separator versus escape are distinct (1.0853ms)
+✔ physical column reordering cannot authenticate against unchanged original post root (5.1721ms)
+✔ one post hash mismatch prevents a successful six-table result (1.2725ms)
+✔ prefix agreement never declares mutable before or full comparison recovered (0.9183ms)
+✖ creation and mutation after cutoff within same millisecond must remain new/modified (1.2268ms)
+✖ a numeric response identity must be rejected or HMACed, never persisted literally (0.6101ms)
+✖ a permissively parseable free-form date with private annotation must be rejected (0.3344ms)
+✔ duplicate request identity refuses even when caller constructs matching duplicate root (1.0543ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 7
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 123.7998
+
+✖ failing tests:
+
+test at docs\release-integration-review\source-witness\copy-witness.independent.test.mjs:53:1
+✖ creation and mutation after cutoff within same millisecond must remain new/modified (1.2268ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/source-witness/copy-witness.independent.test.mjs:54:35)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\source-witness\copy-witness.independent.test.mjs:59:1
+✖ a numeric response identity must be rejected or HMACed, never persisted literally (0.6101ms)
+  AssertionError [ERR_ASSERTION]: Numeric identity escaped HMAC privacy boundary
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/source-witness/copy-witness.independent.test.mjs:61:101)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\source-witness\copy-witness.independent.test.mjs:63:1
+✖ a permissively parseable free-form date with private annotation must be rejected (0.3344ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/source-witness/copy-witness.independent.test.mjs:66:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }

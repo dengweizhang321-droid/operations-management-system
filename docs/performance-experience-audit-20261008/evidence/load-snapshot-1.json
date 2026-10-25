@@ -1,0 +1,40 @@
+{
+  "at": "2026-10-08T22:22:39.2937221+08:00",
+  "cpu": 28,
+  "memory": {
+    "FreePhysicalMemory": 2278728,
+    "TotalVisibleMemorySize": 33206132
+  },
+  "processes": [
+    {
+      "Name": "chrome",
+      "Count": 18,
+      "CpuSeconds": 572.078125,
+      "WorkingSetMiB": 2434.0
+    },
+    {
+      "Name": "node",
+      "Count": 48,
+      "CpuSeconds": 505.5,
+      "WorkingSetMiB": 4272.0
+    },
+    {
+      "Name": "postgres",
+      "Count": 126,
+      "CpuSeconds": 1390.0,
+      "WorkingSetMiB": 4932.0
+    },
+    {
+      "Name": "python",
+      "Count": 54,
+      "CpuSeconds": 2184.765625,
+      "WorkingSetMiB": 2830.0
+    },
+    {
+      "Name": "workerd",
+      "Count": 3,
+      "CpuSeconds": 30.84375,
+      "WorkingSetMiB": 736.0
+    }
+  ]
+}

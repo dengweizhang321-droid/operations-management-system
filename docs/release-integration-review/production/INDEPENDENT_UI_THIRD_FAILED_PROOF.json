@@ -1,0 +1,20 @@
+{
+  "independent": true,
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "operationId": "actual-readonly-ui",
+  "observationsSha256": "278d136b85303cb31b85839b7ffee055f3ae6ad5cc379c80ef2403274c8d9e8e",
+  "noReplay": true,
+  "noEffect": true,
+  "requestedResolution": "failed",
+  "completed": false,
+  "unknownEventSha256": "e414c03dc2c89b553529cfe5afaf973cb4860688a82e1bd6f9ebe05b67117377",
+  "allowedOriginalRetryCount": 0,
+  "observationPath": "D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\docs\\release-integration-review\\production\\INDEPENDENT_UI_THIRD_FAILURE.json",
+  "restrictions": [
+    "Preserve third unknown/audit/stderr metadata and append failed only",
+    "No fourth unchanged original UI retry",
+    "No passed inference from diagnostic or old reports",
+    "No lifecycle/backup replay and no active deletion/cancel after switch",
+    "Only an explicitly approved reviewed readonly-validation supplement may close this failed acceptance requirement"
+  ]
+}

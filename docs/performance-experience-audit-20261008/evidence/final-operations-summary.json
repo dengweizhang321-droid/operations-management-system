@@ -1,0 +1,201 @@
+{
+  "results": [
+    {
+      "name": "workflow-open-collaboration",
+      "status": "observed",
+      "elapsed": 1672,
+      "state": {
+        "url": "http://127.0.0.1:3000/?module=workflow",
+        "dialogs": 1,
+        "selectedTabs": [
+          "工作计划",
+          "评论0"
+        ],
+        "rows": 50
+      },
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "at": 1791470347678,
+          "method": "GET",
+          "ms": 23,
+          "status": 200,
+          "end": 1791470347701
+        },
+        {
+          "path": "/api/workflow/templates",
+          "at": 1791470347994,
+          "method": "GET",
+          "ms": 111,
+          "status": 200,
+          "end": 1791470348105
+        },
+        {
+          "path": "/api/workflow/tasks",
+          "at": 1791470347995,
+          "method": "GET",
+          "ms": 134,
+          "status": 200,
+          "end": 1791470348129
+        },
+        {
+          "path": "/api/workflow/tasks",
+          "at": 1791470347996,
+          "method": "GET",
+          "ms": 132,
+          "status": 200,
+          "end": 1791470348128
+        },
+        {
+          "path": "/api/workflow/tasks",
+          "at": 1791470347996,
+          "method": "GET",
+          "ms": 88,
+          "status": 200,
+          "end": 1791470348084
+        },
+        {
+          "path": "/api/workflow/tasks/:id/collaboration",
+          "at": 1791470348521,
+          "method": "GET",
+          "ms": 55,
+          "status": 200,
+          "end": 1791470348576
+        }
+      ]
+    },
+    {
+      "name": "workflow-escape-return",
+      "status": "observed",
+      "elapsed": 160,
+      "state": {
+        "url": "http://127.0.0.1:3000/?module=workflow",
+        "dialogs": 0,
+        "selectedTabs": [
+          "工作计划"
+        ],
+        "rows": 50
+      },
+      "requests": []
+    },
+    {
+      "name": "market-page2",
+      "status": "probe-incomplete",
+      "error": "locator.click: Timeout 6000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: '下一页', exact: true })\u001b[22m\n",
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "at": 1791470349669,
+          "method": "GET",
+          "ms": 19,
+          "status": 200,
+          "end": 1791470349688
+        },
+        {
+          "path": "/api/market/filters",
+          "at": 1791470349977,
+          "method": "GET"
+        },
+        {
+          "path": "/api/market/overview",
+          "at": 1791470349978,
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "name": "market-trend-open",
+      "status": "observed",
+      "elapsed": 2956,
+      "state": {
+        "url": "http://127.0.0.1:3000/?module=market",
+        "dialogs": 1,
+        "selectedTabs": [
+          "01商品榜单TOP 商品、成交数据与单品趋势›"
+        ],
+        "rows": 21
+      },
+      "requests": [
+        {
+          "path": "/api/market/trend",
+          "at": 1791470358026,
+          "method": "GET",
+          "ms": 32,
+          "status": 200,
+          "end": 1791470358058
+        }
+      ]
+    },
+    {
+      "name": "market-trend-close",
+      "status": "observed",
+      "elapsed": 153,
+      "state": {
+        "url": "http://127.0.0.1:3000/?module=market",
+        "dialogs": 0,
+        "selectedTabs": [
+          "01商品榜单TOP 商品、成交数据与单品趋势›"
+        ],
+        "rows": 20
+      },
+      "requests": []
+    },
+    {
+      "name": "automation-tab-change",
+      "status": "observed",
+      "elapsed": 1090,
+      "state": {
+        "url": "http://127.0.0.1:3000/?module=n8n_workflows&view=jd",
+        "dialogs": 0,
+        "selectedTabs": [
+          "京京东多店铺商品数据统一下载与导入"
+        ],
+        "rows": 0
+      },
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "at": 1791470359059,
+          "method": "GET",
+          "ms": 16,
+          "status": 200,
+          "end": 1791470359075
+        }
+      ]
+    },
+    {
+      "name": "ai-open-existing-chat",
+      "status": "probe-incomplete",
+      "error": "No .ai-conversation-item control; existing-chat drill not verified",
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "at": 1791470360228,
+          "method": "GET",
+          "ms": 13,
+          "status": 200,
+          "end": 1791470360241
+        },
+        {
+          "path": "/api/ai/conversations",
+          "at": 1791470360551,
+          "method": "GET",
+          "ms": 47,
+          "status": 200,
+          "end": 1791470360598
+        },
+        {
+          "path": "/api/ai/chat",
+          "at": 1791470360633,
+          "method": "GET",
+          "ms": 56,
+          "status": 200,
+          "end": 1791470360689
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "blocked": [],
+  "readOnly": true
+}

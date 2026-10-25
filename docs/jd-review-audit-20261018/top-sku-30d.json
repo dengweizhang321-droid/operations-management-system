@@ -1,0 +1,1103 @@
+{
+ "snapshotToken": "b1ea2c78c6e698faa767d68196a6de33ca4878e688d0fe3e99dcbb87c8558973",
+ "sourceRevision": "26081:39e4c7d05758",
+ "items": [
+  {
+   "id": "10205027335550",
+   "platform": "京东",
+   "skuId": "10205027335550",
+   "spuId": "",
+   "productCode": "10205027335550",
+   "productName": "志高（CHIGO）切肉片机羊肉卷切片机切肉机电动刨肉机家用小型刨牛肉肥牛卷机柠檬火腿面包果蔬切肉神器 热销款电动切片机丨250W功率丨纯铜芯丨升级双刀款",
+   "imageUrl": "",
+   "productUrl": "",
+   "category": "商用电器 / 商用食品机械设备 / 商用绞肉机/切肉机/切片机",
+   "shopNames": [
+    "志高商用设备旗舰店"
+   ],
+   "dateMin": "2026-09-19",
+   "dateMax": "2026-10-17",
+   "dataDays": 29,
+   "pageViews": 19192,
+   "visitors": 7878,
+   "searchImpressions": 50439,
+   "searchClicks": 6362,
+   "searchClickRate": 0.12613255615694205,
+   "addCartCustomers": 408,
+   "addCartQuantity": 243,
+   "orderCustomers": 246,
+   "orderQuantity": 267,
+   "orderAmount": 80995.02,
+   "orderAmountCents": 8099502,
+   "transactionOrders": 223,
+   "transactionAmount": 63879.83,
+   "transactionAmountCents": 6387983,
+   "transactionQuantity": 223,
+   "transactionCustomers": 223,
+   "favorites": 0,
+   "refundAmountCents": 0,
+   "searchVisitors": 0,
+   "searchTransactionCustomers": 0,
+   "uvValue": 8.108635440467124,
+   "conversionRate": 0.028306676821528307,
+   "fieldAvailability": {
+    "pageViews": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "visitors": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchImpressions": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchClicks": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "addCartCustomers": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "addCartQuantity": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "orderCustomers": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "orderQuantity": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "orderAmountCents": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "transactionOrders": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "transactionAmountCents": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "transactionQuantity": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "transactionCustomers": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "favorites": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "refundAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchVisitors": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchTransactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    }
+   }
+  },
+  {
+   "id": "10033418533448",
+   "platform": "京东",
+   "skuId": "10033418533448",
+   "spuId": "",
+   "productCode": "10033418533448",
+   "productName": "志高（CHIGO） 商用中药粉碎机磨粉机家用打粉机超细研磨机破碎机磨面机药材小型三七电动五谷杂粮干磨机器 容量2500g-高配款丨纯铜电机丨304不锈钢",
+   "imageUrl": "",
+   "productUrl": "",
+   "category": "商用电器 / 商用食品机械设备 / 商用磨粉机/粉碎机",
+   "shopNames": [
+    "志高商用设备旗舰店"
+   ],
+   "dateMin": "2026-09-19",
+   "dateMax": "2026-10-17",
+   "dataDays": 29,
+   "pageViews": 3578,
+   "visitors": 1506,
+   "searchImpressions": 16248,
+   "searchClicks": 737,
+   "searchClickRate": 0.04535942885278188,
+   "addCartCustomers": 107,
+   "addCartQuantity": 69,
+   "orderCustomers": 107,
+   "orderQuantity": 120,
+   "orderAmount": 63581.88,
+   "orderAmountCents": 6358188,
+   "transactionOrders": 87,
+   "transactionAmount": 44770.28,
+   "transactionAmountCents": 4477028,
+   "transactionQuantity": 92,
+   "transactionCustomers": 87,
+   "favorites": 0,
+   "refundAmountCents": 0,
+   "searchVisitors": 0,
+   "searchTransactionCustomers": 0,
+   "uvValue": 29.727941567065074,
+   "conversionRate": 0.05776892430278884,
+   "fieldAvailability": {
+    "pageViews": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "visitors": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchImpressions": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchClicks": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "addCartCustomers": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "addCartQuantity": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "orderCustomers": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "orderQuantity": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "orderAmountCents": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "transactionOrders": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "favorites": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "refundAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchVisitors": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchTransactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    }
+   }
+  },
+  {
+   "id": "10105352583484",
+   "platform": "京东",
+   "skuId": "10105352583484",
+   "spuId": "",
+   "productCode": "10105352583484",
+   "productName": "志高（CHIGO） 商用中药粉碎机磨粉机家用打粉机超细研磨机破碎机磨面机药材小型三七电动五谷杂粮干磨机器 容量4500g-大容量款丨药房推荐丨430不锈钢",
+   "imageUrl": "",
+   "productUrl": "",
+   "category": "商用电器 / 商用食品机械设备 / 商用磨粉机/粉碎机",
+   "shopNames": [
+    "志高商用设备旗舰店"
+   ],
+   "dateMin": "2026-09-19",
+   "dateMax": "2026-10-17",
+   "dataDays": 29,
+   "pageViews": 2714,
+   "visitors": 1188,
+   "searchImpressions": 11270,
+   "searchClicks": 600,
+   "searchClickRate": 0.05323868677905945,
+   "addCartCustomers": 57,
+   "addCartQuantity": 39,
+   "orderCustomers": 62,
+   "orderQuantity": 74,
+   "orderAmount": 63407.9,
+   "orderAmountCents": 6340790,
+   "transactionOrders": 55,
+   "transactionAmount": 44599.9,
+   "transactionAmountCents": 4459990,
+   "transactionQuantity": 57,
+   "transactionCustomers": 55,
+   "favorites": 0,
+   "refundAmountCents": 0,
+   "searchVisitors": 0,
+   "searchTransactionCustomers": 0,
+   "uvValue": 37.54200336700337,
+   "conversionRate": 0.046296296296296294,
+   "fieldAvailability": {
+    "pageViews": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "visitors": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchImpressions": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchClicks": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "addCartCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "addCartQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionOrders": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "favorites": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "refundAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchVisitors": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchTransactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    }
+   }
+  },
+  {
+   "id": "10033418533446",
+   "platform": "京东",
+   "skuId": "10033418533446",
+   "spuId": "",
+   "productCode": "10033418533446",
+   "productName": "志高（CHIGO） 商用中药粉碎机磨粉机家用打粉机超细研磨机破碎机磨面机药材小型三七电动五谷杂粮干磨机器 容量800g-高配款丨加强加厚丨304不锈钢",
+   "imageUrl": "",
+   "productUrl": "",
+   "category": "商用电器 / 商用食品机械设备 / 商用磨粉机/粉碎机",
+   "shopNames": [
+    "志高商用设备旗舰店"
+   ],
+   "dateMin": "2026-09-19",
+   "dateMax": "2026-10-17",
+   "dataDays": 29,
+   "pageViews": 6227,
+   "visitors": 2836,
+   "searchImpressions": 40329,
+   "searchClicks": 2164,
+   "searchClickRate": 0.053658657541719355,
+   "addCartCustomers": 139,
+   "addCartQuantity": 19,
+   "orderCustomers": 142,
+   "orderQuantity": 155,
+   "orderAmount": 39209.07,
+   "orderAmountCents": 3920907,
+   "transactionOrders": 124,
+   "transactionAmount": 29550.43,
+   "transactionAmountCents": 2955043,
+   "transactionQuantity": 126,
+   "transactionCustomers": 124,
+   "favorites": 0,
+   "refundAmountCents": 0,
+   "searchVisitors": 0,
+   "searchTransactionCustomers": 0,
+   "uvValue": 10.419756699576869,
+   "conversionRate": 0.04372355430183357,
+   "fieldAvailability": {
+    "pageViews": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "visitors": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchImpressions": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchClicks": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "addCartCustomers": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "addCartQuantity": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "orderCustomers": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "orderQuantity": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "orderAmountCents": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "transactionOrders": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "favorites": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "refundAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchVisitors": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchTransactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    }
+   }
+  },
+  {
+   "id": "10094115252953",
+   "platform": "京东",
+   "skuId": "10094115252953",
+   "spuId": "",
+   "productCode": "10094115252953",
+   "productName": "志高（CHIGO） 商用中药粉碎机磨粉机家用打粉机超细研磨机破碎机磨面机药材小型三七电动五谷杂粮干磨机器 容量2500g-标准款丨纯铜电机丨304不锈钢",
+   "imageUrl": "",
+   "productUrl": "",
+   "category": "商用电器 / 商用食品机械设备 / 商用磨粉机/粉碎机",
+   "shopNames": [
+    "志高商用设备旗舰店"
+   ],
+   "dateMin": "2026-09-19",
+   "dateMax": "2026-10-17",
+   "dataDays": 29,
+   "pageViews": 3948,
+   "visitors": 1876,
+   "searchImpressions": 24454,
+   "searchClicks": 1447,
+   "searchClickRate": 0.0591723235462501,
+   "addCartCustomers": 87,
+   "addCartQuantity": 73,
+   "orderCustomers": 75,
+   "orderQuantity": 87,
+   "orderAmount": 40163.48,
+   "orderAmountCents": 4016348,
+   "transactionOrders": 58,
+   "transactionAmount": 27082.02,
+   "transactionAmountCents": 2708202,
+   "transactionQuantity": 59,
+   "transactionCustomers": 58,
+   "favorites": 0,
+   "refundAmountCents": 0,
+   "searchVisitors": 0,
+   "searchTransactionCustomers": 0,
+   "uvValue": 14.436044776119402,
+   "conversionRate": 0.03091684434968017,
+   "fieldAvailability": {
+    "pageViews": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "visitors": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchImpressions": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchClicks": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "addCartCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "addCartQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionOrders": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "favorites": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "refundAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchVisitors": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchTransactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    }
+   }
+  },
+  {
+   "id": "10139819452798",
+   "platform": "京东",
+   "skuId": "10139819452798",
+   "spuId": "",
+   "productCode": "10139819452798",
+   "productName": "志高（CHIGO）商用直饮机冷热净水一体机RO反渗透饮水机净水器净水机加热过滤冰水工厂车间学校办公室医院大型 【京仓发货】一开一温丨五级超滤丨20-70人 全网比价丨三年质保丨支持定制",
+   "imageUrl": "",
+   "productUrl": "",
+   "category": "商用电器 / 商用净饮水设备 / 商用净水设备",
+   "shopNames": [
+    "志高商用设备旗舰店"
+   ],
+   "dateMin": "2026-09-19",
+   "dateMax": "2026-10-17",
+   "dataDays": 29,
+   "pageViews": 1281,
+   "visitors": 627,
+   "searchImpressions": 7453,
+   "searchClicks": 301,
+   "searchClickRate": 0.04038642157520462,
+   "addCartCustomers": 24,
+   "addCartQuantity": -4,
+   "orderCustomers": 14,
+   "orderQuantity": 23,
+   "orderAmount": 35605,
+   "orderAmountCents": 3560500,
+   "transactionOrders": 12,
+   "transactionAmount": 22036,
+   "transactionAmountCents": 2203600,
+   "transactionQuantity": 15,
+   "transactionCustomers": 12,
+   "favorites": 0,
+   "refundAmountCents": 0,
+   "searchVisitors": 0,
+   "searchTransactionCustomers": 0,
+   "uvValue": 35.145135566188195,
+   "conversionRate": 0.019138755980861243,
+   "fieldAvailability": {
+    "pageViews": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "visitors": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchImpressions": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchClicks": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "addCartCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "addCartQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionOrders": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "favorites": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "refundAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchVisitors": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchTransactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    }
+   }
+  },
+  {
+   "id": "10089275193468",
+   "platform": "京东",
+   "skuId": "10089275193468",
+   "spuId": "",
+   "productCode": "10089275193468",
+   "productName": "志高（CHIGO） 商用中药粉碎机磨粉机家用打粉机超细研磨机破碎机磨面机药材小型三七电动五谷杂粮干磨机器 容量1000g-标准款丨精细研磨丨304不锈钢",
+   "imageUrl": "",
+   "productUrl": "",
+   "category": "商用电器 / 商用食品机械设备 / 商用磨粉机/粉碎机",
+   "shopNames": [
+    "志高商用设备旗舰店"
+   ],
+   "dateMin": "2026-09-19",
+   "dateMax": "2026-10-17",
+   "dataDays": 29,
+   "pageViews": 2926,
+   "visitors": 1361,
+   "searchImpressions": 15311,
+   "searchClicks": 648,
+   "searchClickRate": 0.04232251322578538,
+   "addCartCustomers": 76,
+   "addCartQuantity": 41,
+   "orderCustomers": 89,
+   "orderQuantity": 101,
+   "orderAmount": 28865.56,
+   "orderAmountCents": 2886556,
+   "transactionOrders": 77,
+   "transactionAmount": 20653.91,
+   "transactionAmountCents": 2065391,
+   "transactionQuantity": 81,
+   "transactionCustomers": 76,
+   "favorites": 0,
+   "refundAmountCents": 0,
+   "searchVisitors": 0,
+   "searchTransactionCustomers": 0,
+   "uvValue": 15.175540044085231,
+   "conversionRate": 0.055841293166789124,
+   "fieldAvailability": {
+    "pageViews": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "visitors": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchImpressions": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchClicks": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "addCartCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "addCartQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderCustomers": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "orderQuantity": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "orderAmountCents": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "transactionOrders": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "transactionAmountCents": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "transactionQuantity": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "transactionCustomers": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "favorites": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "refundAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchVisitors": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchTransactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    }
+   }
+  },
+  {
+   "id": "10211416247274",
+   "platform": "京东",
+   "skuId": "10211416247274",
+   "spuId": "",
+   "productCode": "10211416247274",
+   "productName": "志高（CHIGO）商用直饮水机净水器一体办公室工厂饮水机桌面式开水器过滤加热一体饮水机RO反渗透 【店长推荐】商用款丨一开一净丨五级RO丨30人",
+   "imageUrl": "",
+   "productUrl": "",
+   "category": "商用电器 / 商用净饮水设备 / 商用净水设备",
+   "shopNames": [
+    "志高商用设备旗舰店"
+   ],
+   "dateMin": "2026-09-19",
+   "dateMax": "2026-10-17",
+   "dataDays": 29,
+   "pageViews": 1981,
+   "visitors": 970,
+   "searchImpressions": 13096,
+   "searchClicks": 813,
+   "searchClickRate": 0.06208002443494197,
+   "addCartCustomers": 35,
+   "addCartQuantity": 26,
+   "orderCustomers": 15,
+   "orderQuantity": 17,
+   "orderAmount": 23931.5,
+   "orderAmountCents": 2393150,
+   "transactionOrders": 14,
+   "transactionAmount": 20639.5,
+   "transactionAmountCents": 2063950,
+   "transactionQuantity": 15,
+   "transactionCustomers": 14,
+   "favorites": 0,
+   "refundAmountCents": 0,
+   "searchVisitors": 0,
+   "searchTransactionCustomers": 0,
+   "uvValue": 21.277835051546393,
+   "conversionRate": 0.01443298969072165,
+   "fieldAvailability": {
+    "pageViews": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "visitors": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchImpressions": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchClicks": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "addCartCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "addCartQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionOrders": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "favorites": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "refundAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchVisitors": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchTransactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    }
+   }
+  },
+  {
+   "id": "10024113616956",
+   "platform": "京东",
+   "skuId": "10024113616956",
+   "spuId": "",
+   "productCode": "10024113616956",
+   "productName": "志高（CHIGO）切肉机商用全自动切肉片机绞肉机电动切菜机不锈钢多功能一体食堂肉铺厨房土豆肉片肉丝机 京仓速发【热卖款】切鲜肉软蔬菜丨850W丨3.5mm",
+   "imageUrl": "",
+   "productUrl": "",
+   "category": "商用电器 / 商用食品机械设备 / 商用绞肉机/切肉机/切片机",
+   "shopNames": [
+    "志高商用设备旗舰店"
+   ],
+   "dateMin": "2026-09-19",
+   "dateMax": "2026-10-17",
+   "dataDays": 29,
+   "pageViews": 4697,
+   "visitors": 2052,
+   "searchImpressions": 12849,
+   "searchClicks": 1092,
+   "searchClickRate": 0.08498715853373803,
+   "addCartCustomers": 63,
+   "addCartQuantity": 15,
+   "orderCustomers": 52,
+   "orderQuantity": 59,
+   "orderAmount": 36523.33,
+   "orderAmountCents": 3652333,
+   "transactionOrders": 35,
+   "transactionAmount": 20463.74,
+   "transactionAmountCents": 2046374,
+   "transactionQuantity": 35,
+   "transactionCustomers": 35,
+   "favorites": 0,
+   "refundAmountCents": 0,
+   "searchVisitors": 0,
+   "searchTransactionCustomers": 0,
+   "uvValue": 9.972582846003899,
+   "conversionRate": 0.01705653021442495,
+   "fieldAvailability": {
+    "pageViews": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "visitors": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchImpressions": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchClicks": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "addCartCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "addCartQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionOrders": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "favorites": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "refundAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchVisitors": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchTransactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    }
+   }
+  },
+  {
+   "id": "10044529667729",
+   "platform": "京东",
+   "skuId": "10044529667729",
+   "spuId": "",
+   "productCode": "10044529667729",
+   "productName": "志高（CHIGO）商用直饮机冷热净水一体机RO反渗透饮水机净水器净水机加热过滤冰水工厂车间学校办公室医院大型 旋钮特惠款丨一开一温丨三级超滤丨20-70人 全网比价丨三年质保丨支持定制",
+   "imageUrl": "",
+   "productUrl": "",
+   "category": "商用电器 / 商用净饮水设备 / 商用净水设备",
+   "shopNames": [
+    "志高商用设备旗舰店"
+   ],
+   "dateMin": "2026-09-19",
+   "dateMax": "2026-10-17",
+   "dataDays": 29,
+   "pageViews": 1635,
+   "visitors": 744,
+   "searchImpressions": 8398,
+   "searchClicks": 365,
+   "searchClickRate": 0.043462729221243154,
+   "addCartCustomers": 23,
+   "addCartQuantity": 8,
+   "orderCustomers": 17,
+   "orderQuantity": 24,
+   "orderAmount": 37036,
+   "orderAmountCents": 3703600,
+   "transactionOrders": 13,
+   "transactionAmount": 19546,
+   "transactionAmountCents": 1954600,
+   "transactionQuantity": 14,
+   "transactionCustomers": 13,
+   "favorites": 0,
+   "refundAmountCents": 0,
+   "searchVisitors": 0,
+   "searchTransactionCustomers": 0,
+   "uvValue": 26.271505376344088,
+   "conversionRate": 0.01747311827956989,
+   "fieldAvailability": {
+    "pageViews": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "visitors": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchImpressions": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "searchClicks": {
+     "complete": false,
+     "reasonCode": "incomplete_coverage"
+    },
+    "addCartCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "addCartQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "orderAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionOrders": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionQuantity": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "transactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "favorites": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "refundAmountCents": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchVisitors": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    },
+    "searchTransactionCustomers": {
+     "complete": false,
+     "reasonCode": "missing_field"
+    }
+   }
+  }
+ ],
+ "pagination": {
+  "page": 1,
+  "pageSize": 10,
+  "total": 1516,
+  "returned": 10,
+  "truncated": true
+ }
+}

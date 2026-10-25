@@ -1,0 +1,198 @@
+✖ Node direct exit files: hold does not wait for inherited stdout/stderr (92.3052ms)
+✖ Node direct exit files: nonzero-hold does not wait for inherited stdout/stderr (81.9848ms)
+✖ EOF transport retains exit0 but fails within the same deadline while both streams are held (86.2744ms)
+✖ probe direct cleanup leaves its simulated service alive and no direct probe (823.0509ms)
+✔ an exhausted inherited deadline starts no child (2.5844ms)
+✔ approved runner rejects invalid and retains bounded diagnostics (560.7758ms)
+✔ approved runner rejects nonzero and retains bounded diagnostics (288.5948ms)
+✔ approved runner rejects flood and retains bounded diagnostics (283.4802ms)
+✖ powershell.exe: shared transport and watchdog hold both streams without a late EOF wait (442.2529ms)
+✖ pwsh.exe: shared transport and watchdog hold both streams without a late EOF wait (2344.3765ms)
+✖ original nested PS5 adapter: ready (4102.093ms)
+✖ original nested PS5 adapter: engine-failed (4009.2243ms)
+✖ original nested PS5 adapter: wrong-version (2610.9441ms)
+✖ original nested PS5 adapter: incomplete (3544.8733ms)
+✖ original nested PS5 adapter: bad-json (1807.6521ms)
+✖ original nested PS5 adapter: maintenance (4191.0821ms)
+✖ original nested PS5 adapter: deadline (2424.2756ms)
+✖ original nested PS5 adapter: drain (4045.5512ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 4
+ℹ fail 14
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 32028.9418
+
+✖ failing tests:
+
+test at tests\release-process-deadline.test.mjs:25:44
+✖ Node direct exit files: hold does not wait for inherited stdout/stderr (92.3052ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(alive(pids.service))
+  
+      at file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:33:10
+      at async fixture (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:17:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:25:44
+✖ Node direct exit files: nonzero-hold does not wait for inherited stdout/stderr (81.9848ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(alive(pids.service))
+  
+      at file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:33:10
+      at async fixture (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:17:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:35:1
+✖ EOF transport retains exit0 but fails within the same deadline while both streams are held (86.2744ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:37:3
+      at async fixture (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:17:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:42:1
+✖ probe direct cleanup leaves its simulated service alive and no direct probe (823.0509ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(alive(pids.service))
+  
+      at file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:46:86
+      at async fixture (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:17:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:61:51
+✖ powershell.exe: shared transport and watchdog hold both streams without a late EOF wait (442.2529ms)
+  AssertionError [ERR_ASSERTION]: . : �޷����нű���operations-system-watchdog.ps1������Ϊ�ýű��������� Windows PowerShell 7.0 �� "#requires" ��䡣�ýű�
+  ��Ҫʹ�õ� Windows PowerShell �汾�뵱ǰ���е� Windows PowerShell �汾 5.1.26100.9168 ��ƥ�䡣
+  ����λ�� C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-qMVFVc\harness.ps1:2 �ַ�: 3
+  + . 'D:\.codex\worktrees\release-process-deadline\��Ӫ����ϵͳ\tools\operatio ...
+  +   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      + CategoryInfo          : ResourceUnavailable: (operations-system-watchdog.ps1:String) [], ScriptRequiresException
+      + FullyQualifiedErrorId : ScriptRequiresUnmatchedPSVersion
+   
+  Invoke-WatchProcess : �޷�����Invoke-WatchProcess����ʶ��Ϊ cmdlet���������ű��ļ�������г�������ơ��������Ƶ�ƴд�����
+  ����·������ȷ��·����ȷ��Ȼ������һ�Ρ�
+  ����λ�� C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-qMVFVc\harness.ps1:5 �ַ�: 9
+  + $result=Invoke-WatchProcess 'C:\Program Files\nodejs\node.exe' @('D:\ ...
+  +         ~~~~~~~~~~~~~~~~~~~
+      + CategoryInfo          : ObjectNotFound: (Invoke-WatchProcess:String) [], CommandNotFoundException
+      + FullyQualifiedErrorId : CommandNotFoundException
+   
+  Get-ProcessDeadline : �޷�����Get-ProcessDeadline����ʶ��Ϊ cmdlet���������ű��ļ�������г�������ơ��������Ƶ�ƴд�����
+  ����·������ȷ��·����ȷ��Ȼ������һ�Ρ�
+  ����λ�� C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-qMVFVc\harness.ps1:7 �ַ�: 242
+  + ...  -WorkingDirectory $WatchdogRoot -Deadline (Get-ProcessDeadline 3000)
+  +                                                 ~~~~~~~~~~~~~~~~~~~
+      + CategoryInfo          : ObjectNotFound: (Get-ProcessDeadline:String) [], CommandNotFoundException
+      + FullyQualifiedErrorId : CommandNotFoundException
+   
+  real exit was lost
+  ����λ�� C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-qMVFVc\harness.ps1:8 �ַ�: 29
+  + if($capture.ExitCode -ne 9){throw 'real exit was lost'}
+  +                             ~~~~~~~~~~~~~~~~~~~~~~~~~~
+      + CategoryInfo          : OperationStopped: (real exit was lost:String) [], RuntimeException
+      + FullyQualifiedErrorId : real exit was lost
+   
+  
+  
+  1 !== 0
+  
+      at file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:77:10
+      at async fixture (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:17:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:61:51
+✖ pwsh.exe: shared transport and watchdog hold both streams without a late EOF wait (2344.3765ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '��Ӫ����ϵͳ'
+  - '运营管理系统'
+  
+      at file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:78:48
+      at async fixture (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:17:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '��Ӫ����ϵͳ',
+    expected: '运营管理系统',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:82:123
+✖ original nested PS5 adapter: ready (4102.093ms)
+  [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-ueNC8j'] { errno: -4082, code: 'EBUSY', syscall: 'rmdir', path: 'C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-deadline-test-ueNC8j' }
+
+test at tests\release-process-deadline.test.mjs:82:123
+✖ original nested PS5 adapter: engine-failed (4009.2243ms)
+  [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-SkcDn8'] { errno: -4082, code: 'EBUSY', syscall: 'rmdir', path: 'C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-deadline-test-SkcDn8' }
+
+test at tests\release-process-deadline.test.mjs:82:123
+✖ original nested PS5 adapter: wrong-version (2610.9441ms)
+  [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-VfJu0K'] { errno: -4082, code: 'EBUSY', syscall: 'rmdir', path: 'C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-deadline-test-VfJu0K' }
+
+test at tests\release-process-deadline.test.mjs:82:123
+✖ original nested PS5 adapter: incomplete (3544.8733ms)
+  [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-ERwy58'] { errno: -4082, code: 'EBUSY', syscall: 'rmdir', path: 'C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-deadline-test-ERwy58' }
+
+test at tests\release-process-deadline.test.mjs:82:123
+✖ original nested PS5 adapter: bad-json (1807.6521ms)
+  [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-np3cYU'] { errno: -4082, code: 'EBUSY', syscall: 'rmdir', path: 'C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-deadline-test-np3cYU' }
+
+test at tests\release-process-deadline.test.mjs:82:123
+✖ original nested PS5 adapter: maintenance (4191.0821ms)
+  [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-rXusWe'] { errno: -4082, code: 'EBUSY', syscall: 'rmdir', path: 'C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-deadline-test-rXusWe' }
+
+test at tests\release-process-deadline.test.mjs:82:123
+✖ original nested PS5 adapter: deadline (2424.2756ms)
+  [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-E7D9pi'] { errno: -4082, code: 'EBUSY', syscall: 'rmdir', path: 'C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-deadline-test-E7D9pi' }
+
+test at tests\release-process-deadline.test.mjs:82:123
+✖ original nested PS5 adapter: drain (4045.5512ms)
+  [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-IGRac3'] { errno: -4082, code: 'EBUSY', syscall: 'rmdir', path: 'C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-deadline-test-IGRac3' }

@@ -1,0 +1,19 @@
+{
+  "syntheticGrandchildStillPresent": false,
+  "elapsedMs": 7157.2317,
+  "syntheticHoldMs": 6000,
+  "productionRequests": 0,
+  "data": {
+    "ok": true,
+    "syntheticGrandchildPid": 69404
+  },
+  "completedAt": "2026-10-09T13:36:20.5885591+00:00",
+  "mode": "isolated exact installed Invoke-WatchProcess with synthetic child/grandchild",
+  "externalMessages": 0,
+  "installedScriptSha256": "99593a800321569257bf8e31fdd64dda8b558f9bacdeed316ca7000a301c162a",
+  "deadlineExceeded": true,
+  "productionWrites": 0,
+  "startedAt": "2026-10-09T13:36:13.3766473+00:00",
+  "deadlineSeconds": 2,
+  "status": "returned"
+}

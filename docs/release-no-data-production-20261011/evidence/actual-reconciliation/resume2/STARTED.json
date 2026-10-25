@@ -1,0 +1,23 @@
+{
+  "startedAt": "2026-10-11T17:12:42.210Z",
+  "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+  "argv": [
+    "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\fresh-adoption-entry-v2.mjs",
+    "execute",
+    "E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json",
+    "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "2026-10-11T15:25:28Z"
+  ],
+  "environmentSha256": "bc79f88a7e7b963179fe029dccf2f605f1bad855ad29873b58d43dfb96aac609",
+  "state": {
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "head": "1dece550efb4af55b792426714af4338b0f95a400a77b7789af55e455f89be49",
+    "eventCount": 11,
+    "passedOperations": [
+      "op-prepare",
+      "backup-pre"
+    ],
+    "noUnknown": true
+  },
+  "approvalSha256": "dfd9e3dc69b61c1fb7761fa058d5ee66a519782de1d8d830b28a57df29be835a"
+}

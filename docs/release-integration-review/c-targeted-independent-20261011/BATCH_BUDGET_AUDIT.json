@@ -1,0 +1,150 @@
+{
+  "version": "teruisi-c-actual-sealed-operation-budget-audit-v1",
+  "at": "2026-10-11T10:15:07.404Z",
+  "status": "passed",
+  "specPath": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\ADOPTION_BATCH_FRESH_V1.json",
+  "specRawSha256": "eec240464811a6e954f489d8504aa6b77880f99187340b5899509a2093a5d639",
+  "batchSha256": "f0bb923070dc0741a6b76885b6fe08f54710928b0eda1398a9cab8452d1d6c9e",
+  "moduleSha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+  "operations": [
+    {
+      "id": "op-prepare",
+      "kind": "worker-plan",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    },
+    {
+      "id": "backup-pre",
+      "kind": "backup",
+      "timeoutMs": 1800000,
+      "source": "command.timeoutMs",
+      "syntheticDeadlineUnixMs": 1801000
+    },
+    {
+      "id": "op-entermaintenance-drain",
+      "kind": "lifecycle",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    },
+    {
+      "id": "op-stopworker-switch",
+      "kind": "lifecycle",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    },
+    {
+      "id": "op-apply",
+      "kind": "worker-apply",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    },
+    {
+      "id": "previous-reference-guard",
+      "kind": "task-acceptance",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    },
+    {
+      "id": "op-deployapp-switch",
+      "kind": "django-deploy",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    },
+    {
+      "id": "op-hardenacl-switch",
+      "kind": "lifecycle",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    },
+    {
+      "id": "installed-recovery-consumer",
+      "kind": "recovery-consumer",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    },
+    {
+      "id": "restore-installed",
+      "kind": "restore",
+      "timeoutMs": 1800000,
+      "source": "command.timeoutMs",
+      "syntheticDeadlineUnixMs": 1801000
+    },
+    {
+      "id": "op-exitmaintenance-switch",
+      "kind": "lifecycle",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    },
+    {
+      "id": "op-startworker-switch",
+      "kind": "lifecycle",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    },
+    {
+      "id": "observe-display",
+      "kind": "no-data-observation",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    },
+    {
+      "id": "observe-permissions",
+      "kind": "no-data-observation",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    },
+    {
+      "id": "unchanged-business-closure",
+      "kind": "task-acceptance",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    },
+    {
+      "id": "op-verifystartup-acceptance",
+      "kind": "lifecycle",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    },
+    {
+      "id": "op-aggregatestatus-acceptance",
+      "kind": "lifecycle",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    },
+    {
+      "id": "observe-natural-watchdog",
+      "kind": "no-data-observation",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    },
+    {
+      "id": "op-verifystartup-closeout",
+      "kind": "lifecycle",
+      "timeoutMs": 600000,
+      "source": "original-default",
+      "syntheticDeadlineUnixMs": 601000
+    }
+  ],
+  "originalMaximumTimeoutMs": 1800000,
+  "inheritedDeadlineClampVerifiedWithSyntheticClock": true,
+  "productionInheritedEnvironmentNotSampled": true,
+  "noDeadlineCapRelaxation": true,
+  "nativeOperationsRun": 0,
+  "productionActions": 0
+}

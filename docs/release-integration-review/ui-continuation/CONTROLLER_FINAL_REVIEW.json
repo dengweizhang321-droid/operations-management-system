@@ -1,0 +1,54 @@
+{
+  "version": "teruisi-ab-ui-supplement-controller-independent-review-v1",
+  "status": "passed",
+  "reviewDate": "2026-10-10",
+  "timezone": "Asia/Shanghai",
+  "reviewer": "/root/preparation_review",
+  "scope": "Exact supplement controller source, authorization/state/ABI guards and isolated in-memory runtime tests; not production UI acceptance",
+  "controllerSha256": "97e66370260154a38387b77f3d852112d9583d51f0682b37a9080deaa9032570",
+  "artifactControllerSha256": "97e66370260154a38387b77f3d852112d9583d51f0682b37a9080deaa9032570",
+  "implementationStableAcrossIndependentTests": true,
+  "implementationModifiedByReviewer": false,
+  "independentTests": {
+    "file": "supplement-controller.independent.test.mjs",
+    "sha256": "053d034d8770858fd727e44a655dbfcb12a558c5d55d333a9f638b9acad6f6dd",
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "exitCode": 0,
+    "durationMs": 1629.1167,
+    "log": "INDEPENDENT_CONTROLLER_SECOND.log",
+    "logSha256": "4ebbe8e874fb2e2e1f0d68382c82da4fa223b125d4a4493903104078c30fc00f",
+    "effects": "In-memory only; no production engine, collector, UI or operator called"
+  },
+  "logSha256": "4ebbe8e874fb2e2e1f0d68382c82da4fa223b125d4a4493903104078c30fc00f",
+  "authorAbiEvidenceRead": {
+    "log": "CONTROLLER_TESTS.log",
+    "sha256": "79bc4979e1bdcb9b8206467febe2bc594aa73ec2b68e377c99d2543d7ea92c20",
+    "passed": 17,
+    "failed": 0,
+    "scope": "Author tests include actual adopted executeBatch with independent temporary WAL and substituted operator/collector; not rerun by this reviewer"
+  },
+  "firstIndependentRunPreserved": {
+    "log": "INDEPENDENT_CONTROLLER_FIRST.log",
+    "sha256": "cb979de2a76ad27da9194596fc93541504aa20544eac477ef94ae8e6484459dd",
+    "passed": 3,
+    "failed": 2,
+    "interpretation": "Reviewer fixture lacked new failedAt/sealedAt fields after author schema update; initial front-door rejections are not counted as target guard verification"
+  },
+  "closedFindings": [
+    "Adopted executeBatch has no beforeOperation hook; intent/start now fsynced inside actual run before new UI",
+    "New approval cannot reuse original approval time/item; exact failedAt is bound to anchored failed event",
+    "Entry is explicitly single use; tail continuation after new UI pass requires independent receipt verification and original engine"
+  ],
+  "originalBatchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "originalFailedEventSha256": "b68be115be0dc4061a1aca79df78eaabf2ed858e76e2c1bdb96c8c178e507556",
+  "remainingKnownControllerBlockers": [],
+  "productionOperationsPerformedByReviewer": 0,
+  "unverified": [
+    "Actual production UI result and original tail closeout",
+    "Future human approval provenance; final precise supplement approval still required",
+    "Native concurrent production rotation acquisition; this review checks exact delegation and isolated lock ordering",
+    "UI/helper/browser behavior outside this controller scope"
+  ]
+}

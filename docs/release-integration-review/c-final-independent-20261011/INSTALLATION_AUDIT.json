@@ -1,0 +1,471 @@
+{
+  "version": "teruisi-v4-installation-bounded-audit-v1",
+  "observedAt": "2026-10-11T07:15:19.384Z",
+  "independent": true,
+  "productionExecutionApproved": false,
+  "sourceCommit": "030024542ef76be081f69023fefb0601dd4d06b5",
+  "batchSha256": "65fc5338321efc2d79168764f7b2227002333199d038409dc6dd7277acaed8d2",
+  "batchRawSha256": "340e88afaa2dc3eb670f09a229442b5c42e153e3fa41a967403ab32a27822675",
+  "guardSha256": "04655a323af97453b7ae38670a6470e495226e85c337fb9b0a72684726a54edd",
+  "binding": {
+    "sourceSha256": "ef5cc058391988586de4cf2b64289a13f0f3682a1a38db5569213f704323e1d1",
+    "sourceInventorySha256": "dd769ec44a9833f876326c0df4b858a91ee2a656a636c33d5b402a87c0335d20",
+    "predecessorSourceSha256": "92c2656c064c6a202239f4f010f0d241e90ae19fb35638cd328727a7ac64973c",
+    "predecessorInventorySha256": "23388a3be8055ef4673b8f0fe08330b396c9d662d711df193ba81e218ad71922",
+    "dependencySha256": "486154660ca7b1c32822078584c7938ae5de172a0dc8bcd47891100563af935e",
+    "toolchainSha256": "48587c6f8ec33de52c3b4d575735ef1ca2901dd6ca0cbbba95cc36cfef67b7d8",
+    "configurationSha256": "0aa8c45d6749b9ca15d14a76a4d30594224ce0b847782ebad0a663f7b1bf8143",
+    "artifactSha256": "58cc236e09f097f2c7aec054af9699fc7c0aca3bda1cd79d1c47cbf06efd1a8f",
+    "predecessorSha256": "094e10d4508986d62e5d90bf99041271fb7527f9a8b5d33f1dfb386529cee548",
+    "workerPlanSha256": "3fb9b0fe083862da5a1a426b444a91365b2ec4fdecb0c4191c2c18f0a12ccb5b",
+    "maintenanceId": "026e0b219f9f448793f53b56d0f374b0",
+    "sourceBindingSha256": "dc45c01f2c9ea7398fae6c55c10d6408e59fdc9177d45fc7e81fd3172f367912",
+    "djangoPredecessorSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+    "djangoCandidateSha256": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09",
+    "djangoPreparedAppId": "1e1138feef7148fb851713c2b39a25d0",
+    "djangoPreparedReceiptSha256": "10db2364053ebfb90d85dd301914753453d02ad313cd02ff7312ca654ebdeb9b",
+    "testsSha256": "50d42dce64fa447cd04224db065db74b6ec2ea49891799f15a6b75f65353e5e3",
+    "observationBrowserSha256": "6849d2982038de9f9489a7b3858f3b785b7fec06a842c93c517281d21995c8ca",
+    "observationLibrarySha256": "b34ecdee884c9516334975445f7323682cac5fca10c9cfa2b9907469d1041b50"
+  },
+  "checks": {
+    "canonicalBatchAndCollectorMatched": true,
+    "sourceBindingMatchesPlan": true,
+    "workerManifestAndToolsKeyFilesMatched": true,
+    "djangoPreparedReceiptMatched": true,
+    "oldAndPreparedServiceAndMaintenanceBytesEqual": true,
+    "oldAndPreparedInventoryCounts": [
+      2933,
+      2933
+    ],
+    "djangoDeclaredChanges": [
+      ".wrangler/cache/cf.json",
+      "tools/worker-local-release-rotation.mjs",
+      "tools/worker-local-release.mjs"
+    ],
+    "pairedTools": [
+      {
+        "name": "worker-local-release.mjs",
+        "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+        "workerAndPreparedDjangoByteEqual": true
+      },
+      {
+        "name": "worker-local-release-rotation.mjs",
+        "sha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+        "workerAndPreparedDjangoByteEqual": true
+      }
+    ],
+    "workerStages": [
+      {
+        "step": "EnterMaintenance",
+        "sha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+        "expectsSuccessor": false
+      },
+      {
+        "step": "StopWorker",
+        "sha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+        "expectsSuccessor": false
+      },
+      {
+        "step": "DeployApp",
+        "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+        "expectsSuccessor": true
+      },
+      {
+        "step": "HardenAcl",
+        "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+        "expectsSuccessor": true
+      },
+      {
+        "step": "ExitMaintenance",
+        "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+        "expectsSuccessor": true
+      },
+      {
+        "step": "StartWorker",
+        "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+        "expectsSuccessor": true
+      },
+      {
+        "step": "VerifyStartup",
+        "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+        "expectsSuccessor": true
+      },
+      {
+        "step": "AggregateStatus",
+        "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+        "expectsSuccessor": true
+      },
+      {
+        "step": "VerifyStartup",
+        "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+        "expectsSuccessor": true
+      }
+    ],
+    "transition": {
+      "workerApplyPosition": 6,
+      "djangoDeployPosition": 8,
+      "between": [
+        "previous-reference-guard"
+      ],
+      "backupRestoreBetween": false
+    },
+    "databaseOperations": [
+      {
+        "id": "backup-pre",
+        "kind": "backup",
+        "operator": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-postgres-maintenance.ps1",
+        "usesPreparedOperator": false
+      },
+      {
+        "id": "restore-pre",
+        "kind": "restore",
+        "operator": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-postgres-maintenance.ps1",
+        "usesPreparedOperator": false
+      },
+      {
+        "id": "backup-post",
+        "kind": "backup",
+        "operator": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-postgres-maintenance.ps1",
+        "usesPreparedOperator": false
+      },
+      {
+        "id": "restore-post",
+        "kind": "restore",
+        "operator": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-postgres-maintenance.ps1",
+        "usesPreparedOperator": false
+      }
+    ],
+    "previousPackage": {
+      "manifestMatchesPreservedCopy": true,
+      "manifestSha256": "121d805fc7d01f234b14304ee1db901c82485b84920328082574622211b90888",
+      "declaredTree": {
+        "algorithm": "sha256-ordinal-path-length-content-v1",
+        "fileCount": 3468,
+        "sha256": "fa434f8ec1a49dbb478f8457eda601e8089a4bb7ffbfbf8b5562797b2fd3000b"
+      },
+      "wholeTreeRehashedThisReview": false,
+      "guardAndPreservationFilePinned": true
+    },
+    "author16VM": {
+      "testSha256": "39893bf4a17150021733b33982308bb046d3c4c77e5a1d34944dadd5514e43bf",
+      "logSha256": "fb6816c2f5670dbe446efa0db2327010bcf53c8be2c4ff940fea27e4493e8d06",
+      "passed": 16,
+      "failed": 0,
+      "durationMs": 203.3251,
+      "rerunThisReview": false
+    },
+    "priorReferenceSnapshot": {
+      "at": "2026-10-11T06:18:14.473Z",
+      "filesScanned": 1160,
+      "processes": 818,
+      "scheduledTasks": 215,
+      "status": "passed",
+      "notFreshExecutionGate": true
+    }
+  },
+  "operations": [
+    {
+      "ordinal": 1,
+      "id": "op-prepare",
+      "kind": "worker-plan",
+      "phase": "prepare",
+      "step": null
+    },
+    {
+      "ordinal": 2,
+      "id": "backup-pre",
+      "kind": "backup",
+      "phase": "backup-pre",
+      "step": null
+    },
+    {
+      "ordinal": 3,
+      "id": "restore-pre",
+      "kind": "restore",
+      "phase": "restore-pre",
+      "step": null
+    },
+    {
+      "ordinal": 4,
+      "id": "op-entermaintenance-drain",
+      "kind": "lifecycle",
+      "phase": "drain",
+      "step": "EnterMaintenance"
+    },
+    {
+      "ordinal": 5,
+      "id": "op-stopworker-switch",
+      "kind": "lifecycle",
+      "phase": "switch",
+      "step": "StopWorker"
+    },
+    {
+      "ordinal": 6,
+      "id": "op-apply",
+      "kind": "worker-apply",
+      "phase": "switch",
+      "step": null
+    },
+    {
+      "ordinal": 7,
+      "id": "previous-reference-guard",
+      "kind": "task-acceptance",
+      "phase": "switch",
+      "step": null
+    },
+    {
+      "ordinal": 8,
+      "id": "op-deployapp-switch",
+      "kind": "django-deploy",
+      "phase": "switch",
+      "step": "DeployApp"
+    },
+    {
+      "ordinal": 9,
+      "id": "op-hardenacl-switch",
+      "kind": "lifecycle",
+      "phase": "switch",
+      "step": "HardenAcl"
+    },
+    {
+      "ordinal": 10,
+      "id": "op-exitmaintenance-switch",
+      "kind": "lifecycle",
+      "phase": "switch",
+      "step": "ExitMaintenance"
+    },
+    {
+      "ordinal": 11,
+      "id": "op-startworker-switch",
+      "kind": "lifecycle",
+      "phase": "switch",
+      "step": "StartWorker"
+    },
+    {
+      "ordinal": 12,
+      "id": "observe-display",
+      "kind": "no-data-observation",
+      "phase": "acceptance",
+      "step": null
+    },
+    {
+      "ordinal": 13,
+      "id": "observe-permissions",
+      "kind": "no-data-observation",
+      "phase": "acceptance",
+      "step": null
+    },
+    {
+      "ordinal": 14,
+      "id": "unchanged-business-closure",
+      "kind": "task-acceptance",
+      "phase": "acceptance",
+      "step": null
+    },
+    {
+      "ordinal": 15,
+      "id": "op-verifystartup-acceptance",
+      "kind": "lifecycle",
+      "phase": "acceptance",
+      "step": "VerifyStartup"
+    },
+    {
+      "ordinal": 16,
+      "id": "op-aggregatestatus-acceptance",
+      "kind": "lifecycle",
+      "phase": "acceptance",
+      "step": "AggregateStatus"
+    },
+    {
+      "ordinal": 17,
+      "id": "observe-natural-watchdog",
+      "kind": "no-data-observation",
+      "phase": "acceptance",
+      "step": null
+    },
+    {
+      "ordinal": 18,
+      "id": "backup-post",
+      "kind": "backup",
+      "phase": "backup-post",
+      "step": null
+    },
+    {
+      "ordinal": 19,
+      "id": "restore-post",
+      "kind": "restore",
+      "phase": "restore-post",
+      "step": null
+    },
+    {
+      "ordinal": 20,
+      "id": "op-verifystartup-closeout",
+      "kind": "lifecycle",
+      "phase": "closeout",
+      "step": "VerifyStartup"
+    }
+  ],
+  "physicalSmallFiles": [
+    {
+      "path": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\ADOPTION_BATCH_V4.json",
+      "bytes": 3452893,
+      "sha256": "340e88afaa2dc3eb670f09a229442b5c42e153e3fa41a967403ab32a27822675"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\adoption-scope-guard-v4.mjs",
+      "bytes": 9580,
+      "sha256": "04655a323af97453b7ae38670a6470e495226e85c337fb9b0a72684726a54edd"
+    },
+    {
+      "path": "file:///D:/.codex/worktrees/release-c-final-independent-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-no-data-adoption-20261011/adapters/adoption-scope-guard-v4.mjs",
+      "bytes": 9580,
+      "sha256": "04655a323af97453b7ae38670a6470e495226e85c337fb9b0a72684726a54edd"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T051645Z-3032ae332a32f1a0\\deployment-manifest.json",
+      "bytes": 11081,
+      "sha256": "58cc236e09f097f2c7aec054af9699fc7c0aca3bda1cd79d1c47cbf06efd1a8f"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/worker-release-rotation-plans/3fb9b0fe083862da5a1a426b444a91365b2ec4fdecb0c4191c2c18f0a12ccb5b.json",
+      "bytes": 7699,
+      "sha256": "3fb9b0fe083862da5a1a426b444a91365b2ec4fdecb0c4191c2c18f0a12ccb5b"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app.prepare-1e1138feef7148fb851713c2b39a25d0.json",
+      "bytes": 364,
+      "sha256": "10db2364053ebfb90d85dd301914753453d02ad313cd02ff7312ca654ebdeb9b"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\deployment.json",
+      "bytes": 334,
+      "sha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app.deploy-1e1138feef7148fb851713c2b39a25d0\\deployment.json",
+      "bytes": 367,
+      "sha256": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T051645Z-3032ae332a32f1a0\\tools\\worker-local-release.mjs",
+      "bytes": 183414,
+      "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app.deploy-1e1138feef7148fb851713c2b39a25d0\\tools\\worker-local-release.mjs",
+      "bytes": 183414,
+      "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T051645Z-3032ae332a32f1a0\\tools\\worker-local-release-rotation.mjs",
+      "bytes": 81611,
+      "sha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app.deploy-1e1138feef7148fb851713c2b39a25d0\\tools\\worker-local-release-rotation.mjs",
+      "bytes": 81611,
+      "sha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-local-service.ps1",
+      "bytes": 235956,
+      "sha256": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app.deploy-1e1138feef7148fb851713c2b39a25d0\\tools\\django-local-service.ps1",
+      "bytes": 235956,
+      "sha256": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T051645Z-3032ae332a32f1a0\\tools\\release-batch.mjs",
+      "bytes": 54445,
+      "sha256": "18f556319c7b14dbdcd32305584032f645abf1b3d6cb1827b9cee3b1ea6fa358"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T051645Z-3032ae332a32f1a0\\tools\\release-batch-admission.mjs",
+      "bytes": 26180,
+      "sha256": "10a783535add546ed8f3e28930bad416d8d9d27f7acbe126d48f393a47db7415"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T051645Z-3032ae332a32f1a0\\tools\\release-impact.mjs",
+      "bytes": 46274,
+      "sha256": "24403c32b7788f53d585e51535c57fe870603e8f728ba1eb21c1c5b25cc5f548"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T051645Z-3032ae332a32f1a0\\tools\\release-lifecycle-step.ps1",
+      "bytes": 9383,
+      "sha256": "c63e8fbaa5b02a13589538ab03468d07511b27a1dec44279a893d29c8467dbce"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T051645Z-3032ae332a32f1a0\\tools\\worker-local-service.ps1",
+      "bytes": 104852,
+      "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-postgres-maintenance.ps1",
+      "bytes": 111624,
+      "sha256": "542e4fb67ed96a680f76f1de9f4b124bfb7f039094ff664fe25595b4a8fb48e6"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app.deploy-1e1138feef7148fb851713c2b39a25d0\\tools\\django-postgres-maintenance.ps1",
+      "bytes": 111624,
+      "sha256": "542e4fb67ed96a680f76f1de9f4b124bfb7f039094ff664fe25595b4a8fb48e6"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\release-payload-retention.ps1",
+      "bytes": 6507,
+      "sha256": "e5bab569143c13a0021e2c57f6f832a58455eec421374bbd261b7b119d813f78"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app.deploy-1e1138feef7148fb851713c2b39a25d0\\tools\\release-payload-retention.mjs",
+      "bytes": 6996,
+      "sha256": "d339fb1eaac511d66f05660c50ade8e6f1e45a525dedcc0be395ebd3636d7b6a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T051645Z-3032ae332a32f1a0\\tools\\worker-local-service.ps1",
+      "bytes": 104852,
+      "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\APP_PREVIOUS_PRESERVED.json",
+      "bytes": 783,
+      "sha256": "ed906e8fb5883576e9c34a37b5e972b738f0dda03c8df1654167728d4cecd504"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app.previous\\deployment.json",
+      "bytes": 382,
+      "sha256": "121d805fc7d01f234b14304ee1db901c82485b84920328082574622211b90888"
+    },
+    {
+      "path": "D:\\codex-isolated\\release-no-data-adoption-20261011\\app-previous-preserved\\deployment.json",
+      "bytes": 382,
+      "sha256": "121d805fc7d01f234b14304ee1db901c82485b84920328082574622211b90888"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\ASTRA_GUARD_V4_HANDOFF.json",
+      "bytes": 1799,
+      "sha256": "ad9140f90431d04b30900f60ed16fbbb61e7982162800a6ba4afe54e43e078b0"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\previous-reference-path-v4.test.mjs",
+      "bytes": 4959,
+      "sha256": "39893bf4a17150021733b33982308bb046d3c4c77e5a1d34944dadd5514e43bf"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\astra-guard-v4-final.log",
+      "bytes": 1383,
+      "sha256": "fb6816c2f5670dbe446efa0db2327010bcf53c8be2c4ff940fea27e4493e8d06"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\ALL_REFERENCES_V4.json",
+      "bytes": 385,
+      "sha256": "42cfd7f3dc96cf3b69cbad058e2a1c7ae5b2af71c393681d63775e936f31bf89"
+    }
+  ],
+  "limitations": [
+    "No full source/build/npm or 3468-file previous tree rehash.",
+    "No native process/task scan, Status, HTTP, SQL, CLI, lock, Backup/Restore or lifecycle call.",
+    "No actual rollback, restore exercise, installation or new backup strategy qualification."
+  ]
+}

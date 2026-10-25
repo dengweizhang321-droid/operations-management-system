@@ -1,0 +1,216 @@
+继续同一conversation，Astra实现者向你提交最终V2独立文本复审。不要调用工具、不执行或更改任何文件/生产动作。上轮有两处需明确纠正：WAL实际code=nonzero_exit、exitCode=1、timeoutType=null；600033ms只是elapsed，不能称600秒超时。当前不使用GetExitCodeProcess/259判定：固定两个旧PID14972与36576必须CIM无行且OpenProcess(0x1000)失败GetLastWin32Error=87，成功handle立即Close并拒绝、error5/其他全部拒绝。PowerShell例外限固定原path+SHA+nlink===2，普通文件单link。
+实际状态：Root原Verify已exit0且真实backup点/manifest/dump/content符合；Root独立35/35测试通过（28补证+7resume2纯状态）。实际生产append尚未发生，UAC pending，人类休息，不能绕过OS确认。此前f15原19steps/运行包/SourceBinding/原WAL未知/owner均保留。新adapter只能原rotation lock中一次性固定10event/head追加ONE000010 passed含5outputs，后读回，不自动resume。旧audit.result+CRLF1319bytes完整SHA和原stdout完全匹配。releaseRetention blocked原样保留。授权是原发布范围必要故障决策，不是任意WAL写入。
+下面提供真实当前V2源码及resume2静态生成器。bootstrap helper是原冻结6989入口的builtin完整物理/byte/依赖树检查复制，只增加导出、固定原self、原rotation API；在adapter中SHA固定13e670…后import，外层Root持源文件+proof+Node完整读句柄。另已指出生成器尚未生成的resume阶段必须在Node启动前清NODE_*，capture输入不改；请视这点为明确待修正，不误认源码已经加入。
+请回复具体发现与上轮措辞纠正（最多900字）。避免绝对安全/完美/原子全系统等宣称。不要将隔离测试等同生产append/Restore完成。
+
+FILE reconcile-backup-once.mjs
+// One fixed failed backup output reconciliation. No backup, restore, cleanup, or resume.
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import {pathToFileURL,fileURLToPath} from 'node:url';
+import {createHash} from 'node:crypto';
+import {createReadStream} from 'node:fs';
+import {readFile,lstat,realpath} from 'node:fs/promises';
+import {spawnSync} from 'node:child_process';
+export const fixed=Object.freeze({
+ batch:'f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f',
+ head:'f59b6598f16ba14290b80fc2a3dc22e0c6ff6c30a33bb61d82dc8759a571ca99',
+ spec:'E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json',
+ specSha:'960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b',
+ audit:'D:/teruisi-runtime/django-sales/audits/postgres-operations/70abd23809cc4817a589d663e6635fc2.json',
+ auditSha:'a520fd1b96e5510701c05ebd077a60c8d5bd7f85d74d8890d9e8348ee568c26c',
+ directory:'E:\\运营管理系统业务数据\\daily-20261011T162958Z-49bdf7f519aa',
+ backupId:'daily-20261011T162958Z-49bdf7f519aa',
+ manifestSha:'a46097b7b68a3967527c4fc101063d557089fc97228012c3b0fe8f42e6d598ed',
+ dumpSha:'e88b7cbbae5b2aa30449373a21de7e3d7400912718132088d07e4166a169b148',
+ contentSha:'f261acde08c84455f4f8c75b99486130e4b17f26dbde6c9a29933a1940fc2c83',
+ stdoutSha:'114fc0d3c0574834a96adfe48db8248810c8eebe41e2d4d9f43816e8c665b3ad',
+ ps:'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+ psSha:'7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5',
+ operator:'D:\\teruisi-runtime\\django-sales\\app\\tools\\django-postgres-maintenance.ps1',
+ operatorSha:'542e4fb67ed96a680f76f1de9f4b124bfb7f039094ff664fe25595b4a8fb48e6',
+ journal:'D:/teruisi-runtime/teruisi-worker-sales/state/release-batches',
+ evidence:'E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/',
+});
+export const canonical=v=>Array.isArray(v)?`[${v.map(canonical).join(',')}]`:v&&typeof v==='object'?`{${Object.keys(v).sort().map(k=>`${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`:JSON.stringify(v);
+export const digest=v=>createHash('sha256').update(Buffer.isBuffer(v)||typeof v==='string'?v:canonical(v)).digest('hex');
+export const verifyArgs=['-NoProfile','-NonInteractive','-File',fixed.operator,'-Action','Verify','-BackupDirectory',fixed.directory,'-ApprovedManifestSha256',fixed.manifestSha];
+export function reconciliationEvent(outputs,proof,at){
+ assert.deepEqual(Object.keys(outputs).sort(),['backupDirectory','backupId','manifestSha256','dumpSha256','contentSha256'].sort());
+ const core={batchSha256:fixed.batch,previous:fixed.head,at,operationId:'backup-pre',phase:'backup-pre',status:'passed',reason:'independently-reconciled',receiptSha256:digest(proof),outputs};
+ return {...core,eventSha256:digest(core)};
+}
+export function validateBackupRecovery({state,active,maintenance,drain,processesAbsent,finished,direct,audit,manifest,verify,verifyExecution,verifyRaw,op}) {
+ assert.equal(state.events.length,10);assert.equal(state.previous,fixed.head);
+ assert.equal(state.unknown.length,1);const failure=state.latest.get('backup-pre');
+ assert.equal(failure,state.unknown[0]);assert.equal(failure.eventSha256,fixed.head);assert.equal(failure.status,'unknown');assert.equal(failure.outputs,null);
+ assert.equal(failure.processEvidence.processId,36576);assert.equal(failure.processEvidence.exitCode,1);
+ assert.equal(failure.processEvidence.stdoutBytes,1319);assert.equal(failure.processEvidence.stdoutSha256,fixed.stdoutSha);
+ assert.deepEqual(active,{batchSha256:fixed.batch,id:'first-adoption-live-guard-20261011'});
+ assert.equal(maintenance,null);assert.equal(drain,null);assert.deepEqual(processesAbsent,[14972,36576]);
+ assert.equal(direct.processId,14972);assert.equal(direct.batchSha256,fixed.batch);
+ assert.equal(finished.batchSha256,fixed.batch);assert.equal(finished.exitCode,1);assert.equal(finished.errorCode,null);
+ assert.equal(finished.status,'entry-failed-preserve-owner-gates-wal');
+ assert.equal(op.id,'backup-pre');assert.equal(op.kind,'backup');assert.equal(op.phase,'backup-pre');
+ assert.equal(audit.id,'70abd23809cc4817a589d663e6635fc2');assert.equal(audit.action,'Backup');assert.equal(audit.status,'completed');assert.equal(audit.failure,null);
+ assert.deepEqual(audit.databaseBackup,audit.result);
+ const r=audit.result;
+ assert.equal(digest(Buffer.from(JSON.stringify(r)+'\r\n')),fixed.stdoutSha,'Audit is not exact captured operator stdout');
+ assert.equal(r.status,'completed');assert.equal(r.serviceStateChanged,false);assert.equal(r.retention.status,'completed');
+ assert.ok(r.retention.retained.includes(fixed.backupId));assert.equal(r.releaseRetention.status,'blocked');assert.equal(r.releaseRetention.stage,'release_plan');
+ for(const a of op.assertions)assert.equal(canonical(a.path.split('.').reduce((v,k)=>v?.[k],r)),canonical(a.equals));
+ const outputs={backupDirectory:fixed.directory,backupId:fixed.backupId,manifestSha256:fixed.manifestSha,dumpSha256:fixed.dumpSha,contentSha256:fixed.contentSha};
+ for(const [k,v]of Object.entries(outputs))assert.equal(r[k],v);
+ assert.equal(manifest.status,'completed');assert.equal(manifest.backupId,fixed.backupId);assert.equal(manifest.dump.sha256,fixed.dumpSha);assert.equal(manifest.evidence.contentSha256,fixed.contentSha);
+ assert.equal(verify.status,'completed');assert.equal(verify.serviceStateChanged,false);
+ for(const k of ['backupId','manifestSha256','dumpSha256','contentSha256'])assert.equal(verify[k],outputs[k]);
+ assert.equal(verifyExecution.version,'actual-original-existing-backup-verification-v1');assert.equal(verifyExecution.status,'verified-original-recovery-point');
+ assert.equal(verifyExecution.exitCode,0);assert.equal(verifyExecution.errorCode,null);assert.deepEqual(verifyExecution.argv,verifyArgs);assert.deepEqual(verifyExecution.receipt,verify);
+ assert.equal(verifyExecution.stderrSha256,digest(''));assert.equal(verifyExecution.stdoutSha256,digest(verifyRaw));
+ assert.ok(Number.isFinite(Date.parse(verifyExecution.startedAt))&&Date.parse(verifyExecution.startedAt)>Date.parse(failure.at));
+ assert.ok(Date.parse(verifyExecution.finishedAt)>=Date.parse(verifyExecution.startedAt));
+ return outputs;
+}
+async function physical(file){const absolute=path.resolve(file);for(let p=absolute;;){const s=await lstat(p);assert.equal(s.isSymbolicLink(),false);assert.equal((await realpath(p)).toLowerCase(),p.toLowerCase());const parent=path.dirname(p);if(parent===p)break;p=parent;}}
+export function validLinkCount(file,expected,nlink,systemPowerShell){return nlink===1n&&!systemPowerShell||systemPowerShell&&file===fixed.ps&&expected===fixed.psSha&&nlink===2n;}
+export function assertKernelAbsence(records){assert.deepEqual(records,[{pid:14972,cimAbsent:true,openSucceeded:false,error:87},{pid:36576,cimAbsent:true,openSucceeded:false,error:87}]);return [14972,36576];}
+async function checked(file,expected,{collect=true,systemPowerShell=false}={}){
+ await physical(file);const before=await lstat(file,{bigint:true});assert.ok(before.isFile());assert.ok(validLinkCount(file,expected,before.nlink,systemPowerShell));
+ if(collect)assert.ok(before.size<=16n*1024n*1024n);const hash=createHash('sha256'),chunks=[];
+ for await(const chunk of createReadStream(file)){hash.update(chunk);if(collect)chunks.push(chunk);}
+ const after=await lstat(file,{bigint:true});await physical(file);for(const k of ['dev','ino','nlink','size','mtimeNs','ctimeNs'])assert.equal(after[k],before[k]);
+ const actual=hash.digest('hex');if(expected)assert.equal(actual,expected);return collect?Buffer.concat(chunks):actual;
+}
+async function json(file,sha){return JSON.parse(await checked(file,sha));}
+async function optional(file){try{return await json(file);}catch(e){if(e.code==='ENOENT')return null;throw e;}}
+export async function assertPriorProcessesAbsent(){
+ await checked(fixed.ps,fixed.psSha,{collect:false,systemPowerShell:true});
+ const source=String.raw`$ErrorActionPreference='Stop';$i=[Security.Principal.WindowsIdentity]::GetCurrent();if($i.User.Value -cne 'S-1-5-21-815909789-107973518-1379257801-1001' -or -not ([Security.Principal.WindowsPrincipal]::new($i)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Same approved administrator required'};$p=@(Get-CimInstance Win32_Process -Filter 'ProcessId=14972 OR ProcessId=36576');if($p.Count -ne 0){throw 'Prior batch/backup process still exists'};
+Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices;
+public static class ReconcilePidAbsence {
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern IntPtr OpenProcess(uint access,bool inherit,uint pid);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool CloseHandle(IntPtr handle);
+}
+'@
+$records=@();foreach($targetPid in @(14972,36576)){$handle=[ReconcilePidAbsence]::OpenProcess(0x1000,$false,[uint32]$targetPid);$nativeError=[Runtime.InteropServices.Marshal]::GetLastWin32Error();if($handle -ne [IntPtr]::Zero){try{throw 'Kernel process still exists'}finally{[void][ReconcilePidAbsence]::CloseHandle($handle)}};if($nativeError -ne 87){throw 'Kernel process absence unproven'};$records+=[pscustomobject]@{pid=$targetPid;cimAbsent=$true;openSucceeded=$false;error=$nativeError}};[Console]::Write((ConvertTo-Json -InputObject $records -Compress))`;
+ const r=spawnSync(fixed.ps,['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(source,'utf16le').toString('base64')],{windowsHide:true,encoding:'utf8',timeout:30000});assert.equal(r.error,undefined);assert.equal(r.status,0);return assertKernelAbsence(JSON.parse(r.stdout));
+}
+export async function reconcileBackupOnce(proofPath,approvedProofSha){
+ assert.match(approvedProofSha,/^[0-9a-f]{64}$/);const proofRaw=await checked(proofPath,approvedProofSha),proof=JSON.parse(proofRaw);
+ assert.equal(proof.version,'f15-backup-once-reconciliation-v1');assert.equal(proof.batchSha256,fixed.batch);assert.equal(proof.previous,fixed.head);
+ assert.equal(proof.noReplay,true);assert.equal(proof.operationId,'backup-pre');
+ assert.deepEqual(Object.keys(proof).sort(),['version','batchSha256','previous','noReplay','operationId','bootstrapSha256','originalAuditSha256','backupManifestSha256','dumpSha256','verifyStdout','verifyExecution'].sort());
+ assert.equal(proof.originalAuditSha256,fixed.auditSha);assert.equal(proof.backupManifestSha256,fixed.manifestSha);assert.equal(proof.dumpSha256,fixed.dumpSha);
+ assert.deepEqual(proof.verifyStdout,{path:fixed.evidence+'BACKUP_VERIFY_STDOUT.json',sha256:'d37d3cfdf15c623881feddbe8b775a88ef740f4bf3c8ac222bb3d604195d98c5'});
+ assert.deepEqual(proof.verifyExecution,{path:fixed.evidence+'BACKUP_VERIFY_RESULT.json',sha256:'bf44a9dcc86e39ca1a7f83de006e98ab95e645dd16aa091cebe201961d6578c0'});
+ // Root seals/holds this file and this exact bootstrap before launching. No caller module paths.
+ const bootstrapPath=path.join(path.dirname(fileURLToPath(import.meta.url)),'backup-reconcile-bootstrap.mjs');
+ assert.equal(proof.bootstrapSha256,'13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25');
+ assert.equal(await checked(bootstrapPath,proof.bootstrapSha256,{collect:false}),proof.bootstrapSha256);
+ const bootstrap=await import(pathToFileURL(bootstrapPath).href);
+ await checked(fixed.spec,fixed.specSha);
+ const {spec,verifyPins,api}=await bootstrap.bootstrapReconciliation(fixed.spec,fixed.batch);
+ api.verifyBatch(spec.batch,fixed.batch);assert.equal(path.resolve(spec.journalRoot),path.resolve(fixed.journal));
+ return api.withRotationLock(async()=>{
+  const load=async()=>{
+   await checked(proofPath,approvedProofSha);await checked(fixed.operator,fixed.operatorSha,{collect:false});
+   const verifyRaw=await checked(proof.verifyStdout.path,proof.verifyStdout.sha256);
+   const audit=await json(fixed.audit,fixed.auditSha),manifest=await json(path.join(fixed.directory,'backup-manifest.json'),fixed.manifestSha);
+   await checked(path.join(fixed.directory,'teruisi-sales.dump'),fixed.dumpSha,{collect:false});
+   return {state:await api.journalState(fixed.journal,spec.batch),active:await json(path.join(fixed.journal,'active.json')),maintenance:await optional('D:/teruisi-runtime/django-sales/run/system-maintenance.json'),drain:await optional('D:/teruisi-runtime/django-sales/run/automation-drain.json'),processesAbsent:await assertPriorProcessesAbsent(),finished:await json(fixed.evidence+'resume1/FINISHED.json'),direct:await json(fixed.evidence+'resume1/DIRECT_PROCESS.json'),audit,manifest,verify:JSON.parse(verifyRaw),verifyRaw,verifyExecution:await json(proof.verifyExecution.path,proof.verifyExecution.sha256),op:spec.batch.operations.find(o=>o.id==='backup-pre')};
+  };
+  await verifyPins();const context=await load(),outputs=validateBackupRecovery(context);
+  // Final CAS checks after evidence collection; preserve the unresolved original event forever.
+  const finalState=await api.journalState(fixed.journal,spec.batch);assert.equal(finalState.previous,fixed.head);assert.equal(finalState.events.length,10);
+  assert.deepEqual(await json(path.join(fixed.journal,'active.json')),context.active);assert.equal(await optional('D:/teruisi-runtime/django-sales/run/system-maintenance.json'),null);assert.equal(await optional('D:/teruisi-runtime/django-sales/run/automation-drain.json'),null);await assertPriorProcessesAbsent();
+  const event=reconciliationEvent(outputs,proof,new Date().toISOString());
+  await api.writeOnce(path.join(finalState.dir,'000010.json'),event);
+  const after=await api.journalState(fixed.journal,spec.batch);assert.equal(after.events.length,11);assert.equal(after.previous,event.eventSha256);assert.equal(after.unknown.length,0);assert.deepEqual(after.latest.get('backup-pre').outputs,outputs);
+  return {status:'reconciled-only-not-resumed',batchSha256:fixed.batch,eventSha256:event.eventSha256,outputs,proofSha256:approvedProofSha};
+ });
+}
+if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
+ assert.equal(process.argv.length,4);reconcileBackupOnce(...process.argv.slice(2)).then(v=>console.log(canonical(v))).catch(e=>{console.error(e.message);process.exitCode=1;});
+}
+
+
+FILE resume-reconciled-backup-state.mjs
+import assert from 'node:assert/strict';
+import {fixed,canonical,digest,reconciliationEvent} from './reconcile-backup-once.mjs';
+export function assertReconciledBackupState({names,events,active,maintenance,drain,processesAbsent,expectedHead,proof}){
+ assert.match(expectedHead,/^[0-9a-f]{64}$/);assert.equal(events.length,11);assert.deepEqual(names,events.map((_,i)=>String(i).padStart(6,'0')+'.json'));
+ let previous=null;const latest=new Map();for(const event of events){const{eventSha256,...core}=event;assert.equal(event.batchSha256,fixed.batch);assert.equal(event.previous,previous);assert.equal(digest(core),eventSha256);previous=eventSha256;if(event.operationId)latest.set(event.operationId,event);}
+ assert.equal(events[9].eventSha256,fixed.head);assert.equal(events[9].status,'unknown');assert.equal(previous,expectedHead);
+ const outputs={backupDirectory:fixed.directory,backupId:fixed.backupId,manifestSha256:fixed.manifestSha,dumpSha256:fixed.dumpSha,contentSha256:fixed.contentSha};
+ assert.deepEqual(events[10],reconciliationEvent(outputs,proof,events[10].at));
+ assert.deepEqual([...latest.keys()],['op-prepare','backup-pre']);assert.equal(latest.get('op-prepare').eventSha256,'249b4b9797b5ec4069e722d2f9f2ca725c7278af32ce3b8609ef46e9de198196');
+ for(const event of latest.values())assert.equal(event.status,'passed');
+ assert.deepEqual(active,{batchSha256:fixed.batch,id:'first-adoption-live-guard-20261011'});assert.equal(maintenance,null);assert.equal(drain,null);assert.deepEqual(processesAbsent,[14972,36576]);
+ return {batchSha256:fixed.batch,head:previous,eventCount:11,passedOperations:[...latest.keys()],noUnknown:true};
+}
+
+
+FILE run-approved-backup-resume.mjs
+// Resume2 draft: exact reconciled head must be supplied by the frozen Root transport after actual CAS.
+import{readFile,writeFile,open,readdir,lstat,realpath}from'node:fs/promises';import{spawn,spawnSync}from'node:child_process';import path from'node:path';import assert from'node:assert/strict';
+import{consumeEnvironment,environmentHash,changedFieldNames,EXPECTED_ENV,sha}from'./exact-env-transport.mjs';import{assertReconciledBackupState}from'./resume-reconciled-backup-state.mjs';import{fixed,assertPriorProcessesAbsent}from'./reconcile-backup-once.mjs';const BATCH=fixed.batch;
+const base='E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/',root=base+'resume2/';
+async function bytes(file){const absolute=path.resolve(file);for(let p=absolute;;){const s=await lstat(p);assert.ok(!s.isSymbolicLink());assert.equal((await realpath(p)).toLowerCase(),p.toLowerCase());const parent=path.dirname(p);if(parent===p)break;p=parent;}const a=await lstat(file,{bigint:true});assert.ok(a.isFile()&&a.nlink===1n);const raw=await readFile(file),b=await lstat(file,{bigint:true});for(const k of ['dev','ino','size','nlink','mtimeNs','ctimeNs'])assert.equal(a[k],b[k]);return raw;}
+async function json(file){return JSON.parse(await bytes(file));}async function optional(file){try{return await json(file);}catch(e){if(e.code==='ENOENT')return null;throw e;}}
+const approvalRaw=await bytes(base+'APPROVAL.json');assert.equal(sha(approvalRaw),'dfd9e3dc69b61c1fb7761fa058d5ee66a519782de1d8d830b28a57df29be835a');const approval=JSON.parse(approvalRaw);assert.equal(approval.humanApproved,true);assert.equal(approval.batchSha256,BATCH);
+const specRaw=await bytes(approval.specPath);assert.equal(sha(specRaw),'960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b');const spec=JSON.parse(specRaw);assert.equal(spec.batch.batchSha256,BATCH);assert.equal(sha(await bytes(spec.execution.entryPath)),'69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99');assert.equal(sha(await bytes(process.execPath)),'9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de');
+assert.equal(process.argv.length,4);assert.match(process.argv[3],/^[0-9a-f]{64}$/);
+const proofRaw=await bytes(base+'BACKUP_RECONCILIATION_PROOF_V2.json');assert.equal(sha(proofRaw),'086378566509ddc2e427c45ca97bdd68410fb3f9fe75b82137db8d9b26179605');const proof=JSON.parse(proofRaw);
+async function preflight(){const state='D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/',dir=state+'first-adoption-live-guard-20261011';const names=(await readdir(dir)).sort();const events=await Promise.all(names.map(n=>json(path.join(dir,n))));return assertReconciledBackupState({names,events,active:await optional(state+'active.json'),maintenance:await optional('D:/teruisi-runtime/django-sales/run/system-maintenance.json'),drain:await optional('D:/teruisi-runtime/django-sales/run/automation-drain.json'),processesAbsent:await assertPriorProcessesAbsent(),expectedHead:process.argv[3],proof});}
+const state=await preflight();const cipherRaw=await bytes(root+'ENV_CIPHER_MANIFEST.json');assert.equal(sha(cipherRaw),process.argv[2]);
+const env=await consumeEnvironment(JSON.parse(cipherRaw),EXPECTED_ENV);assert.equal(environmentHash(env),EXPECTED_ENV);
+await writeFile(root+'ENV_RESTORED.json',JSON.stringify({environmentSha256:EXPECTED_ENV,differingFieldNames:changedFieldNames(process.env,env),deadlineOmitted:true,nodeVariables:0,cipherDeleted:true,plaintextPersisted:false},null,2)+'\n',{flag:'wx'});
+assert.deepEqual(await preflight(),state);
+const argv=spec.execution.executeArgs.map(a=>a==='<explicit-approval-UTC-timestamp>'?approval.approvalRecordedAt:a);assert.deepEqual(argv,[spec.execution.entryPath,'execute',approval.specPath,BATCH,approval.approvalRecordedAt]);
+const out=await open(root+'STDOUT.log','wx'),err=await open(root+'STDERR.log','wx');const startedAt=new Date().toISOString();await writeFile(root+'STARTED.json',JSON.stringify({startedAt,batchSha256:BATCH,argv,environmentSha256:EXPECTED_ENV,state,approvalSha256:sha(approvalRaw)},null,2)+'\n',{flag:'wx'});
+const child=spawn(process.execPath,argv,{env,windowsHide:true,stdio:['ignore',out.fd,err.fd]});const outcome=new Promise(resolve=>{child.once('error',e=>resolve({exitCode:null,errorCode:e.code??'spawn-error'}));child.once('close',exitCode=>resolve({exitCode,errorCode:null}));});
+await writeFile(root+'DIRECT_PROCESS.json',JSON.stringify({processId:child.pid,batchSha256:BATCH,at:new Date().toISOString()},null,2)+'\n',{flag:'wx'});const result=await outcome;await out.close();await err.close();await writeFile(root+'FINISHED.json',JSON.stringify({...result,startedAt,finishedAt:new Date().toISOString(),batchSha256:BATCH,status:result.exitCode===0?'entry-returned-success-requires-independent-acceptance-check':'entry-failed-preserve-owner-gates-wal'},null,2)+'\n',{flag:'wx'});process.exitCode=result.exitCode??1;
+
+
+FILE prepare-backup-resume-transport.mjs
+// Preparation only. Original candidate/approval/batch and full environment binding remain fixed.
+import{readFile,writeFile,mkdir}from'node:fs/promises';import{createHash}from'node:crypto';import assert from'node:assert/strict';import path from'node:path';
+const base='E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/',out=base+'resume2/',hash=b=>createHash('sha256').update(b).digest('hex');
+const hraw=await readFile(base+'ASTRA_BACKUP_RECONCILIATION_HANDOFF_V2.json');assert.equal(hash(hraw),'f16146e153f9020495bd252b7ab530b4619c023d04189b39d156fdd359c193dc');const h=JSON.parse(hraw);
+const eraw=await readFile(base+'ASTRA_ENV_RESUME_HANDOFF_V1.json');assert.equal(hash(eraw),'12b48404b6fabfbf1fcbf6991b0545d08694c210fc4421c25ef2e709e305fc96');const e=JSON.parse(eraw);
+const helpers=['exact-env-transport.mjs','env-dpapi.ps1'].map(n=>{const f=e.files.find(f=>path.basename(f.path)===n);assert.ok(f);return f;});
+const code=h.files.filter(f=>!f.path.endsWith('.test.mjs')).concat(helpers);for(const f of code)assert.equal(hash(await readFile(f.path)),f.sha256);
+const node={path:'C:/Program Files/nodejs/node.exe',sha256:'9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de'};assert.equal(hash(await readFile(node.path)),node.sha256);await mkdir(out,{recursive:true});
+const stage=process.argv[2];assert.ok(['capture','resume'].includes(stage));
+const quote=s=>s.replaceAll("'","''");
+if(stage==='capture'){
+ const original=e.files.find(f=>path.basename(f.path)==='capture-approved-env.mjs');assert.ok(original);const raw=await readFile(original.path);assert.equal(hash(raw),original.sha256);
+ const clone=raw.toString().replace('production-f15d06a/resume1/','production-f15d06a/resume2/');assert.notEqual(clone,raw.toString());
+ const target=path.join(path.dirname(original.path),'capture-backup-resume-env.mjs');await writeFile(target,clone,{flag:'wx'});
+ const files=[...helpers,node,{path:target,sha256:hash(clone)}];
+ const boot=`$ErrorActionPreference='Stop';$held=@();try{foreach($e in @(${files.map(f=>`[pscustomobject]@{path='${quote(f.path)}';sha256='${f.sha256}'}`).join(',')})){$f=[IO.File]::Open($e.path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read);$held+=$f;$s=[Security.Cryptography.SHA256]::Create();try{$v=([BitConverter]::ToString($s.ComputeHash($f))).Replace('-','').ToLowerInvariant()}finally{$s.Dispose()};if($v -cne $e.sha256){throw 'Capture closure drift'}};& '${node.path}' '${quote(target)}';if($LASTEXITCODE -ne 0){throw 'Exact environment capture refused'}}finally{foreach($f in $held){$f.Dispose()}}\n`;
+ await writeFile(out+'CAPTURE_NORMAL.ps1',boot,{flag:'wx'});console.log(JSON.stringify({stage,bootstrapSha256:hash(boot),captureSha256:hash(clone)}));
+}else{
+ assert.equal(process.argv.length,4);const head=process.argv[3];assert.match(head,/^[0-9a-f]{64}$/);
+ const eventRaw=await readFile('D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000010.json');assert.equal(JSON.parse(eventRaw).eventSha256,head);
+ const cipher=await readFile(out+'ENV_CIPHER_MANIFEST.json'),cipherSha=hash(cipher);
+ const files=[...code,node,h.proof,{path:out+'ENV_CIPHER_MANIFEST.json',sha256:cipherSha},
+ {path:base+'APPROVAL.json',sha256:'dfd9e3dc69b61c1fb7761fa058d5ee66a519782de1d8d830b28a57df29be835a'},
+ {path:'E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json',sha256:'960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b'},
+ {path:'E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry-v2.mjs',sha256:'69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99'},
+ {path:base+'reconciliation-v3/FINISHED.json',sha256:hash(await readFile(base+'reconciliation-v3/FINISHED.json'))},
+ {path:'D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000010.json',sha256:hash(eventRaw)}];
+ for(const f of files)assert.equal(hash(await readFile(f.path)),f.sha256);
+ const binding={version:'root-exact-env-backup-resume-v2',files,node:node.path,runner:code.find(f=>f.path.endsWith('/run-approved-backup-resume.mjs')).path,cipherManifestSha256:cipherSha,head};
+ const raw=Buffer.from(JSON.stringify(binding,null,2)+'\n'),bindingSha=hash(raw);await writeFile(out+'TRANSPORT_BINDING.json',raw,{flag:'wx'});
+ const boot=`$ErrorActionPreference='Stop';$i=[Security.Principal.WindowsIdentity]::GetCurrent();if($i.User.Value -cne 'S-1-5-21-815909789-107973518-1379257801-1001' -or -not ([Security.Principal.WindowsPrincipal]::new($i)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Approved administrator required'};$held=@();try{
+if(@(Get-ChildItem Env: | Where-Object {$_.Name -match '^NODE_'}).Count -ne 0){throw 'NODE environment forbidden'}
+$bf=[IO.File]::Open('${out}TRANSPORT_BINDING.json',[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read);$held+=$bf;$s=[Security.Cryptography.SHA256]::Create();try{$v=([BitConverter]::ToString($s.ComputeHash($bf))).Replace('-','').ToLowerInvariant()}finally{$s.Dispose()};if($v -cne '${bindingSha}'){throw 'Transport binding drift'};$bf.Position=0;$r=[IO.StreamReader]::new($bf);$p=$r.ReadToEnd()|ConvertFrom-Json
+foreach($e in $p.files){$f=[IO.File]::Open($e.path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read);$held+=$f;$s=[Security.Cryptography.SHA256]::Create();try{$v=([BitConverter]::ToString($s.ComputeHash($f))).Replace('-','').ToLowerInvariant()}finally{$s.Dispose()};if($v -cne $e.sha256){throw 'Resume2 closure drift'}}
+Set-Location -LiteralPath 'D:/\.codex/worktrees/release-site-blockers/运营管理系统'
+& $p.node $p.runner $p.cipherManifestSha256 $p.head
+if($LASTEXITCODE -ne 0){throw 'Resume2 refused; preserve owner/gates/WAL'}
+}finally{foreach($f in $held){$f.Dispose()}}\n`;
+ await writeFile(out+'BOOTSTRAP.ps1',boot,{flag:'wx'});await writeFile(out+'BOOTSTRAP_BINDING.json',JSON.stringify({bindingSha256:bindingSha,bootstrapSha256:hash(boot),cipherManifestSha256:cipherSha,head,closure:files.length},null,2)+'\n',{flag:'wx'});console.log(JSON.stringify({stage,bindingSha256:bindingSha,bootstrapSha256:hash(boot),head}));
+}

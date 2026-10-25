@@ -1,0 +1,35 @@
+{
+  "taskName": "TERUISI Operations Watchdog",
+  "taskXmlSha256": "23d9c262d28b7c0c18134afb8b9343e9d5e4d3b939adceab15d08243e0007a18",
+  "taskState": "Running",
+  "enabled": true,
+  "actions": [
+    {
+      "executable": "D:\\teruisi-runtime\\operations-watchdog\\Watchdog.NoConsole-8a0bc0aed704b33f.exe",
+      "argumentsSha256": "1eab359d0e129c1146a4812870cdf0cf6d975a6f2cd71ed43c64981a0a964169",
+      "workingDirectory": "D:\\teruisi-runtime\\operations-watchdog"
+    }
+  ],
+  "triggerCount": 2,
+  "repetitionInterval": "PT1M",
+  "files": [
+    {
+      "name": "installation.json",
+      "sha256": "a2e9b738909b7ebb110783d7e6b3c6671d6443d121c6d49956291207d8ed7233"
+    },
+    {
+      "name": "operations-system-watchdog.ps1",
+      "sha256": "99593a800321569257bf8e31fdd64dda8b558f9bacdeed316ca7000a301c162a"
+    },
+    {
+      "name": "Watchdog.NoConsole-8a0bc0aed704b33f.exe",
+      "sha256": "0bcb6079d8d47689141d6165fd3c2b0dbb009ed18fc1959d2e5800b73b554834"
+    }
+  ],
+  "productionActionsPerformed": false,
+  "authorizationRequired": [
+    "Installer copies reviewed watchdog/helper/launcher/installation binding",
+    "Existing task action update/Enable/Start are explicit installer effects; production scope must approve them",
+    "No TestNotification or manual external sends; unchanged ongoing channels do not establish delivery tests"
+  ]
+}

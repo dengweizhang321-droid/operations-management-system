@@ -1,0 +1,15 @@
+✔ same old null-command counterexample is retained; current exact guard blocks unknown (5.9475ms)
+✔ related host missing fields and contradictory typed identity never clear the guard (4.4445ms)
+✔ different relevant interpreters with empty or missing argv remain unknown (2.7055ms)
+✔ physical managed actor cannot borrow unrelated lexical executable identity (0.7826ms)
+✔ only exact kernel and physical native Windows exceptions clear missing argv (3.9774ms)
+✔ unreadable native executable and redirected native-name host remain unknown (1.3279ms)
+✔ complete harmless native identity clears; complete interpreter reference is retained (1.6718ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 130.8712

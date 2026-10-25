@@ -1,0 +1,17 @@
+{
+  "name": "s2-fingerprints",
+  "args": [
+    "--test",
+    "--test-name-pattern=same-batch content|content change invalidates|evidence checked before",
+    "tests/release-fastpath-evidence.test.mjs"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "elapsedMs": 409,
+  "node": "v24.18.0",
+  "isolatedRoot": "C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-subset-YjJyjl",
+  "stdoutBase64": "4pyUIHNhbWUtYmF0Y2ggY29udGVudCBldmlkZW5jZSBpcyBib3VuZGVkLCBmb3JjZWQgYXQgc3dpdGNoIGJhcnJpZXJzIGFuZCBjYW5ub3QgYmUgbXV0YXRlZCBieSBjYWxsZXJzICg3Ljk3OTltcykK4pyUIGNvbnRlbnQgY2hhbmdlIGludmFsaWRhdGVzIHNvdXJjZVNoYTI1NiBldmVuIHdpdGggdW5jaGFuZ2VkIHRpbWVzdGFtcHMgKDAuODg5bXMpCuKclCBjb250ZW50IGNoYW5nZSBpbnZhbGlkYXRlcyBzb3VyY2VJbnZlbnRvcnlTaGEyNTYgZXZlbiB3aXRoIHVuY2hhbmdlZCB0aW1lc3RhbXBzICgwLjU0MzhtcykK4pyUIGNvbnRlbnQgY2hhbmdlIGludmFsaWRhdGVzIHRvb2xjaGFpbiBldmVuIHdpdGggdW5jaGFuZ2VkIHRpbWVzdGFtcHMgKDAuMzc1bXMpCuKclCBjb250ZW50IGNoYW5nZSBpbnZhbGlkYXRlcyBjb25maWd1cmF0aW9uIGV2ZW4gd2l0aCB1bmNoYW5nZWQgdGltZXN0YW1wcyAoMC4zNjE0bXMpCuKclCBldmlkZW5jZSBjaGVja2VkIGJlZm9yZSB3b3JrIGlzIHJlY2hlY2tlZCBhZnRlcjsgb3RoZXIgYmF0Y2hlcy9jb25jdXJyZW50IHVzZS9kaXNwb3NhbCBhcmUgcmVmdXNlZCAoMS4yMDc5bXMpCuKEuSB0ZXN0cyA2CuKEuSBzdWl0ZXMgMArihLkgcGFzcyA2CuKEuSBmYWlsIDAK4oS5IGNhbmNlbGxlZCAwCuKEuSBza2lwcGVkIDAK4oS5IHRvZG8gMArihLkgZHVyYXRpb25fbXMgMzMwLjk2OTMK",
+  "stdoutSha256": "c2272a4c9759fa42a3078639800a70038a2f98b78283c05d511445e364d99125",
+  "stderrBase64": "",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

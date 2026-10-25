@@ -1,0 +1,40 @@
+{
+  "readOnly": true,
+  "defaultDeadlineSeconds": 60,
+  "installedScriptSha256": "99593a800321569257bf8e31fdd64dda8b558f9bacdeed316ca7000a301c162a",
+  "stage": "controller",
+  "status": "returned",
+  "data": {
+    "version": "teruisi-operations-system-control-v2",
+    "state": "Running",
+    "backendState": "Ready",
+    "workerState": "exact_release",
+    "releaseId": "20261009T080026Z-d5fb5b62de630ae2",
+    "supervisorProcessId": 32284,
+    "portProcessId": 4848,
+    "url": "http://localhost:3000/",
+    "reason": null,
+    "components": {
+      "core": true,
+      "finance": true,
+      "netshop": true,
+      "market": true,
+      "products": true,
+      "workflow": true,
+      "inventory": true,
+      "customerService": true,
+      "accessControl": true,
+      "erpReference": true,
+      "bi": true,
+      "ai": true
+    },
+    "checkedAt": "2026-10-09T21:22:01.2228658+08:00"
+  },
+  "watchdogCheckInvoked": false,
+  "completedAt": "2026-10-09T13:22:01.3017418+00:00",
+  "startedAt": "2026-10-09T13:21:08.1575141+00:00",
+  "scope": "Only installed FunctionsOnly and existing Status; no cycle, notifications, recovery or HTTP fault injection",
+  "elapsedMs": 53010.9287,
+  "nativePathPrefixMatchesInstalledCycle": true,
+  "nativePowerShell": "C:\\Users\\86137\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.exe"
+}

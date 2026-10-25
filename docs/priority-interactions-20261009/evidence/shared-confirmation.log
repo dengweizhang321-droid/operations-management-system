@@ -1,0 +1,6 @@
+PASS sales text waits for Enter; dropdown auto-loads only confirmed text and keeps panel focus
+PASS inventory IME commit is not a query; Enter preserves caret and complete text; slow reads keep later edits
+PASS product code requires Enter; dropdowns retain unconfirmed code and auto-load complete multi-values
+PASS single selection auto-loads; pending dimension edits are canceled when reset or navigating
+PASS late reads and failed retry never overwrite later unconfirmed input
+{"output":".runtime/filter-confirmation-1791474076934","checks":["sales text waits for Enter; dropdown auto-loads only confirmed text and keeps panel focus","inventory IME commit is not a query; Enter preserves caret and complete text; slow reads keep later edits","product code requires Enter; dropdowns retain unconfirmed code and auto-load complete multi-values","single selection auto-loads; pending dimension edits are canceled when reset or navigating","late reads and failed retry never overwrite later unconfirmed input"]}

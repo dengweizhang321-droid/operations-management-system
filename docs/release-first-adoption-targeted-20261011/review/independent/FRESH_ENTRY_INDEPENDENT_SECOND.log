@@ -1,0 +1,38 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ 'fbebcb39e1df98e21a94ea1730a4302e58dcd635e091379f89a8106336e34a0a'
+- '5649f6e300f4b9b14ce1e45e49b7bcc22ca2bc87346641880114603f6f7ef071'
+
+    at file:///D:/.codex/worktrees/release-c-final-independent-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/c-targeted-independent-20261011/fresh-entry-independent-second.test.mjs:11:8
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 'fbebcb39e1df98e21a94ea1730a4302e58dcd635e091379f89a8106336e34a0a',
+  expected: '5649f6e300f4b9b14ce1e45e49b7bcc22ca2bc87346641880114603f6f7ef071',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.18.0
+✖ docs\release-integration-review\c-targeted-independent-20261011\fresh-entry-independent-second.test.mjs (81.9272ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 93.4899
+
+✖ failing tests:
+
+test at docs\release-integration-review\c-targeted-independent-20261011\fresh-entry-independent-second.test.mjs:1:1
+✖ docs\release-integration-review\c-targeted-independent-20261011\fresh-entry-independent-second.test.mjs (81.9272ms)
+  'test failed'

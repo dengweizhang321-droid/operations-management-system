@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "linksChecked": 38,
+  "originalEvidenceFiles": 247,
+  "originalEvidenceBytes": 562453,
+  "priorCompletedCardsUnchanged": 8,
+  "historicalSnapshotUnchanged": true,
+  "baselineTickets": 9,
+  "scope": "Document links/diff, preserved bytes, offline arithmetic; no program tests/build/lifecycle calls."
+}

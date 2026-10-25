@@ -1,0 +1,94 @@
+{
+  "phase": "aggregate",
+  "startedAt": "2026-10-09T13:28:11.328Z",
+  "script": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-local-service.ps1",
+  "args": [
+    "-Action",
+    "AggregateStatus",
+    "-Json"
+  ],
+  "scriptSha256": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c",
+  "readOnly": true,
+  "environment": "Existing PS5 readonly transport, native nested processes unchanged; natural watchdog/jobs remain active; no additional workload injected.",
+  "status": "returned",
+  "data": {
+    "version": "teruisi-django-aggregate-status-v1",
+    "domains": {
+      "Core": {
+        "PostgreSQL": "running",
+        "DjangoReader": "running",
+        "DjangoWriter": "running",
+        "ReaderReadiness": "ready",
+        "WriterReadiness": "ready",
+        "RuntimeAcl": "root_hardened",
+        "RuntimeAclVerification": "root_only_status"
+      },
+      "Finance": {
+        "FinanceReader": "running",
+        "FinanceWriter": "running",
+        "ReaderReadiness": "ready",
+        "WriterReadiness": "ready"
+      },
+      "Netshop": {
+        "NetshopReader": "running",
+        "NetshopWriter": "running",
+        "ReaderReadiness": "ready",
+        "WriterReadiness": "ready"
+      },
+      "Market": {
+        "MarketReader": "running",
+        "MarketWriter": "running",
+        "ReaderReadiness": "ready",
+        "WriterReadiness": "ready"
+      },
+      "Products": {
+        "ProductsReader": "running",
+        "ProductsWriter": "running",
+        "ReaderReadiness": "ready",
+        "WriterReadiness": "ready"
+      },
+      "Workflow": {
+        "WorkflowReader": "running",
+        "WorkflowWriter": "running",
+        "ReaderReadiness": "ready",
+        "WriterReadiness": "ready"
+      },
+      "Inventory": {
+        "InventoryReader": "running",
+        "InventoryWriter": "running",
+        "ReaderReadiness": "ready",
+        "WriterReadiness": "ready"
+      },
+      "CustomerService": {
+        "CustomerServiceReader": "running",
+        "CustomerServiceWriter": "running",
+        "ReaderReadiness": "ready",
+        "WriterReadiness": "ready"
+      },
+      "AccessControl": {
+        "AccessControlReader": "running",
+        "AccessControlWriter": "running",
+        "ReaderReadiness": "ready",
+        "WriterReadiness": "ready"
+      },
+      "ErpReference": {
+        "ErpReferenceReader": "running",
+        "ErpReferenceWriter": "running",
+        "ReaderReadiness": "ready",
+        "WriterReadiness": "ready"
+      },
+      "Bi": {
+        "BiReader": "running",
+        "ReaderReadiness": "ready"
+      },
+      "Ai": {
+        "AiReader": "running",
+        "AiWriter": "running",
+        "ReaderReadiness": "ready",
+        "WriterReadiness": "ready"
+      }
+    }
+  },
+  "completedAt": "2026-10-09T13:28:48.237Z",
+  "elapsedMs": 36908.991599999994
+}

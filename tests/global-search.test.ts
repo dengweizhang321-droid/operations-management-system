@@ -576,7 +576,7 @@ test("API、分组 UI 和 AI 注册入口复用同一搜索核心", async () => 
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/global-search-dialog.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/search/ai-tool.ts", import.meta.url), "utf8"),
-    readFile(new URL("../docs/GLOBAL_SEARCH.md", import.meta.url), "utf8"),
+    readFile(new URL("../docs/使用手册/运营协同/global-search.md", import.meta.url), "utf8"),
   ]);
   assert.match(route, /searchAllBusinessData/);
   assert.match(route, /requireAppPrincipal/);

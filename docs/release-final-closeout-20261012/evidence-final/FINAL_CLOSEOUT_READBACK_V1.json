@@ -1,0 +1,148 @@
+{
+  "version": "independent-existing-final-closeout-readback-v1",
+  "at": "2026-10-12T11:09:01.553Z",
+  "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+  "records": 80,
+  "head": "0f15cef55c6f108e45cf8b7c45d8d9f365d0d0d5ca750131a8d7cff9e9daf8b5",
+  "operationsPassed": 19,
+  "completedAt": "2026-10-12T11:08:10.976Z",
+  "old73BytesPreserved": true,
+  "ownerAbsent": true,
+  "gatesAbsent": true,
+  "cipherAbsent": true,
+  "originalEntryExitCode": 0,
+  "necessaryAcceptanceElapsedMs": 70962976,
+  "naturalProofSha256": "f5877a4a151db095b6c98cbd124cb4cf5051fa9f78f5158358a46ba412960380",
+  "naturalObservationsSha256": "01a9bd18560b4d471db83edf2ac432d9da28cd9274f9fc54e1a9eb436c6efbf5",
+  "diagnosticBundleId": "e0330d7aea1e17395cf56214c8c62e8d54c2e46359d30cce9296800c8802760c",
+  "operations": [
+    {
+      "id": "op-prepare",
+      "status": "passed",
+      "at": "2026-10-11T16:27:23.785Z",
+      "durationMs": 307608.32310000004,
+      "receiptSha256": "b8ce097f25f740c522c9e16c4d3659a471661b2abaaaf2a232792f3bfbe01be1"
+    },
+    {
+      "id": "backup-pre",
+      "status": "passed",
+      "at": "2026-10-11T17:12:38.480Z",
+      "receiptSha256": "6ae20e1bb36039330e3e0597f892dec3126eb1050581c7f1519324d160b51ff1"
+    },
+    {
+      "id": "op-entermaintenance-drain",
+      "status": "passed",
+      "at": "2026-10-11T17:30:38.835Z",
+      "durationMs": 259911.07440000016,
+      "receiptSha256": "848ef28f27a36dd465af44a561debbe237c631047cd13cac361b19296c02129a"
+    },
+    {
+      "id": "op-stopworker-switch",
+      "status": "passed",
+      "at": "2026-10-12T00:44:37.078Z",
+      "receiptSha256": "7cd05e8f69ac7843a496458b8c343d887465ff614789a4121921ed6f302cee48"
+    },
+    {
+      "id": "op-apply",
+      "status": "passed",
+      "at": "2026-10-12T00:51:37.457Z",
+      "durationMs": 105475.21220000001,
+      "receiptSha256": "016bb48f111bdaa936ded998b746f6808bede7d8eaaaf5a28fde18a5ef605ea6"
+    },
+    {
+      "id": "previous-reference-guard",
+      "status": "passed",
+      "at": "2026-10-12T01:32:56.808Z",
+      "receiptSha256": "1480d10f3bb9383bed6faf44b693dba39dcbac378fcb3115f59243ba7632565b"
+    },
+    {
+      "id": "op-deployapp-switch",
+      "status": "passed",
+      "at": "2026-10-12T01:38:46.599Z",
+      "durationMs": 74912.46759999997,
+      "receiptSha256": "c2282fa1a8b29fb0cb377c42345755c66d9a54f67b45c40a63d6eb57b597369b"
+    },
+    {
+      "id": "op-hardenacl-switch",
+      "status": "passed",
+      "at": "2026-10-12T01:40:21.892Z",
+      "durationMs": 24651.27960000001,
+      "receiptSha256": "8b3405ef97f6951d34512b94ff52b3b4241ff5508fc1c6afc4bbfeca38dce357"
+    },
+    {
+      "id": "installed-recovery-consumer",
+      "status": "passed",
+      "at": "2026-10-12T01:44:40.269Z",
+      "durationMs": 189526.47659999994,
+      "receiptSha256": "1619a67cdc577c51b2a2dc1607357ddb429baa0d89e1b837de6dbe6afea4697b"
+    },
+    {
+      "id": "restore-installed",
+      "status": "passed",
+      "at": "2026-10-12T01:56:56.034Z",
+      "durationMs": 666825.6435000001,
+      "receiptSha256": "45bd52d2e4edb7c1b3d47da534dc563e664fa2a0f39eb7cdd1624b3c08386342"
+    },
+    {
+      "id": "op-exitmaintenance-switch",
+      "status": "passed",
+      "at": "2026-10-12T01:58:57.974Z",
+      "durationMs": 41643.49369999999,
+      "receiptSha256": "3e3430fcbbf31db92423ff3129efc8445a1e929128a15d20ec382f7fc8d74be0"
+    },
+    {
+      "id": "op-startworker-switch",
+      "status": "passed",
+      "at": "2026-10-12T07:22:10.556Z",
+      "receiptSha256": "35c3e52723dbc6d643ea2d95c3e6b5304484f3b4e4018713379221651af73394"
+    },
+    {
+      "id": "observe-display",
+      "status": "passed",
+      "at": "2026-10-12T08:06:32.924Z",
+      "receiptSha256": "eb48b5fe884391f165ebe6bd5241306dbb239b54bbe9246e529624dcf6a047b0"
+    },
+    {
+      "id": "observe-permissions",
+      "status": "passed",
+      "at": "2026-10-12T08:17:21.951Z",
+      "durationMs": 82.94850000005681,
+      "receiptSha256": "479b25505336ebba78a1dd7b9b2a7676a3d27e9908b82d54fd91383d3255c8df"
+    },
+    {
+      "id": "unchanged-business-closure",
+      "status": "passed",
+      "at": "2026-10-12T08:19:32.722Z",
+      "durationMs": 10973.765899999999,
+      "receiptSha256": "1fb31e3f50db832d4cac38ed3cc1b67801744a89373084e446d87252bb0c6be1"
+    },
+    {
+      "id": "op-verifystartup-acceptance",
+      "status": "passed",
+      "at": "2026-10-12T08:21:45.377Z",
+      "durationMs": 6872.420500000007,
+      "receiptSha256": "1b536d4b94e9a681688dba997375e415a13cd2b99f89bb77fb70bc609146d88f"
+    },
+    {
+      "id": "op-aggregatestatus-acceptance",
+      "status": "passed",
+      "at": "2026-10-12T08:24:05.464Z",
+      "durationMs": 20990.9598999999,
+      "receiptSha256": "3a2caaf75877f6cb51cbdf8de9ad346f9a9b253c95a506f140cde44853f294d1"
+    },
+    {
+      "id": "observe-natural-watchdog",
+      "status": "passed",
+      "at": "2026-10-12T10:57:00.190Z",
+      "receiptSha256": "f5877a4a151db095b6c98cbd124cb4cf5051fa9f78f5158358a46ba412960380"
+    },
+    {
+      "id": "op-verifystartup-closeout",
+      "status": "passed",
+      "at": "2026-10-12T11:08:10.973Z",
+      "durationMs": 6110.809400000027,
+      "receiptSha256": "bb752f6b3a0d9e54aee87f18b41053e202c3fab3d73621fd27ed5f12898157f6"
+    }
+  ],
+  "productionInterfaceInvoked": false
+}

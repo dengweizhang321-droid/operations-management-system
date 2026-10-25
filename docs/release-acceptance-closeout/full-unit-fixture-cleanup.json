@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-09T16:38:02.8365132Z",
+  "scope": "Only this full-unit invocation hung isolated test fixture; production untouched",
+  "runnerPid": 33848,
+  "runnerCreatedAt": "2026-10-09T16:22:51.0351000Z",
+  "runnerParentPid": 50216,
+  "testFile": "customer-service-read-scope.test.ts",
+  "browserPid": 63888,
+  "browserCreatedAt": "2026-10-09T16:23:22.9712360Z",
+  "headless": true,
+  "temporaryPlaywrightProfile": true,
+  "reason": "File tests finished but own subprocess remains open; original two failures retained and both exact tests passed low-concurrency rerun"
+}

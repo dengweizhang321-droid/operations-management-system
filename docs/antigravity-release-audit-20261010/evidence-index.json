@@ -1,0 +1,38 @@
+[
+  {
+    "source": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\DELIVERY_COMPLETED.json",
+    "size": 699,
+    "snapshot": "source-evidence/customer-delivery.json",
+    "sha256": "d0f2f693e011df2ba3476ea6449658677efa525762f6d8a155a627c904561681"
+  },
+  {
+    "source": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\RESULT.json",
+    "size": 20711,
+    "snapshot": "source-evidence/customer-result.json",
+    "sha256": "1dec4fe207d27133ec1f3d55d5e0ce64673edef76f8bcf5512547c97ced70e19"
+  },
+  {
+    "source": "E:\\codex-artifacts\\jackyun-production-20261009\\DELIVERY.json",
+    "size": 8426,
+    "snapshot": "source-evidence/jackyun-delivery.json",
+    "sha256": "84d10bfcff42f0a72e8206dc2091280382fdcb7b9f68cd396730495ada4e14e0"
+  },
+  {
+    "source": "E:\\codex-artifacts\\jackyun-production-20261009\\DOCUMENTATION_CLOSEOUT.json",
+    "size": 514,
+    "snapshot": "source-evidence/jackyun-document-closeout.json",
+    "sha256": "33dc9ddc4573cf1322cbac540458a29765c407224eae9954fc161d76199ffdcb"
+  },
+  {
+    "source": "E:\\codex-artifacts\\priority-interactions-production-20261009\\production\\DELIVERY.json",
+    "size": 2289,
+    "snapshot": "source-evidence/interaction-delivery.json",
+    "sha256": "f1c4b0a5c1ef5da4beac46de6fd666eaa536bbb2724d761cf1a5e14963ed47e3"
+  },
+  {
+    "source": "E:\\codex-artifacts\\priority-interactions-production-20261009\\production\\CLOSEOUT.json",
+    "size": 45559,
+    "snapshot": "source-evidence/interaction-closeout.json",
+    "sha256": "74063fd5cc41cfacd1910aa96be11dbab85d0302c97007ff6b16571bf3cc9793"
+  }
+]

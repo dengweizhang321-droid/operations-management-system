@@ -1,0 +1,20 @@
+{
+  "independent": true,
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "operationId": "actual-readonly-ui",
+  "observationsSha256": "fe8ecbf608e6c500d7a5845aff4ef42446af2b9beaef8f0f588f479ceed0e438",
+  "noReplay": true,
+  "noEffect": true,
+  "requestedResolution": "failed",
+  "completed": false,
+  "observationPath": "D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\docs\\release-integration-review\\production\\INDEPENDENT_UI_SECOND_FAILURE.json",
+  "unknownEventSha256": "aa968486f130adae1668d57de263a69a1eeed0f421a80f42f7efdd349c2ac1cf",
+  "allowedOriginalRetryCount": 1,
+  "restrictions": [
+    "Preserve this second unknown and fresh failed audit; no pass inference",
+    "One unchanged original readonly UI retry only",
+    "No sales-abort exemption or assertion/source/pin changes",
+    "Further failure remains blocking; no unlimited retries",
+    "Passed lifecycle/backup steps cannot replay"
+  ]
+}

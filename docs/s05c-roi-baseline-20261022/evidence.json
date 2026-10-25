@@ -1,0 +1,1980 @@
+{
+  "collectedAt": "2026-10-22T15:35:30.521853+00:00",
+  "main": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+  "documentationBase": "dacf78620586d1a7ded05d90babc50fe1bc120ed",
+  "queueWindow": "2026-10-22 Asia/Shanghai; existing tickets only; not representative of normal releases",
+  "queue": [
+    {
+      "requestId": "a4877f12-2d56-457d-9251-b6cd6301b428",
+      "origin": "hook",
+      "queuedAt": "2026-10-22T00:51:43.335Z",
+      "observedTarget": "e62d429c9d6ddb5daaaaf4d8221a6b4c530a951a",
+      "status": "blocked",
+      "resultAt": "2026-10-22T00:52:48.024Z",
+      "dispatchId": null,
+      "selectedTarget": null,
+      "blockedDispatchId": "e786aed6-25c2-4cce-b433-4fd21d3ac2c2",
+      "dispatchedAt": null,
+      "packet": null,
+      "nativeResult": {
+        "status": null,
+        "preparationFile": null,
+        "preparationSha256": null
+      }
+    },
+    {
+      "requestId": "958bafa0-ad75-44d3-96d5-9c793db78585",
+      "origin": "hook",
+      "queuedAt": "2026-10-22T01:57:00.347Z",
+      "observedTarget": "559e64fd85860748566acea623c22a16173b9874",
+      "status": "prepared",
+      "resultAt": "2026-10-22T02:26:29.858Z",
+      "dispatchId": "fb40640f-57f6-4b9c-9b6e-606f292b603f",
+      "selectedTarget": "559e64fd85860748566acea623c22a16173b9874",
+      "blockedDispatchId": null,
+      "dispatchedAt": "2026-10-22T01:57:43.083Z",
+      "packet": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7",
+      "nativeResult": {
+        "status": "prepared-only",
+        "preparationFile": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7\\publish-559e64fd8586\\preparation\\PREPARED.json",
+        "preparationSha256": "597e3c13d7b2f93998007d029fc7610565802209b481dae974494e63700a7577"
+      }
+    },
+    {
+      "requestId": "1f924696-029a-4771-8dd3-d59b3d62ffa3",
+      "origin": "manual",
+      "queuedAt": "2026-10-22T02:53:55.481Z",
+      "observedTarget": null,
+      "status": "prepared",
+      "resultAt": "2026-10-22T02:54:36.474Z",
+      "dispatchId": "33e66bb1-4e90-42a3-8232-4131c2b4dbbb",
+      "selectedTarget": "559e64fd85860748566acea623c22a16173b9874",
+      "blockedDispatchId": null,
+      "dispatchedAt": "2026-10-22T02:54:35.938Z",
+      "packet": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7",
+      "nativeResult": {
+        "status": "prepared-only",
+        "preparationFile": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7\\publish-559e64fd8586\\preparation\\PREPARED.json",
+        "preparationSha256": "597e3c13d7b2f93998007d029fc7610565802209b481dae974494e63700a7577"
+      }
+    },
+    {
+      "requestId": "9e6a93ee-f90c-42ab-88c7-82e1de164996",
+      "origin": "hook",
+      "queuedAt": "2026-10-22T03:47:59.441Z",
+      "observedTarget": "4059afea884151d881e3eb87159e401c2c1579c3",
+      "status": "prepared",
+      "resultAt": "2026-10-22T04:17:01.598Z",
+      "dispatchId": "57dc35fc-f01b-480f-9efd-ea7cd93abd86",
+      "selectedTarget": "4059afea884151d881e3eb87159e401c2c1579c3",
+      "blockedDispatchId": null,
+      "dispatchedAt": "2026-10-22T03:48:39.952Z",
+      "packet": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7",
+      "nativeResult": {
+        "status": "prepared-only",
+        "preparationFile": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\preparation\\PREPARED.json",
+        "preparationSha256": "47b70b08e2b540bf8116d7b00a98de02de5c27befa301bbfab16ec15442d1647"
+      }
+    },
+    {
+      "requestId": "c06b2a77-9c9e-435a-969e-fa2ac461d462",
+      "origin": "manual",
+      "queuedAt": "2026-10-22T03:48:20.312Z",
+      "observedTarget": null,
+      "status": "prepared",
+      "resultAt": "2026-10-22T04:17:42.861Z",
+      "dispatchId": "4be815e2-5ffb-439f-99d8-84c496d80052",
+      "selectedTarget": "4059afea884151d881e3eb87159e401c2c1579c3",
+      "blockedDispatchId": null,
+      "dispatchedAt": "2026-10-22T04:17:42.422Z",
+      "packet": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7",
+      "nativeResult": {
+        "status": "prepared-only",
+        "preparationFile": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\preparation\\PREPARED.json",
+        "preparationSha256": "47b70b08e2b540bf8116d7b00a98de02de5c27befa301bbfab16ec15442d1647"
+      }
+    },
+    {
+      "requestId": "b4dea4a4-9e3f-4cc8-8a42-73c6ec5babe7",
+      "origin": "manual",
+      "queuedAt": "2026-10-22T05:08:27.380Z",
+      "observedTarget": null,
+      "status": "prepared",
+      "resultAt": "2026-10-22T05:09:19.015Z",
+      "dispatchId": "507f703e-bb3b-4643-a701-4f881b424401",
+      "selectedTarget": "4059afea884151d881e3eb87159e401c2c1579c3",
+      "blockedDispatchId": null,
+      "dispatchedAt": "2026-10-22T05:09:18.428Z",
+      "packet": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7",
+      "nativeResult": {
+        "status": "prepared-only",
+        "preparationFile": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\preparation\\PREPARED.json",
+        "preparationSha256": "47b70b08e2b540bf8116d7b00a98de02de5c27befa301bbfab16ec15442d1647"
+      }
+    },
+    {
+      "requestId": "9010af8a-2de5-403f-bf6a-833af4901b0f",
+      "origin": "hook",
+      "queuedAt": "2026-10-22T06:19:38.004Z",
+      "observedTarget": "51e242dac482f4dfcd43268c10db7945f90925e1",
+      "status": "prepared",
+      "resultAt": "2026-10-22T06:47:38.400Z",
+      "dispatchId": "18373a74-fac8-43a0-9285-9a52e3324b39",
+      "selectedTarget": "51e242dac482f4dfcd43268c10db7945f90925e1",
+      "blockedDispatchId": null,
+      "dispatchedAt": "2026-10-22T06:20:21.978Z",
+      "packet": "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef",
+      "nativeResult": {
+        "status": "prepared-only",
+        "preparationFile": "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef\\publish-51e242dac482\\preparation\\PREPARED.json",
+        "preparationSha256": "1449b3e09c034d7ac756d8e7264cbbe780680dde2383106606927ae4bd6fc859"
+      }
+    },
+    {
+      "requestId": "2c90e2a2-24c1-4dc1-9811-ae7c4888a6e8",
+      "origin": "hook",
+      "queuedAt": "2026-10-22T07:10:27.328Z",
+      "observedTarget": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+      "status": "unknown",
+      "resultAt": "2026-10-22T07:30:04.129Z",
+      "dispatchId": "a3d53227-8976-4762-8be6-6f8c28107b5b",
+      "selectedTarget": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+      "blockedDispatchId": null,
+      "dispatchedAt": "2026-10-22T07:11:22.421Z",
+      "packet": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef",
+      "nativeResult": {
+        "status": null,
+        "preparationFile": null,
+        "preparationSha256": null
+      }
+    },
+    {
+      "requestId": "d3ed3b78-5704-4998-ac7b-027c128a3f93",
+      "origin": "manual",
+      "queuedAt": "2026-10-22T11:32:50.337Z",
+      "observedTarget": null,
+      "status": "blocked",
+      "resultAt": "2026-10-22T11:33:16.016Z",
+      "dispatchId": null,
+      "selectedTarget": null,
+      "blockedDispatchId": "a3d53227-8976-4762-8be6-6f8c28107b5b",
+      "dispatchedAt": null,
+      "packet": null,
+      "nativeResult": {
+        "status": null,
+        "preparationFile": null,
+        "preparationSha256": null
+      }
+    },
+    {
+      "requestId": "a907f9d7-d778-4570-8b2c-dc75de617500",
+      "origin": "hook",
+      "queuedAt": "2026-10-22T15:15:52.341Z",
+      "observedTarget": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+      "status": "blocked",
+      "resultAt": "2026-10-22T15:16:24.072Z",
+      "dispatchId": null,
+      "selectedTarget": null,
+      "blockedDispatchId": "a3d53227-8976-4762-8be6-6f8c28107b5b",
+      "dispatchedAt": null,
+      "packet": null,
+      "nativeResult": {
+        "status": null,
+        "preparationFile": null,
+        "preparationSha256": null
+      }
+    }
+  ],
+  "queueCounts": {
+    "blocked": 3,
+    "prepared": 6,
+    "unknown": 1
+  },
+  "queueTotal": 10,
+  "unresolvedByFilePresenceOnly": [
+    {
+      "dispatchId": "a3d53227-8976-4762-8be6-6f8c28107b5b",
+      "requestId": "2c90e2a2-24c1-4dc1-9811-ae7c4888a6e8",
+      "target": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+      "status": "unknown"
+    }
+  ],
+  "samples": [
+    {
+      "target": "559e64fd85860748566acea623c22a16173b9874",
+      "base": "988810cf4b9cccc6d9a3eea905f15e3b67989d8f",
+      "packet": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7",
+      "scope": "full",
+      "components": [
+        "worker",
+        "django"
+      ],
+      "migration": false,
+      "changeCount": 100,
+      "changeCategories": {
+        "app": 2,
+        "backend": 1,
+        "docs": 49,
+        "lib": 2,
+        "tests": 32,
+        "tools": 14
+      },
+      "cacheLockSha256": "8ec00f801aff894796d783595d202811bccbe94296603ae26766864247d4a4ca",
+      "logs": [
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7\\logs\\release-2026-10-22T01-58-12.978Z-ff24e080-f397-452e-8e4e-388ecadff710.log",
+          "events": [
+            {
+              "line": 1,
+              "text": "[2026-10-22T01:58:12.980Z] 开始打包。进度日志：D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7\\logs\\release-2026-10-22T01-58-12.978Z-ff24e080-f397-452e-8e4e-388ecadff710.log"
+            },
+            {
+              "line": 2,
+              "text": "[2026-10-22T01:58:12.982Z] [步骤 1] 准备发布 开始"
+            },
+            {
+              "line": 3,
+              "text": "[2026-10-22T01:58:18.961Z] [步骤 2] 构建前端 开始"
+            },
+            {
+              "line": 55,
+              "text": "[2026-10-22T02:24:07.364Z] [步骤 2] 构建前端 完成，耗时 1548 秒"
+            },
+            {
+              "line": 56,
+              "text": "[2026-10-22T02:24:07.366Z] [步骤 3] 准备后台 开始"
+            },
+            {
+              "line": 62,
+              "text": "[2026-10-22T02:26:23.567Z] [步骤 3] 准备后台 完成，耗时 136 秒"
+            },
+            {
+              "line": 63,
+              "text": "[2026-10-22T02:26:29.489Z] 打包完成，等待发布负责人执行。目标main：559e64fd85860748566acea623c22a16173b9874；准备记录：D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7\\publish-559e64fd8586\\preparation\\PREPARED.json"
+            }
+          ]
+        },
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7\\logs\\release-2026-10-22T02-55-18.350Z-70440837-2fa1-49cf-b07e-670fb732b3e7.log",
+          "events": [
+            {
+              "line": 2,
+              "text": "[2026-10-22T02:55:18.354Z] [步骤 1] 准备发布 开始"
+            },
+            {
+              "line": 3,
+              "text": "[2026-10-22T02:55:23.415Z] [步骤 2] 核对维护前驱资格 开始"
+            },
+            {
+              "line": 4,
+              "text": "[2026-10-22T02:55:23.442Z] ========== 发布失败 / 已停止 =========="
+            },
+            {
+              "line": 5,
+              "text": "[2026-10-22T02:55:23.443Z] 失败步骤：核对维护前驱资格；原因：实际原生控制器代际与候选不一致：django-local-service.ps1"
+            }
+          ]
+        }
+      ],
+      "PREPARING.json": {
+        "version": null,
+        "at": "2026-10-22T01:58:18.960Z",
+        "requestSha256": "9252a600597b4e660f8eb3cf7d699cecd2d0cf0090d4f84a62262dadbaede96e",
+        "sourceIdentity": {
+          "commit": "559e64fd85860748566acea623c22a16173b9874",
+          "tree": "a1aa7b8d6449fb902e0056beb78c70033f18d981"
+        },
+        "workerPlan": null,
+        "djangoPackage": null
+      },
+      "PREPARED.json": {
+        "version": "teruisi-main-preparation-v1",
+        "at": "2026-10-22T02:26:29.486Z",
+        "requestSha256": "9252a600597b4e660f8eb3cf7d699cecd2d0cf0090d4f84a62262dadbaede96e",
+        "sourceIdentity": {
+          "commit": "559e64fd85860748566acea623c22a16173b9874",
+          "tree": "a1aa7b8d6449fb902e0056beb78c70033f18d981"
+        },
+        "workerPlan": {
+          "status": "planned",
+          "version": "teruisi-local-worker-release-rotation-plan-v1",
+          "planSha256": "aa200ea57b6e33e585c00b0f6ca9cbb0fc7b67dfb3c22436a6da29d6d9d5655a",
+          "planPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\aa200ea57b6e33e585c00b0f6ca9cbb0fc7b67dfb3c22436a6da29d6d9d5655a.json",
+          "predecessorReleaseId": "20261021T050959Z-309bb3d722f0ee47",
+          "candidateReleaseId": "20261022T015836Z-15bac863eba145f2",
+          "candidateManifestSha256": "2d8693a9b1dd6ca4b8622c012b6262807a516f87f557813d071f9a43983603aa",
+          "candidateGuardReceiptSha256": "a8c90daa24c559ca9544f4e55a2837965f852f38e9c1f5f85468c386b127d364",
+          "cutoverId": "sales-pg-20260829T204417Z-d9896e904d8092cb"
+        },
+        "djangoPackage": {
+          "id": "0a2cf005469148d693bf79fcb1128ae3",
+          "receiptSha256": "c9a1c5d66ca974bb7135b0fe91328e8c764a66ee8f4102a0722b4a9c0c1ddd03",
+          "appFingerprint": "3ce433e11303771f4146f91b3ed3351171987846b6ad97ed8315dedc60d26194"
+        }
+      },
+      "failedReceipts": [
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7\\publish-559e64fd8586\\preparation\\FAILED-c8e0ea7a-d322-4afa-b0c2-9fcb7afff123.json",
+          "at": "2026-10-22T02:55:23.441Z",
+          "phase": "核对维护前驱资格",
+          "error": "实际原生控制器代际与候选不一致：django-local-service.ps1\n+ actual - expected\n\n+ 'c9e72fcc7d56282f7c5bcd5a56ee5c4f75005e74c2f23e0f229f4156496c6878'\n- '65f057297208b32ac6d3c2e71a12016b1fd4afdc0ed7ea455fbda13181fffb61'\n",
+          "mainCommit": "559e64fd85860748566acea623c22a16173b9874",
+          "maintenanceStarted": false,
+          "automaticRetry": false
+        }
+      ],
+      "stepResults": []
+    },
+    {
+      "target": "4059afea884151d881e3eb87159e401c2c1579c3",
+      "base": "988810cf4b9cccc6d9a3eea905f15e3b67989d8f",
+      "packet": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7",
+      "scope": "full",
+      "components": [
+        "worker",
+        "django"
+      ],
+      "migration": false,
+      "changeCount": 102,
+      "changeCategories": {
+        "app": 2,
+        "backend": 1,
+        "docs": 49,
+        "lib": 2,
+        "tests": 33,
+        "tools": 15
+      },
+      "cacheLockSha256": "8ec00f801aff894796d783595d202811bccbe94296603ae26766864247d4a4ca",
+      "logs": [
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\logs\\release-2026-10-22T03-49-00.186Z-82059d5b-f802-4e61-ac58-e6315a864f48.log",
+          "events": [
+            {
+              "line": 1,
+              "text": "[2026-10-22T03:49:00.187Z] 开始打包。进度日志：D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\logs\\release-2026-10-22T03-49-00.186Z-82059d5b-f802-4e61-ac58-e6315a864f48.log"
+            },
+            {
+              "line": 2,
+              "text": "[2026-10-22T03:49:00.189Z] [步骤 1] 准备发布 开始"
+            },
+            {
+              "line": 3,
+              "text": "[2026-10-22T03:49:06.397Z] [步骤 2] 构建前端 开始"
+            },
+            {
+              "line": 56,
+              "text": "[2026-10-22T04:15:02.530Z] [步骤 2] 构建前端 完成，耗时 1556 秒"
+            },
+            {
+              "line": 57,
+              "text": "[2026-10-22T04:15:02.533Z] [步骤 3] 准备后台 开始"
+            },
+            {
+              "line": 61,
+              "text": "[2026-10-22T04:16:53.731Z] [步骤 3] 准备后台 完成，耗时 111 秒"
+            },
+            {
+              "line": 63,
+              "text": "[2026-10-22T04:17:01.276Z] 打包完成，等待发布负责人执行。目标main：4059afea884151d881e3eb87159e401c2c1579c3；准备记录：D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\preparation\\PREPARED.json"
+            }
+          ]
+        },
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\logs\\release-2026-10-22T04-29-46.870Z-f29f8089-b48d-49cf-bb38-c7e02ed92855.log",
+          "events": [
+            {
+              "line": 2,
+              "text": "[2026-10-22T04:29:46.873Z] [步骤 1] 准备发布 开始"
+            },
+            {
+              "line": 3,
+              "text": "[2026-10-22T04:29:51.884Z] [步骤 2] 核对维护前驱资格 开始"
+            },
+            {
+              "line": 4,
+              "text": "[2026-10-22T04:29:51.909Z] [步骤 2] 核对维护前驱资格 完成，耗时 0 秒"
+            },
+            {
+              "line": 5,
+              "text": "[2026-10-22T04:29:51.910Z] [步骤 3] 复验已准备前端 开始"
+            },
+            {
+              "line": 15,
+              "text": "[2026-10-22T04:34:37.923Z] [步骤 3] 复验已准备前端 完成，耗时 286 秒"
+            },
+            {
+              "line": 16,
+              "text": "[2026-10-22T04:34:37.928Z] [步骤 4] 复验已准备后台 开始"
+            },
+            {
+              "line": 19,
+              "text": "[2026-10-22T04:35:43.483Z] [步骤 4] 复验已准备后台 完成，耗时 65 秒"
+            },
+            {
+              "line": 22,
+              "text": "[2026-10-22T04:35:47.573Z] [步骤 5] 维护前只读检查 开始"
+            },
+            {
+              "line": 23,
+              "text": "[2026-10-22T04:35:48.911Z] ========== 发布失败 / 已停止 =========="
+            },
+            {
+              "line": 24,
+              "text": "[2026-10-22T04:35:48.911Z] 失败步骤：维护前只读检查；原因：manual-main-维护前只读检查失败：exit=1 (stderr=#< CLIXML\\nOriginal Pi process identity is unknown or changed\\n<Objs Version=\"1.1.0.1\" xmlns=\"http://schemas.microsoft.com/powershell/2004/04\"><Obj S=\"progress\" RefId=\"0\"><TN RefId=\"0\"><T>System.Management.Automation.PSCustomObject</T><T>System.Object</T></TN><MS><I64 N=\"SourceId\">1</I64><PR N=\"Record\"><AV>Preparing modules for first use.</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj><Obj S=\"progress\" RefId=\"1\"><TNRef RefId=\"0\" /><MS><I64 N=\"SourceId\">2</I64><PR N=\"Record\"><AV>Preparing modules for first use.</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj><Obj S=\"progress\" RefId=\"2\"><TNRef RefId=\"0\" /><MS><I64 N=\"SourceId\">3</I64><PR N=\"Record\"><AV>Preparing modules for first use.</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj></Objs>; stdout=)"
+            }
+          ]
+        },
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\logs\\release-2026-10-22T05-14-26.263Z-77c67a5e-6131-4847-8277-4445a3f3cc2d.log",
+          "events": [
+            {
+              "line": 2,
+              "text": "[2026-10-22T05:14:26.268Z] [步骤 1] 准备发布 开始"
+            },
+            {
+              "line": 3,
+              "text": "[2026-10-22T05:14:33.711Z] [步骤 2] 核对维护前驱资格 开始"
+            },
+            {
+              "line": 4,
+              "text": "[2026-10-22T05:14:33.732Z] [步骤 2] 核对维护前驱资格 完成，耗时 0 秒"
+            },
+            {
+              "line": 5,
+              "text": "[2026-10-22T05:14:33.733Z] [步骤 3] 复验已准备前端 开始"
+            },
+            {
+              "line": 15,
+              "text": "[2026-10-22T05:19:16.169Z] [步骤 3] 复验已准备前端 完成，耗时 282 秒"
+            },
+            {
+              "line": 16,
+              "text": "[2026-10-22T05:19:16.174Z] [步骤 4] 复验已准备后台 开始"
+            },
+            {
+              "line": 19,
+              "text": "[2026-10-22T05:20:19.703Z] [步骤 4] 复验已准备后台 完成，耗时 63 秒"
+            },
+            {
+              "line": 21,
+              "text": "[2026-10-22T05:20:24.001Z] [步骤 5] 维护前只读检查 开始"
+            },
+            {
+              "line": 22,
+              "text": "[2026-10-22T05:20:25.381Z] [步骤 5] 维护前只读检查 完成，耗时 1 秒"
+            },
+            {
+              "line": 25,
+              "text": "[2026-10-22T05:20:26.438Z] [步骤 6] 进入维护 开始"
+            },
+            {
+              "line": 32,
+              "text": "[2026-10-22T05:23:53.653Z] [步骤 6] 进入维护 完成，耗时 207 秒"
+            },
+            {
+              "line": 33,
+              "text": "[2026-10-22T05:23:53.655Z] [步骤 7] 停止旧前端 开始"
+            },
+            {
+              "line": 35,
+              "text": "[2026-10-22T05:23:58.612Z] [步骤 7] 停止旧前端 完成，耗时 4 秒"
+            },
+            {
+              "line": 36,
+              "text": "[2026-10-22T05:23:58.614Z] [步骤 8] 部署后台 开始"
+            },
+            {
+              "line": 38,
+              "text": "[2026-10-22T05:24:56.362Z] [步骤 8] 部署后台 完成，耗时 57 秒"
+            },
+            {
+              "line": 39,
+              "text": "[2026-10-22T05:24:56.364Z] [步骤 9] 应用后台权限 开始"
+            },
+            {
+              "line": 42,
+              "text": "[2026-10-22T05:25:33.307Z] [步骤 9] 应用后台权限 完成，耗时 36 秒"
+            },
+            {
+              "line": 43,
+              "text": "[2026-10-22T05:25:33.308Z] [步骤 10] 切换前端 开始"
+            },
+            {
+              "line": 50,
+              "text": "[2026-10-22T05:28:31.152Z] [步骤 10] 切换前端 完成，耗时 177 秒"
+            },
+            {
+              "line": 51,
+              "text": "[2026-10-22T05:28:31.154Z] [步骤 11] 退出维护 开始"
+            },
+            {
+              "line": 53,
+              "text": "[2026-10-22T05:29:14.466Z] [步骤 11] 退出维护 完成，耗时 43 秒"
+            },
+            {
+              "line": 54,
+              "text": "[2026-10-22T05:29:14.467Z] [步骤 12] 启动服务 开始"
+            },
+            {
+              "line": 66,
+              "text": "[2026-10-22T05:34:35.266Z] [步骤 12] 启动服务 完成，耗时 320 秒"
+            },
+            {
+              "line": 67,
+              "text": "[2026-10-22T05:34:35.268Z] [步骤 13] 确认启动版本 开始"
+            },
+            {
+              "line": 68,
+              "text": "[2026-10-22T05:34:42.116Z] [步骤 13] 确认启动版本 完成，耗时 6 秒"
+            },
+            {
+              "line": 69,
+              "text": "[2026-10-22T05:34:42.116Z] [步骤 14] 确认服务可用 开始"
+            },
+            {
+              "line": 70,
+              "text": "[2026-10-22T05:34:48.009Z] [步骤 14] 确认服务可用 完成，耗时 5 秒"
+            },
+            {
+              "line": 71,
+              "text": "[2026-10-22T05:34:48.013Z] ========== 发布成功 =========="
+            }
+          ]
+        }
+      ],
+      "PREPARING.json": {
+        "version": null,
+        "at": "2026-10-22T03:49:06.396Z",
+        "requestSha256": "15acb481373382cbb96bbc7ee1d54b6be461a67a134f0529ec4c0ee5d662e8da",
+        "sourceIdentity": {
+          "commit": "4059afea884151d881e3eb87159e401c2c1579c3",
+          "tree": "4f2f3a4b93b869ffa16d46512c6b5a821a902a9d"
+        },
+        "workerPlan": null,
+        "djangoPackage": null
+      },
+      "PREPARED.json": {
+        "version": "teruisi-main-preparation-v1",
+        "at": "2026-10-22T04:17:01.275Z",
+        "requestSha256": "15acb481373382cbb96bbc7ee1d54b6be461a67a134f0529ec4c0ee5d662e8da",
+        "sourceIdentity": {
+          "commit": "4059afea884151d881e3eb87159e401c2c1579c3",
+          "tree": "4f2f3a4b93b869ffa16d46512c6b5a821a902a9d"
+        },
+        "workerPlan": {
+          "status": "planned",
+          "version": "teruisi-local-worker-release-rotation-plan-v1",
+          "planSha256": "1de5bedfcc7a33ad72de53bebab7ba7ea7f5fa1a38e599395fb8ab138b36e315",
+          "planPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\1de5bedfcc7a33ad72de53bebab7ba7ea7f5fa1a38e599395fb8ab138b36e315.json",
+          "predecessorReleaseId": "20261021T050959Z-309bb3d722f0ee47",
+          "candidateReleaseId": "20261022T034924Z-1667fc5e107422e1",
+          "candidateManifestSha256": "60b8710acaf305525f1e5b86157fbc53e2ddcee2ec31544bea352bfa6a352296",
+          "candidateGuardReceiptSha256": "8771202a73073ce8a45a4861f767e33586063fcd831d4d4ea65c82299c6c9815",
+          "cutoverId": "sales-pg-20260829T204417Z-d9896e904d8092cb"
+        },
+        "djangoPackage": {
+          "id": "f016ade10474498cadaf8bc04f7fa91d",
+          "receiptSha256": "1676b555d4a4a5f392b17541a1fefc8a5a99f31a0e73495bc51ed850f60aef29",
+          "appFingerprint": "93f423456b53e406c9dec506bffed48990ca7df15bb83ee9a327acde8ce02560"
+        }
+      },
+      "STARTED.json": {
+        "at": "2026-10-22T05:20:26.433Z",
+        "status": null,
+        "mainCommit": "4059afea884151d881e3eb87159e401c2c1579c3",
+        "startupVerified": null,
+        "components": [
+          "worker",
+          "django"
+        ],
+        "requestSha256": "15acb481373382cbb96bbc7ee1d54b6be461a67a134f0529ec4c0ee5d662e8da",
+        "ready": null
+      },
+      "SUCCESS.json": {
+        "at": "2026-10-22T05:34:48.011Z",
+        "status": "deployed_and_ready",
+        "mainCommit": "4059afea884151d881e3eb87159e401c2c1579c3",
+        "startupVerified": true,
+        "components": [
+          "worker",
+          "django"
+        ],
+        "requestSha256": null,
+        "ready": null
+      },
+      "failedReceipts": [
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\preparation\\FAILED-54042fa3-2d82-4ffe-ab7d-45036c096679.json",
+          "at": "2026-10-22T04:35:48.910Z",
+          "phase": "维护前只读检查",
+          "error": "manual-main-维护前只读检查失败：exit=1 (stderr=#< CLIXML\\nOriginal Pi process identity is unknown or changed\\n<Objs Version=\"1.1.0.1\" xmlns=\"http://schemas.microsoft.com/powershell/2004/04\"><Obj S=\"progress\" RefId=\"0\"><TN RefId=\"0\"><T>System.Management.Automation.PSCustomObject</T><T>System.Object</T></TN><MS><I64 N=\"SourceId\">1</I64><PR N=\"Record\"><AV>Preparing modules for first use.</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj><Obj S=\"progress\" RefId=\"1\"><TNRef RefId=\"0\" /><MS><I64 N=\"SourceId\">2</I64><PR N=\"Record\"><AV>Preparing modules for first use.</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj><Obj S=\"progress\" RefId=\"2\"><TNRef RefId=\"0\" /><MS><I64 N=\"SourceId\">3</I64><PR N=\"Record\"><AV>Preparing modules for first use.</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj></Objs>; stdout=)",
+          "mainCommit": "4059afea884151d881e3eb87159e401c2c1579c3",
+          "maintenanceStarted": false,
+          "automaticRetry": false
+        }
+      ],
+      "stepResults": [
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\WorkerApply-result.json",
+          "keys": [
+            "status",
+            "version",
+            "planSha256",
+            "predecessorReleaseId",
+            "releaseId",
+            "manifestPath",
+            "manifestSha256",
+            "successorSha256",
+            "consumptionSha256",
+            "startupBindingSha256"
+          ],
+          "value": {
+            "startedAt": null,
+            "completedAt": null,
+            "at": null,
+            "elapsedMilliseconds": null,
+            "elapsedMs": null,
+            "exitCode": null
+          }
+        },
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\停止旧前端-result.json",
+          "keys": [
+            "at",
+            "value"
+          ],
+          "value": {
+            "startedAt": null,
+            "completedAt": null,
+            "at": "2026-10-22T05:23:58.610Z",
+            "elapsedMilliseconds": null,
+            "elapsedMs": null,
+            "exitCode": null
+          }
+        },
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\启动服务-result.json",
+          "keys": [
+            "at",
+            "value"
+          ],
+          "value": {
+            "startedAt": null,
+            "completedAt": null,
+            "at": "2026-10-22T05:34:35.264Z",
+            "elapsedMilliseconds": null,
+            "elapsedMs": null,
+            "exitCode": null
+          }
+        },
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\应用后台权限-result.json",
+          "keys": [
+            "at",
+            "value"
+          ],
+          "value": {
+            "startedAt": null,
+            "completedAt": null,
+            "at": "2026-10-22T05:25:33.306Z",
+            "elapsedMilliseconds": null,
+            "elapsedMs": null,
+            "exitCode": null
+          }
+        },
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\确认启动版本-result.json",
+          "keys": [
+            "at",
+            "value"
+          ],
+          "value": {
+            "startedAt": null,
+            "completedAt": null,
+            "at": "2026-10-22T05:34:42.114Z",
+            "elapsedMilliseconds": null,
+            "elapsedMs": null,
+            "exitCode": null
+          }
+        },
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\进入维护-result.json",
+          "keys": [
+            "at",
+            "value"
+          ],
+          "value": {
+            "startedAt": null,
+            "completedAt": null,
+            "at": "2026-10-22T05:23:53.652Z",
+            "elapsedMilliseconds": null,
+            "elapsedMs": null,
+            "exitCode": null
+          }
+        },
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\退出维护-result.json",
+          "keys": [
+            "at",
+            "value"
+          ],
+          "value": {
+            "startedAt": null,
+            "completedAt": null,
+            "at": "2026-10-22T05:29:14.464Z",
+            "elapsedMilliseconds": null,
+            "elapsedMs": null,
+            "exitCode": null
+          }
+        },
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\部署后台-result.json",
+          "keys": [
+            "at",
+            "value"
+          ],
+          "value": {
+            "startedAt": null,
+            "completedAt": null,
+            "at": "2026-10-22T05:24:56.360Z",
+            "elapsedMilliseconds": null,
+            "elapsedMs": null,
+            "exitCode": null
+          }
+        }
+      ]
+    },
+    {
+      "target": "51e242dac482f4dfcd43268c10db7945f90925e1",
+      "base": "4059afea884151d881e3eb87159e401c2c1579c3",
+      "packet": "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef",
+      "scope": "full",
+      "components": [
+        "worker",
+        "django"
+      ],
+      "migration": false,
+      "changeCount": 2,
+      "changeCategories": {
+        "tests": 1,
+        "tools": 1
+      },
+      "cacheLockSha256": "8ec00f801aff894796d783595d202811bccbe94296603ae26766864247d4a4ca",
+      "logs": [
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef\\logs\\release-2026-10-22T06-20-50.701Z-0dfeb2f1-5533-491f-962d-a8d835090e01.log",
+          "events": [
+            {
+              "line": 1,
+              "text": "[2026-10-22T06:20:50.702Z] 开始打包。进度日志：D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef\\logs\\release-2026-10-22T06-20-50.701Z-0dfeb2f1-5533-491f-962d-a8d835090e01.log"
+            },
+            {
+              "line": 2,
+              "text": "[2026-10-22T06:20:50.704Z] [步骤 1] 准备发布 开始"
+            },
+            {
+              "line": 3,
+              "text": "[2026-10-22T06:20:57.724Z] [步骤 2] 构建前端 开始"
+            },
+            {
+              "line": 52,
+              "text": "[2026-10-22T06:45:13.291Z] [步骤 2] 构建前端 完成，耗时 1455 秒"
+            },
+            {
+              "line": 53,
+              "text": "[2026-10-22T06:45:13.308Z] [步骤 3] 准备后台 开始"
+            },
+            {
+              "line": 59,
+              "text": "[2026-10-22T06:47:31.313Z] [步骤 3] 准备后台 完成，耗时 138 秒"
+            },
+            {
+              "line": 60,
+              "text": "[2026-10-22T06:47:38.025Z] 打包完成，等待发布负责人执行。目标main：51e242dac482f4dfcd43268c10db7945f90925e1；准备记录：D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef\\publish-51e242dac482\\preparation\\PREPARED.json"
+            }
+          ]
+        }
+      ],
+      "PREPARING.json": {
+        "version": null,
+        "at": "2026-10-22T06:20:57.723Z",
+        "requestSha256": "c9236ce1fecd06f0962a42e4c6a2960badfde18ac6552fc51ea8fa60f8786590",
+        "sourceIdentity": {
+          "commit": "51e242dac482f4dfcd43268c10db7945f90925e1",
+          "tree": "24770085ed11af2b2d02daf14d8015c85e98917a"
+        },
+        "workerPlan": null,
+        "djangoPackage": null
+      },
+      "PREPARED.json": {
+        "version": "teruisi-main-preparation-v1",
+        "at": "2026-10-22T06:47:38.023Z",
+        "requestSha256": "c9236ce1fecd06f0962a42e4c6a2960badfde18ac6552fc51ea8fa60f8786590",
+        "sourceIdentity": {
+          "commit": "51e242dac482f4dfcd43268c10db7945f90925e1",
+          "tree": "24770085ed11af2b2d02daf14d8015c85e98917a"
+        },
+        "workerPlan": {
+          "status": "planned",
+          "version": "teruisi-local-worker-release-rotation-plan-v1",
+          "planSha256": "1b6d14c397193927c7703c5b1e4a5a2b9d4cc8f258473e861aac6ba0b5e13d87",
+          "planPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\1b6d14c397193927c7703c5b1e4a5a2b9d4cc8f258473e861aac6ba0b5e13d87.json",
+          "predecessorReleaseId": "20261022T034924Z-1667fc5e107422e1",
+          "candidateReleaseId": "20261022T062108Z-b29a2688a05e880f",
+          "candidateManifestSha256": "120054ac619f7db8bb7d9e62cef52d542569ff5edb8fe5b37b3424858fe93d12",
+          "candidateGuardReceiptSha256": "1b708f14b4779bca73b0817a1c91206c58728c3c089e3b651ae60a08913f58e1",
+          "cutoverId": "sales-pg-20260829T204417Z-d9896e904d8092cb"
+        },
+        "djangoPackage": {
+          "id": "015ffe5b461e408da390130699066602",
+          "receiptSha256": "e97664ae8736cccb0401b44fc04d17a040de93b0cb32ad88523487c3ec3fdbf5",
+          "appFingerprint": "1e8f4200f19434a2c014137eb83e1eeb722e490e492801a9ec4ae39e961819cb"
+        }
+      },
+      "failedReceipts": [],
+      "stepResults": []
+    },
+    {
+      "target": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+      "base": "4059afea884151d881e3eb87159e401c2c1579c3",
+      "packet": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef",
+      "scope": "full",
+      "components": [
+        "worker",
+        "django"
+      ],
+      "migration": false,
+      "changeCount": 36,
+      "changeCategories": {
+        "docs": 27,
+        "tests": 6,
+        "tools": 3
+      },
+      "cacheLockSha256": "8ec00f801aff894796d783595d202811bccbe94296603ae26766864247d4a4ca",
+      "logs": [
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\logs\\release-2026-10-22T07-11-45.559Z-2cb227d0-f314-402f-97ce-91c00a1017ea.log",
+          "events": [
+            {
+              "line": 1,
+              "text": "[2026-10-22T07:11:45.560Z] 开始打包。进度日志：D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\logs\\release-2026-10-22T07-11-45.559Z-2cb227d0-f314-402f-97ce-91c00a1017ea.log"
+            },
+            {
+              "line": 2,
+              "text": "[2026-10-22T07:11:45.562Z] [步骤 1] 准备发布 开始"
+            },
+            {
+              "line": 3,
+              "text": "[2026-10-22T07:11:51.389Z] [步骤 2] 构建前端 开始"
+            }
+          ]
+        }
+      ],
+      "PREPARING.json": {
+        "version": null,
+        "at": "2026-10-22T07:11:51.388Z",
+        "requestSha256": "a205e56209278fd6ea1423f538c411e11e646c3334e3825ddf2a2d4aefef8222",
+        "sourceIdentity": {
+          "commit": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+          "tree": "8865d7194fa99c33937b19d7ffab6354c455c089"
+        },
+        "workerPlan": null,
+        "djangoPackage": null
+      },
+      "failedReceipts": [],
+      "stepResults": []
+    }
+  ],
+  "installed": {
+    "status": "adopted",
+    "bundleRoot": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8",
+    "bundleSha256": "83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8",
+    "adoptedAt": "2026-10-22T00:54:17.366Z"
+  },
+  "code": {
+    "preparation-resolution.mjs": {
+      "installed": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8\\tools\\preparation-resolution.mjs",
+      "installedSha256": "38650683fa7463874175d00c5eb496c3b792a21241a59c63015f35de26df8f2c",
+      "main": "D:\\codex-worktrees\\s05c-roi-baseline-20261022\\tools\\preparation-resolution.mjs",
+      "mainSha256": "38650683fa7463874175d00c5eb496c3b792a21241a59c63015f35de26df8f2c"
+    },
+    "main-prebuild-queue.mjs": {
+      "installed": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8\\tools\\main-prebuild-queue.mjs",
+      "installedSha256": "f0bf372f21ddf535c14c25fdaf2428ca3a0145f9a3182055d7348456f7cdf378",
+      "main": "D:\\codex-worktrees\\s05c-roi-baseline-20261022\\tools\\main-prebuild-queue.mjs",
+      "mainSha256": "f0bf372f21ddf535c14c25fdaf2428ca3a0145f9a3182055d7348456f7cdf378"
+    },
+    "publish-latest-main.mjs": {
+      "installed": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8\\tools\\publish-latest-main.mjs",
+      "installedSha256": "a5b567fb46981c9a8dc2d8ee2a23f41891ee8adb8c78ea13f7c07d27fbd8e345",
+      "main": "D:\\codex-worktrees\\s05c-roi-baseline-20261022\\tools\\publish-latest-main.mjs",
+      "mainSha256": "a5b567fb46981c9a8dc2d8ee2a23f41891ee8adb8c78ea13f7c07d27fbd8e345"
+    },
+    "main-prebuild-hook.mjs": {
+      "installed": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8\\tools\\main-prebuild-hook.mjs",
+      "installedSha256": "c36f206c97c6fc1ed44604d72c5828bd080951e5fc0176164ce5d1072198ba77",
+      "main": "D:\\codex-worktrees\\s05c-roi-baseline-20261022\\tools\\main-prebuild-hook.mjs",
+      "mainSha256": "c36f206c97c6fc1ed44604d72c5828bd080951e5fc0176164ce5d1072198ba77"
+    }
+  },
+  "a3DirectoryEnumeration": {
+    "publish-36668589cab0": [
+      {
+        "path": "publish-36668589cab0\\preparation\\PREPARING.json",
+        "bytes": 237
+      },
+      {
+        "path": "publish-36668589cab0\\preparation\\source-binding.json",
+        "bytes": 2557
+      }
+    ],
+    "invocations": [],
+    "logs": [
+      {
+        "path": "logs\\release-2026-10-22T07-11-45.559Z-2cb227d0-f314-402f-97ce-91c00a1017ea.log",
+        "bytes": 5039
+      },
+      {
+        "path": "logs\\release-2026-10-22T07-11-45.559Z-2cb227d0-f314-402f-97ce-91c00a1017ea.log.state.json",
+        "bytes": 308
+      }
+    ]
+  },
+  "runnerBuildDetails": [
+    {
+      "at": "2026-10-22T06:27:27.891Z",
+      "raw": "[鏋勫缓鏄庣粏] 婧愮爜瀹屾暣蹇収鍙婁袱娆″鍒讹細50957 ms",
+      "note": "Original runner has lossy mojibake; do not restore missing digits."
+    },
+    {
+      "at": "2026-10-22T06:29:40.753Z",
+      "raw": "[鏋勫缓鏄庣粏] 绂荤嚎渚濊禆瀹夎锛?32840 ms",
+      "note": "Original runner has lossy mojibake; do not restore missing digits."
+    },
+    {
+      "at": "2026-10-22T06:30:08.093Z",
+      "raw": "[鏋勫缓鏄庣粏] Vinext缂栬瘧锛?5835 ms",
+      "note": "Original runner has lossy mojibake; do not restore missing digits."
+    },
+    {
+      "at": "2026-10-22T06:30:15.019Z",
+      "raw": "[鏋勫缓鏄庣粏] helper鏋勫缓锛?269 ms",
+      "note": "Original runner has lossy mojibake; do not restore missing digits."
+    },
+    {
+      "at": "2026-10-22T06:31:45.936Z",
+      "raw": "[鏋勫缓鏄庣粏] 浜х墿瀹屾暣鍝堝笇锛?8143 ms",
+      "note": "Original runner has lossy mojibake; do not restore missing digits."
+    },
+    {
+      "at": "2026-10-22T06:34:34.711Z",
+      "raw": "[鏋勫缓鏄庣粏] 灏佸寘杞Щ鍙婂畬鏁村楠岋細161589 ms",
+      "note": "Original runner has lossy mojibake; do not restore missing digits."
+    },
+    {
+      "at": "2026-10-22T06:38:49.004Z",
+      "raw": "[鏋勫缓鏄庣粏] 鍘熺敓鍊欓€夊畬鏁村楠岋細242007 ms",
+      "note": "Original runner has lossy mojibake; do not restore missing digits."
+    }
+  ],
+  "evidence": {
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\01472067-94d1-4661-a14f-142687cbadd8.json": {
+      "bytes": 367,
+      "sha256": "94810f54136b32bd906e9404f507bec37c75e79066db424b546e14255f408ded"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\05408813-a5ed-40cb-9890-13db65861db8.json": {
+      "bytes": 403,
+      "sha256": "fabca0013232198d8b5b869aed1a95cabf07e633c14e29b1c6260e389f425c5b"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\0c8bbd7b-e4c7-473c-a4c4-df0829641c31.json": {
+      "bytes": 403,
+      "sha256": "4c01fee0044d09a3fe4f4fe56c6c809357150f2a07f58c32f7ced49f1645b0e1"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\15d210b9-2ce4-4c49-8f73-7773b1593893.json": {
+      "bytes": 403,
+      "sha256": "0b8a2e56141681fa106337d4aa5a98a01aca302feba27a81b431dab282fc03bb"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\1747c989-59c7-4cc4-844d-980a852d5a49.json": {
+      "bytes": 403,
+      "sha256": "1bc36c90a96e8b31631adea2f22cb46a8c3fb961e3eb8aa36d0fd8f787871e85"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\180d78e5-9100-4100-9917-4af9b758299f.json": {
+      "bytes": 403,
+      "sha256": "8f1aa118e22274f5805d42bbe22a05ad85af2330d00d80194179e494578acc4b"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\18fe4655-67b1-4ddf-8891-7d2ae2643e32.json": {
+      "bytes": 403,
+      "sha256": "7146632c57a28d39d20a6be15cfc35b43bd184e4f565e810c70e9266d69dc273"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\1a26f95c-fa39-4e8d-a0a2-a2a75eb84687.json": {
+      "bytes": 403,
+      "sha256": "976790242f9bc289cd4084239cb9ef24d04d4b31728c7033dcecfea861140393"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\1f924696-029a-4771-8dd3-d59b3d62ffa3.json": {
+      "bytes": 367,
+      "sha256": "85c921615a039668a897d1d027a17a81331b78b7d191df82819d118a2db34043"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\27d7ae93-3d1a-45e4-a6d5-08ba3d863c16.json": {
+      "bytes": 367,
+      "sha256": "acae3397ecc005c72628714ad15729dd51287f1df05935775c4bd1f7107e3e25"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\2c20f828-094d-40b4-a570-628f55c610c8.json": {
+      "bytes": 403,
+      "sha256": "fef21e4e08d30fb1c38e50a8f664a4d9a18d5d7782998aa1d94b4df9c210ec24"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\2c90e2a2-24c1-4dc1-9811-ae7c4888a6e8.json": {
+      "bytes": 403,
+      "sha256": "5afbeb1252b5e052de2b7300e32f5d7c63f0089bb122f286be03a1c57ef8a45e"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\2d1ea536-4ee6-45c6-88de-4810da515f4a.json": {
+      "bytes": 403,
+      "sha256": "2502c4f770fe1d56456fbd1e06adbecc28e9d8efdb9361e53b8b27e51e064957"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\312551f9-e7d4-43c7-b0ea-78e673e4b972.json": {
+      "bytes": 403,
+      "sha256": "c169a28aba321d7c816baf6783b54d78f23597520ffd9277315081a074f6f43d"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\317fc378-566d-4c23-9fdc-05671177f5c0.json": {
+      "bytes": 403,
+      "sha256": "1de04fa3a9cc5300a7cb5e76b99fd25a547925c00c3ba87cfc9f564e08d0e2a7"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\33b37684-6a8c-48f7-ac42-ae2c4e55d2c5.json": {
+      "bytes": 403,
+      "sha256": "e1276dd8b7921f7166d0ccc5018831550821b65b3fad5f9a361d25c017260a25"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\3868f023-6626-4558-af1c-3bc507f51678.json": {
+      "bytes": 403,
+      "sha256": "032ec408ced4ec0118676a8f0256a62a943592b3ab0c26a8a21ec2a413e074b5"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\39160c07-f998-42ef-8acc-76a1eff6c63a.json": {
+      "bytes": 403,
+      "sha256": "dd77378d39da1840e6a16d7e9242ab6a8badeddd46924d6ee8a2d0c53eb01728"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\41131240-849c-4bac-a08c-973aa3433c8b.json": {
+      "bytes": 403,
+      "sha256": "9b6dd5193420be7035aaa5cae5eb728de066330b8056f02f05e9547886640017"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\41731e64-ab04-40a8-aea0-1e2ae65e4555.json": {
+      "bytes": 403,
+      "sha256": "c1b36fee77f810a73cf858e41555a10afb09616f31d6503ad18fa35a255eab34"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\4504f1ea-69bb-45c0-a843-bccc894467fd.json": {
+      "bytes": 403,
+      "sha256": "fca0cdbb44f865d53a3bc6919ef904f7146a1227f9627cb64deee52d7d943f79"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\484335bd-4804-4730-8429-2c4f2f4d0535.json": {
+      "bytes": 403,
+      "sha256": "cdb24bebb68e03d50ee85b7aed381394541614a91b744c81147df8655fd2e372"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\4e856a38-c0af-42f8-8cd5-e94268d689bb.json": {
+      "bytes": 403,
+      "sha256": "69b8a6561e3feff3c89b61b9afae85eb7b88d371631a6d57cc2fe98b8aa343bd"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\564ea10f-6ad5-4bbf-ba06-a7527106d814.json": {
+      "bytes": 403,
+      "sha256": "3b2b2859e9fc0e8e9fcfb13e9a91f1e611d0d80e49a503219240cd02a4fe5e03"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\57653527-4883-4265-94c1-5fb6a918be79.json": {
+      "bytes": 403,
+      "sha256": "b50718803f056ab9043f58720b4158c9c2e7e523de14a5ece0a5f60f0f28e4c0"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\57d9b499-b5f0-424b-969e-ad1f396eef82.json": {
+      "bytes": 403,
+      "sha256": "f41c70b1d5b113d02dd84b2a1b76868ea4f87e424676471304fd71b8605a426f"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\5e2ddf63-d590-4d05-83ee-75c2059e8bfe.json": {
+      "bytes": 403,
+      "sha256": "515ac6c2e7506bc29fc3ac0a031293bba022a54e9d2defffdc3daba7d0a9844a"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\5e855006-352a-4015-96e0-6644302d6a24.json": {
+      "bytes": 367,
+      "sha256": "2e22c9d4b6401432837e3ca772ae9e8bf7840206da850317ef66ffd1a84fc746"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\5ef20ef4-11ff-441a-b2df-f236b9faf0c9.json": {
+      "bytes": 367,
+      "sha256": "eaa6708b2f0fe998ee7cdd3566914a40124a123bc3473c9b08713a5ca3effd8a"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\63a31a07-e6d0-45e4-b1dc-9ca95d66def5.json": {
+      "bytes": 367,
+      "sha256": "2089fae255d10cc1d2475617575e0c3b70cfdbed6702be705ff8b9af41a21084"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\6cae4a83-29b3-4980-85fc-95a20276d752.json": {
+      "bytes": 403,
+      "sha256": "a1c1151e3b5b1e847d606e4b66fa1930d5c1a4a4370a3533fa29b9e5c8a52b23"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\6f454a0b-3ca9-411f-86fd-ee0dcd74d69b.json": {
+      "bytes": 403,
+      "sha256": "6b9ddd2bc75f8b06f19e0495a31b886b8c03bdbb03be4008d6c3feb59fa18d46"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\7041d946-d505-4ae3-a298-c5e2ae79165d.json": {
+      "bytes": 403,
+      "sha256": "537ab32b85ef4704600411396b3533d6b76cf4044f30c1b903c7e324d2c0158a"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\738910aa-f384-4c30-81d7-4b19dfa987a9.json": {
+      "bytes": 403,
+      "sha256": "ad1cd0852baddd97af5c853557cc4a9a56bcc5eeeb6f3b50d182658efaaee0a9"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\77398db7-6d2d-4298-9159-5af5497ddd14.json": {
+      "bytes": 403,
+      "sha256": "7f53aa5669963641c58eb14b54833a6155a625c27ac3d684a8cf3e57c5795151"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\773d38e0-19a5-47b3-ae7c-b69119885857.json": {
+      "bytes": 367,
+      "sha256": "41446f1ce8dc71a8750d5406894ef2138ab57fc99a60869eff7ce0ee8d12c294"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\78fc932a-4a4c-47cf-9f1b-3fc0955e72b3.json": {
+      "bytes": 403,
+      "sha256": "1b77c4dcd8bb2fb93d82d647eb8673fe0abbad9c0d605793899de1b9b6b3a722"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\7964788d-da95-49ec-bb08-2ef409faf711.json": {
+      "bytes": 403,
+      "sha256": "7035d2df9de4bb4d8dd15607467f8f547603957109a1075a2c8ae31a8a2e7cde"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\7aa530d1-c899-45de-89ca-1dcebf78ed33.json": {
+      "bytes": 403,
+      "sha256": "a0a972b81e8ccfbef17d12984c9fc55128f15573bb2ad844ca167824cb8297c4"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\7b1ad035-d982-4ae2-9f18-88ce3d5eb4dc.json": {
+      "bytes": 403,
+      "sha256": "150603de7841f85f36930272a865d5b1379db28bb02e8a3c5b20e1b4d3e6e5e7"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\7daa753a-1c22-4862-b629-b231396e20d6.json": {
+      "bytes": 403,
+      "sha256": "c50cfb7ebd640578591deaca97ecf90f180b44007e70a716cc29d496827f1c21"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\7f5acffb-d81a-436c-9d22-bc1fa18d05e1.json": {
+      "bytes": 403,
+      "sha256": "c64b4d96afff603db401cbb568f5d5a4d5540232bbd9a936edfcfe2bb7aed286"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\863e1fac-fe1c-4136-986e-c26ef30e4a7f.json": {
+      "bytes": 403,
+      "sha256": "80e5e1f80d83532825e061b34b719e4148f1a43136998e95b1785ec2a62cf0b1"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\8a8f68da-b5b8-454e-8efa-2aecc630aa11.json": {
+      "bytes": 403,
+      "sha256": "d788db3161416969a0554346ea63bf85c7388c927a9c6664b9b759fdee77f9a0"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\8b9182da-77c9-4154-bada-ebfd1035d065.json": {
+      "bytes": 403,
+      "sha256": "765cee5e84cc4c6005083494e4b91bd47642e8f7940b924e7915f9869001f91e"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\9010af8a-2de5-403f-bf6a-833af4901b0f.json": {
+      "bytes": 403,
+      "sha256": "a063e9a38f0220f2acd8d62cfbcc6fb663969b5cd08c3e25758a838b54c11ee4"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\90ad20da-5558-4980-9cd3-a605c59aaeaa.json": {
+      "bytes": 403,
+      "sha256": "cb33a1ce781565a04a3258e90880c6c22a3c61bd3476ca5297c0cd8e90bf90c2"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\92d920db-e788-44a2-b7ad-eec432d99403.json": {
+      "bytes": 403,
+      "sha256": "5715c9686f7b0d1bbd664d288f0a8d1c47bf66a9ce8c242806d879bc1c7a3799"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\932106cf-28c5-4b5a-a8ce-b9d0f3acff19.json": {
+      "bytes": 367,
+      "sha256": "325576c326a7ca78b9250f9dd78dc373a21c0ed474b378a386a7880745223d14"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\958bafa0-ad75-44d3-96d5-9c793db78585.json": {
+      "bytes": 403,
+      "sha256": "146e30b1615a8aec057d8f7e29d5517c168c18d8e009586a93558784f1a71e6a"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\95a85f8f-336e-4039-b036-73033fd67484.json": {
+      "bytes": 403,
+      "sha256": "c988ed06eb422d8408ea5091dd2de99aee586214050e8d2db5c8e9f3ea18bb35"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\9dda7698-8f7b-4d31-b246-59cdef1def7a.json": {
+      "bytes": 403,
+      "sha256": "3a1122a71fcf562e41723546c33afdccaaacf59daa33ddb03185bd3160f5aeab"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\9e5307b3-efd4-4754-9594-17ee7a0d9b8b.json": {
+      "bytes": 403,
+      "sha256": "532817f2f69e26828b23d3609da84316d67f6e8aaeb561aa0865344de13d8a70"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\9e6a93ee-f90c-42ab-88c7-82e1de164996.json": {
+      "bytes": 403,
+      "sha256": "932e59032a7c851fdf4149f9b5a68b4fda94e055e45697df34b8ca7c7ebafc24"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\9f8bfbfe-aa72-4470-a472-aa998a2d78e8.json": {
+      "bytes": 403,
+      "sha256": "e7aa9b13eb2585b07adc32344b8b46d74054548e2442d58f5a934004097ccc08"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\a2d60ac5-5cf1-4569-972d-4a59cac59d79.json": {
+      "bytes": 403,
+      "sha256": "1799ecba265b5ee1f85df13f4e68902a33cdbdf83272759dce823b8af7551ad4"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\a4877f12-2d56-457d-9251-b6cd6301b428.json": {
+      "bytes": 403,
+      "sha256": "5db7f17e73e78d485e9bd1ee486f9dd40335cb900c0919d3047e2224478aa065"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\a89af920-d57a-4367-a9e5-8fc33fa0f73b.json": {
+      "bytes": 403,
+      "sha256": "1b0676e32d2ef3b607a3c6d0b505dd4dba2585c6891881a7f8899be14ccbd5cf"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\a907f9d7-d778-4570-8b2c-dc75de617500.json": {
+      "bytes": 403,
+      "sha256": "f6c654e9f49de7b61d0fa2bed9b55c72fbf103f98068769b1b2f75de3a2bcd52"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\a9b49c5b-0222-4c72-b903-6030dcfde4b4.json": {
+      "bytes": 367,
+      "sha256": "7046e5bd75a0cafb9a0dad58d8713dac9920f5eb0aac0e56723f39840e5c4ccf"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\ac4fe7fe-fef1-4b7e-a32e-7681660888f6.json": {
+      "bytes": 403,
+      "sha256": "17f467c5adefda0ba7f1dd0fc6973b594e5fd970c4248af89f84c4d7f72f6796"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\b4dea4a4-9e3f-4cc8-8a42-73c6ec5babe7.json": {
+      "bytes": 367,
+      "sha256": "356f622c1101c843b7091e1280eb3ca2fc4d6d72eb79a758917638c1a8539463"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\b5f3a030-5238-4d78-98dd-cb593a142567.json": {
+      "bytes": 367,
+      "sha256": "e7e728608b97cf7a561697a0f89b91a796839bd594bce8f39c3969adc22e5ec0"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\b9e17170-7c6c-4f57-85de-9c597add7d99.json": {
+      "bytes": 403,
+      "sha256": "ef6e607b112b82660b3d339d3e52b7db4b9b7fef926ba06aa34d3005edbdb904"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\c06b2a77-9c9e-435a-969e-fa2ac461d462.json": {
+      "bytes": 367,
+      "sha256": "74e9c4e8e2f813334b10134ad74b033cf4c9b1d7a9fe525bac2044d3679a0ed5"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\c511c6a2-040a-4c9a-85fe-a14d2c044f12.json": {
+      "bytes": 367,
+      "sha256": "6c578e4957eaa46984bff3d1574f8a15b28ee8765f4662ab416a133c48d20d39"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\c7f5d73d-68c2-4883-8737-7378842b42c2.json": {
+      "bytes": 403,
+      "sha256": "669b875a81bb94b4d962c62d5782132db6a312055f0d3125334afa4b1b47a4fc"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\c96b9a41-914a-4ce4-bc5e-c2d8c479266e.json": {
+      "bytes": 367,
+      "sha256": "6778a27ffa7a8c8aeb8a454b184e4894fcf8b70412a2d428fbd9064aba96bfb9"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\cb8ee3b9-3909-43f7-92b3-2015af1a7175.json": {
+      "bytes": 403,
+      "sha256": "7a9f7a1b3267ee2e26150748811d2506c703206226e56409da19df75f923a965"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\cf761cdf-98f2-4ba0-b40e-3b7127e47d38.json": {
+      "bytes": 367,
+      "sha256": "50e6918a984e7acbb9c9ac02e2656b996159bd73c2e5e6074a707286b53a896d"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\d17ecced-b872-4935-b0cf-ffd362cc1fcc.json": {
+      "bytes": 403,
+      "sha256": "c01fc1ed54a94159fb24c57bfea6eb5e3f1346c5e2377b0c1aa1e15f17be6d34"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\d2990829-9621-4495-a2fc-0d777dfe94ee.json": {
+      "bytes": 403,
+      "sha256": "39d58e8661489101829ed83b450a0288eceb14e6103105efbc1f18d3a4587fa7"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\d3c93454-048d-44c5-b2be-8a3d16920231.json": {
+      "bytes": 403,
+      "sha256": "77c41a38d2e5b39fffe24e1e7926e02c4f56a59d4567d3672ebe0f9c0c2cf770"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\d3ed3b78-5704-4998-ac7b-027c128a3f93.json": {
+      "bytes": 367,
+      "sha256": "515228fa95422bfc3ab18618b629c600acd73670d5294d41ca03740e30a39001"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\d4dbd5aa-56b0-4705-834b-d6ee7dff1c79.json": {
+      "bytes": 403,
+      "sha256": "9257a54490f074083525a9e2eeb83cd5139ce0092673973a7917ff74b45aabd9"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\d6742ea6-30d2-4e7c-b58e-3c6399a50ee1.json": {
+      "bytes": 403,
+      "sha256": "c1d9cd4c95de3b66a5767faa1b66848b3c7b665d0655d4fa92b71ed046b6187d"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\da5cb926-1d39-44de-948c-97d1733f6f9d.json": {
+      "bytes": 403,
+      "sha256": "ecdb8c4b1fe108c3fd1461165f37503f6a555c1ff5e50d9b6c8138c2f86ca027"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\e2bf1b02-28af-46c9-a4b4-918a0ca05c13.json": {
+      "bytes": 403,
+      "sha256": "9f68d159d131889069bca41a95873a0c7e50ccc88f02e9c1d0a5caf327b04286"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\e52a0d47-17d5-4e35-8e54-35414ac4dc1e.json": {
+      "bytes": 403,
+      "sha256": "acdec7d9c9b7f4f569dc8c53b61509827655ce6845d33145205221145cb01c65"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\f9020d2e-ac8c-4aec-ab9b-785b5f224139.json": {
+      "bytes": 403,
+      "sha256": "369aefccc6a0733ca4cda66cc3c397b22c9aac03ac3f440c121ebd9934efb02b"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\f996919a-47b2-41b6-8e42-ea8fe33beb26.json": {
+      "bytes": 403,
+      "sha256": "3c86fcf28d477a47be3c90cb6ebd68deaa01f257dc2a6a06aac3b48cb46d6e65"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\f9e9ea34-fa70-42e6-958b-e63bfa7f95cc.json": {
+      "bytes": 403,
+      "sha256": "f7170609b7f49e0df193ddd041da1228a43515437718d863b61761f464a292e2"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\fa55c75f-7ebd-4858-97a8-fc6ebace53c2.json": {
+      "bytes": 403,
+      "sha256": "84587788fce11c399a08911be3c30694bb6e182af269498b134a4196778a935b"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\fc2308d8-ba74-43ad-816c-2ee593f207b3.json": {
+      "bytes": 367,
+      "sha256": "1ab078a8f8ccabb3b22600d2258aa5ccc4f376d7f8aef4ec85c6a2a97a7b4475"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\tickets\\ff535b10-5c71-4938-a99b-faf78f5997ed.json": {
+      "bytes": 403,
+      "sha256": "ebc9b66767fe70c1a3392067ba5824ef223800273c6d417c62e5f75b0fc2d3ba"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\01472067-94d1-4661-a14f-142687cbadd8.json": {
+      "bytes": 700,
+      "sha256": "47541afc75d55c6109fd81ed4fe29a46a21cc0a5d7b2ef1b341c78977fd937b1"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\05408813-a5ed-40cb-9890-13db65861db8.json": {
+      "bytes": 624,
+      "sha256": "354e8b164ac42f324ae5c849d294f13baeeeb1b37985231ad5f1967c60d1c641"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\0c8bbd7b-e4c7-473c-a4c4-df0829641c31.json": {
+      "bytes": 624,
+      "sha256": "a15fa9aa73589e7cadc7744bf5e2dbdad46f6b99e16c55386c6ddddb22eb02c2"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\15d210b9-2ce4-4c49-8f73-7773b1593893.json": {
+      "bytes": 624,
+      "sha256": "72d304f129325e8e59ee4d08c9d3882f5bccafa5c5060e943fbdd58ec0580263"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\1747c989-59c7-4cc4-844d-980a852d5a49.json": {
+      "bytes": 624,
+      "sha256": "34aa3c6661cd912cabf578a9f8b9f2c001c64dc645556826a1d8663aa57482a7"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\180d78e5-9100-4100-9917-4af9b758299f.json": {
+      "bytes": 624,
+      "sha256": "e271a7bcab768e1177c3e881434cd4689defcea9675fdc30a071d9d87c3db906"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\18fe4655-67b1-4ddf-8891-7d2ae2643e32.json": {
+      "bytes": 1020,
+      "sha256": "73c06fca072de30e382beeaf31ca04aff5f6d2f8453071375bbca83947813a2d"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\1a26f95c-fa39-4e8d-a0a2-a2a75eb84687.json": {
+      "bytes": 700,
+      "sha256": "c8780ffaf63deabc6ffc60154e238dd0d8f91599d545e1c115d30559ee88cac2"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\1f924696-029a-4771-8dd3-d59b3d62ffa3.json": {
+      "bytes": 1005,
+      "sha256": "e397e8519a2525683a848bcb4e25de46fb91ebf5a91245b0cc3d3c5059583a1d"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\27d7ae93-3d1a-45e4-a6d5-08ba3d863c16.json": {
+      "bytes": 624,
+      "sha256": "cd16a15717e27b1364284564eca4b59d683a1a512dd084f65651dc356b84b205"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\2c20f828-094d-40b4-a570-628f55c610c8.json": {
+      "bytes": 1020,
+      "sha256": "a163ddad36acef1be600c0a6da3f6f4892faa0b478a9946f25d1450437683cea"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\2c90e2a2-24c1-4dc1-9811-ae7c4888a6e8.json": {
+      "bytes": 700,
+      "sha256": "18902a84d305b3045759a1fde5d506b2a4a70d9b7e10b106cb9f9d5a23f777ad"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\2d1ea536-4ee6-45c6-88de-4810da515f4a.json": {
+      "bytes": 624,
+      "sha256": "6645b5bb9a8567a9c1c38ef1425f97d4442a47455b416426d89d090f472841b2"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\312551f9-e7d4-43c7-b0ea-78e673e4b972.json": {
+      "bytes": 624,
+      "sha256": "12752faa448b98a69514464baa23ee2be746aa626373e6d19e87cdd2d9df38b8"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\317fc378-566d-4c23-9fdc-05671177f5c0.json": {
+      "bytes": 624,
+      "sha256": "f17bedb6e169874f398d4140bf259a1a5fc9c240f6263e4b695bfcf0d93faccb"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\33b37684-6a8c-48f7-ac42-ae2c4e55d2c5.json": {
+      "bytes": 624,
+      "sha256": "d8f87bf9f1776e67f9c3b9fd0082ec3d77f28ffe4cfbf211a23a4c693612bd35"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\3868f023-6626-4558-af1c-3bc507f51678.json": {
+      "bytes": 624,
+      "sha256": "66fc86b9dedd95d57dd51469caa6d079f251f024ea9f0f3cdef62ee21866fe90"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\39160c07-f998-42ef-8acc-76a1eff6c63a.json": {
+      "bytes": 624,
+      "sha256": "78d579a06aa4667ba4054fc236a775906778874a026894e0970d0a304a7df4d8"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\41131240-849c-4bac-a08c-973aa3433c8b.json": {
+      "bytes": 713,
+      "sha256": "7c99ac9aad232fbfdca7d75222bba28fae7249f031bb7dfa51c8c4469556cd22"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\41731e64-ab04-40a8-aea0-1e2ae65e4555.json": {
+      "bytes": 624,
+      "sha256": "de22ff3d9bf0b7eba5e0d0d7546fc10805af9387541c7f403cec1437af770832"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\4504f1ea-69bb-45c0-a843-bccc894467fd.json": {
+      "bytes": 624,
+      "sha256": "f32ac2d19fdffa5a1c6f597ad68957c7d6e09a0e409090473d0913c202c471db"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\484335bd-4804-4730-8429-2c4f2f4d0535.json": {
+      "bytes": 624,
+      "sha256": "fb78851af8d2f4ae50d601ba76192c6efd2996778ca63211140944ee48552cb3"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\4e856a38-c0af-42f8-8cd5-e94268d689bb.json": {
+      "bytes": 486,
+      "sha256": "4fbca4d02b4a54e0a2dbdc5859b5084d8fab96606f1aa7e2b08c52151e1562f0"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\564ea10f-6ad5-4bbf-ba06-a7527106d814.json": {
+      "bytes": 624,
+      "sha256": "ea4d029172bf9e26786b3c8a2906c2b58bae21a213cb537eff6b87046b64d9b2"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\57653527-4883-4265-94c1-5fb6a918be79.json": {
+      "bytes": 624,
+      "sha256": "713f0a45b5c28ec506633c08e7571c2f0534de71b69e8430e7aa11564e87da96"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\57d9b499-b5f0-424b-969e-ad1f396eef82.json": {
+      "bytes": 624,
+      "sha256": "258c3d4d848b0d513d663a9adf0021fd86c8e90cfd6fe4c88df0461c10152324"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\5e2ddf63-d590-4d05-83ee-75c2059e8bfe.json": {
+      "bytes": 624,
+      "sha256": "56e575c6a2b00421438954fe8f15ffb73dde416c2d45b82df974a9e53e27be4c"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\5e855006-352a-4015-96e0-6644302d6a24.json": {
+      "bytes": 1005,
+      "sha256": "306f1d085d6204e1879298a56d1a7c177b96345c00b10afa5b1ab170de3b5be0"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\5ef20ef4-11ff-441a-b2df-f236b9faf0c9.json": {
+      "bytes": 1005,
+      "sha256": "f286d805ac6dbebd6e9f97ab503f06173a2ac003d51c07d9afa4aa4eabf118eb"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\63a31a07-e6d0-45e4-b1dc-9ca95d66def5.json": {
+      "bytes": 1005,
+      "sha256": "570516fc63aa6ad1bc0a19263fa3989eb8a1401d2db5bd8f774b941f723dde6f"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\6cae4a83-29b3-4980-85fc-95a20276d752.json": {
+      "bytes": 624,
+      "sha256": "1aec6d10df12c9525c595355888c5f884f43a8729679b390da4fb0a1ae2ed354"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\6f454a0b-3ca9-411f-86fd-ee0dcd74d69b.json": {
+      "bytes": 624,
+      "sha256": "bf4542b469d2cee11bc326eb34a18336b4599df5d4414228610cff90c5aa07d5"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\7041d946-d505-4ae3-a298-c5e2ae79165d.json": {
+      "bytes": 1005,
+      "sha256": "cd4d9b7dbb58aec7a8053ed0c999c02bcce3999ea2905ef0bd4f79d9b28eb70c"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\738910aa-f384-4c30-81d7-4b19dfa987a9.json": {
+      "bytes": 713,
+      "sha256": "caf8814a48b822fd7c389c0ad203bf16f1a44417edaae8ad6ecff6ae4da3a136"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\77398db7-6d2d-4298-9159-5af5497ddd14.json": {
+      "bytes": 624,
+      "sha256": "120b28e0a9ca87ea35f29c13a307e2dff9df3599149a0617e35b9540264a41e8"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\773d38e0-19a5-47b3-ae7c-b69119885857.json": {
+      "bytes": 894,
+      "sha256": "d2e980c5326749cf0e80a4c80fbfc3bec3c234a9d5864f63759fcfdd6d799435"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\78fc932a-4a4c-47cf-9f1b-3fc0955e72b3.json": {
+      "bytes": 624,
+      "sha256": "4b03277287c8ff5d53feca7dab880e75bf7b28fe78faa693dcbde351628fdca5"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\7964788d-da95-49ec-bb08-2ef409faf711.json": {
+      "bytes": 739,
+      "sha256": "4f47838d15eb5ac8445181680fea1b79bad3a7e3a37b85b5bcccfbb6c3550789"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\7aa530d1-c899-45de-89ca-1dcebf78ed33.json": {
+      "bytes": 1005,
+      "sha256": "c1ac89ece55cfa3b7cf4ed648ce7d92140e09ba1865e083d6e636bd11988fc39"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\7b1ad035-d982-4ae2-9f18-88ce3d5eb4dc.json": {
+      "bytes": 624,
+      "sha256": "ec69a6f4757fd6cb1998e49aca2a5f8acca65b409f314d40e2c47868cca14208"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\7daa753a-1c22-4862-b629-b231396e20d6.json": {
+      "bytes": 624,
+      "sha256": "4f80f03c18022131006e7d51f78871132582552312156284ab582fb674c05865"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\7f5acffb-d81a-436c-9d22-bc1fa18d05e1.json": {
+      "bytes": 624,
+      "sha256": "aa0e42c9ebdd62fbf60cde6fe87c38c292e622345999f2bfbb14f0669906d0ae"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\863e1fac-fe1c-4136-986e-c26ef30e4a7f.json": {
+      "bytes": 700,
+      "sha256": "2c1da3fb348ba238cf5fadfd54bc221db75db676dad2c9c94d6ac5fae2112f4f"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\8a8f68da-b5b8-454e-8efa-2aecc630aa11.json": {
+      "bytes": 1005,
+      "sha256": "12efc1e181964f657a5753e401a465812abd53cb1b45ef33310bd14aa1d9aa86"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\8b9182da-77c9-4154-bada-ebfd1035d065.json": {
+      "bytes": 1005,
+      "sha256": "c691adaac98ee9ae56b651bbd27ecea27b63fdb7a2d8d443f9b5320b44214d15"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\9010af8a-2de5-403f-bf6a-833af4901b0f.json": {
+      "bytes": 1005,
+      "sha256": "79c7675f205a97391426b73727d69ab5744f1b25069d8e5171a8a8a7c07151d2"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\90ad20da-5558-4980-9cd3-a605c59aaeaa.json": {
+      "bytes": 624,
+      "sha256": "9ccfb6f78ce69d563796ce1b760783c4e209175f4b60810c3e029e7dff5f4a41"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\92d920db-e788-44a2-b7ad-eec432d99403.json": {
+      "bytes": 1005,
+      "sha256": "8722c9547b11d63c8b8ead4664be1101e5cd8c704229477cdb9ce0c88a2a27ae"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\932106cf-28c5-4b5a-a8ce-b9d0f3acff19.json": {
+      "bytes": 1005,
+      "sha256": "48a0d86fa7980966e04249ff22112a17ab361c4172abe43e180b62bbf8fa7e8a"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\958bafa0-ad75-44d3-96d5-9c793db78585.json": {
+      "bytes": 1005,
+      "sha256": "7108ca6ad4ed917f122f928f7304ca7cdfa4f60bad5f0e10f0690b9a3fa31c62"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\95a85f8f-336e-4039-b036-73033fd67484.json": {
+      "bytes": 624,
+      "sha256": "7bb0ddfa408b330ddf9a9adb37ae606d76da7187e9977921ecb8152066051e65"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\9dda7698-8f7b-4d31-b246-59cdef1def7a.json": {
+      "bytes": 624,
+      "sha256": "902c37460701f90881f53cfa46c7aa190ff7dc5b26c500a773a60fb18e83f81f"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\9e5307b3-efd4-4754-9594-17ee7a0d9b8b.json": {
+      "bytes": 486,
+      "sha256": "d89828c3564b59110adc0e11a68e992898e9e15cfb66dd62f2c35cc52b06e6f1"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\9e6a93ee-f90c-42ab-88c7-82e1de164996.json": {
+      "bytes": 1005,
+      "sha256": "d2f70795b3af9808342fa4f92f9bf2d632834036e67cc0f7e0b7ee8d35c12d06"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\9f8bfbfe-aa72-4470-a472-aa998a2d78e8.json": {
+      "bytes": 1020,
+      "sha256": "757f8be2e48366674f6aec63a0c22523c805717fda2de2e068f2b806a1192fda"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\a2d60ac5-5cf1-4569-972d-4a59cac59d79.json": {
+      "bytes": 624,
+      "sha256": "63c29690bbd070a436d042bc02af7d242aa028b3cb7649796422c55ab66e5540"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\a4877f12-2d56-457d-9251-b6cd6301b428.json": {
+      "bytes": 624,
+      "sha256": "d9128b79d1054b6731e06b71b666d9b706f02a863f3dab7c2579e092360c936f"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\a89af920-d57a-4367-a9e5-8fc33fa0f73b.json": {
+      "bytes": 624,
+      "sha256": "63a240f655cd83ce1010e22edee3a142f615e5e9063f3df5eaeded7dc6580512"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\a907f9d7-d778-4570-8b2c-dc75de617500.json": {
+      "bytes": 624,
+      "sha256": "00fb4aef1e6d1a698f84e2cb4d684606c638743220d494e520ae9e73e4a8bca8"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\a9b49c5b-0222-4c72-b903-6030dcfde4b4.json": {
+      "bytes": 700,
+      "sha256": "caae97addd840024cebdeb3cf72bd611e4158ef469a0d072f2c96161b8175a42"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\ac4fe7fe-fef1-4b7e-a32e-7681660888f6.json": {
+      "bytes": 624,
+      "sha256": "a3cbf5ed7e64ac3fc2eac992bca0b7253186763ab1ae52ae0f47a489b245dbdb"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\b4dea4a4-9e3f-4cc8-8a42-73c6ec5babe7.json": {
+      "bytes": 1005,
+      "sha256": "c4285f925567ebdc66c36643e1ef9750a8394e94225ec119825354a25357967a"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\b5f3a030-5238-4d78-98dd-cb593a142567.json": {
+      "bytes": 624,
+      "sha256": "3352a5553d26c76ab50fc738089a0e7b1f4278c08f371c140093510e6fa9f099"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\b9e17170-7c6c-4f57-85de-9c597add7d99.json": {
+      "bytes": 624,
+      "sha256": "d4b5046c591ef22a7b8e0be69e26df5c8e4e9dba62c7be2e47cf39ee803f125e"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\c06b2a77-9c9e-435a-969e-fa2ac461d462.json": {
+      "bytes": 1005,
+      "sha256": "1da075f7de3dcbf915d728d24088252bb5624493794f023f35d26e3eb4e05bc5"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\c511c6a2-040a-4c9a-85fe-a14d2c044f12.json": {
+      "bytes": 1005,
+      "sha256": "5e4eed3ed3cdfc527370f84f995667411a6f9491ddc93fd8731791c37e5e182e"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\c7f5d73d-68c2-4883-8737-7378842b42c2.json": {
+      "bytes": 624,
+      "sha256": "c22017101c5e04b49b56748548d912a5c12a95694ca786b6014cfaef2d45d475"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\c96b9a41-914a-4ce4-bc5e-c2d8c479266e.json": {
+      "bytes": 1005,
+      "sha256": "286c40ae547e23ddbc564b12a6708a236b34358170eb2b41007773c9e22592d5"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\cb8ee3b9-3909-43f7-92b3-2015af1a7175.json": {
+      "bytes": 624,
+      "sha256": "39e4634ba6b632136775eade5b3fd1f68e58d0b3a8ee6eb8df2bdef3fad2804a"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\cf761cdf-98f2-4ba0-b40e-3b7127e47d38.json": {
+      "bytes": 624,
+      "sha256": "d415a35844e9ba924a5188803302aa83a6d7a06e13e00758575914b4a6d81140"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\d17ecced-b872-4935-b0cf-ffd362cc1fcc.json": {
+      "bytes": 1005,
+      "sha256": "bb4381733511374c4c08aa055e73fc5dd28ff230d3bc9ebe78f3069227dbc087"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\d2990829-9621-4495-a2fc-0d777dfe94ee.json": {
+      "bytes": 700,
+      "sha256": "bb965f1f291e7981b9c374147d09cd9edb4f7e60aee50375ed30718e85ad5d21"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\d3c93454-048d-44c5-b2be-8a3d16920231.json": {
+      "bytes": 624,
+      "sha256": "c44a8ebefb1a9b9af6512021fd40ebcc671cd1926c9f67d5ac661f8694d2d7b4"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\d3ed3b78-5704-4998-ac7b-027c128a3f93.json": {
+      "bytes": 624,
+      "sha256": "11a710e36ea63c5f3076c145236b7a239e3edf22a56b6cbf2ba0da4a8e97ce23"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\d4dbd5aa-56b0-4705-834b-d6ee7dff1c79.json": {
+      "bytes": 700,
+      "sha256": "ac8b2ed476f023098ac1f7f291d48ab7da4012edd6b1d6204ac8d66a2b9f604f"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\d6742ea6-30d2-4e7c-b58e-3c6399a50ee1.json": {
+      "bytes": 762,
+      "sha256": "169d2d99f133a0758978395279d14d63d4ca6b354ca5bf1673b8fa8e831a946a"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\da5cb926-1d39-44de-948c-97d1733f6f9d.json": {
+      "bytes": 1005,
+      "sha256": "b1d881ce25e80361514ec8cf473dfae574d250864396460e57cfc8979fd1292a"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\e2bf1b02-28af-46c9-a4b4-918a0ca05c13.json": {
+      "bytes": 624,
+      "sha256": "d3ff2072e29dc35d948e3093aa0f552db9a57a62310976bdbabd760b3e7504e0"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\e52a0d47-17d5-4e35-8e54-35414ac4dc1e.json": {
+      "bytes": 624,
+      "sha256": "2d508d1d4565c8f60a46bf9cbd8b5a0756c73387f3bfd285e129163805bbca24"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\f9020d2e-ac8c-4aec-ab9b-785b5f224139.json": {
+      "bytes": 713,
+      "sha256": "1d51c69bdaeff9498d19385ab2e46d8405c269a5f12dac4295f652aa3704ea13"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\f996919a-47b2-41b6-8e42-ea8fe33beb26.json": {
+      "bytes": 1020,
+      "sha256": "16b257d56e5c0f893ec1fa8cbd9ac5e181e5272e4734dae7db3bcdbbf27817b5"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\f9e9ea34-fa70-42e6-958b-e63bfa7f95cc.json": {
+      "bytes": 624,
+      "sha256": "183553c12a8a06367e6ac3a938afd370b8f7a6bcd79a91ff297b5f4dcd2c38ff"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\fa55c75f-7ebd-4858-97a8-fc6ebace53c2.json": {
+      "bytes": 624,
+      "sha256": "ee992d4e4e5110d8e760c37955ce04394f0aa299ed5b71bcf723e1ed2e399523"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\fc2308d8-ba74-43ad-816c-2ee593f207b3.json": {
+      "bytes": 713,
+      "sha256": "9443f66c2ba2e82ed838960e2c1c9f70bd1eb651dc460693dc363678da454991"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\results\\ff535b10-5c71-4938-a99b-faf78f5997ed.json": {
+      "bytes": 624,
+      "sha256": "e97cbde7f79bef796d9672d84e6860ab2b3816c2133c99661e31eb6d71323ae0"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\00385709-d354-4d39-9e7c-bc2b42dd90f1.json": {
+      "bytes": 1834,
+      "sha256": "1c6a539fd8bf9a619b68fd631f8fe0d83b4e0a1ba55d91587ca92bb2f901cb8d"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\01defeae-36a2-46dc-8182-59f8e8c32ca9.json": {
+      "bytes": 1856,
+      "sha256": "a79ba2ec897d3e4a7bc22e306ba78f78da16649e17df721deca8581bae4638e1"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\0b4674f2-287d-453a-9094-a8f3245886a0.json": {
+      "bytes": 1813,
+      "sha256": "577476a6e39a05022c460480dc8d7d50a2663e01f484b6f60cbfebad9026064c"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\1158f29c-2452-49ff-bf8a-ceeb19bb6f31.json": {
+      "bytes": 1796,
+      "sha256": "7984515ddd9939fa1da5221162b948a3b48e2fd2e906c59c9dcfb0607384837a"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\18373a74-fac8-43a0-9285-9a52e3324b39.json": {
+      "bytes": 1856,
+      "sha256": "c9565d674f163a29d420bca30a70150439791a0f98e60c67d9ab7f3239bada1f"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\2c276cdd-d950-415b-95f3-bc3cab52ac3d.json": {
+      "bytes": 1867,
+      "sha256": "35c79a7aa371fab7f2fd8dec336e264e6c14a586bb28c171af67194c79622d29"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\2ea8a4ca-fb41-420d-ac68-8d11bf7ba22e.json": {
+      "bytes": 1856,
+      "sha256": "d70fd254ff57b7ae0abf7c140713d04db45c7a533587ca13bac6ccbc61ba3aa4"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\33e66bb1-4e90-42a3-8232-4131c2b4dbbb.json": {
+      "bytes": 1810,
+      "sha256": "27b6399df39b6cbf669793bc68f970a2484a644b660eb7115a95e41c3f92011d"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\391ee25b-2c47-4c01-af96-36b9a10b8745.json": {
+      "bytes": 1818,
+      "sha256": "90cdd98977b34ce5b74af10c2fe72a21cd1784c4ad87d1b526d2eb4cc1138d76"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\44ac7bfa-8d33-4c50-8ce5-793a56cb35cf.json": {
+      "bytes": 1818,
+      "sha256": "640164a314f8ecd1958e14a36807f19cd092fbb8a98fabcb8ba56ab62bae316a"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\44cc8f2c-6f05-4b7e-a34d-ac0afd56e02f.json": {
+      "bytes": 1856,
+      "sha256": "cba47979f7159fcaea197d60dd148c28fd45319fd75b03e4c0a2d0a2a6cacf44"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\4aac89ca-952b-4779-b0fa-3e6764dab39d.json": {
+      "bytes": 1812,
+      "sha256": "b0a45571e21f8c8691b696c6b6b8fa6c92777033172f247b9f7964ffaae70746"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\4be815e2-5ffb-439f-99d8-84c496d80052.json": {
+      "bytes": 1810,
+      "sha256": "c19d9a13ad529b1151e3e00f3430ca4b77749fac4f717d5f35eca3ec456d48cb"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\506c9819-b229-4a55-91d8-9a903f62df5d.json": {
+      "bytes": 1818,
+      "sha256": "1ebfdb11e4fbc4ab91811453328a1d30a9f05334dbf5e1a937de210d4a027b3c"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\507f703e-bb3b-4643-a701-4f881b424401.json": {
+      "bytes": 1810,
+      "sha256": "d6e5d117890b6541aa172e35e3ce60a739d3143b85a86b423435ea9462210f8d"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\57dc35fc-f01b-480f-9efd-ea7cd93abd86.json": {
+      "bytes": 1848,
+      "sha256": "cddc49f7c77a82a18f96a8ad53015fcfb40128aafef15f1fe57352bcca2a047c"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\693e15d4-3390-49b1-9b7c-48fa4f737d48.json": {
+      "bytes": 1850,
+      "sha256": "1f771c70d270912b839009dac77019f59ba63e3d1113ba215d83ab34df546f58"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\6a0168ca-321d-4687-9397-726da2c6a711.json": {
+      "bytes": 1834,
+      "sha256": "d26753a5252ddcf32726844685ed3f4ea8eb8d32cb97a1ac89583c8bbd7cabcd"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\7d7775d1-17ba-4b65-a6f2-9f73d69aaa9d.json": {
+      "bytes": 1776,
+      "sha256": "c3d6abf6f292354eee47cd231a5101f6705c3182aac0b7ffa0da0ff72883401d"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\99f26d4d-4043-4a5a-bdff-c9e495866965.json": {
+      "bytes": 1856,
+      "sha256": "39513c23ba174b7f168411c52a81230a610e29d25cb00aced35374e367403010"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\9a934abf-685c-48f5-a26c-dafdcf897fb8.json": {
+      "bytes": 1834,
+      "sha256": "d3b0c132d866d2bcecd2d7748e4f3bef2c224c2d7d5b1e4328572ae8aa780cd3"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\a2bcefc5-c163-4bfd-adb7-a71125042717.json": {
+      "bytes": 1834,
+      "sha256": "b0ee44b18a803b5a524200734ac71398aa5a5372a01d180a23630b07a1789ab2"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\a3d53227-8976-4762-8be6-6f8c28107b5b.json": {
+      "bytes": 1856,
+      "sha256": "443a9bfd07bc47afb0b2560ccfe2101fa274f305f3636153bde24515ce535dfb"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\baf0ac0d-b6b2-4593-b363-6cd3821f1425.json": {
+      "bytes": 1839,
+      "sha256": "7bd123bb2cdbd38f4fbebcb9b95ff1e73b405b05877c241507054834ff3228f9"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\c97f8bc3-1cb2-4ebc-91bb-a543c62b680f.json": {
+      "bytes": 1856,
+      "sha256": "47ef23a083750c1dc9a962a0ffc8c23feaf3544d165ef5361f4543879d38a490"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\d24b0844-bbd5-4ce4-8ec9-4a14809a70f1.json": {
+      "bytes": 1829,
+      "sha256": "18b9de80c58dba65eacfb9d480a59e86d5ea85a39218b93062f9b19ff9ed7475"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\dba51173-e25d-4f4d-b5c3-e585daa70b42.json": {
+      "bytes": 1818,
+      "sha256": "5bc15a304a01a5eb98ca184dd2023a6fd3c59ff0db61445cdf366f6d249cc507"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\e2a76305-5a58-4814-8418-a35270a55efe.json": {
+      "bytes": 1867,
+      "sha256": "d3fb28ce5a7f62c57c0be3d4d533d8eaa33f63ff1159332042ce3faed68649d2"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\e786aed6-25c2-4cce-b433-4fd21d3ac2c2.json": {
+      "bytes": 1839,
+      "sha256": "dcafd243fe0dd25b916a61f7ca84364fa3e7f44979fdda1684751d5ca9557172"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\ece64080-a14c-4314-9e91-c7a8c48171fb.json": {
+      "bytes": 1851,
+      "sha256": "cf14be54c343d7fd171729f916acf017b0f7e27c4fa9908922d7851335a62487"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\f05223b2-d089-4c4a-9702-fd6fbfaa024d.json": {
+      "bytes": 1856,
+      "sha256": "2fac5ac64a5accd3f1f8ddeb3be78998d1feb3641de7df1c78da62bc15113233"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\f697b299-7911-4332-8411-9636e95cf07a.json": {
+      "bytes": 1856,
+      "sha256": "cf352ad04669beb98036d6854d568f977ed42586f656ec33d3abccc37f1fefca"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\dispatches\\fb40640f-57f6-4b9c-9b6e-606f292b603f.json": {
+      "bytes": 1848,
+      "sha256": "fb10c707c7d2387985add5b97b94b184782bb7e67094cfe543ffd8d007815f5c"
+    },
+    "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7\\release-scope-plan.json": {
+      "bytes": 15104,
+      "sha256": "081627cac96cb2e6f20cfd2746d2c40f3880a5b005312e73a18d6084ad9d660f"
+    },
+    "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7\\main-release-request.json": {
+      "bytes": 17253,
+      "sha256": "b6889fcd02728a4a9fffa96c5bc56ef9b5d596ec981920c27131217d4e31fd53"
+    },
+    "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7\\logs\\release-2026-10-22T01-58-12.978Z-ff24e080-f397-452e-8e4e-388ecadff710.log": {
+      "bytes": 9059,
+      "sha256": "525e94dfeb0ea3c22eace7d6224cd106e71f2234b8224e6490da48501d2fcb0c"
+    },
+    "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7\\logs\\release-2026-10-22T02-55-18.350Z-70440837-2fa1-49cf-b07e-670fb732b3e7.log": {
+      "bytes": 912,
+      "sha256": "bbc72d0dc74f044c8dc5169685cdbadd7462c27153d593ec788449cb4c7a1917"
+    },
+    "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7\\publish-559e64fd8586\\preparation\\PREPARING.json": {
+      "bytes": 237,
+      "sha256": "ac82bb560f5fcf8f42ce7b174eaf33bf1dbfcb6f3f902a04f1cbc35b70867d78"
+    },
+    "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7\\publish-559e64fd8586\\preparation\\PREPARED.json": {
+      "bytes": 1414,
+      "sha256": "597e3c13d7b2f93998007d029fc7610565802209b481dae974494e63700a7577"
+    },
+    "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7\\publish-559e64fd8586\\preparation\\FAILED-c8e0ea7a-d322-4afa-b0c2-9fcb7afff123.json": {
+      "bytes": 475,
+      "sha256": "cab7d0c150795af9f6da107efc90f6dc70ddf8774bdae1358752ad9c25b80128"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\release-scope-plan.json": {
+      "bytes": 15425,
+      "sha256": "b44eb181653ac5edc34ac70aac9bea3213c8a878bfa37f10d767b19f91bed3b4"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\main-release-request.json": {
+      "bytes": 17594,
+      "sha256": "2f36b2372d6057ba100d384ccfd485f60788a694c2d0b82655ca13b7c4451405"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\logs\\release-2026-10-22T03-49-00.186Z-82059d5b-f802-4e61-ac58-e6315a864f48.log": {
+      "bytes": 8882,
+      "sha256": "9f93ccb720aeca1bdc6ee62a91e07bad55cadcefc1abe298ce4648e074054209"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\logs\\release-2026-10-22T04-29-46.870Z-f29f8089-b48d-49cf-bb38-c7e02ed92855.log": {
+      "bytes": 4481,
+      "sha256": "e008117cd020b1f574c8aba8934d662873aa01dfbf5b45be6d07d60d65a2f9f2"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\logs\\release-2026-10-22T05-14-26.263Z-77c67a5e-6131-4847-8277-4445a3f3cc2d.log": {
+      "bytes": 13155,
+      "sha256": "9d36ca70ac9493e4c3302f89a20e5c5c33bb7678836967cc7f3c6f8af06a4db3"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\preparation\\PREPARING.json": {
+      "bytes": 237,
+      "sha256": "0d0497d002e37fb2aa33ab03f1b40eef0b5f861c27e7cebbc6cd3ca68e078364"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\preparation\\PREPARED.json": {
+      "bytes": 1414,
+      "sha256": "47b70b08e2b540bf8116d7b00a98de02de5c27befa301bbfab16ec15442d1647"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\STARTED.json": {
+      "bytes": 909,
+      "sha256": "7a46be754eddace1f08a067d307f48f437c0d50cbbcb38bef61a0805cca3192d"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\SUCCESS.json": {
+      "bytes": 798,
+      "sha256": "b6e716f7c8691145b3706a8b565ce3f1e194e6fdc55bf630f060e4593cc0e194"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\preparation\\FAILED-54042fa3-2d82-4ffe-ab7d-45036c096679.json": {
+      "bytes": 1829,
+      "sha256": "1cf6712cd494f8ca76766a7b2923f7a0681082932e285ef66218e13b8ca83975"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\WorkerApply-result.json": {
+      "bytes": 781,
+      "sha256": "61de19a4f4ae35bacf861227b3ceac42693659328a5aeae13b64d3ff8a53b339"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\停止旧前端-result.json": {
+      "bytes": 282,
+      "sha256": "c3c1e1e5f335c1d9b72c9677c4fdf4464b3ef42d51074ecd6750ed77df02632d"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\启动服务-result.json": {
+      "bytes": 307,
+      "sha256": "5cbcd1fd2b64afd4346efeb57a5d6b1fafe68553065e17dcd591d159acfe80ba"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\应用后台权限-result.json": {
+      "bytes": 56,
+      "sha256": "dbf638a0ee91f40ce4b4fa820c2c3c519813fa5c70ce42da6e59db41b53df9dd"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\确认启动版本-result.json": {
+      "bytes": 304,
+      "sha256": "d7f3735d31c30ffc027d3f3e8acacec945f075583450e61d79ba9bd4ee6d732b"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\进入维护-result.json": {
+      "bytes": 201,
+      "sha256": "1a12e65da600f2274db2270a04650776c2718e8af874817173483657600cfccd"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\退出维护-result.json": {
+      "bytes": 148,
+      "sha256": "516c77785fcfb136a24f79f54d78a23499803e628eee6ff5e4b3de840e9d3394"
+    },
+    "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7\\publish-4059afea8841\\部署后台-result.json": {
+      "bytes": 56,
+      "sha256": "2869aa942698ce0012c984fc6f597d1c47ef097d21837245184f4f01363cbfac"
+    },
+    "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef\\release-scope-plan.json": {
+      "bytes": 1920,
+      "sha256": "a989928e7690a1d82cd10a922506546314a8682a1a51cd49ea568c5e73f82263"
+    },
+    "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef\\main-release-request.json": {
+      "bytes": 3183,
+      "sha256": "b2b2549cec9d37a24e702d71bca2b3149677477de5ea12fc9368856ea7b8ddf9"
+    },
+    "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef\\logs\\release-2026-10-22T06-20-50.701Z-0dfeb2f1-5533-491f-962d-a8d835090e01.log": {
+      "bytes": 8660,
+      "sha256": "a755765f125a1ac14e98da4a9dd4e8f4edc5b4e554cdfbaa4357b1a2b3caf5a1"
+    },
+    "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef\\publish-51e242dac482\\preparation\\PREPARING.json": {
+      "bytes": 237,
+      "sha256": "a10beedb9c0770cfa83320964a1f3c5c37d124ad4edbc4ba68ef3fd0eff0e913"
+    },
+    "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef\\publish-51e242dac482\\preparation\\PREPARED.json": {
+      "bytes": 1414,
+      "sha256": "1449b3e09c034d7ac756d8e7264cbbe780680dde2383106606927ae4bd6fc859"
+    },
+    "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\release-scope-plan.json": {
+      "bytes": 5625,
+      "sha256": "163a3fad85933262f9410ebf680a6c2418254b620c7243fa369aba10971e4373"
+    },
+    "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\main-release-request.json": {
+      "bytes": 7174,
+      "sha256": "1f43dd8d5e978dd6b79cada8b7210a45a0a0abba6c3ad072454a3098a3a00b32"
+    },
+    "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\logs\\release-2026-10-22T07-11-45.559Z-2cb227d0-f314-402f-97ce-91c00a1017ea.log": {
+      "bytes": 5039,
+      "sha256": "ea51c3c9474a8b960ad2cecb77b07898430946067a371122fe37372aa4dd054a"
+    },
+    "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\publish-36668589cab0\\preparation\\PREPARING.json": {
+      "bytes": 237,
+      "sha256": "f80da8adba6fe0c0da860cf21fdf43447499d36dd80f15cc5905f80c358a5b61"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\CONTROL-INSTALLATION.json": {
+      "bytes": 9450,
+      "sha256": "74724dfae400f312e1907ee1f565faf28d46c3842f29916c0f8f2d9f143e4b0e"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8\\tools\\preparation-resolution.mjs": {
+      "bytes": 65704,
+      "sha256": "38650683fa7463874175d00c5eb496c3b792a21241a59c63015f35de26df8f2c"
+    },
+    "D:\\codex-worktrees\\s05c-roi-baseline-20261022\\tools\\preparation-resolution.mjs": {
+      "bytes": 65704,
+      "sha256": "38650683fa7463874175d00c5eb496c3b792a21241a59c63015f35de26df8f2c"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8\\tools\\main-prebuild-queue.mjs": {
+      "bytes": 20321,
+      "sha256": "f0bf372f21ddf535c14c25fdaf2428ca3a0145f9a3182055d7348456f7cdf378"
+    },
+    "D:\\codex-worktrees\\s05c-roi-baseline-20261022\\tools\\main-prebuild-queue.mjs": {
+      "bytes": 20321,
+      "sha256": "f0bf372f21ddf535c14c25fdaf2428ca3a0145f9a3182055d7348456f7cdf378"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8\\tools\\publish-latest-main.mjs": {
+      "bytes": 28801,
+      "sha256": "a5b567fb46981c9a8dc2d8ee2a23f41891ee8adb8c78ea13f7c07d27fbd8e345"
+    },
+    "D:\\codex-worktrees\\s05c-roi-baseline-20261022\\tools\\publish-latest-main.mjs": {
+      "bytes": 28801,
+      "sha256": "a5b567fb46981c9a8dc2d8ee2a23f41891ee8adb8c78ea13f7c07d27fbd8e345"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\83e4158f785cf5506997f485879520e8a0e4db8b427e1438aefe364282976ee8\\tools\\main-prebuild-hook.mjs": {
+      "bytes": 4706,
+      "sha256": "c36f206c97c6fc1ed44604d72c5828bd080951e5fc0176164ce5d1072198ba77"
+    },
+    "D:\\codex-worktrees\\s05c-roi-baseline-20261022\\tools\\main-prebuild-hook.mjs": {
+      "bytes": 4706,
+      "sha256": "c36f206c97c6fc1ed44604d72c5828bd080951e5fc0176164ce5d1072198ba77"
+    },
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\runner-72977596-adba-450f-910a-feaddd1c4dd9.log": {
+      "bytes": 11919,
+      "sha256": "bb06cf6ced0661728c3f3fc0d815f36613286b8ed0533b2f2601bc0463776828"
+    }
+  },
+  "taskSideEffect": {
+    "requestId": "a907f9d7-d778-4570-8b2c-dc75de617500",
+    "reason": "Initial git fetch updated origin/main and triggered the existing reference-transaction hook; ticket blocked on a3d53227, no dispatch. Kept unchanged and excluded from historical frequency."
+  },
+  "baselineQueueCounts": {
+    "blocked": 2,
+    "prepared": 6,
+    "unknown": 1
+  },
+  "baselineQueueTotal": 9
+}

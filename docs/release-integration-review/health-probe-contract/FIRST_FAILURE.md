@@ -1,0 +1,5 @@
+# 首轮真实隔离失败
+
+Node native测试session8761共13项，12pass/1fail，28585.7376ms。`live JSON array`期待Unresponsive却真实得到Running。PS5函数返回时把一个元素的JSON数组枚举成单个PSCustomObject，后来对象类型检查无法识别原body容器。原反馈保留在本turn命令记录；此文件是事实摘录，不声称重建原stdout字节。
+
+最小修补在ConvertFrom-SystemHealthContent解析之前拒绝非JSON对象容器；不修改正式control或原失败。只在本隔离worktree修补，随后重跑有意义13项native回归。

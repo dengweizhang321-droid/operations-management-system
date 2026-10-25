@@ -1,0 +1,40 @@
+{
+  "changedPaths": [
+    {
+      "path": "clientTcpRtt",
+      "beforeType": "number",
+      "afterType": "number"
+    },
+    {
+      "path": "tlsClientRandom",
+      "beforeType": "string",
+      "afterType": "string"
+    },
+    {
+      "path": "tlsExportedAuthenticator.clientHandshake",
+      "beforeType": "string",
+      "afterType": "string"
+    },
+    {
+      "path": "tlsExportedAuthenticator.serverHandshake",
+      "beforeType": "string",
+      "afterType": "string"
+    },
+    {
+      "path": "tlsExportedAuthenticator.clientFinished",
+      "beforeType": "string",
+      "afterType": "string"
+    },
+    {
+      "path": "tlsExportedAuthenticator.serverFinished",
+      "beforeType": "string",
+      "afterType": "string"
+    },
+    {
+      "path": "edgeL4.deliveryRate",
+      "beforeType": "number",
+      "afterType": "number"
+    }
+  ],
+  "limits": "Miniflare acquisition metadata used by existing isolated PrepareApp R2 smoke; raw geography values withheld"
+}

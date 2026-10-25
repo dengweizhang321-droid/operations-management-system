@@ -1,0 +1,113 @@
+{
+  "version": "teruisi-c-declared-actual-qualification-independent-binding-v1",
+  "at": "2026-10-11T10:26:40.716Z",
+  "status": "passed",
+  "specRawSha256": "eec240464811a6e954f489d8504aa6b77880f99187340b5899509a2093a5d639",
+  "batchSha256": "f0bb923070dc0741a6b76885b6fe08f54710928b0eda1398a9cab8452d1d6c9e",
+  "entrySha256": "69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99",
+  "qualificationRecordSha256": "3e67a664bf654bbb34d1aa1ca3c7420b478a20f6b5e7b1c905c2e1c9245fffc0",
+  "stdoutSha256": "3253de13a89fedab1f79fb8d0f3569c186cb0247d1709a8ffd651c1ec0155ef0",
+  "startedAt": "2026-10-11T10:13:36.557Z",
+  "finishedAt": "2026-10-11T10:23:10.375Z",
+  "durationSeconds": 573.818,
+  "completionAgeOfActualFinalObservationMs": 70,
+  "stages": [
+    {
+      "category": "sealed-evidence",
+      "durationMs": 284.29099999996834,
+      "stage": "classification",
+      "status": "passed"
+    },
+    {
+      "category": "dynamic-state",
+      "durationMs": 2.8158999999868684,
+      "stage": "django-identity",
+      "status": "passed"
+    },
+    {
+      "category": "dynamic-state",
+      "durationMs": 3.392999999981839,
+      "stage": "journal",
+      "status": "passed"
+    },
+    {
+      "category": "immutable-content",
+      "durationMs": 23271.228000000003,
+      "stage": "django-migration-closure",
+      "status": "passed"
+    },
+    {
+      "category": "dynamic-state",
+      "durationMs": 4162.747000000032,
+      "stage": "effective-chain-and-guards",
+      "status": "passed"
+    },
+    {
+      "category": "immutable-content",
+      "durationMs": 0.31769999995594844,
+      "stage": "no-data-deployment-inputs",
+      "status": "passed"
+    },
+    {
+      "category": "mutable-input",
+      "durationMs": 32640.78640000004,
+      "stage": "source-and-toolchain-initial",
+      "status": "passed"
+    },
+    {
+      "category": "immutable-content",
+      "durationMs": 2571.5062000000034,
+      "stage": "predecessor-source",
+      "status": "passed"
+    },
+    {
+      "category": "sealed-evidence",
+      "durationMs": 6.675099999993108,
+      "stage": "tests-evidence",
+      "status": "passed"
+    },
+    {
+      "category": "immutable-content",
+      "durationMs": 161754.2857,
+      "stage": "complete-artifact-and-head",
+      "status": "passed"
+    },
+    {
+      "category": "mutable-input",
+      "durationMs": 32257.834499999997,
+      "stage": "source-and-toolchain-final",
+      "status": "passed"
+    },
+    {
+      "category": "dynamic-state",
+      "durationMs": 3779.1048000000883,
+      "stage": "effective-chain-final",
+      "status": "passed"
+    },
+    {
+      "category": "dynamic-state",
+      "durationMs": 1.8233000000473112,
+      "stage": "django-identity-final",
+      "status": "passed"
+    },
+    {
+      "category": "dynamic-state",
+      "durationMs": 1.5803000000305474,
+      "stage": "journal-final",
+      "status": "passed"
+    },
+    {
+      "category": "dynamic-state",
+      "durationMs": 8249.857399999979,
+      "stage": "worker-helper-process-identity",
+      "status": "passed"
+    }
+  ],
+  "stageDurationSumMs": 268988.2463000001,
+  "fullDurationIncludesBootstrapAndWrapperOverhead": true,
+  "statusObservationWasNull": true,
+  "originalCachedPathNotQualified": true,
+  "productionReferenceAdmissionNotPassed": true,
+  "productionActions": 0,
+  "rootReranHeavyCollector": false
+}

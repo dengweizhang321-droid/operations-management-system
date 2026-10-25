@@ -1,0 +1,97 @@
+✖ D independent: scheduled mutation uses direct-exit file evidence and preserves lifecycle descendants (29.9574ms)
+✖ D independent: pause while acquiring the lock prevents any Backup invocation (20.9233ms)
+✖ D independent: a newer lock failure cannot leave only an old successful daily proof (22.9156ms)
+✖ D independent: exhausted inherited deadline prevents a new scheduled mutation (18.2596ms)
+✖ D independent: late direct success cannot become a successful daily receipt (95.0675ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 0
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 491.4185
+
+✖ failing tests:
+
+test at tests\release-integration-independent.mjs:30:1
+✖ D independent: scheduled mutation uses direct-exit file evidence and preserves lifecycle descendants (29.9574ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'direct-exit-files'
+  
+      at file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-integration-independent.mjs:33:10
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'direct-exit-files',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\release-integration-independent.mjs:38:1
+✖ D independent: pause while acquiring the lock prevents any Backup invocation (20.9233ms)
+  AssertionError [ERR_ASSERTION]: an ACTIVE observation before the lock cannot authorize Backup after PAUSED
+  
+  1 !== 0
+  
+      at file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-integration-independent.mjs:43:10
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\release-integration-independent.mjs:46:1
+✖ D independent: a newer lock failure cannot leave only an old successful daily proof (22.9156ms)
+  AssertionError [ERR_ASSERTION]: the latest failed attempt needs durable coverage before trusting an older success
+      at file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-integration-independent.mjs:51:10
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ '20261010T004939221Z-24ae755e-f4c8-4bb6-93b5-f1d732fd19b7' ],
+    expected: [ '20261010T004939221Z-24ae755e-f4c8-4bb6-93b5-f1d732fd19b7' ],
+    operator: 'notDeepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\release-integration-independent.mjs:54:1
+✖ D independent: exhausted inherited deadline prevents a new scheduled mutation (18.2596ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-integration-independent.mjs:57:5
+      at async withParentDeadline (file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-integration-independent.mjs:26:77)
+      at async file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-integration-independent.mjs:56:3
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests\release-integration-independent.mjs:62:1
+✖ D independent: late direct success cannot become a successful daily receipt (95.0675ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-integration-independent.mjs:64:5
+      at async withParentDeadline (file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-integration-independent.mjs:26:77)
+      at async file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-integration-independent.mjs:63:3
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }

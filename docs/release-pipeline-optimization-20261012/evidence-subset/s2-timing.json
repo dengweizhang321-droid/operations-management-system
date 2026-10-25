@@ -1,0 +1,17 @@
+{
+  "name": "s2-timing",
+  "args": [
+    "--test",
+    "--test-name-pattern=timing unions|uncompleted batch|offline report",
+    "tests/release-acceptance-closeout.test.mjs"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "elapsedMs": 776,
+  "node": "v24.18.0",
+  "isolatedRoot": "C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-subset-YjJyjl",
+  "stdoutBase64": "4pyUIHRpbWluZyB1bmlvbnMgb3ZlcmxhcHMsIGV4Y2x1ZGVzIG5lc3RlZCByZXRyaWVzLCBrZWVwcyBjb29yZGluYXRpb24gYW5kIGRvY3VtZW50IGNvbXBsZXRpb24gc2VwYXJhdGUgKDEuODY3NG1zKQrinJQgdW5jb21wbGV0ZWQgYmF0Y2ggbmV2ZXIgZ2V0cyBhcHByb3ZhbC10by1jb21wbGV0ZSBvciBzdWNjZXNzZnVsIGNvbmNsdXNpb24gKDAuMzAxNW1zKQrinJQgb2ZmbGluZSByZXBvcnQgdmFsaWRhdGVzIGltbXV0YWJsZSBqb3VybmFsLCBwcmVzZXJ2ZXMgdW5rbm93biBoaXN0b3J5IGFuZCBmYWlscyBjbG9zZWQgd2hlbiBzdGVwcyBtaXNzaW5nICgzMC4yMDIzbXMpCuKEuSB0ZXN0cyAzCuKEuSBzdWl0ZXMgMArihLkgcGFzcyAzCuKEuSBmYWlsIDAK4oS5IGNhbmNlbGxlZCAwCuKEuSBza2lwcGVkIDAK4oS5IHRvZG8gMArihLkgZHVyYXRpb25fbXMgNzAyLjc2ODUK",
+  "stdoutSha256": "1b48c09ecfd8e467513def5cbd87513603b6278be9675926d6455f868f2150e4",
+  "stderrBase64": "",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}
