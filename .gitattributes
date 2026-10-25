@@ -1,4 +1,5 @@
 *.bat text eol=crlf
+tools/preparation-retirement-collector.mjs -text whitespace=cr-at-eol
 tools/bi-app-adopt.ps1 -text whitespace=cr-at-eol
 tools/django-local-service.ps1 -text whitespace=cr-at-eol
 tools/django-postgres-maintenance.ps1 -text whitespace=cr-at-eol
