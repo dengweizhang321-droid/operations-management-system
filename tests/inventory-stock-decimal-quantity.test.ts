@@ -3,10 +3,11 @@ import test from "node:test";
 
 import { parseInventoryStockXlsx } from "../lib/imports/inventory-stock";
 import { createXlsxWorkbookBytes } from "../lib/imports/xlsx-write";
+import type { XlsxCellValue } from "../lib/imports/xlsx";
 
 const HEADERS = ["仓库", "货品编号", "货品名称", "库存数量", "可用库存", "锁定数量", "在途数量", "固定成本价"];
 
-function workbook(rows: unknown[][]) {
+function workbook(rows: XlsxCellValue[][]) {
   return createXlsxWorkbookBytes([{ name: "库存", rows: [HEADERS, ...rows] }]);
 }
 
