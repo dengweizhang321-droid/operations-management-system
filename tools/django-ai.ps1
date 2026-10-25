@@ -787,6 +787,7 @@ function Assert-DingTalkScreenshotProfile {
     "S-1-5-18", "S-1-5-32-544",
     [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
   )
+  $tolerated = @()
   foreach ($entry in @(
       @{ path = $DingTalkScreenshotRoot; root = $true },
       @{ path = $DingTalkScreenshotProfile; root = $false }
@@ -797,21 +798,50 @@ function Assert-DingTalkScreenshotProfile {
     }
     $acl = Get-Acl -LiteralPath $entry.path
     $rules = @($acl.Access)
-    if ($acl.AreAccessRulesProtected -cne [bool]$entry.root -or $rules.Count -ne 3) {
+    if ($acl.AreAccessRulesProtected -cne [bool]$entry.root -or $rules.Count -lt 3) {
       throw "定时截图目录 ACL 不符合受保护契约"
     }
     $seen = @()
     foreach ($rule in $rules) {
       $sid = $rule.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value
-      if ($sid -notin $allowed -or $sid -in $seen -or
-          $rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or
-          ([int]$rule.FileSystemRights -band [int][Security.AccessControl.FileSystemRights]::FullControl) -ne [int][Security.AccessControl.FileSystemRights]::FullControl -or
-          $rule.IsInherited -eq [bool]$entry.root) {
+      if ($sid -in $allowed) {
+        if ($sid -in $seen -or
+            $rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or
+            ([int]$rule.FileSystemRights -band [int][Security.AccessControl.FileSystemRights]::FullControl) -ne [int][Security.AccessControl.FileSystemRights]::FullControl -or
+            $rule.IsInherited -eq [bool]$entry.root) {
+          throw "定时截图目录 ACL 包含未授权主体或权限"
+        }
+        $seen += $sid
+      } elseif (Test-AppContainerReadOnlyAce $rule $sid) {
+        $tolerated += "$($entry.path)=$sid"
+      } else {
         throw "定时截图目录 ACL 包含未授权主体或权限"
       }
-      $seen += $sid
     }
+    if ($seen.Count -ne $allowed.Count) { throw "定时截图目录 ACL 缺少必需条目" }
   }
+  if ($tolerated.Count -gt 0) {
+    $note = "已放过 AppContainer 只读 ACE: " + ($tolerated -join "; ")
+    Write-LauncherEvent "WARN" "dingtalk_screenshot_acl_appcontainer_readonly_tolerated" $note
+    Write-Host $note
+  }
+}
+
+function Test-AppContainerReadOnlyAce([object]$Rule, [string]$Sid) {
+  # Kiro's Windows sandbox (AppContainer, SID S-1-15-2-*) adds read-only ACEs to directories it
+  # merely reads. Tolerate exactly that shape and nothing else: Allow + read/execute bits only.
+  # Judged by bit mask (never by rights name); Deny, any write/delete/permission/owner bit,
+  # generic or unknown bits, and every non-AppContainer principal stay rejected.
+  $readOnlyMask = [int][Security.AccessControl.FileSystemRights]::ReadData -bor
+    [int][Security.AccessControl.FileSystemRights]::ReadExtendedAttributes -bor
+    [int][Security.AccessControl.FileSystemRights]::ExecuteFile -bor
+    [int][Security.AccessControl.FileSystemRights]::ReadAttributes -bor
+    [int][Security.AccessControl.FileSystemRights]::ReadPermissions -bor
+    [int][Security.AccessControl.FileSystemRights]::Synchronize
+  if (-not $Sid.StartsWith("S-1-15-2-", [StringComparison]::Ordinal) -or
+      $Rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow) { return $false }
+  $rights = [int]$Rule.FileSystemRights
+  return ($rights -ne 0 -and ($rights -band (-bnot $readOnlyMask)) -eq 0)
 }
 
 function Start-DingTalkWorkers([object]$StartupApproval = $null, [string]$LifecycleAclToken = "") {
