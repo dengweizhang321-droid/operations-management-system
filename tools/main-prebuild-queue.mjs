@@ -8,6 +8,7 @@ import {readPreparationResolution,resolutionForbidsTargetReplay} from './prepara
 
 const hex=/^[a-f0-9]{64}$/,id=/^[a-f0-9-]{36}$/,commit=/^[a-f0-9]{40}$/;
 export const queueVersion='teruisi-main-prebuild-queue-v2';
+export const preparationTriggerMode='manual-only';
 // S05d: a preparation-stage outcome never blocks the queue forever. A known
 // rejection is a dispatched 'failed' terminal bound to its evidence; an old
 // preparation-stage unknown keeps its bytes and gets a separate abandonment
@@ -44,22 +45,29 @@ export async function readQueueObject(file){
  return {value,sha256:sha(Buffer.from(raw))};
 }
 export function queuePipe(directory){return '\\\\.\\pipe\\TERUISI.MainPrebuild.v2.'+sha(path.resolve(directory).toLowerCase());}
-export async function acquireQueueLock(directory){
+async function acquirePipeLock(pipe){
  const server=createServer(socket=>socket.destroy());
  return new Promise((resolve,reject)=>{
   server.once('error',error=>error.code==='EADDRINUSE'?resolve(null):reject(error));
-  server.listen(queuePipe(directory),()=>resolve(()=>new Promise((done,fail)=>server.close(error=>error?fail(error):done()))));
+  server.listen(pipe,()=>resolve(()=>new Promise((done,fail)=>server.close(error=>error?fail(error):done()))));
  });
 }
+export const acquireQueueLock=directory=>acquirePipeLock(queuePipe(directory));
+// Short admission lock: ordinary submit can coexist with a long preparation,
+// while abandon-only's final pending=0 check and append remain indivisible.
+export const acquireQueueSubmissionLock=directory=>acquirePipeLock(queuePipe(directory)+'.Submission');
 export async function initializeQueue(directory){
  for(const leaf of ['tickets','dispatches','results'])await fs.mkdir(path.join(directory,leaf),{recursive:true});
 }
 export async function submitPreparation(directory,{origin,observedTarget=null,configSha256,bundleSha256}){
  assert.ok(['hook','manual'].includes(origin)&& (observedTarget===null||commit.test(observedTarget)));
  assert.ok(hex.test(configSha256)&&hex.test(bundleSha256));await initializeQueue(directory);
+ const unlock=await acquireQueueSubmissionLock(directory);assert.ok(unlock,'Queue submission is busy; no preparation ticket created');
+ try{
  const requestId=randomUUID(),ticket={version:queueVersion,requestId,mode:'prepare-latest-main',origin,observedTarget,queuedAt:new Date().toISOString(),configSha256,bundleSha256};
  const ticketSha256=await durableCreate(path.join(directory,'tickets',requestId+'.json'),ticket);
  return {requestId,ticketSha256,ticket};
+ }finally{await unlock();}
 }
 const entries=async(directory,leaf)=>{const names=await fs.readdir(path.join(directory,leaf));assert.ok(names.every(name=>id.test(name.slice(0,-5))&&name.endsWith('.json')),'Unknown or partial queue artifact');return names.sort();};
 const optionalEntries=async(directory,leaf)=>{try{return await entries(directory,leaf);}catch(error){if(error.code==='ENOENT')return [];throw error;}};
@@ -99,6 +107,28 @@ function validateAbandonment(value,name,dispatchRead,terminals){
  const at=Date.parse(value.at);assert.ok(Number.isFinite(at)&&at>=dispatch.deadlineUnixMs+basis.graceMs,'Abandonment precedes its eligibility');
  for(const ref of dispatch.tickets){const terminal=terminals.get(ref.requestId);assert.ok(terminal&&terminal.status==='unknown'&&terminal.dispatchId===dispatch.dispatchId,'Only an all-unknown dispatch can be abandoned');}
  assert.equal(sha(Buffer.from(canonical(terminals.get(dispatch.requestId)))),value.originalResultSha256,'Abandoned unknown result changed');
+}
+/** Shared S05d gate and writer. The caller holds the original queue lock. */
+export async function abandonPreparationDispatch(directory,dispatchRead,inventory,{graceMs=defaultAbandonmentGraceMs,now=Date.now,inspectAttempt=inspectPreparationAttempt,probeRotationLock,beforeWrite=async()=>{},retirementScope}={}){
+ const {value:dispatch,sha256}=dispatchRead;
+ assert.ok(Number.isSafeInteger(graceMs)&&graceMs>=0&&typeof probeRotationLock==='function','Explicit S05d abandonment policy required');
+ if(inventory.abandonments.has(dispatch.dispatchId))return {status:'already-abandoned',record:inventory.abandonments.get(dispatch.dispatchId)};
+ let attempt;
+ try{
+ assert.ok(dispatch.tickets.every(ref=>{const terminal=inventory.terminals.get(ref.requestId);return terminal?.status==='unknown'&&terminal.dispatchId===dispatch.dispatchId;}),'Only an all-unknown dispatch can be abandoned');
+ assert.equal(await readPreparationResolution(directory,dispatch,inventory.terminals.get(dispatch.requestId),{retirementScope}),false,'Resolved dispatch cannot be abandoned');
+ assert.ok(now()>=dispatch.deadlineUnixMs+graceMs,'Abandonment deadline plus grace has not elapsed');
+ attempt=await inspectAttempt(dispatch);
+ assert.ok(attempt&&Array.isArray(attempt.markers)&&!attempt.markers.length&&typeof attempt.preparedReceiptPresent==='boolean','Publication markers or incomplete preparation evidence prevent abandonment');
+ assert.equal(await probeRotationLock(),true,'Native rotation lock is busy');
+ }catch(error){error.abandonmentRefused=true;throw error;}
+ await beforeWrite();
+ await fs.mkdir(path.join(directory,'abandoned'),{recursive:true});
+ const record={version:abandonmentVersion,dispatchId:dispatch.dispatchId,dispatchSha256:sha256,winnerRequestId:dispatch.requestId,selectedTarget:dispatch.selectedTarget,packet:dispatch.selection.packet,
+  originalResultSha256:sha(Buffer.from(canonical(inventory.terminals.get(dispatch.requestId)))),at:new Date(now()).toISOString(),
+  basis:{deadlineUnixMs:dispatch.deadlineUnixMs,graceMs,publicationMarkersChecked:publicationMarkers,preparedReceiptPresent:attempt.preparedReceiptPresent,rotationLockFree:true},consumePermitted:false};
+ const recordSha256=await durableCreate(path.join(directory,'abandoned',dispatch.dispatchId+'.json'),record);
+ return {status:'abandoned',record:{value:record,sha256:recordSha256}};
 }
 /** Packets of failed-dispatched and abandoned dispatches are never prepared or consumed again. */
 export function retiredPreparationPackets(inventory){
@@ -275,7 +305,7 @@ export async function readPreparationQueueInventory(directory){
  return {tickets,dispatches,referenced,terminals,abandonments,publicationRetirements};
 }
 /** observe may fetch/read, and may append one publication-retired record under the queue lock it already runs in (a provably not-entered publication retires its packet; a refused proof throws and nothing is dispatched). prepare receives its exact frozen selection. */
-export async function drainPreparationQueue(directory,{configSha256,bundleSha256,observe,prepare,assertGeneration=async()=>{},afterUnlock=async()=>{},onStage=async()=>{},admitPreparation=async()=>{},admitSelectedPreparation=async()=>{},retirementScope,invalidateRetirementScope,abandonment}){
+export async function drainPreparationQueue(directory,{configSha256,bundleSha256,observe,prepare,assertGeneration=async()=>{},afterUnlock=async()=>{},onStage=async()=>{},admitPreparation=async()=>{},admitSelectedPreparation=async()=>{},retirementScope,invalidateRetirementScope,abandonment,reconciliationBinding}){
  assert.ok(hex.test(configSha256)&&hex.test(bundleSha256));if(retirementScope!==undefined)assert.equal(typeof invalidateRetirementScope,'function','A retirement scope requires an explicit invalidation callback');invalidateRetirementScope??=async()=>{};
  // Abandonment is evaluated only when the consumer passes it explicitly.
  if(abandonment!==undefined)assert.ok(abandonment&&typeof abandonment.probeRotationLock==='function','Abandonment requires an explicit rotation lock probe');
@@ -284,6 +314,9 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
  for(;;){
   const unlock=await acquireQueueLock(directory);if(!unlock)return {status:'queued',handled};
   try{
+   const {consumeAbandonOnlyRequest}=await import('./main-preparation-reconcile.mjs');
+   const reconciliation=await consumeAbandonOnlyRequest(directory,{generation:reconciliationBinding,assertGeneration,admitPreparation,abandonment,invalidateRetirementScope,retirementScope});
+   if(reconciliation)return reconciliation;
    for(;;){
     if(!firstIteration)await invalidateRetirementScope('queue-next-target');firstIteration=false;
     const inventory=await readPreparationQueueInventory(directory),tickets=inventory.tickets,pending=[],completed=[];
@@ -330,16 +363,9 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
      // publication-stage marker, and the native rotation lock is free.
      let abandoned=0;
      for(const {dispatch,sha256} of unresolvedDispatches.values()){
-      if(!dispatch.tickets.every(ref=>{const terminal=inventory.terminals.get(ref.requestId);return terminal?.status==='unknown'&&terminal.dispatchId===dispatch.dispatchId;}))continue;
-      if(resolvedDispatches.get(dispatch.dispatchId)||now()<dispatch.deadlineUnixMs+graceMs)continue;
-      let attempt;try{attempt=await inspectAttempt(dispatch);}catch{continue;}
-      if(!attempt||!Array.isArray(attempt.markers)||attempt.markers.length||typeof attempt.preparedReceiptPresent!=='boolean')continue;
-      let free=false;try{free=await abandonment.probeRotationLock()===true;}catch{free=false;}if(!free)continue;
-      await invalidateRetirementScope('queue-abandonment-write');await fs.mkdir(path.join(directory,'abandoned'),{recursive:true});
-      await durableCreate(path.join(directory,'abandoned',dispatch.dispatchId+'.json'),{version:abandonmentVersion,dispatchId:dispatch.dispatchId,dispatchSha256:sha256,winnerRequestId:dispatch.requestId,selectedTarget:dispatch.selectedTarget,packet:dispatch.selection.packet,
-       originalResultSha256:sha(Buffer.from(canonical(inventory.terminals.get(dispatch.requestId)))),at:new Date(now()).toISOString(),
-       basis:{deadlineUnixMs:dispatch.deadlineUnixMs,graceMs,publicationMarkersChecked:publicationMarkers,preparedReceiptPresent:attempt.preparedReceiptPresent,rotationLockFree:true},consumePermitted:false});
-      abandoned++;
+      if(resolvedDispatches.get(dispatch.dispatchId))continue;
+      try{await abandonPreparationDispatch(directory,{value:dispatch,sha256},inventory,{graceMs,now,inspectAttempt,probeRotationLock:abandonment.probeRotationLock,retirementScope,beforeWrite:()=>invalidateRetirementScope('queue-abandonment-write')});abandoned++;}
+      catch(error){if(!error.abandonmentRefused)throw error;}
      }
      if(abandoned)continue;
     }

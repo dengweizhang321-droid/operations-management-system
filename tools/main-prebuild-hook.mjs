@@ -5,7 +5,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {createServer} from 'node:net';
 import {fileURLToPath} from 'node:url';
 import {preparationControlBinding,startPreparationConsumer,drainLatestMainQueue} from './publish-latest-main.mjs';
-import {submitPreparation} from './main-prebuild-queue.mjs';
+import {submitPreparation,preparationTriggerMode} from './main-prebuild-queue.mjs';
 import {controlExecution} from './main-control-dispatch.mjs';
 import {assertRetirementPreparedRefs,retirementPreparedTargets} from './preparation-retirement-ref.mjs';
 
@@ -68,6 +68,9 @@ async function main(){
   for await(const chunk of process.stdin){input+=chunk; if(Buffer.byteLength(input)>1024*1024)throw Error('Reference transaction exceeds bound');}
   if(action==='prepared'){if(!retirementPreparedTargets(input).length)return;const config=JSON.parse(await fs.readFile(configFile,'utf8'));await assertRetirementPreparedRefs(config,input);return;}
   events=mainRefEvents(action,input);if(!events.length)return;
+  // Keep the prepared retired-ref fence above. Committed events in this
+  // immutable generation have no queue, wake, audit or deferred-write effect.
+  if(preparationTriggerMode==='manual-only')return;
  }
  const config=JSON.parse(await fs.readFile(configFile,'utf8'));
  let binding;

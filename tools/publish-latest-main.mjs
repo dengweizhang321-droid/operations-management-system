@@ -13,6 +13,7 @@ import {prepareMainSchemaRelease} from './main-schema-release.mjs';
 import {wakePreparationTask,currentPreparationIdentity,assertOrdinaryIdentity} from './main-prebuild-task.mjs';
 import {submitPreparation,drainPreparationQueue,ticketResult,acquireQueueLock,readPreparationQueueInventory,retiredPreparationPackets,isRetiredPacket,preparationPacketSlot,assertPreparationPacket,inspectPreparationAttempt,defaultAbandonmentGraceMs,nativePreparationFailureVersion,publicationRetirementVersion,notEnteredPhases,notEnteredRequiredMembers,notEnteredEvidenceMembers,isNotEnteredAttemptMember,preparedDispatchForPacket,writePublicationRetirement} from './main-prebuild-queue.mjs';
 import {readAdoptedControl,assertControlGeneration,controlExecution} from './main-control-dispatch.mjs';
+import {submitAbandonOnlyRequest,reconciliationGeneration} from './main-preparation-reconcile.mjs';
 import {assertRetirementAdmission,withRetirementReadScope,invalidateRetirementReadScope} from './preparation-retirement-admission.mjs';
 
 const execute=promisify(execFile),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -483,6 +484,7 @@ export async function drainLatestMainQueue(configFile,{binding,progress,observe=
  // rejection; native failures carry only what runPublisher validated.
  const beforeNative=async(stage,operation)=>{try{return await operation();}catch(error){if(error&&typeof error==='object')error.preparationTerminal={kind:'rejected-before-native',stage};throw error;}};
  return drainPreparationQueue(directory,{retirementScope,invalidateRetirementScope:reason=>invalidateRetirementReadScope(retirementScope,reason),configSha256:binding.state.configSha256,bundleSha256:binding.state.bundleSha256,
+  reconciliationBinding:reconciliationGeneration(binding),
   abandonment:{graceMs:abandonmentGraceMs,probeRotationLock:()=>probeRotation(),inspectAttempt:inspectPreparationAttempt},
   assertGeneration:async()=>{await assertGeneration(binding);await assertRetirementAdmission(config,undefined,{scope:retirementScope});},admitPreparation:async()=>{await assertConsumerIdentity(binding);await admit(config);},admitSelectedPreparation:async selection=>{await assertRetirementAdmission(config,selection.targetCommit,{scope:retirementScope});await admitSelected(config,selection);},observe:async({retiredPackets}={})=>{
     const log=message=>progress?.log(message),selection=await observe(config,{retirementScope,retiredPackets,log});
@@ -526,7 +528,10 @@ export async function acquireMainPublicationQueue(binding,{assertGeneration=asse
  try{await assertGeneration(binding);return release;}catch(error){await release();throw error;}
 }
 export async function runLatestMainCli(args=process.argv.slice(2),binding){
- const {values}=parseArgs({args,options:{config:{type:'string'},check:{type:'boolean',default:false},'prepare-only':{type:'boolean',default:false},'consume-preparation':{type:'boolean',default:false},'no-pause':{type:'boolean',default:false}}});
+ const {values}=parseArgs({args,options:{config:{type:'string'},check:{type:'boolean',default:false},'prepare-only':{type:'boolean',default:false},'consume-preparation':{type:'boolean',default:false},'no-pause':{type:'boolean',default:false},'abandon-dispatch':{type:'string'},'dispatch-sha256':{type:'string'},'result-sha256':{type:'string'},target:{type:'string'},packet:{type:'string'}}});
+ const abandon=values['abandon-dispatch']!==undefined,evidence=['dispatch-sha256','result-sha256','target','packet'];
+ assert.ok(!abandon||(!values.check&&!values['prepare-only']&&!values['consume-preparation']),'Abandon-only cannot prepare, check or publish');
+ assert.ok(evidence.every(field=>abandon?typeof values[field]==='string':values[field]===undefined),'Abandon-only requires exact dispatch/result/target/packet evidence');
  assert.ok(!values['consume-preparation']||(!values.check&&!values['prepare-only']),'Consumer cannot submit or deploy');
  assert.ok(!(values.check&&values['prepare-only']),'检查与打包模式不能同时使用');
  assert.ok(values.config,'需要固定发布入口配置 --config');
@@ -538,11 +543,17 @@ async function runLatestMainCliOperation(values,config,binding,retirementScope){
  if(config.controlProtocol==='teruisi-main-control-v2'){
   binding??=await preparationControlBinding(values.config);
   await invalidateRetirementReadScope(retirementScope,'control-execution-write');
-  await controlExecution(binding,fileURLToPath(import.meta.url),values['consume-preparation']?'consume-preparation':values['prepare-only']?'prepare-only':values.check?'check':'deploy-ready');
+  await controlExecution(binding,fileURLToPath(import.meta.url),values['abandon-dispatch']!==undefined?'abandon-only-submit':values['consume-preparation']?'consume-preparation':values['prepare-only']?'prepare-only':values.check?'check':'deploy-ready');
  }
  assert.ok(config.publisherBaseEnvironment,'缺少固定Windows发布环境，请更新发布入口；本次未部署');
  publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment);
- if(values['consume-preparation']){assert.ok(binding,'Controlled consumer required');return drainLatestMainQueue(values.config,{binding,retirementScope});}
+ if(values['abandon-dispatch']!==undefined){
+  assert.ok(binding,'Controlled reconciliation required');await invalidateRetirementReadScope(retirementScope,'abandon-only-submit');
+  const submitted=await submitAbandonOnlyRequest(path.join(config.stateDirectory,'prebuild-queue-v2'),{generation:reconciliationGeneration(binding),dispatchId:values['abandon-dispatch'],dispatchSha256:values['dispatch-sha256'],originalResultSha256:values['result-sha256'],selectedTarget:values.target,packet:values.packet,assertGeneration:()=>assertControlGeneration(binding)});
+  if(submitted.wakeRequired){await invalidateRetirementReadScope(retirementScope,'abandon-only-wake');await startPreparationConsumer(values.config);}
+  const result={...submitted,publicationPerformed:false,preparationPerformed:false};console.log(JSON.stringify(result));return result;
+ }
+ if(values['consume-preparation']){assert.ok(binding,'Controlled consumer required');const result=await drainLatestMainQueue(values.config,{binding,retirementScope});console.log(JSON.stringify(result));return result;}
  await invalidateRetirementReadScope(retirementScope,'publisher-progress-write');
  const progress=createReleaseProgress(path.join(config.stateDirectory,'logs'),{taskName:values.check?'发布检查':values['prepare-only']?'打包':'发布'});
  let releaseQueue;
