@@ -1,0 +1,12 @@
+✔ all four real snapshots pass together and retain leaf, directory and junction refusal boundaries (311.6755ms)
+✔ four slots are shared across simultaneous batches; first failure drains in-flight checks and claims no later job (113.3978ms)
+✔ deadline and cancellation stop claiming and drain all acquired reads (46.8258ms)
+✔ the common combination includes every callback and rejects the original forty-second budget (324.497ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 919.1961

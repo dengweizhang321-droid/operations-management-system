@@ -1,0 +1,33 @@
+{
+  "version": "s05d-same-operation-checks-v1",
+  "evidenceKind": "tool-reported stdout copied without rerun",
+  "checks": [
+    {
+      "command": "node --test --test-timeout=120000 tests/preparation-retirement-scope.test.mjs tests/preparation-retirement-integration.test.mjs",
+      "exitCode": 0,
+      "passed": 4,
+      "failed": 0,
+      "durationMs": 29602.6601,
+      "stdout": "scope-checks-first.txt",
+      "scope": "private actual FS/Git/evidence reader plus supplied OS token/boot/CIM/chain transports"
+    },
+    {
+      "command": "node --test --test-timeout=30000 tests/preparation-retirement-scope.test.mjs",
+      "exitCode": 0,
+      "passed": 3,
+      "failed": 0,
+      "durationMs": 236.0283,
+      "stdout": "scope-checks-increment.txt",
+      "scope": "final narrow lifecycle/queue-invalidator/first-cause increment; heavy archive path reused from first check"
+    },
+    {
+      "command": "node --input-type=module -e \"await import('./tools/publish-latest-main.mjs'); await import('./tools/main-prebuild-queue.mjs'); await import('./tools/preparation-retirement.mjs'); console.log('fresh publisher/queue/core imports: passed')\"",
+      "exitCode": 0,
+      "stdout": "fresh publisher/queue/core imports: passed"
+    }
+  ],
+  "finalIncrementAfterChecks": "finally releases private identity/config/first-failure references before drain; scopeWitness rechecks epoch after config-byte I/O and before writing identity/intents, preventing late repopulation after close; static review, no extra hash/CAS/admission boundary change; reader progress callback now returns no private scope value; first-cause-preservation branch is statically reviewed, not separately exercised by callback-catch test",
+  "productionCollectorRun": false,
+  "productionWrites": false,
+  "nativeFortySixtyBudgetsChanged": false
+}

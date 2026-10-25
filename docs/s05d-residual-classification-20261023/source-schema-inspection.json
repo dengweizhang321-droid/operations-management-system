@@ -1,0 +1,377 @@
+{
+  "readOnly": true,
+  "source": {
+    "file": "D:/codex-artifacts/s05d-guard-cas-fix-20261023/inspect-be589986-49fe-413c-b3cd-8ecdb25e8e72.observation.json",
+    "size": 10989211,
+    "sha256": "0f92c078993b1cf3e8b6893ecf9510f57f6070b19ee80aa2b043c8a27f7e40ae"
+  },
+  "rows": [
+    {
+      "releaseId": "20260901T110013Z-97fd5e59dfbda47c",
+      "devVars": {
+        "mode": "hard-link-only",
+        "releaseLink": ".dev.vars",
+        "sourcePath": "D:\\运营管理系统\\.dev.vars",
+        "workerLink": "dist/server/.dev.vars"
+      },
+      "buildRoots": {
+        "buildRoot": "dist",
+        "helperRoot": "helper",
+        "nodeModulesRoot": "node_modules"
+      },
+      "receipts": {
+        "contractReceipt": {
+          "relativePath": "audit/sales-retired-code-receipt.json",
+          "sha256": "9822a888f9def24d7961933f00d2edfcdae83700703dc654cb7996c37a562532",
+          "version": "teruisi-sales-retired-code-receipt-v1"
+        },
+        "guardReceipt": {
+          "relativePath": "audit/legacy-worker-guard-receipt.json",
+          "sha256": "65afc9717161a826983ffcbe29339a6a3cbb15e53b4b257c2076d47e44251880",
+          "version": "teruisi-legacy-worker-guard-receipt-v1"
+        },
+        "helperReceipt": {
+          "relativePath": "audit/helper-build-receipt.json",
+          "sha256": "ec3094c6d7884fb5674bf105f974498b370242d780019a467fceb21b9326c78c",
+          "version": "teruisi-worker-helper-build-receipt-v1"
+        }
+      },
+      "createdAt": "2026-09-01T11:00:13.441Z"
+    },
+    {
+      "releaseId": "20260901T164914Z-d12b11511f5e621e",
+      "devVars": {
+        "mode": "hard-link-only",
+        "releaseLink": ".dev.vars",
+        "sourcePath": "D:\\运营管理系统\\.dev.vars",
+        "workerLink": "dist/server/.dev.vars"
+      },
+      "buildRoots": {
+        "buildRoot": "dist",
+        "helperRoot": "helper",
+        "nodeModulesRoot": "node_modules"
+      },
+      "receipts": {
+        "contractReceipt": {
+          "relativePath": "audit/sales-retired-code-receipt.json",
+          "sha256": "ea0fbf015ebd11043ffc2ddc41226cd4b0012e0af07975042a2971f37ef20269",
+          "version": "teruisi-sales-retired-code-receipt-v1"
+        },
+        "guardReceipt": {
+          "relativePath": "audit/legacy-worker-guard-receipt.json",
+          "sha256": "27a22db37384ecca201a22b98b79bd7bc5ad72d9a0ecd9a7616fb990e35b2d84",
+          "version": "teruisi-legacy-worker-guard-receipt-v1"
+        },
+        "helperReceipt": {
+          "relativePath": "audit/helper-build-receipt.json",
+          "sha256": "4b062b6a17f42fe554994f53fe6f8b47948539b9671ce674b128f2f67c679af4",
+          "version": "teruisi-worker-helper-build-receipt-v1"
+        }
+      },
+      "createdAt": "2026-09-01T16:49:14.029Z"
+    },
+    {
+      "releaseId": "20260902T083840Z-4772d42b42ae2a81",
+      "devVars": {
+        "mode": "hard-link-only",
+        "releaseLink": ".dev.vars",
+        "sourcePath": "D:\\运营管理系统\\.dev.vars",
+        "workerLink": "dist/server/.dev.vars"
+      },
+      "buildRoots": {
+        "buildRoot": "dist",
+        "helperRoot": "helper",
+        "nodeModulesRoot": "node_modules"
+      },
+      "receipts": {
+        "contractReceipt": {
+          "relativePath": "audit/sales-retired-code-receipt.json",
+          "sha256": "1b50d94d74b7d40b00baaad238b8dfec3994b41989bae94cf665a33ff5404eb5",
+          "version": "teruisi-sales-retired-code-receipt-v1"
+        },
+        "guardReceipt": {
+          "relativePath": "audit/legacy-worker-guard-receipt.json",
+          "sha256": "1a1293d22a3f066385dfdbf9934fb757879650bbb822f256c11a870af7dd8fa5",
+          "version": "teruisi-legacy-worker-guard-receipt-v1"
+        },
+        "helperReceipt": {
+          "relativePath": "audit/helper-build-receipt.json",
+          "sha256": "5284fb3e1e9d9c2b10a9afc82d7c23cb2c886cc8db17a3fddb13e4aa989bc37c",
+          "version": "teruisi-worker-helper-build-receipt-v1"
+        }
+      },
+      "createdAt": "2026-09-02T08:38:40.722Z"
+    },
+    {
+      "releaseId": "20260903T042106Z-dbc7eaae4c8d7a3d",
+      "devVars": {
+        "mode": "hard-link-only",
+        "releaseLink": ".dev.vars",
+        "sourcePath": "D:\\运营管理系统\\.dev.vars",
+        "workerLink": "dist/server/.dev.vars"
+      },
+      "buildRoots": {
+        "buildRoot": "dist",
+        "helperRoot": "helper",
+        "nodeModulesRoot": "node_modules"
+      },
+      "receipts": {
+        "contractReceipt": {
+          "relativePath": "audit/sales-retired-code-receipt.json",
+          "sha256": "ae5dad241b09c65f53aaa8afd6644823e41b852ff8b55e3f6ed5a238d0ce7aa9",
+          "version": "teruisi-sales-retired-code-receipt-v1"
+        },
+        "guardReceipt": {
+          "relativePath": "audit/legacy-worker-guard-receipt.json",
+          "sha256": "3858f47f3cf9736a6de42d0a200924d1348704983edceaa0ea204d04af9133a8",
+          "version": "teruisi-legacy-worker-guard-receipt-v1"
+        },
+        "helperReceipt": {
+          "relativePath": "audit/helper-build-receipt.json",
+          "sha256": "f9bd9e6a8313bef3d376b7a4eb382090b20bc6e59acb541f4f0d92979206caad",
+          "version": "teruisi-worker-helper-build-receipt-v1"
+        }
+      },
+      "createdAt": "2026-09-03T04:21:06.160Z"
+    },
+    {
+      "releaseId": "20260903T050156Z-e813392551d650bb",
+      "devVars": {
+        "mode": "hard-link-only",
+        "releaseLink": ".dev.vars",
+        "sourcePath": "D:\\运营管理系统\\.dev.vars",
+        "workerLink": "dist/server/.dev.vars"
+      },
+      "buildRoots": {
+        "buildRoot": "dist",
+        "helperRoot": "helper",
+        "nodeModulesRoot": "node_modules"
+      },
+      "receipts": {
+        "contractReceipt": {
+          "relativePath": "audit/sales-retired-code-receipt.json",
+          "sha256": "0aa713b6024337dcee7b14ada5871b381b1e7dd0b57bc416e31c0de657ef3446",
+          "version": "teruisi-sales-retired-code-receipt-v1"
+        },
+        "guardReceipt": {
+          "relativePath": "audit/legacy-worker-guard-receipt.json",
+          "sha256": "159b3291cf6cd7041bdfcd288656458fcbdbcc3313db296cc0050861be4b1e4c",
+          "version": "teruisi-legacy-worker-guard-receipt-v1"
+        },
+        "helperReceipt": {
+          "relativePath": "audit/helper-build-receipt.json",
+          "sha256": "c1cce208f51f3d7f8cf7c20cdee0a5e13bc35bb286abfe67e26fa2dac0cf1cf3",
+          "version": "teruisi-worker-helper-build-receipt-v1"
+        }
+      },
+      "createdAt": "2026-09-03T05:01:56.189Z"
+    },
+    {
+      "releaseId": "20260903T140732Z-627476acd7561b9e",
+      "devVars": {
+        "mode": "hard-link-only",
+        "releaseLink": ".dev.vars",
+        "sourcePath": "D:\\运营管理系统\\.dev.vars",
+        "workerLink": "dist/server/.dev.vars"
+      },
+      "buildRoots": {
+        "buildRoot": "dist",
+        "helperRoot": "helper",
+        "nodeModulesRoot": "node_modules"
+      },
+      "receipts": {
+        "contractReceipt": {
+          "relativePath": "audit/sales-retired-code-receipt.json",
+          "sha256": "b540fced88f347d9394540b23dfc1296cba96fc44766cf94ef6dc46960b9a11e",
+          "version": "teruisi-sales-retired-code-receipt-v1"
+        },
+        "guardReceipt": {
+          "relativePath": "audit/legacy-worker-guard-receipt.json",
+          "sha256": "c144b337dceae9dab4927fa40528fc333cdc7790d9d2b505b6276640e49aa907",
+          "version": "teruisi-legacy-worker-guard-receipt-v1"
+        },
+        "helperReceipt": {
+          "relativePath": "audit/helper-build-receipt.json",
+          "sha256": "99e968abba3e2fd9f52713a7365de42fcfa3a32ef8bd82b7b718268d4e19f097",
+          "version": "teruisi-worker-helper-build-receipt-v1"
+        }
+      },
+      "createdAt": "2026-09-03T14:07:32.621Z"
+    },
+    {
+      "releaseId": "20260904T171710Z-1bd7be5db9ffede6",
+      "devVars": {
+        "mode": "hard-link-only",
+        "releaseLink": ".dev.vars",
+        "sourcePath": "D:\\运营管理系统\\.dev.vars",
+        "workerLink": "dist/server/.dev.vars"
+      },
+      "buildRoots": {
+        "buildRoot": "dist",
+        "helperRoot": "helper",
+        "nodeModulesRoot": "node_modules"
+      },
+      "receipts": {
+        "contractReceipt": {
+          "relativePath": "audit/sales-retired-code-receipt.json",
+          "sha256": "159f53151f98a1f803c3942c73934b37819380f2c97db8b404df8d0c462e1f34",
+          "version": "teruisi-sales-retired-code-receipt-v1"
+        },
+        "guardReceipt": {
+          "relativePath": "audit/legacy-worker-guard-receipt.json",
+          "sha256": "629a96c3f601730f8b94458466dab9d3c8a941cb0579172a2081c5c675553ba4",
+          "version": "teruisi-legacy-worker-guard-receipt-v1"
+        },
+        "helperReceipt": {
+          "relativePath": "audit/helper-build-receipt.json",
+          "sha256": "fd081e761b41971d33f90c58d6f85755ac3ac8ec44105b0a40d9dc40a95b7170",
+          "version": "teruisi-worker-helper-build-receipt-v1"
+        }
+      },
+      "createdAt": "2026-09-04T17:17:10.528Z"
+    },
+    {
+      "releaseId": "20260905T175520Z-9732204d73443f0e",
+      "devVars": {
+        "mode": "hard-link-only",
+        "releaseLink": ".dev.vars",
+        "sourcePath": "D:\\运营管理系统\\.dev.vars",
+        "workerLink": "dist/server/.dev.vars"
+      },
+      "buildRoots": {
+        "buildRoot": "dist",
+        "helperRoot": "helper",
+        "nodeModulesRoot": "node_modules"
+      },
+      "receipts": {
+        "contractReceipt": {
+          "relativePath": "audit/sales-retired-code-receipt.json",
+          "sha256": "5aba14149cd47ccf045ec257e23188df382507d39462a77dfdd5e3908e1020cb",
+          "version": "teruisi-sales-retired-code-receipt-v1"
+        },
+        "guardReceipt": {
+          "relativePath": "audit/legacy-worker-guard-receipt.json",
+          "sha256": "3bc5f8b95862ff7f75136d129df0eb62d8a1d28af78ecbb9742bad5746c985bb",
+          "version": "teruisi-legacy-worker-guard-receipt-v1"
+        },
+        "helperReceipt": {
+          "relativePath": "audit/helper-build-receipt.json",
+          "sha256": "11ded2e42a1d250bec88759e63fa81a6ca03590b136675f8d9cc5fbca6aecdc2",
+          "version": "teruisi-worker-helper-build-receipt-v1"
+        }
+      },
+      "createdAt": "2026-09-05T17:55:20.179Z"
+    },
+    {
+      "releaseId": "20260909T080530Z-96bf0ec48b5423c2",
+      "devVars": {
+        "mode": "hard-link-only",
+        "releaseLink": ".dev.vars",
+        "sourcePath": "D:\\运营管理系统\\.dev.vars",
+        "workerLink": "dist/server/.dev.vars"
+      },
+      "buildRoots": {
+        "buildRoot": "dist",
+        "helperRoot": "helper",
+        "nodeModulesRoot": "node_modules"
+      },
+      "receipts": {
+        "contractReceipt": {
+          "relativePath": "audit/sales-retired-code-receipt.json",
+          "sha256": "b646c5721b88c69ba49bf421a36dae1b4c3129ade5d6102229d05981512d97a3",
+          "version": "teruisi-sales-retired-code-receipt-v1"
+        },
+        "d1RetirementReceipt": {
+          "relativePath": "audit/global-d1-retirement.json",
+          "sha256": "52063a4e6e0a54bc07332cd94b6462496e079c86350ca367159d5d5c99ae043a",
+          "version": "teruisi-global-d1-retirement-binding-v1"
+        },
+        "guardReceipt": {
+          "relativePath": "audit/legacy-worker-guard-receipt.json",
+          "sha256": "4ef6637dd5f57453e4e2b4950d3335cee19a5ab46ccb9e85cd82bcec2442e684",
+          "version": "teruisi-legacy-worker-guard-receipt-v1"
+        },
+        "helperReceipt": {
+          "relativePath": "audit/helper-build-receipt.json",
+          "sha256": "61e033821dfd27845f33e01f9ca7a0e15960588e9600f3ea3114d07a154bc412",
+          "version": "teruisi-worker-helper-build-receipt-v1"
+        }
+      },
+      "createdAt": "2026-09-09T08:05:30.638Z"
+    },
+    {
+      "releaseId": "20260909T081318Z-8ff55574021b20ff",
+      "devVars": {
+        "mode": "hard-link-only",
+        "releaseLink": ".dev.vars",
+        "sourcePath": "D:\\运营管理系统\\.dev.vars",
+        "workerLink": "dist/server/.dev.vars"
+      },
+      "buildRoots": {
+        "buildRoot": "dist",
+        "helperRoot": "helper",
+        "nodeModulesRoot": "node_modules"
+      },
+      "receipts": {
+        "contractReceipt": {
+          "relativePath": "audit/sales-retired-code-receipt.json",
+          "sha256": "50a572a7b3c00cac940bbd2e9b8a8492cc70588c307d48fb4c92392acff7e5af",
+          "version": "teruisi-sales-retired-code-receipt-v1"
+        },
+        "d1RetirementReceipt": {
+          "relativePath": "audit/global-d1-retirement.json",
+          "sha256": "e4491113dabce7c69919818b29d24d0983476c0989a979cbd2175a4dbebd3177",
+          "version": "teruisi-global-d1-retirement-binding-v1"
+        },
+        "guardReceipt": {
+          "relativePath": "audit/legacy-worker-guard-receipt.json",
+          "sha256": "3d3006a403522a102732bc9de25bc3c451b38c6343a65331fd1a91faf4c0af2e",
+          "version": "teruisi-legacy-worker-guard-receipt-v1"
+        },
+        "helperReceipt": {
+          "relativePath": "audit/helper-build-receipt.json",
+          "sha256": "7095c515e7df65cf2a0229db1dd5131ab796873d78d1e2f7737d04593dc2de72",
+          "version": "teruisi-worker-helper-build-receipt-v1"
+        }
+      },
+      "createdAt": "2026-09-09T08:13:18.527Z"
+    },
+    {
+      "releaseId": "20260910T160720Z-21fced515f9eb124",
+      "devVars": {
+        "mode": "hard-link-only",
+        "releaseLink": ".dev.vars",
+        "sourcePath": "D:\\运营管理系统\\.dev.vars",
+        "workerLink": "dist/server/.dev.vars"
+      },
+      "buildRoots": {
+        "buildRoot": "dist",
+        "helperRoot": "helper",
+        "nodeModulesRoot": "node_modules"
+      },
+      "receipts": {
+        "contractReceipt": {
+          "relativePath": "audit/sales-retired-code-receipt.json",
+          "sha256": "5831b364928c935368114478f174601f0aacaedea56a3ea171a8e38803e22001",
+          "version": "teruisi-sales-retired-code-receipt-v1"
+        },
+        "d1RetirementReceipt": {
+          "relativePath": "audit/global-d1-retirement.json",
+          "sha256": "9ff118ce748722390572fb08c95ed604589aacde952428e3e8a5fb7730ed3f0b",
+          "version": "teruisi-global-d1-retirement-binding-v1"
+        },
+        "guardReceipt": {
+          "relativePath": "audit/legacy-worker-guard-receipt.json",
+          "sha256": "e6c1e27e3c31659a2d31b82af69d5f2f3bed40ddcc8ec38a4f1c42345361eff0",
+          "version": "teruisi-legacy-worker-guard-receipt-v1"
+        },
+        "helperReceipt": {
+          "relativePath": "audit/helper-build-receipt.json",
+          "sha256": "e295719237587c46b0a48d43afe835779b6e39d8b52496ed3d22ba8ed282f9e1",
+          "version": "teruisi-worker-helper-build-receipt-v1"
+        }
+      },
+      "createdAt": "2026-09-10T16:07:20.466Z"
+    }
+  ]
+}

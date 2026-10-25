@@ -1,0 +1,38 @@
+✖ both bounded residual shapes retain original addresses and plans, without weakening consumed history (99.6497ms)
+✔ only paired candidate plan references qualify; other fields, native receipts and invalid sidecars refuse (192.6457ms)
+✔ unknown code/source restoration and late retained-leaf/link changes fail; external source obligations remain required (313.9986ms)
+✔ exact old verifier, with only earlier provenance transports substituted, reaches its real missing-source payload refusal (19.3982ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 725.6455
+
+✖ failing tests:
+
+test at tests\preparation-retirement-residual.test.mjs:23:1
+✖ both bounded residual shapes retain original addresses and plans, without weakening consumed history (99.6497ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      '.candidate.manifestSha256',
+      '.candidate.releaseId',
+  +   '.predecessor.manifestSha256'
+    ]
+  
+      at qualifyResidualReferences (file:///D:/codex-worktrees/s05d-residual-classification-20261023/tools/preparation-retirement-history.mjs:335:206)
+      at qualifyResidual (file:///D:/codex-worktrees/s05d-residual-classification-20261023/tools/preparation-retirement-history.mjs:353:187)
+      at async TestContext.<anonymous> (file:///D:/codex-worktrees/s05d-residual-classification-20261023/tests/preparation-retirement-residual.test.mjs:24:212)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ '.candidate.manifestSha256', '.candidate.releaseId', '.predecessor.manifestSha256' ],
+    expected: [ '.candidate.manifestSha256', '.candidate.releaseId' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

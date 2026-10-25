@@ -1,0 +1,16 @@
+{
+  "startedAt": "2026-10-23T00:54:45.089Z",
+  "completedAt": "2026-10-23T00:55:03.540Z",
+  "node": "v24.18.0",
+  "args": [
+    "--test",
+    "--test-timeout=60000",
+    "--test-name-pattern=exact old guard|old sequential|actual pinned frozen|private actual collector/Git/evidence composition",
+    "tests/preparation-retirement-old-guard.test.mjs",
+    "tests/preparation-retirement-entry.test.mjs",
+    "tests/preparation-retirement-integration.test.mjs"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "productionCollectorRun": false
+}

@@ -1,0 +1,10 @@
+✔ diagnostics freeze tools only outside sources, reject overlap, and refuse missing frozen imports without production fallback (5718.159ms)
+✔ closeout is an auditable retained/blocked/removed state, never an automatic removal or source exclusion (7857.2032ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13681.2937

@@ -1,0 +1,55 @@
+{
+  "at": "2026-10-23T03:18:12.190Z",
+  "readOnly": true,
+  "scope": "Three fixed dependency-role paths per four source actions; no payload traversal",
+  "observationSha256": "cbdab9cbdaca750354df19a92d5ad4448b34b957af10a74d844f339da2cf0f54",
+  "rows": [
+    {
+      "source": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source",
+      "role": "git-source",
+      "links": [
+        {
+          "relative": "node_modules",
+          "type": "link",
+          "dev": "1722990852",
+          "ino": "1125899914860921",
+          "linkText": "D:\\codex-isolated\\main-manual-release-20261016\\dependencies-8ec00f\\node_modules",
+          "declaredByAction": true
+        }
+      ]
+    },
+    {
+      "source": "D:\\codex-worktrees\\merge-20261022",
+      "role": "git-source",
+      "links": []
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea",
+      "role": "possible-original-staging-source",
+      "links": [
+        {
+          "relative": "build/node_modules",
+          "type": "directory",
+          "dev": "1722990852",
+          "ino": "844424938146646",
+          "linkText": null,
+          "declaredByAction": false
+        }
+      ]
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261022T071208Z-f5db87473edebc45",
+      "role": "worker-candidate-release",
+      "links": [
+        {
+          "relative": "node_modules",
+          "type": "directory",
+          "dev": "1722990852",
+          "ino": "281474984875972",
+          "linkText": null,
+          "declaredByAction": false
+        }
+      ]
+    }
+  ]
+}

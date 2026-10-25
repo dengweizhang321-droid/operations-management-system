@@ -1,0 +1,60 @@
+{
+  "startedAt": "2026-10-23T06:54:29.050Z",
+  "readOnly": true,
+  "writeAuthority": false,
+  "complete": true,
+  "writerReady": false,
+  "productionGateProved": false,
+  "codeRoot": "D:/codex-artifacts/s05d-field-validation-20261023/inspect-code-5f1cef12-2d2a-41fc-bf95-7762e7eb349f",
+  "codePinsSha256": "d650d66875f4d36163cc9461fa4d171d6ec9ac92624b99b332ce20f3cda51a54",
+  "actionListObservationSha256": "cbdab9cbdaca750354df19a92d5ad4448b34b957af10a74d844f339da2cf0f54",
+  "globalClosureSucceeded": false,
+  "globalClosureFailureFile": "D:/codex-artifacts/s05d-field-validation-20261023/inspect-3aebf329-c821-457f-8de6-1979a3546e3c.result.json",
+  "scope": "Fresh object snapshots and same-call all-object stat CAS only; previous closure is an action list, never reused as a writer/hash proof",
+  "objects": [
+    {
+      "source": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source",
+      "role": "git-source",
+      "roleMs": 3220.4147999999996,
+      "snapshotMs": 10233.584199999998,
+      "files": 9654,
+      "bytes": 159152641,
+      "snapshotFile": "D:/codex-artifacts/s05d-field-validation-20261023/snapshot-ad9b8dca-9705-491c-8a0a-af8a2e3b2d39.object-1.json",
+      "snapshotFileSha256": "945c140149299914ae33a3befcec25b0e57aa2ad74b3e16246dd84e59b40cbea"
+    },
+    {
+      "source": "D:\\codex-worktrees\\merge-20261022",
+      "role": "git-source",
+      "roleMs": 3073.0046999999977,
+      "snapshotMs": 9717.0393,
+      "files": 9654,
+      "bytes": 159152647,
+      "snapshotFile": "D:/codex-artifacts/s05d-field-validation-20261023/snapshot-ad9b8dca-9705-491c-8a0a-af8a2e3b2d39.object-2.json",
+      "snapshotFileSha256": "47063c207d161b5d204a22582514a7991f655a0352c27218ea89335d62c928ef"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea",
+      "role": "possible-original-staging-source",
+      "roleMs": 0.5357000000003609,
+      "snapshotMs": 175426.3353,
+      "files": 41262,
+      "bytes": 921007136,
+      "snapshotFile": "D:/codex-artifacts/s05d-field-validation-20261023/snapshot-ad9b8dca-9705-491c-8a0a-af8a2e3b2d39.object-3.json",
+      "snapshotFileSha256": "db8f98d4bf71ed243b336f989596a62de3c4e9aee4535776ff9e2b288d6711d5"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261022T071208Z-f5db87473edebc45",
+      "role": "worker-candidate-release",
+      "roleMs": 2.995500000019092,
+      "snapshotMs": 173741.50000000003,
+      "files": 41291,
+      "bytes": 922241408,
+      "snapshotFile": "D:/codex-artifacts/s05d-field-validation-20261023/snapshot-ad9b8dca-9705-491c-8a0a-af8a2e3b2d39.object-4.json",
+      "snapshotFileSha256": "e5721d89550d21e803135d139948e7cda3b8cdc5bf9cecbca606d9539c852731"
+    }
+  ],
+  "uniformSnapshotCasMs": 38860.274000000034,
+  "excludesClosureCasAndOrdinaryBootTaskControlCas": true,
+  "pinsUnchanged": true,
+  "elapsedMs": 417808
+}

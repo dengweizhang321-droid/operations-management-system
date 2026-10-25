@@ -1,0 +1,20 @@
+{
+  "version": "s05d-a3-request-closure-v1",
+  "source": "D:/codex-isolated/main-release-packages/36668589cab0-71ecf390-bbc9a5ef/main-release-request.json",
+  "bytes": 7174,
+  "sha256": "1f43dd8d5e978dd6b79cada8b7210a45a0a0abba6c3ad072454a3098a3a00b32",
+  "mainCommit": "36668589cab03d5d2d9d98383fb58eeb19c391ee",
+  "migrate": false,
+  "schemaReleasePresent": false,
+  "schemaForRequestResult": null,
+  "changesCount": 36,
+  "changedTools": [
+    "tools/manual-maintenance-continuation.mjs",
+    "tools/operations-system-control.ps1",
+    "tools/worker-local-service.ps1"
+  ],
+  "changedPiRunnerPython": [],
+  "piRuntimeChanged": false,
+  "piUpgradeRequired": false,
+  "scope": "Exact original request and pure schemaForRequest; no runtime or WSL operations."
+}

@@ -1,0 +1,33 @@
+{
+    "actualPS7":  "D:/codex-isolated/main-manual-release-20261016/control-host/pwsh.exe",
+    "increment":  "afterLogon-only bounded Explorer admission wait before Node; no business retry",
+    "version":  "s05d-handoff-private-check-v1",
+    "passed":  12,
+    "taskRegistered":  false,
+    "productionOperationPerformed":  false,
+    "supersedesForLatestSource":  "handoff-checks.json",
+    "files":  [
+                  {
+                      "sha256":  "34101ac94dcc69a8127f12310950042f2df76388b7057b6a5e007b46527713f1",
+                      "file":  "tools/preparation-retirement-handoff.mjs",
+                      "bytes":  49620
+                  },
+                  {
+                      "sha256":  "5a689bfcfabb04ac1c167ed82076e210b4ce396a7894cc5a0de1390f0f642042",
+                      "file":  "tools/preparation-retirement-handoff-runner.ps1",
+                      "bytes":  9538
+                  },
+                  {
+                      "sha256":  "a3f8b255953cfe52d30ad0f40ed88aa2db5f19473eee77446594af130160ca52",
+                      "file":  "tests/preparation-retirement-handoff.test.mjs",
+                      "bytes":  13384
+                  },
+                  {
+                      "sha256":  "9fccbe5d002ccf96142760a396918ef7d7ba939e1f4e5ff38577d364bbee0c0f",
+                      "file":  "docs/s05d-retirement-implementation-20261023/handoff-tests-logon.txt",
+                      "bytes":  2736
+                  }
+              ],
+    "tests":  12,
+    "taskStarted":  false
+}

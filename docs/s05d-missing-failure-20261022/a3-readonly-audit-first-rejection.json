@@ -1,0 +1,17 @@
+{
+  "version": "s05d-audit-entry-schema-failure-v1",
+  "source": "Root supplied the verbatim tool-reported stderr line and exit code from the first real read-only CLI invocation. This is tool-reported evidence, not an original native execution receipt.",
+  "command": ["node", "tools/preparation-missing-failure-audit.mjs", "--config", "D:/codex-isolated/main-manual-release-20261016/main-publisher-config.json", "--dispatch", "a3d53227-8976-4762-8be6-6f8c28107b5b"],
+  "exitCode": 1,
+  "stdoutBytes": 0,
+  "code": "MISSING_FAILURE_AUDIT_REJECTED",
+  "toolReportedStderrLine": "{\"version\":\"teruisi-missing-failure-audit-v1\",\"code\":\"MISSING_FAILURE_AUDIT_REJECTED\",\"diagnosticOnly\":true,\"recoveryEligible\":false,\"error\":\"Expected values to be strictly equal:\\n+ actual - expected\\n\\n+ '8865d7194fa99c33937b19d7ffab6354c455c089'\\n- undefined\\n\"}",
+  "comparison": {
+    "actual": "8865d7194fa99c33937b19d7ffab6354c455c089",
+    "expectedField": "request.sourceTree (absent in the original request)"
+  },
+  "cause": "Implementation and synthetic fixture incorrectly assumed that the request always provides a Git tree. The original PREPARING object provides it, while source-binding carries a distinct SHA-256 content tree.",
+  "correction": "Validate PREPARING commit against original target and its Git-tree object-id format; cross-check request.sourceTree strictly only when that original field exists. Report absent cross-check and unverified Git tree/source contents explicitly.",
+  "productionWritePerformed": false,
+  "recoveryEligibilityChanged": false
+}

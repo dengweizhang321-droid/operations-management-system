@@ -1,0 +1,12 @@
+✔ actual pinned frozen publisher requires its real guard/resume bytes and its own Git source cannot still name the retired target (954.6071ms)
+✔ private actual collector/Git/evidence composition survives post-artifact observer failure, seals same intent, and the full private reader rejects late closure/archive/address mutations (18221.3647ms)
+✔ exact old guard accepts a stable private Git source and rejects changed commit, optional tree, or dirty bytes (1634.5284ms)
+✔ old sequential queries reject a changed tree but do not claim an atomic HEAD observation (0.5469ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18381.8416

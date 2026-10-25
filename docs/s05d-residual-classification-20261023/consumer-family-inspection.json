@@ -1,0 +1,47 @@
+{
+  "readOnly": true,
+  "oldCodeExecuted": false,
+  "scope": "existing five byte-qualified Worker families actually present in ownership evidence",
+  "rows": [
+    {
+      "sha256": "0d945b0d4c83307171c0affeaba1df6410abb3487368e077fe7fca6bc1c57c0d",
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T110013Z-97fd5e59dfbda47c/tools/worker-local-release.mjs",
+      "size": 144825,
+      "validateTreeSha256": "d7cdee7dd2232956a39644d847b8f031992713164ecea54cb23627f05cac89ea",
+      "sourceGateSha256": "4cefd951731828b06450a4b04a510dba6d49c896611ca537a39eeb3e135610d1",
+      "sourceGate": "if (manifest.source.snapshotRoot !== \"source-snapshot\") fail(\"manifest source snapshot 路径无效\");\n  const sourceSnapshotRoot = path.join(releaseRoot, manifest.source.snapshotRoot);\n  await validateTree(sourceSnapshotRoot, manifest.source.tree, \"source snapshot\");"
+    },
+    {
+      "sha256": "901d8140089d68046e858812054212b48779ec525d233e3c45bcc5fdb4328acc",
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T042106Z-dbc7eaae4c8d7a3d/tools/worker-local-release.mjs",
+      "size": 146622,
+      "validateTreeSha256": "d7cdee7dd2232956a39644d847b8f031992713164ecea54cb23627f05cac89ea",
+      "sourceGateSha256": "4cefd951731828b06450a4b04a510dba6d49c896611ca537a39eeb3e135610d1",
+      "sourceGate": "if (manifest.source.snapshotRoot !== \"source-snapshot\") fail(\"manifest source snapshot 路径无效\");\n  const sourceSnapshotRoot = path.join(releaseRoot, manifest.source.snapshotRoot);\n  await validateTree(sourceSnapshotRoot, manifest.source.tree, \"source snapshot\");"
+    },
+    {
+      "sha256": "f4fd64f0eca398637bf614ecc939681119c479447a6fc881e76340b85bc0372c",
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T140732Z-627476acd7561b9e/tools/worker-local-release.mjs",
+      "size": 154359,
+      "validateTreeSha256": "d7cdee7dd2232956a39644d847b8f031992713164ecea54cb23627f05cac89ea",
+      "sourceGateSha256": "4cefd951731828b06450a4b04a510dba6d49c896611ca537a39eeb3e135610d1",
+      "sourceGate": "if (manifest.source.snapshotRoot !== \"source-snapshot\") fail(\"manifest source snapshot 路径无效\");\n  const sourceSnapshotRoot = path.join(releaseRoot, manifest.source.snapshotRoot);\n  await validateTree(sourceSnapshotRoot, manifest.source.tree, \"source snapshot\");"
+    },
+    {
+      "sha256": "a438830b536f484c1f0f0dc1fe2cda96876bb14daa15ab085ade9eb0bd78a2d1",
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T171710Z-1bd7be5db9ffede6/tools/worker-local-release.mjs",
+      "size": 154440,
+      "validateTreeSha256": "d7cdee7dd2232956a39644d847b8f031992713164ecea54cb23627f05cac89ea",
+      "sourceGateSha256": "4cefd951731828b06450a4b04a510dba6d49c896611ca537a39eeb3e135610d1",
+      "sourceGate": "if (manifest.source.snapshotRoot !== \"source-snapshot\") fail(\"manifest source snapshot 路径无效\");\n  const sourceSnapshotRoot = path.join(releaseRoot, manifest.source.snapshotRoot);\n  await validateTree(sourceSnapshotRoot, manifest.source.tree, \"source snapshot\");"
+    },
+    {
+      "sha256": "ed711ac54f53fe825d8c7c927324456b91a58774566e645a4fc5d92dc0995ade",
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T080530Z-96bf0ec48b5423c2/tools/worker-local-release.mjs",
+      "size": 162176,
+      "validateTreeSha256": "d7cdee7dd2232956a39644d847b8f031992713164ecea54cb23627f05cac89ea",
+      "sourceGateSha256": "4cefd951731828b06450a4b04a510dba6d49c896611ca537a39eeb3e135610d1",
+      "sourceGate": "if (manifest.source.snapshotRoot !== \"source-snapshot\") fail(\"manifest source snapshot 路径无效\");\n  const sourceSnapshotRoot = path.join(releaseRoot, manifest.source.snapshotRoot);\n  await validateTree(sourceSnapshotRoot, manifest.source.tree, \"source snapshot\");"
+    }
+  ]
+}

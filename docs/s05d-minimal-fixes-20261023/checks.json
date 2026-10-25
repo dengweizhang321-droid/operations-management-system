@@ -1,0 +1,53 @@
+{
+  "baseCommit": "7cec8f37d2797736ea68ac4cba79fbb41f5d7423",
+  "candidateOnly": true,
+  "liveTaskRun": false,
+  "productionAdopted": false,
+  "files": {
+    "tools/preparation-retirement-fs.mjs": {
+      "bytes": 12987,
+      "sha256": "fb258d643dce226f69876c6a70069a265c9ec93076d4f23bbd2990706cdd2974"
+    },
+    "tools/preparation-retirement-handoff.mjs": {
+      "bytes": 53605,
+      "sha256": "4a9384bfc6ba10300139c769b2f796ff3ffa0baa2be6d256b9eff1bf7dd5e5ac"
+    },
+    "tools/preparation-retirement-handoff-runner.ps1": {
+      "bytes": 9766,
+      "sha256": "7ad4e67e94fcdf5996dc2a962045e6f1d10ba6a1a0337058b211dea5312b531c"
+    },
+    "tools/preparation-retirement-archive.mjs": {
+      "bytes": 14837,
+      "sha256": "adadf242b7ff0a6a87b9b672b0cc655de95bc249cbcd6c517aaef686fd1b6be6"
+    },
+    "tests/preparation-retirement-inventory-concurrency.test.mjs": {
+      "bytes": 5330,
+      "sha256": "8d3ee88c5f1e8c5427704a883ca9b152e2951ed43a1ad448d78355a3aa1e922b"
+    },
+    "tests/preparation-retirement-handoff.test.mjs": {
+      "bytes": 18201,
+      "sha256": "4ac9b342c9be812837023a0dc68f3bcec23625260bc452e0d6502f5f9d5ac386"
+    }
+  },
+  "checks": {
+    "inventory-checks.txt": {
+      "bytes": 1034,
+      "sha256": "b52d060fab4bbd6e76ed8acc8455287946eacecc7309e3591e5900b5fadebd9b"
+    },
+    "handoff-checks.txt": {
+      "bytes": 636,
+      "sha256": "6478af385d9651681620c3df5373a3286279abb793f4a188012a867b020dd63f"
+    },
+    "junction-checks.txt": {
+      "bytes": 418,
+      "sha256": "609a2da8fb9083e2813d677ec9d0960be5a9ebea1d29ac8287262f9b97180a45"
+    }
+  },
+  "commands": [
+    "node --check tools/preparation-retirement-fs.mjs",
+    "node --check tools/preparation-retirement-handoff.mjs",
+    "node --test tests/preparation-retirement-inventory-concurrency.test.mjs",
+    "node --test --test-name-pattern='task is fixed medium|native COM in-memory' tests/preparation-retirement-handoff.test.mjs",
+    "node --test --test-name-pattern='only the declared dependency junction' tests/preparation-retirement-archive.test.mjs"
+  ]
+}

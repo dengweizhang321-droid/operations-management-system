@@ -1,0 +1,605 @@
+{
+  "version": "one-shot-task-instance-visibility-diagnostic-v1",
+  "runCount": 1,
+  "businessInvoked": false,
+  "oldRunOrTaskModified": false,
+  "taskName": "TERUISI.HandoffVisibility.Diagnostic.2c99fc4a-08b5-496c-905c-7e2fc34b7ea2",
+  "runex": {
+    "path": "\\TERUISI.HandoffVisibility.Diagnostic.2c99fc4a-08b5-496c-905c-7e2fc34b7ea2",
+    "sid": "S-1-5-21-815909789-107973518-1379257801-1001",
+    "sessionId": 1,
+    "at": "2026-10-23T04:26:34.9062578Z",
+    "enginePid": 39352,
+    "state": 4,
+    "flags": 12,
+    "taskDefinitionSha256": "c5da40e08034ab5e4ec838503eb59bfbca3f0a7bccf7519d79bb6fce68b3ee4a",
+    "guid": "{FB208A8E-4AC4-4FD9-8688-58E916843D62}"
+  },
+  "security": {
+    "group": "S-1-5-21-815909789-107973518-1379257801-1001",
+    "aces": [
+      {
+        "sid": "S-1-5-18",
+        "flags": "None",
+        "type": "AccessAllowed",
+        "mask": 2032127
+      },
+      {
+        "sid": "S-1-5-32-544",
+        "flags": "None",
+        "type": "AccessAllowed",
+        "mask": 2032127
+      },
+      {
+        "sid": "S-1-5-21-815909789-107973518-1379257801-1001",
+        "flags": "None",
+        "type": "AccessAllowed",
+        "mask": 1179817
+      },
+      {
+        "sid": "S-1-5-21-815909789-107973518-1379257801-1001",
+        "flags": "None",
+        "type": "AccessAllowed",
+        "mask": 1179785
+      }
+    ],
+    "owner": "S-1-5-21-815909789-107973518-1379257801-1001",
+    "sddl": "O:S-1-5-21-815909789-107973518-1379257801-1001G:S-1-5-21-815909789-107973518-1379257801-1001D:(A;;FA;;;SY)(A;;FA;;;BA)(A;;0x1200a9;;;S-1-5-21-815909789-107973518-1379257801-1001)(A;;FR;;;S-1-5-21-815909789-107973518-1379257801-1001)"
+  },
+  "ordinary": [
+    {
+      "sample": 0,
+      "at": "2026-10-23T04:26:38.4310182Z",
+      "requestedOffsetMs": 0,
+      "actualObservationSinceNodeMs": 805,
+      "original": {
+        "value": 1,
+        "hresult": 0,
+        "isNull": false,
+        "expression": "$t.GetInstances(0).Count",
+        "type": "System.Int32",
+        "error": null
+      },
+      "savedPowerShell": {
+        "error": null,
+        "isCom": true,
+        "value": 1
+      },
+      "explicitCom": {
+        "collectionIsCom": true,
+        "getHresult": 0,
+        "enginePids": [
+          39352
+        ],
+        "paths": [
+          "\\TERUISI.HandoffVisibility.Diagnostic.2c99fc4a-08b5-496c-905c-7e2fc34b7ea2"
+        ],
+        "error": null,
+        "count": 1,
+        "guids": [
+          "{FB208A8E-4AC4-4FD9-8688-58E916843D62}"
+        ],
+        "states": [
+          4
+        ],
+        "collectionType": "System.__ComObject",
+        "itemHresult": 0,
+        "countHresult": 0
+      },
+      "queryToken": {
+        "sid": "S-1-5-21-815909789-107973518-1379257801-1001",
+        "integrityRid": 8192,
+        "elevated": false,
+        "sessionId": 1
+      },
+      "processIds": [
+        45760,
+        43804,
+        39352
+      ],
+      "directExit": {
+        "pid": 45760,
+        "at": "2026-10-23T04:26:39.570Z",
+        "elapsedMs": 2065,
+        "requestedOffsetMs": 0,
+        "code": 0,
+        "signal": null,
+        "errors": [],
+        "outputComplete": true
+      }
+    },
+    {
+      "sample": 1,
+      "at": "2026-10-23T04:26:40.3425535Z",
+      "requestedOffsetMs": 250,
+      "actualObservationSinceNodeMs": 2716,
+      "original": {
+        "value": 1,
+        "hresult": 0,
+        "isNull": false,
+        "expression": "$t.GetInstances(0).Count",
+        "type": "System.Int32",
+        "error": null
+      },
+      "savedPowerShell": {
+        "error": null,
+        "isCom": true,
+        "value": 1
+      },
+      "explicitCom": {
+        "collectionIsCom": true,
+        "getHresult": 0,
+        "enginePids": [
+          39352
+        ],
+        "paths": [
+          "\\TERUISI.HandoffVisibility.Diagnostic.2c99fc4a-08b5-496c-905c-7e2fc34b7ea2"
+        ],
+        "error": null,
+        "count": 1,
+        "guids": [
+          "{FB208A8E-4AC4-4FD9-8688-58E916843D62}"
+        ],
+        "states": [
+          4
+        ],
+        "collectionType": "System.__ComObject",
+        "itemHresult": 0,
+        "countHresult": 0
+      },
+      "queryToken": {
+        "sid": "S-1-5-21-815909789-107973518-1379257801-1001",
+        "integrityRid": 8192,
+        "elevated": false,
+        "sessionId": 1
+      },
+      "processIds": [
+        35028,
+        43804,
+        39352
+      ],
+      "directExit": {
+        "pid": 35028,
+        "at": "2026-10-23T04:26:41.482Z",
+        "elapsedMs": 3977,
+        "requestedOffsetMs": 250,
+        "code": 0,
+        "signal": null,
+        "errors": [],
+        "outputComplete": true
+      }
+    },
+    {
+      "sample": 2,
+      "at": "2026-10-23T04:26:42.2306890Z",
+      "requestedOffsetMs": 1000,
+      "actualObservationSinceNodeMs": 4604,
+      "original": {
+        "value": 1,
+        "hresult": 0,
+        "isNull": false,
+        "expression": "$t.GetInstances(0).Count",
+        "type": "System.Int32",
+        "error": null
+      },
+      "savedPowerShell": {
+        "error": null,
+        "isCom": true,
+        "value": 1
+      },
+      "explicitCom": {
+        "collectionIsCom": true,
+        "getHresult": 0,
+        "enginePids": [
+          39352
+        ],
+        "paths": [
+          "\\TERUISI.HandoffVisibility.Diagnostic.2c99fc4a-08b5-496c-905c-7e2fc34b7ea2"
+        ],
+        "error": null,
+        "count": 1,
+        "guids": [
+          "{FB208A8E-4AC4-4FD9-8688-58E916843D62}"
+        ],
+        "states": [
+          4
+        ],
+        "collectionType": "System.__ComObject",
+        "itemHresult": 0,
+        "countHresult": 0
+      },
+      "queryToken": {
+        "sid": "S-1-5-21-815909789-107973518-1379257801-1001",
+        "integrityRid": 8192,
+        "elevated": false,
+        "sessionId": 1
+      },
+      "processIds": [
+        29956,
+        43804,
+        39352
+      ],
+      "directExit": {
+        "pid": 29956,
+        "at": "2026-10-23T04:26:43.354Z",
+        "elapsedMs": 5849,
+        "requestedOffsetMs": 1000,
+        "code": 0,
+        "signal": null,
+        "errors": [],
+        "outputComplete": true
+      }
+    },
+    {
+      "sample": 3,
+      "at": "2026-10-23T04:26:44.1352652Z",
+      "requestedOffsetMs": 3000,
+      "actualObservationSinceNodeMs": 6509,
+      "original": {
+        "value": 1,
+        "hresult": 0,
+        "isNull": false,
+        "expression": "$t.GetInstances(0).Count",
+        "type": "System.Int32",
+        "error": null
+      },
+      "savedPowerShell": {
+        "error": null,
+        "isCom": true,
+        "value": 1
+      },
+      "explicitCom": {
+        "collectionIsCom": true,
+        "getHresult": 0,
+        "enginePids": [
+          39352
+        ],
+        "paths": [
+          "\\TERUISI.HandoffVisibility.Diagnostic.2c99fc4a-08b5-496c-905c-7e2fc34b7ea2"
+        ],
+        "error": null,
+        "count": 1,
+        "guids": [
+          "{FB208A8E-4AC4-4FD9-8688-58E916843D62}"
+        ],
+        "states": [
+          4
+        ],
+        "collectionType": "System.__ComObject",
+        "itemHresult": 0,
+        "countHresult": 0
+      },
+      "queryToken": {
+        "sid": "S-1-5-21-815909789-107973518-1379257801-1001",
+        "integrityRid": 8192,
+        "elevated": false,
+        "sessionId": 1
+      },
+      "processIds": [
+        35476,
+        43804,
+        39352
+      ],
+      "directExit": {
+        "pid": 35476,
+        "at": "2026-10-23T04:26:45.241Z",
+        "elapsedMs": 7736,
+        "requestedOffsetMs": 3000,
+        "code": 0,
+        "signal": null,
+        "errors": [],
+        "outputComplete": true
+      }
+    }
+  ],
+  "high": [
+    {
+      "sample": 0,
+      "at": "2026-10-23T04:26:35.0271259Z",
+      "completedElapsedMs": 1272,
+      "original": {
+        "value": 1,
+        "hresult": 0,
+        "isNull": false,
+        "expression": "$t.GetInstances(0).Count",
+        "type": "System.Int32",
+        "error": null
+      },
+      "savedPowerShell": {
+        "error": null,
+        "isCom": true,
+        "value": 1
+      },
+      "explicitCom": {
+        "collectionIsCom": true,
+        "getHresult": 0,
+        "enginePids": [
+          39352
+        ],
+        "paths": [
+          "\\TERUISI.HandoffVisibility.Diagnostic.2c99fc4a-08b5-496c-905c-7e2fc34b7ea2"
+        ],
+        "error": null,
+        "count": 1,
+        "guids": [
+          "{FB208A8E-4AC4-4FD9-8688-58E916843D62}"
+        ],
+        "states": [
+          4
+        ],
+        "collectionType": "System.__ComObject",
+        "itemHresult": 0,
+        "countHresult": 0
+      },
+      "queryToken": {
+        "sid": "S-1-5-21-815909789-107973518-1379257801-1001",
+        "integrityRid": 12288,
+        "elevated": true,
+        "sessionId": 1
+      }
+    },
+    {
+      "sample": 1,
+      "at": "2026-10-23T04:26:36.1788887Z",
+      "completedElapsedMs": 2315,
+      "original": {
+        "value": 1,
+        "hresult": 0,
+        "isNull": false,
+        "expression": "$t.GetInstances(0).Count",
+        "type": "System.Int32",
+        "error": null
+      },
+      "savedPowerShell": {
+        "error": null,
+        "isCom": true,
+        "value": 1
+      },
+      "explicitCom": {
+        "collectionIsCom": true,
+        "getHresult": 0,
+        "enginePids": [
+          39352
+        ],
+        "paths": [
+          "\\TERUISI.HandoffVisibility.Diagnostic.2c99fc4a-08b5-496c-905c-7e2fc34b7ea2"
+        ],
+        "error": null,
+        "count": 1,
+        "guids": [
+          "{FB208A8E-4AC4-4FD9-8688-58E916843D62}"
+        ],
+        "states": [
+          4
+        ],
+        "collectionType": "System.__ComObject",
+        "itemHresult": 0,
+        "countHresult": 0
+      },
+      "queryToken": {
+        "sid": "S-1-5-21-815909789-107973518-1379257801-1001",
+        "integrityRid": 12288,
+        "elevated": true,
+        "sessionId": 1
+      }
+    },
+    {
+      "sample": 2,
+      "at": "2026-10-23T04:26:37.2367393Z",
+      "completedElapsedMs": 3454,
+      "original": {
+        "value": 1,
+        "hresult": 0,
+        "isNull": false,
+        "expression": "$t.GetInstances(0).Count",
+        "type": "System.Int32",
+        "error": null
+      },
+      "savedPowerShell": {
+        "error": null,
+        "isCom": true,
+        "value": 1
+      },
+      "explicitCom": {
+        "collectionIsCom": true,
+        "getHresult": 0,
+        "enginePids": [
+          39352
+        ],
+        "paths": [
+          "\\TERUISI.HandoffVisibility.Diagnostic.2c99fc4a-08b5-496c-905c-7e2fc34b7ea2"
+        ],
+        "error": null,
+        "count": 1,
+        "guids": [
+          "{FB208A8E-4AC4-4FD9-8688-58E916843D62}"
+        ],
+        "states": [
+          4
+        ],
+        "collectionType": "System.__ComObject",
+        "itemHresult": 0,
+        "countHresult": 0
+      },
+      "queryToken": {
+        "sid": "S-1-5-21-815909789-107973518-1379257801-1001",
+        "integrityRid": 12288,
+        "elevated": true,
+        "sessionId": 1
+      }
+    },
+    {
+      "sample": 3,
+      "at": "2026-10-23T04:26:38.3629826Z",
+      "completedElapsedMs": 4503,
+      "original": {
+        "value": 1,
+        "hresult": 0,
+        "isNull": false,
+        "expression": "$t.GetInstances(0).Count",
+        "type": "System.Int32",
+        "error": null
+      },
+      "savedPowerShell": {
+        "error": null,
+        "isCom": true,
+        "value": 1
+      },
+      "explicitCom": {
+        "collectionIsCom": true,
+        "getHresult": 0,
+        "enginePids": [
+          39352
+        ],
+        "paths": [
+          "\\TERUISI.HandoffVisibility.Diagnostic.2c99fc4a-08b5-496c-905c-7e2fc34b7ea2"
+        ],
+        "error": null,
+        "count": 1,
+        "guids": [
+          "{FB208A8E-4AC4-4FD9-8688-58E916843D62}"
+        ],
+        "states": [
+          4
+        ],
+        "collectionType": "System.__ComObject",
+        "itemHresult": 0,
+        "countHresult": 0
+      },
+      "queryToken": {
+        "sid": "S-1-5-21-815909789-107973518-1379257801-1001",
+        "integrityRid": 12288,
+        "elevated": true,
+        "sessionId": 1
+      }
+    },
+    {
+      "sample": 4,
+      "at": "2026-10-23T04:26:40.9099428Z",
+      "completedElapsedMs": 7094,
+      "original": {
+        "value": 1,
+        "hresult": 0,
+        "isNull": false,
+        "expression": "$t.GetInstances(0).Count",
+        "type": "System.Int32",
+        "error": null
+      },
+      "savedPowerShell": {
+        "error": null,
+        "isCom": true,
+        "value": 1
+      },
+      "explicitCom": {
+        "collectionIsCom": true,
+        "getHresult": 0,
+        "enginePids": [
+          39352
+        ],
+        "paths": [
+          "\\TERUISI.HandoffVisibility.Diagnostic.2c99fc4a-08b5-496c-905c-7e2fc34b7ea2"
+        ],
+        "error": null,
+        "count": 1,
+        "guids": [
+          "{FB208A8E-4AC4-4FD9-8688-58E916843D62}"
+        ],
+        "states": [
+          4
+        ],
+        "collectionType": "System.__ComObject",
+        "itemHresult": 0,
+        "countHresult": 0
+      },
+      "queryToken": {
+        "sid": "S-1-5-21-815909789-107973518-1379257801-1001",
+        "integrityRid": 12288,
+        "elevated": true,
+        "sessionId": 1
+      }
+    },
+    {
+      "sample": 5,
+      "at": "2026-10-23T04:26:44.4035472Z",
+      "completedElapsedMs": 10496,
+      "original": {
+        "value": 1,
+        "hresult": 0,
+        "isNull": false,
+        "expression": "$t.GetInstances(0).Count",
+        "type": "System.Int32",
+        "error": null
+      },
+      "savedPowerShell": {
+        "error": null,
+        "isCom": true,
+        "value": 1
+      },
+      "explicitCom": {
+        "collectionIsCom": true,
+        "getHresult": 0,
+        "enginePids": [
+          39352
+        ],
+        "paths": [
+          "\\TERUISI.HandoffVisibility.Diagnostic.2c99fc4a-08b5-496c-905c-7e2fc34b7ea2"
+        ],
+        "error": null,
+        "count": 1,
+        "guids": [
+          "{FB208A8E-4AC4-4FD9-8688-58E916843D62}"
+        ],
+        "states": [
+          4
+        ],
+        "collectionType": "System.__ComObject",
+        "itemHresult": 0,
+        "countHresult": 0
+      },
+      "queryToken": {
+        "sid": "S-1-5-21-815909789-107973518-1379257801-1001",
+        "integrityRid": 12288,
+        "elevated": true,
+        "sessionId": 1
+      }
+    }
+  ],
+  "directNodeExit": {
+    "pid": 43804,
+    "exitCode": 0,
+    "stderrBytes": 0,
+    "stdoutBytes": 0,
+    "outputComplete": true,
+    "at": "2026-10-23T04:26:48.5300619Z",
+    "directExited": true,
+    "elapsedMs": 12497
+  },
+  "cleanupPrecondition": {
+    "nodeDirectExit": {
+      "pid": 43804,
+      "exitCode": 0,
+      "stderrBytes": 0,
+      "stdoutBytes": 0,
+      "outputComplete": true,
+      "at": "2026-10-23T04:26:48.5300619Z",
+      "directExited": true,
+      "elapsedMs": 12497
+    },
+    "safeToDeleteDiagnosticTask": true,
+    "definitionAndSecurityUnchanged": true,
+    "instances": 0,
+    "state": 3,
+    "outerAlive": null
+  },
+  "cleanup": {
+    "taskName": "TERUISI.HandoffVisibility.Diagnostic.2c99fc4a-08b5-496c-905c-7e2fc34b7ea2",
+    "evidencePreserved": true,
+    "deleted": true,
+    "at": "2026-10-23T04:26:49.8914665Z"
+  },
+  "scopeConclusion": "Explicit same-user owner plus RX (with automatic additional FR ACE) supports unique same-GUID ordinary/high visibility in this exact Task -> PowerShell -> Node -> PowerShell topology.",
+  "rootCauseDetermined": false,
+  "causalityLimit": "Owner and user ACE changed together; this does not isolate which caused old c6 visibility=0, or eliminate all timing causes. No old-task replay or alternate ACL trial.",
+  "timingLimit": "Samples are sequential fresh PowerShell processes. Requested 0/250/1000/3000ms are not exact execution times; actual observation offsets are recorded. No claim of visibility at t=0.",
+  "processLimit": "Ordinary caller could read exact query/Node/action tokens; scheduler service ancestors deny token access and this is retained in raw chain evidence."
+}

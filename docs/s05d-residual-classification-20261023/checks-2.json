@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-23T02:52:31.104Z",
+  "completedAt": "2026-10-23T02:52:32.017Z",
+  "args": [
+    "--test",
+    "--test-timeout=60000",
+    "tests/preparation-retirement-residual.test.mjs"
+  ],
+  "node": "v24.18.0",
+  "exitCode": 0,
+  "signal": null,
+  "productionCollectorRun": false,
+  "previousFailure": "checks-1.txt retains the mismatched private predecessor fixture rejection"
+}

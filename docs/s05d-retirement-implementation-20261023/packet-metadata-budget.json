@@ -1,0 +1,310 @@
+{
+    "at":  "2026-10-22T18:49:46.6958674Z",
+    "readOnly":  true,
+    "payloadRead":  false,
+    "packetCount":  60,
+    "jsonCount":  930,
+    "bytes":  1901151,
+    "rows":  [
+                 {
+                     "packet":  "0bb9523cbf1e-bcccc8cd-00058fea",
+                     "jsonCount":  14,
+                     "bytes":  48303
+                 },
+                 {
+                     "packet":  "0efb85410210-614f2724-69977619",
+                     "jsonCount":  10,
+                     "bytes":  16314
+                 },
+                 {
+                     "packet":  "19db6d2c217e-ec5d0f96-83cdf0d4",
+                     "jsonCount":  18,
+                     "bytes":  41455
+                 },
+                 {
+                     "packet":  "20eea975b7e2-7d44de3d-ed93efd0",
+                     "jsonCount":  41,
+                     "bytes":  41121
+                 },
+                 {
+                     "packet":  "25fe1fa39e7d-ec09ad08-71ae7608",
+                     "jsonCount":  0,
+                     "bytes":  0
+                 },
+                 {
+                     "packet":  "2b022c16b36e-ec5d0f96-83cdf0d4",
+                     "jsonCount":  10,
+                     "bytes":  22416
+                 },
+                 {
+                     "packet":  "2b6447f33d54-150a41fa-23ba6b9a",
+                     "jsonCount":  36,
+                     "bytes":  75505
+                 },
+                 {
+                     "packet":  "2be62f90e6dd-f9f646e8-3b7345f2",
+                     "jsonCount":  43,
+                     "bytes":  52580
+                 },
+                 {
+                     "packet":  "2f875fb01c79-614f2724-69977619",
+                     "jsonCount":  39,
+                     "bytes":  66150
+                 },
+                 {
+                     "packet":  "36668589cab0-71ecf390-bbc9a5ef",
+                     "jsonCount":  5,
+                     "bytes":  15901
+                 },
+                 {
+                     "packet":  "4059afea8841-93711e55-884d09d7",
+                     "jsonCount":  45,
+                     "bytes":  79326
+                 },
+                 {
+                     "packet":  "4072d666f1f3-bcccc8cd-00058fea",
+                     "jsonCount":  19,
+                     "bytes":  59643
+                 },
+                 {
+                     "packet":  "477a94bf29f2-fee81c63-4ca6db6e",
+                     "jsonCount":  5,
+                     "bytes":  17782
+                 },
+                 {
+                     "packet":  "47e1e89fea91-pi150-forward",
+                     "jsonCount":  0,
+                     "bytes":  0
+                 },
+                 {
+                     "packet":  "4a1859686c1e-ba5c1310-77953588",
+                     "jsonCount":  14,
+                     "bytes":  50385
+                 },
+                 {
+                     "packet":  "4b733d1aed4b-c5d5bb6f-a9e3fdb9",
+                     "jsonCount":  2,
+                     "bytes":  9173
+                 },
+                 {
+                     "packet":  "51e242dac482-71ecf390-bbc9a5ef",
+                     "jsonCount":  11,
+                     "bytes":  11948
+                 },
+                 {
+                     "packet":  "51eb7d76095d-pi150-forward",
+                     "jsonCount":  0,
+                     "bytes":  0
+                 },
+                 {
+                     "packet":  "559e64fd8586-93711e55-884d09d7",
+                     "jsonCount":  13,
+                     "bytes":  39993
+                 },
+                 {
+                     "packet":  "5663930fe16d-614f2724-69977619",
+                     "jsonCount":  11,
+                     "bytes":  31946
+                 },
+                 {
+                     "packet":  "593b0edb045b-614f2724-69977619",
+                     "jsonCount":  11,
+                     "bytes":  33534
+                 },
+                 {
+                     "packet":  "5bebdee77bca-f9f646e8-3b7345f2",
+                     "jsonCount":  5,
+                     "bytes":  15724
+                 },
+                 {
+                     "packet":  "64238c401955-7d44de3d-ed93efd0",
+                     "jsonCount":  31,
+                     "bytes":  35121
+                 },
+                 {
+                     "packet":  "66ad3e408f4b-fa333eb5-51177d5a",
+                     "jsonCount":  33,
+                     "bytes":  28647
+                 },
+                 {
+                     "packet":  "69b38d1e523e-bcccc8cd-00058fea",
+                     "jsonCount":  45,
+                     "bytes":  101676
+                 },
+                 {
+                     "packet":  "6dc028139cc6-c5d5bb6f-a9e3fdb9",
+                     "jsonCount":  18,
+                     "bytes":  57830
+                 },
+                 {
+                     "packet":  "6fbbb526270e-614f2724-69977619",
+                     "jsonCount":  12,
+                     "bytes":  34034
+                 },
+                 {
+                     "packet":  "7ca85e40c285-ec09ad08-71ae7608",
+                     "jsonCount":  40,
+                     "bytes":  47178
+                 },
+                 {
+                     "packet":  "8411456e8e75-ba5c1310-77953588",
+                     "jsonCount":  51,
+                     "bytes":  105129
+                 },
+                 {
+                     "packet":  "8da01798a794-ec09ad08-71ae7608",
+                     "jsonCount":  10,
+                     "bytes":  16461
+                 },
+                 {
+                     "packet":  "988810cf4b9c-f6565b40-79d6d565",
+                     "jsonCount":  32,
+                     "bytes":  45825
+                 },
+                 {
+                     "packet":  "9a45d8be6974-c5d5bb6f-a9e3fdb9",
+                     "jsonCount":  10,
+                     "bytes":  32225
+                 },
+                 {
+                     "packet":  "a396a7b10930-bcccc8cd-00058fea",
+                     "jsonCount":  6,
+                     "bytes":  41445
+                 },
+                 {
+                     "packet":  "a7041338462a-997d0568-ca9c731a",
+                     "jsonCount":  0,
+                     "bytes":  0
+                 },
+                 {
+                     "packet":  "b1b0e15d7cb7-bcccc8cd-00058fea",
+                     "jsonCount":  0,
+                     "bytes":  0
+                 },
+                 {
+                     "packet":  "b2ef81c7c6ee-997d0568-ca9c731a",
+                     "jsonCount":  45,
+                     "bytes":  94232
+                 },
+                 {
+                     "packet":  "b44889912af8-f6565b40-79d6d565",
+                     "jsonCount":  0,
+                     "bytes":  0
+                 },
+                 {
+                     "packet":  "b6ac69dc7ce7-a51cce69-9ae5365c",
+                     "jsonCount":  2,
+                     "bytes":  8827
+                 },
+                 {
+                     "packet":  "bbc9fda1cfda-pi150-forward",
+                     "jsonCount":  0,
+                     "bytes":  0
+                 },
+                 {
+                     "packet":  "c2c6749a4178-de03bca5-66cc9293",
+                     "jsonCount":  7,
+                     "bytes":  10349
+                 },
+                 {
+                     "packet":  "c32434a924c4-a51cce69-9ae5365c",
+                     "jsonCount":  2,
+                     "bytes":  11175
+                 },
+                 {
+                     "packet":  "c36ea9964ea0-fee81c63-4ca6db6e",
+                     "jsonCount":  4,
+                     "bytes":  12183
+                 },
+                 {
+                     "packet":  "c7b817989050-ba5c1310-77953588",
+                     "jsonCount":  0,
+                     "bytes":  0
+                 },
+                 {
+                     "packet":  "cb3b1cb7b8e3-614f2724-69977619",
+                     "jsonCount":  11,
+                     "bytes":  33328
+                 },
+                 {
+                     "packet":  "cdb2ae60cedd-a51cce69-9ae5365c",
+                     "jsonCount":  40,
+                     "bytes":  44939
+                 },
+                 {
+                     "packet":  "cdf1c5eb92e5-37756aa0-357789c6",
+                     "jsonCount":  13,
+                     "bytes":  16831
+                 },
+                 {
+                     "packet":  "ce72ed644256-614f2724-69977619",
+                     "jsonCount":  2,
+                     "bytes":  10147
+                 },
+                 {
+                     "packet":  "cecb609c0ecc-614f2724-69977619",
+                     "jsonCount":  0,
+                     "bytes":  0
+                 },
+                 {
+                     "packet":  "d498852c8f01-ba5c1310-77953588",
+                     "jsonCount":  15,
+                     "bytes":  40919
+                 },
+                 {
+                     "packet":  "d95ad3d96816-de03bca5-66cc9293",
+                     "jsonCount":  40,
+                     "bytes":  38641
+                 },
+                 {
+                     "packet":  "e07fbe645d9d-614f2724-69977619",
+                     "jsonCount":  11,
+                     "bytes":  34276
+                 },
+                 {
+                     "packet":  "e3a72a9ad73d-ec09ad08-71ae7608",
+                     "jsonCount":  5,
+                     "bytes":  19876
+                 },
+                 {
+                     "packet":  "e508d9c39baf-pi150-forward",
+                     "jsonCount":  0,
+                     "bytes":  0
+                 },
+                 {
+                     "packet":  "e52361d5a8fc-bcccc8cd-7142cf1e",
+                     "jsonCount":  0,
+                     "bytes":  0
+                 },
+                 {
+                     "packet":  "e9696b0d2818-fdf50989-54a48ee1",
+                     "jsonCount":  18,
+                     "bytes":  52069
+                 },
+                 {
+                     "packet":  "e9a33b8adbc6-a51cce69-9ae5365c",
+                     "jsonCount":  6,
+                     "bytes":  12240
+                 },
+                 {
+                     "packet":  "f3748d8e03e2-60dc61d1-622cb632",
+                     "jsonCount":  47,
+                     "bytes":  98885
+                 },
+                 {
+                     "packet":  "f5c688452710-ba5c1310-77953588",
+                     "jsonCount":  0,
+                     "bytes":  0
+                 },
+                 {
+                     "packet":  "f9507f253046-60dc61d1-622cb632",
+                     "jsonCount":  11,
+                     "bytes":  52984
+                 },
+                 {
+                     "packet":  "ff46c025c26d-614f2724-69977619",
+                     "jsonCount":  11,
+                     "bytes":  34480
+                 }
+             ]
+}

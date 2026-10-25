@@ -1,0 +1,167 @@
+{
+  "at": "2026-10-23T08:49:20.408Z",
+  "directory": "D:/codex-artifacts/preparation-retirement-diagnostics/feb0126f-e9ba-40f7-9fb3-064f88d38fa5",
+  "candidateCommit": "94dd1142",
+  "childStatus": "readonly-completed",
+  "childExitCode": 0,
+  "parentCliExitCode": 1,
+  "parentCliError": "Retirement file absent (while displaying status after child completion)",
+  "parentErrorSource": "Observed exec_command completion; original frozen files preserved",
+  "elapsedMs": 460645.6926,
+  "admissionPassed": false,
+  "recoveryEligible": false,
+  "globalClosureCompleted": true,
+  "sourceActions": [
+    {
+      "source": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef\\source",
+      "role": "git-source"
+    },
+    {
+      "source": "D:\\codex-worktrees\\merge-20261022",
+      "role": "git-source"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea",
+      "role": "possible-original-staging-source"
+    },
+    {
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261022T071208Z-f5db87473edebc45",
+      "role": "worker-candidate-release"
+    }
+  ],
+  "artifactActions": [],
+  "retainedResiduals": 11,
+  "snapshotContainerType": "array",
+  "snapshotCount": 4,
+  "measurement": {
+    "completedAt": "2026-10-23T08:42:23.913Z",
+    "elapsedMs": 37170.325300000026,
+    "files": 101861,
+    "objects": 4,
+    "stages": [
+      {
+        "completedAt": "2026-10-23T08:41:47.726Z",
+        "elapsedMs": 982.9015999999829,
+        "name": "adoption-original-before",
+        "startedAt": "2026-10-23T08:41:46.743Z"
+      },
+      {
+        "completedAt": "2026-10-23T08:42:05.816Z",
+        "elapsedMs": 18090.001099999994,
+        "name": "closure-cas",
+        "startedAt": "2026-10-23T08:41:47.726Z"
+      },
+      {
+        "completedAt": "2026-10-23T08:42:18.908Z",
+        "elapsedMs": 13092.344999999972,
+        "name": "snapshot-cas",
+        "startedAt": "2026-10-23T08:42:05.816Z"
+      },
+      {
+        "completedAt": "2026-10-23T08:42:23.205Z",
+        "elapsedMs": 4296.436400000006,
+        "name": "ordinary-task-boot-ref-native",
+        "startedAt": "2026-10-23T08:42:18.908Z"
+      },
+      {
+        "completedAt": "2026-10-23T08:42:23.913Z",
+        "elapsedMs": 708.5033999999869,
+        "name": "adoption-original-tail",
+        "startedAt": "2026-10-23T08:42:23.205Z"
+      }
+    ],
+    "startedAt": "2026-10-23T08:41:46.743Z"
+  },
+  "exclusions": [
+    "writer-locks-not-acquired",
+    "no-frozen-retirement-intent",
+    "no-post-source-close-retirement-proof",
+    "ordinary-writer-not-proved",
+    "adoptionBefore-rejected",
+    "ordinary-rejected",
+    "ref-rejected",
+    "adoptionAfter-rejected"
+  ],
+  "observationStatus": {
+    "adoptionAfter": {
+      "ok": false,
+      "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ undefined\n- 'teruisi-preparation-retirement-intent-v1'\n"
+    },
+    "adoptionBefore": {
+      "ok": false,
+      "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ undefined\n- 'teruisi-preparation-retirement-intent-v1'\n"
+    },
+    "boot": {
+      "ok": true
+    },
+    "identity": {
+      "ok": true
+    },
+    "native": {
+      "ok": true
+    },
+    "ordinary": {
+      "ok": false,
+      "error": "Preparation must run without elevation\n\ntrue !== false\n"
+    },
+    "ref": {
+      "ok": false,
+      "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ undefined\n- 'teruisi-preparation-retirement-intent-v1'\n"
+    },
+    "task": {
+      "ok": true
+    }
+  },
+  "entries": [
+    {
+      "name": "RUN.json",
+      "bytes": 637630,
+      "sha256": "07acfe56d4723a9bdf4275b3267a29c2a7ba9d0c358265eb7f9b58d6817fbc7f"
+    },
+    {
+      "name": "PINS.json",
+      "bytes": 4263,
+      "sha256": "66095ff6ff187fde4f526affcd8aa20bbaaf7a03c69eb2839bc0105bde55c358"
+    },
+    {
+      "name": "ATTEMPT.json",
+      "bytes": 158,
+      "sha256": "2e6c12700cc7cbabca8ca1a9c4c5ad6456866c4f502f1c214de9f5cf2c860f68"
+    },
+    {
+      "name": "RESULT.json",
+      "bytes": 7822,
+      "sha256": "1e1593e5e28dc9a45819362c6c65b49cc8da642e11dfaa85374eade9568fb64c"
+    },
+    {
+      "name": "EXIT.json",
+      "bytes": 162,
+      "sha256": "5f05fe1e4d866927b747566a870cc2b6b5b525b410579a728cff3c3befc2b197"
+    },
+    {
+      "name": "closure.json",
+      "bytes": 8914858,
+      "sha256": "b537a41046344af66ff1288719075be9618b3d486c284990c79a3bcaad1a1a2d"
+    },
+    {
+      "name": "snapshots.json",
+      "bytes": 30719744,
+      "sha256": "f72f2f45f652da76a4b262dd82b8f78497d1508a6dd4cb5aa499f1bd8bab96bb"
+    },
+    {
+      "name": "stages.jsonl",
+      "bytes": 94537,
+      "sha256": "f49ba7600f3c01f8860fd127d827eb075881751939476bab7a272567b6f647d5"
+    },
+    {
+      "name": "stdout.log",
+      "bytes": 102359,
+      "sha256": "a31f1ebeec959b5b16625d850c877e9e03dbd82b2d3ab447865aef9dce09ce83"
+    },
+    {
+      "name": "stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

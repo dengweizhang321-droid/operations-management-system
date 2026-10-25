@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-23T02:49:47.884Z",
+  "completedAt": "2026-10-23T02:49:48.685Z",
+  "args": [
+    "--test",
+    "--test-timeout=60000",
+    "tests/preparation-retirement-residual.test.mjs"
+  ],
+  "node": "v24.18.0",
+  "exitCode": 1,
+  "signal": null,
+  "productionCollectorRun": false
+}

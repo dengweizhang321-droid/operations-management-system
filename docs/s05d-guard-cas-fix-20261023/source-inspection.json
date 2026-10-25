@@ -1,0 +1,44 @@
+{
+  "version": "s05d-guard-cas-source-inspection-v1",
+  "readOnly": true,
+  "executed": false,
+  "files": [
+    {
+      "file": "D:/codex-isolated/auto-wake-control-c36ea996/source/tools/frozen-main-source.mjs",
+      "size": 935,
+      "sha256": "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6"
+    },
+    {
+      "file": "D:/codex-isolated/auto-wake-control-c36ea996/source/tools/publish-main.mjs",
+      "size": 19250,
+      "sha256": "228e151242e4c5351fb4ec294df44f9e4adadcf6c5a007931517e4c17ef82063"
+    }
+  ],
+  "oldGuardQueryOrder": [
+    [
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "rev-parse",
+      "HEAD^{tree}"
+    ],
+    [
+      "rev-parse",
+      "mainCommit^{tree}"
+    ],
+    [
+      "status",
+      "--porcelain"
+    ]
+  ],
+  "publicationBoundary": {
+    "source": "own controlRoot or separately pinned historical resume",
+    "request": "parent/main-release-request.json",
+    "guardBefore": [
+      "check branch",
+      "prepare/deploy native imports"
+    ]
+  },
+  "atomicSnapshotClaimed": false
+}

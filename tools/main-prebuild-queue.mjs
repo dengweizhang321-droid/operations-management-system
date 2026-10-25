@@ -128,12 +128,13 @@ export async function readPreparationQueueInventory(directory){
  return {tickets,dispatches,referenced,terminals};
 }
 /** observe may fetch/read only. prepare receives its exact frozen selection. */
-export async function drainPreparationQueue(directory,{configSha256,bundleSha256,observe,prepare,assertGeneration=async()=>{},afterUnlock=async()=>{},onStage=async()=>{},admitPreparation=async()=>{},admitSelectedPreparation=async()=>{}}){
- assert.ok(hex.test(configSha256)&&hex.test(bundleSha256));await initializeQueue(directory);let handled=0;
+export async function drainPreparationQueue(directory,{configSha256,bundleSha256,observe,prepare,assertGeneration=async()=>{},afterUnlock=async()=>{},onStage=async()=>{},admitPreparation=async()=>{},admitSelectedPreparation=async()=>{},retirementScope,invalidateRetirementScope}){
+ assert.ok(hex.test(configSha256)&&hex.test(bundleSha256));if(retirementScope!==undefined)assert.equal(typeof invalidateRetirementScope,'function','A retirement scope requires an explicit invalidation callback');invalidateRetirementScope??=async()=>{};await invalidateRetirementScope('queue-initialize');await initializeQueue(directory);let handled=0,firstIteration=true;
  for(;;){
   const unlock=await acquireQueueLock(directory);if(!unlock)return {status:'queued',handled};
   try{
    for(;;){
+    if(!firstIteration)await invalidateRetirementScope('queue-next-target');firstIteration=false;
     const inventory=await readPreparationQueueInventory(directory),tickets=inventory.tickets,pending=[],completed=[];
     for(const item of tickets){
      const terminal=inventory.terminals.get(item.value.requestId);
@@ -143,7 +144,7 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
     await assertGeneration();
     const incompatible=pending.filter(item=>item.value.configSha256!==configSha256||item.value.bundleSha256!==bundleSha256);
     for(const item of incompatible)assert.equal(inventory.referenced.has(item.value.requestId),false,'A dispatched incompatible ticket must retain its original operation');
-    if(incompatible.length){await assertGeneration();for(const item of incompatible){await durableCreate(path.join(directory,'results',item.value.requestId+'.json'),{version:queueVersion,requestId:item.value.requestId,ticketSha256:item.sha256,status:'blocked',admission:'incompatible-generation-before-dispatch-v1',at:new Date().toISOString(),configSha256:item.value.configSha256,bundleSha256:item.value.bundleSha256,rejectedBy:{configSha256,bundleSha256},error:'Incompatible control generation before dispatch; original ticket retained'});handled++;}continue;}
+    if(incompatible.length){await assertGeneration();await invalidateRetirementScope('incompatible-result-write');for(const item of incompatible){await durableCreate(path.join(directory,'results',item.value.requestId+'.json'),{version:queueVersion,requestId:item.value.requestId,ticketSha256:item.sha256,status:'blocked',admission:'incompatible-generation-before-dispatch-v1',at:new Date().toISOString(),configSha256:item.value.configSha256,bundleSha256:item.value.bundleSha256,rejectedBy:{configSha256,bundleSha256},error:'Incompatible control generation before dispatch; original ticket retained'});handled++;}continue;}
     // Any dispatched operation lacking all terminal receipts blocks new work.
     // Partial/invalid dispatch files block too; they are never treated as absent.
     let unresolved=null;
@@ -156,12 +157,13 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
       const original=tickets.find(t=>t.value.requestId===ref.requestId);assert.ok(original&&original.sha256===ref.ticketSha256,'Dispatch ticket binding changed');
       const terminal=await ticketResult(directory,ref.requestId,ref.ticketSha256);
       if(!terminal||['unknown','failed','blocked'].includes(terminal.status)){
-       if(!resolvedDispatches.has(dispatch.dispatchId))resolvedDispatches.set(dispatch.dispatchId,!!terminal&&await readPreparationResolution(directory,dispatch,inventory.terminals.get(dispatch.requestId)));
+       if(!resolvedDispatches.has(dispatch.dispatchId))resolvedDispatches.set(dispatch.dispatchId,!!terminal&&await readPreparationResolution(directory,dispatch,inventory.terminals.get(dispatch.requestId),{retirementScope}));
        if(!terminal||!resolvedDispatches.get(dispatch.dispatchId))unresolved={dispatch,sha256:read.sha256};
       }
      }
     }
     const finish=async(item,status,fields={})=>{
+     await invalidateRetirementScope('queue-terminal-write');
      await durableCreate(path.join(directory,'results',item.value.requestId+'.json'),{version:queueVersion,requestId:item.value.requestId,ticketSha256:item.sha256,status,at:new Date().toISOString(),configSha256,bundleSha256,...fields});handled++;
     };
     if(unresolved){
@@ -187,11 +189,11 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
      tickets:pending.map(item=>({requestId:item.value.requestId,ticketSha256:item.sha256,observedTarget:item.value.observedTarget})),
      mode:'prepare-only',configSha256,bundleSha256,selectedTarget:selection.targetCommit,selection,
      deadlineUnixMs:Date.now()+60*60*1000,dispatchedAt:new Date().toISOString()};
-    await onStage('before-dispatch');
+    await onStage('before-dispatch');await invalidateRetirementScope('queue-dispatch-write');
     const dispatchSha256=await durableCreate(path.join(directory,'dispatches',dispatchId+'.json'),dispatch);
     await onStage('after-dispatch');
     let result,error=null;
-    try{await onStage('before-prepare');result=await prepare(selection,dispatch,reusablePreparation);await onStage('after-prepare');
+    try{await onStage('before-prepare');await invalidateRetirementScope('queue-native-prepare');result=await prepare(selection,dispatch,reusablePreparation);await onStage('after-prepare');
      assert.equal(result.mainCommit??result.targetCommit,selection.targetCommit,'Preparation result target changed');
      assert.equal(result.publicationPerformed,false,'Queue cannot deploy');
      assert.ok(['prepared-only','already-current','non-production'].includes(result.status),'Native preparation did not complete');
@@ -205,7 +207,7 @@ export async function drainPreparationQueue(directory,{configSha256,bundleSha256
      else await finish(item,result.status==='prepared-only'?'prepared':result.status==='already-current'?'current':'non-production',{...reference,nativeResult:result});
     }
    }
-  }finally{await unlock();}
+  }finally{try{await invalidateRetirementScope('queue-unlock');}finally{await unlock();}}
   await afterUnlock();
   const remaining=await allTickets(directory);let more=false;
   for(const item of remaining)if(!await ticketResult(directory,item.value.requestId,item.sha256)){more=true;break;}

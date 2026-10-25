@@ -1,5 +1,25 @@
 # 任务记录目录
 
+本轮限定推进：[S05d D1/D2 真实入口补证](../s05d-real-entry-d12-20261023/REPORT.md) · [证据索引](../s05d-real-entry-d12-20261023/evidence-index.json)。D1三次有依据实验仍未满足入口判据，D2未进入、新Task为零；程序未改，已停止。
+
+本轮限定研究：[S05d 固定 GUI 薄启动器](../s05d-gui-launcher-20261023/REPORT.md) · [证据索引](../s05d-gui-launcher-20261023/evidence-index.json)。唯一私有运行未证明完整链，正式代码未改、新 Task 为零，已停止。
+
+本轮停止交付：[S05d 普通权限父子链修复（未通过）](../s05d-parent-chain-fix-20261023/REPORT.md) · [独立增量审查](../s05d-parent-chain-fix-20261023/REVIEW.md) · [仓库外证据索引](../s05d-parent-chain-fix-20261023/evidence-index.json)。
+
+本轮施工：[旧残留有限分类与 S05b 准入](../s05d-residual-classification-20261023/REPORT.md) · [限定方案](../s05d-residual-classification-20261023/PLAN-ADDENDUM.md) · [实施](../s05d-residual-classification-20261023/IMPLEMENTATION.md) · [独审](../s05d-residual-classification-20261023/REVIEW.md) · [采用记录](../s05d-residual-classification-20261023/S05B-RUNBOOK.md)。
+
+本轮只读核对：[S05d 十一个历史候选](../s05d-history-candidates-20261023/REPORT.md) · [逐项归属与引用](../s05d-history-candidates-20261023/OWNERSHIP.md) · [独立审查](../s05d-history-candidates-20261023/REVIEW.md)。
+
+本轮增量：[S05d guard 兼容与封存读取末次复验](../s05d-guard-cas-fix-20261023/REPORT.md) · [实施与最小检查](../s05d-guard-cas-fix-20261023/IMPLEMENTATION.md) · [独立复审](../s05d-guard-cas-fix-20261023/REVIEW.md)。
+
+本轮施工：[S05d/S05b 四步执行记录](../s05d-retirement-implementation-20261023/REPORT.md) · [授权与范围](../s05d-retirement-implementation-20261023/AUTHORIZATION.md) · [独立方案](../s05d-retirement-implementation-20261023/PLAN.md) · [独立审查](../s05d-retirement-implementation-20261023/REVIEW.md) · [现场续接清单](../s05d-retirement-implementation-20261023/LIVE-RUNBOOK.md)。状态以报告及原生回执为准。
+
+本轮设计验证：[S05d退休、对账、封存可行性](../s05d-retirement-feasibility-20261023/REPORT.md) · [独立方案](../s05d-retirement-feasibility-20261023/PLAN.md) · [源码与隔离证据](../s05d-retirement-feasibility-20261023/FEASIBILITY.md) · [独立审查](../s05d-retirement-feasibility-20261023/REVIEW.md)。生产仍未就绪。
+
+本轮阻塞交付：[S05d缺失失败回执调查](../s05d-missing-failure-20261022/REPORT.md) · [独立规划](../s05d-missing-failure-20261022/PLAN.md) · [隔离实现与检查](../s05d-missing-failure-20261022/IMPLEMENTATION.md) · [独立审查](../s05d-missing-failure-20261022/REVIEW.md)。诊断不等于恢复就绪，S05b未执行。
+
+本轮只读分析：[S05c发布耗时、ROI与真实缺口](../s05c-roi-baseline-20261022/REPORT.md) · [独立复核](../s05c-roi-baseline-20261022/REVIEW.md)。
+
 本轮补充：[规范瘦身与限定资格对照](../machine-cleanup-20261022/REPORT.md) · [独立审查](../machine-cleanup-20261022/REVIEW.md)。
 
 一次开发、审查、候选准备、发布和生产采用的记录按任务目录保存。既有任务目录及其非 Markdown 证据保留原位，避免拆散 JSON、截图、清单和校验记录。以下目录按用途分类，不据目录名称推断生产状态。
@@ -38,6 +58,8 @@
 | `opencode-go-user-agent-20261013` | 2 | [OpenCode Go 请求头修复](../opencode-go-user-agent-20261013/REPORT.md) |
 
 ## 发布与交付
+
+本轮规划：[发布提速 ROI 施工看板](../施工/BOARD.md) · [执行约定](../施工/执行约定.md) · [调整报告](../施工/REPORT.md)（只调整文档，保留已通过任务；未实施代码或生产动作）。
 
 本轮补充：[PiBusiness/PiNative ACL 契约门禁](../schema-acl-gate-20261020/REPORT.md)（已合并，含发布范围计划）。
 

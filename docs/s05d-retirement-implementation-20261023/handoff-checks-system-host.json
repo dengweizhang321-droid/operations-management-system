@@ -1,0 +1,33 @@
+{
+    "incrementTests":  1,
+    "productionOperationPerformed":  false,
+    "increment":  "fixed OS System32 powershell executable native hardlink role only; source remains single-link",
+    "version":  "s05d-handoff-private-check-v1",
+    "taskRegistered":  false,
+    "allFourteenRepeated":  false,
+    "files":  [
+                  {
+                      "sha256":  "da1e08c8b1d8b0adf2285c5a3d31f7dce4c3b2ff35a05e4f3b375c302111c397",
+                      "file":  "tools/preparation-retirement-handoff.mjs",
+                      "bytes":  50024
+                  },
+                  {
+                      "sha256":  "7ad4e67e94fcdf5996dc2a962045e6f1d10ba6a1a0337058b211dea5312b531c",
+                      "file":  "tools/preparation-retirement-handoff-runner.ps1",
+                      "bytes":  9766
+                  },
+                  {
+                      "sha256":  "d7755418c8987d9c800b7712992f41e6aa3275d52ca85fd34233a1f1ae989af6",
+                      "file":  "tests/preparation-retirement-handoff.test.mjs",
+                      "bytes":  18113
+                  },
+                  {
+                      "sha256":  "894657405f4519680d03e1e4ebb1d46a1aab4205d01df4ce5e9d658fbebe495a",
+                      "file":  "docs/s05d-retirement-implementation-20261023/handoff-tests-system-host.txt",
+                      "bytes":  440
+                  }
+              ],
+    "incrementPassed":  1,
+    "priorChecks":  "handoff-checks-admission.json",
+    "taskStarted":  false
+}

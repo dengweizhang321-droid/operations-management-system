@@ -1,0 +1,13 @@
+✔ private actual collector/Git/evidence composition survives post-artifact observer failure, seals same intent, and the full private reader rejects late closure/archive/address mutations (29467.9832ms)
+✔ opaque scope binds even empty registry, survives dirty without identity migration, and rejects forged/closed/config-drift tokens (23.7749ms)
+✔ empty registry concurrency, cancellation and non-awaited reads drain without late success or scope revival (6.5849ms)
+✔ real publisher fetch and queue mutation/next-target/unlock routes invalidate without creating a source or changing old unknown behavior (63.7571ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 29602.6601
+

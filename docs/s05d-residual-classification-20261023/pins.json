@@ -1,0 +1,67 @@
+{
+  "version": "s05d-residual-classification-pins-v1",
+  "frozenAt": "2026-10-23T03:11:17.983Z",
+  "baseCommit": "c7f94a7929673c27871511ad799c3e137002e31e",
+  "files": {
+    "tools/preparation-retirement-history.mjs": {
+      "size": 46950,
+      "sha256": "3ebf251a19f8f06d164acc9dca6e2395cef7c6c10c7cd440f282e805582c9e9f"
+    },
+    "tools/preparation-retirement-collector.mjs": {
+      "size": 57327,
+      "sha256": "4fc3afbb0974d0ce163b2279e561f51ee8ba6bb23b4ad5b502ec888151cea2a9"
+    },
+    "tests/preparation-retirement-residual.test.mjs": {
+      "size": 15316,
+      "sha256": "08495000ca5861e9d69f0536121d7397d53ecd44c2db95fd52b445d63059c816"
+    },
+    "tests/fixtures/s05d-old-source-entry/worker-local-release-residual.mjs": {
+      "size": 144825,
+      "sha256": "0d945b0d4c83307171c0affeaba1df6410abb3487368e077fe7fca6bc1c57c0d"
+    },
+    "tests/fixtures/s05d-old-source-entry/residual-verifier-manifest.json": {
+      "size": 7773,
+      "sha256": "16a6290c4f1954c6c05a4acacf783745ecfda930a8f0a4c975f745bf13311666"
+    },
+    "docs/s05d-residual-classification-20261023/IMPLEMENTATION.md": {
+      "size": 5630,
+      "sha256": "7f6a97a8e3418e70dc08c83c3c20b768ff631c2766e506fa74e03dd3bcbaddaa"
+    },
+    "docs/s05d-residual-classification-20261023/consumer-family-inspection.json": {
+      "size": 3880,
+      "sha256": "bae62b663d92b4ef29f13bd6531db858b7d01e3914d716e4fc7e88a8ec4f0f08"
+    },
+    "docs/s05d-residual-classification-20261023/source-schema-inspection.json": {
+      "size": 14693,
+      "sha256": "2f29641f5b0bfa7da5e68be4b6867f1a6699d64372de9f89d194b013610bddf7"
+    },
+    "docs/s05d-residual-classification-20261023/plan-schema-inspection.json": {
+      "size": 10660,
+      "sha256": "a2c3ad16e9c9672d063d7ae79522db3c47e783c56bc0b1e573dbbd139be350c5"
+    },
+    "docs/s05d-residual-classification-20261023/checks-1.txt": {
+      "size": 1924,
+      "sha256": "d499537195fdcddd307db8dfb048a9eeb9ee548ac697ba92e76a4beb05f1df8d"
+    },
+    "docs/s05d-residual-classification-20261023/checks-1.json": {
+      "size": 288,
+      "sha256": "abe9de55479022ba1820cc065a4f604a955c909273a87f7c1899abb2bdab1ccf"
+    },
+    "docs/s05d-residual-classification-20261023/checks-2.txt": {
+      "size": 625,
+      "sha256": "d230d16d7a6d78b6f84fda35f351050e1fb42a1edd906c4811e017b5c258b588"
+    },
+    "docs/s05d-residual-classification-20261023/checks-2.json": {
+      "size": 386,
+      "sha256": "5e93529ff56c015d35410df17a0692a8d096fa13c34844cbf5ec6498a24f55d8"
+    },
+    "docs/s05d-residual-classification-20261023/checks-3.txt": {
+      "size": 231,
+      "sha256": "78fef9aeafafe74e7ea48d2c6dbebba9735c3e980052623393fe26e8423a7aae"
+    },
+    "docs/s05d-residual-classification-20261023/checks-3.json": {
+      "size": 460,
+      "sha256": "d3e57000d77d6a7af21229923253981944bd185e53e8a0e2a514f8d4286deea6"
+    }
+  }
+}

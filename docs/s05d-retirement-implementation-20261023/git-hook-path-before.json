@@ -1,0 +1,19 @@
+{
+  "version": "s05d-git-hook-path-before-v1",
+  "at": "2026-10-22T19:50:04.347Z",
+  "readOnly": true,
+  "repository": "D:\\运营管理系统",
+  "gitExecutable": "D:\\git\\Git\\cmd\\git.exe",
+  "configSha256": "a90c9b8072e1ed6dd225072aa59e78075ea82639498f9ad74c19fc1be5f77642",
+  "commonGitDir": "D:/运营管理系统/.git",
+  "effectiveHook": "D:/运营管理系统/.git/hooks/reference-transaction",
+  "hookSha256": "582301cd2a8a7be84faf25ac762fd31de130c6bd984c360de05c1f068d11f987",
+  "hooksPathSetting": null,
+  "worktreeConfigExtension": "true",
+  "gitEnvironmentKeys": [
+    "GIT_PAGER"
+  ],
+  "installationSha256": "74724dfae400f312e1907ee1f565faf28d46c3842f29916c0f8f2d9f143e4b0e",
+  "installId": "ade68625-9378-4358-b31f-e2139c5953e2",
+  "productionWritePerformed": false
+}

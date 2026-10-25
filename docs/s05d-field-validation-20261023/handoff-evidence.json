@@ -1,0 +1,27 @@
+{
+  "version": "s05d-field-handoff-evidence-index-v1",
+  "status": "inert-same-chain-positive",
+  "artifactDirectory": "D:/codex-artifacts/s05d-field-validation-20261023/handoff-e131561d-2ade-4e1b-ab59-2dade0288dcc",
+  "candidateCommit": "9925e6ac0a616f7c83c710f2a98993a7a58dad42",
+  "candidateSha256": "4a9384bfc6ba10300139c769b2f796ff3ffa0baa2be6d256b9eff1bf7dd5e5ac",
+  "runnerSha256": "7ad4e67e94fcdf5996dc2a962045e6f1d10ba6a1a0337058b211dea5312b531c",
+  "taskName": "TERUISI.HandoffSameChain.Diagnostic.e131561d-2ade-4e1b-ab59-2dade0288dcc",
+  "runExCount": 1,
+  "runexGuid": "{3CD38486-5285-4A84-953E-31AB6565A67F}",
+  "enginePid": 6288,
+  "ordinaryUniqueSamples": 3,
+  "highUniqueSamples": 8,
+  "hidden": false,
+  "definitionAndSecurityUnchanged": true,
+  "directNodeExitCode": 0,
+  "outputComplete": true,
+  "diagnosticTaskDeletedAndVerifiedAbsent": true,
+  "businessInvoked": false,
+  "oldRunsOrTasksModified": false,
+  "files": [
+    {"name": "RESULT.json", "sha256": "5cc6089781b1352e00e0b6e29c0eb8506341e05ec3ad1530b890d1c5663edf8a"},
+    {"name": "EVIDENCE-SHA256.json", "sha256": "71f29fed882b209d1635a71c305382b39205611b0323159d9b1195c9920ab05a"},
+    {"name": "cleanup.json", "sha256": "565d748c69ef9364aadb53b5776ab897019f874e36160330c0589aa368aef5cf"}
+  ],
+  "limits": ["No native prepare/adopt or real handoff business phase invoked", "No old unknown replay", "No exact t=0 visibility claim"]
+}

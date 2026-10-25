@@ -1,0 +1,759 @@
+{
+  "version": "s05d-bounded-lifecycle-source-inspection-v1",
+  "stage": "D:/teruisi-runtime/teruisi-worker-sales/.staging/deploy-fca7de7a-978e-42f6-a752-b168d69903ea/build",
+  "lockSha256": "8ec00f801aff894796d783595d202811bccbe94296603ae26766864247d4a4ca",
+  "budget": {
+    "maxLeafAttempts": 24,
+    "maxLeafBytes": 131072,
+    "maxTotalBytes": 262144
+  },
+  "actual": {
+    "attempts": 24,
+    "present": 23,
+    "bytes": 114552
+  },
+  "packages": [
+    {
+      "path": "node_modules/@esbuild-kit/core-utils/node_modules/esbuild",
+      "version": "0.18.20",
+      "manifestSha256": "37251f359539b55497a78f9daaff4545c30ed6c3d1c2e4fac01aa5a5d3d5bf7b",
+      "lifecycle": {
+        "postinstall": "node install.js"
+      }
+    },
+    {
+      "path": "node_modules/drizzle-kit/node_modules/esbuild",
+      "version": "0.25.12",
+      "manifestSha256": "cb7d5b1fe478f8cbaae566a86031b6fdf5f7d444354f35d1cb3cba9adf6d2935",
+      "lifecycle": {
+        "postinstall": "node install.js"
+      }
+    },
+    {
+      "path": "node_modules/esbuild",
+      "version": "0.28.0",
+      "manifestSha256": "4316bc9a54bbf659d5760f299910d1824045178557e0aea6a1e3c64148fe8a50",
+      "lifecycle": {
+        "postinstall": "node install.js"
+      }
+    },
+    {
+      "path": "node_modules/fsevents",
+      "version": "2.3.3",
+      "present": false,
+      "lockOs": [
+        "darwin"
+      ]
+    },
+    {
+      "path": "node_modules/sharp",
+      "version": "0.34.5",
+      "manifestSha256": "e6be69319929151be3aa240bf1485f25a3477cb6d2286f92510b9fceb3cbef26",
+      "lifecycle": {
+        "install": "node install/check.js || npm run build"
+      }
+    },
+    {
+      "path": "node_modules/unrs-resolver",
+      "version": "1.11.1",
+      "manifestSha256": "0510c5611b2c4436d12364dff5ddd0f227dacd174cadd62141b226bce1fa4b19",
+      "lifecycle": {
+        "postinstall": "napi-postinstall unrs-resolver 1.11.1 check"
+      }
+    },
+    {
+      "path": "node_modules/workerd",
+      "version": "1.20260515.1",
+      "manifestSha256": "db07f3fbd0cb0f43a9502f22aede4f96170469287066788d98a5e555a562431b",
+      "lifecycle": {
+        "postinstall": "node install.js"
+      }
+    },
+    {
+      "path": "node_modules/wrangler/node_modules/esbuild",
+      "version": "0.27.3",
+      "manifestSha256": "24655ca1d9c91fe7517a99ec27bf1125b46efae71b54a55125d2a930b6ad61f9",
+      "lifecycle": {
+        "postinstall": "node install.js"
+      }
+    }
+  ],
+  "files": [
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\@esbuild-kit\\core-utils\\node_modules\\esbuild\\package.json",
+      "kind": "locked-package-manifest",
+      "present": true,
+      "bytes": 1283,
+      "sha256": "37251f359539b55497a78f9daaff4545c30ed6c3d1c2e4fac01aa5a5d3d5bf7b"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\drizzle-kit\\node_modules\\esbuild\\package.json",
+      "kind": "locked-package-manifest",
+      "present": true,
+      "bytes": 1490,
+      "sha256": "cb7d5b1fe478f8cbaae566a86031b6fdf5f7d444354f35d1cb3cba9adf6d2935"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\esbuild\\package.json",
+      "kind": "locked-package-manifest",
+      "present": true,
+      "bytes": 3980,
+      "sha256": "4316bc9a54bbf659d5760f299910d1824045178557e0aea6a1e3c64148fe8a50"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\fsevents\\package.json",
+      "kind": "locked-package-manifest",
+      "present": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\sharp\\package.json",
+      "kind": "locked-package-manifest",
+      "present": true,
+      "bytes": 7478,
+      "sha256": "e6be69319929151be3aa240bf1485f25a3477cb6d2286f92510b9fceb3cbef26"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\unrs-resolver\\package.json",
+      "kind": "locked-package-manifest",
+      "present": true,
+      "bytes": 2674,
+      "sha256": "0510c5611b2c4436d12364dff5ddd0f227dacd174cadd62141b226bce1fa4b19"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\workerd\\package.json",
+      "kind": "locked-package-manifest",
+      "present": true,
+      "bytes": 676,
+      "sha256": "db07f3fbd0cb0f43a9502f22aede4f96170469287066788d98a5e555a562431b"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\wrangler\\node_modules\\esbuild\\package.json",
+      "kind": "locked-package-manifest",
+      "present": true,
+      "bytes": 1463,
+      "sha256": "24655ca1d9c91fe7517a99ec27bf1125b46efae71b54a55125d2a930b6ad61f9"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\@esbuild-kit\\core-utils\\node_modules\\esbuild\\install.js",
+      "kind": "direct-lifecycle-or-bounded-helper",
+      "present": true,
+      "bytes": 10923,
+      "sha256": "18f7ff75bb18580d3c63fcecee46b6d8c3872f01a46a86c2cddb87303378d281",
+      "selectedLines": [
+        {
+          "line": 89,
+          "text": "var https = require(\"https\");"
+        },
+        {
+          "line": 98,
+          "text": "stdout = child_process.execFileSync(command.shift(), command, {"
+        },
+        {
+          "line": 106,
+          "text": "// - https://snapcraft.io/ (what the Snap Store is)"
+        },
+        {
+          "line": 107,
+          "text": "// - https://nodejs.org/dist/ (download the official version of node)"
+        },
+        {
+          "line": 108,
+          "text": "// - https://github.com/evanw/esbuild/issues/1711#issuecomment-1027554035"
+        },
+        {
+          "line": 116,
+          "text": "os3 = \"macOS \" + child_process.execFileSync(\"sw_vers\", [\"-productVersion\"]).toString().trim();"
+        },
+        {
+          "line": 144,
+          "text": "https.get(url, (res) => {"
+        },
+        {
+          "line": 180,
+          "text": "fs2.mkdirSync(installDir);"
+        },
+        {
+          "line": 182,
+          "text": "fs2.writeFileSync(path2.join(installDir, \"package.json\"), \"{}\");"
+        },
+        {
+          "line": 183,
+          "text": "child_process.execSync("
+        },
+        {
+          "line": 214,
+          "text": "fs2.writeFileSync(toPath, `#!/usr/bin/env node"
+        },
+        {
+          "line": 215,
+          "text": "require('child_process').execFileSync(${pathString}, process.argv.slice(2), { stdio: 'inherit' });"
+        },
+        {
+          "line": 219,
+          "text": "fs2.writeFileSync(libMain, `var ESBUILD_BINARY_PATH = ${pathString};"
+        },
+        {
+          "line": 234,
+          "text": "async function downloadDirectlyFromNPM(pkg, subpath, binPath) {"
+        },
+        {
+          "line": 235,
+          "text": "const url = `https://registry.npmjs.org/${pkg}/-/${pkg.replace(\"@esbuild/\", \"\")}-${versionFromPackageJSON}.tgz`;"
+        },
+        {
+          "line": 238,
+          "text": "fs2.writeFileSync(binPath, extractFileFromTarGzip(await fetch(url), subpath));"
+        },
+        {
+          "line": 273,
+          "text": "await downloadDirectlyFromNPM(pkg, subpath, binPath);"
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\drizzle-kit\\node_modules\\esbuild\\install.js",
+      "kind": "direct-lifecycle-or-bounded-helper",
+      "present": true,
+      "bytes": 11160,
+      "sha256": "10f6fa3644d8d23d066ff67b0ae449074e75884503546a9fedb667f1dcb9ade2",
+      "selectedLines": [
+        {
+          "line": 93,
+          "text": "var https = require(\"https\");"
+        },
+        {
+          "line": 102,
+          "text": "stdout = child_process.execFileSync(command.shift(), command, {"
+        },
+        {
+          "line": 110,
+          "text": "// - https://snapcraft.io/ (what the Snap Store is)"
+        },
+        {
+          "line": 111,
+          "text": "// - https://nodejs.org/dist/ (download the official version of node)"
+        },
+        {
+          "line": 112,
+          "text": "// - https://github.com/evanw/esbuild/issues/1711#issuecomment-1027554035"
+        },
+        {
+          "line": 120,
+          "text": "os3 = \"macOS \" + child_process.execFileSync(\"sw_vers\", [\"-productVersion\"]).toString().trim();"
+        },
+        {
+          "line": 148,
+          "text": "https.get(url, (res) => {"
+        },
+        {
+          "line": 183,
+          "text": "fs2.mkdirSync(installDir);"
+        },
+        {
+          "line": 185,
+          "text": "fs2.writeFileSync(path2.join(installDir, \"package.json\"), \"{}\");"
+        },
+        {
+          "line": 186,
+          "text": "child_process.execSync("
+        },
+        {
+          "line": 215,
+          "text": "fs2.writeFileSync(toPath, `#!/usr/bin/env node"
+        },
+        {
+          "line": 216,
+          "text": "require('child_process').execFileSync(${pathString}, process.argv.slice(2), { stdio: 'inherit' });"
+        },
+        {
+          "line": 220,
+          "text": "fs2.writeFileSync(libMain, `var ESBUILD_BINARY_PATH = ${pathString};"
+        },
+        {
+          "line": 236,
+          "text": "async function downloadDirectlyFromNPM(pkg, subpath, binPath) {"
+        },
+        {
+          "line": 237,
+          "text": "const url = `https://registry.npmjs.org/${pkg}/-/${pkg.replace(\"@esbuild/\", \"\")}-${versionFromPackageJSON}.tgz`;"
+        },
+        {
+          "line": 240,
+          "text": "fs2.writeFileSync(binPath, extractFileFromTarGzip(await fetch(url), subpath));"
+        },
+        {
+          "line": 275,
+          "text": "await downloadDirectlyFromNPM(pkg, subpath, binPath);"
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\esbuild\\install.js",
+      "kind": "direct-lifecycle-or-bounded-helper",
+      "present": true,
+      "bytes": 11747,
+      "sha256": "37fdf9e431a9c2419fe7e939fcd5c8c941b17b00a33a7e452781118d788de918",
+      "selectedLines": [
+        {
+          "line": 93,
+          "text": "var https = require(\"https\");"
+        },
+        {
+          "line": 103,
+          "text": "stdout = child_process.execFileSync(command.shift(), command, {"
+        },
+        {
+          "line": 111,
+          "text": "// - https://snapcraft.io/ (what the Snap Store is)"
+        },
+        {
+          "line": 112,
+          "text": "// - https://nodejs.org/dist/ (download the official version of node)"
+        },
+        {
+          "line": 113,
+          "text": "// - https://github.com/evanw/esbuild/issues/1711#issuecomment-1027554035"
+        },
+        {
+          "line": 121,
+          "text": "os3 = \"macOS \" + child_process.execFileSync(\"sw_vers\", [\"-productVersion\"]).toString().trim();"
+        },
+        {
+          "line": 149,
+          "text": "https.get(url, (res) => {"
+        },
+        {
+          "line": 184,
+          "text": "fs2.mkdirSync(installDir);"
+        },
+        {
+          "line": 186,
+          "text": "fs2.writeFileSync(path2.join(installDir, \"package.json\"), \"{}\");"
+        },
+        {
+          "line": 187,
+          "text": "child_process.execSync("
+        },
+        {
+          "line": 217,
+          "text": "fs2.writeFileSync(toPath, `#!/usr/bin/env node"
+        },
+        {
+          "line": 218,
+          "text": "require('child_process').execFileSync(${pathString}, process.argv.slice(2), { stdio: 'inherit' });"
+        },
+        {
+          "line": 222,
+          "text": "fs2.writeFileSync(libMain, `var ESBUILD_BINARY_PATH = ${pathString};"
+        },
+        {
+          "line": 244,
+          "text": "async function downloadDirectlyFromNPM(pkg, subpath, binPath) {"
+        },
+        {
+          "line": 245,
+          "text": "const url = `https://registry.npmjs.org/${pkg}/-/${pkg.replace(\"@esbuild/\", \"\")}-${packageJSON.version}.tgz`;"
+        },
+        {
+          "line": 250,
+          "text": "fs2.writeFileSync(binPath, bytes);"
+        },
+        {
+          "line": 286,
+          "text": "await downloadDirectlyFromNPM(pkg, subpath, binPath);"
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\workerd\\install.js",
+      "kind": "direct-lifecycle-or-bounded-helper",
+      "present": true,
+      "bytes": 9267,
+      "sha256": "1fca74dfa499a8b286f08c585af3019f2b66b19e26ff27efd17cdf4cfe7952bd",
+      "selectedLines": [
+        {
+          "line": 57,
+          "text": "var import_https = __toESM(require(\"https\"));"
+        },
+        {
+          "line": 65,
+          "text": "stdout = import_child_process.default.execFileSync(command.shift(), command, {"
+        },
+        {
+          "line": 73,
+          "text": "// - https://snapcraft.io/ (what the Snap Store is)"
+        },
+        {
+          "line": 74,
+          "text": "// - https://nodejs.org/dist/ (download the official version of node)"
+        },
+        {
+          "line": 75,
+          "text": "// - https://github.com/evanw/esbuild/issues/1711#issuecomment-1027554035"
+        },
+        {
+          "line": 114,
+          "text": "import_https.default.get(url, (res) => {"
+        },
+        {
+          "line": 151,
+          "text": "import_fs.default.mkdirSync(installDir);"
+        },
+        {
+          "line": 153,
+          "text": "import_fs.default.writeFileSync(import_path2.default.join(installDir, \"package.json\"), \"{}\");"
+        },
+        {
+          "line": 154,
+          "text": "import_child_process.default.execSync("
+        },
+        {
+          "line": 198,
+          "text": "async function downloadDirectlyFromNPM(pkg, subpath, binPath) {"
+        },
+        {
+          "line": 200,
+          "text": "const url = `https://registry.npmjs.org/${pkg}/-/${unscopedPkg}-${\"1.20260515.1\"}.tgz`;"
+        },
+        {
+          "line": 203,
+          "text": "import_fs.default.writeFileSync("
+        },
+        {
+          "line": 237,
+          "text": "await downloadDirectlyFromNPM(pkg, subpath, binPath);"
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\wrangler\\node_modules\\esbuild\\install.js",
+      "kind": "direct-lifecycle-or-bounded-helper",
+      "present": true,
+      "bytes": 11160,
+      "sha256": "10f6fa3644d8d23d066ff67b0ae449074e75884503546a9fedb667f1dcb9ade2",
+      "selectedLines": [
+        {
+          "line": 93,
+          "text": "var https = require(\"https\");"
+        },
+        {
+          "line": 102,
+          "text": "stdout = child_process.execFileSync(command.shift(), command, {"
+        },
+        {
+          "line": 110,
+          "text": "// - https://snapcraft.io/ (what the Snap Store is)"
+        },
+        {
+          "line": 111,
+          "text": "// - https://nodejs.org/dist/ (download the official version of node)"
+        },
+        {
+          "line": 112,
+          "text": "// - https://github.com/evanw/esbuild/issues/1711#issuecomment-1027554035"
+        },
+        {
+          "line": 120,
+          "text": "os3 = \"macOS \" + child_process.execFileSync(\"sw_vers\", [\"-productVersion\"]).toString().trim();"
+        },
+        {
+          "line": 148,
+          "text": "https.get(url, (res) => {"
+        },
+        {
+          "line": 183,
+          "text": "fs2.mkdirSync(installDir);"
+        },
+        {
+          "line": 185,
+          "text": "fs2.writeFileSync(path2.join(installDir, \"package.json\"), \"{}\");"
+        },
+        {
+          "line": 186,
+          "text": "child_process.execSync("
+        },
+        {
+          "line": 215,
+          "text": "fs2.writeFileSync(toPath, `#!/usr/bin/env node"
+        },
+        {
+          "line": 216,
+          "text": "require('child_process').execFileSync(${pathString}, process.argv.slice(2), { stdio: 'inherit' });"
+        },
+        {
+          "line": 220,
+          "text": "fs2.writeFileSync(libMain, `var ESBUILD_BINARY_PATH = ${pathString};"
+        },
+        {
+          "line": 236,
+          "text": "async function downloadDirectlyFromNPM(pkg, subpath, binPath) {"
+        },
+        {
+          "line": 237,
+          "text": "const url = `https://registry.npmjs.org/${pkg}/-/${pkg.replace(\"@esbuild/\", \"\")}-${versionFromPackageJSON}.tgz`;"
+        },
+        {
+          "line": 240,
+          "text": "fs2.writeFileSync(binPath, extractFileFromTarGzip(await fetch(url), subpath));"
+        },
+        {
+          "line": 275,
+          "text": "await downloadDirectlyFromNPM(pkg, subpath, binPath);"
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\sharp\\install\\check.js",
+      "kind": "direct-lifecycle-or-bounded-helper",
+      "present": true,
+      "bytes": 383,
+      "sha256": "31fd360ede9ff3e80d643faff6c4570d0b2b5c621dc421b6c4086dfe86ce981f",
+      "selectedLines": []
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\sharp\\install\\build.js",
+      "kind": "direct-lifecycle-or-bounded-helper",
+      "present": true,
+      "bytes": 882,
+      "sha256": "37f7c9591d75dbc5fe734c5a196a46c355b3d7de5134260ba011efed8433a718",
+      "selectedLines": [
+        {
+          "line": 13,
+          "text": "log('Attempting to build from source via node-gyp');"
+        },
+        {
+          "line": 14,
+          "text": "log('See https://sharp.pixelplumbing.com/install#building-from-source');"
+        },
+        {
+          "line": 24,
+          "text": "const gyp = require('node-gyp');"
+        },
+        {
+          "line": 25,
+          "text": "log(`Found node-gyp ${gyp().version}`);"
+        },
+        {
+          "line": 27,
+          "text": "log('Please add node-gyp to your dependencies');"
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\sharp\\lib\\libvips.js",
+      "kind": "direct-lifecycle-or-bounded-helper",
+      "present": true,
+      "bytes": 5947,
+      "sha256": "ae8cbc8008bf88f5100ca56729ed43d45cd88316e030dc2eed62e142f657cd79",
+      "selectedLines": [
+        {
+          "line": 6,
+          "text": "const { spawnSync } = require('node:child_process');"
+        },
+        {
+          "line": 26,
+          "text": "const spawnSyncOptions = {"
+        },
+        {
+          "line": 103,
+          "text": "const translated = spawnSync('sysctl sysctl.proc_translated', spawnSyncOptions).stdout;"
+        },
+        {
+          "line": 127,
+          "text": "spawnSync(`node-gyp rebuild --directory=src ${isEmscripten() ? '--nodedir=emscripten' : ''}`, {"
+        },
+        {
+          "line": 128,
+          "text": "...spawnSyncOptions,"
+        },
+        {
+          "line": 134,
+          "text": "const globalLibvipsVersion = spawnSync('pkg-config --modversion vips-cpp', {"
+        },
+        {
+          "line": 135,
+          "text": "...spawnSyncOptions,"
+        },
+        {
+          "line": 152,
+          "text": "const brewPkgConfigPath = spawnSync("
+        },
+        {
+          "line": 154,
+          "text": "spawnSyncOptions"
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\napi-postinstall\\package.json",
+      "kind": "direct-lifecycle-or-bounded-helper",
+      "present": true,
+      "bytes": 844,
+      "sha256": "1bc0ea8874adb494c2b21ec47b9a434ae067ad65d6908c090299b1aa9e266687",
+      "package": {
+        "name": "napi-postinstall",
+        "version": "0.3.4",
+        "bin": "./lib/cli.js"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\napi-postinstall\\lib\\cli.js",
+      "kind": "direct-lifecycle-or-bounded-helper",
+      "present": true,
+      "bytes": 985,
+      "sha256": "2d79f5b3ee7566309a587c267ab8363881f5ebe97a728b0271fb530569b1f356",
+      "selectedLines": []
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\napi-postinstall\\lib\\index.js",
+      "kind": "direct-lifecycle-or-bounded-helper",
+      "present": true,
+      "bytes": 10533,
+      "sha256": "5c2547bb5ff29882a69737fe31509e32efc5a9cf0f4aa832e31e718403d70b04",
+      "selectedLines": [
+        {
+          "line": 8,
+          "text": "const http = require(\"node:http\");"
+        },
+        {
+          "line": 9,
+          "text": "const https = require(\"node:https\");"
+        },
+        {
+          "line": 17,
+          "text": "const apiClient = url.startsWith('http://') ? http : https;"
+        },
+        {
+          "line": 19,
+          "text": ".get(url, res => {"
+        },
+        {
+          "line": 70,
+          "text": "fs.mkdirSync(installDir, { recursive: true });"
+        },
+        {
+          "line": 83,
+          "text": "fs.writeFileSync(packageJsonPath, '{}');"
+        },
+        {
+          "line": 84,
+          "text": "(0, node_child_process_1.execSync)(`npm install --loglevel=error --prefer-offline --no-audit --progress=false${isWasm32Wasi ? ` --cpu=${constants_js_1.WASM32} --force` : ''} ${pkg}@${version}`, { cwd: installDir, stdio: 'pipe', env });"
+        },
+        {
+          "line": 96,
+          "text": "fs.mkdirSync(newPath, { recursive: true });"
+        },
+        {
+          "line": 121,
+          "text": "fs.mkdirSync(newPath, { recursive: true });"
+        },
+        {
+          "line": 137,
+          "text": "async function downloadDirectlyFromNPM(pkg, version, subpath, nodePath) {"
+        },
+        {
+          "line": 141,
+          "text": "fs.writeFileSync(nodePath, extractFileFromTarGzip(await fetch(url), subpath));"
+        },
+        {
+          "line": 197,
+          "text": "(0, node_child_process_1.execSync)(`yarn add -D ${pkg}@${version}`);"
+        },
+        {
+          "line": 222,
+          "text": "fs.mkdirSync(path.dirname(nodePath), { recursive: true });"
+        },
+        {
+          "line": 232,
+          "text": "await downloadDirectlyFromNPM(pkg, version, subpath, nodePath);"
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\napi-postinstall\\lib\\helpers.js",
+      "kind": "direct-lifecycle-or-bounded-helper",
+      "present": true,
+      "bytes": 8228,
+      "sha256": "31740188ff37907a490c98d1d483a0814257c4a35a182c732468a8dd053ddf67",
+      "selectedLines": [
+        {
+          "line": 16,
+          "text": "const target_js_1 = require(\"./target.js\");"
+        },
+        {
+          "line": 19,
+          "text": "const registry = (0, node_child_process_1.execSync)('npm config get registry', {"
+        },
+        {
+          "line": 130,
+          "text": "return (0, node_child_process_1.execSync)('ldd --version', { encoding: 'utf8' }).includes('musl');"
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\.staging\\deploy-fca7de7a-978e-42f6-a752-b168d69903ea\\build\\node_modules\\napi-postinstall\\lib\\constants.js",
+      "kind": "direct-lifecycle-or-bounded-helper",
+      "present": true,
+      "bytes": 703,
+      "sha256": "4e9382602f4ea68f6c598e7fd7a20088cb6a0da67700619b6dad654d811c9b61",
+      "selectedLines": [
+        {
+          "line": 5,
+          "text": "exports.DEFAULT_NPM_REGISTRY = 'https://registry.npmjs.org/';"
+        }
+      ]
+    },
+    {
+      "path": "D:\\codex-worktrees\\s05d-retirement-feasibility-20261023\\tools\\install-workerd-heap-patch.mjs",
+      "kind": "project-lifecycle",
+      "present": true,
+      "bytes": 2089,
+      "sha256": "0634508859843194bf178de678c0c587a0e774f88453422833c390cc085eb392"
+    },
+    {
+      "path": "D:\\codex-worktrees\\s05d-retirement-feasibility-20261023\\tools\\install-wrangler-inspector-patch.mjs",
+      "kind": "project-lifecycle",
+      "present": true,
+      "bytes": 4510,
+      "sha256": "d983b9f5f0148fba5dde03cf4edf03fc3761f6a621ab1a7b0f50eddc8cfbb839"
+    },
+    {
+      "path": "D:\\codex-worktrees\\s05d-retirement-feasibility-20261023\\package.json",
+      "kind": "project-lifecycle",
+      "present": true,
+      "bytes": 6147,
+      "sha256": "c4c7f6a0422370d7ac7c2c75bff2ad0c77f19d507d07cc8d98dcc8440f1d5056",
+      "lifecycle": {
+        "postinstall": "node tools/install-workerd-heap-patch.mjs"
+      }
+    }
+  ],
+  "classifications": [
+    {
+      "group": "Four esbuild install.js and workerd install.js",
+      "observed": "Local install directories/binary writes and binary version checks; npm-install fallback; direct HTTPS GET tarball fallback. No explicit remote mutating request, daemon or scheduler registration in these entry files."
+    },
+    {
+      "group": "unrs-resolver -> napi-postinstall",
+      "observed": "CLI dispatches checkAndPreparePackage. Bounded index/helper files use npm config lookup, local install/write and HTTP(S) GET download fallback. Platform target table and downstream npm internals were not followed."
+    },
+    {
+      "group": "sharp",
+      "observed": "Install check can request source build; bounded build/libvips files use local pkg-config/node-gyp subprocesses. Node-gyp implementation and compiler transitive actions were not followed."
+    },
+    {
+      "group": "fsevents",
+      "observed": "Not installed at the named stage; lockfile OS is darwin. Missing on Windows is a platform-selection fact, not a proof of the historical lifecycle trace."
+    },
+    {
+      "group": "Project postinstall",
+      "observed": "Named heap/inspector patch source reads and rewrites known dependency entry bytes locally."
+    }
+  ],
+  "limits": [
+    "Read-only fixed leaves; no dependency script, npm, network request, build, daemon or task operation executed.",
+    "Current stage bytes/name-version agreement are not a historical execution or unique dispatch ownership proof.",
+    "No infinite import closure claim: node-gyp, napi platform table, npm internals, native binaries and compile-plugin internals remain separately bounded work if necessary.",
+    "No observed remote write is not equivalent to a complete remote zero-effect proof."
+  ]
+}

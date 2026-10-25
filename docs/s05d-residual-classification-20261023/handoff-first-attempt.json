@@ -1,0 +1,108 @@
+{
+    "observedAt":  "2026-10-23T04:21:16.5307921Z",
+    "runDirectory":  "D:/codex-isolated/main-manual-release-20261016/retirement-handoff/runs/c6be141b-9f7a-488a-9671-f97807c26458",
+    "runId":  "c6be141b-9f7a-488a-9671-f97807c26458",
+    "sourceCommit":  "86a3cf15db4e62b6345123a45ad718981804d624",
+    "files":  [
+                  {
+                      "sha256":  "b3381f4f57277171d4667e2945c9bc389c4c10531bfaf7406b90fe39f171982e",
+                      "name":  "RUN.json",
+                      "bytes":  7402
+                  },
+                  {
+                      "sha256":  "a9fa8d27891a55e340fca6313eccef40d573846ec3af75253c5951e218534840",
+                      "name":  "TASK.json",
+                      "bytes":  3414
+                  },
+                  {
+                      "sha256":  "278ca4befea61e1d23b8fc384b93c5f56fc367ecd30b1181b51945652aed57cc",
+                      "name":  "ATTEMPT.json",
+                      "bytes":  256
+                  },
+                  {
+                      "sha256":  "31581f770e68e7fde9f0da82699498feca07156ed0487c5741e06c749e0ffcb4",
+                      "name":  "PARENT.json",
+                      "bytes":  609
+                  },
+                  {
+                      "sha256":  "bc21a512f4e0f39678d16293c029862d1d0f26bc8e22f2e51797557c69232fb7",
+                      "name":  "REQUESTED.json",
+                      "bytes":  214
+                  },
+                  {
+                      "sha256":  "410ec508cd248918c556af39374ba918f779dab3da1ddab9182ddac20e4249ef",
+                      "name":  "EXIT.json",
+                      "bytes":  643
+                  },
+                  {
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                      "name":  "stdout.log",
+                      "bytes":  0
+                  },
+                  {
+                      "sha256":  "fc3757389cca27f673ad1e055bc137a95b7893da3bf3fbf498a1639e50364035",
+                      "name":  "stderr.log",
+                      "bytes":  92
+                  }
+              ],
+    "stderr":  "{\"status\":\"handoff-refused\",\"error\":\"Runner task instance count is ambiguous\\n\\n0 !== 1\\n\"}\n",
+    "parent":  {
+                   "runId":  "c6be141b-9f7a-488a-9671-f97807c26458",
+                   "createdAt":  "2026-10-23T03:54:45.7476320Z",
+                   "executablePath":  "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                   "version":  "teruisi-preparation-retirement-handoff-v1",
+                   "executableSha256":  "8bb6fa8c283b4d92120b1ef249a9b311b0f804d4cabbe9981159976c8be76a5e",
+                   "identity":  {
+                                    "sid":  "S-1-5-21-815909789-107973518-1379257801-1001",
+                                    "integrityRid":  8192,
+                                    "elevated":  false,
+                                    "sessionId":  1
+                                },
+                   "commandLineSha256":  "54fd921246fc776c08b272d0e527d47eeaaf196f821dac06584f0309d268e28e",
+                   "pid":  26988,
+                   "runSha256":  "b3381f4f57277171d4667e2945c9bc389c4c10531bfaf7406b90fe39f171982e"
+               },
+    "directExit":  {
+                       "pid":  40860,
+                       "version":  "teruisi-preparation-retirement-handoff-v1",
+                       "exitCode":  1,
+                       "stderrBytes":  92,
+                       "runSha256":  "b3381f4f57277171d4667e2945c9bc389c4c10531bfaf7406b90fe39f171982e",
+                       "resultSha256":  null,
+                       "outputComplete":  true,
+                       "directExitAt":  "2026-10-23T03:54:51.9700999Z",
+                       "stdoutBytes":  0,
+                       "stdoutSha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                       "runId":  "c6be141b-9f7a-488a-9671-f97807c26458",
+                       "parentSha256":  "31581f770e68e7fde9f0da82699498feca07156ed0487c5741e06c749e0ffcb4",
+                       "phase":  "control-prepare",
+                       "createdAt":  "2026-10-23T03:54:49.1583539Z",
+                       "stderrSha256":  "fc3757389cca27f673ad1e055bc137a95b7893da3bf3fbf498a1639e50364035"
+                   },
+    "task":  {
+                 "lastResult":  1,
+                 "sddl":  "O:BAG:S-1-5-21-815909789-107973518-1379257801-1001D:(A;ID;0x1f019f;;;BA)(A;ID;0x1f019f;;;SY)(A;ID;FA;;;BA)(A;;FR;;;S-1-5-21-815909789-107973518-1379257801-1001)",
+                 "name":  "TERUISI.Retirement.c6be141b-9f7a-488a-9671-f97807c26458",
+                 "instances":  0,
+                 "state":  3
+             },
+    "unchangedBindings":  [
+                              {
+                                  "sha256":  "a90c9b8072e1ed6dd225072aa59e78075ea82639498f9ad74c19fc1be5f77642",
+                                  "path":  "D:/codex-isolated/main-manual-release-20261016/main-publisher-config.json"
+                              },
+                              {
+                                  "sha256":  "74724dfae400f312e1907ee1f565faf28d46c3842f29916c0f8f2d9f143e4b0e",
+                                  "path":  "D:/codex-isolated/main-manual-release-20261016/CONTROL-INSTALLATION.json"
+                              },
+                              {
+                                  "sha256":  "582301cd2a8a7be84faf25ac762fd31de130c6bd984c360de05c1f068d11f987",
+                                  "path":  "D:/运营管理系统/.git/hooks/reference-transaction"
+                              }
+                          ],
+    "materialsExist":  false,
+    "nativeCompletion":  false,
+    "status":  "attempted-unknown-no-replay",
+    "nativeCallReached":  false,
+    "callBoundaryEvidence":  "Exact bound stderr + direct EXIT + frozen code order; not inferred solely from absent files"
+}

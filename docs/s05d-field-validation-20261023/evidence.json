@@ -1,0 +1,71 @@
+{
+  "at": "2026-10-23T07:03:19.178Z",
+  "readOnly": true,
+  "candidateCommit": "9925e6ac0a616f7c83c710f2a98993a7a58dad42",
+  "globalClosureSucceeded": false,
+  "fourObjectReadComplete": true,
+  "totalItems": 101861,
+  "logicalBytes": 2161553832,
+  "elapsedMs": 417808,
+  "uniformSnapshotCasMs": 38860.274000000034,
+  "sampledPeakRss": 333922304,
+  "pinsUnchanged": true,
+  "productionGateProved": false,
+  "entries": [
+    {
+      "path": "D:/codex-artifacts/s05d-field-validation-20261023/inspect-code-5f1cef12-2d2a-41fc-bf95-7762e7eb349f/PINS.json",
+      "bytes": 5339,
+      "sha256": "d650d66875f4d36163cc9461fa4d171d6ec9ac92624b99b332ce20f3cda51a54"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-field-validation-20261023/inspect-3aebf329-c821-457f-8de6-1979a3546e3c.result.json",
+      "bytes": 6417,
+      "sha256": "1f5a2210f26a6bdbf2e7569899c225a0442fb0221fcf9a22d2cf32b3a3a210a2"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-field-validation-20261023/inspect-3aebf329-c821-457f-8de6-1979a3546e3c.progress.jsonl",
+      "bytes": 466,
+      "sha256": "fb899552adaf568b72fcb85f2bb862014306450e7bfd0aa568603b34bdfaa7bb"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-field-validation-20261023/inspect-3aebf329-c821-457f-8de6-1979a3546e3c.stages.jsonl",
+      "bytes": 25192,
+      "sha256": "c30a0312bf90d41bd37e0b45640fc3f6f85843c517bd50f79ebc2d7d7be571c7"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-field-validation-20261023/snapshot-ad9b8dca-9705-491c-8a0a-af8a2e3b2d39.result.json",
+      "bytes": 2947,
+      "sha256": "5609521c5396943e88069d09370477fcb991da18902381a15973d084a66d2c28"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-field-validation-20261023/snapshot-ad9b8dca-9705-491c-8a0a-af8a2e3b2d39.progress.jsonl",
+      "bytes": 6341,
+      "sha256": "811e879c88fc5dfd76c92164225eeb9f9277bb8bd3b946801a609bb5277316f6"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-field-validation-20261023/snapshot-ad9b8dca-9705-491c-8a0a-af8a2e3b2d39.stages.jsonl",
+      "bytes": 2507,
+      "sha256": "5f5990a1a8febf340ade00fab761a505b50f3d6ab065927197c648a896d4effb"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-field-validation-20261023/snapshot-ad9b8dca-9705-491c-8a0a-af8a2e3b2d39.object-1.json",
+      "bytes": 2881157,
+      "sha256": "945c140149299914ae33a3befcec25b0e57aa2ad74b3e16246dd84e59b40cbea"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-field-validation-20261023/snapshot-ad9b8dca-9705-491c-8a0a-af8a2e3b2d39.object-2.json",
+      "bytes": 2880988,
+      "sha256": "47063c207d161b5d204a22582514a7991f655a0352c27218ea89335d62c928ef"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-field-validation-20261023/snapshot-ad9b8dca-9705-491c-8a0a-af8a2e3b2d39.object-3.json",
+      "bytes": 12523472,
+      "sha256": "db8f98d4bf71ed243b336f989596a62de3c4e9aee4535776ff9e2b288d6711d5"
+    },
+    {
+      "path": "D:/codex-artifacts/s05d-field-validation-20261023/snapshot-ad9b8dca-9705-491c-8a0a-af8a2e3b2d39.object-4.json",
+      "bytes": 12419077,
+      "sha256": "e5721d89550d21e803135d139948e7cda3b8cdc5bf9cecbca606d9539c852731"
+    }
+  ]
+}

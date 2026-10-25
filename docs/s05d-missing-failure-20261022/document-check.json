@@ -1,0 +1,30 @@
+{
+  "at": "2026-10-22T16:10:33.326302+00:00",
+  "markdownFiles": 9,
+  "linksChecked": 1321,
+  "brokenLinks": [],
+  "gitDiffCheck": true,
+  "productionProtocolFilesUnchanged": [
+    "preparation-resolution.mjs",
+    "main-prebuild-queue.mjs",
+    "preparation-resolution-history.mjs",
+    "preparation-producer-qualification.mjs",
+    "cleaned-preparation-writer.mjs",
+    "cleaned-preparation-observer.mjs",
+    "install-main-prebuild.mjs"
+  ],
+  "finalSourceSha256": {
+    "tools/preparation-missing-failure-audit.mjs": "749be4a4a33b96fbb5d6efb23b206a4d13959727b6d83f22f19c5b52e23a12d6",
+    "tests/preparation-missing-failure-audit.test.mjs": "9455ffcf6509ca546491b357cf8b959eb831b6348678739be1381e057108ad04"
+  },
+  "queueJsonLeavesUnchanged": 212,
+  "directS05cObjectsUnchanged": 12,
+  "actualReadonlyAudit": {
+    "exitCode": 0,
+    "status": "blocked",
+    "code": "MISSING_FAILURE_BLOCKED",
+    "recoveryEligible": false,
+    "resolutionWritten": false
+  },
+  "recoveryReady": false
+}

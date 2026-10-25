@@ -1,0 +1,10 @@
+{
+  "defaultRoot": "D:\\运营管理系统-sales-django-release",
+  "head": "5faac8151f59d66de72c3caead8cad916ea547da",
+  "trackedStatus": "",
+  "differingTrackedFile": "tools/operations-system-control.ps1",
+  "defaultSha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+  "a3Sha256": "624cf40d3afa582ee77cd659d58292618809cfd15eedf389caf2c679350f7f3e",
+  "sameFileBytes": false,
+  "limit": "A differing tracked source file establishes different source bytes, not a full default-root integrity validation or future admission."
+}

@@ -1,0 +1,15 @@
+{
+  "at": "2026-10-23T03:03:19.176Z",
+  "completedAt": "2026-10-23T03:03:19.636Z",
+  "args": [
+    "--test",
+    "--test-timeout=60000",
+    "--test-name-pattern=both bounded residual shapes",
+    "tests/preparation-retirement-residual.test.mjs"
+  ],
+  "node": "v24.18.0",
+  "exitCode": 0,
+  "signal": null,
+  "scope": "incremental decoded source-binding envelope address preservation; previous other three results reused",
+  "productionCollectorRun": false
+}

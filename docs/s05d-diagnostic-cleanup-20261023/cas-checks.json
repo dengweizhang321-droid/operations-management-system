@@ -1,0 +1,12 @@
+{
+  "at": "2026-10-23T07:45:05.347Z",
+  "completedAt": "2026-10-23T07:45:06.357Z",
+  "args": [
+    "--test",
+    "--test-timeout=30000",
+    "tests/preparation-retirement-stability-cas.test.mjs"
+  ],
+  "exitCode": 0,
+  "node": "v24.18.0",
+  "productionRun": false
+}

@@ -1,0 +1,9 @@
+{
+  "root": "D:/codex-artifacts/s05d-field-validation-20261023/inspect-code-5f1cef12-2d2a-41fc-bf95-7762e7eb349f",
+  "driver": "D:/codex-worktrees/s05d-field-validation-20261023/docs/s05d-field-validation-20261023/readonly-field-scan.mjs",
+  "driverSha256": "f5ed38cd1283e73646b3595c2b457650b625582ee0cd943b76dce32510370e72",
+  "pinsSha256": "d650d66875f4d36163cc9461fa4d171d6ec9ac92624b99b332ce20f3cda51a54",
+  "files": 33,
+  "budgetMs": 1200000,
+  "productionBudgetsChanged": false
+}

@@ -1,0 +1,37 @@
+{
+    "oldToolsOrAPIsExecuted":  false,
+    "increment":  "per-leaf same-read metadata signatures for final lock CAS; single-link top tool/launcher roles; metadata-before-hash",
+    "version":  "s05d-history-private-check-v1",
+    "actualSingleLinked":  2091,
+    "actualMetadataOnlyLinkFiles":  2091,
+    "files":  [
+                  {
+                      "sha256":  "880330bf50e9ddb0843b0265be8fc85987bba01ba4f9818dcb6f8609fce4b690",
+                      "file":  "tools/preparation-retirement-history.mjs",
+                      "bytes":  30894
+                  },
+                  {
+                      "sha256":  "4079c2a171675a51ff9f7808c2bbde74ad016ea420dda096b60ed26eacdfdb16",
+                      "file":  "tests/preparation-retirement-history.test.mjs",
+                      "bytes":  11615
+                  },
+                  {
+                      "sha256":  "690256ccca1ad0ef9a3638b835b5add4349374656084391c3cc6f30793ec56d7",
+                      "file":  "docs/s05d-retirement-implementation-20261023/history-tests-cas.txt",
+                      "bytes":  642
+                  },
+                  {
+                      "sha256":  "dbee8ad36799fe01c42ca93264f612ef6190b2611bf30de7a4ec55078153dd0c",
+                      "file":  "docs/s05d-retirement-implementation-20261023/history-link-shapes.json",
+                      "bytes":  76
+                  },
+                  {
+                      "sha256":  "bf98403afb857ef76358b638aa111fbe161eca7a069f4c216977e3bdd10b3cb6",
+                      "file":  "docs/s05d-retirement-implementation-20261023/HISTORY.md",
+                      "bytes":  10935
+                  }
+              ],
+    "productionWrites":  false,
+    "incrementPassed":  2,
+    "priorChecks":  "history-checks.json"
+}

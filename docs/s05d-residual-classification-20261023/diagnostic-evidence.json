@@ -1,0 +1,47 @@
+{
+    "at":  "2026-10-23T03:46:45.3264289Z",
+    "readOnly":  true,
+    "productionActionsPerformed":  false,
+    "trials":  [
+                   {
+                       "name":  "readonly",
+                       "logs":  [
+                                    {
+                                        "path":  "D:/codex-artifacts/s05d-residual-classification-20261023/inspect-b0a2ddc1-7453-4cbf-b580-eb1e7dd3ab88.result.json",
+                                        "bytes":  6620,
+                                        "sha256":  "57abde3aa89d7714de191e904282addfa49dfb6520ca7a93f57ff7c157459eb6"
+                                    },
+                                    {
+                                        "path":  "D:/codex-artifacts/s05d-residual-classification-20261023/inspect-b0a2ddc1-7453-4cbf-b580-eb1e7dd3ab88.progress.jsonl",
+                                        "bytes":  681,
+                                        "sha256":  "9c3be0d8c9688ab5e79c0fd6a3296f470ef8247dc09bc2a64ffc03a55c4b869d"
+                                    },
+                                    {
+                                        "path":  "D:/codex-artifacts/s05d-residual-classification-20261023/inspect-b0a2ddc1-7453-4cbf-b580-eb1e7dd3ab88.stages.jsonl",
+                                        "bytes":  88054,
+                                        "sha256":  "7d3281e5e4b4f76c41105e48ac91ec9149a744c7660fad6a733492b65ce90d3c"
+                                    }
+                                ]
+                   },
+                   {
+                       "name":  "snapshot-preflight",
+                       "logs":  [
+                                    {
+                                        "path":  "D:/codex-artifacts/s05d-residual-classification-20261023/snapshot-9a75927e-00d6-43f4-9ba1-e345ab5591a5.result.json",
+                                        "bytes":  1725,
+                                        "sha256":  "db598e524072f9cc2b6e82028fec769fa7c08adc2e007cd7d77fb80379a0eaa6"
+                                    },
+                                    {
+                                        "path":  "D:/codex-artifacts/s05d-residual-classification-20261023/snapshot-9a75927e-00d6-43f4-9ba1-e345ab5591a5.progress.jsonl",
+                                        "bytes":  4518,
+                                        "sha256":  "8d9acb359e48aef281f94f1aba0530cb21e559c8354b4a9396ff76a755f3811f"
+                                    },
+                                    {
+                                        "path":  "D:/codex-artifacts/s05d-residual-classification-20261023/snapshot-9a75927e-00d6-43f4-9ba1-e345ab5591a5.stages.jsonl",
+                                        "bytes":  1357,
+                                        "sha256":  "4c692d8d961a12ec628c066d89fcb529b35a13a796b0013beb15ee1b7d4fe5c1"
+                                    }
+                                ]
+                   }
+               ]
+}

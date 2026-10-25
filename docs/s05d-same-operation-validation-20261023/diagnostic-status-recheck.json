@@ -1,0 +1,27 @@
+{
+  "at": "2026-10-23T08:49:01.867Z",
+  "completedAt": "2026-10-23T08:49:02.149Z",
+  "args": [
+    "tools/preparation-retirement-diagnostic.mjs",
+    "--status",
+    "feb0126f-e9ba-40f7-9fb3-064f88d38fa5"
+  ],
+  "exitCode": 0,
+  "status": "readonly-completed",
+  "admissionPassed": false,
+  "measurementStatus": "diagnostic-partial",
+  "before": {
+    "RUN.json": "07acfe56d4723a9bdf4275b3267a29c2a7ba9d0c358265eb7f9b58d6817fbc7f",
+    "RESULT.json": "1e1593e5e28dc9a45819362c6c65b49cc8da642e11dfaa85374eade9568fb64c",
+    "EXIT.json": "5f05fe1e4d866927b747566a870cc2b6b5b525b410579a728cff3c3befc2b197",
+    "PINS.json": "66095ff6ff187fde4f526affcd8aa20bbaaf7a03c69eb2839bc0105bde55c358"
+  },
+  "after": {
+    "RUN.json": "07acfe56d4723a9bdf4275b3267a29c2a7ba9d0c358265eb7f9b58d6817fbc7f",
+    "RESULT.json": "1e1593e5e28dc9a45819362c6c65b49cc8da642e11dfaa85374eade9568fb64c",
+    "EXIT.json": "5f05fe1e4d866927b747566a870cc2b6b5b525b410579a728cff3c3befc2b197",
+    "PINS.json": "66095ff6ff187fde4f526affcd8aa20bbaaf7a03c69eb2839bc0105bde55c358"
+  },
+  "originalsUnchanged": true,
+  "fullReadOrFrozenReplay": false
+}

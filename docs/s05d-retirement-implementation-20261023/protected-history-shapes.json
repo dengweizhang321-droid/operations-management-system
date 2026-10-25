@@ -1,0 +1,1686 @@
+{
+  "version": "s05d-protected-history-shapes-v1",
+  "at": "2026-10-22T19:06:42.177Z",
+  "readOnly": true,
+  "retirementProved": false,
+  "nativePins": {
+    "worker-local-release.mjs": "aa1be03ebde6fc5b5f9a50fc986a12756ba8eda69e0549ef111f23d5b9439bd2",
+    "worker-local-release-rotation.mjs": "778c136602cf1ebb44fd2fbed1ee67a3cf24fbd78a2cc52b8541db5be114b556",
+    "d1-retirement-proof.mjs": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76"
+  },
+  "dispatchSha256": "443a9bfd07bc47afb0b2560ccfe2101fa274f305f3636153bde24515ce535dfb",
+  "dispatchAnchorMatched": true,
+  "bootstrap": {
+    "version": "teruisi-local-worker-release-binding-v1",
+    "releaseId": "20260829T194525Z-9a33f178481e6c8e",
+    "manifestSha256": "8e75e9e63d6ab3d4ad9143b140b816526ab6ca27ffb5eacc7fb055be2745886e",
+    "guardReceiptSha256": "40eb421e556bce140b5a75a69c410a970f190e9e10497886688a9312c36cffbc",
+    "bindingSha256": "8d48391c2d38c846a5abd53031909a650acd785785ec5f7efd6209d71b7c5c30"
+  },
+  "head": {
+    "bindingSha256": "71ecf390109f488973e0f29023e4436638e54c454d4e1833ebb4375738089075",
+    "guardReceiptSha256": "8771202a73073ce8a45a4861f767e33586063fcd831d4d4ea65c82299c6c9815",
+    "manifestSha256": "60b8710acaf305525f1e5b86157fbc53e2ddcee2ec31544bea352bfa6a352296",
+    "releaseId": "20261022T034924Z-1667fc5e107422e1",
+    "version": "teruisi-local-worker-release-binding-v1"
+  },
+  "chainStateSha256": "7dca5e28e66ba257275e1f916af8661233fe8be4e6e1e424bc7c49f55a214f59",
+  "successorCount": 261,
+  "rows": [
+    {
+      "releaseId": "20260829T194525Z-9a33f178481e6c8e",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260829T194525Z-9a33f178481e6c8e",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260829T194525Z-9a33f178481e6c8e\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260830T003750Z-dbe4b3594ba5d3c1",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T003750Z-dbe4b3594ba5d3c1",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T003750Z-dbe4b3594ba5d3c1\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260830T012849Z-507f083ed4488610",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T012849Z-507f083ed4488610",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T012849Z-507f083ed4488610\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260830T020314Z-16b6c1b89ed012a9",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T020314Z-16b6c1b89ed012a9",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T020314Z-16b6c1b89ed012a9\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260830T055035Z-1841f7838a7328a2",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T055035Z-1841f7838a7328a2",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T055035Z-1841f7838a7328a2\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260830T124621Z-6b3c88515ea9649a",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T124621Z-6b3c88515ea9649a",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T124621Z-6b3c88515ea9649a\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260830T132926Z-3b495e47110c8332",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T132926Z-3b495e47110c8332",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T132926Z-3b495e47110c8332\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260830T174554Z-5236f559d2f73c08",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T174554Z-5236f559d2f73c08",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T174554Z-5236f559d2f73c08\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260830T180401Z-e9a8cec4b509ac35",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T180401Z-e9a8cec4b509ac35",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T180401Z-e9a8cec4b509ac35\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260830T201224Z-0efa51b94c6abe47",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T201224Z-0efa51b94c6abe47",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260830T201224Z-0efa51b94c6abe47\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260831T040905Z-53d3104404b114ed",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260831T040905Z-53d3104404b114ed",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260831T040905Z-53d3104404b114ed\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260901T034620Z-3cf74dcd15558871",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T034620Z-3cf74dcd15558871",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T034620Z-3cf74dcd15558871\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260901T045030Z-917076c7520e4f95",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T045030Z-917076c7520e4f95",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T045030Z-917076c7520e4f95\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260901T125642Z-a80fe1339791d44c",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T125642Z-a80fe1339791d44c",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T125642Z-a80fe1339791d44c\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260901T175414Z-37050a4866c0189e",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T175414Z-37050a4866c0189e",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T175414Z-37050a4866c0189e\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260901T184109Z-8096f6a12574144c",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T184109Z-8096f6a12574144c",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T184109Z-8096f6a12574144c\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260901T192658Z-765c43c274a681d2",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T192658Z-765c43c274a681d2",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260901T192658Z-765c43c274a681d2\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260902T021738Z-24d0db450c0423b3",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T021738Z-24d0db450c0423b3",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T021738Z-24d0db450c0423b3\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260902T024350Z-65e36db247db2a89",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T024350Z-65e36db247db2a89",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T024350Z-65e36db247db2a89\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260902T030536Z-f9a415f735c714d7",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T030536Z-f9a415f735c714d7",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T030536Z-f9a415f735c714d7\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260902T032602Z-f8d194772ec918b4",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T032602Z-f8d194772ec918b4",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T032602Z-f8d194772ec918b4\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260902T050024Z-9d24f8381196ce6e",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T050024Z-9d24f8381196ce6e",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T050024Z-9d24f8381196ce6e\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260902T085357Z-d416a58cd0641adf",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T085357Z-d416a58cd0641adf",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T085357Z-d416a58cd0641adf\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260902T093726Z-b063666136afce4a",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T093726Z-b063666136afce4a",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T093726Z-b063666136afce4a\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260902T101401Z-98d98f60f17f7761",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T101401Z-98d98f60f17f7761",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T101401Z-98d98f60f17f7761\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260902T141543Z-b1002b5b2f279312",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T141543Z-b1002b5b2f279312",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T141543Z-b1002b5b2f279312\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260902T161554Z-82b90718e2caf6f3",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T161554Z-82b90718e2caf6f3",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T161554Z-82b90718e2caf6f3\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260902T192513Z-f3f5ba174d94a3f0",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T192513Z-f3f5ba174d94a3f0",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T192513Z-f3f5ba174d94a3f0\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260902T200055Z-6ac80d5e18604594",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T200055Z-6ac80d5e18604594",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260902T200055Z-6ac80d5e18604594\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T020710Z-40452c6ac90b54e8",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T020710Z-40452c6ac90b54e8",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T020710Z-40452c6ac90b54e8\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T031149Z-5b34e539a9a6df2e",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T031149Z-5b34e539a9a6df2e",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T031149Z-5b34e539a9a6df2e\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T042554Z-27bc098ee0d0457d",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T042554Z-27bc098ee0d0457d",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T042554Z-27bc098ee0d0457d\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T045340Z-036d9e07169295b4",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T045340Z-036d9e07169295b4",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T045340Z-036d9e07169295b4\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T050915Z-ef6e6ed98e451069",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T050915Z-ef6e6ed98e451069",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T050915Z-ef6e6ed98e451069\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T052036Z-8f41d6ceeb1e80e2",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T052036Z-8f41d6ceeb1e80e2",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T052036Z-8f41d6ceeb1e80e2\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T052932Z-8c887fa06621d87a",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T052932Z-8c887fa06621d87a",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T052932Z-8c887fa06621d87a\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T054205Z-57a1c1bea72826f1",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T054205Z-57a1c1bea72826f1",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T054205Z-57a1c1bea72826f1\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T062149Z-47be2596cd7be244",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T062149Z-47be2596cd7be244",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T062149Z-47be2596cd7be244\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T062827Z-fbe7d32def14078c",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T062827Z-fbe7d32def14078c",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T062827Z-fbe7d32def14078c\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T075210Z-6e51417f9f16bd16",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T075210Z-6e51417f9f16bd16",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T075210Z-6e51417f9f16bd16\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T075745Z-a1a7a16c3186da4a",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T075745Z-a1a7a16c3186da4a",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T075745Z-a1a7a16c3186da4a\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T094507Z-9256ed8e1d3d2cee",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T094507Z-9256ed8e1d3d2cee",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T094507Z-9256ed8e1d3d2cee\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T103046Z-dd4ff474d99afbde",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T103046Z-dd4ff474d99afbde",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T103046Z-dd4ff474d99afbde\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T112615Z-98bb5f2ff50199d6",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T112615Z-98bb5f2ff50199d6",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T112615Z-98bb5f2ff50199d6\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T114057Z-b792e29d7f95cd7f",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T114057Z-b792e29d7f95cd7f",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T114057Z-b792e29d7f95cd7f\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T141301Z-3a7ab41fdf6d214c",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T141301Z-3a7ab41fdf6d214c",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T141301Z-3a7ab41fdf6d214c\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T144454Z-ddc694ae566776ef",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T144454Z-ddc694ae566776ef",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T144454Z-ddc694ae566776ef\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T160752Z-bd8ab9db58c1aadd",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T160752Z-bd8ab9db58c1aadd",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T160752Z-bd8ab9db58c1aadd\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T161840Z-7bafb20bbbc2c850",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T161840Z-7bafb20bbbc2c850",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T161840Z-7bafb20bbbc2c850\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T163120Z-0196ee881d701898",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T163120Z-0196ee881d701898",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T163120Z-0196ee881d701898\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260903T164213Z-2bfa1b9f04e099a0",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T164213Z-2bfa1b9f04e099a0",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260903T164213Z-2bfa1b9f04e099a0\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260904T010812Z-02d009be8db475a2",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T010812Z-02d009be8db475a2",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T010812Z-02d009be8db475a2\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260904T020003Z-ee010fd73fd7e831",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T020003Z-ee010fd73fd7e831",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T020003Z-ee010fd73fd7e831\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260904T035726Z-80b00295e12cf8e8",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T035726Z-80b00295e12cf8e8",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T035726Z-80b00295e12cf8e8\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260904T075849Z-b699e9f34bab2f72",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T075849Z-b699e9f34bab2f72",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T075849Z-b699e9f34bab2f72\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260904T081702Z-a04907331b8bea5e",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T081702Z-a04907331b8bea5e",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T081702Z-a04907331b8bea5e\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260904T094431Z-9fa612b09e459c5b",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T094431Z-9fa612b09e459c5b",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T094431Z-9fa612b09e459c5b\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260904T100603Z-aa8b042c028f0c45",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T100603Z-aa8b042c028f0c45",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T100603Z-aa8b042c028f0c45\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260904T102019Z-f0c5c52779240d1b",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T102019Z-f0c5c52779240d1b",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T102019Z-f0c5c52779240d1b\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260904T133301Z-7834781b7246caed",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T133301Z-7834781b7246caed",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T133301Z-7834781b7246caed\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260904T140636Z-3c994b980896ab3f",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T140636Z-3c994b980896ab3f",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T140636Z-3c994b980896ab3f\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260904T173529Z-aade7beeba6b7eb3",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T173529Z-aade7beeba6b7eb3",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T173529Z-aade7beeba6b7eb3\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260904T174603Z-73a6c115dfad9793",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T174603Z-73a6c115dfad9793",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T174603Z-73a6c115dfad9793\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260904T175625Z-61c15a876f2c685c",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T175625Z-61c15a876f2c685c",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T175625Z-61c15a876f2c685c\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260904T223540Z-40a783da7d4d5867",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T223540Z-40a783da7d4d5867",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260904T223540Z-40a783da7d4d5867\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260905T022346Z-a8c9656e2efc6ca0",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T022346Z-a8c9656e2efc6ca0",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T022346Z-a8c9656e2efc6ca0\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260905T024235Z-8ab8213dadf5407c",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T024235Z-8ab8213dadf5407c",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T024235Z-8ab8213dadf5407c\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260905T090134Z-6a5d72609fb56a8a",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T090134Z-6a5d72609fb56a8a",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T090134Z-6a5d72609fb56a8a\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260905T144423Z-d3a8b3a71e614840",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T144423Z-d3a8b3a71e614840",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T144423Z-d3a8b3a71e614840\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260905T150448Z-34bd6e2a530232e5",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T150448Z-34bd6e2a530232e5",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T150448Z-34bd6e2a530232e5\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260905T153926Z-2b35a94f0222a5e5",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T153926Z-2b35a94f0222a5e5",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T153926Z-2b35a94f0222a5e5\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260905T161941Z-2f1ddff054f33ff5",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T161941Z-2f1ddff054f33ff5",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T161941Z-2f1ddff054f33ff5\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260905T180043Z-7364a22437c52ae1",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T180043Z-7364a22437c52ae1",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260905T180043Z-7364a22437c52ae1\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260906T035823Z-fceee410b71f79b0",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T035823Z-fceee410b71f79b0",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T035823Z-fceee410b71f79b0\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260906T071555Z-f197eb1e1b92e1db",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T071555Z-f197eb1e1b92e1db",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T071555Z-f197eb1e1b92e1db\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260906T085035Z-568a59bc151c39d7",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T085035Z-568a59bc151c39d7",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T085035Z-568a59bc151c39d7\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260906T102947Z-22414d6a30a05dbf",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T102947Z-22414d6a30a05dbf",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T102947Z-22414d6a30a05dbf\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260906T110340Z-73a29ca80836ac11",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T110340Z-73a29ca80836ac11",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T110340Z-73a29ca80836ac11\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260906T113045Z-e1a943dd272d5547",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T113045Z-e1a943dd272d5547",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T113045Z-e1a943dd272d5547\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260906T132751Z-95f3eae828758ddc",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T132751Z-95f3eae828758ddc",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T132751Z-95f3eae828758ddc\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260906T135703Z-23f4164b6b5c9dd7",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T135703Z-23f4164b6b5c9dd7",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T135703Z-23f4164b6b5c9dd7\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260906T141849Z-75fb691dce9c14bd",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T141849Z-75fb691dce9c14bd",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T141849Z-75fb691dce9c14bd\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260906T145453Z-800e92a49927bf7e",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T145453Z-800e92a49927bf7e",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T145453Z-800e92a49927bf7e\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260906T151730Z-e07832f459944ae8",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T151730Z-e07832f459944ae8",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T151730Z-e07832f459944ae8\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260906T162140Z-b8acb81749c78a71",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T162140Z-b8acb81749c78a71",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T162140Z-b8acb81749c78a71\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260906T170622Z-647da1953e29d481",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T170622Z-647da1953e29d481",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260906T170622Z-647da1953e29d481\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T013343Z-d1f5518ff9392cc3",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T013343Z-d1f5518ff9392cc3",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T013343Z-d1f5518ff9392cc3\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T093433Z-45b22a6f2cfced84",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T093433Z-45b22a6f2cfced84",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T093433Z-45b22a6f2cfced84\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T095941Z-df2f9b59bf17195a",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T095941Z-df2f9b59bf17195a",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T095941Z-df2f9b59bf17195a\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T101721Z-f9782c6c5b04226f",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T101721Z-f9782c6c5b04226f",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T101721Z-f9782c6c5b04226f\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T104502Z-8cda3cffde6f7b90",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T104502Z-8cda3cffde6f7b90",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T104502Z-8cda3cffde6f7b90\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T131134Z-5a26b0f8cb5c66fb",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T131134Z-5a26b0f8cb5c66fb",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T131134Z-5a26b0f8cb5c66fb\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T132400Z-f31e0b551c4398d4",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T132400Z-f31e0b551c4398d4",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T132400Z-f31e0b551c4398d4\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T135636Z-c92330a39da04401",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T135636Z-c92330a39da04401",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T135636Z-c92330a39da04401\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T141305Z-2ebaddfc2f932323",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T141305Z-2ebaddfc2f932323",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T141305Z-2ebaddfc2f932323\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T142626Z-6336b68b2bcabc45",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T142626Z-6336b68b2bcabc45",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T142626Z-6336b68b2bcabc45\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T145827Z-6389440714644877",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T145827Z-6389440714644877",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T145827Z-6389440714644877\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T151405Z-779eeee8e24aaddb",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T151405Z-779eeee8e24aaddb",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T151405Z-779eeee8e24aaddb\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T152625Z-64e39ecfa44871b6",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T152625Z-64e39ecfa44871b6",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T152625Z-64e39ecfa44871b6\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T153922Z-9653b7538523de1d",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T153922Z-9653b7538523de1d",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T153922Z-9653b7538523de1d\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T155257Z-d245b900df532959",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T155257Z-d245b900df532959",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T155257Z-d245b900df532959\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T164126Z-c0bafded45a318c6",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T164126Z-c0bafded45a318c6",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T164126Z-c0bafded45a318c6\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T165637Z-e785442b6222f246",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T165637Z-e785442b6222f246",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T165637Z-e785442b6222f246\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260907T172756Z-7310be9602671de4",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T172756Z-7310be9602671de4",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260907T172756Z-7310be9602671de4\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260908T011213Z-2c54fdabce6753c9",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260908T011213Z-2c54fdabce6753c9",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260908T011213Z-2c54fdabce6753c9\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260908T023322Z-d783739f19e43a9d",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260908T023322Z-d783739f19e43a9d",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260908T023322Z-d783739f19e43a9d\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260908T060055Z-c06e40a5d153d39e",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260908T060055Z-c06e40a5d153d39e",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260908T060055Z-c06e40a5d153d39e\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260908T093713Z-64866b73575c4810",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260908T093713Z-64866b73575c4810",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260908T093713Z-64866b73575c4810\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260908T103235Z-6e9bfb8baea02174",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260908T103235Z-6e9bfb8baea02174",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260908T103235Z-6e9bfb8baea02174\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260908T143756Z-fd64783ed0e0d484",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260908T143756Z-fd64783ed0e0d484",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260908T143756Z-fd64783ed0e0d484\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260908T150015Z-f5e22e45a3fab5b0",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260908T150015Z-f5e22e45a3fab5b0",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260908T150015Z-f5e22e45a3fab5b0\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260908T164747Z-01eadafc917073fa",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260908T164747Z-01eadafc917073fa",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260908T164747Z-01eadafc917073fa\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260909T032535Z-cc929a4a0ec45ec2",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T032535Z-cc929a4a0ec45ec2",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T032535Z-cc929a4a0ec45ec2\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260909T034150Z-4e9ba073482f351c",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T034150Z-4e9ba073482f351c",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T034150Z-4e9ba073482f351c\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260909T065210Z-0083ad8b4ebf957d",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T065210Z-0083ad8b4ebf957d",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T065210Z-0083ad8b4ebf957d\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260909T082314Z-77039002a8332b1d",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T082314Z-77039002a8332b1d",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T082314Z-77039002a8332b1d\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260909T112853Z-668b2a7c9f0f6fa3",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T112853Z-668b2a7c9f0f6fa3",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T112853Z-668b2a7c9f0f6fa3\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260909T144336Z-1b58b3fe3893624b",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T144336Z-1b58b3fe3893624b",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T144336Z-1b58b3fe3893624b\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260909T154048Z-c36429c58cc5b463",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T154048Z-c36429c58cc5b463",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T154048Z-c36429c58cc5b463\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260909T165119Z-57c98600b9650dbc",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T165119Z-57c98600b9650dbc",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260909T165119Z-57c98600b9650dbc\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260910T013929Z-8383c5cdd38757ab",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T013929Z-8383c5cdd38757ab",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T013929Z-8383c5cdd38757ab\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260910T025022Z-a261f8c2ade2d409",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T025022Z-a261f8c2ade2d409",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T025022Z-a261f8c2ade2d409\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260910T031940Z-4b512c4fb482286e",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T031940Z-4b512c4fb482286e",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T031940Z-4b512c4fb482286e\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260910T033345Z-954b74d3e05a6399",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T033345Z-954b74d3e05a6399",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T033345Z-954b74d3e05a6399\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260910T083226Z-2c53e5a99e7232d9",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T083226Z-2c53e5a99e7232d9",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T083226Z-2c53e5a99e7232d9\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260910T100749Z-a4eaa6fb400fd7e5",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T100749Z-a4eaa6fb400fd7e5",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T100749Z-a4eaa6fb400fd7e5\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260910T131216Z-674af827668202c9",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T131216Z-674af827668202c9",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T131216Z-674af827668202c9\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260910T134347Z-d8b910e88d62ff0a",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T134347Z-d8b910e88d62ff0a",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T134347Z-d8b910e88d62ff0a\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260910T140701Z-0194554bc4bcead5",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T140701Z-0194554bc4bcead5",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T140701Z-0194554bc4bcead5\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260910T161236Z-c0ab8ed9ff663df9",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T161236Z-c0ab8ed9ff663df9",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260910T161236Z-c0ab8ed9ff663df9\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260911T035534Z-683ed76137b93190",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260911T035534Z-683ed76137b93190",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260911T035534Z-683ed76137b93190\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260911T081342Z-6b7a6a81082f9a5b",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260911T081342Z-6b7a6a81082f9a5b",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260911T081342Z-6b7a6a81082f9a5b\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260911T143402Z-fc575f36864bbb8d",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260911T143402Z-fc575f36864bbb8d",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260911T143402Z-fc575f36864bbb8d\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260911T151219Z-9d2563d0433704b8",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260911T151219Z-9d2563d0433704b8",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260911T151219Z-9d2563d0433704b8\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260911T165424Z-941a792a6c05e33e",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260911T165424Z-941a792a6c05e33e",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260911T165424Z-941a792a6c05e33e\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260912T074346Z-e49e9dd1dc958ecc",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260912T074346Z-e49e9dd1dc958ecc",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260912T074346Z-e49e9dd1dc958ecc\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260912T085820Z-cde69efbfa6cb274",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260912T085820Z-cde69efbfa6cb274",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260912T085820Z-cde69efbfa6cb274\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260912T093226Z-588560ad2bfc1239",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260912T093226Z-588560ad2bfc1239",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260912T093226Z-588560ad2bfc1239\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260912T095027Z-43c06ff99569edfa",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260912T095027Z-43c06ff99569edfa",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260912T095027Z-43c06ff99569edfa\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260912T143827Z-79e971ff2b5bce03",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260912T143827Z-79e971ff2b5bce03",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260912T143827Z-79e971ff2b5bce03\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260912T234549Z-017f8196dda91b2b",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260912T234549Z-017f8196dda91b2b",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260912T234549Z-017f8196dda91b2b\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260913T021310Z-a34d51daad87840c",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260913T021310Z-a34d51daad87840c",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260913T021310Z-a34d51daad87840c\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260913T024434Z-bc351d47b7209e2b",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260913T024434Z-bc351d47b7209e2b",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260913T024434Z-bc351d47b7209e2b\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260913T083423Z-5b9bc1d755228cae",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260913T083423Z-5b9bc1d755228cae",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260913T083423Z-5b9bc1d755228cae\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260913T143708Z-cd14607ae3bd71e3",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260913T143708Z-cd14607ae3bd71e3",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260913T143708Z-cd14607ae3bd71e3\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260913T162304Z-3733181f1543a083",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260913T162304Z-3733181f1543a083",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260913T162304Z-3733181f1543a083\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260914T094506Z-81d2b9e6d317f82b",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260914T094506Z-81d2b9e6d317f82b",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260914T094506Z-81d2b9e6d317f82b\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260914T100626Z-4462809b1aa7a958",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260914T100626Z-4462809b1aa7a958",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260914T100626Z-4462809b1aa7a958\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260914T103055Z-476613e9da6a6b1d",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260914T103055Z-476613e9da6a6b1d",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260914T103055Z-476613e9da6a6b1d\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260914T143237Z-3aaaa72257429512",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260914T143237Z-3aaaa72257429512",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260914T143237Z-3aaaa72257429512\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260914T154612Z-36b6fd5a8dbe31f7",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260914T154612Z-36b6fd5a8dbe31f7",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260914T154612Z-36b6fd5a8dbe31f7\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260914T174729Z-5d49f49fa3939989",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260914T174729Z-5d49f49fa3939989",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260914T174729Z-5d49f49fa3939989\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260915T022221Z-62869892e2c72ed9",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T022221Z-62869892e2c72ed9",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T022221Z-62869892e2c72ed9\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260915T031124Z-50915712d427032f",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T031124Z-50915712d427032f",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T031124Z-50915712d427032f\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260915T054303Z-5704048d5158895c",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T054303Z-5704048d5158895c",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T054303Z-5704048d5158895c\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260915T081612Z-730408eeaa9cbc1c",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T081612Z-730408eeaa9cbc1c",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T081612Z-730408eeaa9cbc1c\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260915T111613Z-ba786992a7e80cf6",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T111613Z-ba786992a7e80cf6",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T111613Z-ba786992a7e80cf6\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260915T113701Z-5c7c6173998295bb",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T113701Z-5c7c6173998295bb",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T113701Z-5c7c6173998295bb\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260915T143857Z-c71f254c9e28b6f2",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T143857Z-c71f254c9e28b6f2",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T143857Z-c71f254c9e28b6f2\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260915T153430Z-0ef56e4488220fb3",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T153430Z-0ef56e4488220fb3",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T153430Z-0ef56e4488220fb3\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260915T160134Z-c5775c8b64dd9c4b",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T160134Z-c5775c8b64dd9c4b",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T160134Z-c5775c8b64dd9c4b\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260915T162551Z-78d9ad08f15648ec",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T162551Z-78d9ad08f15648ec",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260915T162551Z-78d9ad08f15648ec\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260916T004429Z-914353db1e3250b3",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260916T004429Z-914353db1e3250b3",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260916T004429Z-914353db1e3250b3\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260916T020314Z-21945e0e18c57de1",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260916T020314Z-21945e0e18c57de1",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260916T020314Z-21945e0e18c57de1\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260916T194114Z-df8da4ea6ac81cf6",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260916T194114Z-df8da4ea6ac81cf6",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260916T194114Z-df8da4ea6ac81cf6\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260917T145034Z-ecd2f00bb0c113b5",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260917T145034Z-ecd2f00bb0c113b5",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260917T145034Z-ecd2f00bb0c113b5\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260917T173846Z-3deb710dd67ba200",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260917T173846Z-3deb710dd67ba200",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260917T173846Z-3deb710dd67ba200\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260917T174956Z-18933ad36a8b5c96",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260917T174956Z-18933ad36a8b5c96",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260917T174956Z-18933ad36a8b5c96\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260917T175957Z-94a4e718fdfb027f",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260917T175957Z-94a4e718fdfb027f",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260917T175957Z-94a4e718fdfb027f\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260918T170839Z-56c91d9b2f70bdb5",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260918T170839Z-56c91d9b2f70bdb5",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260918T170839Z-56c91d9b2f70bdb5\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260919T054421Z-8396938e0c741f6c",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260919T054421Z-8396938e0c741f6c",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260919T054421Z-8396938e0c741f6c\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260920T121250Z-4687b37028eb8feb",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260920T121250Z-4687b37028eb8feb",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260920T121250Z-4687b37028eb8feb\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260920T140333Z-59334faade4e48ec",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260920T140333Z-59334faade4e48ec",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260920T140333Z-59334faade4e48ec\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260921T075914Z-c49fb8780f856435",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260921T075914Z-c49fb8780f856435",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260921T075914Z-c49fb8780f856435\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260921T154059Z-6c629bc088e46315",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260921T154059Z-6c629bc088e46315",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260921T154059Z-6c629bc088e46315\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260922T105105Z-d8e06b9d16695c3f",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260922T105105Z-d8e06b9d16695c3f",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260922T105105Z-d8e06b9d16695c3f\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260922T165537Z-43dfa5ea8751488e",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260922T165537Z-43dfa5ea8751488e",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260922T165537Z-43dfa5ea8751488e\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260923T015424Z-b8038ff004984110",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260923T015424Z-b8038ff004984110",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260923T015424Z-b8038ff004984110\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260923T035640Z-3d8e2a24509c3c03",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260923T035640Z-3d8e2a24509c3c03",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260923T035640Z-3d8e2a24509c3c03\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260923T150151Z-55a091078c2cad99",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260923T150151Z-55a091078c2cad99",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260923T150151Z-55a091078c2cad99\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260923T160810Z-66a1c457be10d0fa",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260923T160810Z-66a1c457be10d0fa",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260923T160810Z-66a1c457be10d0fa\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260924T170238Z-67f8e2ddf8f93e16",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260924T170238Z-67f8e2ddf8f93e16",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260924T170238Z-67f8e2ddf8f93e16\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260925T213040Z-e45b1332207bc4cf",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260925T213040Z-e45b1332207bc4cf",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260925T213040Z-e45b1332207bc4cf\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260926T151320Z-78a1701b451cdc4a",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260926T151320Z-78a1701b451cdc4a",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260926T151320Z-78a1701b451cdc4a\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260927T020512Z-816d717d5e1b615c",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260927T020512Z-816d717d5e1b615c",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260927T020512Z-816d717d5e1b615c\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260927T025729Z-73db9d9489dd6952",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260927T025729Z-73db9d9489dd6952",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260927T025729Z-73db9d9489dd6952\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260927T054418Z-9450f55665c5e000",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260927T054418Z-9450f55665c5e000",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260927T054418Z-9450f55665c5e000\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260927T105151Z-66998bb7f911acb0",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260927T105151Z-66998bb7f911acb0",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260927T105151Z-66998bb7f911acb0\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260928T013126Z-a6492ec30545a5df",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260928T013126Z-a6492ec30545a5df",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260928T013126Z-a6492ec30545a5df\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260928T112356Z-eeac7bbc96a8c51a",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260928T112356Z-eeac7bbc96a8c51a",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260928T112356Z-eeac7bbc96a8c51a\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260929T005710Z-e980ef9414b72995",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260929T005710Z-e980ef9414b72995",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260929T005710Z-e980ef9414b72995\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260929T091126Z-1efe1a549c7491e5",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260929T091126Z-1efe1a549c7491e5",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260929T091126Z-1efe1a549c7491e5\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260929T100854Z-25db306d29baf4ee",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260929T100854Z-25db306d29baf4ee",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260929T100854Z-25db306d29baf4ee\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260929T204151Z-8d7aa5ebc6818f2c",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260929T204151Z-8d7aa5ebc6818f2c",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260929T204151Z-8d7aa5ebc6818f2c\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260929T212634Z-6ad46b5075d9d7ad",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260929T212634Z-6ad46b5075d9d7ad",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260929T212634Z-6ad46b5075d9d7ad\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20260930T005003Z-7df88d242a9635ba",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260930T005003Z-7df88d242a9635ba",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260930T005003Z-7df88d242a9635ba\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261001T164608Z-4dc26d0ae8921e88",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261001T164608Z-4dc26d0ae8921e88",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261001T164608Z-4dc26d0ae8921e88\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261004T154501Z-5a6e049ba6ecd7fe",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261004T154501Z-5a6e049ba6ecd7fe",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261004T154501Z-5a6e049ba6ecd7fe\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261004T203845Z-d5c7953e916f69ec",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261004T203845Z-d5c7953e916f69ec",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261004T203845Z-d5c7953e916f69ec\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261005T063949Z-62c5bbb1bc2901ab",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261005T063949Z-62c5bbb1bc2901ab",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261005T063949Z-62c5bbb1bc2901ab\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261005T185310Z-463d585110456a95",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261005T185310Z-463d585110456a95",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261005T185310Z-463d585110456a95\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261006T014342Z-94be344898f54a4b",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261006T014342Z-94be344898f54a4b",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261006T014342Z-94be344898f54a4b\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261006T152340Z-339dc621b3f6bce5",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261006T152340Z-339dc621b3f6bce5",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261006T152340Z-339dc621b3f6bce5\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261006T164404Z-05ba8978cfc7b5d4",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261006T164404Z-05ba8978cfc7b5d4",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261006T164404Z-05ba8978cfc7b5d4\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261006T192701Z-49ae962c10d7658d",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261006T192701Z-49ae962c10d7658d",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261006T192701Z-49ae962c10d7658d\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261006T203946Z-31618ba6b1ec1c5d",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261006T203946Z-31618ba6b1ec1c5d",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261006T203946Z-31618ba6b1ec1c5d\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261007T063318Z-774656d6a6c5b31b",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261007T063318Z-774656d6a6c5b31b",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261007T063318Z-774656d6a6c5b31b\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261007T070159Z-8d7fff69f9b30b9f",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261007T070159Z-8d7fff69f9b30b9f",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261007T070159Z-8d7fff69f9b30b9f\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261007T132510Z-51b35508b8baf220",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261007T132510Z-51b35508b8baf220",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261007T132510Z-51b35508b8baf220\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261007T152206Z-00f6e36898869457",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261007T152206Z-00f6e36898869457",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261007T152206Z-00f6e36898869457\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261008T011936Z-cff4c360b86c2416",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T011936Z-cff4c360b86c2416",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T011936Z-cff4c360b86c2416\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261008T023318Z-c203e40de8dde7c8",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T023318Z-c203e40de8dde7c8",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T023318Z-c203e40de8dde7c8\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261008T035234Z-e5597c1f0932fe82",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T035234Z-e5597c1f0932fe82",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T035234Z-e5597c1f0932fe82\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261008T050650Z-2757fd03d11fd19b",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T050650Z-2757fd03d11fd19b",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T050650Z-2757fd03d11fd19b\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261008T064654Z-662c00f82cdea950",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T064654Z-662c00f82cdea950",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T064654Z-662c00f82cdea950\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261008T103219Z-f5d9b00e432df6c0",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T103219Z-f5d9b00e432df6c0",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T103219Z-f5d9b00e432df6c0\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261008T182600Z-f5d4b05177d17010",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T182600Z-f5d4b05177d17010",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T182600Z-f5d4b05177d17010\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261009T030646Z-9f93e52aa005de7c",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261009T030646Z-9f93e52aa005de7c",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261009T030646Z-9f93e52aa005de7c\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261009T080026Z-d5fb5b62de630ae2",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261009T080026Z-d5fb5b62de630ae2",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261009T080026Z-d5fb5b62de630ae2\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261010T014638Z-97833d2f2b7e7bc9",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261010T014638Z-97833d2f2b7e7bc9\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261011T090355Z-21c2645a63247749",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T090355Z-21c2645a63247749",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T090355Z-21c2645a63247749\\source-snapshot",
+      "present": false
+    },
+    {
+      "releaseId": "20261013T034151Z-1513c2b267930390",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261013T034151Z-1513c2b267930390",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261013T034151Z-1513c2b267930390\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261013T091815Z-878966319497c4bd",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261013T091815Z-878966319497c4bd",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261013T091815Z-878966319497c4bd\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261013T145450Z-fe391dce49a258cf",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261013T145450Z-fe391dce49a258cf",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261013T145450Z-fe391dce49a258cf\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261014T024227Z-c3a176ee85a03642",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T024227Z-c3a176ee85a03642",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T024227Z-c3a176ee85a03642\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261014T042045Z-3fa896145ddb534d",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T042045Z-3fa896145ddb534d",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T042045Z-3fa896145ddb534d\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261014T045841Z-0084b48bfe8257bf",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T045841Z-0084b48bfe8257bf",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T045841Z-0084b48bfe8257bf\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261014T124800Z-49f5ec9db80e195b",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T124800Z-49f5ec9db80e195b",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T124800Z-49f5ec9db80e195b\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261014T142300Z-5417c162f772702e",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T142300Z-5417c162f772702e",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T142300Z-5417c162f772702e\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261014T160504Z-80bb62ecc29f92c5",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T160504Z-80bb62ecc29f92c5",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T160504Z-80bb62ecc29f92c5\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261014T170130Z-17e3867852424323",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T170130Z-17e3867852424323",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T170130Z-17e3867852424323\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261014T202834Z-1943995b435ba5c7",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T202834Z-1943995b435ba5c7",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T202834Z-1943995b435ba5c7\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261015T031454Z-bfb561e8e06db72e",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T031454Z-bfb561e8e06db72e",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T031454Z-bfb561e8e06db72e\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261015T062310Z-4259d14f596d2a40",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T062310Z-4259d14f596d2a40",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T062310Z-4259d14f596d2a40\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261015T074548Z-58e44a5126de6bba",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T074548Z-58e44a5126de6bba",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T074548Z-58e44a5126de6bba\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261015T092526Z-d90afd0d40109cc3",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T092526Z-d90afd0d40109cc3",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T092526Z-d90afd0d40109cc3\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261015T152258Z-3ca63e8b9225fb87",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T152258Z-3ca63e8b9225fb87",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T152258Z-3ca63e8b9225fb87\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261016T012126Z-dc89c4ec5bfabd85",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T012126Z-dc89c4ec5bfabd85",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T012126Z-dc89c4ec5bfabd85\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261016T021943Z-228f5e3dc3956a5c",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T021943Z-228f5e3dc3956a5c",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T021943Z-228f5e3dc3956a5c\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261016T042259Z-480b1bb8ae3f6605",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T042259Z-480b1bb8ae3f6605",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T042259Z-480b1bb8ae3f6605\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261016T052138Z-501da6b1afc58fef",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T052138Z-501da6b1afc58fef",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T052138Z-501da6b1afc58fef\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261016T172150Z-8a54a65532d4d6de",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T172150Z-8a54a65532d4d6de",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261016T172150Z-8a54a65532d4d6de\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261017T010147Z-1cbddf98c27cf167",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T010147Z-1cbddf98c27cf167",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T010147Z-1cbddf98c27cf167\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261017T063128Z-5d4113ddb3c5cada",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T063128Z-5d4113ddb3c5cada",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T063128Z-5d4113ddb3c5cada\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261017T082953Z-c9da1765d84847d4",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T082953Z-c9da1765d84847d4",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T082953Z-c9da1765d84847d4\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261017T100706Z-1090ea88f6fe3094",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T100706Z-1090ea88f6fe3094",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T100706Z-1090ea88f6fe3094\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261017T133831Z-1a1a85cad296924e",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T133831Z-1a1a85cad296924e",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T133831Z-1a1a85cad296924e\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261017T172142Z-766464458ef7b5ac",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T172142Z-766464458ef7b5ac",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T172142Z-766464458ef7b5ac\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261017T233707Z-7a92b68a72ea7589",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T233707Z-7a92b68a72ea7589",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261017T233707Z-7a92b68a72ea7589\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261018T025351Z-b74c749651394192",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T025351Z-b74c749651394192",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T025351Z-b74c749651394192\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261018T081823Z-282cee340c57bf41",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T081823Z-282cee340c57bf41",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T081823Z-282cee340c57bf41\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261018T112936Z-f51e4f3671a64cd3",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T112936Z-f51e4f3671a64cd3",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T112936Z-f51e4f3671a64cd3\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261018T162837Z-9a9245927d9aa8d5",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T162837Z-9a9245927d9aa8d5",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261018T162837Z-9a9245927d9aa8d5\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261019T104309Z-f28b90a85276e948",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T104309Z-f28b90a85276e948",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T104309Z-f28b90a85276e948\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261019T130904Z-6b816a5085c6a13e",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T130904Z-6b816a5085c6a13e",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T130904Z-6b816a5085c6a13e\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261019T194715Z-63b9b06109dbb19d",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T194715Z-63b9b06109dbb19d",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261019T194715Z-63b9b06109dbb19d\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261020T064140Z-f275909f63debfae",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261020T064140Z-f275909f63debfae",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261020T064140Z-f275909f63debfae\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261020T095557Z-351fed8469d3cf31",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261020T095557Z-351fed8469d3cf31",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261020T095557Z-351fed8469d3cf31\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261020T183747Z-0b90a81150c2b203",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261020T183747Z-0b90a81150c2b203",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261020T183747Z-0b90a81150c2b203\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261021T005044Z-3e008fa5cc2bacfe",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261021T005044Z-3e008fa5cc2bacfe",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261021T005044Z-3e008fa5cc2bacfe\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261021T050959Z-309bb3d722f0ee47",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261021T050959Z-309bb3d722f0ee47",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261021T050959Z-309bb3d722f0ee47\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "releaseId": "20261022T034924Z-1667fc5e107422e1",
+      "release": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261022T034924Z-1667fc5e107422e1",
+      "snapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261022T034924Z-1667fc5e107422e1\\source-snapshot",
+      "present": true,
+      "directory": true,
+      "symlink": false
+    }
+  ],
+  "elapsedMs": 3211
+}

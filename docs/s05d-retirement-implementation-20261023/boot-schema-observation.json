@@ -1,0 +1,38 @@
+{
+    "observedAt":  "2026-10-22T17:16:45.1018750Z",
+    "osVersion":  "10.0.26200",
+    "osBuild":  "26200",
+    "lastBootUtc":  "2026-10-17T14:43:44.5000000Z",
+    "events":  [
+                   {
+                       "provider":  "Microsoft-Windows-Kernel-General",
+                       "providerGuid":  "{a68ca8b7-004f-d7b6-a698-07e2de0f1f5d}",
+                       "eventId":  12,
+                       "schemaVersion":  0,
+                       "recordId":  663477,
+                       "timeCreatedUtc":  "2026-10-17T14:43:44.8593794Z",
+                       "eventData":  {
+                                         "BootMode":  "0",
+                                         "BuildVersion":  "26100",
+                                         "MinorVersion":  "0",
+                                         "QfeVersion":  "9457",
+                                         "StartTime":  "2026-10-17T14:43:44.5000000Z",
+                                         "MajorVersion":  "10",
+                                         "ServiceVersion":  "0"
+                                     }
+                   },
+                   {
+                       "provider":  "Microsoft-Windows-Kernel-Boot",
+                       "providerGuid":  "{15ca44ff-4d7a-4baa-bba5-0998955e531e}",
+                       "eventId":  27,
+                       "schemaVersion":  1,
+                       "recordId":  663485,
+                       "timeCreatedUtc":  "2026-10-17T14:43:44.8596815Z",
+                       "eventData":  {
+                                         "BootType":  "0",
+                                         "LoadOptions":  " NOEXECUTE=OPTIN  HYPERVISORLAUNCHTYPE=AUTO  FVEBOOT=2654208  NOVGA"
+                                     }
+                   }
+               ],
+    "readOnly":  true
+}

@@ -1,0 +1,51 @@
+{
+  "version": "s05d-guard-cas-frozen-files-v1",
+  "frozenAt": "2026-10-23T00:56:25.312Z",
+  "baseCommit": "a116fc55f1bacad7110c4587bf4f7830e7ebf2b8",
+  "files": {
+    "tools/preparation-retirement-entry.mjs": {
+      "size": 7476,
+      "sha256": "5e4347eb7f73fe4db7b949cef4922285b594a1a87c4fb15a976ceac87f551bf2"
+    },
+    "tools/preparation-retirement.mjs": {
+      "size": 52055,
+      "sha256": "fcecd9b9ae3b51a8e749d7ff54c3450d58252c20dbb5159c6f5de80763541fd6"
+    },
+    "tests/preparation-retirement-entry.test.mjs": {
+      "size": 3712,
+      "sha256": "7418858e5ef9cc6004e20996f05567899bd2d54b6946714b44e19dbe97c1a83d"
+    },
+    "tests/preparation-retirement-old-guard.test.mjs": {
+      "size": 3047,
+      "sha256": "7f78d3a551b11ce2493c656bb7e885fccc003f6c50ce586a0b6dd17c19cb8666"
+    },
+    "tests/preparation-retirement-integration.test.mjs": {
+      "size": 14791,
+      "sha256": "1617e2a3a3890af7b5bf43fdd1c63c6f03ec325f148a55f50a348daa1f0931f9"
+    },
+    "tests/helpers/preparation-retirement-fixture.mjs": {
+      "size": 8005,
+      "sha256": "e00ae5a2e66261a523fd44683f3a21366e9647d486951d60df73b668d6d9ff44"
+    },
+    "tests/fixtures/s05d-old-source-entry/frozen-main-source-sequential.mjs": {
+      "size": 935,
+      "sha256": "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6"
+    },
+    "docs/s05d-guard-cas-fix-20261023/IMPLEMENTATION.md": {
+      "size": 3911,
+      "sha256": "369075df37e3c506f04cff41e91c52700690d9ba03a2e02b49b3ebe448882556"
+    },
+    "docs/s05d-guard-cas-fix-20261023/checks.txt": {
+      "size": 696,
+      "sha256": "1f4c777d6caee0d2f6ab89abae0ac53823456850dbfe441fca8d389f1aba31f7"
+    },
+    "docs/s05d-guard-cas-fix-20261023/checks-command.json": {
+      "size": 533,
+      "sha256": "5cdbb2c5349c4d5911667e65a30d803c6e3b364f35bc51953c8155327f6858b4"
+    },
+    "docs/s05d-guard-cas-fix-20261023/source-inspection.json": {
+      "size": 1045,
+      "sha256": "9d89242f9dbacad9e0d4242d16b7d0e3bb01ca12c06c36e84057c11bd3320f19"
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "version": "s05d-stability-pins-v1",
+  "baseCommit": "e7978118",
+  "frozenAt": "2026-10-23T08:23:33.219Z",
+  "productionRun": false,
+  "files": {
+    "tools/preparation-retirement-fs.mjs": {
+      "size": 14488,
+      "sha256": "8befa5711ac354aa92c089c60cbf431d6d1e38d698bcbd2555177234a40aed62"
+    },
+    "tools/preparation-retirement-archive.mjs": {
+      "size": 15760,
+      "sha256": "1fef3adbc1c1c6f4eee7f6a182ea8ccc525870eac00e5b3ad76d3a6f70b10230"
+    },
+    "tools/preparation-retirement-collector.mjs": {
+      "size": 59019,
+      "sha256": "07a9a0989748d74260dc73c88c62a0c9cc4c01b7038c6395130901559ca3479e"
+    },
+    "tools/preparation-retirement.mjs": {
+      "size": 56826,
+      "sha256": "19c223ae82a6af8752b843d300f35d58365753509e5bac7383241f5ee5b0274b"
+    },
+    "tools/preparation-retirement-diagnostic.mjs": {
+      "size": 20978,
+      "sha256": "122dcacd2bd8bd16b79fa93e0c4353c983689ed9764bbbd1f4bd7792e1a75d9b"
+    },
+    "tests/preparation-retirement-stability-cas.test.mjs": {
+      "size": 5412,
+      "sha256": "68c2861ddc74d7e45990c17cf53f16a2ba09183888ee24206f7fd50b51263527"
+    },
+    "tests/preparation-retirement-stability-sources.test.mjs": {
+      "size": 2453,
+      "sha256": "16b6ed9bef5ea9c3769032a93c6bf4371d956123f5da1ecdc69e5c819340dd93"
+    },
+    "tests/preparation-retirement-diagnostic.test.mjs": {
+      "size": 7351,
+      "sha256": "6e30ccfcbaa9c2bc67c9d38cc46afb61a5d60c3779cec5305563ca38a9592dbe"
+    },
+    "tests/preparation-retirement-integration.test.mjs": {
+      "size": 14791,
+      "sha256": "1617e2a3a3890af7b5bf43fdd1c63c6f03ec325f148a55f50a348daa1f0931f9"
+    },
+    "docs/s05d-diagnostic-cleanup-20261023/STABILITY-IMPLEMENTATION.md": {
+      "size": 4958,
+      "sha256": "2ec065f5e606e13dfc886da9124a492d9d7352268471412112544e8afdab9d7f"
+    },
+    "docs/s05d-diagnostic-cleanup-20261023/cas-checks.txt": {
+      "size": 550,
+      "sha256": "23e42fbe9755c85bdace818694cde4f0d245ae3caee8a81ef2e433d1df6a5a2b"
+    },
+    "docs/s05d-diagnostic-cleanup-20261023/cas-checks.json": {
+      "size": 266,
+      "sha256": "2817239a5481b6433ff09c2c93be6925715d3f05eb4634ebd8b3fe3f72de4cd1"
+    },
+    "docs/s05d-diagnostic-cleanup-20261023/stability-checks-2.txt": {
+      "size": 779,
+      "sha256": "a82c233be877ef1ab3be0270dd5aabae5bb4802d1581dde94c98f57fa801c271"
+    },
+    "docs/s05d-diagnostic-cleanup-20261023/stability-checks-2.json": {
+      "size": 329,
+      "sha256": "bb300b52317a5c540b0888961112cb839201ce20c5c6475f935c8eb0221c464f"
+    },
+    "docs/s05d-diagnostic-cleanup-20261023/diagnostic-checks.txt": {
+      "size": 379,
+      "sha256": "1d1ddeacd8b9db60ea8ee7799f16849601b1fa4162aa77929f2129076e206b2c"
+    },
+    "docs/s05d-diagnostic-cleanup-20261023/diagnostic-checks.json": {
+      "size": 263,
+      "sha256": "a5976d2f27dff51e9f448d4473f3d135525f0fc87c1e4f1c4285cae4439a5847"
+    },
+    "docs/s05d-diagnostic-cleanup-20261023/final-direct-checks.txt": {
+      "size": 1126,
+      "sha256": "707f306baf44423b6a7bca10a321aa4c9e53a7f274295b5e5953dff4756c1dfb"
+    },
+    "docs/s05d-diagnostic-cleanup-20261023/final-direct-checks.json": {
+      "size": 489,
+      "sha256": "bd6a3d78feac4a6631aa0c8002d1e11f51192e7c95046c450735f37bdf3feb22"
+    }
+  }
+}

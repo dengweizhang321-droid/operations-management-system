@@ -1,0 +1,26 @@
+{
+  "version": "s05d-handoff-acl-pins-v1",
+  "frozenAt": "2026-10-23T04:37:18.283Z",
+  "files": {
+    "tools/preparation-retirement-handoff.mjs": {
+      "size": 53604,
+      "sha256": "8a306aff8bb12ebc6ef75de790a2b9a3a120e52f184b460cfc0483e817eadf74"
+    },
+    "tests/preparation-retirement-handoff-acl.test.mjs": {
+      "size": 1412,
+      "sha256": "0f924612625847845847bb76db77ddb8449056bcedca20385e25145f9839c695"
+    },
+    "docs/s05d-residual-classification-20261023/HANDOFF-ACL-IMPLEMENTATION.md": {
+      "size": 1473,
+      "sha256": "a15b0537eaa4531c5decf3a22c93c9672e452b7788c80ffac18736f232f20e38"
+    },
+    "docs/s05d-residual-classification-20261023/handoff-acl-checks.txt": {
+      "size": 213,
+      "sha256": "87189ef098afc0a31fff34db6adccefade844e9175d587406def5ac4ee9fbbd1"
+    },
+    "docs/s05d-residual-classification-20261023/handoff-acl-checks.json": {
+      "size": 314,
+      "sha256": "146092719b97e7f3d099f5c720b09d2106811cb9c4d7b55345c4ba792c600f49"
+    }
+  }
+}
