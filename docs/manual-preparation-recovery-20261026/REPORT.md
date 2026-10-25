@@ -1,10 +1,15 @@
 # 手动准备通道与单次中断核销
 
-## 本地交付状态
+## 实际采用与中断收尾
 
-本报告记录代码候选与必要程序代码检查，不表示控制入口已采用、旧请求已核销、应用已打包或已上线。真实采用与唯一现场核销由任务负责人串行执行，再按原生回执补记。
+控制更新已通过原安装器采用；指定旧请求已由原普通权限 Task 核销。原生回执明确本轮 `preparationPerformed=false`、`publicationPerformed=false`，没有应用打包或上线。现场证据在 `D:/codex-artifacts/manual-preparation-recovery-20261026/`。
 
-工作树为 `D:/codex-worktrees/manual-preparation-recovery-20261026`，分支为 `codex/manual-preparation-recovery-20261026`。从 main `3cda84efb3c2f5693b2f4f035b892d9e1cf39445` 开始，未执行 fetch、推送、合并 main、真实 Task 注册/启用/唤醒、控制包材料准备/采用、应用准备、部署、迁移或服务操作。
+开发工作树为 `D:/codex-worktrees/manual-preparation-recovery-20261026`，分支为 `codex/manual-preparation-recovery-20261026`，从 main `3cda84efb3c2f5693b2f4f035b892d9e1cf39445` 开始。实现者仅完成候选；负责人随后完成控制材料准备、采用及唯一精确核销，未执行应用部署、迁移或服务启停。
+
+- 实际控制包：`804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02`，来源提交 `1456b9ef2abb6bc3301aa0850fd100e98db1b303`；安装号 `8a642fd2-2f90-4637-8673-3627833f7937`，原安装器返回 `adopted`、`productionDeploymentPerformed=false`。
+- 指定 dispatch `caa9d222-03ab-4e9f-a1d8-39ae3ed1c974` 于上海 2026-10-26 02:26:45 返回 `abandoned`，对应弃置记录 SHA `07ecbedc631d23cbec22e082575a057943fe6ac128faa2aac4ea20112eef8ea7`。原 unknown 不改写，旧 packet 永不再次准备或消费，同 target 后续可按原协议分配新包。
+- 共用 Task 恢复 `enabled=true`、普通权限、无定时触发；核销后回到 Ready，LastTaskResult=0。Git committed hook 已采用 manual-only 策略；用户仍分别双击准备、发布 BAT。
+- 实际执行原件为 `ADOPT.stdout.log`、`RECONCILE.stdout.log` 和原 queue 的 reconciliation/abandoned 记录；最终只读核对见 `CLOSEOUT.json`。
 
 用户当前要求由本人分别双击固定 `准备main.bat` 和 `发布main.bat`，覆盖此前合入后自动打包及 AI 默认代发布的约定。本次只恢复通道与处理一个旧 prepare-only unknown，不新建应用包、不上线。
 
@@ -13,6 +18,8 @@
 实际安装控制包 `d679ce9e68dd3529b7b14f74bfc92c1e1b33377744d64c1fcdd0452c619f60de` 来自 `4d74590105f366d137b141a66ca18646001eb31c`，其工具比本次 main 新。因此只承接该包 MANIFEST 指定的 33 个 controlFiles、对应安装器及必要检查/直接夹具；没有用 main 的整包覆盖已采用工具，也未承接无关应用代码。
 
 原 manifest 见 [ADOPTED-CONTROL-MANIFEST.json](ADOPTED-CONTROL-MANIFEST.json)。承接提交 `52d45855`、`5193fca6`、`70efdd18`；独审增量起点为 `70efdd18`。该起点的 33 个 Git HEAD blob 均与原 manifest 的 SHA-256 相同。collector 原 CRLF 字节以精确文件的 `-text` 属性保留。
+
+承接时临时带入但未被必要检查引用的 `tests/helpers/preparation-retirement-fixture.mjs` 已移除，该路径相对任务起点 main 净变化为零。
 
 代码变更提交 `86578f2a7e8b1f93c5524da97ba4f14e79b39ee7`。相对已采用闭包，只修改 hook、queue、task、latest-main 和 R1b entry pins 五个控制叶，新增 `main-preparation-reconcile.mjs`；其余 28 个控制叶原字节保持。安装器随此次边界修改。R1b 历史精确 pins 保留，旧 current installer 仍归为 retirement-preserving 入口；新 current pins 绑定新源码，未引入 wildcard。
 
@@ -38,7 +45,7 @@
 - `CANDIDATE-CONTROL-HASHES.json`：控制/安装器字节摘要及 28 个继承叶不变声明。
 - `BASELINE.json`、`READONLY-PREFLIGHT.json`：负责人先前只读基线。配置 SHA `a461db4d0d57175d712c01d7707cc36c38b8f1d43e0ee5c1d4a5f482ca5ac9c8`，旧 unknown SHA `f1524256442c3459ddd0429ff5ae56a44d1bf58f034020b7a0563286913dc70f`；当时任务仅 enabled true→false、State=1、instances=0，线上来源 a0b0bc18。
 
-## 负责人现场入口（本实施未执行）
+## 本次现场入口记录（已执行，不重放）
 
 先完成代码独审并确保来源干净。控制材料目录必须尚不存在；下述操作只准备控制入口材料，不准备应用包：
 
@@ -55,9 +62,10 @@ node "D:/codex-worktrees/manual-preparation-recovery-20261026/tools/install-main
 采用成功并核对配置、原件及新 adopted 代际后，仅调用一次以下高侧请求入口；当前代际由固定 dispatcher 读取并自动写入请求，不由调用者手填：
 
 ```powershell
-node "D:/codex-isolated/main-manual-release-20261016/control/tools/publish-latest-main.mjs" --config "D:/codex-isolated/main-manual-release-20261016/main-publisher-config.json" --abandon-dispatch "caa9d222-03ab-4e9f-a1d8-39ae3ed1c974" --dispatch-sha256 "6929a9edece3053c3ca395a53b91701c544155357a10be9787ef0247e65ba159" --result-sha256 "f1524256442c3459ddd0429ff5ae56a44d1bf58f034020b7a0563286913dc70f" --target "3cda84efb3c2f5693b2f4f035b892d9e1cf39445" --packet "D:/codex-isolated/main-release-packages/3cda84efb3c2-8a03d8fb-9ea443c1"
+$dispatch = Get-Content -LiteralPath 'D:\codex-isolated\main-manual-release-20261016\prebuild-queue-v2\dispatches\caa9d222-03ab-4e9f-a1d8-39ae3ed1c974.json' -Raw | ConvertFrom-Json
+node "D:/codex-isolated/main-manual-release-20261016/control/tools/publish-latest-main.mjs" --config "D:/codex-isolated/main-manual-release-20261016/main-publisher-config.json" --abandon-dispatch $dispatch.dispatchId --dispatch-sha256 "6929a9edece3053c3ca395a53b91701c544155357a10be9787ef0247e65ba159" --result-sha256 "f1524256442c3459ddd0429ff5ae56a44d1bf58f034020b7a0563286913dc70f" --target $dispatch.selectedTarget --packet $dispatch.selection.packet
 ```
 
 独立普通 consumer 回执位于 `D:/codex-isolated/main-manual-release-20261016/prebuild-queue-v2/reconciliation-results/caa9d222-03ab-4e9f-a1d8-39ae3ed1c974.json`；同名请求在 `reconciliation-requests/`，S05d 弃置在 `abandoned/`。高侧返回 submitted/woken 本身不证明核销完成。若拒绝或结果缺失，保留原请求、结果与现场证据，不另换 dispatch 或重试。
 
-本阶段没有声明真实采用或核销完成；文档提交不改变上述已检查工具字节，最终实际采用与 main 交付由负责人按原生结果报告。
+现场调用直接使用原 dispatch 的 packet 字符串，不能擅自规范路径分隔符以改变精确绑定。收尾文档提交不改变已检查、已采用的工具字节，也不构成应用上线。
