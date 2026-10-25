@@ -77,16 +77,20 @@ export const aDescendantCreationGuardDjangoScriptSha256='4ba1fcaf3cd1568a64098a9
 // stderr and dropped $_.Exception.Message entirely, so a -Json caller saw a
 // generic failure with no cause — the reason the 2026-10-24 r2/r3 incidents
 // took extra diagnosis. The non-Json branch had always printed that text.
-// The reconciliation contract is deliberately preserved: status stays
-// 'unknown' and processEvidence / startupPhases / failedStartPhase keep their
-// existing shapes, so every consumer parsing that stdout line is unaffected.
-// Added are two extra JSON keys (failureMessage, failureType) plus the phase
-// and message lines on stderr. Nothing in maintenance enter/exit, the
-// maintenance lock, drain, STARTED/SUCCESS receipts, worker start/stop
-// sequencing, process-tree termination or signal handling is touched; no
-// external process is added; no assertion is relaxed and no new failure path
-// is introduced (this code runs only after a failure already happened).
-export const bWorkerJsonFailureCauseScriptSha256='36c9a0ac2d7b49ff492f0b1a0c04ef90828909bdff7e7da6393713afccba6186';
+// The reconciliation contract is preserved byte for byte: the stdout JSON key
+// set is identical to the baseline (status / processEvidence / startupPhases /
+// failedStartPhase), so every consumer parsing that line is unaffected. The
+// cause is added to stderr ONLY and deliberately kept out of stdout, because
+// publish-main.mjs:136 persists stdout verbatim to <label>.stdout.log (the
+// repository already tracks ~100 such logs) while this project's own rule in
+// release-readonly-retry.mjs forbids persisting arbitrary messages; some
+// throws embed a bounded supervisor stderr tail. stderr keeps exactly the
+// exposure the non-Json branch has always had. Nothing in maintenance
+// enter/exit, the maintenance lock, drain, STARTED/SUCCESS receipts, worker
+// start/stop sequencing, process-tree termination or signal handling is
+// touched; no external process is added; no new failure path is introduced
+// (this code runs only after a failure already happened).
+export const bWorkerJsonFailureCauseScriptSha256='1b8c5d4d61ba491d042f41ae91e9cc7b0d0c87a28536bac7b4c8a1e53fda761e';
 // S05a (2026-10-22): qualification is per controller, never one shared
 // exception. A controller name owns only its own reviewed candidate hashes; an
 // unregistered name or an unlisted hash for a registered name still fails
