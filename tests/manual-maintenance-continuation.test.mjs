@@ -170,3 +170,113 @@ if(process.platform==='win32')for(const host of ['C:/Windows/System32/WindowsPow
  const commandFile=path.join(fixtureRoot,'real-adapter-report.json');await fs.writeFile(commandFile,JSON.stringify({commandLine:systemHost+' '+argv.join(' ')}));
  const {stdout}=await execute(host,['-NoProfile','-NonInteractive','-File',path.resolve('tests/manual-maintenance-continuation.fixture.ps1'),'-SourceFile',path.resolve('tools/manual-maintenance-continuation.ps1'),'-TransportFile',transport,'-AdapterCommandPath',commandFile],{windowsHide:true,timeout:30000});assert.match(stdout,/PRIVATE_FIXTURES_PASSED/);assert.match(stdout,/REJECTED_REAL_ADAPTER_ENCODED_REPORT/);assert.match(stdout,/REJECTED_REAL_NATIVE_TRANSPORT_ENCODED_REPORT/);
 });
+
+// Q14 (2026-10-25): DingTalk screenshot ACL tolerance changes only tools/django-ai.ps1
+// (Assert-DingTalkScreenshotProfile + one added helper). The installed -> candidate
+// django-ai.ps1 pair is the only widened hash pair; these tests drive the real
+// maintenanceReadiness path with real files and the real SHA-256 reader.
+import {execFileSync} from 'node:child_process';
+import {maintenanceReadiness,maintenanceSourceNames,dingtalkScreenshotAclQualification as dtq,isDingTalkScreenshotAclPair} from '../tools/manual-maintenance-continuation.mjs';
+const sha256=value=>createHash('sha256').update(value).digest('hex');
+const gitBlob=(commit,file)=>execFileSync('git',['show',commit+':'+file],{windowsHide:true,maxBuffer:8*1024*1024});
+// Installed bytes = origin/main 525ad36b; candidate bytes = reviewed 33043e9d (or the working
+// tree once it has been merged, so the test survives squash merges).
+const dingtalkBaseAi=gitBlob('525ad36b','tools/django-ai.ps1');
+const dingtalkCandidateAi=await(async()=>{const work=await fs.readFile(new URL('../tools/django-ai.ps1',import.meta.url));return sha256(work)===dtq.candidateAiSha256?work:gitBlob('33043e9d','tools/django-ai.ps1');})();
+async function dingtalkAclFixture(t,{installedAi,sourceAi}){
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'dingtalk-acl-readiness-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const source=path.join(root,'source'),installed=path.join(root,'django/app'),runtime=path.join(root,'worker'),releaseId='20261025T000000Z-fixture';
+ const write=async(file,data)=>{await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,data);};
+ for(const name of maintenanceSourceNames)await write(path.join(source,'tools',name),'source '+name);
+ for(const name of ['worker-local-service.ps1','process-deadline.ps1','django-local-service.ps1'])await write(path.join(source,'tools',name),'controller '+name);
+ const releaseRoot=path.join(runtime,'releases',releaseId);
+ await write(path.join(source,'tools/django-ai.ps1'),sourceAi);await write(path.join(installed,'tools/django-ai.ps1'),installedAi);
+ await write(path.join(installed,'tools/django-local-service.ps1'),'controller django-local-service.ps1');
+ await write(path.join(releaseRoot,'tools/worker-local-service.ps1'),'controller worker-local-service.ps1');
+ await write(path.join(releaseRoot,'tools/process-deadline.ps1'),'controller process-deadline.ps1');
+ await write(path.join(installed,'deployment.json'),'{"fixture":"django"}');await write(path.join(releaseRoot,'deployment-manifest.json'),'{"fixture":"worker"}');
+ const options={source,installed,runtime,head:{releaseId,manifestSha256:sha256('{"fixture":"worker"}')},djangoManifestSha256:sha256('{"fixture":"django"}')};
+ return {options,source,installed,releaseRoot,write,real:async file=>sha256(await fs.readFile(file))};
+}
+test('Q14: registered django-ai hashes are exactly the reviewed pair and match the real bytes',()=>{
+ assert.equal(sha256(dingtalkBaseAi),dtq.installedAiSha256);assert.equal(sha256(dingtalkCandidateAi),dtq.candidateAiSha256);
+ assert.equal(dtq.installedAiSha256,'f97cf7e2bc532407cdf86501de57097ce6e4f626eaf68f73ee6ab308532e0e73');
+ assert.equal(dtq.candidateAiSha256,'55b6701ac0f38e7aed6abea441085aa2b77f0a5f8d1a3f6c81651829ae6f9aba');
+ assert.equal(isDingTalkScreenshotAclPair(dtq.installedAiSha256,dtq.candidateAiSha256),true);
+ const flip=value=>value.slice(0,-1)+(value.endsWith('0')?'1':'0');
+ assert.equal(isDingTalkScreenshotAclPair(flip(dtq.installedAiSha256),dtq.candidateAiSha256),false);
+ assert.equal(isDingTalkScreenshotAclPair(dtq.installedAiSha256,flip(dtq.candidateAiSha256)),false);
+ assert.equal(isDingTalkScreenshotAclPair(dtq.candidateAiSha256,dtq.installedAiSha256),false,'reverse direction is not registered');
+ assert.equal(isDingTalkScreenshotAclPair(dtq.installedAiSha256,dtq.installedAiSha256),false);
+ assert.throws(()=>{dtq.candidateAiSha256='0'.repeat(64);},TypeError);
+});
+test('Q14: the exact installed -> candidate django-ai pair reaches the native exit-observer route',async t=>{
+ const {options,installed,source}=await dingtalkAclFixture(t,{installedAi:dingtalkBaseAi,sourceAi:dingtalkCandidateAi});
+ const result=await maintenanceReadiness(options);
+ assert.equal(result.route,'native-exit-observer');
+ assert.equal(result.pins.find(p=>p.root==='django'&&p.relative==='app/tools/django-ai.ps1').sha256,dtq.installedAiSha256);
+ assert.equal(result.pins.find(p=>p.root==='source'&&p.relative==='django-ai.ps1').sha256,dtq.candidateAiSha256);
+ for(const name of ['worker-local-service.ps1','process-deadline.ps1','django-local-service.ps1'])assert.ok(result.pins.some(p=>p.root==='source'&&p.relative===name),name);
+ assert.equal(await fs.readFile(path.join(installed,'tools/django-ai.ps1')).then(sha256),dtq.installedAiSha256);assert.ok(source);
+});
+test('Q14: unchanged django-ai (installed = candidate) is unaffected by the new pair',async t=>{
+ const {options}=await dingtalkAclFixture(t,{installedAi:dingtalkCandidateAi,sourceAi:dingtalkCandidateAi});
+ assert.equal((await maintenanceReadiness(options)).route,'native-exit-observer');
+});
+test('Q14: any other django-ai pair is still refused by the original predecessor checks',async t=>{
+ // one byte appended to the candidate, to the installed bytes, and the reverse direction
+ for(const [name,installedAi,sourceAi] of [
+  ['candidate bytes differ',dingtalkBaseAi,Buffer.concat([dingtalkCandidateAi,Buffer.from('\n')])],
+  ['installed bytes differ',Buffer.concat([dingtalkBaseAi,Buffer.from('\n')]),dingtalkCandidateAi],
+  ['reverse direction',dingtalkCandidateAi,dingtalkBaseAi],
+ ]){
+  const {options}=await dingtalkAclFixture(t,{installedAi,sourceAi});
+  await assert.rejects(maintenanceReadiness(options),/维护前驱资格与最初读取字节不一致|没有适用于实际前驱/,name);
+ }
+});
+test('Q14: a one-digit hash error on either side is refused (reported hashes, real bytes)',async t=>{
+ const flip=value=>value.slice(0,-1)+(value.endsWith('0')?'1':'0');
+ for(const [name,which] of [['installed hash off by one digit','installed'],['candidate hash off by one digit','source']]){
+  const {options,installed,source,real}=await dingtalkAclFixture(t,{installedAi:dingtalkBaseAi,sourceAi:dingtalkCandidateAi});
+  const target=path.join(which==='installed'?installed:source,'tools/django-ai.ps1');
+  options.sha=async file=>file===target?flip(await real(file)):real(file);
+  await assert.rejects(maintenanceReadiness(options),/维护前驱资格与最初读取字节不一致|没有适用于实际前驱/,name);
+ }
+});
+test('Q14: installed bytes that change after the pair was recognised cannot ride on the registered hash',async t=>{
+ const {options,installed,real}=await dingtalkAclFixture(t,{installedAi:Buffer.concat([dingtalkBaseAi,Buffer.from('\n# drift\n')]),sourceAi:dingtalkCandidateAi});
+ // The reader claims the registered installed hash while the real bytes differ.
+ options.sha=async file=>file===path.join(installed,'tools/django-ai.ps1')?dtq.installedAiSha256:real(file);
+ await assert.rejects(maintenanceReadiness(options),/资格核验后工具发生变化/);
+});
+test('Q14: a candidate that edits the Pi stop protocol is refused before the pair is considered',async t=>{
+ const text=dingtalkCandidateAi.toString('utf8');assert.ok(text.includes('Wait-PiWorkerExit $owned'));
+ const edited=Buffer.from(text.replace('Wait-PiWorkerExit $owned','# observer detached $owned'));
+ const {options}=await dingtalkAclFixture(t,{installedAi:dingtalkBaseAi,sourceAi:edited});
+ await assert.rejects(maintenanceReadiness(options),/Pi Stop调用|没有适用于实际前驱/);
+});
+test('Q14: the pair keeps per-controller generation checks for every other controller',async t=>{
+ // unregistered installed worker controller -> refused
+ let fixture=await dingtalkAclFixture(t,{installedAi:dingtalkBaseAi,sourceAi:dingtalkCandidateAi});
+ await fixture.write(path.join(fixture.releaseRoot,'tools/worker-local-service.ps1'),'an older, unregistered controller');
+ await assert.rejects(maintenanceReadiness(fixture.options),/实际原生控制器代际与候选不一致：worker-local-service\.ps1/);
+ // a registered candidate hash for that controller is admitted exactly as in the same-AI generation
+ const registeredWorker=piNativeCandidateControllerSha256['worker-local-service.ps1'][0];
+ const target=path.join(fixture.source,'tools/worker-local-service.ps1');
+ fixture.options.sha=async file=>file===target?registeredWorker:fixture.real(file);
+ assert.equal((await maintenanceReadiness(fixture.options)).route,'native-exit-observer');
+ // an unregistered candidate hash for that controller is refused
+ fixture.options.sha=async file=>file===target?'e'.repeat(64):fixture.real(file);
+ await assert.rejects(maintenanceReadiness(fixture.options),/实际原生控制器代际与候选不一致：worker-local-service\.ps1/);
+ // process-deadline.ps1 has no registered candidate at all
+ fixture=await dingtalkAclFixture(t,{installedAi:dingtalkBaseAi,sourceAi:dingtalkCandidateAi});
+ await fixture.write(path.join(fixture.releaseRoot,'tools/process-deadline.ps1'),'drifted transport');
+ await assert.rejects(maintenanceReadiness(fixture.options),/实际原生控制器代际与候选不一致：process-deadline\.ps1/);
+ // django-local-service.ps1: registered PiNative candidate admitted, unknown refused
+ fixture=await dingtalkAclFixture(t,{installedAi:dingtalkBaseAi,sourceAi:dingtalkCandidateAi});
+ await fixture.write(path.join(fixture.installed,'tools/django-local-service.ps1'),'installed older local service');
+ const djangoTarget=path.join(fixture.source,'tools/django-local-service.ps1');
+ fixture.options.sha=async file=>file===djangoTarget?piNativeCandidateDjangoScriptSha256:fixture.real(file);
+ assert.equal((await maintenanceReadiness(fixture.options)).route,'native-exit-observer');
+ await assert.rejects(maintenanceReadiness(await(async()=>{fixture.options.sha=fixture.real;return fixture.options;})()),/实际原生控制器代际与候选不一致：django-local-service\.ps1/);
+});

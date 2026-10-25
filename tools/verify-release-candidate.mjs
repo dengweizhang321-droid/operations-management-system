@@ -13,6 +13,7 @@ import assert from 'node:assert/strict';
 import {makeReleasePlan} from './release-scope-plan.mjs';
 import {publisherEnvironment} from './publish-latest-main.mjs';
 import {hashTree} from './worker-local-release.mjs';
+import {dingtalkScreenshotAclQualification} from './manual-maintenance-continuation.mjs';
 
 const execute=promisify(execFile),sha=b=>createHash('sha256').update(b).digest('hex');
 const git=async(root,args)=>(await execute('git',['-C',root,...args],{encoding:'utf8',windowsHide:true,maxBuffer:16*1024*1024})).stdout.trim();
@@ -26,6 +27,11 @@ export function candidateTestEnvironment({gitExe,shell5,shell7,pythonExe,directo
  environment.PSModulePath=path.join(path.dirname(shell7),'Modules');
  environment.PYTHONDONTWRITEBYTECODE='1';environment.PYTHONIOENCODING='utf-8';
  return environment;
+}
+/** Windows PowerShell 5.1 must resolve its own built-in modules; the PowerShell 7
+ * module path inherited from candidateTestEnvironment would hide Get-FileHash etc. */
+export function windowsPowerShellEnvironment(environment){
+ return Object.fromEntries(Object.entries(environment).filter(([key])=>key.toLowerCase()!=='psmodulepath'));
 }
 
 export function candidateCompatibilityProfile(changes){
@@ -46,6 +52,9 @@ export function candidateCompatibilityProfile(changes){
  const weeklyReleaseLeaseOnly=releaseContentionOnly&&paths.includes('tools/django-workflow-service.ps1')&&paths.includes('tools/publish-prepared-main.mjs')&&paths.every(p=>['tools/django-workflow-service.ps1','tools/publish-prepared-main.mjs','tools/verify-release-candidate.mjs'].includes(p));
  if(releaseContentionOnly)for(const file of contentionAllowed)supported.add(file);
  const unsupported=paths.filter(p=>!supported.has(p));
+ // Q14: django-ai.ps1 is the only application-side file; the two verifier/readiness
+ // files may travel with it because the qualification lives there.
+ const dingtalkScreenshotAclOnly=paths.includes('tools/django-ai.ps1')&&paths.every(p=>['tools/django-ai.ps1','tools/verify-release-candidate.mjs','tools/manual-maintenance-continuation.mjs'].includes(p));
  const schemaProof=paths.some(p=>proofFiles.includes(p)),preparationQueue=paths.some(p=>preparationFiles.includes(p)||p==='tools/publish-latest-main.mjs'||p==='tools/worker-local-release-rotation.mjs');
  return {version:schemaProof||preparationQueue?'release-three-optimizations-v1':'release-compatibility-profile-v1',paths,unsupported,schemaProof,preparationQueue,releaseContentionOnly,weeklyReleaseLeaseOnly,piMainResumeOnly,
   nativeAbandonmentOnly:paths.includes('tools/main-prebuild-queue.mjs')&&paths.every(p=>['tools/main-prebuild-queue.mjs','tools/native-abandonment-observer.mjs','tools/native-abandonment-writer.mjs','tools/verify-release-candidate.mjs'].includes(p)),
@@ -55,7 +64,8 @@ export function candidateCompatibilityProfile(changes){
   publication:paths.some(p=>/publish-|main-prebuild|manual-maintenance|verify-release-candidate|release-scope-plan/.test(p)),
   worker:paths.some(p=>/worker-local-release/.test(p)),
   django:paths.includes('tools/django-local-service.ps1'),
-  piExitObservation:paths.includes('tools/django-ai.ps1')&&!piMainResumeOnly,
+  piExitObservation:paths.includes('tools/django-ai.ps1')&&!piMainResumeOnly&&!dingtalkScreenshotAclOnly,
+  dingtalkScreenshotAclOnly,
   nativeColdStartPerformed:false};
 }
 
@@ -75,6 +85,16 @@ async function functionsOf(script,host,environment){
  const code='$e=$null;$a=[Management.Automation.Language.Parser]::ParseFile($env:TERUISI_CANDIDATE_PARSE_FILE,[ref]$null,[ref]$e);if($e.Count){throw "parse failed"};$functions=@($a.EndBlock.Statements|Where-Object{$_ -is [Management.Automation.Language.FunctionDefinitionAst]}|ForEach-Object{[pscustomobject]@{name=$_.Name;text=$_.Extent.Text}});$other=@([string]$a.ParamBlock.Extent.Text)+@($a.EndBlock.Statements|Where-Object{$_ -isnot [Management.Automation.Language.FunctionDefinitionAst]}|ForEach-Object{$_.Extent.Text});[pscustomobject]@{functions=$functions;other=$other}|ConvertTo-Json -Depth 4 -Compress';
  const result=await execute(host,['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(code,'utf16le').toString('base64')],{encoding:'utf8',env:{...environment,TERUISI_CANDIDATE_PARSE_FILE:script},windowsHide:true,maxBuffer:8*1024*1024});
  return JSON.parse(result.stdout);
+}
+/** Same projection as functionsOf, but lossless: the file is decoded as strict UTF-8
+ * (BOM tolerated) and parsed from that string on every host, and each text travels as
+ * base64 UTF-8, so a pinned SHA-256 of a function that contains non-ASCII text (Chinese
+ * messages) is independent of the console code page and of the PowerShell edition. */
+export async function functionsOfExact(script,host,environment){
+ const code='$e=$null;$text=[IO.File]::ReadAllText($env:TERUISI_CANDIDATE_PARSE_FILE,[Text.UTF8Encoding]::new($false,$true));$a=[Management.Automation.Language.Parser]::ParseInput($text,[ref]$null,[ref]$e);if($e.Count){throw "parse failed"};$enc={param($s)[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$s))};$functions=@($a.EndBlock.Statements|Where-Object{$_ -is [Management.Automation.Language.FunctionDefinitionAst]}|ForEach-Object{[pscustomobject]@{name=$_.Name;text=(& $enc $_.Extent.Text)}});$other=@(& $enc $a.ParamBlock.Extent.Text)+@($a.EndBlock.Statements|Where-Object{$_ -isnot [Management.Automation.Language.FunctionDefinitionAst]}|ForEach-Object{& $enc $_.Extent.Text});[pscustomobject]@{functions=$functions;other=$other}|ConvertTo-Json -Depth 4 -Compress';
+ const result=await execute(host,['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(code,'utf16le').toString('base64')],{encoding:'utf8',env:{...environment,TERUISI_CANDIDATE_PARSE_FILE:script},windowsHide:true,maxBuffer:8*1024*1024});
+ const decode=value=>Buffer.from(value,'base64').toString('utf8'),parsed=JSON.parse(result.stdout);
+ return {functions:[].concat(parsed.functions).map(f=>({name:f.name,text:decode(f.text)})),other:[].concat(parsed.other).map(decode)};
 }
 export function compareFunctionOnlyChange(before,after){
  const allowed=new Set(['Get-FileSha256','Get-ExistingFileSha256','Get-ApplicationTreeFingerprintEvidence']);
@@ -140,6 +160,26 @@ export function comparePiExitObservationChange(before,after){
  if(!stop?.includes(addition)||!stop.includes(pin)||!stop.includes(observer))return false;
  next.set('Stop-PiRuntime',stop.replace(addition,'').replace(pin,'').replace(observer,prior));next.delete('Wait-PiWorkerExit');
  return old.size===next.size&&[...old].every(([name,text])=>next.get(name)===text);
+}
+/** Q14 (2026-10-25): DingTalk screenshot ACL tolerance. Syntax-tree proof, on the
+ * parsed functions/top-level statements of tools/django-ai.ps1, that the candidate
+ * differs from the base only by (1) Assert-DingTalkScreenshotProfile whose old and
+ * new text are pinned by SHA-256 and (2) one added Test-AppContainerReadOnlyAce
+ * whose text is pinned. Every other function, the parameter block, every top-level
+ * statement and the order of the existing functions must be byte-identical, so
+ * Wait-PiWorkerExit / Stop-PiRuntime and all Start/Stop routing are unchanged. */
+export function compareDingTalkScreenshotAclChange(before,after,qualification=dingtalkScreenshotAclQualification){
+ const assertName='Assert-DingTalkScreenshotProfile',helperName='Test-AppContainerReadOnlyAce';
+ const normalize=text=>text.replaceAll('\r\n','\n');
+ const digest=text=>sha(Buffer.from(text));
+ if(!Array.isArray(before?.functions)||!Array.isArray(after?.functions)||!Array.isArray(before.other)||!Array.isArray(after.other))return false;
+ if(JSON.stringify(before.other.map(normalize))!==JSON.stringify(after.other.map(normalize)))return false;
+ const old=new Map(before.functions.map(f=>[f.name,normalize(f.text)])),next=new Map(after.functions.map(f=>[f.name,normalize(f.text)]));
+ if(old.size!==before.functions.length||next.size!==after.functions.length)return false;
+ if(!old.has(assertName)||old.has(helperName)||!next.has(assertName)||!next.has(helperName)||next.size!==old.size+1)return false;
+ if(digest(old.get(assertName))!==qualification.assertProfileBeforeSha256||digest(next.get(assertName))!==qualification.assertProfileAfterSha256||digest(next.get(helperName))!==qualification.appContainerAceSha256)return false;
+ for(const [name,text] of old)if(name!==assertName&&next.get(name)!==text)return false;
+ return JSON.stringify(before.functions.map(f=>f.name))===JSON.stringify(after.functions.map(f=>f.name).filter(name=>name!==helperName));
 }
 export function stripGateTiming(text){
  if(typeof text!=='string')return text;
@@ -324,6 +364,21 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    assert.equal(comparePiExitObservationChange(a,b),true,'Pi adapter only permits the reviewed Windows exit observer; routing or other lifecycle changes require native cold start');
    report.piExitObservationOnly=true;
   }
+  if(profile.dingtalkScreenshotAclOnly){
+   const q=dingtalkScreenshotAclQualification,old=path.join(directory,'before-django-ai.ps1'),current=path.join(candidate,'tools/django-ai.ps1');
+   const bytes=(await execute('git',['-C',source,'show',baseCommit+':tools/django-ai.ps1'],{encoding:'buffer',maxBuffer:4*1024*1024,windowsHide:true})).stdout;
+   assert.equal(sha(bytes),q.installedAiSha256,'前驱 django-ai.ps1 不是线上已登记的字节');
+   assert.equal(sha(await fs.readFile(current)),q.candidateAiSha256,'候选 django-ai.ps1 不是已登记的字节');
+   await fs.writeFile(old,bytes);
+   const a=await functionsOfExact(old,shell7,environment),b=await functionsOfExact(current,shell7,environment);
+   assert.equal(compareDingTalkScreenshotAclChange(a,b),true,'DingTalk截图ACL窄配置只允许Assert-DingTalkScreenshotProfile（固定新旧哈希）和新增Test-AppContainerReadOnlyAce（固定哈希），其余函数、参数和顶层语句必须逐字不变');
+   const windowsPowerShell=windowsPowerShellEnvironment(environment);
+   for(const file of ['dingtalk-screenshot-acl','dingtalk-startup-acl']){
+    await run('ps5-'+file,shell5,['-NoProfile','-NonInteractive','-File','tests/'+file+'.test.ps1'],'isolated-functions',windowsPowerShell);
+    await run('ps7-'+file,shell7,['-NoProfile','-NonInteractive','-File','tests/'+file+'.test.ps1'],'isolated-functions');
+   }
+   report.dingtalkScreenshotAclOnly=true;report.evidence.dingtalkScreenshotAclTolerance=true;
+  }
   if(profile.piMainResumeOnly){
    const old=path.join(directory,'before-django-ai.ps1');
    await fs.writeFile(old,(await execute('git',['-C',source,'show',baseCommit+':tools/django-ai.ps1'],{encoding:'buffer',maxBuffer:4*1024*1024,windowsHide:true})).stdout);
@@ -334,11 +389,11 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    for(const [name,host] of [['ps5',shell5],['ps7',shell7]])await run(name+'-pi-upgrade-status',host,['-NoProfile','-NonInteractive','-File','tests/pi-upgrade-status.fixture.ps1','-Controller',path.join(candidate,'tools/django-ai.ps1')],'native-entry-boundary');
    report.evidence.piMainResume=true;
   }
-  async function run(name,executable,args,kind){
+  async function run(name,executable,args,kind,env=environment){
    const started=Date.now(),item={name,executable,args,kind,startedAt:new Date().toISOString(),status:'running'};report.checks.push(item);await write();
    const output=path.join(directory,name+'.stdout.log'),errors=path.join(directory,name+'.stderr.log');
    try{
-    const result=await execute(executable,args,{cwd:candidate,env:environment,encoding:'buffer',windowsHide:true,timeout:900000,maxBuffer:16*1024*1024});
+    const result=await execute(executable,args,{cwd:candidate,env,encoding:'buffer',windowsHide:true,timeout:900000,maxBuffer:16*1024*1024});
     await fs.writeFile(output,result.stdout);await fs.writeFile(errors,result.stderr);item.exitCode=0;item.status='passed';
    }catch(error){await fs.writeFile(output,error.stdout??Buffer.alloc(0));await fs.writeFile(errors,error.stderr??Buffer.alloc(0));item.error=String(error.message);item.exitCode=error.code??null;item.status='failed';throw error;}
    finally{item.elapsedMs=Date.now()-started;item.stdoutSha256=sha(await fs.readFile(output));item.stderrSha256=sha(await fs.readFile(errors));await write();}
@@ -410,7 +465,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   if(schemaAdmissionOnly){report.evidence.unmodifiedApplicationAndPi=preflightBaseline.evidence;report.evidence.fixedSchemaQueueResolution=true;}
   if(nativeAbandonmentOnly)report.evidence.fixedNativeAbandonmentResolution=true;
   if(cleanedPreparationOnly)report.evidence.fixedCleanedPreparationResolution=true;
-  report.nativeColdStartReason=profile.piExitObservation?'Not executed: exact AST-qualified Windows Pi exit observer only; real private empty pi_worker.main and same-token Stop tested, fixed WSL runner lifecycle not executed.':'Not executed: profiles cover package digests, admission and native command boundaries; no Start/Stop routing semantics changed.';
+  report.nativeColdStartReason=profile.dingtalkScreenshotAclOnly?'Not executed: exact AST-qualified DingTalk screenshot ACL tolerance only (Assert-DingTalkScreenshotProfile plus one added helper); every other function and Start/Stop routing, including the Pi stop protocol, is byte-identical.':profile.piExitObservation?'Not executed: exact AST-qualified Windows Pi exit observer only; real private empty pi_worker.main and same-token Stop tested, fixed WSL runner lifecycle not executed.':'Not executed: profiles cover package digests, admission and native command boundaries; no Start/Stop routing semantics changed.';
   report.status='passed';
  }catch(error){report.status='failed';report.error=String(error.message);}
  finally{
