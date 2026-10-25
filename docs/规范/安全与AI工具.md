@@ -10,6 +10,7 @@
 - AI 模型域名若被代理 DNS 返回为 `198.18.0.0/15` 虚拟地址，只能对已有精确 HTTPS origin 白名单中的域名，通过固定公网 HTTPS DNS 取得并校验真实公网单播 IP 后固定连接；保持原域名 TLS 校验、总超时、响应上限、禁止重定向和模型 POST 不自动重发。不得放行虚拟地址段、私网或关闭证书验证；DNS 查询不得携带模型密钥和对话正文，内部回环工具桥不走该恢复路径。说明见 `docs/使用手册/AI助手/ai-assistant-setup.md`。
 - 本地免登录管理员仅在 `TERUISI_LOCAL_DIRECT_ACCESS=true`、`TERUISI_RUNTIME_ENV=development` 与真实开发/受控本地构建标记同时满足时可用，并必须在 Worker 入口和身份解析两层把请求限制到精确回环地址；Host 不能作为开发证明，LAN 地址、任意域名和 DNS rebinding 必须失败关闭。所有非 Webhook AI 写请求还必须提供精确同源 `Origin` 或明确的 `Sec-Fetch-Site: same-origin`；生产环境必须保持拒绝匿名直连。
 - 外部回调必须验签、解密、校验接收方并防重。聊天平台消息不能绕过后台权限直接修改运营数据。
+- AI 编程助手（含受委派的子代理）默认只在仓库及其 worktree 内读写，不读写 `D:\teruisi-runtime`（生产运行目录及相邻的 `django-sales-screenshot-profile` 等）。确需排障时只做只读、限定到具体文件或目录，不递归遍历、不修改权限与内容。部分 AI 编程助手的 Windows 沙箱（AppContainer，SID 以 `S-1-15-2-` 开头）读取某目录后，会给该目录加上只读 ACE；这会让运行目录和钉钉定时截图目录的精确 ACL 校验失败、发送员无法启动。定时截图目录校验仅放过此类只读 AppContainer ACE（见 `tools/django-ai.ps1` 的 `Assert-DingTalkScreenshotProfile`），运行目录发布契约不放宽；发现多出此类 ACE 时报告并按受控流程收紧，不自行手工改 ACL。
 
 ## 中央 AI 工具注册表
 

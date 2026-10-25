@@ -102,6 +102,72 @@ test("a neighboring /api/ai/internal/* path is NOT exempted by the edge allowlis
   assert.equal(subPathResponse.status, 403);
 });
 
+const LOCAL_AUTOMATION_PATHS = [
+  "/api/imports/erp/chunks",
+  "/api/imports/inventory/chunks",
+  "/api/imports/sales/chunks",
+  "/api/imports/recovery/finish",
+  "/api/netshop/import",
+  "/api/customer-service/import",
+  "/api/market/import",
+  "/api/market/images/repair",
+  "/api/market/images/cache",
+  "/api/market/annotations/worker",
+];
+
+test("local automation write paths allow server-to-server requests without browser headers", () => {
+  for (const pathname of LOCAL_AUTOMATION_PATHS) {
+    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+      for (const suffix of ["", "/", "?source=products", "/?source=products"]) {
+        const request = writeRequest(`http://127.0.0.1:3000${pathname}${suffix}`, { method });
+        assert.equal(request.headers.get("origin"), null);
+        assert.equal(request.headers.get("sec-fetch-site"), null);
+        assert.equal(evaluateSameOriginWriteGate(request), null, `${method} ${pathname}${suffix}`);
+      }
+    }
+  }
+});
+
+test("local automation exemptions do not cover neighboring or nested paths", () => {
+  for (const pathname of LOCAL_AUTOMATION_PATHS) {
+    for (const suffix of ["/sub", "-other", "//"]) {
+      const request = writeRequest(`http://127.0.0.1:3000${pathname}${suffix}`);
+      assert.equal(evaluateSameOriginWriteGate(request)?.status, 403, pathname + suffix);
+    }
+  }
+});
+
+test("read-only automation URLs and unrelated writes retain the same-origin gate", () => {
+  for (const pathname of [
+    "/api/imports/erp",
+    "/api/imports/inventory",
+    "/api/imports/sales/verify",
+    "/api/imports/recovery",
+    "/api/netshop/import/chunks",
+    "/api/inventory/jd-logistics",
+    "/api/finance/targets",
+  ]) {
+    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+      for (const headers of [undefined, { origin: "https://evil.example", "sec-fetch-site": "cross-site" }]) {
+        const request = writeRequest(`http://127.0.0.1:3000${pathname}`, { method, headers });
+        assert.equal(evaluateSameOriginWriteGate(request)?.status, 403, `${method} ${pathname}`);
+      }
+    }
+    assert.equal(evaluateSameOriginWriteGate(new Request(`http://127.0.0.1:3000${pathname}`)), null);
+  }
+});
+
+test("an exempted multipart import body is left unread for the route handler", async () => {
+  const form = new FormData();
+  form.set("file", new Blob(["synthetic workbook bytes"]), "fixture.xlsx");
+  const request = writeRequest("http://127.0.0.1:3000/api/netshop/import", { body: form });
+  assert.equal(evaluateSameOriginWriteGate(request), null);
+  assert.equal(request.bodyUsed, false);
+  const file = (await request.formData()).get("file");
+  assert.ok(file instanceof File);
+  assert.equal(await file.text(), "synthetic workbook bytes");
+});
+
 test("GET requests are never affected by the gate, even cross-site", () => {
   const request = new Request(API_URL, {
     method: "GET",

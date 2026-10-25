@@ -3,7 +3,7 @@ import producer from './preparation-producer-qualification.mjs';
 export const retirementProducerFiles=Object.freeze({
  ...Object.fromEntries(Object.entries(producer.closures[0]).map(([name,digest])=>['tools/'+name,digest])),
  'tools/django-local-service.ps1':'65f057297208b32ac6d3c2e71a12016b1fd4afdc0ed7ea455fbda13181fffb61',
- 'tools/django-ai.ps1':'f97cf7e2bc532407cdf86501de57097ce6e4f626eaf68f73ee6ab308532e0e73',
+ 'tools/django-ai.ps1':'55b6701ac0f38e7aed6abea441085aa2b77f0a5f8d1a3f6c81651829ae6f9aba',
  'vite.config.ts':'9bddf1dcd573169af1009ee08bc85b16989f89b0d9fed5bbec101e3b7425c48c',
  'build/sites-vite-plugin.ts':'4b3ae653c6d0d6fda49eb5f358211b73215b36dc9e943b974bcbea6d2c1f29c6',
  'tools/install-workerd-heap-patch.mjs':'0634508859843194bf178de678c0c587a0e774f88453422833c390cc085eb392',

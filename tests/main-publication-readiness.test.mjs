@@ -42,8 +42,17 @@ test('pointer says frozen until a completed native preparation has been observed
 test('actual packaged Node CLI refuses missing preparation before loading native engines',async t=>{
  const root=await privateRoot(t),source=path.join(root,'候选包'),tools=path.join(source,'tools');
  await fs.mkdir(tools,{recursive:true});
+ // The candidate must carry the full transitive closure of publish-main.mjs's
+// relative imports. It previously stopped at the first layer, so the run died
+// with ERR_MODULE_NOT_FOUND on tools/publish-main-step.mjs before admission
+// was ever reached — which silently voided the doesNotMatch assertion below,
+// the very thing this test exists to prove. The five names appended here
+// complete the closure (publish-prepared-main.mjs imports owner /
+// pi-reconciliation / step / tail; publish-main-known-resume.mjs reaches
+// main-prebuild-task.mjs). Native engines stay absent on purpose.
  for(const name of ['publish-main.mjs','publish-main-progress.mjs','publish-main-known-resume.mjs',
-  'publish-main-command.mjs','publish-prepared-main.mjs','main-schema-release.mjs','manual-maintenance-continuation.mjs','frozen-main-source.mjs']){
+  'publish-main-command.mjs','publish-prepared-main.mjs','main-schema-release.mjs','manual-maintenance-continuation.mjs','frozen-main-source.mjs',
+  'publish-main-owner.mjs','publish-main-pi-reconciliation.mjs','publish-main-step.mjs','publish-main-tail.mjs','main-prebuild-task.mjs']){
   const bytes=await fs.readFile(new URL('../tools/'+name,import.meta.url));
   await fs.writeFile(path.join(tools,name),bytes);
   assert.equal(createHash('sha256').update(await fs.readFile(path.join(tools,name))).digest('hex'),createHash('sha256').update(bytes).digest('hex'));

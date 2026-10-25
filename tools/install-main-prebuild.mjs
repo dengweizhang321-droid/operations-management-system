@@ -7,16 +7,16 @@ import {promisify,parseArgs} from 'node:util';
 import {randomUUID,createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {publisherEnvironment} from './publish-latest-main.mjs';
-import {canonical,durableCreate,queuePipe} from './main-prebuild-queue.mjs';
+import {canonical,durableCreate,queuePipe,preparationTriggerMode} from './main-prebuild-queue.mjs';
 import {acquirePreparationRotationLock} from './worker-local-release-rotation.mjs';
-import {makePreparationTask,installPreparationTask,readPreparationTask,decodedControlCommand as decoded} from './main-prebuild-task.mjs';
+import {makePreparationTask,installPreparationTask,readPreparationTask,assertDisabledPreparationPredecessor,assertDisabledPreparationRecovery,decodedControlCommand as decoded} from './main-prebuild-task.mjs';
 import {knownResume} from './publish-main-known-resume.mjs';
 import {retirementIntentVersion,retirementConfigVersion} from './preparation-retirement-admission.mjs';
 import {retirementRefProtocol,makeRetirementReferenceHook} from './preparation-retirement-ref.mjs';
 import {retirementGit} from './preparation-retirement-fs.mjs';
 const execute=promisify(execFile),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-export const controlFiles=['publish-latest-main.mjs','publish-main-progress.mjs','release-scope-plan.mjs','main-prebuild-hook.mjs','main-schema-release.mjs','main-prebuild-status.mjs','main-prebuild-queue.mjs','main-control-dispatch.mjs','main-prebuild-task.mjs','frozen-main-source.mjs','preparation-resolution.mjs','preparation-resolution-history.mjs','preparation-producer-qualification.mjs','cleaned-preparation-writer.mjs','cleaned-preparation-observer.mjs','preparation-retirement-admission.mjs','preparation-retirement-archive.mjs','preparation-retirement-boot.mjs','preparation-retirement-collector.mjs','preparation-retirement-evidence.mjs','preparation-retirement-entry.mjs','preparation-retirement-fs.mjs','preparation-retirement-handoff.mjs','preparation-retirement-handoff-runner.ps1','preparation-retirement-console.mjs','preparation-retirement-history.mjs','preparation-retirement-native.mjs','preparation-retirement-observer.mjs','preparation-retirement-qualification.mjs','preparation-retirement-ref.mjs','preparation-retirement-source.mjs','preparation-retirement-witness.mjs','preparation-retirement.mjs'];
+export const controlFiles=['main-preparation-reconcile.mjs','publish-latest-main.mjs','publish-main-progress.mjs','release-scope-plan.mjs','main-prebuild-hook.mjs','main-schema-release.mjs','main-prebuild-status.mjs','main-prebuild-queue.mjs','main-control-dispatch.mjs','main-prebuild-task.mjs','frozen-main-source.mjs','preparation-resolution.mjs','preparation-resolution-history.mjs','preparation-producer-qualification.mjs','cleaned-preparation-writer.mjs','cleaned-preparation-observer.mjs','preparation-retirement-admission.mjs','preparation-retirement-archive.mjs','preparation-retirement-boot.mjs','preparation-retirement-collector.mjs','preparation-retirement-evidence.mjs','preparation-retirement-entry.mjs','preparation-retirement-fs.mjs','preparation-retirement-handoff.mjs','preparation-retirement-handoff-runner.ps1','preparation-retirement-console.mjs','preparation-retirement-history.mjs','preparation-retirement-native.mjs','preparation-retirement-observer.mjs','preparation-retirement-qualification.mjs','preparation-retirement-ref.mjs','preparation-retirement-source.mjs','preparation-retirement-witness.mjs','preparation-retirement.mjs'];
 const exists=async file=>{try{await fs.lstat(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};
 async function bytes(file){assert.equal(path.resolve(await fs.realpath(file)).toLowerCase(),path.resolve(file).toLowerCase(),'Redirected control path');const stat=await fs.lstat(file);assert.ok(stat.isFile()&&!stat.isSymbolicLink()&&stat.nlink===1,'Unsafe control file');return fs.readFile(file);}
 const hashOrMissing=async file=>await exists(file)?sha(await bytes(file)):null;
@@ -76,9 +76,10 @@ export async function validateNativeToolsUpdate(update,config,configSha256){
  }
  return {...config,nativeToolsSource:root};
 }
-export async function prepareControlUpgrade({configFile,out,sourceRoot=source,dependencyUpdateFile,nativeToolsUpdateFile}={}){
+export async function prepareControlUpgrade({configFile,out,sourceRoot=source,dependencyUpdateFile,nativeToolsUpdateFile,restoreDisabledPreparationTask=false}={}){
  assert.ok(path.isAbsolute(configFile??'')&&path.isAbsolute(out??''));assert.equal(await git(sourceRoot,['status','--porcelain']),'','Control source must be frozen and clean');
  assert.ok(!(dependencyUpdateFile&&nativeToolsUpdateFile),'Dependency and native tools updates must be separate exact intents');
+ assert.ok(!restoreDisabledPreparationTask||(!dependencyUpdateFile&&!nativeToolsUpdateFile),'Disabled task recovery must preserve the exact configuration');
  const configRaw=await bytes(configFile);let config={...JSON.parse(configRaw)},dependencyUpdateRaw,dependencyReceiptRaw,nativeToolsUpdateRaw;
  if(dependencyUpdateFile){
   dependencyUpdateRaw=await bytes(path.resolve(dependencyUpdateFile));const update=JSON.parse(dependencyUpdateRaw);
@@ -104,20 +105,24 @@ export async function prepareControlUpgrade({configFile,out,sourceRoot=source,de
  if(nativeToolsUpdateRaw){await fs.writeFile(path.join(out,'NATIVE-TOOLS-UPDATE.json'),nativeToolsUpdateRaw,{flag:'wx'});await fs.writeFile(path.join(out,'NATIVE-TOOLS-OLD-CONFIG.json'),configRaw,{flag:'wx'});}
  for(const name of controlFiles){const raw=await bytes(path.join(sourceRoot,'tools',name));files['tools/'+name]=sha(raw);await fs.writeFile(path.join(out,'bundle/tools',name),raw,{flag:'wx'});}
  const bundleSha256=sha(Buffer.from(canonical(files))),bundleRoot=path.join(config.stateDirectory,'control-bundles',bundleSha256);
- const manifest={version:'teruisi-main-control-bundle-v2',preparationRetirementProtocol:retirementIntentVersion,preparationRetirementRefProtocol:retirementRefProtocol,bundleSha256,sourceCommit:await git(sourceRoot,['rev-parse','HEAD']),sourceTree:await git(sourceRoot,['rev-parse','HEAD^{tree}']),files};
+ const manifest={version:'teruisi-main-control-bundle-v2',preparationRetirementProtocol:retirementIntentVersion,preparationRetirementRefProtocol:retirementRefProtocol,preparationTriggerMode,bundleSha256,sourceCommit:await git(sourceRoot,['rev-parse','HEAD']),sourceTree:await git(sourceRoot,['rev-parse','HEAD^{tree}']),files};
  const bundleManifestSha256=await durableCreate(path.join(out,'bundle/MANIFEST.json'),manifest),dispatcher=path.join(config.stateDirectory,'control/tools/publish-latest-main.mjs'),oldHookEntry=path.join(config.stateDirectory,'control/tools/main-prebuild-hook.mjs');
  const preparationTask=await makePreparationTask(path.resolve(configFile),config);
- const oldInstallation=await exists(path.join(config.stateDirectory,'CONTROL-INSTALLATION.json'))?JSON.parse(await bytes(path.join(config.stateDirectory,'CONTROL-INSTALLATION.json'))):null;
+ const oldInstallationRaw=await exists(path.join(config.stateDirectory,'CONTROL-INSTALLATION.json'))?await bytes(path.join(config.stateDirectory,'CONTROL-INSTALLATION.json')):null;
+ const oldInstallation=oldInstallationRaw?JSON.parse(oldInstallationRaw):null;
  const oldPreparationTask=oldInstallation?.version==='teruisi-main-control-installation-v3'?oldInstallation.preparationTask:null;
- assert.deepEqual(await readPreparationTask(preparationTask),oldPreparationTask?.definition??null,'Preparation task is not the exact owned predecessor');
- const configNew=Buffer.from(JSON.stringify(config,null,2)+'\n'),finalHook=Buffer.from(shell(path.join(bundleRoot,'tools/main-prebuild-hook.mjs'),path.resolve(configFile),'prepare only, never deploy.')),
-  bridgeHook=Buffer.from(shell(path.join(bundleRoot,'tools/main-prebuild-hook.mjs'),path.resolve(configFile),'retirement-fenced transition bridge.',oldHookEntry));
+ const predecessorDefinition=await readPreparationTask(preparationTask);let predecessorState;
+ if(restoreDisabledPreparationTask){assert.equal(oldInstallation.status,'adopted');assertDisabledPreparationPredecessor(predecessorDefinition,oldPreparationTask);predecessorState=await assertDisabledPreparationRecovery(preparationTask,oldPreparationTask,predecessorDefinition);await fs.writeFile(path.join(out,'CONTROL-OLD-INSTALLATION.json'),oldInstallationRaw,{flag:'wx'});}
+ else assert.deepEqual(predecessorDefinition,oldPreparationTask?.definition??null,'Preparation task is not the exact owned predecessor');
+ const configNew=Buffer.from(JSON.stringify(config,null,2)+'\n'),finalHook=Buffer.from(shell(path.join(bundleRoot,'tools/main-prebuild-hook.mjs'),path.resolve(configFile),'manual-only preparation; retired refs fenced.')),
+  bridgeHook=Buffer.from(shell(path.join(bundleRoot,'tools/main-prebuild-hook.mjs'),path.resolve(configFile),'manual-only retirement-fenced transition bridge.'));
+ if(restoreDisabledPreparationTask)assert.equal(sha(configNew),sha(configRaw),'Disabled task recovery cannot change configuration bytes');
  const template=await bytes(path.join(out,'bundle/tools/main-control-dispatch.mjs'));
  assert.ok(template.toString().includes('const legacyBridge = null;'),'Control bridge template changed');
  const shim=Buffer.from(template.toString().replace('const legacyBridge = null;','const legacyBridge = '+JSON.stringify({fixedCli:dispatcher,oldHook:oldHookEntry,configFile:path.resolve(configFile)})+';'));
  for(const [name,raw] of [['CONFIG.json',configNew],['HOOK',finalHook],['BRIDGE-HOOK',bridgeHook],['SHIM.mjs',shim]])await fs.writeFile(path.join(out,name),raw,{flag:'wx'});
  const installId=randomUUID(),intent={version:'teruisi-main-control-upgrade-v2',installId,configFile:path.resolve(configFile),stateDirectory:path.resolve(config.stateDirectory),repository:config.repository,bundleRoot,bundleSha256,bundleManifestSha256,
-  preparationTask,oldPreparationTask,sourceCommit:manifest.sourceCommit,sourceTree:manifest.sourceTree,dispatcher,dispatcherSha256:sha(shim),hook,hookSha256:sha(finalHook),bridgeHookSha256:sha(bridgeHook),configSha256:sha(configNew),retirementConfigSha256:sha(retirementConfigRaw),retirementHooks:{version:retirementRefProtocol,common:policy.common,hooks:policy.hooks,beforeLocal:policy.local,git:gitSpec},
+  preparationTask,oldPreparationTask,...(restoreDisabledPreparationTask?{restoreDisabledPreparationTask:true,oldPreparationTaskDefinition:predecessorDefinition,oldPreparationTaskState:predecessorState}:{}),sourceCommit:manifest.sourceCommit,sourceTree:manifest.sourceTree,dispatcher,dispatcherSha256:sha(shim),hook,hookSha256:sha(finalHook),bridgeHookSha256:sha(bridgeHook),configSha256:sha(configNew),retirementConfigSha256:sha(retirementConfigRaw),retirementHooks:{version:retirementRefProtocol,common:policy.common,hooks:policy.hooks,beforeLocal:policy.local,git:gitSpec},
   old:{dispatcher:await hashOrMissing(dispatcher),hook:oldHook?sha(oldHook):null,config:sha(configRaw),installation:await hashOrMissing(path.join(config.stateDirectory,'CONTROL-INSTALLATION.json'))},...(dependencyUpdateRaw?{dependencyUpdateSha256:sha(dependencyUpdateRaw)}:{}),...(nativeToolsUpdateRaw?{nativeToolsUpdateSha256:sha(nativeToolsUpdateRaw)}:{}),preparedAt:new Date().toISOString()};
  const intentSha256=await durableCreate(path.join(out,'INTENT.json'),intent);
  await durableCreate(path.join(out,'PREPARED.json'),{version:'teruisi-main-control-upgrade-prepared-v2',installId,intentSha256,bundleManifestSha256,adoptionPerformed:false});
@@ -145,6 +150,13 @@ async function readMaterials(directory){
   const expected=await validateNativeToolsUpdate(JSON.parse(updateRaw),JSON.parse(previousRaw),intent.old.config);
   assert.deepEqual(config,expected,'Native tools material changed unrelated publisher configuration');
  }
+ if(intent.restoreDisabledPreparationTask!==undefined){
+  assert.equal(intent.restoreDisabledPreparationTask,true);assertDisabledPreparationPredecessor(intent.oldPreparationTaskDefinition,intent.oldPreparationTask);
+  assert.deepEqual(intent.oldPreparationTaskState,{state:1,instances:0},'Disabled recovery preimage must be Disabled with no instances');
+  const preimageRaw=await bytes(path.join(directory,'CONTROL-OLD-INSTALLATION.json'));assert.equal(sha(preimageRaw),intent.old.installation,'Owned installation preimage changed');
+  const preimage=JSON.parse(preimageRaw);assert.equal(preimage.status,'adopted');assert.equal(preimage.version,'teruisi-main-control-installation-v3');assert.deepEqual(preimage.preparationTask,intent.oldPreparationTask,'Disabled task is not owned by the exact predecessor');
+  assert.equal(intent.configSha256,intent.old.config,'Disabled recovery changed configuration');assert.equal(manifest.preparationTriggerMode,'manual-only','Disabled recovery requires manual-only successor');
+ }else {assert.equal(intent.oldPreparationTaskDefinition,undefined,'Unbound disabled task preimage');assert.equal(intent.oldPreparationTaskState,undefined,'Unbound disabled task state');}
  assert.equal(path.resolve(config.stateDirectory),path.resolve(intent.stateDirectory));assert.equal(config.repository,intent.repository);
  assert.equal(path.resolve(intent.configFile),path.resolve(intent.stateDirectory,'main-publisher-config.json'));
  assert.equal(path.resolve(intent.dispatcher),path.resolve(intent.stateDirectory,'control/tools/publish-latest-main.mjs'));
@@ -239,7 +251,7 @@ async function adoptControlUpgradeInternal({directory,resume=false,timeoutMs=300
  };
  await assertInstallationCas();
  const target=path.join(intent.stateDirectory,'control-upgrades',intent.installId);await fs.mkdir(target,{recursive:true});
- for(const name of ['INTENT.json','PREPARED.json','RETIREMENT-OLD-CONFIG.json','CONTROL-OLD-CONFIG.json',...(intent.nativeToolsUpdateSha256?['NATIVE-TOOLS-UPDATE.json','NATIVE-TOOLS-OLD-CONFIG.json']:[])]){const raw=await bytes(path.join(directory,name)),destination=path.join(target,name);if(await exists(destination))assert.equal(sha(await bytes(destination)),sha(raw));else await fs.writeFile(destination,raw,{flag:'wx'});}
+ for(const name of ['INTENT.json','PREPARED.json','RETIREMENT-OLD-CONFIG.json','CONTROL-OLD-CONFIG.json',...(intent.restoreDisabledPreparationTask?['CONTROL-OLD-INSTALLATION.json']:[]),...(intent.nativeToolsUpdateSha256?['NATIVE-TOOLS-UPDATE.json','NATIVE-TOOLS-OLD-CONFIG.json']:[])]){const raw=await bytes(path.join(directory,name)),destination=path.join(target,name);if(await exists(destination))assert.equal(sha(await bytes(destination)),sha(raw));else await fs.writeFile(destination,raw,{flag:'wx'});}
  for(const [name,expected] of Object.entries(manifest.files)){const destination=path.join(intent.bundleRoot,...name.split('/'));await fs.mkdir(path.dirname(destination),{recursive:true});if(await exists(destination))assert.equal(sha(await bytes(destination)),expected,'Immutable bundle differs');else await fs.copyFile(path.join(directory,'bundle',...name.split('/')),destination,1);}
  const destManifest=path.join(intent.bundleRoot,'MANIFEST.json');if(await exists(destManifest))assert.equal(sha(await bytes(destManifest)),intent.bundleManifestSha256);else await fs.copyFile(path.join(directory,'bundle/MANIFEST.json'),destManifest,1);
  await onStage('S0');const deadlineUnixMs=Date.now()+Math.min(timeoutMs,1800000),policy={requestId:intentSha256,deadlineUnixMs},unlocks=[];
@@ -251,7 +263,9 @@ async function adoptControlUpgradeInternal({directory,resume=false,timeoutMs=300
   await assertInstallationCas();
   await assertRetirementConfigUpgrade(intent.stateDirectory,intent.old.config,intent.configSha256);
   if(intent.dependencyUpdateSha256||intent.nativeToolsUpdateSha256)assert.equal((await readMaterials(directory)).intentSha256,intentSha256,'Exact update materials changed under installation locks');
-  const oldPolicy=await hooksPolicy(intent.repository,intent.retirementHooks.git);assertHooksPolicy(oldPolicy,intent.retirementHooks,{allowUnset:true});assert.equal(oldPolicy.local,resume?oldPolicy.local:intent.retirementHooks.beforeLocal);await onStage('S1');await atomic(intent.hook,await bytes(path.join(directory,'BRIDGE-HOOK')));await retirementGit(intent.repository,['config','--local','core.hooksPath',intent.retirementHooks.hooks],intent.retirementHooks.git);assertHooksPolicy(await hooksPolicy(intent.repository,intent.retirementHooks.git),intent.retirementHooks);await onStage('S1a');
+ const taskResume=resume&&await hashOrMissing(stateFile)!==intent.old.installation;
+ const oldPolicy=await hooksPolicy(intent.repository,intent.retirementHooks.git);assertHooksPolicy(oldPolicy,intent.retirementHooks,{allowUnset:true});assert.equal(oldPolicy.local,resume?oldPolicy.local:intent.retirementHooks.beforeLocal);if(intent.restoreDisabledPreparationTask)await assertDisabledPreparationRecovery(intent.preparationTask,intent.oldPreparationTask,intent.oldPreparationTaskDefinition,{resume:taskResume});
+  await onStage('S1');await atomic(intent.hook,await bytes(path.join(directory,'BRIDGE-HOOK')));await retirementGit(intent.repository,['config','--local','core.hooksPath',intent.retirementHooks.hooks],intent.retirementHooks.git);assertHooksPolicy(await hooksPolicy(intent.repository,intent.retirementHooks.git),intent.retirementHooks);await onStage('S1a');
   await atomic(intent.dispatcher,await bytes(path.join(directory,'SHIM.mjs')));await onStage('S2');
   await assertInstallationCas();
   const installingRaw=Buffer.from(JSON.stringify({version:'teruisi-main-control-installation-v2',status:'installing',installId:intent.installId,intentSha256})+'\n');
@@ -267,7 +281,7 @@ async function adoptControlUpgradeInternal({directory,resume=false,timeoutMs=300
   for(const [file,expected] of [[intent.dispatcher,intent.dispatcherSha256],[intent.hook,intent.hookSha256],[intent.configFile,intent.configSha256]])assert.equal(await hashOrMissing(file),expected);
   for(const [name,expected] of Object.entries(manifest.files))assert.equal(await hashOrMissing(path.join(intent.bundleRoot,...name.split('/'))),expected);await onStage('S5');
   if(intent.dependencyUpdateSha256||intent.nativeToolsUpdateSha256)assert.equal((await readMaterials(directory)).intentSha256,intentSha256,'Exact update materials changed before adoption');
-  await installPreparationTask(intent.preparationTask,intent.oldPreparationTask,{resume});await onStage('TASK');
+  await installPreparationTask(intent.preparationTask,intent.oldPreparationTask,{resume:intent.restoreDisabledPreparationTask?taskResume:resume,...(intent.restoreDisabledPreparationTask?{disabledPredecessor:intent.oldPreparationTaskDefinition}:{})});await onStage('TASK');
   const proof={version:'teruisi-main-control-transition-v2',installId:intent.installId,intentSha256,lockOrder:['v1-queue','v2-queue','native-rotation'],privateTestTopology:privateRotationPipe!==undefined,rotationPipeSha256:sha(privateRotationPipe??'\\\\.\\pipe\\TERUISI.Worker.ReleaseRotation.v1'),frames,legacyWindowConverged:true,productionDeploymentPerformed:false};
   const proofFile=path.join(target,'TRANSITION-'+randomUUID()+'.json');await durableCreate(proofFile,proof);
   const state={version:'teruisi-main-control-installation-v3',preparationTask:intent.preparationTask,status:'adopted',installId:intent.installId,intentSha256,bundleRoot:intent.bundleRoot,bundleSha256:intent.bundleSha256,bundleManifestSha256:intent.bundleManifestSha256,dispatcherSha256:intent.dispatcherSha256,hook:intent.hook,hookSha256:intent.hookSha256,configSha256:intent.configSha256,transitionProofFile:proofFile,transitionProofSha256:sha(await bytes(proofFile)),adoptedAt:new Date().toISOString()};
@@ -276,5 +290,5 @@ async function adoptControlUpgradeInternal({directory,resume=false,timeoutMs=300
   return {status:'adopted',installId:intent.installId,bundleSha256:intent.bundleSha256,adoptionPerformed:true,productionDeploymentPerformed:false};
  }finally{while(unlocks.length)await unlocks.pop()();}
 }
-async function main(){const {values}=parseArgs({options:{config:{type:'string'},out:{type:'string'},adopt:{type:'string'},resume:{type:'boolean'},'dependency-update':{type:'string'},'native-tools-update':{type:'string'}}});assert.ok(!values.adopt||(!values['dependency-update']&&!values['native-tools-update']),'Exact updates must be sealed during material preparation');console.log(JSON.stringify(values.adopt?await adoptControlUpgrade({directory:path.resolve(values.adopt),resume:values.resume}):await prepareControlUpgrade({configFile:values.config,out:values.out,dependencyUpdateFile:values['dependency-update'],nativeToolsUpdateFile:values['native-tools-update']})));}
+async function main(){const {values}=parseArgs({options:{config:{type:'string'},out:{type:'string'},adopt:{type:'string'},resume:{type:'boolean'},'dependency-update':{type:'string'},'native-tools-update':{type:'string'},'restore-disabled-preparation-task':{type:'boolean'}}});assert.ok(!values.adopt||(!values['dependency-update']&&!values['native-tools-update']&&!values['restore-disabled-preparation-task']),'Exact updates must be sealed during material preparation');console.log(JSON.stringify(values.adopt?await adoptControlUpgrade({directory:path.resolve(values.adopt),resume:values.resume}):await prepareControlUpgrade({configFile:values.config,out:values.out,dependencyUpdateFile:values['dependency-update'],nativeToolsUpdateFile:values['native-tools-update'],restoreDisabledPreparationTask:values['restore-disabled-preparation-task']})));}
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))main().catch(error=>{console.error(error.message);process.exitCode=1;});

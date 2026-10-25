@@ -47,11 +47,19 @@ export type InventoryStockIssue = {
   field: string;
 };
 
+export type InventoryStockWarning = {
+  code: "ROUNDED_DECIMAL_QUANTITY";
+  message: string;
+  sourceRowNumber: number;
+  field: string;
+};
+
 export type InventoryStockParseResult = {
   sheetName: string;
   headers: string[];
   rows: InventoryStockRow[];
   errors: InventoryStockIssue[];
+  warnings: InventoryStockWarning[];
   coverage: {
     hasOnHandQuantity: boolean;
     hasAvailableQuantity: boolean;
@@ -183,12 +191,32 @@ export function parseInventoryStockXlsx(
     );
   }
 
+  // 与 errors 使用同一上限（200）：下游 Django 侧对 warnings 数组同样有 MAX_WARNINGS=200
+  // 的硬性校验，超限会被整批拒绝（backend/inventory/import_service.py）。这里主动截断并
+  // 保留一条可追溯的汇总提示，避免"小数行多"把故障模式从"小数阻断"平移成"warning 超限阻断"。
+  const MAX_INVENTORY_STOCK_WARNINGS = 200;
+  let roundedQuantityOverflow = 0;
+
   const rows: InventoryStockRow[] = [];
   const errors: InventoryStockIssue[] = [];
+  const warnings: InventoryStockWarning[] = [];
   for (const row of candidateRows) {
-    const parsed = parseRow(row, header.indexByCanonical, workbook.date1904, errors, options.warehouseMapping);
+    const rowWarnings: InventoryStockWarning[] = [];
+    const parsed = parseRow(row, header.indexByCanonical, workbook.date1904, errors, rowWarnings, options.warehouseMapping);
     if (parsed) rows.push(parsed);
+    for (const warning of rowWarnings) {
+      if (warnings.length < MAX_INVENTORY_STOCK_WARNINGS - 1) warnings.push(warning);
+      else roundedQuantityOverflow += 1;
+    }
     if (errors.length >= 200) break;
+  }
+  if (roundedQuantityOverflow > 0) {
+    warnings.push({
+      code: "ROUNDED_DECIMAL_QUANTITY",
+      message: `还有 ${roundedQuantityOverflow} 条小数数量四舍五入提示未显示，已达上限 ${MAX_INVENTORY_STOCK_WARNINGS}`,
+      sourceRowNumber: 0,
+      field: "",
+    });
   }
 
   const warehouses = new Set(rows.map((row) => row.warehouse));
@@ -237,7 +265,7 @@ export function parseInventoryStockXlsx(
     hasSnapshotDate: header.indexByCanonical.has("snapshotDate"),
   };
 
-  return { sheetName: workbook.sheetName, headers: header.headers, rows, errors, coverage, totals };
+  return { sheetName: workbook.sheetName, headers: header.headers, rows, errors, warnings, coverage, totals };
 }
 
 function locateHeader(rows: XlsxRow[]): HeaderLocation {
@@ -278,6 +306,7 @@ function parseRow(
   indexes: Map<CanonicalHeader, number>,
   date1904: boolean,
   errors: InventoryStockIssue[],
+  warnings: InventoryStockWarning[],
   warehouseMapping?: InventoryWarehouseMapping,
 ): InventoryStockRow | null {
   const beforeErrors = errors.length;
@@ -288,10 +317,17 @@ function parseRow(
   const text = (field: CanonicalHeader) => cellToText(raw(field)).trim();
   const warehouse = requiredText(text("warehouse"), "warehouse", "仓库名称", row.rowNumber, errors);
   const productCode = requiredText(text("productCode"), "productCode", "货品编号", row.rowNumber, errors);
-  const lockedQuantity = optionalInteger(raw("lockedQuantity"), "lockedQuantity", "锁定数量", row.rowNumber, errors, true);
-  const inTransitQuantity = optionalInteger(raw("inTransitQuantity"), "inTransitQuantity", "在途数量", row.rowNumber, errors, true);
-  let onHandQuantity = optionalInteger(raw("onHandQuantity"), "onHandQuantity", "库存数量", row.rowNumber, errors);
-  let availableQuantity = optionalInteger(raw("availableQuantity"), "availableQuantity", "可用库存", row.rowNumber, errors);
+  const lockedQuantity = optionalQuantity(raw("lockedQuantity"), "lockedQuantity", "锁定数量", row.rowNumber, errors, warnings, true);
+  const inTransitQuantity = optionalQuantity(raw("inTransitQuantity"), "inTransitQuantity", "在途数量", row.rowNumber, errors, warnings, true);
+  let onHandQuantity = optionalQuantity(raw("onHandQuantity"), "onHandQuantity", "库存数量", row.rowNumber, errors, warnings);
+  let availableQuantity = optionalQuantity(raw("availableQuantity"), "availableQuantity", "可用库存", row.rowNumber, errors, warnings);
+
+  // 推导只在对应表头整列缺失时触发（而不是单元格为空时触发）。此时参与推导的
+  // onHandQuantity/availableQuantity/lockedQuantity 已经过 optionalQuantity 规范化为安全整数，
+  // 但"先取整再推导"在极端场景下可能与"先推导再取整"相差 1 个单位（例如整列缺失、
+  // onHand=10.5、locked=0.4 时：先取整再推导得 11-0=11；若改成先用原始小数推导再取整，
+  // 得 round(10.5-0.4)=round(10.1)=10，相差 1）。真实报表两列（onHandQuantity 与
+  // availableQuantity）均存在，不会触发本推导路径，故未按该极端场景调整顺序。
 
   if (!indexes.has("availableQuantity") && indexes.has("onHandQuantity")) {
     availableQuantity = onHandQuantity - lockedQuantity;
@@ -320,8 +356,8 @@ function parseRow(
   const inventoryAgeDays = isBlank(raw("inventoryAgeDays"))
     ? null
     : optionalDays(raw("inventoryAgeDays"), "inventoryAgeDays", "库龄", row.rowNumber, errors);
-  const sales7dQuantity = optionalInteger(raw("sales7dQuantity"), "sales7dQuantity", "前7天销量", row.rowNumber, errors);
-  const sales30dQuantity = optionalInteger(raw("sales30dQuantity"), "sales30dQuantity", "前30天销量", row.rowNumber, errors);
+  const sales7dQuantity = optionalQuantity(raw("sales7dQuantity"), "sales7dQuantity", "前7天销量", row.rowNumber, errors, warnings);
+  const sales30dQuantity = optionalQuantity(raw("sales30dQuantity"), "sales30dQuantity", "前30天销量", row.rowNumber, errors, warnings);
 
   if (errors.length > beforeErrors) return null;
   const classification = classifyInventoryWarehouse(warehouse, warehouseMapping);
@@ -364,26 +400,65 @@ function requiredText(
   return value;
 }
 
-function optionalInteger(
+// 数量类字段（库存数量/可用库存/锁定数量/在途数量/前7/30天销量）允许来源系统输出小数；
+// 非整数值四舍五入为整数并记录 warning（保留原值与行号），不再作为阻断错误。
+// 目前库存与销量数量共用同一套容错规则；二者业务口径是否需要拆分（例如销量允许负数调整、
+// 库存不允许）留待业务确认，本次不擅自拆分。本函数也不读取"单位"列区分量纲（例如 PCS 与
+// 箱/包等不同计量单位是否都适合四舍五入），是否需要按单位区分容错规则同样留待业务确认。
+// 非数字、无穷大、超出安全整数范围仍然是阻断错误。
+//
+// 负数整数：行为完全不变。真实数据证实 onHandQuantity/availableQuantity 等未传
+// nonNegative 的字段，历来允许负整数通过（表示超卖/欠货等既有业务状态），本次不扩大
+// 阻断范围，只传 nonNegative=true 的字段（锁定数量/在途数量）才像修复前一样阻断负数。
+//
+// 负数小数：无论是否传 nonNegative，一律阻断（这是本次新增的容错边界，不是收紧原有负整数
+// 校验）。原因：取整只用于消除小数/精度表示问题，不能用于把负值这种业务异常信号改写成
+// 更"好看"的数字——Math.round 对负数向零偏移（Math.round(-3.5) === -3，不是 -4），
+// 如果负小数也走四舍五入通过，会把真实负值悄悄改小。下面用 parsed < 0 判断取整前的原始值
+// 即可覆盖所有负小数（包括 (-0.5, 0) 区间，例如 -0.4）：-0 本身是安全整数
+// （Number.isSafeInteger(-0) === true），已在上面的整数分支被拦截返回，不会进入到这里，
+// 因此这里不需要也不应该再额外用 Object.is 判断 -0——那样的分支永远不可达。
+function optionalQuantity(
   value: XlsxCellValue,
   field: string,
   label: string,
   rowNumber: number,
   errors: InventoryStockIssue[],
+  warnings: InventoryStockWarning[],
   nonNegative = false,
 ) {
   if (isBlank(value)) return 0;
   const parsed = parseDecimal(value);
-  if (parsed === null || !Number.isSafeInteger(parsed) || (nonNegative && parsed < 0)) {
-    errors.push({
-      code: "INVALID_NUMBER",
-      message: nonNegative && parsed !== null && parsed < 0 ? `${label}不能为负数` : `${label}不是有效整数`,
-      sourceRowNumber: rowNumber,
-      field,
-    });
+  if (parsed === null || !Number.isFinite(parsed)) {
+    errors.push({ code: "INVALID_NUMBER", message: `${label}不是有效整数`, sourceRowNumber: rowNumber, field });
     return 0;
   }
-  return parsed;
+  if (Number.isSafeInteger(parsed)) {
+    // 整数路径：行为与修复前完全一致，只有 nonNegative=true 才阻断负数。
+    if (nonNegative && parsed < 0) {
+      errors.push({ code: "INVALID_NUMBER", message: `${label}不能为负数`, sourceRowNumber: rowNumber, field });
+      return 0;
+    }
+    return parsed;
+  }
+  // 小数路径：负小数一律阻断，不论 nonNegative。parsed < 0 已覆盖所有负小数；
+  // -0 不会走到这里（见上方注释），故不需要 Object.is(parsed, -0) 这一判断。
+  if (parsed < 0) {
+    errors.push({ code: "INVALID_NUMBER", message: `${label}不能为负数`, sourceRowNumber: rowNumber, field });
+    return 0;
+  }
+  const rounded = Math.round(parsed);
+  if (!Number.isSafeInteger(rounded)) {
+    errors.push({ code: "INVALID_NUMBER", message: `${label}不是有效整数`, sourceRowNumber: rowNumber, field });
+    return 0;
+  }
+  warnings.push({
+    code: "ROUNDED_DECIMAL_QUANTITY",
+    message: `${label}第${rowNumber}行为小数 ${parsed}，已四舍五入为 ${rounded}`,
+    sourceRowNumber: rowNumber,
+    field,
+  });
+  return rounded;
 }
 
 function optionalMoneyCents(
