@@ -2,7 +2,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {execFile} from 'node:child_process';
-import {promisify,isDeepStrictEqual} from 'node:util';
+import {promisify} from 'node:util';
 import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 const execute=promisify(execFile),sha=b=>createHash('sha256').update(b).digest('hex');
@@ -35,30 +35,16 @@ const projection=`function Projection($d){$sid=[string]$d.Principal.UserId;if($s
 export async function readPreparationTask(spec){return taskPowerShell(taskPrelude+projection+`try{$t=$folder.GetTask($v.name)}catch{if($_.Exception.HResult -eq -2147024894){'null';exit};throw};Projection $t.Definition|ConvertTo-Json -Compress`,spec);}
 export async function preparationTaskState(spec){return taskPowerShell(taskPrelude+`$t=$folder.GetTask($v.name);@{state=[int]$t.State;instances=[int]$t.GetInstances(0).Count}|ConvertTo-Json -Compress`,spec);}
 export async function assertPreparationTask(spec){
- assert.equal(spec.definition.enabled,true,'Adopted preparation task must remain enabled');
  assert.equal(spec.version,'teruisi-main-preparation-task-v1');assert.equal(sha(await fs.readFile(spec.node)),spec.nodeSha256,'Task Node changed');assert.equal(sha(await fs.readFile(taskHost)),spec.hostSha256,'Task host changed');
  assert.deepEqual(await readPreparationTask(spec),spec.definition,'Fixed preparation task changed');
 }
-export function assertDisabledPreparationPredecessor(actual,owned){
- assert.ok(owned&&owned.version==='teruisi-main-preparation-task-v1'&&owned.definition?.enabled===true,'Owned enabled predecessor required');
- assert.deepEqual(actual,{...owned.definition,enabled:false},'Disabled recovery only permits enabled=false on the exact owned predecessor');
-}
-export async function assertDisabledPreparationRecovery(spec,owned,preimage,{resume=false}={}){
- assertDisabledPreparationPredecessor(preimage,owned);
- const actual=await readPreparationTask(spec),state=await preparationTaskState(spec);
- assert.equal(state.instances,0,'Preparation task has live instances');
- if(resume&&isDeepStrictEqual(actual,spec.definition)){assert.equal(state.state,3,'Recovered preparation task must be Ready');return state;}
- assert.deepEqual(actual,preimage,'Disabled task preimage changed');assert.equal(state.state,1,'Exact disabled predecessor must be Disabled');
- return state;
-}
-export async function installPreparationTask(spec,oldSpec,{resume=false,disabledPredecessor}={}){
+export async function installPreparationTask(spec,oldSpec,{resume=false}={}){
  const actual=await readPreparationTask(spec);
- if(disabledPredecessor!==undefined)await assertDisabledPreparationRecovery(spec,oldSpec,disabledPredecessor,{resume});
- if(actual!==null){if(resume&&JSON.stringify(actual,Object.keys(actual).sort())===JSON.stringify(spec.definition,Object.keys(spec.definition).sort())){assert.equal((await preparationTaskState(spec)).state,3,'Preparation task is queued/running; definition remains unchanged');await assertPreparationTask(spec);return;}assert.ok(oldSpec,'Existing unowned preparation task');assert.deepEqual(actual,disabledPredecessor??oldSpec.definition,'Preparation task predecessor changed');
+ if(actual!==null){if(resume&&JSON.stringify(actual,Object.keys(actual).sort())===JSON.stringify(spec.definition,Object.keys(spec.definition).sort())){assert.equal((await preparationTaskState(spec)).state,3,'Preparation task is queued/running; definition remains unchanged');await assertPreparationTask(spec);return;}assert.ok(oldSpec,'Existing unowned preparation task');assert.deepEqual(actual,oldSpec.definition,'Preparation task predecessor changed');
   if(JSON.stringify(actual,Object.keys(actual).sort())===JSON.stringify(spec.definition,Object.keys(spec.definition).sort())){assert.equal((await preparationTaskState(spec)).state,3,'Preparation task is queued/running; definition remains unchanged');await assertPreparationTask(spec);return;}
  }
  else assert.ok(!oldSpec,'Preparation task predecessor missing');
- await taskPowerShell(taskPrelude+projection+`$previous=$null;try{$previous=$folder.GetTask($v.name)}catch{if($_.Exception.HResult -ne -2147024894){throw}};if($null -eq $v.expectedDefinition){if($null -ne $previous){throw 'Preparation task appeared during registration'}}else{if($null -eq $previous){throw 'Preparation task predecessor disappeared'};$actual=Projection $previous.Definition;foreach($field in $v.expectedDefinition.PSObject.Properties){if($actual[$field.Name] -cne $field.Value){throw 'Preparation task definition drifted before registration'}};if([int]$previous.State -ne [int]$v.expectedState -or [int]$previous.GetInstances(0).Count -ne 0){throw 'Preparation task predecessor state/instances changed'};if([int]$v.expectedState -eq 1 -and (-not $v.disabledRecovery -or $actual.enabled -ne $false)){throw 'Disabled task recovery context invalid'}};$d=$s.NewTask(0);$d.Principal.UserId=$v.sid;$d.Principal.LogonType=3;$d.Principal.RunLevel=0;$d.Settings.Enabled=$true;$d.Settings.AllowDemandStart=$true;$d.Settings.MultipleInstances=1;$d.Settings.ExecutionTimeLimit='PT0S';$d.Settings.DisallowStartIfOnBatteries=$false;$d.Settings.StopIfGoingOnBatteries=$false;$d.Settings.StartWhenAvailable=$false;$d.Settings.RunOnlyIfNetworkAvailable=$false;$d.Settings.Hidden=$true;$d.Settings.AllowHardTerminate=$false;$d.Settings.RunOnlyIfIdle=$false;$d.Settings.WakeToRun=$false;$d.Settings.RestartCount=0;$a=$d.Actions.Create(0);$a.Path=$v.definition.path;$a.Arguments=$v.definition.arguments;$a.WorkingDirectory=$v.definition.workingDirectory;[void]$folder.RegisterTaskDefinition($v.name,$d,6,$v.sid,$null,3);'true'`,{...spec,expectedDefinition:actual,expectedState:disabledPredecessor?1:3,disabledRecovery:disabledPredecessor!==undefined});
+ await taskPowerShell(taskPrelude+projection+`$previous=$null;try{$previous=$folder.GetTask($v.name)}catch{if($_.Exception.HResult -ne -2147024894){throw}};if($null -eq $v.expectedDefinition){if($null -ne $previous){throw 'Preparation task appeared during registration'}}else{if($null -eq $previous){throw 'Preparation task predecessor disappeared'};$actual=Projection $previous.Definition;foreach($field in $v.expectedDefinition.PSObject.Properties){if($actual[$field.Name] -cne $field.Value){throw 'Preparation task definition drifted before registration'}};if([int]$previous.State -ne 3){throw 'Preparation task is queued/running; definition remains unchanged'}};$d=$s.NewTask(0);$d.Principal.UserId=$v.sid;$d.Principal.LogonType=3;$d.Principal.RunLevel=0;$d.Settings.Enabled=$true;$d.Settings.AllowDemandStart=$true;$d.Settings.MultipleInstances=1;$d.Settings.ExecutionTimeLimit='PT0S';$d.Settings.DisallowStartIfOnBatteries=$false;$d.Settings.StopIfGoingOnBatteries=$false;$d.Settings.StartWhenAvailable=$false;$d.Settings.RunOnlyIfNetworkAvailable=$false;$d.Settings.Hidden=$true;$d.Settings.AllowHardTerminate=$false;$d.Settings.RunOnlyIfIdle=$false;$d.Settings.WakeToRun=$false;$d.Settings.RestartCount=0;$a=$d.Actions.Create(0);$a.Path=$v.definition.path;$a.Arguments=$v.definition.arguments;$a.WorkingDirectory=$v.definition.workingDirectory;[void]$folder.RegisterTaskDefinition($v.name,$d,6,$v.sid,$null,3);'true'`,{...spec,expectedDefinition:actual});
  await assertPreparationTask(spec);
 }
 // USE_SESSION_ID (0x4) plus USER_SID (0x8): the user argument is a SID, not an account name.

@@ -62,17 +62,10 @@ export async function readHistoricalResolution(directory,dispatch,terminal,value
  assert.equal(sha(Buffer.from(canonical(await evidenceInventory(path.join(directory,'resolutions',dispatch.dispatchId+'-evidence'))))),pin.evidenceTreeSha256,'Historical evidence closure changed');
  return true;
 }
-export async function readPreparationResolution(directory,dispatch,terminal,{retirementScope}={}){
+export async function readPreparationResolution(directory,dispatch,terminal){
  if(!terminal)return false;
  const file=path.join(directory,'resolutions',dispatch.dispatchId+'.json');if(!await exists(file))return false;
  const {value}=await readQueueObject(file),raw=Buffer.from(canonical(value));
- if(value.version==='teruisi-retired-preparation-resolution-v1'){
-  const core=await import('./preparation-retirement.mjs');try{
-  assert.equal(sha(await stableBytes(path.join(directory,'dispatches',dispatch.dispatchId+'.json'))),sha(Buffer.from(canonical(dispatch))));assert.equal(sha(await stableBytes(path.join(directory,'results',terminal.requestId+'.json'))),sha(Buffer.from(canonical(terminal))));
-  // Loaded only for the separate retirement schema. This preserves the two
-  // original decision validators/history and avoids queue/bootstrap import TDZ.
-  return await core.readRetiredPreparationResolution(directory,dispatch,terminal,value,{scope:retirementScope});}catch(error){core.failRetirementReadScope(retirementScope,error);throw error;}
- }
  if(value.version!==resolutionVersion)return readHistoricalResolution(directory,dispatch,terminal,value,raw);
  assert.ok(knownDecisions.has(value.decision),'Unknown resolution decision');
  assert.equal(sha(await stableBytes(path.join(directory,'dispatches',dispatch.dispatchId+'.json'))),sha(Buffer.from(canonical(dispatch))));
