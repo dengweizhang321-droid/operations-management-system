@@ -1397,53 +1397,53 @@ async function applyApprovedRotationPlanCore({
   allowTestRuntimeRoot,
   dependencies,
 }) {
-  let validated = await validateApprovedRotationBeforeMutation({
+  let validated = await timePreparationStage("apply.validate#1", "应用/批准轮换校验#1", () => validateApprovedRotationBeforeMutation({
     runtimeRoot, approvedPlanSha256, allowTestRuntimeRoot,
     readCurrentCutoverEvidence: dependencies.readCurrentCutoverEvidence,
-  });
-  await readD1RetirementReceipt(validated.candidateManifest.manifest, path.dirname(validated.candidateManifest.manifestPath), {
+  }));
+  await timePreparationStage("apply.d1-receipt", "应用/D1 退役回执读取", () => readD1RetirementReceipt(validated.candidateManifest.manifest, path.dirname(validated.candidateManifest.manifestPath), {
     bootstrapAuthoritySha256: validated.bootstrap.authoritySha256,
-  });
-  await dependencies.verifyHeadStopped(validated.chain, { allowTestRuntimeRoot });
-  await dependencies.assertCandidateStopped(validated.candidateManifest, allowTestRuntimeRoot);
-  const beforeMutation = await validateApprovedRotationBeforeMutation({
+  }));
+  await timePreparationStage("apply.head-stopped#1", "应用/首段 head 停稳核验#1", () => dependencies.verifyHeadStopped(validated.chain, { allowTestRuntimeRoot }));
+  await timePreparationStage("apply.candidate-stopped#1", "应用/候选停稳核验#1", () => dependencies.assertCandidateStopped(validated.candidateManifest, allowTestRuntimeRoot));
+  const beforeMutation = await timePreparationStage("apply.validate#2", "应用/批准轮换校验#2（mutation 前 CAS 复核）", () => validateApprovedRotationBeforeMutation({
     runtimeRoot, approvedPlanSha256, allowTestRuntimeRoot,
     readCurrentCutoverEvidence: dependencies.readCurrentCutoverEvidence,
-  });
+  }));
   if (beforeMutation.state !== validated.state
       || beforeMutation.chain.chainStateSha256 !== validated.chain.chainStateSha256
       || beforeMutation.planRead.sha256 !== validated.planRead.sha256) {
     fail("approved rotation tuple 在 apply 前最终 CAS 复核中发生变化");
   }
   validated = beforeMutation;
-  await dependencies.verifyHeadStopped(validated.chain, { allowTestRuntimeRoot });
-  await dependencies.assertCandidateStopped(validated.candidateManifest, allowTestRuntimeRoot);
+  await timePreparationStage("apply.head-stopped#2", "应用/首段 head 停稳核验#2", () => dependencies.verifyHeadStopped(validated.chain, { allowTestRuntimeRoot }));
+  await timePreparationStage("apply.candidate-stopped#2", "应用/候选停稳核验#2", () => dependencies.assertCandidateStopped(validated.candidateManifest, allowTestRuntimeRoot));
   if (validated.state === "pending" && validated.candidateManifest.manifest.artifacts.d1RetirementReceipt
       && !validated.chain.headManifest.artifacts.d1RetirementReceipt) {
     if (!dependencies.verifyD1Adoption) fail("Initial D1 adoption requires independent source revalidation");
-    await dependencies.verifyD1Adoption(validated);
+    await timePreparationStage("apply.d1-adoption", "应用/D1 首次采用独立复验", () => dependencies.verifyD1Adoption(validated));
   }
-  await installProtectedEntrypoints(validated.planRead.plan, validated.candidateManifest, {
+  await timePreparationStage("apply.install-entrypoints", "应用/受保护入口安装", () => installProtectedEntrypoints(validated.planRead.plan, validated.candidateManifest, {
     afterEntrypointInstalled: dependencies.afterEntrypointInstalled,
-  });
-  await dependencies.assertCandidateStopped(validated.candidateManifest, allowTestRuntimeRoot);
-  await verifyInstalledGuardEntrypoints(validated.candidateManifest, "approved candidate prepublication");
+  }));
+  await timePreparationStage("apply.candidate-stopped#3", "应用/候选停稳核验#3", () => dependencies.assertCandidateStopped(validated.candidateManifest, allowTestRuntimeRoot));
+  await timePreparationStage("apply.verify-guards", "应用/已安装 guard 入口复验", () => verifyInstalledGuardEntrypoints(validated.candidateManifest, "approved candidate prepublication"));
 
   let successorPublication;
   if (validated.state === "pending" || validated.state === "record_incomplete") {
-    successorPublication = await publishSuccessorRecord(runtimeRoot, validated.record, validated.bootstrap);
+    successorPublication = await timePreparationStage("apply.publish-successor", "应用/successor 记录发布", () => publishSuccessorRecord(runtimeRoot, validated.record, validated.bootstrap));
   } else {
     successorPublication = { path: validated.successorPath, sha256: validated.successorRead.sha256 };
   }
-  const chain = await resolveEffectiveReleaseChain({ runtimeRoot, allowTestRuntimeRoot, verifyInstalledHead: true });
+  const chain = await timePreparationStage("apply.chain-resolve", "应用/切换后生效链解析", () => resolveEffectiveReleaseChain({ runtimeRoot, allowTestRuntimeRoot, verifyInstalledHead: true }));
   if (chain.head.bindingSha256 !== validated.planRead.plan.candidate.bindingSha256) {
     fail("successor 发布后 effective head 未切换到 candidate");
   }
-  await dependencies.installAndVerifyStartup(validated.candidateManifest);
+  await timePreparationStage("apply.install-startup", "应用/启动安装与启动校验", () => dependencies.installAndVerifyStartup(validated.candidateManifest));
   const startupBinding = startupBindingForPlan(validated.planRead.plan, validated.candidateManifest);
-  const consumption = await publishConsumption(
+  const consumption = await timePreparationStage("apply.publish-consumption", "应用/消费回执发布", () => publishConsumption(
     runtimeRoot, validated.planRead, successorPublication, startupBinding,
-  );
+  ));
   return {
     status: validated.state === "pending" ? "activated" : "already_activated",
     version: successorVersion,

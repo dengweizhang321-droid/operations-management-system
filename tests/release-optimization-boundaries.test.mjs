@@ -22,6 +22,15 @@ test('Worker static source reader changes leave all other runtime behavior byte-
 // predecessor-boundary, head-unchanged and chainStateSha256 checks it carries.
 // Instead the log-only timing is stripped back out at the AST level and the
 // exact set of timing additions is pinned; anything beyond that fails closed.
+// C 项第二步 (2026-10-27), gen-2: the first generation of this comparator only
+// held while the base predated S16 — it required the three helpers to be absent
+// from the base, so the moment S16 merged the base carried them and the check
+// returned false for every candidate, an unchanged one included. That left main
+// itself unable to reach `passed` here. gen-2 strips BOTH sides symmetrically
+// and no longer depends on which generation the base is: the helpers must exist
+// on both sides with byte-identical text, and the candidate must add at least
+// one wrapped call site. A self-comparison is still refused, which is what keeps
+// the comparator from degenerating into a tautology.
 const timingHelpers=['preparationTimingLine','logPreparationTiming','timePreparationStage'];
 const timingCounters=/^(predecessorCheckCount|sourceSampleCount|planPublicationStarted)$/;
 const parseSource=text=>ts.createSourceFile('fixture.mjs',text,ts.ScriptTarget.Latest,true,ts.ScriptKind.JS);
@@ -63,20 +72,45 @@ const collapseImmediate=context=>root=>{
  };
  return ts.visitNode(root,visit);
 };
+const wrappedCallSites=text=>(text.match(/timePreparationStage\(/g)||[]).length;
+// Both sides are stripped the same way, so results do not depend on whether the
+// base already carries the timing. Hoisted so the tests can ask "is there any
+// increment to verify?" with the comparator's own logic instead of a parallel
+// copy that could drift from it.
+const stripTiming=text=>transformSource(transformSource(text,dropTiming),collapseImmediate);
+const remainingStatements=text=>{const file=parseSource(text);
+ return file.statements.filter(node=>!ts.isFunctionDeclaration(node)||!timingHelpers.includes(node.name?.text)).map(node=>node.getText(file));};
+// True when the candidate carries no timing increment over the base: same number
+// of wrapped call sites and the same statements once both sides are stripped.
+// Judged on semantics, not bytes — a comment- or whitespace-only edit changes
+// bytes while leaving nothing for the positive assertions to verify.
+function preparationTimingIncrementAbsent(before,after){
+ if(wrappedCallSites(after)!==wrappedCallSites(before))return false;
+ const want=remainingStatements(stripTiming(before)),got=remainingStatements(stripTiming(after));
+ return want.length===got.length&&want.every((text,index)=>text===got[index]);
+}
 export function comparePreparationTimingChange(before,after){
- const baseline=printSource(parseSource(before));
- const stripped=transformSource(transformSource(after,dropTiming),collapseImmediate);
- const declared=text=>{const file=parseSource(text),out=new Set();
-  for(const node of file.statements)if(ts.isFunctionDeclaration(node)&&node.name)out.add(node.name.text);
+ const strip=stripTiming;
+ const baseline=strip(before),stripped=strip(after);
+ const helpersOf=text=>{const file=parseSource(text),out=new Map();
+  for(const node of file.statements)if(ts.isFunctionDeclaration(node)&&timingHelpers.includes(node.name?.text))out.set(node.name.text,node.getText(file).replaceAll('\r\n','\n'));
   return out;};
- const basis=declared(baseline),candidate=declared(printSource(parseSource(after)));
- // The three timing helpers must be new in the candidate and absent from the base.
- for(const name of timingHelpers){if(basis.has(name)||!candidate.has(name))return false;}
- // Every statement — planWorkerReleaseRotation included — must be identical once
- // the timing is stripped. Only the three new helpers are exempt.
- const remaining=text=>{const file=parseSource(text);
-  return file.statements.filter(node=>!ts.isFunctionDeclaration(node)||!timingHelpers.includes(node.name?.text)).map(node=>node.getText(file));};
- const want=remaining(baseline),got=remaining(stripped);
+ const basis=helpersOf(before),candidate=helpersOf(after);
+ // The three helpers must exist on both sides with byte-identical text. This
+ // step only adds call sites; a helper edit is caught here as well as by the
+ // pinned timingHelperSha256 digests, and the two nets are kept as redundancy.
+ for(const name of timingHelpers){
+  if(!basis.has(name)||!candidate.has(name))return false;
+  if(basis.get(name)!==candidate.get(name))return false;
+ }
+ // The candidate must actually add wrapped call sites; an unchanged file, or one
+ // that only removes wrappers, is refused so this never degenerates into a
+ // tautology that accepts anything (the gen-1 failure mode, inverted).
+ if(wrappedCallSites(after)<=wrappedCallSites(before))return false;
+ // Every statement — planWorkerReleaseRotation and applyApprovedRotationPlanCore
+ // included — must be identical once the timing is stripped from both sides.
+ // Only the three helper declarations are exempt.
+ const want=remainingStatements(baseline),got=remainingStatements(stripped);
  if(want.length!==got.length)return false;
  return want.every((text,index)=>text===got[index]);
 }
@@ -101,15 +135,46 @@ test('rotation waiting does not change apply/CAS/fence/process/entrypoint/startu
  const helpers=timingHelperTexts(after);
  assert.deepEqual(Object.keys(helpers).sort(),[...timingHelpers].sort());
  for(const name of timingHelpers)assert.equal(timingSha(helpers[name]),timingHelperSha256[name],name);
- // The 13 stage keys and their order are asserted in worker-preparation-timing.test.mjs;
- // here the wrapped call-site count is pinned so adding or dropping one fails.
- assert.equal((after.match(/timePreparationStage\(/g)||[]).length,15); // 1 declaration + 14 wrapped call sites
+ // The preparation-side stage keys and their order are asserted in
+ // worker-preparation-timing.test.mjs; here the wrapped call-site count is
+ // pinned so adding or dropping one fails.
+ assert.equal((after.match(/timePreparationStage\(/g)||[]).length,30); // 1 declaration + 14 preparation + 15 apply call sites
  assert.equal((after.match(/logPreparationTiming\(/g)||[]).length,3);
 });
 test('C 项: the timing comparator refuses any non-timing edit, a changed helper, and a moved wrapper',async()=>{
  const file='tools/worker-local-release-rotation.mjs',before=execFileSync('git',['show',base+':'+file],{encoding:'utf8',windowsHide:true,maxBuffer:16*1024*1024}),after=await fs.readFile(file,'utf8');
- if(!after.includes('timePreparationStage'))return; // the base already carries S16
- assert.equal(comparePreparationTimingChange(before,after),true);
+ if(!after.includes('timePreparationStage'))return; // the candidate carries no timing at all
+ // Once this change is merged the base catches up to the candidate and there is
+ // no increment left to verify, so the two positive assertions below would be
+ // asserting a proposition that is false by design (the comparator refuses a
+ // candidate that adds nothing — see the `cmp(after,after)` assertion further
+ // down, which stays live in that state). Early-exit on semantics rather than
+ // bytes, mirroring the `if(unchanged)return` guard the test above already has.
+ // Every refutation case below this point is reached in both states: they are
+ // synthetic mutations and do not need the base and candidate to differ.
+ if(!preparationTimingIncrementAbsent(before,after)){
+  assert.equal(comparePreparationTimingChange(before,after),true);
+  // gen-1 regression: the first generation required the helpers to be ABSENT
+  // from the base, so once S16 merged it returned false for every candidate and
+  // main could not reach `passed` here. gen-2 accepts a real addition over a
+  // base that already carries the timing — the case directly above — while
+  // still refusing one that adds nothing. Both directions are pinned so a later
+  // generation cannot hold for only one base generation.
+  assert.ok(timingHelpers.every(name=>before.includes('function '+name)),'本用例的回归前提是 base 已含计时助手');
+ }
+ // Holds in every base generation — pre-S16, post-S16, and base equal to the
+ // candidate: a candidate that adds no wrapped call site is always refused.
+ // gen-1's failure mode was a comparator that held for only one generation;
+ // this assertion is the one that cannot become generation-dependent.
+ assert.equal(comparePreparationTimingChange(after,after),false);
+ // The CAS recheck guarding the pre-mutation tuple: refused.
+ const cas='|| beforeMutation.planRead.sha256 !== validated.planRead.sha256';
+ assert.ok(after.includes(cas));
+ assert.equal(comparePreparationTimingChange(before,after.replace(cas,'|| false')),false);
+ // A non-timing statement inside applyApprovedRotationPlanCore: refused.
+ const inApply='fail("successor 发布后 effective head 未切换到 candidate");';
+ assert.ok(after.includes(inApply));
+ assert.equal(comparePreparationTimingChange(before,after.replace(inApply,'fail("successor 未切换");')),false);
  // A non-timing statement inside planWorkerReleaseRotation: refused.
  const inPlan='serviceLock = await timePreparationStage("tail.service-lock", "尾段服务锁等待", () => acquireWorkerServiceMutex());';
  assert.ok(after.includes(inPlan));
@@ -126,7 +191,11 @@ test('C 项: the timing comparator refuses any non-timing edit, a changed helper
  // Dropping one wrapped call site: the pinned call-site count catches it.
  const unwrapOne=after.replace('await timePreparationStage("rotation-lock", "轮换锁获取", () => lockForOperation(rotationLease))','await lockForOperation(rotationLease)');
  assert.notEqual(unwrapOne,after);
- assert.equal((unwrapOne.match(/timePreparationStage\(/g)||[]).length,14);
+ assert.equal((unwrapOne.match(/timePreparationStage\(/g)||[]).length,29);
+ // The same for one of this step's own apply-side wrappers.
+ const unwrapApply=after.replace('await timePreparationStage("apply.verify-guards", "应用/已安装 guard 入口复验", () => verifyInstalledGuardEntrypoints(validated.candidateManifest, "approved candidate prepublication"))','await verifyInstalledGuardEntrypoints(validated.candidateManifest, "approved candidate prepublication")');
+ assert.notEqual(unwrapApply,after);
+ assert.equal((unwrapApply.match(/timePreparationStage\(/g)||[]).length,29);
  // Wrapping a call the base did not have wrapped there: refused, because the
  // unwrapped text then carries a statement the baseline does not have.
  const plain='serviceLock = await acquireWorkerServiceMutex();';
@@ -138,8 +207,17 @@ test('C 项: the timing comparator refuses any non-timing edit, a changed helper
  const withoutLine=after.replace(/export function preparationTimingLine[\s\S]*?\n}\n/,'');
  assert.notEqual(withoutLine,after);
  assert.equal(comparePreparationTimingChange(before,withoutLine),false);
- // The base compared against itself: refused, because the helpers are not new.
+ // A candidate that adds no wrapped call site at all: refused. gen-1 refused the
+ // self-comparison because the helpers were "not new"; that reason no longer has
+ // an object once the base carries them, but the property it protected — the
+ // comparator must not accept an unchanged file — is kept on a reason that holds
+ // in gen-2: the call-site count did not grow.
  assert.equal(comparePreparationTimingChange(before,before),false);
+ // Stripping a wrapper off the base and offering that back is refused too: the
+ // count shrinks rather than grows.
+ const baseMinusOne=before.replace('await timePreparationStage("rotation-lock", "轮换锁获取", () => lockForOperation(rotationLease))','await lockForOperation(rotationLease)');
+ assert.notEqual(baseMinusOne,before);
+ assert.equal(comparePreparationTimingChange(before,baseMinusOne),false);
  // A timed operation that is not an arrow function is rejected outright.
  const indirect=after.replace('timePreparationStage("rotation-lock", "轮换锁获取", () => lockForOperation(rotationLease))','timePreparationStage("rotation-lock", "轮换锁获取", lockForOperation)');
  assert.notEqual(indirect,after);
