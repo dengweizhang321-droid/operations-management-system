@@ -58,11 +58,11 @@ test("小数明细 warning 与刷刷仓剔除 warning 共存时，固定告警�
 });
 
 test("小数明细 warning 超过 Django 侧 200 上限时，固定告警仍保留在截断后的数组中", async (t) => {
-  // 刷刷仓剔除 1 行 + 199 行可用库存小数（每行 1 条 ROUNDED_DECIMAL_QUANTITY）。
-  // parsed.warnings 在解析层按 MAX_ISSUES=200 截断后最多 199 条明细 + 1 条汇总提示 = 200 条；
-  // 叠加 1 条 EXCLUDED_BRUSH_WAREHOUSE 后共 201 条，必须在服务层被再截断到 200 条，
-  // 且固定告警必须保留（排在最前，被截掉的只能是排在最后的小数明细/汇总提示）。
-  const decimalRows = Array.from({ length: 199 }, (_, index) => [
+  // 刷刷仓剔除 1 行 + 200 行可用库存小数（每行 1 条 ROUNDED_DECIMAL_QUANTITY）。
+  // parsed.warnings 在解析层按 MAX_ISSUES=200 截断后变为 199 条明细 + 1 条"还有 N 条未显示"
+  // 汇总提示 = 200 条；叠加 1 条 EXCLUDED_BRUSH_WAREHOUSE 后共 201 条，必须在服务层被
+  // 再截断到恰好 200 条，且固定告警必须保留在最前，被截掉的只能是排在最后的小数明细/汇总提示。
+  const decimalRows = Array.from({ length: 200 }, (_, index) => [
     "广东仓",
     `SKU-AGE-OVERFLOW-${index}`,
     "测试货品",
@@ -73,7 +73,7 @@ test("小数明细 warning 超过 Django 侧 200 上限时，固定告警仍保�
   const rows = [...decimalRows, ["刷刷仓", "SKU-AGE-BRUSH-2", "测试货品三", 5, 10, 10]];
   const payload = await capturePayload(t, workbook(rows));
   const warnings = payload.warnings as Array<{ code: string; message?: string }>;
-  assert.ok(warnings.length <= 200, `warnings.length=${warnings.length} 必须 <= 200`);
+  assert.equal(warnings.length, 200, `warnings.length=${warnings.length} 必须恰好等于 200（严格截断，不多不少）`);
   assert.equal(warnings[0]!.code, "EXCLUDED_BRUSH_WAREHOUSE");
   assert.match(warnings[0]!.message ?? "", /刷刷仓/);
 });
