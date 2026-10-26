@@ -100,10 +100,20 @@ export async function importInventoryAgeToDjango(
   if (duplicates.length) {
     return reject({ ok: false, status: "rejected", message: "库龄报表包含重复的仓库与货品组合", warnings: parsed.warnings.map(issue), errors: [{ code: "DUPLICATE_INVENTORY_IDENTITY", message: `检测到 ${new Set(duplicates).size} 个重复业务键` }], errorCount: new Set(duplicates).size });
   }
-  const warnings = [
-    ...parsed.warnings.map(issue),
+  // 固定业务告警（刷刷仓剔除等）排在最前，小数明细（availableQuantity 四舍五入）排在最后。
+  // parsed.warnings 已在解析层按 MAX_ISSUES=200 截断并自带"还有 N 条未显示"的汇总兜底，
+  // 固定告警没有任何兜底——一旦被截掉就是静默丢失，而且"已剔除刷刷仓 N 行"通常比某一行
+  // 小数被取整更影响数据解读，所以必须保证固定告警优先占位。
+  const fixedWarnings = [
     ...(excluded ? [{ code: "EXCLUDED_BRUSH_WAREHOUSE", message: `已从库龄分析中排除刷刷仓 ${excluded} 行` }] : []),
   ];
+  const roundedQuantityWarnings = parsed.warnings.map(issue);
+  const warnings = [...fixedWarnings, ...roundedQuantityWarnings];
+  // Django 侧 warnings 字段硬性上限 200（backend/inventory/import_service.py 的 MAX_WARNINGS），
+  // 超限会被整批拒绝，不是截断。parsed.warnings 已在解析层按同一上限截断，这里对叠加固定告警后
+  // 的最终数组再做一次防御性截断，避免两边口径变化时静默超限导致整批拒绝；固定告警排在最前，
+  // 超限时被截掉的只会是排在最后的小数明细。
+  const boundedWarnings = warnings.slice(0, 200);
   const sourceRowCount = Number(parsed.totals.sourceRowCount ?? parsed.totals.rowCount ?? allRows.length);
   const result = await service.requestJson<InventoryImportExecution>(input.principal, {
     method: "POST",
@@ -117,7 +127,7 @@ export async function importInventoryAgeToDjango(
       sourceRowCount,
       excludedCount: excluded,
       rows,
-      warnings,
+      warnings: boundedWarnings,
       totals: { ...parsed.totals, rowCount: rows.length, excludedBrushWarehouseRows: excluded },
     },
   }, options);
