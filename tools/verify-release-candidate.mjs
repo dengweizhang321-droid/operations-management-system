@@ -103,6 +103,20 @@ export function candidateCompatibilityProfile(changes){
  // every other change to it failing closed.
  const workerJsonFailureCauseOnly=paths.includes('tools/worker-local-service.ps1')&&paths.every(p=>['tools/worker-local-service.ps1','tools/verify-release-candidate.mjs','tools/manual-maintenance-continuation.mjs'].includes(p));
  if(workerJsonFailureCauseOnly)supported.add('tools/worker-local-service.ps1');
+ // C 项 (2026-10-26): preparation-producer-qualification.mjs is the closures
+ // list that pins the three producer files byte for byte. S16 appends a second
+ // closure for the log-only preparation stage timing in
+ // worker-local-release-rotation.mjs, so the list itself must change bytes and
+ // would otherwise land in `unsupported`. It is NOT unconditionally supported:
+ // the only test that exercises the closure decision
+ // (tests/preparation-resolution.test.mjs) is run by no check here, so putting
+ // the list in `supported` outright would leave every later edit to it with no
+ // automated coverage at all. Admitting it only under this exact flag keeps any
+ // other change to the list failing closed. verify-release-candidate.mjs is a
+ // member because the qualification lives here and it is already
+ // unconditionally supported (same shape as Q14 / A 项 / B 项).
+ const preparationProducerQualifyOnly=paths.includes('tools/preparation-producer-qualification.mjs')&&paths.every(p=>['tools/preparation-producer-qualification.mjs','tools/worker-local-release-rotation.mjs','tools/verify-release-candidate.mjs'].includes(p));
+ if(preparationProducerQualifyOnly)supported.add('tools/preparation-producer-qualification.mjs');
  const unsupported=paths.filter(p=>!supported.has(p));
  // Q14: django-ai.ps1 is the only application-side file; the two verifier/readiness
  // files may travel with it because the qualification lives there.
@@ -124,6 +138,7 @@ export function candidateCompatibilityProfile(changes){
   dingtalkScreenshotAclOnly,
   descendantCreationGuardOnly,
   workerJsonFailureCauseOnly,
+  preparationProducerQualifyOnly,
   nativeColdStartPerformed:false};
 }
 

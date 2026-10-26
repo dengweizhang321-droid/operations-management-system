@@ -8,6 +8,7 @@ import {execFileSync} from 'node:child_process';
 import {canonical,sha,durableCreate,initializeQueue,submitPreparation,readQueueObject,drainPreparationQueue} from '../tools/main-prebuild-queue.mjs';
 import {resolutionVersion,operatorNames,writePreparationResolution,readPreparationResolution,resolutionForbidsTargetReplay,validateResolution,censusProjection,validateStaticProof,assertCrossCensus,assertCensus,evidenceInventory} from '../tools/preparation-resolution.mjs';
 import history from '../tools/preparation-resolution-history.mjs';
+import producerQualification from '../tools/preparation-producer-qualification.mjs';
 const producerFiles={};const producerRaws=new Map();for(const n of ['worker-local-release.mjs','worker-local-release-rotation.mjs','publish-prepared-main.mjs']){const raw=await fs.readFile(new URL('../tools/'+n,import.meta.url));producerFiles[n]=sha(raw);producerRaws.set(sha(raw),raw);}
 const hash='a'.repeat(64),target='b'.repeat(40),tree='c'.repeat(40),root=path.resolve(import.meta.dirname,'..');
 const workerRoot=path.resolve('D:/teruisi-runtime/teruisi-worker-sales'),djangoRoot=path.resolve('D:/teruisi-runtime/django-sales');
@@ -36,3 +37,26 @@ test('resolved dispatch releases future different-target queue work without chan
 test('frozen bundle CLI help is runnable with package closure and no production effects',async t=>{const f=await fixture(t);for(const name of ['cleaned-preparation-writer.mjs','cleaned-preparation-observer.mjs']){const output=execFileSync(process.execPath,[path.join(f.bundleRoot,'tools',name),'--help'],{encoding:'utf8',windowsHide:true});assert.match(output,/Usage:/);}assert.equal(await fs.stat(f.out).then(()=>true,()=>false),false);});
 test('eight sealed historical resolutions remain readable through the single reader (read-only original evidence)',async()=>{assert.equal(history.records.length,8);const directory='D:/codex-isolated/main-manual-release-20261016/prebuild-queue-v2';for(const pin of history.records){const dispatch=(await readQueueObject(path.join(directory,'dispatches',pin.dispatchId+'.json'))).value,terminal=(await readQueueObject(path.join(directory,'results',pin.requestId+'.json'))).value;assert.equal(await readPreparationResolution(directory,dispatch,terminal),true,pin.dispatchId);} });
 test('historical replay policy preserves the original five target fences and three pre-native request terminations',()=>{assert.equal(history.records.filter(r=>resolutionForbidsTargetReplay(r.dispatchId)).length,5);assert.equal(history.records.filter(r=>!resolutionForbidsTargetReplay(r.dispatchId)).length,3);assert.equal(resolutionForbidsTargetReplay(randomUUID()),true);});
+test('S16: producer qualification set is exact; both generations adopt and unregistered bytes fail closed',async()=>{
+ // Exact pre-S16 producer closure (f641685b) and the S16 generation that adds
+ // log-only preparation stage timing to worker-local-release-rotation.mjs. The
+ // set is asserted exactly, so any further producer edit fails closed with
+ // 'Unqualified preparation producer code' until it is re-qualified.
+ const pre={'publish-prepared-main.mjs':'e50f8112e0ae6553a4f66632ebfc95a76fba1030041c6d9d96af4273d98ae6d1','worker-local-release-rotation.mjs':'b33b0b8b2a3ff603a902845c7f3191adbe7d39907e529f18870e195abeb50776','worker-local-release.mjs':'6dcd3016f6164a0c897c94ae26ec300b82f69ad122739ea1ba5b843ca95a8333'};
+ const s16={...pre,'worker-local-release-rotation.mjs':'c90f6c9b5ce126089527d668e3fee884193554e4a4ded91e392a1a2df98b2072'};
+ assert.deepEqual(producerQualification.closures,[pre,s16]);
+ // The pre-S16 closure stays first so an installed pre-S16 producer generation
+ // remains qualified and a rollback is not blocked by this entry itself.
+ assert.deepEqual(producerQualification.closures[0],pre);
+ // Repository tripwire: the working rotation bytes are the registered S16 ones.
+ assert.equal(sha(await fs.readFile(new URL('../tools/worker-local-release-rotation.mjs',import.meta.url))),s16['worker-local-release-rotation.mjs']);
+ assert.deepEqual(producerFiles,s16);
+ // The gate's own decision shape (preparation-resolution.mjs:144/:273): the
+ // candidate's whole producerFiles group must equal one closure item for item.
+ const qualified=p=>producerQualification.closures.some(c=>canonical(c)===canonical(p));
+ for(const generation of [pre,s16])assert.equal(qualified(generation),true);
+ for(const unregistered of [{...s16,'worker-local-release-rotation.mjs':'d'.repeat(64)},{...pre,'worker-local-release.mjs':'d'.repeat(64)},{...pre,'publish-prepared-main.mjs':'d'.repeat(64)}])assert.equal(qualified(unregistered),false);
+ // A mixed group is not qualified by either closure, and a partial group fails.
+ assert.equal(qualified({...pre,'worker-local-release-rotation.mjs':s16['worker-local-release-rotation.mjs'],'worker-local-release.mjs':'d'.repeat(64)}),false);
+ const {['publish-prepared-main.mjs']:_omitted,...partial}=s16;assert.equal(qualified(partial),false);
+});

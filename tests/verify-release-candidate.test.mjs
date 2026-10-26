@@ -327,3 +327,28 @@ test('B 项: the registered whole-file hashes match the maintenance-admission qu
  assert.equal(wjq.fileBeforeSha256,piNativeCandidateControllerSha256['worker-local-service.ps1'][0],'验证器资格必须绑定维护前准入已登记的基线哈希');
  assert.ok(piNativeCandidateControllerSha256['worker-local-service.ps1'].includes(bWorkerJsonFailureCauseScriptSha256),'候选哈希必须已在代际清单内');
 });
+test('C 项: the producer qualification list is admitted only with its own carriers; anything else fails closed',()=>{
+ const qualification='tools/preparation-producer-qualification.mjs',rotation='tools/worker-local-release-rotation.mjs',verifier='tools/verify-release-candidate.mjs';
+ // The S16 shape: the closures list, the rotation file whose bytes it registers,
+ // and this verifier (where the narrow qualification lives). docs/ and tests/
+ // never reach `paths`, so they do not widen the flag.
+ const s16=candidateCompatibilityProfile([{path:rotation},{path:qualification},{path:verifier},{path:'tests/worker-preparation-timing.test.mjs'},{path:'docs/规范/历史记录/发布限定资格-20261022.md'}]);
+ assert.equal(s16.preparationProducerQualifyOnly,true);assert.deepEqual(s16.unsupported,[]);
+ assert.equal(s16.preparationQueue,true);assert.equal(s16.worker,true);
+ // Re-registering the list alone is the legal minimum and stays admissible.
+ for(const changes of [[{path:qualification}],[{path:qualification},{path:rotation}],[{path:qualification},{path:verifier}]]){
+  const p=candidateCompatibilityProfile(changes);
+  assert.equal(p.preparationProducerQualifyOnly,true,JSON.stringify(changes));assert.deepEqual(p.unsupported,[]);
+ }
+ // Any other tool travelling with it loses the flag AND leaves the list unsupported.
+ for(const extra of ['tools/django-local-service.ps1','tools/publish-main.mjs','tools/worker-local-service.ps1','tools/manual-maintenance-start.ps1']){
+  const wide=candidateCompatibilityProfile([{path:qualification},{path:extra}]);
+  assert.equal(wide.preparationProducerQualifyOnly,false,extra);
+  assert.ok(wide.unsupported.includes(qualification),extra);
+ }
+ // Without the list there is nothing to admit, and a rename is not the same file.
+ assert.equal(candidateCompatibilityProfile([{path:rotation},{path:verifier}]).preparationProducerQualifyOnly,false);
+ const renamed=candidateCompatibilityProfile([{before:qualification,path:'tools/renamed.mjs'}]);
+ assert.equal(renamed.preparationProducerQualifyOnly,false);
+ assert.ok(renamed.unsupported.includes(qualification));assert.ok(renamed.unsupported.includes('tools/renamed.mjs'));
+});
