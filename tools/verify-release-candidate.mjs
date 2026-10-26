@@ -13,7 +13,27 @@ import assert from 'node:assert/strict';
 import {makeReleasePlan} from './release-scope-plan.mjs';
 import {publisherEnvironment} from './publish-latest-main.mjs';
 import {hashTree} from './worker-local-release.mjs';
-import {dingtalkScreenshotAclQualification} from './manual-maintenance-continuation.mjs';
+import {dingtalkScreenshotAclQualification,aDescendantCreationGuardDjangoScriptSha256,piNativeCandidateDjangoScriptSha256} from './manual-maintenance-continuation.mjs';
+
+/** A 项 (2026-10-25): one exact installed -> candidate django-local-service.ps1
+ * pair. The candidate changes only Get-VerifiedProcessDescendants (purely
+ * additive: two guard lines that `continue` past a reused-PID phantom whose
+ * CreationDate is missing or older than its claimed parent's); every other
+ * function, the parameter block, every top-level statement and the order of
+ * the existing functions must be byte-identical, so Stop-VerifiedProcessTree
+ * and the rest of the stop protocol are untouched. The whole-file hashes
+ * below are the same values already registered in
+ * piNativeCandidateControllerSha256 (manual-maintenance-continuation.mjs),
+ * so a candidate that passes the maintenance-admission gate is bound to the
+ * exact same bytes this verifier proves at the function level — no drift
+ * between the two gates is possible. Evidence:
+ * D:\teruisi-ops\release-20261025\A项-停服务误认进程-审查证据.md. */
+export const descendantCreationGuardQualification=Object.freeze({
+ fileBeforeSha256:piNativeCandidateDjangoScriptSha256,
+ fileAfterSha256:aDescendantCreationGuardDjangoScriptSha256,
+ beforeSha256:'3b3d82449c182609c0f4cec2a4275f548f02b74008f5cf590f249079bd497fa2',
+ afterSha256:'a2d588d65e58ad1ad21a8885a6e9ac09e872c78d154f34f52b621e912efd0731'
+});
 
 const execute=promisify(execFile),sha=b=>createHash('sha256').update(b).digest('hex');
 const git=async(root,args)=>(await execute('git',['-C',root,...args],{encoding:'utf8',windowsHide:true,maxBuffer:16*1024*1024})).stdout.trim();
@@ -55,6 +75,10 @@ export function candidateCompatibilityProfile(changes){
  // Q14: django-ai.ps1 is the only application-side file; the two verifier/readiness
  // files may travel with it because the qualification lives there.
  const dingtalkScreenshotAclOnly=paths.includes('tools/django-ai.ps1')&&paths.every(p=>['tools/django-ai.ps1','tools/verify-release-candidate.mjs','tools/manual-maintenance-continuation.mjs'].includes(p));
+ // A 项: django-local-service.ps1 is the only application-side file; the two
+ // verifier/readiness files may travel with it because the qualification lives
+ // there (same shape as Q14's dingtalkScreenshotAclOnly).
+ const descendantCreationGuardOnly=paths.includes('tools/django-local-service.ps1')&&paths.every(p=>['tools/django-local-service.ps1','tools/verify-release-candidate.mjs','tools/manual-maintenance-continuation.mjs'].includes(p));
  const schemaProof=paths.some(p=>proofFiles.includes(p)),preparationQueue=paths.some(p=>preparationFiles.includes(p)||p==='tools/publish-latest-main.mjs'||p==='tools/worker-local-release-rotation.mjs');
  return {version:schemaProof||preparationQueue?'release-three-optimizations-v1':'release-compatibility-profile-v1',paths,unsupported,schemaProof,preparationQueue,releaseContentionOnly,weeklyReleaseLeaseOnly,piMainResumeOnly,
   nativeAbandonmentOnly:paths.includes('tools/main-prebuild-queue.mjs')&&paths.every(p=>['tools/main-prebuild-queue.mjs','tools/native-abandonment-observer.mjs','tools/native-abandonment-writer.mjs','tools/verify-release-candidate.mjs'].includes(p)),
@@ -66,6 +90,7 @@ export function candidateCompatibilityProfile(changes){
   django:paths.includes('tools/django-local-service.ps1'),
   piExitObservation:paths.includes('tools/django-ai.ps1')&&!piMainResumeOnly&&!dingtalkScreenshotAclOnly,
   dingtalkScreenshotAclOnly,
+  descendantCreationGuardOnly,
   nativeColdStartPerformed:false};
 }
 
@@ -180,6 +205,28 @@ export function compareDingTalkScreenshotAclChange(before,after,qualification=di
  if(digest(old.get(assertName))!==qualification.assertProfileBeforeSha256||digest(next.get(assertName))!==qualification.assertProfileAfterSha256||digest(next.get(helperName))!==qualification.appContainerAceSha256)return false;
  for(const [name,text] of old)if(name!==assertName&&next.get(name)!==text)return false;
  return JSON.stringify(before.functions.map(f=>f.name))===JSON.stringify(after.functions.map(f=>f.name).filter(name=>name!==helperName));
+}
+/** A 项 (2026-10-25): syntax-tree proof, on the parsed functions/top-level
+ * statements of tools/django-local-service.ps1, that the candidate differs
+ * from the base only by Get-VerifiedProcessDescendants (old and new text
+ * pinned by SHA-256). Unlike Q14 this adds no function: the guard is two new
+ * lines inside the existing function body. Every other function, the
+ * parameter block, every top-level statement, the function count and the
+ * order of all functions must be byte-identical, so Stop-VerifiedProcessTree
+ * and the rest of the stop protocol stay untouched. */
+export function compareDescendantCreationGuardChange(before,after,qualification=descendantCreationGuardQualification){
+ const guardedName='Get-VerifiedProcessDescendants';
+ const normalize=text=>text.replaceAll('\r\n','\n');
+ const digest=text=>sha(Buffer.from(text));
+ if(!Array.isArray(before?.functions)||!Array.isArray(after?.functions)||!Array.isArray(before.other)||!Array.isArray(after.other))return false;
+ if(JSON.stringify(before.other.map(normalize))!==JSON.stringify(after.other.map(normalize)))return false;
+ if(before.functions.length!==after.functions.length)return false;
+ if(JSON.stringify(before.functions.map(f=>f.name))!==JSON.stringify(after.functions.map(f=>f.name)))return false;
+ const old=new Map(before.functions.map(f=>[f.name,normalize(f.text)])),next=new Map(after.functions.map(f=>[f.name,normalize(f.text)]));
+ if(!old.has(guardedName)||!next.has(guardedName))return false;
+ if(digest(old.get(guardedName))!==qualification.beforeSha256||digest(next.get(guardedName))!==qualification.afterSha256)return false;
+ for(const [name,text] of old)if(name!==guardedName&&next.get(name)!==text)return false;
+ return true;
 }
 export function stripGateTiming(text){
  if(typeof text!=='string')return text;
@@ -353,7 +400,16 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    const current=path.join(candidate,'tools/django-local-service.ps1');
    const [a,b]=await Promise.all([functionsOf(old,shell7,environment),functionsOf(current,shell7,environment)]);
    report.gateTimingChanged=usesGateTimingExemption(a,b);
-   report.requiresNativeColdStart=!(profile.piMainResumeOnly?comparePiResumeInventoryOnly(a,b):profile.releaseChainPreflight?compareMaintenanceInventoryOnly(a,b):compareFunctionOnlyChange(a,b));
+   // A 项 (descendantCreationGuardOnly) proves on functionsOfExact, not
+   // functionsOf: the file contains non-ASCII (Chinese) comments elsewhere,
+   // so the console-codepage-dependent functionsOf extraction of this exact
+   // function does not reproduce the same bytes functionsOfExact pins
+   // (verified empirically against both base and candidate text). Every
+   // other profile here keeps using functionsOf/a/b unchanged.
+   const requiresNativeColdStart=profile.descendantCreationGuardOnly
+    ?!compareDescendantCreationGuardChange(...await Promise.all([functionsOfExact(old,shell7,environment),functionsOfExact(current,shell7,environment)]))
+    :!(profile.piMainResumeOnly?comparePiResumeInventoryOnly(a,b):profile.releaseChainPreflight?compareMaintenanceInventoryOnly(a,b):compareFunctionOnlyChange(a,b));
+   report.requiresNativeColdStart=requiresNativeColdStart;
    assert.equal(report.requiresNativeColdStart,false,'生命周期语义发生变化，需专用隔离冷启动适配器；不能以边界测试代替');
   }
   if(profile.piExitObservation){

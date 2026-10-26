@@ -2627,6 +2627,19 @@ function Get-VerifiedProcessDescendants([object]$RootSnapshot) {
       $childId = [int]$child.ProcessId
       if ($seen.ContainsKey($childId)) { continue }
       $seen[$childId] = $true
+      # Windows recycles PIDs. A parent's numeric PID can be reused while an
+      # unrelated process still records it in ParentProcessId, so numeric
+      # equality alone does not establish descent. A real child is never
+      # created before its parent; anything older is a reused-PID phantom.
+      # Compare the enumerated CIM row before Get-ProcessSnapshot, because an
+      # unreadable-metadata phantom makes that call throw "absence is not
+      # established" and blocks the stop (the 2026-10-24 r3 incident: PID 14720
+      # readertray.exe named a stale parent 11412 reused by a reader conhost).
+      # Read CreationDate off the CIM row directly: Get-ProcessCreation casts
+      # it to [datetime] and throws on a null, which is exactly the phantom
+      # case we must survive here.
+      if (-not $child.CreationDate -or -not $parentSnapshot.CreationDate) { continue }
+      if ([datetime]$child.CreationDate -lt [datetime]$parentSnapshot.CreationDate) { continue }
       $snapshot = Get-ProcessSnapshot $childId 1
       if ($null -eq $snapshot -or [int]$snapshot.Process.ParentProcessId -ne $parentId) { continue }
       if (
