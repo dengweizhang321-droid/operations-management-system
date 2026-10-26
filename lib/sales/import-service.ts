@@ -172,16 +172,60 @@ export function validateSalesImportDateRange(startDate: string, endDate: string)
   };
 }
 
-function validateRows(rows: readonly SalesLineInput[]): SalesImportIssue[] {
+// 数量字段（quantity）单独容错：来源系统偶有录入错误输出小数（已查实的真实故障见
+// 2026-10-27 吉客云销售表第 2492 行 quantity=1.5）。非负小数四舍五入为整数并记录
+// warning（保留原值与行号），不再作为阻断错误；其余 10 个整数字段（sourceRowNumber、
+// 各金额 Cents 字段、Bps 字段）继续走下方 Number.isSafeInteger 的原有阻断逻辑，本次
+// 不扩大放宽范围——金额字段出现小数是另一个问题，这次不碰。
+//
+// 负数：与库存表（lib/imports/inventory-stock.ts 的 optionalQuantity）结论一致但
+// 原因不同。已核实真实数据：lib/imports/sales-ledger.ts:532 把
+// `quantity < 0 || allocatedAmountCents < 0` 判定为退货单 businessType="return"，
+// 负整数 quantity 是退货的合法业务信号，并非录入错误；10-23 一次成功导入里就有 3205
+// 行负整数全部正常导入，10-27 故障文件里也有 3290 行负整数（businessType=return）。
+// 因此负整数必须放行、行为不变。负小数则一律阻断：Math.round 对负数向零偏移
+// （Math.round(-3.5) === -3），四舍五入负小数会悄悄改写退货数量的真实值，且真实数据中
+// 负小数始终是 0 行，阻断不会误伤任何已知业务数据。
+function normalizeQuantity(
+  row: SalesLineInput,
+  errors: SalesImportIssue[],
+  warnings: SalesImportIssue[],
+) {
+  const value = row.quantity;
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    errors.push({ row: row.sourceRowNumber, field: "quantity", code: "INVALID_INTEGER", message: "quantity 必须是安全整数" });
+    return;
+  }
+  if (Number.isSafeInteger(value)) return; // 整数路径：行为与修复前完全一致，包括负整数放行。
+  if (value < 0) {
+    errors.push({ row: row.sourceRowNumber, field: "quantity", code: "INVALID_INTEGER", message: "quantity 不能为负小数" });
+    return;
+  }
+  const rounded = Math.round(value);
+  if (!Number.isSafeInteger(rounded)) {
+    errors.push({ row: row.sourceRowNumber, field: "quantity", code: "INVALID_INTEGER", message: "quantity 必须是安全整数" });
+    return;
+  }
+  row.quantity = rounded;
+  warnings.push({
+    row: row.sourceRowNumber,
+    field: "quantity",
+    code: "ROUNDED_DECIMAL_QUANTITY",
+    message: `quantity 第${row.sourceRowNumber}行为小数 ${value}，已四舍五入为 ${rounded}`,
+  });
+}
+
+function validateRows(rows: readonly SalesLineInput[]): { errors: SalesImportIssue[]; warnings: SalesImportIssue[] } {
   const errors: SalesImportIssue[] = [];
+  const warnings: SalesImportIssue[] = [];
   const keys = new Set<string>();
   const integerFields = [
-    "sourceRowNumber", "quantity", "listUnitPriceCents", "costAmountCents",
+    "sourceRowNumber", "listUnitPriceCents", "costAmountCents",
     "allocatedUnitPriceCents", "allocatedAmountCents", "feeAllocationCents",
     "grossProfitCents", "grossMarginBps", "untaxedGrossProfitCents", "untaxedGrossMarginBps",
   ] as const;
-  if (rows.length === 0) return [{ code: "NO_DATA_ROWS", message: "工作表中没有可导入的销售明细行" }];
-  if (rows.length > MAX_STAGED_ROWS) return [{ code: "ROW_LIMIT", message: `销售明细总行数超过 ${MAX_STAGED_ROWS} 行上限` }];
+  if (rows.length === 0) return { errors: [{ code: "NO_DATA_ROWS", message: "工作表中没有可导入的销售明细行" }], warnings };
+  if (rows.length > MAX_STAGED_ROWS) return { errors: [{ code: "ROW_LIMIT", message: `销售明细总行数超过 ${MAX_STAGED_ROWS} 行上限` }], warnings };
   for (const row of rows) {
     if (!row.sourceLineKey || !row.sourceRowHash) {
       errors.push({ row: row.sourceRowNumber, code: "MISSING_ROW_KEY", message: "明细行缺少唯一标识" });
@@ -194,6 +238,7 @@ function validateRows(rows: readonly SalesLineInput[]): SalesImportIssue[] {
     if (!row.orderNo && !row.onlineOrderNo) {
       errors.push({ row: row.sourceRowNumber, field: "orderNo", code: "MISSING_ORDER_NO", message: "销售单号和线上单号不能同时为空" });
     }
+    normalizeQuantity(row, errors, warnings);
     for (const field of integerFields) {
       if (!Number.isSafeInteger(row[field])) {
         errors.push({ row: row.sourceRowNumber, field, code: "INVALID_INTEGER", message: `${field} 必须是安全整数` });
@@ -204,7 +249,7 @@ function validateRows(rows: readonly SalesLineInput[]): SalesImportIssue[] {
     }
     if (errors.length >= 200) break;
   }
-  return errors;
+  return { errors, warnings };
 }
 
 function effectiveRowsForCost(
@@ -322,8 +367,26 @@ export async function importSalesLedgerBytes(input: {
       sourceTotals = parsed.totals;
       sheetName = parsed.sheetName || sheetName;
       rows = parsed.rows.map(mapAnalysisSafeRow);
-      parserWarnings = sanitizeSalesIssues(parsed.warnings ?? []);
-      parserErrors = sanitizeSalesIssues([...(parsed.errors ?? []), ...validateRows(rows)]);
+      const { errors: rowErrors, warnings: rowWarnings } = validateRows(rows);
+      // sanitizeSalesIssues 和下游 Django sanitize_issues 对 warnings 都有 200 条硬上限
+      // （backend/sales/write_service.py 完成阶段还会在这 200 条之后追加
+      // EXCLUDED_FUTURE_DATE_ROWS / EXCLUDED_BRUSH_WAREHOUSE / EXCLUDED_NON_WHITELIST_CHANNEL
+      // 等固定业务告警，再整体重截断到 200——如果本次新增的逐行小数告警把 parserWarnings
+      // 撑到 200 条，会把那些固定告警挤出结果）。这里主动把逐行明细告警限制在
+      // MAX_SALES_IMPORT_WARNINGS 内并用一条汇总提示收尾，为后续固定业务告警预留位置，
+      // 不把"小数行多"的故障模式从"小数阻断"平移成"固定告警丢失"。
+      const MAX_SALES_IMPORT_WARNINGS = 150;
+      const limitedRowWarnings = rowWarnings.slice(0, MAX_SALES_IMPORT_WARNINGS - 1);
+      const roundedOverflow = rowWarnings.length - limitedRowWarnings.length;
+      const combinedWarnings = [...(parsed.warnings ?? []), ...limitedRowWarnings];
+      if (roundedOverflow > 0) {
+        combinedWarnings.push({
+          code: "ROUNDED_DECIMAL_QUANTITY",
+          message: `还有 ${roundedOverflow} 条小数数量四舍五入提示未显示，已达上限 ${MAX_SALES_IMPORT_WARNINGS}`,
+        });
+      }
+      parserWarnings = sanitizeSalesIssues(combinedWarnings);
+      parserErrors = sanitizeSalesIssues([...(parsed.errors ?? []), ...rowErrors]);
     } catch {
       parserErrors = [{ code: "XLSX_PARSE_ERROR", message: "销售 Excel 文件解析失败，请确认文件格式和模板" }];
     }
