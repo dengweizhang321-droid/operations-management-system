@@ -98,6 +98,10 @@ function decodeRequestBody(body: BodyInit | null | undefined): Record<string, un
 
 function makeStagedFetchMock() {
   let initPayload: Record<string, unknown> | null = null;
+  // 捕获所有 PUT chunk 实际发给 Django 的行数据——这是真正落库前最后一道关卡：
+  // 只断言告警/错误对象的字段名不足以证明规范化真的发生了（例如把写回那行注释掉，
+  // 告警文案照样生成，但发出去的还是原始小数），必须直接看发往后端的 rows 内容。
+  const chunkRows: Array<Record<string, unknown>> = [];
   const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url);
     if (url.pathname !== SALES_STAGED_IMPORTS_PATH) {
@@ -124,6 +128,7 @@ function makeStagedFetchMock() {
       });
     }
     if (init?.method === "PUT") {
+      if (Array.isArray(body.rows)) chunkRows.push(...(body.rows as Array<Record<string, unknown>>));
       return Response.json({ ok: true });
     }
     if (body.action === "complete") {
@@ -137,16 +142,16 @@ function makeStagedFetchMock() {
     }
     throw new Error(`unexpected staged action: ${String(body.action)}`);
   }) as typeof fetch;
-  return { fetchImpl, getInitPayload: () => initPayload };
+  return { fetchImpl, getInitPayload: () => initPayload, getChunkRows: () => chunkRows };
 }
 
-test("数量是小数：1.5 四舍五入为 2，产生 ROUNDED_DECIMAL_QUANTITY 告警，不进 parserErrors", async () => {
+test("数量是小数：1.5 四舍五入为 2，产生 ROUNDED_DECIMAL_QUANTITY 告警，不进 parserErrors，且实际发往 Django 的 quantity 是整数 2", async () => {
   await withSalesEnv(async () => {
     const bytes = createXlsxWorkbookBytes([{
       name: "销售单明细账",
       rows: [HEADER, salesRow({ quantity: 1.5, costAmount: 300, grossProfit: -300 })],
     }]);
-    const { fetchImpl, getInitPayload } = makeStagedFetchMock();
+    const { fetchImpl, getInitPayload, getChunkRows } = makeStagedFetchMock();
     const originalFetch = globalThis.fetch;
     globalThis.fetch = fetchImpl;
     try {
@@ -168,6 +173,14 @@ test("数量是小数：1.5 四舍五入为 2，产生 ROUNDED_DECIMAL_QUANTITY 
       assert.equal(rounded[0].field, "quantity");
       assert.equal(rounded[0].row, 2);
       assert.match(rounded[0].message, /1\.5.*2/);
+      // 关键断言（阴性测试要抓的点）：告警对象字段名正确，不代表规范化真的写回了
+      // row.quantity。必须直接检查发往 Django PUT chunk 的行数据——quantity 必须
+      // 是整数 2，不能是原始的 1.5（后端 _normalize_row 的 isinstance(raw, int) 会
+      // 拒绝小数，若写回被遗漏，这里会先于后端校验暴露问题）。
+      const chunkRows = getChunkRows();
+      assert.equal(chunkRows.length, 1);
+      assert.equal(chunkRows[0].quantity, 2);
+      assert.equal(Number.isInteger(chunkRows[0].quantity), true);
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -221,7 +234,7 @@ test("数量为负整数（退货单业务信号）：放行，行为不变，�
         grossProfit: -140,
       })],
     }]);
-    const { fetchImpl, getInitPayload } = makeStagedFetchMock();
+    const { fetchImpl, getInitPayload, getChunkRows } = makeStagedFetchMock();
     const originalFetch = globalThis.fetch;
     globalThis.fetch = fetchImpl;
     try {
@@ -239,6 +252,9 @@ test("数量为负整数（退货单业务信号）：放行，行为不变，�
       assert.deepEqual(initPayload!.parserErrors, []);
       const warnings = initPayload!.parserWarnings as Array<{ code: string }>;
       assert.equal(warnings.filter((warning) => warning.code === "ROUNDED_DECIMAL_QUANTITY").length, 0);
+      const chunkRows = getChunkRows();
+      assert.equal(chunkRows.length, 1);
+      assert.equal(chunkRows[0].quantity, -2, "负整数必须原样发往 Django，不被改写");
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -268,7 +284,9 @@ test("数量为负小数：阻断（既是录入错误又会破坏退货数量�
       const initPayload = getInitPayload();
       assert.ok(initPayload);
       const errors = initPayload!.parserErrors as Array<{ field?: string; code?: string; message?: string }>;
-      assert.ok(errors.some((error) => error.field === "quantity" && /负小数/.test(error.message ?? "")));
+      // 负小数使用独立错误码 NEGATIVE_DECIMAL_QUANTITY（不复用 INVALID_INTEGER），
+      // 便于监控区分"负小数"与"非数字/超范围"两类不同性质的问题。
+      assert.ok(errors.some((error) => error.field === "quantity" && error.code === "NEGATIVE_DECIMAL_QUANTITY" && /负小数/.test(error.message ?? "")));
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -374,18 +392,36 @@ test("金额字段超出安全整数范围：仍然阻断整批导入，证明�
 });
 
 // S5 风格：告警数量超限时，固定业务告警（EXCLUDED_* 等，由后端在 complete 阶段追加）
-// 不能被逐行小数告警挤出。验证 Worker 侧把逐行告警限制在 150 条并保留汇总提示，
-// 为后端固定告警留出 50 条余量（> 实际固定告警数，真实数据从未观察到超过个位数）。
-test("告警数量超限时：逐行小数明细被限制在 150 条并追加汇总提示，为固定业务告警留出余量", async () => {
+// 不能被逐行小数告警挤出。
+//
+// 关键点（审查发现的问题2）：预算必须用接近真实的基数验证，不能让 parsed.warnings
+// 恰好为 0——真实故障文件的 parsed.warnings 实测有 119 条 ALLOCATED_AMOUNT_MISMATCH
+// （分摊后金额与分摊后单价×数量不一致），这里构造 120 行、每行分摊后单价×数量与
+// 分摊后金额不一致（触发 ALLOCATED_AMOUNT_MISMATCH），加上 100 行小数 quantity，
+// 验证 WORKER_SIDE_WARNING_BUDGET=150 预算下，固定告警（parsed.warnings）优先占位，
+// 逐行明细按剩余预算截断，且汇总提示本身不会被截断顶掉。
+test("告警数量超限时：固定告警（parsed.warnings）优先占位，逐行小数明细按剩余预算截断并保留汇总提示", async () => {
   await withSalesEnv(async () => {
-    const rows = Array.from({ length: 210 }, (_, index) => salesRow({
-      onlineOrderNo: `ON-${index}`,
-      productCode: `SKU-${index}`,
+    // 120 行：分摊后单价(100) × 数量(1) = 100，但分摊后金额给 200，差额 100 分，
+    // 远超默认容差，每行必定产生 1 条 ALLOCATED_AMOUNT_MISMATCH（parsed.warnings）。
+    const mismatchRows = Array.from({ length: 120 }, (_, index) => salesRow({
+      onlineOrderNo: `MISMATCH-${index}`,
+      productCode: `SKU-MISMATCH-${index}`,
+      quantity: 1,
+      allocatedUnitPrice: 100,
+      allocatedAmount: 200,
+      costAmount: 20,
+      grossProfit: 180,
+    }));
+    // 100 行：quantity 为小数，触发本次新增的 ROUNDED_DECIMAL_QUANTITY（逐行明细）。
+    const decimalRows = Array.from({ length: 100 }, (_, index) => salesRow({
+      onlineOrderNo: `DECIMAL-${index}`,
+      productCode: `SKU-DECIMAL-${index}`,
       quantity: 1.5,
     }));
     const bytes = createXlsxWorkbookBytes([{
       name: "销售单明细账",
-      rows: [HEADER, ...rows],
+      rows: [HEADER, ...mismatchRows, ...decimalRows],
     }]);
     const { fetchImpl, getInitPayload } = makeStagedFetchMock();
     const originalFetch = globalThis.fetch;
@@ -404,15 +440,49 @@ test("告警数量超限时：逐行小数明细被限制在 150 条并追加汇
       assert.ok(initPayload);
       assert.deepEqual(initPayload!.parserErrors, []);
       const warnings = initPayload!.parserWarnings as Array<{ code: string; message: string }>;
-      // sanitizeSalesIssues 本身也有 200 上限；这里断言 Worker 侧的 150 条软上限生效，
-      // 结果应明显小于 200，且包含一条汇总提示说明还有多少条未显示。
-      assert.ok(warnings.length <= 150, `warnings.length=${warnings.length} 必须 <= 150`);
+      const mismatchWarnings = warnings.filter((warning) => warning.code === "ALLOCATED_AMOUNT_MISMATCH");
+      const roundedWarnings = warnings.filter((warning) => warning.code === "ROUNDED_DECIMAL_QUANTITY" && !/未显示/.test(warning.message));
       const overflowNotice = warnings.find((warning) => /未显示/.test(warning.message));
-      assert.ok(overflowNotice, "必须保留一条汇总提示说明截断数量");
-      // 210 行均产生小数告警；MAX_SALES_IMPORT_WARNINGS=150，保留 149 条明细 + 1 条汇总提示，
-      // 汇总提示中的未显示数量应为 210 - 149 = 61。
-      assert.match(overflowNotice!.message, /61/);
-      assert.equal(warnings.length, 150);
+      // 固定告警（parsed.warnings，120 条 ALLOCATED_AMOUNT_MISMATCH）必须全部保留，
+      // 不能被逐行小数明细挤掉——这是本次修复要防止的"同形错误第三次出现"。
+      assert.equal(mismatchWarnings.length, 120, "固定告警（parsed.warnings）必须全部保留，不能被逐行明细挤出");
+      // 预算 150 - 120 条固定告警 = 30 个名额给逐行明细；100 条小数明细超出 30，
+      // 需要截断，保留 29 条明细 + 1 条汇总提示（预留 1 个名额）。
+      assert.equal(roundedWarnings.length, 29, "剩余预算应为 150-120-1（汇总提示占位）=29 条明细");
+      assert.ok(overflowNotice, "必须保留一条汇总提示说明截断数量，且不能被尾部截断顶掉");
+      // 100 条小数明细 - 29 条保留 = 71 条未显示。
+      assert.match(overflowNotice!.message, /71/);
+      assert.equal(warnings.length, 150, "固定告警(120)+明细(29)+汇总提示(1)=150，正好用满预算");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+test("数量为 0.4：四舍五入后为 0 仍阻断（不能绕过解析阶段数量非零的既有契约）", async () => {
+  await withSalesEnv(async () => {
+    const bytes = createXlsxWorkbookBytes([{
+      name: "销售单明细账",
+      rows: [HEADER, salesRow({ quantity: 0.4 })],
+    }]);
+    const { fetchImpl, getInitPayload } = makeStagedFetchMock();
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchImpl;
+    try {
+      const result = await importSalesLedgerBytes({
+        principal,
+        bytes,
+        fileName: "sales.xlsx",
+        fileSizeBytes: bytes.byteLength,
+        expectedStartDate: "2026-09-01",
+        expectedEndDate: "2026-09-01",
+      });
+      assert.equal(result.ok, false);
+      assert.equal(result.status, "rejected");
+      const initPayload = getInitPayload();
+      assert.ok(initPayload);
+      const errors = initPayload!.parserErrors as Array<{ field?: string; code?: string }>;
+      assert.ok(errors.some((error) => error.field === "quantity" && error.code === "INVALID_INTEGER"));
     } finally {
       globalThis.fetch = originalFetch;
     }

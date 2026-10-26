@@ -198,12 +198,20 @@ function normalizeQuantity(
   }
   if (Number.isSafeInteger(value)) return; // 整数路径：行为与修复前完全一致，包括负整数放行。
   if (value < 0) {
-    errors.push({ row: row.sourceRowNumber, field: "quantity", code: "INVALID_INTEGER", message: "quantity 不能为负小数" });
+    // 独立错误码（而不是复用 INVALID_INTEGER）：便于监控区分"负小数"与"非数字/超范围"
+    // 两类不同性质的问题。
+    errors.push({ row: row.sourceRowNumber, field: "quantity", code: "NEGATIVE_DECIMAL_QUANTITY", message: "quantity 不能为负小数" });
     return;
   }
   const rounded = Math.round(value);
   if (!Number.isSafeInteger(rounded)) {
     errors.push({ row: row.sourceRowNumber, field: "quantity", code: "INVALID_INTEGER", message: "quantity 必须是安全整数" });
+    return;
+  }
+  // 解析阶段（lib/imports/sales-ledger.ts 的 requiredNumber）本来就要求 quantity 非零；
+  // 像 0.4 这种四舍五入后变成 0 的小数不能绕过这条既有契约。
+  if (rounded === 0) {
+    errors.push({ row: row.sourceRowNumber, field: "quantity", code: "INVALID_INTEGER", message: "quantity 四舍五入后不能为 0" });
     return;
   }
   row.quantity = rounded;
@@ -372,17 +380,30 @@ export async function importSalesLedgerBytes(input: {
       // （backend/sales/write_service.py 完成阶段还会在这 200 条之后追加
       // EXCLUDED_FUTURE_DATE_ROWS / EXCLUDED_BRUSH_WAREHOUSE / EXCLUDED_NON_WHITELIST_CHANNEL
       // 等固定业务告警，再整体重截断到 200——如果本次新增的逐行小数告警把 parserWarnings
-      // 撑到 200 条，会把那些固定告警挤出结果）。这里主动把逐行明细告警限制在
-      // MAX_SALES_IMPORT_WARNINGS 内并用一条汇总提示收尾，为后续固定业务告警预留位置，
-      // 不把"小数行多"的故障模式从"小数阻断"平移成"固定告警丢失"。
-      const MAX_SALES_IMPORT_WARNINGS = 150;
-      const limitedRowWarnings = rowWarnings.slice(0, MAX_SALES_IMPORT_WARNINGS - 1);
+      // 撑到 200 条，会把那些固定告警挤出结果）。
+      //
+      // 预算必须以 parsed.warnings（解析阶段产生的 GROSS_PROFIT_MISMATCH/
+      // ALLOCATED_AMOUNT_MISMATCH 等固定业务告警，真实数据常见 100+ 条）的实际条数为
+      // 分母，不能假设它是 0——否则"150 条小数明细上限"在真实基数下形同虚设
+      // （真实文件 119 条 parsed.warnings + 149 条小数明细 = 268 条，早于后端固定告警
+      // 追加前就已经超过 200，Django sanitize_issues 的截断会先吞掉本该保留的汇总提示
+      // 或明细，而不是按预期截断）。
+      // 固定告警（parsed.warnings）优先占位，逐行小数明细按剩余预算截断，汇总提示固定
+      // 占最后 1 个名额（不会被尾部截断顶掉）；再为后端 complete 阶段追加的固定业务
+      // 告警预留至少若干名额（WORKER_SIDE_BUDGET 设在 150，留 50 条给后端）。
+      const WORKER_SIDE_WARNING_BUDGET = 150;
+      const fixedWarnings = parsed.warnings ?? [];
+      const remainingForRowWarnings = Math.max(0, WORKER_SIDE_WARNING_BUDGET - fixedWarnings.length);
+      const rowWarningSlots = rowWarnings.length > remainingForRowWarnings
+        ? Math.max(0, remainingForRowWarnings - 1) // 超限时预留 1 个名额放汇总提示
+        : remainingForRowWarnings;
+      const limitedRowWarnings = rowWarnings.slice(0, rowWarningSlots);
       const roundedOverflow = rowWarnings.length - limitedRowWarnings.length;
-      const combinedWarnings = [...(parsed.warnings ?? []), ...limitedRowWarnings];
+      const combinedWarnings = [...fixedWarnings, ...limitedRowWarnings];
       if (roundedOverflow > 0) {
         combinedWarnings.push({
           code: "ROUNDED_DECIMAL_QUANTITY",
-          message: `还有 ${roundedOverflow} 条小数数量四舍五入提示未显示，已达上限 ${MAX_SALES_IMPORT_WARNINGS}`,
+          message: `还有 ${roundedOverflow} 条小数数量四舍五入提示未显示，已达 Worker 侧预算 ${WORKER_SIDE_WARNING_BUDGET}`,
         });
       }
       parserWarnings = sanitizeSalesIssues(combinedWarnings);
