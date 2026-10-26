@@ -233,3 +233,97 @@ test('A 项: the registered whole-file hashes match the maintenance-admission qu
  assert.equal(dcq.fileBeforeSha256,piNativeCandidateDjangoScriptSha256,'验证器资格必须绑定维护前准入已登记的基线哈希');
  assert.equal(dcq.fileAfterSha256,aDescendantCreationGuardDjangoScriptSha256,'验证器资格必须绑定维护前准入已登记的候选哈希');
 });
+
+// B 项 (2026-10-25): worker -Json failure-cause narrow qualification.
+import {compareWorkerJsonFailureCauseChange,workerJsonFailureCauseQualification as wjq} from '../tools/verify-release-candidate.mjs';
+async function workerJsonFunctions(t){
+ // Reviewed bytes: origin/main 4dccd188 and candidate ee961e5f (or the merged working tree).
+ const work=await fs.readFile('tools/worker-local-service.ps1');
+ const baseBytes=dtBlob('4dccd188','tools/worker-local-service.ps1'),candidateBytes=dtSha(work)===wjq.fileAfterSha256?work:dtBlob('ee961e5f','tools/worker-local-service.ps1');
+ assert.equal(dtSha(baseBytes),wjq.fileBeforeSha256);assert.equal(dtSha(candidateBytes),wjq.fileAfterSha256);
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'worker-json-cause-ast-'));t.after(()=>fs.rm(directory,{recursive:true,force:true}));
+ const before=path.join(directory,'before.ps1'),after=path.join(directory,'after.ps1');
+ await fs.writeFile(before,baseBytes);await fs.writeFile(after,candidateBytes);
+ return {before:await functionsOfExact(before,'pwsh.exe',process.env),after:await functionsOfExact(after,'pwsh.exe',process.env)};
+}
+test('B 项: worker json failure cause profile is finite: worker-local-service.ps1 plus the two qualification carriers only',()=>{
+ const only=candidateCompatibilityProfile([{path:'tools/worker-local-service.ps1'},{path:'tests/worker-local-service.test.ps1'},{path:'docs/规范/验证与发布.md'}]);
+ assert.equal(only.workerJsonFailureCauseOnly,true);assert.deepEqual(only.unsupported,[]);
+ assert.equal(only.worker,false,'worker-local-service.ps1 不匹配 worker-local-release 的 worker profile');
+ assert.equal(only.django,false);assert.equal(only.descendantCreationGuardOnly,false);assert.equal(only.dingtalkScreenshotAclOnly,false);
+ const bare=candidateCompatibilityProfile([{path:'tools/worker-local-service.ps1'}]);
+ assert.equal(bare.workerJsonFailureCauseOnly,true);assert.deepEqual(bare.unsupported,[]);
+ const carriers=candidateCompatibilityProfile([{path:'tools/worker-local-service.ps1'},{path:'tools/verify-release-candidate.mjs'},{path:'tools/manual-maintenance-continuation.mjs'}]);
+ assert.equal(carriers.workerJsonFailureCauseOnly,true);assert.deepEqual(carriers.unsupported,[]);
+ // Conditional admission: any other tool file alongside it drops the flag AND the
+ // lifecycle controller falls back to `unsupported`, so the gate fails closed.
+ for(const extra of ['tools/django-local-service.ps1','tools/django-ai.ps1','tools/publish-main.mjs','tools/worker-local-release.mjs','tools/manual-maintenance-start.ps1']){
+  const wide=candidateCompatibilityProfile([{path:'tools/worker-local-service.ps1'},{path:extra}]);
+  assert.equal(wide.workerJsonFailureCauseOnly,false,extra);
+  assert.ok(wide.unsupported.includes('tools/worker-local-service.ps1'),extra+'：未命中窄资格时启动引擎必须保持失败关闭');
+ }
+ assert.equal(candidateCompatibilityProfile([{path:'tools/verify-release-candidate.mjs'},{path:'tools/manual-maintenance-continuation.mjs'}]).workerJsonFailureCauseOnly,false);
+ assert.equal(candidateCompatibilityProfile([{path:'docs/report.md'}]).workerJsonFailureCauseOnly,false);
+ const renamed=candidateCompatibilityProfile([{before:'tools/worker-local-service.ps1',path:'tools/renamed-worker.ps1'}]);
+ assert.equal(renamed.workerJsonFailureCauseOnly,false);assert.ok(renamed.unsupported.length>0);
+});
+test('B 项: the actual reviewed base and candidate worker-local-service.ps1 pass the syntax-tree comparison',async t=>{
+ const {before,after}=await workerJsonFunctions(t);
+ assert.equal(compareWorkerJsonFailureCauseChange(before,after),true);
+ assert.equal(before.functions.length,81,'B 项基线函数数量');
+ assert.equal(after.functions.length,81,'B 项不新增、不删除函数');
+ assert.deepEqual(after.functions.map(f=>f.name),before.functions.map(f=>f.name));
+ assert.equal(before.other.length,43);assert.equal(after.other.length,43);
+ // The comparator walks functions by index, so it does not depend on names
+ // being unique; today they happen to be, and the name-order assertion above
+ // keeps the indices aligned.
+ const names=before.functions.map(f=>f.name);
+ assert.equal(new Set(names).size,names.length,'当前 81 个函数名互不重复');
+});
+test('B 项: syntax-tree comparison refuses any change beyond the one pinned top-level statement',async t=>{
+ const {before,after}=await workerJsonFunctions(t);
+ const clone=()=>structuredClone(after);
+ const edit=(name,suffix)=>{const next=clone();next.functions.find(f=>f.name===name).text+=suffix;return next;};
+ // any function changed, including the reviewed stop/start protocol
+ for(const name of ['Stop-ExactWorkerSnapshot','Invoke-WorkerSystemStop','Invoke-WorkerSystemStart','Start-VerifiedWorkerSupervisor','Assert-WorkerMaintenanceInactive','Write-Result'])
+  if(after.functions.some(f=>f.name===name))assert.equal(compareWorkerJsonFailureCauseChange(before,edit(name,'\n# x')),false,name);
+ // another top-level statement changed as well (two differing elements)
+ let next=clone();next.other[0]+=' ';assert.equal(compareWorkerJsonFailureCauseChange(before,next),false);
+ next=clone();next.other[1]+=' ; Invoke-Extra';assert.equal(compareWorkerJsonFailureCauseChange(before,next),false);
+ // the pinned top-level statement changed by one more character
+ next=clone();next.other[next.other.length-1]+=' ';assert.equal(compareWorkerJsonFailureCauseChange(before,next),false);
+ // other length changes
+ next=clone();next.other.push('Invoke-NewSideEffect');assert.equal(compareWorkerJsonFailureCauseChange(before,next),false);
+ next=clone();next.other.pop();assert.equal(compareWorkerJsonFailureCauseChange(before,next),false);
+ // function count / order changes
+ next=clone();next.functions.push({name:'Invoke-Extra',text:'function Invoke-Extra {}'});assert.equal(compareWorkerJsonFailureCauseChange(before,next),false);
+ next=clone();next.functions=next.functions.filter(f=>f.name!=='Write-Result');assert.equal(compareWorkerJsonFailureCauseChange(before,next),false);
+ next=clone();next.functions.reverse();assert.equal(compareWorkerJsonFailureCauseChange(before,next),false);
+ next=clone();next.functions[0]={...next.functions[0],name:next.functions[0].name+'2'};assert.equal(compareWorkerJsonFailureCauseChange(before,next),false);
+ // identical files (no change) and the reverse direction are not the qualified change
+ assert.equal(compareWorkerJsonFailureCauseChange(before,before),false);
+ assert.equal(compareWorkerJsonFailureCauseChange(after,after),false);
+ assert.equal(compareWorkerJsonFailureCauseChange(after,before),false);
+ // a base that was already modified cannot be qualified against the pinned old text
+ const tamperedBase=structuredClone(before);tamperedBase.other[tamperedBase.other.length-1]+=' ';
+ assert.equal(compareWorkerJsonFailureCauseChange(tamperedBase,after),false);
+ // line endings alone are not a change (source text is already CRLF; flip it to bare LF)
+ const lf=clone();for(const f of lf.functions)f.text=f.text.replaceAll('\r\n','\n');for(let i=0;i<lf.other.length;i++)lf.other[i]=lf.other[i].replaceAll('\r\n','\n');
+ assert.equal(compareWorkerJsonFailureCauseChange(before,lf),true);
+});
+test('B 项: a one-digit error in either pinned statement hash refuses the comparison',async t=>{
+ const {before,after}=await workerJsonFunctions(t);
+ const flip=value=>value.slice(0,-1)+(value.endsWith('0')?'1':'0');
+ for(const key of ['otherBeforeSha256','otherAfterSha256'])
+  assert.equal(compareWorkerJsonFailureCauseChange(before,after,{...wjq,[key]:flip(wjq[key])}),false,key);
+ assert.equal(compareWorkerJsonFailureCauseChange(before,after,wjq),true);
+ assert.equal(compareWorkerJsonFailureCauseChange({functions:[],other:[]},{functions:[],other:[]}),false);
+ assert.equal(compareWorkerJsonFailureCauseChange(undefined,after),false);
+ assert.equal(compareWorkerJsonFailureCauseChange(before,undefined),false);
+});
+test('B 项: the registered whole-file hashes match the maintenance-admission qualification exactly',async()=>{
+ const {bWorkerJsonFailureCauseScriptSha256,piNativeCandidateControllerSha256}=await import('../tools/manual-maintenance-continuation.mjs');
+ assert.equal(wjq.fileAfterSha256,bWorkerJsonFailureCauseScriptSha256,'验证器资格必须绑定维护前准入已登记的候选哈希');
+ assert.equal(wjq.fileBeforeSha256,piNativeCandidateControllerSha256['worker-local-service.ps1'][0],'验证器资格必须绑定维护前准入已登记的基线哈希');
+ assert.ok(piNativeCandidateControllerSha256['worker-local-service.ps1'].includes(bWorkerJsonFailureCauseScriptSha256),'候选哈希必须已在代际清单内');
+});
