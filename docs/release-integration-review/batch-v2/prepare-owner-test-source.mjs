@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readdir, readFile, mkdir, writeFile } from 'node:fs/promises';
-import { sha } from './validators.mjs';
+import { sha } from '../../../tools/batch-v2-validators.mjs';
 const own=path.dirname(fileURLToPath(import.meta.url)), repository=path.resolve(own,'../../..');
 const source='D:/teruisi-runtime/django-sales/app/backend', target=path.join(repository,'.runtime/owner-acceptance/backend');
 const digest=sha(await readFile('D:/teruisi-runtime/django-sales/app/deployment.json'));

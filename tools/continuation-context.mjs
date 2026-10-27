@@ -1,5 +1,5 @@
 import fs from 'node:fs';import path from 'node:path';import assert from 'node:assert/strict';import {fileURLToPath} from 'node:url';
-import {fixed,hash,readStable,observeRecoveryContext,makeRecoveryMarker,canonical} from '../startup-recovery-integration-20261012/recovery-context.mjs';
+import {fixed,hash,readStable,observeRecoveryContext,makeRecoveryMarker,canonical} from './recovery-context.mjs';
 export const originalPlan='E:/codex-artifacts/startup-recovery-integration-20261012/RECOVERY_PLAN_FINAL_V1.json',originalSha='dc4f2de71423097a53f26b37e4a10bdd6ee541f9aef3c8b9005c068239a7a5c2',originalEvidence='E:/codex-artifacts/startup-recovery-integration-20261012/approved-recovery-v1';
 export const marker='D:/teruisi-runtime/django-sales/run/system-maintenance.json',receipt='D:/teruisi-runtime/teruisi-worker-sales/state/worker-process.json';
 export const prefix=['acquire-watchdog-mutex','preflight','create-intent','await-drain','stop-declared-instances','enter-stopped-maintenance','exit-stopped-maintenance','start-original-stack'];

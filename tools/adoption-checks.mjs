@@ -6,7 +6,7 @@ import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {DatabaseSync} from 'node:sqlite';
 import {homedir} from 'node:os';
-import {runAdapter} from '../release-integration-review/batch-v2/adapter.mjs';
+import {runAdapter} from './batch-v2-adapter.mjs';
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const canonical=value=>Array.isArray(value)?'['+value.map(canonical).join(',')+']':value&&typeof value==='object'?'{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical(value[k])).join(',')+'}':JSON.stringify(value);
 export function classifyPublication(expected,actual) {

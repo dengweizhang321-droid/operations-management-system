@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import { sha } from './validators.mjs';
+import { sha } from '../../../tools/batch-v2-validators.mjs';
 export async function prepareUi(root,candidate) {
   const uiModule=path.resolve(candidate,'source-snapshot/tools/release-acceptance-ui.mjs');
   const {candidateResourceInventory}=await import(pathToFileURL(uiModule));

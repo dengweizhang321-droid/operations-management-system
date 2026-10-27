@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import os from 'node:os';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
-import { runAdapter, saveOriginal } from './adapter.mjs';
-import { sha, canonical, components } from './validators.mjs';
+import { runAdapter, saveOriginal } from '../../../tools/batch-v2-adapter.mjs';
+import { sha, canonical, components } from '../../../tools/batch-v2-validators.mjs';
 
 const start=Date.parse('2026-10-10T12:00:00Z');
 const desired=Buffer.from('independent-desired-fixture\n');

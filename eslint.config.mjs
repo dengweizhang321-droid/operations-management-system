@@ -25,6 +25,25 @@ const eslintConfig = defineConfig([
       }],
     },
   },
+  // Tests must never import production contract modules from docs/. Those
+  // directories are task archives that get moved or reorganized freely; a
+  // test that imports a module living there makes production test coverage
+  // depend on files that are not part of the shipped build and that are not
+  // safe to move. Shared implementations belong in tools/ or lib/ instead.
+  // (This only catches ES import/require; tests that read a docs/ file's
+  // raw bytes via fs.readFileSync for a byte-identity tripwire, or spawn a
+  // docs/ .ps1/.psm1 as a subprocess, are not imports and are not covered.)
+  {
+    files: ["tests/**/*.{ts,tsx,js,jsx,mjs,cjs}"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [{
+          group: ["**/docs/**", "@/docs/**"],
+          message: "Tests under tests/ must not import from docs/. Move the shared implementation into tools/ or lib/ instead.",
+        }],
+      }],
+    },
+  },
   // Frozen review harnesses use their original CommonJS loading protocol.
   // Keep them in the scan; only the incompatible ESM-style rule is adjusted.
   {
