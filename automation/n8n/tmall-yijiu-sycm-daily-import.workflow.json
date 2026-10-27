@@ -177,7 +177,8 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Asia/Shanghai"
+    "timezone": "Asia/Shanghai",
+    "errorWorkflow": "TeruisiHourlyRetry2026"
   },
   "versionId": "1fe138f9-2002-49a3-a24f-5a7c961cf2d0",
   "meta": {
