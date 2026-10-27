@@ -117,6 +117,24 @@ export function candidateCompatibilityProfile(changes){
  // unconditionally supported (same shape as Q14 / A 项 / B 项).
  const preparationProducerQualifyOnly=paths.includes('tools/preparation-producer-qualification.mjs')&&paths.every(p=>['tools/preparation-producer-qualification.mjs','tools/worker-local-release-rotation.mjs','tools/verify-release-candidate.mjs'].includes(p));
  if(preparationProducerQualifyOnly)supported.add('tools/preparation-producer-qualification.mjs');
+ // C 项第三步修复 (2026-10-27): publish-main-tail.mjs is where a regular
+ // publication actually runs apply, so the apply-window timing receipt has to be
+ // written there. The file is NOT unconditionally supported: it is the shared
+ // publication tail (apply, maintenance exit, service start, startup
+ // verification) and admitting it outright would leave every later edit to that
+ // sequence with no narrow gate at all. The tightening is
+ // `includes(tail) && includes(verifier)`, NOT includes(latest-main): the parser
+ // in publish-latest-main.mjs is reused byte for byte, so that file never enters
+ // the diff and requiring it would make this flag unreachable. Requiring the
+ // verifier instead means touching the landing point always leaves a registered
+ // trace here (same shape as Q14 / A 项 / B 项). publish-latest-main.mjs stays a
+ // member so the parser could later travel with the tail without failing closed;
+ // `every()` only forbids outsiders, it does not require members to be present.
+ const applyTimingReceiptFiles=['tools/publish-main-tail.mjs','tools/publish-latest-main.mjs','tools/verify-release-candidate.mjs'];
+ const applyTimingReceiptOnly=paths.includes('tools/publish-main-tail.mjs')
+  &&paths.includes('tools/verify-release-candidate.mjs')
+  &&paths.every(p=>applyTimingReceiptFiles.includes(p));
+ if(applyTimingReceiptOnly)supported.add('tools/publish-main-tail.mjs');
  const unsupported=paths.filter(p=>!supported.has(p));
  // Q14: django-ai.ps1 is the only application-side file; the two verifier/readiness
  // files may travel with it because the qualification lives there.
@@ -139,6 +157,16 @@ export function candidateCompatibilityProfile(changes){
   descendantCreationGuardOnly,
   workerJsonFailureCauseOnly,
   preparationProducerQualifyOnly,
+  // Independent reading of the decision above, not a second copy of it. This
+  // gate's criterion is indirect — it checks that the verifier travels with the
+  // tail, not that the landing point is still correct — so a bare true/false
+  // hides two silent failures: the verifier changing for some unrelated reason,
+  // and the tail's receipt being moved away again (exactly the defect this
+  // change repairs). Reporting the files that actually took part lets REPORT.json
+  // be cross-checked against the boolean instead of trusted blindly; the project
+  // has already had one gate fail silently behind a single unverified number.
+  applyTimingReceiptPaths:paths.filter(p=>applyTimingReceiptFiles.includes(p)),
+  applyTimingReceiptOnly,
   nativeColdStartPerformed:false};
 }
 
