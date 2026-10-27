@@ -10,6 +10,21 @@ const eslintConfig = defineConfig([
       "react-hooks/set-state-in-effect": "off",
     },
   },
+  // Production code (app/, lib/, worker/) must never import from tests/.
+  // Importing test fixtures or legacy test-only implementations breaks the
+  // production/test boundary and makes production behavior depend on files
+  // that are not part of the shipped build.
+  {
+    files: ["app/**/*.{ts,tsx,js,jsx,mjs,cjs}", "lib/**/*.{ts,tsx,js,jsx,mjs,cjs}", "worker/**/*.{ts,tsx,js,jsx,mjs,cjs}"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [{
+          group: ["**/tests/**", "@/tests/**"],
+          message: "Production code under app/, lib/, or worker/ must not import from tests/. Move the shared implementation into lib/ instead.",
+        }],
+      }],
+    },
+  },
   // Frozen review harnesses use their original CommonJS loading protocol.
   // Keep them in the scan; only the incompatible ESM-style rule is adjusted.
   {
