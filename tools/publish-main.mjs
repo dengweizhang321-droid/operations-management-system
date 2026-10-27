@@ -175,7 +175,35 @@ async function main(){
    const finalized=await step('完成结构迁移',installed+'/tools/bi-app-adopt.ps1','Finalize',adoption,{addJson:false});assert.equal(finalized.status,'verified');assert.equal(finalized.result.status,'verified');
    }
    phase='切换前端';progress.begin(phase);await save('WorkerApply-started.json',{at:new Date().toISOString(),planSha256:plan.planSha256});
-   const applied=await rotation.applyApprovedRotationPlan({approvedPlanSha256:plan.planSha256,rotationLease});await save('WorkerApply-result.json',applied);assert.ok(['activated','already_activated'].includes(applied.status));assert.equal(applied.releaseId,plan.candidateReleaseId);
+   // C 项第三步: the 15 `apply.*` stage timings inside applyApprovedRotationPlan
+   // reach logPreparationTiming's default console.log, which has no file of its
+   // own in this process, so they were lost. Collect them here instead of
+   // changing the rotation producer (its bytes stay qualified). progress keeps
+   // writing normally: createReleaseProgress captured console.log at creation
+   // (:36, before this point), so its own output never passes through the
+   // interception. Forwarding is kept anyway — anything else that logs inside
+   // this window must stay visible rather than be swallowed — and is itself
+   // wrapped, since a throwing console.log must not break the apply.
+   const applyTimingLines=[],originalConsoleLog=console.log;
+   let applied;
+   try{
+    console.log=(...args)=>{try{applyTimingLines.push(args.join(' '));}catch{/* diagnostic only */}try{originalConsoleLog(...args);}catch{/* diagnostic only */}};
+    applied=await rotation.applyApprovedRotationPlan({approvedPlanSha256:plan.planSha256,rotationLease});
+   }finally{console.log=originalConsoleLog;}
+   // Diagnostics only: losing the receipt must never fail a release that worked.
+   // The parser is imported dynamically and inside this guard on purpose. A
+   // static import would add publish-latest-main.mjs and its six relative
+   // imports to the closure every release packet must carry, and a packet
+   // missing one would die with ERR_MODULE_NOT_FOUND before admission — which
+   // main-publication-readiness.test.mjs pins. Here a missing file costs the
+   // receipt and nothing else.
+   try{
+    const {parseApplyTimingLines}=await import('./publish-latest-main.mjs');
+    const timing=parseApplyTimingLines(applyTimingLines);
+    await save('apply-timing.json',{version:'teruisi-apply-timing-v1',at:new Date().toISOString(),mainCommit:head,
+     planSha256:plan.planSha256,releaseId:applied.releaseId,...timing});
+   }catch{/* diagnostic only */}
+   await save('WorkerApply-result.json',applied);assert.ok(['activated','already_activated'].includes(applied.status));assert.equal(applied.releaseId,plan.candidateReleaseId);
    progress.complete();
    await step('退出维护',newWorker,'ExitMaintenance',['-MaintenanceId',maintenanceId]);
    const started=await step('启动服务',newWorker,'Start');assert.ok(['started','already_running'].includes(started.status));assert.equal(started.manifestSha256,plan.candidateManifestSha256);

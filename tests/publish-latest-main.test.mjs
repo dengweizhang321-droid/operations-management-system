@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {prepareLatestMain,prepareLatestMainOnce,inspectMainPreparation,deployReadyMain,drainLatestMainQueue,acquireMainPublicationQueue} from '../tools/publish-latest-main.mjs';
+import {prepareLatestMain,prepareLatestMainOnce,inspectMainPreparation,deployReadyMain,drainLatestMainQueue,acquireMainPublicationQueue,parseApplyTimingLines} from '../tools/publish-latest-main.mjs';
 import {submitPreparation,ticketResult,drainPreparationQueue} from '../tools/main-prebuild-queue.mjs';
 import {mainRefEvents} from '../tools/main-prebuild-hook.mjs';
 import {monitoringSchema} from '../tools/main-schema-release.mjs';
@@ -210,4 +210,84 @@ test('actual Git pack-refs physical 0-to-SHA events remain accepted like a genui
  const packed=await fs.readFile(record,'utf8');
  assert.ok(packed.split(/\r?\n/).includes('0'.repeat(40)+' '+f.latest+' refs/remotes/origin/main'),packed);
  assert.deepEqual(mainRefEvents('committed',packed),[f.latest]);
+});
+// C 项第三步: the apply-window timing receipt's only logic is this parse, so its
+// boundaries are pinned here — the two `[构建明细]` shapes must be told apart,
+// non-apply stages must be counted rather than dropped, and a failed stage must
+// survive (that is the case where "which stage did it hang on" matters most).
+const timingLine=(stage,elapsedMs,outcome,label,at='2026-10-27T01:49:00.000Z')=>
+ '['+at+'] [构建明细] stage='+stage+' elapsedMs='+elapsedMs+' outcome='+outcome+' '+label;
+test('C 项第三步: apply timing lines parse into a receipt and nothing else is collected',()=>{
+ const parsed=parseApplyTimingLines([
+  timingLine('apply.validate#1',1200,'ok','应用/批准轮换校验#1'),
+  timingLine('apply.install-startup',34000,'ok','应用/启动安装与启动校验'),
+ ]);
+ assert.deepEqual(parsed.stages.map(s=>s.stage),['apply.validate#1','apply.install-startup']);
+ assert.deepEqual(parsed.stages[0],{stage:'apply.validate#1',label:'应用/批准轮换校验#1',elapsedMs:1200,outcome:'ok',at:'2026-10-27T01:49:00.000Z'});
+ assert.equal(parsed.totalElapsedMs,35200);
+ assert.equal(parsed.unexpectedLineCount,0);
+ assert.deepEqual(parsed.unexpectedLineSamples,[]);
+ // elapsedMs must be a number, not the captured string: the receipt is summed
+ // and compared across releases.
+ for(const entry of parsed.stages)assert.equal(typeof entry.elapsedMs,'number');
+});
+test('C 项第三步: a failed stage stays in the receipt with outcome failed',()=>{
+ const parsed=parseApplyTimingLines([
+  timingLine('apply.validate#1',1200,'ok','应用/批准轮换校验#1'),
+  timingLine('apply.install-startup',7,'failed','应用/启动安装与启动校验'),
+ ]);
+ assert.deepEqual(parsed.stages.map(s=>[s.stage,s.outcome]),[['apply.validate#1','ok'],['apply.install-startup','failed']]);
+});
+test('C 项第三步: the other 构建明细 writer and ordinary progress lines are not collected',()=>{
+ // worker-local-release.mjs buildTiming: same prefix, `label：N ms` shape.
+ const parsed=parseApplyTimingLines([
+  '[2026-10-27T01:49:00.000Z] [构建明细] 离线依赖安装：55000 ms',
+  '[2026-10-27T01:49:00.000Z] [构建明细] 源码完整快照及两次复制：12000 ms；details',
+  '[2026-10-27T01:49:00.000Z] [步骤 5] 切换前端 进行中，本步已用 30 秒',
+  'main版本：71a384f5；步骤详细日志：D:/x',
+  '',
+  timingLine('apply.validate#1',1200,'ok','应用/批准轮换校验#1'),
+ ]);
+ assert.deepEqual(parsed.stages.map(s=>s.stage),['apply.validate#1']);
+ // Those lines are not `stage=` records at all, so they are not "unexpected
+ // stages" either — they must not inflate the anomaly counter.
+ assert.equal(parsed.unexpectedLineCount,0);
+});
+test('C 项第三步: a preparation-side stage reaching the apply window is counted, not dropped',()=>{
+ const intruder=timingLine('rotation-lock',99,'ok','轮换锁获取');
+ const parsed=parseApplyTimingLines([
+  intruder,
+  timingLine('tail.service-lock',5,'ok','尾段服务锁等待'),
+  timingLine('apply.validate#1',1200,'ok','应用/批准轮换校验#1'),
+ ]);
+ assert.deepEqual(parsed.stages.map(s=>s.stage),['apply.validate#1']);
+ assert.equal(parsed.unexpectedLineCount,2);
+ assert.deepEqual(parsed.unexpectedLineSamples,[intruder,timingLine('tail.service-lock',5,'ok','尾段服务锁等待')]);
+ assert.equal(parsed.totalElapsedMs,1200,'非 apply 阶段不得计入总耗时');
+});
+test('C 项第三步: at most three samples are kept and each is truncated',()=>{
+ const long=timingLine('rotation-lock',1,'ok','x'.repeat(600));
+ const parsed=parseApplyTimingLines([long,long,long,long,long]);
+ assert.equal(parsed.unexpectedLineCount,5);
+ assert.equal(parsed.unexpectedLineSamples.length,3);
+ for(const sample of parsed.unexpectedLineSamples)assert.equal(sample.length,300);
+});
+test('C 项第三步: the parse is pinned against a weakened filter (negative test)',()=>{
+ // Mutations of the two decisions this function makes. Each must be rejected by
+ // the assertions above; if a weakened implementation still passes them, the
+ // tests have a blind spot. Both mutants are run against the real expectations.
+ const lines=[
+  '[2026-10-27T01:49:00.000Z] [构建明细] 离线依赖安装：55000 ms',
+  timingLine('rotation-lock',99,'ok','轮换锁获取'),
+  timingLine('apply.validate#1',1200,'ok','应用/批准轮换校验#1'),
+ ];
+ // Mutant 1: drop the `apply.` filter — collects the preparation-side stage.
+ const noPrefixFilter=lines.filter(line=>/\[构建明细\] stage=/.test(line)).length;
+ assert.equal(noPrefixFilter,2,'夹具须含一条非 apply. 的 stage 行，否则前缀筛选的用例是空跑');
+ assert.notEqual(noPrefixFilter,parseApplyTimingLines(lines).stages.length,'去掉 apply. 前缀筛选会多收一条，真实实现必须与之不同');
+ // Mutant 2: match the `[构建明细]` prefix only — collects buildTiming's shape.
+ const prefixOnly=lines.filter(line=>line.includes('[构建明细]')).length;
+ assert.equal(prefixOnly,3);
+ assert.notEqual(prefixOnly,parseApplyTimingLines(lines).stages.length,'只匹配 [构建明细] 前缀会误收 buildTiming 行');
+ assert.equal(parseApplyTimingLines(lines).stages.length,1);
 });

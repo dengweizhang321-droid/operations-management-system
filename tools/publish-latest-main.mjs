@@ -132,6 +132,44 @@ export function publisherEnvironment(environment=process.env,gitDirectory,baseEn
  result.PATH=[path.dirname(process.execPath),'C:/Windows/System32','C:/Windows','C:/Windows/System32/WindowsPowerShell/v1.0',gitDirectory].map(entry=>path.win32.normalize(entry)).join(path.delimiter);
  return result;
 }
+// C 项第三步 (2026-10-27): applyApprovedRotationPlanCore's 15 `apply.*` stage
+// timings run inside the publish-main.mjs process, where logPreparationTiming's
+// default console.log has no file of its own — the preparation side only reaches
+// a log because it runs in a runner child process whose stdout is redirected —
+// so the numbers were lost. publish-main.mjs intercepts its apply window's
+// console.log and parses the lines back into a structured receipt with this.
+//
+// Why this function lives HERE and not next to its caller: publish-main.mjs ends
+// in an unconditional `main().catch(...)` with no CLI entry guard, so importing
+// it starts a real release (it creates logs/, writes the progress log and enters
+// step 1), and a unit-testable function cannot live there. Adding a guard was
+// rejected: `path.resolve(argv[1])===fileURLToPath(import.meta.url)` is false
+// when the entry is reached through a junction — Node resolves the link in
+// import.meta.url but not in argv[1] — which would make main() silently not run
+// and exit 0, a release that looks successful and did nothing. This file is
+// unconditionally supported by the verifier, already carries the standard guard,
+// is import-safe, and is not pinned by the producer closures. Do not "move it
+// back" next to publish-main.mjs.
+const applyTimingLine=/^\[([^\]]+)\] \[构建明细\] stage=(\S+) elapsedMs=(\d+) outcome=(\S+) (.*)$/;
+export function parseApplyTimingLines(lines){
+ const stages=[],unexpected=[];
+ for(const line of lines){
+  // `[构建明细]` has two writers with different shapes: preparationTimingLine's
+  // `stage=X elapsedMs=N outcome=Y label` and worker-local-release.mjs's
+  // buildTiming `label：N ms`. The prefix alone would mis-collect, so the full
+  // shape is required.
+  const match=applyTimingLine.exec(String(line));
+  if(!match)continue;
+  const [,at,stage,elapsedMs,outcome,label]=match;
+  // Only the apply window's own stages belong in the receipt. A preparation-side
+  // key (`rotation-lock`, …) arriving here is an unexpected signal rather than
+  // something to drop silently, so it is counted and sampled instead.
+  if(!stage.startsWith('apply.')){unexpected.push(String(line).slice(0,300));continue;}
+  stages.push({stage,label,elapsedMs:Number(elapsedMs),outcome,at});
+ }
+ return {stages,totalElapsedMs:stages.reduce((sum,entry)=>sum+entry.elapsedMs,0),
+  unexpectedLineCount:unexpected.length,unexpectedLineSamples:unexpected.slice(0,3)};
+}
 export async function runPublisher(source,args=[],gitDirectory,baseEnvironment,{deadlineUnixMs}={}){
  const directory=path.resolve(source,'..','invocations');await fs.mkdir(directory,{recursive:true});
  const resultFile=path.join(directory,randomUUID()+'.json'),check=args.includes('--check');
