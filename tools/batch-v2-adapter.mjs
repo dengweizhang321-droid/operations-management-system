@@ -5,7 +5,7 @@ import path from 'node:path';
 import { readFile, open, readdir, lstat } from 'node:fs/promises';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { sha, canonical, validateRecovery, compareFullRecovery, validateHistoricalAudit,
-  closeNaturalObservations, validateNaturalObservation, validateWatchdogTask } from './validators.mjs';
+  closeNaturalObservations, validateNaturalObservation, validateWatchdogTask } from './batch-v2-validators.mjs';
 
 export async function saveOriginal(root, name, bytes, read = readFile) {
   const target=path.resolve(root,name);assert.ok(target.startsWith(path.resolve(root)+path.sep));

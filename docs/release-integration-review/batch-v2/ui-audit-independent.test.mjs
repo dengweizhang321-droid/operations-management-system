@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
 import { reviewedDecision, eligibleCancellation, installReviewedUiAudit } from './ui-audit.mjs';
-import { sha } from './validators.mjs';
+import { sha } from '../../../tools/batch-v2-validators.mjs';
 const originalModule='D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/source-snapshot/tools/release-acceptance-ui.mjs';
 const {requestPolicy}=await import(pathToFileURL(originalModule));
 const bytes=Buffer.from('independent-icon-byte-fixture');

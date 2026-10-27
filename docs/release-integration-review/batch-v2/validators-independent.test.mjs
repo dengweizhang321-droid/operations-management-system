@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { assertFullManifest, validateHistoricalAudit,
-  validateNaturalObservation, sha, canonical, components } from './validators.mjs';
+  validateNaturalObservation, sha, canonical, components } from '../../../tools/batch-v2-validators.mjs';
 const h=c=>c.repeat(64),hash=x=>sha(canonical(x));
 function fixture() {
   const software=Object.fromEntries(['deploymentManifestSha256','serviceConfigSha256','serviceScriptSha256','operatorScriptSha256','evidenceToolSha256','pgDumpSha256','pgRestoreSha256'].map(key=>[key,h('a')]));

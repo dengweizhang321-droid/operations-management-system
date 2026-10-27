@@ -4,7 +4,7 @@ import path from 'node:path';
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { performance } from 'node:perf_hooks';
-import { sha, validateRecovery } from './validators.mjs';
+import { sha, validateRecovery } from '../../../tools/batch-v2-validators.mjs';
 const own=path.dirname(fileURLToPath(import.meta.url)), begin=performance.now();
 const directory='E:/运营管理系统业务数据/daily-20261009T114230Z-7117da1c1055';
 const restore='E:/TERUISI-Postgres-Rehearsals/restore-4088f7ed4793/rehearsal-result.json';

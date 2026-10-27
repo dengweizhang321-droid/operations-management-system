@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {fixed,makeRecoveryMarker,assertOwnGates,assertRecoveryStageContext} from '../docs/startup-recovery-integration-20261012/recovery-context.mjs';
+import {fixed,makeRecoveryMarker,assertOwnGates,assertRecoveryStageContext} from '../tools/recovery-context.mjs';
 const sha='a'.repeat(64),marker=()=>makeRecoveryMarker(sha),drain=()=>({version:'teruisi-automation-drain-v1',id:fixed.repairId,runtimeRoot:'D:\\teruisi-runtime\\django-sales',keepPostgres:true,phase:'requests'}),desired=state=>({version:'teruisi-django-supervisor-desired-state-v1',desiredState:state,serviceScriptSha256:fixed.serviceSha256});
 test('gate phase transition follows original stopped maintenance and preserves unknown Start',()=>{
  const before={marker:null,drain:null,desired:desired('running'),desiredSha256:fixed.desiredSha256};assertRecoveryStageContext('preflight',before,sha);

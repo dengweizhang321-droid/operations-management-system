@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import crypto from 'node:crypto';import {spawnSync} from 'node:child_process';
-import {assertRetractionReceipt} from '../docs/startup-status-receipt-safety-20261012/retract-startup-repair-fence.mjs';
+import {assertRetractionReceipt} from '../tools/retract-startup-repair-fence.mjs';
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
 for(const shell of ['powershell.exe','pwsh.exe'])test('held-object deletion and exact-byte rejection in private files on '+shell,()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'teruisi-retract-'));try{

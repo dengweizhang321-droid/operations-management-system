@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {inspectBusiness,inspectPermissions,classifyPublication} from '../docs/jackyun-unified-recovery-20261013/adoption-checks.mjs';
+import {inspectBusiness,inspectPermissions,classifyPublication} from '../tools/adoption-checks.mjs';
 test('postconditions perform only bounded reads and keep replay distinct',async()=>{
  const calls=[];const r=await inspectBusiness(async(port,route)=>{calls.push([port,route]);return {status:200,text:JSON.stringify(route.includes('recovery')?{ok:true,state:'failed',newCollectionAllowed:false}:{items:[]})};});
  assert.equal(calls.length,6);assert.equal(r.businessReplayPerformed,false);assert.equal(r.productionWrites,0);

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { sha, canonical, components, assertCompleteStatus, validateRecovery, compareFullRecovery,
-  validateHistoricalAudit, closeNaturalObservations, assertBoundEntrypoints, validateWatchdogTask, softwareKeys, profileDigest } from './validators.mjs';
+  validateHistoricalAudit, closeNaturalObservations, assertBoundEntrypoints, validateWatchdogTask, softwareKeys, profileDigest } from '../../../tools/batch-v2-validators.mjs';
 const h = c => c.repeat(64), clone = value => structuredClone(value);
 const contract = { djangoManifestSha256: h('a'), profile: 'teruisi-postgres-no-new-keys-v1', database: { name: 'fixture' },
   software:Object.fromEntries(softwareKeys.map(k=>[k,h('a')])),evidenceTables: ['old','more'], profileTables: ['old','more','keys'], catalogKeys: ['relations','policies'], roleKeys: ['roles','grants'] };

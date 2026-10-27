@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { readFile, stat, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-import { sha, canonical, components } from './validators.mjs';
+import { sha, canonical, components } from '../../../tools/batch-v2-validators.mjs';
 const [input,output]=process.argv.slice(2),root=path.resolve(input);
 const raw=await readFile(path.join(root,'approved-batch.json')),spec=JSON.parse(raw),plan=JSON.parse(await readFile(path.join(root,'sealed-plan.json'))),handoff=JSON.parse(await readFile(path.join(root,'candidate-handoff.json')));
 const candidate=handoff.immutableCandidateRoot,{verifyBatch}=await import(pathToFileURL(path.join(candidate,'tools/release-batch.mjs')));
