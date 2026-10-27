@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Minimal CI: only checks that affect this project's build, deploy, and
+# startup path (AGENTS.md 规则 4). It does not run business-feature
+# acceptance tests, API/permission scenario verification, or any
+# comprehensive functional acceptance — those remain the user's job after
+# release, per AGENTS.md 规则 4 and docs/规范/验证与发布.md
+# "发布检查与功能验收分工".
+jobs:
+  build-and-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.0"
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (baseline-gated)
+        # Full-repo `npm run lint` currently has 56 pre-existing errors / 171
+        # warnings spread across app/, tests/, and tools/ (not confined to
+        # tools/ as originally assumed — verified 2026-10-28 against
+        # origin/main @ eee72b72 via two independent counting methods).
+        # Fixing them is out of scope here, and the eslint exit code alone
+        # can't distinguish "no new errors" from "still has old errors", so
+        # this step compares a structured (JSON, not regex-on-text) count
+        # against a committed baseline and only fails on regression. See
+        # .github/workflows/check-lint-baseline.mjs for the full rationale,
+        # including the 2026-10-25 incident this is designed to avoid
+        # (a stylish-output regex anchored on a column number, silently
+        # disabling the gate).
+        run: node .github/workflows/check-lint-baseline.mjs
+
+      - name: Build (includes type checking)
+        # tsconfig.json has strict: true and noEmit: true; `vinext build`
+        # performs TypeScript compilation as part of the build, so this
+        # step covers both the production build and type checking. There is
+        # no separate `tsc` script in package.json to run independently.
+        run: npm run build
+
+      - name: Unit tests (curated subset)
+        # NOT `npm run test:unit` (that glob is tests/*.test.ts, 494 files).
+        # Running the full glob blind was explicitly out of scope: it has
+        # known pre-existing failures (tests/market-annotation.test.ts,
+        # stale source-text regex assertions) and at least one file that
+        # has hung for 20+ minutes in a full-suite run despite passing in
+        # under 3s standalone (tests/customer-service-store-selection-interaction.test.ts),
+        # which would make CI hang indefinitely rather than fail.
+        #
+        # Instead this runs a small, explicitly verified allowlist (listed
+        # in .github/workflows/ci-unit-test-files.txt) covering general
+        # sanity plus the two riskiest recent fixes (CSRF same-origin gate,
+        # Excel parse size boundaries). --test-timeout is also set as a
+        # hang safety net: a hung test fails after 30s instead of hanging
+        # the job. The job-level timeout-minutes below is the second line
+        # of defense.
+        timeout-minutes: 5
+        run: |
+          node --import tsx --test --test-timeout=30000 $(grep -v '^#' .github/workflows/ci-unit-test-files.txt | grep -v '^\s*$')
+
+      - name: Backend production boundary audit
+        # Static import-boundary audit (no DB, no running backend): fails if
+        # a frontend/tool module reaches into Django production internals it
+        # isn't allowed to import. Guards a build-time contract, not
+        # business behavior.
+        run: npm run check:backend-boundary
+
+      - name: Pi152 ACL catalog contract
+        # Static AST check (no DB, no Django import): fails if the ACL
+        # catalog's granted permissions drift from what the migration
+        # declares as append-only. Guards a code-level contract that
+        # previously regressed silently (see script docstring), not
+        # business behavior.
+        run: npm run check:pi152-acl

@@ -1,0 +1,33 @@
+# Minimal CI unit test allowlist.
+#
+# This is NOT "tests/*.test.ts" (that glob is 494 files; several are known
+# unstable in CI per the task brief: tests/market-annotation.test.ts has 5
+# pre-existing failures against stale source-text regex assertions,
+# tests/customer-service-read-scope.test.ts has UI state-machine tests that
+# run close to a 30s per-test budget, and a full-suite run has previously
+# hung for 20+ minutes near tests/customer-service-store-selection-interaction.test.ts
+# even though that file passes in isolation in ~3s). Running the full glob
+# blind was explicitly out of scope for this task.
+#
+# Every file below was run individually in the session that added this CI
+# workflow and passed cleanly and quickly (session date 2026-10-28, against
+# origin/main @ eee72b72). This is a deliberately small, verified core set:
+# general sanity coverage plus the two most recent, most fragile fixes this
+# CI exists to protect (worker same-origin gate / CSRF, and the Excel parse
+# size boundaries added in commit 32992466).
+#
+# To add a file: run it standalone with `node --import tsx --test
+# --test-timeout=30000 tests/<file>`, confirm it passes in well under the
+# job timeout, then add its path here.
+
+tests/dialog.test.ts
+tests/api-client.test.ts
+tests/sales-ledger-parser.test.ts
+tests/xlsx-write.test.ts
+tests/xlsx-self-closing.test.ts
+tests/app-shell-navigation.test.ts
+tests/worker-same-origin-gate.test.ts
+tests/customer-service-bound-chunks-route.test.ts
+tests/customer-service-import.test.ts
+tests/finance-normalized-v2-candidate.test.ts
+tests/jd-customer-service-bound-import-route.test.ts
