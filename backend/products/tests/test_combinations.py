@@ -137,9 +137,12 @@ class CombinationQueryTests(TestCase):
         self.assertEqual(legacy["metrics"]["grossMarginRate"], (70000 - sum(costs) - 5000) / 70000)
         ordered = product_summary(self.principal, {**self.options, "productKind": "combo", "sortBy": "grossMarginRate"})
         self.assertEqual([i["productCode"] for i in ordered["items"] if i["productKind"] == "combo"], [f"KIT-{i}" for i in range(5, -1, -1)])
-        self.assertEqual(single["pagination"]["total"], 1)
-        self.assertEqual(single["productMarginMetrics"]["productCount"], 1)
-        self.assertEqual(single["productMarginMetrics"]["marginBuckets"]["atLeast46Count"], 1)
+        # 单品维度按单一规格原始汇总：直接开单的 KIT-0..KIT-5 与 B 各自成行，
+        # 不因为存在组合装配比而从单品维度消失。
+        self.assertEqual(single["pagination"]["total"], 7)
+        self.assertEqual(single["productMarginMetrics"]["productCount"], 7)
+        self.assertEqual(single["productMarginMetrics"]["marginBuckets"],
+            {"below38Count": 1, "between38And42Count": 2, "between42And46Count": 2, "atLeast46Count": 2})
         self.assertEqual(combo["productMarginMetrics"]["productCount"], 6)
         rates = {i["productCode"]: i["grossMarginRate"] for i in combo["items"] if i["productKind"] == "combo"}
         self.assertEqual(rates, dict(zip([f"KIT-{i}" for i in range(6)], [.3799, .38, .4199, .42, .4599, .46])))
@@ -151,7 +154,8 @@ class CombinationQueryTests(TestCase):
         self.assertIn("组合装类目", single["filters"]["categories"])
         scoped = product_summary(self.principal, {**self.options, "productKind": "single", "query": "KIT-1"})
         self.assertEqual(scoped["comboMarginMetrics"]["comboCount"], 1)
-        self.assertEqual(scoped["pagination"]["total"], 0)
+        # KIT-1 本身是直接开单的规格，单品维度按规格代码搜索必须命中。
+        self.assertEqual([i["productCode"] for i in scoped["items"]], ["KIT-1"])
         zero = make_line(601, "zero", product_code="KIT-0", quantity=0,
             allocated_amount_cents=-10000, cost_amount_cents=0, gross_profit_cents=0)
         zero.save()
@@ -160,7 +164,7 @@ class CombinationQueryTests(TestCase):
         self.assertIsNone(unavailable["items"][0]["grossMarginRate"])
         self.assertEqual(unavailable["comboMarginMetrics"]["marginBuckets"]["below38Count"], 0)
 
-    def test_split_matches_legacy_totals_and_child_query_keeps_full_bundle(self):
+    def test_single_keeps_raw_specification_scope_independent_of_bundles(self):
         legacy = product_summary(self.principal, self.options)
         single = product_summary(self.principal, {**self.options, "productKind": "single"})
         combo = product_summary(self.principal, {**self.options, "productKind": "combo"})
@@ -168,7 +172,18 @@ class CombinationQueryTests(TestCase):
         self.assertEqual(combo["items"][0]["components"][0]["quantity"], 1)
         for field in ("grossSalesCents", "netSalesCents", "grossProfitCents"):
             self.assertEqual(combo["metrics"][field], legacy["metrics"][field])
-        self.assertEqual([i for i in combo["items"] if i["productKind"] == "single"], single["items"])
+        # 单品是单一规格口径，等于不传 productKind 的原始规格汇总；A、B 被凑成
+        # KIT 后在单品维度仍保留完整销量，不与组合装剩余量耦合。
+        self.assertEqual([i["productCode"] for i in single["items"]],
+            [i["productCode"] for i in legacy["items"]])
+        for a, b in zip(single["items"], legacy["items"]):
+            for field in ("netQuantity", "grossSalesCents", "netSalesCents", "grossProfitCents"):
+                self.assertEqual(a[field], b[field])
+            self.assertEqual(a["productKind"], "single")
+            self.assertEqual(a["components"], [])
+        # 仍只覆盖 ERP/库存授权货品集合，UNKNOWN 不在其中。
+        self.assertEqual({i["productCode"] for i in single["items"]}, {"A", "B"})
+        self.assertEqual([i["netQuantity"] for i in single["items"] if i["productCode"] == "A"], [3])
         queried = product_summary(self.principal, {**self.options, "productKind": "combo", "query": "B"})
         self.assertEqual({i["productCode"] for i in queried["items"]}, {"KIT", "B"})
         page = product_summary(self.principal, {**self.options, "productKind": "combo", "projection": "page", "expectedSnapshotToken": combo["snapshotToken"]})

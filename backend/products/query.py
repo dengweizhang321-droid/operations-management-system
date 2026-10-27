@@ -549,15 +549,24 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
                 groups = combination_performance(principal, str(period["startDate"]),
                     (date.fromisoformat(str(period["endDate"])) + timedelta(days=1)).isoformat(),
                     options["platforms"], options["shops"], loaded_control.active_revision)
-                performance = ({**groups["single"], **groups["combo"]}
-                    if options["productKind"] == "combo" else groups["single"])
                 combo_rows = [_merge(row, erp.get(code), inventory.get(code), shipping.get(code))
                     for code, row in groups["combo"].items()]
-                for group in groups.values():
-                    for row in group.values():
-                        for raw in row["outlets"]:
-                            outlet = canonical_outlet(raw.get("platform"), raw.get("shopName"), raw.get("channel"))
-                            outlets[shop_key(outlet)] = outlet
+                if options["productKind"] == "combo":
+                    performance = {**groups["single"], **groups["combo"]}
+                    for group in groups.values():
+                        for row in group.values():
+                            for raw in row["outlets"]:
+                                outlet = canonical_outlet(raw.get("platform"), raw.get("shopName"), raw.get("channel"))
+                                outlets[shop_key(outlet)] = outlet
+                else:
+                    # 单品按单一规格原始汇总，与组合装推断是两套口径：规格被凑成
+                    # 组合装不会从单品维度扣减或消失。组合装维度仍按套展示，两者
+                    # 数量不可相加。
+                    raw_performance, outlets = _sales_performance(principal, product_codes,
+                        str(period["startDate"]), str(period["endDate"]), options["platforms"],
+                        options["shops"], freshness.get("latestBatch"))
+                    performance = {code: {**row, "productKind": "single", "components": []}
+                        for code, row in raw_performance.items()}
             else:
                 performance, outlets = _sales_performance(principal, product_codes,
                     str(period["startDate"]), str(period["endDate"]), options["platforms"],
