@@ -352,3 +352,88 @@ test('C 项: the producer qualification list is admitted only with its own carri
  assert.equal(renamed.preparationProducerQualifyOnly,false);
  assert.ok(renamed.unsupported.includes(qualification));assert.ok(renamed.unsupported.includes('tools/renamed.mjs'));
 });
+test('C 项第三步修复: the publication tail is admitted only with its own registered carrier; anything else fails closed',()=>{
+ const tail='tools/publish-main-tail.mjs',parser='tools/publish-latest-main.mjs',verifier='tools/verify-release-candidate.mjs';
+ // The real shape of this change: the landing point plus this verifier, where
+ // the qualification lives. The parser is reused byte for byte and so never
+ // enters the diff — which is why the tightening requires the verifier and not
+ // the parser. tests/ and docs/ never reach `paths`, so they cannot widen it.
+ const actual=candidateCompatibilityProfile([{path:tail},{path:verifier},{path:'tests/publish-latest-main.test.mjs'},{path:'docs/规范/历史记录/发布限定资格-20261022.md'}]);
+ assert.equal(actual.applyTimingReceiptOnly,true);assert.deepEqual(actual.unsupported,[]);
+ assert.equal(actual.publication,true);
+ // The parser stays out of the diff, so the preparation-queue trigger is off and
+ // optimization-boundaries does not run for this candidate. Pinned so a later
+ // reader does not read the absent check as a missed one.
+ assert.equal(actual.preparationQueue,false);assert.equal(actual.worker,false);assert.equal(actual.django,false);
+ // Should the parser ever need to travel with the tail, the flag still holds.
+ const withParser=candidateCompatibilityProfile([{path:tail},{path:parser},{path:verifier}]);
+ assert.equal(withParser.applyTimingReceiptOnly,true);assert.deepEqual(withParser.unsupported,[]);
+ assert.equal(withParser.preparationQueue,true);
+ // The tail alone is NOT admissible: moving this landing point must always leave
+ // a registered trace in the verifier.
+ const alone=candidateCompatibilityProfile([{path:tail}]);
+ assert.equal(alone.applyTimingReceiptOnly,false);assert.deepEqual(alone.unsupported,[tail]);
+ // Any outsider loses the flag AND leaves the tail unsupported.
+ for(const extra of ['tools/worker-local-release-rotation.mjs','tools/publish-prepared-main.mjs','tools/publish-main.mjs','tools/worker-local-service.ps1','tools/preparation-producer-qualification.mjs']){
+  const wide=candidateCompatibilityProfile([{path:tail},{path:verifier},{path:extra}]);
+  assert.equal(wide.applyTimingReceiptOnly,false,extra);
+  assert.ok(wide.unsupported.includes(tail),extra);
+ }
+ // Without the tail there is nothing to admit, and a rename is not the same file.
+ assert.equal(candidateCompatibilityProfile([{path:verifier}]).applyTimingReceiptOnly,false);
+ const renamed=candidateCompatibilityProfile([{before:tail,path:'tools/renamed-tail.mjs'},{path:verifier}]);
+ assert.equal(renamed.applyTimingReceiptOnly,false);
+ assert.ok(renamed.unsupported.includes(tail));assert.ok(renamed.unsupported.includes('tools/renamed-tail.mjs'));
+});
+test('C 项第三步修复: applyTimingReceiptPaths is an independent reading of the flag, not a copy of it',()=>{
+ // The project has had a gate fail silently behind a single unverified number.
+ // This flag's criterion is indirect, so the diagnostic field must be redundant
+ // with the boolean and the two must be cross-checkable in REPORT.json.
+ const tail='tools/publish-main-tail.mjs',parser='tools/publish-latest-main.mjs',verifier='tools/verify-release-candidate.mjs';
+ const hit=candidateCompatibilityProfile([{path:tail},{path:verifier}]);
+ assert.equal(hit.applyTimingReceiptOnly,true);
+ assert.deepEqual(hit.applyTimingReceiptPaths,[tail,verifier],'flag 为 true 时，参与判定的文件集合必须恰好是这两项');
+ const three=candidateCompatibilityProfile([{path:tail},{path:parser},{path:verifier}]);
+ assert.deepEqual(three.applyTimingReceiptPaths,[tail,parser,verifier]);
+ // flag false: the set must not claim the tail took part in a passing decision.
+ const alone=candidateCompatibilityProfile([{path:tail}]);
+ assert.equal(alone.applyTimingReceiptOnly,false);
+ assert.deepEqual(alone.applyTimingReceiptPaths,[tail]);
+ assert.ok(alone.unsupported.includes(tail),'集合含 tail 而 flag 为 false 时，tail 必须仍在 unsupported 里');
+ const none=candidateCompatibilityProfile([{path:'tools/worker-local-service.ps1'}]);
+ assert.equal(none.applyTimingReceiptOnly,false);
+ assert.deepEqual(none.applyTimingReceiptPaths,[]);
+ // Outsiders never enter the diagnostic set, so it cannot be inflated into
+ // looking like a legal combination.
+ const wide=candidateCompatibilityProfile([{path:tail},{path:verifier},{path:'tools/worker-local-release-rotation.mjs'}]);
+ assert.equal(wide.applyTimingReceiptOnly,false);
+ assert.deepEqual(wide.applyTimingReceiptPaths,[tail,verifier],'集合只报成员，判定失败的原因要靠 unsupported 看');
+ assert.ok(wide.unsupported.includes(tail));
+});
+test('C 项第三步修复: the new flag does not drift the four existing narrow flags',()=>{
+ // It only ever calls supported.add, so every other qualification must read
+ // exactly as before. Pinned because a widened `supported` set is the kind of
+ // change that passes every test about its own feature.
+ const verifier='tools/verify-release-candidate.mjs',continuation='tools/manual-maintenance-continuation.mjs';
+ const cases=[
+  ['preparationProducerQualifyOnly','tools/preparation-producer-qualification.mjs',[{path:'tools/preparation-producer-qualification.mjs'},{path:'tools/worker-local-release-rotation.mjs'},{path:verifier}]],
+  ['workerJsonFailureCauseOnly','tools/worker-local-service.ps1',[{path:'tools/worker-local-service.ps1'},{path:verifier},{path:continuation}]],
+  ['descendantCreationGuardOnly',null,[{path:'tools/django-local-service.ps1'},{path:verifier},{path:continuation}]],
+  ['dingtalkScreenshotAclOnly',null,[{path:'tools/django-ai.ps1'},{path:verifier},{path:continuation}]],
+ ];
+ for(const [flag,,changes] of cases){
+  const p=candidateCompatibilityProfile(changes);
+  assert.equal(p[flag],true,flag);
+  assert.deepEqual(p.unsupported,[],flag);
+  // None of them is the new flag, and none drags the tail in.
+  assert.equal(p.applyTimingReceiptOnly,false,flag);
+  assert.ok(!p.applyTimingReceiptPaths.includes('tools/publish-main-tail.mjs'),flag);
+ }
+ // piMainResumeOnly is the one other door to the tail: it lists the tail among
+ // piResumeFiles, so that combination admits it independently of the new flag.
+ // Both only add to `supported`, so they cannot interfere — registered here so a
+ // later reader does not mistake it for the new flag leaking.
+ const resume=candidateCompatibilityProfile([{path:'tools/publish-main-resume.mjs'},{path:'tools/pi_agent_upgrade_status.py'}]);
+ assert.equal(resume.piMainResumeOnly,true);assert.deepEqual(resume.unsupported,[]);
+ assert.equal(resume.applyTimingReceiptOnly,false,'resume 通道不借用新 flag');
+});

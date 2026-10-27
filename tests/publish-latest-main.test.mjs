@@ -6,6 +6,10 @@ import os from 'node:os';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {prepareLatestMain,prepareLatestMainOnce,inspectMainPreparation,deployReadyMain,drainLatestMainQueue,acquireMainPublicationQueue,parseApplyTimingLines} from '../tools/publish-latest-main.mjs';
+// publish-main-tail.mjs only exports finishMainPublication and has no import
+// side effects, so the real tail can be driven directly here.
+import {finishMainPublication} from '../tools/publish-main-tail.mjs';
+import {preparationTimingLine} from '../tools/worker-local-release-rotation.mjs';
 import {submitPreparation,ticketResult,drainPreparationQueue} from '../tools/main-prebuild-queue.mjs';
 import {mainRefEvents} from '../tools/main-prebuild-hook.mjs';
 import {monitoringSchema} from '../tools/main-schema-release.mjs';
@@ -290,4 +294,162 @@ test('C 项第三步: the parse is pinned against a weakened filter (negative te
  assert.equal(prefixOnly,3);
  assert.notEqual(prefixOnly,parseApplyTimingLines(lines).stages.length,'只匹配 [构建明细] 前缀会误收 buildTiming 行');
  assert.equal(parseApplyTimingLines(lines).stages.length,1);
+});
+// C 项第三步修复: the receipt's landing point, which the parse tests above
+// cannot reach. The first attempt collected the lines in publish-main.mjs, a
+// path a regular publication never executes (:102 throws first), and all six
+// parse cases stayed green because a unit test proves what the code under test
+// does — never that it runs. Production confirmed it: WorkerApply-result.json
+// existed, apply-timing.json did not. So these cases drive the real tail and
+// pin the landing point structurally.
+const tailFixture=async(t,{completed={},apply,logLines=[]}={})=>{
+ const out=await fs.mkdtemp(path.join(os.tmpdir(),'apply-timing-tail-'));
+ t.after(()=>fs.rm(out,{recursive:true,force:true}));
+ const written=[],maintenanceId='maintenance-1';
+ const plan={planSha256:'p'.repeat(64),candidateReleaseId:'20261027T000000Z-aaaabbbbccccdddd',candidateManifestSha256:'m'.repeat(64)};
+ const djangoExpected='d'.repeat(64);
+ const save=async(name,value)=>{written.push(name);await fs.writeFile(path.join(out,name),JSON.stringify(value,null,2)+'\n',{flag:'wx'});};
+ const rotation={
+  applyApprovedRotationPlan:apply??(async()=>{for(const line of logLines)console.log(line);return {status:'activated',releaseId:plan.candidateReleaseId};}),
+  resolveEffectiveReleaseChain:async()=>({head:{releaseId:plan.candidateReleaseId,manifestSha256:plan.candidateManifestSha256}}),
+ };
+ const stepResults={'退出维护':{status:'maintenance_ended',maintenanceId},
+  '启动服务':{status:'started',manifestSha256:plan.candidateManifestSha256},
+  '结束前端排空':{status:'worker_drain_ended',maintenanceId},
+  '确认启动版本':{startupVerified:true}};
+ const run=()=>finishMainPublication({request:{mainCommit:'c'.repeat(40),components:{worker:true,django:false}},
+  components:{django:false},source:'D:/frozen',identity:{tree:null},installed:out,out,
+  api:{workerRuntimeRoot:out},rotation,rotationLease:{id:'lease-1'},
+  before:{head:{releaseId:'20261026T000000Z-0000111122223333',manifestSha256:'b'.repeat(64)}},
+  plan,pkg:null,djangoExpected,maintenanceId,schema:null,schemaReceipt:null,piUpgradeReceipt:null,
+  step:async label=>stepResults[label],save,sha:async()=>djangoExpected,
+  ready:async()=>{},refreshLease:async()=>{},endLease:async()=>{},
+  progress:{begin(){},complete(){},success(){},log(){}},phase(){},completed});
+ const receipt=async name=>JSON.parse(await fs.readFile(path.join(out,name),'utf8'));
+ return {out,written,run,receipt};
+};
+test('C 项第三步修复: the apply window is intercepted where a regular publication runs it',async t=>{
+ const f=await tailFixture(t,{logLines:[
+  preparationTimingLine('apply.validate#1',1200,'ok','应用/批准轮换校验#1',new Date('2026-10-27T01:49:00.000Z')),
+  preparationTimingLine('apply.install-startup',34000,'ok','应用/启动安装与启动校验',new Date('2026-10-27T01:49:34.000Z')),
+ ]});
+ await f.run();
+ // Both receipts come out of the same operation: the operational one the release
+ // depends on, and the diagnostic one beside it.
+ assert.ok(f.written.includes('WorkerApply-result.json'));
+ assert.ok(f.written.includes('apply-timing.json'),'回执必须落在真实 apply 执行点，而不是已停用的入口');
+ const timing=await f.receipt('apply-timing.json');
+ assert.equal(timing.version,'teruisi-apply-timing-v1');
+ assert.deepEqual(timing.stages.map(s=>s.stage),['apply.validate#1','apply.install-startup']);
+ assert.equal(timing.totalElapsedMs,35200);
+ assert.equal(timing.unexpectedLineCount,0,'窗口内只有 applyApprovedRotationPlan，不应混入准备侧计时');
+ assert.equal(timing.planSha256,'p'.repeat(64));
+ assert.equal(timing.mainCommit,'c'.repeat(40));
+ assert.equal(timing.releaseId,'20261027T000000Z-aaaabbbbccccdddd');
+ // The replacement must not outlive the window.
+ assert.equal(console.log,globalThis.console.log);
+});
+test('C 项第三步修复: a non-apply line inside the window is counted, proving the parser is really wired in',async t=>{
+ const intruder=preparationTimingLine('rotation-lock',99,'ok','轮换锁获取',new Date('2026-10-27T01:49:00.000Z'));
+ const f=await tailFixture(t,{logLines:[intruder,
+  preparationTimingLine('apply.validate#1',1200,'ok','应用/批准轮换校验#1',new Date('2026-10-27T01:49:01.000Z'))]});
+ await f.run();
+ const timing=await f.receipt('apply-timing.json');
+ assert.deepEqual(timing.stages.map(s=>s.stage),['apply.validate#1']);
+ assert.equal(timing.unexpectedLineCount,1);
+ assert.deepEqual(timing.unexpectedLineSamples,[intruder]);
+});
+test('C 项第三步修复: a failing apply restores console.log and still fails the release',async t=>{
+ const original=console.log;
+ const f=await tailFixture(t,{apply:async()=>{console.log(preparationTimingLine('apply.validate#1',7,'failed','应用/批准轮换校验#1'));throw Error('apply 失败');}});
+ await assert.rejects(f.run(),/apply 失败/);
+ assert.equal(console.log,original,'恢复必须在 finally 里，否则失败的 apply 会留下替换过的 console.log');
+ // Diagnostics must never turn a real failure into a receipt-shaped success.
+ assert.ok(!f.written.includes('apply-timing.json'));
+ assert.ok(!f.written.includes('WorkerApply-result.json'));
+});
+test('C 项第三步修复: a resume reusing WorkerApply writes no receipt at all',async t=>{
+ // `once` is a continuation-reuse guard: with the label already completed the
+ // operation does not run, so the interception and the write are both skipped by
+ // structure rather than by an emptiness check. This is what keeps a resumed
+ // publication from overwriting the original release's timing with zero stages.
+ const f=await tailFixture(t,{completed:{WorkerApply:{status:'already_activated',releaseId:'20261027T000000Z-aaaabbbbccccdddd'},
+  '启动服务':{status:'already_running',manifestSha256:'m'.repeat(64)},
+  '结束前端排空':{status:'worker_drain_ended',maintenanceId:'maintenance-1'},
+  '确认启动版本':{startupVerified:true}}});
+ await f.run();
+ assert.deepEqual(f.written,['SUCCESS.json']);
+ await assert.rejects(fs.readFile(path.join(f.out,'apply-timing.json')),{code:'ENOENT'});
+});
+test('C 项第三步修复: the interception really crosses await import (console is one realm-level object)',async()=>{
+ // The mechanism the landing point depends on: rotation is reached through
+ // `await import`, and a replacement installed here must still catch its lines.
+ const rotation=await import('../tools/worker-local-release-rotation.mjs');
+ const captured=[],original=console.log;
+ try{
+  console.log=(...args)=>captured.push(args.join(' '));
+  await rotation.timePreparationStage('apply.test','跨模块拦截验证',async()=>'value');
+ }finally{console.log=original;}
+ assert.equal(captured.length,1,'替换后的 console.log 必须捕获到动态 import 模块打出的计时行');
+ assert.deepEqual(parseApplyTimingLines(captured).stages.map(s=>[s.stage,s.outcome]),[['apply.test','ok']]);
+});
+// Extract the body of the `once('WorkerApply', …)` operation by brace matching,
+// so the assertion is about the real nesting rather than about two substrings
+// happening to appear in the same file.
+const workerApplyOperationBody=source=>{
+ const start=source.indexOf("once('WorkerApply'");
+ assert.notEqual(start,-1,'找不到 WorkerApply 的 once 调用');
+ const open=source.indexOf('{',start);
+ assert.notEqual(open,-1);
+ let depth=0;
+ for(let i=open;i<source.length;i+=1){
+  if(source[i]==='{')depth+=1;
+  else if(source[i]==='}'){depth-=1;if(depth===0)return source.slice(open,i+1);}
+ }
+ throw Error('WorkerApply operation 的括号不闭合');
+};
+test('C 项第三步修复: whatever function writes WorkerApply-result.json must write apply-timing.json too (structural)',async()=>{
+ // This is the net the first attempt lacked. Every unit test there was green
+ // while the collection sat on a dead path, because no test asked where it sat.
+ // Pinning the two writes to the same operation means moving apply somewhere
+ // else — the exact mistake being repaired — breaks a test instead of silently
+ // dropping the receipt in production.
+ const source=await fs.readFile(new URL('../tools/publish-main-tail.mjs',import.meta.url),'utf8');
+ const body=workerApplyOperationBody(source);
+ assert.ok(body.includes("save('WorkerApply-result.json'"),'操作回执必须仍在这个 operation 内');
+ assert.ok(body.includes("save('apply-timing.json'"),'计时回执必须与 WorkerApply-result.json 同在一个 operation 内；它们分开就意味着落点又跑了');
+ assert.ok(body.includes('console.log=')&&body.includes('finally{console.log=originalConsoleLog;}'),'拦截器及其 finally 恢复必须在同一 operation 内');
+ // The parser must stay a dynamic import: a static one would widen the release
+ // packet closure that main-publication-readiness.test.mjs pins.
+ assert.ok(body.includes("await import('./publish-latest-main.mjs')"));
+ assert.doesNotMatch(source,/^import .*publish-latest-main\.mjs/m);
+ // The whole file must contain exactly one of each write, so the check above
+ // cannot be satisfied by a second copy living elsewhere.
+ assert.equal(source.split("save('apply-timing.json'").length-1,1);
+ assert.equal(source.split("save('WorkerApply-result.json'").length-1,1);
+});
+test('C 项第三步修复: the structural assertion rejects a receipt moved off the landing point (negative test)',async()=>{
+ // Mutations of the landing decision itself, not of the parser. Each is what the
+ // defect being repaired actually looked like; the real source must differ from
+ // all three.
+ const source=await fs.readFile(new URL('../tools/publish-main-tail.mjs',import.meta.url),'utf8');
+ // Mutant 1: the receipt write hoisted out of the operation (the first attempt's
+ // shape — present in the file, absent from the live path).
+ const hoisted=source.replace(/\n\s*try\{\n\s*const \{parseApplyTimingLines\}[\s\S]*?\n\s*\}catch\{\/\* diagnostic only \*\/\}/,'');
+ assert.notEqual(hoisted,source,'变异 1 必须真的改到了落盘块，否则这条是空跑');
+ assert.ok(!workerApplyOperationBody(hoisted).includes("save('apply-timing.json'"),'落盘移出 operation 后，结构断言必须不再成立');
+ // Mutant 2: the interception's push removed — the window still exists but
+ // collects nothing, so the receipt would ship with zero stages.
+ const noPush=source.replace("try{applyTimingLines.push(args.join(' '));}catch{/* diagnostic only */}",'');
+ assert.notEqual(noPush,source,'变异 2 必须真的改到了拦截器');
+ assert.ok(!noPush.includes('applyTimingLines.push'),'去掉 push 后不应再有收集动作');
+ // And the live tail must behave differently from that mutant: with a real
+ // apply logging one stage, the receipt is not empty.
+ assert.ok(source.includes('applyTimingLines.push'));
+ // Mutant 3: restoring outside `finally` — a throwing apply would leak the
+ // replacement into the rest of the process.
+ const noFinally=source.replace('}finally{console.log=originalConsoleLog;}','}\n   console.log=originalConsoleLog;');
+ assert.notEqual(noFinally,source);
+ assert.ok(!noFinally.includes('finally{console.log=originalConsoleLog;}'));
+ assert.ok(source.includes('finally{console.log=originalConsoleLog;}'));
 });
