@@ -178,13 +178,45 @@ function parseNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function integer(value: string, field: string, label: string, row: XlsxRow, errors: ErpReferenceIssue[]) {
+// 本函数目前只被库龄表的 availableQuantity（可用库存）这一个调用点使用。
+// 非数字、NaN/Infinity、超出安全整数范围：仍然阻断（行为不变）。
+// 负数（整数或小数）：一律阻断。库龄表的 classifyInventoryAge()（lib/inventory/query-contract.ts）
+// 把 availableQuantity <= 0 统一归类为"无可用库存"，库龄表场景下没有类似库存表
+// （inventory-stock.ts，超卖/欠货）那种负数业务含义的先例，因此不照搬库存表"负整数放行"
+// 的结论，按负数阻断处理。
+// 小数（非负）：四舍五入为整数并记录 warning（保留原始值与行号），不再静默截断；
+// 调用方可感知该行发生了四舍五入。
+function integer(
+  value: string,
+  field: string,
+  label: string,
+  row: XlsxRow,
+  errors: ErpReferenceIssue[],
+  warnings: ErpReferenceIssue[],
+) {
   const parsed = parseNumber(value);
-  if (parsed === null || !Number.isSafeInteger(Math.trunc(parsed))) {
+  if (parsed === null || !Number.isFinite(parsed)) {
     errors.push({ sourceRowNumber: row.rowNumber, field, code: "INVALID_NUMBER", message: `${label}不是有效数字` });
     return 0;
   }
-  return Math.trunc(parsed);
+  if (parsed < 0) {
+    errors.push({ sourceRowNumber: row.rowNumber, field, code: "INVALID_NUMBER", message: `${label}不能为负数` });
+    return 0;
+  }
+  const rounded = Math.round(parsed);
+  if (!Number.isSafeInteger(rounded)) {
+    errors.push({ sourceRowNumber: row.rowNumber, field, code: "INVALID_NUMBER", message: `${label}不是有效数字` });
+    return 0;
+  }
+  if (rounded !== parsed) {
+    warnings.push({
+      sourceRowNumber: row.rowNumber,
+      field,
+      code: "ROUNDED_DECIMAL_QUANTITY",
+      message: `${label}第${row.rowNumber}行为小数 ${parsed}，已四舍五入为 ${rounded}`,
+    });
+  }
+  return rounded;
 }
 
 function optionalInteger(value: string) {
@@ -247,11 +279,21 @@ function parseInventoryAge(rows: XlsxRow[]) {
   const errors: ErpReferenceIssue[] = [];
   const warnings: ErpReferenceIssue[] = [];
   const parsed: InventoryAgeImportRow[] = [];
+  // 与下方 errors 共用 MAX_ISSUES 上限：下游 Django 侧对 warnings 数组同样有硬性上限
+  // （backend/inventory/import_service.py 的 MAX_WARNINGS=200），超限会把整批拒绝。
+  // 这里主动截断 availableQuantity 四舍五入产生的 warning，并保留一条可追溯的汇总提示，
+  // 避免"小数行多"把故障模式从"小数静默截断"平移成"warning 超限阻断"。
+  let roundedQuantityOverflow = 0;
   for (const row of candidateRows(rows, rowIndex)) {
     const before = errors.length;
     const warehouse = requiredText(read(row, fields, "warehouse"), "warehouse", "仓库名称", row, errors);
     const productCode = requiredText(read(row, fields, "productCode"), "productCode", "货品编号", row, errors);
-    const availableQuantity = integer(read(row, fields, "availableQuantity"), "availableQuantity", "可用库存", row, errors);
+    const rowWarnings: ErpReferenceIssue[] = [];
+    const availableQuantity = integer(read(row, fields, "availableQuantity"), "availableQuantity", "可用库存", row, errors, rowWarnings);
+    for (const warning of rowWarnings) {
+      if (warnings.length < MAX_ISSUES - 1) warnings.push(warning);
+      else roundedQuantityOverflow += 1;
+    }
     if (errors.length > before) {
       if (errors.length >= MAX_ISSUES) break;
       continue;
@@ -272,6 +314,12 @@ function parseInventoryAge(rows: XlsxRow[]) {
       sales30dQuantity: optionalInteger(read(row, fields, "sales30dQuantity")),
       unitCostCents,
       stockValueCents: explicitStockValueCents || Math.max(0, availableQuantity) * unitCostCents,
+    });
+  }
+  if (roundedQuantityOverflow > 0) {
+    warnings.push({
+      code: "ROUNDED_DECIMAL_QUANTITY",
+      message: `还有 ${roundedQuantityOverflow} 条可用库存小数四舍五入提示未显示，已达上限 ${MAX_ISSUES}`,
     });
   }
   pushDuplicateWarnings(parsed.map((row) => `${row.warehouse}\u001f${row.productCode}`), "仓库与货品组合", warnings);
