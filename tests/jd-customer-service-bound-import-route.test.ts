@@ -8,7 +8,7 @@ test("实际客服POST保持显式四店绑定并拒绝矛盾身份，无店铺�
   const state = globalThis as typeof globalThis & { __boundCsSaved?: { shopName: string }; __boundCsWrites?: number };
   state.__boundCsWrites = 0;
   const bundled = await build({ entryPoints: ["app/api/customer-service/import/route.ts"], bundle: true, write: false,
-    platform: "node", format: "esm", banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(process.cwd() + '/package.json');" }, external: ["cloudflare:workers"], plugins: [{ name: "bound-cs-owning-seams", setup(builder) {
+    platform: "node", format: "esm", banner: { js: "import { createRequire as fixtureCreateRequire } from 'node:module'; const require = fixtureCreateRequire(process.cwd() + '/package.json');" }, external: ["cloudflare:workers"], plugins: [{ name: "bound-cs-owning-seams", setup(builder) {
       builder.onResolve({ filter: /^@\/lib\/(auth\/authorization|customer-service\/database)$/ }, args => ({ path: args.path, namespace: "fixture" }));
       builder.onLoad({ filter: /.*/, namespace: "fixture" }, args => ({ loader: "js", contents: args.path.endsWith("authorization") ? `
         export async function requireAppPrincipal(){return {email:'synthetic@example.test',role:'admin',scope:null};}

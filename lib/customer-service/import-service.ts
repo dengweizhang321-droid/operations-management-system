@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import { parseXlsxFirstSheet, XlsxParseError } from "@/lib/imports/xlsx";
 
 export class CustomerServiceImportError extends Error {
   constructor(message: string) {
@@ -182,19 +182,36 @@ function pick(row: Row, ...keys: string[]) {
   return "";
 }
 
+// Sales exports run up to 50,000 sessions per day; this generous bound only
+// guards against pathological ReDoS/zip-bomb inputs, never real traffic.
+export const CUSTOMER_SERVICE_SESSION_MAX_ROWS = 50_000;
+
 export function parseSessionWorkbook(bytes: Uint8Array): CustomerServiceSession[] {
-  const workbook = XLSX.read(bytes, { type: "array", cellDates: false });
-  const firstSheet = workbook.SheetNames[0];
-  if (!firstSheet) throw new CustomerServiceImportError("会话记录工作簿没有可读取的工作表");
-  const matrix = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[firstSheet], { header: 1, defval: "", raw: true });
-  const headers = (matrix[0] ?? []).map((value) => normalizedHeader(asText(value)));
+  let sheet: ReturnType<typeof parseXlsxFirstSheet>;
+  try {
+    sheet = parseXlsxFirstSheet(bytes, { maxRows: CUSTOMER_SERVICE_SESSION_MAX_ROWS + 1 });
+  } catch (error) {
+    if (error instanceof XlsxParseError) {
+      if (error.code === "ROW_LIMIT") {
+        throw new CustomerServiceImportError(`会话记录超过 ${CUSTOMER_SERVICE_SESSION_MAX_ROWS} 行上限`);
+      }
+      throw new CustomerServiceImportError(`会话记录工作簿无法解析：${error.message}`);
+    }
+    throw error;
+  }
+  const dataRows = sheet.rows;
+  if (dataRows.length === 0) throw new CustomerServiceImportError("会话记录工作簿没有可读取的工作表");
+  const headerRow = dataRows[0];
+  const headers = headerRow.cells.map((value) => normalizedHeader(asText(value)));
   const required = ["咨询时间", "顾客"];
   const missing = required.filter((item) => !headers.includes(item));
   if (missing.length) throw new CustomerServiceImportError(`会话记录缺少必填列：${missing.join("、")}`);
-  const rows = matrix.slice(1).map((cells) => Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ""]))) as Row[];
+  const rows = dataRows.slice(1).map((dataRow) => ({
+    rowNumber: dataRow.rowNumber,
+    row: Object.fromEntries(headers.map((header, index) => [header, dataRow.cells[index] ?? ""])) as Row,
+  }));
   const parsed: CustomerServiceSession[] = [];
-  rows.forEach((row, index) => {
-    const rowNumber = index + 2;
+  rows.forEach(({ rowNumber, row }) => {
     const consultedAtValue = pick(row, "咨询时间");
     const customerId = asText(pick(row, "顾客"));
     const consultedAt = normalizeDateTime(consultedAtValue);
