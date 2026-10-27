@@ -362,7 +362,8 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Asia/Shanghai"
+    "timezone": "Asia/Shanghai",
+    "errorWorkflow": "TeruisiHourlyRetry2026"
   },
   "meta": {
     "candidate": true,

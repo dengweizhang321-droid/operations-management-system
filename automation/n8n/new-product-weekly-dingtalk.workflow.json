@@ -48,7 +48,8 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "errorWorkflow": "TeruisiHourlyRetry2026"
   },
   "versionId": "6b3b19fc-224a-4c9d-ae71-3eb23f11448d",
   "meta": {
