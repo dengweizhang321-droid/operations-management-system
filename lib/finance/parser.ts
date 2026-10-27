@@ -218,6 +218,9 @@ function parseMonthSheet(sheetName: string, sheet: XLSX.WorkSheet, captureOrigin
     defval: null,
     blankrows: true,
   });
+  if (rows.length > FINANCE_WORKBOOK_MAX_ROWS_PER_SHEET) {
+    throw new Error(`工作表“${sheetName}”超过 ${FINANCE_WORKBOOK_MAX_ROWS_PER_SHEET} 行上限`);
+  }
   const month = parseMonth(sheetName, rows[0]?.[0]);
   if (!month) return { month: null, warnings: [] };
   const warnings: FinanceImportIssue[] = [];
@@ -318,11 +321,26 @@ function parseMonthSheet(sheetName: string, sheet: XLSX.WorkSheet, captureOrigin
     evidenceInput: { month, sheetName, dimensions, rawLines, origins, headerCells } };
 }
 
+// Matches the HTTP import route's own cap (app/api/imports/finance/route.ts).
+// This module is also reachable from the offline migration/rehearsal path
+// (lib/finance/import-service.ts) which is not behind that route, so the
+// byte and row ceilings must be enforced here too to bound ReDoS/zip-bomb
+// input before it ever reaches XLSX.read.
+export const FINANCE_WORKBOOK_MAX_BYTES = 8 * 1024 * 1024;
+// Monthly finance sheets are narrow (business/group/shop header rows plus a
+// bounded set of summary and Kingdee subject rows per month-sheet). 5,000
+// rows per sheet mirrors the same order-of-magnitude bound already used for
+// comparably narrow business workbooks (lib/inventory/guangdong-workbook.ts).
+export const FINANCE_WORKBOOK_MAX_ROWS_PER_SHEET = 5_000;
+
 function parseWorkbook(input: ArrayBuffer | Uint8Array, captureOrigins: boolean): {
   parsed: ParsedFinanceWorkbook;
   evidenceInputs: FinanceColumnEvidenceInput[];
 } {
   const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+  if (bytes.byteLength > FINANCE_WORKBOOK_MAX_BYTES) {
+    throw new Error(`财报文件超过 ${FINANCE_WORKBOOK_MAX_BYTES} 字节上限`);
+  }
   let workbook: XLSX.WorkBook;
   try {
     workbook = XLSX.read(bytes, {
@@ -332,6 +350,9 @@ function parseWorkbook(input: ArrayBuffer | Uint8Array, captureOrigins: boolean)
       cellHTML: false,
       cellText: false,
       dense: false,
+      // Request one extra row beyond the cap so an oversized sheet is
+      // detected and rejected below instead of being silently truncated.
+      sheetRows: FINANCE_WORKBOOK_MAX_ROWS_PER_SHEET + 2,
     });
   } catch (error) {
     throw new Error(`财报文件无法解析：${error instanceof Error ? error.message : "未知格式错误"}`);

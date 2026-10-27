@@ -5,7 +5,7 @@ import test from "node:test";
 import * as XLSX from "xlsx";
 import { prepareNormalizedFinanceImport,
   prepareNormalizedFinanceImportV2Candidate } from "../lib/finance/normalized-import";
-import { parseFinanceWorkbook,
+import { FINANCE_WORKBOOK_MAX_BYTES, FINANCE_WORKBOOK_MAX_ROWS_PER_SHEET, parseFinanceWorkbook,
   parseFinanceWorkbookWithColumnEvidence } from "../lib/finance/parser";
 
 const LEGACY_V1_JSON_SHA256 = "09fe2a0ce8e1e56138bbb9fb618f7ee65c287d664f3f7cd13654267d8841db36";
@@ -99,4 +99,28 @@ test("v2 oversized source refuses before a raw-file digest is returned", async (
     prepareNormalizedFinanceImportV2Candidate(input(bytes)),
     /超过8 MiB上限，未读取或计算文件摘要/,
   );
+});
+
+test("parseFinanceWorkbook 在字节与单表行数上限内正常通过，超限均被拒绝", () => {
+  const validBytes = workbookBytes();
+  const parsed = parseFinanceWorkbook(validBytes);
+  assert.equal(parsed.months.length, 1);
+
+  const oversizedBytes = new Uint8Array(FINANCE_WORKBOOK_MAX_BYTES + 1);
+  assert.throws(() => parseFinanceWorkbook(oversizedBytes), /字节上限/);
+
+  const wideRows: unknown[][] = [
+    ["2026年9月", "测试事业部"],
+    [null, null, "京东"],
+    [null, null, "同名店"],
+  ];
+  for (let index = 0; index < FINANCE_WORKBOOK_MAX_ROWS_PER_SHEET + 5; index += 1) {
+    wideRows.push([`明细科目${index}`, index]);
+  }
+  wideRows.push(["金蝶科目名称"]);
+  wideRows.push(["销售费用", 10]);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(wideRows), "26.9");
+  const oversizedSheetBytes = new Uint8Array(XLSX.write(workbook, { type: "array", bookType: "xlsx" }));
+  assert.throws(() => parseFinanceWorkbook(oversizedSheetBytes), /行上限/);
 });

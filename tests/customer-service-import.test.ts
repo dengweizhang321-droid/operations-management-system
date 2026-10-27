@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as XLSX from "xlsx";
-import { parseCustomerServiceImport, parseSessionWorkbook } from "../lib/customer-service/import-service";
+import { CUSTOMER_SERVICE_SESSION_MAX_ROWS, parseCustomerServiceImport, parseSessionWorkbook } from "../lib/customer-service/import-service";
 
 function workbookBytes(rows: unknown[][]) {
   const book = XLSX.utils.book_new();
@@ -64,4 +64,21 @@ test("仅聊天记录的去重键不受导出顺序影响", () => {
   const firstKeys = parseCustomerServiceImport(new Uint8Array(sessions), first).conversations.filter((item) => item.matchStatus === "chat_only").map((item) => item.conversationKey).sort();
   const reversedKeys = parseCustomerServiceImport(new Uint8Array(sessions), reversed).conversations.filter((item) => item.matchStatus === "chat_only").map((item) => item.conversationKey).sort();
   assert.deepEqual(firstKeys, reversedKeys);
+});
+
+function sessionRows(count: number) {
+  const rows: unknown[][] = [["咨询时间", "顾客"]];
+  for (let index = 0; index < count; index += 1) {
+    rows.push([`2026-10-0${1 + (index % 9)} 10:00:00`, `customer-${index}`]);
+  }
+  return rows;
+}
+
+test("会话记录解析在行数上限内正常通过，超过上限被拒绝", () => {
+  const withinLimit = new Uint8Array(workbookBytes(sessionRows(50)));
+  const parsed = parseSessionWorkbook(withinLimit);
+  assert.equal(parsed.length, 50);
+
+  const overLimit = new Uint8Array(workbookBytes(sessionRows(CUSTOMER_SERVICE_SESSION_MAX_ROWS + 1)));
+  assert.throws(() => parseSessionWorkbook(overLimit), /行上限/);
 });

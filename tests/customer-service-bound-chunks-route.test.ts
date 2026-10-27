@@ -17,7 +17,7 @@ test("分片导入四店精确绑定；无绑定、跨店重放及旧回执均�
   state.__csBoundChunks = fixture;
   const bundle = await build({entryPoints:["app/api/customer-service/import/chunks/route.ts"], bundle:true,
     write:false, platform:"node", format:"esm", external:["cloudflare:workers"],
-    banner:{js:"import { createRequire } from 'node:module'; const require = createRequire(process.cwd() + '/package.json');"},
+    banner:{js:"import { createRequire as fixtureCreateRequire } from 'node:module'; const require = fixtureCreateRequire(process.cwd() + '/package.json');"},
     plugins:[{name:"isolated-owning-seams", setup(builder) {
       builder.onResolve({filter:/^@\/lib\/(auth\/authorization|customer-service\/(database|chunked-upload))$/}, args=>({path:args.path,namespace:"fixture"}));
       builder.onLoad({filter:/.*/,namespace:"fixture"}, args=>({loader:"js",contents:args.path.endsWith("authorization") ? `
