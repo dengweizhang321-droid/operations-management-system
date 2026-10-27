@@ -1,3 +1,15 @@
+// D1 时代市场标注模型实现。commit a0a6f33d（2026-09-06,
+// "Remove D1 dependencies from production search and aggregate paths"）
+// 把 lib/market/annotation-model.ts 原地改写为现行 Django 版
+// （接 AppPrincipal、经 aiConsumer 调用 lib/django/ai-service.ts），
+// 与本文件的 MarketDatabase/D1 原生 SQL 接口不兼容；为不破坏当时仍在用
+// 旧接口的调用方，该提交把旧实现复制到 tests/legacy/market/ 下，
+// 本次（2026-10-27 阶段 0 止血）按生产/测试边界要求迁回 lib/market/legacy/，
+// 不再从 tests/ 目录导入生产代码。
+// 本文件唯一消费者 lib/market/admin-service.ts 与
+// lib/market/annotation-service.ts 在 app/、worker/、lib/、backend/ 中
+// 均无生产调用方（仅各自测试引用），整族属于待退役死代码；是否删除需
+// 用户单独决定，不在本次范围内处理。
 import { decryptSecret } from "@/lib/ai/crypto";
 import {
   loadAiEndpointSecurityContext,
