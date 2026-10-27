@@ -13,7 +13,51 @@ import assert from 'node:assert/strict';
 import {makeReleasePlan} from './release-scope-plan.mjs';
 import {publisherEnvironment} from './publish-latest-main.mjs';
 import {hashTree} from './worker-local-release.mjs';
-import {dingtalkScreenshotAclQualification} from './manual-maintenance-continuation.mjs';
+import {dingtalkScreenshotAclQualification,aDescendantCreationGuardDjangoScriptSha256,piNativeCandidateDjangoScriptSha256,bWorkerJsonFailureCauseScriptSha256} from './manual-maintenance-continuation.mjs';
+
+/** A 项 (2026-10-25): one exact installed -> candidate django-local-service.ps1
+ * pair. The candidate changes only Get-VerifiedProcessDescendants (purely
+ * additive: two guard lines that `continue` past a reused-PID phantom whose
+ * CreationDate is missing or older than its claimed parent's); every other
+ * function, the parameter block, every top-level statement and the order of
+ * the existing functions must be byte-identical, so Stop-VerifiedProcessTree
+ * and the rest of the stop protocol are untouched. The whole-file hashes
+ * below are the same values already registered in
+ * piNativeCandidateControllerSha256 (manual-maintenance-continuation.mjs),
+ * so a candidate that passes the maintenance-admission gate is bound to the
+ * exact same bytes this verifier proves at the function level — no drift
+ * between the two gates is possible. Evidence:
+ * D:\teruisi-ops\release-20261025\A项-停服务误认进程-审查证据.md. */
+export const descendantCreationGuardQualification=Object.freeze({
+ fileBeforeSha256:piNativeCandidateDjangoScriptSha256,
+ fileAfterSha256:aDescendantCreationGuardDjangoScriptSha256,
+ beforeSha256:'3b3d82449c182609c0f4cec2a4275f548f02b74008f5cf590f249079bd497fa2',
+ afterSha256:'a2d588d65e58ad1ad21a8885a6e9ac09e872c78d154f34f52b621e912efd0731'
+});
+
+/** B 项 (2026-10-25): one exact installed -> candidate worker-local-service.ps1
+ * pair. The candidate changes only the terminal top-level try/catch statement:
+ * in -Json mode the real exception text now reaches stderr (the non-Json branch
+ * has always printed it), while the stdout reconciliation JSON keeps the exact
+ * same key set (status / processEvidence / startupPhases / failedStartPhase) so
+ * every consumer parsing that line is unaffected. Unlike Q14 and A 项 the change
+ * is NOT in a function: it lives in `other`, so the comparator below pins one
+ * top-level statement by hash instead of requiring `other` to be identical.
+ * Every one of the 81 functions, the parameter block and the other 42 top-level
+ * statements must stay byte-identical, so maintenance enter/exit, the lock,
+ * drain, STARTED/SUCCESS receipts, worker start/stop sequencing and process-tree
+ * termination are untouched. The whole-file hashes are the same values already
+ * registered in piNativeCandidateControllerSha256
+ * (manual-maintenance-continuation.mjs), so a candidate that passes the
+ * maintenance-admission gate is bound to the exact bytes this verifier proves —
+ * no drift between the two gates is possible. Evidence:
+ * D:\teruisi-ops\release-20261025\B项-实施规划.md. */
+export const workerJsonFailureCauseQualification=Object.freeze({
+ fileBeforeSha256:'83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',
+ fileAfterSha256:bWorkerJsonFailureCauseScriptSha256,
+ otherBeforeSha256:'31693378bf8bea799d31bef6c8fe137b0bc164cced82eda6512877817440c762',
+ otherAfterSha256:'6c4fa17e1e8e96a3101b7ff59ce88f9bbfa7a4d2d2133ad851d454a830a23c43'
+});
 
 const execute=promisify(execFile),sha=b=>createHash('sha256').update(b).digest('hex');
 const git=async(root,args)=>(await execute('git',['-C',root,...args],{encoding:'utf8',windowsHide:true,maxBuffer:16*1024*1024})).stdout.trim();
@@ -51,10 +95,36 @@ export function candidateCompatibilityProfile(changes){
  const releaseContentionOnly=paths.some(p=>contentionFiles.includes(p))&&paths.every(p=>contentionAllowed.has(p));
  const weeklyReleaseLeaseOnly=releaseContentionOnly&&paths.includes('tools/django-workflow-service.ps1')&&paths.includes('tools/publish-prepared-main.mjs')&&paths.every(p=>['tools/django-workflow-service.ps1','tools/publish-prepared-main.mjs','tools/verify-release-candidate.mjs'].includes(p));
  if(releaseContentionOnly)for(const file of contentionAllowed)supported.add(file);
+ // B 项: worker-local-service.ps1 is the only application-side file; the two
+ // verifier/readiness files may travel with it because the qualification lives
+ // there (same shape as Q14 / A 项). This file is NOT unconditionally in
+ // `supported`: it is a lifecycle controller (the single startup engine) with no
+ // regular AST-level coverage, so admitting it only under this exact flag keeps
+ // every other change to it failing closed.
+ const workerJsonFailureCauseOnly=paths.includes('tools/worker-local-service.ps1')&&paths.every(p=>['tools/worker-local-service.ps1','tools/verify-release-candidate.mjs','tools/manual-maintenance-continuation.mjs'].includes(p));
+ if(workerJsonFailureCauseOnly)supported.add('tools/worker-local-service.ps1');
+ // C 项 (2026-10-26): preparation-producer-qualification.mjs is the closures
+ // list that pins the three producer files byte for byte. S16 appends a second
+ // closure for the log-only preparation stage timing in
+ // worker-local-release-rotation.mjs, so the list itself must change bytes and
+ // would otherwise land in `unsupported`. It is NOT unconditionally supported:
+ // the only test that exercises the closure decision
+ // (tests/preparation-resolution.test.mjs) is run by no check here, so putting
+ // the list in `supported` outright would leave every later edit to it with no
+ // automated coverage at all. Admitting it only under this exact flag keeps any
+ // other change to the list failing closed. verify-release-candidate.mjs is a
+ // member because the qualification lives here and it is already
+ // unconditionally supported (same shape as Q14 / A 项 / B 项).
+ const preparationProducerQualifyOnly=paths.includes('tools/preparation-producer-qualification.mjs')&&paths.every(p=>['tools/preparation-producer-qualification.mjs','tools/worker-local-release-rotation.mjs','tools/verify-release-candidate.mjs'].includes(p));
+ if(preparationProducerQualifyOnly)supported.add('tools/preparation-producer-qualification.mjs');
  const unsupported=paths.filter(p=>!supported.has(p));
  // Q14: django-ai.ps1 is the only application-side file; the two verifier/readiness
  // files may travel with it because the qualification lives there.
  const dingtalkScreenshotAclOnly=paths.includes('tools/django-ai.ps1')&&paths.every(p=>['tools/django-ai.ps1','tools/verify-release-candidate.mjs','tools/manual-maintenance-continuation.mjs'].includes(p));
+ // A 项: django-local-service.ps1 is the only application-side file; the two
+ // verifier/readiness files may travel with it because the qualification lives
+ // there (same shape as Q14's dingtalkScreenshotAclOnly).
+ const descendantCreationGuardOnly=paths.includes('tools/django-local-service.ps1')&&paths.every(p=>['tools/django-local-service.ps1','tools/verify-release-candidate.mjs','tools/manual-maintenance-continuation.mjs'].includes(p));
  const schemaProof=paths.some(p=>proofFiles.includes(p)),preparationQueue=paths.some(p=>preparationFiles.includes(p)||p==='tools/publish-latest-main.mjs'||p==='tools/worker-local-release-rotation.mjs');
  return {version:schemaProof||preparationQueue?'release-three-optimizations-v1':'release-compatibility-profile-v1',paths,unsupported,schemaProof,preparationQueue,releaseContentionOnly,weeklyReleaseLeaseOnly,piMainResumeOnly,
   nativeAbandonmentOnly:paths.includes('tools/main-prebuild-queue.mjs')&&paths.every(p=>['tools/main-prebuild-queue.mjs','tools/native-abandonment-observer.mjs','tools/native-abandonment-writer.mjs','tools/verify-release-candidate.mjs'].includes(p)),
@@ -66,6 +136,9 @@ export function candidateCompatibilityProfile(changes){
   django:paths.includes('tools/django-local-service.ps1'),
   piExitObservation:paths.includes('tools/django-ai.ps1')&&!piMainResumeOnly&&!dingtalkScreenshotAclOnly,
   dingtalkScreenshotAclOnly,
+  descendantCreationGuardOnly,
+  workerJsonFailureCauseOnly,
+  preparationProducerQualifyOnly,
   nativeColdStartPerformed:false};
 }
 
@@ -180,6 +253,57 @@ export function compareDingTalkScreenshotAclChange(before,after,qualification=di
  if(digest(old.get(assertName))!==qualification.assertProfileBeforeSha256||digest(next.get(assertName))!==qualification.assertProfileAfterSha256||digest(next.get(helperName))!==qualification.appContainerAceSha256)return false;
  for(const [name,text] of old)if(name!==assertName&&next.get(name)!==text)return false;
  return JSON.stringify(before.functions.map(f=>f.name))===JSON.stringify(after.functions.map(f=>f.name).filter(name=>name!==helperName));
+}
+/** A 项 (2026-10-25): syntax-tree proof, on the parsed functions/top-level
+ * statements of tools/django-local-service.ps1, that the candidate differs
+ * from the base only by Get-VerifiedProcessDescendants (old and new text
+ * pinned by SHA-256). Unlike Q14 this adds no function: the guard is two new
+ * lines inside the existing function body. Every other function, the
+ * parameter block, every top-level statement, the function count and the
+ * order of all functions must be byte-identical, so Stop-VerifiedProcessTree
+ * and the rest of the stop protocol stay untouched. */
+export function compareDescendantCreationGuardChange(before,after,qualification=descendantCreationGuardQualification){
+ const guardedName='Get-VerifiedProcessDescendants';
+ const normalize=text=>text.replaceAll('\r\n','\n');
+ const digest=text=>sha(Buffer.from(text));
+ if(!Array.isArray(before?.functions)||!Array.isArray(after?.functions)||!Array.isArray(before.other)||!Array.isArray(after.other))return false;
+ if(JSON.stringify(before.other.map(normalize))!==JSON.stringify(after.other.map(normalize)))return false;
+ if(before.functions.length!==after.functions.length)return false;
+ if(JSON.stringify(before.functions.map(f=>f.name))!==JSON.stringify(after.functions.map(f=>f.name)))return false;
+ const old=new Map(before.functions.map(f=>[f.name,normalize(f.text)])),next=new Map(after.functions.map(f=>[f.name,normalize(f.text)]));
+ if(!old.has(guardedName)||!next.has(guardedName))return false;
+ if(digest(old.get(guardedName))!==qualification.beforeSha256||digest(next.get(guardedName))!==qualification.afterSha256)return false;
+ for(const [name,text] of old)if(name!==guardedName&&next.get(name)!==text)return false;
+ return true;
+}
+/** B 项 (2026-10-25): syntax-tree proof, on the parsed functions/top-level
+ * statements of tools/worker-local-service.ps1, that the candidate differs from
+ * the base only by one top-level statement whose old and new text are pinned by
+ * SHA-256. Unlike every other comparator here, `other` is NOT required to be
+ * identical — this is the only shape that can cover a change in a top-level
+ * try/catch. In exchange the proof is strict on everything else: the function
+ * count, the function name order and every function's text must be byte-
+ * identical, `other` must keep the same length, and exactly one of its elements
+ * may differ — that one, located by hash rather than by index, must match the
+ * registered pair. */
+export function compareWorkerJsonFailureCauseChange(before,after,qualification=workerJsonFailureCauseQualification){
+ const normalize=text=>text.replaceAll('\r\n','\n');
+ const digest=text=>sha(Buffer.from(text));
+ if(!Array.isArray(before?.functions)||!Array.isArray(after?.functions)||!Array.isArray(before.other)||!Array.isArray(after.other))return false;
+ // B 项 touches no function at all: count, name order and every text must match.
+ if(before.functions.length!==after.functions.length)return false;
+ if(JSON.stringify(before.functions.map(f=>f.name))!==JSON.stringify(after.functions.map(f=>f.name)))return false;
+ for(let i=0;i<before.functions.length;i++)if(normalize(before.functions[i].text)!==normalize(after.functions[i].text))return false;
+ // exactly one top-level statement may differ, and only the registered pair.
+ if(before.other.length!==after.other.length)return false;
+ const differing=[];
+ for(let i=0;i<before.other.length;i++){
+  const old=normalize(before.other[i]),next=normalize(after.other[i]);
+  if(old!==next)differing.push([old,next]);
+ }
+ if(differing.length!==1)return false;
+ const [old,next]=differing[0];
+ return digest(old)===qualification.otherBeforeSha256&&digest(next)===qualification.otherAfterSha256;
 }
 export function stripGateTiming(text){
  if(typeof text!=='string')return text;
@@ -353,7 +477,16 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    const current=path.join(candidate,'tools/django-local-service.ps1');
    const [a,b]=await Promise.all([functionsOf(old,shell7,environment),functionsOf(current,shell7,environment)]);
    report.gateTimingChanged=usesGateTimingExemption(a,b);
-   report.requiresNativeColdStart=!(profile.piMainResumeOnly?comparePiResumeInventoryOnly(a,b):profile.releaseChainPreflight?compareMaintenanceInventoryOnly(a,b):compareFunctionOnlyChange(a,b));
+   // A 项 (descendantCreationGuardOnly) proves on functionsOfExact, not
+   // functionsOf: the file contains non-ASCII (Chinese) comments elsewhere,
+   // so the console-codepage-dependent functionsOf extraction of this exact
+   // function does not reproduce the same bytes functionsOfExact pins
+   // (verified empirically against both base and candidate text). Every
+   // other profile here keeps using functionsOf/a/b unchanged.
+   const requiresNativeColdStart=profile.descendantCreationGuardOnly
+    ?!compareDescendantCreationGuardChange(...await Promise.all([functionsOfExact(old,shell7,environment),functionsOfExact(current,shell7,environment)]))
+    :!(profile.piMainResumeOnly?comparePiResumeInventoryOnly(a,b):profile.releaseChainPreflight?compareMaintenanceInventoryOnly(a,b):compareFunctionOnlyChange(a,b));
+   report.requiresNativeColdStart=requiresNativeColdStart;
    assert.equal(report.requiresNativeColdStart,false,'生命周期语义发生变化，需专用隔离冷启动适配器；不能以边界测试代替');
   }
   if(profile.piExitObservation){
@@ -378,6 +511,16 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
     await run('ps7-'+file,shell7,['-NoProfile','-NonInteractive','-File','tests/'+file+'.test.ps1'],'isolated-functions');
    }
    report.dingtalkScreenshotAclOnly=true;report.evidence.dingtalkScreenshotAclTolerance=true;
+  }
+  if(profile.workerJsonFailureCauseOnly){
+   const q=workerJsonFailureCauseQualification,old=path.join(directory,'before-worker-local-service.ps1'),current=path.join(candidate,'tools/worker-local-service.ps1');
+   const bytes=(await execute('git',['-C',source,'show',baseCommit+':tools/worker-local-service.ps1'],{encoding:'buffer',maxBuffer:8*1024*1024,windowsHide:true})).stdout;
+   assert.equal(sha(bytes),q.fileBeforeSha256,'前驱 worker-local-service.ps1 不是线上已登记的字节');
+   assert.equal(sha(await fs.readFile(current)),q.fileAfterSha256,'候选 worker-local-service.ps1 不是已登记的字节');
+   await fs.writeFile(old,bytes);
+   const a=await functionsOfExact(old,shell7,environment),b=await functionsOfExact(current,shell7,environment);
+   assert.equal(compareWorkerJsonFailureCauseChange(a,b),true,'Worker -Json 失败原因窄资格只允许终末 try/catch 顶层语句按固定新旧哈希变化，全部 81 个函数、参数块与其余顶层语句必须逐字不变');
+   report.workerJsonFailureCauseOnly=true;report.evidence.workerJsonFailureCause=true;
   }
   if(profile.piMainResumeOnly){
    const old=path.join(directory,'before-django-ai.ps1');
@@ -465,7 +608,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   if(schemaAdmissionOnly){report.evidence.unmodifiedApplicationAndPi=preflightBaseline.evidence;report.evidence.fixedSchemaQueueResolution=true;}
   if(nativeAbandonmentOnly)report.evidence.fixedNativeAbandonmentResolution=true;
   if(cleanedPreparationOnly)report.evidence.fixedCleanedPreparationResolution=true;
-  report.nativeColdStartReason=profile.dingtalkScreenshotAclOnly?'Not executed: exact AST-qualified DingTalk screenshot ACL tolerance only (Assert-DingTalkScreenshotProfile plus one added helper); every other function and Start/Stop routing, including the Pi stop protocol, is byte-identical.':profile.piExitObservation?'Not executed: exact AST-qualified Windows Pi exit observer only; real private empty pi_worker.main and same-token Stop tested, fixed WSL runner lifecycle not executed.':'Not executed: profiles cover package digests, admission and native command boundaries; no Start/Stop routing semantics changed.';
+  report.nativeColdStartReason=profile.workerJsonFailureCauseOnly?'Not executed: exact AST-qualified terminal catch only; in -Json mode the real failure cause now reaches stderr while the stdout reconciliation key set is byte-identical. All 81 functions, the parameter block and the other 42 top-level statements are byte-identical, so no Start/Stop routing, maintenance, lock, drain, receipt or process-tree semantics changed.':profile.dingtalkScreenshotAclOnly?'Not executed: exact AST-qualified DingTalk screenshot ACL tolerance only (Assert-DingTalkScreenshotProfile plus one added helper); every other function and Start/Stop routing, including the Pi stop protocol, is byte-identical.':profile.piExitObservation?'Not executed: exact AST-qualified Windows Pi exit observer only; real private empty pi_worker.main and same-token Stop tested, fixed WSL runner lifecycle not executed.':'Not executed: profiles cover package digests, admission and native command boundaries; no Start/Stop routing semantics changed.';
   report.status='passed';
  }catch(error){report.status='failed';report.error=String(error.message);}
  finally{

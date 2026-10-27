@@ -2155,8 +2155,28 @@ try {
       $code = if ($_.Exception.Message -ceq 'process_deadline_exhausted') {'process_deadline_exhausted'} else {'worker_gate_failed'}
       $processEvidence = @{stage=$Action;code=$code;processId=$PID;exitCode=$null;deadlineUnixMs=$WorkerOperationDeadline;timeoutType=$(if($code -eq 'process_deadline_exhausted'){$Action}else{$null})}
     }
-    [Console]::Out.WriteLine((@{status='unknown';processEvidence=$processEvidence;startupPhases=$script:WorkerStartPhases;failedStartPhase=$_.Exception.Data['StartPhase']}|ConvertTo-Json -Depth 8 -Compress))
+    # The reconciliation contract below is unchanged: status stays 'unknown' and
+    # the existing keys keep their shapes, so every consumer that parses this
+    # line keeps working, byte for byte. What was missing is the operator-facing
+    # cause: the real exception text went nowhere in -Json mode (the non-Json
+    # branch below has always printed it), which is why the 2026-10-24 incidents
+    # surfaced only as a generic failure.
+    #
+    # The cause goes to stderr ONLY, deliberately not into the stdout JSON.
+    # publish-main.mjs:136 persists stdout verbatim to <label>.stdout.log and
+    # the repository already tracks ~100 such logs, while this project's own
+    # rule (release-readonly-retry.mjs: "Never persist stderr, stdout, URLs,
+    # argv, customer text, or arbitrary messages") keeps arbitrary text out of
+    # retained evidence. Some throws here embed a bounded supervisor stderr
+    # tail (e.g. :1676/:1681 via Get-BoundedLogTail), so routing that into a
+    # retained file would widen the persisted surface. stderr keeps the same
+    # exposure the non-Json branch has always had.
+    $failedPhase = $_.Exception.Data['StartPhase']
+    [Console]::Out.WriteLine((@{status='unknown';processEvidence=$processEvidence;startupPhases=$script:WorkerStartPhases;failedStartPhase=$failedPhase}|ConvertTo-Json -Depth 8 -Compress))
     [Console]::Error.WriteLine('Worker lifecycle result requires exact reconciliation')
+    if ($failedPhase) { [Console]::Error.WriteLine("Worker startup phase=$($failedPhase.phase); code=$($failedPhase.code)") }
+    $failureMessage = [string]$_.Exception.Message
+    if ($failureMessage) { [Console]::Error.WriteLine($failureMessage) }
   } else {
     $failedPhase = $_.Exception.Data['StartPhase']
     if ($failedPhase) { [Console]::Error.WriteLine("Worker startup phase=$($failedPhase.phase); code=$($failedPhase.code)") }

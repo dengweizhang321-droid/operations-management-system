@@ -86,6 +86,30 @@ try {
   [IO.File]::WriteAllBytes($empty, [byte[]]@())
   $exclusive = [IO.File]::Open($content, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
   $exclusive.Dispose()
+
+  # Assert-DeployedApplication's real admission prefix (preserved below as
+  # $script:coreGate) also runs the real Assert-WranglerRuntimeFacts via
+  # Assert-ApplicationTreeManifest. Provide a private, syntactically valid
+  # wrangler closure fixture — before computing the fingerprint below, so the
+  # manifest's file count/fingerprint match the final tree — rather than
+  # mocking the check away; this keeps the real wrangler-facts validation
+  # exercised by every Start/Stop admission in this fixture, same as production.
+  $wranglerRuntimeToolsRoot = Join-Path $InstalledAppRoot 'runtime-tools'
+  $wranglerPackageRoot = Join-Path $wranglerRuntimeToolsRoot 'node_modules\wrangler'
+  [IO.Directory]::CreateDirectory($wranglerPackageRoot) | Out-Null
+  $wranglerFixtureVersion = '0.0.1'
+  $wranglerClosureText = [ordered]@{
+    version = 1; rootPackage = 'wrangler'; rootVersion = $wranglerFixtureVersion
+    packageLockSha256 = '0' * 64
+    packages = @(
+      [ordered]@{ path = 'node_modules/wrangler'; name = 'wrangler'; version = $wranglerFixtureVersion },
+      [ordered]@{ path = 'node_modules/wrangler-dependency-stub'; name = 'wrangler-dependency-stub'; version = $wranglerFixtureVersion }
+    )
+  } | ConvertTo-Json -Compress
+  [IO.File]::WriteAllText((Join-Path $wranglerRuntimeToolsRoot 'wrangler-dependencies.json'), $wranglerClosureText, [Text.UTF8Encoding]::new($false))
+  $wranglerPackageText = [ordered]@{ name = 'wrangler'; version = $wranglerFixtureVersion } | ConvertTo-Json -Compress
+  [IO.File]::WriteAllText((Join-Path $wranglerPackageRoot 'package.json'), $wranglerPackageText, [Text.UTF8Encoding]::new($false))
+
   $evidence = Get-ApplicationTreeFingerprintEvidence $InstalledAppRoot
   $manifestText = [ordered]@{
     version = 2; deployedAt = '2026-10-18T00:00:00Z'; sourceRoot = 'private-fixture'
