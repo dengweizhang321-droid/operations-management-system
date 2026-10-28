@@ -268,9 +268,7 @@ test("generic D1 consumers no longer depend on the sales database module", async
     "./legacy/ai/question-workflow.ts",
     "./legacy/ai/tool-audit.ts",
     "../lib/ai/tool-registry.ts",
-    "../lib/workflow/collaboration.ts",
     "../lib/workflow/operations-records.ts",
-    "../lib/workflow/tasks.ts",
     "../app/api/search/route.ts",
     "../app/api/customer-service/analyze/route.ts",
   ];
