@@ -21,6 +21,7 @@
 # job timeout, then add its path here.
 
 tests/dialog.test.ts
+tests/ai-crypto.test.ts
 tests/api-client.test.ts
 tests/sales-ledger-parser.test.ts
 tests/xlsx-write.test.ts
