@@ -8,7 +8,7 @@ export function validSalesSummary(value: unknown, projection: "core" | "full"): 
   if (!value || typeof value !== "object") return false;
   const payload = value as Record<string, unknown>;
   const stats = (input: unknown) => input && typeof input === "object" && ["grossSalesCents", "netSalesCents",
-    "grossProfitCents", "refundAmountCents", "netQuantity", "orderCount", "lineCount", "costAmountCents",
+    "netSalesExcludingAccessoriesCents", "grossProfitCents", "refundAmountCents", "netQuantity", "orderCount", "lineCount", "costAmountCents",
     "averageOrderValueCents", "refundRate", "grossMarginRate"].every((key) =>
       typeof (input as Record<string, unknown>)[key] === "number" && Number.isFinite((input as Record<string, number>)[key]));
   if (payload.projection !== projection || !stats(payload.current) || !stats(payload.yearAgo)
