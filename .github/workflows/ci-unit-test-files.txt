@@ -31,3 +31,4 @@ tests/customer-service-bound-chunks-route.test.ts
 tests/customer-service-import.test.ts
 tests/finance-normalized-v2-candidate.test.ts
 tests/jd-customer-service-bound-import-route.test.ts
+tests/xlsx-prototype-patch.test.ts
