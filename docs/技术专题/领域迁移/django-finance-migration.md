@@ -145,6 +145,8 @@ $financeOperator = "D:\teruisi-runtime\django-sales\app\tools\django-finance-cut
 
 PNR 后的恢复只允许：兼容 Django/Worker 版本、PostgreSQL 备份/WAL/PITR、或审批过的前向修复。D1 财务对象在稳定观察、旧路径不可达证明和独立退役审批前保留为受写保护的审计材料；不能作为回滚事实源。
 
+上述三项前置中的**数据等价**部分已于 2026-10-28 完成只读核对，回执见 [finance 域 D1 退役回执：数据等价核对](../../finance-d1-retirement-receipt-20261028/REPORT.md)：D1 的 40233 行 `finance_lines` 全部存在于 PostgreSQL 且 15 个字段逐行一致，零行为 D1 独有。该回执**不构成退役审批**，受控退役迁移、对象清单、代码扫描与观察期指标仍待单独立项。
+
 ## 8. 2026-08-30 隔离演练证据
 
 演练使用权威 D1 的只读财务投影生成约 21.58 MiB 的专用副本，随后在独立数据目录、`127.0.0.1:55439` 临时 PostgreSQL 和临时 Django 端口完成；正式 D1、正式 PostgreSQL、Worker 和在线进程均未修改或重启。
