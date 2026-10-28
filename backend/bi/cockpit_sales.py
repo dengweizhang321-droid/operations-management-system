@@ -165,14 +165,17 @@ def _metrics(row, label, window):
     missing_orders = present - int(row.get(f"{label}_trusted_rows") or 0)
     value = serialize_metric(raw)
     net, cost = _safe(value["netSalesCents"]), _safe(value["costAmountCents"])
+    net_quantity = value["netQuantity"]
     large_margin = _safe(net - cost)
+    # 客单价口径为件均价（净销售额剔除配件 / 净数量），与原订单号是否可信无关；
+    # trustedOrders/missingOrderNoRows 仍单独披露原订单号分组质量，不再作为本指标的可用性门槛。
     return {"netSalesCents": net if present else None, "costCents": cost if present else None,
         "grossProfitCents": large_margin if present else None, "orderMarginCents": raw["gross_profit_cents"] if present else None,
         "positiveSalesCents": value["grossSalesCents"] if present else None, "refundCents": value["refundAmountCents"] if present else None,
         "grossMarginRate": large_margin / net if present and net > 0 else None,
         "refundRate": value["refundAmountCents"] / value["grossSalesCents"] if present and value["grossSalesCents"] > 0 else None,
         "trustedOrders": orders if present else None, "missingOrderNoRows": missing_orders if present else None,
-        "averageOrderValueCents": net / orders if present and orders > 0 and missing_orders == 0 else None,
+        "averageOrderValueCents": value["averageOrderValueCents"] if present and net_quantity > 0 else None,
         "orderStatus": "available" if present and orders > 0 and missing_orders == 0 else "missing_order_no" if missing_orders else "no_records",
         "rowCount": present, "status": "available" if present else "unavailable",
         "coverage": {"observedDays": covered_days, "expectedDays": window["days"], "dateComplete": covered_days == window["days"],
@@ -238,4 +241,4 @@ def sales_projection(principal, options):
     return {"periods": spec, "filters": {"platform": options["platform"], "shop": options["shop"]},
         "options": [{"platform": row["platform_key"], "shop": row["shop_key"]} for row in catalog_rows],
         "sales": {**totals, "daily": daily}, "shops": shops, "categories": categories, "goalActuals": actuals,
-        "limitations": ["ERP净销售、大毛利、可信原订单均值各按所属规则；不是财报利润或支付客户客单价", "比较须有已导入记录日期覆盖，缺失/非正基期不按新增或正常处理"]}
+        "limitations": ["ERP净销售、大毛利各按所属规则；不是财报利润。客单价为件均价（净销售额剔除配件 / 净数量），独立于可信原订单号分组是否完整", "比较须有已导入记录日期覆盖，缺失/非正基期不按新增或正常处理"]}

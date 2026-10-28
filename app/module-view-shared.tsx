@@ -32,6 +32,7 @@ export type SalesRange = "today" | "yesterday" | "last7" | "last15" | "last30" |
 export type SalesStats = {
   grossSalesCents: number;
   netSalesCents: number;
+  netSalesExcludingAccessoriesCents: number;
   costAmountCents: number;
   grossProfitCents: number;
   refundAmountCents: number;

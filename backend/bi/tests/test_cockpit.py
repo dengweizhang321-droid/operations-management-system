@@ -30,7 +30,8 @@ class CockpitSalesTests(TestCase):
         self.assertEqual(current["grossProfitCents"], 4200)
         self.assertEqual(current["orderMarginCents"], 3700)
         self.assertEqual(current["trustedOrders"], 4)
-        self.assertEqual(current["averageOrderValueCents"], 3500)
+        # 客单价口径为件均价：净销售额剔除配件(10000-2000+5000=13000) / 净数量(2-1+1=2)。
+        self.assertEqual(current["averageOrderValueCents"], 6500)
         self.assertEqual({row["name"] for row in data["categories"]}, {"饮水设备", "制冰设备", "未分类"})
 
     def test_same_order_multi_line_and_cross_shop_are_distinct(self):
@@ -38,10 +39,16 @@ class CockpitSalesTests(TestCase):
         current = sales_projection(PRINCIPAL, self.options)["sales"]["current"]
         self.assertEqual(current["trustedOrders"], 5)
 
-    def test_fallback_order_identity_is_not_a_customer_order(self):
+    def test_missing_order_no_affects_trusted_orders_but_not_average_order_value(self):
         SalesOrderLine.objects.filter(pk=1).update(order_no="", order_identity="L1")
         current = sales_projection(PRINCIPAL, self.options)["sales"]["current"]
         self.assertEqual(current["missingOrderNoRows"], 1)
+        # 客单价口径（件均价）不依赖原订单号是否可信，缺失原订单号不影响客单价的可用性。
+        self.assertEqual(current["averageOrderValueCents"], 6500)
+
+    def test_average_order_value_unavailable_only_when_net_quantity_is_zero(self):
+        SalesOrderLine.objects.filter(is_business_row=True, is_net_quantity_row=True).update(quantity=0)
+        current = sales_projection(PRINCIPAL, self.options)["sales"]["current"]
         self.assertIsNone(current["averageOrderValueCents"])
 
     def test_absent_baseline_is_not_a_healthy_shop(self):

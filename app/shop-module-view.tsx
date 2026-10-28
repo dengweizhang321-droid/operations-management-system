@@ -7,6 +7,7 @@ import PromotionDiagnosticPanel from "./promotion-diagnostic-panel";
 import { encodeProductIdentity, type InsightPlatform, type ProductIdentity } from "@/lib/netshop/insights-contract";
 import { productSummaryForDisplay } from "@/lib/netshop/product-display";
 import { mergePromotionDisplayRows } from "@/lib/netshop/promotion-display";
+import { aggregateStorePeriods, storePeriodKey, type StoreGranularity, type StorePeriodRow } from "@/lib/sales/store-period-aggregation";
 import { NetshopNavigation } from "./netshop/shared/navigation";
 import { netshopColumnModules, netshopColumnCapabilities } from "./netshop/shared/module-slots";
 import { NetshopLayoutBoundary, NetshopLayoutSwitcher, useNetshopIntegratedLayout } from "./netshop/shared/integrated-layout";
@@ -21,7 +22,6 @@ import type { ImportSourceKey, ModuleKey, ModuleViewKey } from "./shell/navigati
 import { SearchableMultiSelect, SearchableSelect } from "./ui/searchable-select";
 import {
   type SalesRangeLabel,
-  type SalesStats,
   type SalesChannel,
   type SalesSummaryResponse,
   snapshotTokenPattern,
@@ -66,63 +66,7 @@ import {
   SectionHeader,
 } from "./module-view-shared";
 
-type StoreGranularity = "day" | "week" | "month";
 type StoreComparisonMode = "period" | "year";
-type StorePeriodRow = SalesStats & {
-  key: string;
-  label: string;
-  promotionSpendCents?: number;
-  promotionNetTransactionCents?: number;
-  platformPaymentCents?: number;
-  promotionClicks?: number;
-  promotionSpendRate?: number | null;
-  promotionTransactionShare?: number | null;
-};
-
-function storePeriodKey(dateValue: string, granularity: StoreGranularity) {
-  if (granularity === "day") return dateValue;
-  if (granularity === "month") return dateValue.slice(0, 7);
-  const date = new Date(`${dateValue}T00:00:00Z`);
-  const weekDay = date.getUTCDay();
-  date.setUTCDate(date.getUTCDate() + (weekDay === 0 ? -6 : 1 - weekDay));
-  return date.toISOString().slice(0, 10);
-}
-
-function aggregateStorePeriods(daily: Array<{ date: string } & SalesStats>, granularity: StoreGranularity): StorePeriodRow[] {
-  const buckets = new Map<string, StorePeriodRow>();
-  for (const item of daily) {
-    const key = storePeriodKey(item.date, granularity);
-    const label = granularity === "week" ? `${key} 周` : key;
-    const row = buckets.get(key) ?? {
-      key,
-      label,
-      grossSalesCents: 0,
-      netSalesCents: 0,
-      costAmountCents: 0,
-      grossProfitCents: 0,
-      refundAmountCents: 0,
-      orderCount: 0,
-      lineCount: 0,
-      netQuantity: 0,
-      averageOrderValueCents: 0,
-      grossMarginRate: 0,
-      refundRate: 0,
-    };
-    row.grossSalesCents += item.grossSalesCents;
-    row.netSalesCents += item.netSalesCents;
-    row.costAmountCents += item.costAmountCents;
-    row.grossProfitCents += item.grossProfitCents;
-    row.refundAmountCents += item.refundAmountCents;
-    row.orderCount += item.orderCount;
-    row.lineCount += item.lineCount;
-    row.netQuantity += item.netQuantity;
-    row.averageOrderValueCents = row.orderCount === 0 ? 0 : row.netSalesCents / row.orderCount;
-    row.grossMarginRate = row.netSalesCents === 0 ? 0 : (row.netSalesCents - row.costAmountCents) / row.netSalesCents;
-    row.refundRate = row.grossSalesCents === 0 ? 0 : row.refundAmountCents / row.grossSalesCents;
-    buckets.set(key, row);
-  }
-  return [...buckets.values()].sort((left, right) => left.key.localeCompare(right.key));
-}
 
 function mergeStorePromotionPeriods(rows: StorePeriodRow[], daily: NetshopPromotionPerformanceResponse["daily"], granularity: StoreGranularity, completeScope: boolean) {
   return mergePromotionDisplayRows(rows, daily, day => storePeriodKey(day, granularity), completeScope);
@@ -417,8 +361,9 @@ function StoreAnalysisView({ summary, outlets, selectedOutletKeys, onSelectOutle
       return byKey.get(storePeriodKey(targetDate, granularity));
     });
   }, [comparisonMode, granularity, rows, summary.previousDaily, summary.previousStartDate, summary.startDate, summary.yearAgoDaily]);
-  const currentAov = current.orderCount === 0 ? 0 : current.netSalesCents / current.orderCount;
-  const baselineAov = !baseline?.orderCount ? 0 : baseline.netSalesCents / baseline.orderCount;
+  // 客单价直接复用服务端已算好的件均价，不在前端用订单量重新定义该指标。
+  const currentAov = current.averageOrderValueCents;
+  const baselineAov = baseline?.averageOrderValueCents ?? 0;
   const salesChange = storeComparisonRate(current.netSalesCents, baseline?.netSalesCents);
   const aovChange = storeComparisonRate(currentAov, baselineAov);
   const selectedOutlets = useMemo(() => outlets.filter((item) => selectedOutletKeys.includes(item.groupKey)), [outlets, selectedOutletKeys]);
