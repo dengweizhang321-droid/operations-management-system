@@ -203,6 +203,10 @@ def render(facts, reply):
         value = ALERT_LABELS[row["risk"]] if field == "risk" else row.get(field)
         if value is None:
             return "待核算"
+        # Turnover is a raw quotient; show one decimal so the text matches the
+        # web page instead of printing the full float expansion.
+        if field == "turnoverDays" and isinstance(value, (int, float)) and not isinstance(value, bool):
+            value = f"{value:.1f}"
         value = str(value).replace("\r", " ").replace("\n", " ").replace("|", "／")
         return value + " 天" if field in ("turnoverDays", "inventoryAgeDays", "leadDays", "bufferDays") else value
     blocks = analysis["blocks"]

@@ -112,8 +112,14 @@ class DnsPhaseTests(SimpleTestCase):
             self.assertNotIn("PRIVATE", str(caught.exception) + canonical(caught.exception.diagnostics))
             self.assertTrue(all(call.args[0] == "GET" and call.args[2] is None and "Authorization" not in call.args[3]
                                 for call in connection.request.call_args_list))
-            self.assertLessEqual(connection.request.call_count, 1)
-            self.assertEqual(sock.connect.call_count, 1)
+            # A stalled resolver is tried once per pinned resolver: a proxy can
+            # break TLS to one fixed IP while another answers, and recovery is
+            # useless if the first stall ends the attempt. Each try stays a
+            # credential-free GET to a resolver, and the model still gets zero
+            # requests, which is what this test fixes.
+            resolvers = len(transport._doh_resolvers) if phase == "tls" else 1
+            self.assertLessEqual(connection.request.call_count, resolvers)
+            self.assertEqual(sock.connect.call_count, resolvers)
 
     def test_dns_protocol_failure_is_not_a_model_protocol_failure(self):
         _, connection, response = self.wire()
