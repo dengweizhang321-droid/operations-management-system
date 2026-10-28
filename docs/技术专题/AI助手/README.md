@@ -4,6 +4,8 @@
 
 返回 [文档首页](../../README.md) · [完整文档目录](../../文档目录.md)
 
+能力补全施工入口：[详细方案](../../ai-assistant-capability-plan-20261028/PLAN.md) · [方案审查](../../ai-assistant-capability-plan-20261028/REVIEW.md)（方案文档，未实施）。
+
 | 文档 | 文件 |
 | --- | --- |
 | [TERUISI 运营管理系统 AI 能力重构：1—3 层推进文档](AI能力重构-第1至3层.md) | `AI能力重构-第1至3层.md` |
