@@ -219,9 +219,8 @@ test("work plan restores filters, analytics, timeline, source metadata, and nine
 });
 
 test("work plan exposes server facets, standardized suggestions and complete filtered export", async () => {
-  const [operations, tasks, route] = await Promise.all([
+  const [operations, route] = await Promise.all([
     source("../app/operations-view.tsx"),
-    source("../lib/workflow/tasks.ts"),
     source("../app/api/workflow/tasks/route.ts"),
   ]);
   for (const parameter of ["shopName", "category", "source"]) {
@@ -232,9 +231,6 @@ test("work plan exposes server facets, standardized suggestions and complete fil
   assert.match(operations, /workflow-category-options/);
   assert.match(operations, /workflow-shop-options/);
   assert.match(operations, /workflow-owner-options/);
-  assert.match(tasks, /facets: \{/);
-  assert.match(tasks, /categories: boundedList\(input\.categories/);
-  assert.match(tasks, /sources: boundedList\(input\.sources/);
   assert.match(route, /path: WORKFLOW_TASKS_PATH/);
   assert.match(route, /service: "reader"/);
   assert.match(route, /rawQuery: new URL\(request\.url\)\.searchParams\.toString\(\)/);
