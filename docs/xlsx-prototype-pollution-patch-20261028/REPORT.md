@@ -138,3 +138,43 @@ PoC 不是桩：现场用 `fflate.zipSync` 组装了一个结构完整的 OOXML 
 - 合并授权后：合并、推送、核验远端，报告最终提交
 - 本次改动含 `package.json` 与 `tools/`（影响构建与安装），属有应用载荷变更，合并后仍需单独取得制品准备与发布授权
 - `node_modules/` 不进版本库；补丁在每次 `npm install` / 发布链 `npm ci` 的 postinstall 阶段自动重新施加
+
+## 八、postinstall 自动挂载已于 2026-10-29 回退，改为手动执行
+
+**本节推翻第 15 行与第 140 行关于「自动重新施加」的描述。**
+
+`package.json` 是 `workerGuardEntrypointPaths` 里的**受保护发布入口**，其 sha256 被已上线 release 的 guard 收据（`audit/legacy-worker-guard-receipt.json`）钉死。发布链在任何工作之前就校验「活仓库的受保护入口 == 已上线收据里的哈希」：
+
+- `tools/worker-local-release-rotation.mjs:543` 的 `verifyInstalledGuardEntrypoints()` 做比较，`protectedSourceRoot` 即 `D:\运营管理系统` 本身（`worker-local-release.mjs:133` 写死）；
+- `control/tools/publish-main.mjs:113` 在 `withRotationLock` 内第一步就 `resolveEffectiveReleaseChain({ verifyInstalledHead: true })`，且 `:126` 用 `prepareOnline: true`。
+
+**两条路径（`准备main.bat --prepare-only` 与 `发布main.bat`）在这道门上行为完全相同**，均于步骤 1 失败、未触及停机：
+
+| 时间 | 入口 | 结果 |
+| --- | --- | --- |
+| 2026-10-28 09:10 | `--prepare-only` | 失败，`requestId 9bdbbafe…` |
+| 2026-10-28 11:49 | 停站发布 | 失败（38 秒），服务全程未停、生产 release 未变 |
+
+这构成死锁：要发布须先一致，要一致须先发布。改动受保护入口需要一条尚未查明的专门流程（重签收据的工具、或带授权的控制层入口）；`docs/规范/验证与发布.md:81` 只规定了「先核受保护入口差异……不沿用旧收据」，未给出操作入口。
+
+**因此回退 `package.json` 的 postinstall 串接**（仅该一行），回退后其 sha256 为 `c4c7f6a0422370d7…`，与 guard 收据**逐字节相等**。
+
+### 现在怎么施加补丁
+
+`tools/install-xlsx-prototype-patch.mjs` 与 `tests/xlsx-prototype-patch.test.ts` **全部保留**，补丁器本身未改、仍然有效（幂等、哈希锁定、反向还原校验齐备）。每次 `npm install` 之后手动执行一次：
+
+```
+node tools/install-xlsx-prototype-patch.mjs
+```
+
+2026-10-29 在主工作区实测：输出 `[{"file":"xlsx.js","status":"patched",...},{"file":"xlsx.mjs","status":"patched",...}]`，随后 `tests/xlsx-prototype-patch.test.ts` 6 通过 0 失败。
+
+### 必须知悉的落差
+
+**生产环境的 xlsx 不再被自动打补丁。** 发布链 `npm ci` 带 `--ignore-scripts=false`（`worker-local-release.mjs:155`）本会运行 postinstall，但串接已移除，所以**生产制品里的 xlsx 保持 0.18.5 原始状态，CVE-2023-30533 原型污染在生产仍然存在**。
+
+风险边界（不是解除，是接受）：触发需要攻击者投递构造过的 xlsx 文件，而九个 `XLSX.read` 调用点均在 admin/operator 才能触达的导入路径上。
+
+### 待办
+
+恢复自动化需要先解决 guard 死锁。两个方向待查：是否存在 guard 收据的正规重签工具；或 `CONTROL-INSTALLATION.json` 那套控制层是否提供受保护入口变更的授权入口。查清前不要再尝试直接改 `package.json` 发布。
