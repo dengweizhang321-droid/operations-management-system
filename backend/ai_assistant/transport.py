@@ -26,6 +26,11 @@ _cancel_watcher_scope = ContextVar("ai_network_cancel_watcher_scope", default=No
 _dns_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ai-dns")
 _dns_slots = BoundedSemaphore(4)
 _synthetic_network = ipaddress.ip_network("198.18.0.0/15")
+# Pinned public DoH resolvers, tried in order. Each must answer the same
+# RFC 8427 JSON shape this module validates; resolvers that return a bare
+# Question object instead of a list are not interchangeable here.
+_doh_resolvers = (("1.1.1.1", "/dns-query"), ("1.12.12.12", "/dns-query"))
+_fallback_resolver_budget = 3
 
 
 class ProviderTransportError(AiError):
@@ -265,6 +270,98 @@ def public_model_addresses(url, addresses, timeout):
     return _public_addresses(url, addresses, timeout, endpoint)
 
 
+def _recovery_answer(host, record_type, started, budget, ceiling):
+    """Query the pinned resolvers in order; keep the first resolver's failure.
+
+    A hijacking local proxy can break TLS to one fixed resolver while leaving
+    another reachable, so a single pinned IP turns into a hard dependency.
+    The reported diagnostics still describe the first failure so the receipt
+    does not change shape when a later resolver also fails.
+
+    Returns the answer and the extra time a fallback resolver was granted
+    beyond the shared budget. The caller must add that to its own anchor,
+    otherwise its budget check would discard an answer a fallback just won.
+    """
+    first = None
+    granted = 0.0
+    for index, (resolver, path) in enumerate(_doh_resolvers):
+        if index == 0:
+            remaining = budget - (time.monotonic() - started)
+        else:
+            # Fallback resolvers draw on their own small window. A resolver whose
+            # TLS a local proxy breaks can consume the whole shared record-type
+            # budget before any usable answer exists, so reusing that budget
+            # would leave the fallback no time to run at all.
+            spent = time.monotonic() - started
+            remaining = min(
+                _fallback_resolver_budget,
+                budget + _fallback_resolver_budget - spent,
+                # The caller's own deadline still bounds the whole recovery, so
+                # a fallback never extends a request past what it was given.
+                ceiling - spent,
+            )
+            # Whatever this attempt may spend past the shared budget is what the
+            # caller has to forgive when it re-checks its own anchor.
+            granted = max(0.0, min(spent + remaining, ceiling) - budget)
+        if remaining <= 0:
+            break
+        # Fixed public IP avoids the same intercepted OS lookup. TLS verifies
+        # this IP's certificate. No provider headers/body are sent to DNS.
+        try:
+            return granted, _bounded_json(
+                f"https://{resolver}{path}?"
+                + urlencode({"name": host, "type": record_type}),
+                None,
+                {"Accept": "application/dns-json"},
+                timeout=remaining,
+                maximum=16 * 1024,
+                method="GET",
+                fixed_addresses=[
+                    (
+                        socket.AF_INET,
+                        socket.SOCK_STREAM,
+                        socket.IPPROTO_TCP,
+                        "",
+                        (resolver, 443),
+                    )
+                ],
+            )
+        except AiError as error:
+            # Reclassify only fixed transport/protocol failures from this DNS
+            # GET. Permission changes and cancellation still propagate intact.
+            if error.code not in {"provider_timeout", "provider_unavailable", "provider_error",
+                                  "provider_rate_limited", "provider_subscription_invalid", "provider_redirect", "response_too_large",
+                                  "invalid_provider_response"}:
+                raise
+            reason = "timeout" if error.code == "provider_timeout" else (
+                "invalid_response" if error.code == "invalid_provider_response" else "unavailable")
+            if first is None:
+                first = ProviderTransportError(stage="dns_recovery", reason=reason,
+                    resolver_phase=getattr(error, "diagnostics", {}).get("stage"))
+                first.__cause__ = error
+            # Try the next resolver only when this one never produced an
+            # answer we could read: the TCP connect failed, or the connection
+            # stalled before any response arrived. That is what a hijacking
+            # local proxy does — measured here as a TLS handshake that times
+            # out against one pinned IP while another answers in 140ms.
+            #
+            # Deliberately NOT retried: a resolver that did answer (HTTP
+            # status, redirect, oversized or malformed body), and a TLS
+            # certificate we cannot verify. The latter is a trust failure
+            # rather than an unreachable host, and
+            # `test_tls_failure_never_posts_or_retries` fixes that contract.
+            stage = getattr(error, "diagnostics", {}).get("stage")
+            unreachable = (
+                error.code == "provider_unavailable" and stage == "connect"
+            ) or (
+                error.code == "provider_timeout"
+                and stage in {"connect", "tls", "request_send", "response_headers"}
+            )
+            if not unreachable:
+                raise first
+    raise first or ProviderTransportError(stage="dns_recovery", reason="timeout")
+
+
 def _public_addresses(url, addresses, timeout, origin_guard):
     """Replace proxy synthetic DNS only; never connect to or allowlist fake IPs."""
     ips = [ipaddress.ip_address(addr[4][0]) for addr in addresses]
@@ -289,38 +386,11 @@ def _public_addresses(url, addresses, timeout, origin_guard):
         remaining = budget - (time.monotonic() - started)
         if remaining <= 0:
             raise ProviderTransportError(stage="dns_recovery", reason="timeout")
-        # Fixed public IP avoids the same intercepted OS lookup. TLS verifies
-        # this IP's certificate. No provider headers/body are sent to DNS.
-        try:
-            answer = _bounded_json(
-                "https://1.1.1.1/dns-query?"
-                + urlencode({"name": host, "type": record_type}),
-                None,
-                {"Accept": "application/dns-json"},
-                timeout=remaining,
-                maximum=16 * 1024,
-                method="GET",
-                fixed_addresses=[
-                    (
-                        socket.AF_INET,
-                        socket.SOCK_STREAM,
-                        socket.IPPROTO_TCP,
-                        "",
-                        ("1.1.1.1", 443),
-                    )
-                ],
-            )
-        except AiError as error:
-            # Reclassify only fixed transport/protocol failures from this DNS
-            # GET. Permission changes and cancellation still propagate intact.
-            if error.code not in {"provider_timeout", "provider_unavailable", "provider_error",
-                                  "provider_rate_limited", "provider_subscription_invalid", "provider_redirect", "response_too_large",
-                                  "invalid_provider_response"}:
-                raise
-            reason = "timeout" if error.code == "provider_timeout" else (
-                "invalid_response" if error.code == "invalid_provider_response" else "unavailable")
-            raise ProviderTransportError(stage="dns_recovery", reason=reason,
-                resolver_phase=getattr(error, "diagnostics", {}).get("stage")) from error
+        granted, answer = _recovery_answer(host, record_type, started, budget, timeout)
+        # A fallback resolver ran past the shared budget by design. Without
+        # extending the anchor, the checks below would read that as an expired
+        # budget and throw away the answer the fallback just won.
+        budget += granted
         question = answer.get("Question")
         records = answer.get("Answer", [])
         if (
