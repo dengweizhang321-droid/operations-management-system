@@ -1,9 +1,0 @@
-{
-  "baseline": "ca9622ec",
-  "combined": "9790e4a6 plus final report",
-  "baselineCount": 185,
-  "combinedCount": 185,
-  "added": [],
-  "removed": [],
-  "note": "Line/column shifts normalized; original TypeScript check still fails on existing diagnostics."
-}
