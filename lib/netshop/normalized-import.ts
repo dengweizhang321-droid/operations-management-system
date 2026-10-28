@@ -22,6 +22,14 @@ const MAX_TABULAR_COLUMNS = 120;
 
 const MAX_UNCOMPRESSED_ENTRY_BYTES = 25 * 1024 * 1024;
 
+// 照 lib/netshop/product-image-assets.ts 的解压炸弹上限模板：条目数 + 解压总量双上限，
+// 解压后再复核实际字节。netshop ZIP 只承载单个业务日的单一 .xlsx/.csv（天猫推广协议固定
+// 单文件单日），真实条目数恒为 1；上限留两位数量级余量应对异常压缩包内的垃圾条目，
+// 而不是让 zip bomb 在报错前把所有条目全部解出来。
+const MAX_ZIP_ARCHIVE_ENTRIES = 50;
+
+const MAX_UNCOMPRESSED_TOTAL_BYTES = 25 * 1024 * 1024;
+
 
 const sourceSet = new Set<NetshopSource>([
   "jd_shop_overview",
@@ -262,13 +270,27 @@ function cellValue(cell: XlsxCellValue) {
 
 function parseZip(bytes: Uint8Array, fileName: string, source: NetshopSource): ParsedTable {
   const archiveEntries: string[] = [];
-  const zip = unzipSync(bytes, { filter(file) {
-    if (file.name.endsWith("/")) return false;
-    archiveEntries.push(file.name);
-    if (file.originalSize > MAX_UNCOMPRESSED_ENTRY_BYTES) throw new Error("压缩包内文件解压后超过 25MB 上限");
-    return /\.(xlsx|csv)$/i.test(file.name);
-  } });
+  let entryCount = 0;
+  let advertisedTotalBytes = 0;
+  let zip: Record<string, Uint8Array>;
+  try {
+    zip = unzipSync(bytes, { filter(file) {
+      entryCount += 1;
+      if (entryCount > MAX_ZIP_ARCHIVE_ENTRIES) throw new Error(`压缩包条目数超过 ${MAX_ZIP_ARCHIVE_ENTRIES} 上限`);
+      if (file.name.endsWith("/")) return false;
+      archiveEntries.push(file.name);
+      if (file.originalSize > MAX_UNCOMPRESSED_ENTRY_BYTES) throw new Error("压缩包内文件解压后超过 25MB 上限");
+      advertisedTotalBytes += file.originalSize;
+      if (advertisedTotalBytes > MAX_UNCOMPRESSED_TOTAL_BYTES) throw new Error("压缩包解压后总量超过 25MB 上限");
+      return /\.(xlsx|csv)$/i.test(file.name);
+    } });
+  } catch (error) {
+    throw new Error(error instanceof Error ? error.message : "压缩包解析失败");
+  }
   const entries = Object.entries(zip).filter(([name]) => !name.endsWith("/") && /\.(xlsx|csv)$/i.test(name));
+  // originalSize 来自压缩包头部自报，不受信任；解压后再按实际字节复核，防止谎报大小绕过上限。
+  const actualTotalBytes = Object.values(zip).reduce((sum, entry) => sum + entry.byteLength, 0);
+  if (actualTotalBytes > MAX_UNCOMPRESSED_TOTAL_BYTES) throw new Error("压缩包解压后总量超过 25MB 上限");
   if (source === "tmall_promotion" && (archiveEntries.length !== 1 || entries.length !== 1 || !/\.csv$/i.test(entries[0]?.[0] ?? ""))) {
     throw new Error("天猫推广 ZIP 必须且只能包含一个 CSV 文件");
   }
@@ -276,6 +298,7 @@ function parseZip(bytes: Uint8Array, fileName: string, source: NetshopSource): P
     throw new Error(`${fileName} 压缩包内没有可识别的 .xlsx 或 .csv 文件`);
   }
   const [innerName, innerBytes] = entries[0];
+  if (innerBytes.byteLength > MAX_UNCOMPRESSED_ENTRY_BYTES) throw new Error("压缩包内文件解压后超过 25MB 上限");
   const parsed = parseFile(innerBytes, innerName, source);
   return { ...parsed, archiveEntryName: innerName };
 }
