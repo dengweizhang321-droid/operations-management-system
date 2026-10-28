@@ -6,7 +6,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "postinstall": "node tools/install-workerd-heap-patch.mjs",
+    "postinstall": "node tools/install-workerd-heap-patch.mjs && node tools/install-xlsx-prototype-patch.mjs",
     "preview:isolated": "node tools/preview/launcher.mjs start --open",
     "dev:hmr": "node tools/preview/launcher.mjs start",
     "preview:prepare": "node tools/preview/launcher.mjs prepare",

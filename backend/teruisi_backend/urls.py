@@ -7,6 +7,7 @@ urlpatterns = [
     path("api/ai/dataset-records", dataset_records),
     path("health/live", health.live, name="health-live"),
     path("health/ready", health.ready, name="health-ready"),
+    path("health/business-smoke", health.business_smoke, name="health-business-smoke"),
     path("api/sales/", include("sales.urls")),
     path("api/erp-reference/", include("erp_reference.urls")),
     path("api/finance/", include("finance.urls")),

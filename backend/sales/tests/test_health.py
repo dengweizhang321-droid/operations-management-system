@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 from django.utils import timezone
@@ -18,6 +19,7 @@ from sales.models import (
     SalesWriteAuthority,
 )
 from sales.tests.cutover_fixtures import install_lightweight_attestation
+from teruisi_backend import health
 
 
 SALES_DIGEST = "c" * 64
@@ -28,81 +30,109 @@ ERP_CUTOVER = "erp-reference-test-cutover"
 ERP_VERIFY_RUN = "erp-reference-" + "a" * 32
 
 
-class HealthTests(TestCase):
-    def _create_erp_product(self) -> None:
-        ErpProductMaster.objects.update_or_create(
-            product_code="P1",
+def _create_erp_product() -> None:
+    ErpProductMaster.objects.update_or_create(
+        product_code="P1",
+        defaults={
+            "product_name": "ERP readiness fixture",
+            "source_row_number": 1,
+            "last_import_batch_id": "products:baseline",
+            "created_at": "2026-08-28 00:00:00",
+            "updated_at": "2026-08-28 00:00:00",
+        },
+    )
+
+
+def _create_terminal_erp_state(*, erp_revision: int, erp_digest: str) -> None:
+    _create_erp_product()
+    for source, row_count in (("products", 1), ("combos", 0)):
+        scope_key = hashlib.sha256(
+            f'{{"source":"{source}"}}'.encode("utf-8")
+        ).hexdigest()
+        batch_id = f"{source}:baseline"
+        current_content_hash = content_hash(
+            source,
+            [
+                {
+                    "productCode": "P1",
+                    "productName": "ERP readiness fixture",
+                    "brand": "",
+                    "specification": "",
+                    "barcode": "",
+                    "category": "",
+                    "supplier": "",
+                    "productStatus": "",
+                    "sourceRowNumber": 1,
+                }
+            ]
+            if source == "products"
+            else [],
+        )
+        ErpReferenceImportBatch.objects.update_or_create(
+            id=batch_id,
             defaults={
-                "product_name": "ERP readiness fixture",
-                "source_row_number": 1,
-                "last_import_batch_id": "products:baseline",
-                "created_at": "2026-08-28 00:00:00",
-                "updated_at": "2026-08-28 00:00:00",
+                "source_key": source,
+                "source_label": source,
+                "file_name": f"{source}.xlsx",
+                "file_size_bytes": 1,
+                "file_hash": hashlib.sha256(batch_id.encode()).hexdigest(),
+                "raw_file_hash": hashlib.sha256(f"raw:{batch_id}".encode()).hexdigest(),
+                "content_hash": current_content_hash,
+                "scope_key": scope_key,
+                "published_state_token": erp_digest,
+                "sheet_name": "Sheet1",
+                "status": "completed",
+                "row_count": row_count,
+                "inserted_count": row_count,
+                "completed_at": timezone.now(),
             },
         )
+        ErpReferenceImportScopeHead.objects.filter(source_key=source).update(
+            scope_key=scope_key,
+            state_token=erp_digest,
+            status="ready",
+            owner_token="",
+            current_batch_id=batch_id,
+        )
+    ErpReferenceWriteAuthority.objects.filter(id=1).update(
+        status="postgres",
+        authority_epoch="33333333-3333-4333-8333-333333333333",
+        cutover_id=ERP_CUTOVER,
+        migration_verify_run_id=ERP_VERIFY_RUN,
+        activated_at=timezone.now(),
+    )
+    SalesDataRevision.objects.filter(domain="erp").update(
+        revision=erp_revision,
+        source_digest=combined_database_digest(),
+    )
+
+
+def _create_revisions(
+    *,
+    sales_revision: int = 7,
+    erp_revision: int = 3,
+    sales_digest: str = SALES_DIGEST,
+    erp_digest: str = ERP_DIGEST,
+    terminal_erp: bool = True,
+) -> None:
+    SalesDataRevision.objects.update_or_create(
+        domain="sales",
+        defaults={"revision": sales_revision, "source_digest": sales_digest},
+    )
+    SalesDataRevision.objects.update_or_create(
+        domain="erp",
+        defaults={"revision": erp_revision, "source_digest": erp_digest},
+    )
+    if terminal_erp and erp_revision > 0 and len(erp_digest) == 64:
+        _create_terminal_erp_state(erp_revision=erp_revision, erp_digest=erp_digest)
+
+
+class HealthTests(TestCase):
+    def _create_erp_product(self) -> None:
+        _create_erp_product()
 
     def _create_terminal_erp_state(self, *, erp_revision: int, erp_digest: str) -> None:
-        self._create_erp_product()
-        for source, row_count in (("products", 1), ("combos", 0)):
-            scope_key = hashlib.sha256(
-                f'{{"source":"{source}"}}'.encode("utf-8")
-            ).hexdigest()
-            batch_id = f"{source}:baseline"
-            current_content_hash = content_hash(
-                source,
-                [
-                    {
-                        "productCode": "P1",
-                        "productName": "ERP readiness fixture",
-                        "brand": "",
-                        "specification": "",
-                        "barcode": "",
-                        "category": "",
-                        "supplier": "",
-                        "productStatus": "",
-                        "sourceRowNumber": 1,
-                    }
-                ]
-                if source == "products"
-                else [],
-            )
-            ErpReferenceImportBatch.objects.update_or_create(
-                id=batch_id,
-                defaults={
-                    "source_key": source,
-                    "source_label": source,
-                    "file_name": f"{source}.xlsx",
-                    "file_size_bytes": 1,
-                    "file_hash": hashlib.sha256(batch_id.encode()).hexdigest(),
-                    "raw_file_hash": hashlib.sha256(f"raw:{batch_id}".encode()).hexdigest(),
-                    "content_hash": current_content_hash,
-                    "scope_key": scope_key,
-                    "published_state_token": erp_digest,
-                    "sheet_name": "Sheet1",
-                    "status": "completed",
-                    "row_count": row_count,
-                    "inserted_count": row_count,
-                    "completed_at": timezone.now(),
-                },
-            )
-            ErpReferenceImportScopeHead.objects.filter(source_key=source).update(
-                scope_key=scope_key,
-                state_token=erp_digest,
-                status="ready",
-                owner_token="",
-                current_batch_id=batch_id,
-            )
-        ErpReferenceWriteAuthority.objects.filter(id=1).update(
-            status="postgres",
-            authority_epoch="33333333-3333-4333-8333-333333333333",
-            cutover_id=ERP_CUTOVER,
-            migration_verify_run_id=ERP_VERIFY_RUN,
-            activated_at=timezone.now(),
-        )
-        SalesDataRevision.objects.filter(domain="erp").update(
-            revision=erp_revision,
-            source_digest=combined_database_digest(),
-        )
+        _create_terminal_erp_state(erp_revision=erp_revision, erp_digest=erp_digest)
 
     def _create_revisions(
         self,
@@ -113,18 +143,13 @@ class HealthTests(TestCase):
         erp_digest: str = ERP_DIGEST,
         terminal_erp: bool = True,
     ) -> None:
-        SalesDataRevision.objects.update_or_create(
-            domain="sales",
-            defaults={"revision": sales_revision, "source_digest": sales_digest},
+        _create_revisions(
+            sales_revision=sales_revision,
+            erp_revision=erp_revision,
+            sales_digest=sales_digest,
+            erp_digest=erp_digest,
+            terminal_erp=terminal_erp,
         )
-        SalesDataRevision.objects.update_or_create(
-            domain="erp",
-            defaults={"revision": erp_revision, "source_digest": erp_digest},
-        )
-        if terminal_erp and erp_revision > 0 and len(erp_digest) == 64:
-            self._create_terminal_erp_state(
-                erp_revision=erp_revision, erp_digest=erp_digest
-            )
 
     def test_liveness_does_not_require_database_state(self):
         response = self.client.get("/health/live")
@@ -319,3 +344,135 @@ class HealthTests(TestCase):
         )
         self.assertEqual(response.status_code, 413)
         self.assertEqual(response.json()["code"], "request_body_too_large")
+
+
+class BusinessSmokeEndpointTests(TestCase):
+    """`/health/business-smoke` runs the same sales/inventory business-level
+    probes that used to be inlined into `ready()`. They moved out because
+    `ready()` is polled with a 2s startup timeout (and a 15s publish-flow
+    timeout) while a cold-cache run of this probe measured 1.67-5.98s; see
+    docs/post-release-business-smoke-20261028/REPORT.md.
+    """
+
+    def test_endpoint_returns_200_with_ok_shape_for_the_default_reader_role(self):
+        response = self.client.get("/health/business-smoke")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok", "service": "teruisi-django"})
+        self.assertEqual(response["Cache-Control"], "no-store")
+
+    def test_endpoint_returns_503_with_code_when_the_probe_fails(self):
+        with patch(
+            "teruisi_backend.health._validate_sales_business_smoke",
+            side_effect=health.ReadinessError("sales_business_smoke_query_failed"),
+        ):
+            response = self.client.get("/health/business-smoke")
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json(),
+            {
+                "status": "not_ready",
+                "service": "teruisi-django",
+                "code": "sales_business_smoke_query_failed",
+            },
+        )
+        self.assertEqual(response["Cache-Control"], "no-store")
+
+    def test_endpoint_rejects_non_get_methods(self):
+        response = self.client.post("/health/business-smoke")
+        self.assertEqual(response.status_code, 405)
+
+    @override_settings(DJANGO_PROCESS_ROLE="inventory_reader")
+    def test_inventory_reader_role_runs_the_inventory_probe_only(self):
+        with patch(
+            "teruisi_backend.health._validate_inventory_business_smoke"
+        ) as inventory_probe, patch(
+            "teruisi_backend.health._validate_sales_business_smoke"
+        ) as sales_probe:
+            response = self.client.get("/health/business-smoke")
+        self.assertEqual(response.status_code, 200)
+        inventory_probe.assert_called_once()
+        sales_probe.assert_not_called()
+
+    @override_settings(DJANGO_PROCESS_ROLE="inventory_writer")
+    def test_inventory_writer_role_runs_the_inventory_probe_only(self):
+        with patch(
+            "teruisi_backend.health._validate_inventory_business_smoke"
+        ) as inventory_probe, patch(
+            "teruisi_backend.health._validate_sales_business_smoke"
+        ) as sales_probe:
+            response = self.client.get("/health/business-smoke")
+        self.assertEqual(response.status_code, 200)
+        inventory_probe.assert_called_once()
+        sales_probe.assert_not_called()
+
+    @override_settings(DJANGO_PROCESS_ROLE="sales_writer")
+    def test_sales_writer_role_runs_the_sales_probe_only(self):
+        with patch(
+            "teruisi_backend.health._validate_sales_business_smoke"
+        ) as sales_probe, patch(
+            "teruisi_backend.health._validate_inventory_business_smoke"
+        ) as inventory_probe:
+            response = self.client.get("/health/business-smoke")
+        self.assertEqual(response.status_code, 200)
+        sales_probe.assert_called_once()
+        inventory_probe.assert_not_called()
+
+    @override_settings(DJANGO_PROCESS_ROLE="finance_reader")
+    def test_unrelated_role_is_a_no_op(self):
+        with patch(
+            "teruisi_backend.health._validate_sales_business_smoke"
+        ) as sales_probe, patch(
+            "teruisi_backend.health._validate_inventory_business_smoke"
+        ) as inventory_probe:
+            response = self.client.get("/health/business-smoke")
+        self.assertEqual(response.status_code, 200)
+        sales_probe.assert_not_called()
+        inventory_probe.assert_not_called()
+
+    def test_ready_no_longer_calls_the_business_smoke_probes(self):
+        # Regression guard: these probes must stay off `ready()`'s path. If
+        # someone wires them back in, this test fails even though `ready()`
+        # itself still returns 200, because it asserts on call counts, not
+        # on the response.
+        _create_revisions()
+        with patch(
+            "teruisi_backend.health._validate_sales_business_smoke"
+        ) as sales_probe, patch(
+            "teruisi_backend.health._validate_inventory_business_smoke"
+        ) as inventory_probe:
+            response = self.client.get("/health/ready")
+        self.assertEqual(response.status_code, 200)
+        sales_probe.assert_not_called()
+        inventory_probe.assert_not_called()
+
+    @override_settings(
+        DJANGO_PROCESS_ROLE="sales_writer",
+        DJANGO_EXPECT_READ_ONLY=False,
+        DJANGO_ENVIRONMENT="test",
+        SALES_WRITE_AUTHORITY_EPOCH=WRITER_EPOCH,
+        SALES_WRITE_CUTOVER_ID=WRITER_CUTOVER,
+    )
+    def test_writer_ready_no_longer_calls_the_sales_business_smoke_probe(self):
+        _create_revisions()
+        install_lightweight_attestation(WRITER_CUTOVER)
+        SalesWriteAuthority.objects.filter(id=1).update(
+            status="active",
+            authority_epoch=WRITER_EPOCH,
+            cutover_id=WRITER_CUTOVER,
+        )
+        with patch(
+            "teruisi_backend.health._validate_sales_business_smoke"
+        ) as sales_probe:
+            response = self.client.get("/health/ready")
+        self.assertEqual(response.status_code, 200, response.content)
+        sales_probe.assert_not_called()
+
+    @override_settings(DJANGO_PROCESS_ROLE="inventory_reader")
+    def test_inventory_reader_ready_no_longer_calls_the_inventory_business_smoke_probe(self):
+        with patch(
+            "teruisi_backend.health._validate_inventory_business_smoke"
+        ) as inventory_probe:
+            response = self.client.get("/health/ready")
+        inventory_probe.assert_not_called()
+        # Not asserting on status_code here: inventory reader readiness has
+        # its own schema/revision prerequisites unrelated to this guard.

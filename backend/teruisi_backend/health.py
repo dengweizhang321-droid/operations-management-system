@@ -6,6 +6,8 @@ import json
 import logging
 import re
 import uuid
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.db import connection
@@ -2423,8 +2425,149 @@ def _validate_reader_state(cursor) -> None:
         raise ReadinessError("sales_reader_revision_invalid")
 
 
+# Business-level smoke: the readiness checks above only prove schema, index,
+# privilege and authority metadata. They cannot see a broken ORM join, a
+# serialization regression, or a resolved-category lookup failure, because
+# none of them execute the actual aggregate query a real page issues. This
+# probe reruns the same query shape the sales summary endpoint builds — same
+# queryset helper, same aggregate expressions, same unrestricted principal
+# posture a trusted internal caller holds — over a tiny, fixed, read-only
+# scope. It never writes, never takes a data-dependent assertion (no fixed
+# totals, since real sales data changes daily), and only asserts the query
+# executes and returns the expected shape with non-null integers.
+def _validate_sales_business_smoke(cursor) -> None:
+    from sales.query import metric_aggregates, sales_queryset
+
+    today = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+    start_date = (today - timedelta(days=1)).isoformat()
+    end_exclusive = (today + timedelta(days=1)).isoformat()
+    try:
+        queryset, scope_mode = sales_queryset(
+            start_date=start_date, end_exclusive=end_exclusive, principal=None,
+        )
+        aggregate = queryset.aggregate(**metric_aggregates())
+    except Exception as error:  # ORM/driver detail must stay out of HTTP.
+        raise ReadinessError("sales_business_smoke_query_failed") from error
+    if scope_mode != "unrestricted":
+        raise ReadinessError("sales_business_smoke_scope_invalid")
+    required = {
+        "gross_sales_cents", "refund_amount_cents",
+        "net_sales_excluding_accessories_cents", "cost_amount_cents",
+        "gross_profit_cents", "net_quantity", "order_count", "line_count",
+    }
+    if not required.issubset(aggregate) or any(
+        not isinstance(aggregate[key], int) for key in required
+    ):
+        raise ReadinessError("sales_business_smoke_shape_invalid")
+
+
+# Same rationale as the sales probe above, scoped to the inventory stock-line
+# read path: it exercises a real filtered aggregate against the latest
+# published snapshot instead of only confirming the table/columns exist. A
+# fresh environment with no completed batch yet is not a failure — there is
+# no business data to probe, so the check degrades to a no-op rather than
+# blocking an otherwise-healthy fresh deployment.
+def _validate_inventory_business_smoke(cursor) -> None:
+    from django.db.models import Count, Sum
+
+    from inventory.models import InventoryImportBatch, InventoryStockLine
+
+    try:
+        latest_batch = (
+            InventoryImportBatch.objects.filter(dataset="stock", status="completed")
+            .order_by("-snapshot_date", "-completed_at")
+            .values_list("snapshot_date", flat=True)
+            .first()
+        )
+        if latest_batch is None:
+            return
+        aggregate = InventoryStockLine.objects.filter(
+            snapshot_date=latest_batch,
+        ).aggregate(
+            row_count=Count("id"), available_quantity=Sum("available_quantity"),
+        )
+    except Exception as error:  # ORM/driver detail must stay out of HTTP.
+        raise ReadinessError("inventory_business_smoke_query_failed") from error
+    if not isinstance(aggregate.get("row_count"), int):
+        raise ReadinessError("inventory_business_smoke_shape_invalid")
+    if aggregate["row_count"] > 0 and not isinstance(
+        aggregate.get("available_quantity"), int
+    ):
+        raise ReadinessError("inventory_business_smoke_shape_invalid")
+
+
 @require_GET
 def live(_request):
+    return _response({"status": "ok", "service": "teruisi-django"})
+
+
+# Separate from `ready()` on purpose: these business-level smoke probes run a
+# real aggregate query (cold-cache ~1.7-6s, see docs/post-release-business-
+# smoke-20261028/REPORT.md) against sales or inventory data. `ready()` is
+# polled by the startup script with a 2s HTTP timeout and by the publish
+# pipeline with a 15s timeout; either budget can be blown by this probe alone,
+# turning a slow-but-healthy database into a startup failure. This endpoint
+# carries the same probes without sharing `ready()`'s time budget, and is
+# meant to be polled independently and less aggressively.
+# Process roles that `ready()` dispatches to a different domain's readiness
+# check entirely (ai_reader/ai_writer delegate to ai_assistant.health, and
+# every other named *_writer/*_reader role below belongs to a domain that has
+# no business-smoke probe of its own). Any role not in this set is the sales
+# reader/writer's implicit "else" branch in `ready()`, which is the only
+# branch `_validate_sales_business_smoke` ran from.
+_NON_SALES_DOMAIN_PROCESS_ROLES = frozenset({
+    "ai_reader", "ai_writer",
+    "finance_writer", "finance_reader",
+    "netshop_writer", "netshop_reader",
+    "market_writer", "market_reader",
+    "products_writer", "products_reader",
+    "workflow_writer", "workflow_reader",
+    "erp_reference_writer", "erp_reference_reader",
+    "customer_service_writer", "customer_service_reader",
+    "bi_reader",
+    "access_control_writer", "access_control_reader",
+})
+
+
+@require_GET
+def business_smoke(_request):
+    role = settings.DJANGO_PROCESS_ROLE
+    inventory_writer_process = role == "inventory_writer"
+    inventory_reader_process = role == "inventory_reader"
+    runs_sales_probe = (
+        role not in _NON_SALES_DOMAIN_PROCESS_ROLES
+        and not inventory_writer_process
+        and not inventory_reader_process
+    )
+    try:
+        with connection.cursor() as cursor:
+            if runs_sales_probe:
+                _validate_sales_business_smoke(cursor)
+            if inventory_writer_process or inventory_reader_process:
+                _validate_inventory_business_smoke(cursor)
+    except ReadinessError as error:
+        logger.warning("business_smoke_failed code=%s", error.code)
+        return _response(
+            {
+                "status": "not_ready",
+                "service": "teruisi-django",
+                "code": error.code,
+            },
+            status=503,
+        )
+    except Exception as error:  # Database/driver details must stay out of HTTP.
+        logger.exception(
+            "business_smoke_failed code=business_smoke_probe_error type=%s",
+            type(error).__name__,
+        )
+        return _response(
+            {
+                "status": "not_ready",
+                "service": "teruisi-django",
+                "code": "business_smoke_probe_error",
+            },
+            status=503,
+        )
     return _response({"status": "ok", "service": "teruisi-django"})
 
 
