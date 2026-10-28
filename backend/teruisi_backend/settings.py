@@ -108,12 +108,19 @@ database_url = os.getenv("TERUISI_DJANGO_DATABASE_URL", "").strip()
 DEBUG = env_bool("DJANGO_DEBUG", default=not bool(database_url))
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-local-development-key")
 DJANGO_INTERNAL_SECRET = os.getenv("TERUISI_DJANGO_INTERNAL_SECRET", "")
+AI_SECRET_ENCRYPTION_KEY = os.getenv("AI_SECRET_ENCRYPTION_KEY", "")
 if DJANGO_ENVIRONMENT == "production" and (DEBUG or not database_url):
     raise RuntimeError("生产 Django 必须关闭 DEBUG 并显式配置 PostgreSQL")
 if not DEBUG:
     SECRET_KEY = validate_secret("DJANGO_SECRET_KEY", SECRET_KEY, required=True)
     DJANGO_INTERNAL_SECRET = validate_secret(
         "TERUISI_DJANGO_INTERNAL_SECRET", DJANGO_INTERNAL_SECRET, required=True
+    )
+    # AI 凭证加密主钥：沿用同一套 fail-closed 规则，在进程启动时（而非首次
+    # 加解密时）就拒绝过短或占位的密钥；为空表示本进程未配置 AI 加密功能，
+    # 留给 ai_assistant.secrets 在首次使用时按"必须配置"报错。
+    AI_SECRET_ENCRYPTION_KEY = validate_secret(
+        "AI_SECRET_ENCRYPTION_KEY", AI_SECRET_ENCRYPTION_KEY, required=False
     )
 ALLOWED_HOSTS = [
     item.strip()
