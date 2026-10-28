@@ -2,6 +2,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from datetime import timedelta
 from threading import BoundedSemaphore
 from django.conf import settings
 from django.http import JsonResponse
@@ -43,6 +44,31 @@ from .policy import (
 )
 
 
+# processing 回执的租期：进程崩溃在 handler() 执行期间（finish() 之前）会让回执永远停在
+# processing，同一 request_id 之后永远 409，且 ai_write_authority / ai_cutover_check 只要
+# 存在 processing 回执就拒绝切换。created_at 在创建时一次性写入、此后不再变化，可直接当租期
+# 起点，不需要新增字段。超租期不自动重放 handler（不确定操作不可重放），只把回执转入
+# stale_manual_review 人工对账状态，释放同 request_id 的后续请求与写权限切换门禁。
+PROCESSING_LEASE = timedelta(minutes=30)
+
+# 照 customer_service/write_requests.py 等域的 7 天 TTL 模板：AiWriteReceipt 当前无清理，
+# response_payload 永久保存完整响应。其他域靠专用 expires_at 字段做到期批量删除；AI 域不新增
+# 字段，直接复用已有的 completed_at 做同等的惰性清理（写入路径顺带删除早于 7 天前完成的回执），
+# stale_manual_review/processing 状态不在此清理范围内，必须留给人工对账。
+COMPLETED_RECEIPT_TTL = timedelta(days=7)
+
+
+def _prune_expired_receipts():
+    cutoff = timezone.now() - COMPLETED_RECEIPT_TTL
+    stale_ids = list(
+        AiWriteReceipt.objects.filter(status="completed", completed_at__lte=cutoff)
+        .order_by("completed_at")
+        .values_list("request_id", flat=True)[:20]
+    )
+    if stale_ids:
+        AiWriteReceipt.objects.filter(request_id__in=stale_ids).delete()
+
+
 def response(payload, status=200, replayed=False):
     result = JsonResponse(
         payload,
@@ -82,20 +108,36 @@ def write(request, principal, handler, *, external=False, audit_only=False, comm
         ).hexdigest(),
         "body_sha256": request.headers["X-Teruisi-Content-SHA256"].lower(),
     }
+    lease_expired = False
     with mutation(principal, audit_only=audit_only):
-        existing = AiWriteReceipt.objects.filter(request_id=request_id).first()
+        _prune_expired_receipts()
+        existing = AiWriteReceipt.objects.select_for_update().filter(request_id=request_id).first()
         if existing:
             if any(getattr(existing, k) != v for k, v in identity.items()):
                 raise AiError("请求标识绑定已变化", "conflict", 409)
-            if existing.status != "completed":
+            if existing.status == "completed":
+                return response(existing.response_payload, existing.response_status, True)
+            if existing.status == "processing" and existing.created_at <= timezone.now() - PROCESSING_LEASE:
+                # 转 stale_manual_review 必须在本次 mutation() 事务内提交，不能跟随随后
+                # 抛出的 AiError 一起回滚；否则同一 request_id 会永远卡在 processing。
+                existing.status = "stale_manual_review"
+                existing.save(update_fields=["status"])
+                lease_expired = True
+            else:
                 raise AiError(
                     "请求已受理，禁止重复执行不确定操作", "request_pending", 409
                 )
-            return response(existing.response_payload, existing.response_status, True)
-        receipt = AiWriteReceipt.objects.create(request_id=request_id, **identity)
-        if not external:
-            payload, status = handler()
-            return finish(receipt, principal, payload, status)
+        else:
+            receipt = AiWriteReceipt.objects.create(request_id=request_id, **identity)
+            if not external:
+                payload, status = handler()
+                return finish(receipt, principal, payload, status)
+    if lease_expired:
+        raise AiError(
+            "请求处理租期超时，结果未知，已转人工对账；不会自动重放",
+            "processing_lease_expired",
+            409,
+        )
     if commit_in_handler:
         def complete(payload, status):
             from django.db import connection
