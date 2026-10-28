@@ -26,3 +26,5 @@
 ## 边界
 
 这次只解决**容量检查点**，不改变前驱/后继语义、lineage、approval、CAS、sidecar 或启动绑定。下一次超过 512 前仍需新的容量检查点评审。
+
+> 2026-10-29 事后补记：本次范围限定在 rotation 模块，**遗漏了两个按 `1 + maximumSuccessors` 派生该上限的保留清理文件**（`tools/release-payload-retention.mjs`、`tools/storage-retention-policy.mjs`，当时仍为 257）。生产链长 272 时 release 保留清理因此自锁，于 2026-10-29 发现并对齐为 513。**今后再调 `maximumSuccessors`，必须同步这两个文件并更新其边界测试**，详见 [release 保留清理 257 失配调查](../release-retention-257-bound-20261029/REPORT.md)。

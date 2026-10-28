@@ -21,6 +21,18 @@ test("explicit protected release occupies no deletion candidate", () => {
   const items = [1, 2, 3, 4, 5].map(release);
   assert.deepEqual(selectReleaseRetention(items, "2026-09-28T00:00:00Z", [items[0].releaseId]).candidates, [items[1]]);
 });
+// One release per hour ending at the clock, so a long chain spans well past the
+// seven-day window and the bound is exercised together with the real selection.
+const chain = (length, end = Date.parse("2026-09-28T00:00:00Z")) => Array.from({ length }, (_, index) => ({
+  releaseId: `20260101T000000Z-${index.toString(16).padStart(16, "0")}`,
+  createdAt: new Date(end - (length - 1 - index) * 3600000).toISOString(),
+}));
+test("inventory bound tracks 1 + maximumSuccessors: 513 accepted, 514 rejected", () => {
+  const atBound = selectReleaseRetention(chain(513), "2026-09-28T00:00:00Z");
+  assert.equal(atBound.retained.length, 169);
+  assert.equal(atBound.candidates.length, 344);
+  assert.throws(() => selectReleaseRetention(chain(514), "2026-09-28T00:00:00Z"), /Invalid retention inventory/);
+});
 test("future, duplicate, missing protection, invalid path and invalid clocks fail closed", () => {
   assert.throws(() => selectReleaseRetention([release(28)], "2026-09-27T00:00:00Z"));
   assert.throws(() => selectReleaseRetention([release(1), release(1)], "2026-09-28T00:00:00Z"));

@@ -49,6 +49,18 @@ test("planning rejects reordered tips, duplicate releases, traversal, unknown tr
   assert.throws(() => dependencyRetentionPlan(args));
 });
 
+test("chain length bound tracks 1 + maximumSuccessors: 513 accepted, 514 rejected", () => {
+  const plan = dependencyRetentionPlan({
+    releases: releases(513), headReleaseId: releases(513).at(-1).releaseId, chainStateSha256: hash("c"),
+  });
+  assert.equal(plan.retainedReleaseIds.length, 3);
+  assert.equal(plan.candidates.length, 510);
+  const overBound = releases(514);
+  assert.throws(() => dependencyRetentionPlan({
+    releases: overBound, headReleaseId: overBound.at(-1).releaseId, chainStateSha256: hash("c"),
+  }), /Invalid retention input/);
+});
+
 test("private destination binds both owner/name and numeric repository identity", () => {
   const repo = { full_name: "owner/backups", private: true, visibility: "private", id: 123, archived: false };
   assert.equal(assertPrivateRepository(repo, "owner/backups", 123), 123);

@@ -28,8 +28,9 @@ export function validateTreeIdentity(tree) {
 
 // Input order MUST come from the already verified successor chain, never from
 // directory names, timestamps, an unverified current pointer or remote state.
+// The length bound below is 1 + maximumSuccessors from tools/worker-local-release-rotation.mjs, so the two must move together.
 export function dependencyRetentionPlan({ releases, headReleaseId, chainStateSha256, keepLatest = 3 }) {
-  if (!Array.isArray(releases) || releases.length < 1 || releases.length > 257
+  if (!Array.isArray(releases) || releases.length < 1 || releases.length > 513
       || !Number.isInteger(keepLatest) || keepLatest < 3 || keepLatest > 20
       || !digestPattern.test(chainStateSha256 ?? "")) throw new Error("Invalid retention input");
   const seen = new Set();

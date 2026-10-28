@@ -12,9 +12,11 @@ export function asciiJson(value) {
   return JSON.stringify(value).replace(/[^\x00-\x7f]/g, (ch) => "\\u" + ch.charCodeAt(0).toString(16).padStart(4, "0"));
 }
 
+// Bound is 1 + maximumSuccessors; maximumSuccessors lives in tools/worker-local-release-rotation.mjs,
+// so the two must move together.
 export function selectReleaseRetention(releases, now, pinned = []) {
   const clock = Date.parse(now);
-  if (!Number.isFinite(clock) || !Array.isArray(releases) || !releases.length || releases.length > 257
+  if (!Number.isFinite(clock) || !Array.isArray(releases) || !releases.length || releases.length > 513
       || !Array.isArray(pinned) || pinned.some((id) => !releaseId.test(id))) throw new Error("Invalid retention inventory");
   const seen = new Set();
   for (const item of releases) {
