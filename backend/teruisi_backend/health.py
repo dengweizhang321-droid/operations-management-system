@@ -132,6 +132,7 @@ REQUIRED_COLUMNS = {
 }
 REQUIRED_SALES_INDEXES = {
     "sales_biz_date_idx",
+    "sales_excluded_date_idx",
     "sales_platform_shop_date_idx",
     "sales_channel_date_idx",
     "sales_category_date_idx",

@@ -16,6 +16,14 @@ export async function GET(request: Request) {
     requireUnrestrictedDataScope(principal, "销售导入校验");
     const source = new URL(request.url).searchParams;
     const target = new URLSearchParams();
+    const preflightValues = source.getAll("preflightOnly");
+    if (preflightValues.length > 0 && (preflightValues.length !== 1 || preflightValues[0] !== "1"
+      || source.has("policyOnly") || source.has("batchId"))) {
+      return Response.json(
+        { error: "preflightOnly 必须为单个 1，且不能与 policyOnly 或 batchId 同时使用。" },
+        { status: 400, headers: { "cache-control": "no-store" } },
+      );
+    }
     if (source.get("policyOnly") === "1") {
       target.set("policyOnly", "1");
     } else {
@@ -30,6 +38,7 @@ export async function GET(request: Request) {
       }
       target.set("startDate", dateRange.startDate);
       target.set("endDate", dateRange.endDate);
+      if (preflightValues.length === 1) target.set("preflightOnly", "1");
       const batchId = source.get("batchId")?.trim();
       if (batchId) target.set("batchId", batchId.slice(0, 200));
     }

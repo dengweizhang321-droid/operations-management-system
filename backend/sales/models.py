@@ -149,6 +149,11 @@ class SalesOrderLine(models.Model):
                 condition=models.Q(is_business_row=True),
             ),
             models.Index(
+                fields=["business_date"],
+                name="sales_excluded_date_idx",
+                condition=models.Q(is_business_row=False),
+            ),
+            models.Index(
                 fields=["platform_key", "shop_key", "business_date"],
                 name="sales_platform_shop_date_idx",
                 condition=models.Q(is_business_row=True),
