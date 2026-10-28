@@ -4,7 +4,7 @@
 
 返回 [文档首页](../../README.md) · [完整文档目录](../../文档目录.md)
 
-能力补全施工入口：[详细方案](../../ai-assistant-capability-plan-20261028/PLAN.md) · [方案审查](../../ai-assistant-capability-plan-20261028/REVIEW.md)（方案文档，未实施）。
+任务、Skill 与自动工作流施工入口：[v2详细方案](../../ai-assistant-capability-plan-20261028/PLAN.md) · [方案审查](../../ai-assistant-capability-plan-20261028/REVIEW.md)（方案文档，未实施）。
 
 | 文档 | 文件 |
 | --- | --- |
