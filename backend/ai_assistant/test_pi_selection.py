@@ -29,3 +29,19 @@ class PiSelectionTests(unittest.TestCase):
             with self.assertRaises(AiError):
                 selection.bind_arguments(name, args, one, "s")
         self.assertEqual(selection.filter_catalog([{"name": "get_data_freshness"}, {"name": "get_inventory_health"}], one), [{"name": "get_data_freshness"}])
+
+    def test_knowledge_and_memory_reach_a_single_shop_environment_unaltered(self):
+        one = {"platform": "京东", "shop": "测试店"}
+        # Both are admitted under the fence; the arguments come back untouched
+        # because the single-shop restriction travels in the execution context,
+        # not in the arguments a model writes.
+        for name in ("search_system_knowledge", "search_personal_memory"):
+            self.assertEqual(selection.bind_arguments(name, {"query": "口径"}, one),
+                             {"query": "口径"})
+            self.assertIn(name, selection.TOOLS)
+        # A model-supplied flag is not given a path here either: it is not a
+        # declared argument of those tools, so it never reaches this function
+        # from the registry, and nothing in this function would honour it.
+        self.assertNotIn("singleShopRestricted",
+                         selection.bind_arguments("search_personal_memory",
+                                                  {"query": "口径"}, one))

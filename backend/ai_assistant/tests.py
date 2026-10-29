@@ -195,6 +195,56 @@ class AiDomainTests(TestCase):
                     "memory-secret",
                 )
 
+    def test_single_shop_recall_withholds_unprovable_kinds(self):
+        for kind, key, content in [
+            ("business_context", "产品定位", "系列定位为家庭清洁设备，沟通优先介绍易清洁结构"),
+            ("preference", "回复偏好", "回答家庭清洁问题时先给结论再给依据"),
+            ("glossary", "家庭清洁口径", "家庭清洁指同一家庭日常清洁的合计口径"),
+        ]:
+            with mutation(self.owner):
+                memory.save({"kind": kind, "key": key, "content": content,
+                             "confirmed": True}, self.owner, "memory-" + kind)
+
+        # Default path unchanged: every kind the owner confirmed is recalled.
+        plain = memory.recall("家庭清洁", self.owner)
+        self.assertEqual({item["kind"] for item in plain["items"]},
+                         {"business_context", "preference", "glossary"})
+        self.assertNotIn("shopRestricted", plain)
+
+        # Under a single-shop environment the kind whose shop attribution cannot
+        # be proven is withheld, and the restriction is stated rather than left
+        # as a silent absence.
+        restricted = memory.recall("家庭清洁", self.owner, single_shop=True)
+        self.assertEqual({item["kind"] for item in restricted["items"]},
+                         {"preference", "glossary"})
+        self.assertTrue(restricted["shopRestricted"])
+        self.assertEqual(restricted["withheldKinds"], ["business_context"])
+        self.assertEqual(restricted["totalMatched"], 2)
+
+        # An empty query recalls nothing and must not claim a withheld kind it
+        # never matched.
+        empty = memory.recall("", self.owner, single_shop=True)
+        self.assertEqual(empty["items"], [])
+        self.assertEqual(empty["withheldKinds"], [])
+        self.assertTrue(empty["shopRestricted"])
+
+    def test_memory_recall_consumer_guards_the_restriction_flag(self):
+        with mutation(self.owner):
+            memory.save({"kind": "business_context", "key": "产品定位",
+                         "content": "系列定位为家庭清洁设备", "confirmed": True},
+                        self.owner, "memory-guard")
+        # A non-boolean flag is refused outright rather than coerced.
+        for value in ("true", 1, None, []):
+            with self.assertRaises(AiError):
+                views.consumer({"operation": "memory-recall", "query": "家庭清洁",
+                                "singleShopRestricted": value}, self.owner, "req-bad")
+        # Absent means unrestricted; present-and-true applies the restriction.
+        self.assertNotIn("shopRestricted", views.consumer(
+            {"operation": "memory-recall", "query": "家庭清洁"}, self.owner, "req-plain"))
+        self.assertEqual(views.consumer(
+            {"operation": "memory-recall", "query": "家庭清洁",
+             "singleShopRestricted": True}, self.owner, "req-restricted")["items"], [])
+
     def test_chat_tool_identity_replay_and_delete(self):
         replies = [
             {

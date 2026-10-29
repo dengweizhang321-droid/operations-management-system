@@ -125,11 +125,19 @@ K2 是产品决定，不阻塞 B-1 实施。
 
 Pi 链路内部剥除/重注逻辑自身闭合；`visible()` 未改动是正确范围划分（`list`/`get` 是 owner 人工管理入口，非模型路径）；`withheld` 计算在空 query 时不打数据库、语义准确；`knowledge.py` 注释准确描述了前提与失效条件，`rank()` 现仅按 `principal.role` 过滤；TS 签名变更不破坏既有测试（`tests/ai-memory.test.ts` 导入的是 `./legacy/ai/memory`，与 `lib/ai/memory.ts` 无导入关系）。
 
-### 9.4 测试覆盖缺口（如实记录）
+### 9.4 测试覆盖（审查指出缺口后补齐）
 
-本次改动**没有新增测试**：`recall(single_shop=...)`、`views.py` 的标记校验、context 旁路的 surface 门控均无测试覆盖。审查指出，首版那处缺口正是因为缺少「Chat surface 下模型自填该参数」的测试才被放过。
+审查指出首版那处缺口正是因为缺少「Chat surface 下模型自填该参数」的测试才被放过。权限边界属自动化测试范围而非业务功能验收（见 [AGENTS.md 第 4、5 条的适用边界](../../AGENTS.md)），故已补三项：
 
-按根 [AGENTS.md](../../AGENTS.md) 第 4 条，AI 不执行功能验收，故未补业务场景测试；但上述三处属于权限边界而非业务行为，建议在后续切片补自动化测试。本节记录该缺口，不以「测试通过」掩盖它。
+| 测试 | 覆盖内容 |
+| --- | --- |
+| `tests.AiDomainTests.test_single_shop_recall_withholds_unprovable_kinds` | 默认路径三类齐全且无 `shopRestricted`；单店下排除 `business_context`、`withheldKinds` 与 `totalMatched` 正确；空 query 不虚报扣留类型 |
+| `tests.AiDomainTests.test_memory_recall_consumer_guards_the_restriction_flag` | 非布尔标记一律拒绝（字符串、整数、null、数组）；缺省为不受限；为 true 时限制生效 |
+| `test_pi_selection.test_knowledge_and_memory_reach_a_single_shop_environment_unaltered` | 两工具在单店白名单内；args 原样返回不被注入；模型无法经此函数取得标记 |
+
+有效性已验证：临时移除 `recall()` 中的 `exclude(kind__in=SHOP_UNPROVABLE_KINDS)` 后第一项测试失败，随后原样还原（与提交版本逐字节一致）。测试会在回归时失败，不是只在当前实现下恰好通过。
+
+仍未覆盖：`django-edge.ts` 的 `surface === "pi_agent"` 门控在 Worker 侧，本 worktree 无 `node_modules` 无法执行其测试。
 
 ### 9.5 本次验证
 
