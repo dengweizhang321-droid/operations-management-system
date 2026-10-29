@@ -1,0 +1,4 @@
+{
+  ".github/workflows/ci.yml": "c977b045de2b6713b3e45e1ceecd98236a1966a1fb601cdf9c1af41a365a51a3",
+  "tests/maintenance-controller-qualification.test.mjs": "d2ba9ff03ba4c0437e00c751ebd0f181dbcfa00074ac3905fe85bb28b504928e"
+}

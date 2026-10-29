@@ -1,0 +1,11 @@
+{
+  "package.json": "c4c7f6a0422370d7ac7c2c75bff2ad0c77f19d507d07cc8d98dcc8440f1d5056",
+  "tools/worker-local-release-rotation.mjs": "5171f54839b42a64d986db919770aa3f72d76dce77babb8abea250a02b8b6037",
+  "tools/publish-prepared-main.mjs": "e50f8112e0ae6553a4f66632ebfc95a76fba1030041c6d9d96af4273d98ae6d1",
+  "tools/worker-local-release.mjs": "6dcd3016f6164a0c897c94ae26ec300b82f69ad122739ea1ba5b843ca95a8333",
+  "tools/django-local-service.ps1": "98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b",
+  "tools/worker-local-service.ps1": "1b8c5d4d61ba491d042f41ae91e9cc7b0d0c87a28536bac7b4c8a1e53fda761e",
+  "tools/process-deadline.ps1": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+  "tools/manual-maintenance-continuation.mjs": "197c537812ed2e3e3c607c9b079a541289d357c6d4de62b9d8b8d74085e0e6a3",
+  "docs/prepared-artifact-loss-20261029/artifact-loss-manifest.json": "e44dac82794da312e3cbaade260b853806e9e9f067eee86197e6b4789a7e32ab"
+}

@@ -29,3 +29,6 @@ docs/prepared-artifact-loss-20261029/*.log -text -diff
 docs/artifact-loss-native-lock-20261029/*.json -text whitespace=cr-at-eol
 docs/artifact-loss-native-lock-20261029/*.tap -text -diff
 docs/artifact-loss-native-lock-20261029/*.log -text -diff
+docs/sales154-qualification-review-20261029/*.json -text whitespace=cr-at-eol
+docs/sales154-qualification-review-20261029/*.tap -text -diff
+docs/sales154-qualification-review-20261029/*.log -text -diff

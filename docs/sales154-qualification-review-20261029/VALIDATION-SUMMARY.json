@@ -1,0 +1,30 @@
+{
+  "reviewConclusion": "A-parent-lifecycle-proof-plus-exact-Sales-delta-plus-independent-database-gate",
+  "qualificationRegistered": false,
+  "implementationModified": false,
+  "productionTouched": false,
+  "qualificationStaticCheck": {
+    "passed": 2,
+    "failed": 1,
+    "expectedFailure": "django-local-service.ps1 current SHA not registered"
+  },
+  "lint": {
+    "errors": 56,
+    "warnings": 132
+  },
+  "backendBoundary": {
+    "violations": [],
+    "exitCode": 0
+  },
+  "pi152Acl": {
+    "checks": 27,
+    "passed": true,
+    "noDatabase": true
+  },
+  "ciAllowlist": {
+    "passed": 66,
+    "failed": 0
+  },
+  "protectedSourceFilesUnchanged": 9,
+  "mergeOrReleaseReady": false
+}

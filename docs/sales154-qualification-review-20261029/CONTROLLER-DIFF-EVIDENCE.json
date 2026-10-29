@@ -1,0 +1,24 @@
+{
+  "changeCommit": "d95852dd8542e95b8927787c1e7b082a16a5b215",
+  "beforeSha256": "4ba1fcaf3cd1568a64098a9d2d32039f850ec2db1da4f81aa97fa3ab9530723a",
+  "afterSha256": "98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b",
+  "headSha256": "98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b",
+  "headEqualsD958": true,
+  "diffBlocks": [
+    {
+      "kind": "insert",
+      "oldStartLine": 1790,
+      "oldLineCount": 0,
+      "newStartLine": 1790,
+      "newLineCount": 23
+    },
+    {
+      "kind": "insert",
+      "oldStartLine": 2187,
+      "oldLineCount": 0,
+      "newStartLine": 2210,
+      "newLineCount": 3
+    }
+  ],
+  "allOtherRawLinesIdentical": true
+}
