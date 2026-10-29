@@ -1,6 +1,6 @@
-# AI助理统一施工方案 v3
+# AI助理统一施工方案 v3.1
 
-日期：2026-10-29。源码基线：`9e7027fde83c613de944402cad77770741d55b81`，来自本次最新 `origin/main`。
+日期：2026-10-29。源码核对基线：`bf9d81e318421ad110f74f99b9766003d10729f4`，来自本次最新 `origin/main`。v3.1纳入推广链费用补充及其事实修正，主线阶段与独立专项划分保持。
 本文件统一任务/Skill方案、能力复核、F1—F8修复建议及最新审查结论，作为自足的施工正文；执行不依赖其他工作树中的旧PLAN或FIXPLAN。
 当前只交付方案，未实施应用、运行功能测试、读取凭据、调用付费模型、发送消息或操作生产。所有新增名称、接口与字段均为拟定，开发前核对最新main。
 
@@ -335,7 +335,7 @@ D1 tombstone、永久guard、迁移与历史摘要继续保留，不清理drizzl
 | 阶段 | 交付/关键入口 | 依赖及完成状态 |
 | --- | --- | --- |
 | M1 来源资格盘点 | business_reports/business_evidence、推广来源/封存及市场catalog：先核是否已有满足合同的合格封存推广来源 | 有合格来源则复用；仅缺来源时补所需创建链，不无条件开启全部五角色付费推广链 |
-| M2 最小配置与准入图 | settings及各owner/gate：列实际使用门控、受保护表、角色、运行入口和默认关闭语义 | 只声明本路线需要的门控，不批量开18个开关；声明不是启用 |
+| M2 最小配置与准入图 | settings及各owner/gate：列实际使用门控、受保护表、角色、运行入口和默认关闭语义；拟新启用推广运行时，确认下文完整流程的费用控制归属 | 只声明本路线需要的门控，不批量开18个开关；已有合格来源可复用，声明不是启用 |
 | M3 付费契约与实现 | paid_gate、费率/汇率/人工上限、逐轮原子预留/结算与未知协调 | 契约可先开发；新付费authority/预留账与旧候选分离，真实调用等M5及付费授权 |
 | M4 owning读取契约 | 各owning工具、provider/tool回执及独立NOLOGIN attestor | 合同/代码可先开发；真实同job读取证明须待M5新结构与M3许可，不能提前造正例 |
 | M5 新profile结构保护 | 新migration、report/workflow/node/job及SQL guard；重验来源根、账号/owner、目录及图 | 新增受保护分支，仅新profile符合条件才准入；旧paused/候选不解禁 |
@@ -343,6 +343,27 @@ D1 tombstone、永久guard、迁移与历史摘要继续保留，不清理drizzl
 
 实际顺序：M1→M2→M3/M4契约开发→M5结构保护→获准的真实M3调用与M4同job读取→M6数值证明。代码可分包，真实证据不能跨报告拼接。
 M1先产资格清单：来源报告/profile、封存/上下文证明、owner/账号版本、覆盖与目录、缺口及所需最小补链。现有材料不足就保持未就绪，不凭“有一个推广报告”判合格。
+
+**推广链费用控制（仅在需要新启用推广运行时由M1/M2明确）。** 市场专用付费门禁不覆盖普通推广profile；这一缺口以实际共享调用链为依据：
+
+- [business_market_v2_paid_gate.py](../../backend/ai_assistant/business_market_v2_paid_gate.py) 按市场profile前缀 `business-agent-screening-promotion-market-` 或五个 `MARKET_TOOLS` 的交集识别市场任务。普通推广profile实际为 `business-agent-screening-promotion-reference-v1`，未携市场工具时不被该门禁拦截。
+- [workflows.py](../../backend/ai_assistant/workflows.py) 先调用上述门禁，再核推广运行许可、模型版本及轮次，随后调用 [chat.py](../../backend/ai_assistant/chat.py) 的 `dispatch_budget()` 并建立provider派发记录，最后执行 `provider.turn()`。`dispatch_budget()`限制全局、owner及模型的日调用次数，没有依据价格和汇率预留金额；返回usage也不证明金额上限已受控。关键词零命中或“short reservation”注释不单独作为缺口证明。
+- [business_promotion_runtime_contract.py](../../backend/ai_assistant/business_promotion_runtime_contract.py) 的 `graph()` 继承 [business_screening_runtime_contract.py](../../backend/ai_assistant/business_screening_runtime_contract.py) 五个Agent：`commerce`、`promotion`、`market_b2b`、`independent_review`、`report`，另有人工复核节点。`PROMOTION_ROLES`三项只限定追加词货工具和相关数值引用资格，不能用来计算整条流程的角色数量。各角色按实际页数、多轮读取与最终回答消耗token，不是一角色固定一轮。
+- [market_model_cost_envelope.py](../../backend/business_analysis/market_model_cost_envelope.py) 可提供整数费用上界计算，其输出仍明确 `fundsReservedInDurableLedger=false`、`providerCallsAllowed=false`。复用计算合同还须适配实际流程、模型及计费项目，不能把估算结果当作持久金额预留或调用许可。
+
+正式自动推广运行的费用方案至少明确以下契约，并与市场M3费用记录区分或以明确账户/报告绑定复用，不能让两个执行者重复占用或消费同一授权：
+
+| 契约 | 完成条件 |
+| --- | --- |
+| 覆盖范围 | 以完整报告/流程为累计边界，覆盖五角色全部轮次、分页读取引发的模型调用及恢复续跑；恢复不重置累计消耗或生成新的预算身份 |
+| 费率与授权 | 绑定供应商、模型/配置版本、有效价格及汇率版本、实际计费类别和用户批准的报告金额上限；来源或计费范围不明时显示未受金额上限控制，不能按零价计算 |
+| 预留与派发 | 每轮在可信侧原子预留并绑定原dispatch；仅通过估算、界面确认或设置token配额，不构成持久预留完成 |
+| 用量与未知结果 | 按可信用量和原派发记录对账；用量缺失、结果未知不按零费用结算，不释放其尚未确定的预算占用，不因超时或人工恢复重发模型请求 |
+| 参数与费用分开 | 保留用户的高输出、长上下文及可调参数；金额额度由本次授权确定，不通过静默降低模型参数或增加固定产品上限代替费用控制 |
+
+限定对象/数据规模并由用户逐次确认，可以作为另行明确授权的人工运行安排，但应披露其费用不确定性，不称为人民币预算已受控，也不替代正式自动链的金额机制。现有 [business_promotion_activation.py](../../backend/ai_assistant/business_promotion_activation.py) 会恢复完整流程并启动前三专业角色；单角色运行需要单独的profile/依赖设计，不能当作现成开关或完整五角色报告。
+
+上述补充只约束准备新启用的推广运行。M1已有合格封存来源时继续复用，不为复用来源重启推广链，也不阻塞P0/P1必要能力建设。推广运行门控保持关闭，直至其执行方式、费用边界和相应授权明确；普通Agent的64步、16次恢复及派发次数限制属于执行边界，不等于金额上限。
 
 新报告真实准入必须落实[0073 blocker](../技术专题/AI经营分析/市场数据/business-market-v2-read-bridge-0073-blocker.md)五条件：
 
