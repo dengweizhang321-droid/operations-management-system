@@ -1,0 +1,402 @@
+{
+  "exitCode": 1,
+  "errors": 56,
+  "warnings": 132,
+  "rawFile": "D:\\codex-worktrees\\sales154-controller-qualification-20261029\\.runtime\\qualification\\eslint-final.json",
+  "rawSha256": "65af583c63984735c9edd34edd624320e2c51ba4ff773c5b85dde89df3181444",
+  "errorDetails": [
+    {
+      "file": "app/ai-conversation-shell.tsx",
+      "line": 19,
+      "column": 35,
+      "ruleId": "react-hooks/refs",
+      "message": "Error: Cannot access refs during render\n\nReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).\n\nD:\\codex-worktrees\\sales154-controller-qualification-20261029\\app\\ai-conversation-shell.tsx:19:35\n  17 | export function useConversationSurface(mode: ConversationMode, surface: ConversationSurface) {\n  18 |   const host = useContext(SurfaceContext);\n> 19 |   const latest = useRef(surface); latest.current = surface;\n     |                                   ^^^^^^^^^^^^^^ Cannot update ref during render\n  20 |   const signature = JSON.stringify([surface.title, surface.selectedId, surface.entries, surface.canNew,\n  21 |     surface.canDelete, surface.busy, surface.loading, surface.hasMore, !!surface.onDetails]);\n  22 |   const publish = host?.publish;"
+    },
+    {
+      "file": "tests/jd-logistics-date-picker.test.ts",
+      "line": 43,
+      "column": 53,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-date-picker.test.ts",
+      "line": 43,
+      "column": 90,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-date-picker.test.ts",
+      "line": 44,
+      "column": 25,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-date-picker.test.ts",
+      "line": 44,
+      "column": 63,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-date-picker.test.ts",
+      "line": 44,
+      "column": 105,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-flow-closure.test.ts",
+      "line": 48,
+      "column": 161,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-flow-closure.test.ts",
+      "line": 126,
+      "column": 17,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-flow-closure.test.ts",
+      "line": 127,
+      "column": 19,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-flow-closure.test.ts",
+      "line": 127,
+      "column": 25,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-flow-closure.test.ts",
+      "line": 149,
+      "column": 66,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-flow-closure.test.ts",
+      "line": 162,
+      "column": 68,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-flow-closure.test.ts",
+      "line": 178,
+      "column": 30,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-four-imports-closure.test.ts",
+      "line": 40,
+      "column": 103,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-four-imports-closure.test.ts",
+      "line": 63,
+      "column": 147,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-four-imports-closure.test.ts",
+      "line": 80,
+      "column": 33,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-four-imports-closure.test.ts",
+      "line": 135,
+      "column": 17,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-four-imports-closure.test.ts",
+      "line": 136,
+      "column": 19,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-four-imports-closure.test.ts",
+      "line": 136,
+      "column": 25,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-two-downloads-closure.test.ts",
+      "line": 48,
+      "column": 161,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-two-downloads-closure.test.ts",
+      "line": 68,
+      "column": 164,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-two-downloads-closure.test.ts",
+      "line": 150,
+      "column": 17,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-two-downloads-closure.test.ts",
+      "line": 151,
+      "column": 19,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-two-downloads-closure.test.ts",
+      "line": 151,
+      "column": 25,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-two-downloads-closure.test.ts",
+      "line": 173,
+      "column": 66,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-two-downloads-closure.test.ts",
+      "line": 186,
+      "column": 68,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-known-two-downloads-closure.test.ts",
+      "line": 202,
+      "column": 30,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-preexport-closure.test.ts",
+      "line": 83,
+      "column": 149,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-product-download.test.ts",
+      "line": 192,
+      "column": 60,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-product-download.test.ts",
+      "line": 193,
+      "column": 46,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/jd-logistics-scope-ui.test.ts",
+      "line": 47,
+      "column": 76,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tests/main-prebuild-queue-v2.test.mjs",
+      "line": 85,
+      "column": 3,
+      "ruleId": "@next/next/no-assign-module-variable",
+      "message": "Do not assign to the variable `module`. See: https://nextjs.org/docs/messages/no-assign-module-variable"
+    },
+    {
+      "file": "tests/main-prebuild-task.test.mjs",
+      "line": 31,
+      "column": 2,
+      "ruleId": "@next/next/no-assign-module-variable",
+      "message": "Do not assign to the variable `module`. See: https://nextjs.org/docs/messages/no-assign-module-variable"
+    },
+    {
+      "file": "tools/close-jd-logistics-known-flow.ts",
+      "line": 51,
+      "column": 33,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-known-flow.ts",
+      "line": 53,
+      "column": 31,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-known-flow.ts",
+      "line": 58,
+      "column": 39,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-known-flow.ts",
+      "line": 90,
+      "column": 90,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-known-four-imports.ts",
+      "line": 485,
+      "column": 34,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-known-four-imports.ts",
+      "line": 485,
+      "column": 64,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-known-four-imports.ts",
+      "line": 485,
+      "column": 119,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-known-four-imports.ts",
+      "line": 494,
+      "column": 46,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-known-four-imports.ts",
+      "line": 517,
+      "column": 33,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-known-four-imports.ts",
+      "line": 519,
+      "column": 31,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-known-four-imports.ts",
+      "line": 524,
+      "column": 39,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-known-four-imports.ts",
+      "line": 553,
+      "column": 90,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-known-four-imports.ts",
+      "line": 650,
+      "column": 43,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-known-two-downloads.ts",
+      "line": 113,
+      "column": 33,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-known-two-downloads.ts",
+      "line": 115,
+      "column": 31,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-known-two-downloads.ts",
+      "line": 120,
+      "column": 39,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-known-two-downloads.ts",
+      "line": 148,
+      "column": 90,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-preexport.ts",
+      "line": 51,
+      "column": 45,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-preexport.ts",
+      "line": 53,
+      "column": 30,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-preexport.ts",
+      "line": 100,
+      "column": 33,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-preexport.ts",
+      "line": 102,
+      "column": 31,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-preexport.ts",
+      "line": 108,
+      "column": 39,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "file": "tools/close-jd-logistics-preexport.ts",
+      "line": 167,
+      "column": 100,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    }
+  ],
+  "samePriorErrorsAfterWorktreeRootNormalization": true
+}
