@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "codeFileCount": 86,
+  "codeSha256": "e411415d0a76aae5ba8648e3db2b306c82dcd786262eb8171eff6e593875b1a1",
+  "pythonFiles": 57,
+  "nodeFiles": 5,
+  "powershellFiles": 11,
+  "powershellHosts": [
+    {
+      "host": "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+      "version": "5.1.26100.9444",
+      "filesChecked": 11,
+      "errors": 0
+    },
+    {
+      "host": "C:\\Users\\86137\\AppData\\Local\\Microsoft\\WindowsApps\\Microsoft.PowerShell_8wekyb3d8bbwe\\pwsh.EXE",
+      "version": "7.6.9",
+      "filesChecked": 11,
+      "errors": 0
+    }
+  ],
+  "jsonFiles": 14,
+  "migrationClosure": {
+    "status": "passed",
+    "method": "real gate.source_delta against Git parent migration-only fixture",
+    "baselineCommit": "4a0a77646309391a173dbd95269f70ed893916af",
+    "fromGeneration": 153,
+    "toGeneration": 154,
+    "baselinePythonFiles": 163,
+    "candidatePythonFiles": 164,
+    "baselineRepositoryMigrationNodes": 151,
+    "candidateRepositoryMigrationNodes": 152,
+    "builtinMigrationNodes": [
+      "contenttypes.0001_initial",
+      "contenttypes.0002_remove_content_type_name"
+    ],
+    "added": [
+      "backend/sales/migrations/0012_excluded_business_date_index.py"
+    ],
+    "stepFiles": {
+      "backend/sales/migrations/0012_excluded_business_date_index.py": "0649724d2b94867efe42f56ef8d1b7992bd3878f3e1db7652422743b7f4ac238"
+    },
+    "migrationSha256": "f8f2c4c1d1007fd43934e7ac3d4e53a034d88f95efbd514e8d69d2e1dd633848",
+    "databaseContacted": false,
+    "installedParentVerified": false,
+    "graphMigrationNodes": 154,
+    "operations": [
+      "AddIndex"
+    ],
+    "modelsMatchMigrationState": true,
+    "graphMethod": "MigrationLoader(None), dummy backend, guarded connections, MigrationAutodetector",
+    "djangoVersion": "5.2.17"
+  },
+  "evidenceSha256": "0c749d77734d32bb5ec372ccf143e383805a26b1780f38146e51f2ddb6b2b58e"
+}

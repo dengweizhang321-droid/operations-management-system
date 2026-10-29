@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "D:\codex-worktrees\schema-code-digest-20261029\docs\schema-code-digest-20261029\run-mandatory-checks.py", line 137, in <module>
+    main()
+    ~~~~^^
+  File "D:\codex-worktrees\schema-code-digest-20261029\docs\schema-code-digest-20261029\run-mandatory-checks.py", line 96, in main
+    assert (old_count, new_count) == (153, 154)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

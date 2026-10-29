@@ -1,0 +1,27 @@
+{
+  "scope": "current CODE75 vs prior referenced syntax evidence; not a reconstructed original codeSha preimage",
+  "driftCount": 21,
+  "files": [
+    "tools/postgres_no_key_backup.py",
+    "tools/integration_release_gate.py",
+    "tools/bi-app-adopt.ps1",
+    "tools/django-local-service.ps1",
+    "tools/django-postgres-maintenance.ps1",
+    "tools/main-schema-release.mjs",
+    "backend/teruisi_backend/health.py",
+    "tools/pi_agent_catalog.py",
+    "tools/publish-prepared-main.mjs",
+    "tools/django-ai.ps1",
+    "tools/manual-maintenance-continuation.mjs",
+    "backend/ai_assistant/pi_models.py",
+    "backend/ai_assistant/database_contract.py",
+    "backend/ai_assistant/table_manifest.py",
+    "backend/ai_assistant/pi_worker.py",
+    "backend/ai_assistant/pi_service.py",
+    "backend/ai_assistant/pi_gateway.py",
+    "backend/ai_assistant/pi_transport.py",
+    "backend/ai_assistant/pi_selection.py",
+    "tools/pi_workspace_catalog.py",
+    "backend/ai_assistant/pi_workspace.py"
+  ]
+}
