@@ -71,6 +71,17 @@ export const piNativeCandidateDjangoScriptSha256='65f057297208b32ac6d3c2e71a1201
 // ISO-8601 snapshot strings (no timezone skew). Evidence:
 // D:\teruisi-ops\release-20261025\A项-停服务误认进程-审查证据.md.
 export const aDescendantCreationGuardDjangoScriptSha256='4ba1fcaf3cd1568a64098a9d2d32039f850ec2db1da4f81aa97fa3ab9530723a';
+// Sales154 (d95852dd): these reviewed controller bytes add the schema-addition
+// admission gate and include its three verifier modules in PrepareApp's copy list.
+// A successful Sales154 gate returns before the Pi153 PowerShell branch in
+// Assert-NoUnapprovedProtectedAiMigration. Pi153 lifecycle proofs are fully
+// retained through sales_preflight_addition.parent_proof ->
+// pi_native_addition._verify_active_with_base, plus the exact Sales-only delta.
+// The independent integration_release_gate.py database invocation before migrate
+// remains in place with its database protections. Keep the older descendant-guard
+// qualification for the transition.
+// Review and authorization: docs/sales154-controller-qualification-20261029/REPORT.md.
+export const sales154SchemaAdditionDjangoScriptSha256='98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b';
 // B项 (2026-10-25) registers the worker controller that reports the real
 // failure cause in -Json mode. The terminal catch block used to write only the
 // fixed string 'Worker lifecycle result requires exact reconciliation' to
@@ -100,7 +111,7 @@ export const bWorkerJsonFailureCauseScriptSha256='1b8c5d4d61ba491d042f41ae91e9cc
 // tools/worker-local-service.ps1: startup phase budgets/observation plus an
 // independent DingTalk startup observer. Evidence: docs/施工/S05a.md.
 export const piNativeCandidateControllerSha256=Object.freeze({
- 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256]),
+ 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256]),
  'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256]),
  'process-deadline.ps1':Object.freeze([])
 });

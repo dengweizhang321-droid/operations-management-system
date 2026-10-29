@@ -44,6 +44,11 @@ jobs:
         # disabling the gate).
         run: node .github/workflows/check-lint-baseline.mjs
 
+      - name: Lifecycle controller qualification bytes
+        # Static source-byte check only. A controller change must be reviewed
+        # and qualified before it can reach a maintenance window.
+        run: node --test --test-timeout=30000 tests/maintenance-controller-qualification.test.mjs
+
       - name: Build (includes type checking)
         # tsconfig.json has strict: true and noEmit: true; `vinext build`
         # performs TypeScript compilation as part of the build, so this

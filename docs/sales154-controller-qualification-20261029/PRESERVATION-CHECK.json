@@ -1,0 +1,23 @@
+{
+  "at": "2026-10-29T13:43:47.837412+00:00",
+  "baseCommit": "822a45ac468b55f31b6bae8c003c6b0c8f6df3b8",
+  "protectedSourceChecks": {
+    "package.json": true,
+    "package-lock.json": true,
+    "tools/worker-local-release-rotation.mjs": true,
+    "tools/publish-prepared-main.mjs": true,
+    "tools/worker-local-release.mjs": true,
+    "tools/django-local-service.ps1": true,
+    "tools/worker-local-service.ps1": true,
+    "tools/process-deadline.ps1": true,
+    "backend/teruisi_backend/settings.py": true,
+    "docs/prepared-artifact-loss-20261029/artifact-loss-manifest.json": true
+  },
+  "settingsMatches822a45ac": true,
+  "staticTestBytesUnchanged": true,
+  "boundLossManifestUnchanged": true,
+  "artifactLossRecordNamesAndBytesUnchanged": true,
+  "artifactLossRecordsCompared": 27,
+  "frozenFilesUnchanged": 4,
+  "productionWritesPerformed": false
+}
