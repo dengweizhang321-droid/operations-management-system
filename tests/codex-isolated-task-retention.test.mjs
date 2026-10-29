@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
-import { alwaysProtected, classify, holdsWorktree, isolatedRoot, parseWorktreePaths } from "../tools/codex-isolated-task-retention.mjs";
+import { alwaysProtected, classify, holdsWorktree, isolatedRoot, parseWorktreePaths, parseWorktreeRecords, selectWorktreesFor } from "../tools/codex-isolated-task-retention.mjs";
 
 const DAY = 86400000;
 const now = Date.parse("2026-10-29T12:00:00Z");
@@ -56,6 +56,46 @@ test("worktree porcelain parsing keeps only worktree lines", () => {
   assert.equal(holdsWorktree("D:/a/b", paths), true);
   assert.equal(holdsWorktree("D:/a", paths), true);
   assert.equal(holdsWorktree("D:/a/bc", paths), false);
+});
+
+test("withWorktrees opts a holding directory in and records it", () => {
+  const held = path.resolve(isolatedRoot, "has-wt", "source");
+  const args = { ...base, entries: [entry("has-wt")], worktreePaths: [held] };
+  assert.equal(classify(args).candidates.length, 0, "default must refuse");
+  const opted = classify({ ...args, withWorktrees: true });
+  assert.deepEqual(opted.candidates.map((item) => item.name), ["has-wt"]);
+  assert.equal(opted.candidates[0].holdsWorktree, true);
+});
+
+test("withWorktrees never overrides protection, age or uncommitted changes", () => {
+  const entries = [entry("main-release-packages"), entry("fresh", { days: 1 }), entry("dirty", { uncommitted: 2 })];
+  const worktreePaths = entries.map((item) => path.resolve(isolatedRoot, item.name, "source"));
+  const { candidates } = classify({ ...base, entries, worktreePaths, withWorktrees: true });
+  assert.equal(candidates.length, 0);
+});
+
+test("worktree records expose branch and lock state", () => {
+  const records = parseWorktreeRecords([
+    "worktree D:/codex-isolated/a/source", "HEAD abc", "branch refs/heads/codex/a", "locked keep while in use", "",
+    "worktree D:/codex-isolated/b/source", "HEAD def", "detached", "",
+  ].join("\n"));
+  assert.equal(records.length, 2);
+  assert.deepEqual({ branch: records[0].branch, locked: records[0].locked }, { branch: "codex/a", locked: true });
+  assert.deepEqual({ branch: records[1].branch, locked: records[1].locked }, { branch: null, locked: false });
+});
+
+test("retirement selection is confined to the directories being removed", () => {
+  const records = parseWorktreeRecords([
+    "worktree D:/codex-isolated/doomed/source", "branch refs/heads/codex/doomed", "",
+    "worktree D:/codex-isolated/doomed-sibling/source", "branch refs/heads/codex/sibling", "",
+    "worktree D:/codex-isolated/keep/source", "branch refs/heads/codex/keep", "",
+    "worktree D:/运营管理系统", "branch refs/heads/main", "",
+    "worktree D:/运营管理系统/.claude/worktrees/mine", "branch refs/heads/codex/mine", "",
+  ].join("\n"));
+  const selected = selectWorktreesFor(["doomed"], records);
+  // "doomed-sibling" shares a prefix but is a different directory; the main
+  // checkout and this session's own worktree must never be touched.
+  assert.deepEqual(selected.map((item) => item.branch), ["codex/doomed"]);
 });
 
 test("an invalid minimum age fails closed", () => {

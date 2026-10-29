@@ -138,3 +138,71 @@ HEAD    : 1d848e8f feat(products): align kind cards and expand combo component d
 | — | A 类 1 个 + 两个 5000+ 暂存目录 | 等负责人决定 |
 
 批 2 需扩展本脚本以处理 worktree 注销（现版本是**跳过**而非处理），同样先 `--dry-run`。
+
+---
+
+## 8. 批 2 执行记录（2026-10-29，用户授权）
+
+扩展 `tools/codex-isolated-task-retention.mjs` 处理 worktree 注销，**回收 17.21 GB，D 盘可用 75 → 93 GB（83% → 79%）**。
+
+### 脚本扩展
+
+新增 `--with-worktrees` 开关与三个导出：`parseWorktreeRecords`（取出 branch 与 locked 状态）、`selectWorktreesFor`（把注销范围严格限制在本次要删的目录之下）。
+
+**默认行为不变**：不带该开关时仍拒绝任何持有注册的目录，所以普通运行永远不会留下失效注册。开关只是让调用方显式接管这件事，接管后必须按序走完四步：
+
+```
+unlock（仅带锁的）→ 删目录 → prune → 删分支
+```
+
+顺序是有讲究的：带锁的 worktree 不会被 `prune` 回收，所以 `unlock` 必须在最前；`prune` 必须在删目录之后才认得出哪些注册已悬空。
+
+`selectWorktreesFor` 的测试专门覆盖了前缀相近的陷阱：`doomed-sibling` 与 `doomed` 共享前缀但是不同目录，主检出与本会话自身的 worktree 也必须永不入选。
+
+### 执行范围的一处收窄
+
+首轮 dry-run 的候选是 30 个 / 18.19 GB，其中混入了两个 **B 类**目录（`backup-pi-tools-release-20261019`、`jackyun-credential-release-20261017`）——它们含独特发布回执，属批 3 且回执处置尚未决定。已用 `--only` 排除，实际执行 **28 个 / 17.21 GB**。
+
+### 执行前核验（全过）
+
+| 检查 | 结果 |
+| --- | --- |
+| B 类是否已排除 | 是 |
+| A 类 `product-combo-details-release-20261014` | 被 `uncommitted(4)` 跳过 |
+| 两个 5000+ 暂存目录 | 被 `uncommitted(5160/5199)` 跳过 |
+| `main-release-packages` / 生成器宿主 | 被 `protected` 跳过 |
+| 待注销 worktree 是否越界 | **0 条越界** |
+
+### 执行结果与核验
+
+```
+removed dirs=28  pruned worktrees=28  deleted branches=24
+```
+
+| 检查 | 结果 |
+| --- | --- |
+| D 盘可用 | 75 → **93 GB** |
+| worktree 总记录 | 125 → **99** |
+| **目录已删但注册残留的失效记录** | **0（四步生效，未重演 main-release-packages 的半清理）** |
+| 五个保护项 | 全部在位 |
+| A 类 4 个未提交改动 | 完好 |
+| 发布包 | 2，未变 |
+| 网页 `127.0.0.1:3000` | **HTTP 200** |
+
+测试 12/12、eslint 0。未停机、未碰 `D:/teruisi-runtime/`。
+
+### 本条线累计
+
+| 轮次 | 回收 |
+| --- | --- |
+| 发布包 78 个（方案一） | 约 13 GB |
+| worktree 注册与分支（候选 A） | 0（卫生清理） |
+| 任务目录批 1（30 个） | 7.48 GB |
+| 任务目录批 2（28 个） | 17.21 GB |
+| **合计** | **约 38 GB，D 盘 54 → 93 GB** |
+
+### 剩余
+
+- **批 3**：B 类 2 个、1.66 GB，待定回执是先归档进 `docs/` 还是直接删；
+- **等负责人决定**：A 类 `product-combo-details-release-20261014`（4 个未提交改动，分支未合入 `main`）、两个 5000+ 暂存目录（内容可从 git 历史恢复，但本会话不自行放宽）；
+- **治本**：发布包仍在为每个 `main` 提交生成，`tools/release-package-retention.mjs` 已就绪但未接入定期执行。
