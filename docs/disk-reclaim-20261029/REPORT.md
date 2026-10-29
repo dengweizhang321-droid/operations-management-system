@@ -149,3 +149,47 @@
 
 1. 先确认当前无在飞准备/发布（`state/worker-release-publication-staging` 为空、无 `app.deploy-*` 暂存目录）；
 2. 保留清单按「执行那一刻重新读取生产两侧 manifest」确定，不要用本报告里的静态列表——生产在用的包可能已随新发布变化。
+
+---
+
+## 9. 方案一执行记录（2026-10-29，用户授权）
+
+**已执行并完成。回收约 13 GB，D 盘可用 54 → 67 GB（88% → 85%）。**
+
+### 执行前的四道校验（全过）
+
+1. **重读生产两侧 manifest**（未用本报告静态列表）：Django `app/deployment.json` 的 `sourceRoot` 与 Worker 生效头 `20261028T125857Z-7f8e70a23ee72777` 的 manifest，两者一致指向 `1b02c93791bb-d349107e-99df9f68`。
+2. **无在飞发布**：`worker-release-publication-staging` 为空；无维护标记；删除前 3 分钟内目标目录无写入活动。
+3. **无符号链接**（0 个），待删清单无路径穿越字符（0 条）。
+4. **保留项不在待删清单**（逐条 `grep -x` 核对）。
+
+### 执行中发现并修正：保留集从 1 个扩到 2 个
+
+初版方案只保留 `1b02c93791bb`。执行前核查 `app.deploy-*` 暂存目录（59 个陈旧残留，最新 10-28 23:39、最旧 9-28，10 分钟内零活动）时发现：
+
+**`app.previous/deployment.json` 的 `sourceRoot` 指向 `18c25a3a153e-4a9cb3f5-b05895d2`**——那是 `DeployApp` 的回滚锚点，在原待删 78 个之内。
+
+进一步查清 `Rollback-Application`（`tools/django-local-service.ps1:2434`）只在 `app/` 与 `app.previous` 之间 `Move-Item`，**不读 `sourceRoot` 路径**，所以删包不会使回滚失效——`sourceRoot` 只是清单记录字段。但为保留追溯性仍将其纳入保护集。
+
+**最终保留 2 个、删除 78 个**（目标目录在调查期间由 79 增至 80，故保留 2 后仍为 78）。
+
+### 执行后核验（全过）
+
+| 检查 | 结果 |
+| --- | --- |
+| 两个保留包完整 | `1b02c937…/source` 7913 文件、`18c25a3a…/source` 9772 文件 |
+| Django `app/deployment.json` 指纹 | `7948e85c0bea844c`，未变 |
+| `sourceRoot` 路径可解析 | True |
+| Worker 生效头与 supervisor | `20261028T125857Z-7f8e70a23ee72777`，PID 2500 未变 |
+| `releases/` 目录数 | 343，未动 |
+| supervisor 进程 | 在运行（node） |
+| 端口 3000 / 8111 / 8112 / 5432 | 均在监听 |
+| 网页只读 GET | `http://127.0.0.1:3000/` → **HTTP 200** |
+
+未停机、未进维护模式、未碰 `D:/teruisi-runtime/` 任何内容。
+
+### 仍待决定（未执行）
+
+1. **方案二**：63 个任务目录 27.78 GB。需逐个确认无未归档证据，**未做**。
+2. **方案四（治本）**：发布包仍在为每个 `main` 提交生成（约 145 MB/个，纯文档提交也建）。本次回收的存量会重新累积，需找到生成入口加保留策略——**未查，属改发布工具链，需单独评估**。
+3. `.codex` 30.7 GB、`codex-worktrees` / `codex-artifacts` 各 7.6 GB **未展开**。
