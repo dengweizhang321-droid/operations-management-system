@@ -40,6 +40,8 @@
 
 ## 发布与交付
 
+本轮候选：[Django 受管应用树 SQLite 兜底修复](../django-managed-sqlite-20261029/REPORT.md)（待核阅，未采用）。
+
 本轮补充：[PiBusiness/PiNative ACL 契约门禁](../schema-acl-gate-20261020/REPORT.md)（已合并，含发布范围计划）。
 
 本轮补充：[发布流程可避免返工优化（候选）](../release-optimizations-20261020/REPORT.md)。
