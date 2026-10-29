@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TERUISI 自动导入与工作流统一优化方案</title>
+<style>
+:root{--brand:#396149;--ink:#33453a;--muted:#526959;--line:#e7ebe9;--soft:#f3f7f4;--bg:#f5f7f6;--danger:#b53535;--warn:#92620f}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.8 "Microsoft YaHei",system-ui,sans-serif}a{color:var(--brand)}header.cover{background:#293f32;color:#fff;padding:42px max(24px,calc((100vw - 1190px)/2));}h1{font-size:30px;line-height:1.45;margin:10px 0 16px}h2{font-size:23px;line-height:1.5;margin:0 0 18px}h3{font-size:17px;margin:26px 0 10px}p{margin:10px 0}header p{max-width:980px;color:#e1e9e4}.eyebrow{font-size:12px;letter-spacing:.12em}.layout{display:grid;grid-template-columns:210px minmax(0,1fr);gap:24px;max-width:1240px;margin:26px auto;padding:0 24px}aside{position:sticky;top:20px;align-self:start;max-height:94vh;overflow:auto}aside a{display:block;padding:7px 10px;text-decoration:none;font-size:13px;border-radius:6px}aside a:hover{background:#e4ede7}main{min-width:0}section{background:white;border:1px solid var(--line);border-radius:10px;padding:28px;margin-bottom:22px;scroll-margin-top:16px}.lead{font-size:18px;font-weight:600}.note{padding:14px 18px;background:var(--soft);border-left:4px solid #abc4b4;border-radius:5px;margin:16px 0}.warning{background:#fff8e7;border-color:#e2be6f}.muted,small{color:var(--muted)}.small{font-size:13px}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px;line-height:1.7}th,td{border:1px solid var(--line);padding:11px 12px;vertical-align:top;text-align:left}th{background:var(--soft);font-weight:600}td:first-child{min-width:105px}code{font:12px/1.6 Consolas,monospace;background:#f0f3f1;padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}ul,ol{padding-left:24px}li{margin:6px 0}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}.card{border:1px solid var(--line);background:var(--soft);padding:16px;border-radius:8px}.card strong{display:block;font-size:18px;margin-bottom:6px}.flow{display:grid;gap:8px;margin:16px 0}.flow div{padding:12px 16px;border:1px solid #c9d6ce;border-radius:6px;background:var(--soft)}.flow span{color:var(--muted);font-size:13px}.badge{display:inline-block;border:1px solid #c8e6ce;border-radius:5px;background:#edf8ef;color:#287344;padding:2px 7px;font-size:12px;white-space:nowrap}.badge.warn{background:#fff8e7;border-color:#f3dfaa;color:var(--warn)}.badge.bad{background:#fff0ef;border-color:#f3cccc;color:var(--danger)}.badge.neutral{background:#f2f4f7;border-color:#e1e6ec;color:#617085}.demo{border:1px solid #c9d6ce;border-radius:9px;padding:18px;margin-top:18px}.subnav{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:12px 0;margin-bottom:16px}button,select{font:inherit;color:var(--ink);border:1px solid #c9d6ce;border-radius:6px;background:white;padding:7px 12px;cursor:pointer}button[aria-selected=true]{color:white;background:var(--brand);border-color:var(--brand)}button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible{outline:3px solid #abc4b4;outline-offset:2px}.toolbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:12px 0}.demo-panel[hidden]{display:none}details{border:1px solid var(--line);border-radius:6px;padding:12px 15px;margin:12px 0}summary{cursor:pointer;font-weight:600}.refs{overflow-wrap:anywhere;font-size:12px}.phase{border-left:3px solid #abc4b4;padding-left:18px;margin:24px 0}.phase h3{margin:0 0 8px}.footer{font-size:12px;color:var(--muted);padding:15px 0 30px}.pill{font-size:12px;display:inline-block;border:1px solid #688572;color:#e7f1ea;border-radius:30px;padding:3px 10px;margin-right:8px}@media(max-width:900px){.layout{display:block}aside{position:static;display:flex;flex-wrap:wrap;margin-bottom:20px}aside a{padding:5px 9px}.cards{grid-template-columns:1fr}section{padding:20px}h1{font-size:25px}}@media print{aside,.toolbar,.subnav,.noprint{display:none}.layout{display:block;max-width:none;padding:0}section{break-inside:auto;border:0;border-radius:0;padding:14px 0}.cover{padding:20px!important}.demo-panel[hidden]{display:block}h2,h3{break-after:avoid}tr{break-inside:avoid}body{font-size:11px}}
+</style>
+</head>
+<body>
+<header class="cover"><div class="eyebrow">TERUISI · 建议方案 · 2026-10-29</div><h1>自动导入与工作流统一优化方案</h1><p>在现有自动化中心、数据导入和 Django 业务服务上，建立统一的规则、执行记录、数据结果与异常处理入口。保留 n8n 和各平台执行器，不建设站内信。</p><span class="pill">五份外部方案完整阅读</span><span class="pill">结合主线源码 491c1408</span><span class="pill">仅规划，尚未实施</span></header>
+<div class="layout"><aside aria-label="方案目录">
+<a href="#decision">01 总体建议</a><a href="#references">02 五份方案如何取舍</a><a href="#current">03 本系统现状与缺口</a><a href="#scope">04 全工作流适配范围</a><a href="#architecture">05 架构与运行契约</a><a href="#rules">06 规则配置与模块化</a><a href="#ui">07 页面与交互示意</a><a href="#recovery">08 重试、恢复与漏跑</a><a href="#notification">09 不做站内信的闭环</a><a href="#delivery">10 施工顺序与交付物</a><a href="#outcomes">11 完成效果与衡量</a><a href="#evidence">12 来源与待核实项</a></aside>
+<main>
+<section id="decision"><h2>01 建议先统一管理与证据，再开放配置</h2><p class="lead">能够做到参考方案的使用效果，但应采用“统一管理界面 + 原有专业执行器 + 各业务域权威回执”的路线。</p><p>这五份资料是一段持续演进的设计：先接入数据源与自动导入，再从硬编码链路转向规则，再重做展示，最后拆成模块。TERUISI 已有多店下载、缺口规划、内容幂等、原任务续接和专用浏览器，主要欠缺是这些能力在用户面前还没有形成统一、完整、可信的操作闭环。</p>
+<div class="cards"><div class="card"><strong>看得清</strong>同一处查看计划、运行、模块、批次、覆盖和需要处理的异常。</div><div class="card"><strong>改得准</strong>规则有版本、能力边界与生效回执；修改不影响在途任务。</div><div class="card"><strong>恢复有据</strong>根据原任务证据提供可执行动作，保留已完成数据和未知结果。</div></div>
+<p>最终用户体验应是：选择平台和主体 → 看今天应做的事 → 看实际完成的数据 → 点开具体障碍 → 执行系统允许的处理 → 自动关联恢复后的结果。日常操作不必翻多份日志，必要技术排障仍能进入 n8n。</p><div class="note">本方案纳入全部工作流的管理边界；导入、AI、通知、运维使用各自的成功标准。统一界面不意味着统一调度器、统一重试次数或统一业务写入方式。</div></section>
+
+<section id="references"><h2>02 五份参考方案：保留什么，改造什么</h2><div class="table-wrap"><table><thead><tr><th>参考文件</th><th>核心内容</th><th>TERUISI 的采用方式</th></tr></thead><tbody>
+<tr><td>京东 POP 接入<br>286 行</td><td>分店 profile、身份判据、导入主体与报表绑定；由三模块扩到四模块（含搜索词），近 30 天报表与登录巡检；后续指出旧 ChainConfig 不再是实际开关来源。</td><td>借鉴完整链路交付清单。现有京东四店商品/商智、京准通及物流各自保留；POP 是平台经营模式，不自动等同于库存或推广来源。搜索词等本系统尚未确认具备的采集能力列为扩展适配项，不假称已支持。缺配置拒绝仍不替代执行前核验店铺和报表身份。</td></tr>
+<tr><td>规则化配置重构<br>640 行，含文件清单附录</td><td>规则与执行解耦、规则身份、时间槽、重试退避、任务状态、租约、配置校验、兼容迁移与监控；包含原系统部署与历史实施细节。</td><td>采用规则版本、计划快照、逻辑运行与尝试关联、互斥及审计。舍弃原系统专用目录、表结构和退役外部执行器的迁移步骤；新增后端归 Django，业务数据仍归原领域。</td></tr>
+<tr><td>规则页展示重设计<br>122 行</td><td>以“日程、按店、模块覆盖”取代稀疏链路矩阵；区分计划时点、排队、实际执行和补跑；后续决定默认日程并记住视图选择。</td><td>采用日程、按主体、模块覆盖三视图，现有矩阵入口平滑转入模块覆盖。链路技术细节放入详情。三个视图共用查询结果、配置版本和状态时间；本系统须先补后端证据，不能照搬其“只改前端”的结论。</td></tr>
+<tr><td>模块化重构<br>440 行</td><td>模块目录、平台适用范围、规则模块快照、任务拆分方案、步骤结果、下载与导入的完成标准。</td><td>模块化配置与展示；按现有执行器允许的边界拆任务。吉客云五表、京东四店和天猫循环有依赖，不能随意关掉其中一步。采用带证据的正常无动作终态，不照搬“零文件一律失败”。</td></tr>
+<tr><td>自动导入与站内信排期<br>205 行</td><td>分阶段交付自动导入、运行记录、异常反馈及站内通知；文件后续又记录内部调度取代 n8n。</td><td>保留分阶段路线与运行反馈，移除站内信收件箱、已读/未读、红点、群发、订阅中心及消息 CRUD。用运行异常视图和现有钉钉渠道完成处理闭环。</td></tr>
+</tbody></table></div>
+<h3>不能直接照抄的冲突</h3><ul><li>参考系统已转向内置调度与全局串行 worker；本系统仍有 n8n、平台 helper、AI 自有队列及领域写入隔离。照搬会引入第二套任务所有者。</li><li>规则化文件 §13.1 的最终决定推翻了前文部分旧建议：改为新规则唯一配置源、不限规则数、关规则不取消 pending 等。它们属于另一用户的决定，本系统须明确自己的开关语义和容量边界。</li><li>模块化文件 §6.4 选择 S2“一规则一任务”，后面队列唯一键、runner 字段和跨 runner 示例仍残留 S1。实施前必须确定本系统的身份模型，不能混用。</li><li>模块化文件“20 + 2 + 1”与总数 25、表内条目不一致；模块数量应由本系统注册目录生成，不把参考数字当验收要求。</li><li>“今天生成新批次”不能作为唯一成功条件：无缺口、未到期、内容重复均可能是正确结果；必须返回原因、原批次或权威覆盖证据。</li><li>不照搬新旧生产各跑一次的迁移方式，避免重复平台导出与同范围写入。观察接线不授权新业务执行。</li></ul></section>
+
+<section id="current"><h2>03 当前系统已有的基础与真正缺口</h2><p>本次以仓库主线为事实基础，未查询生产运行状态、未补跑工作流。当前生成目录有 <b>8 类导入链路、17 份工作流配置、13 个主体</b>，这些是源码登记数量，不能解释为 17 条均已在线启用。</p><div class="table-wrap"><table><thead><tr><th>能力</th><th>已存在</th><th>需要补齐</th></tr></thead><tbody>
+<tr><td>使用入口</td><td>主导航“自动化中心”；数据导入含文件、运行记录、链路规则。</td><td>自动化中心作为运行操作主入口；数据导入保留批次视角并复用同一规则组件，避免另建第三个中心。</td></tr>
+<tr><td>规则矩阵</td><td>按工作流与主体展示；30 秒刷新 n8n 今日状态；详情可进入 n8n。</td><td>升级日程、按主体、模块覆盖；补模块结果、配置差异、生效版本和失败处理入口，技术链路在详情保留。</td></tr>
+<tr><td>运行记录</td><td>并发读取七个领域最近批次；展开显示文件、行数、告警。</td><td>后端有界历史检索与分页；关联下载前失败、整条运行、执行尝试和批次。当前前端分页仅限已读取集合。</td></tr>
+<tr><td>执行状态</td><td>Django 只读 n8n 元数据，识别自动执行与有证据的完整手动成功。</td><td>执行成功、数据完成和通知投递分列；加原计划范围、缺口、部分完成和新鲜度，不能只看 n8n 绿色状态。</td></tr>
+<tr><td>恢复操作</td><td>主线已有吉客云完整重试、新采集、从头采集及一键闭合相关入口。</td><td>复用已有能力，明确操作条件与当前采用版本；逐平台增加适配。不能把吉客云操作不加区分地复制给所有平台。</td></tr>
+<tr><td>策略一致性</td><td>店铺目录、策略文件、模板、生成目录及页面说明。</td><td>由有效策略生成展示。现有天猫三日旧说明、客服/物流时点差异需要消歧，先显示“未核实/有差异”，再按采用事实修正。</td></tr>
+</tbody></table></div><p class="small muted">主线存在某项功能，只证明源码已支持；一键闭合等近期增量是否正式部署须另查采用回执。本方案不将主线、候选和生产混称。</p></section>
+
+<section id="scope"><h2>04 全工作流范围：统一入口，保留不同业务规则</h2><div class="table-wrap"><table><thead><tr><th>工作流家族</th><th>应保留的边界</th><th>本次建议增量</th></tr></thead><tbody>
+<tr><td>吉客云五表</td><td>销售滚动 45 天与库存实际采集日分开；导出与导入各有依赖顺序；全表校验、部分提交、原文件续接及未知派发保护。</td><td>展示五模块结果、每模块批次、实际数据日期与恢复动作；统一显示有效退避政策；闭合不伪装成功，已提交数据保留。</td></tr>
+<tr><td>京东四店商品 / 商智</td><td>主数据每日一次；SKU/SPU 按昨天所在月月初至昨天的权威覆盖补连续缺口；四店串行，共享 Chromium 资源锁。</td><td>整链父运行下展开四店及三模块；逐店结果必须有独立证据。无缺口不创建下载任务，不把整链成功复制成四份独立调度。</td></tr>
+<tr><td>京准通两店推广</td><td>各店独立规则；从注册起始日至昨天查缺，每轮最多 31 天；逐日下载、导入、回查。</td><td>按日期显示计划、完成与剩余缺口；无缺口零浏览器、零任务；报表和账号身份继续绑定各自店铺。</td></tr>
+<tr><td>京东市场榜单</td><td>受控类目、POP/SKU/价格带范围；现行静默 n8n 入口；各类目和日期覆盖，独立于本店销售报表。</td><td>用“市场类目”主体展示模块；保留完整 execution 恢复与来源未开放状态，监控不得直接调用采集接口。</td></tr>
+<tr><td>天猫六店商品 / 推广 / 主数据</td><td>现行七日缺口并集，A→(B→C→P→N)逐日循环→M；六店有效每日主数据政策、P/M 直连、每店会话和未决清单。</td><td>展示“日数据循环”和“主数据一次收尾”两个层次；读取有效政策，避免原注册字段或旧说明显示成三日一次。</td></tr>
+<tr><td>京东客服</td><td>Excel + LOG 配对、滚动 30 天、原文件与实际归属核验；操作手册已有四店采用记录，当前部署与运行未现场核验。</td><td>显示双文件签收、配对、批次与覆盖；区分历史采用和当前观察；调度时点以实际采用读回消歧，不从模板名称推定。</td></tr>
+<tr><td>京东入仓库存</td><td>事业部主体；库存流水、商品、实时库存、T-1 快照；缺货提醒有独立投递结果。</td><td>数据结果、ERP 对照与业务通知分列；实时快照不冒充历史库存，不复制为销售店铺完成。</td></tr>
+<tr><td>天猫入仓库存</td><td>货主/仓库主体，实仓良品实时库存；专用会话、数据日期和完整导入核验。</td><td>与网店日数据分目录展示；缺少销量依据时不补造周转/建议补货；未启用的链明确显示。</td></tr>
+<tr><td>人工文件导入</td><td>财报、快递费率、商品图、其他原有人工导入仍走各域权限和导入服务。</td><td>纳入批次历史和关联证据；没有自动采集器的来源标“仅手动”，不凭空提供每天执行按钮。</td></tr>
+<tr><td>AI 定时、Agent/DAG、Pi 动作</td><td>由 AI 域保留计划、队列、工具权限、模型回执及成本边界；Pi 补缺只调已注册原生入口。</td><td>总览可跳转原任务，分别显示模型/工具/产物/投递结果；不将未知模型响应自动重放，不用导入批次标准判断报告完成。</td></tr>
+<tr><td>市场标注、运营归档、新品周报与业务提醒</td><td>市场推理租约与人工复核、运营正式写入回执和周报投递账本各归原域。</td><td>同一总览展示健康与异常，详细操作回原模块；业务提醒独立于自动导入运行通知。</td></tr>
+<tr><td>备份、守护、发布准备与上线</td><td>原运维进程身份、互斥、版本和用户逐步授权继续保留。</td><td>仅汇总健康或提供原入口链接；不通过通用“重试/运行全部”启动发布、迁移、恢复或终止服务。</td></tr>
+</tbody></table></div><div class="note">导入链路先落地统一契约；非导入流程先做只读登记和跳转。尚无接口或尚未登记的外部任务标为待接入，不能宣称已穷尽所有线上任务。</div></section>
+
+<section id="architecture"><h2>05 架构：统一记录，不另造事实源</h2><div class="flow" aria-label="建议架构">
+<div><b>现有 React 页面 / 薄 Worker</b><br><span>真实账号、范围校验、请求解析、展示与受控动作入口。</span></div>
+<div>↓ <b>Django 自动化管理服务（复用 workflow 领域基础）</b><br><span>模块目录、规则版本、逻辑运行、动作请求、证据投影、异常视图与审计；新增能力放 Django。</span></div>
+<div>↓ <b>原执行所有者</b><br><span>n8n 保持导入定时与完整 execution；平台 helper 做专有登录/下载/恢复；AI、市场与运维仍由原队列负责。</span></div>
+<div>↓ <b>各 Django 业务域</b><br><span>销售、库存、ERP、网店、市场、客服等保留唯一写入权；权威批次、内容幂等、覆盖与 revision 通过原 consumer 返回。</span></div>
+<div>↑ <b>脱敏结果回传与有界对账</b><br><span>原任务、文件签收、模块结果、精确批次、覆盖与资源收尾共同形成可查询运行视图。</span></div></div>
+<h3>最小数据模型</h3><div class="table-wrap"><table><thead><tr><th>对象</th><th>含义与必要字段</th></tr></thead><tbody>
+<tr><td>模块定义</td><td>稳定 moduleKey、适用平台/主体、所属业务域、依赖、日期政策、成功证据要求、允许的恢复能力、契约版本。数据库中的可编辑值不得携带任意脚本、URL 或文件路径。</td></tr>
+<tr><td>规则与修订</td><td>ruleId、revision、subjectKind/subjectKey、modules、schedule/timezone、datePolicy、资源组、enabled、adapterVersion、草稿/待采用/已生效状态及审计。</td></tr>
+<tr><td>逻辑运行</td><td>logicalRunId、规则快照、固定业务范围/计划日、触发来源、原始计划摘要、总体状态。手动重跑新采集与恢复原运行明确区分。</td></tr>
+<tr><td>执行尝试</td><td>attemptId、原生 workflow/executionId、父尝试、恢复原因、阶段、开始/结束、错误分类和原生证据引用。一条逻辑运行可有多次尝试。</td></tr>
+<tr><td>模块结果</td><td>moduleKey + 精确主体 + 数据集 + 日期/快照范围；下载、校验、导入、回查、收尾状态；当前上传文件身份与历史复用批次身份分开。</td></tr>
+<tr><td>证据与动作</td><td>所属域 + batchId、rawFileHash、内容指纹、coverage/snapshot revision、行数/告警；动作 requestId、授权主体、固定目标、阶段、回执及投递结果。优先扩展原有写请求/投递账本，不复制一套业务批次。</td></tr>
+</tbody></table></div>
+<p>控制面只存标识、状态和脱敏摘要，不复制销售明细、客服原文、Cookie、账号密码或浏览器目录。业务完成只能由原领域的证据证明；控制面丢失连接时显示“无法核实”，不能写零或猜成功。每项结果另带证据状态（已核实/过期/缺失/矛盾）、来源和观察时间。</p>
+<h3>状态必须分成三条轴</h3><ul><li><b>执行：</b>未到期、待领取、排队、执行中、失败、待人工、结果未明、已结束。</li><li><b>业务：</b>未开始、部分完成、已提交待核验、已核验、无需新增、剩余缺口。</li><li><b>投递：</b>不需要、待发、已发送、失败、结果未明。</li></ul><p>例如“数据已核验，通知未送达”不能退回重跑导入；“n8n 已结束，覆盖未核验”不能标成业务完成。关闭旧任务显示“已闭合，部分数据保留”，不是“已完成”。</p>
+<h3>观察与写入边界</h3><p>已有 n8n SQLite 继续只读、白名单、有界读取，不直接修改其表。补充脱敏阶段事件接收或增量对账，按 source + eventId 去重；checkpoint 记录观察进度，保留来源时间与 checkedAt。运行列表由服务端过滤分页，返回 total/returned/truncated，避免浏览器最近 50 条冒充历史全量。事件乱序或来源删档时保持未知，并保留原有证据索引。</p></section>
+
+<section id="rules"><h2>06 规则配置与模块拆分</h2><p>规则应表达“谁，在什么时候，对什么范围，使用哪些已注册能力”，不要让用户配置内部脚本。第一阶段只读；完成计划和回执接线后，才逐项开放编辑。</p><div class="table-wrap"><table><thead><tr><th>可配置项</th><th>约束</th></tr></thead><tbody>
+<tr><td>主体、平台、模块</td><td>来自后端注册目录；不适用项隐藏或禁用。依赖模块一起选；不支持单独执行的模块只能作为组合的一部分。新增店铺需先完成注册和凭据就绪，不自动继承其他店会话。</td></tr>
+<tr><td>周期与时点</td><td>Asia/Shanghai，显式“停用/仅手动/定时”；展示实际采用版本。期望规则和 n8n 调度读回一致后才能标生效。漏跑策略与失败重试分开。</td></tr>
+<tr><td>数据日期</td><td>选择已注册政策：滚动 45 天、月内补缺、近七日补缺、实际快照日等。按平台能力允许的边界调整，不能用一个通用“昨天”覆盖全部模块。</td></tr>
+<tr><td>重试与资源</td><td>默认继承适配器的有效政策；不允许任意突破点击未决、次数封顶或平台限额。配置层可降低并发，但不能放宽底层店铺/浏览器根锁。</td></tr>
+<tr><td>生效与变更</td><td>读取 revision → 保存草稿 → 校验依赖/冲突/影响 → 预览未来运行范围 → 显式应用 → 原生读回 → 生效；并发修改用 CAS 拒绝覆盖。</td></tr>
+</tbody></table></div>
+<p>n8n 是导入定时触发的唯一所有者，Django 不再增加一个独立 cron。规则应用通过受控 n8n 管理适配器或既有采用流程完成，页面不接触 n8n 凭据；未接通该能力时只支持草稿和导出待采用配置，必须明确标识。</p><p>在途任务固定使用启动时的规则快照；更新规则只影响后续新运行。停用规则仅停止新触发/领取，已有排队或运行中的具体处理单独列出，不默默取消；申请取消必须按原执行器支持处理。旧执行和迟到回调仍受 owner/租约版本约束，不能因规则改名获得新执行权。</p><p>同一主体、模块及重叠业务范围不得因多条规则而重复派发。定时槽以稳定规则身份与计划时刻去重，恢复复用原逻辑运行；手动新采集有独立请求身份但仍受资源锁和业务范围锁约束。规则改版不自动补跑旧时点。批量建规则可在 Django 内原子保存草稿，跨多个 n8n 工作流的应用需逐项回执与协调状态，不能冒称跨系统事务一次全成。</p><div class="note warning">不采用“一个规则强制等于一个物理任务”。一条规则对应一次逻辑运行，底层可以是一个 n8n execution、四店串行子步骤或多日循环；只有平台适配器证明可独立执行的模块才允许拆成独立任务。</div></section>
+
+<section id="ui"><h2>07 页面：三种视图共用一个事实底座</h2><p>正式接线复用 <code>app/shell/navigation-catalog.ts</code> 的自动化中心与数据导入入口，以及现有 subnav、筛选、表格、抽屉和主题。运行总览回答“现在要处理什么”，规则页回答“以后怎么执行”，运行详情回答“这次到底做了什么”。</p><ul><li><b>自动化中心：</b>运行总览、链路规则、运行记录；n8n 画布保留在“高级/原生流程”入口。</li><li><b>三种观察方式：</b>默认日程，区分计划、排队与实际开始；按主体纵向展开模块；模块覆盖区分“安排了规则”和“已有目标日数据”。记住视图选择。链路名降为技术详情。</li><li><b>适用状态：</b>已安排、适用但未安排、不适用、缺权限、未核实分开显示；只有证据证明不适用才标灰。没有队列排名证据时只写等待资源，不编造前方任务数。</li><li><b>数据导入：</b>继续文件导入和批次记录；链路规则复用同一组件，旧 URL 可继续跳转。</li><li><b>详情抽屉：</b>固定计划、当前阶段、模块数据日期、原生尝试、批次/覆盖、告警、收尾、投递；只显示服务端明确允许的操作及禁用原因。</li></ul>
+<div class="demo"><small>离线合成示意 · 以下不是生产状态，不发起网络请求或真实任务</small><h3 style="margin-top:8px">自动化中心 / 链路规则</h3><div class="subnav" role="tablist" aria-label="规则查看方式"><button role="tab" aria-selected="true" aria-controls="view-rules" id="tab-rules" data-view="rules">日程视图</button><button role="tab" aria-selected="false" aria-controls="view-chain" id="tab-chain" data-view="chain">按主体</button><button role="tab" aria-selected="false" aria-controls="view-matrix" id="tab-matrix" data-view="matrix">模块覆盖</button></div>
+<div class="toolbar"><label>平台 <select id="demo-platform"><option value="all">全部</option><option value="ERP">ERP</option><option value="京东">京东</option><option value="天猫">天猫</option></select></label><span id="filter-result" class="small muted" aria-live="polite">合成示例，展示全部平台</span></div>
+<div id="view-rules" class="demo-panel" role="tabpanel" aria-labelledby="tab-rules"><div class="table-wrap"><table><thead><tr><th>规则 / 主体</th><th>计划 / 实际开始</th><th>执行</th><th>业务结果</th><th>需要处理</th></tr></thead><tbody><tr data-platform="ERP"><td>吉客云五表 / ERP</td><td>08:00 / 08:03</td><td><span class="badge warn">等待原任务恢复</span></td><td>3/5 模块已核验</td><td>查看剩余模块与允许的恢复动作</td></tr><tr data-platform="京东"><td>四店商品数据 / 共用链路</td><td>10:00 / 10:08</td><td><span class="badge">整链已结束</span></td><td>12/12 模块证据齐备</td><td>无需处理；展开看逐店证据</td></tr><tr data-platform="天猫"><td>商品与推广 / 示例店</td><td>14:00 / 14:00</td><td><span class="badge">已结束</span></td><td>近七日已覆盖，无需新增</td><td>主数据本轮完成，投递结果单独查看</td></tr></tbody></table></div></div>
+<div id="view-chain" class="demo-panel" role="tabpanel" aria-labelledby="tab-chain" hidden><div data-platform="ERP"><b>吉客云五表</b><p>固定计划 → 五表导出 → 全表校验 → <span class="badge">货品 / 库存 / 库龄已核验</span> → <span class="badge warn">销售 / 组合装待处理</span> → 整链回查与收尾</p></div><div data-platform="京东"><b>京东四店</b><p>固定店铺与缺口 → 按店串行 → 每店主数据 / SKU / SPU → 原批次及全范围覆盖回查 → 释放资源</p><small>示例等待：10:00 入队，等待共享浏览器资源；10:08 获得所有权后开始。队列排名未提供。</small></div><div data-platform="天猫"><b>天猫单店</b><p>冻结七日缺口 → 按日循环商品 / 推广 / 再核覆盖 → 主数据一次 → 收尾</p></div></div>
+<div id="view-matrix" class="demo-panel" role="tabpanel" aria-labelledby="tab-matrix" hidden><p class="small muted">规则覆盖与数据覆盖分开。此视图还包含待配置主体，不代表每行都有今日执行。</p><div class="table-wrap"><table><thead><tr><th>主体</th><th>主数据</th><th>销售 / 商品日</th><th>库存 / 推广</th></tr></thead><tbody><tr data-platform="ERP"><td>吉客云 ERP</td><td>已安排 · 已核验</td><td>已安排 · 待处理</td><td>已安排 · 实际采集日快照</td></tr><tr data-platform="京东"><td>京东示例店</td><td>已安排 · 已核验</td><td>已安排 · SKU/SPU 覆盖齐备</td><td><span class="badge warn">推广适用但未安排</span><br>不属于商品链12项</td></tr><tr data-platform="天猫"><td>天猫示例店</td><td>已安排 · 已核验</td><td>已安排 · 无缺口</td><td>已安排 · 无缺口</td></tr><tr data-platform="天猫"><td>天猫待配置示例店</td><td><span class="badge bad">两个草稿规则冲突</span></td><td>权限未核实</td><td>尚未安排</td></tr></tbody></table></div></div>
+<details><summary>展开运行详情与动作说明（合成）</summary><p>原计划：固定业务日期范围与五表集合；当前结果：前三模块已核验，剩余模块未完成。每个模块显示自己的批次、实际数据日期与最后核验时间。</p><p>拟提供动作：查看障碍、进入原执行、按原协议恢复；“新采集”“闭合旧任务”仅在服务端返回允许条件时显示可用。未决派发只核查同一请求，不能换编号再提交。</p><p class="small muted">示意不模拟“按钮点了就成功”，也不调用业务接口。</p></details></div>
+</section>
+
+<section id="recovery"><h2>08 恢复、重试、漏跑：分别设计</h2><div class="table-wrap"><table><thead><tr><th>情形</th><th>系统应采取的动作</th><th>用户看到的结果</th></tr></thead><tbody>
+<tr><td>短暂只读/下载网络失败</td><td>执行器按白名单错误和既有总期限重试已绑定对象；不重新生成报表。</td><td>原任务仍在恢复，剩余次数与下一时间来自有效政策。</td></tr>
+<tr><td>登录、验证码、身份不符</td><td>停止相关业务动作，保留清单；返回明确人工步骤。身份不符不能回退别店。</td><td>待人工及受影响范围；必要时按现有规则私人提醒。</td></tr>
+<tr><td>导出提交或派发结果未知</td><td>查询原任务/请求回执；有证据后按专用协议续接，不能换 ID 重发。</td><td>结果未明；普通重试禁用，显示原因与可核查入口。</td></tr>
+<tr><td>部分模块已经入库</td><td>保持原批次，按平台支持恢复未完成部分并重新核验整链；不存在合法续接时等待处理。</td><td>部分完成，明确保留数据；不把所有模块清零。</td></tr>
+<tr><td>文件内容重复</td><td>业务域按“域 + 精确范围 + 完整规范化内容”判断；签收本次文件并关联原批次。</td><td>重复跳过 / 复用批次，新增数为 0，不混淆原文件哈希与内容指纹。</td></tr>
+<tr><td>错过定时时点</td><td>独立检查应运行时间槽、活动尝试和覆盖；按允许政策生成唯一补跑意图，经原生完整入口领取。</td><td>漏跑或已被后续完整运行满足；不能认为失败重试会补一个不存在的 execution。</td></tr>
+<tr><td>作废或闭合</td><td>只走平台已支持的管理员入口，固定旧任务、保留证据；按原执行器已支持的取消/围栏能力核验旧派发与迟到写入的拒绝。不删除批次，也不声称能撤销已经发生的外部点击。</td><td>已闭合 / 部分保留；新任务是另一项动作。</td></tr>
+</tbody></table></div>
+<p>资源协调继续遵守“helper 所有者 + 浏览器共享根锁 + 各域写锁”。性能优化先消除重复查询和下载、提前查缺口、独立读取并行；只有资源真正独立的队列才增加并发。不得为了提速让共享 Chromium 四店同时启动。</p><p>跨日恢复必须保留原计划日、原文件与原批次身份，不能自动把昨天失败改成今天成功。重试预算按逻辑运行计，恢复产生新 execution 也不能重置次数。采集时间、业务日期和执行日期分别保存。</p></section>
+
+<section id="notification"><h2>09 不做站内信，仍然能形成完整闭环</h2><p>异常处理直接附着在运行记录上。总览给出“待人工 / 持续阻塞 / 无法核实”的筛选与数量，进入对应运行后处理；不建设独立收件箱、已读标记、消息红点和通知中心。</p><div class="table-wrap"><table><thead><tr><th>需要的效果</th><th>本系统实现</th></tr></thead><tbody>
+<tr><td>知道今天是否完成</td><td>运行总览显示应执行、已核验、正常无需新增、未完成与无法核实；可直接看到数据截至日期。</td></tr>
+<tr><td>知道要自己做什么</td><td>运行详情显示错误分类、具体操作、已完成部分和允许动作；需要人工时沿用本人钉钉单聊。</td></tr>
+<tr><td>完成后有反馈</td><td>整条工作流达到原业务成功与收尾要求后，按现有规则发送一次完成摘要；不逐节点轰炸。</td></tr>
+<tr><td>不重复提醒</td><td>按逻辑运行与故障事件去重；换 execution 不换完成事实。发送未知先查原回执，不能盲目重发。</td></tr>
+<tr><td>消息发不出也能处理</td><td>业务结果保留；页面记录未投递及原因，只恢复投递部分，不重跑导入。</td></tr>
+</tbody></table></div><p class="small">通知专项文档明确：人工协助发本人单聊，完成和无需人工动作的状态通知保留原群；每次发送前动态核验身份与机器人。导入规范中的旧“全部发群”摘要与之冲突，施工时应统一引用专项规则，不能据旧段改变收件人。本次只提出方案，没有发送任何消息。</p></section>
+
+<section id="delivery"><h2>10 施工顺序：每一阶段都交付可见能力</h2>
+<div class="phase"><h3>P0 · 固定基线与消除配置歧义</h3><p><b>交付：</b>工作流/模块/主体完整登记表；仓库模板、有效策略、采用版本和在线观察来源分列；修正页面旧文案；形成原链路能力及依赖矩阵。</p><p><b>完成效果：</b>页面能区分“已登记、待采用、已启用、未知”，不再把模板频率当在线事实。将客服、物流时点和天猫主数据周期差异纳入明确处理清单。</p></div>
+<div class="phase"><h3>P1 · 打通运行与数据证据，交付统一页面</h3><p><b>交付：</b>Django 运行投影、事件/回查适配、服务端过滤分页；逻辑运行→原生尝试→模块→批次/覆盖详情；三视图与异常筛选。先适配吉客云与一个天猫店的两种典型结构，再接现有全部导入家族。</p><p><b>完成效果：</b>登录前失败也有记录；整链成功与数据结果可区分；部分成功、无需新增、结果未明均有准确展示。此阶段不修改原生调度。</p></div>
+<div class="phase"><h3>P2 · 统一受控操作与通知闭环</h3><p><b>交付：</b>已有吉客云动作收口到统一详情；其余平台按能力提供完整运行、原任务恢复、漏跑补齐、显式闭合；requestId、固定目标、权限、回执与操作审计；现有钉钉渠道的投递状态关联。</p><p><b>完成效果：</b>不必到日志里猜该怎么操作；重复点击或刷新仍指向同一请求；通知异常不会触发业务重放。未支持的动作明确禁用并说明。</p></div>
+<div class="phase"><h3>P3 · 开放规则编辑与模块编排</h3><p><b>交付：</b>规则草稿/修订、依赖校验、范围预览、冲突检测、受控应用与原生版本读回。按平台逐条切换规则来源；在途运行保留原快照。</p><p><b>完成效果：</b>用户能在系统调整允许的周期、主体和模块组合，并知道何时生效。n8n 唯一定时所有权不变；执行器不接受未登记脚本。</p></div>
+<div class="phase"><h3>P4 · 其他工作流汇总与性能收敛</h3><p><b>交付：</b>AI、市场标注、运营归档/周报与运维状态适配；失败分类与耗时统计；无变化状态的有界增量观察；老展示和重复监控口径收敛。</p><p><b>完成效果：</b>一个总览覆盖各类工作，点击进入原领域操作；有依据识别耗时和人工介入来源，逐步减少重复扫描与无效下载。</p></div>
+<div class="note"><b>推荐先做 P0 + P1，再推进 P2/P3。</b>只有页面改版不能达到参考方案的施工效果；没有运行证据底座就开放编辑，会把配置混乱扩大。工期应在 P0 核实真实采用版本、接口缺口与改动清单后估算，本次不以文件篇幅推算天数。</div>
+<h3>预计涉及的代码区域</h3><p>前端复用 <code>app/import-*.tsx</code>、<code>app/n8n-workflow-view.tsx</code>、现有恢复控件及 shell；后端扩展 <code>backend/workflow/</code> 的自动化管理与原生适配，领域 consumer 仅提供必要证据。目录生成复用 <code>tools/build-import-chain-catalog.mjs</code>；采集变化仅修改对应 <code>tools/*-n8n-pipeline.ts</code>、<code>lib/平台/</code> 和 <code>automation/n8n/</code>。具体文件、迁移和发布范围在各施工阶段差异形成后确定。</p>
+<h3>迁移与交付约定</h3><p>先增量观察、按来源去重，旧历史能证明到哪一层就展示到哪一层；无法关联的旧记录标“历史未关联”，不伪造 logicalRun。新规则按家族启用，任何时刻只有一个定时/执行所有者。新控制能力故障可关闭新增入口，原执行器继续保留原约束；已提交业务数据不做反向回退。</p><p>本次只交付方案文件。后续开发从独立分支完成，AI 按现行要求检查构建、部署和启动必需代码，功能效果由用户上线后判断；合并到 main、准备制品、发布上线分别取得当次授权。新结构迁移与历史业务数据回填分开，计划不会自动授权生产写入。</p></section>
+
+<section id="outcomes"><h2>11 怎样判断实现了参考方案的效果</h2><p>以下是产品完成标准，供未来施工和用户验收使用，不表示本轮已经执行了功能测试。</p><ol><li>新增一个已支持平台的店铺，通过注册与凭据配置接入后，目录、规则、视图和运行记录自动出现，无须复制整页代码。</li><li>规则、链路、矩阵三视图看到同一版本、同一运行；筛选到单店不会扩大到其他店数据。</li><li>一次任务从计划、下载、导入到回查与收尾完整可追溯；下载前失败也能查到。</li><li>每个“完成”都能展开到精确批次/覆盖或明确的正常无动作证据；只有 n8n success 时不冒称业务完成。</li><li>部分成功后能清楚看到已入库模块和剩余项；系统只提供合法恢复动作，旧失败历史不被改写。</li><li>修改周期后显示待应用与实际生效版本；旧任务仍使用原快照，重复或迟到请求不能覆盖新状态。</li><li>错过定时时点可被识别并按政策补齐；定时重试与人工触发相撞时只有一个执行所有者。</li><li>人工协助、持续阻塞和完成通知各按既定粒度去重；无需站内信仍能完成发现—处理—回查。</li></ol>
+<h3>用哪些数字评估优化价值</h3><p>先采集同一观察窗口的基线，再比较首次完整成功率、自动恢复后完成率、人工介入次数、数据覆盖及时率、等待/登录/下载/导入/回查耗时、配置漂移数量和重复提醒次数。正常无缺口、未到期与新导入分别计数；不要把少下载的次数直接当稳定性提升，也不要承诺未经测量的提速百分比。</p></section>
+
+<section id="evidence"><h2>12 来源、范围及后续核实</h2><p>外部资料已完整阅读，共 <b>1,693 行、223,277 字节</b>，包含规则化文件的长附录。保留其设计思想，不采纳其中针对别人系统的运行结论、原路径或历史授权。</p>
+<details><summary>外部文件身份与 SHA-256</summary><div class="refs"><p>目录：E:\微软文件\OneDrive\桌面\实现</p><p>方案-京东POP接入自动导入-2026-08-31.md<br>889711c25cf6e02acdc8ed14fe06d31f5d041dc9fae906ca9c4875e557f943a2</p><p>方案-自动导入链路规则页展示重设计-2026-09-10.md<br>c55e477803233161b56f7ee80eee51d7f1c6e7543b2052b0c752f9c0208d0128</p><p>方案-自动导入链路配置重构-规则化-2026-09-10.md<br>21bcf840fdc316370454c71b3851536cf3518db7fcd3ccef239bff66ce9953e9</p><p>方案-自动导入模块化重构-2026-09-12.md<br>73d83ced008988ac19b27efff4dacfe8ab84640c40665741c26651b32a547cba</p><p>实施排期-自动导入与站内信-2026-08-29.md<br>c968f1b9a788d2dbde641002c641155fd68519203ec192158b9e5e57c95c57b5</p></div></details>
+<details><summary>主要本系统源码证据（基线 491c1408）</summary><ul class="refs"><li>app/shell/navigation-catalog.ts：模块、自动化中心与数据导入导航。</li><li>app/import-module-view.tsx:159、app/import-run-records-view.tsx:16：七域最近批次读取及前端集合分页。</li><li>app/import-chain-rules-view.tsx:13：当前矩阵、状态轮询、详情及闭合入口。</li><li>app/n8n-workflow-view.tsx:150：旧天猫说明；app/jackyun-recovery-controls.tsx、app/jackyun-close-controls.tsx：已有恢复能力。</li><li>lib/imports/chain-catalog.generated.json；tools/build-import-chain-catalog.mjs：8 类、17 配置、13 主体及目录生成。</li><li>backend/workflow/import_chain_status.py:168、import_chain_views.py：有界 n8n 只读观察；pi_business_n8n.py：注册原生能力与业务证据门槛。</li><li>backend/netshop/import_service.py:443；backend/common/import_recovery.py：内容指纹、范围和恢复证据。</li><li>docs/规范/导入与自动化.md；docs/使用手册/数据导入/import-monitor.md；docs/自动化/通用/workflow-dingtalk-notifications.md：业务契约、展示边界和通知专项规则。</li></ul></details>
+<details><summary>外部关键章节定位</summary><ul class="refs"><li>POP：§6.2（133–159行）身份与配置；208–217行报表调整；267–286行后续采用说明。</li><li>规则化：68–108行规则目标；239–276行任务与重试；§13.1（438–457行）最终16项决定；后部86文件清单仅为另一系统盘点。</li><li>展示重设计：38–67行三视图；96–106行默认日程、删除旧矩阵等确认。</li><li>模块化：49–94行模块目录及数量冲突；310–342行完成判据；346–351行S2决定与364/386/414行残留S1冲突。</li><li>排期：3–9行n8n退役说明；23–25、29–30、41–42、55–57、64行站内信范围；153–160行既有开关复用。</li></ul></details>
+<h3>施工前需要核实的事实</h3><ul><li>17 个登记工作流的实际采用版本、启停、调度、资源组及未决运行；模板 active=false 不构成现场停用证据。</li><li>客服四店、京东物流和天猫入仓的当前采用范围；客服/物流调度时点冲突的最终生效值。客服四店有历史采用记录，物流有真实运行记录，天猫入仓现有报告只证明停用草稿安装；三者不混称从未上线。</li><li>吉客云近期恢复、一键闭合及销售预检增量的部署状态；不覆盖其他会话正在推进的任务。</li><li>AI/运维/外部监控的实际任务总目录及可用只读接口；登记到总览与开放控制是两件事。</li></ul><p>这些核实用于建立施工基线，不阻止当前方案成立。本轮未运行采集、导入、调度修改、业务验收、外部通知、合并、制品准备或上线。</p></section>
+<div class="footer">建议方案 v1 · 本文件可离线打开，样式、示意数据与交互均内嵌。正式施工须按阶段确认范围。</div>
+</main></div>
+<script>
+(()=>{const tabs=[...document.querySelectorAll('[data-view]')];function choose(tab){tabs.forEach(x=>{const on=x===tab;x.setAttribute('aria-selected',String(on));x.tabIndex=on?0:-1;document.getElementById('view-'+x.dataset.view).hidden=!on;});}tabs.forEach((tab,i)=>{tab.addEventListener('click',()=>choose(tab));tab.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const n=e.key==='Home'?0:e.key==='End'?tabs.length-1:(i+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;choose(tabs[n]);tabs[n].focus();});});choose(tabs[0]);const filter=document.getElementById('demo-platform');filter.addEventListener('change',()=>{document.querySelectorAll('[data-platform]').forEach(row=>row.hidden=filter.value!=='all'&&row.dataset.platform!==filter.value);document.getElementById('filter-result').textContent=filter.value==='all'?'合成示例，展示全部平台':'合成示例，仅展示'+filter.value;});})();
+</script>
+</body></html>

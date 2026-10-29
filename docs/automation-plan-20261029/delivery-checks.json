@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-29",
+  "scope": "Proposal document only",
+  "sourceCommit": "491c14081e65a905d8cc31d4f6d37b086b8dbc34",
+  "document": "自动导入与工作流统一优化方案.html",
+  "sha256": "A63A9D8DEC4ECCFC3C8AC040F727AD70475C8418D5CD9BC156D2C63BA255D8EA",
+  "sourceFilesRead": 5,
+  "sourceLinesRead": 1693,
+  "independentReview": "Completed; no remaining blocking findings; source-view summary corrected; closure wording tightened",
+  "offlineHtmlChecks": {
+    "status": "passed",
+    "fileUri": "file:///D:/codex-worktrees/automation-plan-20261029/docs/automation-plan-20261029/%E8%87%AA%E5%8A%A8%E5%AF%BC%E5%85%A5%E4%B8%8E%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%BB%9F%E4%B8%80%E4%BC%98%E5%8C%96%E6%96%B9%E6%A1%88.html",
+    "title": "TERUISI 自动导入与工作流统一优化方案",
+    "sections": 12,
+    "tabs": 3,
+    "platformFilter": "passed",
+    "keyboardTabs": "passed",
+    "details": "passed",
+    "localAnchors": "passed",
+    "externalRequests": 0,
+    "consoleErrors": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false,
+    "scope": "offline document only; no application or business tests"
+  },
+  "finalChanges": "Text-only corrections after interaction check; no script or layout changes",
+  "productionActions": "None",
+  "deliveryCopy": "E:\\微软文件\\OneDrive\\桌面\\实现\\TERUISI-自动导入与工作流统一优化方案-2026-10-29.html"
+}
