@@ -6,6 +6,7 @@ import { describeSchedule } from "@/lib/imports/run-presentation";
 import { requestJson } from "@/lib/http/api-client";
 import { completedAtLabel, formatChainStatusTime, todayStatusLabel, validateTodayStatus, type ChainTodayResponse } from "@/lib/imports/chain-status";
 import { shanghaiIsoToday, type CurrentUser } from "./module-view-shared";
+import { JackyunCloseControls } from "./jackyun-close-controls";
 
 type Rule = typeof catalog.rules[number];
 
@@ -83,6 +84,7 @@ export default function ImportChainRulesView({ currentUser }: { currentUser: Cur
               {rule.masterIntervalDays && <small>主数据每 {rule.masterIntervalDays} 天更新</small>}
               <small>{item?.active === true ? "工作流已启用" : item?.active === false ? "工作流已停用" : "启停状态无法核实"}</small>
               <button type="button" className="text-button" onClick={() => setSelection({ rule, entityKey: entity.key })}>查看规则 →</button>
+              {chain.key === "jackyun" && <JackyunCloseControls currentUser={currentUser} />}
             </div>; }) : <span className="import-monitor-muted" title={entity.platform === chain.platform ? "仓库没有为此主体配置该链路" : "此链路不适用于该平台"}>{entity.platform === chain.platform ? "未配置" : "—"}</span>}</td>;
           })}
         </tr>)}</tbody></table>
@@ -95,6 +97,7 @@ export default function ImportChainRulesView({ currentUser }: { currentUser: Cur
         <div className="import-rule-dialog-body">
           <dl className="import-run-facts"><div><dt>工作流</dt><dd>{selection.rule.name}</dd></div><div><dt>配置频率</dt><dd>{selection.rule.schedules.map(describeSchedule).join("、") || "手动触发"}</dd></div><div><dt>时区</dt><dd>{selection.rule.timezone}</dd></div><div><dt>今天执行状态</dt><dd>{todayStatusLabel(selectedStatus).label}{selectedStatus?.executionId ? ` · 执行 #${selectedStatus.executionId}` : ""}</dd></div><div><dt>完成时间</dt><dd>{selectedStatus?.completedAt ? `${completedAtLabel(selectedStatus)} ${formatChainStatusTime(selectedStatus.completedAt)}` : "未查到完成记录"}</dd></div><div><dt>下次运行</dt><dd>在 n8n 查看已发布调度</dd></div>{selection.rule.masterIntervalDays && <div><dt>主数据更新周期</dt><dd>每 {selection.rule.masterIntervalDays} 天；到期情况由执行记录决定</dd></div>}</dl>
           <h3>数据模块</h3><div className="import-rule-modules">{selectedChain.modules.map((m) => <span key={m}>{m}</span>)}</div>
+          {selectedChain.key === "jackyun" && <JackyunCloseControls currentUser={currentUser} />}
           <h3>执行步骤</h3><ol className="import-rule-steps">{selectedChain.steps.map((step) => <li key={step}>{step}</li>)}</ol>
           <h3>共用此工作流的主体</h3><p>{catalog.entities.filter((e) => selection.rule.entityKeys.includes(e.key)).map((e) => e.name).join("、")}</p>
           <details className="import-rule-provenance"><summary>配置来源</summary><p>{selection.rule.definitionFile}</p><p>工作流 ID：{selection.rule.workflowId}</p><p>仓库定义不能证明当前已发布，也不能证明某次执行成功。</p></details>

@@ -315,6 +315,22 @@ export function readN8nJackyunOwnerState(executionId: string) {
   } finally { db.close(); }
 }
 
+/** Fixed read-only closure census, including retries waiting in n8n. */
+export function readN8nJackyunCloseEvidence(ids: string[]) {
+  if (!ids.length || ids.some(id => !/^[1-9]\d{0,19}$/.test(id))) throw new Error("闭合执行身份无效。");
+  const db = openN8nMetadata();
+  try {
+    db.exec("PRAGMA query_only=ON; PRAGMA busy_timeout=3000; BEGIN");
+    const active = db.prepare("SELECT id FROM execution_entity WHERE workflowId=? AND deletedAt IS NULL AND status NOT IN ('error','success','canceled','crashed') LIMIT 1").get(jackyunWorkflowId);
+    if (active) throw new Error("该工作流仍有运行或等待中的任务，暂不能闭合。");
+    return [...new Set(ids)].map(id => {
+      const row = db.prepare("SELECT id,status,startedAt,stoppedAt,retrySuccessId,deletedAt FROM execution_entity WHERE id=? AND workflowId=?").get(id, jackyunWorkflowId);
+      if (!row || !["error", "canceled", "crashed"].includes(String(row.status)) || row.deletedAt !== null || row.retrySuccessId !== null || !row.stoppedAt) throw new Error("原任务缺少明确失败终态，暂不能闭合。");
+      return { executionId: id, status: String(row.status), startedAt: n8nEvidenceTime(row.startedAt), stoppedAt: n8nEvidenceTime(row.stoppedAt) };
+    });
+  } finally { db.close(); }
+}
+
 export function assertN8nJackyunAAdmission(executionId: string) {
   if (!/^[1-9]\d{0,19}$/.test(executionId)) throw new Error("完整 A 领取身份无效。");
   const db = openN8nMetadata();

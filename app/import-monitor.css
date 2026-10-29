@@ -28,6 +28,11 @@
 .import-rule-cell { display: grid; justify-items: start; gap: 6px; min-width: 215px; }
 .import-chain-actions { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .import-rule-cell small { margin-top: 0; }
+.import-close-controls { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); max-width: 420px; }
+.import-close-controls p { margin: 0; font-size: 13px; line-height: 1.6; }
+.import-close-controls small { white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
+.import-close-controls .import-chain-actions { gap: 10px; }
+.import-rule-dialog .import-close-controls { max-width: none; padding-bottom: 16px; }
 .import-run-badge { display: inline-flex; align-items: center; padding: 3px 8px; margin-top: 2px; border: 1px solid transparent; border-radius: 5px; font-size: 13px; white-space: nowrap; line-height: 1.5; }
 .import-run-badge.is-success { color: #287344; background: #edf8ef; border-color: #c8e6ce; }
 .import-run-badge.is-warning { color: #92620f; background: #fff8e7; border-color: #f3dfaa; }

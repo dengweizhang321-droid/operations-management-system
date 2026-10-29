@@ -8,6 +8,7 @@ import { withJackyunRunLock } from "./run-lock";
 import { jackyunWorkflowId } from "./preflight-recovery";
 import { hourlyRetryWebhookPath } from "../../tools/n8n-hourly-retry-policy.mjs";
 import { assertNoFreshRestart, inspectFreshRestart, validFreshRestartTarget, type FreshRestartTarget } from "./fresh-restart";
+import { assertNoOperatorClosure, readClosedRecoveryTarget } from "./operator-close-fence";
 
 export type HumanRetryAuthority = { ok: true; version: "jackyun-human-retry-authority-v1"; authorizationId: string;
   workflowId: typeof jackyunWorkflowId; createdAt: string; expiresAt: string }
@@ -37,6 +38,7 @@ export async function readHumanRetryAuthority(authorizationId: string, request: 
 }
 
 export async function claimHumanRetryAuthority(root: string, authority: HumanRetryAuthority, executionId: string, request: RecoveryRequest): Promise<BoundHumanAuthority> {
+  assertNoOperatorClosure(root, [executionId, ...(authority.kind === "retry" ? [authority.logicalExecutionId, authority.failedExecutionId] : authority.supersedes ? [authority.supersedes.logicalExecutionId, authority.supersedes.sourceExecutionId, authority.supersedes.failedExecutionId] : [])]);
   const expected: RecoveryRequest = authority.kind === "new" ? { version: recoveryProtocol, kind: "new" }
     : { version: recoveryProtocol, kind: "retry", logicalExecutionId: authority.logicalExecutionId, failedExecutionId: authority.failedExecutionId };
   if (!isDeepStrictEqual(expected, request) || !/^[1-9]\d{0,19}$/.test(executionId)) throw new Error("人工授权与本次完整执行或目标运行不一致。");
@@ -56,12 +58,16 @@ export async function readJackyunRecoveryTarget(root: string, explicitLogicalId?
   const base = path.join(root, "outputs/jackyun-export-first");
   const active = await readJsonFileOr<{ runId: string; executionId: string } | null>(path.join(base, "active.json"), null);
   if (!active && !explicitLogicalId) {
+    const closed = readClosedRecoveryTarget(root);
+    if (closed) return closed;
     const entries = await readdir(base).catch(error => { if (error.code === "ENOENT") return []; throw error; });
     if (entries.length) throw new Error("JACKYUN_TARGET_MANUAL_ACTION：活动索引缺失但原运行证据仍在，请核查原索引和执行；禁止猜测为空并重新采集。");
     return { ok: true, state: "empty", newCollectionAllowed: true };
   }
   let logicalExecutionId = explicitLogicalId ?? active!.executionId;
   if (!/^[1-9]\d{0,19}$/.test(logicalExecutionId)) throw new Error("活动或目标运行身份无效。");
+  const closed = readClosedRecoveryTarget(root, logicalExecutionId);
+  if (closed) return closed;
   let control = await readRecoveryControl(root, logicalExecutionId);
   if (!explicitLogicalId && !control) {
     const names = await readdir(path.join(base, "recovery-control")).catch(error => { if (error.code === "ENOENT") return []; throw error; });
@@ -102,17 +108,22 @@ export async function readJackyunRecoveryTarget(root: string, explicitLogicalId?
 export async function dispatchHumanJackyunRetry(root: string, authorizationId: string, options: { request?: typeof fetch; lockDirectory?: string } = {}) {
   const request = options.request ?? fetch;
   const authority = await readHumanRetryAuthority(authorizationId, request);
+  const assertOpen = () => assertNoOperatorClosure(root, authority.kind === "retry" ? [authority.logicalExecutionId, authority.failedExecutionId]
+    : authority.supersedes ? [authority.supersedes.logicalExecutionId, authority.supersedes.sourceExecutionId, authority.supersedes.failedExecutionId] : []);
+  assertOpen();
   if (authority.kind === "retry") assertNoFreshRestart(root, [authority.logicalExecutionId, authority.failedExecutionId]);
   const file = path.join(root, "outputs/jackyun-export-first/human-dispatch", `${authorizationId}.json`);
   const existing = await readJsonFileOr<{ authorityDigest: string; createdAt: string } | null>(file, null);
   if (existing) {
     if (existing.authorityDigest !== controlDigest(authority)) throw new Error("原人工派发授权已变化。");
+    assertOpen();
     const accepted = readAcceptedJackyunHumanDispatch(authorizationId, existing.createdAt);
     if (!accepted) throw new Error("原派发 Webhook 结果无法确认，保留同一请求编号；禁止再次 POST。");
     return { ok: true, dispatchStatus: "accepted", ...accepted, authorizationId };
   }
   const prepared = await withJackyunRunLock({ runId: `human-${authorizationId}`, purpose: "human_retry_dispatch",
     ...(options.lockDirectory ? { lockDirectory: options.lockDirectory } : {}) }, async lock => {
+    assertOpen();
     const target = await readJackyunRecoveryTarget(root, authority.kind === "retry" ? authority.logicalExecutionId : undefined, { request });
     if (authority.kind === "new" && authority.supersedes) {
       assertNoFreshRestart(root, [authority.supersedes.logicalExecutionId, authority.supersedes.sourceExecutionId]);
@@ -127,13 +138,14 @@ export async function dispatchHumanJackyunRetry(root: string, authorizationId: s
     const createdAt = new Date().toISOString();
     await lock.assertOwned();
     await writeJsonDurable(file, { version: "jackyun-human-dispatch-intent-v1", authorizationId,
-      authorityDigest: controlDigest(authority), targetDigest: controlDigest(target), createdAt }, true);
+      authorityDigest: controlDigest(authority), authority, target, targetDigest: controlDigest(target), createdAt }, true);
     return { version: "jackyun-human-retry-authority-v1", authorizationId, jackyunRecovery: recovery,
       ...(authority.kind === "retry" ? { originalExecutionId: authority.logicalExecutionId, failedExecutionId: authority.failedExecutionId,
         originalScheduledAt: target.originalScheduledAt } : {}) };
   });
   // The send intent is durable before releasing the profile lock. Do not hold
   // that lock across onReceived: the newly admitted A must acquire it itself.
+  assertOpen();
   const response = await request(`http://127.0.0.1:5678/webhook/${hourlyRetryWebhookPath(jackyunWorkflowId)}`, { method: "POST",
     headers: { "content-type": "application/json" }, body: JSON.stringify(prepared), redirect: "error", signal: AbortSignal.timeout(10000) });
   await response.body?.cancel();

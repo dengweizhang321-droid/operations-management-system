@@ -21,6 +21,7 @@ import { claimJackyunAutomaticDispatch } from "../lib/jackyun/retry-budget";
 import { parseRecoveryRequest } from "../lib/jackyun/recovery-control";
 import { readHumanRetryAuthority, claimHumanRetryAuthority } from "../lib/jackyun/human-retry";
 import { assertNoFreshRestart } from "../lib/jackyun/fresh-restart";
+import { assertJackyunCloseAdmission } from "../lib/jackyun/operator-close-admission";
 import { repairOriginalApiFile } from "./jackyun-api-export";
 import { claimAutomaticJackyunApiResume } from "../lib/jackyun/automatic-api-resume";
 import { inspectSubmittedApiTask } from "./jackyun-api-export";
@@ -1564,6 +1565,7 @@ async function serveCommand(argv: string[]) {
           }
         }
       } else if (isJackyunExportFirst) {
+        assertJackyunCloseAdmission(projectRoot, requestExecutionId!);
         const action = request.url!.slice(jackyunExportFirstPrefix.length);
         // Current inventory/age cannot be recreated for yesterday. Preserve the
         // original request as unresolved instead of relabelling today's capture.

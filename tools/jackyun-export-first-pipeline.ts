@@ -13,6 +13,7 @@ import { assertJackyunHandoffEvidence, assertJackyunSnapshotEvidence, jackyunCap
 import { jackyunModuleOrder, prepareJackyunWorkbook, type JackyunModule } from "../lib/jackyun/post-download";
 import { verifyJackyunModuleArtifact, type JackyunArtifactManifestModule } from "../lib/jackyun/run-artifact-verification";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
+import { assertNoOperatorClosure } from "../lib/jackyun/operator-close-fence";
 import { assertClosedPreflight, preflightClosurePath, publishAutomatedCredentialClosure, publishAutomatedPageClosure } from "../lib/jackyun/preflight-recovery";
 import { classifyJackyunPreflightFailure } from "../lib/jackyun/preflight-failure";
 import { isRetryableJackyunCredentialPreparationFailure } from "../lib/jackyun/windows-dpapi";
@@ -327,6 +328,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
   return withJackyunRunLock({ runId, purpose: "n8n_export_first",
     ...(deps.lockDirectory ? { lockDirectory: deps.lockDirectory } : {}) }, async lock => {
     await lock.assertOwned();
+    assertNoOperatorClosure(root, [executionId, ...(deps.recoveryRequest?.kind === "retry" ? [deps.recoveryRequest.logicalExecutionId, deps.recoveryRequest.failedExecutionId] : [])]);
     assertNoFreshRestart(root, [executionId, ...(deps.recoveryRequest?.kind === "retry" ? [deps.recoveryRequest.logicalExecutionId, deps.recoveryRequest.failedExecutionId] : [])]);
     await assertFreshRestartSuccessor(root, executionId, deps.humanAuthority);
     const assertOwned = lock.assertOwned;
