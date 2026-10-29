@@ -105,3 +105,66 @@ if (!plan.components.length) return {status:'non-production', ...};   // ← 跳
 1. 采用候选 A（独立保留脚本 + 清掉 75 条失效 worktree 与 79 个分支）、B 还是 C；
 2. 保留缓冲 N 取几（建议 5）；
 3. 是否同意不改 `publish-latest-main.mjs`。
+
+---
+
+## 6. 候选 A 执行记录（2026-10-29，用户授权，N=5）
+
+新增 `tools/release-package-retention.mjs` 与 `tests/release-package-retention.test.mjs`，`--dry-run` 核过后执行。
+
+### dry-run 暴露了一个会漏清的缺陷（这是 dry-run 的价值）
+
+首版 `packageName` 正则写作 `^[0-9a-f]{12}-[0-9a-z]{8,}-[0-9a-z]{8,}$`，dry-run 报 **67 条**，与实测的 75 条不符。追查发现生产里存在两类该正则不覆盖的真实命名：
+
+- 重试后缀：`36668589cab0-71ecf390-bbc9a5ef-r2` / `-r3` / `-r4`、`4dccd1883e95-cac80221-9ea443c1-r2`
+- 恢复包：`47e1e89fea91-pi150-forward`、`51eb7d76095d-pi150-forward`、`bbc9fda1cfda-pi150-forward`、`e508d9c39baf-pi150-forward`
+
+共 8 条被静默跳过。改为锚定 12 位提交前缀再允许任意后续段（`^[0-9a-f]{12}(?:-[0-9a-z]+)+$`），并补了一条专门覆盖这两类真实命名的测试。**若直接 --execute，这 8 条会被漏下。**
+
+### 执行前核验（全过）
+
+| 检查 | 结果 |
+| --- | --- |
+| 保护项分支是否误入待删清单 | 两者均 OK，已排除 |
+| 待清 worktree 与保护项交集 | 无 |
+| 待删包目录 | 0（昨日已删，剩两个受保护） |
+
+完整清单存于 `dry-run-20261029.json`。
+
+### 执行结果
+
+```
+removed: {worktrees: 75, directories: 0, branches: 77}
+keep: 18c25a3a153e-4a9cb3f5-b05895d2, 1b02c93791bb-d349107e-99df9f68
+```
+
+| 项 | 清理前 | 清理后 |
+| --- | --- | --- |
+| worktree 总记录 | 200 | **125** |
+| `main-release-packages` 相关记录 | 77 | **2**（两个保留包） |
+| 其中目录不存在的失效记录 | 75 | **0** |
+| `codex/manual-main-*` 分支 | 79 | **2** |
+
+分支数 77 而非 79：两个保留包的分支被正确排除。
+
+### 执行后核验（全过）
+
+- `app/deployment.json` 仍指向 `1b02c93791bb`，`app.previous` 仍指向 `18c25a3a153e`，`appFingerprint` `6defc323b2ef0867` 未变；
+- 保留包 7913 文件完整；
+- 网页 `http://127.0.0.1:3000/` → **HTTP 200**；
+- 其余 123 条无关 worktree（含本会话自身）未受影响，`git status` 正常。
+
+未停机、未进维护模式、未碰 `D:/teruisi-runtime/`。磁盘占用无变化（本次只注销注册与分支，昨日已回收 13 GB 目录）。
+
+### 脚本的后续用法
+
+```bash
+# 查看将要清理什么（永远先跑这个）
+node tools/release-package-retention.mjs --dry-run --keep-recent 5
+# 确认后执行
+node tools/release-package-retention.mjs --execute --keep-recent 5
+```
+
+必须从仓库根运行（worktree 注册在那里）。保护集每次运行时现查两份生产清单，不用任何静态列表；按 mtime 保留最近 N 个作缓冲。四步动作齐全：`unlock` → 删目录 → `prune` → 删分支，不会再留半清理状态。
+
+**仍未做**：方案二的 63 个任务目录 27.78 GB（需逐个核证据）；是否把本脚本接入定期执行（候选 B 已论证不建议挂在发布成功之后）。
