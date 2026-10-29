@@ -1,0 +1,301 @@
+{
+  "allGroupsIdentical": true,
+  "groups": [
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0bb9523cbf1e-bcccc8cd-00058fea",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "01defeae-36a2-46dc-8182-59f8e8c32ca9",
+          "selectionSha256": "d6b164d40caf8c99ba745b7d609ac8a06c05d5e440bbad899a65ad74b864f102"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\0c840f6af5cb-8a03d8fb-9ea443c1",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "1547318f-3567-4a13-94f7-4e656cc2f637",
+          "selectionSha256": "158cded0de0fdf5464d571ede5d7ac4051d1ef4207e3a66b0c7b9d20396f6c47"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\1100e9c7050c-8a03d8fb-9ea443c1",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "9c2a0803-c695-44c4-a60a-78855036f4e5",
+          "selectionSha256": "d836630b5abb7065c16621179ad1203fab5f1350219f5834363ffe3375eb7875"
+        },
+        {
+          "dispatchId": "b8ec3f91-7500-4fb5-97a7-e3d7d5c963d2",
+          "selectionSha256": "d836630b5abb7065c16621179ad1203fab5f1350219f5834363ffe3375eb7875"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\19db6d2c217e-ec5d0f96-83cdf0d4",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "44ac7bfa-8d33-4c50-8ce5-793a56cb35cf",
+          "selectionSha256": "a6a358215b78302d381ea19954b7a8385d131f61d31c687d3f063fa314c763a8"
+        },
+        {
+          "dispatchId": "f697b299-7911-4332-8411-9636e95cf07a",
+          "selectionSha256": "a6a358215b78302d381ea19954b7a8385d131f61d31c687d3f063fa314c763a8"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2b6447f33d54-150a41fa-23ba6b9a",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "506c9819-b229-4a55-91d8-9a903f62df5d",
+          "selectionSha256": "541c46177dd12cf2dc275b6cb4356c7b75a028c6399046e205e0f640499d2082"
+        },
+        {
+          "dispatchId": "c97f8bc3-1cb2-4ebc-91bb-a543c62b680f",
+          "selectionSha256": "541c46177dd12cf2dc275b6cb4356c7b75a028c6399046e205e0f640499d2082"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\2be62f90e6dd-f9f646e8-3b7345f2",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "dba51173-e25d-4f4d-b5c3-e585daa70b42",
+          "selectionSha256": "23f8d34701cc907a19897a4bef2c458d0c270505d0829ac660af0d5833a7cd17"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\313c8d3561e6-6ae93b27-6f9d2e9e",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "fc013e60-b288-49cd-b601-a223165f55cd",
+          "selectionSha256": "db01ffb30eb4fdd0b93abf838f8d6b86f7f3637daddaf9e8c3ec9ee045414b8e"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef-r2",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "c6d69d0c-e77c-440d-b6c5-6a0ebd6641f4",
+          "selectionSha256": "b44d3b38c42c41d86d4bb4c8fecb72dea9a215271ca7fde1f66905636adf1981"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef-r3",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "0ecdd036-27e3-40cc-a9a1-f6afb97e4eb2",
+          "selectionSha256": "803a87dd5b775570df2a4ed97b391b94652bd9c18aa58d889e8dda34dc519084"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\36668589cab0-71ecf390-bbc9a5ef-r4",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "a564df59-f00b-42d1-9e5d-ea17b8fcf3cf",
+          "selectionSha256": "caa96f109ba2931e090460b4e552811570a1228bd66ebac4eaf3a0a2a6926d8d"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4059afea8841-93711e55-884d09d7",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "4be815e2-5ffb-439f-99d8-84c496d80052",
+          "selectionSha256": "4d424eb76548d02a38f1c103233aad173e657dbae96a6f7f01bcffbeb0289389"
+        },
+        {
+          "dispatchId": "507f703e-bb3b-4643-a701-4f881b424401",
+          "selectionSha256": "4d424eb76548d02a38f1c103233aad173e657dbae96a6f7f01bcffbeb0289389"
+        },
+        {
+          "dispatchId": "57dc35fc-f01b-480f-9efd-ea7cd93abd86",
+          "selectionSha256": "4d424eb76548d02a38f1c103233aad173e657dbae96a6f7f01bcffbeb0289389"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4072d666f1f3-bcccc8cd-00058fea",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "44cc8f2c-6f05-4b7e-a34d-ac0afd56e02f",
+          "selectionSha256": "4343d0a4a27adb895f3a3af852d1c0bd4febe19f0d86e441913f3803ae117af3"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\4dccd1883e95-cac80221-9ea443c1-r2",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "026f9f9a-5616-4820-967d-c82bf78494ae",
+          "selectionSha256": "2fd489f6adec698b4dd3f054545e27817e1f1ce4f71602452500ca8f4eec86e5"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\51e242dac482-71ecf390-bbc9a5ef",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "18373a74-fac8-43a0-9285-9a52e3324b39",
+          "selectionSha256": "71967f838a9adcbf76ed57498e68afffd65218049e7b8218ae196c88c6379133"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\525ad36b9551-49bcf68a-1e9f31f2",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "3dbc8aa1-b6be-4287-8768-87f3066ebed8",
+          "selectionSha256": "3af2fb7f7d88417cb729820f149eeeb5405b67efd447abebc4bd22bed617d43a"
+        },
+        {
+          "dispatchId": "aa1312b6-5fed-46bd-8969-f5c0bc35bb94",
+          "selectionSha256": "3af2fb7f7d88417cb729820f149eeeb5405b67efd447abebc4bd22bed617d43a"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\559e64fd8586-93711e55-884d09d7",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "33e66bb1-4e90-42a3-8232-4131c2b4dbbb",
+          "selectionSha256": "167a7ce4a2ac2d9d85a7aa25cc1d0995bcf8ba879cb48853e0cd447b0716ba81"
+        },
+        {
+          "dispatchId": "fb40640f-57f6-4b9c-9b6e-606f292b603f",
+          "selectionSha256": "167a7ce4a2ac2d9d85a7aa25cc1d0995bcf8ba879cb48853e0cd447b0716ba81"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\69b38d1e523e-bcccc8cd-00058fea",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "99f26d4d-4043-4a5a-bdff-c9e495866965",
+          "selectionSha256": "fcb7dd399c26c09d82a9d780d48c8350a500116fc9caa8c9afddbf06255746d7"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\6dc028139cc6-c5d5bb6f-a9e3fdb9",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "2c276cdd-d950-415b-95f3-bc3cab52ac3d",
+          "selectionSha256": "b4fa0e84f5ba8df38fdd7314a6131c05d234ad6f45ee2d4300786d5a4db043c7"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\71a384f58016-08dc1621-7f55c412",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "dccc49c5-7be3-4e84-b71d-ee84ee4ddf34",
+          "selectionSha256": "e9ac1eb6302a57f3597c878cc9808a032ab58b387b8e33889a5c4d216e92f949"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\9a45d8be6974-c5d5bb6f-a9e3fdb9",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "d24b0844-bbd5-4ce4-8ec9-4a14809a70f1",
+          "selectionSha256": "36a0bcc963a552ae59fc2b78d084cf1e477f209247cac68d0752275f856a3603"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\a0b0bc180486-d6a4d504-1e9f31f2",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "596022bb-0c10-4b56-b5ce-f41896f11e15",
+          "selectionSha256": "99d9298bc3185b0ac96d62627faf2fdbf312332b6eac4aea4821ad00e5e729be"
+        },
+        {
+          "dispatchId": "d1e35e44-17a7-4d4e-9e9b-efa57d581159",
+          "selectionSha256": "99d9298bc3185b0ac96d62627faf2fdbf312332b6eac4aea4821ad00e5e729be"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b092eb2bd83a-d6a4d504-1e9f31f2",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "d5045194-e043-464e-8a85-d8ff8dcedf44",
+          "selectionSha256": "2567f47678087ee92a3782688e2d7d69ae3805d1cc8dd57cbb34be6174fc5ee1"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\b15bc09576b8-08dc1621-7f55c412",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "164f7142-356e-4759-b4d3-b71f97c15409",
+          "selectionSha256": "ce1ede47fe8be5054be3fb3bd2b6f0734465cd77ed9aca2a23a01d558d6b308b"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\d498852c8f01-ba5c1310-77953588",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "1158f29c-2452-49ff-bf8a-ceeb19bb6f31",
+          "selectionSha256": "0a02f1923954385174b0601a98d92837ca504f4db898ca14b5a940aab875262c"
+        },
+        {
+          "dispatchId": "6a0168ca-321d-4687-9397-726da2c6a711",
+          "selectionSha256": "0a02f1923954385174b0601a98d92837ca504f4db898ca14b5a940aab875262c"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e0dffdecee22-bf3d899d-db042fa5",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "2c560548-af06-4a00-9173-fb4a0dbcfea7",
+          "selectionSha256": "99d5de824649da8600501a81d276ebecb0e2484a4439bd77f25e70642d431d6c"
+        }
+      ]
+    },
+    {
+      "packet": "D:\\codex-isolated\\main-release-packages\\e9696b0d2818-fdf50989-54a48ee1",
+      "selectionCount": 1,
+      "dispatches": [
+        {
+          "dispatchId": "7d7775d1-17ba-4b65-a6f2-9f73d69aaa9d",
+          "selectionSha256": "157e77c3fc6a76d3443a638e845f2a7138025f6e69a8fa711b4d7dcb4da042d9"
+        }
+      ]
+    }
+  ]
+}

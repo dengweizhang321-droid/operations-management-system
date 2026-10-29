@@ -1,0 +1,42 @@
+TAP version 13
+# Subtest: unreadable request still yields an honest prepare-only failure with an unbound target
+not ok 1 - unreadable request still yields an honest prepare-only failure with an unbound target
+  ---
+  duration_ms: 142.373
+  type: 'test'
+  location: 'D:\\codex-worktrees\\prepared-artifact-loss-20261029\\tests\\publish-main-preparation-failure.test.mjs:21:1'
+  failureType: 'testCodeFailure'
+  error: "ENOENT: no such file or directory, open 'D:\\codex-worktrees\\prepared-artifact-loss-20261029\\.runtime\\artifact-loss-tests\\native-preparation-failure-3YvONO\\packet\\invocations\\4dd26b2c-b3d8-475d-9890-4a31e2c7ad69.json'"
+  code: 'ENOENT'
+  stack: |-
+    async open (node:internal/fs/promises:640:25)
+    async Object.readFile (node:internal/fs/promises:1290:14)
+    async TestContext.<anonymous> (file:///D:/codex-worktrees/prepared-artifact-loss-20261029/tests/publish-main-preparation-failure.test.mjs:23:25)
+    async Test.run (node:internal/test_runner/test:1332:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3)
+  ...
+# Subtest: a readable request binds the target; deploy mode and an outside result path write nothing
+not ok 2 - a readable request binds the target; deploy mode and an outside result path write nothing
+  ---
+  duration_ms: 140.4108
+  type: 'test'
+  location: 'D:\\codex-worktrees\\prepared-artifact-loss-20261029\\tests\\publish-main-preparation-failure.test.mjs:27:1'
+  failureType: 'testCodeFailure'
+  error: "ENOENT: no such file or directory, open 'D:\\codex-worktrees\\prepared-artifact-loss-20261029\\.runtime\\artifact-loss-tests\\native-preparation-failure-Idj1Vr\\packet\\invocations\\c7d62535-848b-40a2-840f-2cb65f9f5338.json'"
+  code: 'ENOENT'
+  stack: |-
+    async open (node:internal/fs/promises:640:25)
+    async Object.readFile (node:internal/fs/promises:1290:14)
+    async TestContext.<anonymous> (file:///D:/codex-worktrees/prepared-artifact-loss-20261029/tests/publish-main-preparation-failure.test.mjs:30:25)
+    async Test.run (node:internal/test_runner/test:1332:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 0
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 404.6268
