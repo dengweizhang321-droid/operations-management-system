@@ -1,0 +1,7 @@
+interface:
+  display_name: "京东差评收集"
+  short_description: "按销售排行批量核查京东店铺商品评价差评与商家回复"
+  default_prompt: "使用 $jd-negative-review-collection 排查京东店铺销售前 20 商品的评价差评，采集商家回复并生成 HTML/Excel 报告。"
+
+policy:
+  allow_implicit_invocation: true
