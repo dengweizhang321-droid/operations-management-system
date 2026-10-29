@@ -411,3 +411,66 @@ main 中 `recoveryDecision` / `requirementsForImpact` 仍存在（出现 3 次�
 需注意：脚本会以 `uncommitted(5160/5199)` 拒绝它们，与 A 类同因。放行方式同上一轮——这些暂存项是**独立克隆的索引状态**，不是行尾噪音，所以 `git checkout --` 不适用；若要放行需用 `--only` 搭配一个显式跳过该检查的开关，或直接按目录删除（它们不涉及 git 注册，风险低于 A 类）。
 
 仍由用户决定；本会话未处置。
+
+### 两个暂存目录处置记录（2026-10-29，用户授权放弃）
+
+**已删。D 盘可用 95 → 97 GB，`codex-isolated` 降至 6 个。**
+
+#### 删前确认（按授权要求）
+
+| 检查 | 结果 |
+| --- | --- |
+| `tools/release-batch.mjs` 仍在 `origin/main` | **在**，794 行，sha256 前缀 `63fbc4d1bf8424d4` |
+| main 版仍含目录版的关键符号 | `recoveryDecision` 2 次、`requirementsForImpact` 2 次、`targetedBatchVersion` 11 次、`legacyBatchVersion` 9 次 |
+| main 版确实更新 | `auditBatchVersion` 6 次、`batchRecovery` 3 次、`phasesFor` 4 次（目录版均 0 次） |
+| 非注册 worktree | `git worktree list` 中出现 **0** 次 |
+| 无关联分支 | 匹配 **0** 个 |
+| 独立 objects | 各自 258 项，非共享 |
+| 未被主仓库引用为 alternates | 两者均未被引用 |
+
+最后一项是关键：确认删除不会破坏主仓库的对象可达性。
+
+#### 执行与核验
+
+直接 `rm -rf` 两个目录（无需 `unlock`/`prune`/删分支，因为不涉及任何 git 注册）。
+
+| 检查 | 结果 |
+| --- | --- |
+| 两个目录 | 已删 |
+| 主仓库 `git status` / `git log` | 正常 |
+| `tools/release-batch.mjs` | 仍可从 `origin/main` 取得 |
+| `prunable` | **0** |
+| worktree 总数 | 98，未变 |
+| 发布包 | 2，未变 |
+| 网页 | **HTTP 200** |
+| D 盘可用 | **97 GB** |
+
+#### `codex-isolated` 终态（6 个，均不可删或属今日在用）
+
+```
+main-release-packages              保护：发布包根（含生产在用与回滚锚点）
+main-manual-release-20261016       保护：发布包生成器宿主
+ai-release-candidate-20261013      近期有写入（10-28）
+jackyun-dispatch-recovery-20261029 今日新建
+jackyun-one-click-close-20261029   今日新建
+jackyun-sales-preflight-20261029   今日新建
+```
+
+## 13. 磁盘回收总账（2026-10-29 全部完成）
+
+| 轮次 | 回收 |
+| --- | --- |
+| 发布包 78 个 | 约 13 GB |
+| worktree 注册 75 条 + 分支 77 个 | 卫生清理 |
+| 任务目录批 1（30 个） | 7.48 GB |
+| 任务目录批 2（28 个） | 17.21 GB |
+| 任务目录批 3（2 个，回执先归档） | 0.97 GB |
+| A 类（1 个，核实后放弃） | 0.34 GB |
+| 两个暂存目录（核实后放弃） | 约 2 GB |
+| **合计** | **约 41 GB** |
+
+**D 盘可用 54 → 97 GB（88% → 79%）**；`codex-isolated` 子目录 69 → 6；worktree 总记录 200 → 98。全程未停机、未碰 `D:/teruisi-runtime/`、生产零影响。
+
+### 仍未做（非遗漏）
+
+**治本**：发布包仍为每个 `main` 提交生成（约 145 MB/个）。`tools/release-package-retention.mjs` 与 `tools/codex-isolated-task-retention.mjs` 均已就绪并带 `--dry-run`，但**未接入定期执行**——不建议挂在发布成功之后（理由见 PLAN4 第 3 节候选 B：那正是 release 保留清理曾收不回空间的结构性错误）。建议按需人工执行，或另立独立调度。
