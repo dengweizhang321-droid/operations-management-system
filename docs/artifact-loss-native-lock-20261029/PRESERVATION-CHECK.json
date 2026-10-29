@@ -1,0 +1,27 @@
+{
+  "at": "2026-10-29T08:16:02.504065+00:00",
+  "protectedFileChecks": {
+    "package.json": true,
+    "tools/worker-local-release-rotation.mjs": true,
+    "tools/publish-prepared-main.mjs": true,
+    "tools/worker-local-release.mjs": true,
+    "docs/prepared-artifact-loss-20261029/artifact-loss-manifest.json": true
+  },
+  "productionAnchorChecks": {
+    "D:\\codex-isolated\\main-manual-release-20261016\\CONTROL-INSTALLATION.json": true,
+    "D:\\codex-isolated\\main-manual-release-20261016\\main-publisher-config.json": true,
+    "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\a61da76ba222dc0adf94901948a8f442fac2db8f6724165e223cc84effabe701\\MANIFEST.json": true,
+    "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\a61da76ba222dc0adf94901948a8f442fac2db8f6724165e223cc84effabe701\\PREPARED-ARTIFACT-LOSS.json": true,
+    "D:\\codex-isolated\\main-manual-release-20261016\\control-upgrades\\447e97c5-f5ad-471c-a91f-b62e5715a6ac\\INTENT.json": true
+  },
+  "nativeAndPrivateSnapshotChecks": {
+    "tools/worker-local-release-rotation.mjs": true,
+    "tools/worker-local-release.mjs": true,
+    "tools/d1-retirement-proof.mjs": true
+  },
+  "queueRecordsUnchanged": 292,
+  "queueNamesAndBytesUnchanged": true,
+  "artifactLossDirectoriesAbsent": true,
+  "frozenCodeFilesUnchanged": 6,
+  "productionWritesPerformed": false
+}

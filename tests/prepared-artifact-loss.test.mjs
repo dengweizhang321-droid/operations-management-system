@@ -35,7 +35,7 @@ async function fixture(t,{groups=1,dispatches=1,tickets=1,pending=false}={}){
  if(pending)await submitPreparation(queue,{...generation,origin:'manual'});
  const structure=await readPreparationQueueStructure(queue),manifest=makeArtifactLossManifest(queue,structure,packets);
  const binding=await bind(root,manifest);const remove=async()=>{for(const packet of packets)await fs.rm(packet,{recursive:true});};
- const write=options=>retireLostPreparedArtifacts(queue,{assertGeneration:async()=>{assert.equal((await readArtifactLossControlBinding(queue)).manifestSha256,binding.manifestSha256);},admit:async()=>{},acquireRotationLock:()=>acquireQueueLock(path.join(root,'isolated-rotation')), ...options});
+ const write=options=>retireLostPreparedArtifacts(queue,{assertGeneration:async()=>{assert.equal((await readArtifactLossControlBinding(queue)).manifestSha256,binding.manifestSha256);},admit:async()=>{},withRotationLock:async operation=>{const release=await acquireQueueLock(path.join(root,'isolated-rotation'));assert.ok(release);try{return await operation();}finally{await release();}}, ...options});
  const restore=async(packet=packets[0])=>{const original=originals.get(packet);await fs.mkdir(path.dirname(original.preparationFile),{recursive:true});await fs.writeFile(original.preparationFile,original.nativeRaw);await fs.writeFile(path.join(packet,'main-release-request.json'),JSON.stringify(original.request));};
  return {root,queue,releases,packets,originals,manifest,binding,remove,write,restore,structure};
 }
@@ -107,7 +107,7 @@ test('deleting the entire dispatch namespace cannot use the legacy empty-queue s
 });
 test('queue and rotation locks cover the complete append; original generation drift refuses and no pending ticket is consumed',async t=>{
  const f=await fixture(t,{pending:true});await f.remove();let held=false,stages=0;
- await f.write({acquireRotationLock:async()=>{held=true;return async()=>{held=false;};},onStage:async()=>{stages++;assert.equal(held,true);assert.equal(await acquireQueueLock(f.queue),null);await assert.rejects(submitPreparation(f.queue,{...generation,origin:'manual'}),/submission is busy/);}});assert.equal(held,false);assert.ok(stages>=3);
+ await f.write({withRotationLock:async operation=>{held=true;try{return await operation();}finally{held=false;}},onStage:async()=>{stages++;assert.equal(held,true);assert.equal(await acquireQueueLock(f.queue),null);await assert.rejects(submitPreparation(f.queue,{...generation,origin:'manual'}),/submission is busy/);}});assert.equal(held,false);assert.ok(stages>=3);
  const drift=await fixture(t);await drift.remove();await assert.rejects(drift.write({assertGeneration:()=>{throw Error('generation changed');}}),/generation/);
 });
 for(const mode of ['prepare','check','publish'])test('fixed '+mode+' function refuses a restored retired packet before source/native effects',async t=>{
