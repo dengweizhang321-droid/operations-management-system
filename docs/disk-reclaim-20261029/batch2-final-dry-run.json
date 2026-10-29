@@ -1,0 +1,349 @@
+{
+ "version": "teruisi-codex-isolated-task-retention-v1",
+ "mode": "dry-run",
+ "minAgeDays": 7,
+ "withWorktrees": true,
+ "candidateCount": 28,
+ "candidateTotalGB": 17.21,
+ "candidates": [
+  {
+   "name": "ai-chat-empty-details-release-20261015",
+   "ageDays": 13.7,
+   "sizeMB": 140.8,
+   "holdsWorktree": true
+  },
+  {
+   "name": "ai-schedule-repeat-fix-20261015",
+   "ageDays": 13.9,
+   "sizeMB": 300.1,
+   "holdsWorktree": true
+  },
+  {
+   "name": "ai-schedule-repeat-fix-20261015-v2",
+   "ageDays": 13.8,
+   "sizeMB": 300.2,
+   "holdsWorktree": true
+  },
+  {
+   "name": "ai-schedules-release-20261015",
+   "ageDays": 14,
+   "sizeMB": 300.1,
+   "holdsWorktree": true
+  },
+  {
+   "name": "auto-wake-control-c36ea996",
+   "ageDays": 10.1,
+   "sizeMB": 147.5,
+   "holdsWorktree": true
+  },
+  {
+   "name": "combined-release-20261014",
+   "ageDays": 14.6,
+   "sizeMB": 1018.5,
+   "holdsWorktree": true
+  },
+  {
+   "name": "jd-absent-helper-recovery-20261016",
+   "ageDays": 13.4,
+   "sizeMB": 844.9,
+   "holdsWorktree": true
+  },
+  {
+   "name": "jd-bi-health-fix-20261016",
+   "ageDays": 13.4,
+   "sizeMB": 845.1,
+   "holdsWorktree": true
+  },
+  {
+   "name": "jd-inbound-date-20261016",
+   "ageDays": 13,
+   "sizeMB": 845.1,
+   "holdsWorktree": true
+  },
+  {
+   "name": "jd-inbound-identity-20261016",
+   "ageDays": 13.1,
+   "sizeMB": 845.1,
+   "holdsWorktree": true
+  },
+  {
+   "name": "jd-inbound-jh-document-20261016",
+   "ageDays": 12.9,
+   "sizeMB": 845.1,
+   "holdsWorktree": true
+  },
+  {
+   "name": "jd-inbound-receipt-utc-20261016",
+   "ageDays": 12.9,
+   "sizeMB": 845.1,
+   "holdsWorktree": true
+  },
+  {
+   "name": "jd-inbound-source-contract-20261016",
+   "ageDays": 13,
+   "sizeMB": 845.1,
+   "holdsWorktree": true
+  },
+  {
+   "name": "jd-monitor-release-20261016",
+   "ageDays": 12.5,
+   "sizeMB": 414.7,
+   "holdsWorktree": true
+  },
+  {
+   "name": "jd-pop-identity-fix-20261016",
+   "ageDays": 13.5,
+   "sizeMB": 936.1,
+   "holdsWorktree": true
+  },
+  {
+   "name": "jd-pop-release-20261015",
+   "ageDays": 13.5,
+   "sizeMB": 1020.4,
+   "holdsWorktree": true
+  },
+  {
+   "name": "market-ai-blockers-release-20261014",
+   "ageDays": 14.5,
+   "sizeMB": 1181.2,
+   "holdsWorktree": true
+  },
+  {
+   "name": "market-ai-round2-release-20261015",
+   "ageDays": 14.3,
+   "sizeMB": 300.5,
+   "holdsWorktree": true
+  },
+  {
+   "name": "market-progress-django-20261015",
+   "ageDays": 13.9,
+   "sizeMB": 844.1,
+   "holdsWorktree": true
+  },
+  {
+   "name": "market-progress-reader-final-20261015",
+   "ageDays": 13.8,
+   "sizeMB": 844.2,
+   "holdsWorktree": true
+  },
+  {
+   "name": "market-progress-reader-source-20261015",
+   "ageDays": 13.8,
+   "sizeMB": 843.9,
+   "holdsWorktree": true
+  },
+  {
+   "name": "market-progress-worker-20261015",
+   "ageDays": 13.9,
+   "sizeMB": 843.7,
+   "holdsWorktree": true
+  },
+  {
+   "name": "market-progress-worker-publish-20261015",
+   "ageDays": 13.9,
+   "sizeMB": 843.9,
+   "holdsWorktree": true
+  },
+  {
+   "name": "new-product-learning-receipts-20261016",
+   "ageDays": 13,
+   "sizeMB": 845.1,
+   "holdsWorktree": true
+  },
+  {
+   "name": "pi-inventory-erp-publish-recovery-20261018",
+   "ageDays": 10.6,
+   "sizeMB": 146.4,
+   "holdsWorktree": true
+  },
+  {
+   "name": "release-cache-control-de3c1226",
+   "ageDays": 10.5,
+   "sizeMB": 147.5,
+   "holdsWorktree": true
+  },
+  {
+   "name": "release-readiness-control-9a45d8be",
+   "ageDays": 10.7,
+   "sizeMB": 146.2,
+   "holdsWorktree": true
+  },
+  {
+   "name": "release-schema-control-b2ef81c7",
+   "ageDays": 10.5,
+   "sizeMB": 147.1,
+   "holdsWorktree": true
+  }
+ ],
+ "retiringWorktreeCount": 28,
+ "retiringWorktrees": [
+  {
+   "path": "D:\\codex-isolated\\ai-chat-empty-details-release-20261015\\source",
+   "branch": "codex/ai-chat-empty-details-artifact",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\ai-schedule-repeat-fix-20261015\\source",
+   "branch": "codex/ai-schedule-repeat-release",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\ai-schedule-repeat-fix-20261015-v2\\source",
+   "branch": "codex/ai-schedule-repeat-final",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\ai-schedules-release-20261015\\source",
+   "branch": "codex/ai-schedules-release-20261015",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\auto-wake-control-c36ea996\\source",
+   "branch": null,
+   "locked": true
+  },
+  {
+   "path": "D:\\codex-isolated\\combined-release-20261014\\source",
+   "branch": "codex/combined-release-20261014",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\jd-absent-helper-recovery-20261016\\source",
+   "branch": "codex/jd-absent-helper-package",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\jd-bi-health-fix-20261016\\source",
+   "branch": "codex/jd-bi-health-package",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\jd-inbound-date-20261016\\source",
+   "branch": "codex/jd-inbound-date-package",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\jd-inbound-identity-20261016\\source",
+   "branch": "codex/jd-inbound-identity-package",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\jd-inbound-jh-document-20261016\\source",
+   "branch": "codex/jd-inbound-jh-document-package",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\jd-inbound-receipt-utc-20261016\\source",
+   "branch": "codex/jd-inbound-receipt-utc-package",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\jd-inbound-source-contract-20261016\\source",
+   "branch": "codex/jd-inbound-source-contract-package",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\jd-monitor-release-20261016\\source",
+   "branch": "codex/jd-monitor-release-20261016",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\jd-pop-identity-fix-20261016\\source",
+   "branch": "codex/jd-pop-identity-fix",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\jd-pop-release-20261015\\source",
+   "branch": "codex/jd-pop-package",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\market-ai-blockers-release-20261014\\source",
+   "branch": "codex/market-ai-blockers-release-20261014",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\market-ai-round2-release-20261015\\source",
+   "branch": "codex/market-ai-round2-release-20261015",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\market-progress-django-20261015\\source",
+   "branch": "codex/market-progress-django-source-20261015",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\market-progress-reader-final-20261015\\source",
+   "branch": "codex/market-progress-reader-final-20261015",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\market-progress-reader-source-20261015\\source",
+   "branch": "codex/market-progress-reader-source-20261015",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\market-progress-worker-20261015\\source",
+   "branch": "codex/market-progress-worker-source-20261015",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\market-progress-worker-publish-20261015\\source",
+   "branch": "codex/market-progress-worker-publish-20261015",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\new-product-learning-receipts-20261016\\source",
+   "branch": "codex/new-product-learning-package-20261016",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\pi-inventory-erp-publish-recovery-20261018",
+   "branch": "codex/pi-inventory-erp-publish-recovery-20261018",
+   "locked": false
+  },
+  {
+   "path": "D:\\codex-isolated\\release-cache-control-de3c1226\\source",
+   "branch": null,
+   "locked": true
+  },
+  {
+   "path": "D:\\codex-isolated\\release-readiness-control-9a45d8be\\source",
+   "branch": null,
+   "locked": true
+  },
+  {
+   "path": "D:\\codex-isolated\\release-schema-control-b2ef81c7\\source",
+   "branch": null,
+   "locked": true
+  }
+ ],
+ "retiringBranches": [
+  "codex/ai-chat-empty-details-artifact",
+  "codex/ai-schedule-repeat-release",
+  "codex/ai-schedule-repeat-final",
+  "codex/ai-schedules-release-20261015",
+  "codex/combined-release-20261014",
+  "codex/jd-absent-helper-package",
+  "codex/jd-bi-health-package",
+  "codex/jd-inbound-date-package",
+  "codex/jd-inbound-identity-package",
+  "codex/jd-inbound-jh-document-package",
+  "codex/jd-inbound-receipt-utc-package",
+  "codex/jd-inbound-source-contract-package",
+  "codex/jd-monitor-release-20261016",
+  "codex/jd-pop-identity-fix",
+  "codex/jd-pop-package",
+  "codex/market-ai-blockers-release-20261014",
+  "codex/market-ai-round2-release-20261015",
+  "codex/market-progress-django-source-20261015",
+  "codex/market-progress-reader-final-20261015",
+  "codex/market-progress-reader-source-20261015",
+  "codex/market-progress-worker-source-20261015",
+  "codex/market-progress-worker-publish-20261015",
+  "codex/new-product-learning-package-20261016",
+  "codex/pi-inventory-erp-publish-recovery-20261018"
+ ],
+ "skippedCount": 0,
+ "skipped": []
+}

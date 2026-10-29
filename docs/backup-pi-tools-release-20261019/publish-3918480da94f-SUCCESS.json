@@ -1,0 +1,18 @@
+{
+  "status": "deployed_and_ready",
+  "at": "2026-10-19T12:17:15.223Z",
+  "mainCommit": "3918480da94fc1cbdf72aa17d65406057bc7143a",
+  "components": [
+    "worker",
+    "django"
+  ],
+  "workerRelease": "20261019T104309Z-f28b90a85276e948",
+  "workerManifestSha256": "0e37f1740f26d7e257755fc8bed2596990edcd0ad86d20c3655c637bf1878e6a",
+  "djangoManifestSha256": "54a48ee1e6caac72cd13fd1f1f6fd077b4aad30326cf97e20ae249e405f3bcca",
+  "source": "D:\\codex-isolated\\backup-pi-tools-release-20261019\\source",
+  "sourceTree": "995dcc232f8ec54f85e06758af363e53ca2a2f3c",
+  "djangoPreparedId": "f7e14c23236e466b86cc51a90ce5799b",
+  "maintenanceId": "9af8b159fe22437586d59653812375c7",
+  "migration": null,
+  "backupPerformed": false
+}

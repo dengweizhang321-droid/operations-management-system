@@ -4,18 +4,24 @@ import { isDeepStrictEqual } from "node:util";
 import { createHash } from "node:crypto";
 import { controlDigest, readRecoveryControl } from "./recovery-control";
 import { readJsonDurableOr, writeJsonDurable } from "./json-file";
-import { readJackyunRecoveryTarget, readHumanRetryAuthority } from "./human-retry";
+import { readJackyunRecoveryTarget, readHumanRetryAuthority, type HumanRetryAuthority } from "./human-retry";
 import { closedIndex, closeDirectory, closeRecord, readCloseIntent, type CloseIntent } from "./operator-close-fence";
 import { validJackyunCloseIdentity, type JackyunCloseIdentity, type JackyunCloseTarget } from "./operator-close-contract";
 import { readAcceptedJackyunHumanDispatch, readN8nJackyunCloseEvidence, readN8nJackyunOwnerState } from "./n8n-preflight-evidence";
 import { defaultJackyunRunLockDirectory, inspectJackyunRunLock, retireExitedJackyunSlotLock, withJackyunRunLock } from "./run-lock";
 import { assertJackyunCloseResourcesIdle } from "./operator-close-resources";
 import { importRecoveryQuery, importRecoveryScope } from "./publication-baseline";
-import { jackyunModuleOrder } from "./post-download";
+import { jackyunModuleOrder, type JackyunModule } from "./post-download";
 
 type Plan = { runId: string; executionId: string; phase: string; runDate: string; asOfDate: string; salesStartDate?: string; baseUrl: string; createdAt: string };
 type Authority = { ok: true; version: "jackyun-operator-close-authority-v1"; action: "close"; target: JackyunCloseIdentity;
   authorizationId: string; closeRequestId?: string; workflowId: string; createdAt: string; expiresAt: string };
+type ImportIdentity = { moduleKey: JackyunModule; runId: string; runDate: string; asOfDate: string; salesStartDate?: string;
+  fileName: string; fileSizeBytes: number; rawFileHash: string; fingerprint: string };
+type ImportCheckpoint = { version: "jackyun-import-checkpoint-v1"; identity: ImportIdentity; identityDigest: string;
+  stage: "uploading" | "complete_intent" | "committed"; uploadId: string | null; batchId: string | null };
+type HumanDispatchRecord = { status?: string; authority?: HumanRetryAuthority; authorityDigest?: string; proofDigest?: string;
+  executionId?: string; createdAt?: string };
 export type CloseSlotCoordinator = { observe: (ids: string[]) => { exited: boolean; blocked: boolean };
   freeze: (ids: string[]) => { assertExited: () => void; complete: () => void; release: () => void } };
 const sha = (bytes: string | Uint8Array) => createHash("sha256").update(bytes).digest("hex");
@@ -41,30 +47,30 @@ async function metadata(root: string, sourceId: string) {
 async function importStates(root: string, plan: Plan, request: typeof fetch) {
   if (plan.baseUrl !== "http://localhost:3000") throw new Error("原任务业务服务归属无法核实。");
   const modules: NonNullable<JackyunCloseTarget["modules"]> = [];
-  for (const module of jackyunModuleOrder) {
-    const query = importRecoveryQuery(module, plan, "scope");
+  for (const moduleKey of jackyunModuleOrder) {
+    const query = importRecoveryQuery(moduleKey, plan, "scope");
     const scope = await request(`${plan.baseUrl}/api/imports/recovery?${query}`, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(10000) });
     const head = await scope.json();
-    if (!scope.ok || head.ok !== true || head.version !== "import-recovery-query-v1" || !isDeepStrictEqual(head.scope, importRecoveryScope(module, plan)) || head.status !== "ready") throw new Error(`${module} 仍在提交或提交者状态未确认，暂不能闭合。`);
-    const checkpoint = await readJsonDurableOr<Record<string, any> | null>(path.join(root, "outputs/jackyun-import-runs", plan.runId, "import-checkpoints", `${module}.json`), null);
-    if (!checkpoint) { modules.push({ module, status: "not_started" }); continue; }
+    if (!scope.ok || head.ok !== true || head.version !== "import-recovery-query-v1" || !isDeepStrictEqual(head.scope, importRecoveryScope(moduleKey, plan)) || head.status !== "ready") throw new Error(`${moduleKey} 仍在提交或提交者状态未确认，暂不能闭合。`);
+    const checkpoint = await readJsonDurableOr<ImportCheckpoint | null>(path.join(root, "outputs/jackyun-import-runs", plan.runId, "import-checkpoints", `${moduleKey}.json`), null);
+    if (!checkpoint) { modules.push({ module: moduleKey, status: "not_started" }); continue; }
     const i = checkpoint.identity;
     if (checkpoint.version !== "jackyun-import-checkpoint-v1" || !i || checkpoint.identityDigest !== controlDigest(i)
-      || i.moduleKey !== module || i.runId !== plan.runId || i.runDate !== plan.runDate || i.asOfDate !== plan.asOfDate
-      || !["uploading", "complete_intent", "committed"].includes(checkpoint.stage)) throw new Error(`${module} 原导入证据无法核实。`);
-    const q = importRecoveryQuery(module, plan, "result");
-    for (const key of ["fileName", "fileSizeBytes", "rawFileHash"]) q.set(key, String(i[key]));
-    q.set("fingerprint", module === "products" || module === "combos" ? `erp:${module}:${i.fingerprint}` : module === "inventory" || module === "inventory_age" ? `inventory:${module === "inventory" ? "stock" : "age"}:${plan.runDate}:${i.fingerprint}` : i.fingerprint);
+      || i.moduleKey !== moduleKey || i.runId !== plan.runId || i.runDate !== plan.runDate || i.asOfDate !== plan.asOfDate
+      || !["uploading", "complete_intent", "committed"].includes(checkpoint.stage)) throw new Error(`${moduleKey} 原导入证据无法核实。`);
+    const q = importRecoveryQuery(moduleKey, plan, "result");
+    for (const key of ["fileName", "fileSizeBytes", "rawFileHash"] satisfies (keyof ImportIdentity)[]) q.set(key, String(i[key]));
+    q.set("fingerprint", moduleKey === "products" || moduleKey === "combos" ? `erp:${moduleKey}:${i.fingerprint}` : moduleKey === "inventory" || moduleKey === "inventory_age" ? `inventory:${moduleKey === "inventory" ? "stock" : "age"}:${plan.runDate}:${i.fingerprint}` : i.fingerprint);
     if (checkpoint.uploadId) q.set("uploadId", String(checkpoint.uploadId).replace(/^inventory-age:/, ""));
     const response = await request(`${plan.baseUrl}/api/imports/recovery?${q}`, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15000) });
     const result = await response.json();
-    if (!response.ok || result.ok !== true || result.version !== "import-recovery-query-v1" || !isDeepStrictEqual(result.scope, importRecoveryScope(module, plan)) || result.status === "waiting") throw new Error(`${module} 原提交仍在处理或结果无法核实，暂不能闭合。`);
+    if (!response.ok || result.ok !== true || result.version !== "import-recovery-query-v1" || !isDeepStrictEqual(result.scope, importRecoveryScope(moduleKey, plan)) || result.status === "waiting") throw new Error(`${moduleKey} 原提交仍在处理或结果无法核实，暂不能闭合。`);
     const committed = ["committed_current", "committed_superseded"].includes(result.status);
     // An uncommitted complete intent can still be an accepted remote POST.
     // It is never made safe by thread exit or a momentary idle scope.
-    if (checkpoint.stage !== "uploading" && !committed) throw new Error(`${module} 已发出提交请求但终态未确认，请先核对该次提交后再闭合。`);
-    if (committed && (typeof result.batch?.id !== "string" || result.batch.status !== "completed" || checkpoint.batchId && checkpoint.batchId !== result.batch.id)) throw new Error(`${module} 已提交批次归属无法核实。`);
-    modules.push({ module, status: committed ? result.status : result.status === "uncommitted_upload" ? "uncommitted_upload" : "unknown", ...(committed ? { batchId: result.batch.id } : {}) });
+    if (checkpoint.stage !== "uploading" && !committed) throw new Error(`${moduleKey} 已发出提交请求但终态未确认，请先核对该次提交后再闭合。`);
+    if (committed && (typeof result.batch?.id !== "string" || result.batch.status !== "completed" || checkpoint.batchId && checkpoint.batchId !== result.batch.id)) throw new Error(`${moduleKey} 已提交批次归属无法核实。`);
+    modules.push({ module: moduleKey, status: committed ? result.status : result.status === "uncommitted_upload" ? "uncommitted_upload" : "unknown", ...(committed ? { batchId: result.batch.id } : {}) });
   }
   return modules;
 }
@@ -102,9 +108,9 @@ export async function readJackyunCloseTarget(root: string, coordinator: CloseSlo
     const recovery = await readJackyunRecoveryTarget(root);
     if (recovery.logicalExecutionId) {
       shown = { logicalExecutionId: recovery.logicalExecutionId, modules: [] };
-      if (recovery.sourceExecutionId) for (const module of jackyunModuleOrder) {
-        const checkpoint = await readJsonDurableOr<{ stage: string; batchId?: string } | null>(path.join(root, "outputs/jackyun-import-runs", `n8n-export-first-${recovery.sourceExecutionId}`, "import-checkpoints", `${module}.json`), null);
-        if (checkpoint) shown.modules!.push({ module, status: checkpoint.stage === "committed" ? "committed_recorded" : "unknown", ...(checkpoint.batchId ? { batchId: checkpoint.batchId } : {}) });
+      if (recovery.sourceExecutionId) for (const moduleKey of jackyunModuleOrder) {
+        const checkpoint = await readJsonDurableOr<{ stage: string; batchId?: string } | null>(path.join(root, "outputs/jackyun-import-runs", `n8n-export-first-${recovery.sourceExecutionId}`, "import-checkpoints", `${moduleKey}.json`), null);
+        if (checkpoint) shown.modules!.push({ module: moduleKey, status: checkpoint.stage === "committed" ? "committed_recorded" : "unknown", ...(checkpoint.batchId ? { batchId: checkpoint.batchId } : {}) });
       }
     }
     const value = await inspect(root, fetch);
@@ -134,13 +140,14 @@ async function revokeHumanDispatches(root: string, intent: CloseIntent, request:
     if (names.length > 4096) throw new Error("原人工派发索引超限，请核查原闭合请求。");
     for (const name of names) {
       if (!/^[a-f0-9-]{36}\.json$/.test(name)) throw new Error("原人工派发索引异常。");
-      const record = await readJsonDurableOr<any>(path.join(dir, name), null);
+      const record = await readJsonDurableOr<HumanDispatchRecord | null>(path.join(dir, name), null);
+      if (!record) throw new Error("原人工授权持久证据无法核实。");
       if (record?.status === "revoked") continue;
       // Historical intents did not persist their target. Expired permissions
       // cannot dispatch; modern intents retain the exact authority for audit.
       let permission = record?.authority;
       if (!permission && folder === "human-dispatch") {
-        const created = Date.parse(record?.createdAt);
+        const created = Date.parse(record.createdAt ?? "");
         if (!Number.isFinite(created) || created > Date.now()) throw new Error("原人工派发时间证据不完整，闭合已冻结，需核对原请求。");
         if (created + 7 * 86400000 <= Date.now()) {
           const file = path.join(closeDirectory(root, intent.target.logicalExecutionId), `unresolved-${name}`);
@@ -168,7 +175,7 @@ async function revokeHumanDispatches(root: string, intent: CloseIntent, request:
       }
       if (!relevant) continue;
       const file = path.join(base(root), "human-authorizations", name);
-      const previous = await readJsonDurableOr<any>(file, null);
+      const previous = await readJsonDurableOr<{ status?: string } | null>(file, null);
       if (previous?.status === "revoked") continue;
       if (previous) {
         const archived = path.join(closeDirectory(root, intent.target.logicalExecutionId), `human-${name}`);

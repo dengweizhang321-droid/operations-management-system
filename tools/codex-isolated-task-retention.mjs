@@ -37,6 +37,35 @@ export function parseWorktreePaths(porcelain) {
     .map((line) => path.resolve(line.slice("worktree ".length).trim()));
 }
 
+// Full records, needed to unlock and to delete the right branch. `locked` and
+// `prunable` appear as bare keywords, optionally followed by a reason.
+export function parseWorktreeRecords(porcelain) {
+  const records = [];
+  let current = {};
+  for (const line of porcelain.split("\n")) {
+    const text = line.trimEnd();
+    if (!text) { if (current.worktree) records.push(current); current = {}; continue; }
+    const index = text.indexOf(" ");
+    const key = index === -1 ? text : text.slice(0, index);
+    current[key] = index === -1 ? true : text.slice(index + 1);
+  }
+  if (current.worktree) records.push(current);
+  return records.map((record) => ({
+    path: path.resolve(record.worktree),
+    branch: typeof record.branch === "string" ? record.branch.replace(/^refs\/heads\//, "") : null,
+    locked: record.locked !== undefined,
+    prunable: record.prunable !== undefined,
+  }));
+}
+
+// Registrations to retire for a set of task directories being removed. Scoped
+// strictly to paths at or below those directories so unrelated worktrees -
+// including this session's own - can never be selected.
+export function selectWorktreesFor(directoryNames, records, root = isolatedRoot) {
+  const bases = directoryNames.map((name) => path.resolve(root, name));
+  return records.filter((record) => bases.some((base) => record.path === base || record.path.startsWith(base + path.sep)));
+}
+
 // A directory is "holding" a worktree when any registration lives at or below it.
 export function holdsWorktree(directory, worktreePaths) {
   const base = path.resolve(directory);
@@ -44,7 +73,10 @@ export function holdsWorktree(directory, worktreePaths) {
   return worktreePaths.some((item) => item === base || item.startsWith(prefix));
 }
 
-export function classify({ entries, worktreePaths, now, minAgeDays, protectedNames = alwaysProtected }) {
+// withWorktrees=false (default) refuses any directory holding a registration,
+// so a plain run can never leave a stale one behind. Passing true opts in to
+// retiring them, which the caller must then carry out in full.
+export function classify({ entries, worktreePaths, now, minAgeDays, protectedNames = alwaysProtected, withWorktrees = false }) {
   if (!Number.isFinite(minAgeDays) || minAgeDays < 1) throw new Error("Invalid minAgeDays");
   const protectedSet = new Set(protectedNames);
   const candidates = [], skipped = [];
@@ -54,10 +86,11 @@ export function classify({ entries, worktreePaths, now, minAgeDays, protectedNam
     if (protectedSet.has(entry.name)) reasonsToSkip.push("protected");
     const ageDays = (now - entry.mtimeMs) / 86400000;
     if (!(ageDays >= minAgeDays)) reasonsToSkip.push(`recent(${ageDays.toFixed(1)}d)`);
-    if (holdsWorktree(path.join(isolatedRoot, entry.name), worktreePaths)) reasonsToSkip.push("holds-worktree");
+    const holding = holdsWorktree(path.join(isolatedRoot, entry.name), worktreePaths);
+    if (holding && !withWorktrees) reasonsToSkip.push("holds-worktree");
     if (entry.uncommitted > 0) reasonsToSkip.push(`uncommitted(${entry.uncommitted})`);
     if (reasonsToSkip.length) skipped.push({ name: entry.name, reasons: reasonsToSkip, sizeMB: entry.sizeMB });
-    else candidates.push({ name: entry.name, ageDays: Number(ageDays.toFixed(1)), sizeMB: entry.sizeMB });
+    else candidates.push({ name: entry.name, ageDays: Number(ageDays.toFixed(1)), sizeMB: entry.sizeMB, holdsWorktree: holding });
   }
   return { candidates, skipped };
 }
@@ -87,8 +120,10 @@ async function uncommittedCount(directory) {
   return stdout.split("\n").filter((line) => line.trim()).length;
 }
 
-export async function collect({ repository, minAgeDays = 7, names = null }) {
-  const worktreePaths = parseWorktreePaths((await run("git", ["worktree", "list", "--porcelain"], { cwd: repository })).stdout);
+export async function collect({ repository, minAgeDays = 7, names = null, withWorktrees = false }) {
+  const porcelain = (await run("git", ["worktree", "list", "--porcelain"], { cwd: repository })).stdout;
+  const records = parseWorktreeRecords(porcelain);
+  const worktreePaths = parseWorktreePaths(porcelain);
   const listing = await readdir(isolatedRoot, { withFileTypes: true });
   const entries = [];
   for (const item of listing) {
@@ -101,7 +136,9 @@ export async function collect({ repository, minAgeDays = 7, names = null }) {
     try { if ((await stat(source)).isDirectory()) uncommitted = await uncommittedCount(source); } catch { /* no source */ }
     entries.push({ name: item.name, mtimeMs: info.mtimeMs, sizeMB: await directorySizeMB(full), uncommitted });
   }
-  return classify({ entries, worktreePaths, now: Date.now(), minAgeDays });
+  const result = classify({ entries, worktreePaths, now: Date.now(), minAgeDays, withWorktrees });
+  const retiring = withWorktrees ? selectWorktreesFor(result.candidates.map((item) => item.name), records) : [];
+  return { ...result, retiring };
 }
 
 async function main(argv) {
@@ -111,17 +148,27 @@ async function main(argv) {
   const minAgeDays = ageIndex === -1 ? 7 : Number(argv[ageIndex + 1]);
   const onlyIndex = argv.indexOf("--only");
   const names = onlyIndex === -1 ? null : argv[onlyIndex + 1].split(",").map((item) => item.trim()).filter(Boolean);
-  const { candidates, skipped } = await collect({ repository: process.cwd(), minAgeDays, names });
+  const withWorktrees = argv.includes("--with-worktrees");
+  const repository = process.cwd();
+  const { candidates, skipped, retiring } = await collect({ repository, minAgeDays, names, withWorktrees });
   const report = {
     version: "teruisi-codex-isolated-task-retention-v1",
-    mode: dryRun ? "dry-run" : "execute", minAgeDays,
+    mode: dryRun ? "dry-run" : "execute", minAgeDays, withWorktrees,
     candidateCount: candidates.length,
     candidateTotalGB: Number((candidates.reduce((sum, item) => sum + item.sizeMB, 0) / 1024).toFixed(2)),
     candidates,
+    retiringWorktreeCount: retiring.length,
+    retiringWorktrees: retiring.map((record) => ({ path: record.path, branch: record.branch, locked: record.locked })),
+    retiringBranches: retiring.map((record) => record.branch).filter(Boolean),
     skippedCount: skipped.length,
     skipped,
   };
   if (execute) {
+    // Order matters: unlock first (a locked worktree survives prune), then drop
+    // the directories, then prune the now-dangling registrations, then branches.
+    for (const record of retiring) {
+      if (record.locked) await run("git", ["worktree", "unlock", record.path], { cwd: repository });
+    }
     const removed = [];
     for (const item of candidates) {
       const target = path.join(isolatedRoot, item.name);
@@ -130,7 +177,15 @@ async function main(argv) {
       await rm(target, { recursive: true, force: true });
       removed.push(item.name);
     }
+    if (retiring.length) await run("git", ["worktree", "prune"], { cwd: repository });
+    let branches = 0;
+    for (const branch of report.retiringBranches) {
+      const { failed } = await run("git", ["branch", "-D", branch], { cwd: repository });
+      if (!failed) branches += 1;
+    }
     report.removed = removed.length;
+    report.prunedWorktrees = retiring.length;
+    report.deletedBranches = branches;
   }
   process.stdout.write(JSON.stringify(report, null, 1) + "\n");
 }

@@ -1,0 +1,37 @@
+{
+  "status": "deployed_and_ready",
+  "at": "2026-10-16T18:04:23.173Z",
+  "mainCommit": "09db4c0130a93cf8c711cf75cb796eb1fd92afa7",
+  "maintenanceId": "68ca900d988d473e8d72f24aa8590745",
+  "operationId": "4a47f5c61d344834bfc879e81832ab16",
+  "workerRelease": "20261016T172150Z-8a54a65532d4d6de",
+  "workerManifestSha256": "6487861661d5fd7e470851e69dad46d492cd142f287d7e89a7c3e7f2064d4ee3",
+  "djangoManifestSha256": "51177d5a1482ffc2bd0387e4790024722fbe4e85a33a6db54e320e6321426790",
+  "migration": "inventory.0015_jd_monitor_preferences",
+  "migrationCount": 147,
+  "health": {
+    "ok": true,
+    "backend": "django-postgresql",
+    "unavailableServices": [],
+    "status": "ready"
+  },
+  "helper": {
+    "cookieSource": "missing",
+    "tmallProfile": "ready",
+    "jackyunProfile": "ready",
+    "jdProfiles": "ready",
+    "jdMarketProfile": "ready",
+    "jdPromotionProfile": "ready",
+    "jdPromotionCutMeatProfile": "ready",
+    "jdLogisticsProfile": "ready",
+    "ok": true,
+    "stage": "ready",
+    "busy": false,
+    "activeWorkflow": null,
+    "isolationProtocol": "tmall-store-isolation-v1",
+    "storeExecutions": [],
+    "drainProtocol": "teruisi-automation-drain-v1",
+    "drain": null
+  },
+  "originalFailurePreserved": true
+}
