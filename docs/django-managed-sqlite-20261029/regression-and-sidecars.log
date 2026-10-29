@@ -1,0 +1,26 @@
+BASELINE 491c1408: new regression test against unmodified settings
+test_managed_import_without_database_or_environment_creates_nothing (teruisi_backend.test_settings_database.DatabaseFallbackSettingsTests.test_managed_import_without_database_or_environment_creates_nothing) ... FAIL
+
+======================================================================
+FAIL: test_managed_import_without_database_or_environment_creates_nothing (teruisi_backend.test_settings_database.DatabaseFallbackSettingsTests.test_managed_import_without_database_or_environment_creates_nothing)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\86137\AppData\Local\Temp\teruisi-regression-before-s1zh8uc1\teruisi_backend\test_settings_database.py", line 70, in test_managed_import_without_database_or_environment_creates_nothing
+    self.assert_managed_rejected()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\86137\AppData\Local\Temp\teruisi-regression-before-s1zh8uc1\teruisi_backend\test_settings_database.py", line 61, in assert_managed_rejected
+    self.assertNotEqual(result.returncode, 0, result.stdout)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 == 0 : {"ENGINE": "django.db.backends.sqlite3", "NAME": "C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-settings-glc7kjpg\\app\\.runtime\\django\\teruisi.sqlite3", "OPTIONS": {"timeout": 30}}
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.154s
+
+FAILED (failures=1)
+
+EXPECTED RED CONFIRMED: old settings import succeeded despite managed marker
+Fresh SQLite connection: mode=delete, database_size=0
+Open rollback-journal transaction: ['teruisi.sqlite3', 'teruisi.sqlite3-journal']
+WAL mode=wal, open connection: ['teruisi.sqlite3', 'teruisi.sqlite3-shm', 'teruisi.sqlite3-wal']
+All probes used disposable local directories; no production access

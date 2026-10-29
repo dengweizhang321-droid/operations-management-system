@@ -1,0 +1,5 @@
+
+> teruisi-operations-frontend@0.1.0 check:pi152-acl
+> python tests/pi152-acl-catalog-boundary.py
+
+PI152_ACL_CONTRACT_PASSED tables=3 append_only=2 checks=27 no_database=True

@@ -164,6 +164,19 @@ ASGI_APPLICATION = "teruisi_backend.asgi.application"
 if database_url:
     DATABASES = {"default": database_from_url(database_url)}
 else:
+    # Prepare-Application seals both staged and installed app roots with this
+    # marker. Never fall back to SQLite there, even with a missing environment
+    # or an explicit SQLite path. Do not parse the manifest: malformed, empty,
+    # or non-file markers must not turn a managed app into a development tree.
+    try:
+        (BASE_DIR.parent / "deployment.json").lstat()
+    except FileNotFoundError:
+        pass
+    else:
+        raise RuntimeError(
+            "受管 Django 应用目录（deployment.json）禁止 SQLite 兜底；"
+            "必须显式配置 TERUISI_DJANGO_DATABASE_URL 为 PostgreSQL"
+        )
     sqlite_path = Path(
         os.getenv(
             "TERUISI_DJANGO_SQLITE_PATH",

@@ -1,0 +1,11 @@
+eslint: 56 errors, 132 warnings (baseline: 56 errors)
+--- by rule ---
+119	@typescript-eslint/no-unused-vars:warning
+53	@typescript-eslint/no-explicit-any:error
+4	react-hooks/exhaustive-deps:warning
+3	@next/next/no-img-element:warning
+3	import/no-anonymous-default-export:warning
+3	@typescript-eslint/no-unused-expressions:warning
+2	@next/next/no-assign-module-variable:error
+1	react-hooks/refs:error
+PASS: lint error count within baseline.
