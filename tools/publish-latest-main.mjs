@@ -566,6 +566,17 @@ export async function acquireMainPublicationQueue(binding,{assertGeneration=asse
  assert.ok(release,'准备队列正在处理，请等待打包完成后再发布；本次未开始发布');
  try{await assertGeneration(binding);return release;}catch(error){await release();throw error;}
 }
+/** Shared by the fixed loss-retirement branch and its isolated native-adapter checks. */
+export async function retireLostMainArtifacts(config,{assertGeneration,admit,onStage}={}){
+ return retireLostPreparedArtifacts(path.join(config.stateDirectory,'prebuild-queue-v2'),{
+  assertGeneration,admit,onStage,
+  withRotationLock:async operation=>{
+   const rotation=await import(pathToFileURL(path.join(config.nativeToolsSource,'tools/worker-local-release-rotation.mjs')));
+   assert.equal(typeof rotation.withRotationLock,'function','Bound native rotation callback lock export unavailable');
+   return rotation.withRotationLock(operation);
+  }
+ });
+}
 export async function runLatestMainCli(args=process.argv.slice(2),binding){
  const {values}=parseArgs({args,options:{config:{type:'string'},check:{type:'boolean',default:false},'prepare-only':{type:'boolean',default:false},'consume-preparation':{type:'boolean',default:false},'no-pause':{type:'boolean',default:false},'retire-lost-artifacts':{type:'boolean',default:false},'abandon-dispatch':{type:'string'},'dispatch-sha256':{type:'string'},'result-sha256':{type:'string'},target:{type:'string'},packet:{type:'string'}}});
  assert.ok(!values['retire-lost-artifacts']||(!values.check&&!values['prepare-only']&&!values['consume-preparation']&&values['abandon-dispatch']===undefined),'Artifact loss retirement cannot prepare, reconcile, check or publish');
@@ -589,10 +600,9 @@ async function runLatestMainCliOperation(values,config,binding,retirementScope){
  publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment);
  if(values['retire-lost-artifacts']){
   assert.ok(binding,'Controlled artifact loss retirement required');
-  const result=await retireLostPreparedArtifacts(path.join(config.stateDirectory,'prebuild-queue-v2'),{
+  const result=await retireLostMainArtifacts(config,{
    assertGeneration:async()=>{await assertControlGeneration(binding);await assertRetirementAdmission(config,undefined,{scope:retirementScope});},
-   admit:()=>assertOrdinaryPreparationContext(config),
-   acquireRotationLock:async()=>{const rotation=await import(pathToFileURL(path.join(config.nativeToolsSource,'tools/worker-local-release-rotation.mjs')));return rotation.acquirePreparationRotationLock(rotationLockPipe);}
+   admit:()=>assertOrdinaryPreparationContext(config)
   });console.log(JSON.stringify(result));return result;
  }
  if(values['abandon-dispatch']!==undefined){

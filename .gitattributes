@@ -26,3 +26,6 @@ tests/fixtures/s05d-old-source-entry/*.mjs -text whitespace=cr-at-eol
 docs/prepared-artifact-loss-20261029/*.json -text whitespace=cr-at-eol
 docs/prepared-artifact-loss-20261029/*.tap -text -diff
 docs/prepared-artifact-loss-20261029/*.log -text -diff
+docs/artifact-loss-native-lock-20261029/*.json -text whitespace=cr-at-eol
+docs/artifact-loss-native-lock-20261029/*.tap -text -diff
+docs/artifact-loss-native-lock-20261029/*.log -text -diff

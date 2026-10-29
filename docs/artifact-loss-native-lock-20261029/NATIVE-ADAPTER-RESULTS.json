@@ -1,0 +1,110 @@
+[
+  {
+    "tapLine": 628,
+    "mode": "success",
+    "status": "retired",
+    "nativeExport": "withRotationLock",
+    "arity": 1,
+    "mappedNativeListens": 2,
+    "forwardedProductionListens": 0,
+    "stages": 3,
+    "pendingUnchanged": true,
+    "allLocksReacquired": true
+  },
+  {
+    "tapLine": 635,
+    "mode": "throw-before-write",
+    "status": "retired",
+    "nativeExport": "withRotationLock",
+    "arity": 1,
+    "mappedNativeListens": 4,
+    "forwardedProductionListens": 0,
+    "stages": 4,
+    "pendingUnchanged": true,
+    "allLocksReacquired": true
+  },
+  {
+    "tapLine": 642,
+    "mode": "throw-after-record",
+    "status": "retired",
+    "nativeExport": "withRotationLock",
+    "arity": 1,
+    "mappedNativeListens": 4,
+    "forwardedProductionListens": 0,
+    "stages": 4,
+    "pendingUnchanged": true,
+    "allLocksReacquired": true
+  },
+  {
+    "tapLine": 649,
+    "mode": "busy",
+    "status": "retired",
+    "nativeExport": "withRotationLock",
+    "arity": 1,
+    "mappedNativeListens": 3,
+    "forwardedProductionListens": 0,
+    "stages": 3,
+    "pendingUnchanged": true,
+    "allLocksReacquired": true
+  },
+  {
+    "tapLine": 656,
+    "mode": "queue-busy",
+    "status": "retired",
+    "nativeExport": "withRotationLock",
+    "arity": 1,
+    "mappedNativeListens": 2,
+    "forwardedProductionListens": 0,
+    "stages": 3,
+    "pendingUnchanged": true,
+    "allLocksReacquired": true
+  },
+  {
+    "tapLine": 663,
+    "mode": "submission-busy",
+    "status": "retired",
+    "nativeExport": "withRotationLock",
+    "arity": 1,
+    "mappedNativeListens": 2,
+    "forwardedProductionListens": 0,
+    "stages": 3,
+    "pendingUnchanged": true,
+    "allLocksReacquired": true
+  },
+  {
+    "tapLine": 670,
+    "mode": "generation",
+    "status": "retired",
+    "nativeExport": "withRotationLock",
+    "arity": 1,
+    "mappedNativeListens": 2,
+    "forwardedProductionListens": 0,
+    "stages": 3,
+    "pendingUnchanged": true,
+    "allLocksReacquired": true
+  },
+  {
+    "tapLine": 677,
+    "mode": "admission",
+    "status": "retired",
+    "nativeExport": "withRotationLock",
+    "arity": 1,
+    "mappedNativeListens": 2,
+    "forwardedProductionListens": 0,
+    "stages": 3,
+    "pendingUnchanged": true,
+    "allLocksReacquired": true
+  },
+  {
+    "tapLine": 684,
+    "mode": "old-call",
+    "status": "retired",
+    "nativeExport": "withRotationLock",
+    "arity": 1,
+    "mappedNativeListens": 2,
+    "forwardedProductionListens": 0,
+    "stages": 3,
+    "pendingUnchanged": true,
+    "allLocksReacquired": true
+  }
+]

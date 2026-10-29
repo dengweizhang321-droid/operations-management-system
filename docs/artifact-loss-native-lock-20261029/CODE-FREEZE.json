@@ -1,0 +1,11 @@
+{
+  "at": "2026-10-29T08:10:37.373014+00:00",
+  "files": {
+    "tests/fixtures/artifact-loss-native-lock-driver.mjs": "5e5c12344656ff056f41079c339ca51b5457ea7cb3c298fe1df90194723bdb4c",
+    "tests/prepared-artifact-loss-native-lock.test.mjs": "eca9e45856a8cd5778c78892505a85e575f2ae5836673438e16a509373863732",
+    "tests/prepared-artifact-loss.test.mjs": "4390e1ef839a068f1d572cb012f1978ff829d43ff5e63e268c25f58574e4ea24",
+    "tools/preparation-retirement-entry.mjs": "b6f71d0bce65e9c53b6d3995e89f8ede6b19db604193730d7530375a36516d5f",
+    "tools/prepared-artifact-loss.mjs": "d8e527f3d1118a68bf592be92244fa55b56160ef514ed465928c2e7909d8bd46",
+    "tools/publish-latest-main.mjs": "b27c76018d8f36023d07b831bda560ad446c177638858039d99a5737b8412e8b"
+  }
+}

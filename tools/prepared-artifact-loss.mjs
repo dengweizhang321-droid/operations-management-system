@@ -139,11 +139,12 @@ export async function readArtifactLossRegistry(directory,inventory,{allowIncompl
  return records;
 }
 /** No queue drain, fetch, source checkout, native preparation, task registration or wake. */
-export async function retireLostPreparedArtifacts(directory,{assertGeneration,admit,acquireRotationLock,onStage=async()=>{}}={}){
- assert.equal(typeof assertGeneration,'function');assert.equal(typeof admit,'function');assert.equal(typeof acquireRotationLock,'function','Artifact loss requires the native rotation lock for the entire write window');
- const unlock=await acquireQueueLock(directory);assert.ok(unlock,'Queue busy; no artifact loss retirement');let unlockSubmission,unlockRotation;
+export async function retireLostPreparedArtifacts(directory,{assertGeneration,admit,withRotationLock,onStage=async()=>{}}={}){
+ assert.equal(typeof assertGeneration,'function');assert.equal(typeof admit,'function');assert.equal(typeof withRotationLock,'function','Artifact loss requires the native rotation callback lock for the entire write window');
+ const unlock=await acquireQueueLock(directory);assert.ok(unlock,'Queue busy; no artifact loss retirement');let unlockSubmission;
  try{
-  await assertGeneration();await admit();unlockSubmission=await acquireQueueSubmissionLock(directory);assert.ok(unlockSubmission,'Queue submission busy; no artifact loss retirement');unlockRotation=await acquireRotationLock();assert.equal(typeof unlockRotation,'function','Native rotation lock was not acquired');
+  await assertGeneration();await admit();unlockSubmission=await acquireQueueSubmissionLock(directory);assert.ok(unlockSubmission,'Queue submission busy; no artifact loss retirement');
+  return await withRotationLock(async()=>{
   const binding=await readArtifactLossControlBinding(directory);assert.ok(binding,'No adopted artifact loss manifest');
   const fresh=async()=>{await assertGeneration();const inventory=await readPreparationQueueStructure(directory);const current=await readArtifactLossControlBinding(directory);assert.equal(current?.manifestSha256,binding.manifestSha256,'Artifact loss manifest changed during retirement');assertArtifactLossBindings(binding.manifest,directory,inventory);return {inventory,records:await readArtifactLossRegistry(directory,inventory,{allowIncomplete:true})};};
   let {records}=await fresh();const resultFile=path.join(directory,'artifact-loss-results',binding.manifestSha256+'.json');
@@ -161,5 +162,6 @@ export async function retireLostPreparedArtifacts(directory,{assertGeneration,ad
   await durableCreate(resultFile,{version:artifactLossResultVersion,manifestSha256:binding.manifestSha256,records:Object.fromEntries([...records.values()].map(read=>[artifactLossPacketId(read.value.packet)+'.json',read.sha256])),at:new Date().toISOString(),preparationPerformed:false,publicationPerformed:false});
   await readArtifactLossRegistry(directory,await readPreparationQueueStructure(directory));
   return {status:'retired',manifestSha256:binding.manifestSha256,packets:records.size,preparationPerformed:false,publicationPerformed:false};
- }finally{try{await unlockRotation?.();}finally{try{await unlockSubmission?.();}finally{await unlock();}}}
+  });
+ }finally{try{await unlockSubmission?.();}finally{await unlock();}}
 }
