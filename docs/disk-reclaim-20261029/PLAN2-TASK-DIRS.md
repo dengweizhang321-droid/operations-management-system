@@ -365,3 +365,49 @@ removed dirs=1  pruned worktrees=1  deleted branches=1
 | 同源写闸门 `worker/same-origin-write-gate.ts` | **在**（未被回退） |
 | D 盘可用 | **95 GB** |
 | 网页 | **HTTP 200** |
+
+---
+
+## 12. 两个 5000+ 暂存目录核实结论：建议放弃（2026-10-29，只读）
+
+对象：`jackyun-browser-preflight-20261013`、`jackyun-unified-adoption-20261013`。未执行任何处置。
+
+### 性质：零提交的独立克隆
+
+两者都只有 `source/` 一层，`.git` 是**独立克隆目录**（非 worktree，未在 `git worktree list` 中注册），且 `HEAD` 不存在——`git rev-parse HEAD` 报 `unknown revision`，即**分支上一个提交都没有**。所以 5160 / 5199 个 `A ` 条目是一次性检出后再未提交的暂存快照，不是对已有文件的修改。
+
+### 逐条目内容比对：各只有 1 个文件不在仓库历史里
+
+方法：取仓库全部 29975 个 blob 的内容哈希（`git cat-file --batch-all-objects`），再用 `git ls-files --stage` 取两个克隆每个暂存条目的 blob 哈希逐一比对。按内容而非文件名判断，不受归档改名影响。
+
+| 目录 | 暂存条目 | 内容已在仓库历史 | 仓库没有 |
+| --- | --- | --- | --- |
+| `jackyun-browser-preflight-20261013` | 5160 | **5159** | 1 |
+| `jackyun-unified-adoption-20261013` | 5199 | **5198** | 1 |
+
+两者缺的是**同一个文件、同一版本**（sha256 前缀均 `e0d2e1d38e0416fc`）：`tools/release-batch.mjs`。
+
+### 那个唯一差异是旧版，不是新内容
+
+与 main 当前版本比对：**main 独有 120 行，目录独有 21 行**。
+
+main 多出的是 audit batch 协议：`auditBatchVersion`、`directedAuditBatchVersion`、`isAuditBatch`、`batchRecovery`、`batchRequirements`、`auditPhases`、`phasesFor` 等。
+
+目录独有的 21 行，逐行查明全是 main 中被改写前的旧形态：
+
+| 目录版（旧） | main 版（新） |
+| --- | --- |
+| 直接调 `recoveryDecision(...)` | 包装为 `batchRecovery(version, ...)` |
+| 直接调 `requirementsForImpact(...)` | 包装为 `batchRequirements(version, ...)` |
+| 固定 `phases` | `phasesFor(version)`，audit 批次用 `auditPhases` |
+| 版本白名单只含 3 项 | 含 5 项（新增两个 audit 版本） |
+
+main 中 `recoveryDecision` / `requirementsForImpact` 仍存在（出现 3 次），只是被包装。即**目录版的全部内容都能在 main 中找到对应，且 main 是其演进后的版本**。
+
+### 建议
+
+**放弃两个目录**。两者内容 100% 可从 main 或 git 历史取得，无任何独有产出；它们不是注册 worktree，也没有分支，所以清理只需删目录（无需 `unlock`/`prune`/删分支）。
+
+需注意：脚本会以 `uncommitted(5160/5199)` 拒绝它们，与 A 类同因。放行方式同上一轮——这些暂存项是**独立克隆的索引状态**，不是行尾噪音，所以 `git checkout --` 不适用；若要放行需用 `--only` 搭配一个显式跳过该检查的开关，或直接按目录删除（它们不涉及 git 注册，风险低于 A 类）。
+
+仍由用户决定；本会话未处置。
