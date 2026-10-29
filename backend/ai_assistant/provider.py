@@ -10,12 +10,12 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from urllib.parse import urlsplit
 from .configuration import endpoint, origin
-from .policy import AiError, passive
+from .policy import AiError, fields, passive
 from .secrets import decrypt
 from .transport import bounded_json, bounded_sse, ProviderTransportError
 from .provider_stream import ProviderStream
 from .provider_contract import InvalidProviderResponse
-from .model_capabilities import options, provider_parameters, fit_context, MAX_PROVIDER_BYTES
+from .model_capabilities import options, provider_parameters, fit_context, structured_output_parameters, MAX_PROVIDER_BYTES
 
 
 _conversation_session = ContextVar("ai_provider_conversation_session", default=None)
@@ -61,9 +61,18 @@ def system_prompt(model, system):
 
 
 def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=None, preserve_context=False,
-         tool_argument_limits=None):
+         tool_argument_limits=None, structured_output=None):
     cfg = options(model)
     system = system_prompt(model, system)
+    # Body-level JSON Schema constraint, declared by endpoint capability only.
+    # Merge (never overwrite) so it coexists with provider_parameters' own
+    # output_config (Anthropic adaptive-thinking effort).
+    extra_params = {}
+    if structured_output is not None:
+        request_fields = fields(structured_output, ("name", "schema", "strict"), ("name", "schema"))
+        extra_params = structured_output_parameters(
+            model, schema_name=request_fields["name"], schema=request_fields["schema"],
+            strict=request_fields.get("strict"))
     if preserve_context:
         import math
         from .model_capabilities import estimate_tokens
@@ -95,9 +104,14 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
             error.diagnostics.update(protocol=model.protocol, responseMode=mode)
             raise
     if model.protocol == "anthropic":
+        params = provider_parameters(model)
+        if "output_config" in extra_params:
+            # Merge with provider_parameters' own output_config (adaptive effort);
+            # a missing key on one side is a no-op union, never a silent drop.
+            params = {**params, "output_config": {**params.get("output_config", {}), **extra_params["output_config"]}}
         body = {
             "model": model.model_name,
-            **provider_parameters(model),
+            **params,
             "system": system,
             "messages": transcript,
         }
@@ -141,6 +155,7 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
         body = {
             "model": model.model_name,
             **provider_parameters(model),
+            **extra_params,
             "messages": [{"role": "system", "content": system}, *transcript],
         }
         if tools:
