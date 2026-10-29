@@ -8,7 +8,8 @@ from .policy import AiError, canonical
 
 DATASETS = {"pi_netshop_product_daily", "pi_netshop_promotion"}
 TOOLS = {"get_pi_netshop_performance_page", "get_data_freshness", "describe_system_datasets",
-         "query_system_dataset", "start_pi_dataset_export", "get_pi_dataset_export"}
+         "query_system_dataset", "start_pi_dataset_export", "get_pi_dataset_export",
+         "search_system_knowledge", "search_personal_memory"}
 
 
 def normalize(value, principal):

@@ -62,9 +62,11 @@ B-1 可立即实施且不损失正确性——缺的是覆盖面，不是准确�
 
 [knowledge.py](../../backend/ai_assistant/knowledge.py) 第 55 行 `search(query, principal, limit=4)` 同样只有 principal。`search_system_knowledge` 的 `scopePolicy` 是 `metadata_safe`，意味着它面向全部角色且不做 scope 过滤。
 
-按方案第 13 节，单店环境下「系统知识只开放不含其他店经营数据的稳定解释」。知识条目没有店铺字段，所以同样无法按店过滤。建议与 B-1 一致：单店环境下只开放不含经营数字的条目，判定依据需要知识条目自身的分类标记——**当前没有这样的标记**，故这一项需要先确认知识库实际内容是否含按店经营数据，再决定是全量开放、全量排除还是加标记。
+按方案第 13 节，单店环境下「系统知识只开放不含其他店经营数据的稳定解释」。知识条目没有店铺字段，所以无法按店过滤。
 
-这是本设计的待确认项（见第 7 节 K1）。
+**K1 已于 2026-10-29 由用户确认**：知识库条目均为通用口径解释，不含按店经营数据。因此单店环境下**知识全量开放**，不需要分类标记，也不需要新增过滤——现有 `search(query, principal, limit)` 的行为即符合第 13 节要求。
+
+该结论是本次的输入前提，不是代码可自证的事实：若将来写入含店铺经营数字的条目，该前提失效，须回到加分类标记的方案。实现时在 `knowledge.py` 留注释记录此依据。
 
 ## 6. 拟定改动点
 
@@ -73,7 +75,7 @@ B-1 可立即实施且不损失正确性——缺的是覆盖面，不是准确�
 | [tool-registry.ts](../../lib/ai/tool-registry.ts) | 两个条目加 `piReadOnly()` 包装；**但须与下列后端过滤同批交付**，不得先开 surface |
 | [pi_selection.py](../../backend/ai_assistant/pi_selection.py) | `TOOLS` 加入两个工具名；`bind_arguments()` 增加分支注入店铺绑定 |
 | [memory.py](../../backend/ai_assistant/memory.py) | `visible()` 之后按绑定过滤：单店环境排除 `business_context`（B-1），结果标注被排除的类型 |
-| [knowledge.py](../../backend/ai_assistant/knowledge.py) | 待 K1 确认后决定 |
+| [knowledge.py](../../backend/ai_assistant/knowledge.py) | 不改过滤逻辑（K1 已确认全量开放），仅加注释记录该前提 |
 
 **交付顺序要求**：surface 开放与后端过滤必须同一批次。先加 surface 会在过滤就位前让单店环境读到未过滤内容。
 
@@ -81,11 +83,56 @@ B-1 可立即实施且不损失正确性——缺的是覆盖面，不是准确�
 
 | 编号 | 内容 | 影响 |
 | --- | --- | --- |
-| K1 | 系统知识库现有条目是否含按店经营数据 | 决定单店下知识是全量开放、全量排除还是需加分类标记。需读取知识条目内容，属业务数据，须用户授权或由用户自行判断 |
-| K2 | 是否需要按店的 `business_context` 记忆 | 若需要则走 B-2（加字段 + 迁移 + 写入界面），否则 B-1 足够 |
+| K1 | ~~系统知识库现有条目是否含按店经营数据~~ | **已确认：不含，单店下全量开放。** 该前提由用户提供，非代码自证；写入含店铺经营数字的条目会使其失效 |
+| K2 | 是否需要按店的 `business_context` 记忆 | 若需要则走 B-2（加字段 + 迁移 + 写入界面），否则 B-1 足够。当前按 B-1 实施 |
 
-K1 不需要数据库连接即可由用户回答（他们知道自己写了什么知识条目）。K2 是产品决定。
+K2 是产品决定，不阻塞 B-1 实施。
 
 ## 8. 本文边界
 
 设计与源码查证，未改动业务代码、未执行构建、未调用模型、未读取任何记忆或知识内容。所有拟改动点开发前与当时最新 main 核对；注册表变更须按 [安全与 AI 工具](../规范/安全与AI工具.md) 同步测试。
+
+## 9. 独立审查与设计重做（2026-10-29）
+
+首版实现把单店标记作为**工具参数**注入（`singleShopRestricted` 进 `inputSchema`，由 `pi_selection.bind_arguments()` 剥除后重注）。独立审查判定该方案的信任边界不成立，已重做。
+
+### 9.1 审查发现的缺口
+
+`bind_arguments()` 只在 [pi_gateway.py](../../backend/ai_assistant/pi_gateway.py) 调用一次，全仓无第二处生产调用。但 `search_personal_memory` 经 `piReadOnly()` 包装后，`allowedSurfaces` 是**追加** `pi_agent` 而非限定为它——该工具本来就对 `ai_chat`、`ai_agent`、`codex_mcp` 开放。
+
+而 [chat.py](../../backend/ai_assistant/chat.py) 第 1166 至 1168 行把模型生成的 `call["arguments"]` 直接交给 `transport.execute_tool()`，**不经过 `bind_arguments()`**。Worker 侧 [tool-registry-contract.ts](../../lib/ai/tool-registry-contract.ts) 第 389 至 391 行的 `additionalProperties: false` 只拒绝 schema 外字段，不限制谁能填 schema 内已声明字段。
+
+因此：schema 一旦声明该参数，Chat 与 Agent surface 的模型即可自行填写，Django 侧只能做布尔类型检查，无法区分「Pi 网关从店铺绑定推导」与「模型自己编的」。首版注释声称的前提只对 Pi 链路成立。
+
+该方向的实际后果有限（模型只能让自己更受限，不能解除别人加的限制），但字段的可信边界已破，不符合「服务端产生、模型不可触及」的要求。
+
+### 9.2 重做后的设计
+
+标记改为**执行 context 的旁路字段**，与工具参数完全分离：
+
+| 环节 | 实现 |
+| --- | --- |
+| [transport.py](../../backend/ai_assistant/transport.py) | `execute_tool()` 新增 `single_shop` 命名参数，与 `arguments` 并列放入 edge payload 的 `singleShop` |
+| [pi_gateway.py](../../backend/ai_assistant/pi_gateway.py) | 调用时传 `single_shop=selection is not None`，取自可信 operation |
+| [django-edge.ts](../../lib/ai/django-edge.ts) | 仅当 `body.surface === "pi_agent"` 且 `body.singleShop === true` 才置入 context，其余 surface 一律 false |
+| [tool-registry-contract.ts](../../lib/ai/tool-registry-contract.ts) | `AiToolExecutionContext` 新增 `singleShop?: boolean`，与既有 `persistentPiGateway` 同类——该字段也是按 surface 派生的可信标记 |
+| [tool-registry.ts](../../lib/ai/tool-registry.ts) | schema **不再声明**该字段；handler 读 `context.singleShop` |
+| [pi_selection.py](../../backend/ai_assistant/pi_selection.py) | 不再做剥除与重注，只保留 `TOOLS` 白名单 |
+
+模型现在完全接触不到该字段：schema 里没有，填了会被 `additionalProperties: false` 直接拒绝。这与项目既有的 `persistentPiGateway: body.surface === "pi_business"` 是同一范式，不是新机制。
+
+### 9.3 审查确认成立的项
+
+Pi 链路内部剥除/重注逻辑自身闭合；`visible()` 未改动是正确范围划分（`list`/`get` 是 owner 人工管理入口，非模型路径）；`withheld` 计算在空 query 时不打数据库、语义准确；`knowledge.py` 注释准确描述了前提与失效条件，`rank()` 现仅按 `principal.role` 过滤；TS 签名变更不破坏既有测试（`tests/ai-memory.test.ts` 导入的是 `./legacy/ai/memory`，与 `lib/ai/memory.ts` 无导入关系）。
+
+### 9.4 测试覆盖缺口（如实记录）
+
+本次改动**没有新增测试**：`recall(single_shop=...)`、`views.py` 的标记校验、context 旁路的 surface 门控均无测试覆盖。审查指出，首版那处缺口正是因为缺少「Chat surface 下模型自填该参数」的测试才被放过。
+
+按根 [AGENTS.md](../../AGENTS.md) 第 4 条，AI 不执行功能验收，故未补业务场景测试；但上述三处属于权限边界而非业务行为，建议在后续切片补自动化测试。本节记录该缺口，不以「测试通过」掩盖它。
+
+### 9.5 本次验证
+
+`compileall` 通过；`ai_assistant.tests` 与 `ai_assistant.test_pi_selection` 共 28 个测试通过。
+
+`test_pi_transport` 与 `test_pi_runtime` 有 4 failures + 7 errors，经 stash 比对**干净 HEAD 上数字完全相同**，属既有失败基线，非本次引入。Worker 侧 TS 测试在此 worktree 无法执行（无 `node_modules`，报 `Cannot find package 'next'`），属环境限制。

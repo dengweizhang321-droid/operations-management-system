@@ -1035,9 +1035,16 @@ def consumer(payload, principal, request_id):
     if operation in {"datasets-describe", "datasets-query"}:
         return datasets.consumer(payload, principal, request_id)
     if operation == "memory-recall":
-        fields(payload, {"operation", "query"}, {"operation", "query"})
+        fields(payload, {"operation", "query", "singleShopRestricted"},
+               {"operation", "query"})
+        # Only the signed Pi gateway path sets this: pi_selection derives it
+        # from the operation's own selection, never from model input.
+        restricted = payload.get("singleShopRestricted", False)
+        if type(restricted) is not bool:
+            raise AiError("单店限制标记无效")
         return memory.recall(
-            configuration.text(payload["query"], "query", 200), principal
+            configuration.text(payload["query"], "query", 200), principal,
+            single_shop=restricted,
         )
     if operation == "analysis-describe":
         fields(payload, {"operation"}, {"operation"})

@@ -53,6 +53,12 @@ def rank(query, principal):
 
 
 def search(query, principal, limit=4):
+    # No single-shop restriction here, on one stated premise: entries hold
+    # general metric definitions and explanations, not per-shop operating data,
+    # so there is nothing another shop's environment must not see. That premise
+    # comes from the owner, not from anything this code can check — entries have
+    # no shop column. An entry carrying a shop's operating figures invalidates
+    # it, and this path would then need a per-entry classification.
     query = text(query, "query", 80)
     if len(query) < 2:
         raise AiError("知识 query 至少 2 个字符")

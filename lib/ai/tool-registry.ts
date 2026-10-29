@@ -658,7 +658,10 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "metadata_safe",
-    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2 },
+    // No per-shop flag: entries are general definitions, not per-shop operating
+    // data, so a single-shop environment withholds nothing here. See the premise
+    // recorded in backend/ai_assistant/knowledge.py search().
+    execution: piReadOnly({ ...synchronousReadOnlyExecution, maxCallsPerRequest: 2 }),
     handler: (args, context) => searchAiKnowledge(args, context.principal),
   },
   {
@@ -677,8 +680,8 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "principal_scope",
-    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2, maxResultCharacters: 12_000 },
-    handler: (args, context) => retrieveAiMemoriesForContext(args.query, context.principal),
+    execution: piReadOnly({ ...synchronousReadOnlyExecution, maxCallsPerRequest: 2, maxResultCharacters: 12_000 }),
+    handler: (args, context) => retrieveAiMemoriesForContext(args.query, context.principal, context.singleShop === true),
   },
   {
     name: "list_my_agent_jobs",

@@ -45,6 +45,12 @@ export type AiToolExecutionContext = {
   invocationId?: string;
   /** Set only by the signed internal Pi gateway; handlers enqueue durable actions. */
   persistentPiGateway?: boolean;
+  /**
+   * Set only by the signed internal Pi gateway, from the operation's own shop
+   * selection. Deliberately not a tool argument: the model writes those, so a
+   * restriction carried there would be its own to assert or to clear.
+   */
+  singleShop?: boolean;
   /** Provider tool_call/tool_use id for trace correlation only, never authorization. */
   providerCallId?: string;
   /** Cooperative cancellation. Handlers using cancellable I/O should pass it through. */

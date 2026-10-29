@@ -228,7 +228,19 @@ def archive(memory_id, body, principal, request_id):
     return {"id": row.id, "archived": True, "version": row.version}
 
 
-def recall(prompt, principal):
+#: Kinds whose shop attribution cannot be proven from the stored row. Under a
+#: single-shop environment these are withheld rather than attributed by guess:
+#: the model has no shop column, and scope_json carries no shop dimension.
+SHOP_UNPROVABLE_KINDS = ("business_context",)
+
+
+def recall(prompt, principal, *, single_shop=False):
+    """Recall for automatic injection and for the model's own search.
+
+    Both paths come through here, so the single-shop restriction lives in one
+    place. `single_shop` is set by the trusted caller from the Pi operation's
+    own selection; it is never taken from model input.
+    """
     # Bound both candidates and context. This is user data, never system instructions.
     query = text(prompt, "query", 200, empty=True) if prompt is not None else ""
     matched = (
@@ -238,6 +250,13 @@ def recall(prompt, principal):
         if query
         else visible(principal).none()
     )
+    withheld = []
+    if single_shop:
+        # Reported, not silently dropped: the caller can see that a kind was
+        # excluded by this environment rather than simply absent.
+        withheld = [kind for kind in SHOP_UNPROVABLE_KINDS
+                    if matched.filter(kind=kind).exists()]
+        matched = matched.exclude(kind__in=SHOP_UNPROVABLE_KINDS)
     total = matched.count()
     rows = list(matched.order_by("-updated_at", "id")[:8])
     items = []
@@ -253,10 +272,16 @@ def recall(prompt, principal):
             break
         items.append(item)
         size += length
-    return {
+    result = {
         "trust": "untrusted_memory_data",
         "items": items,
         "totalMatched": total,
         "returned": len(items),
         "truncated": total > len(items),
     }
+    if single_shop:
+        # State the restriction even when nothing was withheld, so the absence
+        # of a kind is never read as "the owner has none".
+        result["shopRestricted"] = True
+        result["withheldKinds"] = withheld
+    return result

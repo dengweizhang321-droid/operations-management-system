@@ -262,7 +262,8 @@ def _tool(payload, op, principal):
     service.principal_for_work(op)
     readonly_catalog = [entry for entry in all_entries if "pi_agent" in entry.get("execution", {}).get("allowedSurfaces", [])]
     result = transport.execute_tool(name, args, principal, surface="pi_agent", request_id=op.id,
-        provider_call_id=payload["requestId"], policy_digest=digest(readonly_catalog))
+        provider_call_id=payload["requestId"], policy_digest=digest(readonly_catalog),
+        single_shop=selection is not None)
     if result.get("auditStatus") == "unavailable":
         raise AiError("Pi 工具审计不可用", "service_unavailable", 503)
     service.principal_for(PiOperation.objects.get(pk=op.pk))

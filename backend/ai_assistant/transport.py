@@ -694,8 +694,13 @@ def catalog(principal, surface):
 
 
 def execute_tool(
-    name, args, principal, *, surface, request_id, provider_call_id="", policy_digest=""
+    name, args, principal, *, surface, request_id, provider_call_id="",
+    policy_digest="", single_shop=False
 ):
+    # single_shop travels beside the arguments, never inside them: the model
+    # writes the arguments, so a restriction carried there would be the model's
+    # to assert or to clear. Only the Pi gateway sets this, and only from the
+    # operation's own selection.
     return edge(
         "execute",
         {
@@ -705,6 +710,7 @@ def execute_tool(
             "requestId": request_id,
             "providerCallId": provider_call_id,
             "policyDigest": policy_digest,
+            "singleShop": bool(single_shop),
         },
         principal,
     )
