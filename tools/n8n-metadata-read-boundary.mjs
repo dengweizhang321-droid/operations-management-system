@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 // Reviewed exception for execution metadata, never an allowance for SQLite
 // business data or arbitrary database paths. Any source change needs review.
 export const n8nMetadataReaderPath = "lib/jackyun/n8n-preflight-evidence.ts";
-export const n8nMetadataReaderSourceSha256 = "4c5e716f97e369fccf4c96f205d20077523ae330c05bea9acc27ac7764b6c75b";
+export const n8nMetadataReaderSourceSha256 = "4ad869e21085af4cd977b15c02aa498294c06b8158fbb379b3f289e9fb2d1fea";
 export function isApprovedN8nMetadataReader(relativePath, source, reachableRoots) {
   return relativePath === n8nMetadataReaderPath
     && Array.isArray(reachableRoots) && reachableRoots.length > 0
