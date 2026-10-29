@@ -7,6 +7,9 @@ import { reserveRetryDispatch } from "../lib/jackyun/retry-dispatch-reservation"
 import { reserveJackyunFailureRetry } from "../lib/jackyun/retry-budget";
 import { readJackyunRecoveryTarget, dispatchHumanJackyunRetry } from "../lib/jackyun/human-retry";
 import { assertNoFreshRestart } from "../lib/jackyun/fresh-restart";
+import { assertNoOperatorClosure } from "../lib/jackyun/operator-close-fence";
+import { assertJackyunCloseAdmission } from "../lib/jackyun/operator-close-admission";
+import { closeJackyunExecution, readJackyunCloseTarget, type CloseSlotCoordinator } from "../lib/jackyun/operator-close";
 import { admitPiBusinessN8nNode } from "./pi-business-n8n-gate";
 
 export const isolatedHelperProtocol = "tmall-store-isolation-v1";
@@ -18,7 +21,8 @@ const tmallRoutes = new Set(["/plan", "/plan-backfill", "/plan-seven-day-backfil
 const legacyPrefixes = ["/jd/", "/jd-market/", "/jd-promotion/", "/jd-promotion-cut-meat/", "/jd-logistics/", "/tmall-warehouse/", "/jackyun/"];
 export type SlotIdentity = { key: string; storeKey: string | null; workflow: string; executionId: string; scheduledAt?: string };
 export type HelperSlot = { port: number; token: string; stop: () => Promise<unknown> };
-export type SlotRecord = SlotIdentity & { status: "starting" | "running" | "closing" | "quarantined"; stage: string; ready: Promise<HelperSlot> };
+export type SlotRecord = SlotIdentity & { status: "starting" | "running" | "closing" | "quarantined"; stage: string; ready: Promise<HelperSlot>;
+  instanceId: string; exited: boolean; inFlight: number };
 
 const diagnosticPhases = new Set([
   "master_start", "master_audit_saved", "master_authentication", "master_browser_connect",
@@ -87,11 +91,13 @@ export function isolatedRequestIdentity(route: string, headers: IncomingHttpHead
 export class IsolatedHelperSlots {
   readonly slots = new Map<string, SlotRecord>();
   private readonly retired = new Set<string>();
+  private closeReservation: string | null = null;
   constructor(private readonly allowedStores: ReadonlySet<string>, private readonly spawn: (
     identity: SlotIdentity, finish: (clean: boolean) => void,
   ) => Promise<HelperSlot>, private readonly draining: () => boolean = () => false) {}
 
   claim(identity: SlotIdentity): { status: "granted" | "waiting" | "rejected"; reason?: string; slot?: SlotRecord } {
+    if (this.closeReservation) return { status: "waiting", reason: "operator_close_in_progress" };
     if (identity.storeKey && !this.allowedStores.has(identity.storeKey)) return { status: "rejected", reason: "tmall_store_not_enabled_or_registered" };
     const active = this.slots.get(identity.key);
     if (active?.executionId === identity.executionId && active.scheduledAt !== identity.scheduledAt) return { status: "rejected", reason: "execution_plan_anchor_changed_manual_action" };
@@ -117,10 +123,11 @@ export class IsolatedHelperSlots {
     // Refuse new work rather than discard replay protection after a very long
     // service lifetime. A controlled idle restart can reset this bounded cache.
     if (this.retired.size >= 4096) return { status: "rejected", reason: "helper_replay_capacity_requires_manual_action" };
-    const slot = { ...identity, status: "starting", stage: "ready" } as SlotRecord;
+    const slot = { ...identity, status: "starting", stage: "ready", instanceId: randomBytes(24).toString("hex"), exited: false, inFlight: 0 } as SlotRecord;
     this.slots.set(identity.key, slot); // synchronous reservation, before awaits
     slot.ready = Promise.resolve().then(() => this.spawn(identity, clean => {
       if (this.slots.get(identity.key) !== slot) return;
+      slot.exited = true; // finish is emitted only by the actual Worker.exit.
       this.retired.add(identity.executionId);
       if (clean) this.slots.delete(identity.key);
       else { slot.status = "quarantined"; slot.stage = "failed"; }
@@ -143,6 +150,31 @@ export class IsolatedHelperSlots {
   }
   summary() {
     return [...this.slots.values()].map(({ storeKey, workflow, executionId, status, stage }) => ({ storeKey, workflow, executionId, status, stage }));
+  }
+
+  closeCoordinator(): CloseSlotCoordinator {
+    const matching = (ids: string[]) => [...this.slots.values()].filter(slot => slot.workflow === "jackyun" && ids.includes(slot.executionId));
+    return {
+      observe: ids => {
+        const slots = matching(ids), other = [...this.slots.values()].some(slot => !slots.includes(slot));
+        return { exited: slots.length === 1 && slots[0].exited && slots[0].inFlight === 0,
+          blocked: other || slots.length > 1 || slots.some(slot => !slot.exited || slot.inFlight > 0) };
+      },
+      freeze: ids => {
+        if (this.closeReservation) throw new Error("另一闭合正在协调，请刷新原请求。");
+        const slots = matching(ids);
+        if ([...this.slots.values()].some(slot => !slots.includes(slot)) || slots.length > 1 || slots.some(slot => !slot.exited || slot.inFlight > 0)) throw new Error("原任务执行资源仍在运行，暂不能闭合。");
+        const token = randomBytes(24).toString("hex"); this.closeReservation = token;
+        const slot = slots[0], previous = slot?.status;
+        if (slot) slot.status = "closing";
+        let completed = false;
+        const assertExited = () => {
+          if (this.closeReservation !== token || slot && (this.slots.get(slot.key) !== slot || !slot.exited || slot.inFlight !== 0 || slot.status !== "closing")) throw new Error("原执行单元退出见证已变化，暂不能闭合。");
+        };
+        return { assertExited, complete: () => { assertExited(); completed = true; if (slot) { this.retired.add(slot.executionId); this.slots.delete(slot.key); } },
+          release: () => { if (this.closeReservation === token) { if (slot && !completed && this.slots.get(slot.key) === slot) slot.status = previous!; this.closeReservation = null; } } };
+      },
+    };
   }
 }
 
@@ -215,6 +247,8 @@ function reply(response: ServerResponse, status: number, payload: unknown, heade
 }
 
 export async function forward(request: IncomingMessage, response: ServerResponse, record: SlotRecord) {
+  record.inFlight += 1;
+  try {
   const slot = await record.ready;
   if (record.status !== "running") throw new Error("helper_slot_not_running");
   await new Promise<void>((resolve, reject) => {
@@ -245,6 +279,7 @@ export async function forward(request: IncomingMessage, response: ServerResponse
     // explicitly, retaining the worker's timeout/cleanup after disconnection.
     upstream.end();
   });
+  } finally { record.inFlight -= 1; }
 }
 
 export async function serveIsolatedHelper(options: {
@@ -254,6 +289,7 @@ export async function serveIsolatedHelper(options: {
   cors: (origin: string | undefined, privateNetwork: boolean) => Record<string, string>;
 }) {
   const pool = new IsolatedHelperSlots(options.allowedStores, (identity, finish) => spawnIsolatedHelper(options.entryFile, identity, finish), () => readAutomationDrain() !== null);
+  const closeCoordinator = pool.closeCoordinator();
   const server = createServer(async (request, response) => {
     const route = request.url ?? "";
     const cors = route === "/health" ? options.cors(request.headers.origin, request.headers["access-control-request-private-network"] === "true") : {};
@@ -277,6 +313,22 @@ export async function serveIsolatedHelper(options: {
           reply(response, 400, { ok: false, error: "invalid_recovery_target_query" }); return;
         }
         reply(response, 200, await readJackyunRecoveryTarget(options.mutableRoot, query.get("logicalExecutionId") ?? undefined)); return;
+      }
+      if (request.method === "GET" && (route === "/coordination/jackyun-close-target" || route.startsWith("/coordination/jackyun-close-target?"))) {
+        const query = new URL(route, "http://127.0.0.1").searchParams;
+        if ([...query.keys()].some(k => k !== "requestId") || query.getAll("requestId").length > 1 || query.has("requestId") && !/^[a-f0-9-]{36}$/.test(query.get("requestId") ?? "")) { reply(response, 400, { ok: false, error: "invalid_close_query" }); return; }
+        reply(response, 200, await readJackyunCloseTarget(options.mutableRoot, closeCoordinator, query.get("requestId") ?? undefined)); return;
+      }
+      if (request.method === "POST" && route === "/coordination/jackyun-close") {
+        if (readAutomationDrain() !== null) { reply(response, 409, { ok: false, error: "maintenance_wait", message: "系统维护期间暂不能闭合。" }); return; }
+        if (!request.headers["content-type"]?.startsWith("application/json") || Number(request.headers["content-length"] ?? 0) > 512) { reply(response, 400, { ok: false, error: "invalid_close_request" }); return; }
+        const parts: Buffer[] = []; let size = 0;
+        for await (const part of request) { size += part.length; if (size > 512) throw new Error("close_request_too_large"); parts.push(Buffer.from(part)); }
+        const raw = Buffer.concat(parts).toString("utf8");
+        if (!/^\s*\{\s*"authorizationId"\s*:\s*"[a-f0-9-]{36}"\s*\}\s*$/.test(raw)) { reply(response, 400, { ok: false, error: "invalid_close_identity" }); return; }
+        try { reply(response, 200, await closeJackyunExecution(options.mutableRoot, JSON.parse(raw).authorizationId, closeCoordinator)); }
+        catch (error) { reply(response, 409, { ok: false, error: "close_blocked", message: error instanceof Error ? error.message : "原任务暂不能闭合，请刷新原请求。" }); }
+        return;
       }
       if (request.method === "POST" && route === "/coordination/jackyun-recovery-dispatch") {
         if (readAutomationDrain() !== null) { reply(response, 409, { ok: false, error: "maintenance_wait" }); return; }
@@ -302,6 +354,7 @@ export async function serveIsolatedHelper(options: {
           const context = readN8nRetryContext(scalar(request.headers, "x-teruisi-source-workflow-id") ?? "", scalar(request.headers, "x-teruisi-failed-execution-id") ?? "", reserve ? retryExecutionId : undefined);
           let newJackyunProtocol = false;
           if (context.workflowId === "J8kY2mQ5vR7sT4pN") {
+            assertNoOperatorClosure(options.mutableRoot, [context.originalExecutionId, context.failedExecutionId]);
             assertNoFreshRestart(options.mutableRoot, [context.originalExecutionId, context.failedExecutionId]);
             newJackyunProtocol = n8nJackyunRequiresRecoveryHeader(context.failedExecutionId, true);
             if (newJackyunProtocol) readN8nJackyunRecoveryEntry(context.failedExecutionId, { allowTerminal: true });
@@ -321,6 +374,7 @@ export async function serveIsolatedHelper(options: {
       // Native Pi-origin executions recheck current application authorization
       // before every claim/dispatch. Retry descendants may not bypass the action.
       await admitPiBusinessN8nNode(identity.executionId);
+      if (identity.workflow === "jackyun") assertJackyunCloseAdmission(options.mutableRoot, identity.executionId);
       // Existing helper contracts accept header-only requests. Refuse arbitrary
       // bodies and client-supplied internal slot credentials at the front door.
       if (request.headers[isolatedHelperTokenHeader] !== undefined || request.headers["transfer-encoding"] !== undefined
