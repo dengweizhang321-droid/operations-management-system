@@ -318,3 +318,50 @@ worker/index.ts                      4 行
 **不建议提交或另存**：没有内容可保，且该分支已被 main 全面超越。
 
 仍由用户决定；本会话不自行处置。
+
+### A 类处置记录（2026-10-29，用户授权放弃）
+
+**已放弃。回收 337.8 MB，`codex-isolated` 子目录降至 8 个。**
+
+#### 放弃前的加倍核验
+
+上一节说"9 个文件有差异"仍不够细。本次把分支两个提交改过的**全部 16 个非 docs 文件**逐一比对：
+
+| 分类 | 数量 | 判定 |
+| --- | --- | --- |
+| 与 main 零差异 | 7 | 已包含 |
+| 有差异且 main 在 10-14 后改过 | 7 | **main 更新** |
+| 有差异但 main 未再改过 | 2 | 逐个比对内容哈希，**证实为 main 的历史版本**（分支仅缺 main 后加的 41 行与 29 行） |
+
+那 2 个需要单独验的文件是 `backend/ai_assistant/test_streaming.py` 与 `tools/operations-system-watchdog.ps1`。后者分支有 1 行 main 没有的 `$recovery=@()...` 单行实现——查明 main 已将其改写为第 404-405 行的多行完整版，并新增 `databaseLogObservation` 字段。**结论：分支无任何 main 缺失内容。**
+
+#### 脚本保护先挡了一次，未绕过
+
+首次 dry-run 候选为 **0**，跳过理由 `uncommitted(4)`。脚本不知道那 4 个是 CRLF 噪音，按设计拒绝。**没有用 --force 或改判定绕开**——这类保护被绕过一次就不再可信（参见本会话早先在 `main-release-packages` 上因漏步骤留下 75 条失效注册的教训）。
+
+按用户选定的方式：先 `git checkout --` 清掉行尾差异。丢弃前用两种独立方法确认只有行尾差异：
+
+```
+git diff --ignore-cr-at-eol --numstat   → 0 个文件
+tr -d '\r' 后逐文件 sha256 比对 HEAD    → 4 个全部一致
+```
+
+清理后 `git status` 为 0，原脚本自然放行，候选变为 1 个 / 337.8 MB。
+
+#### 执行与核验
+
+```
+removed dirs=1  pruned worktrees=1  deleted branches=1
+```
+
+| 检查 | 结果 |
+| --- | --- |
+| 目录 | 已删 |
+| 分支 `codex/product-combo-details-release-20261014` | 已删（0 个） |
+| 失效 worktree 注册 | `prunable` **0**、`prune --dry-run` 无输出（以 git 为准，不用路径判断） |
+| worktree 总数 | 98 |
+| **两个提交 `1d848e8f` / `fa711c5a`** | **仍在仓库可取回**——删分支只移除引用，对象未丢，**该决定可逆** |
+| main 的等价提交 `af46feac` | 在 |
+| 同源写闸门 `worker/same-origin-write-gate.ts` | **在**（未被回退） |
+| D 盘可用 | **95 GB** |
+| 网页 | **HTTP 200** |
