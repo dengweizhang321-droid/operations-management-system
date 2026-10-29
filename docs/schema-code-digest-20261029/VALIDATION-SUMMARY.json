@@ -1,0 +1,46 @@
+{
+  "baseCommit": "deaa20f9d21fe1b6feea8d01a093f37ad3e92c9f",
+  "codeFileCount": 86,
+  "codeSha256": "e411415d0a76aae5ba8648e3db2b306c82dcd786262eb8171eff6e593875b1a1",
+  "validationSha256": "4cd684632b28cef6c4770bd452f6e211b29ae7f3b0da994a04d406eafa7dbb4a",
+  "digestStaticCheck": "passed",
+  "digestPrivateTests": 15,
+  "controllerStaticCheck": {
+    "passed": 3,
+    "failed": 0
+  },
+  "eslint": {
+    "errors": 56,
+    "warnings": 132
+  },
+  "backendBoundary": {
+    "violations": []
+  },
+  "pi152Acl": {
+    "checks": 27,
+    "noDatabase": true
+  },
+  "ciAllowlist": {
+    "passed": 66,
+    "failed": 0
+  },
+  "historicalRecipeCodeMismatchesNotRenewed": 7,
+  "productionTouched": false,
+  "functionalValidationPerformed": false,
+  "fullBackupOrRestorePerformed": false,
+  "preparationPerformed": false,
+  "mainPushed": false,
+  "evidenceSha256": {
+    "MANDATORY-CHECKS.json": "0c749d77734d32bb5ec372ccf143e383805a26b1780f38146e51f2ddb6b2b58e",
+    "MANDATORY-CHECKS.log": "df7d96cd9c054bf9fd71eb69b729d384928573039319ce2a69f1bcc215ed5aea",
+    "SCHEMA-DIGEST-CHECK.json": "570cc0004dd077ee392788d2da917755dae1f416a57f2391f2cba8ab295db55e",
+    "STATIC-TESTS.log": "ef0d5ed9fea1a783d682167734943eff7c863ade2b660c9c9567c728e38fa625",
+    "CONTROLLER-QUALIFICATION.tap": "678248f25789d451b85feb59dddebe743cf4e2c1fa6aaf1f025f8e576d709b67",
+    "ESLINT-RESULT.json": "28c2deffc992bca7432624db5bdb1a026e1a9efeba2d0f010da6abc892163bc2",
+    "backend-boundary.log": "1d101b20331e8a26931642231a108353c3592c76313bc87a633f3bd2d84f1be6",
+    "pi152-acl.log": "b55221df0a4602826882d8e36e7093533ad0b65fa629c2c476c35478344ed330",
+    "ci-allowlist.log": "6ebe66a559f2c02c2dd3fefbadc3f5015ee2ac0cc184b8f7b8107953f187173a",
+    "RELATED-RECIPE-PINS.json": "8499ab8edea0799c091b4f315de749945f9f11ff4e1a3e4e8e9cbb60e84b0994",
+    "PRESERVATION-CHECK.json": "7fdbaada63d8df2f1e9d33d1cb3d133d8505c523fa49b0c077aed82887e8e755"
+  }
+}

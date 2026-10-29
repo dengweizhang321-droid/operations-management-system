@@ -1,0 +1,33 @@
+{
+  "version": "sales-preflight-index-mandatory-code-checks-v1",
+  "status": "code-checked",
+  "checkedAt": "2026-10-28T18:25:18.837850+00:00",
+  "productionTouched": false,
+  "functionalValidationPerformed": false,
+  "steps": [
+    "sales.0012_excluded_business_date_index"
+  ],
+  "generations": [
+    153,
+    154
+  ],
+  "parentVariants": [
+    [
+      153,
+      154
+    ]
+  ],
+  "fullBackupOrRestorePerformed": false,
+  "codeSha256": "6253cf315a9195c017df3a6e5949261cc4521601c26ab516a6d317ac868ded9e",
+  "migrationSha256": "f8f2c4c1d1007fd43934e7ac3d4e53a034d88f95efbd514e8d69d2e1dd633848",
+  "checks": [
+    "migration-closure",
+    "node-syntax",
+    "powershell-syntax",
+    "python-syntax"
+  ],
+  "evidence": {
+    "path": "docs/jackyun-sales-preflight-20261029/CHECKS.json",
+    "sha256": "10b2525551d7e2361adfaa9d2bc1060fdcc46005c16ce7c63074f31667fe89ec"
+  }
+}

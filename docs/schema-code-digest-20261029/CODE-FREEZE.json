@@ -1,0 +1,9 @@
+{
+  "tools/check_schema_code_digest.py": "eddce1b714e90145ba26d879d70fc3fd4946dfca8f6fde69fd67f78848c3280c",
+  "tests/schema-code-digest-static.py": "55e97d62ef67161be624b16342ee86f4d60059210a2b2023ba9939f1aab1fa81",
+  ".github/workflows/ci.yml": "bd1801ee65a3230b74a617c4212c7c48cd2d70faf41e02002cefe098cf77d3ca",
+  "config/main-schema-releases/sales-0012.json": "49c5ae1967baa7b42da2dc393f9fa8f57c421e69a31d90ab487d3f3d2aa7ae1a",
+  "docs/jackyun-sales-preflight-20261029/sales154-mandatory-code-checks.json": "4cd684632b28cef6c4770bd452f6e211b29ae7f3b0da994a04d406eafa7dbb4a",
+  "docs/schema-code-digest-20261029/MANDATORY-CHECKS.json": "0c749d77734d32bb5ec372ccf143e383805a26b1780f38146e51f2ddb6b2b58e",
+  "docs/schema-code-digest-20261029/run-mandatory-checks.py": "82d407e1652330dc2d137dc6c9ec0aaf7ab6aa5885b888f98795128aa8a57725"
+}
