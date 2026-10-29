@@ -1,0 +1,931 @@
+{
+ "A": [
+  {
+   "name": "product-combo-details-release-20261014",
+   "ageDays": 14.5,
+   "sizeMB": 337.8,
+   "files": 11428,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 4,
+   "branches": [
+    "codex/product-combo-details-release-20261014"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  }
+ ],
+ "B": [
+  {
+   "name": "backup-pi-tools-release-20261019",
+   "ageDays": 9.6,
+   "sizeMB": 856.5,
+   "files": 40709,
+   "worktrees": 1,
+   "lockedWorktrees": 1,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/backup-pi-deploy-20261019"
+   ],
+   "uniqueEvidence": 1,
+   "uniqueMB": 0.0,
+   "uniqueSamples": [
+    "publish-3918480da94f/SUCCESS.json"
+   ],
+   "receipts": [
+    "publish-3918480da94f/SUCCESS.json"
+   ]
+  },
+  {
+   "name": "jackyun-credential-release-20261017",
+   "ageDays": 12.3,
+   "sizeMB": 847.3,
+   "files": 40173,
+   "worktrees": 1,
+   "lockedWorktrees": 1,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 29,
+   "uniqueMB": 0.0,
+   "uniqueSamples": [
+    "main-release-request.json",
+    "publish-09db4c0130a9/FAILED.json",
+    "publish-09db4c0130a9/停止旧前端-result.json",
+    "publish-09db4c0130a9/停止旧前端-started.json"
+   ],
+   "receipts": [
+    "main-release-request.json",
+    "publish-09db4c0130a9/FAILED.json"
+   ]
+  }
+ ],
+ "C": [
+  {
+   "name": "ai-chat-empty-details-release-20261015",
+   "ageDays": 13.7,
+   "sizeMB": 844.0,
+   "files": 39707,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/ai-chat-empty-details-artifact"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "ai-schedule-repeat-fix-20261015",
+   "ageDays": 13.8,
+   "sizeMB": 300.1,
+   "files": 10032,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/ai-schedule-repeat-release"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "ai-schedule-repeat-fix-20261015-v2",
+   "ageDays": 13.8,
+   "sizeMB": 300.2,
+   "files": 10039,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/ai-schedule-repeat-final"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "ai-schedules-release-20261015",
+   "ageDays": 14.0,
+   "sizeMB": 300.1,
+   "files": 10022,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/ai-schedules-release-20261015"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "auto-wake-control-c36ea996",
+   "ageDays": 10.1,
+   "sizeMB": 147.5,
+   "files": 9279,
+   "worktrees": 1,
+   "lockedWorktrees": 1,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "combined-release-20261014",
+   "ageDays": 14.5,
+   "sizeMB": 1018.5,
+   "files": 42542,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/combined-release-20261014"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "jackyun-audit-adoption-20261013",
+   "ageDays": 15.5,
+   "sizeMB": 1392.5,
+   "files": 47853,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 808,
+   "uniqueMB": 2.6,
+   "uniqueSamples": [
+    "history/docs/AI_BUSINESS_ATTRIBUTED_SKU_RELATION_V4_CANDIDATE.md",
+    "history/docs/AI_BUSINESS_ATTRIBUTED_SKU_SCALE_20260925.md",
+    "history/docs/AI_BUSINESS_B2B_DAILY_CANDIDATE.md",
+    "history/docs/AI_BUSINESS_B2B_REPORT_OWNING_MATERIAL.md"
+   ]
+  },
+  {
+   "name": "jackyun-browser-preflight-20261013",
+   "ageDays": 16.4,
+   "sizeMB": 876.5,
+   "files": 41561,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "jackyun-legacy-closure-source-20261014",
+   "ageDays": 15.0,
+   "sizeMB": 233.1,
+   "files": 8344,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 202,
+   "uniqueMB": 0.6,
+   "uniqueSamples": [
+    "docs/AI_BUSINESS_ATTRIBUTED_SKU_RELATION_V4_CANDIDATE.md",
+    "docs/AI_BUSINESS_ATTRIBUTED_SKU_SCALE_20260925.md",
+    "docs/AI_BUSINESS_B2B_DAILY_CANDIDATE.md",
+    "docs/AI_BUSINESS_B2B_REPORT_OWNING_MATERIAL.md"
+   ]
+  },
+  {
+   "name": "jackyun-unbound-closure-source-20261014",
+   "ageDays": 15.0,
+   "sizeMB": 139.4,
+   "files": 8266,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 202,
+   "uniqueMB": 0.6,
+   "uniqueSamples": [
+    "docs/AI_BUSINESS_ATTRIBUTED_SKU_RELATION_V4_CANDIDATE.md",
+    "docs/AI_BUSINESS_ATTRIBUTED_SKU_SCALE_20260925.md",
+    "docs/AI_BUSINESS_B2B_DAILY_CANDIDATE.md",
+    "docs/AI_BUSINESS_B2B_REPORT_OWNING_MATERIAL.md"
+   ]
+  },
+  {
+   "name": "jackyun-unified-adoption-20261013",
+   "ageDays": 15.9,
+   "sizeMB": 947.4,
+   "files": 43416,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "jackyun-wrapper-source-20261014",
+   "ageDays": 14.9,
+   "sizeMB": 139.4,
+   "files": 8266,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 202,
+   "uniqueMB": 0.6,
+   "uniqueSamples": [
+    "docs/AI_BUSINESS_ATTRIBUTED_SKU_RELATION_V4_CANDIDATE.md",
+    "docs/AI_BUSINESS_ATTRIBUTED_SKU_SCALE_20260925.md",
+    "docs/AI_BUSINESS_B2B_DAILY_CANDIDATE.md",
+    "docs/AI_BUSINESS_B2B_REPORT_OWNING_MATERIAL.md"
+   ]
+  },
+  {
+   "name": "jd-absent-helper-recovery-20261016",
+   "ageDays": 13.4,
+   "sizeMB": 844.9,
+   "files": 39766,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/jd-absent-helper-package"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "jd-bi-health-fix-20261016",
+   "ageDays": 13.4,
+   "sizeMB": 845.1,
+   "files": 39775,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/jd-bi-health-package"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "jd-inbound-date-20261016",
+   "ageDays": 13.0,
+   "sizeMB": 845.1,
+   "files": 39778,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/jd-inbound-date-package"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "jd-inbound-identity-20261016",
+   "ageDays": 13.0,
+   "sizeMB": 845.1,
+   "files": 39777,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/jd-inbound-identity-package"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "jd-inbound-jh-document-20261016",
+   "ageDays": 12.9,
+   "sizeMB": 845.1,
+   "files": 39781,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/jd-inbound-jh-document-package"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "jd-inbound-receipt-utc-20261016",
+   "ageDays": 12.8,
+   "sizeMB": 845.1,
+   "files": 39781,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/jd-inbound-receipt-utc-package"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "jd-inbound-source-contract-20261016",
+   "ageDays": 12.9,
+   "sizeMB": 845.1,
+   "files": 39780,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/jd-inbound-source-contract-package"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "jd-monitor-release-20261016",
+   "ageDays": 12.5,
+   "sizeMB": 1305.4,
+   "files": 47372,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/jd-monitor-release-20261016"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "jd-pop-identity-fix-20261016",
+   "ageDays": 13.4,
+   "sizeMB": 936.1,
+   "files": 43745,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/jd-pop-identity-fix"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "jd-pop-release-20261015",
+   "ageDays": 13.5,
+   "sizeMB": 1020.4,
+   "files": 47255,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/jd-pop-package"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "market-ai-blockers-django-20261014",
+   "ageDays": 14.4,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "market-ai-blockers-integration-20261014",
+   "ageDays": 14.4,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "market-ai-blockers-production-record-20261015",
+   "ageDays": 14.3,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "market-ai-blockers-release-20261014",
+   "ageDays": 14.4,
+   "sizeMB": 1181.2,
+   "files": 46984,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/market-ai-blockers-release-20261014"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "market-ai-blockers-vision-20261014",
+   "ageDays": 14.4,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "market-ai-round2-release-20261015",
+   "ageDays": 14.3,
+   "sizeMB": 1003.7,
+   "files": 40975,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/market-ai-round2-release-20261015"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "market-progress-django-20261015",
+   "ageDays": 13.9,
+   "sizeMB": 844.1,
+   "files": 39699,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/market-progress-django-source-20261015"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "market-progress-reader-final-20261015",
+   "ageDays": 13.7,
+   "sizeMB": 844.2,
+   "files": 39714,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/market-progress-reader-final-20261015"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "market-progress-reader-source-20261015",
+   "ageDays": 13.8,
+   "sizeMB": 843.9,
+   "files": 39690,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/market-progress-reader-source-20261015"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "market-progress-worker-20261015",
+   "ageDays": 13.9,
+   "sizeMB": 843.7,
+   "files": 39679,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/market-progress-worker-source-20261015"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "market-progress-worker-publish-20261015",
+   "ageDays": 13.8,
+   "sizeMB": 843.9,
+   "files": 39693,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/market-progress-worker-publish-20261015"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "netshop-finance-edge-compat",
+   "ageDays": 26.0,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "netshop-finance-subset-review",
+   "ageDays": 14.8,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "netshop-m7-legacy-unit-baseline",
+   "ageDays": 21.4,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "netshop-network-stage-fix",
+   "ageDays": 21.4,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "netshop-promotion-preview-20261013",
+   "ageDays": 14.8,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "netshop-temporal-review",
+   "ageDays": 14.8,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "new-product-learning-receipts-20261016",
+   "ageDays": 13.0,
+   "sizeMB": 845.1,
+   "files": 39788,
+   "worktrees": 1,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [
+    "codex/new-product-learning-package-20261016"
+   ],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "npm-ci-repro-20261017",
+   "ageDays": 12.4,
+   "sizeMB": 0.0,
+   "files": 2,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "pi-inventory-erp-publish-recovery-20261018",
+   "ageDays": 10.6,
+   "sizeMB": 146.4,
+   "files": 9218,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 104,
+   "uniqueMB": 0.3,
+   "uniqueSamples": [
+    "GEMINI.md",
+    "docs/market-ai-round2-20261015/evidence/planning-rehearsal-result.json",
+    "docs/performance/inventory/evidence/ui-message-preview.json",
+    "docs/performance/market/evidence/logs/lint-all-final.txt"
+   ]
+  },
+  {
+   "name": "release-cache-control-de3c1226",
+   "ageDays": 10.4,
+   "sizeMB": 147.5,
+   "files": 9278,
+   "worktrees": 1,
+   "lockedWorktrees": 1,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "release-first-adoption-targeted-20261011",
+   "ageDays": 17.7,
+   "sizeMB": 477.5,
+   "files": 30444,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 342,
+   "uniqueMB": 1.1,
+   "uniqueSamples": [
+    "adoption-source-v1/docs/AI_BUSINESS_ATTRIBUTED_SKU_RELATION_V4_CANDIDATE.md",
+    "adoption-source-v1/docs/AI_BUSINESS_ATTRIBUTED_SKU_SCALE_20260925.md",
+    "adoption-source-v1/docs/AI_BUSINESS_B2B_DAILY_CANDIDATE.md",
+    "adoption-source-v1/docs/AI_BUSINESS_B2B_REPORT_OWNING_MATERIAL.md"
+   ]
+  },
+  {
+   "name": "release-no-data-adoption-20261011",
+   "ageDays": 17.9,
+   "sizeMB": 834.9,
+   "files": 36849,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 345,
+   "uniqueMB": 1.1,
+   "uniqueSamples": [
+    "adoption-source-v1/docs/AI_BUSINESS_ATTRIBUTED_SKU_RELATION_V4_CANDIDATE.md",
+    "adoption-source-v1/docs/AI_BUSINESS_ATTRIBUTED_SKU_SCALE_20260925.md",
+    "adoption-source-v1/docs/AI_BUSINESS_B2B_DAILY_CANDIDATE.md",
+    "adoption-source-v1/docs/AI_BUSINESS_B2B_REPORT_OWNING_MATERIAL.md"
+   ]
+  },
+  {
+   "name": "release-no-data-policy-20261010",
+   "ageDays": 18.5,
+   "sizeMB": 4446.1,
+   "files": 198546,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 803,
+   "uniqueMB": 2.6,
+   "uniqueSamples": [
+    "adoption-source/.wrangler/deploy/config.json",
+    "adoption-source/docs/AI_BUSINESS_ATTRIBUTED_SKU_RELATION_V4_CANDIDATE.md",
+    "adoption-source/docs/AI_BUSINESS_ATTRIBUTED_SKU_SCALE_20260925.md",
+    "adoption-source/docs/AI_BUSINESS_B2B_DAILY_CANDIDATE.md"
+   ]
+  },
+  {
+   "name": "release-pipeline-integration-20261012",
+   "ageDays": 14.8,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "release-readiness-control-0be03eca",
+   "ageDays": 10.6,
+   "sizeMB": 181.7,
+   "files": 1705,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "release-readiness-control-9a45d8be",
+   "ageDays": 10.6,
+   "sizeMB": 328.0,
+   "files": 10908,
+   "worktrees": 1,
+   "lockedWorktrees": 1,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "release-s1-adoption-plan-20261013",
+   "ageDays": 14.8,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "release-s1-host-adoption-20261013",
+   "ageDays": 14.8,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "release-schema-control-b2ef81c7",
+   "ageDays": 10.5,
+   "sizeMB": 147.1,
+   "files": 9269,
+   "worktrees": 1,
+   "lockedWorktrees": 1,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "release-validated-subset-20261013",
+   "ageDays": 14.8,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "release-wp1-ci-20261012",
+   "ageDays": 14.8,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "release-wp3-receipts-20261012",
+   "ageDays": 14.8,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "release-wp4-timing-20261012",
+   "ageDays": 14.8,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "release-wp5-reliability-20261012",
+   "ageDays": 14.8,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "release-wpb-baseline-20261012",
+   "ageDays": 14.8,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "schema-migration-backup-policy-20261015",
+   "ageDays": 13.9,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  },
+  {
+   "name": "schema-only-migration-policy-20261015",
+   "ageDays": 13.9,
+   "sizeMB": 0.0,
+   "files": 0,
+   "worktrees": 0,
+   "lockedWorktrees": 0,
+   "uncommittedFiles": 0,
+   "branches": [],
+   "uniqueEvidence": 0,
+   "uniqueMB": 0.0,
+   "uniqueSamples": []
+  }
+ ]
+}
