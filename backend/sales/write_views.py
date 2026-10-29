@@ -406,6 +406,16 @@ def staged_imports(request: HttpRequest) -> JsonResponse:
 @require_GET
 def verify_import(request: HttpRequest) -> JsonResponse:
     def execute(_principal_value: Principal) -> dict[str, object]:
+        preflight_values = request.GET.getlist("preflightOnly")
+        if preflight_values and (
+            preflight_values != ["1"]
+            or "policyOnly" in request.GET
+            or "batchId" in request.GET
+        ):
+            raise SalesImportServiceError(
+                "preflightOnly 必须为单个 1，且不能与 policyOnly 或 batchId 同时使用。",
+                status=400,
+            )
         if request.GET.get("policyOnly") == "1":
             return {"policyVersion": policy_version()}
         start_date, end_date = validate_import_date_range(
@@ -417,17 +427,35 @@ def verify_import(request: HttpRequest) -> JsonResponse:
             business_date__gte=start_date,
             business_date__lt=end_exclusive,
         )
-        excluded_warehouse_rows = range_queryset.filter(is_business_row=False).count()
         queryset = range_queryset.filter(is_business_row=True)
-        stats = queryset.aggregate(
-            row_count=Count("id"),
-            min_ship_time=Min("ship_time"),
-            max_ship_time=Max("ship_time"),
-        )
         shop_queryset = (
             queryset.values("channel", "platform", "shop_name")
             .annotate(row_count=Count("id"), net_sales_cents=Sum("allocated_amount_cents"))
             .order_by("channel", "platform", "shop_name")
+        )
+        if preflight_values:
+            # The missing-shop guard only consumes approved business rows.
+            # Do not run the unrelated full post-import verification scans here.
+            shops = list(shop_queryset.filter(channel__in=approved_sales_channels())[:501])
+            return {
+                "preflightOnly": True,
+                "policyVersion": policy_version(),
+                "period": {
+                    "startDate": start_date.isoformat(),
+                    "endDate": end_date.isoformat(),
+                    "endExclusive": end_exclusive.isoformat(),
+                },
+                "shops": [_period_shop_payload(item) for item in shops[:500]],
+                "shopPagination": {
+                    "returned": min(len(shops), 500),
+                    "truncated": len(shops) > 500,
+                },
+            }
+        excluded_warehouse_rows = range_queryset.filter(is_business_row=False).count()
+        stats = queryset.aggregate(
+            row_count=Count("id"),
+            min_ship_time=Min("ship_time"),
+            max_ship_time=Max("ship_time"),
         )
         shop_total = shop_queryset.count()
         shops = list(shop_queryset[:501])
@@ -464,16 +492,7 @@ def verify_import(request: HttpRequest) -> JsonResponse:
                 "excludedWarehouseRows": excluded_warehouse_rows,
                 "rowsNotOwnedByBatch": rows_not_owned,
             },
-            "shops": [
-                {
-                    "channel": item["channel"],
-                    "platform": item["platform"],
-                    "shopName": item["shop_name"],
-                    "rowCount": int(item["row_count"]),
-                    "netSalesCents": int(item["net_sales_cents"] or 0),
-                }
-                for item in shops[:500]
-            ],
+            "shops": [_period_shop_payload(item) for item in shops[:500]],
             "shopPagination": {
                 "total": shop_total,
                 "returned": min(len(shops), 500),
@@ -488,3 +507,13 @@ def verify_import(request: HttpRequest) -> JsonResponse:
         }
 
     return _handle_get(execute, request, {"admin"})
+
+
+def _period_shop_payload(item: dict[str, Any]) -> dict[str, object]:
+    return {
+        "channel": item["channel"],
+        "platform": item["platform"],
+        "shopName": item["shop_name"],
+        "rowCount": int(item["row_count"]),
+        "netSalesCents": int(item["net_sales_cents"] or 0),
+    }

@@ -1787,6 +1787,29 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   if (-not [string]::IsNullOrWhiteSpace($IntegrationEvidencePath) -and (Test-Path -LiteralPath $IntegrationEvidencePath)) {
     $biEvidence = Read-JsonFile $IntegrationEvidencePath 'BI addition evidence'
   }
+  # Sales154 is a separate, finite child; no legacy execution limits are changed.
+  $salesPreflightGate = Join-Path $candidateRoot 'tools\sales_preflight_addition.py'
+  $salesPreflightDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('sales-preflight-index-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -ceq 'teruisi-sales-preflight-index-schema-addition-v1' -or $salesPreflightDeployment -or
+      (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'sales-preflight-index-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $salesPreflightGate -PathType Leaf)) {throw 'Sales154 requires its exact verifier'}
+    $salesPreflightCommand = if ($Operation -ceq 'PrepareApp') {if ($null -ne $biEvidence) {'admission'} else {'successor'}} elseif ($Operation -ceq 'DeployApp') {if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'}} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported Sales154 lifecycle operation'}
+    $salesPreflightArgs = @($salesPreflightGate,$salesPreflightCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if ($salesPreflightCommand -ceq 'admission') {$salesPreflightArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if ($salesPreflightCommand -ceq 'deployment') {$salesPreflightArgs += @('--operation',$IntegrationOperationId)}
+    $salesPreflightRun = Invoke-BoundedNativeProcess $Python $salesPreflightArgs $candidateRoot
+    if ($salesPreflightRun -isnot [pscustomobject] -or $salesPreflightRun.ExitCode -isnot [int] -or
+        $salesPreflightRun.LaunchFailed -isnot [bool] -or $salesPreflightRun.LaunchFailed -or
+        $salesPreflightRun.Diagnostic.OutputTruncated -isnot [bool] -or $salesPreflightRun.Diagnostic.OutputTruncated -or
+        @($salesPreflightRun.Output | Where-Object {$_ -is [string] -and $_.TrimStart().StartsWith('{')}).Count -ne 1) {
+      throw 'Sales154 requires one complete typed native JSON object'
+    }
+    $salesPreflightProof = ConvertFrom-UniqueNativeJson $salesPreflightRun 'Verify finite Sales154 schema addition'
+    if ($salesPreflightProof -isnot [pscustomobject] -or $salesPreflightProof.status -isnot [string] -or
+        $salesPreflightProof.status -cne 'verified') {throw 'Sales154 schema addition gate refused'}
+    return
+  }
   # Pi153 is a separate, finite child; no legacy execution limits are changed.
   $piNativeGate = Join-Path $candidateRoot 'tools\pi_native_addition.py'
   $piNativeDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
@@ -2184,6 +2207,9 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\sales_preflight_addition.py",
+      "tools\sales_preflight_catalog.py",
+      "tools\sales_preflight_candidate.py",
       "tools\pi_native_addition.py",
       "tools\pi_native_catalog.py",
       "tools\pi_native_candidate.py",

@@ -21,7 +21,10 @@ export const piBusinessSchema={version:'teruisi-main-schema-release-v1',addition
 export const piBusinessMigration='backend/ai_assistant/migrations/0086_pi_business_actions.py';
 export const piNativeSchema={version:'teruisi-main-schema-release-v1',additionKind:'PiNative',fromGeneration:152,toGeneration:153,steps:['ai_assistant.0087_pi_native_capabilities']};
 export const piNativeMigration='backend/ai_assistant/migrations/0087_pi_native_capabilities.py';
+export const salesPreflightSchema={version:'teruisi-main-schema-release-v1',additionKind:'SalesPreflightIndex',fromGeneration:153,toGeneration:154,steps:['sales.0012_excluded_business_date_index']};
+export const salesPreflightMigration='backend/sales/migrations/0012_excluded_business_date_index.py';
 const finite=[
+ {schema:salesPreflightSchema,migrations:[salesPreflightMigration],recipe:'config/main-schema-releases/sales-0012.json',binder:'sales_preflight_candidate.py',evidence:'sales-0012-evidence.json'},
  {schema:piNativeSchema,migrations:[piNativeMigration],recipe:'config/main-schema-releases/ai-0087.json',binder:'pi_native_candidate.py',evidence:'ai-0087-evidence.json'},
  {schema:piBusinessSchema,migrations:[piBusinessMigration],recipe:'config/main-schema-releases/ai-0086.json',binder:'pi_business_candidate.py',evidence:'ai-0086-evidence.json'},
  {schema:piWorkspaceSchema,migrations:[piWorkspaceMigration],recipe:'config/main-schema-releases/ai-0085.json',binder:'pi_workspace_candidate.py',evidence:'ai-0085-evidence.json'},

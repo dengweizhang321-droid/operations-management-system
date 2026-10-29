@@ -53,6 +53,7 @@ export const salesSourceRowCountSemantic = "xlsx_nonblank_data_rows" as const;
 
 export type SalesImportFailureCode =
   | "FILE_VALIDATION_FAILED"
+  | "PIPELINE_FAILED"
   | "IMPORT_FAILED"
   | "BATCH_VERIFY_FAILED";
 
@@ -440,14 +441,33 @@ async function assertServerPolicyVersion(baseUrl: string, expectedVersion: strin
   }
 }
 
-async function readServerPeriodShops(baseUrl: string, period: Period) {
+async function readServerPeriodShops(baseUrl: string, period: Period, expectedPolicyVersion: string) {
   const response = await fetchWithTimeout(
-    `${baseUrl}/api/imports/sales/verify?${new URLSearchParams({ startDate: period.startDate, endDate: period.endDate })}`,
+    `${baseUrl}/api/imports/sales/verify?${new URLSearchParams({
+      startDate: period.startDate, endDate: period.endDate, preflightOnly: "1",
+    })}`,
     { cache: "no-store" },
   );
-  const body = await response.json().catch(() => null) as { shops?: ServerPeriodShop[]; error?: string } | null;
-  if (!response.ok || !body?.shops) {
+  const body = await response.json().catch(() => null) as {
+    preflightOnly?: boolean;
+    policyVersion?: string;
+    period?: { startDate?: string; endDate?: string; endExclusive?: string };
+    shops?: ServerPeriodShop[];
+    shopPagination?: { returned?: number; truncated?: boolean };
+    error?: string;
+  } | null;
+  if (!response.ok || !Array.isArray(body?.shops)) {
     throw new Error(body?.error ?? "无法读取销售导入前的系统期间店铺快照。");
+  }
+  if (body.preflightOnly !== true || body.policyVersion !== expectedPolicyVersion
+    || body.period?.startDate !== period.startDate || body.period.endDate !== period.endDate
+    || body.period.endExclusive !== period.endExclusiveDateTime.slice(0, 10)
+    || body.shopPagination?.returned !== body.shops.length || body.shopPagination.truncated !== false
+    || body.shops.length > 500
+    || body.shops.some((shop) => !shop || typeof shop.channel !== "string" || typeof shop.platform !== "string"
+      || typeof shop.shopName !== "string" || !Number.isSafeInteger(shop.rowCount) || shop.rowCount <= 0
+      || !Number.isSafeInteger(shop.netSalesCents))) {
+    throw new Error("销售导入前的系统期间店铺快照不完整、范围/策略不符或服务版本不兼容，已停止导入。");
   }
   return body.shops;
 }
@@ -645,13 +665,26 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
     await writeJson(previousAuditPath, previousAudit);
     return { status: "verified_completed", recovered: true, audit: previousAudit };
   }
-  // Fire the server period-shop request only after duplicate recovery is ruled
-  // out, so an early return cannot leave a rejected promise unobserved. It can
-  // still overlap with workbook parsing and filtering below.
-  const serverPeriodShopsPromise = options.dryRun
-    ? Promise.resolve([] as ServerPeriodShop[])
-    : readServerPeriodShops(options.baseUrl, period);
   await mkdir(runDir, { recursive: true });
+  // Await before parsing: an early rejection must reach the parent runner's
+  // audit/manifest catch, never escape as an unhandled background promise.
+  let previousPeriodShops: ServerPeriodShop[];
+  try {
+    previousPeriodShops = options.dryRun ? [] : await readServerPeriodShops(options.baseUrl, period, policy.version);
+  } catch (error) {
+    const failedAuditPath = path.join(runDir, "audit.json");
+    const failure = wrapSalesImportError(error, "PIPELINE_FAILED", "read_server_period_shops");
+    await writeJson(failedAuditPath, {
+      ok: false,
+      runId,
+      period,
+      policyVersion: policy.version,
+      import: null,
+      failure: { code: failure.failureCode, stage: failure.stage, message: failure.message, failedAt: new Date().toISOString() },
+    });
+    throw new SalesImportError(failure.failureCode, failure.stage,
+      `${failure.message} 销售预检审计：${failedAuditPath}`, { cause: failure });
+  }
   if (options.preserveRawCopy !== false) {
     await mkdir(path.join(runDir, "raw"), { recursive: true });
     await copyFile(downloadPath, path.join(runDir, "raw", path.basename(downloadPath)));
@@ -908,7 +941,6 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
     const channel = text(row[columns.channel]);
     retainedShopCounts.set(channel, (retainedShopCounts.get(channel) ?? 0) + 1);
   }
-  const previousPeriodShops = await serverPeriodShopsPromise;
   const missingPreviouslyLoadedChannels = findMissingPreviouslyLoadedChannels(
     policy.approvedSalesChannels,
     retainedShopCounts,

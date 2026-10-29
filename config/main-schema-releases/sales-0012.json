@@ -1,0 +1,15 @@
+{
+  "version": "teruisi-main-schema-recipe-v1",
+  "additionKind": "SalesPreflightIndex",
+  "fromGeneration": 153,
+  "toGeneration": 154,
+  "steps": [
+    "sales.0012_excluded_business_date_index"
+  ],
+  "stepFiles": {
+    "backend/sales/migrations/0012_excluded_business_date_index.py": "0649724d2b94867efe42f56ef8d1b7992bd3878f3e1db7652422743b7f4ac238"
+  },
+  "validation": "docs/jackyun-sales-preflight-20261029/sales154-mandatory-code-checks.json",
+  "validationSha256": "3d9183c9d0ed8e9350ac3c2c3a59585037be565a92ba2fb773fbd74cb64035f4",
+  "codeSha256": "6253cf315a9195c017df3a6e5949261cc4521601c26ab516a6d317ac868ded9e"
+}
