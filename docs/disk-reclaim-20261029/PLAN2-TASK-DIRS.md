@@ -91,3 +91,50 @@ HEAD    : 1d848e8f feat(products): align kind cards and expand combo component d
 1. 是否按批 1 → 批 2 → 批 3 执行；
 2. B 类的回执是先归档进 `docs/` 还是直接删；
 3. A 类那个未合入的分支如何处置（我不建议我代为提交或放弃）。
+
+---
+
+## 7. 批 1 执行记录（2026-10-29，用户授权）
+
+新增 `tools/codex-isolated-task-retention.mjs` 与配套测试（8/8 过、eslint 0）。**回收 7.48 GB，D 盘可用 67 → 75 GB（85% → 83%）。**
+
+### dry-run 的实际候选是 30 个 / 7.48 GB，不是清单估的 33 个 / 9.58 GB
+
+脚本比第 1 节的审计更严，多保护了 3 个，差异都是脚本更正确：
+
+| 目录 | 脚本跳过理由 | 我的审计为何漏判 |
+| --- | --- | --- |
+| `jackyun-browser-preflight-20261013` | `uncommitted(5160)` | 审计只对**注册 worktree** 跑 `git status`；该目录的 `source/` 是独立克隆，未被覆盖 |
+| `jackyun-unified-adoption-20261013` | `uncommitted(5199)` | 同上 |
+| `pi-inventory-erp-publish-recovery-20261018` | `holds-worktree` | 审计的 worktree 归属判定只看顶层目录，漏了嵌套路径 |
+
+那两个 5000+ 的"未提交"实为**零提交空分支上的一次性暂存检出**（`A ` 全部为暂存新增、`M/D` 为 0，分支 `codex/jackyun-browser-preflight-candidate` 尚无任何提交）。抽查其中不在 `origin/main` 的文件为 `.agents/skills/*`，在 git 历史中有 2 条提交记录、且 `origin/main` 仍有 15 个 `.agents/` 文件，属可从历史恢复的内容。即便如此**本批仍予保留**：脚本的保守判定优先，不在授权范围内自行放宽。
+
+### 脚本的安全设计
+
+执行时逐项重新验证，不信任任何预存清单：跳过 `--min-age-days`（默认 7）内写过的、持有注册 git worktree 的、有未提交改动的、以及硬编码保护表里的（`main-release-packages` 与发布包生成器宿主 `main-manual-release-20261016`，后者被 `publish-latest-main.mjs` 以 `pwshDirectory`/`npmCacheDirectory` 引用）。删除前再次断言目标的父目录就是 `codex-isolated` 且不在保护表内。
+
+### 执行后核验（全过）
+
+| 检查 | 结果 |
+| --- | --- |
+| `codex-isolated` 子目录 | 69 → **39** |
+| D 盘可用 | 67 → **75 GB** |
+| `main-release-packages` / 生成器宿主 | 均在 |
+| A 类 `product-combo-details-release-20261014` | 在，4 个未提交改动完好 |
+| 两个 5000+ 暂存目录 | 均在 |
+| worktree 总记录 | **125**，未变 |
+| 发布包 | **2**，未变 |
+| 网页 `127.0.0.1:3000` | **HTTP 200** |
+
+未停机、未碰 `D:/teruisi-runtime/`。
+
+### 剩余
+
+| 批次 | 内容 | 预计回收 |
+| --- | --- | --- |
+| 2 | 含 worktree 的 27 个，须走 `unlock`→删目录→`prune`→删分支 | 约 19.5 GB |
+| 3 | B 类 2 个（回执归档后） | 1.66 GB |
+| — | A 类 1 个 + 两个 5000+ 暂存目录 | 等负责人决定 |
+
+批 2 需扩展本脚本以处理 worktree 注销（现版本是**跳过**而非处理），同样先 `--dry-run`。
