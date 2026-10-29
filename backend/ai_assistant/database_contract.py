@@ -23,6 +23,9 @@ MODELS = {
     # writer table rather than an append-only evidence one. Its identity
     # columns are frozen by the migration's own guard instead.
     "ai_task_feedback": m.AiTaskFeedback,
+    # Candidates move through review, so lifecycle columns stay writable;
+    # the distilled content itself is frozen by the migration guard.
+    "ai_skill_candidates": m.AiSkillCandidate,
     "ai_business_screening_runs": m.AiBusinessScreeningRun,
     "ai_business_screening_pages": m.AiBusinessScreeningPage,
     "ai_business_budget_plans": m.AiBusinessBudgetPlan,
