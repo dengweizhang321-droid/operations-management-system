@@ -19,6 +19,10 @@ CONTROL_MODELS = (
 )
 MODELS = {
     **{model._meta.db_table: model for model in PI_MODELS},
+    # Corrections keep their lifecycle columns writable, so this is a regular
+    # writer table rather than an append-only evidence one. Its identity
+    # columns are frozen by the migration's own guard instead.
+    "ai_task_feedback": m.AiTaskFeedback,
     "ai_business_screening_runs": m.AiBusinessScreeningRun,
     "ai_business_screening_pages": m.AiBusinessScreeningPage,
     "ai_business_budget_plans": m.AiBusinessBudgetPlan,

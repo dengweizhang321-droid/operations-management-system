@@ -166,4 +166,6 @@ AI_TABLES_PRE_PI_BUSINESS = (*AI_TABLES_PRE_PI_RUNTIME, *PI_TABLES, *PI_WORKSPAC
 AI_TABLES_PRE_PI_NATIVE = (*AI_TABLES_PRE_PI_BUSINESS, *PI_BUSINESS_TABLES)
 PI_NATIVE_TABLES = ("ai_pi_native_states", "ai_pi_agents", "ai_pi_plan_revisions", "ai_pi_agent_messages",
     "ai_pi_agent_waits", "ai_pi_file_handoffs", "ai_pi_business_delegations")
-AI_TABLES = (*AI_TABLES_PRE_PI_NATIVE, *PI_NATIVE_TABLES)
+AI_TABLES_PRE_TASK_FEEDBACK = (*AI_TABLES_PRE_PI_NATIVE, *PI_NATIVE_TABLES)
+TASK_FEEDBACK_TABLES = ("ai_task_feedback",)
+AI_TABLES = (*AI_TABLES_PRE_TASK_FEEDBACK, *TASK_FEEDBACK_TABLES)
