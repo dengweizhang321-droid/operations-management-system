@@ -4,6 +4,8 @@
 
 返回 [文档首页](../../README.md) · [完整文档目录](../../文档目录.md)
 
+统一施工入口：[AI 助理统一施工方案 v3](../../ai-assistant-unified-plan-20261029/PLAN.md) · [方案审查](../../ai-assistant-unified-plan-20261029/REVIEW.md)（方案文档，未实施）。
+
 | 文档 | 文件 |
 | --- | --- |
 | [TERUISI 运营管理系统 AI 能力重构：1—3 层推进文档](AI能力重构-第1至3层.md) | `AI能力重构-第1至3层.md` |

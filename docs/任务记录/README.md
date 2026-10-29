@@ -18,6 +18,8 @@
 
 ## AI助手
 
+统一施工入口：[AI 助理统一施工方案 v3](../ai-assistant-unified-plan-20261029/PLAN.md) · [审查与交付记录](../ai-assistant-unified-plan-20261029/REVIEW.md)（方案文档，未实施）。
+
 本轮补充：[Chat/Pi统一界面、能力接线与真实验收](../pi-unified-chat-20261020/REPORT.md)（未合并；真实投递验收按停止指令中止）。
 
 本轮补充：[PiAgent三期功能验证与修复（未合并）](../piagent-phase3-verification-20261020/REPORT.md)。
