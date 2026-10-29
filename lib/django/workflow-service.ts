@@ -17,6 +17,7 @@ export const WORKFLOW_NEW_PRODUCT_WEEKLY_REPORT_CONFIG_PATH = "/api/workflow/new
 export const WORKFLOW_TASKS_PATH = "/api/workflow/tasks";
 export const WORKFLOW_IMPORT_CHAIN_STATUS_PATH = "/api/workflow/import-chain-status";
 export const WORKFLOW_JACKYUN_RECOVERY_AUTHORITY_PATH = "/api/workflow/jackyun-recovery-authority";
+export const WORKFLOW_JACKYUN_CLOSE_AUTHORITY_PATH = "/api/workflow/jackyun-close-authority";
 export const WORKFLOW_TEMPLATES_PATH = "/api/workflow/templates";
 export const WORKFLOW_OPERATION_RECORDS_PATH = "/api/workflow/operations-records";
 export const WORKFLOW_ATTACHMENT_CLEANUP_PATH = "/api/workflow/attachment-cleanup";
@@ -213,9 +214,9 @@ function validateRequest(input: WorkflowServiceRequest) {
     ? (input.method === "GET" && (collection || project || productLines || productLineImage || productLineLearning || weeklyFollowup || weeklyReportConfig
       || input.path === WORKFLOW_IMPORT_CHAIN_STATUS_PATH || tasks || taskSubresource || taskAttachment || templates || records || record || recordActivity))
       || (input.method === "POST" && consumer)
-    : (input.method === "GET" && (learningOperation || attachmentCleanup || input.path === WORKFLOW_JACKYUN_RECOVERY_AUTHORITY_PATH))
+    : (input.method === "GET" && (learningOperation || attachmentCleanup || input.path === WORKFLOW_JACKYUN_RECOVERY_AUTHORITY_PATH || input.path === WORKFLOW_JACKYUN_CLOSE_AUTHORITY_PATH))
       || (input.method === "POST" && (collection || productLines || productLineLearning || tasks || taskWritableCollection
-        || templates || records || attachmentCleanup || inventoryWorkItems || input.path === WORKFLOW_JACKYUN_RECOVERY_AUTHORITY_PATH || input.path === "/api/workflow/pi-business-n8n"))
+        || templates || records || attachmentCleanup || inventoryWorkItems || input.path === WORKFLOW_JACKYUN_RECOVERY_AUTHORITY_PATH || input.path === WORKFLOW_JACKYUN_CLOSE_AUTHORITY_PATH || input.path === "/api/workflow/pi-business-n8n"))
       || (input.method === "PATCH" && (project || stage || productLine || weeklyReportConfig || tasks || templates || record))
       || (input.method === "DELETE" && (project || tasks || taskDeletableCollection || taskAttachment || templates || record));
   if (!allowed) throw unavailable();

@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -68,6 +68,9 @@ function validOwner(value: unknown): value is JackyunRunLockOwner {
 }
 
 async function readOwnerFile(filePath: string) {
+  const info = await lstat(filePath).catch(e => { if (e.code === "ENOENT") return null; throw e; });
+  if (!info) return null;
+  if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1 || info.size > 8192) throw new Error("运行锁文件身份异常。");
   const raw = await readFile(filePath, "utf8").catch(() => null);
   if (!raw) return null;
   try {
@@ -270,6 +273,40 @@ async function recoverCanonicalLock(lockDirectory: string): Promise<{
 
 export function defaultJackyunRunLockDirectory(root = projectRoot) {
   return path.join(path.resolve(root), ".runtime", "jackyun-automation.lock");
+}
+
+export async function inspectJackyunRunLock(root: string) {
+  const directory = defaultJackyunRunLockDirectory(root);
+  const info = await lstat(directory).catch(e => { if (e.code === "ENOENT") return null; throw e; });
+  if (!info) return null;
+  if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("原运行锁目录身份异常。");
+  const owner = await readOwner(directory);
+  if (!owner) throw new Error("原运行锁身份无法核实，不能闭合。");
+  return owner;
+}
+
+/** Only the parent holding the exact exited slot witness may retire a lock
+ * whose PID is still this shared helper. The original owner is preserved. */
+export async function retireExitedJackyunSlotLock(root: string, observed: JackyunRunLockOwner,
+  proveExitedAndIdle: () => Promise<void>, archiveDirectory: string, beforeRetire: () => Promise<void>) {
+  const directory = defaultJackyunRunLockDirectory(root);
+  await withRecoveryMutex(directory, async () => {
+    await proveExitedAndIdle();
+    if (observed.version !== 2 || observed.pid !== process.pid || observed.processIdentity !== await currentProcessIdentity()
+      || JSON.stringify(await readOwner(directory)) !== JSON.stringify(observed)) throw new Error("原线程锁所有权已变化，不能闭合。");
+    await jackyunPublicationFence.run({ ...observed, lockDirectory: directory }, beforeRetire);
+    await proveExitedAndIdle();
+    if (JSON.stringify(await readOwner(directory)) !== JSON.stringify(observed)) throw new Error("原线程锁所有权已变化，不能退休。");
+    await mkdir(archiveDirectory, { recursive: true });
+    for (let cursor = archiveDirectory; ; cursor = path.dirname(cursor)) {
+      const info = await lstat(cursor); if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("原锁归档路径身份异常。");
+      if (path.dirname(cursor) === cursor) break;
+    }
+    const destination = path.join(archiveDirectory, "exited-slot-lock");
+    if (await stat(destination).catch(e => { if (e.code === "ENOENT") return null; throw e; })) throw new Error("原线程锁已存在归档，需核对原闭合请求。");
+    await rename(directory, destination);
+    if (JSON.stringify(await readOwner(destination)) !== JSON.stringify(observed)) throw new Error("原线程锁归档证据已变化。");
+  });
 }
 
 export async function acquireJackyunRunLock(options: AcquireOptions): Promise<JackyunRunLock> {

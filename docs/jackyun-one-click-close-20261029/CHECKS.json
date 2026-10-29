@@ -1,0 +1,98 @@
+{
+  "version": "jackyun-one-click-close-mandatory-code-checks-v1",
+  "checkedAt": "2026-10-29T00:58:40.088Z",
+  "baseCommit": "d95852dd8542e95b8927787c1e7b082a16a5b215",
+  "productionTouched": false,
+  "functionalValidationPerformed": false,
+  "productionArtifactsPrepared": false,
+  "pythonSyntax": {
+    "status": "passed",
+    "method": "ast.parse only; no import/database access",
+    "files": [
+      "backend/workflow/jackyun_close_authority.py",
+      "backend/workflow/views.py",
+      "backend/workflow/urls.py"
+    ]
+  },
+  "compilation": {
+    "staticCompilationOnly": true,
+    "entriesNotExecuted": true,
+    "checks": [
+      {
+        "entry": "tools/tmall-sycm-cookie-pipeline.ts",
+        "errors": 0,
+        "warnings": 0,
+        "outputBytes": 2018714
+      },
+      {
+        "entry": "app/import-chain-rules-view.tsx",
+        "errors": 0,
+        "warnings": 0,
+        "outputBytes": 49898
+      },
+      {
+        "entry": "app/api/imports/recovery/close/route.ts",
+        "errors": 0,
+        "warnings": 0,
+        "outputBytes": 42751
+      }
+    ]
+  },
+  "powershellSyntax": {
+    "status": "passed",
+    "method": "Parser.ParseInput with synthetic placeholder; embedded program not executed",
+    "file": "lib/jackyun/operator-close-resources.ts"
+  },
+  "typecheck": {
+    "status": "no-introduced-diagnostics",
+    "baselineDiagnostics": 6,
+    "currentDiagnostics": 6,
+    "introducedDiagnostics": 0,
+    "existingDiagnosticFiles": [
+      "tools/jd-n8n-pipeline.ts",
+      "tools/sales-import-runner.ts",
+      "tools/tmall-direct-promotion-export.ts",
+      "tools/tmall-promotion-export.ts"
+    ],
+    "evidenceSha256": "8e365e3912af6bf1d5b3f7a7db8e82f0d1053c5902917e7cedbd6717b2c0ba6a"
+  },
+  "html": {
+    "fileDocumentUrl": "file:///D:/codex-isolated/jackyun-one-click-close-20261029/docs/jackyun-one-click-close-20261029/%E4%B8%80%E9%94%AE%E9%97%AD%E5%90%88.html",
+    "fileUriReadPassed": true,
+    "inlineScriptSyntaxPassed": true,
+    "standalone": true,
+    "networkOrBusinessCalls": false,
+    "browserOpened": false,
+    "interactionTestPerformed": false
+  },
+  "sales154Binding": {
+    "boundSourceFiles": 86,
+    "changedBoundFiles": [],
+    "rebindRequired": false,
+    "originalRecipeSha256": "92926e1fbd38d220079d6e52e0a9aa9ef847a5b8a6d932229e3d68bc50e59cd3"
+  },
+  "gitDiffCheck": "passed",
+  "sourceFiles": {
+    "app/api/imports/recovery/close/route.ts": "bb99eabe76d4dc267789e7182ba4b4df69503447052d8bf3b3778e71e22f1755",
+    "app/import-chain-rules-view.tsx": "fdda2dbe8147aa59124ea93230d1884512a7613704f6bcb1a0d8a897286f3057",
+    "app/import-monitor.css": "03bc54441623a29818c1c5e23a8e51fec71c0228ae7ca3a428b755c8017297bf",
+    "app/jackyun-close-controls.tsx": "c58070b0c6db6208c51f06a7c1fee3e344327b80a84609bef2925ada583a9bb9",
+    "backend/workflow/jackyun_close_authority.py": "34b3585547d25e1ff2bb256eed9e9a1e34a9c04dcd8eef26165bad7f900f8acc",
+    "backend/workflow/urls.py": "380115395ea48e08e3b744dd0074fe44f7690fa909297c87aa35f3e35d0929c3",
+    "backend/workflow/views.py": "0146a893cbebf2a3a0b3948720af7d15348a77bd9c29dfafebf01f80464726a3",
+    "lib/django/workflow-service.ts": "31e524464dd1708f02305744b7527ac6ca4d5eb6b0f5b96af1d44b9233db69f0",
+    "lib/jackyun/human-retry.ts": "8ccba3aa0949722e71889345c48ab7777c193c72e2c52f0566f2f329edaf42fa",
+    "lib/jackyun/n8n-preflight-evidence.ts": "4ad869e21085af4cd977b15c02aa498294c06b8158fbb379b3f289e9fb2d1fea",
+    "lib/jackyun/operator-close-admission.ts": "b2641a1ea8133a4890a6bf2cefef2ff8560f5753eafbe59d66ca2cbc74e9be0d",
+    "lib/jackyun/operator-close-contract.ts": "68d40acd12d3f22df2531dcc84ffdcc623ce891443df8f201ab524c504cdcb6e",
+    "lib/jackyun/operator-close-fence.ts": "89afc7d1c0c8c8b23c45ceaafa298970e8ee9db52db1a4520a13b044b677d0b0",
+    "lib/jackyun/operator-close-resources.ts": "6dccd32a1fac74736b3351caeac7cd02dad41296a520d8c7598872ce63c146f2",
+    "lib/jackyun/operator-close.ts": "cfa39ab6fd9a14ab9fbe6eaf6ca44dfa9f249c59175a2935b6aa196986586d48",
+    "lib/jackyun/retry-budget.ts": "27197138450d87d312d069c8ecb1a30c2450dae181e37183080676f6d4122dd3",
+    "lib/jackyun/run-lock.ts": "910264b731999d8aeb9789cacd22aae9414406eba8c84ebe12a7c47cd1c18e3b",
+    "tools/jackyun-export-first-pipeline.ts": "5fbb98ee5d435ad5ce04837123243d535343b1af4d050d8b1a05f7ecc2f5eca4",
+    "tools/tmall-isolated-helper.ts": "b2896abf9dec6d782f8d28374885fc8a7455173aea467747875f675696a0311e",
+    "tools/tmall-sycm-cookie-pipeline.ts": "7b140450ded8d55724dc2779e7ed24ca3fcd2b3aa95433258e72cd8227229fc6"
+  },
+  "htmlSha256": "6d6dab1e0e4ded61c38e4f80f00aacba844d70a47d52eeaf071f0110fde30a84"
+}
