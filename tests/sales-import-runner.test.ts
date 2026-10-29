@@ -391,7 +391,14 @@ test("sales upload failures are persisted as failed audits before they are rethr
         return Response.json({ policyVersion: policy.version });
       }
       if (url.pathname === "/api/imports/sales/verify") {
-        return Response.json({ shops: [] });
+        assert.equal(url.searchParams.get("preflightOnly"), "1");
+        return Response.json({
+          preflightOnly: true,
+          policyVersion: policy.version,
+          period: { startDate: "2026-07-01", endDate: "2026-07-15", endExclusive: "2026-07-16" },
+          shops: [],
+          shopPagination: { returned: 0, truncated: false },
+        });
       }
       if (url.pathname === "/api/imports/sales/chunks" && init?.method === "POST") {
         const payload = JSON.parse(String(init.body)) as { action?: string };
