@@ -60,6 +60,25 @@ def dispatch(request, path, principal):
     if len(parts) in {3, 4} and parts[:2] == ["pi", "files"] and request.method == "GET" and (len(parts)==3 or parts[3]=="content"):
         fields(params, set())
         return response(service.download(parts[2], principal, content=len(parts)==4))
+    if len(parts) >= 4 and parts[:2] == ["pi", "operations"]:
+        name = parts[3]
+        if name == "evidence" and request.method == "GET" and len(parts) == 4:
+            from . import pi_sources
+            return response(pi_sources.evidence(parts[2], params, principal))
+        if name == "stages" and request.method == "GET" and len(parts) == 4:
+            from . import pi_sources
+            return response(pi_sources.events_after(parts[2], params, principal))
+        if name == "feedback":
+            from . import task_feedback
+            if request.method == "GET" and len(parts) == 4:
+                fields(params, set())
+                return response(task_feedback.listing(parts[2], principal))
+            if request.method == "POST" and len(parts) == 4:
+                return response(task_feedback.save(parts[2], payload, principal), 201)
+            # A withdrawal names the correction it retires in the path, not the
+            # body, so resubmitting an older body cannot retire a different one.
+            if request.method == "POST" and len(parts) == 6 and parts[5] == "withdraw":
+                return response(task_feedback.withdraw(parts[2], parts[4], payload, principal))
     raise AiError("Pi 接口不存在或方法不支持", "not_found", 404)
 
 

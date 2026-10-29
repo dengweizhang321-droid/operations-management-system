@@ -67,7 +67,11 @@ P0-03 的目标是让一次 Pi 任务的结论可追溯：读了哪些来源、�
 
 这组标识**全部来自既有字段**，服务端生成、不接受客户端提交。候选提炼（P1a）引用它即可回溯到精确的来源页、阶段事件与产物字节。
 
-拟新增只读接口 `GET /api/ai/pi/operations/{id}/evidence`，返回上述绑定加三组引用：来源清单（按 export 聚合 manifest 与 warning）、阶段清单（按 `event_seq` 排序的事件类型与时间，不含隐藏推理）、产物清单（文件名、SHA、direction、大小）。
+**已于 2026-10-29 实现**（[pi_sources.py](../../backend/ai_assistant/pi_sources.py)）：`GET /api/ai/pi/operations/{id}/evidence` 返回上述绑定加四组引用——来源（按 export 聚合 manifest、`domainRevisions`、warning、`snapshotComplete`）、阶段（按 `event_seq` 排序，仅 `eventSeq`/`type`/`createdAt` 三字段）、产物（文件名、SHA、direction、大小）、修正（含 superseded 与 withdrawn，但 `confirmedFeedbackIds` 只收生效那条）。
+
+另有 `GET .../stages?after=N` 供跟随运行中任务，以及 feedback 的 `GET`/`POST .../feedback` 与 `POST .../feedback/{id}/withdraw`（撤回的目标 id 在路径而非正文，重放旧正文不会误撤别的修正）。
+
+两处实现细节值得记下：阶段清单刻意排除 `message_update` 等携带正文的事件类型，证据视图只证明顺序不复制内容；`coverage.sourcesComplete` 在来源集为空时为 false——空集不能读作「全部覆盖」。
 
 ## 4. 展示要求
 
