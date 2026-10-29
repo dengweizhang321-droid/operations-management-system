@@ -271,3 +271,50 @@ removed dirs=2  pruned worktrees=2  deleted branches=1
 1. **A 类** `product-combo-details-release-20261014`：4 个未提交改动，分支 `codex/product-combo-details-release-20261014` 未合入 `main`，删除会永久丢失，交负责人定。
 2. **两个 5000+ 暂存目录**（`jackyun-browser-preflight-20261013`、`jackyun-unified-adoption-20261013`）：零提交空分支上的一次性检出，内容可从 git 历史恢复，但本会话未自行放宽授权范围。
 3. **治本**：发布包仍为每个 `main` 提交生成（约 145 MB/个）。`tools/release-package-retention.mjs` 已就绪，但**未接入定期执行**——不建议挂在发布成功之后（理由见 PLAN4 第 3 节候选 B）。
+
+---
+
+## 11. A 类核实结论：建议放弃该分支（2026-10-29，只读）
+
+**结论与此前判断相反：`product-combo-details-release-20261014` 不该抢救，它是 10-14 的旧快照，合并会回退两周改动。** 以下为实测依据，未执行任何处置。
+
+### 一、那 4 个「未提交改动」是行尾差异，零内容改动
+
+```
+git diff --ignore-cr-at-eol --numstat  → 四个文件全部「无差异」
+```
+
+`git status` 把它们报成 `M` 仅因 CRLF；仓库的 `.gitattributes`/autocrlf 会在下次 touch 时归一化。**没有任何内容需要抢救。**
+
+### 二、两个未合入提交中，第一个已以等价提交进入 main
+
+| 分支提交 | main 对应 | 证据 |
+| --- | --- | --- |
+| `1d848e8f feat(products): align kind cards and expand combo component data` | **`af46feac`，标题完全相同** | 两者提交时间戳均为 `2026-10-14 22:10:15 +0800`，是同一份工作 |
+
+实测 `lib/products/read-contract.ts`、`lib/products/summary.ts` 分支版与 main **零差异**；`docs/product-combo-details-20261014/` 的 REPORT.md 与 PRODUCTION.md **已在 main**。
+
+`tools/release-scope-plan.mjs` 仍有差异，但方向是反的：**main 版更新**。main 现有分支版所缺的 `workflow` 与 `businessDataProcessing` 字段，以及 schema-only policy 的说明注释；该文件在 10-14 之后又被 `5146cc3d` 改进过。分支版是旧状态。
+
+### 三、合并该分支会回退一个已上线的安全修复
+
+分支相对 main 的净内容差异（排除 docs）：**873 个文件、+30835 / -105810 行**，其中包括删除：
+
+```
+worker/same-origin-write-gate.ts   119 行
+worker/index.ts                      4 行
+```
+
+`same-origin-write-gate.ts` 正是 2026-10-24 上线的**全局同源写闸门**（审查 #2 的修复，实测跨站写返回 403）。main 有该文件、分支没有——合并会把它删掉。
+
+提交数对比：**main 独有 403 个提交，分支独有 2 个**。
+
+### 建议
+
+**放弃该分支与目录**：删目录、`unlock`→`prune` 注销注册、删分支 `codex/product-combo-details-release-20261014`。可回收 337.8 MB。
+
+理由：唯一的内容贡献（`1d848e8f`）已在 main 以 `af46feac` 落地；"未提交改动"是行尾噪音；保留它的唯一风险是将来有人误以为这是待合入工作而合并，从而回退包含安全修复在内的 403 个提交。
+
+**不建议提交或另存**：没有内容可保，且该分支已被 main 全面超越。
+
+仍由用户决定；本会话不自行处置。
