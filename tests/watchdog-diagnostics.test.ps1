@@ -23,6 +23,7 @@ try {
         $env:TERUISI_PROCESS_DEADLINE_UNIX_MS='1'
         $e=[Exception]::new('private exception');$e.Data['ProcessEvidence']=@{stage='direct-exit';code='process_deadline_exhausted';elapsedMs=60000;stdout='PRIVATE_SECRET'};throw $e
       }
+      $script:observedSnapshotDeadlineUnixMs=[long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS
       return $script:control
     }
     if($script:case -eq 'supervisor-timeout'){$env:TERUISI_PROCESS_DEADLINE_UNIX_MS='1';throw 'private exception'}
@@ -46,8 +47,11 @@ try {
     return [pscustomobject]@{LocalPort=3000;OwningProcess=10}
   }
   $savedDeadline=$env:TERUISI_PROCESS_DEADLINE_UNIX_MS;$env:TERUISI_PROCESS_DEADLINE_UNIX_MS=$null
+  $beforeSnapshot=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
   $s=Get-WatchSnapshot
   Assert-Diagnostic ($s.healthy -and $s.components.Count -eq 12 -and $s.probes.Count -eq 4) 'healthy complete fixture was rejected'
+  # The whole snapshot (control+supervisor+monitor) must budget 120000ms, not the old 60000ms.
+  Assert-Diagnostic ($script:observedSnapshotDeadlineUnixMs -ge $beforeSnapshot+119000 -and $script:observedSnapshotDeadlineUnixMs -le $beforeSnapshot+121000) 'snapshot deadline regressed from the measured 120000ms budget'
   Assert-Diagnostic ($s.portsObservation.status -eq 'complete' -and $s.elapsedMs -ge 0 -and $s.stages.control.status -eq 'completed') 'snapshot timings or successful port observation missing'
   Assert-Diagnostic ((Get-WatchPortText $s) -match '3000=监听中' -and (Get-WatchPortText $s) -match '5791=未监听') 'a completed negative port observation must say not listening'
   $script:case='supervisor-timeout';$s=Get-WatchSnapshot
