@@ -278,7 +278,7 @@
       "name": "京东志高商用设备客服聊天记录下载导入（09:00，30天）",
       "timezone": "Asia/Shanghai",
       "schedules": [
-        "0 9 * * *"
+        "10 13 * * *"
       ],
       "definitionFile": "automation/n8n/jd-customer-service-daily.workflow.json"
     },
@@ -291,7 +291,7 @@
       "name": "京东志高切肉机旗舰店客服聊天记录下载导入（09:00，30天）",
       "timezone": "Asia/Shanghai",
       "schedules": [
-        "0 9 * * *"
+        "10 12 * * *"
       ],
       "definitionFile": "automation/n8n/jd-customer-service-cut-meat-daily.candidate.workflow.json"
     },
@@ -304,7 +304,7 @@
       "name": "京东志高商用厨电旗舰店客服聊天记录下载导入（09:00，30天）",
       "timezone": "Asia/Shanghai",
       "schedules": [
-        "0 9 * * *"
+        "50 12 * * *"
       ],
       "definitionFile": "automation/n8n/jd-customer-service-chudian-daily.candidate.workflow.json"
     },
@@ -317,7 +317,7 @@
       "name": "京东志高商用洗碗机旗舰店客服聊天记录下载导入（09:00，30天）",
       "timezone": "Asia/Shanghai",
       "schedules": [
-        "0 9 * * *"
+        "30 12 * * *"
       ],
       "definitionFile": "automation/n8n/jd-customer-service-dishwasher-daily.candidate.workflow.json"
     },
@@ -414,7 +414,7 @@
       "name": "京东物流四类数据受控下载与导入",
       "timezone": "Asia/Shanghai",
       "schedules": [
-        "0 8 * * *"
+        "50 8 * * *"
       ],
       "definitionFile": "automation/n8n/jd-logistics-daily.workflow.json"
     },

@@ -18,6 +18,10 @@ export const hourlyRetryTargets = [
   { workflowId: "TmallCuizhiwangDaily2026", fileName: "tmall-cuizhiwang-sycm-cookie-daily.workflow.json" },
   { workflowId: "TmallMasituDaily2026", fileName: "tmall-masitu-sycm-cookie-daily.workflow.json" },
   { workflowId: "TmallYiyongDaily2026", fileName: "tmall-yiyong-direct-pm-candidate.workflow.json" },
+  { workflowId: "JdCustomerService2026", fileName: "jd-customer-service-daily.workflow.json" },
+  { workflowId: "JdCustomerServiceCutMeat2026", fileName: "jd-customer-service-cut-meat-daily.candidate.workflow.json" },
+  { workflowId: "JdCustomerServiceChudian2026", fileName: "jd-customer-service-chudian-daily.candidate.workflow.json" },
+  { workflowId: "JdCustomerServiceDishwasher2026", fileName: "jd-customer-service-dishwasher-daily.candidate.workflow.json" },
 ];
 
 const terminalFailurePatterns = [
