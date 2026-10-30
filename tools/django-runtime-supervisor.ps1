@@ -950,45 +950,73 @@ function Restore-OneShotStartup {
   }
 }
 
-if ($env:TERUISI_DJANGO_SUPERVISOR_LIBRARY_ONLY -ne "1") {
+# $canonicalRuntime/$ServiceScriptPath/$SupervisorScriptPath are plain
+# Join-Path/string derivations with no side effect, so they are always
+# available - they decide nothing by themselves and do not touch disk.
+$canonicalRuntime = Get-SupervisorCanonicalPath $SupervisorRequest.RuntimeRoot
+$ServiceScriptPath = Join-Path $canonicalRuntime "app\tools\django-local-service.ps1"
+$SupervisorScriptPath = Join-Path $canonicalRuntime "app\tools\django-runtime-supervisor.ps1"
+
+$librarySupervisorMode = $env:TERUISI_DJANGO_SUPERVISOR_LIBRARY_ONLY -eq "1"
+if (-not $librarySupervisorMode) {
+  # Real (non-library) mode keeps validating RuntimeRoot against the fixed
+  # protected runtime and asserting caller identity BEFORE anything below is
+  # allowed to dot-source another file - unchanged from before. An arbitrary
+  # -RuntimeRoot can never reach the dot-source past this gate.
   if (-not (Test-SupervisorFullyQualifiedPath $SupervisorRequest.RuntimeRoot)) {
     throw "RuntimeRoot 必须是绝对路径"
   }
-  $canonicalRuntime = Get-SupervisorCanonicalPath $SupervisorRequest.RuntimeRoot
   if ($canonicalRuntime -ine $SupervisorFixedRuntimeRoot) {
     throw "Django supervisor 只允许固定受保护 runtime"
   }
-  $ServiceScriptPath = Join-Path $canonicalRuntime "app\tools\django-local-service.ps1"
-  $SupervisorScriptPath = Join-Path $canonicalRuntime "app\tools\django-runtime-supervisor.ps1"
   if (-not (Test-Path -LiteralPath $ServiceScriptPath -PathType Leaf) -or
       (Get-SupervisorCanonicalPath $PSCommandPath) -ine
         (Get-SupervisorCanonicalPath $SupervisorScriptPath)) {
     throw "Django supervisor 只能从受保护的 runtime app operator 执行"
   }
-  $previousLibraryOnly = [Environment]::GetEnvironmentVariable(
-    "TERUISI_DJANGO_SERVICE_LIBRARY_ONLY", "Process"
-  )
-  $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = "1"
-  try {
-    . $ServiceScriptPath -Action Status -RuntimeRoot $canonicalRuntime
-  } finally {
-    [Environment]::SetEnvironmentVariable(
-      "TERUISI_DJANGO_SERVICE_LIBRARY_ONLY", $previousLibraryOnly, "Process"
-    )
-  }
-  $SupervisorMonitorDirectory = Assert-RuntimeChildPath (
-    Join-Path $canonicalRuntime "monitoring\django-runtime"
-  )
-  $SupervisorAlertDirectory = Assert-RuntimeChildPath (
-    Join-Path $SupervisorMonitorDirectory "alerts\pending"
-  )
-  $SupervisorStatePath = Assert-RuntimeChildPath (
-    Join-Path $SupervisorMonitorDirectory "state.json"
-  )
-  $SupervisorPidPath = Assert-RuntimeChildPath (
-    Join-Path $RunDirectory "django-supervisor.pid.json"
-  )
+}
 
+# Pure path derivation, reachable in both normal and library-only mode, kept
+# at script scope (not inside a function, whose own scope a dot-sourced
+# script's variables cannot escape). In normal mode it only runs after the
+# gate above passed. In library mode it runs unconditionally, but still
+# performs no validation, enforcement or state mutation of its own:
+# - django-local-service.ps1 is dot-sourced solely to obtain its path-fence
+#   helper (Assert-RuntimeChildPath) and path variables (e.g. $RunDirectory,
+#   $SupervisorDesiredStatePath) derived from the same runtime root; its own
+#   action dispatch stays gated behind TERUISI_DJANGO_SERVICE_LIBRARY_ONLY,
+#   forced to "1" here and restored immediately after, so no service action
+#   runs as a side effect of loading this file as a library.
+# - Assert-RuntimeChildPath remains the path fence for every derived path;
+#   it is never bypassed.
+# Library mode gains no executable or state-changing capability from any of
+# this: the switch over $SupervisorRequest.Action below still only runs when
+# TERUISI_DJANGO_SUPERVISOR_LIBRARY_ONLY is not "1", unchanged from before.
+$previousLibraryOnly = [Environment]::GetEnvironmentVariable(
+  "TERUISI_DJANGO_SERVICE_LIBRARY_ONLY", "Process"
+)
+$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = "1"
+try {
+  . $ServiceScriptPath -Action Status -RuntimeRoot $canonicalRuntime
+} finally {
+  [Environment]::SetEnvironmentVariable(
+    "TERUISI_DJANGO_SERVICE_LIBRARY_ONLY", $previousLibraryOnly, "Process"
+  )
+}
+$SupervisorMonitorDirectory = Assert-RuntimeChildPath (
+  Join-Path $canonicalRuntime "monitoring\django-runtime"
+)
+$SupervisorAlertDirectory = Assert-RuntimeChildPath (
+  Join-Path $SupervisorMonitorDirectory "alerts\pending"
+)
+$SupervisorStatePath = Assert-RuntimeChildPath (
+  Join-Path $SupervisorMonitorDirectory "state.json"
+)
+$SupervisorPidPath = Assert-RuntimeChildPath (
+  Join-Path $RunDirectory "django-supervisor.pid.json"
+)
+
+if (-not $librarySupervisorMode) {
   $result = switch ($SupervisorRequest.Action) {
     "Run" { Invoke-SupervisorRun }
     "Probe" { Invoke-SupervisorProbe }
@@ -1001,16 +1029,31 @@ if ($env:TERUISI_DJANGO_SUPERVISOR_LIBRARY_ONLY -ne "1") {
       $state = Read-SupervisorState
       $process = $null
       $processStatus = "stopped"
+      $processStatusDetail = $null
       try {
         $process = Resolve-SupervisorProcess
         if ($null -ne $process) { $processStatus = "running" }
       } catch {
-        $processStatus = "ownership_error"
+        # A PowerShell "throw '<message>'" inside the ownership check itself
+        # (identity mismatch, PID reuse, ambiguous metadata, ...) always
+        # surfaces as RuntimeException: the check ran and found a problem.
+        # Any other exception type (ArgumentNullException, parameter binding
+        # failures, missing-script errors, ...) means the check could not
+        # run at all - most commonly because a path variable it depends on
+        # was never initialized. Those two situations must not share a label:
+        # the second one is about this diagnostic, not about the supervisor.
+        if ($_.Exception -is [Management.Automation.RuntimeException]) {
+          $processStatus = "ownership_error"
+        } else {
+          $processStatus = "ownership_check_failed"
+          $processStatusDetail = $_.Exception.GetType().Name
+        }
       }
       [pscustomobject][ordered]@{
         status = "completed"
         desiredState = [string]$desired.desiredState
         supervisorProcess = $processStatus
+        supervisorProcessErrorType = $processStatusDetail
         health = [string]$state.health
         code = [string]$state.code
         lastHealthyAt = [string]$state.lastHealthyAt
