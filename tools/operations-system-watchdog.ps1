@@ -252,7 +252,8 @@ function Get-WatchSnapshot {
   # Planned shutdown is quiet, and a corrupt gate must never be treated as permission.
   if($admission.mode -ne 'running'){return $snapshot}
   $savedDeadline=$env:TERUISI_PROCESS_DEADLINE_UNIX_MS
-  $env:TERUISI_PROCESS_DEADLINE_UNIX_MS=[string](Get-ProcessDeadline 60000)
+  # Measured driver run ~46-54s, dominated by a ~39s serial 12-domain aggregate; 60000 was too tight.
+  $env:TERUISI_PROCESS_DEADLINE_UNIX_MS=[string](Get-ProcessDeadline 120000)
   try {
   $probeStage='control'
   $stageClock=[Diagnostics.Stopwatch]::StartNew()
