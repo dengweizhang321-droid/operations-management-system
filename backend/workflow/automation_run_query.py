@@ -38,6 +38,8 @@ from datetime import date, datetime, timedelta, timezone
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Max, Q, QuerySet
 
+from customer_service.models import CustomerServiceImportBatch
+
 from .automation_gates import (
     is_failure_for_alerting,
     is_verified_for_display,
@@ -53,6 +55,7 @@ from .automation_models import (
     EXECUTION_AXIS_CHOICES,
     AutomationAttempt,
     AutomationLogicalRun,
+    AutomationModule,
     AutomationModuleResult,
 )
 from .errors import WorkflowApiError
@@ -349,13 +352,25 @@ def list_module_results(logical_run_id: str, *, page: int, page_size: int) -> di
         total = base.count()
         offset = (page - 1) * page_size
         rows = list(base[offset : offset + page_size])
-        items = [_module_result_item(row) for row in rows]
+        # Batch-fetch each row's module domain once per page (not once per
+        # row) so the read surface can pick the right evidence field shape
+        # (netshop batch vs. customer-service pairing) without an N+1
+        # query. A module_key missing from the registry (should not
+        # happen once B4's three customer-service modules are seeded, but
+        # defensive here) falls back to the netshop shape, matching this
+        # unit's original pre-dispatch behavior.
+        domain_by_module_key = dict(
+            AutomationModule.objects.filter(
+                module_key__in={row.module_key for row in rows}
+            ).values_list("module_key", "domain")
+        )
+        items = [_module_result_item(row, domain_by_module_key.get(row.module_key, "netshop")) for row in rows]
         return {"items": items, "pagination": _pagination(total, len(items), offset, page, page_size)}
     except (ValidationError, ValueError, TypeError) as error:
         raise _unavailable() from error
 
 
-def _module_result_item(row: AutomationModuleResult) -> dict[str, object]:
+def _module_result_item(row: AutomationModuleResult, domain: str = "netshop") -> dict[str, object]:
     return {
         "id": row.id,
         "logicalRunId": str(row.logical_run_id),
@@ -387,20 +402,42 @@ def _module_result_item(row: AutomationModuleResult) -> dict[str, object]:
             "isFailureForAlerting": is_failure_for_alerting(row),
             "isVerifiedForDisplay": is_verified_for_display(row),
         },
-        "evidence": _coverage_evidence(row),
+        "evidence": _coverage_evidence(row, domain),
         "updatedAt": row.updated_at.isoformat(),
     }
 
 
-def _coverage_evidence(row: AutomationModuleResult) -> dict[str, object]:
-    """Batch/coverage evidence for one module result. Deliberately labeled
-    ``granularity: "batch"`` — the underlying judgment (automation_gates.
-    BusinessEvidence.is_fully_covered) only compares a batch's own
-    date_min/date_max against the requested range, so a hole in the middle
-    of a batch's own range is not detectable here. See B2 反审 §五·局限一;
-    this field exists specifically so a caller cannot read this response
-    and believe every day was individually checked."""
+def _coverage_evidence(row: AutomationModuleResult, domain: str = "netshop") -> dict[str, object]:
+    """Batch/coverage evidence for one module result, shaped by business
+    domain (``AutomationModule.domain`` — see ``list_module_results``'s
+    batch domain lookup). The two domains this unit supports have
+    genuinely different evidence shapes and must not be forced through
+    one field set:
 
+    * ``netshop`` (promotion chain): batch-level ``date_min``/``date_max``
+      coverage. Deliberately labeled ``granularity: "batch"`` — the
+      underlying judgment (automation_gates.BusinessEvidence.
+      is_fully_covered for this domain) only compares a batch's own
+      date_min/date_max against the requested range, so a hole in the
+      middle of a batch's own range is not detectable here. See B2 反审
+      §五·局限一; this field exists specifically so a caller cannot read
+      this response and believe every day was individually checked.
+    * ``customer_service`` (customer service chain): no date_min/date_max
+      exists on the batch at all (see automation_gates.
+      read_customer_service_evidence's docstring), so this domain's
+      shape instead reports the double-file pairing counts
+      (session_only/chat_only/ambiguous) alongside the same
+      granularity/evidence-state fields, under ``pairing`` rather than
+      inventing new top-level field names that would collide with the
+      netshop shape's semantics.
+    """
+
+    if domain == "customer_service":
+        return _customer_service_coverage_evidence(row)
+    return _netshop_coverage_evidence(row)
+
+
+def _netshop_coverage_evidence(row: AutomationModuleResult) -> dict[str, object]:
     has_reused = bool(row.reused_batch_id)
     has_current = bool(row.netshop_import_batch_id) and not has_reused
     note = "批次级覆盖证据：仅表示该批次的 date_min/date_max 覆盖了请求范围，不代表区间内逐日已核验数据存在。"
@@ -420,6 +457,68 @@ def _coverage_evidence(row: AutomationModuleResult) -> dict[str, object]:
         "currentWarningCount": row.current_warning_count,
         "isReusedEvidence": has_reused,
         "isCurrentUploadEvidence": has_current,
+        "note": note,
+    }
+
+
+def _customer_service_coverage_evidence(row: AutomationModuleResult) -> dict[str, object]:
+    """客服链证据形态：没有 date_min/date_max，覆盖判据来自
+    ``CustomerServiceConversation.consulted_at`` 分布（见
+    automation_gates.read_customer_service_evidence）；本函数只读取该
+    判据已经写入 ``AutomationModuleResult`` 的批次 id 引用，再反查对应
+    ``CustomerServiceImportBatch`` 的配对计数作展示，不重新做覆盖判断。"""
+
+    has_reused = bool(row.reused_batch_id)
+    batch_id = row.reused_batch_id or row.netshop_import_batch_id
+    pairing: dict[str, object] = {
+        "sessionOnlyCount": None,
+        "chatOnlyCount": None,
+        "ambiguousCount": None,
+        "matchedCount": None,
+        "conversationCount": None,
+        "incomplete": None,
+    }
+    if batch_id:
+        batch = (
+            CustomerServiceImportBatch.objects.filter(id=batch_id)
+            .values(
+                "session_only_count",
+                "chat_only_count",
+                "ambiguous_count",
+                "matched_count",
+                "conversation_count",
+            )
+            .first()
+        )
+        if batch:
+            pairing = {
+                "sessionOnlyCount": batch["session_only_count"],
+                "chatOnlyCount": batch["chat_only_count"],
+                "ambiguousCount": batch["ambiguous_count"],
+                "matchedCount": batch["matched_count"],
+                "conversationCount": batch["conversation_count"],
+                "incomplete": bool(
+                    batch["session_only_count"] or batch["chat_only_count"] or batch["ambiguous_count"]
+                ),
+            }
+    note = (
+        "客服链覆盖证据：覆盖判据来自 CustomerServiceConversation.consulted_at 的逐日分布，"
+        "该批次本身没有 date_min/date_max 字段。business_state=partial 且 pairing.incomplete=true "
+        "时表示该批次 session_only/chat_only/ambiguous 非零，部分会话未能在双文件间完整配对，"
+        "不代表数据缺失，而是配对结果需要人工复核。"
+    )
+    if row.business_state == "no_new_needed":
+        note += " no_new_needed 合并了「无缺口」与「未到期」两种情形——本系统对未到期没有独立的业务信号，不在此处拆分子类。"
+    return {
+        "granularity": "pairing",
+        "evidenceState": row.evidence_state,
+        "evidenceSource": row.evidence_source,
+        "evidenceObservedAt": row.evidence_observed_at.isoformat() if row.evidence_observed_at else None,
+        "customerServiceImportBatchId": batch_id or None,
+        "reusedBatchId": row.reused_batch_id or None,
+        "reusedCoverageRevision": row.reused_coverage_revision or None,
+        "isReusedEvidence": has_reused,
+        "pairing": pairing,
         "note": note,
     }
 

@@ -330,11 +330,19 @@ class AutomationModuleResult(models.Model):
       used when the correct answer is "no gap, nothing new to import" and
       the evidence is an existing completed batch rather than a new one.
 
-    ``netshop_import_batch_id`` is a bare reference to
-    ``NetshopImportBatch.id`` (no FK/db-level join) because this app does
-    not own that table and must not create a cross-app hard dependency
-    that could block netshop's own migrations or constrain its retirement
-    path; the reference is read-only lookup data.
+    ``netshop_import_batch_id`` is a bare reference to a business-domain
+    evidence batch's primary key (no FK/db-level join) because this app
+    does not own any business-domain table and must not create a
+    cross-app hard dependency that could block that domain's own
+    migrations or constrain its retirement path; the reference is
+    read-only lookup data. The column name predates the 京东客服链
+    extension (B2 pilot shipped it netshop-only) and is kept unchanged to
+    avoid an unrelated migration; for a module result whose
+    ``AutomationModule.domain == "customer_service"`` this column holds a
+    ``CustomerServiceImportBatch.id`` instead of a
+    ``NetshopImportBatch.id`` — callers must resolve which domain a
+    result belongs to via its module's ``domain`` field, never by
+    guessing from the id's shape.
     """
 
     id = models.BigAutoField(primary_key=True)
