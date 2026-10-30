@@ -121,18 +121,37 @@ try {
   # --- 5. A bounded stderr summary is preserved, redacted, and never grants more retries than before ---
   function Get-WatchSanitizedStderrSummaryTestCases {
     @(
-      @{raw='plain failure text';mustContain='plain failure text';mustNotContain=$null}
+      @{raw='plain failure text';expectExact='plain failure text'}
       @{raw=('x'*500);expectLength=200}
       @{raw='token: AAAABBBBCCCCDDDDEEEEFFFF0000111122223333';mustContain='[redacted]';mustNotContain='AAAABBBBCCCCDDDDEEEEFFFF0000111122223333'}
       @{raw='Authorization: Bearer verysecretvalue1234567890';mustNotContain='verysecretvalue1234567890'}
       @{raw='failed reading D:\teruisi-runtime\django-sales\secrets\credentials.dpapi.json';mustContain='[path]';mustNotContain='teruisi-runtime'}
       @{raw='see https://oapi.dingtalk.com/robot/send?access_token=abcdef1234567890';mustContain='[url]';mustNotContain='access_token=abcdef1234567890'}
+      @{raw='Bearer abc123TOKEN';mustNotContain='abc123TOKEN'}
+      @{raw='Authorization: Basic Zm9vOmJhcg==';mustNotContain='Zm9vOmJhcg=='}
+      @{raw='\\server\share\x';mustContain='[path]'}
+      @{raw='reading config from \\fileserver01\configs\prod\secrets.json failed';mustContain='[path]';mustNotContain='fileserver01'}
+      @{raw='refresh_token: rt_9xZ';mustNotContain='rt_9xZ'}
+      @{raw='client_secret=shh';mustNotContain='shh'}
+      @{raw='access_token=abc123';mustNotContain='abc123'}
+      @{raw='private_key: xyz789';mustNotContain='xyz789'}
+      @{raw='api_secret=mno456';mustNotContain='mno456'}
+      @{raw='session=abcdef123456';mustNotContain='abcdef123456'}
+      @{raw='cookie: foo=supersecretbar';mustNotContain='supersecretbar'}
+      @{raw='password: hunter2';mustNotContain='hunter2'}
+      @{raw='this session expired normally, no value leaked';expectExact='this session expired normally, no value leaked'}
     )
   }
   foreach($case in Get-WatchSanitizedStderrSummaryTestCases){
     $summary=Get-WatchSanitizedStderrSummary $case.raw
-    if($case.mustContain){Assert-Binding ($summary -like "*$($case.mustContain)*") "stderr summary did not keep expected content for: $($case.raw)"}
-    if($case.mustNotContain){Assert-Binding ($summary -notlike "*$($case.mustNotContain)*") "stderr summary leaked sensitive content for: $($case.raw)"}
+    # String .Contains() is used instead of -like/-notlike: a literal
+    # "[redacted]" pattern passed to -like is parsed as a wildcard character
+    # class (matching any single character in r/e/d/a/c/t), which makes
+    # "-like '*[redacted]*'" true for almost any non-empty string and would
+    # silently pass even when nothing was actually redacted.
+    if($case.expectExact){Assert-Binding ($summary -ceq $case.expectExact) "stderr summary changed unexpected plain text: $($case.raw)"}
+    if($case.mustContain){Assert-Binding ($summary.Contains($case.mustContain)) "stderr summary did not keep expected content for: $($case.raw)"}
+    if($case.mustNotContain){Assert-Binding (-not $summary.Contains($case.mustNotContain)) "stderr summary leaked sensitive content for: $($case.raw) -> $summary"}
     if($case.expectLength){Assert-Binding ($summary.Length -eq $case.expectLength) "stderr summary was not bounded to $($case.expectLength) characters"}
   }
   Assert-Binding ($null -eq (Get-WatchSanitizedStderrSummary '')) 'an empty stderr must summarize to nothing, not an empty-but-present string'

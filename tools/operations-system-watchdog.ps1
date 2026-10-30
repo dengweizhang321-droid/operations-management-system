@@ -63,7 +63,14 @@ function Get-WatchSanitizedStderrSummary([string]$Value){
   # A standalone "Bearer <token>" not already consumed above (e.g. no
   # leading "Authorization:" label) must still redact the token.
   $text=[regex]::Replace($text,'(?i)\bbearer\s+\S+','bearer=[redacted]')
-  $text=[regex]::Replace($text,'(?i)\b(token|secret|password|credential|apikey|api[_-]?key|accesstoken)\s*[:=]\s*\S+','$1=[redacted]')
+  # Credential-shaped "<name>: <value>" / "<name>=<value>". The leading
+  # "\b" only guards the start of this alternation group, not each
+  # alternative's own start: that lets a compound identifier like
+  # "refresh_token", "client_secret" or "access_token" match on its
+  # keyword suffix even though "_" has no word-boundary before it, while
+  # still requiring a real word boundary before the whole credential-ish
+  # run (so this never fires mid-word on unrelated text).
+  $text=[regex]::Replace($text,'(?i)\b[a-z0-9_-]*?(?:token|secret|password|credential|apikey|api[_-]?key|private[_-]?key|session|cookie)\s*[:=]\s*\S+','[redacted]')
   $text=[regex]::Replace($text,'[0-9a-fA-F]{24,}','[redacted]')
   return $text.Trim()
 }
