@@ -34,6 +34,7 @@
     "test:unit": "node --import tsx --test tests/*.test.ts",
     "check:backend-boundary": "node tools/check-django-production-boundary.mjs",
     "check:pi152-acl": "python tests/pi152-acl-catalog-boundary.py",
+    "check:ai-writer-privilege-coverage": "python tests/ai-writer-privilege-coverage.py",
     "release:plan": "node tools/release-scope-plan.mjs",
     "jackyun:post-download": "node --import tsx tools/jackyun-download-runner.ts",
     "jackyun:daily": "node --import tsx tools/jackyun-automation-runner.ts",

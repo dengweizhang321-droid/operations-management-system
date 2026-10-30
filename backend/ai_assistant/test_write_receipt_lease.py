@@ -10,8 +10,13 @@ stale_manual_review 供人工对账，并释放同一 request_id 的后续请求
 租期与 TTL 清理本身的行为，不依赖任何无关业务域状态。
 """
 import hashlib
+import secrets
+from contextlib import contextmanager
 from datetime import timedelta
+from uuid import uuid4
 
+from django import test as djtest
+from django.db import connection
 from django.test import RequestFactory, TransactionTestCase, override_settings
 from django.utils import timezone
 
@@ -20,7 +25,9 @@ from sales.auth import Principal
 
 from . import views
 from .control_models import AiDataRevision, AiWriteAuthority, AiWriteReceipt
+from .database_contract import provision
 from .policy import AiError
+from .test_business_market_v2_material_role_bridge import session_role
 
 
 def request_for(request_id, *, method="POST", path="/api/ai/write-receipt-lease-fixture"):
@@ -146,6 +153,60 @@ class ProcessingLeaseTests(WriteReceiptLeaseTestBase):
 
 
 class CompletedReceiptTtlTests(WriteReceiptLeaseTestBase):
+    """2026-10-28 incident: _prune_expired_receipts() runs a real DELETE against
+    ai_write_request_receipts inside write(). database_contract.WRITER_PRIVILEGES
+    once granted only SELECT/INSERT/UPDATE there, so production's real
+    teruisi_ai_writer role got `permission denied for table
+    ai_write_request_receipts` on every write, including unrelated ones that
+    happened to trigger the opportunistic prune. The Postgres owner connection
+    this suite otherwise uses (DJANGO_PROCESS_ROLE="development") has no such
+    restriction and could not have caught this.
+
+    provision() is called with the real database_contract module so the grants
+    are read from WRITER_PRIVILEGES itself, not re-declared here; the write
+    that triggers the prune then runs under `SET SESSION AUTHORIZATION
+    teruisi_ai_writer`, the same technique
+    test_business_market_v2_material_role_bridge.py uses for the same purpose.
+    If WRITER_PRIVILEGES regresses to omit DELETE on ai_write_request_receipts
+    again, this test fails with a real DatabaseError instead of silently
+    passing on owner privileges.
+    """
+
+    def setUp(self):
+        super().setUp()
+        if connection.vendor != "postgresql":
+            self.skipTest("requires real PostgreSQL grants")
+        connection.ensure_connection()
+        provision(connection.connection, secrets.token_hex(32), secrets.token_hex(32))
+
+    @contextmanager
+    def real_writer_role(self):
+        """Run the wrapped block as the real teruisi_ai_writer Postgres role.
+
+        ai_runtime_write_fence() (migration 0003) additionally requires the
+        write-authority epoch/cutover `set_config` values to match whenever
+        current_user='teruisi_ai_writer', regardless of table-level GRANTs —
+        so activating AiWriteAuthority and overriding DJANGO_PROCESS_ROLE to
+        "ai_writer" (the same combination
+        test_business_market_v2_material_role_bridge.py uses) is required
+        alongside session_role, not a substitute for it.
+        """
+        AiWriteAuthority.objects.filter(id=1).update(
+            status="postgres", authority_epoch=uuid4(),
+            cutover_id="write-receipt-lease-isolated",
+            migration_verify_run_id="write-receipt-lease-isolated",
+            activated_at=timezone.now(),
+        )
+        authority = AiWriteAuthority.objects.get(id=1)
+        with djtest.override_settings(
+            DJANGO_PROCESS_ROLE="ai_writer",
+            AI_WRITE_AUTHORITY_EPOCH=str(authority.authority_epoch),
+            AI_WRITE_CUTOVER_ID=authority.cutover_id,
+        ), session_role("teruisi_ai_writer"):
+            yield
+        # status='postgres' is a one-way terminal cutover (migration 0004); it
+        # is never reset back to "d1" here, matching how production treats it.
+
     def test_completed_receipts_older_than_seven_days_are_pruned_on_next_write(self):
         first = self.write_external("ttl-old-1", lambda: ({"ok": True}, 200))
         self.assertEqual(first.status_code, 200)
@@ -155,7 +216,10 @@ class CompletedReceiptTtlTests(WriteReceiptLeaseTestBase):
 
         # A later, unrelated write opportunistically prunes the aged-out completed receipt,
         # mirroring the lazy-cleanup-on-write template used by customer_service etc.
-        second = self.write_external("ttl-old-2", lambda: ({"ok": True}, 200))
+        # Run under the real minimal-privilege writer role: this is exactly the DELETE
+        # that production's teruisi_ai_writer must be granted (2026-10-28 incident).
+        with self.real_writer_role():
+            second = self.write_external("ttl-old-2", lambda: ({"ok": True}, 200))
         self.assertEqual(second.status_code, 200)
         self.assertFalse(AiWriteReceipt.objects.filter(pk="ttl-old-1").exists())
         self.assertTrue(AiWriteReceipt.objects.filter(pk="ttl-old-2").exists())
@@ -167,7 +231,8 @@ class CompletedReceiptTtlTests(WriteReceiptLeaseTestBase):
             completed_at=timezone.now() - views.COMPLETED_RECEIPT_TTL + timedelta(minutes=5)
         )
 
-        second = self.write_external("ttl-fresh-2", lambda: ({"ok": True}, 200))
+        with self.real_writer_role():
+            second = self.write_external("ttl-fresh-2", lambda: ({"ok": True}, 200))
         self.assertEqual(second.status_code, 200)
         self.assertTrue(AiWriteReceipt.objects.filter(pk="ttl-fresh-1").exists())
 
@@ -184,7 +249,8 @@ class CompletedReceiptTtlTests(WriteReceiptLeaseTestBase):
             created_at=timezone.now() - views.COMPLETED_RECEIPT_TTL - timedelta(days=1)
         )
 
-        second = self.write_external("ttl-processing-2", lambda: ({"ok": True}, 200))
+        with self.real_writer_role():
+            second = self.write_external("ttl-processing-2", lambda: ({"ok": True}, 200))
         self.assertEqual(second.status_code, 200)
         # Still present and still "processing" — the TTL pruning only targets
         # status="completed" rows and must never silently delete a stuck processing
