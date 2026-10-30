@@ -22,6 +22,7 @@ export const hourlyRetryTargets = [
   { workflowId: "JdCustomerServiceCutMeat2026", fileName: "jd-customer-service-cut-meat-daily.candidate.workflow.json" },
   { workflowId: "JdCustomerServiceChudian2026", fileName: "jd-customer-service-chudian-daily.candidate.workflow.json" },
   { workflowId: "JdCustomerServiceDishwasher2026", fileName: "jd-customer-service-dishwasher-daily.candidate.workflow.json" },
+  { workflowId: "JdLogisticsDaily2026", fileName: "jd-logistics-daily.workflow.json" },
 ];
 
 const terminalFailurePatterns = [
@@ -189,11 +190,21 @@ function retryClassifierCode() {
     "  return output.join(' ').slice(0, 32768);",
     "};",
     "const result = [];",
+    "const droppedFailures = [];",
+    "const describe = (payload, workflowId, reason) => ({ workflowId,",
+    "  workflowName: String(payload.workflow?.name ?? ''),",
+    "  lastNodeExecuted: String(payload.execution?.lastNodeExecuted ?? ''),",
+    "  failedExecutionId: String(payload.execution?.id ?? ''), reason });",
     "for (const item of $input.all()) {",
     "  const payload = item.json ?? {};",
     "  const workflowId = String(payload.workflow?.id ?? '');",
     "  const mode = String(payload.execution?.mode ?? payload.trigger?.mode ?? '');",
-    "  if (!targets[workflowId] || !['trigger', 'webhook'].includes(mode)) continue;",
+    "  if (!targets[workflowId] || !['trigger', 'webhook'].includes(mode)) {",
+    "    // 原逻辑在这里静默丢弃，现在记下来报警",
+    "    if (workflowId) droppedFailures.push(describe(payload, workflowId,",
+    "      targets[workflowId] ? ('触发方式 ' + mode + ' 不参与自动重试') : '该流程未接入自动重试'));",
+    "    continue;",
+    "  }",
     "  const failureText = collect({ error: payload.execution?.error ?? payload.trigger?.error, lastNodeExecuted: payload.execution?.lastNodeExecuted });",
     "  if (workflowId === 'J8kY2mQ5vR7sT4pN' && /API_(?:RUN_BINDING_CHANGED|STATE_EVIDENCE_INVALID|ARCHIVE_(?:CHANGED|INCOMPLETE|IDENTITY_INVALID)|TENANT_BINDING_CHANGED|FIELD_PERMISSIONS_CHANGED_RECALIBRATE|LEGACY_STATE_SCHEMA_CHANGED)/u.test(failureText)) continue;",
     "  if (workflowId === 'J8kY2mQ5vR7sT4pN' && payload.execution?.lastNodeExecuted === 'B·接口校验与五表下载' && payload.execution?.error?.description === 'JACKYUN_PREFLIGHT_RETRY_READY' && !terminalPatterns.some((pattern) => pattern.test(failureText.replaceAll('JACKYUN_PREFLIGHT_RETRY_READY', '')))) {",
@@ -207,10 +218,21 @@ function retryClassifierCode() {
     "    continue;",
     "  }",
     "  if (jackyunDownloadNode && /fetch failed/iu.test(failureText)) continue;",
-    "  if (terminalPatterns.some((pattern) => pattern.test(failureText))) continue;",
+    "  if (terminalPatterns.some((pattern) => pattern.test(failureText))) {",
+    "    // 终局失败（掉登录、验证码等），不该自动重试 —— 必须有人处理",
+    "    droppedFailures.push(describe(payload, workflowId, '终局失败，不会自动重试'));",
+    "    continue;",
+    "  }",
     "  result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60 }, failedExecutionId: String(payload.execution?.id ?? '') } });",
     "}",
+    "// 丢弃清单必须随输出带出，否则告警分支拿不到数据；",
+    "// 全部被丢弃时也要产出一条，让收集节点有输入。",
+    "if (droppedFailures.length > 0) {",
+    "  if (result.length === 0) return [{ json: { droppedFailures, noRetryTarget: true } }];",
+    "  result[0].json.droppedFailures = droppedFailures;",
+    "}",
     "return result;",
+    "",
   ].join("\n");
 }
 
@@ -223,6 +245,9 @@ export function buildHourlyRetryErrorWorkflow() {
   const contextName = "读取原执行计划时间";
   const contextReadyName = "原计划核验完成？";
   const noteName = "每小时安全重试说明";
+  const alertDispatchName = "转人工发钉钉提醒";
+  const collectDroppedName = "收集被丢弃的终局失败";
+  const dispatchUnknownAlertName = "告警-派发未知";
   return {
     id: hourlyRetryErrorWorkflowId,
     name: "数据下载导入工作流每小时安全重试",
@@ -252,36 +277,82 @@ export function buildHourlyRetryErrorWorkflow() {
         position: [-60, 0],
       },
       {
-        parameters: { mode: "runOnceForAllItems", jsCode: `
-const pending = $('${classifyName}').first().json;
-if ($runIndex >= 72) throw new Error('retry_context_wait_expired_manual_action');
-let response;
+        parameters: { mode: "runOnceForAllItems", jsCode: `// 本节点有六处以 _manual_action 结尾的 throw。下面整体包一层：捕获后若是
+// manual_action 类错误就发钉钉告警，然后原样 rethrow —— 原有控制流不变，
+// 告警自身失败也不掩盖原始错误。
+const MANUAL_ACTION_HINTS = {
+  retry_context_wait_expired_manual_action:
+    ['等待原计划核验', '已等待 72 小时仍未核验完成，自动重试放弃',
+     '到 n8n 打开该 execution 核查原计划为何未完成，必要时手动重跑'],
+  retry_context_unverified_manual_action:
+    ['读取原执行计划', '原计划无法核验（协调端无响应或返回不符合契约）',
+     '检查 helper(127.0.0.1:5791) 是否在运行，然后手动重跑该流程'],
+  retry_reservation_result_unknown_manual_action:
+    ['预留重试名额', '预留结果未知，系统不会自动再试',
+     '到 n8n 确认该流程是否已有重试在跑；没有就手动触发一次'],
+  retry_already_reserved_or_unverified_manual_action:
+    ['预留重试名额', '名额已被占用或校验不通过',
+     '确认是否已有另一个重试在跑；若没有，手动重跑该流程'],
+};
+
+const notifyManualAction = async (code, workflowId, executionId) => {
+  const channelId = $env.TERUISI_ALERT_CHANNEL_ID;
+  const hint = MANUAL_ACTION_HINTS[code];
+  if (!channelId || !hint) return;
+  const lines = ['【运营自动化】需要人工处理',
+    '流程：' + String(workflowId || '未知'),
+    '环节：' + hint[0], '原因：' + hint[1]];
+  if (executionId) lines.push('失败 execution：' + executionId);
+  lines.push('请你处理：' + hint[2]);
+  try {
+    await this.helpers.httpRequest({ method: 'POST', url: 'http://127.0.0.1:3000/api/ai/channels',
+      json: true, timeout: 15000, headers: { Origin: 'http://127.0.0.1:3000' },
+      body: { id: channelId, action: 'send', text: lines.join('\\n') } });
+  } catch {
+    // 只咽掉通知自身的错误，原始失败照旧抛出
+  }
+};
+
 try {
-  response = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/retry-context',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,
-    headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId}});
-} catch(error) {
-  const status = Number(error.statusCode ?? error.response?.statusCode ?? error.httpCode ?? 0);
-  if(status >= 400 && status < 500) throw new Error('retry_context_unverified_manual_action');
-  return [{json:{...pending,contextStatus:'waiting'}}];
+
+  const pending = $('${classifyName}').first().json;
+  if ($runIndex >= 72) throw new Error('retry_context_wait_expired_manual_action');
+  let response;
+  try {
+    response = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/retry-context',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,
+      headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId}});
+  } catch(error) {
+    const status = Number(error.statusCode ?? error.response?.statusCode ?? error.httpCode ?? 0);
+    if(status >= 400 && status < 500) throw new Error('retry_context_unverified_manual_action');
+    return [{json:{...pending,contextStatus:'waiting'}}];
+  }
+  const status = Number(response.statusCode);
+  if(status >= 500) return [{json:{...pending,contextStatus:'waiting'}}];
+  if(status !== 200) throw new Error('retry_context_unverified_manual_action');
+  const context = response.body;
+  if(context?.ok !== true || context.version !== 'teruisi-retry-context-v1' || context.workflowId !== pending.retryPolicy.workflowId
+    || context.failedExecutionId !== pending.failedExecutionId || !context.originalScheduledAt || !context.originalExecutionId) throw new Error('retry_context_unverified_manual_action');
+  let reservation;
+  try {
+    reservation = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/reserve-retry',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,
+      headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId,'X-TERUISI-RETRY-EXECUTION-ID':String($execution.id)}});
+  } catch { throw new Error('retry_reservation_result_unknown_manual_action'); }
+  if(pending.retryPolicy.workflowId === 'J8kY2mQ5vR7sT4pN' && reservation.statusCode === 200) {
+    if(['completed','accepted'].includes(reservation.body?.reservationStatus)) return [];
+    if(reservation.body?.reservationStatus === 'waiting') return [{json:{...pending,contextStatus:'waiting',nextRetryDelayMinutes:reservation.body.nextRetryDelayMinutes}}];
+  }
+  if(reservation.statusCode !== 200 || reservation.body?.reservationStatus !== 'reserved'
+    || reservation.body.failedExecutionId !== pending.failedExecutionId || reservation.body.retryExecutionId !== String($execution.id)) throw new Error('retry_already_reserved_or_unverified_manual_action');
+  return [{json:{...pending,...context,contextStatus:'verified'}}];
+} catch (error) {
+  const code = error?.message ?? '';
+  if (MANUAL_ACTION_HINTS[code]) {
+    const p = $('${classifyName}').first().json ?? {};
+    await notifyManualAction(code, p.retryPolicy?.workflowId, p.failedExecutionId);
+  }
+  throw error;
 }
-const status = Number(response.statusCode);
-if(status >= 500) return [{json:{...pending,contextStatus:'waiting'}}];
-if(status !== 200) throw new Error('retry_context_unverified_manual_action');
-const context = response.body;
-if(context?.ok !== true || context.version !== 'teruisi-retry-context-v1' || context.workflowId !== pending.retryPolicy.workflowId
-  || context.failedExecutionId !== pending.failedExecutionId || !context.originalScheduledAt || !context.originalExecutionId) throw new Error('retry_context_unverified_manual_action');
-let reservation;
-try {
-  reservation = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/reserve-retry',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,
-    headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId,'X-TERUISI-RETRY-EXECUTION-ID':String($execution.id)}});
-} catch { throw new Error('retry_reservation_result_unknown_manual_action'); }
-if(pending.retryPolicy.workflowId === 'J8kY2mQ5vR7sT4pN' && reservation.statusCode === 200) {
-  if(['completed','accepted'].includes(reservation.body?.reservationStatus)) return [];
-  if(reservation.body?.reservationStatus === 'waiting') return [{json:{...pending,contextStatus:'waiting',nextRetryDelayMinutes:reservation.body.nextRetryDelayMinutes}}];
-}
-if(reservation.statusCode !== 200 || reservation.body?.reservationStatus !== 'reserved'
-  || reservation.body.failedExecutionId !== pending.failedExecutionId || reservation.body.retryExecutionId !== String($execution.id)) throw new Error('retry_already_reserved_or_unverified_manual_action');
-return [{json:{...pending,...context,contextStatus:'verified'}}];` },
+` },
         id: stableUuid("teruisi-hourly-retry:original-context"), name: contextName,
         type: "n8n-nodes-base.code", typeVersion: 2, position: [160, 0],
       },
@@ -339,16 +410,85 @@ return [{json:{...pending,...context,contextStatus:'verified'}}];` },
         typeVersion: 1,
         position: [-540, -360],
       },
+      {
+        parameters: {
+          method: "POST",
+          url: "http://127.0.0.1:3000/api/ai/channels",
+          sendHeaders: true,
+          headerParameters: {
+            parameter: [
+              { name: "Origin", value: "http://127.0.0.1:3000" },
+            ],
+          },
+          sendBody: true,
+          specifyBody: "json",
+          jsonBody: '={{ { id: $env.TERUISI_ALERT_CHANNEL_ID, action: "send", text: $json.alertText } }}',
+          options: { timeout: 15000 },
+        },
+        id: "a1e7c0d4-6b2f-4e8a-9c31-5d0f8b7a2e64",
+        name: alertDispatchName,
+        type: "n8n-nodes-base.httpRequest",
+        typeVersion: 4.2,
+        position: [660, 220],
+        retryOnFail: true,
+        maxTries: 3,
+        waitBetweenTries: 5000,
+        onError: "continueRegularOutput",
+      },
+      {
+        parameters: {
+          jsCode: `// 出口四：筛选节点原本直接 continue 掉的失败在这里转为告警。
+// 这些是 terminalPatterns 命中的终局失败（掉登录、验证码、额度耗尽等不该
+// 自动重试的），或流程不在 targets 白名单里。原逻辑连 execution 失败都不留，
+// 而这一类恰恰最需要人介入。
+const dropped = $input.first().json?.droppedFailures ?? [];
+return dropped.map((item) => ({ json: { alertText: [
+  '【运营自动化】需要人工处理',
+  '流程：' + (item.workflowName || item.workflowId || '未知'),
+  '环节：' + (item.lastNodeExecuted || '未知'),
+  '原因：' + item.reason,
+  item.failedExecutionId ? '失败 execution：' + item.failedExecutionId : '',
+  '请你处理：到 n8n 打开该 execution 看失败原因；若是掉登录或验证码，重新登录后手动重跑',
+].filter(Boolean).join('\\n') } }));`,
+        },
+        id: "b2f8d1e5-7c3a-4f9b-8d42-6e1a9c8b3f75",
+        name: collectDroppedName,
+        type: "n8n-nodes-base.code",
+        typeVersion: 2,
+        position: [160, 220],
+      },
+      {
+        parameters: {
+          jsCode: `// 重试 Webhook 可能已被受理，禁止自动再次 POST —— 必须人工核查。
+const p = $('${classifyName}').first().json ?? {};
+return [{ json: { alertText: [
+  '【运营自动化】需要人工处理',
+  '流程：' + String(p.retryPolicy?.workflowId ?? '未知'),
+  '环节：重试派发',
+  '原因：重试 Webhook 派发结果未知，可能已受理，系统不会自动再试',
+  p.failedExecutionId ? '失败 execution：' + p.failedExecutionId : '',
+  '请你处理：到 n8n 查这个流程最近的 execution，确认重试到底有没有跑起来；没跑就手动触发一次',
+].filter(Boolean).join('\\n') } }];`,
+        },
+        id: "c3a9e2f6-8d4b-4a1c-9e53-7f2b0d9c4a86",
+        name: dispatchUnknownAlertName,
+        type: "n8n-nodes-base.code",
+        typeVersion: 2,
+        position: [420, 220],
+      },
     ],
     connections: {
       [errorName]: { main: [[edge(classifyName)]] },
-      [classifyName]: { main: [[edge(waitName)]] },
+      [classifyName]: { main: [[edge(waitName), edge(collectDroppedName)]] },
       [waitName]: { main: [[edge(contextName)]] },
       [contextName]: { main: [[edge(contextReadyName)]] },
       [contextReadyName]: { main: [[edge(dispatchName)], [edge("吉客云需要继续退避？")]] },
       ["吉客云需要继续退避？"]: { main: [[edge("等待吉客云下一次允许时间")], [edge(waitName)]] },
       ["等待吉客云下一次允许时间"]: { main: [[edge(contextName)]] },
-      [dispatchName]: { main: [[], [edge(unknownName)]] },
+      [dispatchName]: { main: [[], [edge(dispatchUnknownAlertName)]] },
+      [dispatchUnknownAlertName]: { main: [[edge(alertDispatchName)]] },
+      [alertDispatchName]: { main: [[edge(unknownName)]] },
+      [collectDroppedName]: { main: [[edge(alertDispatchName)]] },
     },
     pinData: {},
     active: false,
