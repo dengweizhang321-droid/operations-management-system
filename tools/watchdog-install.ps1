@@ -142,20 +142,23 @@ function Install-WatchdogSafely([string]$SourceDirectory){
       $stageNames=@($health.stages.Keys)
       $onlyControlStage=$stageNames.Count -eq 1 -and $stageNames[0] -ceq 'control' -and $health.stages.control.status -cne 'completed'
       $isDrift=if($null -ne $health.diagnosticBinding){$health.diagnosticBinding.code -ceq 'diagnostic_predecessor_changed'}else{$health.processDiagnostic.code -ceq 'probe_stage_failed' -and $health.processDiagnostic.stage -ceq 'control'}
-      if(-not $isDrift -or -not $onlyControlStage -or $health.admission.mode -cne 'running'){throw 'watchdog_install_requires_healthy_status'}
-      # A driver that cannot be parsed blocks the very install that would replace it, and it
-      # reports the same control-stage failure as drift while nothing has drifted. Admit that
-      # only when measured here: the installed driver must genuinely fail to parse and the
-      # candidate must genuinely parse, so this can only ever swap a broken driver for a sound
-      # one. Declared assets stay required for the drift case and are not consulted here.
+      # An installed driver that cannot be parsed blocks the very install that would replace
+      # it. That case is judged from the PREDECESSOR's own bytes, not from this snapshot: the
+      # snapshot runs the candidate's driver, so a candidate that fixes control reports
+      # control as completed and surfaces whatever the broken driver was hiding. Requiring a
+      # control-stage failure here would make the exception unreachable exactly when the
+      # candidate is the fix. The install can still only swap a broken driver for a sound one.
+      $unusableDriver=$false
       if(-not $declared.Count){
-        # An absent driver is not a broken one: a never-configured install has no driver to
+        # An absent driver is not a broken one: a never-configured install has nothing to
         # repair, so it keeps the ordinary requirement and this exception stays inapplicable.
         $installedDriver=Join-Path (Get-WatchInstalledDriverDirectory $c) 'watchdog-status-control.ps1'
-        if(-not (Test-Path -LiteralPath $installedDriver -PathType Leaf)){throw 'watchdog_install_requires_healthy_status'}
-        if(Test-WatchScriptParses $installedDriver){throw 'watchdog_install_requires_healthy_status'}
-        if(-not (Test-WatchScriptParses (Join-Path $SourceDirectory 'watchdog-status-control.ps1'))){throw 'watchdog_candidate_driver_invalid'}
+        $unusableDriver=(Test-Path -LiteralPath $installedDriver -PathType Leaf) -and -not (Test-WatchScriptParses $installedDriver)
+        if($unusableDriver -and -not (Test-WatchScriptParses (Join-Path $SourceDirectory 'watchdog-status-control.ps1'))){throw 'watchdog_candidate_driver_invalid'}
       }
+      if(-not $unusableDriver -and (-not $isDrift -or -not $onlyControlStage -or $health.admission.mode -cne 'running')){throw 'watchdog_install_requires_healthy_status'}
+      if($unusableDriver -and $health.admission.mode -cne 'running'){throw 'watchdog_install_requires_healthy_status'}
+      if(-not $unusableDriver -and -not $declared.Count){throw 'watchdog_install_requires_healthy_status'}
       elseif($null -ne $health.diagnosticBinding){$drifted=@($health.diagnosticBinding.assets|Sort-Object -Unique)}
       elseif($declared.Count){
         # No reported asset list: recompute it ourselves from the same four sources and
