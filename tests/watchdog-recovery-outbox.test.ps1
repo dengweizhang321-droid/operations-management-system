@@ -20,7 +20,7 @@ function Invoke-WatchDws($Arguments){
  Assert-Outbox (@($file).Count -eq 1) 'recovery send lacked a durable independent reservation'
  Assert-Outbox ((Read-WatchJson $StatePath).notification -ne 'sending') 'outbox send corrupted current monitoring state'
  if($script:ambiguous){throw 'synthetic delivery ambiguity'}
- @{success=$true;failedCount=0}
+ @{ok=$true;result=@{success=$true;errorCode=0;result=@{processQueryKey='fixture-key';invalidStaffIdList=@();flowControlledStaffIdList=@()}}}
  }catch{$script:wireError=$_.Exception.Message;throw}
 }
 try{

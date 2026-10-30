@@ -105,8 +105,10 @@ try {
     Assert-Diagnostic ((Read-WatchJson $StatePath).$slot -eq 'sending') 'network send preceded the durable reservation'
     Assert-Diagnostic ($Arguments -notcontains '--group' -and $Arguments -contains '--users') 'notification left the original private route'
     if($script:ambiguous){throw 'PRIVATE_SECRET'}
-    if($script:wireString){return @{success='true';failedCount=0;result=@{body='PRIVATE_SECRET'}}}
-    return @{success=$true;failedCount=0}
+    # Observed bot envelope: ok plus a nested result.success/errorCode and a
+    # per-target acknowledgement key. A string success must still be refused.
+    if($script:wireString){return @{ok='true';result=@{success='true';errorCode=0;result=@{processQueryKey='k';invalidStaffIdList=@();flowControlledStaffIdList=@();body='PRIVATE_SECRET'}}}}
+    return @{ok=$true;result=@{success=$true;errorCode=0;result=@{processQueryKey='fixture-key';invalidStaffIdList=@();flowControlledStaffIdList=@()}}}
   }
   $state=New-WatchState;$state.incident='fixture-send';$state.firstFailure='2026-10-11T05:36:28Z'
   Send-WatchAlert $state $s 'alert_only';Send-WatchAlert $state $s 'alert_only'
