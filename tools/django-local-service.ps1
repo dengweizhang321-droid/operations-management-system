@@ -2647,12 +2647,19 @@ function Get-ProcessSnapshot([int]$ProcessId, [int]$Attempts = 20) {
     # $null absence, or the metadata-unavailable throw) are identical either
     # way. This keeps the cache from ever being the thing that establishes
     # absence or satisfies the metadata-unavailable case.
-    $rows = if ($attempt -eq 1 -and $null -ne $script:ProcessSnapshotCache -and
-        $script:ProcessSnapshotCache.ContainsKey($ProcessId)) {
-      @($script:ProcessSnapshotCache[$ProcessId])
-    } else {
-      @(Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction Stop)
-    }
+    # The @() must wrap the whole if-expression, not each branch: a branch's
+    # single-element array is unwrapped on its way out of the if, leaving a
+    # bare CimInstance whose .Count is $null, so neither the ambiguity check
+    # nor the -eq 1 resolution below would fire and every lookup would report
+    # false absence.
+    $rows = @(
+      if ($attempt -eq 1 -and $null -ne $script:ProcessSnapshotCache -and
+          $script:ProcessSnapshotCache.ContainsKey($ProcessId)) {
+        $script:ProcessSnapshotCache[$ProcessId]
+      } else {
+        Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction Stop
+      }
+    )
     if ($rows.Count -gt 1) { throw "Ambiguous process metadata: $ProcessId" }
     $process = if ($rows.Count -eq 1) { $rows[0] } else { $null }
     if ($process -and ([string]::IsNullOrWhiteSpace([string]$process.ExecutablePath) -or
