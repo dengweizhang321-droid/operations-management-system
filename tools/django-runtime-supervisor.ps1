@@ -1036,13 +1036,18 @@ if (-not $librarySupervisorMode) {
       } catch {
         # A PowerShell "throw '<message>'" inside the ownership check itself
         # (identity mismatch, PID reuse, ambiguous metadata, ...) always
-        # surfaces as RuntimeException: the check ran and found a problem.
-        # Any other exception type (ArgumentNullException, parameter binding
-        # failures, missing-script errors, ...) means the check could not
-        # run at all - most commonly because a path variable it depends on
-        # was never initialized. Those two situations must not share a label:
-        # the second one is about this diagnostic, not about the supervisor.
-        if ($_.Exception -is [Management.Automation.RuntimeException]) {
+        # surfaces as the EXACT type System.Management.Automation.
+        # RuntimeException: the check ran and found a problem. Matching with
+        # "-is" would also admit every subclass of RuntimeException, which
+        # includes ParameterBindingException/ParameterBindingValidationException -
+        # an infrastructure failure (a path variable bound incorrectly), not
+        # a resolved identity mismatch. Those two situations must not share
+        # a label: an exact-type match keeps this to bare "throw '<message>'"
+        # only, so ArgumentNullException, any ParameterBindingException
+        # subclass, missing-script errors, etc. all fall to the "check could
+        # not run" branch below, regardless of what base class they derive
+        # from.
+        if ($_.Exception.GetType() -eq [Management.Automation.RuntimeException]) {
           $processStatus = "ownership_error"
         } else {
           $processStatus = "ownership_check_failed"

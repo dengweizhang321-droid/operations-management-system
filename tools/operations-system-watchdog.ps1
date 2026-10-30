@@ -55,9 +55,15 @@ function Get-WatchSanitizedStderrSummary([string]$Value){
   # the single-letter-drive path pattern below ("s:" followed by "//...").
   $text=[regex]::Replace($text,'(?i)\b[a-z][a-z0-9+.-]*://[^\s"'']*','[url]')
   $text=[regex]::Replace($text,'(?<![A-Za-z0-9])[A-Za-z]:[\\/][^\s"'']*','[path]')
-  $text=[regex]::Replace($text,'\\\\[^\s"'']+','[path]')
-  $text=[regex]::Replace($text,'(?i)(authorization)\s*:\s*(bearer\s+)?\S+','$1=[redacted]')
-  $text=[regex]::Replace($text,'(?i)(bearer|token|secret|password|credential|apikey|api[_-]?key|accesstoken)\s*[:=]\s*\S+','$1=[redacted]')
+  $text=[regex]::Replace($text,'(?:\\\\|//)[^\s"'']+','[path]')
+  # "Authorization: <scheme> <value>" or "Authorization: <value>": redact the
+  # whole remainder (scheme word included), not just the first token after
+  # the colon - a credential value never stops at the scheme name.
+  $text=[regex]::Replace($text,'(?i)(authorization)\s*:\s*(?:[a-z0-9._-]+\s+)?\S+','$1=[redacted]')
+  # A standalone "Bearer <token>" not already consumed above (e.g. no
+  # leading "Authorization:" label) must still redact the token.
+  $text=[regex]::Replace($text,'(?i)\bbearer\s+\S+','bearer=[redacted]')
+  $text=[regex]::Replace($text,'(?i)\b(token|secret|password|credential|apikey|api[_-]?key|accesstoken)\s*[:=]\s*\S+','$1=[redacted]')
   $text=[regex]::Replace($text,'[0-9a-fA-F]{24,}','[redacted]')
   return $text.Trim()
 }

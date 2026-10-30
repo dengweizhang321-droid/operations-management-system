@@ -115,7 +115,93 @@ try {
     }
   }
 
-  # --- Case 3: normal (non-library) mode must still reject a RuntimeRoot
+  # --- Case 3b: production-side check for ownership_check_failed and
+  # ownership_error. This runs the REAL "Status" action body as currently
+  # extracted from source by tools/prepare-watchdog-supervisor-status-driver.mjs
+  # (the exact same extraction the generated driver uses), not a
+  # hand-copied stand-in. If that catch block's classification logic is
+  # ever removed or weakened, this test must go red - unlike a test that
+  # only exercises the consuming side (Get-WatchDecision/
+  # Get-WatchFailureText), which cannot detect that the supervisor script
+  # itself stopped producing the value at all.
+  #
+  # Resolve-SupervisorProcess is overridden with a controlled throw so the
+  # trigger is deterministic and independent of exactly which internal
+  # exception type a real identity check happens to surface; the code under
+  # test here is the catch block's classification logic, not
+  # Resolve-SupervisorProcess's own body (that is covered separately in
+  # Cases 1/2 and in watchdog-supervisor-readonly.test.mjs).
+  $extractorModule = Join-Path $PSScriptRoot '..\tools\prepare-watchdog-supervisor-status-driver.mjs'
+  $nodeExe = (Get-Command 'node.exe' -ErrorAction SilentlyContinue)
+  if (-not $nodeExe) { $nodeExe = Get-Command 'node' -ErrorAction Stop }
+  $extractScript = Join-Path ([IO.Path]::GetTempPath()) ('teruisi-extract-status-' + [Guid]::NewGuid().ToString('N') + '.mjs')
+  $statusOutFile = Join-Path ([IO.Path]::GetTempPath()) ('teruisi-extract-status-' + [Guid]::NewGuid().ToString('N') + '.txt')
+  try {
+    # node's default ESM loader rejects a bare absolute Windows path
+    # ("D:\...") as an import specifier (ERR_UNSUPPORTED_ESM_URL_SCHEME);
+    # it must be converted to a file:// URL first.
+    $extractorModuleEscaped = $extractorModule.Replace('\', '\\').Replace("'", "\'")
+    $supervisorSourceEscaped = $supervisorSource.Replace('\', '\\').Replace("'", "\'")
+    $statusOutFileEscaped = $statusOutFile.Replace('\', '\\').Replace("'", "\'")
+    $extractSource = "import {pathToFileURL} from 'node:url';" +
+      "import fs from 'node:fs/promises';" +
+      "const {readonlySupervisor} = await import(pathToFileURL('$extractorModuleEscaped').href);" +
+      "const source = await fs.readFile('$supervisorSourceEscaped', 'utf8');" +
+      "const result = readonlySupervisor(source);" +
+      "await fs.writeFile('$statusOutFileEscaped', result.status);"
+    [IO.File]::WriteAllText($extractScript, $extractSource, [Text.UTF8Encoding]::new($false))
+    $nodeProc = Start-Process -FilePath $nodeExe.Source -ArgumentList @($extractScript) -PassThru -Wait -WindowStyle Hidden -RedirectStandardOutput ([IO.Path]::GetTempFileName()) -RedirectStandardError ([IO.Path]::GetTempFileName())
+    Assert-LibraryMode ($nodeProc.ExitCode -eq 0) 'extracting the real Status action body via the production .mjs failed'
+    $statusBodyText = [IO.File]::ReadAllText($statusOutFile)
+    Assert-LibraryMode ($statusBodyText -match 'ownership_check_failed' -and $statusBodyText -match 'ownership_error') 'the extracted production Status body no longer contains both classification labels'
+    $statusBlock = [scriptblock]::Create($statusBodyText)
+
+    & {
+      $env:TERUISI_DJANGO_SUPERVISOR_LIBRARY_ONLY = '1'
+      try {
+        . $fixtureSupervisor -Action Status -RuntimeRoot $fixtureRoot
+
+        # Sub-case: a genuine identity mismatch (bare "throw '<message>'",
+        # exact RuntimeException) must still classify as ownership_error
+        # through the real extracted body, not just in a hand-written test.
+        function Resolve-SupervisorProcess { throw 'synthetic identity mismatch' }
+        $result = & $statusBlock
+        Assert-LibraryMode ($result.supervisorProcess -eq 'ownership_error') "the real production Status body did not classify a bare throw as ownership_error (got $($result.supervisorProcess))"
+        Assert-LibraryMode ([string]::IsNullOrEmpty($result.supervisorProcessErrorType)) 'ownership_error must not carry an exception type name - that field is specific to ownership_check_failed'
+
+        # Sub-case: a check-infrastructure failure (any exception type other
+        # than the exact bare-throw RuntimeException - here a
+        # MethodInvocationException, matching the real original production
+        # bug's ArgumentNullException in kind, not in literal type) must
+        # classify as ownership_check_failed with the exception type name
+        # attached.
+        function Resolve-SupervisorProcess { throw [Management.Automation.MethodInvocationException]::new('synthetic check-infrastructure failure') }
+        $result = & $statusBlock
+        Assert-LibraryMode ($result.supervisorProcess -eq 'ownership_check_failed') "the real production Status body did not classify a non-bare-throw exception as ownership_check_failed (got $($result.supervisorProcess))"
+        Assert-LibraryMode ($result.supervisorProcessErrorType -ceq 'MethodInvocationException') "ownership_check_failed did not carry the correct exception type name (got '$($result.supervisorProcessErrorType)')"
+
+        # Sub-case: ParameterBindingValidationException is itself a subclass
+        # of RuntimeException (confirmed separately), so a naive "-is
+        # [RuntimeException]" check would wrongly admit it as ownership_error.
+        # It must still land in ownership_check_failed.
+        function Resolve-SupervisorProcess {
+          $cmd = { param([Parameter(Mandatory)][string]$X) }
+          & $cmd
+        }
+        $result = & $statusBlock
+        Assert-LibraryMode ($result.supervisorProcess -eq 'ownership_check_failed') "a RuntimeException SUBCLASS (parameter binding failure) was wrongly admitted as ownership_error (got $($result.supervisorProcess)); the discriminator must use an exact type match, not -is"
+        Assert-LibraryMode (-not [string]::IsNullOrEmpty($result.supervisorProcessErrorType)) 'ownership_check_failed from a RuntimeException subclass must still carry its exception type name'
+        Assert-LibraryMode ($result.supervisorProcessErrorType -cne 'RuntimeException') "ownership_check_failed reported the bare 'RuntimeException' type name for a subclass; expected the derived type name, e.g. ParameterBindingValidationException (got '$($result.supervisorProcessErrorType)')"
+      } finally {
+        Remove-Item Env:\TERUISI_DJANGO_SUPERVISOR_LIBRARY_ONLY -ErrorAction SilentlyContinue
+      }
+    }
+  } finally {
+    Remove-Item -LiteralPath $extractScript -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $statusOutFile -Force -ErrorAction SilentlyContinue
+  }
+
+  # --- Case 4: normal (non-library) mode must still reject a RuntimeRoot
   # outside the fixed protected runtime BEFORE dot-sourcing anything found
   # there. This is the security-ordering guarantee the fix must preserve:
   # path derivation becoming available in library mode must not let an
