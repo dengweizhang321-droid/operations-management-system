@@ -20,13 +20,13 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "30 12 * * *"
+              "expression": "50 12 * * *"
             }
           ]
         }
       },
       "id": "2f7d91b0f0fcc05d52f0e088979e46f6",
-      "name": "每天 12:30 执行",
+      "name": "每天 12:50 执行",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
       "position": [
@@ -260,6 +260,23 @@
         "height": 260,
         "content": "## 志高商用厨电旗舰店客服聊天记录（待采用）\n每天上海09:00，截至昨天滚动30天；共享helper等待5分钟、双视图导出、按日完整业务值等价、串行导入、精确批次复验均与设备店一致。\n\n固定店铺 jd-chudian-weizhang / 941935；使用原注册Profile、独立下载与恢复状态。禁止跨店接管或重放未决提交。\n\n须先受控采用新版helper及显式店铺导入，逐店完整验收，再启用；第4次独立失败AI介入和本人单聊通知须将新增workflow ID纳入原监控。现有设备店ai-2并未自动扩容，不能直接启用。"
       }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "teruisi-hourly-retry-c05d29871fcbebf3e30c7907f2855d933a17c46c",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "ae4fa634-958b-4259-a12b-71da2af03eb2",
+      "name": "失败后每小时安全重试入口",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -540,
+        320
+      ],
+      "webhookId": "5e9835f9-0ef3-4fc4-abd2-3933aea7379e"
     }
   ],
   "connections": {
@@ -274,7 +291,7 @@
         ]
       ]
     },
-    "每天 12:30 执行": {
+    "每天 12:50 执行": {
       "main": [
         [
           {
@@ -357,6 +374,17 @@
           }
         ]
       ]
+    },
+    "失败后每小时安全重试入口": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
@@ -373,7 +401,13 @@
       "dedicated_browser_end_to_end",
       "store_scoped_failure_ai_and_owner_notification"
     ],
-    "releaseProcedure": "controlled_helper_then_complete_execution_then_publish"
+    "releaseProcedure": "controlled_helper_then_complete_execution_then_publish",
+    "hourlyRetryPolicy": {
+      "version": "2026-09-10.safe-hourly-retry.1",
+      "delayMinutes": 60,
+      "errorWorkflowId": "TeruisiHourlyRetry2026",
+      "webhookPath": "teruisi-hourly-retry-c05d29871fcbebf3e30c7907f2855d933a17c46c"
+    }
   },
   "tags": []
 }

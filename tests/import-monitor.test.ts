@@ -9,19 +9,61 @@ import { scheduleErrorLabel } from "../lib/ai/schedule-presentation";
 test("customer-service monitoring binds exactly one registered workflow to each store", () => {
   const rules = catalog.rules.filter(rule => rule.chainKey === "jd_customer_service");
   assert.equal(rules.length, 4);
+  // Independently stated per 线上实际 (store, time-of-day), not copied from the file under test.
+  const liveSchedule: Record<string, string> = {
+    JdCustomerService2026: "10 13 * * *",
+    JdCustomerServiceCutMeat2026: "10 12 * * *",
+    JdCustomerServiceChudian2026: "50 12 * * *",
+    JdCustomerServiceDishwasher2026: "30 12 * * *",
+  };
   for (const store of jdCustomerServiceStores) {
     const rule = rules.find(rule => rule.workflowId === store.workflowId);
     assert.deepEqual(rule?.entityKeys, [store.storeKey]);
-    assert.deepEqual(rule?.schedules, ["0 9 * * *"]);
+    assert.deepEqual(rule?.schedules, [liveSchedule[store.workflowId]]);
   }
   assert.match(scheduleErrorLabel("provider_subscription_invalid"), /订阅.*密钥.*权限/);
   assert.match(scheduleErrorLabel("provider_error"), /模型服务拒绝/);
+});
+
+test("every chain's entities run at a unique time of day, and the definition file agrees with the generated directory", async () => {
+  const { buildImportChainCatalog } = await import("../tools/build-import-chain-catalog.mjs");
+  const rebuilt = await buildImportChainCatalog();
+  for (const chainKey of new Set(catalog.rules.map(rule => rule.chainKey))) {
+    const rulesInChain = catalog.rules.filter(rule => rule.chainKey === chainKey);
+    const rebuiltInChain = rebuilt.rules.filter((rule: { chainKey: string }) => rule.chainKey === chainKey);
+    const timesOfDay = rulesInChain.map(rule => rule.schedules.join(","));
+    // A regex over cron strings cannot tell "10 12" from "12 10"; compare the full
+    // generated-vs-rebuilt schedule arrays per workflow instead of a scraped count.
+    assert.equal(new Set(timesOfDay).size, timesOfDay.length,
+      `${chainKey} 下存在重复调度时点: ${JSON.stringify(timesOfDay)}`);
+    for (const rule of rulesInChain) {
+      const rebuiltRule = rebuiltInChain.find((candidate: { workflowId: string }) => candidate.workflowId === rule.workflowId);
+      assert.ok(rebuiltRule, `${rule.workflowId} 在重新生成的目录中缺失`);
+      assert.deepEqual(rule.schedules, rebuiltRule!.schedules,
+        `${rule.workflowId} 的 lib/imports/chain-catalog.generated.json 与 automation/n8n 定义文件不一致`);
+    }
+  }
+  // Cross-check with an independent per-source read, so a stale generated file
+  // that merely echoes its own prior (wrong) output cannot pass silently.
+  for (const [workflowId, fileName, expectedCron] of [
+    ["JdCustomerService2026", "jd-customer-service-daily.workflow.json", "10 13 * * *"],
+    ["JdCustomerServiceCutMeat2026", "jd-customer-service-cut-meat-daily.candidate.workflow.json", "10 12 * * *"],
+    ["JdCustomerServiceChudian2026", "jd-customer-service-chudian-daily.candidate.workflow.json", "50 12 * * *"],
+    ["JdCustomerServiceDishwasher2026", "jd-customer-service-dishwasher-daily.candidate.workflow.json", "30 12 * * *"],
+  ]) {
+    const definition = JSON.parse(await readFile(new URL(`../automation/n8n/${fileName}`, import.meta.url), "utf8"));
+    assert.equal(definition.id, workflowId);
+    const trigger = definition.nodes.find((node: { type: string }) => node.type === "n8n-nodes-base.scheduleTrigger");
+    assert.equal(trigger.parameters.rule.interval[0].expression, expectedCron, fileName);
+    const catalogRule = catalog.rules.find(rule => rule.workflowId === workflowId);
+    assert.deepEqual(catalogRule?.schedules, [expectedCron], fileName);
+  }
 });
 import { normalizeShellLocation } from "../app/shell/navigation-contract";
 
 test("inventory workflows use department and owner rows without inventing sales-store bindings", () => {
   for (const [key, workflowId, schedule] of [
-    ["jd_logistics", "JdLogisticsDaily2026", "0 8 * * *"],
+    ["jd_logistics", "JdLogisticsDaily2026", "50 8 * * *"],
     ["tmall_warehouse", "TmallWarehouseDaily2026", "20 8 * * *"],
   ]) {
     const rule = catalog.rules.find(rule => rule.workflowId === workflowId);
