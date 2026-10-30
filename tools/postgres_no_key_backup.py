@@ -30,6 +30,45 @@ KEY_TABLE = "public.protected_business_budget_v11_verifier_keys"
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 
+def _require_django_app_registry():
+    """Load the app registry so catalogue checks can import Django models.
+
+    From generation153 the catalogues compare against real model classes
+    (ai_assistant.pi_models), which need a populated registry; earlier
+    generations only read migration modules and so never did. The maintenance
+    operator runs this process with the approved libpq variables alone, so
+    nothing configures Django here and the import would raise
+    ImproperlyConfigured before any catalogue is read.
+
+    Verification keeps using the caller's cursor; Django's own connection is
+    never opened. The placeholder URL therefore carries no credential and only
+    pins the PostgreSQL backend, which is what db_type() reads. It also keeps
+    the deployed-app SQLite refusal intact, so a misconfigured environment can
+    never silently compare against a different vendor's column types.
+    """
+    from django.apps import apps
+
+    if apps.ready:
+        return
+    import os
+
+    import django
+
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "teruisi_backend.settings")
+    if not os.environ.get("TERUISI_DJANGO_DATABASE_URL"):
+        # No database is configured for this process, so supply the whole
+        # placeholder configuration rather than inherit half of one: a stray
+        # production marker from a parent shell would otherwise demand real
+        # credentials and block the backup on an unrelated variable.
+        os.environ["TERUISI_DJANGO_ENVIRONMENT"] = "development"
+        os.environ["DJANGO_DEBUG"] = "true"
+        os.environ["TERUISI_DJANGO_DATABASE_URL"] = (
+            "postgresql://catalogue-verification-only@127.0.0.1:5432/teruisi_sales"
+            "?sslmode=disable"
+        )
+    django.setup()
+
+
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"),
         ensure_ascii=True, allow_nan=False).encode("ascii")
@@ -41,6 +80,7 @@ def digest(value):
 
 def verify_receipt_generation(cursor, *, jd_permissions=True):
     """Exact closed catalogues and schema, never a row-count admission shortcut."""
+    _require_django_app_registry()
     from integration_migration_plan import load_policy, LEGACY_CATALOGUE_SHA256, DELTA_STEP
     policy = load_policy(Path(__file__).resolve().parents[1] / "config/integration-migration-policy-v3.json")
     baseline = sorted(policy.baseline + policy.steps)
