@@ -1,7 +1,7 @@
 {
   "version": "sales-preflight-index-mandatory-code-checks-v1",
   "status": "code-checked",
-  "checkedAt": "2026-10-29T14:59:04.907312+00:00",
+  "checkedAt": "2026-10-30T01:02:42.058572+00:00",
   "productionTouched": false,
   "functionalValidationPerformed": false,
   "steps": [
@@ -18,7 +18,7 @@
     ]
   ],
   "fullBackupOrRestorePerformed": false,
-  "codeSha256": "e411415d0a76aae5ba8648e3db2b306c82dcd786262eb8171eff6e593875b1a1",
+  "codeSha256": "e28cfe42b6684b1dea639af9da03510b6fc694a978bf33dda75d4dd1cfa10704",
   "migrationSha256": "f8f2c4c1d1007fd43934e7ac3d4e53a034d88f95efbd514e8d69d2e1dd633848",
   "checks": [
     "migration-closure",
@@ -27,7 +27,7 @@
     "python-syntax"
   ],
   "evidence": {
-    "path": "docs/schema-code-digest-20261029/MANDATORY-CHECKS.json",
-    "sha256": "0c749d77734d32bb5ec372ccf143e383805a26b1780f38146e51f2ddb6b2b58e"
+    "path": "docs/sales154-preservation-order-key-20261030/MANDATORY-CHECKS.json",
+    "sha256": "558004b81321cedf56e158b971bf6cd2bbdd1a7345477f349b178227a75a82b6"
   }
 }
