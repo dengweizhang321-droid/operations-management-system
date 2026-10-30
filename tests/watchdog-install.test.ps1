@@ -168,6 +168,47 @@ try{[IO.File]::WriteAllText($ReadyFile,'held');$until=[DateTimeOffset]::UtcNow.A
  Assert-Install ($blocked -and $failure -eq 'watchdog_requalify_asset_mismatch') 'recomputed drift (only worker) must reject an over-broad declared set'
  $script:driverBindingOverride=$null;$script:snapshotOverride=$null;$script:RequalifyDriftedAssets=''
 
+ # Unusable installed driver: a driver that cannot parse blocks the install that would
+ # replace it, so it is admitted without declared assets, but only when measured. A real
+ # candidate carries its generated driver, so these cases mirror a bundle directory.
+ $unusableSnapshot={@{healthy=$false;stages=@{control=@{status='failed';elapsedMs=1}};admission=@{mode='running'};diagnosticBinding=$null;processDiagnostic=@{code='probe_stage_failed';stage='control'}}}
+ function New-CandidateWithDriver([string]$Body){
+  $candidate=Join-Path $fixtureBase ('candidate-'+[guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path (Join-Path $candidate 'watchdog-launcher') -Force|Out-Null
+  foreach($name in @('operations-system-watchdog.ps1','process-deadline.ps1','watchdog-install.ps1')){Copy-Item -LiteralPath (Join-Path $sourceTools $name) -Destination (Join-Path $candidate $name) -Force}
+  Copy-Item -LiteralPath (Join-Path $sourceTools 'watchdog-launcher\NoConsoleLauncher.cs') -Destination (Join-Path $candidate 'watchdog-launcher\NoConsoleLauncher.cs') -Force
+  # The driver is all-or-nothing: Get-WatchInstallContext accepts 0 or 4 of its files.
+  [IO.File]::WriteAllText((Join-Path $candidate 'watchdog-status-control.ps1'),$Body)
+  [IO.File]::WriteAllText((Join-Path $candidate 'watchdog-status-backend.ps1'),"'candidate backend'`n")
+  [IO.File]::WriteAllText((Join-Path $candidate 'watchdog-core-overlay.ps1'),"'candidate overlay'`n")
+  Write-WatchJson (Join-Path $candidate 'driver-binding.json') @{version=1;assetHashes=@{control='a'*64;worker='b'*64;backend='c'*64;transport='d'*64}}
+  return $candidate
+ }
+ Setup-Fixture 'unusable-driver-repair'
+ [IO.File]::WriteAllText((Join-Path $WatchdogRoot 'watchdog-status-control.ps1'),"@{ A = 1`n  A = 2 }`n")
+ $candidate=New-CandidateWithDriver "'sound candidate driver'`n"
+ $script:ApprovedInstallPlanId=(Get-WatchInstallContext $candidate).planId
+ $script:snapshotOverride=&$unusableSnapshot;$script:RequalifyDriftedAssets=''
+ $result=$null;$failed=$false;try{$result=Install-WatchdogSafely $candidate}catch{$failed=$true}
+ Assert-Install (-not $failed -and $result.status -eq 'installed') 'an unparseable installed driver must admit the install that replaces it'
+
+ Setup-Fixture 'unusable-driver-bad-candidate'
+ [IO.File]::WriteAllText((Join-Path $WatchdogRoot 'watchdog-status-control.ps1'),"@{ A = 1`n  A = 2 }`n")
+ $candidate=New-CandidateWithDriver "@{ B = 1`n  B = 2 }`n"
+ $script:ApprovedInstallPlanId=(Get-WatchInstallContext $candidate).planId
+ $script:snapshotOverride=&$unusableSnapshot;$script:RequalifyDriftedAssets=''
+ $blocked=$false;$failure=$null;try{Install-WatchdogSafely $candidate|Out-Null}catch{$blocked=$true;$failure=$_.Exception.Message}
+ Assert-Install ($blocked -and $failure -eq 'watchdog_candidate_driver_invalid' -and $script:taskWrites -eq 0) 'a candidate driver that also fails to parse must be refused'
+
+ Setup-Fixture 'unusable-driver-sound-installed'
+ [IO.File]::WriteAllText((Join-Path $WatchdogRoot 'watchdog-status-control.ps1'),"'sound driver'`n")
+ $candidate=New-CandidateWithDriver "'sound candidate driver'`n"
+ $script:ApprovedInstallPlanId=(Get-WatchInstallContext $candidate).planId
+ $script:snapshotOverride=&$unusableSnapshot;$script:RequalifyDriftedAssets=''
+ $blocked=$false;$failure=$null;try{Install-WatchdogSafely $candidate|Out-Null}catch{$blocked=$true;$failure=$_.Exception.Message}
+ Assert-Install ($blocked -and $failure -eq 'watchdog_install_requires_healthy_status' -and $script:taskWrites -eq 0) 'a driver that parses must keep the ordinary healthy requirement'
+ $script:snapshotOverride=$null
+
  Setup-Fixture 'requalify-healthy-no-param-needed';$script:RequalifyDriftedAssets=''
  $result=$null;$failed=$false;try{$result=Install-WatchdogSafely $sourceTools}catch{$failed=$true}
  Assert-Install (-not $failed -and $result.status -eq 'installed') 'a healthy snapshot must still install without needing the new parameter'

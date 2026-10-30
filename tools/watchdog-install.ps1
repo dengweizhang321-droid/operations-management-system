@@ -103,6 +103,23 @@ function Write-WatchExactBytes([string]$Path,[byte[]]$Bytes){
     [IO.File]::Delete($backup)
   }else{[IO.File]::Move($temporary,$Path)}
 }
+function Get-WatchInstalledDriverDirectory($Context){
+  # A versioned install keeps its driver under versions\<bundleId>; a flat legacy install
+  # keeps it beside the entry script.
+  if($Context.old -and $Context.old.layout -ceq 'immutable-v1'){
+    if($Context.old.bundleId -cnotmatch '^[0-9a-f]{64}$'){throw 'watchdog_install_requires_healthy_status'}
+    $directory=Join-Path $Context.root ('versions\'+$Context.old.bundleId)
+    Assert-WatchContainedDirectory $Context.root $directory
+    return $directory
+  }
+  return $Context.root
+}
+function Test-WatchScriptParses([string]$Path){
+  if(-not (Test-Path -LiteralPath $Path -PathType Leaf)){return $false}
+  $errors=$null
+  [void][Management.Automation.Language.Parser]::ParseFile([IO.Path]::GetFullPath($Path),[ref]$null,[ref]$errors)
+  return @($errors).Count -eq 0
+}
 function Install-WatchdogSafely([string]$SourceDirectory){
   if(-not $Execute){throw 'Install requires Execute'}
   $lease=[Threading.Mutex]::new($false,(Get-WatchdogMutexName));$held=$false
@@ -125,28 +142,33 @@ function Install-WatchdogSafely([string]$SourceDirectory){
       $stageNames=@($health.stages.Keys)
       $onlyControlStage=$stageNames.Count -eq 1 -and $stageNames[0] -ceq 'control' -and $health.stages.control.status -cne 'completed'
       $isDrift=if($null -ne $health.diagnosticBinding){$health.diagnosticBinding.code -ceq 'diagnostic_predecessor_changed'}else{$health.processDiagnostic.code -ceq 'probe_stage_failed' -and $health.processDiagnostic.stage -ceq 'control'}
-      if(-not $declared.Count -or -not $isDrift -or -not $onlyControlStage -or $health.admission.mode -cne 'running'){throw 'watchdog_install_requires_healthy_status'}
-      if($null -ne $health.diagnosticBinding){$drifted=@($health.diagnosticBinding.assets|Sort-Object -Unique)}
-      else{
+      if(-not $isDrift -or -not $onlyControlStage -or $health.admission.mode -cne 'running'){throw 'watchdog_install_requires_healthy_status'}
+      # A driver that cannot be parsed blocks the very install that would replace it, and it
+      # reports the same control-stage failure as drift while nothing has drifted. Admit that
+      # only when measured here: the installed driver must genuinely fail to parse and the
+      # candidate must genuinely parse, so this can only ever swap a broken driver for a sound
+      # one. Declared assets stay required for the drift case and are not consulted here.
+      if(-not $declared.Count){
+        # An absent driver is not a broken one: a never-configured install has no driver to
+        # repair, so it keeps the ordinary requirement and this exception stays inapplicable.
+        $installedDriver=Join-Path (Get-WatchInstalledDriverDirectory $c) 'watchdog-status-control.ps1'
+        if(-not (Test-Path -LiteralPath $installedDriver -PathType Leaf)){throw 'watchdog_install_requires_healthy_status'}
+        if(Test-WatchScriptParses $installedDriver){throw 'watchdog_install_requires_healthy_status'}
+        if(-not (Test-WatchScriptParses (Join-Path $SourceDirectory 'watchdog-status-control.ps1'))){throw 'watchdog_candidate_driver_invalid'}
+      }
+      elseif($null -ne $health.diagnosticBinding){$drifted=@($health.diagnosticBinding.assets|Sort-Object -Unique)}
+      elseif($declared.Count){
         # No reported asset list: recompute it ourselves from the same four sources and
         # pinned hashes Resolve-WatchStatusControl compares, instead of trusting the caller.
         # Read the INSTALLED binding, not this candidate's: the installed pins are what the
         # running probe compares and therefore what made the status unhealthy. The candidate
         # normally carries regenerated pins that already match, which would report no drift.
-        # A versioned install keeps its driver under versions\<bundleId>; a flat legacy
-        # install keeps it beside the entry script.
-        $bindingDirectory=$c.root
-        if($c.old -and $c.old.layout -ceq 'immutable-v1'){
-          if($c.old.bundleId -cnotmatch '^[0-9a-f]{64}$'){throw 'watchdog_install_requires_healthy_status'}
-          $bindingDirectory=Join-Path $c.root ('versions\'+$c.old.bundleId)
-          Assert-WatchContainedDirectory $c.root $bindingDirectory
-        }
-        $binding=Read-WatchJson (Join-Path $bindingDirectory 'driver-binding.json')
+        $binding=Read-WatchJson (Join-Path (Get-WatchInstalledDriverDirectory $c) 'driver-binding.json')
         if(-not $binding -or $binding.version -ne 1){throw 'watchdog_install_requires_healthy_status'}
         $sources=@{control=$ControlPath;worker=$WorkerPath;backend=(Join-Path $BackendRoot 'app\tools\django-local-service.ps1');transport=(Join-Path $ProjectRoot 'tools\process-deadline.ps1')}
         $drifted=@($sources.Keys|Sort-Object|Where-Object {(Get-WatchHash $sources[$_]) -cne $binding.assetHashes.$_})
       }
-      if(@(Compare-Object $declared $drifted -SyncWindow 0).Count){throw 'watchdog_requalify_asset_mismatch'}
+      if($declared.Count -and @(Compare-Object $declared $drifted -SyncWindow 0).Count){throw 'watchdog_requalify_asset_mismatch'}
     }
     $again=Get-WatchInstallContext $SourceDirectory $PreparedLauncherPath $PreparedLauncherSha256
     if($again.planId -cne $c.planId){throw 'watchdog_install_plan_changed'}
