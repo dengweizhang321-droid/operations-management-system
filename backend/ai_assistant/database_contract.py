@@ -194,7 +194,6 @@ for table in {
     "ai_dingtalk_schedule_runs",
     "ai_memory_entries",
     "ai_chat_request_receipts",
-    "ai_write_request_receipts",
     "ai_agent_provider_dispatches",
     "ai_agent_tool_dispatches",
 }:

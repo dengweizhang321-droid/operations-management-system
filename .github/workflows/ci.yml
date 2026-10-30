@@ -102,3 +102,13 @@ jobs:
         # previously regressed silently (see script docstring), not
         # business behavior.
         run: npm run check:pi152-acl
+
+      - name: AI writer privilege coverage
+        # Static AST check (no DB, no Django import): fails if an ORM write
+        # call (.objects...delete()/.update()) in backend/ai_assistant/
+        # needs a privilege database_contract.WRITER_PRIVILEGES does not
+        # grant on that table. Guards the 2026-10-28 incident where
+        # ai_write_request_receipts was missing DELETE (see script
+        # docstring for scope and honest limitations), not business
+        # behavior.
+        run: npm run check:ai-writer-privilege-coverage
