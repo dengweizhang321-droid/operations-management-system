@@ -1,53 +1,65 @@
 from __future__ import annotations
 
 import json
+from unittest import skipUnless
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.core.cache import cache
+from django.db import connection, transaction
+from django.test import TestCase, TransactionTestCase
 
 from netshop.models import NetshopDataRevision, NetshopImportBatch, NetshopRow
 from sales.tests.factories import TEST_SECRET, signed_headers
 
 
-class NetshopConsumerContractTests(TestCase):
+class _NetshopFixtureMixin:
     def setUp(self) -> None:
-        NetshopDataRevision.objects.update_or_create(
-            domain="netshop", defaults={"revision": 2, "source_digest": "b" * 64}
-        )
-        NetshopImportBatch.objects.create(
-            id="master-1", source="jd_product_master", dataset="product_master",
-            platform="京东", shop_name="京东一店", file_name="master.xlsx",
-            file_size_bytes=10, file_hash="b" * 64, raw_file_hash="c" * 64,
-            content_hash="d" * 64, scope_key="e" * 64, published_state_token="f" * 64,
-            status="completed", row_count=1, inserted_count=1, created_at="2026-08-30T00:00:00Z",
-            completed_at="2026-08-30T00:01:00Z",
-        )
-        NetshopRow.objects.create(
-            source_row_key="master-row", source_row_hash="1" * 64,
-            first_import_batch_id="master-1", last_import_batch_id="master-1", source_row_number=2,
-            source="jd_product_master", dataset="product_master", platform="京东", shop_name="京东一店",
-            snapshot_date="2026-08-30", product_code="SPU-1", product_name="饮水机",
-            sku_id="SKU-1", spu_id="SPU-1", metrics_json={}, raw_json={"商家SKU": "ERP-1", "品牌": "志高"},
-            brand="志高", created_at="2026-08-30T00:00:00Z", updated_at="2026-08-30T00:00:00Z",
-        )
-        NetshopImportBatch.objects.create(
-            id="daily-1", source="jd_sku_daily", dataset="sku_daily", platform="京东",
-            shop_name="京东一店", file_name="daily.xlsx", file_size_bytes=10,
-            file_hash="2" * 64, raw_file_hash="3" * 64, content_hash="4" * 64,
-            scope_key="5" * 64, published_state_token="6" * 64, status="completed",
-            row_count=1, inserted_count=1, date_min="2026-08-30", date_max="2026-08-30",
-            created_at="2026-08-30T00:00:00Z", completed_at="2026-08-30T00:01:00Z",
-        )
-        NetshopRow.objects.create(
-            source_row_key="daily-row", source_row_hash="7" * 64,
-            first_import_batch_id="daily-1", last_import_batch_id="daily-1", source_row_number=2,
-            source="jd_sku_daily", dataset="sku_daily", platform="京东", shop_name="京东一店",
-            business_date="2026-08-30", product_code="P-1", product_name="饮水机",
-            sku_id="SKU-1", spu_id="SPU-1", metrics_json={"transactionAmountCents": 12345}, raw_json={},
-            transaction_amount_cents=12_345, created_at="2026-08-30T00:00:00Z", updated_at="2026-08-30T00:00:00Z",
-        )
-        NetshopDataRevision.objects.filter(domain="netshop").update(
-            revision=3, source_digest="a" * 64)
+        # The projection total is memoized per revision in the process-local
+        # cache, which outlives the per-test database rollback.
+        cache.clear()
+        # netshop's deferred commit trigger requires the revision bump below
+        # to land in the same DB transaction as the row writes. TestCase
+        # already wraps the whole test in one transaction, but
+        # TransactionTestCase does not, so this needs an explicit atomic
+        # block to satisfy the guard under both.
+        with transaction.atomic():
+            NetshopDataRevision.objects.update_or_create(
+                domain="netshop", defaults={"revision": 2, "source_digest": "b" * 64}
+            )
+            NetshopImportBatch.objects.create(
+                id="master-1", source="jd_product_master", dataset="product_master",
+                platform="京东", shop_name="京东一店", file_name="master.xlsx",
+                file_size_bytes=10, file_hash="b" * 64, raw_file_hash="c" * 64,
+                content_hash="d" * 64, scope_key="e" * 64, published_state_token="f" * 64,
+                status="completed", row_count=1, inserted_count=1, created_at="2026-08-30T00:00:00Z",
+                completed_at="2026-08-30T00:01:00Z",
+            )
+            NetshopRow.objects.create(
+                source_row_key="master-row", source_row_hash="1" * 64,
+                first_import_batch_id="master-1", last_import_batch_id="master-1", source_row_number=2,
+                source="jd_product_master", dataset="product_master", platform="京东", shop_name="京东一店",
+                snapshot_date="2026-08-30", product_code="SPU-1", product_name="饮水机",
+                sku_id="SKU-1", spu_id="SPU-1", metrics_json={}, raw_json={"商家SKU": "ERP-1", "品牌": "志高"},
+                brand="志高", created_at="2026-08-30T00:00:00Z", updated_at="2026-08-30T00:00:00Z",
+            )
+            NetshopImportBatch.objects.create(
+                id="daily-1", source="jd_sku_daily", dataset="sku_daily", platform="京东",
+                shop_name="京东一店", file_name="daily.xlsx", file_size_bytes=10,
+                file_hash="2" * 64, raw_file_hash="3" * 64, content_hash="4" * 64,
+                scope_key="5" * 64, published_state_token="6" * 64, status="completed",
+                row_count=1, inserted_count=1, date_min="2026-08-30", date_max="2026-08-30",
+                created_at="2026-08-30T00:00:00Z", completed_at="2026-08-30T00:01:00Z",
+            )
+            NetshopRow.objects.create(
+                source_row_key="daily-row", source_row_hash="7" * 64,
+                first_import_batch_id="daily-1", last_import_batch_id="daily-1", source_row_number=2,
+                source="jd_sku_daily", dataset="sku_daily", platform="京东", shop_name="京东一店",
+                business_date="2026-08-30", product_code="P-1", product_name="饮水机",
+                sku_id="SKU-1", spu_id="SPU-1", metrics_json={"transactionAmountCents": 12345}, raw_json={},
+                transaction_amount_cents=12_345, created_at="2026-08-30T00:00:00Z", updated_at="2026-08-30T00:00:00Z",
+            )
+            NetshopDataRevision.objects.filter(domain="netshop").update(
+                revision=3, source_digest="a" * 64)
 
     def query(self, payload: dict[str, object], *, scope=None, request_id="netshop-consumer"):
         body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
@@ -60,6 +72,8 @@ class NetshopConsumerContractTests(TestCase):
                 ),
             )
 
+
+class NetshopConsumerContractTests(_NetshopFixtureMixin, TestCase):
     def test_product_master_lookup_is_bounded_and_scope_aware(self) -> None:
         response = self.query({
             "operation": "product_master_lookup", "lookupCodes": ["ERP-1"],
@@ -99,6 +113,50 @@ class NetshopConsumerContractTests(TestCase):
         }, request_id="netshop-market-stale")
         self.assertEqual(changed.status_code, 409)
         self.assertEqual(changed.json()["code"], "version_conflict")
+
+    def test_market_projection_total_is_computed_once_per_revision(self) -> None:
+        from django.db import connection
+
+        # _projection_counts itself runs on every request (it owns the cache
+        # lookup); what must NOT repeat is the expensive work behind a cache
+        # hit. Count executions of the COUNT(*)-over-DISTINCT identity/brand
+        # queries, since those only run from inside counts() on an actual
+        # cache miss (the per-page row fetches run on every request and are
+        # not counts, so they must not be mistaken for a recomputation).
+        executed: list[str] = []
+
+        def count_identity_sql(execute, sql, params, many, context):
+            if sql.startswith("SELECT COUNT(*)") and "DISTINCT" in sql and "netshop_rows" in sql:
+                executed.append(sql)
+            return execute(sql, params, many, context)
+
+        page = {"operation": "market_projection_page", "offset": 0, "limit": 100,
+                "expectedRevision": None}
+        with connection.execute_wrapper(count_identity_sql):
+            first = self.query(page, request_id="netshop-total-first")
+            self.assertEqual(first.status_code, 200, first.content)
+            after_first = len(executed)
+            # One COUNT(*) for the identity DISTINCT and one for the brand
+            # DISTINCT; metric_rows.count() has no DISTINCT and is cheap, so
+            # it is not part of what this memo needs to protect.
+            self.assertEqual(after_first, 2, executed)
+            self.assertEqual(first.json()["data"]["total"], 4)
+
+            # Same revision: every later page must reuse the memo, so the
+            # expensive identity count must not run again.
+            for index in range(3):
+                repeat = self.query(page, request_id=f"netshop-total-repeat-{index}")
+                self.assertEqual(repeat.status_code, 200, repeat.content)
+            self.assertEqual(len(executed), after_first)
+
+            # A new revision must invalidate the memo rather than serve a
+            # stale total for data that has changed underneath it.
+            NetshopDataRevision.objects.filter(domain="netshop").update(
+                revision=4, source_digest="e" * 64
+            )
+            renewed = self.query(page, request_id="netshop-total-renewed")
+            self.assertEqual(renewed.status_code, 200, renewed.content)
+            self.assertGreater(len(executed), after_first)
 
     def test_search_latest_heads_preserve_scope_dates_ties_and_exact_pagination(self) -> None:
         from django.db.models import F, OuterRef, Subquery, Value
@@ -166,3 +224,48 @@ class NetshopConsumerContractTests(TestCase):
                             request_id="tmall-scope").json()["data"]
         self.assertEqual(scoped["total"], 1)
         self.assertEqual(scoped["items"][0]["id"], "tmall:京东一店")
+
+
+class NetshopConsumerProjectionBudgetTests(_NetshopFixtureMixin, TransactionTestCase):
+    # The implementation only widens statement_timeout when it is not already
+    # inside someone else's atomic block. Django's TestCase wraps every test
+    # in a transaction, which would make connection.in_atomic_block always
+    # True and hide the widening entirely, so this needs TransactionTestCase.
+    # Restricting the post-test flush to netshop's own tables avoids an
+    # unrelated whole-database FK ordering failure in other apps' protected
+    # tables (see market.tests.test_annotation_blockers_django for the same
+    # pattern).
+    available_apps = ["netshop"]
+
+    @skipUnless(connection.vendor == "postgresql", "statement_timeout widening is PostgreSQL-only")
+    def test_market_projection_total_widens_only_its_own_statement_budget(self) -> None:
+        from django.conf import settings
+        from netshop import consumers
+
+        executed: list[tuple[str, object]] = []
+        original = consumers._projection_counts
+
+        def record(*args, **kwargs):
+            with connection.execute_wrapper(
+                lambda execute, sql, params, many, context: (
+                    executed.append((sql, params)), execute(sql, params, many, context)
+                )[1]
+            ):
+                return original(*args, **kwargs)
+
+        with patch.object(consumers, "_projection_counts", side_effect=record):
+            response = self.query({
+                "operation": "market_projection_page", "offset": 0, "limit": 100,
+                "expectedRevision": None,
+            }, request_id="netshop-total-budget")
+        self.assertEqual(response.status_code, 200, response.content)
+
+        budget = [(sql, params) for sql, params in executed if "statement_timeout" in sql]
+        # Exactly one SET LOCAL, transaction-scoped (the `true` is_local
+        # argument) so it cannot leak to later requests, and carrying the
+        # configured timeout value.
+        self.assertEqual(len(budget), 1, executed)
+        sql, params = budget[0]
+        self.assertIn("set_config", sql)
+        self.assertIn("true", sql)
+        self.assertEqual(list(params), [str(settings.NETSHOP_PROJECTION_TOTAL_TIMEOUT_MS)])
