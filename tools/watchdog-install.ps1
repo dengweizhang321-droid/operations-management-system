@@ -114,7 +114,29 @@ function Install-WatchdogSafely([string]$SourceDirectory){
     $c=Get-WatchInstallContext $SourceDirectory $PreparedLauncherPath $PreparedLauncherSha256
     if($ApprovedInstallPlanId -cnotmatch '^[0-9a-f]{64}$' -or $ApprovedInstallPlanId -cne $c.planId){throw 'watchdog_install_plan_changed'}
     $health=Get-WatchSnapshot
-    if(-not $health.healthy){throw 'watchdog_install_requires_healthy_status'}
+    if(-not $health.healthy){
+      # Drift deadlock: fixing pinned-source drift needs an install, but drift itself keeps
+      # health false. The exact asset-set match below is what stops this being a blanket bypass.
+      # The running predecessor may predate diagnosticBinding and only report the generic
+      # control-stage probe failure, so either evidence shape admits the same narrow case.
+      $declared=@();if($RequalifyDriftedAssets){$declared=@($RequalifyDriftedAssets -split ',' |ForEach-Object {$_.Trim()}|Where-Object {$_}|Sort-Object -Unique)}
+      # Stages are recorded only as they run, so a later stage is absent rather than failed
+      # when control fails first. Require control to be the one and only recorded stage.
+      $stageNames=@($health.stages.Keys)
+      $onlyControlStage=$stageNames.Count -eq 1 -and $stageNames[0] -ceq 'control' -and $health.stages.control.status -cne 'completed'
+      $isDrift=if($null -ne $health.diagnosticBinding){$health.diagnosticBinding.code -ceq 'diagnostic_predecessor_changed'}else{$health.processDiagnostic.code -ceq 'probe_stage_failed' -and $health.processDiagnostic.stage -ceq 'control'}
+      if(-not $declared.Count -or -not $isDrift -or -not $onlyControlStage -or $health.admission.mode -cne 'running'){throw 'watchdog_install_requires_healthy_status'}
+      if($null -ne $health.diagnosticBinding){$drifted=@($health.diagnosticBinding.assets|Sort-Object -Unique)}
+      else{
+        # No reported asset list: recompute it ourselves from the same four sources and
+        # pinned hashes Resolve-WatchStatusControl compares, instead of trusting the caller.
+        $binding=Read-WatchJson (Join-Path $PSScriptRoot 'driver-binding.json')
+        if(-not $binding -or $binding.version -ne 1){throw 'watchdog_install_requires_healthy_status'}
+        $sources=@{control=$ControlPath;worker=$WorkerPath;backend=(Join-Path $BackendRoot 'app\tools\django-local-service.ps1');transport=(Join-Path $ProjectRoot 'tools\process-deadline.ps1')}
+        $drifted=@($sources.Keys|Sort-Object|Where-Object {(Get-WatchHash $sources[$_]) -cne $binding.assetHashes.$_})
+      }
+      if(@(Compare-Object $declared $drifted -SyncWindow 0).Count){throw 'watchdog_requalify_asset_mismatch'}
+    }
     $again=Get-WatchInstallContext $SourceDirectory $PreparedLauncherPath $PreparedLauncherSha256
     if($again.planId -cne $c.planId){throw 'watchdog_install_plan_changed'}
     if(-not(Test-Path -LiteralPath $c.root)){

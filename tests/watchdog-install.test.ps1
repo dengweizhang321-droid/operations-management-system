@@ -1,11 +1,20 @@
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot '..\tools\operations-system-watchdog.ps1') -FunctionsOnly
+${script:realReadWatchJson}=${function:Read-WatchJson}
 $fixtureBase=Join-Path ([IO.Path]::GetTempPath()) ('watchdog-install-tests-'+[guid]::NewGuid().ToString('N'))
 $sourceTools=Join-Path $PSScriptRoot '..\tools';$script:checks=0
 function Assert-Install($Condition,$Message){if(-not $Condition){throw $Message};$script:checks++}
 function Assert-WatchdogInstallRoot($Root){if(-not [IO.Path]::GetFullPath($Root).StartsWith($fixtureBase+'\')){throw 'test escaped fixture root'}}
 function Get-WatchdogMutexName {$script:testMutex}
-function Get-WatchSnapshot {if($script:case -eq 'became-running'){$script:fakeTask.State='Running'};@{healthy=($script:case -ne 'unhealthy')}}
+function Get-WatchSnapshot {
+ if($script:case -eq 'became-running'){$script:fakeTask.State='Running'}
+ if($script:snapshotOverride){return $script:snapshotOverride}
+ @{healthy=($script:case -ne 'unhealthy')}
+}
+function Read-WatchJson([string]$Path){
+ if($script:driverBindingOverride -and [IO.Path]::GetFullPath($Path) -ieq [IO.Path]::GetFullPath((Join-Path $sourceTools 'driver-binding.json'))){return $script:driverBindingOverride}
+ & $script:realReadWatchJson $Path
+}
 function Get-ScheduledTask { $script:fakeTask }
 function Export-ScheduledTask { $script:fakeTask|ConvertTo-Json -Depth 8 -Compress }
 function New-ScheduledTaskAction {param($Execute,$WorkingDirectory,$Argument) [pscustomobject]@{Execute=$Execute;WorkingDirectory=$WorkingDirectory;Arguments=$Argument}}
@@ -78,5 +87,88 @@ try{[IO.File]::WriteAllText($ReadyFile,'held');$until=[DateTimeOffset]::UtcNow.A
  }finally{[IO.File]::WriteAllText($releaseFile,'release');if(-not $holder.WaitForExit(5000)){$holder.Kill();$holder.WaitForExit(1000)|Out-Null};$holder.Dispose()}
  Setup-Fixture 'foreign-after';$blocked=$false;try{Install-WatchdogSafely $sourceTools|Out-Null}catch{$blocked=$_.Exception.Message -eq 'watchdog_install_rollback_unconfirmed'}
  Assert-Install ($blocked -and $script:fakeTask.Actions[0].Arguments -eq 'foreign') 'rollback took over an unknown task'
+
+ # RequalifyDriftedAssets: the narrow deadlock-break gate.
+ function New-DriftSnapshot([string[]]$Assets,[string]$FailedExtraStage,[string]$AdmissionMode='running'){
+  $stages=@{control=@{status='failed';elapsedMs=1}}
+  if($FailedExtraStage){$stages[$FailedExtraStage]=@{status='failed';elapsedMs=1}}
+  @{healthy=$false;stages=$stages;admission=@{mode=$AdmissionMode};diagnosticBinding=@{code='diagnostic_predecessor_changed';assets=$Assets};processDiagnostic=@{code='probe_stage_failed';stage='control'}}
+ }
+ Setup-Fixture 'requalify-default-unchanged'
+ $script:snapshotOverride=New-DriftSnapshot @('control','worker')
+ $script:RequalifyDriftedAssets=''
+ $blocked=$false;$failure=$null;try{Install-WatchdogSafely $sourceTools|Out-Null}catch{$blocked=$true;$failure=$_.Exception.Message}
+ Assert-Install ($blocked -and $failure -eq 'watchdog_install_requires_healthy_status' -and $script:taskWrites -eq 0) 'default behaviour must still require healthy status without RequalifyDriftedAssets'
+
+ Setup-Fixture 'requalify-exact-match'
+ $script:snapshotOverride=New-DriftSnapshot @('control','worker')
+ $script:RequalifyDriftedAssets='worker,control'
+ $result=$null;$failed=$false;try{$result=Install-WatchdogSafely $sourceTools}catch{$failed=$true}
+ Assert-Install (-not $failed -and $result.status -eq 'installed') 'exact declared/drifted match with only control stage failed must pass the health gate'
+ $script:snapshotOverride=$null
+
+ foreach($bad in @(@('control'),@('control','worker','backend'),@('worker','backend'))){
+  Setup-Fixture ('requalify-mismatch-'+($bad -join '-'))
+  $script:snapshotOverride=New-DriftSnapshot @('control','worker')
+  $script:RequalifyDriftedAssets=($bad -join ',')
+  $blocked=$false;$failure=$null;try{Install-WatchdogSafely $sourceTools|Out-Null}catch{$blocked=$true;$failure=$_.Exception.Message}
+  Assert-Install ($blocked -and $failure -eq 'watchdog_requalify_asset_mismatch' -and $script:taskWrites -eq 0) "declared set $($bad -join ',') must throw watchdog_requalify_asset_mismatch"
+ }
+ $script:snapshotOverride=$null
+
+ Setup-Fixture 'requalify-other-stage-failed'
+ $script:snapshotOverride=New-DriftSnapshot @('control','worker') 'supervisor'
+ $script:RequalifyDriftedAssets='control,worker'
+ $blocked=$false;$failure=$null;try{Install-WatchdogSafely $sourceTools|Out-Null}catch{$blocked=$true;$failure=$_.Exception.Message}
+ Assert-Install ($blocked -and $failure -eq 'watchdog_install_requires_healthy_status') 'a different failed stage must still require healthy status even with assets declared'
+ $script:snapshotOverride=$null
+
+ Setup-Fixture 'requalify-not-drift-code'
+ $script:snapshotOverride=@{healthy=$false;stages=@{control=@{status='failed';elapsedMs=1}};admission=@{mode='running'};diagnosticBinding=@{code='invalid_diagnostic_binding';assets=@('control')};processDiagnostic=@{code='probe_stage_failed';stage='control'}}
+ $script:RequalifyDriftedAssets='control'
+ $blocked=$false;$failure=$null;try{Install-WatchdogSafely $sourceTools|Out-Null}catch{$blocked=$true;$failure=$_.Exception.Message}
+ Assert-Install ($blocked -and $failure -eq 'watchdog_install_requires_healthy_status') 'a non-drift diagnosticBinding code must still require healthy status'
+ $script:snapshotOverride=$null
+
+ Setup-Fixture 'requalify-admission-not-running'
+ $script:snapshotOverride=New-DriftSnapshot @('control','worker') $null 'maintenance'
+ $script:RequalifyDriftedAssets='control,worker'
+ $blocked=$false;$failure=$null;try{Install-WatchdogSafely $sourceTools|Out-Null}catch{$blocked=$true;$failure=$_.Exception.Message}
+ Assert-Install ($blocked -and $failure -eq 'watchdog_install_requires_healthy_status') 'admission.mode other than running must still require healthy status'
+ $script:snapshotOverride=$null
+
+ # Production-matching path: the running predecessor predates diagnosticBinding and only
+ # reports the generic control-stage probe failure. The gate must self-recompute drift from
+ # driver-binding.json and the four tracked sources instead of trusting an absent asset list.
+ Setup-Fixture 'requalify-no-binding-recompute'
+ $script:ControlPath=Join-Path $WatchdogRoot 'fixture-control.ps1';[IO.File]::WriteAllText($script:ControlPath,'control v1')
+ $script:WorkerPath=Join-Path $WatchdogRoot 'fixture-worker.ps1';[IO.File]::WriteAllText($script:WorkerPath,'worker v1')
+ $script:BackendRoot=Join-Path $WatchdogRoot 'backend';New-Item -ItemType Directory -Path (Join-Path $script:BackendRoot 'app\tools') -Force|Out-Null
+ $backendScript=Join-Path $script:BackendRoot 'app\tools\django-local-service.ps1';[IO.File]::WriteAllText($backendScript,'backend v1')
+ $script:ProjectRoot=Join-Path $WatchdogRoot 'project';New-Item -ItemType Directory -Path (Join-Path $script:ProjectRoot 'tools') -Force|Out-Null
+ $transportScript=Join-Path $script:ProjectRoot 'tools\process-deadline.ps1';[IO.File]::WriteAllText($transportScript,'transport v1')
+ $script:driverBindingOverride=@{version=1;assetHashes=@{control=Get-WatchHash $script:ControlPath;worker='f'*64;backend=Get-WatchHash $backendScript;transport=Get-WatchHash $transportScript}}
+ $script:snapshotOverride=@{healthy=$false;stages=@{control=@{status='failed';elapsedMs=1}};admission=@{mode='running'};diagnosticBinding=$null;processDiagnostic=@{code='probe_stage_failed';stage='control'}}
+ $script:RequalifyDriftedAssets='worker'
+ $result=$null;$failed=$false;try{$result=Install-WatchdogSafely $sourceTools}catch{$failed=$true}
+ Assert-Install (-not $failed -and $result.status -eq 'installed') 'no-diagnosticBinding snapshot must recompute drift from driver-binding.json and pass when it matches'
+ Setup-Fixture 'requalify-no-binding-recompute-mismatch'
+ $script:ControlPath=Join-Path $WatchdogRoot 'fixture-control.ps1';[IO.File]::WriteAllText($script:ControlPath,'control v1')
+ $script:WorkerPath=Join-Path $WatchdogRoot 'fixture-worker.ps1';[IO.File]::WriteAllText($script:WorkerPath,'worker v1')
+ $script:BackendRoot=Join-Path $WatchdogRoot 'backend';New-Item -ItemType Directory -Path (Join-Path $script:BackendRoot 'app\tools') -Force|Out-Null
+ $backendScript=Join-Path $script:BackendRoot 'app\tools\django-local-service.ps1';[IO.File]::WriteAllText($backendScript,'backend v1')
+ $script:ProjectRoot=Join-Path $WatchdogRoot 'project';New-Item -ItemType Directory -Path (Join-Path $script:ProjectRoot 'tools') -Force|Out-Null
+ $transportScript=Join-Path $script:ProjectRoot 'tools\process-deadline.ps1';[IO.File]::WriteAllText($transportScript,'transport v1')
+ $script:driverBindingOverride=@{version=1;assetHashes=@{control=Get-WatchHash $script:ControlPath;worker='f'*64;backend=Get-WatchHash $backendScript;transport=Get-WatchHash $transportScript}}
+ $script:snapshotOverride=@{healthy=$false;stages=@{control=@{status='failed';elapsedMs=1}};admission=@{mode='running'};diagnosticBinding=$null;processDiagnostic=@{code='probe_stage_failed';stage='control'}}
+ $script:RequalifyDriftedAssets='control,worker'
+ $blocked=$false;$failure=$null;try{Install-WatchdogSafely $sourceTools|Out-Null}catch{$blocked=$true;$failure=$_.Exception.Message}
+ Assert-Install ($blocked -and $failure -eq 'watchdog_requalify_asset_mismatch') 'recomputed drift (only worker) must reject an over-broad declared set'
+ $script:driverBindingOverride=$null;$script:snapshotOverride=$null;$script:RequalifyDriftedAssets=''
+
+ Setup-Fixture 'requalify-healthy-no-param-needed';$script:RequalifyDriftedAssets=''
+ $result=$null;$failed=$false;try{$result=Install-WatchdogSafely $sourceTools}catch{$failed=$true}
+ Assert-Install (-not $failed -and $result.status -eq 'installed') 'a healthy snapshot must still install without needing the new parameter'
+
  @{passed=$script:checks;productionTouched=$false;actualScheduledTasksChanged=$false;actualMessagesSent=$false}|ConvertTo-Json -Compress
 }finally{if([IO.Path]::GetFullPath($fixtureBase).StartsWith([IO.Path]::GetTempPath()) -and (Split-Path $fixtureBase -Leaf) -match '^watchdog-install-tests-[0-9a-f]{32}$'){Remove-Item -LiteralPath $fixtureBase -Recurse -Force}}

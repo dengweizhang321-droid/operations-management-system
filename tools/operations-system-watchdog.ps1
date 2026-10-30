@@ -6,7 +6,8 @@ param(
   [switch]$FunctionsOnly,
   [string]$ApprovedInstallPlanId='',
   [string]$PreparedLauncherPath='',
-  [string]$PreparedLauncherSha256=''
+  [string]$PreparedLauncherSha256='',
+  [string]$RequalifyDriftedAssets=''
 )
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'process-deadline.ps1')
