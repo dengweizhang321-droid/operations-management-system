@@ -24,3 +24,23 @@ test('readonly status driver pins its exact predecessor and refuses lifecycle ac
   for(const flag of ['-StopWorker','-Open']){const r=spawnSync('pwsh.exe',['-NoProfile','-File',path.join(out,'watchdog-status-control.ps1'),flag],{windowsHide:true,encoding:'utf8',timeout:10000});assert.notEqual(r.status,0);assert.match(r.stderr,/readonly_status_only/);}
  }finally{assert.equal(path.dirname(directory),os.tmpdir());assert.ok(path.basename(directory).startsWith('watchdog-driver-'));await rm(directory,{recursive:true,force:true})}
 });
+test('mirroring a control source that already has CoreDiagnostics/coreDiagnostics does not duplicate them',{skip:process.platform!=='win32'},async()=>{
+ const directory=await mkdtemp(path.join(os.tmpdir(),'watchdog-driver-'));
+ try{
+  const tools=path.join(directory,'tools'),runtime=path.join(directory,'runtime'),backendTools=path.join(runtime,'app','tools'),out=path.join(directory,'driver');
+  await mkdir(tools,{recursive:true});await mkdir(backendTools,{recursive:true});
+  const controlFile=path.join(tools,'operations-system-control.ps1'),workerFile=path.join(tools,'worker-local-service.ps1'),backendFile=path.join(backendTools,'django-local-service.ps1'),transportFile=path.join(tools,'process-deadline.ps1');
+  // Use the current real control source, which has already grown CoreDiagnostics/coreDiagnostics
+  // through normal development, unlike the pinned legacy fixture above.
+  await writeFile(controlFile,await readFile(path.resolve('tools/operations-system-control.ps1')));
+  await writeFile(workerFile,'fixture worker, never executed');await writeFile(backendFile,'fixture backend, never executed');await writeFile(transportFile,'fixture transport, never executed');
+  await prepareStatusDriver({outputDirectory:out,controlFile,workerFile,backendFile,transportFile,coreTemplateFile:path.resolve('tools/django-local-service.ps1'),controlTemplateFile:path.resolve('tools/operations-system-control.ps1')});
+  const controller=await readFile(path.join(out,'watchdog-status-control.ps1'),'utf8');
+  const count=(text,needle)=>text.split(needle).length-1;
+  assert.equal(count(controller,'CoreDiagnostics = Get-CoreReadinessDiagnostic $coreStatus'),1);
+  assert.equal(count(controller,'coreDiagnostics = $backendState.CoreDiagnostics'),1);
+  assert.equal(count(controller,'statusTimings ='),1);
+  const r=spawnSync('pwsh.exe',['-NoProfile','-Command',`$errs=$null; $null=[System.Management.Automation.Language.Parser]::ParseFile('${path.join(out,'watchdog-status-control.ps1').replace(/\\/g,'\\\\')}',[ref]$null,[ref]$errs); $errs.Count`],{windowsHide:true,encoding:'utf8',timeout:10000});
+  assert.equal(r.stdout.trim(),'0',r.stdout+r.stderr);
+ }finally{assert.equal(path.dirname(directory),os.tmpdir());assert.ok(path.basename(directory).startsWith('watchdog-driver-'));await rm(directory,{recursive:true,force:true})}
+});

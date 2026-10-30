@@ -12,7 +12,9 @@ function Get-WatchSnapshot {
  @{healthy=($script:case -ne 'unhealthy')}
 }
 function Read-WatchJson([string]$Path){
- if($script:driverBindingOverride -and [IO.Path]::GetFullPath($Path) -ieq [IO.Path]::GetFullPath((Join-Path $sourceTools 'driver-binding.json'))){return $script:driverBindingOverride}
+ # The gate reads the INSTALLED binding (beside the entry script for a flat legacy install),
+ # not the candidate's, so serve the override from the fixture root.
+ if($script:driverBindingOverride -and [IO.Path]::GetFullPath($Path) -ieq [IO.Path]::GetFullPath((Join-Path $WatchdogRoot 'driver-binding.json'))){return $script:driverBindingOverride}
  & $script:realReadWatchJson $Path
 }
 function Get-ScheduledTask { $script:fakeTask }

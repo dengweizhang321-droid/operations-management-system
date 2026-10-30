@@ -130,7 +130,18 @@ function Install-WatchdogSafely([string]$SourceDirectory){
       else{
         # No reported asset list: recompute it ourselves from the same four sources and
         # pinned hashes Resolve-WatchStatusControl compares, instead of trusting the caller.
-        $binding=Read-WatchJson (Join-Path $PSScriptRoot 'driver-binding.json')
+        # Read the INSTALLED binding, not this candidate's: the installed pins are what the
+        # running probe compares and therefore what made the status unhealthy. The candidate
+        # normally carries regenerated pins that already match, which would report no drift.
+        # A versioned install keeps its driver under versions\<bundleId>; a flat legacy
+        # install keeps it beside the entry script.
+        $bindingDirectory=$c.root
+        if($c.old -and $c.old.layout -ceq 'immutable-v1'){
+          if($c.old.bundleId -cnotmatch '^[0-9a-f]{64}$'){throw 'watchdog_install_requires_healthy_status'}
+          $bindingDirectory=Join-Path $c.root ('versions\'+$c.old.bundleId)
+          Assert-WatchContainedDirectory $c.root $bindingDirectory
+        }
+        $binding=Read-WatchJson (Join-Path $bindingDirectory 'driver-binding.json')
         if(-not $binding -or $binding.version -ne 1){throw 'watchdog_install_requires_healthy_status'}
         $sources=@{control=$ControlPath;worker=$WorkerPath;backend=(Join-Path $BackendRoot 'app\tools\django-local-service.ps1');transport=(Join-Path $ProjectRoot 'tools\process-deadline.ps1')}
         $drifted=@($sources.Keys|Sort-Object|Where-Object {(Get-WatchHash $sources[$_]) -cne $binding.assetHashes.$_})
