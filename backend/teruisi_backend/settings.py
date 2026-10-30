@@ -205,6 +205,17 @@ USE_I18N = True
 USE_TZ = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SALES_READ_CACHE_SECONDS = env_int("TERUISI_DJANGO_SALES_CACHE_SECONDS", 60, 0, 3600)
+# The market projection total is a constant for one netshop revision, but its
+# identity term is a full-table aggregate costing far more than the reader's
+# statement_timeout allows. Memoize it per revision and give that single
+# computation its own wider budget; every later page of the same revision
+# reads the memo instead of re-running the aggregate.
+NETSHOP_PROJECTION_TOTAL_CACHE_SECONDS = env_int(
+    "TERUISI_DJANGO_NETSHOP_PROJECTION_TOTAL_CACHE_SECONDS", 900, 0, 3600
+)
+NETSHOP_PROJECTION_TOTAL_TIMEOUT_MS = env_int(
+    "TERUISI_DJANGO_NETSHOP_PROJECTION_TOTAL_TIMEOUT_MS", 60_000, 1_000, 300_000
+)
 ERP_REFERENCE_SYNC_MAX_AGE_SECONDS = env_int(
     "TERUISI_DJANGO_ERP_SYNC_MAX_AGE_SECONDS", 60, 30, 3600
 )

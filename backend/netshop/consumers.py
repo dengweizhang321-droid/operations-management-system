@@ -219,6 +219,56 @@ def _projection_key(kind: str, *values: object) -> str:
     return f"{kind}:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
 
 
+def _projection_counts(
+    revision: str,
+    platforms: list[str] | None,
+    *,
+    metric_rows,
+    identity_values,
+    brand_values,
+) -> tuple[int, int, int]:
+    """Return the three projection section sizes for one netshop revision.
+
+    The identity term is a DISTINCT over four columns of the whole
+    netshop_rows table. It costs far more than the reader's statement_timeout
+    allows, yet the projection sync pages through the whole projection and
+    needs the same total on every page. The three counts are constants for a
+    given revision and platform scope, so compute them once under a wider
+    per-statement budget and serve later pages from the memo.
+    """
+    from django.conf import settings
+    from django.core.cache import cache
+    from django.db import connection, transaction
+
+    scope = "*" if platforms is None else "\x1f".join(platforms)
+    cache_key = _projection_key("market-projection-total:v1", revision, scope)
+    seconds = settings.NETSHOP_PROJECTION_TOTAL_CACHE_SECONDS
+    if seconds > 0:
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+    def counts() -> tuple[int, int, int]:
+        return (metric_rows.count(), identity_values.count(), brand_values.count())
+
+    # SET LOCAL needs a transaction, and only PostgreSQL has statement_timeout.
+    # Inside an existing atomic block the caller already owns the budget, so
+    # leave its setting alone rather than widening someone else's transaction.
+    if connection.vendor != "postgresql" or connection.in_atomic_block:
+        value = counts()
+    else:
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('statement_timeout', %s, true)",
+                    [str(settings.NETSHOP_PROJECTION_TOTAL_TIMEOUT_MS)],
+                )
+            value = counts()
+    if seconds > 0:
+        cache.set(cache_key, value, timeout=seconds)
+    return value
+
+
 def _market_projection_page(
     principal: Principal, request: dict[str, object]
 ) -> dict[str, object]:
@@ -248,9 +298,13 @@ def _market_projection_page(
         "platform", "sku_id", "spu_id", "product_code"
     ).order_by().distinct()
     brand_values = brand_rows.values("brand").order_by().distinct()
-    metric_count = metric_rows.count()
-    identity_count = identity_values.count()
-    brand_count = brand_values.count()
+    metric_count, identity_count, brand_count = _projection_counts(
+        current_revision,
+        platforms,
+        metric_rows=metric_rows,
+        identity_values=identity_values,
+        brand_values=brand_values,
+    )
     total = metric_count + identity_count + brand_count
     offset = int(request["offset"])
     limit = int(request["limit"])
