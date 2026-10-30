@@ -1436,7 +1436,7 @@ export async function getAutomationRunStatusPageData(
   const input = inputObject(args);
   assertOnlyKeys(input, ["workflowKey"]);
   const workflowKey = requiredText(input.workflowKey, "workflowKey", 40);
-  const allowed = ["jackyun", "tmall", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat"] as const;
+  const allowed = ["jackyun", "tmall", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat", "jd_customer_service", "jd_logistics", "tmall_warehouse"] as const;
   if (!allowed.includes(workflowKey as (typeof allowed)[number])) failInput("workflowKey 不受支持");
   const payload = await serviceSet(overrides).readAutomationStatus(principal, context.signal) as ChainTodayResponse;
   if (!validateTodayStatus(payload)) throw new Error("工作流运行状态响应无效，无法核实今天是否完成。");
