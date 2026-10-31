@@ -118,6 +118,109 @@ try {
   Send-WatchAlert $rec $snapshot 'recovered' -Recovery
   Assert-Binding ($script:sends -eq $before) 'a recovery notice was escalated'
 
+  # --- 5. A bounded stderr summary is preserved, redacted, and never grants more retries than before ---
+  function Get-WatchSanitizedStderrSummaryTestCases {
+    @(
+      @{raw='plain failure text';expectExact='plain failure text'}
+      @{raw=('x'*500);expectLength=200}
+      @{raw='token: AAAABBBBCCCCDDDDEEEEFFFF0000111122223333';mustContain='[redacted]';mustNotContain='AAAABBBBCCCCDDDDEEEEFFFF0000111122223333'}
+      @{raw='Authorization: Bearer verysecretvalue1234567890';mustNotContain='verysecretvalue1234567890'}
+      @{raw='failed reading D:\teruisi-runtime\django-sales\secrets\credentials.dpapi.json';mustContain='[path]';mustNotContain='teruisi-runtime'}
+      @{raw='see https://oapi.dingtalk.com/robot/send?access_token=abcdef1234567890';mustContain='[url]';mustNotContain='access_token=abcdef1234567890'}
+      @{raw='Bearer abc123TOKEN';mustNotContain='abc123TOKEN'}
+      @{raw='Authorization: Basic Zm9vOmJhcg==';mustNotContain='Zm9vOmJhcg=='}
+      @{raw='\\server\share\x';mustContain='[path]'}
+      @{raw='reading config from \\fileserver01\configs\prod\secrets.json failed';mustContain='[path]';mustNotContain='fileserver01'}
+      @{raw='refresh_token: rt_9xZ';mustNotContain='rt_9xZ'}
+      @{raw='client_secret=shh';mustNotContain='shh'}
+      @{raw='access_token=abc123';mustNotContain='abc123'}
+      @{raw='private_key: xyz789';mustNotContain='xyz789'}
+      @{raw='api_secret=mno456';mustNotContain='mno456'}
+      @{raw='session=abcdef123456';mustNotContain='abcdef123456'}
+      @{raw='cookie: foo=supersecretbar';mustNotContain='supersecretbar'}
+      @{raw='password: hunter2';mustNotContain='hunter2'}
+      @{raw='this session expired normally, no value leaked';expectExact='this session expired normally, no value leaked'}
+    )
+  }
+  foreach($case in Get-WatchSanitizedStderrSummaryTestCases){
+    $summary=Get-WatchSanitizedStderrSummary $case.raw
+    # String .Contains() is used instead of -like/-notlike: a literal
+    # "[redacted]" pattern passed to -like is parsed as a wildcard character
+    # class (matching any single character in r/e/d/a/c/t), which makes
+    # "-like '*[redacted]*'" true for almost any non-empty string and would
+    # silently pass even when nothing was actually redacted.
+    if($case.expectExact){Assert-Binding ($summary -ceq $case.expectExact) "stderr summary changed unexpected plain text: $($case.raw)"}
+    if($case.mustContain){Assert-Binding ($summary.Contains($case.mustContain)) "stderr summary did not keep expected content for: $($case.raw)"}
+    if($case.mustNotContain){Assert-Binding (-not $summary.Contains($case.mustNotContain)) "stderr summary leaked sensitive content for: $($case.raw) -> $summary"}
+    if($case.expectLength){Assert-Binding ($summary.Length -eq $case.expectLength) "stderr summary was not bounded to $($case.expectLength) characters"}
+  }
+  Assert-Binding ($null -eq (Get-WatchSanitizedStderrSummary '')) 'an empty stderr must summarize to nothing, not an empty-but-present string'
+  Assert-Binding ($null -eq (Get-WatchSanitizedStderrSummary $null)) 'a null stderr must summarize to nothing'
+
+  # Get-WatchProcessDiagnostic is the single boundary all process evidence
+  # crosses before reaching stored evidence or an alert message: it must pass
+  # through a short, already-sanitized stderrSummary and still reject an
+  # oversized or non-string one, exactly like its other whitelisted fields.
+  $diag=Get-WatchProcessDiagnostic @{stage='direct-exit';code='nonzero_exit';stderrBytes=12;stderrSummary='token=[redacted] failed'}
+  Assert-Binding ($diag.stderrSummary -eq 'token=[redacted] failed') 'a short sanitized stderrSummary was dropped by the diagnostic whitelist'
+  $oversized=Get-WatchProcessDiagnostic @{stage='direct-exit';code='nonzero_exit';stderrSummary=('y'*201)}
+  Assert-Binding (-not $oversized.ContainsKey('stderrSummary')) 'an oversized stderrSummary was not rejected by the diagnostic whitelist'
+  $wrongType=Get-WatchProcessDiagnostic @{stage='direct-exit';code='nonzero_exit';stderrSummary=12345}
+  Assert-Binding (-not $wrongType.ContainsKey('stderrSummary')) 'a non-string stderrSummary was not rejected by the diagnostic whitelist'
+
+  # A process-level nonzero exit (e.g. a DingTalk token that expired the
+  # instant the probe ran) must carry its bounded, redacted stderr evidence
+  # through Send-WatchAlert's failure path, and get exactly one shorter
+  # retry wait - never an unbounded one, and never for any other code.
+  # Get-WatchRecipient throws before Invoke-WatchDws is ever reached on this
+  # path, so a call counter on it (not $script:sends) is the real signal of
+  # whether Send-WatchAlert attempted a retry at all.
+  $script:identityCalls=0
+  function Get-WatchRecipient {
+    $script:identityCalls++
+    $e=[Exception]::new('probe_failure synthetic')
+    $e.Data['ProcessEvidence']=@{stage='result-parse';code='nonzero_exit';stderrBytes=42;stderrSummary='token=[redacted] expired'}
+    throw $e
+  }
+  $retry=New-WatchState;$retry.incident='fixture-retry-nonzero';$retry.firstFailure=[DateTimeOffset]::UtcNow.AddMinutes(-10).ToString('o')
+  Send-WatchAlert $retry $snapshot 'alert_only'
+  Assert-Binding ($retry.notification -eq 'identity_failed' -and $retry.identityFailureCode -eq 'nonzero_exit') 'a process-level nonzero exit was not recorded as the retryable identity_failed code'
+  $retryReceipt=Read-WatchJson (Join-Path $root 'alerts\fixture-retry-nonzero.json')
+  Assert-Binding ($retryReceipt.processDiagnostic.stderrSummary -eq 'token=[redacted] expired') 'the alert receipt lost its bounded stderr evidence'
+  Assert-Binding ((Get-Content -LiteralPath (Join-Path $root 'alerts\fixture-retry-nonzero.json') -Raw) -notmatch 'verysecretvalue|AAAABBBB') 'the alert receipt leaked unredacted stderr content'
+  # 2.5 minutes later: too soon for the normal 15-minute wait, but within the
+  # shorter transient-failure allowance, so a retry must be attempted.
+  $retry.lastIdentityAttempt=[DateTimeOffset]::UtcNow.AddMinutes(-2.5).ToString('o')
+  $beforeRetry=$script:identityCalls
+  Send-WatchAlert $retry $snapshot 'alert_only'
+  Assert-Binding ($script:identityCalls -eq $beforeRetry+1) 'a transient process-level failure did not get its shorter retry wait'
+  # The exact same timing, but for any other identity-failure code, must
+  # still observe the normal 15-minute wait - the shorter wait is specific
+  # to nonzero_exit and does not loosen the general retry gate.
+  $script:identityCalls=0
+  function Get-WatchRecipient {$script:identityCalls++;throw 'owner_mismatch'}
+  $strict=New-WatchState;$strict.incident='fixture-retry-strict';$strict.firstFailure=[DateTimeOffset]::UtcNow.AddMinutes(-10).ToString('o')
+  Send-WatchAlert $strict $snapshot 'alert_only'
+  Assert-Binding ($strict.notification -eq 'identity_failed' -and $strict.identityFailureCode -ne 'nonzero_exit') 'a non-process identity failure was mislabelled as nonzero_exit'
+  $strict.lastIdentityAttempt=[DateTimeOffset]::UtcNow.AddMinutes(-2.5).ToString('o')
+  $beforeStrict=$script:identityCalls
+  Send-WatchAlert $strict $snapshot 'alert_only'
+  Assert-Binding ($script:identityCalls -eq $beforeStrict) 'a non-transient identity failure retried before its normal 15-minute wait'
+  # The attempt count stays bounded at 3 even for the transient-failure code:
+  # this is a shorter wait, never an unbounded or extra-attempts retry.
+  $script:identityCalls=0
+  function Get-WatchRecipient {
+    $script:identityCalls++
+    $e=[Exception]::new('probe_failure synthetic')
+    $e.Data['ProcessEvidence']=@{stage='result-parse';code='nonzero_exit';stderrBytes=42}
+    throw $e
+  }
+  $retry.identityAttempts=3
+  $retry.lastIdentityAttempt=[DateTimeOffset]::UtcNow.AddMinutes(-2.5).ToString('o')
+  $beforeBound=$script:identityCalls
+  Send-WatchAlert $retry $snapshot 'alert_only'
+  Assert-Binding ($script:identityCalls -eq $beforeBound) 'nonzero_exit was given a fourth attempt, breaking the attempt bound'
+
   @{passed=$script:checks;actualMessagesSent=$false;productionTouched=$false}|ConvertTo-Json -Compress
 }finally{
   if(Test-Path -LiteralPath $root){
