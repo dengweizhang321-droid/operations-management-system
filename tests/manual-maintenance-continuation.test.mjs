@@ -6,7 +6,7 @@ import path from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {createHash} from 'node:crypto';
-import {firstMaintenancePredecessor as k,assertFirstMaintenanceContinuation,continueFirstMaintenance,isFirstMaintenancePredecessor,assertMaintenanceControllerGeneration,piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,bWorkerJsonFailureCauseScriptSha256,piNativeCandidateControllerSha256} from '../tools/manual-maintenance-continuation.mjs';
+import {firstMaintenancePredecessor as k,assertFirstMaintenanceContinuation,continueFirstMaintenance,isFirstMaintenancePredecessor,assertMaintenanceControllerGeneration,piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,bWorkerJsonFailureCauseScriptSha256,piNativeCandidateControllerSha256} from '../tools/manual-maintenance-continuation.mjs';
 import {publishPreparedMain} from '../tools/publish-prepared-main.mjs';
 // Execute the actual pure adapter declaration without importing release-impact's
 // TypeScript-dependent deployment analysis into this dependency-free fixture.
@@ -28,11 +28,14 @@ test('finite old pair only; native Stop exit0 is not a precondition or inferred 
  value.durableCompleteCommit=true;assert.equal(assertFirstMaintenanceContinuation(value,expected),'coordinate-completed');
 });
 test('reviewed Django controller generations preserve historical exceptions and match current source',async()=>{
- // Sales154 is the newly reviewed current controller; earlier PiNative and
- // descendant-guard qualifications stay registered. Future byte changes must
- // be reviewed explicitly rather than accepted by this static tripwire.
+ // The batched-status-enumeration bytes are the newly reviewed current
+ // controller; earlier Sales154, PiNative and descendant-guard qualifications
+ // stay registered. Future byte changes must be reviewed explicitly rather
+ // than accepted by this static tripwire, so this compares against the
+ // registered constant and never recomputes it from the file.
  const source=await fs.readFile(new URL('../tools/django-local-service.ps1',import.meta.url));
- assert.equal(createHash('sha256').update(source).digest('hex'),sales154SchemaAdditionDjangoScriptSha256);
+ assert.equal(createHash('sha256').update(source).digest('hex'),batchedStatusEnumerationDjangoScriptSha256);
+ assert.notEqual(batchedStatusEnumerationDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256);
  assert.notEqual(sales154SchemaAdditionDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256);
  assert.notEqual(aDescendantCreationGuardDjangoScriptSha256,piNativeCandidateDjangoScriptSha256);
  const installed='d884882af114840ff1b0061c57439556cfc6a8fd7d0a751896363dd59eecde5d';
@@ -51,7 +54,7 @@ test('A项: descendant CreationDate guard candidate is qualified; other names an
  // Both generations stay registered: forward (install old, ship new) and
  // backward (install new, ship old) must both be admissible so a rollback of
  // this change is not blocked by its own qualification entry.
- assert.deepEqual(pins,[piNativeCandidateDjangoScriptSha256,candidate,sales154SchemaAdditionDjangoScriptSha256]);
+ assert.deepEqual(pins,[piNativeCandidateDjangoScriptSha256,candidate,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256]);
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}));
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:candidate,expected:piNativeCandidateDjangoScriptSha256,candidateSha:piNativeCandidateDjangoScriptSha256}));
  // An unqualified byte sequence for this controller still fails closed.
@@ -64,13 +67,38 @@ test('Sales154: append exact qualification, retain old generation, and reject fo
  const old=aDescendantCreationGuardDjangoScriptSha256,candidate=sales154SchemaAdditionDjangoScriptSha256;
  assert.equal(old,'4ba1fcaf3cd1568a64098a9d2d32039f850ec2db1da4f81aa97fa3ab9530723a');
  assert.equal(candidate,'98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b');
- assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,old,candidate]);
+ assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,old,candidate,batchedStatusEnumerationDjangoScriptSha256]);
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:old,expected:candidate,candidateSha:candidate}));
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:candidate,expected:old,candidateSha:old}));
  const changed=candidate.slice(0,-1)+(candidate.endsWith('0')?'1':'0');
  assert.throws(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:old,expected:changed,candidateSha:changed}),/不一致/);
  for(const name of ['worker-local-service.ps1','process-deadline.ps1','unknown.ps1'])
   assert.throws(()=>assertMaintenanceControllerGeneration({name,installedSha:old,expected:candidate,candidateSha:candidate}),/不一致/);
+});
+test('batched status enumeration: append exact qualification, retain Sales154, and reject foreign or modified hashes',()=>{
+ // 94312406 (one batched Win32_Process enumeration for AggregateStatus) plus
+ // 3cf4927f (wrap the whole if-expression in @() so a single-element array is
+ // not unwrapped into a bare CimInstance). Both hashes are the registered
+ // literals, not recomputed from the file, so a further controller edit fails
+ // closed here until it is reviewed and qualified explicitly.
+ const old=sales154SchemaAdditionDjangoScriptSha256,candidate=batchedStatusEnumerationDjangoScriptSha256;
+ assert.equal(old,'98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b');
+ assert.equal(candidate,'fbb62792eb0962cb91b76b0045a08812d29de0dabb0ab9056ac9ce235d76bddb');
+ assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,old,candidate]);
+ // Forward adoption (Sales154 installed, ship this) and backward rollback
+ // (this installed, ship Sales154) must both be admissible, so reverting this
+ // change is never blocked by its own qualification entry.
+ assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:old,expected:candidate,candidateSha:candidate}));
+ assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:candidate,expected:old,candidateSha:old}));
+ // Every older registered generation stays admissible against these bytes.
+ for(const earlier of [piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256])
+  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:candidate,expected:earlier,candidateSha:earlier}));
+ // An unqualified byte sequence for this controller still fails closed.
+ const changed=candidate.slice(0,-1)+(candidate.endsWith('0')?'1':'0');
+ assert.throws(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:old,expected:changed,candidateSha:changed}),/实际原生控制器代际与候选不一致：django-local-service\.ps1/);
+ // Qualification stays per controller: this hash does not leak to other names.
+ for(const name of ['worker-local-service.ps1','process-deadline.ps1','unknown.ps1'])
+  assert.throws(()=>assertMaintenanceControllerGeneration({name,installedSha:old,expected:candidate,candidateSha:candidate}),/实际原生控制器代际与候选不一致：/);
 });
 
 test('B项: worker -Json failure-cause candidate is qualified; bytes match the repository controller',async()=>{
