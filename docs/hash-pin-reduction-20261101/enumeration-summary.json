@@ -1,0 +1,18 @@
+{
+  "baseline": "3ce73dfa87884ceea23f3b71f90b2244704b4170",
+  "gitObjectFormat": "sha1",
+  "regex": "(?<![a-fA-F0-9])[a-fA-F0-9]{64}(?![a-fA-F0-9])",
+  "scope": "tracked baseline UTF-8 text blobs, binary/non-UTF-8 skipped",
+  "repository": {
+    "files": 1872,
+    "occurrences": 38998,
+    "uniqueValues": 10394
+  },
+  "tools": {
+    "files": 69,
+    "occurrences": 695,
+    "uniqueValues": 501,
+    "quotedHex64Occurrences": 680,
+    "embeddedHex64Occurrences": 15
+  }
+}

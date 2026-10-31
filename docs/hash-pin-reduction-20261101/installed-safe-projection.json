@@ -1,0 +1,16 @@
+{
+  "observedAt": "2026-11-01T00:35:14+08:00 (initial projection; rerun freshness separate)",
+  "configPath": "D:\\codex-isolated\\main-manual-release-20261016\\main-publisher-config.json",
+  "nativeToolsSource": "D:\\codex-isolated\\main-manual-release-20261016\\native-tools\\d08a3c4de4bd04325bd8e63811775934e97a9f63f757e40b6afec4a3166ddf31",
+  "installationPath": "D:\\codex-isolated\\main-manual-release-20261016\\CONTROL-INSTALLATION.json",
+  "installationRawSha256": "f281631c0b516c9a436a1fc4e926213fc37e6b60cc84f842bd2f5b395a7b144b",
+  "status": "adopted",
+  "bundleRoot": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\3e01612a935319715ef082f3d9b73a9789401316c136e3e68a2712c5fab6dc6a",
+  "bundleSha256": "3e01612a935319715ef082f3d9b73a9789401316c136e3e68a2712c5fab6dc6a",
+  "manifestRawSha256": "5914ece2e40879a04629780003efd6bf66b585835325891d7ad4ee35feb0694e",
+  "manifestRecordedSha256": "5914ece2e40879a04629780003efd6bf66b585835325891d7ad4ee35feb0694e",
+  "sourceCommit": "271ab794fd487e5f943f83d8c83fb81542aa9c27",
+  "sourceTree": "9fd84bdee0691353aac09bf2eee3fce49db5b5de",
+  "fileCount": 35,
+  "preparationTriggerMode": "manual-only"
+}
