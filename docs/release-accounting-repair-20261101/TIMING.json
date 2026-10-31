@@ -1,0 +1,11 @@
+{
+  "authorization": "User explicitly said 上线; original message timestamp unavailable",
+  "publisherLogStartedAt": "2026-10-31T19:12:33.839Z",
+  "nativeLogStartedAt": "2026-10-31T19:14:35.189Z",
+  "nativeStartedAt": "2026-10-31T19:20:06.327Z",
+  "nativeSuccessAt": "2026-10-31T19:35:58.861Z",
+  "entryCompletedAt": "2026-11-01T03:36:26.0053885+08:00",
+  "publisherLogToExitSeconds": 1432.161,
+  "nativeStartedToSuccessSeconds": 952.0,
+  "notMeasured": "User authorization total waiting time and continuous authenticated downtime"
+}

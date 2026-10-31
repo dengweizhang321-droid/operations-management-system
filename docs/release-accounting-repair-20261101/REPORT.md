@@ -1,6 +1,6 @@
 # 271 失败后恢复状态的记账协调
 
-用户授权：核清并修复发布记账，再继续准备已合并的 `9c184426` 制品；不执行应用部署、Start/Stop或迁移。本任务从该main提交建立独立 `codex/release-accounting-repair-20261101` 工作树，实际写入前冻结本目录程序并经独立复核。
+记账修复阶段的用户授权：核清并修复发布记账，再继续准备已合并的 `9c184426` 制品，该阶段不执行应用部署、Start/Stop或迁移。本任务从该main提交建立独立 `codex/release-accounting-repair-20261101` 工作树，实际写入前冻结本目录程序并经独立复核；后续用户另行授权的上线结果见末节。
 
 原271发布完成了后台部署、WorkflowAutomation 154→156 Install/Finalize、Worker切换和维护退出，但原Start在DjangoEnsure真实exit1。因此原STARTED/FAILED及失败输出必须保留；不能补写原SUCCESS、Start结果，也不能套用仅支持无迁移Pi尾部的resume或其他批次的恢复入口。现有adopt-live也明确拒绝这种STARTED无SUCCESS，本程序没有调用或修改它。
 
@@ -36,4 +36,14 @@
 
 同一冻结9c源码的37成员控制包材料也已通过现有安装器的准备及只读材料校验，位置`D:/codex-artifacts/release-accounting-repair-20261101/control-materials-9c184426`，bundle SHA为`fe4e34dcea03ad77c47c288bd572841ae69428bb05147893f69c452102d45aa6`，installId为`2dd7a5cc-1695-4a3c-ae5c-81eb4cac826a`，`adoptionPerformed=false`。此步骤同样使用普通权限、无触发器的临时任务，完成后已按精确动作核对清理。控制材料未采用，现固定入口仍为原3e代。
 
-完整交付绑定见外部`DELIVERY.json`。本次应用准备请求由现已采用的3e控制代生成；不得在未处理冻结请求兼容问题时，先换成新控制代再声称可透明消费旧请求。后续实际发布及控制采用仍须用户授权，并遵守对应就绪材料与原生动态门禁；本轮未执行任何上线动作。修复程序及本报告在独立任务分支保存，不改变已冻结9c源码。
+完整交付绑定见外部`DELIVERY.json`。本次应用准备请求由现已采用的3e控制代生成；不得在未处理冻结请求兼容问题时，先换成新控制代再声称可透明消费旧请求。准备阶段未执行上线动作；后续授权后的实际结果见下节。修复程序及本报告在独立任务分支保存，不改变已冻结9c源码。
+
+## 用户授权后的应用上线
+
+用户随后明确“上线”。通过原3e固定发布器及普通权限一次性任务发布上述9c应用制品，未重建制品、未采用新控制包。原生在UTC2026-10-31T19:35:58.861Z（上海11月1日03:35:58）写出`SUCCESS.json`，status为`deployed_and_ready`、startupVerified与readyVerified均为true；固定入口exit0。`PUBLISHED-MAIN.json`已绑定这份真实成功回执，SHA为`91e12a0dc9ed7b78251bacbae8a5bc987ee8554cc97cf831f48a917dee123347`。此前独立恢复承认仍作为历史保留，当前索引已由正常发布成功记录取代。
+
+Worker现役为`20261031T184030Z-d8fbcdbe3bf6cba1`，Django manifest为`5361fd19af3e5b21fd6013538a04a3b45faa203b741302639bd938e32b55e81b`。本次无结构迁移；原生维护退出、启动与就绪门禁均已完成，没有追加业务功能验收。临时发布任务按精确名称、动作和完成状态核对后已清理。[PUBLICATION.json](PUBLICATION.json)保存回执绑定，[TIMING.json](TIMING.json)区分发布器日志开始、原生STARTED、成功和入口退出；没有取得原始用户消息时间，不冒称这些区间是用户授权后的总等待或连续停机时间。
+
+新控制包仍未采用。《验证与发布》要求控制采用与应用发布分别授权；已向用户单独询问，收到明确授权前保留当前控制代，不重复发布应用。
+
+用户询问新控制包内容后，已只读比较当前3e与待采用fe4的MANIFEST：35→37个代码成员，仅`tools/release-scope-plan.mjs`修改，新增`tools/release-copy-rules.mjs`和`tools/release-copy-git-sources.mjs`，其余34成员字节相同。新包对应任务3的实际复制/构建输入分类、同次Git缓存复用及精简计划；触发模式仍为manual-only。任务1/2/4仍是方案，不因这个控制包获得实施。采用会影响后续发布工具行为，不改变已上线业务版本；当前尚无采用授权。

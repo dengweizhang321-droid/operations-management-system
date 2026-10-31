@@ -1,0 +1,16 @@
+{
+  "status": "deployed_and_ready",
+  "mainCommit": "9c1844264bc03ce175b2b773b5cb66685ef7ce86",
+  "receiptPath": "D:\\codex-isolated\\main-release-packages\\9c1844264bc0-9cc04cda-13e944f3\\publish-9c1844264bc0\\SUCCESS.json",
+  "receiptSha256": "91e12a0dc9ed7b78251bacbae8a5bc987ee8554cc97cf831f48a917dee123347",
+  "at": "2026-10-31T19:35:58.861Z",
+  "workerRelease": "20261031T184030Z-d8fbcdbe3bf6cba1",
+  "workerManifestSha256": "55f42229c53b09af5203fe582ab9ac9bdae0acafda12a546b86947986c86d20f",
+  "djangoManifestSha256": "5361fd19af3e5b21fd6013538a04a3b45faa203b741302639bd938e32b55e81b",
+  "startupVerified": true,
+  "readyVerified": true,
+  "nodeExitCode": 0,
+  "completedAt": "2026-11-01T03:36:26.0053885+08:00",
+  "ordinaryTaskRemoved": true,
+  "newControlAdopted": false
+}
