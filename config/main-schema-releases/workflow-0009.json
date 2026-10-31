@@ -12,6 +12,6 @@
     "backend/workflow/migrations/0010_customer_service_chain_modules.py": "f5cf004563db635baa29fcb57e3965f26c085eb14ba2eb13eaf78a85f53de8cd"
   },
   "validation": "docs/workflow-automation-addition-20261031/workflow156-mandatory-code-checks.json",
-  "validationSha256": "aea2abbb33229efa08997b6c580c9ed3e2a45632c257277c41d664590d4dcc46",
-  "codeSha256": "c38e87aa84b97e0a6919343d7b70afbe4e7fb3c2fe9d7ca07bcb1eff445e860d"
+  "validationSha256": "d54693ce6f64abf1e6cdaafbf90e69c2198db38bb04c0dc76a7c969621a60432",
+  "codeSha256": "4c11c9144e5207a434e63cd7bf821238a9353ac3f9f84beeb4054ecfe9fd6ecc"
 }
