@@ -24,6 +24,21 @@ Two segments, reported separately so neither is mistaken for the other.
   proves the field-level contract of this generation's own receipts, including
   eight negative cases, and segment 1 proves the real parent chain. Neither
   segment claims the other's scope.
+
+Segment 1 runs anywhere. Segment 2 needs a synthetic runtime fixture at
+SYNTHETIC, which is NOT kept after the run (it is a ~550MB copy of production
+metadata). Rebuild it before re-running segment 2:
+
+    SYN=D:/codex-isolated/workflow-automation-synthetic-runtime-20261031
+    RT=/d/teruisi-runtime/django-sales
+    mkdir -p "$SYN" && cp "$RT"/*.json "$SYN/"            # drops app.deploy-* is fine
+    for d in "$RT"/*-additions "$RT"/integration-deltas "$RT"/integration-installs; do
+      cp -r "$d" "$SYN/"; done
+    cp -r "$RT/app" "$SYN/app"
+
+Without it segment 2 reports blocked with "Synthetic runtime copy is
+incomplete" -- that is a missing fixture, not a gate failure. Segment 1 is the
+substantive gate-(3) evidence and does not depend on it.
 """
 import json
 import shutil

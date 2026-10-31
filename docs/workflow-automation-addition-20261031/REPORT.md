@@ -187,6 +187,8 @@ exit=0
 
 **为什么段二必须 stub，以及为什么没在生产上跑 `release`/`successor`。** 这两个子命令要求本代的 active 标记存在，而标记只有 `install`/`finalize` 会创建——那两个动作在生产上绝对不能跑（本任务边界）。换到合成 runtime 也不行：11 代祖先的每一个 `app.prepare-*.json` 都把 `runtimeRoot` 绑在生产路径上（实测，例如 jd_logistics 那代的回执里 `"runtimeRoot": "D:\\teruisi-runtime\\django-sales"`），重写它们等于伪造这条链存在就是为了校验的那些哈希。所以段二只 stub `parent_proof` 一个函数，用段一在生产上真实证明出来的目录大小与父引用作为返回值，本代自己的每一条断言原样执行。
 
+段二的合成 runtime 夹具（约 550MB 的生产元数据副本）**跑完已删除，没有留在盘上**，所以直接重跑 `prove-gate3.py` 时段二会报 `blocked: Synthetic runtime copy is incomplete`——那是夹具缺失，不是门禁失败。重建方法写在该脚本的 docstring 里。段一不依赖夹具，任何时候都能重跑，它才是闸③ 的实质证据。
+
 段二的 8 个负面用例 × 2 个变体 = 16 次，全部拒绝：
 
 | 用例 | `hashPinned`（不动指针） | `resynced`（指针重指向被篡改字节） |
