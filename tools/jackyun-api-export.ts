@@ -9,7 +9,7 @@ import { connectPlaywrightBrowser, PlaywrightPageClient } from "../lib/jackyun/p
 import { readJackyunLoginConfig } from "../lib/jackyun/windows-dpapi";
 import { inspectJackyunLoginSurface, submitJackyunDpapiLogin, verifyJackyunBrowserBinding, waitForJackyunDpapiSession, isJackyunLoginOrigin, resolveJackyunChromiumExecutable } from "../lib/jackyun/dpapi-login";
 import { createDirectSession, readDirectTasks } from "../lib/jackyun/direct-export";
-import { apiTaskWindowObserved, apiTaskWindowStart } from "../lib/jackyun/api-clock";
+import { apiTaskWindowObserved, apiTaskWindowStart, assertApiServerClock } from "../lib/jackyun/api-clock";
 import type { JackyunServerClock, JackyunHttpSession } from "../lib/jackyun/direct-http";
 import { apiSha, jackyunApiTransport, readApiScope, prepareApiExport, buildApiParameters, type ApiTemplates } from "../lib/jackyun/api-plan";
 import { validateDirectExportPayload } from "../lib/jackyun/direct-export";
@@ -204,14 +204,24 @@ export async function runApiExports(options: ApiExportOptions, deps: { http?: Ja
         if (validation.data !== null || validation.noPrivilegeItem !== null || validation.desensitizationItem !== null) throw new Error("API_EXPORT_VALIDATION_CHANGED");
         const baseline = await readDirectTasks(http, moduleKey);
         const serverClock = http.serverClock;
+        // Reject a drifted local clock before writing anything. This failure is
+        // purely local and needs an operator to fix the clock, so it must leave
+        // no run directory or controller behind: those artifacts would otherwise
+        // read as a possibly-submitted export and block every recovery route.
+        assertApiServerClock(serverClock);
         entry = { status: "prepared", serverClock, preflightStartedAt, queryIntentAt: prepared.queryIntentAt, queryCompletedAt: prepared.queryCompletedAt, sourceRows: prepared.sourceRows,
           payloadSha256: prepared.payloadSha256, querySha256: prepared.querySha256, permissionSha256: scope.permissionSha256, templateSha256, baselineIds: baseline.records.map(row => row.taskId) };
         state.modules[moduleKey] = entry;
         await mkdir(runDirectory, { recursive: true });
         await persist(statePath, state);
         if (jackyunCaptureDate(new Date().toISOString()) !== options.runDate) throw new Error("API_CAPTURE_DATE_CHANGED");
-        entry.status = "submit_intent"; entry.exportIntentAt = new Date().toISOString();
-        apiTaskWindowStart(entry.serverClock, entry.exportIntentAt);
+        // Validate the server clock before recording any submit intent. A clock
+        // failure means no POST was sent, so it must not leave submit_intent or
+        // exportIntentAt behind: those mark a possibly-submitted export and would
+        // block every zero-effect recovery route for an entirely local failure.
+        const exportIntentAt = new Date().toISOString();
+        apiTaskWindowStart(entry.serverClock, exportIntentAt);
+        entry.status = "submit_intent"; entry.exportIntentAt = exportIntentAt;
         await persist(statePath, state);
         // Never replay this POST, including after an uncertain response/process restart.
         await http.request("submitExport", prepared.data, prepared.moduleCode);
