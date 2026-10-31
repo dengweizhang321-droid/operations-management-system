@@ -74,6 +74,9 @@ export async function publishPreparedMain(request,context){
   !file.split('/').some(part=>part==='tests'||part.startsWith('test_'))));
  const piUpgradeKind=['PiWorkspace','PiBusiness','PiNative'].includes(schema?.additionKind)?schema.additionKind:piRuntimeChanged?'PiNative':null;
  const piUpgradeRequired=piUpgradeKind!==null;
+  // Role contracts can change alongside any schema addition, not just their original additions.
+  const aiRolesChanged=(request.releasePlan?.changes??[]).some(change=>[change.path,change.before].includes('backend/ai_assistant/database_contract.py'));
+  const inventoryRolesChanged=(request.releasePlan?.changes??[]).some(change=>[change.path,change.before].includes('tools/django-inventory-service.ps1'));
  assert.ok(!piUpgradeRequired||components.django,'Pi Runner升级必须绑定本次Django准备包');
  const piUpgradeImage=piUpgradeKind==='PiNative'?piNativeImage:piUpgradeKind==='PiBusiness'?piBusinessImage:piWorkspaceImage;
  const {out,api,rotation,transport}=context;
@@ -324,8 +327,8 @@ export async function publishPreparedMain(request,context){
     const installedSchema=await step('迁移监控字段',path.join(installed,'tools/bi-app-adopt.ps1'),'Install',adoption,{addJson:false});
     assert.equal(installedSchema.status,'verified');assert.equal(installedSchema.result.status,'schema_installed');assert.equal(installedSchema.result.migrationCount,schema.toGeneration);
     assert.deepEqual(installedSchema.result.steps,schema.steps);
-    if(schema.additionKind==='TmallWarehouse')await step('配置天猫库存权限',path.join(installed,'tools/django-inventory-service.ps1'),'ProvisionRoles',[],{json:false});
-    if(['PiAgent','PiWorkspace','PiBusiness','PiNative'].includes(schema.additionKind))await step('配置Pi运行账本权限',path.join(installed,'tools/django-ai.ps1'),'ProvisionRoles',[],{json:false});
+    if(schema.additionKind==='TmallWarehouse'||inventoryRolesChanged)await step('配置天猫库存权限',path.join(installed,'tools/django-inventory-service.ps1'),'ProvisionRoles',[],{json:false});
+    if(['PiAgent','PiWorkspace','PiBusiness','PiNative'].includes(schema.additionKind)||aiRolesChanged)await step('配置Pi运行账本权限',path.join(installed,'tools/django-ai.ps1'),'ProvisionRoles',[],{json:false});
     const finalized=await step('完成结构迁移',path.join(installed,'tools/bi-app-adopt.ps1'),'Finalize',adoption,{addJson:false});
     assert.equal(finalized.status,'verified');assert.equal(finalized.result.status,'verified');assert.equal(finalized.result.migrationCount,schema.toGeneration);assert.deepEqual(finalized.result.steps,schema.steps);
     schemaReceipt={operationId,maintenanceId,release:schema,installed:installedSchema,finalized};
