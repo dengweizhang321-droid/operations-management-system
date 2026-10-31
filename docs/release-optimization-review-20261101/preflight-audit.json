@@ -1,0 +1,28 @@
+{
+  "sources": {
+    "count": 75,
+    "shaMismatches": []
+  },
+  "assertions": {
+    "count": 2381,
+    "languages": {
+      "JavaScript": 1549,
+      "PowerShell": 77,
+      "Python": 755
+    },
+    "reachability": {
+      "conservative-dependency-superset": 2084,
+      "direct-reviewed-family": 297
+    },
+    "invalidLineRanges": []
+  },
+  "historyReports": {
+    "count": 24,
+    "shaMismatches": [],
+    "exactFailureLogsRechecked": 0
+  },
+  "collectorOriginals": {
+    "count": 8,
+    "errors": []
+  }
+}

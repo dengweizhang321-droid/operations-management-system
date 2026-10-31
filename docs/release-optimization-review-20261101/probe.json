@@ -1,0 +1,38 @@
+[
+  {
+    "p": "tools/release-closeout-report.mjs",
+    "known": true,
+    "membership": {
+      "known": true,
+      "components": [],
+      "reason": "explicit application copy inventory"
+    },
+    "control": false,
+    "plan": []
+  },
+  {
+    "p": "tools/verify-release-candidate.mjs",
+    "known": true,
+    "membership": {
+      "known": true,
+      "components": [],
+      "reason": "explicit application copy inventory"
+    },
+    "control": false,
+    "plan": []
+  },
+  {
+    "missingControlKnown": false,
+    "mutationApplied": true,
+    "changedBundledBindingKnown": false
+  },
+  {
+    "dynamicImportKnown": false
+  },
+  {
+    "dynamicResourceKnown": false
+  },
+  {
+    "dynamicControlKnown": false
+  }
+]

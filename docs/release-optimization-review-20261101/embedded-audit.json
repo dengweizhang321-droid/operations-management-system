@@ -1,0 +1,20 @@
+{
+  "revision": "3ce73dfa87884ceea23f3b71f90b2244704b4170",
+  "supplementAssertions": 44,
+  "languages": {
+    "PowerShell-embedded": 16,
+    "Python-owned-dynamic-target": 25,
+    "Python-embedded-Linux": 2,
+    "CSharp-embedded": 1
+  },
+  "dynamicBoundaries": 16,
+  "extraSourceHashesVerified": 4,
+  "psSyntax": {
+    "parser": "5.1.26100.9444",
+    "snippetCount": 14,
+    "parseErrors": 0,
+    "throwCount": 16
+  },
+  "errors": [],
+  "productionCodeExecuted": false
+}
