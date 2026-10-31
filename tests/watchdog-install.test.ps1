@@ -42,6 +42,17 @@ function Setup-Fixture([string]$Name){
 function File-Inventory {
  @(Get-ChildItem -LiteralPath $WatchdogRoot -Recurse -File|Sort-Object FullName|ForEach-Object {$_.FullName+':'+(Get-WatchHash $_.FullName)}) -join "`n"
 }
+function Write-PSSingleQuoted([string]$Path){"'"+$Path.Replace("'","''")+"'"}
+function New-InstalledDiagnosticDriverFiles([string]$ControlPath,[string]$WorkerPath,[string]$BackendPath,[string]$TransportPath,[string]$SupervisorPath){
+ # Mirrors the exact literal shapes the real generators (prepare-watchdog-status-driver.mjs,
+ # prepare-watchdog-supervisor-status-driver.mjs) write into the installed driver, so
+ # Get-WatchInstalledDiagnosticSources's regex has real text to parse against, not a
+ # placeholder body. Only the two literal lines the parser reads are load-bearing here.
+ $control="`$diagnosticSources=@{control="+(Write-PSSingleQuoted $ControlPath)+";backend="+(Write-PSSingleQuoted $BackendPath)+";worker="+(Write-PSSingleQuoted $WorkerPath)+";transport="+(Write-PSSingleQuoted $TransportPath)+"}`n"
+ [IO.File]::WriteAllText((Join-Path $WatchdogRoot 'watchdog-status-control.ps1'),$control)
+ $backend=if($SupervisorPath){"`$diagnosticSupervisor="+(Write-PSSingleQuoted $SupervisorPath)+"`n"}else{''}
+ [IO.File]::WriteAllText((Join-Path $WatchdogRoot 'watchdog-status-backend.ps1'),$backend)
+}
 try{
  foreach($case in @('running','foreign','bad-hash','wrong-plan','unhealthy','became-running')){
   Setup-Fixture $case
@@ -149,6 +160,7 @@ try{[IO.File]::WriteAllText($ReadyFile,'held');$until=[DateTimeOffset]::UtcNow.A
  $backendScript=Join-Path $script:BackendRoot 'app\tools\django-local-service.ps1';[IO.File]::WriteAllText($backendScript,'backend v1')
  $script:ProjectRoot=Join-Path $WatchdogRoot 'project';New-Item -ItemType Directory -Path (Join-Path $script:ProjectRoot 'tools') -Force|Out-Null
  $transportScript=Join-Path $script:ProjectRoot 'tools\process-deadline.ps1';[IO.File]::WriteAllText($transportScript,'transport v1')
+ New-InstalledDiagnosticDriverFiles $script:ControlPath $script:WorkerPath $backendScript $transportScript
  $script:driverBindingOverride=@{version=1;assetHashes=@{control=Get-WatchHash $script:ControlPath;worker='f'*64;backend=Get-WatchHash $backendScript;transport=Get-WatchHash $transportScript}}
  $script:snapshotOverride=@{healthy=$false;stages=@{control=@{status='failed';elapsedMs=1}};admission=@{mode='running'};diagnosticBinding=$null;processDiagnostic=@{code='probe_stage_failed';stage='control'}}
  $script:RequalifyDriftedAssets='worker'
@@ -161,12 +173,136 @@ try{[IO.File]::WriteAllText($ReadyFile,'held');$until=[DateTimeOffset]::UtcNow.A
  $backendScript=Join-Path $script:BackendRoot 'app\tools\django-local-service.ps1';[IO.File]::WriteAllText($backendScript,'backend v1')
  $script:ProjectRoot=Join-Path $WatchdogRoot 'project';New-Item -ItemType Directory -Path (Join-Path $script:ProjectRoot 'tools') -Force|Out-Null
  $transportScript=Join-Path $script:ProjectRoot 'tools\process-deadline.ps1';[IO.File]::WriteAllText($transportScript,'transport v1')
+ New-InstalledDiagnosticDriverFiles $script:ControlPath $script:WorkerPath $backendScript $transportScript
  $script:driverBindingOverride=@{version=1;assetHashes=@{control=Get-WatchHash $script:ControlPath;worker='f'*64;backend=Get-WatchHash $backendScript;transport=Get-WatchHash $transportScript}}
  $script:snapshotOverride=@{healthy=$false;stages=@{control=@{status='failed';elapsedMs=1}};admission=@{mode='running'};diagnosticBinding=$null;processDiagnostic=@{code='probe_stage_failed';stage='control'}}
  $script:RequalifyDriftedAssets='control,worker'
  $blocked=$false;$failure=$null;try{Install-WatchdogSafely $sourceTools|Out-Null}catch{$blocked=$true;$failure=$_.Exception.Message}
  Assert-Install ($blocked -and $failure -eq 'watchdog_requalify_asset_mismatch') 'recomputed drift (only worker) must reject an over-broad declared set'
  $script:driverBindingOverride=$null;$script:snapshotOverride=$null;$script:RequalifyDriftedAssets=''
+
+ # Supervisor-stage drift: control completed, supervisor failed because the supervisor probe
+ # (a child process) hit the same driver-binding hash check as control, but that check throws
+ # inside the child and only ever surfaces here as processDiagnostic probe_stage_failed with
+ # exitCode 1 -- never as diagnosticBinding. The gate must recompute all five tracked sources,
+ # including supervisor, from the installed binding to admit this shape.
+ function New-SupervisorFixtureRoots {
+  $script:ControlPath=Join-Path $WatchdogRoot 'fixture-control.ps1';[IO.File]::WriteAllText($script:ControlPath,'control v1')
+  $script:WorkerPath=Join-Path $WatchdogRoot 'fixture-worker.ps1';[IO.File]::WriteAllText($script:WorkerPath,'worker v1')
+  $script:BackendRoot=Join-Path $WatchdogRoot 'backend';New-Item -ItemType Directory -Path (Join-Path $script:BackendRoot 'app\tools') -Force|Out-Null
+  $backendScript=Join-Path $script:BackendRoot 'app\tools\django-local-service.ps1';[IO.File]::WriteAllText($backendScript,'backend v1')
+  # The installed supervisor driver has been found in production to hash-check the repo-tree
+  # copy of django-runtime-supervisor.ps1, not $SupervisorPath's deployed copy under
+  # $BackendRoot\app\tools. Fixture both locations with different content so a test that
+  # recomputes against the wrong one is caught by a wrong-path hash rather than coincidence.
+  $script:SupervisorPath=Join-Path $script:BackendRoot 'app\tools\django-runtime-supervisor.ps1';[IO.File]::WriteAllText($script:SupervisorPath,'deployed supervisor copy, not compared')
+  $script:ProjectRoot=Join-Path $WatchdogRoot 'project';New-Item -ItemType Directory -Path (Join-Path $script:ProjectRoot 'tools') -Force|Out-Null
+  $transportScript=Join-Path $script:ProjectRoot 'tools\process-deadline.ps1';[IO.File]::WriteAllText($transportScript,'transport v1')
+  $repoTreeSupervisor=Join-Path $script:ProjectRoot 'tools\django-runtime-supervisor.ps1';[IO.File]::WriteAllText($repoTreeSupervisor,'repo tree supervisor copy, actually compared')
+  New-InstalledDiagnosticDriverFiles $script:ControlPath $script:WorkerPath $backendScript $transportScript $repoTreeSupervisor
+  return @{backendScript=$backendScript;transportScript=$transportScript;repoTreeSupervisor=$repoTreeSupervisor}
+ }
+ function New-SupervisorDriftSnapshot([int]$ExitCode=1,[string]$Code='probe_stage_failed',[string]$ControlStatus='completed'){
+  @{healthy=$false;stages=@{control=@{status=$ControlStatus;elapsedMs=1};supervisor=@{status='failed';elapsedMs=1}};admission=@{mode='running'};diagnosticBinding=$null;processDiagnostic=@{code=$Code;stage='supervisor';process=@{exitCode=$ExitCode}}}
+ }
+
+ Setup-Fixture 'requalify-supervisor-drift-allowed'
+ $paths=New-SupervisorFixtureRoots
+ $script:driverBindingOverride=@{version=1;assetHashes=@{control=Get-WatchHash $script:ControlPath;worker=Get-WatchHash $script:WorkerPath;backend='f'*64;transport=Get-WatchHash $paths.transportScript;supervisor='e'*64}}
+ $script:snapshotOverride=New-SupervisorDriftSnapshot
+ $script:RequalifyDriftedAssets='backend,supervisor'
+ $result=$null;$failed=$false;try{$result=Install-WatchdogSafely $sourceTools}catch{$failed=$true}
+ Assert-Install (-not $failed -and $result.status -eq 'installed') 'control completed + supervisor failed by pin drift must pass when the correct asset set (backend,supervisor) is declared'
+
+ Setup-Fixture 'requalify-supervisor-drift-requires-param'
+ $paths=New-SupervisorFixtureRoots
+ $script:driverBindingOverride=@{version=1;assetHashes=@{control=Get-WatchHash $script:ControlPath;worker=Get-WatchHash $script:WorkerPath;backend='f'*64;transport=Get-WatchHash $paths.transportScript;supervisor='e'*64}}
+ $script:snapshotOverride=New-SupervisorDriftSnapshot
+ $script:RequalifyDriftedAssets=''
+ $blocked=$false;$failure=$null;try{Install-WatchdogSafely $sourceTools|Out-Null}catch{$blocked=$true;$failure=$_.Exception.Message}
+ Assert-Install ($blocked -and $failure -eq 'watchdog_install_requires_healthy_status' -and $script:taskWrites -eq 0) 'the same supervisor-drift shape must still require -RequalifyDriftedAssets; the exemption is never default'
+
+ Setup-Fixture 'requalify-supervisor-drift-mismatch'
+ $paths=New-SupervisorFixtureRoots
+ $script:driverBindingOverride=@{version=1;assetHashes=@{control=Get-WatchHash $script:ControlPath;worker=Get-WatchHash $script:WorkerPath;backend='f'*64;transport=Get-WatchHash $paths.transportScript;supervisor='e'*64}}
+ $script:snapshotOverride=New-SupervisorDriftSnapshot
+ $script:RequalifyDriftedAssets='backend'
+ $blocked=$false;$failure=$null;try{Install-WatchdogSafely $sourceTools|Out-Null}catch{$blocked=$true;$failure=$_.Exception.Message}
+ Assert-Install ($blocked -and $failure -eq 'watchdog_requalify_asset_mismatch' -and $script:taskWrites -eq 0) 'declaring only backend when supervisor also drifted must throw watchdog_requalify_asset_mismatch'
+
+ Setup-Fixture 'requalify-supervisor-non-drift-failure-rejected'
+ $paths=New-SupervisorFixtureRoots
+ # Everything actually matches the installed binding: this is a non-drift supervisor failure
+ # (e.g. a timed-out or crashed child), not a pinned-asset mismatch. Must still be rejected
+ # even though the caller declares an asset set and the stage shape matches exactly. supervisor
+ # must be hashed against the repo-tree copy (what the installed driver literal actually
+ # compares), not $SupervisorPath's deployed copy, or this fixture would report a false drift.
+ $script:driverBindingOverride=@{version=1;assetHashes=@{control=Get-WatchHash $script:ControlPath;worker=Get-WatchHash $script:WorkerPath;backend=Get-WatchHash $paths.backendScript;transport=Get-WatchHash $paths.transportScript;supervisor=Get-WatchHash $paths.repoTreeSupervisor}}
+ $script:snapshotOverride=New-SupervisorDriftSnapshot -ExitCode 2
+ $script:RequalifyDriftedAssets='backend,supervisor'
+ $blocked=$false;$failure=$null;try{Install-WatchdogSafely $sourceTools|Out-Null}catch{$blocked=$true;$failure=$_.Exception.Message}
+ Assert-Install ($blocked -and $failure -eq 'watchdog_install_requires_healthy_status' -and $script:taskWrites -eq 0) 'a supervisor failure with a non-1 exit code (not a pin-drift throw) must still require healthy status'
+
+ Setup-Fixture 'requalify-supervisor-timeout-rejected'
+ $paths=New-SupervisorFixtureRoots
+ $script:driverBindingOverride=@{version=1;assetHashes=@{control=Get-WatchHash $script:ControlPath;worker=Get-WatchHash $script:WorkerPath;backend='f'*64;transport=Get-WatchHash $paths.transportScript;supervisor='e'*64}}
+ $script:snapshotOverride=New-SupervisorDriftSnapshot -Code 'process_deadline_exhausted'
+ $script:RequalifyDriftedAssets='backend,supervisor'
+ $blocked=$false;$failure=$null;try{Install-WatchdogSafely $sourceTools|Out-Null}catch{$blocked=$true;$failure=$_.Exception.Message}
+ Assert-Install ($blocked -and $failure -eq 'watchdog_install_requires_healthy_status' -and $script:taskWrites -eq 0) 'a supervisor-stage timeout (process_deadline_exhausted) must still require healthy status, not be treated as drift'
+
+ Setup-Fixture 'requalify-supervisor-control-not-completed-rejected'
+ $paths=New-SupervisorFixtureRoots
+ $script:driverBindingOverride=@{version=1;assetHashes=@{control=Get-WatchHash $script:ControlPath;worker=Get-WatchHash $script:WorkerPath;backend='f'*64;transport=Get-WatchHash $paths.transportScript;supervisor='e'*64}}
+ $script:snapshotOverride=New-SupervisorDriftSnapshot -ControlStatus 'failed'
+ $script:RequalifyDriftedAssets='backend,supervisor'
+ $blocked=$false;$failure=$null;try{Install-WatchdogSafely $sourceTools|Out-Null}catch{$blocked=$true;$failure=$_.Exception.Message}
+ Assert-Install ($blocked -and $failure -eq 'watchdog_install_requires_healthy_status' -and $script:taskWrites -eq 0) 'supervisor failed without control having completed first must still require healthy status'
+
+ # Path-consistency lock: the recompute must hash the installed driver's OWN literal path for
+ # supervisor (the repo-tree copy), not this script's $SupervisorPath (the deployed copy under
+ # $BackendRoot). The two fixture copies have deliberately different content with nothing
+ # actually pinned to the deployed one, so a recompute that used $SupervisorPath would see a
+ # mismatch against the repo-tree-pinned hash and misreport supervisor as drifted when it is
+ # not -- silently narrowing the admitted set and rejecting a caller who correctly declared
+ # only the one asset (backend) that really drifted.
+ Setup-Fixture 'requalify-supervisor-path-must-match-driver-literal'
+ $paths=New-SupervisorFixtureRoots
+ Assert-Install ((Get-WatchHash $script:SupervisorPath) -cne (Get-WatchHash $paths.repoTreeSupervisor)) 'fixture setup bug: deployed and repo-tree supervisor copies must differ for this lock to mean anything'
+ # supervisor is pinned to the repo-tree copy's CURRENT hash (matches what the driver really
+ # compares, so supervisor has not drifted); backend is pinned to a foreign hash so it has.
+ $script:driverBindingOverride=@{version=1;assetHashes=@{control=Get-WatchHash $script:ControlPath;worker=Get-WatchHash $script:WorkerPath;backend='f'*64;transport=Get-WatchHash $paths.transportScript;supervisor=Get-WatchHash $paths.repoTreeSupervisor}}
+ $script:snapshotOverride=New-SupervisorDriftSnapshot
+ $script:RequalifyDriftedAssets='backend'
+ $result=$null;$failed=$false;try{$result=Install-WatchdogSafely $sourceTools}catch{$failed=$true}
+ Assert-Install (-not $failed -and $result.status -eq 'installed') 'recompute must use the driver-literal (repo-tree) supervisor path: hashing $SupervisorPath instead would wrongly report supervisor as also drifted here'
+ $script:driverBindingOverride=$null;$script:snapshotOverride=$null;$script:RequalifyDriftedAssets=''
+
+ # Get-WatchInstalledDiagnosticSources itself: parses the exact literal shapes the real
+ # generators write, and falls closed (no recompute) when the installed driver predates the
+ # literal or cannot be read, instead of guessing a path.
+ Setup-Fixture 'installed-diagnostic-sources-parses-real-literal'
+ $paths=New-SupervisorFixtureRoots
+ $ctx=Get-WatchInstallContext $sourceTools
+ $parsed=Get-WatchInstalledDiagnosticSources $ctx
+ Assert-Install ($parsed.control -ceq $script:ControlPath -and $parsed.worker -ceq $script:WorkerPath -and $parsed.backend -ceq $paths.backendScript -and $parsed.transport -ceq $paths.transportScript -and $parsed.supervisor -ceq $paths.repoTreeSupervisor) 'parsed sources did not match the literal written into the installed driver files'
+
+ Setup-Fixture 'installed-diagnostic-sources-no-supervisor-literal'
+ $script:ControlPath=Join-Path $WatchdogRoot 'fixture-control.ps1';[IO.File]::WriteAllText($script:ControlPath,'control v1')
+ $script:WorkerPath=Join-Path $WatchdogRoot 'fixture-worker.ps1';[IO.File]::WriteAllText($script:WorkerPath,'worker v1')
+ $script:BackendRoot=Join-Path $WatchdogRoot 'backend';New-Item -ItemType Directory -Path (Join-Path $script:BackendRoot 'app\tools') -Force|Out-Null
+ $backendScript=Join-Path $script:BackendRoot 'app\tools\django-local-service.ps1';[IO.File]::WriteAllText($backendScript,'backend v1')
+ $script:ProjectRoot=Join-Path $WatchdogRoot 'project';New-Item -ItemType Directory -Path (Join-Path $script:ProjectRoot 'tools') -Force|Out-Null
+ $transportScript=Join-Path $script:ProjectRoot 'tools\process-deadline.ps1';[IO.File]::WriteAllText($transportScript,'transport v1')
+ New-InstalledDiagnosticDriverFiles $script:ControlPath $script:WorkerPath $backendScript $transportScript
+ $ctx=Get-WatchInstallContext $sourceTools
+ $parsed=Get-WatchInstalledDiagnosticSources $ctx
+ Assert-Install ($parsed -and -not $parsed.ContainsKey('supervisor')) 'a driver without the supervisor literal must parse without a supervisor key, not fabricate one'
+
+ Setup-Fixture 'installed-diagnostic-sources-missing-driver-falls-closed'
+ $ctx=Get-WatchInstallContext $sourceTools
+ $parsed=Get-WatchInstalledDiagnosticSources $ctx
+ Assert-Install ($null -eq $parsed) 'no installed driver files at all must return null, not a guessed source map'
 
  # Unusable installed driver: a driver that cannot parse blocks the install that would
  # replace it, so it is admitted without declared assets, but only when measured. A real
