@@ -16,6 +16,8 @@
 6. 生产维护、部署、迁移、数据写入及真实外部发送须有对应授权，并遵守专题规定的验证与恢复流程；开发和测试使用隔离环境。
 
    Django 与 Worker 的实际上线只走发布器入口 `tools/publish-latest-main.mjs`（已准备制品续接用 `tools/publish-prepared-main.mjs`）。`tools/django-local-service.ps1` 的 `PrepareApp`/`DeployApp`/`HardenAcl` 与 `worker-local-service.ps1` 的 `EnterMaintenance`/`ExitMaintenance` 是发布器内部调用的底层动作，**不得作为发布手段单独调用**：它们不写 `publish-<12hex>/SUCCESS.json` 和 `PUBLISHED-MAIN.json`，门禁仍会逐项放行且不报错，但该次上线不被发布记账承认，并使后续发布在来源一致性断言处失败。门禁放行不等于流程正确；入口、放行条件与绕过后的后果见[发布入口与记账边界](docs/规范/验证与发布.md#发布入口与记账边界)。
+
+   `.github/workflows/ci.yml` 的步骤是合并前的仓库级检查，发布器不调用它们、不执行测试套件：**CI 全绿不代表能发布，修好 CI 也不等于解除发布阻塞**，两类阻塞分别判断。例外是控制器字节资格化一类同时被 CI 覆盖的真发布闸，以及被 `tools/verify-release-candidate.mjs` 的 profile 引用的测试文件，改动时须按专题核对。边界与逐项依据见[CI 门禁不进入发布链路](docs/规范/验证与发布.md#ci门禁不进入发布链路)。
 7. 本文件只允许维护开发约定与路径索引。**禁止增加每日开发内容、发布流水、单次验收结果、运行版本或任务收尾记录。** 稳定细则更新对应规范；每日进展和证据写入 `docs/<任务目录>/`。
 8. 页面方案和前端调整默认只交付可直接打开的 HTML 文件，不主动启动或展示在线预览、不以预览网址或截图替代 HTML；仅在用户明确要求时再启动或展示浏览器预览。具体交付要求见[前端与性能](docs/规范/前端与性能.md)。
 
