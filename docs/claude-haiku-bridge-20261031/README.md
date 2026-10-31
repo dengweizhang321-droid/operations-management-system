@@ -2,7 +2,7 @@
 
 本方案将同事的 `codex-dev.md` 适配到本机 Windows 和 TERUISI 项目。Claude 主会话负责拆解与判断，Haiku 包装子代理转交派工单，独立 Codex CLI 会话在另一棵 `codex/*` worktree 开发。它不连接现有桌面聊天，不继承该聊天上下文。
 
-本轮源码位于独立候选分支，未合并、未更改用户级 Claude/Codex 配置、未启动真实模型任务。检查与限制见 [交付记录](REPORT.md)。
+本轮只交付项目级开发辅助工具，未更改用户级 Claude/Codex 配置，未启动真实模型任务。合并到本机 main 后使用下述主项目入口；不需要应用打包或生产发布。检查与限制见 [交付记录](REPORT.md)。
 
 ## 适配文件
 
@@ -15,7 +15,7 @@
 ## 使用前提
 
 1. 本机已有 Python 3.14、Codex CLI 0.166.0、Claude Code 2.1.295。桥接器从已安装 npm 包定位原生 `codex.exe`，不借 shell 执行 `.cmd/.ps1`。`python` 应解析到真实 Windows Python；`doctor` 会打印实际路径。
-2. 从含上述三个文件的**桥接根目录**启动 Claude Code，使 `${CLAUDE_PROJECT_DIR}` 指向这里。当前候选根目录为 `D:/codex-worktrees/claude-haiku-bridge-20261031`。在 Claude 的 `/agents` 查看 `codex-dev` 是否加载；已有会话可能需要重新加载或重启。
+2. 从含上述三个文件的**桥接根目录**启动 Claude Code，使 `${CLAUDE_PROJECT_DIR}` 指向这里。合并后的本机入口为 `D:/运营管理系统`：先在 PowerShell 执行 `Set-Location "D:/运营管理系统"`，再执行 `claude`。在 Claude 的 `/agents` 查看 `codex-dev` 是否加载；已有会话可能需要重新加载或重启。
 3. 先采用普通命名子代理。无需为本链路开启实验性 Agent Teams；如果你原本已使用 Teams，Lead 可据客户端实际能力协调包装代理，不能凭文档宣称 Teams 已开启。
 4. Codex 使用当前登录与用户配置，但请求模型固定为项目 routine 映射 `gpt-6.1-sol`、`high`，初次与续做均显式使用 `workspace-write` 和非交互拒绝升级。包装代理的 `model: haiku` 与 Codex 的模型是两个独立配置。未运行真实请求，账户权限、模型可用性及实际返回型号尚未确认。
 
@@ -25,10 +25,10 @@ Lead 先按项目规范从最新 main 建立**另一棵**独立干净工作树�
 
 Lead 把 UTF-8 派工单写入桥接根目录 `.runtime/codex-bridge/inbox/`，每次补充另写新文件，不在聊天里让 Haiku自行整理。派工单至少写：原始需求、工作树、允许修改范围、输入材料路径、完成条件、检查边界、明确排除的生产动作。不要放密钥或原始客户数据。
 
-在当前候选目录做只读环境发现：
+合并后在主项目目录做只读环境发现：
 
 ```powershell
-python "D:/codex-worktrees/claude-haiku-bridge-20261031/.claude/scripts/codex_teammate.py" doctor
+python "D:/运营管理系统/.claude/scripts/codex_teammate.py" doctor
 ```
 
 然后让 Claude Lead 使用项目代理 `codex-dev`，把 SCRIPT、WT、TASK 三个绝对路径交给它。具体命令模板见 [代理定义](../../.claude/agents/codex-dev.md)。输入路径须使用正斜杠，不得包含 shell 展开符；不支持带引号等特殊符号的路径。
