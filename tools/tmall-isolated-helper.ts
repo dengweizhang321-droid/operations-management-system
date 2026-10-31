@@ -11,6 +11,7 @@ import { assertNoOperatorClosure } from "../lib/jackyun/operator-close-fence";
 import { assertJackyunCloseAdmission } from "../lib/jackyun/operator-close-admission";
 import { closeJackyunExecution, readJackyunCloseTarget, type CloseSlotCoordinator } from "../lib/jackyun/operator-close";
 import { admitPiBusinessN8nNode } from "./pi-business-n8n-gate";
+import { dispatchCustomerServiceCloseAuthority } from "./jd-customer-service-source-recovery";
 
 export const isolatedHelperProtocol = "tmall-store-isolation-v1";
 export const isolatedHelperTokenHeader = "x-teruisi-helper-slot-token";
@@ -327,6 +328,17 @@ export async function serveIsolatedHelper(options: {
         const raw = Buffer.concat(parts).toString("utf8");
         if (!/^\s*\{\s*"authorizationId"\s*:\s*"[a-f0-9-]{36}"\s*\}\s*$/.test(raw)) { reply(response, 400, { ok: false, error: "invalid_close_identity" }); return; }
         try { reply(response, 200, await closeJackyunExecution(options.mutableRoot, JSON.parse(raw).authorizationId, closeCoordinator)); }
+        catch (error) { reply(response, 409, { ok: false, error: "close_blocked", message: error instanceof Error ? error.message : "原任务暂不能闭合，请刷新原请求。" }); }
+        return;
+      }
+      if (request.method === "POST" && route === "/coordination/jd-customer-service-close") {
+        if (readAutomationDrain() !== null) { reply(response, 409, { ok: false, error: "maintenance_wait", message: "系统维护期间暂不能闭合。" }); return; }
+        if (!request.headers["content-type"]?.startsWith("application/json") || Number(request.headers["content-length"] ?? 0) > 512) { reply(response, 400, { ok: false, error: "invalid_close_request" }); return; }
+        const parts: Buffer[] = []; let size = 0;
+        for await (const part of request) { size += part.length; if (size > 512) throw new Error("close_request_too_large"); parts.push(Buffer.from(part)); }
+        const raw = Buffer.concat(parts).toString("utf8");
+        if (!/^\s*\{\s*"authorizationId"\s*:\s*"[a-f0-9-]{36}"\s*\}\s*$/.test(raw)) { reply(response, 400, { ok: false, error: "invalid_close_identity" }); return; }
+        try { reply(response, 200, await dispatchCustomerServiceCloseAuthority(options.mutableRoot, JSON.parse(raw).authorizationId)); }
         catch (error) { reply(response, 409, { ok: false, error: "close_blocked", message: error instanceof Error ? error.message : "原任务暂不能闭合，请刷新原请求。" }); }
         return;
       }

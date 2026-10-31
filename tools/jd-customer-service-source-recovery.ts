@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
-import { readFile, realpath, lstat, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdir, open, readFile, realpath, lstat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { customerServiceStore } from "../lib/jd/customer-service-stores";
@@ -8,6 +8,8 @@ import { validateJdStoreRegistry } from "../lib/jd/store-registry";
 import { buildCustomerServiceDailyFiles } from "./jd-customer-service-daily-files";
 import type { CustomerServiceN8nPlan } from "./jd-customer-service-n8n-pipeline";
 import type { CustomerServiceDurationAnomaly } from "./jd-customer-service-duration-normalization";
+import { customerServiceControlBytes } from "./jd-customer-service-failure-closure";
+import { publishDurableFile } from "../lib/jackyun/json-file";
 
 export const customerServiceRecoveryHeader = "x-teruisi-jd-customer-service-recovery-sha256";
 type IdentityWitness = { shopName: string; shopTitle: string; listTabs: 1; messageTabs: 1; challengePresent: false; credentialsSubmitted: false; exportSubmitted: false; importSubmitted: false };
@@ -96,4 +98,130 @@ export async function claimCustomerServiceRecovery(root: string, recovery: Custo
 export async function verifyCustomerServiceRecoveryClaim(root: string, recovery: CustomerServiceSourceRecovery, storeKey: string, executionId: string) {
   const raw = await regularBytes(path.join(customerServiceRecoveryDirectory(root, storeKey), `${recovery.approvalSha256}.claimed.json`), 64 * 1024);
   if (!isDeepStrictEqual(JSON.parse(raw.toString("utf8")), { executionId, storeKey, ...recovery })) reject();
+}
+
+// Only the plan file path, mirroring the private filePaths() in
+// jd-customer-service-n8n-pipeline.ts. Not re-exporting pipeline internals;
+// this is the one path fragment the approval generator also needs.
+function customerServicePlanFile(root: string, executionId: string, storeKey: string) {
+  const store = customerServiceStore(storeKey);
+  if (!/^[A-Za-z0-9_-]{1,96}$/.test(executionId)) reject();
+  const base = path.join(root, "outputs", "jd-customer-service-pipeline");
+  const directory = store.storeKey === "jd-yiyong-director" ? base : path.join(base, store.storeKey);
+  return path.join(directory, `${executionId}.json`);
+}
+
+export type CustomerServiceCloseAuthorityTarget = {
+  storeKey: string; kind: CustomerServiceRecoveryApproval["kind"];
+  originalExecutionId: string; originalPlanSha256: string;
+  failureCode: string; period: CustomerServicePeriod;
+};
+
+/** Writes the one file tools/jd-customer-service-n8n-pipeline.ts and
+ * inspectCustomerServiceRecovery() were already able to consume, but that
+ * nothing in this repository previously produced. Called only after a human
+ * operator's close authority has been minted and re-validated by Django
+ * (see backend/workflow/jd_customer_service_close_authority.py); never
+ * reachable from the automatic pipeline path or from the failure-closure
+ * whitelist in jd-customer-service-failure-closure.ts.
+ *
+ * Every field is re-derived from the real stuck plan currently on disk, not
+ * trusted from the caller, so an approval can never be minted for a plan
+ * whose live state has since changed (sha256, stage, failureCode, period).
+ */
+export async function generateCustomerServiceRecoveryApproval(root: string, target: CustomerServiceCloseAuthorityTarget, approvedAt: Date, ttlMs = 2 * 60 * 60 * 1000) {
+  const store = customerServiceStore(target.storeKey);
+  if (!/^[a-f0-9]{64}$/.test(target.originalPlanSha256) || !/^[A-Za-z0-9_-]{1,96}$/.test(target.originalExecutionId)) reject();
+  const planFile = customerServicePlanFile(root, target.originalExecutionId, store.storeKey);
+  const previousBytes = await customerServiceControlBytes(planFile);
+  if (digest(previousBytes) !== target.originalPlanSha256) reject();
+  const previous = JSON.parse(previousBytes.toString("utf8")) as CustomerServiceN8nPlan;
+  if (previous.executionId !== target.originalExecutionId || previous.version !== 1 || previous.stage !== "failed"
+    || previous.storeKey !== store.storeKey || previous.shopName !== store.shopName || previous.shopId !== store.shopId
+    || previous.failureCode !== target.failureCode || !isDeepStrictEqual(previous.period, target.period)
+    || previous.proofs.length || previous.importingDate || previous.dailyFiles) reject();
+  // This is reachable only after the next A round already tried the
+  // automatic closer in jd-customer-service-failure-closure.ts and it threw
+  // PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION (see jd-customer-service-n8n-pipeline.ts).
+  // Whether that closer *would* succeed depends on live n8n execution_entity
+  // state, port occupancy and the per-store planning lock -- none of which
+  // this generator can safely re-simulate without side effects. The human
+  // operator's own judgement that automatic closure is not going to resolve
+  // the stuck plan is the actual gate here, carried by the Django authority;
+  // this function only re-derives the approval's business facts from disk.
+  const registry = validateJdStoreRegistry(JSON.parse(await readFile(path.join(root, "config", "jd-store-accounts.json"), "utf8")), root);
+  const registered = registry.find(item => item.storeKey === store.storeKey);
+  if (!registered?.enabled || registered.shopName !== store.shopName || registered.shopId !== store.shopId) reject();
+  const approvedAtIso = approvedAt.toISOString(), expiresAtIso = new Date(approvedAt.getTime() + ttlMs).toISOString();
+  let approval: CustomerServiceRecoveryApproval;
+  if (target.kind === "pre_export_zero_effect") {
+    if (!["PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION", "CHAT_PAGE_NOT_READY_MANUAL_ACTION", "CUSTOMER_SERVICE_FAILED_MANUAL_ACTION"].includes(target.failureCode)
+      || Object.keys(previous.source).length) reject();
+    const parentDirectory = path.join(registered.browser.downloadDir, "customer-service", previous.executionId);
+    try { await lstat(parentDirectory); reject(); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+    approval = { version: 1, kind: "pre_export_zero_effect", storeKey: store.storeKey, shopId: store.shopId, shopName: store.shopName,
+      originalExecutionId: previous.executionId, originalPlanSha256: target.originalPlanSha256, period: previous.period, failureCode: target.failureCode,
+      approvedAt: approvedAtIso, expiresAt: expiresAtIso,
+      identityWitness: { shopName: store.shopName, shopTitle: store.shopName, listTabs: 1, messageTabs: 1,
+        challengePresent: false, credentialsSubmitted: false, exportSubmitted: false, importSubmitted: false } };
+  } else if (target.kind === "downloaded_pair") {
+    if (target.failureCode !== "PAIR_PARSE_REJECTED") reject();
+    const parentDirectory = path.join(registered.browser.downloadDir, "customer-service", previous.executionId);
+    const bytes: Uint8Array[] = [];
+    for (const [index, view] of (["list", "messages"] as const).entries()) {
+      const checkpoint = previous.source[view];
+      if (!checkpoint?.savedPath || checkpoint.phase !== "downloaded" || checkpoint.view !== view
+        || path.dirname(path.resolve(checkpoint.savedPath)).toLowerCase() !== path.resolve(parentDirectory).toLowerCase()
+        || path.extname(checkpoint.savedPath).toLowerCase() !== (index === 0 ? ".xlsx" : ".log")
+        || !Number.isSafeInteger(checkpoint.sourceCount) || Number(checkpoint.sourceCount) <= 0) reject();
+      const file = await regularBytes(checkpoint.savedPath, 25 * 1024 * 1024);
+      if (file.length !== checkpoint.sizeBytes || digest(file) !== checkpoint.sha256) reject();
+      bytes.push(file);
+    }
+    if (previous.source.list?.sourceCount !== previous.source.messages?.sourceCount) reject();
+    const parsed = buildCustomerServiceDailyFiles(bytes[0], bytes[1], previous.period, store.storeKey, { negativeDurationToMissing: true });
+    if (parsed.summary.sessionCount !== previous.source.list?.sourceCount || !parsed.durationAnomalies.length) reject();
+    approval = { version: 1, kind: "downloaded_pair", storeKey: store.storeKey, shopId: store.shopId, shopName: store.shopName,
+      originalExecutionId: previous.executionId, originalPlanSha256: target.originalPlanSha256, period: previous.period, failureCode: target.failureCode,
+      approvedAt: approvedAtIso, expiresAt: expiresAtIso, expectedDurationAnomalies: parsed.durationAnomalies };
+  } else reject();
+  const content = JSON.stringify(approval, null, 2);
+  const approvalSha256 = digest(new TextEncoder().encode(content));
+  const directory = customerServiceRecoveryDirectory(root, store.storeKey);
+  await mkdir(directory, { recursive: true });
+  const filePath = path.join(directory, `${approvalSha256}.json`);
+  const existing = await lstat(filePath).catch(error => { if ((error as NodeJS.ErrnoException).code === "ENOENT") return null; throw error; });
+  if (existing) {
+    if (!existing.isFile() || existing.isSymbolicLink() || existing.nlink !== 1) reject();
+    if (digest(await regularBytes(filePath, 64 * 1024)) !== approvalSha256) reject();
+    return { approval, approvalSha256 };
+  }
+  const tempPath = `${filePath}.${randomUUID()}.tmp`;
+  const handle = await open(tempPath, "wx", 0o600);
+  try { await handle.writeFile(content, "utf8"); await handle.sync(); }
+  finally { await handle.close(); }
+  await publishDurableFile(tempPath, filePath, true);
+  return { approval, approvalSha256 };
+}
+
+type CloseAuthority = { ok: true; version: "jd-customer-service-operator-close-authority-v1"; action: "close";
+  target: CustomerServiceCloseAuthorityTarget; authorizationId: string; closeRequestId?: string; createdAt: string; expiresAt: string };
+const authorityUuid = (v: unknown): v is string => typeof v === "string" && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(v);
+
+/** Re-fetches and independently re-validates the Django-issued permission
+ * receipt before generating anything; the helper process never trusts a bare
+ * authorizationId. Mirrors lib/jackyun/operator-close.ts's authority(). */
+export async function dispatchCustomerServiceCloseAuthority(root: string, authorizationId: string, request: typeof fetch = fetch) {
+  if (!authorityUuid(authorizationId)) reject();
+  const response = await request(`http://localhost:3000/api/imports/recovery/customer-service-close?authorizationId=${authorizationId}`, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(10000) });
+  const raw = await response.text();
+  if (!response.ok || Buffer.byteLength(raw) > 8192) reject();
+  const value = JSON.parse(raw) as CloseAuthority;
+  if (value.ok !== true || value.version !== "jd-customer-service-operator-close-authority-v1" || value.authorizationId !== authorizationId || value.action !== "close"
+    || value.closeRequestId !== undefined && !authorityUuid(value.closeRequestId)
+    || !Number.isFinite(Date.parse(value.createdAt)) || Date.parse(value.createdAt) > Date.now()
+    || !Number.isFinite(Date.parse(value.expiresAt)) || Date.parse(value.expiresAt) <= Date.now()) reject();
+  const { approval, approvalSha256 } = await generateCustomerServiceRecoveryApproval(root, value.target, new Date(value.createdAt), Date.parse(value.expiresAt) - Date.parse(value.createdAt));
+  return { ok: true as const, storeKey: approval.storeKey, originalExecutionId: approval.originalExecutionId, approvalSha256 };
 }
