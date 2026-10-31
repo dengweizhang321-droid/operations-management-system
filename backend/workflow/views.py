@@ -147,6 +147,21 @@ def jackyun_recovery_authority(request: HttpRequest) -> JsonResponse:
         return _error(error, "人工恢复授权无法确认")
 
 
+@require_http_methods(["GET", "POST"])
+def jd_customer_service_close_authority(request: HttpRequest) -> JsonResponse:
+    try:
+        principal = _principal(request, {"admin"})
+        from .jd_customer_service_close_authority import authorize, read_authority
+        if request.method == "GET":
+            if set(request.GET) != {"authorizationId"} or len(request.GET.getlist("authorizationId")) != 1:
+                raise WorkflowApiError("京东客服闭合授权查询字段无效")
+            return _json(read_authority(request.GET["authorizationId"]), revision=revision_value())
+        payload = _body(request)
+        return _replay_write(request, principal, lambda: (authorize(payload, request.headers.get("X-Teruisi-Request-Id", "")), 200))
+    except Exception as error:
+        return _error(error, "京东客服闭合授权无法确认")
+
+
 def _replay_write(
     request: HttpRequest,
     principal: Principal,
