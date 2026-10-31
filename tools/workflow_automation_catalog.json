@@ -1067,6 +1067,22 @@
         "teruisi_sales_owner",
         "S",
         "p",
+        "SELECT",
+        false,
+        "OWNER"
+      ],
+      [
+        "teruisi_sales_owner",
+        "S",
+        "p",
+        "UPDATE",
+        false,
+        "OWNER"
+      ],
+      [
+        "teruisi_sales_owner",
+        "S",
+        "p",
         "USAGE",
         false,
         "OWNER"
