@@ -56,4 +56,4 @@ node docs/release-scope-copy-lists-20261101/compare-history.mjs
 
 `main-schema-release.mjs:78,96`的strict keys约束schema/recipe，不是scope plan；`:124`对已存在请求的previous.releasePlan作完整deepEqual。`publish-latest-main.mjs:26`的writeOnceOrSame同样保护既有封存文件：新字段会改变新计划及新请求摘要，**不得拿新工具重新生成旧请求、覆写旧包或换绑历史prepared回执**。旧材料继续由其原冻结入口/请求消费；新计划仅用于新的精确准备意图，若同名旧包冲突，现有不可变门禁应拒绝，不能把拒绝改为兼容性自动覆盖。
 
-scope plan摘要仍是整个core的JSON SHA-256，现将copyRuleEvidence作为core新成员；请求、原STARTED与prepared层继续绑定完整请求字节摘要，未改其算法。Worker rotation的planSha256属于另一种轮换计划，不与scope plan摘要混用。`frozen-main-source.mjs:6-17`绑定Git HEAD、tree、批准commit及clean状态，新模块仍属于该完整源码树；新增字段不绕过freeze。安装器新增两模块和私有控制包import检查闭合了控制根的实际加载依赖，而不是以Git clean或单个plan摘要自测替代它。
+scope plan摘要仍是整个core的JSON SHA-256，现将copyRuleEvidence作为core新成员；`publish-prepared-main.mjs:163`与`publish-main-resume.mjs:56`继续绑定完整请求对象按`JSON.stringify`序列化后的摘要（非磁盘pretty JSON请求文件原始字节SHA），算法未改。Worker rotation的planSha256属于另一种轮换计划，不与scope plan摘要混用。`frozen-main-source.mjs:6-17`绑定Git HEAD、tree、批准commit及clean状态，新模块仍属于该完整源码树；新增字段不绕过freeze。安装器新增两模块和私有控制包import检查闭合了控制根的实际加载依赖，而不是以Git clean或单个plan摘要自测替代它。
