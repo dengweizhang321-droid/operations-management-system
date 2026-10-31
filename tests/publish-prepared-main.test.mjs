@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {publishPreparedMain,piWorkspaceImage,piNativeImage,releaseLeaseTtlMs} from '../tools/publish-prepared-main.mjs';
-import {monitoringSchema,tmallSchema,tmall148Schema,piAgentSchema,piWorkspaceSchema} from '../tools/main-schema-release.mjs';
+import {publishPreparedMain,piWorkspaceImage,piBusinessImage,piNativeImage,releaseLeaseTtlMs} from '../tools/publish-prepared-main.mjs';
+import {monitoringSchema,tmallSchema,tmall148Schema,piAgentSchema,piWorkspaceSchema,piBusinessSchema,piNativeSchema,workflowAutomationSchema} from '../tools/main-schema-release.mjs';
+import {classifyRelease} from '../tools/release-scope-plan.mjs';
 
 async function fixture(t,components=['worker'],failAt=null){
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'prepared-publisher-'));
@@ -307,6 +308,93 @@ async function migrationFixture(t,failAt=null,schema=monitoringSchema){
  };
  return f;
 }
+
+const aiContract='backend/ai_assistant/database_contract.py';
+const inventoryContract='tools/django-inventory-service.ps1';
+// Characterize an unresolved scope gap, not the desired authorization contract.
+// When no-migration provisioning is implemented, replace these expectations.
+for(const contracts of [[aiContract],[inventoryContract],[aiContract,inventoryContract]])
+test('known scope gap: contract-only release skips role provisioning: '+contracts.join(', '),async t=>{
+ const changes=contracts.map(path=>({status:'M',path}));
+ const plan={changes,...classifyRelease(changes)};
+ assert.equal(plan.migrate,false);assert.ok(plan.components.includes('django'));
+ const f=await fixture(t,plan.components);
+ f.request.migrate=plan.migrate;f.request.releasePlan=plan;
+ assert.equal(f.request.schemaRelease,undefined);
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});f.events.length=0;
+ const result=await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ assert.equal(result.migration,null);assert.ok(f.events.includes('DeployApp'));
+ for(const action of ['Plan','Install','ProvisionRoles','Finalize'])assert.ok(!f.events.includes(action));
+ t.diagnostic('Known unresolved gap: the mocked ready response does not prove real database privileges or startup readiness.');
+});
+for(const schema of [tmall148Schema,piAgentSchema,piWorkspaceSchema,piBusinessSchema,piNativeSchema])
+for(const withPath of [false,true])test('original role trigger remains once: '+schema.additionKind+' path='+withPath,async t=>{
+ const f=await migrationFixture(t,null,schema),native=f.context.runStep,calls=[];
+ const inventory=schema.additionKind==='TmallWarehouse';
+ if(withPath)f.request.releasePlan.changes=[{path:inventory?inventoryContract:aiContract}];
+ const image=schema.additionKind==='PiNative'?piNativeImage:schema.additionKind==='PiBusiness'?piBusinessImage:piWorkspaceImage;
+ const upgrade={prepared:true,started:false,registeredPlanSha256:'c'.repeat(64),sourceSha256:'d'.repeat(64),image};
+ f.context.runStep=async args=>{
+  const value=await native(args);
+  if(args.action==='ProvisionRoles')calls.push(path.basename(args.script));
+  if(args.action==='PreparePiUpgrade')return upgrade;
+  if(args.action==='PiUpgradeCheck')return {...upgrade,checked:true};
+  if(args.action==='UpgradePi')return {...upgrade,upgraded:true,windowsConfigUpdated:true,sameDpapiOwner:true};
+  return value;
+ };
+ await publishPreparedMain(f.request,f.context);
+ assert.deepEqual(calls,[inventory?'django-inventory-service.ps1':'django-ai.ps1']);
+ assert.ok(f.events.indexOf('Install')<f.events.indexOf('ProvisionRoles'));
+ assert.ok(f.events.indexOf('ProvisionRoles')<f.events.indexOf('Finalize'));
+ if(f.events.includes('UpgradePi'))assert.ok(f.events.indexOf('Finalize')<f.events.indexOf('UpgradePi'));
+});
+for(const [name,changes,expected] of [
+ ['AI contract modified',[{status:'M',path:aiContract}],['django-ai.ps1']],
+ ['AI contract renamed from',[{status:'R100',before:aiContract,path:'backend/ai_assistant/renamed.py'}],['django-ai.ps1']],
+ ['AI contract renamed to',[{status:'R100',before:'backend/ai_assistant/old.py',path:aiContract}],['django-ai.ps1']],
+ ['inventory contract modified',[{status:'M',path:inventoryContract}],['django-inventory-service.ps1']],
+ ['inventory contract renamed from',[{status:'R100',before:inventoryContract,path:'tools/renamed.ps1'}],['django-inventory-service.ps1']],
+ ['both contracts once',[{path:aiContract},{path:inventoryContract},{path:aiContract}],['django-inventory-service.ps1','django-ai.ps1']],
+ ['unrelated paths',[{path:'backend/ai_assistant/tests/database_contract.py'},{path:aiContract+'.bak'},{path:'docs/'+inventoryContract},{path:'backend/teruisi_backend/health.py'}],[]],
+ ['missing changes',undefined,[]],
+ ['empty changes',[],[]],
+])test('WorkflowAutomation provisions by exact contract path: '+name,async t=>{
+ const f=await migrationFixture(t,null,workflowAutomationSchema),native=f.context.runStep,calls=[];
+ if(changes!==undefined)f.request.releasePlan.changes=changes;
+ f.context.runStep=async args=>{
+  if(args.action==='ProvisionRoles'){
+   calls.push(path.basename(args.script));
+   assert.equal(args.script,path.join(f.context.installedRoot,'tools',path.basename(args.script)));
+   assert.deepEqual(args.extra,[]);assert.equal(args.json,false);
+  }
+  return native(args);
+ };
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ assert.deepEqual(calls,[]);assert.ok(!f.events.includes('EnterMaintenance'));
+ f.events.length=0;
+ await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ assert.deepEqual(calls,expected);
+ if(expected.length){
+  assert.ok(f.events.indexOf('EnterMaintenance')<f.events.indexOf('DeployApp'));
+  assert.ok(f.events.indexOf('HardenAcl')<f.events.indexOf('Install'));
+  assert.ok(f.events.indexOf('Install')<f.events.indexOf('ProvisionRoles'));
+  assert.ok(f.events.lastIndexOf('ProvisionRoles')<f.events.indexOf('Finalize'));
+  assert.ok(f.events.indexOf('Finalize')<f.events.indexOf('Start'));
+ }
+});
+
+for(const contract of [aiContract,inventoryContract])test('WorkflowAutomation role failure stops before Finalize and never replays: '+contract,async t=>{
+ const f=await migrationFixture(t,'ProvisionRoles',workflowAutomationSchema);
+ f.request.releasePlan.changes=[{path:contract}];
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});f.events.length=0;
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/fixture failure/);
+ for(const action of ['Finalize','UpgradePi','apply','ExitMaintenance','Start'])assert.ok(!f.events.includes(action));
+ await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
+ assert.equal(JSON.parse(await fs.readFile(path.join(f.out,'FAILED.json'),'utf8')).automaticRetry,false);
+ f.events.length=0;
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/结果未知/);
+ assert.ok(!f.events.includes('ProvisionRoles'));
+});
 test('148 preparation never migrates; manual deployment binds original operation and native receipts',async t=>{
  const f=await migrationFixture(t);await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
  for(const forbidden of ['Plan','DeployApp','Install','Finalize','EnterMaintenance','apply','Start'])assert.ok(!f.events.includes(forbidden));
