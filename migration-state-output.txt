@@ -1,0 +1,23 @@
+﻿=== start 2026-10-30T01:15:24.5675765+08:00 ===
+
+--- target index present? ---
+ABSENT
+
+--- if present: valid and ready? ---
+
+--- sales.0012 recorded in django_migrations? ---
+0
+
+--- total django_migrations (153 before, 154 after) ---
+153
+
+--- last 3 sales migrations ---
+0011_jackyun_upload_audit_binding|2026-10-14 00:28:15.820028+08
+0010_analysis_options|2026-09-28 10:25:45.156815+08
+0009_postgres_raw_upload_payload|2026-08-31 00:46:28.22571+08
+
+--- any invalid index on the table? ---
+
+=== done (read-only, nothing changed) ===
+
+output saved: D:\运营管理系统\migration-state-output.txt

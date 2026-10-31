@@ -1,0 +1,11 @@
+ AGENTS.md                                          |   4 +-
+ .../AI-ENTRY.md                                    |   2 +-
+ .../release-flow-simplification-20261013/REPORT.md |   2 +-
+ docs/规范/开发与交付.md                            |   6 +-
+ docs/规范/验证与发布.md                            |  24 +++--
+ docs/运维/部署与启动/release-batch-workflow.md     |   2 +-
+ docs/运维/部署与启动/release-delivery-templates.md |   9 +-
+ tests/release-scope-plan.test.mjs                  |  16 +--
+ tools/release-scope-plan.mjs                       |   9 +-
+ tools/worker-local-release-rotation.mjs            | 118 ++++++++++++++-------
+ 10 files changed, 120 insertions(+), 72 deletions(-)

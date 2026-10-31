@@ -1,0 +1,33 @@
+﻿=== start 2026-10-30T08:18:33.6873866+08:00 ===
+preconditions (all verified read-only before this script was written):
+  maintenance active : True
+  worker receipt gone: True
+  app.previous ready : True
+
+--- RollbackApp ---
+Django runtime app 已仅回滚代码；数据库 migration 与业务数据未改变。
+exitCode=0
+
+installed manifest now: 7948e85c0bea844cdc02e38fa50dc81f57c439034645fb0de952386f224b865f
+expected (previous)   : 7948e85c0bea844cdc02e38fa50dc81f57c439034645fb0de952386f224b865f
+
+--- HardenAcl ---
+Django 本机运行目录 ACL 已满足限制，无需重复修改。
+exitCode=0
+
+--- ExitMaintenance ---
+{"status":"completed","step":"ExitMaintenance","engineEvidence":[{"version":1,"stage":"completed","code":"completed","processId":53492,"exitCode":0,"timeoutType":null,"deadlineUnixMs":1793320248556,"elapsedMs":51373,"outputProtocol":"direct-exit-file-snapshot","cleanup":"Preserve","stdoutBytes":83,"stderrBytes":0,"stdoutSha256":"d8d29226e5e343b86abf6aa4731818c3a3a01d3e470c197185e1a724cbc551e0","stderrSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}],"djangoManifestSha256":"7948e85c0bea844cdc02e38fa50dc81f57c439034645fb0de952386f224b865f","maintenanceId":"f04a6b8c614941fab261b5211ba9162f"}
+exitCode=0
+
+--- StartWorker ---
+{"status":"completed","step":"StartWorker","engineEvidence":[{"version":1,"stage":"completed","code":"completed","processId":16168,"exitCode":0,"timeoutType":null,"deadlineUnixMs":1793320300630,"elapsedMs":279889,"outputProtocol":"direct-exit-file-snapshot","cleanup":"Preserve","stdoutBytes":1295,"stderrBytes":0,"stdoutSha256":"220816f72b322e0bbc177f9f984cf4d639dfd7577c1c95c115b618556fd264ac","stderrSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},{"version":1,"stage":"completed","code":"completed","processId":59420,"exitCode":0,"timeoutType":null,"deadlineUnixMs":1793320300630,"elapsedMs":11232,"outputProtocol":"direct-exit-file-snapshot","cleanup":"Direct","stdoutBytes":266,"stderrBytes":0,"stdoutSha256":"a981de893190fb523a542a9f57c0bec0b0c666aa58a9818e93daa113672c66d8","stderrSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},{"version":1,"stage":"completed","code":"completed","processId":51344,"exitCode":0,"timeoutType":null,"deadlineUnixMs":1793320300630,"elapsedMs":35499,"outputProtocol":"direct-exit-file-snapshot","cleanup":"Direct","stdoutBytes":1772,"stderrBytes":0,"stdoutSha256":"cb2bea7f458d6aa1d7a07cab20826448fae2df461261e096e90682314f8d2d21","stderrSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},{"version":1,"stage":"completed","code":"completed","processId":13612,"exitCode":0,"timeoutType":null,"deadlineUnixMs":1793320300630,"elapsedMs":7042,"outputProtocol":"direct-exit-file-snapshot","cleanup":"Direct","stdoutBytes":45,"stderrBytes":0,"stdoutSha256":"663b4a14ad3e88925834b4a421b82e7fcc31b7f005fb976457685549d772d3f8","stderrSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}],"djangoManifestSha256":"7948e85c0bea844cdc02e38fa50dc81f57c439034645fb0de952386f224b865f","timing":{"engineMs":279889,"adapterMs":333895,"validationMs":53773},"manifestSha256":"66fcde0c3b95b4daa877d62d6513e7563ea489d4b03990cd1ff1f873cba66f89","readiness":"complete","maintenanceConfirmed":true}
+exitCode=0
+
+=== recovery completed; services should be serving the pre-release code ===
+
+--- listening ports ---
+  3000 : LISTENING
+  5791 : LISTENING
+  5432 : LISTENING
+
+output saved: D:\运营管理系统\recovery-output.txt

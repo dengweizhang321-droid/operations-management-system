@@ -1,0 +1,58 @@
+=== Sales154 install gate replay (read-only) ===
+gate bytes from: D:\codex-isolated\main-release-packages\930509cc3918-bfb340f8-7948e85c\source\tools
+
+--- replay guard files (install refuses a replay if either exists) ---
+absent  D:\teruisi-runtime\django-sales\sales-preflight-index-additions\feae967b0bed4d8ab14bcb8d8cc3f9d4\install-intent.json
+absent  D:\teruisi-runtime\django-sales\sales-preflight-index-addition-active.json
+
+--- database identity ---
+actual  : ('teruisi_sales', 'teruisi_sales_owner', '127.0.0.1', 5432)
+expected: ('teruisi_sales', 'teruisi_sales_owner', '127.0.0.1', 5432)
+
+--- verify_receipt_generation (the catalogue sweep) ---
+>>> RAISED ImproperlyConfigured: Requested setting INSTALLED_APPS, but settings are not configured. You must either define the environment variable DJANGO_SETTINGS_MODULE or call settings.configure() before accessing settings.
+Traceback (most recent call last):
+  File "D:\运营管理系统\安装门禁复跑.py", line 105, in main
+    log("OK: generation=%s" % verify_receipt_generation(cursor))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\codex-isolated\main-release-packages\930509cc3918-bfb340f8-7948e85c\source\tools\postgres_no_key_backup.py", line 86, in verify_receipt_generation
+    verify_native_catalog(cursor, installed=native_installed, permissions=native_installed and (sales_preflight_installed or jd_permissions))
+  File "D:\codex-isolated\main-release-packages\930509cc3918-bfb340f8-7948e85c\source\tools\pi_native_catalog.py", line 36, in verify_catalog
+    verify_native(cursor, permissions=permissions)
+  File "D:\codex-isolated\main-release-packages\930509cc3918-bfb340f8-7948e85c\source\backend\ai_assistant\pi_native_health.py", line 15, in verify_native
+    from .pi_models import PI_MODELS
+  File "D:\codex-isolated\main-release-packages\930509cc3918-bfb340f8-7948e85c\source\backend\ai_assistant\pi_models.py", line 9, in <module>
+    class PiSession(models.Model):
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\db\models\base.py", line 131, in __new__
+    app_config = apps.get_containing_app_config(module)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\apps\registry.py", line 260, in get_containing_app_config
+    self.check_apps_ready()
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\apps\registry.py", line 137, in check_apps_ready
+    settings.INSTALLED_APPS
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\conf\__init__.py", line 81, in __getattr__
+    self._setup(name)
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\conf\__init__.py", line 61, in _setup
+    raise ImproperlyConfigured(
+django.core.exceptions.ImproperlyConfigured: Requested setting INSTALLED_APPS, but settings are not configured. You must either define the environment variable DJANGO_SETTINGS_MODULE or call settings.configure() before accessing settings.
+
+--- preservation snapshot (rows/permissions the intent pins) ---
+>>> RAISED UndefinedColumn: column "id" does not exist
+LINE 1: SELECT to_jsonb(t) FROM "ai_pi_agents" t ORDER BY id LIMIT 1...
+                                                          ^
+Traceback (most recent call last):
+  File "D:\运营管理系统\安装门禁复跑.py", line 114, in main
+    state = preservation(cursor)
+            ^^^^^^^^^^^^^^^^^^^^
+  File "D:\codex-isolated\main-release-packages\930509cc3918-bfb340f8-7948e85c\source\tools\sales_preflight_catalog.py", line 49, in preservation
+    cursor.execute(sql.SQL("SELECT to_jsonb(t) FROM {} t ORDER BY id LIMIT 100001").format(sql.Identifier(table)))
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\psycopg\cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.UndefinedColumn: column "id" does not exist
+LINE 1: SELECT to_jsonb(t) FROM "ai_pi_agents" t ORDER BY id LIMIT 1...
+                                                          ^
+
+--- verify_index (expects the index absent at generation 153) ---
+>>> RAISED InFailedSqlTransaction: current transaction is aborted, commands ignored until end of transaction block
+
+replayed gates that raised: 3

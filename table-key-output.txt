@@ -1,0 +1,42 @@
+﻿=== start 2026-10-30T08:40:19.2780502+08:00 ===
+
+--- does each table have an id column? (table|has_id) ---
+ai_pi_agent_messages|has id
+ai_pi_agent_waits|has id
+ai_pi_agents|NO ID COLUMN
+ai_pi_business_delegations|NO ID COLUMN
+ai_pi_file_handoffs|has id
+ai_pi_native_states|NO ID COLUMN
+ai_pi_plan_revisions|has id
+
+--- primary key of each table (table|pk columns) ---
+ai_pi_agent_messages|id
+ai_pi_agent_waits|id
+ai_pi_agents|session_id
+ai_pi_business_delegations|intent_id
+ai_pi_file_handoffs|id
+ai_pi_native_states|root_session_id
+ai_pi_plan_revisions|id
+
+--- all columns of ai_pi_agents ---
+1|session_id|text
+2|lifecycle|text
+3|dependencies_json|text
+4|settings_json|text
+5|created_at|timestamp with time zone
+6|parent_operation_id|text
+7|parent_session_id|text
+8|root_session_id|text
+
+--- row counts (small tables, safe to count) ---
+ai_pi_agents|15
+ai_pi_native_states|15
+ai_pi_plan_revisions|0
+ai_pi_agent_messages|0
+ai_pi_agent_waits|0
+ai_pi_file_handoffs|0
+ai_pi_business_delegations|0
+
+=== done (read-only, nothing changed) ===
+
+output saved: D:\运营管理系统\table-key-output.txt

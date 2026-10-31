@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>发布链三条线 · 看板（2026-10-31）</title>
+<style>
+  :root{
+    --ink:#15181d; --ink-2:#4a515c; --ink-3:#7b838f;
+    --line:#e3e6ea; --bg:#f6f7f9; --card:#fff;
+    --run:#0b6fd0; --run-bg:#eaf3fc;
+    --wait:#8a6a1a; --wait-bg:#fdf5e2;
+    --hold:#5b6370; --hold-bg:#f0f1f3;
+    --done:#1d7a4d; --done-bg:#e8f6ee;
+    --stop:#b0351f; --stop-bg:#fdeeea;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:28px 22px 48px;background:var(--bg);color:var(--ink);
+    font:15px/1.65 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto}
+  header{margin-bottom:22px}
+  h1{margin:0 0 6px;font-size:22px;letter-spacing:-.2px}
+  .sub{color:var(--ink-3);font-size:13px}
+  .sub b{color:var(--stop);font-weight:600}
+
+  .board{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start}
+  @media(max-width:900px){.board{grid-template-columns:1fr}}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:0 0 4px;overflow:hidden}
+  .card.p1{border-top:3px solid var(--run)}
+  .card.p2{border-top:3px solid var(--wait)}
+  .card.p3{border-top:3px solid var(--hold)}
+
+  .hd{padding:14px 16px 12px;border-bottom:1px solid var(--line)}
+  .rank{font-size:11px;color:var(--ink-3);letter-spacing:.08em;text-transform:uppercase}
+  h2{margin:3px 0 8px;font-size:17px;letter-spacing:-.1px}
+  .tag{display:inline-block;font-size:11.5px;font-weight:600;
+    padding:2.5px 8px;border-radius:20px;vertical-align:1px}
+  .t-run{color:var(--run);background:var(--run-bg)}
+  .t-wait{color:var(--wait);background:var(--wait-bg)}
+  .t-hold{color:var(--hold);background:var(--hold-bg)}
+  .why{margin:8px 0 0;font-size:13px;color:var(--ink-2)}
+
+  .bd{padding:12px 16px 2px}
+  .lbl{font-size:11px;color:var(--ink-3);letter-spacing:.06em;
+    text-transform:uppercase;margin:12px 0 6px}
+  .lbl:first-child{margin-top:0}
+  ul{margin:0;padding-left:17px}
+  li{margin:4px 0;font-size:13.5px;color:var(--ink-2)}
+  li b{color:var(--ink);font-weight:600}
+  code{font:12.5px/1.4 ui-monospace,Consolas,monospace;background:#f2f3f5;
+    padding:1px 4px;border-radius:3px;color:#2a2f37}
+
+  .gate{margin:10px 0 0;padding:9px 11px;border-radius:7px;font-size:13px;
+    background:var(--stop-bg);color:#7d2817;border:1px solid #f5d6cd}
+  .gate.ok{background:var(--done-bg);color:#145c39;border-color:#cbe9d8}
+  .gate .k{font-weight:600}
+
+  details{margin:10px 0 0;border-top:1px solid var(--line);padding-top:9px}
+  summary{cursor:pointer;font-size:12.5px;color:var(--run);
+    list-style:none;user-select:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸ ";font-size:10px}
+  details[open] summary::before{content:"▾ "}
+  details ul{margin-top:7px}
+  details li{font-size:12.5px;color:var(--ink-3)}
+
+  .foot{margin-top:24px;background:var(--card);border:1px solid var(--line);
+    border-radius:10px;padding:16px 18px}
+  .foot h3{margin:0 0 9px;font-size:14px}
+  .foot ul{padding-left:17px}
+  .foot li{font-size:13px}
+  .note{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);
+    font-size:12.5px;color:var(--ink-3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>发布链三条线</h1>
+  <div class="sub">
+    2026-10-31 · 只读普查结论 · 现役无法发布，<b>五道闸同时拦着</b>（闸 ①②③④⑤ 对应下方卡片）
+  </div>
+</header>
+
+<div class="board">
+
+  <!-- 1 -->
+  <section class="card p1">
+    <div class="hd">
+      <div class="rank">优先级 1</div>
+      <h2>修 CI 两道 <span class="tag t-run">进行中</span></h2>
+      <p class="why">唯一不依赖任何未定决策的事。它同时解掉闸 ⑤。</p>
+    </div>
+    <div class="bd">
+      <div class="lbl">现在是红的</div>
+      <ul>
+        <li><code>maintenance-controller-qualification</code> — <code>django-local-service.ps1</code> 的 <code>fbb62792</code> 未资格化</li>
+        <li><code>check_schema_code_digest</code> — <code>status: failed</code>，退出码 1</li>
+      </ul>
+      <div class="lbl">根因</div>
+      <ul>
+        <li>86 个 <code>CODE_FILES</code> 成员里 <b>3 个 drift</b>：<code>django-local-service.ps1</code>、<code>postgres_no_key_backup.py</code>、<code>database_contract.py</code></li>
+      </ul>
+      <div class="gate">
+        <span class="k">为何排第一：</span>CI 红着，新改动引入的失败和既有失败分不开，后面两条都会受影响。
+      </div>
+      <details>
+        <summary>执行要点</summary>
+        <ul>
+          <li>补资格哈希要<b>保留旧代际</b>，否则这次改动的回退会被自己的资格条目挡住</li>
+          <li>摘要要同步四处 + 两个 <code>validationSha256</code>；手抄必漏，这 3 个 drift 就是证据</li>
+          <li>先看懂三处改动再碰哈希 —— 报错原文是 <code>review the controller before adding a hash</code></li>
+        </ul>
+      </details>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="card p2">
+    <div class="hd">
+      <div class="rank">优先级 2</div>
+      <h2>合并枚举 <span class="tag t-wait">待 CI 腾出文件</span></h2>
+      <p class="why">做 6 处、不做 3 处。不削弱保护，只减少人要同时记住的东西。</p>
+    </div>
+    <div class="bd">
+      <div class="lbl">做（6 处）</div>
+      <ul>
+        <li><code>main-schema-release.mjs</code> 的 <code>finite[]</code> — 可运行时派生</li>
+        <li><code>integration_release_gate.py</code> 两处路由 — 可运行时派生</li>
+        <li><code>django-local-service.ps1</code> 11 条 if 链 — 最大一块，<b>排最后做</b></li>
+        <li><code>bi-app-adopt.ps1</code> 的 <code>ValidateSet</code> — 只能 codegen</li>
+        <li>控制器名集合 — 派生结构，<b>不派生哈希值</b></li>
+      </ul>
+      <div class="lbl">不做（3 处，保持独立）</div>
+      <ul>
+        <li><b>8 个 recipe</b> — 审核凭证，派生等于造假</li>
+        <li><b>测试绊线</b> — 派生即恒真，保护死亡</li>
+        <li><b>producer 闭包</b> — 与 schema 代际语义无关，合并是错误耦合</li>
+      </ul>
+      <div class="gate">
+        <span class="k">新发现：</span><code>maintenanceSourceNames</code> 那 8 个文件名在<b>四处</b>各有硬编码副本，后两处还 assert 数量与排序集合完全相等 —— 这张表没法从单边改。
+      </div>
+      <details>
+        <summary>硬约束与代价</summary>
+        <ul>
+          <li>真相源<b>不能是 JSON、不能放 <code>config/</code></b> —— 控制包文件名正则只收 <code>tools/*.mjs</code></li>
+          <li><code>IValidateSetValuesGenerator</code> 在 PS 5.1 不存在（实测），<code>ValidateSet</code> 要编译期常量</li>
+          <li>总代码量<b>是增加的</b>：净减 ~150 行实现、净增 ~450 行基础设施。收益在「升一代的手改点从十几处降到两三处」</li>
+          <li>最大风险：<code>code_digest</code> 级联，4 步 × 4 处摘要 = 16 次同步</li>
+        </ul>
+      </details>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="card p3">
+    <div class="hd">
+      <div class="rank">优先级 3</div>
+      <h2>清理 <span class="tag t-hold">按用户要求搁置</span></h2>
+      <p class="why">最小收益。对发布成功率的影响：零。</p>
+    </div>
+    <div class="bd">
+      <div class="lbl">能删的只剩 1 个文件</div>
+      <ul>
+        <li><code>publish-main-completed.mjs</code> — 无生产 import，不在任何 <code>代码引用</code> 行里，唯一干净的删除项</li>
+        <li><code>pi150-forward-recovery.mjs</code> — 可达性判断成立，但它是 <b>Q07 点名的 <code>代码引用</code></b>，删了会让规范失真，须同一次改动更新 Q07</li>
+      </ul>
+      <div class="lbl">差点误删的三处</div>
+      <ul>
+        <li><code>publish-main-resume.mjs</code> — <b>唯一的续接实现</b>（有 STARTED 无 SUCCESS 靠它收敛）</li>
+        <li><code>publish-main-pi-reconciliation.mjs</code> — 保全 Pi 升级失败原因</li>
+        <li><code>publish-main.mjs:102</code> — 阻止无记账发布，<b>最高价值的一行</b></li>
+      </ul>
+      <div class="gate">
+        <span class="k">真正的结论：</span>这份清点<b>九天前已做过</b>并归档在 Q01–Q14，裁决是「下一步应泛化、本轮不改代码」。此后七天该文件又加四次常量，32 → 42。<b>缺的是机制，不是清单。</b>
+      </div>
+      <details>
+        <summary>两条教训</summary>
+        <ul>
+          <li><b>注释不是死活证据。</b><code>deliberately limited</code> / <code>one exact</code> 描述的是某次受审改动的<b>授权范围</b>，不是代码死活。按注释判死会命中三处唯一的恢复能力</li>
+          <li><b>退役 pin 是审核记录，不是当前期望。</b>落后是设计如此 —— pin 出生时就已失配，而被钉文件此后零改动。<b>不该补</b>；退役链连 INTENT 目录都不存在，今天不阻塞任何事</li>
+        </ul>
+      </details>
+    </div>
+  </section>
+
+</div>
+
+<div class="foot">
+  <h3>不在这三条线里，但堵着发布</h3>
+  <ul>
+    <li><b>闸 ①② 发布记账</b> —— 现役 <code>sourceRoot</code> 指向交付树而非冻结包；<code>PUBLISHED-MAIN.json</code> 的 django 摘要停在已不存在的字节。四条绕路已穷举排除，<b>必须改代码</b>。adopt 入口设计中。</li>
+    <li><b>闸 ③④ addition 与结构白名单</b> —— 11 代标记全在（无 retire 代码，设计即永久累积）；<code>workflow/0009</code>、<code>0010</code> 两个迁移无 recipe，<code>finite[]</code> 枚举止于 154 代。需建第 12 代 addition，CI 修完才开。</li>
+  </ul>
+  <div class="note">
+    本看板只汇总已实测的结论，不含推测。<code>install</code>/<code>finalize</code> 碰生产库且要求应用已停 —— 停机动作需单独授权。
+    合并到 main、准备制品、发布上线三步各自需要单独授权（AGENTS.md 第 4、5 条）。
+  </div>
+</div>
+
+</div>
+</body>
+</html>

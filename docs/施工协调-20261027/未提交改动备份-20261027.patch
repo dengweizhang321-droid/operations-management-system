@@ -1,0 +1,473 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index 0910ecf7..b0258d1d 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -9,8 +9,8 @@
+ 1. 开始任务先遵守用户指定的共享记忆启动协议，再读本文件、[项目使用说明](README.md)、[开发与交付](docs/规范/开发与交付.md)、[任务模型分工](docs/规范/任务模型分工.md)、[系统架构](docs/规范/系统架构.md)、[前端与性能](docs/规范/前端与性能.md)和本次任务相关专题。执行前先了解全系统的模块职责、前后端与自动化边界、主导航及页面排版，再核对本次变更的真实入口和可复用组件；不得只参照独立 demo 或局部截图另建布局。模型选择与子代理派工按该专题的当前映射和触发条件执行。用户当前明确指令优先于历史文档与记忆。
+ 2. 所有开发（包括文档与配置）从最新 `main` 创建独立 `codex/*` 分支及 worktree。修改前检查 Git 状态，保留用户改动，只暂存本任务文件。
+ 3. 保护原有功能，优先复用既有代码、接口和流程；只做本需求所需的修复或扩展，避免无关重构。
+-4. 每次发布上线按“检查必需程序代码 → 合并并生成对应制品 → 直接发布”执行。AI 只检查影响本次构建、部署和启动的必需程序代码，不额外验证相关功能及其代码的业务行为，不执行功能测试、业务接口/权限场景验收或综合验收；功能是否正确、是否符合需求，上线后由用户自行检测判断。必需代码检查无阻断、制品就绪且已有上线授权时直接发布，不再以功能验证、重复复审或再次确认作为发布前提；用户另行明确要求功能验证时才执行。仅文档修改检查本次差异和引用即可；详细边界见[发布检查与功能验收分工](docs/规范/验证与发布.md#发布检查与功能验收分工)。
+-5. 按 Git 完整差异生成发布范围计划：前端改动只处理 Worker，后端改动只处理 Django，只有 Django migration 变化才执行迁移。必需代码检查通过后，把合并、推送和对应制品准备作为一次交付，制品绑定最终合并提交；有效且绑定同一提交与制品的结果直接复用，不重复测试、打包、备份或恢复演练。共享运行库、依赖、配置、发布工具或未知路径仍按原范围计划处理完整组件流程，不因此增加功能验证。保留发布工具内置的版本、制品完整性、身份、权限、互斥、排空及启动门禁；发布成功后依据原生完成回执报告上线，不追加独立功能检查。所有代理均遵守[发布交付契约](docs/规范/验证与发布.md#统一发布交付契约)，功能验收由用户负责。
++4. 每次发布上线按“检查必需程序代码 → 合并到 `main` → 准备对应制品 → 发布上线”执行，**后三步各自须有用户对该步骤的明确授权**：本次所有资料（代码、文档、证据）完成后先汇报就绪与范围，再逐步请求授权；拿到哪一步的授权就只做那一步，做完报告并停下等下一步授权。一次授权不覆盖后续步骤，历史授权不延伸到本次。AI 只检查影响本次构建、部署和启动的必需程序代码，不额外验证相关功能及其代码的业务行为，不执行功能测试、业务接口/权限场景验收或综合验收；功能是否正确、是否符合需求，上线后由用户自行检测判断。必需代码检查无阻断、制品就绪且已获该步授权时即执行，不再以功能验证或重复复审作为前提；逐步授权只是用户的放行决定，不是要求 AI 补做功能验收，用户另行明确要求功能验证时才执行。仅文档修改检查本次差异和引用即可，合并仍须授权；详细边界见[发布检查与功能验收分工](docs/规范/验证与发布.md#发布检查与功能验收分工)。
++5. 按 Git 完整差异生成发布范围计划：前端改动只处理 Worker，后端改动只处理 Django，只有 Django migration 变化才执行迁移。必需代码检查通过后等合并授权；获授权后完成合并、推送并核验远端，报告最终提交，再请求制品准备授权，制品绑定该最终合并提交。有效且绑定同一提交与制品的结果直接复用，不重复测试、打包、备份或恢复演练。共享运行库、依赖、配置、发布工具或未知路径仍按原范围计划处理完整组件流程，不因此增加功能验证。保留发布工具内置的版本、制品完整性、身份、权限、互斥、排空及启动门禁；发布成功后依据原生完成回执报告上线，不追加独立功能检查。所有代理均遵守[发布交付契约](docs/规范/验证与发布.md#统一发布交付契约)，功能验收由用户负责。
+ 6. 生产维护、部署、迁移、数据写入及真实外部发送须有对应授权，并遵守专题规定的验证与恢复流程；开发和测试使用隔离环境。
+ 7. 本文件只允许维护开发约定与路径索引。**禁止增加每日开发内容、发布流水、单次验收结果、运行版本或任务收尾记录。** 稳定细则更新对应规范；每日进展和证据写入 `docs/<任务目录>/`。
+ 8. 页面方案和前端调整默认只交付可直接打开的 HTML 文件，不主动启动或展示在线预览、不以预览网址或截图替代 HTML；仅在用户明确要求时再启动或展示浏览器预览。具体交付要求见[前端与性能](docs/规范/前端与性能.md)。
+diff --git a/docs/release-flow-simplification-20261013/AI-ENTRY.md b/docs/release-flow-simplification-20261013/AI-ENTRY.md
+index b3f95090..6ea98da4 100644
+--- a/docs/release-flow-simplification-20261013/AI-ENTRY.md
++++ b/docs/release-flow-simplification-20261013/AI-ENTRY.md
+@@ -6,6 +6,6 @@
+ 
+ 本机主检出仍在旧提交，AGENTS 和相关交付规范存在旧内容；交付后按用户本次要求，仅同步已审文档和 AI 入口。同步前逐文件核对原内容未变化，再用已合入 main 的文档完整替换，并校验新摘要；不整体更新主检出、源码或运行包。旧版本可从 Git 历史追溯，不在当前入口旁另留旧规则副本。
+ 
+-本次为文档与规则入口变更，检查相对链接、Markdown 锚点、Cursor 入口格式和差异即可，不运行生产构建或服务操作。规范正文见[AGENTS](../../AGENTS.md)及[验证与发布](../规范/验证与发布.md#常规发布的三个交付步骤)。
++本次为文档与规则入口变更，检查相对链接、Markdown 锚点、Cursor 入口格式和差异即可，不运行生产构建或服务操作。规范正文见[AGENTS](../../AGENTS.md)及[验证与发布](../规范/验证与发布.md#常规发布的交付步骤与逐步授权)。
+ 
+ 验证结果：68 个相对链接及锚点通过，Cursor 的 `alwaysApply: true` 前置格式检查通过，`git diff --check` 通过。
+diff --git a/docs/release-flow-simplification-20261013/REPORT.md b/docs/release-flow-simplification-20261013/REPORT.md
+index 813d98f7..30e8a4c6 100644
+--- a/docs/release-flow-simplification-20261013/REPORT.md
++++ b/docs/release-flow-simplification-20261013/REPORT.md
+@@ -10,7 +10,7 @@
+ 5. 验证通过后，在同一次连续交付中合并、推送并从最终合并提交生成受影响组件的制品。构建包含在制品准备中，只执行一次；纯文档、测试或离线工具且应用载荷未变化时不生成应用包。
+ 6. 已获本次上线授权且制品就绪后发布，只检查版本、必需服务就绪及本次修改功能，随交付完成记录和清理。
+ 
+-完整正文见[验证与发布](../规范/验证与发布.md#常规发布的三个交付步骤)，开发交付见[开发与交付](../规范/开发与交付.md)，批次衔接见[发布批次协议](../运维/部署与启动/release-batch-workflow.md)。根 AGENTS 只更新稳定约定。
++完整正文见[验证与发布](../规范/验证与发布.md#常规发布的交付步骤与逐步授权)，开发交付见[开发与交付](../规范/开发与交付.md)，批次衔接见[发布批次协议](../运维/部署与启动/release-batch-workflow.md)。根 AGENTS 只更新稳定约定。
+ 
+ ## 工具变更
+ 
+diff --git a/docs/规范/开发与交付.md b/docs/规范/开发与交付.md
+index 32e94008..a36b2b13 100644
+--- a/docs/规范/开发与交付.md
++++ b/docs/规范/开发与交付.md
+@@ -18,16 +18,16 @@
+ - 后续代码变更默认从最新 `main` 创建独立 `codex/*` 分支和独立 Git worktree，在该 worktree 内完成开发、测试、构建、迁移演练与复审；不得直接在生产运行目录或生产检出上开发、切分支、安装依赖、生成构建产物或运行会改变状态的脚本。
+ - 涉及数据库、导入、队列、缓存、对象存储或自动化的验证，默认使用与生产隔离的镜像库/镜像环境。镜像必须使用独立连接、凭据、端口和存储命名空间；任何写入、迁移、回填、清理、任务消费和回调都只能指向镜像，禁止把生产连接作为开发回退路径。
+ - 镜像数据只用于验证，需保留必要的业务口径和边界条件，并按最小范围处理敏感数据；测试邮件、机器人、Webhook、定时任务和浏览器自动化默认关闭或指向测试接收端，避免产生真实外部副作用。
+-- 合并和发布前只检查影响本次构建、部署和启动的必需程序代码，按必要性选择语法、类型、依赖、构建和发布入口检查；不把这些检查扩成固定全量清单。相关功能及其代码的业务行为、业务接口结果和权限场景由用户上线后自行检测判断，AI 不追加功能测试、业务回查或验收。必需代码检查无阻断且与最新 `main` 无冲突后即可合并；具体分工见[发布检查与功能验收分工](验证与发布.md#发布检查与功能验收分工)。
++- 合并和发布前只检查影响本次构建、部署和启动的必需程序代码，按必要性选择语法、类型、依赖、构建和发布入口检查；不把这些检查扩成固定全量清单。相关功能及其代码的业务行为、业务接口结果和权限场景由用户上线后自行检测判断，AI 不追加功能测试、业务回查或验收。必需代码检查无阻断且与最新 `main` 无冲突后具备合并条件，但仍须用户明确授权本次合并才执行；具体分工见[发布检查与功能验收分工](验证与发布.md#发布检查与功能验收分工)。
+ - 合并到 `main` 不等于生产发布。生产数据库迁移、服务重启、路由切换、自动化启用和数据写入仍须走对应模块的受控发布与回滚流程；未经用户明确授权，不得自动部署或改变生产环境状态。
+ - 每次系统调整完成后，均须以当前 `main` 为基准检查对应 `codex/*` 分支是否已合入；仅当分支已完整合入、对应 worktree 无未提交内容且未被其他任务使用时，移除该 worktree，并删除本地及同名远程分支。未合入、worktree 不干净或使用中的分支必须保留，并明确报告原因。
+ 
+ ## Git 与交付
+ 
+ 
+-- 所有开发（包括文档与配置）在从最新 `main` 创建的独立 `codex/*` 分支及 worktree 完成。按[发布检查与功能验收分工](验证与发布.md#发布检查与功能验收分工)完成必需代码检查后，将合并、推送和对应制品准备作为一次连续交付，绑定最终合并提交并核验远端；只有构建和原生准备成功才称发布就绪。合并不等于上线。发布负责人按本次生产授权直接执行，不等待 AI 功能验收或重复确认，不默认要求用户点击 BAT，也不在发布时补建缺失制品；无授权时不切换生产。已合并分支及 worktree 在确认无构建、发布、进程或其他任务依赖、且必要材料已保全后及时清理，包括本次本地及同名远端开发分支。受管 worktree 使用应用归档工具；未合并、未保全或仍在使用的内容不得强制删除。
++- 所有开发（包括文档与配置）在从最新 `main` 创建的独立 `codex/*` 分支及 worktree 完成。按[发布检查与功能验收分工](验证与发布.md#发布检查与功能验收分工)完成必需代码检查后，本次资料全部完成即汇报就绪与范围，再逐步请求授权：合并到 `main`、准备对应制品、发布上线各自须有用户对该步骤的明确授权，拿到哪一步只做那一步，做完报告并停下等下一步授权。合并后推送并核验远端；制品绑定该最终合并提交，只有构建和原生准备成功才称发布就绪。合并不等于上线。发布负责人按本次该步授权直接执行，不等待 AI 功能验收或为同一步重复确认，不默认要求用户点击 BAT，也不在发布时补建缺失制品；无该步授权时不执行该步，无上线授权时不切换生产。已合并分支及 worktree 在确认无构建、发布、进程或其他任务依赖、且必要材料已保全后及时清理，包括本次本地及同名远端开发分支。受管 worktree 使用应用归档工具；未合并、未保全或仍在使用的内容不得强制删除。
+ - 每次源码或项目配置修改完成后，创建一个聚焦、可审查的 Git 提交，并推送到已配置远端；文档/规范修改也属于项目配置修改。
+-- 用户要求合并任务时，发布材料纳入同一次交付，不要求用户再回已完成的聊天补说“纳入发布包”。含结构迁移的任务须同步交付有限迁移 recipe、对应原生安装器及隔离验证证明，并接入固定 main 准备入口；不能只合并业务代码后把发布材料缺口留给用户手动处理。准备与上线分别报告，发布负责人按本次授权执行，不再默认等待用户点击 BAT。
++- 用户授权合并时，发布材料纳入同一次交付范围，不要求用户再回已完成的聊天补说“纳入发布包”；但纳入范围不等于已授权准备制品或上线，这两步仍各自等用户授权。含结构迁移的任务须同步交付有限迁移 recipe、对应原生安装器及隔离验证证明，并接入固定 main 准备入口；不能只合并业务代码后把发布材料缺口留给用户手动处理。准备与上线分别报告，发布负责人按本次授权执行，不再默认等待用户点击 BAT。
+ - 只暂存本任务文件。推送前再次核验 `git diff --cached`，避免纳入用户已有改动、生成文件、下载文件、凭证或运行产物。
+ - 不使用破坏性 Git 命令清理工作区。没有明确要求时不改写历史、不强推、不切换或删除用户分支。
+ - 交付说明必须列出：变更内容、验证结果、提交与推送状态、未执行的部署/迁移/服务操作，以及仍需用户决定的风险。
+diff --git a/docs/规范/验证与发布.md b/docs/规范/验证与发布.md
+index 7129d625..eacbcdd7 100644
+--- a/docs/规范/验证与发布.md
++++ b/docs/规范/验证与发布.md
+@@ -6,23 +6,24 @@
+ 
+ 先按实际生产来源到候选的完整差异确定范围：前端只处理 Worker，后端只处理 Django，仅 migration 变化执行已批准迁移；共享运行库、依赖、配置、发布工具或未知变化保持完整组件流程。无应用载荷的文档交付只核差异与引用。
+ 
+-## 常规发布的三个交付步骤
++## 常规发布的交付步骤与逐步授权
+ 
+-范围计划确定组件后，后续只保留以下三个交付步骤；`release:plan` 的 `workflow` 按第 4、5、6 步输出对应动作，计划工具只生成清单，不执行合并、构建或生产发布。
++范围计划确定组件后，后续只保留以下四个交付步骤；`release:plan` 的 `workflow` 按第 4、5、6、7 步输出对应动作，计划工具只生成清单，不执行合并、构建或生产发布。
+ 
+-4. **检查必需程序代码**：在隔离 worktree 检查本次差异中影响构建、部署和启动的程序代码，记录必要检查及结果；共享或未知变化先确定代码依赖和组件范围，不追加业务功能或相关代码业务行为的验证。已有且仍有效的检查结果直接复用，功能检测由用户上线后负责。
+-5. **合并并生成对应制品**：必需代码检查通过后同步最新 `main`；若有冲突或实际代码变化，只补受影响的必需代码检查。完成合并、推送并核验远端，在隔离交付树从最终合并提交准备相应 Worker immutable release 或 Django PrepareApp，生产构建只执行一次。准备失败时保留已合并提交并报告“制品未就绪”，不得发布。纯文档、测试或没有应用载荷变化的离线交付不生成生产应用包。记录最终提交、制品摘要及有效检查来源，不重跑功能验证。
+-6. **发布**：有本次明确上线授权且对应制品就绪后，使用既有唯一生命周期入口执行计划中的排空、必要维护和组件切换。只在迁移变化时执行已批准迁移；备份按实际数据影响处理。发布后只确认本次部署成功、目标版本已切换及必要服务可用，完成即报告上线；不另设“整体验收”阶段，不重跑发布前的功能验证或重新打包。日志、记忆和闲置工作树清理随交付收尾，不另开业务验收轮次。异常保留原审计和失败状态，按对应恢复流程处理。
++4. **检查必需程序代码**：在隔离 worktree 检查本次差异中影响构建、部署和启动的程序代码，记录必要检查及结果；共享或未知变化先确定代码依赖和组件范围，不追加业务功能或相关代码业务行为的验证。已有且仍有效的检查结果直接复用，功能检测由用户上线后负责。本次资料全部完成后汇报就绪状态与范围，再请求合并授权。
++5. **合并到 `main`**（须有本次合并授权）：获授权后同步最新 `main`；若有冲突或实际代码变化，只补受影响的必需代码检查。完成合并、推送并核验远端，报告最终合并提交，然后停下等待制品准备授权，不自动继续构建。
++6. **准备对应制品**（须有本次制品准备授权）：获授权后在隔离交付树从该最终合并提交准备相应 Worker immutable release 或 Django PrepareApp，生产构建只执行一次。准备失败时保留已合并提交并报告“制品未就绪”，不得发布。纯文档、测试或没有应用载荷变化的离线交付不生成生产应用包。记录最终提交、制品摘要及有效检查来源，不重跑功能验证；完成后报告制品就绪并等待上线授权。
++7. **发布上线**（须有本次明确上线授权）：授权且对应制品就绪后，使用既有唯一生命周期入口执行计划中的排空、必要维护和组件切换。只在迁移变化时执行已批准迁移；备份按实际数据影响处理。发布后只确认本次部署成功、目标版本已切换及必要服务可用，完成即报告上线；不另设“整体验收”阶段，不重跑发布前的功能验证或重新打包。日志、记忆和闲置工作树清理随交付收尾，不另开业务验收轮次。异常保留原审计和失败状态，按对应恢复流程处理。
+ 
+-上述合并与制品准备属于同一次连续交付，不承诺 Git 推送与构建在技术上原子完成。应用实际部署仍使用现有已安装入口的制品完整性、权限、进程身份及任务排空检查；本流程调整不修改旧已批准批次或旧运行包。
++合并、制品准备、上线是三个独立放行点，各自需要用户对该步骤的明确授权；一步的授权不覆盖后续步骤，历史授权不延伸到本次，也不承诺 Git 推送与构建在技术上原子完成。逐步授权只改变放行时机，不要求 AI 补做功能验收或重复复审。应用实际部署仍使用现有已安装入口的制品完整性、权限、进程身份及任务排空检查；本流程调整不修改旧已批准批次或旧运行包。
+ 
+-准备失败、绑定不一致或结果未知时，不进入依赖它的下一步。生产授权与制品就绪缺一不可；合并、准备、上线分别报告。原生版本/完整性、身份/权限、互斥、排空、必要迁移和启动门禁保持，功能由用户上线后检测。事故及旧协议资格按[历史限定资格索引](#历史限定资格索引)查阅。
++准备失败、绑定不一致或结果未知时，不进入依赖它的下一步。缺该步授权时只交可审查材料并一次提出精确范围的请求；生产授权与制品就绪缺一不可，合并、准备、上线分别报告。原生版本/完整性、身份/权限、互斥、排空、必要迁移和启动门禁保持，功能由用户上线后检测。事故及旧协议资格按[历史限定资格索引](#历史限定资格索引)查阅。
+ 
+ ## 发布检查与功能验收分工
+ 
+ - 每次发布上线只由 AI 检查影响本次构建、部署和启动的必需程序代码，按必要性选择语法、类型、依赖、构建、发布入口及调用参数检查；不默认运行全仓检查或增加多轮复审。
+ - 相关功能及其代码的业务行为、业务口径、接口业务结果、权限业务场景和使用效果，上线后由用户自行检测判断。除非用户另行明确要求，AI 不新增或执行功能测试、业务回查、浏览器验收、业务数据演练或综合验收，也不以这些结果阻塞合并、制品准备或已授权发布。
+-- 必需代码检查无阻断、对应制品就绪且已有上线授权后，直接执行发布，不再要求功能验证或再次确认。发布工具内置的版本/制品完整性、身份/权限、互斥、排空、必要迁移和启动门禁继续随发布执行；成功后读取原生完成回执报告上线，不另开 HTTP、SQLite、业务接口或独立健康扫描来做功能验收。
++- 合并、制品准备、上线各自须有该步骤的明确授权（见[常规发布的交付步骤与逐步授权](#常规发布的交付步骤与逐步授权)）。必需代码检查无阻断、对应制品就绪且已有上线授权后，直接执行发布，不再要求功能验证或为同一步重复确认；逐步授权是用户的放行决定，不构成 AI 补做功能验收的要求。发布工具内置的版本/制品完整性、身份/权限、互斥、排空、必要迁移和启动门禁继续随发布执行；成功后读取原生完成回执报告上线，不另开 HTTP、SQLite、业务接口或独立健康扫描来做功能验收。
+ - 本节是后续每次发布的默认分工，优先于下文、关联专题和模板中的旧功能验证要求；旧验证类别、测试清单及历史资格不是新增功能验收的授权。文档更新不伪造旧证据、不修改已封存批次，也不直接改写已安装执行器；既有工具内部检查与 AI 额外功能验证分别说明。
+ 
+ - 按实际影响分级、绑定完整源码与制品、恢复证据复用及统一批次编排按[发布批次协议](../运维/部署与启动/release-batch-workflow.md)执行。该协议首次生产采用仍需明确授权并走严格流程；采用前不得提前改变已安装门禁。展示级必须有完整闭包与独立行为证明，冻结／排空原任务后才可 Worker-only 切换；未知影响进入严格级。
+@@ -70,7 +71,7 @@
+ 
+ ### 职责与发布就绪
+ 
+-一个负责人串行集成和发布；实施者交付其范围的源码与验证证据，独立审查者不得把自审称为独审。其他代理不得并行操作同一生产锁、队列、部署目录或批次。已有本次范围授权且就绪时直接执行，不重复询问；缺少生产授权时，先完成可审查的就绪材料，再一次提出精确范围的确认。
++一个负责人串行集成和发布；实施者交付其范围的源码与验证证据，独立审查者不得把自审称为独审。其他代理不得并行操作同一生产锁、队列、部署目录或批次。合并、制品准备、上线各自须有用户对该步骤的明确授权：已有某步授权且就绪时就执行该步，不为同一步重复询问，完成后报告并停在下一个放行点；缺该步授权时，先完成可审查的就绪材料，再一次提出精确范围的请求。
+ 
+ 发布按下表推进，工作单的“已就绪”是证据完整性声明，不是生产授权、动态健康证明或新的启动许可。缺项仅暂停依赖它的动作，其余独立工作继续；对不适用项记录范围计划和理由，不为填表增加无关测试。
+ 
+@@ -78,7 +79,8 @@
+ | --- | --- | --- |
+ | 合并前代码检查 | 只检查影响本次构建、部署和启动的必需程序代码及发布入口/参数，复用有效结果 | 必需代码问题先修复；不要求 AI 功能验证，功能由用户上线后检测 |
+ | 异常预案准备 | 复用既有恢复流程和有效证据，只检查本次发布必需的恢复入口代码、调用参数和适用身份；不默认新增隔离业务演练或多轮复审 | 不用重发、换身份或延长超时掩盖未知；不得为演练中断生产 |
+-| 合并并准备制品 | 按原第5步完成main合并/推送与对应制品准备；先核完整组合来源和受保护入口差异，冻结源码/依赖/配置/工具及字节，再生成制品、发布/回退计划和必需的数据保障证明 | 制品未就绪就报告缺口，不进入维护；不在准备后临时加入注释、行尾或配置变更并沿用旧收据 |
++| 合并到main（须授权） | 按第5步在获得合并授权后完成main合并/推送与远端核验，报告最终合并提交 | 无合并授权只交可审查材料并请求授权；冲突或实际代码变化先补受影响的必需代码检查 |
++| 准备制品（须授权） | 按第6步在获得制品准备授权后，先核完整组合来源和受保护入口差异，冻结源码/依赖/配置/工具及字节，再从最终合并提交生成制品、发布/回退计划和必需的数据保障证明 | 无准备授权就停在已合并提交；制品未就绪就报告缺口，不进入维护；不在准备后临时加入注释、行尾或配置变更并沿用旧收据 |
+ | 最终就绪包 | 记录实际生产来源、合并提交、最终发布来源、差异范围、对应Worker/Django制品/收据摘要、必需代码检查、适用恢复入口、操作顺序和数据策略 | 缺失或绑定不一致不能声明就绪；功能检测不作为就绪前提，纯文档/元数据变化不要求重建有效制品 |
+ | 现场准入与发布 | 授权后通过既有唯一入口即时核实际前驱、进程创建身份、权限、互斥、owner、门禁、排空及原新鲜度要求；只执行范围计划对应组件、迁移及数据保障动作 | 现场事实与已审前提冲突时不沿用旧成功；忙/未就绪等待照实计时，不能删除owner或改身份抢占 |
+ | 发布完成报告 | 依据原操作成功回执及工具内置版本/启动结果报告已上线，功能由用户自行检测判断 | 不追加功能或独立健康验收；失败、未知不能报告完成 |
+@@ -101,7 +103,7 @@
+ 
+ ### 计时、预算与完成报告
+ 
+-同时记录原始上线授权、开发/验证、合并/准备、发布就绪、实际发布尝试、异常/续接、上线确认和交付完成时间。用户在开发前已授权时，原授权至完整交付的总等待一直保留；不得把较晚的“就绪”时间改成原授权时间。另列就绪后的发布执行跨度，准备前移、等待互斥、人工协调和收尾均如实呈现。并行阶段按区间并集合计，父子耗时不重复相加，未采样空档不补成执行或停服。
++同时记录合并、制品准备、上线三步各自的授权时间与来源，以及开发/验证、合并/准备、发布就绪、实际发布尝试、异常/续接、上线确认和交付完成时间。等待某步授权的时间如实列为等待授权，不计入执行跨度，也不因此改写更早的授权时间。用户在开发前已授权时，原授权至完整交付的总等待一直保留；不得把较晚的“就绪”时间改成原授权时间。另列就绪后的发布执行跨度，准备前移、等待互斥、人工协调和收尾均如实呈现。并行阶段按区间并集合计，父子耗时不重复相加，未采样空档不补成执行或停服。
+ 
+ **15分钟是已验证且制品就绪版本的常规发布交付优化目标，包含该次发布的必要收尾；不是强制终止时限、稳定性能承诺或门禁豁免。**参考预算为现场发布/必要确认13分钟、必要收尾1分钟、波动余量1分钟，须以实际测量验证。迁移、真实数据恢复、长在途任务或超出预审范围的异常应另报窗口与原因，实际等待仍保留在原总计时。预算超出时及时报告当前阶段、状态、剩余动作及原因，不以吞错、缩减验证、自动重试或先报“全部完成”达标。
+ 
+diff --git a/docs/运维/部署与启动/release-batch-workflow.md b/docs/运维/部署与启动/release-batch-workflow.md
+index f5068c0c..d4017be5 100644
+--- a/docs/运维/部署与启动/release-batch-workflow.md
++++ b/docs/运维/部署与启动/release-batch-workflow.md
+@@ -10,7 +10,7 @@
+ 
+ ## 提前准备与制品复用
+ 
+-常规交付先按[三个交付步骤](../../规范/验证与发布.md#常规发布的三个交付步骤)验证修改功能，再把合并、推送和受影响组件的制品准备作为同一次交付，最后发布。功能测试以本次修改和直接受影响路径为范围；生产构建归入制品准备，不在功能验证和上线阶段重复执行。确认上线之前完成最终组合源码、对应 immutable Worker 包或 Django PrepareApp、发布／回滚计划和必要批次，未受影响组件不额外准备。先查当前生效谱系与组合范围，不顺带采用 main 内未获批准的其他功能。
++常规交付先按[交付步骤与逐步授权](../../规范/验证与发布.md#常规发布的交付步骤与逐步授权)完成必需代码检查，再按用户逐步授权依次合并推送、准备受影响组件制品、发布；合并、制品准备、上线各自须有该步骤的明确授权，一步的授权不覆盖后续步骤。功能测试以本次修改和直接受影响路径为范围；生产构建归入制品准备，不在功能验证和上线阶段重复执行。确认上线之前完成最终组合源码、对应 immutable Worker 包或 Django PrepareApp、发布／回滚计划和必要批次，未受影响组件不额外准备。先查当前生效谱系与组合范围，不顺带采用 main 内未获批准的其他功能。
+ 
+ 多个尚未执行的改动可先用 `node tools/release-composition-review.mjs <request.json>` 检查离线组合资料。输入须声明实际已采用 source-snapshot 的完整源码／库存摘要、每项完整候选、依赖、原验收与回退资料及组合源码；工具拒绝摘要漂移、不同前驱、缺依赖／循环、重叠路径及组合增删改遗漏或夹带。`ready-for-combined-review` 仅表示资料及字节集合可进入联合复审，状态是调用方声明，不能替代实际就绪、兼容性审查、原 plan／batch 准备或现场准入；`blocked` 返回退出码 2。没有两项同时就绪的真实机会就停止合批，不等待未就绪功能。输入格式与本次调查见[组合检查交付](../../release-high-impact-execution-20261010/REPORT.md)。
+ 
+diff --git a/docs/运维/部署与启动/release-delivery-templates.md b/docs/运维/部署与启动/release-delivery-templates.md
+index 01405196..cb330747 100644
+--- a/docs/运维/部署与启动/release-delivery-templates.md
++++ b/docs/运维/部署与启动/release-delivery-templates.md
+@@ -10,7 +10,7 @@
+ | --- | --- |
+ | 本次任务/变更目的 | 待填 |
+ | 总控/发布负责人，实施范围，独立审查者 | 待填；审查与作者分离 |
+-| 原始用户授权内容、范围、时间及来源 | 待填；缺失时间如实标缺口，不用当前时间倒填 |
++| 原始用户授权内容、范围、时间及来源 | 待填；分别记录合并、制品准备、上线三步授权，缺失时间如实标缺口，不用当前时间倒填 |
+ | 是否涉及生产操作 | 未确定 |
+ | 当前生产来源/前驱，观察时间与证据 | 待核；不拿历史快照当当前事实 |
+ | 最终合并的应用提交，实际组合发布来源 | 待填；说明二者关系及排除的未采用main改动 |
+@@ -55,7 +55,9 @@ node tools/release-scope-plan.mjs --base <已核生产来源提交> --head <候
+ 
+ | 必需材料 | 本次实际身份/原文件路径/摘要 | 状态 |
+ | --- | --- | --- |
++| 本次合并授权（内容/时间/来源） | 待填；无授权不执行合并 | 未取得 |
+ | main合并及远端推送结果 | 待填最终提交和远端核验 | 未完成 |
++| 本次制品准备授权（内容/时间/来源） | 待填；无授权停在已合并提交 | 未取得 |
+ | 冻结的完整组合源码/依赖/配置/工具闭包 | 待填原算法摘要；包括会影响制品的注释/字节 | 未完成 |
+ | Worker immutable候选、manifest、guard、plan及前驱 | 按范围填写原生成结果和摘要 | 未具备/待判定 |
+ | Django prepared ID、receipt及前驱/应用指纹 | 按范围填写原生成结果和摘要 | 未具备/待判定 |
+@@ -65,7 +67,7 @@ node tools/release-scope-plan.mjs --base <已核生产来源提交> --head <候
+ | 必要收尾预备材料 | 第2节内容已准备，原始记录输出采用create-only | 未完成 |
+ | 工作单就绪结论 | 当前为“未就绪”；负责人核材料后才可声明 | 未就绪 |
+ 
+-制品准备沿用已核原入口和在线准备能力，不在运行包/生产监听目录构建。来源或前驱失效按原规则重新准备，不改旧收据。已有授权也不能跳过准备；没有本次生产授权时先交可审材料再一次确认。
++合并、制品准备、上线是三个独立放行点，各自须有用户对该步骤的明确授权；一步的授权不覆盖后续步骤，本模板的任何勾选和状态文字都不构成授权。制品准备沿用已核原入口和在线准备能力，不在运行包/生产监听目录构建。来源或前驱失效按原规则重新准备，不改旧收据。已有授权也不能跳过准备；缺某步授权时先交可审材料再一次请求该步授权。
+ 
+ ## 4. 现场准入与运行记录
+ 
+@@ -123,7 +125,8 @@ node tools/release-closeout-report.mjs <真实离线输入JSON> <尚不存在的
+ 
+ | 边界 | 原实际时间与来源 |
+ | --- | --- |
+-| 原始用户上线授权 | 未记录；未知时标缺口，禁止从较晚就绪时间重置 |
++| 合并授权、制品准备授权、上线授权（各自时间与来源） | 未记录；未知时标缺口，禁止从较晚就绪时间重置 |
++| 各放行点之间的等待授权时长 | 未记录；如实列为等待授权，不计入执行跨度 |
+ | 开发/验证，main合并/制品准备开始与完成 | 未记录 |
+ | 完整发布材料就绪 | 未记录 |
+ | 首次实际发布尝试、失败及每次协调/续接 | 未记录 |
+diff --git a/tests/release-scope-plan.test.mjs b/tests/release-scope-plan.test.mjs
+index 06e3c4c3..b05339a6 100644
+--- a/tests/release-scope-plan.test.mjs
++++ b/tests/release-scope-plan.test.mjs
+@@ -51,15 +51,17 @@ test('纯文档和测试变更不产生生产打包或发布动作',()=>{
+ test('普通前端验证限于修改功能，构建只在对应制品准备中完成',()=>{
+   const plan=classifyRelease([{status:'M',path:'components/sales/filter.tsx'}]);
+   assert.deepEqual(plan.validation,['git-diff-check','worker-affected-tests']);
+-  assert.deepEqual(plan.workflow.map(stage=>stage.step),[4,5,6]);
+-  assert.deepEqual(plan.workflow[1].actions,['merge-main','push-main','prepare-worker-immutable-release']);
+-  assert.deepEqual(plan.workflow[2].actions,['activate-worker-release','verify-startup','verify-affected-function']);
++  assert.deepEqual(plan.workflow.map(stage=>stage.step),[4,5,6,7]);
++  assert.deepEqual(plan.workflow.map(stage=>stage.requiresAuthorization),[false,true,true,true]);
++  assert.deepEqual(plan.workflow[1].actions,['merge-main','push-main']);
++  assert.deepEqual(plan.workflow[2].actions,['prepare-worker-immutable-release']);
++  assert.deepEqual(plan.workflow[3].actions,['activate-worker-release','verify-startup','verify-affected-function']);
+ });
+ 
+ test('普通后端改动不触发迁移 dry-run、系统检查或其他组件打包',()=>{
+   const plan=classifyRelease([{status:'M',path:'backend/netshop/views.py'}]);
+   assert.deepEqual(plan.validation,['git-diff-check','django-affected-tests']);
+-  assert.deepEqual(plan.workflow[1].actions,['merge-main','push-main','prepare-django-app']);
++  assert.deepEqual(plan.workflow[2].actions,['prepare-django-app']);
+   assert.deepEqual(plan.deployment,['verify-current-database-backup','deploy-django-app','verify-startup','verify-affected-function']);
+ });
+ 
+@@ -70,13 +72,15 @@ test('迁移改动保留隔离演练且不添加新备份，未知影响仍验
+   assert.ok(!migration.deployment.includes('create-pre-migration-backup'));
+   const unknown=classifyRelease([{status:'M',path:'unknown/runtime.bin'}]);
+   assert.ok(unknown.validation.includes('affected-integration-tests'));
+-  assert.deepEqual(unknown.workflow[1].actions,['merge-main','push-main','prepare-worker-immutable-release','prepare-django-app']);
++  assert.deepEqual(unknown.workflow[2].actions,['prepare-worker-immutable-release','prepare-django-app']);
+ });
+ 
+-test('纯文档交付只合并推送，无生产发布动作',()=>{
++test('纯文档交付只合并推送，无制品与生产发布动作',()=>{
+   const plan=classifyRelease([{status:'M',path:'docs/process.md'}]);
+   assert.deepEqual(plan.workflow[1].actions,['merge-main','push-main']);
+   assert.deepEqual(plan.workflow[2].actions,[]);
++  assert.deepEqual(plan.workflow[3].actions,[]);
++  assert.equal(plan.workflow[1].requiresAuthorization,true);
+ });
+ 
+ test('真实 Git 完整差异绑定 v3 流程，合并提交不丢失已修改组件',t=>{
+diff --git a/tools/release-scope-plan.mjs b/tools/release-scope-plan.mjs
+index e7bb1a9b..6aa0672c 100644
+--- a/tools/release-scope-plan.mjs
++++ b/tools/release-scope-plan.mjs
+@@ -46,10 +46,13 @@ export function classifyRelease(changes){
+   // imports/backfills and database recovery need their own authorization;
+   // existing sealed batch contracts are not changed by this planning tool.
+   const deployment=!code?[]:[...(state.persistence&&!state.migrate?['verify-current-database-backup']:[]),...(state.migrate?['apply-approved-migrations']:[]),...(state.worker?['activate-worker-release']:[]),...(state.django?['deploy-django-app']:[]),'verify-startup','verify-affected-function'];
++  // 合并、制品准备、发布是三个独立放行点，各自需要用户对该步骤的明确授权；
++  // 计划工具只输出清单和授权要求，不执行任何一步。
+   const workflow=[
+-    {step:4,id:'validate-change',actions:validation},
+-    {step:5,id:'merge-and-package',actions:['merge-main','push-main',...packaging]},
+-    {step:6,id:'publish',actions:deployment},
++    {step:4,id:'validate-change',actions:validation,requiresAuthorization:false},
++    {step:5,id:'merge-main',actions:['merge-main','push-main'],requiresAuthorization:true},
++    {step:6,id:'prepare-artifacts',actions:packaging,requiresAuthorization:true},
++    {step:7,id:'publish',actions:deployment,requiresAuthorization:true},
+   ];
+   return {scope,components,migrate:state.migrate,databaseProtection:state.migrate?'schema-only-no-new-full-backup-or-restore':state.persistence?'verified-current':'not-required',businessDataProcessing:'separate-authorization-required',validation,packaging,deployment,workflow,domains:[...state.domains].sort(),unknown:state.unknown,reasons:state.reasons};
+ }
+diff --git a/tools/worker-local-release-rotation.mjs b/tools/worker-local-release-rotation.mjs
+index 10fdcf46..e0cd1805 100644
+--- a/tools/worker-local-release-rotation.mjs
++++ b/tools/worker-local-release-rotation.mjs
+@@ -80,6 +80,30 @@ async function lockForOperation(lease) {
+   }
+   return acquireRotationLock();
+ }
++// S16 timing split (log only). Same [构建明细] stdout channel as buildTiming in
++// worker-local-release.mjs, but the stage key and number come first in ASCII so
++// a mis-decoded runner log cannot swallow digits. Results, errors and effect
++// order are unchanged; a failing logger is ignored.
++export function preparationTimingLine(stage, elapsedMs, outcome, label, at = new Date()) {
++  return `[${at.toISOString()}] [构建明细] stage=${stage} elapsedMs=${elapsedMs} outcome=${outcome} ${label}`;
++}
++export function logPreparationTiming(stage, label, startedMs, outcome = "ok", { log = console.log, now = Date.now } = {}) {
++  try {
++    const ended = now();
++    log(preparationTimingLine(stage, ended - startedMs, outcome, label, new Date(ended)));
++  } catch { /* diagnostic only */ }
++}
++export async function timePreparationStage(stage, label, operation, options = {}) {
++  const started = (options.now ?? Date.now)();
++  let outcome = "failed";
++  try {
++    const value = await operation();
++    outcome = "ok";
++    return value;
++  } finally {
++    logPreparationTiming(stage, label, started, outcome, options);
++  }
++}
+ export async function assertActiveBatchOwnership(runtimeRoot, batchSha256) {
+   const target = path.join(runtimeRoot, "state", "release-batches", "active.json");
+   if (!(await exists(target))) return;
+@@ -1091,19 +1115,21 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
+   if (sourceBindingFile !== undefined && (!prepareOnline || allowTestRuntimeRoot || adoptD1ControlRetirement)) fail("Source binding requires original online successor preparation");
+   if (prepareOnline && adoptD1ControlRetirement) fail("Initial retirement adoption still requires a stopped release");
+   if (reusePlanSha256 && (!prepareOnline || adoptD1ControlRetirement)) fail("Reuse requires online successor preparation");
+-  const releaseLock = await lockForOperation(rotationLease);
++  const releaseLock = await timePreparationStage("rotation-lock", "轮换锁获取", () => lockForOperation(rotationLease));
+   let serviceLock;
+   try {
+-    await assertActiveBatchOwnership(workerRuntimeRoot, batchSha256);
+-    serviceLock = await acquireWorkerServiceMutex();
++    await timePreparationStage("batch-ownership", "批次归属核对", () => assertActiveBatchOwnership(workerRuntimeRoot, batchSha256));
++    serviceLock = await timePreparationStage("head.service-lock", "首段服务锁等待", () => acquireWorkerServiceMutex());
+     // A verifier update necessarily creates a short, stopped-only mixed state:
+     // the source/protected copy can already be the candidate while the immutable
+     // effective head is still the predecessor.  Resolve the append-only chain
+     // without treating that intentional mismatch as an installed-head success;
+     // the predecessor's immutable verifier below still proves it is stopped.
+-    const before = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: prepareOnline });
+-    await verifyReleaseWithOwnVerifier(before, { allowTestRuntimeRoot,
+-      processPolicy: prepareOnline ? "stopped-or-exact-release" : "stopped" });
++    const before = await timePreparationStage("head.chain-resolve", "首段生效链解析", () =>
++      resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: prepareOnline }));
++    await timePreparationStage("head.predecessor-self-verify", "首段前驱完整自校验", () =>
++      verifyReleaseWithOwnVerifier(before, { allowTestRuntimeRoot,
++        processPolicy: prepareOnline ? "stopped-or-exact-release" : "stopped" }));
+     const evidence = await readCutoverEvidence({ ...before.bootstrap.authority, rawSha256: before.bootstrap.authoritySha256 });
+     if (before.records.length > 0) {
+       const established = before.records[before.records.length - 1].value.lineage;
+@@ -1127,12 +1153,16 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
+     // Rotation remains serialized; each boundary reacquires the lifecycle lock
+     // and validates the current installed predecessor with its own verifier.
+     if (prepareOnline) { await serviceLock(); serviceLock = null; }
++    let predecessorCheckCount = 0;
+     const verifyPreparationPredecessor = prepareOnline ? async () => {
+-      const unlock = await acquireWorkerServiceMutex();
++      const stage = `predecessor-boundary#${++predecessorCheckCount}`, label = `前驱边界校验#${predecessorCheckCount}`;
++      const unlock = await timePreparationStage(`${stage}.service-lock`, `${label}/服务锁等待`, () => acquireWorkerServiceMutex());
+       try {
+-        const current = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: true });
+-        return await verifyPreparationHeadUnchanged(before, current, (head) =>
+-          verifyReleaseWithOwnVerifier(head, { allowTestRuntimeRoot, processPolicy: "stopped-or-exact-release" }));
++        const current = await timePreparationStage(`${stage}.chain-resolve`, `${label}/生效链解析`, () =>
++          resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: true }));
++        return await timePreparationStage(`${stage}.self-verify`, `${label}/前驱完整自校验`, () =>
++          verifyPreparationHeadUnchanged(before, current, (head) =>
++            verifyReleaseWithOwnVerifier(head, { allowTestRuntimeRoot, processPolicy: "stopped-or-exact-release" })));
+       } finally { await unlock(); }
+     } : undefined;
+     const initialPlan = reusePlanSha256 ? await loadApprovedPlan(workerRuntimeRoot,reusePlanSha256,before.bootstrap) : null;
+@@ -1141,10 +1171,11 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
+     if(sourceBinding && (!prepareOnline || allowTestRuntimeRoot))fail("Bound source cannot use stopped/test preparation");
+     const sourceContext={predecessor:before.head,predecessorChainStateSha256:before.chainStateSha256};
+     const sourceRoot=sourceBinding?validateWorkerSourceBinding(sourceBinding,sourceContext).sourceRoot:workerSourceRoot;
+-    const sampleSource = async()=>{
++    let sourceSampleCount = 0;
++    const sampleSource = async()=>timePreparationStage(`source-identity#${++sourceSampleCount}`, `源码身份采样#${sourceSampleCount}`, async()=>{
+       if(sourceBindingFile!==undefined)await readWorkerSourceBinding(sourceBindingFile,sourceBindingSha256);
+       return sourceBinding?(await verifyBoundWorkerSource(sourceBinding,sourceContext)).identity:workerPreparationIdentity(sourceRoot);
+-    };
++    });
+     const preparationIdentity = await sampleSource();
+     let built;
+     // Multiple chats asking for the same final composition converge on one
+@@ -1180,15 +1211,16 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
+       const reused = await readManifest(workerRuntimeRoot, previous.plan.candidate, "reusable candidate");
+       assertWorkerSourceBindingTuple({sourceBinding,manifest:reused.manifest,plan:previous.plan,receipt:receipt.value});
+       if (reused.manifest.source.sourceFingerprint !== preparationIdentity.sourceTree.sha256) fail("Prepared candidate source mismatch");
+-      await verifyPreparedWorkerCandidate({ manifestPath: reused.manifestPath, approvedManifestSha256: reused.manifestSha256,
+-        expectedSourceD1PathSha256: before.bootstrap.authority.sourceD1PathSha256, expectedPersistRootPathSha256: before.bootstrap.authority.persistRootPathSha256,
+-        requireSalesRetiredCodeReceipt: true, allowTestRuntimeRoot }, verifyPreparationPredecessor);
++      await timePreparationStage("reuse.candidate-verify", "复用候选完整复验", () =>
++        verifyPreparedWorkerCandidate({ manifestPath: reused.manifestPath, approvedManifestSha256: reused.manifestSha256,
++          expectedSourceD1PathSha256: before.bootstrap.authority.sourceD1PathSha256, expectedPersistRootPathSha256: before.bootstrap.authority.persistRootPathSha256,
++          requireSalesRetiredCodeReceipt: true, allowTestRuntimeRoot }, verifyPreparationPredecessor));
+       if (canonicalJson(await sampleSource()) !== canonicalJson(preparationIdentity)) fail("Preparation inputs changed during reuse");
+       return { status: "planned", reused: true, planSha256: previous.sha256, planPath: previous.path,
+         predecessorReleaseId: previous.plan.predecessor.releaseId, candidateReleaseId: previous.plan.candidate.releaseId,
+         candidateManifestSha256: previous.plan.candidate.manifestSha256, candidateGuardReceiptSha256: previous.plan.candidate.guardReceiptSha256 };
+     }
+-    built = await buildWorkerReleaseCandidate({
++    built = await timePreparationStage("candidate-build", "候选构建（含前驱边界校验）", () => buildWorkerReleaseCandidate({
+       sourceRoot,
+       ...(sourceBinding?{sourceBinding}:{}),
+       runtimeRoot: workerRuntimeRoot,
+@@ -1199,14 +1231,17 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
+       verifyPreparationPredecessor,
+       now,
+       allowTestRuntimeRoot,
+-    });
++    }));
+     if (canonicalJson(await sampleSource()) !== canonicalJson(preparationIdentity)) fail("Preparation inputs changed during build");
+     if (prepareOnline) {
+-      serviceLock = await acquireWorkerServiceMutex();
+-      const current = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: true });
+-      await verifyPreparationHeadUnchanged(before, current, (head) =>
+-        verifyReleaseWithOwnVerifier(head, { allowTestRuntimeRoot, processPolicy: "stopped-or-exact-release" }));
++      serviceLock = await timePreparationStage("tail.service-lock", "尾段服务锁等待", () => acquireWorkerServiceMutex());
++      const current = await timePreparationStage("tail.chain-resolve", "尾段生效链解析", () =>
++        resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: true }));
++      await timePreparationStage("tail.predecessor-self-verify", "尾段前驱完整自校验", () =>
++        verifyPreparationHeadUnchanged(before, current, (head) =>
++          verifyReleaseWithOwnVerifier(head, { allowTestRuntimeRoot, processPolicy: "stopped-or-exact-release" })));
+     }
++    const planPublicationStarted = Date.now();
+     const after = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: false });
+     if (after.chainStateSha256 !== before.chainStateSha256 || after.head.bindingSha256 !== before.head.bindingSha256) {
+       fail("rotation candidate 构建期间 effective head 发生变化；候选保留但不得生成计划");
+@@ -1252,6 +1287,7 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
+       candidateManifestSha256: candidate.manifestSha256, identity: preparationIdentity,
+       ...(sourceBinding?{sourceBinding}:{}),
+     }, "prepared build identity");
++    logPreparationTiming("plan-publication", "轮换计划与准备身份落盘", planPublicationStarted);
+     return {
+       status: "planned",
+       version: rotationPlanVersion,
+@@ -1361,53 +1397,53 @@ async function applyApprovedRotationPlanCore({
+   allowTestRuntimeRoot,
+   dependencies,
+ }) {
+-  let validated = await validateApprovedRotationBeforeMutation({
++  let validated = await timePreparationStage("apply.validate#1", "应用/批准轮换校验#1", () => validateApprovedRotationBeforeMutation({
+     runtimeRoot, approvedPlanSha256, allowTestRuntimeRoot,
+     readCurrentCutoverEvidence: dependencies.readCurrentCutoverEvidence,
+-  });
+-  await readD1RetirementReceipt(validated.candidateManifest.manifest, path.dirname(validated.candidateManifest.manifestPath), {
++  }));
++  await timePreparationStage("apply.d1-receipt", "应用/D1 退役回执读取", () => readD1RetirementReceipt(validated.candidateManifest.manifest, path.dirname(validated.candidateManifest.manifestPath), {
+     bootstrapAuthoritySha256: validated.bootstrap.authoritySha256,
+-  });
+-  await dependencies.verifyHeadStopped(validated.chain, { allowTestRuntimeRoot });
+-  await dependencies.assertCandidateStopped(validated.candidateManifest, allowTestRuntimeRoot);
+-  const beforeMutation = await validateApprovedRotationBeforeMutation({
++  }));
++  await timePreparationStage("apply.head-stopped#1", "应用/首段 head 停稳核验#1", () => dependencies.verifyHeadStopped(validated.chain, { allowTestRuntimeRoot }));
++  await timePreparationStage("apply.candidate-stopped#1", "应用/候选停稳核验#1", () => dependencies.assertCandidateStopped(validated.candidateManifest, allowTestRuntimeRoot));
++  const beforeMutation = await timePreparationStage("apply.validate#2", "应用/批准轮换校验#2（mutation 前 CAS 复核）", () => validateApprovedRotationBeforeMutation({
+     runtimeRoot, approvedPlanSha256, allowTestRuntimeRoot,
+     readCurrentCutoverEvidence: dependencies.readCurrentCutoverEvidence,
+-  });
++  }));
+   if (beforeMutation.state !== validated.state
+       || beforeMutation.chain.chainStateSha256 !== validated.chain.chainStateSha256
+       || beforeMutation.planRead.sha256 !== validated.planRead.sha256) {
+     fail("approved rotation tuple 在 apply 前最终 CAS 复核中发生变化");
+   }
+   validated = beforeMutation;
+-  await dependencies.verifyHeadStopped(validated.chain, { allowTestRuntimeRoot });
+-  await dependencies.assertCandidateStopped(validated.candidateManifest, allowTestRuntimeRoot);
++  await timePreparationStage("apply.head-stopped#2", "应用/首段 head 停稳核验#2", () => dependencies.verifyHeadStopped(validated.chain, { allowTestRuntimeRoot }));
++  await timePreparationStage("apply.candidate-stopped#2", "应用/候选停稳核验#2", () => dependencies.assertCandidateStopped(validated.candidateManifest, allowTestRuntimeRoot));
+   if (validated.state === "pending" && validated.candidateManifest.manifest.artifacts.d1RetirementReceipt
+       && !validated.chain.headManifest.artifacts.d1RetirementReceipt) {
+     if (!dependencies.verifyD1Adoption) fail("Initial D1 adoption requires independent source revalidation");
+-    await dependencies.verifyD1Adoption(validated);
++    await timePreparationStage("apply.d1-adoption", "应用/D1 首次采用独立复验", () => dependencies.verifyD1Adoption(validated));
+   }
+-  await installProtectedEntrypoints(validated.planRead.plan, validated.candidateManifest, {
++  await timePreparationStage("apply.install-entrypoints", "应用/受保护入口安装", () => installProtectedEntrypoints(validated.planRead.plan, validated.candidateManifest, {
+     afterEntrypointInstalled: dependencies.afterEntrypointInstalled,
+-  });
+-  await dependencies.assertCandidateStopped(validated.candidateManifest, allowTestRuntimeRoot);
+-  await verifyInstalledGuardEntrypoints(validated.candidateManifest, "approved candidate prepublication");
++  }));
++  await timePreparationStage("apply.candidate-stopped#3", "应用/候选停稳核验#3", () => dependencies.assertCandidateStopped(validated.candidateManifest, allowTestRuntimeRoot));
++  await timePreparationStage("apply.verify-guards", "应用/已安装 guard 入口复验", () => verifyInstalledGuardEntrypoints(validated.candidateManifest, "approved candidate prepublication"));
+ 
+   let successorPublication;
+   if (validated.state === "pending" || validated.state === "record_incomplete") {
+-    successorPublication = await publishSuccessorRecord(runtimeRoot, validated.record, validated.bootstrap);
++    successorPublication = await timePreparationStage("apply.publish-successor", "应用/successor 记录发布", () => publishSuccessorRecord(runtimeRoot, validated.record, validated.bootstrap));
+   } else {
+     successorPublication = { path: validated.successorPath, sha256: validated.successorRead.sha256 };
+   }
+-  const chain = await resolveEffectiveReleaseChain({ runtimeRoot, allowTestRuntimeRoot, verifyInstalledHead: true });
++  const chain = await timePreparationStage("apply.chain-resolve", "应用/切换后生效链解析", () => resolveEffectiveReleaseChain({ runtimeRoot, allowTestRuntimeRoot, verifyInstalledHead: true }));
+   if (chain.head.bindingSha256 !== validated.planRead.plan.candidate.bindingSha256) {
+     fail("successor 发布后 effective head 未切换到 candidate");
+   }
+-  await dependencies.installAndVerifyStartup(validated.candidateManifest);
++  await timePreparationStage("apply.install-startup", "应用/启动安装与启动校验", () => dependencies.installAndVerifyStartup(validated.candidateManifest));
+   const startupBinding = startupBindingForPlan(validated.planRead.plan, validated.candidateManifest);
+-  const consumption = await publishConsumption(
++  const consumption = await timePreparationStage("apply.publish-consumption", "应用/消费回执发布", () => publishConsumption(
+     runtimeRoot, validated.planRead, successorPublication, startupBinding,
+-  );
++  ));
+   return {
+     status: validated.state === "pending" ? "activated" : "already_activated",
+     version: successorVersion,

@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>自动化中心 · 三视图示意（合成数据）</title>
+<style>
+:root{--ink:#1f2933;--muted:#64748b;--line:#e2e8ee;--bg:#f6f8fa;--panel:#fff;
+--ok:#1f7a4d;--ok-bg:#e8f5ee;--warn:#8a5a00;--warn-bg:#fdf4e3;--bad:#a52a2a;--bad-bg:#fbebeb;
+--run:#1c5fa8;--run-bg:#e8f1fb;--idle:#5b6673;--idle-bg:#eef1f4;--brand:#2f5d50}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.7 "Microsoft YaHei",system-ui,sans-serif}
+header{background:#24413a;color:#fff;padding:20px 28px}
+header h1{margin:0 0 6px;font-size:20px}
+header p{margin:0;color:#cfdcd6;font-size:13px;max-width:900px}
+.synthetic{display:inline-block;margin-top:10px;padding:3px 10px;border-radius:4px;background:#8a5a00;color:#fff;font-size:12px}
+nav.tabs{display:flex;gap:2px;padding:0 28px;background:#2d4e46}
+nav.tabs button{border:0;background:transparent;color:#b9cdc5;padding:11px 18px;font-size:14px;cursor:pointer;border-bottom:3px solid transparent;font-family:inherit}
+nav.tabs button[aria-selected=true]{color:#fff;border-bottom-color:#7fb79f;background:#24413a}
+main{padding:22px 28px;max-width:1500px}
+section[hidden]{display:none}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:20px;margin-bottom:18px}
+.panel>h2{margin:0 0 4px;font-size:16px}
+.panel>p.sub{margin:0 0 16px;color:var(--muted);font-size:13px}
+.note{background:#f0f5f2;border-left:4px solid var(--brand);padding:11px 15px;border-radius:5px;margin:0 0 16px;font-size:13px}
+.axes{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.axis{flex:1;min-width:230px;border:1px solid var(--line);border-radius:7px;padding:11px 13px}
+.axis b{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;letter-spacing:.04em}
+.chip{display:inline-block;padding:2px 8px;border-radius:11px;font-size:12px;white-space:nowrap}
+.c-ok{background:var(--ok-bg);color:var(--ok)}.c-warn{background:var(--warn-bg);color:var(--warn)}
+.c-bad{background:var(--bad-bg);color:var(--bad)}.c-run{background:var(--run-bg);color:var(--run)}
+.c-idle{background:var(--idle-bg);color:var(--idle)}
+/* 日程 */
+.gantt{border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.gantt .hrow{display:grid;grid-template-columns:270px 1fr 108px;background:#f2f5f7;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+.gantt .hrow>div{padding:7px 10px}
+.ticks{position:relative;height:100%}
+.ticks span{position:absolute;top:7px;font-size:11px;color:var(--muted);transform:translateX(-50%)}
+.lane{display:grid;grid-template-columns:270px 1fr 108px;border-bottom:1px solid #eef2f5;align-items:center}
+.lane:last-child{border-bottom:0}
+.lane:hover{background:#fafcfb}
+.lane .who{padding:9px 10px;font-size:13px}
+.lane .who small{display:block;color:var(--muted);font-size:11.5px}
+.lane .track{position:relative;height:38px;border-left:1px solid #eef2f5;background:
+ repeating-linear-gradient(to right,transparent 0,transparent calc(8.333% - 1px),#f1f4f6 calc(8.333% - 1px),#f1f4f6 8.333%)}
+.lane .st{padding:9px 10px;text-align:right}
+.bar{position:absolute;top:11px;height:16px;border-radius:3px;font-size:11px;color:#fff;
+ display:flex;align-items:center;padding:0 5px;white-space:nowrap;overflow:hidden;cursor:help}
+.b-ok{background:#2f8a5b}.b-warn{background:#b5873a}.b-bad{background:#b5484a}
+.b-run{background:#2f71b5}.b-idle{background:#8d98a4}
+.queue{position:absolute;top:18px;height:2px;background:#9fb6cf}
+.plan{position:absolute;top:4px;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #5b6673}
+.nowline{position:absolute;top:0;bottom:0;width:2px;background:#c0392b;opacity:.75}
+.workerlane{background:#f8fafb}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:9px;border-radius:2px;margin-right:5px;vertical-align:middle}
+/* 表格 */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#f2f5f7;font-weight:600;color:#415263;font-size:12px}
+.cov td{text-align:center}.cov td:first-child,.cov th:first-child{text-align:left}
+.cell-na{background:#f4f6f7;color:#9aa5b1;font-size:12px}
+.cell-gap{background:var(--warn-bg)}
+.cell-dup{background:var(--bad-bg);outline:2px solid #d9a0a0;outline-offset:-2px}
+.ruleChip{display:inline-block;background:#eef4f1;border:1px solid #d4e3db;border-radius:5px;padding:3px 7px;font-size:12px;line-height:1.5}
+.ruleChip.off{opacity:.5}
+.linkish{color:var(--brand);text-decoration:underline;cursor:pointer;font-size:12px;background:none;border:0;padding:0;font-family:inherit}
+/* 按店卡 */
+.cards{display:flex;flex-wrap:wrap;gap:14px}
+.card{flex:1 1 360px;min-width:330px;border:1px solid var(--line);border-radius:8px;padding:14px}
+.card h3{margin:0 0 2px;font-size:14px}
+.card .plat{color:var(--muted);font-size:12px;margin-bottom:10px}
+.chainrow{border-top:1px solid #eef2f5;padding:9px 0}
+.chainrow:first-of-type{border-top:0}
+.chainrow b{font-size:12.5px;display:block;margin-bottom:5px}
+.blocked{color:var(--muted);font-size:12px;font-style:normal}
+details.drawer{margin-top:14px;border:1px solid var(--line);border-radius:7px;padding:0 14px}
+details.drawer summary{cursor:pointer;padding:11px 0;font-size:13px;font-weight:600}
+details.drawer[open] summary{border-bottom:1px solid var(--line)}
+.dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:14px 0}
+.dl div{border:1px solid var(--line);border-radius:6px;padding:9px 11px}
+.dl dt{font-size:11.5px;color:var(--muted);margin:0 0 3px}.dl dd{margin:0;font-size:13px}
+.acts{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0 16px}
+.btn{border:1px solid #cfdad3;background:#fff;border-radius:6px;padding:6px 13px;font-size:13px;cursor:pointer;font-family:inherit}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.why{font-size:12px;color:var(--muted);margin:-6px 0 14px}
+footer{padding:18px 28px 34px;color:var(--muted);font-size:12px;max-width:1500px}
+code{background:#eef1f4;padding:1px 5px;border-radius:3px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>自动化中心 · 三视图示意</h1>
+  <p>一份事实底座，三个视图按"人来这页要回答什么问题"划分：日程回答几点跑、跑了没、谁挤了谁；按主体回答这个店跑哪些、哪些没人管；模块覆盖回答每个模块归哪条规则。</p>
+  <span class="synthetic">示意数据为合成，非真实运行记录；按钮不调用任何业务接口</span>
+</header>
+<nav class="tabs" role="tablist">
+  <button role="tab" aria-selected="true" data-v="sch">日程（默认）</button>
+  <button role="tab" aria-selected="false" data-v="sub">按主体</button>
+  <button role="tab" aria-selected="false" data-v="cov">模块覆盖</button>
+  <button role="tab" aria-selected="false" data-v="mx">现状矩阵（仅对照）</button>
+</nav>
+<main>
+<section id="sch">
+  <div class="panel">
+    <h2>今天的执行状态按三条轴分别显示</h2>
+    <p class="sub">同一条运行的三轴互不顶替：执行结束不等于业务完成，业务核验通过不等于通知已送达。</p>
+    <div class="axes">
+      <div class="axis"><b>执行轴</b>
+        <span class="chip c-ok">已结束 6</span> <span class="chip c-run">执行中 1</span>
+        <span class="chip c-bad">失败 1</span> <span class="chip c-warn">待人工 1</span>
+        <span class="chip c-idle">未到期 2</span>
+      </div>
+      <div class="axis"><b>业务轴</b>
+        <span class="chip c-ok">已核验 5</span> <span class="chip c-warn">部分完成 2</span>
+        <span class="chip c-idle">无需新增 2</span> <span class="chip c-bad">仍有缺口 1</span>
+      </div>
+      <div class="axis"><b>投递轴</b>
+        <span class="chip c-ok">已发送 4</span> <span class="chip c-idle">不需要 5</span>
+        <span class="chip c-bad">发送失败 1</span>
+      </div>
+    </div>
+    <div class="note"><b>关键示例（第 3 条道）</b>：天猫炊之王「数据已核验，通知未送达」——系统只允许恢复投递，<b>不提供"重跑导入"</b>。另一条「结果未明」（京东客服）普通重试被禁用，只给可核查入口。</div>
+  </div>
+
+  <div class="panel">
+    <h2>日程 · 上海时间 08:00–13:00</h2>
+    <p class="sub">▲ 计划到点 · 细线 = 入队到开始的排队等待 · 实心条 = 实际运行 · 红竖线 = 当前时刻（示意 12:10）</p>
+    <div class="gantt">
+      <div class="hrow">
+        <div>主体 · 模块 · 频率</div>
+        <div class="ticks">
+          <span style="left:0%">08:00</span><span style="left:20%">09:00</span><span style="left:40%">10:00</span>
+          <span style="left:60%">11:00</span><span style="left:80%">12:00</span><span style="left:99%">13:00</span>
+        </div>
+        <div style="text-align:right">今天</div>
+      </div>
+
+      <div class="lane workerlane">
+        <div class="who"><b>helper 5791</b><small>唯一执行者 · 全局串行</small></div>
+        <div class="track">
+          <div class="bar b-idle" style="left:0.5%;width:5%" title="体检：吉客云登录态">检</div>
+          <div class="bar b-ok" style="left:6%;width:12%" title="吉客云五表 08:18–08:54">吉客云五表</div>
+          <div class="bar b-ok" style="left:20%;width:17%" title="京东四店串行 09:00–09:52">京东四店（共享 Chromium）</div>
+          <div class="bar b-bad" style="left:38%;width:4%" title="京东市场榜单 失败">榜单</div>
+          <div class="bar b-ok" style="left:44%;width:9%" title="京准通两店 10:12–10:39">京准通</div>
+          <div class="bar b-warn" style="left:56%;width:14%" title="天猫六店逐店 11:00–11:42">天猫六店</div>
+          <div class="bar b-run" style="left:72%;width:10%" title="天猫马思图 进行中">马思图…</div>
+          <div class="nowline" style="left:84%"></div>
+        </div>
+        <div class="st"><span class="chip c-run">忙</span></div>
+      </div>
+
+      <div class="lane">
+        <div class="who">吉客云 ERP<small>五表 · 每天 08:10</small></div>
+        <div class="track">
+          <div class="plan" style="left:2%"></div>
+          <div class="queue" style="left:2%;width:4%"></div>
+          <div class="bar b-ok" style="left:6%;width:12%" title="done 08:18–08:54 · 五表全部核验 · 批次 5 个">✓ 五表全部核验</div>
+          <div class="nowline" style="left:84%"></div>
+        </div>
+        <div class="st"><span class="chip c-ok">✓ 08:54</span></div>
+      </div>
+
+      <div class="lane">
+        <div class="who">京东四店<small>商品 SKU / SKU 分天 / SPU 分天 · 每天 10:00</small></div>
+        <div class="track">
+          <div class="plan" style="left:20%"></div>
+          <div class="bar b-ok" style="left:20%;width:17%" title="done 09:00–09:52 · 四店 × 三模块 = 12 格全部回查零缺口">✓ 12/12 零缺口</div>
+          <div class="nowline" style="left:84%"></div>
+        </div>
+        <div class="st"><span class="chip c-ok">✓ 09:52</span></div>
+      </div>
+
+      <div class="lane">
+        <div class="who">天猫炊之王<small>商品日 / 推广 / 主数据 · 每天 11:30</small></div>
+        <div class="track">
+          <div class="plan" style="left:56%"></div>
+          <div class="bar b-ok" style="left:56%;width:14%" title="业务已核验，但完成通知投递失败（机器人身份未能唯一核验）">✓ 已核验</div>
+          <div class="nowline" style="left:84%"></div>
+        </div>
+        <div class="st"><span class="chip c-warn">通知未送达</span></div>
+      </div>
+
+      <div class="lane">
+        <div class="who">京东市场榜单<small>七类目 · 每天 10:30</small></div>
+        <div class="track">
+          <div class="plan" style="left:40%"></div>
+          <div class="bar b-bad" style="left:38%;width:4%" title="failed · 风控拦截，已按清单停止自动重试">✕ 待人工</div>
+          <div class="nowline" style="left:84%"></div>
+        </div>
+        <div class="st"><span class="chip c-bad">待人工</span></div>
+      </div>
+
+      <div class="lane">
+        <div class="who">京东客服 · 商用设备<small>Excel + LOG 配对 · 每天 09:00</small></div>
+        <div class="track">
+          <div class="plan" style="left:20%"></div>
+          <div class="bar b-warn" style="left:20%;width:7%" title="导出已提交，远端结果未知；普通重试已禁用">◐ 结果未明</div>
+          <div class="nowline" style="left:84%"></div>
+        </div>
+        <div class="st"><span class="chip c-warn">结果未明</span></div>
+      </div>
+
+      <div class="lane">
+        <div class="who">天猫马思图<small>商品日 / 推广 / 主数据 · 每天 11:40</small></div>
+        <div class="track">
+          <div class="plan" style="left:73%"></div>
+          <div class="bar b-run" style="left:72%;width:12%" title="running · 第 3 个缺口日逐日补齐中">▶ 补缺口日 2/4</div>
+          <div class="nowline" style="left:84%"></div>
+        </div>
+        <div class="st"><span class="chip c-run">执行中</span></div>
+      </div>
+
+      <div class="lane">
+        <div class="who">京东入仓（事业部）<small>四类数据 · 每天 08:00</small></div>
+        <div class="track">
+          <div class="plan" style="left:0%"></div>
+          <div class="bar b-ok" style="left:0%;width:5%" title="done · 无缺口，复用已确认批次">✓ 无需新增</div>
+          <div class="nowline" style="left:84%"></div>
+        </div>
+        <div class="st"><span class="chip c-idle">无需新增</span></div>
+      </div>
+
+      <div class="lane">
+        <div class="who">天猫待配置示例店<small>无规则</small></div>
+        <div class="track"><div class="nowline" style="left:84%"></div></div>
+        <div class="st"><button class="linkish">+ 新建规则</button></div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i class="b-ok" style="background:#2f8a5b"></i>已结束·已核验</span>
+      <span><i class="b-warn" style="background:#b5873a"></i>部分完成/待人工</span>
+      <span><i class="b-bad" style="background:#b5484a"></i>失败</span>
+      <span><i class="b-run" style="background:#2f71b5"></i>执行中</span>
+      <span><i class="b-idle" style="background:#8d98a4"></i>体检/无需新增</span>
+      <span>▲ 计划到点</span>
+      <span>零规则的主体也占一条道——那几个模块今天没有任何自动路径</span>
+    </div>
+
+    <details class="drawer">
+      <summary>展开运行详情：吉客云 ERP · 五表（示意）</summary>
+      <dl class="dl">
+        <div><dt>逻辑运行</dt><dd>固定业务范围与五表集合</dd></div>
+        <div><dt>执行 / 业务 / 投递</dt><dd>已结束 · 已核验 · 已发送</dd></div>
+        <div><dt>原生执行</dt><dd>n8n execution（可进原执行）</dd></div>
+        <div><dt>尝试次数</dt><dd>1 次（无恢复）</dd></div>
+        <div><dt>模块结果</dt><dd>5/5 各有独立批次与实际数据日期</dd></div>
+        <div><dt>证据状态</dt><dd>已核实 · 观察于 08:55</dd></div>
+      </dl>
+      <div class="acts">
+        <button class="btn">查看障碍</button>
+        <button class="btn">进入原执行</button>
+        <button class="btn" disabled>按原协议恢复</button>
+        <button class="btn" disabled>新采集</button>
+        <button class="btn" disabled>闭合旧任务</button>
+      </div>
+      <p class="why">动作按服务端返回的允许条件启用：本次已完整成功，恢复类动作全部不可用。未决派发只核查同一请求，不换编号再提交。</p>
+    </details>
+  </div>
+</section>
+<section id="sub" hidden>
+  <div class="panel">
+    <h2>按主体 · 纵向增长，不加列</h2>
+    <p class="sub">加主体加卡、加链加行。跑不了的链只在卡内一行灰字说明理由，结构上不存在的格子不占版面。</p>
+    <div class="cards">
+      <div class="card">
+        <h3>吉客云 ERP</h3><div class="plat">ERP · 1 条规则</div>
+        <div class="chainrow"><b>吉客云 ERP · 五表</b>
+          <span class="ruleChip">每天 08:10 · 五表全部 · ✓ 08:54</span>
+          <div style="margin-top:6px"><button class="linkish">+ 再建一条</button></div>
+        </div>
+        <div class="chainrow"><b>其他链</b><div class="blocked">不适用于 ERP 主体</div></div>
+      </div>
+      <div class="card">
+        <h3>志高商用设备旗舰店</h3><div class="plat">京东 · 3 条规则</div>
+        <div class="chainrow"><b>京东 · 商品数据</b>
+          <span class="ruleChip">每天 10:00 · 三模块 · ✓ 09:52</span>
+          <div class="blocked" style="margin-top:5px">与其余三店共用一条工作流，显示整链结果</div>
+        </div>
+        <div class="chainrow"><b>京准通 · AI 推广</b>
+          <span class="ruleChip">每天 10:40 · 推广商品日 · ✓ 10:39</span>
+        </div>
+        <div class="chainrow"><b>京东 · 客服聊天记录</b>
+          <span class="ruleChip">每天 09:00 · 三模块 · ◐ 结果未明</span>
+        </div>
+        <div class="chainrow"><b>京东商智 · 市场榜单</b><div class="blocked">本店不适用：榜单按市场类目主体运行</div></div>
+      </div>
+      <div class="card">
+        <h3>志高炊之王专卖店</h3><div class="plat">天猫 · 1 条规则</div>
+        <div class="chainrow"><b>天猫 · 商品、推广与主数据</b>
+          <span class="ruleChip">每天 11:30 · 三模块 · ✓ 已核验</span>
+          <div class="blocked" style="margin-top:5px">主数据节奏：有效策略 每 1 天（原注册节奏 3 天已被每日直连策略覆盖）</div>
+        </div>
+        <div class="chainrow"><b>天猫 · 入仓库存</b><div class="blocked">本店不适用：入仓按货主主体运行</div></div>
+      </div>
+      <div class="card">
+        <h3>天猫待配置示例店</h3><div class="plat">天猫 · 0 条规则</div>
+        <div class="chainrow"><b>天猫 · 商品、推广与主数据</b>
+          <span class="chip c-warn">尚未安排</span>
+          <div style="margin-top:6px"><button class="linkish">+ 新建规则</button></div>
+        </div>
+        <div class="chainrow"><b>权限与凭据</b><div class="blocked">未核实：接入前须完成注册与凭据就绪，不自动继承其他店会话</div></div>
+      </div>
+    </div>
+    <div class="note" style="margin-top:16px">这一视图替代现矩阵的管理面。<b>节奏一律由有效策略函数生成</b>，不复制常量——现 <code>tools/build-import-chain-catalog.mjs</code> 把天猫 <code>masterIntervalDays</code> 硬写为 1，改策略不会跟着变。</div>
+  </div>
+</section>
+<section id="cov" hidden>
+  <div class="panel">
+    <h2>模块覆盖 · 行是模块，列是该平台的主体</h2>
+    <p class="sub">分数分母不含本店不适用。两条规则同管一个模块即红框（写入侧应拒）。</p>
+    <h3 style="font-size:14px;margin:18px 0 8px">京东平台 · 已覆盖 9/11</h3>
+    <table class="cov">
+      <thead><tr><th style="width:230px">模块</th><th>商用设备</th><th>商用厨电</th><th>切肉机</th><th>洗碗机</th></tr></thead>
+      <tbody>
+        <tr><td>商品 SKU 主数据</td>
+          <td><span class="ruleChip">10:00</span></td><td><span class="ruleChip">10:00</span></td>
+          <td><span class="ruleChip">10:00</span></td><td><span class="ruleChip">10:00</span></td></tr>
+        <tr><td>商智 SKU 分天</td>
+          <td><span class="ruleChip">10:00</span></td><td><span class="ruleChip">10:00</span></td>
+          <td><span class="ruleChip">10:00</span></td><td><span class="ruleChip">10:00</span></td></tr>
+        <tr><td>商智 SPU 分天</td>
+          <td><span class="ruleChip">10:00</span></td><td><span class="ruleChip">10:00</span></td>
+          <td><span class="ruleChip">10:00</span></td><td><span class="ruleChip">10:00</span></td></tr>
+        <tr><td>推广商品日数据</td>
+          <td><span class="ruleChip">10:40</span></td>
+          <td class="cell-gap"><span class="chip c-warn">未安排</span> <button class="linkish">+ 安排</button></td>
+          <td><span class="ruleChip">10:50</span></td>
+          <td class="cell-gap"><span class="chip c-warn">未安排</span> <button class="linkish">+ 安排</button></td></tr>
+        <tr><td>客服会话 Excel</td>
+          <td><span class="ruleChip">09:00</span></td><td><span class="ruleChip off">09:00 停用</span></td>
+          <td><span class="ruleChip off">09:00 停用</span></td><td><span class="ruleChip off">09:00 停用</span></td></tr>
+        <tr><td>聊天记录 LOG</td>
+          <td><span class="ruleChip">09:00</span></td><td><span class="ruleChip off">09:00 停用</span></td>
+          <td><span class="ruleChip off">09:00 停用</span></td><td><span class="ruleChip off">09:00 停用</span></td></tr>
+        <tr><td>市场榜单（七类目）</td>
+          <td class="cell-na">按市场类目主体</td><td class="cell-na">按市场类目主体</td>
+          <td class="cell-na">按市场类目主体</td><td><span class="ruleChip">10:30 ✕ 待人工</span></td></tr>
+        <tr><td>入仓四类数据</td>
+          <td class="cell-na">按事业部主体</td><td class="cell-na">按事业部主体</td>
+          <td class="cell-na">按事业部主体</td><td class="cell-na">按事业部主体</td></tr>
+      </tbody>
+    </table>
+    <h3 style="font-size:14px;margin:22px 0 8px">天猫平台 · 已覆盖 17/21（示意含一处重叠）</h3>
+    <table class="cov">
+      <thead><tr><th style="width:210px">模块</th><th>亿玖</th><th>丽力</th><th>拓丰</th><th>亿用</th><th>炊之王</th><th>马思图</th><th>示例店</th></tr></thead>
+      <tbody>
+        <tr><td>生意参谋商品日数据</td>
+          <td><span class="ruleChip">11:00</span></td><td><span class="ruleChip">11:10</span></td><td><span class="ruleChip">11:20</span></td>
+          <td><span class="ruleChip">11:50</span></td><td><span class="ruleChip">11:30</span></td><td><span class="ruleChip">11:40</span></td>
+          <td class="cell-gap"><span class="chip c-warn">未安排</span></td></tr>
+        <tr><td>推广商品日数据</td>
+          <td><span class="ruleChip">11:00</span></td><td><span class="ruleChip">11:10</span></td><td><span class="ruleChip">11:20</span></td>
+          <td><span class="ruleChip">11:50</span></td><td><span class="ruleChip">11:30</span></td><td><span class="ruleChip">11:40</span></td>
+          <td class="cell-gap"><span class="chip c-warn">未安排</span></td></tr>
+        <tr><td>店铺货品主数据</td>
+          <td><span class="ruleChip">11:00</span></td><td><span class="ruleChip">11:10</span></td>
+          <td class="cell-dup"><span class="ruleChip">11:20</span> <span class="ruleChip">11:25</span><br><span class="chip c-bad">重叠：应拒</span></td>
+          <td><span class="ruleChip">11:50</span></td><td><span class="ruleChip">11:30</span></td><td><span class="ruleChip">11:40</span></td>
+          <td class="cell-gap"><span class="chip c-warn">未安排</span></td></tr>
+      </tbody>
+    </table>
+    <div class="note" style="margin-top:16px"><b>为什么重叠必须在写入侧拒</b>：同主体同模块两条启用规则，后一条命中本轮模块今天已导过后会跳过，<b>却仍记为完成</b>——一条绿色的、什么都没取到的运行记录。这是参考方案两条 P1 之一，在其系统当时真实存在。</div>
+  </div>
+</section>
+<section id="mx" hidden>
+  <div class="panel">
+    <h2>现状矩阵 · 仅作对照，不建议继续作为主形态</h2>
+    <p class="sub">按本仓生成目录实测：8 链 × 13 主体 = 104 格。</p>
+    <div class="axes">
+      <div class="axis"><b>有规则</b><span style="font-size:22px;font-weight:700">20</span> 格 · 19%</div>
+      <div class="axis"><b>同平台但未配置</b><span style="font-size:22px;font-weight:700">20</span> 格</div>
+      <div class="axis"><b>跨平台恒为「—」</b><span style="font-size:22px;font-weight:700">64</span> 格 · 62%</div>
+      <div class="axis"><b>空格合计</b><span style="font-size:22px;font-weight:700">84</span> 格 · 81%</div>
+    </div>
+    <table>
+      <thead><tr><th style="width:190px">主体</th><th>吉客云五表</th><th>京东商品</th><th>市场榜单</th><th>京准通</th><th>京东客服</th><th>天猫三模块</th><th>京东入仓</th><th>天猫入仓</th></tr></thead>
+      <tbody>
+        <tr><td>吉客云 ERP</td><td><span class="chip c-ok">✓</span></td><td class="cell-na">—</td><td class="cell-na">—</td><td class="cell-na">—</td><td class="cell-na">—</td><td class="cell-na">—</td><td class="cell-na">—</td><td class="cell-na">—</td></tr>
+        <tr><td>商用设备旗舰店</td><td class="cell-na">—</td><td><span class="chip c-ok">✓</span></td><td class="cell-gap">未配置</td><td><span class="chip c-ok">✓</span></td><td><span class="chip c-warn">◐</span></td><td class="cell-na">—</td><td class="cell-gap">未配置</td><td class="cell-na">—</td></tr>
+        <tr><td>商用厨电旗舰店</td><td class="cell-na">—</td><td><span class="chip c-ok">✓</span></td><td class="cell-gap">未配置</td><td class="cell-gap">未配置</td><td><span class="chip c-idle">停用</span></td><td class="cell-na">—</td><td class="cell-gap">未配置</td><td class="cell-na">—</td></tr>
+        <tr><td>志高亿玖专卖店</td><td class="cell-na">—</td><td class="cell-na">—</td><td class="cell-na">—</td><td class="cell-na">—</td><td class="cell-na">—</td><td><span class="chip c-ok">✓</span></td><td class="cell-na">—</td><td class="cell-gap">未配置</td></tr>
+        <tr><td>志高马思图专卖店</td><td class="cell-na">—</td><td class="cell-na">—</td><td class="cell-na">—</td><td class="cell-na">—</td><td class="cell-na">—</td><td><span class="chip c-run">▶</span></td><td class="cell-na">—</td><td class="cell-gap">未配置</td></tr>
+        <tr><td>京东入仓（事业部）</td><td class="cell-na">—</td><td class="cell-gap">未配置</td><td class="cell-gap">未配置</td><td class="cell-gap">未配置</td><td class="cell-gap">未配置</td><td class="cell-na">—</td><td><span class="chip c-idle">无需新增</span></td><td class="cell-na">—</td></tr>
+        <tr><td>天猫入仓（货主）</td><td class="cell-na">—</td><td class="cell-na">—</td><td class="cell-na">—</td><td class="cell-na">—</td><td class="cell-na">—</td><td class="cell-gap">未配置</td><td class="cell-na">—</td><td><span class="chip c-ok">✓</span></td></tr>
+      </tbody>
+    </table>
+    <div class="note" style="margin-top:16px">两条轴只在同一平台内相交，矩阵把一棵树（平台 → 链与主体）压成了笛卡尔积。每接入一个主体多一列，每加一条链只多一格。现页面已需横向滚动容器。</div>
+  </div>
+</section>
+</main>
+<footer>
+  自动化中心三视图示意 · 2026-10-29 · 单文件内嵌，可离线用 <code>file:///</code> 直接打开。<br>
+  示意数据与交互均为合成：按钮不发请求、不触发采集、不执行导入、不发送消息。真实页面的状态、节奏与允许动作一律由服务端按有效策略与权威证据返回。
+</footer>
+<script>
+(function(){
+  var ids=['sch','sub','cov','mx'];
+  var tabs=Array.prototype.slice.call(document.querySelectorAll('nav.tabs button'));
+  function show(v){
+    tabs.forEach(function(t){ t.setAttribute('aria-selected', String(t.getAttribute('data-v')===v)); });
+    ids.forEach(function(id){ document.getElementById(id).hidden = (id!==v); });
+  }
+  tabs.forEach(function(t){ t.addEventListener('click', function(){ show(t.getAttribute('data-v')); }); });
+  document.addEventListener('click', function(e){
+    var c = e.target.className || '';
+    if (typeof c === 'string' && (c.indexOf('linkish')>=0 || c.indexOf('btn')>=0)) e.preventDefault();
+  });
+})();
+</script>
+</body>
+</html>
