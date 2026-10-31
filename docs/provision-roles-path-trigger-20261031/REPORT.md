@@ -1,6 +1,8 @@
 # 按权限契约路径补齐结构发布授权
 
 状态：开发分支候选；未合并 main，未准备生产制品、发布、操作生产数据库或启停生产服务。
+分支 `codex/provision-roles-path-trigger-20261031`，代码提交
+`fd057eef508be2ea5f29f2c4bbc26bd587105ffb`；后续收尾提交只补本文记录。
 
 ## 问题与设计
 
@@ -50,6 +52,19 @@ AI 进程已停的 Assert-AiPortsFree 门禁继续生效，未绕过或修改。
    - initdb/start/stop 均 exit 0，集群已停止；没有应用服务冷启动或完整发布演练。
    首次夹具因模型含无数据库列的字段失败，已过滤该类字段；失败集群也正常停止，
    原记录保留。没有修改被测生产函数来迁就夹具。
+4. 项目固定入口 `tools/verify-release-candidate.mjs`：通过，绑定代码提交
+   `fd057eef508be2ea5f29f2c4bbc26bd587105ffb`。
+   publication 257/257、PowerShell 5/7 实际参数/调用边界、私有 Django 应用包
+   复制/部署/摘要/ACL/本地 R2 检查均 exit 0；packageIntegrity 和
+   nativeEntryBoundary 为 true，nativeColdStart 为 false，临时验证 worktree 已清理。
+   首次调用因 WindowsApps 的 pwsh 应用别名不可读取而在检查前失败；第二次只为
+   当前进程 PATH 前置 Appx 实际安装路径，未更改系统配置、脚本或门禁。
+
+固定入口复跑命令（Python 和依赖均须为可读的非生产程序目录）：
+
+```powershell
+node tools/verify-release-candidate.mjs --base 03f6e474d0fcdfb3328485dad5d1719f4d8f1080 --out <新的工作树外目录> --dependencies <node_modules目录> --python <Python完整路径>
+```
 
 复跑隔离数据库测试（`--out` 必须是新目录，Python 需安装 Django/psycopg）：
 
@@ -61,8 +76,11 @@ python -B tests/ai-role-provision-postgres.py --postgres-bin <独立PostgreSQL�
 编排原输出 `node-tests.log`，数据库结果 `postgres-test-2/RESULT.json`，失败夹具
 原件 `postgres-test/RESULT.json`。测试程序从 EDB 官方 Windows 17.11 二进制归档
 独立下载至上述目录，不读取生产 PostgreSQL 程序、数据或凭据。
+固定兼容检查结果在 `compatibility-2/REPORT.json`，原始检查输出同目录；首次
+应用别名错误保留在 `compatibility/REPORT.json`。收尾仅文档变化，复用上述同字节
+源码与测试证据，不重复打包或测试。
 
-独立 Sol High 源码审查未发现本次修复的必要阻断；请求模型 gpt-6.1-sol/high，
+独立 Sol High 源码审查及真实数据库证据增量复审未发现本次修复的必要阻断；请求模型 gpt-6.1-sol/high，
 实际底层型号未由工具独立回传确认。
 
 ## 范围与交付边界
