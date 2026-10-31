@@ -18,7 +18,7 @@
     ]
   ],
   "fullBackupOrRestorePerformed": false,
-  "codeSha256": "04ba55b47b61b7de11a7096b1441fc210c31cbb9135ac810a813799385c13c17",
+  "codeSha256": "1959cbba59b3e4f4629aa14bbe4887435d26e7a218405b076535b62ebeb82141",
   "migrationSha256": "05802c9ef1af3a46fb9c980965d6f98ba06d1ee35459cf514050280fbd67bb31",
   "checks": [
     "migration-closure",
@@ -27,7 +27,7 @@
     "python-syntax"
   ],
   "evidence": {
-    "path": "docs/ci-two-gates-fix-20261031/MANDATORY-CHECKS.json",
-    "sha256": "f2c8b645a1f93d81eb264b28b467d2b7dbacdf0614f04e2ec225b88d9bd17679"
+    "path": "docs/workflow-automation-addition-20261031/MANDATORY-CHECKS-SALES154.json",
+    "sha256": "607c47a68cafeae6a4c81206a98f7c9da8294338bf0ca6da85a5b6a3e8332626"
   }
 }

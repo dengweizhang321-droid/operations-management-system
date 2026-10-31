@@ -1787,6 +1787,35 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   if (-not [string]::IsNullOrWhiteSpace($IntegrationEvidencePath) -and (Test-Path -LiteralPath $IntegrationEvidencePath)) {
     $biEvidence = Read-JsonFile $IntegrationEvidencePath 'BI addition evidence'
   }
+  # Workflow156 is a separate, finite child; no legacy execution limits are changed.
+  # It adopts the two already-merged workflow migrations, so a successful gate
+  # returns before the Sales154 branch below. Sales154 and every older
+  # generation's lifecycle proof is fully retained through
+  # workflow_automation_addition.parent_proof ->
+  # sales_preflight_addition._verify_active_with_base, plus the exact
+  # workflow-only delta against this generation's own baseline.
+  $workflowAutomationGate = Join-Path $candidateRoot 'tools\workflow_automation_addition.py'
+  $workflowAutomationDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('workflow-automation-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -ceq 'teruisi-workflow-automation-schema-addition-v1' -or $workflowAutomationDeployment -or
+      (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'workflow-automation-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $workflowAutomationGate -PathType Leaf)) {throw 'Workflow156 requires its exact verifier'}
+    $workflowAutomationCommand = if ($Operation -ceq 'PrepareApp') {if ($null -ne $biEvidence) {'admission'} else {'successor'}} elseif ($Operation -ceq 'DeployApp') {if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'}} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported Workflow156 lifecycle operation'}
+    $workflowAutomationArgs = @($workflowAutomationGate,$workflowAutomationCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if ($workflowAutomationCommand -ceq 'admission') {$workflowAutomationArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if ($workflowAutomationCommand -ceq 'deployment') {$workflowAutomationArgs += @('--operation',$IntegrationOperationId)}
+    $workflowAutomationRun = Invoke-BoundedNativeProcess $Python $workflowAutomationArgs $candidateRoot
+    if ($workflowAutomationRun -isnot [pscustomobject] -or $workflowAutomationRun.ExitCode -isnot [int] -or
+        $workflowAutomationRun.LaunchFailed -isnot [bool] -or $workflowAutomationRun.LaunchFailed -or
+        $workflowAutomationRun.Diagnostic.OutputTruncated -isnot [bool] -or $workflowAutomationRun.Diagnostic.OutputTruncated -or
+        @($workflowAutomationRun.Output | Where-Object {$_ -is [string] -and $_.TrimStart().StartsWith('{')}).Count -ne 1) {
+      throw 'Workflow156 requires one complete typed native JSON object'
+    }
+    $workflowAutomationProof = ConvertFrom-UniqueNativeJson $workflowAutomationRun 'Verify finite Workflow156 schema addition'
+    if ($workflowAutomationProof -isnot [pscustomobject] -or $workflowAutomationProof.status -isnot [string] -or
+        $workflowAutomationProof.status -cne 'verified') {throw 'Workflow156 schema addition gate refused'}
+    return
+  }
   # Sales154 is a separate, finite child; no legacy execution limits are changed.
   $salesPreflightGate = Join-Path $candidateRoot 'tools\sales_preflight_addition.py'
   $salesPreflightDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
@@ -2207,6 +2236,10 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\workflow_automation_addition.py",
+      "tools\workflow_automation_catalog.py",
+      "tools\workflow_automation_catalog.json",
+      "tools\workflow_automation_candidate.py",
       "tools\sales_preflight_addition.py",
       "tools\sales_preflight_catalog.py",
       "tools\sales_preflight_candidate.py",

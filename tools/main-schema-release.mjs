@@ -23,7 +23,13 @@ export const piNativeSchema={version:'teruisi-main-schema-release-v1',additionKi
 export const piNativeMigration='backend/ai_assistant/migrations/0087_pi_native_capabilities.py';
 export const salesPreflightSchema={version:'teruisi-main-schema-release-v1',additionKind:'SalesPreflightIndex',fromGeneration:153,toGeneration:154,steps:['sales.0012_excluded_business_date_index']};
 export const salesPreflightMigration='backend/sales/migrations/0012_excluded_business_date_index.py';
+// 154 -> 156: two steps in one generation. workflow.0010 is a RunPython that
+// seeds its registry rows into the table workflow.0009 creates, so there is no
+// separately installable 155.
+export const workflowAutomationSchema={version:'teruisi-main-schema-release-v1',additionKind:'WorkflowAutomation',fromGeneration:154,toGeneration:156,steps:['workflow.0009_automation_projection_b1','workflow.0010_customer_service_chain_modules']};
+export const workflowAutomationMigrations=['backend/workflow/migrations/0009_automation_projection_b1.py','backend/workflow/migrations/0010_customer_service_chain_modules.py'];
 const finite=[
+ {schema:workflowAutomationSchema,migrations:workflowAutomationMigrations,recipe:'config/main-schema-releases/workflow-0009.json',binder:'workflow_automation_candidate.py',evidence:'workflow-0009-evidence.json'},
  {schema:salesPreflightSchema,migrations:[salesPreflightMigration],recipe:'config/main-schema-releases/sales-0012.json',binder:'sales_preflight_candidate.py',evidence:'sales-0012-evidence.json'},
  {schema:piNativeSchema,migrations:[piNativeMigration],recipe:'config/main-schema-releases/ai-0087.json',binder:'pi_native_candidate.py',evidence:'ai-0087-evidence.json'},
  {schema:piBusinessSchema,migrations:[piBusinessMigration],recipe:'config/main-schema-releases/ai-0086.json',binder:'pi_business_candidate.py',evidence:'ai-0086-evidence.json'},

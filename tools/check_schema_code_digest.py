@@ -24,7 +24,13 @@ SPECS = {
     "PiNative": ("pi_native_candidate", (152,), 153, "pi-native-mandatory-code-checks-v1"),
     "SalesPreflightIndex": ("sales_preflight_candidate", (153,), 154,
                             "sales-preflight-index-mandatory-code-checks-v1"),
+    "WorkflowAutomation": ("workflow_automation_candidate", (154,), 156,
+                           "workflow-automation-mandatory-code-checks-v1"),
 }
+# These kinds additionally bind the execution material, so a proof-only digest
+# edit cannot retain an old CHECKS source map. Earlier kinds predate that
+# binding and keep their historical, weaker validation mode.
+EXECUTION_MATERIAL_KINDS = {"SalesPreflightIndex", "WorkflowAutomation"}
 RECIPE_FIELDS = {"version", "additionKind", "fromGeneration", "toGeneration", "steps",
                  "stepFiles", "validation", "validationSha256", "codeSha256"}
 
@@ -136,9 +142,12 @@ def check_recipe(root, recipe_name):
             require(type(checks) is list and all(type(c) is str for c in checks)
                     and len(checks) == len(gate.CHECKS) and set(checks) == gate.CHECKS,
                     "Mandatory proof checks differ")
-        if kind == "SalesPreflightIndex":
-            # Sales records also bind the new execution material, preventing a
+        if kind in EXECUTION_MATERIAL_KINDS:
+            # These records also bind the new execution material, preventing a
             # proof-only digest edit from retaining an old CHECKS source map.
+            # The "Sales ..." message prefixes are kept verbatim: they are the
+            # strings tests/schema-code-digest-static.py asserts on, and this
+            # change widens which kinds reach the branch, not what it checks.
             reference = proof.get("evidence")
             if type(reference) is not dict or set(reference) != {"path", "sha256"}:
                 raise ValueError("Sales evidence reference must contain path and sha256")
