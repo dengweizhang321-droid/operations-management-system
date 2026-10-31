@@ -36,3 +36,4 @@ docs/schema-code-digest-20261029/*.json -text whitespace=cr-at-eol
 docs/schema-code-digest-20261029/*.tap -text -diff
 docs/schema-code-digest-20261029/*.log -text -diff
 docs/jackyun-sales-preflight-20261029/sales154-mandatory-code-checks.json -text whitespace=cr-at-eol
+docs/django-controller-requalification-20261031/*.txt -text -diff
