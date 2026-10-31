@@ -1,0 +1,1076 @@
+{
+  "automation_attempts": {
+    "identity": [
+      "teruisi_sales_owner",
+      "r",
+      "p",
+      false,
+      false
+    ],
+    "columns": [
+      [
+        "attempt_id",
+        "uuid",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "native_workflow_id",
+        "character varying(120)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "native_execution_id",
+        "character varying(120)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "recovery_reason",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "stage",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "started_at",
+        "timestamp with time zone",
+        false,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "finished_at",
+        "timestamp with time zone",
+        false,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "error_class",
+        "character varying(120)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "native_evidence_ref",
+        "character varying(500)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "created_at",
+        "timestamp with time zone",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "parent_attempt_id",
+        "uuid",
+        false,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "logical_run_id",
+        "uuid",
+        true,
+        null,
+        "",
+        "",
+        null
+      ]
+    ],
+    "constraints": [
+      [
+        "automation_attempts_logical_run_id_adb575f1_fk_automatio",
+        "f",
+        true,
+        true,
+        true,
+        "FOREIGN KEY (logical_run_id) REFERENCES automation_logical_runs(logical_run_id) DEFERRABLE INITIALLY DEFERRED"
+      ],
+      [
+        "automation_attempts_parent_attempt_id_2982df30_fk_automatio",
+        "f",
+        true,
+        true,
+        true,
+        "FOREIGN KEY (parent_attempt_id) REFERENCES automation_attempts(attempt_id) DEFERRABLE INITIALLY DEFERRED"
+      ],
+      [
+        "automation_attempts_pkey",
+        "p",
+        true,
+        false,
+        false,
+        "PRIMARY KEY (attempt_id)"
+      ]
+    ],
+    "indexes": [
+      [
+        "automation_attempt_native_execution_uq",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX automation_attempt_native_execution_uq ON public.automation_attempts USING btree (native_workflow_id, native_execution_id) WHERE (NOT ((native_execution_id)::text = ''::text))"
+      ],
+      [
+        "automation_attempt_parent_idx",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_attempt_parent_idx ON public.automation_attempts USING btree (parent_attempt_id)"
+      ],
+      [
+        "automation_attempt_run_idx",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_attempt_run_idx ON public.automation_attempts USING btree (logical_run_id, created_at)"
+      ],
+      [
+        "automation_attempts_logical_run_id_adb575f1",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_attempts_logical_run_id_adb575f1 ON public.automation_attempts USING btree (logical_run_id)"
+      ],
+      [
+        "automation_attempts_native_execution_id_270b2bd5",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_attempts_native_execution_id_270b2bd5 ON public.automation_attempts USING btree (native_execution_id)"
+      ],
+      [
+        "automation_attempts_native_execution_id_270b2bd5_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_attempts_native_execution_id_270b2bd5_like ON public.automation_attempts USING btree (native_execution_id varchar_pattern_ops)"
+      ],
+      [
+        "automation_attempts_parent_attempt_id_2982df30",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_attempts_parent_attempt_id_2982df30 ON public.automation_attempts USING btree (parent_attempt_id)"
+      ],
+      [
+        "automation_attempts_pkey",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX automation_attempts_pkey ON public.automation_attempts USING btree (attempt_id)"
+      ]
+    ],
+    "triggers": [],
+    "acl": [
+      [
+        "OWNER",
+        "DELETE",
+        false
+      ],
+      [
+        "OWNER",
+        "INSERT",
+        false
+      ],
+      [
+        "OWNER",
+        "MAINTAIN",
+        false
+      ],
+      [
+        "OWNER",
+        "REFERENCES",
+        false
+      ],
+      [
+        "OWNER",
+        "SELECT",
+        false
+      ],
+      [
+        "OWNER",
+        "TRIGGER",
+        false
+      ],
+      [
+        "OWNER",
+        "TRUNCATE",
+        false
+      ],
+      [
+        "OWNER",
+        "UPDATE",
+        false
+      ]
+    ],
+    "columnAcl": [],
+    "policies": []
+  },
+  "automation_logical_runs": {
+    "identity": [
+      "teruisi_sales_owner",
+      "r",
+      "p",
+      false,
+      false
+    ],
+    "columns": [
+      [
+        "logical_run_id",
+        "uuid",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "chain_key",
+        "character varying(80)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "subject_key",
+        "character varying(120)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "plan_date",
+        "date",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "business_range",
+        "jsonb",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "trigger_source",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "plan_summary",
+        "jsonb",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "overall_status",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "created_at",
+        "timestamp with time zone",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "updated_at",
+        "timestamp with time zone",
+        true,
+        null,
+        "",
+        "",
+        null
+      ]
+    ],
+    "constraints": [
+      [
+        "automation_logical_runs_pkey",
+        "p",
+        true,
+        false,
+        false,
+        "PRIMARY KEY (logical_run_id)"
+      ]
+    ],
+    "indexes": [
+      [
+        "automation_logical_run_identity_uq",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX automation_logical_run_identity_uq ON public.automation_logical_runs USING btree (chain_key, subject_key, plan_date, trigger_source) WHERE ((trigger_source)::text = ANY ((ARRAY['schedule'::character varying, 'backfill'::character varying])::text[]))"
+      ],
+      [
+        "automation_logical_runs_chain_key_73bf37c7",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_logical_runs_chain_key_73bf37c7 ON public.automation_logical_runs USING btree (chain_key)"
+      ],
+      [
+        "automation_logical_runs_chain_key_73bf37c7_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_logical_runs_chain_key_73bf37c7_like ON public.automation_logical_runs USING btree (chain_key varchar_pattern_ops)"
+      ],
+      [
+        "automation_logical_runs_pkey",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX automation_logical_runs_pkey ON public.automation_logical_runs USING btree (logical_run_id)"
+      ],
+      [
+        "automation_logical_runs_plan_date_d6b081bf",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_logical_runs_plan_date_d6b081bf ON public.automation_logical_runs USING btree (plan_date)"
+      ],
+      [
+        "automation_logical_runs_subject_key_ec187813",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_logical_runs_subject_key_ec187813 ON public.automation_logical_runs USING btree (subject_key)"
+      ],
+      [
+        "automation_logical_runs_subject_key_ec187813_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_logical_runs_subject_key_ec187813_like ON public.automation_logical_runs USING btree (subject_key varchar_pattern_ops)"
+      ],
+      [
+        "automation_run_subj_date_idx",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_run_subj_date_idx ON public.automation_logical_runs USING btree (chain_key, subject_key, plan_date)"
+      ]
+    ],
+    "triggers": [],
+    "acl": [
+      [
+        "OWNER",
+        "DELETE",
+        false
+      ],
+      [
+        "OWNER",
+        "INSERT",
+        false
+      ],
+      [
+        "OWNER",
+        "MAINTAIN",
+        false
+      ],
+      [
+        "OWNER",
+        "REFERENCES",
+        false
+      ],
+      [
+        "OWNER",
+        "SELECT",
+        false
+      ],
+      [
+        "OWNER",
+        "TRIGGER",
+        false
+      ],
+      [
+        "OWNER",
+        "TRUNCATE",
+        false
+      ],
+      [
+        "OWNER",
+        "UPDATE",
+        false
+      ]
+    ],
+    "columnAcl": [],
+    "policies": []
+  },
+  "automation_module_results": {
+    "identity": [
+      "teruisi_sales_owner",
+      "r",
+      "p",
+      false,
+      false
+    ],
+    "columns": [
+      [
+        "id",
+        "bigint",
+        true,
+        null,
+        "",
+        "d",
+        null
+      ],
+      [
+        "module_key",
+        "character varying(120)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "subject_key",
+        "character varying(120)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "dataset",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "date_range",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "download_status",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "validate_status",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "import_status",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "verify_status",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "release_status",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "execution_state",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "business_state",
+        "character varying(24)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "delivery_state",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "netshop_import_batch_id",
+        "character varying(1024)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "current_raw_file_sha256",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "current_content_fingerprint",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "current_row_count",
+        "bigint",
+        false,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "current_warning_count",
+        "bigint",
+        false,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "reused_batch_id",
+        "character varying(1024)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "reused_coverage_revision",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "evidence_state",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "evidence_source",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "evidence_observed_at",
+        "timestamp with time zone",
+        false,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "created_at",
+        "timestamp with time zone",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "updated_at",
+        "timestamp with time zone",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "logical_run_id",
+        "uuid",
+        true,
+        null,
+        "",
+        "",
+        null
+      ]
+    ],
+    "constraints": [
+      [
+        "automation_module_re_logical_run_id_fbec535a_fk_automatio",
+        "f",
+        true,
+        true,
+        true,
+        "FOREIGN KEY (logical_run_id) REFERENCES automation_logical_runs(logical_run_id) DEFERRABLE INITIALLY DEFERRED"
+      ],
+      [
+        "automation_module_result_identity_uq",
+        "u",
+        true,
+        false,
+        false,
+        "UNIQUE (logical_run_id, module_key, subject_key, dataset, date_range)"
+      ],
+      [
+        "automation_module_results_pkey",
+        "p",
+        true,
+        false,
+        false,
+        "PRIMARY KEY (id)"
+      ]
+    ],
+    "indexes": [
+      [
+        "automation_module_result_identity_uq",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX automation_module_result_identity_uq ON public.automation_module_results USING btree (logical_run_id, module_key, subject_key, dataset, date_range)"
+      ],
+      [
+        "automation_module_results_logical_run_id_fbec535a",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_module_results_logical_run_id_fbec535a ON public.automation_module_results USING btree (logical_run_id)"
+      ],
+      [
+        "automation_module_results_pkey",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX automation_module_results_pkey ON public.automation_module_results USING btree (id)"
+      ],
+      [
+        "automation_result_evidence_idx",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_result_evidence_idx ON public.automation_module_results USING btree (evidence_state)"
+      ],
+      [
+        "automation_result_mod_subj_idx",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_result_mod_subj_idx ON public.automation_module_results USING btree (module_key, subject_key, dataset)"
+      ]
+    ],
+    "triggers": [],
+    "acl": [
+      [
+        "OWNER",
+        "DELETE",
+        false
+      ],
+      [
+        "OWNER",
+        "INSERT",
+        false
+      ],
+      [
+        "OWNER",
+        "MAINTAIN",
+        false
+      ],
+      [
+        "OWNER",
+        "REFERENCES",
+        false
+      ],
+      [
+        "OWNER",
+        "SELECT",
+        false
+      ],
+      [
+        "OWNER",
+        "TRIGGER",
+        false
+      ],
+      [
+        "OWNER",
+        "TRUNCATE",
+        false
+      ],
+      [
+        "OWNER",
+        "UPDATE",
+        false
+      ]
+    ],
+    "columnAcl": [],
+    "policies": []
+  },
+  "automation_modules": {
+    "identity": [
+      "teruisi_sales_owner",
+      "r",
+      "p",
+      false,
+      false
+    ],
+    "columns": [
+      [
+        "module_key",
+        "character varying(120)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "label",
+        "character varying(200)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "platform",
+        "character varying(40)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "chain_key",
+        "character varying(80)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "domain",
+        "character varying(32)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "dataset",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "date_policy",
+        "character varying(32)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "depends_on",
+        "jsonb",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "imports_data",
+        "boolean",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "evidence_requirement",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "allowed_actions",
+        "jsonb",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "schedulable",
+        "boolean",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "contract_version",
+        "integer",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "created_at",
+        "timestamp with time zone",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "updated_at",
+        "timestamp with time zone",
+        true,
+        null,
+        "",
+        "",
+        null
+      ]
+    ],
+    "constraints": [
+      [
+        "automation_modules_contract_version_check",
+        "c",
+        true,
+        false,
+        false,
+        "CHECK-TREE [\"atom\",\"contract_version >= 0\"]"
+      ],
+      [
+        "automation_modules_pkey",
+        "p",
+        true,
+        false,
+        false,
+        "PRIMARY KEY (module_key)"
+      ]
+    ],
+    "indexes": [
+      [
+        "automation_module_chain_idx",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_module_chain_idx ON public.automation_modules USING btree (chain_key, domain)"
+      ],
+      [
+        "automation_modules_chain_key_8722c47e",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_modules_chain_key_8722c47e ON public.automation_modules USING btree (chain_key)"
+      ],
+      [
+        "automation_modules_chain_key_8722c47e_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_modules_chain_key_8722c47e_like ON public.automation_modules USING btree (chain_key varchar_pattern_ops)"
+      ],
+      [
+        "automation_modules_module_key_2baf4c27_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX automation_modules_module_key_2baf4c27_like ON public.automation_modules USING btree (module_key varchar_pattern_ops)"
+      ],
+      [
+        "automation_modules_pkey",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX automation_modules_pkey ON public.automation_modules USING btree (module_key)"
+      ]
+    ],
+    "triggers": [],
+    "acl": [
+      [
+        "OWNER",
+        "DELETE",
+        false
+      ],
+      [
+        "OWNER",
+        "INSERT",
+        false
+      ],
+      [
+        "OWNER",
+        "MAINTAIN",
+        false
+      ],
+      [
+        "OWNER",
+        "REFERENCES",
+        false
+      ],
+      [
+        "OWNER",
+        "SELECT",
+        false
+      ],
+      [
+        "OWNER",
+        "TRIGGER",
+        false
+      ],
+      [
+        "OWNER",
+        "TRUNCATE",
+        false
+      ],
+      [
+        "OWNER",
+        "UPDATE",
+        false
+      ]
+    ],
+    "columnAcl": [],
+    "policies": []
+  },
+  "sequence": {
+    "name": "public.automation_module_results_id_seq",
+    "acl": [
+      [
+        "teruisi_sales_owner",
+        "S",
+        "p",
+        "USAGE",
+        false,
+        "OWNER"
+      ]
+    ]
+  }
+}

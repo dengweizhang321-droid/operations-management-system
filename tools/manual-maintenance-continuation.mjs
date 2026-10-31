@@ -116,6 +116,30 @@ export const sales154SchemaAdditionDjangoScriptSha256='98028cb49195b7b145c74fdb5
 // qualified so a rollback is not blocked by this entry.
 // Review: docs/ci-two-gates-fix-20261031/REPORT.md.
 export const batchedStatusEnumerationDjangoScriptSha256='fbb62792eb0962cb91b76b0045a08812d29de0dabb0ab9056ac9ce235d76bddb';
+// Workflow156: these reviewed controller bytes add the twelfth generation's
+// schema-addition admission branch and list its four verifier modules in
+// PrepareApp's copy list. Why this is qualifiable: the diff is 33 added lines
+// and ZERO modified or removed lines. 29 of them are one new `if` block placed
+// immediately before the Sales154 block in
+// Assert-NoUnapprovedProtectedAiMigration; the other 4 are copy-list entries.
+// The new block is reached only when this generation's own evidence version,
+// operation plan or active marker is present, so with none of those on disk
+// control falls through to the Sales154 branch byte-identically to before.
+// Every ancestor's lifecycle proof is retained, not bypassed:
+// workflow_automation_addition.parent_proof calls
+// sales_preflight_addition._verify_active_with_base, which recurses through all
+// eleven existing generations to bi_app_addition's published 139 parent. The
+// independent integration_release_gate.py database invocation before migrate
+// keeps its own protections. Nothing in maintenance enter/exit, the maintenance
+// lock, drain, STARTED/SUCCESS receipts, process-tree walking or termination,
+// worker start/stop sequencing, signal handling, ACL/permission boundaries or
+// any existing assertion is touched, and no external process is added.
+// Both PS5.1 (5.1.26100.9444) and PS7 (7.6.9) parse the file with zero errors
+// (Parser.ParseFile, no execution); the UTF-8 BOM and CRLF endings are
+// retained. Keep every older generation qualified so a rollback of this change
+// is not blocked by its own qualification entry.
+// Review: docs/workflow-automation-addition-20261031/REPORT.md.
+export const workflowAutomationSchemaAdditionDjangoScriptSha256='af6b3b4242f0863296f018d3908ce9d9e93a1d8ec89565e299c7dba16e6e279c';
 // B项 (2026-10-25) registers the worker controller that reports the real
 // failure cause in -Json mode. The terminal catch block used to write only the
 // fixed string 'Worker lifecycle result requires exact reconciliation' to
@@ -145,7 +169,7 @@ export const bWorkerJsonFailureCauseScriptSha256='1b8c5d4d61ba491d042f41ae91e9cc
 // tools/worker-local-service.ps1: startup phase budgets/observation plus an
 // independent DingTalk startup observer. Evidence: docs/施工/S05a.md.
 export const piNativeCandidateControllerSha256=Object.freeze({
- 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256]),
+ 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256]),
  'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256]),
  'process-deadline.ps1':Object.freeze([])
 });
