@@ -1,0 +1,143 @@
+{
+  "revision": "3ce73dfa87884ceea23f3b71f90b2244704b4170",
+  "psSnippets": [
+    {
+      "file": "tools/main-control-dispatch.mjs",
+      "sourceLine": 75,
+      "function": "controlExecution",
+      "exactStaticExpansion": false,
+      "parserErrors": [],
+      "throwSites": 1,
+      "symbolicSubstitution": "process.pid replaced by synthetic integer 123456 for syntax parsing only"
+    },
+    {
+      "file": "tools/main-prebuild-task.mjs",
+      "sourceLine": 16,
+      "function": "<module>",
+      "exactStaticExpansion": true,
+      "parserErrors": [],
+      "throwSites": 2
+    },
+    {
+      "file": "tools/main-prebuild-task.mjs",
+      "sourceLine": 20,
+      "function": "currentPreparationIdentity",
+      "exactStaticExpansion": true,
+      "parserErrors": [],
+      "throwSites": 2
+    },
+    {
+      "file": "tools/main-prebuild-task.mjs",
+      "sourceLine": 33,
+      "function": "<module>",
+      "exactStaticExpansion": true,
+      "parserErrors": [],
+      "throwSites": 0
+    },
+    {
+      "file": "tools/main-prebuild-task.mjs",
+      "sourceLine": 35,
+      "function": "readPreparationTask",
+      "exactStaticExpansion": true,
+      "parserErrors": [],
+      "throwSites": 1
+    },
+    {
+      "file": "tools/main-prebuild-task.mjs",
+      "sourceLine": 68,
+      "function": "wakePreparationTask",
+      "exactStaticExpansion": true,
+      "parserErrors": [],
+      "throwSites": 0
+    },
+    {
+      "file": "tools/preparation-resolution.mjs",
+      "sourceLine": 90,
+      "function": "<module>",
+      "exactStaticExpansion": true,
+      "parserErrors": [],
+      "throwSites": 1
+    },
+    {
+      "file": "tools/preparation-retirement-boot.mjs",
+      "sourceLine": 6,
+      "function": "<module>",
+      "exactStaticExpansion": true,
+      "parserErrors": [],
+      "throwSites": 2
+    },
+    {
+      "file": "tools/preparation-retirement-boot.mjs",
+      "sourceLine": 8,
+      "function": "<module>",
+      "exactStaticExpansion": true,
+      "parserErrors": [],
+      "throwSites": 2
+    },
+    {
+      "file": "tools/preparation-retirement-boot.mjs",
+      "sourceLine": 27,
+      "function": "collectFullBootObservation",
+      "exactStaticExpansion": true,
+      "parserErrors": [],
+      "throwSites": 2
+    },
+    {
+      "file": "tools/publish-latest-main.mjs",
+      "sourceLine": 497,
+      "function": "publicationProbeScript",
+      "exactStaticExpansion": false,
+      "parserErrors": [],
+      "throwSites": 2
+    },
+    {
+      "file": "tools/publish-main-owner.mjs",
+      "sourceLine": 4,
+      "function": "<module>",
+      "exactStaticExpansion": true,
+      "parserErrors": [],
+      "throwSites": 0
+    },
+    {
+      "file": "tools/publish-main-owner.mjs",
+      "sourceLine": 19,
+      "function": "capturePublicationOwner",
+      "exactStaticExpansion": true,
+      "parserErrors": [],
+      "throwSites": 0
+    },
+    {
+      "file": "tools/worker-local-release-rotation.mjs",
+      "sourceLine": 993,
+      "function": "acquireWorkerServiceMutex",
+      "exactStaticExpansion": true,
+      "parserErrors": [],
+      "throwSites": 1
+    }
+  ],
+  "extraSources": [
+    {
+      "file": "backend/pandas_runner/key_file.py",
+      "bytes": 2007,
+      "gitStoredRawSha256": "20dcbe9444c183110968e61c5c55db93feae33ed84cadf10ecdc6e80f39e4587"
+    },
+    {
+      "file": "backend/pandas_runner/protocol.py",
+      "bytes": 3549,
+      "gitStoredRawSha256": "d531fce3dbfc6048b97008115a6c92b3ac42220f9bb279b914368d001cf18185"
+    },
+    {
+      "file": "tests/pi152-acl-catalog-boundary.py",
+      "bytes": 4971,
+      "gitStoredRawSha256": "cf01c7a1b9c03e8eb261e1d748bc3cbaa8bb3b0806100dcac78c99d0789fcc34"
+    },
+    {
+      "file": "tests/pi153-acl-catalog-boundary.py",
+      "bytes": 6277,
+      "gitStoredRawSha256": "5c284daadcd3d6cda8e4e031bbcce3837365f6fb113e1aa1a23f54d18281c5f8"
+    }
+  ],
+  "totalSites": 44,
+  "executed": false,
+  "coordinateRule": "sourceLine/sourceEndLine is the original containing expression; embeddedLine is the generated-script location and must not be presented as original physical source line."
+}

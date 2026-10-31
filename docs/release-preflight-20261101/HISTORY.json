@@ -1,0 +1,549 @@
+{
+  "window": {
+    "from": "2026-10-03T00:00:00+08:00",
+    "through": "2026-11-01T00:35:42+08:00",
+    "basis": "Shanghai calendar dates, 30 inclusive dates; explicit event date rather than report file mtime"
+  },
+  "countPolicy": "Count identifiable failing operations once. Repeated REPORT/BOARD/REVIEW references do not add attempts. Diagnostic failures, static test failures, post-STARTED failures, unknown operations and missing artifact groups are separate populations. Minutes are measured intervals, not automatically repair labor.",
+  "events": [
+    {
+      "id": "H01",
+      "date": "2026-10-10",
+      "identity": "owner-contract-first..fifth",
+      "kind": "isolated-development",
+      "distinctFailedAttempts": 5,
+      "assertion": "Fixture/config/SQLite/tool/SQL dependency failures; not a native publication assertion",
+      "currentGateGroup": "G08/G24 (design relevance only)",
+      "durationSeconds": 1021.113,
+      "durationMeaning": "first attempt start to sixth successful attempt completion, includes intervening work; not five-test CPU time",
+      "source": "docs/abc-execution-timing-review-20261010/REPORT.md",
+      "locator": "owner-contract-first",
+      "premergePotential": "yes: enumerate real adapter/fixture dependencies",
+      "notes": "97.23 minutes is the larger unfinished development closure turn, not a publication failure or wholly avoidable time",
+      "assertionMapping": {
+        "file": null,
+        "line": null,
+        "assertionIds": [],
+        "mappingKind": "historical-report-only-or-OS-exception",
+        "scope": "outside-normal-pre-STARTED-or-original-assertion-not-preserved",
+        "reason": "Retain exact report/operation locator; do not invent a current source assertion for a diagnostic/old adapter or unknown outcome."
+      }
+    },
+    {
+      "id": "H02",
+      "date": "2026-10-10",
+      "identity": "sealer-first",
+      "kind": "isolated-development",
+      "distinctFailedAttempts": 1,
+      "assertion": "INPUT_OR_ASSERTION_FAILED",
+      "currentGateGroup": null,
+      "durationSeconds": null,
+      "source": "docs/abc-execution-timing-review-20261010/REPORT.md",
+      "locator": "INPUT_OR_ASSERTION_FAILED",
+      "premergePotential": "unknown: no proved root cause",
+      "assertionMapping": {
+        "file": null,
+        "line": null,
+        "assertionIds": [],
+        "mappingKind": "historical-report-only-or-OS-exception",
+        "scope": "outside-normal-pre-STARTED-or-original-assertion-not-preserved",
+        "reason": "Retain exact report/operation locator; do not invent a current source assertion for a diagnostic/old adapter or unknown outcome."
+      }
+    },
+    {
+      "id": "H03",
+      "date": "2026-10-10",
+      "identity": "sealer-second",
+      "kind": "isolated-development",
+      "distinctFailedAttempts": 1,
+      "assertion": "ERR_FS_FILE_TOO_LARGE",
+      "currentGateGroup": null,
+      "durationSeconds": null,
+      "source": "docs/abc-execution-timing-review-20261010/REPORT.md",
+      "locator": "ERR_FS_FILE_TOO_LARGE",
+      "premergePotential": "bounded input inventory",
+      "notes": "third read-only sealer was intentionally terminated for unrelated multi-GB evidence range; not a new same-root-cause failure",
+      "assertionMapping": {
+        "file": null,
+        "line": null,
+        "assertionIds": [],
+        "mappingKind": "historical-report-only-or-OS-exception",
+        "scope": "outside-normal-pre-STARTED-or-original-assertion-not-preserved",
+        "reason": "Retain exact report/operation locator; do not invent a current source assertion for a diagnostic/old adapter or unknown outcome."
+      }
+    },
+    {
+      "id": "H04",
+      "date": "2026-10-20",
+      "identity": "4072-prepared-app-mutex",
+      "kind": "publication-before-started",
+      "distinctFailedAttempts": 1,
+      "assertion": "Django VerifyPreparedApp service mutex timeout",
+      "currentGateGroup": "G14",
+      "durationSeconds": null,
+      "source": "docs/combined-release-20261020/PRODUCTION.md",
+      "locator": "一次后台复验等待周报 mutex 超时",
+      "premergePotential": "observe contention only; future availability cannot be guaranteed",
+      "assertionMapping": {
+        "file": "tools/django-local-service.ps1",
+        "line": 5476,
+        "mappingKind": "current-semantic-correspondence",
+        "assertionIds": [
+          "A01610"
+        ],
+        "scope": "normal-pre-STARTED"
+      }
+    },
+    {
+      "id": "H05",
+      "date": "2026-10-20",
+      "identity": "4072-maintenance-generation",
+      "kind": "publication-before-started",
+      "distinctFailedAttempts": 1,
+      "assertion": "maintenance predecessor qualification rejected; exact stderr not preserved in this report",
+      "currentGateGroup": "G18",
+      "durationSeconds": null,
+      "source": "docs/combined-release-20261020/PRODUCTION.md",
+      "locator": "一次被过旧的维护前驱资格拒绝",
+      "premergePotential": "yes: candidate+actual predecessor byte qualifications",
+      "assertionMapping": {
+        "file": "tools/manual-maintenance-continuation.mjs",
+        "line": 224,
+        "mappingKind": "current-family-not-exact-original-stderr",
+        "assertionIds": [],
+        "scope": "normal-pre-STARTED"
+      }
+    },
+    {
+      "id": "H06",
+      "date": "2026-10-20",
+      "identity": "02e1a8332e594d75be7c31d21f984f97-finalize",
+      "kind": "publication-after-started",
+      "distinctFailedAttempts": 1,
+      "assertion": "ACL catalog incorrectly required UPDATE on intents/audits",
+      "currentGateGroup": "G25",
+      "durationSeconds": null,
+      "source": "docs/combined-release-20261020/PRODUCTION.md",
+      "locator": "核对器误要求 UPDATE",
+      "premergePotential": "static parent/child contract comparison; live Finalize remains post-STARTED",
+      "assertionMapping": {
+        "file": null,
+        "line": null,
+        "assertionIds": [],
+        "mappingKind": "historical-report-only-or-OS-exception",
+        "scope": "outside-normal-pre-STARTED-or-original-assertion-not-preserved",
+        "reason": "Retain exact report/operation locator; do not invent a current source assertion for a diagnostic/old adapter or unknown outcome."
+      }
+    },
+    {
+      "id": "H07",
+      "date": "2026-10-20",
+      "identity": "e523-sourceRoot-normalization",
+      "kind": "recovery-preparation",
+      "distinctFailedAttempts": 1,
+      "assertion": "sourceRoot not in required Windows canonical form before WorkerBuild",
+      "currentGateGroup": "G13",
+      "durationSeconds": null,
+      "source": "docs/combined-release-20261020/PRODUCTION.md",
+      "locator": "sourceRoot 未使用 Windows 规范形式",
+      "premergePotential": "yes: exact native binding validator",
+      "assertionMapping": {
+        "file": "tools/worker-local-release.mjs",
+        "line": 408,
+        "mappingKind": "current-exact-contract",
+        "assertionIds": [
+          "A01313"
+        ],
+        "scope": "see-kind; not automatically normal-pre-STARTED"
+      }
+    },
+    {
+      "id": "H08",
+      "date": "2026-10-20",
+      "identity": "816f71f9985f4c64933ad9facd91372f-first-Start",
+      "kind": "publication-after-started",
+      "distinctFailedAttempts": 1,
+      "assertion": "joined Start branch rejected by stopped fence while weekly report held mutex",
+      "currentGateGroup": "G25",
+      "durationSeconds": null,
+      "source": "docs/combined-release-20261020/PRODUCTION.md",
+      "locator": "被旧 stopped fence 拒绝",
+      "premergePotential": "lifecycle concurrency needs isolated native evidence; not fixed by static preflight",
+      "assertionMapping": {
+        "file": "tools/django-local-service.ps1",
+        "line": 5482,
+        "mappingKind": "post-STARTED-current-callsite",
+        "assertionIds": [],
+        "scope": "see-kind; not automatically normal-pre-STARTED"
+      }
+    },
+    {
+      "id": "H09",
+      "date": "2026-10-20",
+      "identity": "e523-first-ready-503",
+      "kind": "publication-after-started",
+      "distinctFailedAttempts": 1,
+      "assertion": "ready status 503 rather than 200",
+      "currentGateGroup": "G25",
+      "durationSeconds": null,
+      "source": "docs/combined-release-20261020/PRODUCTION.md",
+      "locator": "首次 ready 503",
+      "premergePotential": "no: future dynamic readiness",
+      "notes": "subsequent natural 200 coordinated completion without replaying Start",
+      "assertionMapping": {
+        "file": "tools/publish-prepared-main.mjs",
+        "line": 130,
+        "mappingKind": "post-STARTED-ready-call-current-contract",
+        "assertionIds": [
+          "A01132"
+        ],
+        "scope": "see-kind; not automatically normal-pre-STARTED"
+      }
+    },
+    {
+      "id": "H10",
+      "date": "2026-10-21",
+      "identity": "988810cf-first-Start",
+      "kind": "publication-after-started",
+      "distinctFailedAttempts": 1,
+      "assertion": "whole Start exceeded 600 second budget waiting AutoStartDingTalk",
+      "currentGateGroup": "G25",
+      "durationSeconds": 600,
+      "durationMeaning": "configured/observed total Start budget, not exact repair duration",
+      "source": "docs/release-resume-20261021/PRODUCTION.md",
+      "locator": "耗尽整轮 600 秒预算",
+      "premergePotential": "runtime timing/recovery qualification, cannot pre-certify dynamic completion",
+      "assertionMapping": {
+        "file": "tools/worker-local-service.ps1",
+        "line": 400,
+        "mappingKind": "post-STARTED-AutoStartDingTalk-current-callsite",
+        "assertionIds": [],
+        "scope": "see-kind; not automatically normal-pre-STARTED"
+      }
+    },
+    {
+      "id": "H11",
+      "date": "2026-10-22",
+      "identity": "a3d53227-8976-4762-8be6-6f8c28107b5b",
+      "kind": "preparation-unknown",
+      "distinctFailedAttempts": null,
+      "assertion": "missing trustworthy original FAILED/actor exit evidence; unknown preserved",
+      "currentGateGroup": "G04",
+      "durationSeconds": null,
+      "source": "D:/codex-worktrees/s05d-missing-failure-20261022/docs/s05d-missing-failure-20261022/REPORT.md",
+      "locator": "原 dispatch",
+      "premergePotential": "identify capability/receipt gaps, cannot reconstruct historical actor outcome",
+      "notes": "repeated S05/S05b/S05d reports represent this same dispatch; never count as repeated publication failures",
+      "assertionMapping": {
+        "file": null,
+        "line": null,
+        "assertionIds": [],
+        "mappingKind": "historical-report-only-or-OS-exception",
+        "scope": "outside-normal-pre-STARTED-or-original-assertion-not-preserved",
+        "reason": "Retain exact report/operation locator; do not invent a current source assertion for a diagnostic/old adapter or unknown outcome."
+      }
+    },
+    {
+      "id": "H12",
+      "date": "2026-10-23",
+      "identity": "a3-readonly-audit-first-rejection",
+      "kind": "readonly-diagnostic",
+      "distinctFailedAttempts": 1,
+      "assertion": "diagnostic incorrectly required optional request.sourceTree",
+      "currentGateGroup": "G07",
+      "durationSeconds": null,
+      "source": "D:/codex-worktrees/s05d-missing-failure-20261022/docs/s05d-missing-failure-20261022/REPORT.md",
+      "locator": "原 request 缺可选",
+      "premergePotential": "yes: actual retained request schema",
+      "assertionMapping": {
+        "file": null,
+        "line": null,
+        "assertionIds": [],
+        "mappingKind": "historical-report-only-or-OS-exception",
+        "scope": "outside-normal-pre-STARTED-or-original-assertion-not-preserved",
+        "reason": "Retain exact report/operation locator; do not invent a current source assertion for a diagnostic/old adapter or unknown outcome."
+      }
+    },
+    {
+      "id": "H13",
+      "date": "2026-10-23",
+      "identity": "s05d-field-validation-closure",
+      "kind": "readonly-diagnostic",
+      "distinctFailedAttempts": 1,
+      "assertion": "Original Git source is partial; missing members are not a difference witness",
+      "currentGateGroup": "G03",
+      "durationSeconds": 66.01,
+      "durationMeaning": "failed fresh global closure observation",
+      "source": "D:/codex-worktrees/s05d-field-validation-20261023/docs/s05d-field-validation-20261023/REPORT.md",
+      "locator": "66.010",
+      "premergePotential": "yes: source membership before heavy operation",
+      "notes": "44 extra diagnostic files, zero missing tracked members; message must not be interpreted as proven source loss",
+      "assertionMapping": {
+        "file": null,
+        "line": null,
+        "assertionIds": [],
+        "mappingKind": "historical-report-only-or-OS-exception",
+        "scope": "outside-normal-pre-STARTED-or-original-assertion-not-preserved",
+        "reason": "Retain exact report/operation locator; do not invent a current source assertion for a diagnostic/old adapter or unknown outcome."
+      }
+    },
+    {
+      "id": "H14",
+      "date": "2026-10-23",
+      "identity": "1d5123a6-ce79-4196-bc1d-ebe4e79b7637",
+      "kind": "control-handoff",
+      "distinctFailedAttempts": 1,
+      "assertion": "Handoff parent has another child",
+      "currentSource": "tools/preparation-retirement-handoff.mjs:135",
+      "currentGateGroup": null,
+      "durationSeconds": 7.6387725,
+      "durationMeaning": "handoff STARTED to direct EXIT; neither application STARTED nor repair time",
+      "source": "D:/codex-worktrees/s05b-control-adoption-20261023/docs/s05b-control-adoption-20261023/REPORT.md",
+      "locator": "1d5123a6",
+      "premergePotential": "isolated real Task/host topology evidence; static fingerprints alone insufficient",
+      "assertionMapping": {
+        "file": "tools/preparation-retirement-handoff.mjs",
+        "line": 135,
+        "mappingKind": "other-protocol-current-exact-contract",
+        "assertionIds": [],
+        "scope": "see-kind; not automatically normal-pre-STARTED"
+      }
+    },
+    {
+      "id": "H15",
+      "date": "2026-10-23",
+      "identity": "8a9f0261-13ad-4ff3-9b1a-94357e97e450",
+      "kind": "no-business-handoff-diagnostic",
+      "distinctFailedAttempts": 1,
+      "assertion": "Handoff parent has another child",
+      "currentSource": "tools/preparation-retirement-handoff.mjs:135",
+      "currentGateGroup": null,
+      "durationSeconds": null,
+      "source": "D:/codex-worktrees/s05d-parent-chain-fix-20261023/docs/s05d-parent-chain-fix-20261023/REPORT.md",
+      "locator": "8a9f0261",
+      "premergePotential": "isolated real entry topology",
+      "notes": "same run's outer first-run.json EEXIST is a second symptom, not a second Task or second publish attempt; historical unknown extra PID not inferred from this run",
+      "assertionMapping": {
+        "file": "tools/preparation-retirement-handoff.mjs",
+        "line": 135,
+        "mappingKind": "other-protocol-current-exact-contract",
+        "assertionIds": [],
+        "scope": "see-kind; not automatically normal-pre-STARTED"
+      }
+    },
+    {
+      "id": "H16",
+      "date": "2026-10-24",
+      "identity": "s05d-morning-producer-qualification",
+      "kind": "isolated-development",
+      "distinctFailedAttempts": 1,
+      "assertion": "Unqualified preparation producer code / Fixture must pin actual reviewed producer bytes",
+      "currentSource": "tools/preparation-resolution.mjs:151",
+      "currentGateGroup": "G04 recovery-reader subset",
+      "durationSeconds": null,
+      "source": "D:/codex-worktrees/release-rework-20261024/docs/release-rework-20261024/REPORT.md",
+      "locator": "早上推送脚本中止与修复",
+      "premergePotential": "yes: known producer tuple and actual caller map",
+      "notes": "one root-cause incident across suites and two branches, not 6+6+1+19 distinct release attempts; this is recovery qualification, not ordinary publisher admission",
+      "assertionMapping": {
+        "file": "tools/preparation-resolution.mjs",
+        "line": 151,
+        "mappingKind": "recovery-qualification-current-exact-contract",
+        "assertionIds": [],
+        "scope": "see-kind; not automatically normal-pre-STARTED"
+      }
+    },
+    {
+      "id": "H17",
+      "date": "2026-10-24",
+      "identity": "r2/c6d69d0c-e77c-440d-b6c5-6a0ebd6641f4",
+      "kind": "publication-after-started-before-maintenance",
+      "distinctFailedAttempts": 1,
+      "assertion": "root expected=3 actual=11",
+      "currentSource": "tools/django-local-service.ps1:1048",
+      "currentGateGroup": "G21",
+      "durationSeconds": 1140,
+      "durationMeaning": "report says ACL remediation took 19 minutes including first pg_wal race; not exact publication attempt duration",
+      "source": "D:/codex-worktrees/release-rework-20261024/docs/release-rework-20261024/REPORT.md",
+      "locator": "事故 1",
+      "premergePotential": "yes: runtime ACL read before STARTED; still freshness-sensitive",
+      "assertionMapping": {
+        "file": "tools/django-local-service.ps1",
+        "line": 1048,
+        "mappingKind": "current-exact-contract-was-after-STARTED",
+        "assertionIds": [
+          "A01570"
+        ],
+        "scope": "see-kind; not automatically normal-pre-STARTED"
+      }
+    },
+    {
+      "id": "H18",
+      "date": "2026-10-24",
+      "identity": "r3/0ecdd036-27e3-40cc-a9a1-f6afb97e4eb2",
+      "kind": "publication-after-started-in-maintenance",
+      "distinctFailedAttempts": 1,
+      "assertion": "Process metadata is unavailable; absence is not established: 14720",
+      "currentSource": "tools/django-local-service.ps1:2714",
+      "currentGateGroup": "G21/G25",
+      "durationSeconds": 1560,
+      "durationMeaning": "approximately 15:22–15:48 reported interruption/recovery span; not continuous independently sampled downtime",
+      "source": "D:/codex-worktrees/release-rework-20261024/docs/release-rework-20261024/REPORT.md",
+      "locator": "事故 2",
+      "premergePotential": "current foreign-child snapshot can warn/block; publication must reread dynamic identities",
+      "assertionMapping": {
+        "file": "tools/django-local-service.ps1",
+        "line": 2714,
+        "mappingKind": "post-STARTED-original-error-current-contract",
+        "assertionIds": [],
+        "scope": "see-kind; not automatically normal-pre-STARTED"
+      }
+    },
+    {
+      "id": "H19",
+      "date": "2026-10-24",
+      "identity": "S19b-4d745901-first-adopt",
+      "kind": "control-adoption",
+      "distinctFailedAttempts": 1,
+      "assertion": "legacy control window has not converged",
+      "currentGateGroup": null,
+      "durationSeconds": null,
+      "source": "D:/codex-worktrees/release-rework-20261024/docs/施工/S19.md",
+      "locator": "第一次 adopt 被拒",
+      "premergePotential": "current process observation only; not an application publication",
+      "assertionMapping": {
+        "file": null,
+        "line": null,
+        "assertionIds": [],
+        "mappingKind": "historical-report-only-or-OS-exception",
+        "scope": "outside-normal-pre-STARTED-or-original-assertion-not-preserved",
+        "reason": "Retain exact report/operation locator; do not invent a current source assertion for a diagnostic/old adapter or unknown outcome."
+      }
+    },
+    {
+      "id": "H20",
+      "date": "2026-10-25",
+      "identity": "Q14-dingtalk-candidate-static-blocker",
+      "kind": "documented-compatibility-blocker",
+      "distinctFailedAttempts": null,
+      "assertion": "维护前驱资格与最初读取字节不一致",
+      "currentSource": "tools/manual-maintenance-continuation.mjs:224",
+      "currentGateGroup": "G18",
+      "durationSeconds": null,
+      "source": "docs/release-qual-dingtalk-screenshot-acl-20261025/REPORT.md",
+      "locator": "维护前驱资格与最初读取字节不一致",
+      "premergePotential": "yes: exact installed/candidate pair",
+      "notes": "do not invent a failed production call from the documented branch analysis",
+      "assertionMapping": {
+        "file": "tools/manual-maintenance-continuation.mjs",
+        "line": 224,
+        "mappingKind": "documented-blocker-not-live-attempt",
+        "assertionIds": [],
+        "scope": "see-kind; not automatically normal-pre-STARTED"
+      }
+    },
+    {
+      "id": "H21",
+      "date": "2026-10-29",
+      "identity": "prepared-artifact-loss/e44dac82794d",
+      "kind": "artifact-inventory",
+      "distinctFailedAttempts": null,
+      "assertion": "prepared result external PREPARED/request dependency absent",
+      "currentGateGroup": "G04/G09",
+      "durationSeconds": null,
+      "source": "docs/prepared-artifact-loss-20261029/REPORT.md",
+      "locator": "缺失包关联 dispatch 53 条",
+      "premergePotential": "yes: all external dependency existence/hash and immutable retired state",
+      "counts": {
+        "missingPackets": 26,
+        "preparedDispatches": 35,
+        "unknownDispatches": 14,
+        "nonProductionDispatches": 4,
+        "missingPacketAssociatedDispatches": 53
+      },
+      "notes": "26 missing groups and 35 prepared dispatches are not 35 release failures; missing receipt cannot prove prior nonexecution",
+      "assertionMapping": {
+        "file": null,
+        "line": null,
+        "assertionIds": [],
+        "mappingKind": "historical-report-only-or-OS-exception",
+        "scope": "outside-normal-pre-STARTED-or-original-assertion-not-preserved",
+        "reason": "Retain exact report/operation locator; do not invent a current source assertion for a diagnostic/old adapter or unknown outcome."
+      }
+    },
+    {
+      "id": "H22",
+      "date": "2026-10-29",
+      "identity": "artifact-loss-D08-native-lock-adapter",
+      "kind": "artifact-loss-control-call",
+      "distinctFailedAttempts": 1,
+      "assertion": "actual D08 has no acquirePreparationRotationLock export; requires single-argument withRotationLock(operation)",
+      "currentGateGroup": "G02 (adapter capability relevance)",
+      "durationSeconds": null,
+      "source": "docs/artifact-loss-native-lock-20261029/REPORT.md",
+      "locator": "实际固定 D08 原生工具没有",
+      "premergePotential": "yes: bind actual native manifest exports/signature and test private transport",
+      "notes": "171 tests after fix vs 161 earlier are test counts, not failed publish counts",
+      "assertionMapping": {
+        "file": null,
+        "line": null,
+        "assertionIds": [],
+        "mappingKind": "historical-report-only-or-OS-exception",
+        "scope": "outside-normal-pre-STARTED-or-original-assertion-not-preserved",
+        "reason": "Retain exact report/operation locator; do not invent a current source assertion for a diagnostic/old adapter or unknown outcome."
+      }
+    },
+    {
+      "id": "H23",
+      "date": "2026-10-29",
+      "identity": "sales154-controller-static-before",
+      "kind": "isolated-qualification-test",
+      "distinctFailedAttempts": 1,
+      "assertion": "repository django-local-service.ps1 bytes have an explicit reviewed candidate qualification",
+      "currentSource": "tools/manual-maintenance-continuation.mjs:171",
+      "currentGateGroup": "G18",
+      "durationSeconds": null,
+      "source": "docs/sales154-controller-qualification-20261029/REPORT.md",
+      "locator": "2通过/1失败",
+      "premergePotential": "yes: controller candidate registry; same data is real pre-STARTED gate",
+      "notes": "2 pass/1 fail before and 3/3 after; no production deploy performed by that task",
+      "assertionMapping": {
+        "file": "tools/manual-maintenance-continuation.mjs",
+        "line": 171,
+        "mappingKind": "static-test-to-production-family",
+        "assertionIds": [],
+        "scope": "see-kind; not automatically normal-pre-STARTED"
+      }
+    },
+    {
+      "id": "H24",
+      "date": "2026-10-31",
+      "identity": "publisher-adopt-live-design-source-gap",
+      "kind": "documented-live-accounting-blocker",
+      "distinctFailedAttempts": null,
+      "assertion": "前后台来源不同且没有匹配发布记录，不能推定已发布版本",
+      "currentSource": "tools/publish-latest-main.mjs:49",
+      "currentGateGroup": "G05",
+      "durationSeconds": null,
+      "source": "docs/publisher-adopt-live-20261031/REPORT.md",
+      "locator": "唯一失配是",
+      "premergePotential": "yes: read catalog + actual three hashes and sources; correction requires separate accounting authorization",
+      "assertionMapping": {
+        "file": "tools/publish-latest-main.mjs",
+        "line": 49,
+        "mappingKind": "documented-blocker-not-new-execution",
+        "assertionIds": [
+          "A01033"
+        ],
+        "scope": "see-kind; not automatically normal-pre-STARTED"
+      }
+    }
+  ],
+  "notCountedAsFailures": [
+    "2026-11-01 current 271ab794 packet has STARTED but no SUCCESS: observed unknown/unclosed/in-flight, not presumed failure",
+    "10-24 r4 is the third publication attempt and succeeded; it is not three failures",
+    "Repeated historical summaries of a3 and r2/r3",
+    "Missing/stale evidence without an actual failing invocation ID",
+    "Control handoff STARTED and publication STARTED are separate protocols"
+  ]
+}

@@ -1,0 +1,146 @@
+[
+  {
+    "id": "C01",
+    "sourceIndex": "D:\\codex-worktrees\\s05d-diagnostic-cleanup-20261023\\docs\\s05d-retirement-implementation-20261023\\native-collector-trials.json",
+    "sourceIndexSha256": "e87f63fb5c6e701c2c8d611918c2b812c09f99716b93c40bb7970d7ebf2619cc",
+    "originalFile": "D:\\codex-artifacts\\s05d-retirement-implementation-20261023\\inspect-1f2f67df-560a-4bbf-9c30-66d5d1add02f.result.json",
+    "originalSha256": "e32bd7f0d449194842e3618b2ba59101880b54c3103e06de02e618e6457f6d5f",
+    "at": "2026-10-22T18:04:34.676Z",
+    "elapsedMs": 1687,
+    "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'undefined'\n- 'function'\n",
+    "stack": [],
+    "kind": "read-only-retirement-diagnostic",
+    "publicationFailure": false,
+    "originalBytesRechecked": true,
+    "sameAssertionCategory": "native-export"
+  },
+  {
+    "id": "C02",
+    "sourceIndex": "D:\\codex-worktrees\\s05d-diagnostic-cleanup-20261023\\docs\\s05d-retirement-implementation-20261023\\native-collector-trials.json",
+    "sourceIndexSha256": "e87f63fb5c6e701c2c8d611918c2b812c09f99716b93c40bb7970d7ebf2619cc",
+    "originalFile": "D:\\codex-artifacts\\s05d-retirement-implementation-20261023\\inspect-82c724ea-8c23-47c3-8a74-7886b16778be.result.json",
+    "originalSha256": "b7a1f103914baf50c31b0633bf12b2a7dd1d07d048de76311701acc9fa70ecc6",
+    "at": "2026-10-22T18:14:49.309Z",
+    "elapsedMs": 54362,
+    "error": "Unclassified executable packet directory",
+    "stack": [
+      "    at collectClosure (file:///D:/codex-worktrees/s05d-retirement-implementation-20261023/tools/preparation-retirement-collector.mjs:81:374)",
+      "    at async file:///D:/codex-worktrees/s05d-retirement-implementation-20261023/[eval1]:7:244"
+    ],
+    "kind": "read-only-retirement-diagnostic",
+    "publicationFailure": false,
+    "originalBytesRechecked": true,
+    "sameAssertionCategory": "closure-classification"
+  },
+  {
+    "id": "C03",
+    "sourceIndex": "D:\\codex-worktrees\\s05d-diagnostic-cleanup-20261023\\docs\\s05d-retirement-implementation-20261023\\native-collector-trials.json",
+    "sourceIndexSha256": "e87f63fb5c6e701c2c8d611918c2b812c09f99716b93c40bb7970d7ebf2619cc",
+    "originalFile": "D:\\codex-artifacts\\s05d-retirement-implementation-20261023\\inspect-7db54de8-f912-4cf3-af04-dbd6eeff9aa3.result.json",
+    "originalSha256": "4a064a794d15d7f7819cf51f57673933ea35de6a25e1b633d372d4603accec64",
+    "at": "2026-10-22T18:33:17.520Z",
+    "elapsedMs": 1921,
+    "error": "Unclassified registered release packet",
+    "stack": [
+      "Error: Unclassified registered release packet",
+      "    at collectClosure (file:///D:/codex-worktrees/s05d-retirement-implementation-20261023/tools/preparation-retirement-collector.mjs:74:338)",
+      "    at async file:///D:/codex-artifacts/s05d-retirement-implementation-20261023/inspect-trial.mjs:17:20"
+    ],
+    "kind": "read-only-retirement-diagnostic",
+    "publicationFailure": false,
+    "originalBytesRechecked": true,
+    "sameAssertionCategory": "closure-classification"
+  },
+  {
+    "id": "C04",
+    "sourceIndex": "D:\\codex-worktrees\\s05d-diagnostic-cleanup-20261023\\docs\\s05d-retirement-implementation-20261023\\native-collector-trials.json",
+    "sourceIndexSha256": "e87f63fb5c6e701c2c8d611918c2b812c09f99716b93c40bb7970d7ebf2619cc",
+    "originalFile": "D:\\codex-artifacts\\s05d-retirement-implementation-20261023\\inspect-5ff690e0-62a2-4bf9-8bba-9231db263dd7.result.json",
+    "originalSha256": "327ce616ffa955dedff03d2b668809b16899fd44a9ffa8fe20994cd67361a239",
+    "at": "2026-10-22T18:39:41.309Z",
+    "elapsedMs": 3155,
+    "error": "Native maintenance/drain/publication lease remains; retirement requires an idle publication boundary\n\ntrue !== false\n",
+    "stack": [
+      "AssertionError [ERR_ASSERTION]: Native maintenance/drain/publication lease remains; retirement requires an idle publication boundary",
+      "",
+      "true !== false",
+      "",
+      "    at collectClosure (file:///D:/codex-worktrees/s05d-retirement-implementation-20261023/tools/preparation-retirement-collector.mjs:88:243)"
+    ],
+    "kind": "read-only-retirement-diagnostic",
+    "publicationFailure": false,
+    "originalBytesRechecked": true,
+    "sameAssertionCategory": "closure-classification"
+  },
+  {
+    "id": "C05",
+    "sourceIndex": "D:\\codex-worktrees\\s05d-diagnostic-cleanup-20261023\\docs\\s05d-retirement-implementation-20261023\\native-collector-trials.json",
+    "sourceIndexSha256": "e87f63fb5c6e701c2c8d611918c2b812c09f99716b93c40bb7970d7ebf2619cc",
+    "originalFile": "D:\\codex-artifacts\\s05d-retirement-implementation-20261023\\inspect-b75b70d0-b987-46f3-9744-37145b377581.result.json",
+    "originalSha256": "6807827c0e220e8392287b5c5cd5185fa23f4d41ef08ac295b2e8dc117115d2f",
+    "at": "2026-10-22T18:58:09.200Z",
+    "elapsedMs": 46934,
+    "error": "Original/indistinguishable source is in a consumed/live immutable release\n\ntrue !== false\n",
+    "stack": [
+      "AssertionError [ERR_ASSERTION]: Original/indistinguishable source is in a consumed/live immutable release",
+      "",
+      "true !== false",
+      "",
+      "    at collectClosure (file:///D:/codex-worktrees/s05d-retirement-implementation-20261023/tools/preparation-retirement-collector.mjs:112:10)"
+    ],
+    "kind": "read-only-retirement-diagnostic",
+    "publicationFailure": false,
+    "originalBytesRechecked": true,
+    "sameAssertionCategory": "closure-classification"
+  },
+  {
+    "id": "C06",
+    "sourceIndex": "D:\\codex-worktrees\\s05d-diagnostic-cleanup-20261023\\docs\\s05d-retirement-implementation-20261023\\native-collector-trials.json",
+    "sourceIndexSha256": "e87f63fb5c6e701c2c8d611918c2b812c09f99716b93c40bb7970d7ebf2619cc",
+    "originalFile": "D:\\codex-artifacts\\s05d-retirement-implementation-20261023\\inspect-eeb3b895-6187-4f9f-9512-97da5659c611.result.json",
+    "originalSha256": "161664d6c4fdae05aae6a593f1a49db76af0c17456383b3b305f2aa5ba8319d4",
+    "at": "2026-10-22T20:27:04.830Z",
+    "elapsedMs": 120014,
+    "error": "Own bounded read-only trial exceeded 120000ms",
+    "stack": [],
+    "kind": "read-only-retirement-diagnostic",
+    "publicationFailure": false,
+    "originalBytesRechecked": true,
+    "sameAssertionCategory": "diagnostic-120s-bound"
+  },
+  {
+    "id": "C07",
+    "sourceIndex": "D:\\codex-worktrees\\s05d-diagnostic-cleanup-20261023\\docs\\s05d-retirement-implementation-20261023\\native-collector-trials.json",
+    "sourceIndexSha256": "e87f63fb5c6e701c2c8d611918c2b812c09f99716b93c40bb7970d7ebf2619cc",
+    "originalFile": "D:\\codex-artifacts\\s05d-retirement-implementation-20261023\\inspect-239a1a8b-8ab1-42b5-9ff1-c63f9d99eb41.result.json",
+    "originalSha256": "5a21321cf55f51c21ba081230b98abee9592fc002fe8afaa7988f081f9145af9",
+    "at": "2026-10-22T20:37:01.971Z",
+    "elapsedMs": 120008,
+    "error": "Own bounded read-only trial exceeded 120000ms",
+    "stack": [],
+    "kind": "read-only-retirement-diagnostic",
+    "publicationFailure": false,
+    "originalBytesRechecked": true,
+    "sameAssertionCategory": "diagnostic-120s-bound"
+  },
+  {
+    "id": "C08",
+    "sourceIndex": "D:\\codex-worktrees\\s05d-diagnostic-cleanup-20261023\\docs\\s05d-retirement-implementation-20261023\\native-collector-trials.json",
+    "sourceIndexSha256": "e87f63fb5c6e701c2c8d611918c2b812c09f99716b93c40bb7970d7ebf2619cc",
+    "originalFile": "D:/codex-artifacts/s05d-retirement-implementation-20261023/inspect-b397213c-a15c-4761-a070-4f4b63a7c13f.result.json",
+    "originalSha256": "5e9ed77332189b922a42250ede9dcc1d17d8e150722fbe5760d4fc68e353d6d3",
+    "at": "2026-10-22T21:09:24.894Z",
+    "elapsedMs": 54497,
+    "error": "Frozen source identity reader changed",
+    "stack": [
+      "AssertionError [ERR_ASSERTION]: Frozen source identity reader changed",
+      "    at qualifyRetirementSourceEntries (file:///D:/codex-artifacts/s05d-retirement-implementation-20261023/inspect-code-d49861f3-a4c9-46b0-8272-125f7086da48/tools/preparation-retirement-entry.mjs:70:328)",
+      "    at async collectClosure (file:///D:/codex-artifacts/s05d-retirement-implementation-20261023/inspect-code-d49861f3-a4c9-46b0-8272-125f7086da48/tools/preparation-retirement-collector.mjs:156:212)",
+      "    at async file:///D:/codex-artifacts/s05d-retirement-implementation-20261023/inspect-closure-cas-trial.mjs:27:57"
+    ],
+    "kind": "read-only-retirement-diagnostic",
+    "publicationFailure": false,
+    "originalBytesRechecked": true,
+    "sameAssertionCategory": "source-entry-qualification"
+  }
+]
