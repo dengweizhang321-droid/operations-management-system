@@ -1,0 +1,39 @@
+{
+  "observedAt": "2026-10-31T16:51:03.796834+00:00",
+  "checks": {
+    "nodeTest": "13 passed; 0 failed; 0 skipped",
+    "syntax": "4 tools parsed",
+    "diffCheck": "passed",
+    "history": "635 first-parent commits; 19 changed judgments; final implementation"
+  },
+  "sources": [
+    {
+      "path": "tools/release-copy-rules.mjs",
+      "sha256": "4d9e161dc8e33ccb1075f971abad34bf90473f377aa755835b3dce738ac89347"
+    },
+    {
+      "path": "tools/release-copy-git-sources.mjs",
+      "sha256": "9e00811f0868ba2accc2b5eebad8b31cf321b9e754fc2e8ec0f877800fe63048"
+    },
+    {
+      "path": "tools/release-scope-plan.mjs",
+      "sha256": "05b266610be9786067b3c2c1fb41d77f2c2e8782ea4b896018ab960669c01496"
+    },
+    {
+      "path": "tools/install-main-prebuild.mjs",
+      "sha256": "a0ea146c37d6bd18f200c30770b348bbf16e8a90c8301ce7cca786aac1d0f06c"
+    },
+    {
+      "path": "tests/release-scope-plan.test.mjs",
+      "sha256": "1e063d3214ef8e038b71f0b2282f5d6467f9642fe2c36de810a7e09d6c581171"
+    },
+    {
+      "path": "docs/release-scope-copy-lists-20261101/compare-history.mjs",
+      "sha256": "e4fcabc2be6e99605fbc2d1413fb4cd173a04ff3b52c1fb65cddebf0e25d4731"
+    }
+  ],
+  "testLog": {
+    "path": "D:/codex-artifacts/release-optimization-20261101/scope-tests.txt",
+    "sha256": "5e6cdf6e175966e9526a8c22ef5c7dbdaf32532c045d159dcbf09bb228322d9e"
+  }
+}

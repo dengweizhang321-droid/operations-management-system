@@ -2,10 +2,72 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,rmSync,copyFileSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {classifyRelease,parseNameStatus,makeReleasePlan} from '../tools/release-scope-plan.mjs';
+import {readFileSync} from 'node:fs';
+import {extractCopyRules,copyRuleSourcePaths,copiedComponents} from '../tools/release-copy-rules.mjs';
+
+test('new control bundle contains scope imports and loads its publisher in isolation',async t=>{
+  const {controlFiles}=await import('../tools/install-main-prebuild.mjs');
+  const temp=mkdtempSync(path.join(os.tmpdir(),'teruisi-scope-bundle-'));
+  t.after(()=>rmSync(temp,{recursive:true,force:true}));
+  mkdirSync(path.join(temp,'tools'));
+  for(const name of controlFiles)copyFileSync(new URL(`../tools/${name}`,import.meta.url),path.join(temp,'tools',name));
+  const target=new URL(`file:///${path.join(temp,'tools','publish-latest-main.mjs').replaceAll('\\','/')}`);
+  // Module import only: argv never selects a CLI entry, no prepare/adopt call.
+  execFileSync(process.execPath,['--input-type=module','-e',`await import(${JSON.stringify(target.href)});`],{cwd:temp,encoding:'utf8',windowsHide:true});
+  assert.ok(controlFiles.includes('release-copy-rules.mjs'));
+  assert.ok(controlFiles.includes('release-copy-git-sources.mjs'));
+});
+
+test('copy membership is pure and covers worker/django/both/neither/unknown',()=>{
+  const rules={known:true,workerFiles:['tools/worker.mjs','tools/both.mjs'],djangoFiles:['tools/django.mjs','tools/both.mjs']};
+  for(const [file,components] of [['worker',['worker']],['django',['django']],['both',['worker','django']],['offline',[]]]){
+    const plan=classifyRelease([{status:'M',path:`tools/${file}.mjs`}],{copyRules:rules});
+    assert.deepEqual(plan.components,components);
+    if(components.length)assert.ok(plan.validation.includes('affected-integration-tests'));
+  }
+  assert.equal(copiedComponents('tools/x',{known:false}).known,false);
+  assert.deepEqual(copiedComponents('TOOLS/BOTH.MJS',rules).components,['worker','django']);
+  assert.equal(copiedComponents('tools/../x',rules).known,false);
+  const renamed=classifyRelease([{status:'R100',before:'tools/django.mjs',path:'tools/worker.mjs'}],{copyRules:rules});
+  assert.deepEqual(renamed.components,['worker','django']);
+  assert.deepEqual(classifyRelease([{status:'M',path:'tools/release-scope-plan.mjs'}],{copyRules:rules}).components,['worker','django']);
+});
+
+test('actual producer inventory distinguishes runtime from archive; unknown copy changes fail closed',()=>{
+  const sources=Object.fromEntries(copyRuleSourcePaths.map(p=>[p,readFileSync(new URL(`../${p}`,import.meta.url),'utf8')]));
+  const read=p=>{try{return readFileSync(new URL(`../${p}`,import.meta.url),'utf8');}catch{return null;}};
+  const rules=extractCopyRules(sources,read);
+  assert.equal(rules.known,true);
+  assert.deepEqual(copiedComponents('tools/sqlite-consistent-backup.py',rules).components,['django']);
+  assert.deepEqual(copiedComponents('tools/check_schema_code_digest.py',rules).components,[]);
+  assert.deepEqual(classifyRelease([{status:'M',path:'tools/release-closeout-report.mjs'}],{copyRules:rules}).components,[]);
+  assert.deepEqual(classifyRelease([{status:'T',path:'tools/release-closeout-report.mjs'}],{copyRules:rules}).components,['worker','django']);
+  assert.ok(rules.helperFiles.includes('tools/tmall-sycm-cookie-pipeline.ts'));
+  assert.ok(rules.helperFiles.includes('lib/jackyun/json-file.ts'));
+  assert.ok(rules.helperFiles.includes('tools/jackyun-json-publish.ps1'));
+  assert.ok(rules.controlFiles.includes('tools/frozen-main-source.mjs'));
+  for(const [p,expected] of [['tools/jackyun-api-export.ts',['worker']],['tools/sqlite-consistent-backup.py',['django']],['tools/sales-d1-retirement.ts',['worker','django']],['tools/check_schema_code_digest.py',[]]]){
+    assert.deepEqual(classifyRelease([{status:'D',path:p}],{copyRules:rules}).components,expected);
+  }
+  const dynamicWorker={...sources,[copyRuleSourcePaths[1]]:sources[copyRuleSourcePaths[1]].replace('await cp(path.join(buildRoot, "dist")','await cp(computedSource')};
+  assert.equal(extractCopyRules(dynamicWorker,read).known,false);
+  const missing=p=>p==='lib/jackyun/json-file.ts'?null:read(p);
+  assert.equal(extractCopyRules(sources,missing).known,false);
+  const missingControl=p=>p==='tools/frozen-main-source.mjs'?null:read(p);
+  assert.equal(extractCopyRules(sources,missingControl).known,false);
+  const rebound={...sources,[copyRuleSourcePaths[1]]:sources[copyRuleSourcePaths[1]].replace('const source = path.join(sourceRoot, ...relativePath.split("/"));','const source = path.join(sourceRoot, "tools/new-runtime.mjs");')};
+  assert.equal(extractCopyRules(rebound,read).known,false);
+  const dynamicResource={...sources,[copyRuleSourcePaths[2]]:sources[copyRuleSourcePaths[2]].replace('sourceRelativePath: "tools/jackyun-json-publish.ps1"','sourceRelativePath: process.env.RESOURCE')};
+  assert.equal(extractCopyRules(dynamicResource,read).known,false);
+  const dynamicControl=p=>p==='tools/publish-latest-main.mjs'?read(p)+'\nawait import(process.env.CONTROL);\n':read(p);
+  assert.equal(extractCopyRules(sources,dynamicControl).known,false);
+  sources[copyRuleSourcePaths[0]]=sources[copyRuleSourcePaths[0]].replace('function Prepare-Application {','function Prepare-Application {\n Copy-Item -LiteralPath $unknown -Destination $staging\n');
+  assert.equal(extractCopyRules(sources,read).known,false);
+});
 
 test('前端改动只构建和发布 Worker，且不要求数据库保护',()=>{
   const plan=classifyRelease([{status:'M',path:'components/ai/model-form.tsx'}]);
