@@ -9,13 +9,19 @@ import { createDjangoWorkflowService, WORKFLOW_JD_CUSTOMER_SERVICE_CLOSE_AUTHORI
 import { safeApiErrorResponse } from "@/lib/http/api-error";
 const headers = { "cache-control": "no-store" };
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+const storeKeys = ["jd-yiyong-director", "jd-maidehao-operator1", "jd-chudian-weizhang", "jd-cuizhiwang-dengweizhang"];
 export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal(["admin"]); requireUnrestrictedDataScope(principal, "闭合京东客服停滞任务");
     const query = new URL(request.url).searchParams;
-    if ([...query.keys()].length !== 1 || query.getAll("authorizationId").length !== 1 || !uuid.test(query.get("authorizationId") ?? "")) return Response.json({ error: "闭合请求编号无效" }, { status: 400, headers });
-    const result = await createDjangoWorkflowService().requestJson(principal, { method: "GET", path: WORKFLOW_JD_CUSTOMER_SERVICE_CLOSE_AUTHORITY_PATH, service: "writer", rawQuery: query.toString() }, { signal: request.signal });
-    return Response.json(result.data, { headers });
+    if (query.has("authorizationId")) {
+      if ([...query.keys()].length !== 1 || query.getAll("authorizationId").length !== 1 || !uuid.test(query.get("authorizationId") ?? "")) return Response.json({ error: "闭合请求编号无效" }, { status: 400, headers });
+      const result = await createDjangoWorkflowService().requestJson(principal, { method: "GET", path: WORKFLOW_JD_CUSTOMER_SERVICE_CLOSE_AUTHORITY_PATH, service: "writer", rawQuery: query.toString() }, { signal: request.signal });
+      return Response.json(result.data, { headers });
+    }
+    if ([...query.keys()].length !== 1 || query.getAll("storeKey").length !== 1 || !storeKeys.includes(query.get("storeKey") ?? "")) return Response.json({ error: "闭合目标查询无效" }, { status: 400, headers });
+    const response = await fetch(`http://127.0.0.1:5791/coordination/jd-customer-service-close-target?${query}`, { cache: "no-store", signal: AbortSignal.timeout(15000) });
+    return Response.json(await response.json(), { status: response.status, headers });
   } catch (error) { return authorizationErrorResponse(error) ?? safeApiErrorResponse(error, "闭合状态暂时无法核实，请保留当前请求编号。", { headers }); }
 }
 export async function POST(request: Request) {

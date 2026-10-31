@@ -9,7 +9,7 @@ import { customerServicePeriod } from "../lib/jd/customer-service-workflow";
 import { jdCustomerServiceStores } from "../lib/jd/customer-service-stores";
 import { planCustomerServiceRun } from "../tools/jd-customer-service-n8n-pipeline";
 import { customerServiceRecoveryDirectory, generateCustomerServiceRecoveryApproval, dispatchCustomerServiceCloseAuthority,
-  type CustomerServiceCloseAuthorityTarget } from "../tools/jd-customer-service-source-recovery";
+  readCustomerServiceCloseTarget, type CustomerServiceCloseAuthorityTarget } from "../tools/jd-customer-service-source-recovery";
 
 const sha = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 
@@ -199,4 +199,130 @@ test("端到端：生成的许可真正能被既有planCustomerServiceRun消费�
     assert.deepEqual(await readFile(f.planPath), f.planBytes);
     assert.equal(JSON.parse(await readFile(f.planPath, "utf8")).stage, "failed");
   } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test("readCustomerServiceCloseTarget: pre_export_zero_effect 结构合格时 closeAllowed=true 且字段与 generateCustomerServiceRecoveryApproval 一致", async () => {
+  const f = await zeroEffectFixture();
+  try {
+    // A plan recording that its browser was already closed after the
+    // pre-submit failure (the modern shape); empty source plus this is the
+    // one case this function allows without further human judgement calls.
+    f.plan.failureBoundary = { version: 1, browserClosed: true, step: "open_customer_service_page" };
+    await writeFile(f.planPath, JSON.stringify(f.plan));
+    const result = await readCustomerServiceCloseTarget(f.root, f.store.storeKey);
+    assert.equal(result.closeAllowed, true);
+    assert.equal(result.target?.kind, "pre_export_zero_effect");
+    assert.equal(result.target?.originalExecutionId, "stuck");
+    assert.equal(result.target?.failureCode, "PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION");
+    assert.equal(result.target?.originalPlanSha256, sha(await readFile(f.planPath)));
+    assert.deepEqual(result.target?.period, f.plan.period);
+    // The reported target must actually be accepted by the real generator.
+    const { approval } = await generateCustomerServiceRecoveryApproval(f.root, result.target as CustomerServiceCloseAuthorityTarget, new Date());
+    assert.equal(approval.kind, "pre_export_zero_effect");
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test("readCustomerServiceCloseTarget: downloaded_pair 结构合格时 closeAllowed=true 且能被真实生成器接受", async () => {
+  const f = await downloadedPairFixture();
+  try {
+    const result = await readCustomerServiceCloseTarget(f.root, f.store.storeKey);
+    assert.equal(result.closeAllowed, true);
+    assert.equal(result.target?.kind, "downloaded_pair");
+    assert.equal(result.target?.failureCode, "PAIR_PARSE_REJECTED");
+    const { approval } = await generateCustomerServiceRecoveryApproval(f.root, result.target as CustomerServiceCloseAuthorityTarget, new Date());
+    assert.equal(approval.kind, "downloaded_pair");
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test("readCustomerServiceCloseTarget: 无 failureBoundary 的旧格式计划报告 closeAllowed=false 且给出具体原因", async () => {
+  const f = await zeroEffectFixture();
+  try {
+    assert.equal("failureBoundary" in f.plan, false); // planCustomerServiceRun 未写入该字段
+    const result = await readCustomerServiceCloseTarget(f.root, f.store.storeKey);
+    assert.equal(result.closeAllowed, false);
+    assert.match(result.reason, /failureBoundary/);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test("readCustomerServiceCloseTarget: source 非空但失败码不是 PAIR_PARSE_REJECTED 时拒绝并说明原因", async () => {
+  const f = await downloadedPairFixture();
+  try {
+    f.plan.failureCode = "CHAT_PAGE_MISMATCH";
+    const raw = Buffer.from(JSON.stringify(f.plan));
+    await writeFile(f.planPath, raw);
+    const result = await readCustomerServiceCloseTarget(f.root, f.store.storeKey);
+    assert.equal(result.closeAllowed, false);
+    assert.equal(result.target?.kind, "downloaded_pair");
+    assert.match(result.reason, /PAIR_PARSE_REJECTED/);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test("readCustomerServiceCloseTarget: 结构上满足自动白名单(isCustomerServicePreSubmitFailure)的真实卡住计划仍报告需要人工核实，不被该白名单短路", async () => {
+  // Regression test: isCustomerServicePreSubmitFailure() returns true for an
+  // empty-source plan with no failureBoundary at all (it only rejects a
+  // *malformed* failureBoundary, not a missing one) -- exactly the shape of
+  // the real stuck exec 7250/8653/9243/7266/7482/9861 plans. Treating "passes
+  // that predicate" as "defer to automatic path" would wrongly tell the
+  // operator these real stuck plans need no human action.
+  const f = await zeroEffectFixture();
+  try {
+    assert.equal("failureBoundary" in f.plan, false);
+    const result = await readCustomerServiceCloseTarget(f.root, f.store.storeKey);
+    assert.equal(result.closeAllowed, false);
+    assert.doesNotMatch(result.reason, /自动闭合白名单|不需要人工闭合/);
+    assert.match(result.reason, /failureBoundary/);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test("readCustomerServiceCloseTarget: 没有活动任务时报告没有可闭合目标", async () => {
+  const root = await rootWithStore();
+  try {
+    const result = await readCustomerServiceCloseTarget(root, jdCustomerServiceStores[0].storeKey);
+    assert.equal(result.closeAllowed, false);
+    assert.equal(result.target, undefined);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("readCustomerServiceCloseTarget: stage 非 failed 时报告无需闭合", async () => {
+  const f = await zeroEffectFixture();
+  try {
+    f.plan.stage = "executed";
+    await writeFile(f.planPath, JSON.stringify(f.plan));
+    const result = await readCustomerServiceCloseTarget(f.root, f.store.storeKey);
+    assert.equal(result.closeAllowed, false);
+    assert.match(result.reason, /executed/);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test("readCustomerServiceCloseTarget: 已有部分导入进度(proofs非空)时拒绝", async () => {
+  const f = await zeroEffectFixture();
+  try {
+    f.plan.proofs = [{ date: f.plan.period.endDate } as typeof f.plan.proofs[number]];
+    await writeFile(f.planPath, JSON.stringify(f.plan));
+    const result = await readCustomerServiceCloseTarget(f.root, f.store.storeKey);
+    assert.equal(result.closeAllowed, false);
+    assert.match(result.reason, /部分导入进度/);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test("readCustomerServiceCloseTarget: pre_export_zero_effect 但下载目录仍有残留文件时拒绝", async () => {
+  const f = await zeroEffectFixture();
+  try {
+    f.plan.failureBoundary = { version: 1, browserClosed: true, step: "open_customer_service_page" };
+    await writeFile(f.planPath, JSON.stringify(f.plan));
+    const directory = path.join(f.root, "downloads", f.store.storeKey, "customer-service", "stuck");
+    await mkdir(directory, { recursive: true }); await writeFile(path.join(directory, "leftover.txt"), "x");
+    const result = await readCustomerServiceCloseTarget(f.root, f.store.storeKey);
+    assert.equal(result.closeAllowed, false);
+    assert.match(result.reason, /残留/);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test("readCustomerServiceCloseTarget: 店铺范围外的 storeKey 被拒绝", async () => {
+  const root = await rootWithStore();
+  try {
+    const result = await readCustomerServiceCloseTarget(root, "jd-not-a-real-store");
+    assert.equal(result.closeAllowed, false);
+    assert.equal(result.target, undefined);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
