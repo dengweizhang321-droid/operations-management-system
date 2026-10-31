@@ -53,7 +53,7 @@ def sequence_catalog(cursor):
     cursor.execute("SELECT pg_get_userbyid(c.relowner),c.relkind,c.relpersistence, "
         "a.privilege_type,a.is_grantable,CASE WHEN a.grantee=c.relowner THEN 'OWNER' "
         "WHEN a.grantee=0 THEN 'PUBLIC' ELSE r.rolname END FROM pg_class c "
-        "CROSS JOIN LATERAL aclexplode(COALESCE(c.relacl,acldefault('S',c.relowner))) a "
+        "CROSS JOIN LATERAL aclexplode(COALESCE(c.relacl,acldefault('s',c.relowner))) a "
         "LEFT JOIN pg_roles r ON r.oid=a.grantee WHERE c.oid=to_regclass(%s) ORDER BY 6,4,5", [sequence])
     return {"name": sequence, "acl": cursor.fetchall()}
 

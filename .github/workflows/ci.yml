@@ -44,6 +44,12 @@ jobs:
         # disabling the gate).
         run: node .github/workflows/check-lint-baseline.mjs
 
+      - name: Frozen catalog OWNER privileges
+        # Source-only data check; no runtime/PrepareApp hook or database.
+        run: |
+          python -B tests/catalog-baselines.py
+          python -B tools/check_catalog_baselines.py
+
       - name: Lifecycle controller qualification bytes
         # Static source-byte check only. A controller change must be reviewed
         # and qualified before it can reach a maintenance window.

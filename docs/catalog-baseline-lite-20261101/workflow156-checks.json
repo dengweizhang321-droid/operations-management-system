@@ -1,0 +1,34 @@
+{
+  "version": "workflow-automation-mandatory-code-checks-v1",
+  "status": "code-checked",
+  "checkedAt": "2026-10-31T17:28:13.808335+00:00",
+  "productionTouched": false,
+  "functionalValidationPerformed": false,
+  "steps": [
+    "workflow.0009_automation_projection_b1",
+    "workflow.0010_customer_service_chain_modules"
+  ],
+  "generations": [
+    154,
+    156
+  ],
+  "parentVariants": [
+    [
+      154,
+      156
+    ]
+  ],
+  "fullBackupOrRestorePerformed": false,
+  "codeSha256": "d035fb501ab31b1f80b4e0b0992a0b400e15adadb53f39f42cfd748d460b1182",
+  "migrationSha256": "05802c9ef1af3a46fb9c980965d6f98ba06d1ee35459cf514050280fbd67bb31",
+  "checks": [
+    "migration-closure",
+    "node-syntax",
+    "powershell-syntax",
+    "python-syntax"
+  ],
+  "evidence": {
+    "path": "docs/catalog-baseline-lite-20261101/workflow156-execution.json",
+    "sha256": "6b4b1f80a245d46def3bc291991be63c4932e99833e04181c85408a0f98e703c"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "version": "sales-preflight-index-mandatory-code-checks-v1",
+  "status": "code-checked",
+  "checkedAt": "2026-10-31T17:28:13.808335+00:00",
+  "productionTouched": false,
+  "functionalValidationPerformed": false,
+  "steps": [
+    "sales.0012_excluded_business_date_index"
+  ],
+  "generations": [
+    153,
+    154
+  ],
+  "parentVariants": [
+    [
+      153,
+      154
+    ]
+  ],
+  "fullBackupOrRestorePerformed": false,
+  "codeSha256": "7f527ea815a99e85d87ad47e277e894bf35a42590531c63a8ed925ffeb125260",
+  "migrationSha256": "05802c9ef1af3a46fb9c980965d6f98ba06d1ee35459cf514050280fbd67bb31",
+  "checks": [
+    "migration-closure",
+    "node-syntax",
+    "powershell-syntax",
+    "python-syntax"
+  ],
+  "evidence": {
+    "path": "docs/catalog-baseline-lite-20261101/sales154-execution.json",
+    "sha256": "b43591ce0675f5d2a4bf436bd8df28c3bbadf91671d7708119a49c9f145ebb12"
+  }
+}
