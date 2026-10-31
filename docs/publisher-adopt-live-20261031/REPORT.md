@@ -8,8 +8,8 @@
 
 | 文件 | 变化 |
 | --- | --- |
-| `tools/publish-latest-main.mjs` | +215 / −11 行。新增 `LIVE_ADOPTION_BEGIN…END` 段（`observeLiveIdentity`、`adoptLivePublication`、`gitSucceedsAt`、三个常量）、CLI 两个 flag 与互斥断言、控制协议标识 `adopt-live`、`runLatestMainCliOperation` 的 adopt 分支；另给 `readLivePublication` 加了**注入缝**（见 §1.2）。 |
-| `tests/publisher-adopt-live.test.mjs` | 新增，431 行，37 个用例。 |
+| `tools/publish-latest-main.mjs` | +241 / −11 行。新增 `LIVE_ADOPTION_BEGIN…END` 段（`observeLiveIdentity`、`adoptLivePublication`、`gitSucceedsAt`、三个常量）、CLI 两个 flag 与互斥断言、控制协议标识 `adopt-live`、`runLatestMainCliOperation` 的 adopt 分支；回执的 `adoption.catalogMismatch` / `adoption.priorReceipt` 两个字段（见 §1.3）；另给 `readLivePublication` 加了**注入缝**（见 §1.2）。 |
+| `tests/publisher-adopt-live.test.mjs` | 新增，489 行，39 个用例。 |
 | `docs/publisher-adopt-live-20261031/` | DESIGN.md、本报告。 |
 
 没有改 `tools/django-local-service.ps1`、`tools/manual-maintenance-continuation.mjs`、`config/main-schema-releases/*`，也没有改任何 `.ps1`。工作区只暂存了上述本任务文件。
@@ -43,6 +43,15 @@ export async function readLivePublication(config,{loadApi,loadRotation,readDjang
 - 这条改动的唯一目的是让「adopt 写出的 catalog 能被真实的 `readLivePublication` 接受」这个核心主张**可被测试证明**，而不是靠我在文档里断言。对应用例见 §3 的第 2 条。
 
 这是实现阶段对设计的一处偏离（设计里写的是「零改动」），明确列出来由你判断是否接受。
+
+### 1.3 承认范围被收窄并记进回执
+
+姐妹会话复核后指出（我已复核确认，详见 DESIGN.md §0.2c）：那份真实回执 `…\publish-e62dc33a8a05\SUCCESS.json` 仍在磁盘上，`PUBLISHED-MAIN.json` 的 `receiptPath` 正指向它且 `receiptSha256` 校验通过。逐项比对后，`status`、`mainCommit`、`workerRelease`、`workerManifestSha256`、`startupVerified`、`readyVerified` **全部已满足**，**唯一失配是 `djangoManifestSha256`**（回执声明 `27d72aab…`，现役实测 `e0fc1a0d…`）。
+
+即 adopt 要做的不是「凭空造一份全新记账」，而是让记账承认**一个**已漂移的值；Worker 侧的记账本来就是闭合的。这不放宽任何一条前置（18 项仍须全部满足），但改善了回执的诚实度，故新增两个字段：
+
+- `adoption.catalogMismatch` —— 三个值逐项记 `{catalog, live, equal}`，使「哪一项真的漂了」可审，而不是让回执暗示三项都错了。
+- `adoption.priorReceipt` —— 旧 catalog 指向的那份回执是否存在、字节是否与声明摘要一致（`intact`）、它当时声明了什么。缺失或被改动都只**如实记录**，既不阻塞也不授权（它不是放行依据）。
 
 ## 2. 严格前置清单（实现后的实际状态）
 
@@ -82,10 +91,9 @@ export async function readLivePublication(config,{loadApi,loadRotation,readDjang
 
 ```
 node --test tests/publisher-adopt-live.test.mjs
-ℹ tests 37
-ℹ pass 37
+ℹ tests 39
+ℹ pass 39
 ℹ fail 0
-ℹ duration_ms 87155.4828
 EXITCODE=0
 ```
 
@@ -106,11 +114,13 @@ EXITCODE=0
 
 ### 覆盖内容
 
-**正向 4 个**：写出正确的 catalog/回执/备份；`mainCommit` 取 Worker HEAD、`djangoSourceCommit` 记后台提交；三个结构性 `null`；分裂如实记录且 `frontendPayload:false`；备份与旧记账逐字节相同。
+**正向 6 个**：写出正确的 catalog/回执/备份；`mainCommit` 取 Worker HEAD、`djangoSourceCommit` 记后台提交；三个结构性 `null`；分裂如实记录且 `frontendPayload:false`；备份与旧记账逐字节相同。
 
 **核心主张 1 个**：`the written catalog is accepted by the real readLivePublication` —— 用**真实的** `readLivePublication` 读 adopt 写出的 catalog，断言它接受且返回值正确。这是设计方案 A 的全部依据，现在有测试证明，不只是文档断言。
 
 **结构性 2 个**：断言回执父目录 **不等于** `path.resolve(source,'..','publish-'+commit.slice(0,12))`（挪进去会把真实半切换伪装成已完成，且打破 `preparation-resolution.mjs:266` 的闭包断言）；断言 `suppressedGuard.stillEnforcedBy` 恰为那两处仍生效的检查，`verifiedAtAdoption` 的摘要与成员一致。另断言只写三个文件、不产生 `LATEST-PREPARED.json`、不建 packet 目录。
+
+**承认范围的可审性 2 个**（姐妹会话复核后新增）：复现生产形状——catalog 的 `workerRelease`/`workerManifestSha256` 本来就与现役一致、`receiptPath` 指向一份真实 `SUCCESS.json`，只有 `djangoManifestSha256` 漂移——断言 `adoption.catalogMismatch` 把前两项记为 `equal:true`、只把 Django 那项记为 `equal:false`，且 `adoption.priorReceipt` 记下它存在、字节完整、当时声明了旧摘要，并断言这份旧回执的字节未被改动；另一例覆盖旧回执缺失（`present:false`）与被改动（`intact:false`）。
 
 **负向 24 个**，逐项对应一条前置，每个都断言「失败」且「错误信息指向该项」，并且**统一断言拒绝时 `PUBLISHED-MAIN.json` 逐字节未变、`adoptions\` 目录未创建**：P1、P2（两例：读失败、manifest 字节漂移）、P3、P4、P5、P6、P7（两例：前端超前、真实分叉）、P9（两个标记各一例）、P10（四例：非 200 / `ok:false` / 非 ready / 不可达）、P11、P12、P15（前后台各一例，并断言原 STARTED 记录保留）、P16、P17、依据缺失（三例，并断言在任何读取之前就拒绝）、`--adopt-confirm` 错值（两例，含「填成旧 catalog 的值」）。
 
@@ -125,16 +135,20 @@ EXITCODE=0
 | | 值 |
 | --- | --- |
 | 改前（= 当前 `currentLatest` pin） | `b27c76018d8f36023d07b831bda560ad446c177638858039d99a5737b8412e8b` |
-| 改后 | `0ab722ef6e8af5aa3b43eea11367be5dab8192fa2181fe52f512ec0bbfd0b64e` |
+| 改后 | `17a9799fba21fe925a7ad6167cf09994bcb9cbd8b0653933333be5f60d4f60a3` |
 
 必须处理的四项（后续发布的前置清单）：
 
-1. **`tools/preparation-retirement-entry.mjs` 的 `retirementEntryPolicies`**（`:69-70`）：新摘要 `0ab722ef…` 要成为 `currentLatest`，旧值 `b27c7601…` 下移进 `previousCurrentLatest`。该文件现仍含旧值 1 处。
+1. **`tools/preparation-retirement-entry.mjs` 的 `retirementEntryPolicies`**（`:69-70`）：新摘要 `17a9799f…` 要成为 `currentLatest`，旧值 `b27c7601…` 下移进 `previousCurrentLatest`。该文件现仍含旧值 1 处。
 2. **`tools/install-main-prebuild.mjs:21` 的 `controlFiles`** 成员：需重建控制包，产生新的 `bundleSha256` 与 `MANIFEST.json`，并走一次控制采用。
 3. **现役控制包与安装状态**：`control-bundles\e664af36…` 里的那一份 `publish-latest-main.mjs`，以及 `CONTROL-INSTALLATION.json` 的 `dispatcherSha256`（现为 `6c88c513…`）、`bundleSha256`、`bundleManifestSha256` 都要随新一代控制包更新。
-4. **复查另一会话修完后的 CI 清单**：本轮实测 `tests/maintenance-controller-qualification.test.mjs`（只 import `manual-maintenance-continuation.mjs`）与 `tools/check_schema_code_digest.py`（`SPECS`/`CODE_FILES` 都是 schema addition 契约）**均不含** `publish-latest-main.mjs`，预期不受影响；以其修完后的实际清单为准再确认一次。
+4. **`tools/verify-release-candidate.mjs` 的 profile：已核，无需改动。** 新规范 `docs/规范/验证与发布.md#ci门禁不进入发布链路` 要求改动测试文件前必须核对该工具的 profile 清单（它引用 36 个 `.test.mjs`，且本身没有生产调用方、不被发布器调用）。实测：用我的实际改动集调 `candidateCompatibilityProfile`，得 `version=release-three-optimizations-v1`、`paths=["tools/publish-latest-main.mjs"]`、**`unsupported=[]`**、`preparationQueue=true`。`publish-latest-main.mjs` 已在 `supported` 集合里（`:88`），我新增的测试文件落在 `docs/`/`tests/` 过滤之外（`:83` 会剔除 `tests/`），所以**不需要把新测试注册进任何 profile**。
+   - 另外核了 `:442` 那条限定增量断言（要求改动集只含 `main-prebuild-queue.mjs`/`publish-latest-main.mjs`/`verify-release-candidate.mjs`）——它只在传 `--reuse-report` 时生效，属历史限定 profile，本次不触发。
+5. **复查另一会话修完后的 CI 清单**：本轮实测 `tests/maintenance-controller-qualification.test.mjs`（只 import `manual-maintenance-continuation.mjs`）与 `tools/check_schema_code_digest.py`（`SPECS`/`CODE_FILES` 都是 schema addition 契约）**均不含** `publish-latest-main.mjs`，预期不受影响；以其修完后的实际清单为准再确认一次。
 
 这些 pin 失配是改动的**预期后果**，没有为了让 pin 匹配而回退改动。
+
+按新规范那一节的区分：`retirementEntryPolicies.currentLatest` 与 `controlFiles` 属**发布链路**（控制器/入口字节资格化，发布器自己会断言），必须在下一次发布前处理；而纯 CI 侧的摘要门禁只约束合并。两类不可合并为「CI 问题」一并对待。
 
 ## 5. 我没能验证的部分（诚实清单）
 

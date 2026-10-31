@@ -140,8 +140,14 @@ export async function adoptLivePublication(config,{reason,confirm,binding,retire
  const catalogFile=path.join(config.stateDirectory,'PUBLISHED-MAIN.json');
  const catalogRaw=await exists(catalogFile)?await fs.readFile(catalogFile):null;
  const previous=catalogRaw?JSON.parse(catalogRaw):null;
+ // Which of the three catalog values actually drifted. In the 10-30 case only
+ // djangoManifestSha256 did (27d72aab… vs the measured e0fc1a0d…) while the
+ // worker release/manifest were already correct, so recording the exact drift
+ // keeps the adoption's scope auditable instead of implying all three were wrong.
+ const mismatch=previous?Object.fromEntries(['workerRelease','workerManifestSha256','djangoManifestSha256']
+  .map(key=>[key,{catalog:previous[key]??null,live:live[key],equal:previous[key]===live[key]}])):null;
  // P1: adoption is only for a real mismatch. An already-consistent catalog is an error.
- if(previous&&previous.workerRelease===live.workerRelease&&previous.workerManifestSha256===live.workerManifestSha256&&previous.djangoManifestSha256===live.djangoManifestSha256)
+ if(mismatch&&Object.values(mismatch).every(entry=>entry.equal))
   throw Error('现役与发布记账已一致，无需承认；本次未写入');
  // P6 needs ancestry, which needs a fetched origin/main.
  await invalidateRetirementReadScope(retirementScope,'adopt-live-fetch');
@@ -207,6 +213,23 @@ export async function adoptLivePublication(config,{reason,confirm,binding,retire
   }
   verifiedAtAdoption[commit]={attempt,members:names,membersSha256:sha(Buffer.from(JSON.stringify(names)))};
  }
+ // The receipt the superseded catalog pointed at, when it is still on disk and
+ // intact. In the 10-30 case it is a genuine SUCCESS.json from a real release
+ // whose only stale field is djangoManifestSha256 — evidence that the worker
+ // side's accounting was already closed and is not what is being rewritten.
+ // A missing or altered one is recorded as such; it never blocks or authorizes.
+ let priorReceipt=null;
+ if(previous&&typeof previous.receiptPath==='string'&&path.isAbsolute(previous.receiptPath)){
+  priorReceipt={path:previous.receiptPath,declaredSha256:previous.receiptSha256??null,present:false,intact:null,declares:null};
+  if(await exists(previous.receiptPath)){
+   const raw=await fs.readFile(previous.receiptPath),value=JSON.parse(raw);
+   priorReceipt.present=true;priorReceipt.actualSha256=sha(raw);
+   priorReceipt.intact=sha(raw)===previous.receiptSha256;
+   priorReceipt.declares={status:value.status??null,mainCommit:value.mainCommit??null,
+    workerRelease:value.workerRelease??null,workerManifestSha256:value.workerManifestSha256??null,
+    djangoManifestSha256:value.djangoManifestSha256??null};
+  }
+ }
  const at=now().toISOString();
  const receipt={status:'deployed_and_ready',at,mainCommit,components:['worker','django'],
   workerRelease:live.workerRelease,workerManifestSha256:live.workerManifestSha256,djangoManifestSha256:live.djangoManifestSha256,
@@ -222,6 +245,9 @@ export async function adoptLivePublication(config,{reason,confirm,binding,retire
     workerSourceRoot:live.workerSource,workerCommit:live.workerCommit,
     entryBypassed:'django-local-service.ps1 PrepareApp/DeployApp',basis:'docs/规范/验证与发布.md#发布入口与记账边界'},
    djangoSourceCommit:live.djangoCommit,split,djangoAhead,
+   // The exact scope of what is being acknowledged: which catalog values already
+   // agreed with the live state and which one drifted.
+   catalogMismatch:mismatch,priorReceipt,
    suppressedGuard:{...liveAdoptionSuppressedGuard,verifiedAtAdoption,
     note:'该 catalog 生效期间此门禁对现役目标失效；下一次真发布写新 catalog 后恢复'},
    publicationPerformed:false,productionMutationsPerformed:false}};

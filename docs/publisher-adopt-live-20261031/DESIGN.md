@@ -45,6 +45,60 @@ if(/^(config\/|tools\/|.*\.(?:ps1|bat|cmd)$)/.test(value)){
 
 所以准确的表述是：**Worker 包内没有待发布的「前端运行载荷」（`app/`、`lib/`、`components/` 全空），但有 2 个随包安装的 `tools/` 文件停在旧字节。** 这正合规范里那条「被应用包收录的离线工具虽无业务载荷，但只能随对应应用包安装，按完整组件流程准备与部署」（`docs/规范/验证与发布.md` 变更分级表），也正是 `classifyRelease` 那条保守规则存在的理由——它在这里是**对的**。
 
+### 0.2b §0.2 的澄清：那 2 个旧字节文件在哪里（两个会话测的是不同位置，结论并不矛盾）
+
+两个会话都没复现 §0.2，因为测的是另两个位置。按要求给出确切路径与实测哈希：
+
+**我指的位置是 Worker immutable release 自己的源码快照**，即 `deployment-manifest.json` 的 `source.snapshotRoot`（实测值为 `source-snapshot`）：
+
+```
+A = D:\teruisi-runtime\teruisi-worker-sales\releases\20261030T013752Z-91459570a711f22e\source-snapshot\tools\
+B = D:\codex-isolated\main-release-packages\e62dc33a8a05-bfb340f8-7948e85c\source\tools\   (e62dc33a)
+C = D:\codex-isolated\netshop-projection-total-20261030\source\tools\                      (2dc377f0)
+```
+
+| 文件 | A（现役 Worker 包内） | B（Worker 来源） | C（Django 来源） |
+| --- | --- | --- | --- |
+| `operations-system-watchdog.ps1` | `b40f21a1…` | `b40f21a1…` 等 A | `106c08cc…` ≠ |
+| `postgres_no_key_backup.py` | `dff8e226…` | `dff8e226…` 等 A | `dd08698f…` ≠ |
+
+即 A = B ≠ C：现役 Worker 包内的这两个文件停在 Worker 侧字节。已复测两次，结果一致。
+
+**他们测的位置是 Django app 里安装的 tools**（`D:\teruisi-runtime\django-sales\app\tools\`）与 Worker guard 的仓库根文件清单。我复核了前者，**他们是对的**：
+
+- `postgres_no_key_backup.py`：该处安装的是 `dd08698f…`，**等于 Django 来源**（C），没有旧字节。
+- `operations-system-watchdog.ps1`：该处**根本不存在**（ABSENT）——它不在 Django 应用包的复制清单里。
+
+所以两边的结论可以同时成立：**Django app 安装位置没有旧字节残留（他们对），而 Worker 包的源码快照里有（我对）。**
+
+#### 这条事实的实际重量（比我初稿所暗示的小）
+
+我初稿把它当作「Worker 侧有待发布内容」的证据，**这个定位偏重了**。对方已核实：这两个文件**不在** `workerGuardEntrypointPaths` 的 12 项里，Worker guard 钉的仓库根清单也 10/10 一致。所以：
+
+- 它**不影响** Worker 包身份、不影响启动门禁、不构成发布阻塞；
+- 它**不进严格前置**——没有为它新增任何一条放行条件；
+- 它唯一的作用是作为 `mainCommit` 取 Worker 侧 HEAD 的**佐证**：那 6 个提交里确有随 Worker 包安装的文件尚未更新，取 Worker 侧 HEAD 使它们留在下一次发布范围内。
+
+§0.2 因此**不撕掉**（事实属实），但已按上面的重量重写定位；没有将其写成任何前置条件。
+
+### 0.2c 失配只有 Django 一项（缩小了 adopt 的范围）
+
+另一个会话指出并经我复核：那份真实回执 `…\publish-e62dc33a8a05\SUCCESS.json` **仍在磁盘上**，`PUBLISHED-MAIN.json` 的 `receiptPath` 正指向它，且 `receiptSha256` 校验通过。逐项实测：
+
+| 项 | 回执声明 | 现役实测 | |
+| --- | --- | --- | --- |
+| `status` | `deployed_and_ready` | — | 满足 `:55` |
+| `mainCommit` | `e62dc33a…` | — | 满足 |
+| `workerRelease` | `20261030T013752Z-91459570a711f22e` | 同值 | 满足 |
+| `workerManifestSha256` | `bfdd5573…` | 同值 | 满足 |
+| `djangoManifestSha256` | `27d72aab…` | **`e0fc1a0d…`** | **唯一失配** |
+| `startupVerified` / `readyVerified` | `true` / `true` | — | 满足 |
+
+所以 adopt 要做的不是「凭空造一份全新记账」，而是让记账承认**一个**已漂移的值；Worker 侧的记账本来就是闭合的。这不改变任何一条前置（仍要全部满足），但改善了**回执的诚实度**，故实现新增两个字段：
+
+- `adoption.catalogMismatch` —— 三个值逐项记 `{catalog, live, equal}`，让「哪一项真的漂了」可审；
+- `adoption.priorReceipt` —— 旧 catalog 指向的那份回执是否存在、字节是否与声明摘要一致（`intact`）、它当时声明了什么。缺失或被改动只作**如实记录**，既不阻塞也不授权。
+
 ### 0.3 对 `mainCommit` 取值的影响
 
 据代码定语义（已逐行核）：

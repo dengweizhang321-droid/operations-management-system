@@ -144,6 +144,64 @@ test('adopts the measured live state: catalog, receipt and the backup of what it
  assert.match(f.logs.join('\n'),/前后台不是同一提交/);
 });
 
+test('records which catalog value actually drifted, and the prior real receipt',async t=>{
+ // The production 10-30 shape: the catalog's worker release/manifest already
+ // agreed with the live state and its receiptPath pointed at a genuine
+ // SUCCESS.json from a real release; only djangoManifestSha256 had drifted.
+ // The receipt must say so, so the adoption's scope stays auditable instead of
+ // implying all three values were wrong.
+ const f=await fixture(t);
+ const priorPath=path.join(f.root,'prior-SUCCESS.json');
+ const prior={status:'deployed_and_ready',mainCommit:f.workerCommit,workerRelease:f.releaseId,
+  workerManifestSha256:f.workerManifestSha256,djangoManifestSha256:'2'.repeat(64),
+  startupVerified:true,readyVerified:true};
+ await fs.writeFile(priorPath,JSON.stringify(prior,null,2)+'\n');
+ const priorSha=sha(await fs.readFile(priorPath));
+ await fs.writeFile(f.catalogFile,JSON.stringify({...prior,source:f.workerSource,sourceTree:f.workerTree,
+  receiptPath:priorPath,receiptSha256:priorSha},null,2)+'\n');
+
+ const result=await adoptLivePublication(f.config,f.deps);
+ const receipt=await readJson(result.receiptPath);
+ const drift=receipt.adoption.catalogMismatch;
+ assert.equal(drift.workerRelease.equal,true,'Worker 版本本来就一致，不应被说成失配');
+ assert.equal(drift.workerManifestSha256.equal,true,'Worker 清单摘要本来就一致');
+ assert.equal(drift.djangoManifestSha256.equal,false,'唯一失配项必须是 Django 摘要');
+ assert.equal(drift.djangoManifestSha256.catalog,'2'.repeat(64));
+ assert.equal(drift.djangoManifestSha256.live,f.djangoManifestSha256);
+
+ // The prior receipt is recorded as present and intact, with what it declared.
+ assert.equal(receipt.adoption.priorReceipt.present,true);
+ assert.equal(receipt.adoption.priorReceipt.intact,true);
+ assert.equal(receipt.adoption.priorReceipt.declares.status,'deployed_and_ready');
+ assert.equal(receipt.adoption.priorReceipt.declares.workerRelease,f.releaseId);
+ assert.equal(receipt.adoption.priorReceipt.declares.djangoManifestSha256,'2'.repeat(64),
+  '旧回执声明的是旧 Django 摘要，这正是失配的来源');
+ // Recording it must not alter it.
+ assert.equal(sha(await fs.readFile(priorPath)),priorSha,'旧回执字节不得被改动');
+});
+
+test('a missing or altered prior receipt is recorded as such, not papered over',async t=>{
+ const f=await fixture(t);
+ // The catalog in the base fixture points at a receipt that does not exist.
+ const absent=await adoptLivePublication(f.config,f.deps);
+ const one=await readJson(absent.receiptPath);
+ assert.equal(one.adoption.priorReceipt.present,false);
+ assert.equal(one.adoption.priorReceipt.intact,null);
+ assert.equal(one.adoption.priorReceipt.declares,null);
+
+ // Now one that exists but whose bytes no longer match the declared digest.
+ const f2=await fixture(t);
+ const priorPath=path.join(f2.root,'tampered-SUCCESS.json');
+ await fs.writeFile(priorPath,JSON.stringify({status:'deployed_and_ready'},null,2)+'\n');
+ await fs.writeFile(f2.catalogFile,JSON.stringify({status:'deployed_and_ready',mainCommit:f2.workerCommit,
+  workerRelease:f2.releaseId,workerManifestSha256:f2.workerManifestSha256,djangoManifestSha256:'2'.repeat(64),
+  receiptPath:priorPath,receiptSha256:'0'.repeat(64)},null,2)+'\n');
+ const altered=await adoptLivePublication(f2.config,f2.deps);
+ const two=await readJson(altered.receiptPath);
+ assert.equal(two.adoption.priorReceipt.present,true);
+ assert.equal(two.adoption.priorReceipt.intact,false,'摘要不符必须记为 false，不能略过');
+});
+
 test('the written catalog is accepted by the real readLivePublication',async t=>{
  // This is the core claim of design option A: the entry does not relax any
  // existing assertion, it makes the catalog branch's conditions actually true.
