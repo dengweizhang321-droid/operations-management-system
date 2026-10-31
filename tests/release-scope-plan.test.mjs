@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {execFileSync} from 'node:child_process';
+import childProcess,{execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
+import {syncBuiltinESMExports} from 'node:module';
 import {mkdtempSync,mkdirSync,writeFileSync,rmSync,copyFileSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -167,7 +168,39 @@ test('真实 Git 完整差异绑定 v3 流程，合并提交不丢失已修改�
   assert.deepEqual(plan.changes,beforeMerge.changes);
   assert.deepEqual(plan.workflow,beforeMerge.workflow);
   assert.notEqual(plan.planSha256,beforeMerge.planSha256);
+  assert.equal(Object.hasOwn(plan,'copyRuleEvidence'),false);
   const {planSha256,...core}=plan;
   assert.equal(planSha256,createHash('sha256').update(JSON.stringify(core)).digest('hex'));
   assert.throws(()=>makeReleasePlan({base:'--all',cwd}),/必须提供明确/);
+});
+
+test('同次计划只读一次共同Git对象，缓存不跨调用复用',t=>{
+  const cwd=mkdtempSync(path.join(os.tmpdir(),'teruisi-plan-cache-'));
+  t.after(()=>rmSync(cwd,{recursive:true,force:true}));
+  const git=args=>execFileSync('git',args,{cwd,encoding:'utf8',windowsHide:true});
+  git(['init','-q','--initial-branch=main']);
+  git(['config','user.name','Release Cache Test']);
+  git(['config','user.email','release-cache-test@example.invalid']);
+  mkdirSync(path.join(cwd,'tools'));
+  writeFileSync(path.join(cwd,'tools','shared.mjs'),'export const shared=1;\n');
+  writeFileSync(path.join(cwd,'tools','changed.mjs'),'export const value=1;\n');
+  git(['add','.']);git(['commit','-qm','base']);
+  const base=git(['rev-parse','HEAD']).trim();
+  writeFileSync(path.join(cwd,'tools','changed.mjs'),'export const value=2;\n');
+  git(['add','.']);git(['commit','-qm','head']);
+  const readObjects=[],originalExec=childProcess.execFileSync;
+  t.mock.method(childProcess,'execFileSync',(file,args,options)=>{
+    if(file==='git'&&args[0]==='cat-file')readObjects.push(...String(options.input).trim().split('\n'));
+    return originalExec(file,args,options);
+  });
+  syncBuiltinESMExports();
+  t.after(()=>{t.mock.restoreAll();syncBuiltinESMExports();});
+  const plan=makeReleasePlan({base,cwd});
+  assert.deepEqual(plan.components,['worker','django']); // Missing producers remain unknown/full.
+  assert.equal(Object.hasOwn(plan,'copyRuleEvidence'),false);
+  assert.equal(readObjects.length,3); // One shared blob and both versions of the changed file.
+  assert.equal(new Set(readObjects).size,3);
+  const firstRead=[...readObjects];readObjects.length=0;
+  assert.deepEqual(makeReleasePlan({base,cwd}),plan);
+  assert.deepEqual(readObjects,firstRead);
 });

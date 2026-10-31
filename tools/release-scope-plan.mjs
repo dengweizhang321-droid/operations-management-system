@@ -81,8 +81,9 @@ export function makeReleasePlan({base,head='HEAD',cwd=root}){
   if(!base||base.startsWith('-')||head.startsWith('-'))throw new Error('必须提供明确的 --base Git 提交');
   const baseSha=git(['rev-parse','--verify',`${base}^{commit}`]).trim(),headSha=git(['rev-parse','--verify',`${head}^{commit}`]).trim();
   const changes=parseNameStatus(git(['diff','--name-status','--find-renames=50%','-z',baseSha,headSha]));
+  const objectCache=new Map();
   const readRules=sha=>{
-    try{return extractCopyRules(readCopyRuleGitSources(sha,cwd));}catch(error){return {known:false,reason:`Git copy source read failed: ${error.message}`};}
+    try{return extractCopyRules(readCopyRuleGitSources(sha,cwd,{objectCache}));}catch(error){return {known:false,reason:`Git copy source read failed: ${error.message}`};}
   };
   const hasTools=changes.some(c=>/^tools\//i.test(c.path)||/^tools\//i.test(c.before??''));
   const unaffected={known:true,djangoFiles:[],workerFiles:[],controlFiles:[],notNeeded:'no tools path changed'};
@@ -90,7 +91,7 @@ export function makeReleasePlan({base,head='HEAD',cwd=root}){
   // Deletions/renames require both source versions. Unknown historical rules
   // cannot be projected from today's checkout.
   const copyRules=beforeRules.known&&afterRules.known?{...afterRules,djangoFiles:[...new Set([...beforeRules.djangoFiles,...afterRules.djangoFiles])],workerFiles:[...new Set([...beforeRules.workerFiles,...afterRules.workerFiles])],controlFiles:[...new Set([...beforeRules.controlFiles,...afterRules.controlFiles])]}:{known:false,reason:beforeRules.reason??afterRules.reason};
-  const core={version:'teruisi-scoped-release-plan-v3',baseSha,headSha,changes,...classifyRelease(changes,{copyRules}),copyRuleEvidence:{before:beforeRules,after:afterRules}};
+  const core={version:'teruisi-scoped-release-plan-v3',baseSha,headSha,changes,...classifyRelease(changes,{copyRules})};
   return {...core,planSha256:hash(core)};
 }
 

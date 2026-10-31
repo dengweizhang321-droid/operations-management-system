@@ -49,14 +49,22 @@ node docs/release-scope-copy-lists-20261101/compare-history.mjs
 
 ## 检查与交付状态
 
-13项定向测试通过（0失败、0跳过）；工具`node --check`和`git diff --check`通过。测试包含实际Git合并提交净差异、planSha256重新计算，以及按安装器真实controlFiles清单复制到私有临时目录后仅import publisher的加载检查；不调用prepare/adopt，不把合成用例当生产发布。新增五组独审反例（离线宽前缀、复制源重绑、缺失控制依赖、动态资源、动态control import）均有回归。原始测试结果保留于`D:/codex-artifacts/release-optimization-20261101/scope-tests.txt`；[validation.json](validation.json)绑定最终受测工具/测试/历史脚本与原始测试输出SHA。历史比较及结构提取仅读Git对象，不调用发布器`--check`、PrepareApp、构建、服务或业务接口。
+前轮冻结交付的13项定向测试通过（0失败、0跳过）；工具`node --check`和`git diff --check`通过。测试包含实际Git合并提交净差异、planSha256重新计算，以及按安装器真实controlFiles清单复制到私有临时目录后仅import publisher的加载检查；不调用prepare/adopt，不把合成用例当生产发布。新增五组独审反例（离线宽前缀、复制源重绑、缺失控制依赖、动态资源、动态control import）均有回归。原始测试结果保留于`D:/codex-artifacts/release-optimization-20261101/scope-tests.txt`；[validation.json](validation.json)保留前轮受测工具/测试/历史脚本与原始输出SHA，不将它改写为后续源码的全量复测证明。历史比较及结构提取仅读Git对象，不调用发布器`--check`、PrepareApp、构建、服务或业务接口。
 
-本次仅开发分支候选，尚未合main、未生产制品准备、未安装控制工具或部署；计划格式仍v3，新增copyRuleEvidence包含base/head可解析状态与完整清单，纳入planSha256。实际使用新计划能力需合并后按本次授权更新对应发布控制闭包；本报告不宣称当前固定安装包已经具备此分类器。
+本次仅开发分支候选，尚未合main、未生产制品准备、未安装控制工具或部署；计划格式仍v3。经双模型精简反审和用户后续“改代码”授权，已移除计划中的copyRuleEvidence，完整规则仍用于内部分类，调查清单继续保留在本任务证据中。实际使用新计划能力需合并后按本次授权更新对应发布控制闭包；本报告不宣称当前固定安装包已经具备此分类器。
 
 ## v3计划消费者与冻结兼容
 
-已按`makeReleasePlan`导入点、`releasePlan`成员读取及`release-scope-plan.json`文件名检索并追读真实消费者。`publish-latest-main.mjs:320-332`核base/head并按components/migrate分支，把新计划完整封存到请求和独立文件；`:716-720`只转schema支持检查。`verify-release-candidate.mjs:414-415`只消费changes，`pi150-forward-recovery.mjs:103-106`核components/migrate/databaseProtection并保存完整plan。下游`publish-main.mjs:44-47`、`publish-main-resume.mjs:58-60`核base/head/components/migrate；`publish-prepared-main.mjs:72`和`preparation-retirement-collector.mjs:94,122`读取changes。上述没有对releasePlan顶层作strict-key检查，也没有断言固定旧planSha256；新增字段不改变旧成员的类型。
+已按`makeReleasePlan`导入点、`releasePlan`成员读取及`release-scope-plan.json`文件名检索并追读真实消费者。`publish-latest-main.mjs:320-332`核base/head并按components/migrate分支，把新计划完整封存到请求和独立文件；`:716-720`只转schema支持检查。`verify-release-candidate.mjs:414-415`只消费changes，`pi150-forward-recovery.mjs:103-106`核components/migrate/databaseProtection并保存完整plan。下游`publish-main.mjs:44-47`、`publish-main-resume.mjs:58-60`核base/head/components/migrate；`publish-prepared-main.mjs:72`和`preparation-retirement-collector.mjs:94,122`读取changes。上述没有对releasePlan顶层作strict-key检查，也没有使用copyRuleEvidence作分类或放行判断；此次移除诊断字段不改变其实际读取的决策成员。
 
-`main-schema-release.mjs:78,96`的strict keys约束schema/recipe，不是scope plan；`:124`对已存在请求的previous.releasePlan作完整deepEqual。`publish-latest-main.mjs:26`的writeOnceOrSame同样保护既有封存文件：新字段会改变新计划及新请求摘要，**不得拿新工具重新生成旧请求、覆写旧包或换绑历史prepared回执**。新固定入口每次`:320`重算plan并在`:332-333`写once，因此已有同target/前驱旧PREPARED即使components相同，也会因新元数据不同而拒绝透明消费；结构请求还可能在schema`:124`更早拒绝。旧原件保留有效，不表示新固定入口可以透明续接。采用顺序应为新控制先于新slot请求生成；已有旧slot需另审受控协调或新意图，不直接调用旧publish-main绕过retirement，不实现自动迁移或覆盖。此为具体采用兼容风险，不把保守拒绝当成功复用。
+`main-schema-release.mjs:78,96`的strict keys约束schema/recipe，不是scope plan；`:124`对已存在请求的previous.releasePlan作完整deepEqual。`publish-latest-main.mjs:26`的writeOnceOrSame同样保护既有封存文件。移除copyRuleEvidence消除了新增诊断清单引起的格式差异，但含tools的计划仍可能因reasons或实际分类变化而不同；已经包含该字段的封存请求也不能被自动改写。**不得拿新工具覆写旧包或换绑历史prepared回执，不承诺所有旧slot透明兼容。**新固定入口每次`:320`重算plan并在`:332-333`写once；真实差异仍可被此处或schema`:124`拒绝。新控制应先于相应新slot请求生成；遇已有旧slot差异保留原件，按另审受控协调或新意图处理，不直接调用旧publish-main绕过retirement，不新增自动迁移或恢复协议。
 
-scope plan摘要仍是整个core的JSON SHA-256，现将copyRuleEvidence作为core新成员；`publish-prepared-main.mjs:163`与`publish-main-resume.mjs:56`继续绑定完整请求对象按`JSON.stringify`序列化后的摘要（非磁盘pretty JSON请求文件原始字节SHA），算法未改。Worker rotation的planSha256属于另一种轮换计划，不与scope plan摘要混用。`frozen-main-source.mjs:6-17`绑定Git HEAD、tree、批准commit及clean状态，新模块仍属于该完整源码树；新增字段不绕过freeze。安装器新增两模块和私有控制包import检查闭合了控制根的实际加载依赖，而不是以Git clean或单个plan摘要自测替代它。
+scope plan摘要仍是整个决策core的JSON SHA-256，不再包含copyRuleEvidence；`publish-prepared-main.mjs:163`与`publish-main-resume.mjs:56`继续绑定完整请求对象按`JSON.stringify`序列化后的摘要（非磁盘pretty JSON请求文件原始字节SHA），算法未改。Worker rotation的planSha256属于另一种轮换计划，不与scope plan摘要混用。`frozen-main-source.mjs:6-17`绑定Git HEAD、tree、批准commit及clean状态，新模块仍属于该完整源码树；移除诊断字段不绕过freeze。安装器新增两模块和私有控制包import检查闭合了控制根的实际加载依赖，而不是以Git clean或单个plan摘要自测替代它。
+
+## 双模型精简建议实施
+
+本轮仅修改`makeReleasePlan`两处：移除core中的诊断清单，并在同次调用内创建一个Map传给base/head的既有Git读取器，按blob OID复用共同对象。没有改分类器、复制规则、Git读取器协议、安装清单或生产门禁，也没有增加持久缓存或新的检查步骤。
+
+仅运行两个直接相关检查，均通过：真实Git合并计划的决策/摘要及诊断字段缺席；同一共享对象加两个不同版本对象合计只读取3个blob，第二次计划调用重新读取同样3个对象，证明缓存不跨调用。工具与测试语法、任务差异检查通过。命令：`node --test --test-name-pattern '真实 Git 完整差异|同次计划只读一次' tests/release-scope-plan.test.mjs`。
+
+前轮13项分类/加载检查、635区间比较及其他调查结果按未变部分复用，不重跑全套。历史18项统计指冻结`8101c31f`中的结果；本地归属未确认的history-comparison.json变更保留但不纳入本次提交、不作为新核准结果。没有重建旧包或测试真实发布，仍待合并授权。
