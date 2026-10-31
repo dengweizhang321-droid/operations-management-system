@@ -1,0 +1,8 @@
+whole_file_before=98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b
+whole_file_after =fbb62792eb0962cb91b76b0045a08812d29de0dabb0ab9056ac9ce235d76bddb
+function_count before=160 after=162
+functions_added=Clear-ProcessSnapshotCache,Initialize-ProcessSnapshotCache
+functions_removed=(none)
+functions_changed=3: Get-ProcessSnapshot,Remove-PreviousBootProcessRecordIfSafe,Show-AggregateServiceStatus
+functions_byte_identical=157
+preamble_identical=True

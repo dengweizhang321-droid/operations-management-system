@@ -82,6 +82,38 @@ export const aDescendantCreationGuardDjangoScriptSha256='4ba1fcaf3cd1568a64098a9
 // qualification for the transition.
 // Review and authorization: docs/sales154-controller-qualification-20261029/REPORT.md.
 export const sales154SchemaAdditionDjangoScriptSha256='98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b';
+// Aggregate-status snapshot cache (3cf4927f): these reviewed controller bytes
+// add an opt-in cache of one Win32_Process enumeration, keyed by ProcessId, to
+// the aggregate status path. Measured on this machine, the ~20 per-PID CIM
+// queries that path issued cost ~8.7s against ~0.7s for one full enumeration,
+// which is what pushed the watchdog's control stage past its budget.
+// Against the Sales154 bytes above, exactly two functions are added
+// (Initialize-ProcessSnapshotCache, Clear-ProcessSnapshotCache) and exactly
+// two change (Get-ProcessSnapshot, Show-AggregateServiceStatus); the remaining
+// 158 functions and everything outside the function definitions are
+// byte-identical, so maintenance enter/exit, the lock, drain, receipts,
+// start/stop sequencing and process-tree termination are untouched.
+// Get-ProcessSnapshot's three outcomes are preserved: the cache is consulted
+// only on the first attempt and only when populated, and a miss or a
+// blank-metadata row falls through to the same live per-PID query and retry
+// loop, so the cache can never be what establishes absence. A failed
+// enumeration leaves the cache empty rather than absent-looking, and duplicate
+// rows for one id are kept so the ambiguity throw still fires.
+// Show-AggregateServiceStatus is the only populating call site — read-only,
+// never terminating or re-parenting what it observes — and clears the cache in
+// a finally, so no later lifecycle action in the same process can see a stale
+// enumeration. Every lifecycle and process-tree call site passes an explicit
+// Attempts of 1 and never populates it.
+// The intermediate 4683e5cb bytes (94312406) are deliberately NOT qualified:
+// there @() wrapped each branch of the $rows if-expression, so PowerShell
+// unwrapped a single-element array and left a bare CimInstance whose .Count is
+// $null — every single-row lookup reported false absence, which made
+// Assert-PostgresListenerOwnership reject a healthy PostgreSQL on 5432 and
+// DeployApp refuse. 3cf4927f wraps the whole if-expression, restoring the
+// array in both the cached and live paths. Keep the older Sales154
+// qualification so a rollback to it is not blocked by this entry.
+// Review and authorization: docs/django-controller-requalification-20261031/REPORT.md.
+export const aggregateStatusSnapshotCacheDjangoScriptSha256='fbb62792eb0962cb91b76b0045a08812d29de0dabb0ab9056ac9ce235d76bddb';
 // B项 (2026-10-25) registers the worker controller that reports the real
 // failure cause in -Json mode. The terminal catch block used to write only the
 // fixed string 'Worker lifecycle result requires exact reconciliation' to
@@ -111,7 +143,7 @@ export const bWorkerJsonFailureCauseScriptSha256='1b8c5d4d61ba491d042f41ae91e9cc
 // tools/worker-local-service.ps1: startup phase budgets/observation plus an
 // independent DingTalk startup observer. Evidence: docs/施工/S05a.md.
 export const piNativeCandidateControllerSha256=Object.freeze({
- 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256]),
+ 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,aggregateStatusSnapshotCacheDjangoScriptSha256]),
  'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256]),
  'process-deadline.ps1':Object.freeze([])
 });
