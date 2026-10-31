@@ -66,8 +66,8 @@ export const retirementEntryPolicies=Object.freeze({
  },
  "previousCurrentInstaller": ["a0865630915a5b60ec08db93939bdb3f50149fb48ecd37a40493ed7b4abca54c","5c95061e338df562f4c06f478833d90df66ec0cf3000477e3dd64312f738c417"],
  "currentInstaller": "db64b24ec01dbde2f58fff186ed8f0efe8bc314752cfe89e826d439d0a763b36",
- "previousCurrentLatest": ["1fa234d5f3bdc5ba5fa028d91756d53a7ed79569e5a054270c73e280f22c67ac","16de220734c22ddfa050ae5cef11ab41e9a05d51ba8a8f3e28ec2e2214d05475","f730c55a097a2d292eab1ab0223bada4fc19a83f84b80e3ffbf16a21e113e4fc","ce9b19f3282aebc13d41cd360a54e991131ed9b039bfa1430015ebe8cb845c2f"],
- "currentLatest": "b27c76018d8f36023d07b831bda560ad446c177638858039d99a5737b8412e8b"
+ "previousCurrentLatest": ["1fa234d5f3bdc5ba5fa028d91756d53a7ed79569e5a054270c73e280f22c67ac","16de220734c22ddfa050ae5cef11ab41e9a05d51ba8a8f3e28ec2e2214d05475","f730c55a097a2d292eab1ab0223bada4fc19a83f84b80e3ffbf16a21e113e4fc","ce9b19f3282aebc13d41cd360a54e991131ed9b039bfa1430015ebe8cb845c2f","b27c76018d8f36023d07b831bda560ad446c177638858039d99a5737b8412e8b"],
+ "currentLatest": "17a9799fba21fe925a7ad6167cf09994bcb9cbd8b0653933333be5f60d4f60a3"
 });
 export async function qualifyRetirementSourceEntries(context,{roots,target,closedSources=[]}){
  assert.match(target,/^[a-f0-9]{40}$/);const closed=new Set(closedSources.flatMap(x=>[x.source,x.destination]).map(x=>path.resolve(x).toLowerCase())),unique=[...new Set(roots.map(x=>path.resolve(x)))].sort();assert.ok(unique.length<=1024);const proofs=[];let bytes=0;
