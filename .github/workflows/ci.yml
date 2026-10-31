@@ -111,4 +111,8 @@ jobs:
         # ai_write_request_receipts was missing DELETE (see script
         # docstring for scope and honest limitations), not business
         # behavior.
-        run: npm run check:ai-writer-privilege-coverage
+        # Invoked directly rather than through an npm script: package.json is
+        # a guard-protected Worker entrypoint, so adding a script entry to it
+        # breaks the release chain's byte-exact check. That is what stopped the
+        # Worker on 2026-10-31 at the next reboot.
+        run: python tests/ai-writer-privilege-coverage.py
