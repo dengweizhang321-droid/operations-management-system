@@ -1,4 +1,4 @@
-$ErrorActionPreference='Stop'
+﻿$ErrorActionPreference='Stop'
 $testRoot=Join-Path ([IO.Path]::GetTempPath()) ('watchdog-tests-'+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $testRoot|Out-Null
 . (Join-Path $PSScriptRoot '..\tools\operations-system-watchdog.ps1') -FunctionsOnly
@@ -18,6 +18,10 @@ try {
   $s.admission.mode='running';$s.worker='foreign_or_ambiguous';Assert-Watch ((Get-WatchDecision $s $state $now) -eq 'alert_only') 'unknown port owner must not be taken over'
   $s.worker='starting_exact_release';Assert-Watch ((Get-WatchDecision $s $state $now) -eq 'alert_only') 'in-flight startup must not be repeated'
   $s=Fixture-Snapshot;$s.supervisor='ownership_error';Assert-Watch ((Get-WatchDecision $s $state $now) -eq 'alert_only') 'supervisor PID reuse must fail closed'
+  $s=Fixture-Snapshot;$s.supervisor='ownership_check_failed';Assert-Watch ((Get-WatchDecision $s $state $now) -eq 'alert_only') 'a diagnostic that could not run must fail closed, same as a confirmed mismatch'
+  Assert-Watch ((Get-WatchFailureText $s) -match '监控自身未能完成.*核验') 'an unexecuted ownership check must say the monitor is blind, not that the supervisor is broken'
+  Assert-Watch ((Get-WatchFailureText $s) -notmatch '归属或状态无法核验') 'ownership_check_failed must not reuse the confirmed-mismatch wording'
+  $s.supervisor='ownership_error';Assert-Watch ((Get-WatchFailureText $s) -match '归属或状态无法核验') 'a confirmed identity mismatch keeps its original wording'
   $s=Fixture-Snapshot;$s.probeError=$true;Assert-Watch ((Get-WatchDecision $s $state $now) -eq 'alert_only') 'status errors must not authorize recovery'
   $s=Fixture-Snapshot;$s.worker='stopped';$s.backend='Ready';Assert-Watch ((Get-WatchDecision $s $state $now) -eq 'alert_only') 'clean Worker-only Stop must not be undone'
   $s=Fixture-Snapshot;$s.worker='exact_release';$s.backend='Ready';$s.supervisor='running';Assert-Watch ((Get-WatchDecision $s $state $now) -eq 'alert_only') 'HTTP degradation must not restart a live process'

@@ -43,13 +43,48 @@ function Write-WatchJson([string]$Path,[object]$Value) {
   }finally{foreach($p in @($temp,$backup)){if(Test-Path -LiteralPath $p){[IO.File]::Delete($p)}}}
 }
 function Get-WatchHash([string]$Path){(Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()}
+function Get-WatchSanitizedStderrSummary([string]$Value){
+  # Bounded, best-effort evidence for a failed probe/dws process. Never trust
+  # this as structured data: it is free text, kept only as a short, redacted
+  # hint of what failed. First 200 characters, then strip anything shaped
+  # like a filesystem path, a URL, or a credential/token so a leaked secret
+  # or local path never reaches stored evidence or an alert message.
+  if([string]::IsNullOrEmpty($Value)){return $null}
+  $text=$Value.Substring(0,[Math]::Min(200,$Value.Length))
+  # URL first: a URL's scheme (e.g. "https:") would otherwise also satisfy
+  # the single-letter-drive path pattern below ("s:" followed by "//...").
+  $text=[regex]::Replace($text,'(?i)\b[a-z][a-z0-9+.-]*://[^\s"'']*','[url]')
+  $text=[regex]::Replace($text,'(?<![A-Za-z0-9])[A-Za-z]:[\\/][^\s"'']*','[path]')
+  $text=[regex]::Replace($text,'(?:\\\\|//)[^\s"'']+','[path]')
+  # "Authorization: <scheme> <value>" or "Authorization: <value>": redact the
+  # whole remainder (scheme word included), not just the first token after
+  # the colon - a credential value never stops at the scheme name.
+  $text=[regex]::Replace($text,'(?i)(authorization)\s*:\s*(?:[a-z0-9._-]+\s+)?\S+','$1=[redacted]')
+  # A standalone "Bearer <token>" not already consumed above (e.g. no
+  # leading "Authorization:" label) must still redact the token.
+  $text=[regex]::Replace($text,'(?i)\bbearer\s+\S+','bearer=[redacted]')
+  # Credential-shaped "<name>: <value>" / "<name>=<value>". The leading
+  # "\b" only guards the start of this alternation group, not each
+  # alternative's own start: that lets a compound identifier like
+  # "refresh_token", "client_secret" or "access_token" match on its
+  # keyword suffix even though "_" has no word-boundary before it, while
+  # still requiring a real word boundary before the whole credential-ish
+  # run (so this never fires mid-word on unrelated text).
+  $text=[regex]::Replace($text,'(?i)\b[a-z0-9_-]*?(?:token|secret|password|credential|apikey|api[_-]?key|private[_-]?key|session|cookie)\s*[:=]\s*\S+','[redacted]')
+  $text=[regex]::Replace($text,'[0-9a-fA-F]{24,}','[redacted]')
+  return $text.Trim()
+}
 function Invoke-WatchProcess([string]$Executable,[string[]]$Arguments,[int]$Seconds=60) {
   # Only direct probe ownership is admitted. DWS unknown delivery is terminal.
   $capture=Invoke-DeadlineProcess -Executable $Executable -Arguments $Arguments -WorkingDirectory $WatchdogRoot -Deadline (Get-ProcessDeadline ($Seconds*1000)) -Cleanup Direct
   $evidence=$capture.Evidence
   $evidence.stage='result-parse'
   try {
-    if($capture.ExitCode -ne 0){$evidence.code='nonzero_exit';throw 'operator_failed'}
+    if($capture.ExitCode -ne 0){
+      $evidence.code='nonzero_exit'
+      $evidence.stderrSummary=Get-WatchSanitizedStderrSummary $capture.Stderr
+      throw 'operator_failed'
+    }
     [void](Get-ProcessRemaining $evidence.deadlineUnixMs)
     $result=$capture.Stdout.Trim()|ConvertFrom-Json -ErrorAction Stop
     if($null -eq $result -or $result -is [array] -or $result -is [string] -or $result -is [ValueType]){throw 'invalid_result'}
@@ -208,6 +243,13 @@ function Get-WatchProcessDiagnostic($Value){
   foreach($name in $allowed.Keys){
     $v=$Value.$name;if($v -is [string] -and $v -cin $allowed[$name]){$safe[$name]=$v}
   }
+  # stderrSummary is free text, not an enum: it was already bounded to 200
+  # characters and redacted by Get-WatchSanitizedStderrSummary at capture
+  # time. Re-cap the length defensively here too, since this function is the
+  # one boundary all process evidence crosses before it can reach stored
+  # evidence or an outgoing alert message.
+  $summary=$Value.stderrSummary
+  if($summary -is [string] -and $summary.Length -gt 0 -and $summary.Length -le 200){$safe.stderrSummary=$summary}
   return $safe
 }
 function Get-WatchBindingDiagnostic([string]$Code,$Value){
@@ -352,7 +394,7 @@ function Get-WatchDecision($Snapshot,$State,[DateTimeOffset]$Now) {
   if($Snapshot.admission.mode -in @('maintenance','stopped')){return 'suspended'}
   if($Snapshot.healthy){return 'healthy'}
   if([int]$State.failures -lt 2){return 'confirm_failure'}
-  if($Snapshot.admission.mode -ne 'running' -or $Snapshot.probeError -or $Snapshot.supervisor -in @('ownership_error','status_error') -or $Snapshot.worker -notin @('stopped','stale_or_invalid_receipt','exact_release')){return 'alert_only'}
+  if($Snapshot.admission.mode -ne 'running' -or $Snapshot.probeError -or $Snapshot.supervisor -in @('ownership_error','ownership_check_failed','status_error') -or $Snapshot.worker -notin @('stopped','stale_or_invalid_receipt','exact_release')){return 'alert_only'}
   # Clean Worker Stop leaves the backend running: do not reverse that explicit action.
   if($Snapshot.worker -eq 'stopped' -and $Snapshot.backend -eq 'Ready'){return 'alert_only'}
   $recent=@($State.attempts|Where-Object {($Now-[DateTimeOffset]$_).TotalMinutes -lt 15})
@@ -523,6 +565,7 @@ function Get-WatchFailureText($Snapshot){
   if($Snapshot.supervisorHealth -eq 'stale'){$reasons.Add('后端守护状态超过7分钟未更新')}
   if($Snapshot.worker -in @('foreign_or_ambiguous','ownership_error','status_error')){$reasons.Add('网页服务进程归属或状态无法核验')}
   if($Snapshot.supervisor -in @('ownership_error','status_error')){$reasons.Add('后端守护进程归属或状态无法核验')}
+  if($Snapshot.supervisor -eq 'ownership_check_failed'){$reasons.Add('监控自身未能完成后端守护进程归属核验，这不代表 supervisor 异常')}
   if($Snapshot.worker -eq 'starting_exact_release'){$reasons.Add('网页服务仍在启动，未重复启动')}
   if($Snapshot.business.status -eq 'degraded'){$reasons.Add('市场查询连续失败')}
   if($Snapshot.admission.mode -eq 'invalid'){$reasons.Add('启动配置或维护门禁无法验证')}
@@ -554,6 +597,7 @@ function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun,[swit
   $attemptSlot=if($Recovery){'recoveryIdentityAttempts'}else{'identityAttempts'}
   $timeSlot=if($Recovery){'lastRecoveryIdentityAttempt'}else{'lastIdentityAttempt'}
   $reasonSlot=if($Recovery){'recoveryNotificationReason'}else{'notificationReason'}
+  $codeSlot=if($Recovery){'recoveryIdentityFailureCode'}else{'identityFailureCode'}
   # A still-open incident must not go silent forever because one delivery was
   # unconfirmed. Replaying the same alert is still forbidden; instead a bounded
   # number of later rounds may send a NEW record of their own. Escalation is
@@ -569,7 +613,15 @@ function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun,[swit
     if($State[$slot] -ne 'identity_failed'){return}
     # Only pre-send failures are retryable. Reservation/unknown/sent stay terminal.
     if([int]$State[$attemptSlot] -ge 3){return}
-    if($State[$timeSlot] -and ([DateTimeOffset]::UtcNow-[DateTimeOffset]$State[$timeSlot]).TotalMinutes -lt 15){return}
+    # A process-level nonzero exit (e.g. a DingTalk access token that expired
+    # the instant the probe ran) is a transient failure expected to clear on
+    # its own shortly. It alone gets one shorter wait than the normal 15
+    # minutes, so a retry is not forced to land inside the same expiry
+    # window. The attempt count above still bounds the total; this never
+    # grants extra attempts or an unbounded retry loop, and it never touches
+    # the 'unknown' terminal status handled above.
+    $minimumWaitMinutes=if($State[$codeSlot] -ceq 'nonzero_exit'){2}else{15}
+    if($State[$timeSlot] -and ([DateTimeOffset]::UtcNow-[DateTimeOffset]$State[$timeSlot]).TotalMinutes -lt $minimumWaitMinutes){return}
   }
   $suffix=if($Recovery){'-recovered'}elseif($escalation){"-escalation$escalation"}else{''}
   $alertPath=Join-Path $WatchdogRoot "alerts\$($State.incident)$suffix.json"
@@ -583,7 +635,7 @@ function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun,[swit
     # Claim this round before sending, so a crash cannot reuse the same slot.
     $State['notificationEscalations']=$escalation
     $State['lastNotificationEscalation']=[DateTimeOffset]::UtcNow.ToString('o')
-    $State[$slot]=$null;$State[$attemptSlot]=0
+    $State[$slot]=$null;$State[$attemptSlot]=0;$State[$codeSlot]=$null
     if(-not $DryRun){Write-WatchJson $ReservationPath $State}
   }
   if(-not $DryRun){
@@ -622,7 +674,7 @@ function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun,[swit
     # a per-target acknowledgement key, and nobody rejected or flow-controlled.
     if($evidence.ok -ne $true -or $evidence.success -ne $true -or $evidence.errorCode -ne 0 -or
        $evidence.acknowledged -ne $true -or $evidence.undeliveredCount -ne 0){throw 'delivery_unconfirmed'}
-    $alert.status='sent';$State[$slot]='sent';$State[$reasonSlot]=$null
+    $alert.status='sent';$State[$slot]='sent';$State[$reasonSlot]=$null;$State[$codeSlot]=$null
   }catch{
     $alert.status=if($State[$slot] -eq 'sending'){'unknown'}else{'identity_failed'}
     $State[$slot]=$alert.status
@@ -631,6 +683,11 @@ function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun,[swit
     $processDiagnostic=$_.Exception.Data['ProcessEvidence']
     if($processDiagnostic){$alert.processDiagnostic=Get-WatchProcessDiagnostic $processDiagnostic;if($alert.processDiagnostic.code){$code=$alert.processDiagnostic.code}}
     $alert.reason="$stage`:$code";$State[$reasonSlot]=$alert.reason
+    # Record the diagnostic code alongside the identity_failed reservation so
+    # the shorter transient-failure retry wait above can recognize it on the
+    # next round. Only meaningful while the status is the retryable
+    # identity_failed; 'unknown' stays terminal and never reads this slot.
+    $State[$codeSlot]=if($alert.status -eq 'identity_failed'){$code}else{$null}
   }
   if(-not $DryRun){Write-WatchJson $alertPath $alert;Write-WatchJson $ReservationPath $State}
   elseif($alert.status -ne 'pending_identity'){throw 'notification_preflight_failed'}
@@ -743,7 +800,7 @@ function Invoke-WatchCycle([switch]$Recover){
     if($Recover -and [int]$state.failures -ge 2 -and $decision -notin @('confirm_failure','verification_pending','healthy','recovered')){Send-WatchAlert $state $snapshot $decision}
     if($decision -in @('healthy','recovered')){Confirm-WatchRecovery $state $snapshot}
   }
-  if($decision -in @('healthy','recovered')){$state.failures=0;$state.lastHealthy=[DateTimeOffset]::UtcNow.ToString('o');$state.incident=$null;$state.notification=$null;$state.notificationReason=$null;$state.identityAttempts=0;$state.lastIdentityAttempt=$null;$state.notificationEscalations=0;$state.lastNotificationEscalation=$null}
+  if($decision -in @('healthy','recovered')){$state.failures=0;$state.lastHealthy=[DateTimeOffset]::UtcNow.ToString('o');$state.incident=$null;$state.notification=$null;$state.notificationReason=$null;$state.identityAttempts=0;$state.lastIdentityAttempt=$null;$state.identityFailureCode=$null;$state.notificationEscalations=0;$state.lastNotificationEscalation=$null}
   $state.lastMode=if($decision -eq 'verification_pending'){'verification_pending'}else{'running'}
   $state.lastFence=$snapshot.admission.fence;$state.decision=$decision
   Write-WatchJson $StatePath $state
