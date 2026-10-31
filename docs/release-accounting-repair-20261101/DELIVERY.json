@@ -1,0 +1,47 @@
+{
+  "version": "release-accounting-repair-delivery-v1",
+  "at": "2026-10-31T19:00:25.998Z",
+  "targetCommit": "9c1844264bc03ce175b2b773b5cb66685ef7ce86",
+  "accountingStatus": "repaired",
+  "application": {
+    "status": "prepared-only",
+    "components": [
+      "worker",
+      "django"
+    ],
+    "migrate": false,
+    "packet": "D:/codex-isolated/main-release-packages/9c1844264bc0-9cc04cda-13e944f3",
+    "preparationFile": "D:/codex-isolated/main-release-packages/9c1844264bc0-9cc04cda-13e944f3/publish-9c1844264bc0/preparation/PREPARED.json",
+    "preparationSha256": "dc66cd0095e627501bd1b55476f41b792e18dd227478ce63195a63926ddacdd5",
+    "workerPlan": {
+      "status": "planned",
+      "version": "teruisi-local-worker-release-rotation-plan-v1",
+      "planSha256": "e85ef2872b6c5325ba4b4a1e3552c11154b274274c567cdaa71af290222617e9",
+      "planPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\e85ef2872b6c5325ba4b4a1e3552c11154b274274c567cdaa71af290222617e9.json",
+      "predecessorReleaseId": "20261031T120124Z-4423c56dc5488c0a",
+      "candidateReleaseId": "20261031T184030Z-d8fbcdbe3bf6cba1",
+      "candidateManifestSha256": "55f42229c53b09af5203fe582ab9ac9bdae0acafda12a546b86947986c86d20f",
+      "candidateGuardReceiptSha256": "7fcf0a01f3ec00a24fb4f838e4611e78ff43ad0b89e20ac52f469c1b70ec6d1d",
+      "cutoverId": "sales-pg-20260829T204417Z-d9896e904d8092cb"
+    },
+    "djangoPackage": {
+      "id": "5e570db8fc784513adb1220b996bc490",
+      "receiptSha256": "fb4e1174a0a145a205df6a42466b391ce0b43d91fd2c8a9b218186963a23413f",
+      "appFingerprint": "c04d3f8c08f954cbd9f6de56b686b7c0517007d8d74db071a6f28d62d62dc2be"
+    },
+    "djangoManifestSha256": "5361fd19af3e5b21fd6013538a04a3b45faa203b741302639bd938e32b55e81b",
+    "queueRequestId": "9d2da1f6-3d93-4ff1-b739-aac742443ef5",
+    "controlBundleSha256": "3e01612a935319715ef082f3d9b73a9789401316c136e3e68a2712c5fab6dc6a"
+  },
+  "controlMaterials": {
+    "status": "bundle-prepared",
+    "directory": "D:/codex-artifacts/release-accounting-repair-20261101/control-materials-9c184426",
+    "sourceCommit": "9c1844264bc03ce175b2b773b5cb66685ef7ce86",
+    "bundleSha256": "fe4e34dcea03ad77c47c288bd572841ae69428bb05147893f69c452102d45aa6",
+    "bundleManifestSha256": "4e2ae6dfd889d9aa2257a54309468be7c31b22648427890353198a81f50ee3b9",
+    "members": 37,
+    "installId": "2dd7a5cc-1695-4a3c-ae5c-81eb4cac826a",
+    "adoptionPerformed": false
+  },
+  "publicationPerformed": false
+}
