@@ -1,19 +1,19 @@
 {
-  "observedAt": "2026-10-31T16:51:03.796834+00:00",
+  "observedAt": "2026-10-31T17:03:36.558427+00:00",
   "checks": {
     "nodeTest": "13 passed; 0 failed; 0 skipped",
     "syntax": "4 tools parsed",
     "diffCheck": "passed",
-    "history": "635 first-parent commits; 19 changed judgments; final implementation"
+    "history": "635 first-parent commits; 18 changed judgments; final npm-aware implementation"
   },
   "sources": [
     {
       "path": "tools/release-copy-rules.mjs",
-      "sha256": "4d9e161dc8e33ccb1075f971abad34bf90473f377aa755835b3dce738ac89347"
+      "sha256": "a8e8b5ee216adab500d9b5f5d48690b2ec2b60781dd76aa73c51fd742aa89b2a"
     },
     {
       "path": "tools/release-copy-git-sources.mjs",
-      "sha256": "9e00811f0868ba2accc2b5eebad8b31cf321b9e754fc2e8ec0f877800fe63048"
+      "sha256": "471fa7ce33e3916fb9716d9cc8f704288b9faf934b8c6f09064be36d36cdf75d"
     },
     {
       "path": "tools/release-scope-plan.mjs",
@@ -25,15 +25,15 @@
     },
     {
       "path": "tests/release-scope-plan.test.mjs",
-      "sha256": "1e063d3214ef8e038b71f0b2282f5d6467f9642fe2c36de810a7e09d6c581171"
+      "sha256": "129a9ccec44368928a2d96b7842989c33164ffcb4f78302b6a456ccee2334f00"
     },
     {
       "path": "docs/release-scope-copy-lists-20261101/compare-history.mjs",
-      "sha256": "e4fcabc2be6e99605fbc2d1413fb4cd173a04ff3b52c1fb65cddebf0e25d4731"
+      "sha256": "e57c8444987cf7d45e1e3c0f4725adf3256ba80f438f94efb20bc1abc6bea16b"
     }
   ],
   "testLog": {
     "path": "D:/codex-artifacts/release-optimization-20261101/scope-tests.txt",
-    "sha256": "5e6cdf6e175966e9526a8c22ef5c7dbdaf32532c045d159dcbf09bb228322d9e"
+    "sha256": "136df52149d67352379af027994c28d557eea30f199d0f5d69a52646f1910a57"
   }
 }

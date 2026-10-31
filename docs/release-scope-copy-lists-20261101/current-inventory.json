@@ -333,6 +333,8 @@
     "tools/build-worker-helper.mjs",
     "tools/collect-d1-retirement-proof.mjs",
     "tools/d1-retirement-proof.mjs",
+    "tools/install-workerd-heap-patch.mjs",
+    "tools/install-wrangler-inspector-patch.mjs",
     "tools/jackyun-api-export.ts",
     "tools/jackyun-automation-runner.ts",
     "tools/jackyun-browser-controller.ts",
@@ -659,6 +661,10 @@
     "tools/tmall-warehouse-export.ts",
     "tools/tmall-warehouse-n8n-pipeline.ts",
     "tools/tmall-yijiu-direct-pm-contract.ts"
+  ],
+  "buildFiles": [
+    "tools/install-workerd-heap-patch.mjs",
+    "tools/install-wrangler-inspector-patch.mjs"
   ],
   "snapshotConsumers": [
     "app/api/imports/sales/route.ts",

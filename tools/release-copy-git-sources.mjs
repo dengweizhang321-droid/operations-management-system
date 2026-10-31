@@ -3,7 +3,7 @@ import {execFileSync} from 'node:child_process';
 // Batched read-only Git object adapter. Never checks out or imports a producer.
 export function readCopyRuleGitSources(sha,cwd,{objectCache=new Map()}={}){
   const options={cwd,windowsHide:true,maxBuffer:128*1024*1024,stdio:['pipe','pipe','pipe']};
-  const rows=execFileSync('git',['ls-tree','-r','-z',sha,'--','tools','lib','config','app'],{...options,encoding:'utf8'}).split('\0').filter(Boolean);
+  const rows=execFileSync('git',['ls-tree','-r','-z',sha,'--','tools','lib','config','app','package.json'],{...options,encoding:'utf8'}).split('\0').filter(Boolean);
   const entries=rows.map(row=>{const [header,p]=row.split('\t');return {oid:header.split(' ')[2],p};}).filter(({p})=>/\.(?:[cm]?[jt]sx?|ps1|json|sql)$/.test(p));
   const unique=[...new Set(entries.map(x=>x.oid))].filter(oid=>!objectCache.has(oid));
   const bytes=unique.length?execFileSync('git',['cat-file','--batch'],{...options,input:unique.join('\n')+'\n'}):Buffer.alloc(0);

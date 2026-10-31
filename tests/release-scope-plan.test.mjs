@@ -49,6 +49,10 @@ test('actual producer inventory distinguishes runtime from archive; unknown copy
   assert.ok(rules.helperFiles.includes('tools/tmall-sycm-cookie-pipeline.ts'));
   assert.ok(rules.helperFiles.includes('lib/jackyun/json-file.ts'));
   assert.ok(rules.helperFiles.includes('tools/jackyun-json-publish.ps1'));
+  assert.deepEqual(copiedComponents('tools/install-workerd-heap-patch.mjs',rules).components,['worker']);
+  assert.deepEqual(copiedComponents('tools/install-wrangler-inspector-patch.mjs',rules).components,['worker']);
+  const dynamicHook={...sources,'package.json':JSON.stringify({scripts:{postinstall:'node '+process.env.UNKNOWN_HOOK}})};
+  assert.equal(extractCopyRules(dynamicHook,read).known,false);
   assert.ok(rules.controlFiles.includes('tools/frozen-main-source.mjs'));
   for(const [p,expected] of [['tools/jackyun-api-export.ts',['worker']],['tools/sqlite-consistent-backup.py',['django']],['tools/sales-d1-retirement.ts',['worker','django']],['tools/check_schema_code_digest.py',[]]]){
     assert.deepEqual(classifyRelease([{status:'D',path:p}],{copyRules:rules}).components,expected);

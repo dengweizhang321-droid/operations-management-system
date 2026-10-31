@@ -14,7 +14,7 @@ const old=await import(`data:text/javascript;base64,${Buffer.from(offlineOld).to
 const cache=new Map();
 const objectCache=new Map();
 const sourcesAt=sha=>{
-  const key=git(['ls-tree',sha,'--','tools','lib','config','app']).trim();
+  const key=git(['ls-tree',sha,'--','tools','lib','config','app','package.json']).trim();
   if(!cache.has(key)){
     // Source blobs are immutable Git objects. Limit this offline reuse to64 MB
     // of UTF-16 text; never cache runtime state or qualification results.

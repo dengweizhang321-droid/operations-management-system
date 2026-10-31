@@ -1,5 +1,5 @@
 import path from 'node:path';
-export const copyRuleSourcePaths=Object.freeze(['tools/django-local-service.ps1','tools/worker-local-release.mjs','tools/build-worker-helper.mjs','tools/collect-d1-retirement-proof.mjs']);
+export const copyRuleSourcePaths=Object.freeze(['tools/django-local-service.ps1','tools/worker-local-release.mjs','tools/build-worker-helper.mjs','tools/collect-d1-retirement-proof.mjs','package.json']);
 const normalized=s=>s.replace(/^\uFEFF/,'').replaceAll('\r\n','\n');
 function literalArray(source,name,cache={}){
   if(cache[name])return cache[name];
@@ -68,9 +68,10 @@ export function extractCopyRules(sources,readSource=p=>sources[p]){
   const resourceFiles=[...resourceBlock.matchAll(resourcePattern)].map(m=>m[1]);
   if(!resourceFiles.length||resourceBlock.replace(resourcePattern,'').replace(/[\s,]/g,''))throw Error('dynamic helper resource array');
   for(const p of resourceFiles)if(typeof readSource(p)!=='string')throw Error(`missing helper resource: ${p}`);
-  const helperFiles=new Set(resourceFiles),pending=[JSON.parse(entry[1])];
+  const moduleClosure=roots=>{
+  const files=new Set(),pending=[...roots];
   while(pending.length){
-    const p=pending.pop();if(helperFiles.has(p))continue;helperFiles.add(p);
+    const p=pending.pop();if(files.has(p))continue;files.add(p);
     const source=readSource(p);if(typeof source!=='string')throw Error(`missing helper dependency: ${p}`);
     // Imports are conservatively scanned even inside comments. Extra matches
     // over-include or fail closed; no source is evaluated or compiled.
@@ -87,6 +88,18 @@ export function extractCopyRules(sources,readSource=p=>sources[p]){
       if(!resolved)throw Error(`unresolved helper import: ${p}:${spec}`);pending.push(resolved);
     }
   }
+  return files;
+  };
+  const helperFiles=new Set([...resourceFiles,...moduleClosure([JSON.parse(entry[1])])]);
+  // npm ci explicitly enables lifecycle scripts. Their repository entrypoints
+  // are build inputs even though they are not copied as runtime top-level tools.
+  const packageJson=JSON.parse(sources['package.json']),hookRoots=[];
+  for(const name of ['preinstall','install','postinstall','prepublish','preprepare','prepare','postprepare']){
+    const command=packageJson.scripts?.[name];if(command===undefined)continue;
+    const hook=/^node (tools\/[A-Za-z0-9_./-]+\.(?:mjs|js))$/.exec(command);
+    if(!hook)throw Error(`dynamic npm lifecycle command: ${name}`);hookRoots.push(hook[1]);
+  }
+  const buildFiles=[...moduleClosure(hookRoots)].sort();
   // Snapshot semantic consumers: retirement verifier and fresh proof collector.
   const snapshot=[...worker.matchAll(/["']((?:tools|lib|app|drizzle)\/[^"'\n]+\.(?:ts|mjs|sql))["']/g)].map(m=>m[1]);
   const migrations=literalArray(normalized(sources[copyRuleSourcePaths[3]]),'retirementMigrations').map(p=>`drizzle/${p}`);
@@ -109,7 +122,7 @@ export function extractCopyRules(sources,readSource=p=>sources[p]){
       if(target.startsWith('tools/'))controlQueue.push(target);
     }
   }
-  return {known:true,djangoFiles,workerFiles:[...new Set([...runtime,...helperFiles,...snapshot,...migrations,'tools/build-worker-helper.mjs'])].sort(),controlFiles:[...controlFiles].sort(),runtimeFiles:runtime,helperFiles:[...helperFiles].sort(),snapshotConsumers:[...new Set([...snapshot,...migrations])].sort(),archiveOnlySnapshotExcluded:true};
+  return {known:true,djangoFiles,workerFiles:[...new Set([...runtime,...helperFiles,...buildFiles,...snapshot,...migrations,'tools/build-worker-helper.mjs'])].sort(),controlFiles:[...controlFiles].sort(),runtimeFiles:runtime,helperFiles:[...helperFiles].sort(),buildFiles,snapshotConsumers:[...new Set([...snapshot,...migrations])].sort(),archiveOnlySnapshotExcluded:true};
  }catch(error){return {known:false,reason:error.message};}
 }
 

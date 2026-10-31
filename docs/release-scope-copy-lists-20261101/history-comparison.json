@@ -5,7 +5,7 @@
   "traversal": "first-parent",
   "diff": "each first parent to commit; merges include complete net branch diff",
   "count": 635,
-  "changed": 19,
+  "changed": 18,
   "rows": [
     {
       "base": "03f6e474d0fcdfb3328485dad5d1719f4d8f1080",
@@ -585,6 +585,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -911,6 +913,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -1319,6 +1325,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -1645,6 +1653,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -2226,6 +2238,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -2552,6 +2566,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -2960,6 +2978,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -3286,6 +3306,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -4136,6 +4160,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -4462,6 +4488,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -4870,6 +4900,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -5196,6 +5228,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -5997,6 +6033,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -6323,6 +6361,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -6727,6 +6769,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -7053,6 +7097,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -7870,6 +7918,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -8195,6 +8245,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -8599,6 +8653,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -8925,6 +8981,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -9455,6 +9515,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -9780,6 +9842,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -10183,6 +10249,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -10508,6 +10576,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -11220,6 +11292,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -11545,6 +11619,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -11948,6 +12026,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -12273,6 +12353,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -13546,6 +13630,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -13871,6 +13957,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -14274,6 +14364,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -14599,6 +14691,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -15147,6 +15243,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -15472,6 +15570,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -15875,6 +15977,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -16200,6 +16304,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -16754,6 +16862,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -17079,6 +17189,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -17482,6 +17596,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -17807,6 +17923,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -18337,6 +18457,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -18662,6 +18784,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -19065,6 +19191,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -19390,6 +19518,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -19914,6 +20046,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -20239,6 +20373,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -20642,6 +20780,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -20967,6 +21107,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -21497,6 +21641,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -21822,6 +21968,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -22225,6 +22375,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -22550,6 +22702,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -23092,6 +23248,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -23417,6 +23575,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -23820,6 +23982,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -24145,6 +24309,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -24788,6 +24956,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -25113,6 +25283,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -25516,6 +25690,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -25841,6 +26017,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -26410,6 +26590,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -26735,6 +26917,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -27138,6 +27324,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -27463,6 +27651,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -28198,6 +28390,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -28523,6 +28717,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -28926,6 +29124,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -29251,6 +29451,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -29951,6 +30155,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -30276,6 +30482,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -30679,6 +30889,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -31004,6 +31216,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -31644,6 +31860,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -31969,6 +32187,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -32372,6 +32594,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -32697,6 +32921,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -33544,6 +33772,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -33869,6 +34099,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -34272,6 +34506,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -34597,6 +34833,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -35696,6 +35936,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -36002,6 +36244,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -36405,6 +36651,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -36730,6 +36978,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -37670,6 +37922,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -37976,6 +38230,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -38379,6 +38637,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -38685,6 +38945,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -39697,6 +39961,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -40003,6 +40269,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -40406,6 +40676,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -40712,6 +40984,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -41250,6 +41526,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -41556,6 +41834,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -41959,6 +42241,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -42265,6 +42549,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -42910,6 +43198,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -43216,6 +43506,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -43619,6 +43913,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -43925,6 +44221,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -44602,6 +44902,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -44903,6 +45205,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -45306,6 +45612,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -45612,6 +45920,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -46379,6 +46691,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -46680,6 +46994,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -47078,6 +47396,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -47379,6 +47699,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -48778,6 +49102,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -49079,6 +49405,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -49474,6 +49804,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -49775,6 +50107,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -58827,21 +59163,26 @@
       "next": {
         "scope": "full",
         "components": [
-          "worker"
+          "worker",
+          "django"
         ],
         "migrate": false,
-        "databaseProtection": "not-required",
+        "databaseProtection": "verified-current",
         "businessDataProcessing": "separate-authorization-required",
         "validation": [
           "git-diff-check",
           "worker-affected-tests",
+          "django-affected-tests",
           "affected-integration-tests"
         ],
         "packaging": [
-          "prepare-worker-immutable-release"
+          "prepare-worker-immutable-release",
+          "prepare-django-app"
         ],
         "deployment": [
+          "verify-current-database-backup",
           "activate-worker-release",
+          "deploy-django-app",
           "verify-startup",
           "verify-affected-function"
         ],
@@ -58852,6 +59193,7 @@
             "actions": [
               "git-diff-check",
               "worker-affected-tests",
+              "django-affected-tests",
               "affected-integration-tests"
             ]
           },
@@ -58861,29 +59203,34 @@
             "actions": [
               "merge-main",
               "push-main",
-              "prepare-worker-immutable-release"
+              "prepare-worker-immutable-release",
+              "prepare-django-app"
             ]
           },
           {
             "step": 6,
             "id": "publish",
             "actions": [
+              "verify-current-database-backup",
               "activate-worker-release",
+              "deploy-django-app",
               "verify-startup",
               "verify-affected-function"
             ]
           }
         ],
         "domains": [],
-        "unknown": [],
+        "unknown": [
+          "tools/install-xlsx-prototype-patch.mjs"
+        ],
         "reasons": [
           "CI:.github/workflows/ci-unit-test-files.txt",
           "前端依赖/构建配置:package.json",
           "测试:tests/xlsx-prototype-patch.test.ts",
-          "应用复制清单[neither]:tools/install-xlsx-prototype-patch.mjs:explicit application copy inventory"
+          "发布控制或未知复制规则:tools/install-xlsx-prototype-patch.mjs:dynamic npm lifecycle command: postinstall"
         ]
       },
-      "changed": true,
+      "changed": false,
       "copyRuleEvidence": {
         "before": {
           "known": true,
@@ -59207,6 +59554,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -59508,6 +59857,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -59582,700 +59935,8 @@
           "archiveOnlySnapshotExcluded": true
         },
         "after": {
-          "known": true,
-          "djangoFiles": [
-            "tools/sales-d1-retirement.ts",
-            "tools/sales-d1-write-authority.ts",
-            "tools/sales-legacy-r2-cleanup.ts",
-            "tools/sales-local-cutover.ts",
-            "tools/sales-local-cutover-operator.ps1",
-            "tools/sales-local-cutover-rehearsal.ps1",
-            "tools/sales-cutover-snapshot-gate.py",
-            "tools/worker-local-release.mjs",
-            "tools/sqlite-consistent-backup.py",
-            "tools/sales-local-cutover-backup.ps1",
-            "tools/sales-local-cutover-backup-prune.ps1",
-            "tools/django-finance-cutover.ps1",
-            "tools/django-runtime-supervisor.ps1",
-            "tools/django-netshop-service.ps1",
-            "tools/django-market-service.ps1",
-            "tools/django-products-service.ps1",
-            "tools/django-workflow-service.ps1",
-            "tools/django-workflow-cutover.ps1",
-            "tools/django-workflow-operations-cutover.ps1",
-            "tools/workflow-operations-production-smoke.ps1",
-            "tools/workflow-operations-consumer-smoke.ts",
-            "tools/workflow-operations-d1-rejection-smoke.py",
-            "tools/django-inventory-service.ps1",
-            "tools/django-customer-service.ps1",
-            "tools/django-access-control.ps1",
-            "tools/django-ai.ps1",
-            "tools/django-ai-cutover.ps1",
-            "tools/ai-domain-snapshot.py",
-            "tools/django-access-control-cutover.ps1",
-            "tools/django-erp-reference.ps1",
-            "tools/django-bi-service.ps1",
-            "tools/django-customer-service-cutover.ps1",
-            "tools/django-erp-reference-cutover.ps1",
-            "tools/customer-service-production-smoke.ps1",
-            "tools/customer-service-consumer-smoke.ts",
-            "tools/customer-service-d1-rejection-smoke.py",
-            "tools/customer-service-r2-retirement-evidence.py",
-            "tools/erp-reference-production-smoke.ps1",
-            "tools/erp-reference-consumer-smoke.ts",
-            "tools/erp-reference-d1-rejection-smoke.py",
-            "tools/erp-reference-r2-retirement-evidence.py",
-            "tools/erp-reference-d1-snapshot.py",
-            "tools/django-inventory-cutover.ps1",
-            "tools/django-postgres-maintenance.ps1",
-            "tools/postgres-backup-retention.ps1",
-            "tools/postgres-backup-continuity.ps1",
-            "tools/release-payload-retention.ps1",
-            "tools/release-payload-retention.mjs",
-            "tools/worker-local-release-rotation.mjs",
-            "tools/d1-retirement-proof.mjs",
-            "tools/finance-d1-authority-install.py",
-            "tools/finance_d1_rehearsal_snapshot.py",
-            "tools/workflow-d1-authority-install.py",
-            "tools/workflow-d1-snapshot.py",
-            "tools/workflow-launch-r2-retirement-evidence.py",
-            "tools/workflow-operations-d1-authority-install.py",
-            "tools/workflow-operations-d1-snapshot.py",
-            "tools/inventory-d1-authority-install.py",
-            "tools/inventory-r2-retirement-evidence.py",
-            "tools/customer-service-d1-authority-install.py",
-            "tools/erp-reference-d1-authority-install.py",
-            "tools/customer-service-d1-snapshot.py",
-            "tools/postgres-consistent-backup.py",
-            "tools/postgres_no_key_backup.py",
-            "tools/protected_ai_shadow_evidence_0073.py",
-            "tools/postgres_restore_semantics.py",
-            "tools/integration_release_gate.py",
-            "tools/bi_app_addition.py",
-            "tools/jackyun_audit_addition.py",
-            "tools/jackyun_audit_catalog.py",
-            "tools/pi_native_addition.py",
-            "tools/pi_native_catalog.py",
-            "tools/pi_native_candidate.py",
-            "tools/pi_business_addition.py",
-            "tools/pi_business_catalog.py",
-            "tools/pi_business_candidate.py",
-            "tools/pi_workspace_addition.py",
-            "tools/pi_workspace_catalog.py",
-            "tools/pi_workspace_catalog.json",
-            "tools/pi_workspace_candidate.py",
-            "tools/pi_agent_upgrade_runtime.py",
-            "tools/pi_agent_upgrade_status.py",
-            "tools/pi_agent_addition.py",
-            "tools/pi_agent_catalog.py",
-            "tools/pi_agent_catalog.json",
-            "tools/pi_agent_candidate.py",
-            "tools/pi_agent_prepare_runtime.py",
-            "tools/tmall_warehouse_addition.py",
-            "tools/tmall_warehouse_catalog.py",
-            "tools/tmall_warehouse_catalog.json",
-            "tools/tmall_warehouse_candidate.py",
-            "tools/main-schema-release.mjs",
-            "tools/publish-prepared-main.mjs",
-            "tools/publish-main-step.mjs",
-            "tools/publish-main-pi-reconciliation.mjs",
-            "tools/publish-main-owner.mjs",
-            "tools/publish-main-tail.mjs",
-            "tools/main-prebuild-task.mjs",
-            "tools/publish-main-command.mjs",
-            "tools/manual-maintenance-start.ps1",
-            "tools/manual-maintenance-lock.psm1",
-            "tools/manual-maintenance-continuation.mjs",
-            "tools/manual-maintenance-continuation.ps1",
-            "tools/manual-maintenance-process.psm1",
-            "tools/manual-maintenance-preflight.ps1",
-            "tools/frozen-main-source.mjs",
-            "tools/pi150-failed-start-recovery.ps1",
-            "tools/jd_product_monitoring_addition.py",
-            "tools/jd_product_monitoring_catalog.py",
-            "tools/jd_monitor_preferences_addition.py",
-            "tools/jd_monitor_preferences_catalog.py",
-            "tools/jd_monitor_preferences_catalog.json",
-            "tools/jd_logistics_addition.py",
-            "tools/jd_logistics_catalog.py",
-            "tools/jd_logistics_catalog.json",
-            "tools/ai_schedule_addition.py",
-            "tools/ai_schedule_addition_catalog.py",
-            "tools/ai_schedule_addition_rehearsal.py",
-            "tools/ai_schedule_addition_private.py",
-            "tools/bi-app-adopt.ps1",
-            "tools/integration_migration_plan.py",
-            "tools/integration_migration_journal.py",
-            "tools/django-integration-install.ps1",
-            "config/integration-migration-policy-v3.json",
-            "config/integration-migration-policy-v4-netshop-presence.json",
-            "config/jd-logistics-notifications.json",
-            "config/tmall-store-accounts.json",
-            "automation/n8n/pi-business/tmall-yijiu-pi-business.candidate.workflow.json",
-            "automation/n8n/pi-business/tmall-lili-pi-business.candidate.workflow.json",
-            "automation/n8n/pi-business/tmall-tuofeng-pi-business.candidate.workflow.json",
-            "automation/n8n/pi-business/tmall-yiyong-pi-business.candidate.workflow.json",
-            "automation/n8n/pi-business/tmall-cuizhiwang-pi-business.candidate.workflow.json",
-            "automation/n8n/pi-business/tmall-masitu-pi-business.candidate.workflow.json",
-            "drizzle/0090_sales_write_authority.sql",
-            "drizzle/0091_erp_reference_projection.sql",
-            "drizzle/0092_sales_domain_retirement.sql",
-            "drizzle/0093_finance_write_authority.sql",
-            "drizzle/0094_netshop_write_authority.sql",
-            "drizzle/0095_market_netshop_projection.sql",
-            "drizzle/0096_netshop_domain_retirement.sql",
-            "drizzle/0097_market_write_authority.sql",
-            "drizzle/0098_market_domain_retirement.sql",
-            "drizzle/0099_product_write_authority.sql",
-            "drizzle/0100_product_domain_retirement.sql",
-            "drizzle/0101_inventory_write_authority.sql",
-            "drizzle/0109_erp_reference_write_authority.sql",
-            "drizzle/0110_erp_reference_domain_retirement.sql",
-            "drizzle/0111_access_control_write_authority.sql",
-            "drizzle/0112_access_control_domain_retirement.sql",
-            "drizzle/0113_ai_write_authority.sql",
-            "drizzle/0114_ai_domain_retirement.sql",
-            "drizzle/0102_inventory_domain_retirement.sql",
-            "drizzle/0103_workflow_launch_write_authority.sql",
-            "drizzle/0104_workflow_launch_domain_retirement.sql",
-            "drizzle/0105_workflow_operations_write_authority.sql",
-            "drizzle/0106_workflow_operations_domain_retirement.sql",
-            "drizzle/0107_customer_service_write_authority.sql",
-            "drizzle/0108_customer_service_domain_retirement.sql",
-            "tools/django-local-service.ps1",
-            "config/dingtalk-replenishment.json",
-            "config/inventory-warehouse-mapping.json"
-          ],
-          "workerFiles": [
-            ".runtime/worker-release-activation-fence.json",
-            "app/api/imports/sales/route.ts",
-            "app/api/imports/sales/verify/route.ts",
-            "app/api/sales/category-analysis/detail/route.ts",
-            "app/api/sales/category-analysis/route.ts",
-            "app/api/sales/summary/route.ts",
-            "app/chatgpt-auth.ts",
-            "config/jackyun-api-templates.json",
-            "config/jd-store-accounts.json",
-            "config/sales-import-policy.json",
-            "config/tmall-store-accounts.json",
-            "dist/server/index.js",
-            "dist/server/wrangler.json",
-            "drizzle/0092_sales_domain_retirement.sql",
-            "drizzle/0093_finance_write_authority.sql",
-            "drizzle/0096_netshop_domain_retirement.sql",
-            "drizzle/0098_market_domain_retirement.sql",
-            "drizzle/0100_product_domain_retirement.sql",
-            "drizzle/0102_inventory_domain_retirement.sql",
-            "drizzle/0104_workflow_launch_domain_retirement.sql",
-            "drizzle/0106_workflow_operations_domain_retirement.sql",
-            "drizzle/0108_customer_service_domain_retirement.sql",
-            "drizzle/0110_erp_reference_domain_retirement.sql",
-            "drizzle/0112_access_control_domain_retirement.sql",
-            "drizzle/0114_ai_domain_retirement.sql",
-            "helper/tmall-workflow-helper.mjs",
-            "lib/ai/bounded-fetch.ts",
-            "lib/ai/deadline-timer.ts",
-            "lib/auth/authorization.ts",
-            "lib/auth/local-direct-access.ts",
-            "lib/customer-service/import-service.ts",
-            "lib/django/access-control-service.ts",
-            "lib/django/sales-consumer-reader.ts",
-            "lib/django/sales-gateway.ts",
-            "lib/http/api-error.ts",
-            "lib/imports/content-fingerprint.ts",
-            "lib/imports/sales-ledger.ts",
-            "lib/imports/xlsx-write.ts",
-            "lib/imports/xlsx.ts",
-            "lib/inventory/jd-logistics-contract.ts",
-            "lib/inventory/jd-logistics-workbook.ts",
-            "lib/inventory/tmall-warehouse-contract.ts",
-            "lib/inventory/tmall-warehouse-workbook.ts",
-            "lib/jackyun/api-clock.ts",
-            "lib/jackyun/api-execution-resume.ts",
-            "lib/jackyun/api-plan.ts",
-            "lib/jackyun/automatic-api-resume.ts",
-            "lib/jackyun/automatic-preflight-recovery.ts",
-            "lib/jackyun/browser-state-machine.ts",
-            "lib/jackyun/capture-retirement.ts",
-            "lib/jackyun/cdp-client.ts",
-            "lib/jackyun/combo-name-recovery.ts",
-            "lib/jackyun/credential-health.ts",
-            "lib/jackyun/direct-export.ts",
-            "lib/jackyun/direct-http.ts",
-            "lib/jackyun/django-import-receipt.ts",
-            "lib/jackyun/download-failure.ts",
-            "lib/jackyun/download-provenance.ts",
-            "lib/jackyun/dpapi-login.ts",
-            "lib/jackyun/dpapi-program.ts",
-            "lib/jackyun/execution-resume.ts",
-            "lib/jackyun/export-task.ts",
-            "lib/jackyun/fresh-restart.ts",
-            "lib/jackyun/http-scope-recovery.ts",
-            "lib/jackyun/human-retry.ts",
-            "lib/jackyun/import-coordination.ts",
-            "lib/jackyun/import-recovery.ts",
-            "lib/jackyun/json-file.ts",
-            "lib/jackyun/n8n-preflight-decode.ts",
-            "lib/jackyun/n8n-preflight-evidence.ts",
-            "lib/jackyun/n8n-retry-context.ts",
-            "lib/jackyun/oss-download.ts",
-            "lib/jackyun/ownership-context.ts",
-            "lib/jackyun/partial-import-recovery.ts",
-            "lib/jackyun/plan-only-recovery.ts",
-            "lib/jackyun/playwright-client.ts",
-            "lib/jackyun/post-download.ts",
-            "lib/jackyun/preflight-failure.ts",
-            "lib/jackyun/preflight-recovery.ts",
-            "lib/jackyun/publication-baseline.ts",
-            "lib/jackyun/recovery-control.ts",
-            "lib/jackyun/recovery-policy.ts",
-            "lib/jackyun/recovery-wait.ts",
-            "lib/jackyun/retry-budget.ts",
-            "lib/jackyun/retry-dispatch-reservation.ts",
-            "lib/jackyun/run-artifact-verification.ts",
-            "lib/jackyun/run-contract.ts",
-            "lib/jackyun/run-lock.ts",
-            "lib/jackyun/sales-period.ts",
-            "lib/jackyun/validation-recovery.ts",
-            "lib/jackyun/web-session-export.ts",
-            "lib/jackyun/web-session-recovery.ts",
-            "lib/jackyun/windows-dpapi.ts",
-            "lib/jd/browser-mode.ts",
-            "lib/jd/calendar-range-selection.ts",
-            "lib/jd/chromium-run-lock.ts",
-            "lib/jd/customer-service-stores.ts",
-            "lib/jd/customer-service-workflow.ts",
-            "lib/jd/date-range.ts",
-            "lib/jd/logistics-manifest.ts",
-            "lib/jd/logistics-policy.ts",
-            "lib/jd/logistics-source-tasks.ts",
-            "lib/jd/market-ranking-import-contract.ts",
-            "lib/jd/product-detail-selection.ts",
-            "lib/jd/product-detail-store-identity.ts",
-            "lib/jd/promotion-report.ts",
-            "lib/jd/store-registry.ts",
-            "lib/market/annotation-schema.ts",
-            "lib/market/cache-payload-validators.ts",
-            "lib/market/database.ts",
-            "lib/market/default-taxonomy.ts",
-            "lib/market/gmv-estimation.ts",
-            "lib/market/gmv-total.ts",
-            "lib/market/import-core.ts",
-            "lib/market/import-identity.ts",
-            "lib/market/industry-report.ts",
-            "lib/market/master-identity.ts",
-            "lib/market/monthly-summary-cache.ts",
-            "lib/market/overview-response-cache.ts",
-            "lib/market/overview-sql.ts",
-            "lib/market/parser.ts",
-            "lib/market/ranking-price-presentation.ts",
-            "lib/market/schema-core.ts",
-            "lib/market/subcategory-taxonomy.ts",
-            "lib/netshop/batch-identity.ts",
-            "lib/netshop/daily-contract.ts",
-            "lib/netshop/daily-row-migration.ts",
-            "lib/netshop/database.ts",
-            "lib/netshop/import-batch-list-query.ts",
-            "lib/netshop/normalized-import.ts",
-            "lib/netshop/product-image-assets.ts",
-            "lib/netshop/promotion-aggregate.ts",
-            "lib/netshop/promotion-query.ts",
-            "lib/netshop/query-contract.ts",
-            "lib/netshop/sales-periods-contract.ts",
-            "lib/netshop/sales-shop-aliases.ts",
-            "lib/netshop/tmall-direct-daily-policy.ts",
-            "lib/netshop/tmall-store-catalog.ts",
-            "lib/netshop/tmall-store-registry.ts",
-            "lib/sales/category-analysis.ts",
-            "lib/sales/category-resolution.ts",
-            "lib/sales/chunked-upload.ts",
-            "lib/sales/database.ts",
-            "lib/sales/import-service.ts",
-            "lib/sales/overview-cache-schema.ts",
-            "lib/sales/overview-response-cache.ts",
-            "lib/sales/period.ts",
-            "lib/sales/product-query.ts",
-            "lib/sales/summary.ts",
-            "lib/tmall-warehouse/policy.ts",
-            "package-lock.json",
-            "package.json",
-            "tools/automation-drain.ts",
-            "tools/build-worker-helper.mjs",
-            "tools/collect-d1-retirement-proof.mjs",
-            "tools/d1-retirement-proof.mjs",
-            "tools/jackyun-api-export.ts",
-            "tools/jackyun-automation-runner.ts",
-            "tools/jackyun-browser-controller.ts",
-            "tools/jackyun-daily-runner.ts",
-            "tools/jackyun-download-runner.ts",
-            "tools/jackyun-export-first-pipeline.ts",
-            "tools/jackyun-json-publish.ps1",
-            "tools/jackyun-n8n-pipeline.ts",
-            "tools/jd-credential-vault.ps1",
-            "tools/jd-customer-service-daily-files.ts",
-            "tools/jd-customer-service-duration-normalization.ts",
-            "tools/jd-customer-service-export.ts",
-            "tools/jd-customer-service-failure-closure.ts",
-            "tools/jd-customer-service-import.ts",
-            "tools/jd-customer-service-n8n-pipeline.ts",
-            "tools/jd-customer-service-source-recovery.ts",
-            "tools/jd-logistics-export.ts",
-            "tools/jd-logistics-n8n-pipeline.ts",
-            "tools/jd-logistics-session.ts",
-            "tools/jd-market-ranking-daily.ts",
-            "tools/jd-multi-store-runner.ts",
-            "tools/jd-n8n-pipeline.ts",
-            "tools/jd-promotion-export.ts",
-            "tools/jd-promotion-n8n-pipeline.ts",
-            "tools/jd-saved-login.ts",
-            "tools/jd-secure-credential.ts",
-            "tools/n8n-hourly-retry-policy.mjs",
-            "tools/operations-system-control.ps1",
-            "tools/pi-business-n8n-gate.ts",
-            "tools/process-deadline.ps1",
-            "tools/release-admission-timing.mjs",
-            "tools/release-batch-admission.mjs",
-            "tools/release-batch.mjs",
-            "tools/release-daily-backup.mjs",
-            "tools/release-impact.mjs",
-            "tools/release-lifecycle-step.ps1",
-            "tools/release-no-data-observation.mjs",
-            "tools/release-preparation-evidence.mjs",
-            "tools/release-readonly-retry.mjs",
-            "tools/sales-d1-retirement.ts",
-            "tools/sales-import-runner.ts",
-            "tools/start-local-worker.mjs",
-            "tools/tmall-alimama-login.ts",
-            "tools/tmall-credential-vault.ps1",
-            "tools/tmall-daily-backfill.ts",
-            "tools/tmall-daily-gap-plan.ts",
-            "tools/tmall-direct-product-master-export.ts",
-            "tools/tmall-direct-promotion-export.ts",
-            "tools/tmall-download-receipt.ts",
-            "tools/tmall-import-verification.ts",
-            "tools/tmall-isolated-helper.ts",
-            "tools/tmall-multi-store-import-runner.ts",
-            "tools/tmall-pagewise-product-master-export.ts",
-            "tools/tmall-product-master-cadence.ts",
-            "tools/tmall-product-master-export.ts",
-            "tools/tmall-promotion-export.ts",
-            "tools/tmall-saved-login.ts",
-            "tools/tmall-secure-credential.ts",
-            "tools/tmall-sycm-cookie-pipeline.ts",
-            "tools/tmall-warehouse-export.ts",
-            "tools/tmall-warehouse-n8n-pipeline.ts",
-            "tools/tmall-yijiu-direct-pm-contract.ts",
-            "tools/worker-authority-guard.mjs",
-            "tools/worker-local-release-rotation.mjs",
-            "tools/worker-local-release.mjs",
-            "tools/worker-local-runtime-supervisor.mjs",
-            "tools/worker-local-service.ps1",
-            "运行项目.bat"
-          ],
-          "controlFiles": [
-            "tools/collect-d1-retirement-proof.mjs",
-            "tools/d1-retirement-proof.mjs",
-            "tools/frozen-main-source.mjs",
-            "tools/main-control-dispatch.mjs",
-            "tools/main-prebuild-queue.mjs",
-            "tools/main-prebuild-task.mjs",
-            "tools/main-schema-release.mjs",
-            "tools/manual-maintenance-continuation.mjs",
-            "tools/preparation-producer-qualification.mjs",
-            "tools/preparation-resolution-history.mjs",
-            "tools/preparation-resolution.mjs",
-            "tools/publish-latest-main.mjs",
-            "tools/publish-main-command.mjs",
-            "tools/publish-main-known-resume.mjs",
-            "tools/publish-main-owner.mjs",
-            "tools/publish-main-pi-reconciliation.mjs",
-            "tools/publish-main-progress.mjs",
-            "tools/publish-main-step.mjs",
-            "tools/publish-main-tail.mjs",
-            "tools/publish-main.mjs",
-            "tools/publish-prepared-main.mjs",
-            "tools/release-admission-timing.mjs",
-            "tools/release-batch-admission.mjs",
-            "tools/release-batch.mjs",
-            "tools/release-daily-backup.mjs",
-            "tools/release-impact.mjs",
-            "tools/release-no-data-observation.mjs",
-            "tools/release-preparation-evidence.mjs",
-            "tools/release-readonly-retry.mjs",
-            "tools/release-scope-plan.mjs",
-            "tools/worker-local-release-rotation.mjs",
-            "tools/worker-local-release.mjs"
-          ],
-          "runtimeFiles": [
-            "package.json",
-            "运行项目.bat",
-            "tools/operations-system-control.ps1",
-            "tools/start-local-worker.mjs",
-            "tools/worker-authority-guard.mjs",
-            "tools/d1-retirement-proof.mjs",
-            "tools/collect-d1-retirement-proof.mjs",
-            "tools/worker-local-release.mjs",
-            "tools/worker-local-release-rotation.mjs",
-            "tools/worker-local-service.ps1",
-            ".runtime/worker-release-activation-fence.json",
-            "tools/process-deadline.ps1",
-            "package-lock.json",
-            "tools/worker-local-runtime-supervisor.mjs",
-            "tools/release-batch.mjs",
-            "tools/release-no-data-observation.mjs",
-            "tools/release-impact.mjs",
-            "tools/release-batch-admission.mjs",
-            "tools/release-admission-timing.mjs",
-            "tools/release-preparation-evidence.mjs",
-            "tools/release-readonly-retry.mjs",
-            "tools/release-daily-backup.mjs",
-            "tools/release-lifecycle-step.ps1",
-            "dist/server/index.js",
-            "dist/server/wrangler.json",
-            "helper/tmall-workflow-helper.mjs"
-          ],
-          "helperFiles": [
-            "app/chatgpt-auth.ts",
-            "config/jackyun-api-templates.json",
-            "config/jd-store-accounts.json",
-            "config/sales-import-policy.json",
-            "config/tmall-store-accounts.json",
-            "lib/ai/bounded-fetch.ts",
-            "lib/ai/deadline-timer.ts",
-            "lib/auth/authorization.ts",
-            "lib/auth/local-direct-access.ts",
-            "lib/customer-service/import-service.ts",
-            "lib/django/access-control-service.ts",
-            "lib/django/sales-consumer-reader.ts",
-            "lib/django/sales-gateway.ts",
-            "lib/http/api-error.ts",
-            "lib/imports/content-fingerprint.ts",
-            "lib/imports/sales-ledger.ts",
-            "lib/imports/xlsx-write.ts",
-            "lib/imports/xlsx.ts",
-            "lib/inventory/jd-logistics-contract.ts",
-            "lib/inventory/jd-logistics-workbook.ts",
-            "lib/inventory/tmall-warehouse-contract.ts",
-            "lib/inventory/tmall-warehouse-workbook.ts",
-            "lib/jackyun/api-clock.ts",
-            "lib/jackyun/api-execution-resume.ts",
-            "lib/jackyun/api-plan.ts",
-            "lib/jackyun/automatic-api-resume.ts",
-            "lib/jackyun/automatic-preflight-recovery.ts",
-            "lib/jackyun/browser-state-machine.ts",
-            "lib/jackyun/capture-retirement.ts",
-            "lib/jackyun/cdp-client.ts",
-            "lib/jackyun/combo-name-recovery.ts",
-            "lib/jackyun/credential-health.ts",
-            "lib/jackyun/direct-export.ts",
-            "lib/jackyun/direct-http.ts",
-            "lib/jackyun/django-import-receipt.ts",
-            "lib/jackyun/download-failure.ts",
-            "lib/jackyun/download-provenance.ts",
-            "lib/jackyun/dpapi-login.ts",
-            "lib/jackyun/dpapi-program.ts",
-            "lib/jackyun/execution-resume.ts",
-            "lib/jackyun/export-task.ts",
-            "lib/jackyun/fresh-restart.ts",
-            "lib/jackyun/http-scope-recovery.ts",
-            "lib/jackyun/human-retry.ts",
-            "lib/jackyun/import-coordination.ts",
-            "lib/jackyun/import-recovery.ts",
-            "lib/jackyun/json-file.ts",
-            "lib/jackyun/n8n-preflight-decode.ts",
-            "lib/jackyun/n8n-preflight-evidence.ts",
-            "lib/jackyun/n8n-retry-context.ts",
-            "lib/jackyun/oss-download.ts",
-            "lib/jackyun/ownership-context.ts",
-            "lib/jackyun/partial-import-recovery.ts",
-            "lib/jackyun/plan-only-recovery.ts",
-            "lib/jackyun/playwright-client.ts",
-            "lib/jackyun/post-download.ts",
-            "lib/jackyun/preflight-failure.ts",
-            "lib/jackyun/preflight-recovery.ts",
-            "lib/jackyun/publication-baseline.ts",
-            "lib/jackyun/recovery-control.ts",
-            "lib/jackyun/recovery-policy.ts",
-            "lib/jackyun/recovery-wait.ts",
-            "lib/jackyun/retry-budget.ts",
-            "lib/jackyun/retry-dispatch-reservation.ts",
-            "lib/jackyun/run-artifact-verification.ts",
-            "lib/jackyun/run-contract.ts",
-            "lib/jackyun/run-lock.ts",
-            "lib/jackyun/sales-period.ts",
-            "lib/jackyun/validation-recovery.ts",
-            "lib/jackyun/web-session-export.ts",
-            "lib/jackyun/web-session-recovery.ts",
-            "lib/jackyun/windows-dpapi.ts",
-            "lib/jd/browser-mode.ts",
-            "lib/jd/calendar-range-selection.ts",
-            "lib/jd/chromium-run-lock.ts",
-            "lib/jd/customer-service-stores.ts",
-            "lib/jd/customer-service-workflow.ts",
-            "lib/jd/date-range.ts",
-            "lib/jd/logistics-manifest.ts",
-            "lib/jd/logistics-policy.ts",
-            "lib/jd/logistics-source-tasks.ts",
-            "lib/jd/market-ranking-import-contract.ts",
-            "lib/jd/product-detail-selection.ts",
-            "lib/jd/product-detail-store-identity.ts",
-            "lib/jd/promotion-report.ts",
-            "lib/jd/store-registry.ts",
-            "lib/market/annotation-schema.ts",
-            "lib/market/cache-payload-validators.ts",
-            "lib/market/database.ts",
-            "lib/market/default-taxonomy.ts",
-            "lib/market/gmv-estimation.ts",
-            "lib/market/gmv-total.ts",
-            "lib/market/import-core.ts",
-            "lib/market/import-identity.ts",
-            "lib/market/industry-report.ts",
-            "lib/market/master-identity.ts",
-            "lib/market/monthly-summary-cache.ts",
-            "lib/market/overview-response-cache.ts",
-            "lib/market/overview-sql.ts",
-            "lib/market/parser.ts",
-            "lib/market/ranking-price-presentation.ts",
-            "lib/market/schema-core.ts",
-            "lib/market/subcategory-taxonomy.ts",
-            "lib/netshop/batch-identity.ts",
-            "lib/netshop/daily-contract.ts",
-            "lib/netshop/daily-row-migration.ts",
-            "lib/netshop/database.ts",
-            "lib/netshop/import-batch-list-query.ts",
-            "lib/netshop/normalized-import.ts",
-            "lib/netshop/product-image-assets.ts",
-            "lib/netshop/promotion-aggregate.ts",
-            "lib/netshop/promotion-query.ts",
-            "lib/netshop/query-contract.ts",
-            "lib/netshop/sales-periods-contract.ts",
-            "lib/netshop/sales-shop-aliases.ts",
-            "lib/netshop/tmall-direct-daily-policy.ts",
-            "lib/netshop/tmall-store-catalog.ts",
-            "lib/netshop/tmall-store-registry.ts",
-            "lib/tmall-warehouse/policy.ts",
-            "tools/automation-drain.ts",
-            "tools/jackyun-api-export.ts",
-            "tools/jackyun-automation-runner.ts",
-            "tools/jackyun-browser-controller.ts",
-            "tools/jackyun-daily-runner.ts",
-            "tools/jackyun-download-runner.ts",
-            "tools/jackyun-export-first-pipeline.ts",
-            "tools/jackyun-json-publish.ps1",
-            "tools/jackyun-n8n-pipeline.ts",
-            "tools/jd-credential-vault.ps1",
-            "tools/jd-customer-service-daily-files.ts",
-            "tools/jd-customer-service-duration-normalization.ts",
-            "tools/jd-customer-service-export.ts",
-            "tools/jd-customer-service-failure-closure.ts",
-            "tools/jd-customer-service-import.ts",
-            "tools/jd-customer-service-n8n-pipeline.ts",
-            "tools/jd-customer-service-source-recovery.ts",
-            "tools/jd-logistics-export.ts",
-            "tools/jd-logistics-n8n-pipeline.ts",
-            "tools/jd-logistics-session.ts",
-            "tools/jd-market-ranking-daily.ts",
-            "tools/jd-multi-store-runner.ts",
-            "tools/jd-n8n-pipeline.ts",
-            "tools/jd-promotion-export.ts",
-            "tools/jd-promotion-n8n-pipeline.ts",
-            "tools/jd-saved-login.ts",
-            "tools/jd-secure-credential.ts",
-            "tools/n8n-hourly-retry-policy.mjs",
-            "tools/pi-business-n8n-gate.ts",
-            "tools/sales-import-runner.ts",
-            "tools/tmall-alimama-login.ts",
-            "tools/tmall-credential-vault.ps1",
-            "tools/tmall-daily-backfill.ts",
-            "tools/tmall-daily-gap-plan.ts",
-            "tools/tmall-direct-product-master-export.ts",
-            "tools/tmall-direct-promotion-export.ts",
-            "tools/tmall-download-receipt.ts",
-            "tools/tmall-import-verification.ts",
-            "tools/tmall-isolated-helper.ts",
-            "tools/tmall-multi-store-import-runner.ts",
-            "tools/tmall-pagewise-product-master-export.ts",
-            "tools/tmall-product-master-cadence.ts",
-            "tools/tmall-product-master-export.ts",
-            "tools/tmall-promotion-export.ts",
-            "tools/tmall-saved-login.ts",
-            "tools/tmall-secure-credential.ts",
-            "tools/tmall-sycm-cookie-pipeline.ts",
-            "tools/tmall-warehouse-export.ts",
-            "tools/tmall-warehouse-n8n-pipeline.ts",
-            "tools/tmall-yijiu-direct-pm-contract.ts"
-          ],
-          "snapshotConsumers": [
-            "app/api/imports/sales/route.ts",
-            "app/api/imports/sales/verify/route.ts",
-            "app/api/sales/category-analysis/detail/route.ts",
-            "app/api/sales/category-analysis/route.ts",
-            "app/api/sales/summary/route.ts",
-            "drizzle/0092_sales_domain_retirement.sql",
-            "drizzle/0093_finance_write_authority.sql",
-            "drizzle/0096_netshop_domain_retirement.sql",
-            "drizzle/0098_market_domain_retirement.sql",
-            "drizzle/0100_product_domain_retirement.sql",
-            "drizzle/0102_inventory_domain_retirement.sql",
-            "drizzle/0104_workflow_launch_domain_retirement.sql",
-            "drizzle/0106_workflow_operations_domain_retirement.sql",
-            "drizzle/0108_customer_service_domain_retirement.sql",
-            "drizzle/0110_erp_reference_domain_retirement.sql",
-            "drizzle/0112_access_control_domain_retirement.sql",
-            "drizzle/0114_ai_domain_retirement.sql",
-            "lib/jackyun/json-file.ts",
-            "lib/jackyun/run-lock.ts",
-            "lib/jd/chromium-run-lock.ts",
-            "lib/sales/category-analysis.ts",
-            "lib/sales/category-resolution.ts",
-            "lib/sales/chunked-upload.ts",
-            "lib/sales/database.ts",
-            "lib/sales/import-service.ts",
-            "lib/sales/overview-cache-schema.ts",
-            "lib/sales/overview-response-cache.ts",
-            "lib/sales/period.ts",
-            "lib/sales/product-query.ts",
-            "lib/sales/summary.ts",
-            "tools/build-worker-helper.mjs",
-            "tools/collect-d1-retirement-proof.mjs",
-            "tools/d1-retirement-proof.mjs",
-            "tools/jackyun-api-export.ts",
-            "tools/jackyun-automation-runner.ts",
-            "tools/jackyun-browser-controller.ts",
-            "tools/jackyun-daily-runner.ts",
-            "tools/jackyun-download-runner.ts",
-            "tools/jackyun-n8n-pipeline.ts",
-            "tools/jd-market-ranking-daily.ts",
-            "tools/jd-multi-store-runner.ts",
-            "tools/jd-n8n-pipeline.ts",
-            "tools/jd-promotion-export.ts",
-            "tools/jd-promotion-n8n-pipeline.ts",
-            "tools/jd-secure-credential.ts",
-            "tools/release-admission-timing.mjs",
-            "tools/release-batch-admission.mjs",
-            "tools/release-batch.mjs",
-            "tools/release-daily-backup.mjs",
-            "tools/release-impact.mjs",
-            "tools/release-no-data-observation.mjs",
-            "tools/release-preparation-evidence.mjs",
-            "tools/release-readonly-retry.mjs",
-            "tools/sales-d1-retirement.ts",
-            "tools/sales-import-runner.ts",
-            "tools/start-local-worker.mjs",
-            "tools/tmall-download-receipt.ts",
-            "tools/tmall-multi-store-import-runner.ts",
-            "tools/tmall-pagewise-product-master-export.ts",
-            "tools/tmall-product-master-cadence.ts",
-            "tools/tmall-product-master-export.ts",
-            "tools/tmall-promotion-export.ts",
-            "tools/tmall-secure-credential.ts",
-            "tools/tmall-sycm-cookie-pipeline.ts",
-            "tools/worker-authority-guard.mjs",
-            "tools/worker-local-release-rotation.mjs",
-            "tools/worker-local-release.mjs",
-            "tools/worker-local-runtime-supervisor.mjs"
-          ],
-          "archiveOnlySnapshotExcluded": true
+          "known": false,
+          "reason": "dynamic npm lifecycle command: postinstall"
         }
       }
     },
@@ -61861,6 +61522,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -62162,6 +61825,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -62557,6 +62224,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -62858,6 +62527,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -63847,6 +63520,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -64148,6 +63823,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -64543,6 +64222,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -64844,6 +64525,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -66474,6 +66159,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -66775,6 +66462,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -67170,6 +66861,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -67471,6 +67164,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -68339,6 +68036,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -68640,6 +68339,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -69035,6 +68738,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -69336,6 +69041,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -70019,6 +69728,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -70320,6 +70031,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -70715,6 +70430,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -71016,6 +70733,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -71584,6 +71305,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -71885,6 +71608,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -72280,6 +72007,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -72581,6 +72310,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -73149,6 +72882,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -73450,6 +73185,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -73845,6 +73584,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -74146,6 +73887,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -75027,6 +74772,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -75346,6 +75093,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -75741,6 +75492,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -76042,6 +75795,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -76989,6 +76746,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -77307,6 +77066,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -77702,6 +77465,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -78021,6 +77786,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -78561,6 +78330,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -78879,6 +78650,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -79274,6 +79049,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -79592,6 +79369,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -80147,6 +79928,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -80465,6 +80248,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -81202,6 +80989,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -81503,6 +81292,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -82549,6 +82342,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -82850,6 +82645,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -83245,6 +83044,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -83546,6 +83347,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -84091,6 +83896,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -84392,6 +84199,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -84787,6 +84598,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -85088,6 +84901,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -85631,6 +85448,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -85932,6 +85751,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -86327,6 +86150,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -86628,6 +86453,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -87630,6 +87459,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -87931,6 +87762,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -88326,6 +88161,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -88627,6 +88464,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -89173,6 +89014,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -89474,6 +89317,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -89869,6 +89716,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -90170,6 +90019,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -90716,6 +90569,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -91017,6 +90872,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -91412,6 +91271,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -91713,6 +91574,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -92400,6 +92265,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -92701,6 +92568,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -93096,6 +92967,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -93397,6 +93270,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -94477,6 +94354,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -94778,6 +94657,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -107885,6 +107768,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -108175,6 +108060,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -109059,6 +108948,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -109348,6 +109239,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -109724,6 +109619,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -110014,6 +109911,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -111031,6 +110932,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -111320,6 +111223,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -111693,6 +111600,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -111982,6 +111891,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -112640,6 +112553,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -112929,6 +112844,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -113297,6 +113216,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -113586,6 +113507,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -114193,6 +114118,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -114483,6 +114410,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -114851,6 +114782,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -115140,6 +115073,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -115663,6 +115600,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -115953,6 +115892,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -116321,6 +116264,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -116611,6 +116556,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -117668,6 +117617,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -117958,6 +117909,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -118326,6 +118281,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -118616,6 +118573,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -119193,6 +119154,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -119481,6 +119444,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -119849,6 +119816,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -120139,6 +120108,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -120849,6 +120822,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -121137,6 +121112,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -121505,6 +121484,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -121793,6 +121774,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -122411,6 +122396,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -122699,6 +122686,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -123067,6 +123058,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -123355,6 +123348,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -124106,6 +124103,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -124392,6 +124391,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -124760,6 +124763,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -125048,6 +125053,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -125589,6 +125598,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -125875,6 +125886,10 @@
             "tools/tmall-warehouse-export.ts",
             "tools/tmall-warehouse-n8n-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -133906,6 +133921,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -134179,6 +134196,10 @@
             "tools/tmall-secure-credential.ts",
             "tools/tmall-sycm-cookie-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
@@ -134738,6 +134759,8 @@
             "tools/build-worker-helper.mjs",
             "tools/collect-d1-retirement-proof.mjs",
             "tools/d1-retirement-proof.mjs",
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs",
             "tools/jackyun-api-export.ts",
             "tools/jackyun-automation-runner.ts",
             "tools/jackyun-browser-controller.ts",
@@ -135011,6 +135034,10 @@
             "tools/tmall-secure-credential.ts",
             "tools/tmall-sycm-cookie-pipeline.ts",
             "tools/tmall-yijiu-direct-pm-contract.ts"
+          ],
+          "buildFiles": [
+            "tools/install-workerd-heap-patch.mjs",
+            "tools/install-wrangler-inspector-patch.mjs"
           ],
           "snapshotConsumers": [
             "app/api/imports/sales/route.ts",
