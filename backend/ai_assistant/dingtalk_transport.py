@@ -24,7 +24,10 @@ def stream_addresses(url):
             raise AiError("钉钉连接地址不在固定官方入口", "access_denied", 403)
     official(url)
     addresses = transport.resolve_addresses(urlsplit(url).hostname, 443, 5)
-    addresses = transport._public_addresses(url, addresses, 5, official)
+    # The shared DoH budget stays 5 (min(5, timeout) in _public_addresses); only
+    # this ceiling grows, so a failed first resolver still has room for the
+    # fallback resolver's own window instead of being cut off at zero.
+    addresses = transport._public_addresses(url, addresses, 5 + transport._fallback_resolver_budget, official)
     if not addresses or len(addresses) > 32 or any(not ipaddress.ip_address(a[4][0]).is_global or ipaddress.ip_address(a[4][0]).is_multicast for a in addresses):
         raise AiError("钉钉地址未解析到公网", "access_denied", 403)
     return addresses
@@ -44,7 +47,12 @@ def media_addresses(url):
             } or (parts.query and parts.path != "/media/upload")):
         raise AiError("钉钉媒体地址不在固定官方入口", "access_denied", 403)
     addresses = transport.resolve_addresses(parts.hostname, 443, 5)
-    addresses = transport._public_addresses(url, addresses, 5, lambda value: media_addresses_origin(value))
+    # The shared DoH budget stays 5 (min(5, timeout) in _public_addresses); only
+    # this ceiling grows, so a failed first resolver still has room for the
+    # fallback resolver's own window instead of being cut off at zero.
+    addresses = transport._public_addresses(
+        url, addresses, 5 + transport._fallback_resolver_budget, lambda value: media_addresses_origin(value)
+    )
     if not addresses or len(addresses) > 32 or any(
             not ipaddress.ip_address(a[4][0]).is_global or ipaddress.ip_address(a[4][0]).is_multicast
             for a in addresses):
