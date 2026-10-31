@@ -27,13 +27,17 @@ async function writeOnceOrSame(file,value){
  try{await fs.writeFile(file,JSON.stringify(value,null,2)+'\n',{flag:'wx'});}
  catch(error){if(error.code!=='EEXIST')throw error;assert.deepEqual(JSON.parse(await fs.readFile(file,'utf8')),value,'已冻结发布请求变化，拒绝覆盖原批次');}
 }
-export async function readLivePublication(config){
- const api=await import(pathToFileURL(path.join(config.nativeToolsSource,'tools/worker-local-release.mjs')));
- const rotation=await import(pathToFileURL(path.join(config.nativeToolsSource,'tools/worker-local-release-rotation.mjs')));
+// The parameters below are injection seams for isolated tests only; every
+// default reproduces the original hardcoded behaviour byte for byte, and no
+// assertion in this function was changed, relaxed or made conditional.
+export async function readLivePublication(config,{loadApi,loadRotation,readDjango,runtimeRoot='D:/teruisi-runtime/django-sales',
+ fetchReady=()=>fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)})}={}){
+ const api=await (loadApi??(()=>import(pathToFileURL(path.join(config.nativeToolsSource,'tools/worker-local-release.mjs')))))();
+ const rotation=await (loadRotation??(()=>import(pathToFileURL(path.join(config.nativeToolsSource,'tools/worker-local-release-rotation.mjs')))))();
  const chain=await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true});
  const manifest=JSON.parse(await fs.readFile(path.join(api.workerRuntimeRoot,'releases',chain.head.releaseId,'deployment-manifest.json'),'utf8'));
- const djangoRaw=await fs.readFile('D:/teruisi-runtime/django-sales/app/deployment.json');
- for(const name of ['system-maintenance.json','automation-drain.json'])assert.equal(await exists(path.join('D:/teruisi-runtime/django-sales/run',name)),false,'当前仍有维护或排空状态，不能视为已发布完成');
+ const djangoRaw=await (readDjango??(()=>fs.readFile(runtimeRoot+'/app/deployment.json')))();
+ for(const name of ['system-maintenance.json','automation-drain.json'])assert.equal(await exists(path.join(runtimeRoot,'run',name)),false,'当前仍有维护或排空状态，不能视为已发布完成');
  let source,commit,expectedTree,receiptPath,receiptRaw;
  const catalogFile=path.join(config.stateDirectory,'PUBLISHED-MAIN.json');
  const catalog=await exists(catalogFile)?JSON.parse(await fs.readFile(catalogFile,'utf8')):null;
@@ -58,12 +62,221 @@ export async function readLivePublication(config){
  assert.equal(await gitAt(source,['rev-parse','HEAD']),commit);
  const sourceTree=await api.hashRelativeFiles(source,await api.listGitSourceFiles(source));
  assert.deepEqual(sourceTree,expectedTree,'已部署来源与实际运行包不一致');
- const ready=await fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)});
+ const ready=await fetchReady();
  assert.equal(ready.status,200,'当前运行版本尚未就绪');const health=await ready.json();assert.equal(health.ok,true);assert.equal(health.status,'ready');
  const ordinaryAttempt=path.resolve(source,'..','publish-'+commit.slice(0,12));
  return {mainCommit:commit,source,sourceTree,head:chain.head,chainStateSha256:chain.chainStateSha256,djangoManifestSha256:sha(djangoRaw),completedReceiptPath:receiptPath,resolvedOriginalAttempt:path.resolve(path.dirname(receiptPath))!==ordinaryAttempt};
 }
 
+// LIVE_ADOPTION_BEGIN
+// Closes the publication-accounting gap left by a release that ran the
+// controller's PrepareApp/DeployApp directly: the application really switched
+// and every gate passed item by item, but no publish-<12hex>/SUCCESS.json and
+// no PUBLISHED-MAIN.json were written, so readLivePublication:45 refuses every
+// later release. The deadlock is closed-loop (a catalog needs a real receipt; a
+// real receipt needs a release), so it can only be broken by an entry that
+// writes the catalog from MEASURED live values — never from a declared one.
+//
+// This entry ACKNOWLEDGES; it does not publish. It performs no maintenance, no
+// deployment and no production write: its only writes are the superseded-catalog
+// backup, its own receipt and the catalog, all under config.stateDirectory.
+// Design and the full clause list: docs/publisher-adopt-live-20261031/DESIGN.md
+export const liveAdoptionReceiptVersion='teruisi-live-adoption-receipt-v1',liveAdoptionKind='acknowledged-not-published';
+// The receipt deliberately lands OUTSIDE any publish-<12hex> directory: writing
+// it inside would both disguise a real half-switch as completed and break the
+// packet-closure assertions (preparation-resolution.mjs:266, isNotEnteredAttemptMember).
+// The cost is that readLivePublication:63-64 then reports resolvedOriginalAttempt=true,
+// which short-circuits observeLatestMain:77. P15/P18 below refuse that state outright
+// instead, and the two sibling checks keep enforcing it.
+export const liveAdoptionSuppressedGuard=Object.freeze({guard:'observeLatestMain:77 half-switch check',
+ suppressedBy:'receiptPath outside ordinary attempt directory (resolvedOriginalAttempt=true)',
+ stillEnforcedBy:Object.freeze(['prepareLatestMainOnce:122-123','inspectMainPreparation:255-256'])});
+/** Exit code 1 is git's "false", not a failure; anything else stays an error. */
+export async function gitSucceedsAt(cwd,args){
+ try{await execute('git',['-C',cwd,...args],{encoding:'utf8',windowsHide:true,timeout:120000,maxBuffer:1024*1024,env:{...process.env,GIT_TERMINAL_PROMPT:'0'}});return true;}
+ catch(error){if(error.code===1)return false;throw Error('Git '+args[0]+' 失败（'+(error.code??'unknown')+'），未推定祖先关系');}
+}
+const attemptDirectoryFor=(source,commit)=>path.resolve(source,'..','publish-'+commit.slice(0,12));
+/**
+ * Read-only live identity, independent of readLivePublication (whose :45 assertion
+ * is the very thing being unblocked). Every read must succeed; nothing is inferred
+ * and there is no bootstrap fallback.
+ */
+export async function observeLiveIdentity(config,{loadApi,loadRotation,readDjango,git=gitAt}={}){
+ const api=await (loadApi??(()=>import(pathToFileURL(path.join(config.nativeToolsSource,'tools/worker-local-release.mjs')))))();
+ const rotation=await (loadRotation??(()=>import(pathToFileURL(path.join(config.nativeToolsSource,'tools/worker-local-release-rotation.mjs')))))();
+ const chain=await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true});
+ const manifestFile=path.join(api.workerRuntimeRoot,'releases',chain.head.releaseId,'deployment-manifest.json');
+ const manifestRaw=await fs.readFile(manifestFile),manifest=JSON.parse(manifestRaw);
+ assert.equal(sha(manifestRaw),chain.head.manifestSha256,'现役前端清单字节与版本链记录的摘要不一致，不能承认');
+ const workerSource=JSON.parse(manifest.source.sourceBinding.raw).sourceRoot;
+ assert.ok(typeof workerSource==='string'&&path.isAbsolute(workerSource),'现役前端来源身份缺失，不能承认');
+ const djangoRaw=await (readDjango??(()=>fs.readFile(liveDjangoRuntime+'/app/deployment.json')))();
+ const django=JSON.parse(djangoRaw),djangoSource=django.sourceRoot;
+ assert.ok(typeof djangoSource==='string'&&path.isAbsolute(djangoSource),'现役后台来源身份缺失，不能承认');
+ const workerCommit=await git(workerSource,['rev-parse','HEAD']),djangoCommit=await git(djangoSource,['rev-parse','HEAD']);
+ for(const commit of [workerCommit,djangoCommit])assert.match(commit,/^[a-f0-9]{40}$/,'现役来源 HEAD 不是完整提交，不能承认');
+ return {api,rotation,chain,head:chain.head,chainStateSha256:chain.chainStateSha256,manifest,manifestFile,
+  workerSource,workerCommit,djangoSource,djangoCommit,djangoDeployedAt:django.deployedAt??null,
+  djangoManifestSha256:sha(djangoRaw),workerManifestSha256:chain.head.manifestSha256,workerRelease:chain.head.releaseId};
+}
+/**
+ * Acknowledge the measured live state as the published one. Refuses unless all 18
+ * clauses hold; writes nothing anywhere else. Returns the written catalog and receipt.
+ */
+export async function adoptLivePublication(config,{reason,confirm,binding,retirementScope,log=()=>{},
+ observe=observeLiveIdentity,git=gitAt,gitSucceeds=gitSucceedsAt,makePlan=makeReleasePlan,
+ probe=probePublicationPreconditions,probeRotation=probeRotationLock,
+ fetchReady=()=>fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)}),
+ now=()=>new Date(),adoptionId=randomUUID(),runtimeRoot=liveDjangoRuntime,operator}={}){
+ assert.ok(typeof reason==='string'&&reason.trim().length>0,'承认现役必须说明依据（--adopt-reason）');
+ assert.ok(reason.length<=1600,'承认依据过长');
+ // P14: retirement admission, same as every other write path.
+ await assertRetirementAdmission(config,undefined,{scope:retirementScope});
+ // P2: independent read-only observation; any failed read throws out of here.
+ const live=await observe(config,{git});
+ // The operator must have looked at the measured value, not just typed a flag.
+ assert.equal(confirm,live.djangoManifestSha256.slice(0,12),'--adopt-confirm 必须是现役后台实测摘要的前 12 位；请先核对实测值再执行');
+ const catalogFile=path.join(config.stateDirectory,'PUBLISHED-MAIN.json');
+ const catalogRaw=await exists(catalogFile)?await fs.readFile(catalogFile):null;
+ const previous=catalogRaw?JSON.parse(catalogRaw):null;
+ // Which of the three catalog values actually drifted. In the 10-30 case only
+ // djangoManifestSha256 did (27d72aab… vs the measured e0fc1a0d…) while the
+ // worker release/manifest were already correct, so recording the exact drift
+ // keeps the adoption's scope auditable instead of implying all three were wrong.
+ const mismatch=previous?Object.fromEntries(['workerRelease','workerManifestSha256','djangoManifestSha256']
+  .map(key=>[key,{catalog:previous[key]??null,live:live[key],equal:previous[key]===live[key]}])):null;
+ // P1: adoption is only for a real mismatch. An already-consistent catalog is an error.
+ if(mismatch&&Object.values(mismatch).every(entry=>entry.equal))
+  throw Error('现役与发布记账已一致，无需承认；本次未写入');
+ // P6 needs ancestry, which needs a fetched origin/main.
+ await invalidateRetirementReadScope(retirementScope,'adopt-live-fetch');
+ await git(config.repository,['fetch','origin','refs/heads/main:refs/remotes/origin/main']);
+ // P3/P4: worker source is content-identifiable and matches its running package.
+ const {assertFrozenSource}=await import('./frozen-main-source.mjs');
+ try{await assertFrozenSource({source:live.workerSource,mainCommit:live.workerCommit},{git});}
+ catch(error){throw Error('现役前端来源不可追溯或有未提交修改，不能承认：'+error.message);}
+ const workerTree=await live.api.hashRelativeFiles(live.workerSource,await live.api.listGitSourceFiles(live.workerSource));
+ try{assert.deepEqual(workerTree,live.manifest.source.tree);}catch{throw Error('现役前端来源与运行包不一致，不能承认');}
+ // P5: django source clean and identifiable.
+ try{await assertFrozenSource({source:live.djangoSource,mainCommit:live.djangoCommit},{git});}
+ catch(error){throw Error('现役后台来源不可追溯或有未提交修改，不能承认：'+error.message);}
+ // P6: both commits must be on origin/main; never acknowledge an unpushed tree.
+ for(const commit of [live.workerCommit,live.djangoCommit])
+  assert.ok(await gitSucceeds(config.repository,['merge-base','--is-ancestor',commit,'refs/remotes/origin/main']),'现役来源提交不在 origin/main 上，不能承认：'+commit);
+ // P7: equal, or django strictly descends from worker. Anything else is unexplainable.
+ const split=live.workerCommit!==live.djangoCommit;
+ if(split)assert.ok(await gitSucceeds(config.repository,['merge-base','--is-ancestor',live.workerCommit,live.djangoCommit]),
+  '现役前后台提交关系无法解释（非同一提交且后台不是前端的后代），不能承认');
+ // mainCommit keeps its existing meaning: the HEAD of the worker source tree
+ // (readLivePublication:44-46). It therefore does NOT describe the django side,
+ // which is why djangoSourceCommit is recorded separately. Taking the django
+ // commit instead would push the next release's base forward and skip the
+ // packaged tools/ files still sitting at worker-side bytes.
+ const mainCommit=live.workerCommit;
+ const djangoAhead=split?{fromCommit:live.workerCommit,toCommit:live.djangoCommit,
+  commitCount:Number(await git(config.repository,['rev-list','--count',live.workerCommit+'..'+live.djangoCommit])),
+  frontendPayload:(await git(config.repository,['diff','--name-only',live.workerCommit,live.djangoCommit,'--','app/','lib/','components/'])).length>0,
+  plan:(()=>{const plan=makePlan({base:live.workerCommit,head:live.djangoCommit,cwd:config.repository});
+   return {components:plan.components,migrate:plan.migrate,scope:plan.scope,planSha256:plan.planSha256};})()}:null;
+ // P9: no maintenance or drain marker right now.
+ await assertNoMaintenanceMarkers(runtimeRoot);
+ // P10: the thing being acknowledged must actually be serving.
+ let health;
+ try{const ready=await fetchReady();assert.equal(ready.status,200);health=await ready.json();}
+ catch{throw Error('当前运行版本尚未就绪，不能承认');}
+ if(health?.ok!==true||health.status!=='ready')throw Error('当前运行版本尚未就绪，不能承认');
+ // P11: no release or preparation may hold the rotation lock.
+ assert.ok(await probeRotation(),'仍有发布或准备持有轮换锁，不能承认');
+ // P12 (and P8's evidence): the live controller's own read-only entry checks,
+ // including Assert-DeployedApplication, which recomputes the installed app tree
+ // against deployment.json using the controller's own algorithm.
+ const probed=await probe(config,{checkDjango:true});
+ const failures=preconditionFailures(probed);
+ if(failures.length)throw Error('现役后台权限或部署清单检查未通过，不能承认：'+describePreconditionFailures(failures));
+ // P15/P18: neither side may be a half-switch, and the snapshot is recorded
+ // because landing the receipt outside the attempt directory suppresses :77.
+ const verifiedAtAdoption={};
+ for(const [commit,source] of [[live.workerCommit,live.workerSource],[live.djangoCommit,live.djangoSource]]){
+  const attempt=attemptDirectoryFor(source,commit);
+  let names=[];
+  try{names=(await fs.readdir(attempt)).sort();}catch(error){if(error.code!=='ENOENT')throw error;}
+  if(names.includes('STARTED.json')&&!names.includes('SUCCESS.json'))
+   throw Error(commit+' 的发布记录有开始无成功，不能把半切换当作已发布');
+  // P16: a real receipt already declaring the live triple means the index broke,
+  // not that accounting is missing; that is publish-main-status.mjs's job.
+  if(names.includes('SUCCESS.json')){
+   const existing=JSON.parse(await fs.readFile(path.join(attempt,'SUCCESS.json'),'utf8'));
+   if(existing.status==='deployed_and_ready'&&existing.workerRelease===live.workerRelease
+    &&existing.workerManifestSha256===live.workerManifestSha256&&existing.djangoManifestSha256===live.djangoManifestSha256)
+    throw Error('已存在与现役一致的真实成功回执，应协调发布索引而不是承认：'+attempt);
+  }
+  verifiedAtAdoption[commit]={attempt,members:names,membersSha256:sha(Buffer.from(JSON.stringify(names)))};
+ }
+ // The receipt the superseded catalog pointed at, when it is still on disk and
+ // intact. In the 10-30 case it is a genuine SUCCESS.json from a real release
+ // whose only stale field is djangoManifestSha256 — evidence that the worker
+ // side's accounting was already closed and is not what is being rewritten.
+ // A missing or altered one is recorded as such; it never blocks or authorizes.
+ let priorReceipt=null;
+ if(previous&&typeof previous.receiptPath==='string'&&path.isAbsolute(previous.receiptPath)){
+  priorReceipt={path:previous.receiptPath,declaredSha256:previous.receiptSha256??null,present:false,intact:null,declares:null};
+  if(await exists(previous.receiptPath)){
+   const raw=await fs.readFile(previous.receiptPath),value=JSON.parse(raw);
+   priorReceipt.present=true;priorReceipt.actualSha256=sha(raw);
+   priorReceipt.intact=sha(raw)===previous.receiptSha256;
+   priorReceipt.declares={status:value.status??null,mainCommit:value.mainCommit??null,
+    workerRelease:value.workerRelease??null,workerManifestSha256:value.workerManifestSha256??null,
+    djangoManifestSha256:value.djangoManifestSha256??null};
+  }
+ }
+ const at=now().toISOString();
+ const receipt={status:'deployed_and_ready',at,mainCommit,components:['worker','django'],
+  workerRelease:live.workerRelease,workerManifestSha256:live.workerManifestSha256,djangoManifestSha256:live.djangoManifestSha256,
+  source:live.workerSource,sourceTree:workerTree,
+  // Null by structure, not by omission: an adoption knows none of these, and
+  // their absence is a second way to tell it apart from a real publication.
+  djangoPreparedId:null,maintenanceId:null,migration:null,
+  startupVerified:true,readyVerified:true,backupPerformed:false,
+  adoption:{version:liveAdoptionReceiptVersion,kind:liveAdoptionKind,reason,adoptionId,adoptedAt:at,
+   operator:operator??{username:process.env.USERNAME??null,userdomain:process.env.USERDOMAIN??null,pid:process.pid,
+    controlExecutionId:binding?.executionId??null},
+   acknowledgedDeployment:{djangoDeployedAt:live.djangoDeployedAt,djangoSourceRoot:live.djangoSource,djangoCommit:live.djangoCommit,
+    workerSourceRoot:live.workerSource,workerCommit:live.workerCommit,
+    entryBypassed:'django-local-service.ps1 PrepareApp/DeployApp',basis:'docs/规范/验证与发布.md#发布入口与记账边界'},
+   djangoSourceCommit:live.djangoCommit,split,djangoAhead,
+   // The exact scope of what is being acknowledged: which catalog values already
+   // agreed with the live state and which one drifted.
+   catalogMismatch:mismatch,priorReceipt,
+   suppressedGuard:{...liveAdoptionSuppressedGuard,verifiedAtAdoption,
+    note:'该 catalog 生效期间此门禁对现役目标失效；下一次真发布写新 catalog 后恢复'},
+   publicationPerformed:false,productionMutationsPerformed:false}};
+ // Writes start here. P17: the superseded catalog is preserved first; if that
+ // backup cannot be created exclusively, nothing is replaced.
+ await invalidateRetirementReadScope(retirementScope,'adopt-live-catalog-write');
+ const directory=path.join(config.stateDirectory,'adoptions',adoptionId);
+ await fs.mkdir(directory,{recursive:true});
+ const receiptPath=path.join(directory,'ADOPTED.json'),receiptBytes=JSON.stringify(receipt,null,2)+'\n';
+ await fs.writeFile(receiptPath,receiptBytes,{flag:'wx'});
+ const receiptSha256=sha(await fs.readFile(receiptPath));
+ let supersededCatalog=null;
+ if(catalogRaw){
+  const backup=path.join(directory,'superseded-PUBLISHED-MAIN.json');
+  await fs.copyFile(catalogFile,backup,fs.constants.COPYFILE_EXCL);
+  const backupRaw=await fs.readFile(backup);
+  assert.equal(sha(backupRaw),sha(catalogRaw),'被取代的发布记账在备份期间发生变化，本次未写入');
+  supersededCatalog={path:backup,sha256:sha(backupRaw),mainCommit:previous.mainCommit??null,djangoManifestSha256:previous.djangoManifestSha256??null};
+ }
+ const catalog={...receipt,adoption:{...receipt.adoption,supersededCatalog},source:live.workerSource,sourceTree:workerTree,receiptPath,receiptSha256};
+ const temporary=catalogFile+'.'+adoptionId+'.tmp';
+ await fs.writeFile(temporary,JSON.stringify(catalog,null,2)+'\n',{flag:'wx'});
+ await fs.rename(temporary,catalogFile);
+ log('已按现役实测值承认发布记账（承认而非发布）：'+receiptPath);
+ if(split)log('注意：现役前后台不是同一提交（前端 '+live.workerCommit.slice(0,12)+'，后台 '+live.djangoCommit.slice(0,12)+'），已如实记入回执；下一次发布范围自前端提交起算。');
+ return {status:'adopted-live',adoptionId,mainCommit,djangoSourceCommit:live.djangoCommit,split,
+  catalogFile,receiptPath,receiptSha256,supersededCatalog,publicationPerformed:false,preparationPerformed:false,productionMutationsPerformed:false};
+}
+// LIVE_ADOPTION_END
 export async function observeLatestMain(config,{git=gitAt,getLive=readLivePublication,log=()=>{},retirementScope,retiredPackets=new Set()}={}){
  await assertRetirementAdmission(config,undefined,{scope:retirementScope});
  log('获取 origin/main；旧任务 completedTask、旧成功回执和旧续接参数不参与目标选择。');
@@ -578,13 +791,20 @@ export async function retireLostMainArtifacts(config,{assertGeneration,admit,onS
  });
 }
 export async function runLatestMainCli(args=process.argv.slice(2),binding){
- const {values}=parseArgs({args,options:{config:{type:'string'},check:{type:'boolean',default:false},'prepare-only':{type:'boolean',default:false},'consume-preparation':{type:'boolean',default:false},'no-pause':{type:'boolean',default:false},'retire-lost-artifacts':{type:'boolean',default:false},'abandon-dispatch':{type:'string'},'dispatch-sha256':{type:'string'},'result-sha256':{type:'string'},target:{type:'string'},packet:{type:'string'}}});
- assert.ok(!values['retire-lost-artifacts']||(!values.check&&!values['prepare-only']&&!values['consume-preparation']&&values['abandon-dispatch']===undefined),'Artifact loss retirement cannot prepare, reconcile, check or publish');
+ const {values}=parseArgs({args,options:{config:{type:'string'},check:{type:'boolean',default:false},'prepare-only':{type:'boolean',default:false},'consume-preparation':{type:'boolean',default:false},'no-pause':{type:'boolean',default:false},'retire-lost-artifacts':{type:'boolean',default:false},'abandon-dispatch':{type:'string'},'dispatch-sha256':{type:'string'},'result-sha256':{type:'string'},target:{type:'string'},packet:{type:'string'},'adopt-live':{type:'boolean',default:false},'adopt-reason':{type:'string'},'adopt-confirm':{type:'string'}}});
+ const adopt=values['adopt-live'];
+ assert.ok(!values['retire-lost-artifacts']||(!values.check&&!values['prepare-only']&&!values['consume-preparation']&&!adopt&&values['abandon-dispatch']===undefined),'Artifact loss retirement cannot prepare, reconcile, check, publish or adopt');
  const abandon=values['abandon-dispatch']!==undefined,evidence=['dispatch-sha256','result-sha256','target','packet'];
- assert.ok(!abandon||(!values.check&&!values['prepare-only']&&!values['consume-preparation']),'Abandon-only cannot prepare, check or publish');
+ assert.ok(!abandon||(!values.check&&!values['prepare-only']&&!values['consume-preparation']&&!adopt),'Abandon-only cannot prepare, check, publish or adopt');
  assert.ok(evidence.every(field=>abandon?typeof values[field]==='string':values[field]===undefined),'Abandon-only requires exact dispatch/result/target/packet evidence');
- assert.ok(!values['consume-preparation']||(!values.check&&!values['prepare-only']),'Consumer cannot submit or deploy');
+ assert.ok(!values['consume-preparation']||(!values.check&&!values['prepare-only']&&!adopt),'Consumer cannot submit, deploy or adopt');
  assert.ok(!(values.check&&values['prepare-only']),'检查与打包模式不能同时使用');
+ // Adoption writes publication accounting from measured live values; it must never
+ // share a run with preparing, checking, publishing or reconciling.
+ assert.ok(!adopt||(!values.check&&!values['prepare-only']&&!values['consume-preparation']&&!values['retire-lost-artifacts']&&values['abandon-dispatch']===undefined),'Live adoption cannot prepare, reconcile, check, publish or retire artifacts');
+ assert.ok(!adopt||(typeof values['adopt-reason']==='string'&&values['adopt-reason'].trim().length>0),'Live adoption requires --adopt-reason');
+ assert.ok(!adopt||(typeof values['adopt-confirm']==='string'&&/^[a-f0-9]{12}$/.test(values['adopt-confirm'])),'Live adoption requires --adopt-confirm <现役后台实测摘要前12位>');
+ for(const field of ['adopt-reason','adopt-confirm'])assert.ok(values[field]===undefined||adopt,'--'+field+' only applies to --adopt-live');
  assert.ok(values.config,'需要固定发布入口配置 --config');
  const config=JSON.parse(await fs.readFile(values.config,'utf8'));
  return withRetirementReadScope(config,scope=>runLatestMainCliOperation(values,config,binding,scope));
@@ -594,7 +814,7 @@ async function runLatestMainCliOperation(values,config,binding,retirementScope){
  if(config.controlProtocol==='teruisi-main-control-v2'){
   binding??=await preparationControlBinding(values.config);
   await invalidateRetirementReadScope(retirementScope,'control-execution-write');
-  await controlExecution(binding,fileURLToPath(import.meta.url),values['retire-lost-artifacts']?'retire-lost-artifacts':values['abandon-dispatch']!==undefined?'abandon-only-submit':values['consume-preparation']?'consume-preparation':values['prepare-only']?'prepare-only':values.check?'check':'deploy-ready');
+  await controlExecution(binding,fileURLToPath(import.meta.url),values['retire-lost-artifacts']?'retire-lost-artifacts':values['adopt-live']?'adopt-live':values['abandon-dispatch']!==undefined?'abandon-only-submit':values['consume-preparation']?'consume-preparation':values['prepare-only']?'prepare-only':values.check?'check':'deploy-ready');
  }
  assert.ok(config.publisherBaseEnvironment,'缺少固定Windows发布环境，请更新发布入口；本次未部署');
  publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment);
@@ -604,6 +824,16 @@ async function runLatestMainCliOperation(values,config,binding,retirementScope){
    assertGeneration:async()=>{await assertControlGeneration(binding);await assertRetirementAdmission(config,undefined,{scope:retirementScope});},
    admit:()=>assertOrdinaryPreparationContext(config)
   });console.log(JSON.stringify(result));return result;
+ }
+ if(values['adopt-live']){
+  assert.ok(binding,'Controlled live adoption required');
+  // Same queue lock as a publication: accounting is never rewritten while a
+  // preparation or release holds it.
+  const releaseQueue=await acquireMainPublicationQueue(binding);
+  try{
+   const result=await adoptLivePublication(config,{reason:values['adopt-reason'],confirm:values['adopt-confirm'],binding,retirementScope,log:message=>console.log(message)});
+   console.log(JSON.stringify(result));return result;
+  }finally{await releaseQueue();}
  }
  if(values['abandon-dispatch']!==undefined){
   assert.ok(binding,'Controlled reconciliation required');await invalidateRetirementReadScope(retirementScope,'abandon-only-submit');
