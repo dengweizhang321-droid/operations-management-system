@@ -163,3 +163,11 @@ EXITCODE=0
    - 这两条既有失败（本条与上一条）合计 2 个用例；`tests/control-dependency-update.test.mjs` 与它同批跑，该批 38 个用例 37 通过 1 失败，失败的就是本条。
    - 与 §4 第 2、3 项重建控制包的动作直接相关，做那一步时应先确认这两条既有失败的归属与修复责任（另一会话正在处理 CI 侧门禁）。
 7. **分裂状态本身没有被修复，只是被承认和记录。** 现役 Worker 仍停在 `e62dc33a`，Django 在 `2dc377f0`，其中 2 个随 Worker 包安装的 `tools/` 文件仍是旧字节（`tools/operations-system-watchdog.ps1`、`tools/postgres_no_key_backup.py`，实测见 DESIGN.md §0.2）。按设计取舍，`mainCommit` 取 Worker HEAD 使这些留在下一次发布范围内，不会漏发。
+
+## 6. 本报告第 4、5 节的更正（2026-10-31 补查后）
+
+后续只读调查（见同目录 [REQUALIFY.md](REQUALIFY.md)）推翻了上面两节的三处内容，以 REQUALIFY.md 为准：
+
+1. **`dispatcherSha256` 不需要更新。** 第 4 节第 3 条说要同步它，**错了**。`<stateDirectory>\control\tools\publish-latest-main.mjs` 这个路径上的文件不是本仓库的 publisher，而是由 `main-control-dispatch.mjs` 生成的 shim（实测其 sha256 = `6c88c513…` = `dispatcherSha256`，11059 字节，含 `legacyBridge`）。本次没改 `main-control-dispatch.mjs`，故该值不变。会变的只有 `bundleSha256`（实测 `e664af36…` → `134bf8ed…`）、`bundleManifestSha256` 与随之变化的 `intentSha256`。
+2. **第 5 节第 5 条漏报了一条我自己造成的测试失败。** `tests/manual-preparation-recovery.test.mjs:83` 是一条故意的字节绊线，断言 `sha(publish-latest-main.mjs)===retirementEntryPolicies.currentLatest`；我的改动使它变红（实测 actual `17a9799f…` / expected `b27c7601…`）。当时只跑了 6 个套件，没跑到这个文件。所以红的不是两条而是三条，其中**这一条与本次改动有关**，须在步骤 1 登记 pin 后转绿；另两条经「还原到 HEAD 复跑」确认与本次改动无关。
+3. **第 4 节的「三项」不全，且其中一项的因果我说错了。** 真正要动的是：`preparation-retirement-entry.mjs:69-70` 的 pin 数据、因 `controlFiles` 成员（`install-main-prebuild.mjs:21`，实测本文件是 35 项中的第 3 项）引发的控制包重建、以及上面那条绊线。完整清单与执行顺序见 REQUALIFY.md 第 7 节。
