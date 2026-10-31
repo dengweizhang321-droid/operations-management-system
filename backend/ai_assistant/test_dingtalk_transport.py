@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from . import dingtalk_transport as platform
 from .policy import AiError
 from . import transport
+from .test_transport import addresses as doh_addresses
 
 
 class DingTalkTransportTests(SimpleTestCase):
@@ -89,6 +90,51 @@ class DingTalkTransportTests(SimpleTestCase):
                 with self.assertRaises(AiError):
                     platform.send_media(lambda:self.config,SimpleNamespace(),b"\x89PNG\r\n\x1a\nfixture","页面.png","image",caption)
         credentials.assert_not_called()
+
+    def test_media_ceiling_leaves_room_for_fallback_resolver_after_first_fails(self):
+        # Regression for the 2026-11-01 fix: media_addresses must pass a ceiling
+        # of 5 + _fallback_resolver_budget (not the bare system-DNS timeout of 5)
+        # into _public_addresses. With ceiling=5, a first resolver that stalls
+        # for the full shared budget (spent=5.0s here, mirroring the verified
+        # worked example) leaves `ceiling - spent` at exactly 0, so the fallback
+        # resolver is skipped and the first resolver's failure is raised
+        # instead. The clock is advanced only while the first resolver call is
+        # in flight, so the elapsed time the ceiling check sees matches a real
+        # stall.
+        host = "api.dingtalk.com"
+
+        def dns_answer(kind, *ips):
+            return {
+                "Status": 0,
+                "TC": False,
+                "Question": [{"name": host, "type": kind}],
+                "Answer": [{"name": host, "type": kind, "data": ip} for ip in ips],
+            }
+
+        clock = [100.0]
+        first_failure = transport.ProviderTransportError(stage="connect", reason="unavailable")
+
+        def query(url, *args, **kwargs):
+            if "1.1.1.1" in url:
+                clock[0] += 5.0
+                raise first_failure
+            return dns_answer(1, "8.8.4.4")
+
+        with patch.object(
+            transport.time, "monotonic", side_effect=lambda: clock[0]
+        ), patch.object(
+            transport, "resolve_addresses", return_value=doh_addresses("198.18.0.9")
+        ), patch.object(
+            transport, "_bounded_json", side_effect=query
+        ) as dns:
+            result = platform.media_addresses(platform.TOKEN_API)
+        self.assertEqual([row[4][0] for row in result], ["8.8.4.4"])
+        self.assertEqual(dns.call_count, 2)
+        # The first attempt must go to the primary pinned resolver and the
+        # second (fallback) attempt to the next one in order; a bug that
+        # starves the fallback window would never reach this second call.
+        self.assertTrue(dns.call_args_list[0].args[0].startswith("https://1.1.1.1/dns-query?"))
+        self.assertTrue(dns.call_args_list[1].args[0].startswith("https://1.12.12.12/dns-query?"))
 
     def test_post_upload_revocation_and_bad_receipt_never_fall_back_to_separate_messages(self):
         session=SimpleNamespace(sender_id="bound-staff",conversation_type="1",external_conversation_id="group")
