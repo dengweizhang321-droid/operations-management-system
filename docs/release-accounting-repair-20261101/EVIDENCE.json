@@ -1,0 +1,193 @@
+{
+  "version": "271-accounting-recovery-evidence-v1",
+  "baseCommit": "271ab794fd487e5f943f83d8c83fb81542aa9c27",
+  "targetMain": "9c1844264bc03ce175b2b773b5cb66685ef7ce86",
+  "configFile": "D:/codex-isolated/main-manual-release-20261016/main-publisher-config.json",
+  "bundleRoot": "D:/codex-isolated/main-manual-release-20261016/control-bundles/3e01612a935319715ef082f3d9b73a9789401316c136e3e68a2712c5fab6dc6a",
+  "nativeRoot": "D:/codex-isolated/main-manual-release-20261016/native-tools/d08a3c4de4bd04325bd8e63811775934e97a9f63f757e40b6afec4a3166ddf31",
+  "attempt": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48",
+  "source": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\source",
+  "originalCatalogSha256": "336915960cb335e98bb82513d34d892411ac7d49d5953a1ea30fe7de94dfdc1d",
+  "baseDjangoManifest": "212c21a991e3db99c875fe4dd107b624db7673950b8ae79b96a4dd053a86d74e",
+  "currentDjangoManifest": "13e944f34973667fb3f53ae79bfc9b53ed82ec945cb2d11021bc6769774885a7",
+  "baseFingerprint": "7ab922820adc52d534295ed09b1d5180e834f47d32819e9b12489f32d9a695e4",
+  "currentFingerprint": "ed98e92219ed26c8a0d49701c4fb11ae08737c7115601dde681ca3726395deee",
+  "fileCount": 3159,
+  "override": {
+    "path": "tools/workflow_automation_catalog.json",
+    "beforeSha256": "6bf7b89ecb0903b19e1197d3e0508e9a47293a0540a736963b544dd47d99faf3",
+    "afterSha256": "2620a423181319bb7fb3b46bff0d447ac9497b334fab3746d7bfd389a46cafa6",
+    "equalToCommit": "03f6e474d0fcdfb3328485dad5d1719f4d8f1080"
+  },
+  "workerRelease": "20261031T120124Z-4423c56dc5488c0a",
+  "workerManifest": "a129e0a0835005e7f64e7c03cbc30074a1667fb80fb95b802ab5c830aabb1563",
+  "canonicalSha256": "b26b810235288fe87c0b9e618ca6100b76cbcc999a511b6bd238406b91af2346",
+  "recovery": {
+    "djangoRunId": "20261031-231030-c199744e",
+    "djangoCompletedAt": "2026-10-31T23:12:26.0308098+08:00",
+    "workerPid": 21620,
+    "workerStartedAt": "2026-10-31T15:12:43.7959236+00:00",
+    "workerElapsedMilliseconds": 63468,
+    "supervisorPid": 29232,
+    "supervisorCreationDate": "2026-10-31T15:13:30.2550980Z",
+    "retiredPids": [
+      15140,
+      40200,
+      21500,
+      6000,
+      21620
+    ]
+  },
+  "pins": [
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\main-release-request.json",
+      "sha256": "a4035b0ae8246577c081b5a865dfd01bf62cd301728811bd6964983de194bab0",
+      "bytes": 21118
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\STARTED.json",
+      "sha256": "148b30f59e5bde46b9cb4c9d98963cdeddff734df35815785f63b98f154e45e9",
+      "bytes": 1743
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\FAILED.json",
+      "sha256": "10015e0ac276cc12d990788bb437de2f79fa6749c25ed65c5fe8e417be6a8f2e",
+      "bytes": 3117
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\preparation\\PREPARED.json",
+      "sha256": "8fb337033e1837752160eea6cdcaad77a73d6063b45a76d9d17c9d01f2193401",
+      "bytes": 1414
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\WorkerApply-started.json",
+      "sha256": "7b7c989a811df47cb819532947e5a0df844db9e459b40e909b13a51251a030bc",
+      "bytes": 123
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\WorkerApply-result.json",
+      "sha256": "27263a8106b7ea7c9c432fe1c3c7741fad58218e6459e346f4d5c39338eb6797",
+      "bytes": 781
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\启动服务-started.json",
+      "sha256": "a559d31172b020ae211103528e2be2125a5cb391e93f564707e17934f63ca04d",
+      "bytes": 210
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\启动服务-process.json",
+      "sha256": "4f8ff8f232742305cccd316c6324fa9110176b420dd405d78f221939af77adb1",
+      "bytes": 1255
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\启动服务.stdout.log",
+      "sha256": "390a4d5e229d9f6ca360c91e9d22f82d96b836e220fd892d14dff6b8be67988a",
+      "bytes": 1812
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\启动服务.stderr.log",
+      "sha256": "bc1146cc7663561c25e6a5df8bbefaa22df9f706a2049eab2de497d4eac9a7f9",
+      "bytes": 791
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\部署后台-started.json",
+      "sha256": "34e3445d7393336493d2f936c45ed18ddbbdf5e56569355d5ebe489b907e7f02",
+      "bytes": 698
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\部署后台-result.json",
+      "sha256": "46f126d5e765bf21fc2754cc4b5ac9774334834d81b3a1837b06b7d166f83548",
+      "bytes": 56
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\部署后台-process.json",
+      "sha256": "0eed945c5fad4accc264c4a89dff30f0b3b0270aa057bc31df34268a75a7f2fc",
+      "bytes": 701
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\应用后台权限-started.json",
+      "sha256": "c727adac86d64b854ef3c97df7c049dd7ecd541258e206dd269c562a39f8199f",
+      "bytes": 166
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\应用后台权限-result.json",
+      "sha256": "da9f3cc00e93bf9da55b67768eb52104d8240b8a3a7f195af4a3d2560ea1cdb6",
+      "bytes": 56
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\应用后台权限-process.json",
+      "sha256": "abd85fab0c815119debf67ae663191bc7f3c88312389c2bf8a41ab9356dee552",
+      "bytes": 700
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\登记结构迁移-started.json",
+      "sha256": "4bf59e567cb1a85f8ba2ef2a1f2e870c072683305d8d52ec1070eee6db3f30fc",
+      "bytes": 922
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\登记结构迁移-result.json",
+      "sha256": "bf768ee9fcb0ba69f5077c9ee1a78ca85fc9fd00750014cf7d558d95a01e7f0d",
+      "bytes": 220
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\登记结构迁移-process.json",
+      "sha256": "aab0e095cc7f7d1de6beb5fac9dc65689ba0e7d0d59a8d0f86d1b6aa4846d70e",
+      "bytes": 699
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\迁移监控字段-started.json",
+      "sha256": "52f3f62c764902dc8baa5847595ab10b2e2ec62c261dff1657b127eb8632907b",
+      "bytes": 470
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\迁移监控字段-result.json",
+      "sha256": "d3e446ea707c46a426fc194ab5e1c8e945834e865c3ee302bbc5bc4f1f8cb869",
+      "bytes": 1025
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\迁移监控字段-process.json",
+      "sha256": "e4679cf5ff7d0cc94a1ae9c06f7ae9ac2b75d33c0dfc40013d6b46d13f57f9f3",
+      "bytes": 699
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\完成结构迁移-started.json",
+      "sha256": "b50d5e0937bf3ff415aa13dbd8147e70d09f365382cfeee36d7a1ab5cba919d7",
+      "bytes": 471
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\完成结构迁移-result.json",
+      "sha256": "e63302b82581ffaeec4600ea78a6121afd2d5c2252f425a87998604f032c5d76",
+      "bytes": 1052
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\完成结构迁移-process.json",
+      "sha256": "30b4912aa868ea19ac84541baa94ac29f70adba3ba01be8c4bbf536ff4b56d18",
+      "bytes": 699
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\退出维护-started.json",
+      "sha256": "0bf482252a6aac80e85e3585b519ca17cdd3fb27f666122a7870c6e0aa7e6f13",
+      "bytes": 284
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\退出维护-result.json",
+      "sha256": "109428c7e0fa3b7f5465875411c3f0de544ff214a771d9c184f55211a43dbc2f",
+      "bytes": 148
+    },
+    {
+      "path": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48\\退出维护-process.json",
+      "sha256": "1ea319403a2bd876347e827861aa3696a1dfb1dff8f69c60a66ea0af0f942106",
+      "bytes": 701
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app.prepare-42bf72db402740a984a76493335d7195.json",
+      "sha256": "51361955f274b0643a7786698cee3d54546da1b446b810947bd08df8bfd838b8",
+      "bytes": 364
+    },
+    {
+      "path": "D:\\运营管理系统\\docs\\control-adoption-resume-20261031\\deployment-BEFORE-catalog-fix.json",
+      "sha256": "212c21a991e3db99c875fe4dd107b624db7673950b8ae79b96a4dd053a86d74e",
+      "bytes": 372
+    }
+  ]
+}
