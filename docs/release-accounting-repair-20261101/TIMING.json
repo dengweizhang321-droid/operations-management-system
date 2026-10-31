@@ -5,7 +5,8 @@
   "nativeStartedAt": "2026-10-31T19:20:06.327Z",
   "nativeSuccessAt": "2026-10-31T19:35:58.861Z",
   "entryCompletedAt": "2026-11-01T03:36:26.0053885+08:00",
-  "publisherLogToExitSeconds": 1432.161,
-  "nativeStartedToSuccessSeconds": 952.0,
-  "notMeasured": "User authorization total waiting time and continuous authenticated downtime"
+  "publisherLogToExitSeconds": 1432.166,
+  "nativeStartedToSuccessSeconds": 952.534,
+  "notMeasured": "User authorization total waiting time and continuous authenticated downtime",
+  "precision": "milliseconds; calculated directly from retained ISO timestamp strings"
 }
