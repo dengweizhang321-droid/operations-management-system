@@ -11,7 +11,7 @@
     "backend/workflow/migrations/0009_automation_projection_b1.py": "adafff9db82c661409e16488be6461f6a52d436f226360254d8af82a9b6c89bc",
     "backend/workflow/migrations/0010_customer_service_chain_modules.py": "f5cf004563db635baa29fcb57e3965f26c085eb14ba2eb13eaf78a85f53de8cd"
   },
-  "validation": "docs/workflow-automation-addition-20261031/workflow156-mandatory-code-checks.json",
-  "validationSha256": "d54693ce6f64abf1e6cdaafbf90e69c2198db38bb04c0dc76a7c969621a60432",
-  "codeSha256": "4c11c9144e5207a434e63cd7bf821238a9353ac3f9f84beeb4054ecfe9fd6ecc"
+  "validation": "docs/catalog-baseline-20261101/workflow156-mandatory-code-checks.json",
+  "validationSha256": "19153dba7cf47a01a0a5c8566338719cf68ae8507b4f5b8c3444b535d8b17a87",
+  "codeSha256": "26427473b67e6778eb9000a5e921c0f070857021bc33b1931f7f80c707fb8e37"
 }

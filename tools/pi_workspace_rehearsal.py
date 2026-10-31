@@ -148,7 +148,11 @@ def capture():
         provision(connection.connection, secrets.token_hex(32), secrets.token_hex(32))
         with connection.cursor() as cursor:
             reference = pi_catalog.inspect_tables(cursor)
-        (ROOT / "tools/pi_workspace_catalog.json").write_text(json.dumps(reference,indent=2),encoding="utf8",newline="\n")
+        from check_catalog_baselines import require_catalog_baselines
+        require_catalog_baselines(ROOT, replacement={"pi_workspace_catalog.json": json.loads(json.dumps(reference, default=str))})
+        candidate_file = directory / "pi_workspace_catalog.json.candidate"
+        with candidate_file.open("x", encoding="utf8", newline="\n") as output:
+            output.write(json.dumps(reference, indent=2, default=str) + "\n")
         return
     with patch.object(pi, "verify_initial_values", side_effect=ValueError("injected150 rollback")):
         reject(lambda: pi.apply_steps(connection, base150, previous), "atomic150 rollback")
@@ -239,6 +243,8 @@ def private_test_acl(directory):
 
 
 def launch():
+    from check_catalog_baselines import require_catalog_baselines
+    require_catalog_baselines(ROOT, capture_target="pi_workspace_catalog.json" if "--capture-catalog" in sys.argv else None)
     assert_isolated_source()
     scratch = Path("D:/codex-artifacts/pi-phase2-workspace-20261018/schema")
     scratch.mkdir(parents=True, exist_ok=True)

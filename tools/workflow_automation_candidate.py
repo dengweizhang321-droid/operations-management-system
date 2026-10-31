@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 
 import workflow_automation_addition as gate
+from check_catalog_baselines import require_catalog_baselines
 
 
 def relative(root, name):
@@ -23,6 +24,7 @@ FIELDS = {"version", "status", "predecessorSha256", "parentReferenceSha256", "mi
 
 
 def candidate(root, runtime, recipe_path, *, full_parent=True):
+    catalog_baseline = require_catalog_baselines(root)
     recipe = gate.common.read(recipe_path)
     steps, files = gate.steps_files(recipe.get("fromGeneration"))
     expected = {"version", "additionKind", "fromGeneration", "toGeneration", "steps", "stepFiles",
@@ -47,6 +49,7 @@ def candidate(root, runtime, recipe_path, *, full_parent=True):
             or proof.get("parentVariants") != [[154, 156]]
             or proof.get("fullBackupOrRestorePerformed") is not False
             or proof.get("codeSha256") != code_sha or proof.get("migrationSha256") != migration_sha
+            or proof.get("catalogBaseline") != catalog_baseline
             or proof.get("steps") != list(gate.STEPS) or set(proof.get("checks", [])) != gate.CHECKS):
         raise ValueError("Bound mandatory code checks do not cover these exact installer bytes")
     if full_parent:

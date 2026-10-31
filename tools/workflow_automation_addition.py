@@ -28,8 +28,9 @@ from workflow_automation_catalog import (FILES, STEPS, verify_catalog, verify_de
 VERSION = "teruisi-workflow-automation-schema-addition-v1"
 POLICY = "schema-only-no-full-backup-or-restore-v1"
 ACTIVE = "workflow-automation-addition-active.json"
-CHECKS = {"python-syntax", "node-syntax", "powershell-syntax", "migration-closure"}
+CHECKS = {"python-syntax", "node-syntax", "powershell-syntax", "migration-closure", "catalog-baseline"}
 CODE_FILES = tuple(dict.fromkeys((*parent.CODE_FILES,
+    "tools/check_catalog_baselines.py",
     "tools/workflow_automation_addition.py", "tools/workflow_automation_catalog.py",
     "tools/workflow_automation_catalog.json", "tools/workflow_automation_candidate.py",
     "backend/workflow/migrations/0009_automation_projection_b1.py",
@@ -106,6 +107,8 @@ def source_inventory(root):
 
 
 def admission(root, runtime, evidence, evidence_sha):
+    from check_catalog_baselines import require_catalog_baselines
+    catalog_baseline = require_catalog_baselines(root)
     value = common.read(evidence, evidence_sha)
     base, parent_sha = parent_proof(runtime, Path(runtime) / "app")
     steps, files = steps_files(len(base))
@@ -128,6 +131,7 @@ def admission(root, runtime, evidence, evidence_sha):
             or proof.get("fullBackupOrRestorePerformed") is not False
             or proof.get("codeSha256") != value["codeSha256"]
             or proof.get("migrationSha256") != value["migrationSha256"]
+            or proof.get("catalogBaseline") != catalog_baseline
             or set(proof.get("checks", [])) != CHECKS):
         raise ValueError("Bound WorkflowAutomation mandatory code-check record is incomplete")
     return value

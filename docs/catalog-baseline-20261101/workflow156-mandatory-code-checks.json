@@ -1,0 +1,2113 @@
+{
+  "version": "workflow-automation-mandatory-code-checks-v1",
+  "status": "code-checked",
+  "checkedAt": "2026-10-31T16:48:58.838327+00:00",
+  "productionTouched": false,
+  "functionalValidationPerformed": false,
+  "steps": [
+    "workflow.0009_automation_projection_b1",
+    "workflow.0010_customer_service_chain_modules"
+  ],
+  "generations": [
+    154,
+    156
+  ],
+  "parentVariants": [
+    [
+      154,
+      156
+    ]
+  ],
+  "fullBackupOrRestorePerformed": false,
+  "codeSha256": "26427473b67e6778eb9000a5e921c0f070857021bc33b1931f7f80c707fb8e37",
+  "migrationSha256": "05802c9ef1af3a46fb9c980965d6f98ba06d1ee35459cf514050280fbd67bb31",
+  "checks": [
+    "catalog-baseline",
+    "migration-closure",
+    "node-syntax",
+    "powershell-syntax",
+    "python-syntax"
+  ],
+  "catalogBaseline": {
+    "version": "teruisi-catalog-baselines-v1",
+    "status": "passed",
+    "scope": "catalog-baseline",
+    "databaseContacted": false,
+    "deferredCatalogs": [],
+    "sourceFiles": {
+      "tools/ai_schedule_addition_catalog.py": "81b2ee2e9d54a6b75bc7d6cd6c1da4e7f2079c7d45b60213d106a7da3730f143",
+      "tools/check_catalog_baselines.py": "3bdf1e47ff9637af178dc9601c5b5512eda7938a776a548c8804d0e36c3707ec",
+      "tools/jackyun_audit_catalog.py": "0ec29d8672a0f2900a77efd8c46f26da92facca4e366ccf57ad8ba163cad6e8f",
+      "tools/jd_logistics_catalog.json": "987d06df53af7b53a5d0980f9ac1ad028ab696411785203b3044a9b98622fc59",
+      "tools/jd_logistics_catalog.py": "7be356058c31b27e9af1c8ebbad000310bb0a0eedb11f841182f67d3f4ca75ec",
+      "tools/jd_monitor_preferences_catalog.json": "06e8c81d81645e1ca7215280beeef928b5a26a39b30bf0607b4ab8183a5602e9",
+      "tools/jd_monitor_preferences_catalog.py": "baea5a9392f2fdd623002da3115bac68986e893655c12658152b68c0ae56a383",
+      "tools/jd_product_monitoring_catalog.py": "ad65e36a5e57bfc29345cfa21dba950d4754143f37358882ec4d4a584a347051",
+      "tools/pi_agent_catalog.json": "1e07e1b6dd99385437fe3b9c9691f9aed2c98b1e7fe5189387b68976e7dd4069",
+      "tools/pi_agent_catalog.py": "58ba8e6ecde77734a579e66ae85c1529107c598edf42459d2b07ef08a6567c68",
+      "tools/pi_business_catalog.py": "6d257bdd06e808609d97c82e9078b34227b2e2042d2839a38c44620bbcae68e6",
+      "tools/pi_native_catalog.py": "68555790ab68fc6559dcffab77f74b8b635cd3036a1ce37aec13e8da1049b9ca",
+      "tools/pi_workspace_catalog.json": "322293bdd253c5f67801ca99c4a7abf69ba3b3e2124698f8d0cae5aedd20b9b3",
+      "tools/pi_workspace_catalog.py": "8b458b66363df4b1cb01812b12f9f0eeff4d74490a94e40dde34ab83c611b194",
+      "tools/sales_preflight_catalog.py": "a41f59cc13c83ca92ce4da199b085872ea49e18cf23565f23210ce15b4a6e307",
+      "tools/tmall_warehouse_catalog.json": "bbc108b10a4799a5d2e157ca1fd91ac421d90cf0728292a46995b4adc9ec2d1b",
+      "tools/tmall_warehouse_catalog.py": "b8f27c11c53f0fa68462aa6448e03d37c2b43180ce981a4b58fa66d5644370c8",
+      "tools/workflow_automation_catalog.json": "2620a423181319bb7fb3b46bff0d447ac9497b334fab3746d7bfd389a46cafa6",
+      "tools/workflow_automation_catalog.py": "cf68f0ca664816dd4804e59e2cf2d53ff4ebb47226834b44893f3429532d1545"
+    },
+    "results": [
+      {
+        "catalog": "jd_logistics_catalog.json",
+        "object": "inventory_jd_logistics_audits",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "jd_logistics_catalog.json",
+        "object": "inventory_jd_logistics_batches",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "jd_logistics_catalog.json",
+        "object": "inventory_jd_logistics_deliveries",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "jd_logistics_catalog.json",
+        "object": "inventory_jd_logistics_departments",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "jd_logistics_catalog.json",
+        "object": "inventory_jd_logistics_facts",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "jd_logistics_catalog.json",
+        "object": "inventory_jd_logistics_manual_states",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "jd_logistics_catalog.json",
+        "object": "inventory_jd_logistics_mappings",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "jd_logistics_catalog.json",
+        "object": "inventory_jd_logistics_scopes",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "jd_monitor_preferences_catalog.json",
+        "object": "inventory_jd_logistics_audits",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "jd_monitor_preferences_catalog.json",
+        "object": "inventory_jd_logistics_batches",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "jd_monitor_preferences_catalog.json",
+        "object": "inventory_jd_logistics_deliveries",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "jd_monitor_preferences_catalog.json",
+        "object": "inventory_jd_logistics_departments",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "jd_monitor_preferences_catalog.json",
+        "object": "inventory_jd_logistics_facts",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "jd_monitor_preferences_catalog.json",
+        "object": "inventory_jd_logistics_manual_states",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "jd_monitor_preferences_catalog.json",
+        "object": "inventory_jd_logistics_mappings",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "jd_monitor_preferences_catalog.json",
+        "object": "inventory_jd_logistics_scopes",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_agent_catalog.json",
+        "object": "ai_pi_dispatches",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_agent_catalog.json",
+        "object": "ai_pi_events",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_agent_catalog.json",
+        "object": "ai_pi_export_pages",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_agent_catalog.json",
+        "object": "ai_pi_exports",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_agent_catalog.json",
+        "object": "ai_pi_files",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_agent_catalog.json",
+        "object": "ai_pi_gateway_nonces",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_agent_catalog.json",
+        "object": "ai_pi_operations",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_agent_catalog.json",
+        "object": "ai_pi_sessions",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_workspace_catalog.json",
+        "object": "ai_pi_controls",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_workspace_catalog.json",
+        "object": "ai_pi_ui_requests",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_workspace_catalog.json",
+        "object": "ai_pi_workspaces",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "tmall_warehouse_catalog.json",
+        "object": "inventory_tmall_warehouse_audits",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "tmall_warehouse_catalog.json",
+        "object": "inventory_tmall_warehouse_batches",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "tmall_warehouse_catalog.json",
+        "object": "inventory_tmall_warehouse_facts",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "tmall_warehouse_catalog.json",
+        "object": "inventory_tmall_warehouse_scopes",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "tmall_warehouse_catalog.json",
+        "object": "public.inventory_tmall_warehouse_facts_id_seq",
+        "kind": "sequence",
+        "status": "passed",
+        "table": "inventory_tmall_warehouse_facts",
+        "column": "id",
+        "expectedOwnerPrivileges": [
+          "SELECT",
+          "UPDATE",
+          "USAGE"
+        ],
+        "actualOwnerPrivileges": [
+          "SELECT",
+          "UPDATE",
+          "USAGE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "SELECT": 1,
+          "UPDATE": 1,
+          "USAGE": 1
+        },
+        "rawOwnerRows": 3,
+        "ownerPrivilegeCount": 3
+      },
+      {
+        "catalog": "workflow_automation_catalog.json",
+        "object": "automation_attempts",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "workflow_automation_catalog.json",
+        "object": "automation_logical_runs",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "workflow_automation_catalog.json",
+        "object": "automation_module_results",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "workflow_automation_catalog.json",
+        "object": "automation_modules",
+        "kind": "table",
+        "status": "passed",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "workflow_automation_catalog.json",
+        "object": "public.automation_module_results_id_seq",
+        "kind": "sequence",
+        "status": "passed",
+        "table": "automation_module_results",
+        "column": "id",
+        "expectedOwnerPrivileges": [
+          "SELECT",
+          "UPDATE",
+          "USAGE"
+        ],
+        "actualOwnerPrivileges": [
+          "SELECT",
+          "UPDATE",
+          "USAGE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "SELECT": 1,
+          "UPDATE": 1,
+          "USAGE": 1
+        },
+        "rawOwnerRows": 3,
+        "ownerPrivilegeCount": 3
+      },
+      {
+        "catalog": "ai_schedule_addition_catalog.py",
+        "object": "ai_dingtalk_schedules",
+        "kind": "table",
+        "status": "passed",
+        "representation": "REFERENCE142 literal",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "ai_schedule_addition_catalog.py",
+        "object": "ai_dingtalk_schedule_runs",
+        "kind": "table",
+        "status": "passed",
+        "representation": "REFERENCE142 literal",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_business_catalog.py",
+        "object": "ai_pi_business_actions",
+        "kind": "table",
+        "status": "passed",
+        "representation": "connected owner set comprehension",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_business_catalog.py",
+        "object": "ai_pi_business_audits",
+        "kind": "table",
+        "status": "passed",
+        "representation": "connected owner set comprehension",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_business_catalog.py",
+        "object": "ai_pi_business_intents",
+        "kind": "table",
+        "status": "passed",
+        "representation": "connected owner set comprehension",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_native_catalog.py",
+        "object": "ai_pi_agent_messages",
+        "kind": "table",
+        "status": "passed",
+        "representation": "connected owner set comprehension",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_native_catalog.py",
+        "object": "ai_pi_agent_waits",
+        "kind": "table",
+        "status": "passed",
+        "representation": "connected owner set comprehension",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_native_catalog.py",
+        "object": "ai_pi_agents",
+        "kind": "table",
+        "status": "passed",
+        "representation": "connected owner set comprehension",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_native_catalog.py",
+        "object": "ai_pi_business_delegations",
+        "kind": "table",
+        "status": "passed",
+        "representation": "connected owner set comprehension",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_native_catalog.py",
+        "object": "ai_pi_file_handoffs",
+        "kind": "table",
+        "status": "passed",
+        "representation": "connected owner set comprehension",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_native_catalog.py",
+        "object": "ai_pi_native_states",
+        "kind": "table",
+        "status": "passed",
+        "representation": "connected owner set comprehension",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "pi_native_catalog.py",
+        "object": "ai_pi_plan_revisions",
+        "kind": "table",
+        "status": "passed",
+        "representation": "connected owner set comprehension",
+        "expectedOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "actualOwnerPrivileges": [
+          "DELETE",
+          "INSERT",
+          "MAINTAIN",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "missingOwnerPrivileges": [],
+        "unexpectedOwnerPrivileges": [],
+        "rawOwnerPrivilegeCounts": {
+          "DELETE": 1,
+          "INSERT": 1,
+          "MAINTAIN": 1,
+          "REFERENCES": 1,
+          "SELECT": 1,
+          "TRIGGER": 1,
+          "TRUNCATE": 1,
+          "UPDATE": 1
+        },
+        "rawOwnerRows": 8,
+        "ownerPrivilegeCount": 8
+      },
+      {
+        "catalog": "jd_product_monitoring_catalog.py",
+        "object": "inventory_jd_logistics_audits",
+        "kind": "inherited-table",
+        "status": "not-applicable",
+        "inherits": "jd_monitor_preferences_catalog.json",
+        "reason": "ACL inherited unchanged; ancestor checked separately"
+      },
+      {
+        "catalog": "jd_product_monitoring_catalog.py",
+        "object": "inventory_jd_logistics_batches",
+        "kind": "inherited-table",
+        "status": "not-applicable",
+        "inherits": "jd_monitor_preferences_catalog.json",
+        "reason": "ACL inherited unchanged; ancestor checked separately"
+      },
+      {
+        "catalog": "jd_product_monitoring_catalog.py",
+        "object": "inventory_jd_logistics_deliveries",
+        "kind": "inherited-table",
+        "status": "not-applicable",
+        "inherits": "jd_monitor_preferences_catalog.json",
+        "reason": "ACL inherited unchanged; ancestor checked separately"
+      },
+      {
+        "catalog": "jd_product_monitoring_catalog.py",
+        "object": "inventory_jd_logistics_departments",
+        "kind": "inherited-table",
+        "status": "not-applicable",
+        "inherits": "jd_monitor_preferences_catalog.json",
+        "reason": "ACL inherited unchanged; ancestor checked separately"
+      },
+      {
+        "catalog": "jd_product_monitoring_catalog.py",
+        "object": "inventory_jd_logistics_facts",
+        "kind": "inherited-table",
+        "status": "not-applicable",
+        "inherits": "jd_monitor_preferences_catalog.json",
+        "reason": "ACL inherited unchanged; ancestor checked separately"
+      },
+      {
+        "catalog": "jd_product_monitoring_catalog.py",
+        "object": "inventory_jd_logistics_manual_states",
+        "kind": "inherited-table",
+        "status": "not-applicable",
+        "inherits": "jd_monitor_preferences_catalog.json",
+        "reason": "ACL inherited unchanged; ancestor checked separately"
+      },
+      {
+        "catalog": "jd_product_monitoring_catalog.py",
+        "object": "inventory_jd_logistics_mappings",
+        "kind": "inherited-table",
+        "status": "not-applicable",
+        "inherits": "jd_monitor_preferences_catalog.json",
+        "reason": "ACL inherited unchanged; ancestor checked separately"
+      },
+      {
+        "catalog": "jd_product_monitoring_catalog.py",
+        "object": "inventory_jd_logistics_scopes",
+        "kind": "inherited-table",
+        "status": "not-applicable",
+        "inherits": "jd_monitor_preferences_catalog.json",
+        "reason": "ACL inherited unchanged; ancestor checked separately"
+      },
+      {
+        "catalog": "jackyun_audit_catalog.py",
+        "object": "erp_reference_import_attempts",
+        "kind": "addition",
+        "status": "not-applicable",
+        "reason": "adds columns/indexes to existing tables; no new table ACL baseline"
+      },
+      {
+        "catalog": "jackyun_audit_catalog.py",
+        "object": "sales_import_attempts",
+        "kind": "addition",
+        "status": "not-applicable",
+        "reason": "adds columns/indexes to existing tables; no new table ACL baseline"
+      },
+      {
+        "catalog": "jackyun_audit_catalog.py",
+        "object": "sales_raw_upload_sessions",
+        "kind": "addition",
+        "status": "not-applicable",
+        "reason": "adds columns/indexes to existing tables; no new table ACL baseline"
+      },
+      {
+        "catalog": "sales_preflight_catalog.py",
+        "object": "sales_excluded_date_idx",
+        "kind": "addition",
+        "status": "not-applicable",
+        "reason": "adds one index to an existing table; no new table ACL baseline"
+      }
+    ],
+    "diagnostics": [],
+    "summary": {
+      "results": 61,
+      "tables": 47,
+      "sequences": 2,
+      "notApplicable": 12,
+      "ownerPrivilegeMemberships": 382,
+      "rawOwnerRows": 382,
+      "diagnostics": 0
+    }
+  },
+  "evidence": {
+    "path": "docs/catalog-baseline-20261101/MANDATORY-CHECKS.json",
+    "sha256": "8a8844f3cf49b9d811c580b26c49fd927e9851062ae9ebb0507de32af01e520f"
+  }
+}

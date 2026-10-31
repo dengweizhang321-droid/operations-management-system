@@ -2138,10 +2138,36 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   }
 }
 
+# Source-only invariant gate, shared by migration and ordinary successor preparation.
+# No database connection, baseline rewrite, staging directory or startup permission.
+function Assert-CatalogBaselines {
+  $checker = Join-Path $ExecutionRoot 'tools\check_catalog_baselines.py'
+  if (-not (Test-Path -LiteralPath $checker -PathType Leaf)) {throw 'Catalog baseline checker is missing'}
+  $catalogRun = Invoke-BoundedNativeProcess $Python @('-B',$checker,'--root',$ExecutionRoot,'--compact') $ExecutionRoot
+  if ($catalogRun -isnot [pscustomobject] -or $catalogRun.ExitCode -isnot [int] -or
+      $catalogRun.LaunchFailed -isnot [bool] -or $catalogRun.LaunchFailed -or
+      $catalogRun.Diagnostic.OutputTruncated -isnot [bool] -or $catalogRun.Diagnostic.OutputTruncated -or
+      @($catalogRun.Output).Count -ne 1 -or $catalogRun.Output[0] -isnot [string]) {
+    throw 'Catalog baseline check requires one complete native JSON result'
+  }
+  $catalogProof = ConvertFrom-UniqueNativeJson $catalogRun 'Catalog baseline check'
+  if ($catalogProof.version -isnot [string] -or $catalogProof.status -isnot [string] -or $catalogProof.scope -isnot [string] -or
+      $catalogProof.version -cne 'teruisi-catalog-baselines-v1' -or
+      $catalogProof.status -cne 'passed' -or $catalogProof.scope -cne 'catalog-baseline' -or
+      $catalogProof.databaseContacted -isnot [bool] -or $catalogProof.databaseContacted -or
+      $catalogProof.diagnostics -isnot [array] -or $catalogProof.diagnostics.Count -ne 0 -or
+      $catalogProof.deferredCatalogs -isnot [array] -or $catalogProof.deferredCatalogs.Count -ne 0 -or
+      ($catalogProof.totalDiagnostics -isnot [int] -and $catalogProof.totalDiagnostics -isnot [long]) -or $catalogProof.totalDiagnostics -ne 0 -or
+      $catalogProof.fullReportSha256 -isnot [string] -or $catalogProof.fullReportSha256 -cnotmatch '^[a-f0-9]{64}$') {
+    throw 'Catalog baseline source contract refused preparation'
+  }
+}
+
 function Prepare-Application {
   if ((Get-CanonicalPath $ExecutionRoot) -eq (Get-CanonicalPath $InstalledAppRoot)) {
     throw "DeployApp 必须从源码工作树脚本执行，不能从 runtime app 自我覆盖"
   }
+  Assert-CatalogBaselines
   Assert-NoUnapprovedProtectedAiMigration "PrepareApp"
   if (-not (Test-Path -LiteralPath $BackendRoot -PathType Container)) { throw "源码 backend 不存在" }
   if (-not (Test-Path -LiteralPath $DingTalkReplenishmentConfigSource -PathType Leaf)) {
@@ -2236,6 +2262,7 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\check_catalog_baselines.py",
       "tools\workflow_automation_addition.py",
       "tools\workflow_automation_catalog.py",
       "tools\workflow_automation_catalog.json",

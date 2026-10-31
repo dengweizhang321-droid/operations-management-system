@@ -80,7 +80,11 @@ def capture():
         grant_inventory()
         with connection.cursor() as cursor:
             reference = catalog.inspect_tables(cursor)
-        (ROOT / "tools/jd_logistics_catalog.json").write_text(json.dumps(reference,indent=2),encoding="utf8")
+        from check_catalog_baselines import require_catalog_baselines
+        require_catalog_baselines(ROOT, replacement={"jd_logistics_catalog.json": json.loads(json.dumps(reference, default=str))})
+        candidate_file = directory / "jd_logistics_catalog.json.candidate"
+        with candidate_file.open("x", encoding="utf8", newline="\n") as output:
+            output.write(json.dumps(reference, indent=2, default=str) + "\n")
         return
     from postgres_no_key_backup import verify_receipt_generation
     with connection.cursor() as cursor:
@@ -204,6 +208,8 @@ def capture():
 
 
 def launch():
+    from check_catalog_baselines import require_catalog_baselines
+    require_catalog_baselines(ROOT, capture_target="jd_logistics_catalog.json" if "--capture-catalog" in sys.argv else None)
     if ROOT == Path(r"D:\运营管理系统"):
         raise RuntimeError("Require isolated worktree")
     scratch = ROOT / ".codex-tmp"

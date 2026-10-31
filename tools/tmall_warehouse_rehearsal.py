@@ -110,7 +110,11 @@ def capture():
         with connection.cursor() as cursor:
             captured = catalog.inspect_tables(cursor)
             captured["sequence"] = catalog.sequence_catalog(cursor)
-        (ROOT / "tools/tmall_warehouse_catalog.json").write_text(json.dumps(captured, indent=2), encoding="utf8")
+        from check_catalog_baselines import require_catalog_baselines
+        require_catalog_baselines(ROOT, replacement={"tmall_warehouse_catalog.json": json.loads(json.dumps(captured, default=str))})
+        candidate_file = directory / "tmall_warehouse_catalog.json.candidate"
+        with candidate_file.open("x", encoding="utf8", newline="\n") as output:
+            output.write(json.dumps(captured, indent=2, default=str) + "\n")
         return
     # A migration2 failure must roll both steps back to147 without any149 object.
     with patch.object(addition, "verify_initial_values", side_effect=ValueError("injected149 rollback")):
@@ -257,6 +261,8 @@ def capture():
     print(json.dumps({"status":"passed","productionTouched":False,"validation":str(directory / "tmall-warehouse-validation.json")}),flush=True)
 
 def launch():
+    from check_catalog_baselines import require_catalog_baselines
+    require_catalog_baselines(ROOT, capture_target="tmall_warehouse_catalog.json" if "--capture-catalog" in sys.argv else None)
     assert_isolated_source()
     scratch = ROOT / ".codex-tmp"
     scratch.mkdir(exist_ok=True)

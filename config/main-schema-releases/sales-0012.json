@@ -9,7 +9,7 @@
   "stepFiles": {
     "backend/sales/migrations/0012_excluded_business_date_index.py": "0649724d2b94867efe42f56ef8d1b7992bd3878f3e1db7652422743b7f4ac238"
   },
-  "validation": "docs/jackyun-sales-preflight-20261029/sales154-mandatory-code-checks.json",
-  "validationSha256": "53c8ba44280fbef34947a64beac2bd0355e085621bdd16a17f6de0a17cb36932",
-  "codeSha256": "1959cbba59b3e4f4629aa14bbe4887435d26e7a218405b076535b62ebeb82141"
+  "validation": "docs/catalog-baseline-20261101/sales154-mandatory-code-checks.json",
+  "validationSha256": "68e29cb1a1136694c1eec2c1ed7829b1d77a3dfbf7e27ff9f2ae2f83a8cb0dbf",
+  "codeSha256": "46002e17d20d221913366753b7a63080c90cd4016edbe32cd6e494c2ca42c835"
 }

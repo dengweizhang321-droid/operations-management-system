@@ -192,6 +192,13 @@ def check_recipe(root, recipe_name):
                     require(isinstance(expected, str) and common.HEX.fullmatch(expected) is not None
                             and common.sha(source) == expected,
                             "Sales evidence supplementalSourceFiles differs: " + name)
+        if kind == "WorkflowAutomation":
+            checker = load_module(root, "check_catalog_baselines")
+            catalog_baseline = checker.require_catalog_baselines(root)
+            require(proof.get("catalogBaseline") == catalog_baseline,
+                    "Workflow proof catalog baseline differs from actual source check")
+            require(evidence.get("catalogBaseline") == catalog_baseline,
+                    "Workflow execution catalog baseline differs from actual source check")
         if not errors:
             result["status"] = "passed"
     except (ValueError, TypeError, KeyError, OSError, ImportError) as error:

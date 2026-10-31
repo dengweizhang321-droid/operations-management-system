@@ -6,7 +6,7 @@ import path from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {createHash} from 'node:crypto';
-import {firstMaintenancePredecessor as k,assertFirstMaintenanceContinuation,continueFirstMaintenance,isFirstMaintenancePredecessor,assertMaintenanceControllerGeneration,piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,bWorkerJsonFailureCauseScriptSha256,piNativeCandidateControllerSha256} from '../tools/manual-maintenance-continuation.mjs';
+import {firstMaintenancePredecessor as k,assertFirstMaintenanceContinuation,continueFirstMaintenance,isFirstMaintenancePredecessor,assertMaintenanceControllerGeneration,piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,catalogBaselineDjangoScriptSha256,bWorkerJsonFailureCauseScriptSha256,piNativeCandidateControllerSha256} from '../tools/manual-maintenance-continuation.mjs';
 import {publishPreparedMain} from '../tools/publish-prepared-main.mjs';
 // Execute the actual pure adapter declaration without importing release-impact's
 // TypeScript-dependent deployment analysis into this dependency-free fixture.
@@ -28,13 +28,14 @@ test('finite old pair only; native Stop exit0 is not a precondition or inferred 
  value.durableCompleteCommit=true;assert.equal(assertFirstMaintenanceContinuation(value,expected),'coordinate-completed');
 });
 test('reviewed Django controller generations preserve historical exceptions and match current source',async()=>{
- // The Workflow156 bytes are the newly reviewed current controller; earlier
+ // The catalog-preflight bytes are the newly reviewed current controller; earlier
  // batched-status-enumeration, Sales154, PiNative and descendant-guard
  // qualifications stay registered. Future byte changes must be reviewed explicitly rather
  // than accepted by this static tripwire, so this compares against the
  // registered constant and never recomputes it from the file.
  const source=await fs.readFile(new URL('../tools/django-local-service.ps1',import.meta.url));
- assert.equal(createHash('sha256').update(source).digest('hex'),workflowAutomationSchemaAdditionDjangoScriptSha256);
+ assert.equal(createHash('sha256').update(source).digest('hex'),catalogBaselineDjangoScriptSha256);
+ assert.notEqual(catalogBaselineDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256);
  assert.notEqual(workflowAutomationSchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256);
  assert.notEqual(batchedStatusEnumerationDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256);
  assert.notEqual(sales154SchemaAdditionDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256);
@@ -55,7 +56,7 @@ test('A项: descendant CreationDate guard candidate is qualified; other names an
  // Both generations stay registered: forward (install old, ship new) and
  // backward (install new, ship old) must both be admissible so a rollback of
  // this change is not blocked by its own qualification entry.
- assert.deepEqual(pins,[piNativeCandidateDjangoScriptSha256,candidate,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256]);
+ assert.deepEqual(pins,[piNativeCandidateDjangoScriptSha256,candidate,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,catalogBaselineDjangoScriptSha256]);
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}));
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:candidate,expected:piNativeCandidateDjangoScriptSha256,candidateSha:piNativeCandidateDjangoScriptSha256}));
  // An unqualified byte sequence for this controller still fails closed.
@@ -68,7 +69,7 @@ test('Sales154: append exact qualification, retain old generation, and reject fo
  const old=aDescendantCreationGuardDjangoScriptSha256,candidate=sales154SchemaAdditionDjangoScriptSha256;
  assert.equal(old,'4ba1fcaf3cd1568a64098a9d2d32039f850ec2db1da4f81aa97fa3ab9530723a');
  assert.equal(candidate,'98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b');
- assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,old,candidate,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256]);
+ assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,old,candidate,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,catalogBaselineDjangoScriptSha256]);
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:old,expected:candidate,candidateSha:candidate}));
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:candidate,expected:old,candidateSha:old}));
  const changed=candidate.slice(0,-1)+(candidate.endsWith('0')?'1':'0');
@@ -85,7 +86,7 @@ test('batched status enumeration: append exact qualification, retain Sales154, a
  const old=sales154SchemaAdditionDjangoScriptSha256,candidate=batchedStatusEnumerationDjangoScriptSha256;
  assert.equal(old,'98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b');
  assert.equal(candidate,'fbb62792eb0962cb91b76b0045a08812d29de0dabb0ab9056ac9ce235d76bddb');
- assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,old,candidate,workflowAutomationSchemaAdditionDjangoScriptSha256]);
+ assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,old,candidate,workflowAutomationSchemaAdditionDjangoScriptSha256,catalogBaselineDjangoScriptSha256]);
  // Forward adoption (Sales154 installed, ship this) and backward rollback
  // (this installed, ship Sales154) must both be admissible, so reverting this
  // change is never blocked by its own qualification entry.
@@ -110,7 +111,7 @@ test('Workflow156: append exact qualification, retain every older generation, an
  const old=batchedStatusEnumerationDjangoScriptSha256,candidate=workflowAutomationSchemaAdditionDjangoScriptSha256;
  assert.equal(old,'fbb62792eb0962cb91b76b0045a08812d29de0dabb0ab9056ac9ce235d76bddb');
  assert.equal(candidate,'af6b3b4242f0863296f018d3908ce9d9e93a1d8ec89565e299c7dba16e6e279c');
- assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,old,candidate]);
+ assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,old,candidate,catalogBaselineDjangoScriptSha256]);
  // Forward adoption (batched-status installed, ship this) and backward
  // rollback (this installed, ship batched-status) must both be admissible, so
  // reverting this change is never blocked by its own qualification entry.
@@ -391,4 +392,15 @@ test('Q14: the pair keeps per-controller generation checks for every other contr
  fixture.options.sha=async file=>file===djangoTarget?piNativeCandidateDjangoScriptSha256:fixture.real(file);
  assert.equal((await maintenanceReadiness(fixture.options)).route,'native-exit-observer');
  await assert.rejects(maintenanceReadiness(await(async()=>{fixture.options.sha=fixture.real;return fixture.options;})()),/实际原生控制器代际与候选不一致：django-local-service\.ps1/);
+});
+
+
+test('catalog preflight controller preserves prior qualifications and rejects unreviewed bytes',()=>{
+ const old=workflowAutomationSchemaAdditionDjangoScriptSha256,candidate=catalogBaselineDjangoScriptSha256;
+ assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:old,expected:candidate,candidateSha:candidate}));
+ assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:candidate,expected:old,candidateSha:old}));
+ const changed=candidate.slice(0,-1)+(candidate.endsWith('0')?'1':'0');
+ assert.throws(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:old,expected:changed,candidateSha:changed}));
+ for(const name of ['worker-local-service.ps1','process-deadline.ps1','unknown.ps1'])
+  assert.throws(()=>assertMaintenanceControllerGeneration({name,installedSha:old,expected:candidate,candidateSha:candidate}));
 });

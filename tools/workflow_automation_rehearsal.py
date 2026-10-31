@@ -141,8 +141,11 @@ def capture():
         with connection.cursor() as cursor:
             reference = catalog.inspect_tables(cursor)
             reference["sequence"] = catalog.sequence_catalog(cursor)
-        (ROOT / "tools/workflow_automation_catalog.json").write_text(
-            json.dumps(reference, indent=2, default=str), encoding="utf8", newline="\n")
+        from check_catalog_baselines import require_catalog_baselines
+        require_catalog_baselines(ROOT, replacement={"workflow_automation_catalog.json": json.loads(json.dumps(reference, default=str))})
+        candidate_file = directory / "workflow_automation_catalog.json.candidate"
+        with candidate_file.open("x", encoding="utf8", newline="\n") as output:
+            output.write(json.dumps(reference, indent=2, default=str) + "\n")
         print(json.dumps({"status": "catalog-captured", "productionTouched": False}), flush=True)
         return
 
@@ -251,6 +254,8 @@ def capture():
 
 
 def launch():
+    from check_catalog_baselines import require_catalog_baselines
+    require_catalog_baselines(ROOT, capture_target="workflow_automation_catalog.json" if "--capture-catalog" in sys.argv else None)
     assert_isolated_source()
     scratch = ROOT / ".codex-tmp"
     scratch.mkdir(exist_ok=True)

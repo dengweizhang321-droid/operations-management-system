@@ -1,0 +1,60 @@
+{
+  "status": "passed",
+  "scope": "synthetic-catalog-collector-only",
+  "productionTouched": false,
+  "businessValidationPerformed": false,
+  "port": 55590,
+  "cases": [
+    {
+      "catalog": "tmall_warehouse",
+      "explicitAcl": false,
+      "ownerPrivileges": [
+        "SELECT",
+        "UPDATE",
+        "USAGE"
+      ],
+      "status": "passed"
+    },
+    {
+      "catalog": "tmall_warehouse",
+      "explicitAcl": true,
+      "ownerPrivileges": [
+        "SELECT",
+        "UPDATE",
+        "USAGE"
+      ],
+      "status": "passed"
+    },
+    {
+      "catalog": "workflow_automation",
+      "explicitAcl": false,
+      "ownerPrivileges": [
+        "SELECT",
+        "UPDATE",
+        "USAGE"
+      ],
+      "status": "passed"
+    },
+    {
+      "catalog": "workflow_automation",
+      "explicitAcl": true,
+      "ownerPrivileges": [
+        "SELECT",
+        "UPDATE",
+        "USAGE"
+      ],
+      "status": "passed"
+    }
+  ],
+  "sourceFiles": {
+    "tools/tmall_warehouse_catalog.py": "b8f27c11c53f0fa68462aa6448e03d37c2b43180ce981a4b58fa66d5644370c8",
+    "tools/workflow_automation_catalog.py": "cf68f0ca664816dd4804e59e2cf2d53ff4ebb47226834b44893f3429532d1545"
+  },
+  "executionScriptSha256": "61acc810cf5f17d861f7b85eaa45fcae07a2464eec20b1825ee977701335d206",
+  "postgresVersionNum": 170011,
+  "historicalWrongTypeOwnerPrivileges": [
+    "USAGE"
+  ],
+  "privateClusterStopped": true,
+  "passwordFileRemoved": true
+}
