@@ -1,0 +1,69 @@
+{
+  "status": "passed",
+  "codeFileCount": 86,
+  "codeSha256": "04ba55b47b61b7de11a7096b1441fc210c31cbb9135ac810a813799385c13c17",
+  "pythonFiles": 57,
+  "nodeFiles": 5,
+  "powershellFiles": 11,
+  "powershellHosts": [
+    {
+      "host": "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+      "version": "5.1.26100.9444",
+      "filesChecked": 11,
+      "errors": 0
+    },
+    {
+      "host": "C:\\Users\\86137\\AppData\\Local\\Microsoft\\WindowsApps\\pwsh.EXE",
+      "version": "7.6.9",
+      "filesChecked": 11,
+      "errors": 0
+    }
+  ],
+  "jsonFiles": 14,
+  "migrationClosure": {
+    "status": "passed",
+    "method": "real parent-153 Git migration-only fixture; inherited bytes, reviewed step and unrelated merged additions verified separately",
+    "baselineCommit": "4a0a77646309391a173dbd95269f70ed893916af",
+    "fromGeneration": 153,
+    "toGeneration": 154,
+    "baselinePythonFiles": 163,
+    "candidatePythonFiles": 166,
+    "baselineRepositoryMigrationNodes": 151,
+    "candidateRepositoryMigrationNodes": 154,
+    "builtinMigrationNodes": [
+      "contenttypes.0001_initial",
+      "contenttypes.0002_remove_content_type_name"
+    ],
+    "inheritedMigrationsByteIdentical": true,
+    "added": [
+      "backend/sales/migrations/0012_excluded_business_date_index.py",
+      "backend/workflow/migrations/0009_automation_projection_b1.py",
+      "backend/workflow/migrations/0010_customer_service_chain_modules.py"
+    ],
+    "stepFiles": {
+      "backend/sales/migrations/0012_excluded_business_date_index.py": "0649724d2b94867efe42f56ef8d1b7992bd3878f3e1db7652422743b7f4ac238"
+    },
+    "unrelatedMergedMigrations": {
+      "backend/workflow/migrations/0009_automation_projection_b1.py": "adafff9db82c661409e16488be6461f6a52d436f226360254d8af82a9b6c89bc",
+      "backend/workflow/migrations/0010_customer_service_chain_modules.py": "f5cf004563db635baa29fcb57e3965f26c085eb14ba2eb13eaf78a85f53de8cd"
+    },
+    "unrelatedMergedMigrationNodes": [
+      "workflow.0009_automation_projection_b1",
+      "workflow.0010_customer_service_chain_modules"
+    ],
+    "salesDeltaAdmittedByGateSourceDelta": false,
+    "gateSourceDeltaRefusal": "Only the exact reviewed153-to154 delta is supported",
+    "scope": "source inventory only; the Sales154 generation delta is NOT re-admitted and no addition module, catalogue, admission path or installed gate is modified",
+    "migrationSha256": "05802c9ef1af3a46fb9c980965d6f98ba06d1ee35459cf514050280fbd67bb31",
+    "databaseContacted": false,
+    "installedParentVerified": false,
+    "graphMigrationNodes": 156,
+    "operations": [
+      "AddIndex"
+    ],
+    "modelsMatchMigrationState": true,
+    "graphMethod": "MigrationLoader(None), dummy backend, guarded connections, MigrationAutodetector",
+    "djangoVersion": "5.2.17"
+  },
+  "evidenceSha256": "f2c8b645a1f93d81eb264b28b467d2b7dbacdf0614f04e2ec225b88d9bd17679"
+}

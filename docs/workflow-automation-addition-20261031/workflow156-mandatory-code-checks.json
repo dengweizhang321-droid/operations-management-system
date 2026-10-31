@@ -1,0 +1,34 @@
+{
+  "version": "workflow-automation-mandatory-code-checks-v1",
+  "status": "code-checked",
+  "checkedAt": "2026-10-31T10:50:20.788596+00:00",
+  "productionTouched": false,
+  "functionalValidationPerformed": false,
+  "steps": [
+    "workflow.0009_automation_projection_b1",
+    "workflow.0010_customer_service_chain_modules"
+  ],
+  "generations": [
+    154,
+    156
+  ],
+  "parentVariants": [
+    [
+      154,
+      156
+    ]
+  ],
+  "fullBackupOrRestorePerformed": false,
+  "codeSha256": "4c11c9144e5207a434e63cd7bf821238a9353ac3f9f84beeb4054ecfe9fd6ecc",
+  "migrationSha256": "05802c9ef1af3a46fb9c980965d6f98ba06d1ee35459cf514050280fbd67bb31",
+  "checks": [
+    "migration-closure",
+    "node-syntax",
+    "powershell-syntax",
+    "python-syntax"
+  ],
+  "evidence": {
+    "path": "docs/workflow-automation-addition-20261031/MANDATORY-CHECKS.json",
+    "sha256": "04052f6c9f1a993484c204130756c9dc8cdeef01e7d83b703d627e29ea79db44"
+  }
+}

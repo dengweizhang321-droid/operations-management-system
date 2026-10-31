@@ -82,6 +82,64 @@ export const aDescendantCreationGuardDjangoScriptSha256='4ba1fcaf3cd1568a64098a9
 // qualification for the transition.
 // Review and authorization: docs/sales154-controller-qualification-20261029/REPORT.md.
 export const sales154SchemaAdditionDjangoScriptSha256='98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b';
+// Batched status enumeration (94312406 + 3cf4927f, 2026-10-30/31): these
+// reviewed controller bytes add an opt-in cache of ONE Win32_Process
+// enumeration, keyed by ProcessId, to cut AggregateStatus's ~20 per-PID CIM
+// queries (measured 8689 ms of per-PID queries vs. 724 ms for one full
+// enumeration), which is what pushed the watchdog's control stage past its
+// budget. The cache defaults to $null ("no cache"), and
+// Show-AggregateServiceStatus is the ONLY call site that populates it
+// (:4841), inside a try whose finally clears it unconditionally (:4899), so
+// no later action in the same process can observe a stale enumeration.
+// Verified: every process-tree and lifecycle call site passes an explicit
+// Attempts of 1 and never populates the cache, so each falls straight
+// through to the live per-PID query; Resolve-OwnedProcess additionally
+// forces -ReadOnly for any Status action (:2838), so the populating path
+// cannot reach PID-record cleanup. Get-ProcessSnapshot's three outcomes are
+// unchanged: the cache is consulted only on attempt 1 and only when
+// populated, and a miss or blank-metadata row falls through to the same live
+// query and retry loop, so the cache can never be what establishes absence
+// or satisfies the metadata-unavailable throw. Duplicate rows for one id are
+// retained so the ambiguity throw still fires, and a failed enumeration
+// leaves the cache EMPTY rather than absent-looking. 3cf4927f is the
+// correctness fix for the first form: @() inside each if-branch let
+// PowerShell unwrap a single-element array on its way out of the
+// if-expression, leaving a bare CimInstance whose .Count is $null, so every
+// single-row lookup reported false absence and DeployApp refused with a
+// healthy PostgreSQL on 5432. Wrapping the whole if-expression restores the
+// array in both paths. Nothing in maintenance enter/exit, the maintenance
+// lock, drain, STARTED/SUCCESS receipts, migration logic, the schema-addition
+// admission gate, ACL/permission boundaries, worker start/stop sequencing or
+// signal handling is touched; no external process is added and no assertion
+// is relaxed. Both PS5.1 and PS7 parse the file (Parser.ParseFile, no
+// execution); the UTF-8 BOM is retained. Keep every older generation
+// qualified so a rollback is not blocked by this entry.
+// Review: docs/ci-two-gates-fix-20261031/REPORT.md.
+export const batchedStatusEnumerationDjangoScriptSha256='fbb62792eb0962cb91b76b0045a08812d29de0dabb0ab9056ac9ce235d76bddb';
+// Workflow156: these reviewed controller bytes add the twelfth generation's
+// schema-addition admission branch and list its four verifier modules in
+// PrepareApp's copy list. Why this is qualifiable: the diff is 33 added lines
+// and ZERO modified or removed lines. 29 of them are one new `if` block placed
+// immediately before the Sales154 block in
+// Assert-NoUnapprovedProtectedAiMigration; the other 4 are copy-list entries.
+// The new block is reached only when this generation's own evidence version,
+// operation plan or active marker is present, so with none of those on disk
+// control falls through to the Sales154 branch byte-identically to before.
+// Every ancestor's lifecycle proof is retained, not bypassed:
+// workflow_automation_addition.parent_proof calls
+// sales_preflight_addition._verify_active_with_base, which recurses through all
+// eleven existing generations to bi_app_addition's published 139 parent. The
+// independent integration_release_gate.py database invocation before migrate
+// keeps its own protections. Nothing in maintenance enter/exit, the maintenance
+// lock, drain, STARTED/SUCCESS receipts, process-tree walking or termination,
+// worker start/stop sequencing, signal handling, ACL/permission boundaries or
+// any existing assertion is touched, and no external process is added.
+// Both PS5.1 (5.1.26100.9444) and PS7 (7.6.9) parse the file with zero errors
+// (Parser.ParseFile, no execution); the UTF-8 BOM and CRLF endings are
+// retained. Keep every older generation qualified so a rollback of this change
+// is not blocked by its own qualification entry.
+// Review: docs/workflow-automation-addition-20261031/REPORT.md.
+export const workflowAutomationSchemaAdditionDjangoScriptSha256='af6b3b4242f0863296f018d3908ce9d9e93a1d8ec89565e299c7dba16e6e279c';
 // B项 (2026-10-25) registers the worker controller that reports the real
 // failure cause in -Json mode. The terminal catch block used to write only the
 // fixed string 'Worker lifecycle result requires exact reconciliation' to
@@ -111,7 +169,7 @@ export const bWorkerJsonFailureCauseScriptSha256='1b8c5d4d61ba491d042f41ae91e9cc
 // tools/worker-local-service.ps1: startup phase budgets/observation plus an
 // independent DingTalk startup observer. Evidence: docs/施工/S05a.md.
 export const piNativeCandidateControllerSha256=Object.freeze({
- 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256]),
+ 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256]),
  'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256]),
  'process-deadline.ps1':Object.freeze([])
 });
