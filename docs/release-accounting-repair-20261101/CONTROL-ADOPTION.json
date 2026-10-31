@@ -1,0 +1,23 @@
+{
+  "status": "adopted",
+  "installId": "2dd7a5cc-1695-4a3c-ae5c-81eb4cac826a",
+  "bundleSha256": "fe4e34dcea03ad77c47c288bd572841ae69428bb05147893f69c452102d45aa6",
+  "bundleManifestSha256": "4e2ae6dfd889d9aa2257a54309468be7c31b22648427890353198a81f50ee3b9",
+  "adoptedAt": "2026-10-31T20:09:44.497Z",
+  "stateFile": "D:\\codex-isolated\\main-manual-release-20261016\\CONTROL-INSTALLATION.json",
+  "stateSha256": "67da8603f65d377d7cab11381919e31894faa96b680038770fd41052e2256f9c",
+  "transitionProofFile": "D:\\codex-isolated\\main-manual-release-20261016\\control-upgrades\\2dd7a5cc-1695-4a3c-ae5c-81eb4cac826a\\TRANSITION-68f21a43-1a1f-47a5-9b61-6bd492a6627d.json",
+  "transitionProofSha256": "ccf8711be74f5a64ec951e33731c64ce6035d0c8d8707ad520f229d5b769f419",
+  "legacyWindowConverged": true,
+  "frameCount": 3,
+  "resumeNodeExitCode": 0,
+  "productionDeploymentPerformed": false,
+  "applicationCommit": "9c1844264bc03ce175b2b773b5cb66685ef7ce86",
+  "applicationSuccessSha256": "91e12a0dc9ed7b78251bacbae8a5bc987ee8554cc97cf831f48a917dee123347",
+  "temporaryTasksRemoved": [
+    "Codex.ControlAdopt.bd1578b3e4074ef38c87913298153c92",
+    "Codex.ControlResume.3dadd4b0aa1347cda52d10a1b7d190b5"
+  ],
+  "originalBlockedReceipt": "D:\\codex-isolated\\main-manual-release-20261016\\control-upgrades\\2dd7a5cc-1695-4a3c-ae5c-81eb4cac826a\\BLOCKED-c287228d-da7b-4888-b7e6-5cf61eee8d52.json",
+  "resumeBudgetMs": 600000
+}

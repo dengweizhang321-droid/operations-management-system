@@ -44,6 +44,16 @@
 
 Worker现役为`20261031T184030Z-d8fbcdbe3bf6cba1`，Django manifest为`5361fd19af3e5b21fd6013538a04a3b45faa203b741302639bd938e32b55e81b`。本次无结构迁移；原生维护退出、启动与就绪门禁均已完成，没有追加业务功能验收。临时发布任务按精确名称、动作和完成状态核对后已清理。[PUBLICATION.json](PUBLICATION.json)保存回执绑定，[TIMING.json](TIMING.json)区分发布器日志开始、原生STARTED、成功和入口退出；没有取得原始用户消息时间，不冒称这些区间是用户授权后的总等待或连续停机时间。
 
-新控制包仍未采用。《验证与发布》要求控制采用与应用发布分别授权；已向用户单独询问，收到明确授权前保留当前控制代，不重复发布应用。
+应用上线完成时，新控制包尚未采用。《验证与发布》要求控制采用与应用发布分别授权，已向用户单独询问；后续明确授权及采用结果见下节，没有重复发布应用。
 
-用户询问新控制包内容后，已只读比较当前3e与待采用fe4的MANIFEST：35→37个代码成员，仅`tools/release-scope-plan.mjs`修改，新增`tools/release-copy-rules.mjs`和`tools/release-copy-git-sources.mjs`，其余34成员字节相同。新包对应任务3的实际复制/构建输入分类、同次Git缓存复用及精简计划；触发模式仍为manual-only。任务1/2/4仍是方案，不因这个控制包获得实施。采用会影响后续发布工具行为，不改变已上线业务版本；当前尚无采用授权。
+用户询问新控制包内容后，已只读比较3e与fe4的MANIFEST：35→37个代码成员，仅`tools/release-scope-plan.mjs`修改，新增`tools/release-copy-rules.mjs`和`tools/release-copy-git-sources.mjs`，其余34成员字节相同。新包对应任务3的实际复制/构建输入分类、同次Git缓存复用及精简计划；触发模式仍为manual-only。任务1/2/4仍是方案，不因这个控制包获得实施。采用影响后续发布工具行为，不改变已上线业务版本。
+
+## 新控制包已单独授权并采用
+
+用户明确回复“授权采用新控制包”。原安装器首次普通权限调用进入S4后，在`controlProcessSnapshot`返回第一帧时超过默认`timeoutMs=30000`，原记录仅一帧`related=[]`，没有达到规定的三次连续空帧。原[BLOCKED](CONTROL-FIRST-BLOCKED.json)保留；安装指针为同installId/intent的`installing`，不能手写成成功。已核原Node/包装进程退出，dispatcher/hook/config三入口均为本意图允许的新摘要。
+
+经独立Sol对原API边界作最小复核，使用同一冻结9c源码的公开`adoptControlUpgrade({directory,resume:true,timeoutMs:600000})`单次续接。该选项受原1800000ms上限约束；保留同一installId与intent、原v1 queue→v2 queue→native rotation顺序、三空帧、代际、摘要、任务定义和CAS全部条件，没有修改工具、永久默认超时或应用生命周期，没有调用ForTest或私有锁。
+
+续接普通权限exit0，原生S5/TASK/S6/S7完成，在UTC2026-10-31T20:09:44.497Z写出`adopted`，installId仍为`2dd7a5cc-1695-4a3c-ae5c-81eb4cac826a`，当前bundle为`fe4e34dcea03ad77c47c288bd572841ae69428bb05147893f69c452102d45aa6`。原生TRANSITION含三帧、legacyWindowConverged=true、productionDeploymentPerformed=false，摘要`ccf8711be74f5a64ec951e33731c64ce6035d0c8d8707ad520f229d5b769f419`。最终安装状态摘要为`67da8603f65d377d7cab11381919e31894faa96b680038770fd41052e2256f9c`，见[CONTROL-ADOPTION.json](CONTROL-ADOPTION.json)。
+
+应用的9c成功回执和发布索引未变；没有重新部署、重启业务或运行新的准备/功能验收。两次采用调用的临时任务均已按精确名称/动作和退出状态清理。原始输出、进程与同意图续接记录位于`D:/codex-artifacts/release-accounting-repair-20261101/control-adoption/`，原失败不被最终成功覆盖。
