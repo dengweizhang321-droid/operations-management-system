@@ -2,7 +2,8 @@
 
 状态：开发分支候选；未合并 main，未准备生产制品、发布、操作生产数据库或启停生产服务。
 分支 `codex/provision-roles-path-trigger-20261031`，代码提交
-`fd057eef508be2ea5f29f2c4bbc26bd587105ffb`；后续收尾提交只补本文记录。
+`fd057eef508be2ea5f29f2c4bbc26bd587105ffb`；`df37ea27` 仅补本文记录。
+2026-11-01 后续增量只增加现状测试与反审说明，生产代码保持不变。
 
 ## 问题与设计
 
@@ -95,3 +96,45 @@ python -B tests/ai-role-provision-postgres.py --postgres-bin <独立PostgreSQL�
 - 发布工具变化按既有范围计划属于 full（Worker + Django），本补丁没有 migration。
   合并、生产制品准备、发布仍分别需要用户明确授权。
 - 没有将源码修复称为生产授权已修复，也没有将测试替身或合成数据库称为原生冷启动通过。
+
+## 2026-11-01 Astra 反审意见处理
+
+用户指定 Astra 独立反审，请求模型 `gpt-6-astra/high`，实际底层型号未由工具独立
+回传确认。反审未发现原 7 行生产差异引入的 P1/P2 已证实缺陷，建议按有结构迁移
+的既定范围交付。用户随后要求按讨论建议执行，本轮落实为现状测试和证据边界说明，
+没有将授权阶段扩展到无迁移发布，也没有执行合并、生产制品准备或发布。
+
+### P2：无迁移发布漏授权——保留为未解决问题
+
+只改 AI 权限契约或库存授权脚本时，真实 `classifyRelease` 会得到
+`migrate=false`；`schemaForRequest` 返回 null，外层 `if(schema)` 仍跳过
+ProvisionRoles。因此当前补丁不能称为已彻底解决所有权限契约变更漏授权。
+
+新增三个 `known scope gap` 现状测试，分别覆盖 AI、库存、两者一起变更，复用真实
+范围分类和发布编排函数。它们确认 Django 部署动作发生，而 Plan、Install、
+ProvisionRoles、Finalize 均未调用。注释明确：这只是记录未解决现状，未来实施
+无迁移授权时必须替换这些断言；不能把“不授权”固化为期望的安全行为。
+夹具中的 ready 响应是替身，不证明真实数据库权限或启动就绪。
+
+本轮执行 `node --check tests/publish-prepared-main.test.mjs` 及
+`node --test tests/publish-prepared-main.test.mjs`，82/82 通过。
+原输出：`D:/codex-artifacts/provision-roles-path-trigger-20261031/node-scope-gap-20261101.log`。
+已核对该测试文件被固定候选兼容工具的 publication profile 引用；本轮只补受影响的
+测试文件，不重复未变化生产源码的包完整性检查或 PostgreSQL 演练。此前固定兼容
+报告继续绑定 `fd057eef`，不改写为本轮新测试的完整兼容报告。
+
+若后续明确扩大到无迁移发布，最小设计方向是让授权阶段独立于迁移阶段，并要求本次
+包含 Django 部署；顺序保持部署 → 可选 Install → 按条件授权 → 可选 Finalize →
+升级/启动。不得增加假 migration、绕过端口门禁或放宽失败不重放规则。本轮没有实施
+该方向，也没有把本轮执行授权解释为扩大生产修改范围。
+
+### P3：Finalize 证据范围——保持限定，未扩大验证
+
+真实 PostgreSQL 夹具先执行候选 provision，再仅撤销
+`ai_write_request_receipts.DELETE`，随后重新授权和比较 preservation。
+这证明本次已知单项差异不会改变旧行/ACL 保全摘要，不证明任意真实前驱 ACL 都兼容。
+部分保全字段直接使用 `relacl::text`，未来改变保全集内表权限时，应使用对应前驱
+版本的授权结果构造独立夹具，再检查候选授权和保全差异；不通过放宽 Finalize 处理。
+
+现有报告按上述范围解读即可；本轮没有修改 provision、数据库夹具或保全协议，
+没有重跑完整发布或原生冷启动，也没有把该建议记录为新的生产发布前提。

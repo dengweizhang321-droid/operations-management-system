@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {publishPreparedMain,piWorkspaceImage,piBusinessImage,piNativeImage,releaseLeaseTtlMs} from '../tools/publish-prepared-main.mjs';
 import {monitoringSchema,tmallSchema,tmall148Schema,piAgentSchema,piWorkspaceSchema,piBusinessSchema,piNativeSchema,workflowAutomationSchema} from '../tools/main-schema-release.mjs';
+import {classifyRelease} from '../tools/release-scope-plan.mjs';
 
 async function fixture(t,components=['worker'],failAt=null){
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'prepared-publisher-'));
@@ -310,6 +311,22 @@ async function migrationFixture(t,failAt=null,schema=monitoringSchema){
 
 const aiContract='backend/ai_assistant/database_contract.py';
 const inventoryContract='tools/django-inventory-service.ps1';
+// Characterize an unresolved scope gap, not the desired authorization contract.
+// When no-migration provisioning is implemented, replace these expectations.
+for(const contracts of [[aiContract],[inventoryContract],[aiContract,inventoryContract]])
+test('known scope gap: contract-only release skips role provisioning: '+contracts.join(', '),async t=>{
+ const changes=contracts.map(path=>({status:'M',path}));
+ const plan={changes,...classifyRelease(changes)};
+ assert.equal(plan.migrate,false);assert.ok(plan.components.includes('django'));
+ const f=await fixture(t,plan.components);
+ f.request.migrate=plan.migrate;f.request.releasePlan=plan;
+ assert.equal(f.request.schemaRelease,undefined);
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});f.events.length=0;
+ const result=await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ assert.equal(result.migration,null);assert.ok(f.events.includes('DeployApp'));
+ for(const action of ['Plan','Install','ProvisionRoles','Finalize'])assert.ok(!f.events.includes(action));
+ t.diagnostic('Known unresolved gap: the mocked ready response does not prove real database privileges or startup readiness.');
+});
 for(const schema of [tmall148Schema,piAgentSchema,piWorkspaceSchema,piBusinessSchema,piNativeSchema])
 for(const withPath of [false,true])test('original role trigger remains once: '+schema.additionKind+' path='+withPath,async t=>{
  const f=await migrationFixture(t,null,schema),native=f.context.runStep,calls=[];
