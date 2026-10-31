@@ -49,3 +49,11 @@ node docs/release-scope-copy-lists-20261101/compare-history.mjs
 13项定向测试通过（0失败、0跳过）；工具`node --check`和`git diff --check`通过。测试包含实际Git合并提交净差异、planSha256重新计算，以及按安装器真实controlFiles清单复制到私有临时目录后仅import publisher的加载检查；不调用prepare/adopt，不把合成用例当生产发布。新增五组独审反例（离线宽前缀、复制源重绑、缺失控制依赖、动态资源、动态control import）均有回归。原始测试结果保留于`D:/codex-artifacts/release-optimization-20261101/scope-tests.txt`；[validation.json](validation.json)绑定最终受测工具/测试/历史脚本与原始测试输出SHA。历史比较及结构提取仅读Git对象，不调用发布器`--check`、PrepareApp、构建、服务或业务接口。
 
 本次仅开发分支候选，尚未合main、未生产制品准备、未安装控制工具或部署；计划格式仍v3，新增copyRuleEvidence包含base/head可解析状态与完整清单，纳入planSha256。实际使用新计划能力需合并后按本次授权更新对应发布控制闭包；本报告不宣称当前固定安装包已经具备此分类器。
+
+## v3计划消费者与冻结兼容
+
+已按`makeReleasePlan`导入点、`releasePlan`成员读取及`release-scope-plan.json`文件名检索并追读真实消费者。`publish-latest-main.mjs:320-332`核base/head并按components/migrate分支，把新计划完整封存到请求和独立文件；`:716-720`只转schema支持检查。`verify-release-candidate.mjs:414-415`只消费changes，`pi150-forward-recovery.mjs:103-106`核components/migrate/databaseProtection并保存完整plan。下游`publish-main.mjs:44-47`、`publish-main-resume.mjs:58-60`核base/head/components/migrate；`publish-prepared-main.mjs:72`和`preparation-retirement-collector.mjs:94,122`读取changes。上述没有对releasePlan顶层作strict-key检查，也没有断言固定旧planSha256；新增字段不改变旧成员的类型。
+
+`main-schema-release.mjs:78,96`的strict keys约束schema/recipe，不是scope plan；`:124`对已存在请求的previous.releasePlan作完整deepEqual。`publish-latest-main.mjs:26`的writeOnceOrSame同样保护既有封存文件：新字段会改变新计划及新请求摘要，**不得拿新工具重新生成旧请求、覆写旧包或换绑历史prepared回执**。旧材料继续由其原冻结入口/请求消费；新计划仅用于新的精确准备意图，若同名旧包冲突，现有不可变门禁应拒绝，不能把拒绝改为兼容性自动覆盖。
+
+scope plan摘要仍是整个core的JSON SHA-256，现将copyRuleEvidence作为core新成员；请求、原STARTED与prepared层继续绑定完整请求字节摘要，未改其算法。Worker rotation的planSha256属于另一种轮换计划，不与scope plan摘要混用。`frozen-main-source.mjs:6-17`绑定Git HEAD、tree、批准commit及clean状态，新模块仍属于该完整源码树；新增字段不绕过freeze。安装器新增两模块和私有控制包import检查闭合了控制根的实际加载依赖，而不是以Git clean或单个plan摘要自测替代它。
