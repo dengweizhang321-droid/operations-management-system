@@ -1,0 +1,8 @@
+[
+  "fe2f391df84d2e7ed4e47e741655aad8ff87158d\tfeat(release): A 项合并前验证窄资格——Get-VerifiedProcessDescendants",
+  "92deac805d208e2de6868eb3c00741ff754db3da\tfeat(release): A 项合并前验证窄资格——Get-VerifiedProcessDescendants",
+  "55b43dc64414632ce0afa75e4c10ee3577a7d6f1\tfix(native): 停服务时排除 PID 复用假后裔，并补齐合并前验证窄资格",
+  "843457334d767dce855db01bffa572c16a894e6b\trelease: retain all deployed CRLF source bytes in reader package",
+  "84d0e5132a0cd54cbead50ec1904de489e05160e\trelease: identify retained CRLF as intentional source whitespace",
+  "f68ddd342a66876a2b9b8a70a667247ecd3b5cb2\trelease: preserve predecessor source CRLF bytes in reader package"
+]

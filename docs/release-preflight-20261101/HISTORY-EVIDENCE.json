@@ -1,0 +1,298 @@
+[
+  {
+    "eventId": "H01",
+    "path": "D:\\codex-worktrees\\release-optimization-20261101\\docs\\abc-execution-timing-review-20261010\\REPORT.md",
+    "bytes": 13151,
+    "sha256": "b4e1058e89e7374327e0b92e9c61a344032c0ae334e70a68b284be0c23c46252",
+    "locator": "owner-contract-first",
+    "matchingLines": [
+      41
+    ],
+    "sourceKind": "main-baseline-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H02",
+    "path": "D:\\codex-worktrees\\release-optimization-20261101\\docs\\abc-execution-timing-review-20261010\\REPORT.md",
+    "bytes": 13151,
+    "sha256": "b4e1058e89e7374327e0b92e9c61a344032c0ae334e70a68b284be0c23c46252",
+    "locator": "INPUT_OR_ASSERTION_FAILED",
+    "matchingLines": [
+      80
+    ],
+    "sourceKind": "main-baseline-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H03",
+    "path": "D:\\codex-worktrees\\release-optimization-20261101\\docs\\abc-execution-timing-review-20261010\\REPORT.md",
+    "bytes": 13151,
+    "sha256": "b4e1058e89e7374327e0b92e9c61a344032c0ae334e70a68b284be0c23c46252",
+    "locator": "ERR_FS_FILE_TOO_LARGE",
+    "matchingLines": [
+      80
+    ],
+    "sourceKind": "main-baseline-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H04",
+    "path": "D:\\codex-worktrees\\release-optimization-20261101\\docs\\combined-release-20261020\\PRODUCTION.md",
+    "bytes": 5749,
+    "sha256": "b289567b5ac90bf6f4472cd0b00ffbb2e993360d140b0cd944f33c2464d88068",
+    "locator": "一次后台复验等待周报 mutex 超时",
+    "matchingLines": [
+      24
+    ],
+    "sourceKind": "main-baseline-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H05",
+    "path": "D:\\codex-worktrees\\release-optimization-20261101\\docs\\combined-release-20261020\\PRODUCTION.md",
+    "bytes": 5749,
+    "sha256": "b289567b5ac90bf6f4472cd0b00ffbb2e993360d140b0cd944f33c2464d88068",
+    "locator": "一次被过旧的维护前驱资格拒绝",
+    "matchingLines": [
+      24
+    ],
+    "sourceKind": "main-baseline-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H06",
+    "path": "D:\\codex-worktrees\\release-optimization-20261101\\docs\\combined-release-20261020\\PRODUCTION.md",
+    "bytes": 5749,
+    "sha256": "b289567b5ac90bf6f4472cd0b00ffbb2e993360d140b0cd944f33c2464d88068",
+    "locator": "核对器误要求 UPDATE",
+    "matchingLines": [
+      26
+    ],
+    "sourceKind": "main-baseline-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H07",
+    "path": "D:\\codex-worktrees\\release-optimization-20261101\\docs\\combined-release-20261020\\PRODUCTION.md",
+    "bytes": 5749,
+    "sha256": "b289567b5ac90bf6f4472cd0b00ffbb2e993360d140b0cd944f33c2464d88068",
+    "locator": "sourceRoot 未使用 Windows 规范形式",
+    "matchingLines": [
+      28
+    ],
+    "sourceKind": "main-baseline-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H08",
+    "path": "D:\\codex-worktrees\\release-optimization-20261101\\docs\\combined-release-20261020\\PRODUCTION.md",
+    "bytes": 5749,
+    "sha256": "b289567b5ac90bf6f4472cd0b00ffbb2e993360d140b0cd944f33c2464d88068",
+    "locator": "被旧 stopped fence 拒绝",
+    "matchingLines": [
+      30
+    ],
+    "sourceKind": "main-baseline-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H09",
+    "path": "D:\\codex-worktrees\\release-optimization-20261101\\docs\\combined-release-20261020\\PRODUCTION.md",
+    "bytes": 5749,
+    "sha256": "b289567b5ac90bf6f4472cd0b00ffbb2e993360d140b0cd944f33c2464d88068",
+    "locator": "首次 ready 503",
+    "matchingLines": [
+      30
+    ],
+    "sourceKind": "main-baseline-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H10",
+    "path": "D:\\codex-worktrees\\release-optimization-20261101\\docs\\release-resume-20261021\\PRODUCTION.md",
+    "bytes": 6734,
+    "sha256": "e8e09a20138231f2e2f178decf3b59bc20cdca11949a7cacfc33d2f462427d92",
+    "locator": "耗尽整轮 600 秒预算",
+    "matchingLines": [
+      37
+    ],
+    "sourceKind": "main-baseline-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H11",
+    "path": "D:\\codex-worktrees\\s05d-missing-failure-20261022\\docs\\s05d-missing-failure-20261022\\REPORT.md",
+    "bytes": 6422,
+    "sha256": "9adbad65e74453f1aca11f268c00c4d615e0c507240b943b2fbd4167ea866460",
+    "locator": "原 dispatch",
+    "matchingLines": [
+      9
+    ],
+    "sourceKind": "retained-other-worktree-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H12",
+    "path": "D:\\codex-worktrees\\s05d-missing-failure-20261022\\docs\\s05d-missing-failure-20261022\\REPORT.md",
+    "bytes": 6422,
+    "sha256": "9adbad65e74453f1aca11f268c00c4d615e0c507240b943b2fbd4167ea866460",
+    "locator": "原 request 缺可选",
+    "matchingLines": [
+      26
+    ],
+    "sourceKind": "retained-other-worktree-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H13",
+    "path": "D:\\codex-worktrees\\s05d-field-validation-20261023\\docs\\s05d-field-validation-20261023\\REPORT.md",
+    "bytes": 5757,
+    "sha256": "4a8622f3dbcd546f028d65dc2e833e1b9fd257ddfa4761184c169ad839391c72",
+    "locator": "66.010",
+    "matchingLines": [
+      8
+    ],
+    "sourceKind": "retained-other-worktree-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H14",
+    "path": "D:\\codex-worktrees\\s05b-control-adoption-20261023\\docs\\s05b-control-adoption-20261023\\REPORT.md",
+    "bytes": 7088,
+    "sha256": "239907363deefd259ab885f1a613a3f92a48e90eac41819e01a76a94429e95ca",
+    "locator": "1d5123a6",
+    "matchingLines": [
+      9,
+      21
+    ],
+    "sourceKind": "retained-other-worktree-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H15",
+    "path": "D:\\codex-worktrees\\s05d-parent-chain-fix-20261023\\docs\\s05d-parent-chain-fix-20261023\\REPORT.md",
+    "bytes": 12817,
+    "sha256": "f9c5f94d256cc59cb006f4384a2977a96fc7c8719ec17296583ce98de0438306",
+    "locator": "8a9f0261",
+    "matchingLines": [
+      19
+    ],
+    "sourceKind": "retained-other-worktree-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H16",
+    "path": "D:\\codex-worktrees\\release-rework-20261024\\docs\\release-rework-20261024\\REPORT.md",
+    "bytes": 35158,
+    "sha256": "e94d7586599940f46b07aacf40c8c1b09d851c8b23c833c671760b93d39a7c01",
+    "locator": "早上推送脚本中止与修复",
+    "matchingLines": [
+      95,
+      113,
+      190,
+      213
+    ],
+    "sourceKind": "retained-other-worktree-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H17",
+    "path": "D:\\codex-worktrees\\release-rework-20261024\\docs\\release-rework-20261024\\REPORT.md",
+    "bytes": 35158,
+    "sha256": "e94d7586599940f46b07aacf40c8c1b09d851c8b23c833c671760b93d39a7c01",
+    "locator": "事故 1",
+    "matchingLines": [
+      18,
+      25
+    ],
+    "sourceKind": "retained-other-worktree-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H18",
+    "path": "D:\\codex-worktrees\\release-rework-20261024\\docs\\release-rework-20261024\\REPORT.md",
+    "bytes": 35158,
+    "sha256": "e94d7586599940f46b07aacf40c8c1b09d851c8b23c833c671760b93d39a7c01",
+    "locator": "事故 2",
+    "matchingLines": [
+      20,
+      32
+    ],
+    "sourceKind": "retained-other-worktree-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H19",
+    "path": "D:\\codex-worktrees\\release-rework-20261024\\docs\\施工\\S19.md",
+    "bytes": 5323,
+    "sha256": "7903593d9fa124064c781e1cbf953e4a4b831c1f6477f3ace878711734c10677",
+    "locator": "第一次 adopt 被拒",
+    "matchingLines": [
+      38
+    ],
+    "sourceKind": "retained-other-worktree-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H20",
+    "path": "D:\\codex-worktrees\\release-optimization-20261101\\docs\\release-qual-dingtalk-screenshot-acl-20261025\\REPORT.md",
+    "bytes": 14669,
+    "sha256": "a5629e3c04c124333b9a6519f74912edb04d6eafaaab26a5f7f67621af75ee7d",
+    "locator": "维护前驱资格与最初读取字节不一致",
+    "matchingLines": [
+      9,
+      66
+    ],
+    "sourceKind": "main-baseline-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H21",
+    "path": "D:\\codex-worktrees\\release-optimization-20261101\\docs\\prepared-artifact-loss-20261029\\REPORT.md",
+    "bytes": 10015,
+    "sha256": "d5d865818ab5d4c22c2b56fcf64790cf55ff3c00369b6a0d50916de4cf7eaf3d",
+    "locator": "缺失包关联 dispatch 53 条",
+    "matchingLines": [
+      27
+    ],
+    "sourceKind": "main-baseline-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H22",
+    "path": "D:\\codex-worktrees\\release-optimization-20261101\\docs\\artifact-loss-native-lock-20261029\\REPORT.md",
+    "bytes": 7858,
+    "sha256": "cd3d180ab00a5e85cc3c2b23ec0b81eecd553f87768cbe2e156eced72761a965",
+    "locator": "实际固定 D08 原生工具没有",
+    "matchingLines": [
+      9
+    ],
+    "sourceKind": "main-baseline-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H23",
+    "path": "D:\\codex-worktrees\\release-optimization-20261101\\docs\\sales154-controller-qualification-20261029\\REPORT.md",
+    "bytes": 6742,
+    "sha256": "77ca18f30ce0d24c12b8dfa7ac732520e59327519ba1b2f7ba3fb2f5a5c28661",
+    "locator": "2通过/1失败",
+    "matchingLines": [
+      10,
+      42
+    ],
+    "sourceKind": "main-baseline-report",
+    "exactFailureLogRechecked": false
+  },
+  {
+    "eventId": "H24",
+    "path": "D:\\codex-worktrees\\release-optimization-20261101\\docs\\publisher-adopt-live-20261031\\REPORT.md",
+    "bytes": 18879,
+    "sha256": "dc462daae2b77dde46480aa6ee8706ed3dcb42645bbfdeaffafee148c85ef5df",
+    "locator": "唯一失配是",
+    "matchingLines": [
+      49
+    ],
+    "sourceKind": "main-baseline-report",
+    "exactFailureLogRechecked": false
+  }
+]

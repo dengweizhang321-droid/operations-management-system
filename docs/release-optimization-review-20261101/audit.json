@@ -1,0 +1,362 @@
+{
+  "enumeration": {
+    "files": 69,
+    "occurrences": 695,
+    "unique": 501,
+    "reportedRows": 695,
+    "columns": [
+      "file",
+      "line",
+      "column",
+      "value",
+      "lexical_kind",
+      "git_blob_oid",
+      "raw_blob_sha256",
+      "context",
+      "category",
+      "role",
+      "reader",
+      "boundary",
+      "change_policy",
+      "pinned_object",
+      "target_resolution"
+    ],
+    "rowsEqual": true
+  },
+  "history": {
+    "rows": 32,
+    "statuses": {
+      "confirmed": 10,
+      "excluded": 13,
+      "confirmed-dynamic-binding": 2,
+      "candidate": 7
+    },
+    "unique": 32,
+    "diffHashChecks": [
+      {
+        "commit": "b8ac6738603619e0882c6db6d8b058ad17440551",
+        "diffMatches": true
+      },
+      {
+        "commit": "90bec5d976a98566ba7da21ae07d2606b9b0bcff",
+        "diffMatches": true
+      },
+      {
+        "commit": "0ee3ef50a6642fa1bfaac19ef6170339fc6bc957",
+        "diffMatches": true
+      },
+      {
+        "commit": "edaa97ac8c4209f30a8fc34740c3ffd6d1729dab",
+        "diffMatches": true
+      },
+      {
+        "commit": "a0e5b8e88fd6ec6025b21094222bbc493b81267e",
+        "diffMatches": true
+      },
+      {
+        "commit": "2b6c247d93ed745538572e881cd4dad841c49bf0",
+        "diffMatches": true
+      },
+      {
+        "commit": "26154a8eaaea5a027fb061f594b01a9ce8d64f13",
+        "diffMatches": true
+      },
+      {
+        "commit": "368a88a7ca965439ea00f9e66188dcc0b10f0bf1",
+        "diffMatches": true
+      },
+      {
+        "commit": "0e4e851a3d609f38e6ccf3f8166cf830fcbd35bf",
+        "diffMatches": true
+      },
+      {
+        "commit": "d28c666d8d46a6cff85af100ecc7ad55ab20e1fe",
+        "diffMatches": true
+      },
+      {
+        "commit": "b56a6799b20d49c9fb929348b45d5271c43dc104",
+        "diffMatches": true
+      },
+      {
+        "commit": "e00e29d9c3c57da18b88d82c4e26e6cef4c2aa6d",
+        "diffMatches": true
+      },
+      {
+        "commit": "3f66cba29be26a9c62d2043ed10a8ce677a53bbd",
+        "diffMatches": true
+      },
+      {
+        "commit": "313c8d3561e61b0886c9bf24c76696a2a3d9f32b",
+        "diffMatches": true
+      },
+      {
+        "commit": "4dccd1883e95fbdcfcd80c9e54fe0e7a70ff8fd0",
+        "diffMatches": true
+      },
+      {
+        "commit": "70efdd18b823c7f0372867f9c4854d22bfc858b5",
+        "diffMatches": true
+      },
+      {
+        "commit": "4892a258a23191aceaaa98c6b4ce65f844a489b7",
+        "diffMatches": true
+      },
+      {
+        "commit": "63aa1f324c92f191fd9cca13d4ae2a1f29277f9d",
+        "diffMatches": true
+      },
+      {
+        "commit": "238fef387b03e018f43f4a7fa6e920cc7b92ef44",
+        "diffMatches": true
+      },
+      {
+        "commit": "8411456e8e75219e028dea6d355ec96055a47e03",
+        "diffMatches": true
+      },
+      {
+        "commit": "1f8ee3c492623544a0c36c88bbede5897babeee5",
+        "diffMatches": true
+      },
+      {
+        "commit": "54e2e8f663b3b064d20fb8cc1de387fa990f0235",
+        "diffMatches": true
+      },
+      {
+        "commit": "03cd411c379cfb2ceb428806c35e23041710d89c",
+        "diffMatches": true
+      },
+      {
+        "commit": "b72bbacb157b6699b5e50330a642debd5befd4ab",
+        "diffMatches": true
+      },
+      {
+        "commit": "3347a5dfd8ebfa9d2115fd0935e7cb68048e7224",
+        "diffMatches": true
+      },
+      {
+        "commit": "b9cfc8f9015bd46573eb458a7e4cc7892713f836",
+        "diffMatches": true
+      },
+      {
+        "commit": "414345bfe21620e9091743a7aded841b7ec67240",
+        "diffMatches": true
+      },
+      {
+        "commit": "3904325ed0f4b356fd07e9bcdabe95202f32f6b1",
+        "diffMatches": true
+      },
+      {
+        "commit": "f44d224cd69757e319b803a755ca1b648f5e3a41",
+        "diffMatches": true
+      },
+      {
+        "commit": "1594beec0c9622f4e0a1586446af2ebf0cd35522",
+        "diffMatches": true
+      },
+      {
+        "commit": "c0e7f9ca11d190f5d0716c2905f8803bace17e8d",
+        "diffMatches": true
+      },
+      {
+        "commit": "7c3b2d0e5b3e43a488b9b7a7f8792f14c19d8526",
+        "diffMatches": true
+      }
+    ]
+  },
+  "timingOriginalEvidence": {
+    "checkedFiles": 75,
+    "mismatches": []
+  },
+  "independentNativeSpans": [
+    {
+      "commit": "e62dc33a8a05059d03ab3e15206184989594b72d",
+      "status": "deployed_and_ready",
+      "startup": true,
+      "ready": true,
+      "startedToSuccess": 965.655,
+      "logs": [
+        {
+          "seconds": 1333.963,
+          "first": "2026-10-30T02:23:50.642Z",
+          "last": "2026-10-30T02:46:04.605Z",
+          "phaseTotal": 1310.458
+        }
+      ]
+    },
+    {
+      "commit": "1b02c93791bb3c18c4c24857497f8aa57be05f68",
+      "status": "deployed_and_ready",
+      "startup": true,
+      "ready": true,
+      "startedToSuccess": 866.743,
+      "logs": [
+        {
+          "seconds": 1291.307,
+          "first": "2026-10-28T13:41:31.732Z",
+          "last": "2026-10-28T14:03:03.039Z",
+          "phaseTotal": 1273.814
+        }
+      ]
+    },
+    {
+      "commit": "18c25a3a153ebfffb9603999b6e37791bb0abd09",
+      "status": "deployed_and_ready",
+      "startup": true,
+      "ready": true,
+      "startedToSuccess": 686.608,
+      "logs": [
+        {
+          "seconds": 1030.187,
+          "first": "2026-10-27T14:13:51.387Z",
+          "last": "2026-10-27T14:31:01.574Z",
+          "phaseTotal": 1017.471
+        }
+      ]
+    }
+  ],
+  "releaseKeys": [
+    [
+      "status",
+      "at",
+      "mainCommit",
+      "components",
+      "workerRelease",
+      "workerManifestSha256",
+      "djangoManifestSha256",
+      "source",
+      "migration",
+      "startupVerified",
+      "readyVerified",
+      "attempt",
+      "successEvidence",
+      "steps",
+      "applyTiming",
+      "startedEvidence",
+      "startedAt",
+      "nativeAttemptSeconds",
+      "applyTimingEvidence",
+      "progressLogs"
+    ],
+    [
+      "status",
+      "at",
+      "mainCommit",
+      "components",
+      "workerRelease",
+      "workerManifestSha256",
+      "djangoManifestSha256",
+      "source",
+      "migration",
+      "startupVerified",
+      "readyVerified",
+      "attempt",
+      "successEvidence",
+      "steps",
+      "applyTiming",
+      "startedEvidence",
+      "startedAt",
+      "nativeAttemptSeconds",
+      "applyTimingEvidence",
+      "progressLogs"
+    ],
+    [
+      "status",
+      "at",
+      "mainCommit",
+      "components",
+      "workerRelease",
+      "workerManifestSha256",
+      "djangoManifestSha256",
+      "source",
+      "migration",
+      "startupVerified",
+      "readyVerified",
+      "attempt",
+      "successEvidence",
+      "steps",
+      "applyTiming",
+      "startedEvidence",
+      "startedAt",
+      "nativeAttemptSeconds",
+      "applyTimingEvidence",
+      "progressLogs"
+    ]
+  ],
+  "checkedPaths": [
+    "D:\\codex-isolated\\main-manual-release-20261016\\PUBLISHED-MAIN.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\SUCCESS.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\WorkerApply-started.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\WorkerApply-result.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\停止旧前端-started.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\停止旧前端-result.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\启动服务-started.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\启动服务-result.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\完成结构迁移-started.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\完成结构迁移-result.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\应用后台权限-started.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\应用后台权限-result.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\登记结构迁移-started.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\登记结构迁移-result.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\确认启动版本-started.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\确认启动版本-result.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\迁移监控字段-started.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\迁移监控字段-result.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\进入维护-started.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\进入维护-result.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\退出维护-started.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\退出维护-result.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\部署后台-started.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\部署后台-result.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\STARTED.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\apply-timing.json",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\logs\\release-2026-10-30T01-37-07.093Z-5527060c-ba24-4f4d-ab65-1cd55d432700.log",
+    "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\logs\\release-2026-10-30T02-23-50.641Z-2a49d837-2bb0-408a-9d43-44cd47b49039.log",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\SUCCESS.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\WorkerApply-started.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\WorkerApply-result.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\停止旧前端-started.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\停止旧前端-result.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\启动服务-started.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\启动服务-result.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\应用后台权限-started.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\应用后台权限-result.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\确认启动版本-started.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\确认启动版本-result.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\进入维护-started.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\进入维护-result.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\退出维护-started.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\退出维护-result.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\部署后台-started.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\部署后台-result.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\STARTED.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\apply-timing.json",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\logs\\release-2026-10-28T12-58-35.449Z-52989780-b4d8-45e7-9039-5b0847247af9.log",
+    "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\logs\\release-2026-10-28T13-41-31.728Z-83ee2586-a2b8-4e8b-bea3-ba9ebbe70819.log",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\SUCCESS.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\WorkerApply-started.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\WorkerApply-result.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\停止旧前端-started.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\停止旧前端-result.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\启动服务-started.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\启动服务-result.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\应用后台权限-started.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\应用后台权限-result.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\确认启动版本-started.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\确认启动版本-result.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\进入维护-started.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\进入维护-result.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\退出维护-started.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\退出维护-result.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\部署后台-started.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\部署后台-result.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\STARTED.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\apply-timing.json",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\logs\\release-2026-10-27T13-14-02.965Z-186fe2b8-9541-47a2-ad1d-032ad87cc325.log",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\logs\\release-2026-10-27T14-01-51.419Z-c108094c-b52b-4ae6-a690-642eeae8b104.log",
+    "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\logs\\release-2026-10-27T14-13-51.385Z-54ad96ce-4671-40e8-919e-7ef72fd7ec0c.log",
+    "D:\\teruisi-runtime\\django-sales\\app\\deployment.json",
+    "D:\\codex-isolated\\main-manual-release-20261016\\CONTROL-INSTALLATION.json",
+    "D:\\codex-artifacts\\release-rework-20261024\\publish-main-r4-20261024-192744.out.txt",
+    "D:\\codex-artifacts\\release-four-optimizations-20261018\\publication-20261018-072043\\TIMING-SUMMARY.json"
+  ]
+}

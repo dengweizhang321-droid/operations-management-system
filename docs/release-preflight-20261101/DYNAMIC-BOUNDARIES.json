@@ -1,0 +1,162 @@
+[
+  {
+    "id": "D01",
+    "caller": "tools/main-control-dispatch.mjs:94-96",
+    "target": "binding.bundleRoot/tools/publish-latest-main.mjs",
+    "binding": "actual installed bundle 3e01612a...",
+    "staticCoverage": "AST+explicit import edge",
+    "remainingGap": "Verify actual manifest/membership identity; candidate main is not the adopted bundle",
+    "premergeMode": "read files only",
+    "executed": false
+  },
+  {
+    "id": "D02",
+    "caller": "tools/publish-latest-main.mjs:35-36",
+    "target": "config.nativeToolsSource/tools/{worker-local-release,worker-local-release-rotation}.mjs",
+    "binding": "D:/codex-isolated/main-manual-release-20261016/native-tools/d08a3c4de4bd04325bd8e63811775934e97a9f63f757e40b6afec4a3166ddf31",
+    "staticCoverage": "native manifest/exports mapped; main AST not a claim that fixed D08 is identical",
+    "remainingGap": "Actual native version-specific validation adapter must be selected, not import main replacement",
+    "premergeMode": "read fixed byte manifests; no locks",
+    "executed": false
+  },
+  {
+    "id": "D03",
+    "caller": "tools/publish-main.mjs:68-70",
+    "target": "source/tools/{worker-local-release,worker-local-release-rotation,release-batch}.mjs",
+    "binding": "frozen request mainCommit/tree",
+    "staticCoverage": "explicit candidate import roots in primary assertion index",
+    "remainingGap": "Prepared source absent before merge; future final merge commit must be rebound",
+    "premergeMode": "parse/export/signature only; do not import publish-main",
+    "executed": false
+  },
+  {
+    "id": "D04",
+    "caller": "tools/publish-prepared-main.mjs:85,184,258",
+    "target": "assertFrozenSource; maintenanceReadiness defaults",
+    "binding": "context overrides exist for tests only",
+    "staticCoverage": "explicit roots in primary index",
+    "remainingGap": "No caller-supplied success flags or injected mock as host PASS",
+    "premergeMode": "pure candidate/static adapter",
+    "executed": false
+  },
+  {
+    "id": "D05",
+    "caller": "tools/django-local-service.ps1:5485,5630-5633",
+    "target": "Invoke-WithServiceMutex callback → Verify-PreparedApplication",
+    "binding": "candidate source controller, actual runtime/prepared app",
+    "staticCoverage": "PowerShell AST roots explicitly bind callback",
+    "remainingGap": "Mutex ownership and native action logs are effects, not strict read-only proof",
+    "premergeMode": "extract read validators; do not run action wrapper",
+    "executed": false
+  },
+  {
+    "id": "D06",
+    "caller": "tools/django-ai.ps1:177-185,1011",
+    "target": "Check-PiUpgradePlan → prepared/tools/pi_agent_upgrade_runtime.py check --execute",
+    "binding": "Get-PiUpgradePreparedExecutionRoot actual PreparedAppId/SHA",
+    "staticCoverage": "PS/Python assertions and exact action branch indexed",
+    "remainingGap": "Prepared app binding unavailable pre-merge; command name check alone does not authorize execution",
+    "premergeMode": "file metadata/digest only until private adapter review",
+    "executed": false
+  },
+  {
+    "id": "D07",
+    "caller": "tools/pi_agent_upgrade_runtime.py:140-146",
+    "target": "backend/pi_runner/install_linux.source_digest; backend/pandas_runner/key_file.read_key/dpapi",
+    "binding": "candidate or prepared backend selected by script root",
+    "staticCoverage": "owned exceptions in embedded supplement; source_digest in primary index",
+    "remainingGap": "Actual DPAPI decryption is not performed; validity of current key remains unknown",
+    "premergeMode": "do not read or persist key plaintext; isolated synthetic key checks if later authorized",
+    "executed": false
+  },
+  {
+    "id": "D08",
+    "caller": "tools/pi_agent_upgrade_runtime.py:58-76,82,200-202",
+    "target": "WSL TERUISI-Pandas /usr/bin/python3 -B -c LINUX → <releaseParent>/<newSourceSha256>/backend/pi_runner/runtime_upgrade.py dispatch(check)",
+    "binding": "/home/teruisi-pandas/.local/share/teruisi-pi-runner/releases/<newSourceSha256>/backend",
+    "staticCoverage": "literal adapter parsed; candidate runtime_upgrade.check/context, server.private, protocol.decode, source_digest indexed",
+    "remainingGap": "Actual Linux immutable module bytes not read; no WSL launch in this task. Need read-only manifest/identity transport under isolated adapter, preserve unknown until matched",
+    "premergeMode": "no WSL/service launch; plan future private adapter",
+    "executed": false
+  },
+  {
+    "id": "D09",
+    "caller": "tools/main-schema-release.mjs:31-40,113-116,142-143",
+    "target": "finite *_candidate.py --check plus their owned *_addition/common/source validation imports",
+    "binding": "finite schema additionKind from request",
+    "staticCoverage": "Python AST import closure + exact candidate branch; dependency superset marked",
+    "remainingGap": "Dynamic actual predecessor file state must be fresh; install/database functions not authorized",
+    "premergeMode": "read-only binder logic; never Prepare/Install/Finalize",
+    "executed": false
+  },
+  {
+    "id": "D10",
+    "caller": "tools/main-schema-release.mjs:52-69",
+    "target": "tests/pi152-acl-catalog-boundary.py; tests/pi153-acl-catalog-boundary.py",
+    "binding": "only PiBusiness/PiNative finite schema",
+    "staticCoverage": "all assert/raise and generator.throw indexed in embedded supplement",
+    "remainingGap": "These test filenames are directly called by schema validator; cannot assume all tests are CI-only",
+    "premergeMode": "static parse/contract inputs; no DB or Django import",
+    "executed": false
+  },
+  {
+    "id": "D11",
+    "caller": "tools/preparation-retirement-admission.mjs:25-31",
+    "target": "preparation-retirement.mjs validateRetirementSeal → pinned native reader",
+    "binding": "retirement intent/source pins/native fixed family",
+    "staticCoverage": "dynamic literal import edges resolved; conservative reader dependencies retained",
+    "remainingGap": "Historical source family/bytes not interchangeable; never invoke writer or reconcile",
+    "premergeMode": "read whole required bound graph only",
+    "executed": false
+  },
+  {
+    "id": "D12",
+    "caller": "tools/main-prebuild-task.mjs:11-20,33-40",
+    "target": "taskPowerShell(identityScript/taskPrelude/projection) → system PS5 → COM/CIM/native token",
+    "binding": "fixed host/node/task definition",
+    "staticCoverage": "statically expanded embedded PS parsed; C# owned throw separately recorded",
+    "remainingGap": "OS APIs/COM implementation are external boundaries, not repository-owned assertions; current identity still dynamic",
+    "premergeMode": "no Task register/wake/stop",
+    "executed": false
+  },
+  {
+    "id": "D13",
+    "caller": "tools/main-control-dispatch.mjs:75-79",
+    "target": "partly constructed PowerShell identity code",
+    "binding": "current publisher PID",
+    "staticCoverage": "whole script parsed with process.pid replaced by synthetic integer 123456; source coordinates and substitution are explicit",
+    "remainingGap": "Actual PID/identity not checked; symbolic syntax success is not execution proof",
+    "premergeMode": "bounded read identity only",
+    "executed": false
+  },
+  {
+    "id": "D14",
+    "caller": "tools/publish-latest-main.mjs:486-506",
+    "target": "publicationProbeScript → library-only controller → Assert-RuntimeAclHardened/Assert-DeployedApplication",
+    "binding": "actual installed D:/teruisi-runtime/django-sales/app/tools/django-local-service.ps1",
+    "staticCoverage": "PS embedded fragments + explicit called functions in primary index",
+    "remainingGap": "Existing controller diagnostics write runtime logs; strict preflight must route diagnostics privately or use pure projections",
+    "premergeMode": "do not execute current probe wholesale",
+    "executed": false
+  },
+  {
+    "id": "D15",
+    "caller": "tools/worker-local-release-rotation.mjs:992-1009",
+    "target": "embedded PS acquireWorkerServiceMutex",
+    "binding": "Local\\TERUISI.Worker.LocalService.v1",
+    "staticCoverage": "service mutex timeout embedded throw indexed",
+    "remainingGap": "Acquisition mutates synchronization state; static inspection cannot grant future lock",
+    "premergeMode": "no lock acquisition in read-only preflight",
+    "executed": false
+  },
+  {
+    "id": "D16",
+    "caller": "tools/publish-main-step.mjs:14-25;tools/django-local-service.ps1:293",
+    "target": "controlled host/argv transport → actual -File script/action",
+    "binding": "exact candidate source, selected PowerShell host/environment",
+    "staticCoverage": "real action routes above; transport boundary primary assertions",
+    "remainingGap": "Child process result/timeout/EOF and OS failures cannot be proven before execution",
+    "premergeMode": "static argv/exports and isolated transport evidence only",
+    "executed": false
+  }
+]
