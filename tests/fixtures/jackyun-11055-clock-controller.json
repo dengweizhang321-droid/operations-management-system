@@ -1,0 +1,40 @@
+{
+  "version": 2,
+  "runId": "n8n-export-first-11055",
+  "transport": "session_api_v1",
+  "runDate": "2026-11-01",
+  "asOfDate": "2026-10-31",
+  "salesStartDate": "2026-09-17",
+  "templateSha256": "0b2f493937f86c448cc4c86ec3056242680eefd7c3b886da07b14c5c34d916d7",
+  "modules": {
+    "inventory": {
+      "status": "prepared",
+      "serverClock": {
+        "requestStartedAt": "2026-10-31T16:15:18.760Z",
+        "receivedAt": "2026-10-31T16:15:18.967Z",
+        "serverDate": "2026-10-31T16:15:32.000Z"
+      },
+      "preflightStartedAt": "2026-10-31T16:15:18.326Z",
+      "queryIntentAt": "2026-10-31T16:15:18.326Z",
+      "queryCompletedAt": "2026-10-31T16:15:18.630Z",
+      "sourceRows": 26678,
+      "payloadSha256": "950a91aa16b452b7b7b102b2b36c22f449e3eb432970e4a25be41eadcf4034b6",
+      "querySha256": "40db9106868c01bc342380c3145333bc70bef204e6a0154799b11c182087adf0",
+      "permissionSha256": "fa9ef18ca1b53d8d757cf36d5f6fdc28ba2d4e7856fec414553051334f073e98",
+      "templateSha256": "0b2f493937f86c448cc4c86ec3056242680eefd7c3b886da07b14c5c34d916d7",
+      "baselineIds": [
+        "sys-118914485",
+        "sys-118826510",
+        "sys-118706373",
+        "sys-118597665",
+        "sys-118594074",
+        "sys-118442296",
+        "sys-118338214",
+        "sys-118286980",
+        "sys-118114079",
+        "sys-117894009"
+      ]
+    }
+  },
+  "tenantId": "771168"
+}

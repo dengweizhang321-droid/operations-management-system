@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "protocol": "2026-09-06.export-first.1",
+  "executionId": "11055",
+  "runId": "n8n-export-first-11055",
+  "runDate": "2026-11-01",
+  "asOfDate": "2026-10-31",
+  "baseUrl": "http://localhost:3000",
+  "createdAt": "2026-10-31T16:15:06.043Z",
+  "phase": "exporting",
+  "exports": {},
+  "salesStartDate": "2026-09-17",
+  "exportTransport": "session_api_v1",
+  "exportIntent": "inventory"
+}

@@ -132,6 +132,29 @@ const audited4098 = {
     executionDataSha256: "b44a28839e5d2ea0741c9d0420bb3d2aefa54ac3d29ea7309501a420a352dafb", activeExecutions: 0,
   },
 } as const;
+// Exact 11055 failure: the local server-clock assertion threw after the plan
+// recorded exportIntent but before submitExport was ever sent, so the platform
+// holds no export task for this run. The controller proves it: inventory stays
+// at "prepared" with no exportIntentAt, and no download, validation or import
+// path exists. The ordinary zero-effect routes reject this run only because the
+// plan owns exportIntent and the controller directory exists, neither of which
+// is a business effect here. Bound to this one audited run; never generalize to
+// any run whose controller reached submit_intent or submitted.
+const audited11055 = {
+  planSha256: "25c28fa5baede438f7d81b8f2c675677db7a8c9ee6b86b0fd550ce40206aff2a",
+  activeSha256: "3c5601db0a4bc09422b4ebba2e755a287e8610da2e7bfe581fabb8dfe2692947",
+  controllerSha256: "6fa8b1071cb5a1ed849b62bded849adb71cec34252b1e819430cdcb9f9e40da4",
+  evidence: {
+    executionId: "11055", workflowId: jackyunWorkflowId, status: "error",
+    startedAt: "2026-10-31T16:10:01.000Z", stoppedAt: "2026-10-31T16:15:20.152Z", retrySuccessId: null,
+    lastNode: apiDownloadNode,
+    runNodes: ["每天本机时间 00:10", "固定原执行计划时间", "领取共享 helper", "helper 领取成功？",
+      "等待前序流程释放 helper", "A·固定采集日和销售日期", "A·固定采集日和销售日期·恢复等待？", apiDownloadNode],
+    error: "API_SERVER_CLOCK_UNVERIFIED", httpCode: "500",
+    requestUrl: "http://127.0.0.1:5791/jackyun/export-first/export-all",
+    executionDataSha256: "6ac52e0d72b076d4b613f7d60718eb4ca26dede908aa146696aee2bc22531822", activeExecutions: 0,
+  },
+} as const;
 const apiBrowserOccupiedFailure = "waiting_login：专用浏览器端口已占用，自动任务不会接管已打开的浏览器。";
 const apiPlanTriggers = new Set(["手动运行", "每天本机时间 00:10", "失败后每小时安全完整重跑", "失败后每小时安全重试入口"]);
 export type PreflightEvidence = {
@@ -145,7 +168,7 @@ export type PreflightClosure = {
   version: 1; status: "closed_before_business" | "closed_before_export"; executionId: string; runId: string; closedAt: string;
   root: string; downloadDirectory: string; policySha256: string; planSha256: string; activeSha256: string;
   evidence: PreflightEvidence; absentPaths: string[];
-  reason: "verified_api_preflight_without_business_effects" | "verified_login_failure_without_business_effects" | "verified_api_login_challenge_without_business_effects" | "verified_api_browser_occupied_without_business_effects" | "verified_api_page_selection_without_business_effects" | "verified_query_failure_before_export_intent" | "audited_843_menu_lookup_before_export_click" | "audited_897_controls_before_query_and_export" | "audited_2621_dpapi_before_api_exports" | "audited_3134_dpapi_before_api_exports" | "audited_4163_dpapi_before_api_exports" | "audited_4299_dpapi_before_api_exports" | "audited_4726_dpapi_before_api_exports" | "audited_4098_page_selection_before_api_exports";
+  reason: "verified_api_preflight_without_business_effects" | "verified_login_failure_without_business_effects" | "verified_api_login_challenge_without_business_effects" | "verified_api_browser_occupied_without_business_effects" | "verified_api_page_selection_without_business_effects" | "verified_query_failure_before_export_intent" | "audited_843_menu_lookup_before_export_click" | "audited_897_controls_before_query_and_export" | "audited_2621_dpapi_before_api_exports" | "audited_3134_dpapi_before_api_exports" | "audited_4163_dpapi_before_api_exports" | "audited_4299_dpapi_before_api_exports" | "audited_4726_dpapi_before_api_exports" | "audited_4098_page_selection_before_api_exports" | "audited_11055_server_clock_before_export_submit";
   controllerEvidence?: { path: string; sha256: string };
   historicalCodeEvidence?: { releaseId: string; controllerSourceSha256: string };
 };
@@ -290,6 +313,29 @@ async function inspectQueryFailure(directory: string, plan: EmptyPlan, evidence:
   }
   return { path: target, sha256: recoverySha(raw) };
 }
+/** Audited 11055 only: prove the clock assertion stopped the run after the plan
+ * wrote exportIntent but before any export task was submitted to the platform.
+ * The controller is the sole file in the run directory and must stay at
+ * "prepared" with no exportIntentAt, pendingTaskId, binding, file or provenance. */
+async function inspectAudited11055Controller(directory: string, planRaw: Uint8Array, activeRaw: Uint8Array, evidence: PreflightEvidence) {
+  if (recoverySha(planRaw) !== audited11055.planSha256 || recoverySha(activeRaw) !== audited11055.activeSha256
+    || !isDeepStrictEqual(evidence, audited11055.evidence)) throw new Error("11055 原失败运行身份或证据已变化。");
+  if (!(await assertEntityPath(directory))?.isDirectory()
+    || !isDeepStrictEqual((await readdir(directory)).sort(), ["api-controller-state.json"])) {
+    throw new Error("11055 原运行目录存在额外文件，拒绝闭合。");
+  }
+  const target = path.join(directory, "api-controller-state.json"), raw = await readRegular(target);
+  if (recoverySha(raw) !== audited11055.controllerSha256) throw new Error("11055 原控制状态已变化。");
+  const state = parse<{ version: number; runId: string; transport: string; modules: Record<string, Record<string, unknown>> }>(raw);
+  const inventory = state.modules?.inventory;
+  if (state.version !== 2 || state.runId !== `n8n-export-first-${evidence.executionId}` || state.transport !== "session_api_v1"
+    || !isDeepStrictEqual(Object.keys(state.modules ?? {}), ["inventory"]) || inventory?.status !== "prepared"
+    || ["exportIntentAt", "pendingTaskId", "binding", "filePath", "provenance", "handoffSha256", "attachmentObjectSha256"]
+      .some(key => Object.hasOwn(inventory, key))) {
+    throw new Error("11055 控制状态不能证明在提交导出任务之前停止。");
+  }
+  return { path: target, sha256: recoverySha(raw) };
+}
 function assertEmptyPlan(plan: EmptyPlan, executionId: string) {
   const date = new Date(`${plan.runDate}T00:00:00Z`); date.setUTCDate(date.getUTCDate() - 1);
   if (plan.version !== 1 || plan.protocol !== jackyunExportFirstPolicyVersion || plan.executionId !== executionId
@@ -370,6 +416,7 @@ export async function inspectPreflightClosure(root: string, executionId: string,
   const plan = parse<EmptyPlan>(planRaw), active = parse<{ runId: string; executionId: string }>(activeRaw);
   const policy = parse<{ version: string; browser: { downloadDirectory: string } }>(policyRaw);
   const controlsOnly = executionId === "897";
+  const clockBeforeSubmit = executionId === "11055" && evidence.error === "API_SERVER_CLOCK_UNVERIFIED";
   const apiLoginAudit = executionId === "2621" ? audited2621 : executionId === "3134" ? audited3134
     : executionId === "4163" ? audited4163 : executionId === "4299" ? audited4299 : executionId === "4726" ? audited4726 : executionId === "4098" ? audited4098 : null;
   const apiChallengeOnly = (plan as EmptyPlan & { exportTransport?: string }).exportTransport === "session_api_v1"
@@ -382,6 +429,8 @@ export async function inspectPreflightClosure(root: string, executionId: string,
     if (recoverySha(planRaw) !== apiLoginAudit.planSha256 || !isDeepStrictEqual(evidence, apiLoginAudit.evidence)) throw new Error(`${executionId} 原失败运行身份或证据已变化。`);
   } else if (controlsOnly) {
     if (recoverySha(planRaw) !== audited897.planSha256 || !isDeepStrictEqual(evidence, audited897.evidence)) throw new Error("897 原失败运行身份或证据已变化。");
+  } else if (clockBeforeSubmit) {
+    // Identity, plan bytes and evidence are pinned inside the controller inspection below.
   } else if (apiChallengeOnly) assertEmptyApiChallengePlan(plan, executionId, evidence);
   else if (apiPageSelectionOnly) assertEmptyApiChallengePlan(plan, executionId, evidence, isApiPageSelectionFailure);
   else if (genericPreflight) assertEmptyApiChallengePlan(plan, executionId, evidence, message => classifyJackyunPreflightFailure(message) !== null);
@@ -393,14 +442,15 @@ export async function inspectPreflightClosure(root: string, executionId: string,
   const queryOnly = evidence.error === queryFailure;
   const legacyMenuOnly = evidence.error === legacyMenuFailure;
   let controllerEvidence = queryOnly ? await inspectQueryFailure(effects[1], plan, evidence)
-    : legacyMenuOnly ? await inspectAudited843(effects[1], planRaw, evidence) : undefined;
+    : legacyMenuOnly ? await inspectAudited843(effects[1], planRaw, evidence)
+      : clockBeforeSubmit ? await inspectAudited11055Controller(effects[1], planRaw, activeRaw, evidence) : undefined;
   if (controlsOnly) {
     if (!(await assertEntityPath(effects[1]))?.isDirectory() || !isDeepStrictEqual((await readdir(effects[1])).sort(), ["browser-controller-state.json"])) throw new Error("897 存在额外运行文件，拒绝闭合。");
     const target = path.join(effects[1], "browser-controller-state.json"), raw = await readRegular(target);
     if (recoverySha(raw) !== audited897.controllerSha256) throw new Error("897 原控制状态已变化。");
     controllerEvidence = { path: target, sha256: recoverySha(raw) };
   }
-  const absentPaths = queryOnly || legacyMenuOnly || controlsOnly ? effects.filter((_, index) => index !== 1) : effects;
+  const absentPaths = queryOnly || legacyMenuOnly || controlsOnly || clockBeforeSubmit ? effects.filter((_, index) => index !== 1) : effects;
   await assertAbsentEffects(absentPaths);
   if (apiLoginAudit) return { version: 1, status: "closed_before_business", executionId, runId: plan.runId, closedAt, root,
     downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
@@ -417,6 +467,10 @@ export async function inspectPreflightClosure(root: string, executionId: string,
     activeSha256: recoverySha(activeRaw), evidence, absentPaths,
     reason: apiPageSelectionOnly ? "verified_api_page_selection_without_business_effects"
       : evidence.error === apiLoginChallengeFailure ? "verified_api_login_challenge_without_business_effects" : "verified_api_browser_occupied_without_business_effects" };
+  if (clockBeforeSubmit) return { version: 1, status: "closed_before_export", executionId, runId: plan.runId, closedAt, root,
+    downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
+    activeSha256: recoverySha(activeRaw), evidence, absentPaths,
+    reason: "audited_11055_server_clock_before_export_submit", controllerEvidence };
   if (genericPreflight) return { version: 1, status: "closed_before_business", executionId, runId: plan.runId, closedAt, root,
     downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
     activeSha256: recoverySha(activeRaw), evidence, absentPaths, reason: "verified_api_preflight_without_business_effects" };
@@ -573,11 +627,12 @@ export async function assertClosedPreflight(root: string, executionId: string, r
   const queryClosed = receipt.status === "closed_before_export" && receipt.reason === "verified_query_failure_before_export_intent";
   const menuClosed = receipt.status === "closed_before_export" && receipt.reason === "audited_843_menu_lookup_before_export_click";
   const controlsClosed = receipt.status === "closed_before_export" && receipt.reason === "audited_897_controls_before_query_and_export";
+  const clockClosed = receipt.status === "closed_before_export" && receipt.reason === "audited_11055_server_clock_before_export_submit";
   const apiLoginClosed = receipt.status === "closed_before_business"
     && (receipt.reason === "audited_2621_dpapi_before_api_exports" || receipt.reason === "audited_3134_dpapi_before_api_exports"
       || receipt.reason === "audited_4163_dpapi_before_api_exports" || receipt.reason === "audited_4299_dpapi_before_api_exports" || receipt.reason === "audited_4726_dpapi_before_api_exports"
       || receipt.reason === "audited_4098_page_selection_before_api_exports");
-  if (receipt.version !== 1 || receipt.executionId !== executionId || (!loginClosed && !apiChallengeClosed && !apiBrowserOccupiedClosed && !apiPageSelectionClosed && !apiPreflightClosed && !queryClosed && !menuClosed && !controlsClosed && !apiLoginClosed)) {
+  if (receipt.version !== 1 || receipt.executionId !== executionId || (!loginClosed && !apiChallengeClosed && !apiBrowserOccupiedClosed && !apiPageSelectionClosed && !apiPreflightClosed && !queryClosed && !menuClosed && !controlsClosed && !apiLoginClosed && !clockClosed)) {
     throw new Error("原运行未持有有效的导出前失败闭合证据。");
   }
   const actual = await inspectPreflightClosure(root, executionId, receipt.evidence, receipt.closedAt);
