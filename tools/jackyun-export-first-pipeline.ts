@@ -1,4 +1,4 @@
-import { apiTaskWindowObserved, apiTaskWindowStart } from "../lib/jackyun/api-clock";
+import { apiTaskWindowObserved, apiTaskWindowStart, isJackyunServerClockFailure } from "../lib/jackyun/api-clock";
 import type { JackyunServerClock } from "../lib/jackyun/direct-http";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, realpath, stat } from "node:fs/promises";
@@ -110,6 +110,21 @@ function createExportFirstPlan(executionId: string, action: string, createdAt: s
     ...(action === "plan-api" ? { salesStartDate: rollingJackyunSalesStartDate(asOfDate) } : {}),
     ...(action === "plan-web-session" ? { exportTransport: jackyunWebSessionTransport } : action === "plan-direct-http" ? { exportTransport: jackyunDirectTransport }
       : action === "plan-api" ? { exportTransport: jackyunApiTransport } : {}) };
+}
+/** True only when the API controller proves the named module never submitted an
+ * export: it must still be "prepared" with no intent, task, binding or file. A
+ * missing controller also qualifies, since nothing was ever written. Anything
+ * else — including an unreadable or unexpected state — returns false and keeps
+ * the plan intent in place. */
+async function assertNoSubmittedApiExport(root: string, runId: string, module: JackyunModule) {
+  const state = await readJsonFileOr<{ modules?: Record<string, Record<string, unknown>> } | null>(
+    path.join(paths(root).outputRoot, runId, "api-controller-state.json"), null);
+  if (!state) return true;
+  const entry = state.modules?.[module];
+  if (entry === undefined) return true;
+  return entry.status === "prepared"
+    && !["exportIntentAt", "pendingTaskId", "binding", "filePath", "provenance", "handoffSha256", "attachmentObjectSha256"]
+      .some(key => Object.hasOwn(entry, key));
 }
 function handoffPath(root: string, plan: JackyunExportFirstPlan, module: JackyunModule) {
   return path.join(paths(root).eventRoot, plan.runId, `${String(jackyunModuleOrder.indexOf(module) + 1).padStart(2, "0")}-${module}.json`);
@@ -663,6 +678,19 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
         if (deps.recoveryRequest && error instanceof Error && error.message === "API_ORIGINAL_EXPORT_TASK_PENDING") {
           const wait = await recordJackyunSafeWait({ root, runId, reason: `export_${plan.exportIntent ?? "unknown"}`, at: nowOf(deps), assertOwned });
           return { ...publicExportFirstPlan(plan), ...wait };
+        }
+        // A server-clock failure is decided entirely locally and throws before
+        // submitExport, so this run never created a platform task. Drop the plan
+        // intent that beforeModule wrote, otherwise a purely local failure keeps
+        // looking like a possibly-submitted export and blocks every zero-effect
+        // recovery route. Only do this when the controller confirms nothing was
+        // submitted for the module the intent names.
+        if (error instanceof Error && isJackyunServerClockFailure(error.message)
+          && plan.exportTransport === jackyunApiTransport && plan.exportIntent
+          && await assertNoSubmittedApiExport(root, plan.runId, plan.exportIntent)) {
+          await assertOwned();
+          delete plan.exportIntent;
+          await writeJsonAtomic(planPath, plan);
         }
         const pageFailure = error instanceof Error && classifyJackyunPreflightFailure(error.message) === "automatic";
         if (plan.exportTransport !== jackyunApiTransport || (!isRetryableJackyunCredentialPreparationFailure(error) && !pageFailure)) throw error;

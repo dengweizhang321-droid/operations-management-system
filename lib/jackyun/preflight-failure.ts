@@ -10,6 +10,10 @@ export function classifyJackyunPreflightFailure(message: string): JackyunPreflig
     || message === "waiting_login：专用浏览器端口已占用，自动任务不会接管已打开的浏览器。"
     // verifyJackyunBrowserBinding throws before credentials or the export callback.
     // Keep PID validation strict and require a fresh manual execution with zero-effect proof.
-    || message === "waiting_login：调试端口不属于本次启动的独立浏览器，已停止接管。") return "manual";
+    || message === "waiting_login：调试端口不属于本次启动的独立浏览器，已停止接管。"
+    // apiTaskWindowStart/Observed reject a local clock that drifted past the 10s
+    // tolerance. It throws before submitExport, so no platform task exists, but
+    // the operator must fix the clock first: retrying cannot change the skew.
+    || message === "API_SERVER_CLOCK_UNVERIFIED" || message === "API_SERVER_CLOCK_MISSING") return "manual";
   return null;
 }
