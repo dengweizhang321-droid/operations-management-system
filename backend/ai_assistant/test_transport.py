@@ -267,6 +267,154 @@ class ModelDnsTests(SimpleTestCase):
         self.assertEqual(sock.connect.call_count, 1)
         connections[0].request.assert_not_called()
 
+    def wire_sockets(self, *socks, value=None):
+        """Like wire(), but each connect attempt gets its own socket mock, so a
+        failed first attempt and a successful retry can be driven independently.
+        """
+        context = MagicMock()
+        context.wrap_socket.side_effect = lambda sock, **kwargs: sock
+        response = MagicMock(status=200)
+        response.isclosed.return_value = False
+        response.getheader.return_value = None
+        response.read1.side_effect = [json.dumps(value or {}).encode(), b""]
+        connection = MagicMock()
+        connection.getresponse.return_value = response
+        self.enterContext(patch.object(transport.socket, "socket", side_effect=socks))
+        self.enterContext(patch.object(transport.ssl, "create_default_context", return_value=context))
+        self.enterContext(patch.object(transport.http.client, "HTTPConnection", return_value=connection))
+        return connection, response
+
+    def json_connection(self, value):
+        response = MagicMock(status=200)
+        response.isclosed.return_value = False
+        response.getheader.return_value = None
+        response.read1.side_effect = [json.dumps(value).encode(), b""]
+        connection = MagicMock()
+        connection.getresponse.return_value = response
+        return connection
+
+    def test_single_address_tls_eof_falls_back_to_next_resolvers_address(self):
+        # Today's real failure: cf answers with exactly one A record for
+        # api.dingtalk.com, 161.117.70.119, whose TLS handshake fails with
+        # SSLEOFError in 0.15-0.70s. tx (1.12.12.12) answers 106.11.23.24,
+        # which completes the handshake in ~0.13s. public_model_addresses
+        # must re-resolve, excluding the proven-bad cf answer: cf answers
+        # the same bad IP again and is skipped for being all-excluded, then
+        # tx is tried and its address is the one the model connect reaches.
+        # Every phase (DoH to cf twice, model connect to cf's bad IP, DoH to
+        # tx, model connect to tx's good IP) runs through real socket-level
+        # mocks; nothing above the socket layer is faked.
+        doh_cf_sock_1, model_cf_sock, doh_cf_sock_2, doh_tx_sock, model_tx_sock = (
+            MagicMock(), MagicMock(), MagicMock(), MagicMock(), MagicMock()
+        )
+        model_cf_sock.do_handshake.side_effect = ssl.SSLEOFError("fixture-cf-eof")
+        context = MagicMock()
+        context.wrap_socket.side_effect = lambda sock, **kwargs: sock
+        cf_answer_1 = self.json_connection(dns_answer(1, "161.117.70.119"))
+        cf_answer_2 = self.json_connection(dns_answer(1, "161.117.70.119"))
+        tx_answer = self.json_connection(dns_answer(1, "106.11.23.24"))
+        model_connection = self.json_connection({"accessToken": "fixture"})
+        self.enterContext(patch.object(
+            transport.socket, "socket",
+            side_effect=[doh_cf_sock_1, model_cf_sock, doh_cf_sock_2, doh_tx_sock, model_tx_sock],
+        ))
+        self.enterContext(patch.object(transport.ssl, "create_default_context", return_value=context))
+        self.enterContext(patch.object(
+            transport.http.client, "HTTPConnection",
+            # connect_phase() retries entirely at the socket layer before any
+            # HTTPConnection exists; the failed model-cf attempt never
+            # reaches this constructor. Four calls total: DoH to cf, DoH to
+            # cf again (re-resolve), DoH to tx, then the model POST.
+            side_effect=[cf_answer_1, cf_answer_2, tx_answer, model_connection],
+        ))
+        with patch.object(transport, "resolve_addresses", return_value=addresses("198.18.0.9")):
+            result = transport.bounded_json(URL, {"appKey": "k"})
+        self.assertEqual(result, {"accessToken": "fixture"})
+        self.assertEqual(
+            [doh_cf_sock_1.connect.call_args, model_cf_sock.connect.call_args,
+             doh_cf_sock_2.connect.call_args, doh_tx_sock.connect.call_args,
+             model_tx_sock.connect.call_args],
+            [((("1.1.1.1", 443),),), ((("161.117.70.119", 443),),),
+             ((("1.1.1.1", 443),),), ((("1.12.12.12", 443),),),
+             ((("106.11.23.24", 443),),)],
+        )
+        model_connection.request.assert_called_once()
+
+    def test_multiple_addresses_first_fails_second_succeeds(self):
+        # opencode.ai answers 4 IPs for one A query; only the first is
+        # unreachable here, so the fix must move to the second address in
+        # the same list without any extra DNS query. None of these
+        # addresses are synthetic, so _public_addresses/DoH never runs.
+        first_sock, second_sock = MagicMock(), MagicMock()
+        first_sock.connect.side_effect = ConnectionRefusedError("fixture-refused")
+        second_sock.connect = MagicMock()
+        second_sock.do_handshake = MagicMock()
+        connection, response = self.wire_sockets(first_sock, second_sock, value={"ok": True})
+        resolved = addresses("104.21.1.1", "172.67.2.2", "104.21.3.3", "172.67.4.4")
+        with patch.object(transport, "resolve_addresses", return_value=resolved):
+            result = transport.bounded_json(URL, {})
+        self.assertEqual(result, {"ok": True})
+        first_sock.connect.assert_called_once_with(("104.21.1.1", 443))
+        second_sock.connect.assert_called_once_with(("172.67.2.2", 443))
+        connection.request.assert_called_once()
+
+    def test_cert_failure_still_connects_only_once_with_multiple_addresses_available(self):
+        # Regression for the retry path itself: even with a second address
+        # ready to try and a resolver able to supply more, a certificate we
+        # cannot verify must never be retried on any address.
+        first_sock, second_sock = MagicMock(), MagicMock()
+        first_sock.do_handshake.side_effect = ssl.SSLCertVerificationError("fixture")
+        connection, response = self.wire_sockets(first_sock, second_sock, value={})
+        resolved = addresses("104.21.1.1", "172.67.2.2")
+        with patch.object(transport, "resolve_addresses", return_value=resolved):
+            with self.assertRaises(AiError) as caught:
+                transport.bounded_json(URL, {})
+        self.assertEqual(caught.exception.code, "provider_unavailable")
+        first_sock.connect.assert_called_once()
+        second_sock.connect.assert_not_called()
+        connection.request.assert_not_called()
+
+    def test_request_already_sent_is_never_retried_even_with_addresses_left(self):
+        # The second address and the resolver callback both exist, but the
+        # failure happens after request_started=True (response_headers phase
+        # here), which must never trigger a retry: AGENTS.md's "no misfires".
+        first_sock, second_sock = MagicMock(), MagicMock()
+        first_sock.do_handshake = MagicMock()
+        connection, response = self.wire_sockets(first_sock, second_sock, value={})
+        connection.getresponse.side_effect = ConnectionResetError("fixture-reset")
+        resolved = addresses("104.21.1.1", "172.67.2.2")
+        with patch.object(transport, "resolve_addresses", return_value=resolved):
+            with self.assertRaises(AiError) as caught:
+                transport.bounded_json(URL, {})
+        self.assertEqual(caught.exception.diagnostics["stage"], "response_headers")
+        self.assertTrue(caught.exception.diagnostics["requestStarted"])
+        first_sock.connect.assert_called_once()
+        second_sock.connect.assert_not_called()
+        connection.request.assert_called_once()
+
+    def test_retry_stops_once_budget_is_exhausted(self):
+        # A second address and a resolver are both available, but the shared
+        # deadline is gone by the time the first address fails: the retry
+        # loop must stop and raise instead of spending time past the budget.
+        clock = [100.0]
+        first_sock, second_sock = MagicMock(), MagicMock()
+        def expire(*args, **kwargs):
+            clock[0] += 5
+            raise ConnectionRefusedError("fixture-refused")
+        first_sock.connect.side_effect = expire
+        connection, response = self.wire_sockets(first_sock, second_sock, value={})
+        resolved = addresses("104.21.1.1", "172.67.2.2")
+        with patch.object(transport.time, "monotonic", side_effect=lambda: clock[0]), patch.object(
+            transport, "resolve_addresses", return_value=resolved
+        ), transport.request_budget(5):
+            with self.assertRaises(transport.ProviderTransportError) as caught:
+                transport.bounded_json(URL, {}, timeout=1_000_000)
+        self.assertEqual(caught.exception.diagnostics["stage"], "connect")
+        self.assertEqual(caught.exception.diagnostics["reason"], "timeout")
+        first_sock.connect.assert_called_once()
+        second_sock.connect.assert_not_called()
+        connection.request.assert_not_called()
+
     def test_subscription_rejection_is_actionable_for_json_and_stream_without_disclosing_body(self):
         for streaming in (False, True):
             with self.subTest(streaming=streaming):
