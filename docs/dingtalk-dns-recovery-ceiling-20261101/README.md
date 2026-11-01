@@ -138,13 +138,54 @@ TLS 握手 0.27–1.19s，够不到这个临界点；只有 10-28 文档记录�
 
 ## 本次未做的事
 
-- 未推送、未合并、未改动 `main`。
-- 未执行任何生产部署、迁移、服务重启或真实外部发送。
+- 未执行生产发布上线。制品已准备、绑定合并提交，但 `preparationStatus` 为
+  `not-ready`，发布上线仍需用户单独授权（AGENTS.md 第 4 条）。
+- 未执行迁移（本次无 migration）。
 - 未修改 `_doh_resolvers` 的顺序。实测 Cloudflare 比腾讯慢 5–10 倍
   （DoH 查询 0.50–1.79s vs 0.10–0.54s），对调可降低钉钉 DNS 腿耗时，
   但那是延迟优化而非本缺陷的修复，且在本缺陷未修时对调会**掩盖**它，故未纳入本次范围。
 - 未修上述 2 个既有失败。
 - 功能验收由用户上线后自行判断（AGENTS.md 第 4 条）。
+
+> 补记（2026-11-01）：本节原写「未推送、未合并、未改动 `main`」，那是撰写时的状态。
+> 用户随后授权合并，已合入 `main` 并推送，最终合并提交 `fce40dce`；
+> 又单独授权重启了 Pi worker 以解开 readiness，故「未改动服务状态」一句同样不再适用。
+> 生产仍是 `9c184426`，本次未上线。
+
+## readiness 阻塞与解除（2026-11-01）
+
+合并后首次跑发布器 `--check`（从控制包
+`control-bundles/fe4e34dcea03ad77c47c288bd572841ae69428bb05147893f69c452102d45aa6`
+运行；记忆中的 `e664af36` 代次已过期，拒绝时报错会打印当前期望路径），
+在 readiness 预检处停下：
+
+```
+Original Pi process identity is unknown or changed
+```
+
+断言位于制品包内 `source/tools/manual-maintenance-process.psm1:60`，
+逐项比对 `run/django-ai-pi-worker.pid.json` 记录的 PID、creationDate、
+executablePath、commandLine 与当前实际进程。
+
+真因：pid.json 记的 PID 17312（10-31T19:33Z 启动）已不存在，且
+`ai_assistant.pi_worker` 进程数为 0——Pi worker 意外退出而回执未更新
+（control-file 的 `intent` 仍为 `running`，说明不是被要求停止）。
+同期 `dingtalk_schedule` 有 2 个进程在跑，那是另一个服务，不能作为
+Pi worker 存活的证据。这是设计上的正确拒绝，不是坏断言：进程身份不明时
+不应开维护窗口。
+
+经用户单独授权后，用原生入口恢复（未手改 pid.json）：
+`D:\teruisi-runtime\django-sales\app\tools\django-ai.ps1 -Action Start`。
+该控制器拒绝从仓库检出运行（要求从 runtime app 目录执行），`Start` 对已在
+运行的组件幂等。恢复前先跑只读的 `PiCheck`（`activeCount: 0`、
+`unresolvedCount: 0`、`unsafeUnknownCount: 0`）与 `Status`，确认仅
+`PiWorker` 为 `stopped`、其余组件正常，属干净停止。
+
+恢复后 `Status` 为 `PiWorker: running`，其余组件不受影响；pid.json 的
+PID 50776 与实际进程 creationDate / executablePath / commandLine 逐项一致。
+重跑 `--check`：readiness 的权限与部署清单检查通过，
+`publicationPerformed: false`、`preparationStatus: not-ready`，
+即「有新 main 待发布、发布包尚未准备完成、本次未打包未部署」。
 
 ## 同期发现、本次未修的其他缺陷
 
