@@ -265,12 +265,12 @@ def bounded_json(
     )
 
 
-def public_model_addresses(url, addresses, timeout):
+def public_model_addresses(url, addresses, timeout, *, exclude=frozenset()):
     from .configuration import endpoint
-    return _public_addresses(url, addresses, timeout, endpoint)
+    return _public_addresses(url, addresses, timeout, endpoint, exclude=exclude)
 
 
-def _recovery_answer(host, record_type, started, budget, ceiling):
+def _recovery_answer(host, record_type, started, budget, ceiling, *, skip_resolvers=frozenset()):
     """Query the pinned resolvers in order; keep the first resolver's failure.
 
     A hijacking local proxy can break TLS to one fixed resolver while leaving
@@ -278,13 +278,22 @@ def _recovery_answer(host, record_type, started, budget, ceiling):
     The reported diagnostics still describe the first failure so the receipt
     does not change shape when a later resolver also fails.
 
-    Returns the answer and the extra time a fallback resolver was granted
-    beyond the shared budget. The caller must add that to its own anchor,
-    otherwise its budget check would discard an answer a fallback just won.
+    `skip_resolvers` names resolvers the caller already asked this round and
+    whose answer turned out entirely unusable (every address it returned had
+    already failed to connect). They are skipped without being queried
+    again, so a caller re-resolving after a connect failure can still reach
+    a resolver further down the pinned list within the same budget.
+
+    Returns the resolver's address, the answer, and the extra time a
+    fallback resolver was granted beyond the shared budget. The caller must
+    add that to its own anchor, otherwise its budget check would discard an
+    answer a fallback just won.
     """
     first = None
     granted = 0.0
     for index, (resolver, path) in enumerate(_doh_resolvers):
+        if resolver in skip_resolvers:
+            continue
         if index == 0:
             remaining = budget - (time.monotonic() - started)
         else:
@@ -308,7 +317,7 @@ def _recovery_answer(host, record_type, started, budget, ceiling):
         # Fixed public IP avoids the same intercepted OS lookup. TLS verifies
         # this IP's certificate. No provider headers/body are sent to DNS.
         try:
-            return granted, _bounded_json(
+            return resolver, granted, _bounded_json(
                 f"https://{resolver}{path}?"
                 + urlencode({"name": host, "type": record_type}),
                 None,
@@ -362,8 +371,17 @@ def _recovery_answer(host, record_type, started, budget, ceiling):
     raise first or ProviderTransportError(stage="dns_recovery", reason="timeout")
 
 
-def _public_addresses(url, addresses, timeout, origin_guard):
-    """Replace proxy synthetic DNS only; never connect to or allowlist fake IPs."""
+def _public_addresses(url, addresses, timeout, origin_guard, *, exclude=frozenset()):
+    """Replace proxy synthetic DNS only; never connect to or allowlist fake IPs.
+
+    `exclude` names addresses a caller already proved unreachable (a resolver
+    answered, but the single IP it gave failed to connect or complete TLS).
+    This is a distinct retry layer from the resolver-unreachable handling in
+    `_recovery_answer`: a resolver here can answer successfully and still be
+    skipped, because its *answer* is useless, not because the resolver itself
+    is unreachable. Skipping an all-excluded A answer still queries AAAA for
+    the same resolver before moving on, matching the non-excluded order.
+    """
     ips = [ipaddress.ip_address(addr[4][0]) for addr in addresses]
     if not any(ip in _synthetic_network for ip in ips):
         return addresses
@@ -382,60 +400,81 @@ def _public_addresses(url, addresses, timeout, origin_guard):
     started = time.monotonic()
     budget = min(5, timeout)
     result = []
+    skip_resolvers = set()
     for record_type in (1, 28):
-        remaining = budget - (time.monotonic() - started)
-        if remaining <= 0:
-            raise ProviderTransportError(stage="dns_recovery", reason="timeout")
-        granted, answer = _recovery_answer(host, record_type, started, budget, timeout)
-        # A fallback resolver ran past the shared budget by design. Without
-        # extending the anchor, the checks below would read that as an expired
-        # budget and throw away the answer the fallback just won.
-        budget += granted
-        question = answer.get("Question")
-        records = answer.get("Answer", [])
-        if (
-            type(answer.get("Status")) is not int
-            or answer["Status"] != 0
-            or answer.get("TC") is not False
-            or not isinstance(question, list)
-            or len(question) != 1
-            or not isinstance(question[0], dict)
-            or not isinstance(question[0].get("name"), str)
-            or question[0].get("name", "").rstrip(".").lower() != host.lower()
-            or type(question[0].get("type")) is not int
-            or question[0].get("type") != record_type
-            or not isinstance(records, list)
-            or len(records) > 32
-        ):
-            raise ProviderTransportError(stage="dns_recovery", reason="invalid_response")
-        for record in records:
-            if not isinstance(record, dict):
-                raise ProviderTransportError(stage="dns_recovery", reason="invalid_response")
-            if type(record.get("type")) is not int:
-                raise ProviderTransportError(stage="dns_recovery", reason="invalid_response")
-            if record["type"] not in (1, 28):
-                continue
-            if record["type"] != record_type or not isinstance(record.get("data"), str):
-                raise ProviderTransportError(stage="dns_recovery", reason="invalid_response")
-            try:
-                ip = ipaddress.ip_address(record.get("data"))
-            except ValueError as error:
-                raise ProviderTransportError(stage="dns_recovery", reason="invalid_response") from error
+        # All-excluded answers below can make this record type retry across
+        # every pinned resolver; `skip_resolvers` only grows within that, so
+        # the loop still terminates once every resolver has been asked once.
+        while True:
+            remaining = budget - (time.monotonic() - started)
+            if remaining <= 0:
+                raise ProviderTransportError(stage="dns_recovery", reason="timeout")
+            resolver, granted, answer = _recovery_answer(
+                host, record_type, started, budget, timeout, skip_resolvers=skip_resolvers
+            )
+            # A fallback resolver ran past the shared budget by design. Without
+            # extending the anchor, the checks below would read that as an expired
+            # budget and throw away the answer the fallback just won.
+            budget += granted
+            question = answer.get("Question")
+            records = answer.get("Answer", [])
             if (
-                not ip.is_global
-                or ip.is_multicast
-                or ip.version != (4 if record["type"] == 1 else 6)
+                type(answer.get("Status")) is not int
+                or answer["Status"] != 0
+                or answer.get("TC") is not False
+                or not isinstance(question, list)
+                or len(question) != 1
+                or not isinstance(question[0], dict)
+                or not isinstance(question[0].get("name"), str)
+                or question[0].get("name", "").rstrip(".").lower() != host.lower()
+                or type(question[0].get("type")) is not int
+                or question[0].get("type") != record_type
+                or not isinstance(records, list)
+                or len(records) > 32
             ):
-                raise AiError("请求目标解析到非公网地址", "access_denied", 403)
-            family = socket.AF_INET if ip.version == 4 else socket.AF_INET6
-            target = (str(ip), parts.port or 443)
-            if ip.version == 6:
-                target += (0, 0)
-            item = (family, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", target)
-            if item not in result:
-                result.append(item)
-        if budget - (time.monotonic() - started) <= 0:
-            raise ProviderTransportError(stage="dns_recovery", reason="timeout")
+                raise ProviderTransportError(stage="dns_recovery", reason="invalid_response")
+            batch = []
+            for record in records:
+                if not isinstance(record, dict):
+                    raise ProviderTransportError(stage="dns_recovery", reason="invalid_response")
+                if type(record.get("type")) is not int:
+                    raise ProviderTransportError(stage="dns_recovery", reason="invalid_response")
+                if record["type"] not in (1, 28):
+                    continue
+                if record["type"] != record_type or not isinstance(record.get("data"), str):
+                    raise ProviderTransportError(stage="dns_recovery", reason="invalid_response")
+                try:
+                    ip = ipaddress.ip_address(record.get("data"))
+                except ValueError as error:
+                    raise ProviderTransportError(stage="dns_recovery", reason="invalid_response") from error
+                if (
+                    not ip.is_global
+                    or ip.is_multicast
+                    or ip.version != (4 if record["type"] == 1 else 6)
+                ):
+                    raise AiError("请求目标解析到非公网地址", "access_denied", 403)
+                family = socket.AF_INET if ip.version == 4 else socket.AF_INET6
+                target = (str(ip), parts.port or 443)
+                if ip.version == 6:
+                    target += (0, 0)
+                item = (family, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", target)
+                if item not in batch:
+                    batch.append(item)
+            if budget - (time.monotonic() - started) <= 0:
+                raise ProviderTransportError(stage="dns_recovery", reason="timeout")
+            usable = [item for item in batch if item[4][0] not in exclude]
+            if batch and not usable and len(skip_resolvers) + 1 < len(_doh_resolvers):
+                # This resolver answered, but every address it gave is
+                # already known-bad. Ask the next pinned resolver for this
+                # same record type instead of accepting a useless answer;
+                # the resolver-unreachable handling in `_recovery_answer`
+                # stays untouched, since this resolver did answer.
+                skip_resolvers.add(resolver)
+                continue
+            for item in usable:
+                if item not in result:
+                    result.append(item)
+            break
         # A is sufficient for the single pinned connection. Validate the whole
         # A response first; query AAAA only for a valid, empty A response.
         if result:
@@ -456,6 +495,7 @@ def _bounded_json(
     method="POST",
     fixed_addresses=None,
     stream_collector=None,
+    resolver=None,
 ):
     parts = urlsplit(url)
     if (
@@ -490,22 +530,37 @@ def _bounded_json(
         addresses = public_model_addresses(
             url, addresses, timeout - (time.monotonic() - started)
         )
-    for addr in addresses:
-        address = ipaddress.ip_address(addr[4][0])
-        if (not address.is_global or address.is_multicast) and not (
-            local and permit_local
-        ):
-            raise AiError("请求目标解析到非公网地址", "access_denied", 403)
-    family, socktype, proto, _, target = addresses[0]
+        # The model path can always ask the DNS layer for another batch that
+        # excludes addresses already proven unreachable; a caller supplying
+        # its own fixed_addresses (e.g. DingTalk) must opt in with its own
+        # resolver to get the same second chance.
+        if resolver is None:
+            def resolver(tried):
+                return public_model_addresses(
+                    url,
+                    resolve_addresses(host, port, timeout - (time.monotonic() - started)),
+                    timeout - (time.monotonic() - started),
+                    exclude=tried,
+                )
+
+    def admit(candidates):
+        for addr in candidates:
+            address = ipaddress.ip_address(addr[4][0])
+            if (not address.is_global or address.is_multicast) and not (
+                local and permit_local
+            ):
+                raise AiError("请求目标解析到非公网地址", "access_denied", 403)
+        return candidates
+
+    addresses = admit(addresses)
     remaining = timeout - (time.monotonic() - started)
     if remaining <= 0:
         raise ProviderTransportError(stage="system_dns", reason="timeout")
-    sock = socket.socket(family, socktype, proto)
-    sock.settimeout(remaining)
-    connection = None
     phase = "connect"
     request_started = False
     stop_watching = None
+    connection = None
+    sock = None
 
     def bounded_socket():
         if stop_watching is not None:
@@ -516,16 +571,75 @@ def _bounded_json(
             raise ProviderTransportError(stage=phase, reason="timeout", request_started=request_started)
         sock.settimeout(remaining)
 
+    def connect_phase():
+        # Tries every address already in hand, then — once, and only while no
+        # byte of the request has been sent — asks the resolver for a fresh
+        # batch that excludes what just failed. A resolver that answers but
+        # whose single address is unreachable (today's DingTalk/cf case) and
+        # a response with several addresses where only the first fails
+        # (opencode.ai) both resolve here; a TLS certificate we cannot trust
+        # is never retried, matching test_tls_failure_never_posts_or_retries.
+        nonlocal sock, phase, stop_watching
+        tried = set()
+        pending = list(addresses)
+        reresolved = False
+        while True:
+            if not pending:
+                if reresolved or resolver is None:
+                    raise ProviderTransportError(stage=phase, reason="unavailable", request_started=False)
+                reresolved = True
+                remaining_for_resolver = timeout - (time.monotonic() - started)
+                if remaining_for_resolver <= 0:
+                    raise ProviderTransportError(stage=phase, reason="timeout", request_started=False)
+                pending = [addr for addr in admit(resolver(tried)) if addr[4][0] not in tried]
+                if not pending:
+                    raise ProviderTransportError(stage=phase, reason="unavailable", request_started=False)
+                continue
+            family, socktype, proto, _, target = pending.pop(0)
+            tried.add(target[0])
+            phase = "connect"
+            candidate = socket.socket(family, socktype, proto)
+            remaining = timeout - (time.monotonic() - started)
+            if remaining <= 0:
+                candidate.close()
+                raise ProviderTransportError(stage=phase, reason="timeout", request_started=False)
+            candidate.settimeout(remaining)
+            sock = candidate
+            try:
+                stop_watching = watch_socket_cancellation(lambda: sock, timeout=remaining)
+                bounded_socket()
+                sock.connect(target)
+                if parts.scheme == "https":
+                    phase = "tls"
+                    bounded_socket()
+                    sock = ssl.create_default_context().wrap_socket(
+                        sock, server_hostname=host, do_handshake_on_connect=False
+                    )
+                    bounded_socket()
+                    sock.do_handshake()
+                return
+            except (ssl.SSLCertVerificationError, TimeoutError):
+                # A certificate we cannot trust is a trust failure, not an
+                # unreachable host. A budget timeout must stay a timeout, not
+                # be relabelled "unavailable" by this retry loop; both are
+                # left for the outer handlers to classify, never retried here.
+                raise
+            except (OSError, ValueError, http.client.HTTPException):
+                if stop_watching is not None:
+                    stop_watching()
+                try:
+                    sock.close()
+                except OSError:
+                    pass
+                if not pending and (reresolved or resolver is None):
+                    raise
+                # Still have another address, or one unused re-resolution
+                # left, to try before giving up on this phase.
+                continue
+
     try:
-        stop_watching = watch_socket_cancellation(lambda: sock, timeout=remaining)
-        bounded_socket()
-        sock.connect(target)
-        if parts.scheme == "https":
-            phase = "tls"
-            bounded_socket()
-            sock = ssl.create_default_context().wrap_socket(sock, server_hostname=host, do_handshake_on_connect=False)
-            bounded_socket()
-            sock.do_handshake()
+        connect_phase()
+        remaining = timeout - (time.monotonic() - started)
         connection = http.client.HTTPConnection(host, port, timeout=remaining)
         connection.sock = sock
         # Fixed, audited media adapters may supply a bounded multipart body.
