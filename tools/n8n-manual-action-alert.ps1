@@ -39,6 +39,7 @@ function Invoke-ManualActionAlert([string]$EncodedPayload,[bool]$SendEnabled,[st
     # The external read-only monitor has no execution ID when a schedule never ran.
     # Keep a separate schema/key; never fabricate an execution for the v1 sender.
     $fields=@('version','kind','workflowId','code','anchorEpoch','executionId')
+    if($payload.code -ceq 'error_workflow_failed'){$fields+=@('failureCount')}
     if(($payload.version -isnot [int] -and $payload.version -isnot [long]) -or @($payload.PSObject.Properties).Count -ne $fields.Count -or @($payload.PSObject.Properties.Name|Where-Object {$_ -cnotin $fields}).Count -or $payload.kind -cne 'schedule_watch'){throw 'invalid_payload'}
     $watchHints=@{
       schedule_not_ready='定时流程未就绪：启用状态、已发布版本或本调度周期 execution 存在缺口'
@@ -53,10 +54,19 @@ function Invoke-ManualActionAlert([string]$EncodedPayload,[bool]$SendEnabled,[st
     $workflow=$payload.workflowId; $code=$payload.code; $failed=$payload.executionId
     if($workflow -isnot [string] -or $workflow -cnotmatch '^[A-Za-z0-9_-]{1,128}$' -or $code -isnot [string] -or $code -cnotin @($watchHints.Keys) -or $failed -isnot [string] -or ($failed -ne '' -and $failed -cnotmatch '^[1-9][0-9]{0,19}$') -or ($code -ceq 'error_workflow_failed' -and -not $failed)){throw 'invalid_payload'}
     if(($payload.anchorEpoch -isnot [int] -and $payload.anchorEpoch -isnot [long]) -or $payload.anchorEpoch -lt 0 -or $payload.anchorEpoch -gt 4102444800){throw 'invalid_payload'}
+    if($code -ceq 'error_workflow_failed'){
+      if(($payload.failureCount -isnot [int] -and $payload.failureCount -isnot [long]) -or $payload.failureCount -lt 1 -or $payload.failureCount -gt 1000){throw 'invalid_payload'}
+      $watchHints[$code]="最近 24 小时发生 $($payload.failureCount) 次失败"
+    }
     $anchor=[DateTimeOffset]::FromUnixTimeSeconds($payload.anchorEpoch).ToOffset([TimeSpan]::FromHours(8)).ToString('yyyy-MM-dd HH:mm:ss')
     $label=if($workflows.ContainsKey($workflow)){$workflows[$workflow]}elseif($workflow -ceq 'TeruisiHourlyRetry2026'){'每小时安全重试错误流'}elseif($workflow -ceq 'TmallWarehouseDaily2026'){'天猫入仓监控'}elseif($workflow -ceq 'N8nScheduleWatch'){'n8n 外部巡检'}else{"n8n 工作流 $workflow"}
-    $key=Get-WatchTextHash ("schedule-watch-v1|$workflow|$code|$($payload.anchorEpoch)|$failed")
-    $message=@('【运营自动化】巡检需要人工处理',('流程：'+$label),('检查项：'+$watchHints[$code]),('观察锚点（上海）：'+$anchor),$(if($failed){'失败 execution：'+$failed}else{'未关联 execution'}),'请你处理：核查启用状态、已发布版本、调度与执行记录；不要给共享错误流绑定自身，不要盲目补跑或重复导入') -join "`n"
+    if($code -ceq 'error_workflow_failed'){
+      $key=Get-WatchTextHash ("schedule-watch-v1|$workflow|$code|$($payload.anchorEpoch)")
+    }else{
+      $key=Get-WatchTextHash ("schedule-watch-v1|$workflow|$code|$($payload.anchorEpoch)|$failed")
+    }
+    $executionLabel=if($code -ceq 'error_workflow_failed'){'最新失败 execution：'}else{'失败 execution：'}
+    $message=@('【运营自动化】巡检需要人工处理',('流程：'+$label),('检查项：'+$watchHints[$code]),('观察锚点（上海）：'+$anchor),$(if($failed){$executionLabel+$failed}else{'未关联 execution'}),'请你处理：核查启用状态、已发布版本、调度与执行记录；不要给共享错误流绑定自身，不要盲目补跑或重复导入') -join "`n"
   }else{
   if($payload.version -ne 1 -or @($payload.PSObject.Properties.Name|Where-Object {$_ -cnotin @('version','workflowId','logicalExecutionId','failedExecutionId','code')}).Count){throw 'invalid_payload'}
   $workflow=[string]$payload.workflowId; $logical=[string]$payload.logicalExecutionId; $failed=[string]$payload.failedExecutionId; $code=[string]$payload.code

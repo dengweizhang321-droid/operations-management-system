@@ -132,6 +132,8 @@ def inspect(database, catalog=CATALOG, *, now=None):
         payload = {"version": 2, "kind": "schedule_watch", "workflowId": workflow, "code": code,
                    "anchorEpoch": int(period.timestamp()),
                    "executionId": evidence.get("executionId", "")}
+        if code == "error_workflow_failed":
+            payload["failureCount"] = evidence["failureCount"]
         findings.append({"check": check, "workflowId": workflow, "code": code,
                          **evidence, "payload": payload})
 
@@ -199,14 +201,22 @@ def inspect(database, catalog=CATALOG, *, now=None):
              stamp(now + timedelta(seconds=1)), MAX_ERRORS + 1)).fetchall()
         if len(errors) > MAX_ERRORS:
             raise InspectionUnavailable("error_limit_exceeded")
+        window_errors = []
         for row in errors:
             at = instant(row["failed_at"])
             if start <= at <= now:
                 execution_id = str(row["id"])
                 if not re.fullmatch(r"[1-9][0-9]{0,19}", execution_id):
                     raise InspectionUnavailable("invalid_execution_id")
-                finding(3, RETRY_WORKFLOW, "error_workflow_failed", at,
-                        executionId=execution_id, failedAt=stamp(at))
+                window_errors.append((at, int(execution_id)))
+        if window_errors:
+            latest_at, latest_id = max(window_errors)
+            # The query remains an exact rolling 24h window. Its notification
+            # bucket changes hourly, not whenever count/latest execution changes.
+            anchor = start.replace(minute=0, second=0, microsecond=0)
+            finding(3, RETRY_WORKFLOW, "error_workflow_failed", anchor,
+                    executionId=str(latest_id), failedAt=stamp(latest_at), failureCount=len(window_errors),
+                    windowStart=stamp(start), windowEnd=stamp(now))
         if time.monotonic() > deadline:
             raise InspectionUnavailable("inspection_timeout")
     finally:

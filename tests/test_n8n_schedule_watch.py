@@ -43,9 +43,9 @@ class InspectionTests(unittest.TestCase):
     def run_at(self, now="2026-11-02T16:16:00Z", **kwargs):
         return watch.inspect(self.db, self.catalog, now=now, **kwargs)
 
-    def run_record(self, start, mode="trigger", status="success", workflow="daily", stop=None, deleted=None):
-        self.execute('''INSERT INTO execution_entity(workflowId,status,mode,startedAt,stoppedAt,createdAt,deletedAt)
-                        VALUES (?,?,?,?,?,?,?)''', (workflow, status, mode, start, stop, start, deleted))
+    def run_record(self, start, mode="trigger", status="success", workflow="daily", stop=None, deleted=None, execution_id=None):
+        self.execute('''INSERT INTO execution_entity(id,workflowId,status,mode,startedAt,stoppedAt,createdAt,deletedAt)
+                        VALUES (?,?,?,?,?,?,?,?)''', (execution_id, workflow, status, mode, start, stop, start, deleted))
 
     def codes(self, report, workflow="daily"):
         return {f["code"] for f in report["findings"] if f["workflowId"] == workflow}
@@ -124,6 +124,49 @@ class InspectionTests(unittest.TestCase):
                                                       "schedules": ["0 0 * * MON"]}]}), encoding="utf-8")
         with self.assertRaises(watch.InspectionUnavailable):
             self.run_at()
+
+    def test_check3_aggregates_zero_one_three_and_latest_by_failure_time(self):
+        def third(report):
+            return [f for f in report["findings"] if f["check"] == 3]
+        baseline = self.run_at()
+        self.assertEqual(third(baseline), [])
+        self.run_record("2026-11-02T02:06:35.288Z", workflow=watch.RETRY_WORKFLOW, status="error", execution_id=11078)
+        one = third(self.run_at())
+        self.assertEqual(len(one), 1)
+        self.assertEqual(one[0]["payload"]["failureCount"], 1)
+        self.assertEqual(one[0]["payload"]["executionId"], "11078")
+        message = watch.alert(one[0]["payload"])["message"]
+        self.assertIn("发生 1 次失败", message)
+        self.assertIn("11078", message)
+        self.run_record("2026-11-02T03:00:42.369Z", workflow=watch.RETRY_WORKFLOW, status="error", execution_id=11082)
+        self.run_record("2026-11-02T02:31:15.839Z", workflow=watch.RETRY_WORKFLOW, status="error", execution_id=11080)
+        report = self.run_at()
+        three = third(report)
+        self.assertEqual(len(three), 1)
+        self.assertEqual(three[0]["failureCount"], 3)
+        self.assertEqual(three[0]["payload"]["executionId"], "11082")
+        message = watch.alert(three[0]["payload"])["message"]
+        self.assertIn("3 次", message)
+        self.assertIn("11082", message)
+        self.assertEqual([f for f in report["findings"] if f["check"] < 3], baseline["findings"])
+        # A higher ID with an earlier failure is not the latest failure.
+        self.run_record("2026-11-02T01:00:00Z", workflow=watch.RETRY_WORKFLOW, status="error", execution_id=11090)
+        self.assertEqual(third(self.run_at())[0]["payload"]["executionId"], "11082")
+
+    def test_check3_hour_anchor_stable_with_rolling_query_and_changes_next_hour(self):
+        self.run_record("2026-11-02T03:00:00Z", workflow=watch.RETRY_WORKFLOW, status="error")
+        first = next(f for f in self.run_at()["findings"] if f["check"] == 3)
+        same = next(f for f in self.run_at("2026-11-02T16:59:59Z")["findings"] if f["check"] == 3)
+        next_hour = next(f for f in self.run_at("2026-11-02T17:00:00Z")["findings"] if f["check"] == 3)
+        self.assertEqual(first["payload"]["anchorEpoch"], same["payload"]["anchorEpoch"])
+        self.assertEqual(next_hour["payload"]["anchorEpoch"] - first["payload"]["anchorEpoch"], 3600)
+
+    def test_check3_error_limit_still_fails_closed(self):
+        for i in range(3):
+            self.run_record("2026-11-02T03:00:00Z", workflow=watch.RETRY_WORKFLOW, status="error")
+        with patch.object(watch, "MAX_ERRORS", 2):
+            with self.assertRaisesRegex(watch.InspectionUnavailable, "error_limit_exceeded"):
+                self.run_at()
 
     def test_catalog_all_current_schedules_supported(self):
         for rule in watch.load_rules(watch.CATALOG):
@@ -278,6 +321,47 @@ function Invoke-WatchDws([string[]]$Arguments){
         self.assertEqual(self.call(execute=True)[1]["status"], "sent")
         self.assertTrue(self.call(execute=True)[1]["suppressed"])
         self.assertEqual((self.root / "send.txt").read_text().splitlines(), ["sent"])
+
+    def test_aggregate_repeated_inspections_deduplicate_even_if_count_and_latest_change(self):
+        # Run the inspector against an isolated DB, then the actual sender with fake DWS.
+        fixture = InspectionTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        fixture.run_record("2026-11-02T03:00:00Z", workflow=watch.RETRY_WORKFLOW, status="error", execution_id=11082)
+        def payload(now):
+            return next(f["payload"] for f in fixture.run_at(now)["findings"] if f["check"] == 3)
+        first = payload("2026-11-02T16:16:00Z")
+        self.assertEqual(self.call(first, execute=True)[1]["status"], "sent")
+        fixture.run_record("2026-11-02T16:20:00Z", workflow=watch.RETRY_WORKFLOW, status="error", execution_id=11083)
+        same = payload("2026-11-02T16:30:00Z")
+        self.assertNotEqual(first["failureCount"], same["failureCount"])
+        self.assertNotEqual(first["executionId"], same["executionId"])
+        self.assertTrue(self.call(same, execute=True)[1]["suppressed"])
+        self.assertEqual((self.root / "send.txt").read_text().splitlines(), ["sent"])
+        self.assertEqual(self.call(payload("2026-11-02T17:00:00Z"), execute=True)[1]["status"], "sent")
+        self.assertEqual((self.root / "send.txt").read_text().splitlines(), ["sent", "sent"])
+
+    def test_aggregate_schema_requires_bounded_integer_count_and_latest_execution(self):
+        base = {**self.payload, "workflowId": watch.RETRY_WORKFLOW, "code": "error_workflow_failed", "executionId": "11082", "failureCount": 3}
+        invalid = [{k: v for k, v in base.items() if k != "failureCount"}, {**base, "executionId": ""},
+                   {**base, "unexpected": True}, {**self.payload, "failureCount": 3}]
+        invalid += [{**base, "failureCount": value} for value in (0, -1, 1001, "3", 3.5, True)]
+        for payload in invalid:
+            with self.subTest(payload=payload):
+                self.assertEqual(self.call(payload)[0], 2)
+
+    def test_v1_baseline_bytes_and_behavior_remain_unchanged(self):
+        source = (ROOT / "tools/n8n-manual-action-alert.ps1").read_bytes()
+        prefix = source[:source.index(b'  if($payload.version -eq 2){')]
+        tail = source[source.index(b'  }else{\n  if($payload.version -ne 1'):]
+        self.assertEqual(hashlib.sha256(prefix).hexdigest(), 'acee54356cb93abc3c4925bd5045fc019989e1537f9d482b7704c76db7ea08ca')
+        self.assertEqual(hashlib.sha256(tail).hexdigest(), '9f3cf6e962f600c2810aa1c5b55a2e6ffcf95269001f6877325afead4ced39b0')
+        old = {"version": 1, "workflowId": "JdLogisticsDaily2026", "logicalExecutionId": "123", "failedExecutionId": "123", "code": "terminal_manual_action"}
+        self.assertEqual(self.call(old, execute=True)[1]["status"], "sent")
+        self.assertTrue(self.call(old, execute=True)[1]["suppressed"])
+        self.assertEqual(self.call({**old, "failureCount": 3})[0], 2)
+        # v2 on the same workflow must not be suppressed by the v1 ledger entry.
+        self.assertEqual(self.call({**self.payload, "workflowId": old["workflowId"]}, execute=True)[1]["status"], "sent")
 
     def test_unknown_send_not_replayed(self):
         (self.root / "unknown").touch()
