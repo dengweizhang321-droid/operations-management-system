@@ -19,12 +19,10 @@ const today = jackyunCaptureDate(new Date().toISOString());
 const yesterday = new Date(Date.parse(today + "T00:00:00Z") - 86400000).toISOString().slice(0, 10);
 function fake(overrides: Record<string, unknown> = {}) {
   const calls: string[] = [];
-  // A zero-skew fixture clock: the platform exposes serverDate at one-second
-  // precision, so receivedAt must denote that same instant. Deriving serverDate
-  // as floor(receivedAt) instead makes it up to 999ms behind, and since
-  // apiTaskWindowObserved maps local time onto the server clock, that bias pulls
-  // the task-window upper bound backwards and a task created in the current
-  // second is briefly unmatchable — a fixture artifact, not a tested behaviour.
+  // Choose zero skew to isolate download recovery from clock quantization.
+  // Real HTTP Date is whole-second while receivedAt retains milliseconds; that
+  // can move the observed upper bound back by up to 999ms. Together with this
+  // test's 100ms polling budget, a newly created task can briefly fail to match.
   const http = { get serverClock() { const now = new Date(Math.floor(Date.now() / 1000) * 1000).toISOString(); return { requestStartedAt: now, receivedAt: now, serverDate: now }; },
     request: async (operation: string) => {
       calls.push(operation);
@@ -212,11 +210,28 @@ test("real API exporter emits a recoverable bound-download error and resumes wit
 test("the server-clock assertion rejects drift, a reversed or wide window and a non-second server date", () => {
   const base = { requestStartedAt: "2026-11-01T16:15:18.700Z", receivedAt: "2026-11-01T16:15:18.967Z", serverDate: "2026-11-01T16:15:19.000Z" };
   assert.doesNotThrow(() => assertApiServerClock(base));
-  // The exact 11055 evidence: the local clock was 13.03s behind the server.
+  // The same 13.033s drift as 11055, using this test's date.
   assert.throws(() => assertApiServerClock({ ...base, serverDate: "2026-11-01T16:15:32.000Z" }), /^Error: API_SERVER_CLOCK_UNVERIFIED$/);
+  // Keep serverDate whole-second so drift, not precision, decides these cases.
+  const boundary = { requestStartedAt: "2026-11-01T16:15:18.000Z", receivedAt: "2026-11-01T16:15:18.000Z" };
+  for (const [serverDate, allowed] of [
+    ["2026-11-01T16:15:28.000Z", true],   // +10000ms is allowed
+    ["2026-11-01T16:15:08.000Z", true],   // -10000ms is allowed
+    ["2026-11-01T16:15:29.000Z", false],  // +11000ms is rejected
+    ["2026-11-01T16:15:07.000Z", false],  // -11000ms is rejected
+  ] as const) {
+    const clock = { ...boundary, serverDate };
+    const checkClock = () => assertApiServerClock(clock);
+    const checkIntent = () => apiTaskWindowStart(clock, boundary.receivedAt);
+    if (allowed) {
+      assert.doesNotThrow(checkClock);
+      assert.equal(checkIntent(), serverDate);
+    } else {
+      assert.throws(checkClock, /^Error: API_SERVER_CLOCK_UNVERIFIED$/);
+      assert.throws(checkIntent, /^Error: API_SERVER_CLOCK_UNVERIFIED$/);
+    }
+  }
   for (const clock of [
-    { ...base, serverDate: "2026-11-01T16:15:28.967Z" },            // +10.0s drift, above tolerance
-    { ...base, serverDate: "2026-11-01T16:15:08.967Z" },            // -10.0s drift, above tolerance
     { ...base, serverDate: "2026-11-01T16:15:19.500Z" },            // not a whole second
     { ...base, receivedAt: "2026-11-01T16:15:18.600Z" },            // received before requested
     { ...base, requestStartedAt: "2026-11-01T16:15:12.900Z" },      // request window wider than 5s

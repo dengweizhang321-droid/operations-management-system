@@ -166,6 +166,7 @@
 | `jackyun-download-recovery-20261009` | 2 | [吉客云已绑定库存下载重试与自动续跑](../jackyun-download-recovery-20261009/REPORT.md) |
 | `jackyun-full-restart-20261018` | 2 | [吉客云部分失败后的五表重新采集](../jackyun-full-restart-20261018/REPORT.md) |
 | `jackyun-live-test-20261014` | 4 | [吉客云自动恢复：本次发布与真实恢复结果](../jackyun-live-test-20261014/FINAL_REPORT.md) |
+| `jackyun-review-revision-20261102` | 1 | [吉客云时钟反审小范围修订](../jackyun-review-revision-20261102/REPORT.md) |
 | `jackyun-unified-recovery-20261013` | 7 | [吉客云完整恢复与重试](../jackyun-unified-recovery-20261013/REPORT.md) |
 | `tmall-seven-day-direct-20261007` | 2 | [天猫六店近七日查缺、P/M 直连与每日货品](../tmall-seven-day-direct-20261007/REPORT.md) |
 | `tmall-seven-day-gap-loop-20261008` | 2 | [天猫近七天全部缺口逐日补齐候选](../tmall-seven-day-gap-loop-20261008/REPORT.md) |

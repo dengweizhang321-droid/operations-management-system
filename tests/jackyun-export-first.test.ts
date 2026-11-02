@@ -301,8 +301,9 @@ test("a real drifted-clock API export clears the plan intent and keeps its own e
   // The API adapter reads the live clock, so this run must use real time.
   f.deps.now = () => new Date();
   f.deps.runBrowser = async () => { throw new Error("DOM_REPORT_ADAPTER_MUST_NOT_RUN"); };
-  // 13.03s ahead, the exact 11055 shape: past the 10s tolerance.
-  const api = apiHttp(13033);
+  // A whole-second server date isolates drift beyond the 10s tolerance.
+  // receivedAt keeps its real milliseconds, so the actual offset is 12–13s.
+  const api = apiHttp(13000);
   f.deps.runApi = async options => runApiExports(options,
     { http: api.http, tenantId: "fixture", templates: apiTemplates, taskTimeoutMs: 5, pollIntervalMs: 1 });
   const run = (action: string) => runJackyunExportFirstAction(action, "11055", f.deps);
@@ -341,8 +342,8 @@ test("a degenerate API controller keeps the plan intent instead of masking the c
   ] as const) {
     const f = await fixture();
     f.deps.runBrowser = async () => { throw new Error("DOM_REPORT_ADAPTER_MUST_NOT_RUN"); };
-    // Stand in for an adapter that persisted a controller and then failed the
-    // clock check (the persist>5s shape), leaving state that proves nothing.
+    // Inject a damaged controller and an adapter error to drive the real catch.
+    // This does not claim the normal exporter writes these damaged shapes.
     f.deps.runApi = async options => {
       await options.beforeModule?.("inventory");
       const directory = path.join(options.outputRoot, options.runId);
