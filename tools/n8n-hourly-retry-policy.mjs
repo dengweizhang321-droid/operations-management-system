@@ -225,12 +225,8 @@ function retryClassifierCode() {
     "  }",
     "  result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60 }, failedExecutionId: String(payload.execution?.id ?? '') } });",
     "}",
-    "// 丢弃清单必须随输出带出，否则告警分支拿不到数据；",
-    "// 全部被丢弃时也要产出一条，让收集节点有输入。",
-    "if (droppedFailures.length > 0) {",
-    "  if (result.length === 0) return [{ json: { droppedFailures, noRetryTarget: true } }];",
-    "  result[0].json.droppedFailures = droppedFailures;",
-    "}",
+    "// 单失败 ErrorTrigger 的终局记录经 IF 进入人工分支，不进入 Wait。",
+    "if (droppedFailures.length > 0) result.push({ json: { droppedFailures, noRetryTarget: true } });",
     "return result;",
     "",
   ].join("\n");
@@ -240,6 +236,7 @@ export function buildHourlyRetryErrorWorkflow() {
   const errorName = "数据下载导入工作流失败";
   const classifyName = "仅保留可安全自动重试的失败";
   const waitName = "等待一小时";
+  const retryBranchName = "本次可安全自动重试？";
   const dispatchName = "启动新的完整工作流 execution";
   const unknownName = "重试派发结果未知转人工";
   const contextName = "读取原执行计划时间";
@@ -269,6 +266,14 @@ export function buildHourlyRetryErrorWorkflow() {
         type: "n8n-nodes-base.code",
         typeVersion: 2,
         position: [-300, 0],
+      },
+      {
+        parameters: { conditions: { options: { caseSensitive: true, typeValidation: "strict", version: 2 },
+          conditions: [{ id: stableUuid("teruisi-hourly-retry:retry-branch-condition"),
+            leftValue: "={{ !!$json.retryPolicy && $json.noRetryTarget !== true }}", rightValue: true,
+            operator: { type: "boolean", operation: "equals" } }], combinator: "and" }, options: {} },
+        id: stableUuid("teruisi-hourly-retry:retry-branch"), name: retryBranchName,
+        type: "n8n-nodes-base.if", typeVersion: 2.2, position: [-160, 0],
       },
       {
         parameters: { resume: "timeInterval", amount: 1, unit: "hours" },
@@ -468,7 +473,8 @@ return $input.all().map((item, index) => {
     ],
     connections: {
       [errorName]: { main: [[edge(classifyName)]] },
-      [classifyName]: { main: [[edge(waitName), edge(collectDroppedName)]] },
+      [classifyName]: { main: [[edge(retryBranchName)]] },
+      [retryBranchName]: { main: [[edge(waitName)], [edge(collectDroppedName)]] },
       [waitName]: { main: [[edge(contextName)]] },
       [contextName]: { main: [[edge(manualContextName)]] },
       [manualContextName]: { main: [[edge(prepareAlertName)], [edge(contextReadyName)]] },
