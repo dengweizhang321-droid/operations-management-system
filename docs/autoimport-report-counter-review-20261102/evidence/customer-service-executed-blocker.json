@@ -1,0 +1,32 @@
+{
+  "source": "n8n SQLite mode=ro, PRAGMA query_only=ON",
+  "workflowId": "JdCustomerServiceDishwasher2026",
+  "maxExecutionBytes": 65536,
+  "results": [
+    {
+      "executionId": 11018,
+      "status": "error",
+      "startedAtUtc": "2026-10-28 01:45:00.420",
+      "stoppedAtUtc": "2026-10-28 01:58:46.937",
+      "executionDataBytes": 7529,
+      "lastNodeExecuted": "C·独立复验全部日批次",
+      "errorNodeName": "C·独立复验全部日批次",
+      "errorCodes": [
+        "ECONNRESET"
+      ]
+    },
+    {
+      "executionId": 11075,
+      "status": "error",
+      "startedAtUtc": "2026-11-02 01:45:00.349",
+      "stoppedAtUtc": "2026-11-02 01:45:01.720",
+      "executionDataBytes": 6184,
+      "lastNodeExecuted": "A·固定客服店铺与30天范围",
+      "errorNodeName": "A·固定客服店铺与30天范围",
+      "errorCodes": [
+        "PIPELINE_FAILED",
+        "PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION"
+      ]
+    }
+  ]
+}

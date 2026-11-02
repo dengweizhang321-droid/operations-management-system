@@ -1,0 +1,546 @@
+{
+  "observedAtUtc": "2026-11-02T11:09:07.358078+00:00",
+  "readOnly": true,
+  "queryBudgetSeconds": 5,
+  "workflows": [
+    {
+      "id": "JdCustomerService2026",
+      "active": 1,
+      "versionId": "f2d38f69-2d6f-4e4d-90c3-08ee96d42d6b",
+      "activeVersionId": "a1cc2439-da13-4a8d-9402-2688d8720307",
+      "draftSchedule": [
+        [
+          {
+            "triggerAtHour": 13,
+            "triggerAtMinute": 10
+          }
+        ]
+      ],
+      "errorWorkflow": null,
+      "draftHistory": {
+        "schedule": [
+          [
+            {
+              "triggerAtHour": 13,
+              "triggerAtMinute": 10
+            }
+          ]
+        ],
+        "createdAt": "2026-10-28 03:58:47.121",
+        "authorKind": "named_account",
+        "autosaved": 1
+      },
+      "publishedHistory": {
+        "schedule": [
+          [
+            {
+              "field": "cronExpression",
+              "expression": "5 9 * * *"
+            }
+          ]
+        ],
+        "createdAt": "2026-10-26 03:44:03.213",
+        "authorKind": "import",
+        "autosaved": 0
+      }
+    },
+    {
+      "id": "JdCustomerServiceCutMeat2026",
+      "active": 1,
+      "versionId": "a4c80216-9ddf-42ca-8b15-45a161f893b1",
+      "activeVersionId": "465b3326-a493-4aab-8149-05e2a06baee6",
+      "draftSchedule": [
+        [
+          {
+            "triggerAtHour": 12,
+            "triggerAtMinute": 10
+          }
+        ]
+      ],
+      "errorWorkflow": null,
+      "draftHistory": {
+        "schedule": [
+          [
+            {
+              "triggerAtHour": 12,
+              "triggerAtMinute": 10
+            }
+          ]
+        ],
+        "createdAt": "2026-10-28 03:56:20.744",
+        "authorKind": "named_account",
+        "autosaved": 1
+      },
+      "publishedHistory": {
+        "schedule": [
+          [
+            {
+              "field": "cronExpression",
+              "expression": "5 10 * * *"
+            }
+          ]
+        ],
+        "createdAt": "2026-10-26 03:44:25.603",
+        "authorKind": "import",
+        "autosaved": 0
+      }
+    },
+    {
+      "id": "JdCustomerServiceChudian2026",
+      "active": 1,
+      "versionId": "0f73ca84-d76a-471a-a797-30b2a5d13a81",
+      "activeVersionId": "c607932f-e338-4c1a-af03-f4e2be31e9b9",
+      "draftSchedule": [
+        [
+          {
+            "triggerAtHour": 12,
+            "triggerAtMinute": 50
+          }
+        ]
+      ],
+      "errorWorkflow": null,
+      "draftHistory": {
+        "schedule": [
+          [
+            {
+              "triggerAtHour": 12,
+              "triggerAtMinute": 50
+            }
+          ]
+        ],
+        "createdAt": "2026-10-28 03:57:55.305",
+        "authorKind": "named_account",
+        "autosaved": 1
+      },
+      "publishedHistory": {
+        "schedule": [
+          [
+            {
+              "field": "cronExpression",
+              "expression": "25 9 * * *"
+            }
+          ]
+        ],
+        "createdAt": "2026-10-26 03:44:10.715",
+        "authorKind": "import",
+        "autosaved": 0
+      }
+    },
+    {
+      "id": "JdCustomerServiceDishwasher2026",
+      "active": 1,
+      "versionId": "d91d555b-82ad-448a-9aa9-62c0e512862e",
+      "activeVersionId": "0708db9f-3573-4b9a-bc74-99afa36ff57f",
+      "draftSchedule": [
+        [
+          {
+            "triggerAtHour": 12,
+            "triggerAtMinute": 30
+          }
+        ]
+      ],
+      "errorWorkflow": null,
+      "draftHistory": {
+        "schedule": [
+          [
+            {
+              "triggerAtHour": 12,
+              "triggerAtMinute": 30
+            }
+          ]
+        ],
+        "createdAt": "2026-10-28 03:57:13.212",
+        "authorKind": "named_account",
+        "autosaved": 1
+      },
+      "publishedHistory": {
+        "schedule": [
+          [
+            {
+              "field": "cronExpression",
+              "expression": "45 9 * * *"
+            }
+          ]
+        ],
+        "createdAt": "2026-10-26 03:44:18.180",
+        "authorKind": "import",
+        "autosaved": 0
+      }
+    },
+    {
+      "id": "JdLogisticsDaily2026",
+      "active": 1,
+      "versionId": "7ad45df5-5ce8-4dae-b08a-4dc9f2d0230c",
+      "activeVersionId": "7ad45df5-5ce8-4dae-b08a-4dc9f2d0230c",
+      "draftSchedule": [
+        [
+          {
+            "triggerAtHour": 8,
+            "triggerAtMinute": 50
+          }
+        ]
+      ],
+      "errorWorkflow": null,
+      "draftHistory": {
+        "schedule": [
+          [
+            {
+              "triggerAtHour": 8,
+              "triggerAtMinute": 50
+            }
+          ]
+        ],
+        "createdAt": "2026-10-28 03:55:12.660",
+        "authorKind": "named_account",
+        "autosaved": 1
+      },
+      "publishedHistory": {
+        "schedule": [
+          [
+            {
+              "triggerAtHour": 8,
+              "triggerAtMinute": 50
+            }
+          ]
+        ],
+        "createdAt": "2026-10-28 03:55:12.660",
+        "authorKind": "named_account",
+        "autosaved": 1
+      }
+    },
+    {
+      "id": "TeruisiHourlyRetry2026",
+      "active": 1,
+      "versionId": "21377db1-7986-4a1b-9118-5ac82f1312fb",
+      "activeVersionId": "21377db1-7986-4a1b-9118-5ac82f1312fb",
+      "draftSchedule": [],
+      "errorWorkflow": null,
+      "draftHistory": {
+        "schedule": [],
+        "createdAt": "2026-10-26 15:44:16.012",
+        "authorKind": "import",
+        "autosaved": 0
+      },
+      "publishedHistory": {
+        "schedule": [],
+        "createdAt": "2026-10-26 15:44:16.012",
+        "authorKind": "import",
+        "autosaved": 0
+      },
+      "nodeCount": 12,
+      "executeCommandCount": 2,
+      "targetIds": [
+        "J8kY2mQ5vR7sT4pN",
+        "JdMarketDaily2026",
+        "JdMarketSilentCopy2026",
+        "JdN8nM3uL7tI2026",
+        "JdN8nSilentCopy2026",
+        "JdPromotionCutMeat2026",
+        "JdPromotionDaily2026",
+        "M4xY8kQ2vR6sT9pC",
+        "TmallCuizhiwangDaily2026",
+        "TmallLiliDaily2026",
+        "TmallMasituDaily2026",
+        "TmallTuofengDaily2026",
+        "TmallYiyongDaily2026"
+      ]
+    },
+    {
+      "id": "TmallTuofengDaily2026",
+      "active": 0,
+      "versionId": "f25a70f9-af53-4c1c-af06-59913245692a",
+      "activeVersionId": null,
+      "draftSchedule": [
+        [
+          {
+            "field": "cronExpression",
+            "expression": "20 11 * * *"
+          }
+        ]
+      ],
+      "errorWorkflow": "TeruisiHourlyRetry2026",
+      "draftHistory": {
+        "schedule": [
+          [
+            {
+              "field": "cronExpression",
+              "expression": "20 11 * * *"
+            }
+          ]
+        ],
+        "createdAt": "2026-10-08 01:37:00.103",
+        "authorKind": "import",
+        "autosaved": 0
+      },
+      "publishedHistory": null
+    },
+    {
+      "id": "TmallCuizhiwangDaily2026",
+      "active": 0,
+      "versionId": "a50decc9-91a3-40ff-b872-84c846892d39",
+      "activeVersionId": null,
+      "draftSchedule": [
+        [
+          {
+            "field": "cronExpression",
+            "expression": "30 11 * * *"
+          }
+        ]
+      ],
+      "errorWorkflow": "TeruisiHourlyRetry2026",
+      "draftHistory": {
+        "schedule": [
+          [
+            {
+              "field": "cronExpression",
+              "expression": "30 11 * * *"
+            }
+          ]
+        ],
+        "createdAt": "2026-10-08 01:37:00.098",
+        "authorKind": "import",
+        "autosaved": 0
+      },
+      "publishedHistory": null
+    },
+    {
+      "id": "TmallMasituDaily2026",
+      "active": 0,
+      "versionId": "aebe3c0c-590d-445c-91a2-cb53471527c6",
+      "activeVersionId": null,
+      "draftSchedule": [
+        [
+          {
+            "field": "cronExpression",
+            "expression": "40 11 * * *"
+          }
+        ]
+      ],
+      "errorWorkflow": "TeruisiHourlyRetry2026",
+      "draftHistory": {
+        "schedule": [
+          [
+            {
+              "field": "cronExpression",
+              "expression": "40 11 * * *"
+            }
+          ]
+        ],
+        "createdAt": "2026-10-08 01:37:00.102",
+        "authorKind": "import",
+        "autosaved": 0
+      },
+      "publishedHistory": null
+    },
+    {
+      "id": "TmallYiyongDaily2026",
+      "active": 0,
+      "versionId": "65aa8101-62e7-45df-b7d3-709b34fc9e13",
+      "activeVersionId": null,
+      "draftSchedule": [
+        [
+          {
+            "field": "cronExpression",
+            "expression": "50 11 * * *"
+          }
+        ]
+      ],
+      "errorWorkflow": "TeruisiHourlyRetry2026",
+      "draftHistory": {
+        "schedule": [
+          [
+            {
+              "field": "cronExpression",
+              "expression": "50 11 * * *"
+            }
+          ]
+        ],
+        "createdAt": "2026-10-08 01:37:00.106",
+        "authorKind": "import",
+        "autosaved": 0
+      },
+      "publishedHistory": null
+    },
+    {
+      "id": "TmallLiliDaily2026",
+      "active": 1,
+      "versionId": "eb5e0052-cd84-4dd3-b220-cdb7977636d3",
+      "activeVersionId": "eb5e0052-cd84-4dd3-b220-cdb7977636d3",
+      "draftSchedule": [
+        [
+          {
+            "field": "cronExpression",
+            "expression": "10 11 * * *"
+          }
+        ]
+      ],
+      "errorWorkflow": "TeruisiHourlyRetry2026",
+      "draftHistory": {
+        "schedule": [
+          [
+            {
+              "field": "cronExpression",
+              "expression": "10 11 * * *"
+            }
+          ]
+        ],
+        "createdAt": "2026-10-08 01:37:00.098",
+        "authorKind": "import",
+        "autosaved": 0
+      },
+      "publishedHistory": {
+        "schedule": [
+          [
+            {
+              "field": "cronExpression",
+              "expression": "10 11 * * *"
+            }
+          ]
+        ],
+        "createdAt": "2026-10-08 01:37:00.098",
+        "authorKind": "import",
+        "autosaved": 0
+      }
+    }
+  ],
+  "publicationEventsSinceNov1": 0,
+  "lastPublicationEvents": [
+    {
+      "id": 419,
+      "workflowId": "TmallLiliDaily2026",
+      "versionId": "eb5e0052-cd84-4dd3-b220-cdb7977636d3",
+      "event": "activated",
+      "createdAt": "2026-10-31 04:53:27.165"
+    },
+    {
+      "id": 418,
+      "workflowId": "TeruisiHourlyRetry2026",
+      "versionId": "21377db1-7986-4a1b-9118-5ac82f1312fb",
+      "event": "activated",
+      "createdAt": "2026-10-31 04:51:48.486"
+    },
+    {
+      "id": 417,
+      "workflowId": "JdLogisticsDaily2026",
+      "versionId": "7ad45df5-5ce8-4dae-b08a-4dc9f2d0230c",
+      "event": "activated",
+      "createdAt": "2026-10-28 03:59:13.369"
+    }
+  ],
+  "publicationRowCount": 419,
+  "snapshots": [
+    {
+      "id": 11060,
+      "workflowId": "JdCustomerService2026",
+      "status": "success",
+      "startedAt": "2026-11-01 01:05:13.932",
+      "workflowVersionId": "f2d38f69-2d6f-4e4d-90c3-08ee96d42d6b",
+      "bytes": 5305,
+      "snapshotSchedule": [
+        [
+          {
+            "field": "cronExpression",
+            "notice": "",
+            "expression": "5 9 * * *"
+          }
+        ]
+      ],
+      "snapshotVersion": null,
+      "snapshotErrorWorkflow": null
+    },
+    {
+      "id": 11073,
+      "workflowId": "JdCustomerService2026",
+      "status": "success",
+      "startedAt": "2026-11-02 01:05:00.371",
+      "workflowVersionId": "f2d38f69-2d6f-4e4d-90c3-08ee96d42d6b",
+      "bytes": 5305,
+      "snapshotSchedule": [
+        [
+          {
+            "field": "cronExpression",
+            "notice": "",
+            "expression": "5 9 * * *"
+          }
+        ]
+      ],
+      "snapshotVersion": null,
+      "snapshotErrorWorkflow": null
+    },
+    {
+      "id": 11028,
+      "workflowId": "JdCustomerService2026",
+      "status": "error",
+      "startedAt": "2026-10-29 01:05:10.917",
+      "workflowVersionId": "ac69b5e5-3a0f-4d53-8edd-a5eb182f5ba5",
+      "bytes": 5305,
+      "snapshotSchedule": [
+        [
+          {
+            "field": "cronExpression",
+            "notice": "",
+            "expression": "5 9 * * *"
+          }
+        ]
+      ],
+      "snapshotVersion": null,
+      "snapshotErrorWorkflow": null
+    },
+    {
+      "id": 11048,
+      "workflowId": "JdCustomerService2026",
+      "status": "error",
+      "startedAt": "2026-10-31 01:05:00.405",
+      "workflowVersionId": "f2d38f69-2d6f-4e4d-90c3-08ee96d42d6b",
+      "bytes": 5305,
+      "snapshotSchedule": [
+        [
+          {
+            "field": "cronExpression",
+            "notice": "",
+            "expression": "5 9 * * *"
+          }
+        ]
+      ],
+      "snapshotVersion": null,
+      "snapshotErrorWorkflow": null
+    }
+  ],
+  "executionHistorySummary": {
+    "executions": 40,
+    "missingHistory": 24,
+    "missingVersionIds": 8
+  },
+  "historicalCounts": [
+    {
+      "workflowId": "JdCustomerService2026",
+      "status": "error",
+      "count": 2
+    },
+    {
+      "workflowId": "JdCustomerService2026",
+      "status": "success",
+      "count": 3
+    },
+    {
+      "workflowId": "JdCustomerServiceChudian2026",
+      "status": "error",
+      "count": 4
+    },
+    {
+      "workflowId": "JdCustomerServiceChudian2026",
+      "status": "success",
+      "count": 1
+    },
+    {
+      "workflowId": "JdCustomerServiceCutMeat2026",
+      "status": "error",
+      "count": 5
+    },
+    {
+      "workflowId": "JdCustomerServiceDishwasher2026",
+      "status": "error",
+      "count": 5
+    }
+  ]
+}

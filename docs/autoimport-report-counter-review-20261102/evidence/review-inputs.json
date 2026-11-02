@@ -1,0 +1,75 @@
+{
+  "readAt": "2026-11-02T19:21:00.4290631+08:00",
+  "baseCommit": "47050843ba2f0605e05759e1fee8bf5e51691682",
+  "externalDocumentInputs": [
+    {
+      "path": "D:\\运营管理系统\\docs\\autoimport-workflow-unification-20261029\\独立反审-20261101.md",
+      "sha256": "4f3db8435d5dc9ca777ef6d219049ed9fe4c6da262dd441e78d478edf380b33c",
+      "bytes": 47410
+    },
+    {
+      "path": "D:\\运营管理系统\\docs\\autoimport-workflow-unification-20261029\\README.md",
+      "sha256": "a519fa0d030e43fea7f3bb010e4e8850884c6bb0c1633c055b08f99cb2501248",
+      "bytes": 8788
+    },
+    {
+      "path": "D:\\运营管理系统\\docs\\autoimport-workflow-unification-20261029\\REPORT.md",
+      "sha256": "7a081b496234f3d84a0b2f90b4004f401d2cebe9656b5840c836c896ce599a2f",
+      "bytes": 48850
+    },
+    {
+      "path": "D:\\运营管理系统\\docs\\autoimport-workflow-unification-20261029\\进展清单.md",
+      "sha256": "dee6a3f1604f7de053d1c3dd71942e857a4b4d907e175fab62353560c190934a",
+      "bytes": 6878
+    },
+    {
+      "path": "D:\\运营管理系统\\docs\\autoimport-workflow-unification-20261029\\A1-两项待决事项.md",
+      "sha256": "75ba49a917f40cba68b5d9ee50c9eb5f91020688d83bcaeb3d1eb68e02582564",
+      "bytes": 6220
+    },
+    {
+      "path": "D:\\运营管理系统\\docs\\autoimport-workflow-unification-20261029\\B4-观察方案.md",
+      "sha256": "614931618c444889a51b1105c14fdf2be1a3b454cacb091be5c170d3f586410a",
+      "bytes": 6509
+    }
+  ],
+  "activePlanSummary": [
+    {
+      "storeKey": "jd-yiyong-director",
+      "executionId": "11073",
+      "stage": "completed",
+      "failureCode": "",
+      "proofCount": 30,
+      "activeSha256": "d45a0bd04faddf41e631cad08020ac014df43da977863e97f358d884a70dbed4",
+      "planSha256": "ad0d3593a6ea5b6c3a88a2c578829aef6aa136a4403ef6e4faf40637f68349c0"
+    },
+    {
+      "storeKey": "jd-chudian-weizhang",
+      "executionId": "11039",
+      "stage": "failed",
+      "failureCode": "CHAT_PAGE_MISMATCH",
+      "proofCount": 0,
+      "activeSha256": "34bd280c01df84246fe7ee45387950d22a2da29ca8702eeb7d140faceda68f18",
+      "planSha256": "84c6d27bab8688a651ebde486b95b03052bf5855867de3a9f7279e3c7aea5a33"
+    },
+    {
+      "storeKey": "jd-maidehao-operator1",
+      "executionId": "11042",
+      "stage": "failed",
+      "failureCode": "PAIR_PARSE_REJECTED",
+      "proofCount": 0,
+      "activeSha256": "36423a1c64f8364c1510e4b5851d2b7af6565b49b7b88febc71ed3b09b423ead",
+      "planSha256": "5112544a8e4e1a4b2f1bdac3262fc06a3a1693183658e3520d00b51e313bd129"
+    },
+    {
+      "storeKey": "jd-cuizhiwang-dengweizhang",
+      "executionId": "11018",
+      "stage": "executed",
+      "failureCode": "",
+      "proofCount": 30,
+      "activeSha256": "5a89fefe0838c6c9e97d059adb3ff3f55563536aa0949137a49aa47d9dd39457",
+      "planSha256": "905165570b56307773ff641c0d26b66837f65365436827fd42f492d8264e3e12"
+    }
+  ],
+  "scope": "Read-only bounded metadata. No customer content, credentials, closure, import or notification."
+}

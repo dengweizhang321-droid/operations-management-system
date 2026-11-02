@@ -1,0 +1,111 @@
+{
+  "baseCommit": "47050843ba2f0605e05759e1fee8bf5e51691682",
+  "reviewedReportSha256": "4f3db8435d5dc9ca777ef6d219049ed9fe4c6da262dd441e78d478edf380b33c",
+  "reviewedReportBytes": 47410,
+  "reviewedReportLines": 508,
+  "purePredicateProbe": {
+    "combinations": 240,
+    "needsHumanAllSixFalse": 21,
+    "deliveryFailedIncompleteNoAlertNoDeliveryRetry": 21,
+    "alertCountsByExecution": {
+      "not_due": 5,
+      "pending_claim": 5,
+      "queued": 5,
+      "running": 5,
+      "failed": 25,
+      "needs_human": 5,
+      "result_unknown": 5,
+      "finished": 5
+    },
+    "scope": "Only AST-extracted pure predicates, no Django imports/database/test suite. Cartesian combinations do not prove reachable states or UI behavior."
+  },
+  "testMethodInventory": [
+    {
+      "path": "backend/workflow/tests/test_automation_gates.py",
+      "testMethods": 22
+    },
+    {
+      "path": "backend/workflow/tests/test_automation_gates_customer_service.py",
+      "testMethods": 15
+    },
+    {
+      "path": "backend/workflow/tests/test_automation_projection.py",
+      "testMethods": 23
+    },
+    {
+      "path": "backend/workflow/tests/test_automation_run_query.py",
+      "testMethods": 26
+    },
+    {
+      "path": "backend/workflow/tests/test_automation_run_query_customer_service.py",
+      "testMethods": 3
+    },
+    {
+      "path": "backend/workflow/tests/test_automation_run_views.py",
+      "testMethods": 13
+    }
+  ],
+  "testMethodTotal": 102,
+  "testsExecuted": false,
+  "historicalCatalogSchedules": {
+    "491c1408": {
+      "JdCustomerService2026": [
+        "0 9 * * *"
+      ],
+      "JdCustomerServiceCutMeat2026": [
+        "0 9 * * *"
+      ],
+      "JdCustomerServiceChudian2026": [
+        "0 9 * * *"
+      ],
+      "JdCustomerServiceDishwasher2026": [
+        "0 9 * * *"
+      ],
+      "JdLogisticsDaily2026": [
+        "0 8 * * *"
+      ]
+    },
+    "491c3fef": {
+      "JdCustomerService2026": [
+        "10 13 * * *"
+      ],
+      "JdCustomerServiceCutMeat2026": [
+        "10 12 * * *"
+      ],
+      "JdCustomerServiceChudian2026": [
+        "50 12 * * *"
+      ],
+      "JdCustomerServiceDishwasher2026": [
+        "30 12 * * *"
+      ],
+      "JdLogisticsDaily2026": [
+        "50 8 * * *"
+      ]
+    },
+    "47050843": {
+      "JdCustomerService2026": [
+        "10 13 * * *"
+      ],
+      "JdCustomerServiceCutMeat2026": [
+        "10 12 * * *"
+      ],
+      "JdCustomerServiceChudian2026": [
+        "50 12 * * *"
+      ],
+      "JdCustomerServiceDishwasher2026": [
+        "30 12 * * *"
+      ],
+      "JdLogisticsDaily2026": [
+        "50 8 * * *"
+      ]
+    }
+  },
+  "failureClosureBlobs": {
+    "3fc2ef13": "d4069ba206a31751d12207feb7262eac2109a265",
+    "491c3fef": "d4069ba206a31751d12207feb7262eac2109a265",
+    "e15b2147": "d4069ba206a31751d12207feb7262eac2109a265",
+    "63d2d1eb": "d4069ba206a31751d12207feb7262eac2109a265",
+    "cf019212": "d4069ba206a31751d12207feb7262eac2109a265",
+    "47050843": "d4069ba206a31751d12207feb7262eac2109a265"
+  }
+}
