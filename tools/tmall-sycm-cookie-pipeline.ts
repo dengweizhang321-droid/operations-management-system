@@ -1,7 +1,7 @@
 import { customerServiceRecoveryHeader, parseCustomerServiceRecoveryHeader } from "./jd-customer-service-source-recovery";
 import { createHash, randomUUID } from "node:crypto";
 import { customerServiceStore, customerServiceStoreHeader, customerServiceStoreContextError } from "../lib/jd/customer-service-stores";
-import { customerServiceHelperError, planCustomerServiceRun, runCustomerServicePlan, verifyCustomerServicePlan, publicCustomerServicePlan, type CustomerServiceN8nPlan } from "./jd-customer-service-n8n-pipeline";
+import { customerServiceHelperError, planCustomerServiceRun, runCustomerServicePlan, verifyCustomerServicePlan, restoreAndVerifyCustomerServicePlan, publicCustomerServicePlan, type CustomerServiceN8nPlan } from "./jd-customer-service-n8n-pipeline";
 import { execFile as execFileCallback } from "node:child_process";
 import { mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
@@ -1340,6 +1340,7 @@ async function serveCommand(argv: string[]) {
   let tmallBrowserMayBeOpen = false;
   let claimedJackyunExecutionId: string | null = null;
   let claimedJdExecutionId: string | null = null;
+  let claimedJdCustomerServiceStoreKey: string | null = null;
   let claimedJdMarketExecutionId: string | null = null;
   let claimedJdPromotionExecutionId: string | null = null;
   let claimedJdLogisticsExecutionId: string | null = null;
@@ -1373,6 +1374,12 @@ async function serveCommand(argv: string[]) {
       const requestedTmallStoreKey = requestedWorkflow === "tmall"
         ? normalizeTmallStoreKey(request.headers[tmallStoreKeyHeader])
         : null;
+      const requestedCustomerServiceStore = requestedWorkflow === "jd" ? request.headers[customerServiceStoreHeader] : undefined;
+      if (requestedCustomerServiceStore !== undefined
+        && customerServiceStoreContextError(requestedCustomerServiceStore, claimedJdCustomerServiceStoreKey ?? undefined)) {
+        reply(400, { ok: false, error: "customer_service_store_mismatch" });
+        return;
+      }
       if (requestedWorkflow === "tmall" && !requestedTmallStoreKey) {
         reply(400, { ok: false, error: "missing_or_invalid_tmall_store_key" });
         return;
@@ -1436,6 +1443,9 @@ async function serveCommand(argv: string[]) {
         }
         if (coordinatedWorkflow === "jackyun") claimedJackyunExecutionId = coordinatedExecutionId;
         if (coordinatedWorkflow === "jd") claimedJdExecutionId = coordinatedExecutionId;
+        if (coordinatedWorkflow === "jd" && requestedCustomerServiceStore !== undefined) {
+          claimedJdCustomerServiceStoreKey = customerServiceStore(requestedCustomerServiceStore).storeKey;
+        }
         if (coordinatedWorkflow === "jd-market") claimedJdMarketExecutionId = coordinatedExecutionId;
         if (coordinatedWorkflow === "jd-promotion") claimedJdPromotionExecutionId = coordinatedExecutionId;
         if (coordinatedWorkflow === "jd-logistics") claimedJdLogisticsExecutionId = coordinatedExecutionId;
@@ -1494,12 +1504,16 @@ async function serveCommand(argv: string[]) {
     const requestTmallStoreKey = workflow === "tmall"
       ? normalizeTmallStoreKey(request.headers[tmallStoreKeyHeader])
       : null;
+    const restoreCustomerServiceVerify = isJdCustomerService && request.url === "/jd/customer-service/verify"
+      && stage === "ready" && !jdCustomerServicePlan && !busy && activeWorkflow === "jd"
+      && requestExecutionId === claimedJdExecutionId && claimedJdCustomerServiceStoreKey !== null
+      && request.headers[customerServiceStoreHeader] === claimedJdCustomerServiceStoreKey;
     const requestStateError = isTmallWarehouse
       ? warehouseHelperError(stage, busy, request.url!, requestExecutionId, claimedTmallWarehouseExecutionId)
       : isJdLogistics
       ? jdLogisticsHelperRequestError(stage, busy, request.url!, requestExecutionId, claimedJdLogisticsExecutionId)
       : isJdCustomerService
-      ? customerServiceHelperError(stage, busy, request.url!, requestExecutionId, claimedJdExecutionId)
+      ? customerServiceHelperError(stage, busy, request.url!, requestExecutionId, claimedJdExecutionId, restoreCustomerServiceVerify)
       : isJackyunExportFirst
       ? (!requestExecutionId ? { error: "missing_or_invalid_execution_id" }
         : !claimedJackyunExecutionId ? { error: "execution_not_claimed", expected: "/coordination/claim" }
@@ -1521,7 +1535,7 @@ async function serveCommand(argv: string[]) {
             ? jdPromotionHelperRequestError(stage as "ready" | JdPromotionN8nStage, busy, route as JdPromotionHelperRoute, requestExecutionId, claimedJdPromotionExecutionId)
         : helperRequestError(stage, busy, route as HelperRoute, requestExecutionId, claimedTmallExecutionId);
     const stateError = requestStateError ?? (isJdCustomerService
-      ? customerServiceStoreContextError(request.headers[customerServiceStoreHeader], jdCustomerServicePlan?.storeKey ?? (jdCustomerServicePlan ? "jd-yiyong-director" : undefined))
+      ? customerServiceStoreContextError(request.headers[customerServiceStoreHeader], claimedJdCustomerServiceStoreKey ?? jdCustomerServicePlan?.storeKey ?? (jdCustomerServicePlan ? "jd-yiyong-director" : undefined))
       : null) ?? (workflow === "tmall"
       ? tmallStoreContextError(requestTmallStoreKey, claimedTmallStoreKey)
         ?? tmallDirectPmProtocolError({
@@ -1544,8 +1558,14 @@ async function serveCommand(argv: string[]) {
     let tmallBrowserClosure: Awaited<ReturnType<typeof closeTmallWorkflowBrowser>> | null = null;
     try {
       if (isJdCustomerService) {
-        if (request.url === "/jd/customer-service/plan") {
+        if (restoreCustomerServiceVerify) {
+          const result = await restoreAndVerifyCustomerServicePlan(projectRoot, requestExecutionId!, claimedJdCustomerServiceStoreKey!);
+          stage = "completed";
+          reply(200, result);
+          scheduleOneShotServerClose(server, 500);
+        } else if (request.url === "/jd/customer-service/plan") {
           jdCustomerServicePlan = await planCustomerServiceRun(projectRoot, requestExecutionId!, planTime, customerServiceStore(request.headers[customerServiceStoreHeader]).storeKey, parseCustomerServiceRecoveryHeader(request.headers[customerServiceRecoveryHeader]));
+          claimedJdCustomerServiceStoreKey = jdCustomerServicePlan.storeKey ?? "jd-yiyong-director";
           stage = "planned";
           reply(200, publicCustomerServicePlan(jdCustomerServicePlan));
           inactivityReaper?.arm();

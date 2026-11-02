@@ -45,7 +45,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// 本节点有六处以 _manual_action 结尾的 throw。下面整体包一层：捕获后若是\n// manual_action 类错误就发钉钉告警，然后原样 rethrow —— 原有控制流不变，\n// 告警自身失败也不掩盖原始错误。\nconst MANUAL_ACTION_HINTS = {\n  retry_context_wait_expired_manual_action:\n    ['等待原计划核验', '已等待 72 小时仍未核验完成，自动重试放弃',\n     '到 n8n 打开该 execution 核查原计划为何未完成，必要时手动重跑'],\n  retry_context_unverified_manual_action:\n    ['读取原执行计划', '原计划无法核验（协调端无响应或返回不符合契约）',\n     '检查 helper(127.0.0.1:5791) 是否在运行，然后手动重跑该流程'],\n  retry_reservation_result_unknown_manual_action:\n    ['预留重试名额', '预留结果未知，系统不会自动再试',\n     '到 n8n 确认该流程是否已有重试在跑；没有就手动触发一次'],\n  retry_already_reserved_or_unverified_manual_action:\n    ['预留重试名额', '名额已被占用或校验不通过',\n     '确认是否已有另一个重试在跑；若没有，手动重跑该流程'],\n};\n\nconst notifyManualAction = async (code, workflowId, executionId) => {\n  const channelId = $env.TERUISI_ALERT_CHANNEL_ID;\n  const hint = MANUAL_ACTION_HINTS[code];\n  if (!channelId || !hint) return;\n  const lines = ['【运营自动化】需要人工处理',\n    '流程：' + String(workflowId || '未知'),\n    '环节：' + hint[0], '原因：' + hint[1]];\n  if (executionId) lines.push('失败 execution：' + executionId);\n  lines.push('请你处理：' + hint[2]);\n  try {\n    await this.helpers.httpRequest({ method: 'POST', url: 'http://127.0.0.1:3000/api/ai/channels',\n      json: true, timeout: 15000, headers: { Origin: 'http://127.0.0.1:3000' },\n      body: { id: channelId, action: 'send', text: lines.join('\\n') } });\n  } catch {\n    // 只咽掉通知自身的错误，原始失败照旧抛出\n  }\n};\n\ntry {\n\n  const pending = $('仅保留可安全自动重试的失败').first().json;\n  if ($runIndex >= 72) throw new Error('retry_context_wait_expired_manual_action');\n  let response;\n  try {\n    response = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/retry-context',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,\n      headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId}});\n  } catch(error) {\n    const status = Number(error.statusCode ?? error.response?.statusCode ?? error.httpCode ?? 0);\n    if(status >= 400 && status < 500) throw new Error('retry_context_unverified_manual_action');\n    return [{json:{...pending,contextStatus:'waiting'}}];\n  }\n  const status = Number(response.statusCode);\n  if(status >= 500) return [{json:{...pending,contextStatus:'waiting'}}];\n  if(status !== 200) throw new Error('retry_context_unverified_manual_action');\n  const context = response.body;\n  if(context?.ok !== true || context.version !== 'teruisi-retry-context-v1' || context.workflowId !== pending.retryPolicy.workflowId\n    || context.failedExecutionId !== pending.failedExecutionId || !context.originalScheduledAt || !context.originalExecutionId) throw new Error('retry_context_unverified_manual_action');\n  let reservation;\n  try {\n    reservation = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/reserve-retry',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,\n      headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId,'X-TERUISI-RETRY-EXECUTION-ID':String($execution.id)}});\n  } catch { throw new Error('retry_reservation_result_unknown_manual_action'); }\n  if(pending.retryPolicy.workflowId === 'J8kY2mQ5vR7sT4pN' && reservation.statusCode === 200) {\n    if(['completed','accepted'].includes(reservation.body?.reservationStatus)) return [];\n    if(reservation.body?.reservationStatus === 'waiting') return [{json:{...pending,contextStatus:'waiting',nextRetryDelayMinutes:reservation.body.nextRetryDelayMinutes}}];\n  }\n  if(reservation.statusCode !== 200 || reservation.body?.reservationStatus !== 'reserved'\n    || reservation.body.failedExecutionId !== pending.failedExecutionId || reservation.body.retryExecutionId !== String($execution.id)) throw new Error('retry_already_reserved_or_unverified_manual_action');\n  return [{json:{...pending,...context,contextStatus:'verified'}}];\n} catch (error) {\n  const code = error?.message ?? '';\n  if (MANUAL_ACTION_HINTS[code]) {\n    const p = $('仅保留可安全自动重试的失败').first().json ?? {};\n    await notifyManualAction(code, p.retryPolicy?.workflowId, p.failedExecutionId);\n  }\n  throw error;\n}\n"
+        "jsCode": "// Known manual-action errors route through the shared sender then StopAndError.\n// All other errors still throw unchanged; no notification HTTP side channel.\nconst manualCodes = new Set(['retry_context_wait_expired_manual_action',\n  'retry_context_unverified_manual_action','retry_reservation_result_unknown_manual_action',\n  'retry_already_reserved_or_unverified_manual_action']);\nlet knownOriginalExecutionId = '';\ntry {\n\n  const pending = $('仅保留可安全自动重试的失败').first().json;\n  if ($runIndex >= 72) throw new Error('retry_context_wait_expired_manual_action');\n  let response;\n  try {\n    response = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/retry-context',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,\n      headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId}});\n  } catch(error) {\n    const status = Number(error.statusCode ?? error.response?.statusCode ?? error.httpCode ?? 0);\n    if(status >= 400 && status < 500) throw new Error('retry_context_unverified_manual_action');\n    return [{json:{...pending,contextStatus:'waiting'}}];\n  }\n  const status = Number(response.statusCode);\n  if(status >= 500) return [{json:{...pending,contextStatus:'waiting'}}];\n  if(status !== 200) throw new Error('retry_context_unverified_manual_action');\n  const context = response.body;\n  if(context?.ok !== true || context.version !== 'teruisi-retry-context-v1' || context.workflowId !== pending.retryPolicy.workflowId\n    || context.failedExecutionId !== pending.failedExecutionId || !context.originalScheduledAt || !context.originalExecutionId) throw new Error('retry_context_unverified_manual_action');\n  knownOriginalExecutionId = String(context.originalExecutionId);\n  let reservation;\n  try {\n    reservation = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/reserve-retry',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,\n      headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId,'X-TERUISI-RETRY-EXECUTION-ID':String($execution.id)}});\n  } catch { throw new Error('retry_reservation_result_unknown_manual_action'); }\n  if(pending.retryPolicy.workflowId === 'J8kY2mQ5vR7sT4pN' && reservation.statusCode === 200) {\n    if(['completed','accepted'].includes(reservation.body?.reservationStatus)) return [];\n    if(reservation.body?.reservationStatus === 'waiting') return [{json:{...pending,contextStatus:'waiting',nextRetryDelayMinutes:reservation.body.nextRetryDelayMinutes}}];\n  }\n  if(reservation.statusCode !== 200 || reservation.body?.reservationStatus !== 'reserved'\n    || reservation.body.failedExecutionId !== pending.failedExecutionId || reservation.body.retryExecutionId !== String($execution.id)) throw new Error('retry_already_reserved_or_unverified_manual_action');\n  return [{json:{...pending,...context,contextStatus:'verified'}}];\n} catch (error) {\n  const code = error?.message ?? '';\n  if (manualCodes.has(code)) {\n    const p = $('仅保留可安全自动重试的失败').first().json ?? {};\n    // Route only these known errors through the common sender, then fail\n    // with this same code. Unrecognized errors still throw unchanged.\n    return [{ json: { manualAction: { code, workflowId: p.retryPolicy?.workflowId,\n      failedExecutionId: p.failedExecutionId,\n      logicalExecutionId: knownOriginalExecutionId || p.originalExecutionId || p.failedExecutionId }, terminalCode: code } }];\n  }\n  throw error;\n}\n"
       },
       "id": "3ecdf16a-d64e-4569-a1c7-7f1ed8ac4ccc",
       "name": "读取原执行计划时间",
@@ -112,7 +112,7 @@
     },
     {
       "parameters": {
-        "errorMessage": "dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST"
+        "errorMessage": "={{ $('准备人工提醒参数').item.json.terminalCode }}"
       },
       "id": "f778a31a-9171-4da9-8f28-b0a39cef5cfb",
       "name": "重试派发结果未知转人工",
@@ -188,40 +188,23 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "http://127.0.0.1:3000/api/ai/channels",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameter": [
-            {
-              "name": "Origin",
-              "value": "http://127.0.0.1:3000"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { id: $env.TERUISI_ALERT_CHANNEL_ID, action: \"send\", text: $json.alertText } }}",
-        "options": {
-          "timeout": 15000
-        }
+        "command": "={{ 'pwsh.exe -NoProfile -NonInteractive -File \"D:\\\\运营管理系统\\\\tools\\\\n8n-manual-action-alert.ps1\" -Execute -PayloadBase64 \"' + $json.manualAlertPayloadBase64 + '\"' }}",
+        "executeOnce": false
       },
       "id": "a1e7c0d4-6b2f-4e8a-9c31-5d0f8b7a2e64",
       "name": "转人工发钉钉提醒",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         660,
         220
       ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 5000,
-      "onError": "continueRegularOutput"
+      "retryOnFail": false,
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "jsCode": "// 出口四：筛选节点原本直接 continue 掉的失败在这里转为告警。\n// 这些是 terminalPatterns 命中的终局失败（掉登录、验证码、额度耗尽等不该\n// 自动重试的），或流程不在 targets 白名单里。原逻辑连 execution 失败都不留，\n// 而这一类恰恰最需要人介入。\nconst dropped = $input.first().json?.droppedFailures ?? [];\nreturn dropped.map((item) => ({ json: { alertText: [\n  '【运营自动化】需要人工处理',\n  '流程：' + (item.workflowName || item.workflowId || '未知'),\n  '环节：' + (item.lastNodeExecuted || '未知'),\n  '原因：' + item.reason,\n  item.failedExecutionId ? '失败 execution：' + item.failedExecutionId : '',\n  '请你处理：到 n8n 打开该 execution 看失败原因；若是掉登录或验证码，重新登录后手动重跑',\n].filter(Boolean).join('\\n') } }));"
+        "jsCode": "// 出口四：筛选节点原本直接 continue 掉的失败在这里转为告警。\n// 这些是 terminalPatterns 命中的终局失败（掉登录、验证码、额度耗尽等不该\n// 自动重试的），或流程不在 targets 白名单里。原逻辑连 execution 失败都不留，\n// 而这一类恰恰最需要人介入。\nconst dropped = $input.first().json?.droppedFailures ?? [];\nreturn dropped.map((item) => ({ json: { manualAction: {\n  workflowId: item.workflowId, failedExecutionId: item.failedExecutionId,\n  logicalExecutionId: item.originalExecutionId || item.failedExecutionId,\n  code: item.reason === '终局失败，不会自动重试' ? 'terminal_manual_action' : 'execution_mode_not_automatic',\n}, terminalCode: 'dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST' } }));"
       },
       "id": "b2f8d1e5-7c3a-4f9b-8d42-6e1a9c8b3f75",
       "name": "收集被丢弃的终局失败",
@@ -234,7 +217,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// 重试 Webhook 可能已被受理，禁止自动再次 POST —— 必须人工核查。\nconst p = $('仅保留可安全自动重试的失败').first().json ?? {};\nreturn [{ json: { alertText: [\n  '【运营自动化】需要人工处理',\n  '流程：' + String(p.retryPolicy?.workflowId ?? '未知'),\n  '环节：重试派发',\n  '原因：重试 Webhook 派发结果未知，可能已受理，系统不会自动再试',\n  p.failedExecutionId ? '失败 execution：' + p.failedExecutionId : '',\n  '请你处理：到 n8n 查这个流程最近的 execution，确认重试到底有没有跑起来；没跑就手动触发一次',\n].filter(Boolean).join('\\n') } }];"
+        "jsCode": "// 重试 Webhook 可能已被受理，禁止自动再次 POST —— 必须人工核查。\nconst p = $('读取原执行计划时间').item.json ?? {};\nreturn [{ json: { manualAction: { workflowId: p.retryPolicy?.workflowId,\n  failedExecutionId: p.failedExecutionId, logicalExecutionId: p.originalExecutionId || p.failedExecutionId,\n  code: 'retry_dispatch_result_unknown' },\n  terminalCode: 'dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST' } }];"
       },
       "id": "c3a9e2f6-8d4b-4a1c-9e53-7f2b0d9c4a86",
       "name": "告警-派发未知",
@@ -243,6 +226,52 @@
       "position": [
         420,
         220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "bd7ef88f-aea8-4e6a-9491-327dad5b6837",
+              "leftValue": "={{ Boolean($json.manualAction) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3c173690-7e71-4b69-b1d7-e974b2b9ba2d",
+      "name": "原计划需要人工？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        380,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const workflows = [\"J8kY2mQ5vR7sT4pN\",\"JdN8nM3uL7tI2026\",\"JdN8nSilentCopy2026\",\"JdMarketDaily2026\",\"JdMarketSilentCopy2026\",\"JdPromotionDaily2026\",\"JdPromotionCutMeat2026\",\"M4xY8kQ2vR6sT9pC\",\"TmallLiliDaily2026\",\"TmallTuofengDaily2026\",\"TmallCuizhiwangDaily2026\",\"TmallMasituDaily2026\",\"TmallYiyongDaily2026\",\"JdCustomerService2026\",\"JdCustomerServiceCutMeat2026\",\"JdCustomerServiceChudian2026\",\"JdCustomerServiceDishwasher2026\",\"JdLogisticsDaily2026\"];\nconst codes = ['terminal_manual_action','execution_mode_not_automatic','retry_dispatch_result_unknown',\n  'retry_context_wait_expired_manual_action','retry_context_unverified_manual_action',\n  'retry_reservation_result_unknown_manual_action','retry_already_reserved_or_unverified_manual_action'];\nreturn $input.all().map((item, index) => {\n  const p = item.json.manualAction;\n  if (!p || !workflows.includes(p.workflowId) || !codes.includes(p.code)\n    || !/^[1-9][0-9]{0,19}$/.test(String(p.logicalExecutionId))\n    || !/^[1-9][0-9]{0,19}$/.test(String(p.failedExecutionId))) throw new Error('manual_alert_payload_invalid');\n  const payload = {version:1, workflowId:p.workflowId, logicalExecutionId:String(p.logicalExecutionId),\n    failedExecutionId:String(p.failedExecutionId), code:p.code};\n  const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');\n  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded) || encoded.length > 8192) throw new Error('manual_alert_payload_invalid');\n  const terminalCode = codes.includes(item.json.terminalCode) ? item.json.terminalCode\n    : 'dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST';\n  return {json:{manualAlertPayloadBase64:encoded, terminalCode}, pairedItem:{item:index}};\n});"
+      },
+      "id": "622749cd-8eee-4403-a5c2-2f3e65829b0a",
+      "name": "准备人工提醒参数",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
       ]
     }
   ],
@@ -287,6 +316,24 @@
     },
     "读取原执行计划时间": {
       "main": [
+        [
+          {
+            "node": "原计划需要人工？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "原计划需要人工？": {
+      "main": [
+        [
+          {
+            "node": "准备人工提醒参数",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "原计划核验完成？",
@@ -359,6 +406,17 @@
       "main": [
         [
           {
+            "node": "准备人工提醒参数",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "准备人工提醒参数": {
+      "main": [
+        [
+          {
             "node": "转人工发钉钉提醒",
             "type": "main",
             "index": 0
@@ -374,6 +432,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "重试派发结果未知转人工",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -381,7 +446,7 @@
       "main": [
         [
           {
-            "node": "转人工发钉钉提醒",
+            "node": "准备人工提醒参数",
             "type": "main",
             "index": 0
           }

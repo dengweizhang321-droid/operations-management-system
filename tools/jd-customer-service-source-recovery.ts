@@ -5,7 +5,7 @@ import { isDeepStrictEqual } from "node:util";
 import { customerServiceStore } from "../lib/jd/customer-service-stores";
 import { JdCustomerServiceWorkflowError, type CustomerServicePeriod } from "../lib/jd/customer-service-workflow";
 import { validateJdStoreRegistry, type JdStore } from "../lib/jd/store-registry";
-import { buildCustomerServiceDailyFiles } from "./jd-customer-service-daily-files";
+import { buildCustomerServiceDailyFiles, customerServicePairParseDetailCode } from "./jd-customer-service-daily-files";
 import type { CustomerServiceN8nPlan } from "./jd-customer-service-n8n-pipeline";
 import type { CustomerServiceDurationAnomaly } from "./jd-customer-service-duration-normalization";
 import { customerServiceControlBytes } from "./jd-customer-service-failure-closure";
@@ -101,7 +101,7 @@ export async function verifyCustomerServiceRecoveryClaim(root: string, recovery:
   if (!isDeepStrictEqual(JSON.parse(raw.toString("utf8")), { executionId, storeKey, ...recovery })) reject();
 }
 
-// Only the plan file path, mirroring the private filePaths() in
+// Only the plan file path, mirroring customerServicePlanFiles() in
 // jd-customer-service-n8n-pipeline.ts. Not re-exporting pipeline internals;
 // this is the one path fragment the approval generator also needs.
 function customerServicePlanFile(root: string, executionId: string, storeKey: string) {
@@ -122,6 +122,7 @@ const zeroEffectCodes = ["PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION", "CHAT_PAG
 
 export function customerServiceCloseEvidenceCode(error: unknown) {
   const allowed = ["PAIR_PARSE_REJECTED", "UNRECOGNIZED_LOG_BLOCK", "INVALID_LOG_BLOCK", "FILE_DATE_OUT_OF_SCOPE", "INVALID_FILE_SIZE", "DAILY_PAYLOAD_TOO_LARGE", "DAILY_PARTITION_CHANGED_BUSINESS_VALUES", "SOURCE_RECOVERY_REJECTED_MANUAL_ACTION"];
+  if (error instanceof JdCustomerServiceWorkflowError && error.code === "PAIR_PARSE_REJECTED") return customerServicePairParseDetailCode(error);
   const code = error instanceof JdCustomerServiceWorkflowError ? error.code : "";
   return allowed.includes(code) ? code : "CLOSE_SOURCE_EVIDENCE_INVALID";
 }

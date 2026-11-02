@@ -1,0 +1,163 @@
+{
+  "source": "staged-diff-before-final-documentation",
+  "base": "4e94566a0ffbfb9a95a3e344546aba3dd7a6f657",
+  "changes": [
+    {
+      "status": "M",
+      "path": "app/n8n-workflow-view.tsx"
+    },
+    {
+      "status": "M",
+      "path": "automation/n8n/data-import-hourly-safe-retry.workflow.json"
+    },
+    {
+      "status": "M",
+      "path": "backend/workflow/automation_models.py"
+    },
+    {
+      "status": "A",
+      "path": "docs/autoimport-review-fixes-20261102/NOTIFICATION.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/autoimport-review-fixes-20261102/RECOVERY.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/autoimport-review-fixes-20261102/REPORT.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/autoimport-review-fixes-20261102/SMALL-FIXES.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/autoimport-review-fixes-20261102/tmall-workflow-copy.html"
+    },
+    {
+      "status": "M",
+      "path": "lib/customer-service/import-service.ts"
+    },
+    {
+      "status": "M",
+      "path": "lib/jd/customer-service-workflow.ts"
+    },
+    {
+      "status": "A",
+      "path": "lib/netshop/tmall-direct-daily-policy-runtime.mjs"
+    },
+    {
+      "status": "M",
+      "path": "lib/netshop/tmall-direct-daily-policy.ts"
+    },
+    {
+      "status": "M",
+      "path": "tools/build-import-chain-catalog.mjs"
+    },
+    {
+      "status": "M",
+      "path": "tools/jd-customer-service-daily-files.ts"
+    },
+    {
+      "status": "M",
+      "path": "tools/jd-customer-service-n8n-pipeline.ts"
+    },
+    {
+      "status": "M",
+      "path": "tools/jd-customer-service-source-recovery.ts"
+    },
+    {
+      "status": "M",
+      "path": "tools/n8n-hourly-retry-policy.mjs"
+    },
+    {
+      "status": "A",
+      "path": "tools/n8n-manual-action-alert.ps1"
+    },
+    {
+      "status": "M",
+      "path": "tools/tmall-sycm-cookie-pipeline.ts"
+    }
+  ],
+  "scope": "full",
+  "components": [
+    "worker",
+    "django"
+  ],
+  "migrate": false,
+  "databaseProtection": "verified-current",
+  "businessDataProcessing": "separate-authorization-required",
+  "validation": [
+    "git-diff-check",
+    "worker-affected-tests",
+    "django-affected-tests",
+    "affected-integration-tests"
+  ],
+  "packaging": [
+    "prepare-worker-immutable-release",
+    "prepare-django-app"
+  ],
+  "deployment": [
+    "verify-current-database-backup",
+    "activate-worker-release",
+    "deploy-django-app",
+    "verify-startup",
+    "verify-affected-function"
+  ],
+  "workflow": [
+    {
+      "step": 4,
+      "id": "validate-change",
+      "actions": [
+        "git-diff-check",
+        "worker-affected-tests",
+        "django-affected-tests",
+        "affected-integration-tests"
+      ]
+    },
+    {
+      "step": 5,
+      "id": "merge-and-package",
+      "actions": [
+        "merge-main",
+        "push-main",
+        "prepare-worker-immutable-release",
+        "prepare-django-app"
+      ]
+    },
+    {
+      "step": 6,
+      "id": "publish",
+      "actions": [
+        "verify-current-database-backup",
+        "activate-worker-release",
+        "deploy-django-app",
+        "verify-startup",
+        "verify-affected-function"
+      ]
+    }
+  ],
+  "domains": [
+    "workflow"
+  ],
+  "unknown": [
+    "automation/n8n/data-import-hourly-safe-retry.workflow.json"
+  ],
+  "reasons": [
+    "前端:app/n8n-workflow-view.tsx",
+    "未知路径升级完整流程:automation/n8n/data-import-hourly-safe-retry.workflow.json",
+    "后端:backend/workflow/automation_models.py",
+    "共享运行库:lib/customer-service/import-service.ts",
+    "共享运行库:lib/jd/customer-service-workflow.ts",
+    "共享运行库:lib/netshop/tmall-direct-daily-policy-runtime.mjs",
+    "共享运行库:lib/netshop/tmall-direct-daily-policy.ts",
+    "应用复制清单[neither]:tools/build-import-chain-catalog.mjs:explicit application copy inventory",
+    "应用复制清单[worker]:tools/jd-customer-service-daily-files.ts:Worker runtime/helper/semantic-snapshot input closure",
+    "应用复制清单[worker]:tools/jd-customer-service-n8n-pipeline.ts:Worker runtime/helper/semantic-snapshot input closure",
+    "应用复制清单[worker]:tools/jd-customer-service-source-recovery.ts:Worker runtime/helper/semantic-snapshot input closure",
+    "应用复制清单[worker]:tools/n8n-hourly-retry-policy.mjs:Worker runtime/helper/semantic-snapshot input closure",
+    "应用复制清单[neither]:tools/n8n-manual-action-alert.ps1:explicit application copy inventory",
+    "应用复制清单[worker]:tools/tmall-sycm-cookie-pipeline.ts:Worker runtime/helper/semantic-snapshot input closure"
+  ],
+  "executionBoundary": "classification only; legacy validation/deployment labels do not override AGENTS.md; no functional tests, packaging or deployment executed"
+}

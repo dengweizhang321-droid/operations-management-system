@@ -157,7 +157,7 @@
 
 ## 自动化
 
-本轮候选：[四条遗留链路闭合修复](../autoimport-stuck-plan-closure-20261102/REPORT.md) · [施工说明](../autoimport-stuck-plan-closure-20261102/施工说明.md) · [独立反审](../autoimport-stuck-plan-closure-20261102/REVIEW.md)（未合并、未上线、未执行真实闭合）。
+本轮交付：[四条遗留链路闭合修复](../autoimport-stuck-plan-closure-20261102/REPORT.md) · [施工说明](../autoimport-stuck-plan-closure-20261102/施工说明.md) · [独立反审](../autoimport-stuck-plan-closure-20261102/REVIEW.md) · [同期主线整合](../autoimport-stuck-plan-closure-20261102/MERGE.md)（已获合并及制品准备授权；未上线、未执行真实闭合）。
 
 | 任务目录 | 文档数 | 入口 |
 | --- | --- | --- |

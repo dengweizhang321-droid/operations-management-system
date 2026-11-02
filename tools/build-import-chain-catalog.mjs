@@ -1,4 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { applyTmallDirectDailyPolicy } from "../lib/netshop/tmall-direct-daily-policy-runtime.mjs";
 
 const root = new URL("../", import.meta.url);
 const read = async (path) => JSON.parse((await readFile(new URL(path, root), "utf8")).replace(/^\uFEFF/, ""));
@@ -7,7 +8,7 @@ const read = async (path) => JSON.parse((await readFile(new URL(path, root), "ut
 // browser profiles, download paths, credentials, or executable node parameters.
 export async function buildImportChainCatalog() {
   const jd = (await read("config/jd-store-accounts.json")).stores.filter((s) => s.enabled);
-  const tmall = (await read("config/tmall-store-accounts.json")).stores.filter((s) => s.enabled);
+  const tmall = applyTmallDirectDailyPolicy((await read("config/tmall-store-accounts.json")).stores).filter((s) => s.enabled);
   const market = await read("config/jd-market-ranking-daily.json");
   const entities = [{ key: "jackyun", name: "吉客云 ERP", platform: "ERP" },
     ...jd.map((s) => ({ key: s.storeKey, name: s.shopName, platform: "京东" })),
@@ -49,7 +50,7 @@ export async function buildImportChainCatalog() {
   }
   for (const s of tmall) {
     const file = `${s.storeKey}-seven-day-gap-loop`;
-    await add("tmall", [s.storeKey], file, { masterIntervalDays: 1 });
+    await add("tmall", [s.storeKey], file, { masterIntervalDays: s.productMasterCadence?.intervalDays });
   }
   // Inventory workflows own department/owner scopes, not the sales-store roster.
   await add("jd_logistics", ["jd_logistics"], "jd-logistics-daily");

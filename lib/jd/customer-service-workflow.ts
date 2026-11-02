@@ -15,7 +15,7 @@ export const jdCustomerServiceWorkflow = Object.freeze({
 } as const);
 
 export class JdCustomerServiceWorkflowError extends Error {
-  constructor(public readonly code: string) { super(code); }
+  constructor(public readonly code: string, public readonly detailCode?: string, options?: ErrorOptions) { super(code, options); }
 }
 function reject(code: string): never { throw new JdCustomerServiceWorkflowError(code); }
 const dayMilliseconds = 86_400_000;
