@@ -25,17 +25,20 @@ export type CustomerServiceDailyFile = {
 // Split only existing source material. Reparse every derived pair, then prove
 // that its complete business values equal the full-range parse. A midnight
 // match that changes under partitioning fails closed rather than being lost.
-export function buildCustomerServiceDailyFiles(sessionBytes: Uint8Array, chatBytes: Uint8Array, period: CustomerServicePeriod, storeKey?: string, options: { negativeDurationToMissing?: boolean } = {}) {
+export function buildCustomerServiceDailyFiles(sessionBytes: Uint8Array, chatBytes: Uint8Array, period: CustomerServicePeriod, storeKey?: string, options: { negativeDurationToMissing?: boolean; closureEvidenceOnly?: boolean } = {}) {
   if (storeKey !== undefined) customerServiceStore(storeKey);
   assertCustomerServicePeriod(period);
   if ([sessionBytes, chatBytes].some(bytes => !bytes.length || bytes.length > 25 * 1024 * 1024)) reject("INVALID_FILE_SIZE");
   const normalized = options.negativeDurationToMissing ? normalizeCustomerServiceDurations(sessionBytes) : { bytes: sessionBytes, anomalies: [] };
   const parsingBytes = normalized.bytes;
+  // Evidence still parses every block and applies every resource/date/content
+  // boundary. Only the per-conversation import count is irrelevant to closure.
+  const policy = options.closureEvidenceOnly === true ? "closure_evidence" : "import";
   let chatText: string;
   let full: CustomerServiceParseResult;
   try {
     chatText = new TextDecoder("utf-8", { fatal: true }).decode(chatBytes);
-    full = parseCustomerServiceImport(parsingBytes, chatText);
+    full = parseCustomerServiceImport(parsingBytes, chatText, policy);
   } catch { return reject("PAIR_PARSE_REJECTED"); }
   const sessions = parseSessionWorkbook(parsingBytes);
   const sourceBook = XLSX.read(parsingBytes, { type: "array", cellDates: false });
@@ -53,7 +56,7 @@ export function buildCustomerServiceDailyFiles(sessionBytes: Uint8Array, chatByt
   for (const block of chatText.replace(/^\uFEFF/, "").split(/\/\*+\s*以下为一通会话\s*\*+\/\s*/g)) {
     if (!block.trim()) continue;
     let parsed;
-    try { parsed = parseChatLog(separator + block); } catch { return reject("UNRECOGNIZED_LOG_BLOCK"); }
+    try { parsed = parseChatLog(separator + block, policy); } catch { return reject("UNRECOGNIZED_LOG_BLOCK"); }
     if (parsed.length !== 1) reject("INVALID_LOG_BLOCK");
     const day = parsed[0].startedAt.slice(0, 10);
     if (day < period.startDate || day > period.endDate) reject("FILE_DATE_OUT_OF_SCOPE");
@@ -71,7 +74,7 @@ export function buildCustomerServiceDailyFiles(sessionBytes: Uint8Array, chatByt
     XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([matrix[0], ...rows]), sourceSheet);
     const daySessionBytes = new Uint8Array(XLSX.write(book, { type: "array", bookType: "xlsx" }));
     const dayChatBytes = new TextEncoder().encode(logs.join("\n"));
-    const parsed = parseCustomerServiceImport(daySessionBytes, new TextDecoder().decode(dayChatBytes));
+    const parsed = parseCustomerServiceImport(daySessionBytes, new TextDecoder().decode(dayChatBytes), policy);
     const normalizedBytes = Buffer.byteLength(JSON.stringify(parsed.conversations));
     if (normalizedBytes > 16 * 1024 * 1024 || daySessionBytes.length > 25 * 1024 * 1024 || dayChatBytes.length > 25 * 1024 * 1024)
       reject("DAILY_PAYLOAD_TOO_LARGE");

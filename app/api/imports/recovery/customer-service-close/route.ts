@@ -1,9 +1,5 @@
-// permission_surface: admin-only, requireUnrestrictedDataScope; mirrors
-// app/api/imports/recovery/close/route.ts for JD customer-service pre-submit
-// failure closure. This never bypasses tools/jd-customer-service-failure-closure.ts's
-// whitelist or the pipeline's automatic path; it only authorizes the local
-// helper to write a CustomerServiceRecoveryApproval file that the existing
-// tools/jd-customer-service-source-recovery.ts consumer re-validates in full.
+// permission_surface: admin-only, requireUnrestrictedDataScope. Django issues
+// exact close/verify authority; only the helper's durable commit is success.
 import { authorizationErrorResponse, requireAppPrincipal, requireUnrestrictedDataScope } from "@/lib/auth/authorization";
 import { createDjangoWorkflowService, WORKFLOW_JD_CUSTOMER_SERVICE_CLOSE_AUTHORITY_PATH } from "@/lib/django/workflow-service";
 import { safeApiErrorResponse } from "@/lib/http/api-error";
@@ -15,9 +11,14 @@ export async function GET(request: Request) {
     const principal = await requireAppPrincipal(["admin"]); requireUnrestrictedDataScope(principal, "闭合京东客服停滞任务");
     const query = new URL(request.url).searchParams;
     if (query.has("authorizationId")) {
-      if ([...query.keys()].length !== 1 || query.getAll("authorizationId").length !== 1 || !uuid.test(query.get("authorizationId") ?? "")) return Response.json({ error: "闭合请求编号无效" }, { status: 400, headers });
-      const result = await createDjangoWorkflowService().requestJson(principal, { method: "GET", path: WORKFLOW_JD_CUSTOMER_SERVICE_CLOSE_AUTHORITY_PATH, service: "writer", rawQuery: query.toString() }, { signal: request.signal });
-      return Response.json(result.data, { headers });
+      if ([...query.keys()].some(key => !["authorizationId", "authority"].includes(key)) || query.getAll("authorizationId").length !== 1
+        || !uuid.test(query.get("authorizationId") ?? "") || query.has("authority") && (query.getAll("authority").length !== 1 || query.get("authority") !== "1")) return Response.json({ error: "闭合请求编号无效" }, { status: 400, headers });
+      if (query.get("authority") === "1") {
+        const result = await createDjangoWorkflowService().requestJson(principal, { method: "GET", path: WORKFLOW_JD_CUSTOMER_SERVICE_CLOSE_AUTHORITY_PATH, service: "writer", rawQuery: new URLSearchParams({ authorizationId: query.get("authorizationId")! }).toString() }, { signal: request.signal });
+        return Response.json(result.data, { headers });
+      }
+      const response = await fetch(`http://127.0.0.1:5791/coordination/jd-customer-service-close-result?${query}`, { cache: "no-store", signal: AbortSignal.timeout(15000) });
+      return Response.json(await response.json(), { status: response.status, headers });
     }
     if ([...query.keys()].length !== 1 || query.getAll("storeKey").length !== 1 || !storeKeys.includes(query.get("storeKey") ?? "")) return Response.json({ error: "闭合目标查询无效" }, { status: 400, headers });
     const response = await fetch(`http://127.0.0.1:5791/coordination/jd-customer-service-close-target?${query}`, { cache: "no-store", signal: AbortSignal.timeout(15000) });

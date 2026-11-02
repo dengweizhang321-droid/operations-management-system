@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from "node:util";
 import { inspectCustomerServiceRecovery, claimCustomerServiceRecovery, verifyCustomerServiceRecoveryClaim, type CustomerServiceSourceRecovery } from "./jd-customer-service-source-recovery";
 import type { CustomerServiceDurationAnomaly } from "./jd-customer-service-duration-normalization";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { jdCustomerServiceWorkflow as contract, customerServicePeriod, assertCustomerServicePeriod, JdCustomerServiceWorkflowError, type CustomerServicePeriod } from "../lib/jd/customer-service-workflow";
 import { customerServiceStore } from "../lib/jd/customer-service-stores";
@@ -17,6 +17,7 @@ import { ensureJdStoreAuthenticatedSession } from "./jd-saved-login";
 import { assertCustomerServiceShop, exportCustomerServiceView, openCustomerServicePage, type CustomerServiceExportCheckpoint } from "./jd-customer-service-export";
 import { buildCustomerServiceDailyFiles } from "./jd-customer-service-daily-files";
 import { importCustomerServiceDay, verifyCustomerServiceBatch, type CustomerServiceBatchProof } from "./jd-customer-service-import";
+import { assertCustomerServiceSourceRecoveryNotClosed, consumeCustomerServiceOperatorClosure } from "./jd-customer-service-operator-reconcile";
 import { closeCustomerServicePreSubmitFailure, customerServiceControlBytes } from "./jd-customer-service-failure-closure";
 
 export type CustomerServiceN8nPlan = {
@@ -35,7 +36,8 @@ export type CustomerServiceN8nPlan = {
   sourceCounts?: { listRows: number; logSessions: number; ambiguous: number };
   dailyFiles?: Array<{ date: string; sessionSha256: string; chatSha256: string; contentSha256: string; conversationCount: number }>;
   failureCode?: string;
-  failureBoundary?: { version: 1; browserClosed: boolean; step: string };
+  failureBoundary?: { version: 1; browserClosed: boolean; step: string; preSubmitView?: "messages" };
+  operatorVerification?: { authorizationId: string; originalPlanSha256: string; completedAt: string };
 };
 function reject(code: string): never { throw new JdCustomerServiceWorkflowError(code); }
 export function customerServiceFailureCode(error: unknown) {
@@ -47,7 +49,7 @@ export function customerServiceFailureCode(error: unknown) {
   }
   return "CUSTOMER_SERVICE_FAILED_MANUAL_ACTION";
 }
-function filePaths(root: string, executionId: string, storeKey = contract.storeKey as string) {
+export function customerServicePlanFiles(root: string, executionId: string, storeKey = contract.storeKey as string) {
   const store = customerServiceStore(storeKey);
   if (!/^[A-Za-z0-9_-]{1,96}$/.test(executionId)) reject("INVALID_EXECUTION_ID");
   const base = path.join(root, "outputs", "jd-customer-service-pipeline");
@@ -63,9 +65,10 @@ export function customerServiceHelperError(stage: string, busy: boolean, route: 
 }
 export async function planCustomerServiceRun(root: string, executionId: string, now = new Date(), storeKey = contract.storeKey as string, recoverySha256?: string) {
   const store = customerServiceStore(storeKey);
-  const files = filePaths(root, executionId, store.storeKey);
+  const files = customerServicePlanFiles(root, executionId, store.storeKey);
   await mkdir(files.directory, { recursive: true });
   return withJackyunRunLock({ runId: `cs-plan-${executionId}`, purpose: "jd-customer-service-plan", lockDirectory: files.lock }, async () => {
+    if (await lstat(files.plan).then(() => true, error => { if (error.code === "ENOENT") return false; throw error; })) reject("RUN_REPLAY_REQUIRES_RECONCILIATION_MANUAL_ACTION");
     let active: { executionId?: string } | undefined;
     try { active = JSON.parse((await customerServiceControlBytes(files.active)).toString("utf8")); }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") reject("ACTIVE_PLAN_INVALID_MANUAL_ACTION"); }
@@ -75,16 +78,20 @@ export async function planCustomerServiceRun(root: string, executionId: string, 
     if (recoverySha256 && !active) reject("SOURCE_RECOVERY_REJECTED_MANUAL_ACTION");
     if (active) {
       if (typeof active.executionId !== "string") reject("ACTIVE_PLAN_INVALID_MANUAL_ACTION");
-      const previousBytes = await customerServiceControlBytes(filePaths(root, active.executionId, store.storeKey).plan);
+      const previousBytes = await customerServiceControlBytes(customerServicePlanFiles(root, active.executionId, store.storeKey).plan);
       const previous = JSON.parse(previousBytes.toString("utf8")) as CustomerServiceN8nPlan;
       if (previous.executionId !== active.executionId || previous.version !== 1) reject("ACTIVE_PLAN_INVALID_MANUAL_ACTION");
       assertCustomerServicePlanStore(previous, store.storeKey);
       if (recoverySha256) {
+        await assertCustomerServiceSourceRecoveryNotClosed(root, previous, previousBytes);
         recovered = await inspectCustomerServiceRecovery({ root, storeKey: store.storeKey, executionId, approvalSha256: recoverySha256, previous, previousBytes, period: customerServicePeriod(now) });
         recovery = { approvalSha256: recoverySha256, originalExecutionId: previous.executionId, kind: recovered.approval.kind };
         await claimCustomerServiceRecovery(root, recovery, store.storeKey, executionId);
       } else if (previous.stage !== "completed") {
-        try { await closeCustomerServicePreSubmitFailure(root, previous, previousBytes, executionId, files.directory); }
+        try {
+          if (!await consumeCustomerServiceOperatorClosure(root, previous, previousBytes, executionId))
+            await closeCustomerServicePreSubmitFailure(root, previous, previousBytes, executionId, files.directory);
+        }
         catch { reject("PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION"); }
         closedPreviousBytes = previousBytes;
       }
@@ -92,7 +99,7 @@ export async function planCustomerServiceRun(root: string, executionId: string, 
     const createdAt = new Date().toISOString();
     const plan: CustomerServiceN8nPlan = { version: 1, storeKey: store.storeKey, shopName: store.shopName, shopId: store.shopId, executionId, period: customerServicePeriod(now), createdAt, updatedAt: createdAt, stage: "planned", source: recovered?.source ?? {}, proofs: [], ...(recovery ? { sourceRecovery: recovery } : {}) };
     if (closedPreviousBytes && active) {
-      if (!Buffer.from(await customerServiceControlBytes(filePaths(root, active.executionId!, store.storeKey).plan)).equals(closedPreviousBytes)
+      if (!Buffer.from(await customerServiceControlBytes(customerServicePlanFiles(root, active.executionId!, store.storeKey).plan)).equals(closedPreviousBytes)
         || !isDeepStrictEqual(JSON.parse((await customerServiceControlBytes(files.active)).toString("utf8")), active)) reject("PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION");
       await writeJsonDurable(files.plan, plan, true);
       await writeJsonDurable(files.active, { executionId });
@@ -114,10 +121,10 @@ export function assertCustomerServicePlanStore(plan: CustomerServiceN8nPlan, exp
 export async function runCustomerServicePlan(root: string, plan: CustomerServiceN8nPlan) {
   const identity = assertCustomerServicePlanStore(plan);
   if (plan.stage !== "planned" || plan.proofs.length || (!plan.sourceRecovery && Object.keys(plan.source).length)) reject("RUN_REPLAY_REQUIRES_RECONCILIATION_MANUAL_ACTION");
-  const files = filePaths(root, plan.executionId, identity.storeKey);
+  const files = customerServicePlanFiles(root, plan.executionId, identity.storeKey);
   if (plan.sourceRecovery) {
     await verifyCustomerServiceRecoveryClaim(root, plan.sourceRecovery, identity.storeKey, plan.executionId);
-    const previousBytes = await readFile(filePaths(root, plan.sourceRecovery.originalExecutionId, identity.storeKey).plan);
+    const previousBytes = await readFile(customerServicePlanFiles(root, plan.sourceRecovery.originalExecutionId, identity.storeKey).plan);
     const previous = JSON.parse(previousBytes.toString("utf8")) as CustomerServiceN8nPlan;
     const checked = await inspectCustomerServiceRecovery({ root, storeKey: identity.storeKey, executionId: plan.executionId, approvalSha256: plan.sourceRecovery.approvalSha256, previous, previousBytes, period: plan.period });
     if (!isDeepStrictEqual(checked.source, plan.source)) reject("SOURCE_RECOVERY_REJECTED_MANUAL_ACTION");
@@ -188,13 +195,14 @@ export async function runCustomerServicePlan(root: string, plan: CustomerService
   } catch (error) {
     plan.stage = "failed";
     plan.failureCode = customerServiceFailureCode(error);
-    plan.failureBoundary = { version: 1, browserClosed, step };
+    plan.failureBoundary = { version: 1, browserClosed, step,
+      ...(step === "export_messages" && !plan.source.messages && ["CHAT_PAGE_MISMATCH", "CHAT_PAGE_NOT_READY_MANUAL_ACTION"].includes(plan.failureCode) ? { preSubmitView: "messages" as const } : {}) };
     await save();
     // Do not let browser exceptions leak page text or signed download URLs.
     reject(plan.failureCode.endsWith("_MANUAL_ACTION") ? plan.failureCode : `${plan.failureCode}_MANUAL_ACTION`);
   }
 }
-export async function verifyCustomerServicePlan(root: string, plan: CustomerServiceN8nPlan) {
+export async function verifyCustomerServicePlan(root: string, plan: CustomerServiceN8nPlan, commit?: { beforeCommit: () => Promise<void>; operatorVerification: NonNullable<CustomerServiceN8nPlan["operatorVerification"]> }) {
   const identity = assertCustomerServicePlanStore(plan);
   if (plan.stage !== "executed" || plan.importingDate || !plan.dailyFiles?.length
     || plan.proofs.length !== plan.dailyFiles.length) reject("INCOMPLETE_PLAN_MANUAL_ACTION");
@@ -214,7 +222,10 @@ export async function verifyCustomerServicePlan(root: string, plan: CustomerServ
       || await digest(path.join(directory, `${day.date}.log`)) !== day.chatSha256) reject("DAILY_FILE_HASH_CHANGED_MANUAL_ACTION");
     await verifyCustomerServiceBatch(proof, "http://localhost:3000", fetch, identity.storeKey);
   }
-  plan.stage = "completed"; plan.updatedAt = new Date().toISOString(); await writeJsonAtomic(filePaths(root, plan.executionId, identity.storeKey).plan, plan);
+  if (commit) await commit.beforeCommit();
+  plan.stage = "completed"; plan.updatedAt = new Date().toISOString();
+  if (commit) plan.operatorVerification = commit.operatorVerification;
+  await writeJsonDurable(customerServicePlanFiles(root, plan.executionId, identity.storeKey).plan, plan);
   return publicCustomerServicePlan(plan);
 }
 export function publicCustomerServicePlan(plan: CustomerServiceN8nPlan) {

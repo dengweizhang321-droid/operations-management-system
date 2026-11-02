@@ -12,6 +12,7 @@ import { assertJackyunCloseAdmission } from "../lib/jackyun/operator-close-admis
 import { closeJackyunExecution, readJackyunCloseTarget, type CloseSlotCoordinator } from "../lib/jackyun/operator-close";
 import { admitPiBusinessN8nNode } from "./pi-business-n8n-gate";
 import { dispatchCustomerServiceCloseAuthority, readCustomerServiceCloseTarget } from "./jd-customer-service-source-recovery";
+import { readCustomerServiceOperatorResult } from "./jd-customer-service-operator-reconcile";
 import { jdCustomerServiceStores } from "../lib/jd/customer-service-stores";
 
 export const isolatedHelperProtocol = "tmall-store-isolation-v1";
@@ -153,9 +154,10 @@ export class IsolatedHelperSlots {
   summary() {
     return [...this.slots.values()].map(({ storeKey, workflow, executionId, status, stage }) => ({ storeKey, workflow, executionId, status, stage }));
   }
+  operatorBusy() { return this.closeReservation !== null; }
 
-  closeCoordinator(): CloseSlotCoordinator {
-    const matching = (ids: string[]) => [...this.slots.values()].filter(slot => slot.workflow === "jackyun" && ids.includes(slot.executionId));
+  closeCoordinator(workflow = "jackyun"): CloseSlotCoordinator {
+    const matching = (ids: string[]) => [...this.slots.values()].filter(slot => slot.workflow === workflow && ids.includes(slot.executionId));
     return {
       observe: ids => {
         const slots = matching(ids), other = [...this.slots.values()].some(slot => !slots.includes(slot));
@@ -292,6 +294,7 @@ export async function serveIsolatedHelper(options: {
 }) {
   const pool = new IsolatedHelperSlots(options.allowedStores, (identity, finish) => spawnIsolatedHelper(options.entryFile, identity, finish), () => readAutomationDrain() !== null);
   const closeCoordinator = pool.closeCoordinator();
+  const customerServiceCoordinator = pool.closeCoordinator("jd");
   const server = createServer(async (request, response) => {
     const route = request.url ?? "";
     const cors = route === "/health" ? options.cors(request.headers.origin, request.headers["access-control-request-private-network"] === "true") : {};
@@ -302,7 +305,7 @@ export async function serveIsolatedHelper(options: {
       }
       if (request.method === "GET" && route === "/health") {
         const slots = pool.summary();
-        reply(response, 200, { ...(await options.health()), ok: true, stage: slots.length ? "running" : "ready", busy: slots.length > 0,
+        reply(response, 200, { ...(await options.health()), ok: true, stage: slots.length || pool.operatorBusy() ? "running" : "ready", busy: slots.length > 0 || pool.operatorBusy(),
           activeWorkflow: slots.some(slot => slot.workflow === "tmall") ? "tmall" : slots[0]?.workflow ?? null,
           isolationProtocol: isolatedHelperProtocol, storeExecutions: slots,
           drainProtocol: automationDrainProtocol, drain: readAutomationDrain() }, cors);
@@ -341,6 +344,13 @@ export async function serveIsolatedHelper(options: {
         }
         reply(response, 200, await readCustomerServiceCloseTarget(options.mutableRoot, storeKey)); return;
       }
+      if (request.method === "GET" && route.startsWith("/coordination/jd-customer-service-close-result?")) {
+        const query = new URL(route, "http://127.0.0.1").searchParams;
+        if ([...query.keys()].length !== 1 || query.getAll("authorizationId").length !== 1 || !/^[a-f0-9-]{36}$/.test(query.get("authorizationId") ?? "")) {
+          reply(response, 400, { ok: false, error: "invalid_close_result_query" }); return;
+        }
+        reply(response, 200, await readCustomerServiceOperatorResult(options.mutableRoot, query.get("authorizationId")!)); return;
+      }
       if (request.method === "POST" && route === "/coordination/jd-customer-service-close") {
         if (readAutomationDrain() !== null) { reply(response, 409, { ok: false, error: "maintenance_wait", message: "系统维护期间暂不能闭合。" }); return; }
         if (!request.headers["content-type"]?.startsWith("application/json") || Number(request.headers["content-length"] ?? 0) > 512) { reply(response, 400, { ok: false, error: "invalid_close_request" }); return; }
@@ -348,8 +358,8 @@ export async function serveIsolatedHelper(options: {
         for await (const part of request) { size += part.length; if (size > 512) throw new Error("close_request_too_large"); parts.push(Buffer.from(part)); }
         const raw = Buffer.concat(parts).toString("utf8");
         if (!/^\s*\{\s*"authorizationId"\s*:\s*"[a-f0-9-]{36}"\s*\}\s*$/.test(raw)) { reply(response, 400, { ok: false, error: "invalid_close_identity" }); return; }
-        try { reply(response, 200, await dispatchCustomerServiceCloseAuthority(options.mutableRoot, JSON.parse(raw).authorizationId)); }
-        catch (error) { reply(response, 409, { ok: false, error: "close_blocked", message: error instanceof Error ? error.message : "原任务暂不能闭合，请刷新原请求。" }); }
+        try { reply(response, 200, await dispatchCustomerServiceCloseAuthority(options.mutableRoot, JSON.parse(raw).authorizationId, customerServiceCoordinator)); }
+        catch { reply(response, 409, { ok: false, error: "CUSTOMER_SERVICE_OPERATOR_RECONCILIATION_BLOCKED", message: "原任务暂不能闭合或续接验证，请刷新原请求。" }); }
         return;
       }
       if (request.method === "POST" && route === "/coordination/jackyun-recovery-dispatch") {

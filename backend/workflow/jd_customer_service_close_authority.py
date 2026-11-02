@@ -1,18 +1,8 @@
-"""Permission for closing one exact stuck JD customer-service pre-submit
-failure; never a retry permission and never an automatic-closure bypass.
+"""Exact operator authority for failed closure or executed-plan verification.
 
-The automatic closer (`tools/jd-customer-service-failure-closure.ts`) and the
-recovery consumer (`tools/jd-customer-service-source-recovery.ts`) already
-exist. This module only mints the human permission receipt that the Worker
-route uses before it is allowed to ask the local helper to write the actual
-`CustomerServiceRecoveryApproval` file; it never touches n8n, the automatic
-closure whitelist, or the pipeline's own retry path.
-
-`failureCode` here is intentionally the ORIGINAL plan's own failure code
-(e.g. `PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION`), never the transient
-`PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION` that only exists as the new A round's
-rejection reason and is never a plan's own stored `failureCode`. See the task
-report for the trace proving this.
+The local helper independently checks terminal execution, ownership, sources
+and plan CAS before committing. Authority is never itself a completed result
+and never grants old-source recovery or a business rerun.
 """
 import re
 import uuid
@@ -20,7 +10,7 @@ from django.utils import timezone
 from .models import WorkflowWriteRequestReceipt
 from .errors import WorkflowApiError
 
-VERSION = "jd-customer-service-operator-close-authority-v1"
+VERSION = "jd-customer-service-operator-reconcile-authority-v2"
 PATH = "/api/workflow/jd-customer-service-close-authority"
 
 STORE_KEYS = {
@@ -30,8 +20,7 @@ STORE_KEYS = {
     "jd-cuizhiwang-dengweizhang",
 }
 
-# Mirrors exactly what tools/jd-customer-service-source-recovery.ts's
-# inspectCustomerServiceRecovery() can structurally accept per `kind`.
+# Mirrors inspectCustomerServiceCloseEvidence() and controlled verification.
 # Widening this set is a business-rule decision, not a Django-only change:
 # the TypeScript consumer must accept the same code for the same kind first.
 FAILURE_CODES_BY_KIND = {
@@ -41,6 +30,8 @@ FAILURE_CODES_BY_KIND = {
         "CUSTOMER_SERVICE_FAILED_MANUAL_ACTION",
     },
     "downloaded_pair": {"PAIR_PARSE_REJECTED"},
+    "downloaded_list_only": {"CHAT_PAGE_MISMATCH", "CHAT_PAGE_NOT_READY_MANUAL_ACTION"},
+    "executed_verify": {""},
 }
 
 HEX64 = re.compile(r"[a-f0-9]{64}")
@@ -58,7 +49,7 @@ def _period(value):
 
 
 def validate(payload):
-    if not isinstance(payload, dict) or set(payload) not in ({"action", "target"}, {"action", "target", "closeRequestId"}) or payload["action"] != "close":
+    if not isinstance(payload, dict) or set(payload) != {"action", "target"} or payload["action"] not in {"close", "verify"}:
         raise WorkflowApiError("闭合授权必须明确绑定当前旧任务")
     target = payload["target"]
     required = {"storeKey", "kind", "originalExecutionId", "originalPlanSha256", "failureCode", "period"}
@@ -68,6 +59,8 @@ def validate(payload):
         raise WorkflowApiError("闭合目标店铺超出京东客服四店范围")
     if target["kind"] not in FAILURE_CODES_BY_KIND:
         raise WorkflowApiError("闭合恢复种类无效")
+    if (payload["action"] == "verify") != (target["kind"] == "executed_verify"):
+        raise WorkflowApiError("验证续接与失败闭合授权不可混用")
     if not isinstance(target["originalExecutionId"], str) or not EXECUTION_ID.fullmatch(target["originalExecutionId"]):
         raise WorkflowApiError("闭合原任务编号无效")
     if not isinstance(target["originalPlanSha256"], str) or not HEX64.fullmatch(target["originalPlanSha256"]):

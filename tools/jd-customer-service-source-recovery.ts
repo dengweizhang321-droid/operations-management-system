@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, open, readFile, realpath, lstat, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, realpath, lstat, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { customerServiceStore } from "../lib/jd/customer-service-stores";
@@ -10,7 +10,7 @@ import type { CustomerServiceN8nPlan } from "./jd-customer-service-n8n-pipeline"
 import type { CustomerServiceDurationAnomaly } from "./jd-customer-service-duration-normalization";
 import { customerServiceControlBytes } from "./jd-customer-service-failure-closure";
 import { publishDurableFile, readJsonDurableOr } from "../lib/jackyun/json-file";
-import type { CustomerServiceCloseTarget } from "../lib/jd/customer-service-close-contract";
+import type { CustomerServiceCloseTarget, CustomerServiceCloseKind } from "../lib/jd/customer-service-close-contract";
 
 export const customerServiceRecoveryHeader = "x-teruisi-jd-customer-service-recovery-sha256";
 type IdentityWitness = { shopName: string; shopTitle: string; listTabs: 1; messageTabs: 1; challengePresent: false; credentialsSubmitted: false; exportSubmitted: false; importSubmitted: false };
@@ -113,25 +113,87 @@ function customerServicePlanFile(root: string, executionId: string, storeKey: st
 }
 
 export type CustomerServiceCloseAuthorityTarget = {
-  storeKey: string; kind: CustomerServiceRecoveryApproval["kind"];
+  storeKey: string; kind: CustomerServiceCloseKind;
   originalExecutionId: string; originalPlanSha256: string;
   failureCode: string; period: CustomerServicePeriod;
 };
 
 const zeroEffectCodes = ["PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION", "CHAT_PAGE_NOT_READY_MANUAL_ACTION", "CUSTOMER_SERVICE_FAILED_MANUAL_ACTION"];
 
-/** Read-only counterpart to generateCustomerServiceRecoveryApproval(): finds
- * the store's current active plan, and if it is a stuck pre-submit failure,
- * reports the exact fields an operator needs to submit a close request --
- * without writing anything or re-simulating the automatic closer.
- *
- * closeAllowed=true is only reported once every remaining structural check
- * generateCustomerServiceRecoveryApproval() would itself perform (registry
- * enabled/identity match, no leftover download directory for
- * pre_export_zero_effect, both checkpoints present and content-consistent
- * for downloaded_pair) has already passed here too, so a "can close" button
- * can never be followed by a rejected submission for a reason this function
- * did not already surface.
+export function customerServiceCloseEvidenceCode(error: unknown) {
+  const allowed = ["PAIR_PARSE_REJECTED", "UNRECOGNIZED_LOG_BLOCK", "INVALID_LOG_BLOCK", "FILE_DATE_OUT_OF_SCOPE", "INVALID_FILE_SIZE", "DAILY_PAYLOAD_TOO_LARGE", "DAILY_PARTITION_CHANGED_BUSINESS_VALUES", "SOURCE_RECOVERY_REJECTED_MANUAL_ACTION"];
+  const code = error instanceof JdCustomerServiceWorkflowError ? error.code : "";
+  return allowed.includes(code) ? code : "CLOSE_SOURCE_EVIDENCE_INVALID";
+}
+
+/** Shared by target inspection, operator commit, and the next A consumer.
+ * No import writes occur here. A missing messages checkpoint proves no submit
+ * only with the precise failure location before the first messages checkpoint.
+ */
+export async function inspectCustomerServiceCloseEvidence(root: string, previous: CustomerServiceN8nPlan) {
+  const store = customerServiceStore(previous.storeKey);
+  if (previous.version !== 1 || previous.stage !== "failed" || previous.shopName !== store.shopName || previous.shopId !== store.shopId
+    || !Array.isArray(previous.proofs) || previous.proofs.length
+    || Object.keys(previous).some(key => !["version", "storeKey", "shopId", "shopName", "executionId", "period", "createdAt", "updatedAt", "stage", "source", "proofs", "failureCode", "failureBoundary"].includes(key))
+    || ["sourceRecovery", "importingDate", "dailyFiles", "derivedDirectory", "sourceSessionSha256", "sourceChatSha256", "sourceCounts", "durationAnomalies", "normalizedSessionSha256", "operatorVerification"].some(key => key in previous)) reject();
+  const registered = validateJdStoreRegistry(JSON.parse(await readFile(path.join(root, "config/jd-store-accounts.json"), "utf8")), root).find(item => item.storeKey === store.storeKey);
+  if (!registered?.enabled || registered.shopId !== store.shopId || registered.shopName !== store.shopName) reject();
+  const parentDirectory = path.join(registered.browser.downloadDir, "customer-service", previous.executionId);
+  const views = Object.keys(previous.source).sort().join();
+  let names: string[] = [];
+  try {
+    const info = await lstat(parentDirectory);
+    if (!info.isDirectory() || info.isSymbolicLink() || path.resolve(await realpath(parentDirectory)).toLowerCase() !== path.resolve(parentDirectory).toLowerCase()) reject();
+    names = await readdir(parentDirectory);
+  } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  if (!views) {
+    if (!zeroEffectCodes.includes(previous.failureCode ?? "") || !previous.failureBoundary?.browserClosed || previous.failureBoundary.version !== 1
+      || !["browser_start", "open_customer_service_page", "export_list", "export_messages"].includes(previous.failureBoundary.step) || names.length) reject();
+    return { kind: "pre_export_zero_effect" as const, registered, sourceEvidence: { files: [], sourceCount: 0 } };
+  }
+  const listOnly = views === "list";
+  if (listOnly) {
+    // Both codes are thrown before messages.querying. NOT_READY is emitted
+    // from assertStore's page gate; later failures would retain a checkpoint.
+    if (!["CHAT_PAGE_MISMATCH", "CHAT_PAGE_NOT_READY_MANUAL_ACTION"].includes(previous.failureCode ?? "")
+      || previous.failureBoundary?.version !== 1 || previous.failureBoundary.browserClosed !== true || previous.failureBoundary.step !== "export_messages"
+      || previous.failureCode === "CHAT_PAGE_NOT_READY_MANUAL_ACTION" && previous.failureBoundary.preSubmitView !== "messages") reject();
+  } else if (views !== "list,messages" || previous.failureCode !== "PAIR_PARSE_REJECTED"
+    || previous.failureBoundary?.version !== 1 || previous.failureBoundary.browserClosed !== true || previous.failureBoundary.step !== "export_messages") reject();
+  const files: { view: string; savedPath: string; sha256: string; sizeBytes: number; sourceCount: number }[] = [];
+  const bytes: Uint8Array[] = [];
+  for (const view of listOnly ? ["list"] as const : ["list", "messages"] as const) {
+    const checkpoint = previous.source[view];
+    if (!checkpoint || checkpoint.view !== view || checkpoint.phase !== "downloaded" || !checkpoint.savedPath
+      || Object.keys(checkpoint).some(key => !["view", "phase", "sourceCount", "savedPath", "sha256", "sizeBytes", "observedAt"].includes(key))
+      || path.dirname(path.resolve(checkpoint.savedPath)).toLowerCase() !== path.resolve(parentDirectory).toLowerCase()
+      || path.basename(checkpoint.savedPath) !== (view === "list" ? "list.xlsx" : "messages.log")
+      || !Number.isSafeInteger(checkpoint.sourceCount) || Number(checkpoint.sourceCount) <= 0) reject();
+    // Validate every directory component, including junctions, before bytes.
+    for (let cursor = path.resolve(checkpoint.savedPath); ; cursor = path.dirname(cursor)) {
+      const info = await lstat(cursor);
+      if (info.isSymbolicLink() || (cursor === path.resolve(checkpoint.savedPath) ? !info.isFile() || info.nlink !== 1 : !info.isDirectory())
+        || path.resolve(await realpath(cursor)).toLowerCase() !== cursor.toLowerCase()) reject();
+      if (path.dirname(cursor) === cursor) break;
+    }
+    const file = await regularBytes(checkpoint.savedPath, 25 * 1024 * 1024);
+    if (file.length !== checkpoint.sizeBytes || digest(file) !== checkpoint.sha256) reject();
+    files.push({ view, savedPath: checkpoint.savedPath, sha256: checkpoint.sha256!, sizeBytes: file.length, sourceCount: checkpoint.sourceCount! }); bytes.push(file);
+  }
+  if (names.sort().join() !== files.map(file => path.basename(file.savedPath)).sort().join()) reject();
+  if (listOnly) return { kind: "downloaded_list_only" as const, registered, sourceEvidence: { files, sourceCount: files[0].sourceCount, boundary: previous.failureBoundary } };
+  if (files[0].sourceCount !== files[1].sourceCount) reject();
+  const parsed = buildCustomerServiceDailyFiles(bytes[0], bytes[1], previous.period, store.storeKey, { negativeDurationToMissing: true, closureEvidenceOnly: true });
+  if (parsed.summary.sessionCount !== files[0].sourceCount || parsed.summary.chatSessionCount !== files[1].sourceCount || !parsed.durationAnomalies.length) reject();
+  return { kind: "downloaded_pair" as const, registered, sourceEvidence: { files, sourceCount: files[0].sourceCount,
+    summary: parsed.summary, durationAnomalies: parsed.durationAnomalies, normalizedSessionSha256: parsed.normalizedSessionSha256,
+    sourceSessionSha256: parsed.sourceSessionSha256, sourceChatSha256: parsed.sourceChatSha256,
+    dailyFiles: parsed.files.map(({ date, sessionSha256, chatSha256, contentSha256, conversationCount }) => ({ date, sessionSha256, chatSha256, contentSha256, conversationCount })) } };
+}
+
+/** Read-only inspection for independent failed closure or executed verification.
+ * This does not issue authority or create a terminal receipt. Runtime ownership,
+ * n8n terminal state, locks and CAS are rechecked by the operator commit path.
  */
 export async function readCustomerServiceCloseTarget(root: string, storeKey: unknown): Promise<CustomerServiceCloseTarget> {
   let store;
@@ -145,82 +207,22 @@ export async function readCustomerServiceCloseTarget(root: string, storeKey: unk
   let previous: CustomerServiceN8nPlan;
   try {
     previousBytes = await customerServiceControlBytes(customerServicePlanFile(root, active.executionId, store.storeKey));
-    previous = JSON.parse(previousBytes.toString("utf8")) as CustomerServiceN8nPlan;
+    previous = JSON.parse(Buffer.from(previousBytes).toString("utf8")) as CustomerServiceN8nPlan;
   } catch { return { ok: true, closeAllowed: false, reason: "该店活动任务对应的计划文件无法核实。" }; }
   if (previous.executionId !== active.executionId || previous.version !== 1 || previous.storeKey !== store.storeKey
     || previous.shopName !== store.shopName || previous.shopId !== store.shopId) {
     return { ok: true, closeAllowed: false, reason: "活动任务与计划文件不一致，暂不能判断是否可闭合。" };
   }
-  if (previous.stage !== "failed") return { ok: true, closeAllowed: false, reason: `该店当前任务处于 ${previous.stage}，不是失败状态，无需闭合。` };
-  if (previous.proofs.length || previous.importingDate || previous.dailyFiles) {
-    return { ok: true, closeAllowed: false, reason: "该次失败已有部分导入进度，不属于可人工闭合的范围，需要另行核查。" };
-  }
-  const originalPlanSha256 = createHash("sha256").update(previousBytes).digest("hex");
-  const failureCode = previous.failureCode ?? "";
   const common = { storeKey: store.storeKey, shopName: store.shopName, shopId: store.shopId,
-    originalExecutionId: previous.executionId, originalPlanSha256, failureCode, period: previous.period };
-  // isCustomerServicePreSubmitFailure() only gates whether the automatic
-  // closer may ATTEMPT closure; it structurally passes an empty-source plan
-  // even when that plan is, in practice, exactly the stuck kind this human
-  // entry exists for (the automatic closer still depends on live n8n
-  // execution_entity history for the old executionId, which is routinely
-  // pruned weeks later -- see the real exec 7250/8653/9243/7266/7482/9861
-  // plans in docs/autoimport-workflow-unification-20261029/客服四店全败诊断.md,
-  // all of which pass this predicate yet are the real-world stuck examples).
-  // So it is deliberately NOT used as a "defer to automatic path" gate here;
-  // only the kind-specific structural checks below (mirroring exactly what
-  // generateCustomerServiceRecoveryApproval() requires) decide closeAllowed.
-  const hasSource = Object.keys(previous.source).length > 0;
-  let registered: JdStore | undefined;
+    originalExecutionId: previous.executionId, originalPlanSha256: digest(previousBytes), failureCode: previous.failureCode ?? "", period: previous.period };
+  if (previous.stage === "executed") return { ok: true, closeAllowed: true, target: { ...common, kind: "executed_verify" }, reason: "该任务已执行，可受控从磁盘续接原 C 验证；不重跑导出或导入。" };
+  if (previous.stage !== "failed") return { ok: true, closeAllowed: false, reason: "该任务无需失败闭合或验证续接。" };
   try {
-    const registry = validateJdStoreRegistry(JSON.parse(await readFile(path.join(root, "config", "jd-store-accounts.json"), "utf8")), root);
-    registered = registry.find(item => item.storeKey === store.storeKey);
-  } catch { return { ok: true, closeAllowed: false, reason: "店铺注册表无法核实，暂不能判断是否可闭合。" }; }
-  if (!registered?.enabled || registered.shopName !== store.shopName || registered.shopId !== store.shopId) {
-    return { ok: true, closeAllowed: false, reason: "该店注册信息未启用或身份不符，暂不能闭合。" };
+    const evidence = await inspectCustomerServiceCloseEvidence(root, previous);
+    return { ok: true, closeAllowed: true, target: { ...common, kind: evidence.kind }, reason: "来源和未发布证据可核实；可保留原失败及来源并闭合，后续正常 A 按新窗口重新采集。" };
+  } catch (error) {
+    return { ok: true, closeAllowed: false, reason: `闭合证据无法核实（${customerServiceCloseEvidenceCode(error)}），需要人工核查。` };
   }
-  const parentDirectory = path.join(registered.browser.downloadDir, "customer-service", previous.executionId);
-  if (!hasSource) {
-    if (!previous.failureBoundary) {
-      return { ok: true, closeAllowed: false, target: { ...common, kind: "pre_export_zero_effect" },
-        reason: "这是该字段引入前的旧格式计划（无 failureBoundary），自动判据无法确认浏览器是否已关闭，需要人工核实后再闭合。" };
-    }
-    if (!zeroEffectCodes.includes(failureCode)) {
-      return { ok: true, closeAllowed: false, target: { ...common, kind: "pre_export_zero_effect" },
-        reason: `该失败码 ${failureCode || "（缺失）"} 不在可审批范围内，不能作为 pre_export_zero_effect 闭合。` };
-    }
-    const leftover = await lstat(parentDirectory).then(() => true, (error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return false; throw error; });
-    if (leftover) return { ok: true, closeAllowed: false, target: { ...common, kind: "pre_export_zero_effect" },
-      reason: "该次执行的下载目录仍有残留文件，与来源为空的前提矛盾，需要人工核实后再闭合。" };
-    return { ok: true, closeAllowed: true, target: { ...common, kind: "pre_export_zero_effect" },
-      reason: "来源为空、无下载残留，可按 pre_export_zero_effect 闭合。" };
-  }
-  // source 非空：失败发生在已取到部分来源之后，只能走 downloaded_pair 路径。
-  if (failureCode !== "PAIR_PARSE_REJECTED") {
-    return { ok: true, closeAllowed: false, target: { ...common, kind: "downloaded_pair" },
-      reason: `失败发生在已取到部分来源之后（source 非空），但失败码 ${failureCode || "（缺失）"} 不是 PAIR_PARSE_REJECTED，不能按 downloaded_pair 闭合，需要人工核实。` };
-  }
-  try {
-    const bytes: Uint8Array[] = [];
-    for (const [index, view] of (["list", "messages"] as const).entries()) {
-      const checkpoint = previous.source[view];
-      if (!checkpoint?.savedPath || checkpoint.phase !== "downloaded" || checkpoint.view !== view
-        || path.dirname(path.resolve(checkpoint.savedPath)).toLowerCase() !== path.resolve(parentDirectory).toLowerCase()
-        || path.extname(checkpoint.savedPath).toLowerCase() !== (index === 0 ? ".xlsx" : ".log")
-        || !Number.isSafeInteger(checkpoint.sourceCount) || Number(checkpoint.sourceCount) <= 0) throw new Error("checkpoint_shape_invalid");
-      const file = await regularBytes(checkpoint.savedPath, 25 * 1024 * 1024);
-      if (file.length !== checkpoint.sizeBytes || digest(file) !== checkpoint.sha256) throw new Error("checkpoint_content_mismatch");
-      bytes.push(file);
-    }
-    if (previous.source.list?.sourceCount !== previous.source.messages?.sourceCount) throw new Error("source_count_mismatch");
-    const parsed = buildCustomerServiceDailyFiles(bytes[0], bytes[1], previous.period, store.storeKey, { negativeDurationToMissing: true });
-    if (parsed.summary.sessionCount !== previous.source.list?.sourceCount || !parsed.durationAnomalies.length) throw new Error("no_duration_anomaly");
-  } catch {
-    return { ok: true, closeAllowed: false, target: { ...common, kind: "downloaded_pair" },
-      reason: "已下载的两个来源文件无法核实或重新解析不出匹配的真实失败证据，需要人工核实后再闭合。" };
-  }
-  return { ok: true, closeAllowed: true, target: { ...common, kind: "downloaded_pair" },
-    reason: "失败发生在已取到部分来源之后，两个来源文件均已下载并可重新解析核实，可按 downloaded_pair 闭合。" };
 }
 
 /** Writes the one file tools/jd-customer-service-n8n-pipeline.ts and
@@ -311,23 +313,8 @@ export async function generateCustomerServiceRecoveryApproval(root: string, targ
   return { approval, approvalSha256 };
 }
 
-type CloseAuthority = { ok: true; version: "jd-customer-service-operator-close-authority-v1"; action: "close";
-  target: CustomerServiceCloseAuthorityTarget; authorizationId: string; closeRequestId?: string; createdAt: string; expiresAt: string };
-const authorityUuid = (v: unknown): v is string => typeof v === "string" && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(v);
-
-/** Re-fetches and independently re-validates the Django-issued permission
- * receipt before generating anything; the helper process never trusts a bare
- * authorizationId. Mirrors lib/jackyun/operator-close.ts's authority(). */
-export async function dispatchCustomerServiceCloseAuthority(root: string, authorizationId: string, request: typeof fetch = fetch) {
-  if (!authorityUuid(authorizationId)) reject();
-  const response = await request(`http://localhost:3000/api/imports/recovery/customer-service-close?authorizationId=${authorizationId}`, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(10000) });
-  const raw = await response.text();
-  if (!response.ok || Buffer.byteLength(raw) > 8192) reject();
-  const value = JSON.parse(raw) as CloseAuthority;
-  if (value.ok !== true || value.version !== "jd-customer-service-operator-close-authority-v1" || value.authorizationId !== authorizationId || value.action !== "close"
-    || value.closeRequestId !== undefined && !authorityUuid(value.closeRequestId)
-    || !Number.isFinite(Date.parse(value.createdAt)) || Date.parse(value.createdAt) > Date.now()
-    || !Number.isFinite(Date.parse(value.expiresAt)) || Date.parse(value.expiresAt) <= Date.now()) reject();
-  const { approval, approvalSha256 } = await generateCustomerServiceRecoveryApproval(root, value.target, new Date(value.createdAt), Date.parse(value.expiresAt) - Date.parse(value.createdAt));
-  return { ok: true as const, storeKey: approval.storeKey, originalExecutionId: approval.originalExecutionId, approvalSha256 };
+/** Dedicated operator semantics; the old recovery approval consumer above
+ * retains its original same-period, TTL and source-reuse restrictions. */
+export async function dispatchCustomerServiceCloseAuthority(root: string, authorizationId: string, coordinator: import("../lib/jackyun/operator-close").CloseSlotCoordinator, request: typeof fetch = fetch) {
+  return (await import("./jd-customer-service-operator-reconcile")).reconcileCustomerServiceOperator(root, authorizationId, coordinator, request);
 }

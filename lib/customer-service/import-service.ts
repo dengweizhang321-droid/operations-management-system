@@ -126,10 +126,10 @@ function numberOrNull(value: unknown, field: string, rowNumber: number, integer 
   return number;
 }
 
-export function validateCustomerServiceConversationMessages(conversations: readonly CustomerServiceConversationInput[]) {
+export function validateCustomerServiceConversationMessages(conversations: readonly CustomerServiceConversationInput[], policy: "import" | "closure_evidence" = "import") {
   const encoder = new TextEncoder();
   conversations.forEach((conversation, conversationIndex) => {
-    if (conversation.messages.length > CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT) {
+    if (policy === "import" && conversation.messages.length > CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT) {
       throw new CustomerServiceImportError(`第 ${conversationIndex + 1} 条客服会话消息数超过 ${CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT} 条上限`);
     }
     conversation.messages.forEach((message, messageIndex) => {
@@ -248,7 +248,7 @@ export function parseSessionWorkbook(bytes: Uint8Array): CustomerServiceSession[
   return parsed;
 }
 
-export function parseChatLog(text: string): ParsedChatSession[] {
+export function parseChatLog(text: string, policy: "import" | "closure_evidence" = "import"): ParsedChatSession[] {
   const parts = text.replace(/^\uFEFF/, "").split(/\/\*+\s*以下为一通会话\s*\*+\/\s*/g);
   const sessions: ParsedChatSession[] = [];
   for (const part of parts) {
@@ -272,7 +272,7 @@ export function parseChatLog(text: string): ParsedChatSession[] {
     validateCustomerServiceConversationMessages([{
       sourceRowNumber: 0, consultedAt: messages[0].sentAt, customerId: "", customerAlias: "", consultationType: "", agent: "", transferredAgent: "", skillGroup: "", productSku: "", productName: "", firstResponseAt: "", responseSeconds: null, durationMinutes: null, customerMessageCount: null, agentMessageCount: null, satisfaction: "", resolved: "", conversationId: "",
       conversationKey: "", matchStatus: "chat_only", matchConfidence: "none", chatStartedAt: messages[0].sentAt, chatEndedAt: messages[messages.length - 1].sentAt, chatCustomerAlias: "", messages,
-    }]);
+    }], policy);
     sessions.push({
       sourceNumber: sessions.length + 1,
       customerAlias: customerAlias(messages[0].sender),
@@ -417,8 +417,8 @@ export function matchCustomerServiceRecords(sessions: CustomerServiceSession[], 
   };
 }
 
-export function parseCustomerServiceImport(sessionBytes: Uint8Array, chatLog: string) {
-  const parsed = matchCustomerServiceRecords(parseSessionWorkbook(sessionBytes), parseChatLog(chatLog));
-  validateCustomerServiceConversationMessages(parsed.conversations);
+export function parseCustomerServiceImport(sessionBytes: Uint8Array, chatLog: string, policy: "import" | "closure_evidence" = "import") {
+  const parsed = matchCustomerServiceRecords(parseSessionWorkbook(sessionBytes), parseChatLog(chatLog, policy));
+  validateCustomerServiceConversationMessages(parsed.conversations, policy);
   return parsed;
 }

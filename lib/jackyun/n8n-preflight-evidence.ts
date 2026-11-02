@@ -9,6 +9,31 @@ import { parseRecoveryRequest, type RecoveryRequest } from "./recovery-control";
 import { customerServiceStore } from "../jd/customer-service-stores";
 
 /** Fixed customer-service execution metadata; never reads customer business data. */
+export function readCustomerServiceOperatorEvidence(storeKey: string, executionId: string, action: "close" | "verify", replacementId?: string) {
+  const { workflowId } = customerServiceStore(storeKey);
+  if (!/^[1-9]\d{0,19}$/.test(executionId)) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+  const db = openN8nMetadata();
+  try {
+    db.exec("PRAGMA query_only=ON; PRAGMA busy_timeout=3000; BEGIN");
+    const row = db.prepare("SELECT workflowId,status,startedAt,stoppedAt,retrySuccessId,deletedAt FROM execution_entity WHERE id=?").get(executionId);
+    if (!row || row.workflowId !== workflowId || !(action === "close" ? ["error"] : ["error", "success"]).includes(String(row.status))
+      || row.retrySuccessId !== null || row.deletedAt !== null) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    const startedAt = n8nEvidenceTime(row.startedAt), stoppedAt = n8nEvidenceTime(row.stoppedAt);
+    if (startedAt > stoppedAt || stoppedAt > new Date().toISOString()) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    if (replacementId !== undefined) {
+      if (!/^[1-9]\d{0,19}$/.test(replacementId) || BigInt(replacementId) <= BigInt(executionId)) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+      const current = db.prepare("SELECT workflowId,status,mode,startedAt,deletedAt FROM execution_entity WHERE id=?").get(replacementId);
+      if (!current || current.workflowId !== workflowId || current.status !== "running" || current.deletedAt !== null
+        || !["manual", "trigger"].includes(String(current.mode)) || stoppedAt > n8nEvidenceTime(current.startedAt)) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    }
+    const active = db.prepare("SELECT id FROM execution_entity WHERE workflowId=? AND deletedAt IS NULL AND status NOT IN ('error','success','canceled','crashed') AND id<>? LIMIT 1").get(workflowId, replacementId ?? "");
+    if (active) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");
+    // The plan's before-write checkpoints establish zero import effects for
+    // failed closure; this separately establishes the original worker stopped.
+    return { workflowId, executionId, status: String(row.status), startedAt, stoppedAt };
+  } finally { db.close(); }
+}
+
 export function readCustomerServiceFailureEvidence(storeKey: string, executionId: string, replacementId: string) {
   const { workflowId } = customerServiceStore(storeKey);
   if (![executionId, replacementId].every(id => /^[1-9]\d{0,19}$/.test(id)) || BigInt(replacementId) <= BigInt(executionId)) throw Error("CUSTOMER_SERVICE_CLOSURE_EVIDENCE_INVALID");

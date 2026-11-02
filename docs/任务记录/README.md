@@ -157,6 +157,8 @@
 
 ## 自动化
 
+本轮候选：[四条遗留链路闭合修复](../autoimport-stuck-plan-closure-20261102/REPORT.md) · [施工说明](../autoimport-stuck-plan-closure-20261102/施工说明.md) · [独立反审](../autoimport-stuck-plan-closure-20261102/REVIEW.md)（未合并、未上线、未执行真实闭合）。
+
 | 任务目录 | 文档数 | 入口 |
 | --- | --- | --- |
 | `jackyun-7792-receipt-recovery-20261010` | 2 | [吉客云 7792 已提交销售回执与组合装续导](../jackyun-7792-receipt-recovery-20261010/README.md) |
