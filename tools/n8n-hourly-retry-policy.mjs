@@ -44,7 +44,7 @@ const terminalFailurePatterns = [
   "逐页货品文件合计 \\d+ 个唯一商品，与出售中总数 \\d+ 不一致|市场榜单导入响应与签收文件、身份、日期或行数不一致",
   "需要人工|转人工|manual action|required human",
   "京东物流流程未完成；原计划与未决任务已保留，禁止自动重发导出或导入",
-  "文件校验未通过，未写入任何库存数据",
+  "文件校验未通过",
   "导入未全部完成或覆盖回查未命中",
   "\\bAPI_SERVER_CLOCK_UNVERIFIED\\b",
 ];

@@ -19,6 +19,7 @@ const workflowDirectory = new URL("../automation/n8n/", import.meta.url);
 const c1TerminalFailures = [
   "京东物流流程未完成；原计划与未决任务已保留，禁止自动重发导出或导入。请核验原 execution、manifest 与源任务。",
   "文件校验未通过，未写入任何库存数据",
+  "文件校验未通过，未创建规范化导入会话",
   "导入未全部完成或覆盖回查未命中，详见结果清单",
   "API_SERVER_CLOCK_UNVERIFIED",
 ];
