@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, lstat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -12,6 +12,9 @@ import { jackyunDjangoImportReceipt } from "../lib/jackyun/django-import-receipt
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
 import { runJackyunExportFirstAction, type ExportFirstDependencies } from "../tools/jackyun-export-first-pipeline";
 import { stableRowCount, type QueryRefreshTracking } from "../tools/jackyun-browser-controller";
+import { runApiExports } from "../tools/jackyun-api-export";
+import type { ApiTemplates } from "../lib/jackyun/api-plan";
+import type { JackyunHttpSession } from "../lib/jackyun/direct-http";
 import type { BrowserAutomationClient } from "../lib/jackyun/cdp-client";
 
 const at = (seconds: number) => new Date(Date.UTC(2026, 8, 6, 1, 0, seconds)).toISOString();
@@ -261,4 +264,98 @@ test("cross-day and concurrent executions stop before browser side effects", asy
   const settled = await Promise.allSettled([333, 444].map(id => runJackyunExportFirstAction("plan", String(id), fresh.deps)));
   assert.equal(settled.filter(value => value.status === "fulfilled").length, 1);
   assert.equal(fresh.calls.length, 0);
+});
+
+// Minimal authenticated-API fixture: enough scope/count/validation answers for
+// prepareApiExport to reach the server-clock assertion for the first module.
+const apiTemplates = JSON.parse(await readFile(new URL("../config/jackyun-api-templates.json", import.meta.url), "utf8")) as ApiTemplates;
+function apiHttp(driftMs: number) {
+  const calls: string[] = [];
+  const warehouseIds = Array.from({ length: 256 }, (_, i) => String(i + 1));
+  const http = {
+    get serverClock() {
+      const now = new Date().toISOString();
+      return { requestStartedAt: now, receivedAt: now, serverDate: new Date(Math.floor(Date.now() / 1000) * 1000 + driftMs).toISOString() };
+    },
+    request: async (operation: string) => {
+      calls.push(operation);
+      const data: Record<string, unknown> = {
+        rolePermissions: ["branch_stock", "goods_managet_combination", "order_detail_list", "warehouse_age_analysis", "goods_managet_query"]
+          .map(moduleCode => ({ moduleCode, hasPermission: 1, isBuy: 1 })),
+        roleFunctions: ["branch_stock_export", "goods_managet_combination_export", "goods_managet_query_export", "oms_order_detail_list_export"]
+          .map(funCode => ({ funCode })),
+        dataFieldPermissions: { visible: ["coupon_password", "creditOverdueLimit"], write: ["creditOverdueLimit"] },
+        warehouses: warehouseIds.map(warehouseId => ({ warehouseId, warehouseTypeCode: "1" })),
+        owners: [{ id: "123", jlinkOwnerId: "123", name: "自营", memberName: "fixture" }],
+        inventoryCount: "25734", goodsCount: 1942, ageCount: 5684, salesCount: "6556", validateExport: null, tasks: [],
+      };
+      const result = data[operation];
+      return { data: result, pageInfo: operation === "tasks" ? { total: 0 } : null, noPrivilegeItem: null, desensitizationItem: null };
+    },
+  } as unknown as JackyunHttpSession;
+  return { http, calls };
+}
+
+test("a real drifted-clock API export clears the plan intent and keeps its own error code", async () => {
+  const f = await fixture();
+  // The API adapter reads the live clock, so this run must use real time.
+  f.deps.now = () => new Date();
+  f.deps.runBrowser = async () => { throw new Error("DOM_REPORT_ADAPTER_MUST_NOT_RUN"); };
+  // 13.03s ahead, the exact 11055 shape: past the 10s tolerance.
+  const api = apiHttp(13033);
+  f.deps.runApi = async options => runApiExports(options,
+    { http: api.http, tenantId: "fixture", templates: apiTemplates, taskTimeoutMs: 5, pollIntervalMs: 1 });
+  const run = (action: string) => runJackyunExportFirstAction(action, "11055", f.deps);
+  const plan = await run("plan-api");
+  assert.equal(plan.exportTransport, "session_api_v1");
+  const planPath = path.join(f.root, "outputs", "jackyun-export-first", "n8n-export-first-11055.json");
+  // The real adapter throws, and the original clock code must survive the catch:
+  // a TypeError here would be unclassifiable and lose the generic closure route.
+  await assert.rejects(run("export-all"), /^Error: API_SERVER_CLOCK_UNVERIFIED$/);
+  assert.equal(api.calls.filter(operation => operation === "submitExport").length, 0);
+  // The failure is decided locally before any write, so the pipeline must drop
+  // the intent beforeModule wrote; a retained intent blocks every zero-effect route.
+  const after = JSON.parse(await readFile(planPath, "utf8"));
+  assert.equal(Object.hasOwn(after, "exportIntent"), false);
+  assert.equal(after.phase, "exporting");
+  assert.deepEqual(after.exports, {});
+  // No controller, event or download tree was left behind either.
+  for (const target of [path.join(f.root, "outputs", "jackyun-import-runs", "n8n-export-first-11055"),
+    path.join(f.root, "outputs", "jackyun-browser-events", "n8n-export-first-11055")]) {
+    await assert.rejects(lstat(target), /ENOENT/, `${target} must not exist`);
+  }
+  // A healthy clock on the same fixture still proceeds past the assertion.
+  const healthy = apiHttp(0);
+  f.deps.runApi = async options => runApiExports(options,
+    { http: healthy.http, tenantId: "fixture", templates: apiTemplates, taskTimeoutMs: 5, pollIntervalMs: 1 });
+  await assert.rejects(run("export-all"), /ORIGINAL_EXPORT_TASK_PENDING|SUBMIT|提交/);
+  assert.ok(healthy.calls.includes("submitExport"), "a verified clock must reach the export POST");
+});
+
+test("a degenerate API controller keeps the plan intent instead of masking the clock error", async () => {
+  for (const [label, controller] of [
+    ["null module entry", JSON.stringify({ version: 2, modules: { inventory: null } })],
+    ["non-object module entry", JSON.stringify({ version: 2, modules: { inventory: "prepared" } })],
+    ["array module map", JSON.stringify({ version: 2, modules: [] })],
+    ["corrupt json", "{ not json"],
+  ] as const) {
+    const f = await fixture();
+    f.deps.runBrowser = async () => { throw new Error("DOM_REPORT_ADAPTER_MUST_NOT_RUN"); };
+    // Stand in for an adapter that persisted a controller and then failed the
+    // clock check (the persist>5s shape), leaving state that proves nothing.
+    f.deps.runApi = async options => {
+      await options.beforeModule?.("inventory");
+      const directory = path.join(options.outputRoot, options.runId);
+      await mkdir(directory, { recursive: true });
+      await writeFile(path.join(directory, "api-controller-state.json"), controller);
+      throw new Error("API_SERVER_CLOCK_UNVERIFIED");
+    };
+    const run = (action: string) => runJackyunExportFirstAction(action, "11056", f.deps);
+    await run("plan-api");
+    // The guard must neither throw a TypeError nor accept unreadable state as
+    // proof: the original error propagates and the intent is preserved.
+    await assert.rejects(run("export-all"), /^Error: API_SERVER_CLOCK_UNVERIFIED$/, label);
+    const after = JSON.parse(await readFile(path.join(f.root, "outputs", "jackyun-export-first", "n8n-export-first-11056.json"), "utf8"));
+    assert.equal(after.exportIntent, "inventory", `${label} must keep the intent`);
+  }
 });

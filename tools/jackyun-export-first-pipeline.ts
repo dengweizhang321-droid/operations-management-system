@@ -113,16 +113,27 @@ function createExportFirstPlan(executionId: string, action: string, createdAt: s
 }
 /** True only when the API controller proves the named module never submitted an
  * export: it must still be "prepared" with no intent, task, binding or file. A
- * missing controller also qualifies, since nothing was ever written. Anything
- * else — including an unreadable or unexpected state — returns false and keeps
- * the plan intent in place. */
+ * missing controller, or one with no entry for the module, also qualifies since
+ * nothing was ever written for it. Anything else returns false and keeps the
+ * plan intent in place: a corrupt, wrongly-linked, non-object or otherwise
+ * unexpected controller is absence of evidence, never evidence of absence. The
+ * caller only drops the intent on a proof, so this must never throw — an
+ * exception here would replace the original clock failure, which then fails
+ * classification and loses the generic closure route the caller relies on. */
 async function assertNoSubmittedApiExport(root: string, runId: string, module: JackyunModule) {
-  const state = await readJsonFileOr<{ modules?: Record<string, Record<string, unknown>> } | null>(
-    path.join(paths(root).outputRoot, runId, "api-controller-state.json"), null);
+  let state: { modules?: unknown } | null;
+  // Corrupt JSON, nlink !== 1 and directory shapes all throw out of the read.
+  try {
+    state = await readJsonFileOr<{ modules?: unknown } | null>(
+      path.join(paths(root).outputRoot, runId, "api-controller-state.json"), null);
+  } catch { return false; }
   if (!state) return true;
-  const entry = state.modules?.[module];
+  if (state.modules === undefined) return true;
+  if (!state.modules || typeof state.modules !== "object" || Array.isArray(state.modules)) return false;
+  const entry = (state.modules as Record<string, unknown>)[module];
   if (entry === undefined) return true;
-  return entry.status === "prepared"
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+  return (entry as Record<string, unknown>).status === "prepared"
     && !["exportIntentAt", "pendingTaskId", "binding", "filePath", "provenance", "handoffSha256", "attachmentObjectSha256"]
       .some(key => Object.hasOwn(entry, key));
 }
