@@ -54,11 +54,11 @@ function filePaths(root: string, executionId: string, storeKey = contract.storeK
   const directory = store.storeKey === contract.storeKey ? base : path.join(base, store.storeKey);
   return { directory, plan: path.join(directory, `${executionId}.json`), active: path.join(directory, "active.json"), lock: path.join(directory, "planning.lock") };
 }
-export function customerServiceHelperError(stage: string, busy: boolean, route: string, executionId: string | null, owner: string | null) {
+export function customerServiceHelperError(stage: string, busy: boolean, route: string, executionId: string | null, owner: string | null, restoreExecuted = false) {
   if (!executionId || !/^[A-Za-z0-9_-]{1,96}$/.test(executionId)) return { error: "invalid_execution_id" };
   if (!owner || executionId !== owner) return { error: "execution_mismatch" };
   if (busy) return { error: "pipeline_busy" };
-  const expected = stage === "ready" ? "plan" : stage === "planned" ? "run" : stage === "executed" ? "verify" : null;
+  const expected = stage === "ready" ? restoreExecuted ? "verify" : "plan" : stage === "planned" ? "run" : stage === "executed" ? "verify" : null;
   return expected && route === `/jd/customer-service/${expected}` ? null : { error: "customer_service_stage_mismatch" };
 }
 export async function planCustomerServiceRun(root: string, executionId: string, now = new Date(), storeKey = contract.storeKey as string, recoverySha256?: string) {
@@ -191,10 +191,30 @@ export async function runCustomerServicePlan(root: string, plan: CustomerService
     plan.failureBoundary = { version: 1, browserClosed, step };
     await save();
     // Do not let browser exceptions leak page text or signed download URLs.
-    reject(plan.failureCode.endsWith("_MANUAL_ACTION") ? plan.failureCode : `${plan.failureCode}_MANUAL_ACTION`);
+    throw new JdCustomerServiceWorkflowError(plan.failureCode.endsWith("_MANUAL_ACTION") ? plan.failureCode : `${plan.failureCode}_MANUAL_ACTION`,
+      error instanceof JdCustomerServiceWorkflowError ? error.detailCode : undefined, { cause: error });
   }
 }
-export async function verifyCustomerServicePlan(root: string, plan: CustomerServiceN8nPlan) {
+// Restore only the original C operation. The caller must already own this exact
+// execution and store in the helper; no A/B, export or import is invoked here.
+export async function restoreAndVerifyCustomerServicePlan(root: string, executionId: string, storeKey: string) {
+  const store = customerServiceStore(storeKey);
+  const files = filePaths(root, executionId, store.storeKey);
+  return withJackyunRunLock({ runId: `cs-verify-${executionId}`, purpose: "jd-customer-service-verify", lockDirectory: files.lock }, async () => {
+    const activeBytes = await customerServiceControlBytes(files.active);
+    const active = JSON.parse(activeBytes.toString("utf8")) as { executionId?: string };
+    const planBytes = await customerServiceControlBytes(files.plan);
+    const plan = JSON.parse(planBytes.toString("utf8")) as CustomerServiceN8nPlan;
+    if (active.executionId !== executionId || plan.executionId !== executionId || plan.version !== 1 || plan.stage !== "executed"
+      || plan.storeKey !== store.storeKey || plan.shopId !== store.shopId || plan.shopName !== store.shopName) reject("EXECUTED_PLAN_RESTORE_REJECTED_MANUAL_ACTION");
+    assertCustomerServicePlanStore(plan, store.storeKey);
+    return verifyCustomerServicePlan(root, plan, async () => {
+      if (!Buffer.from(await customerServiceControlBytes(files.active)).equals(activeBytes)
+        || !Buffer.from(await customerServiceControlBytes(files.plan)).equals(planBytes)) reject("EXECUTED_PLAN_RESTORE_CHANGED_MANUAL_ACTION");
+    });
+  });
+}
+export async function verifyCustomerServicePlan(root: string, plan: CustomerServiceN8nPlan, beforeComplete?: () => Promise<void>) {
   const identity = assertCustomerServicePlanStore(plan);
   if (plan.stage !== "executed" || plan.importingDate || !plan.dailyFiles?.length
     || plan.proofs.length !== plan.dailyFiles.length) reject("INCOMPLETE_PLAN_MANUAL_ACTION");
@@ -214,6 +234,7 @@ export async function verifyCustomerServicePlan(root: string, plan: CustomerServ
       || await digest(path.join(directory, `${day.date}.log`)) !== day.chatSha256) reject("DAILY_FILE_HASH_CHANGED_MANUAL_ACTION");
     await verifyCustomerServiceBatch(proof, "http://localhost:3000", fetch, identity.storeKey);
   }
+  await beforeComplete?.();
   plan.stage = "completed"; plan.updatedAt = new Date().toISOString(); await writeJsonAtomic(filePaths(root, plan.executionId, identity.storeKey).plan, plan);
   return publicCustomerServicePlan(plan);
 }

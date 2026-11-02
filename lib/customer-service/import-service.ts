@@ -1,7 +1,7 @@
 import { parseXlsxFirstSheet, XlsxParseError } from "@/lib/imports/xlsx";
 
 export class CustomerServiceImportError extends Error {
-  constructor(message: string) {
+  constructor(message: string, public readonly code = "IMPORT_PARSE_REJECTED") {
     super(message);
     this.name = "CustomerServiceImportError";
   }
@@ -130,18 +130,18 @@ export function validateCustomerServiceConversationMessages(conversations: reado
   const encoder = new TextEncoder();
   conversations.forEach((conversation, conversationIndex) => {
     if (conversation.messages.length > CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT) {
-      throw new CustomerServiceImportError(`第 ${conversationIndex + 1} 条客服会话消息数超过 ${CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT} 条上限`);
+      throw new CustomerServiceImportError(`第 ${conversationIndex + 1} 条客服会话消息数超过 ${CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT} 条上限`, "MESSAGE_LIMIT_EXCEEDED");
     }
     conversation.messages.forEach((message, messageIndex) => {
       if (message.content.length > CUSTOMER_SERVICE_IMPORT_MESSAGE_CONTENT_LIMIT) {
-        throw new CustomerServiceImportError(`第 ${conversationIndex + 1} 条客服会话的第 ${messageIndex + 1} 条消息超过 ${CUSTOMER_SERVICE_IMPORT_MESSAGE_CONTENT_LIMIT} 字符上限`);
+        throw new CustomerServiceImportError(`第 ${conversationIndex + 1} 条客服会话的第 ${messageIndex + 1} 条消息超过 ${CUSTOMER_SERVICE_IMPORT_MESSAGE_CONTENT_LIMIT} 字符上限`, "MESSAGE_CONTENT_LIMIT_EXCEEDED");
       }
       if (!normalizeDateTime(message.sentAt)) {
-        throw new CustomerServiceImportError(`第 ${conversationIndex + 1} 条客服会话的第 ${messageIndex + 1} 条消息时间无效`);
+        throw new CustomerServiceImportError(`第 ${conversationIndex + 1} 条客服会话的第 ${messageIndex + 1} 条消息时间无效`, "MESSAGE_TIME_INVALID");
       }
     });
     if (encoder.encode(JSON.stringify(conversation.messages)).byteLength > CUSTOMER_SERVICE_IMPORT_CONVERSATION_MESSAGE_BYTES_LIMIT) {
-      throw new CustomerServiceImportError(`第 ${conversationIndex + 1} 条客服会话消息总量超过 128KB 上限`);
+      throw new CustomerServiceImportError(`第 ${conversationIndex + 1} 条客服会话消息总量超过 128KB 上限`, "CONVERSATION_BYTES_LIMIT_EXCEEDED");
     }
   });
 }

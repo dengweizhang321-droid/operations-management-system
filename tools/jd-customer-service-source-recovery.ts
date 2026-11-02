@@ -5,12 +5,13 @@ import { isDeepStrictEqual } from "node:util";
 import { customerServiceStore } from "../lib/jd/customer-service-stores";
 import { JdCustomerServiceWorkflowError, type CustomerServicePeriod } from "../lib/jd/customer-service-workflow";
 import { validateJdStoreRegistry, type JdStore } from "../lib/jd/store-registry";
-import { buildCustomerServiceDailyFiles } from "./jd-customer-service-daily-files";
+import { buildCustomerServiceDailyFiles, customerServicePairParseDetailCode } from "./jd-customer-service-daily-files";
 import type { CustomerServiceN8nPlan } from "./jd-customer-service-n8n-pipeline";
 import type { CustomerServiceDurationAnomaly } from "./jd-customer-service-duration-normalization";
 import { customerServiceControlBytes } from "./jd-customer-service-failure-closure";
 import { publishDurableFile, readJsonDurableOr } from "../lib/jackyun/json-file";
 import type { CustomerServiceCloseTarget } from "../lib/jd/customer-service-close-contract";
+import { CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT } from "../lib/customer-service/import-service";
 
 export const customerServiceRecoveryHeader = "x-teruisi-jd-customer-service-recovery-sha256";
 type IdentityWitness = { shopName: string; shopTitle: string; listTabs: 1; messageTabs: 1; challengePresent: false; credentialsSubmitted: false; exportSubmitted: false; importSubmitted: false };
@@ -151,7 +152,9 @@ export async function readCustomerServiceCloseTarget(root: string, storeKey: unk
     || previous.shopName !== store.shopName || previous.shopId !== store.shopId) {
     return { ok: true, closeAllowed: false, reason: "活动任务与计划文件不一致，暂不能判断是否可闭合。" };
   }
-  if (previous.stage !== "failed") return { ok: true, closeAllowed: false, reason: `该店当前任务处于 ${previous.stage}，不是失败状态，无需闭合。` };
+  if (previous.stage === "executed") return { ok: true, closeAllowed: false,
+    reason: "该店当前任务已完成执行段，但 C 独立复验与收尾尚未完成，仍阻塞下一轮。须按原店铺、原 execution 的受控 verify 入口恢复收尾，不能按导出前零效果闭合或重跑 A/B。" };
+  if (previous.stage !== "failed") return { ok: true, closeAllowed: false, reason: `该店当前任务处于 ${previous.stage}，不属于失败闭合范围。` };
   if (previous.proofs.length || previous.importingDate || previous.dailyFiles) {
     return { ok: true, closeAllowed: false, reason: "该次失败已有部分导入进度，不属于可人工闭合的范围，需要另行核查。" };
   }
@@ -195,7 +198,11 @@ export async function readCustomerServiceCloseTarget(root: string, storeKey: unk
     return { ok: true, closeAllowed: true, target: { ...common, kind: "pre_export_zero_effect" },
       reason: "来源为空、无下载残留，可按 pre_export_zero_effect 闭合。" };
   }
-  // source 非空：失败发生在已取到部分来源之后，只能走 downloaded_pair 路径。
+  if (previous.source.list?.phase === "downloaded" && previous.source.messages?.phase !== "downloaded") {
+    return { ok: true, closeAllowed: false,
+      reason: "会话列表已有导出下载效果，但消息文件未完整取得；不能认定为零效果，也不满足 downloaded_pair 来源复用审批条件，须保留原任务另行核查。" };
+  }
+  // Source reuse approval retains the original period; it is not a discard-and-recollect closure.
   if (failureCode !== "PAIR_PARSE_REJECTED") {
     return { ok: true, closeAllowed: false, target: { ...common, kind: "downloaded_pair" },
       reason: `失败发生在已取到部分来源之后（source 非空），但失败码 ${failureCode || "（缺失）"} 不是 PAIR_PARSE_REJECTED，不能按 downloaded_pair 闭合，需要人工核实。` };
@@ -215,12 +222,24 @@ export async function readCustomerServiceCloseTarget(root: string, storeKey: unk
     if (previous.source.list?.sourceCount !== previous.source.messages?.sourceCount) throw new Error("source_count_mismatch");
     const parsed = buildCustomerServiceDailyFiles(bytes[0], bytes[1], previous.period, store.storeKey, { negativeDurationToMissing: true });
     if (parsed.summary.sessionCount !== previous.source.list?.sourceCount || !parsed.durationAnomalies.length) throw new Error("no_duration_anomaly");
-  } catch {
+  } catch (error) {
+    // Match only labels emitted above; arbitrary parser/file exception text is
+    // never diagnostic output because it can contain original customer data.
+    const evidenceReasons = new Map([
+      ["checkpoint_shape_invalid", "来源下载检查点不完整或路径、文件类型不符（CHECKPOINT_SHAPE_INVALID），当前不能批准来源复用。"],
+      ["checkpoint_content_mismatch", "来源文件的大小或哈希与下载检查点不符（CHECKPOINT_CONTENT_MISMATCH），当前不能批准来源复用。"],
+      ["source_count_mismatch", "两个来源文件的记录数量不一致（SOURCE_COUNT_MISMATCH），当前不能批准来源复用。"],
+      ["no_duration_anomaly", "来源解析数量或预期时长异常证据不匹配（DURATION_EVIDENCE_MISMATCH），当前不能批准来源复用。"],
+    ]);
+    const detailCode = customerServicePairParseDetailCode(error);
+    const reason = error instanceof Error ? evidenceReasons.get(error.message) : undefined;
     return { ok: true, closeAllowed: false, target: { ...common, kind: "downloaded_pair" },
-      reason: "已下载的两个来源文件无法核实或重新解析不出匹配的真实失败证据，需要人工核实后再闭合。" };
+      reason: reason ?? (detailCode === "MESSAGE_LIMIT_EXCEEDED"
+        ? `单会话超过 ${CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT} 条上限，当前不能批准来源复用（MESSAGE_LIMIT_EXCEEDED）。`
+        : `已下载的两个来源文件无法核实或重新解析被拒（${detailCode}），不满足原日期范围来源复用审批条件，需要人工核实。`) };
   }
   return { ok: true, closeAllowed: true, target: { ...common, kind: "downloaded_pair" },
-    reason: "失败发生在已取到部分来源之后，两个来源文件均已下载并可重新解析核实，可按 downloaded_pair 闭合。" };
+    reason: "两个来源文件均已下载并可重新解析核实，可审批 downloaded_pair 以复用原日期范围来源；这不会废弃旧来源或重新采集，跨日新计划仍须满足原 period 一致条件。" };
 }
 
 /** Writes the one file tools/jd-customer-service-n8n-pipeline.ts and

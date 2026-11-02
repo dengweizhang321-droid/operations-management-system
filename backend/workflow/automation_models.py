@@ -18,7 +18,7 @@ historical replay shape this unit must express):
   Values must never carry scripts, URLs or file paths; ``CODE_TOKEN_RE``
   enforces that for the free-form registry fields below.
 * The three execution/business/delivery axes are three independent
-  CharField columns on ``AutomationModuleResult`` with disjoint value
+  CharField columns on ``AutomationModuleResult`` with separate value
   domains (see ``EXECUTION_AXIS_CHOICES`` / ``BUSINESS_AXIS_CHOICES`` /
   ``DELIVERY_AXIS_CHOICES``). Nothing here merges them into one status or
   reconstructs them from booleans; the merge/override judgment itself is
@@ -127,10 +127,10 @@ EVIDENCE_STATE_CHOICES = [
     ("contradictory", "contradictory"),
 ]
 
-# --- Three independent axes (REPORT.md §4.2). Disjoint value domains by
-# construction: no value appears in more than one axis, so a stray
-# cross-assignment is rejected by the CheckConstraint below rather than
-# silently accepted as a plausible-looking string. ---
+# --- Three independent axes (REPORT.md §4.2). Their vocabularies may overlap
+# (for example, execution and delivery both use "failed"). Choices provide
+# field validation when explicitly invoked; save() does not call full_clean(),
+# and this model has no database CheckConstraint enforcing axis values. ---
 
 EXECUTION_AXIS_CHOICES = [
     ("not_due", "not_due"),

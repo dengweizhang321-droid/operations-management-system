@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import * as XLSX from "xlsx";
-import { parseChatLog, parseCustomerServiceImport, parseSessionWorkbook, type CustomerServiceParseResult } from "../lib/customer-service/import-service";
+import { CustomerServiceImportError, parseChatLog, parseCustomerServiceImport, parseSessionWorkbook, type CustomerServiceParseResult } from "../lib/customer-service/import-service";
 import { customerServiceStore } from "../lib/jd/customer-service-stores";
 import { assertCustomerServicePeriod, JdCustomerServiceWorkflowError, type CustomerServicePeriod } from "../lib/jd/customer-service-workflow";
 
@@ -9,6 +9,12 @@ import { normalizeCustomerServiceDurations } from "./jd-customer-service-duratio
 const separator = "/*****************以下为一通会话************************************/\n";
 const sha256 = (value: string | Uint8Array) => createHash("sha256").update(value).digest("hex");
 function reject(code: string): never { throw new JdCustomerServiceWorkflowError(code); }
+const parseDetailCodes = new Set(["MESSAGE_LIMIT_EXCEEDED", "MESSAGE_CONTENT_LIMIT_EXCEEDED", "MESSAGE_TIME_INVALID", "CONVERSATION_BYTES_LIMIT_EXCEEDED"]);
+export function customerServicePairParseDetailCode(error: unknown) {
+  const code = error instanceof CustomerServiceImportError ? error.code
+    : error instanceof JdCustomerServiceWorkflowError && error.code === "PAIR_PARSE_REJECTED" ? error.detailCode : undefined;
+  return code && parseDetailCodes.has(code) ? code : "PAIR_FORMAT_INVALID";
+}
 function fingerprints(parsed: CustomerServiceParseResult) {
   return parsed.conversations.map(row => {
     // The daily workbook resets row numbers. These are not business values.
@@ -36,7 +42,7 @@ export function buildCustomerServiceDailyFiles(sessionBytes: Uint8Array, chatByt
   try {
     chatText = new TextDecoder("utf-8", { fatal: true }).decode(chatBytes);
     full = parseCustomerServiceImport(parsingBytes, chatText);
-  } catch { return reject("PAIR_PARSE_REJECTED"); }
+  } catch (error) { throw new JdCustomerServiceWorkflowError("PAIR_PARSE_REJECTED", customerServicePairParseDetailCode(error), { cause: error }); }
   const sessions = parseSessionWorkbook(parsingBytes);
   const sourceBook = XLSX.read(parsingBytes, { type: "array", cellDates: false });
   const sourceSheet = sourceBook.SheetNames[0];
