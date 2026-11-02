@@ -1,5 +1,7 @@
 # 任务记录目录
 
+本轮候选：[规范入口与按任务阅读调整](../agent-guidance-streamline-20261102/REPORT.md)（未合并；含新旧授权对照与发布范围差异）。
+
 本轮候选：[Windows Claude–Haiku–Codex 适配](../claude-haiku-bridge-20261031/REPORT.md) · [使用说明](../claude-haiku-bridge-20261031/README.md)。
 
 本轮补充：[规范瘦身与限定资格对照](../machine-cleanup-20261022/REPORT.md) · [独立审查](../machine-cleanup-20261022/REVIEW.md)。
