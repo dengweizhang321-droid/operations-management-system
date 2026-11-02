@@ -1,0 +1,480 @@
+{
+  "status": "anomalies",
+  "readOnly": true,
+  "checkedAt": "2026-11-02T17:03:38.629553Z",
+  "checkedAtShanghai": "2026-11-03T01:03:38.629553+08:00",
+  "timezone": "Asia/Shanghai",
+  "scheduledWorkflowCount": 17,
+  "checks": {
+    "1": 11,
+    "2": 0,
+    "3": 1
+  },
+  "scheduled": [
+    {
+      "workflowId": "J8kY2mQ5vR7sT4pN",
+      "periodStart": "2026-11-02T16:10:00Z",
+      "periodStartShanghai": "2026-11-03T00:10:00+08:00",
+      "hasExecution": true,
+      "reasons": []
+    },
+    {
+      "workflowId": "JdN8nSilentCopy2026",
+      "periodStart": "2026-11-02T02:00:00Z",
+      "periodStartShanghai": "2026-11-02T10:00:00+08:00",
+      "hasExecution": true,
+      "reasons": []
+    },
+    {
+      "workflowId": "JdMarketSilentCopy2026",
+      "periodStart": "2026-11-02T02:30:00Z",
+      "periodStartShanghai": "2026-11-02T10:30:00+08:00",
+      "hasExecution": true,
+      "reasons": []
+    },
+    {
+      "workflowId": "JdPromotionDaily2026",
+      "periodStart": "2026-11-02T02:40:00Z",
+      "periodStartShanghai": "2026-11-02T10:40:00+08:00",
+      "hasExecution": false,
+      "reasons": [
+        "inactive",
+        "unpublished",
+        "missing_execution"
+      ]
+    },
+    {
+      "workflowId": "JdPromotionCutMeat2026",
+      "periodStart": "2026-11-02T02:50:00Z",
+      "periodStartShanghai": "2026-11-02T10:50:00+08:00",
+      "hasExecution": false,
+      "reasons": [
+        "inactive",
+        "unpublished",
+        "missing_execution"
+      ]
+    },
+    {
+      "workflowId": "JdCustomerService2026",
+      "periodStart": "2026-11-02T05:10:00Z",
+      "periodStartShanghai": "2026-11-02T13:10:00+08:00",
+      "hasExecution": false,
+      "reasons": [
+        "missing_execution"
+      ]
+    },
+    {
+      "workflowId": "JdCustomerServiceCutMeat2026",
+      "periodStart": "2026-11-02T04:10:00Z",
+      "periodStartShanghai": "2026-11-02T12:10:00+08:00",
+      "hasExecution": false,
+      "reasons": [
+        "missing_execution"
+      ]
+    },
+    {
+      "workflowId": "JdCustomerServiceChudian2026",
+      "periodStart": "2026-11-02T04:50:00Z",
+      "periodStartShanghai": "2026-11-02T12:50:00+08:00",
+      "hasExecution": false,
+      "reasons": [
+        "missing_execution"
+      ]
+    },
+    {
+      "workflowId": "JdCustomerServiceDishwasher2026",
+      "periodStart": "2026-11-02T04:30:00Z",
+      "periodStartShanghai": "2026-11-02T12:30:00+08:00",
+      "hasExecution": false,
+      "reasons": [
+        "missing_execution"
+      ]
+    },
+    {
+      "workflowId": "M4xY8kQ2vR6sT9pC",
+      "periodStart": "2026-11-02T03:00:00Z",
+      "periodStartShanghai": "2026-11-02T11:00:00+08:00",
+      "hasExecution": true,
+      "reasons": []
+    },
+    {
+      "workflowId": "TmallLiliDaily2026",
+      "periodStart": "2026-11-02T03:10:00Z",
+      "periodStartShanghai": "2026-11-02T11:10:00+08:00",
+      "hasExecution": true,
+      "reasons": []
+    },
+    {
+      "workflowId": "TmallTuofengDaily2026",
+      "periodStart": "2026-11-02T03:20:00Z",
+      "periodStartShanghai": "2026-11-02T11:20:00+08:00",
+      "hasExecution": false,
+      "reasons": [
+        "inactive",
+        "unpublished",
+        "missing_execution"
+      ]
+    },
+    {
+      "workflowId": "TmallYiyongDaily2026",
+      "periodStart": "2026-11-02T03:50:00Z",
+      "periodStartShanghai": "2026-11-02T11:50:00+08:00",
+      "hasExecution": false,
+      "reasons": [
+        "inactive",
+        "unpublished",
+        "missing_execution"
+      ]
+    },
+    {
+      "workflowId": "TmallCuizhiwangDaily2026",
+      "periodStart": "2026-11-02T03:30:00Z",
+      "periodStartShanghai": "2026-11-02T11:30:00+08:00",
+      "hasExecution": false,
+      "reasons": [
+        "inactive",
+        "unpublished",
+        "missing_execution"
+      ]
+    },
+    {
+      "workflowId": "TmallMasituDaily2026",
+      "periodStart": "2026-11-02T03:40:00Z",
+      "periodStartShanghai": "2026-11-02T11:40:00+08:00",
+      "hasExecution": false,
+      "reasons": [
+        "inactive",
+        "unpublished",
+        "missing_execution"
+      ]
+    },
+    {
+      "workflowId": "JdLogisticsDaily2026",
+      "periodStart": "2026-11-02T00:50:00Z",
+      "periodStartShanghai": "2026-11-02T08:50:00+08:00",
+      "hasExecution": true,
+      "reasons": []
+    },
+    {
+      "workflowId": "TmallWarehouseDaily2026",
+      "periodStart": "2026-11-02T00:20:00Z",
+      "periodStartShanghai": "2026-11-02T08:20:00+08:00",
+      "hasExecution": false,
+      "reasons": [
+        "inactive",
+        "unpublished",
+        "missing_execution"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "check": 1,
+      "workflowId": "JdPromotionDaily2026",
+      "code": "schedule_not_ready",
+      "reasons": [
+        "inactive",
+        "unpublished",
+        "missing_execution"
+      ],
+      "payload": {
+        "version": 2,
+        "kind": "schedule_watch",
+        "workflowId": "JdPromotionDaily2026",
+        "code": "schedule_not_ready",
+        "anchorEpoch": 1793587200,
+        "executionId": ""
+      }
+    },
+    {
+      "check": 1,
+      "workflowId": "JdPromotionCutMeat2026",
+      "code": "schedule_not_ready",
+      "reasons": [
+        "inactive",
+        "unpublished",
+        "missing_execution"
+      ],
+      "payload": {
+        "version": 2,
+        "kind": "schedule_watch",
+        "workflowId": "JdPromotionCutMeat2026",
+        "code": "schedule_not_ready",
+        "anchorEpoch": 1793587800,
+        "executionId": ""
+      }
+    },
+    {
+      "check": 1,
+      "workflowId": "JdCustomerService2026",
+      "code": "schedule_not_ready",
+      "reasons": [
+        "missing_execution"
+      ],
+      "payload": {
+        "version": 2,
+        "kind": "schedule_watch",
+        "workflowId": "JdCustomerService2026",
+        "code": "schedule_not_ready",
+        "anchorEpoch": 1793596200,
+        "executionId": ""
+      }
+    },
+    {
+      "check": 1,
+      "workflowId": "JdCustomerServiceCutMeat2026",
+      "code": "schedule_not_ready",
+      "reasons": [
+        "missing_execution"
+      ],
+      "payload": {
+        "version": 2,
+        "kind": "schedule_watch",
+        "workflowId": "JdCustomerServiceCutMeat2026",
+        "code": "schedule_not_ready",
+        "anchorEpoch": 1793592600,
+        "executionId": ""
+      }
+    },
+    {
+      "check": 1,
+      "workflowId": "JdCustomerServiceChudian2026",
+      "code": "schedule_not_ready",
+      "reasons": [
+        "missing_execution"
+      ],
+      "payload": {
+        "version": 2,
+        "kind": "schedule_watch",
+        "workflowId": "JdCustomerServiceChudian2026",
+        "code": "schedule_not_ready",
+        "anchorEpoch": 1793595000,
+        "executionId": ""
+      }
+    },
+    {
+      "check": 1,
+      "workflowId": "JdCustomerServiceDishwasher2026",
+      "code": "schedule_not_ready",
+      "reasons": [
+        "missing_execution"
+      ],
+      "payload": {
+        "version": 2,
+        "kind": "schedule_watch",
+        "workflowId": "JdCustomerServiceDishwasher2026",
+        "code": "schedule_not_ready",
+        "anchorEpoch": 1793593800,
+        "executionId": ""
+      }
+    },
+    {
+      "check": 1,
+      "workflowId": "TmallTuofengDaily2026",
+      "code": "schedule_not_ready",
+      "reasons": [
+        "inactive",
+        "unpublished",
+        "missing_execution"
+      ],
+      "payload": {
+        "version": 2,
+        "kind": "schedule_watch",
+        "workflowId": "TmallTuofengDaily2026",
+        "code": "schedule_not_ready",
+        "anchorEpoch": 1793589600,
+        "executionId": ""
+      }
+    },
+    {
+      "check": 1,
+      "workflowId": "TmallYiyongDaily2026",
+      "code": "schedule_not_ready",
+      "reasons": [
+        "inactive",
+        "unpublished",
+        "missing_execution"
+      ],
+      "payload": {
+        "version": 2,
+        "kind": "schedule_watch",
+        "workflowId": "TmallYiyongDaily2026",
+        "code": "schedule_not_ready",
+        "anchorEpoch": 1793591400,
+        "executionId": ""
+      }
+    },
+    {
+      "check": 1,
+      "workflowId": "TmallCuizhiwangDaily2026",
+      "code": "schedule_not_ready",
+      "reasons": [
+        "inactive",
+        "unpublished",
+        "missing_execution"
+      ],
+      "payload": {
+        "version": 2,
+        "kind": "schedule_watch",
+        "workflowId": "TmallCuizhiwangDaily2026",
+        "code": "schedule_not_ready",
+        "anchorEpoch": 1793590200,
+        "executionId": ""
+      }
+    },
+    {
+      "check": 1,
+      "workflowId": "TmallMasituDaily2026",
+      "code": "schedule_not_ready",
+      "reasons": [
+        "inactive",
+        "unpublished",
+        "missing_execution"
+      ],
+      "payload": {
+        "version": 2,
+        "kind": "schedule_watch",
+        "workflowId": "TmallMasituDaily2026",
+        "code": "schedule_not_ready",
+        "anchorEpoch": 1793590800,
+        "executionId": ""
+      }
+    },
+    {
+      "check": 1,
+      "workflowId": "TmallWarehouseDaily2026",
+      "code": "schedule_not_ready",
+      "reasons": [
+        "inactive",
+        "unpublished",
+        "missing_execution"
+      ],
+      "payload": {
+        "version": 2,
+        "kind": "schedule_watch",
+        "workflowId": "TmallWarehouseDaily2026",
+        "code": "schedule_not_ready",
+        "anchorEpoch": 1793578800,
+        "executionId": ""
+      }
+    },
+    {
+      "check": 3,
+      "workflowId": "TeruisiHourlyRetry2026",
+      "code": "error_workflow_failed",
+      "executionId": "11082",
+      "failedAt": "2026-11-02T03:00:42.369000Z",
+      "failureCount": 3,
+      "windowStart": "2026-11-01T17:03:38.629553Z",
+      "windowEnd": "2026-11-02T17:03:38.629553Z",
+      "payload": {
+        "version": 2,
+        "kind": "schedule_watch",
+        "workflowId": "TeruisiHourlyRetry2026",
+        "code": "error_workflow_failed",
+        "anchorEpoch": 1793552400,
+        "executionId": "11082",
+        "failureCount": 3
+      }
+    }
+  ],
+  "mode": "dry-run",
+  "alerts": [
+    {
+      "workflowId": "JdPromotionDaily2026",
+      "code": "schedule_not_ready",
+      "status": "local_preview",
+      "message": "【运营自动化】巡检需要人工处理\n流程：京东推广设备店\n检查项：定时流程未就绪：启用状态、已发布版本或本调度周期 execution 存在缺口\n观察锚点（上海）：2026-11-02 10:40:00\n未关联 execution\n请你处理：核查启用状态、已发布版本、调度与执行记录；不要给共享错误流绑定自身，不要盲目补跑或重复导入",
+      "executed": false,
+      "exitCode": 0
+    },
+    {
+      "workflowId": "JdPromotionCutMeat2026",
+      "code": "schedule_not_ready",
+      "executed": false,
+      "message": "【运营自动化】巡检需要人工处理\n流程：京东推广切肉机店\n检查项：定时流程未就绪：启用状态、已发布版本或本调度周期 execution 存在缺口\n观察锚点（上海）：2026-11-02 10:50:00\n未关联 execution\n请你处理：核查启用状态、已发布版本、调度与执行记录；不要给共享错误流绑定自身，不要盲目补跑或重复导入",
+      "status": "local_preview",
+      "exitCode": 0
+    },
+    {
+      "workflowId": "JdCustomerService2026",
+      "code": "schedule_not_ready",
+      "executed": false,
+      "message": "【运营自动化】巡检需要人工处理\n流程：京东客服设备店\n检查项：定时流程未就绪：启用状态、已发布版本或本调度周期 execution 存在缺口\n观察锚点（上海）：2026-11-02 13:10:00\n未关联 execution\n请你处理：核查启用状态、已发布版本、调度与执行记录；不要给共享错误流绑定自身，不要盲目补跑或重复导入",
+      "status": "local_preview",
+      "exitCode": 0
+    },
+    {
+      "workflowId": "JdCustomerServiceCutMeat2026",
+      "code": "schedule_not_ready",
+      "executed": false,
+      "message": "【运营自动化】巡检需要人工处理\n流程：京东客服切肉机店\n检查项：定时流程未就绪：启用状态、已发布版本或本调度周期 execution 存在缺口\n观察锚点（上海）：2026-11-02 12:10:00\n未关联 execution\n请你处理：核查启用状态、已发布版本、调度与执行记录；不要给共享错误流绑定自身，不要盲目补跑或重复导入",
+      "status": "local_preview",
+      "exitCode": 0
+    },
+    {
+      "workflowId": "JdCustomerServiceChudian2026",
+      "code": "schedule_not_ready",
+      "status": "local_preview",
+      "message": "【运营自动化】巡检需要人工处理\n流程：京东客服厨电店\n检查项：定时流程未就绪：启用状态、已发布版本或本调度周期 execution 存在缺口\n观察锚点（上海）：2026-11-02 12:50:00\n未关联 execution\n请你处理：核查启用状态、已发布版本、调度与执行记录；不要给共享错误流绑定自身，不要盲目补跑或重复导入",
+      "executed": false,
+      "exitCode": 0
+    },
+    {
+      "workflowId": "JdCustomerServiceDishwasher2026",
+      "code": "schedule_not_ready",
+      "message": "【运营自动化】巡检需要人工处理\n流程：京东客服洗碗机店\n检查项：定时流程未就绪：启用状态、已发布版本或本调度周期 execution 存在缺口\n观察锚点（上海）：2026-11-02 12:30:00\n未关联 execution\n请你处理：核查启用状态、已发布版本、调度与执行记录；不要给共享错误流绑定自身，不要盲目补跑或重复导入",
+      "status": "local_preview",
+      "executed": false,
+      "exitCode": 0
+    },
+    {
+      "workflowId": "TmallTuofengDaily2026",
+      "code": "schedule_not_ready",
+      "message": "【运营自动化】巡检需要人工处理\n流程：天猫拓丰\n检查项：定时流程未就绪：启用状态、已发布版本或本调度周期 execution 存在缺口\n观察锚点（上海）：2026-11-02 11:20:00\n未关联 execution\n请你处理：核查启用状态、已发布版本、调度与执行记录；不要给共享错误流绑定自身，不要盲目补跑或重复导入",
+      "executed": false,
+      "status": "local_preview",
+      "exitCode": 0
+    },
+    {
+      "workflowId": "TmallYiyongDaily2026",
+      "code": "schedule_not_ready",
+      "executed": false,
+      "status": "local_preview",
+      "message": "【运营自动化】巡检需要人工处理\n流程：天猫亿用\n检查项：定时流程未就绪：启用状态、已发布版本或本调度周期 execution 存在缺口\n观察锚点（上海）：2026-11-02 11:50:00\n未关联 execution\n请你处理：核查启用状态、已发布版本、调度与执行记录；不要给共享错误流绑定自身，不要盲目补跑或重复导入",
+      "exitCode": 0
+    },
+    {
+      "workflowId": "TmallCuizhiwangDaily2026",
+      "code": "schedule_not_ready",
+      "status": "local_preview",
+      "message": "【运营自动化】巡检需要人工处理\n流程：天猫炊之王\n检查项：定时流程未就绪：启用状态、已发布版本或本调度周期 execution 存在缺口\n观察锚点（上海）：2026-11-02 11:30:00\n未关联 execution\n请你处理：核查启用状态、已发布版本、调度与执行记录；不要给共享错误流绑定自身，不要盲目补跑或重复导入",
+      "executed": false,
+      "exitCode": 0
+    },
+    {
+      "workflowId": "TmallMasituDaily2026",
+      "code": "schedule_not_ready",
+      "status": "local_preview",
+      "executed": false,
+      "message": "【运营自动化】巡检需要人工处理\n流程：天猫马思图\n检查项：定时流程未就绪：启用状态、已发布版本或本调度周期 execution 存在缺口\n观察锚点（上海）：2026-11-02 11:40:00\n未关联 execution\n请你处理：核查启用状态、已发布版本、调度与执行记录；不要给共享错误流绑定自身，不要盲目补跑或重复导入",
+      "exitCode": 0
+    },
+    {
+      "workflowId": "TmallWarehouseDaily2026",
+      "code": "schedule_not_ready",
+      "status": "local_preview",
+      "executed": false,
+      "message": "【运营自动化】巡检需要人工处理\n流程：天猫入仓监控\n检查项：定时流程未就绪：启用状态、已发布版本或本调度周期 execution 存在缺口\n观察锚点（上海）：2026-11-02 08:20:00\n未关联 execution\n请你处理：核查启用状态、已发布版本、调度与执行记录；不要给共享错误流绑定自身，不要盲目补跑或重复导入",
+      "exitCode": 0
+    },
+    {
+      "workflowId": "TeruisiHourlyRetry2026",
+      "code": "error_workflow_failed",
+      "executed": false,
+      "message": "【运营自动化】巡检需要人工处理\n流程：每小时安全重试错误流\n检查项：最近 24 小时发生 3 次失败\n观察锚点（上海）：2026-11-02 01:00:00\n最新失败 execution：11082\n请你处理：核查启用状态、已发布版本、调度与执行记录；不要给共享错误流绑定自身，不要盲目补跑或重复导入",
+      "status": "local_preview",
+      "exitCode": 0
+    }
+  ]
+}
