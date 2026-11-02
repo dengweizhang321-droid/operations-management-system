@@ -16,6 +16,61 @@ import {
 
 const workflowDirectory = new URL("../automation/n8n/", import.meta.url);
 
+const c1TerminalFailures = [
+  "京东物流流程未完成；原计划与未决任务已保留，禁止自动重发导出或导入。请核验原 execution、manifest 与源任务。",
+  "文件校验未通过，未写入任何库存数据",
+  "导入未全部完成或覆盖回查未命中，详见结果清单",
+  "API_SERVER_CLOCK_UNVERIFIED",
+];
+const c1TransientFailures = [
+  "The connection was aborted, perhaps the server is offline",
+  "The service refused the connection - perhaps it is offline",
+  "Your Code node task was not matched to a runner within the timeout period",
+  "Django 销售服务暂时不可用，请稍后重试。",
+  "helper_slot_unavailable",
+];
+
+async function c1Classifiers() {
+  const artifact = JSON.parse(await readFile(new URL("data-import-hourly-safe-retry.workflow.json", workflowDirectory), "utf8"));
+  return [buildHourlyRetryErrorWorkflow(), artifact].map(workflow => {
+    const code = workflow.nodes.find((node: { name: string }) => node.name === "仅保留可安全自动重试的失败").parameters.jsCode;
+    return new Function("$input", code);
+  });
+}
+
+for (const [retry, messages] of [[false, c1TerminalFailures], [true, c1TransientFailures]] as const) {
+  for (const message of messages) {
+    test(`C1 ${retry ? "transient" : "terminal"}: ${message}`, async () => {
+      const classifiers = await c1Classifiers();
+      for (const mode of ["trigger", "webhook"]) {
+        for (const field of ["message", "description"]) {
+          const payload = { workflow: { id: "JdLogisticsDaily2026" },
+            execution: { id: "123", mode, error: { [field]: message } } };
+          const result = classifyHourlyRetryFailure(payload);
+          assert.equal(result.retry, retry);
+          assert.equal(result.reason, retry ? "retryable_failure" : "manual_intervention_required");
+          for (const execute of classifiers) {
+            const emitted = execute({ all: () => [{ json: payload }] });
+            assert.equal(emitted.length, 1);
+            if (retry) {
+              assert.equal(emitted[0].json.retryPolicy.workflowId, payload.workflow.id);
+              assert.equal(emitted[0].json.retryPolicy.retryUrl, result.retryUrl);
+              assert.equal(emitted[0].json.noRetryTarget, undefined);
+              assert.equal(emitted[0].json.droppedFailures, undefined);
+            } else {
+              assert.equal(emitted[0].json.retryPolicy, undefined);
+              assert.equal(emitted[0].json.noRetryTarget, true);
+              assert.equal(emitted[0].json.droppedFailures.length, 1);
+              assert.equal(emitted[0].json.droppedFailures[0].reason, "终局失败，不会自动重试");
+              assert.equal(emitted[0].json.droppedFailures[0].failedExecutionId, "123");
+            }
+          }
+        }
+      }
+    });
+  }
+}
+
 test("bound inventory download recovery agrees with emitted n8n code and never overrides terminal failures", () => {
   const code = buildHourlyRetryErrorWorkflow().nodes.find(node => node.type === "n8n-nodes-base.code")!.parameters.jsCode;
   assert.equal(typeof code, "string");
@@ -99,15 +154,15 @@ test("the shared error workflow waits exactly one hour and dispatches only to lo
   assert.equal(dispatch?.retryOnFail, false);
   assert.equal(dispatch?.maxTries, undefined);
   assert.equal(dispatch?.onError, "continueErrorOutput");
-  // f2bbbc0b spliced the 钉钉 alert in between the dispatch's error output and the
-  // original stopAndError node: dispatch -> 告警-派发未知 -> 转人工发钉钉提醒 -> stopAndError.
+  // Both alert paths validate and encode the payload before invoking the shared sender.
   assert.equal(workflow.connections["启动新的完整工作流 execution"]?.main?.[1]?.[0]?.node, "告警-派发未知");
-  assert.equal(workflow.connections["告警-派发未知"]?.main?.[0]?.[0]?.node, "转人工发钉钉提醒");
+  assert.equal(workflow.connections["告警-派发未知"]?.main?.[0]?.[0]?.node, "准备人工提醒参数");
+  assert.equal(workflow.connections["准备人工提醒参数"]?.main?.[0]?.[0]?.node, "转人工发钉钉提醒");
   assert.equal(workflow.connections["转人工发钉钉提醒"]?.main?.[0]?.[0]?.node, "重试派发结果未知转人工");
   assert.equal(workflow.connections["仅保留可安全自动重试的失败"]?.main?.[0]?.some((edge) => edge.node === "收集被丢弃的终局失败"), true);
-  assert.equal(workflow.connections["收集被丢弃的终局失败"]?.main?.[0]?.[0]?.node, "转人工发钉钉提醒");
+  assert.equal(workflow.connections["收集被丢弃的终局失败"]?.main?.[0]?.[0]?.node, "准备人工提醒参数");
   assert.equal(workflow.nodes.find(node => node.name === "重试派发结果未知转人工")?.type, "n8n-nodes-base.stopAndError");
-  assert.equal(workflow.nodes.find(node => node.name === "转人工发钉钉提醒")?.type, "n8n-nodes-base.httpRequest");
+  assert.equal(workflow.nodes.find(node => node.name === "转人工发钉钉提醒")?.type, "n8n-nodes-base.executeCommand");
   assert.equal(workflow.nodes.find(node => node.name === "告警-派发未知")?.type, "n8n-nodes-base.code");
   assert.equal(workflow.nodes.find(node => node.name === "收集被丢弃的终局失败")?.type, "n8n-nodes-base.code");
   const generated = buildHourlyRetryErrorWorkflow();
@@ -163,7 +218,8 @@ test("retry classification permits transient failures and stops unsafe or human-
   });
 });
 
-test("only an exact verified Jackyun preflight closure reaches the hourly retry", () => {
+test("only an exact verified Jackyun preflight closure reaches the hourly retry", async () => {
+  const classifiers = await c1Classifiers();
   const workflowId = hourlyRetryTargets[0]!.workflowId;
   const payload = { workflow: { id: workflowId }, execution: { id: "8800", mode: "trigger", lastNodeExecuted: "B·接口校验与五表下载",
     error: { message: "The service was not able to process your request", description: "JACKYUN_PREFLIGHT_RETRY_READY" } } };
@@ -172,6 +228,29 @@ test("only an exact verified Jackyun preflight closure reaches the hourly retry"
   assert.equal(classifyHourlyRetryFailure({ ...payload, workflow: { id: hourlyRetryTargets[1]!.workflowId } }).retry, false);
   assert.equal(classifyHourlyRetryFailure({ ...payload, execution: { ...payload.execution, error: { ...payload.execution.error, message: "credential rejected" } } }).retry, false);
   assert.equal(classifyHourlyRetryFailure({ ...payload, execution: { ...payload.execution, error: { ...payload.execution.error, description: "JACKYUN_PREFLIGHT_RETRY_READY but uncertain" } } }).retry, false);
+  for (const mode of ["trigger", "webhook"]) {
+    const cases = [
+      { json: payload, retry: true },
+      { json: { ...payload, execution: { ...payload.execution, lastNodeExecuted: "A·固定采集日和销售日期" } }, retry: false },
+      { json: { ...payload, workflow: { id: hourlyRetryTargets[1]!.workflowId } }, retry: false },
+      { json: { ...payload, execution: { ...payload.execution, error: { ...payload.execution.error, message: "credential rejected" } } }, retry: false },
+      { json: { ...payload, execution: { ...payload.execution, error: { ...payload.execution.error, description: "JACKYUN_PREFLIGHT_RETRY_READY but uncertain" } } }, retry: false },
+      ...c1TerminalFailures.map(message => ({ json: { ...payload, execution: { ...payload.execution,
+        error: { ...payload.execution.error, message } } }, retry: false })),
+    ];
+    for (const entry of cases) {
+      const json = { ...entry.json, execution: { ...entry.json.execution, mode } };
+      const result = classifyHourlyRetryFailure(json);
+      assert.equal(result.retry, entry.retry);
+      assert.equal(result.reason, entry.retry ? "verified_preflight_retry" : "manual_intervention_required");
+      for (const execute of classifiers) {
+        const emitted = execute({ all: () => [{ json }] });
+        assert.equal(emitted.length, 1);
+        assert.equal(Boolean(emitted[0].json.retryPolicy), entry.retry);
+        assert.equal(emitted[0].json.noRetryTarget, entry.retry ? undefined : true);
+      }
+    }
+  }
 });
 
 test("live market receipt and pagewise completeness errors stop in the emitted n8n classifier", () => {

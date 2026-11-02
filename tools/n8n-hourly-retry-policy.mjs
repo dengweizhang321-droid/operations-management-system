@@ -43,6 +43,10 @@ const terminalFailurePatterns = [
   "唯一商品数.*出售中总数|内容完整性错误|content completeness|内容校验失败|validation failed|日期覆盖.*(?:缺失|不一致)|date coverage.*(?:missing|mismatch)|空文件|零行业务|malformed workbook|批次.*(?:不匹配|回查失败)",
   "逐页货品文件合计 \\d+ 个唯一商品，与出售中总数 \\d+ 不一致|市场榜单导入响应与签收文件、身份、日期或行数不一致",
   "需要人工|转人工|manual action|required human",
+  "京东物流流程未完成；原计划与未决任务已保留，禁止自动重发导出或导入",
+  "文件校验未通过，未写入任何库存数据",
+  "导入未全部完成或覆盖回查未命中",
+  "\\bAPI_SERVER_CLOCK_UNVERIFIED\\b",
 ];
 
 const boundDownloadFailurePattern = "^JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=(?:ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENETUNREACH|EHOSTUNREACH|UND_ERR_CONNECT_TIMEOUT|UND_ERR_HEADERS_TIMEOUT|UND_ERR_BODY_TIMEOUT|UND_ERR_SOCKET|HTTP_408|HTTP_429|HTTP_500|HTTP_502|HTTP_503|HTTP_504) attempts=[1-3]$";
