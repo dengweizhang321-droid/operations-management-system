@@ -67,7 +67,7 @@ export function classifyRelease(changes,{copyRules=workingCopyRules()}={}){
   // New schema deliveries follow the confirmed schema-only policy. Business
   // imports/backfills and database recovery need their own authorization;
   // existing sealed batch contracts are not changed by this planning tool.
-  const deployment=!code?[]:[...(state.persistence&&!state.migrate?['verify-current-database-backup']:[]),...(state.migrate?['apply-approved-migrations']:[]),...(state.worker?['activate-worker-release']:[]),...(state.django?['deploy-django-app']:[]),'verify-startup','verify-affected-function'];
+  const deployment=!code?[]:[...(state.persistence&&!state.migrate?['verify-current-database-backup']:[]),...(state.migrate?['apply-approved-migrations']:[]),...(state.worker?['activate-worker-release']:[]),...(state.django?['deploy-django-app']:[]),'verify-startup'];
   const workflow=[
     {step:4,id:'validate-change',actions:validation},
     {step:5,id:'merge-and-package',actions:['merge-main','push-main',...packaging]},

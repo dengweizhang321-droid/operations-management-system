@@ -120,14 +120,14 @@ test('普通前端验证限于修改功能，构建只在对应制品准备中�
   assert.deepEqual(plan.validation,['git-diff-check','worker-affected-tests']);
   assert.deepEqual(plan.workflow.map(stage=>stage.step),[4,5,6]);
   assert.deepEqual(plan.workflow[1].actions,['merge-main','push-main','prepare-worker-immutable-release']);
-  assert.deepEqual(plan.workflow[2].actions,['activate-worker-release','verify-startup','verify-affected-function']);
+  assert.deepEqual(plan.workflow[2].actions,['activate-worker-release','verify-startup']);
 });
 
 test('普通后端改动不触发迁移 dry-run、系统检查或其他组件打包',()=>{
   const plan=classifyRelease([{status:'M',path:'backend/netshop/views.py'}]);
   assert.deepEqual(plan.validation,['git-diff-check','django-affected-tests']);
   assert.deepEqual(plan.workflow[1].actions,['merge-main','push-main','prepare-django-app']);
-  assert.deepEqual(plan.deployment,['verify-current-database-backup','deploy-django-app','verify-startup','verify-affected-function']);
+  assert.deepEqual(plan.deployment,['verify-current-database-backup','deploy-django-app','verify-startup']);
 });
 
 test('迁移改动保留隔离演练且不添加新备份，未知影响仍验证集成路径',()=>{
