@@ -1,0 +1,68 @@
+{
+  "at": "2026-11-03T11:59:46.083Z",
+  "status": "candidate-checks-passed",
+  "productionProbePerformed": false,
+  "accountingApplied": false,
+  "productionStateWritten": false,
+  "checks": [
+    {
+      "command": "node --test docs/e7-ready-tail-recovery-20261103/recover-ready-tail.test.mjs docs/e7-ready-tail-recovery-20261103/retirement-witness.test.mjs",
+      "passed": 52,
+      "failed": 0,
+      "exitCode": 0,
+      "durationMs": 13694.0387,
+      "note": "Before adding the sole fixed-e7-binding regression; implementation unchanged afterward."
+    },
+    {
+      "command": "node --test --test-name-pattern 'candidate, observer and witness' docs/e7-ready-tail-recovery-20261103/recover-ready-tail.test.mjs",
+      "passed": 1,
+      "failed": 0,
+      "exitCode": 0,
+      "durationMs": 100.7589
+    },
+    {
+      "command": "inspectOriginal(EVIDENCE) and SHA-256 each codePin (direct module API only)",
+      "originalPins": 25,
+      "codePins": 44,
+      "exitCode": 0
+    },
+    {
+      "command": "node --check each of seven candidate .mjs files",
+      "exitCode": 0
+    }
+  ],
+  "files": [
+    {
+      "path": "docs/e7-ready-tail-recovery-20261103/derive-evidence.mjs",
+      "sha256": "634600f701213733a433869f860ab6352c6575e2aab53d2cd2578c8861669bf0"
+    },
+    {
+      "path": "docs/e7-ready-tail-recovery-20261103/EVIDENCE.json",
+      "sha256": "4f8a3f466af1b0f889d74348bee1cecf4895becd74f1606b05b30a74495d0ff6"
+    },
+    {
+      "path": "docs/e7-ready-tail-recovery-20261103/observe-retirement.mjs",
+      "sha256": "0491e7edd769d01b4ca81d233f7d8d7a330aadea097f7ae4c6d73aed72bb93aa"
+    },
+    {
+      "path": "docs/e7-ready-tail-recovery-20261103/private-lock-check.mjs",
+      "sha256": "369c1932528410722dc36f585ca31e6b4c68787e462e2d69f95dbd11f146ce64"
+    },
+    {
+      "path": "docs/e7-ready-tail-recovery-20261103/recover-ready-tail.mjs",
+      "sha256": "7e34b14b5852d958a8096caa4595f868e69fdab08888f8072c54caa16d32a78d"
+    },
+    {
+      "path": "docs/e7-ready-tail-recovery-20261103/recover-ready-tail.test.mjs",
+      "sha256": "2a811ae854e58cd877bd42ea1c6513daf8c464c74e267a24389c91abeb460fa6"
+    },
+    {
+      "path": "docs/e7-ready-tail-recovery-20261103/retirement-witness.mjs",
+      "sha256": "d376c06cceb08f568bf5208faeec4cad5569414121c455776b655f5d42c9a1f9"
+    },
+    {
+      "path": "docs/e7-ready-tail-recovery-20261103/retirement-witness.test.mjs",
+      "sha256": "06df61a474c3e6fd7a4052299d189eb8ad2e0c11a2f3f4968d257caae5eea533"
+    }
+  ]
+}
