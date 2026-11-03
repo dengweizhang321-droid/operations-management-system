@@ -98,8 +98,8 @@ function Invoke-WatchProcess([string]$Executable,[string[]]$Arguments,[int]$Seco
     throw $failure
   }
 }
-function Invoke-WatchScript([string]$Path,[string[]]$Arguments){
-  Invoke-WatchProcess $PowerShellPath (@('-NoProfile','-NonInteractive','-File',$Path)+$Arguments)
+function Invoke-WatchScript([string]$Path,[string[]]$Arguments,[int]$Seconds=60){
+  Invoke-WatchProcess $PowerShellPath (@('-NoProfile','-NonInteractive','-File',$Path)+$Arguments) $Seconds
 }
 function Get-Admission {
   try{
@@ -296,7 +296,8 @@ function Get-WatchSnapshot {
   # Planned shutdown is quiet, and a corrupt gate must never be treated as permission.
   if($admission.mode -ne 'running'){return $snapshot}
   $savedDeadline=$env:TERUISI_PROCESS_DEADLINE_UNIX_MS
-  # Measured driver run ~46-54s, dominated by a ~39s serial 12-domain aggregate; 60000 was too tight.
+  # Measured driver run ~46-54s; control now also allows a 20s ready request.
+  # Keep one 120s snapshot parent, with a 90s control child and other children at 60s.
   $env:TERUISI_PROCESS_DEADLINE_UNIX_MS=[string](Get-ProcessDeadline 120000)
   try {
   $probeStage='control'
@@ -304,7 +305,7 @@ function Get-WatchSnapshot {
   try{
     $selected=Resolve-WatchStatusControl
     $snapshot.diagnosticMode=$selected.mode;$snapshot.diagnosticReason=$selected.reason
-    $status=Invoke-WatchScript $selected.path @('-Action','Status','-Json')
+    $status=Invoke-WatchScript $selected.path @('-Action','Status','-Json') -Seconds 90
     [void](Get-ProcessRemaining ([long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS))
     $snapshot.system=[string]$status.state;$snapshot.backend=[string]$status.backendState;$snapshot.worker=[string]$status.workerState
     foreach($name in @('core','finance','netshop','market','products','workflow','inventory','customerService','accessControl','erpReference','bi','ai')){

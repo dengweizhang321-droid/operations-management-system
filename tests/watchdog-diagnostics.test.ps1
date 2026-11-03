@@ -1,7 +1,8 @@
-$ErrorActionPreference='Stop'
+﻿$ErrorActionPreference='Stop'
 $root=Join-Path ([IO.Path]::GetTempPath()) ('watchdog-diagnostics-'+[guid]::NewGuid().ToString('N'))
 $source=Join-Path $PSScriptRoot '..\tools\operations-system-watchdog.ps1'
 . $source -FunctionsOnly
+$realWatchScript=${function:Invoke-WatchScript}
 $WatchdogRoot=$root;$StatePath=Join-Path $root 'state.json'
 $script:checks=0
 function Assert-Diagnostic($Condition,[string]$Message){if(-not $Condition){throw $Message};$script:checks++}
@@ -17,8 +18,9 @@ try {
   $script:case='healthy';$script:control=Fixture-Control
   function Get-Admission {@{mode='running';fence='a'*64}}
   function Resolve-WatchStatusControl {@{path=$ControlPath;mode='fixture';reason='isolated'}}
-  function Invoke-WatchScript($Path,$Arguments){
+  function Invoke-WatchScript($Path,$Arguments,[int]$Seconds=60){
     if($Path -eq $ControlPath){
+      $script:observedControlSeconds=$Seconds
       if($script:case -eq 'control-timeout'){
         $env:TERUISI_PROCESS_DEADLINE_UNIX_MS='1'
         $e=[Exception]::new('private exception');$e.Data['ProcessEvidence']=@{stage='direct-exit';code='process_deadline_exhausted';elapsedMs=60000;stdout='PRIVATE_SECRET'};throw $e
@@ -26,6 +28,7 @@ try {
       $script:observedSnapshotDeadlineUnixMs=[long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS
       return $script:control
     }
+    $script:observedSupervisorSeconds=$Seconds
     if($script:case -eq 'supervisor-timeout'){$env:TERUISI_PROCESS_DEADLINE_UNIX_MS='1';throw 'private exception'}
     return [pscustomobject]@{supervisorProcess='running';health='healthy'}
   }
@@ -52,6 +55,7 @@ try {
   Assert-Diagnostic ($s.healthy -and $s.components.Count -eq 12 -and $s.probes.Count -eq 4) 'healthy complete fixture was rejected'
   # The whole snapshot (control+supervisor+monitor) must budget 120000ms, not the old 60000ms.
   Assert-Diagnostic ($script:observedSnapshotDeadlineUnixMs -ge $beforeSnapshot+119000 -and $script:observedSnapshotDeadlineUnixMs -le $beforeSnapshot+121000) 'snapshot deadline regressed from the measured 120000ms budget'
+  Assert-Diagnostic ($script:observedControlSeconds -eq 90 -and $script:observedSupervisorSeconds -eq 60) 'only the control driver may use the extended child budget'
   Assert-Diagnostic ($s.portsObservation.status -eq 'complete' -and $s.elapsedMs -ge 0 -and $s.stages.control.status -eq 'completed') 'snapshot timings or successful port observation missing'
   Assert-Diagnostic ((Get-WatchPortText $s) -match '3000=监听中' -and (Get-WatchPortText $s) -match '5791=未监听') 'a completed negative port observation must say not listening'
   $script:case='supervisor-timeout';$s=Get-WatchSnapshot
@@ -81,6 +85,25 @@ try {
   $script:control.components.PSObject.Properties.Remove('core');$s=Get-WatchSnapshot
   Assert-Diagnostic (-not $s.healthy -and $s.components.Count -eq 11) 'an unexpected component replaced a required component'
   Assert-Diagnostic ($null -eq $env:TERUISI_PROCESS_DEADLINE_UNIX_MS) 'snapshot leaked its deadline into the caller'
+  # Exercise the actual script/process wrappers and parent clipping. Only transport is fake.
+  function Invoke-DeadlineProcess($Executable,$Arguments,$WorkingDirectory,$Deadline,$Cleanup){
+    $script:observedChildDeadline=[long]$Deadline
+    $script:observedChildArguments=$Arguments
+    $script:observedCleanup=$Cleanup
+    @{ExitCode=0;Stdout='{"ok":true}';Evidence=@{code='completed';deadlineUnixMs=$Deadline}}
+  }
+  $childAt=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+  $env:TERUISI_PROCESS_DEADLINE_UNIX_MS=[string]($childAt+120000)
+  $null=& $realWatchScript 'isolated-control.ps1' @('-Action','Status','-Json') -Seconds 90
+  Assert-Diagnostic ($script:observedChildDeadline -ge $childAt+89000 -and $script:observedChildDeadline -le $childAt+91000) 'control script did not pass its 90s budget to the actual process wrapper'
+  Assert-Diagnostic ($script:observedChildArguments -contains 'isolated-control.ps1' -and $script:observedChildArguments -contains '-Json' -and $script:observedCleanup -eq 'Direct') 'control wrapper lost its arguments or direct-process cleanup boundary'
+  $childAt=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+  $null=& $realWatchScript 'isolated-supervisor.ps1' @('-Action','Status')
+  Assert-Diagnostic ($script:observedChildDeadline -ge $childAt+59000 -and $script:observedChildDeadline -le $childAt+61000) 'other child scripts lost their default 60s budget'
+  $parentDeadline=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()+45000
+  $env:TERUISI_PROCESS_DEADLINE_UNIX_MS=[string]$parentDeadline
+  $null=& $realWatchScript 'isolated-control.ps1' @('-Action','Status') -Seconds 90
+  Assert-Diagnostic ($script:observedChildDeadline -eq $parentDeadline) 'control 90s child overran the remaining snapshot parent budget'
   $env:TERUISI_PROCESS_DEADLINE_UNIX_MS=$savedDeadline
 
   function Get-WatchEvidence($Snapshot){@{snapshot=$Snapshot}}

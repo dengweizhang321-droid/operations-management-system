@@ -21,7 +21,7 @@
 | Worker 聚合 | `worker/index.ts` 调 `lib/django/backend-readiness.ts`，18s / 单请求4s | Worker 请求 signal 可提前取消。须从最终提交构建并按原发布流程采用 Worker bundle；改源码不改变现役 bundle |
 | Worker 自身观察 | `tools/worker-local-runtime-supervisor.mjs` 导入 `tools/start-local-worker.mjs` 的 ready monitor，ready20s，live仍5s | 只受调用 signal 进一步收窄；现有 readiness degraded 只记录，不触发重启。`worker-local-release.mjs` 将 starter 复制到 immutable Worker release，须采用对应 release |
 | 总控 | `tools/operations-system-control.ps1` → `Get-SystemHealthState`，live3s、helper3s、ready20s | 三者共享 `Get-ProcessDeadline`，默认600s且取 inherited deadline更小值；不足20s时提前中断符合父约束。真实入口由包装脚本/桌面配置的 ControllerPath 决定，不能将 worktree 修改视为采用 |
-| 看门狗 | `tools/operations-system-watchdog.ps1` → `Get-WatchHttpProbes` / `Test-WatchHttp`，每项独立期限，仅ready20s，其他仍5s | snapshot总driver120s不变，每项受剩余父预算限制。正式任务运行 immutable `versions/<bundleId>` 安装；须走既有受控安装及 driver-binding 资格维护。独立 `watchdog-status-control.ps1` / backend driver还核对控制器、Worker、backend、transport、supervisor字节，不能仅替换仓库脚本 |
+| 看门狗 | `tools/operations-system-watchdog.ps1` → `Get-WatchHttpProbes` / `Test-WatchHttp`，每项独立期限，仅ready20s，其他仍5s；snapshot仅control driver显式90s，其他child默认60s | snapshot总driver120s不变，HTTP及control/其他child均受剩余父预算限制。`Invoke-WatchScript`可选Seconds默认60，仅snapshot的control调用指定90，经原`Invoke-WatchProcess`→`Get-ProcessDeadline`裁剪。正式任务运行 immutable `versions/<bundleId>` 安装；须走既有受控安装及 driver-binding 资格维护。独立 `watchdog-status-control.ps1` / backend driver还核对控制器、Worker、backend、transport、supervisor字节，不能仅替换仓库脚本 |
 | 桌面 | `tools/desktop-launcher/Launcher.cs` → `ProbeReady`，ready专用client20s、主页独立client仍8s | 既有 `WaitForReady` 15分钟循环在 probe边界检查预算/关闭信号，未改变循环策略；单次成功路径仍可花 ready20s+主页8s。须通过既有 installer重编译/采用 `%LOCALAPPDATA%/TERUISI/Launcher/运营管理系统.exe`，配置仍决定总控路径。本轮只在TEMP编译测试，无正式安装 |
 | current control | 固定发布前置/状态入口在主任务的 `publish-latest-main.mjs` / `publish-main-status.mjs`；冻结发布来源消费 prepared/tail | 属于另一控制包采用面；主任务负责纳入复制清单、20s单次与120s尾部及父期限。仅发布Worker不表示这些入口生效 |
 
@@ -34,7 +34,7 @@
 - 新增 `tests/readiness-probe-budgets.test.ts` 8项：受控单调时钟和定时器验证23×3.9s四波15.6s成功、末批queueMs11.7s但requestMs3.9s、单请求4s取消、整轮缩短耗尽、父取消/预取消、响应体截止边界、503未知与字段脱敏、四caller范围。没有真实HTTP请求。
 - 与既有 `django-aggregate-boundary.test.ts` 的 readiness/configuration范围共13项通过；保持6并发、端点拒绝、16KiB/redirect拒绝与原兼容断言。未运行其中业务消费者测试。
 - 既有 `local-worker-start.test.ts` 与 `operations-system-control.test.ts` 共38项通过（模拟探针/子进程）；原重启/调度边界保持。
-- `watchdog-diagnostics.test.ps1` 43项通过，外部调用已替换，回执 `productionServicesTouched:false`、`messagesSent:false`。这验证父snapshot/诊断保全，没有把静态20s接线检查冒称真实HTTP时长测量。
+- `watchdog-diagnostics.test.ps1` 初轮43项通过；独审指出原`Invoke-WatchScript`默认child60s仍可能截断46–54s旧driver叠加更长ready后的合法调用。续修仅control90s后，扩为48项通过：真实snapshot调用control90/其他60，真实script/process wrapper转发90、默认60、参数/Direct边界、剩余父45s精确裁剪；仅最底层进程传输替换，不启动真实子进程。回执 `productionServicesTouched:false`、`messagesSent:false`。这验证父snapshot/诊断保全，没有把静态20s接线检查冒称真实HTTP时长测量。
 - 目标 TypeScript program（聚合文件、新测试及其依赖）诊断0；`node --check tools/start-local-worker.mjs` 通过。两个修改过的PS生产脚本解析及UTF-8 BOM检查通过。
 - .NET Framework C#编译成功，输出 `C:/Users/86137/AppData/Local/Temp/readiness-launcher-2ee78d8ff54141bc91a9bbb8b14d1cd8.exe`。既有 launcher隔离边界测试通过，补反射核验编译后 ready20s、homepage8s；测试只使用TEMP假控制器，未连接服务、创建快捷方式或正式安装。
 - `git diff --check` 通过。新测试不在 `verify-release-candidate.mjs` 的既有 profile引用中；未改变profile或任何封存资格。
