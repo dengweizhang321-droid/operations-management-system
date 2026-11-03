@@ -30,6 +30,19 @@ const c1TransientFailures = [
   "Django 销售服务暂时不可用，请稍后重试。",
   "helper_slot_unavailable",
 ];
+const f2StructuralFailures = [400, 413, 415, 422].map(status => `京准通推广导入失败 (HTTP ${status})`);
+const f2TransientFailures = [
+  ...[429, 500, 502, 503, 504, 408].map(status => `京准通推广导入失败 (HTTP ${status})`),
+  ...c1TransientFailures,
+];
+const f2ExistingTerminalFailures = [
+  "京东物流流程未完成；原计划与未决任务已保留，禁止自动重发导出或导入。",
+  "文件校验未通过，未创建规范化导入会话",
+  "导入未全部完成或覆盖回查未命中，详见结果清单",
+  "API_SERVER_CLOCK_UNVERIFIED",
+  "创建阿里妈妈商品报表失败（HTTP 403，响应为空或状态异常）",
+  "PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION",
+];
 
 async function c1Classifiers() {
   const artifact = JSON.parse(await readFile(new URL("data-import-hourly-safe-retry.workflow.json", workflowDirectory), "utf8"));
@@ -39,13 +52,21 @@ async function c1Classifiers() {
   });
 }
 
-for (const [retry, messages] of [[false, c1TerminalFailures], [true, c1TransientFailures]] as const) {
+for (const [suite, workflowId, retry, messages] of [
+  ["C1", "JdLogisticsDaily2026", false, c1TerminalFailures],
+  ["C1", "JdLogisticsDaily2026", true, c1TransientFailures],
+  ["F2 structural", "JdPromotionDaily2026", false, f2StructuralFailures],
+  ["F2 transient", "JdPromotionDaily2026", true, f2TransientFailures],
+  ["F2 regression", "JdPromotionDaily2026", false, f2ExistingTerminalFailures],
+  ["F2 format", "JdPromotionCutMeat2026", false, ["导入失败（http 413）", "导入失败 (HtTp\t415)", "导入失败 HTTP  422", "HTTP 400"]],
+  ["F2 boundary", "JdPromotionCutMeat2026", true, ["HTTP 4130", "HTTP 4000", "HTTP 415x", "XHTTP 422"]],
+] as const) {
   for (const message of messages) {
-    test(`C1 ${retry ? "transient" : "terminal"}: ${message}`, async () => {
+    test(`${suite} ${retry ? "transient" : "terminal"}: ${message}`, async () => {
       const classifiers = await c1Classifiers();
       for (const mode of ["trigger", "webhook"]) {
         for (const field of ["message", "description"]) {
-          const payload = { workflow: { id: "JdLogisticsDaily2026" },
+          const payload = { workflow: { id: workflowId },
             execution: { id: "123", mode, error: { [field]: message } } };
           const result = classifyHourlyRetryFailure(payload);
           assert.equal(result.retry, retry);
@@ -98,6 +119,7 @@ test("bound inventory download recovery agrees with emitted n8n code and never o
     payload("JACKYUN_API_RESUME_MANUAL_ACTION"), payload("JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=SECRET attempts=3"),
     payload("JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=ECONNRESET attempts=4"),
     payload("JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=ECONNRESET attempts=3", "challenge_present"),
+    payload("JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=ECONNRESET attempts=3", "HTTP 413"),
     payload("JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=ECONNRESET attempts=3", "export_submitting"),
     payload("JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=ECONNRESET attempts=3", "HTTP 500", "D·导入")]) {
     assert.equal(classifyHourlyRetryFailure(p).retry, false);
@@ -252,7 +274,7 @@ test("only an exact verified Jackyun preflight closure reaches the hourly retry"
       { json: { ...payload, workflow: { id: hourlyRetryTargets[1]!.workflowId } }, retry: false },
       { json: { ...payload, execution: { ...payload.execution, error: { ...payload.execution.error, message: "credential rejected" } } }, retry: false },
       { json: { ...payload, execution: { ...payload.execution, error: { ...payload.execution.error, description: "JACKYUN_PREFLIGHT_RETRY_READY but uncertain" } } }, retry: false },
-      ...c1TerminalFailures.map(message => ({ json: { ...payload, execution: { ...payload.execution,
+      ...[...c1TerminalFailures, ...f2StructuralFailures].map(message => ({ json: { ...payload, execution: { ...payload.execution,
         error: { ...payload.execution.error, message } } }, retry: false })),
     ];
     for (const entry of cases) {
