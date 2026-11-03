@@ -28,6 +28,14 @@ class SkillCandidateTests(TestCase):
             op.capability_expires_at = timezone.now() + timedelta(hours=1)
             op.status = status
             op.save()
+            # Release the session's active operation the way pi_worker does on
+            # settle. Postgres enforces this binding (ai_pi_binding_guard): an
+            # active operation must still be in flight, so leaving the pointer
+            # on a succeeded row is rejected there even though sqlite allows it.
+            if status not in {"queued", "running", "canceling", "unknown"}:
+                session_row = op.session
+                session_row.status, session_row.active_operation_id = "idle", ""
+                session_row.save(update_fields=["status", "active_operation_id"])
         return op
 
     def export(self, op):

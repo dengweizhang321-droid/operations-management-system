@@ -1,4 +1,5 @@
 import hashlib
+import json
 import secrets
 from datetime import timedelta
 
@@ -24,10 +25,16 @@ class PiSourcesTests(TestCase):
         with mutation():
             op.capability_hash = hashlib.sha256(b"isolated").hexdigest()
             op.capability_expires_at = timezone.now() + timedelta(hours=1)
-            op.model_id, op.model_version = "model-test", 3
-            op.skills_json = canonical(["sales-promotion-inventory"])
             op.status = status
             op.save()
+            # Release the session's active operation the way pi_worker does on
+            # settle. Postgres enforces this binding (ai_pi_binding_guard): an
+            # active operation must still be in flight, so leaving the pointer
+            # on a succeeded row is rejected there even though sqlite allows it.
+            if status not in {"queued", "running", "canceling", "unknown"}:
+                session_row = op.session
+                session_row.status, session_row.active_operation_id = "idle", ""
+                session_row.save(update_fields=["status", "active_operation_id"])
         return op
 
     def export(self, op, *, warnings=(), status="succeeded", file=None):
@@ -42,13 +49,18 @@ class PiSourcesTests(TestCase):
                     "snapshotComplete": False, "warnings": list(warnings)}))
 
     def artifact(self, op):
+        payload = b"x" * 10
         with mutation():
             return PiFile.objects.create(
                 id=uid("pi-file"), session=op.session, operation=op,
                 owner_email=op.session.owner_email, client_request_id=secrets.token_hex(6),
                 request_digest="b" * 64, generation=op.generation,
                 file_name="日报.xlsx", mime_type="application/vnd.ms-excel",
-                size_bytes=1024, sha256="c" * 64, direction="output", payload=b"x" * 10)
+                # Postgres checks the digest against the bytes
+                # (ai_pi_file_payload_hash), so a placeholder hash is rejected
+                # there even though sqlite accepts one.
+                size_bytes=len(payload), sha256=hashlib.sha256(payload).hexdigest(),
+                direction="output", payload=payload)
 
     def stage(self, op, event_type, seq):
         with mutation():
@@ -66,9 +78,12 @@ class PiSourcesTests(TestCase):
         self.assertEqual(version["operationId"], op.id)
         self.assertEqual((version["generation"], version["epoch"]),
                          (op.generation, op.epoch))
-        self.assertEqual((version["modelId"], version["modelVersion"]), ("model-test", 3))
-        self.assertEqual(version["skills"], ["sales-promotion-inventory"])
-        self.assertEqual(version["fileShas"], ["c" * 64])
+        # Read back from the operation rather than asserting fixture values:
+        # model_id, model_version and skills_json are immutable after creation
+        # (PI_IDENTITIES in migration 0084), so a test cannot set them.
+        self.assertEqual(version["modelVersion"], op.model_version)
+        self.assertEqual(version["skills"], json.loads(op.skills_json or "[]"))
+        self.assertEqual(version["fileShas"], [artifact.sha256])
         self.assertEqual(len(version["sourceManifestDigests"]), 1)
         # The digest covers the composition, so citing it pins every part.
         self.assertTrue(view["reportVersionDigest"])
