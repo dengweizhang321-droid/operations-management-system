@@ -211,17 +211,55 @@ test('existing STARTED never retries an unknown result',async t=>{
  await assert.rejects(publishPreparedMain(f.request,f.context),/结果未知/);assert.deepEqual(operations(f.events),[]);assert.equal(f.successes,0);
 });
 for(const failure of ['BeginWorkerDrain','StopForRelease','apply','Start','EndWorkerDrain','VerifyStartup','ready'])test('failure at '+failure+' retains FAILED and never retries or writes success',async t=>{
- const f=await fixture(t,['worker'],failure);await assert.rejects(publishPreparedMain(f.request,f.context),/fixture failure/);
+ const f=await fixture(t,['worker'],failure),original=f.context.runStep,cancellations=[];
+ f.context.runStep=async args=>{if(args.action==='CancelDrain')cancellations.push(args);return original(args);};
+ await assert.rejects(publishPreparedMain(f.request,f.context),/fixture failure/);
  assert.equal(f.successes,0);await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
  const failed=JSON.parse(await fs.readFile(path.join(f.out,'FAILED.json'),'utf8'));assert.equal(failed.automaticRetry,false);
  const prior=f.events.length;await assert.rejects(publishPreparedMain(f.request,f.context),/结果未知/);
  assert.deepEqual(operations(f.events.slice(prior)),[]);
- assert.ok(!f.events.includes('CancelDrain'));assert.ok(!f.events.includes('ExitMaintenance'));
+ if(failure==='BeginWorkerDrain'){
+  const started=JSON.parse(await fs.readFile(path.join(f.out,'STARTED.json'),'utf8'));
+  assert.equal(f.events.filter(e=>e==='CancelDrain').length,1);assert.equal(cancellations.length,1);
+  assert.deepEqual(cancellations[0].extra,['-MaintenanceId',started.maintenanceId]);
+  assert.equal(cancellations[0].script,path.join(f.context.workerRuntimeRoot,'releases/old/tools/worker-local-service.ps1'));
+  assert.equal(failed.drainCancelled,true);assert.equal(failed.error,'fixture failure: BeginWorkerDrain');
+  assert.equal(failed.phase,'排空前端请求');assert.ok(!f.events.includes('StopForRelease'));
+ }else assert.ok(!f.events.includes('CancelDrain'));
+ assert.ok(!f.events.includes('ExitMaintenance'));
+});
+for(const cancelFailure of ['fixture cancellation failure','Exact drain owner is required'])test('drain cancellation failure preserves the original error: '+cancelFailure,async t=>{
+ const f=await fixture(t,['worker'],'BeginWorkerDrain'),original=f.context.runStep,logs=[];let originalError;
+ f.context.progress.log=message=>logs.push(message);
+ f.context.runStep=async args=>{
+  let result;
+  try{result=await original(args);}catch(error){originalError=error;throw error;}
+  if(args.action==='CancelDrain')throw Error(cancelFailure);
+  return result;
+ };
+ await assert.rejects(publishPreparedMain(f.request,f.context),error=>error===originalError);
+ const failed=JSON.parse(await fs.readFile(path.join(f.out,'FAILED.json'),'utf8'));
+ assert.equal(failed.error,'fixture failure: BeginWorkerDrain');assert.equal(failed.phase,'排空前端请求');
+ assert.equal(failed.drainCancelled,false);assert.equal(failed.drainCancelError,cancelFailure);
+ assert.equal(failed.drainCancelManualHandlingRequired,true);assert.ok(logs.some(message=>message.includes('需人工')));
+ assert.equal(f.events.filter(e=>e==='CancelDrain').length,1);
+ assert.ok(!f.events.includes('StopForRelease'));assert.ok(!f.events.includes('ExitMaintenance'));
+ assert.equal(failed.automaticRetry,false);assert.equal(f.successes,0);await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
+ const prior=f.events.length;await assert.rejects(publishPreparedMain(f.request,f.context),/结果未知/);
+ assert.deepEqual(operations(f.events.slice(prior)),[]);
+});
+test('worker material failure before STARTED never cancels a drain',async t=>{
+ const f=await fixture(t),original=f.context.sha;
+ f.context.sha=async file=>{if(file===path.join(f.context.workerRuntimeRoot,'releases/old/tools/worker-local-service.ps1'))throw Error('missing Worker material');return original(file);};
+ await assert.rejects(publishPreparedMain(f.request,f.context),/missing Worker material/);
+ await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));await assert.rejects(fs.access(path.join(f.out,'FAILED.json')));
+ assert.ok(!f.events.includes('BeginWorkerDrain'));assert.ok(!f.events.includes('CancelDrain'));assert.ok(!f.events.includes('ExitMaintenance'));
 });
 for(const failure of ['EnterMaintenance','Stop','DeployApp','HardenAcl','apply','ExitMaintenance','Start'])test('full maintenance failure at '+failure+' stops without replay or automatic cleanup',async t=>{
  const f=await fixture(t,['worker','django'],failure);await assert.rejects(publishPreparedMain(f.request,f.context),/fixture failure/);
  assert.equal(f.successes,0);assert.equal(f.events.filter(e=>e===failure).length,1);
  assert.equal(f.events.at(-1),failure);await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
+ assert.ok(!f.events.includes('CancelDrain'));
  assert.equal(JSON.parse(await fs.readFile(path.join(f.out,'FAILED.json'),'utf8')).automaticRetry,false);
  const prior=f.events.length;await assert.rejects(publishPreparedMain(f.request,f.context),/结果未知/);assert.deepEqual(operations(f.events.slice(prior)),[]);
 });

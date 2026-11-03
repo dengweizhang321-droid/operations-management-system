@@ -164,7 +164,8 @@ export async function publishPreparedMain(request,context){
   assert.equal(djangoBefore,request.predecessorDjangoSha256,'后台版本已被其他发布改变');
   const preparationFile=path.join(preparationOut,'PREPARED.json');
   const requestSha256=digest(Buffer.from(JSON.stringify(request)));
-  let publicationStarted=false;
+  let publicationStarted=false,workerDrainOpen=false;
+  const oldWorker=path.join(runtime,'releases',before.head.releaseId,'tools/worker-local-service.ps1');
   try{
    await beginLease();
    if(schema)await (context.verifySchemaRelease??(()=>verifyMainSchemaRelease(request,source)))();
@@ -268,7 +269,6 @@ export async function publishPreparedMain(request,context){
    }
    // Assemble all inputs that can fail due to missing materials before STARTED.
    // This inventory explains existing evidence; it is not another admission.
-   const oldWorker=path.join(runtime,'releases',before.head.releaseId,'tools/worker-local-service.ps1');
    const targetWorker=plan?path.join(runtime,'releases',plan.candidateReleaseId,'tools/worker-local-service.ps1'):oldWorker;
    let maintenanceMaterials=null;
    const workerEntries=[];
@@ -292,8 +292,12 @@ export async function publishPreparedMain(request,context){
    publicationStarted=true;
    maintenanceStarted=true;
    if(!components.django){
+    // The gate may be persisted before BeginWorkerDrain returns or throws.
+    workerDrainOpen=true;
     const drained=await step('排空前端请求',oldWorker,'BeginWorkerDrain',['-MaintenanceId',maintenanceId]);
     assert.equal(drained.status,'worker_drained');assert.equal(drained.maintenanceId,maintenanceId);assert.equal(drained.drainConfirmed,true);assert.equal(drained.backendStopped,false);
+    // CancelDrain does not check Worker state: close this window before stop.
+    workerDrainOpen=false;
     await step('停止旧前端',oldWorker,'StopForRelease',['-MaintenanceId',maintenanceId]);
    }else{
     // Wait for the shared report lock once, then call the complete native entry.
@@ -344,8 +348,21 @@ export async function publishPreparedMain(request,context){
    }
    return await finishMainPublication({request,components,source,identity,installed,out,api,rotation,rotationLease,before,plan,pkg,djangoExpected,maintenanceId,schema,schemaReceipt,piUpgradeReceipt,step,save,sha,ready,refreshLease,endLease,progress,phase:label=>{phase=label;}});
   }catch(error){
-   await endLease();
    const failure={at:new Date().toISOString(),mainCommit:request.mainCommit,phase,error:String(error.message).slice(0,1600),processEvidence:error.processEvidence??null,maintenanceStarted,automaticRetry:false};
+   // Deliberate exception to no automatic cleanup: only the pre-stop drain.
+   // maintenanceStarted means STARTED was saved, not that drain completed.
+   if(publicationStarted&&!components.django&&workerDrainOpen){
+    try{
+     await step('取消前端排空',oldWorker,'CancelDrain',['-MaintenanceId',maintenanceId]);
+     failure.drainCancelled=true;
+    }catch(cancelError){
+     failure.drainCancelled=false;
+     failure.drainCancelError=String(cancelError.message).slice(0,1600);
+     failure.drainCancelManualHandlingRequired=true;
+     try{progress.log('取消前端排空失败，需人工核对原排空状态；本次发布仍失败，不可自动重试。');}catch{}
+    }
+   }
+   await endLease();
    // Preserve every preparation rejection without turning it into a deployment.
    if(publicationStarted)await save('FAILED.json',failure);
    else await fs.writeFile(path.join(preparationOut,'FAILED-'+randomUUID()+'.json'),JSON.stringify(failure,null,2)+'\n',{flag:'wx'});
