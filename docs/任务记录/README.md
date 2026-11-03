@@ -1,5 +1,7 @@
 # 任务记录目录
 
+本轮候选：[n8n 完成率排查与修复](../n8n-reliability-20261103/REPORT.md) · [链路设计评估](../n8n-reliability-20261103/DESIGN.md) · [关键审查](../n8n-reliability-20261103/REVIEW.md) · [导入边界审查](../n8n-reliability-20261103/IMPORT-REVIEW.md)（源码候选，生产状态见报告）。
+
 本轮候选：[规范入口与按任务阅读调整](../agent-guidance-streamline-20261102/REPORT.md)（未合并；含新旧授权对照与发布范围差异）。
 
 本轮候选：[Windows Claude–Haiku–Codex 适配](../claude-haiku-bridge-20261031/REPORT.md) · [使用说明](../claude-haiku-bridge-20261031/README.md)。

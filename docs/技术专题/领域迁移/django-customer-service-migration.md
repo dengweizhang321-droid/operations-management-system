@@ -177,4 +177,4 @@ PNR 后的恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或审批过�
 
 正式迁移 run 为 `customer-service-5e02b476b3984cb590f46fd11081c6d9`。正式 smoke receipt SHA-256 为 `8c25983b973e53a5aa0f72d0035201fd7ff7afea88e4dd3bab52908fbd9dd163`，R2 空前缀证据 SHA-256 为 `1127331846322966dcf8753317fe093be521ce6d421e12cdf8ac55b02aca58c3`。退役时共享导入/上传表的非客服行摘要保持 `141b66b920f7f0ed5a7ec6890b23ffbec47650f984b57e1c73b8b4ff6116f23e`，未删除全局 D1 数据库或 R2 bucket/binding。
 
-正式数据暴露了两项历史边界并已前向固化：历史批次的累计 `conversation_count` 可以大于当前仍指向该批次的会话数，因为后续重导会移动 `last_import_batch_id`；历史消息数组可超过现行新导入 200 条上限，迁移必须在 2,000 条、128 KiB 的独立安全边界内完整保留，不能静默截断。运行时新导入仍保持原 200 条契约。
+正式数据暴露了两项历史边界并已前向固化：历史批次的累计 `conversation_count` 可以大于当前仍指向该批次的会话数，因为后续重导会移动 `last_import_batch_id`；历史消息数组可超过当时新导入的 200 条上限，迁移必须在 2,000 条、128 KiB 的独立安全边界内完整保留，不能静默截断。当时运行时新导入保持 200 条；后续导入容量及采用状态以[客服工作流契约](../../自动化/京东/jd-customer-service-workflow.md)为准，不追改上述迁移事实。

@@ -460,7 +460,8 @@ DJANGO_SIGNATURE_MAX_AGE_SECONDS = env_int(
 DJANGO_MAX_HEADER_BYTES = env_int("TERUISI_DJANGO_MAX_HEADER_BYTES", 32_768, 8_192, 65_536)
 DJANGO_MAX_BODY_BYTES = env_int(
     "TERUISI_DJANGO_MAX_BODY_BYTES",
-    67_108_864 if DJANGO_PROCESS_ROLE in {"netshop_writer", "market_writer"}
+    134_217_728 if DJANGO_PROCESS_ROLE == "netshop_writer"
+    else 67_108_864 if DJANGO_PROCESS_ROLE == "market_writer"
     else 67_108_864 if DJANGO_PROCESS_ROLE == "inventory_writer"
     else 16_777_216 if DJANGO_PROCESS_ROLE == "customer_service_writer"
     else 33_554_432 if DJANGO_PROCESS_ROLE == "products_writer"

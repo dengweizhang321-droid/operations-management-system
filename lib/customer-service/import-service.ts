@@ -67,7 +67,9 @@ export type CustomerServiceParseResult = {
 export const CUSTOMER_SERVICE_WARNING_LIMIT = 50;
 export const CUSTOMER_SERVICE_WARNING_CONTENT_LIMIT = 500;
 export const CUSTOMER_SERVICE_WARNING_BYTES_LIMIT = 32 * 1024;
-export const CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT = 200;
+// Import retains complete conversations; the separate read/AI limits control
+// display size. Match the existing migration bound and retain the byte cap.
+export const CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT = 2_000;
 export const CUSTOMER_SERVICE_IMPORT_MESSAGE_CONTENT_LIMIT = 4_000;
 export const CUSTOMER_SERVICE_IMPORT_CONVERSATION_MESSAGE_BYTES_LIMIT = 128 * 1024;
 

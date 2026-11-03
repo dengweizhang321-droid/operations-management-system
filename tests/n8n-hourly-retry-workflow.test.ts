@@ -159,7 +159,7 @@ test("the shared error workflow waits exactly one hour and dispatches only to lo
   assert.equal(workflow.connections["启动新的完整工作流 execution"]?.main?.[1]?.[0]?.node, "告警-派发未知");
   assert.equal(workflow.connections["告警-派发未知"]?.main?.[0]?.[0]?.node, "准备人工提醒参数");
   assert.equal(workflow.connections["准备人工提醒参数"]?.main?.[0]?.[0]?.node, "转人工发钉钉提醒");
-  assert.equal(workflow.connections["转人工发钉钉提醒"]?.main?.[0]?.[0]?.node, "重试派发结果未知转人工");
+  assert.equal(workflow.connections["转人工发钉钉提醒"]?.main?.[0]?.[0]?.node, "保留人工处理原因并停止");
   const retryBranchName = "本次可安全自动重试？";
   const retryBranch = workflow.nodes.find(node => node.name === retryBranchName);
   assert.equal(workflow.nodes.length, 16);
@@ -171,7 +171,7 @@ test("the shared error workflow waits exactly one hour and dispatches only to lo
     [{ node: "收集被丢弃的终局失败", type: "main", index: 0 }],
   ]);
   assert.equal(workflow.connections["收集被丢弃的终局失败"]?.main?.[0]?.[0]?.node, "准备人工提醒参数");
-  assert.equal(workflow.nodes.find(node => node.name === "重试派发结果未知转人工")?.type, "n8n-nodes-base.stopAndError");
+  assert.equal(workflow.nodes.find(node => node.name === "保留人工处理原因并停止")?.type, "n8n-nodes-base.stopAndError");
   assert.equal(workflow.nodes.find(node => node.name === "转人工发钉钉提醒")?.type, "n8n-nodes-base.executeCommand");
   assert.equal(workflow.nodes.find(node => node.name === "告警-派发未知")?.type, "n8n-nodes-base.code");
   assert.equal(workflow.nodes.find(node => node.name === "收集被丢弃的终局失败")?.type, "n8n-nodes-base.code");

@@ -505,7 +505,11 @@ export async function importJdPromotionFile(
   const response = await request(`${options.baseUrl}/api/netshop/import`, { method: "POST", body: form, signal: AbortSignal.timeout(120_000) });
   const payload = await response.json().catch(() => null) as Record<string, unknown> | null;
   const expectedHttpStatus = payload?.status === "imported" ? 201 : payload?.status === "duplicate" ? 200 : 0;
-  if (response.status !== expectedHttpStatus || !payload) throw new Error(`京准通推广导入失败 (HTTP ${response.status})`);
+  if (response.status !== expectedHttpStatus || !payload) {
+    // Preserve a bounded machine code, never arbitrary upstream response text.
+    const code = typeof payload?.code === "string" && /^[A-Za-z][A-Za-z0-9_]{0,95}$/.test(payload.code) ? payload.code : "unclassified";
+    throw new Error(`京准通推广导入失败 (HTTP ${response.status}; code=${code})`);
+  }
   const proof = validateJdPromotionImportProof({ payload, shopName: store.shopName, startDate: options.startDate, endDate: options.endDate, rowCount: inspection.rowCount, rawFileHash: inspection.sha256 });
   return { inspection, proof };
 }

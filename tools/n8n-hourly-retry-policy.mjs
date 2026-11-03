@@ -29,6 +29,7 @@ const terminalFailurePatterns = [
   "JACKYUN_OSS_DOWNLOAD_|JACKYUN_API_RESUME_MANUAL_ACTION|JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED",
   "maintenance_requires_plan_anchor|execution_plan_anchor_changed|coordination_wait_expired|manual_action|maintenance_wait",
   "challenge_present|waiting_login",
+  "http[ :_-]*413\\b|payload_too_large|request_body_too_large|规范化网店数据超过内部请求上限",
   "captcha|验证码|滑块|短信验证|安全验证|security verification|risk control|风控|\\b601\\b",
   "credential|credentials|凭据|dpapi|密码.*(?:缺失|损坏|错误)|授权失效|unauthori[sz]ed|authentication failed|http 40[13]",
   "JACKYUN_PREFLIGHT_RETRY_READY",
@@ -242,7 +243,7 @@ export function buildHourlyRetryErrorWorkflow() {
   const waitName = "等待一小时";
   const retryBranchName = "本次可安全自动重试？";
   const dispatchName = "启动新的完整工作流 execution";
-  const unknownName = "重试派发结果未知转人工";
+  const unknownName = "保留人工处理原因并停止";
   const contextName = "读取原执行计划时间";
   const contextReadyName = "原计划核验完成？";
   const noteName = "每小时安全重试说明";
@@ -423,7 +424,7 @@ return dropped.map((item) => ({ json: { manualAction: {
   workflowId: item.workflowId, failedExecutionId: item.failedExecutionId,
   logicalExecutionId: item.originalExecutionId || item.failedExecutionId,
   code: item.reason === '终局失败，不会自动重试' ? 'terminal_manual_action' : 'execution_mode_not_automatic',
-}, terminalCode: 'dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST' } }));`,
+}, terminalCode: item.reason === '终局失败，不会自动重试' ? 'terminal_manual_action' : 'execution_mode_not_automatic' } }));`,
         },
         id: "b2f8d1e5-7c3a-4f9b-8d42-6e1a9c8b3f75",
         name: collectDroppedName,
@@ -438,7 +439,7 @@ const p = $('${contextName}').item.json ?? {};
 return [{ json: { manualAction: { workflowId: p.retryPolicy?.workflowId,
   failedExecutionId: p.failedExecutionId, logicalExecutionId: p.originalExecutionId || p.failedExecutionId,
   code: 'retry_dispatch_result_unknown' },
-  terminalCode: 'dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST' } }];`,
+  terminalCode: 'retry_dispatch_result_unknown' } }];`,
         },
         id: "c3a9e2f6-8d4b-4a1c-9e53-7f2b0d9c4a86",
         name: dispatchUnknownAlertName,
@@ -467,8 +468,9 @@ return $input.all().map((item, index) => {
     failedExecutionId:String(p.failedExecutionId), code:p.code};
   const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded) || encoded.length > 8192) throw new Error('manual_alert_payload_invalid');
-  const terminalCode = codes.includes(item.json.terminalCode) ? item.json.terminalCode
-    : 'dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST';
+  // The validated action identifies the actual failure. A terminal source
+  // failure has not dispatched a retry Webhook and must never claim otherwise.
+  const terminalCode = p.code;
   return {json:{manualAlertPayloadBase64:encoded, terminalCode}, pairedItem:{item:index}};
 });` },
         id: stableUuid("teruisi-hourly-retry:prepare-alert"), name: prepareAlertName,

@@ -118,7 +118,9 @@ function Invoke-ManualActionAlert([string]$EncodedPayload,[bool]$SendEnabled,[st
     }catch{
       $record.status=if($sending){'unknown'}else{'identity_failed'}
       $known=@('owner_profile_ambiguous','owner_ambiguous','owner_mismatch','owner_search_ambiguous','bot_ambiguous','dws_rejected','delivery_unconfirmed')
-      $record.reason=if($_.Exception.Message -cin $known){$_.Exception.Message}else{'notification_unconfirmed'}
+      $processEvidence=$_.Exception.Data['ProcessEvidence']
+      $authRequired=-not $sending -and $processEvidence -and [string]$processEvidence.stderrSummary -match 'dws auth login|重新授权'
+      $record.reason=if($authRequired){'dws_auth_required'}elseif($_.Exception.Message -cin $known){$_.Exception.Message}else{'notification_unconfirmed'}
       # If persisting unknown fails, the durable sending record still prevents replay.
       try{Write-WatchJson $path $record}catch{}
       return @{status=$record.status;reason=$record.reason;executed=$sending;exitCode=$(if($sending){3}else{2})}

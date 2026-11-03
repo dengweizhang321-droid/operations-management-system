@@ -27,7 +27,9 @@ DATE_TIME = re.compile(r"^(?:19|20|21)\d\d-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[
 MATCH_STATUSES = {"matched", "session_only", "chat_only", "ambiguous"}
 MATCH_CONFIDENCES = {"exact", "time_only", "review", "none"}
 MAX_CONVERSATIONS = 20_000
-MAX_MESSAGES = 200
+# Keep complete long conversations, with the same count bound as migration.
+# Read/AI limits are separate; MAX_MESSAGE_BYTES still bounds each stored row.
+MAX_MESSAGES = 2_000
 MAX_MESSAGE_CONTENT = 4_000
 MAX_MESSAGE_BYTES = 128 * 1024
 WARNING_LIMIT = 50

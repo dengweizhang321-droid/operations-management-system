@@ -90,7 +90,7 @@ export function JdCustomerServiceCloseControls({ currentUser }: { currentUser: C
       const result = await response.json();
       if (epoch.current !== submittedEpoch) return;
       if (!response.ok || result.ok !== true) throw new Error(result.message ?? result.error ?? "闭合结果未确认，请刷新原请求。");
-      setMessage(result.outcome === "completed" ? "已复用原 C 判据完成验证并收尾；未重跑导出或导入。" : "旧失败任务已闭合，原失败与来源原件保留；不标记成功、不自动重试。后续正常 A 按新窗口重新采集，不需恢复摘要头；导入200条上限仍保留。");
+      setMessage(result.outcome === "completed" ? "已复用原 C 判据完成验证并收尾；未重跑导出或导入。" : "旧失败任务已闭合，原失败与来源原件保留。后续定时任务将按新日期范围重新采集；本次闭合不代表新数据已导入。");
       setDone(true);
     } catch (error) { if (epoch.current === submittedEpoch) setMessage(`${error instanceof Error ? error.message : "闭合结果未确认。"} 请求编号：${operation.requestId}。刷新只核对原结果。`); }
     finally { if (epoch.current === submittedEpoch) { submitting.current = false; setBusy(false); await refresh(); if (epoch.current === submittedEpoch) window.dispatchEvent(new Event(eventName)); } }

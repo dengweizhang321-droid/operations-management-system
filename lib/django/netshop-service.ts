@@ -56,7 +56,9 @@ const PRODUCT_IMAGE_METADATA_PATH = /^\/api\/netshop\/product-images\/[a-f0-9]{6
 const encoder = new TextEncoder();
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_TIMEOUT_MS = 120_000;
-const DEFAULT_MAX_REQUEST_BYTES = 64 * 1024 * 1024;
+// A valid 25 MiB source expands when each row includes normalized metrics and
+// its original columns. Keep the transport ceiling aligned with netshop_writer.
+const DEFAULT_MAX_REQUEST_BYTES = 128 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 128 * 1024 * 1024;
 const DEFAULT_MAX_RESPONSE_BYTES = 12 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 32 * 1024 * 1024;
