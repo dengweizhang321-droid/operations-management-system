@@ -6,6 +6,8 @@ import {createHash,randomUUID} from 'node:crypto';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {fileURLToPath,pathToFileURL} from 'node:url';
+import {fixedWitnessRoot,fullCensusScript,obtainRetirementWitness,assertWitnessFresh,retirementNeedles} from './retirement-witness.mjs';
+import {witnessBinding} from './observe-retirement.mjs';
 
 export const targetCommit='eab998f81c984ee3d9e722bcd39f0f46a53a9820';
 export const recoveryId='eab998f8-ready-tail-20261103';
@@ -71,23 +73,25 @@ function assertRecovered(r,s,c){
  assert.equal(s.ready.httpStatus,200);assert.equal(s.ready.ok,true);assert.equal(s.ready.status,'ready');assert.ok(Number.isFinite(Date.parse(s.at)));
 }
 
-async function recoveryOwners(r,c){
+async function recoveryOwners(r,c,verify=true){
  const root=path.dirname(receiptPathFor(r));if(!await exists(root))return [];
  await physical(root);assert.ok((await fs.lstat(root)).isDirectory());
  const allowed=new Set(['BINDING.json','invocations','superseded-PUBLISHED-MAIN.json','RECOVERED-SUCCESS.json']);for(const name of await fs.readdir(root))assert.ok(allowed.has(name),'Unknown recovery record: '+name);
  const invocations=path.join(root,'invocations');if(!await exists(invocations))return [];await physical(invocations);
  const names=await fs.readdir(invocations);assert.ok(names.length<=64,'Recovery invocation limit');
- const retired=[];for(const name of names){assert.match(name,/^[a-f0-9-]{36}$/);const entry=path.join(invocations,name);await physical(entry);const v=json(await bytes(path.join(entry,'STARTED.json')));assert.equal(v.recoveryId,r.recoveryId);assert.equal(v.programSha256,c.program.sha256);assert.equal(v.recipeSha256,c.program.recipeSha256);assert.equal(v.originalStartedSha256,r.pins.find(x=>same(x.path,r.paths.started)).sha256);if(name!==c.invocationId)retired.push({invocation:name,owner:v.owner,rows:await c.retired(v.owner)??[]});}return retired;
+ const retired=[];for(const name of names){assert.match(name,/^[a-f0-9-]{36}$/);const entry=path.join(invocations,name);await physical(entry);const v=json(await bytes(path.join(entry,'STARTED.json')));assert.equal(v.recoveryId,r.recoveryId);assert.equal(v.programSha256,c.program.sha256);assert.equal(v.recipeSha256,c.program.recipeSha256);assert.equal(v.originalStartedSha256,r.pins.find(x=>same(x.path,r.paths.started)).sha256);if(name!==c.invocationId)retired.push({invocation:name,owner:v.owner,...(verify?{rows:await c.retired(v.owner)??[]}:{})});}return retired;
 }
 
 async function observe(r,c,original,{full=false}={}){
- await c.generation();await c.activeBatch();const publisherRetirement={owner:original.started.publisherOwner,rows:await c.retired(original.started.publisherOwner)??[]},priorRecoveryRetirement=await recoveryOwners(r,c);
+ await c.generation();await c.activeBatch();
  for(const name of ['system-maintenance.json','automation-drain.json','release-publication-lease.json'])await absent(path.join(r.djangoRoot,'run',name));
  const live=await c.live();assert.equal(live.workerCommit,r.mainCommit);assert.equal(live.djangoCommit,r.mainCommit);assert.equal(same(live.workerSource,r.source),true);assert.equal(same(live.djangoSource,r.source),true);assert.equal(live.workerRelease,r.workerRelease);assert.equal(live.workerManifestSha256,r.workerManifestSha256);assert.equal(live.djangoManifestSha256,r.djangoManifestSha256);assert.deepEqual(live.head,r.targetHead);assert.equal(live.chainStateSha256,r.chainStateSha256);
  if(full){assert.deepEqual(await c.sourceIdentity(original.request),original.prepared.sourceIdentity);assert.deepEqual(await c.contentTree(live),r.sourceContentTree);assert.deepEqual(live.manifest.source.tree,r.sourceContentTree);}
+ const prior=await recoveryOwners(r,c,false);await c.prepareRetirement?.({stage:full?'initial':'final',owners:[original.started.publisherOwner,...prior.map(x=>x.owner)]});
+ const publisherRetirement={owner:original.started.publisherOwner,rows:await c.retired(original.started.publisherOwner)??[]},priorRecoveryRetirement=await recoveryOwners(r,c);
  const ready=await c.ready();assert.equal(ready.httpStatus,200);assert.equal(ready.ok,true);assert.equal(ready.status,'ready');assert.deepEqual(ready.unavailableServices??[],[]);
  for(const name of ['system-maintenance.json','automation-drain.json','release-publication-lease.json'])await absent(path.join(r.djangoRoot,'run',name));
- return {observedAt:new Date().toISOString(),head:live.head,chainStateSha256:live.chainStateSha256,workerManifestSha256:live.workerManifestSha256,djangoManifestSha256:live.djangoManifestSha256,publisherRetirement,priorRecoveryRetirement,markersAbsent:true,ready};
+ c.assertRetirementFresh?.();return {observedAt:new Date().toISOString(),head:live.head,chainStateSha256:live.chainStateSha256,workerManifestSha256:live.workerManifestSha256,djangoManifestSha256:live.djangoManifestSha256,publisherRetirement,priorRecoveryRetirement,retirementVisibility:c.retirementEvidence?.(),markersAbsent:true,ready};
 }
 
 /** All required callbacks are read-only observations or lock ownership. No production defaults. */
@@ -114,15 +118,15 @@ export async function recoverReadyTail(r,c,{apply=false}={}){
   try{
    await onceSame(path.join(directory,'superseded-PUBLISHED-MAIN.json'),catalogBefore);await c.checkpoint('after-backup');
    await durable(path.join(invocation,'OBSERVATION.json'),encode({original:{startedAt:original.started.at,failedAt:original.failed.at,phase:original.failed.phase,completed:original.completed,workerApply:original.applied},current:observation}));
-   if(!receipt){
+   if(!receipt){c.assertRetirementFresh?.();
     receipt={version:'teruisi-eab-ready-tail-recovered-success-v1',status:'deployed_and_ready',at:new Date().toISOString(),mainCommit:r.mainCommit,recoveryId:r.recoveryId,components:['worker','django'],workerRelease:r.workerRelease,workerManifestSha256:r.workerManifestSha256,djangoManifestSha256:r.djangoManifestSha256,source:r.source,sourceTree:r.sourceContentTree,djangoPreparedId:original.prepared.djangoPackage.id,maintenanceId:original.started.maintenanceId,migration:null,startupVerified:true,readyVerified:true,backupPerformed:false,manualRecovery:true,automatedPublisherSuccess:false,publicationPerformed:false,preparationPerformed:false,applicationActionsPerformed:[],originalAttempt:r.attempt,originalStartedSha256:binding.originalStartedSha256,originalFailureSha256:binding.originalFailureSha256,originalPublicationStatus:'failed',reusedCompletedSteps:[...Object.keys(labels),'WorkerApply'],ready:observation.ready,observationPath:path.join(invocation,'OBSERVATION.json'),operator:await c.captureOwner(),program:c.program};
-    assertRecovered(r,receipt,c);receiptRaw=encode(receipt);await durable(receiptPath,receiptRaw);
+    assertRecovered(r,receipt,c);receiptRaw=encode(receipt);c.assertRetirementFresh?.();await durable(receiptPath,receiptRaw);
    }
    await c.checkpoint('after-receipt');
    const catalogRaw=encode(catalogFor(r,receipt,receiptRaw)),temporary=catalogFile+'.'+r.recoveryId+'.tmp';await onceSame(temporary,catalogRaw);
    await c.checkpoint('before-cas');await c.admission();await inspectOriginal(r);const fresh=await observe(r,c,original);await durable(path.join(invocation,'FINAL-OBSERVATION.json'),encode(fresh));
    assert.equal(await fileHash(catalogFile),r.originalCatalogSha256,'Catalog CAS changed; preserve third value');
-   try{await fs.rename(temporary,catalogFile);catalogWritten=true;}catch(error){if((await bytes(catalogFile)).equals(catalogRaw))catalogWritten=true;else throw error;}
+   c.assertRetirementFresh?.();try{await fs.rename(temporary,catalogFile);catalogWritten=true;}catch(error){if((await bytes(catalogFile)).equals(catalogRaw))catalogWritten=true;else throw error;}
    await c.checkpoint('after-rename');assert.deepEqual(await bytes(catalogFile),catalogRaw,'Catalog readback differs');
    const read=await c.readPublished();assert.equal(read.mainCommit,r.mainCommit);assert.equal(same(read.completedReceiptPath,receiptPath),true);
    const result={status:'accounting-recovered',receiptPath,receiptSha256:hash(receiptRaw),catalogSha256:hash(catalogRaw),originalFailurePreserved:true,publicationPerformed:false,accountingWritten:true};await durable(path.join(invocation,'COMPLETED.json'),encode(result));return result;
@@ -130,15 +134,7 @@ export async function recoverReadyTail(r,c,{apply=false}={}){
  });
 }
 
-// Fixed, read-only census. Legitimate runtime services are not publication controllers.
-export const censusScript=String.raw`
-function Hash-Text([string]$s){$h=[Security.Cryptography.SHA256]::Create();try{([BitConverter]::ToString($h.ComputeHash([Text.Encoding]::UTF8.GetBytes($s)))).Replace('-','').ToLowerInvariant()}finally{$h.Dispose()}}
-function Expanded([string]$s){for($round=0;$round -lt 3;$round++){$extra='';foreach($m in [regex]::Matches($s,'[A-Za-z0-9+/]{80,}={0,2}')){try{$b=[Convert]::FromBase64String($m.Value);$extra+=[Text.Encoding]::Unicode.GetString($b)+[Text.Encoding]::UTF8.GetString($b)}catch{}};$s+=$extra};$s.Replace('\','/').ToLowerInvariant()}
-$rows=@(foreach($p in @(Get-CimInstance Win32_Process -ErrorAction Stop)){
- if($p.ProcessId -eq $PID){continue};$interesting=([string]$p.Name -imatch '^(powershell|pwsh|python|pythonw|node|wsl)(\.exe)?$');$missing=$interesting -and (-not $p.CreationDate -or -not $p.ExecutablePath -or -not $p.CommandLine);$related=$false
- if($interesting -and -not $missing -and $p.ProcessId -ne $v.selfPid){$text=Expanded ([string]$p.CommandLine);foreach($needle in @($v.needles)){if($needle -and $text.Contains(([string]$needle).Replace('\','/').ToLowerInvariant())){$related=$true}}}
- if($p.ProcessId -eq $v.subjectPid -or $related -or $missing){[pscustomobject]@{processId=[int]$p.ProcessId;creationDate=$(if($p.CreationDate){$p.CreationDate.ToUniversalTime().ToString('o')}else{$null});sessionId=[int]$p.SessionId;commandLineSha256=$(if($p.CommandLine){Hash-Text ([string]$p.CommandLine)}else{$null});executablePathSha256=$(if($p.ExecutablePath){Hash-Text ([string]$p.ExecutablePath)}else{$null});related=$related;identityUnreadable=$missing}}
-});ConvertTo-Json -InputObject @($rows) -Depth 3 -Compress`;
+export const censusScript=fullCensusScript;
 
 export async function withQueueRotation(binding,publisher,rotation,operation,queueOptions){
  const release=await publisher.acquireMainPublicationQueue(binding,queueOptions);
@@ -157,14 +153,14 @@ export async function productionContext(r,recipeRaw,{apply}){
  const fixed=publisher.publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment);for(const key of Object.keys(process.env))delete process.env[key];Object.assign(process.env,fixed);
  const rotation=await import(pathToFileURL(path.join(r.nativeRoot,'tools/worker-local-release-rotation.mjs'))),owner=await import(pathToFileURL(path.join(r.source,'tools/publish-main-owner.mjs'))),frozen=await import(pathToFileURL(path.join(r.source,'tools/frozen-main-source.mjs')));
  assert.equal(rotation.withRotationLock.length,1);for(const [module,key] of [[rotation,'assertActiveBatchOwnership'],[rotation,'resolveEffectiveReleaseChain'],[publisher,'observeLiveIdentity'],[publisher,'readLivePublication'],[publisher,'acquireMainPublicationQueue'],[owner,'verifyPublisherRetired'],[owner,'capturePublicationOwner'],[frozen,'assertFrozenSource']])assert.equal(typeof module[key],'function','Fixed API missing: '+key);
- let scope;
+ let scope,visibilityProof;
  const c={program:{relative:r.programRelative,commit,sha256:await fileHash(fileURLToPath(import.meta.url)),recipeSha256:hash(recipeRaw)},generation:()=>control.assertControlGeneration(binding),activeBatch:()=>rotation.assertActiveBatchOwnership(r.workerRoot),
-  retired:async previous=>{const rows=await task.taskPowerShell(censusScript,{subjectPid:previous.processId,selfPid:process.pid,needles:[r.source,r.attempt,r.djangoPreparedId,'tools/publish-main.mjs','tools/publish-prepared-main.mjs','tools/publish-main-status.mjs','tools/publish-latest-main.mjs','--consume-preparation']});owner.verifyPublisherRetired(previous,rows,[]);return rows;},
+  retired:async previous=>{assert.ok(visibilityProof,'Fresh retirement census required');owner.verifyPublisherRetired(previous,visibilityProof.rows,[]);return visibilityProof.rows;},
   live:()=>publisher.observeLiveIdentity(config),sourceIdentity:request=>frozen.assertFrozenSource({source:r.source,mainCommit:r.mainCommit,sourceTree:request.sourceTree}),contentTree:async live=>live.api.hashRelativeFiles(r.source,await live.api.listGitSourceFiles(r.source)),
   ready:async()=>{const response=await fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},redirect:'error',signal:AbortSignal.timeout(15000)});assert.equal(response.status,200,'Original ready gate failed');const h=await response.json();return {observedAt:new Date().toISOString(),httpStatus:response.status,ok:h.ok,status:h.status,unavailableServices:h.unavailableServices??[]};},
   captureOwner:()=>owner.capturePublicationOwner(),readPublished:()=>publisher.readLivePublication(config),admission:()=>retirement.assertRetirementAdmission(config,r.mainCommit,{scope}),invalidate:()=>retirement.invalidateRetirementReadScope(scope,'eab-ready-tail-accounting-write'),checkpoint:async()=>{},
   withLocks:operation=>retirement.withRetirementReadScope(config,async current=>{scope=current;await retirement.assertRetirementAdmission(config,r.mainCommit,{scope});return withQueueRotation(binding,publisher,rotation,operation);})};
- return c;
+ const bindingForWitness=await witnessBinding(r,c.program);c.prepareRetirement=async({stage,owners})=>{visibilityProof=await obtainRetirementWitness({root:fixedWitnessRoot,binding:bindingForWitness,owners,stage,needles:retirementNeedles(r),writerToken:{sidSha256:hash(identity.sid),sessionId:identity.sessionId,elevated:false,integrityRid:8192}},{census:input=>task.taskPowerShell(fullCensusScript,input),announce:value=>console.log(JSON.stringify(value)),assertOrdinary:async()=>{const current=await task.currentPreparationIdentity();task.assertOrdinaryIdentity(current,binding.state.preparationTask.sid);assert.equal(current.sessionId,identity.sessionId);}});};c.assertRetirementFresh=()=>assertWitnessFresh(visibilityProof);c.retirementEvidence=()=>{const {rows,...proof}=visibilityProof;return proof;};return c;
 }
 
 async function run(){

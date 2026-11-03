@@ -69,3 +69,9 @@ test('core requires every explicit capability and has no lifecycle fallback',asy
 test('actual fe4 queue and d08 rotation export run through private bottom-level pipes',()=>{
  const child=fileURLToPath(new URL('./private-lock-check.mjs',import.meta.url)),result=spawnSync(process.execPath,[child],{encoding:'utf8',windowsHide:true,timeout:30000,maxBuffer:1024*1024});assert.equal(result.status,0,result.stderr+'\n'+result.stdout);const proof=JSON.parse(result.stdout.trim());assert.equal(proof.forwardedProduction,0);assert.equal(proof.rotationArity,1);assert.equal(proof.allReleased,true);assert.equal(proof.fixedConsumerAccepted,true);
 });
+test('witness source ordering and independent initial/final phases preserve the existing tail',async t=>{
+ const x=await fixture(t),events=[];const source=x.c.sourceIdentity,tree=x.c.contentTree;x.c.sourceIdentity=async()=>{events.push('source');return source();};x.c.contentTree=async()=>{events.push('tree');return tree();};x.c.prepareRetirement=async({stage})=>events.push(stage);x.c.assertRetirementFresh=()=>{};await recoverReadyTail(x.r,x.c,{apply:true});assert.deepEqual(events,['source','tree','initial','final']);
+});
+test('witness expiration during receipt owner capture refuses writing the receipt',async t=>{
+ const x=await fixture(t);let expired=false,captures=0;x.c.prepareRetirement=async()=>{};x.c.assertRetirementFresh=()=>assert.equal(expired,false,'witness expired');x.c.captureOwner=async()=>{captures++;if(captures===2)expired=true;return owner;};await assert.rejects(recoverReadyTail(x.r,x.c,{apply:true}),/witness expired/);await assert.rejects(fs.access(x.receipt),{code:'ENOENT'});assert.deepEqual(await fs.readFile(x.catalog),x.old);
+});

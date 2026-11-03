@@ -1,6 +1,6 @@
 # eab998f8 ready 尾部记账恢复
 
-2026-11-03，实施状态：源码与必要隔离验证就绪；本实施代理未提交、推送、合并或操作生产。实际执行结果由负责人在生产回执产生后另行记录。用户本次“授权执行”已覆盖开发验证、独审后的精确恢复，不含合并 main；授权记录位于 `D:/codex-artifacts/eab-ready-tail-recovery-20261103/AUTHORIZATION-SCOPE.json`。
+2026-11-03，实施状态：首版已由负责人提交并推送为 `154dfe3c`，当前只读见证桥增量与必要验证就绪，待负责人提交及执行；本实施代理未操作生产。实际恢复结果由负责人在生产回执产生后另行记录。用户本次“授权执行”已覆盖开发验证、独审后的精确恢复，不含合并 main；授权记录位于 `D:/codex-artifacts/eab-ready-tail-recovery-20261103/AUTHORIZATION-SCOPE.json`。
 
 原发布目标为 `eab998f81c984ee3d9e722bcd39f0f46a53a9820`。原部署、权限、WorkerApply、退出维护、Start 与 VerifyStartup 已有成功回执；最后 ready503 导致原 FAILED。原失败和外层 ExitCode=null 保留，不能声称原自动发布成功。
 
@@ -21,6 +21,18 @@
 三个 JS 文件语法检查与 `git diff --check` 通过。只执行本次必要检查，未跑全量 tsc、全仓 tests、业务接口或功能验收。隔离 npm ci exit0（611 packages），日志中的既有 allow-scripts 提示保留，未额外批准安装脚本。
 
 原始输出位于 `D:/codex-artifacts/eab-ready-tail-recovery-20261103/`：`targeted-tests.log`、`private-lock-check.log`、`npm-ci.log`。首轮真实 d08 busy 错误仅在 message 中保留 EADDRINUSE、第二轮测试脚本局部变量重名的失败日志分别保存在 `targeted-tests-first-failed.log`、`targeted-tests-second-failed.log`；修正后定向验证通过，不改生产接口。
+
+## 普通权限身份可见性的只读见证增量
+
+首版普通权限只读 probe 被原 `identityUnreadable` 门禁拒绝，未写记账。仓外原 `probe/` 输出保留；`ORDINARY-CENSUS.json` 显示 36 个候选仅缺命令行/程序路径摘要，PID、创建时间、父 PID、名称可见，而管理员读取完整。没有将这些 PID 作为例外或忽略 opaque。
+
+新增 [retirement-witness.mjs](retirement-witness.mjs) 与 [observe-retirement.mjs](observe-retirement.mjs)，只补此次权限可见性：普通 writer 持原 queue→rotation 后，在慢来源核验结束时生成随机 UUID/256-bit challenge 的仓外 REQUEST；高权 observer 只执行固定 CIM/进程 token 读取和摘要投影，create-only 写固定任务根下 OBSERVATION，并限时等待普通 ACK。observer 不导入恢复执行模块，不带 catalog、锁、生命周期或任意 action/output 参数能力。
+
+普通 writer 在见证后重新读取 CIM，对所有原六类候选及保护 PID 核 PID、创建时间、父 PID、名称、session 和全部可见摘要。只补同一身份的 cmd/path 摘要；缺创建时间、新候选、相关控制者、身份漂移、高权仍 opaque 均拒绝。原 `verifyPublisherRetired` 继续核验补证投影，原普通 opaque 事实和见证 SHA 一并保留。每个 observe 共用一份完整 census 核所有 owner；首次与最终 CAS 各用独立 challenge，证据开始至使用严格小于 60 秒。生成 receipt（含 owner 采集后）和 rename 前都重新核新鲜度。
+
+增量验证：`retirement-witness.test.mjs` 21/21 通过，包含交叉投影正反例、完整私有 REQUEST→OBSERVATION→ACK 文件通信、observer CLI 路径/动作/输出边界、固定 CIM 与 writer token 脚本对当前测试进程的实际只读执行。通过 `--test-name-pattern witness` 只执行新增 2 项尾部接点测试，验证慢来源核验先于首次见证、首次/最终阶段独立，以及 owner 采集跨期时不写 receipt。原 29 项结果复用，未重复全跑。输出分别为仓外 `witness-tests.log`（21 pass，exit0）和 `witness-tail-tests.log`（2 pass，exit0）；相关 JS 语法与差异检查通过。
+
+上述隔离通信不冒称两权限生产接线成功。负责人需用新仓外日志目录运行普通 probe；每次 writer 输出 `awaiting-retirement-witness` 后，管理员只读运行 `node docs/eab-ready-tail-recovery-20261103/observe-retirement.mjs --request <REQUEST绝对路径> --sha <requestSha256>`。真实跨权限观察与最终恢复状态以该次回执为准，不覆盖首版失败输出。
 
 ## 交接
 
