@@ -1,3 +1,4 @@
+import { workflowLocalDate, workflowTimeZone } from "../lib/imports/local-time";
 import { mkdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,6 +7,9 @@ import {
   assertJackyunHistoricalSnapshotEvidence,
   isValidJackyunSourceRowCountCorrection,
   type JackyunSnapshotEvidence,
+  type JackyunDateContext,
+  jackyunDateContext,
+  newJackyunDateContext,
   type JackyunSourceRowCountCorrection,
 } from "../lib/jackyun/run-contract";
 import { jackyunModuleOrder, type JackyunModule } from "../lib/jackyun/post-download";
@@ -36,7 +40,7 @@ export type BrowserExportConfirmation = {
   confirmedAt: string;
 };
 
-export type BrowserHandoff = {
+export type BrowserHandoff = JackyunDateContext & {
   schemaVersion: 2;
   runId: string;
   policyVersion: string;
@@ -56,7 +60,7 @@ export type BrowserHandoff = {
   evidence?: Record<string, unknown>;
 };
 
-export type JackyunDailyOptions = {
+export type JackyunDailyOptions = JackyunDateContext & {
   runId: string;
   snapshotDate: string;
   asOfDate: string;
@@ -88,7 +92,7 @@ type RunManifest = {
   modules: Partial<Record<JackyunModule, RunManifestModule>>;
 };
 
-type DailyRunContract = {
+type DailyRunContract = JackyunDateContext & {
   version: 1;
   runId: string;
   policyVersion: string;
@@ -224,26 +228,9 @@ export function classifyJackyunModuleResult(result: RunnerResultLike, dryRun: bo
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const policyPath = path.join(projectRoot, "config", "jackyun-daily-policy.json");
 
-function compactDate(value: Date) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(value);
-  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
-  return `${get("year")}-${get("month")}-${get("day")}`;
-}
-
-function shanghaiYesterday() {
-  const today = new Date(`${compactDate(new Date())}T00:00:00Z`);
-  today.setUTCDate(today.getUTCDate() - 1);
-  return today.toISOString().slice(0, 10);
-}
-
 function defaultRunId() {
   return new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Asia/Shanghai",
+    timeZone: workflowTimeZone(),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -254,8 +241,7 @@ function defaultRunId() {
   }).format(new Date()).replace(/[-: ]/g, "").replace(/^(\d{8})(\d{6})$/, "$1-$2");
 }
 
-function parseCli(): JackyunDailyOptions {
-  const yesterday = shanghaiYesterday();
+async function parseCli(): Promise<JackyunDailyOptions> {
   const values = new Map<string, string>();
   let dryRun = false;
   let resume = false;
@@ -274,12 +260,18 @@ function parseCli(): JackyunDailyOptions {
     values.set(args[index], next);
     index += 1;
   }
+  const runId = values.get("--run-id") ?? defaultRunId();
+  const outputRoot = path.resolve(values.get("--output-root") ?? path.join(projectRoot, "outputs", "jackyun-import-runs"));
+  const saved = resume ? await readJsonFileOr<DailyRunContract | null>(path.join(outputRoot, runId, "daily-run-contract.json"), null) : null;
+  const context = saved ? jackyunDateContext(saved) : newJackyunDateContext();
+  const yesterday = workflowLocalDate(new Date(), -1, context.timeZone ?? "Asia/Shanghai");
   return {
-    runId: values.get("--run-id") ?? defaultRunId(),
+    ...context,
+    runId,
     snapshotDate: values.get("--snapshot") ?? yesterday,
     asOfDate: values.get("--as-of") ?? yesterday,
     eventDirectory: path.resolve(values.get("--event-dir") ?? path.join(projectRoot, "outputs", "jackyun-browser-events")),
-    outputRoot: path.resolve(values.get("--output-root") ?? path.join(projectRoot, "outputs", "jackyun-import-runs")),
+    outputRoot,
     baseUrl: (values.get("--base-url") ?? "http://localhost:3000").replace(/\/$/, ""),
     dryRun,
     resume,
@@ -313,9 +305,9 @@ export function validateHandoff(
   handoff: BrowserHandoff,
   module: JackyunModule,
   policy: DailyPolicy,
-  expected: { runId: string; snapshotDate?: string },
+  expected: JackyunDateContext & { runId: string; snapshotDate?: string },
 ) {
-  if (handoff.schemaVersion !== 2) throw new Error("浏览器事件 schemaVersion 不是当前历史快照证据版本。");
+  if (handoff.datePolicy !== expected.datePolicy || handoff.timeZone !== expected.timeZone || handoff.schemaVersion !== 2) throw new Error("浏览器事件版本或冻结日期策略与本轮运行不一致。");
   if (handoff.runId !== expected.runId || handoff.policyVersion !== policy.version) {
     throw codedContractError("FILE_BINDING_FAILED", "浏览器事件的 runId 或 policyVersion 与本轮任务不一致。");
   }
@@ -434,6 +426,7 @@ export async function preflightJackyunResume(options: JackyunDailyOptions) {
     readJsonFileOr<DailyRunContract | null>(path.join(runDirectory, "daily-run-contract.json"), null),
   ]);
   const expectedRunContract = {
+    datePolicy: options.datePolicy, timeZone: options.timeZone,
     version: 1 as const,
     runId: options.runId,
     policyVersion: policy.version,
@@ -483,6 +476,7 @@ export async function preflightJackyunResume(options: JackyunDailyOptions) {
     const manifestModule = manifest.modules[moduleKey];
     if (!manifestModule) throw new Error(`续跑缺少 ${moduleKey} 清单记录。`);
     await verifyJackyunModuleArtifact({
+      ...jackyunDateContext(options),
       runDirectory,
       runId: options.runId,
       module: moduleKey,
@@ -545,6 +539,7 @@ export async function runJackyunDaily(options: JackyunDailyOptions) {
     readJsonFileOr<DailyRunContract | null>(runContractPath, null),
   ]);
   const expectedRunContract = {
+    datePolicy: options.datePolicy, timeZone: options.timeZone,
     version: 1 as const,
     runId: options.runId,
     policyVersion: policy.version,
@@ -663,6 +658,7 @@ export async function runJackyunDaily(options: JackyunDailyOptions) {
     const completedManifest = manifest?.modules[completedModule];
     if (!completedManifest) throw new Error(`续跑缺少 ${completedModule} 清单记录。`);
     await verifyJackyunModuleArtifact({
+      ...jackyunDateContext(options),
       runDirectory,
       runId: options.runId,
       module: completedModule,
@@ -689,7 +685,7 @@ export async function runJackyunDaily(options: JackyunDailyOptions) {
       const eventPath = path.join(eventRunDirectory, eventFileName(index, moduleKey));
       const handoff = await waitForHandoff(eventPath, index === startIndex ? resumeNotBeforeMs : startedAtMs, policy.browser.eventTimeoutMs, policy.browser.pollIntervalMs, options.signal);
       dailyStage = "validate_browser_handoff";
-      validateHandoff(handoff, moduleKey, policy, { runId: options.runId, snapshotDate: options.snapshotDate });
+      validateHandoff(handoff, moduleKey, policy, { ...jackyunDateContext(options), runId: options.runId, snapshotDate: options.snapshotDate });
       dailyStage = "transition_browser_state";
       if (handoff.fieldChecks?.length) await stateMachine.transition(moduleKey, "VERIFY_FIELD", { checks: handoff.fieldChecks });
       if (policy.modules[moduleKey].requiresQuery) await stateMachine.transition(moduleKey, "QUERY_ONCE", { queryIntentAt: handoff.queryIntentAt });
@@ -704,6 +700,7 @@ export async function runJackyunDaily(options: JackyunDailyOptions) {
 
       dailyStage = "run_download_runner";
       const result = await runJackyunDownload({
+        ...jackyunDateContext(options),
         module: moduleKey,
         filePath: path.resolve(handoff.filePath),
         runId: options.runId,
@@ -825,7 +822,7 @@ export async function runJackyunDaily(options: JackyunDailyOptions) {
 }
 
 if (path.resolve(process.argv[1] ?? "") === path.resolve(fileURLToPath(import.meta.url))) {
-  const cliOptions = parseCli();
+  const cliOptions = await parseCli();
   withJackyunRunLock(
     { runId: cliOptions.runId, purpose: "daily_import_runner" },
     () => runJackyunDaily(cliOptions),

@@ -258,7 +258,7 @@
       "parameters": {
         "width": 700,
         "height": 260,
-        "content": "## 志高商用洗碗机旗舰店客服聊天记录（待采用）\n每天上海09:00，截至昨天滚动30天；共享helper等待5分钟、双视图导出、按日完整业务值等价、串行导入、精确批次复验均与设备店一致。\n\n固定店铺 jd-cuizhiwang-dengweizhang / 711743；使用原注册Profile、独立下载与恢复状态。禁止跨店接管或重放未决提交。\n\n须先受控采用新版helper及显式店铺导入，逐店完整验收，再启用；第4次独立失败AI介入和本人单聊通知须将新增workflow ID纳入原监控。现有设备店ai-2并未自动扩容，不能直接启用。"
+        "content": "## 志高商用洗碗机旗舰店客服聊天记录（待采用）\n每天本地时间09:00，截至昨天滚动30天；共享helper等待5分钟、双视图导出、按日完整业务值等价、串行导入、精确批次复验均与设备店一致。\n\n固定店铺 jd-cuizhiwang-dengweizhang / 711743；使用原注册Profile、独立下载与恢复状态。禁止跨店接管或重放未决提交。\n\n须先受控采用新版helper及显式店铺导入，逐店完整验收，再启用；第4次独立失败AI介入和本人单聊通知须将新增workflow ID纳入原监控。现有设备店ai-2并未自动扩容，不能直接启用。"
       }
     },
     {
@@ -390,7 +390,6 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Asia/Shanghai",
     "errorWorkflow": "TeruisiHourlyRetry2026"
   },
   "meta": {

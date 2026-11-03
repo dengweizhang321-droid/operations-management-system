@@ -143,7 +143,7 @@ test("the shared error workflow waits exactly one hour and dispatches only to lo
   const workflow = JSON.parse(await readFile(new URL("data-import-hourly-safe-retry.workflow.json", workflowDirectory), "utf8")) as ReturnType<typeof buildHourlyRetryErrorWorkflow>;
   assert.equal(workflow.id, hourlyRetryErrorWorkflowId);
   assert.equal(workflow.active, false);
-  assert.equal(workflow.settings.timezone, "Asia/Shanghai");
+  assert.equal(workflow.settings.timezone, undefined);
   assert.equal(workflow.settings.errorWorkflow, undefined);
   assert.deepEqual(workflow.meta.hourlyRetryPolicy.targetWorkflowIds, hourlyRetryTargets.map((target) => target.workflowId));
   assert.equal(workflow.nodes.filter((node) => node.type === "n8n-nodes-base.errorTrigger").length, 1);

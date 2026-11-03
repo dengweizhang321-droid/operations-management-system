@@ -2,10 +2,10 @@ import { lstat, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { recoverySha, jackyunWorkflowId, type PreflightEvidence } from "./preflight-recovery";
-import { jackyunCaptureDate, jackyunExportFirstPolicyVersion } from "./run-contract";
+import { jackyunCaptureDate, jackyunExportFirstPolicyVersion, jackyunDateContext, type JackyunDateContext } from "./run-contract";
 import type { JackyunExportTaskBinding } from "./export-task";
 
-export type JackyunResumePermit = { version: 1; root: string; executionId: string; runId: string; createdAt: string;
+export type JackyunResumePermit = JackyunDateContext & { version: 1; root: string; executionId: string; runId: string; createdAt: string;
   planSha256: string; controllerSha256: string; policySha256: string; activeSha256: string;
   evidence: PreflightEvidence; task: JackyunExportTaskBinding };
 const paths = (root: string, id: string) => ({
@@ -40,10 +40,10 @@ export async function inspectJackyunResumePermit(root: string, executionId: stri
     || plan.executionId !== executionId || plan.runId !== `n8n-export-first-${executionId}` || plan.phase !== "exporting"
     || Object.keys(plan.exports ?? {}).length || plan.exportIntent !== "inventory" || plan.protocol !== jackyunExportFirstPolicyVersion
     || timeline.some((time, index) => !Number.isFinite(time) || (index > 0 && time < timeline[index - 1]))
-    || policy.version !== plan.protocol || plan.runDate !== jackyunCaptureDate(createdAt) || plan.runDate !== jackyunCaptureDate(plan.createdAt)
+    || policy.version !== plan.protocol || plan.runDate !== jackyunCaptureDate(createdAt, plan) || plan.runDate !== jackyunCaptureDate(plan.createdAt, plan)
     || plan.asOfDate !== new Date(Date.parse(`${plan.runDate}T00:00:00Z`) - 86400000).toISOString().slice(0, 10)
     || plan.baseUrl !== "http://localhost:3000" || !path.isAbsolute(policy.browser?.downloadDirectory ?? "")
-    || controller.runId !== plan.runId || controller.policyVersion !== plan.protocol || Object.keys(controller.modules).length !== 1
+    || !isDeepStrictEqual(jackyunDateContext(controller), jackyunDateContext(plan)) || controller.runId !== plan.runId || controller.policyVersion !== plan.protocol || Object.keys(controller.modules).length !== 1
     || inventoryState?.status !== "export_armed" || inventoryState.filePath || inventoryState.downloadProvenance || inventoryState.exportTaskBinding || !inventoryState.exportIntentAt
     || !isDeepStrictEqual(active, { runId: plan.runId, executionId })
     || task.version !== 1 || task.module !== "inventory" || task.sourceRows !== inventoryState.expectedSourceRows
@@ -65,7 +65,7 @@ export async function inspectJackyunResumePermit(root: string, executionId: stri
     const existing = await lstat(target).catch(error => { if (error.code === "ENOENT") return null; throw error; });
     if (existing) throw new Error("原运行已有额外下载或导入证据，不能使用首次下载续跑许可。");
   }
-  return { version: 1, root, executionId, runId: plan.runId, createdAt, evidence, task,
+  return { ...jackyunDateContext(plan), version: 1, root, executionId, runId: plan.runId, createdAt, evidence, task,
     planSha256: recoverySha(planRaw), controllerSha256: recoverySha(controllerRaw), policySha256: recoverySha(policyRaw), activeSha256: recoverySha(activeRaw) };
 }
 export async function publishJackyunResumePermit(permit: JackyunResumePermit, evidence: PreflightEvidence, approvedSha: string) {
@@ -78,7 +78,7 @@ export async function claimJackyunResumePermit(root: string, originalId: string,
   if (![originalId, executionId].every(id => /^[1-9]\d{0,19}$/.test(id)) || originalId === executionId || !Number.isFinite(Date.parse(now))) throw new Error("续跑身份无效。");
   const p = paths(root, originalId), raw = await bytes(p.permit), permit = JSON.parse(raw.toString()) as JackyunResumePermit;
   if (permit.root !== path.resolve(root) || permit.executionId !== originalId || permit.runId !== `n8n-export-first-${originalId}`
-    || permit.version !== 1 || jackyunCaptureDate(permit.createdAt) !== jackyunCaptureDate(now)) throw new Error("续跑许可已过期或属于其他运行。");
+    || permit.version !== 1 || jackyunCaptureDate(permit.createdAt, permit) !== jackyunCaptureDate(now, permit)) throw new Error("续跑许可已过期或属于其他运行。");
   const binding = { version: 1, originalExecutionId: originalId, executionId, permitSha256: recoverySha(raw) };
   const existing = await bytes(p.consumption).catch(error => { if (error.code === "ENOENT") return null; throw error; });
   if (existing) {

@@ -1,13 +1,14 @@
+import { collectionDateContext, collectionDay, type WorkflowCollectionDateContext } from "../inventory/workflow-date-context";
 import { createHash } from "node:crypto";
 import type { JdLogisticsRow } from "../inventory/jd-logistics-contract";
-import { canonicalLogisticsJson, jdLogisticsContractVersion, jdLogisticsProtocol, jdLogisticsSourceUrls, logisticsHash, logisticsShanghaiDay,
+import { canonicalLogisticsJson, jdLogisticsContractVersion, jdLogisticsProtocol, jdLogisticsSourceUrls, logisticsHash,
   type JdLogisticsExportResult, type JdLogisticsNotificationPlan, type JdLogisticsSelection } from "./logistics-policy";
 
 export type JdLogisticsReceipt = {
   batchId: string; departmentId: string; businessUnitCode: string; sourceKind: JdLogisticsSelection["sourceKind"];
   rangeStart: string; rangeEnd: string; warehouseCode: string; rawFileHash: string; contentHash: string; rowCount: number;
   status: "imported" | "duplicate"; referenceBatchId: string; scopeRevision: number; origin: "workflow"; storeKey: string;
-  collectedAt?: string; sourceAsOf?: string; collectorEvidence?: { runId: string; executionId: string; protocol: string };
+  collectedAt?: string; sourceAsOf?: string; collectorEvidence?: WorkflowCollectionDateContext & { runId: string; executionId: string; protocol: string };
   warningCount?: number; warnings?: unknown[];
   sourceStatus?: "enabled";
 };
@@ -16,7 +17,7 @@ export type JdLogisticsOperation = JdLogisticsSelection & {
   export?: Omit<JdLogisticsExportResult, "filePath"> & { relativePath: string; rawFileHash: string; bytes: number };
   parserVersion?: string; contentHash?: string; rowCount?: number; receipt?: JdLogisticsReceipt;
 };
-export type JdLogisticsManifest = {
+export type JdLogisticsManifest = WorkflowCollectionDateContext & {
   protocolVersion: typeof jdLogisticsProtocol; workflowKey: "jd-logistics"; runId: string; executionId: string;
   createdAt: string; updatedAt: string; anchorAt: string; baseUrl: string; planHash: string;
   stage: "planned" | "running" | "executed" | "verified" | "completed" | "failed";
@@ -31,8 +32,8 @@ export type JdLogisticsNotificationResult = {
   configDigest?: string; sourceDigest?: string; scopeDigest?: string;
   departments: Array<{ departmentId: string; status: string; riskCount: number; reason?: string }>;
 };
-export function logisticsPlanHash(plan: Pick<JdLogisticsManifest, "protocolVersion" | "workflowKey" | "runId" | "executionId" | "anchorAt" | "baseUrl" | "operations" | "notificationPlan">) {
-  return logisticsHash({ protocolVersion: plan.protocolVersion, workflowKey: plan.workflowKey, runId: plan.runId,
+export function logisticsPlanHash(plan: Pick<JdLogisticsManifest, "datePolicy" | "timeZone" | "protocolVersion" | "workflowKey" | "runId" | "executionId" | "anchorAt" | "baseUrl" | "operations" | "notificationPlan">) {
+  return logisticsHash({ ...collectionDateContext(plan), protocolVersion: plan.protocolVersion, workflowKey: plan.workflowKey, runId: plan.runId,
     executionId: plan.executionId, anchorAt: plan.anchorAt, baseUrl: plan.baseUrl, notificationPlan: plan.notificationPlan,
     operations: plan.operations.map(({ operationId, departmentId, businessUnitCode, sourceKind, rangeStart, rangeEnd, warehouseCode,
       collectorStoreKey, contractVersion, policyHash, initialScopeRevision, storeIdentityHash, sourceStatus }) => ({ operationId, departmentId, businessUnitCode, sourceKind,
@@ -75,7 +76,7 @@ export function logisticsRawHash(bytes: Uint8Array) { return createHash("sha256"
 export function assertLogisticsEnabledProducts(rows: readonly JdLogisticsRow[]) {
   if (!rows.length || rows.some(row => row.productStatus !== "启用")) throw new Error("JD_LOGISTICS_ENABLED_PRODUCT_SCOPE_MISMATCH");
 }
-export function assertLogisticsExport(operation: JdLogisticsSelection, result: JdLogisticsExportResult, now: Date) {
+export function assertLogisticsExport(operation: JdLogisticsSelection, result: JdLogisticsExportResult, now: Date, context: WorkflowCollectionDateContext = {}) {
   const scope = { sourceKind: operation.sourceKind, departmentId: operation.departmentId, businessUnitCode: operation.businessUnitCode,
     rangeStart: operation.rangeStart, rangeEnd: operation.rangeEnd, warehouseCode: operation.warehouseCode };
   const observed = Date.parse(result.identityEvidence?.observedAt), collected = Date.parse(result.collectedAt);
@@ -88,8 +89,8 @@ export function assertLogisticsExport(operation: JdLogisticsSelection, result: J
     || !Number.isFinite(observed) || !Number.isFinite(collected) || Math.abs(now.valueOf() - observed) > 86_400_000
     || Math.abs(now.valueOf() - collected) > 86_400_000) throw new Error("JD_LOGISTICS_EXPORT_EVIDENCE_MISMATCH");
   if (operation.sourceKind === "inventory_snapshot" && (!result.sourceAsOf || !Number.isFinite(Date.parse(result.sourceAsOf))
-    || logisticsShanghaiDay(new Date(result.sourceAsOf)) !== operation.rangeStart)) throw new Error("JD_LOGISTICS_SNAPSHOT_DATE_UNPROVEN");
-  if (operation.sourceKind === "realtime_inventory" && logisticsShanghaiDay(new Date(result.collectedAt)) !== operation.rangeStart) throw new Error("JD_LOGISTICS_REALTIME_DATE_MISMATCH");
+    || (/^\d{4}-\d{2}-\d{2}$/.test(result.sourceAsOf) ? result.sourceAsOf : collectionDay(new Date(result.sourceAsOf))) !== operation.rangeStart)) throw new Error("JD_LOGISTICS_SNAPSHOT_DATE_UNPROVEN");
+  if (operation.sourceKind === "realtime_inventory" && collectionDay(new Date(result.collectedAt), context) !== operation.rangeStart) throw new Error("JD_LOGISTICS_REALTIME_DATE_MISMATCH");
 }
 export function assertLogisticsReceipt(operation: JdLogisticsOperation, receipt: JdLogisticsReceipt) {
   if (!operation.export || !operation.contentHash || !operation.rowCount || !receipt || !/^[A-Za-z0-9._:-]{1,100}$/.test(receipt.batchId)

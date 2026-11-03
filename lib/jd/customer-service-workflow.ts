@@ -6,7 +6,7 @@ export const jdCustomerServiceWorkflow = Object.freeze({
   version: 1,
   ...jdCustomerServiceStores[0],
   entryUrl: "https://shop.jd.com/jdm/kefu/kf-manage-lite/#/UtilsSetting/ChatLog",
-  timezone: "Asia/Shanghai",
+  timezone: "local",
   cron: "0 9 * * *",
   rollingDays: 30,
   failureEscalationThreshold: 4,
@@ -28,11 +28,11 @@ function dateOnly(value: string) {
 export type CustomerServicePeriod = { scheduledDate: string; startDate: string; endDate: string };
 
 // Freeze this range when the logical daily run is created, including retries
-// crossing Shanghai midnight. Never derive a new period from retry wall time.
+// crossing the execution host's local midnight. Never derive a new period from retry wall time.
 export function customerServicePeriod(now: Date): CustomerServicePeriod {
   if (!Number.isFinite(now.getTime())) reject("INVALID_DATE");
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
+    year: "numeric", month: "2-digit", day: "2-digit",
   }).formatToParts(now);
   const part = (type: string) => parts.find(value => value.type === type)?.value ?? "";
   const scheduledDate = `${part("year")}-${part("month")}-${part("day")}`;

@@ -2,8 +2,26 @@ import { createHash } from "node:crypto";
 import type { JackyunDownloadProvenance } from "./download-provenance";
 import type { JackyunModule } from "./post-download";
 import { jackyunSalesPeriod } from "./sales-period";
+import { workflowLocalDate, workflowTimeZone } from "../imports/local-time";
 
-export type JackyunInputContract = {
+export const jackyunLocalDatePolicy = "host_local_calendar_v1";
+export type JackyunDateContext = { datePolicy?: typeof jackyunLocalDatePolicy; timeZone?: string };
+
+/** Missing fields identify pre-local-time plans and retain their original calendar. */
+export function jackyunDateContext(value: JackyunDateContext): JackyunDateContext {
+  if (value.datePolicy === undefined && value.timeZone === undefined) return {};
+  if (value.datePolicy !== jackyunLocalDatePolicy || typeof value.timeZone !== "string" || !value.timeZone.trim()) {
+    throw new Error("吉客云日期策略或冻结时区无效。");
+  }
+  new Intl.DateTimeFormat("en-CA", { timeZone: value.timeZone }).format(new Date(0));
+  return { datePolicy: value.datePolicy, timeZone: value.timeZone };
+}
+
+export function newJackyunDateContext() {
+  return { datePolicy: jackyunLocalDatePolicy, timeZone: workflowTimeZone() } as const;
+}
+
+export type JackyunInputContract = JackyunDateContext & {
   runId: string;
   policyVersion: string;
   module: JackyunModule;
@@ -55,8 +73,8 @@ export type JackyunHistoricalSnapshotEvidence = {
 export const jackyunExportFirstPolicyVersion = "2026-09-06.export-first.1";
 export const jackyunExportOrder = ["inventory", "combos", "sales", "inventory_age", "products"] as const;
 
-/** A live query is a capture on its actual Shanghai date, never a historical balance. */
-export type JackyunCurrentSnapshotEvidence = {
+/** A live query is a capture on its plan's frozen calendar date. */
+export type JackyunCurrentSnapshotEvidence = JackyunDateContext & {
   version: 1;
   module: JackyunHistoricalSnapshotModule;
   runId: string;
@@ -69,25 +87,27 @@ export type JackyunCurrentSnapshotEvidence = {
 };
 export type JackyunSnapshotEvidence = JackyunHistoricalSnapshotEvidence | JackyunCurrentSnapshotEvidence;
 
-export function jackyunCaptureDate(timestamp: string) {
+export function jackyunCaptureDate(timestamp: string, context: JackyunDateContext = {}) {
   const milliseconds = Date.parse(timestamp);
   if (!Number.isFinite(milliseconds)) throw contractError("FIELD_MISMATCH", "采集时间无效。");
-  return new Date(milliseconds + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return workflowLocalDate(new Date(milliseconds), 0, jackyunDateContext(context).timeZone ?? "Asia/Shanghai");
 }
 
 export function assertJackyunSnapshotEvidence(
   value: unknown,
-  expected: ExpectedHistoricalSnapshotEvidence & { policyVersion: string },
+  expected: ExpectedHistoricalSnapshotEvidence & JackyunDateContext & { policyVersion: string },
 ): asserts value is JackyunSnapshotEvidence {
   if (expected.policyVersion !== jackyunExportFirstPolicyVersion) {
     assertJackyunHistoricalSnapshotEvidence(value, expected);
     return;
   }
   const evidence = value as Partial<JackyunCurrentSnapshotEvidence> | undefined;
+  const context = jackyunDateContext(expected);
   if (!evidence || evidence.version !== 1 || evidence.source !== "current_query"
     || evidence.runId !== expected.runId || evidence.module !== expected.module
     || !isIsoDate(expected.snapshotDate) || evidence.targetDate !== expected.snapshotDate
-    || evidence.queryRefreshSource !== "module_network_request") {
+    || evidence.queryRefreshSource !== "module_network_request"
+    || evidence.datePolicy !== context.datePolicy || evidence.timeZone !== context.timeZone) {
     throw contractError("FIELD_MISMATCH", "当前查询的身份、日期或刷新来源不一致。");
   }
   const timestamps = [expected.navigationIntentAt, evidence.queryIntentAt,
@@ -96,7 +116,7 @@ export function assertJackyunSnapshotEvidence(
     throw contractError("FIELD_MISMATCH", "当前查询缺少查询、响应或表格稳定证据。");
   }
   const present = timestamps.filter((item): item is string => typeof item === "string");
-  if (present.some((item) => jackyunCaptureDate(item) !== expected.snapshotDate)
+  if (present.some((item) => jackyunCaptureDate(item, context) !== expected.snapshotDate)
     || present.some((item, index) => index > 0 && Date.parse(item) < Date.parse(present[index - 1]))) {
     throw contractError("TABLE_TIMEOUT", "当前查询跨日或时间线倒序；不能回填为昨天的历史快照。");
   }
@@ -228,14 +248,16 @@ export function isValidJackyunSourceRowCountCorrection(
 }
 
 export function createJackyunInputContractHash(contract: JackyunInputContract) {
+  const context = jackyunDateContext(contract);
   if (contract.salesStartDate !== undefined) {
     if (contract.module !== "sales" || !contract.asOfDate) throw new Error("销售滚动范围不能绑定其他模块。");
     jackyunSalesPeriod(contract.asOfDate, contract.salesStartDate);
   }
   const stableContract = {
-    version: contract.salesStartDate === undefined ? 3 : 4,
+    version: context.datePolicy ? 5 : contract.salesStartDate === undefined ? 3 : 4,
     runId: contract.runId,
     policyVersion: contract.policyVersion,
+    ...context,
     module: contract.module,
     rawSha256: contract.rawSha256,
     snapshotDate: contract.snapshotDate ?? null,

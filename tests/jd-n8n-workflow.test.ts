@@ -10,13 +10,13 @@ const silentWorkflowPaths = [
   jdMarketSilentWorkflowPath,
 ];
 
-test("JD n8n copy is inactive, uses 10:00 Shanghai loopback A/B/C stages, and contains no credentials", async () => {
+test("JD n8n copy is inactive, uses 10:00 host-local loopback A/B/C stages, and contains no credentials", async () => {
   const raw = await readFile(workflowPath, "utf8");
   const workflow = JSON.parse(raw) as {
     active: boolean; settings: { timezone?: string }; nodes: Array<{ name: string; type: string; parameters?: { url?: string; options?: { timeout?: number }; rule?: { interval?: Array<{ expression?: string }> }; sendHeaders?: boolean; headerParameters?: { parameters?: Array<{ name?: string; value?: string }> } } }>;
   };
   assert.equal(workflow.active, false);
-  assert.equal(workflow.settings.timezone, "Asia/Shanghai");
+  assert.equal(workflow.settings.timezone, undefined);
   assert.equal(workflow.nodes.some((node) => node.type === "n8n-nodes-base.executeCommand"), false);
   const schedule = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
   assert.equal(schedule?.parameters?.rule?.interval?.[0]?.expression, "0 10 * * *");
@@ -52,7 +52,7 @@ test("JD Chromium silent-download copies stay inactive and preserve loopback orc
     };
     assert.match(workflow.name, /Chromium静默下载副本/);
     assert.equal(workflow.active, false);
-    assert.equal(workflow.settings.timezone, "Asia/Shanghai");
+    assert.equal(workflow.settings.timezone, undefined);
     assert.equal(workflow.nodes.some((node) => node.type === "n8n-nodes-base.executeCommand"), false);
     const businessRequests = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest" && /^http:\/\/127\.0\.0\.1:5791\/jd(?:-market)?\//.test(node.parameters?.url ?? ""));
     const urls = businessRequests.map((node) => node.parameters?.url);
@@ -125,7 +125,7 @@ test("JD market main and silent workflows preserve the latest seven-category A/B
       }>;
     };
     assert.equal(workflow.active, false);
-    assert.equal(workflow.settings.timezone, "Asia/Shanghai");
+    assert.equal(workflow.settings.timezone, undefined);
     assert.doesNotMatch(workflow.name, /5类目/);
     const schedule = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
     assert.equal(schedule?.parameters?.rule?.interval?.[0]?.expression, "30 10 * * *");

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { lstat, mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { jackyunCaptureDate, jackyunExportFirstPolicyVersion } from "./run-contract";
+import { jackyunCaptureDate, jackyunExportFirstPolicyVersion, type JackyunDateContext } from "./run-contract";
 import { jackyunSalesPeriod } from "./sales-period";
 import { classifyJackyunPreflightFailure } from "./preflight-failure";
 import { writeJsonDurable } from "./json-file";
@@ -162,7 +162,7 @@ export type PreflightEvidence = {
   lastNode: string; runNodes: string[]; error: string; httpCode: string; requestUrl: string;
   executionDataSha256: string; activeExecutions: number; retrySuccessId: string | null;
 };
-type EmptyPlan = { version: number; protocol: string; executionId: string; runId: string; runDate: string;
+type EmptyPlan = JackyunDateContext & { version: number; protocol: string; executionId: string; runId: string; runDate: string;
   asOfDate: string; salesStartDate?: string; baseUrl: string; createdAt: string; phase: string; exports: Record<string, unknown>; exportIntent: string };
 export type PreflightClosure = {
   version: 1; status: "closed_before_business" | "closed_before_export"; executionId: string; runId: string; closedAt: string;
@@ -200,10 +200,10 @@ export async function inspectPreflightZeroEffects(root: string, executionId: str
     || plan.phase !== "exporting" || typeof plan.salesStartDate !== "string"
     || !plan.exports || typeof plan.exports !== "object" || Array.isArray(plan.exports) || Object.keys(plan.exports).length !== 0
     || Object.hasOwn(plan, "exportIntent")
-    || Object.keys(plan).some(key => !["version", "protocol", "executionId", "runId", "runDate", "asOfDate", "salesStartDate", "baseUrl", "createdAt", "phase", "exports", "exportTransport"].includes(key))
+    || Object.keys(plan).some(key => !["datePolicy", "timeZone", "version", "protocol", "executionId", "runId", "runDate", "asOfDate", "salesStartDate", "baseUrl", "createdAt", "phase", "exports", "exportTransport"].includes(key))
     || !isDeepStrictEqual(active, { runId: plan.runId, executionId }) || policy.version !== plan.protocol
     || !path.isAbsolute(policy.browser.downloadDirectory) || plan.baseUrl !== "http://localhost:3000"
-    || plan.runDate !== jackyunCaptureDate(plan.createdAt) || plan.asOfDate !== date.toISOString().slice(0, 10)
+    || plan.runDate !== jackyunCaptureDate(plan.createdAt, plan) || plan.asOfDate !== date.toISOString().slice(0, 10)
     || !Number.isFinite(Date.parse(closedAt)) || Date.parse(closedAt) < Date.parse(plan.createdAt)) {
     throw new Error("登录准备自动闭合前的原运行身份或零业务状态不成立。");
   }
@@ -341,8 +341,8 @@ function assertEmptyPlan(plan: EmptyPlan, executionId: string) {
   if (plan.version !== 1 || plan.protocol !== jackyunExportFirstPolicyVersion || plan.executionId !== executionId
     || plan.runId !== `n8n-export-first-${executionId}` || plan.phase !== "exporting" || plan.exportIntent !== "inventory"
     || !plan.exports || Array.isArray(plan.exports) || Object.keys(plan.exports).length !== 0
-    || Object.keys(plan).some(key => !["version", "protocol", "executionId", "runId", "runDate", "asOfDate", "baseUrl", "createdAt", "phase", "exports", "exportIntent"].includes(key))
-    || plan.baseUrl !== "http://localhost:3000" || plan.runDate !== jackyunCaptureDate(plan.createdAt)
+    || Object.keys(plan).some(key => !["datePolicy", "timeZone", "version", "protocol", "executionId", "runId", "runDate", "asOfDate", "baseUrl", "createdAt", "phase", "exports", "exportIntent"].includes(key))
+    || plan.baseUrl !== "http://localhost:3000" || plan.runDate !== jackyunCaptureDate(plan.createdAt, plan)
     || plan.asOfDate !== date.toISOString().slice(0, 10)) throw new Error("原计划不属于无业务结果的首次登录失败。");
 }
 function isApiPreflightNodeSequence(nodes: string[]) {
@@ -370,8 +370,8 @@ function assertEmptyApiChallengePlan(plan: EmptyPlan & { exportTransport?: strin
     || plan.runId !== `n8n-export-first-${executionId}` || plan.phase !== "exporting" || plan.exportTransport !== "session_api_v1"
     || !plan.exports || typeof plan.exports !== "object" || Array.isArray(plan.exports) || Object.keys(plan.exports).length !== 0
     || Object.prototype.hasOwnProperty.call(plan, "exportIntent")
-    || Object.keys(plan).some(key => !["version", "protocol", "executionId", "runId", "runDate", "asOfDate", "salesStartDate", "baseUrl", "createdAt", "phase", "exports", "exportTransport"].includes(key))
-    || plan.baseUrl !== "http://localhost:3000" || plan.runDate !== jackyunCaptureDate(plan.createdAt)
+    || Object.keys(plan).some(key => !["datePolicy", "timeZone", "version", "protocol", "executionId", "runId", "runDate", "asOfDate", "salesStartDate", "baseUrl", "createdAt", "phase", "exports", "exportTransport"].includes(key))
+    || plan.baseUrl !== "http://localhost:3000" || plan.runDate !== jackyunCaptureDate(plan.createdAt, plan)
     || plan.asOfDate !== date.toISOString().slice(0, 10)
     || evidence.executionId !== executionId || evidence.workflowId !== jackyunWorkflowId || evidence.status !== "error"
     || evidence.retrySuccessId !== null || evidence.activeExecutions !== 0 || evidence.lastNode !== apiDownloadNode

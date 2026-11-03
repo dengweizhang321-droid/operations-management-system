@@ -58,7 +58,7 @@ function Invoke-ManualActionAlert([string]$EncodedPayload,[bool]$SendEnabled,[st
       if(($payload.failureCount -isnot [int] -and $payload.failureCount -isnot [long]) -or $payload.failureCount -lt 1 -or $payload.failureCount -gt 1000){throw 'invalid_payload'}
       $watchHints[$code]="最近 24 小时发生 $($payload.failureCount) 次失败"
     }
-    $anchor=[DateTimeOffset]::FromUnixTimeSeconds($payload.anchorEpoch).ToOffset([TimeSpan]::FromHours(8)).ToString('yyyy-MM-dd HH:mm:ss')
+    $anchor=[DateTimeOffset]::FromUnixTimeSeconds($payload.anchorEpoch).ToLocalTime().ToString('yyyy-MM-dd HH:mm:ss')
     $label=if($workflows.ContainsKey($workflow)){$workflows[$workflow]}elseif($workflow -ceq 'TeruisiHourlyRetry2026'){'每小时安全重试错误流'}elseif($workflow -ceq 'TmallWarehouseDaily2026'){'天猫入仓监控'}elseif($workflow -ceq 'N8nScheduleWatch'){'n8n 外部巡检'}else{"n8n 工作流 $workflow"}
     if($code -ceq 'error_workflow_failed'){
       $key=Get-WatchTextHash ("schedule-watch-v1|$workflow|$code|$($payload.anchorEpoch)")
@@ -66,13 +66,13 @@ function Invoke-ManualActionAlert([string]$EncodedPayload,[bool]$SendEnabled,[st
       $key=Get-WatchTextHash ("schedule-watch-v1|$workflow|$code|$($payload.anchorEpoch)|$failed")
     }
     $executionLabel=if($code -ceq 'error_workflow_failed'){'最新失败 execution：'}else{'失败 execution：'}
-    $message=@('【运营自动化】巡检需要人工处理',('流程：'+$label),('检查项：'+$watchHints[$code]),('观察锚点（上海）：'+$anchor),$(if($failed){$executionLabel+$failed}else{'未关联 execution'}),'请你处理：核查启用状态、已发布版本、调度与执行记录；不要给共享错误流绑定自身，不要盲目补跑或重复导入') -join "`n"
+    $message=@('【运营自动化】巡检需要人工处理',('流程：'+$label),('检查项：'+$watchHints[$code]),('观察锚点（本地时间）：'+$anchor),$(if($failed){$executionLabel+$failed}else{'未关联 execution'}),'请你处理：核查启用状态、已发布版本、调度与执行记录；不要给共享错误流绑定自身，不要盲目补跑或重复导入') -join "`n"
   }else{
   if($payload.version -ne 1 -or @($payload.PSObject.Properties.Name|Where-Object {$_ -cnotin @('version','workflowId','logicalExecutionId','failedExecutionId','code')}).Count){throw 'invalid_payload'}
   $workflow=[string]$payload.workflowId; $logical=[string]$payload.logicalExecutionId; $failed=[string]$payload.failedExecutionId; $code=[string]$payload.code
   if($workflow -cnotin @($workflows.Keys) -or $code -cnotin @($hints.Keys) -or $logical -cnotmatch '^[1-9][0-9]{0,19}$' -or $failed -cnotmatch '^[1-9][0-9]{0,19}$'){throw 'invalid_payload'}
   $key=Get-WatchTextHash ("manual-action-v1|$workflow|$logical|$code")
-  $message=@('【运营自动化】需要人工处理',('流程：'+$workflows[$workflow]),('上海时间：'+[DateTimeOffset]::UtcNow.ToOffset([TimeSpan]::FromHours(8)).ToString('yyyy-MM-dd HH:mm:ss')),('原因：'+$hints[$code][0]),'影响：本轮尚未完成，已完成部分保留，以原计划及批次证据为准',("原逻辑 execution：$logical；失败 execution：$failed"),('请你处理：'+$hints[$code][1])) -join "`n"
+  $message=@('【运营自动化】需要人工处理',('流程：'+$workflows[$workflow]),('本地时间：'+[DateTimeOffset]::Now.ToString('yyyy-MM-dd HH:mm:ss')),('原因：'+$hints[$code][0]),'影响：本轮尚未完成，已完成部分保留，以原计划及批次证据为准',("原逻辑 execution：$logical；失败 execution：$failed"),('请你处理：'+$hints[$code][1])) -join "`n"
   }
   if(-not $SendEnabled){return @{status='local_preview';executed=$false;message=$message;exitCode=0}}
   $AlertRoot=[IO.Path]::GetFullPath($AlertRoot).TrimEnd([char[]]@('\','/'))

@@ -9,7 +9,6 @@ import hashlib
 import json
 import re
 import uuid
-from zoneinfo import ZoneInfo
 
 from django.db import transaction
 from django.db.models import Count, Exists, F, Max, OuterRef, Q, Subquery, Sum
@@ -19,6 +18,7 @@ from .errors import InventoryApiError
 from .revisions import bump_revision, revision_value
 from .tmall_warehouse_models import TmallWarehouseAudit, TmallWarehouseBatch, TmallWarehouseFact, TmallWarehouseScope
 from .write_requests import lock_active_authority
+from .workflow_dates import collection_timezone
 
 
 CONTRACT_VERSION = "tmall-warehouse-v1"
@@ -134,6 +134,19 @@ def normalize(payload):
                 error("采集时刻必须包含时区")
         except (ValueError, OverflowError):
             error("采集时刻必须为ISO日期时间")
+    evidence = payload.get("collectorEvidence", {})
+    if not isinstance(evidence, dict) or len(evidence) > 30:
+        error("采集证据必须是最多30项的对象")
+    evidence = source_attributes(evidence)
+    if any(re.search(r"password|passwd|secret|token|cookie|authorization|credential|密码|口令|密钥", key, re.I) for key in evidence):
+        error("采集证据不能包含凭据字段")
+    workflow = (evidence.get("protocol") == "tmall-warehouse-realtime-v1"
+                and all(isinstance(evidence.get(key), str) and re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", evidence[key])
+                        for key in ("runId", "executionId")))
+    try:
+        capture_zone = collection_timezone(evidence, workflow=workflow)
+    except ValueError:
+        error("采集日期策略或时区无效", "source_date_mismatch")
     source_as_of = text(payload.get("sourceAsOf", ""), "来源截至时间", 40, required=False)
     source_date = payload.get("sourceDate")
     if source_date is not None:
@@ -142,17 +155,11 @@ def normalize(payload):
         source_date = parsed_day
         if collected_at is None and expected is None:
             error("没有采集时刻的历史库存导入必须提供货主范围版本", "version_conflict", 409)
-    elif collected_at is None or collected_at.astimezone(ZoneInfo("Asia/Shanghai")).date() != parsed_day:
-        error("无来源日期的实时库存必须绑定采集时刻的上海日期", "source_date_mismatch")
+    elif collected_at is None or collected_at.astimezone(capture_zone).date() != parsed_day:
+        error("无来源日期的实时库存必须绑定采集时刻的约定日期", "source_date_mismatch")
     source_url = text(payload.get("sourceUrl", SOURCE_URL), "来源网址", 300)
     if source_url != SOURCE_URL:
         error("天猫库存来源网址不符", "source_identity_mismatch")
-    evidence = payload.get("collectorEvidence", {})
-    if not isinstance(evidence, dict) or len(evidence) > 30:
-        error("采集证据必须是最多30项的对象")
-    evidence = source_attributes(evidence)
-    if any(re.search(r"password|passwd|secret|token|cookie|authorization|credential|密码|口令|密钥", key, re.I) for key in evidence):
-        error("采集证据不能包含凭据字段")
     rows = payload.get("rows")
     if not isinstance(rows, list) or not 1 <= len(rows) <= MAX_ROWS:
         error(f"来源数据必须有1到{MAX_ROWS}行；空文件不能清除已有数据")

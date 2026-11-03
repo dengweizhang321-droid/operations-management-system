@@ -16,8 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATABASE = Path("C:/Users/86137/.n8n/database.sqlite")
 CATALOG = ROOT / "lib/imports/chain-catalog.generated.json"
 RETRY_WORKFLOW = "TeruisiHourlyRetry2026"
-# All current catalog schedules use Shanghai, which is UTC+8 without DST.
-# Fixed offset keeps the standalone Windows reader independent of tzdata/Django.
+# Legacy catalogs retain their declared zone. New rules inherit the host clock.
 SHANGHAI = timezone(timedelta(hours=8), "Asia/Shanghai")
 MAX_WORKFLOWS = 512
 MAX_ERRORS = 1000
@@ -48,13 +47,14 @@ def schedule_start(rule, now):
     Support the catalog's fixed daily five-field crons (and optional zero
     seconds). Reject other syntax instead of silently treating it as daily.
     """
-    if rule.get("timezone") != "Asia/Shanghai":
+    zone = rule.get("timezone")
+    if zone not in ("local", "Asia/Shanghai"):
         raise InspectionUnavailable("unsupported_schedule_timezone")
     schedules = rule["schedules"]
     if not isinstance(schedules, list) or not 1 <= len(schedules) <= 48:
         raise InspectionUnavailable("invalid_catalog_schedules")
     slots = []
-    local = now.astimezone(SHANGHAI)
+    local = now.astimezone() if zone == "local" else now.astimezone(SHANGHAI)
     for cron in schedules:
         if not isinstance(cron, str):
             raise InspectionUnavailable("unsupported_cron")
@@ -67,9 +67,22 @@ def schedule_start(rule, now):
         minute, hour = map(int, fields[:2])
         if minute > 59 or hour > 23:
             raise InspectionUnavailable("unsupported_cron")
-        slot = local.replace(hour=hour, minute=minute, second=0, microsecond=0)
-        if slot > local:
-            slot -= timedelta(days=1)
+        wall = local.replace(tzinfo=None, hour=hour, minute=minute, second=0, microsecond=0)
+        def resolve_slot(wall):
+            if zone != "local":
+                return wall.replace(tzinfo=SHANGHAI)
+            # Resolve each calendar date independently; today's offset is not
+            # valid for every date. Do not guess n8n's DST fold/gap policy.
+            first, second = wall.replace(fold=0).astimezone(), wall.replace(fold=1).astimezone()
+            if (first.timestamp() != second.timestamp()
+                    or first.replace(tzinfo=None) != wall):
+                raise InspectionUnavailable("local_schedule_dst_transition")
+            return first
+        # Inspect today's fold/gap before comparing wall clocks: during a
+        # repeated hour a later-looking wall time may already have occurred.
+        slot = resolve_slot(wall)
+        if slot > now:
+            slot = resolve_slot(wall - timedelta(days=1))
         slots.append(slot)
     return max(slots).astimezone(timezone.utc)
 
@@ -171,11 +184,11 @@ def inspect(database, catalog=CATALOG, *, now=None):
             if not ran:
                 reasons.append("missing_execution")
             scheduled.append({"workflowId": workflow, "periodStart": stamp(period),
-                              "periodStartShanghai": period.astimezone(SHANGHAI).isoformat(),
+                              "periodStartLocal": period.astimezone().isoformat(),
                               "hasExecution": ran, "reasons": reasons})
             if reasons:
                 finding(1, workflow, "schedule_not_ready", period, reasons=reasons)
-        local_midnight = now.astimezone(SHANGHAI).replace(hour=0, minute=0, second=0, microsecond=0)
+        local_midnight = now.astimezone().replace(tzinfo=None, hour=0, minute=0, second=0, microsecond=0).astimezone()
         for workflow, row in workflows.items():
             # Its empty errorWorkflow is expected: it cannot catch its own failure.
             # Check 3 observes it externally instead of recommending self-binding.
@@ -226,8 +239,8 @@ def inspect(database, catalog=CATALOG, *, now=None):
             finally:
                 connection.close()
     return {"status": "anomalies" if findings else "healthy", "readOnly": True,
-            "checkedAt": stamp(now), "checkedAtShanghai": now.astimezone(SHANGHAI).isoformat(),
-            "timezone": "Asia/Shanghai", "scheduledWorkflowCount": len(scheduled),
+            "checkedAt": stamp(now), "checkedAtLocal": now.astimezone().isoformat(),
+            "timezone": "local", "scheduledWorkflowCount": len(scheduled),
             "checks": {str(n): sum(item["check"] == n for item in findings) for n in (1, 2, 3)},
             "scheduled": scheduled, "findings": findings}
 

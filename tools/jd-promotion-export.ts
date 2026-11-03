@@ -92,7 +92,7 @@ function validRunId(value: string) {
 }
 
 export function shanghaiYesterday(now = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+  const parts = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
   const today = `${part("year")}-${part("month")}-${part("day")}`;
   const date = new Date(`${today}T00:00:00Z`);

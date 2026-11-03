@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import catalog from "@/lib/imports/chain-catalog.generated.json";
 import { describeSchedule } from "@/lib/imports/run-presentation";
 import { requestJson } from "@/lib/http/api-client";
-import { completedAtLabel, formatChainStatusTime, todayStatusLabel, validateTodayStatus, type ChainTodayResponse } from "@/lib/imports/chain-status";
-import { shanghaiIsoToday, type CurrentUser } from "./module-view-shared";
+import { completedAtLabel, formatChainStatusTime, isCurrentChainDay, todayStatusLabel, validateTodayStatus, type ChainTodayResponse } from "@/lib/imports/chain-status";
+import { type CurrentUser } from "./module-view-shared";
 import { JackyunCloseControls } from "./jackyun-close-controls";
 import { JdCustomerServiceCloseControls } from "./jd-customer-service-close-controls";
 
@@ -24,7 +24,7 @@ export default function ImportChainRulesView({ currentUser }: { currentUser: Cur
   const chains = catalog.chains.filter((c) => platform === "全部" || c.platform === platform);
   const selectedChain = catalog.chains.find((c) => c.key === selection?.rule.chainKey);
   const selectedEntity = catalog.entities.find((e) => e.key === selection?.entityKey);
-  const currentStatus = status?.date === shanghaiIsoToday() ? status : null;
+  const currentStatus = isCurrentChainDay(status) ? status : null;
   const selectedStatus = currentStatus?.items.find(i => i.workflowId === selection?.rule.workflowId);
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export default function ImportChainRulesView({ currentUser }: { currentUser: Cur
       setLoading(true);
       try {
         const payload = await requestJson<ChainTodayResponse>("/api/imports/chain-status", { signal: controller.signal });
-        if (!payload || !validateTodayStatus(payload) || payload.date !== shanghaiIsoToday()) throw new Error("状态响应无效或日期已变化，请重新读取。");
+        if (!payload || !validateTodayStatus(payload) || !isCurrentChainDay(payload)) throw new Error("状态响应无效或日期已变化，请重新读取。");
         if (!disposed) { setStatus(payload); setStatusError(""); }
       } catch (error) {
         if (!disposed) { setStatus(null); setStatusError(error instanceof Error ? error.message : "无法核实今天状态"); }
@@ -61,9 +61,9 @@ export default function ImportChainRulesView({ currentUser }: { currentUser: Cur
   }, [selection]);
 
   return <div className="import-monitor">
-    <div className="import-monitor-note" role="note"><strong>横向看工作流，纵向看店铺</strong><p>今天状态按上海日期读取 n8n 定时、自动重试及已核验的完整手动补跑成功记录，每 30 秒更新。共用工作流显示整链结果；配置频率与下次调度以 n8n 已发布版本为准。</p></div>
+    <div className="import-monitor-note" role="note"><strong>横向看工作流，纵向看店铺</strong><p>今天状态按本地日期读取 n8n 定时、自动重试及已核验的完整手动补跑成功记录，每 30 秒更新。共用工作流显示整链结果；配置频率与下次调度以 n8n 已发布版本为准。</p></div>
     <section className="panel table-panel import-chain-panel">
-      <div className="import-monitor-toolbar"><div><h2>链路规则</h2><span className="import-monitor-muted">{catalog.chains.length} 条链路 · {catalog.rules.length} 份工作流配置 · {currentStatus?.date || shanghaiIsoToday()}{currentStatus?.source === "synthetic_n8n" ? " · 合成状态演示" : ""}</span></div><div className="import-chain-actions"><label>平台<select aria-label="链路平台" value={platform} onChange={(e) => setPlatform(e.target.value)}>{["全部", "ERP", "京东", "天猫"].map((p) => <option key={p}>{p}</option>)}</select></label><button type="button" className="text-button" disabled={loading} onClick={() => setRefresh(v => v + 1)}>{loading ? "读取中…" : "刷新状态 ↻"}</button></div></div>
+      <div className="import-monitor-toolbar"><div><h2>链路规则</h2><span className="import-monitor-muted">{catalog.chains.length} 条链路 · {catalog.rules.length} 份工作流配置 · {currentStatus?.date || "本地日期待核实"}{currentStatus?.source === "synthetic_n8n" ? " · 合成状态演示" : ""}</span></div><div className="import-chain-actions"><label>平台<select aria-label="链路平台" value={platform} onChange={(e) => setPlatform(e.target.value)}>{["全部", "ERP", "京东", "天猫"].map((p) => <option key={p}>{p}</option>)}</select></label><button type="button" className="text-button" disabled={loading} onClick={() => setRefresh(v => v + 1)}>{loading ? "读取中…" : "刷新状态 ↻"}</button></div></div>
       {statusError && <div className="import-monitor-error" role="alert">今日状态暂时无法核实：{statusError}</div>}
       <div className="data-table-wrap import-matrix-scroll" tabIndex={0} role="region" aria-label="链路与店铺规则矩阵，可横向滚动">
         <table className="data-table import-chain-matrix" data-column-filter-scope="none"><thead>
@@ -79,7 +79,7 @@ export default function ImportChainRulesView({ currentUser }: { currentUser: Cur
               return <div className="import-rule-cell" key={rule.workflowId}>
               <span className={`import-run-badge is-${label.tone}`}>{loading && !currentStatus ? "读取今天状态…" : label.label}</span>
               {item?.state === "failed" && <small>最近自动执行失败；完整手动补跑成功后会更新状态，业务结果请查导入批次。</small>}
-              {item?.completedToday && <small>{completedAtLabel(item)} {formatChainStatusTime(item.completedAt || "")}{item.state !== "completed" ? " · 后续执行状态见上" : ""}</small>}
+              {item?.completedToday && <small>{completedAtLabel(item)} {formatChainStatusTime(item.completedAt || "", currentStatus?.timezone)}{item.state !== "completed" ? " · 后续执行状态见上" : ""}</small>}
               {rule.entityKeys.length > 1 && <small>共用 {rule.entityKeys.length} 店 · 整链状态</small>}
               <span>{rule.schedules.map(describeSchedule).join("、") || "手动触发"}</span>
               {rule.masterIntervalDays && <small>主数据每 {rule.masterIntervalDays} 天更新</small>}
@@ -91,13 +91,13 @@ export default function ImportChainRulesView({ currentUser }: { currentUser: Cur
           })}
         </tr>)}</tbody></table>
       </div>
-      <footer className="import-monitor-footer"><span>统计定时、自动重试及已核验的完整手动补跑成功；单节点测试与局部执行不计入今天完成。</span><span>{currentStatus ? `最近核查 ${formatChainStatusTime(currentStatus.checkedAt)}` : "尚未取得今天状态"}</span></footer>
+      <footer className="import-monitor-footer"><span>统计定时、自动重试及已核验的完整手动补跑成功；单节点测试与局部执行不计入今天完成。</span><span>{currentStatus ? `最近核查 ${formatChainStatusTime(currentStatus.checkedAt, currentStatus.timezone)}` : "尚未取得今天状态"}</span></footer>
     </section>
     <dialog ref={dialog} className="import-rule-dialog" aria-labelledby="import-rule-title" onClose={() => setSelection(null)} onCancel={() => setSelection(null)}>
       {selection && selectedChain && <>
         <header><div><span className="import-monitor-muted">链路规则详情</span><h2 id="import-rule-title">{selectedChain.label}</h2><p>{selectedEntity?.name}</p></div><button type="button" className="secondary-button" onClick={() => setSelection(null)} aria-label="关闭规则详情">关闭</button></header>
         <div className="import-rule-dialog-body">
-          <dl className="import-run-facts"><div><dt>工作流</dt><dd>{selection.rule.name}</dd></div><div><dt>配置频率</dt><dd>{selection.rule.schedules.map(describeSchedule).join("、") || "手动触发"}</dd></div><div><dt>时区</dt><dd>{selection.rule.timezone}</dd></div><div><dt>今天执行状态</dt><dd>{todayStatusLabel(selectedStatus).label}{selectedStatus?.executionId ? ` · 执行 #${selectedStatus.executionId}` : ""}</dd></div><div><dt>完成时间</dt><dd>{selectedStatus?.completedAt ? `${completedAtLabel(selectedStatus)} ${formatChainStatusTime(selectedStatus.completedAt)}` : "未查到完成记录"}</dd></div><div><dt>下次运行</dt><dd>在 n8n 查看已发布调度</dd></div>{selection.rule.masterIntervalDays && <div><dt>主数据更新周期</dt><dd>每 {selection.rule.masterIntervalDays} 天；到期情况由执行记录决定</dd></div>}</dl>
+          <dl className="import-run-facts"><div><dt>工作流</dt><dd>{selection.rule.name}</dd></div><div><dt>配置频率</dt><dd>{selection.rule.schedules.map(describeSchedule).join("、") || "手动触发"}</dd></div><div><dt>时区</dt><dd>{selection.rule.timezone === "local" ? "本地时间（运行机器）" : selection.rule.timezone}</dd></div><div><dt>今天执行状态</dt><dd>{todayStatusLabel(selectedStatus).label}{selectedStatus?.executionId ? ` · 执行 #${selectedStatus.executionId}` : ""}</dd></div><div><dt>完成时间</dt><dd>{selectedStatus?.completedAt ? `${completedAtLabel(selectedStatus)} ${formatChainStatusTime(selectedStatus.completedAt, currentStatus?.timezone)}` : "未查到完成记录"}</dd></div><div><dt>下次运行</dt><dd>在 n8n 查看已发布调度</dd></div>{selection.rule.masterIntervalDays && <div><dt>主数据更新周期</dt><dd>每 {selection.rule.masterIntervalDays} 天；到期情况由执行记录决定</dd></div>}</dl>
           <h3>数据模块</h3><div className="import-rule-modules">{selectedChain.modules.map((m) => <span key={m}>{m}</span>)}</div>
           {selectedChain.key === "jackyun" && <JackyunCloseControls currentUser={currentUser} />}
           {selectedChain.key === "jd_customer_service" && <JdCustomerServiceCloseControls currentUser={currentUser} />}

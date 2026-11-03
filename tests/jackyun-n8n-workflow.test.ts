@@ -9,7 +9,7 @@ for (const variant of ["daily", "http"]) test(`${variant} manual n8n graph requi
   assert.equal(workflow.id, "J8kY2mQ5vR7sT4pN");
   assert.equal(workflow.name, "吉客云导入系统");
   assert.equal(workflow.active, false);
-  assert.equal(workflow.settings.timezone, "Asia/Shanghai");
+  assert.equal(workflow.settings.timezone, undefined);
   assert.equal(workflow.nodes.some((node: { type: string }) => /scheduleTrigger|executeCommand/.test(node.type)), false);
   const requests = workflow.nodes.filter((node: { type: string }) => node.type === "n8n-nodes-base.httpRequest");
   assert.equal(requests[0].parameters.url, "http://127.0.0.1:5791/coordination/claim");

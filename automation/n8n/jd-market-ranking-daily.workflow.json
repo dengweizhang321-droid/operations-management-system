@@ -359,7 +359,6 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Asia/Shanghai",
     "errorWorkflow": "TeruisiHourlyRetry2026"
   },
   "versionId": "807c9494-6386-4fbe-8ff6-7a24c91317c0",

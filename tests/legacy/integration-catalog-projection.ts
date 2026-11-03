@@ -11,7 +11,7 @@ export function preIntegrationCatalog(entries: readonly AiToolEntry[]): AiToolEn
   return entries.filter(entry => !["get_bi_cockpit", "get_jd_promotion_diagnostic", "get_netshop_insights_context", "get_netshop_product_insights", "get_netshop_promotion_insights", "get_netshop_promotion_object_detail"].includes(entry.name))
     .map(entry => {
       if (entry.name === "get_automation_run_status") {
-        assert.equal(entry.description, "通过 Django 只读读取上海今天对应 n8n 工作流的定时、自动重试和已核验完整手动补跑成功状态、完成时间及执行编号。仅无数据范围限制账号可查；共用多店工作流表示整链状态，排除单节点测试、固定测试数据和局部执行；仅返回执行状态摘要，不返回节点内容、Cookie 或凭据。来源不可用时拒绝推测完成。",
+        assert.equal(entry.description, "通过 Django 只读读取运行机器本地今天对应 n8n 工作流的定时、自动重试和已核验完整手动补跑成功状态、完成时间及执行编号。仅无数据范围限制账号可查；共用多店工作流表示整链状态，排除单节点测试、固定测试数据和局部执行；仅返回执行状态摘要，不返回节点内容、Cookie 或凭据。来源不可用时拒绝推测完成。",
           "Only the reviewed complete-manual-run status description may be projected");
         return { ...entry, description: "通过 Django 只读读取上海今天对应 n8n 工作流的自动执行状态、完成时间和执行编号。仅无数据范围限制账号可查；共用多店工作流表示整链状态，不包含手动调试，不读取节点数据、Cookie 或凭据。来源不可用时拒绝推测完成。" };
       }

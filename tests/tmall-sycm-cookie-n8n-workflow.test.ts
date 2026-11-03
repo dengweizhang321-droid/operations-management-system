@@ -16,7 +16,7 @@ import {
 
 const workflowPath = new URL("../automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json", import.meta.url);
 
-test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五段式、上海时区和凭证隔离", async () => {
+test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五段式、本机时区和凭证隔离", async () => {
   const raw = await readFile(workflowPath, "utf8");
   const workflow = JSON.parse(raw) as {
     id: string;
@@ -40,7 +40,7 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.equal(workflow.id, "M4xY8kQ2vR6sT9pC");
   assert.equal(workflow.name, "天猫店铺数据导入");
   assert.equal(workflow.active, false);
-  assert.equal(workflow.settings.timezone, "Asia/Shanghai");
+  assert.equal(workflow.settings.timezone, undefined);
   assert.equal(workflow.nodes.find((node) => node.type === "n8n-nodes-base.manualTrigger")?.name, "手动完整运行（强制 M）");
   const scheduleNode = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
   assert.equal(scheduleNode?.name, "每天 11:00 运行");
@@ -183,7 +183,7 @@ test("六店 n8n 模板固定绑定独立店铺键、上午错峰调度且仓库
     assert.equal(workflow.id, definition.workflowId);
     assert.equal(workflow.name, definition.workflowName);
     assert.equal(workflow.active, false);
-    assert.equal(workflow.settings.timezone, "Asia/Shanghai");
+    assert.equal(workflow.settings.timezone, undefined);
     const schedule = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
     assert.equal(schedule?.name, definition.scheduleName);
     assert.equal(schedule?.parameters?.rule?.interval?.[0]?.expression, definition.cronExpression);
@@ -325,7 +325,7 @@ test("亿玖 P/M 直连现行模板保持同一工作流 ID、仓库默认停用
   assert.notEqual(candidate.versionId, baseline.versionId);
   assert.equal(candidate.name, "天猫店铺数据导入（亿玖 P/M 直连·每日 M）");
   assert.equal(candidate.active, false);
-  assert.equal(candidate.settings?.timezone, "Asia/Shanghai");
+  assert.equal(candidate.settings?.timezone, undefined);
   const { hourlyRetryPolicy, ...candidateMeta } = candidate.meta ?? {};
   assert.deepEqual(candidateMeta, {
     templateCredsSetupCompleted: true,
@@ -374,7 +374,7 @@ test("亿玖 P/M 直连现行模板保持同一工作流 ID、仓库默认停用
   );
   assert.equal(candidate.connections["M·MTOP 分批导出、合并校验并导入"]?.main?.[0]?.[0]?.node, "全部缺失日已补齐？");
   assert.match(candidateRaw, /同一工作流 ID 的现行替换版本/);
-  assert.match(candidateRaw, /亿玖 M 按上海日期每天到期一次/);
+  assert.match(candidateRaw, /亿玖 M 按本地日期每天到期一次/);
   assert.match(candidateRaw, /旧版本只保留历史审计，不得用于新的定时或恢复 execution/);
   assert.match(candidateRaw, /响应未决时禁止自动重提/);
   assert.match(candidateRaw, /唯一写类路径逐字固定/);

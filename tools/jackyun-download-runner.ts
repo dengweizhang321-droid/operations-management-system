@@ -1,3 +1,4 @@
+import { workflowLocalDate } from "../lib/imports/local-time";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -9,6 +10,9 @@ import {
   createJackyunInputContractHash,
   isValidJackyunSourceRowCountCorrection,
   type JackyunInputContract,
+  type JackyunDateContext,
+  jackyunDateContext,
+  newJackyunDateContext,
   type JackyunHandoffEvidence,
   type JackyunHistoricalSnapshotEvidence,
   type JackyunSnapshotEvidence,
@@ -41,7 +45,7 @@ import { recoveryUploadFingerprint } from "../lib/jackyun/publication-baseline";
 import { coordinateWorkbookImport, verifyRecordedWorkbookPublication } from "../lib/jackyun/import-coordination";
 import { writeJsonDurable } from "../lib/jackyun/json-file";
 
-type CliOptions = {
+type CliOptions = JackyunDateContext & {
   module: JackyunModule;
   filePath: string;
   runId: string;
@@ -123,7 +127,7 @@ type StableFileEvidence = {
   mtime: Date;
 };
 
-type BrowserHandoffFile = {
+type BrowserHandoffFile = JackyunDateContext & {
   schemaVersion?: number;
   runId?: string;
   policyVersion?: string;
@@ -191,23 +195,6 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const defaultDownloadDirectory = "D:\\谷歌浏览器";
 const dailyPolicyPath = path.join(projectRoot, "config", "jackyun-daily-policy.json");
 
-function shanghaiIsoToday() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
-  return `${get("year")}-${get("month")}-${get("day")}`;
-}
-
-function shanghaiIsoYesterday() {
-  const today = new Date(`${shanghaiIsoToday()}T00:00:00Z`);
-  today.setUTCDate(today.getUTCDate() - 1);
-  return today.toISOString().slice(0, 10);
-}
-
 function isIsoDate(value: string | undefined): value is string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);
@@ -263,23 +250,25 @@ async function parseCli(): Promise<CliOptions> {
   if (previousComboRows !== undefined && (!dryRun || moduleValue !== "combos")) {
     throw new Error("--previous-combo-rows 仅允许 combos 的离线 --dry-run 使用；正式任务必须读取系统成功批次。");
   }
-  if ((moduleValue === "inventory" || moduleValue === "inventory_age") && !isIsoDate(snapshotDate)) {
-    throw new Error(`${moduleValue} 必须提供有效的 --snapshot YYYY-MM-DD。`);
-  }
-  if ((moduleValue === "inventory" || moduleValue === "inventory_age") && snapshotDate !== shanghaiIsoYesterday()) {
-    throw new Error(`每日 ${moduleValue} 的 --snapshot 必须是北京时间昨天 ${shanghaiIsoYesterday()}；历史补跑请使用独立人工流程。`);
-  }
-  if (moduleValue === "sales" && !isIsoDate(asOfDate)) throw new Error("sales 必须提供有效的 --as-of YYYY-MM-DD。");
-  if (moduleValue === "sales" && asOfDate !== shanghaiIsoYesterday()) {
-    throw new Error(`每日 sales 的 --as-of 必须是北京时间昨天 ${shanghaiIsoYesterday()}；历史补跑请使用独立人工流程。`);
-  }
-  if (moduleValue === "sales" && !values.get("--cost-source")) {
-    throw new Error("sales 必须显式提供本轮库存输出 --cost-source。");
-  }
   const handoffFilePath = values.get("--handoff-file");
   const handoff = handoffFilePath
     ? await readJsonFile<BrowserHandoffFile>(path.resolve(handoffFilePath))
     : undefined;
+  const context = jackyunDateContext(handoff ?? newJackyunDateContext());
+  const yesterday = workflowLocalDate(new Date(), -1, context.timeZone ?? "Asia/Shanghai");
+  if ((moduleValue === "inventory" || moduleValue === "inventory_age") && !isIsoDate(snapshotDate)) {
+    throw new Error(`${moduleValue} 必须提供有效的 --snapshot YYYY-MM-DD。`);
+  }
+  if ((moduleValue === "inventory" || moduleValue === "inventory_age") && snapshotDate !== yesterday) {
+    throw new Error(`每日 ${moduleValue} 的 --snapshot 必须是本机时区昨天 ${yesterday}；历史补跑请使用独立人工流程。`);
+  }
+  if (moduleValue === "sales" && !isIsoDate(asOfDate)) throw new Error("sales 必须提供有效的 --as-of YYYY-MM-DD。");
+  if (moduleValue === "sales" && asOfDate !== yesterday) {
+    throw new Error(`每日 sales 的 --as-of 必须是本机时区昨天 ${yesterday}；历史补跑请使用独立人工流程。`);
+  }
+  if (moduleValue === "sales" && !values.get("--cost-source")) {
+    throw new Error("sales 必须显式提供本轮库存输出 --cost-source。");
+  }
   if (!handoff && !dryRun) {
     throw new Error("正式下载后处理必须提供本轮 controller 原子生成的 --handoff-file。");
   }
@@ -384,6 +373,7 @@ async function parseCli(): Promise<CliOptions> {
     throw new Error(`${moduleValue} 不接受历史库存快照证据。`);
   }
   return {
+    ...context,
     module: moduleValue,
     filePath: path.resolve(filePath),
     runId,
@@ -728,6 +718,7 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
     moveToStage("verify_historical_snapshot_evidence");
     if (options.module === "inventory" || options.module === "inventory_age") {
       assertJackyunSnapshotEvidence(options.snapshotEvidence, {
+        ...jackyunDateContext(options),
         module: options.module,
         runId: options.runId,
         snapshotDate: options.snapshotDate!,
@@ -752,6 +743,7 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
       throw Object.assign(new Error("下载事件字节数与 runner 实际文件不一致。"), { code: "FILE_BINDING_FAILED" });
     }
     inputContract = {
+      ...jackyunDateContext(options),
       runId: options.runId,
       policyVersion: options.policyVersion,
       module: options.module,
@@ -784,6 +776,7 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
         && existing.inputContractHash === inputContractHash
         && (existing.status === "completed" || (existing.status === "prepared" && options.dryRun))) {
         await verifyJackyunModuleArtifact({
+          ...jackyunDateContext(options),
           runDirectory,
           runId: options.runId,
           module: options.module,

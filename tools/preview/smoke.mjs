@@ -34,7 +34,7 @@ const sales = await (await query("/api/sales/data-health")).json();
 assert.equal(sales.latestBatch.rowCount, 180);
 const chainStatus = await (await query("/api/imports/chain-status")).json();
 assert.equal(chainStatus.source, "synthetic_n8n");
-assert.equal(chainStatus.timezone, "Asia/Shanghai");
+assert.equal(chainStatus.timezone, "local");
 assert.equal(chainStatus.items.length, 11);
 await query("/api/imports/chain-status?path=production", 400);
 await query("/api/imports/chain-status", 403, "POST");

@@ -1,3 +1,5 @@
+import { workflowLocalDate, workflowTimeZone } from "../lib/imports/local-time";
+import { jackyunCaptureDate, jackyunDateContext, newJackyunDateContext, type JackyunDateContext } from "../lib/jackyun/run-contract";
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { createHash } from "node:crypto";
@@ -34,7 +36,7 @@ type JackyunN8nFailure = {
   at: string;
 };
 
-export type JackyunN8nPlan = {
+export type JackyunN8nPlan = JackyunDateContext & {
   version: 1;
   runId: string;
   runDate: string;
@@ -83,7 +85,7 @@ type RunManifest = {
   }>>;
 };
 
-type DailyRunContract = {
+type DailyRunContract = JackyunDateContext & {
   version?: number;
   runId?: string;
   policyVersion?: string;
@@ -159,21 +161,12 @@ function inside(directory: string, filePath: string) {
 }
 
 export function shanghaiDate(now = new Date(), offsetDays = 0) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(now);
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
-  const value = new Date(`${part("year")}-${part("month")}-${part("day")}T00:00:00Z`);
-  value.setUTCDate(value.getUTCDate() + offsetDays);
-  return value.toISOString().slice(0, 10);
+  return workflowLocalDate(now, offsetDays);
 }
 
 export function createJackyunN8nRunId(now = new Date()) {
   const timestamp = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Asia/Shanghai",
+    timeZone: workflowTimeZone(),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -346,6 +339,7 @@ async function verifyRunArtifacts(paths: RuntimePaths, runId: string, asOfDate: 
       `${String(index + 1).padStart(2, "0")}-${moduleKey}.json`,
     );
     await verifyJackyunModuleArtifact({
+      ...jackyunDateContext(runContract),
       runDirectory,
       runId,
       module: moduleKey,
@@ -609,13 +603,13 @@ async function findCompletedRun(paths: RuntimePaths, asOfDate: string, policyVer
   return null;
 }
 
-async function findUnclosedPlan(paths: RuntimePaths, runDate: string) {
+async function findUnclosedPlan(paths: RuntimePaths, runDate: string, now: Date) {
   const files = (await readdir(paths.artifactDirectory, { withFileTypes: true }).catch(() => []))
     .filter((entry) => entry.isFile() && /^plan-[A-Za-z0-9._-]+\.json$/.test(entry.name));
   const plans = (await Promise.all(files.map((entry) => (
     readJsonFile<JackyunN8nPlan>(path.join(paths.artifactDirectory, entry.name)).catch(() => null)
   ))))
-    .filter((plan): plan is JackyunN8nPlan => Boolean(plan?.version === 1 && plan.runDate === runDate && plan.stage !== "completed"))
+    .filter((plan): plan is JackyunN8nPlan => Boolean(plan?.version === 1 && (plan.runDate === runDate || plan.runDate === jackyunCaptureDate(now.toISOString(), plan)) && plan.stage !== "completed"))
     .sort((left, right) => Date.parse(right.updatedAt || right.generatedAt) - Date.parse(left.updatedAt || left.generatedAt));
   return plans[0] ?? null;
 }
@@ -637,7 +631,8 @@ async function isExactResumableFailedPlan(
   if (policy?.version !== expected.policyVersion || runContract?.version !== 1
     || runContract.runId !== plan.runId || runContract.policyVersion !== expected.policyVersion
     || runContract.snapshotDate !== expected.asOfDate || runContract.asOfDate !== expected.asOfDate
-    || runContract.baseUrl !== expected.baseUrl || runContract.mode !== "formal") return false;
+    || runContract.baseUrl !== expected.baseUrl || runContract.mode !== "formal"
+    || runContract.datePolicy !== plan.datePolicy || runContract.timeZone !== plan.timeZone) return false;
   if (manifest && (manifest.runId !== plan.runId || manifest.strictOrder?.length !== jackyunModuleOrder.length
     || manifest.strictOrder.some((moduleKey, index) => moduleKey !== jackyunModuleOrder[index]))) return false;
 
@@ -654,6 +649,7 @@ async function isExactResumableFailedPlan(
       if (!result || !["completed", "duplicate_ignored"].includes(String(result.status))) return false;
       try {
         await verifyJackyunModuleArtifact({
+          ...jackyunDateContext(plan),
           runDirectory,
           runId: plan.runId,
           module: moduleKey,
@@ -767,8 +763,9 @@ async function isExactResumableFailedPlan(
 export async function planJackyunN8nRun(options: PlanOptions = {}) {
   const paths = pathsFor(options.root);
   const now = options.now ?? new Date();
-  const runDate = shanghaiDate(now, 0);
-  const yesterday = shanghaiDate(now, -1);
+  const context = newJackyunDateContext();
+  const runDate = workflowLocalDate(now, 0, context.timeZone);
+  const yesterday = workflowLocalDate(now, -1, context.timeZone);
   const baseUrl = normalizeJackyunLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
   const policy = await readPolicy(paths);
   const profileStatus = await getJackyunProfileStatus(options.profileDirectory, paths.root);
@@ -784,11 +781,13 @@ export async function planJackyunN8nRun(options: PlanOptions = {}) {
   if (!validRunId(runId)) throw new Error("吉客云 n8n 运行编号无效");
 
   if (!existing) {
-    const unclosed = await findUnclosedPlan(paths, runDate);
+    const unclosed = await findUnclosedPlan(paths, runDate, now);
     if (unclosed) {
-      const samePlanIdentity = unclosed.runDate === runDate
-        && unclosed.snapshotDate === yesterday
-        && unclosed.asOfDate === yesterday
+      const previousRunDate = jackyunCaptureDate(now.toISOString(), unclosed);
+      const previousYesterday = workflowLocalDate(now, -1, unclosed.timeZone ?? "Asia/Shanghai");
+      const samePlanIdentity = unclosed.runDate === previousRunDate
+        && unclosed.snapshotDate === previousYesterday
+        && unclosed.asOfDate === previousYesterday
         && unclosed.baseUrl === baseUrl
         && unclosed.policyVersion === policy.version
         && validRunId(unclosed.runId);
@@ -796,8 +795,8 @@ export async function planJackyunN8nRun(options: PlanOptions = {}) {
         return unclosed;
       }
       if (await isExactResumableFailedPlan(paths, unclosed, {
-        runDate,
-        asOfDate: yesterday,
+        runDate: previousRunDate,
+        asOfDate: previousYesterday,
         baseUrl,
         policyVersion: policy.version!,
       })) {
@@ -812,6 +811,7 @@ export async function planJackyunN8nRun(options: PlanOptions = {}) {
   }
 
   const plan: JackyunN8nPlan = {
+    ...context,
     version: 1,
     runId,
     runDate,
@@ -834,6 +834,7 @@ export function publicJackyunPlan(plan: JackyunN8nPlan) {
     ok: true,
     stage: "plan",
     runId: plan.runId,
+    ...jackyunDateContext(plan),
     runDate: plan.runDate,
     snapshotDate: plan.snapshotDate,
     asOfDate: plan.asOfDate,
@@ -862,6 +863,7 @@ export async function runJackyunN8nPlan(plan: JackyunN8nPlan, options: RunOption
   try {
     const runAutomation = options.runAutomation ?? runJackyunAutomation;
     const result = await runAutomation({
+      ...jackyunDateContext(plan),
       runId: plan.runId,
       snapshotDate: plan.snapshotDate,
       asOfDate: plan.asOfDate,

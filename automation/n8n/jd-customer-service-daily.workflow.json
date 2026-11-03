@@ -242,7 +242,7 @@
       "parameters": {
         "width": 700,
         "height": 260,
-        "content": "## 志高商用设备旗舰店客服聊天记录\n每天上海09:00，固定截至昨天的滚动30天；列表Excel和消息LOG配对，按自然日校验完整业务值、导入并精确回查。\n\n复用原京东helper和专用Profile；提交未决、验证码或店铺异常立即停止，不盲目重放。AI监控ai-2按同一逻辑任务第4次独立失败介入，需人工动作只通知本人。上线流程：受控采用helper → 完整手动验收 → 发布启用。"
+        "content": "## 志高商用设备旗舰店客服聊天记录\n每天本地时间09:00，固定截至昨天的滚动30天；列表Excel和消息LOG配对，按自然日校验完整业务值、导入并精确回查。\n\n复用原京东helper和专用Profile；提交未决、验证码或店铺异常立即停止，不盲目重放。AI监控ai-2按同一逻辑任务第4次独立失败介入，需人工动作只通知本人。上线流程：受控采用helper → 完整手动验收 → 发布启用。"
       }
     },
     {
@@ -374,7 +374,6 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Asia/Shanghai",
     "errorWorkflow": "TeruisiHourlyRetry2026"
   },
   "meta": {

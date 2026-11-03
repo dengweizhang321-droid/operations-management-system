@@ -495,7 +495,6 @@ return $input.all().map((item, index) => {
     active: false,
     settings: {
       executionOrder: "v1",
-      timezone: "Asia/Shanghai",
       callerPolicy: "workflowsFromSameOwner",
     },
     meta: {

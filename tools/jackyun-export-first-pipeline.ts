@@ -9,7 +9,7 @@ import { appendRecoveryControl, controlDigest, readRecoveryControl, type Recover
 import { collectionPublicationBaseline } from "../lib/jackyun/publication-baseline";
 import { assertBoundDownloadProvenance } from "../lib/jackyun/download-provenance";
 import { assertJackyunHandoffEvidence, assertJackyunSnapshotEvidence, jackyunCaptureDate,
-  jackyunExportFirstPolicyVersion, jackyunExportOrder } from "../lib/jackyun/run-contract";
+  jackyunExportFirstPolicyVersion, jackyunExportOrder, jackyunDateContext, newJackyunDateContext, type JackyunDateContext } from "../lib/jackyun/run-contract";
 import { jackyunModuleOrder, prepareJackyunWorkbook, type JackyunModule } from "../lib/jackyun/post-download";
 import { verifyJackyunModuleArtifact, type JackyunArtifactManifestModule } from "../lib/jackyun/run-artifact-verification";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
@@ -48,7 +48,7 @@ export const jackyunDirectActions = ["plan-direct-http", "export-all", "validate
 export const jackyunExportFirstActions = ["plan", ...jackyunExportOrder.map(module => `export/${module}`), ...jackyunWebSessionActions, "plan-direct-http", "plan-api"];
 type Phase = "exporting" | "exported" | "validating" | "validated" | "importing" | "imported" | "completed";
 type ExportReceipt = { handoffSha256: string; fileSha256: string; bytes: number };
-export type JackyunExportFirstPlan = {
+export type JackyunExportFirstPlan = JackyunDateContext & {
   version: 1 | 2;
   protocol: typeof jackyunExportFirstPolicyVersion;
   executionId: string;
@@ -102,11 +102,12 @@ function paths(root: string) {
   };
 }
 function createExportFirstPlan(executionId: string, action: string, createdAt: string): JackyunExportFirstPlan {
-  const runDate = jackyunCaptureDate(createdAt), yesterday = new Date(`${runDate}T00:00:00Z`);
+  const context = newJackyunDateContext();
+  const runDate = jackyunCaptureDate(createdAt, context), yesterday = new Date(`${runDate}T00:00:00Z`);
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
   const asOfDate = yesterday.toISOString().slice(0, 10);
   return { version: action === "plan-api" ? 2 : 1, protocol: jackyunExportFirstPolicyVersion, executionId, runId: `n8n-export-first-${executionId}`,
-    runDate, asOfDate, baseUrl: normalizeJackyunLocalBaseUrl("http://localhost:3000"), createdAt, phase: "exporting", exports: {},
+    ...context, runDate, asOfDate, baseUrl: normalizeJackyunLocalBaseUrl("http://localhost:3000"), createdAt, phase: "exporting", exports: {},
     ...(action === "plan-api" ? { salesStartDate: rollingJackyunSalesStartDate(asOfDate) } : {}),
     ...(action === "plan-web-session" ? { exportTransport: jackyunWebSessionTransport } : action === "plan-direct-http" ? { exportTransport: jackyunDirectTransport }
       : action === "plan-api" ? { exportTransport: jackyunApiTransport } : {}) };
@@ -149,7 +150,7 @@ function checkPlan(plan: JackyunExportFirstPlan, executionId: string) {
     || !/^[A-Za-z0-9._-]{1,96}$/.test(plan.runId)) throw new Error("运行身份或工作流协议不一致。");
   const yesterday = new Date(`${plan.runDate}T00:00:00Z`);
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-  if (plan.runDate !== jackyunCaptureDate(plan.createdAt) || plan.asOfDate !== yesterday.toISOString().slice(0, 10)
+  if (plan.runDate !== jackyunCaptureDate(plan.createdAt, plan) || plan.asOfDate !== yesterday.toISOString().slice(0, 10)
     || normalizeJackyunLocalBaseUrl(plan.baseUrl) !== "http://localhost:3000") throw new Error("计划日期或目标运营系统发生变化。");
   let incomplete = false;
   for (const moduleKey of jackyunExportOrder) {
@@ -196,7 +197,7 @@ export function assertExportFirstAction(plan: JackyunExportFirstPlan, executionI
 async function readBoundHandoff(root: string, plan: JackyunExportFirstPlan, policy: Policy, module: JackyunModule) {
   const rawHandoff = await readFile(handoffPath(root, plan, module));
   const handoff = JSON.parse(rawHandoff.toString("utf8").replace(/^\uFEFF/, "")) as BrowserHandoff;
-  if (handoff.schemaVersion !== 2 || handoff.runId !== plan.runId || handoff.module !== module
+  if (!isDeepStrictEqual(jackyunDateContext(handoff), jackyunDateContext(plan)) || handoff.schemaVersion !== 2 || handoff.runId !== plan.runId || handoff.module !== module
     || handoff.policyVersion !== plan.protocol || !Number.isSafeInteger(handoff.expectedSourceRows)
     || handoff.expectedSourceRows <= 0) throw new Error(`${module} 文件交接身份或行数无效。`);
   assertJackyunHandoffEvidence(handoff, module);
@@ -228,7 +229,7 @@ async function readBoundHandoff(root: string, plan: JackyunExportFirstPlan, poli
   if (handoff.downloadEventAt !== handoff.downloadProvenance.completedAt) throw new Error("下载时间不匹配。");
   if (module === "inventory" || module === "inventory_age") {
     assertJackyunSnapshotEvidence(handoff.snapshotEvidence, {
-      module, runId: plan.runId, policyVersion: plan.protocol, snapshotDate: plan.runDate,
+      ...jackyunDateContext(plan), module, runId: plan.runId, policyVersion: plan.protocol, snapshotDate: plan.runDate,
       navigationIntentAt: handoff.navigationIntentAt, exportIntentAt: handoff.exportIntentAt,
     });
     if (handoff.snapshotEvidence.queryIntentAt !== handoff.queryIntentAt
@@ -280,7 +281,7 @@ async function runImports(root: string, plan: JackyunExportFirstPlan, policy: Po
     await deps.assertOwned?.();
     const handoff = bound.get(moduleKey)!;
     const options: JackyunDownloadRunOptions = {
-      module: moduleKey, filePath: handoff.filePath, runId: plan.runId, policyVersion: plan.protocol,
+      ...jackyunDateContext(plan), module: moduleKey, filePath: handoff.filePath, runId: plan.runId, policyVersion: plan.protocol,
       snapshotDate: moduleKey === "inventory" || moduleKey === "inventory_age" ? plan.runDate : undefined,
       snapshotEvidence: handoff.snapshotEvidence, asOfDate: moduleKey === "sales" ? plan.asOfDate : undefined,
       salesStartDate: moduleKey === "sales" ? plan.salesStartDate : undefined,
@@ -317,7 +318,7 @@ export async function verifyJackyunPreparedImports(root: string, plan: JackyunEx
   const manifest = await readJsonFile<{ modules: Record<JackyunModule, JackyunArtifactManifestModule> }>(path.join(runDirectory, "run-manifest.json"));
   for (const moduleKey of jackyunModuleOrder) {
     await readBoundHandoff(root, plan, policy, moduleKey);
-    await verifyJackyunModuleArtifact({ runDirectory, runId: plan.runId, module: moduleKey,
+    await verifyJackyunModuleArtifact({ ...jackyunDateContext(plan), runDirectory, runId: plan.runId, module: moduleKey,
       snapshotDate: moduleKey === "sales" ? plan.asOfDate : plan.runDate, salesStartDate: moduleKey === "sales" ? plan.salesStartDate : undefined, policyVersion: plan.protocol,
       manifestModule: manifest.modules[moduleKey], expectedStatus: "prepared", allowedDownloadHosts: policy.browser.allowedDownloadHosts,
       handoffPath: handoffPath(root, plan, moduleKey), requireAtomicHandoff: true });
@@ -331,6 +332,7 @@ async function verifyImports(root: string, plan: JackyunExportFirstPlan, policy:
   for (const moduleKey of jackyunModuleOrder) {
     await readBoundHandoff(root, plan, policy, moduleKey);
     const verified = await verifyJackyunModuleArtifact({
+      ...jackyunDateContext(plan),
       runDirectory, runId: plan.runId, module: moduleKey, snapshotDate: moduleKey === "sales" ? plan.asOfDate : plan.runDate,
       salesStartDate: moduleKey === "sales" ? plan.salesStartDate : undefined,
       policyVersion: plan.protocol, manifestModule: manifest.modules[moduleKey],
@@ -441,7 +443,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
       const hasApiCheckpoint = await stat(path.join(paths(root).outputRoot, source.runId, "api-controller-state.json")).then(() => true, error => {
         if (error.code === "ENOENT") return false; throw error;
       });
-      if (action === "plan-api" && source.runDate !== jackyunCaptureDate(nowOf(deps)) && source.phase === "exporting") {
+      if (action === "plan-api" && source.runDate !== jackyunCaptureDate(nowOf(deps), source) && source.phase === "exporting") {
         const context = (deps.recoveryEvidence ?? readN8nReplacementEvidence)(request.failedExecutionId, executionId);
         if (context.evidence.status !== "error" || context.evidence.retrySuccessId !== null || context.evidence.activeExecutions !== 0) throw new Error("旧采集 owner 或在途任务无法确认，请等待或核查。");
         collectionRetirement = await inspectCaptureRetirement(root, source, nowOf(deps));
@@ -460,7 +462,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
           for (const moduleKey of jackyunExportOrder) if (source.exports[moduleKey]) {
             try { await readBoundHandoff(root, source, policy, moduleKey); }
             catch (error) {
-              if (!deps.repairApiFile || !await deps.repairApiFile({ runId: source.runId, runDate: source.runDate, asOfDate: source.asOfDate,
+              if (!deps.repairApiFile || !await deps.repairApiFile({ ...jackyunDateContext(source), runId: source.runId, runDate: source.runDate, asOfDate: source.asOfDate,
                 salesStartDate: source.salesStartDate, module: moduleKey, outputRoot: paths(root).outputRoot, eventRoot: paths(root).eventRoot,
                 downloadDirectory: policy.browser.downloadDirectory, assertOwned })) throw error;
               await readBoundHandoff(root, source, policy, moduleKey);
@@ -595,7 +597,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
       for (const moduleKey of jackyunExportOrder) if (plan.exports[moduleKey]) {
         try { await readBoundHandoff(root, plan, policy, moduleKey); }
         catch (error) {
-          const repaired = deps.repairApiFile ? await deps.repairApiFile({ runId: plan.runId, runDate: plan.runDate, asOfDate: plan.asOfDate,
+          const repaired = deps.repairApiFile ? await deps.repairApiFile({ ...jackyunDateContext(plan), runId: plan.runId, runDate: plan.runDate, asOfDate: plan.asOfDate,
             salesStartDate: plan.salesStartDate, module: moduleKey, outputRoot: paths(root).outputRoot, eventRoot: paths(root).eventRoot,
             downloadDirectory: policy.browser.downloadDirectory, assertOwned }) : false;
           if (!repaired) throw error;
@@ -631,7 +633,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
     if (action === "export-all") {
       for (const moduleKey of jackyunExportOrder) if (plan.exports[moduleKey]) await readBoundHandoff(root, plan, policy, moduleKey);
       if (plan.phase === "exported") return publicExportFirstPlan(plan);
-      if (deps.recoveryRequest && plan.exportTransport === jackyunApiTransport && await verifyCompletedApiLocalFiles({ runId, runDate: plan.runDate,
+      if (deps.recoveryRequest && plan.exportTransport === jackyunApiTransport && await verifyCompletedApiLocalFiles({ ...jackyunDateContext(plan), runId, runDate: plan.runDate,
         asOfDate: plan.asOfDate, salesStartDate: plan.salesStartDate, outputRoot: paths(root).outputRoot, eventRoot: paths(root).eventRoot,
         downloadDirectory: policy.browser.downloadDirectory })) {
         for (const moduleKey of jackyunExportOrder) plan.exports[moduleKey] = (await readBoundHandoff(root, plan, policy, moduleKey)).receipt;
@@ -639,13 +641,13 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
         await writeJsonAtomic(planPath, plan);
         return { ...publicExportFirstPlan(plan), reused: true };
       }
-      if (plan.runDate !== jackyunCaptureDate(nowOf(deps)) && !(deps.recoveryRequest && plan.exportTransport === jackyunApiTransport)) throw new Error("采集过程已跨日，禁止启动浏览器采集旧日期。");
+      if (plan.runDate !== jackyunCaptureDate(nowOf(deps), plan) && !(deps.recoveryRequest && plan.exportTransport === jackyunApiTransport)) throw new Error("采集过程已跨日，禁止启动浏览器采集旧日期。");
       const currentPlan = plan;
       const callbacks = {
         beforeModule: async (module: JackyunModule, continuationOnly = false) => {
           await assertOwned();
           if (currentPlan.exports[module]) { await readBoundHandoff(root, currentPlan, policy, module); return; }
-          if (currentPlan.runDate !== jackyunCaptureDate(nowOf(deps)) && !continuationOnly) throw new Error("采集跨日。");
+          if (currentPlan.runDate !== jackyunCaptureDate(nowOf(deps), currentPlan) && !continuationOnly) throw new Error("采集跨日。");
           if (jackyunExportOrder.find(key => !currentPlan.exports[key]) !== module || currentPlan.exportIntent && currentPlan.exportIntent !== module) throw new Error("导出模块乱序。");
           currentPlan.exportIntent = module; await writeJsonAtomic(planPath, currentPlan);
         },
@@ -659,11 +661,11 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
       let result: Awaited<ReturnType<typeof runApiExports>> | Awaited<ReturnType<typeof runController>>;
       try {
         result = plan.exportTransport === jackyunApiTransport ? await (deps.runApi ?? runApiExports)({
-        runId, runDate: plan.runDate, asOfDate: plan.asOfDate, salesStartDate: plan.salesStartDate, eventRoot: paths(root).eventRoot, outputRoot: paths(root).outputRoot,
+        ...jackyunDateContext(plan), runId, runDate: plan.runDate, asOfDate: plan.asOfDate, salesStartDate: plan.salesStartDate, eventRoot: paths(root).eventRoot, outputRoot: paths(root).outputRoot,
         downloadDirectory: policy.browser.downloadDirectory, resumeTaskBinding: apiResumeTaskBinding, assertOwned,
         ...(deps.recoveryRequest ? { controllerVersion: 2 as const } : {}), ...callbacks,
       }) : await (deps.runBrowser ?? runController)({
-        runId, snapshotDate: plan.runDate, asOfDate: plan.asOfDate,
+        ...jackyunDateContext(plan), runId, snapshotDate: plan.runDate, asOfDate: plan.asOfDate,
         eventRoot: paths(root).eventRoot, outputRoot: paths(root).outputRoot,
         headless: true, launchOnly: false, checkLoginOnly: false, exportFirstBatch: true,
         directHttp: plan.exportTransport === jackyunDirectTransport,
@@ -671,7 +673,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
         httpScopeRecovery,
         beforeModule: async module => {
           if (currentPlan.exports[module]) { await readBoundHandoff(root, currentPlan, policy, module); return; }
-          if (currentPlan.runDate !== jackyunCaptureDate(nowOf(deps))) throw new Error("采集过程已跨日，禁止把新采集结果记入旧日期。");
+          if (currentPlan.runDate !== jackyunCaptureDate(nowOf(deps), currentPlan)) throw new Error("采集过程已跨日，禁止把新采集结果记入旧日期。");
           if (jackyunExportOrder.find(key => !currentPlan.exports[key]) !== module
             || (currentPlan.exportIntent && currentPlan.exportIntent !== module)) throw new Error("网页五表导出乱序。");
           currentPlan.exportIntent = module;
@@ -723,11 +725,11 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
         return publicExportFirstPlan(plan);
       }
       if (!plan.exports[moduleKey]) {
-        if (plan.runDate !== jackyunCaptureDate(nowOf(deps))) throw new Error("采集过程已跨日，禁止把新采集结果记入旧日期。");
+        if (plan.runDate !== jackyunCaptureDate(nowOf(deps), plan)) throw new Error("采集过程已跨日，禁止把新采集结果记入旧日期。");
         plan.exportIntent = moduleKey;
         await writeJsonAtomic(planPath, plan);
         const result = await (deps.runBrowser ?? runController)({
-          runId, snapshotDate: plan.runDate, asOfDate: plan.asOfDate,
+          ...jackyunDateContext(plan), runId, snapshotDate: plan.runDate, asOfDate: plan.asOfDate,
           eventRoot: paths(root).eventRoot, outputRoot: paths(root).outputRoot,
           headless: true, launchOnly: false, checkLoginOnly: false, exportOnlyModule: moduleKey, resumeTaskBinding,
         });
@@ -780,7 +782,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
 }
 
 function publicExportFirstPlan(plan: JackyunExportFirstPlan) {
-  return { ok: true, protocol: plan.protocol, runId: plan.runId, phase: plan.phase,
+  return { ok: true, ...jackyunDateContext(plan), protocol: plan.protocol, runId: plan.runId, phase: plan.phase,
     exportTransport: plan.exportTransport ?? "browser_menu",
     snapshotDate: plan.runDate, salesStartDate: jackyunSalesPeriod(plan.asOfDate, plan.salesStartDate).startDate, salesEndDate: plan.asOfDate,
     exported: jackyunExportOrder.filter(module => plan.exports[module]), importOrder: jackyunModuleOrder };

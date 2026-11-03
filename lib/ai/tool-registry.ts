@@ -1452,7 +1452,7 @@ export const aiToolRegistry = [
   {
     name: "get_automation_run_status",
     title: "自动化运行状态投影",
-    description: "通过 Django 只读读取上海今天对应 n8n 工作流的定时、自动重试和已核验完整手动补跑成功状态、完成时间及执行编号。仅无数据范围限制账号可查；共用多店工作流表示整链状态，排除单节点测试、固定测试数据和局部执行；仅返回执行状态摘要，不返回节点内容、Cookie 或凭据。来源不可用时拒绝推测完成。",
+    description: "通过 Django 只读读取运行机器本地今天对应 n8n 工作流的定时、自动重试和已核验完整手动补跑成功状态、完成时间及执行编号。仅无数据范围限制账号可查；共用多店工作流表示整链状态，排除单节点测试、固定测试数据和局部执行；仅返回执行状态摘要，不返回节点内容、Cookie 或凭据。来源不可用时拒绝推测完成。",
     inputSchema: {
       type: "object",
       properties: { workflowKey: { type: "string", enum: ["jackyun", "tmall", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat", "jd_customer_service", "jd_logistics", "tmall_warehouse"] } },

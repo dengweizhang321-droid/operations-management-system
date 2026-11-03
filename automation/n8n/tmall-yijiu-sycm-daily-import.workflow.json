@@ -91,7 +91,7 @@
     },
     {
       "parameters": {
-        "content": "## 目标日计划（Asia/Shanghai）\n每天 09:15 默认直接计划昨天；显式日期或日期范围也直接进入计划，不依据运营系统已有日期覆盖预先跳过。\n\n计划文件写入 `outputs/tmall-multi-store-import/`。",
+        "content": "## 目标日计划（本机时区）\n每天 09:15 默认直接计划昨天；显式日期或日期范围也直接进入计划，不依据运营系统已有日期覆盖预先跳过。\n\n计划文件写入 `outputs/tmall-multi-store-import/`。",
         "height": 220,
         "width": 430,
         "color": 5
@@ -177,7 +177,6 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Asia/Shanghai",
     "errorWorkflow": "TeruisiHourlyRetry2026"
   },
   "versionId": "1fe138f9-2002-49a3-a24f-5a7c961cf2d0",

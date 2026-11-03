@@ -1,3 +1,5 @@
+import { collectionDay, newCollectionDateContext, type WorkflowCollectionDateContext } from "../inventory/workflow-date-context";
+import { workflowLocalDate } from "../imports/local-time";
 import { createHash } from "node:crypto";
 import type { JdLogisticsSource } from "../inventory/jd-logistics-contract";
 import type { JdStore } from "./store-registry";
@@ -35,7 +37,7 @@ export type JdLogisticsScope = {
   rangeStart: string; rangeEnd: string; warehouseCode: string;
 };
 export type JdLogisticsIdentityEvidence = { observedBusinessUnitCode: string; observedAt: string; sourceUrl: string; storeKey: string };
-export type JdLogisticsExportOptions = JdLogisticsScope & {
+export type JdLogisticsExportOptions = JdLogisticsScope & WorkflowCollectionDateContext & {
   root: string; runId: string; executionId: string; operationId: string; store: JdStore;
   contractVersion: string; downloadDirectory: string; assertOwner: () => Promise<void>;
   sourceStatus?: "enabled";
@@ -76,7 +78,7 @@ export function logisticsDayAfter(day: string, offset = 1) {
 }
 export function logisticsShanghaiDay(now: Date) {
   if (!Number.isFinite(now.valueOf())) throw new Error("JD_LOGISTICS_INVALID_CLOCK");
-  return new Date(now.valueOf() + 8 * 3_600_000).toISOString().slice(0, 10);
+  return workflowLocalDate(now);
 }
 function object(value: unknown): value is Record<string, unknown> { return !!value && typeof value === "object" && !Array.isArray(value); }
 function identifier(value: unknown) { return typeof value === "string" && /^[A-Za-z0-9._:-]{1,100}$/.test(value); }
@@ -143,8 +145,8 @@ export function planJdLogisticsNotifications(settings: JdLogisticsSettings, oper
     groupName: policy.groupName, robotName: policy.robotName, configDigest: policy.configDigest, departmentIds };
   return { ...frozen, policyHash: logisticsHash({ ...frozen, departments }) };
 }
-export function selectJdLogisticsOperations(config: JdLogisticsConfig, settings: JdLogisticsSettings, stores: readonly JdStore[], now: Date): JdLogisticsSelection[] {
-  const today = logisticsShanghaiDay(now); const yesterday = logisticsDayAfter(today, -1);
+export function selectJdLogisticsOperations(config: JdLogisticsConfig, settings: JdLogisticsSettings, stores: readonly JdStore[], now: Date, context: WorkflowCollectionDateContext = newCollectionDateContext()): JdLogisticsSelection[] {
+  const today = collectionDay(now, context); const yesterday = logisticsDayAfter(today, -1);
   const selected = new Map<string, JdLogisticsSelection>();
   for (const b of config.bindings) {
     if (!b.enabled) continue;

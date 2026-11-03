@@ -7,7 +7,7 @@ import * as XLSX from "xlsx";
 
 type AutomationConfig = {
   version: string;
-  timeZone: "Asia/Shanghai";
+  timeZone: "local" | "Asia/Shanghai";
   weekdays: number[];
   baseUrl: string;
   jackyun: {
@@ -86,7 +86,6 @@ export function isConfiguredWorkday(today: string, weekdays: readonly number[]) 
 
 export function shanghaiToday(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -157,7 +156,7 @@ function resolveProjectPath(value: string) {
 
 async function readConfig(configPath: string) {
   const config = JSON.parse(await readFile(configPath, "utf8")) as AutomationConfig;
-  if (!config.version || config.timeZone !== "Asia/Shanghai") throw new Error("ERP 销售自动化配置无效。");
+  if (!config.version || !["local", "Asia/Shanghai"].includes(config.timeZone)) throw new Error("ERP 销售自动化配置无效。");
   if (!config.weekdays.length || !config.jackyun.startUrl || !config.jackyun.salesFrameUrlContains) {
     throw new Error("ERP 销售自动化配置缺少必要字段。");
   }

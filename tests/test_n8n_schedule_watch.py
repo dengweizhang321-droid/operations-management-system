@@ -56,7 +56,7 @@ class InspectionTests(unittest.TestCase):
     def test_utc_previous_date_is_shanghai_today(self):
         self.run_record("2026-11-02 16:10:00.500")
         report = self.run_at()
-        self.assertEqual(report["scheduled"][0]["periodStartShanghai"], "2026-11-03T00:10:00+08:00")
+        self.assertEqual(report["scheduled"][0]["periodStartLocal"], watch.instant("2026-11-03T00:10:00+08:00").astimezone().isoformat())
         self.assertNotIn("missing_execution", self.reasons(report))
 
     def test_before_today_schedule_keeps_previous_window(self):
@@ -170,7 +170,7 @@ class InspectionTests(unittest.TestCase):
 
     def test_catalog_all_current_schedules_supported(self):
         for rule in watch.load_rules(watch.CATALOG):
-            self.assertEqual(rule["timezone"], "Asia/Shanghai")
+            self.assertEqual(rule["timezone"], "local")
             watch.schedule_start(rule, watch.instant("2026-11-02T16:16:00Z"))
 
     def test_readonly_query_only_and_no_file_creation(self):
@@ -350,12 +350,12 @@ function Invoke-WatchDws([string[]]$Arguments){
             with self.subTest(payload=payload):
                 self.assertEqual(self.call(payload)[0], 2)
 
-    def test_v1_baseline_bytes_and_behavior_remain_unchanged(self):
+    def test_v1_local_clock_baseline_preserves_delivery_behavior(self):
         source = (ROOT / "tools/n8n-manual-action-alert.ps1").read_bytes()
         prefix = source[:source.index(b'  if($payload.version -eq 2){')]
         tail = source[source.index(b'  }else{\n  if($payload.version -ne 1'):]
         self.assertEqual(hashlib.sha256(prefix).hexdigest(), 'acee54356cb93abc3c4925bd5045fc019989e1537f9d482b7704c76db7ea08ca')
-        self.assertEqual(hashlib.sha256(tail).hexdigest(), '9f3cf6e962f600c2810aa1c5b55a2e6ffcf95269001f6877325afead4ced39b0')
+        self.assertEqual(hashlib.sha256(tail).hexdigest(), '62913670e8b79a11d27f239b67a0b85a83c72f94e118cc5791814e3bd1cf14cc')
         old = {"version": 1, "workflowId": "JdLogisticsDaily2026", "logicalExecutionId": "123", "failedExecutionId": "123", "code": "terminal_manual_action"}
         self.assertEqual(self.call(old, execute=True)[1]["status"], "sent")
         self.assertTrue(self.call(old, execute=True)[1]["suppressed"])

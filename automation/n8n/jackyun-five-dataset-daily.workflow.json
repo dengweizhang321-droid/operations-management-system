@@ -361,8 +361,7 @@
   "pinData": {},
   "active": false,
   "settings": {
-    "executionOrder": "v1",
-    "timezone": "Asia/Shanghai"
+    "executionOrder": "v1"
   },
   "tags": []
 }

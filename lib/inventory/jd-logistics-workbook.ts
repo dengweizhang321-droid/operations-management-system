@@ -1,3 +1,4 @@
+import { collectionDay, type WorkflowCollectionDateContext } from "./workflow-date-context";
 import * as XLSX from "xlsx";
 import { unzipSync } from "fflate";
 import type { JdLogisticsRow, JdLogisticsSource } from "./jd-logistics-contract";
@@ -66,7 +67,7 @@ function isoDate(value: unknown, dateOnly: boolean): string {
 }
 
 /** Pure normalization shared by the Worker and the controlled downloader. No deduplication. */
-export type JdLogisticsWorkbookContext = { collectedAt?: string; allowDeclaredBusinessUnit?: boolean };
+export type JdLogisticsWorkbookContext = WorkflowCollectionDateContext & { collectedAt?: string; allowDeclaredBusinessUnit?: boolean };
 export function parseJdLogisticsGrid(grid: unknown[][], sourceKind: JdLogisticsSource, businessUnitCode: string, context: JdLogisticsWorkbookContext = {}): JdLogisticsRow[] {
   const fields = jdLogisticsWorkbookFields[sourceKind];
   if (!fields || !businessUnitCode.trim()) throw new Error("请选择有效来源和事业部");
@@ -116,7 +117,7 @@ export function parseJdLogisticsGrid(grid: unknown[][], sourceKind: JdLogisticsS
       if (field.key === "snapshotDate" && sourceKind === "realtime_inventory" && !clean(value)) {
         if (!context.collectedAt) throw new Error("实时库存文件没有日期列，必须提供实际采集时刻，不能补填历史快照日期");
         const time = new Date(isoDate(context.collectedAt, false));
-        value = new Date(time.valueOf() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+        value = collectionDay(time, context);
       }
       const label = `第${index + 1}行 ${field.headers[1] ?? field.key}`;
       if (field.required && !clean(value)) throw new Error(`${label}不能为空`);

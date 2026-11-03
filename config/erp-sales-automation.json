@@ -1,6 +1,6 @@
 {
   "version": "2026-07-17.1",
-  "timeZone": "Asia/Shanghai",
+  "timeZone": "local",
   "weekdays": [1, 2, 3, 4, 5],
   "baseUrl": "http://localhost:3000",
   "jackyun": {

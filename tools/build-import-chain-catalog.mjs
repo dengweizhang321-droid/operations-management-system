@@ -32,7 +32,7 @@ export async function buildImportChainCatalog() {
       .flatMap((n) => n.parameters.rule.interval)
       .map((s) => s.expression || `每 ${s.daysInterval || 1} 天 ${s.triggerAtHour || 0}:${String(s.triggerAtMinute || 0).padStart(2, "0")}`);
     rules.push({ chainKey, entityKeys, workflowId: definition.id, name: definition.name,
-      timezone: definition.settings?.timezone || "未配置", schedules, definitionFile: `automation/n8n/${file}.workflow.json`, ...extra });
+      timezone: definition.settings?.timezone || "local", schedules, definitionFile: `automation/n8n/${file}.workflow.json`, ...extra });
   };
   await add("jackyun", ["jackyun"], "jackyun-five-dataset-api");
   await add("jd", jd.map((s) => s.storeKey), "jd-multi-store-daily.chromium-silent-copy");
