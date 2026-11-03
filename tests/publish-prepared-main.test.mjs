@@ -23,7 +23,7 @@ async function fixture(t,components=['worker'],failAt=null){
   }catch(error){if(error.code!=='ENOENT')throw error;}
  };
  const request={mainCommit:'a'.repeat(40),components,predecessorWorker:{...head},predecessorDjangoSha256:django};
- const context={source:root,out,installedRoot:installed,workerRuntimeRoot:runtime,deployOnly:false,
+ const context={source:root,out,installedRoot:installed,workerRuntimeRoot:runtime,deployOnly:false,readinessWaitOptions:{budgetMs:1000,delayMs:5},
   sourceIdentity:async()=>({commit:request.mainCommit,tree:'b'.repeat(40)}),
   maintenanceReadiness:async()=>{event('readiness');return {route:'fixture',sourcePins:Object.fromEntries(['manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs'].map(name=>[name,'4'.repeat(64)]))};},
   sha:async file=>file===path.join(installed,'deployment.json')?django:path.basename(file).startsWith('app.prepare-')?'9'.repeat(64):'4'.repeat(64),
@@ -56,7 +56,9 @@ async function fixture(t,components=['worker'],failAt=null){
    if(action==='VerifyStartup')return {startupVerified:true};
    return {};
   },
-  fetch:async(url,options)=>{await readLease('ready');event('ready');assert.equal(options.headers['x-teruisi-local-health'],'1');return {status:readyStatus,json:async()=>{if(readyBody instanceof Error)throw readyBody;return readyBody;},body:{cancel:async()=>{}}};}
+  fetch:async(url,options)=>{await readLease('ready');event('ready');assert.equal(options.headers['x-teruisi-local-health'],'1');
+   if(readyBody instanceof Error)return new Response('invalid-json',{status:readyStatus,headers:{'content-type':'application/json'}});
+   return Response.json(readyStatus===503?{ok:false,status:'degraded',unavailableServices:['bi.reader']}:readyBody,{status:readyStatus});}
  };
  return {request,context,events,out,leaseFile,get leaseReadings(){return leaseReadings;},get successes(){return successes;},set head(value){head=value;},set django(value){django=value;},set readyStatus(value){readyStatus=value;},set readyBody(value){readyBody=value;}};
 }
@@ -213,7 +215,7 @@ test('existing STARTED never retries an unknown result',async t=>{
 for(const failure of ['BeginWorkerDrain','StopForRelease','apply','Start','EndWorkerDrain','VerifyStartup','ready'])test('failure at '+failure+' retains FAILED and never retries or writes success',async t=>{
  const f=await fixture(t,['worker'],failure),original=f.context.runStep,cancellations=[];
  f.context.runStep=async args=>{if(args.action==='CancelDrain')cancellations.push(args);return original(args);};
- await assert.rejects(publishPreparedMain(f.request,f.context),/fixture failure/);
+ await assert.rejects(publishPreparedMain(f.request,f.context),failure==='ready'?/服务尚未就绪/:/fixture failure/);
  assert.equal(f.successes,0);await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
  const failed=JSON.parse(await fs.readFile(path.join(f.out,'FAILED.json'),'utf8'));assert.equal(failed.automaticRetry,false);
  const prior=f.events.length;await assert.rejects(publishPreparedMain(f.request,f.context),/结果未知/);
@@ -265,8 +267,29 @@ for(const failure of ['EnterMaintenance','Stop','DeployApp','HardenAcl','apply',
 });
 test('unready HTTP or final Django drift cannot save SUCCESS',async t=>{
  const f=await fixture(t);f.readyStatus=503;await assert.rejects(publishPreparedMain(f.request,f.context),/服务尚未就绪/);await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
+ const failed=JSON.parse(await fs.readFile(path.join(f.out,'FAILED.json'),'utf8'));assert.equal(failed.readiness.reason,'deadline_exhausted');assert.deepEqual(failed.readiness.unavailableServices,['bi.reader']);
  const g=await fixture(t);const native=g.context.runStep;g.context.runStep=async args=>{const result=await native(args);if(args.action==='VerifyStartup')g.django='changed';return result;};
  await assert.rejects(publishPreparedMain(g.request,g.context),/最终后台manifest/);await assert.rejects(fs.access(path.join(g.out,'SUCCESS.json')));
+});
+
+test('ready transient recovery reuses completed deployment and emits bounded observations',async t=>{
+ const f=await fixture(t,['worker','django']),fetch=f.context.fetch;let calls=0;
+ f.context.fetch=async(...args)=>{f.readyStatus=++calls<3?503:200;return fetch(...args);};
+ const result=await publishPreparedMain(f.request,f.context);
+ assert.equal(result.status,'deployed_and_ready');assert.equal(calls,3);
+ for(const action of ['DeployApp','Start','VerifyStartup','apply'])assert.equal(f.events.filter(v=>v===action).length,1,action);
+ const rows=(await fs.readFile(path.join(f.out,'readiness-observations.jsonl'),'utf8')).trim().split('\n').map(JSON.parse);
+ assert.equal(rows.length,3);assert.equal(rows[0].reason,'not_ready_unknown');assert.equal(rows[2].ok,true);assert.equal(rows[2].attempts,3);
+ assert.equal(JSON.parse(await fs.readFile(path.join(f.out,'SUCCESS.json'),'utf8')).readyVerified,true);
+});
+
+test('ready success reuse remains a single check and does not rewrite original observations',async t=>{
+ const f=await fixture(t,['worker']);await publishPreparedMain(f.request,f.context);
+ const log=await fs.readFile(path.join(f.out,'readiness-observations.jsonl'),'utf8'),receipt=await fs.readFile(path.join(f.out,'SUCCESS.json'),'utf8');
+ f.events.length=0;f.readyStatus=503;
+ await assert.rejects(publishPreparedMain(f.request,f.context),/服务尚未就绪/);
+ assert.deepEqual(operations(f.events),['ready']);assert.equal(await fs.readFile(path.join(f.out,'readiness-observations.jsonl'),'utf8'),log);
+ assert.equal(await fs.readFile(path.join(f.out,'SUCCESS.json'),'utf8'),receipt);
 });
 test('HTTP 200 with HTML or non-ready JSON never saves SUCCESS',async t=>{
  for(const body of [new SyntaxError('HTML instead of JSON'),{ok:false,status:'ready'},{ok:true,status:'notready'}]){

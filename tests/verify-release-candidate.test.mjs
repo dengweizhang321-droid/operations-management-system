@@ -3,8 +3,70 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {candidateCompatibilityProfile,assertPrivateCandidateLocation,compareFunctionOnlyChange,verifyReleaseCandidate,candidateTestEnvironment,usesGateTimingExemption} from '../tools/verify-release-candidate.mjs';
+import {candidateCompatibilityProfile,assertPrivateCandidateLocation,compareFunctionOnlyChange,verifyReleaseCandidate,candidateTestEnvironment,usesGateTimingExemption,readinessStabilityFiles,compareReadinessDjangoCopyOnly,compareReadinessMaintenancePairOnly} from '../tools/verify-release-candidate.mjs';
+import {readinessCopyControllerPair,assertMaintenanceControllerGeneration,piNativeCandidateControllerSha256} from '../tools/manual-maintenance-continuation.mjs';
 import {execFileSync} from 'node:child_process';
+
+test('readiness stability profile accepts only the complete finite task closure',()=>{
+ const files=[...readinessStabilityFiles,'tools/verify-release-candidate.mjs'];
+ const profile=candidateCompatibilityProfile([...files,'tests/readiness-entry-compatibility.test.mjs','docs/readiness-stability-20261103/COMPATIBILITY.md'].map(path=>({path})));
+ assert.equal(profile.readinessStabilityOnly,true);assert.equal(profile.version,'readiness-stability-v1');
+ assert.deepEqual(profile.unsupported,[]);assert.equal(profile.worker,true);assert.equal(profile.django,true);
+ assert.equal(profile.piMainResumeOnly,false);assert.equal(profile.applyTimingReceiptOnly,false);assert.equal(profile.nativeColdStartPerformed,false);
+ for(const missing of files){
+  const partial=candidateCompatibilityProfile(files.filter(p=>p!==missing).map(path=>({path})));
+  assert.equal(partial.readinessStabilityOnly,false,missing);assert.ok(partial.unsupported.length,missing);
+ }
+ for(const extra of ['tools/worker-local-service.ps1','tools/django-ai.ps1','tools/worker-local-release.mjs','tools/new-controller.ps1','lib/sales/new-helper.ts']){
+  const wider=candidateCompatibilityProfile([...files,extra].map(path=>({path})));
+  assert.equal(wider.readinessStabilityOnly,false,extra);assert.ok(wider.unsupported.length,extra);
+ }
+ const renamed=candidateCompatibilityProfile([...files.map(path=>({path})),{before:'tools/unknown-controller.ps1',path:'docs/archived.md'}]);
+ assert.equal(renamed.readinessStabilityOnly,false);assert.ok(renamed.unsupported.includes('tools/unknown-controller.ps1'));
+});
+
+test('readiness stability Django qualification allows only one anchored helper copy item',()=>{
+ const before='function Prepare-Application {\r\n      "tools\\publish-prepared-main.mjs",\r\n}\r\nfunction Start-ServiceStack { original }\r\n';
+ const addition='      "tools\\publication-readiness.mjs",\r\n';
+ const after=before.replace('      "tools\\publish-prepared-main.mjs",\r\n',m=>m+addition);
+ assert.equal(compareReadinessDjangoCopyOnly(before,after),true);
+ assert.equal(compareReadinessDjangoCopyOnly('\uFEFF'+before,after.replaceAll('\r\n','\n')),true);
+ for(const bad of [before,after+addition,after.replace('original','changed'),after.replace('publication-readiness','other-helper'),addition+before]){
+  assert.equal(compareReadinessDjangoCopyOnly(before,bad),false);
+ }
+ assert.equal(compareReadinessDjangoCopyOnly(after,after),false);
+});
+
+test('readiness stability maintenance guard accepts the exact pair and rejects unknown names or bytes',()=>{
+ const value={name:'django-local-service.ps1',installedSha:readinessCopyControllerPair.installedSha,expected:readinessCopyControllerPair.candidateSha,candidateSha:readinessCopyControllerPair.candidateSha};
+ assert.doesNotThrow(()=>assertMaintenanceControllerGeneration(value));
+ for(const changed of [{name:'worker-local-service.ps1'},{name:'unknown.ps1'},{installedSha:'e'.repeat(64)},{candidateSha:'e'.repeat(64)},{expected:'e'.repeat(64)}]){
+  assert.throws(()=>assertMaintenanceControllerGeneration({...value,...changed}),/不一致/);
+ }
+ assert.equal(piNativeCandidateControllerSha256['django-local-service.ps1'].includes(value.candidateSha),false,'new copy-only pair must not enter the generic historical candidate table');
+});
+
+test('readiness stability maintenance qualification permits only the fixed pair and guard branch',async()=>{
+ const base=process.env.TERUISI_COMPATIBILITY_BASE??'e7aaf6c16939770d0941994873747fe301ef0b93';
+ const before=execFileSync('git',['show',base+':tools/manual-maintenance-continuation.mjs'],{encoding:'utf8',windowsHide:true,maxBuffer:4*1024*1024});
+ const after=await fs.readFile('tools/manual-maintenance-continuation.mjs','utf8');
+ assert.equal(compareReadinessMaintenancePairOnly(before,after),true);
+ for(const bad of [before,after.replace('expected===candidateSha','true'),after.replace(readinessCopyControllerPair.installedSha,'e'.repeat(64)),after.replace("name==='django-local-service.ps1'","name==='worker-local-service.ps1'"),after+'\n// unrelated change']){
+  assert.equal(compareReadinessMaintenancePairOnly(before,bad),false);
+ }
+});
+
+test('readiness stability controller pair matches actual raw frozen and candidate bytes',async()=>{
+ const base=process.env.TERUISI_COMPATIBILITY_BASE??'e7aaf6c16939770d0941994873747fe301ef0b93';
+ const before=execFileSync('git',['show',base+':tools/django-local-service.ps1'],{windowsHide:true,maxBuffer:8*1024*1024});
+ const after=await fs.readFile('tools/django-local-service.ps1');
+ const rawSha=bytes=>createHash('sha256').update(bytes).digest('hex');
+ assert.equal(rawSha(before),readinessCopyControllerPair.installedSha);
+ assert.equal(rawSha(after),readinessCopyControllerPair.candidateSha);
+ assert.equal(compareReadinessDjangoCopyOnly(before.toString('utf8'),after.toString('utf8')),true);
+ assert.equal(after.length-before.length,42);
+ assert.notEqual(rawSha(Buffer.from(after.toString('utf8').replaceAll('\r\n','\n'))),readinessCopyControllerPair.candidateSha);
+});
 
 test('actual normalized Windows environment retains its system path without inherited secrets',()=>{
  const env=candidateTestEnvironment({gitExe:'C:/Git/git.exe',shell5:'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',shell7:'C:/PS/pwsh.exe',pythonExe:'C:/Python/python.exe',directory:'C:/private'});

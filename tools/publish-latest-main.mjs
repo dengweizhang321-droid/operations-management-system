@@ -7,6 +7,7 @@ import {createHash,randomUUID} from 'node:crypto';
 import {pathToFileURL,fileURLToPath} from 'node:url';
 import {parseArgs} from 'node:util';
 import assert from 'node:assert/strict';
+import {assertPublicationReady,publicationDeadline,fetchPublicationReadyResponse} from './publication-readiness.mjs';
 import {makeReleasePlan} from './release-scope-plan.mjs';
 import {createReleaseProgress} from './publish-main-progress.mjs';
 import {prepareMainSchemaRelease} from './main-schema-release.mjs';
@@ -28,10 +29,9 @@ async function writeOnceOrSame(file,value){
  catch(error){if(error.code!=='EEXIST')throw error;assert.deepEqual(JSON.parse(await fs.readFile(file,'utf8')),value,'已冻结发布请求变化，拒绝覆盖原批次');}
 }
 // The parameters below are injection seams for isolated tests only; every
-// default reproduces the original hardcoded behaviour byte for byte, and no
-// assertion in this function was changed, relaxed or made conditional.
+// identity assertions remain unconditional. Readiness is one bounded observation.
 export async function readLivePublication(config,{loadApi,loadRotation,readDjango,runtimeRoot='D:/teruisi-runtime/django-sales',
- fetchReady=()=>fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)})}={}){
+ fetchReady}={}){
  const api=await (loadApi??(()=>import(pathToFileURL(path.join(config.nativeToolsSource,'tools/worker-local-release.mjs')))))();
  const rotation=await (loadRotation??(()=>import(pathToFileURL(path.join(config.nativeToolsSource,'tools/worker-local-release-rotation.mjs')))))();
  const chain=await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true});
@@ -62,8 +62,8 @@ export async function readLivePublication(config,{loadApi,loadRotation,readDjang
  assert.equal(await gitAt(source,['rev-parse','HEAD']),commit);
  const sourceTree=await api.hashRelativeFiles(source,await api.listGitSourceFiles(source));
  assert.deepEqual(sourceTree,expectedTree,'已部署来源与实际运行包不一致');
- const ready=await fetchReady();
- assert.equal(ready.status,200,'当前运行版本尚未就绪');const health=await ready.json();assert.equal(health.ok,true);assert.equal(health.status,'ready');
+ // One bounded probe, not another 120-second wait before publication.
+ await assertPublicationReady({...(fetchReady?{fetchImpl:fetchReady}:{})});
  const ordinaryAttempt=path.resolve(source,'..','publish-'+commit.slice(0,12));
  return {mainCommit:commit,source,sourceTree,head:chain.head,chainStateSha256:chain.chainStateSha256,djangoManifestSha256:sha(djangoRaw),completedReceiptPath:receiptPath,resolvedOriginalAttempt:path.resolve(path.dirname(receiptPath))!==ordinaryAttempt};
 }
@@ -127,7 +127,7 @@ export async function observeLiveIdentity(config,{loadApi,loadRotation,readDjang
 export async function adoptLivePublication(config,{reason,confirm,binding,retirementScope,log=()=>{},
  observe=observeLiveIdentity,git=gitAt,gitSucceeds=gitSucceedsAt,makePlan=makeReleasePlan,
  probe=probePublicationPreconditions,probeRotation=probeRotationLock,
- fetchReady=()=>fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)}),
+ fetchReady=fetchPublicationReadyResponse,
  now=()=>new Date(),adoptionId=randomUUID(),runtimeRoot=liveDjangoRuntime,operator}={}){
  assert.ok(typeof reason==='string'&&reason.trim().length>0,'承认现役必须说明依据（--adopt-reason）');
  assert.ok(reason.length<=1600,'承认依据过长');
@@ -399,6 +399,8 @@ export function parseApplyTimingLines(lines){
   unexpectedLineCount:unexpected.length,unexpectedLineSamples:unexpected.slice(0,3)};
 }
 export async function runPublisher(source,args=[],gitDirectory,baseEnvironment,{deadlineUnixMs}={}){
+ deadlineUnixMs=publicationDeadline(deadlineUnixMs);
+ if(deadlineUnixMs!==undefined&&deadlineUnixMs<=Date.now())throw Error('publication_deadline_exhausted_before_spawn');
  const directory=path.resolve(source,'..','invocations');await fs.mkdir(directory,{recursive:true});
  const resultFile=path.join(directory,randomUUID()+'.json'),check=args.includes('--check'),prepareOnly=args.includes('--prepare-only');
  await new Promise((resolve,reject)=>{
@@ -617,7 +619,7 @@ export async function scanMaintenanceLog(runtimeRoot,maintenanceId,sinceMs){
  const ended=entered?events.filter(item=>item.event==='system_maintenance_ended'&&item.at>entered.at).sort((x,y)=>x.at-y.at)[0]??null:null;
  return {entered:entered?new Date(entered.at).toISOString():null,ended:ended?new Date(ended.at).toISOString():null};
 }
-export async function inspectNotEnteredPublication(config,selection,{inventory,probe=probePublicationPreconditions,probeRotation=probeRotationLock,fetchReady=()=>fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)}),now=()=>new Date(),runtimeRoot=liveDjangoRuntime,readMaintenanceLog=scanMaintenanceLog}={}){
+export async function inspectNotEnteredPublication(config,selection,{inventory,probe=probePublicationPreconditions,probeRotation=probeRotationLock,fetchReady=fetchPublicationReadyResponse,now=()=>new Date(),runtimeRoot=liveDjangoRuntime,readMaintenanceLog=scanMaintenanceLog}={}){
  const {packet,targetCommit:target,live}=selection,attempt=path.join(packet,'publish-'+target.slice(0,12));
  let names;try{names=(await fs.readdir(attempt)).sort();}catch(error){if(error.code==='ENOENT')return null;throw error;}
  if(!names.includes('STARTED.json'))return null;
@@ -682,7 +684,9 @@ export async function retireNotEnteredPublication(config,selection,{retirementSc
 export function describeRefusedRetirement(refused){return '上一次发布有开始记录，但现在不能证明系统未被改动（'+refused.reasons.join('；')+'）；本次未准备，原记录保留，稍后重试或交 AI 排查';}
 // PUBLICATION_GUARD_END
 
-export async function deployReadyMain(prepared,{progress,run=runPublisher,git=gitAt,gitDirectory,baseEnvironment,retirementScope,retiredPackets,preflight=async()=>{}}={}){
+export async function deployReadyMain(prepared,{progress,run=runPublisher,git=gitAt,gitDirectory,baseEnvironment,retirementScope,retiredPackets,preflight=async()=>{},deadlineUnixMs=publicationDeadline()}={}){
+ deadlineUnixMs=publicationDeadline(deadlineUnixMs);
+ if(deadlineUnixMs!==undefined&&deadlineUnixMs<=Date.now())throw Error('publication_deadline_exhausted_before_deploy');
  const readiness=await inspectMainPreparation(prepared,{git,retiredPackets});
  if(readiness.status==='not-ready'){
   progress.log('========== 发布包尚未就绪，本次未发布 ==========');
@@ -696,7 +700,8 @@ export async function deployReadyMain(prepared,{progress,run=runPublisher,git=gi
  progress.begin('发布已准备好的目标main');
  progress.log('开始原生复验并发布目标 '+prepared.targetCommit+'，独立包：'+prepared.packet);
  await invalidateRetirementReadScope(retirementScope,'publisher-native-deploy');
- const result=await run(prepared.source,['--deploy-only'],gitDirectory,baseEnvironment);progress.complete();
+ if(deadlineUnixMs!==undefined&&deadlineUnixMs<=Date.now())throw Error('publication_deadline_exhausted_before_deploy');
+ const result=await run(prepared.source,['--deploy-only'],gitDirectory,baseEnvironment,{deadlineUnixMs});progress.complete();
  return result;
 }
 export async function preparationControlBinding(configFile){

@@ -2,6 +2,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import {assertPublicationReady,waitForPublicationReady,publicationDeadline,readyRequestTimeoutMs,PublicationReadinessError} from './publication-readiness.mjs';
 import {randomUUID,createHash} from 'node:crypto';
 import {assertFrozenSource} from './frozen-main-source.mjs';
 import {createMainPublicationStep} from './publish-main-step.mjs';
@@ -127,19 +128,16 @@ export async function publishPreparedMain(request,context){
   }catch(error){if(error.code!=='ENOENT')await leaseWarning('清理发布租约',error);}
  };
  const step=createMainPublicationStep({out,request,api,transport,runStep:context.runStep,progress,phase:label=>{phase=label;},refreshLease});
- const ready=async()=>{
-  const response=await (context.fetch??fetch)('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)});
-  try{
-   assert.equal(response.status,200,'服务尚未就绪');
-   const health=await response.json();
-   assert.equal(health?.ok,true,'服务就绪响应ok不匹配');
-   assert.equal(health?.status,'ready','服务就绪响应status不匹配');
-  }finally{
-   // JSON consumes (and may retain a lock on) a real Fetch body. Cancel only
-   // an unread, unlocked body, such as an HTTP rejection before JSON parsing.
-   if(!response.bodyUsed&&!response.body?.locked)await response.body?.cancel();
-  }
- };
+ const deadlineUnixMs=publicationDeadline(context.deadlineUnixMs??process.env.TERUISI_PROCESS_DEADLINE_UNIX_MS);
+ const ready=()=>assertPublicationReady({fetchImpl:context.fetch??fetch,deadlineUnixMs,timeoutMs:readyRequestTimeoutMs});
+ let observationWrites=Promise.resolve();
+ // Only the tail opts into waiting; an existing SUCCESS still uses one probe.
+ const waitReady=()=>waitForPublicationReady({...context.readinessWaitOptions,fetchImpl:context.fetch??fetch,deadlineUnixMs,
+  onObservation:observation=>{
+   const line=JSON.stringify({at:new Date().toISOString(),mainCommit:request.mainCommit,...observation})+'\n';
+   observationWrites=observationWrites.then(()=>fs.appendFile(path.join(out,'readiness-observations.jsonl'),line))
+    .catch(()=>{try{progress.log('就绪诊断记录未能写入；继续按原就绪结果判定。');}catch{}});
+  }});
  const preparationDeadline=Math.min(Date.now()+1800000,Number(process.env.TERUISI_PROCESS_DEADLINE_UNIX_MS)||Infinity);
  const preparationWait=context.prepareOnly?{requestId:digest(Buffer.from(JSON.stringify(request))),deadlineUnixMs:preparationDeadline}:undefined;
  return rotation.withRotationLock(async rotationLease=>{
@@ -346,9 +344,10 @@ export async function publishPreparedMain(request,context){
     }
     await save('PiUpgrade-completed.json',{at:new Date().toISOString(),registeredPlanSha256:piRunnerUpgrade.registeredPlanSha256,value:piUpgradeReceipt});
    }
-   return await finishMainPublication({request,components,source,identity,installed,out,api,rotation,rotationLease,before,plan,pkg,djangoExpected,maintenanceId,schema,schemaReceipt,piUpgradeReceipt,step,save,sha,ready,refreshLease,endLease,progress,phase:label=>{phase=label;}});
+   return await finishMainPublication({request,components,source,identity,installed,out,api,rotation,rotationLease,before,plan,pkg,djangoExpected,maintenanceId,schema,schemaReceipt,piUpgradeReceipt,step,save,sha,ready,waitReady,refreshLease,endLease,progress,phase:label=>{phase=label;}});
   }catch(error){
    const failure={at:new Date().toISOString(),mainCommit:request.mainCommit,phase,error:String(error.message).slice(0,1600),processEvidence:error.processEvidence??null,maintenanceStarted,automaticRetry:false};
+   if(error instanceof PublicationReadinessError)failure.readiness=error.readiness;
    // Deliberate exception to no automatic cleanup: only the pre-stop drain.
    // maintenanceStarted means STARTED was saved, not that drain completed.
    if(publicationStarted&&!components.django&&workerDrainOpen){

@@ -2266,6 +2266,7 @@ function Prepare-Application {
       "tools\tmall_warehouse_candidate.py",
       "tools\main-schema-release.mjs",
       "tools\publish-prepared-main.mjs",
+      "tools\publication-readiness.mjs",
       "tools\publish-main-step.mjs",
       "tools\publish-main-pi-reconciliation.mjs",
       "tools\publish-main-owner.mjs",

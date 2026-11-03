@@ -52,7 +52,7 @@ test('actual packaged Node CLI refuses missing preparation before loading native
 // main-prebuild-task.mjs). Native engines stay absent on purpose.
  for(const name of ['publish-main.mjs','publish-main-progress.mjs','publish-main-known-resume.mjs',
   'publish-main-command.mjs','publish-prepared-main.mjs','main-schema-release.mjs','manual-maintenance-continuation.mjs','frozen-main-source.mjs',
-  'publish-main-owner.mjs','publish-main-pi-reconciliation.mjs','publish-main-step.mjs','publish-main-tail.mjs','main-prebuild-task.mjs']){
+  'publish-main-owner.mjs','publish-main-pi-reconciliation.mjs','publish-main-step.mjs','publish-main-tail.mjs','main-prebuild-task.mjs','publication-readiness.mjs']){
   const bytes=await fs.readFile(new URL('../tools/'+name,import.meta.url));
   await fs.writeFile(path.join(tools,name),bytes);
   assert.equal(createHash('sha256').update(await fs.readFile(path.join(tools,name))).digest('hex'),createHash('sha256').update(bytes).digest('hex'));

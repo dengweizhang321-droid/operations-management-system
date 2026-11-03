@@ -173,8 +173,15 @@ export const piNativeCandidateControllerSha256=Object.freeze({
  'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256]),
  'process-deadline.ps1':Object.freeze([])
 });
+// Readiness helper packaging only: exact old/new controller bytes, no new stop route.
+// Evidence: docs/readiness-stability-20261103/COMPATIBILITY.md.
+export const readinessCopyControllerPair=Object.freeze({
+ installedSha:'af6b3b4242f0863296f018d3908ce9d9e93a1d8ec89565e299c7dba16e6e279c',
+ candidateSha:'c7e02ddbc55e2ff2a3790ef2dd89b76a580ef98ec479b6f40ae471c2af7fa5c0'
+});
 export function assertMaintenanceControllerGeneration({name,installedSha,expected,candidateSha}){
  if(installedSha===expected)return;
+ if(name==='django-local-service.ps1'&&installedSha===readinessCopyControllerPair.installedSha&&candidateSha===readinessCopyControllerPair.candidateSha&&expected===candidateSha)return;
  const qualified=piNativeCandidateControllerSha256[name];
  if(qualified&&qualified.includes(candidateSha))return;
  assert.equal(installedSha,expected,'实际原生控制器代际与候选不一致：'+name);

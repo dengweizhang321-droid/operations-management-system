@@ -118,6 +118,31 @@ test('exact prepared receipt delegates once to deploy-only; native result stays 
  }});
  assert.equal(result,original);assert.equal(calls,1);assert.doesNotMatch(f.logs.join('\n'),/发布成功/);
 });
+
+test('parent deadline is explicitly passed across the deploy child environment boundary',async t=>{
+ const f=await readinessFixture(t);await fs.writeFile(f.file,JSON.stringify(f.receipt));const deadline=Date.now()+60_000;let calls=0;
+ const result=await deployReadyMain(f.prepared,{git:f.git,progress:f.progress,deadlineUnixMs:deadline,run:async(source,args,gitDirectory,baseEnvironment,options)=>{
+  calls++;assert.equal(options.deadlineUnixMs,deadline);return {status:'deployed_and_ready'};
+ }});assert.equal(calls,1);assert.equal(result.status,'deployed_and_ready');
+});
+
+test('parent deadline expiry during preflight does not start the native publisher',async t=>{
+ const f=await readinessFixture(t);await fs.writeFile(f.file,JSON.stringify(f.receipt));let calls=0;
+ await assert.rejects(deployReadyMain(f.prepared,{git:f.git,progress:f.progress,deadlineUnixMs:Date.now()+40,
+  preflight:async()=>new Promise(resolve=>setTimeout(resolve,60)),run:async()=>{calls++;}}),/publication_deadline_exhausted/);
+ assert.equal(calls,0);
+});
+
+test('parent deadline reaches an actual isolated publisher child after environment filtering',async t=>{
+ const f=await readinessFixture(t);await fs.writeFile(f.file,JSON.stringify(f.receipt));
+ const tools=path.join(f.prepared.source,'tools');await fs.mkdir(tools,{recursive:true});
+ await fs.writeFile(path.join(tools,'publish-main.mjs'),`import fs from 'node:fs';
+const file=process.argv[process.argv.indexOf('--result-file')+1];
+fs.writeFileSync(file,JSON.stringify({status:'isolated-fixture',observedDeadline:process.env.TERUISI_PROCESS_DEADLINE_UNIX_MS,publicationPerformed:false}));`);
+ const deadline=Date.now()+60_000;
+ const result=await deployReadyMain(f.prepared,{git:f.git,progress:f.progress,gitDirectory:path.dirname(process.execPath),deadlineUnixMs:deadline});
+ assert.equal(result.status,'isolated-fixture');assert.equal(result.observedDeadline,String(deadline));assert.equal(result.publicationPerformed,false);
+});
 for(const change of ['wrong-request','wrong-commit','wrong-tree','malformed'])test('invalid prepared receipt cannot start a publisher: '+change,async t=>{
  const f=await readinessFixture(t);
  if(change==='wrong-request')f.receipt.requestSha256='0'.repeat(64);

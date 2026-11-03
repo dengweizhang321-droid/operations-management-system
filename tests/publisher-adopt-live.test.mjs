@@ -88,7 +88,7 @@ async function fixture(t,{split=true}={}){
   observe:(cfg,{git:g}={})=>observeLiveIdentity(cfg,{...options,git:g}),
   probe:async()=>({checks:{'Assert-RuntimeAclHardened':{ok:true},'Assert-DeployedApplication':{ok:true},'Assert-NoForeignServiceChildren':{ok:true}},actors:[]}),
   probeRotation:async()=>true,
-  fetchReady:async()=>({status:200,json:async()=>({ok:true,status:'ready'})}),
+  fetchReady:async()=>Response.json({ok:true,status:'ready'}),
   runtimeRoot,
   log:line=>logs.push(line),
   reason:'10-30 修备份阻塞时直接调了底层动作，绕过发布记账；按实测值承认',
@@ -211,7 +211,7 @@ test('the written catalog is accepted by the real readLivePublication',async t=>
  const live=await readLivePublication({...f.config,nativeToolsSource:'unused'},{
   loadApi:async()=>f.api,loadRotation:async()=>f.rotation,
   readDjango:()=>fs.readFile(f.deploymentFile),runtimeRoot:f.runtimeRoot,
-  fetchReady:async()=>({status:200,json:async()=>({ok:true,status:'ready'})}),
+  fetchReady:async()=>Response.json({ok:true,status:'ready'}),
  });
  assert.equal(live.mainCommit,f.workerCommit);
  assert.equal(live.djangoManifestSha256,f.djangoManifestSha256);

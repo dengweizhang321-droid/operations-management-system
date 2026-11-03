@@ -2,7 +2,7 @@
 import path from 'node:path';
 import assert from 'node:assert/strict';
 
-export async function finishMainPublication({request,components,source,identity,installed,out,api,rotation,rotationLease,before,plan,pkg,djangoExpected,maintenanceId,schema,schemaReceipt,piUpgradeReceipt,step,save,sha,ready,refreshLease,endLease,progress,phase,completed={},receiptExtra={}}){
+export async function finishMainPublication({request,components,source,identity,installed,out,api,rotation,rotationLease,before,plan,pkg,djangoExpected,maintenanceId,schema,schemaReceipt,piUpgradeReceipt,step,save,sha,ready,waitReady=ready,refreshLease,endLease,progress,phase,completed={},receiptExtra={}}){
  const once=async(label,operation)=>Object.hasOwn(completed,label)?completed[label]:operation();
  if(plan){
   phase('切换前端');progress.begin('切换前端');await refreshLease('切换前端');
@@ -56,7 +56,7 @@ export async function finishMainPublication({request,components,source,identity,
  const after=await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true});
  assert.equal(after.head.releaseId,plan?.candidateReleaseId??before.head.releaseId);assert.equal(after.head.manifestSha256,plan?.candidateManifestSha256??before.head.manifestSha256);
  assert.equal(await sha(path.join(installed,'deployment.json')),djangoExpected,'最终后台manifest不匹配');
- await refreshLease('确认服务可用');await ready();progress.complete();await endLease();
+ await refreshLease('确认服务可用');await waitReady();progress.complete();await endLease();
  const receipt={...receiptExtra,status:'deployed_and_ready',at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,workerRelease:after.head.releaseId,workerManifestSha256:after.head.manifestSha256,djangoManifestSha256:djangoExpected,source,sourceTree:identity.tree??null,djangoPreparedId:pkg?.id??null,maintenanceId,migration:schema?.steps[0]??null,...(schemaReceipt?{schemaReceipt}:{}),...(piUpgradeReceipt?{piRunnerUpgrade:piUpgradeReceipt}:{}),startupVerified:true,readyVerified:true,backupPerformed:false};
  await save('SUCCESS.json',receipt);progress.success('main版本：'+request.mainCommit+'；步骤详细日志：'+out);
  return {...receipt,receiptPath:path.join(out,'SUCCESS.json')};
