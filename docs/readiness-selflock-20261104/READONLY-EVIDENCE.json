@@ -1,0 +1,771 @@
+{
+  "observedAt": "2026-11-04T01:40:33.203677+08:00",
+  "method": "bounded local files; no HTTP or SQL",
+  "logs": [
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\logs\\postgresql-2026-11-03.log",
+      "snapshotBytes": 2012305,
+      "scannedBytes": 2012305,
+      "scannedPrefixSha256": "b46e39d65ecd8a476329a6e5856c3ea32f8c8decabefd18b97a510c5ca1073f2",
+      "stillWaitingLinesAllRelations": 273,
+      "durationStatements": {
+        "netshop_identity_count": {
+          "loggedCount": 121,
+          "minMs": 1028.765,
+          "maxMs": 53960.318,
+          "totalLoggedMs": 1709074.918,
+          "hourly": {
+            "2026-11-03 01": {
+              "loggedCount": 2,
+              "maxMs": 16684.865
+            },
+            "2026-11-03 02": {
+              "loggedCount": 4,
+              "maxMs": 17697.399
+            },
+            "2026-11-03 03": {
+              "loggedCount": 4,
+              "maxMs": 13251.121
+            },
+            "2026-11-03 04": {
+              "loggedCount": 4,
+              "maxMs": 12530.72
+            },
+            "2026-11-03 05": {
+              "loggedCount": 4,
+              "maxMs": 13311.08
+            },
+            "2026-11-03 06": {
+              "loggedCount": 3,
+              "maxMs": 12573.994
+            },
+            "2026-11-03 07": {
+              "loggedCount": 4,
+              "maxMs": 13176.082
+            },
+            "2026-11-03 08": {
+              "loggedCount": 3,
+              "maxMs": 17697.342
+            },
+            "2026-11-03 09": {
+              "loggedCount": 4,
+              "maxMs": 17402.231
+            },
+            "2026-11-03 10": {
+              "loggedCount": 13,
+              "maxMs": 21197.855
+            },
+            "2026-11-03 11": {
+              "loggedCount": 29,
+              "maxMs": 20501.902
+            },
+            "2026-11-03 12": {
+              "loggedCount": 4,
+              "maxMs": 21040.081
+            },
+            "2026-11-03 13": {
+              "loggedCount": 4,
+              "maxMs": 16427.869
+            },
+            "2026-11-03 14": {
+              "loggedCount": 4,
+              "maxMs": 16544.952
+            },
+            "2026-11-03 15": {
+              "loggedCount": 3,
+              "maxMs": 16279.975
+            },
+            "2026-11-03 16": {
+              "loggedCount": 4,
+              "maxMs": 16194.082
+            },
+            "2026-11-03 17": {
+              "loggedCount": 3,
+              "maxMs": 16808.353
+            },
+            "2026-11-03 18": {
+              "loggedCount": 4,
+              "maxMs": 15738.391
+            },
+            "2026-11-03 19": {
+              "loggedCount": 3,
+              "maxMs": 16987.829
+            },
+            "2026-11-03 20": {
+              "loggedCount": 3,
+              "maxMs": 13940.398
+            },
+            "2026-11-03 21": {
+              "loggedCount": 4,
+              "maxMs": 12765.505
+            },
+            "2026-11-03 22": {
+              "loggedCount": 4,
+              "maxMs": 5577.366
+            },
+            "2026-11-03 23": {
+              "loggedCount": 3,
+              "maxMs": 53960.318
+            },
+            "2026-11-04 00": {
+              "loggedCount": 4,
+              "maxMs": 24156.976
+            }
+          },
+          "slowest": [
+            {
+              "line": 1831,
+              "endedAtCst": "2026-11-03 23:46:20.025",
+              "durationMs": 53960.318,
+              "startedAtCstEstimate": "2026-11-03 23:45:26.064"
+            },
+            {
+              "line": 2477,
+              "endedAtCst": "2026-11-04 00:01:52.282",
+              "durationMs": 24156.976,
+              "startedAtCstEstimate": "2026-11-04 00:01:28.125"
+            },
+            {
+              "line": 256,
+              "endedAtCst": "2026-11-03 10:09:30.042",
+              "durationMs": 21197.855,
+              "startedAtCstEstimate": "2026-11-03 10:09:08.844"
+            }
+          ],
+          "overlapsFailedCheckWindow": [],
+          "after0030": {
+            "loggedCount": 2,
+            "maxMs": 20276.891
+          }
+        },
+        "ai_revision_for_update": {
+          "loggedCount": 262,
+          "minMs": 1004.748,
+          "maxMs": 42413.53,
+          "totalLoggedMs": 1495004.2,
+          "hourly": {
+            "2026-11-03 16": {
+              "loggedCount": 5,
+              "maxMs": 1432.966
+            },
+            "2026-11-03 17": {
+              "loggedCount": 3,
+              "maxMs": 25373.339
+            },
+            "2026-11-03 18": {
+              "loggedCount": 3,
+              "maxMs": 1158.91
+            },
+            "2026-11-03 19": {
+              "loggedCount": 1,
+              "maxMs": 1130.837
+            },
+            "2026-11-03 21": {
+              "loggedCount": 12,
+              "maxMs": 2824.181
+            },
+            "2026-11-03 22": {
+              "loggedCount": 5,
+              "maxMs": 1191.231
+            },
+            "2026-11-03 23": {
+              "loggedCount": 170,
+              "maxMs": 42413.53
+            },
+            "2026-11-04 00": {
+              "loggedCount": 60,
+              "maxMs": 9910.103
+            },
+            "2026-11-04 01": {
+              "loggedCount": 3,
+              "maxMs": 4608.078
+            }
+          },
+          "slowest": [
+            {
+              "line": 2195,
+              "endedAtCst": "2026-11-03 23:52:31.174",
+              "durationMs": 42413.53,
+              "startedAtCstEstimate": "2026-11-03 23:51:48.760"
+            },
+            {
+              "line": 2198,
+              "endedAtCst": "2026-11-03 23:52:31.189",
+              "durationMs": 39595.166,
+              "startedAtCstEstimate": "2026-11-03 23:51:51.593"
+            },
+            {
+              "line": 2290,
+              "endedAtCst": "2026-11-03 23:53:47.202",
+              "durationMs": 39419.524,
+              "startedAtCstEstimate": "2026-11-03 23:53:07.782"
+            }
+          ],
+          "overlapsFailedCheckWindow": [],
+          "after0030": {
+            "loggedCount": 56,
+            "maxMs": 9910.103
+          }
+        }
+      },
+      "sharedMemoryFailures": [
+        {
+          "line": 16,
+          "at": "2026-11-03 02:10:08.331",
+          "code487": true
+        },
+        {
+          "line": 38,
+          "at": "2026-11-03 02:37:26.861",
+          "code487": true
+        },
+        {
+          "line": 93,
+          "at": "2026-11-03 04:36:25.418",
+          "code487": true
+        },
+        {
+          "line": 99,
+          "at": "2026-11-03 04:44:25.885",
+          "code487": true
+        },
+        {
+          "line": 109,
+          "at": "2026-11-03 05:06:26.751",
+          "code487": true
+        },
+        {
+          "line": 135,
+          "at": "2026-11-03 05:54:26.001",
+          "code487": true
+        },
+        {
+          "line": 141,
+          "at": "2026-11-03 06:02:26.556",
+          "code487": true
+        },
+        {
+          "line": 198,
+          "at": "2026-11-03 08:04:28.060",
+          "code487": true
+        },
+        {
+          "line": 341,
+          "at": "2026-11-03 11:21:37.575",
+          "code487": true
+        },
+        {
+          "line": 395,
+          "at": "2026-11-03 12:01:25.905",
+          "code487": true
+        },
+        {
+          "line": 399,
+          "at": "2026-11-03 12:05:32.188",
+          "code487": true
+        },
+        {
+          "line": 425,
+          "at": "2026-11-03 12:29:27.345",
+          "code487": true
+        },
+        {
+          "line": 866,
+          "at": "2026-11-03 17:32:26.325",
+          "code487": true
+        },
+        {
+          "line": 898,
+          "at": "2026-11-03 17:39:56.484",
+          "code487": true
+        },
+        {
+          "line": 1000,
+          "at": "2026-11-03 19:01:27.652",
+          "code487": true
+        },
+        {
+          "line": 1029,
+          "at": "2026-11-03 19:45:17.262",
+          "code487": true
+        },
+        {
+          "line": 1190,
+          "at": "2026-11-03 22:35:16.601",
+          "code487": true
+        },
+        {
+          "line": 1225,
+          "at": "2026-11-03 23:07:00.925",
+          "code487": true
+        },
+        {
+          "line": 1233,
+          "at": "2026-11-03 23:21:27.512",
+          "code487": true
+        },
+        {
+          "line": 1255,
+          "at": "2026-11-03 23:35:25.951",
+          "code487": true
+        },
+        {
+          "line": 2482,
+          "at": "2026-11-04 00:09:53.073",
+          "code487": true
+        },
+        {
+          "line": 2485,
+          "at": "2026-11-04 00:12:27.109",
+          "code487": true
+        }
+      ]
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\logs\\postgresql-2026-11-04.log",
+      "snapshotBytes": 374022,
+      "scannedBytes": 374022,
+      "scannedPrefixSha256": "5b3c4dd8c46f959353d2b5958edec405c6a85f83784724d40b0e36469fdfa79b",
+      "stillWaitingLinesAllRelations": 265,
+      "durationStatements": {
+        "ai_revision_for_update": {
+          "loggedCount": 268,
+          "minMs": 1006.103,
+          "maxMs": 10034.466,
+          "totalLoggedMs": 1127529.819,
+          "hourly": {
+            "2026-11-04 01": {
+              "loggedCount": 268,
+              "maxMs": 10034.466
+            }
+          },
+          "slowest": [
+            {
+              "line": 1322,
+              "endedAtCst": "2026-11-04 01:27:05.261",
+              "durationMs": 10034.466,
+              "startedAtCstEstimate": "2026-11-04 01:26:55.226"
+            },
+            {
+              "line": 1319,
+              "endedAtCst": "2026-11-04 01:27:05.194",
+              "durationMs": 9983.031,
+              "startedAtCstEstimate": "2026-11-04 01:26:55.210"
+            },
+            {
+              "line": 1325,
+              "endedAtCst": "2026-11-04 01:27:05.264",
+              "durationMs": 9923.941,
+              "startedAtCstEstimate": "2026-11-04 01:26:55.340"
+            }
+          ],
+          "overlapsFailedCheckWindow": [
+            {
+              "line": 78,
+              "endedAtCst": "2026-11-04 01:01:43.827",
+              "durationMs": 2645.976,
+              "startedAtCstEstimate": "2026-11-04 01:01:41.181"
+            },
+            {
+              "line": 83,
+              "endedAtCst": "2026-11-04 01:01:43.853",
+              "durationMs": 2430.537,
+              "startedAtCstEstimate": "2026-11-04 01:01:41.422"
+            },
+            {
+              "line": 84,
+              "endedAtCst": "2026-11-04 01:01:43.917",
+              "durationMs": 2479.418,
+              "startedAtCstEstimate": "2026-11-04 01:01:41.437"
+            },
+            {
+              "line": 95,
+              "endedAtCst": "2026-11-04 01:01:51.087",
+              "durationMs": 2544.515,
+              "startedAtCstEstimate": "2026-11-04 01:01:48.542"
+            },
+            {
+              "line": 98,
+              "endedAtCst": "2026-11-04 01:01:51.149",
+              "durationMs": 2588.078,
+              "startedAtCstEstimate": "2026-11-04 01:01:48.560"
+            },
+            {
+              "line": 112,
+              "endedAtCst": "2026-11-04 01:02:05.698",
+              "durationMs": 6236.409,
+              "startedAtCstEstimate": "2026-11-04 01:01:59.461"
+            },
+            {
+              "line": 115,
+              "endedAtCst": "2026-11-04 01:02:05.766",
+              "durationMs": 6289.437,
+              "startedAtCstEstimate": "2026-11-04 01:01:59.476"
+            },
+            {
+              "line": 118,
+              "endedAtCst": "2026-11-04 01:02:05.770",
+              "durationMs": 2363.168,
+              "startedAtCstEstimate": "2026-11-04 01:02:03.406"
+            },
+            {
+              "line": 132,
+              "endedAtCst": "2026-11-04 01:02:13.732",
+              "durationMs": 1477.21,
+              "startedAtCstEstimate": "2026-11-04 01:02:12.254"
+            },
+            {
+              "line": 135,
+              "endedAtCst": "2026-11-04 01:02:13.739",
+              "durationMs": 1310.616,
+              "startedAtCstEstimate": "2026-11-04 01:02:12.428"
+            },
+            {
+              "line": 138,
+              "endedAtCst": "2026-11-04 01:02:13.753",
+              "durationMs": 1322.33,
+              "startedAtCstEstimate": "2026-11-04 01:02:12.430"
+            },
+            {
+              "line": 154,
+              "endedAtCst": "2026-11-04 01:02:32.513",
+              "durationMs": 7601.474,
+              "startedAtCstEstimate": "2026-11-04 01:02:24.911"
+            },
+            {
+              "line": 157,
+              "endedAtCst": "2026-11-04 01:02:32.579",
+              "durationMs": 7647.295,
+              "startedAtCstEstimate": "2026-11-04 01:02:24.931"
+            },
+            {
+              "line": 160,
+              "endedAtCst": "2026-11-04 01:02:32.583",
+              "durationMs": 3589.92,
+              "startedAtCstEstimate": "2026-11-04 01:02:28.993"
+            },
+            {
+              "line": 174,
+              "endedAtCst": "2026-11-04 01:02:45.419",
+              "durationMs": 5793.894,
+              "startedAtCstEstimate": "2026-11-04 01:02:39.625"
+            },
+            {
+              "line": 177,
+              "endedAtCst": "2026-11-04 01:02:45.489",
+              "durationMs": 5838.47,
+              "startedAtCstEstimate": "2026-11-04 01:02:39.650"
+            },
+            {
+              "line": 180,
+              "endedAtCst": "2026-11-04 01:02:45.493",
+              "durationMs": 5478.067,
+              "startedAtCstEstimate": "2026-11-04 01:02:40.014"
+            },
+            {
+              "line": 194,
+              "endedAtCst": "2026-11-04 01:02:58.069",
+              "durationMs": 5009.832,
+              "startedAtCstEstimate": "2026-11-04 01:02:53.059"
+            },
+            {
+              "line": 197,
+              "endedAtCst": "2026-11-04 01:02:58.146",
+              "durationMs": 5071.303,
+              "startedAtCstEstimate": "2026-11-04 01:02:53.074"
+            },
+            {
+              "line": 200,
+              "endedAtCst": "2026-11-04 01:02:58.150",
+              "durationMs": 4790.749,
+              "startedAtCstEstimate": "2026-11-04 01:02:53.359"
+            },
+            {
+              "line": 212,
+              "endedAtCst": "2026-11-04 01:03:31.511",
+              "durationMs": 1581.563,
+              "startedAtCstEstimate": "2026-11-04 01:03:29.929"
+            },
+            {
+              "line": 215,
+              "endedAtCst": "2026-11-04 01:03:31.517",
+              "durationMs": 1544.808,
+              "startedAtCstEstimate": "2026-11-04 01:03:29.972"
+            },
+            {
+              "line": 229,
+              "endedAtCst": "2026-11-04 01:03:51.510",
+              "durationMs": 3622.606,
+              "startedAtCstEstimate": "2026-11-04 01:03:47.887"
+            },
+            {
+              "line": 232,
+              "endedAtCst": "2026-11-04 01:03:51.586",
+              "durationMs": 3688.698,
+              "startedAtCstEstimate": "2026-11-04 01:03:47.897"
+            },
+            {
+              "line": 235,
+              "endedAtCst": "2026-11-04 01:03:51.589",
+              "durationMs": 3611.56,
+              "startedAtCstEstimate": "2026-11-04 01:03:47.977"
+            },
+            {
+              "line": 249,
+              "endedAtCst": "2026-11-04 01:04:04.513",
+              "durationMs": 5365.317,
+              "startedAtCstEstimate": "2026-11-04 01:03:59.147"
+            },
+            {
+              "line": 252,
+              "endedAtCst": "2026-11-04 01:04:04.581",
+              "durationMs": 5419.212,
+              "startedAtCstEstimate": "2026-11-04 01:03:59.161"
+            },
+            {
+              "line": 255,
+              "endedAtCst": "2026-11-04 01:04:04.585",
+              "durationMs": 3123.389,
+              "startedAtCstEstimate": "2026-11-04 01:04:01.461"
+            },
+            {
+              "line": 269,
+              "endedAtCst": "2026-11-04 01:04:14.490",
+              "durationMs": 2275.371,
+              "startedAtCstEstimate": "2026-11-04 01:04:12.214"
+            },
+            {
+              "line": 272,
+              "endedAtCst": "2026-11-04 01:04:14.562",
+              "durationMs": 2346.545,
+              "startedAtCstEstimate": "2026-11-04 01:04:12.215"
+            },
+            {
+              "line": 275,
+              "endedAtCst": "2026-11-04 01:04:14.566",
+              "durationMs": 2146.285,
+              "startedAtCstEstimate": "2026-11-04 01:04:12.419"
+            },
+            {
+              "line": 289,
+              "endedAtCst": "2026-11-04 01:04:29.874",
+              "durationMs": 3342.269,
+              "startedAtCstEstimate": "2026-11-04 01:04:26.531"
+            },
+            {
+              "line": 292,
+              "endedAtCst": "2026-11-04 01:04:29.877",
+              "durationMs": 3344.34,
+              "startedAtCstEstimate": "2026-11-04 01:04:26.532"
+            },
+            {
+              "line": 295,
+              "endedAtCst": "2026-11-04 01:04:29.941",
+              "durationMs": 3407.263,
+              "startedAtCstEstimate": "2026-11-04 01:04:26.533"
+            },
+            {
+              "line": 309,
+              "endedAtCst": "2026-11-04 01:04:33.117",
+              "durationMs": 2056.833,
+              "startedAtCstEstimate": "2026-11-04 01:04:31.060"
+            },
+            {
+              "line": 312,
+              "endedAtCst": "2026-11-04 01:04:33.184",
+              "durationMs": 2109.298,
+              "startedAtCstEstimate": "2026-11-04 01:04:31.074"
+            },
+            {
+              "line": 315,
+              "endedAtCst": "2026-11-04 01:04:33.187",
+              "durationMs": 2010.69,
+              "startedAtCstEstimate": "2026-11-04 01:04:31.176"
+            },
+            {
+              "line": 329,
+              "endedAtCst": "2026-11-04 01:04:45.483",
+              "durationMs": 7631.124,
+              "startedAtCstEstimate": "2026-11-04 01:04:37.851"
+            },
+            {
+              "line": 332,
+              "endedAtCst": "2026-11-04 01:04:45.553",
+              "durationMs": 7691.918,
+              "startedAtCstEstimate": "2026-11-04 01:04:37.861"
+            },
+            {
+              "line": 335,
+              "endedAtCst": "2026-11-04 01:04:45.557",
+              "durationMs": 7523.01,
+              "startedAtCstEstimate": "2026-11-04 01:04:38.033"
+            },
+            {
+              "line": 349,
+              "endedAtCst": "2026-11-04 01:04:55.761",
+              "durationMs": 1356.255,
+              "startedAtCstEstimate": "2026-11-04 01:04:54.404"
+            },
+            {
+              "line": 354,
+              "endedAtCst": "2026-11-04 01:04:55.841",
+              "durationMs": 1429.773,
+              "startedAtCstEstimate": "2026-11-04 01:04:54.411"
+            },
+            {
+              "line": 355,
+              "endedAtCst": "2026-11-04 01:04:55.844",
+              "durationMs": 1399.519,
+              "startedAtCstEstimate": "2026-11-04 01:04:54.444"
+            },
+            {
+              "line": 369,
+              "endedAtCst": "2026-11-04 01:05:05.468",
+              "durationMs": 2618.863,
+              "startedAtCstEstimate": "2026-11-04 01:05:02.849"
+            },
+            {
+              "line": 372,
+              "endedAtCst": "2026-11-04 01:05:05.472",
+              "durationMs": 2619.664,
+              "startedAtCstEstimate": "2026-11-04 01:05:02.852"
+            },
+            {
+              "line": 375,
+              "endedAtCst": "2026-11-04 01:05:05.543",
+              "durationMs": 2624.077,
+              "startedAtCstEstimate": "2026-11-04 01:05:02.918"
+            },
+            {
+              "line": 389,
+              "endedAtCst": "2026-11-04 01:05:11.594",
+              "durationMs": 2574.291,
+              "startedAtCstEstimate": "2026-11-04 01:05:09.019"
+            },
+            {
+              "line": 392,
+              "endedAtCst": "2026-11-04 01:05:11.668",
+              "durationMs": 2633.482,
+              "startedAtCstEstimate": "2026-11-04 01:05:09.034"
+            },
+            {
+              "line": 395,
+              "endedAtCst": "2026-11-04 01:05:11.679",
+              "durationMs": 2580.561,
+              "startedAtCstEstimate": "2026-11-04 01:05:09.098"
+            }
+          ],
+          "after0030": {
+            "loggedCount": 268,
+            "maxMs": 10034.466
+          }
+        },
+        "netshop_identity_count": {
+          "loggedCount": 2,
+          "minMs": 22344.054,
+          "maxMs": 24115.443,
+          "totalLoggedMs": 46459.497,
+          "hourly": {
+            "2026-11-04 01": {
+              "loggedCount": 2,
+              "maxMs": 24115.443
+            }
+          },
+          "slowest": [
+            {
+              "line": 1789,
+              "endedAtCst": "2026-11-04 01:34:25.958",
+              "durationMs": 24115.443,
+              "startedAtCstEstimate": "2026-11-04 01:34:01.842"
+            },
+            {
+              "line": 500,
+              "endedAtCst": "2026-11-04 01:12:07.185",
+              "durationMs": 22344.054,
+              "startedAtCstEstimate": "2026-11-04 01:11:44.840"
+            }
+          ],
+          "overlapsFailedCheckWindow": [],
+          "after0030": {
+            "loggedCount": 2,
+            "maxMs": 24115.443
+          }
+        }
+      },
+      "sharedMemoryFailures": []
+    }
+  ],
+  "publication": {
+    "status": "deployed_and_ready",
+    "at": "2026-11-03T12:09:24.940Z",
+    "mainCommit": "e7aaf6c16939770d0941994873747fe301ef0b93",
+    "workerRelease": "20261103T110935Z-c5916e23fb720393",
+    "workerManifestSha256": "368cfb74d70a75f9245c71454972367d9fe4bf18c10cb8c771b9c6ccfc893913",
+    "djangoManifestSha256": "527bb5f5e0c7ad67749676893f14629b66799128ca76fe114bd7827cd29832eb",
+    "catalogSha256": "98a604d3a7d79f341de89ffaf658e3452d1749943f78e1c2e56a0345612c030c"
+  },
+  "control": {
+    "status": "adopted",
+    "bundleRoot": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\fe4e34dcea03ad77c47c288bd572841ae69428bb05147893f69c452102d45aa6",
+    "bundleSha256": "fe4e34dcea03ad77c47c288bd572841ae69428bb05147893f69c452102d45aa6",
+    "installationSha256": "67da8603f65d377d7cab11381919e31894faa96b680038770fd41052e2256f9c"
+  },
+  "prepared": {
+    "path": "D:\\codex-isolated\\main-release-packages\\ba78ceff052c-9918ce3e-527bb5f5\\publish-ba78ceff052c\\preparation\\PREPARED.json",
+    "sha256": "b6e65171d5e8e59de945cfd6e579eadbb826e3067a1a2ad6b8219e88197eadb2",
+    "requestFileSha256": "01df72b90e60e35dbbc44839346ebacd7fa869968f5c2e621d3909c85d9d82cb",
+    "version": "teruisi-main-preparation-v1",
+    "at": "2026-11-03T15:22:45.122Z",
+    "requestSha256": "35ab75bb1c122806d3269f02ae42f0fe017d0e1a07867c787665060e3e6aa6dd",
+    "sourceIdentity": {
+      "commit": "ba78ceff052c543ff568f7c7eac0c42b983129e7",
+      "tree": "9b27650d26c21fda86589f73e618eb349836a861"
+    },
+    "workerPlan": {
+      "status": "planned",
+      "version": "teruisi-local-worker-release-rotation-plan-v1",
+      "planSha256": "d326fad2e23917d4fdc852da0c3388f7d414f501c01de817b1908f5394c70fd2",
+      "planPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\d326fad2e23917d4fdc852da0c3388f7d414f501c01de817b1908f5394c70fd2.json",
+      "predecessorReleaseId": "20261103T110935Z-c5916e23fb720393",
+      "candidateReleaseId": "20261103T151159Z-f230d1a1bd5bf0d3",
+      "candidateManifestSha256": "186b7a0f56c7ce2ba31f0d5f94f4e87fa6150b5cb79cf30591b05207e3756a8e",
+      "candidateGuardReceiptSha256": "551264b4e3fa1918c20533d40e50303095ce2301971847482d0fefe054fa6657",
+      "cutoverId": "sales-pg-20260829T204417Z-d9896e904d8092cb"
+    },
+    "djangoPackage": {
+      "id": "fd4361f6ff2041d294067805b6791b7e",
+      "receiptSha256": "0eefde8d4b17b0df7bdab7ea2d3a0b8dafb8d4eb62ca7e678bc26211f9263863",
+      "appFingerprint": "e43a899659bedf126212b2d3055d4dcb0fa75153096f0738773fee3469f58455"
+    },
+    "djangoManifestSha256": "2c9a9ad3d040ab8b29caf6ff29e064d293da124dadb79df35526c2f4dea4c4ac"
+  },
+  "request": {
+    "mainCommit": "ba78ceff052c543ff568f7c7eac0c42b983129e7",
+    "deployedCommit": "e7aaf6c16939770d0941994873747fe301ef0b93",
+    "components": [
+      "worker",
+      "django"
+    ],
+    "migrate": false
+  },
+  "attemptMembers": [
+    "maintenance-preflight-dt0D7V",
+    "preparation"
+  ],
+  "manifestChecks": {
+    "liveDjangoMatchesCatalog": true,
+    "candidateDjangoMatchesPrepared": true
+  },
+  "workerReceipt": {
+    "releaseId": "20261103T110935Z-c5916e23fb720393",
+    "manifestSha256": "368cfb74d70a75f9245c71454972367d9fe4bf18c10cb8c771b9c6ccfc893913",
+    "supervisorPid": 41252,
+    "supervisorCreationDate": "2026-11-03T11:47:17.9933230Z"
+  },
+  "markers": {
+    "D:\\teruisi-runtime\\django-sales\\run\\system-maintenance.json": false,
+    "D:\\teruisi-runtime\\django-sales\\run\\automation-drain.json": false,
+    "D:\\teruisi-runtime\\django-sales\\run\\release-publication-lease.json": false
+  },
+  "elapsedSeconds": 0.047
+}

@@ -1,0 +1,21 @@
+{
+  "observedAt": "2026-11-03T17:39:36.133Z",
+  "requestHashMatches": true,
+  "components": [
+    "worker",
+    "django"
+  ],
+  "workerPlanPresent": true,
+  "djangoPackagePresent": true,
+  "sourceCommit": "ba78ceff052c543ff568f7c7eac0c42b983129e7",
+  "workerManifests": {
+    "20261103T110935Z-c5916e23fb720393": {
+      "sha256": "368cfb74d70a75f9245c71454972367d9fe4bf18c10cb8c771b9c6ccfc893913",
+      "bundleExists": true
+    },
+    "20261103T151159Z-f230d1a1bd5bf0d3": {
+      "sha256": "186b7a0f56c7ce2ba31f0d5f94f4e87fa6150b5cb79cf30591b05207e3756a8e",
+      "bundleExists": true
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "observedAt": "2026-11-04T01:39:32.0630197+08:00",
+  "pi": {
+    "processId": 3748,
+    "alive": true,
+    "creationMatches": true,
+    "executableMatches": true,
+    "commandMatches": true,
+    "stoppedReceiptExists": false
+  },
+  "markers": {
+    "systemMaintenance": false,
+    "automationDrain": false,
+    "publicationLease": false
+  },
+  "listener3000": [
+    {
+      "pid": 16304,
+      "state": "Listen"
+    }
+  ]
+}
