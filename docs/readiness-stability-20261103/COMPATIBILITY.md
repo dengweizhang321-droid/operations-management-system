@@ -77,3 +77,15 @@ node tools/verify-release-candidate.mjs --base e7aaf6c16939770d0941994873747fe30
 - 纯profile计算为 `readinessStabilityOnly=true`、`unsupported=[]`、`worker/django=true`；实际基线与候选Django单行比较为true。`git diff --check`通过。
 
 固定 verifier整体须待主任务统一提交、冻结干净候选后执行并读取其真实REPORT；本报告不预写整体passed。本次适配者未暂存/提交文件，未改CI、发布执行入口或正式环境。
+
+## 主负责人最终执行结果
+
+上节为适配完成时状态，现已完成原固定入口运行。目标提交`d4ad90b4c6049026f87809ec87cb4bbef3939b44`、tree`af8c4229f5e5a3bd63f16255fa9d0f30682462ec`，基线仍e7。北京时间22:52:19开始、22:55:26完成。
+
+- 原生`REPORT.json`：`D:/codex-artifacts/readiness-stability-20261103/candidate-d4ad90b4-localpwsh/REPORT.json`，SHA=`f65debafaf77fdf05b1f93b6219bf36436e7c063a092dc1cb0bdb7bb3dabf0ca`。
+- 状态passed；上表11组检查全部exit0，packageIntegrity=true、nativeEntryBoundary=true、nativeColdStart=false；candidateWorktreeRemoved=true。
+- 每项原始stdout/stderr及SHA留在同目录。未生成可上线生产制品，未启动生产服务或运行生产健康/业务检查。
+- 先前一次调用因输出父目录未建在入口前失败；建父目录后发现本机where首先解析到Windows Store的pwsh别名，读程序摘要EACCES，未运行任何检查，原failed报告保留在`candidate-d4ad90b4/REPORT.json`。
+- 成功调用仅对该命令临时在PATH前置现有实际PS7目录`C:/Users/86137/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell`，并显式传`--python D:/teruisi-runtime/django-sales/venv/Scripts/python.exe`；finally恢复进程PATH，没有改系统环境、固定发布配置或已安装工具。原生报告记录实际工具与模块字节摘要。
+
+源码与测试检查完成后，最终交付追加仅文档记录；这些记录不改写机器报告的原提交/tree，也不把结果追绑成另一份程序。原有纯代码检查与同字节证据按规范复用。
