@@ -96,6 +96,8 @@ parser.add_argument("--business-v11-publication-focused-upgrade",
     action="store_true", help="Test only: 0077->0078 signed sidecar empty reverse and dual restore")
 parser.add_argument("--business-market-v6-source-ticket-focused-upgrade",
     action="store_true", help="Test only: 0078->0079 source ticket empty reverse and dual restore")
+parser.add_argument("--ai-task-feedback-candidate-focused-upgrade",
+    action="store_true", help="Test only: 0087->0089 task feedback/skill candidate empty reverse and dual restore")
 parser.add_argument("--finance-raw-workbook-upgrade", action="store_true",
     help="Test only: finance.0005->0006 empty upgrade and dual restore")
 parser.add_argument("--business-protected-cross-cluster-restore-0074", action="store_true",
@@ -161,6 +163,20 @@ if arguments.business_market_v6_source_ticket_focused_upgrade:
                 "business_protected_migration_role_rehearsal",
                 "business_protected_installer_focus"))):
         parser.error("0079 focused upgrade is one isolated standalone run")
+    arguments.preprovision_ai_runtime_roles = True
+if arguments.ai_task_feedback_candidate_focused_upgrade:
+    if (arguments.tests_only or arguments.upgrade_only or arguments.test_label
+            or arguments.all_backend_tests
+            or any(getattr(arguments, name) for name in vars(arguments)
+                if name.endswith("_upgrade") and name !=
+                "ai_task_feedback_candidate_focused_upgrade")
+            or any(getattr(arguments, name) for name in (
+                "business_protected_cross_cluster_restore",
+                "business_protected_cross_cluster_restore_0073",
+                "business_protected_cross_cluster_restore_0074",
+                "business_protected_migration_role_rehearsal",
+                "business_protected_installer_focus"))):
+        parser.error("0089 focused upgrade is one isolated standalone run")
     arguments.preprovision_ai_runtime_roles = True
 if arguments.business_v11_publication_focused_upgrade:
     if (arguments.tests_only or arguments.upgrade_only or arguments.test_label
@@ -286,7 +302,8 @@ if arguments.preprovision_ai_runtime_roles and (
             arguments.business_v11_ticket_sign_focused_upgrade or
             arguments.business_market_v6_topology_focused_upgrade or
             arguments.business_v11_publication_focused_upgrade or
-            arguments.business_market_v6_source_ticket_focused_upgrade)
+            arguments.business_market_v6_source_ticket_focused_upgrade or
+            arguments.ai_task_feedback_candidate_focused_upgrade)
         or arguments.upgrade_only):
     parser.error("Preprovisioned AI runtime roles are only for isolated tests")
 if arguments.business_v4_report_restricted_reader_login and (
@@ -625,6 +642,19 @@ try:
             "business-market-v6-source-ticket-upgrade-rehearsal.py",
             "--run-root", RUN], timeout=900, env=django_env)
         (RUN / "business-market-v6-source-ticket-focused-upgrade.json"
+            ).write_text(focused, encoding="utf-8")
+        print(focused.strip(), flush=True)
+        sys.exit(0)
+    if arguments.ai_task_feedback_candidate_focused_upgrade:
+        run([sys.executable, ROOT / "backend/manage.py", "migrate",
+            "--noinput"], timeout=900, env=django_env)
+        run([sys.executable, ROOT / "backend/manage.py", "migrate",
+            "ai_assistant", "0087_pi_native_capabilities",
+            "--noinput"], timeout=180, env=django_env)
+        focused = run([sys.executable, ROOT / "tools" /
+            "ai-task-feedback-candidate-upgrade-rehearsal.py",
+            "--run-root", RUN], timeout=900, env=django_env)
+        (RUN / "ai-task-feedback-candidate-focused-upgrade.json"
             ).write_text(focused, encoding="utf-8")
         print(focused.strip(), flush=True)
         sys.exit(0)
