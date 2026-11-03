@@ -54,7 +54,9 @@ export async function buildImportChainCatalog() {
   }
   // Inventory workflows own department/owner scopes, not the sales-store roster.
   await add("jd_logistics", ["jd_logistics"], "jd-logistics-daily");
-  await add("tmall_warehouse", ["tmall_warehouse"], "tmall-warehouse-daily");
+  // Tmall warehouse remains a disabled draft pending dedicated login/configuration.
+  // Keep its display scope, but do not declare an adopted schedule or completion contract.
+  // Legacy JD templates and the manual Tmall file-watcher are not adopted rules either.
   return { source: "repository_definitions", entities, chains, rules };
 }
 
