@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from sales.import_record_query import list_records, records_requested
+
 import hashlib
 import json
 import logging
@@ -402,6 +404,11 @@ def imports(request: HttpRequest) -> JsonResponse:
     try:
         principal = _principal(request, {"admin"})
         if request.method == "GET":
+            if records_requested(request.GET):
+                if principal.scope is not None:
+                    raise NetshopApiError("联合运行记录仅支持无数据范围限制的身份", code="access_denied", status=403)
+                payload, revision = _consistent_read(lambda: list_records("netshop", request.GET, NetshopApiError))
+                return _json(payload, revision=revision)
             page = positive(request.GET.get("page"), 1, "page", MAX_PAGE)
             page_size = positive(
                 request.GET.get("pageSize") or request.GET.get("limit"),

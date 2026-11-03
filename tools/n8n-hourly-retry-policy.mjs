@@ -6,9 +6,7 @@ export const hourlyRetryTriggerName = "失败后每小时安全重试入口";
 
 export const hourlyRetryTargets = [
   { workflowId: "J8kY2mQ5vR7sT4pN", fileName: "jackyun-five-dataset-api.workflow.json" },
-  { workflowId: "JdN8nM3uL7tI2026", fileName: "jd-multi-store-daily.workflow.json" },
   { workflowId: "JdN8nSilentCopy2026", fileName: "jd-multi-store-daily.chromium-silent-copy.workflow.json" },
-  { workflowId: "JdMarketDaily2026", fileName: "jd-market-ranking-daily.workflow.json" },
   { workflowId: "JdMarketSilentCopy2026", fileName: "jd-market-ranking-daily.chromium-silent-copy.workflow.json" },
   { workflowId: "JdPromotionDaily2026", fileName: "jd-promotion-daily.workflow.json" },
   { workflowId: "JdPromotionCutMeat2026", fileName: "jd-promotion-cut-meat-20260813-14.workflow.json" },
@@ -47,6 +45,7 @@ const terminalFailurePatterns = [
   "文件校验未通过",
   "导入未全部完成或覆盖回查未命中",
   "\\bAPI_SERVER_CLOCK_UNVERIFIED\\b",
+  "\\bhttp\\s+(?:400|413|415|422)\\b",
 ];
 
 const boundDownloadFailurePattern = "^JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=(?:ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENETUNREACH|EHOSTUNREACH|UND_ERR_CONNECT_TIMEOUT|UND_ERR_HEADERS_TIMEOUT|UND_ERR_BODY_TIMEOUT|UND_ERR_SOCKET|HTTP_408|HTTP_429|HTTP_500|HTTP_502|HTTP_503|HTTP_504) attempts=[1-3]$";

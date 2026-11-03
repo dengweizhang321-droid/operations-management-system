@@ -1,5 +1,7 @@
 # 任务记录目录
 
+本轮：[自动导入 E1—E6 统一施工交付](../autoimport-workflow-unification-20261029/统一施工交付-20261103.md) · [独立反审](../autoimport-workflow-unification-20261029/统一反审-20261103.md)（E1/E4/E5 与全部文档已合入 main；E2 巡检安装代码仍在分支，巡检未安装，现场采用另行执行）。
+
 本轮候选：[规范入口与按任务阅读调整](../agent-guidance-streamline-20261102/REPORT.md)（未合并；含新旧授权对照与发布范围差异）。
 
 本轮候选：[Windows Claude–Haiku–Codex 适配](../claude-haiku-bridge-20261031/REPORT.md) · [使用说明](../claude-haiku-bridge-20261031/README.md)。
