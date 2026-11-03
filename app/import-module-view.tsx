@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { requestJson } from "@/lib/http/api-client";
 import type { ImportSourceKey, ModuleViewKey } from "./shell/navigation-catalog";
 import ImportChainRulesView from "./import-chain-rules-view";
 import ImportRunRecordsView from "./import-run-records-view";
@@ -12,15 +11,7 @@ import TmallWarehouseView from "./tmall-warehouse-view";
 import { canonicalizeJdLogisticsLocation, readJdLogisticsLocation } from "@/lib/inventory/jd-logistics-contract";
 import {
   type CurrentUser,
-  type SalesImportBatch,
-  type ImportHistoryResponse,
-  type InventoryImportHistoryItem,
-  type ErpReferenceImportBatch,
-  type ProductShippingRateImportBatch,
   type UnifiedImportResponse,
-  type UnifiedHistoryItem,
-  type CustomerServiceImportHistoryItem,
-  type NetshopImportHistoryItem,
   type ImportFeedback,
   DIRECT_IMPORT_FILE_SIZE,
   MAX_IMPORT_FILE_SIZE,
@@ -40,20 +31,6 @@ import {
 } from "./module-view-shared";
 
 type ImportTab = ModuleViewKey<"import">;
-function resolveImportHistoryDomain<T>(
-  label: string,
-  result: PromiseSettledResult<{ items?: T[] } | null>,
-): { items: T[]; error: string | null } {
-  if (result.status === "rejected") {
-    return {
-      items: [],
-      error: `${label}：${result.reason instanceof Error ? result.reason.message : "请求失败"}`,
-    };
-  }
-  if (!Array.isArray(result.value?.items)) return { items: [], error: `${label}：响应格式不完整` };
-  return { items: result.value.items, error: null };
-}
-
 const tmallProductAssetShopOptions = [
   { value: "天猫-志高亿玖专卖店", label: "志高亿玖专卖店" },
   { value: "天猫-志高马思图专卖店", label: "志高马思图专卖店" },
@@ -109,13 +86,8 @@ export default function ImportView({ importSource, currentUser, moduleView, onMo
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStage, setUploadStage] = useState("");
   const [feedback, setFeedback] = useState<ImportFeedback | null>(null);
-  const [history, setHistory] = useState<UnifiedHistoryItem[]>([]);
-  const [historyLoaded, setHistoryLoaded] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyDomainErrors, setHistoryDomainErrors] = useState<string[]>([]);
-  const historyVisible = activeSection === "history" && !logisticsImport && !tmallImport;
-  const historyRequestGenerationRef = useRef(0);
-  const historyRequestControllerRef = useRef<AbortController | null>(null);
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const loadHistory = useCallback(async () => setHistoryVersion((value) => value + 1), []);
 
   useEffect(() => {
     if (!importSource) return;
@@ -131,85 +103,6 @@ export default function ImportView({ importSource, currentUser, moduleView, onMo
     setSelectedFile(null);
     setDragging(false);
   }, [canImport]);
-
-  const loadHistory = useCallback(async () => {
-    if (!historyVisible) return;
-    const generation = historyRequestGenerationRef.current + 1;
-    historyRequestGenerationRef.current = generation;
-    historyRequestControllerRef.current?.abort();
-    const controller = new AbortController();
-    historyRequestControllerRef.current = controller;
-    setHistoryLoading(true);
-    setHistoryDomainErrors([]);
-    try {
-      const results = await Promise.allSettled([
-        requestJson<ImportHistoryResponse>("/api/imports/sales", { signal: controller.signal }),
-        requestJson<{ items?: InventoryImportHistoryItem[] }>("/api/imports/inventory", { signal: controller.signal }),
-        requestJson<{ items?: ErpReferenceImportBatch[] }>("/api/imports/erp", { signal: controller.signal }),
-        requestJson<{ items?: SalesImportBatch[] }>("/api/imports/finance", { signal: controller.signal }),
-        requestJson<{ items?: NetshopImportHistoryItem[] }>("/api/netshop/import?limit=50", { signal: controller.signal }),
-        requestJson<{ items?: CustomerServiceImportHistoryItem[] }>("/api/customer-service/import-history?limit=50", { signal: controller.signal }),
-        requestJson<{ items?: ProductShippingRateImportBatch[] }>("/api/imports/product-shipping-rates?limit=50", { signal: controller.signal }),
-      ] as const);
-      if (controller.signal.aborted || generation !== historyRequestGenerationRef.current) return;
-      const salesDomain = resolveImportHistoryDomain<SalesImportBatch>("销售导入历史", results[0]);
-      const inventoryDomain = resolveImportHistoryDomain<InventoryImportHistoryItem>("库存导入历史", results[1]);
-      const erpDomain = resolveImportHistoryDomain<ErpReferenceImportBatch>("ERP 主数据导入历史", results[2]);
-      const financeDomain = resolveImportHistoryDomain<SalesImportBatch>("财报导入历史", results[3]);
-      const netshopDomain = resolveImportHistoryDomain<NetshopImportHistoryItem>("网店导入历史", results[4]);
-      const customerServiceDomain = resolveImportHistoryDomain<CustomerServiceImportHistoryItem>("客服会话导入历史", results[5]);
-      const shippingRateDomain = resolveImportHistoryDomain<ProductShippingRateImportBatch>("SKU 快递费率导入历史", results[6]);
-      const domainErrors = [salesDomain.error, inventoryDomain.error, erpDomain.error, financeDomain.error, netshopDomain.error, customerServiceDomain.error, shippingRateDomain.error]
-        .filter((message): message is string => Boolean(message));
-      const combined: UnifiedHistoryItem[] = [
-        ...salesDomain.items.map((item) => ({ ...item, sourceKey: "sales" as const, sourceLabel: "吉客云 ERP · 销售明细" })),
-        ...inventoryDomain.items.map((item) => ({ ...item, sourceKey: "inventory" as const, sourceLabel: "吉客云 ERP · 分仓库存" })),
-        ...erpDomain.items.map((item) => ({ ...item, sourceKey: item.sourceKey, sourceLabel: item.sourceLabel })),
-        ...financeDomain.items.map((item) => ({ ...item, sourceKey: "finance" as const, sourceLabel: "月度财报 · 志高事业部" })),
-        ...netshopDomain.items
-          .filter((item) => item.source === "jd_promotion" || item.source === "jd_product_master" || item.source === "jd_yimei_sku" || item.source.startsWith("tmall_") || item.dataset === "spu_daily" || item.dataset === "sku_daily")
-          .map((item) => item.source === "jd_promotion"
-            ? { ...item, sourceKey: "jd_promotion" as const, sourceLabel: "京准通 · 推广商品日数据" }
-            : item.source === "tmall_product_master"
-            ? { ...item, sourceKey: "tmall_product_master" as const, sourceLabel: "天猫店铺 · 店铺货品" }
-            : item.source === "tmall_product_assets"
-              ? { ...item, sourceKey: "tmall_product_assets" as const, sourceLabel: `${item.shopName.replace(/^天猫-/, "") || "天猫店铺"} · SPU 商品图` }
-            : item.source === "tmall_product_daily"
-              ? { ...item, sourceKey: "tmall_product_daily" as const, sourceLabel: "天猫店铺 · 生意参谋商品日数据" }
-              : item.source === "tmall_promotion"
-                ? { ...item, sourceKey: "tmall_promotion" as const, sourceLabel: "天猫店铺 · 推广商品日数据" }
-            : item.dataset === "spu_daily"
-            ? { ...item, sourceKey: "jd_spu_daily" as const, sourceLabel: "京东店铺 · 商品 SPU 日数据" }
-            : item.dataset === "sku_daily"
-              ? { ...item, sourceKey: "jd_sku_daily" as const, sourceLabel: "京东店铺 · 商品 SKU 日数据" }
-            : item.source === "jd_yimei_sku"
-              ? { ...item, sourceKey: "jd_sku_images" as const, sourceLabel: "京东店铺 · SKU 主图" }
-              : { ...item, sourceKey: "jd_sku" as const, sourceLabel: "京东店铺 · 商品 SKU" }),
-        ...customerServiceDomain.items.map((item) => ({ id: item.id, sourceKey: "customer_service" as const, sourceLabel: `客服会话 · ${item.shopName || "志高商用设备"}`, fileName: `${item.sessionFileName} + ${item.chatFileName}`, status: item.status, rowCount: item.conversationCount, insertedCount: item.matchedCount, warningCount: item.warnings.length, shopName: item.shopName, warnings: item.warnings.map((message) => ({ message })), createdAt: item.createdAt, completedAt: item.completedAt })),
-        ...shippingRateDomain.items.map((item) => ({ ...item, sourceKey: "sku_shipping_rates" as const, sourceLabel: "年度利润表 · SKU 快递费率" })),
-      ].sort((left, right) => Date.parse(right.completedAt || right.createdAt) - Date.parse(left.completedAt || left.createdAt));
-      setHistory((current) => combined.length > 0 || domainErrors.length === 0 ? combined : current);
-      setHistoryDomainErrors(domainErrors);
-      if (domainErrors.length < results.length) setHistoryLoaded(true);
-    } finally {
-      if (!controller.signal.aborted && generation === historyRequestGenerationRef.current) {
-        setHistoryLoading(false);
-        if (historyRequestControllerRef.current === controller) historyRequestControllerRef.current = null;
-      }
-    }
-  }, [historyVisible]);
-
-  useEffect(() => {
-    if (!historyVisible) {
-      historyRequestGenerationRef.current += 1;
-      historyRequestControllerRef.current?.abort();
-      historyRequestControllerRef.current = null;
-      setHistoryLoading(false);
-      return;
-    }
-    void loadHistory();
-    return () => historyRequestControllerRef.current?.abort();
-  }, [historyVisible, loadHistory]);
 
   const sourceOptions: Array<{
     key: ImportSourceKey;
@@ -504,7 +397,7 @@ export default function ImportView({ importSource, currentUser, moduleView, onMo
       {feedback && <section className={`import-feedback import-feedback-${feedback.tone}`} role={feedback.tone === "error" ? "alert" : "status"} aria-live="polite"><span className="feedback-symbol">{feedback.tone === "success" ? "✓" : feedback.tone === "duplicate" ? "≡" : feedback.tone === "warning" ? "!" : "×"}</span><div><strong>{feedback.title}</strong><p>{feedback.message}</p>{feedback.details.length > 0 && <ul>{feedback.details.map((detail, index) => <li key={`${detail}-${index}`}>{detail}</li>)}</ul>}</div></section>}
       </>}
       {activeSection === "chains" && <ImportChainRulesView currentUser={currentUser} />}
-      {activeSection === "history" && !logisticsImport && !tmallImport && <ImportRunRecordsView history={history} loading={historyLoading} loaded={historyLoaded} errors={historyDomainErrors} onRefresh={() => void loadHistory()} onShowChains={() => onModuleViewChange("chains")} />}
+      {activeSection === "history" && !logisticsImport && !tmallImport && <ImportRunRecordsView refreshKey={historyVersion} onShowChains={() => onModuleViewChange("chains")} />}
     </>
   );
 }

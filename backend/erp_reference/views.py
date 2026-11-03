@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from sales.import_record_query import list_records, records_requested
+
 import hashlib
 import json
 import logging
@@ -159,6 +161,9 @@ def imports(request: HttpRequest) -> JsonResponse:
     try:
         if request.method == "GET":
             _principal(request, {"viewer", "analyst", "operator", "admin"})
+            if records_requested(request.GET):
+                payload, revision = _consistent_read(lambda: list_records("erp", request.GET, ErpReferenceApiError))
+                return _json(payload, revision=revision)
             if any(key not in {"source", "batchId", "page", "pageSize", "limit"} for key in request.GET):
                 raise ErpReferenceApiError("导入批次包含未知查询参数")
             source = _one(request, "source")
