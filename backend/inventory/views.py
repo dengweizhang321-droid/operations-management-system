@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from sales.import_record_query import list_records, records_requested
+
 import hashlib
 import json
 import logging
@@ -308,6 +310,9 @@ def imports(request: HttpRequest) -> JsonResponse:
     try:
         if request.method == "GET":
             _principal(request, {"viewer", "analyst", "operator", "admin"})
+            if records_requested(request.GET):
+                payload, revision = _consistent_read(lambda: list_records("inventory", request.GET, InventoryApiError))
+                return _json(payload, revision=revision)
             _unknown(request, {"dataset", "batchId", "page", "pageSize", "limit"}, "库存导入批次")
             dataset = _one(request, "dataset")
             if dataset not in {None, "stock", "age"}:
