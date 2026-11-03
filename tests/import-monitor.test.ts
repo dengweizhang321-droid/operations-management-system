@@ -61,16 +61,17 @@ test("every chain's entities run at a unique time of day, and the definition fil
 });
 import { normalizeShellLocation } from "../app/shell/navigation-contract";
 
-test("inventory workflows use department and owner rows without inventing sales-store bindings", () => {
+test("adopted inventory workflows use department rows while unconfigured Tmall keeps only its display scope", () => {
   for (const [key, workflowId, schedule] of [
     ["jd_logistics", "JdLogisticsDaily2026", "50 8 * * *"],
-    ["tmall_warehouse", "TmallWarehouseDaily2026", "20 8 * * *"],
   ]) {
     const rule = catalog.rules.find(rule => rule.workflowId === workflowId);
     assert.deepEqual(rule?.entityKeys, [key]);
     assert.deepEqual(rule?.schedules, [schedule]);
     assert.equal(catalog.rules.filter(rule => rule.chainKey === key).length, 1);
   }
+  assert.ok(catalog.entities.some(entity => entity.key === "tmall_warehouse"));
+  assert.equal(catalog.rules.some(rule => rule.workflowId === "TmallWarehouseDaily2026"), false);
 });
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -112,7 +113,9 @@ test("display catalog matches allowlisted workflow definitions without bundling 
   assert.equal(new Set(catalog.rules.map((r: { workflowId: string }) => r.workflowId)).size, catalog.rules.length);
   const jdRule = catalog.rules.find((r: { chainKey: string }) => r.chainKey === "jd");
   assert.equal(jdRule?.workflowId, "JdN8nSilentCopy2026");
-  assert.equal(catalog.rules.some((r: { workflowId: string }) => r.workflowId === "JdN8nM3uL7tI2026"), false);
+  for (const retiredId of ["JdN8nM3uL7tI2026", "JdMarketDaily2026", "cF7wN8k2pQ5sR1vX", "20ZtTLAAbsx5KvTp"]) {
+    assert.equal(catalog.rules.some((r: { workflowId: string }) => r.workflowId === retiredId), false);
+  }
   assert.doesNotMatch(text, /userDataDir|profileDir|debugPort|downloadDir|credentials|httpRequest|localhost:5791/);
   assert.doesNotMatch(text, /"active"|"lastRun"|"nextRun"/);
   const entities = new Set(catalog.entities.map((e: { key: string }) => e.key));

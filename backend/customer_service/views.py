@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from sales.import_record_query import list_records, records_requested
+
 import hashlib
 import json
 import logging
@@ -177,6 +179,9 @@ def imports(request: HttpRequest) -> JsonResponse:
         if request.method == "GET":
             _require_process("customer_service_reader")
             _principal(request, {"viewer", "analyst", "operator", "admin"})
+            if records_requested(request.GET):
+                payload, revision = _consistent_read(lambda: list_records("customer_service", request.GET, CustomerServiceApiError))
+                return _json(payload, revision=revision)
             _unknown(request, {"page", "pageSize", "limit"}, "客服导入历史")
             page = _positive(_one(request, "page"), 1, "page", 10_000)
             page_size = _one(request, "pageSize")

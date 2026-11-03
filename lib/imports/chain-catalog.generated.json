@@ -417,19 +417,6 @@
         "50 8 * * *"
       ],
       "definitionFile": "automation/n8n/jd-logistics-daily.workflow.json"
-    },
-    {
-      "chainKey": "tmall_warehouse",
-      "entityKeys": [
-        "tmall_warehouse"
-      ],
-      "workflowId": "TmallWarehouseDaily2026",
-      "name": "天猫入仓监控·实时库存下载与导入",
-      "timezone": "Asia/Shanghai",
-      "schedules": [
-        "20 8 * * *"
-      ],
-      "definitionFile": "automation/n8n/tmall-warehouse-daily.workflow.json"
     }
   ]
 }

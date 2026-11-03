@@ -6,9 +6,7 @@ export const hourlyRetryTriggerName = "失败后每小时安全重试入口";
 
 export const hourlyRetryTargets = [
   { workflowId: "J8kY2mQ5vR7sT4pN", fileName: "jackyun-five-dataset-api.workflow.json" },
-  { workflowId: "JdN8nM3uL7tI2026", fileName: "jd-multi-store-daily.workflow.json" },
   { workflowId: "JdN8nSilentCopy2026", fileName: "jd-multi-store-daily.chromium-silent-copy.workflow.json" },
-  { workflowId: "JdMarketDaily2026", fileName: "jd-market-ranking-daily.workflow.json" },
   { workflowId: "JdMarketSilentCopy2026", fileName: "jd-market-ranking-daily.chromium-silent-copy.workflow.json" },
   { workflowId: "JdPromotionDaily2026", fileName: "jd-promotion-daily.workflow.json" },
   { workflowId: "JdPromotionCutMeat2026", fileName: "jd-promotion-cut-meat-20260813-14.workflow.json" },

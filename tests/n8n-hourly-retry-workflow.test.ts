@@ -109,6 +109,13 @@ test("bound inventory download recovery agrees with emitted n8n code and never o
 });
 
 test("all registered data workflows route hourly retries through a new full execution", async () => {
+  for (const retiredId of ["JdN8nM3uL7tI2026", "JdMarketDaily2026", "cF7wN8k2pQ5sR1vX", "20ZtTLAAbsx5KvTp"]) {
+    assert.equal(hourlyRetryTargets.some(target => target.workflowId === retiredId), false);
+    assert.equal(classifyHourlyRetryFailure({ workflow: { id: retiredId }, execution: { mode: "trigger", error: { message: "ECONNRESET" } } }).reason, "workflow_not_allowed");
+  }
+  for (const adoptedId of ["JdN8nSilentCopy2026", "JdMarketSilentCopy2026"]) {
+    assert.ok(hourlyRetryTargets.some(target => target.workflowId === adoptedId));
+  }
   const paths = new Set<string>();
   for (const target of hourlyRetryTargets) {
     const workflow = JSON.parse(await readFile(new URL(target.fileName, workflowDirectory), "utf8")) as {
