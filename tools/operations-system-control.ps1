@@ -507,13 +507,13 @@ function Get-SystemHealthState {
   $helperProbe = Invoke-SystemHealthProbe -Uri $HelperHealthUrl -Deadline $healthDeadline
   $helperPayload = ConvertFrom-SystemHealthContent -Probe $helperProbe
   $helper = Get-SystemProbeSummary -Probe $helperProbe -Payload $helperPayload -Kind "helper" -TimeoutMs 3000
-  $ready = Get-SystemProbeSummary -Probe $null -Payload $null -Kind "ready" -TimeoutMs 5000
+  $ready = Get-SystemProbeSummary -Probe $null -Payload $null -Kind "ready" -TimeoutMs 20000
   if ($live.passed -and $helper.passed) {
-    # Worker readiness itself has a 4000ms total backend budget; retain the
-    # supervisor's 5000ms outer bound without changing liveness/helper budgets.
-    $readinessProbe = Invoke-SystemHealthProbe -Uri $ReadinessUrl -TimeoutSeconds 5 -Deadline $healthDeadline
+    # Aggregate readiness allows four waves of 4000ms requests within 18000ms.
+    # Only readiness gets 20000ms; parent deadline and liveness/helper bounds remain.
+    $readinessProbe = Invoke-SystemHealthProbe -Uri $ReadinessUrl -TimeoutSeconds 20 -Deadline $healthDeadline
     $readinessPayload = ConvertFrom-SystemHealthContent -Probe $readinessProbe
-    $ready = Get-SystemProbeSummary -Probe $readinessProbe -Payload $readinessPayload -Kind "ready" -TimeoutMs 5000
+    $ready = Get-SystemProbeSummary -Probe $readinessProbe -Payload $readinessPayload -Kind "ready" -TimeoutMs 20000
     if ($ready.passed) { $healthState = "Running" }
     elseif ($ready.degradedMatches) { $healthState = "BackendDegraded" }
   }

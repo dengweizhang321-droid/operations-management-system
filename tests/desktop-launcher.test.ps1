@@ -72,6 +72,8 @@ public static class LauncherWaitTests {
 }
 '@
 if ($launcherType.GetField('StartupWaitTimeout', $binding).GetValue($null).TotalSeconds -ne 900) { throw 'Desktop wait must cover the controller startup budget.' }
+if ($launcherType.GetField('ReadinessTimeout', $binding).GetValue($null).TotalSeconds -ne 20) { throw 'Desktop ready request must allow the aggregate round.' }
+if ($launcherType.GetField('HomepageTimeout', $binding).GetValue($null).TotalSeconds -ne 8) { throw 'Desktop homepage timeout must keep its original bound.' }
 [LauncherWaitTests]::Run($launcherType.GetMethod('WaitForReady', $binding)).GetAwaiter().GetResult()
 
 foreach ($failure in @(

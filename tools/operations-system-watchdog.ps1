@@ -127,7 +127,7 @@ function Test-WatchHttp([string]$Url,[string]$Kind,$Pending){
   $response=$null
   try{
     if($Pending){$deadline=$Pending.deadline;$response=$Pending.task.GetAwaiter().GetResult()}else{
-      $deadline=Get-ProcessDeadline 5000;$client.Timeout=[TimeSpan]::FromMilliseconds((Get-ProcessRemaining $deadline))
+      $deadline=Get-ProcessDeadline $(if($Kind -eq 'ready'){20000}else{5000});$client.Timeout=[TimeSpan]::FromMilliseconds((Get-ProcessRemaining $deadline))
       [void]$request.Headers.TryAddWithoutValidation('x-teruisi-local-health','1')
       $response=$client.SendAsync($request,[Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
     }
@@ -164,9 +164,11 @@ function Get-WatchHttpProbes($Urls){
   if(-not ('Teruisi.WatchResponseCleanup' -as [type])){
     Add-Type -TypeDefinition 'namespace Teruisi { public static class WatchResponseCleanup { public static void Observe(System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage> task) { task.ContinueWith(t => { if(t.Status == System.Threading.Tasks.TaskStatus.RanToCompletion) t.Result.Dispose(); else if(t.IsFaulted) { var ignored = t.Exception; } }, System.Threading.CancellationToken.None, System.Threading.Tasks.TaskContinuationOptions.ExecuteSynchronously, System.Threading.Tasks.TaskScheduler.Default); } } }'
   }
-  $result=@{};$pending=[Collections.Generic.List[object]]::new();$deadline=Get-ProcessDeadline 5000
+  $result=@{};$pending=[Collections.Generic.List[object]]::new()
   try{
     foreach($name in @('homepage','live','ready','helper')){
+      # Independent HTTP budgets still inherit the one 120s snapshot deadline.
+      $deadline=Get-ProcessDeadline $(if($name -eq 'ready'){20000}else{5000})
       if([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -ge $deadline){$result[$name]=@{ok=$false;status=0;reason='snapshot_deadline';elapsedMs=0};continue}
       $handler=[Net.Http.HttpClientHandler]::new();$handler.UseProxy=$false;$handler.AllowAutoRedirect=$false
       $client=[Net.Http.HttpClient]::new($handler);$request=[Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Get,$Urls[$name])

@@ -48,6 +48,8 @@ internal static class Launcher
 {
     internal const string PageUrl = "http://localhost:3000/";
     internal static readonly TimeSpan StartupWaitTimeout = TimeSpan.FromMinutes(15);
+    internal static readonly TimeSpan ReadinessTimeout = TimeSpan.FromSeconds(20);
+    internal static readonly TimeSpan HomepageTimeout = TimeSpan.FromSeconds(8);
 
     private static T Deserialize<T>(string text) where T : class
     {
@@ -104,7 +106,7 @@ internal static class Launcher
         try
         {
             using (var handler = new HttpClientHandler { UseProxy = false, AllowAutoRedirect = false })
-            using (var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(8) })
+            using (var client = new HttpClient(handler) { Timeout = ReadinessTimeout })
             {
                 client.DefaultRequestHeaders.Add("x-teruisi-local-health", "1");
                 using (var response = await client.GetAsync("http://127.0.0.1:3000/_teruisi/local/health/ready"))
@@ -112,6 +114,11 @@ internal static class Launcher
                     if (!response.IsSuccessStatusCode || !IsReady(await response.Content.ReadAsStringAsync()))
                         return false;
                 }
+            }
+            using (var handler = new HttpClientHandler { UseProxy = false, AllowAutoRedirect = false })
+            using (var client = new HttpClient(handler) { Timeout = HomepageTimeout })
+            {
+                client.DefaultRequestHeaders.Add("x-teruisi-local-health", "1");
                 using (var response = await client.GetAsync(PageUrl, HttpCompletionOption.ResponseHeadersRead))
                     return response.StatusCode == System.Net.HttpStatusCode.OK;
             }
