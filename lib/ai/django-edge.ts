@@ -100,7 +100,7 @@ export async function handleAiEdge(request: Request) {
     } else if (body.action === "catalog") {
       exact(body, ["action", "surface"]); result = { entries: entries(principal, body.surface, marketV2Enabled) };
     } else if (body.action === "execute") {
-      exact(body, ["action", "name", "arguments", "surface", "requestId", "providerCallId", "policyDigest"]);
+      exact(body, ["action", "name", "arguments", "surface", "requestId", "providerCallId", "policyDigest", "singleShop"]);
       if (body.policyDigest !== await aiSha256(canonicalAiEdge(entries(principal, body.surface, marketV2Enabled)))) throw denied();
       result = await executeRegisteredToolCall(text(body.name, 100), body.arguments, { principal, surface: surface(body.surface, marketV2Enabled), persistentPiGateway: body.surface === "pi_business", singleShop: body.surface === "pi_agent" && body.singleShop === true, requestId: text(body.requestId, 128), providerCallId: typeof body.providerCallId === "string" ? body.providerCallId.slice(0, 200) : undefined, signal: request.signal }, { entries: getMarketV2EnabledRegistry(marketV2Enabled) });
     } else if (body.action === "pi_business_domain") {

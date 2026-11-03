@@ -247,7 +247,10 @@ def provision(connection, reader_password, writer_password):
     ):
         raise ValueError("Independent AI role passwords are required")
     with connection.transaction(), connection.cursor() as cursor:
-        from .table_manifest import PI_TABLES, PI_WORKSPACE_TABLES, PI_BUSINESS_TABLES, PI_NATIVE_TABLES
+        from .table_manifest import (
+            PI_TABLES, PI_WORKSPACE_TABLES, PI_BUSINESS_TABLES, PI_NATIVE_TABLES,
+            TASK_FEEDBACK_TABLES, SKILL_CANDIDATE_TABLES,
+        )
         cursor.execute("SELECT name FROM public.django_migrations WHERE app='ai_assistant' AND name='0084_pi_agent_independent_runtime'")
         pi_receipt = cursor.fetchone() is not None
         cursor.execute("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=ANY(%s)", [list(PI_TABLES)])
@@ -272,6 +275,18 @@ def provision(connection, reader_password, writer_password):
         native_present = {row[0] for row in cursor.fetchall()}
         if bool(native_present) != native_receipt or native_present and native_present != set(PI_NATIVE_TABLES):
             raise ValueError("Pi native receipt/table inventory mismatch")
+        cursor.execute("SELECT name FROM public.django_migrations WHERE app='ai_assistant' AND name='0088_task_feedback'")
+        task_feedback_receipt = cursor.fetchone() is not None
+        cursor.execute("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=ANY(%s)", [list(TASK_FEEDBACK_TABLES)])
+        task_feedback_present = {row[0] for row in cursor.fetchall()}
+        if bool(task_feedback_present) != task_feedback_receipt or task_feedback_present and task_feedback_present != set(TASK_FEEDBACK_TABLES):
+            raise ValueError("Task feedback receipt/table inventory mismatch")
+        cursor.execute("SELECT name FROM public.django_migrations WHERE app='ai_assistant' AND name='0089_skill_candidates'")
+        skill_candidate_receipt = cursor.fetchone() is not None
+        cursor.execute("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=ANY(%s)", [list(SKILL_CANDIDATE_TABLES)])
+        skill_candidate_present = {row[0] for row in cursor.fetchall()}
+        if bool(skill_candidate_present) != skill_candidate_receipt or skill_candidate_present and skill_candidate_present != set(SKILL_CANDIDATE_TABLES):
+            raise ValueError("Skill candidate receipt/table inventory mismatch")
         for role, password in [
             ("teruisi_ai_reader", reader_password),
             ("teruisi_ai_writer", writer_password),
@@ -336,6 +351,10 @@ def provision(connection, reader_password, writer_password):
                 privileges = {table: allowed for table, allowed in privileges.items() if table not in PI_BUSINESS_TABLES}
             if not native_receipt:
                 privileges = {table: allowed for table, allowed in privileges.items() if table not in PI_NATIVE_TABLES}
+            if not task_feedback_receipt:
+                privileges = {table: allowed for table, allowed in privileges.items() if table not in TASK_FEEDBACK_TABLES}
+            if not skill_candidate_receipt:
+                privileges = {table: allowed for table, allowed in privileges.items() if table not in SKILL_CANDIDATE_TABLES}
             # Historical isolated upgrade rehearsals provision exact pre-0032
             # schemas with today's code. Only the newly introduced receipt
             # table is conditional; every predecessor grant remains unchanged.
