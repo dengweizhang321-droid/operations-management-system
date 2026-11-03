@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+from contextlib import ExitStack
 import json
 from pathlib import Path
 import re
@@ -229,6 +230,12 @@ def inspect(database, catalog=CATALOG, *, now=None):
             "checkedAt": stamp(now), "checkedAtShanghai": now.astimezone(SHANGHAI).isoformat(),
             "timezone": "Asia/Shanghai", "scheduledWorkflowCount": len(scheduled),
             "checks": {str(n): sum(item["check"] == n for item in findings) for n in (1, 2, 3)},
+            "observationCoverage": {
+                "schedule_not_ready": list(periods),
+                "error_workflow_missing": [key for key, row in workflows.items()
+                                           if row["active"] == 1 and row["isArchived"] == 0 and key != RETRY_WORKFLOW],
+                "error_workflow_failed": [RETRY_WORKFLOW],
+            },
             "scheduled": scheduled, "findings": findings}
 
 
@@ -258,20 +265,59 @@ def main(argv=None):
     mode.add_argument("--dry-run", action="store_true", help="Local preview (default); no identity lookup or send")
     mode.add_argument("--execute", action="store_true", help="Explicitly send via the existing private alert chain")
     parser.add_argument("--state-root", type=Path, help="Optional alert ledger directory")
+    parser.add_argument("--continuous-incidents", action="store_true",
+                        help="Reuse the first observation anchor until a complete inspection observes recovery")
     args = parser.parse_args(argv)
     if args.execute and (args.now or args.database != DATABASE or args.catalog != CATALOG):
         parser.error("--execute cannot be combined with injected time/database/catalog")
+    if args.continuous_incidents:
+        from n8n_schedule_watch_incidents import state_root, observation_lock
+        with ExitStack() as stack:
+            try:
+                root = state_root(args.state_root)
+                if args.execute:
+                    # Serialize the observation itself as well as its commit:
+                    # an older healthy snapshot must never retire a newer incident.
+                    stack.enter_context(observation_lock(root))
+            except (OSError, ValueError):
+                print(json.dumps({"status": "unavailable", "readOnly": True,
+                                  "reason": "incident_state_unavailable", "executed": False}))
+                return 2
+            return inspect_and_deliver(args, root)
+    return inspect_and_deliver(args)
+
+
+def inspect_and_deliver(args, root=None):
     try:
         report = inspect(args.database, args.catalog, now=args.now)
     except (OSError, sqlite3.Error, ValueError, TypeError, KeyError, OverflowError):
         print(json.dumps({"status": "unavailable", "readOnly": True,
                           "reason": "inspection_incomplete", "executed": False}))
         return 2
-    report["mode"] = "execute" if args.execute else "dry-run"
+    if args.continuous_incidents:
+        # Import only for the opt-in daily scheduler; legacy callers keep their
+        # existing per-cycle notification contract.
+        from n8n_schedule_watch_incidents import read_state, bind_observations, atomic_json
+        try:
+            state = bind_observations(report, read_state(root))
+            if args.execute:
+                # Persist before the first non-idempotent sender call. This
+                # index never records delivery or overrides the sender ledger.
+                atomic_json(root / "schedule-watch-incidents.json", state)
+        except (OSError, ValueError, TypeError, KeyError, OverflowError):
+            print(json.dumps({"status": "unavailable", "readOnly": True,
+                              "reason": "incident_state_unavailable", "executed": False}))
+            return 2
+        return deliver(report, execute=args.execute, state_root=root)
+    return deliver(report, execute=args.execute, state_root=args.state_root)
+
+
+def deliver(report, *, execute=False, state_root=None):
+    report["mode"] = "execute" if execute else "dry-run"
     report["alerts"] = []
     for item in report["findings"]:
         try:
-            result = alert(item["payload"], execute=args.execute, state_root=args.state_root)
+            result = alert(item["payload"], execute=execute, state_root=state_root)
         except (OSError, subprocess.SubprocessError, ValueError, InspectionUnavailable):
             # An external timeout can mean a send is still unknown. Never retry.
             result = {"status": "notification_unconfirmed", "exitCode": 2}
