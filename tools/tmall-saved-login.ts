@@ -14,15 +14,63 @@ export type TmallSavedCredentialLoginResult = {
     | "login_control_ambiguous";
 };
 
+/** Per-frame attribution for one inspection. Ids and a safe origin+pathname
+ * only: never page text, field values, query, fragment, cookies or tokens. */
+export type TmallLoginFrameFinding = {
+  index: number;
+  safeOriginPath: string;
+  rules: string[];
+};
+
 export type TmallLoginPageState = {
   challengePresent: boolean;
   credentialRejected: boolean;
   temporarilyLocked: boolean;
+  /** Why the booleans above are true. Empty when none matched. */
+  findings: TmallLoginFrameFinding[];
 };
+
+/** Bounded, de-identified attribution for one login inspection.
+ * No cycle field on purpose: the same failure reply already carries
+ * `dailyBackfill.cycle` and `currentDates`, so the backfill cycle and its
+ * business date are attributable without threading a parameter through the
+ * six `waitForAlimamaIdentity` call sites. */
+export type TmallAlimamaLoginInspection = {
+  schema: "alimama-login-inspection-v1";
+  flags: { challengePresent: boolean; credentialRejected: boolean; temporarilyLocked: boolean };
+  frames: TmallLoginFrameFinding[];
+};
+
+/** Same message as before so existing text matchers and the terminal-pattern
+ * classifier keep behaving identically. The payload is additive.
+ * Lives in this leaf module so the helper pipeline can import it for an
+ * `instanceof` check without statically pulling in tmall-alimama-login,
+ * which tmall-promotion-export deliberately loads lazily. */
+export class TmallAlimamaLoginInspectionError extends Error {
+  readonly inspection: TmallAlimamaLoginInspection;
+  constructor(inspection: Omit<TmallAlimamaLoginInspection, "schema">) {
+    super("waiting_login：阿里妈妈需要人工验证或凭据被拒绝，停止自动登录");
+    this.name = "TmallAlimamaLoginInspectionError";
+    this.inspection = { ...inspection, schema: "alimama-login-inspection-v1" };
+  }
+}
+
+/** Drops query and fragment: alimama carries csrfId/loginPointId there.
+ * Bounded like the existing sanitizePromotionDiagnosticUrl: an attacker- or
+ * SPA-influenced pathname must not inflate a failure record. */
+export function tmallSafeOriginPath(value: string) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return "(unsupported-scheme)";
+    return `${url.origin}${url.pathname}`.slice(0, 300);
+  } catch { return "(unparsable)"; }
+}
 
 type LoginFrameProbe = {
   formFound: boolean;
   challengePresent: boolean;
+  /** Which challenge rule(s) matched. Ids only; never page text. */
+  challengeRules: string[];
   savedCredentialsReady: boolean;
   submitted: boolean;
   controlCount: number;
@@ -47,11 +95,22 @@ async function probeLoginFrame(frame: Frame, action: "probe" | "submit" | "switc
       input.getAttribute("aria-label"),
     ].filter(Boolean).join(" ");
     const bodyText = String(document.body?.innerText ?? "");
-    const challengePresent = /安全验证|人机验证|短信验证码|动态验证码|滑块验证|请.{0,8}(?:滑动|拖动)/.test(bodyText)
-      || Array.from(document.querySelectorAll("iframe")).some((element) => visible(element)
-        && /captcha|verify|challenge|punish/i.test(element.getAttribute("src") ?? ""))
-      || Array.from(document.querySelectorAll("input")).some((input) => visible(input)
-        && /captcha|verify|challenge|验证码|校验码|动态码/i.test(fieldName(input)));
+    // Rule ids only. The three challenge sources are indistinguishable once
+    // OR-ed, which made a real captcha and a business-page wording match look
+    // identical in failure records. Booleans below keep their exact semantics.
+    const challengeRules: string[] = [];
+    if (/安全验证|人机验证|短信验证码|动态验证码|滑块验证|请.{0,8}(?:滑动|拖动)/.test(bodyText)) {
+      challengeRules.push("challenge.body");
+    }
+    if (Array.from(document.querySelectorAll("iframe")).some((element) => visible(element)
+      && /captcha|verify|challenge|punish/i.test(element.getAttribute("src") ?? ""))) {
+      challengeRules.push("challenge.iframe");
+    }
+    if (Array.from(document.querySelectorAll("input")).some((input) => visible(input)
+      && /captcha|verify|challenge|验证码|校验码|动态码/i.test(fieldName(input)))) {
+      challengeRules.push("challenge.input");
+    }
+    const challengePresent = challengeRules.length > 0;
     const inputs = Array.from(document.querySelectorAll("input")).filter(visible);
     const password = inputs.find((input) => String(input.type).toLowerCase() === "password"
       || /pass|密码/i.test(fieldName(input)));
@@ -67,6 +126,7 @@ async function probeLoginFrame(frame: Frame, action: "probe" | "submit" | "switc
       return {
         formFound: Boolean(account && password),
         challengePresent,
+        challengeRules,
         savedCredentialsReady: false,
         submitted: false,
         controlCount: 0,
@@ -78,6 +138,7 @@ async function probeLoginFrame(frame: Frame, action: "probe" | "submit" | "switc
       return {
         formFound: false,
         challengePresent,
+        challengeRules,
         savedCredentialsReady: false,
         submitted: false,
         controlCount: 0,
@@ -94,6 +155,7 @@ async function probeLoginFrame(frame: Frame, action: "probe" | "submit" | "switc
       return {
         formFound: true,
         challengePresent,
+        challengeRules,
         savedCredentialsReady: accountAutofilled && passwordAutofilled,
         submitted: false,
         controlCount: 0,
@@ -114,6 +176,7 @@ async function probeLoginFrame(frame: Frame, action: "probe" | "submit" | "switc
       return {
         formFound: true,
         challengePresent: false,
+        challengeRules: [],
         savedCredentialsReady: true,
         submitted: false,
         controlCount: controls.length,
@@ -126,6 +189,7 @@ async function probeLoginFrame(frame: Frame, action: "probe" | "submit" | "switc
       return {
         formFound: true,
         challengePresent: false,
+        challengeRules: [],
         savedCredentialsReady: true,
         submitted: false,
         controlCount: 0,
@@ -137,6 +201,7 @@ async function probeLoginFrame(frame: Frame, action: "probe" | "submit" | "switc
       return {
         formFound: true,
         challengePresent: false,
+        challengeRules: [],
         savedCredentialsReady: true,
         submitted: false,
         controlCount: 1,
@@ -152,6 +217,7 @@ async function probeLoginFrame(frame: Frame, action: "probe" | "submit" | "switc
     return {
       formFound: true,
       challengePresent: false,
+      challengeRules: [],
       savedCredentialsReady: true,
       submitted: true,
       controlCount: 1,
@@ -162,7 +228,8 @@ async function probeLoginFrame(frame: Frame, action: "probe" | "submit" | "switc
 }
 
 export async function inspectTmallLoginPageState(page: Pick<Page, "frames">): Promise<TmallLoginPageState> {
-  const states = await Promise.all(page.frames().map(async (frame) => {
+  const frames = page.frames();
+  const states = await Promise.all(frames.map(async (frame, index) => {
     const probe = await probeLoginFrame(frame).catch(() => null);
     const textState = await frame.evaluate(() => {
       const text = String(document.body?.innerText ?? "");
@@ -171,17 +238,33 @@ export async function inspectTmallLoginPageState(page: Pick<Page, "frames">): Pr
         temporarilyLocked: /操作频繁|次数过多|账号.{0,8}(?:锁定|冻结)/.test(text),
       };
     }).catch(() => ({ credentialRejected: false, temporarilyLocked: false }));
+    const rules = [
+      ...(probe?.challengeRules ?? []),
+      ...(textState.credentialRejected ? ["credential.rejected.body"] : []),
+      ...(textState.temporarilyLocked ? ["locked.body"] : []),
+    ];
+    let safeOriginPath = "(unavailable)";
+    try { safeOriginPath = tmallSafeOriginPath(frame.url()); } catch { /* keep placeholder */ }
     return {
       challengePresent: Boolean(probe?.challengePresent),
       credentialRejected: textState.credentialRejected,
       temporarilyLocked: textState.temporarilyLocked,
+      finding: rules.length ? { index, safeOriginPath, rules } : null,
     };
   }));
+  // Each finding is already bounded (<=5 fixed rule ids, 300-char path), so the
+  // cap only needs to stop a pathological frame count. A real Alimama SPA can
+  // exceed 8 frames, and dropping the one frame that explains the stop would
+  // defeat the purpose, so keep this well above realistic page structure.
+  const findings = states.map((state) => state.finding)
+    .filter((finding): finding is TmallLoginFrameFinding => finding !== null)
+    .slice(0, 64);
   return states.reduce<TmallLoginPageState>((combined, state) => ({
     challengePresent: combined.challengePresent || state.challengePresent,
     credentialRejected: combined.credentialRejected || state.credentialRejected,
     temporarilyLocked: combined.temporarilyLocked || state.temporarilyLocked,
-  }), { challengePresent: false, credentialRejected: false, temporarilyLocked: false });
+    findings: combined.findings,
+  }), { challengePresent: false, credentialRejected: false, temporarilyLocked: false, findings });
 }
 
 /**
@@ -205,6 +288,7 @@ export async function autoLoginTmallWithSavedBrowserCredentials(
       probe: await probeLoginFrame(frame).catch(() => ({
         formFound: false,
         challengePresent: false,
+        challengeRules: [],
         savedCredentialsReady: false,
         submitted: false,
         controlCount: 0,

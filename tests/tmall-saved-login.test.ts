@@ -250,6 +250,7 @@ test("登录结果检查区分验证码、凭据拒绝与频率限制且不读�
         return {
           formFound: true,
           challengePresent: true,
+          challengeRules: ["challenge.body", "challenge.iframe"],
           savedCredentialsReady: false,
           submitted: false,
           controlCount: 0,
@@ -257,6 +258,7 @@ test("登录结果检查区分验证码、凭据拒绝与频率限制且不读�
           passwordModeSwitched: false,
         };
       },
+      url: () => "https://login.taobao.com/member/login.jhtml?redirectURL=secret",
     } as unknown as Frame, {
       evaluate: async (callback: unknown) => {
         const source = String(callback);
@@ -275,11 +277,19 @@ test("登录结果检查区分验证码、凭据拒绝与频率限制且不读�
       },
     } as unknown as Frame],
   } as Pick<Page, "frames">;
-  assert.deepEqual(await inspectTmallLoginPageState(statePage), {
-    challengePresent: true,
-    credentialRejected: true,
-    temporarilyLocked: true,
-  });
+  const inspected = await inspectTmallLoginPageState(statePage);
+  assert.equal(inspected.challengePresent, true);
+  assert.equal(inspected.credentialRejected, true);
+  assert.equal(inspected.temporarilyLocked, true);
+  // Attribution must name the challenge source, otherwise a real captcha and a
+  // business-page wording match stay indistinguishable — the very defect this
+  // payload exists to remove. Frame 0 reports a challenge plus a rejection.
+  assert.deepEqual(inspected.findings.map((finding) => finding.index), [0, 1]);
+  assert.deepEqual(inspected.findings[0]?.rules,
+    ["challenge.body", "challenge.iframe", "credential.rejected.body"]);
+  assert.deepEqual(inspected.findings[1]?.rules, ["locked.body"]);
+  // Query is dropped even on a login origin.
+  assert.equal(inspected.findings[0]?.safeOriginPath, "https://login.taobao.com/member/login.jhtml");
   const source = await readFile(new URL("../tools/tmall-saved-login.ts", import.meta.url), "utf8");
   assert.doesNotMatch(source, /(?:account|password)\.value\b/);
 });

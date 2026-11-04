@@ -52,6 +52,7 @@ import {
   tmallForceProductMasterHeader,
 } from "./tmall-product-master-cadence";
 import { fetchTmallPromotionCoverage, runTmallPromotionStage } from "./tmall-promotion-export";
+import { TmallAlimamaLoginInspectionError } from "./tmall-saved-login";
 import { planTmallDailyGaps, resolveTmallDailyPlanRange } from "./tmall-daily-gap-plan";
 import { beginTmallBackfill, beginTmallSevenDayBackfill, tmallSevenDayBackfillRoute,
   advanceTmallBackfill, publicTmallBackfill, type TmallBackfillState } from "./tmall-daily-backfill";
@@ -1879,6 +1880,9 @@ async function serveCommand(argv: string[]) {
         ...(workflow === "tmall" ? {
           browserClosure: tmallBrowserClosure ?? { ok: false, status: "failed", error: tmallBrowserCloseError },
           ...(tmallBackfill ? { dailyBackfill: publicTmallBackfill(tmallBackfill) } : {}),
+          // Ids, frame indexes and origin+pathname only; attached by the same
+          // inspection that stopped. Absent when the failure is unrelated.
+          ...(error instanceof TmallAlimamaLoginInspectionError ? { loginInspection: error.inspection } : {}),
         } : {}),
       });
       if (isJdLogistics || isTmallWarehouse) inactivityReaper?.arm();

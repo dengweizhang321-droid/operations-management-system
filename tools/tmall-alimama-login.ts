@@ -1,6 +1,10 @@
 import type { Page } from "playwright-core";
 import type { TmallStore } from "../lib/netshop/tmall-store-registry";
-import { autoLoginTmallWithWindowsDpapiCredential, inspectTmallLoginPageState } from "./tmall-saved-login";
+import { autoLoginTmallWithWindowsDpapiCredential, inspectTmallLoginPageState, TmallAlimamaLoginInspectionError } from "./tmall-saved-login";
+
+// Inspection payload and its error live in the leaf module so the helper
+// pipeline can `instanceof` them without eagerly loading this file.
+export { TmallAlimamaLoginInspectionError, type TmallAlimamaLoginInspection } from "./tmall-saved-login";
 
 const attempts = new WeakMap<object, string>();
 const wrongSessionResets = new WeakMap<object, string>();
@@ -57,7 +61,17 @@ export async function ensureAlimamaLogin(
     if (!trustedAlimamaLoginUrl(page.url())) throw new Error("waiting_login：阿里妈妈登录页面来源未经许可");
     const state = await inspect(page);
     if (state.challengePresent || state.credentialRejected || state.temporarilyLocked) {
-      throw new Error("waiting_login：阿里妈妈需要人工验证或凭据被拒绝，停止自动登录");
+      // Attribution is attached to the same inspection that decided to stop.
+      // The page is never re-read after the fact: it may already have changed.
+      // Message text is unchanged so existing matchers keep working.
+      throw new TmallAlimamaLoginInspectionError({
+        flags: {
+          challengePresent: state.challengePresent,
+          credentialRejected: state.credentialRejected,
+          temporarilyLocked: state.temporarilyLocked,
+        },
+        frames: state.findings ?? [],
+      });
     }
     let needsLogin = new URL(page.url()).hostname !== "one.alimama.com";
     try {

@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import type { Page } from "playwright-core";
-import { ensureAlimamaLogin, resetDedicatedAlimamaSession, trustedAlimamaLoginUrl } from "../tools/tmall-alimama-login";
+import { ensureAlimamaLogin, resetDedicatedAlimamaSession, trustedAlimamaLoginUrl, TmallAlimamaLoginInspectionError } from "../tools/tmall-alimama-login";
+import { tmallSafeOriginPath } from "../tools/tmall-saved-login";
 
 const store = { storeKey: "tmall-yijiu", loginMode: "windows_dpapi_credentials" as const };
-const clean = { challengePresent: false, credentialRejected: false, temporarilyLocked: false };
+const clean = { challengePresent: false, credentialRejected: false, temporarilyLocked: false, findings: [] };
 
 test("Both promotion paths use the guard; direct capture starts before navigation and returns only after authentication", async () => {
   const ui = await readFile(new URL("../tools/tmall-promotion-export.ts", import.meta.url), "utf8");
@@ -205,4 +206,52 @@ test("Unknown origin and missing credentials fail closed", async () => {
     inspect: async () => clean,
     login: async () => ({ attempted: false, submitted: false, reason: "saved_credentials_missing" }),
   }), /禁止自动重试/);
+});
+
+test("停止自动登录时附带可区分命中项的脱敏取证，且不泄漏文本或 query", async () => {
+  const f = fixture();
+  // A real challenge and a business-page wording match must not look alike.
+  const error = await ensureAlimamaLogin(f.page, store, f.identity, {
+    inspect: async () => ({
+      challengePresent: true, credentialRejected: false, temporarilyLocked: false,
+      findings: [{ index: 2, safeOriginPath: "https://one.alimama.com/index.html", rules: ["challenge.body"] }],
+    }),
+    login: async () => { throw new Error("must not login"); },
+  }).then(() => null, (reason: unknown) => reason);
+
+  // Message text is unchanged so existing matchers keep working.
+  assert.match(String((error as Error).message), /需要人工验证或凭据被拒绝/);
+  assert.ok(error instanceof TmallAlimamaLoginInspectionError);
+  const inspection = (error as TmallAlimamaLoginInspectionError).inspection;
+  assert.equal(inspection.schema, "alimama-login-inspection-v1");
+  assert.deepEqual(inspection.flags, { challengePresent: true, credentialRejected: false, temporarilyLocked: false });
+  assert.deepEqual(inspection.frames, [
+    { index: 2, safeOriginPath: "https://one.alimama.com/index.html", rules: ["challenge.body"] },
+  ]);
+
+  // Nothing beyond ids, indexes and origin+pathname may be carried.
+  const serialized = JSON.stringify(inspection);
+  for (const forbidden of ["innerText", "cookie", "csrfId", "loginPointId", "password", "value"]) {
+    assert.equal(serialized.includes(forbidden), false, forbidden);
+  }
+});
+
+test("安全 URL 摘要丢弃 query 与 fragment，异常输入不抛出", () => {
+  // csrfId / loginPointId live in the query string; they must never survive.
+  assert.equal(
+    tmallSafeOriginPath("https://one.alimama.com/index.html?csrfId=abc123&loginPointId=9#!/report/download-list"),
+    "https://one.alimama.com/index.html",
+  );
+  // A long SPA or attacker-influenced pathname must not inflate failure records.
+  const long = tmallSafeOriginPath("https://one.alimama.com/" + "A".repeat(200000));
+  assert.equal(long.length, 300);
+  assert.equal(long.startsWith("https://one.alimama.com/AAA"), true);
+  // userinfo never survives, and a query nested in the fragment is dropped too.
+  assert.equal(
+    tmallSafeOriginPath("https://u:p@one.alimama.com/index.html#!/report?csrfId=abc"),
+    "https://one.alimama.com/index.html",
+  );
+  assert.equal(tmallSafeOriginPath("file:///D:/secret.json"), "(unsupported-scheme)");
+  assert.equal(tmallSafeOriginPath("not-a-url"), "(unparsable)");
+  assert.equal(tmallSafeOriginPath("javascript:alert(1)"), "(unsupported-scheme)");
 });
