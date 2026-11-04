@@ -1,0 +1,8 @@
+{"phase": "python-syntax", "files": 81}
+{"phase": "node-syntax", "files": 5}
+{"phase": "powershell-syntax", "hosts": [{"host": "powershell.exe", "status": "passed", "files": 12, "version": "5.1.26100.9444"}, {"host": "pwsh.exe", "files": 12, "version": "7.6.9", "status": "passed"}]}
+Traceback (most recent call last):
+  File "D:\codex-worktrees\ai158-sourcecheck-9f2d06a8\docs\ai-task-feedback-candidates-addition-20261104\run-mandatory-checks.py", line 110, in <module>
+    assert not set(before) & set(gate.FILES)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

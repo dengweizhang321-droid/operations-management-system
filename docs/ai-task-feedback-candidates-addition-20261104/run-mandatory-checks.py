@@ -22,7 +22,7 @@ sys.dont_write_bytecode = True
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--source", required=True, type=Path)
 parser.add_argument("--output-root", required=True, type=Path)
-parser.add_argument("--base", default="f50943f4aaf5e1e2d574f4ae4ab76eead769858a")
+parser.add_argument("--base", default="ba78ceff052c543ff568f7c7eac0c42b983129e7")
 args = parser.parse_args()
 ROOT, DELIVERY = args.source.resolve(), args.output_root.resolve()
 assert ROOT != DELIVERY, "Checks must run from an independent frozen tree"
