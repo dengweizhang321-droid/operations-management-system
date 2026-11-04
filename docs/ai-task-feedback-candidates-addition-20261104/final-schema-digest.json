@@ -1,0 +1,24 @@
+{
+  "version": "teruisi-schema-code-digest-static-v1",
+  "results": [
+    {
+      "recipe": "config/main-schema-releases/ai-0088-0089.json",
+      "status": "passed",
+      "errors": [],
+      "scope": "static-source-bindings-only",
+      "parentVerified": false,
+      "databaseContacted": false,
+      "declaredChecksExecuted": false,
+      "additionKind": "AiTaskFeedbackCandidates",
+      "codeFileCount": 105,
+      "actualCodeSha256": "073e39cf954733c708f2f44bf37d68f97b6435f22375b9c2dab860148c348c88",
+      "actualMigrationSha256": "0f35b6baa32a0728ac97bbac51049ba11727f150911f0bddf9a8017dc21a7a45",
+      "migrationSourceFileCount": 168,
+      "migrationScope": "source-inventory-only; no installed-parent comparison",
+      "validationMode": "mandatory-code-contract",
+      "actualValidationSha256": "812d2f6129cbfa1153ed8e7f7d4e044374113590aea22468641e63541b2c3083",
+      "supplementalSourceFileCount": 9,
+      "supplementalSourceScope": "additional evidence bindings; not gate.code_digest members"
+    }
+  ]
+}

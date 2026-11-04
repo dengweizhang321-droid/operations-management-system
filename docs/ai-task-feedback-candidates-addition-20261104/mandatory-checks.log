@@ -1,0 +1,4 @@
+{"phase": "python-syntax", "files": 81}
+{"phase": "node-syntax", "files": 5}
+{"phase": "powershell-syntax", "hosts": [{"host": "powershell.exe", "status": "passed", "files": 12, "version": "5.1.26100.9444"}, {"host": "pwsh.exe", "status": "passed", "version": "7.6.9", "files": 12}]}
+{"status": "code-checked", "codeFileCount": 105, "codeSha256": "073e39cf954733c708f2f44bf37d68f97b6435f22375b9c2dab860148c348c88", "sourceCommit": "f84850c5a32e3920320be3114d42fc8651df162d", "checks": "docs/ai-task-feedback-candidates-addition-20261104/ai158-checks.json"}

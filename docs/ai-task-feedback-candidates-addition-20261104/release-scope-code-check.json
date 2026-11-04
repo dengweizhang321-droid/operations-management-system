@@ -1,0 +1,22 @@
+{
+  "codeOnly": true,
+  "productionContacted": false,
+  "referenceBase": "ba78ceff052c543ff568f7c7eac0c42b983129e7",
+  "candidate": "9f2d06a8e7209668ad0e1746150acf71337843c9",
+  "scope": "database-migration",
+  "components": [
+    "worker",
+    "django"
+  ],
+  "migrate": true,
+  "schema": {
+    "version": "teruisi-main-schema-release-v1",
+    "additionKind": "AiTaskFeedbackCandidates",
+    "fromGeneration": 156,
+    "toGeneration": 158,
+    "steps": [
+      "ai_assistant.0088_task_feedback",
+      "ai_assistant.0089_skill_candidates"
+    ]
+  }
+}

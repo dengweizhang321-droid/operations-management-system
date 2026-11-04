@@ -12,6 +12,6 @@
     "backend/ai_assistant/migrations/0089_skill_candidates.py": "cb710c9265fd8b973afefcb364ecd74b13118e15b79d6f245b127ad6de002317"
   },
   "validation": "docs/ai-task-feedback-candidates-addition-20261104/ai158-checks.json",
-  "validationSha256": "061d9fecd94b4acbe7f1bf61362059eb073de58c5f18ad43952d6aa9d812e92c",
-  "codeSha256": "3584073426008004df1fd2122a7672f0877d9d39a988a1ec9f53af1abf71c9f3"
+  "validationSha256": "812d2f6129cbfa1153ed8e7f7d4e044374113590aea22468641e63541b2c3083",
+  "codeSha256": "073e39cf954733c708f2f44bf37d68f97b6435f22375b9c2dab860148c348c88"
 }

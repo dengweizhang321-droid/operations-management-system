@@ -1,6 +1,6 @@
 # B 层：独立 PostgreSQL 17 合成 156→158
 
-2026-11-04 完成。最终命令 `D:/teruisi-runtime/django-sales/venv/Scripts/python.exe -B tools/ai_task_feedback_candidates_rehearsal.py` exit 0。结果见 [b-layer-result.json](b-layer-result.json)：13 类检查、824 个明确反例全部通过。结果内绑定 96 份相关源码的原始 SHA256，运行开始与结束一致；复核未发现差异。文件 gate、prepared 与最终回执链由 A 层另行证明。
+2026-11-04 完成。最终命令 `D:/teruisi-runtime/django-sales/venv/Scripts/python.exe -B tools/ai_task_feedback_candidates_rehearsal.py` exit 0，使用代码提交 `9f2d06a8` 的原始字节重新执行。结果见 [b-layer-result.json](b-layer-result.json)：13 类检查、824 个明确反例全部通过。结果内绑定 96 份相关源码的原始 SHA256，运行开始与结束一致；复核未发现差异。文件 gate、prepared 与最终回执链由 A 层另行证明。
 
 ## 环境与父态
 
@@ -40,7 +40,7 @@
 
 ## 清理、失败记录与边界
 
-最终私有目录 `.codex-tmp/ai158-pg17-lm8qeswj` 的 child/stop 均 exit 0；集群已停止，password 文件和 data 目录已删除。保留私有非敏感日志；结果里的五项 cleanup 值均为 true。修复前探测目录 `ai158-pg17-fxgrtpxm` 和重采目录 `ai158-pg17-45n7xl5l` 也已停止并删除 password/data。
+最终私有目录 `.codex-tmp/ai158-pg17-n84kqrkd` 的 child/stop 均 exit 0；集群已停止，password 文件和 data 目录已删除。保留私有非敏感日志；结果里的五项 cleanup 值均为 true。修复前探测目录 `ai158-pg17-fxgrtpxm` 和重采目录 `ai158-pg17-45n7xl5l` 也已停止并删除 password/data。
 
 先前一次完整演练因测试脚本没有将原生 `psycopg.errors.DivisionByZero` 纳入预期拒绝而 exit 1（目录 `.codex-tmp/ai158-pg17-b1sd4uwn`）；已修复异常类别并重跑，失败日志保留。该次也正常停止并移除 password/data。随后通过的 683 反例版本，在补齐总行数边界、默认值和源码绑定后成为 696 反例版本；再修复上述真实 RI 漏检并独立重采快照、完整重跑，最终为本报告的 824 反例版本。
 

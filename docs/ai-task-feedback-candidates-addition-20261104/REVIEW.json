@@ -1,0 +1,25 @@
+{
+  "version": "ai158-independent-review-summary-v1",
+  "recordedBy": "root from independent reviewer messages",
+  "status": "passed",
+  "sourceCommit": "f84850c5a32e3920320be3114d42fc8651df162d",
+  "requestedModel": "gpt-6.1-sol",
+  "requestedReasoningEffort": "high",
+  "actualModelIndependentlyConfirmed": false,
+  "findingClosed": {
+    "severity": "P2",
+    "subject": "new foreign-key internal RI triggers not checked",
+    "beforeRejected": 0,
+    "afterRejected": 8,
+    "total": 8
+  },
+  "verified": [
+    "raw105 members and9 supplements vs current and frozen Git",
+    "recipe/checks/execution hash chain",
+    "B824 negatives and96 current source bindings",
+    "mutation60 actual assertion failures and preserved source bytes",
+    "CI current158 selection",
+    "validation limits and no production credentials in evidence"
+  ],
+  "remainingBlockingFindings": []
+}

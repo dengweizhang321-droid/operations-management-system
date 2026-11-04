@@ -16,7 +16,7 @@ preservation继承祖代摘要并增加workflow父代四张既有automation表�
 
 ## 文件清单
 
-完整逐文件清单见交付时生成的 `FILES.txt`。主要落点如下：
+完整逐文件清单见交付时生成的 `FILES.txt`；代码、配置及测试共27个文件，其余为本任务报告和原始证据，不能把证据行数当实现代码规模。主要落点如下：
 
 | 类别 | 新建或调整 |
 | --- | --- |
@@ -45,7 +45,7 @@ preservation继承祖代摘要并增加workflow父代四张既有automation表�
 
 B详情见 [B-LAYER.md](B-LAYER.md)、[b-layer-result.json](b-layer-result.json)。权限矩阵见 [role-matrix-result.json](role-matrix-result.json)。PS结果见 [ps5-native.json](ps5-native.json)、[ps7-native.json](ps7-native.json)。
 
-运行门禁逐条突变的最终结果在 `MUTATIONS.json`，首轮未覆盖充分的9项保留在 [MUTATIONS-FIRST.json](MUTATIONS-FIRST.json)，没有改写成成功。突变在独立子进程内编译禁用指定guard，运行实现确实被改坏，而磁盘输入原字节保持不变；因此不会把codeSha失配、导入错误或setUp错误误算成“检测成功”。每轮须由原测试产生明确assertion failure，原实现SHA前后逐项相同。DB guard的纯私有函数接缝与B真实数据库结果分开报告。
+运行门禁60条逐条突变的最终结果在 `MUTATIONS.json`，首轮未覆盖充分的9项保留在 [MUTATIONS-FIRST.json](MUTATIONS-FIRST.json)，没有改写成成功。突变在独立子进程内编译禁用指定guard，运行实现确实被改坏，而磁盘输入原字节保持不变；因此不会把codeSha失配、导入错误或setUp错误误算成“检测成功”。每轮须由原测试产生明确assertion failure，原实现SHA前后逐项相同。DB guard的纯私有函数接缝与B真实数据库结果分开报告。
 
 ## 反审发现与修复
 
@@ -55,15 +55,15 @@ B详情见 [B-LAYER.md](B-LAYER.md)、[b-layer-result.json](b-layer-result.json)
 
 前证据 [b-layer-fk-internal-probe.json](b-layer-fk-internal-probe.json)、后证据 [b-layer-fk-internal-probe-after.json](b-layer-fk-internal-probe-after.json) 分别保留。旧696项B结果保存在 [b-layer-result-before-fk.json](b-layer-result-before-fk.json)。
 
-其他开发期失败属于验证夹具问题：A首版重复全backend扫描过慢，两份本人启动的隔离测试进程经精确PID/命令核验后停止，改成迁移清单+CODE_FILES的明确私有fixture；静态检查器双recipe测试最初复用了前一临时目录的Python模块缓存，现已按fixture清理模块并重跑30项通过；PS新测试最初将`+=`也算成`biArgs`初始赋值，现按AST Equals只选原赋值。未把这些失败称为生产故障。
+其他开发期失败属于验证夹具问题：A首版重复全backend扫描过慢，两份本人启动的隔离测试进程经精确PID/命令核验后停止，改成迁移清单+CODE_FILES的明确私有fixture；静态检查器双recipe测试最初复用了前一临时目录的Python模块缓存，现已按fixture清理模块并重跑30项通过；PS新测试最初将`+=`也算成`biArgs`初始赋值，现按AST Equals只选原赋值。源码材料生成器首轮误用已包含0088/0089的f50943f4作为156父态，被FILES互斥断言正确拦截；改为ba78ceff后重跑，原失败保留在mandatory-checks-first.log。未把这些失败称为生产故障。
 
 独立审查请求角色为Sol High，实际底层型号未独立确认。核心、集成与修复后绑定均按独立上下文复核；不得把实现者自检称独审。
 
 ## 最终字节与材料
 
-CODE_FILES最终105项：workflow父96项加本代9项，无重复，无recipe/checks自引用。真实算法为gate.code_digest(root)对实际文件原始SHA映射再做canonical摘要；迁移清单另用既有CRLF→LF规范化。祖代历史recipe、回执和退役pin没有为凑绿刷新。
+CODE_FILES最终105项：workflow父96项加本代9项，无重复，无recipe/checks自引用。最终在干净源码提交 `f84850c5a32e3920320be3114d42fc8651df162d` 上实算摘要为 `073e39cf954733c708f2f44bf37d68f97b6435f22375b9c2dab860148c348c88`，源码/材料静态复核通过；随后提交仅补本任务证据与recipe绑定，不改变这105项字节。真实算法为gate.code_digest(root)对实际文件原始SHA映射再做canonical摘要；迁移清单另用既有CRLF→LF规范化。祖代历史recipe、回执和退役pin没有为凑绿刷新。
 
-正式checks材料由本目录 `run-mandatory-checks.py` 在独立干净冻结检出树执行，输出到开发交付树：Python compile、Node --check、PS5/PS7 Parser.ParseFile、JSON唯一键/文件检查，以及禁数据库连接的MigrationLoader/模型闭包；并用真实gate与f50943f4的迁移文件夹具核精确156→158。最终摘要、执行源码提交及成员SHA见生成后的 `ai158-execution.json` 和 `ai158-checks.json`，本报告不手抄暂态摘要。
+正式checks材料由本目录 `run-mandatory-checks.py` 在独立干净冻结检出树执行，输出到开发交付树：Python compile、Node --check、PS5/PS7 Parser.ParseFile、JSON唯一键/文件检查，以及禁数据库连接的MigrationLoader/模型闭包；并用真实gate与ba78ceff线上来源提交的迁移文件夹具核精确156→158。最终摘要、执行源码提交及成员SHA见生成后的 `ai158-execution.json` 和 `ai158-checks.json`，本报告不手抄暂态摘要。
 
 这些是源码和执行材料，不是已绑定生产前驱的candidate/PREPARED，也不证明控制包已采用。后续仍须用户授权合并，合并后按规则准备对应应用制品；控制入口升级和实际上线分别按当次授权及原生门禁执行。
 

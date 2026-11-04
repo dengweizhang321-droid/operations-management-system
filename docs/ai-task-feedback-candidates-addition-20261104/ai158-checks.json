@@ -1,4 +1,34 @@
 {
-  "status": "pending",
-  "purpose": "No execution claim; replaced only by clean frozen source checks"
+  "version": "ai-task-feedback-candidates-mandatory-code-checks-v1",
+  "status": "code-checked",
+  "checkedAt": "2026-11-04T10:48:43.664780+00:00",
+  "productionTouched": false,
+  "functionalValidationPerformed": false,
+  "fullBackupOrRestorePerformed": false,
+  "generations": [
+    156,
+    158
+  ],
+  "parentVariants": [
+    [
+      156,
+      158
+    ]
+  ],
+  "steps": [
+    "ai_assistant.0088_task_feedback",
+    "ai_assistant.0089_skill_candidates"
+  ],
+  "codeSha256": "073e39cf954733c708f2f44bf37d68f97b6435f22375b9c2dab860148c348c88",
+  "migrationSha256": "0f35b6baa32a0728ac97bbac51049ba11727f150911f0bddf9a8017dc21a7a45",
+  "checks": [
+    "migration-closure",
+    "node-syntax",
+    "powershell-syntax",
+    "python-syntax"
+  ],
+  "evidence": {
+    "path": "docs/ai-task-feedback-candidates-addition-20261104/ai158-execution.json",
+    "sha256": "d244f17aa5855522389135c38ed4d672b548a2dfc8ae831ebfc6eb0187b8983f"
+  }
 }
