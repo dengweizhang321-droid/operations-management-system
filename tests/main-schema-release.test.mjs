@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
-import {monitoringSchema,monitoringMigration,monitoringRecipe,schemaForRequest,readSchemaRecipe,prepareMainSchemaRelease,verifyMainSchemaRelease,schemaPreparationEnvironment} from '../tools/main-schema-release.mjs';
+import {monitoringSchema,monitoringMigration,monitoringRecipe,schemaForRequest,readSchemaRecipe,prepareMainSchemaRelease,verifyMainSchemaRelease,schemaPreparationEnvironment,aiTaskFeedbackCandidatesSchema,aiTaskFeedbackCandidatesMigrations,assertMainSchemaPlanSupported} from '../tools/main-schema-release.mjs';
 const sourceRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 async function fixture(t){
@@ -54,4 +54,34 @@ test('an independently frozen request reuses its approved evidence SHA through c
  const again=await prepareMainSchemaRelease(f,{run:f.run});assert.deepEqual(again,schema);
  assert.equal(f.calls.length,2);assert.ok(f.calls[1].args.includes('--check'));assert.ok(!f.calls[1].args.includes('--output'));
  await fs.appendFile(schema.evidencePath,' ');await assert.rejects(prepareMainSchemaRelease(f,{run:f.run}),/证据已变化/);assert.equal(f.calls.length,2);
+});
+
+test('Ai158 requires both exact additions; change ordering is irrelevant and157 is never a completion',()=>{
+ const changes=aiTaskFeedbackCandidatesMigrations.map(path=>({status:'A',path}));
+ const plan={migrate:true,changes};
+ assert.deepEqual(assertMainSchemaPlanSupported(plan),aiTaskFeedbackCandidatesSchema);
+ assert.deepEqual(assertMainSchemaPlanSupported({...plan,changes:[...changes].reverse()}),aiTaskFeedbackCandidatesSchema);
+ for(const bad of [changes.slice(0,1),changes.slice(1),[...changes,{status:'A',path:'backend/ai_assistant/migrations/0090_unknown.py'}],changes.map((row,i)=>i?row:{...row,status:'M'})])
+  assert.throws(()=>assertMainSchemaPlanSupported({...plan,changes:bad}));
+ const schema={...aiTaskFeedbackCandidatesSchema,recipeSha256:'a'.repeat(64),evidencePath:path.resolve('fixture158'),evidenceSha256:'b'.repeat(64),validationSha256:'c'.repeat(64),codeSha256:'d'.repeat(64)};
+ assert.equal(schemaForRequest({migrate:true,releasePlan:plan,components:['worker','django'],schemaRelease:schema}).toGeneration,158);
+ for(const descriptor of [{...schema,toGeneration:157},{...schema,fromGeneration:154},{...schema,steps:[...schema.steps].reverse()}])
+  assert.throws(()=>schemaForRequest({migrate:true,releasePlan:plan,components:['django'],schemaRelease:descriptor}));
+});
+
+test('Ai158 ACL contract runs before the fixed binder; failures produce no schema evidence',async t=>{
+ const packet=await fs.mkdtemp(path.join(os.tmpdir(),'main-schema158-')),source=path.join(packet,'source');
+ t.after(()=>fs.rm(packet,{recursive:true,force:true}));
+ const recipeName='config/main-schema-releases/ai-0088-0089.json';
+ const recipe=JSON.parse(await fs.readFile(path.join(sourceRoot,recipeName),'utf8'));
+ for(const name of [...aiTaskFeedbackCandidatesMigrations,recipeName,recipe.validation]){
+  const target=path.join(source,name);await fs.mkdir(path.dirname(target),{recursive:true});await fs.copyFile(path.join(sourceRoot,name),target);
+ }
+ const plan={headSha:'e'.repeat(40),baseSha:'f'.repeat(40),migrate:true,changes:aiTaskFeedbackCandidatesMigrations.map(path=>({status:'A',path}))};
+ let bindCalls=0,aclCalls=0;
+ const run=async(exe,args)=>{bindCalls++;assert.ok(args[0].endsWith('ai_task_feedback_candidates_candidate.py'));const file=args[args.indexOf('--output')+1];await fs.writeFile(file,'{"fixture":true}');return {stdout:JSON.stringify({status:'bound',generation:158,evidenceSha256:sha(await fs.readFile(file))})};};
+ await assert.rejects(prepareMainSchemaRelease({source,packet,plan},{run,runAcl:async()=>{throw Error('private ACL refusal');}}),/ACL/);
+ assert.equal(bindCalls,0);await assert.rejects(fs.access(path.join(packet,'schema/ai-0088-0089-evidence.json')));
+ const descriptor=await prepareMainSchemaRelease({source,packet,plan},{run,runAcl:async(exe,args)=>{aclCalls++;assert.ok(args[0].endsWith('ai158-acl-catalog-boundary.py'));}});
+ assert.equal(descriptor.toGeneration,158);assert.equal(bindCalls,1);assert.equal(aclCalls,1);
 });

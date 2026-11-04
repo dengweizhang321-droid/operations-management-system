@@ -28,7 +28,10 @@ export const salesPreflightMigration='backend/sales/migrations/0012_excluded_bus
 // separately installable 155.
 export const workflowAutomationSchema={version:'teruisi-main-schema-release-v1',additionKind:'WorkflowAutomation',fromGeneration:154,toGeneration:156,steps:['workflow.0009_automation_projection_b1','workflow.0010_customer_service_chain_modules']};
 export const workflowAutomationMigrations=['backend/workflow/migrations/0009_automation_projection_b1.py','backend/workflow/migrations/0010_customer_service_chain_modules.py'];
+export const aiTaskFeedbackCandidatesSchema={version:'teruisi-main-schema-release-v1',additionKind:'AiTaskFeedbackCandidates',fromGeneration:156,toGeneration:158,steps:['ai_assistant.0088_task_feedback','ai_assistant.0089_skill_candidates']};
+export const aiTaskFeedbackCandidatesMigrations=['backend/ai_assistant/migrations/0088_task_feedback.py','backend/ai_assistant/migrations/0089_skill_candidates.py'];
 const finite=[
+ {schema:aiTaskFeedbackCandidatesSchema,migrations:aiTaskFeedbackCandidatesMigrations,recipe:'config/main-schema-releases/ai-0088-0089.json',binder:'ai_task_feedback_candidates_candidate.py',evidence:'ai-0088-0089-evidence.json'},
  {schema:workflowAutomationSchema,migrations:workflowAutomationMigrations,recipe:'config/main-schema-releases/workflow-0009.json',binder:'workflow_automation_candidate.py',evidence:'workflow-0009-evidence.json'},
  {schema:salesPreflightSchema,migrations:[salesPreflightMigration],recipe:'config/main-schema-releases/sales-0012.json',binder:'sales_preflight_candidate.py',evidence:'sales-0012-evidence.json'},
  {schema:piNativeSchema,migrations:[piNativeMigration],recipe:'config/main-schema-releases/ai-0087.json',binder:'pi_native_candidate.py',evidence:'ai-0087-evidence.json'},
@@ -50,6 +53,7 @@ function planSpec(plan){
 export function assertMainSchemaPlanSupported(plan){return plan.migrate?planSpec(plan).schema:null;}
 
 export const schemaAclContractScripts=Object.freeze({
+ AiTaskFeedbackCandidates:Object.freeze(['tests/ai158-acl-catalog-boundary.py']),
  PiBusiness:Object.freeze(['tests/pi152-acl-catalog-boundary.py']),
  PiNative:Object.freeze(['tests/pi152-acl-catalog-boundary.py','tests/pi153-acl-catalog-boundary.py'])
 });

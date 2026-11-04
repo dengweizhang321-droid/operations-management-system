@@ -1,0 +1,987 @@
+{
+  "version": "teruisi-ai-task-feedback-candidates-catalog-v1",
+  "migrationFiles": {
+    "backend/ai_assistant/migrations/0088_task_feedback.py": "36f53b390e1e0165f0fe6aeb5f9c4a6a6e572bf800a8c1519094fe1c79ec64a0",
+    "backend/ai_assistant/migrations/0089_skill_candidates.py": "cb710c9265fd8b973afefcb364ecd74b13118e15b79d6f245b127ad6de002317"
+  },
+  "tables": {
+    "ai_skill_candidates": {
+      "identity": [
+        "teruisi_sales_owner",
+        "r",
+        "p",
+        false,
+        false
+      ],
+      "columns": [
+        [
+          "id",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "owner_email",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "report_version_digest",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "report_version_json",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "content_json",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "content_digest",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "schema_ref",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "schema_digest",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "feedback_ids_json",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "unverified_count",
+          "integer",
+          true,
+          null,
+          "",
+          "",
+          null
+        ],
+        [
+          "status",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "reviewed_by",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "reviewed_at",
+          "timestamp with time zone",
+          false,
+          null,
+          "",
+          "",
+          null
+        ],
+        [
+          "review_note",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "version",
+          "bigint",
+          true,
+          null,
+          "",
+          "",
+          null
+        ],
+        [
+          "created_at",
+          "timestamp with time zone",
+          true,
+          null,
+          "",
+          "",
+          null
+        ],
+        [
+          "updated_at",
+          "timestamp with time zone",
+          true,
+          null,
+          "",
+          "",
+          null
+        ],
+        [
+          "operation_id",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ]
+      ],
+      "constraints": [
+        [
+          "ai_skill_candidate_bytes",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK-TREE [\"AND\",[[\"atom\",\"octet_length(content_json) <= 32768\"],[\"atom\",\"octet_length(report_version_json) <= 16384\"],[\"atom\",\"octet_length(feedback_ids_json) <= 4096\"],[\"atom\",\"octet_length(review_note) <= 2000\"]]]"
+        ],
+        [
+          "ai_skill_candidate_digests",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK-TREE [\"AND\",[[\"atom\",\"content_digest ~ '^[a-f0-9]{64}$'::text\"],[\"atom\",\"report_version_digest ~ '^[a-f0-9]{64}$'::text\"],[\"atom\",\"schema_digest ~ '^[a-f0-9]{64}$'::text\"]]]"
+        ],
+        [
+          "ai_skill_candidate_review_identity",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK-TREE [\"OR\",[[\"AND\",[[\"atom\",\"reviewed_at IS NULL\"],[\"atom\",\"reviewed_by = ''::text\"],[\"atom\",\"status = ANY (ARRAY['draft'::text, 'in_review'::text])\"]]],[\"atom\",\"status = ANY (ARRAY['approved'::text, 'rejected'::text, 'superseded'::text])\"]]]"
+        ],
+        [
+          "ai_skill_candidate_status",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK-TREE [\"atom\",\"status = ANY (ARRAY['draft'::text, 'in_review'::text, 'approved'::text, 'rejected'::text, 'superseded'::text])\"]"
+        ],
+        [
+          "ai_skill_candidate_version",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK-TREE [\"atom\",\"version >= 1\"]"
+        ],
+        [
+          "ai_skill_candidates_operation_id_637b3373_fk_ai_pi_ope",
+          "f",
+          true,
+          true,
+          true,
+          "FOREIGN KEY (operation_id) REFERENCES ai_pi_operations(id) DEFERRABLE INITIALLY DEFERRED"
+        ],
+        [
+          "ai_skill_candidates_pkey",
+          "p",
+          true,
+          false,
+          false,
+          "PRIMARY KEY (id)"
+        ],
+        [
+          "ai_skill_candidates_unverified_count_check",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK-TREE [\"atom\",\"unverified_count >= 0\"]"
+        ],
+        [
+          "ai_skill_candidates_version_check",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK-TREE [\"atom\",\"version >= 0\"]"
+        ]
+      ],
+      "indexes": [
+        [
+          "ai_skill_candidate_live_unique",
+          true,
+          true,
+          true,
+          "CREATE UNIQUE INDEX ai_skill_candidate_live_unique ON public.ai_skill_candidates USING btree (operation_id, schema_ref) WHERE (status = ANY (ARRAY['draft'::text, 'in_review'::text, 'approved'::text]))"
+        ],
+        [
+          "ai_skill_candidate_op_idx",
+          true,
+          true,
+          false,
+          "CREATE INDEX ai_skill_candidate_op_idx ON public.ai_skill_candidates USING btree (operation_id, status)"
+        ],
+        [
+          "ai_skill_candidate_owner_idx",
+          true,
+          true,
+          false,
+          "CREATE INDEX ai_skill_candidate_owner_idx ON public.ai_skill_candidates USING btree (owner_email, status)"
+        ],
+        [
+          "ai_skill_candidates_id_5429a841_like",
+          true,
+          true,
+          false,
+          "CREATE INDEX ai_skill_candidates_id_5429a841_like ON public.ai_skill_candidates USING btree (id text_pattern_ops)"
+        ],
+        [
+          "ai_skill_candidates_operation_id_637b3373",
+          true,
+          true,
+          false,
+          "CREATE INDEX ai_skill_candidates_operation_id_637b3373 ON public.ai_skill_candidates USING btree (operation_id)"
+        ],
+        [
+          "ai_skill_candidates_operation_id_637b3373_like",
+          true,
+          true,
+          false,
+          "CREATE INDEX ai_skill_candidates_operation_id_637b3373_like ON public.ai_skill_candidates USING btree (operation_id text_pattern_ops)"
+        ],
+        [
+          "ai_skill_candidates_pkey",
+          true,
+          true,
+          true,
+          "CREATE UNIQUE INDEX ai_skill_candidates_pkey ON public.ai_skill_candidates USING btree (id)"
+        ]
+      ],
+      "triggers": [
+        [
+          "ai_immutable_identity",
+          19,
+          "O",
+          "public",
+          "ai_immutable_record_guard",
+          "6964006f7065726174696f6e5f6964006f776e65725f656d61696c007265706f72745f76657273696f6e5f646967657374007265706f72745f76657273696f6e5f6a736f6e00636f6e74656e745f6a736f6e00636f6e74656e745f64696765737400736368656d615f72656600736368656d615f64696765737400666565646261636b5f6964735f6a736f6e00637265617465645f617400",
+          "CREATE TRIGGER ai_immutable_identity BEFORE UPDATE ON public.ai_skill_candidates FOR EACH ROW EXECUTE FUNCTION ai_immutable_record_guard('id', 'operation_id', 'owner_email', 'report_version_digest', 'report_version_json', 'content_json', 'content_digest', 'schema_ref', 'schema_digest', 'feedback_ids_json', 'created_at')"
+        ],
+        [
+          "ai_skill_candidate_state",
+          23,
+          "O",
+          "public",
+          "ai_skill_candidate_guard",
+          "",
+          "CREATE TRIGGER ai_skill_candidate_state BEFORE INSERT OR UPDATE ON public.ai_skill_candidates FOR EACH ROW EXECUTE FUNCTION ai_skill_candidate_guard()"
+        ],
+        [
+          "ai_write_fence",
+          31,
+          "O",
+          "public",
+          "ai_runtime_write_fence",
+          "",
+          "CREATE TRIGGER ai_write_fence BEFORE INSERT OR DELETE OR UPDATE ON public.ai_skill_candidates FOR EACH ROW EXECUTE FUNCTION ai_runtime_write_fence()"
+        ]
+      ],
+      "acl": [
+        [
+          "OWNER",
+          "DELETE",
+          false
+        ],
+        [
+          "OWNER",
+          "INSERT",
+          false
+        ],
+        [
+          "OWNER",
+          "MAINTAIN",
+          false
+        ],
+        [
+          "OWNER",
+          "REFERENCES",
+          false
+        ],
+        [
+          "OWNER",
+          "SELECT",
+          false
+        ],
+        [
+          "OWNER",
+          "TRIGGER",
+          false
+        ],
+        [
+          "OWNER",
+          "TRUNCATE",
+          false
+        ],
+        [
+          "OWNER",
+          "UPDATE",
+          false
+        ],
+        [
+          "teruisi_ai_writer",
+          "DELETE",
+          false
+        ],
+        [
+          "teruisi_ai_writer",
+          "INSERT",
+          false
+        ],
+        [
+          "teruisi_ai_writer",
+          "SELECT",
+          false
+        ],
+        [
+          "teruisi_ai_writer",
+          "UPDATE",
+          false
+        ]
+      ],
+      "columnAcl": [],
+      "foreignKeyTriggers": [
+        [
+          "public",
+          "ai_pi_operations",
+          "public",
+          "ai_skill_candidates",
+          "public",
+          "ai_pi_operations",
+          "ai_skill_candidates_operation_id_637b3373_fk_ai_pi_ope",
+          9,
+          "O",
+          true,
+          true,
+          "pg_catalog",
+          "RI_FKey_noaction_del",
+          "",
+          ""
+        ],
+        [
+          "public",
+          "ai_pi_operations",
+          "public",
+          "ai_skill_candidates",
+          "public",
+          "ai_pi_operations",
+          "ai_skill_candidates_operation_id_637b3373_fk_ai_pi_ope",
+          17,
+          "O",
+          true,
+          true,
+          "pg_catalog",
+          "RI_FKey_noaction_upd",
+          "",
+          ""
+        ],
+        [
+          "public",
+          "ai_skill_candidates",
+          "public",
+          "ai_skill_candidates",
+          "public",
+          "ai_pi_operations",
+          "ai_skill_candidates_operation_id_637b3373_fk_ai_pi_ope",
+          5,
+          "O",
+          true,
+          true,
+          "pg_catalog",
+          "RI_FKey_check_ins",
+          "",
+          ""
+        ],
+        [
+          "public",
+          "ai_skill_candidates",
+          "public",
+          "ai_skill_candidates",
+          "public",
+          "ai_pi_operations",
+          "ai_skill_candidates_operation_id_637b3373_fk_ai_pi_ope",
+          17,
+          "O",
+          true,
+          true,
+          "pg_catalog",
+          "RI_FKey_check_upd",
+          "",
+          ""
+        ]
+      ],
+      "policies": []
+    },
+    "ai_task_feedback": {
+      "identity": [
+        "teruisi_sales_owner",
+        "r",
+        "p",
+        false,
+        false
+      ],
+      "columns": [
+        [
+          "id",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "generation",
+          "bigint",
+          true,
+          null,
+          "",
+          "",
+          null
+        ],
+        [
+          "owner_email",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "target_kind",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "target_ref",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "old_value_json",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "new_value_json",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "applies_to",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "source",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "confirmed_by",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "confirmed_at",
+          "timestamp with time zone",
+          true,
+          null,
+          "",
+          "",
+          null
+        ],
+        [
+          "status",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "version",
+          "bigint",
+          true,
+          null,
+          "",
+          "",
+          null
+        ],
+        [
+          "created_at",
+          "timestamp with time zone",
+          true,
+          null,
+          "",
+          "",
+          null
+        ],
+        [
+          "updated_at",
+          "timestamp with time zone",
+          true,
+          null,
+          "",
+          "",
+          null
+        ],
+        [
+          "operation_id",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ]
+      ],
+      "constraints": [
+        [
+          "ai_task_feedback_applies_to",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK-TREE [\"atom\",\"applies_to = ANY (ARRAY['this_report'::text, 'this_shop'::text, 'all_shops'::text])\"]"
+        ],
+        [
+          "ai_task_feedback_bytes",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK-TREE [\"AND\",[[\"atom\",\"octet_length(old_value_json) <= 16384\"],[\"atom\",\"octet_length(new_value_json) <= 16384\"],[\"atom\",\"octet_length(target_ref) <= 400\"]]]"
+        ],
+        [
+          "ai_task_feedback_counters",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK-TREE [\"AND\",[[\"atom\",\"generation >= 1\"],[\"atom\",\"version >= 1\"]]]"
+        ],
+        [
+          "ai_task_feedback_generation_check",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK-TREE [\"atom\",\"generation >= 0\"]"
+        ],
+        [
+          "ai_task_feedback_operation_id_269eb98c_fk_ai_pi_operations_id",
+          "f",
+          true,
+          true,
+          true,
+          "FOREIGN KEY (operation_id) REFERENCES ai_pi_operations(id) DEFERRABLE INITIALLY DEFERRED"
+        ],
+        [
+          "ai_task_feedback_pkey",
+          "p",
+          true,
+          false,
+          false,
+          "PRIMARY KEY (id)"
+        ],
+        [
+          "ai_task_feedback_source",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK-TREE [\"atom\",\"source = ANY (ARRAY['user'::text, 'model_suggested'::text])\"]"
+        ],
+        [
+          "ai_task_feedback_status",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK-TREE [\"atom\",\"status = ANY (ARRAY['confirmed'::text, 'superseded'::text, 'withdrawn'::text])\"]"
+        ],
+        [
+          "ai_task_feedback_target_kind",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK-TREE [\"atom\",\"target_kind = ANY (ARRAY['metric_definition'::text, 'scope'::text, 'section'::text, 'threshold'::text, 'other'::text])\"]"
+        ],
+        [
+          "ai_task_feedback_version_check",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK-TREE [\"atom\",\"version >= 0\"]"
+        ]
+      ],
+      "indexes": [
+        [
+          "ai_task_feedback_id_d5078543_like",
+          true,
+          true,
+          false,
+          "CREATE INDEX ai_task_feedback_id_d5078543_like ON public.ai_task_feedback USING btree (id text_pattern_ops)"
+        ],
+        [
+          "ai_task_feedback_live_target_unique",
+          true,
+          true,
+          true,
+          "CREATE UNIQUE INDEX ai_task_feedback_live_target_unique ON public.ai_task_feedback USING btree (operation_id, target_kind, target_ref) WHERE (status = 'confirmed'::text)"
+        ],
+        [
+          "ai_task_feedback_op_idx",
+          true,
+          true,
+          false,
+          "CREATE INDEX ai_task_feedback_op_idx ON public.ai_task_feedback USING btree (operation_id, status)"
+        ],
+        [
+          "ai_task_feedback_operation_id_269eb98c",
+          true,
+          true,
+          false,
+          "CREATE INDEX ai_task_feedback_operation_id_269eb98c ON public.ai_task_feedback USING btree (operation_id)"
+        ],
+        [
+          "ai_task_feedback_operation_id_269eb98c_like",
+          true,
+          true,
+          false,
+          "CREATE INDEX ai_task_feedback_operation_id_269eb98c_like ON public.ai_task_feedback USING btree (operation_id text_pattern_ops)"
+        ],
+        [
+          "ai_task_feedback_owner_idx",
+          true,
+          true,
+          false,
+          "CREATE INDEX ai_task_feedback_owner_idx ON public.ai_task_feedback USING btree (owner_email, confirmed_at)"
+        ],
+        [
+          "ai_task_feedback_pkey",
+          true,
+          true,
+          true,
+          "CREATE UNIQUE INDEX ai_task_feedback_pkey ON public.ai_task_feedback USING btree (id)"
+        ]
+      ],
+      "triggers": [
+        [
+          "ai_immutable_identity",
+          19,
+          "O",
+          "public",
+          "ai_immutable_record_guard",
+          "6964006f7065726174696f6e5f69640067656e65726174696f6e006f776e65725f656d61696c007461726765745f6b696e64007461726765745f726566006f6c645f76616c75655f6a736f6e006e65775f76616c75655f6a736f6e006170706c6965735f746f00736f7572636500636f6e6669726d65645f627900637265617465645f617400",
+          "CREATE TRIGGER ai_immutable_identity BEFORE UPDATE ON public.ai_task_feedback FOR EACH ROW EXECUTE FUNCTION ai_immutable_record_guard('id', 'operation_id', 'generation', 'owner_email', 'target_kind', 'target_ref', 'old_value_json', 'new_value_json', 'applies_to', 'source', 'confirmed_by', 'created_at')"
+        ],
+        [
+          "ai_task_feedback_state",
+          23,
+          "O",
+          "public",
+          "ai_task_feedback_guard",
+          "",
+          "CREATE TRIGGER ai_task_feedback_state BEFORE INSERT OR UPDATE ON public.ai_task_feedback FOR EACH ROW EXECUTE FUNCTION ai_task_feedback_guard()"
+        ],
+        [
+          "ai_write_fence",
+          31,
+          "O",
+          "public",
+          "ai_runtime_write_fence",
+          "",
+          "CREATE TRIGGER ai_write_fence BEFORE INSERT OR DELETE OR UPDATE ON public.ai_task_feedback FOR EACH ROW EXECUTE FUNCTION ai_runtime_write_fence()"
+        ]
+      ],
+      "acl": [
+        [
+          "OWNER",
+          "DELETE",
+          false
+        ],
+        [
+          "OWNER",
+          "INSERT",
+          false
+        ],
+        [
+          "OWNER",
+          "MAINTAIN",
+          false
+        ],
+        [
+          "OWNER",
+          "REFERENCES",
+          false
+        ],
+        [
+          "OWNER",
+          "SELECT",
+          false
+        ],
+        [
+          "OWNER",
+          "TRIGGER",
+          false
+        ],
+        [
+          "OWNER",
+          "TRUNCATE",
+          false
+        ],
+        [
+          "OWNER",
+          "UPDATE",
+          false
+        ],
+        [
+          "teruisi_ai_writer",
+          "DELETE",
+          false
+        ],
+        [
+          "teruisi_ai_writer",
+          "INSERT",
+          false
+        ],
+        [
+          "teruisi_ai_writer",
+          "SELECT",
+          false
+        ],
+        [
+          "teruisi_ai_writer",
+          "UPDATE",
+          false
+        ]
+      ],
+      "columnAcl": [],
+      "foreignKeyTriggers": [
+        [
+          "public",
+          "ai_pi_operations",
+          "public",
+          "ai_task_feedback",
+          "public",
+          "ai_pi_operations",
+          "ai_task_feedback_operation_id_269eb98c_fk_ai_pi_operations_id",
+          9,
+          "O",
+          true,
+          true,
+          "pg_catalog",
+          "RI_FKey_noaction_del",
+          "",
+          ""
+        ],
+        [
+          "public",
+          "ai_pi_operations",
+          "public",
+          "ai_task_feedback",
+          "public",
+          "ai_pi_operations",
+          "ai_task_feedback_operation_id_269eb98c_fk_ai_pi_operations_id",
+          17,
+          "O",
+          true,
+          true,
+          "pg_catalog",
+          "RI_FKey_noaction_upd",
+          "",
+          ""
+        ],
+        [
+          "public",
+          "ai_task_feedback",
+          "public",
+          "ai_task_feedback",
+          "public",
+          "ai_pi_operations",
+          "ai_task_feedback_operation_id_269eb98c_fk_ai_pi_operations_id",
+          5,
+          "O",
+          true,
+          true,
+          "pg_catalog",
+          "RI_FKey_check_ins",
+          "",
+          ""
+        ],
+        [
+          "public",
+          "ai_task_feedback",
+          "public",
+          "ai_task_feedback",
+          "public",
+          "ai_pi_operations",
+          "ai_task_feedback_operation_id_269eb98c_fk_ai_pi_operations_id",
+          17,
+          "O",
+          true,
+          true,
+          "pg_catalog",
+          "RI_FKey_check_upd",
+          "",
+          ""
+        ]
+      ],
+      "policies": []
+    }
+  },
+  "functions": {
+    "public.ai_skill_candidate_guard()": {
+      "schema": "public",
+      "name": "ai_skill_candidate_guard",
+      "arguments": "",
+      "result": "trigger",
+      "owner": "teruisi_sales_owner",
+      "language": "plpgsql",
+      "kind": "f",
+      "securityDefiner": false,
+      "leakproof": false,
+      "strict": false,
+      "volatility": "v",
+      "parallel": "u",
+      "returnsSet": false,
+      "configuration": [
+        "search_path=pg_catalog, public"
+      ],
+      "source": "\nDECLARE o public.ai_pi_operations; s public.ai_pi_sessions;\nBEGIN\n SELECT * INTO o FROM public.ai_pi_operations WHERE id=NEW.operation_id;\n IF o.id IS NULL THEN RAISE EXCEPTION 'ai_skill_candidate_operation_missing'; END IF;\n SELECT * INTO s FROM public.ai_pi_sessions WHERE id=o.session_id;\n IF s.id IS NULL OR s.owner_email<>NEW.owner_email\n   THEN RAISE EXCEPTION 'ai_skill_candidate_owner'; END IF;\n -- A candidate distils a finished run. Only a succeeded operation produced a\n -- report; distilling an unknown or failed run would cite a result that is not\n -- established.\n IF o.status<>'succeeded' THEN RAISE EXCEPTION 'ai_skill_candidate_run_not_succeeded'; END IF;\n IF TG_OP='INSERT' AND (NEW.status<>'draft' OR NEW.version<>1\n   OR NEW.reviewed_by<>'' OR NEW.reviewed_at IS NOT NULL)\n   THEN RAISE EXCEPTION 'ai_skill_candidate_initial_state'; END IF;\n IF TG_OP='UPDATE' THEN\n  -- Approval binds the content that was reviewed. Since the identity guard\n  -- freezes content_digest, this states the rule the application also keeps:\n  -- an approved row cannot be edited back into review and keep its approval.\n  IF NEW.status IN ('approved','rejected') AND (NEW.reviewed_by='' OR NEW.reviewed_at IS NULL)\n    THEN RAISE EXCEPTION 'ai_skill_candidate_review_identity_required'; END IF;\n  IF OLD.status IN ('approved','rejected') AND NEW.status IN ('draft','in_review')\n    THEN RAISE EXCEPTION 'ai_skill_candidate_no_reopen'; END IF;\n  IF NEW.version<=OLD.version THEN RAISE EXCEPTION 'ai_skill_candidate_version'; END IF;\n END IF;\n RETURN NEW;\nEND ",
+      "definition": "CREATE OR REPLACE FUNCTION public.ai_skill_candidate_guard()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE o public.ai_pi_operations; s public.ai_pi_sessions;\nBEGIN\n SELECT * INTO o FROM public.ai_pi_operations WHERE id=NEW.operation_id;\n IF o.id IS NULL THEN RAISE EXCEPTION 'ai_skill_candidate_operation_missing'; END IF;\n SELECT * INTO s FROM public.ai_pi_sessions WHERE id=o.session_id;\n IF s.id IS NULL OR s.owner_email<>NEW.owner_email\n   THEN RAISE EXCEPTION 'ai_skill_candidate_owner'; END IF;\n -- A candidate distils a finished run. Only a succeeded operation produced a\n -- report; distilling an unknown or failed run would cite a result that is not\n -- established.\n IF o.status<>'succeeded' THEN RAISE EXCEPTION 'ai_skill_candidate_run_not_succeeded'; END IF;\n IF TG_OP='INSERT' AND (NEW.status<>'draft' OR NEW.version<>1\n   OR NEW.reviewed_by<>'' OR NEW.reviewed_at IS NOT NULL)\n   THEN RAISE EXCEPTION 'ai_skill_candidate_initial_state'; END IF;\n IF TG_OP='UPDATE' THEN\n  -- Approval binds the content that was reviewed. Since the identity guard\n  -- freezes content_digest, this states the rule the application also keeps:\n  -- an approved row cannot be edited back into review and keep its approval.\n  IF NEW.status IN ('approved','rejected') AND (NEW.reviewed_by='' OR NEW.reviewed_at IS NULL)\n    THEN RAISE EXCEPTION 'ai_skill_candidate_review_identity_required'; END IF;\n  IF OLD.status IN ('approved','rejected') AND NEW.status IN ('draft','in_review')\n    THEN RAISE EXCEPTION 'ai_skill_candidate_no_reopen'; END IF;\n  IF NEW.version<=OLD.version THEN RAISE EXCEPTION 'ai_skill_candidate_version'; END IF;\n END IF;\n RETURN NEW;\nEND $function$\n",
+      "acl": [
+        [
+          "OWNER",
+          "EXECUTE",
+          false
+        ],
+        [
+          "PUBLIC",
+          "EXECUTE",
+          false
+        ]
+      ]
+    },
+    "public.ai_task_feedback_guard()": {
+      "schema": "public",
+      "name": "ai_task_feedback_guard",
+      "arguments": "",
+      "result": "trigger",
+      "owner": "teruisi_sales_owner",
+      "language": "plpgsql",
+      "kind": "f",
+      "securityDefiner": false,
+      "leakproof": false,
+      "strict": false,
+      "volatility": "v",
+      "parallel": "u",
+      "returnsSet": false,
+      "configuration": [
+        "search_path=pg_catalog, public"
+      ],
+      "source": "\nDECLARE o public.ai_pi_operations; s public.ai_pi_sessions;\nBEGIN\n SELECT * INTO o FROM public.ai_pi_operations WHERE id=NEW.operation_id;\n IF o.id IS NULL THEN RAISE EXCEPTION 'ai_task_feedback_operation_missing'; END IF;\n SELECT * INTO s FROM public.ai_pi_sessions WHERE id=o.session_id;\n -- A correction belongs to the generation that produced the report. After a\n -- scope change the environment advances its generation, and an older\n -- correction must not read as applying to the new one.\n IF s.id IS NULL OR o.generation<>NEW.generation OR s.owner_email<>NEW.owner_email\n   THEN RAISE EXCEPTION 'ai_task_feedback_binding'; END IF;\n -- Corrections describe a finished task. Attaching one to a task still in\n -- flight would let it be cited before the report it corrects exists.\n IF o.status NOT IN ('succeeded','failed','canceled','unknown','frozen')\n   THEN RAISE EXCEPTION 'ai_task_feedback_operation_not_settled'; END IF;\n IF TG_OP='INSERT' AND (NEW.status<>'confirmed' OR NEW.version<>1)\n   THEN RAISE EXCEPTION 'ai_task_feedback_initial_state'; END IF;\n -- Only a human confirmation counts as confirmed. A model proposal stays a\n -- proposal, so candidate distillation cannot cite it as settled.\n IF NEW.source='model_suggested' AND NEW.status='confirmed'\n   THEN RAISE EXCEPTION 'ai_task_feedback_model_cannot_confirm'; END IF;\n RETURN NEW;\nEND ",
+      "definition": "CREATE OR REPLACE FUNCTION public.ai_task_feedback_guard()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE o public.ai_pi_operations; s public.ai_pi_sessions;\nBEGIN\n SELECT * INTO o FROM public.ai_pi_operations WHERE id=NEW.operation_id;\n IF o.id IS NULL THEN RAISE EXCEPTION 'ai_task_feedback_operation_missing'; END IF;\n SELECT * INTO s FROM public.ai_pi_sessions WHERE id=o.session_id;\n -- A correction belongs to the generation that produced the report. After a\n -- scope change the environment advances its generation, and an older\n -- correction must not read as applying to the new one.\n IF s.id IS NULL OR o.generation<>NEW.generation OR s.owner_email<>NEW.owner_email\n   THEN RAISE EXCEPTION 'ai_task_feedback_binding'; END IF;\n -- Corrections describe a finished task. Attaching one to a task still in\n -- flight would let it be cited before the report it corrects exists.\n IF o.status NOT IN ('succeeded','failed','canceled','unknown','frozen')\n   THEN RAISE EXCEPTION 'ai_task_feedback_operation_not_settled'; END IF;\n IF TG_OP='INSERT' AND (NEW.status<>'confirmed' OR NEW.version<>1)\n   THEN RAISE EXCEPTION 'ai_task_feedback_initial_state'; END IF;\n -- Only a human confirmation counts as confirmed. A model proposal stays a\n -- proposal, so candidate distillation cannot cite it as settled.\n IF NEW.source='model_suggested' AND NEW.status='confirmed'\n   THEN RAISE EXCEPTION 'ai_task_feedback_model_cannot_confirm'; END IF;\n RETURN NEW;\nEND $function$\n",
+      "acl": [
+        [
+          "OWNER",
+          "EXECUTE",
+          false
+        ],
+        [
+          "PUBLIC",
+          "EXECUTE",
+          false
+        ]
+      ]
+    }
+  }
+}

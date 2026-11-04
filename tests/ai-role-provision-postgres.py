@@ -38,6 +38,8 @@ def verify(port, data):
         ("0085_pi_workspace_controls", manifest.PI_WORKSPACE_TABLES, "Pi workspace"),
         ("0086_pi_business_actions", manifest.PI_BUSINESS_TABLES, "Pi business"),
         ("0087_pi_native_capabilities", manifest.PI_NATIVE_TABLES, "Pi native"),
+        ("0088_task_feedback", manifest.TASK_FEEDBACK_TABLES, "Task feedback"),
+        ("0089_skill_candidates", manifest.SKILL_CANDIDATE_TABLES, "Skill candidate"),
     ]
     all_pi = set().union(*(set(tables) for _, tables, _ in groups))
     passwords = (secrets.token_hex(32), secrets.token_hex(32))
@@ -58,7 +60,7 @@ def verify(port, data):
             assert Path(cur.fetchone()[0]).resolve() == data.resolve()
             cur.execute("SHOW port")
             assert int(cur.fetchone()[0]) == port and port != 5432
-        for depth in range(5):
+        for depth in range(len(groups) + 1):
             present = set().union(*(set(tables) for _, tables, _ in groups[:depth]))
             with db.cursor() as cur:
                 cur.execute("DROP SCHEMA public CASCADE")

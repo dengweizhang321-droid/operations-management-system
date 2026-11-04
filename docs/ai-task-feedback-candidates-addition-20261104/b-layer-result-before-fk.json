@@ -1,0 +1,3141 @@
+{
+  "status": "completed",
+  "layer": "B",
+  "generations": [
+    156,
+    158
+  ],
+  "checks": [
+    "exact156-ancestor-catalogues-and-real-domain-provision",
+    "both-DDL-and-receipts-rollback-after-real-second-step-failure",
+    "stale-intent-and-partial157-refused",
+    "real-install158-owner-only-and-empty-preserves156",
+    "real-provision-failure-rolls-back-and-finalize-database-gate-refuses",
+    "real-reconcile-confirms-installed158-with-zero-DDL-and-zero-replay",
+    "real-AI-provision-writer-four-reader-zero-final158-and-no-pending",
+    "every-frozen-table-and-function-leaf-has-live-negative",
+    "real-SQL-drift-probes-cover-columns-constraints-indexes-triggers-guards-security-and-ACL",
+    "nonempty-parent-workflow-rows-and-ACL-preservation-negatives",
+    "preservation-total500000-bound-before-DDL",
+    "each-new-migration-state-default-has-negative-and-is-restored"
+  ],
+  "negativeChecks": [
+    {
+      "check": "real-second-DDL-failure",
+      "exception": "DataError"
+    },
+    {
+      "check": "stale-preservation-intent",
+      "exception": "ValueError"
+    },
+    {
+      "check": "partial157-parent",
+      "exception": "ValueError"
+    },
+    {
+      "check": "unsupported157-generation",
+      "exception": "ValueError"
+    },
+    {
+      "check": "final-ACL-before-provision",
+      "exception": "ValueError"
+    },
+    {
+      "check": "install-replay-after158",
+      "exception": "ValueError"
+    },
+    {
+      "check": "real-provision-mid-GRANT-failure",
+      "exception": "DivisionByZero"
+    },
+    {
+      "check": "finalize-database-gate-after-provision-failure",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.identity.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.identity.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.identity.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.identity.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.identity.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.0.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.0.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.0.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.0.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.0.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.0.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.0.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.1.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.1.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.1.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.1.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.1.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.1.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.1.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.2.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.2.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.2.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.2.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.2.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.2.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.2.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.3.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.3.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.3.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.3.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.3.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.3.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.3.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.4.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.4.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.4.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.4.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.4.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.4.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.4.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.5.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.5.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.5.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.5.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.5.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.5.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.5.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.6.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.6.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.6.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.6.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.6.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.6.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.6.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.7.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.7.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.7.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.7.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.7.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.7.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.7.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.8.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.8.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.8.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.8.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.8.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.8.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.8.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.9.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.9.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.9.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.9.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.9.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.9.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.9.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.10.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.10.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.10.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.10.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.10.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.10.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.10.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.11.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.11.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.11.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.11.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.11.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.11.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.11.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.12.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.12.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.12.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.12.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.12.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.12.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.12.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.13.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.13.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.13.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.13.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.13.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.13.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.13.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.14.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.14.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.14.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.14.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.14.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.14.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.14.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.15.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.15.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.15.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.15.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.15.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.15.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.15.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.16.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.16.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.16.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.16.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.16.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.16.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.16.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.17.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.17.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.17.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.17.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.17.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.17.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columns.17.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.0.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.0.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.0.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.0.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.0.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.0.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.1.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.1.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.1.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.1.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.1.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.1.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.2.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.2.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.2.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.2.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.2.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.2.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.3.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.3.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.3.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.3.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.3.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.3.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.4.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.4.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.4.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.4.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.4.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.4.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.5.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.5.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.5.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.5.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.5.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.5.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.6.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.6.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.6.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.6.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.6.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.6.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.7.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.7.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.7.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.7.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.7.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.7.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.8.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.8.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.8.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.8.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.8.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.constraints.8.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.0.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.0.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.0.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.0.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.0.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.1.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.1.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.1.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.1.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.1.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.2.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.2.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.2.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.2.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.2.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.3.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.3.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.3.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.3.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.3.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.4.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.4.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.4.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.4.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.4.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.5.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.5.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.5.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.5.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.5.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.6.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.6.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.6.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.6.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.indexes.6.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.0.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.0.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.0.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.0.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.0.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.0.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.0.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.1.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.1.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.1.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.1.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.1.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.1.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.1.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.2.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.2.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.2.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.2.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.2.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.2.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.triggers.2.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.0.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.0.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.0.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.1.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.1.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.1.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.2.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.2.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.2.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.3.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.3.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.3.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.4.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.4.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.4.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.5.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.5.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.5.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.6.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.6.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.6.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.7.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.7.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.7.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.8.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.8.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.8.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.9.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.9.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.9.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.10.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.10.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.10.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.11.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.11.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.acl.11.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.columnAcl",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_skill_candidates.policies",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.identity.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.identity.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.identity.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.identity.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.identity.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.0.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.0.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.0.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.0.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.0.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.0.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.0.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.1.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.1.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.1.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.1.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.1.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.1.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.1.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.2.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.2.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.2.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.2.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.2.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.2.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.2.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.3.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.3.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.3.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.3.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.3.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.3.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.3.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.4.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.4.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.4.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.4.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.4.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.4.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.4.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.5.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.5.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.5.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.5.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.5.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.5.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.5.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.6.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.6.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.6.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.6.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.6.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.6.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.6.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.7.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.7.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.7.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.7.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.7.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.7.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.7.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.8.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.8.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.8.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.8.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.8.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.8.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.8.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.9.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.9.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.9.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.9.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.9.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.9.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.9.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.10.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.10.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.10.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.10.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.10.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.10.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.10.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.11.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.11.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.11.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.11.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.11.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.11.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.11.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.12.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.12.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.12.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.12.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.12.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.12.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.12.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.13.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.13.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.13.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.13.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.13.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.13.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.13.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.14.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.14.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.14.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.14.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.14.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.14.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.14.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.15.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.15.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.15.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.15.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.15.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.15.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columns.15.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.0.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.0.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.0.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.0.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.0.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.0.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.1.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.1.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.1.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.1.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.1.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.1.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.2.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.2.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.2.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.2.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.2.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.2.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.3.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.3.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.3.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.3.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.3.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.3.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.4.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.4.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.4.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.4.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.4.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.4.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.5.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.5.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.5.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.5.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.5.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.5.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.6.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.6.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.6.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.6.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.6.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.6.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.7.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.7.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.7.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.7.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.7.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.7.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.8.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.8.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.8.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.8.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.8.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.8.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.9.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.9.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.9.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.9.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.9.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.constraints.9.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.0.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.0.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.0.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.0.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.0.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.1.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.1.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.1.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.1.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.1.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.2.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.2.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.2.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.2.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.2.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.3.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.3.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.3.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.3.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.3.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.4.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.4.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.4.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.4.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.4.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.5.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.5.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.5.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.5.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.5.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.6.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.6.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.6.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.6.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.indexes.6.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.0.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.0.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.0.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.0.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.0.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.0.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.0.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.1.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.1.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.1.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.1.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.1.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.1.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.1.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.2.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.2.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.2.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.2.3",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.2.4",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.2.5",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.triggers.2.6",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.0.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.0.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.0.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.1.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.1.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.1.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.2.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.2.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.2.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.3.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.3.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.3.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.4.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.4.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.4.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.5.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.5.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.5.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.6.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.6.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.6.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.7.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.7.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.7.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.8.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.8.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.8.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.9.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.9.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.9.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.10.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.10.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.10.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.11.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.11.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.acl.11.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.columnAcl",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:tables.ai_task_feedback.policies",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().schema",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().name",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().arguments",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().result",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().owner",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().language",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().kind",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().securityDefiner",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().leakproof",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().strict",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().volatility",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().parallel",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().returnsSet",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().configuration.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().source",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().definition",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().acl.0.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().acl.0.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().acl.0.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().acl.1.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().acl.1.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_skill_candidate_guard().acl.1.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().schema",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().name",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().arguments",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().result",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().owner",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().language",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().kind",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().securityDefiner",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().leakproof",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().strict",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().volatility",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().parallel",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().returnsSet",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().configuration.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().source",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().definition",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().acl.0.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().acl.0.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().acl.0.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().acl.1.0",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().acl.1.1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "snapshot-leaf:functions.public.ai_task_feedback_guard().acl.1.2",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:rls",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:force-rls",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:column-default",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:column-nullability",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:column-type",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:reader-grant",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:public-table-grant",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:column-acl",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:extra-policy",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:write-fence-disabled",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:identity-trigger-disabled",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:missing-writer-SELECT",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:missing-writer-INSERT",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:missing-writer-UPDATE",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:missing-writer-DELETE",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:writer-grant-option",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:drop-constraint:ai_skill_candidate_bytes",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:drop-constraint:ai_skill_candidate_digests",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:drop-constraint:ai_skill_candidate_review_identity",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:drop-constraint:ai_skill_candidate_status",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:drop-constraint:ai_skill_candidate_version",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:drop-constraint:ai_skill_candidates_operation_id_637b3373_fk_ai_pi_ope",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:drop-constraint:ai_skill_candidates_pkey",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:drop-constraint:ai_skill_candidates_unverified_count_check",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:drop-constraint:ai_skill_candidates_version_check",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:drop-index:ai_skill_candidate_live_unique",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:drop-index:ai_skill_candidate_op_idx",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:drop-index:ai_skill_candidate_owner_idx",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:drop-index:ai_skill_candidates_id_5429a841_like",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:drop-index:ai_skill_candidates_operation_id_637b3373",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:drop-index:ai_skill_candidates_operation_id_637b3373_like",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidates:guard-trigger-disabled",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:rls",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:force-rls",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:column-default",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:column-nullability",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:column-type",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:reader-grant",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:public-table-grant",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:column-acl",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:extra-policy",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:write-fence-disabled",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:identity-trigger-disabled",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:missing-writer-SELECT",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:missing-writer-INSERT",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:missing-writer-UPDATE",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:missing-writer-DELETE",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:writer-grant-option",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:drop-constraint:ai_task_feedback_applies_to",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:drop-constraint:ai_task_feedback_bytes",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:drop-constraint:ai_task_feedback_counters",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:drop-constraint:ai_task_feedback_generation_check",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:drop-constraint:ai_task_feedback_operation_id_269eb98c_fk_ai_pi_operations_id",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:drop-constraint:ai_task_feedback_pkey",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:drop-constraint:ai_task_feedback_source",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:drop-constraint:ai_task_feedback_status",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:drop-constraint:ai_task_feedback_target_kind",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:drop-constraint:ai_task_feedback_version_check",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:drop-index:ai_task_feedback_id_d5078543_like",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:drop-index:ai_task_feedback_live_target_unique",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:drop-index:ai_task_feedback_op_idx",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:drop-index:ai_task_feedback_operation_id_269eb98c",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:drop-index:ai_task_feedback_operation_id_269eb98c_like",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:drop-index:ai_task_feedback_owner_idx",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback:guard-trigger-disabled",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback_guard:body",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback_guard:SECURITY DEFINER",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback_guard:IMMUTABLE",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback_guard:PARALLEL SAFE",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback_guard:COST 1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback_guard:SET search_path=public",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback_guard:function-ACL",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_task_feedback_guard:extra-overload",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidate_guard:body",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidate_guard:SECURITY DEFINER",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidate_guard:IMMUTABLE",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidate_guard:PARALLEL SAFE",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidate_guard:COST 1",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidate_guard:SET search_path=public",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidate_guard:function-ACL",
+      "exception": "ValueError"
+    },
+    {
+      "check": "ai_skill_candidate_guard:extra-overload",
+      "exception": "ValueError"
+    },
+    {
+      "check": "parent-plus-workflow-total-row-bound",
+      "exception": "ValueError"
+    },
+    {
+      "check": "migration-state-default:AiTaskFeedback.old_value_json",
+      "exception": "ValueError"
+    },
+    {
+      "check": "migration-state-default:AiTaskFeedback.applies_to",
+      "exception": "ValueError"
+    },
+    {
+      "check": "migration-state-default:AiTaskFeedback.source",
+      "exception": "ValueError"
+    },
+    {
+      "check": "migration-state-default:AiTaskFeedback.status",
+      "exception": "ValueError"
+    },
+    {
+      "check": "migration-state-default:AiTaskFeedback.version",
+      "exception": "ValueError"
+    },
+    {
+      "check": "migration-state-default:AiSkillCandidate.feedback_ids_json",
+      "exception": "ValueError"
+    },
+    {
+      "check": "migration-state-default:AiSkillCandidate.unverified_count",
+      "exception": "ValueError"
+    },
+    {
+      "check": "migration-state-default:AiSkillCandidate.status",
+      "exception": "ValueError"
+    },
+    {
+      "check": "migration-state-default:AiSkillCandidate.reviewed_by",
+      "exception": "ValueError"
+    },
+    {
+      "check": "migration-state-default:AiSkillCandidate.reviewed_at",
+      "exception": "ValueError"
+    },
+    {
+      "check": "migration-state-default:AiSkillCandidate.review_note",
+      "exception": "ValueError"
+    },
+    {
+      "check": "migration-state-default:AiSkillCandidate.version",
+      "exception": "ValueError"
+    }
+  ],
+  "negativeCount": 696,
+  "productionTouched": false,
+  "fullBackupOrRestorePerformed": false,
+  "database": "teruisi_ai_feedback_candidates_rehearsal",
+  "port": 55512,
+  "parent156": {
+    "targets": [
+      [
+        "access_control",
+        "0001_initial"
+      ],
+      [
+        "bi",
+        "0001_initial"
+      ],
+      [
+        "contenttypes",
+        "0002_remove_content_type_name"
+      ],
+      [
+        "customer_service",
+        "0002_seed_control_rows"
+      ],
+      [
+        "erp_reference",
+        "0003_jackyun_upload_audit_binding"
+      ],
+      [
+        "finance",
+        "0007_finance_erp_targets"
+      ],
+      [
+        "inventory",
+        "0017_tmall_warehouse"
+      ],
+      [
+        "market",
+        "0006_analysis_options"
+      ],
+      [
+        "netshop",
+        "0004_promotion_presence_cache"
+      ],
+      [
+        "products",
+        "0003_alter_productimportattempt_created_at_and_more"
+      ],
+      [
+        "sales",
+        "0012_excluded_business_date_index"
+      ],
+      [
+        "ai_assistant",
+        "0087_pi_native_capabilities"
+      ],
+      [
+        "workflow",
+        "0010_customer_service_chain_modules"
+      ]
+    ],
+    "receipts": [
+      "access_control.0001_initial",
+      "ai_assistant.0001_initial",
+      "ai_assistant.0002_seed_authority",
+      "ai_assistant.0003_runtime_fencing",
+      "ai_assistant.0004_terminal_control_guards",
+      "ai_assistant.0005_postgres_image_payload",
+      "ai_assistant.0006_conversation_workspaces",
+      "ai_assistant.0007_dingtalk_readonly",
+      "ai_assistant.0008_dingtalk_settings",
+      "ai_assistant.0009_model_generation_capabilities",
+      "ai_assistant.0010_dingtalk_schedules",
+      "ai_assistant.0011_prompt_settings",
+      "ai_assistant.0012_report_library",
+      "ai_assistant.0013_dingtalk_schedule_media",
+      "ai_assistant.0014_business_evidence",
+      "ai_assistant.0015_business_collection",
+      "ai_assistant.0016_business_files",
+      "ai_assistant.0017_business_file_renderer",
+      "ai_assistant.0018_business_excel_renderer",
+      "ai_assistant.0019_business_source_directory",
+      "ai_assistant.0020_business_volume_files",
+      "ai_assistant.0021_business_budget_plans",
+      "ai_assistant.0022_business_integrated_reports",
+      "ai_assistant.0023_business_screening_storage",
+      "ai_assistant.0024_business_screening_runtime",
+      "ai_assistant.0025_business_file_opc",
+      "ai_assistant.0026_business_promotion_profile",
+      "ai_assistant.0027_business_promotion_file_guard",
+      "ai_assistant.0028_business_finance_v3_gate",
+      "ai_assistant.0029_business_promotion_file_ready",
+      "ai_assistant.0030_business_finance_source_pages",
+      "ai_assistant.0031_business_daily_v3_source_pages",
+      "ai_assistant.0032_business_source_tool_receipts",
+      "ai_assistant.0033_business_v3_parent_seal",
+      "ai_assistant.0034_business_v3_report_intent",
+      "ai_assistant.0035_business_v4_ledger",
+      "ai_assistant.0036_business_v4_validation_segments",
+      "ai_assistant.0037_business_v4_seal_admission_read",
+      "ai_assistant.0038_business_v4_seal_writer_gate",
+      "ai_assistant.0039_business_v4_sealer_ledger_read",
+      "ai_assistant.0040_business_v4_sealer_narrow_stream",
+      "ai_assistant.0041_business_v4_seal_ticket",
+      "ai_assistant.0042_business_v4_claimed_read",
+      "ai_assistant.0043_business_v4_seal_consumption_candidate",
+      "ai_assistant.0044_business_market_v2_profile",
+      "ai_assistant.0045_business_market_v2_material_attestation",
+      "ai_assistant.0046_business_promotion_trial_file_guard",
+      "ai_assistant.0047_business_v4_sealer_replay_progress",
+      "ai_assistant.0048_business_v4_finance_replay_progress",
+      "ai_assistant.0049_business_v4_sealer_source_bridge",
+      "ai_assistant.0050_business_v4_replay_read_cast",
+      "ai_assistant.0051_business_v4_prior_claim_column",
+      "ai_assistant.0052_business_v4_commit_consumption",
+      "ai_assistant.0053_business_market_v2_admitted_paused",
+      "ai_assistant.0054_business_promotion_budget_file_staging",
+      "ai_assistant.0055_business_v4_period_plan_candidate",
+      "ai_assistant.0056_business_market_v2_material_role_bridge",
+      "ai_assistant.0057_business_promotion_budget_v10_attestation",
+      "ai_assistant.0058_business_promotion_budget_v10_publish_gate",
+      "ai_assistant.0059_business_promotion_budget_v10_reader_fence",
+      "ai_assistant.0060_business_market_v2_execution_snapshot",
+      "ai_assistant.0061_business_market_v2_context_proof",
+      "ai_assistant.0062_business_market_v2_read_receipt_candidate",
+      "ai_assistant.0063_business_market_v2_execution_plan",
+      "ai_assistant.0064_business_market_v2_synthetic_vertical",
+      "ai_assistant.0065_business_market_v2_model_cost_reservation",
+      "ai_assistant.0066_business_promotion_budget_v11_durable_stage",
+      "ai_assistant.0067_business_promotion_budget_v11_attestation",
+      "ai_assistant.0068_business_promotion_budget_v11_verifier_receipt",
+      "ai_assistant.0069_business_market_v2_paid_round_rehearsal",
+      "ai_assistant.0070_business_promotion_budget_v11_limited_identity",
+      "ai_assistant.0071_business_v4_report_source_link",
+      "ai_assistant.0072_business_market_v2_authority_proposals",
+      "ai_assistant.0073_business_promotion_budget_v11_login_attestation",
+      "ai_assistant.0074_business_market_v2_human_cap_approval",
+      "ai_assistant.0075_business_v4_report_restricted_page",
+      "ai_assistant.0076_business_promotion_budget_v11_ticket_bound_signer",
+      "ai_assistant.0077_business_market_v6_paused_topology",
+      "ai_assistant.0078_business_promotion_budget_v11_signed_publication",
+      "ai_assistant.0079_business_market_v6_source_ticket",
+      "ai_assistant.0080_model_tool_budget_300",
+      "ai_assistant.0081_readiness_catalog_probe",
+      "ai_assistant.0082_no_new_keys_profile",
+      "ai_assistant.0083_schedule_execution_profile",
+      "ai_assistant.0084_pi_agent_independent_runtime",
+      "ai_assistant.0085_pi_workspace_controls",
+      "ai_assistant.0086_pi_business_actions",
+      "ai_assistant.0087_pi_native_capabilities",
+      "bi.0001_initial",
+      "contenttypes.0001_initial",
+      "contenttypes.0002_remove_content_type_name",
+      "customer_service.0001_initial",
+      "customer_service.0002_seed_control_rows",
+      "erp_reference.0001_initial",
+      "erp_reference.0002_erpproductmaster_erpreferenceimportscopehead_and_more",
+      "erp_reference.0003_jackyun_upload_audit_binding",
+      "finance.0001_initial",
+      "finance.0002_finance_target_gross_margin",
+      "finance.0003_finance_source_revision_guard",
+      "finance.0004_finance_revision_monotonic",
+      "finance.0005_raw_column_evidence_v2",
+      "finance.0006_raw_workbook_bytes_v2",
+      "finance.0007_finance_erp_targets",
+      "inventory.0001_initial",
+      "inventory.0002_seed_control_rows",
+      "inventory.0003_replenishment_plan_details",
+      "inventory.0004_replenishment_dingtalk_sync",
+      "inventory.0005_stock_supplier_warehouse_mapping",
+      "inventory.0006_replenishment_group_delivery",
+      "inventory.0007_guangdong_monitor",
+      "inventory.0008_guangdong_item_overrides",
+      "inventory.0009_guangdong_item_risk_overrides",
+      "inventory.0010_replenishment_health",
+      "inventory.0011_inventory_warehouse_mapping_settings",
+      "inventory.0012_jd_logistics",
+      "inventory.0013_jd_logistics_notifications",
+      "inventory.0014_jd_logistics_replenishment_cycle",
+      "inventory.0015_jd_monitor_preferences",
+      "inventory.0016_jd_product_monitoring",
+      "inventory.0017_tmall_warehouse",
+      "market.0001_initial",
+      "market.0002_seed_control_rows",
+      "market.0003_remove_marketannotationvalidationsample_mkt_validation_sample_uq_and_more",
+      "market.0004_projection_sync_fencing",
+      "market.0005_filter_facet_indexes",
+      "market.0006_analysis_options",
+      "netshop.0001_initial",
+      "netshop.0002_migration_run_time_order",
+      "netshop.0003_netshop_source_revision_guard",
+      "netshop.0004_promotion_presence_cache",
+      "products.0001_initial",
+      "products.0002_seed_control_rows",
+      "products.0003_alter_productimportattempt_created_at_and_more",
+      "sales.0001_initial",
+      "sales.0002_sales_migration_approval",
+      "sales.0003_query_ready_projection",
+      "sales.0004_projection_sync",
+      "sales.0005_postgres_write_authority",
+      "sales.0006_drop_legacy_projection_checkpoint",
+      "sales.0007_legacy_upload_audit",
+      "sales.0008_sales_cutover_attestation",
+      "sales.0009_postgres_raw_upload_payload",
+      "sales.0010_analysis_options",
+      "sales.0011_jackyun_upload_audit_binding",
+      "sales.0012_excluded_business_date_index",
+      "workflow.0001_initial",
+      "workflow.0002_seed_control_rows",
+      "workflow.0003_workflowmigrationrun_and_authority_run",
+      "workflow.0004_new_product_weekly_followup",
+      "workflow.0005_operations_domain",
+      "workflow.0005_product_line_continuous_monitoring",
+      "workflow.0006_merge_20260904_1700",
+      "workflow.0007_new_product_line_uploaded_image",
+      "workflow.0008_new_product_shop_plan",
+      "workflow.0009_automation_projection_b1",
+      "workflow.0010_customer_service_chain_modules"
+    ],
+    "preservation": {
+      "rows": 6,
+      "legacyRowsSha256": "49655296c6ae828f74121b93690b623f0ee098e5b9cec58095a754b5487648df",
+      "permissionsSha256": "45ed47dee1ee21179a387c00d930e06c02ff33f5d2580e48d2197887ce08dc34"
+    }
+  },
+  "fileGateLayerARequired": true,
+  "nativeColdStartPerformed": false,
+  "sourceFiles": {
+    "automation/n8n/pi-business/tmall-cuizhiwang-pi-business.candidate.workflow.json": "5831ca835871f596957e56aececfa848afa328aba20426aec9aa8712d6c3a459",
+    "automation/n8n/pi-business/tmall-lili-pi-business.candidate.workflow.json": "44fdff2ea90543a48debd668b681c0ba1d240a9798904c52fc1baf79b6467f7f",
+    "automation/n8n/pi-business/tmall-masitu-pi-business.candidate.workflow.json": "19ced766ee32e03b5f18b1143bc1235c2cc954322c8254f1c713262c0bbf8d58",
+    "automation/n8n/pi-business/tmall-tuofeng-pi-business.candidate.workflow.json": "d869cc495137c1860f95daae9f79692d5ad1b83d1bef723b6cb2ae405951645a",
+    "automation/n8n/pi-business/tmall-yijiu-pi-business.candidate.workflow.json": "7f4c879c3113391cd98fc6fb22232ba989f98501164d0e45dbe4273b2f4df076",
+    "automation/n8n/pi-business/tmall-yiyong-pi-business.candidate.workflow.json": "e45e2f94976e69a48d2795fcad89aaf1eb32ff565dad6be34fc6599e3310b625",
+    "backend/ai_assistant/candidate_models.py": "b7a6f638ef264dc891ba53cad5d16ccca5baf3f762ded0134483bece53a2cdf7",
+    "backend/ai_assistant/database_contract.py": "e372623d9d89fcc20c24345ca2b4a4ac3dfed3e91b86c66c0813712d4af4875d",
+    "backend/ai_assistant/feedback_models.py": "b5d85c698e5dbd63c06d9f7e1f404b04ca1d7c7a685fdd41f825c5faa26c9bc4",
+    "backend/ai_assistant/migrations/0003_runtime_fencing.py": "d547fc51f47680ac9faf9585ec8e6611129496f7804511436729485533aa27c3",
+    "backend/ai_assistant/migrations/0085_pi_workspace_controls.py": "b4bd9ca8d870caa3b747b70446108a67af820610e79273ca35a752e850091d07",
+    "backend/ai_assistant/migrations/0086_pi_business_actions.py": "3435b5970ffb5d5530e60aed6156e7b7e7792fb0cbff5e198ef8a3b264ee4213",
+    "backend/ai_assistant/migrations/0087_pi_native_capabilities.py": "438a85491e92acc8f213794a196b0b59f2194c9ae566cb56926eceeac19777c0",
+    "backend/ai_assistant/migrations/0088_task_feedback.py": "36f53b390e1e0165f0fe6aeb5f9c4a6a6e572bf800a8c1519094fe1c79ec64a0",
+    "backend/ai_assistant/migrations/0089_skill_candidates.py": "cb710c9265fd8b973afefcb364ecd74b13118e15b79d6f245b127ad6de002317",
+    "backend/ai_assistant/pi_exports.py": "5c9f7c942de195dcb65341d0b5663aee572610b42bfd0c3f1cbbbf41f4c9acd7",
+    "backend/ai_assistant/pi_gateway.py": "eeb0df510694603b2658555a5a9c45d5adc58b0cb8adfda84f21ce996929801f",
+    "backend/ai_assistant/pi_health.py": "2c830812f5715366d5be56a432928cd51d39167cd295b54c85eb5cfb1a22c047",
+    "backend/ai_assistant/pi_models.py": "0fcbcf59983c80ec102612938893486d64e8d0948f3659082d25e01356741343",
+    "backend/ai_assistant/pi_native_health.py": "796c720b99cfee4f70bd2e17a901b79cf4c4e96870d86673e0118d05ebec7cc9",
+    "backend/ai_assistant/pi_selection.py": "b25ec1957b19f140e655977613aa10a8c04b0e6b229d1babe4a57dc36e79cbca",
+    "backend/ai_assistant/pi_service.py": "60461e8ceef5e956552f6c321a150b8ca9b33def2f1190054f3ace8d0c2a1146",
+    "backend/ai_assistant/pi_transport.py": "1321d0ef8e4a0bb3180f5263b83c80cf95358bd6fdf8e5b3b6cb945a443549fa",
+    "backend/ai_assistant/pi_worker.py": "e2df74c73f3f0824a033c70b649bb588cd717a4cdbbe8c3b9168775d6f77c316",
+    "backend/ai_assistant/pi_workspace.py": "355b006dc9ebca00fe7e1c9203d561d547040d5be584cffcb6c092981e89050c",
+    "backend/ai_assistant/table_manifest.py": "c893b749281e75e71f73d1fafb223bf252cd12adeb869c8590521eb7a3cdc635",
+    "backend/sales/migrations/0012_excluded_business_date_index.py": "0649724d2b94867efe42f56ef8d1b7992bd3878f3e1db7652422743b7f4ac238",
+    "backend/sales/models.py": "bc8019ff92183f8d8326238c7af8049729517063bf42b699dd69fcb8ce3949c3",
+    "backend/sales/write_views.py": "1c201dfaaa6387172f444cb02052ca68a668a1ea64c905ba09900cd0a9bf380b",
+    "backend/teruisi_backend/health.py": "84ef805c93c4e71e1a9c79085325cfa8a743d60d230da31b556558a3c3a77469",
+    "backend/teruisi_backend/settings.py": "d22aaaa867d7ee67fd7d953cf5bcbba0f612b6e1f887ca8ec1bfb019b53c3512",
+    "backend/workflow/automation_gates.py": "bdc221e5fcd5fb8ef603e150fb87171f62a6ff0dd20a30fdb6fb07cccbd59615",
+    "backend/workflow/automation_models.py": "7ce3874734584660e572b2ae158bb11a4abdcc95ae49b1e05730af3dbd1f7b94",
+    "backend/workflow/automation_run_query.py": "3df5fbd79c28aeff2b688b823de84edf3b57b8442dec1920d5a52db189968b58",
+    "backend/workflow/automation_run_views.py": "1893db6d837dbd11e6cf09f91ea808acc189e6e0df82db5629a701da8400b6bc",
+    "backend/workflow/migrations/0009_automation_projection_b1.py": "adafff9db82c661409e16488be6461f6a52d436f226360254d8af82a9b6c89bc",
+    "backend/workflow/migrations/0010_customer_service_chain_modules.py": "f5cf004563db635baa29fcb57e3965f26c085eb14ba2eb13eaf78a85f53de8cd",
+    "config/integration-migration-policy-v3.json": "bdf50b5957be08986e027b527e0279d39da6bd1c4e79c59fa60680876d14711c",
+    "config/integration-migration-policy-v4-netshop-presence.json": "b91dea169b65f0c696cafcdedb6e359b05380838d5bc1f9e3446c2f26d7701ea",
+    "config/tmall-store-accounts.json": "5dbdc1f9312b0ee46b121b845b66201d65960495244153c78e0c346f7f9d5866",
+    "tests/ai158-acl-catalog-boundary.py": "eecfa39e5a1abd9501f4ee0e53e93b12cf91869b0b401382b67f95722f036560",
+    "tools/ai_schedule_addition.py": "057b3b81bdc1e39a26b5b79a6b4a2a8e49448c52d11ca1e7dd8cc0fa6fc7a8eb",
+    "tools/ai_schedule_addition_catalog.py": "81b2ee2e9d54a6b75bc7d6cd6c1da4e7f2079c7d45b60213d106a7da3730f143",
+    "tools/ai_task_feedback_candidates_addition.py": "d6406ad4a3f09fd8a3da7355534bbc025e4a05e3701553afcfb8eeab8ab196ed",
+    "tools/ai_task_feedback_candidates_candidate.py": "4ac664099cf72bb77a9bc2248c373d988f499b369777c93a40db69356cd79bf1",
+    "tools/ai_task_feedback_candidates_catalog.json": "b2f873852b200c949491d2d9d4fdbcc47f9a2c44a30d2f5b6c18d34d42c62bc1",
+    "tools/ai_task_feedback_candidates_catalog.py": "0c8cb68e638d15cfdb3bdb966fa0b9cbc54512f36853bc1f5853e1d14c32e146",
+    "tools/ai_task_feedback_candidates_rehearsal.py": "10c6139c12cdbff0a02f820b838db6ca5a50619dc6ea3b1cb2f695a543a968c1",
+    "tools/bi_app_addition.py": "161ea5a80e90c41abff88f02d931fb3a6133777f0c137d7bae5a150d265579d1",
+    "tools/django-inventory-service.ps1": "a0a2fa402b4d31393c243da390337c7ab0e2776d4660b34351fd2056a87aef75",
+    "tools/django-workflow-service.ps1": "b313f8f521304e6f3a3b4891c6525c21119d2475d5d693fcbba7619504b5b1f1",
+    "tools/integration_migration_journal.py": "cd8b857c90ef113f264b8fcbdf024ce88e7a48b75265e0b70bf776c5b02bf8be",
+    "tools/integration_migration_plan.py": "94893e1cd60fb2ad693948e8b2d1e686882bc14664310acf7c6b24b8f53a74ec",
+    "tools/integration_release_gate.py": "7285ae1277db9665d49111c31dffb0bef4228cbdfdf224803ef4ba0d22d15ad9",
+    "tools/jackyun_audit_addition.py": "86f811d848ea892283e81a09b22d01ca22bccc4b13febc835feb8490bb269da7",
+    "tools/jackyun_audit_catalog.py": "0ec29d8672a0f2900a77efd8c46f26da92facca4e366ccf57ad8ba163cad6e8f",
+    "tools/jd_logistics_addition.py": "fd50a4d42a86f671b79458964328fd963926f2bc43b4938ab4be07afea48f939",
+    "tools/jd_logistics_catalog.json": "987d06df53af7b53a5d0980f9ac1ad028ab696411785203b3044a9b98622fc59",
+    "tools/jd_logistics_catalog.py": "7be356058c31b27e9af1c8ebbad000310bb0a0eedb11f841182f67d3f4ca75ec",
+    "tools/jd_monitor_preferences_addition.py": "94e93413b02bde911c11cc251c437f9480d8b9b4d1922369c5b29991d9470267",
+    "tools/jd_monitor_preferences_catalog.json": "06e8c81d81645e1ca7215280beeef928b5a26a39b30bf0607b4ab8183a5602e9",
+    "tools/jd_monitor_preferences_catalog.py": "baea5a9392f2fdd623002da3115bac68986e893655c12658152b68c0ae56a383",
+    "tools/jd_product_monitoring_addition.py": "718e1c4d87720fb651f7114f90e599690682aa38c4da46df1413cc77741d6b08",
+    "tools/jd_product_monitoring_catalog.py": "ad65e36a5e57bfc29345cfa21dba950d4754143f37358882ec4d4a584a347051",
+    "tools/manual-maintenance-lock.psm1": "70041d738f8e076cc13b8391aaf3a31bcf15399ccfef81fdeb4f7d88f9411476",
+    "tools/manual-maintenance-process.psm1": "a07a4d1fdb65dba6c5e7caaf27ad463a1613c182f30f56269a2f1e8175c116a5",
+    "tools/pi_agent_addition.py": "bc394c5bd535c010469ec8493522e958c7769317064f3af08462e951bfe06544",
+    "tools/pi_agent_candidate.py": "834dfa84b0a8aa24c78e9fb5335c24427652bf17f424a4c9a2dd1e61b43b92da",
+    "tools/pi_agent_catalog.json": "1e07e1b6dd99385437fe3b9c9691f9aed2c98b1e7fe5189387b68976e7dd4069",
+    "tools/pi_agent_catalog.py": "58ba8e6ecde77734a579e66ae85c1529107c598edf42459d2b07ef08a6567c68",
+    "tools/pi_agent_prepare_runtime.py": "818bf6bc1ebbcef27576a4156312f85c94ca132f46cf8f8ad3a9ad7d7714410f",
+    "tools/pi_agent_upgrade_runtime.py": "fa49ffa7ed1ad21fa2f4412075ebe50bfd993902d6c49018ec0bea9f84f0b75a",
+    "tools/pi_business_addition.py": "0b83c317cbad37300fedf2d5922602ce2a82dda6283272ee92a9b73ee85521ce",
+    "tools/pi_business_candidate.py": "2cd6e8d278afad0bb4e6e649c43193633d5e4d658682c6482cba1cc97ebb3df8",
+    "tools/pi_business_catalog.py": "6d257bdd06e808609d97c82e9078b34227b2e2042d2839a38c44620bbcae68e6",
+    "tools/pi_native_addition.py": "4d1db614f2c0539b7a4c88ca4facf366063356d53a9805267db86044bff6632a",
+    "tools/pi_native_candidate.py": "6663a4fc4b360977d3e31fda662fe06ff5f84dc1515113d98be3d09f8bfa70b2",
+    "tools/pi_native_catalog.py": "68555790ab68fc6559dcffab77f74b8b635cd3036a1ce37aec13e8da1049b9ca",
+    "tools/pi_workspace_addition.py": "a2289bbfd922643b982ed29e1c2240314b53e0b1362ebe7e72fe8430b49383aa",
+    "tools/pi_workspace_candidate.py": "6ca493bfc897984b1dce9b54a57630e6c64b67b925b31ea028ae5439a915a059",
+    "tools/pi_workspace_catalog.json": "322293bdd253c5f67801ca99c4a7abf69ba3b3e2124698f8d0cae5aedd20b9b3",
+    "tools/pi_workspace_catalog.py": "8b458b66363df4b1cb01812b12f9f0eeff4d74490a94e40dde34ab83c611b194",
+    "tools/postgres_no_key_backup.py": "984c79c23fada2c3bff8b5b4fd9f4df3646ee546dfa7cc77cfa5714a2e966493",
+    "tools/postgres_restore_semantics.py": "66dd0f5a2ab62ff819a73af76538430b74f511675a651a8100175d06082a3f57",
+    "tools/protected_ai_shadow_evidence_0073.py": "8a542612c00061c71246d889f4f9c3a35d4dd8fa2d22e136ffcf13288cff985f",
+    "tools/sales_preflight_addition.py": "80ae5244222b2e6093162c970c540267fe8c5ad787c8ba1fb761934ed8ad40b5",
+    "tools/sales_preflight_candidate.py": "c64c96b407224e3259d7155ae60919da7af4e3444a69bfcc32983229f996c727",
+    "tools/sales_preflight_catalog.py": "a41f59cc13c83ca92ce4da199b085872ea49e18cf23565f23210ce15b4a6e307",
+    "tools/tmall_warehouse_addition.py": "4293e4e5d1d29d6560f7dc22b891e5c26edd50d50de4a1179d771d15f366283b",
+    "tools/tmall_warehouse_candidate.py": "550525a555b642739f3ac6501ff7400f6be544269c20dc0fdd8d0bb0b79a0f6b",
+    "tools/tmall_warehouse_catalog.json": "bbc108b10a4799a5d2e157ca1fd91ac421d90cf0728292a46995b4adc9ec2d1b",
+    "tools/tmall_warehouse_catalog.py": "b8f27c11c53f0fa68462aa6448e03d37c2b43180ce981a4b58fa66d5644370c8",
+    "tools/workflow_automation_addition.py": "9aa4f04f8767bf7df399ff69f09922a52667869e46d58b7a16bd30a55affbe95",
+    "tools/workflow_automation_candidate.py": "c78b9b244aca486355af64df4e73c47b50d4755dacc4b8f9a51336d5ad6cda14",
+    "tools/workflow_automation_catalog.json": "2620a423181319bb7fb3b46bff0d447ac9497b334fab3746d7bfd389a46cafa6",
+    "tools/workflow_automation_catalog.py": "cf68f0ca664816dd4804e59e2cf2d53ff4ebb47226834b44893f3429532d1545"
+  },
+  "sourceBinding": "sha256-raw-file-bytes-at-start-and-finish",
+  "cleanup": {
+    "started": true,
+    "stopped": true,
+    "passwordFileRemoved": true,
+    "privateDataRemoved": true,
+    "childExitZero": true
+  },
+  "completedAt": "2026-11-04T10:28:22.121937+00:00"
+}

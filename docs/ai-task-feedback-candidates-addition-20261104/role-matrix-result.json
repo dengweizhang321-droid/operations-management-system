@@ -1,0 +1,52 @@
+{
+  "productionTouched": false,
+  "nativeColdStart": false,
+  "syntheticTablesOnly": true,
+  "port": 63704,
+  "started": true,
+  "stopped": true,
+  "checks": [
+    "WorkflowAutomation with 0 complete Pi generations: provision and DELETE repair",
+    "WorkflowAutomation with 1 complete Pi generations: provision and DELETE repair",
+    "WorkflowAutomation with 2 complete Pi generations: provision and DELETE repair",
+    "WorkflowAutomation with 3 complete Pi generations: provision and DELETE repair",
+    "Workflow Finalize legacy row/ACL preservation unchanged",
+    "WorkflowAutomation with 4 complete Pi generations: provision and DELETE repair",
+    "WorkflowAutomation with 5 complete Pi generations: provision and DELETE repair",
+    "WorkflowAutomation with 6 complete Pi generations: provision and DELETE repair",
+    "Pi schema: rejects missing-receipt",
+    "Pi schema: rejects missing-tables",
+    "Pi schema: rejects partial-tables",
+    "Pi workspace: rejects missing-receipt",
+    "Pi workspace: rejects missing-tables",
+    "Pi workspace: rejects partial-tables",
+    "Pi business: rejects missing-receipt",
+    "Pi business: rejects missing-tables",
+    "Pi business: rejects partial-tables",
+    "Pi native: rejects missing-receipt",
+    "Pi native: rejects missing-tables",
+    "Pi native: rejects partial-tables",
+    "Task feedback: rejects missing-receipt",
+    "Task feedback: rejects missing-tables",
+    "Task feedback: rejects partial-tables",
+    "Skill candidate: rejects missing-receipt",
+    "Skill candidate: rejects missing-tables",
+    "Skill candidate: rejects partial-tables"
+  ],
+  "steps": [
+    {
+      "step": "initdb",
+      "exitCode": 0
+    },
+    {
+      "step": "start",
+      "exitCode": 0
+    },
+    {
+      "step": "stop",
+      "exitCode": 0
+    }
+  ],
+  "privateDataRetained": true,
+  "cleanupStatus": "automatic-approval-review-rejected-data-removal; stopped fixture retained"
+}

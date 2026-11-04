@@ -45,6 +45,21 @@ class Baselines(unittest.TestCase):
         acl.append(["writer", "MAINTAIN", False])
         self.assertEqual(gate.missing_owner(acl), ["MAINTAIN"])
 
+    def test_ai158_nested_catalog_owner_privilege_is_checked(self):
+        original = Path.read_text
+        def missing(path, *args, **kwargs):
+            text = original(path, *args, **kwargs)
+            if path.name == "ai_task_feedback_candidates_catalog.json":
+                data = json.loads(text)
+                data["tables"]["ai_task_feedback"]["acl"] = [row for row in
+                    data["tables"]["ai_task_feedback"]["acl"] if row[:2] != ["OWNER", "MAINTAIN"]]
+                return json.dumps(data)
+            return text
+        with patch.object(Path, "read_text", missing):
+            result = gate.check(ROOT)
+        self.assertIn({"file": "tools/ai_task_feedback_candidates_catalog.json",
+                       "object": "ai_task_feedback", "missing": ["MAINTAIN"]}, result["errors"])
+
     def test_python_literal_missing_privilege(self):
         original = Path.read_text
 

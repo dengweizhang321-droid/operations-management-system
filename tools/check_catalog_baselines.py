@@ -14,6 +14,7 @@ JSON_CATALOGS = {
     "jd_logistics": False, "jd_monitor_preferences": False,
     "pi_agent": False, "pi_workspace": False,
     "tmall_warehouse": True, "workflow_automation": True,
+    "ai_task_feedback_candidates": False,
 }
 
 
@@ -71,7 +72,7 @@ def check(root):
 
     for name, needs_sequence in JSON_CATALOGS.items():
         file = "tools/" + name + "_catalog.json"
-        read(file, lambda text: tables(file, json.loads(text, object_pairs_hook=unique_keys), needs_sequence))
+        read(file, lambda text, name=name: tables(file, (lambda data: data["tables"] if name == "ai_task_feedback_candidates" else data)(json.loads(text, object_pairs_hook=unique_keys)), needs_sequence))
 
     file = "tools/ai_schedule_addition_catalog.py"
     read(file, lambda text: tables(file, ast.literal_eval(assignment(ast.parse(text).body, "REFERENCE142"))))

@@ -1,0 +1,15 @@
+test_candidate_bind_and_admission_tampering (__main__.FileGates.test_candidate_bind_and_admission_tampering) ... ok
+test_candidate_cli_fixed_paths (__main__.FileGates.test_candidate_cli_fixed_paths) ... ok
+test_complete_file_lifecycle_and_provision_failure (__main__.FileGates.test_complete_file_lifecycle_and_provision_failure) ... ok
+test_intent_publish_and_no_replay (__main__.FileGates.test_intent_publish_and_no_replay) ... ok
+test_inventory_rejects_links_and_empty_scan (__main__.FileGates.test_inventory_rejects_links_and_empty_scan) ... ok
+test_operation_generation_and_source_delta_guards (__main__.FileGates.test_operation_generation_and_source_delta_guards) ... ok
+test_prepared_plan_deployment_and_unknown_guards (__main__.FileGates.test_prepared_plan_deployment_and_unknown_guards) ... ok
+test_production_runtime_identity_is_not_relaxed (__main__.FileGates.test_production_runtime_identity_is_not_relaxed) ... ok
+test_receipt_fields_are_rejected_even_when_hashes_are_resigned (__main__.FileGates.test_receipt_fields_are_rejected_even_when_hashes_are_resigned) ... ok
+test_recipe_and_proof_guards (__main__.FileGates.test_recipe_and_proof_guards) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 13.097s
+
+OK

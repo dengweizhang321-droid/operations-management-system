@@ -21,6 +21,8 @@ spec.loader.exec_module(checker)
 
 
 class SchemaDigestStaticTests(unittest.TestCase):
+    kind = "SalesPreflightIndex"
+    recipe_file = "config/main-schema-releases/sales-0012.json"
     @classmethod
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory(prefix="teruisi-schema-digest-static-")
@@ -29,7 +31,7 @@ class SchemaDigestStaticTests(unittest.TestCase):
         # Import the actual module bytes, including the original inherited gates.
         for path in (SOURCE / "tools").glob("*.py"):
             shutil.copyfile(path, cls.root / "tools" / path.name)
-        cls.candidate = checker.load_candidate(cls.root, "SalesPreflightIndex")
+        cls.candidate = checker.load_candidate(cls.root, cls.kind)
         cls.gate = cls.candidate.gate
         for name in cls.gate.CODE_FILES:
             target = cls.root / name
@@ -43,11 +45,16 @@ class SchemaDigestStaticTests(unittest.TestCase):
         supplemental_path = cls.root / cls.supplemental_name
         supplemental_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(SOURCE / cls.supplemental_name, supplemental_path)
-        cls.recipe_name = "config/main-schema-releases/sales-0012.json"
+        cls.recipe_name = cls.recipe_file
         cls.validation_name = "fixtures/mandatory-checks.json"
         cls.evidence_name = "fixtures/synthetic-execution-material.json"
         cls.recipe = cls.gate.common.read(SOURCE / cls.recipe_name)
         cls.proof = cls.gate.common.read(SOURCE / cls.recipe["validation"])
+        if cls.kind == "AiTaskFeedbackCandidates":
+            cls.proof.update(version="ai-task-feedback-candidates-mandatory-code-checks-v1",
+                status="code-checked", productionTouched=False, functionalValidationPerformed=False,
+                fullBackupOrRestorePerformed=False, generations=[156, 158], parentVariants=[[156, 158]],
+                steps=list(cls.gate.STEPS), checks=sorted(cls.gate.CHECKS))
         cls.recipe["validation"] = cls.validation_name
         # The positive fixture uses the real digest over the real copied source.
         cls.recipe["codeSha256"] = cls.gate.code_digest(cls.root)
@@ -67,6 +74,15 @@ class SchemaDigestStaticTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        # Each recipe class owns an independent private import tree.
+        for name, module in list(sys.modules.items()):
+            file = getattr(module, "__file__", None)
+            if file and Path(file).resolve().is_relative_to(cls.root.resolve()):
+                del sys.modules[name]
+        try:
+            sys.path.remove(str(cls.root / "tools"))
+        except ValueError:
+            pass
         cls.temp.cleanup()
 
     def setUp(self):
@@ -249,6 +265,11 @@ class SchemaDigestStaticTests(unittest.TestCase):
                 self.assertEqual(result["status"], "failed", result)
                 self.assertTrue(any("supplementalSourceFiles" in error or "Unsafe repository-relative" in error
                                     for error in result["errors"]), result)
+
+
+class Ai158SchemaDigestStaticTests(SchemaDigestStaticTests):
+    kind = "AiTaskFeedbackCandidates"
+    recipe_file = "config/main-schema-releases/ai-0088-0089.json"
 
 
 if __name__ == "__main__":

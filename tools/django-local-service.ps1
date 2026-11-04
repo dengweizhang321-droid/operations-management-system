@@ -1794,6 +1794,29 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   # workflow_automation_addition.parent_proof ->
   # sales_preflight_addition._verify_active_with_base, plus the exact
   # workflow-only delta against this generation's own baseline.
+  # Ai158 is a finite schema-only child of the verified Workflow156 parent.
+  $aiTaskFeedbackCandidatesGate = Join-Path $candidateRoot 'tools\ai_task_feedback_candidates_addition.py'
+  $aiTaskFeedbackCandidatesDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('ai-task-feedback-candidates-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -ceq 'teruisi-ai-task-feedback-candidates-schema-addition-v1' -or $aiTaskFeedbackCandidatesDeployment -or
+      (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'ai-task-feedback-candidates-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $aiTaskFeedbackCandidatesGate -PathType Leaf)) {throw 'Ai158 requires its exact verifier'}
+    $aiTaskFeedbackCandidatesCommand = if ($Operation -ceq 'PrepareApp') {if ($null -ne $biEvidence) {'admission'} else {'successor'}} elseif ($Operation -ceq 'DeployApp') {if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'}} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported Ai158 lifecycle operation'}
+    $aiTaskFeedbackCandidatesArgs = @($aiTaskFeedbackCandidatesGate,$aiTaskFeedbackCandidatesCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if ($aiTaskFeedbackCandidatesCommand -ceq 'admission') {$aiTaskFeedbackCandidatesArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if ($aiTaskFeedbackCandidatesCommand -ceq 'deployment') {$aiTaskFeedbackCandidatesArgs += @('--operation',$IntegrationOperationId)}
+    $aiTaskFeedbackCandidatesRun = Invoke-BoundedNativeProcess $Python $aiTaskFeedbackCandidatesArgs $candidateRoot
+    if ($aiTaskFeedbackCandidatesRun -isnot [pscustomobject] -or $aiTaskFeedbackCandidatesRun.ExitCode -isnot [int] -or
+        $aiTaskFeedbackCandidatesRun.LaunchFailed -isnot [bool] -or $aiTaskFeedbackCandidatesRun.LaunchFailed -or
+        $aiTaskFeedbackCandidatesRun.Diagnostic.OutputTruncated -isnot [bool] -or $aiTaskFeedbackCandidatesRun.Diagnostic.OutputTruncated -or
+        @($aiTaskFeedbackCandidatesRun.Output | Where-Object {$_ -is [string] -and $_.TrimStart().StartsWith('{')}).Count -ne 1) {
+      throw 'Ai158 requires one complete typed native JSON object'
+    }
+    $aiTaskFeedbackCandidatesProof = ConvertFrom-UniqueNativeJson $aiTaskFeedbackCandidatesRun 'Verify finite Ai158 schema addition'
+    if ($aiTaskFeedbackCandidatesProof -isnot [pscustomobject] -or $aiTaskFeedbackCandidatesProof.status -isnot [string] -or
+        $aiTaskFeedbackCandidatesProof.status -cne 'verified') {throw 'Ai158 schema addition gate refused'}
+    return
+  }
   $workflowAutomationGate = Join-Path $candidateRoot 'tools\workflow_automation_addition.py'
   $workflowAutomationDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
     (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('workflow-automation-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
@@ -2236,6 +2259,10 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\ai_task_feedback_candidates_addition.py",
+      "tools\ai_task_feedback_candidates_catalog.py",
+      "tools\ai_task_feedback_candidates_catalog.json",
+      "tools\ai_task_feedback_candidates_candidate.py",
       "tools\workflow_automation_addition.py",
       "tools\workflow_automation_catalog.py",
       "tools\workflow_automation_catalog.json",

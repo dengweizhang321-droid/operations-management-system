@@ -1,0 +1,23 @@
+{
+  "version": "ai158-b-layer-static-execution-v1",
+  "commands": [
+    {
+      "command": [
+        "D:\\teruisi-runtime\\django-sales\\venv\\Scripts\\python.exe",
+        "-B",
+        "tests\\ai158-acl-catalog-boundary.py"
+      ],
+      "exitCode": 0,
+      "output": "AI158_ACL_CATALOG_CONTRACT_PASSED tables=2 functions=2 triggers=6 checks=48 no_database=True"
+    },
+    {
+      "command": [
+        "D:\\teruisi-runtime\\django-sales\\venv\\Scripts\\python.exe",
+        "-B",
+        "tools\\check_catalog_baselines.py"
+      ],
+      "exitCode": 0,
+      "output": "{\"status\": \"passed\", \"scope\": \"frozen-owner-privileges\", \"errors\": []}"
+    }
+  ]
+}
