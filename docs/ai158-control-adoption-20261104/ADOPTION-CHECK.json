@@ -1,0 +1,79 @@
+{
+  "status": "adopted-verified",
+  "installId": "da1c53d3-e8d7-46dd-be10-aa584c707906",
+  "newBundle": "9cfa94a96ab064910422df3b8c7d7b999622122eb83822f14ed1b4387b91ad8f",
+  "table": [
+    {
+      "field": "dispatcherSha256",
+      "before": "6c88c5131c850beb73bd8685e429bd5d543d582acc6bf61df3aa24fb446c52a4",
+      "after": "6c88c5131c850beb73bd8685e429bd5d543d582acc6bf61df3aa24fb446c52a4",
+      "actual": "unchanged",
+      "codeExpected": "unchanged",
+      "promptExpected": "unchanged"
+    },
+    {
+      "field": "hookSha256",
+      "before": "993b233fa8ac4217a09ec02c69268bf57a6d7a2b915efe8ad9bf55f3c6dd5a68",
+      "after": "7a82a59ada7ef0cfea1b2ce84cc0fd209a1dc98c7bc5dc98b314f5b224cd5399",
+      "actual": "changed",
+      "codeExpected": "changed",
+      "promptExpected": "unchanged"
+    },
+    {
+      "field": "configSha256",
+      "before": "a461db4d0d57175d712c01d7707cc36c38b8f1d43e0ee5c1d4a5f482ca5ac9c8",
+      "after": "a461db4d0d57175d712c01d7707cc36c38b8f1d43e0ee5c1d4a5f482ca5ac9c8",
+      "actual": "unchanged",
+      "codeExpected": "unchanged",
+      "promptExpected": "may-change"
+    },
+    {
+      "field": "bundleSha256",
+      "before": "fe4e34dcea03ad77c47c288bd572841ae69428bb05147893f69c452102d45aa6",
+      "after": "9cfa94a96ab064910422df3b8c7d7b999622122eb83822f14ed1b4387b91ad8f",
+      "actual": "changed",
+      "codeExpected": "changed",
+      "promptExpected": "changed"
+    },
+    {
+      "field": "bundleManifestSha256",
+      "before": "4e2ae6dfd889d9aa2257a54309468be7c31b22648427890353198a81f50ee3b9",
+      "after": "e987f3b6302e6dce98bfc47898b1c08999acb6fa11593b0061d9aef7884500c7",
+      "actual": "changed",
+      "codeExpected": "changed",
+      "promptExpected": "changed"
+    },
+    {
+      "field": "intentSha256",
+      "before": "1b2690167646a8a2e85d46fc523d5a31bd5cf77b06c0b56790f6b65bf4321994",
+      "after": "352efcd015acf012695fa967c9c7fcb43be5875957968672f0ad50c9f6a07264",
+      "actual": "changed",
+      "codeExpected": "changed",
+      "promptExpected": "changed"
+    },
+    {
+      "field": "preparationTask.hostSha256",
+      "before": "8bb6fa8c283b4d92120b1ef249a9b311b0f804d4cabbe9981159976c8be76a5e",
+      "after": "8bb6fa8c283b4d92120b1ef249a9b311b0f804d4cabbe9981159976c8be76a5e",
+      "actual": "unchanged",
+      "codeExpected": "unchanged",
+      "promptExpected": "unchanged"
+    },
+    {
+      "field": "preparationTask.nodeSha256",
+      "before": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de",
+      "after": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de",
+      "actual": "unchanged",
+      "codeExpected": "unchanged",
+      "promptExpected": "unchanged"
+    }
+  ],
+  "threeEmptyFrames": true,
+  "productionDeploymentPerformed": false,
+  "transitionProofSha256": "48072c03985a7af250daaca933b971dc8c198b28b4befffc89636992141dfb96",
+  "promptCorrections": [
+    "controlFiles is38, predecessor37, not35",
+    "HOOK is generated with new bundleRoot/tools/main-prebuild-hook.mjs, so hookSha256 changes by design",
+    "adopt CLI default timeoutMs30000; same public implementation invoked with600000 budget"
+  ]
+}

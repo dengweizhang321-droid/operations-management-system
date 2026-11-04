@@ -1,0 +1,7 @@
+{
+  "status": "verified",
+  "checks": {
+    "host": true,
+    "node": true
+  }
+}

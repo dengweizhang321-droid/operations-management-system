@@ -1,0 +1,26 @@
+{
+  "version": "teruisi-main-preparation-v1",
+  "at": "2026-11-04T14:11:43.564Z",
+  "requestSha256": "d887ecd341d7b98a9d32a8eb4efdb210e976c836560aa0da4baf8bc4bea69a70",
+  "sourceIdentity": {
+    "commit": "ece8c7ec46ac7bd7dc0a5a3e3eed8fcf065d3b65",
+    "tree": "cd27517414ddcef1e441f9e2504e7b45a1fe83fa"
+  },
+  "workerPlan": {
+    "status": "planned",
+    "version": "teruisi-local-worker-release-rotation-plan-v1",
+    "planSha256": "0014aeaf306977063f29d29bd0810bb85fd148824f85b01050d9ea56af0b91b0",
+    "planPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\0014aeaf306977063f29d29bd0810bb85fd148824f85b01050d9ea56af0b91b0.json",
+    "predecessorReleaseId": "20261103T151159Z-f230d1a1bd5bf0d3",
+    "candidateReleaseId": "20261104T135815Z-28278a3e8f6ac4fb",
+    "candidateManifestSha256": "1ccf5583bb1b52200dc075cee546331eb2df61cd29d454abd70b7a8d383c0a74",
+    "candidateGuardReceiptSha256": "1557ffad0517b982f6325514d0b8137a79b3f45eea1eb361bfc57587c6c05072",
+    "cutoverId": "sales-pg-20260829T204417Z-d9896e904d8092cb"
+  },
+  "djangoPackage": {
+    "id": "b46a7bb33d0c46b191277c19770ce38f",
+    "receiptSha256": "3b175c238b476411f286c6bb228f09c6cd04aca042ff6a5417a7aa338814d3e9",
+    "appFingerprint": "3cd858e97ac17b6100f317451b6c3b22abd0770323d89b4ac6a45ff556a4ffc0"
+  },
+  "djangoManifestSha256": "04a31bc0a281df1360ffc7675d7b98194388417bf117672310520e0fe8099fd7"
+}

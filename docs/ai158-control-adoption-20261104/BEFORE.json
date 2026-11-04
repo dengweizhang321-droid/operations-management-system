@@ -1,0 +1,16 @@
+{
+  "status": "adopted",
+  "installId": "2dd7a5cc-1695-4a3c-ae5c-81eb4cac826a",
+  "bundleSha256": "fe4e34dcea03ad77c47c288bd572841ae69428bb05147893f69c452102d45aa6",
+  "bundleManifestSha256": "4e2ae6dfd889d9aa2257a54309468be7c31b22648427890353198a81f50ee3b9",
+  "intentSha256": "1b2690167646a8a2e85d46fc523d5a31bd5cf77b06c0b56790f6b65bf4321994",
+  "dispatcherSha256": "6c88c5131c850beb73bd8685e429bd5d543d582acc6bf61df3aa24fb446c52a4",
+  "hookSha256": "993b233fa8ac4217a09ec02c69268bf57a6d7a2b915efe8ad9bf55f3c6dd5a68",
+  "configSha256": "a461db4d0d57175d712c01d7707cc36c38b8f1d43e0ee5c1d4a5f482ca5ac9c8",
+  "bundleRoot": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\fe4e34dcea03ad77c47c288bd572841ae69428bb05147893f69c452102d45aa6",
+  "preparationTask": {
+    "hostSha256": "8bb6fa8c283b4d92120b1ef249a9b311b0f804d4cabbe9981159976c8be76a5e",
+    "nodeSha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"
+  },
+  "installationFileSha256": "67da8603f65d377d7cab11381919e31894faa96b680038770fd41052e2256f9c"
+}

@@ -1,0 +1,98 @@
+{
+  "version": "ai158-control-and-application-preparation-delivery-v1",
+  "status": "prepared-and-frozen-tests-passed",
+  "at": "2026-11-04T15:11:00.761592+00:00",
+  "sourceCommit": "ece8c7ec46ac7bd7dc0a5a3e3eed8fcf065d3b65",
+  "controlInstallId": "da1c53d3-e8d7-46dd-be10-aa584c707906",
+  "oldControlBundle": "fe4e34dcea03ad77c47c288bd572841ae69428bb05147893f69c452102d45aa6",
+  "controlBundle": "9cfa94a96ab064910422df3b8c7d7b999622122eb83822f14ed1b4387b91ad8f",
+  "materialsDirectory": "D:\\codex-artifacts\\ai158-control-adoption-20261104\\materials",
+  "checkExitCode": 0,
+  "releasePlan": {
+    "scope": "database-migration",
+    "components": [
+      "worker",
+      "django"
+    ],
+    "migrate": true,
+    "fromGeneration": 156,
+    "toGeneration": 158
+  },
+  "prepareOnlyExitCode": 0,
+  "packet": "D:\\codex-isolated\\main-release-packages\\ece8c7ec46ac-7094807e-2c9a9ad3",
+  "nativePreparedSha256": "3a8684e5c63129335c6d7f770b888db27533ecfd2e45bef2fb2aaeea2c138020",
+  "worker": {
+    "status": "planned",
+    "version": "teruisi-local-worker-release-rotation-plan-v1",
+    "planSha256": "0014aeaf306977063f29d29bd0810bb85fd148824f85b01050d9ea56af0b91b0",
+    "planPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\0014aeaf306977063f29d29bd0810bb85fd148824f85b01050d9ea56af0b91b0.json",
+    "predecessorReleaseId": "20261103T151159Z-f230d1a1bd5bf0d3",
+    "candidateReleaseId": "20261104T135815Z-28278a3e8f6ac4fb",
+    "candidateManifestSha256": "1ccf5583bb1b52200dc075cee546331eb2df61cd29d454abd70b7a8d383c0a74",
+    "candidateGuardReceiptSha256": "1557ffad0517b982f6325514d0b8137a79b3f45eea1eb361bfc57587c6c05072",
+    "cutoverId": "sales-pg-20260829T204417Z-d9896e904d8092cb"
+  },
+  "django": {
+    "id": "b46a7bb33d0c46b191277c19770ce38f",
+    "receiptSha256": "3b175c238b476411f286c6bb228f09c6cd04aca042ff6a5417a7aa338814d3e9",
+    "appFingerprint": "3cd858e97ac17b6100f317451b6c3b22abd0770323d89b4ac6a45ff556a4ffc0"
+  },
+  "djangoManifestSha256": "04a31bc0a281df1360ffc7675d7b98194388417bf117672310520e0fe8099fd7",
+  "frozenTests": {
+    "status": "passed",
+    "sourceCommit": "ece8c7ec46ac7bd7dc0a5a3e3eed8fcf065d3b65",
+    "source": "D:\\codex-isolated\\main-release-packages\\ece8c7ec46ac-7094807e-2c9a9ad3\\source",
+    "codeFileCount": 105,
+    "codeSha256": "073e39cf954733c708f2f44bf37d68f97b6435f22375b9c2dab860148c348c88",
+    "sourceBytesUnchanged": true,
+    "sourceClean": true,
+    "reused": {
+      "node": 149,
+      "control-node": 78,
+      "A": 10,
+      "static-bindings": 30,
+      "owner-baselines": 6,
+      "ACL": 48,
+      "PS5": 33
+    },
+    "resumed": {
+      "PS7": 33,
+      "Bnegatives": 824,
+      "guardMutations": 60,
+      "finalSchemaBinding": "passed"
+    },
+    "allNativeExitsZero": true,
+    "Bcleanup": {
+      "started": true,
+      "stopped": true,
+      "passwordFileRemoved": true,
+      "privateDataRemoved": true,
+      "childExitZero": true
+    },
+    "fullLogsDirectory": "D:\\codex-artifacts\\ai158-control-adoption-20261104",
+    "driverSha256": "6803bed18128e1958e6cf9e79bac7091d1264869d8067224608b18bc1cbf1107",
+    "resumeDriverSha256": "798c8159ff18686e34dc9651c1f8c7876984ac2c35c0f66f09a14ba80fbd9d05"
+  },
+  "independentReview": "passed",
+  "publicationAuthorized": false,
+  "productionDeploymentPerformed": false,
+  "productionMigrationPerformed": false,
+  "noReAdoptionOrRebuildOnResume": true,
+  "temporaryControlSourceRemoved": true,
+  "historicalPauseRecord": "PAUSED.json remains as history; CURRENT-STATE is final",
+  "evidenceSha256": {
+    "ADOPTION-CHECK.json": "0b55cd8c3d138b9276d3ec93a7fca103b64e3458ba807a7063fb18b65e49f6ee",
+    "APPLICATION-PREPARED.json": "3a8684e5c63129335c6d7f770b888db27533ecfd2e45bef2fb2aaeea2c138020",
+    "BEFORE.json": "c83fe9d0d12d22341c6e66ee6c5803ec88140ef45907fe679029638a91473128",
+    "control-status.json": "0abce9869725b6337ce96b73326c17fafaa2eb3010033d0c816fe3c6d377fd4e",
+    "FIRST-FAILED-TESTS.json": "d883e48a9380719082688c22b04950911a9fe2a088564f0c7a953d39ff09fc38",
+    "FROZEN-TEST-SUMMARY.json": "437ba4ad2c4abcb0d0a7c4798a0f3bd5b931e2da4551b45a3f475a6b68a34eb9",
+    "FROZEN-TESTS.json": "96905dfb86163e0d474b9915c086ebfcc97640a51689aeb59247e60c276e842a",
+    "MATERIALS-CHECK.json": "74f654eaea30e696a6211fcc0ec87c0b88d4bda37f469acc527e529b2daf1d55",
+    "PS5-ENVIRONMENT-PROBE.json": "b48f4b690448937a95c2ea9cb52bd8812c522c5905f38454e02d38ec837381b2",
+    "RESUME-CHECK.json": "1e7e3f41241a054c1bf5c13b3628d7a783ae9bc264a1c84dd4d70d24f47f1444",
+    "RESUME-HOST-CHECK.json": "64d2ee261dba6ff766632352b191ebbb8a6cfcba21d2aa2c9cb7a606834df42b",
+    "REUSED-TESTS.json": "9014ce27688c654931e38836c93817c0e1a0ab1de905204d7a0e13af8d75f8e2",
+    "REVIEW.json": "5e8f68ed9e48b5a4985e0b57b2048b1d1f43100cc9acd77ee5d58fc68a06cef1"
+  }
+}
