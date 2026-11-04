@@ -1,0 +1,52 @@
+{
+  "baseCommit": "822a45ac468b55f31b6bae8c003c6b0c8f6df3b8",
+  "newDjangoQualification": "98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b",
+  "retainedDjangoQualification": "4ba1fcaf3cd1568a64098a9d2d32039f850ec2db1da4f81aa97fa3ab9530723a",
+  "staticCheck": {
+    "before": {
+      "pass": 2,
+      "fail": 1
+    },
+    "after": {
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0
+    },
+    "testBytesChanged": false
+  },
+  "generationContractSelected": {
+    "pass": 6,
+    "fail": 0
+  },
+  "ciAllowlist": {
+    "pass": 66,
+    "fail": 0
+  },
+  "eslint": {
+    "errors": 56,
+    "warnings": 132
+  },
+  "backendBoundary": {
+    "violations": []
+  },
+  "pi152Acl": {
+    "checks": 27,
+    "noDatabase": true
+  },
+  "artifactLossRecordsUnchanged": 27,
+  "mainPushed": false,
+  "artifactPreparationPerformed": false,
+  "deploymentPerformed": false,
+  "evidenceSha256": {
+    "BASELINE.json": "ab1a6c02d542708567243ced127a8741179370ef528f63fa7caa0ec3f3e71dac",
+    "CODE-FREEZE.json": "06f3616ceea6907ecfed9c573086e35fd888e22b66b4010806c0bedadf47c9b2",
+    "STATIC-BEFORE.tap": "1c0d6a6befdadab5825998865f62d2e5dd5226f8ff9931f390772174e936081d",
+    "STATIC-AFTER.tap": "7a7b2b9ae9a1788ffcfa3c2c3c0df04508c5c2d9e106aade8ceabf285224e37a",
+    "GENERATION-CONTRACT.tap": "59f9cd50346cf8341723ee892a7fb39390ecead0e7d5503287b2e7041c2156be",
+    "ESLINT-RESULT.json": "a0a369df391a252347e40d03da3d0b7ebe1ab20243de30fe3c8ce6125b5ccd22",
+    "backend-boundary.log": "1d101b20331e8a26931642231a108353c3592c76313bc87a633f3bd2d84f1be6",
+    "pi152-acl.log": "b55221df0a4602826882d8e36e7093533ad0b65fa629c2c476c35478344ed330",
+    "ci-allowlist.log": "fcf099b61f3779fac70ca8aded322d37856e4bbe20d3ded6af12bb38776686ce",
+    "PRESERVATION-CHECK.json": "6d558179376d06f3c0b93f748df35b6c9703abcce8d477eb43337d0c27bdc859"
+  }
+}

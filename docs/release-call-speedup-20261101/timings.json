@@ -1,0 +1,2435 @@
+{
+  "observationStartedAt": "2026-10-31T16:46:37.277716+00:00",
+  "scope": "all immediate publish-* directories of all immediate retained packages; not whole host",
+  "inventory": [
+    {
+      "attempt": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e",
+      "successPresent": true
+    },
+    {
+      "attempt": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb",
+      "successPresent": true
+    },
+    {
+      "attempt": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\publish-271ab794fd48",
+      "successPresent": false
+    },
+    {
+      "attempt": "D:\\codex-isolated\\main-release-packages\\491c14081e65-bfb340f8-7948e85c\\publish-491c14081e65",
+      "successPresent": false
+    },
+    {
+      "attempt": "D:\\codex-isolated\\main-release-packages\\491c14081e65-bfb340f8-7948e85c-r2\\publish-491c14081e65",
+      "successPresent": false
+    },
+    {
+      "attempt": "D:\\codex-isolated\\main-release-packages\\930509cc3918-bfb340f8-7948e85c\\publish-930509cc3918",
+      "successPresent": false
+    },
+    {
+      "attempt": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05",
+      "successPresent": true
+    }
+  ],
+  "catalog": {
+    "status": "deployed_and_ready",
+    "at": "2026-10-31T11:51:53.300Z",
+    "mainCommit": "e62dc33a8a05059d03ab3e15206184989594b72d",
+    "workerRelease": "20261030T013752Z-91459570a711f22e",
+    "workerManifestSha256": "bfdd5573e4eb5c37b22b4eecebc4e02d966820a85d19eba665d7c2ad74c3b72c",
+    "djangoManifestSha256": "e0fc1a0d924cb92355f12f3c31345ce249de7a2194b84fa8d5b14865fa2829e8",
+    "receiptPath": "D:\\codex-isolated\\main-manual-release-20261016\\adoptions\\8c4f53db-d977-4e2d-a0c5-a423ca08c063\\ADOPTED.json",
+    "adoption": {
+      "kind": "acknowledged-not-published",
+      "publicationPerformed": false,
+      "productionMutationsPerformed": false,
+      "djangoSourceCommit": "2dc377f0d26319fccf2bab9da2d6a1016196fa3b",
+      "split": true
+    },
+    "evidence": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\PUBLISHED-MAIN.json",
+      "bytes": 8698,
+      "sha256": "336915960cb335e98bb82513d34d892411ac7d49d5953a1ea30fe7de94dfdc1d",
+      "observedAt": "2026-10-31T16:46:37.302527+00:00"
+    }
+  },
+  "releases": [
+    {
+      "status": "deployed_and_ready",
+      "at": "2026-10-30T02:46:04.602Z",
+      "mainCommit": "e62dc33a8a05059d03ab3e15206184989594b72d",
+      "components": [
+        "worker",
+        "django"
+      ],
+      "workerRelease": "20261030T013752Z-91459570a711f22e",
+      "workerManifestSha256": "bfdd5573e4eb5c37b22b4eecebc4e02d966820a85d19eba665d7c2ad74c3b72c",
+      "djangoManifestSha256": "27d72aab7e7a2280aee3ead5e57976e7d3f337a7a4fb8aaa68e59405cb72350f",
+      "source": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\source",
+      "migration": "sales.0012_excluded_business_date_index",
+      "startupVerified": true,
+      "readyVerified": true,
+      "attempt": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05",
+      "successEvidence": {
+        "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\SUCCESS.json",
+        "bytes": 3709,
+        "sha256": "22b6b354eeefa331272ac310489021686f8642752e0c4bca9f4427a930f69087",
+        "observedAt": "2026-10-31T16:46:37.294604+00:00"
+      },
+      "steps": [
+        {
+          "label": "WorkerApply",
+          "start": "2026-10-30T02:38:44.911Z",
+          "end": null,
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\WorkerApply-started.json",
+            "bytes": 123,
+            "sha256": "4f2b1540e91273f228804a63bff564dc898b8df380272b09238fcc0f9a677c01",
+            "observedAt": "2026-10-31T16:46:37.295538+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\WorkerApply-result.json",
+            "bytes": 781,
+            "sha256": "b4146c3618732e11e75c15ffff3e9adf954849c7ffe901d8edd3bc336a526f6a",
+            "observedAt": "2026-10-31T16:46:37.295802+00:00"
+          }
+        },
+        {
+          "label": "停止旧前端",
+          "start": "2026-10-30T02:33:56.739Z",
+          "end": "2026-10-30T02:34:02.948Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\停止旧前端-started.json",
+            "bytes": 209,
+            "sha256": "b0507e32051234fddeb4edc47ab013b185b41eac255a6e268aaeb6ca81808927",
+            "observedAt": "2026-10-31T16:46:37.296008+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\停止旧前端-result.json",
+            "bytes": 282,
+            "sha256": "f00ef5e177f2d3d77dc673bf3cae69a575fb0330410fafb44ddd77892e619756",
+            "observedAt": "2026-10-31T16:46:37.296228+00:00"
+          },
+          "seconds": 6.209
+        },
+        {
+          "label": "启动服务",
+          "start": "2026-10-30T02:42:59.536Z",
+          "end": "2026-10-30T02:45:50.279Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\启动服务-started.json",
+            "bytes": 210,
+            "sha256": "bf856ea00cb6709150480720d6b9de9cfd7aee42105e4981f471d91ffcd90fd8",
+            "observedAt": "2026-10-31T16:46:37.296411+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\启动服务-result.json",
+            "bytes": 1731,
+            "sha256": "81e7a603b3fa968e6402d5ce3025b234b343c6fe733642f4b01dbea4d08700dc",
+            "observedAt": "2026-10-31T16:46:37.296723+00:00"
+          },
+          "seconds": 170.743,
+          "startupPhases": {
+            "DjangoEnsure": {
+              "phase": "DjangoEnsure",
+              "budgetMilliseconds": 400000,
+              "deadlineUnixMs": 1793328585787,
+              "startedAt": "2026-10-30T02:43:05.7876409+00:00",
+              "elapsedMilliseconds": 135479,
+              "outcome": "completed",
+              "code": "completed",
+              "processEvidence": null
+            },
+            "ReleaseVerification": {
+              "phase": "ReleaseVerification",
+              "budgetMilliseconds": 220000,
+              "deadlineUnixMs": 1793328541274,
+              "startedAt": "2026-10-30T02:45:21.2748298+00:00",
+              "elapsedMilliseconds": 12296,
+              "outcome": "completed",
+              "code": "completed",
+              "processEvidence": null
+            },
+            "SupervisorStart": {
+              "phase": "SupervisorStart",
+              "budgetMilliseconds": 90000,
+              "deadlineUnixMs": 1793328423571,
+              "startedAt": "2026-10-30T02:45:33.5717045+00:00",
+              "elapsedMilliseconds": 16640,
+              "outcome": "completed",
+              "code": "completed",
+              "processEvidence": null
+            }
+          }
+        },
+        {
+          "label": "完成结构迁移",
+          "start": "2026-10-30T02:37:43.146Z",
+          "end": "2026-10-30T02:38:44.905Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\完成结构迁移-started.json",
+            "bytes": 472,
+            "sha256": "db4ba0388940b30b5266b539154710dc66934b7647432c1f01eee95b060de418",
+            "observedAt": "2026-10-31T16:46:37.296954+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\完成结构迁移-result.json",
+            "bytes": 998,
+            "sha256": "e3cef0634c870389417a20ff53c06ca86787f2405cab5ef6b5cce16e2b001228",
+            "observedAt": "2026-10-31T16:46:37.297199+00:00"
+          },
+          "seconds": 61.759
+        },
+        {
+          "label": "应用后台权限",
+          "start": "2026-10-30T02:35:41.071Z",
+          "end": "2026-10-30T02:36:28.397Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\应用后台权限-started.json",
+            "bytes": 166,
+            "sha256": "84286114fb88984a764631be3e1163fb497cdc740516442a8be1523b25784473",
+            "observedAt": "2026-10-31T16:46:37.297412+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\应用后台权限-result.json",
+            "bytes": 56,
+            "sha256": "ff60c8b447075dc04c854e59be6415df185875bba2190cf37ed32cddfc6895e5",
+            "observedAt": "2026-10-31T16:46:37.297635+00:00"
+          },
+          "seconds": 47.326
+        },
+        {
+          "label": "登记结构迁移",
+          "start": "2026-10-30T02:34:02.952Z",
+          "end": "2026-10-30T02:35:11.687Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\登记结构迁移-started.json",
+            "bytes": 920,
+            "sha256": "323d91949d41fd037e862c7a1a418c8c349ecbb4e058b04c39743958f5983839",
+            "observedAt": "2026-10-31T16:46:37.297854+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\登记结构迁移-result.json",
+            "bytes": 220,
+            "sha256": "f1a364b87bfc12f49ae574775daa6a123ce53a8e70187f33cb278c0c6e437f7f",
+            "observedAt": "2026-10-31T16:46:37.298080+00:00"
+          },
+          "seconds": 68.735
+        },
+        {
+          "label": "确认启动版本",
+          "start": "2026-10-30T02:45:50.284Z",
+          "end": "2026-10-30T02:45:57.138Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\确认启动版本-started.json",
+            "bytes": 218,
+            "sha256": "ece49964959daa444223ae78c491423c8f7a123a1f50820c1df245777f402c38",
+            "observedAt": "2026-10-31T16:46:37.298271+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\确认启动版本-result.json",
+            "bytes": 304,
+            "sha256": "2ab755a5969bf590ca1f145fc7ccf908c45930e6f6c9cd8e391d58f891d4eb1c",
+            "observedAt": "2026-10-31T16:46:37.298579+00:00"
+          },
+          "seconds": 6.854
+        },
+        {
+          "label": "迁移监控字段",
+          "start": "2026-10-30T02:36:28.401Z",
+          "end": "2026-10-30T02:37:43.141Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\迁移监控字段-started.json",
+            "bytes": 471,
+            "sha256": "cb3a3ac53b8399be0f0807b199653d6911ded1f2b9107f66225d282e20c46514",
+            "observedAt": "2026-10-31T16:46:37.298789+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\迁移监控字段-result.json",
+            "bytes": 971,
+            "sha256": "c1ccbd25e3841f1493ab31db3de66f4e5146dd87d9a17cc058b5d3b34e758c0b",
+            "observedAt": "2026-10-31T16:46:37.299095+00:00"
+          },
+          "seconds": 74.74
+        },
+        {
+          "label": "进入维护",
+          "start": "2026-10-30T02:29:58.952Z",
+          "end": "2026-10-30T02:33:56.734Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\进入维护-started.json",
+            "bytes": 463,
+            "sha256": "20dc7068e17fda4941fb7483f4e5391e7678201e6946eda8f0fb995d668c5439",
+            "observedAt": "2026-10-31T16:46:37.299317+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\进入维护-result.json",
+            "bytes": 201,
+            "sha256": "a323cba27fa028c5eb187442eb6775a099bac0b0680883d328f5503058aabb6a",
+            "observedAt": "2026-10-31T16:46:37.299509+00:00"
+          },
+          "seconds": 237.782
+        },
+        {
+          "label": "退出维护",
+          "start": "2026-10-30T02:42:09.827Z",
+          "end": "2026-10-30T02:42:59.530Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\退出维护-started.json",
+            "bytes": 284,
+            "sha256": "234301327d423e9e405ebf768e32d46a44b97ba8a1334e88ae0d7faca949ec60",
+            "observedAt": "2026-10-31T16:46:37.299707+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\退出维护-result.json",
+            "bytes": 148,
+            "sha256": "719d09be72dc06ffb7711ca1de826807cbf9f58a288abff08d09a44b84491629",
+            "observedAt": "2026-10-31T16:46:37.300001+00:00"
+          },
+          "seconds": 49.703
+        },
+        {
+          "label": "部署后台",
+          "start": "2026-10-30T02:35:11.691Z",
+          "end": "2026-10-30T02:35:41.065Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\部署后台-started.json",
+            "bytes": 695,
+            "sha256": "c3db070923f2bc51220ae26a128cc5f47830c1515102e45828a4a6afa9101c7f",
+            "observedAt": "2026-10-31T16:46:37.300209+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\部署后台-result.json",
+            "bytes": 56,
+            "sha256": "d4267dd1974a04775c0e8c20c21a660836c803f083a9761ff456ea84268ccb3d",
+            "observedAt": "2026-10-31T16:46:37.300516+00:00"
+          },
+          "seconds": 29.374
+        }
+      ],
+      "applyTiming": {
+        "version": "teruisi-apply-timing-v1",
+        "at": "2026-10-30T02:42:09.822Z",
+        "mainCommit": "e62dc33a8a05059d03ab3e15206184989594b72d",
+        "planSha256": "d845e2f9a4834d37954ff0e47e70c6b3ba4a2c8adf5d2ed791e054b3151b3407",
+        "releaseId": "20261030T013752Z-91459570a711f22e",
+        "stages": [
+          {
+            "stage": "apply.validate#1",
+            "label": "应用/批准轮换校验#1",
+            "elapsedMs": 5199,
+            "outcome": "ok",
+            "at": "2026-10-30T02:38:50.398Z"
+          },
+          {
+            "stage": "apply.d1-receipt",
+            "label": "应用/D1 退役回执读取",
+            "elapsedMs": 2,
+            "outcome": "ok",
+            "at": "2026-10-30T02:38:50.400Z"
+          },
+          {
+            "stage": "apply.head-stopped#1",
+            "label": "应用/首段 head 停稳核验#1",
+            "elapsedMs": 50661,
+            "outcome": "ok",
+            "at": "2026-10-30T02:39:41.061Z"
+          },
+          {
+            "stage": "apply.candidate-stopped#1",
+            "label": "应用/候选停稳核验#1",
+            "elapsedMs": 85205,
+            "outcome": "ok",
+            "at": "2026-10-30T02:41:06.266Z"
+          },
+          {
+            "stage": "apply.validate#2",
+            "label": "应用/批准轮换校验#2（mutation 前 CAS 复核）",
+            "elapsedMs": 5084,
+            "outcome": "ok",
+            "at": "2026-10-30T02:41:11.350Z"
+          },
+          {
+            "stage": "apply.head-stopped#2",
+            "label": "应用/首段 head 停稳核验#2",
+            "elapsedMs": 13037,
+            "outcome": "ok",
+            "at": "2026-10-30T02:41:24.387Z"
+          },
+          {
+            "stage": "apply.candidate-stopped#2",
+            "label": "应用/候选停稳核验#2",
+            "elapsedMs": 12810,
+            "outcome": "ok",
+            "at": "2026-10-30T02:41:37.197Z"
+          },
+          {
+            "stage": "apply.install-entrypoints",
+            "label": "应用/受保护入口安装",
+            "elapsedMs": 18,
+            "outcome": "ok",
+            "at": "2026-10-30T02:41:37.215Z"
+          },
+          {
+            "stage": "apply.candidate-stopped#3",
+            "label": "应用/候选停稳核验#3",
+            "elapsedMs": 13071,
+            "outcome": "ok",
+            "at": "2026-10-30T02:41:50.286Z"
+          },
+          {
+            "stage": "apply.verify-guards",
+            "label": "应用/已安装 guard 入口复验",
+            "elapsedMs": 15,
+            "outcome": "ok",
+            "at": "2026-10-30T02:41:50.301Z"
+          },
+          {
+            "stage": "apply.publish-successor",
+            "label": "应用/successor 记录发布",
+            "elapsedMs": 11,
+            "outcome": "ok",
+            "at": "2026-10-30T02:41:50.312Z"
+          },
+          {
+            "stage": "apply.chain-resolve",
+            "label": "应用/切换后生效链解析",
+            "elapsedMs": 4688,
+            "outcome": "ok",
+            "at": "2026-10-30T02:41:55.000Z"
+          },
+          {
+            "stage": "apply.install-startup",
+            "label": "应用/启动安装与启动校验",
+            "elapsedMs": 14757,
+            "outcome": "ok",
+            "at": "2026-10-30T02:42:09.757Z"
+          },
+          {
+            "stage": "apply.publish-consumption",
+            "label": "应用/消费回执发布",
+            "elapsedMs": 12,
+            "outcome": "ok",
+            "at": "2026-10-30T02:42:09.769Z"
+          }
+        ],
+        "totalElapsedMs": 204570,
+        "unexpectedLineCount": 0,
+        "unexpectedLineSamples": []
+      },
+      "startedEvidence": {
+        "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\STARTED.json",
+        "bytes": 1688,
+        "sha256": "e5fe0d2b29d49572324fa6a80948abf1187b8e2461a4970089a8c99071391af8",
+        "observedAt": "2026-10-31T16:46:37.294927+00:00"
+      },
+      "startedAt": "2026-10-30T02:29:58.947Z",
+      "nativeAttemptSeconds": 965.655,
+      "applyTimingEvidence": {
+        "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\publish-e62dc33a8a05\\apply-timing.json",
+        "bytes": 3042,
+        "sha256": "c1ccd0d07fb2695bc21f6b55dd220ea6c4b82ce5e0b11271279ac4cab3c28705",
+        "observedAt": "2026-10-31T16:46:37.300856+00:00"
+      },
+      "progressLogs": [
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\logs\\release-2026-10-30T01-37-07.093Z-5527060c-ba24-4f4d-ab65-1cd55d432700.log",
+          "bytes": 11146,
+          "sha256": "020e11915496449afc52d46a1d0f4c4dfb31302301337d01ee8da816a0412285",
+          "observedStart": "2026-10-30T01:37:07.095Z",
+          "observedEnd": "2026-10-30T02:12:00.584Z",
+          "observedSeconds": 2093.489,
+          "phases": [
+            {
+              "step": 2,
+              "label": "构建前端",
+              "start": "2026-10-30T01:37:23.450Z",
+              "end": "2026-10-30T02:08:38.346Z",
+              "seconds": 1874.896,
+              "line": 66
+            },
+            {
+              "step": 3,
+              "label": "准备后台",
+              "start": "2026-10-30T02:08:38.350Z",
+              "end": "2026-10-30T02:11:52.417Z",
+              "seconds": 194.067,
+              "line": 75
+            }
+          ],
+          "phaseLines": [
+            {
+              "line": 2,
+              "text": "[2026-10-30T01:37:07.098Z] [步骤 1] 准备发布 开始"
+            },
+            {
+              "line": 3,
+              "text": "[2026-10-30T01:37:23.450Z] [步骤 2] 构建前端 开始"
+            },
+            {
+              "line": 66,
+              "text": "[2026-10-30T02:08:38.346Z] [步骤 2] 构建前端 完成，耗时 1874 秒"
+            },
+            {
+              "line": 67,
+              "text": "[2026-10-30T02:08:38.350Z] [步骤 3] 准备后台 开始"
+            },
+            {
+              "line": 75,
+              "text": "[2026-10-30T02:11:52.417Z] [步骤 3] 准备后台 完成，耗时 194 秒"
+            }
+          ]
+        },
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\e62dc33a8a05-bfb340f8-7948e85c\\logs\\release-2026-10-30T02-23-50.641Z-2a49d837-2bb0-408a-9d43-44cd47b49039.log",
+          "bytes": 14977,
+          "sha256": "533f850203a20d299485195d611dd81e1aef991d15981194bb63d7846e30f106",
+          "observedStart": "2026-10-30T02:23:50.642Z",
+          "observedEnd": "2026-10-30T02:46:04.605Z",
+          "observedSeconds": 1333.963,
+          "phases": [
+            {
+              "step": 2,
+              "label": "核对维护前驱资格",
+              "start": "2026-10-30T02:23:57.940Z",
+              "end": "2026-10-30T02:23:57.961Z",
+              "seconds": 0.021,
+              "line": 4
+            },
+            {
+              "step": 3,
+              "label": "复验已准备前端",
+              "start": "2026-10-30T02:23:57.962Z",
+              "end": "2026-10-30T02:28:33.844Z",
+              "seconds": 275.882,
+              "line": 15
+            },
+            {
+              "step": 4,
+              "label": "复验已准备后台",
+              "start": "2026-10-30T02:28:33.854Z",
+              "end": "2026-10-30T02:29:41.619Z",
+              "seconds": 67.765,
+              "line": 19
+            },
+            {
+              "step": 5,
+              "label": "维护前只读检查",
+              "start": "2026-10-30T02:29:56.556Z",
+              "end": "2026-10-30T02:29:57.723Z",
+              "seconds": 1.167,
+              "line": 23
+            },
+            {
+              "step": 6,
+              "label": "进入维护",
+              "start": "2026-10-30T02:29:58.952Z",
+              "end": "2026-10-30T02:33:56.736Z",
+              "seconds": 237.784,
+              "line": 34
+            },
+            {
+              "step": 7,
+              "label": "停止旧前端",
+              "start": "2026-10-30T02:33:56.739Z",
+              "end": "2026-10-30T02:34:02.950Z",
+              "seconds": 6.211,
+              "line": 36
+            },
+            {
+              "step": 8,
+              "label": "登记结构迁移",
+              "start": "2026-10-30T02:34:02.952Z",
+              "end": "2026-10-30T02:35:11.688Z",
+              "seconds": 68.736,
+              "line": 40
+            },
+            {
+              "step": 9,
+              "label": "部署后台",
+              "start": "2026-10-30T02:35:11.691Z",
+              "end": "2026-10-30T02:35:41.068Z",
+              "seconds": 29.377,
+              "line": 43
+            },
+            {
+              "step": 10,
+              "label": "应用后台权限",
+              "start": "2026-10-30T02:35:41.071Z",
+              "end": "2026-10-30T02:36:28.399Z",
+              "seconds": 47.328,
+              "line": 47
+            },
+            {
+              "step": 11,
+              "label": "迁移监控字段",
+              "start": "2026-10-30T02:36:28.401Z",
+              "end": "2026-10-30T02:37:43.143Z",
+              "seconds": 74.742,
+              "line": 51
+            },
+            {
+              "step": 12,
+              "label": "完成结构迁移",
+              "start": "2026-10-30T02:37:43.145Z",
+              "end": "2026-10-30T02:38:44.907Z",
+              "seconds": 61.762,
+              "line": 55
+            },
+            {
+              "step": 13,
+              "label": "切换前端",
+              "start": "2026-10-30T02:38:44.909Z",
+              "end": "2026-10-30T02:42:09.824Z",
+              "seconds": 204.915,
+              "line": 64
+            },
+            {
+              "step": 14,
+              "label": "退出维护",
+              "start": "2026-10-30T02:42:09.827Z",
+              "end": "2026-10-30T02:42:59.533Z",
+              "seconds": 49.706,
+              "line": 68
+            },
+            {
+              "step": 15,
+              "label": "启动服务",
+              "start": "2026-10-30T02:42:59.535Z",
+              "end": "2026-10-30T02:45:50.281Z",
+              "seconds": 170.746,
+              "line": 75
+            },
+            {
+              "step": 16,
+              "label": "确认启动版本",
+              "start": "2026-10-30T02:45:50.283Z",
+              "end": "2026-10-30T02:45:57.140Z",
+              "seconds": 6.857,
+              "line": 78
+            },
+            {
+              "step": 17,
+              "label": "确认服务可用",
+              "start": "2026-10-30T02:45:57.141Z",
+              "end": "2026-10-30T02:46:04.600Z",
+              "seconds": 7.459,
+              "line": 80
+            }
+          ],
+          "phaseLines": [
+            {
+              "line": 2,
+              "text": "[2026-10-30T02:23:50.645Z] [步骤 1] 准备发布 开始"
+            },
+            {
+              "line": 3,
+              "text": "[2026-10-30T02:23:57.940Z] [步骤 2] 核对维护前驱资格 开始"
+            },
+            {
+              "line": 4,
+              "text": "[2026-10-30T02:23:57.961Z] [步骤 2] 核对维护前驱资格 完成，耗时 0 秒"
+            },
+            {
+              "line": 5,
+              "text": "[2026-10-30T02:23:57.962Z] [步骤 3] 复验已准备前端 开始"
+            },
+            {
+              "line": 15,
+              "text": "[2026-10-30T02:28:33.844Z] [步骤 3] 复验已准备前端 完成，耗时 275 秒"
+            },
+            {
+              "line": 16,
+              "text": "[2026-10-30T02:28:33.854Z] [步骤 4] 复验已准备后台 开始"
+            },
+            {
+              "line": 19,
+              "text": "[2026-10-30T02:29:41.619Z] [步骤 4] 复验已准备后台 完成，耗时 67 秒"
+            },
+            {
+              "line": 22,
+              "text": "[2026-10-30T02:29:56.556Z] [步骤 5] 维护前只读检查 开始"
+            },
+            {
+              "line": 23,
+              "text": "[2026-10-30T02:29:57.723Z] [步骤 5] 维护前只读检查 完成，耗时 1 秒"
+            },
+            {
+              "line": 25,
+              "text": "[2026-10-30T02:29:58.952Z] [步骤 6] 进入维护 开始"
+            },
+            {
+              "line": 34,
+              "text": "[2026-10-30T02:33:56.736Z] [步骤 6] 进入维护 完成，耗时 237 秒"
+            },
+            {
+              "line": 35,
+              "text": "[2026-10-30T02:33:56.739Z] [步骤 7] 停止旧前端 开始"
+            },
+            {
+              "line": 36,
+              "text": "[2026-10-30T02:34:02.950Z] [步骤 7] 停止旧前端 完成，耗时 6 秒"
+            },
+            {
+              "line": 37,
+              "text": "[2026-10-30T02:34:02.952Z] [步骤 8] 登记结构迁移 开始"
+            },
+            {
+              "line": 40,
+              "text": "[2026-10-30T02:35:11.688Z] [步骤 8] 登记结构迁移 完成，耗时 68 秒"
+            },
+            {
+              "line": 41,
+              "text": "[2026-10-30T02:35:11.691Z] [步骤 9] 部署后台 开始"
+            },
+            {
+              "line": 43,
+              "text": "[2026-10-30T02:35:41.068Z] [步骤 9] 部署后台 完成，耗时 29 秒"
+            },
+            {
+              "line": 44,
+              "text": "[2026-10-30T02:35:41.071Z] [步骤 10] 应用后台权限 开始"
+            },
+            {
+              "line": 47,
+              "text": "[2026-10-30T02:36:28.399Z] [步骤 10] 应用后台权限 完成，耗时 47 秒"
+            },
+            {
+              "line": 48,
+              "text": "[2026-10-30T02:36:28.401Z] [步骤 11] 迁移监控字段 开始"
+            },
+            {
+              "line": 51,
+              "text": "[2026-10-30T02:37:43.143Z] [步骤 11] 迁移监控字段 完成，耗时 74 秒"
+            },
+            {
+              "line": 52,
+              "text": "[2026-10-30T02:37:43.145Z] [步骤 12] 完成结构迁移 开始"
+            },
+            {
+              "line": 55,
+              "text": "[2026-10-30T02:38:44.907Z] [步骤 12] 完成结构迁移 完成，耗时 61 秒"
+            },
+            {
+              "line": 56,
+              "text": "[2026-10-30T02:38:44.909Z] [步骤 13] 切换前端 开始"
+            },
+            {
+              "line": 64,
+              "text": "[2026-10-30T02:42:09.824Z] [步骤 13] 切换前端 完成，耗时 204 秒"
+            },
+            {
+              "line": 65,
+              "text": "[2026-10-30T02:42:09.827Z] [步骤 14] 退出维护 开始"
+            },
+            {
+              "line": 68,
+              "text": "[2026-10-30T02:42:59.533Z] [步骤 14] 退出维护 完成，耗时 49 秒"
+            },
+            {
+              "line": 69,
+              "text": "[2026-10-30T02:42:59.535Z] [步骤 15] 启动服务 开始"
+            },
+            {
+              "line": 75,
+              "text": "[2026-10-30T02:45:50.281Z] [步骤 15] 启动服务 完成，耗时 170 秒"
+            },
+            {
+              "line": 76,
+              "text": "[2026-10-30T02:45:50.283Z] [步骤 16] 确认启动版本 开始"
+            },
+            {
+              "line": 78,
+              "text": "[2026-10-30T02:45:57.140Z] [步骤 16] 确认启动版本 完成，耗时 6 秒"
+            },
+            {
+              "line": 79,
+              "text": "[2026-10-30T02:45:57.141Z] [步骤 17] 确认服务可用 开始"
+            },
+            {
+              "line": 80,
+              "text": "[2026-10-30T02:46:04.600Z] [步骤 17] 确认服务可用 完成，耗时 7 秒"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "status": "deployed_and_ready",
+      "at": "2026-10-28T14:03:03.033Z",
+      "mainCommit": "1b02c93791bb3c18c4c24857497f8aa57be05f68",
+      "components": [
+        "worker",
+        "django"
+      ],
+      "workerRelease": "20261028T125857Z-7f8e70a23ee72777",
+      "workerManifestSha256": "66fcde0c3b95b4daa877d62d6513e7563ea489d4b03990cd1ff1f873cba66f89",
+      "djangoManifestSha256": "7948e85c0bea844cdc02e38fa50dc81f57c439034645fb0de952386f224b865f",
+      "source": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\source",
+      "migration": null,
+      "startupVerified": true,
+      "readyVerified": true,
+      "attempt": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb",
+      "successEvidence": {
+        "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\SUCCESS.json",
+        "bytes": 798,
+        "sha256": "bcf58d7e9922168f7110d5114c9d72466b5e79cb05f80d7bd9b22a1e9927c598",
+        "observedAt": "2026-10-31T16:46:37.286920+00:00"
+      },
+      "steps": [
+        {
+          "label": "WorkerApply",
+          "start": "2026-10-28T13:54:55.954Z",
+          "end": null,
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\WorkerApply-started.json",
+            "bytes": 123,
+            "sha256": "1e001b0e01d5ba38dede48c464a5ab84e5eef46423f1c9ecdb5f9fca1b13e0d6",
+            "observedAt": "2026-10-31T16:46:37.287738+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\WorkerApply-result.json",
+            "bytes": 781,
+            "sha256": "7b7fdaf3c23ef44366d17ad0c10ee2869ccfdd54aeb5c30ba9e5e4e91fc584a1",
+            "observedAt": "2026-10-31T16:46:37.287959+00:00"
+          }
+        },
+        {
+          "label": "停止旧前端",
+          "start": "2026-10-28T13:52:36.900Z",
+          "end": "2026-10-28T13:52:43.935Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\停止旧前端-started.json",
+            "bytes": 209,
+            "sha256": "86404e94bad20c638ab82908101db55bb846e02cd7d9c09a995fae02dba76cfd",
+            "observedAt": "2026-10-31T16:46:37.288137+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\停止旧前端-result.json",
+            "bytes": 282,
+            "sha256": "d7074ac910ca3c0c24bc1badca5f1c1076b28134c64f8efc5ebcc1ae2a146484",
+            "observedAt": "2026-10-31T16:46:37.288436+00:00"
+          },
+          "seconds": 7.035
+        },
+        {
+          "label": "启动服务",
+          "start": "2026-10-28T13:59:45.372Z",
+          "end": "2026-10-28T14:02:45.637Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\启动服务-started.json",
+            "bytes": 210,
+            "sha256": "9bce5aeadc0336fbce24ccc4d8fd7b5fc250269b3f6df61cbe2ca8b6229d71c5",
+            "observedAt": "2026-10-31T16:46:37.288632+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\启动服务-result.json",
+            "bytes": 1730,
+            "sha256": "89b5a0d424031774d68a6324f7dcb016fe39548420905cf5d6bf6cb6db74da1c",
+            "observedAt": "2026-10-31T16:46:37.288869+00:00"
+          },
+          "seconds": 180.265,
+          "startupPhases": {
+            "DjangoEnsure": {
+              "phase": "DjangoEnsure",
+              "budgetMilliseconds": 400000,
+              "deadlineUnixMs": 1793196391789,
+              "startedAt": "2026-10-28T13:59:51.7895832+00:00",
+              "elapsedMilliseconds": 140237,
+              "outcome": "completed",
+              "code": "completed",
+              "processEvidence": null
+            },
+            "ReleaseVerification": {
+              "phase": "ReleaseVerification",
+              "budgetMilliseconds": 220000,
+              "deadlineUnixMs": 1793196352033,
+              "startedAt": "2026-10-28T14:02:12.0339154+00:00",
+              "elapsedMilliseconds": 14900,
+              "outcome": "completed",
+              "code": "completed",
+              "processEvidence": null
+            },
+            "SupervisorStart": {
+              "phase": "SupervisorStart",
+              "budgetMilliseconds": 90000,
+              "deadlineUnixMs": 1793196236935,
+              "startedAt": "2026-10-28T14:02:26.9356546+00:00",
+              "elapsedMilliseconds": 18605,
+              "outcome": "completed",
+              "code": "completed",
+              "processEvidence": null
+            }
+          }
+        },
+        {
+          "label": "应用后台权限",
+          "start": "2026-10-28T13:54:05.691Z",
+          "end": "2026-10-28T13:54:55.948Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\应用后台权限-started.json",
+            "bytes": 166,
+            "sha256": "0685cabb3ff5f271ede8274404c1422d5cc9e6acd3695a27e84b50b60a20c2ee",
+            "observedAt": "2026-10-31T16:46:37.289042+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\应用后台权限-result.json",
+            "bytes": 56,
+            "sha256": "18a9e3ef6aac1e28d6b9ab00700cebd77cbaad6e8cf4903bf427156671229781",
+            "observedAt": "2026-10-31T16:46:37.289312+00:00"
+          },
+          "seconds": 50.257
+        },
+        {
+          "label": "确认启动版本",
+          "start": "2026-10-28T14:02:45.644Z",
+          "end": "2026-10-28T14:02:54.453Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\确认启动版本-started.json",
+            "bytes": 218,
+            "sha256": "cef4dec583b11ae209b6a4a620b0dd9a5884fe06acfcf1c503d78d3bec59386c",
+            "observedAt": "2026-10-31T16:46:37.289508+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\确认启动版本-result.json",
+            "bytes": 304,
+            "sha256": "08c10958ee4da08ebcd3d3f432db2c6fa00fbc3ba5a839176692aaae108c98f0",
+            "observedAt": "2026-10-31T16:46:37.289717+00:00"
+          },
+          "seconds": 8.809
+        },
+        {
+          "label": "进入维护",
+          "start": "2026-10-28T13:48:36.296Z",
+          "end": "2026-10-28T13:52:36.895Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\进入维护-started.json",
+            "bytes": 463,
+            "sha256": "35560c10dacc1e70f9cd65d3b348b8116eeba1b8c5a0e5f697ba4e79fa82379a",
+            "observedAt": "2026-10-31T16:46:37.289908+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\进入维护-result.json",
+            "bytes": 201,
+            "sha256": "44ed45cd74f60ae0586223a60d5622a819ccdc81edc23ea8a0be17f5960a4d84",
+            "observedAt": "2026-10-31T16:46:37.290107+00:00"
+          },
+          "seconds": 240.599
+        },
+        {
+          "label": "退出维护",
+          "start": "2026-10-28T13:58:59.071Z",
+          "end": "2026-10-28T13:59:45.367Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\退出维护-started.json",
+            "bytes": 284,
+            "sha256": "5f989fd1bfb85b6ccb89a2302de1477cfcba1ea9dffaf31d46fc52bab31b49a4",
+            "observedAt": "2026-10-31T16:46:37.290270+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\退出维护-result.json",
+            "bytes": 148,
+            "sha256": "8fe6c9d90bde6b22a440d7f48c3d14076a6c2b2d5e62e11ceb8aa0519d7a941c",
+            "observedAt": "2026-10-31T16:46:37.290477+00:00"
+          },
+          "seconds": 46.296
+        },
+        {
+          "label": "部署后台",
+          "start": "2026-10-28T13:52:43.939Z",
+          "end": "2026-10-28T13:54:05.686Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\部署后台-started.json",
+            "bytes": 371,
+            "sha256": "b87ba95c9c6db67a487de5e10a2720460b0b8f0d0f0adfc19acec6a692e2d223",
+            "observedAt": "2026-10-31T16:46:37.290667+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\部署后台-result.json",
+            "bytes": 56,
+            "sha256": "09b3855579d0cbfc5729cb5fa5e0f51a57acf432f03aceaacdf7fc7efc0b1241",
+            "observedAt": "2026-10-31T16:46:37.290902+00:00"
+          },
+          "seconds": 81.747
+        }
+      ],
+      "applyTiming": {
+        "version": "teruisi-apply-timing-v1",
+        "at": "2026-10-28T13:58:59.066Z",
+        "mainCommit": "1b02c93791bb3c18c4c24857497f8aa57be05f68",
+        "planSha256": "d29ae24532bc73685bf6e7b8195c96d1484d30d358fac307e372f62dd2546897",
+        "releaseId": "20261028T125857Z-7f8e70a23ee72777",
+        "stages": [
+          {
+            "stage": "apply.validate#1",
+            "label": "应用/批准轮换校验#1",
+            "elapsedMs": 4925,
+            "outcome": "ok",
+            "at": "2026-10-28T13:55:01.150Z"
+          },
+          {
+            "stage": "apply.d1-receipt",
+            "label": "应用/D1 退役回执读取",
+            "elapsedMs": 1,
+            "outcome": "ok",
+            "at": "2026-10-28T13:55:01.151Z"
+          },
+          {
+            "stage": "apply.head-stopped#1",
+            "label": "应用/首段 head 停稳核验#1",
+            "elapsedMs": 86696,
+            "outcome": "ok",
+            "at": "2026-10-28T13:56:27.848Z"
+          },
+          {
+            "stage": "apply.candidate-stopped#1",
+            "label": "应用/候选停稳核验#1",
+            "elapsedMs": 86538,
+            "outcome": "ok",
+            "at": "2026-10-28T13:57:54.387Z"
+          },
+          {
+            "stage": "apply.validate#2",
+            "label": "应用/批准轮换校验#2（mutation 前 CAS 复核）",
+            "elapsedMs": 4725,
+            "outcome": "ok",
+            "at": "2026-10-28T13:57:59.113Z"
+          },
+          {
+            "stage": "apply.head-stopped#2",
+            "label": "应用/首段 head 停稳核验#2",
+            "elapsedMs": 14633,
+            "outcome": "ok",
+            "at": "2026-10-28T13:58:13.746Z"
+          },
+          {
+            "stage": "apply.candidate-stopped#2",
+            "label": "应用/候选停稳核验#2",
+            "elapsedMs": 13069,
+            "outcome": "ok",
+            "at": "2026-10-28T13:58:26.816Z"
+          },
+          {
+            "stage": "apply.install-entrypoints",
+            "label": "应用/受保护入口安装",
+            "elapsedMs": 19,
+            "outcome": "ok",
+            "at": "2026-10-28T13:58:26.836Z"
+          },
+          {
+            "stage": "apply.candidate-stopped#3",
+            "label": "应用/候选停稳核验#3",
+            "elapsedMs": 13232,
+            "outcome": "ok",
+            "at": "2026-10-28T13:58:40.068Z"
+          },
+          {
+            "stage": "apply.verify-guards",
+            "label": "应用/已安装 guard 入口复验",
+            "elapsedMs": 12,
+            "outcome": "ok",
+            "at": "2026-10-28T13:58:40.080Z"
+          },
+          {
+            "stage": "apply.publish-successor",
+            "label": "应用/successor 记录发布",
+            "elapsedMs": 12,
+            "outcome": "ok",
+            "at": "2026-10-28T13:58:40.092Z"
+          },
+          {
+            "stage": "apply.chain-resolve",
+            "label": "应用/切换后生效链解析",
+            "elapsedMs": 4767,
+            "outcome": "ok",
+            "at": "2026-10-28T13:58:44.859Z"
+          },
+          {
+            "stage": "apply.install-startup",
+            "label": "应用/启动安装与启动校验",
+            "elapsedMs": 14147,
+            "outcome": "ok",
+            "at": "2026-10-28T13:58:59.006Z"
+          },
+          {
+            "stage": "apply.publish-consumption",
+            "label": "应用/消费回执发布",
+            "elapsedMs": 13,
+            "outcome": "ok",
+            "at": "2026-10-28T13:58:59.020Z"
+          }
+        ],
+        "totalElapsedMs": 242789,
+        "unexpectedLineCount": 0,
+        "unexpectedLineSamples": []
+      },
+      "startedEvidence": {
+        "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\STARTED.json",
+        "bytes": 909,
+        "sha256": "74c64d07592a93d216b7ab1ef991f2fe9e86ba83ec68fcb09e9f8be35e1e811b",
+        "observedAt": "2026-10-31T16:46:37.287150+00:00"
+      },
+      "startedAt": "2026-10-28T13:48:36.290Z",
+      "nativeAttemptSeconds": 866.743,
+      "applyTimingEvidence": {
+        "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\publish-1b02c93791bb\\apply-timing.json",
+        "bytes": 3042,
+        "sha256": "c77f27e440b4b30f260aa610cb6462bd04e5896ac7e410f32f423bc08677fcdb",
+        "observedAt": "2026-10-31T16:46:37.291178+00:00"
+      },
+      "progressLogs": [
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\logs\\release-2026-10-28T12-58-35.449Z-52989780-b4d8-45e7-9039-5b0847247af9.log",
+          "bytes": 11547,
+          "sha256": "a8c83c2ffb68092bbc936bed21d736ebff0d902796c5406e0eb72be216b5879c",
+          "observedStart": "2026-10-28T12:58:35.451Z",
+          "observedEnd": "2026-10-28T13:34:56.182Z",
+          "observedSeconds": 2180.731,
+          "phases": [
+            {
+              "step": 2,
+              "label": "构建前端",
+              "start": "2026-10-28T12:58:41.729Z",
+              "end": "2026-10-28T13:31:19.723Z",
+              "seconds": 1957.994,
+              "line": 69
+            },
+            {
+              "step": 3,
+              "label": "准备后台",
+              "start": "2026-10-28T13:31:19.727Z",
+              "end": "2026-10-28T13:34:48.253Z",
+              "seconds": 208.526,
+              "line": 78
+            }
+          ],
+          "phaseLines": [
+            {
+              "line": 2,
+              "text": "[2026-10-28T12:58:35.454Z] [步骤 1] 准备发布 开始"
+            },
+            {
+              "line": 3,
+              "text": "[2026-10-28T12:58:41.729Z] [步骤 2] 构建前端 开始"
+            },
+            {
+              "line": 69,
+              "text": "[2026-10-28T13:31:19.723Z] [步骤 2] 构建前端 完成，耗时 1957 秒"
+            },
+            {
+              "line": 70,
+              "text": "[2026-10-28T13:31:19.727Z] [步骤 3] 准备后台 开始"
+            },
+            {
+              "line": 78,
+              "text": "[2026-10-28T13:34:48.253Z] [步骤 3] 准备后台 完成，耗时 208 秒"
+            }
+          ]
+        },
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\1b02c93791bb-d349107e-99df9f68\\logs\\release-2026-10-28T13-41-31.728Z-83ee2586-a2b8-4e8b-bea3-ba9ebbe70819.log",
+          "bytes": 13511,
+          "sha256": "3b3a0f75ea2c31bbe1ae9d50e36e17c0ea65ec5a3647927fd9f08b7e617db20a",
+          "observedStart": "2026-10-28T13:41:31.732Z",
+          "observedEnd": "2026-10-28T14:03:03.039Z",
+          "observedSeconds": 1291.307,
+          "phases": [
+            {
+              "step": 2,
+              "label": "核对维护前驱资格",
+              "start": "2026-10-28T13:41:40.607Z",
+              "end": "2026-10-28T13:41:40.641Z",
+              "seconds": 0.034,
+              "line": 4
+            },
+            {
+              "step": 3,
+              "label": "复验已准备前端",
+              "start": "2026-10-28T13:41:40.643Z",
+              "end": "2026-10-28T13:47:10.810Z",
+              "seconds": 330.167,
+              "line": 17
+            },
+            {
+              "step": 4,
+              "label": "复验已准备后台",
+              "start": "2026-10-28T13:47:10.815Z",
+              "end": "2026-10-28T13:48:25.729Z",
+              "seconds": 74.914,
+              "line": 21
+            },
+            {
+              "step": 5,
+              "label": "维护前只读检查",
+              "start": "2026-10-28T13:48:32.848Z",
+              "end": "2026-10-28T13:48:34.831Z",
+              "seconds": 1.983,
+              "line": 25
+            },
+            {
+              "step": 6,
+              "label": "进入维护",
+              "start": "2026-10-28T13:48:36.296Z",
+              "end": "2026-10-28T13:52:36.898Z",
+              "seconds": 240.602,
+              "line": 36
+            },
+            {
+              "step": 7,
+              "label": "停止旧前端",
+              "start": "2026-10-28T13:52:36.900Z",
+              "end": "2026-10-28T13:52:43.937Z",
+              "seconds": 7.037,
+              "line": 38
+            },
+            {
+              "step": 8,
+              "label": "部署后台",
+              "start": "2026-10-28T13:52:43.939Z",
+              "end": "2026-10-28T13:54:05.688Z",
+              "seconds": 81.749,
+              "line": 43
+            },
+            {
+              "step": 9,
+              "label": "应用后台权限",
+              "start": "2026-10-28T13:54:05.690Z",
+              "end": "2026-10-28T13:54:55.950Z",
+              "seconds": 50.26,
+              "line": 46
+            },
+            {
+              "step": 10,
+              "label": "切换前端",
+              "start": "2026-10-28T13:54:55.953Z",
+              "end": "2026-10-28T13:58:59.068Z",
+              "seconds": 243.115,
+              "line": 56
+            },
+            {
+              "step": 11,
+              "label": "退出维护",
+              "start": "2026-10-28T13:58:59.070Z",
+              "end": "2026-10-28T13:59:45.369Z",
+              "seconds": 46.299,
+              "line": 60
+            },
+            {
+              "step": 12,
+              "label": "启动服务",
+              "start": "2026-10-28T13:59:45.372Z",
+              "end": "2026-10-28T14:02:45.640Z",
+              "seconds": 180.268,
+              "line": 68
+            },
+            {
+              "step": 13,
+              "label": "确认启动版本",
+              "start": "2026-10-28T14:02:45.644Z",
+              "end": "2026-10-28T14:02:54.456Z",
+              "seconds": 8.812,
+              "line": 70
+            },
+            {
+              "step": 14,
+              "label": "确认服务可用",
+              "start": "2026-10-28T14:02:54.457Z",
+              "end": "2026-10-28T14:03:03.031Z",
+              "seconds": 8.574,
+              "line": 73
+            }
+          ],
+          "phaseLines": [
+            {
+              "line": 2,
+              "text": "[2026-10-28T13:41:31.736Z] [步骤 1] 准备发布 开始"
+            },
+            {
+              "line": 3,
+              "text": "[2026-10-28T13:41:40.607Z] [步骤 2] 核对维护前驱资格 开始"
+            },
+            {
+              "line": 4,
+              "text": "[2026-10-28T13:41:40.641Z] [步骤 2] 核对维护前驱资格 完成，耗时 0 秒"
+            },
+            {
+              "line": 5,
+              "text": "[2026-10-28T13:41:40.643Z] [步骤 3] 复验已准备前端 开始"
+            },
+            {
+              "line": 17,
+              "text": "[2026-10-28T13:47:10.810Z] [步骤 3] 复验已准备前端 完成，耗时 330 秒"
+            },
+            {
+              "line": 18,
+              "text": "[2026-10-28T13:47:10.815Z] [步骤 4] 复验已准备后台 开始"
+            },
+            {
+              "line": 21,
+              "text": "[2026-10-28T13:48:25.729Z] [步骤 4] 复验已准备后台 完成，耗时 74 秒"
+            },
+            {
+              "line": 24,
+              "text": "[2026-10-28T13:48:32.848Z] [步骤 5] 维护前只读检查 开始"
+            },
+            {
+              "line": 25,
+              "text": "[2026-10-28T13:48:34.831Z] [步骤 5] 维护前只读检查 完成，耗时 1 秒"
+            },
+            {
+              "line": 27,
+              "text": "[2026-10-28T13:48:36.296Z] [步骤 6] 进入维护 开始"
+            },
+            {
+              "line": 36,
+              "text": "[2026-10-28T13:52:36.898Z] [步骤 6] 进入维护 完成，耗时 240 秒"
+            },
+            {
+              "line": 37,
+              "text": "[2026-10-28T13:52:36.900Z] [步骤 7] 停止旧前端 开始"
+            },
+            {
+              "line": 38,
+              "text": "[2026-10-28T13:52:43.937Z] [步骤 7] 停止旧前端 完成，耗时 7 秒"
+            },
+            {
+              "line": 39,
+              "text": "[2026-10-28T13:52:43.939Z] [步骤 8] 部署后台 开始"
+            },
+            {
+              "line": 43,
+              "text": "[2026-10-28T13:54:05.688Z] [步骤 8] 部署后台 完成，耗时 81 秒"
+            },
+            {
+              "line": 44,
+              "text": "[2026-10-28T13:54:05.690Z] [步骤 9] 应用后台权限 开始"
+            },
+            {
+              "line": 46,
+              "text": "[2026-10-28T13:54:55.950Z] [步骤 9] 应用后台权限 完成，耗时 50 秒"
+            },
+            {
+              "line": 47,
+              "text": "[2026-10-28T13:54:55.953Z] [步骤 10] 切换前端 开始"
+            },
+            {
+              "line": 56,
+              "text": "[2026-10-28T13:58:59.068Z] [步骤 10] 切换前端 完成，耗时 243 秒"
+            },
+            {
+              "line": 57,
+              "text": "[2026-10-28T13:58:59.070Z] [步骤 11] 退出维护 开始"
+            },
+            {
+              "line": 60,
+              "text": "[2026-10-28T13:59:45.369Z] [步骤 11] 退出维护 完成，耗时 46 秒"
+            },
+            {
+              "line": 61,
+              "text": "[2026-10-28T13:59:45.372Z] [步骤 12] 启动服务 开始"
+            },
+            {
+              "line": 68,
+              "text": "[2026-10-28T14:02:45.640Z] [步骤 12] 启动服务 完成，耗时 180 秒"
+            },
+            {
+              "line": 69,
+              "text": "[2026-10-28T14:02:45.644Z] [步骤 13] 确认启动版本 开始"
+            },
+            {
+              "line": 70,
+              "text": "[2026-10-28T14:02:54.456Z] [步骤 13] 确认启动版本 完成，耗时 8 秒"
+            },
+            {
+              "line": 71,
+              "text": "[2026-10-28T14:02:54.457Z] [步骤 14] 确认服务可用 开始"
+            },
+            {
+              "line": 73,
+              "text": "[2026-10-28T14:03:03.031Z] [步骤 14] 确认服务可用 完成，耗时 8 秒"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "status": "deployed_and_ready",
+      "at": "2026-10-27T14:31:01.572Z",
+      "mainCommit": "18c25a3a153ebfffb9603999b6e37791bb0abd09",
+      "components": [
+        "worker",
+        "django"
+      ],
+      "workerRelease": "20261027T131435Z-b1714d1611033bc6",
+      "workerManifestSha256": "953ac3aa44134515e52752798aa6c08212d5a30a2890a97170ab6e8603776188",
+      "djangoManifestSha256": "99df9f6821c639310c79c09535cdf66cf6d06ef288d1c967d1653155edddf37c",
+      "source": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\source",
+      "migration": null,
+      "startupVerified": true,
+      "readyVerified": true,
+      "attempt": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e",
+      "successEvidence": {
+        "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\SUCCESS.json",
+        "bytes": 798,
+        "sha256": "5b616f05607807d546cf4abec1fcdbd0d4d0c6845de4299f986cebd2f6a510e0",
+        "observedAt": "2026-10-31T16:46:37.279461+00:00"
+      },
+      "steps": [
+        {
+          "label": "WorkerApply",
+          "start": "2026-10-27T14:24:22.023Z",
+          "end": null,
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\WorkerApply-started.json",
+            "bytes": 123,
+            "sha256": "6fff045cb6810cdf46ee8fd3cb32bd9852f80cc2024d36b0ed5e35451448b5f4",
+            "observedAt": "2026-10-31T16:46:37.280252+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\WorkerApply-result.json",
+            "bytes": 781,
+            "sha256": "8bd133e46adfb3a656c86bacdb244e73fc537ca90c00131e37a27af5643a7a3a",
+            "observedAt": "2026-10-31T16:46:37.280490+00:00"
+          }
+        },
+        {
+          "label": "停止旧前端",
+          "start": "2026-10-27T14:22:45.280Z",
+          "end": "2026-10-27T14:22:51.258Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\停止旧前端-started.json",
+            "bytes": 209,
+            "sha256": "a6b3f8768dab237ea1000d28b2be3dbbfc97a6b004fb5188999da832fc63e41b",
+            "observedAt": "2026-10-31T16:46:37.280700+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\停止旧前端-result.json",
+            "bytes": 282,
+            "sha256": "f4e694de827df1ee619c3e657745eeed09fa20bb9534bdbbe92669721c8ae40f",
+            "observedAt": "2026-10-31T16:46:37.280898+00:00"
+          },
+          "seconds": 5.978
+        },
+        {
+          "label": "启动服务",
+          "start": "2026-10-27T14:28:04.173Z",
+          "end": "2026-10-27T14:30:47.108Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\启动服务-started.json",
+            "bytes": 210,
+            "sha256": "b1e5aa50700dc109c464114742292d0781235bb32c3ca3a22a6d9f5346baf5bf",
+            "observedAt": "2026-10-31T16:46:37.281099+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\启动服务-result.json",
+            "bytes": 1731,
+            "sha256": "8b1b75673070c3793e7b3bb501c46d3ad04856943aa28fab594b695a145fe0de",
+            "observedAt": "2026-10-31T16:46:37.281309+00:00"
+          },
+          "seconds": 162.935,
+          "startupPhases": {
+            "DjangoEnsure": {
+              "phase": "DjangoEnsure",
+              "budgetMilliseconds": 400000,
+              "deadlineUnixMs": 1793111689924,
+              "startedAt": "2026-10-27T14:28:09.9253256+00:00",
+              "elapsedMilliseconds": 128049,
+              "outcome": "completed",
+              "code": "completed",
+              "processEvidence": null
+            },
+            "ReleaseVerification": {
+              "phase": "ReleaseVerification",
+              "budgetMilliseconds": 220000,
+              "deadlineUnixMs": 1793111637980,
+              "startedAt": "2026-10-27T14:30:17.9802434+00:00",
+              "elapsedMilliseconds": 13311,
+              "outcome": "completed",
+              "code": "completed",
+              "processEvidence": null
+            },
+            "SupervisorStart": {
+              "phase": "SupervisorStart",
+              "budgetMilliseconds": 90000,
+              "deadlineUnixMs": 1793111521293,
+              "startedAt": "2026-10-27T14:30:31.2935046+00:00",
+              "elapsedMilliseconds": 15747,
+              "outcome": "completed",
+              "code": "completed",
+              "processEvidence": null
+            }
+          }
+        },
+        {
+          "label": "应用后台权限",
+          "start": "2026-10-27T14:23:37.579Z",
+          "end": "2026-10-27T14:24:22.018Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\应用后台权限-started.json",
+            "bytes": 166,
+            "sha256": "bbbb154cebef024692b058e18466347da32ffa31bf634f167e388703ec27498e",
+            "observedAt": "2026-10-31T16:46:37.281491+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\应用后台权限-result.json",
+            "bytes": 56,
+            "sha256": "e94ed9fdeb24e81e77ae034f62565c570ce5f993dd7ad65e816bcde9a2c6db3a",
+            "observedAt": "2026-10-31T16:46:37.281704+00:00"
+          },
+          "seconds": 44.439
+        },
+        {
+          "label": "确认启动版本",
+          "start": "2026-10-27T14:30:47.113Z",
+          "end": "2026-10-27T14:30:53.927Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\确认启动版本-started.json",
+            "bytes": 218,
+            "sha256": "ed961427f3ed7fbd231245e10f5d8ac92bcc72ba06edef77bc23f5fa70ab5260",
+            "observedAt": "2026-10-31T16:46:37.281893+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\确认启动版本-result.json",
+            "bytes": 304,
+            "sha256": "4e0d2b043a11800af9beaf65f06925c4926312a799d3b071d0b08fc7238c503a",
+            "observedAt": "2026-10-31T16:46:37.282095+00:00"
+          },
+          "seconds": 6.814
+        },
+        {
+          "label": "进入维护",
+          "start": "2026-10-27T14:19:34.971Z",
+          "end": "2026-10-27T14:22:45.276Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\进入维护-started.json",
+            "bytes": 463,
+            "sha256": "327108fc86d0e5878c7497b3b62edb8053e1f79b7de6f1bcac028ec8171ac5d7",
+            "observedAt": "2026-10-31T16:46:37.282275+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\进入维护-result.json",
+            "bytes": 201,
+            "sha256": "f2b8ccc478351858556b7e827a35e75f48e0512b5ace133cae7e668c70d98ff2",
+            "observedAt": "2026-10-31T16:46:37.282766+00:00"
+          },
+          "seconds": 190.305
+        },
+        {
+          "label": "退出维护",
+          "start": "2026-10-27T14:27:22.741Z",
+          "end": "2026-10-27T14:28:04.170Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\退出维护-started.json",
+            "bytes": 284,
+            "sha256": "fd0754403a5c2004054a7b5bcd3590adf6f9bd7d4bfb00b500d52e58b406b4e5",
+            "observedAt": "2026-10-31T16:46:37.282962+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\退出维护-result.json",
+            "bytes": 148,
+            "sha256": "80abef3795646edec416a9fd470f409f12e84d653c9a176ee2f03624548f2915",
+            "observedAt": "2026-10-31T16:46:37.283257+00:00"
+          },
+          "seconds": 41.429
+        },
+        {
+          "label": "部署后台",
+          "start": "2026-10-27T14:22:51.262Z",
+          "end": "2026-10-27T14:23:37.574Z",
+          "startEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\部署后台-started.json",
+            "bytes": 371,
+            "sha256": "de50ef1f5ef7edc73c60a6e14edb0ce1612389400a78d9acfad8b0ef4034cf0c",
+            "observedAt": "2026-10-31T16:46:37.283521+00:00"
+          },
+          "resultEvidence": {
+            "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\部署后台-result.json",
+            "bytes": 56,
+            "sha256": "30c9882f1c901d0a6f5e3e1f5e687540a72109dcb18c3ba07360e98546b268cb",
+            "observedAt": "2026-10-31T16:46:37.283796+00:00"
+          },
+          "seconds": 46.312
+        }
+      ],
+      "applyTiming": {
+        "version": "teruisi-apply-timing-v1",
+        "at": "2026-10-27T14:27:22.738Z",
+        "mainCommit": "18c25a3a153ebfffb9603999b6e37791bb0abd09",
+        "planSha256": "0d0cda63c12fae24342b67609d7a8cf9e7ee3cb34d060f620c10eba99e4b1689",
+        "releaseId": "20261027T131435Z-b1714d1611033bc6",
+        "stages": [
+          {
+            "stage": "apply.validate#1",
+            "label": "应用/批准轮换校验#1",
+            "elapsedMs": 4431,
+            "outcome": "ok",
+            "at": "2026-10-27T14:24:26.692Z"
+          },
+          {
+            "stage": "apply.d1-receipt",
+            "label": "应用/D1 退役回执读取",
+            "elapsedMs": 1,
+            "outcome": "ok",
+            "at": "2026-10-27T14:24:26.694Z"
+          },
+          {
+            "stage": "apply.head-stopped#1",
+            "label": "应用/首段 head 停稳核验#1",
+            "elapsedMs": 37243,
+            "outcome": "ok",
+            "at": "2026-10-27T14:25:03.937Z"
+          },
+          {
+            "stage": "apply.candidate-stopped#1",
+            "label": "应用/候选停稳核验#1",
+            "elapsedMs": 79882,
+            "outcome": "ok",
+            "at": "2026-10-27T14:26:23.819Z"
+          },
+          {
+            "stage": "apply.validate#2",
+            "label": "应用/批准轮换校验#2（mutation 前 CAS 复核）",
+            "elapsedMs": 4411,
+            "outcome": "ok",
+            "at": "2026-10-27T14:26:28.231Z"
+          },
+          {
+            "stage": "apply.head-stopped#2",
+            "label": "应用/首段 head 停稳核验#2",
+            "elapsedMs": 12622,
+            "outcome": "ok",
+            "at": "2026-10-27T14:26:40.854Z"
+          },
+          {
+            "stage": "apply.candidate-stopped#2",
+            "label": "应用/候选停稳核验#2",
+            "elapsedMs": 12301,
+            "outcome": "ok",
+            "at": "2026-10-27T14:26:53.155Z"
+          },
+          {
+            "stage": "apply.install-entrypoints",
+            "label": "应用/受保护入口安装",
+            "elapsedMs": 21,
+            "outcome": "ok",
+            "at": "2026-10-27T14:26:53.176Z"
+          },
+          {
+            "stage": "apply.candidate-stopped#3",
+            "label": "应用/候选停稳核验#3",
+            "elapsedMs": 12144,
+            "outcome": "ok",
+            "at": "2026-10-27T14:27:05.320Z"
+          },
+          {
+            "stage": "apply.verify-guards",
+            "label": "应用/已安装 guard 入口复验",
+            "elapsedMs": 15,
+            "outcome": "ok",
+            "at": "2026-10-27T14:27:05.335Z"
+          },
+          {
+            "stage": "apply.publish-successor",
+            "label": "应用/successor 记录发布",
+            "elapsedMs": 14,
+            "outcome": "ok",
+            "at": "2026-10-27T14:27:05.349Z"
+          },
+          {
+            "stage": "apply.chain-resolve",
+            "label": "应用/切换后生效链解析",
+            "elapsedMs": 4315,
+            "outcome": "ok",
+            "at": "2026-10-27T14:27:09.664Z"
+          },
+          {
+            "stage": "apply.install-startup",
+            "label": "应用/启动安装与启动校验",
+            "elapsedMs": 13029,
+            "outcome": "ok",
+            "at": "2026-10-27T14:27:22.693Z"
+          },
+          {
+            "stage": "apply.publish-consumption",
+            "label": "应用/消费回执发布",
+            "elapsedMs": 9,
+            "outcome": "ok",
+            "at": "2026-10-27T14:27:22.702Z"
+          }
+        ],
+        "totalElapsedMs": 180438,
+        "unexpectedLineCount": 0,
+        "unexpectedLineSamples": []
+      },
+      "startedEvidence": {
+        "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\STARTED.json",
+        "bytes": 909,
+        "sha256": "dd13ced36863aa6ca9bc5927bb8a32b1b7435a497dc9db42b2aea73ac9d64faa",
+        "observedAt": "2026-10-31T16:46:37.279687+00:00"
+      },
+      "startedAt": "2026-10-27T14:19:34.964Z",
+      "nativeAttemptSeconds": 686.608,
+      "applyTimingEvidence": {
+        "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\publish-18c25a3a153e\\apply-timing.json",
+        "bytes": 3041,
+        "sha256": "d4f602c0c6b5d6351db16d6575ead9bfb9f4d776c186cc25939b8e5a8bd3a84b",
+        "observedAt": "2026-10-31T16:46:37.284085+00:00"
+      },
+      "progressLogs": [
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\logs\\release-2026-10-27T13-14-02.965Z-186fe2b8-9541-47a2-ad1d-032ad87cc325.log",
+          "bytes": 9371,
+          "sha256": "cc574a525c6cf0e19d64fbf1ec5622f7b094412c5bcee1d847181b7ff4309a20",
+          "observedStart": "2026-10-27T13:14:02.968Z",
+          "observedEnd": "2026-10-27T13:42:36.151Z",
+          "observedSeconds": 1713.183,
+          "phases": [
+            {
+              "step": 2,
+              "label": "构建前端",
+              "start": "2026-10-27T13:14:17.386Z",
+              "end": "2026-10-27T13:39:55.782Z",
+              "seconds": 1538.396,
+              "line": 55
+            },
+            {
+              "step": 3,
+              "label": "准备后台",
+              "start": "2026-10-27T13:39:55.785Z",
+              "end": "2026-10-27T13:42:29.197Z",
+              "seconds": 153.412,
+              "line": 62
+            }
+          ],
+          "phaseLines": [
+            {
+              "line": 2,
+              "text": "[2026-10-27T13:14:02.977Z] [步骤 1] 准备发布 开始"
+            },
+            {
+              "line": 3,
+              "text": "[2026-10-27T13:14:17.386Z] [步骤 2] 构建前端 开始"
+            },
+            {
+              "line": 55,
+              "text": "[2026-10-27T13:39:55.782Z] [步骤 2] 构建前端 完成，耗时 1538 秒"
+            },
+            {
+              "line": 56,
+              "text": "[2026-10-27T13:39:55.785Z] [步骤 3] 准备后台 开始"
+            },
+            {
+              "line": 62,
+              "text": "[2026-10-27T13:42:29.197Z] [步骤 3] 准备后台 完成，耗时 153 秒"
+            }
+          ]
+        },
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\logs\\release-2026-10-27T14-01-51.419Z-c108094c-b52b-4ae6-a690-642eeae8b104.log",
+          "bytes": 1041,
+          "sha256": "e98aca4907cae7044cf87377e413fbbabf664d526736c12e58dadba5a8a509a1",
+          "observedStart": "2026-10-27T14:01:51.421Z",
+          "observedEnd": "2026-10-27T14:03:51.447Z",
+          "observedSeconds": 120.026,
+          "phases": [
+            {
+              "step": 2,
+              "label": "核对维护前驱资格",
+              "start": "2026-10-27T14:02:00.179Z",
+              "end": "2026-10-27T14:02:00.204Z",
+              "seconds": 0.025,
+              "line": 4
+            }
+          ],
+          "phaseLines": [
+            {
+              "line": 2,
+              "text": "[2026-10-27T14:01:51.425Z] [步骤 1] 准备发布 开始"
+            },
+            {
+              "line": 3,
+              "text": "[2026-10-27T14:02:00.179Z] [步骤 2] 核对维护前驱资格 开始"
+            },
+            {
+              "line": 4,
+              "text": "[2026-10-27T14:02:00.204Z] [步骤 2] 核对维护前驱资格 完成，耗时 0 秒"
+            },
+            {
+              "line": 5,
+              "text": "[2026-10-27T14:02:00.205Z] [步骤 3] 复验已准备前端 开始"
+            }
+          ]
+        },
+        {
+          "path": "D:\\codex-isolated\\main-release-packages\\18c25a3a153e-4a9cb3f5-b05895d2\\logs\\release-2026-10-27T14-13-51.385Z-54ad96ce-4671-40e8-919e-7ef72fd7ec0c.log",
+          "bytes": 11567,
+          "sha256": "fdd0efc7bb4e31f3873e9bfb0fbf6c3479ed4607b24800edafe531b1b64c3b3b",
+          "observedStart": "2026-10-27T14:13:51.387Z",
+          "observedEnd": "2026-10-27T14:31:01.574Z",
+          "observedSeconds": 1030.187,
+          "phases": [
+            {
+              "step": 2,
+              "label": "核对维护前驱资格",
+              "start": "2026-10-27T14:13:57.390Z",
+              "end": "2026-10-27T14:13:57.414Z",
+              "seconds": 0.024,
+              "line": 4
+            },
+            {
+              "step": 3,
+              "label": "复验已准备前端",
+              "start": "2026-10-27T14:13:57.415Z",
+              "end": "2026-10-27T14:18:19.547Z",
+              "seconds": 262.132,
+              "line": 14
+            },
+            {
+              "step": 4,
+              "label": "复验已准备后台",
+              "start": "2026-10-27T14:18:19.552Z",
+              "end": "2026-10-27T14:19:26.871Z",
+              "seconds": 67.319,
+              "line": 19
+            },
+            {
+              "step": 5,
+              "label": "维护前只读检查",
+              "start": "2026-10-27T14:19:32.422Z",
+              "end": "2026-10-27T14:19:33.832Z",
+              "seconds": 1.41,
+              "line": 22
+            },
+            {
+              "step": 6,
+              "label": "进入维护",
+              "start": "2026-10-27T14:19:34.970Z",
+              "end": "2026-10-27T14:22:45.278Z",
+              "seconds": 190.308,
+              "line": 31
+            },
+            {
+              "step": 7,
+              "label": "停止旧前端",
+              "start": "2026-10-27T14:22:45.280Z",
+              "end": "2026-10-27T14:22:51.260Z",
+              "seconds": 5.98,
+              "line": 33
+            },
+            {
+              "step": 8,
+              "label": "部署后台",
+              "start": "2026-10-27T14:22:51.261Z",
+              "end": "2026-10-27T14:23:37.576Z",
+              "seconds": 46.315,
+              "line": 37
+            },
+            {
+              "step": 9,
+              "label": "应用后台权限",
+              "start": "2026-10-27T14:23:37.579Z",
+              "end": "2026-10-27T14:24:22.020Z",
+              "seconds": 44.441,
+              "line": 41
+            },
+            {
+              "step": 10,
+              "label": "切换前端",
+              "start": "2026-10-27T14:24:22.022Z",
+              "end": "2026-10-27T14:27:22.740Z",
+              "seconds": 180.718,
+              "line": 49
+            },
+            {
+              "step": 11,
+              "label": "退出维护",
+              "start": "2026-10-27T14:27:22.741Z",
+              "end": "2026-10-27T14:28:04.171Z",
+              "seconds": 41.43,
+              "line": 52
+            },
+            {
+              "step": 12,
+              "label": "启动服务",
+              "start": "2026-10-27T14:28:04.173Z",
+              "end": "2026-10-27T14:30:47.110Z",
+              "seconds": 162.937,
+              "line": 59
+            },
+            {
+              "step": 13,
+              "label": "确认启动版本",
+              "start": "2026-10-27T14:30:47.113Z",
+              "end": "2026-10-27T14:30:53.929Z",
+              "seconds": 6.816,
+              "line": 62
+            },
+            {
+              "step": 14,
+              "label": "确认服务可用",
+              "start": "2026-10-27T14:30:53.930Z",
+              "end": "2026-10-27T14:31:01.571Z",
+              "seconds": 7.641,
+              "line": 64
+            }
+          ],
+          "phaseLines": [
+            {
+              "line": 2,
+              "text": "[2026-10-27T14:13:51.390Z] [步骤 1] 准备发布 开始"
+            },
+            {
+              "line": 3,
+              "text": "[2026-10-27T14:13:57.390Z] [步骤 2] 核对维护前驱资格 开始"
+            },
+            {
+              "line": 4,
+              "text": "[2026-10-27T14:13:57.414Z] [步骤 2] 核对维护前驱资格 完成，耗时 0 秒"
+            },
+            {
+              "line": 5,
+              "text": "[2026-10-27T14:13:57.415Z] [步骤 3] 复验已准备前端 开始"
+            },
+            {
+              "line": 14,
+              "text": "[2026-10-27T14:18:19.547Z] [步骤 3] 复验已准备前端 完成，耗时 262 秒"
+            },
+            {
+              "line": 15,
+              "text": "[2026-10-27T14:18:19.552Z] [步骤 4] 复验已准备后台 开始"
+            },
+            {
+              "line": 19,
+              "text": "[2026-10-27T14:19:26.871Z] [步骤 4] 复验已准备后台 完成，耗时 67 秒"
+            },
+            {
+              "line": 21,
+              "text": "[2026-10-27T14:19:32.422Z] [步骤 5] 维护前只读检查 开始"
+            },
+            {
+              "line": 22,
+              "text": "[2026-10-27T14:19:33.832Z] [步骤 5] 维护前只读检查 完成，耗时 1 秒"
+            },
+            {
+              "line": 24,
+              "text": "[2026-10-27T14:19:34.970Z] [步骤 6] 进入维护 开始"
+            },
+            {
+              "line": 31,
+              "text": "[2026-10-27T14:22:45.278Z] [步骤 6] 进入维护 完成，耗时 190 秒"
+            },
+            {
+              "line": 32,
+              "text": "[2026-10-27T14:22:45.280Z] [步骤 7] 停止旧前端 开始"
+            },
+            {
+              "line": 33,
+              "text": "[2026-10-27T14:22:51.260Z] [步骤 7] 停止旧前端 完成，耗时 5 秒"
+            },
+            {
+              "line": 34,
+              "text": "[2026-10-27T14:22:51.261Z] [步骤 8] 部署后台 开始"
+            },
+            {
+              "line": 37,
+              "text": "[2026-10-27T14:23:37.576Z] [步骤 8] 部署后台 完成，耗时 46 秒"
+            },
+            {
+              "line": 38,
+              "text": "[2026-10-27T14:23:37.579Z] [步骤 9] 应用后台权限 开始"
+            },
+            {
+              "line": 41,
+              "text": "[2026-10-27T14:24:22.020Z] [步骤 9] 应用后台权限 完成，耗时 44 秒"
+            },
+            {
+              "line": 42,
+              "text": "[2026-10-27T14:24:22.022Z] [步骤 10] 切换前端 开始"
+            },
+            {
+              "line": 49,
+              "text": "[2026-10-27T14:27:22.740Z] [步骤 10] 切换前端 完成，耗时 180 秒"
+            },
+            {
+              "line": 50,
+              "text": "[2026-10-27T14:27:22.741Z] [步骤 11] 退出维护 开始"
+            },
+            {
+              "line": 52,
+              "text": "[2026-10-27T14:28:04.171Z] [步骤 11] 退出维护 完成，耗时 41 秒"
+            },
+            {
+              "line": 53,
+              "text": "[2026-10-27T14:28:04.173Z] [步骤 12] 启动服务 开始"
+            },
+            {
+              "line": 59,
+              "text": "[2026-10-27T14:30:47.110Z] [步骤 12] 启动服务 完成，耗时 162 秒"
+            },
+            {
+              "line": 60,
+              "text": "[2026-10-27T14:30:47.113Z] [步骤 13] 确认启动版本 开始"
+            },
+            {
+              "line": 62,
+              "text": "[2026-10-27T14:30:53.929Z] [步骤 13] 确认启动版本 完成，耗时 6 秒"
+            },
+            {
+              "line": 63,
+              "text": "[2026-10-27T14:30:53.930Z] [步骤 14] 确认服务可用 开始"
+            },
+            {
+              "line": 64,
+              "text": "[2026-10-27T14:31:01.571Z] [步骤 14] 确认服务可用 完成，耗时 7 秒"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "installedDjangoDeployment": {
+    "version": 2,
+    "deployedAt": "2026-10-31T20:12:54.5002182+08:00",
+    "sourceRoot": "D:\\codex-isolated\\main-release-packages\\271ab794fd48-5d2e424a-e0fc1a0d\\source",
+    "fingerprintAlgorithm": "relative-path-file-sha256-ordinal-v2",
+    "fileCount": 3159,
+    "appFingerprint": "ed98e92219ed26c8a0d49701c4fb11ae08737c7115601dde681ca3726395deee",
+    "evidence": {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\deployment.json",
+      "bytes": 372,
+      "sha256": "13e944f34973667fb3f53ae79bfc9b53ed82ec945cb2d11021bc6769774885a7",
+      "observedAt": "2026-10-31T16:46:37.302735+00:00"
+    }
+  },
+  "installedControl": {
+    "version": "teruisi-main-control-installation-v3",
+    "status": "adopted",
+    "bundleSha256": "3e01612a935319715ef082f3d9b73a9789401316c136e3e68a2712c5fab6dc6a",
+    "bundleRoot": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\3e01612a935319715ef082f3d9b73a9789401316c136e3e68a2712c5fab6dc6a",
+    "adoptedAt": "2026-10-31T11:44:36.574Z",
+    "evidence": {
+      "path": "D:\\codex-isolated\\main-manual-release-20261016\\CONTROL-INSTALLATION.json",
+      "bytes": 9482,
+      "sha256": "f281631c0b516c9a436a1fc4e926213fc37e6b60cc84f842bd2f5b395a7b144b",
+      "observedAt": "2026-10-31T16:46:37.302953+00:00"
+    }
+  },
+  "historical20261024": {
+    "path": "D:\\codex-artifacts\\release-rework-20261024\\publish-main-r4-20261024-192744.out.txt",
+    "bytes": 20334,
+    "sha256": "73af899f05778bef0fd91f99a2ba5cee649b520b73f346175cf9e6b3793474d8",
+    "observedStart": "2026-10-24T11:27:49.591Z",
+    "observedEnd": "2026-10-24T11:48:47.253Z",
+    "observedSeconds": 1257.662,
+    "phases": [
+      {
+        "step": 1,
+        "label": "准备本次最新main",
+        "start": "2026-10-24T11:27:50.346Z",
+        "end": "2026-10-24T11:28:11.291Z",
+        "seconds": 20.945,
+        "line": 5
+      },
+      {
+        "step": 2,
+        "label": "发布前检查",
+        "start": "2026-10-24T11:28:11.444Z",
+        "end": "2026-10-24T11:28:58.232Z",
+        "seconds": 46.788,
+        "line": 10
+      },
+      {
+        "step": 2,
+        "label": "核对维护前驱资格",
+        "start": "2026-10-24T11:29:05.456Z",
+        "end": "2026-10-24T11:29:05.487Z",
+        "seconds": 0.031,
+        "line": 16
+      },
+      {
+        "step": 3,
+        "label": "复验已准备前端",
+        "start": "2026-10-24T11:29:05.488Z",
+        "end": "2026-10-24T11:34:27.754Z",
+        "seconds": 322.266,
+        "line": 39
+      },
+      {
+        "step": 4,
+        "label": "复验已准备后台",
+        "start": "2026-10-24T11:34:27.776Z",
+        "end": "2026-10-24T11:35:38.922Z",
+        "seconds": 71.146,
+        "line": 46
+      },
+      {
+        "step": 5,
+        "label": "维护前只读检查",
+        "start": "2026-10-24T11:35:45.605Z",
+        "end": "2026-10-24T11:35:47.008Z",
+        "seconds": 1.403,
+        "line": 49
+      },
+      {
+        "step": 6,
+        "label": "进入维护",
+        "start": "2026-10-24T11:35:48.054Z",
+        "end": "2026-10-24T11:39:36.366Z",
+        "seconds": 228.312,
+        "line": 68
+      },
+      {
+        "step": 7,
+        "label": "停止旧前端",
+        "start": "2026-10-24T11:39:36.368Z",
+        "end": "2026-10-24T11:39:42.289Z",
+        "seconds": 5.921,
+        "line": 70
+      },
+      {
+        "step": 8,
+        "label": "部署后台",
+        "start": "2026-10-24T11:39:42.294Z",
+        "end": "2026-10-24T11:40:42.740Z",
+        "seconds": 60.446,
+        "line": 76
+      },
+      {
+        "step": 9,
+        "label": "应用后台权限",
+        "start": "2026-10-24T11:40:42.747Z",
+        "end": "2026-10-24T11:41:25.989Z",
+        "seconds": 43.242,
+        "line": 81
+      },
+      {
+        "step": 10,
+        "label": "切换前端",
+        "start": "2026-10-24T11:41:25.991Z",
+        "end": "2026-10-24T11:44:59.976Z",
+        "seconds": 213.985,
+        "line": 98
+      },
+      {
+        "step": 11,
+        "label": "退出维护",
+        "start": "2026-10-24T11:44:59.978Z",
+        "end": "2026-10-24T11:45:41.635Z",
+        "seconds": 41.657,
+        "line": 102
+      },
+      {
+        "step": 12,
+        "label": "启动服务",
+        "start": "2026-10-24T11:45:41.636Z",
+        "end": "2026-10-24T11:48:24.621Z",
+        "seconds": 162.985,
+        "line": 115
+      },
+      {
+        "step": 13,
+        "label": "确认启动版本",
+        "start": "2026-10-24T11:48:24.623Z",
+        "end": "2026-10-24T11:48:30.948Z",
+        "seconds": 6.325,
+        "line": 118
+      },
+      {
+        "step": 14,
+        "label": "确认服务可用",
+        "start": "2026-10-24T11:48:30.950Z",
+        "end": "2026-10-24T11:48:38.698Z",
+        "seconds": 7.748,
+        "line": 120
+      },
+      {
+        "step": 3,
+        "label": "发布已准备好的目标main",
+        "start": "2026-10-24T11:28:58.233Z",
+        "end": "2026-10-24T11:48:38.724Z",
+        "seconds": 1180.491,
+        "line": 123
+      }
+    ],
+    "phaseLines": [
+      {
+        "line": 2,
+        "text": "[2026-10-24T11:27:50.346Z] [步骤 1] 准备本次最新main 开始"
+      },
+      {
+        "line": 5,
+        "text": "[2026-10-24T11:28:11.291Z] [步骤 1] 准备本次最新main 完成，耗时 20 秒"
+      },
+      {
+        "line": 6,
+        "text": "[2026-10-24T11:28:11.444Z] [步骤 2] 发布前检查 开始"
+      },
+      {
+        "line": 10,
+        "text": "[2026-10-24T11:28:58.232Z] [步骤 2] 发布前检查 完成，耗时 46 秒"
+      },
+      {
+        "line": 11,
+        "text": "[2026-10-24T11:28:58.233Z] [步骤 3] 发布已准备好的目标main 开始"
+      },
+      {
+        "line": 14,
+        "text": "[2026-10-24T11:28:58.309Z] [步骤 1] 准备发布 开始"
+      },
+      {
+        "line": 15,
+        "text": "[2026-10-24T11:29:05.456Z] [步骤 2] 核对维护前驱资格 开始"
+      },
+      {
+        "line": 16,
+        "text": "[2026-10-24T11:29:05.487Z] [步骤 2] 核对维护前驱资格 完成，耗时 0 秒"
+      },
+      {
+        "line": 17,
+        "text": "[2026-10-24T11:29:05.488Z] [步骤 3] 复验已准备前端 开始"
+      },
+      {
+        "line": 39,
+        "text": "[2026-10-24T11:34:27.754Z] [步骤 3] 复验已准备前端 完成，耗时 322 秒"
+      },
+      {
+        "line": 40,
+        "text": "[2026-10-24T11:34:27.776Z] [步骤 4] 复验已准备后台 开始"
+      },
+      {
+        "line": 46,
+        "text": "[2026-10-24T11:35:38.922Z] [步骤 4] 复验已准备后台 完成，耗时 71 秒"
+      },
+      {
+        "line": 48,
+        "text": "[2026-10-24T11:35:45.605Z] [步骤 5] 维护前只读检查 开始"
+      },
+      {
+        "line": 49,
+        "text": "[2026-10-24T11:35:47.008Z] [步骤 5] 维护前只读检查 完成，耗时 1 秒"
+      },
+      {
+        "line": 51,
+        "text": "[2026-10-24T11:35:48.054Z] [步骤 6] 进入维护 开始"
+      },
+      {
+        "line": 68,
+        "text": "[2026-10-24T11:39:36.366Z] [步骤 6] 进入维护 完成，耗时 228 秒"
+      },
+      {
+        "line": 69,
+        "text": "[2026-10-24T11:39:36.368Z] [步骤 7] 停止旧前端 开始"
+      },
+      {
+        "line": 70,
+        "text": "[2026-10-24T11:39:42.289Z] [步骤 7] 停止旧前端 完成，耗时 5 秒"
+      },
+      {
+        "line": 71,
+        "text": "[2026-10-24T11:39:42.294Z] [步骤 8] 部署后台 开始"
+      },
+      {
+        "line": 76,
+        "text": "[2026-10-24T11:40:42.740Z] [步骤 8] 部署后台 完成，耗时 60 秒"
+      },
+      {
+        "line": 77,
+        "text": "[2026-10-24T11:40:42.747Z] [步骤 9] 应用后台权限 开始"
+      },
+      {
+        "line": 81,
+        "text": "[2026-10-24T11:41:25.989Z] [步骤 9] 应用后台权限 完成，耗时 43 秒"
+      },
+      {
+        "line": 82,
+        "text": "[2026-10-24T11:41:25.991Z] [步骤 10] 切换前端 开始"
+      },
+      {
+        "line": 98,
+        "text": "[2026-10-24T11:44:59.976Z] [步骤 10] 切换前端 完成，耗时 213 秒"
+      },
+      {
+        "line": 99,
+        "text": "[2026-10-24T11:44:59.978Z] [步骤 11] 退出维护 开始"
+      },
+      {
+        "line": 102,
+        "text": "[2026-10-24T11:45:41.635Z] [步骤 11] 退出维护 完成，耗时 41 秒"
+      },
+      {
+        "line": 103,
+        "text": "[2026-10-24T11:45:41.636Z] [步骤 12] 启动服务 开始"
+      },
+      {
+        "line": 115,
+        "text": "[2026-10-24T11:48:24.621Z] [步骤 12] 启动服务 完成，耗时 162 秒"
+      },
+      {
+        "line": 116,
+        "text": "[2026-10-24T11:48:24.623Z] [步骤 13] 确认启动版本 开始"
+      },
+      {
+        "line": 118,
+        "text": "[2026-10-24T11:48:30.948Z] [步骤 13] 确认启动版本 完成，耗时 6 秒"
+      },
+      {
+        "line": 119,
+        "text": "[2026-10-24T11:48:30.950Z] [步骤 14] 确认服务可用 开始"
+      },
+      {
+        "line": 120,
+        "text": "[2026-10-24T11:48:38.698Z] [步骤 14] 确认服务可用 完成，耗时 7 秒"
+      },
+      {
+        "line": 123,
+        "text": "[2026-10-24T11:48:38.724Z] [步骤 3] 发布已准备好的目标main 完成，耗时 1180 秒"
+      }
+    ]
+  },
+  "historical20261018": {
+    "version": 1,
+    "timezone": "Asia/Shanghai",
+    "target": "d95ad3d96816c3780051e1a0d915e9422e885694",
+    "status": "deployed_and_ready",
+    "requestObservedAt": "2026-10-17T23:20:43Z",
+    "exactUserMessageTimeAvailable": false,
+    "mainPushedAt": "2026-10-17T23:27:33.5271555+00:00",
+    "priorPreparationStartedAt": "2026-10-17T23:22:58.852Z",
+    "priorPreparationCompletedAt": "2026-10-17T23:36:34.625Z",
+    "targetPreparationStartedAt": "2026-10-17T23:37:01.548Z",
+    "targetPreparedAt": "2026-10-17T23:49:14.060Z",
+    "operatorStartedAt": "2026-10-17T23:50:48.551Z",
+    "nativePublicationStartedAt": "2026-10-17T23:57:59.272Z",
+    "nativeCompletedAt": "2026-10-18T00:13:23.326Z",
+    "finalVerifiedAt": "2026-10-18T00:13:32.365Z",
+    "durations": {
+      "observedRequestToMainPush": 410.527,
+      "queueAndSourceFreezeAfterMainPush": 568.021,
+      "targetPreparation": 732.512,
+      "preparedToOperatorStart": 94.491,
+      "operatorToFinalVerified": 1363.814,
+      "observedRequestToFinalVerified": 3169.365
+    },
+    "phases": [
+      {
+        "step": 1,
+        "name": "准备发布",
+        "start": "2026-10-17T23:50:48.658Z",
+        "explicitCompletionLogged": false,
+        "nextPhaseStartedAt": "2026-10-17T23:50:53.240Z",
+        "observedUntilNextPhaseSeconds": 4.582
+      },
+      {
+        "step": 2,
+        "name": "复验已准备前端",
+        "start": "2026-10-17T23:50:53.240Z",
+        "end": "2026-10-17T23:56:56.452Z",
+        "seconds": 363.212,
+        "explicitCompletionLogged": true
+      },
+      {
+        "step": 3,
+        "name": "复验已准备后台",
+        "start": "2026-10-17T23:56:56.456Z",
+        "end": "2026-10-17T23:57:55.992Z",
+        "seconds": 59.536,
+        "explicitCompletionLogged": true
+      },
+      {
+        "step": 4,
+        "name": "进入维护",
+        "start": "2026-10-17T23:57:59.281Z",
+        "end": "2026-10-18T00:00:38.518Z",
+        "seconds": 159.237,
+        "explicitCompletionLogged": true
+      },
+      {
+        "step": 5,
+        "name": "停止旧前端",
+        "start": "2026-10-18T00:00:38.518Z",
+        "end": "2026-10-18T00:00:43.135Z",
+        "seconds": 4.617,
+        "explicitCompletionLogged": true
+      },
+      {
+        "step": 6,
+        "name": "部署后台",
+        "start": "2026-10-18T00:00:43.135Z",
+        "end": "2026-10-18T00:02:31.082Z",
+        "seconds": 107.947,
+        "explicitCompletionLogged": true
+      },
+      {
+        "step": 7,
+        "name": "应用后台权限",
+        "start": "2026-10-18T00:02:31.083Z",
+        "end": "2026-10-18T00:03:05.653Z",
+        "seconds": 34.57,
+        "explicitCompletionLogged": true
+      },
+      {
+        "step": 8,
+        "name": "切换前端",
+        "start": "2026-10-18T00:03:05.654Z",
+        "end": "2026-10-18T00:06:29.744Z",
+        "seconds": 204.09,
+        "explicitCompletionLogged": true
+      },
+      {
+        "step": 9,
+        "name": "退出维护",
+        "start": "2026-10-18T00:06:29.744Z",
+        "end": "2026-10-18T00:07:03.152Z",
+        "seconds": 33.408,
+        "explicitCompletionLogged": true
+      },
+      {
+        "step": 10,
+        "name": "启动服务",
+        "start": "2026-10-18T00:07:03.153Z",
+        "end": "2026-10-18T00:13:13.254Z",
+        "seconds": 370.101,
+        "explicitCompletionLogged": true
+      },
+      {
+        "step": 11,
+        "name": "确认启动版本",
+        "start": "2026-10-18T00:13:13.254Z",
+        "end": "2026-10-18T00:13:18.246Z",
+        "seconds": 4.992,
+        "explicitCompletionLogged": true
+      },
+      {
+        "step": 12,
+        "name": "确认服务可用",
+        "start": "2026-10-18T00:13:18.247Z",
+        "end": "2026-10-18T00:13:23.326Z",
+        "seconds": 5.079,
+        "explicitCompletionLogged": true
+      }
+    ],
+    "workerRelease": "20261017T233707Z-7a92b68a72ea7589",
+    "workerManifestSha256": "d1e016294a954dd44a5e2d7f4fec10af3fef45ab42be6a7db2a0f74a0d7c4a9c",
+    "djangoManifestSha256": "71ae7608bacd2e626163f8e05d3fe99c904d94b987f9b749614b316c7ae358dc",
+    "newMigration": false,
+    "newFullBackup": false,
+    "existingRecoveryPoint": "daily-20261015T041546Z-e45dddeb5a15",
+    "receiptPath": "D:\\codex-isolated\\main-release-packages\\d95ad3d96816-de03bca5-66cc9293\\publish-d95ad3d96816\\SUCCESS.json",
+    "receiptSha256": "4411635e51c5dc560e6a39ab1337c8914143285010309a233f0e644ef4d59cd5",
+    "progressLogPath": "D:\\codex-isolated\\main-release-packages\\d95ad3d96816-de03bca5-66cc9293\\logs\\release-2026-10-17T23-50-48.656Z-7b72887a-1aec-44e5-a732-984c9bb736c9.log",
+    "progressLogSha256": "1dbc21037057420cbea6c79cecf14a4d5e8f08b6e459d68cd1eef9122d44e43f",
+    "notes": [
+      "Intervals are elapsed wall-clock spans, not a continuous authenticated outage measurement.",
+      "The earlier candidate preparation overlaps initial integration and must not be added to the overall total.",
+      "Step 1 has no explicit completion line in the original logger; its interval to step 2 is separately labeled as observed, not fabricated completion.",
+      "No new schema migration; original Start may still run its no-pending migration/permission commands."
+    ]
+  },
+  "historical20261018Evidence": {
+    "path": "D:\\codex-artifacts\\release-four-optimizations-20261018\\publication-20261018-072043\\TIMING-SUMMARY.json",
+    "bytes": 4931,
+    "sha256": "4f9b3e9ae21d1ba746f598a06237c37781a9b4c01b6c411fec9ca66d4fdb0050",
+    "observedAt": "2026-10-31T16:46:37.303751+00:00"
+  },
+  "observationCompletedAt": "2026-10-31T16:46:37.303757+00:00"
+}

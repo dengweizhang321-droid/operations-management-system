@@ -1,0 +1,68 @@
+{
+  "count": 635,
+  "headSetMatches": true,
+  "changed": 19,
+  "changedCounts": {
+    "django": 6,
+    "none": 11,
+    "worker": 2
+  },
+  "samples": [
+    {
+      "head": "03f6e474d0fcdfb3328485dad5d1719f4d8f1080",
+      "components": [
+        "django"
+      ],
+      "expected": [
+        "django"
+      ],
+      "equal": true,
+      "beforeKnown": true,
+      "afterKnown": true
+    },
+    {
+      "head": "9af90c1acbf6bf86f50dcfb6ff700c8fa95366cd",
+      "components": [],
+      "expected": [],
+      "equal": true,
+      "beforeKnown": true,
+      "afterKnown": true
+    },
+    {
+      "head": "7aa3562aae530b27a16c8e503902554931feb1c4",
+      "components": [
+        "worker"
+      ],
+      "expected": [
+        "worker"
+      ],
+      "equal": true,
+      "beforeKnown": true,
+      "afterKnown": true
+    },
+    {
+      "head": "c7bf5e21c4716717fe73e72334ad92a3f0b709f3",
+      "components": [
+        "worker"
+      ],
+      "expected": [
+        "worker"
+      ],
+      "equal": true,
+      "beforeKnown": true,
+      "afterKnown": true
+    },
+    {
+      "head": "16ae712cb584e3a86ac364a0c158b1a9a8e518bb",
+      "components": [
+        "django"
+      ],
+      "expected": [
+        "django"
+      ],
+      "equal": true,
+      "beforeKnown": true,
+      "afterKnown": true
+    }
+  ]
+}

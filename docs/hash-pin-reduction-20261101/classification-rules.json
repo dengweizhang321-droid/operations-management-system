@@ -1,0 +1,485 @@
+{
+  "tools/manual-maintenance-continuation.mjs": {
+    "category": "a",
+    "role": "维护前驱/候选控制器资格；部分摘要另有 b 覆盖",
+    "reader": "publish-prepared-main.mjs:184,258 -> maintenanceReadiness:216-333; assertMaintenanceControllerGeneration:176",
+    "boundary": "发布 STARTED:288 前；同前驱常量也在失败后的续接读取",
+    "change_policy": "新资格需独立审阅；保留旧前驱及旧允许值"
+  },
+  "tools/publish-prepared-main.mjs": {
+    "category": "a",
+    "role": "OCI镜像内容摘要，非本仓文件raw SHA",
+    "reader": "verifyPiUpgrade:17; preparation:227,236; release:244,334",
+    "boundary": "准备及发布 STARTED 前复核，升级在 STARTED 后",
+    "change_policy": "须审镜像来源、闭包与Runner兼容；不能改用源码Git OID"
+  },
+  "tools/worker-local-release.mjs": {
+    "category": "a",
+    "role": "D1退役迁移/Helper builder受信构建代码",
+    "reader": "verifySalesRetirementMigration:1355; trustedHelperBuilderByVersion:2851; verifyWorkerRelease:3098",
+    "boundary": "在线准备/制品校验先于发布 STARTED；控制器启动亦复核",
+    "change_policy": "保留受信builder锚及历史退役迁移字节"
+  },
+  "tools/ai_schedule_addition_catalog.py": {
+    "category": "a",
+    "role": "有限迁移步骤/数据库目录函数定义摘要（不是全部raw源码SHA）",
+    "reader": "main-schema-release.mjs:115 -> *_candidate.py -> *_addition.py; django-local-service.ps1:1785-2100; integration_release_gate.py:360-444; bi-app-adopt.ps1:62",
+    "boundary": "PrepareApp准入/VerifyPreparedApp在 STARTED 前；安装、数据库启动校验亦在后续阶段",
+    "change_policy": "有限代际授权闭包；不得以当前源码现算值替换受审期望"
+  },
+  "tools/bi_app_addition.py": {
+    "category": "a",
+    "role": "有限迁移步骤/数据库目录函数定义摘要（不是全部raw源码SHA）",
+    "reader": "main-schema-release.mjs:115 -> *_candidate.py -> *_addition.py; django-local-service.ps1:1785-2100; integration_release_gate.py:360-444; bi-app-adopt.ps1:62",
+    "boundary": "PrepareApp准入/VerifyPreparedApp在 STARTED 前；安装、数据库启动校验亦在后续阶段",
+    "change_policy": "有限代际授权闭包；不得以当前源码现算值替换受审期望"
+  },
+  "tools/jackyun_audit_catalog.py": {
+    "category": "a",
+    "role": "有限迁移步骤/数据库目录函数定义摘要（不是全部raw源码SHA）",
+    "reader": "main-schema-release.mjs:115 -> *_candidate.py -> *_addition.py; django-local-service.ps1:1785-2100; integration_release_gate.py:360-444; bi-app-adopt.ps1:62",
+    "boundary": "PrepareApp准入/VerifyPreparedApp在 STARTED 前；安装、数据库启动校验亦在后续阶段",
+    "change_policy": "有限代际授权闭包；不得以当前源码现算值替换受审期望"
+  },
+  "tools/jd_logistics_catalog.py": {
+    "category": "a",
+    "role": "有限迁移步骤/数据库目录函数定义摘要（不是全部raw源码SHA）",
+    "reader": "main-schema-release.mjs:115 -> *_candidate.py -> *_addition.py; django-local-service.ps1:1785-2100; integration_release_gate.py:360-444; bi-app-adopt.ps1:62",
+    "boundary": "PrepareApp准入/VerifyPreparedApp在 STARTED 前；安装、数据库启动校验亦在后续阶段",
+    "change_policy": "有限代际授权闭包；不得以当前源码现算值替换受审期望"
+  },
+  "tools/jd_monitor_preferences_catalog.py": {
+    "category": "a",
+    "role": "有限迁移步骤/数据库目录函数定义摘要（不是全部raw源码SHA）",
+    "reader": "main-schema-release.mjs:115 -> *_candidate.py -> *_addition.py; django-local-service.ps1:1785-2100; integration_release_gate.py:360-444; bi-app-adopt.ps1:62",
+    "boundary": "PrepareApp准入/VerifyPreparedApp在 STARTED 前；安装、数据库启动校验亦在后续阶段",
+    "change_policy": "有限代际授权闭包；不得以当前源码现算值替换受审期望"
+  },
+  "tools/jd_product_monitoring_catalog.py": {
+    "category": "a",
+    "role": "有限迁移步骤/数据库目录函数定义摘要（不是全部raw源码SHA）",
+    "reader": "main-schema-release.mjs:115 -> *_candidate.py -> *_addition.py; django-local-service.ps1:1785-2100; integration_release_gate.py:360-444; bi-app-adopt.ps1:62",
+    "boundary": "PrepareApp准入/VerifyPreparedApp在 STARTED 前；安装、数据库启动校验亦在后续阶段",
+    "change_policy": "有限代际授权闭包；不得以当前源码现算值替换受审期望"
+  },
+  "tools/pi_agent_catalog.py": {
+    "category": "a",
+    "role": "有限迁移步骤/数据库目录函数定义摘要（不是全部raw源码SHA）",
+    "reader": "main-schema-release.mjs:115 -> *_candidate.py -> *_addition.py; django-local-service.ps1:1785-2100; integration_release_gate.py:360-444; bi-app-adopt.ps1:62",
+    "boundary": "PrepareApp准入/VerifyPreparedApp在 STARTED 前；安装、数据库启动校验亦在后续阶段",
+    "change_policy": "有限代际授权闭包；不得以当前源码现算值替换受审期望"
+  },
+  "tools/pi_business_catalog.py": {
+    "category": "a",
+    "role": "有限迁移步骤/数据库目录函数定义摘要（不是全部raw源码SHA）",
+    "reader": "main-schema-release.mjs:115 -> *_candidate.py -> *_addition.py; django-local-service.ps1:1785-2100; integration_release_gate.py:360-444; bi-app-adopt.ps1:62",
+    "boundary": "PrepareApp准入/VerifyPreparedApp在 STARTED 前；安装、数据库启动校验亦在后续阶段",
+    "change_policy": "有限代际授权闭包；不得以当前源码现算值替换受审期望"
+  },
+  "tools/pi_native_catalog.py": {
+    "category": "a",
+    "role": "有限迁移步骤/数据库目录函数定义摘要（不是全部raw源码SHA）",
+    "reader": "main-schema-release.mjs:115 -> *_candidate.py -> *_addition.py; django-local-service.ps1:1785-2100; integration_release_gate.py:360-444; bi-app-adopt.ps1:62",
+    "boundary": "PrepareApp准入/VerifyPreparedApp在 STARTED 前；安装、数据库启动校验亦在后续阶段",
+    "change_policy": "有限代际授权闭包；不得以当前源码现算值替换受审期望"
+  },
+  "tools/pi_workspace_catalog.py": {
+    "category": "a",
+    "role": "有限迁移步骤/数据库目录函数定义摘要（不是全部raw源码SHA）",
+    "reader": "main-schema-release.mjs:115 -> *_candidate.py -> *_addition.py; django-local-service.ps1:1785-2100; integration_release_gate.py:360-444; bi-app-adopt.ps1:62",
+    "boundary": "PrepareApp准入/VerifyPreparedApp在 STARTED 前；安装、数据库启动校验亦在后续阶段",
+    "change_policy": "有限代际授权闭包；不得以当前源码现算值替换受审期望"
+  },
+  "tools/sales_preflight_catalog.py": {
+    "category": "a",
+    "role": "有限迁移步骤/数据库目录函数定义摘要（不是全部raw源码SHA）",
+    "reader": "main-schema-release.mjs:115 -> *_candidate.py -> *_addition.py; django-local-service.ps1:1785-2100; integration_release_gate.py:360-444; bi-app-adopt.ps1:62",
+    "boundary": "PrepareApp准入/VerifyPreparedApp在 STARTED 前；安装、数据库启动校验亦在后续阶段",
+    "change_policy": "有限代际授权闭包；不得以当前源码现算值替换受审期望"
+  },
+  "tools/tmall_warehouse_catalog.py": {
+    "category": "a",
+    "role": "有限迁移步骤/数据库目录函数定义摘要（不是全部raw源码SHA）",
+    "reader": "main-schema-release.mjs:115 -> *_candidate.py -> *_addition.py; django-local-service.ps1:1785-2100; integration_release_gate.py:360-444; bi-app-adopt.ps1:62",
+    "boundary": "PrepareApp准入/VerifyPreparedApp在 STARTED 前；安装、数据库启动校验亦在后续阶段",
+    "change_policy": "有限代际授权闭包；不得以当前源码现算值替换受审期望"
+  },
+  "tools/workflow_automation_catalog.py": {
+    "category": "a",
+    "role": "有限迁移步骤/数据库目录函数定义摘要（不是全部raw源码SHA）",
+    "reader": "main-schema-release.mjs:115 -> *_candidate.py -> *_addition.py; django-local-service.ps1:1785-2100; integration_release_gate.py:360-444; bi-app-adopt.ps1:62",
+    "boundary": "PrepareApp准入/VerifyPreparedApp在 STARTED 前；安装、数据库启动校验亦在后续阶段",
+    "change_policy": "有限代际授权闭包；不得以当前源码现算值替换受审期望"
+  },
+  "tools/verify-release-candidate.mjs": {
+    "category": "b-candidate",
+    "role": "合并前候选profile/函数级窄资格及旧有效报告",
+    "reader": "显式 CLI；tests/verify-release-candidate.test.mjs；发布器无生产调用方",
+    "boundary": "合并前隔离兼容检查，非生产发布 STARTED 闸",
+    "change_policy": "可研究减少重复资格；旧执行报告仍保持原字节"
+  },
+  "tools/n8n-metadata-read-boundary.mjs": {
+    "category": "b-ci",
+    "role": "边界例外源码完整SHA",
+    "reader": "check-django-production-boundary.mjs:4 -> isApprovedN8nMetadataReader; package.json check:backend-boundary -> .github/workflows/ci.yml",
+    "boundary": "仓库CI边界检查；无生产读取者",
+    "change_policy": "改变为Git授权闭包须保留只读元数据例外的完整图约束"
+  },
+  "tools/preparation-producer-qualification.mjs": {
+    "category": "d-reconciliation",
+    "role": "清理/超时准备收敛的受审生产者闭包",
+    "reader": "preparation-resolution.mjs:151,280; preparation-retirement-qualification.mjs:2",
+    "boundary": "原准备已STARTED/失败后的收敛；也用于退休范围；非普通发布前置白名单",
+    "change_policy": "安装控制包范围；新闭包需审副作用范围，不能自算自授信"
+  },
+  "tools/preparation-resolution-history.mjs": {
+    "category": "c-live-history",
+    "role": "八次封存dispatch/terminal/resolution/evidence树原字节",
+    "reader": "preparation-resolution.mjs:9,62 -> historical resolution reader",
+    "boundary": "活跃队列可读取封存历史以决定后续受理；不是可刷新源码pin",
+    "change_policy": "不可改既有值；可在另获授权后研究受信上级清单，原件仍保留"
+  },
+  "tools/preparation-retirement-history.mjs": {
+    "category": "c-live-history",
+    "role": "历史原生工具/worker版本的完整文件策略和有限角色映射",
+    "reader": "preparation-retirement-collector.mjs:14 -> qualifyRetirementHistoricalSource / qualifyRetirementResidualSource",
+    "boundary": "退休审计/源闭包证明；历史资料被活跃控制链读取",
+    "change_policy": "保留历史对象原字节；不可批量换成当前hash"
+  },
+  "tools/preparation-retirement-entry.mjs": {
+    "category": "d-control-retirement",
+    "role": "旧/现源入口及producer/native工具资格",
+    "reader": "preparation-retirement-collector.mjs -> qualifyRetirementSourceEntries / retirementProducerFiles; preparation-retirement-native.mjs loadRetirementNativeTools",
+    "boundary": "源树退休/封锁/取证控制路径；非普通发布 STARTED 闸",
+    "change_policy": "触及安装控制包，需另审采用；旧版本资格不能删除"
+  },
+  "tools/preparation-retirement-qualification.mjs": {
+    "category": "d-control-retirement",
+    "role": "旧/现源入口及producer/native工具资格",
+    "reader": "preparation-retirement-collector.mjs -> qualifyRetirementSourceEntries / retirementProducerFiles; preparation-retirement-native.mjs loadRetirementNativeTools",
+    "boundary": "源树退休/封锁/取证控制路径；非普通发布 STARTED 闸",
+    "change_policy": "触及安装控制包，需另审采用；旧版本资格不能删除"
+  },
+  "tools/preparation-retirement-native.mjs": {
+    "category": "d-control-retirement",
+    "role": "旧/现源入口及producer/native工具资格",
+    "reader": "preparation-retirement-collector.mjs -> qualifyRetirementSourceEntries / retirementProducerFiles; preparation-retirement-native.mjs loadRetirementNativeTools",
+    "boundary": "源树退休/封锁/取证控制路径；非普通发布 STARTED 闸",
+    "change_policy": "触及安装控制包，需另审采用；旧版本资格不能删除"
+  },
+  "tools/install-main-prebuild.mjs": {
+    "category": "d-control-adoption",
+    "role": "精确native工具升级前后字节和配置CAS",
+    "reader": "validateNativeToolsUpdate:62-67 -> build/adopt控制材料入口",
+    "boundary": "控制包准备/采用前，独立于应用发布 STARTED",
+    "change_policy": "触及控制包及配置绑定；本轮禁止实施"
+  },
+  "tools/install-workerd-heap-patch.mjs": {
+    "category": "d-dependency",
+    "role": "第三方依赖补丁输入/输出完整性",
+    "reader": "patchMiniflareHeap / patchWranglerInspector / patchXlsxPrototypePollution -> install工具与私有构建",
+    "boundary": "依赖准备/构建；非源码审阅资格本身",
+    "change_policy": "lock integrity与文件补丁SHA作用不同；不可用Git本仓blob代替node_modules字节"
+  },
+  "tools/install-wrangler-inspector-patch.mjs": {
+    "category": "d-dependency",
+    "role": "第三方依赖补丁输入/输出完整性",
+    "reader": "patchMiniflareHeap / patchWranglerInspector / patchXlsxPrototypePollution -> install工具与私有构建",
+    "boundary": "依赖准备/构建；非源码审阅资格本身",
+    "change_policy": "lock integrity与文件补丁SHA作用不同；不可用Git本仓blob代替node_modules字节"
+  },
+  "tools/install-xlsx-prototype-patch.mjs": {
+    "category": "d-dependency",
+    "role": "第三方依赖补丁输入/输出完整性",
+    "reader": "patchMiniflareHeap / patchWranglerInspector / patchXlsxPrototypePollution -> install工具与私有构建",
+    "boundary": "依赖准备/构建；非源码审阅资格本身",
+    "change_policy": "lock integrity与文件补丁SHA作用不同；不可用Git本仓blob代替node_modules字节"
+  },
+  "tools/worker-local-runtime-supervisor.mjs": {
+    "category": "d-startup-dependency",
+    "role": "已补丁Miniflare依赖运行字节",
+    "reader": "assertWorkerdHeapAdapter:138-142 -> supervisor main:411附近",
+    "boundary": "Worker控制器/子进程启动前（发布 STARTED 之后也会运行）",
+    "change_policy": "真实启动闸，不能误记仅CI；无本仓Git blob可替代"
+  },
+  "tools/django-postgres-maintenance.ps1": {
+    "category": "d-catalogue",
+    "role": "历史基线数据库目录规范摘要",
+    "reader": "integration_migration_plan.load_policy；django-postgres-maintenance.ps1:412备份代际检查",
+    "boundary": "数据库准备/备份/安装/启动多用途；不是源码raw SHA白名单",
+    "change_policy": "数据库代际锚；需原目录规范化协议，不能Git源码摘要代替"
+  },
+  "tools/integration_migration_plan.py": {
+    "category": "d-catalogue",
+    "role": "历史基线数据库目录规范摘要",
+    "reader": "integration_migration_plan.load_policy；django-postgres-maintenance.ps1:412备份代际检查",
+    "boundary": "数据库准备/备份/安装/启动多用途；不是源码raw SHA白名单",
+    "change_policy": "数据库代际锚；需原目录规范化协议，不能Git源码摘要代替"
+  },
+  "tools/django-local-service.ps1": {
+    "category": "c-exact-recovery",
+    "role": "单次历史恢复的原件/前驱/进程/请求/源码锚",
+    "reader": "文件内精确恢复函数；publish-main.mjs:133；publish-prepared-main.mjs:301-307失败后续接",
+    "boundary": "历史操作已STARTED后的有限续接/恢复；部分前驱值另由a预检",
+    "change_policy": "封存资格不可刷新；不授权重放、维护或更改原包"
+  },
+  "tools/manual-maintenance-continuation.ps1": {
+    "category": "c-exact-recovery",
+    "role": "单次历史恢复的原件/前驱/进程/请求/源码锚",
+    "reader": "文件内精确恢复函数；publish-main.mjs:133；publish-prepared-main.mjs:301-307失败后续接",
+    "boundary": "历史操作已STARTED后的有限续接/恢复；部分前驱值另由a预检",
+    "change_policy": "封存资格不可刷新；不授权重放、维护或更改原包"
+  },
+  "tools/manual-maintenance-entry.ps1": {
+    "category": "c-exact-recovery",
+    "role": "单次历史恢复的原件/前驱/进程/请求/源码锚",
+    "reader": "文件内精确恢复函数；publish-main.mjs:133；publish-prepared-main.mjs:301-307失败后续接",
+    "boundary": "历史操作已STARTED后的有限续接/恢复；部分前驱值另由a预检",
+    "change_policy": "封存资格不可刷新；不授权重放、维护或更改原包"
+  },
+  "tools/manual-startup-reconcile.mjs": {
+    "category": "c-exact-recovery",
+    "role": "单次历史恢复的原件/前驱/进程/请求/源码锚",
+    "reader": "文件内精确恢复函数；publish-main.mjs:133；publish-prepared-main.mjs:301-307失败后续接",
+    "boundary": "历史操作已STARTED后的有限续接/恢复；部分前驱值另由a预检",
+    "change_policy": "封存资格不可刷新；不授权重放、维护或更改原包"
+  },
+  "tools/publish-main-known-resume.mjs": {
+    "category": "c-exact-recovery",
+    "role": "单次历史恢复的原件/前驱/进程/请求/源码锚",
+    "reader": "文件内精确恢复函数；publish-main.mjs:133；publish-prepared-main.mjs:301-307失败后续接",
+    "boundary": "历史操作已STARTED后的有限续接/恢复；部分前驱值另由a预检",
+    "change_policy": "封存资格不可刷新；不授权重放、维护或更改原包"
+  },
+  "tools/pi150-failed-start-recovery.ps1": {
+    "category": "c-exact-recovery",
+    "role": "单次历史恢复的原件/前驱/进程/请求/源码锚",
+    "reader": "文件内精确恢复函数；publish-main.mjs:133；publish-prepared-main.mjs:301-307失败后续接",
+    "boundary": "历史操作已STARTED后的有限续接/恢复；部分前驱值另由a预检",
+    "change_policy": "封存资格不可刷新；不授权重放、维护或更改原包"
+  },
+  "tools/pi150-forward-recovery.mjs": {
+    "category": "c-exact-recovery",
+    "role": "单次历史恢复的原件/前驱/进程/请求/源码锚",
+    "reader": "文件内精确恢复函数；publish-main.mjs:133；publish-prepared-main.mjs:301-307失败后续接",
+    "boundary": "历史操作已STARTED后的有限续接/恢复；部分前驱值另由a预检",
+    "change_policy": "封存资格不可刷新；不授权重放、维护或更改原包"
+  },
+  "tools/bounded-two-natural.mjs": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/capture-fixed-startup-metadata.mjs": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/census-approval-contract.mjs": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/census-closeout-state.mjs": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/census-runtime-context.mjs": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/continuation-context.mjs": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/continuation-transport.mjs": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/create-startup-repair-fence.mjs": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/display-closeout-state.mjs": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/display-decision-state.mjs": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/recovery-context.mjs": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/recovery-transport.mjs": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/retract-startup-repair-fence.mjs": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/start-closeout-state.mjs": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/start-decision-state.mjs": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/startup-exact-instance-policy.mjs": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/startup-exact-instance-stop.ps1": {
+    "category": "c-exact-recovery",
+    "role": "2026-10-11/12单批次恢复/取证的精确历史对象、宿主与证据",
+    "reader": "文件内原固定恢复/取证入口及对应tests；不是普通main发布入口",
+    "boundary": "特定旧批次续接/独立取证；不纳入常规STARTED前a",
+    "change_policy": "不可改封存范围/宿主pin以匹配本次机器；新增协议须另审"
+  },
+  "tools/close-jd-logistics-known-flow.ts": {
+    "category": "c-business-recovery",
+    "role": "精确导入/自动化故障的原始内容、请求、批次和完成回执",
+    "reader": "对应单次故障close/recovery工具；业务恢复调用，不是发布器",
+    "boundary": "独立业务恢复合同，可能有真实写入；本轮只读",
+    "change_policy": "禁止更新为当前数据hash或更换历史证据"
+  },
+  "tools/close-jd-logistics-known-four-imports.ts": {
+    "category": "c-business-recovery",
+    "role": "精确导入/自动化故障的原始内容、请求、批次和完成回执",
+    "reader": "对应单次故障close/recovery工具；业务恢复调用，不是发布器",
+    "boundary": "独立业务恢复合同，可能有真实写入；本轮只读",
+    "change_policy": "禁止更新为当前数据hash或更换历史证据"
+  },
+  "tools/close-jd-logistics-known-two-downloads.ts": {
+    "category": "c-business-recovery",
+    "role": "精确导入/自动化故障的原始内容、请求、批次和完成回执",
+    "reader": "对应单次故障close/recovery工具；业务恢复调用，不是发布器",
+    "boundary": "独立业务恢复合同，可能有真实写入；本轮只读",
+    "change_policy": "禁止更新为当前数据hash或更换历史证据"
+  },
+  "tools/close-jd-logistics-preexport.ts": {
+    "category": "c-business-recovery",
+    "role": "精确导入/自动化故障的原始内容、请求、批次和完成回执",
+    "reader": "对应单次故障close/recovery工具；业务恢复调用，不是发布器",
+    "boundary": "独立业务恢复合同，可能有真实写入；本轮只读",
+    "change_policy": "禁止更新为当前数据hash或更换历史证据"
+  },
+  "tools/jd-logistics-login-9851-target.ts": {
+    "category": "c-business-recovery",
+    "role": "精确导入/自动化故障的原始内容、请求、批次和完成回执",
+    "reader": "对应单次故障close/recovery工具；业务恢复调用，不是发布器",
+    "boundary": "独立业务恢复合同，可能有真实写入；本轮只读",
+    "change_policy": "禁止更新为当前数据hash或更换历史证据"
+  },
+  "tools/jackyun-7792-recovery.mjs": {
+    "category": "c-business-recovery",
+    "role": "精确导入/自动化故障的原始内容、请求、批次和完成回执",
+    "reader": "对应单次故障close/recovery工具；业务恢复调用，不是发布器",
+    "boundary": "独立业务恢复合同，可能有真实写入；本轮只读",
+    "change_policy": "禁止更新为当前数据hash或更换历史证据"
+  },
+  "tools/jackyun-7792-upload-proof.py": {
+    "category": "c-business-recovery",
+    "role": "精确导入/自动化故障的原始内容、请求、批次和完成回执",
+    "reader": "对应单次故障close/recovery工具；业务恢复调用，不是发布器",
+    "boundary": "独立业务恢复合同，可能有真实写入；本轮只读",
+    "change_policy": "禁止更新为当前数据hash或更换历史证据"
+  },
+  "tools/protected_ai_migration_installer.py": {
+    "category": "c-historical-migration",
+    "role": "历史受保护迁移、目录/触发器及指定源码文件锚",
+    "reader": "文件内保护迁移/退役/cutover入口；部分常量由历史审计及tests消费",
+    "boundary": "一次性迁移/退役，不是普通main发布前置",
+    "change_policy": "不可改旧批准/退役证据；若仍需新入口应独立审批"
+  },
+  "tools/sales-d1-retirement.ts": {
+    "category": "c-historical-migration",
+    "role": "历史受保护迁移、目录/触发器及指定源码文件锚",
+    "reader": "文件内保护迁移/退役/cutover入口；部分常量由历史审计及tests消费",
+    "boundary": "一次性迁移/退役，不是普通main发布前置",
+    "change_policy": "不可改旧批准/退役证据；若仍需新入口应独立审批"
+  },
+  "tools/sales-local-cutover.ts": {
+    "category": "c-historical-migration",
+    "role": "历史受保护迁移、目录/触发器及指定源码文件锚",
+    "reader": "文件内保护迁移/退役/cutover入口；部分常量由历史审计及tests消费",
+    "boundary": "一次性迁移/退役，不是普通main发布前置",
+    "change_policy": "不可改旧批准/退役证据；若仍需新入口应独立审批"
+  },
+  "tools/django-access-control-cutover.ps1": {
+    "category": "x-path-id",
+    "role": "D1对象文件名的64hex标识（非SHA校验期望）",
+    "reader": "Assert-*CutoverPath -> fixedD1路径相等断言",
+    "boundary": "历史cutover路径身份",
+    "change_policy": "非hash pin，无资格化提速收益"
+  },
+  "tools/django-ai-cutover.ps1": {
+    "category": "x-path-id",
+    "role": "D1对象文件名的64hex标识（非SHA校验期望）",
+    "reader": "Assert-*CutoverPath -> fixedD1路径相等断言",
+    "boundary": "历史cutover路径身份",
+    "change_policy": "非hash pin，无资格化提速收益"
+  },
+  "tools/django-sales-load-check.ts": {
+    "category": "x-standard-constant",
+    "role": "SHA256(empty body)，用于请求签名的固定数学常量",
+    "reader": "文件内请求构造/负载检查",
+    "boundary": "离线工具/请求协议；非源码pin",
+    "change_policy": "无需变更"
+  },
+  "tools/inventory-d1-authority-install.py": {
+    "category": "x-scope-id",
+    "role": "AGE_SCOPE_KEYS，库存域固定scope身份",
+    "reader": "文件内库存D1 authority安装资格",
+    "boundary": "历史业务身份；不是文件字节期望",
+    "change_policy": "无需变更"
+  }
+}

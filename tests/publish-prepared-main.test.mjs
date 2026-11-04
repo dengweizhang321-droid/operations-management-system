@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {publishPreparedMain,piWorkspaceImage,piNativeImage,releaseLeaseTtlMs} from '../tools/publish-prepared-main.mjs';
-import {monitoringSchema,tmallSchema,tmall148Schema,piAgentSchema,piWorkspaceSchema} from '../tools/main-schema-release.mjs';
+import {publishPreparedMain,piWorkspaceImage,piBusinessImage,piNativeImage,releaseLeaseTtlMs} from '../tools/publish-prepared-main.mjs';
+import {monitoringSchema,tmallSchema,tmall148Schema,piAgentSchema,piWorkspaceSchema,piBusinessSchema,piNativeSchema,workflowAutomationSchema} from '../tools/main-schema-release.mjs';
+import {classifyRelease} from '../tools/release-scope-plan.mjs';
 
 async function fixture(t,components=['worker'],failAt=null){
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'prepared-publisher-'));
@@ -22,7 +23,7 @@ async function fixture(t,components=['worker'],failAt=null){
   }catch(error){if(error.code!=='ENOENT')throw error;}
  };
  const request={mainCommit:'a'.repeat(40),components,predecessorWorker:{...head},predecessorDjangoSha256:django};
- const context={source:root,out,installedRoot:installed,workerRuntimeRoot:runtime,deployOnly:false,
+ const context={source:root,out,installedRoot:installed,workerRuntimeRoot:runtime,deployOnly:false,readinessWaitOptions:{budgetMs:1000,delayMs:5},
   sourceIdentity:async()=>({commit:request.mainCommit,tree:'b'.repeat(40)}),
   maintenanceReadiness:async()=>{event('readiness');return {route:'fixture',sourcePins:Object.fromEntries(['manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs'].map(name=>[name,'4'.repeat(64)]))};},
   sha:async file=>file===path.join(installed,'deployment.json')?django:path.basename(file).startsWith('app.prepare-')?'9'.repeat(64):'4'.repeat(64),
@@ -55,7 +56,9 @@ async function fixture(t,components=['worker'],failAt=null){
    if(action==='VerifyStartup')return {startupVerified:true};
    return {};
   },
-  fetch:async(url,options)=>{await readLease('ready');event('ready');assert.equal(options.headers['x-teruisi-local-health'],'1');return {status:readyStatus,json:async()=>{if(readyBody instanceof Error)throw readyBody;return readyBody;},body:{cancel:async()=>{}}};}
+  fetch:async(url,options)=>{await readLease('ready');event('ready');assert.equal(options.headers['x-teruisi-local-health'],'1');
+   if(readyBody instanceof Error)return new Response('invalid-json',{status:readyStatus,headers:{'content-type':'application/json'}});
+   return Response.json(readyStatus===503?{ok:false,status:'degraded',unavailableServices:['bi.reader']}:readyBody,{status:readyStatus});}
  };
  return {request,context,events,out,leaseFile,get leaseReadings(){return leaseReadings;},get successes(){return successes;},set head(value){head=value;},set django(value){django=value;},set readyStatus(value){readyStatus=value;},set readyBody(value){readyBody=value;}};
 }
@@ -210,24 +213,83 @@ test('existing STARTED never retries an unknown result',async t=>{
  await assert.rejects(publishPreparedMain(f.request,f.context),/结果未知/);assert.deepEqual(operations(f.events),[]);assert.equal(f.successes,0);
 });
 for(const failure of ['BeginWorkerDrain','StopForRelease','apply','Start','EndWorkerDrain','VerifyStartup','ready'])test('failure at '+failure+' retains FAILED and never retries or writes success',async t=>{
- const f=await fixture(t,['worker'],failure);await assert.rejects(publishPreparedMain(f.request,f.context),/fixture failure/);
+ const f=await fixture(t,['worker'],failure),original=f.context.runStep,cancellations=[];
+ f.context.runStep=async args=>{if(args.action==='CancelDrain')cancellations.push(args);return original(args);};
+ await assert.rejects(publishPreparedMain(f.request,f.context),failure==='ready'?/服务尚未就绪/:/fixture failure/);
  assert.equal(f.successes,0);await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
  const failed=JSON.parse(await fs.readFile(path.join(f.out,'FAILED.json'),'utf8'));assert.equal(failed.automaticRetry,false);
  const prior=f.events.length;await assert.rejects(publishPreparedMain(f.request,f.context),/结果未知/);
  assert.deepEqual(operations(f.events.slice(prior)),[]);
- assert.ok(!f.events.includes('CancelDrain'));assert.ok(!f.events.includes('ExitMaintenance'));
+ if(failure==='BeginWorkerDrain'){
+  const started=JSON.parse(await fs.readFile(path.join(f.out,'STARTED.json'),'utf8'));
+  assert.equal(f.events.filter(e=>e==='CancelDrain').length,1);assert.equal(cancellations.length,1);
+  assert.deepEqual(cancellations[0].extra,['-MaintenanceId',started.maintenanceId]);
+  assert.equal(cancellations[0].script,path.join(f.context.workerRuntimeRoot,'releases/old/tools/worker-local-service.ps1'));
+  assert.equal(failed.drainCancelled,true);assert.equal(failed.error,'fixture failure: BeginWorkerDrain');
+  assert.equal(failed.phase,'排空前端请求');assert.ok(!f.events.includes('StopForRelease'));
+ }else assert.ok(!f.events.includes('CancelDrain'));
+ assert.ok(!f.events.includes('ExitMaintenance'));
+});
+for(const cancelFailure of ['fixture cancellation failure','Exact drain owner is required'])test('drain cancellation failure preserves the original error: '+cancelFailure,async t=>{
+ const f=await fixture(t,['worker'],'BeginWorkerDrain'),original=f.context.runStep,logs=[];let originalError;
+ f.context.progress.log=message=>logs.push(message);
+ f.context.runStep=async args=>{
+  let result;
+  try{result=await original(args);}catch(error){originalError=error;throw error;}
+  if(args.action==='CancelDrain')throw Error(cancelFailure);
+  return result;
+ };
+ await assert.rejects(publishPreparedMain(f.request,f.context),error=>error===originalError);
+ const failed=JSON.parse(await fs.readFile(path.join(f.out,'FAILED.json'),'utf8'));
+ assert.equal(failed.error,'fixture failure: BeginWorkerDrain');assert.equal(failed.phase,'排空前端请求');
+ assert.equal(failed.drainCancelled,false);assert.equal(failed.drainCancelError,cancelFailure);
+ assert.equal(failed.drainCancelManualHandlingRequired,true);assert.ok(logs.some(message=>message.includes('需人工')));
+ assert.equal(f.events.filter(e=>e==='CancelDrain').length,1);
+ assert.ok(!f.events.includes('StopForRelease'));assert.ok(!f.events.includes('ExitMaintenance'));
+ assert.equal(failed.automaticRetry,false);assert.equal(f.successes,0);await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
+ const prior=f.events.length;await assert.rejects(publishPreparedMain(f.request,f.context),/结果未知/);
+ assert.deepEqual(operations(f.events.slice(prior)),[]);
+});
+test('worker material failure before STARTED never cancels a drain',async t=>{
+ const f=await fixture(t),original=f.context.sha;
+ f.context.sha=async file=>{if(file===path.join(f.context.workerRuntimeRoot,'releases/old/tools/worker-local-service.ps1'))throw Error('missing Worker material');return original(file);};
+ await assert.rejects(publishPreparedMain(f.request,f.context),/missing Worker material/);
+ await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));await assert.rejects(fs.access(path.join(f.out,'FAILED.json')));
+ assert.ok(!f.events.includes('BeginWorkerDrain'));assert.ok(!f.events.includes('CancelDrain'));assert.ok(!f.events.includes('ExitMaintenance'));
 });
 for(const failure of ['EnterMaintenance','Stop','DeployApp','HardenAcl','apply','ExitMaintenance','Start'])test('full maintenance failure at '+failure+' stops without replay or automatic cleanup',async t=>{
  const f=await fixture(t,['worker','django'],failure);await assert.rejects(publishPreparedMain(f.request,f.context),/fixture failure/);
  assert.equal(f.successes,0);assert.equal(f.events.filter(e=>e===failure).length,1);
  assert.equal(f.events.at(-1),failure);await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
+ assert.ok(!f.events.includes('CancelDrain'));
  assert.equal(JSON.parse(await fs.readFile(path.join(f.out,'FAILED.json'),'utf8')).automaticRetry,false);
  const prior=f.events.length;await assert.rejects(publishPreparedMain(f.request,f.context),/结果未知/);assert.deepEqual(operations(f.events.slice(prior)),[]);
 });
 test('unready HTTP or final Django drift cannot save SUCCESS',async t=>{
  const f=await fixture(t);f.readyStatus=503;await assert.rejects(publishPreparedMain(f.request,f.context),/服务尚未就绪/);await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
+ const failed=JSON.parse(await fs.readFile(path.join(f.out,'FAILED.json'),'utf8'));assert.equal(failed.readiness.reason,'deadline_exhausted');assert.deepEqual(failed.readiness.unavailableServices,['bi.reader']);
  const g=await fixture(t);const native=g.context.runStep;g.context.runStep=async args=>{const result=await native(args);if(args.action==='VerifyStartup')g.django='changed';return result;};
  await assert.rejects(publishPreparedMain(g.request,g.context),/最终后台manifest/);await assert.rejects(fs.access(path.join(g.out,'SUCCESS.json')));
+});
+
+test('ready transient recovery reuses completed deployment and emits bounded observations',async t=>{
+ const f=await fixture(t,['worker','django']),fetch=f.context.fetch;let calls=0;
+ f.context.fetch=async(...args)=>{f.readyStatus=++calls<3?503:200;return fetch(...args);};
+ const result=await publishPreparedMain(f.request,f.context);
+ assert.equal(result.status,'deployed_and_ready');assert.equal(calls,3);
+ for(const action of ['DeployApp','Start','VerifyStartup','apply'])assert.equal(f.events.filter(v=>v===action).length,1,action);
+ const rows=(await fs.readFile(path.join(f.out,'readiness-observations.jsonl'),'utf8')).trim().split('\n').map(JSON.parse);
+ assert.equal(rows.length,3);assert.equal(rows[0].reason,'not_ready_unknown');assert.equal(rows[2].ok,true);assert.equal(rows[2].attempts,3);
+ assert.equal(JSON.parse(await fs.readFile(path.join(f.out,'SUCCESS.json'),'utf8')).readyVerified,true);
+});
+
+test('ready success reuse remains a single check and does not rewrite original observations',async t=>{
+ const f=await fixture(t,['worker']);await publishPreparedMain(f.request,f.context);
+ const log=await fs.readFile(path.join(f.out,'readiness-observations.jsonl'),'utf8'),receipt=await fs.readFile(path.join(f.out,'SUCCESS.json'),'utf8');
+ f.events.length=0;f.readyStatus=503;
+ await assert.rejects(publishPreparedMain(f.request,f.context),/服务尚未就绪/);
+ assert.deepEqual(operations(f.events),['ready']);assert.equal(await fs.readFile(path.join(f.out,'readiness-observations.jsonl'),'utf8'),log);
+ assert.equal(await fs.readFile(path.join(f.out,'SUCCESS.json'),'utf8'),receipt);
 });
 test('HTTP 200 with HTML or non-ready JSON never saves SUCCESS',async t=>{
  for(const body of [new SyntaxError('HTML instead of JSON'),{ok:false,status:'ready'},{ok:true,status:'notready'}]){
@@ -307,6 +369,93 @@ async function migrationFixture(t,failAt=null,schema=monitoringSchema){
  };
  return f;
 }
+
+const aiContract='backend/ai_assistant/database_contract.py';
+const inventoryContract='tools/django-inventory-service.ps1';
+// Characterize an unresolved scope gap, not the desired authorization contract.
+// When no-migration provisioning is implemented, replace these expectations.
+for(const contracts of [[aiContract],[inventoryContract],[aiContract,inventoryContract]])
+test('known scope gap: contract-only release skips role provisioning: '+contracts.join(', '),async t=>{
+ const changes=contracts.map(path=>({status:'M',path}));
+ const plan={changes,...classifyRelease(changes)};
+ assert.equal(plan.migrate,false);assert.ok(plan.components.includes('django'));
+ const f=await fixture(t,plan.components);
+ f.request.migrate=plan.migrate;f.request.releasePlan=plan;
+ assert.equal(f.request.schemaRelease,undefined);
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});f.events.length=0;
+ const result=await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ assert.equal(result.migration,null);assert.ok(f.events.includes('DeployApp'));
+ for(const action of ['Plan','Install','ProvisionRoles','Finalize'])assert.ok(!f.events.includes(action));
+ t.diagnostic('Known unresolved gap: the mocked ready response does not prove real database privileges or startup readiness.');
+});
+for(const schema of [tmall148Schema,piAgentSchema,piWorkspaceSchema,piBusinessSchema,piNativeSchema])
+for(const withPath of [false,true])test('original role trigger remains once: '+schema.additionKind+' path='+withPath,async t=>{
+ const f=await migrationFixture(t,null,schema),native=f.context.runStep,calls=[];
+ const inventory=schema.additionKind==='TmallWarehouse';
+ if(withPath)f.request.releasePlan.changes=[{path:inventory?inventoryContract:aiContract}];
+ const image=schema.additionKind==='PiNative'?piNativeImage:schema.additionKind==='PiBusiness'?piBusinessImage:piWorkspaceImage;
+ const upgrade={prepared:true,started:false,registeredPlanSha256:'c'.repeat(64),sourceSha256:'d'.repeat(64),image};
+ f.context.runStep=async args=>{
+  const value=await native(args);
+  if(args.action==='ProvisionRoles')calls.push(path.basename(args.script));
+  if(args.action==='PreparePiUpgrade')return upgrade;
+  if(args.action==='PiUpgradeCheck')return {...upgrade,checked:true};
+  if(args.action==='UpgradePi')return {...upgrade,upgraded:true,windowsConfigUpdated:true,sameDpapiOwner:true};
+  return value;
+ };
+ await publishPreparedMain(f.request,f.context);
+ assert.deepEqual(calls,[inventory?'django-inventory-service.ps1':'django-ai.ps1']);
+ assert.ok(f.events.indexOf('Install')<f.events.indexOf('ProvisionRoles'));
+ assert.ok(f.events.indexOf('ProvisionRoles')<f.events.indexOf('Finalize'));
+ if(f.events.includes('UpgradePi'))assert.ok(f.events.indexOf('Finalize')<f.events.indexOf('UpgradePi'));
+});
+for(const [name,changes,expected] of [
+ ['AI contract modified',[{status:'M',path:aiContract}],['django-ai.ps1']],
+ ['AI contract renamed from',[{status:'R100',before:aiContract,path:'backend/ai_assistant/renamed.py'}],['django-ai.ps1']],
+ ['AI contract renamed to',[{status:'R100',before:'backend/ai_assistant/old.py',path:aiContract}],['django-ai.ps1']],
+ ['inventory contract modified',[{status:'M',path:inventoryContract}],['django-inventory-service.ps1']],
+ ['inventory contract renamed from',[{status:'R100',before:inventoryContract,path:'tools/renamed.ps1'}],['django-inventory-service.ps1']],
+ ['both contracts once',[{path:aiContract},{path:inventoryContract},{path:aiContract}],['django-inventory-service.ps1','django-ai.ps1']],
+ ['unrelated paths',[{path:'backend/ai_assistant/tests/database_contract.py'},{path:aiContract+'.bak'},{path:'docs/'+inventoryContract},{path:'backend/teruisi_backend/health.py'}],[]],
+ ['missing changes',undefined,[]],
+ ['empty changes',[],[]],
+])test('WorkflowAutomation provisions by exact contract path: '+name,async t=>{
+ const f=await migrationFixture(t,null,workflowAutomationSchema),native=f.context.runStep,calls=[];
+ if(changes!==undefined)f.request.releasePlan.changes=changes;
+ f.context.runStep=async args=>{
+  if(args.action==='ProvisionRoles'){
+   calls.push(path.basename(args.script));
+   assert.equal(args.script,path.join(f.context.installedRoot,'tools',path.basename(args.script)));
+   assert.deepEqual(args.extra,[]);assert.equal(args.json,false);
+  }
+  return native(args);
+ };
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ assert.deepEqual(calls,[]);assert.ok(!f.events.includes('EnterMaintenance'));
+ f.events.length=0;
+ await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ assert.deepEqual(calls,expected);
+ if(expected.length){
+  assert.ok(f.events.indexOf('EnterMaintenance')<f.events.indexOf('DeployApp'));
+  assert.ok(f.events.indexOf('HardenAcl')<f.events.indexOf('Install'));
+  assert.ok(f.events.indexOf('Install')<f.events.indexOf('ProvisionRoles'));
+  assert.ok(f.events.lastIndexOf('ProvisionRoles')<f.events.indexOf('Finalize'));
+  assert.ok(f.events.indexOf('Finalize')<f.events.indexOf('Start'));
+ }
+});
+
+for(const contract of [aiContract,inventoryContract])test('WorkflowAutomation role failure stops before Finalize and never replays: '+contract,async t=>{
+ const f=await migrationFixture(t,'ProvisionRoles',workflowAutomationSchema);
+ f.request.releasePlan.changes=[{path:contract}];
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});f.events.length=0;
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/fixture failure/);
+ for(const action of ['Finalize','UpgradePi','apply','ExitMaintenance','Start'])assert.ok(!f.events.includes(action));
+ await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
+ assert.equal(JSON.parse(await fs.readFile(path.join(f.out,'FAILED.json'),'utf8')).automaticRetry,false);
+ f.events.length=0;
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/结果未知/);
+ assert.ok(!f.events.includes('ProvisionRoles'));
+});
 test('148 preparation never migrates; manual deployment binds original operation and native receipts',async t=>{
  const f=await migrationFixture(t);await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
  for(const forbidden of ['Plan','DeployApp','Install','Finalize','EnterMaintenance','apply','Start'])assert.ok(!f.events.includes(forbidden));

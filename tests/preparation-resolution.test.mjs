@@ -35,9 +35,13 @@ test('static proof rejects all original identity needles, extra FAILED file, non
 test('cross-token new opaque process and process identity drift reject; independent witness refuses another controller',async t=>{const f=await fixture(t),context={protectedPids:[f.writer.processId,f.observer.processId],roots:[f.directory]};assertCrossCensus(censusProjection(f.rows),f.rows,context);assert.throws(()=>assertCrossCensus(censusProjection(f.rows),[...f.rows,{processId:999,parentProcessId:0,name:'pwsh.exe',creationDate:f.writer.creationDate,commandLine:null,executablePath:null}],context));assert.throws(()=>assertCrossCensus(censusProjection(f.rows),f.rows.map(r=>({...r,creationDate:new Date().toISOString()})),context));assert.throws(()=>assertCensus([...f.rows,{processId:999,parentProcessId:0,name:'node.exe',creationDate:f.writer.creationDate,commandLine:'node publish-prepared-main.mjs',executablePath:process.execPath}],{writer:f.writer,observer:f.observer,roots:[f.directory]}));});
 test('resolved dispatch releases future different-target queue work without changing old result; original target replay refuses',async t=>{const f=await fixture(t);await f.write();let prepared=0;await submitPreparation(f.directory,{origin:'manual',configSha256:f.dispatch.configSha256,bundleSha256:hash});const selection={...f.dispatch.selection,targetCommit:'9'.repeat(40)};await drainPreparationQueue(f.directory,{configSha256:f.dispatch.configSha256,bundleSha256:hash,observe:async()=>selection,prepare:async()=>{prepared++;return {status:'non-production',targetCommit:selection.targetCommit,currentCommit:selection.live.mainCommit,publicationPerformed:false,packet:selection.packet,source:root};}});assert.equal(prepared,1);await submitPreparation(f.directory,{origin:'manual',configSha256:f.dispatch.configSha256,bundleSha256:hash});await drainPreparationQueue(f.directory,{configSha256:f.dispatch.configSha256,bundleSha256:hash,observe:async()=>f.dispatch.selection,prepare:async()=>{throw Error('must not prepare');}});assert.equal(prepared,1);});
 test('frozen bundle CLI help is runnable with package closure and no production effects',async t=>{const f=await fixture(t);for(const name of ['cleaned-preparation-writer.mjs','cleaned-preparation-observer.mjs']){const output=execFileSync(process.execPath,[path.join(f.bundleRoot,'tools',name),'--help'],{encoding:'utf8',windowsHide:true});assert.match(output,/Usage:/);}assert.equal(await fs.stat(f.out).then(()=>true,()=>false),false);});
-test('eight sealed historical resolutions remain readable through the single reader (read-only original evidence)',async()=>{assert.equal(history.records.length,8);const directory='D:/codex-isolated/main-manual-release-20261016/prebuild-queue-v2';for(const pin of history.records){const dispatch=(await readQueueObject(path.join(directory,'dispatches',pin.dispatchId+'.json'))).value,terminal=(await readQueueObject(path.join(directory,'results',pin.requestId+'.json'))).value;assert.equal(await readPreparationResolution(directory,dispatch,terminal),true,pin.dispatchId);} });
+test('eight sealed historical resolutions remain readable through the single reader (isolated original-evidence copy)',async()=>{
+ assert.equal(history.records.length,8);assert.ok(process.env.TERUISI_HISTORICAL_QUEUE_FIXTURE,'A private historical queue fixture is required; production is never the default');const directory=path.resolve(process.env.TERUISI_HISTORICAL_QUEUE_FIXTURE),normalized=directory.toLowerCase(),temporary=path.resolve(os.tmpdir()).toLowerCase(),privateRuntime=path.resolve(import.meta.dirname,'../.runtime').toLowerCase();
+ assert.ok(!normalized.startsWith('d:\\codex-isolated\\')&&!normalized.startsWith('d:/codex-isolated/'),'Production historical queue is forbidden');assert.ok(normalized.startsWith(temporary+path.sep)||normalized.startsWith(privateRuntime+path.sep),'Private temporary fixture required');assert.equal(path.resolve(await fs.realpath(directory)).toLowerCase(),normalized,'Historical queue fixture is redirected');
+ for(const pin of history.records){const dispatch=(await readQueueObject(path.join(directory,'dispatches',pin.dispatchId+'.json'))).value,terminal=(await readQueueObject(path.join(directory,'results',pin.requestId+'.json'))).value;assert.equal(await readPreparationResolution(directory,dispatch,terminal),true,pin.dispatchId);}
+});
 test('historical replay policy preserves the original five target fences and three pre-native request terminations',()=>{assert.equal(history.records.filter(r=>resolutionForbidsTargetReplay(r.dispatchId)).length,5);assert.equal(history.records.filter(r=>!resolutionForbidsTargetReplay(r.dispatchId)).length,3);assert.equal(resolutionForbidsTargetReplay(randomUUID()),true);});
-test('S16: producer qualification set is exact; all three generations adopt and unregistered bytes fail closed',async()=>{
+test('S16 and adopted S05d: producer qualification set is the exact five-closure union and unregistered bytes fail closed',async()=>{
  // Exact pre-S16 producer closure (f641685b), the S16 generation that adds
  // log-only preparation stage timing to worker-local-release-rotation.mjs, and
  // the C 项第二步 generation that extends the same log-only timing over the 15
@@ -47,14 +51,15 @@ test('S16: producer qualification set is exact; all three generations adopt and 
  const pre={'publish-prepared-main.mjs':'e50f8112e0ae6553a4f66632ebfc95a76fba1030041c6d9d96af4273d98ae6d1','worker-local-release-rotation.mjs':'b33b0b8b2a3ff603a902845c7f3191adbe7d39907e529f18870e195abeb50776','worker-local-release.mjs':'6dcd3016f6164a0c897c94ae26ec300b82f69ad122739ea1ba5b843ca95a8333'};
  const s16={...pre,'worker-local-release-rotation.mjs':'c90f6c9b5ce126089527d668e3fee884193554e4a4ded91e392a1a2df98b2072'};
  const apply={...pre,'worker-local-release-rotation.mjs':'5171f54839b42a64d986db919770aa3f72d76dce77babb8abea250a02b8b6037'};
- assert.deepEqual(producerQualification.closures,[pre,s16,apply]);
+ const s05d={...pre,'publish-prepared-main.mjs':'86103124799accb2730d444eb8cf27b33e0da0baa216dd83bc4d84b338402369'},s05dS16={...s16,'publish-prepared-main.mjs':s05d['publish-prepared-main.mjs']};
+ assert.deepEqual(producerQualification.closures,[pre,s05d,s05dS16,s16,apply]);
  // The earlier closures stay in place and in order, so an installed pre-S16 or
  // S16 producer generation remains qualified and a rollback is not blocked by
  // this entry itself. Only the rotation digest differs across the three.
  assert.deepEqual(producerQualification.closures[0],pre);
- assert.deepEqual(producerQualification.closures[1],s16);
- for(const name of ['publish-prepared-main.mjs','worker-local-release.mjs'])
-  assert.equal(new Set(producerQualification.closures.map(c=>c[name])).size,1,name);
+ assert.deepEqual(producerQualification.closures[3],s16);
+ assert.equal(new Set(producerQualification.closures.map(c=>c['publish-prepared-main.mjs'])).size,2);
+ assert.equal(new Set(producerQualification.closures.map(c=>c['worker-local-release.mjs'])).size,1);
  assert.equal(new Set(producerQualification.closures.map(c=>c['worker-local-release-rotation.mjs'])).size,3);
  // Repository tripwire: the working rotation bytes are the registered apply ones.
  assert.equal(sha(await fs.readFile(new URL('../tools/worker-local-release-rotation.mjs',import.meta.url))),apply['worker-local-release-rotation.mjs']);
@@ -62,7 +67,7 @@ test('S16: producer qualification set is exact; all three generations adopt and 
  // The gate's own decision shape (preparation-resolution.mjs:144/:273): the
  // candidate's whole producerFiles group must equal one closure item for item.
  const qualified=p=>producerQualification.closures.some(c=>canonical(c)===canonical(p));
- for(const generation of [pre,s16,apply])assert.equal(qualified(generation),true);
+ for(const generation of [pre,s05d,s05dS16,s16,apply])assert.equal(qualified(generation),true);
  for(const unregistered of [{...apply,'worker-local-release-rotation.mjs':'d'.repeat(64)},{...apply,'worker-local-release.mjs':'d'.repeat(64)},{...apply,'publish-prepared-main.mjs':'d'.repeat(64)},{...pre,'worker-local-release.mjs':'d'.repeat(64)},{...pre,'publish-prepared-main.mjs':'d'.repeat(64)}])assert.equal(qualified(unregistered),false);
  // A mixed group is not qualified by any closure, and a partial group fails.
  assert.equal(qualified({...pre,'worker-local-release-rotation.mjs':apply['worker-local-release-rotation.mjs'],'worker-local-release.mjs':'d'.repeat(64)}),false);

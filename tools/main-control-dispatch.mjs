@@ -47,16 +47,25 @@ export async function readAdoptedControl(configFile,expectedBundle){
  assert.equal(sha(await stable(state.transitionProofFile)),state.transitionProofSha256);
  const manifestRaw=await stable(path.join(root,'MANIFEST.json'));assert.equal(sha(manifestRaw),state.bundleManifestSha256);
  const manifest=JSON.parse(manifestRaw);assert.equal(manifest.version,'teruisi-main-control-bundle-v2');assert.equal(manifest.bundleSha256,state.bundleSha256);
- assert.ok(manifest.files&&Object.keys(manifest.files).length>5&&Object.keys(manifest.files).length<32);
+ assert.ok(manifest.files&&Object.keys(manifest.files).length>5&&Object.keys(manifest.files).length<=48);
  const names=Object.keys(manifest.files);
- assert.ok(names.every(name=>/^tools\/[a-z0-9-]+\.mjs$/.test(name)&&hex.test(manifest.files[name])),'Invalid control closure');
+ assert.ok(names.every(name=>(/^tools\/[a-z0-9-]+\.mjs$/.test(name)||name==='tools/preparation-retirement-handoff-runner.ps1')&&hex.test(manifest.files[name])),'Invalid control closure');
+ let retired=[];try{const retirementRoot=path.join(config.stateDirectory,'preparation-retirements');assert.equal(path.resolve(await fs.realpath(retirementRoot)).toLowerCase(),path.resolve(retirementRoot).toLowerCase(),'Retirement registry redirected');retired=await fs.readdir(retirementRoot);assert.ok(retired.length<=128,'Retirement registry exceeds bound');}catch(error){if(error.code!=='ENOENT')throw error;}
+ if(retired.length){assert.equal(manifest.preparationRetirementProtocol,'teruisi-preparation-retirement-intent-v1','Control generation would reopen retired preparation');assert.equal(manifest.preparationRetirementRefProtocol,'teruisi-retired-manual-main-ref-fence-v1','Control generation would remove the native retired-source fence');for(const name of ['tools/preparation-retirement-admission.mjs','tools/preparation-retirement-ref.mjs','tools/preparation-retirement.mjs'])assert.ok(hex.test(manifest.files[name]??''),'Retirement control closure missing');}
  assert.deepEqual((await fs.readdir(path.join(root,'tools'))).sort(),names.map(name=>name.slice(6)).sort(),'Control bundle member set changed');
  for(const [name,expected] of Object.entries(manifest.files))assert.equal(sha(await stable(path.join(root,...name.split('/')))),expected,'Control bundle changed: '+name);
+ let artifactLossBinding=null;
+ if(manifest.artifactLossManifestSha256){
+  assert.equal(manifest.preparedArtifactLossProtocol,'teruisi-prepared-artifact-loss-v1','Control generation would remove artifact loss capability');assert.ok(hex.test(manifest.files['tools/prepared-artifact-loss.mjs']??''),'Artifact loss control closure missing');
+  const loss=await import(pathToFileURL(path.join(root,'tools/prepared-artifact-loss.mjs')));artifactLossBinding=await loss.readArtifactLossControlBinding(path.join(config.stateDirectory,'prebuild-queue-v2'));assert.equal(artifactLossBinding?.manifestSha256,manifest.artifactLossManifestSha256);
+ }else for(const leaf of ['artifact-losses','artifact-loss-results']){
+  let names=[];try{names=await fs.readdir(path.join(config.stateDirectory,'prebuild-queue-v2',leaf));}catch(error){if(error.code!=='ENOENT')throw error;}assert.equal(names.length,0,'Control generation would reopen artifact loss retirement');
+ }
  assert.equal(sha(await stable(path.join(config.stateDirectory,'control/tools/publish-latest-main.mjs'))),state.dispatcherSha256,'Fixed control gate changed');
  assert.equal(sha(await stable(state.hook)),state.hookSha256,'Git control hook changed');
  if(state.version==='teruisi-main-control-installation-v3'){const task=await import(pathToFileURL(path.join(root,'tools/main-prebuild-task.mjs')));await task.assertPreparationTask(state.preparationTask);}
  assert.equal(sha(await stable(stateFile)),sha(stateRaw),'Control generation changed during admission');
- return {config,state,stateSha256:sha(stateRaw),bundleRoot:root,configFile:path.resolve(configFile)};
+ return {config,state,stateSha256:sha(stateRaw),bundleRoot:root,configFile:path.resolve(configFile),artifactLossBinding};
 }
 export async function assertControlGeneration(binding){
  const current=await readAdoptedControl(binding.configFile,binding.bundleRoot);assert.equal(current.stateSha256,binding.stateSha256,'Control installation changed');return current;

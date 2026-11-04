@@ -13,6 +13,8 @@ import {
   assertJackyunHandoffEvidence,
   createJackyunInputContractHash,
   type JackyunInputContract,
+  type JackyunDateContext,
+  jackyunDateContext,
   jackyunExportFirstPolicyVersion,
 } from "./run-contract";
 
@@ -55,7 +57,7 @@ function validSha(value: unknown): value is string {
   return typeof value === "string" && /^[a-f0-9]{64}$/i.test(value);
 }
 
-export async function verifyJackyunModuleArtifact(options: {
+export async function verifyJackyunModuleArtifact(options: JackyunDateContext & {
   runDirectory: string;
   runId: string;
   module: JackyunModule;
@@ -110,7 +112,7 @@ export async function verifyJackyunModuleArtifact(options: {
     || createJackyunInputContractHash(inputContract) !== source.inputContractHash) {
     throw new Error(`吉客云 ${options.module} 输入证据摘要无法从归档审计重算`);
   }
-  if (inputContract.runId !== options.runId || inputContract.policyVersion !== options.policyVersion
+  if (!isDeepStrictEqual(jackyunDateContext(inputContract), jackyunDateContext(options)) || inputContract.runId !== options.runId || inputContract.policyVersion !== options.policyVersion
     || inputContract.module !== options.module || inputContract.rawSha256 !== source.sha256
     || inputContract.expectedSourceRows !== source.expectedSourceRows
     || inputContract.exportStart !== source.exportStart
@@ -147,7 +149,7 @@ export async function verifyJackyunModuleArtifact(options: {
       exportIntentAt: handoff.exportIntentAt,
       downloadEventAt: handoff.downloadEventAt,
     } : null;
-    if (!handoff || handoff.schemaVersion !== 2 || handoff.runId !== options.runId
+    if (!handoff || !isDeepStrictEqual(jackyunDateContext(handoff), jackyunDateContext(options)) || handoff.schemaVersion !== 2 || handoff.runId !== options.runId
       || handoff.policyVersion !== options.policyVersion || handoff.module !== options.module
       || typeof handoff.filePath !== "string" || path.resolve(handoff.filePath) !== sourcePath
       || handoff.expectedSourceRows !== source?.expectedSourceRows
@@ -169,6 +171,7 @@ export async function verifyJackyunModuleArtifact(options: {
       throw new Error(`吉客云 ${options.module} 历史快照证据与输入契约不一致`);
     }
     assertJackyunSnapshotEvidence(inputContract.snapshotEvidence, {
+      ...jackyunDateContext(options),
       module: options.module,
       runId: options.runId,
       snapshotDate: options.snapshotDate,

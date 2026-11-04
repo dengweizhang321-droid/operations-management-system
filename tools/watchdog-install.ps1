@@ -103,6 +103,57 @@ function Write-WatchExactBytes([string]$Path,[byte[]]$Bytes){
     [IO.File]::Delete($backup)
   }else{[IO.File]::Move($temporary,$Path)}
 }
+function Get-WatchInstalledDriverDirectory($Context){
+  # A versioned install keeps its driver under versions\<bundleId>; a flat legacy install
+  # keeps it beside the entry script.
+  if($Context.old -and $Context.old.layout -ceq 'immutable-v1'){
+    if($Context.old.bundleId -cnotmatch '^[0-9a-f]{64}$'){throw 'watchdog_install_requires_healthy_status'}
+    $directory=Join-Path $Context.root ('versions\'+$Context.old.bundleId)
+    Assert-WatchContainedDirectory $Context.root $directory
+    return $directory
+  }
+  return $Context.root
+}
+function Test-WatchScriptParses([string]$Path){
+  if(-not (Test-Path -LiteralPath $Path -PathType Leaf)){return $false}
+  $errors=$null
+  [void][Management.Automation.Language.Parser]::ParseFile([IO.Path]::GetFullPath($Path),[ref]$null,[ref]$errors)
+  return @($errors).Count -eq 0
+}
+function ConvertFrom-WatchPowerShellSingleQuoted([string]$Literal){
+  # Reverses the generator's quote(): "'"+s.replaceAll("'","''")+"'". Only used to read back
+  # a path literal this same install tooling's generators wrote; never fed external input.
+  return $Literal.Replace("''","'")
+}
+function Get-WatchInstalledDiagnosticSources($Context){
+  # Resolve-WatchStatusControl's hardcoded $sources and the installed driver's own compared
+  # paths have been found to diverge in production (control/worker/backend/transport matched,
+  # but supervisor did not: the driver was generated against the repo tree while this script
+  # assumed the deployed copy under $BackendRoot). Do not re-guess a path here: parse it back
+  # out of the literal the installed driver itself hash-checks, so a future rename on either
+  # side becomes a parse/consistency failure instead of a silently wrong recompute.
+  $directory=Get-WatchInstalledDriverDirectory $Context
+  $controlDriver=Join-Path $directory 'watchdog-status-control.ps1'
+  $backendDriver=Join-Path $directory 'watchdog-status-backend.ps1'
+  if(-not (Test-Path -LiteralPath $controlDriver -PathType Leaf) -or -not (Test-Path -LiteralPath $backendDriver -PathType Leaf)){return $null}
+  $controlText=[string](Get-Content -LiteralPath $controlDriver -Raw)
+  $backendText=[string](Get-Content -LiteralPath $backendDriver -Raw)
+  # $diagnosticSources=@{control='...';backend='...';worker='...';transport='...'} is the
+  # literal hashtable Assert-DiagnosticSources compares against driver-binding.json.
+  $sourcesMatch=[Text.RegularExpressions.Regex]::Match($controlText,'\$diagnosticSources\s*=\s*@\{control=''(?<control>(?:[^'']|'''')*)'';backend=''(?<backend>(?:[^'']|'''')*)'';worker=''(?<worker>(?:[^'']|'''')*)'';transport=''(?<transport>(?:[^'']|'''')*)''\}')
+  if(-not $sourcesMatch.Success){return $null}
+  # $diagnosticSupervisor='...' is the literal the supervisor-enabled backend driver adds; a
+  # driver without supervisor support simply has no match, and supervisor stays untracked.
+  $supervisorMatch=[Text.RegularExpressions.Regex]::Match($backendText,'\$diagnosticSupervisor\s*=\s*''(?<supervisor>(?:[^'']|'''')*)''')
+  $sources=@{
+    control=ConvertFrom-WatchPowerShellSingleQuoted $sourcesMatch.Groups['control'].Value
+    backend=ConvertFrom-WatchPowerShellSingleQuoted $sourcesMatch.Groups['backend'].Value
+    worker=ConvertFrom-WatchPowerShellSingleQuoted $sourcesMatch.Groups['worker'].Value
+    transport=ConvertFrom-WatchPowerShellSingleQuoted $sourcesMatch.Groups['transport'].Value
+  }
+  if($supervisorMatch.Success){$sources.supervisor=ConvertFrom-WatchPowerShellSingleQuoted $supervisorMatch.Groups['supervisor'].Value}
+  return $sources
+}
 function Install-WatchdogSafely([string]$SourceDirectory){
   if(-not $Execute){throw 'Install requires Execute'}
   $lease=[Threading.Mutex]::new($false,(Get-WatchdogMutexName));$held=$false
@@ -114,7 +165,78 @@ function Install-WatchdogSafely([string]$SourceDirectory){
     $c=Get-WatchInstallContext $SourceDirectory $PreparedLauncherPath $PreparedLauncherSha256
     if($ApprovedInstallPlanId -cnotmatch '^[0-9a-f]{64}$' -or $ApprovedInstallPlanId -cne $c.planId){throw 'watchdog_install_plan_changed'}
     $health=Get-WatchSnapshot
-    if(-not $health.healthy){throw 'watchdog_install_requires_healthy_status'}
+    if(-not $health.healthy){
+      # Drift deadlock: fixing pinned-source drift needs an install, but drift itself keeps
+      # health false. The exact asset-set match below is what stops this being a blanket bypass.
+      # The running predecessor may predate diagnosticBinding and only report the generic
+      # control-stage probe failure, so either evidence shape admits the same narrow case.
+      $declared=@();if($RequalifyDriftedAssets){$declared=@($RequalifyDriftedAssets -split ',' |ForEach-Object {$_.Trim()}|Where-Object {$_}|Sort-Object -Unique)}
+      # Stages are recorded only as they run, so a later stage is absent rather than failed
+      # when control fails first. Admit exactly two shapes: control is the one and only
+      # recorded stage and did not complete (control itself failed), or control completed
+      # and supervisor is the one stage that failed after it. The supervisor probe runs in a
+      # child process (Invoke-WatchScript), so its driver-binding throw never survives as
+      # this process's diagnosticBinding: it can only ever surface as processDiagnostic with
+      # code probe_stage_failed. The candidate's own exit code is reused as weak corroboration
+      # (an uncaught PowerShell throw inside -File exits 1), but the real safety comes from
+      # the exact declared/recomputed asset-set match below, not from this shape or exit code.
+      $stageNames=@($health.stages.Keys)
+      $onlyControlStage=$stageNames.Count -eq 1 -and $stageNames[0] -ceq 'control' -and $health.stages.control.status -cne 'completed'
+      $supervisorAfterControl=$stageNames.Count -eq 2 -and 'control' -cin $stageNames -and 'supervisor' -cin $stageNames -and $health.stages.control.status -ceq 'completed' -and $health.stages.supervisor.status -cne 'completed'
+      $admittedStageShape=$onlyControlStage -or $supervisorAfterControl
+      $isDrift=if($null -ne $health.diagnosticBinding){$health.diagnosticBinding.code -ceq 'diagnostic_predecessor_changed'}else{
+        $health.processDiagnostic.code -ceq 'probe_stage_failed' -and $health.processDiagnostic.stage -cin @('control','supervisor') -and
+        ($health.processDiagnostic.stage -cne 'supervisor' -or $health.processDiagnostic.process.exitCode -eq 1)
+      }
+      # An installed driver that cannot be parsed blocks the very install that would replace
+      # it. That case is judged from the PREDECESSOR's own bytes, not from this snapshot: the
+      # snapshot runs the candidate's driver, so a candidate that fixes control reports
+      # control as completed and surfaces whatever the broken driver was hiding. Requiring a
+      # control-stage failure here would make the exception unreachable exactly when the
+      # candidate is the fix. The install can still only swap a broken driver for a sound one.
+      $unusableDriver=$false
+      if(-not $declared.Count){
+        # An absent driver is not a broken one: a never-configured install has nothing to
+        # repair, so it keeps the ordinary requirement and this exception stays inapplicable.
+        $installedDriver=Join-Path (Get-WatchInstalledDriverDirectory $c) 'watchdog-status-control.ps1'
+        $unusableDriver=(Test-Path -LiteralPath $installedDriver -PathType Leaf) -and -not (Test-WatchScriptParses $installedDriver)
+        if($unusableDriver -and -not (Test-WatchScriptParses (Join-Path $SourceDirectory 'watchdog-status-control.ps1'))){throw 'watchdog_candidate_driver_invalid'}
+      }
+      if(-not $unusableDriver -and (-not $isDrift -or -not $admittedStageShape -or $health.admission.mode -cne 'running')){throw 'watchdog_install_requires_healthy_status'}
+      if($unusableDriver -and $health.admission.mode -cne 'running'){throw 'watchdog_install_requires_healthy_status'}
+      if(-not $unusableDriver -and -not $declared.Count){throw 'watchdog_install_requires_healthy_status'}
+      elseif($null -ne $health.diagnosticBinding){$drifted=@($health.diagnosticBinding.assets|Sort-Object -Unique)}
+      elseif($declared.Count){
+        # No reported asset list: recompute it ourselves from the pinned hashes Resolve-
+        # WatchStatusControl and the supervisor driver compare, instead of trusting the
+        # caller. Read the INSTALLED binding, not this candidate's: the installed pins are
+        # what the running probe compares and therefore what made the status unhealthy. The
+        # candidate normally carries regenerated pins that already match, which would report
+        # no drift.
+        # The paths to hash are NOT re-guessed here: $ControlPath/$WorkerPath/$BackendRoot-
+        # relative paths and the installed driver's own actually-compared paths have been
+        # found to diverge in production (control/worker/backend/transport matched, but the
+        # driver's supervisor literal pointed at the repo tree while this script's own
+        # $SupervisorPath points at the deployed copy). Get-WatchInstalledDiagnosticSources
+        # parses the literal paths back out of the installed driver files themselves, so this
+        # recompute always targets what the driver actually hash-checks. If that literal
+        # cannot be found or parsed, there is nothing safe to recompute against and the
+        # ordinary healthy-status requirement applies.
+        $binding=Read-WatchJson (Join-Path (Get-WatchInstalledDriverDirectory $c) 'driver-binding.json')
+        if(-not $binding -or $binding.version -ne 1){throw 'watchdog_install_requires_healthy_status'}
+        $sources=Get-WatchInstalledDiagnosticSources $c
+        if(-not $sources){throw 'watchdog_install_requires_healthy_status'}
+        # supervisor is only tracked once the installed binding pins it: an older four-asset
+        # binding never ran the supervisor driver's own hash assertion, so there is nothing to
+        # recompute drift against and this key must stay absent rather than report a false
+        # drift for a never-compared asset.
+        $bindingAssetNames=if($binding.assetHashes -is [Collections.IDictionary]){@($binding.assetHashes.Keys)}else{@($binding.assetHashes.PSObject.Properties.Name)}
+        if('supervisor' -cnotin $bindingAssetNames){$sources.Remove('supervisor')}
+        elseif(-not $sources.ContainsKey('supervisor')){throw 'watchdog_install_requires_healthy_status'}
+        $drifted=@($sources.Keys|Sort-Object|Where-Object {(Get-WatchHash $sources[$_]) -cne $binding.assetHashes.$_})
+      }
+      if($declared.Count -and @(Compare-Object $declared $drifted -SyncWindow 0).Count){throw 'watchdog_requalify_asset_mismatch'}
+    }
     $again=Get-WatchInstallContext $SourceDirectory $PreparedLauncherPath $PreparedLauncherSha256
     if($again.planId -cne $c.planId){throw 'watchdog_install_plan_changed'}
     if(-not(Test-Path -LiteralPath $c.root)){

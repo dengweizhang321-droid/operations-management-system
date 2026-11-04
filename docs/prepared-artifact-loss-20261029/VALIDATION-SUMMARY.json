@@ -1,0 +1,42 @@
+{
+  "status": "candidate-ready-for-user-review",
+  "protocol": {
+    "passed": 161,
+    "failed": 0,
+    "skipped": 0,
+    "newProtocolCases": 20
+  },
+  "ciAllowlist": {
+    "passed": 66,
+    "failed": 0,
+    "skipped": 0,
+    "testTimeoutMs": 30000
+  },
+  "eslint": {
+    "errors": 56,
+    "warnings": 132,
+    "exitCode": 1,
+    "sameErrorDetailsAsBaseline": true
+  },
+  "backendBoundary": {
+    "exitCode": 0,
+    "violations": []
+  },
+  "lossManifestSha256": "e44dac82794da312e3cbaade260b853806e9e9f067eee86197e6b4789a7e32ab",
+  "productionQueueRecordsUnchanged": 292,
+  "controlAdopted": false,
+  "productionLossReconciled": false,
+  "applicationPrepared": false,
+  "applicationDeployed": false,
+  "mainPushed": false,
+  "independentReview": "passed",
+  "evidenceSha256": {
+    "QUEUE-PROTOCOL-FINAL.tap": "2e699fb1603d9d956e0bc81996d0bff7967923e66ab821833fec23c5490ff62f",
+    "ci-allowlist-frozen.log": "8df31ca295dd2471742b732baa3cc83420e49bc4f6ba0e572ad44d8fed18cc19",
+    "backend-boundary-frozen.log": "1d101b20331e8a26931642231a108353c3592c76313bc87a633f3bd2d84f1be6",
+    "ESLINT-COMPARISON.json": "2216f148db48463891599395fa59179ccf0bb9ea9ee75ac79b02dc9f030069ec",
+    "PRESERVATION-CHECK.json": "cb96821db671fcb08ecb64710e0980bb5f6689276e13f3298632c682599372a1",
+    "CODE-FREEZE.json": "21947032a62de751c9d93b82e971e349b0f7aa056f0914ebc3901f2565327ffc",
+    "NEW-PROTOCOL-EVIDENCE.json": "12041af057c61dd4670a577d3400098a3f9486c07e39a0235423a86c4789b15a"
+  }
+}

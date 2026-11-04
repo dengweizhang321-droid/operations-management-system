@@ -1,0 +1,18 @@
+[
+  {
+    "file": "tools/django-local-service.ps1",
+    "function": "Invoke-BoundedNativeProcess",
+    "line": 293,
+    "callee": null,
+    "dynamic": true,
+    "code": "& $Executable @Arguments 2>&1"
+  },
+  {
+    "file": "tools/django-local-service.ps1",
+    "function": "Invoke-WithServiceMutex",
+    "line": 5485,
+    "callee": null,
+    "dynamic": true,
+    "code": "& $Operation"
+  }
+]

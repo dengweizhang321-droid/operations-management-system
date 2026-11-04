@@ -1,0 +1,24 @@
+{
+  "count": 635,
+  "changed": 18,
+  "changedCounts": {
+    "django": 6,
+    "none": 11,
+    "worker": 1
+  },
+  "affectedPriorSample": {
+    "head": "7aa3562aae530b27a16c8e503902554931feb1c4",
+    "components": [
+      "worker",
+      "django"
+    ],
+    "expected": [
+      "worker",
+      "django"
+    ],
+    "equal": true,
+    "beforeKnown": true,
+    "afterKnown": false,
+    "afterReason": "dynamic npm lifecycle command: postinstall"
+  }
+}

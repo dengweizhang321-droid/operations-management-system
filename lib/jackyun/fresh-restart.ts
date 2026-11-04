@@ -7,7 +7,7 @@ import { readJsonDurableOr, writeJsonDurable } from "./json-file";
 import { controlDigest, readRecoveryControl, appendRecoveryControl } from "./recovery-control";
 import { collectionPublicationBaseline, importRecoveryQuery, importRecoveryScope, recoveryUploadFingerprint } from "./publication-baseline";
 import { jackyunModuleOrder } from "./post-download";
-import { jackyunExportOrder } from "./run-contract";
+import { jackyunExportOrder, jackyunDateContext } from "./run-contract";
 import { verifyJackyunModuleArtifact } from "./run-artifact-verification";
 import { readN8nFreshRestartEvidence } from "./n8n-preflight-evidence";
 import type { BoundHumanAuthority } from "./human-retry";
@@ -122,7 +122,7 @@ export async function inspectFreshRestart(root: string, target: FreshRestartTarg
     || !manifest.modules || Object.keys(manifest.modules).sort().join() !== "inventory,products"
     || manifest.modules.products.status !== "completed" || manifest.modules.inventory.status !== "failed") throw new Error("从头采集仅支持货品完成、库存拒绝的严格导入前缀。");
   const controller = await bind(path.join(run, "api-controller-state.json"));
-  if (controller.runId !== plan.runId || controller.runDate !== plan.runDate || controller.asOfDate !== plan.asOfDate || controller.salesStartDate !== plan.salesStartDate
+  if (!isDeepStrictEqual(jackyunDateContext(controller), jackyunDateContext(plan)) || controller.runId !== plan.runId || controller.runDate !== plan.runDate || controller.asOfDate !== plan.asOfDate || controller.salesStartDate !== plan.salesStartDate
     || controller.transport !== plan.exportTransport || !controller.modules || Object.keys(controller.modules).length !== 5) throw new Error("旧平台导出 controller 身份不完整。");
   // Reuse the production handoff parser (including task/date/scope/file SHA).
   const { verifyFreshRestartHandoff } = await import("../../tools/jackyun-export-first-pipeline");
@@ -135,7 +135,7 @@ export async function inspectFreshRestart(root: string, target: FreshRestartTarg
       || !isDeepStrictEqual(entry.binding, handoff.evidence?.exportTaskBinding)) throw new Error("旧平台存在未闭合导出 intent 或 handoff 变化。");
   }
   const policy = JSON.parse((await bytes(path.join(root, "config/jackyun-export-first-policy.json"))).toString("utf8"));
-  await verifyJackyunModuleArtifact({ runDirectory: run, runId: plan.runId, module: "products", snapshotDate: plan.runDate,
+  await verifyJackyunModuleArtifact({ ...jackyunDateContext(plan), runDirectory: run, runId: plan.runId, module: "products", snapshotDate: plan.runDate,
     policyVersion: plan.protocol, allowedDownloadHosts: policy.browser.allowedDownloadHosts,
     manifestModule: manifest.modules.products, handoffPath: path.join(root, "outputs/jackyun-browser-events", plan.runId, "01-products.json"), requireAtomicHandoff: true });
   const productsAudit = await bind(path.join(run, "audit/products.json")), rejected = await bind(path.join(run, "audit/inventory.json"));

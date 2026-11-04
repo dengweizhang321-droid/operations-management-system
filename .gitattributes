@@ -21,3 +21,23 @@ tools/tmall_warehouse_rehearsal.py -text whitespace=cr-at-eol
 docs/tmall-warehouse-monitor-20261017/schema-validation.json -text whitespace=cr-at-eol
 
 tools/django-runtime-supervisor.ps1 -text whitespace=cr-at-eol
+tools/preparation-retirement-collector.mjs -text whitespace=cr-at-eol
+tests/fixtures/s05d-old-source-entry/*.mjs -text whitespace=cr-at-eol
+docs/prepared-artifact-loss-20261029/*.json -text whitespace=cr-at-eol
+docs/prepared-artifact-loss-20261029/*.tap -text -diff
+docs/prepared-artifact-loss-20261029/*.log -text -diff
+docs/artifact-loss-native-lock-20261029/*.json -text whitespace=cr-at-eol
+docs/artifact-loss-native-lock-20261029/*.tap -text -diff
+docs/artifact-loss-native-lock-20261029/*.log -text -diff
+docs/sales154-controller-qualification-20261029/*.json -text whitespace=cr-at-eol
+docs/sales154-controller-qualification-20261029/*.tap -text -diff
+docs/sales154-controller-qualification-20261029/*.log -text -diff
+docs/schema-code-digest-20261029/*.json -text whitespace=cr-at-eol
+docs/schema-code-digest-20261029/*.tap -text -diff
+docs/schema-code-digest-20261029/*.log -text -diff
+docs/jackyun-sales-preflight-20261029/sales154-mandatory-code-checks.json -text whitespace=cr-at-eol
+docs/ci-two-gates-fix-20261031/*.json -text whitespace=cr-at-eol
+docs/ci-two-gates-fix-20261031/*.log -text -diff
+
+# 11055 时钟失败闭合的审计原字节：摘要按这些字节固定，不能按平台换行重写。
+tests/fixtures/jackyun-11055-clock-*.json -text whitespace=cr-at-eol

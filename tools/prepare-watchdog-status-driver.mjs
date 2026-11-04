@@ -6,6 +6,10 @@ const hash=x=>createHash('sha256').update(x).digest('hex');
 const ps=x=>"'"+x.replaceAll("'","''")+"'";
 function segment(text,start,end){const a=text.indexOf(start),b=text.indexOf(end,a);if(a<0||b<a)throw new Error('diagnostic_source_shape_changed');return text.slice(a,b);}
 function replaceOnce(text,from,to){if(!text.includes(from)||text.indexOf(from)!==text.lastIndexOf(from))throw new Error('diagnostic_source_shape_changed');return text.replace(from,to);}
+// The mirrored control source has organically grown some of the same keys we inject (CoreDiagnostics/coreDiagnostics).
+// ensureOnce skips an injection when its exact marker line is already present, so re-mirroring stays idempotent
+// instead of producing duplicate hashtable keys that fail to parse.
+function ensureOnce(text,from,to,marker){return text.includes(marker)?text:replaceOnce(text,from,to);}
 export async function prepareStatusDriver({outputDirectory,controlFile,backendFile,workerFile,transportFile,coreTemplateFile,controlTemplateFile}){
   const original=await readFile(controlFile), backend=await readFile(backendFile), worker=await readFile(workerFile), transport=await readFile(transportFile);
   const core=await readFile(coreTemplateFile,'utf8'),controller=await readFile(controlTemplateFile,'utf8');
@@ -17,8 +21,8 @@ export async function prepareStatusDriver({outputDirectory,controlFile,backendFi
   mirror=replaceOnce(mirror,'$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path','$ProjectRoot = '+ps(path.dirname(path.dirname(controlFile))));
   mirror=replaceOnce(mirror,'$DjangoService = Join-Path $DjangoRuntimeTools "django-local-service.ps1"','$DjangoService = Join-Path $PSScriptRoot "watchdog-status-backend.ps1"');
   mirror=replaceOnce(mirror,'function Get-DjangoAggregateState {',coreDiagnostic+'\nfunction Get-DjangoAggregateState {');
-  mirror=replaceOnce(mirror,'Components = [pscustomobject]$componentReadiness','Components = [pscustomobject]$componentReadiness\n      CoreDiagnostics = Get-CoreReadinessDiagnostic $coreStatus');
-  mirror=replaceOnce(mirror,'components = $backendState.Components','components = $backendState.Components\n    coreDiagnostics = $backendState.CoreDiagnostics');
+  mirror=ensureOnce(mirror,'Components = [pscustomobject]$componentReadiness','Components = [pscustomobject]$componentReadiness\n      CoreDiagnostics = Get-CoreReadinessDiagnostic $coreStatus','CoreDiagnostics = Get-CoreReadinessDiagnostic $coreStatus');
+  mirror=ensureOnce(mirror,'components = $backendState.Components','components = $backendState.Components\n    coreDiagnostics = $backendState.CoreDiagnostics','coreDiagnostics = $backendState.CoreDiagnostics');
   mirror=replaceOnce(mirror,'$backendState = Get-DjangoAggregateState -Refresh:$Refresh','$diagnosticClock = [Diagnostics.Stopwatch]::StartNew()\n  $backendState = Get-DjangoAggregateState -Refresh:$Refresh\n  $diagnosticBackendMs = $diagnosticClock.ElapsedMilliseconds\n  $diagnosticClock.Restart()');
   mirror=replaceOnce(mirror,'$workerStatus = Get-WorkerReleaseStatus -Refresh:$Refresh','$workerStatus = Get-WorkerReleaseStatus -Refresh:$Refresh\n  $diagnosticWorkerMs = $diagnosticClock.ElapsedMilliseconds\n  $diagnosticClock.Restart()');
   mirror=replaceOnce(mirror,'components = $backendState.Components','components = $backendState.Components\n    statusTimings = [pscustomobject]@{backendMs=$diagnosticBackendMs;workerMs=$diagnosticWorkerMs;httpMs=$diagnosticClock.ElapsedMilliseconds}');

@@ -39,6 +39,18 @@ Set-Location -LiteralPath $projectRoot
 
 $env:N8N_LISTEN_ADDRESS = "127.0.0.1"
 $env:NODES_EXCLUDE = '["n8n-nodes-base.localFileTrigger"]'
+# Resolve the Windows host through Node/ICU, without an inherited TZ override.
+# Workflows omit settings.timezone and inherit this explicit instance zone.
+$savedTimeZone = $env:TZ
+try {
+  $env:TZ = $null
+  $localTimeZone = (& $nodeCommand -e 'const z=Intl.DateTimeFormat().resolvedOptions().timeZone;if(!z)process.exit(1);process.stdout.write(z);').Trim()
+  if ($LASTEXITCODE -ne 0 -or -not $localTimeZone -or $localTimeZone -notmatch '^[A-Za-z0-9_+./-]+$') {
+    throw 'Cannot resolve the host timezone for n8n.'
+  }
+} finally { $env:TZ = $savedTimeZone }
+$env:GENERIC_TIMEZONE = $localTimeZone
+$env:TZ = $localTimeZone
 . (Join-Path $PSScriptRoot 'n8n-native-process.ps1')
 $exitCode = Invoke-N8nNativeProcess -NodePath $nodeCommand -EntryPath $n8nEntry -StdoutPath $stdoutLog -StderrPath $stderrLog
 exit $exitCode

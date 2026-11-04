@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-29T06:56:23.016900+00:00",
+  "queueRecordsCompared": 292,
+  "queueRecordNamesAndBytesUnchanged": true,
+  "newProductionArtifactLossNamespacePresent": false,
+  "newProductionArtifactLossResultNamespacePresent": false,
+  "protectedFilesUnchanged": {
+    "package.json": "c4c7f6a0422370d7ac7c2c75bff2ad0c77f19d507d07cc8d98dcc8440f1d5056",
+    "tools/worker-local-release-rotation.mjs": "5171f54839b42a64d986db919770aa3f72d76dce77babb8abea250a02b8b6037",
+    "tools/publish-prepared-main.mjs": "e50f8112e0ae6553a4f66632ebfc95a76fba1030041c6d9d96af4273d98ae6d1",
+    "tools/worker-local-release.mjs": "6dcd3016f6164a0c897c94ae26ec300b82f69ad122739ea1ba5b843ca95a8333"
+  },
+  "productionWritesPerformed": false
+}

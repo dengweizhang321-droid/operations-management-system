@@ -1,5 +1,13 @@
 # 任务记录目录
 
+本轮候选：[Ready 503稳定性修复](../readiness-stability-20261103/REPORT.md) · [实现反审](../readiness-stability-20261103/REVIEW.md) · [固定兼容检查](../readiness-stability-20261103/COMPATIBILITY.md)（未合并/采用，程序与隔离兼容检查通过）。
+
+本轮：[自动导入 E1—E6 统一施工交付](../autoimport-workflow-unification-20261029/统一施工交付-20261103.md) · [独立反审](../autoimport-workflow-unification-20261029/统一反审-20261103.md)（E1/E4/E5 与全部文档已合入 main；E2 巡检安装代码仍在分支，巡检未安装，现场采用另行执行）。
+
+本轮候选：[规范入口与按任务阅读调整](../agent-guidance-streamline-20261102/REPORT.md)（未合并；含新旧授权对照与发布范围差异）。
+
+本轮候选：[Windows Claude–Haiku–Codex 适配](../claude-haiku-bridge-20261031/REPORT.md) · [使用说明](../claude-haiku-bridge-20261031/README.md)。
+
 本轮补充：[规范瘦身与限定资格对照](../machine-cleanup-20261022/REPORT.md) · [独立审查](../machine-cleanup-20261022/REVIEW.md)。
 
 一次开发、审查、候选准备、发布和生产采用的记录按任务目录保存。既有任务目录及其非 Markdown 证据保留原位，避免拆散 JSON、截图、清单和校验记录。以下目录按用途分类，不据目录名称推断生产状态。
@@ -39,6 +47,10 @@
 | `opencode-go-user-agent-20261013` | 2 | [OpenCode Go 请求头修复](../opencode-go-user-agent-20261013/REPORT.md) |
 
 ## 发布与交付
+
+[Catalog 基线检查精简交付](../catalog-baseline-lite-20261101/REPORT.md)。
+
+本轮候选：[Django 受管应用树 SQLite 兜底修复](../django-managed-sqlite-20261029/REPORT.md)（待核阅，未采用）。
 
 本轮补充：[PiBusiness/PiNative ACL 契约门禁](../schema-acl-gate-20261020/REPORT.md)（已合并，含发布范围计划）。
 
@@ -149,6 +161,8 @@
 
 ## 自动化
 
+本轮交付：[四条遗留链路闭合修复](../autoimport-stuck-plan-closure-20261102/REPORT.md) · [施工说明](../autoimport-stuck-plan-closure-20261102/施工说明.md) · [独立反审](../autoimport-stuck-plan-closure-20261102/REVIEW.md) · [同期主线整合](../autoimport-stuck-plan-closure-20261102/MERGE.md)（已获合并及制品准备授权；未上线、未执行真实闭合）。
+
 | 任务目录 | 文档数 | 入口 |
 | --- | --- | --- |
 | `jackyun-7792-receipt-recovery-20261010` | 2 | [吉客云 7792 已提交销售回执与组合装续导](../jackyun-7792-receipt-recovery-20261010/README.md) |
@@ -156,6 +170,7 @@
 | `jackyun-download-recovery-20261009` | 2 | [吉客云已绑定库存下载重试与自动续跑](../jackyun-download-recovery-20261009/REPORT.md) |
 | `jackyun-full-restart-20261018` | 2 | [吉客云部分失败后的五表重新采集](../jackyun-full-restart-20261018/REPORT.md) |
 | `jackyun-live-test-20261014` | 4 | [吉客云自动恢复：本次发布与真实恢复结果](../jackyun-live-test-20261014/FINAL_REPORT.md) |
+| `jackyun-review-revision-20261102` | 1 | [吉客云时钟反审小范围修订](../jackyun-review-revision-20261102/REPORT.md) |
 | `jackyun-unified-recovery-20261013` | 7 | [吉客云完整恢复与重试](../jackyun-unified-recovery-20261013/REPORT.md) |
 | `tmall-seven-day-direct-20261007` | 2 | [天猫六店近七日查缺、P/M 直连与每日货品](../tmall-seven-day-direct-20261007/REPORT.md) |
 | `tmall-seven-day-gap-loop-20261008` | 2 | [天猫近七天全部缺口逐日补齐候选](../tmall-seven-day-gap-loop-20261008/REPORT.md) |

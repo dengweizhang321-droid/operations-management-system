@@ -1,3 +1,4 @@
+import { collectionDateContext, newCollectionDateContext } from "../lib/inventory/workflow-date-context";
 import { randomUUID } from "node:crypto";
 import { lstat, mkdir, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
@@ -88,7 +89,7 @@ async function loadOwned(options: Dependencies, plan: Pick<JdLogisticsManifest, 
 }
 async function assertPolicy(options: Dependencies, plan: JdLogisticsManifest, notification = false) {
   const current = await currentInputs(options, plan.baseUrl);
-  const selections = selectJdLogisticsOperations(current.config, current.settings, current.stores, new Date(plan.anchorAt));
+  const selections = selectJdLogisticsOperations(current.config, current.settings, current.stores, new Date(plan.anchorAt), plan);
   if (selections.length !== plan.operations.length || selections.some((selection, index) => {
     const op = plan.operations[index];
     return selection.operationId !== op.operationId || selection.policyHash !== op.policyHash || selection.storeIdentityHash !== op.storeIdentityHash;
@@ -112,8 +113,9 @@ export async function planJdLogisticsN8nRun(options: Dependencies & { baseUrl?: 
     }
     const now = options.now ?? new Date();
     const input = await currentInputs(options, baseUrl);
-    const operations = selectJdLogisticsOperations(input.config, input.settings, input.stores, now).map(selection => ({ ...selection, stage: "planned" as const }));
-    const plan: JdLogisticsManifest = { protocolVersion: jdLogisticsProtocol, workflowKey: "jd-logistics", runId: options.runIdFactory?.() ?? `jdl-${randomUUID()}`,
+    const context = newCollectionDateContext();
+    const operations = selectJdLogisticsOperations(input.config, input.settings, input.stores, now, context).map(selection => ({ ...selection, stage: "planned" as const }));
+    const plan: JdLogisticsManifest = { ...context, protocolVersion: jdLogisticsProtocol, workflowKey: "jd-logistics", runId: options.runIdFactory?.() ?? `jdl-${randomUUID()}`,
       executionId: options.executionId, createdAt: now.toISOString(), updatedAt: now.toISOString(), anchorAt: now.toISOString(), baseUrl,
       planHash: "", stage: "planned", outcome: operations.length ? "pending" : "disabled", operations,
       notificationPlan: planJdLogisticsNotifications(input.settings, operations), notification: { stage: "pending" } };
@@ -175,13 +177,13 @@ export async function runJdLogisticsN8nPlan(reference: Pick<JdLogisticsManifest,
         const downloadDirectory = path.join(paths(options.root).directory, "downloads", plan.runId, operation.operationId);
         await mkdir(downloadDirectory, { recursive: true });
         const exporter = options.exporter ?? (await import("./jd-logistics-export")).exportJdLogistics;
-        const result = await exporter({ root: options.root, runId: plan.runId, executionId: options.executionId,
+        const result = await exporter({ ...collectionDateContext(plan), root: options.root, runId: plan.runId, executionId: options.executionId,
           operationId: operation.operationId, store: current.stores.find(store => store.storeKey === operation.collectorStoreKey)!,
           sourceKind: operation.sourceKind, departmentId: operation.departmentId, businessUnitCode: operation.businessUnitCode,
           rangeStart: operation.rangeStart, rangeEnd: operation.rangeEnd, warehouseCode: operation.warehouseCode,
           ...(operation.sourceStatus === "enabled" ? { sourceStatus: "enabled" as const } : {}),
           contractVersion: operation.contractVersion, downloadDirectory, assertOwner });
-        await assertOwner(); assertLogisticsExport(operation, result, options.now ?? new Date());
+        await assertOwner(); assertLogisticsExport(operation, result, options.now ?? new Date(), plan);
         const { bytes, relativePath } = await controlledBytes(options.root, plan, operation, result.filePath);
         const evidence = { taskIdentity: result.taskIdentity, complete: result.complete, browserClosed: result.browserClosed, collectedAt: result.collectedAt,
           ...(result.sourceAsOf ? { sourceAsOf: result.sourceAsOf } : {}), ...(result.sourceStatus ? { sourceStatus: result.sourceStatus } : {}),
@@ -189,7 +191,7 @@ export async function runJdLogisticsN8nPlan(reference: Pick<JdLogisticsManifest,
         operation.export = { ...evidence, relativePath, rawFileHash: logisticsRawHash(bytes), bytes: bytes.length };
         operation.stage = "downloaded"; await persist(options.root, plan);
         const rows = parseJdLogisticsWorkbook(bytes, operation.sourceKind, operation.businessUnitCode,
-          { collectedAt: result.collectedAt, allowDeclaredBusinessUnit: true });
+          { ...collectionDateContext(plan), collectedAt: result.collectedAt, allowDeclaredBusinessUnit: true });
         if (operation.sourceKind === "shop_products") assertLogisticsEnabledProducts(rows);
         rowsByOperation.set(operation.operationId, rows);
         operation.contentHash = logisticsContentHash(rows); operation.rowCount = rows.length; operation.parserVersion = parserVersion;
@@ -210,11 +212,11 @@ export async function runJdLogisticsN8nPlan(reference: Pick<JdLogisticsManifest,
           complete: true, expectedScopeRevision: preceding?.receipt?.scopeRevision ?? operation.initialScopeRevision, origin: "workflow", storeKey: operation.collectorStoreKey,
           identityEvidence: operation.export!.identityEvidence, collectedAt: operation.export!.collectedAt,
           ...(operation.export!.sourceAsOf ? { sourceAsOf: operation.export!.sourceAsOf } : {}),
-          collectorEvidence: { runId: plan.runId, executionId: plan.executionId, protocol: jdLogisticsProtocol }, rows });
+          collectorEvidence: { ...collectionDateContext(plan), runId: plan.runId, executionId: plan.executionId, protocol: jdLogisticsProtocol }, rows });
         const receipt = stableReceipt(payload);
         assertLogisticsReceipt(operation, receipt); await assertOwner();
         if (receipt.collectedAt === undefined || Date.parse(receipt.collectedAt) !== Date.parse(operation.export!.collectedAt)
-          || canonicalLogisticsJson(receipt.collectorEvidence) !== canonicalLogisticsJson({ runId: plan.runId, executionId: plan.executionId, protocol: jdLogisticsProtocol })
+          || canonicalLogisticsJson(receipt.collectorEvidence) !== canonicalLogisticsJson({ ...collectionDateContext(plan), runId: plan.runId, executionId: plan.executionId, protocol: jdLogisticsProtocol })
           || operation.export!.sourceAsOf !== undefined && receipt.sourceAsOf !== operation.export!.sourceAsOf) throw new Error("JD_LOGISTICS_COLLECTOR_RECEIPT_MISMATCH");
         operation.receipt = receipt; operation.stage = "imported"; await persist(options.root, plan);
       }
@@ -237,10 +239,10 @@ export async function verifyJdLogisticsN8nPlan(reference: Pick<JdLogisticsManife
       for (const operation of plan.operations) {
         await lock.assertOwned(); await loadOwned(options, plan);
         if (!operation.receipt || !["imported", "verified"].includes(operation.stage) || operation.parserVersion !== parserVersion) throw new Error("JD_LOGISTICS_EXACT_RECEIPT_MISSING");
-        assertLogisticsExport(operation, { ...operation.export!, filePath: fileFor(options.root, operation) }, new Date(operation.export!.collectedAt));
+        assertLogisticsExport(operation, { ...operation.export!, filePath: fileFor(options.root, operation) }, new Date(operation.export!.collectedAt), plan);
         const file = await controlledBytes(options.root, plan, operation, fileFor(options.root, operation));
         const rows = parseJdLogisticsWorkbook(file.bytes, operation.sourceKind, operation.businessUnitCode,
-          { collectedAt: operation.export!.collectedAt, allowDeclaredBusinessUnit: true });
+          { ...collectionDateContext(plan), collectedAt: operation.export!.collectedAt, allowDeclaredBusinessUnit: true });
         if (operation.sourceKind === "shop_products") assertLogisticsEnabledProducts(rows);
         if (file.bytes.length !== operation.export!.bytes || logisticsRawHash(file.bytes) !== operation.export!.rawFileHash
           || rows.length !== operation.rowCount || logisticsContentHash(rows) !== operation.contentHash) throw new Error("JD_LOGISTICS_INDEPENDENT_FILE_CHECK_FAILED");

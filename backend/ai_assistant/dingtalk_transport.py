@@ -17,20 +17,23 @@ GROUP_BOTS_API = "https://api.dingtalk.com/v1.0/robot/groups/robots/query"
 UPLOAD_API = "https://oapi.dingtalk.com/media/upload"
 
 
-def stream_addresses(url):
+def stream_addresses(url, *, exclude=frozenset()):
     from . import transport
     def official(value):
         if value not in (STREAM_API, STREAM_SOCKET):
             raise AiError("钉钉连接地址不在固定官方入口", "access_denied", 403)
     official(url)
     addresses = transport.resolve_addresses(urlsplit(url).hostname, 443, 5)
-    addresses = transport._public_addresses(url, addresses, 5, official)
+    # The shared DoH budget stays 5 (min(5, timeout) in _public_addresses); only
+    # this ceiling grows, so a failed first resolver still has room for the
+    # fallback resolver's own window instead of being cut off at zero.
+    addresses = transport._public_addresses(url, addresses, 5 + transport._fallback_resolver_budget, official, exclude=exclude)
     if not addresses or len(addresses) > 32 or any(not ipaddress.ip_address(a[4][0]).is_global or ipaddress.ip_address(a[4][0]).is_multicast for a in addresses):
         raise AiError("钉钉地址未解析到公网", "access_denied", 403)
     return addresses
 
 
-def media_addresses(url):
+def media_addresses(url, *, exclude=frozenset()):
     """Pin only the exact DingTalk application endpoints to verified public DNS."""
     from . import transport
     parts = urlsplit(url)
@@ -44,7 +47,13 @@ def media_addresses(url):
             } or (parts.query and parts.path != "/media/upload")):
         raise AiError("钉钉媒体地址不在固定官方入口", "access_denied", 403)
     addresses = transport.resolve_addresses(parts.hostname, 443, 5)
-    addresses = transport._public_addresses(url, addresses, 5, lambda value: media_addresses_origin(value))
+    # The shared DoH budget stays 5 (min(5, timeout) in _public_addresses); only
+    # this ceiling grows, so a failed first resolver still has room for the
+    # fallback resolver's own window instead of being cut off at zero.
+    addresses = transport._public_addresses(
+        url, addresses, 5 + transport._fallback_resolver_budget, lambda value: media_addresses_origin(value),
+        exclude=exclude,
+    )
     if not addresses or len(addresses) > 32 or any(
             not ipaddress.ip_address(a[4][0]).is_global or ipaddress.ip_address(a[4][0]).is_multicast
             for a in addresses):
@@ -101,7 +110,8 @@ def send_media(config_reader, session, raw, file_name, kind, caption="", *, befo
         before_send()
     uploaded = transport._bounded_json(upload_url, body,
         headers={"Content-Type": "multipart/form-data; boundary=" + boundary},
-        timeout=30, maximum=4096, fixed_addresses=media_addresses(upload_url))
+        timeout=30, maximum=4096, fixed_addresses=media_addresses(upload_url),
+        resolver=lambda tried: media_addresses(upload_url, exclude=tried))
     media_id = uploaded.get("media_id")
     if uploaded.get("errcode") != 0 or not isinstance(media_id, str) or not media_id.startswith("@") or len(media_id) > 4096:
         raise AiError("钉钉媒体上传未确认", "channel_unavailable", 503)
@@ -130,7 +140,8 @@ def send_media(config_reader, session, raw, file_name, kind, caption="", *, befo
         "msgKey": message_key,
         "msgParam": json.dumps(params, ensure_ascii=False, separators=(",", ":")), **target},
         headers={"x-acs-dingtalk-access-token": token},
-        timeout=30, maximum=8192, fixed_addresses=media_addresses(endpoint))
+        timeout=30, maximum=8192, fixed_addresses=media_addresses(endpoint),
+        resolver=lambda tried: media_addresses(endpoint, exclude=tried))
     return validate_receipt(reply)
 
 
@@ -139,7 +150,8 @@ def open_stream(key, secret):
     return transport._bounded_json(STREAM_API,
         {"clientId": key, "clientSecret": secret, "ua": "teruisi-readonly/1", "localIp": "127.0.0.1",
          "subscriptions": [{"type": "CALLBACK", "topic": "/v1.0/im/bot/messages/get"}]},
-        timeout=15, maximum=16384, fixed_addresses=stream_addresses(STREAM_API))
+        timeout=15, maximum=16384, fixed_addresses=stream_addresses(STREAM_API),
+        resolver=lambda tried: stream_addresses(STREAM_API, exclude=tried))
 
 
 def credentials(config):
@@ -157,7 +169,8 @@ def access_token(config):
     from . import transport
     key, secret = credentials(config)
     reply = transport._bounded_json(TOKEN_API, {"appKey": key, "appSecret": secret},
-        timeout=15, maximum=4096, fixed_addresses=media_addresses(TOKEN_API))
+        timeout=15, maximum=4096, fixed_addresses=media_addresses(TOKEN_API),
+        resolver=lambda tried: media_addresses(TOKEN_API, exclude=tried))
     token = reply.get("accessToken")
     if not isinstance(token, str) or not 0 < len(token) <= 4096 or not re.fullmatch(r"[A-Za-z0-9._~-]+", token):
         raise AiError("企业机器人应用认证失败", "channel_unavailable", 503)
@@ -172,7 +185,8 @@ def verify_group(config, group, token=None):
     # The approved immutable openConversationId is the destination authority.
     # A mutable group display name is never resolved to a new recipient.
     reply = transport._bounded_json(GROUP_BOTS_API, {"openConversationId": group["id"]},
-        headers=headers, timeout=15, maximum=65536, fixed_addresses=media_addresses(GROUP_BOTS_API))
+        headers=headers, timeout=15, maximum=65536, fixed_addresses=media_addresses(GROUP_BOTS_API),
+        resolver=lambda tried: media_addresses(GROUP_BOTS_API, exclude=tried))
     bots = reply.get("chatbotInstanceVOList")
     if not isinstance(bots, list) or len(bots) > 100 or any(not isinstance(bot, dict) for bot in bots):
         raise AiError("群机器人列表无法确认", "access_denied", 403)
@@ -203,7 +217,8 @@ def send(config_reader, session, content, *, before_send=None):
     reply = transport._bounded_json(endpoint, {"robotCode": config["robotCode"], "msgKey": "sampleText",
         "msgParam": json.dumps({"content": content}, ensure_ascii=False, separators=(",", ":")), **target},
         headers={"x-acs-dingtalk-access-token": token}, timeout=30, maximum=8192,
-        fixed_addresses=media_addresses(endpoint))
+        fixed_addresses=media_addresses(endpoint),
+        resolver=lambda tried: media_addresses(endpoint, exclude=tried))
     return validate_receipt(reply)
 
 

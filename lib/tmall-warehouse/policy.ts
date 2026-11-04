@@ -1,3 +1,4 @@
+import { workflowLocalDate } from "../imports/local-time";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { lstat } from "node:fs/promises";
@@ -9,7 +10,7 @@ export const tmallWarehouseWorkflowId = "TmallWarehouseDaily2026";
 export const tmallWarehouseMaxBytes = 20 * 1024 * 1024;
 export type WarehouseConfig = { enabled: boolean; owner: string; executablePath: string; userDataDir: string; profileName: string; baseUrl: string };
 export function warehouseHash(value: Uint8Array | string) { return createHash("sha256").update(value).digest("hex"); }
-export function warehouseDay(now = new Date()) { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(now); }
+export function warehouseDay(now = new Date()) { return workflowLocalDate(now); }
 export function warehouseConfig(value: unknown, root: string): WarehouseConfig {
   const c = value as WarehouseConfig;
   if (!c || typeof c !== "object" || Array.isArray(c) || c.enabled !== true) throw new Error("TMALL_WAREHOUSE_DISABLED_MANUAL_ACTION");

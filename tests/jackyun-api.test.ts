@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFile, mkdir, mkdtemp, writeFile, rm, readdir } from "node:fs/promises";
+import { readFile, mkdir, mkdtemp, writeFile, rm, readdir, lstat } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { apiSha, permissionCanonical, buildApiParameters, prepareApiExport, readApiScope, type ApiTemplates } from "../lib/jackyun/api-plan";
-import { apiTaskWindowObserved, apiTaskWindowStart } from "../lib/jackyun/api-clock";
+import { apiTaskWindowObserved, apiTaskWindowStart, assertApiServerClock, isJackyunServerClockFailure } from "../lib/jackyun/api-clock";
 import { JackyunHttpSession } from "../lib/jackyun/direct-http";
 import { inspectSubmittedApiTask, runApiExports, repairOriginalApiFile } from "../tools/jackyun-api-export";
 import { selectNewWebSessionTask } from "../lib/jackyun/web-session-export";
@@ -19,7 +19,11 @@ const today = jackyunCaptureDate(new Date().toISOString());
 const yesterday = new Date(Date.parse(today + "T00:00:00Z") - 86400000).toISOString().slice(0, 10);
 function fake(overrides: Record<string, unknown> = {}) {
   const calls: string[] = [];
-  const http = { get serverClock() { const now = new Date().toISOString(); return { requestStartedAt: now, receivedAt: now, serverDate: new Date(Math.floor(Date.now() / 1000) * 1000).toISOString() }; },
+  // Choose zero skew to isolate download recovery from clock quantization.
+  // Real HTTP Date is whole-second while receivedAt retains milliseconds; that
+  // can move the observed upper bound back by up to 999ms. Together with this
+  // test's 100ms polling budget, a newly created task can briefly fail to match.
+  const http = { get serverClock() { const now = new Date(Math.floor(Date.now() / 1000) * 1000).toISOString(); return { requestStartedAt: now, receivedAt: now, serverDate: now }; },
     request: async (operation: string) => {
       calls.push(operation);
       if (operation === "submitExport") throw new Error("SUBMIT_RESPONSE_LOST");
@@ -201,4 +205,69 @@ test("real API exporter emits a recoverable bound-download error and resumes wit
   const repairs = await readdir(path.join(root, options.runId, "file-repairs/inventory"));
   assert.equal(repairs.length, 1);
   assert.equal(await readFile(path.join(root, options.runId, "file-repairs/inventory", repairs[0], "corrupt-original.xlsx"), "utf8"), "corrupt-workbook-evidence");
+});
+
+test("the server-clock assertion rejects drift, a reversed or wide window and a non-second server date", () => {
+  const base = { requestStartedAt: "2026-11-01T16:15:18.700Z", receivedAt: "2026-11-01T16:15:18.967Z", serverDate: "2026-11-01T16:15:19.000Z" };
+  assert.doesNotThrow(() => assertApiServerClock(base));
+  // The same 13.033s drift as 11055, using this test's date.
+  assert.throws(() => assertApiServerClock({ ...base, serverDate: "2026-11-01T16:15:32.000Z" }), /^Error: API_SERVER_CLOCK_UNVERIFIED$/);
+  // Keep serverDate whole-second so drift, not precision, decides these cases.
+  const boundary = { requestStartedAt: "2026-11-01T16:15:18.000Z", receivedAt: "2026-11-01T16:15:18.000Z" };
+  for (const [serverDate, allowed] of [
+    ["2026-11-01T16:15:28.000Z", true],   // +10000ms is allowed
+    ["2026-11-01T16:15:08.000Z", true],   // -10000ms is allowed
+    ["2026-11-01T16:15:29.000Z", false],  // +11000ms is rejected
+    ["2026-11-01T16:15:07.000Z", false],  // -11000ms is rejected
+  ] as const) {
+    const clock = { ...boundary, serverDate };
+    const checkClock = () => assertApiServerClock(clock);
+    const checkIntent = () => apiTaskWindowStart(clock, boundary.receivedAt);
+    if (allowed) {
+      assert.doesNotThrow(checkClock);
+      assert.equal(checkIntent(), serverDate);
+    } else {
+      assert.throws(checkClock, /^Error: API_SERVER_CLOCK_UNVERIFIED$/);
+      assert.throws(checkIntent, /^Error: API_SERVER_CLOCK_UNVERIFIED$/);
+    }
+  }
+  for (const clock of [
+    { ...base, serverDate: "2026-11-01T16:15:19.500Z" },            // not a whole second
+    { ...base, receivedAt: "2026-11-01T16:15:18.600Z" },            // received before requested
+    { ...base, requestStartedAt: "2026-11-01T16:15:12.900Z" },      // request window wider than 5s
+    { ...base, receivedAt: "not-a-date" },
+  ]) assert.throws(() => assertApiServerClock(clock), /^Error: API_SERVER_CLOCK_UNVERIFIED$/);
+  assert.throws(() => assertApiServerClock(undefined), /^Error: API_SERVER_CLOCK_MISSING$/);
+  // Both messages must stay classifiable, otherwise the pipeline catch cannot
+  // recognise the failure and the generic closure route is unreachable.
+  assert.ok(isJackyunServerClockFailure("API_SERVER_CLOCK_UNVERIFIED"));
+  assert.ok(isJackyunServerClockFailure("API_SERVER_CLOCK_MISSING"));
+  // Same tolerances as apiTaskWindowStart, which additionally bounds the intent.
+  const intent = "2026-11-01T16:15:19.100Z";
+  assert.doesNotThrow(() => apiTaskWindowStart(base, intent));
+  assert.throws(() => apiTaskWindowStart({ ...base, serverDate: "2026-11-01T16:15:32.000Z" }, intent), /^Error: API_SERVER_CLOCK_UNVERIFIED$/);
+});
+
+test("a drifted server clock aborts the API export before any mkdir, controller or POST", async t => {
+  const root = await mkdtemp(path.join(tmpdir(), "jackyun-api-clock-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const options = { runId: "api-clock-drift", runDate: today, asOfDate: yesterday, outputRoot: root,
+    eventRoot: path.join(root, "events"), downloadDirectory: path.join(root, "downloads") };
+  const f = fake();
+  // Report the server 13s ahead of the local clock, exactly the 11055 shape.
+  Object.defineProperty(f.http, "serverClock", { get() {
+    const whole = Math.floor(Date.now() / 1000) * 1000;
+    return { requestStartedAt: new Date(whole).toISOString(), receivedAt: new Date(whole).toISOString(),
+      serverDate: new Date(whole + 13000).toISOString() };
+  } });
+  const deps = { http: f.http, tenantId: "fixture", templates, taskTimeoutMs: 5, pollIntervalMs: 1 };
+  await assert.rejects(runApiExports(options, deps), /^Error: API_SERVER_CLOCK_UNVERIFIED$/);
+  // The clock is validated before the first write, so the run leaves nothing on
+  // disk: no run directory, no controller, no event or download tree.
+  for (const target of [path.join(root, options.runId), options.eventRoot, options.downloadDirectory]) {
+    await assert.rejects(lstat(target), /ENOENT/, `${target} must not exist`);
+  }
+  // Nothing was submitted, and the POST was never attempted.
+  assert.equal(f.calls.filter(operation => operation === "submitExport").length, 0);
+  assert.ok(f.calls.includes("inventoryCount"));
 });

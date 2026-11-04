@@ -1436,7 +1436,7 @@ export async function getAutomationRunStatusPageData(
   const input = inputObject(args);
   assertOnlyKeys(input, ["workflowKey"]);
   const workflowKey = requiredText(input.workflowKey, "workflowKey", 40);
-  const allowed = ["jackyun", "tmall", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat"] as const;
+  const allowed = ["jackyun", "tmall", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat", "jd_customer_service", "jd_logistics", "tmall_warehouse"] as const;
   if (!allowed.includes(workflowKey as (typeof allowed)[number])) failInput("workflowKey 不受支持");
   const payload = await serviceSet(overrides).readAutomationStatus(principal, context.signal) as ChainTodayResponse;
   if (!validateTodayStatus(payload)) throw new Error("工作流运行状态响应无效，无法核实今天是否完成。");
@@ -1447,7 +1447,7 @@ export async function getAutomationRunStatusPageData(
     source: payload.source, timezone: payload.timezone,
     items: boundedRecords(payload.items.filter(item => ids.has(item.workflowId)), 11,
       ["workflowId", "active", "state", "completedToday", "completedAt", "completedMode", "executionId", "executionMode", "startedAt", "finishedAt"]),
-    message: "仅上海今天自动触发或完整自动重试的 n8n 记录；共用工作流表示整链状态，手动调试不计入。" };
+    message: "仅运行机器本地今天自动触发或完整自动重试的 n8n 记录；共用工作流表示整链状态，手动调试不计入。" };
 }
 
 function parseMarketSelections(value: unknown): MarketSelection[] {

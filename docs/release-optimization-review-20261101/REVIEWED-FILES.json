@@ -1,0 +1,185 @@
+{
+  "baseline": "3ce73dfa87884ceea23f3b71f90b2244704b4170",
+  "reviewedFiles": [
+    {
+      "path": "docs/hash-pin-reduction-20261101/REPORT.md",
+      "sha256": "22172e96a603bad6e0bd5298b2c4a038e5c3401204aef783c6df1e2ae76d5c80"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/all-hex64-occurrences.csv.gz",
+      "sha256": "2b1bc3089f5a028e1ffc8d422909626f3fab1268abed32baf9bdb7e1dd49b791"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/blob-bytes.json",
+      "sha256": "b51de8459d1897fbb9e7bbee5a54ad46d914a455f14fe06f5c4b626fc0ed5496"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/classification-rules.json",
+      "sha256": "13cfc3088cad232e2b0344e6a983e2875070f8d3c27ca967147a9f70c0fee518"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/classification-summary.json",
+      "sha256": "fd31f212f3c098c7773f9f69d9d866a8e4975f31b490b9d26dc9a5dcf080a673"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/dynamic-sha-sites.csv",
+      "sha256": "237da82e96d4fc7e47306ba69f422b92558dac03ac0e0ec01a5550f2d4bac01b"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/enumeration-summary.json",
+      "sha256": "007c28b8242e8e689f1fd23726ccdd548e00c9a11832918caf99e3bde59da8ea"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/external-scripts.json",
+      "sha256": "4b8a98503d2caca6bfebdd5da4b0b11811fd386cf7d9afd04be771b562f2ccc7"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/history-other-branches.json",
+      "sha256": "728a37a58a8f40656a06d0a0b40f08bf6d569cfc1cb4fbe19e904b9abe3cb584"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/history-reviewed.json",
+      "sha256": "426b0c942a97a820f5ad7504ac989d90c484c99a932a708ad361cbfa2940a000"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/history-screening.json",
+      "sha256": "6cb813c329bd29b1d34f2848cfe5ee4d7e7271a69419b41a0350b064fcb769ed"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/history-summary.json",
+      "sha256": "02d6a0a202d9a2f8a4a03772697961fdf3411820b65d7e376f6ab185db450f23"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/installed-safe-projection.json",
+      "sha256": "caac30daf2cd78b6f4251240aa7bf656d1c38e66e7102e79ca7024de47262d27"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/shared-recipe-bindings.csv",
+      "sha256": "057375cf7c476981fb117825f503255bf450ca0d58ee7ac3d84d9892f107e473"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/static-bindings.json",
+      "sha256": "4102662492ae07c705d5022da3275d63e69fd479e333e1784f5a611e91ef7506"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/tools-classified-occurrences.csv",
+      "sha256": "3d5da5a856b034d10dbe8f9d79a4b3b3a8a78cd8139e0aa373274d950866d5c6"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/tools-hex64-occurrences.csv",
+      "sha256": "3c191e560aca9663ac0c1aee4d1314c6f1189ab95c7e00a89d29ca4357cc08e9"
+    },
+    {
+      "path": "docs/hash-pin-reduction-20261101/tools-reviewed-files.csv",
+      "sha256": "4a73f9e8a91e3f946d6d59ef215aed857046ebbf0a718456115a32f408a5fe98"
+    },
+    {
+      "path": "docs/release-call-speedup-20261101/REPORT.md",
+      "sha256": "56d3a22af313b72eb5171abc5541ec5c39b5f825f19a7732ab55810814f18a4e"
+    },
+    {
+      "path": "docs/release-call-speedup-20261101/timings.json",
+      "sha256": "30be58fc4aca926297e5e685f17f31c87176bbd5411c9ed40a1cd29daffbfab5"
+    },
+    {
+      "path": "docs/release-preflight-20261101/ASSERTIONS.csv",
+      "sha256": "f3cd66f3280b7712c9f75e30875123a62197f57debf2e51ba667eedc7ef944a3"
+    },
+    {
+      "path": "docs/release-preflight-20261101/ASSERTIONS.json",
+      "sha256": "66ae8ace94093524684d66bd0fe6979de66e5574cb48812c42f2f5e33cced238"
+    },
+    {
+      "path": "docs/release-preflight-20261101/COVERAGE.json",
+      "sha256": "286e2d5be1268e17f81bbb4da603b32d2dd9e7fe28fadfba61638104277a2f51"
+    },
+    {
+      "path": "docs/release-preflight-20261101/DYNAMIC-BOUNDARIES.json",
+      "sha256": "ad8e79dfa1a3db4f09be6d71c1c8350954919cfabdb4e2911f8b920333e27479"
+    },
+    {
+      "path": "docs/release-preflight-20261101/DYNAMIC-EDGES.json",
+      "sha256": "bec384cf079c9fd96fde61608359961fb7ceef2bef99b5f6a10f56a6a0075669"
+    },
+    {
+      "path": "docs/release-preflight-20261101/EMBEDDED-ASSERTIONS.csv",
+      "sha256": "2a4f2aaf87e099030ddd9a9dc991f7280e36a0f026473a733edec512dbb7c9cc"
+    },
+    {
+      "path": "docs/release-preflight-20261101/EMBEDDED-ASSERTIONS.json",
+      "sha256": "30b50303b5d6b7d72c03272a09f2851fe816fbec2b70ed29b000da812dfd0038"
+    },
+    {
+      "path": "docs/release-preflight-20261101/EMBEDDED-COVERAGE.json",
+      "sha256": "288271d2421b38415dba085a9a5b22a8fc8558234fe49aebc47ee62aa04d1f85"
+    },
+    {
+      "path": "docs/release-preflight-20261101/GATE-GROUPS.json",
+      "sha256": "bfb43a0e924508cad836d6875cf0627d54140ad7c49df3a69d57c49ee634b3be"
+    },
+    {
+      "path": "docs/release-preflight-20261101/HISTORY-COLLECTOR-TRIALS.json",
+      "sha256": "7d5b40b4fe98ca99f8dde2b54b5cdea36d14cebace4901387c09485c5bec60ab"
+    },
+    {
+      "path": "docs/release-preflight-20261101/HISTORY-EVIDENCE.json",
+      "sha256": "f4851bc0b104b564479fd909f5367db4f2197f333e7284e4eeca2af61943bee3"
+    },
+    {
+      "path": "docs/release-preflight-20261101/HISTORY.json",
+      "sha256": "7fd4eecca6f13be4689c0a41983c863b14e3a27e51e68d47020f5c7f2e40ed25"
+    },
+    {
+      "path": "docs/release-preflight-20261101/REPORT.md",
+      "sha256": "81b88eb100666e937ede1632e6d909c9402bf49042a1d60ac8a9aa290ce17afe"
+    },
+    {
+      "path": "docs/release-preflight-20261101/SOURCE-MANIFEST.json",
+      "sha256": "10465e16d0ad10924f608fa4a85aad3a64a9b1073b47f768196f4f3218dc7b02"
+    },
+    {
+      "path": "docs/release-scope-copy-lists-20261101/REPORT.md",
+      "sha256": "33529a2d13e7459cdffe9cbb6231d48f7e56c97af18294ca6954d3439da439b8"
+    },
+    {
+      "path": "docs/release-scope-copy-lists-20261101/changed-judgments.csv",
+      "sha256": "121d292fedc314c24905729edfdea721dd85cb447ecc27a49c1f4240bb715ea6"
+    },
+    {
+      "path": "docs/release-scope-copy-lists-20261101/compare-history.mjs",
+      "sha256": "e57c8444987cf7d45e1e3c0f4725adf3256ba80f438f94efb20bc1abc6bea16b"
+    },
+    {
+      "path": "docs/release-scope-copy-lists-20261101/current-inventory.json",
+      "sha256": "6917ba17b919a8b0e50d3fe1b171818c3dd91608eeb9386a5ca777f0a3f8bc85"
+    },
+    {
+      "path": "docs/release-scope-copy-lists-20261101/history-comparison.json",
+      "sha256": "b0e611b6bf7e3938fbaf7a4d4e37bb118d3c51c05edf91b1f4be2841e33484c5"
+    },
+    {
+      "path": "docs/release-scope-copy-lists-20261101/validation.json",
+      "sha256": "df34be75822f04257619f078846c7c753c4902ba8ce004e7f3b06eb849924236"
+    },
+    {
+      "path": "tests/release-scope-plan.test.mjs",
+      "sha256": "129a9ccec44368928a2d96b7842989c33164ffcb4f78302b6a456ccee2334f00"
+    },
+    {
+      "path": "tools/install-main-prebuild.mjs",
+      "sha256": "a0ea146c37d6bd18f200c30770b348bbf16e8a90c8301ce7cca786aac1d0f06c"
+    },
+    {
+      "path": "tools/release-copy-git-sources.mjs",
+      "sha256": "471fa7ce33e3916fb9716d9cc8f704288b9faf934b8c6f09064be36d36cdf75d"
+    },
+    {
+      "path": "tools/release-copy-rules.mjs",
+      "sha256": "a8e8b5ee216adab500d9b5f5d48690b2ec2b60781dd76aa73c51fd742aa89b2a"
+    },
+    {
+      "path": "tools/release-scope-plan.mjs",
+      "sha256": "05b266610be9786067b3c2c1fb41d77f2c2e8782ea4b896018ab960669c01496"
+    }
+  ]
+}

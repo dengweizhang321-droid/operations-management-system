@@ -1,0 +1,230 @@
+✔ AI model credentials round-trip with the configured encryption key (25.7106ms)
+✔ a too-short encryption key is rejected instead of silently accepted (1.3507ms)
+✔ an empty encryption key is rejected (0.6952ms)
+✔ documented placeholder encryption keys are rejected even when 32+ bytes (0.357ms)
+✔ example-like encryption keys are rejected (0.3654ms)
+✔ low-entropy (repeated character) encryption keys are rejected (0.3491ms)
+✔ isAcceptableEncryptionKey matches the Django-side validate_secret rule (0.2706ms)
+✔ requestJson applies same-origin defaults and serializes JSON bodies (56.5376ms)
+✔ requestJson preserves explicit fetch options (2.0046ms)
+✔ requestJson returns undefined for successful empty responses (1.6371ms)
+✔ requestJson sends FormData without setting a multipart content type (1.5887ms)
+✔ requestJson exposes structured HTTP failures as ApiError (1.2431ms)
+✔ requestJson converts network failures without retrying (0.4557ms)
+✔ requestJson passes AbortError and the caller signal through unchanged (0.3547ms)
+✔ requestJson rejects malformed successful JSON with a bounded ApiError (0.8153ms)
+✔ navigation catalog preserves the twelve modules and task-oriented group order (2.8446ms)
+✔ import source catalog exposes every current legal value (0.3077ms)
+✔ dashboard is canonical at root and invalid or duplicate modules fail closed (1.4841ms)
+✔ module and import source parse, serialize, and normalize safely (0.6509ms)
+✔ period contract supports relative, calendar month, and custom ranges (7.6145ms)
+✔ malformed period details normalize to current month without stale fields (0.9729ms)
+✔ normalization preserves unknown query parameters, pathname, and hash (7.8807ms)
+✔ canonical serialization is stable across parse and normalize (1.5078ms)
+✔ 分片导入四店精确绑定；无绑定、跨店重放及旧回执均拒绝 (910.7064ms)
+✔ 京东缺失指标短横线保留为null，零保持零，无效和负值仍拒绝 (188.5374ms)
+✔ 客服导入按咨询时间和脱敏顾客标识匹配聊天记录 (6.3927ms)
+✔ 同一咨询时间存在多个候选时不强行匹配 (6.2985ms)
+✔ 仅聊天记录的去重键不受导出顺序影响 (10.1794ms)
+✔ 会话记录解析在行数上限内正常通过，超过上限被拒绝 (2627.7717ms)
+✔ dialog layer transitions keep the background locked until the final dialog closes (2.1189ms)
+✔ dialog is SSR-safe and portals outside the inert application shell (28.6938ms)
+✔ backend and SheetJS replay one fixed cross-group source with identical v2 digests (106.3632ms)
+✔ default normalized v1 JSON bytes stay at the pre-v2 golden digest (190.9512ms)
+✔ explicit v2 records the two source columns before legacy same-name merge (121.844ms)
+✔ v2 candidate refuses mismatched byte length and never becomes v1 import (53.3498ms)
+✔ v2 oversized source refuses before a raw-file digest is returned (2.6595ms)
+✔ parseFinanceWorkbook 在字节与单表行数上限内正常通过，超限均被拒绝 (442.1186ms)
+✔ 实际客服POST保持显式四店绑定并拒绝矛盾身份，无店铺绑定的旧交互请求拒绝 (894.6334ms)
+✔ sales ledger parser keeps order number when export also has online order number (101.7858ms)
+✔ sales ledger parser tolerates missing fee allocation column since Jikexyun v4 export (28.3831ms)
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/finance/targets","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/finance/targets","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/finance/targets","origin":"https://attacker.example","secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/finance/targets","origin":"null","secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/ai/internal/other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/ai/internal/edge/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/erp/chunks/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/erp/chunks-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/erp/chunks//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/inventory/chunks/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/inventory/chunks-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/inventory/chunks//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/sales/chunks/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/sales/chunks-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/sales/chunks//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/recovery/finish/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/recovery/finish-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/recovery/finish//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/netshop/import/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/netshop/import-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/netshop/import//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/customer-service/import/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/customer-service/import-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/customer-service/import//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/import/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/import-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/import//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/images/repair/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/images/repair-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/images/repair//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/images/cache/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/images/cache-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/images/cache//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/annotations/worker/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/annotations/worker-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/annotations/worker//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/erp","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/erp","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/imports/erp","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/imports/erp","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/imports/erp","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/imports/erp","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/imports/erp","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/imports/erp","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/inventory","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/inventory","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/imports/inventory","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/imports/inventory","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/imports/inventory","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/imports/inventory","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/imports/inventory","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/imports/inventory","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/sales/verify","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/sales/verify","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/imports/sales/verify","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/imports/sales/verify","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/imports/sales/verify","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/imports/sales/verify","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/imports/sales/verify","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/imports/sales/verify","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/recovery","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/recovery","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/imports/recovery","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/imports/recovery","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/imports/recovery","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/imports/recovery","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/imports/recovery","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/imports/recovery","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/netshop/import/chunks","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/netshop/import/chunks","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/netshop/import/chunks","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/netshop/import/chunks","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/netshop/import/chunks","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/netshop/import/chunks","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/netshop/import/chunks","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/netshop/import/chunks","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/inventory/jd-logistics","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/inventory/jd-logistics","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/inventory/jd-logistics","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/inventory/jd-logistics","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/inventory/jd-logistics","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/inventory/jd-logistics","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/inventory/jd-logistics","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/inventory/jd-logistics","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/finance/targets","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/finance/targets","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/finance/targets","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/finance/targets","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/finance/targets","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/finance/targets","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/finance/targets","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/finance/targets","origin":"https://evil.example","secFetchSite":"cross-site"}
+✔ same-origin write requests (Sec-Fetch-Site: same-origin) are allowed through (69.959ms)
+✔ cross-site write requests are rejected with 403 (16.9794ms)
+✔ non-browser clients without Origin or Sec-Fetch-Site (e.g. n8n/curl) are rejected (1.6163ms)
+✔ missing Origin but Sec-Fetch-Site: same-origin is allowed through (0.4402ms)
+✔ Origin mismatched with the request origin is rejected with 403 (28.2919ms)
+✔ Origin: "null" is rejected with 403 (3.5293ms)
+✔ the AI webhook callback path stays reachable cross-site (regression guard) (0.7211ms)
+✔ the Django AI edge path is allowed through with no Origin and no Sec-Fetch-Site (server-to-server HMAC call) (0.7539ms)
+✔ a neighboring /api/ai/internal/* path is NOT exempted by the edge allowlist (no over-broad wildcard) (8.3673ms)
+✔ local automation write paths allow server-to-server requests without browser headers (24.3495ms)
+✔ local automation exemptions do not cover neighboring or nested paths (32.8225ms)
+✔ read-only automation URLs and unrelated writes retain the same-origin gate (63.0949ms)
+✔ an exempted multipart import body is left unread for the route handler (122.9933ms)
+✔ GET requests are never affected by the gate, even cross-site (0.4564ms)
+✔ multipart same-origin write requests are allowed through without forcing JSON (0.8743ms)
+✔ the gate is wired into worker/index.ts before the app router handler runs (7.8509ms)
+✖ installed xlsx copies carry the decode_cell negative-coordinate guard (new code present) (41.6325ms)
+✔ patch function is a precise single-line insertion, not a broad rewrite (1.4238ms)
+✔ hash guard rejects an unmatched/tampered input instead of patching blindly (0.7604ms)
+✖ applying the patch twice is idempotent and produces identical bytes (59.669ms)
+✔ installXlsxPrototypePatch on a synthetic 0.18.5 tree patches then reports already_patched, and rejects a foreign version (795.0757ms)
+✖ CVE-2023-30533: a crafted comment ref of "__proto__" no longer pollutes Object.prototype (87.3119ms)
+✔ self-closing blank cells do not consume the following text cell (65.0535ms)
+✔ value-only XLSX writer round-trips multiple sheets and XML-sensitive values (18.7171ms)
+✔ value-only XLSX writer requires at least one worksheet (8.8891ms)
+✔ value-only XLSX writer is byte-deterministic across wall-clock changes (43.9838ms)
+ℹ tests 66
+ℹ suites 0
+ℹ pass 63
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6474.8867
+
+✖ failing tests:
+
+test at tests\xlsx-prototype-patch.test.ts:1:693
+✖ installed xlsx copies carry the decode_cell negative-coordinate guard (new code present) (41.6325ms)
+  AssertionError [ERR_ASSERTION]: xlsx.js is missing the CVE-2023-30533 guard line
+      at TestContext.<anonymous> (D:\codex-worktrees\prepared-artifact-loss-20261029\tests\xlsx-prototype-patch.test.ts:21:12)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\xlsx-prototype-patch.test.ts:8:691
+✖ applying the patch twice is idempotent and produces identical bytes (59.669ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  ... Skipped lines
+  
+    '/*! xlsx.js (C) 2013-present SheetJS -- http://sheetjs.com */\n' +
+      '/* vim: set ts=2: */\n' +
+      '/*exported XLSX */\n' +
+      '/*global exports, module, require:false, process:false, Buffer:false, ArrayBuffer:false, DataView:false, Deno:false */\n' +
+      'var XLSX = {};\n' +
+  ...
+      "\tt[45]= 'mm:ss';\n" +
+  +   "\tt[46]= '[h]:mm:"... 825028 more characters
+  -   "\tt[46]= '[h]:mm:"... 824995 more characters
+  
+      at TestContext.<anonymous> (D:\codex-worktrees\prepared-artifact-loss-20261029\tests\xlsx-prototype-patch.test.ts:61:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: `/*! xlsx.js (C) 2013-present SheetJS -- http://sheetjs.com */\n/* vim: set ts=2: */\n/*exported XLSX */\n/*global exports, module, require:false, process:false, Buffer:false, ArrayBuffer:false, DataView:false, Deno:false */\nvar XLSX = {};\nfunction make_xlsx_lib(XLSX){\nXLSX.version = '0.18.5';\nvar current_codepage = 1200, current_ansi = 1252;\n/*global cptable:true, window */\nvar $cptable;\nif(typeof cptable !== 'undefined') $cptable = cptable;\nelse if(typeof module !== "undefined" && typeof require !== 'undefined') {\n\t$cptable = require('./dist/cpexcel.js');\n}\n\nvar VALID_ANSI = [ 874, 932, 936, 949, 950, 1250, 1251, 1252, 1253, 1254, 1255, 1256, 1257, 1258, 10000 ];\n/* ECMA-376 Part I 18.4.1 charset to codepage mapping */\nvar CS2CP = ({\n0:    1252, /* ANSI */\n1:   65001, /* DEFAULT */\n2:   65001, /* SYMBOL */\n77:  10000, /* MAC */\n128:   932, /* SHIFTJIS */\n129:   949, /* HANGUL */\n130:  1361, /* JOHAB */\n134:   936, /* GB2312 */\n136:   950, /* CHINESEBIG5 */\n161:  1253, /* GREEK */\n162:  1254, /* TURKISH */\n163:  1258, /* VIETNAMESE */\n177:  1255, /* HEBREW */\n178:  1256, /* ARABIC */\n186:  1257, /* BALTIC */\n204:  1251, /* RUSSIAN */\n222:   874, /* THAI */\n238:  1250, /* EASTEUROPE */\n255:  1252, /* OEM */\n69:   6969  /* MISC */\n});\n\nvar set_ansi = function(cp) { if(VALID_ANSI.indexOf(cp) == -1) return; current_ansi = CS2CP[0] = cp; };\nfunction reset_ansi() { set_ansi(1252); }\n\nvar set_cp = function(cp) { current_codepage = cp; set_ansi(cp); };\nfunction reset_cp() { set_cp(1200); reset_ansi(); }\n\nfunction char_codes(data) { var o = []; for(var i = 0, len = data.length; i < len; ++i) o[i] = data.charCodeAt(i); return o; }\n\nfunction utf16leread(data) {\n\tvar o = [];\n\tfor(var i = 0; i < (data.length>>1); ++i) o[i] = String.fromCharCode(data.charCodeAt(2*i) + (data.charCodeAt(2*i+1)<<8));\n\treturn o.join("");\n}\nfunction utf16beread(data) {\n\tvar o = [];\n\tfor(var i = 0; i < (data.length>>1); ++i) o[i] = String.fromCharCode(data.charCodeAt(2*i+1) + (data.charCodeAt(2*i)<<8));\n\treturn o.join("");\n}\n\nvar debom = function(data) {\n\tvar c1 = data.charCodeAt(0), c2 = data.charCodeAt(1);\n\tif(c1 == 0xFF && c2 == 0xFE) return utf16leread(data.slice(2));\n\tif(c1 == 0xFE && c2 == 0xFF) return utf16beread(data.slice(2));\n\tif(c1 == 0xFEFF) return data.slice(1);\n\treturn data;\n};\n\nvar _getchar = function _gc1(x) { return String.fromCharCode(x); };\nvar _getansi = function _ga1(x) { return String.fromCharCode(x); };\nif(typeof $cptable !== 'undefined') {\n\tset_cp = function(cp) { current_codepage = cp; set_ansi(cp); };\n\tdebom = function(data) {\n\t\tif(data.charCodeAt(0) === 0xFF && data.charCodeAt(1) === 0xFE) { return $cptable.utils.decode(1200, char_codes(data.slice(2))); }\n\t\treturn data;\n\t};\n\t_getchar = function _gc2(x) {\n\t\tif(current_codepage === 1200) return String.fromCharCode(x);\n\t\treturn $cptable.utils.decode(current_codepage, [x&255,x>>8])[0];\n\t};\n\t_getansi = function _ga2(x) {\n\t\treturn $cptable.utils.decode(current_ansi, [x])[0];\n\t};\n}\nvar DENSE = null;\nvar DIF_XL = true;\nvar Base64_map = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";\nfunction Base64_encode(input) {\n  var o = "";\n  var c1 = 0, c2 = 0, c3 = 0, e1 = 0, e2 = 0, e3 = 0, e4 = 0;\n  for (var i = 0; i < input.length; ) {\n    c1 = input.charCodeAt(i++);\n    e1 = c1 >> 2;\n    c2 = input.charCodeAt(i++);\n    e2 = (c1 & 3) << 4 | c2 >> 4;\n    c3 = input.charCodeAt(i++);\n    e3 = (c2 & 15) << 2 | c3 >> 6;\n    e4 = c3 & 63;\n    if (isNaN(c2)) {\n      e3 = e4 = 64;\n    } else if (isNaN(c3)) {\n      e4 = 64;\n    }\n    o += Base64_map.charAt(e1) + Base64_map.charAt(e2) + Base64_map.charAt(e3) + Base64_map.charAt(e4);\n  }\n  return o;\n}\nfunction Base64_decode(input) {\n  var o = "";\n  var c1 = 0, c2 = 0, c3 = 0, e1 = 0, e2 = 0, e3 = 0, e4 = 0;\n  input = input.replace(/[^\\w\\+\\/\\=]/g, "");\n  for (var i = 0; i < input.length; ) {\n    e1 = Base64_map.indexOf(input.charAt(i++));\n    e2 = Base64_map.indexOf(input.charAt(i++));\n    c1 = e1 << 2 | e2 >> 4;\n    o += String.fromCharCode(c1);\n    e3 = Base64_map.indexOf(input.charAt(i++));\n    c2 = (e2 & 15) << 4 | e3 >> 2;\n    if (e3 !== 64) {\n      o += String.fromCharCode(c2);\n    }\n    e4 = Base64_map.indexOf(input.charAt(i++));\n    c3 = (e3 & 3) << 6 | e4;\n    if (e4 !== 64) {\n      o += String.fromCharCode(c3);\n    }\n  }\n  return o;\n}\nvar has_buf = (function() { return typeof Buffer !== 'undefined' && typeof process !== 'undefined' && typeof process.versions !== 'undefined' && !!process.versions.node; })();\n\nvar Buffer_from = (function() {\n\tif(typeof Buffer !== 'undefined') {\n\t\tvar nbfs = !Buffer.from;\n\t\tif(!nbfs) try { Buffer.from("foo", "utf8"); } catch(e) { nbfs = true; }\n\t\treturn nbfs ? function(buf, enc) { return (enc) ? new Buffer(buf, enc) : new Buffer(buf); } : Buffer.from.bind(Buffer);\n\t}\n\treturn function() {};\n})();\n\n\nfunction new_raw_buf(len) {\n\t/* jshint -W056 */\n\tif(has_buf) return Buffer.alloc ? Buffer.alloc(len) : new Buffer(len);\n\treturn typeof Uint8Array != "undefined" ? new Uint8Array(len) : new Array(len);\n\t/* jshint +W056 */\n}\n\nfunction new_unsafe_buf(len) {\n\t/* jshint -W056 */\n\tif(has_buf) return Buffer.allocUnsafe ? Buffer.allocUnsafe(len) : new Buffer(len);\n\treturn typeof Uint8Array != "undefined" ? new Uint8Array(len) : new Array(len);\n\t/* jshint +W056 */\n}\n\nvar s2a = function s2a(s) {\n\tif(has_buf) return Buffer_from(s, "binary");\n\treturn s.split("").map(function(x){ return x.charCodeAt(0) & 0xff; });\n};\n\nfunction s2ab(s) {\n\tif(typeof ArrayBuffer === 'undefined') return s2a(s);\n\tvar buf = new ArrayBuffer(s.length), view = new Uint8Array(buf);\n\tfor (var i=0; i!=s.length; ++i) view[i] = s.charCodeAt(i) & 0xFF;\n\treturn buf;\n}\n\nfunction a2s(data) {\n\tif(Array.isArray(data)) return data.map(function(c) { return String.fromCharCode(c); }).join("");\n\tvar o = []; for(var i = 0; i < data.length; ++i) o[i] = String.fromCharCode(data[i]); return o.join("");\n}\n\nfunction a2u(data) {\n\tif(typeof Uint8Array === 'undefined') throw new Error("Unsupported");\n\treturn new Uint8Array(data);\n}\n\nfunction ab2a(data) {\n\tif(typeof ArrayBuffer == 'undefined') throw new Error("Unsupported");\n\tif(data instanceof ArrayBuffer) return ab2a(new Uint8Array(data));\nvar o = new Array(data.length);\n\tfor(var i = 0; i < data.length; ++i) o[i] = data[i];\n\treturn o;\n}\n\nvar bconcat = has_buf ? function(bufs) { return Buffer.concat(bufs.map(function(buf) { return Buffer.isBuffer(buf) ? buf : Buffer_from(buf); })); } : function(bufs) {\n\tif(typeof Uint8Array !== "undefined") {\n\t\tvar i = 0, maxlen = 0;\n\t\tfor(i = 0; i < bufs.length; ++i) maxlen += bufs[i].length;\n\t\tvar o = new Uint8Array(maxlen);\n\t\tvar len = 0;\n\t\tfor(i = 0, maxlen = 0; i < bufs.length; maxlen += len, ++i) {\n\t\t\tlen = bufs[i].length;\n\t\t\tif(bufs[i] instanceof Uint8Array) o.set(bufs[i], maxlen);\n\t\t\telse if(typeof bufs[i] == "string") { throw "wtf"; }\n\t\t\telse o.set(new Uint8Array(bufs[i]), maxlen);\n\t\t}\n\t\treturn o;\n\t}\n\treturn [].concat.apply([], bufs.map(function(buf) { return Array.isArray(buf) ? buf : [].slice.call(buf); }));\n};\n\nfunction utf8decode(content) {\n\tvar out = [], widx = 0, L = content.length + 250;\n\tvar o = new_raw_buf(content.length + 255);\n\tfor(var ridx = 0; ridx < content.length; ++ridx) {\n\t\tvar c = content.charCodeAt(ridx);\n\t\tif(c < 0x80) o[widx++] = c;\n\t\telse if(c < 0x800) {\n\t\t\to[widx++] = (192|((c>>6)&31));\n\t\t\to[widx++] = (128|(c&63));\n\t\t} else if(c >= 0xD800 && c < 0xE000) {\n\t\t\tc = (c&1023)+64;\n\t\t\tvar d = content.charCodeAt(++ridx)&1023;\n\t\t\to[widx++] = (240|((c>>8)&7));\n\t\t\to[widx++] = (128|((c>>2)&63));\n\t\t\to[widx++] = (128|((d>>6)&15)|((c&3)<<4));\n\t\t\to[widx++] = (128|(d&63));\n\t\t} else {\n\t\t\to[widx++] = (224|((c>>12)&15));\n\t\t\to[widx++] = (128|((c>>6)&63));\n\t\t\to[widx++] = (128|(c&63));\n\t\t}\n\t\tif(widx > L) {\n\t\t\tout.push(o.slice(0, widx));\n\t\t\twidx = 0;\n\t\t\to = new_raw_buf(65535);\n\t\t\tL = 65530;\n\t\t}\n\t}\n\tout.push(o.slice(0, widx));\n\treturn bconcat(out);\n}\n\nvar chr0 = /\\u0000/g, chr1 = /[\\u0001-\\u0006]/g;\n/* ssf.js (C) 2013-present SheetJS -- http://sheetjs.com */\n/*jshint -W041 */\nfunction _strrev(x) { var o = "", i = x.length-1; while(i>=0) o += x.charAt(i--); return o; }\nfunction pad0(v,d){var t=""+v; return t.length>=d?t:fill('0',d-t.length)+t;}\nfunction pad_(v,d){var t=""+v;return t.length>=d?t:fill(' ',d-t.length)+t;}\nfunction rpad_(v,d){var t=""+v; return t.length>=d?t:t+fill(' ',d-t.length);}\nfunction pad0r1(v,d){var t=""+Math.round(v); return t.length>=d?t:fill('0',d-t.length)+t;}\nfunction pad0r2(v,d){var t=""+v; return t.length>=d?t:fill('0',d-t.length)+t;}\nvar p2_32 = Math.pow(2,32);\nfunction pad0r(v,d){if(v>p2_32||v<-p2_32) return pad0r1(v,d); var i = Math.round(v); return pad0r2(i,d); }\n/* yes, in 2022 this is still faster than string compare */\nfunction SSF_isgeneral(s, i) { i = i || 0; return s.length >= 7 + i && (s.charCodeAt(i)|32) === 103 && (s.charCodeAt(i+1)|32) === 101 && (s.charCodeAt(i+2)|32) === 110 && (s.charCodeAt(i+3)|32) === 101 && (s.charCodeAt(i+4)|32) === 114 && (s.charCodeAt(i+5)|32) === 97 && (s.charCodeAt(i+6)|32) === 108; }\nvar days = [\n\t['Sun', 'Sunday'],\n\t['Mon', 'Monday'],\n\t['Tue', 'Tuesday'],\n\t['Wed', 'Wednesday'],\n\t['Thu', 'Thursday'],\n\t['Fri', 'Friday'],\n\t['Sat', 'Saturday']\n];\nvar months = [\n\t['J', 'Jan', 'January'],\n\t['F', 'Feb', 'February'],\n\t['M', 'Mar', 'March'],\n\t['A', 'Apr', 'April'],\n\t['M', 'May', 'May'],\n\t['J', 'Jun', 'June'],\n\t['J', 'Jul', 'July'],\n\t['A', 'Aug', 'August'],\n\t['S', 'Sep', 'September'],\n\t['O', 'Oct', 'October'],\n\t['N', 'Nov', 'November'],\n\t['D', 'Dec', 'December']\n];\nfunction SSF_init_table(t) {\n\tif(!t) t = {};\n\tt[0]=  'General';\n\tt[1]=  '0';\n\tt[2]=  '0.00';\n\tt[3]=  '#,##0';\n\tt[4]=  '#,##0.00';\n\tt[9]=  '0%';\n\tt[10]= '0.00%';\n\tt[11]= '0.00E+00';\n\tt[12]= '# ?/?';\n\tt[13]= '# ??/??';\n\tt[14]= 'm/d/yy';\n\tt[15]= 'd-mmm-yy';\n\tt[16]= 'd-mmm';\n\tt[17]= 'mmm-yy';\n\tt[18]= 'h:mm AM/PM';\n\tt[19]= 'h:mm:ss AM/PM';\n\tt[20]= 'h:mm';\n\tt[21]= 'h:mm:ss';\n\tt[22]= 'm/d/yy h:mm';\n\tt[37]= '#,##0 ;(#,##0)';\n\tt[38]= '#,##0 ;[Red](#,##0)';\n\tt[39]= '#,##0.00;(#,##0.00)';\n\tt[40]= '#,##0.00;[Red](#,##0.00)';\n\tt[45]= 'mm:ss';\n\tt[46]= '[h]:mm:`... 825028 more characters,
+    expected: `/*! xlsx.js (C) 2013-present SheetJS -- http://sheetjs.com */\n/* vim: set ts=2: */\n/*exported XLSX */\n/*global exports, module, require:false, process:false, Buffer:false, ArrayBuffer:false, DataView:false, Deno:false */\nvar XLSX = {};\nfunction make_xlsx_lib(XLSX){\nXLSX.version = '0.18.5';\nvar current_codepage = 1200, current_ansi = 1252;\n/*global cptable:true, window */\nvar $cptable;\nif(typeof cptable !== 'undefined') $cptable = cptable;\nelse if(typeof module !== "undefined" && typeof require !== 'undefined') {\n\t$cptable = require('./dist/cpexcel.js');\n}\n\nvar VALID_ANSI = [ 874, 932, 936, 949, 950, 1250, 1251, 1252, 1253, 1254, 1255, 1256, 1257, 1258, 10000 ];\n/* ECMA-376 Part I 18.4.1 charset to codepage mapping */\nvar CS2CP = ({\n0:    1252, /* ANSI */\n1:   65001, /* DEFAULT */\n2:   65001, /* SYMBOL */\n77:  10000, /* MAC */\n128:   932, /* SHIFTJIS */\n129:   949, /* HANGUL */\n130:  1361, /* JOHAB */\n134:   936, /* GB2312 */\n136:   950, /* CHINESEBIG5 */\n161:  1253, /* GREEK */\n162:  1254, /* TURKISH */\n163:  1258, /* VIETNAMESE */\n177:  1255, /* HEBREW */\n178:  1256, /* ARABIC */\n186:  1257, /* BALTIC */\n204:  1251, /* RUSSIAN */\n222:   874, /* THAI */\n238:  1250, /* EASTEUROPE */\n255:  1252, /* OEM */\n69:   6969  /* MISC */\n});\n\nvar set_ansi = function(cp) { if(VALID_ANSI.indexOf(cp) == -1) return; current_ansi = CS2CP[0] = cp; };\nfunction reset_ansi() { set_ansi(1252); }\n\nvar set_cp = function(cp) { current_codepage = cp; set_ansi(cp); };\nfunction reset_cp() { set_cp(1200); reset_ansi(); }\n\nfunction char_codes(data) { var o = []; for(var i = 0, len = data.length; i < len; ++i) o[i] = data.charCodeAt(i); return o; }\n\nfunction utf16leread(data) {\n\tvar o = [];\n\tfor(var i = 0; i < (data.length>>1); ++i) o[i] = String.fromCharCode(data.charCodeAt(2*i) + (data.charCodeAt(2*i+1)<<8));\n\treturn o.join("");\n}\nfunction utf16beread(data) {\n\tvar o = [];\n\tfor(var i = 0; i < (data.length>>1); ++i) o[i] = String.fromCharCode(data.charCodeAt(2*i+1) + (data.charCodeAt(2*i)<<8));\n\treturn o.join("");\n}\n\nvar debom = function(data) {\n\tvar c1 = data.charCodeAt(0), c2 = data.charCodeAt(1);\n\tif(c1 == 0xFF && c2 == 0xFE) return utf16leread(data.slice(2));\n\tif(c1 == 0xFE && c2 == 0xFF) return utf16beread(data.slice(2));\n\tif(c1 == 0xFEFF) return data.slice(1);\n\treturn data;\n};\n\nvar _getchar = function _gc1(x) { return String.fromCharCode(x); };\nvar _getansi = function _ga1(x) { return String.fromCharCode(x); };\nif(typeof $cptable !== 'undefined') {\n\tset_cp = function(cp) { current_codepage = cp; set_ansi(cp); };\n\tdebom = function(data) {\n\t\tif(data.charCodeAt(0) === 0xFF && data.charCodeAt(1) === 0xFE) { return $cptable.utils.decode(1200, char_codes(data.slice(2))); }\n\t\treturn data;\n\t};\n\t_getchar = function _gc2(x) {\n\t\tif(current_codepage === 1200) return String.fromCharCode(x);\n\t\treturn $cptable.utils.decode(current_codepage, [x&255,x>>8])[0];\n\t};\n\t_getansi = function _ga2(x) {\n\t\treturn $cptable.utils.decode(current_ansi, [x])[0];\n\t};\n}\nvar DENSE = null;\nvar DIF_XL = true;\nvar Base64_map = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";\nfunction Base64_encode(input) {\n  var o = "";\n  var c1 = 0, c2 = 0, c3 = 0, e1 = 0, e2 = 0, e3 = 0, e4 = 0;\n  for (var i = 0; i < input.length; ) {\n    c1 = input.charCodeAt(i++);\n    e1 = c1 >> 2;\n    c2 = input.charCodeAt(i++);\n    e2 = (c1 & 3) << 4 | c2 >> 4;\n    c3 = input.charCodeAt(i++);\n    e3 = (c2 & 15) << 2 | c3 >> 6;\n    e4 = c3 & 63;\n    if (isNaN(c2)) {\n      e3 = e4 = 64;\n    } else if (isNaN(c3)) {\n      e4 = 64;\n    }\n    o += Base64_map.charAt(e1) + Base64_map.charAt(e2) + Base64_map.charAt(e3) + Base64_map.charAt(e4);\n  }\n  return o;\n}\nfunction Base64_decode(input) {\n  var o = "";\n  var c1 = 0, c2 = 0, c3 = 0, e1 = 0, e2 = 0, e3 = 0, e4 = 0;\n  input = input.replace(/[^\\w\\+\\/\\=]/g, "");\n  for (var i = 0; i < input.length; ) {\n    e1 = Base64_map.indexOf(input.charAt(i++));\n    e2 = Base64_map.indexOf(input.charAt(i++));\n    c1 = e1 << 2 | e2 >> 4;\n    o += String.fromCharCode(c1);\n    e3 = Base64_map.indexOf(input.charAt(i++));\n    c2 = (e2 & 15) << 4 | e3 >> 2;\n    if (e3 !== 64) {\n      o += String.fromCharCode(c2);\n    }\n    e4 = Base64_map.indexOf(input.charAt(i++));\n    c3 = (e3 & 3) << 6 | e4;\n    if (e4 !== 64) {\n      o += String.fromCharCode(c3);\n    }\n  }\n  return o;\n}\nvar has_buf = (function() { return typeof Buffer !== 'undefined' && typeof process !== 'undefined' && typeof process.versions !== 'undefined' && !!process.versions.node; })();\n\nvar Buffer_from = (function() {\n\tif(typeof Buffer !== 'undefined') {\n\t\tvar nbfs = !Buffer.from;\n\t\tif(!nbfs) try { Buffer.from("foo", "utf8"); } catch(e) { nbfs = true; }\n\t\treturn nbfs ? function(buf, enc) { return (enc) ? new Buffer(buf, enc) : new Buffer(buf); } : Buffer.from.bind(Buffer);\n\t}\n\treturn function() {};\n})();\n\n\nfunction new_raw_buf(len) {\n\t/* jshint -W056 */\n\tif(has_buf) return Buffer.alloc ? Buffer.alloc(len) : new Buffer(len);\n\treturn typeof Uint8Array != "undefined" ? new Uint8Array(len) : new Array(len);\n\t/* jshint +W056 */\n}\n\nfunction new_unsafe_buf(len) {\n\t/* jshint -W056 */\n\tif(has_buf) return Buffer.allocUnsafe ? Buffer.allocUnsafe(len) : new Buffer(len);\n\treturn typeof Uint8Array != "undefined" ? new Uint8Array(len) : new Array(len);\n\t/* jshint +W056 */\n}\n\nvar s2a = function s2a(s) {\n\tif(has_buf) return Buffer_from(s, "binary");\n\treturn s.split("").map(function(x){ return x.charCodeAt(0) & 0xff; });\n};\n\nfunction s2ab(s) {\n\tif(typeof ArrayBuffer === 'undefined') return s2a(s);\n\tvar buf = new ArrayBuffer(s.length), view = new Uint8Array(buf);\n\tfor (var i=0; i!=s.length; ++i) view[i] = s.charCodeAt(i) & 0xFF;\n\treturn buf;\n}\n\nfunction a2s(data) {\n\tif(Array.isArray(data)) return data.map(function(c) { return String.fromCharCode(c); }).join("");\n\tvar o = []; for(var i = 0; i < data.length; ++i) o[i] = String.fromCharCode(data[i]); return o.join("");\n}\n\nfunction a2u(data) {\n\tif(typeof Uint8Array === 'undefined') throw new Error("Unsupported");\n\treturn new Uint8Array(data);\n}\n\nfunction ab2a(data) {\n\tif(typeof ArrayBuffer == 'undefined') throw new Error("Unsupported");\n\tif(data instanceof ArrayBuffer) return ab2a(new Uint8Array(data));\nvar o = new Array(data.length);\n\tfor(var i = 0; i < data.length; ++i) o[i] = data[i];\n\treturn o;\n}\n\nvar bconcat = has_buf ? function(bufs) { return Buffer.concat(bufs.map(function(buf) { return Buffer.isBuffer(buf) ? buf : Buffer_from(buf); })); } : function(bufs) {\n\tif(typeof Uint8Array !== "undefined") {\n\t\tvar i = 0, maxlen = 0;\n\t\tfor(i = 0; i < bufs.length; ++i) maxlen += bufs[i].length;\n\t\tvar o = new Uint8Array(maxlen);\n\t\tvar len = 0;\n\t\tfor(i = 0, maxlen = 0; i < bufs.length; maxlen += len, ++i) {\n\t\t\tlen = bufs[i].length;\n\t\t\tif(bufs[i] instanceof Uint8Array) o.set(bufs[i], maxlen);\n\t\t\telse if(typeof bufs[i] == "string") { throw "wtf"; }\n\t\t\telse o.set(new Uint8Array(bufs[i]), maxlen);\n\t\t}\n\t\treturn o;\n\t}\n\treturn [].concat.apply([], bufs.map(function(buf) { return Array.isArray(buf) ? buf : [].slice.call(buf); }));\n};\n\nfunction utf8decode(content) {\n\tvar out = [], widx = 0, L = content.length + 250;\n\tvar o = new_raw_buf(content.length + 255);\n\tfor(var ridx = 0; ridx < content.length; ++ridx) {\n\t\tvar c = content.charCodeAt(ridx);\n\t\tif(c < 0x80) o[widx++] = c;\n\t\telse if(c < 0x800) {\n\t\t\to[widx++] = (192|((c>>6)&31));\n\t\t\to[widx++] = (128|(c&63));\n\t\t} else if(c >= 0xD800 && c < 0xE000) {\n\t\t\tc = (c&1023)+64;\n\t\t\tvar d = content.charCodeAt(++ridx)&1023;\n\t\t\to[widx++] = (240|((c>>8)&7));\n\t\t\to[widx++] = (128|((c>>2)&63));\n\t\t\to[widx++] = (128|((d>>6)&15)|((c&3)<<4));\n\t\t\to[widx++] = (128|(d&63));\n\t\t} else {\n\t\t\to[widx++] = (224|((c>>12)&15));\n\t\t\to[widx++] = (128|((c>>6)&63));\n\t\t\to[widx++] = (128|(c&63));\n\t\t}\n\t\tif(widx > L) {\n\t\t\tout.push(o.slice(0, widx));\n\t\t\twidx = 0;\n\t\t\to = new_raw_buf(65535);\n\t\t\tL = 65530;\n\t\t}\n\t}\n\tout.push(o.slice(0, widx));\n\treturn bconcat(out);\n}\n\nvar chr0 = /\\u0000/g, chr1 = /[\\u0001-\\u0006]/g;\n/* ssf.js (C) 2013-present SheetJS -- http://sheetjs.com */\n/*jshint -W041 */\nfunction _strrev(x) { var o = "", i = x.length-1; while(i>=0) o += x.charAt(i--); return o; }\nfunction pad0(v,d){var t=""+v; return t.length>=d?t:fill('0',d-t.length)+t;}\nfunction pad_(v,d){var t=""+v;return t.length>=d?t:fill(' ',d-t.length)+t;}\nfunction rpad_(v,d){var t=""+v; return t.length>=d?t:t+fill(' ',d-t.length);}\nfunction pad0r1(v,d){var t=""+Math.round(v); return t.length>=d?t:fill('0',d-t.length)+t;}\nfunction pad0r2(v,d){var t=""+v; return t.length>=d?t:fill('0',d-t.length)+t;}\nvar p2_32 = Math.pow(2,32);\nfunction pad0r(v,d){if(v>p2_32||v<-p2_32) return pad0r1(v,d); var i = Math.round(v); return pad0r2(i,d); }\n/* yes, in 2022 this is still faster than string compare */\nfunction SSF_isgeneral(s, i) { i = i || 0; return s.length >= 7 + i && (s.charCodeAt(i)|32) === 103 && (s.charCodeAt(i+1)|32) === 101 && (s.charCodeAt(i+2)|32) === 110 && (s.charCodeAt(i+3)|32) === 101 && (s.charCodeAt(i+4)|32) === 114 && (s.charCodeAt(i+5)|32) === 97 && (s.charCodeAt(i+6)|32) === 108; }\nvar days = [\n\t['Sun', 'Sunday'],\n\t['Mon', 'Monday'],\n\t['Tue', 'Tuesday'],\n\t['Wed', 'Wednesday'],\n\t['Thu', 'Thursday'],\n\t['Fri', 'Friday'],\n\t['Sat', 'Saturday']\n];\nvar months = [\n\t['J', 'Jan', 'January'],\n\t['F', 'Feb', 'February'],\n\t['M', 'Mar', 'March'],\n\t['A', 'Apr', 'April'],\n\t['M', 'May', 'May'],\n\t['J', 'Jun', 'June'],\n\t['J', 'Jul', 'July'],\n\t['A', 'Aug', 'August'],\n\t['S', 'Sep', 'September'],\n\t['O', 'Oct', 'October'],\n\t['N', 'Nov', 'November'],\n\t['D', 'Dec', 'December']\n];\nfunction SSF_init_table(t) {\n\tif(!t) t = {};\n\tt[0]=  'General';\n\tt[1]=  '0';\n\tt[2]=  '0.00';\n\tt[3]=  '#,##0';\n\tt[4]=  '#,##0.00';\n\tt[9]=  '0%';\n\tt[10]= '0.00%';\n\tt[11]= '0.00E+00';\n\tt[12]= '# ?/?';\n\tt[13]= '# ??/??';\n\tt[14]= 'm/d/yy';\n\tt[15]= 'd-mmm-yy';\n\tt[16]= 'd-mmm';\n\tt[17]= 'mmm-yy';\n\tt[18]= 'h:mm AM/PM';\n\tt[19]= 'h:mm:ss AM/PM';\n\tt[20]= 'h:mm';\n\tt[21]= 'h:mm:ss';\n\tt[22]= 'm/d/yy h:mm';\n\tt[37]= '#,##0 ;(#,##0)';\n\tt[38]= '#,##0 ;[Red](#,##0)';\n\tt[39]= '#,##0.00;(#,##0.00)';\n\tt[40]= '#,##0.00;[Red](#,##0.00)';\n\tt[45]= 'mm:ss';\n\tt[46]= '[h]:mm:`... 824995 more characters,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\xlsx-prototype-patch.test.ts:8:2889
+✖ CVE-2023-30533: a crafted comment ref of "__proto__" no longer pollutes Object.prototype (87.3119ms)
+  AssertionError [ERR_ASSERTION]: Object.prototype.c was set by a crafted __proto__ comment ref (CVE-2023-30533 regression)
+  
+  true !== false
+  
+      at TestContext.<anonymous> (D:\codex-worktrees\prepared-artifact-loss-20261029\tests\xlsx-prototype-patch.test.ts:152:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

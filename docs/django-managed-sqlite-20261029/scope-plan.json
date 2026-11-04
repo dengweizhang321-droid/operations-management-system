@@ -1,0 +1,69 @@
+{
+  "baseSha": "491c14081e65a905d8cc31d4f6d37b086b8dbc34",
+  "basis": "complete staged task diff before candidate commit; scope-plan.json is documentation only",
+  "changes": [
+    {
+      "status": "M",
+      "path": "backend/teruisi_backend/settings.py"
+    },
+    {
+      "status": "A",
+      "path": "backend/teruisi_backend/test_settings_database.py"
+    },
+    {
+      "status": "A",
+      "path": "docs/django-managed-sqlite-20261029/REPORT.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/django-managed-sqlite-20261029/backend-boundary.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/django-managed-sqlite-20261029/ci-allowlist.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/django-managed-sqlite-20261029/django-tests-initial.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/django-managed-sqlite-20261029/django-tests.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/django-managed-sqlite-20261029/lint.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/django-managed-sqlite-20261029/pi152-acl.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/django-managed-sqlite-20261029/regression-and-sidecars.log"
+    },
+    {
+      "status": "M",
+      "path": "docs/任务记录/README.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/文档目录.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/规范/运行与启动.md"
+    }
+  ],
+  "scope": "backend",
+  "components": [
+    "django"
+  ],
+  "migrate": false,
+  "packaging": [
+    "prepare-django-app"
+  ],
+  "unknown": [],
+  "status": "candidate_only_not_prepared_not_deployed",
+  "authorization": "merge, prepare artifacts, publish each require separate explicit user authorization"
+}

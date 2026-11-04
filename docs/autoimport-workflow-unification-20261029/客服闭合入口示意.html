@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>京东客服人工闭合入口 · 示意（合成数据）</title>
+<style>
+  :root {
+    color-scheme: light;
+    --color-brand: #396149;
+    --color-brand-hover: #293f32;
+    --color-brand-soft: #f3f7f4;
+    --color-brand-border: #abc4b4;
+    --color-bg-app: #f5f7f6;
+    --color-text-primary: #33453a;
+    --color-text-secondary: #526959;
+    --color-danger: #c83e4d;
+    --color-danger-soft: #fff0f1;
+    --line: #e7ebe9;
+    --card: #ffffff;
+    --ink: #33453a;
+    --ink-2: #526959;
+    --shadow: 0 1px 2px rgba(20, 30, 25, 0.06), 0 8px 24px rgba(20, 30, 25, 0.05);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--color-bg-app); color: var(--ink); font: 14px/1.6 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .page { max-width: 960px; margin: 0 auto; padding: 32px 20px 64px; display: grid; gap: 24px; }
+  .page > header h1 { margin: 0 0 6px; font-size: 20px; }
+  .page > header p { margin: 0; color: var(--ink-2); font-size: 13px; }
+  .banner { padding: 14px 18px; border: 1px solid var(--color-brand-border); border-radius: 8px; background: var(--color-brand-soft); font-size: 13px; }
+  .banner strong { display: block; margin-bottom: 4px; }
+  .panel { border: 1px solid var(--line); border-radius: 11px; background: var(--card); box-shadow: var(--shadow); padding: 20px; }
+  .panel h2 { margin: 0 0 4px; font-size: 16px; }
+  .panel > p.lead { margin: 0 0 14px; color: var(--ink-2); font-size: 13px; }
+  .import-chain-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
+  .import-chain-actions label { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
+  select { min-height: 36px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); font: inherit; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .primary-button, .secondary-button, .text-button { height: 36px; padding: 0 14px; border-radius: 7px; font-size: 13px; font-weight: 600; border: 1px solid var(--line); background: var(--card); }
+  .primary-button { background: var(--color-brand); border-color: var(--color-brand); color: #fff; }
+  .primary-button:hover:not(:disabled) { background: var(--color-brand-hover); }
+  .secondary-button { color: var(--color-text-secondary); }
+  .secondary-button:disabled { opacity: .5; cursor: not-allowed; }
+  .text-button { border-color: transparent; background: transparent; color: var(--color-brand); text-decoration: underline; }
+  .import-close-controls { display: grid; gap: 8px; margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--line); max-width: 640px; }
+  .import-close-controls p { margin: 0; font-size: 13px; line-height: 1.6; }
+  .import-run-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 24px; margin: 14px 0; }
+  .import-run-facts dt { color: var(--ink-2); font-size: 12px; margin-bottom: 4px; }
+  .import-run-facts dd { margin: 0; overflow-wrap: anywhere; font-size: 13px; font-family: ui-monospace, Consolas, monospace; }
+  .import-run-facts dd.plain { font-family: inherit; }
+  small[role="status"] { display: block; margin-top: 4px; color: var(--ink-2); white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
+  .state-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; margin-bottom: 10px; }
+  .state-badge.ok { color: #287344; background: #edf8ef; border: 1px solid #c8e6ce; }
+  .state-badge.blocked { color: var(--color-danger); background: var(--color-danger-soft); border: 1px solid #f3cccc; }
+  .reason-box { padding: 10px 14px; border-radius: 7px; font-size: 13px; }
+  .reason-box.allowed { background: #edf8ef; color: #287344; border: 1px solid #c8e6ce; }
+  .reason-box.blocked { background: var(--color-danger-soft); color: var(--color-danger); border: 1px solid #f3cccc; }
+  .confirm-note { padding: 10px 14px; border-radius: 7px; background: #fff8e7; color: #92620f; border: 1px solid #f3dfaa; font-size: 13px; }
+  footer.note { font-size: 12px; color: var(--ink-2); text-align: center; }
+  code { font-family: ui-monospace, Consolas, monospace; background: #f3f7f4; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>京东客服人工闭合入口 · 示意</h1>
+    <p>静态示意，内嵌合成数据，不发真实请求。对照 app/jd-customer-service-close-controls.tsx 实际组件与 app/jackyun-close-controls.tsx 的既有样式。</p>
+  </header>
+  <div class="banner">
+    <strong>只结束该旧逻辑任务，保留原失败、文件与已导入数据；不标记成功、不自动重试。</strong>
+    这里展示 <code>closeAllowed=true</code>（来源为空，可闭合）与 <code>closeAllowed=false</code>（source 非空但失败码不符，附具体原因）两种状态。两种状态下的字段、哈希和原因文案均为合成样本，不对应任何真实执行。
+  </div>
+
+  <section class="panel">
+    <h2>状态一：closeAllowed = true</h2>
+    <p class="lead">来源为空、无下载残留、失败码在可审批范围内 —— 可直接提交 pre_export_zero_effect 闭合。</p>
+    <section class="import-close-controls" aria-label="京东客服人工闭合（示意·可闭合）">
+      <strong>京东客服人工闭合 · 任务 #DEMO-9201</strong>
+      <p>只结束该旧逻辑任务，保留原失败、文件与已导入数据；不标记成功、不自动重试。</p>
+      <div class="import-chain-actions">
+        <label>店铺
+          <select disabled>
+            <option selected>志高商用厨电旗舰店</option>
+          </select>
+        </label>
+      </div>
+      <span class="state-badge ok">可闭合</span>
+      <dl class="import-run-facts">
+        <div><dt>店铺</dt><dd>志高商用厨电旗舰店（941935）</dd></div>
+        <div><dt>原执行编号</dt><dd>DEMO-9201</dd></div>
+        <div><dt>原失败码</dt><dd>PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION</dd></div>
+        <div><dt>业务区间</dt><dd class="plain">2026-09-24 ~ 2026-10-23（计划日 2026-10-24）</dd></div>
+        <div><dt>建议恢复种类</dt><dd class="plain">来源为空（未产生业务效果）</dd></div>
+        <div><dt>原计划摘要</dt><dd>7c1e4f0a9b2d3e5f6a8b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5</dd></div>
+      </dl>
+      <p>提交后将只闭合上述这一次失败，不影响其他执行或已导入数据。确认身份与业务区间无误后再提交。</p>
+      <div class="import-chain-actions">
+        <button type="button" class="secondary-button">人工闭合</button>
+        <button type="button" class="text-button">刷新状态</button>
+      </div>
+      <small role="status">来源为空、无下载残留，可按 pre_export_zero_effect 闭合。</small>
+    </section>
+  </section>
+
+  <section class="panel">
+    <h2>状态二：closeAllowed = false（附具体原因）</h2>
+    <p class="lead">失败发生在已取到部分来源之后（source 非空），但失败码不是 PAIR_PARSE_REJECTED —— 按钮禁用，展示具体原因。</p>
+    <section class="import-close-controls" aria-label="京东客服人工闭合（示意·不可闭合）">
+      <strong>京东客服人工闭合 · 任务 #DEMO-11205</strong>
+      <p>只结束该旧逻辑任务，保留原失败、文件与已导入数据；不标记成功、不自动重试。</p>
+      <div class="import-chain-actions">
+        <label>店铺
+          <select disabled>
+            <option selected>志高切肉机旗舰店</option>
+          </select>
+        </label>
+      </div>
+      <span class="state-badge blocked">暂不可闭合</span>
+      <dl class="import-run-facts">
+        <div><dt>店铺</dt><dd>志高切肉机旗舰店（745866）</dd></div>
+        <div><dt>原执行编号</dt><dd>DEMO-11205</dd></div>
+        <div><dt>原失败码</dt><dd>CHAT_PAGE_MISMATCH</dd></div>
+        <div><dt>业务区间</dt><dd class="plain">2026-09-30 ~ 2026-10-29（计划日 2026-10-30）</dd></div>
+        <div><dt>建议恢复种类</dt><dd class="plain">两个来源文件已下载</dd></div>
+        <div><dt>原计划摘要</dt><dd>a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e6f708192a3b4c5d6e7f80</dd></div>
+      </dl>
+      <div class="reason-box blocked">失败发生在已取到部分来源之后（source 非空），但失败码 CHAT_PAGE_MISMATCH 不是 PAIR_PARSE_REJECTED，不能按 downloaded_pair 闭合，需要人工核实。</div>
+      <div class="import-chain-actions">
+        <button type="button" class="secondary-button" disabled>人工闭合</button>
+        <button type="button" class="text-button">刷新状态</button>
+      </div>
+      <small role="status">失败发生在已取到部分来源之后（source 非空），但失败码 CHAT_PAGE_MISMATCH 不是 PAIR_PARSE_REJECTED，不能按 downloaded_pair 闭合，需要人工核实。</small>
+    </section>
+  </section>
+
+  <section class="panel">
+    <h2>状态三：closeAllowed = false（旧格式计划，无 failureBoundary）</h2>
+    <p class="lead">该字段引入前的老格式计划，自动判据无法确认浏览器是否已关闭，需要人工核实后再闭合——即诊断文档中真实卡住的 exec 7250 等计划的形态。</p>
+    <section class="import-close-controls" aria-label="京东客服人工闭合（示意·旧格式）">
+      <strong>京东客服人工闭合 · 任务 #DEMO-7250</strong>
+      <p>只结束该旧逻辑任务，保留原失败、文件与已导入数据；不标记成功、不自动重试。</p>
+      <div class="import-chain-actions">
+        <label>店铺
+          <select disabled>
+            <option selected>志高商用厨电旗舰店</option>
+          </select>
+        </label>
+      </div>
+      <span class="state-badge blocked">暂不可闭合</span>
+      <dl class="import-run-facts">
+        <div><dt>店铺</dt><dd>志高商用厨电旗舰店（941935）</dd></div>
+        <div><dt>原执行编号</dt><dd>DEMO-7250</dd></div>
+        <div><dt>原失败码</dt><dd>PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION</dd></div>
+        <div><dt>业务区间</dt><dd class="plain">2026-09-08 ~ 2026-10-07（计划日 2026-10-08）</dd></div>
+        <div><dt>建议恢复种类</dt><dd class="plain">来源为空（未产生业务效果）</dd></div>
+        <div><dt>原计划摘要</dt><dd>00112233445566778899aabbccddeeff0011223344556677889900aabbccdd</dd></div>
+      </dl>
+      <div class="reason-box blocked">这是该字段引入前的旧格式计划（无 failureBoundary），自动判据无法确认浏览器是否已关闭，需要人工核实后再闭合。</div>
+      <div class="import-chain-actions">
+        <button type="button" class="secondary-button" disabled>人工闭合</button>
+        <button type="button" class="text-button">刷新状态</button>
+      </div>
+      <small role="status">这是该字段引入前的旧格式计划（无 failureBoundary），自动判据无法确认浏览器是否已关闭，需要人工核实后再闭合。</small>
+    </section>
+  </section>
+
+  <div class="confirm-note">
+    实际组件中，哈希由服务端（helper 只读目标端点）计算并返回；浏览器不自己计算 sha256。提交前展示的"原计划摘要"即服务端返回的真实值，这里只是合成占位。
+  </div>
+
+  <footer class="note">本页为静态示意，按钮不发出任何网络请求；所有店铺、执行编号、失败码与摘要均为合成数据。</footer>
+</div>
+</body>
+</html>

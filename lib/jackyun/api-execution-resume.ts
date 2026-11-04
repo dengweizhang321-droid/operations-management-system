@@ -5,11 +5,11 @@ import { apiTaskWindowObserved, apiTaskWindowStart } from "./api-clock";
 import { jackyunApiTransport } from "./api-plan";
 import type { JackyunExportTaskBinding } from "./export-task";
 import { jackyunWorkflowId, recoverySha, type PreflightEvidence } from "./preflight-recovery";
-import { jackyunCaptureDate, jackyunExportFirstPolicyVersion } from "./run-contract";
+import { jackyunCaptureDate, jackyunExportFirstPolicyVersion, jackyunDateContext, type JackyunDateContext } from "./run-contract";
 import { jackyunSalesPeriod } from "./sales-period";
 import { isBoundDownloadResumeFailure } from "./download-failure";
 
-export type JackyunApiResumePermit = {
+export type JackyunApiResumePermit = JackyunDateContext & {
   version: 1;
   root: string;
   executionId: string;
@@ -82,13 +82,13 @@ export async function inspectJackyunApiResumePermit(root: string, executionId: s
     || plan.executionId !== executionId || plan.runId !== `n8n-export-first-${executionId}` || plan.phase !== "exporting"
     || plan.exportTransport !== jackyunApiTransport || Object.keys(plan.exports ?? {}).length || plan.exportIntent !== "inventory"
     || plan.protocol !== jackyunExportFirstPolicyVersion || policy.version !== plan.protocol
-    || plan.runDate !== jackyunCaptureDate(createdAt) || plan.runDate !== jackyunCaptureDate(plan.createdAt)
+    || plan.runDate !== jackyunCaptureDate(createdAt, plan) || plan.runDate !== jackyunCaptureDate(plan.createdAt, plan)
     || plan.asOfDate !== new Date(Date.parse(`${plan.runDate}T00:00:00Z`) - 86400000).toISOString().slice(0, 10)
     || plan.baseUrl !== "http://localhost:3000" || !path.isAbsolute(policy.browser?.downloadDirectory ?? "")
     || !Array.isArray(policy.browser?.allowedDownloadHosts) || !policy.browser.allowedDownloadHosts.length
     || timeline.some((time, index) => !Number.isFinite(time) || index > 0 && time < timeline[index - 1])
     || controller.version !== 1 || controller.runId !== plan.runId || controller.transport !== jackyunApiTransport
-    || controller.runDate !== plan.runDate || controller.asOfDate !== plan.asOfDate || controller.salesStartDate !== plan.salesStartDate || !/^[a-f0-9]{64}$/.test(controller.templateSha256)
+    || !isDeepStrictEqual(jackyunDateContext(controller), jackyunDateContext(plan)) || controller.runDate !== plan.runDate || controller.asOfDate !== plan.asOfDate || controller.salesStartDate !== plan.salesStartDate || !/^[a-f0-9]{64}$/.test(controller.templateSha256)
     || Object.keys(controller.modules ?? {}).length !== 1 || !controller.tenantId
     || inventory?.status !== "submitted" || (!taskNotYetBound && !taskAlreadyBound) || inventory.filePath
     || inventory.provenance || inventory.handoffSha256 || !Number.isSafeInteger(inventory.sourceRows) || inventory.sourceRows <= 0
@@ -126,7 +126,7 @@ export async function inspectJackyunApiResumePermit(root: string, executionId: s
       throw new Error("API 原运行的下载目录不能证明绑定任务在文件落地前停止。");
     }
   } else if (existingDownload) throw new Error("API 原运行已有额外下载或导入证据，不能使用续跑许可。");
-  return { version: 1, root, executionId, runId: plan.runId, createdAt, evidence, task,
+  return { ...jackyunDateContext(plan), version: 1, root, executionId, runId: plan.runId, createdAt, evidence, task,
     planSha256: recoverySha(planRaw), controllerSha256: recoverySha(controllerRaw),
     policySha256: recoverySha(policyRaw), activeSha256: recoverySha(activeRaw) };
 }
@@ -146,7 +146,7 @@ export async function claimJackyunApiResumePermit(root: string, originalId: stri
   const raw = await bytes(p.permit);
   const permit = JSON.parse(raw.toString()) as JackyunApiResumePermit;
   if (permit.root !== path.resolve(root) || permit.executionId !== originalId || permit.runId !== `n8n-export-first-${originalId}`
-    || permit.version !== 1 || jackyunCaptureDate(permit.createdAt) !== jackyunCaptureDate(now)) {
+    || permit.version !== 1 || jackyunCaptureDate(permit.createdAt, permit) !== jackyunCaptureDate(now, permit)) {
     throw new Error("API 续跑许可已过期或属于其他运行。");
   }
   const binding = { version: 1, originalExecutionId: originalId, executionId, permitSha256: recoverySha(raw) };

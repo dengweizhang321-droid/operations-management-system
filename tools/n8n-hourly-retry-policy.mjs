@@ -6,9 +6,7 @@ export const hourlyRetryTriggerName = "失败后每小时安全重试入口";
 
 export const hourlyRetryTargets = [
   { workflowId: "J8kY2mQ5vR7sT4pN", fileName: "jackyun-five-dataset-api.workflow.json" },
-  { workflowId: "JdN8nM3uL7tI2026", fileName: "jd-multi-store-daily.workflow.json" },
   { workflowId: "JdN8nSilentCopy2026", fileName: "jd-multi-store-daily.chromium-silent-copy.workflow.json" },
-  { workflowId: "JdMarketDaily2026", fileName: "jd-market-ranking-daily.workflow.json" },
   { workflowId: "JdMarketSilentCopy2026", fileName: "jd-market-ranking-daily.chromium-silent-copy.workflow.json" },
   { workflowId: "JdPromotionDaily2026", fileName: "jd-promotion-daily.workflow.json" },
   { workflowId: "JdPromotionCutMeat2026", fileName: "jd-promotion-cut-meat-20260813-14.workflow.json" },
@@ -18,6 +16,11 @@ export const hourlyRetryTargets = [
   { workflowId: "TmallCuizhiwangDaily2026", fileName: "tmall-cuizhiwang-sycm-cookie-daily.workflow.json" },
   { workflowId: "TmallMasituDaily2026", fileName: "tmall-masitu-sycm-cookie-daily.workflow.json" },
   { workflowId: "TmallYiyongDaily2026", fileName: "tmall-yiyong-direct-pm-candidate.workflow.json" },
+  { workflowId: "JdCustomerService2026", fileName: "jd-customer-service-daily.workflow.json" },
+  { workflowId: "JdCustomerServiceCutMeat2026", fileName: "jd-customer-service-cut-meat-daily.candidate.workflow.json" },
+  { workflowId: "JdCustomerServiceChudian2026", fileName: "jd-customer-service-chudian-daily.candidate.workflow.json" },
+  { workflowId: "JdCustomerServiceDishwasher2026", fileName: "jd-customer-service-dishwasher-daily.candidate.workflow.json" },
+  { workflowId: "JdLogisticsDaily2026", fileName: "jd-logistics-daily.workflow.json" },
 ];
 
 const terminalFailurePatterns = [
@@ -38,6 +41,11 @@ const terminalFailurePatterns = [
   "唯一商品数.*出售中总数|内容完整性错误|content completeness|内容校验失败|validation failed|日期覆盖.*(?:缺失|不一致)|date coverage.*(?:missing|mismatch)|空文件|零行业务|malformed workbook|批次.*(?:不匹配|回查失败)",
   "逐页货品文件合计 \\d+ 个唯一商品，与出售中总数 \\d+ 不一致|市场榜单导入响应与签收文件、身份、日期或行数不一致",
   "需要人工|转人工|manual action|required human",
+  "京东物流流程未完成；原计划与未决任务已保留，禁止自动重发导出或导入",
+  "文件校验未通过",
+  "导入未全部完成或覆盖回查未命中",
+  "\\bAPI_SERVER_CLOCK_UNVERIFIED\\b",
+  "\\bhttp\\s+(?:400|413|415|422)\\b",
 ];
 
 const boundDownloadFailurePattern = "^JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=(?:ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENETUNREACH|EHOSTUNREACH|UND_ERR_CONNECT_TIMEOUT|UND_ERR_HEADERS_TIMEOUT|UND_ERR_BODY_TIMEOUT|UND_ERR_SOCKET|HTTP_408|HTTP_429|HTTP_500|HTTP_502|HTTP_503|HTTP_504) attempts=[1-3]$";
@@ -185,11 +193,21 @@ function retryClassifierCode() {
     "  return output.join(' ').slice(0, 32768);",
     "};",
     "const result = [];",
+    "const droppedFailures = [];",
+    "const describe = (payload, workflowId, reason) => ({ workflowId,",
+    "  workflowName: String(payload.workflow?.name ?? ''),",
+    "  lastNodeExecuted: String(payload.execution?.lastNodeExecuted ?? ''),",
+    "  failedExecutionId: String(payload.execution?.id ?? ''), reason });",
     "for (const item of $input.all()) {",
     "  const payload = item.json ?? {};",
     "  const workflowId = String(payload.workflow?.id ?? '');",
     "  const mode = String(payload.execution?.mode ?? payload.trigger?.mode ?? '');",
-    "  if (!targets[workflowId] || !['trigger', 'webhook'].includes(mode)) continue;",
+    "  if (!targets[workflowId] || !['trigger', 'webhook'].includes(mode)) {",
+    "    // 原逻辑在这里静默丢弃，现在记下来报警",
+    "    if (workflowId) droppedFailures.push(describe(payload, workflowId,",
+    "      targets[workflowId] ? ('触发方式 ' + mode + ' 不参与自动重试') : '该流程未接入自动重试'));",
+    "    continue;",
+    "  }",
     "  const failureText = collect({ error: payload.execution?.error ?? payload.trigger?.error, lastNodeExecuted: payload.execution?.lastNodeExecuted });",
     "  if (workflowId === 'J8kY2mQ5vR7sT4pN' && /API_(?:RUN_BINDING_CHANGED|STATE_EVIDENCE_INVALID|ARCHIVE_(?:CHANGED|INCOMPLETE|IDENTITY_INVALID)|TENANT_BINDING_CHANGED|FIELD_PERMISSIONS_CHANGED_RECALIBRATE|LEGACY_STATE_SCHEMA_CHANGED)/u.test(failureText)) continue;",
     "  if (workflowId === 'J8kY2mQ5vR7sT4pN' && payload.execution?.lastNodeExecuted === 'B·接口校验与五表下载' && payload.execution?.error?.description === 'JACKYUN_PREFLIGHT_RETRY_READY' && !terminalPatterns.some((pattern) => pattern.test(failureText.replaceAll('JACKYUN_PREFLIGHT_RETRY_READY', '')))) {",
@@ -203,10 +221,17 @@ function retryClassifierCode() {
     "    continue;",
     "  }",
     "  if (jackyunDownloadNode && /fetch failed/iu.test(failureText)) continue;",
-    "  if (terminalPatterns.some((pattern) => pattern.test(failureText))) continue;",
+    "  if (terminalPatterns.some((pattern) => pattern.test(failureText))) {",
+    "    // 终局失败（掉登录、验证码等），不该自动重试 —— 必须有人处理",
+    "    droppedFailures.push(describe(payload, workflowId, '终局失败，不会自动重试'));",
+    "    continue;",
+    "  }",
     "  result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60 }, failedExecutionId: String(payload.execution?.id ?? '') } });",
     "}",
+    "// 单失败 ErrorTrigger 的终局记录经 IF 进入人工分支，不进入 Wait。",
+    "if (droppedFailures.length > 0) result.push({ json: { droppedFailures, noRetryTarget: true } });",
     "return result;",
+    "",
   ].join("\n");
 }
 
@@ -214,11 +239,17 @@ export function buildHourlyRetryErrorWorkflow() {
   const errorName = "数据下载导入工作流失败";
   const classifyName = "仅保留可安全自动重试的失败";
   const waitName = "等待一小时";
+  const retryBranchName = "本次可安全自动重试？";
   const dispatchName = "启动新的完整工作流 execution";
   const unknownName = "重试派发结果未知转人工";
   const contextName = "读取原执行计划时间";
   const contextReadyName = "原计划核验完成？";
   const noteName = "每小时安全重试说明";
+  const alertDispatchName = "转人工发钉钉提醒";
+  const collectDroppedName = "收集被丢弃的终局失败";
+  const dispatchUnknownAlertName = "告警-派发未知";
+  const manualContextName = "原计划需要人工？";
+  const prepareAlertName = "准备人工提醒参数";
   return {
     id: hourlyRetryErrorWorkflowId,
     name: "数据下载导入工作流每小时安全重试",
@@ -240,6 +271,14 @@ export function buildHourlyRetryErrorWorkflow() {
         position: [-300, 0],
       },
       {
+        parameters: { conditions: { options: { caseSensitive: true, typeValidation: "strict", version: 2 },
+          conditions: [{ id: stableUuid("teruisi-hourly-retry:retry-branch-condition"),
+            leftValue: "={{ !!$json.retryPolicy && $json.noRetryTarget !== true }}", rightValue: true,
+            operator: { type: "boolean", operation: "equals" } }], combinator: "and" }, options: {} },
+        id: stableUuid("teruisi-hourly-retry:retry-branch"), name: retryBranchName,
+        type: "n8n-nodes-base.if", typeVersion: 2.2, position: [-160, 0],
+      },
+      {
         parameters: { resume: "timeInterval", amount: 1, unit: "hours" },
         id: stableUuid("teruisi-hourly-retry:wait"),
         name: waitName,
@@ -248,36 +287,57 @@ export function buildHourlyRetryErrorWorkflow() {
         position: [-60, 0],
       },
       {
-        parameters: { mode: "runOnceForAllItems", jsCode: `
-const pending = $('${classifyName}').first().json;
-if ($runIndex >= 72) throw new Error('retry_context_wait_expired_manual_action');
-let response;
+        parameters: { mode: "runOnceForAllItems", jsCode: `// Known manual-action errors route through the shared sender then StopAndError.
+// All other errors still throw unchanged; no notification HTTP side channel.
+const manualCodes = new Set(['retry_context_wait_expired_manual_action',
+  'retry_context_unverified_manual_action','retry_reservation_result_unknown_manual_action',
+  'retry_already_reserved_or_unverified_manual_action']);
+let knownOriginalExecutionId = '';
 try {
-  response = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/retry-context',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,
-    headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId}});
-} catch(error) {
-  const status = Number(error.statusCode ?? error.response?.statusCode ?? error.httpCode ?? 0);
-  if(status >= 400 && status < 500) throw new Error('retry_context_unverified_manual_action');
-  return [{json:{...pending,contextStatus:'waiting'}}];
+
+  const pending = $('${classifyName}').first().json;
+  if ($runIndex >= 72) throw new Error('retry_context_wait_expired_manual_action');
+  let response;
+  try {
+    response = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/retry-context',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,
+      headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId}});
+  } catch(error) {
+    const status = Number(error.statusCode ?? error.response?.statusCode ?? error.httpCode ?? 0);
+    if(status >= 400 && status < 500) throw new Error('retry_context_unverified_manual_action');
+    return [{json:{...pending,contextStatus:'waiting'}}];
+  }
+  const status = Number(response.statusCode);
+  if(status >= 500) return [{json:{...pending,contextStatus:'waiting'}}];
+  if(status !== 200) throw new Error('retry_context_unverified_manual_action');
+  const context = response.body;
+  if(context?.ok !== true || context.version !== 'teruisi-retry-context-v1' || context.workflowId !== pending.retryPolicy.workflowId
+    || context.failedExecutionId !== pending.failedExecutionId || !context.originalScheduledAt || !context.originalExecutionId) throw new Error('retry_context_unverified_manual_action');
+  knownOriginalExecutionId = String(context.originalExecutionId);
+  let reservation;
+  try {
+    reservation = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/reserve-retry',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,
+      headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId,'X-TERUISI-RETRY-EXECUTION-ID':String($execution.id)}});
+  } catch { throw new Error('retry_reservation_result_unknown_manual_action'); }
+  if(pending.retryPolicy.workflowId === 'J8kY2mQ5vR7sT4pN' && reservation.statusCode === 200) {
+    if(['completed','accepted'].includes(reservation.body?.reservationStatus)) return [];
+    if(reservation.body?.reservationStatus === 'waiting') return [{json:{...pending,contextStatus:'waiting',nextRetryDelayMinutes:reservation.body.nextRetryDelayMinutes}}];
+  }
+  if(reservation.statusCode !== 200 || reservation.body?.reservationStatus !== 'reserved'
+    || reservation.body.failedExecutionId !== pending.failedExecutionId || reservation.body.retryExecutionId !== String($execution.id)) throw new Error('retry_already_reserved_or_unverified_manual_action');
+  return [{json:{...pending,...context,contextStatus:'verified'}}];
+} catch (error) {
+  const code = error?.message ?? '';
+  if (manualCodes.has(code)) {
+    const p = $('${classifyName}').first().json ?? {};
+    // Route only these known errors through the common sender, then fail
+    // with this same code. Unrecognized errors still throw unchanged.
+    return [{ json: { manualAction: { code, workflowId: p.retryPolicy?.workflowId,
+      failedExecutionId: p.failedExecutionId,
+      logicalExecutionId: knownOriginalExecutionId || p.originalExecutionId || p.failedExecutionId }, terminalCode: code } }];
+  }
+  throw error;
 }
-const status = Number(response.statusCode);
-if(status >= 500) return [{json:{...pending,contextStatus:'waiting'}}];
-if(status !== 200) throw new Error('retry_context_unverified_manual_action');
-const context = response.body;
-if(context?.ok !== true || context.version !== 'teruisi-retry-context-v1' || context.workflowId !== pending.retryPolicy.workflowId
-  || context.failedExecutionId !== pending.failedExecutionId || !context.originalScheduledAt || !context.originalExecutionId) throw new Error('retry_context_unverified_manual_action');
-let reservation;
-try {
-  reservation = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/reserve-retry',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,
-    headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId,'X-TERUISI-RETRY-EXECUTION-ID':String($execution.id)}});
-} catch { throw new Error('retry_reservation_result_unknown_manual_action'); }
-if(pending.retryPolicy.workflowId === 'J8kY2mQ5vR7sT4pN' && reservation.statusCode === 200) {
-  if(['completed','accepted'].includes(reservation.body?.reservationStatus)) return [];
-  if(reservation.body?.reservationStatus === 'waiting') return [{json:{...pending,contextStatus:'waiting',nextRetryDelayMinutes:reservation.body.nextRetryDelayMinutes}}];
-}
-if(reservation.statusCode !== 200 || reservation.body?.reservationStatus !== 'reserved'
-  || reservation.body.failedExecutionId !== pending.failedExecutionId || reservation.body.retryExecutionId !== String($execution.id)) throw new Error('retry_already_reserved_or_unverified_manual_action');
-return [{json:{...pending,...context,contextStatus:'verified'}}];` },
+` },
         id: stableUuid("teruisi-hourly-retry:original-context"), name: contextName,
         type: "n8n-nodes-base.code", typeVersion: 2, position: [160, 0],
       },
@@ -304,7 +364,7 @@ return [{json:{...pending,...context,contextStatus:'verified'}}];` },
         onError: "continueErrorOutput",
       },
       {
-        parameters: { errorMessage: "dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST" },
+        parameters: { errorMessage: "={{ $('准备人工提醒参数').item.json.terminalCode }}" },
         id: stableUuid("teruisi-hourly-retry:dispatch-unknown"),
         name: unknownName,
         type: "n8n-nodes-base.stopAndError",
@@ -335,22 +395,105 @@ return [{json:{...pending,...context,contextStatus:'verified'}}];` },
         typeVersion: 1,
         position: [-540, -360],
       },
+      {
+        parameters: {
+          // The sole variable is validated base64, never raw error text.
+          // Adopt this versioned repository checkout and its sibling dependencies
+          // before enabling the workflow. No D:/teruisi-ops fallback.
+          command: '={{ \'pwsh.exe -NoProfile -NonInteractive -File "D:\\\\运营管理系统\\\\tools\\\\n8n-manual-action-alert.ps1" -Execute -PayloadBase64 "\' + $json.manualAlertPayloadBase64 + \'"\' }}',
+          executeOnce: false,
+        },
+        id: "a1e7c0d4-6b2f-4e8a-9c31-5d0f8b7a2e64",
+        name: alertDispatchName,
+        type: "n8n-nodes-base.executeCommand",
+        typeVersion: 1,
+        position: [660, 220],
+        retryOnFail: false,
+        onError: "continueErrorOutput",
+      },
+      {
+        parameters: {
+          jsCode: `// 出口四：筛选节点原本直接 continue 掉的失败在这里转为告警。
+// 这些是 terminalPatterns 命中的终局失败（掉登录、验证码、额度耗尽等不该
+// 自动重试的），或流程不在 targets 白名单里。原逻辑连 execution 失败都不留，
+// 而这一类恰恰最需要人介入。
+const dropped = $input.first().json?.droppedFailures ?? [];
+return dropped.map((item) => ({ json: { manualAction: {
+  workflowId: item.workflowId, failedExecutionId: item.failedExecutionId,
+  logicalExecutionId: item.originalExecutionId || item.failedExecutionId,
+  code: item.reason === '终局失败，不会自动重试' ? 'terminal_manual_action' : 'execution_mode_not_automatic',
+}, terminalCode: 'dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST' } }));`,
+        },
+        id: "b2f8d1e5-7c3a-4f9b-8d42-6e1a9c8b3f75",
+        name: collectDroppedName,
+        type: "n8n-nodes-base.code",
+        typeVersion: 2,
+        position: [160, 220],
+      },
+      {
+        parameters: {
+          jsCode: `// 重试 Webhook 可能已被受理，禁止自动再次 POST —— 必须人工核查。
+const p = $('${contextName}').item.json ?? {};
+return [{ json: { manualAction: { workflowId: p.retryPolicy?.workflowId,
+  failedExecutionId: p.failedExecutionId, logicalExecutionId: p.originalExecutionId || p.failedExecutionId,
+  code: 'retry_dispatch_result_unknown' },
+  terminalCode: 'dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST' } }];`,
+        },
+        id: "c3a9e2f6-8d4b-4a1c-9e53-7f2b0d9c4a86",
+        name: dispatchUnknownAlertName,
+        type: "n8n-nodes-base.code",
+        typeVersion: 2,
+        position: [420, 220],
+      },
+      {
+        parameters: { conditions: { options: { caseSensitive: true, typeValidation: "strict", version: 2 },
+          conditions: [{ id: stableUuid("teruisi-hourly-retry:manual-context-check"), leftValue: "={{ Boolean($json.manualAction) }}", rightValue: true,
+            operator: { type: "boolean", operation: "equals" } }], combinator: "and" }, options: {} },
+        id: stableUuid("teruisi-hourly-retry:manual-context"), name: manualContextName,
+        type: "n8n-nodes-base.if", typeVersion: 2.2, position: [380, -200],
+      },
+      {
+        parameters: { mode: "runOnceForAllItems", jsCode: `const workflows = ${JSON.stringify(hourlyRetryTargets.map(t => t.workflowId))};
+const codes = ['terminal_manual_action','execution_mode_not_automatic','retry_dispatch_result_unknown',
+  'retry_context_wait_expired_manual_action','retry_context_unverified_manual_action',
+  'retry_reservation_result_unknown_manual_action','retry_already_reserved_or_unverified_manual_action'];
+return $input.all().map((item, index) => {
+  const p = item.json.manualAction;
+  if (!p || !workflows.includes(p.workflowId) || !codes.includes(p.code)
+    || !/^[1-9][0-9]{0,19}$/.test(String(p.logicalExecutionId))
+    || !/^[1-9][0-9]{0,19}$/.test(String(p.failedExecutionId))) throw new Error('manual_alert_payload_invalid');
+  const payload = {version:1, workflowId:p.workflowId, logicalExecutionId:String(p.logicalExecutionId),
+    failedExecutionId:String(p.failedExecutionId), code:p.code};
+  const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded) || encoded.length > 8192) throw new Error('manual_alert_payload_invalid');
+  const terminalCode = codes.includes(item.json.terminalCode) ? item.json.terminalCode
+    : 'dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST';
+  return {json:{manualAlertPayloadBase64:encoded, terminalCode}, pairedItem:{item:index}};
+});` },
+        id: stableUuid("teruisi-hourly-retry:prepare-alert"), name: prepareAlertName,
+        type: "n8n-nodes-base.code", typeVersion: 2, position: [660, 0],
+      },
     ],
     connections: {
       [errorName]: { main: [[edge(classifyName)]] },
-      [classifyName]: { main: [[edge(waitName)]] },
+      [classifyName]: { main: [[edge(retryBranchName)]] },
+      [retryBranchName]: { main: [[edge(waitName)], [edge(collectDroppedName)]] },
       [waitName]: { main: [[edge(contextName)]] },
-      [contextName]: { main: [[edge(contextReadyName)]] },
+      [contextName]: { main: [[edge(manualContextName)]] },
+      [manualContextName]: { main: [[edge(prepareAlertName)], [edge(contextReadyName)]] },
       [contextReadyName]: { main: [[edge(dispatchName)], [edge("吉客云需要继续退避？")]] },
       ["吉客云需要继续退避？"]: { main: [[edge("等待吉客云下一次允许时间")], [edge(waitName)]] },
       ["等待吉客云下一次允许时间"]: { main: [[edge(contextName)]] },
-      [dispatchName]: { main: [[], [edge(unknownName)]] },
+      [dispatchName]: { main: [[], [edge(dispatchUnknownAlertName)]] },
+      [dispatchUnknownAlertName]: { main: [[edge(prepareAlertName)]] },
+      [prepareAlertName]: { main: [[edge(alertDispatchName)]] },
+      [alertDispatchName]: { main: [[edge(unknownName)], [edge(unknownName)]] },
+      [collectDroppedName]: { main: [[edge(prepareAlertName)]] },
     },
     pinData: {},
     active: false,
     settings: {
       executionOrder: "v1",
-      timezone: "Asia/Shanghai",
       callerPolicy: "workflowsFromSameOwner",
     },
     meta: {

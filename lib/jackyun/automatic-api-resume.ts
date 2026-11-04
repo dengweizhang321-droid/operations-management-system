@@ -48,7 +48,7 @@ export async function claimAutomaticJackyunApiResume(root: string, previousId: s
         || !isDeepStrictEqual(claim.permit.evidence, context.evidence)
         || claim.permitSha256 !== recoverySha(JSON.stringify(claim.permit))
         || !Number.isFinite(Date.parse(claim.permit.createdAt)) || Date.parse(now) < Date.parse(claim.permit.createdAt)
-        || jackyunCaptureDate(claim.permit.createdAt) !== jackyunCaptureDate(now)) throw new Error("恢复绑定已变化或跨日");
+        || jackyunCaptureDate(claim.permit.createdAt, claim.permit) !== jackyunCaptureDate(now, claim.permit)) throw new Error("恢复绑定已变化或跨日");
       // The same owner must be able to proceed after its own controller writes.
       return claim.permit.task;
     }
@@ -63,7 +63,7 @@ export async function claimAutomaticJackyunApiResume(root: string, previousId: s
     const inspectedAt = deps.now?.() ?? new Date().toISOString();
     if (!Number.isFinite(Date.parse(inspectedAt)) || Date.parse(inspectedAt) < Date.parse(now)
       || Date.parse(inspectedAt) - Date.parse(now) > 30 * 60_000
-      || jackyunCaptureDate(inspectedAt) !== jackyunCaptureDate(now)) throw new Error("恢复核验过期或跨日");
+      || jackyunCaptureDate(inspectedAt, permit) !== jackyunCaptureDate(now, permit)) throw new Error("恢复核验过期或跨日");
     if (!isDeepStrictEqual(task, binding) || !isDeepStrictEqual(readEvidence(previousId, replacementId), context)) throw new Error("原任务或执行证据已变化");
     const fresh = await inspectJackyunApiResumePermit(root, previousId, context.evidence, task, now);
     if (!isDeepStrictEqual(fresh, permit)) throw new Error("恢复期间原文件变化");

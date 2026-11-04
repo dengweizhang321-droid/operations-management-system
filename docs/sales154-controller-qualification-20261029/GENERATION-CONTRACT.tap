@@ -1,0 +1,46 @@
+TAP version 13
+# Subtest: reviewed Django controller generations preserve historical exceptions and match current source
+ok 1 - reviewed Django controller generations preserve historical exceptions and match current source
+  ---
+  duration_ms: 6.82
+  type: 'test'
+  ...
+# Subtest: A项: descendant CreationDate guard candidate is qualified; other names and bytes still fail closed
+ok 2 - A项: descendant CreationDate guard candidate is qualified; other names and bytes still fail closed
+  ---
+  duration_ms: 1.1191
+  type: 'test'
+  ...
+# Subtest: Sales154: append exact qualification, retain old generation, and reject foreign or modified hashes
+ok 3 - Sales154: append exact qualification, retain old generation, and reject foreign or modified hashes
+  ---
+  duration_ms: 0.4455
+  type: 'test'
+  ...
+# Subtest: B项: worker -Json failure-cause candidate is qualified; bytes match the repository controller
+ok 4 - B项: worker -Json failure-cause candidate is qualified; bytes match the repository controller
+  ---
+  duration_ms: 2.849
+  type: 'test'
+  ...
+# Subtest: S04a: A1-fixed candidate local-service is qualified against the installed 988810cf controller
+ok 5 - S04a: A1-fixed candidate local-service is qualified against the installed 988810cf controller
+  ---
+  duration_ms: 0.5883
+  type: 'test'
+  ...
+# Subtest: S05a: B1 worker controller is qualified per controller; other names still fail closed
+ok 6 - S05a: B1 worker controller is qualified per controller; other names still fail closed
+  ---
+  duration_ms: 0.4581
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 181.9856

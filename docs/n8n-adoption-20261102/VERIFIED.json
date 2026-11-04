@@ -1,0 +1,144 @@
+{
+  "observedAtUtc": "2026-11-02T15:18:28.139002+00:00",
+  "status": "adopted",
+  "workflowCount": 6,
+  "newRetryWebhooks": 5,
+  "preservedUnpublishedDrafts": 4,
+  "ownersUnchanged": true,
+  "originalHistoryRowsPreserved": 28,
+  "unrelatedWorkflowDefinitionsPreserved": 18,
+  "workflows": [
+    {
+      "id": "TeruisiHourlyRetry2026",
+      "active": true,
+      "publishedVersion": "1f6dc4ea-9587-44b6-9759-faf0dbeb4b95",
+      "draftVersion": "1f6dc4ea-9587-44b6-9759-faf0dbeb4b95",
+      "draftPreserved": false,
+      "schedule": [],
+      "errorWorkflow": null,
+      "registeredRetryWebhooks": 0,
+      "nodeCount": 16,
+      "publishedGraphSha256": "c6ad08a91776af70f7f1b1d98bbc9ec1dbc38efefa0c91ba141babba20a12296"
+    },
+    {
+      "id": "JdCustomerService2026",
+      "active": true,
+      "publishedVersion": "b52fae37-3858-499a-a4ab-168d4b52cd2f",
+      "draftVersion": "bb63b087-902d-4c72-876b-5afd96fbc55a",
+      "draftPreserved": true,
+      "schedule": [
+        {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "5 9 * * *"
+              }
+            ]
+          }
+        }
+      ],
+      "errorWorkflow": "TeruisiHourlyRetry2026",
+      "registeredRetryWebhooks": 1,
+      "nodeCount": 11,
+      "publishedGraphSha256": "0e3d2a68b4382da3594b746a2efca5d2ad287bd10bb52eaf2be3a876df383e46"
+    },
+    {
+      "id": "JdCustomerServiceCutMeat2026",
+      "active": true,
+      "publishedVersion": "ec716221-d0fd-4d98-a023-ef7ed137bd1d",
+      "draftVersion": "5be9fc96-7bc7-467e-9b85-72596abdeb6b",
+      "draftPreserved": true,
+      "schedule": [
+        {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "5 10 * * *"
+              }
+            ]
+          }
+        }
+      ],
+      "errorWorkflow": "TeruisiHourlyRetry2026",
+      "registeredRetryWebhooks": 1,
+      "nodeCount": 11,
+      "publishedGraphSha256": "990acc7710bab2dab7ad765e753c2a04b71c810d8b110beefb223bdacb43169d"
+    },
+    {
+      "id": "JdCustomerServiceChudian2026",
+      "active": true,
+      "publishedVersion": "49a8e375-182b-42aa-980e-a86cc05d3521",
+      "draftVersion": "d3615876-7163-4bb4-b63c-bc5b6c6823ca",
+      "draftPreserved": true,
+      "schedule": [
+        {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "25 9 * * *"
+              }
+            ]
+          }
+        }
+      ],
+      "errorWorkflow": "TeruisiHourlyRetry2026",
+      "registeredRetryWebhooks": 1,
+      "nodeCount": 11,
+      "publishedGraphSha256": "4dafc91f526c9f8dc7f6ee6e1e4334a9807c05002c2ba55331f9f0fc83b6cc2f"
+    },
+    {
+      "id": "JdCustomerServiceDishwasher2026",
+      "active": true,
+      "publishedVersion": "3d879d29-f327-4ac5-9342-ed31afa86cc9",
+      "draftVersion": "94a5e0f1-6f47-41fa-8fe7-3dd08457a0cb",
+      "draftPreserved": true,
+      "schedule": [
+        {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "45 9 * * *"
+              }
+            ]
+          }
+        }
+      ],
+      "errorWorkflow": "TeruisiHourlyRetry2026",
+      "registeredRetryWebhooks": 1,
+      "nodeCount": 11,
+      "publishedGraphSha256": "44356d502c8370afc37ab8cf33dcdd5bd612a14eab81af3f8aa3a765f9c13902"
+    },
+    {
+      "id": "JdLogisticsDaily2026",
+      "active": true,
+      "publishedVersion": "60e607da-5401-4bde-9ae0-bed5d53de81c",
+      "draftVersion": "60e607da-5401-4bde-9ae0-bed5d53de81c",
+      "draftPreserved": false,
+      "schedule": [
+        {
+          "rule": {
+            "interval": [
+              {
+                "triggerAtHour": 8,
+                "triggerAtMinute": 50
+              }
+            ]
+          }
+        }
+      ],
+      "errorWorkflow": "TeruisiHourlyRetry2026",
+      "registeredRetryWebhooks": 1,
+      "nodeCount": 14,
+      "publishedGraphSha256": "4d32b636b3d72495bd118cf8cb8c0bcc5064bb241c17c788ef6b0273c035bc2f"
+    }
+  ],
+  "executionTriggeredByThisTask": false,
+  "testNotificationSent": false,
+  "adoptionVia": "installed n8n 2.32.7 import:workflow and publish:workflow --versionId, followed by original scheduled service task restart",
+  "sourceCommit": "dd4bf1a2ed96a391cf7f4f4dfc83ee431b991afe",
+  "routingCorrection": "native IF separates retry and manual records; source branch codex/n8n-adoption-routing-20261102"
+}

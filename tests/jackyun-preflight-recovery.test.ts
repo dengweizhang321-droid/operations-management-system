@@ -784,3 +784,124 @@ test("4726 rejects changed evidence, any business artifact and late writes after
     await assert.rejects(inspectPreflightClosure(f.root, "4726", evidence, "2026-09-27T02:30:00Z"));
   }
 });
+
+const clockProof11055: PreflightEvidence = {
+  executionId: "11055", workflowId: jackyunWorkflowId, status: "error",
+  startedAt: "2026-10-31T16:10:01.000Z", stoppedAt: "2026-10-31T16:15:20.152Z", retrySuccessId: null,
+  lastNode: "B·接口校验与五表下载",
+  runNodes: ["每天本机时间 00:10", "固定原执行计划时间", "领取共享 helper", "helper 领取成功？",
+    "等待前序流程释放 helper", "A·固定采集日和销售日期", "A·固定采集日和销售日期·恢复等待？", "B·接口校验与五表下载"],
+  error: "API_SERVER_CLOCK_UNVERIFIED", httpCode: "500",
+  requestUrl: "http://127.0.0.1:5791/jackyun/export-first/export-all",
+  executionDataSha256: "6ac52e0d72b076d4b613f7d60718eb4ca26dede908aa146696aee2bc22531822", activeExecutions: 0,
+};
+const clockClosedAt11055 = "2026-10-31T20:00:00.000Z";
+async function clockFixture11055() {
+  const f = await fixture(), runId = "n8n-export-first-11055";
+  const planPath = path.join(f.pipeline, `${runId}.json`);
+  const directory = path.join(f.root, "outputs", "jackyun-import-runs", runId);
+  const statePath = path.join(directory, "api-controller-state.json");
+  await mkdir(directory, { recursive: true });
+  // Audited byte-for-byte originals; the pinned digests are over exactly these.
+  await writeFile(planPath, await readFile(new URL("./fixtures/jackyun-11055-clock-plan.json", import.meta.url)));
+  await writeFile(statePath, await readFile(new URL("./fixtures/jackyun-11055-clock-controller.json", import.meta.url)));
+  await writeFile(f.activePath, await readFile(new URL("./fixtures/jackyun-11055-clock-active.json", import.meta.url)));
+  return { ...f, runId, planPath, directory, statePath };
+}
+
+test("audited 11055 clock failure closes before export submit and preserves the original plan and active bytes", async () => {
+  const f = await clockFixture11055();
+  const plan = await readFile(f.planPath), active = await readFile(f.activePath), state = await readFile(f.statePath);
+  const proposal = await inspectPreflightClosure(f.root, "11055", clockProof11055, clockClosedAt11055);
+  assert.equal(proposal.reason, "audited_11055_server_clock_before_export_submit");
+  assert.equal(proposal.status, "closed_before_export");
+  // The controller is kept as evidence, so its directory is never asserted absent.
+  assert.equal(proposal.controllerEvidence?.sha256, "6fa8b1071cb5a1ed849b62bded849adb71cec34252b1e819430cdcb9f9e40da4");
+  assert.ok(!proposal.absentPaths.some(entry => entry === f.directory));
+  await publishPreflightClosure(f.root, proposal, clockProof11055, recoverySha(JSON.stringify(proposal)));
+  await assertClosedPreflight(f.root, "11055");
+  // Original bytes stay intact and the closed run can never replay.
+  assert.deepEqual(await readFile(f.planPath), plan);
+  assert.deepEqual(await readFile(f.activePath), active);
+  assert.deepEqual(await readFile(f.statePath), state);
+  await assert.rejects(runJackyunExportFirstAction("export/inventory", "11055", f.deps), /已经闭合/);
+});
+
+test("11055 closure rejects any submitted export, altered bytes, foreign identity or new business effect", async () => {
+  for (const fault of ["submit_intent", "submitted", "intentAt", "pendingTask", "binding", "filePath",
+    "controller", "plan", "active", "extra-file", "events", "validation", "download",
+    "id", "hash", "error", "time", "running", "live", "retry", "late-node"]) {
+    const f = await clockFixture11055(), evidence = { ...clockProof11055 };
+    const state = JSON.parse(await readFile(f.statePath, "utf8"));
+    if (fault === "submit_intent") state.modules.inventory.status = "submit_intent";
+    if (fault === "submitted") state.modules.inventory.status = "submitted";
+    if (fault === "intentAt") state.modules.inventory.exportIntentAt = "2026-10-31T16:15:20.000Z";
+    if (fault === "pendingTask") state.modules.inventory.pendingTaskId = "sys-119000001";
+    if (fault === "binding") state.modules.inventory.binding = { version: 1, module: "inventory" };
+    if (fault === "filePath") state.modules.inventory.filePath = "D:/tmp/inventory.xlsx";
+    if (["submit_intent", "submitted", "intentAt", "pendingTask", "binding", "filePath"].includes(fault)) {
+      await writeFile(f.statePath, JSON.stringify(state, null, 2) + "\n");
+    }
+    if (fault === "controller") await writeFile(f.statePath, (await readFile(f.statePath, "utf8")) + " ");
+    if (fault === "plan") await writeFile(f.planPath, JSON.stringify({ ...JSON.parse(await readFile(f.planPath, "utf8")), phase: "exported" }));
+    if (fault === "active") await writeFile(f.activePath, JSON.stringify({ runId: "n8n-export-first-11056", executionId: "11056" }));
+    if (fault === "extra-file") await writeFile(path.join(f.directory, "inventory.xlsx"), "uncertain");
+    if (fault === "id") evidence.executionId = "11056";
+    if (fault === "hash") evidence.executionDataSha256 = "a".repeat(64);
+    if (fault === "error") evidence.error = "API_SERVER_CLOCK_MISSING";
+    if (fault === "time") evidence.stoppedAt = "2026-10-31T16:15:21.000Z";
+    if (fault === "running") evidence.status = "running";
+    if (fault === "live") evidence.activeExecutions = 1;
+    if (fault === "retry") evidence.retrySuccessId = "11056";
+    if (fault === "late-node") evidence.runNodes = [...evidence.runNodes, "D·统一导入运营管理系统"];
+    const effects = { events: path.join(f.root, "outputs", "jackyun-browser-events", f.runId),
+      validation: path.join(f.root, "outputs", "jackyun-export-first-validation", f.runId),
+      download: path.join(f.download, "jackyun", f.runId) };
+    if (fault in effects) await mkdir(effects[fault as keyof typeof effects], { recursive: true });
+    await assert.rejects(inspectPreflightClosure(f.root, "11055", evidence, clockClosedAt11055),
+      (error: unknown) => error instanceof Error, `fault ${fault} should be rejected`);
+  }
+});
+
+test("the clock closure entry is bound to 11055 and does not generalize to another run", async () => {
+  const f = await clockFixture11055();
+  const other = "n8n-export-first-11060";
+  await writeFile(path.join(f.pipeline, `${other}.json`),
+    JSON.stringify({ ...JSON.parse(await readFile(f.planPath, "utf8")), executionId: "11060", runId: other }, null, 2) + "\n");
+  await mkdir(path.join(f.root, "outputs", "jackyun-import-runs", other), { recursive: true });
+  await writeFile(path.join(f.root, "outputs", "jackyun-import-runs", other, "api-controller-state.json"),
+    await readFile(f.statePath));
+  await writeFile(f.activePath, JSON.stringify({ runId: other, executionId: "11060" }));
+  await assert.rejects(inspectPreflightClosure(f.root, "11060",
+    { ...clockProof11055, executionId: "11060" }, clockClosedAt11055));
+});
+
+test("a future clock failure writes no effects and closes through the generic preflight route", async () => {
+  const f = await fixture(), runId = "n8n-export-first-11200";
+  // The fixed api-export validates the clock before any mkdir or persist, so a
+  // drifted clock leaves no plan intent, no run directory and no controller.
+  const plan = { version: 2, protocol: "2026-09-06.export-first.1", executionId: "11200", runId,
+    runDate: "2026-11-05", asOfDate: "2026-11-04", baseUrl: "http://localhost:3000",
+    createdAt: "2026-11-04T16:15:06.000Z", phase: "exporting", exports: {},
+    salesStartDate: "2026-09-21", exportTransport: "session_api_v1" };
+  await writeFile(path.join(f.pipeline, `${runId}.json`), JSON.stringify(plan, null, 2) + "\n");
+  await writeFile(f.activePath, JSON.stringify({ runId, executionId: "11200" }));
+  const evidence: PreflightEvidence = { executionId: "11200", workflowId: jackyunWorkflowId, status: "error",
+    startedAt: "2026-11-04T16:10:01.000Z", stoppedAt: "2026-11-04T16:15:20.000Z", retrySuccessId: null,
+    lastNode: "B·接口校验与五表下载",
+    runNodes: ["每天本机时间 00:10", "固定原执行计划时间", "领取共享 helper", "helper 领取成功？",
+      "A·固定采集日和销售日期", "B·接口校验与五表下载"],
+    error: "API_SERVER_CLOCK_UNVERIFIED", httpCode: "500",
+    requestUrl: "http://127.0.0.1:5791/jackyun/export-first/export-all",
+    executionDataSha256: "b".repeat(64), activeExecutions: 0 };
+  const proposal = await inspectPreflightClosure(f.root, "11200", evidence, "2026-11-04T20:00:00.000Z");
+  // No per-run audited constant is needed: the generic route covers it now.
+  assert.equal(proposal.reason, "verified_api_preflight_without_business_effects");
+  await publishPreflightClosure(f.root, proposal, evidence, recoverySha(JSON.stringify(proposal)));
+  await assertClosedPreflight(f.root, "11200");
+  // A controller left behind by any submitted export must still block closure.
+  const dir = path.join(f.root, "outputs", "jackyun-import-runs", runId);
+  await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, "api-controller-state.json"), JSON.stringify({ modules: { inventory: { status: "submitted" } } }));
+  await assert.rejects(inspectPreflightClosure(f.root, "11200", evidence, "2026-11-04T20:00:00.000Z"));
+});

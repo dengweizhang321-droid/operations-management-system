@@ -8,7 +8,7 @@ function isoDate(value: string) {
   return date;
 }
 
-/** End date is yesterday in the plan's Shanghai business calendar, inclusive. */
+/** End date is yesterday in the plan's frozen business calendar, inclusive. */
 export function rollingJackyunSalesStartDate(endDate: string) {
   const result = new Date(isoDate(endDate).getTime() - (jackyunSalesWindowDays - 1) * dayMilliseconds).toISOString().slice(0, 10);
   isoDate(result);

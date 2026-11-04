@@ -1,5 +1,22 @@
 import type { JackyunServerClock } from "./direct-http";
 
+/** Both clock assertions are evaluated locally and always throw before
+ * submitExport is sent, so they can never leave a platform-side export task. */
+export function isJackyunServerClockFailure(message: string) {
+  return message === "API_SERVER_CLOCK_UNVERIFIED" || message === "API_SERVER_CLOCK_MISSING";
+}
+
+/** Validate the clock evidence alone, with no export intent yet. Callers run
+ * this before persisting any controller state, so a drifted local clock fails
+ * with zero on-disk effects instead of leaving a run directory that later looks
+ * like a possibly-submitted export. Same tolerances as apiTaskWindowStart. */
+export function assertApiServerClock(clock: JackyunServerClock | undefined): void {
+  if (!clock) throw new Error("API_SERVER_CLOCK_MISSING");
+  const start = Date.parse(clock.requestStartedAt), end = Date.parse(clock.receivedAt), server = Date.parse(clock.serverDate);
+  if (![start, end, server].every(Number.isFinite) || end < start || end - start > 5000
+    || Math.abs(server - end) > 10000 || server % 1000 !== 0) throw new Error("API_SERVER_CLOCK_UNVERIFIED");
+}
+
 /** Clock evidence comes from the authenticated, uncached baseline task response, before the POST. */
 export function apiTaskWindowStart(clock: JackyunServerClock | undefined, exportIntentAt: string): string {
   if (!clock) throw new Error("API_SERVER_CLOCK_MISSING");

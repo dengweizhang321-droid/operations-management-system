@@ -44,6 +44,29 @@ jobs:
         # disabling the gate).
         run: node .github/workflows/check-lint-baseline.mjs
 
+      - name: Frozen catalog OWNER privileges
+        # Source-only data check; no runtime/PrepareApp hook or database.
+        run: |
+          python -B tests/catalog-baselines.py
+          python -B tools/check_catalog_baselines.py
+
+      - name: Lifecycle controller qualification bytes
+        # Static source-byte check only. A controller change must be reviewed
+        # and qualified before it can reach a maintenance window.
+        run: node --test --test-timeout=30000 tests/maintenance-controller-qualification.test.mjs
+
+      - name: Current Sales154 schema recipe source bindings
+        # Explicit current recipe only. Historical rehearsal recipes are not
+        # silently renewed. Import the real inherited gate; never bind a parent,
+        # access a database/runtime, prepare artifacts, or run lifecycle actions.
+        # Private venv, with the psycopg pin read from repository requirements.
+        timeout-minutes: 5
+        run: |
+          python -m venv .runtime/schema-digest-ci
+          .runtime/schema-digest-ci/bin/python -c "from pathlib import Path; import subprocess, sys; pins = [s.strip() for s in Path('backend/requirements.txt').read_text().splitlines() if s.strip().startswith('psycopg[binary]==')]; assert len(pins) == 1, 'Expected one exact psycopg pin'; subprocess.run([sys.executable, '-m', 'pip', 'install', pins[0]], check=True)"
+          .runtime/schema-digest-ci/bin/python -B tests/schema-code-digest-static.py
+          .runtime/schema-digest-ci/bin/python -B tools/check_schema_code_digest.py --recipe config/main-schema-releases/sales-0012.json
+
       - name: Build (includes type checking)
         # tsconfig.json has strict: true and noEmit: true; `vinext build`
         # performs TypeScript compilation as part of the build, so this
@@ -85,3 +108,17 @@ jobs:
         # previously regressed silently (see script docstring), not
         # business behavior.
         run: npm run check:pi152-acl
+
+      - name: AI writer privilege coverage
+        # Static AST check (no DB, no Django import): fails if an ORM write
+        # call (.objects...delete()/.update()) in backend/ai_assistant/
+        # needs a privilege database_contract.WRITER_PRIVILEGES does not
+        # grant on that table. Guards the 2026-10-28 incident where
+        # ai_write_request_receipts was missing DELETE (see script
+        # docstring for scope and honest limitations), not business
+        # behavior.
+        # Invoked directly rather than through an npm script: package.json is
+        # a guard-protected Worker entrypoint, so adding a script entry to it
+        # breaks the release chain's byte-exact check. That is what stopped the
+        # Worker on 2026-10-31 at the next reboot.
+        run: python tests/ai-writer-privilege-coverage.py

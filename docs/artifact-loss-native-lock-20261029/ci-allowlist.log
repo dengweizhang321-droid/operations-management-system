@@ -1,0 +1,166 @@
+✔ AI model credentials round-trip with the configured encryption key (32.3785ms)
+✔ a too-short encryption key is rejected instead of silently accepted (0.8595ms)
+✔ an empty encryption key is rejected (0.7117ms)
+✔ documented placeholder encryption keys are rejected even when 32+ bytes (0.344ms)
+✔ example-like encryption keys are rejected (0.3423ms)
+✔ low-entropy (repeated character) encryption keys are rejected (0.3253ms)
+✔ isAcceptableEncryptionKey matches the Django-side validate_secret rule (0.2639ms)
+✔ requestJson applies same-origin defaults and serializes JSON bodies (47.9425ms)
+✔ requestJson preserves explicit fetch options (0.9527ms)
+✔ requestJson returns undefined for successful empty responses (0.2946ms)
+✔ requestJson sends FormData without setting a multipart content type (0.977ms)
+✔ requestJson exposes structured HTTP failures as ApiError (2.1917ms)
+✔ requestJson converts network failures without retrying (0.5895ms)
+✔ requestJson passes AbortError and the caller signal through unchanged (0.3637ms)
+✔ requestJson rejects malformed successful JSON with a bounded ApiError (2.9724ms)
+✔ navigation catalog preserves the twelve modules and task-oriented group order (6.506ms)
+✔ import source catalog exposes every current legal value (0.3222ms)
+✔ dashboard is canonical at root and invalid or duplicate modules fail closed (1.1197ms)
+✔ module and import source parse, serialize, and normalize safely (0.5194ms)
+✔ period contract supports relative, calendar month, and custom ranges (1.3793ms)
+✔ malformed period details normalize to current month without stale fields (0.748ms)
+✔ normalization preserves unknown query parameters, pathname, and hash (0.6998ms)
+✔ canonical serialization is stable across parse and normalize (4.4108ms)
+✔ 分片导入四店精确绑定；无绑定、跨店重放及旧回执均拒绝 (862.9257ms)
+✔ 京东缺失指标短横线保留为null，零保持零，无效和负值仍拒绝 (243.0968ms)
+✔ 客服导入按咨询时间和脱敏顾客标识匹配聊天记录 (87.3256ms)
+✔ 同一咨询时间存在多个候选时不强行匹配 (5.1443ms)
+✔ 仅聊天记录的去重键不受导出顺序影响 (16.5665ms)
+✔ 会话记录解析在行数上限内正常通过，超过上限被拒绝 (2361.1065ms)
+✔ dialog layer transitions keep the background locked until the final dialog closes (2.2114ms)
+✔ dialog is SSR-safe and portals outside the inert application shell (16.8078ms)
+✔ backend and SheetJS replay one fixed cross-group source with identical v2 digests (109.6988ms)
+✔ default normalized v1 JSON bytes stay at the pre-v2 golden digest (207.7553ms)
+✔ explicit v2 records the two source columns before legacy same-name merge (68.3507ms)
+✔ v2 candidate refuses mismatched byte length and never becomes v1 import (76.9489ms)
+✔ v2 oversized source refuses before a raw-file digest is returned (1.2814ms)
+✔ parseFinanceWorkbook 在字节与单表行数上限内正常通过，超限均被拒绝 (429.6944ms)
+✔ 实际客服POST保持显式四店绑定并拒绝矛盾身份，无店铺绑定的旧交互请求拒绝 (1374.1343ms)
+✔ sales ledger parser keeps order number when export also has online order number (23.5989ms)
+✔ sales ledger parser tolerates missing fee allocation column since Jikexyun v4 export (130.0325ms)
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/finance/targets","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/finance/targets","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/finance/targets","origin":"https://attacker.example","secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/finance/targets","origin":"null","secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/ai/internal/other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/ai/internal/edge/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/erp/chunks/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/erp/chunks-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/erp/chunks//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/inventory/chunks/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/inventory/chunks-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/inventory/chunks//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/sales/chunks/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/sales/chunks-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/sales/chunks//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/recovery/finish/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/recovery/finish-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/recovery/finish//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/netshop/import/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/netshop/import-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/netshop/import//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/customer-service/import/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/customer-service/import-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/customer-service/import//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/import/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/import-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/import//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/images/repair/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/images/repair-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/images/repair//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/images/cache/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/images/cache-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/images/cache//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/annotations/worker/sub","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/annotations/worker-other","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/market/annotations/worker//","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/erp","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/erp","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/imports/erp","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/imports/erp","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/imports/erp","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/imports/erp","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/imports/erp","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/imports/erp","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/inventory","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/inventory","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/imports/inventory","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/imports/inventory","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/imports/inventory","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/imports/inventory","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/imports/inventory","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/imports/inventory","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/sales/verify","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/sales/verify","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/imports/sales/verify","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/imports/sales/verify","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/imports/sales/verify","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/imports/sales/verify","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/imports/sales/verify","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/imports/sales/verify","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/recovery","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/imports/recovery","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/imports/recovery","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/imports/recovery","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/imports/recovery","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/imports/recovery","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/imports/recovery","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/imports/recovery","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/netshop/import/chunks","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/netshop/import/chunks","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/netshop/import/chunks","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/netshop/import/chunks","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/netshop/import/chunks","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/netshop/import/chunks","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/netshop/import/chunks","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/netshop/import/chunks","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/inventory/jd-logistics","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/inventory/jd-logistics","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/inventory/jd-logistics","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/inventory/jd-logistics","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/inventory/jd-logistics","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/inventory/jd-logistics","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/inventory/jd-logistics","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/inventory/jd-logistics","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/finance/targets","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"POST","pathname":"/api/finance/targets","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/finance/targets","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PUT","pathname":"/api/finance/targets","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/finance/targets","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"PATCH","pathname":"/api/finance/targets","origin":"https://evil.example","secFetchSite":"cross-site"}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/finance/targets","origin":null,"secFetchSite":null}
+[same-origin-write-gate] rejected cross-site write request {"method":"DELETE","pathname":"/api/finance/targets","origin":"https://evil.example","secFetchSite":"cross-site"}
+✔ same-origin write requests (Sec-Fetch-Site: same-origin) are allowed through (26.4282ms)
+✔ cross-site write requests are rejected with 403 (5.0483ms)
+✔ non-browser clients without Origin or Sec-Fetch-Site (e.g. n8n/curl) are rejected (0.8082ms)
+✔ missing Origin but Sec-Fetch-Site: same-origin is allowed through (0.3524ms)
+✔ Origin mismatched with the request origin is rejected with 403 (0.6589ms)
+✔ Origin: "null" is rejected with 403 (0.599ms)
+✔ the AI webhook callback path stays reachable cross-site (regression guard) (0.3214ms)
+✔ the Django AI edge path is allowed through with no Origin and no Sec-Fetch-Site (server-to-server HMAC call) (0.278ms)
+✔ a neighboring /api/ai/internal/* path is NOT exempted by the edge allowlist (no over-broad wildcard) (0.8503ms)
+✔ local automation write paths allow server-to-server requests without browser headers (4.1669ms)
+✔ local automation exemptions do not cover neighboring or nested paths (20.6779ms)
+✔ read-only automation URLs and unrelated writes retain the same-origin gate (61.1905ms)
+✔ an exempted multipart import body is left unread for the route handler (35.5266ms)
+✔ GET requests are never affected by the gate, even cross-site (0.5433ms)
+✔ multipart same-origin write requests are allowed through without forcing JSON (0.7973ms)
+✔ the gate is wired into worker/index.ts before the app router handler runs (3.5381ms)
+✔ installed xlsx copies carry the decode_cell negative-coordinate guard (new code present) (179.2639ms)
+✔ patch function is a precise single-line insertion, not a broad rewrite (0.5828ms)
+✔ hash guard rejects an unmatched/tampered input instead of patching blindly (0.6937ms)
+✔ applying the patch twice is idempotent and produces identical bytes (18.266ms)
+✔ installXlsxPrototypePatch on a synthetic 0.18.5 tree patches then reports already_patched, and rejects a foreign version (897.2911ms)
+✔ CVE-2023-30533: a crafted comment ref of "__proto__" no longer pollutes Object.prototype (50.2249ms)
+✔ self-closing blank cells do not consume the following text cell (14.1452ms)
+✔ value-only XLSX writer round-trips multiple sheets and XML-sensitive values (19.5072ms)
+✔ value-only XLSX writer requires at least one worksheet (1.9351ms)
+✔ value-only XLSX writer is byte-deterministic across wall-clock changes (5.7672ms)
+ℹ tests 66
+ℹ suites 0
+ℹ pass 66
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5663.2826

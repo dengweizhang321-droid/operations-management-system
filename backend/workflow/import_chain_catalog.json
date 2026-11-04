@@ -15,8 +15,7 @@
     "TmallYiyongDaily2026",
     "TmallCuizhiwangDaily2026",
     "TmallMasituDaily2026",
-    "JdLogisticsDaily2026",
-    "TmallWarehouseDaily2026"
+    "JdLogisticsDaily2026"
   ],
   "manualCompletion": {
     "J8kY2mQ5vR7sT4pN": [
@@ -487,7 +486,8 @@
       },
       {
         "name": "领取共享 helper",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "onError": "continueErrorOutput"
       },
       {
         "name": "已领取执行所有权？",
@@ -513,44 +513,6 @@
       },
       {
         "name": "D·缺货提醒与精确投递回查",
-        "type": "n8n-nodes-base.httpRequest",
-        "onError": "continueErrorOutput",
-        "maximumAttempts": 1
-      },
-      {
-        "name": "成功后释放 helper",
-        "type": "n8n-nodes-base.httpRequest",
-        "onError": "continueErrorOutput",
-        "maximumAttempts": 1
-      }
-    ],
-    "TmallWarehouseDaily2026": [
-      {
-        "name": "手动完整运行",
-        "type": "n8n-nodes-base.manualTrigger"
-      },
-      {
-        "name": "领取共享 helper",
-        "type": "n8n-nodes-base.httpRequest"
-      },
-      {
-        "name": "已领取执行所有权？",
-        "type": "n8n-nodes-base.if"
-      },
-      {
-        "name": "A·冻结货主与本轮采集日",
-        "type": "n8n-nodes-base.httpRequest",
-        "onError": "continueErrorOutput",
-        "maximumAttempts": 1
-      },
-      {
-        "name": "B·导出签收完整校验并导入",
-        "type": "n8n-nodes-base.httpRequest",
-        "onError": "continueErrorOutput",
-        "maximumAttempts": 1
-      },
-      {
-        "name": "C·独立核验文件精确批次和当前版本",
         "type": "n8n-nodes-base.httpRequest",
         "onError": "continueErrorOutput",
         "maximumAttempts": 1

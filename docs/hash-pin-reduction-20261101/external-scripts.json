@@ -1,0 +1,22 @@
+[
+  {
+    "path": "D:\\codex-artifacts\\release-optimization-20261101\\hash\\audit-history.py",
+    "sha256": "223d3f5fca971b48030d1d6782f1a6bf60f7c0aae46ecb828ccb8a85664412bb",
+    "bytes": 11123
+  },
+  {
+    "path": "D:\\codex-artifacts\\release-optimization-20261101\\hash\\classify-hashes.py",
+    "sha256": "22334b398fe857204755258b75854022e3a0eef881a4e3e55294a92a63d78642",
+    "bytes": 14373
+  },
+  {
+    "path": "D:\\codex-artifacts\\release-optimization-20261101\\hash\\enumerate-hashes.py",
+    "sha256": "be1aa13f72ebf8b014bae4d5a7773bb100c6a1c560cdeb2913dae779107557ac",
+    "bytes": 4422
+  },
+  {
+    "path": "D:\\codex-artifacts\\release-optimization-20261101\\hash\\supporting-evidence.py",
+    "sha256": "6f858668cfdf948da8c864b7478077c0e903cb29c71046d449ed2414bb1cf1b5",
+    "bytes": 3574
+  }
+]

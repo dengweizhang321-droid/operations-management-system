@@ -18,6 +18,30 @@ from urllib.parse import urlsplit
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "teruisi_backend.settings")
 
 
+def ensure_loop_connection(stopped):
+    """Retry only a pure connection timeout before any queue work begins."""
+    from django.db import OperationalError, connections
+    from psycopg.errors import ConnectionTimeout
+
+    connection = connections["default"]
+    for attempt in range(4):
+        if stopped.is_set():
+            return False
+        connecting = connection.connection is None
+        try:
+            connection.ensure_connection()
+        except OperationalError as error:
+            # An established connection or initialization failure may have
+            # effects; neither can be treated as an unstarted connection.
+            if (not connecting or connection.connection is not None
+                    or not isinstance(error.__cause__, ConnectionTimeout) or attempt == 3):
+                raise
+            if stopped.wait(2**attempt):  # At most three retries: 1, 2, 4 seconds.
+                return False
+        else:
+            return not stopped.is_set()
+
+
 def identity(op):
     return {"operationId": op.id, "ownerId": op.session.owner_email, "conversationId": op.session_id,
         "epoch": op.epoch, "generation": op.generation, "seq": op.seq}
@@ -580,6 +604,8 @@ def _export_loop(stopped):
     from .policy import mutation
     while not stopped.is_set():
         close_old_connections()
+        if not ensure_loop_connection(stopped):
+            break
         with mutation():
             PiExport.objects.filter(status="running", updated_at__lt=timezone.now()-timedelta(minutes=5)).update(status="failed", error_code="pi_export_worker_lost")
         cleanup = PiDispatch.objects.filter(kind="control:freeze", status="prepared").select_related("operation__session").order_by("created_at").first()
@@ -665,6 +691,8 @@ def main():
                 connections.close_all()
         while not stopped.is_set():
             close_old_connections()
+            if not ensure_loop_connection(stopped):
+                break
             running = {key: value for key, value in running.items() if value.is_alive()}
             from .pi_native import scheduler_tick
             scheduler_tick()

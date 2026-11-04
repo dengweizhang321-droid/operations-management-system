@@ -3,10 +3,15 @@ import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {parseArgs} from 'node:util';
+import {readFileSync} from 'node:fs';
+import {copyRuleSourcePaths,extractCopyRules,copiedComponents} from './release-copy-rules.mjs';
+import {readCopyRuleGitSources} from './release-copy-git-sources.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const norm=value=>value.replaceAll('\\','/');
+const readWorkingSource=p=>{try{return readFileSync(path.join(root,p),'utf8');}catch{return null;}};
+const workingCopyRules=()=>extractCopyRules(Object.fromEntries(copyRuleSourcePaths.map(p=>[p,readWorkingSource(p)])),readWorkingSource);
 
 export function parseNameStatus(raw){
   const tokens=raw.split('\0').filter(Boolean),changes=[];
@@ -19,10 +24,24 @@ export function parseNameStatus(raw){
   return changes;
 }
 
-export function classifyRelease(changes){
+export function classifyRelease(changes,{copyRules=workingCopyRules()}={}){
   const state={worker:false,django:false,migrate:false,persistence:false,full:false,domains:new Set(),reasons:[],unknown:[]};
   const classify=p=>{
     const value=norm(p);
+    if(/^tools\//i.test(value)){
+      // Publishing/control changes can affect both components without being
+      // installed in either app. Keep their existing conservative contract.
+      const explicitControls=['tools/release-scope-plan.mjs','tools/release-copy-rules.mjs','tools/release-copy-git-sources.mjs',...copyRuleSourcePaths,'tools/worker-local-release-rotation.mjs','tools/worker-local-service.ps1','tools/operations-system-control.ps1','tools/operations-system-service.ps1','tools/process-deadline.ps1'];
+      const control=[...explicitControls,...(copyRules.controlFiles??[])].some(p=>p.toLowerCase()===value.toLowerCase());
+      const membership=copiedComponents(value,copyRules);
+      state.full=true; // strict validation is independent from package scope
+      if(control||!membership.known){state.worker=true;state.django=true;state.persistence=true;state.reasons.push(`发布控制或未知复制规则:${value}:${membership.reason}`);if(!membership.known)state.unknown.push(value);return;}
+      state.worker ||= membership.components.includes('worker');
+      state.django ||= membership.components.includes('django');
+      state.persistence ||= membership.components.length>0;
+      state.reasons.push(`应用复制清单[${membership.components.join(',')||'neither'}]:${value}:${membership.reason}`);
+      return;
+    }
     if(/^(docs\/|README\.md$|AGENTS\.md$)/.test(value))return;
     if(/^tests\//.test(value)){state.reasons.push(`测试:${value}`);return;}
     const backend=/^backend\/([^/]+)\//.exec(value);
@@ -36,7 +55,10 @@ export function classifyRelease(changes){
     if(/^\.github\//.test(value)){state.reasons.push(`CI:${value}`);return;}
     state.worker=true;state.django=true;state.persistence=true;state.full=true;state.unknown.push(value);state.reasons.push(`未知路径升级完整流程:${value}`);
   };
-  for(const change of changes){if(change.before)classify(change.before);classify(change.path);}
+  for(const change of changes){
+    if(/^[TUXB]/.test(change.status)){state.worker=true;state.django=true;state.persistence=true;state.full=true;state.unknown.push(change.path);state.reasons.push(`未知Git对象类型或冲突:${change.path}`);continue;}
+    if(change.before)classify(change.before);classify(change.path);
+  }
   const components=[state.worker&&'worker',state.django&&'django'].filter(Boolean);
   const code=components.length>0;
   const scope=!code?'non-production':state.migrate?'database-migration':state.full?'full':state.worker&&state.django?'combined':state.django?'backend':state.persistence?'worker-persistence':'frontend-worker';
@@ -45,7 +67,7 @@ export function classifyRelease(changes){
   // New schema deliveries follow the confirmed schema-only policy. Business
   // imports/backfills and database recovery need their own authorization;
   // existing sealed batch contracts are not changed by this planning tool.
-  const deployment=!code?[]:[...(state.persistence&&!state.migrate?['verify-current-database-backup']:[]),...(state.migrate?['apply-approved-migrations']:[]),...(state.worker?['activate-worker-release']:[]),...(state.django?['deploy-django-app']:[]),'verify-startup','verify-affected-function'];
+  const deployment=!code?[]:[...(state.persistence&&!state.migrate?['verify-current-database-backup']:[]),...(state.migrate?['apply-approved-migrations']:[]),...(state.worker?['activate-worker-release']:[]),...(state.django?['deploy-django-app']:[]),'verify-startup'];
   const workflow=[
     {step:4,id:'validate-change',actions:validation},
     {step:5,id:'merge-and-package',actions:['merge-main','push-main',...packaging]},
@@ -59,7 +81,17 @@ export function makeReleasePlan({base,head='HEAD',cwd=root}){
   if(!base||base.startsWith('-')||head.startsWith('-'))throw new Error('必须提供明确的 --base Git 提交');
   const baseSha=git(['rev-parse','--verify',`${base}^{commit}`]).trim(),headSha=git(['rev-parse','--verify',`${head}^{commit}`]).trim();
   const changes=parseNameStatus(git(['diff','--name-status','--find-renames=50%','-z',baseSha,headSha]));
-  const core={version:'teruisi-scoped-release-plan-v3',baseSha,headSha,changes,...classifyRelease(changes)};
+  const objectCache=new Map();
+  const readRules=sha=>{
+    try{return extractCopyRules(readCopyRuleGitSources(sha,cwd,{objectCache}));}catch(error){return {known:false,reason:`Git copy source read failed: ${error.message}`};}
+  };
+  const hasTools=changes.some(c=>/^tools\//i.test(c.path)||/^tools\//i.test(c.before??''));
+  const unaffected={known:true,djangoFiles:[],workerFiles:[],controlFiles:[],notNeeded:'no tools path changed'};
+  const beforeRules=hasTools?readRules(baseSha):unaffected,afterRules=hasTools?readRules(headSha):unaffected;
+  // Deletions/renames require both source versions. Unknown historical rules
+  // cannot be projected from today's checkout.
+  const copyRules=beforeRules.known&&afterRules.known?{...afterRules,djangoFiles:[...new Set([...beforeRules.djangoFiles,...afterRules.djangoFiles])],workerFiles:[...new Set([...beforeRules.workerFiles,...afterRules.workerFiles])],controlFiles:[...new Set([...beforeRules.controlFiles,...afterRules.controlFiles])]}:{known:false,reason:beforeRules.reason??afterRules.reason};
+  const core={version:'teruisi-scoped-release-plan-v3',baseSha,headSha,changes,...classifyRelease(changes,{copyRules})};
   return {...core,planSha256:hash(core)};
 }
 

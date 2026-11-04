@@ -38,15 +38,39 @@ def verify_catalog(cursor, *, installed=True, permissions=True):
     verify_index(cursor, installed=installed)
 
 
+def order_columns(tables, models):
+    """Each table's primary-key column, from the reviewed migration state.
+
+    Three of153's tables key on a OneToOne parent ("ai_pi_agents" on
+    session_id, "ai_pi_native_states" on root_session_id,
+    "ai_pi_business_delegations" on intent_id), so they have no "id" at all.
+    This sort key feeds legacyRowsSha256 and must match across the
+    install/finalize pair, so it is taken from migration state rather than the
+    live catalogue: the same bytes the generation reviewed, not whatever the
+    database reports at run time.
+    """
+    if set(models) != set(tables):
+        raise ValueError("Sales154 parent model membership differs")
+    columns = {}
+    for table in tables:
+        key = models[table]._meta.pk
+        if key is None or not key.column:
+            raise ValueError("Sales154 parent table has no ordering key: " + table)
+        columns[table] = key.column
+    return columns
+
+
 def preservation(cursor):
     # Preserve the unchanged parent's original row/ACL contract and its own tables.
     import bi_app_addition as common
     import pi_native_catalog as parent
     from psycopg import sql
     original = parent.preservation(cursor)
+    order = order_columns(parent.TABLES, parent.models_at_revision())
     values, permissions, count = {}, {}, original["rows"]
     for table in parent.TABLES:
-        cursor.execute(sql.SQL("SELECT to_jsonb(t) FROM {} t ORDER BY id LIMIT 100001").format(sql.Identifier(table)))
+        cursor.execute(sql.SQL("SELECT to_jsonb(t) FROM {} t ORDER BY {} LIMIT 100001").format(
+            sql.Identifier(table), sql.Identifier(order[table])))
         rows = cursor.fetchall()
         if len(rows) > 100000:
             raise ValueError("Sales154 parent preservation exceeded bound")

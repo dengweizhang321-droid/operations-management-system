@@ -1,0 +1,295 @@
+{
+  "revision": "3ce73dfa87884ceea23f3b71f90b2244704b4170",
+  "js": {
+    "revision": "3ce73dfa87884ceea23f3b71f90b2244704b4170",
+    "parser": "acorn 8.16.0",
+    "parsedFiles": 222,
+    "assertionSites": 7115,
+    "parseErrors": [],
+    "rootPhases": {
+      "outer-select": [
+        [
+          "tools/publish-latest-main.mjs",
+          "readLivePublication"
+        ],
+        [
+          "tools/publish-latest-main.mjs",
+          "observeLatestMain"
+        ],
+        [
+          "tools/publish-latest-main.mjs",
+          "prepareLatestMainOnce"
+        ],
+        [
+          "tools/publish-latest-main.mjs",
+          "inspectMainPreparation"
+        ],
+        [
+          "tools/publish-latest-main.mjs",
+          "publisherEnvironment"
+        ],
+        [
+          "tools/publish-latest-main.mjs",
+          "assertPublicationPreconditions"
+        ],
+        [
+          "tools/publish-latest-main.mjs",
+          "preparationControlBinding"
+        ],
+        [
+          "tools/publish-latest-main.mjs",
+          "acquireMainPublicationQueue"
+        ],
+        [
+          "tools/preparation-retirement-admission.mjs",
+          "assertRetirementAdmission"
+        ]
+      ],
+      "native-before-started": [
+        [
+          "tools/publish-prepared-main.mjs",
+          "publishPreparedMain"
+        ],
+        [
+          "tools/publish-prepared-main.mjs",
+          "requireMainPreparation"
+        ],
+        [
+          "tools/publish-prepared-main.mjs",
+          "preparedComponents"
+        ],
+        [
+          "tools/frozen-main-source.mjs",
+          "assertFrozenSource"
+        ],
+        [
+          "tools/manual-maintenance-continuation.mjs",
+          "maintenanceReadiness"
+        ],
+        [
+          "tools/publish-main-owner.mjs",
+          "capturePublicationOwner"
+        ],
+        [
+          "tools/main-schema-release.mjs",
+          "verifyMainSchemaRelease"
+        ],
+        [
+          "tools/worker-local-release-rotation.mjs",
+          "planWorkerReleaseRotation"
+        ]
+      ],
+      "check": [
+        [
+          "tools/publish-latest-main.mjs",
+          "readLivePublication"
+        ],
+        [
+          "tools/publish-latest-main.mjs",
+          "observeLatestMain"
+        ],
+        [
+          "tools/publish-latest-main.mjs",
+          "prepareLatestMainOnce"
+        ],
+        [
+          "tools/publish-latest-main.mjs",
+          "inspectMainPreparation"
+        ],
+        [
+          "tools/publish-latest-main.mjs",
+          "reportPublicationPreconditions"
+        ],
+        [
+          "tools/manual-maintenance-continuation.mjs",
+          "maintenanceReadiness"
+        ],
+        [
+          "tools/main-schema-release.mjs",
+          "verifyMainSchemaRelease"
+        ]
+      ]
+    },
+    "unresolved": [],
+    "limitations": [
+      "Callbacks and injected dependencies need reviewed explicit edges.",
+      "Same function may contain prepare/reuse/recovery branches; phase reachability is an upper bound.",
+      "No project module imported or executed. No native preflight executed."
+    ],
+    "files": "full function/module metadata kept in external JS-CORPUS.json"
+  },
+  "powershell": {
+    "revision": "3ce73dfa87884ceea23f3b71f90b2244704b4170",
+    "parser": "5.1.26100.9444",
+    "files": 77,
+    "assertionSites": 2315,
+    "parseErrors": [],
+    "execution": "ParseInput only; no project code loaded"
+  },
+  "finiteSchemaPythonImportClosure": [
+    "tools/pi_agent_upgrade_runtime.py",
+    "tools/tmall_warehouse_candidate.py",
+    "tools/tmall_warehouse_addition.py",
+    "tools/jd_product_monitoring_catalog.py",
+    "tools/bi_app_addition.py",
+    "tools/postgres_no_key_backup.py",
+    "tools/postgres_restore_semantics.py",
+    "tools/workflow_automation_catalog.py",
+    "tools/sales_preflight_catalog.py",
+    "tools/pi_native_catalog.py",
+    "tools/pi_business_catalog.py",
+    "tools/pi_workspace_catalog.py",
+    "tools/pi_agent_catalog.py",
+    "tools/tmall_warehouse_catalog.py",
+    "tools/jd_monitor_preferences_catalog.py",
+    "tools/jd_logistics_catalog.py",
+    "tools/ai_schedule_addition_catalog.py",
+    "tools/jackyun_audit_catalog.py",
+    "tools/integration_migration_plan.py",
+    "tools/protected_ai_shadow_evidence_0073.py",
+    "tools/integration_release_gate.py",
+    "tools/jackyun_audit_addition.py",
+    "tools/ai_schedule_addition.py",
+    "tools/jd_logistics_addition.py",
+    "tools/jd_monitor_preferences_addition.py",
+    "tools/jd_product_monitoring_addition.py",
+    "tools/pi_agent_addition.py",
+    "tools/pi_workspace_addition.py",
+    "tools/pi_business_addition.py",
+    "tools/pi_native_addition.py",
+    "tools/sales_preflight_addition.py",
+    "tools/workflow_automation_addition.py",
+    "tools/integration_migration_journal.py",
+    "tools/jd_product_monitoring_candidate.py",
+    "tools/pi_agent_candidate.py",
+    "tools/pi_workspace_candidate.py",
+    "tools/pi_business_candidate.py",
+    "tools/pi_native_candidate.py",
+    "tools/sales_preflight_candidate.py",
+    "tools/workflow_automation_candidate.py",
+    "backend/pi_runner/runtime_upgrade.py",
+    "backend/pi_runner/protocol.py",
+    "backend/pi_runner/server.py",
+    "backend/pi_runner/install_linux.py"
+  ],
+  "pythonAssertRaiseSitesInClosure": 978,
+  "deliveredSiteCount": 2381,
+  "byLanguage": {
+    "JavaScript": 1549,
+    "PowerShell": 77,
+    "Python": 755
+  },
+  "psRoots": [
+    [
+      "tools/django-local-service.ps1",
+      "Verify-PreparedApplication"
+    ],
+    [
+      "tools/django-local-service.ps1",
+      "Assert-RuntimeAclHardened"
+    ],
+    [
+      "tools/django-local-service.ps1",
+      "Assert-DeployedApplication"
+    ],
+    [
+      "tools/django-local-service.ps1",
+      "Invoke-WithServiceMutex"
+    ],
+    [
+      "tools/manual-maintenance-preflight.ps1",
+      "<module>"
+    ],
+    [
+      "tools/manual-maintenance-process.psm1",
+      "Assert-MaintenanceReadiness"
+    ],
+    [
+      "tools/django-ai.ps1",
+      "Check-PiUpgradePlan"
+    ]
+  ],
+  "psDynamicEdgeCount": 2,
+  "externalEvidenceRoot": "D:\\codex-artifacts\\release-optimization-20261101\\preflight",
+  "externalFiles": {
+    "build-ledger.py": {
+      "bytes": 13640,
+      "sha256": "53f99d8f5e9a42e9161dffeb85810b13dd8690f56c33b22b28fe8b1a4d62fe18"
+    },
+    "EMBEDDED-PS-ASSERTIONS.json": {
+      "bytes": 10646,
+      "sha256": "08d42954909b076bd3b5370572ce5c848ddb832bda29f1ea2275fd444d9b019d"
+    },
+    "EMBEDDED-PS-COVERAGE.json": {
+      "bytes": 3750,
+      "sha256": "fee2f160efcdbe714b4adef6ec1b764b1dbcaf963ac84db629d20e8505e81953"
+    },
+    "EMBEDDED-SCRIPTS.json": {
+      "bytes": 30123,
+      "sha256": "5b0c3d36393b5950c6ade9c88b3789edc65e4a0dedd5745bdbb3ddbf35dad21b"
+    },
+    "enrich-history.py": {
+      "bytes": 4332,
+      "sha256": "db034ff4ca42ca3a3ef89f67aed96b793b22321b25056eb72fac0358dd9ad1d8"
+    },
+    "extract-embedded.mjs": {
+      "bytes": 4875,
+      "sha256": "9e5ab57f3b473ab4058483db4204d1143ddce9d339f11f92d01f293c45d64e4c"
+    },
+    "extract-js-assertions.mjs": {
+      "bytes": 8539,
+      "sha256": "0d99299222dfdc6ed3727c174df94b7a9c209181559793fc83f2745479cc1b2c"
+    },
+    "extract-ps-assertions.ps1": {
+      "bytes": 2838,
+      "sha256": "4586326a318f7a7662c3ce380b181313a61052003b7caed1fc36cac601a32d5e"
+    },
+    "finish-dynamic-index.py": {
+      "bytes": 12206,
+      "sha256": "bad3385c1f1748b6142c0d27ba659cff84152ab3efe30338a847b0f5c6978e55"
+    },
+    "JS-ASSERTIONS.json": {
+      "bytes": 3411524,
+      "sha256": "7985a98d79c2c5dab2606342603bbe47472432d89d3f549c84d452fe0c7bc003"
+    },
+    "JS-CALL-EDGES.json": {
+      "bytes": 6255274,
+      "sha256": "c694f1959ca3030a8cd03b01a668b51084291aa5fd4a3b53d36684295c53703f"
+    },
+    "JS-CORPUS.json": {
+      "bytes": 261648,
+      "sha256": "4c3a68963319b8e7d66715a6f0f96b1d4e9072e1f2e23826488970f2d82eb444"
+    },
+    "parse-embedded.ps1": {
+      "bytes": 1950,
+      "sha256": "82474336538646c2759c83b1117d2bea79e6e36479535143625bbd8897005388"
+    },
+    "PS-ASSERTIONS.json": {
+      "bytes": 840084,
+      "sha256": "e60e66f8acd8e2294ab577ce51cb0ba5e9ddfe4f69432a22a24425d6390f0692"
+    },
+    "PS-CALL-EDGES.json": {
+      "bytes": 3033482,
+      "sha256": "a05ef724a90b1df45d853c6f411cb91a4179d4e46c168137430def5f280976f5"
+    },
+    "PS-CORPUS.json": {
+      "bytes": 259,
+      "sha256": "0b6736eedf9bf1aa8f3468783cc62ae3a47d1b765bc484a6da7baa7ed521fe1d"
+    },
+    "PS-FUNCTIONS.json": {
+      "bytes": 151256,
+      "sha256": "270deea7642566146ec92fccf25432dfb0047b1feeb57201a01971544e967898"
+    }
+  },
+  "coverageQualification": "Syntactic corpus + manually reviewed dispatcher/cross-language roots + conservative dependency superset. Not a path-sensitive proof that every listed statement runs before STARTED. Dynamic dependencies remain explicit; no live verifier run; no preflight PASS claimed.",
+  "implicitFailures": "JSON decoding, stat/read/hash, subprocess exit/timeouts, HTTP transport, import/parse/OS ACL errors are additional failure classes without one hardcoded assertion text; see REPORT.",
+  "embeddedSupplement": {
+    "siteCount": 44,
+    "assertions": "EMBEDDED-ASSERTIONS.json",
+    "coverage": "EMBEDDED-COVERAGE.json",
+    "dynamicBoundaryIndex": "DYNAMIC-BOUNDARIES.json",
+    "knownDynamicEdges": 16,
+    "systemApiInternalsExcluded": true,
+    "actualLinuxInstalledBytesVerified": false
+  }
+}

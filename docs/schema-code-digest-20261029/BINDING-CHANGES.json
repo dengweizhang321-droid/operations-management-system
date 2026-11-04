@@ -1,0 +1,11 @@
+{
+  "baseCommit": "deaa20f9d21fe1b6feea8d01a093f37ad3e92c9f",
+  "codeFileCount": 86,
+  "oldCodeSha256": "6253cf315a9195c017df3a6e5949261cc4521601c26ab516a6d317ac868ded9e",
+  "newCodeSha256": "e411415d0a76aae5ba8648e3db2b306c82dcd786262eb8171eff6e593875b1a1",
+  "oldValidationSha256": "3d9183c9d0ed8e9350ac3c2c3a59585037be565a92ba2fb773fbd74cb64035f4",
+  "newValidationSha256": "4cd684632b28cef6c4770bd452f6e211b29ae7f3b0da994a04d406eafa7dbb4a",
+  "newExecutionEvidenceSha256": "0c749d77734d32bb5ec372ccf143e383805a26b1780f38146e51f2ddb6b2b58e",
+  "newRecipeSha256": "49c5ae1967baa7b42da2dc393f9fa8f57c421e69a31d90ab487d3f3d2aa7ae1a",
+  "migrationSha256Unchanged": true
+}

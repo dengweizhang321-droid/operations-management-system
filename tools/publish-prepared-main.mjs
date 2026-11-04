@@ -2,6 +2,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import {assertPublicationReady,waitForPublicationReady,publicationDeadline,readyRequestTimeoutMs,PublicationReadinessError} from './publication-readiness.mjs';
 import {randomUUID,createHash} from 'node:crypto';
 import {assertFrozenSource} from './frozen-main-source.mjs';
 import {createMainPublicationStep} from './publish-main-step.mjs';
@@ -74,6 +75,9 @@ export async function publishPreparedMain(request,context){
   !file.split('/').some(part=>part==='tests'||part.startsWith('test_'))));
  const piUpgradeKind=['PiWorkspace','PiBusiness','PiNative'].includes(schema?.additionKind)?schema.additionKind:piRuntimeChanged?'PiNative':null;
  const piUpgradeRequired=piUpgradeKind!==null;
+  // Role contracts can change alongside any schema addition, not just their original additions.
+  const aiRolesChanged=(request.releasePlan?.changes??[]).some(change=>[change.path,change.before].includes('backend/ai_assistant/database_contract.py'));
+  const inventoryRolesChanged=(request.releasePlan?.changes??[]).some(change=>[change.path,change.before].includes('tools/django-inventory-service.ps1'));
  assert.ok(!piUpgradeRequired||components.django,'Pi Runner升级必须绑定本次Django准备包');
  const piUpgradeImage=piUpgradeKind==='PiNative'?piNativeImage:piUpgradeKind==='PiBusiness'?piBusinessImage:piWorkspaceImage;
  const {out,api,rotation,transport}=context;
@@ -124,19 +128,16 @@ export async function publishPreparedMain(request,context){
   }catch(error){if(error.code!=='ENOENT')await leaseWarning('清理发布租约',error);}
  };
  const step=createMainPublicationStep({out,request,api,transport,runStep:context.runStep,progress,phase:label=>{phase=label;},refreshLease});
- const ready=async()=>{
-  const response=await (context.fetch??fetch)('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)});
-  try{
-   assert.equal(response.status,200,'服务尚未就绪');
-   const health=await response.json();
-   assert.equal(health?.ok,true,'服务就绪响应ok不匹配');
-   assert.equal(health?.status,'ready','服务就绪响应status不匹配');
-  }finally{
-   // JSON consumes (and may retain a lock on) a real Fetch body. Cancel only
-   // an unread, unlocked body, such as an HTTP rejection before JSON parsing.
-   if(!response.bodyUsed&&!response.body?.locked)await response.body?.cancel();
-  }
- };
+ const deadlineUnixMs=publicationDeadline(context.deadlineUnixMs??process.env.TERUISI_PROCESS_DEADLINE_UNIX_MS);
+ const ready=()=>assertPublicationReady({fetchImpl:context.fetch??fetch,deadlineUnixMs,timeoutMs:readyRequestTimeoutMs});
+ let observationWrites=Promise.resolve();
+ // Only the tail opts into waiting; an existing SUCCESS still uses one probe.
+ const waitReady=()=>waitForPublicationReady({...context.readinessWaitOptions,fetchImpl:context.fetch??fetch,deadlineUnixMs,
+  onObservation:observation=>{
+   const line=JSON.stringify({at:new Date().toISOString(),mainCommit:request.mainCommit,...observation})+'\n';
+   observationWrites=observationWrites.then(()=>fs.appendFile(path.join(out,'readiness-observations.jsonl'),line))
+    .catch(()=>{try{progress.log('就绪诊断记录未能写入；继续按原就绪结果判定。');}catch{}});
+  }});
  const preparationDeadline=Math.min(Date.now()+1800000,Number(process.env.TERUISI_PROCESS_DEADLINE_UNIX_MS)||Infinity);
  const preparationWait=context.prepareOnly?{requestId:digest(Buffer.from(JSON.stringify(request))),deadlineUnixMs:preparationDeadline}:undefined;
  return rotation.withRotationLock(async rotationLease=>{
@@ -161,7 +162,8 @@ export async function publishPreparedMain(request,context){
   assert.equal(djangoBefore,request.predecessorDjangoSha256,'后台版本已被其他发布改变');
   const preparationFile=path.join(preparationOut,'PREPARED.json');
   const requestSha256=digest(Buffer.from(JSON.stringify(request)));
-  let publicationStarted=false;
+  let publicationStarted=false,workerDrainOpen=false;
+  const oldWorker=path.join(runtime,'releases',before.head.releaseId,'tools/worker-local-service.ps1');
   try{
    await beginLease();
    if(schema)await (context.verifySchemaRelease??(()=>verifyMainSchemaRelease(request,source)))();
@@ -265,7 +267,6 @@ export async function publishPreparedMain(request,context){
    }
    // Assemble all inputs that can fail due to missing materials before STARTED.
    // This inventory explains existing evidence; it is not another admission.
-   const oldWorker=path.join(runtime,'releases',before.head.releaseId,'tools/worker-local-service.ps1');
    const targetWorker=plan?path.join(runtime,'releases',plan.candidateReleaseId,'tools/worker-local-service.ps1'):oldWorker;
    let maintenanceMaterials=null;
    const workerEntries=[];
@@ -289,8 +290,12 @@ export async function publishPreparedMain(request,context){
    publicationStarted=true;
    maintenanceStarted=true;
    if(!components.django){
+    // The gate may be persisted before BeginWorkerDrain returns or throws.
+    workerDrainOpen=true;
     const drained=await step('排空前端请求',oldWorker,'BeginWorkerDrain',['-MaintenanceId',maintenanceId]);
     assert.equal(drained.status,'worker_drained');assert.equal(drained.maintenanceId,maintenanceId);assert.equal(drained.drainConfirmed,true);assert.equal(drained.backendStopped,false);
+    // CancelDrain does not check Worker state: close this window before stop.
+    workerDrainOpen=false;
     await step('停止旧前端',oldWorker,'StopForRelease',['-MaintenanceId',maintenanceId]);
    }else{
     // Wait for the shared report lock once, then call the complete native entry.
@@ -324,8 +329,8 @@ export async function publishPreparedMain(request,context){
     const installedSchema=await step('迁移监控字段',path.join(installed,'tools/bi-app-adopt.ps1'),'Install',adoption,{addJson:false});
     assert.equal(installedSchema.status,'verified');assert.equal(installedSchema.result.status,'schema_installed');assert.equal(installedSchema.result.migrationCount,schema.toGeneration);
     assert.deepEqual(installedSchema.result.steps,schema.steps);
-    if(schema.additionKind==='TmallWarehouse')await step('配置天猫库存权限',path.join(installed,'tools/django-inventory-service.ps1'),'ProvisionRoles',[],{json:false});
-    if(['PiAgent','PiWorkspace','PiBusiness','PiNative'].includes(schema.additionKind))await step('配置Pi运行账本权限',path.join(installed,'tools/django-ai.ps1'),'ProvisionRoles',[],{json:false});
+    if(schema.additionKind==='TmallWarehouse'||inventoryRolesChanged)await step('配置天猫库存权限',path.join(installed,'tools/django-inventory-service.ps1'),'ProvisionRoles',[],{json:false});
+    if(['PiAgent','PiWorkspace','PiBusiness','PiNative'].includes(schema.additionKind)||aiRolesChanged)await step('配置Pi运行账本权限',path.join(installed,'tools/django-ai.ps1'),'ProvisionRoles',[],{json:false});
     const finalized=await step('完成结构迁移',path.join(installed,'tools/bi-app-adopt.ps1'),'Finalize',adoption,{addJson:false});
     assert.equal(finalized.status,'verified');assert.equal(finalized.result.status,'verified');assert.equal(finalized.result.migrationCount,schema.toGeneration);assert.deepEqual(finalized.result.steps,schema.steps);
     schemaReceipt={operationId,maintenanceId,release:schema,installed:installedSchema,finalized};
@@ -339,10 +344,24 @@ export async function publishPreparedMain(request,context){
     }
     await save('PiUpgrade-completed.json',{at:new Date().toISOString(),registeredPlanSha256:piRunnerUpgrade.registeredPlanSha256,value:piUpgradeReceipt});
    }
-   return await finishMainPublication({request,components,source,identity,installed,out,api,rotation,rotationLease,before,plan,pkg,djangoExpected,maintenanceId,schema,schemaReceipt,piUpgradeReceipt,step,save,sha,ready,refreshLease,endLease,progress,phase:label=>{phase=label;}});
+   return await finishMainPublication({request,components,source,identity,installed,out,api,rotation,rotationLease,before,plan,pkg,djangoExpected,maintenanceId,schema,schemaReceipt,piUpgradeReceipt,step,save,sha,ready,waitReady,refreshLease,endLease,progress,phase:label=>{phase=label;}});
   }catch(error){
-   await endLease();
    const failure={at:new Date().toISOString(),mainCommit:request.mainCommit,phase,error:String(error.message).slice(0,1600),processEvidence:error.processEvidence??null,maintenanceStarted,automaticRetry:false};
+   if(error instanceof PublicationReadinessError)failure.readiness=error.readiness;
+   // Deliberate exception to no automatic cleanup: only the pre-stop drain.
+   // maintenanceStarted means STARTED was saved, not that drain completed.
+   if(publicationStarted&&!components.django&&workerDrainOpen){
+    try{
+     await step('取消前端排空',oldWorker,'CancelDrain',['-MaintenanceId',maintenanceId]);
+     failure.drainCancelled=true;
+    }catch(cancelError){
+     failure.drainCancelled=false;
+     failure.drainCancelError=String(cancelError.message).slice(0,1600);
+     failure.drainCancelManualHandlingRequired=true;
+     try{progress.log('取消前端排空失败，需人工核对原排空状态；本次发布仍失败，不可自动重试。');}catch{}
+    }
+   }
+   await endLease();
    // Preserve every preparation rejection without turning it into a deployment.
    if(publicationStarted)await save('FAILED.json',failure);
    else await fs.writeFile(path.join(preparationOut,'FAILED-'+randomUUID()+'.json'),JSON.stringify(failure,null,2)+'\n',{flag:'wx'});

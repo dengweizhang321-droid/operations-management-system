@@ -1,3 +1,4 @@
+import { workflowLocalDate } from "../lib/imports/local-time";
 /**
  * Standalone sales-only export script.
  * Connects to the dedicated Chrome, navigates to 销售单明细账,
@@ -30,15 +31,8 @@ const SALES_PAGE_NAME = "销售单明细账";
 const SALES_URL_HINTS = ["order_detail_list"];
 
 // ─── Date helpers ──────────────────────────────────────────────────────────
-function shanghaiYesterday(): string {
-  const now = new Date();
-  // Beijing = UTC+8
-  const beijing = new Date(now.getTime() + 8 * 3600_000);
-  beijing.setUTCDate(beijing.getUTCDate() - 1);
-  const y = beijing.getUTCFullYear();
-  const m = String(beijing.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(beijing.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+function localYesterday(): string {
+  return workflowLocalDate(new Date(), -1);
 }
 
 function salesStartDate(asOfDate: string): string {
@@ -398,7 +392,7 @@ async function fileSha256(filePath: string) {
 
 // ─── Main ──────────────────────────────────────────────────────────────────
 async function main() {
-  const asOfDate = shanghaiYesterday();
+  const asOfDate = localYesterday();
   const startDate = salesStartDate(asOfDate);
   const expectedDates = [`${startDate} 00:00:00`, `${asOfDate} 23:59:59`];
 

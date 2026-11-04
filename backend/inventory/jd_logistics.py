@@ -22,6 +22,7 @@ from .errors import InventoryApiError
 from .jd_logistics_models import (JdLogisticsAudit, JdLogisticsBatch, JdLogisticsDepartment, JdLogisticsFact, JdLogisticsProductMapping, JdLogisticsScope, JdLogisticsTransferManual)
 from .revisions import bump_revision, revision_value
 from .write_requests import lock_active_authority
+from .workflow_dates import collection_timezone
 
 CONTRACT_VERSION = "jd-logistics-v1"
 SOURCE_KINDS = ("flow", "shop_products", "realtime_inventory", "inventory_snapshot")
@@ -284,10 +285,11 @@ def _import_payload(payload, actor):
     elif evidence or store_key:
         _error("手工文件导入不能声明采集器身份")
     collector_evidence = payload.get("collectorEvidence", {})
-    _keys(collector_evidence, {"runId", "executionId", "protocol"})
+    _keys(collector_evidence, {"runId", "executionId", "protocol", "datePolicy", "timeZone"})
     collector_evidence = {key: _text(value, key, 160) for key, value in collector_evidence.items()}
     if origin == "manual" and collector_evidence:
         _error("手工导入不能声明自动执行身份")
+    capture_zone = _collection_zone(collector_evidence, origin)
     collected_at = datetime.fromisoformat(_time(payload["collectedAt"])) if payload.get("collectedAt") else timezone.now()
     if origin == "workflow" and not -300 <= (timezone.now() - collected_at).total_seconds() <= 24 * 3600:
         _error("实际采集时点已过期或在未来", "source_identity_stale")
@@ -297,8 +299,8 @@ def _import_payload(payload, actor):
     normalized = normalize_rows(kind, payload["rows"], department.business_unit_code, start, end, warehouse)
     if warehouse_key and any(row.get("warehouseKey") != warehouse_key for row, _day in normalized):
         _error("来源仓库身份与声明范围不符", "source_identity_mismatch")
-    if kind == "realtime_inventory" and origin == "workflow" and any(day != collected_at.astimezone(SHANGHAI).date() for _row, day in normalized):
-        _error("实时库存只能标记实际上海采集日", "range_mismatch")
+    if kind == "realtime_inventory" and origin == "workflow" and any(day != collected_at.astimezone(capture_zone).date() for _row, day in normalized):
+        _error("实时库存只能标记约定时区的实际采集日", "range_mismatch")
     if not source_as_of:
         source_as_of = max(row["businessTime"] for row, _day in normalized) if kind == "flow" else collected_at.astimezone(SHANGHAI).isoformat() if kind in {"realtime_inventory", "shop_products"} else max(day.isoformat() for _row, day in normalized)
     content_hash = _content_hash(row for row, _day in normalized)
@@ -677,11 +679,25 @@ def _transfer_items(options):
     return items
 
 
+def _collection_zone(evidence, origin):
+    try:
+        return collection_timezone(evidence, workflow=origin == "workflow"
+                                   and evidence.get("protocol") == "jd-logistics-pipeline-v1"
+                                   and bool(evidence.get("runId")) and bool(evidence.get("executionId")))
+    except ValueError:
+        _error("采集日期策略或时区无效", "range_mismatch")
+
+
+def _batch_collection_day(batch):
+    zone = _collection_zone(getattr(batch, "collector_evidence", {}) or {}, getattr(batch, "origin", "manual"))
+    return batch.collected_at.astimezone(zone).date()
+
+
 def _inventory_date_pair(live, snapshot):
     qualifications = []
     pairing, lag = "unqualified", None
     if live:
-        live_day = live.batch.collected_at.astimezone(SHANGHAI).date()
+        live_day = _batch_collection_day(live.batch)
         if live.business_date != live_day:
             qualifications.append("realtime_collection_date_mismatch")
     if snapshot:
@@ -691,7 +707,7 @@ def _inventory_date_pair(live, snapshot):
             source_day = None
         if source_day != snapshot.business_date:
             qualifications.append("snapshot_source_as_of_mismatch")
-        if snapshot.business_date > snapshot.batch.collected_at.astimezone(SHANGHAI).date():
+        if snapshot.business_date > _batch_collection_day(snapshot.batch):
             qualifications.append("snapshot_business_date_in_future")
     if live and snapshot:
         lag = (live_day - snapshot.business_date).days

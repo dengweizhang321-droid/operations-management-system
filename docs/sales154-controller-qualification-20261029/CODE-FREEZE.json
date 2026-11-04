@@ -1,0 +1,6 @@
+{
+  "tools/manual-maintenance-continuation.mjs": "401d007ab8e9b20e00f9abf556915e1640afa4b78aa071fd42ff03c933ac0b89",
+  "tests/manual-maintenance-continuation.test.mjs": "8926f8f9dcb133d0c60defe4c38bb29ea88b91474c48bde89f04af5ca53ded95",
+  "tests/maintenance-controller-qualification.test.mjs": "d2ba9ff03ba4c0437e00c751ebd0f181dbcfa00074ac3905fe85bb28b504928e",
+  ".github/workflows/ci.yml": "c977b045de2b6713b3e45e1ceecd98236a1966a1fb601cdf9c1af41a365a51a3"
+}

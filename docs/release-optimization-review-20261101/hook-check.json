@@ -1,0 +1,33 @@
+{
+  "workerCount": 232,
+  "buildFiles": [
+    "tools/install-workerd-heap-patch.mjs",
+    "tools/install-wrangler-inspector-patch.mjs"
+  ],
+  "membership": [
+    {
+      "p": "tools/install-workerd-heap-patch.mjs",
+      "known": true,
+      "components": [
+        "worker"
+      ],
+      "reason": "Worker runtime/helper/semantic-snapshot input closure"
+    },
+    {
+      "p": "tools/install-wrangler-inspector-patch.mjs",
+      "known": true,
+      "components": [
+        "worker"
+      ],
+      "reason": "Worker runtime/helper/semantic-snapshot input closure"
+    }
+  ],
+  "unknownShellHook": {
+    "known": false,
+    "reason": "dynamic npm lifecycle command: postinstall"
+  },
+  "missingHookSource": {
+    "known": false,
+    "reason": "unresolved helper import: tools/install-workerd-heap-patch.mjs:./install-wrangler-inspector-patch.mjs"
+  }
+}

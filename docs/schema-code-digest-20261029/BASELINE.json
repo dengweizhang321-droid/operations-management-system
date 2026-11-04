@@ -1,0 +1,16 @@
+{
+  "baseCommit": "deaa20f9d21fe1b6feea8d01a093f37ad3e92c9f",
+  "protectedFiles": {
+    "package.json": "c4c7f6a0422370d7ac7c2c75bff2ad0c77f19d507d07cc8d98dcc8440f1d5056",
+    "package-lock.json": "8ec00f801aff894796d783595d202811bccbe94296603ae26766864247d4a4ca",
+    "tools/worker-local-release-rotation.mjs": "5171f54839b42a64d986db919770aa3f72d76dce77babb8abea250a02b8b6037",
+    "tools/publish-prepared-main.mjs": "e50f8112e0ae6553a4f66632ebfc95a76fba1030041c6d9d96af4273d98ae6d1",
+    "tools/worker-local-release.mjs": "6dcd3016f6164a0c897c94ae26ec300b82f69ad122739ea1ba5b843ca95a8333",
+    "tools/django-local-service.ps1": "98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b",
+    "tools/manual-maintenance-continuation.mjs": "401d007ab8e9b20e00f9abf556915e1640afa4b78aa071fd42ff03c933ac0b89",
+    "backend/teruisi_backend/settings.py": "9230ed87a14f16be92343bcb47503c28a084d299df59448772dc1f7dd7621374",
+    "docs/prepared-artifact-loss-20261029/artifact-loss-manifest.json": "e44dac82794da312e3cbaade260b853806e9e9f067eee86197e6b4789a7e32ab"
+  },
+  "oldRecipeCodeSha256": "6253cf315a9195c017df3a6e5949261cc4521601c26ab516a6d317ac868ded9e",
+  "oldValidationSha256": "3d9183c9d0ed8e9350ac3c2c3a59585037be565a92ba2fb773fbd74cb64035f4"
+}

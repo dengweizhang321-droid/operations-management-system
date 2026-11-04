@@ -6,7 +6,8 @@ param(
   [switch]$FunctionsOnly,
   [string]$ApprovedInstallPlanId='',
   [string]$PreparedLauncherPath='',
-  [string]$PreparedLauncherSha256=''
+  [string]$PreparedLauncherSha256='',
+  [string]$RequalifyDriftedAssets=''
 )
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'process-deadline.ps1')
@@ -42,13 +43,48 @@ function Write-WatchJson([string]$Path,[object]$Value) {
   }finally{foreach($p in @($temp,$backup)){if(Test-Path -LiteralPath $p){[IO.File]::Delete($p)}}}
 }
 function Get-WatchHash([string]$Path){(Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()}
+function Get-WatchSanitizedStderrSummary([string]$Value){
+  # Bounded, best-effort evidence for a failed probe/dws process. Never trust
+  # this as structured data: it is free text, kept only as a short, redacted
+  # hint of what failed. First 200 characters, then strip anything shaped
+  # like a filesystem path, a URL, or a credential/token so a leaked secret
+  # or local path never reaches stored evidence or an alert message.
+  if([string]::IsNullOrEmpty($Value)){return $null}
+  $text=$Value.Substring(0,[Math]::Min(200,$Value.Length))
+  # URL first: a URL's scheme (e.g. "https:") would otherwise also satisfy
+  # the single-letter-drive path pattern below ("s:" followed by "//...").
+  $text=[regex]::Replace($text,'(?i)\b[a-z][a-z0-9+.-]*://[^\s"'']*','[url]')
+  $text=[regex]::Replace($text,'(?<![A-Za-z0-9])[A-Za-z]:[\\/][^\s"'']*','[path]')
+  $text=[regex]::Replace($text,'(?:\\\\|//)[^\s"'']+','[path]')
+  # "Authorization: <scheme> <value>" or "Authorization: <value>": redact the
+  # whole remainder (scheme word included), not just the first token after
+  # the colon - a credential value never stops at the scheme name.
+  $text=[regex]::Replace($text,'(?i)(authorization)\s*:\s*(?:[a-z0-9._-]+\s+)?\S+','$1=[redacted]')
+  # A standalone "Bearer <token>" not already consumed above (e.g. no
+  # leading "Authorization:" label) must still redact the token.
+  $text=[regex]::Replace($text,'(?i)\bbearer\s+\S+','bearer=[redacted]')
+  # Credential-shaped "<name>: <value>" / "<name>=<value>". The leading
+  # "\b" only guards the start of this alternation group, not each
+  # alternative's own start: that lets a compound identifier like
+  # "refresh_token", "client_secret" or "access_token" match on its
+  # keyword suffix even though "_" has no word-boundary before it, while
+  # still requiring a real word boundary before the whole credential-ish
+  # run (so this never fires mid-word on unrelated text).
+  $text=[regex]::Replace($text,'(?i)\b[a-z0-9_-]*?(?:token|secret|password|credential|apikey|api[_-]?key|private[_-]?key|session|cookie)\s*[:=]\s*\S+','[redacted]')
+  $text=[regex]::Replace($text,'[0-9a-fA-F]{24,}','[redacted]')
+  return $text.Trim()
+}
 function Invoke-WatchProcess([string]$Executable,[string[]]$Arguments,[int]$Seconds=60) {
   # Only direct probe ownership is admitted. DWS unknown delivery is terminal.
   $capture=Invoke-DeadlineProcess -Executable $Executable -Arguments $Arguments -WorkingDirectory $WatchdogRoot -Deadline (Get-ProcessDeadline ($Seconds*1000)) -Cleanup Direct
   $evidence=$capture.Evidence
   $evidence.stage='result-parse'
   try {
-    if($capture.ExitCode -ne 0){$evidence.code='nonzero_exit';throw 'operator_failed'}
+    if($capture.ExitCode -ne 0){
+      $evidence.code='nonzero_exit'
+      $evidence.stderrSummary=Get-WatchSanitizedStderrSummary $capture.Stderr
+      throw 'operator_failed'
+    }
     [void](Get-ProcessRemaining $evidence.deadlineUnixMs)
     $result=$capture.Stdout.Trim()|ConvertFrom-Json -ErrorAction Stop
     if($null -eq $result -or $result -is [array] -or $result -is [string] -or $result -is [ValueType]){throw 'invalid_result'}
@@ -62,8 +98,8 @@ function Invoke-WatchProcess([string]$Executable,[string[]]$Arguments,[int]$Seco
     throw $failure
   }
 }
-function Invoke-WatchScript([string]$Path,[string[]]$Arguments){
-  Invoke-WatchProcess $PowerShellPath (@('-NoProfile','-NonInteractive','-File',$Path)+$Arguments)
+function Invoke-WatchScript([string]$Path,[string[]]$Arguments,[int]$Seconds=60){
+  Invoke-WatchProcess $PowerShellPath (@('-NoProfile','-NonInteractive','-File',$Path)+$Arguments) $Seconds
 }
 function Get-Admission {
   try{
@@ -91,7 +127,7 @@ function Test-WatchHttp([string]$Url,[string]$Kind,$Pending){
   $response=$null
   try{
     if($Pending){$deadline=$Pending.deadline;$response=$Pending.task.GetAwaiter().GetResult()}else{
-      $deadline=Get-ProcessDeadline 5000;$client.Timeout=[TimeSpan]::FromMilliseconds((Get-ProcessRemaining $deadline))
+      $deadline=Get-ProcessDeadline $(if($Kind -eq 'ready'){20000}else{5000});$client.Timeout=[TimeSpan]::FromMilliseconds((Get-ProcessRemaining $deadline))
       [void]$request.Headers.TryAddWithoutValidation('x-teruisi-local-health','1')
       $response=$client.SendAsync($request,[Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
     }
@@ -128,9 +164,11 @@ function Get-WatchHttpProbes($Urls){
   if(-not ('Teruisi.WatchResponseCleanup' -as [type])){
     Add-Type -TypeDefinition 'namespace Teruisi { public static class WatchResponseCleanup { public static void Observe(System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage> task) { task.ContinueWith(t => { if(t.Status == System.Threading.Tasks.TaskStatus.RanToCompletion) t.Result.Dispose(); else if(t.IsFaulted) { var ignored = t.Exception; } }, System.Threading.CancellationToken.None, System.Threading.Tasks.TaskContinuationOptions.ExecuteSynchronously, System.Threading.Tasks.TaskScheduler.Default); } } }'
   }
-  $result=@{};$pending=[Collections.Generic.List[object]]::new();$deadline=Get-ProcessDeadline 5000
+  $result=@{};$pending=[Collections.Generic.List[object]]::new()
   try{
     foreach($name in @('homepage','live','ready','helper')){
+      # Independent HTTP budgets still inherit the one 120s snapshot deadline.
+      $deadline=Get-ProcessDeadline $(if($name -eq 'ready'){20000}else{5000})
       if([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -ge $deadline){$result[$name]=@{ok=$false;status=0;reason='snapshot_deadline';elapsedMs=0};continue}
       $handler=[Net.Http.HttpClientHandler]::new();$handler.UseProxy=$false;$handler.AllowAutoRedirect=$false
       $client=[Net.Http.HttpClient]::new($handler);$request=[Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Get,$Urls[$name])
@@ -207,7 +245,21 @@ function Get-WatchProcessDiagnostic($Value){
   foreach($name in $allowed.Keys){
     $v=$Value.$name;if($v -is [string] -and $v -cin $allowed[$name]){$safe[$name]=$v}
   }
+  # stderrSummary is free text, not an enum: it was already bounded to 200
+  # characters and redacted by Get-WatchSanitizedStderrSummary at capture
+  # time. Re-cap the length defensively here too, since this function is the
+  # one boundary all process evidence crosses before it can reach stored
+  # evidence or an outgoing alert message.
+  $summary=$Value.stderrSummary
+  if($summary -is [string] -and $summary.Length -gt 0 -and $summary.Length -le 200){$safe.stderrSummary=$summary}
   return $safe
+}
+function Get-WatchBindingDiagnostic([string]$Code,$Value){
+  # Only fixed asset names are recorded. No file paths or hashes leave this function.
+  $codes=@('diagnostic_predecessor_changed','invalid_diagnostic_binding','diagnostic_driver_incomplete','invalid_diagnostic_bundle')
+  if($Code -cnotin $codes){return $null}
+  $assets=@(@($Value.assets)|Where-Object {$_ -is [string] -and $_ -cin @('control','worker','backend','transport')}|Sort-Object -Unique)
+  return @{valid=$false;code=$Code;assets=$assets;requiresRequalification=$true}
 }
 function Resolve-WatchStatusControl {
   $driver=Join-Path $PSScriptRoot 'watchdog-status-control.ps1'
@@ -226,7 +278,15 @@ function Resolve-WatchStatusControl {
   $binding=Read-WatchJson (Join-Path $PSScriptRoot 'driver-binding.json')
   $sources=@{control=$ControlPath;worker=$WorkerPath;backend=(Join-Path $BackendRoot 'app\tools\django-local-service.ps1');transport=(Join-Path $ProjectRoot 'tools\process-deadline.ps1')}
   if(-not $binding -or $binding.version -ne 1){throw 'invalid_diagnostic_binding'}
-  foreach($name in $sources.Keys){if((Get-WatchHash $sources[$name]) -cne $binding.assetHashes.$name){throw 'diagnostic_predecessor_changed'}}
+  # Never update the expected hashes here: a changed predecessor must stay a
+  # closed failure until the driver is regenerated and separately reviewed.
+  # Name the drifted assets so the alert can say the monitor needs requalification.
+  $drifted=@($sources.Keys|Sort-Object|Where-Object {(Get-WatchHash $sources[$_]) -cne $binding.assetHashes.$_})
+  if($drifted.Count){
+    $failure=[Exception]::new('diagnostic_predecessor_changed')
+    $failure.Data['DiagnosticBinding']=@{code='diagnostic_predecessor_changed';assets=$drifted}
+    throw $failure
+  }
   return @{path=$driver;mode='readonly_driver';reason='exact_predecessor'}
 }
 function Get-WatchSnapshot {
@@ -236,14 +296,16 @@ function Get-WatchSnapshot {
   # Planned shutdown is quiet, and a corrupt gate must never be treated as permission.
   if($admission.mode -ne 'running'){return $snapshot}
   $savedDeadline=$env:TERUISI_PROCESS_DEADLINE_UNIX_MS
-  $env:TERUISI_PROCESS_DEADLINE_UNIX_MS=[string](Get-ProcessDeadline 60000)
+  # Measured driver run ~46-54s; control now also allows a 20s ready request.
+  # Keep one 120s snapshot parent, with a 90s control child and other children at 60s.
+  $env:TERUISI_PROCESS_DEADLINE_UNIX_MS=[string](Get-ProcessDeadline 120000)
   try {
   $probeStage='control'
   $stageClock=[Diagnostics.Stopwatch]::StartNew()
   try{
     $selected=Resolve-WatchStatusControl
     $snapshot.diagnosticMode=$selected.mode;$snapshot.diagnosticReason=$selected.reason
-    $status=Invoke-WatchScript $selected.path @('-Action','Status','-Json')
+    $status=Invoke-WatchScript $selected.path @('-Action','Status','-Json') -Seconds 90
     [void](Get-ProcessRemaining ([long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS))
     $snapshot.system=[string]$status.state;$snapshot.backend=[string]$status.backendState;$snapshot.worker=[string]$status.workerState
     foreach($name in @('core','finance','netshop','market','products','workflow','inventory','customerService','accessControl','erpReference','bi','ai')){
@@ -273,7 +335,13 @@ function Get-WatchSnapshot {
   }catch{
     $snapshot.probeError=$true
     $snapshot.stages[$probeStage]=@{status='failed';elapsedMs=$stageClock.ElapsedMilliseconds}
-    $snapshot.processDiagnostic=@{stage=$probeStage;code=if($_.Exception.Message -eq 'process_deadline_exhausted'){'process_deadline_exhausted'}else{'probe_stage_failed'};process=Get-WatchProcessDiagnostic $_.Exception.Data['ProcessEvidence']}
+    $code=if($_.Exception.Message -eq 'process_deadline_exhausted'){'process_deadline_exhausted'}
+      elseif($_.Exception.Message -cin @('diagnostic_predecessor_changed','invalid_diagnostic_binding','diagnostic_driver_incomplete','invalid_diagnostic_bundle')){$_.Exception.Message}
+      else{'probe_stage_failed'}
+    $snapshot.processDiagnostic=@{stage=$probeStage;code=$code;process=Get-WatchProcessDiagnostic $_.Exception.Data['ProcessEvidence']}
+    # The monitor cannot observe the system until its driver is requalified.
+    # Record that separately so it is alertable instead of looking like a probe failure.
+    $snapshot.diagnosticBinding=Get-WatchBindingDiagnostic $code $_.Exception.Data['DiagnosticBinding']
   }
   $snapshot.probes=Get-WatchHttpProbes @{homepage='http://127.0.0.1:3000/';live='http://127.0.0.1:3000/_teruisi/local/health/live';ready='http://127.0.0.1:3000/_teruisi/local/health/ready';helper='http://127.0.0.1:5791/health'}
   if([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -lt [long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS){
@@ -323,13 +391,13 @@ function Get-WatchBusinessHealth {
   return $result
 }
 function New-WatchState {
-  @{version=$WatchdogVersion;failures=0;lastCheck=$null;lastHealthy=$null;incident=$null;attempts=@();lastMode='unknown';lastFence=$null;notification=$null}
+  @{version=$WatchdogVersion;failures=0;lastCheck=$null;lastHealthy=$null;incident=$null;attempts=@();lastMode='unknown';lastFence=$null;notification=$null;notificationEscalations=0;lastNotificationEscalation=$null}
 }
 function Get-WatchDecision($Snapshot,$State,[DateTimeOffset]$Now) {
   if($Snapshot.admission.mode -in @('maintenance','stopped')){return 'suspended'}
   if($Snapshot.healthy){return 'healthy'}
   if([int]$State.failures -lt 2){return 'confirm_failure'}
-  if($Snapshot.admission.mode -ne 'running' -or $Snapshot.probeError -or $Snapshot.supervisor -in @('ownership_error','status_error') -or $Snapshot.worker -notin @('stopped','stale_or_invalid_receipt','exact_release')){return 'alert_only'}
+  if($Snapshot.admission.mode -ne 'running' -or $Snapshot.probeError -or $Snapshot.supervisor -in @('ownership_error','ownership_check_failed','status_error') -or $Snapshot.worker -notin @('stopped','stale_or_invalid_receipt','exact_release')){return 'alert_only'}
   # Clean Worker Stop leaves the backend running: do not reverse that explicit action.
   if($Snapshot.worker -eq 'stopped' -and $Snapshot.backend -eq 'Ready'){return 'alert_only'}
   $recent=@($State.attempts|Where-Object {($Now-[DateTimeOffset]$_).TotalMinutes -lt 15})
@@ -452,6 +520,19 @@ function Get-WatchPortText($Snapshot){
 }
 function Get-WatchFailureText($Snapshot){
   $reasons=[Collections.Generic.List[string]]::new()
+  if($Snapshot.diagnosticBinding -and $Snapshot.diagnosticBinding.valid -eq $false){
+    # Say plainly that the monitor is blind, not that the system is unhealthy.
+    $names=@{control='总控脚本';worker='Worker 服务脚本';backend='Django 服务脚本';transport='进程传输脚本'}
+    $assets=@(@($Snapshot.diagnosticBinding.assets)|ForEach-Object {$names[$_]}|Where-Object {$_})
+    $detail=switch($Snapshot.diagnosticBinding.code){
+      'diagnostic_predecessor_changed'{if($assets.Count){'已变化：'+($assets -join '、')}else{'受钉源文件已变化'}}
+      'invalid_diagnostic_binding'{'钉子文件无效'}
+      'diagnostic_driver_incomplete'{'诊断驱动文件不完整'}
+      'invalid_diagnostic_bundle'{'诊断包清单无效'}
+      default{'诊断绑定无效'}
+    }
+    $reasons.Add("监控自身需要重新资格化（$detail），本轮未能观测服务状态；这不代表服务异常")
+  }
   if($Snapshot.probeError){
     $stage=switch($Snapshot.processDiagnostic.stage){control{'系统状态'} supervisor{'后端守护'} monitor{'守护状态文件'} default{'整轮监控'}}
     $process=$Snapshot.processDiagnostic.process
@@ -487,6 +568,7 @@ function Get-WatchFailureText($Snapshot){
   if($Snapshot.supervisorHealth -eq 'stale'){$reasons.Add('后端守护状态超过7分钟未更新')}
   if($Snapshot.worker -in @('foreign_or_ambiguous','ownership_error','status_error')){$reasons.Add('网页服务进程归属或状态无法核验')}
   if($Snapshot.supervisor -in @('ownership_error','status_error')){$reasons.Add('后端守护进程归属或状态无法核验')}
+  if($Snapshot.supervisor -eq 'ownership_check_failed'){$reasons.Add('监控自身未能完成后端守护进程归属核验，这不代表 supervisor 异常')}
   if($Snapshot.worker -eq 'starting_exact_release'){$reasons.Add('网页服务仍在启动，未重复启动')}
   if($Snapshot.business.status -eq 'degraded'){$reasons.Add('市场查询连续失败')}
   if($Snapshot.admission.mode -eq 'invalid'){$reasons.Add('启动配置或维护门禁无法验证')}
@@ -518,19 +600,47 @@ function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun,[swit
   $attemptSlot=if($Recovery){'recoveryIdentityAttempts'}else{'identityAttempts'}
   $timeSlot=if($Recovery){'lastRecoveryIdentityAttempt'}else{'lastIdentityAttempt'}
   $reasonSlot=if($Recovery){'recoveryNotificationReason'}else{'notificationReason'}
-  if(-not $DryRun -and $State[$slot]){
+  $codeSlot=if($Recovery){'recoveryIdentityFailureCode'}else{'identityFailureCode'}
+  # A still-open incident must not go silent forever because one delivery was
+  # unconfirmed. Replaying the same alert is still forbidden; instead a bounded
+  # number of later rounds may send a NEW record of their own. Escalation is
+  # time-gated and never applies to recovery notices or a confirmed send.
+  $escalation=0
+  if(-not $DryRun -and -not $Recovery -and $State[$slot] -ceq 'unknown' -and $State.incident){
+    $done=[int]$State['notificationEscalations']
+    $last=if($State['lastNotificationEscalation']){$State['lastNotificationEscalation']}else{$State[$timeSlot]}
+    $aged=(-not $last) -or ([DateTimeOffset]::UtcNow-[DateTimeOffset]$last).TotalHours -ge 24
+    if($done -lt 3 -and $aged){$escalation=$done+1}
+  }
+  if(-not $DryRun -and $State[$slot] -and -not $escalation){
     if($State[$slot] -ne 'identity_failed'){return}
     # Only pre-send failures are retryable. Reservation/unknown/sent stay terminal.
     if([int]$State[$attemptSlot] -ge 3){return}
-    if($State[$timeSlot] -and ([DateTimeOffset]::UtcNow-[DateTimeOffset]$State[$timeSlot]).TotalMinutes -lt 15){return}
+    # A process-level nonzero exit (e.g. a DingTalk access token that expired
+    # the instant the probe ran) is a transient failure expected to clear on
+    # its own shortly. It alone gets one shorter wait than the normal 15
+    # minutes, so a retry is not forced to land inside the same expiry
+    # window. The attempt count above still bounds the total; this never
+    # grants extra attempts or an unbounded retry loop, and it never touches
+    # the 'unknown' terminal status handled above.
+    $minimumWaitMinutes=if($State[$codeSlot] -ceq 'nonzero_exit'){2}else{15}
+    if($State[$timeSlot] -and ([DateTimeOffset]::UtcNow-[DateTimeOffset]$State[$timeSlot]).TotalMinutes -lt $minimumWaitMinutes){return}
   }
-  $suffix=if($Recovery){'-recovered'}else{''}
+  $suffix=if($Recovery){'-recovered'}elseif($escalation){"-escalation$escalation"}else{''}
   $alertPath=Join-Path $WatchdogRoot "alerts\$($State.incident)$suffix.json"
   if(-not $DryRun){
     $previous=Read-WatchJson $alertPath
     if($previous -and $previous.status -in @('sending','sent','unknown')){$State[$slot]=$previous.status;return}
   }
   $alert=@{incident=$State.incident;at=[DateTimeOffset]::UtcNow.ToString('o');outcome=$Outcome;status='pending_identity';ports=$Snapshot.ports;businessData=$false}
+  if($escalation){
+    $alert.escalation=$escalation
+    # Claim this round before sending, so a crash cannot reuse the same slot.
+    $State['notificationEscalations']=$escalation
+    $State['lastNotificationEscalation']=[DateTimeOffset]::UtcNow.ToString('o')
+    $State[$slot]=$null;$State[$attemptSlot]=0;$State[$codeSlot]=$null
+    if(-not $DryRun){Write-WatchJson $ReservationPath $State}
+  }
   if(-not $DryRun){
     Write-WatchJson (Join-Path $WatchdogRoot "evidence\$($State.incident)$suffix-notification.json") (Get-WatchEvidence $Snapshot)
     Write-WatchJson $alertPath $alert
@@ -549,14 +659,25 @@ function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun,[swit
     $sent=Invoke-WatchDws ($arguments+@('--yes'))
     # Record only typed outcome metadata to diagnose CLI envelope drift later.
     # An unrecognized envelope still remains unknown; it is never guessed sent.
+    # Observed bot envelope: {ok:bool, result:{errorCode:0, success:bool,
+    #   result:{processQueryKey, invalidStaffIdList[], flowControlledStaffIdList[]}}}.
+    # Top-level success/failedCount do not exist on this path; absent stays unconfirmed.
+    $inner=$sent.result.result
+    $undelivered=@(@($inner.invalidStaffIdList)+@($inner.flowControlledStaffIdList)|Where-Object {$null -ne $_})
     $alert.deliveryEvidence=@{
-      success=if($sent.success -is [bool]){$sent.success}else{$null}
-      failedCount=if($sent.failedCount -is [ValueType] -and $sent.failedCount -isnot [bool] -and $sent.failedCount -ge 0 -and $sent.failedCount -le 30){$sent.failedCount}else{$null}
-      executed=if($sent.executed -is [bool]){$sent.executed}else{$null}
+      ok=if($sent.ok -is [bool]){$sent.ok}else{$null}
+      success=if($sent.result.success -is [bool]){$sent.result.success}else{$null}
+      errorCode=if($sent.result.errorCode -is [ValueType] -and $sent.result.errorCode -isnot [bool] -and $sent.result.errorCode -ge 0 -and $sent.result.errorCode -le 1000000){$sent.result.errorCode}else{$null}
+      undeliveredCount=if($undelivered.Count -le 30){$undelivered.Count}else{$null}
+      acknowledged=($inner.processQueryKey -is [string] -and $inner.processQueryKey.Length -gt 0)
       resultShape=if($sent.result -is [array]){'array'}elseif($sent.result -is [pscustomobject] -or $sent.result -is [Collections.IDictionary]){'object'}elseif($null -eq $sent.result){'absent'}else{'other'}
     }
-    if($sent.success -isnot [bool] -or $sent.success -ne $true -or $sent.failedCount -gt 0){throw 'delivery_unconfirmed'}
-    $alert.status='sent';$State[$slot]='sent';$State[$reasonSlot]=$null
+    $evidence=$alert.deliveryEvidence
+    # Confirm only on a fully positive envelope: CLI ok, API success, zero errorCode,
+    # a per-target acknowledgement key, and nobody rejected or flow-controlled.
+    if($evidence.ok -ne $true -or $evidence.success -ne $true -or $evidence.errorCode -ne 0 -or
+       $evidence.acknowledged -ne $true -or $evidence.undeliveredCount -ne 0){throw 'delivery_unconfirmed'}
+    $alert.status='sent';$State[$slot]='sent';$State[$reasonSlot]=$null;$State[$codeSlot]=$null
   }catch{
     $alert.status=if($State[$slot] -eq 'sending'){'unknown'}else{'identity_failed'}
     $State[$slot]=$alert.status
@@ -565,6 +686,11 @@ function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun,[swit
     $processDiagnostic=$_.Exception.Data['ProcessEvidence']
     if($processDiagnostic){$alert.processDiagnostic=Get-WatchProcessDiagnostic $processDiagnostic;if($alert.processDiagnostic.code){$code=$alert.processDiagnostic.code}}
     $alert.reason="$stage`:$code";$State[$reasonSlot]=$alert.reason
+    # Record the diagnostic code alongside the identity_failed reservation so
+    # the shorter transient-failure retry wait above can recognize it on the
+    # next round. Only meaningful while the status is the retryable
+    # identity_failed; 'unknown' stays terminal and never reads this slot.
+    $State[$codeSlot]=if($alert.status -eq 'identity_failed'){$code}else{$null}
   }
   if(-not $DryRun){Write-WatchJson $alertPath $alert;Write-WatchJson $ReservationPath $State}
   elseif($alert.status -ne 'pending_identity'){throw 'notification_preflight_failed'}
@@ -634,6 +760,7 @@ function Invoke-WatchCycle([switch]$Recover){
       $state.incident=[guid]::NewGuid().ToString('N');$state.firstFailure=$now.ToString('o');$state.notification=$null
       $state.recoveryNotification=$null;$state.recoveryIdentityAttempts=0;$state.lastRecoveryIdentityAttempt=$null;$state.recoveryNotificationReason=$null
       $state.recoveryAttempt=$null
+      $state.notificationEscalations=0;$state.lastNotificationEscalation=$null
     }
     $state.failures=[int]$state.failures+1
     Save-WatchFailureEvidence $state $snapshot
@@ -676,7 +803,7 @@ function Invoke-WatchCycle([switch]$Recover){
     if($Recover -and [int]$state.failures -ge 2 -and $decision -notin @('confirm_failure','verification_pending','healthy','recovered')){Send-WatchAlert $state $snapshot $decision}
     if($decision -in @('healthy','recovered')){Confirm-WatchRecovery $state $snapshot}
   }
-  if($decision -in @('healthy','recovered')){$state.failures=0;$state.lastHealthy=[DateTimeOffset]::UtcNow.ToString('o');$state.incident=$null;$state.notification=$null;$state.notificationReason=$null;$state.identityAttempts=0;$state.lastIdentityAttempt=$null}
+  if($decision -in @('healthy','recovered')){$state.failures=0;$state.lastHealthy=[DateTimeOffset]::UtcNow.ToString('o');$state.incident=$null;$state.notification=$null;$state.notificationReason=$null;$state.identityAttempts=0;$state.lastIdentityAttempt=$null;$state.identityFailureCode=$null;$state.notificationEscalations=0;$state.lastNotificationEscalation=$null}
   $state.lastMode=if($decision -eq 'verification_pending'){'verification_pending'}else{'running'}
   $state.lastFence=$snapshot.admission.fence;$state.decision=$decision
   Write-WatchJson $StatePath $state

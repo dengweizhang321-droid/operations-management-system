@@ -208,7 +208,7 @@
       ],
       "workflowId": "J8kY2mQ5vR7sT4pN",
       "name": "吉客云导入系统",
-      "timezone": "Asia/Shanghai",
+      "timezone": "local",
       "schedules": [
         "10 0 * * *"
       ],
@@ -224,7 +224,7 @@
       ],
       "workflowId": "JdN8nSilentCopy2026",
       "name": "京东多店铺商品数据统一下载与导入（Chromium静默下载副本）",
-      "timezone": "Asia/Shanghai",
+      "timezone": "local",
       "schedules": [
         "0 10 * * *"
       ],
@@ -237,7 +237,7 @@
       ],
       "workflowId": "JdMarketSilentCopy2026",
       "name": "京东市场商品榜单缺失日下载与导入（Profile 3 Chromium静默下载副本）",
-      "timezone": "Asia/Shanghai",
+      "timezone": "local",
       "schedules": [
         "30 10 * * *"
       ],
@@ -250,7 +250,7 @@
       ],
       "workflowId": "JdPromotionDaily2026",
       "name": "京东志高商用设备AI推广数据下载与导入",
-      "timezone": "Asia/Shanghai",
+      "timezone": "local",
       "schedules": [
         "40 10 * * *"
       ],
@@ -263,7 +263,7 @@
       ],
       "workflowId": "JdPromotionCutMeat2026",
       "name": "京东志高切肉机AI推广数据下载与导入",
-      "timezone": "Asia/Shanghai",
+      "timezone": "local",
       "schedules": [
         "50 10 * * *"
       ],
@@ -276,9 +276,9 @@
       ],
       "workflowId": "JdCustomerService2026",
       "name": "京东志高商用设备客服聊天记录下载导入（09:00，30天）",
-      "timezone": "Asia/Shanghai",
+      "timezone": "local",
       "schedules": [
-        "0 9 * * *"
+        "10 13 * * *"
       ],
       "definitionFile": "automation/n8n/jd-customer-service-daily.workflow.json"
     },
@@ -289,9 +289,9 @@
       ],
       "workflowId": "JdCustomerServiceCutMeat2026",
       "name": "京东志高切肉机旗舰店客服聊天记录下载导入（09:00，30天）",
-      "timezone": "Asia/Shanghai",
+      "timezone": "local",
       "schedules": [
-        "0 9 * * *"
+        "10 12 * * *"
       ],
       "definitionFile": "automation/n8n/jd-customer-service-cut-meat-daily.candidate.workflow.json"
     },
@@ -302,9 +302,9 @@
       ],
       "workflowId": "JdCustomerServiceChudian2026",
       "name": "京东志高商用厨电旗舰店客服聊天记录下载导入（09:00，30天）",
-      "timezone": "Asia/Shanghai",
+      "timezone": "local",
       "schedules": [
-        "0 9 * * *"
+        "50 12 * * *"
       ],
       "definitionFile": "automation/n8n/jd-customer-service-chudian-daily.candidate.workflow.json"
     },
@@ -315,9 +315,9 @@
       ],
       "workflowId": "JdCustomerServiceDishwasher2026",
       "name": "京东志高商用洗碗机旗舰店客服聊天记录下载导入（09:00，30天）",
-      "timezone": "Asia/Shanghai",
+      "timezone": "local",
       "schedules": [
-        "0 9 * * *"
+        "30 12 * * *"
       ],
       "definitionFile": "automation/n8n/jd-customer-service-dishwasher-daily.candidate.workflow.json"
     },
@@ -328,7 +328,7 @@
       ],
       "workflowId": "M4xY8kQ2vR6sT9pC",
       "name": "天猫店铺数据导入（亿玖 P/M 直连·每日 M）",
-      "timezone": "Asia/Shanghai",
+      "timezone": "local",
       "schedules": [
         "0 11 * * *"
       ],
@@ -342,7 +342,7 @@
       ],
       "workflowId": "TmallLiliDaily2026",
       "name": "天猫店铺数据导入-丽力",
-      "timezone": "Asia/Shanghai",
+      "timezone": "local",
       "schedules": [
         "10 11 * * *"
       ],
@@ -356,7 +356,7 @@
       ],
       "workflowId": "TmallTuofengDaily2026",
       "name": "天猫店铺数据导入-拓丰",
-      "timezone": "Asia/Shanghai",
+      "timezone": "local",
       "schedules": [
         "20 11 * * *"
       ],
@@ -370,7 +370,7 @@
       ],
       "workflowId": "TmallYiyongDaily2026",
       "name": "天猫店铺数据导入（亿用 P/M 直连试点·每日 M）",
-      "timezone": "Asia/Shanghai",
+      "timezone": "local",
       "schedules": [
         "50 11 * * *"
       ],
@@ -384,7 +384,7 @@
       ],
       "workflowId": "TmallCuizhiwangDaily2026",
       "name": "天猫店铺数据导入-炊之王",
-      "timezone": "Asia/Shanghai",
+      "timezone": "local",
       "schedules": [
         "30 11 * * *"
       ],
@@ -398,7 +398,7 @@
       ],
       "workflowId": "TmallMasituDaily2026",
       "name": "天猫店铺数据导入-马思图",
-      "timezone": "Asia/Shanghai",
+      "timezone": "local",
       "schedules": [
         "40 11 * * *"
       ],
@@ -412,24 +412,11 @@
       ],
       "workflowId": "JdLogisticsDaily2026",
       "name": "京东物流四类数据受控下载与导入",
-      "timezone": "Asia/Shanghai",
+      "timezone": "local",
       "schedules": [
-        "0 8 * * *"
+        "50 8 * * *"
       ],
       "definitionFile": "automation/n8n/jd-logistics-daily.workflow.json"
-    },
-    {
-      "chainKey": "tmall_warehouse",
-      "entityKeys": [
-        "tmall_warehouse"
-      ],
-      "workflowId": "TmallWarehouseDaily2026",
-      "name": "天猫入仓监控·实时库存下载与导入",
-      "timezone": "Asia/Shanghai",
-      "schedules": [
-        "20 8 * * *"
-      ],
-      "definitionFile": "automation/n8n/tmall-warehouse-daily.workflow.json"
     }
   ]
 }

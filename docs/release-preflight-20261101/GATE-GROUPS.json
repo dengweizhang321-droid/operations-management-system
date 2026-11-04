@@ -1,0 +1,252 @@
+[
+  {
+    "id": "G01",
+    "title": "入口参数、固定环境、目标模式",
+    "file": "tools/publish-latest-main.mjs",
+    "start": 793,
+    "end": 820,
+    "advanceClass": "static",
+    "checkCoverage": "部分",
+    "notes": "CLI参数/配置只读比较；不得调用controlExecution"
+  },
+  {
+    "id": "G02",
+    "title": "控制安装、bundle/配置/任务/退休协议完整性",
+    "file": "tools/main-control-dispatch.mjs",
+    "start": 24,
+    "end": 84,
+    "advanceClass": "dynamic",
+    "checkCoverage": "是",
+    "notes": "只读投影；controlExecution自身写审计不直接复用"
+  },
+  {
+    "id": "G03",
+    "title": "退役intent/ban/seal与原件完整性",
+    "file": "tools/preparation-retirement-admission.mjs",
+    "start": 14,
+    "end": 32,
+    "advanceClass": "dynamic",
+    "checkCoverage": "是",
+    "notes": "只读reader；过期/未知/并发漂移失败关闭"
+  },
+  {
+    "id": "G04",
+    "title": "队列/损失旁记录及prepared外部依赖",
+    "file": "tools/main-prebuild-queue.mjs",
+    "start": 1,
+    "end": 99999,
+    "advanceClass": "dynamic",
+    "checkCoverage": "是",
+    "notes": "只读inventory，核完整集合与前后目录一致；不核销"
+  },
+  {
+    "id": "G05",
+    "title": "远端目标、当前来源、目录成功回执",
+    "file": "tools/publish-latest-main.mjs",
+    "start": 33,
+    "end": 68,
+    "advanceClass": "dynamic",
+    "checkCoverage": "是",
+    "notes": "可以读取；fetch不属于严格只读，应显式传入已同步完整commit"
+  },
+  {
+    "id": "G06",
+    "title": "半切换、来源选择与依赖缓存",
+    "file": "tools/publish-latest-main.mjs",
+    "start": 280,
+    "end": 337,
+    "advanceClass": "mixed",
+    "checkCoverage": "是",
+    "notes": "抽出纯核查；现函数会建worktree/request/schema，不能直调"
+  },
+  {
+    "id": "G07",
+    "title": "冻结来源HEAD/tree/clean",
+    "file": "tools/frozen-main-source.mjs",
+    "start": 5,
+    "end": 17,
+    "advanceClass": "static",
+    "checkCoverage": "是",
+    "notes": "合并前检查候选；最终main身份必须重绑定，不虚构最终commit"
+  },
+  {
+    "id": "G08",
+    "title": "冻结请求范围、pwsh与离线依赖",
+    "file": "tools/publish-main.mjs",
+    "start": 20,
+    "end": 81,
+    "advanceClass": "static",
+    "checkCoverage": "部分",
+    "notes": "host摘要、存在性与请求字段；普通token检查在check return之后"
+  },
+  {
+    "id": "G09",
+    "title": "PREPARED/旧SUCCESS/STARTED防重放",
+    "file": "tools/publish-prepared-main.mjs",
+    "start": 38,
+    "end": 59,
+    "advanceClass": "prepared",
+    "checkCoverage": "部分",
+    "notes": "无最终制品记not-applicable-yet；已有未知操作记block"
+  },
+  {
+    "id": "G10",
+    "title": "原生rotation锁、active batch、现役链",
+    "file": "tools/worker-local-release-rotation.mjs",
+    "start": 1,
+    "end": 99999,
+    "advanceClass": "lock-and-dynamic",
+    "checkCoverage": "只覆盖观察",
+    "notes": "锁占用只能观察；不能以预检PASS替代发布时原锁"
+  },
+  {
+    "id": "G11",
+    "title": "本次前驱及已成功分支绑定",
+    "file": "tools/publish-prepared-main.mjs",
+    "start": 62,
+    "end": 161,
+    "advanceClass": "dynamic",
+    "checkCoverage": "部分",
+    "notes": "即时重复；历史SUCCESS不代替本次"
+  },
+  {
+    "id": "G12",
+    "title": "准备包请求/来源/组件与复验结果",
+    "file": "tools/publish-prepared-main.mjs",
+    "start": 172,
+    "end": 203,
+    "advanceClass": "prepared",
+    "checkCoverage": "未覆盖原生复验",
+    "notes": "已有制品可只读核叶；原生VerifyPreparedApp持mutex并写日志"
+  },
+  {
+    "id": "G13",
+    "title": "Worker manifest/source/dist/modules/helper/guard/authority完整性",
+    "file": "tools/worker-local-release.mjs",
+    "start": 1,
+    "end": 99999,
+    "advanceClass": "prepared",
+    "checkCoverage": "仅现役链子集",
+    "notes": "完整只读文件校验可抽出；plan reuse wrapper会取锁不可视纯读"
+  },
+  {
+    "id": "G14",
+    "title": "Django准备回执/前驱/应用指纹",
+    "file": "tools/django-local-service.ps1",
+    "start": 2412,
+    "end": 2457,
+    "advanceClass": "prepared",
+    "checkCoverage": "否",
+    "notes": "Get-PreparedApplication只读核内容；命令wrapper持锁写action日志"
+  },
+  {
+    "id": "G15",
+    "title": "结构recipe/proof/父链/codeSha256",
+    "file": "tools/main-schema-release.mjs",
+    "start": 42,
+    "end": 145,
+    "advanceClass": "mixed",
+    "checkCoverage": "是",
+    "notes": "schema条件；--check外层可能先创建schema材料；Python binder --check只读"
+  },
+  {
+    "id": "G16",
+    "title": "Pi升级计划/image/source绑定",
+    "file": "tools/publish-prepared-main.mjs",
+    "start": 17,
+    "end": 17,
+    "advanceClass": "prepared",
+    "checkCoverage": "否",
+    "notes": "仅Pi结构或Runner变更；核check适配不能执行PreparePiUpgrade"
+  },
+  {
+    "id": "G17",
+    "title": "Pi升级计划复验",
+    "file": "tools/publish-prepared-main.mjs",
+    "start": 243,
+    "end": 245,
+    "advanceClass": "prepared",
+    "checkCoverage": "否",
+    "notes": "实际PiUpgradeCheck需逐入口确认日志/外部runner副作用"
+  },
+  {
+    "id": "G18",
+    "title": "维护route/controller资格与source/installed pins",
+    "file": "tools/manual-maintenance-continuation.mjs",
+    "start": 171,
+    "end": 319,
+    "advanceClass": "mixed",
+    "checkCoverage": "是",
+    "notes": "静态授权白名单+动态安装字节分开；不能自身算hash即授权"
+  },
+  {
+    "id": "G19",
+    "title": "维护输入字节/120秒/实际Pi进程身份",
+    "file": "tools/manual-maintenance-preflight.ps1",
+    "start": 1,
+    "end": 10,
+    "advanceClass": "dynamic",
+    "checkCoverage": "是",
+    "notes": "检查器入口不进入维护，但输入临时文件写入应外置"
+  },
+  {
+    "id": "G20",
+    "title": "维护readiness全pins与Pi当前身份",
+    "file": "tools/manual-maintenance-process.psm1",
+    "start": 1,
+    "end": 75,
+    "advanceClass": "dynamic",
+    "checkCoverage": "是",
+    "notes": "原120秒和真实CIM身份保留；合并前观察不延长有效期"
+  },
+  {
+    "id": "G21",
+    "title": "现场ACL/部署应用/假后裔/维护标记",
+    "file": "tools/publish-latest-main.mjs",
+    "start": 479,
+    "end": 572,
+    "advanceClass": "dynamic",
+    "checkCoverage": "警告而非阻断",
+    "notes": "现probe会写controller诊断；严格只读需注入仅内存诊断"
+  },
+  {
+    "id": "G22",
+    "title": "最终前驱/schema/readiness/材料/冻结源/owner",
+    "file": "tools/publish-prepared-main.mjs",
+    "start": 252,
+    "end": 287,
+    "advanceClass": "mixed",
+    "checkCoverage": "部分",
+    "notes": "最终制品材料条件；controller资格check覆盖但材料与owner未覆盖"
+  },
+  {
+    "id": "G23",
+    "title": "publisher owner可读身份",
+    "file": "tools/publish-main-owner.mjs",
+    "start": 18,
+    "end": 22,
+    "advanceClass": "dynamic",
+    "checkCoverage": "否",
+    "notes": "合并前只能验证当前探针身份，不能预造未来publisher owner"
+  },
+  {
+    "id": "G24",
+    "title": "原生子进程参数/输出/退出证据",
+    "file": "tools/publish-main-step.mjs",
+    "start": 6,
+    "end": 30,
+    "advanceClass": "execution",
+    "checkCoverage": "否",
+    "notes": "真实动作返回状态不可提前证明；仅静态argv/协议可前检"
+  },
+  {
+    "id": "G25",
+    "title": "部署前再次核验之外：STARTED后维护/排空/切换/启动",
+    "file": "tools/publish-prepared-main.mjs",
+    "start": 289,
+    "end": 350,
+    "advanceClass": "post-started",
+    "checkCoverage": "否",
+    "notes": "单独范围，不能冒称本次pre-STARTED已覆盖"
+  }
+]

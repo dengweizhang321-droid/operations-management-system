@@ -2,12 +2,28 @@ from django.conf import settings
 from django.urls import path
 from django.views.decorators.http import require_GET
 
-from . import import_chain_views, operations_views, views, bi_status, pi_business, pi_business_n8n
+from . import automation_run_views, import_chain_views, operations_views, views, bi_status, pi_business, pi_business_n8n
 
 
 read_patterns = [
     path("bi-status", bi_status.status, name="workflow-bi-status"),
     path("import-chain-status", import_chain_views.today_status, name="workflow-import-chain-status"),
+    path("automation-runs", automation_run_views.logical_runs, name="workflow-automation-runs"),
+    path(
+        "automation-runs/<uuid:logical_run_id>/attempts",
+        automation_run_views.logical_run_attempts,
+        name="workflow-automation-run-attempts",
+    ),
+    path(
+        "automation-runs/<uuid:logical_run_id>/module-results",
+        automation_run_views.logical_run_module_results,
+        name="workflow-automation-run-module-results",
+    ),
+    path(
+        "automation-exceptions",
+        automation_run_views.automation_exception_summary,
+        name="workflow-automation-exceptions",
+    ),
     path("launch-projects", views.launch_projects, name="workflow-launch-projects"),
     path("launch-projects/<uuid:project_id>", views.launch_project, name="workflow-launch-project"),
     path("new-product-lines", views.new_product_lines, name="workflow-new-product-lines"),
@@ -35,6 +51,7 @@ write_patterns = [
     path("new-product-lines/learn/operations/<str:operation_id>", views.new_product_learning_operation, name="workflow-new-product-learning-operation"),
     path("jackyun-recovery-authority", views.jackyun_recovery_authority, name="jackyun-recovery-authority"),
     path("jackyun-close-authority", views.jackyun_close_authority, name="jackyun-close-authority"),
+    path("jd-customer-service-close-authority", views.jd_customer_service_close_authority, name="jd-customer-service-close-authority"),
     path("launch-projects", views.launch_projects, name="workflow-launch-projects"),
     path("launch-projects/<uuid:project_id>", views.launch_project, name="workflow-launch-project"),
     path("new-product-lines", views.new_product_lines, name="workflow-new-product-lines"),

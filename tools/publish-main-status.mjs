@@ -5,6 +5,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import {parseArgs} from 'node:util';
 import {createHash,randomUUID} from 'node:crypto';
 import assert from 'node:assert/strict';
+import {assertPublicationReady,publicationDeadline} from './publication-readiness.mjs';
 import {inspectMainPublication,resumeMainPublication} from './publish-main-resume.mjs';
 import {readAdoptedControl,assertControlGeneration} from './main-control-dispatch.mjs';
 import {currentPreparationIdentity,assertOrdinaryIdentity} from './main-prebuild-task.mjs';
@@ -20,6 +21,8 @@ export async function runMainStatusCli(args=process.argv.slice(2)){
  const {values}=parseArgs({args,options:{config:{type:'string'},attempt:{type:'string'},resume:{type:'boolean',default:false},help:{type:'boolean',default:false}}});
  if(values.help){console.log('node tools/publish-main-status.mjs --config <adopted-config> --attempt <original-publish-directory> [--resume]\nDefault: read-only status. --resume: original no-migration Runner upgrade and unstarted native tail only.');return;}
  assert.ok(values.config&&values.attempt,'需要 --config 和原 --attempt，不能选择新操作ID');
+ const deadlineUnixMs=publicationDeadline();
+ if(deadlineUnixMs!==undefined&&deadlineUnixMs<=Date.now())throw Error('publication_deadline_exhausted_before_status');
  const binding=await readAdoptedControl(path.resolve(values.config)),config=binding.config;
  assert.equal(binding.state.version,'teruisi-main-control-installation-v3');
  const token=await currentPreparationIdentity();assert.equal(token.sid,binding.state.preparationTask.sid);
@@ -34,12 +37,10 @@ export async function runMainStatusCli(args=process.argv.slice(2)){
  assert.equal(sha(await fs.readFile(path.join(request.pwshDirectory,'pwsh.exe'))),request.pwshSha256,'原PowerShell身份不一致');
  const fixed=publisherEnvironment(process.env,config.gitDirectory,config.publisherBaseEnvironment);
  for(const key of Object.keys(process.env))delete process.env[key];Object.assign(process.env,fixed);process.env.PATH=request.pwshDirectory+';'+fixed.PATH;
+ if(deadlineUnixMs!==undefined)process.env.TERUISI_PROCESS_DEADLINE_UNIX_MS=String(deadlineUnixMs);
  const api=await import(pathToFileURL(path.join(source,'tools/worker-local-release.mjs'))),rotation=await import(pathToFileURL(path.join(source,'tools/worker-local-release-rotation.mjs'))),transport=await import(pathToFileURL(path.join(source,'tools/release-batch.mjs')));
  const installed='D:/teruisi-runtime/django-sales/app';
- const ready=async()=>{
-  const r=await fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)});
-  try{assert.equal(r.status,200);const body=await r.json();assert.equal(body.ok,true);assert.equal(body.status,'ready');}finally{if(!r.bodyUsed&&!r.body?.locked)await r.body?.cancel();}
- };
+ const ready=()=>assertPublicationReady({deadlineUnixMs}); // Explicit status/resume remains a single probe.
  const observePi=async prepared=>{
   const command=manualStepCommand({systemHost:'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',powerShellDirectory:request.pwshDirectory,script:path.join(installed,'tools/django-ai.ps1'),action:'PiUpgradeStatus',extra:['-PiUpgradePlanSha256',prepared.registeredPlanSha256]});
   const result=await api.runProcess(command.host,transport.productionCommandArguments(command.host,command.args),{cwd:path.dirname(command.args[3]),env:transport.productionCommandEnvironment(command.host),timeoutMs:240000,outputProtocol:'direct-exit-files',cleanup:'preserve',captureOutputBuffers:true,label:'read-only original Pi upgrade status'});

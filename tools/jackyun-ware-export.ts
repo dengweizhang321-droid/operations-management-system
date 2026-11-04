@@ -1,3 +1,4 @@
+import { workflowLocalDate } from "../lib/imports/local-time";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
@@ -1171,15 +1172,8 @@ async function saveTaskDownload(page: Page, task: JdWareExportTask, downloadDire
   });
 }
 
-function shanghaiToday() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const read = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
-  return `${read("year")}-${read("month")}-${read("day")}`;
+function localToday() {
+  return workflowLocalDate(new Date());
 }
 
 export async function importSkuFile(baseUrl: string, filePath: string, shopName: string, request: typeof fetch = fetch) {
@@ -1189,7 +1183,7 @@ export async function importSkuFile(baseUrl: string, filePath: string, shopName:
   form.append("source", "jd_product_master");
   form.append("platform", "京东");
   form.set("shop_name", shopName);
-  form.append("snapshot_date", shanghaiToday());
+  form.append("snapshot_date", localToday());
   form.append("note", "京东 SKU 自动下载后导入");
   form.append(
     "file",

@@ -1,0 +1,50 @@
+{
+  "baseCommit": "822a45ac468b55f31b6bae8c003c6b0c8f6df3b8",
+  "staticTestSourceCommit": "ab4af41e123c4ea32eefcbbfbd62308968756c72",
+  "staticTestSha256": "d2ba9ff03ba4c0437e00c751ebd0f181dbcfa00074ac3905fe85bb28b504928e",
+  "protectedSourceFiles": {
+    "package.json": "c4c7f6a0422370d7ac7c2c75bff2ad0c77f19d507d07cc8d98dcc8440f1d5056",
+    "package-lock.json": "8ec00f801aff894796d783595d202811bccbe94296603ae26766864247d4a4ca",
+    "tools/worker-local-release-rotation.mjs": "5171f54839b42a64d986db919770aa3f72d76dce77babb8abea250a02b8b6037",
+    "tools/publish-prepared-main.mjs": "e50f8112e0ae6553a4f66632ebfc95a76fba1030041c6d9d96af4273d98ae6d1",
+    "tools/worker-local-release.mjs": "6dcd3016f6164a0c897c94ae26ec300b82f69ad122739ea1ba5b843ca95a8333",
+    "tools/django-local-service.ps1": "98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b",
+    "tools/worker-local-service.ps1": "1b8c5d4d61ba491d042f41ae91e9cc7b0d0c87a28536bac7b4c8a1e53fda761e",
+    "tools/process-deadline.ps1": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+    "backend/teruisi_backend/settings.py": "9230ed87a14f16be92343bcb47503c28a084d299df59448772dc1f7dd7621374",
+    "docs/prepared-artifact-loss-20261029/artifact-loss-manifest.json": "e44dac82794da312e3cbaade260b853806e9e9f067eee86197e6b4789a7e32ab"
+  },
+  "boundLossManifest": {
+    "path": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\e664af36f9aed179875fb1bf66447321d4f906ff1734bdeb2e38514b92842a8e\\PREPARED-ARTIFACT-LOSS.json",
+    "sha256": "e44dac82794da312e3cbaade260b853806e9e9f067eee86197e6b4789a7e32ab"
+  },
+  "artifactLossRecordSha256": {
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\1296b986b153f6a5b1862f3eed6fd0caeade5b7d1a86cffe76875b3970ff1e80.json": "0fa0bac73755df67e288df32f3b5c3a4e2ce2bbf35ca7db39bd008203ac5200a",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\155a70c38ab59959e8fddb237a5dfb4fe95d8e1072d561f2ac04245c5327c866.json": "f09474d1ae76c55d16445a7db1e9c95d9f21b09fdb1dddbdd592d8999bcccbf4",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\169dd1ab1855c971f3a9242535236ab67c3fdb7ec222caeafaf90b46483c88aa.json": "e257b7113da34df0ef35a4d212d6198f14d64a991819cadcf37a0a8d1fee6ee2",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\2a16955f2040ceedadd9f6adb8ce982ab9e4948748947635323e871ac3ea4adc.json": "acdd8cdb02be3df8297bb1280cd9bf4143291483a83efaf839486bca43e56b8e",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\30dcfeae16c36b48c2eaf78937a37b92167851329db5bc9c410a0905e5116f9f.json": "845dcb9d487f7e7d6805f6ff5379d3557a96a05ad4b473948b6e3ea61304794d",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\31e42fc4bad4ac7c021a4130274622f3518334d9ef68ce7105419139cb062da6.json": "096532c0ef4aba45e3343e40a05923a9d91b578950f03f8e69793a43f5d12775",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\42f006e8c7dd7d44b8e028dc8c3010c1677ac8d83581a4c2d390b05dd141cd5f.json": "043308caf4c833dedc14856c834ce7265a64fe3b7845644a682674284e61228d",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\45af0220582737aebb4b96423b5563bcf9eba0f82936af1ec5b4d1b21c962af8.json": "7bb96dbb3f8f171abacc4382cd13cc75f1ce099c79eaa848dfd210e8c0b8fd71",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\47c0a23a04c564422fb3be3c8989d121841b80873766db78774d5043e06b7cbd.json": "3e2de57772afba5af5a2dbf9f643c5f7a3d9f75f741413e582279c001f9ed357",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\489befa5d3ee2fd1aff760e55e4bb5a0a324cf8de91c715a0e25a49c5c17bc26.json": "359d7dc632851a85d8c3cc45118eced8946a9ee5168287c20ca840631839c500",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\49332cf6c2203ff330ea6348cc48ef01e41ba587c89e19c44c9b849d36ff725b.json": "d64b478fa9f44effcf2c86124f4f7d747374484b8315f046c2f350880a570b61",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\58d8e0a40cf5907ecb8a6960af4d38d4ddb4a62646232f2c0c3d91314f142216.json": "e8c0acd845411d6960d919f8a2e1834130147d8280f467c49a79d4c435402ef3",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\5fc50e280ee85a0a956b74c14ada7f2d2d267ebe724dd9b8f47fe8bfc93175b7.json": "050f2b99189eb2a48680f48c5a70b5d4dbc08b929ff368ec3fd3fa3f4426eca4",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\632c2351c14be630c1d385282e8329f03a56256facf7f75949163dd5c263ef1d.json": "ff3e5d871efbd1d5ec008932a94d184f1c9398829771eee1760b17fc033a5303",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\72c5fddf7c9abcf79225b60a2eff5b0298db024e6e8fef2a5d2cd392996700a1.json": "fa82773569ff105214c97d39c6a76f1e2dafa0a4b8f7a120342036fe0d425dfb",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\780cac19ad6bae8c96faa1345366e3ff6e3794fb2281aa892c70c97b6e57ddf1.json": "7a56ec495354928e80217e246c5ad200220d09c056207e4c2e59077aafa569ed",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\8d2e0f73cfd8e09d3fa1625b774d4628dc7d6161f3aef560a7cedfa683c8a047.json": "85ff86dc33d30235b99085b707d52126e587274c565593defff60d206ce93963",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\93f3f6142b4067dd0c08bf524cf629e1b935034b8cca4f9db003e796193313ed.json": "640418b66482e1f6e0576591ecd3ca3dc2d40d32eff4ad3eccc1cebb1dda57b2",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\9cd15faff13c3c615526b1462eda943a8ebc1eec10fee77c1f0ab5fffdd453d6.json": "cf0d233972a3be96de4f1303a80c68d9b8a8cb3a4ad779364937b34591e0967b",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\9d728fa602d5fbd40ba4e03177a0efccc1281e0f4f09b60e7d4bbc09dd003819.json": "dcdbb0a0fd88e74b994219e596d2cde1f72626027d2c718174964b1aebfa8c48",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\a148c50544eae6743eb2d35511eae02e054ca1c76bf9a167ea7a211e2808a22c.json": "77e67cc7e15d9af0b0e8e8f961d0461487b7753cce802a6e28d1d41ce413e897",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\ad3ab415821817572046b79ae4a2183c21c6c9347c8b0a845c8bacd72a2970f8.json": "b51a63f6d2964f17a006333bbbc1ba3ddac60419013c3c459e8a1d5ed098af6e",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\c274ce1b3e564762d157ae5527121323a351c7fa3fc392c51a70966ba5e6382c.json": "4bef641b87477b70552f96350311de1d50bdfb1352fbed82c98bf65f8521d099",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\c4a4af1a2b57ca84cb97ed566ed188bbb791a66806819a992465f482d1ed04df.json": "fff71159b8b2dba6fc67dc8d11d05cb66324c69649815dfc0805ddd09fd008e3",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\f13a4495752068b0026e5327a044693103881665a2d289b373a6fe648e6408c9.json": "06e779b5647cb8d9ff573cddc6af6eb3344fd17be22511987eafe01d3b438ee9",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-losses\\f2b6f3ffbf94d07c18e771052c0c719c85f42f2f71aaefc8fbf63bbc29234e70.json": "842bb4f2470a67e6071ba3c79cd736e313aaaa42ace114288797667d93b44c3e",
+    "D:\\codex-isolated\\main-manual-release-20261016\\prebuild-queue-v2\\artifact-loss-results\\e44dac82794da312e3cbaade260b853806e9e9f067eee86197e6b4789a7e32ab.json": "98e59fcdec1772333df6a735cf44d008fcc0784ef8a53f716ed6de7aa3c98ec8"
+  }
+}

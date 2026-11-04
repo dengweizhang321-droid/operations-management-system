@@ -16,8 +16,11 @@ export const WORKFLOW_NEW_PRODUCT_WEEKLY_FOLLOWUP_PATH = "/api/workflow/new-prod
 export const WORKFLOW_NEW_PRODUCT_WEEKLY_REPORT_CONFIG_PATH = "/api/workflow/new-product-weekly-report-config";
 export const WORKFLOW_TASKS_PATH = "/api/workflow/tasks";
 export const WORKFLOW_IMPORT_CHAIN_STATUS_PATH = "/api/workflow/import-chain-status";
+export const WORKFLOW_AUTOMATION_RUNS_PATH = "/api/workflow/automation-runs";
+export const WORKFLOW_AUTOMATION_EXCEPTIONS_PATH = "/api/workflow/automation-exceptions";
 export const WORKFLOW_JACKYUN_RECOVERY_AUTHORITY_PATH = "/api/workflow/jackyun-recovery-authority";
 export const WORKFLOW_JACKYUN_CLOSE_AUTHORITY_PATH = "/api/workflow/jackyun-close-authority";
+export const WORKFLOW_JD_CUSTOMER_SERVICE_CLOSE_AUTHORITY_PATH = "/api/workflow/jd-customer-service-close-authority";
 export const WORKFLOW_TEMPLATES_PATH = "/api/workflow/templates";
 export const WORKFLOW_OPERATION_RECORDS_PATH = "/api/workflow/operations-records";
 export const WORKFLOW_ATTACHMENT_CLEANUP_PATH = "/api/workflow/attachment-cleanup";
@@ -39,6 +42,9 @@ const TASK_SUBRESOURCE_PATH_RE = new RegExp(`^/api/workflow/tasks/${RESOURCE_SEG
 const TASK_ATTACHMENT_PATH_RE = new RegExp(`^/api/workflow/tasks/${RESOURCE_SEGMENT}/attachments/${RESOURCE_SEGMENT}$`);
 const OPERATION_RECORD_PATH_RE = new RegExp(`^/api/workflow/operations-records/${RESOURCE_SEGMENT}$`);
 const OPERATION_RECORD_ACTIVITY_PATH_RE = new RegExp(`^/api/workflow/operations-records/${RESOURCE_SEGMENT}/activity$`);
+const UUID_SEGMENT = "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+const AUTOMATION_RUN_ATTEMPTS_PATH_RE = new RegExp(`^/api/workflow/automation-runs/${UUID_SEGMENT}/attempts$`, "i");
+const AUTOMATION_RUN_MODULE_RESULTS_PATH_RE = new RegExp(`^/api/workflow/automation-runs/${UUID_SEGMENT}/module-results$`, "i");
 
 type RuntimeEnvironment = Record<string, string | undefined>;
 
@@ -210,13 +216,18 @@ function validateRequest(input: WorkflowServiceRequest) {
   const recordActivity = OPERATION_RECORD_ACTIVITY_PATH_RE.test(input.path);
   const attachmentCleanup = input.path === WORKFLOW_ATTACHMENT_CLEANUP_PATH;
   const inventoryWorkItems = input.path === WORKFLOW_INVENTORY_WORK_ITEMS_PATH;
+  const automationRuns = input.path === WORKFLOW_AUTOMATION_RUNS_PATH;
+  const automationExceptions = input.path === WORKFLOW_AUTOMATION_EXCEPTIONS_PATH;
+  const automationRunAttempts = AUTOMATION_RUN_ATTEMPTS_PATH_RE.test(input.path);
+  const automationRunModuleResults = AUTOMATION_RUN_MODULE_RESULTS_PATH_RE.test(input.path);
   const allowed = input.service === "reader"
     ? (input.method === "GET" && (collection || project || productLines || productLineImage || productLineLearning || weeklyFollowup || weeklyReportConfig
-      || input.path === WORKFLOW_IMPORT_CHAIN_STATUS_PATH || tasks || taskSubresource || taskAttachment || templates || records || record || recordActivity))
+      || input.path === WORKFLOW_IMPORT_CHAIN_STATUS_PATH || tasks || taskSubresource || taskAttachment || templates || records || record || recordActivity
+      || automationRuns || automationExceptions || automationRunAttempts || automationRunModuleResults))
       || (input.method === "POST" && consumer)
-    : (input.method === "GET" && (learningOperation || attachmentCleanup || input.path === WORKFLOW_JACKYUN_RECOVERY_AUTHORITY_PATH || input.path === WORKFLOW_JACKYUN_CLOSE_AUTHORITY_PATH))
+    : (input.method === "GET" && (learningOperation || attachmentCleanup || input.path === WORKFLOW_JACKYUN_RECOVERY_AUTHORITY_PATH || input.path === WORKFLOW_JACKYUN_CLOSE_AUTHORITY_PATH || input.path === WORKFLOW_JD_CUSTOMER_SERVICE_CLOSE_AUTHORITY_PATH))
       || (input.method === "POST" && (collection || productLines || productLineLearning || tasks || taskWritableCollection
-        || templates || records || attachmentCleanup || inventoryWorkItems || input.path === WORKFLOW_JACKYUN_RECOVERY_AUTHORITY_PATH || input.path === WORKFLOW_JACKYUN_CLOSE_AUTHORITY_PATH || input.path === "/api/workflow/pi-business-n8n"))
+        || templates || records || attachmentCleanup || inventoryWorkItems || input.path === WORKFLOW_JACKYUN_RECOVERY_AUTHORITY_PATH || input.path === WORKFLOW_JACKYUN_CLOSE_AUTHORITY_PATH || input.path === WORKFLOW_JD_CUSTOMER_SERVICE_CLOSE_AUTHORITY_PATH || input.path === "/api/workflow/pi-business-n8n"))
       || (input.method === "PATCH" && (project || stage || productLine || weeklyReportConfig || tasks || templates || record))
       || (input.method === "DELETE" && (project || tasks || taskDeletableCollection || taskAttachment || templates || record));
   if (!allowed) throw unavailable();

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from sales.import_record_query import list_records, records_requested
+
 import json
 import logging
 from collections.abc import Callable
@@ -185,6 +187,14 @@ def import_recovery(request: HttpRequest) -> JsonResponse:
 @require_GET
 def imports(request: HttpRequest) -> JsonResponse:
     def execute(_principal_value: Principal) -> dict[str, object]:
+        if records_requested(request.GET):
+            from .query import revision_token
+            before = revision_token()
+            result = list_records("sales", request.GET, SalesImportServiceError)
+            if before != revision_token():
+                raise SalesImportServiceError("运行记录读取期间发生变化，请刷新重试", status=503)
+            result["recordRevision"] = before
+            return result
         try:
             page = int(request.GET.get("page", "1"))
             page_size = int(request.GET.get("pageSize", request.GET.get("limit", "20")))

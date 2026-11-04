@@ -20,13 +20,13 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "10 12 * * *"
+              "expression": "10 13 * * *"
             }
           ]
         }
       },
       "id": "ac41fdc517e90354e16589f2a776c749",
-      "name": "每天 12:10 执行",
+      "name": "每天 13:10 执行",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
       "position": [
@@ -242,8 +242,25 @@
       "parameters": {
         "width": 700,
         "height": 260,
-        "content": "## 志高商用设备旗舰店客服聊天记录\n每天上海09:00，固定截至昨天的滚动30天；列表Excel和消息LOG配对，按自然日校验完整业务值、导入并精确回查。\n\n复用原京东helper和专用Profile；提交未决、验证码或店铺异常立即停止，不盲目重放。AI监控ai-2按同一逻辑任务第4次独立失败介入，需人工动作只通知本人。上线流程：受控采用helper → 完整手动验收 → 发布启用。"
+        "content": "## 志高商用设备旗舰店客服聊天记录\n每天本地时间09:00，固定截至昨天的滚动30天；列表Excel和消息LOG配对，按自然日校验完整业务值、导入并精确回查。\n\n复用原京东helper和专用Profile；提交未决、验证码或店铺异常立即停止，不盲目重放。AI监控ai-2按同一逻辑任务第4次独立失败介入，需人工动作只通知本人。上线流程：受控采用helper → 完整手动验收 → 发布启用。"
       }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "teruisi-hourly-retry-dd409357b3a4cc0776236c9b6214fbd2e23d0c47",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "35cdb3f0-fab3-42e3-8c01-c5839125726d",
+      "name": "失败后每小时安全重试入口",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -540,
+        320
+      ],
+      "webhookId": "e50de4ba-5aad-48b1-8d3b-c072c8e848dc"
     }
   ],
   "connections": {
@@ -258,7 +275,7 @@
         ]
       ]
     },
-    "每天 12:10 执行": {
+    "每天 13:10 执行": {
       "main": [
         [
           {
@@ -341,17 +358,33 @@
           }
         ]
       ]
+    },
+    "失败后每小时安全重试入口": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Asia/Shanghai",
     "errorWorkflow": "TeruisiHourlyRetry2026"
   },
   "meta": {
     "releaseProcedure": "controlled_helper_then_complete_execution_then_publish",
-    "monitorAutomationId": "ai-2"
+    "monitorAutomationId": "ai-2",
+    "hourlyRetryPolicy": {
+      "version": "2026-09-10.safe-hourly-retry.1",
+      "delayMinutes": 60,
+      "errorWorkflowId": "TeruisiHourlyRetry2026",
+      "webhookPath": "teruisi-hourly-retry-dd409357b3a4cc0776236c9b6214fbd2e23d0c47"
+    }
   },
   "tags": []
 }

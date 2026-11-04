@@ -164,6 +164,19 @@ ASGI_APPLICATION = "teruisi_backend.asgi.application"
 if database_url:
     DATABASES = {"default": database_from_url(database_url)}
 else:
+    # Prepare-Application seals both staged and installed app roots with this
+    # marker. Never fall back to SQLite there, even with a missing environment
+    # or an explicit SQLite path. Do not parse the manifest: malformed, empty,
+    # or non-file markers must not turn a managed app into a development tree.
+    try:
+        (BASE_DIR.parent / "deployment.json").lstat()
+    except FileNotFoundError:
+        pass
+    else:
+        raise RuntimeError(
+            "受管 Django 应用目录（deployment.json）禁止 SQLite 兜底；"
+            "必须显式配置 TERUISI_DJANGO_DATABASE_URL 为 PostgreSQL"
+        )
     sqlite_path = Path(
         os.getenv(
             "TERUISI_DJANGO_SQLITE_PATH",
@@ -192,6 +205,17 @@ USE_I18N = True
 USE_TZ = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SALES_READ_CACHE_SECONDS = env_int("TERUISI_DJANGO_SALES_CACHE_SECONDS", 60, 0, 3600)
+# The market projection total is a constant for one netshop revision, but its
+# identity term is a full-table aggregate costing far more than the reader's
+# statement_timeout allows. Memoize it per revision and give that single
+# computation its own wider budget; every later page of the same revision
+# reads the memo instead of re-running the aggregate.
+NETSHOP_PROJECTION_TOTAL_CACHE_SECONDS = env_int(
+    "TERUISI_DJANGO_NETSHOP_PROJECTION_TOTAL_CACHE_SECONDS", 900, 0, 3600
+)
+NETSHOP_PROJECTION_TOTAL_TIMEOUT_MS = env_int(
+    "TERUISI_DJANGO_NETSHOP_PROJECTION_TOTAL_TIMEOUT_MS", 60_000, 1_000, 300_000
+)
 ERP_REFERENCE_SYNC_MAX_AGE_SECONDS = env_int(
     "TERUISI_DJANGO_ERP_SYNC_MAX_AGE_SECONDS", 60, 30, 3600
 )

@@ -1,0 +1,158 @@
+{
+  "checkedAtUtc": "2026-11-03T07:23:30.432251+00:00",
+  "databaseMode": "mode=ro; query_only=ON; BEGIN; finally rollback",
+  "retainedExecutions": 763,
+  "retainedStartedAtUtcMin": "2026-10-20 05:45:00.131",
+  "retainedStartedAtUtcMax": "2026-11-03 06:47:59.873",
+  "payloadByteLimit": 1048576,
+  "missingPayloadIds": [],
+  "skippedOversizeIds": [],
+  "parseFailureIds": [],
+  "matchedExecutions": [
+    {
+      "executionId": "11028",
+      "workflowId": "JdCustomerService2026",
+      "workflowName": "京东志高商用设备客服聊天记录下载导入（09:00，30天）",
+      "status": "error",
+      "startedAtUtc": "2026-10-29 01:05:10.917",
+      "startedAtShanghai": "2026-10-29T09:05:10.917000+08:00",
+      "categories": [
+        "cleanup_requires_manual_action",
+        "helper_http_409"
+      ],
+      "errorNodes": [
+        "领取共享 helper"
+      ],
+      "safeCodes": [
+        "409",
+        "helper_slot_cleanup_requires_manual_action"
+      ]
+    },
+    {
+      "executionId": "11029",
+      "workflowId": "JdCustomerServiceChudian2026",
+      "workflowName": "京东志高商用厨电旗舰店客服聊天记录下载导入（09:00，30天）",
+      "status": "error",
+      "startedAtUtc": "2026-10-29 01:25:01.971",
+      "startedAtShanghai": "2026-10-29T09:25:01.971000+08:00",
+      "categories": [
+        "cleanup_requires_manual_action",
+        "helper_http_409"
+      ],
+      "errorNodes": [
+        "领取共享 helper"
+      ],
+      "safeCodes": [
+        "409",
+        "helper_slot_cleanup_requires_manual_action"
+      ]
+    },
+    {
+      "executionId": "11030",
+      "workflowId": "JdCustomerServiceDishwasher2026",
+      "workflowName": "京东志高商用洗碗机旗舰店客服聊天记录下载导入（09:00，30天）",
+      "status": "error",
+      "startedAtUtc": "2026-10-29 01:49:15.091",
+      "startedAtShanghai": "2026-10-29T09:49:15.091000+08:00",
+      "categories": [
+        "cleanup_requires_manual_action",
+        "helper_http_409"
+      ],
+      "errorNodes": [
+        "领取共享 helper"
+      ],
+      "safeCodes": [
+        "409",
+        "helper_slot_cleanup_requires_manual_action"
+      ]
+    },
+    {
+      "executionId": "11032",
+      "workflowId": "JdCustomerServiceCutMeat2026",
+      "workflowName": "京东志高切肉机旗舰店客服聊天记录下载导入（09:00，30天）",
+      "status": "error",
+      "startedAtUtc": "2026-10-29 02:05:43.089",
+      "startedAtShanghai": "2026-10-29T10:05:43.089000+08:00",
+      "categories": [
+        "cleanup_requires_manual_action",
+        "helper_http_409"
+      ],
+      "errorNodes": [
+        "领取共享 helper"
+      ],
+      "safeCodes": [
+        "409",
+        "helper_slot_cleanup_requires_manual_action"
+      ]
+    },
+    {
+      "executionId": "11048",
+      "workflowId": "JdCustomerService2026",
+      "workflowName": "京东志高商用设备客服聊天记录下载导入（09:00，30天）",
+      "status": "error",
+      "startedAtUtc": "2026-10-31 01:05:00.405",
+      "startedAtShanghai": "2026-10-31T09:05:00.405000+08:00",
+      "categories": [
+        "helper_econnrefused"
+      ],
+      "errorNodes": [
+        "领取共享 helper"
+      ],
+      "safeCodes": [
+        "ECONNREFUSED"
+      ]
+    },
+    {
+      "executionId": "11049",
+      "workflowId": "JdCustomerServiceChudian2026",
+      "workflowName": "京东志高商用厨电旗舰店客服聊天记录下载导入（09:00，30天）",
+      "status": "error",
+      "startedAtUtc": "2026-10-31 01:25:01.263",
+      "startedAtShanghai": "2026-10-31T09:25:01.263000+08:00",
+      "categories": [
+        "helper_econnrefused"
+      ],
+      "errorNodes": [
+        "领取共享 helper"
+      ],
+      "safeCodes": [
+        "ECONNREFUSED"
+      ]
+    }
+  ],
+  "classification": "Once per execution per category; only actual error objects, helper URL/name evidence required for generic HTTP409/ECONNREFUSED.",
+  "counts": {
+    "cleanup_requires_manual_action": 4,
+    "helper_http_409": 4,
+    "helper_econnrefused": 2
+  },
+  "byShanghaiDate": {
+    "cleanup_requires_manual_action": {
+      "2026-10-29": 4
+    },
+    "helper_http_409": {
+      "2026-10-29": 4
+    },
+    "helper_econnrefused": {
+      "2026-10-31": 2
+    }
+  },
+  "byWorkflow": {
+    "cleanup_requires_manual_action": {
+      "JdCustomerService2026": 1,
+      "JdCustomerServiceChudian2026": 1,
+      "JdCustomerServiceDishwasher2026": 1,
+      "JdCustomerServiceCutMeat2026": 1
+    },
+    "helper_http_409": {
+      "JdCustomerService2026": 1,
+      "JdCustomerServiceChudian2026": 1,
+      "JdCustomerServiceDishwasher2026": 1,
+      "JdCustomerServiceCutMeat2026": 1
+    },
+    "helper_econnrefused": {
+      "JdCustomerService2026": 1,
+      "JdCustomerServiceChudian2026": 1
+    }
+  }
+}

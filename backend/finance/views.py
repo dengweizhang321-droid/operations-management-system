@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from sales.import_record_query import list_records, records_requested
+
 import hashlib
 import json
 import logging
@@ -199,6 +201,9 @@ def imports(request: HttpRequest) -> JsonResponse:
     try:
         if request.method == "GET":
             _principal(request, {"viewer", "analyst", "operator", "admin"})
+            if records_requested(request.GET):
+                payload, revision = _consistent_read(lambda: list_records("finance", request.GET, FinanceApiError))
+                return _json(payload, revision=revision)
             page = _positive(request.GET.get("page"), 1, "page", 10_000)
             page_size = _positive(
                 request.GET.get("pageSize") or request.GET.get("limit"),

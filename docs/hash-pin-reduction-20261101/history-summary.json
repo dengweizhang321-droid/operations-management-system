@@ -1,0 +1,16 @@
+{
+  "baseline": "3ce73dfa87884ceea23f3b71f90b2244704b4170",
+  "windowStartInclusive": "2026-09-02T00:35:14+08:00",
+  "windowEndInclusive": "2026-11-01T00:35:14+08:00",
+  "clock": "Asia/Shanghai; rolling 60*24 hours",
+  "dateField": "committer timestamp; Git --since/--until",
+  "mainReachableNonMergeCommits": 2270,
+  "screeningCandidates": 159,
+  "humanReviewed": 32,
+  "strictConfirmed": 10,
+  "strictDynamicBinding": 2,
+  "candidates": 7,
+  "excluded": 13,
+  "otherBranchKeywordCandidates": 6,
+  "countMeaning": "严格确认下界；不是关键词候选总量；动态安装清单失配单列；不宣称全历史的因果完备率"
+}

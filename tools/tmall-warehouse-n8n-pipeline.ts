@@ -1,20 +1,22 @@
+import { collectionDateContext, collectionDay, newCollectionDateContext, type WorkflowCollectionDateContext } from "../lib/inventory/workflow-date-context";
 import { randomUUID } from "node:crypto";
 import { lstat, mkdir, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { readJsonDurableOr, writeJsonDurable } from "../lib/jackyun/json-file";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import { parseTmallWarehouseWorkbook } from "../lib/inventory/tmall-warehouse-workbook";
-import { tmallWarehouseApiPath, tmallWarehouseSource, tmallWarehouseProtocol, tmallWarehouseMaxBytes, warehouseConfig, warehouseDay, warehouseHash, type WarehouseConfig } from "../lib/tmall-warehouse/policy";
+import { tmallWarehouseApiPath, tmallWarehouseSource, tmallWarehouseProtocol, tmallWarehouseMaxBytes, warehouseConfig, warehouseHash, type WarehouseConfig } from "../lib/tmall-warehouse/policy";
 import { exportTmallWarehouse, type WarehouseDownload } from "./tmall-warehouse-export";
 
 type Receipt = { batchId: string; referenceBatchId?: string; owner: string; snapshotDate: string; rowCount: number; rawFileHash: string; contentHash: string; status: string };
-export type WarehousePlan = { protocol: string; runId: string; executionId: string; configHash: string; owner: string; snapshotDate: string; expectedScopeRevision: number; stage: "planned" | "export_intent" | "downloaded" | "import_intent" | "executed" | "completed"; download?: WarehouseDownload; expectedRowCount?: number; receipt?: Receipt };
+export type WarehousePlan = WorkflowCollectionDateContext & { protocol: string; runId: string; executionId: string; configHash: string; owner: string; snapshotDate: string; expectedScopeRevision: number; stage: "planned" | "export_intent" | "downloaded" | "import_intent" | "executed" | "completed"; download?: WarehouseDownload; expectedRowCount?: number; receipt?: Receipt };
 type Dependencies = { root: string; executionId: string; config?: WarehouseConfig; request?: typeof fetch };
 function files(root: string) { return { directory: path.join(root, "outputs", "tmall-warehouse"), active: path.join(root, "outputs", "tmall-warehouse", "active.json"), lock: path.join(root, "outputs", "tmall-warehouse", "pipeline.lock") }; }
 async function configFor(o: Dependencies) { return warehouseConfig(o.config ?? JSON.parse(await readFile(path.join(o.root, ".runtime", "tmall-warehouse.json"), "utf8").catch(() => { throw new Error("TMALL_WAREHOUSE_CONFIGURATION_REQUIRED_MANUAL_ACTION"); })), o.root); }
 async function owned(o: Dependencies, runId: string) {
   const plan = await readJsonDurableOr<WarehousePlan | null>(files(o.root).active, null);
   if (!plan || plan.protocol !== tmallWarehouseProtocol || plan.runId !== runId || plan.executionId !== o.executionId) throw new Error("TMALL_WAREHOUSE_EXECUTION_OWNER_MISMATCH");
+  collectionDateContext(plan);
   if (warehouseHash(JSON.stringify(await configFor(o))) !== plan.configHash) throw new Error("TMALL_WAREHOUSE_POLICY_CHANGED_MANUAL_ACTION");
   return plan;
 }
@@ -36,7 +38,8 @@ export async function planTmallWarehouse(o: Dependencies & { now?: Date }) {
     if (!scopes || typeof scopes !== "object" || Array.isArray(scopes) || options.truncated === true) throw new Error("TMALL_WAREHOUSE_SCOPE_REVISION_UNAVAILABLE");
     const expectedScopeRevision = Object.hasOwn(scopes, c.owner) ? scopes[c.owner] : 0;
     if (!Number.isSafeInteger(expectedScopeRevision) || Number(expectedScopeRevision) < 0) throw new Error("TMALL_WAREHOUSE_SCOPE_REVISION_INVALID");
-    const p: WarehousePlan = { protocol: tmallWarehouseProtocol, runId: `tmw-${randomUUID()}`, executionId: o.executionId, configHash: warehouseHash(JSON.stringify(c)), owner: c.owner, snapshotDate: warehouseDay(o.now), expectedScopeRevision: Number(expectedScopeRevision), stage: "planned" };
+    const context = newCollectionDateContext();
+    const p: WarehousePlan = { ...context, protocol: tmallWarehouseProtocol, runId: `tmw-${randomUUID()}`, executionId: o.executionId, configHash: warehouseHash(JSON.stringify(c)), owner: c.owner, snapshotDate: collectionDay(o.now ?? new Date(), context), expectedScopeRevision: Number(expectedScopeRevision), stage: "planned" };
     await lock.assertOwned();
     // Active first: interruption cannot leave an unindexed business effect.
     await writeJsonDurable(files(o.root).active, p);
@@ -61,7 +64,7 @@ async function api(o: Dependencies, config: WarehouseConfig, query: URLSearchPar
 }
 async function signedBytes(o: Dependencies, p: WarehousePlan) {
   const d = p.download;
-  if (!d || d.owner !== p.owner || d.snapshotDate !== p.snapshotDate || !Number.isFinite(Date.parse(d.collectedAt)) || warehouseDay(new Date(d.collectedAt)) !== p.snapshotDate) throw new Error("TMALL_WAREHOUSE_RECEIPT_IDENTITY_REJECTED");
+  if (!d || d.owner !== p.owner || d.snapshotDate !== p.snapshotDate || !Number.isFinite(Date.parse(d.collectedAt)) || collectionDay(new Date(d.collectedAt), p) !== p.snapshotDate) throw new Error("TMALL_WAREHOUSE_RECEIPT_IDENTITY_REJECTED");
   const expected = path.join(files(o.root).directory, "downloads", p.runId, "source.xlsx");
   if (path.resolve(d.filePath) !== expected || await realpath(expected) !== expected) throw new Error("TMALL_WAREHOUSE_DOWNLOAD_PATH_REJECTED");
   const info = await lstat(expected);
@@ -74,9 +77,9 @@ export async function runTmallWarehouse(ref: Pick<WarehousePlan, "runId">, o: De
   return withJackyunRunLock({ runId: ref.runId, purpose: "tmall-warehouse-run", lockDirectory: files(o.root).lock }, async lock => {
     const p = await owned(o, ref.runId), config = await configFor(o);
     if (p.stage !== "planned") throw new Error("TMALL_WAREHOUSE_REPLAY_REQUIRES_MANUAL_ACTION");
-    if (warehouseDay() !== p.snapshotDate) throw new Error("TMALL_WAREHOUSE_SNAPSHOT_DAY_CHANGED_MANUAL_ACTION");
+    if (collectionDay(new Date(), p) !== p.snapshotDate) throw new Error("TMALL_WAREHOUSE_SNAPSHOT_DAY_CHANGED_MANUAL_ACTION");
     const assertOwner = async () => { await lock.assertOwned(); await owned(o, p.runId); };
-    p.download = await (o.exporter ?? exportTmallWarehouse)({ root: o.root, runId: p.runId, config, assertOwner, beforeClick: async count => { await assertOwner(); p.expectedRowCount = count; p.stage = "export_intent"; await save(o, p); } });
+    p.download = await (o.exporter ?? exportTmallWarehouse)({ ...collectionDateContext(p), root: o.root, runId: p.runId, config, assertOwner, beforeClick: async count => { await assertOwner(); p.expectedRowCount = count; p.stage = "export_intent"; await save(o, p); } });
     p.stage = "downloaded"; await save(o, p);
     const bytes = await signedBytes(o, p), parsed = parseTmallWarehouseWorkbook(bytes);
     if (parsed.sheetName !== "导出数据" || parsed.rows.length !== p.expectedRowCount || parsed.rows.length !== p.download.expectedRowCount || parsed.sourceDate && parsed.sourceDate !== p.snapshotDate || parsed.rows.some(row => [row.availableQuantity, row.onHandQuantity, row.goodAvailableQuantity, row.goodOccupiedQuantity, row.salesOccupiedQuantity, row.defectiveQuantity, row.purchaseInTransitQuantity, row.transferInTransitQuantity].some(n => n === null || n === undefined))) throw new Error("TMALL_WAREHOUSE_COMPLETE_ROW_COUNT_OR_DATE_REJECTED");
@@ -84,7 +87,7 @@ export async function runTmallWarehouse(ref: Pick<WarehousePlan, "runId">, o: De
     // its explicit import contract. Supplier fields never authorize the owner.
     const body = { owner: p.owner, snapshotDate: p.snapshotDate, expectedScopeRevision: p.expectedScopeRevision, fileName: p.download.fileName, rawFileHash: p.download.rawFileHash, rows: parsed.rows,
       collectedAt: p.download.collectedAt, sourceAsOf: "", sourceUrl: tmallWarehouseSource,
-      collectorEvidence: { protocol: p.protocol, runId: p.runId, executionId: p.executionId, identity: "authenticated-account-panel", expectedRowCount: String(p.expectedRowCount), sheetName: parsed.sheetName } };
+      collectorEvidence: { ...collectionDateContext(p), protocol: p.protocol, runId: p.runId, executionId: p.executionId, identity: "authenticated-account-panel", expectedRowCount: String(p.expectedRowCount), sheetName: parsed.sheetName } };
     if (Buffer.byteLength(JSON.stringify(body)) > 24 * 1024 * 1024) throw new Error("TMALL_WAREHOUSE_IMPORT_TOO_LARGE");
     await assertOwner(); p.stage = "import_intent"; await save(o, p);
     const result = await api(o, config, new URLSearchParams(), body);

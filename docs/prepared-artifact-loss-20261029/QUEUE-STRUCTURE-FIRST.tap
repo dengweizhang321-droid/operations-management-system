@@ -1,0 +1,418 @@
+TAP version 13
+# Subtest: never-dispatched stale generations get own-bound blocked results while same-generation manual ticket proceeds
+ok 1 - never-dispatched stale generations get own-bound blocked results while same-generation manual ticket proceeds
+  ---
+  duration_ms: 464.2617
+  type: 'test'
+  ...
+# Subtest: stale ticket referenced by any completed or unknown dispatch blocks whole batch before an early free ticket is written
+ok 2 - stale ticket referenced by any completed or unknown dispatch blocks whole batch before an early free ticket is written
+  ---
+  duration_ms: 151.632
+  type: 'test'
+  ...
+# Subtest: malformed later dispatch, bindings, result or ticket abort before every stale result write
+ok 3 - malformed later dispatch, bindings, result or ticket abort before every stale result write
+  ---
+  duration_ms: 577.1218
+  type: 'test'
+  ...
+# Subtest: generation CAS and real queue lock reject before stale closure writes
+ok 4 - generation CAS and real queue lock reject before stale closure writes
+  ---
+  duration_ms: 32.8007
+  type: 'test'
+  ...
+# Subtest: strict generation admission reader rejects missing/extra/rebound/same-generation or malformed fields
+ok 5 - strict generation admission reader rejects missing/extra/rebound/same-generation or malformed fields
+  ---
+  duration_ms: 175.7154
+  type: 'test'
+  ...
+# Subtest: after stale closure the same-generation ticket still encounters original unresolved-dispatch gate
+ok 6 - after stale closure the same-generation ticket still encounters original unresolved-dispatch gate
+  ---
+  duration_ms: 649.6568
+  type: 'test'
+  ...
+# Subtest: preparation-stage unknown blocks until deadline plus grace, then is abandoned without touching its bytes; same target prepares in -r2
+ok 7 - preparation-stage unknown blocks until deadline plus grace, then is abandoned without touching its bytes; same target prepares in -r2
+  ---
+  duration_ms: 2217
+  type: 'test'
+  ...
+# Subtest: without the abandonment option a past-deadline preparation unknown keeps blocking exactly as before
+ok 8 - without the abandonment option a past-deadline preparation unknown keeps blocking exactly as before
+  ---
+  duration_ms: 682.4906
+  type: 'test'
+  ...
+# Subtest: any publication-stage marker in the attempt directory keeps the unknown blocking forever
+ok 9 - any publication-stage marker in the attempt directory keeps the unknown blocking forever
+  ---
+  duration_ms: 1047.6197
+  type: 'test'
+  ...
+# Subtest: a held or unprobeable rotation lock and a missing terminal keep the dispatch blocking
+not ok 10 - a held or unprobeable rotation lock and a missing terminal keep the dispatch blocking
+  ---
+  duration_ms: 858.8492
+  type: 'test'
+  location: 'D:\\codex-worktrees\\prepared-artifact-loss-20261029\\tests\\main-prebuild-queue-abandonment.test.mjs:88:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Dispatched ticket terminal belongs to another operation
+    + actual - expected
+    
+    + undefined
+    - 'dcb5b44d-4490-4625-9d82-7c58886e6c46'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'dcb5b44d-4490-4625-9d82-7c58886e6c46'
+  operator: 'strictEqual'
+  stack: |-
+    readPreparationQueueStructure (file:///D:/codex-worktrees/prepared-artifact-loss-20261029/tools/main-prebuild-queue.mjs:300:263)
+    async readPreparationQueueInventory (file:///D:/codex-worktrees/prepared-artifact-loss-20261029/tools/main-prebuild-queue.mjs:319:18)
+    async drainPreparationQueue (file:///D:/codex-worktrees/prepared-artifact-loss-20261029/tools/main-prebuild-queue.mjs:445:19)
+    async TestContext.<anonymous> (file:///D:/codex-worktrees/prepared-artifact-loss-20261029/tests/main-prebuild-queue-abandonment.test.mjs:95:2)
+    async Test.run (node:internal/test_runner/test:1332:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: abandonment is evaluated only after ordinary preparation admission; a rejected host writes no abandonment record
+ok 11 - abandonment is evaluated only after ordinary preparation admission; a rejected host writes no abandonment record
+  ---
+  duration_ms: 608.6722
+  type: 'test'
+  ...
+# Subtest: tampered, orphan or premature abandonment records and changed unknown bytes fail closed
+ok 12 - tampered, orphan or premature abandonment records and changed unknown bytes fail closed
+  ---
+  duration_ms: 1438.3368
+  type: 'test'
+  ...
+# Subtest: a valid native preparation failure is a dispatched failed terminal; the next ticket prepares the same target in -r2
+ok 13 - a valid native preparation failure is a dispatched failed terminal; the next ticket prepares the same target in -r2
+  ---
+  duration_ms: 351.8321
+  type: 'test'
+  ...
+# Subtest: a consumer rejection before native start is failed and does not block; a plain failure is still unknown
+ok 14 - a consumer rejection before native start is failed and does not block; a plain failure is still unknown
+  ---
+  duration_ms: 484.1125
+  type: 'test'
+  ...
+# Subtest: invalid preparation terminals and terminals beside publication markers stay unknown
+ok 15 - invalid preparation terminals and terminals beside publication markers stay unknown
+  ---
+  duration_ms: 1169.9569
+  type: 'test'
+  ...
+# Subtest: dispatched failed terminals validate exactly; the pre-dispatch failed shape is unchanged
+ok 16 - dispatched failed terminals validate exactly; the pre-dispatch failed shape is unchanged
+  ---
+  duration_ms: 220.1762
+  type: 'test'
+  ...
+# Subtest: packet slot helper picks the first non-retired slot and the freeze path accepts only base or -r2..-r64
+ok 17 - packet slot helper picks the first non-retired slot and the freeze path accepts only base or -r2..-r64
+  ---
+  duration_ms: 5.5198
+  type: 'test'
+  ...
+# Subtest: native preparation-failure result validator accepts only the exact record
+ok 18 - native preparation-failure result validator accepts only the exact record
+  ---
+  duration_ms: 153.0623
+  type: 'test'
+  ...
+# Subtest: rotation lock probe is true only when the pipe can be taken and released
+ok 19 - rotation lock probe is true only when the pipe can be taken and released
+  ---
+  duration_ms: 2.0459
+  type: 'test'
+  ...
+# Subtest: consumer wiring: rejection before native and validated native failure are failed; plain native failure stays unknown; retired packets reach observe and deploy inspection
+ok 20 - consumer wiring: rejection before native and validated native failure are failed; plain native failure stays unknown; retired packets reach observe and deploy inspection
+  ---
+  duration_ms: 624.8446
+  type: 'test'
+  ...
+# Subtest: manual and hooks share one real kernel consumer, coalesce only undispatched targets
+ok 21 - manual and hooks share one real kernel consumer, coalesce only undispatched targets
+  ---
+  duration_ms: 1296.0254
+  type: 'test'
+  ...
+# Subtest: unknown native result and a later same-target event never replay preparation
+ok 22 - unknown native result and a later same-target event never replay preparation
+  ---
+  duration_ms: 402.117
+  type: 'test'
+  ...
+# Subtest: a new generation may report an exact old blocking dependency but cannot release its unknown
+ok 23 - a new generation may report an exact old blocking dependency but cannot release its unknown
+  ---
+  duration_ms: 240.1474
+  type: 'test'
+  ...
+# Subtest: truncated canonical prepared cannot turn an unknown dispatch into a replay permit
+ok 24 - truncated canonical prepared cannot turn an unknown dispatch into a replay permit
+  ---
+  duration_ms: 143.1213
+  type: 'test'
+  ...
+# Subtest: missing dispatch dependency does not turn a retained unknown terminal into absence
+ok 25 - missing dispatch dependency does not turn a retained unknown terminal into absence
+  ---
+  duration_ms: 139.197
+  type: 'test'
+  ...
+# Subtest: native preparation receipt, dispatch tuple, config and code drift reject completion
+ok 26 - native preparation receipt, dispatch tuple, config and code drift reject completion
+  ---
+  duration_ms: 415.5347
+  type: 'test'
+  ...
+# Subtest: generation change, partial dispatch and unknown filename fail before once
+ok 27 - generation change, partial dispatch and unknown filename fail before once
+  ---
+  duration_ms: 72.3815
+  type: 'test'
+  ...
+# Subtest: crash before dispatch remains queued; after durable dispatch becomes unknown without once replay
+not ok 28 - crash before dispatch remains queued; after durable dispatch becomes unknown without once replay
+  ---
+  duration_ms: 734.2626
+  type: 'test'
+  location: 'D:\\codex-worktrees\\prepared-artifact-loss-20261029\\tests\\main-prebuild-queue-v2.test.mjs:82:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Dispatched ticket terminal belongs to another operation
+    + actual - expected
+    
+    + undefined
+    - 'e1336590-9320-42d7-90a7-c7a87be502f4'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'e1336590-9320-42d7-90a7-c7a87be502f4'
+  operator: 'strictEqual'
+  stack: |-
+    readPreparationQueueStructure (file:///D:/codex-worktrees/prepared-artifact-loss-20261029/tools/main-prebuild-queue.mjs:300:263)
+    async readPreparationQueueInventory (file:///D:/codex-worktrees/prepared-artifact-loss-20261029/tools/main-prebuild-queue.mjs:319:18)
+    async drainPreparationQueue (file:///D:/codex-worktrees/prepared-artifact-loss-20261029/tools/main-prebuild-queue.mjs:445:19)
+    async TestContext.<anonymous> (file:///D:/codex-worktrees/prepared-artifact-loss-20261029/tests/main-prebuild-queue-v2.test.mjs:88:15)
+    async Test.run (node:internal/test_runner/test:1332:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# {"stage":"rotation-wait","requestId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","elapsedMs":1013,"attempts":1,"acquired":true}
+# Subtest: real native lock waits only before callback, default remains fail-fast
+ok 29 - real native lock waits only before callback, default remains fail-fast
+  ---
+  duration_ms: 1020.3829
+  type: 'test'
+  ...
+# Subtest: deadline crossing at listen delivery and diagnostic exceptions both release acquired lock
+ok 30 - deadline crossing at listen delivery and diagnostic exceptions both release acquired lock
+  ---
+  duration_ms: 1.5454
+  type: 'test'
+  ...
+# Subtest: only the same full predecessor selection and control generation expose retained preparation
+ok 31 - only the same full predecessor selection and control generation expose retained preparation
+  ---
+  duration_ms: 1931.1707
+  type: 'test'
+  ...
+# Subtest: one request abandons the old packet, preserves unknown bytes, exits without preparation, and repeats without waking
+ok 32 - one request abandons the old packet, preserves unknown bytes, exits without preparation, and repeats without waking
+  ---
+  duration_ms: 378.2747
+  type: 'test'
+  ...
+# Subtest: crash after an exact abandoned append completes only the independent result
+ok 33 - crash after an exact abandoned append completes only the independent result
+  ---
+  duration_ms: 495.613
+  type: 'test'
+  ...
+# Subtest: not due, publication markers, busy rotation, ordinary rejection, pending tickets and generation drift all refuse and exit
+ok 34 - not due, publication markers, busy rotation, ordinary rejection, pending tickets and generation drift all refuse and exit
+  ---
+  duration_ms: 1546.1226
+  type: 'test'
+  ...
+# Subtest: incomplete original results, malformed requests and multiple pending reconciliations block before work
+ok 35 - incomplete original results, malformed requests and multiple pending reconciliations block before work
+  ---
+  duration_ms: 254.5902
+  type: 'test'
+  ...
+# Subtest: short submission lock serializes pending admission and never holds the long queue lock
+ok 36 - short submission lock serializes pending admission and never holds the long queue lock
+  ---
+  duration_ms: 48.063
+  type: 'test'
+  ...
+# Subtest: a concurrent manual submit cannot enter between abandon-only pending=0 and the abandonment append
+ok 37 - a concurrent manual submit cannot enter between abandon-only pending=0 and the abandonment append
+  ---
+  duration_ms: 128.3385
+  type: 'test'
+  ...
+# Subtest: committed manual-only hook returns before missing config or any side effect
+ok 38 - committed manual-only hook returns before missing config or any side effect
+  ---
+  duration_ms: 289.6339
+  type: 'test'
+  ...
+# Subtest: disabled migration accepts exactly enabled=false; PS5 registration refuses state/instances drift
+ok 39 - disabled migration accepts exactly enabled=false; PS5 registration refuses state/instances drift
+  ---
+  duration_ms: 6522.6938
+  type: 'test'
+  ...
+# Subtest: R1b current pins bind exact final source bytes and preserve historical pins
+ok 40 - R1b current pins bind exact final source bytes and preserve historical pins
+  ---
+  duration_ms: 1.9563
+  type: 'test'
+  ...
+# Subtest: a real old nongated latest-main family is classified as requiring the native ref fence; unknown bytes and links reject
+ok 41 - a real old nongated latest-main family is classified as requiring the native ref fence; unknown bytes and links reject
+  ---
+  duration_ms: 248.0315
+  type: 'test'
+  ...
+# warning: re-init: ignored --initial-branch=main
+# Subtest: actual pinned frozen publisher requires its real guard/resume bytes and its own Git source cannot still name the retired target
+ok 42 - actual pinned frozen publisher requires its real guard/resume bytes and its own Git source cannot still name the retired target
+  ---
+  duration_ms: 2290.355
+  type: 'test'
+  ...
+# Subtest: no loss record: structure validates every byte but absent native receipt still blocks normal inventory
+ok 43 - no loss record: structure validates every byte but absent native receipt still blocks normal inventory
+  ---
+  duration_ms: 409.4359
+  type: 'test'
+  ...
+# Subtest: structural reader rejects a duplicate dispatch operation for an already-dispatched ticket without opening packet files
+ok 44 - structural reader rejects a duplicate dispatch operation for an already-dispatched ticket without opening packet files
+  ---
+  duration_ms: 464.2458
+  type: 'test'
+  ...
+# Subtest: whole packet ENOENT: full multi-dispatch/ticket group retires, originals and pending stay untouched, then exits
+ok 45 - whole packet ENOENT: full multi-dispatch/ticket group retires, originals and pending stay untouched, then exits
+  ---
+  duration_ms: 3536.0331
+  type: 'test'
+  ...
+# Subtest: present packet, partial tree, EACCES, missing parent, symlink and hardlinked evidence all refuse without new records
+ok 46 - present packet, partial tree, EACCES, missing parent, symlink and hardlinked evidence all refuse without new records
+  ---
+  duration_ms: 1949.8933
+  type: 'test'
+  ...
+# Subtest: present receipt with a changed hash blocks before any retirement and preserves the original terminal bytes
+ok 47 - present receipt with a changed hash blocks before any retirement and preserves the original terminal bytes
+  ---
+  duration_ms: 124.1374
+  type: 'test'
+  ...
+# Subtest: reappeared packet: changed receipt/request blocks; fully valid restoration stays retired and cannot publish or reuse
+ok 48 - reappeared packet: changed receipt/request blocks; fully valid restoration stays retired and cannot publish or reuse
+  ---
+  duration_ms: 1615.4363
+  type: 'test'
+  ...
+# Subtest: bindings are exhaustive: omitted dispatch/ticket, changed queue/result/dispatch/native hash and swapped manifest fail closed
+ok 49 - bindings are exhaustive: omitted dispatch/ticket, changed queue/result/dispatch/native hash and swapped manifest fail closed
+  ---
+  duration_ms: 1968.4436
+  type: 'test'
+  ...
+# Subtest: deleted record or completed result is detected; crash after append resumes the same records without draining pending
+ok 50 - deleted record or completed result is detected; crash after append resumes the same records without draining pending
+  ---
+  duration_ms: 1628.7076
+  type: 'test'
+  ...
+# Subtest: queue and rotation locks cover the complete append; original generation drift refuses and no pending ticket is consumed
+ok 51 - queue and rotation locks cover the complete append; original generation drift refuses and no pending ticket is consumed
+  ---
+  duration_ms: 661.5219
+  type: 'test'
+  ...
+# Subtest: fixed prepare function refuses a restored retired packet before source/native effects
+ok 52 - fixed prepare function refuses a restored retired packet before source/native effects
+  ---
+  duration_ms: 605.9022
+  type: 'test'
+  ...
+# Subtest: fixed check function refuses a restored retired packet before source/native effects
+ok 53 - fixed check function refuses a restored retired packet before source/native effects
+  ---
+  duration_ms: 436.4276
+  type: 'test'
+  ...
+# Subtest: fixed publish function refuses a restored retired packet before source/native effects
+ok 54 - fixed publish function refuses a restored retired packet before source/native effects
+  ---
+  duration_ms: 461.2473
+  type: 'test'
+  ...
+# Subtest: new bundle leaves original pending tickets to incompatible-generation rejection and never migrates or prepares them
+ok 55 - new bundle leaves original pending tickets to incompatible-generation rejection and never migrates or prepares them
+  ---
+  duration_ms: 677.6843
+  type: 'test'
+  ...
+# Subtest: adopted and main producer closures remain the exact five-member union; SalesPreflightIndex154 remains supported
+ok 56 - adopted and main producer closures remain the exact five-member union; SalesPreflightIndex154 remains supported
+  ---
+  duration_ms: 4.5074
+  type: 'test'
+  ...
+# Subtest: successor material inherits the external manifest; replacement, missing intent binding, capability drop and orphan records refuse
+ok 57 - successor material inherits the external manifest; replacement, missing intent binding, capability drop and orphan records refuse
+  ---
+  duration_ms: 1354.843
+  type: 'test'
+  ...
+# Subtest: actual build-only upgrade material inherits the manifest and readMaterials refuses deleted or legally rehashed downgraded capability
+ok 58 - actual build-only upgrade material inherits the manifest and readMaterials refuses deleted or legally rehashed downgraded capability
+  ---
+  duration_ms: 8742.2942
+  type: 'test'
+  ...
+# Subtest: existing publication-retired writer and layered inventory preserve packet retirement and reject changed bindings
+ok 59 - existing publication-retired writer and layered inventory preserve packet retirement and reject changed bindings
+  ---
+  duration_ms: 171.5225
+  type: 'test'
+  ...
+# Subtest: fixed prepare/check/publish and loss CLI modes are exclusive; native direct scripts retain their documented boundary
+ok 60 - fixed prepare/check/publish and loss CLI modes are exclusive; native direct scripts retain their documented boundary
+  ---
+  duration_ms: 199.2668
+  type: 'test'
+  ...
+# Subtest: pure manifest validation accepts the independent 26-packet/35-dispatch inventory without opening production
+ok 61 - pure manifest validation accepts the independent 26-packet/35-dispatch inventory without opening production
+  ---
+  duration_ms: 2.4858
+  type: 'test'
+  ...
+1..61
+# tests 61
+# suites 0
+# pass 59
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 25426.609

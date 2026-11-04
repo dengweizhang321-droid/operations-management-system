@@ -1,4 +1,5 @@
 import { mkdir, readdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
@@ -9,9 +10,12 @@ import { canonicalLogisticsJson, logisticsHash, parseJdLogisticsConfig, parseJdL
 import { validateJdStoreRegistry } from "../lib/jd/store-registry";
 import { jdPreexportEvidence as io, preexportSha256 as sha, type PreexportOptions } from "./close-jd-logistics-preexport";
 import { jdLogin9851Target } from "./jd-logistics-login-9851-target";
+import { jdLogin11037History, type LoginActivation } from "./jd-logistics-login-11037-target";
 
 export type Login9851Target = { -readonly [K in keyof typeof jdLogin9851Target]: (typeof jdLogin9851Target)[K] extends number ? number : string };
-type Options = Omit<PreexportOptions, "target"> & { target?: Login9851Target };
+export type LogisticsLoginTarget = Login9851Target & { originalHelperTreeSha256?: string; activationChain?: LoginActivation[] };
+export type LogisticsLoginClosureOptions = Omit<PreexportOptions, "target"> & { target: LogisticsLoginTarget };
+type Options = Omit<LogisticsLoginClosureOptions, "target"> & { target?: Login9851Target };
 function fail(code: string): never { throw new Error(`JD_LOGIN_9851_${code}`); }
 const same = (a: unknown, b: unknown) => canonicalLogisticsJson(a) === canonicalLogisticsJson(b);
 export function closureSettingsHash(value: unknown) {
@@ -46,7 +50,7 @@ export function read9851Execution(databasePath: string, t: Login9851Target) {
     const arr = (v: unknown): unknown[] => { const a = deref(v); if (!Array.isArray(a)) fail("EXECUTION_ARRAY_INVALID"); return a; };
     const result = obj(obj(values[0]).resultData), run = obj(result.runData);
     const aName = "A·冻结事业部来源与日期计划", bName = "B·串行下载全文件校验并导入", releaseName = "失败后释放原执行 helper";
-    const names = ["每天08:00计划入口", "领取共享 helper", "已领取执行所有权？", aName, bName, releaseName, "保留证据并明确失败"];
+    const names = [t.executionId === "11037" ? "每天08:50计划入口" : "每天08:00计划入口", "领取共享 helper", "已领取执行所有权？", aName, bName, releaseName, "保留证据并明确失败"];
     if (!same(Object.keys(run).sort(), names.sort()) || deref(result.lastNodeExecuted) !== "保留证据并明确失败") fail("EXECUTION_STAGE_CHANGED");
     const task = (name: string) => { const list = arr(run[name]); if (list.length !== 1) fail("EXECUTION_REPLAY_PRESENT"); return obj(list[0]); };
     const output = (task: Record<string, unknown>, branch: number) => {
@@ -67,7 +71,7 @@ export function read9851Execution(databasePath: string, t: Login9851Target) {
   } finally { db.close(); }
 }
 
-async function historyBatches(plan: JdLogisticsManifest, t: Login9851Target, request: typeof fetch) {
+export async function collectLoginHistoricalBatches(plan: JdLogisticsManifest, t: Pick<Login9851Target, "departmentId" | "businessUnitCode" | "executionId" | "runId">, request: typeof fetch) {
   const result = [];
   for (const op of plan.operations) {
     const items: Array<{ batchId: string; collectorEvidence?: { executionId?: unknown; runId?: unknown } }> = []; let total = 0;
@@ -93,11 +97,82 @@ async function historyBatches(plan: JdLogisticsManifest, t: Login9851Target, req
     }
     result.push({ sourceKind: op.sourceKind, total, items, details });
   }
-  if (logisticsHash(result) !== t.batchesHash) fail("HISTORICAL_BATCH_STATE_CHANGED");
-  return result.map(x => ({ sourceKind: x.sourceKind, total: x.total }));
+  return { hash: logisticsHash(result), summary: result.map(x => ({ sourceKind: x.sourceKind, total: x.total })) };
 }
 
-async function originalCode(runtime: string, t: Login9851Target, execution: ReturnType<typeof read9851Execution>) {
+export async function readLoginActivation(runtime: string, pinned: LoginActivation) {
+  if (!/^[a-f0-9]{64}\.json$/.test(pinned.file) || !/^[a-f0-9]{64}$/.test(pinned.sha256)) fail("ACTIVATION_PATH_INVALID");
+  const p = path.join(runtime, "state/worker-release-successors", pinned.file), data = await io.bytes(p);
+  if (sha(data) !== pinned.sha256 || (await io.bytes(p + ".sha256")).toString("utf8").trim() !== pinned.sha256) fail("ACTIVATION_RECORD_CHANGED");
+  const record = JSON.parse(data.toString("utf8")), { payloadSha256, ...payload } = record;
+  if (logisticsHash(payload) !== payloadSha256 || record.version !== "teruisi-local-worker-release-successor-v1"
+    || record.predecessor?.bindingSha256 + ".json" !== pinned.file || !Number.isSafeInteger(record.sequence)
+    || !Number.isFinite(Date.parse(record.activatedAt))) fail("ACTIVATION_PAYLOAD_CHANGED");
+  return record;
+}
+
+function assertLoginPreexportSource(source: Buffer, expected: string) {
+  if (sha(source) !== expected) fail("ORIGINAL_EXPORTER_CHANGED");
+  const text = source.toString("utf8"), surface = text.slice(text.indexOf("async function businessSurface("), text.indexOf("export async function waitForJdLogisticsIdentity("));
+  if ((text.match(/fail\("JD_LOGISTICS_LOGIN_REQUIRED"\)/g) ?? []).length !== 1 || !surface.includes('fail("JD_LOGISTICS_LOGIN_REQUIRED")')
+    || !/const business = await navigate\(\);\s+await identity\(business, observedCodes, options.businessUnitCode\);/.test(text)
+    || text.indexOf("const business = await navigate()") > text.indexOf("const exported = await exportFlowSource(page")) fail("PREEXPORT_FAILURE_NOT_PROVEN");
+}
+
+export function assertLogin11037History(t: LogisticsLoginTarget) {
+  if (Object.entries(jdLogin11037History).some(([key, value]) => t[key as keyof LogisticsLoginTarget] !== value)) fail("EXACT_11037_HISTORY_CHANGED");
+}
+
+async function original11037Code(runtime: string, t: LogisticsLoginTarget, execution: ReturnType<typeof read9851Execution>) {
+  assertLogin11037History(t);
+  const original = path.join(runtime, "releases", t.originalReleaseId);
+  const manifestBytes = await io.bytes(path.join(original, "deployment-manifest.json"));
+  const receiptBytes = await io.bytes(path.join(original, "audit/helper-build-receipt.json"));
+  if (sha(manifestBytes) !== t.originalManifestSha256 || sha(receiptBytes) !== t.originalHelperReceiptSha256) fail("ORIGINAL_RUNTIME_CHANGED");
+  const manifest = JSON.parse(manifestBytes.toString("utf8")), receipt = JSON.parse(receiptBytes.toString("utf8"));
+  if (manifest.releaseId !== t.originalReleaseId || manifest.artifacts?.helperReceipt?.relativePath !== "audit/helper-build-receipt.json"
+    || manifest.artifacts.helperReceipt.sha256 !== t.originalHelperReceiptSha256 || receipt.status !== "passed"
+    || manifest.build?.helperTree?.fileCount !== 4 || receipt.helperTree?.fileCount !== 4
+    || manifest.build.helperTree.sha256 !== t.originalHelperTreeSha256 || receipt.helperTree.sha256 !== t.originalHelperTreeSha256
+    || !receipt.evidence?.inputFiles?.some((x: { relativePath?: unknown; sha256?: unknown }) => x.relativePath === "tools/jd-logistics-export.ts" && x.sha256 === t.exporterSha256)) fail("ORIGINAL_HELPER_BINDING_CHANGED");
+  const names = (await readdir(path.join(original, "helper"))).sort();
+  if (!same(names, ["jackyun-json-publish.ps1", "jd-credential-vault.ps1", "tmall-credential-vault.ps1", "tmall-workflow-helper.mjs"])) fail("ORIGINAL_HELPER_MEMBERS_CHANGED");
+  const hash = createHash("sha256");
+  for (const name of names) {
+    const content = await io.bytes(path.join(original, "helper", name), 32 * 1024 * 1024), nameBytes = Buffer.from(name);
+    const nameLength = Buffer.alloc(4), contentLength = Buffer.alloc(8);
+    nameLength.writeUInt32BE(nameBytes.length); contentLength.writeBigUInt64BE(BigInt(content.length));
+    hash.update(nameLength).update(nameBytes).update(contentLength).update(content);
+  }
+  if (hash.digest("hex") !== t.originalHelperTreeSha256) fail("ORIGINAL_HELPER_TREE_CHANGED");
+  assertLoginPreexportSource(await io.bytes(path.join(original, "source-snapshot/tools/jd-logistics-export.ts")), t.exporterSha256);
+  const chain = t.activationChain;
+  if (!Array.isArray(chain) || chain.length < 2 || chain.length > 128
+    || chain[0].file !== t.activationInFile || chain[0].sha256 !== t.activationInSha256
+    || chain[1].file !== t.activationOutFile || chain[1].sha256 !== t.activationOutSha256) fail("ACTIVATION_CHAIN_INVALID");
+  const records = [];
+  for (const item of chain) records.push(await readLoginActivation(runtime, item));
+  for (let i = 1; i < records.length; i++) {
+    const before = records[i - 1], after = records[i];
+    if (before.sequence + 1 !== after.sequence || !same(before.successor, after.predecessor)
+      || !(Date.parse(before.activatedAt) < Date.parse(after.activatedAt))) fail("ACTIVATION_CHAIN_DISCONTINUOUS");
+  }
+  const first = records[0], out = records[1], last = records[records.length - 1];
+  if (first.successor.releaseId !== t.originalReleaseId || first.successor.manifestSha256 !== t.originalManifestSha256
+    || !(Date.parse(first.activatedAt) < execution.startedAt && execution.stoppedAt < Date.parse(out.activatedAt))
+    || last.successor.releaseId !== t.releaseId || last.successor.manifestSha256 !== t.releaseManifestSha256
+    || !/^[a-f0-9]{64}$/.test(last.successor.bindingSha256)) fail("ORIGINAL_EXECUTION_CODE_INTERVAL_CHANGED");
+  await io.absent(path.join(runtime, "state/worker-release-successors", last.successor.bindingSha256 + ".json"));
+  // Current manifest independently binds the receipt already fully verified by installedEvidence.
+  const current = JSON.parse((await io.bytes(path.join(runtime, "releases", t.releaseId, "deployment-manifest.json"))).toString("utf8"));
+  if (current.releaseId !== t.releaseId || current.artifacts?.helperReceipt?.relativePath !== "audit/helper-build-receipt.json"
+    || current.artifacts.helperReceipt.sha256 !== t.helperReceiptSha256 || current.build?.helperTree?.sha256 !== t.helperTreeSha256) fail("CURRENT_HELPER_BINDING_CHANGED");
+  return { releaseId: t.originalReleaseId, exporterSha256: t.exporterSha256, originalHelperTreeSha256: t.originalHelperTreeSha256,
+    activationInSha256: t.activationInSha256, activationOutSha256: t.activationOutSha256, activationChainHash: logisticsHash(chain) };
+}
+
+async function originalCode(runtime: string, t: LogisticsLoginTarget, execution: ReturnType<typeof read9851Execution>) {
+  if (t.executionId === "11037") return original11037Code(runtime, t, execution);
   const original = path.join(runtime, "releases", t.originalReleaseId), current = path.join(runtime, "releases", t.releaseId);
   if (sha(await io.bytes(path.join(original, "deployment-manifest.json"))) !== t.originalManifestSha256
     || sha(await io.bytes(path.join(original, "audit/helper-build-receipt.json"))) !== t.originalHelperReceiptSha256) fail("ORIGINAL_RUNTIME_CHANGED");
@@ -166,7 +241,9 @@ async function inspect(o: Options, t: Login9851Target, archive?: string) {
   if (!same(unchanged, settings)) fail("HISTORICAL_SETTINGS_PROOF_INVALID");
   const selected = selectJdLogisticsOperations(config, historicalSettings, stores, new Date(plan.anchorAt));
   if (selected.length !== 4 || selected.some((s, i) => !same(s, Object.fromEntries(Object.entries(plan.operations[i]).filter(([key]) => key !== "stage"))))) fail("POLICY_OR_SCOPE_REVISION_CHANGED");
-  const batches = await historyBatches(plan, t, request); await io.ordinary(o.databasePath);
+  const historicalBatches = await collectLoginHistoricalBatches(plan, t, request);
+  if (historicalBatches.hash !== t.batchesHash) fail("HISTORICAL_BATCH_STATE_CHANGED");
+  const batches = historicalBatches.summary; await io.ordinary(o.databasePath);
   const n8n = read9851Execution(o.databasePath, t);
   // The existing checker is used only for the separately pinned CURRENT
   // release/process. Historical code binding is independently proved above.
@@ -184,15 +261,18 @@ async function inspect(o: Options, t: Login9851Target, archive?: string) {
 /** Exact one-execution operator. Caller freezes the original n8n workflow
  * using its official UI and exclusively owns its manual entry during closure.
  * Never restore its schedule after an unknown/incomplete archival outcome. */
-export async function closeJdLogisticsLogin9851(o: Options, action: "inspect" | "apply" = "inspect") {
-  const t = o.target ?? jdLogin9851Target;
+export async function closeJdLogisticsLogin(o: LogisticsLoginClosureOptions, action: "inspect" | "apply" = "inspect") {
+  const t = o.target;
+  if (!/^\d+$/.test(t.executionId)) fail("EXECUTION_ID_INVALID");
+  if (t.executionId === "11037") assertLogin11037History(t);
   if (![o.root, o.runtime, o.databasePath].every(path.isAbsolute) || !["inspect", "apply"].includes(action)) fail("OPTIONS_INVALID");
   const directory = path.join(o.root, "outputs/jd-logistics-pipeline"); await io.ordinary(directory, true); await io.ordinary(o.root, true);
-  return withJackyunRunLock({ runId: "close-9851", purpose: "jd-logistics-login-9851", lockDirectory: path.join(directory, "pipeline.lock") }, pipeline =>
-    withJackyunRunLock({ runId: "close-9851", purpose: "jd-logistics-login-9851", lockDirectory: defaultJdChromiumRunLockDirectory(o.root) }, async chromium => {
-      const recovery = path.join(directory, `login-9851-${t.activeSha256.slice(0, 16)}`); await io.absent(recovery);
+  if (t.executionId === "11037" && (await readdir(directory)).some(name => name.startsWith("login-11037-"))) fail("EXISTING_INTENT_MANUAL_RECONCILIATION");
+  return withJackyunRunLock({ runId: `close-${t.executionId}`, purpose: `jd-logistics-login-${t.executionId}`, lockDirectory: path.join(directory, "pipeline.lock") }, pipeline =>
+    withJackyunRunLock({ runId: `close-${t.executionId}`, purpose: `jd-logistics-login-${t.executionId}`, lockDirectory: defaultJdChromiumRunLockDirectory(o.root) }, async chromium => {
+      const recovery = path.join(directory, `login-${t.executionId}-${t.activeSha256.slice(0, 16)}`); await io.absent(recovery);
       const first = await inspect(o, t); await pipeline.assertOwned(); await chromium.assertOwned();
-      const intent = { version: "jd-logistics-login-9851-closure-v1", status: "eligible_intent", at: new Date().toISOString(), target: t,
+      const intent = { version: `jd-logistics-login-${t.executionId}-closure-v1`, status: "eligible_intent", at: new Date().toISOString(), target: t,
         originalFailureRetained: true, oldExecutionReplayAllowed: false, originalExecutionCodeBinding: first.originalExecutionCodeBinding,
         historicalBatches: first.batches, archivePath: path.join(recovery, "active.archived.json") };
       if (action === "inspect") return intent;
@@ -213,10 +293,14 @@ export async function closeJdLogisticsLogin9851(o: Options, action: "inspect" | 
       const terminal = await inspect(o, t, intent.archivePath); if (!same(terminal.process, first.process)) fail("PROCESS_CHANGED_BEFORE_COMMIT");
       await pipeline.assertOwned(); await chromium.assertOwned();
       const committed = { ...intent, status: "committed", committedAt: new Date().toISOString(), intentSha256: sha(io.jsonBytes(intent)),
-        nextAction: "Restore only the frozen original published version, then one new complete n8n execution from A; never retry 9851." };
+        nextAction: `Restore only the frozen original published version, then one new complete n8n execution from A; never retry ${t.executionId}.` };
       await io.createOnly(path.join(recovery, "committed.json"), io.jsonBytes(committed));
       return committed;
     }));
+}
+// Keep the historical export, CLI, target and receipt identity for 9851.
+export function closeJdLogisticsLogin9851(o: Options, action: "inspect" | "apply" = "inspect") {
+  return closeJdLogisticsLogin({ ...o, target: o.target ?? jdLogin9851Target }, action);
 }
 if (process.argv[1] && path.resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase()) {
   const action = process.argv[2];

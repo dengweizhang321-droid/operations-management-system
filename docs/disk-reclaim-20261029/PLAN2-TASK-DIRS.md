@@ -318,3 +318,159 @@ worker/index.ts                      4 行
 **不建议提交或另存**：没有内容可保，且该分支已被 main 全面超越。
 
 仍由用户决定；本会话不自行处置。
+
+### A 类处置记录（2026-10-29，用户授权放弃）
+
+**已放弃。回收 337.8 MB，`codex-isolated` 子目录降至 8 个。**
+
+#### 放弃前的加倍核验
+
+上一节说"9 个文件有差异"仍不够细。本次把分支两个提交改过的**全部 16 个非 docs 文件**逐一比对：
+
+| 分类 | 数量 | 判定 |
+| --- | --- | --- |
+| 与 main 零差异 | 7 | 已包含 |
+| 有差异且 main 在 10-14 后改过 | 7 | **main 更新** |
+| 有差异但 main 未再改过 | 2 | 逐个比对内容哈希，**证实为 main 的历史版本**（分支仅缺 main 后加的 41 行与 29 行） |
+
+那 2 个需要单独验的文件是 `backend/ai_assistant/test_streaming.py` 与 `tools/operations-system-watchdog.ps1`。后者分支有 1 行 main 没有的 `$recovery=@()...` 单行实现——查明 main 已将其改写为第 404-405 行的多行完整版，并新增 `databaseLogObservation` 字段。**结论：分支无任何 main 缺失内容。**
+
+#### 脚本保护先挡了一次，未绕过
+
+首次 dry-run 候选为 **0**，跳过理由 `uncommitted(4)`。脚本不知道那 4 个是 CRLF 噪音，按设计拒绝。**没有用 --force 或改判定绕开**——这类保护被绕过一次就不再可信（参见本会话早先在 `main-release-packages` 上因漏步骤留下 75 条失效注册的教训）。
+
+按用户选定的方式：先 `git checkout --` 清掉行尾差异。丢弃前用两种独立方法确认只有行尾差异：
+
+```
+git diff --ignore-cr-at-eol --numstat   → 0 个文件
+tr -d '\r' 后逐文件 sha256 比对 HEAD    → 4 个全部一致
+```
+
+清理后 `git status` 为 0，原脚本自然放行，候选变为 1 个 / 337.8 MB。
+
+#### 执行与核验
+
+```
+removed dirs=1  pruned worktrees=1  deleted branches=1
+```
+
+| 检查 | 结果 |
+| --- | --- |
+| 目录 | 已删 |
+| 分支 `codex/product-combo-details-release-20261014` | 已删（0 个） |
+| 失效 worktree 注册 | `prunable` **0**、`prune --dry-run` 无输出（以 git 为准，不用路径判断） |
+| worktree 总数 | 98 |
+| **两个提交 `1d848e8f` / `fa711c5a`** | **仍在仓库可取回**——删分支只移除引用，对象未丢，**该决定可逆** |
+| main 的等价提交 `af46feac` | 在 |
+| 同源写闸门 `worker/same-origin-write-gate.ts` | **在**（未被回退） |
+| D 盘可用 | **95 GB** |
+| 网页 | **HTTP 200** |
+
+---
+
+## 12. 两个 5000+ 暂存目录核实结论：建议放弃（2026-10-29，只读）
+
+对象：`jackyun-browser-preflight-20261013`、`jackyun-unified-adoption-20261013`。未执行任何处置。
+
+### 性质：零提交的独立克隆
+
+两者都只有 `source/` 一层，`.git` 是**独立克隆目录**（非 worktree，未在 `git worktree list` 中注册），且 `HEAD` 不存在——`git rev-parse HEAD` 报 `unknown revision`，即**分支上一个提交都没有**。所以 5160 / 5199 个 `A ` 条目是一次性检出后再未提交的暂存快照，不是对已有文件的修改。
+
+### 逐条目内容比对：各只有 1 个文件不在仓库历史里
+
+方法：取仓库全部 29975 个 blob 的内容哈希（`git cat-file --batch-all-objects`），再用 `git ls-files --stage` 取两个克隆每个暂存条目的 blob 哈希逐一比对。按内容而非文件名判断，不受归档改名影响。
+
+| 目录 | 暂存条目 | 内容已在仓库历史 | 仓库没有 |
+| --- | --- | --- | --- |
+| `jackyun-browser-preflight-20261013` | 5160 | **5159** | 1 |
+| `jackyun-unified-adoption-20261013` | 5199 | **5198** | 1 |
+
+两者缺的是**同一个文件、同一版本**（sha256 前缀均 `e0d2e1d38e0416fc`）：`tools/release-batch.mjs`。
+
+### 那个唯一差异是旧版，不是新内容
+
+与 main 当前版本比对：**main 独有 120 行，目录独有 21 行**。
+
+main 多出的是 audit batch 协议：`auditBatchVersion`、`directedAuditBatchVersion`、`isAuditBatch`、`batchRecovery`、`batchRequirements`、`auditPhases`、`phasesFor` 等。
+
+目录独有的 21 行，逐行查明全是 main 中被改写前的旧形态：
+
+| 目录版（旧） | main 版（新） |
+| --- | --- |
+| 直接调 `recoveryDecision(...)` | 包装为 `batchRecovery(version, ...)` |
+| 直接调 `requirementsForImpact(...)` | 包装为 `batchRequirements(version, ...)` |
+| 固定 `phases` | `phasesFor(version)`，audit 批次用 `auditPhases` |
+| 版本白名单只含 3 项 | 含 5 项（新增两个 audit 版本） |
+
+main 中 `recoveryDecision` / `requirementsForImpact` 仍存在（出现 3 次），只是被包装。即**目录版的全部内容都能在 main 中找到对应，且 main 是其演进后的版本**。
+
+### 建议
+
+**放弃两个目录**。两者内容 100% 可从 main 或 git 历史取得，无任何独有产出；它们不是注册 worktree，也没有分支，所以清理只需删目录（无需 `unlock`/`prune`/删分支）。
+
+需注意：脚本会以 `uncommitted(5160/5199)` 拒绝它们，与 A 类同因。放行方式同上一轮——这些暂存项是**独立克隆的索引状态**，不是行尾噪音，所以 `git checkout --` 不适用；若要放行需用 `--only` 搭配一个显式跳过该检查的开关，或直接按目录删除（它们不涉及 git 注册，风险低于 A 类）。
+
+仍由用户决定；本会话未处置。
+
+### 两个暂存目录处置记录（2026-10-29，用户授权放弃）
+
+**已删。D 盘可用 95 → 97 GB，`codex-isolated` 降至 6 个。**
+
+#### 删前确认（按授权要求）
+
+| 检查 | 结果 |
+| --- | --- |
+| `tools/release-batch.mjs` 仍在 `origin/main` | **在**，794 行，sha256 前缀 `63fbc4d1bf8424d4` |
+| main 版仍含目录版的关键符号 | `recoveryDecision` 2 次、`requirementsForImpact` 2 次、`targetedBatchVersion` 11 次、`legacyBatchVersion` 9 次 |
+| main 版确实更新 | `auditBatchVersion` 6 次、`batchRecovery` 3 次、`phasesFor` 4 次（目录版均 0 次） |
+| 非注册 worktree | `git worktree list` 中出现 **0** 次 |
+| 无关联分支 | 匹配 **0** 个 |
+| 独立 objects | 各自 258 项，非共享 |
+| 未被主仓库引用为 alternates | 两者均未被引用 |
+
+最后一项是关键：确认删除不会破坏主仓库的对象可达性。
+
+#### 执行与核验
+
+直接 `rm -rf` 两个目录（无需 `unlock`/`prune`/删分支，因为不涉及任何 git 注册）。
+
+| 检查 | 结果 |
+| --- | --- |
+| 两个目录 | 已删 |
+| 主仓库 `git status` / `git log` | 正常 |
+| `tools/release-batch.mjs` | 仍可从 `origin/main` 取得 |
+| `prunable` | **0** |
+| worktree 总数 | 98，未变 |
+| 发布包 | 2，未变 |
+| 网页 | **HTTP 200** |
+| D 盘可用 | **97 GB** |
+
+#### `codex-isolated` 终态（6 个，均不可删或属今日在用）
+
+```
+main-release-packages              保护：发布包根（含生产在用与回滚锚点）
+main-manual-release-20261016       保护：发布包生成器宿主
+ai-release-candidate-20261013      近期有写入（10-28）
+jackyun-dispatch-recovery-20261029 今日新建
+jackyun-one-click-close-20261029   今日新建
+jackyun-sales-preflight-20261029   今日新建
+```
+
+## 13. 磁盘回收总账（2026-10-29 全部完成）
+
+| 轮次 | 回收 |
+| --- | --- |
+| 发布包 78 个 | 约 13 GB |
+| worktree 注册 75 条 + 分支 77 个 | 卫生清理 |
+| 任务目录批 1（30 个） | 7.48 GB |
+| 任务目录批 2（28 个） | 17.21 GB |
+| 任务目录批 3（2 个，回执先归档） | 0.97 GB |
+| A 类（1 个，核实后放弃） | 0.34 GB |
+| 两个暂存目录（核实后放弃） | 约 2 GB |
+| **合计** | **约 41 GB** |
+
+**D 盘可用 54 → 97 GB（88% → 79%）**；`codex-isolated` 子目录 69 → 6；worktree 总记录 200 → 98。全程未停机、未碰 `D:/teruisi-runtime/`、生产零影响。
+
+### 仍未做（非遗漏）
+
+**治本**：发布包仍为每个 `main` 提交生成（约 145 MB/个）。`tools/release-package-retention.mjs` 与 `tools/codex-isolated-task-retention.mjs` 均已就绪并带 `--dry-run`，但**未接入定期执行**——不建议挂在发布成功之后（理由见 PLAN4 第 3 节候选 B：那正是 release 保留清理曾收不回空间的结构性错误）。建议按需人工执行，或另立独立调度。

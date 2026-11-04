@@ -1,0 +1,20 @@
+{
+  "protectedSourceFiles": {
+    "package.json": true,
+    "package-lock.json": true,
+    "tools/worker-local-release-rotation.mjs": true,
+    "tools/publish-prepared-main.mjs": true,
+    "tools/worker-local-release.mjs": true,
+    "tools/django-local-service.ps1": true,
+    "tools/manual-maintenance-continuation.mjs": true,
+    "backend/teruisi_backend/settings.py": true,
+    "docs/prepared-artifact-loss-20261029/artifact-loss-manifest.json": true
+  },
+  "codeMembersUnchanged": 86,
+  "codeSha256": "e411415d0a76aae5ba8648e3db2b306c82dcd786262eb8171eff6e593875b1a1",
+  "supplementalSettingsUnchanged": true,
+  "productionDirectoriesAccessedByChecks": false,
+  "productionWritesPerformed": false,
+  "artifactLossRecordsAccessedOrModified": false,
+  "boundLossManifestModified": false
+}

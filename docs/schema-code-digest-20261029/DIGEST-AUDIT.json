@@ -1,0 +1,528 @@
+{
+  "baseCommit": "deaa20f9d21fe1b6feea8d01a093f37ad3e92c9f",
+  "gate": "sales_preflight_addition",
+  "count": 86,
+  "currentCodeSha256": "e411415d0a76aae5ba8648e3db2b306c82dcd786262eb8171eff6e593875b1a1",
+  "d958CodeSha256UsingSameGateDefinition": "6253cf315a9195c017df3a6e5949261cc4521601c26ab516a6d317ac868ded9e",
+  "files": [
+    {
+      "path": "tools/jd_monitor_preferences_addition.py",
+      "currentSha256": "94e93413b02bde911c11cc251c437f9480d8b9b4d1922369c5b29991d9470267",
+      "d958Sha256": "94e93413b02bde911c11cc251c437f9480d8b9b4d1922369c5b29991d9470267",
+      "changed": false
+    },
+    {
+      "path": "tools/jd_monitor_preferences_catalog.py",
+      "currentSha256": "baea5a9392f2fdd623002da3115bac68986e893655c12658152b68c0ae56a383",
+      "d958Sha256": "baea5a9392f2fdd623002da3115bac68986e893655c12658152b68c0ae56a383",
+      "changed": false
+    },
+    {
+      "path": "tools/jd_monitor_preferences_catalog.json",
+      "currentSha256": "06e8c81d81645e1ca7215280beeef928b5a26a39b30bf0607b4ab8183a5602e9",
+      "d958Sha256": "06e8c81d81645e1ca7215280beeef928b5a26a39b30bf0607b4ab8183a5602e9",
+      "changed": false
+    },
+    {
+      "path": "tools/jd_logistics_addition.py",
+      "currentSha256": "fd50a4d42a86f671b79458964328fd963926f2bc43b4938ab4be07afea48f939",
+      "d958Sha256": "fd50a4d42a86f671b79458964328fd963926f2bc43b4938ab4be07afea48f939",
+      "changed": false
+    },
+    {
+      "path": "tools/jd_logistics_catalog.py",
+      "currentSha256": "7be356058c31b27e9af1c8ebbad000310bb0a0eedb11f841182f67d3f4ca75ec",
+      "d958Sha256": "7be356058c31b27e9af1c8ebbad000310bb0a0eedb11f841182f67d3f4ca75ec",
+      "changed": false
+    },
+    {
+      "path": "tools/jd_logistics_catalog.json",
+      "currentSha256": "987d06df53af7b53a5d0980f9ac1ad028ab696411785203b3044a9b98622fc59",
+      "d958Sha256": "987d06df53af7b53a5d0980f9ac1ad028ab696411785203b3044a9b98622fc59",
+      "changed": false
+    },
+    {
+      "path": "tools/postgres_no_key_backup.py",
+      "currentSha256": "dff8e226fc1fa9a2ccaa5e9fbb93128bffa4dc8b389dff84f9c49ccef61650d7",
+      "d958Sha256": "dff8e226fc1fa9a2ccaa5e9fbb93128bffa4dc8b389dff84f9c49ccef61650d7",
+      "changed": false
+    },
+    {
+      "path": "tools/integration_release_gate.py",
+      "currentSha256": "843727078c175cfbd0873881a435618e0d6410e35d589a5f220bb8734c5c018d",
+      "d958Sha256": "843727078c175cfbd0873881a435618e0d6410e35d589a5f220bb8734c5c018d",
+      "changed": false
+    },
+    {
+      "path": "tools/bi-app-adopt.ps1",
+      "currentSha256": "54be4e223edce89164ab49601d0e71afe7d4554cb4f91ba7aa5f9364373f60c5",
+      "d958Sha256": "54be4e223edce89164ab49601d0e71afe7d4554cb4f91ba7aa5f9364373f60c5",
+      "changed": false
+    },
+    {
+      "path": "tools/django-local-service.ps1",
+      "currentSha256": "98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b",
+      "d958Sha256": "98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b",
+      "changed": false
+    },
+    {
+      "path": "tools/django-postgres-maintenance.ps1",
+      "currentSha256": "8c1e3806ba37303cbc3bc1bec24a58a01cba381f5e49030d37c36b17e24743ad",
+      "d958Sha256": "8c1e3806ba37303cbc3bc1bec24a58a01cba381f5e49030d37c36b17e24743ad",
+      "changed": false
+    },
+    {
+      "path": "tools/django-inventory-service.ps1",
+      "currentSha256": "a0a2fa402b4d31393c243da390337c7ab0e2776d4660b34351fd2056a87aef75",
+      "d958Sha256": "a0a2fa402b4d31393c243da390337c7ab0e2776d4660b34351fd2056a87aef75",
+      "changed": false
+    },
+    {
+      "path": "tools/ai_schedule_addition.py",
+      "currentSha256": "057b3b81bdc1e39a26b5b79a6b4a2a8e49448c52d11ca1e7dd8cc0fa6fc7a8eb",
+      "d958Sha256": "057b3b81bdc1e39a26b5b79a6b4a2a8e49448c52d11ca1e7dd8cc0fa6fc7a8eb",
+      "changed": false
+    },
+    {
+      "path": "tools/ai_schedule_addition_catalog.py",
+      "currentSha256": "81b2ee2e9d54a6b75bc7d6cd6c1da4e7f2079c7d45b60213d106a7da3730f143",
+      "d958Sha256": "81b2ee2e9d54a6b75bc7d6cd6c1da4e7f2079c7d45b60213d106a7da3730f143",
+      "changed": false
+    },
+    {
+      "path": "tools/jackyun_audit_addition.py",
+      "currentSha256": "86f811d848ea892283e81a09b22d01ca22bccc4b13febc835feb8490bb269da7",
+      "d958Sha256": "86f811d848ea892283e81a09b22d01ca22bccc4b13febc835feb8490bb269da7",
+      "changed": false
+    },
+    {
+      "path": "tools/jackyun_audit_catalog.py",
+      "currentSha256": "0ec29d8672a0f2900a77efd8c46f26da92facca4e366ccf57ad8ba163cad6e8f",
+      "d958Sha256": "0ec29d8672a0f2900a77efd8c46f26da92facca4e366ccf57ad8ba163cad6e8f",
+      "changed": false
+    },
+    {
+      "path": "tools/bi_app_addition.py",
+      "currentSha256": "161ea5a80e90c41abff88f02d931fb3a6133777f0c137d7bae5a150d265579d1",
+      "d958Sha256": "161ea5a80e90c41abff88f02d931fb3a6133777f0c137d7bae5a150d265579d1",
+      "changed": false
+    },
+    {
+      "path": "tools/postgres_restore_semantics.py",
+      "currentSha256": "66dd0f5a2ab62ff819a73af76538430b74f511675a651a8100175d06082a3f57",
+      "d958Sha256": "66dd0f5a2ab62ff819a73af76538430b74f511675a651a8100175d06082a3f57",
+      "changed": false
+    },
+    {
+      "path": "tools/tmall_warehouse_addition.py",
+      "currentSha256": "4293e4e5d1d29d6560f7dc22b891e5c26edd50d50de4a1179d771d15f366283b",
+      "d958Sha256": "4293e4e5d1d29d6560f7dc22b891e5c26edd50d50de4a1179d771d15f366283b",
+      "changed": false
+    },
+    {
+      "path": "tools/tmall_warehouse_catalog.py",
+      "currentSha256": "b004da7fd734ad8c6102dd20a11cf041a57fcfc832ac8e91342534fff052dc57",
+      "d958Sha256": "b004da7fd734ad8c6102dd20a11cf041a57fcfc832ac8e91342534fff052dc57",
+      "changed": false
+    },
+    {
+      "path": "tools/tmall_warehouse_catalog.json",
+      "currentSha256": "bbc108b10a4799a5d2e157ca1fd91ac421d90cf0728292a46995b4adc9ec2d1b",
+      "d958Sha256": "bbc108b10a4799a5d2e157ca1fd91ac421d90cf0728292a46995b4adc9ec2d1b",
+      "changed": false
+    },
+    {
+      "path": "tools/jd_product_monitoring_addition.py",
+      "currentSha256": "718e1c4d87720fb651f7114f90e599690682aa38c4da46df1413cc77741d6b08",
+      "d958Sha256": "718e1c4d87720fb651f7114f90e599690682aa38c4da46df1413cc77741d6b08",
+      "changed": false
+    },
+    {
+      "path": "tools/jd_product_monitoring_catalog.py",
+      "currentSha256": "ad65e36a5e57bfc29345cfa21dba950d4754143f37358882ec4d4a584a347051",
+      "d958Sha256": "ad65e36a5e57bfc29345cfa21dba950d4754143f37358882ec4d4a584a347051",
+      "changed": false
+    },
+    {
+      "path": "tools/tmall_warehouse_candidate.py",
+      "currentSha256": "550525a555b642739f3ac6501ff7400f6be544269c20dc0fdd8d0bb0b79a0f6b",
+      "d958Sha256": "550525a555b642739f3ac6501ff7400f6be544269c20dc0fdd8d0bb0b79a0f6b",
+      "changed": false
+    },
+    {
+      "path": "tools/main-schema-release.mjs",
+      "currentSha256": "00888ba3c19723ad7bfff2b9be9cab7995165f6528dd9ceabbb5ca0b0e8bfe5d",
+      "d958Sha256": "00888ba3c19723ad7bfff2b9be9cab7995165f6528dd9ceabbb5ca0b0e8bfe5d",
+      "changed": false
+    },
+    {
+      "path": "backend/teruisi_backend/health.py",
+      "currentSha256": "84ef805c93c4e71e1a9c79085325cfa8a743d60d230da31b556558a3c3a77469",
+      "d958Sha256": "84ef805c93c4e71e1a9c79085325cfa8a743d60d230da31b556558a3c3a77469",
+      "changed": false
+    },
+    {
+      "path": "tools/integration_migration_plan.py",
+      "currentSha256": "94893e1cd60fb2ad693948e8b2d1e686882bc14664310acf7c6b24b8f53a74ec",
+      "d958Sha256": "94893e1cd60fb2ad693948e8b2d1e686882bc14664310acf7c6b24b8f53a74ec",
+      "changed": false
+    },
+    {
+      "path": "tools/integration_migration_journal.py",
+      "currentSha256": "cd8b857c90ef113f264b8fcbdf024ce88e7a48b75265e0b70bf776c5b02bf8be",
+      "d958Sha256": "cd8b857c90ef113f264b8fcbdf024ce88e7a48b75265e0b70bf776c5b02bf8be",
+      "changed": false
+    },
+    {
+      "path": "tools/protected_ai_shadow_evidence_0073.py",
+      "currentSha256": "8a542612c00061c71246d889f4f9c3a35d4dd8fa2d22e136ffcf13288cff985f",
+      "d958Sha256": "8a542612c00061c71246d889f4f9c3a35d4dd8fa2d22e136ffcf13288cff985f",
+      "changed": false
+    },
+    {
+      "path": "tools/django-integration-install.ps1",
+      "currentSha256": "c0f5ca005af79da9beccf52eeb7ffd3e1d89c6e66041805d228065837d71e2ec",
+      "d958Sha256": "c0f5ca005af79da9beccf52eeb7ffd3e1d89c6e66041805d228065837d71e2ec",
+      "changed": false
+    },
+    {
+      "path": "config/integration-migration-policy-v3.json",
+      "currentSha256": "bdf50b5957be08986e027b527e0279d39da6bd1c4e79c59fa60680876d14711c",
+      "d958Sha256": "bdf50b5957be08986e027b527e0279d39da6bd1c4e79c59fa60680876d14711c",
+      "changed": false
+    },
+    {
+      "path": "config/integration-migration-policy-v4-netshop-presence.json",
+      "currentSha256": "b91dea169b65f0c696cafcdedb6e359b05380838d5bc1f9e3446c2f26d7701ea",
+      "d958Sha256": "b91dea169b65f0c696cafcdedb6e359b05380838d5bc1f9e3446c2f26d7701ea",
+      "changed": false
+    },
+    {
+      "path": "tools/pi_agent_addition.py",
+      "currentSha256": "bc394c5bd535c010469ec8493522e958c7769317064f3af08462e951bfe06544",
+      "d958Sha256": "bc394c5bd535c010469ec8493522e958c7769317064f3af08462e951bfe06544",
+      "changed": false
+    },
+    {
+      "path": "tools/pi_agent_catalog.py",
+      "currentSha256": "58ba8e6ecde77734a579e66ae85c1529107c598edf42459d2b07ef08a6567c68",
+      "d958Sha256": "58ba8e6ecde77734a579e66ae85c1529107c598edf42459d2b07ef08a6567c68",
+      "changed": false
+    },
+    {
+      "path": "tools/pi_agent_catalog.json",
+      "currentSha256": "1e07e1b6dd99385437fe3b9c9691f9aed2c98b1e7fe5189387b68976e7dd4069",
+      "d958Sha256": "1e07e1b6dd99385437fe3b9c9691f9aed2c98b1e7fe5189387b68976e7dd4069",
+      "changed": false
+    },
+    {
+      "path": "tools/pi_agent_candidate.py",
+      "currentSha256": "834dfa84b0a8aa24c78e9fb5335c24427652bf17f424a4c9a2dd1e61b43b92da",
+      "d958Sha256": "834dfa84b0a8aa24c78e9fb5335c24427652bf17f424a4c9a2dd1e61b43b92da",
+      "changed": false
+    },
+    {
+      "path": "tools/publish-prepared-main.mjs",
+      "currentSha256": "e50f8112e0ae6553a4f66632ebfc95a76fba1030041c6d9d96af4273d98ae6d1",
+      "d958Sha256": "e50f8112e0ae6553a4f66632ebfc95a76fba1030041c6d9d96af4273d98ae6d1",
+      "changed": false
+    },
+    {
+      "path": "tools/pi_agent_prepare_runtime.py",
+      "currentSha256": "818bf6bc1ebbcef27576a4156312f85c94ca132f46cf8f8ad3a9ad7d7714410f",
+      "d958Sha256": "818bf6bc1ebbcef27576a4156312f85c94ca132f46cf8f8ad3a9ad7d7714410f",
+      "changed": false
+    },
+    {
+      "path": "tools/django-ai.ps1",
+      "currentSha256": "55b6701ac0f38e7aed6abea441085aa2b77f0a5f8d1a3f6c81651829ae6f9aba",
+      "d958Sha256": "55b6701ac0f38e7aed6abea441085aa2b77f0a5f8d1a3f6c81651829ae6f9aba",
+      "changed": false
+    },
+    {
+      "path": "tools/publish-main-command.mjs",
+      "currentSha256": "b711a41c401e7619e175347e6ba3490e5d5655d5dca5c9dc840ac345b8a7bfc7",
+      "d958Sha256": "b711a41c401e7619e175347e6ba3490e5d5655d5dca5c9dc840ac345b8a7bfc7",
+      "changed": false
+    },
+    {
+      "path": "tools/manual-maintenance-start.ps1",
+      "currentSha256": "a7ab01a0136cb43aa66d0ce5d289f51bae694a8e62568d5582f3b351fd42bfc9",
+      "d958Sha256": "a7ab01a0136cb43aa66d0ce5d289f51bae694a8e62568d5582f3b351fd42bfc9",
+      "changed": false
+    },
+    {
+      "path": "tools/manual-maintenance-lock.psm1",
+      "currentSha256": "70041d738f8e076cc13b8391aaf3a31bcf15399ccfef81fdeb4f7d88f9411476",
+      "d958Sha256": "70041d738f8e076cc13b8391aaf3a31bcf15399ccfef81fdeb4f7d88f9411476",
+      "changed": false
+    },
+    {
+      "path": "tools/manual-maintenance-continuation.mjs",
+      "currentSha256": "401d007ab8e9b20e00f9abf556915e1640afa4b78aa071fd42ff03c933ac0b89",
+      "d958Sha256": "197c537812ed2e3e3c607c9b079a541289d357c6d4de62b9d8b8d74085e0e6a3",
+      "changed": true
+    },
+    {
+      "path": "tools/manual-maintenance-continuation.ps1",
+      "currentSha256": "359890e622739c501bf9cd6ab525a66aa280077f54d847847e2417f9c69c63a5",
+      "d958Sha256": "359890e622739c501bf9cd6ab525a66aa280077f54d847847e2417f9c69c63a5",
+      "changed": false
+    },
+    {
+      "path": "backend/ai_assistant/pi_health.py",
+      "currentSha256": "2c830812f5715366d5be56a432928cd51d39167cd295b54c85eb5cfb1a22c047",
+      "d958Sha256": "2c830812f5715366d5be56a432928cd51d39167cd295b54c85eb5cfb1a22c047",
+      "changed": false
+    },
+    {
+      "path": "backend/ai_assistant/pi_models.py",
+      "currentSha256": "0fcbcf59983c80ec102612938893486d64e8d0948f3659082d25e01356741343",
+      "d958Sha256": "0fcbcf59983c80ec102612938893486d64e8d0948f3659082d25e01356741343",
+      "changed": false
+    },
+    {
+      "path": "backend/ai_assistant/database_contract.py",
+      "currentSha256": "bea8655dccd89bf7a7e051b5d33a579bad30e4da32f522e2b5edcc1b370c953a",
+      "d958Sha256": "bea8655dccd89bf7a7e051b5d33a579bad30e4da32f522e2b5edcc1b370c953a",
+      "changed": false
+    },
+    {
+      "path": "backend/ai_assistant/table_manifest.py",
+      "currentSha256": "e55b75862e9e9990028e04b18d42c893f2cd1dfe0a8aebec0e46ca67c839efff",
+      "d958Sha256": "e55b75862e9e9990028e04b18d42c893f2cd1dfe0a8aebec0e46ca67c839efff",
+      "changed": false
+    },
+    {
+      "path": "backend/ai_assistant/pi_worker.py",
+      "currentSha256": "8c807715be15456b296d318456279cf1a0010635453c096111f832a812214395",
+      "d958Sha256": "8c807715be15456b296d318456279cf1a0010635453c096111f832a812214395",
+      "changed": false
+    },
+    {
+      "path": "backend/ai_assistant/pi_service.py",
+      "currentSha256": "60461e8ceef5e956552f6c321a150b8ca9b33def2f1190054f3ace8d0c2a1146",
+      "d958Sha256": "60461e8ceef5e956552f6c321a150b8ca9b33def2f1190054f3ace8d0c2a1146",
+      "changed": false
+    },
+    {
+      "path": "backend/ai_assistant/pi_gateway.py",
+      "currentSha256": "4c54386f940b004cb3888ff4e4c68c585c57b6ad28c233ddb26af46f1b37c945",
+      "d958Sha256": "4c54386f940b004cb3888ff4e4c68c585c57b6ad28c233ddb26af46f1b37c945",
+      "changed": false
+    },
+    {
+      "path": "backend/ai_assistant/pi_exports.py",
+      "currentSha256": "5c9f7c942de195dcb65341d0b5663aee572610b42bfd0c3f1cbbbf41f4c9acd7",
+      "d958Sha256": "5c9f7c942de195dcb65341d0b5663aee572610b42bfd0c3f1cbbbf41f4c9acd7",
+      "changed": false
+    },
+    {
+      "path": "backend/ai_assistant/pi_transport.py",
+      "currentSha256": "1321d0ef8e4a0bb3180f5263b83c80cf95358bd6fdf8e5b3b6cb945a443549fa",
+      "d958Sha256": "1321d0ef8e4a0bb3180f5263b83c80cf95358bd6fdf8e5b3b6cb945a443549fa",
+      "changed": false
+    },
+    {
+      "path": "backend/ai_assistant/pi_selection.py",
+      "currentSha256": "664a14b143432b31c47b2788a0a9d2a92d94496511fc9868197571c37f20013c",
+      "d958Sha256": "664a14b143432b31c47b2788a0a9d2a92d94496511fc9868197571c37f20013c",
+      "changed": false
+    },
+    {
+      "path": "tools/pi_workspace_addition.py",
+      "currentSha256": "a2289bbfd922643b982ed29e1c2240314b53e0b1362ebe7e72fe8430b49383aa",
+      "d958Sha256": "a2289bbfd922643b982ed29e1c2240314b53e0b1362ebe7e72fe8430b49383aa",
+      "changed": false
+    },
+    {
+      "path": "tools/pi_workspace_catalog.py",
+      "currentSha256": "8b458b66363df4b1cb01812b12f9f0eeff4d74490a94e40dde34ab83c611b194",
+      "d958Sha256": "8b458b66363df4b1cb01812b12f9f0eeff4d74490a94e40dde34ab83c611b194",
+      "changed": false
+    },
+    {
+      "path": "tools/pi_workspace_catalog.json",
+      "currentSha256": "322293bdd253c5f67801ca99c4a7abf69ba3b3e2124698f8d0cae5aedd20b9b3",
+      "d958Sha256": "322293bdd253c5f67801ca99c4a7abf69ba3b3e2124698f8d0cae5aedd20b9b3",
+      "changed": false
+    },
+    {
+      "path": "tools/pi_workspace_candidate.py",
+      "currentSha256": "6ca493bfc897984b1dce9b54a57630e6c64b67b925b31ea028ae5439a915a059",
+      "d958Sha256": "6ca493bfc897984b1dce9b54a57630e6c64b67b925b31ea028ae5439a915a059",
+      "changed": false
+    },
+    {
+      "path": "tools/pi_agent_upgrade_runtime.py",
+      "currentSha256": "fa49ffa7ed1ad21fa2f4412075ebe50bfd993902d6c49018ec0bea9f84f0b75a",
+      "d958Sha256": "fa49ffa7ed1ad21fa2f4412075ebe50bfd993902d6c49018ec0bea9f84f0b75a",
+      "changed": false
+    },
+    {
+      "path": "tools/manual-maintenance-process.psm1",
+      "currentSha256": "a07a4d1fdb65dba6c5e7caaf27ad463a1613c182f30f56269a2f1e8175c116a5",
+      "d958Sha256": "a07a4d1fdb65dba6c5e7caaf27ad463a1613c182f30f56269a2f1e8175c116a5",
+      "changed": false
+    },
+    {
+      "path": "tools/manual-maintenance-preflight.ps1",
+      "currentSha256": "1b4dbc31076f7722718eb060d0ff77a8527034584d8afa7de50ddb843a3a6a2f",
+      "d958Sha256": "1b4dbc31076f7722718eb060d0ff77a8527034584d8afa7de50ddb843a3a6a2f",
+      "changed": false
+    },
+    {
+      "path": "tools/frozen-main-source.mjs",
+      "currentSha256": "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882",
+      "d958Sha256": "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882",
+      "changed": false
+    },
+    {
+      "path": "backend/ai_assistant/pi_workspace.py",
+      "currentSha256": "355b006dc9ebca00fe7e1c9203d561d547040d5be584cffcb6c092981e89050c",
+      "d958Sha256": "355b006dc9ebca00fe7e1c9203d561d547040d5be584cffcb6c092981e89050c",
+      "changed": false
+    },
+    {
+      "path": "backend/ai_assistant/migrations/0085_pi_workspace_controls.py",
+      "currentSha256": "b4bd9ca8d870caa3b747b70446108a67af820610e79273ca35a752e850091d07",
+      "d958Sha256": "b4bd9ca8d870caa3b747b70446108a67af820610e79273ca35a752e850091d07",
+      "changed": false
+    },
+    {
+      "path": "tools/pi_business_addition.py",
+      "currentSha256": "0b83c317cbad37300fedf2d5922602ce2a82dda6283272ee92a9b73ee85521ce",
+      "d958Sha256": "0b83c317cbad37300fedf2d5922602ce2a82dda6283272ee92a9b73ee85521ce",
+      "changed": false
+    },
+    {
+      "path": "tools/pi_business_catalog.py",
+      "currentSha256": "6d257bdd06e808609d97c82e9078b34227b2e2042d2839a38c44620bbcae68e6",
+      "d958Sha256": "6d257bdd06e808609d97c82e9078b34227b2e2042d2839a38c44620bbcae68e6",
+      "changed": false
+    },
+    {
+      "path": "tools/pi_business_candidate.py",
+      "currentSha256": "2cd6e8d278afad0bb4e6e649c43193633d5e4d658682c6482cba1cc97ebb3df8",
+      "d958Sha256": "2cd6e8d278afad0bb4e6e649c43193633d5e4d658682c6482cba1cc97ebb3df8",
+      "changed": false
+    },
+    {
+      "path": "backend/ai_assistant/migrations/0086_pi_business_actions.py",
+      "currentSha256": "3435b5970ffb5d5530e60aed6156e7b7e7792fb0cbff5e198ef8a3b264ee4213",
+      "d958Sha256": "3435b5970ffb5d5530e60aed6156e7b7e7792fb0cbff5e198ef8a3b264ee4213",
+      "changed": false
+    },
+    {
+      "path": "config/tmall-store-accounts.json",
+      "currentSha256": "5dbdc1f9312b0ee46b121b845b66201d65960495244153c78e0c346f7f9d5866",
+      "d958Sha256": "5dbdc1f9312b0ee46b121b845b66201d65960495244153c78e0c346f7f9d5866",
+      "changed": false
+    },
+    {
+      "path": "automation/n8n/pi-business/tmall-yijiu-pi-business.candidate.workflow.json",
+      "currentSha256": "d07dbf454f463c7d848d6fe463a91da529543e5972c0e72f58b1d8a58bb15d0c",
+      "d958Sha256": "d07dbf454f463c7d848d6fe463a91da529543e5972c0e72f58b1d8a58bb15d0c",
+      "changed": false
+    },
+    {
+      "path": "automation/n8n/pi-business/tmall-lili-pi-business.candidate.workflow.json",
+      "currentSha256": "a0228d473f74f4fdfbb5ce56e2a49440e9b33ef60e652893f7ace9a285e34369",
+      "d958Sha256": "a0228d473f74f4fdfbb5ce56e2a49440e9b33ef60e652893f7ace9a285e34369",
+      "changed": false
+    },
+    {
+      "path": "automation/n8n/pi-business/tmall-tuofeng-pi-business.candidate.workflow.json",
+      "currentSha256": "4756a62108ade6659b857ad7c427c3c162f349999f8638a7e1c7ca3af0984a22",
+      "d958Sha256": "4756a62108ade6659b857ad7c427c3c162f349999f8638a7e1c7ca3af0984a22",
+      "changed": false
+    },
+    {
+      "path": "automation/n8n/pi-business/tmall-yiyong-pi-business.candidate.workflow.json",
+      "currentSha256": "6eabb7dd2bc3baa016c44a271f8b76d661a5a2a8e2e56440aa8eba731c9f2f13",
+      "d958Sha256": "6eabb7dd2bc3baa016c44a271f8b76d661a5a2a8e2e56440aa8eba731c9f2f13",
+      "changed": false
+    },
+    {
+      "path": "automation/n8n/pi-business/tmall-cuizhiwang-pi-business.candidate.workflow.json",
+      "currentSha256": "139fc5565a73197b4487c3c621ddb4697233a4b16e6f4df9f12c0ae544b1c1a2",
+      "d958Sha256": "139fc5565a73197b4487c3c621ddb4697233a4b16e6f4df9f12c0ae544b1c1a2",
+      "changed": false
+    },
+    {
+      "path": "automation/n8n/pi-business/tmall-masitu-pi-business.candidate.workflow.json",
+      "currentSha256": "38eda5c99ed1cd6bc3d702b04bf4b2773608913862a12ec493805e055daf01f6",
+      "d958Sha256": "38eda5c99ed1cd6bc3d702b04bf4b2773608913862a12ec493805e055daf01f6",
+      "changed": false
+    },
+    {
+      "path": "tools/pi_native_addition.py",
+      "currentSha256": "4d1db614f2c0539b7a4c88ca4facf366063356d53a9805267db86044bff6632a",
+      "d958Sha256": "4d1db614f2c0539b7a4c88ca4facf366063356d53a9805267db86044bff6632a",
+      "changed": false
+    },
+    {
+      "path": "tools/pi_native_catalog.py",
+      "currentSha256": "68555790ab68fc6559dcffab77f74b8b635cd3036a1ce37aec13e8da1049b9ca",
+      "d958Sha256": "68555790ab68fc6559dcffab77f74b8b635cd3036a1ce37aec13e8da1049b9ca",
+      "changed": false
+    },
+    {
+      "path": "tools/pi_native_candidate.py",
+      "currentSha256": "6663a4fc4b360977d3e31fda662fe06ff5f84dc1515113d98be3d09f8bfa70b2",
+      "d958Sha256": "6663a4fc4b360977d3e31fda662fe06ff5f84dc1515113d98be3d09f8bfa70b2",
+      "changed": false
+    },
+    {
+      "path": "backend/ai_assistant/migrations/0087_pi_native_capabilities.py",
+      "currentSha256": "438a85491e92acc8f213794a196b0b59f2194c9ae566cb56926eceeac19777c0",
+      "d958Sha256": "438a85491e92acc8f213794a196b0b59f2194c9ae566cb56926eceeac19777c0",
+      "changed": false
+    },
+    {
+      "path": "backend/ai_assistant/pi_native_health.py",
+      "currentSha256": "796c720b99cfee4f70bd2e17a901b79cf4c4e96870d86673e0118d05ebec7cc9",
+      "d958Sha256": "796c720b99cfee4f70bd2e17a901b79cf4c4e96870d86673e0118d05ebec7cc9",
+      "changed": false
+    },
+    {
+      "path": "tools/sales_preflight_addition.py",
+      "currentSha256": "80ae5244222b2e6093162c970c540267fe8c5ad787c8ba1fb761934ed8ad40b5",
+      "d958Sha256": "80ae5244222b2e6093162c970c540267fe8c5ad787c8ba1fb761934ed8ad40b5",
+      "changed": false
+    },
+    {
+      "path": "tools/sales_preflight_catalog.py",
+      "currentSha256": "046a115a3c23447bb2f53f681b3e6218e816231528a1e46f4a1e9293d85deeac",
+      "d958Sha256": "046a115a3c23447bb2f53f681b3e6218e816231528a1e46f4a1e9293d85deeac",
+      "changed": false
+    },
+    {
+      "path": "tools/sales_preflight_candidate.py",
+      "currentSha256": "c64c96b407224e3259d7155ae60919da7af4e3444a69bfcc32983229f996c727",
+      "d958Sha256": "c64c96b407224e3259d7155ae60919da7af4e3444a69bfcc32983229f996c727",
+      "changed": false
+    },
+    {
+      "path": "backend/sales/migrations/0012_excluded_business_date_index.py",
+      "currentSha256": "0649724d2b94867efe42f56ef8d1b7992bd3878f3e1db7652422743b7f4ac238",
+      "d958Sha256": "0649724d2b94867efe42f56ef8d1b7992bd3878f3e1db7652422743b7f4ac238",
+      "changed": false
+    },
+    {
+      "path": "backend/sales/models.py",
+      "currentSha256": "bc8019ff92183f8d8326238c7af8049729517063bf42b699dd69fcb8ce3949c3",
+      "d958Sha256": "bc8019ff92183f8d8326238c7af8049729517063bf42b699dd69fcb8ce3949c3",
+      "changed": false
+    },
+    {
+      "path": "backend/sales/write_views.py",
+      "currentSha256": "55c4a22c2eeec280d99c83da5b39fac41fa1b6e880475d6513d6794a353a77bb",
+      "d958Sha256": "55c4a22c2eeec280d99c83da5b39fac41fa1b6e880475d6513d6794a353a77bb",
+      "changed": false
+    }
+  ],
+  "settingsInCodeFiles": false,
+  "qualificationInCodeFiles": true,
+  "migrationSha256": "f8f2c4c1d1007fd43934e7ac3d4e53a034d88f95efbd514e8d69d2e1dd633848"
+}

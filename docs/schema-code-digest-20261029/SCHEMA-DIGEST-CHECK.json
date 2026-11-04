@@ -1,0 +1,24 @@
+{
+  "version": "teruisi-schema-code-digest-static-v1",
+  "results": [
+    {
+      "recipe": "config/main-schema-releases/sales-0012.json",
+      "status": "passed",
+      "errors": [],
+      "scope": "static-source-bindings-only",
+      "parentVerified": false,
+      "databaseContacted": false,
+      "declaredChecksExecuted": false,
+      "additionKind": "SalesPreflightIndex",
+      "codeFileCount": 86,
+      "actualCodeSha256": "e411415d0a76aae5ba8648e3db2b306c82dcd786262eb8171eff6e593875b1a1",
+      "actualMigrationSha256": "f8f2c4c1d1007fd43934e7ac3d4e53a034d88f95efbd514e8d69d2e1dd633848",
+      "migrationSourceFileCount": 164,
+      "migrationScope": "source-inventory-only; no installed-parent comparison",
+      "validationMode": "mandatory-code-contract",
+      "actualValidationSha256": "4cd684632b28cef6c4770bd452f6e211b29ae7f3b0da994a04d406eafa7dbb4a",
+      "supplementalSourceFileCount": 1,
+      "supplementalSourceScope": "additional evidence bindings; not gate.code_digest members"
+    }
+  ]
+}

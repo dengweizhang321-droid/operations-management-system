@@ -1,8 +1,9 @@
+import { collectionDay, type WorkflowCollectionDateContext } from "../lib/inventory/workflow-date-context";
 import { chromium, type Page } from "playwright-core";
 import { lstat, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
-import { assertWarehouseBrowserDirectory, tmallWarehouseSource, tmallWarehouseMaxBytes, warehouseDay, warehouseHash, type WarehouseConfig } from "../lib/tmall-warehouse/policy";
+import { assertWarehouseBrowserDirectory, tmallWarehouseSource, tmallWarehouseMaxBytes, warehouseHash, type WarehouseConfig } from "../lib/tmall-warehouse/policy";
 
 export type WarehouseDownload = { filePath: string; fileName: string; rawFileHash: string; bytes: number; collectedAt: string; snapshotDate: string; expectedRowCount: number; owner: string };
 // The portal keeps inactive home/report tabs in the top-level DOM. Scope to
@@ -41,7 +42,7 @@ export async function inspectWarehousePage(page: Page, owner: string) {
   if (await button.count() !== 1 || !await button.isEnabled()) throw new Error("TMALL_WAREHOUSE_EXPORT_AMBIGUOUS");
   return Number(matches[0][1]);
 }
-export async function exportTmallWarehouse(options: { root: string; runId: string; config: WarehouseConfig; beforeClick: (rowCount: number) => Promise<void>; assertOwner: () => Promise<void> }): Promise<WarehouseDownload> {
+export async function exportTmallWarehouse(options: WorkflowCollectionDateContext & { root: string; runId: string; config: WarehouseConfig; beforeClick: (rowCount: number) => Promise<void>; assertOwner: () => Promise<void> }): Promise<WarehouseDownload> {
   const { config } = options;
   return withJdChromiumRunLock(`tmall-warehouse:${options.runId}`, async () => {
     await options.assertOwner();
@@ -77,7 +78,7 @@ export async function exportTmallWarehouse(options: { root: string; runId: strin
       const bytes = await readFile(filePath);
       if (bytes.length !== info.size || bytes[0] !== 0x50 || bytes[1] !== 0x4b) throw new Error("TMALL_WAREHOUSE_DOWNLOAD_CONTENT_REJECTED");
       const collectedAt = new Date().toISOString();
-      return { filePath, fileName, rawFileHash: warehouseHash(bytes), bytes: bytes.length, expectedRowCount: count, collectedAt, snapshotDate: warehouseDay(new Date(collectedAt)), owner: config.owner };
+      return { filePath, fileName, rawFileHash: warehouseHash(bytes), bytes: bytes.length, expectedRowCount: count, collectedAt, snapshotDate: collectionDay(new Date(collectedAt), options), owner: config.owner };
     } finally {
       try { await context.close(); } catch { throw new Error("TMALL_WAREHOUSE_BROWSER_CLEANUP_FAILED"); }
     }

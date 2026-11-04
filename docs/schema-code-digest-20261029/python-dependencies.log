@@ -1,0 +1,15 @@
+Collecting psycopg==3.3.4 (from psycopg[binary]==3.3.4)
+  Using cached psycopg-3.3.4-py3-none-any.whl.metadata (4.3 kB)
+Collecting tzdata (from psycopg==3.3.4->psycopg[binary]==3.3.4)
+  Using cached tzdata-2026.6-py2.py3-none-any.whl.metadata (1.4 kB)
+Collecting psycopg-binary==3.3.4 (from psycopg[binary]==3.3.4)
+  Using cached psycopg_binary-3.3.4-cp314-cp314-win_amd64.whl.metadata (2.7 kB)
+Using cached psycopg-3.3.4-py3-none-any.whl (213 kB)
+Using cached psycopg_binary-3.3.4-cp314-cp314-win_amd64.whl (3.7 MB)
+Using cached tzdata-2026.6-py2.py3-none-any.whl (348 kB)
+Installing collected packages: tzdata, psycopg-binary, psycopg
+
+Successfully installed psycopg-3.3.4 psycopg-binary-3.3.4 tzdata-2026.6
+
+[notice] A new release of pip is available: 26.1.2 -> 26.2.2
+[notice] To update, run: D:\codex-worktrees\schema-code-digest-20261029\.runtime\check-venv\Scripts\python.exe -m pip install --upgrade pip

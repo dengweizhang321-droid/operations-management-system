@@ -1,4 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { applyTmallDirectDailyPolicy } from "../lib/netshop/tmall-direct-daily-policy-runtime.mjs";
 
 const root = new URL("../", import.meta.url);
 const read = async (path) => JSON.parse((await readFile(new URL(path, root), "utf8")).replace(/^\uFEFF/, ""));
@@ -7,7 +8,7 @@ const read = async (path) => JSON.parse((await readFile(new URL(path, root), "ut
 // browser profiles, download paths, credentials, or executable node parameters.
 export async function buildImportChainCatalog() {
   const jd = (await read("config/jd-store-accounts.json")).stores.filter((s) => s.enabled);
-  const tmall = (await read("config/tmall-store-accounts.json")).stores.filter((s) => s.enabled);
+  const tmall = applyTmallDirectDailyPolicy((await read("config/tmall-store-accounts.json")).stores).filter((s) => s.enabled);
   const market = await read("config/jd-market-ranking-daily.json");
   const entities = [{ key: "jackyun", name: "吉客云 ERP", platform: "ERP" },
     ...jd.map((s) => ({ key: s.storeKey, name: s.shopName, platform: "京东" })),
@@ -31,7 +32,7 @@ export async function buildImportChainCatalog() {
       .flatMap((n) => n.parameters.rule.interval)
       .map((s) => s.expression || `每 ${s.daysInterval || 1} 天 ${s.triggerAtHour || 0}:${String(s.triggerAtMinute || 0).padStart(2, "0")}`);
     rules.push({ chainKey, entityKeys, workflowId: definition.id, name: definition.name,
-      timezone: definition.settings?.timezone || "未配置", schedules, definitionFile: `automation/n8n/${file}.workflow.json`, ...extra });
+      timezone: definition.settings?.timezone || "local", schedules, definitionFile: `automation/n8n/${file}.workflow.json`, ...extra });
   };
   await add("jackyun", ["jackyun"], "jackyun-five-dataset-api");
   await add("jd", jd.map((s) => s.storeKey), "jd-multi-store-daily.chromium-silent-copy");
@@ -49,11 +50,13 @@ export async function buildImportChainCatalog() {
   }
   for (const s of tmall) {
     const file = `${s.storeKey}-seven-day-gap-loop`;
-    await add("tmall", [s.storeKey], file, { masterIntervalDays: 1 });
+    await add("tmall", [s.storeKey], file, { masterIntervalDays: s.productMasterCadence?.intervalDays });
   }
   // Inventory workflows own department/owner scopes, not the sales-store roster.
   await add("jd_logistics", ["jd_logistics"], "jd-logistics-daily");
-  await add("tmall_warehouse", ["tmall_warehouse"], "tmall-warehouse-daily");
+  // Tmall warehouse remains a disabled draft pending dedicated login/configuration.
+  // Keep its display scope, but do not declare an adopted schedule or completion contract.
+  // Legacy JD templates and the manual Tmall file-watcher are not adopted rules either.
   return { source: "repository_definitions", entities, chains, rules };
 }
 

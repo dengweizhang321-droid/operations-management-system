@@ -46,7 +46,7 @@ for (const [name, content, position, width] of [
 ]) nodes.push({ id: id(name), name, type: "n8n-nodes-base.stickyNote", typeVersion: 1, position,
   parameters: { content, width, height: 245, color: 4 } });
 const workflow = { id: "J8kY2mQ5vR7sT4pN", name: "吉客云导入系统", nodes, connections, pinData: {}, active: false,
-  settings: { executionOrder: "v1", timezone: "Asia/Shanghai" }, tags: [] };
+  settings: { executionOrder: "v1" }, tags: [] };
 if (directHttp) {
   const note = nodes.find(node => node.name === "五表操作说明");
   note.parameters.content += "\nHTTP 版本保留网页初始化、动态仓库/字段、权限和组合装确认；拦截最终提交，以本机 HTTP 创建任务和查询结果。HTTP 阶段专用浏览器离线，由唯一会话所有者按需续期；遇到提交不确定性不重试。此版本仍需要专用浏览器，不是零浏览器实现。";
@@ -59,7 +59,7 @@ if (apiOnly) {
   nodes.find(node => node.name === "五表操作说明").parameters.content = "## 五表接口下载\n浏览器仅负责登录和会话初始化；报表阶段由同一个 HTTP 会话完成权限核验、获取全部授权仓库与自营货主、按本轮日期查询数量、服务端导出校验、提交任务、轮询和下载。没有报表页面导航、MiniUI 控件、右键或菜单点击。\n销售按发货时间，固定为截至昨天（含）的最近 45 天，跨月和月初仍为 45 天；每次成功完整导入按该范围更新明细，同内容不重复累计，范围外历史保留。组合装保留母件与子件，图片导出数量上限仍严格校验。库存和库龄记录实际采集日。";
   const note = nodes.find(node => node.name === "导入与运行说明");
   note.parameters.content = note.parameters.content.replace("页面总数", "接口查询总数");
-  note.parameters.content = note.parameters.content.replace("默认手动、未激活，无定时器。", "每天本机时间 00:10 定时运行，同时保留手动入口。已核验本机 China Standard Time，对应工作流时区 Asia/Shanghai（UTC+08:00）；本机需保持开机且 n8n/helper 服务运行。仓库模板未激活，实际调度以 n8n 已发布版本为准。");
+  note.parameters.content = note.parameters.content.replace("默认手动、未激活，无定时器。", "每天本机时间 00:10 定时运行，同时保留手动入口。工作流继承实例启动时解析的本机时区；本机需保持开机且 n8n/helper 服务运行。仓库模板未激活，实际调度以 n8n 已发布版本为准。");
 }
 attachHourlyRetryTarget(workflow);
 await writeFile(new URL(apiOnly ? "automation/n8n/jackyun-five-dataset-api.workflow.json" : directHttp ? "automation/n8n/jackyun-five-dataset-http.workflow.json" : "automation/n8n/jackyun-five-dataset-daily.workflow.json", root), `${JSON.stringify(apiOnly ? withJackyunRecoveryContract(workflow) : workflow, null, 2)}\n`, "utf8");

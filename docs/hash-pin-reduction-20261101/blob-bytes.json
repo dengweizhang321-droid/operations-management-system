@@ -1,0 +1,485 @@
+{
+  "tools/ai_schedule_addition_catalog.py": {
+    "blob_oid": "6e325bef03658f5395fec19cc9374968ac6c3ee5",
+    "raw_blob_sha256": "81b2ee2e9d54a6b75bc7d6cd6c1da4e7f2079c7d45b60213d106a7da3730f143",
+    "bytes": 33895,
+    "crlf": 0,
+    "lf": 488
+  },
+  "tools/bi_app_addition.py": {
+    "blob_oid": "c3292079fe88292374ec9a29175da8490bcd6d6a",
+    "raw_blob_sha256": "161ea5a80e90c41abff88f02d931fb3a6133777f0c137d7bae5a150d265579d1",
+    "bytes": 15056,
+    "crlf": 0,
+    "lf": 195
+  },
+  "tools/bounded-two-natural.mjs": {
+    "blob_oid": "c757a0822e781d526dbcdfa81071dc94a77206bf",
+    "raw_blob_sha256": "9d2699e7bc01d5e9bfc6ef33ceab86b130aed1fe353829349da534b8653e9751",
+    "bytes": 3858,
+    "crlf": 0,
+    "lf": 6
+  },
+  "tools/capture-fixed-startup-metadata.mjs": {
+    "blob_oid": "4dbe07cbdc6ff5add28d0554d83da872b2572265",
+    "raw_blob_sha256": "ff946c3f37b2f42cf618ccbda5fabee5351c99946d22bb7dbff60a0f14313eb1",
+    "bytes": 10216,
+    "crlf": 0,
+    "lf": 62
+  },
+  "tools/census-approval-contract.mjs": {
+    "blob_oid": "aee5e916503616c929fb976bc25165c206649836",
+    "raw_blob_sha256": "17a555fa0f0e8515b955caf1aae2b386dafcea3b309d23eb99f458a311ee5066",
+    "bytes": 3857,
+    "crlf": 0,
+    "lf": 9
+  },
+  "tools/census-closeout-state.mjs": {
+    "blob_oid": "8250b4201542acf67d8db71ca1506a63e27a8193",
+    "raw_blob_sha256": "c94a9548717115c750e5ec190fc24337ae536dc4d634a360c6124e9284f7df2d",
+    "bytes": 1811,
+    "crlf": 1,
+    "lf": 3
+  },
+  "tools/census-runtime-context.mjs": {
+    "blob_oid": "b72e5c09372395044ab9e5f332530f09267fee6a",
+    "raw_blob_sha256": "01b10933dd5970279fbaa5b7c265d7bf903b0b5ab9bba8e32cc8009ad4423ac9",
+    "bytes": 2957,
+    "crlf": 0,
+    "lf": 4
+  },
+  "tools/close-jd-logistics-known-flow.ts": {
+    "blob_oid": "b325053cc1af6f174c4819246d197c93f4f604de",
+    "raw_blob_sha256": "c3bbe75469cc7f2f3057db68b2f8676c1bd0b9f7a552321f0667f92a492808a6",
+    "bytes": 27077,
+    "crlf": 0,
+    "lf": 238
+  },
+  "tools/close-jd-logistics-known-four-imports.ts": {
+    "blob_oid": "d4fae298fc67858450c5d53748072beef41ad5f5",
+    "raw_blob_sha256": "f49b0f9969b3a822e522ada826cb7a7c576457273b24dfed06e464ee7a01e915",
+    "bytes": 48686,
+    "crlf": 0,
+    "lf": 727
+  },
+  "tools/close-jd-logistics-known-two-downloads.ts": {
+    "blob_oid": "525ef90ace0b8281f35dd54e3817bf73af424bb2",
+    "raw_blob_sha256": "cefa8e23dab2691ac40be2b7d4471e7545558e7f66dab2503441ebf529d05f2f",
+    "bytes": 30841,
+    "crlf": 0,
+    "lf": 315
+  },
+  "tools/close-jd-logistics-preexport.ts": {
+    "blob_oid": "8bb00cbd1f91581c1393c49fbf539c9af9a544d2",
+    "raw_blob_sha256": "3dff17523b1093561cbafddb65eed73ae598ae869c83ec3198d052c526d3d206",
+    "bytes": 27376,
+    "crlf": 0,
+    "lf": 302
+  },
+  "tools/continuation-context.mjs": {
+    "blob_oid": "94502c07e37322271471419dc9668e9c625dd195",
+    "raw_blob_sha256": "b4f424e956429ffaf9a56165a3937327fb0ed369c7f89e3a9ae5a15f069771b7",
+    "bytes": 7169,
+    "crlf": 0,
+    "lf": 36
+  },
+  "tools/continuation-transport.mjs": {
+    "blob_oid": "c6670c909b24c0322eac093caa8fbff46de94a0b",
+    "raw_blob_sha256": "b5a35625360ccf05049202d98e94b700e1627c7799900d9afb40547ec990e3c2",
+    "bytes": 2121,
+    "crlf": 0,
+    "lf": 7
+  },
+  "tools/create-startup-repair-fence.mjs": {
+    "blob_oid": "9d4f186a8bca471636c91e110f45acb3af0198b6",
+    "raw_blob_sha256": "7ecf1359026f7cf811744857ab3afd4602705da8267595fefecf3742c1908e68",
+    "bytes": 11152,
+    "crlf": 0,
+    "lf": 62
+  },
+  "tools/display-closeout-state.mjs": {
+    "blob_oid": "31bad673a727ed3e9ffc11d394d7afe5855ff061",
+    "raw_blob_sha256": "f3a3c60b722be8fd306e1750715dd72eff734e31db84e1ddc32cfa07d58679ec",
+    "bytes": 1803,
+    "crlf": 1,
+    "lf": 3
+  },
+  "tools/display-decision-state.mjs": {
+    "blob_oid": "33481930c23efd93781ccfc85f5879d92c794136",
+    "raw_blob_sha256": "87e703cfaba3c2da7724f226d31c23afaa895dc6a8906d6868bd15724f3c9c76",
+    "bytes": 1713,
+    "crlf": 1,
+    "lf": 4
+  },
+  "tools/django-access-control-cutover.ps1": {
+    "blob_oid": "1051fe715000f930b2892a54f8163fbe26adebe5",
+    "raw_blob_sha256": "67c7d7988027d7c0cdca57c494103c8bfe17d93d70e87942047d0eacf939e158",
+    "bytes": 6853,
+    "crlf": 0,
+    "lf": 101
+  },
+  "tools/django-ai-cutover.ps1": {
+    "blob_oid": "a33381c2482c66e98c2b7fca87e2f1f508066c72",
+    "raw_blob_sha256": "4a4b6c84b899432b3039c6cd04a6ef3454c3ecf0f2d4e86619714a71f79b6513",
+    "bytes": 9231,
+    "crlf": 0,
+    "lf": 119
+  },
+  "tools/django-local-service.ps1": {
+    "blob_oid": "4106d3ea7b57c80571d0105689d1a267c593005e",
+    "raw_blob_sha256": "af6b3b4242f0863296f018d3908ce9d9e93a1d8ec89565e299c7dba16e6e279c",
+    "bytes": 298827,
+    "crlf": 5718,
+    "lf": 5718
+  },
+  "tools/django-postgres-maintenance.ps1": {
+    "blob_oid": "462f6f36faf490adbb0f268db88d361ff7f76c42",
+    "raw_blob_sha256": "8c1e3806ba37303cbc3bc1bec24a58a01cba381f5e49030d37c36b17e24743ad",
+    "bytes": 128889,
+    "crlf": 2441,
+    "lf": 2441
+  },
+  "tools/django-sales-load-check.ts": {
+    "blob_oid": "b999c21aff91c79c2ebc33e4d0f777c092a31da0",
+    "raw_blob_sha256": "03631473f258e9697b0d673cafddee43dfe5c0e914e8a005148c82700b75b999",
+    "bytes": 25478,
+    "crlf": 0,
+    "lf": 641
+  },
+  "tools/install-main-prebuild.mjs": {
+    "blob_oid": "caecbe0f5f315379de92acd2bc42504ceca20787",
+    "raw_blob_sha256": "db64b24ec01dbde2f58fff186ed8f0efe8bc314752cfe89e826d439d0a763b36",
+    "bytes": 49292,
+    "crlf": 0,
+    "lf": 325
+  },
+  "tools/install-workerd-heap-patch.mjs": {
+    "blob_oid": "a5eefc0cc1720138fb3fd53e045a2007d682ad22",
+    "raw_blob_sha256": "0634508859843194bf178de678c0c587a0e774f88453422833c390cc085eb392",
+    "bytes": 2089,
+    "crlf": 0,
+    "lf": 36
+  },
+  "tools/install-wrangler-inspector-patch.mjs": {
+    "blob_oid": "1320739d82532ff6c3be588892b1850bc35c4240",
+    "raw_blob_sha256": "d983b9f5f0148fba5dde03cf4edf03fc3761f6a621ab1a7b0f50eddc8cfbb839",
+    "bytes": 4510,
+    "crlf": 0,
+    "lf": 60
+  },
+  "tools/install-xlsx-prototype-patch.mjs": {
+    "blob_oid": "80ec4cc34a383203c496cf50e2f23a16fb908893",
+    "raw_blob_sha256": "d943dd773275e2744c24e2ff29d01efba0ef1d7863ce0542602850500a6708b7",
+    "bytes": 4423,
+    "crlf": 0,
+    "lf": 79
+  },
+  "tools/integration_migration_plan.py": {
+    "blob_oid": "079ada20a842a406165661707b4726dc4eed5f3a",
+    "raw_blob_sha256": "94893e1cd60fb2ad693948e8b2d1e686882bc14664310acf7c6b24b8f53a74ec",
+    "bytes": 12812,
+    "crlf": 0,
+    "lf": 272
+  },
+  "tools/inventory-d1-authority-install.py": {
+    "blob_oid": "af968a858a366d31ec87e4a2bf2cdd7c2240b265",
+    "raw_blob_sha256": "d5f17b9fe71ea10fdae8b1e32051f37362f0368ad1e1655bd490c377877feace",
+    "bytes": 11003,
+    "crlf": 0,
+    "lf": 272
+  },
+  "tools/jackyun-7792-recovery.mjs": {
+    "blob_oid": "c65a67f05bb10d9838fada80b941c63fab3c9969",
+    "raw_blob_sha256": "a99360e913be813b53c6259e32a8382fbe094979f4732e40397739ceff5d666f",
+    "bytes": 27978,
+    "crlf": 0,
+    "lf": 377
+  },
+  "tools/jackyun-7792-upload-proof.py": {
+    "blob_oid": "e3eb72f3ba6eec2145e08d0e0797b88683a9c30c",
+    "raw_blob_sha256": "9ab7d751ac639097e4ad693fde564f0c414c6aaac11a714cea8fc75488002a0c",
+    "bytes": 5790,
+    "crlf": 0,
+    "lf": 92
+  },
+  "tools/jackyun_audit_catalog.py": {
+    "blob_oid": "ab3045106950539586511d42b7fe09a95ab6457d",
+    "raw_blob_sha256": "0ec29d8672a0f2900a77efd8c46f26da92facca4e366ccf57ad8ba163cad6e8f",
+    "bytes": 4397,
+    "crlf": 0,
+    "lf": 69
+  },
+  "tools/jd-logistics-login-9851-target.ts": {
+    "blob_oid": "2a3c3b7b8abee92df1fb0bde281fa6f89796d3e7",
+    "raw_blob_sha256": "6305d3cbb968651c5252d97ddb8369ae834f5a92473c37a67d55993771b0b3e8",
+    "bytes": 2663,
+    "crlf": 0,
+    "lf": 40
+  },
+  "tools/jd_logistics_catalog.py": {
+    "blob_oid": "982c3dd50bd5a5c6184c3f364aac7f7bfc14a4ec",
+    "raw_blob_sha256": "7be356058c31b27e9af1c8ebbad000310bb0a0eedb11f841182f67d3f4ca75ec",
+    "bytes": 5892,
+    "crlf": 0,
+    "lf": 84
+  },
+  "tools/jd_monitor_preferences_catalog.py": {
+    "blob_oid": "bc8f6d5e74910b00c5356c49c154554987a7dd68",
+    "raw_blob_sha256": "baea5a9392f2fdd623002da3115bac68986e893655c12658152b68c0ae56a383",
+    "bytes": 3092,
+    "crlf": 58,
+    "lf": 58
+  },
+  "tools/jd_product_monitoring_catalog.py": {
+    "blob_oid": "b02ba1d0cd08eede9d9e145ee7bcda941f703681",
+    "raw_blob_sha256": "ad65e36a5e57bfc29345cfa21dba950d4754143f37358882ec4d4a584a347051",
+    "bytes": 3355,
+    "crlf": 65,
+    "lf": 65
+  },
+  "tools/manual-maintenance-continuation.mjs": {
+    "blob_oid": "c020d4107b91983ad5668156949ed2a8de03dd9f",
+    "raw_blob_sha256": "4081201ecfca2cd21dd24074bda76f4d88f0698d2654bcae826f3b2e747dd626",
+    "bytes": 34319,
+    "crlf": 0,
+    "lf": 395
+  },
+  "tools/manual-maintenance-continuation.ps1": {
+    "blob_oid": "391f16056c35105ae9b71b1907f2a41d56b87dd8",
+    "raw_blob_sha256": "359890e622739c501bf9cd6ab525a66aa280077f54d847847e2417f9c69c63a5",
+    "bytes": 31730,
+    "crlf": 0,
+    "lf": 316
+  },
+  "tools/manual-maintenance-entry.ps1": {
+    "blob_oid": "827df1db31952828ecea7becbfe2fb89871c3b88",
+    "raw_blob_sha256": "f1784b1fcd5db9c15e4ec7b417d7f4aa25100aec3cd42384f6074ce331faf1f2",
+    "bytes": 3725,
+    "crlf": 0,
+    "lf": 39
+  },
+  "tools/manual-startup-reconcile.mjs": {
+    "blob_oid": "c5b0602ae4f99afbebb4bfdb47dc35bee88b6343",
+    "raw_blob_sha256": "774e4467045c070986636ac21d9cb0634c8ea22ab5ce83e5bbfbd887e0d0343d",
+    "bytes": 26337,
+    "crlf": 0,
+    "lf": 174
+  },
+  "tools/n8n-metadata-read-boundary.mjs": {
+    "blob_oid": "311b5dc5da31ff75ff696556e690aefbeec906a4",
+    "raw_blob_sha256": "ff36ef926f85c738a9c74a974db3455f11b9ac52b2e69ad1ac90e80dccd59546",
+    "bytes": 1199,
+    "crlf": 0,
+    "lf": 25
+  },
+  "tools/pi150-failed-start-recovery.ps1": {
+    "blob_oid": "dcafc10e1316aa432c51c18076b5a2fc511ce8ec",
+    "raw_blob_sha256": "1c53c0f33515d89e4af788822f3b72ad2642a8017f68c7cd54d53c0a8c0627a3",
+    "bytes": 36535,
+    "crlf": 0,
+    "lf": 451
+  },
+  "tools/pi150-forward-recovery.mjs": {
+    "blob_oid": "3eacd8e562ea33b8dd70551037b302e495117584",
+    "raw_blob_sha256": "29be992f2698e9ba601665c4441e5ef2ce1a3330c35359e9820a4e2692d588ba",
+    "bytes": 17111,
+    "crlf": 0,
+    "lf": 157
+  },
+  "tools/pi_agent_catalog.py": {
+    "blob_oid": "1cac3895454fcadc33f045f6c332cb964ec7bc37",
+    "raw_blob_sha256": "58ba8e6ecde77734a579e66ae85c1529107c598edf42459d2b07ef08a6567c68",
+    "bytes": 7031,
+    "crlf": 0,
+    "lf": 104
+  },
+  "tools/pi_business_catalog.py": {
+    "blob_oid": "382b2ad9aee8c72e69abbdc7e2ea0fb02e1a8673",
+    "raw_blob_sha256": "6d257bdd06e808609d97c82e9078b34227b2e2042d2839a38c44620bbcae68e6",
+    "bytes": 12846,
+    "crlf": 0,
+    "lf": 163
+  },
+  "tools/pi_native_catalog.py": {
+    "blob_oid": "80f44569a6ec0888791ab10e84b6698ea64c9189",
+    "raw_blob_sha256": "68555790ab68fc6559dcffab77f74b8b635cd3036a1ce37aec13e8da1049b9ca",
+    "bytes": 10671,
+    "crlf": 0,
+    "lf": 156
+  },
+  "tools/pi_workspace_catalog.py": {
+    "blob_oid": "fccab0ea17e0af08e10c2d134cbe5bb5a43cd07e",
+    "raw_blob_sha256": "8b458b66363df4b1cb01812b12f9f0eeff4d74490a94e40dde34ab83c611b194",
+    "bytes": 6847,
+    "crlf": 0,
+    "lf": 99
+  },
+  "tools/preparation-producer-qualification.mjs": {
+    "blob_oid": "93c1551df5f2372ed5cc5081c2a0172b6c6a8eaa",
+    "raw_blob_sha256": "862c7f7273768198dde89800962042d1543112eda42339af1e0ff0bd5727f3dc",
+    "bytes": 3123,
+    "crlf": 0,
+    "lf": 18
+  },
+  "tools/preparation-resolution-history.mjs": {
+    "blob_oid": "b5b24702b39e541ca143007fc6db41c2f9c3e2a9",
+    "raw_blob_sha256": "28811bd41c716bce1005588715c58cf2a8e453cc7f3c48f41697e1fb4daaff7d",
+    "bytes": 5373,
+    "crlf": 0,
+    "lf": 2
+  },
+  "tools/preparation-retirement-entry.mjs": {
+    "blob_oid": "564232b58e58cd6f01420421e91f713a7cdc2797",
+    "raw_blob_sha256": "2b72113684b4b5ee0e61813081dbbe989534703f0caa7442c919bd27c0398182",
+    "bytes": 8310,
+    "crlf": 0,
+    "lf": 83
+  },
+  "tools/preparation-retirement-history.mjs": {
+    "blob_oid": "ccd07cbc3b19bafd71d5df2b4dd0ea89593f62b2",
+    "raw_blob_sha256": "3ebf251a19f8f06d164acc9dca6e2395cef7c6c10c7cd440f282e805582c9e9f",
+    "bytes": 46950,
+    "crlf": 0,
+    "lf": 379
+  },
+  "tools/preparation-retirement-native.mjs": {
+    "blob_oid": "e0a20645759b8893ac294c382cf60f5b6654436f",
+    "raw_blob_sha256": "63c925d9649646723627ed9ffe82704b0055fbb08dcaca950aeaabf9c4f3c467",
+    "bytes": 9391,
+    "crlf": 0,
+    "lf": 47
+  },
+  "tools/preparation-retirement-qualification.mjs": {
+    "blob_oid": "ebc96ab52676027fbf5b0401866c725268d375e7",
+    "raw_blob_sha256": "e40c6a9a755fdcdf5c5c783c48ff1292ffbb30cf976c8b28455653fd3a89bfb0",
+    "bytes": 980,
+    "crlf": 0,
+    "lf": 12
+  },
+  "tools/protected_ai_migration_installer.py": {
+    "blob_oid": "15de3a9d1ea7ed9b69f5f37bc931f8ec2b7a26b8",
+    "raw_blob_sha256": "cb4f65c6ec19b23a8ecea57b8ba6d83477dd22bd8bd099dec468e7637580a4ad",
+    "bytes": 20050,
+    "crlf": 0,
+    "lf": 433
+  },
+  "tools/publish-main-known-resume.mjs": {
+    "blob_oid": "2e2dc993a4f3f0e02dca02edbe661b343c851835",
+    "raw_blob_sha256": "515c7a2ccdce60b277aeb42252ba2f61495002ebf828d5aa201aaeff387f61dc",
+    "bytes": 3413,
+    "crlf": 0,
+    "lf": 44
+  },
+  "tools/publish-prepared-main.mjs": {
+    "blob_oid": "4d93b3e475f33f27a98e0f333bcc4d922ddb0bdf",
+    "raw_blob_sha256": "e50f8112e0ae6553a4f66632ebfc95a76fba1030041c6d9d96af4273d98ae6d1",
+    "bytes": 30921,
+    "crlf": 0,
+    "lf": 352
+  },
+  "tools/recovery-context.mjs": {
+    "blob_oid": "1013e3e6f5a93accbcac0560d4a605763829387a",
+    "raw_blob_sha256": "cf179ecba5910a20c4c599d35bdb1b3b518c01e3d1d51df0629915532759f9bf",
+    "bytes": 11423,
+    "crlf": 0,
+    "lf": 63
+  },
+  "tools/recovery-transport.mjs": {
+    "blob_oid": "7ce46f49d983a7493a972334fce1f0231e23d459",
+    "raw_blob_sha256": "e7afda902a07ab2c8ba5600994377687dfdb5c359e8e370e55fcfb7966c9c72f",
+    "bytes": 7503,
+    "crlf": 0,
+    "lf": 70
+  },
+  "tools/retract-startup-repair-fence.mjs": {
+    "blob_oid": "b3956f0e867a1f50feee4c6596fe18531d56fdaf",
+    "raw_blob_sha256": "f4e590a709e6a666b0d53b8cbbede31807c021f51ac67846ef092979a7d465ba",
+    "bytes": 8781,
+    "crlf": 0,
+    "lf": 32
+  },
+  "tools/sales-d1-retirement.ts": {
+    "blob_oid": "1e4669cc9e3c6a580430f19585269c59367557d3",
+    "raw_blob_sha256": "337d3a7baee77229b48e4541bcd3f7ca452834e68d778d78f8fb3c2ca1041f65",
+    "bytes": 102608,
+    "crlf": 0,
+    "lf": 2566
+  },
+  "tools/sales-local-cutover.ts": {
+    "blob_oid": "f62c0a0eb0146d711a5d336342fcfc035c48b7d2",
+    "raw_blob_sha256": "36a7fa792aff020ac152a42cfc68da1fab2bb149f85ee55d93b5116b060168fc",
+    "bytes": 53884,
+    "crlf": 0,
+    "lf": 1306
+  },
+  "tools/sales_preflight_catalog.py": {
+    "blob_oid": "0126f497655f7e8a612becbca91679546b2d9b8f",
+    "raw_blob_sha256": "a41f59cc13c83ca92ce4da199b085872ea49e18cf23565f23210ce15b4a6e307",
+    "bytes": 4793,
+    "crlf": 0,
+    "lf": 98
+  },
+  "tools/start-closeout-state.mjs": {
+    "blob_oid": "9bf981b8e4c34e046fa837799f7a3cd3c5d8abc1",
+    "raw_blob_sha256": "ffa7a9b4129a40afb63fd0331bdbbddf675b2dd1683076851c9d6b514e283d12",
+    "bytes": 1810,
+    "crlf": 1,
+    "lf": 3
+  },
+  "tools/start-decision-state.mjs": {
+    "blob_oid": "ef9d4a4710a3b2738202f17350022a3d83c04f11",
+    "raw_blob_sha256": "4920dee1a4d8e38b8f725d99b9991747b6c8ad78221fad2a8d4b032ce9f0ac87",
+    "bytes": 3582,
+    "crlf": 1,
+    "lf": 5
+  },
+  "tools/startup-exact-instance-policy.mjs": {
+    "blob_oid": "611443ffa0d7fb7b19e2ab94bce60d67d9dc702b",
+    "raw_blob_sha256": "0ab41f6eca96c4d60b5231508bf2abe455451cd5cb91f199b340add07ad9886c",
+    "bytes": 5510,
+    "crlf": 0,
+    "lf": 27
+  },
+  "tools/startup-exact-instance-stop.ps1": {
+    "blob_oid": "1af7b9ca047729d72256495ede8c4fbc87412b76",
+    "raw_blob_sha256": "701e496ffb9715403a1aa670cb0583b60ba9cafde444a56b7f1603c3b4fa9cbb",
+    "bytes": 9878,
+    "crlf": 0,
+    "lf": 93
+  },
+  "tools/tmall_warehouse_catalog.py": {
+    "blob_oid": "a916d618d560bd21a076f278b862b6d0d700d343",
+    "raw_blob_sha256": "b004da7fd734ad8c6102dd20a11cf041a57fcfc832ac8e91342534fff052dc57",
+    "bytes": 8562,
+    "crlf": 124,
+    "lf": 124
+  },
+  "tools/verify-release-candidate.mjs": {
+    "blob_oid": "53450283f03ecb2b5eed263ce6e183bf0cbaadd7",
+    "raw_blob_sha256": "b8858e73366d442c8ced1ac7a9a5b07130fcb61f0bd5f686c008883d4bdfa3c5",
+    "bytes": 68036,
+    "crlf": 0,
+    "lf": 658
+  },
+  "tools/worker-local-release.mjs": {
+    "blob_oid": "d4df58d901427e9e9a401b44d595e231b49a46c5",
+    "raw_blob_sha256": "6dcd3016f6164a0c897c94ae26ec300b82f69ad122739ea1ba5b843ca95a8333",
+    "bytes": 191969,
+    "crlf": 0,
+    "lf": 3617
+  },
+  "tools/worker-local-runtime-supervisor.mjs": {
+    "blob_oid": "786d6136c0fedf5e39aab78d8342fc2a3c979a31",
+    "raw_blob_sha256": "cb34aec172c4f96d54043b12273e8dca8ac7f70fe8102212ccc7ba35aa18e3a8",
+    "bytes": 26690,
+    "crlf": 0,
+    "lf": 581
+  },
+  "tools/workflow_automation_catalog.py": {
+    "blob_oid": "c22dfe0eaaec1abd79ccae397610087f852ef16e",
+    "raw_blob_sha256": "f5b23df61fc876ff361551ec65e197517f9287f366c666a3714aff7d54b4a41d",
+    "bytes": 15301,
+    "crlf": 0,
+    "lf": 253
+  }
+}

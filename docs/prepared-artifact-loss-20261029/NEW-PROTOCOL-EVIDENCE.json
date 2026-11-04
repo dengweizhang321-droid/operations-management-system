@@ -1,0 +1,102 @@
+[
+  {
+    "test": "no loss record: structure validates every byte but absent native receipt still blocks normal inventory",
+    "tapLine": 616,
+    "result": "ok 103 - no loss record: structure validates every byte but absent native receipt still blocks normal inventory"
+  },
+  {
+    "test": "structural reader rejects a duplicate dispatch operation for an already-dispatched ticket without opening packet files",
+    "tapLine": 622,
+    "result": "ok 104 - structural reader rejects a duplicate dispatch operation for an already-dispatched ticket without opening packet files"
+  },
+  {
+    "test": "whole packet ENOENT: full multi-dispatch/ticket group retires, originals and pending stay untouched, then exits",
+    "tapLine": 628,
+    "result": "ok 105 - whole packet ENOENT: full multi-dispatch/ticket group retires, originals and pending stay untouched, then exits"
+  },
+  {
+    "test": "present packet, partial tree, EACCES, missing parent, symlink and hardlinked evidence all refuse without new records",
+    "tapLine": 634,
+    "result": "ok 106 - present packet, partial tree, EACCES, missing parent, symlink and hardlinked evidence all refuse without new records"
+  },
+  {
+    "test": "present receipt with a changed hash blocks before any retirement and preserves the original terminal bytes",
+    "tapLine": 640,
+    "result": "ok 107 - present receipt with a changed hash blocks before any retirement and preserves the original terminal bytes"
+  },
+  {
+    "test": "reappeared packet: changed receipt/request blocks; fully valid restoration stays retired and cannot publish or reuse",
+    "tapLine": 646,
+    "result": "ok 108 - reappeared packet: changed receipt/request blocks; fully valid restoration stays retired and cannot publish or reuse"
+  },
+  {
+    "test": "bindings are exhaustive: omitted dispatch/ticket, changed queue/result/dispatch/native hash and swapped manifest fail closed",
+    "tapLine": 652,
+    "result": "ok 109 - bindings are exhaustive: omitted dispatch/ticket, changed queue/result/dispatch/native hash and swapped manifest fail closed"
+  },
+  {
+    "test": "deleted record or completed result is detected; crash after append resumes the same records without draining pending",
+    "tapLine": 658,
+    "result": "ok 110 - deleted record or completed result is detected; crash after append resumes the same records without draining pending"
+  },
+  {
+    "test": "deleting the entire dispatch namespace cannot use the legacy empty-queue shortcut to reopen a loss packet",
+    "tapLine": 664,
+    "result": "ok 111 - deleting the entire dispatch namespace cannot use the legacy empty-queue shortcut to reopen a loss packet"
+  },
+  {
+    "test": "queue and rotation locks cover the complete append; original generation drift refuses and no pending ticket is consumed",
+    "tapLine": 670,
+    "result": "ok 112 - queue and rotation locks cover the complete append; original generation drift refuses and no pending ticket is consumed"
+  },
+  {
+    "test": "fixed prepare function refuses a restored retired packet before source/native effects",
+    "tapLine": 676,
+    "result": "ok 113 - fixed prepare function refuses a restored retired packet before source/native effects"
+  },
+  {
+    "test": "fixed check function refuses a restored retired packet before source/native effects",
+    "tapLine": 682,
+    "result": "ok 114 - fixed check function refuses a restored retired packet before source/native effects"
+  },
+  {
+    "test": "fixed publish function refuses a restored retired packet before source/native effects",
+    "tapLine": 688,
+    "result": "ok 115 - fixed publish function refuses a restored retired packet before source/native effects"
+  },
+  {
+    "test": "new bundle leaves original pending tickets to incompatible-generation rejection and never migrates or prepares them",
+    "tapLine": 694,
+    "result": "ok 116 - new bundle leaves original pending tickets to incompatible-generation rejection and never migrates or prepares them"
+  },
+  {
+    "test": "adopted and main producer closures remain the exact five-member union; SalesPreflightIndex154 remains supported",
+    "tapLine": 700,
+    "result": "ok 117 - adopted and main producer closures remain the exact five-member union; SalesPreflightIndex154 remains supported"
+  },
+  {
+    "test": "successor material inherits the external manifest; replacement, missing intent binding, capability drop and orphan records refuse",
+    "tapLine": 706,
+    "result": "ok 118 - successor material inherits the external manifest; replacement, missing intent binding, capability drop and orphan records refuse"
+  },
+  {
+    "test": "actual build-only upgrade material inherits the manifest and readMaterials refuses deleted or legally rehashed downgraded capability",
+    "tapLine": 712,
+    "result": "ok 119 - actual build-only upgrade material inherits the manifest and readMaterials refuses deleted or legally rehashed downgraded capability"
+  },
+  {
+    "test": "existing publication-retired writer and layered inventory preserve packet retirement and reject changed bindings",
+    "tapLine": 718,
+    "result": "ok 120 - existing publication-retired writer and layered inventory preserve packet retirement and reject changed bindings"
+  },
+  {
+    "test": "fixed prepare/check/publish and loss CLI modes are exclusive; native direct scripts retain their documented boundary",
+    "tapLine": 724,
+    "result": "ok 121 - fixed prepare/check/publish and loss CLI modes are exclusive; native direct scripts retain their documented boundary"
+  },
+  {
+    "test": "pure manifest validation accepts the independent 26-packet/35-dispatch inventory without opening production",
+    "tapLine": 730,
+    "result": "ok 122 - pure manifest validation accepts the independent 26-packet/35-dispatch inventory without opening production"
+  }
+]

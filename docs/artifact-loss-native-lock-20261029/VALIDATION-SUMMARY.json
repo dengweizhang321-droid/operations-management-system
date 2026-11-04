@@ -1,0 +1,41 @@
+{
+  "candidateOnly": true,
+  "protocol": {
+    "pass": 171,
+    "fail": 0,
+    "skipped": 0,
+    "newAdapterTests": 10
+  },
+  "ciAllowlist": {
+    "pass": 66,
+    "fail": 0,
+    "testTimeoutMs": 30000
+  },
+  "eslint": {
+    "errors": 56,
+    "warnings": 132,
+    "exitCode": 1,
+    "noNewFingerprintAfterWorktreePathNormalization": true
+  },
+  "backendBoundary": {
+    "violations": [],
+    "exitCode": 0
+  },
+  "nativeAdapterModes": 9,
+  "productionPipeForwardings": 0,
+  "productionQueueRecordsUnchanged": 292,
+  "artifactLossManifestSha256": "e44dac82794da312e3cbaade260b853806e9e9f067eee86197e6b4789a7e32ab",
+  "adoptedByThisTask": false,
+  "productionReconciliationPerformed": false,
+  "mainPushedByThisTask": false,
+  "evidenceSha256": {
+    "BASELINE.json": "b270eb92533f29ea90df1a8b8203adfdd1d2098150194501ad943b7f4956aca2",
+    "CODE-FREEZE.json": "8e48bed0aee667ced631e1026f114c35f64f037d53f3593bfbcd0c519ea42e4e",
+    "PROTOCOL-FINAL.tap": "beac20c6f4e04887f5619feded2967bbbac12ae5392415b19147cf1955bb793f",
+    "NATIVE-ADAPTER-RESULTS.json": "4feaf8d7c8e2ccfac1cfa361e1b7eaac5c242dde6070e0afa6a084ee790b92c8",
+    "ESLINT-RESULT.json": "5bd4742eecf3cff7a78333c48b833b6db8595e25044cba08df2b005333f0dccf",
+    "backend-boundary.log": "1d101b20331e8a26931642231a108353c3592c76313bc87a633f3bd2d84f1be6",
+    "ci-allowlist.log": "3653c6a60183b53b7482f82c00fda199eea5eeaf8e8ecfbbb595040d502a2bf4",
+    "PRESERVATION-CHECK.json": "8cee4be578c8ce37af1c27a1f64989ceec6553730cb1a01dff03b613074b2aa5"
+  }
+}

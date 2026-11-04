@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { validateDirectExportPayload } from "./direct-export";
 import type { JackyunHttpSession, JackyunHttpOperation } from "./direct-http";
-import { jackyunExportOrder, jackyunCaptureDate } from "./run-contract";
+import { jackyunExportOrder, jackyunCaptureDate, type JackyunDateContext } from "./run-contract";
 import type { JackyunModule } from "./post-download";
 import { jackyunSalesPeriod } from "./sales-period";
 
@@ -87,9 +87,9 @@ export function buildApiParameters(module: JackyunModule, template: ApiTemplate,
   return { query, data, moduleCode: template.moduleCode };
 }
 
-export async function prepareApiExport(http: Http, templates: ApiTemplates, scope: ApiScope, module: JackyunModule, runDate: string, asOfDate: string, salesStartDate?: string) {
+export async function prepareApiExport(http: Http, templates: ApiTemplates, scope: ApiScope, module: JackyunModule, runDate: string, asOfDate: string, salesStartDate?: string, context: JackyunDateContext = {}) {
   const queryIntentAt = new Date().toISOString();
-  if (jackyunCaptureDate(queryIntentAt) !== runDate) throw new Error("API_CAPTURE_DATE_CHANGED");
+  if (jackyunCaptureDate(queryIntentAt, context) !== runDate) throw new Error("API_CAPTURE_DATE_CHANGED");
   const prepared = buildApiParameters(module, templates.modules[module], scope, asOfDate, salesStartDate);
   const response = await http.request<Result>(counts[module], prepared.query, prepared.moduleCode);
   const rawCount = response.data;
@@ -102,6 +102,6 @@ export async function prepareApiExport(http: Http, templates: ApiTemplates, scop
   prepared.data.exportTotal = String(sourceRows);
   const validated = validateDirectExportPayload(module, new URLSearchParams(prepared.data).toString(), prepared.moduleCode, asOfDate, salesStartDate);
   const queryCompletedAt = new Date().toISOString();
-  if (jackyunCaptureDate(queryCompletedAt) !== runDate) throw new Error("API_CAPTURE_DATE_CHANGED");
+  if (jackyunCaptureDate(queryCompletedAt, context) !== runDate) throw new Error("API_CAPTURE_DATE_CHANGED");
   return { ...validated, sourceRows, queryIntentAt, queryCompletedAt, querySha256: apiSha(JSON.stringify(prepared.query)), permissionSha256: scope.permissionSha256 };
 }

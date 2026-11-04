@@ -1,3 +1,4 @@
+import { workflowLocalDate } from "../lib/imports/local-time";
 import { randomUUID } from "node:crypto";
 import { stat } from "node:fs/promises";
 import path from "node:path";
@@ -14,7 +15,7 @@ import { downloadSignedOssExport } from "../lib/jackyun/oss-download";
 import { assertBoundDownloadProvenance } from "../lib/jackyun/download-provenance";
 import { readJsonFile, readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { jackyunModuleOrder, type JackyunModule } from "../lib/jackyun/post-download";
-import { assertJackyunSnapshotEvidence, jackyunCaptureDate, jackyunExportFirstPolicyVersion, jackyunExportOrder, type JackyunHistoricalSnapshotEvidence } from "../lib/jackyun/run-contract";
+import { assertJackyunSnapshotEvidence, jackyunCaptureDate, jackyunExportFirstPolicyVersion, jackyunExportOrder, type JackyunHistoricalSnapshotEvidence, type JackyunDateContext, jackyunDateContext, newJackyunDateContext } from "../lib/jackyun/run-contract";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import { readJackyunLoginConfig } from "../lib/jackyun/windows-dpapi";
 import { inspectJackyunLoginSurface, isJackyunLoginOrigin, submitJackyunDpapiLogin, verifyJackyunBrowserBinding, waitForJackyunDpapiSession } from "../lib/jackyun/dpapi-login";
@@ -117,7 +118,7 @@ export function assertHistoricalDateReadback(
   return observedDate;
 }
 
-type ControllerState = {
+type ControllerState = JackyunDateContext & {
   exportTransport?: typeof jackyunWebSessionTransport | typeof jackyunDirectTransport;
   inspectionOnly?: true;
   version: 1;
@@ -127,7 +128,7 @@ type ControllerState = {
   modules: Partial<Record<JackyunModule, ModuleActionState>>;
 };
 
-type CliOptions = {
+type CliOptions = JackyunDateContext & {
   runId: string;
   snapshotDate: string;
   asOfDate: string;
@@ -161,17 +162,11 @@ type CliOptions = {
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const policyPath = path.join(projectRoot, "config", "jackyun-daily-policy.json");
 
-function shanghaiDate(offsetDays = 0) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(new Date());
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
-  const value = new Date(`${part("year")}-${part("month")}-${part("day")}T00:00:00Z`);
-  value.setUTCDate(value.getUTCDate() + offsetDays);
-  return value.toISOString().slice(0, 10);
+function localDate(offsetDays = 0) {
+  return workflowLocalDate(new Date(), offsetDays);
 }
 
-function parseCli(): CliOptions {
+async function parseCli(): Promise<CliOptions> {
   const values = new Map<string, string>();
   // Daily automation must not take over the user's visible desktop. Profile
   // setup is intentionally headed so a human can complete the one-time login.
@@ -191,14 +186,19 @@ function parseCli(): CliOptions {
     values.set(args[index], next);
     index += 1;
   }
-  const runId = values.get("--run-id") ?? (launchOnly || checkLoginOnly || authenticateOnly ? `login-${shanghaiDate(0).replace(/-/g, '')}` : undefined);
+  const runId = values.get("--run-id") ?? (launchOnly || checkLoginOnly || authenticateOnly ? `login-${localDate(0).replace(/-/g, '')}` : undefined);
   if (!runId || !/^[A-Za-z0-9._-]+$/.test(runId)) throw new Error("浏览器 controller 必须提供有效 --run-id。");
+  const outputRoot = path.resolve(values.get("--output-root") ?? path.join(projectRoot, "outputs", "jackyun-import-runs"));
+  const saved = await readJsonFileOr<ControllerState | null>(path.join(outputRoot, runId, "browser-controller-state.json"), null);
+  const context = saved ? jackyunDateContext(saved) : newJackyunDateContext();
+  const yesterday = workflowLocalDate(new Date(), -1, context.timeZone ?? "Asia/Shanghai");
   return {
+    ...context,
     runId,
-    snapshotDate: values.get("--snapshot") ?? shanghaiDate(-1),
-    asOfDate: values.get("--as-of") ?? shanghaiDate(-1),
+    snapshotDate: values.get("--snapshot") ?? yesterday,
+    asOfDate: values.get("--as-of") ?? yesterday,
     eventRoot: path.resolve(values.get("--event-dir") ?? path.join(projectRoot, "outputs", "jackyun-browser-events")),
-    outputRoot: path.resolve(values.get("--output-root") ?? path.join(projectRoot, "outputs", "jackyun-import-runs")),
+    outputRoot,
     chromePath: values.get("--chrome-path"),
     profileDirectory: values.get("--profile-dir"),
     debuggingPort: values.has("--debug-port") ? Number(values.get("--debug-port")) : undefined,
@@ -1932,7 +1932,7 @@ async function runController(options: CliOptions) {
     ? path.join(projectRoot, "config", "jackyun-export-first-policy.json") : policyPath);
   if (exportFirst && ((options.exportOnlyModule && !jackyunModuleOrder.includes(options.exportOnlyModule))
     || policy.version !== jackyunExportFirstPolicyVersion
-    || options.snapshotDate !== jackyunCaptureDate(new Date().toISOString()))) {
+    || options.snapshotDate !== jackyunCaptureDate(new Date().toISOString(), options))) {
     throw new Error("先导出后导入协议的模块、策略或实际采集日无效。");
   }
   const chromePath = options.chromePath ?? policy.browser.controller?.chromePath ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
@@ -1973,13 +1973,14 @@ async function runController(options: CliOptions) {
   const runDirectory = path.join(options.outputRoot, options.runId);
   const controllerStatePath = path.join(runDirectory, "browser-controller-state.json");
   const state = await readJsonFileOr<ControllerState>(controllerStatePath, {
+    ...jackyunDateContext(options),
     version: 1, runId: options.runId, policyVersion: policy.version,
     ...(options.exportFirstBatch ? { exportTransport: batchTransport } : {}),
     ...(options.inspectWebSessionOnly ? { inspectionOnly: true as const } : {}), updatedAt: new Date().toISOString(), modules: {},
   });
   if (Boolean(state.inspectionOnly) !== Boolean(options.inspectWebSessionOnly)) throw new Error("只读诊断不能升级为正式导出。");
   if (state.exportTransport !== (options.exportFirstBatch ? batchTransport : undefined)) throw new Error("不同导出传输版本的运行状态不能互相接管。");
-  if (state.runId !== options.runId || state.policyVersion !== policy.version) throw new Error("浏览器 controller 状态与当前运行参数不一致。");
+  if (state.datePolicy !== options.datePolicy || state.timeZone !== options.timeZone || state.runId !== options.runId || state.policyVersion !== policy.version) throw new Error("浏览器 controller 状态与当前运行参数不一致。");
   if (options.inspectExportMenuOnly && Object.values(state.modules).some(module => module?.exportIntentAt || module?.filePath)) {
     throw new Error("菜单诊断不能接管业务运行。");
   }
@@ -2491,6 +2492,7 @@ async function runController(options: CliOptions) {
           );
         }
         moduleState.snapshotEvidence = exportFirst ? {
+          ...jackyunDateContext(options),
           version: 1,
           module: moduleKey,
           runId: options.runId,
@@ -2512,6 +2514,7 @@ async function runController(options: CliOptions) {
             throw controllerFailure("TABLE_TIMEOUT", "query_refresh", "当前快照缺少本模块成功网络响应。");
           }
           assertJackyunSnapshotEvidence(moduleState.snapshotEvidence, {
+            ...jackyunDateContext(options),
             module: moduleKey, runId: options.runId, snapshotDate: options.snapshotDate,
             policyVersion: policy.version, navigationIntentAt: moduleState.navigationIntentAt,
             exportIntentAt: new Date().toISOString(),
@@ -2684,6 +2687,7 @@ async function runController(options: CliOptions) {
       );
     }
     const handoff: BrowserHandoff = {
+      ...jackyunDateContext(options),
       schemaVersion: 2,
       runId: options.runId,
       policyVersion: policy.version,
@@ -2740,7 +2744,7 @@ async function runController(options: CliOptions) {
 }
 
 if (path.resolve(process.argv[1] ?? "") === path.resolve(fileURLToPath(import.meta.url))) {
-  const cliOptions = parseCli();
+  const cliOptions = await parseCli();
   const cliLoginConfig = await readJackyunLoginConfig(projectRoot);
   if (cliOptions.authenticateOnly || cliOptions.checkLoginOnly || cliOptions.launchOnly) {
     const health = await fetch("http://127.0.0.1:5791/health", { signal: AbortSignal.timeout(2000) }).catch(() => null);

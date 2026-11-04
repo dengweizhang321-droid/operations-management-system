@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import {makeReleasePlan} from './release-scope-plan.mjs';
 import {publisherEnvironment} from './publish-latest-main.mjs';
 import {hashTree} from './worker-local-release.mjs';
-import {dingtalkScreenshotAclQualification,aDescendantCreationGuardDjangoScriptSha256,piNativeCandidateDjangoScriptSha256,bWorkerJsonFailureCauseScriptSha256} from './manual-maintenance-continuation.mjs';
+import {dingtalkScreenshotAclQualification,aDescendantCreationGuardDjangoScriptSha256,piNativeCandidateDjangoScriptSha256,bWorkerJsonFailureCauseScriptSha256,readinessCopyControllerPair} from './manual-maintenance-continuation.mjs';
 
 /** A 项 (2026-10-25): one exact installed -> candidate django-local-service.ps1
  * pair. The candidate changes only Get-VerifiedProcessDescendants (purely
@@ -78,9 +78,45 @@ export function windowsPowerShellEnvironment(environment){
  return Object.fromEntries(Object.entries(environment).filter(([key])=>key.toLowerCase()!=='psmodulepath'));
 }
 
+// This complete task closure has its own bounded program/entry checks below.
+// It grants no old Pi/apply-timing qualification and accepts no extra runtime file.
+export const readinessStabilityFiles=Object.freeze([
+ 'lib/django/backend-readiness.ts','tools/desktop-launcher/Launcher.cs',
+ 'tools/install-main-prebuild.mjs','tools/operations-system-control.ps1',
+ 'tools/operations-system-watchdog.ps1','tools/publish-latest-main.mjs',
+ 'tools/publish-main-status.mjs','tools/publish-main-tail.mjs','tools/publish-prepared-main.mjs',
+ 'tools/start-local-worker.mjs','tools/publication-readiness.mjs','tools/django-local-service.ps1',
+ 'tools/manual-maintenance-continuation.mjs',
+]);
+export function compareReadinessDjangoCopyOnly(before,after){
+ const normalize=text=>text.replace(/^\uFEFF/,'').replaceAll('\r\n','\n');
+ before=normalize(before);after=normalize(after);
+ const anchor='      "tools\\publish-prepared-main.mjs",\n';
+ const addition='      "tools\\publication-readiness.mjs",\n';
+ return !before.includes(addition)&&after.split(addition).length===2
+  &&after.includes(anchor+addition)&&after.replace(addition,'')===before;
+}
+export function compareReadinessMaintenancePairOnly(before,after){
+ const normalize=text=>text.replace(/^\uFEFF/,'').replaceAll('\r\n','\n');
+ before=normalize(before);after=normalize(after);
+ const declaration="// Readiness helper packaging only: exact old/new controller bytes, no new stop route.\n"
+  +"// Evidence: docs/readiness-stability-20261103/COMPATIBILITY.md.\n"
+  +"export const readinessCopyControllerPair=Object.freeze({\n"
+  +" installedSha:'af6b3b4242f0863296f018d3908ce9d9e93a1d8ec89565e299c7dba16e6e279c',\n"
+  +" candidateSha:'c7e02ddbc55e2ff2a3790ef2dd89b76a580ef98ec479b6f40ae471c2af7fa5c0'\n});\n";
+ const branch=" if(name==='django-local-service.ps1'&&installedSha===readinessCopyControllerPair.installedSha&&candidateSha===readinessCopyControllerPair.candidateSha&&expected===candidateSha)return;\n";
+ return !before.includes('readinessCopyControllerPair')&&after.split(declaration).length===2&&after.split(branch).length===2
+  &&after.includes(declaration+'export function assertMaintenanceControllerGeneration(')
+  &&after.includes(' if(installedSha===expected)return;\n'+branch)
+  &&after.replace(declaration,'').replace(branch,'')===before;
+}
+
 export function candidateCompatibilityProfile(changes){
  const files=changes.flatMap(c=>[c.before,c.path].filter(Boolean));
  const paths=files.filter(f=>!f.startsWith('docs/')&&!f.startsWith('tests/')&&!['README.md','AGENTS.md'].includes(f));
+ const readinessAllowed=new Set([...readinessStabilityFiles,'tools/verify-release-candidate.mjs']);
+ const readinessStabilityOnly=readinessStabilityFiles.every(p=>paths.includes(p))
+  &&paths.includes('tools/verify-release-candidate.mjs')&&paths.every(p=>readinessAllowed.has(p));
  const piResumeFiles=['tools/publish-main-resume.mjs','tools/publish-main-status.mjs','tools/publish-main-step.mjs','tools/publish-main-tail.mjs','tools/publish-main-owner.mjs','tools/publish-main-pi-reconciliation.mjs','tools/pi_agent_upgrade_status.py','tools/publish-prepared-main.mjs','tools/worker-local-release.mjs','tools/django-ai.ps1','tools/django-local-service.ps1','tools/verify-release-candidate.mjs'];
  const piMainResumeOnly=paths.includes('tools/publish-main-resume.mjs')&&paths.includes('tools/pi_agent_upgrade_status.py')&&paths.every(p=>piResumeFiles.includes(p));
  const proofFiles=['bi_app_addition','jackyun_audit_addition','ai_schedule_addition','jd_logistics_addition','jd_monitor_preferences_addition','jd_product_monitoring_addition','tmall_warehouse_addition','pi_agent_addition'].map(name=>'tools/'+name+'.py');
@@ -135,6 +171,7 @@ export function candidateCompatibilityProfile(changes){
   &&paths.includes('tools/verify-release-candidate.mjs')
   &&paths.every(p=>applyTimingReceiptFiles.includes(p));
  if(applyTimingReceiptOnly)supported.add('tools/publish-main-tail.mjs');
+ if(readinessStabilityOnly)for(const file of readinessAllowed)supported.add(file);
  const unsupported=paths.filter(p=>!supported.has(p));
  // Q14: django-ai.ps1 is the only application-side file; the two verifier/readiness
  // files may travel with it because the qualification lives there.
@@ -144,13 +181,13 @@ export function candidateCompatibilityProfile(changes){
  // there (same shape as Q14's dingtalkScreenshotAclOnly).
  const descendantCreationGuardOnly=paths.includes('tools/django-local-service.ps1')&&paths.every(p=>['tools/django-local-service.ps1','tools/verify-release-candidate.mjs','tools/manual-maintenance-continuation.mjs'].includes(p));
  const schemaProof=paths.some(p=>proofFiles.includes(p)),preparationQueue=paths.some(p=>preparationFiles.includes(p)||p==='tools/publish-latest-main.mjs'||p==='tools/worker-local-release-rotation.mjs');
- return {version:schemaProof||preparationQueue?'release-three-optimizations-v1':'release-compatibility-profile-v1',paths,unsupported,schemaProof,preparationQueue,releaseContentionOnly,weeklyReleaseLeaseOnly,piMainResumeOnly,
+ return {version:readinessStabilityOnly?'readiness-stability-v1':schemaProof||preparationQueue?'release-three-optimizations-v1':'release-compatibility-profile-v1',paths,unsupported,schemaProof,preparationQueue,releaseContentionOnly,weeklyReleaseLeaseOnly,piMainResumeOnly,readinessStabilityOnly,
   nativeAbandonmentOnly:paths.includes('tools/main-prebuild-queue.mjs')&&paths.every(p=>['tools/main-prebuild-queue.mjs','tools/native-abandonment-observer.mjs','tools/native-abandonment-writer.mjs','tools/verify-release-candidate.mjs'].includes(p)),
   cleanedPreparationOnly:paths.includes('tools/main-prebuild-queue.mjs')&&paths.some(p=>p.startsWith('tools/cleaned-preparation-'))&&paths.every(p=>['tools/main-prebuild-queue.mjs','tools/cleaned-preparation-observer.mjs','tools/cleaned-preparation-writer.mjs','tools/verify-release-candidate.mjs'].includes(p)),
   releaseChainPreflight:paths.some(p=>p==='tools/manual-maintenance-process.psm1'||p==='tools/frozen-main-source.mjs')&&paths.every(p=>['tools/manual-maintenance-process.psm1','tools/manual-maintenance-preflight.ps1','tools/frozen-main-source.mjs','tools/manual-maintenance-continuation.mjs','tools/manual-maintenance-continuation.ps1','tools/manual-maintenance-start.ps1','tools/publish-main.mjs','tools/publish-prepared-main.mjs','tools/publish-latest-main.mjs','tools/verify-release-candidate.mjs','tools/install-main-prebuild.mjs','tools/django-local-service.ps1','tools/pi_workspace_addition.py','config/main-schema-releases/ai-0085.json'].includes(p)),
   schemaAdmissionOnly:paths.includes('tools/main-schema-release.mjs')&&paths.includes('tools/main-prebuild-queue.mjs')&&paths.every(p=>['tools/main-schema-release.mjs','tools/main-prebuild-queue.mjs','tools/publish-latest-main.mjs','tools/schema-rejection-observer.mjs','tools/schema-rejection-writer.mjs','tools/verify-release-candidate.mjs','config/main-schema-releases/ai-0085.json'].includes(p)),
   publication:paths.some(p=>/publish-|main-prebuild|manual-maintenance|verify-release-candidate|release-scope-plan/.test(p)),
-  worker:paths.some(p=>/worker-local-release/.test(p)),
+  worker:readinessStabilityOnly||paths.some(p=>/worker-local-release/.test(p)),
   django:paths.includes('tools/django-local-service.ps1'),
   piExitObservation:paths.includes('tools/django-ai.ps1')&&!piMainResumeOnly&&!dingtalkScreenshotAclOnly,
   dingtalkScreenshotAclOnly,
@@ -498,7 +535,19 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    assert.equal(next.split(addition).length,2,'结构工具库存扩展不精确');assert.equal(next.replace(addition,''),old,'仅允许PiWorkspace CODE_FILES增加三项闭包；其他结构代码必须保持');
    await run('pi-workspace-current-binding',pythonExe,['tests/release-chain-schema-binding.py'],'package-integrity');
   }
-  if(profile.django){
+  if(profile.readinessStabilityOnly){
+   const old=(await execute('git',['-C',source,'show',baseCommit+':tools/django-local-service.ps1'],{encoding:'buffer',windowsHide:true,maxBuffer:8*1024*1024})).stdout;
+   const current=await fs.readFile(path.join(candidate,'tools/django-local-service.ps1'));
+   assert.equal(compareReadinessDjangoCopyOnly(old.toString('utf8'),current.toString('utf8')),true,'readiness profile只允许Django新增一个helper复制项，其他字节必须不变');
+   assert.equal(sha(old),readinessCopyControllerPair.installedSha,'readiness资格的原控制器必须绑定冻结基线的原始字节');
+   assert.equal(sha(current),readinessCopyControllerPair.candidateSha,'readiness资格的候选控制器必须绑定实际原始字节，不能用规范化文本摘要');
+   const oldMaintenance=(await execute('git',['-C',source,'show',baseCommit+':tools/manual-maintenance-continuation.mjs'],{encoding:'utf8',windowsHide:true,maxBuffer:4*1024*1024})).stdout;
+   assert.equal(compareReadinessMaintenancePairOnly(oldMaintenance,await fs.readFile(path.join(candidate,'tools/manual-maintenance-continuation.mjs'),'utf8')),true,'readiness维护资格只允许固定pair和原guard的一条精确分支，其他字节必须不变');
+   report.requiresNativeColdStart=false;
+   report.readinessDjangoCopyOnly=true;
+   report.readinessControllerPair={installedSourceSha256:sha(old),candidateSha256:sha(current),runtimeObservedByVerifier:false};
+  }
+  if(profile.django&&!profile.readinessStabilityOnly){
    const old=path.join(directory,'before-django.ps1');
    const bytes=(await execute('git',['-C',source,'show',baseCommit+':tools/django-local-service.ps1'],{encoding:'buffer',maxBuffer:8*1024*1024,windowsHide:true})).stdout;
    await fs.writeFile(old,bytes);
@@ -569,6 +618,18 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    }catch(error){await fs.writeFile(output,error.stdout??Buffer.alloc(0));await fs.writeFile(errors,error.stderr??Buffer.alloc(0));item.error=String(error.message);item.exitCode=error.code??null;item.status='failed';throw error;}
    finally{item.elapsedMs=Date.now()-started;item.stdoutSha256=sha(await fs.readFile(output));item.stderrSha256=sha(await fs.readFile(errors));await write();}
   }
+  if(profile.readinessStabilityOnly){
+   await run('readiness-profile',process.execPath,['--test','--test-name-pattern=readiness stability','tests/verify-release-candidate.test.mjs'],'isolated-functions');
+   await run('readiness-entry-closures',process.execPath,['--test','tests/readiness-entry-compatibility.test.mjs'],'package-integrity');
+   await run('readiness-aggregate',process.execPath,['--import','tsx','--test','--test-name-pattern=readiness|direct callers|missing configuration','tests/django-aggregate-boundary.test.ts','tests/readiness-probe-budgets.test.ts'],'isolated-functions');
+   await run('readiness-direct-callers',process.execPath,['--import','tsx','--test','tests/local-worker-start.test.ts','tests/operations-system-control.test.ts'],'isolated-functions');
+   await run('readiness-observations',process.execPath,['--test','tests/publication-readiness.test.mjs'],'isolated-functions');
+   await run('readiness-publication-entry',process.execPath,['--test','tests/main-publication-readiness.test.mjs'],'native-entry-boundary');
+   await run('readiness-publication-callers',process.execPath,['--test','--test-concurrency=1','--test-name-pattern=unready HTTP|ready transient|ready success reuse|HTTP 200|real Fetch Response|parent deadline|native lock rejection|P12 refuses|only the exact fetched main','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publisher-adopt-live.test.mjs'],'native-entry-boundary');
+   await run('readiness-watchdog-parent',shell7,['-NoProfile','-NonInteractive','-File','tests/watchdog-diagnostics.test.ps1'],'isolated-functions');
+   await run('readiness-ps5-parse',shell5,['-NoProfile','-NonInteractive','-File','tests/readiness-entry-compatibility.test.ps1','-ParseOnly'],'isolated-functions',windowsPowerShellEnvironment(environment));
+   await run('readiness-launcher-entry',shell7,['-NoProfile','-NonInteractive','-File','tests/readiness-entry-compatibility.test.ps1'],'native-entry-boundary');
+  }
   if(profile.releaseContentionOnly){
    if(profile.weeklyReleaseLeaseOnly){
     await run('weekly-release-lease-boundaries',process.execPath,['--test','tests/release-contention-boundaries.test.mjs','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs','tests/manual-maintenance-pi-readiness.test.mjs','tests/manual-maintenance-continuation.test.mjs','tests/release-chain-preflight.test.mjs'],'native-entry-boundary');
@@ -597,10 +658,10 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    await run('historical-693e-reader',process.execPath,['--test','--test-name-pattern=693e twice observed closure','tests/fixed-native-abandonment.test.mjs'],'native-entry-boundary');
    await run('fixed-cleaned-private-bundle',process.execPath,['--test','--test-name-pattern=materials preserve frozen environment','tests/main-control-upgrade.test.mjs'],'package-integrity');
   }
-  if(!profile.piMainResumeOnly&&!cleanedPreparationOnly&&!nativeAbandonmentOnly&&!fixedAdminOnly&&!schemaAdmissionOnly&&profile.publication&&!profile.weeklyReleaseLeaseOnly)await run('publication',process.execPath,['--test','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs','tests/manual-maintenance-pi-readiness.test.mjs','tests/manual-maintenance-continuation.test.mjs','tests/release-chain-preflight.test.mjs'],'native-entry-boundary');
-  if(!cleanedPreparationOnly&&!nativeAbandonmentOnly&&!fixedAdminOnly&&!schemaAdmissionOnly&&profile.preparationQueue&&!profile.releaseChainPreflight&&!profile.releaseContentionOnly)await run('preparation-queue-control',process.execPath,['--test','--test-concurrency=1','tests/main-prebuild-hook.test.mjs','tests/main-prebuild-queue-v2.test.mjs','tests/main-control-upgrade.test.mjs','tests/main-prebuild-task.test.mjs','tests/fixed-admin-resolution.test.mjs','tests/fixed-schema-rejection.test.mjs','tests/fixed-cache-rejection.test.mjs','tests/main-prebuild-eligibility.test.mjs','tests/main-dependency-selected-admission.test.mjs','tests/control-dependency-update.test.mjs'],'native-entry-boundary');
-  if(profile.worker)await run('worker-integrity',process.execPath,['--test','tests/worker-source-read-once.test.mjs','tests/release-source-binding.test.mjs','tests/release-preparation-runtime-config.test.mjs'],'package-integrity');
-  if(!cleanedPreparationOnly&&!nativeAbandonmentOnly&&!fixedAdminOnly&&!schemaAdmissionOnly&&(profile.schemaProof||profile.preparationQueue))await run('optimization-boundaries',process.execPath,['--test','tests/release-optimization-boundaries.test.mjs'],'package-integrity');
+  if(!profile.readinessStabilityOnly&&!profile.piMainResumeOnly&&!cleanedPreparationOnly&&!nativeAbandonmentOnly&&!fixedAdminOnly&&!schemaAdmissionOnly&&profile.publication&&!profile.weeklyReleaseLeaseOnly)await run('publication',process.execPath,['--test','tests/main-publication-readiness.test.mjs','tests/publish-prepared-main.test.mjs','tests/publish-latest-main.test.mjs','tests/publish-main-command.test.mjs','tests/main-prebuild-status.test.mjs','tests/verify-release-candidate.test.mjs','tests/release-batch-powershell-environment.test.mjs','tests/manual-maintenance-pi-readiness.test.mjs','tests/manual-maintenance-continuation.test.mjs','tests/release-chain-preflight.test.mjs'],'native-entry-boundary');
+  if(!profile.readinessStabilityOnly&&!cleanedPreparationOnly&&!nativeAbandonmentOnly&&!fixedAdminOnly&&!schemaAdmissionOnly&&profile.preparationQueue&&!profile.releaseChainPreflight&&!profile.releaseContentionOnly)await run('preparation-queue-control',process.execPath,['--test','--test-concurrency=1','tests/main-prebuild-hook.test.mjs','tests/main-prebuild-queue-v2.test.mjs','tests/main-control-upgrade.test.mjs','tests/main-prebuild-task.test.mjs','tests/fixed-admin-resolution.test.mjs','tests/fixed-schema-rejection.test.mjs','tests/fixed-cache-rejection.test.mjs','tests/main-prebuild-eligibility.test.mjs','tests/main-dependency-selected-admission.test.mjs','tests/control-dependency-update.test.mjs'],'native-entry-boundary');
+  if(profile.worker&&!profile.readinessStabilityOnly)await run('worker-integrity',process.execPath,['--test','tests/worker-source-read-once.test.mjs','tests/release-source-binding.test.mjs','tests/release-preparation-runtime-config.test.mjs'],'package-integrity');
+  if(!profile.readinessStabilityOnly&&!cleanedPreparationOnly&&!nativeAbandonmentOnly&&!fixedAdminOnly&&!schemaAdmissionOnly&&(profile.schemaProof||profile.preparationQueue))await run('optimization-boundaries',process.execPath,['--test','tests/release-optimization-boundaries.test.mjs'],'package-integrity');
   if(profile.schemaProof){
    await run('schema-proof-unit',pythonExe,['-m','unittest','discover','-s','tests','-p','test_*addition.py'],'isolated-functions');
    await run('schema-proof-full-history',pythonExe,['-m','unittest','discover','-s','tests','-p','test_schema_proof_flow.py'],'package-integrity');
@@ -611,7 +672,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    }
    await run('schema-private-postgres',pythonExe,['tests/schema-gate-postgres.py','--out',path.join(directory,'private-postgres'),'--baseline',baselineTools,'--skip-measurements'],'real-private-postgres');
   }
-  if(profile.django&&!profile.releaseChainPreflight&&!profile.piMainResumeOnly)for(const [name,host] of [['ps5',shell5],['ps7',shell7]]){
+  if(profile.django&&!profile.readinessStabilityOnly&&!profile.releaseChainPreflight&&!profile.piMainResumeOnly)for(const [name,host] of [['ps5',shell5],['ps7',shell7]]){
    for(const file of ['django-lifecycle-tree-reuse','django-local-service-fingerprint','django-orchestrated-start-acl'])await run(name+'-'+file,host,['-NoProfile','-NonInteractive','-File','tests/'+file+'.test.ps1'],'isolated-functions');
    if(report.gateTimingChanged)await run(name+'-migration-gate-timing',host,['-NoProfile','-NonInteractive','-File','tests/django-migration-gate-timing.test.ps1'],'native-entry-boundary');
   }
@@ -622,7 +683,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    report.evidence.piWorkerExitObservation=true;
   }
   if(!cleanedPreparationOnly&&!nativeAbandonmentOnly&&!fixedAdminOnly&&!schemaAdmissionOnly&&(profile.publication||profile.django)){
-   await run('powershell-entry',pythonExe,['-m','unittest','discover','-s','tests','-p','test_pi150_recovery_entry.py'],'native-entry-boundary');
+   if(!profile.readinessStabilityOnly)await run('powershell-entry',pythonExe,['-m','unittest','discover','-s','tests','-p','test_pi150_recovery_entry.py'],'native-entry-boundary');
    await run('actual-django-package',shell7,['-NoProfile','-NonInteractive','-File','tests/release-candidate-package.test.ps1'],'package-integrity');
   }
   assert.equal(await git(candidate,['status','--porcelain']),'','测试修改了候选工作树');
@@ -636,7 +697,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   if(schemaAdmissionOnly){report.evidence.unmodifiedApplicationAndPi=preflightBaseline.evidence;report.evidence.fixedSchemaQueueResolution=true;}
   if(nativeAbandonmentOnly)report.evidence.fixedNativeAbandonmentResolution=true;
   if(cleanedPreparationOnly)report.evidence.fixedCleanedPreparationResolution=true;
-  report.nativeColdStartReason=profile.workerJsonFailureCauseOnly?'Not executed: exact AST-qualified terminal catch only; in -Json mode the real failure cause now reaches stderr while the stdout reconciliation key set is byte-identical. All 81 functions, the parameter block and the other 42 top-level statements are byte-identical, so no Start/Stop routing, maintenance, lock, drain, receipt or process-tree semantics changed.':profile.dingtalkScreenshotAclOnly?'Not executed: exact AST-qualified DingTalk screenshot ACL tolerance only (Assert-DingTalkScreenshotProfile plus one added helper); every other function and Start/Stop routing, including the Pi stop protocol, is byte-identical.':profile.piExitObservation?'Not executed: exact AST-qualified Windows Pi exit observer only; real private empty pi_worker.main and same-token Stop tested, fixed WSL runner lifecycle not executed.':'Not executed: profiles cover package digests, admission and native command boundaries; no Start/Stop routing semantics changed.';
+  report.nativeColdStartReason=profile.readinessStabilityOnly?'Not executed: readiness budgets, bounded observations, direct caller and frozen/control import closures, and the exact old/new controller admission pair only; Django differs solely by the helper copy-list item. Package and isolated entry checks do not prove a native cold start.':profile.workerJsonFailureCauseOnly?'Not executed: exact AST-qualified terminal catch only; in -Json mode the real failure cause now reaches stderr while the stdout reconciliation key set is byte-identical. All 81 functions, the parameter block and the other 42 top-level statements are byte-identical, so no Start/Stop routing, maintenance, lock, drain, receipt or process-tree semantics changed.':profile.dingtalkScreenshotAclOnly?'Not executed: exact AST-qualified DingTalk screenshot ACL tolerance only (Assert-DingTalkScreenshotProfile plus one added helper); every other function and Start/Stop routing, including the Pi stop protocol, is byte-identical.':profile.piExitObservation?'Not executed: exact AST-qualified Windows Pi exit observer only; real private empty pi_worker.main and same-token Stop tested, fixed WSL runner lifecycle not executed.':'Not executed: profiles cover package digests, admission and native command boundaries; no Start/Stop routing semantics changed.';
   report.status='passed';
  }catch(error){report.status='failed';report.error=String(error.message);}
  finally{

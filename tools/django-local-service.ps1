@@ -1787,6 +1787,35 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   if (-not [string]::IsNullOrWhiteSpace($IntegrationEvidencePath) -and (Test-Path -LiteralPath $IntegrationEvidencePath)) {
     $biEvidence = Read-JsonFile $IntegrationEvidencePath 'BI addition evidence'
   }
+  # Workflow156 is a separate, finite child; no legacy execution limits are changed.
+  # It adopts the two already-merged workflow migrations, so a successful gate
+  # returns before the Sales154 branch below. Sales154 and every older
+  # generation's lifecycle proof is fully retained through
+  # workflow_automation_addition.parent_proof ->
+  # sales_preflight_addition._verify_active_with_base, plus the exact
+  # workflow-only delta against this generation's own baseline.
+  $workflowAutomationGate = Join-Path $candidateRoot 'tools\workflow_automation_addition.py'
+  $workflowAutomationDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('workflow-automation-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -ceq 'teruisi-workflow-automation-schema-addition-v1' -or $workflowAutomationDeployment -or
+      (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'workflow-automation-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $workflowAutomationGate -PathType Leaf)) {throw 'Workflow156 requires its exact verifier'}
+    $workflowAutomationCommand = if ($Operation -ceq 'PrepareApp') {if ($null -ne $biEvidence) {'admission'} else {'successor'}} elseif ($Operation -ceq 'DeployApp') {if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'}} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported Workflow156 lifecycle operation'}
+    $workflowAutomationArgs = @($workflowAutomationGate,$workflowAutomationCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if ($workflowAutomationCommand -ceq 'admission') {$workflowAutomationArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if ($workflowAutomationCommand -ceq 'deployment') {$workflowAutomationArgs += @('--operation',$IntegrationOperationId)}
+    $workflowAutomationRun = Invoke-BoundedNativeProcess $Python $workflowAutomationArgs $candidateRoot
+    if ($workflowAutomationRun -isnot [pscustomobject] -or $workflowAutomationRun.ExitCode -isnot [int] -or
+        $workflowAutomationRun.LaunchFailed -isnot [bool] -or $workflowAutomationRun.LaunchFailed -or
+        $workflowAutomationRun.Diagnostic.OutputTruncated -isnot [bool] -or $workflowAutomationRun.Diagnostic.OutputTruncated -or
+        @($workflowAutomationRun.Output | Where-Object {$_ -is [string] -and $_.TrimStart().StartsWith('{')}).Count -ne 1) {
+      throw 'Workflow156 requires one complete typed native JSON object'
+    }
+    $workflowAutomationProof = ConvertFrom-UniqueNativeJson $workflowAutomationRun 'Verify finite Workflow156 schema addition'
+    if ($workflowAutomationProof -isnot [pscustomobject] -or $workflowAutomationProof.status -isnot [string] -or
+        $workflowAutomationProof.status -cne 'verified') {throw 'Workflow156 schema addition gate refused'}
+    return
+  }
   # Sales154 is a separate, finite child; no legacy execution limits are changed.
   $salesPreflightGate = Join-Path $candidateRoot 'tools\sales_preflight_addition.py'
   $salesPreflightDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
@@ -2207,6 +2236,10 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\workflow_automation_addition.py",
+      "tools\workflow_automation_catalog.py",
+      "tools\workflow_automation_catalog.json",
+      "tools\workflow_automation_candidate.py",
       "tools\sales_preflight_addition.py",
       "tools\sales_preflight_catalog.py",
       "tools\sales_preflight_candidate.py",
@@ -2233,6 +2266,7 @@ function Prepare-Application {
       "tools\tmall_warehouse_candidate.py",
       "tools\main-schema-release.mjs",
       "tools\publish-prepared-main.mjs",
+      "tools\publication-readiness.mjs",
       "tools\publish-main-step.mjs",
       "tools\publish-main-pi-reconciliation.mjs",
       "tools\publish-main-owner.mjs",
@@ -2595,10 +2629,71 @@ function Remove-PreviousBootProcessRecordIfSafe(
   }
 }
 
+# Opt-in cache of a single Win32_Process enumeration, keyed by ProcessId.
+# $null (the default) means "no cache": every Get-ProcessSnapshot call hits
+# CIM per-PID exactly as before. Only Show-AggregateServiceStatus populates
+# this, because that path reads many sibling PIDs in one pass and never
+# terminates or re-parents anything from what it observes. All lifecycle and
+# process-tree call sites (start/stop/descendant verification) pass an
+# explicit Attempts of 1 and must keep observing live state; they never
+# populate the cache, so they fall straight through to the live query below.
+$script:ProcessSnapshotCache = $null
+
+function Initialize-ProcessSnapshotCache {
+  # One full enumeration replaces ~20 per-PID CIM queries in the aggregate
+  # status path (measured: ~8.7s of per-PID queries vs. ~0.7s for one
+  # Win32_Process enumeration of all processes on the box).
+  try {
+    $rows = @(Get-CimInstance Win32_Process -ErrorAction Stop)
+  } catch {
+    # A failed enumeration must not silently disable the cache's safety
+    # properties; leave it empty so every lookup falls through to the live
+    # per-PID path instead of reporting false absence.
+    $script:ProcessSnapshotCache = @{}
+    return
+  }
+  $byProcessId = @{}
+  foreach ($row in $rows) {
+    $processId = [int]$row.ProcessId
+    if ($byProcessId.ContainsKey($processId)) {
+      # Keep every row for a PID so the ambiguity check below still fires;
+      # a single enumeration can never legitimately contain duplicates, but
+      # Get-ProcessSnapshot's contract requires treating that as unresolved.
+      $byProcessId[$processId] = @($byProcessId[$processId]) + $row
+    } else {
+      $byProcessId[$processId] = @($row)
+    }
+  }
+  $script:ProcessSnapshotCache = $byProcessId
+}
+
+function Clear-ProcessSnapshotCache {
+  $script:ProcessSnapshotCache = $null
+}
+
 function Get-ProcessSnapshot([int]$ProcessId, [int]$Attempts = 20) {
   $metadataUnavailable = $false
   for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
-    $rows = @(Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction Stop)
+    # The cache, when populated, only ever substitutes for the first
+    # attempt's live CIM call. A cached miss or blank-metadata row is not
+    # treated as resolved here: it falls through to the same live query and
+    # retry loop used when the cache is empty, so outcomes (usable snapshot,
+    # $null absence, or the metadata-unavailable throw) are identical either
+    # way. This keeps the cache from ever being the thing that establishes
+    # absence or satisfies the metadata-unavailable case.
+    # The @() must wrap the whole if-expression, not each branch: a branch's
+    # single-element array is unwrapped on its way out of the if, leaving a
+    # bare CimInstance whose .Count is $null, so neither the ambiguity check
+    # nor the -eq 1 resolution below would fire and every lookup would report
+    # false absence.
+    $rows = @(
+      if ($attempt -eq 1 -and $null -ne $script:ProcessSnapshotCache -and
+          $script:ProcessSnapshotCache.ContainsKey($ProcessId)) {
+        $script:ProcessSnapshotCache[$ProcessId]
+      } else {
+        Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction Stop
+      }
+    )
     if ($rows.Count -gt 1) { throw "Ambiguous process metadata: $ProcessId" }
     $process = if ($rows.Count -eq 1) { $rows[0] } else { $null }
     if ($process -and ([string]::IsNullOrWhiteSpace([string]$process.ExecutablePath) -or
@@ -4772,6 +4867,13 @@ function Show-AggregateServiceStatus {
   # interpreters serially, repeatedly parsing this controller before any
   # service could start.
   $timer = [Diagnostics.Stopwatch]::StartNew()
+  # This is the only call site that populates the process-snapshot cache: it
+  # is read-only, inspects ~20 sibling reader/writer PIDs, and never
+  # terminates or re-parents anything it observes. The finally below clears
+  # it unconditionally so no later action in this process (lifecycle start/
+  # stop, descendant verification) can ever see a stale enumeration.
+  Initialize-ProcessSnapshotCache
+  try {
   $core = Invoke-InProcessJsonStatus { Show-ServiceStatus } "Django/PostgreSQL 状态"
   $finance = Invoke-InProcessJsonStatus { Show-FinanceServiceStatus } "Django 财务状态"
   $netshop = Get-SimpleDjangoDomainStatus `
@@ -4825,6 +4927,11 @@ function Show-AggregateServiceStatus {
   }
   $bi = Get-SimpleDjangoReaderStatus `
     "django-bi-reader" $DjangoBiReaderPidPath 8081 $DjangoBiReaderHealthUrl "BiReader"
+  } finally {
+    # Scoped tightly to this status pass so no later lifecycle/termination
+    # action in the same process can ever observe a stale enumeration.
+    Clear-ProcessSnapshotCache
+  }
   $timer.Stop()
   $status = [pscustomobject][ordered]@{
     Version = "teruisi-django-aggregate-status-v1"

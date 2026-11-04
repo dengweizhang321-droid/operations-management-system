@@ -1,0 +1,19 @@
+{
+  "sourceRevision": "03f6e474^",
+  "sourcePath": "tools/workflow_automation_catalog.json",
+  "sourceBlob": "6518e6c169bb1781a851b2ce45908f83af3d8c86",
+  "sourceSha256": "6bf7b89ecb0903b19e1197d3e0508e9a47293a0540a736963b544dd47d99faf3",
+  "sequence": {
+    "name": "public.automation_module_results_id_seq",
+    "acl": [
+      [
+        "teruisi_sales_owner",
+        "S",
+        "p",
+        "USAGE",
+        false,
+        "OWNER"
+      ]
+    ]
+  }
+}

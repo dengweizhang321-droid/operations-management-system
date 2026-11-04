@@ -284,7 +284,7 @@ export async function planJdPromotionN8nRun(options: PlanOptions) {
   const scannedEndDate = options.endDate ?? (options.startDate ?? yesterday);
   if (!scannedStartDate) throw new Error("京准通工作流店铺缺少推广缺口扫描起始日");
   if (!validDate(scannedStartDate) || !validDate(scannedEndDate) || scannedStartDate > scannedEndDate || scannedEndDate > yesterday) {
-    throw new Error("京准通 n8n 计划要求不晚于上海昨天的有效日期范围");
+    throw new Error("京准通 n8n 计划要求不晚于本地昨天的有效日期范围");
   }
   inclusiveDates(scannedStartDate, scannedEndDate);
   const baseUrl = normalizeLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");

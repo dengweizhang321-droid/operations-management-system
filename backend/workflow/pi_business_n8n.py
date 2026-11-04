@@ -12,7 +12,6 @@ import json
 import re
 import sqlite3
 import time
-from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.db import transaction
@@ -29,7 +28,6 @@ from .write_requests import claim_write_request, complete_write_request, lock_ac
 PATH = "/api/workflow/pi-business-n8n"
 CAPABILITY = "tmall-seven-day-gap-v1"
 STORES = {"tmall-" + value for value in ("yijiu", "lili", "tuofeng", "yiyong", "cuizhiwang", "masitu")}
-SHANGHAI = ZoneInfo("Asia/Shanghai")
 MAX_EXECUTIONS = 128
 MAX_DATA_BYTES = 1024 * 1024
 MAX_TOTAL_BYTES = 8 * 1024 * 1024
@@ -137,10 +135,10 @@ def prepare(arguments, principal):
         and not set(arguments) - required - {"scheduledAt", "registeredVersion"}, "登记补缺参数无效", "invalid_request", 400)
     _need(arguments["capabilityId"] == CAPABILITY and arguments["dataset"] == "product_and_promotion",
         "只开放已登记的天猫商品日与推广日完整补缺能力", "unsupported_registered_capability")
-    yesterday = datetime.now(SHANGHAI).date() - timedelta(days=1)
+    yesterday = datetime.now().astimezone().date() - timedelta(days=1)
     start, end = (yesterday - timedelta(days=6)).isoformat(), yesterday.isoformat()
     _need(arguments["startDate"] == start and arguments["endDate"] == end,
-        "该工作流固定检查截至上海昨天的七个完整日，不支持任意历史范围", "unsupported_workflow_range")
+        "该工作流固定检查截至本地昨天的七个完整日，不支持任意历史范围", "unsupported_workflow_range")
     definition, store = _template(arguments["storeKey"])
     _need(store.get("initialStartDate") and store["initialStartDate"] <= start,
         "该店铺注册不足七日，当前Pi能力未开放变长日期范围", "unsupported_workflow_range")
@@ -151,7 +149,7 @@ def prepare(arguments, principal):
     try:
         stamp = datetime.fromisoformat(scheduled_at.replace("Z", "+00:00"))
         _need(isinstance(scheduled_at, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z", scheduled_at)
-            and stamp.tzinfo is not None and stamp.astimezone(SHANGHAI).date() == datetime.now(SHANGHAI).date(), "执行计划日期已过期", "unsupported_workflow_range")
+            and stamp.tzinfo is not None and stamp.astimezone().date() == datetime.now().astimezone().date(), "执行计划日期已过期", "unsupported_workflow_range")
     except (TypeError, ValueError, AttributeError):
         raise WorkflowApiError("执行计划时间无效") from None
     coverage = _coverage(principal, store, start, end)
@@ -382,7 +380,7 @@ def observe(body, principal):
 
 
 def capabilities(principal):
-    yesterday = datetime.now(SHANGHAI).date() - timedelta(days=1)
+    yesterday = datetime.now().astimezone().date() - timedelta(days=1)
     start, end = (yesterday - timedelta(days=6)).isoformat(), yesterday.isoformat()
     items = []
     for store_key in sorted(STORES):

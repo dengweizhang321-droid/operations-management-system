@@ -236,7 +236,7 @@
     },
     {
       "parameters": {
-        "content": "## 店铺与日期边界\n固定使用 jd-maidehao-operator1（志高切肉机旗舰店 / Profile 2 / shopId 745866）。仓库模板默认未激活；手动入口按填写范围检查缺口，定时入口每天 10:50 从推广起始日检查到上海时区昨天；不保存京东账号、密码、Cookie、Token 或 Session。",
+        "content": "## 店铺与日期边界\n固定使用 jd-maidehao-operator1（志高切肉机旗舰店 / Profile 2 / shopId 745866）。仓库模板默认未激活；手动入口按填写范围检查缺口，定时入口每天 10:50 从推广起始日检查到本机时区昨天；不保存京东账号、密码、Cookie、Token 或 Session。",
         "height": 170,
         "width": 650,
         "color": 3
@@ -396,7 +396,6 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Asia/Shanghai",
     "errorWorkflow": "TeruisiHourlyRetry2026"
   },
   "versionId": "437e0439-d267-46e4-948f-53252f22ae30",

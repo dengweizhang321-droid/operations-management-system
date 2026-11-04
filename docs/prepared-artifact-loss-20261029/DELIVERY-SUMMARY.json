@@ -1,0 +1,325 @@
+{
+  "mainBase": "1164aed2e197d90ac9d06d5a69121b3cbc1ca318",
+  "adoptedBundle": "804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02",
+  "controlLeaves": [
+    {
+      "file": "tools/cleaned-preparation-observer.mjs",
+      "installedSha256": "c202cf888115e7842c1716c89f1946485dab1e3c26d08f93022de2293cd41d6d",
+      "candidateSha256": "c202cf888115e7842c1716c89f1946485dab1e3c26d08f93022de2293cd41d6d",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/cleaned-preparation-writer.mjs",
+      "installedSha256": "45d8cceb6ee72dddec4ba43ed5e0183b80dc05502265271c2f358397abe6735b",
+      "candidateSha256": "45d8cceb6ee72dddec4ba43ed5e0183b80dc05502265271c2f358397abe6735b",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/frozen-main-source.mjs",
+      "installedSha256": "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882",
+      "candidateSha256": "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/main-control-dispatch.mjs",
+      "installedSha256": "3dae7ceb2257dbea3cc3c168c895b97c34228a3f6c01229fb2cec2b6006625a7",
+      "candidateSha256": "d6490b2a2b1de9e7dd15a96be910f50fb89d553fa47dae0c32294b6944530b3e",
+      "unchangedFromInstalled": false,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/main-prebuild-hook.mjs",
+      "installedSha256": "2ef7e9bcb61b31eb23f7eb88a9571d6d8ac72563f41a549039fff355ae327286",
+      "candidateSha256": "2ef7e9bcb61b31eb23f7eb88a9571d6d8ac72563f41a549039fff355ae327286",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/main-prebuild-queue.mjs",
+      "installedSha256": "3d14c5fe0b9d84c714b5ad5b714d060a8dce2a53c53cd8a1f78f76196ed45048",
+      "candidateSha256": "df90fe93352b03664a14f2eaa50a9e8bcfe1b7e98525ec310d863c753ebd6dac",
+      "unchangedFromInstalled": false,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/main-prebuild-status.mjs",
+      "installedSha256": "9010056cc8b1ead2cfd4ba17ad5e427f0a0849f6b77ab708b8c3443795e12dc3",
+      "candidateSha256": "9010056cc8b1ead2cfd4ba17ad5e427f0a0849f6b77ab708b8c3443795e12dc3",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/main-prebuild-task.mjs",
+      "installedSha256": "01039063526861c70d748d796bd56d4e6e5b15fdfb070fbf049043b33e57f45d",
+      "candidateSha256": "01039063526861c70d748d796bd56d4e6e5b15fdfb070fbf049043b33e57f45d",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/main-preparation-reconcile.mjs",
+      "installedSha256": "99d113b77e309c1bae50edcd4c70f8bd5bc600e5aa02865d97a18aae379d6603",
+      "candidateSha256": "99d113b77e309c1bae50edcd4c70f8bd5bc600e5aa02865d97a18aae379d6603",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/main-schema-release.mjs",
+      "installedSha256": "793c0c31a30199d79bb97293df41a88af7bc0e784d205bca03afec9b1decb6f7",
+      "candidateSha256": "00888ba3c19723ad7bfff2b9be9cab7995165f6528dd9ceabbb5ca0b0e8bfe5d",
+      "unchangedFromInstalled": false,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-producer-qualification.mjs",
+      "installedSha256": "4a4676a0fb7093ba75c451aa5729db29a69fa7916e62694ad21c414f140bf7fb",
+      "candidateSha256": "862c7f7273768198dde89800962042d1543112eda42339af1e0ff0bd5727f3dc",
+      "unchangedFromInstalled": false,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-resolution-history.mjs",
+      "installedSha256": "28811bd41c716bce1005588715c58cf2a8e453cc7f3c48f41697e1fb4daaff7d",
+      "candidateSha256": "28811bd41c716bce1005588715c58cf2a8e453cc7f3c48f41697e1fb4daaff7d",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-resolution.mjs",
+      "installedSha256": "8fb1c147e27ab1202076af3046d977b8aa024ef6814277be4f0846b71512a2ed",
+      "candidateSha256": "8fb1c147e27ab1202076af3046d977b8aa024ef6814277be4f0846b71512a2ed",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-admission.mjs",
+      "installedSha256": "a11c4b6f46d4d362b5164b7f440f958aa86332d21f4302ddcc21421750e058db",
+      "candidateSha256": "a11c4b6f46d4d362b5164b7f440f958aa86332d21f4302ddcc21421750e058db",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-archive.mjs",
+      "installedSha256": "1fef3adbc1c1c6f4eee7f6a182ea8ccc525870eac00e5b3ad76d3a6f70b10230",
+      "candidateSha256": "1fef3adbc1c1c6f4eee7f6a182ea8ccc525870eac00e5b3ad76d3a6f70b10230",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-boot.mjs",
+      "installedSha256": "e00fe4ee68faff34b82fbe94317f56e1feb6908fb6f9c7cd40a19ee7fa9da133",
+      "candidateSha256": "e00fe4ee68faff34b82fbe94317f56e1feb6908fb6f9c7cd40a19ee7fa9da133",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-collector.mjs",
+      "installedSha256": "07a9a0989748d74260dc73c88c62a0c9cc4c01b7038c6395130901559ca3479e",
+      "candidateSha256": "07a9a0989748d74260dc73c88c62a0c9cc4c01b7038c6395130901559ca3479e",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-console.mjs",
+      "installedSha256": "4686c902ca6172190236d9ca50ae87d8c92baa3d938b6588a2d270aa546d12a3",
+      "candidateSha256": "4686c902ca6172190236d9ca50ae87d8c92baa3d938b6588a2d270aa546d12a3",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-entry.mjs",
+      "installedSha256": "d45eae8140935775504ff7c4d003120fa13eff90c36ab63454ad33f7048cec6e",
+      "candidateSha256": "3c0e190e27de5b47aa4b441954c55ea0519031de4592d937463e71f94f38728d",
+      "unchangedFromInstalled": false,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-evidence.mjs",
+      "installedSha256": "e818c8b821c8bf521ba3a7781206aae69307eb67bf19d5ac32dd07a9b9d83df7",
+      "candidateSha256": "e818c8b821c8bf521ba3a7781206aae69307eb67bf19d5ac32dd07a9b9d83df7",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-fs.mjs",
+      "installedSha256": "8befa5711ac354aa92c089c60cbf431d6d1e38d698bcbd2555177234a40aed62",
+      "candidateSha256": "8befa5711ac354aa92c089c60cbf431d6d1e38d698bcbd2555177234a40aed62",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-handoff-runner.ps1",
+      "installedSha256": "91c8ccb610e1f1bca3e4e6d69569a1a84c5c8742ae7d85935118c9ca61afa68b",
+      "candidateSha256": "91c8ccb610e1f1bca3e4e6d69569a1a84c5c8742ae7d85935118c9ca61afa68b",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-handoff.mjs",
+      "installedSha256": "910f7679917b533779789327de0c79ae7fa9b744ba103b3aafb986b996ebad19",
+      "candidateSha256": "910f7679917b533779789327de0c79ae7fa9b744ba103b3aafb986b996ebad19",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-history.mjs",
+      "installedSha256": "3ebf251a19f8f06d164acc9dca6e2395cef7c6c10c7cd440f282e805582c9e9f",
+      "candidateSha256": "3ebf251a19f8f06d164acc9dca6e2395cef7c6c10c7cd440f282e805582c9e9f",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-native.mjs",
+      "installedSha256": "63c925d9649646723627ed9ffe82704b0055fbb08dcaca950aeaabf9c4f3c467",
+      "candidateSha256": "63c925d9649646723627ed9ffe82704b0055fbb08dcaca950aeaabf9c4f3c467",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-observer.mjs",
+      "installedSha256": "fbfdec89b0843befe2e497627159eb7beef33733409abbad6cddd7b401935f60",
+      "candidateSha256": "fbfdec89b0843befe2e497627159eb7beef33733409abbad6cddd7b401935f60",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-qualification.mjs",
+      "installedSha256": "e40c6a9a755fdcdf5c5c783c48ff1292ffbb30cf976c8b28455653fd3a89bfb0",
+      "candidateSha256": "e40c6a9a755fdcdf5c5c783c48ff1292ffbb30cf976c8b28455653fd3a89bfb0",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-ref.mjs",
+      "installedSha256": "f7f4ceb0de38a5ad7ee9a8daf284dfa484fea99117b44705d8ee3f08298cffa6",
+      "candidateSha256": "f7f4ceb0de38a5ad7ee9a8daf284dfa484fea99117b44705d8ee3f08298cffa6",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-source.mjs",
+      "installedSha256": "9edd123d29daba63921e994750c0ea11cdf9f2beacaf36d198d25c9352c56d47",
+      "candidateSha256": "9edd123d29daba63921e994750c0ea11cdf9f2beacaf36d198d25c9352c56d47",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement-witness.mjs",
+      "installedSha256": "4018bb6a61f336ae5c77c34a9c7c642b663b242e09deda56cea0e34c9edf5ab8",
+      "candidateSha256": "4018bb6a61f336ae5c77c34a9c7c642b663b242e09deda56cea0e34c9edf5ab8",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/preparation-retirement.mjs",
+      "installedSha256": "2e87f9695090aec53fd38a85e9badd9851209da6d872901ada84ca364b3f56fb",
+      "candidateSha256": "2e87f9695090aec53fd38a85e9badd9851209da6d872901ada84ca364b3f56fb",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/publish-latest-main.mjs",
+      "installedSha256": "f730c55a097a2d292eab1ab0223bada4fc19a83f84b80e3ffbf16a21e113e4fc",
+      "candidateSha256": "ce9b19f3282aebc13d41cd360a54e991131ed9b039bfa1430015ebe8cb845c2f",
+      "unchangedFromInstalled": false,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/publish-main-progress.mjs",
+      "installedSha256": "a8c0292fc777862a2880b32b5d7f190624e4e986c41ae857e0b975f209c60267",
+      "candidateSha256": "a8c0292fc777862a2880b32b5d7f190624e4e986c41ae857e0b975f209c60267",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    },
+    {
+      "file": "tools/release-scope-plan.mjs",
+      "installedSha256": "e32e1e37ae99975b21816a021c266c360bb46c02254586796b09e2a6e3a281b2",
+      "candidateSha256": "e32e1e37ae99975b21816a021c266c360bb46c02254586796b09e2a6e3a281b2",
+      "unchangedFromInstalled": true,
+      "sourceCommitReproducesInstalled": true
+    }
+  ],
+  "unchangedControlLeafCount": 28,
+  "protectedFiles": [
+    {
+      "file": "package.json",
+      "beforeSha256": "c4c7f6a0422370d7ac7c2c75bff2ad0c77f19d507d07cc8d98dcc8440f1d5056",
+      "afterSha256": "c4c7f6a0422370d7ac7c2c75bff2ad0c77f19d507d07cc8d98dcc8440f1d5056",
+      "unchanged": true
+    },
+    {
+      "file": "tools/worker-local-release-rotation.mjs",
+      "beforeSha256": "5171f54839b42a64d986db919770aa3f72d76dce77babb8abea250a02b8b6037",
+      "afterSha256": "5171f54839b42a64d986db919770aa3f72d76dce77babb8abea250a02b8b6037",
+      "unchanged": true
+    },
+    {
+      "file": "tools/publish-prepared-main.mjs",
+      "beforeSha256": "e50f8112e0ae6553a4f66632ebfc95a76fba1030041c6d9d96af4273d98ae6d1",
+      "afterSha256": "e50f8112e0ae6553a4f66632ebfc95a76fba1030041c6d9d96af4273d98ae6d1",
+      "unchanged": true
+    },
+    {
+      "file": "tools/worker-local-release.mjs",
+      "beforeSha256": "6dcd3016f6164a0c897c94ae26ec300b82f69ad122739ea1ba5b843ca95a8333",
+      "afterSha256": "6dcd3016f6164a0c897c94ae26ec300b82f69ad122739ea1ba5b843ca95a8333",
+      "unchanged": true
+    }
+  ],
+  "candidateFileSha256": {
+    "docs/prepared-artifact-loss-20261029/ADOPTED-MANIFEST.json": "2bb0f5f20e750e52602c8833b1a5b8da149512b53cacc37cab6998d12f39a4d3",
+    "docs/prepared-artifact-loss-20261029/BASELINE.json": "828899ebeeb775f1c9bd274b1c902830f7182f551be7a338e89087bfdd8c4300",
+    "docs/prepared-artifact-loss-20261029/CODE-FREEZE.json": "21947032a62de751c9d93b82e971e349b0f7aa056f0914ebc3901f2565327ffc",
+    "docs/prepared-artifact-loss-20261029/ESLINT-COMPARISON.json": "2216f148db48463891599395fa59179ccf0bb9ea9ee75ac79b02dc9f030069ec",
+    "docs/prepared-artifact-loss-20261029/LOSS-INVENTORY.json": "fa1a08dc0c82a42d5dde64266e87ee6e2ad2002a0cd04229b1dda108fd42e742",
+    "docs/prepared-artifact-loss-20261029/MISSING-PREPARED.json": "91b1a0e408cad7b3c5ec1c76ee4094cdaab145ec5edba46a300a274791c50510",
+    "docs/prepared-artifact-loss-20261029/NEW-PROTOCOL-EVIDENCE.json": "12041af057c61dd4670a577d3400098a3f9486c07e39a0235423a86c4789b15a",
+    "docs/prepared-artifact-loss-20261029/PRESERVATION-CHECK.json": "cb96821db671fcb08ecb64710e0980bb5f6689276e13f3298632c682599372a1",
+    "docs/prepared-artifact-loss-20261029/SELECTION-CONSISTENCY.json": "317d5d112ec9e5b3348ef772eed0d9975de59e414f8d6a424181d154c221750e",
+    "docs/prepared-artifact-loss-20261029/VALIDATION-SUMMARY.json": "a43f2db89e981ae27a3b61bcb7a59ef7915974417787328f0d7dd24bcaa710c3",
+    "docs/prepared-artifact-loss-20261029/artifact-loss-manifest.json": "e44dac82794da312e3cbaade260b853806e9e9f067eee86197e6b4789a7e32ab",
+    "docs/prepared-artifact-loss-20261029/collect-loss-inventory.py": "b6db646faedf0c903a51a6e8f33f49ca994b609c91a2d3f6503872ba38c74fea",
+    "docs/prepared-artifact-loss-20261029/snapshot-history-fixture.py": "7b11fe05664ebb09ecca640e3909db707ff06d6a9904648f8942e680fe879d31",
+    "docs/prepared-artifact-loss-20261029/summarize-delivery.py": "0c8a944beffad66fb591247ea8f2d83e94fde55a8291e672bd36ce0315f54b0d",
+    "tests/fixtures/s05d-old-source-entry/frozen-main-source-sequential.mjs": "b4bb57dff7a659a94520bc592e0f42b026d5b2a4def4dacfb928e8635f21f9c6",
+    "tests/fixtures/s05d-old-source-entry/publish-latest-main.mjs": "4623c8e675a46509b4ffc79160db74b2d7f357edcf905557a97c1d58957b2dce",
+    "tests/fixtures/s05d-old-source-entry/publish-main-progress.mjs": "812d82d352fce8ce43a3b42aabcb2fa53cbcfa9c98b7524a33d0de3b521af714",
+    "tests/fixtures/s05d-old-source-entry/release-scope-plan.mjs": "e32e1e37ae99975b21816a021c266c360bb46c02254586796b09e2a6e3a281b2",
+    "tests/main-prebuild-queue-abandonment.test.mjs": "cf40f99f0aad8ac75d79d1315e3984eece647fa4eb8618b77ddd649b66368d6a",
+    "tests/manual-preparation-recovery.test.mjs": "a3d362d3ab2b7aa267cd647cb0c859b064b7d053dc9143c61a8f3997bc3713bb",
+    "tests/preparation-resolution.test.mjs": "70a2834b3f281be94be794f906bd039410346c7c29fd491d994c2ad757a24f13",
+    "tests/preparation-retirement-entry.test.mjs": "c7054894019c5384a83a2b9fac326e4954a854f1f9e3b41f31c617af0d70d9d4",
+    "tests/preparation-retirement-ref.test.mjs": "826bfea0fca695a4f95685c84e291ea03209943079369d3b0f82d0f65a106121",
+    "tests/prepared-artifact-loss.test.mjs": "7a478de7b4bf01d54f5953690cb976053022b190c55821301e48cb987f58abfa",
+    "tools/install-main-prebuild.mjs": "db64b24ec01dbde2f58fff186ed8f0efe8bc314752cfe89e826d439d0a763b36",
+    "tools/main-control-dispatch.mjs": "d6490b2a2b1de9e7dd15a96be910f50fb89d553fa47dae0c32294b6944530b3e",
+    "tools/main-prebuild-hook.mjs": "2ef7e9bcb61b31eb23f7eb88a9571d6d8ac72563f41a549039fff355ae327286",
+    "tools/main-prebuild-queue.mjs": "df90fe93352b03664a14f2eaa50a9e8bcfe1b7e98525ec310d863c753ebd6dac",
+    "tools/main-prebuild-task.mjs": "01039063526861c70d748d796bd56d4e6e5b15fdfb070fbf049043b33e57f45d",
+    "tools/main-preparation-reconcile.mjs": "99d113b77e309c1bae50edcd4c70f8bd5bc600e5aa02865d97a18aae379d6603",
+    "tools/preparation-producer-qualification.mjs": "862c7f7273768198dde89800962042d1543112eda42339af1e0ff0bd5727f3dc",
+    "tools/preparation-resolution.mjs": "8fb1c147e27ab1202076af3046d977b8aa024ef6814277be4f0846b71512a2ed",
+    "tools/preparation-retirement-admission.mjs": "a11c4b6f46d4d362b5164b7f440f958aa86332d21f4302ddcc21421750e058db",
+    "tools/preparation-retirement-archive.mjs": "1fef3adbc1c1c6f4eee7f6a182ea8ccc525870eac00e5b3ad76d3a6f70b10230",
+    "tools/preparation-retirement-boot.mjs": "e00fe4ee68faff34b82fbe94317f56e1feb6908fb6f9c7cd40a19ee7fa9da133",
+    "tools/preparation-retirement-collector.mjs": "07a9a0989748d74260dc73c88c62a0c9cc4c01b7038c6395130901559ca3479e",
+    "tools/preparation-retirement-console.mjs": "4686c902ca6172190236d9ca50ae87d8c92baa3d938b6588a2d270aa546d12a3",
+    "tools/preparation-retirement-entry.mjs": "3c0e190e27de5b47aa4b441954c55ea0519031de4592d937463e71f94f38728d",
+    "tools/preparation-retirement-evidence.mjs": "e818c8b821c8bf521ba3a7781206aae69307eb67bf19d5ac32dd07a9b9d83df7",
+    "tools/preparation-retirement-fs.mjs": "8befa5711ac354aa92c089c60cbf431d6d1e38d698bcbd2555177234a40aed62",
+    "tools/preparation-retirement-handoff-runner.ps1": "91c8ccb610e1f1bca3e4e6d69569a1a84c5c8742ae7d85935118c9ca61afa68b",
+    "tools/preparation-retirement-handoff.mjs": "910f7679917b533779789327de0c79ae7fa9b744ba103b3aafb986b996ebad19",
+    "tools/preparation-retirement-history.mjs": "3ebf251a19f8f06d164acc9dca6e2395cef7c6c10c7cd440f282e805582c9e9f",
+    "tools/preparation-retirement-native.mjs": "63c925d9649646723627ed9ffe82704b0055fbb08dcaca950aeaabf9c4f3c467",
+    "tools/preparation-retirement-observer.mjs": "fbfdec89b0843befe2e497627159eb7beef33733409abbad6cddd7b401935f60",
+    "tools/preparation-retirement-qualification.mjs": "e40c6a9a755fdcdf5c5c783c48ff1292ffbb30cf976c8b28455653fd3a89bfb0",
+    "tools/preparation-retirement-ref.mjs": "f7f4ceb0de38a5ad7ee9a8daf284dfa484fea99117b44705d8ee3f08298cffa6",
+    "tools/preparation-retirement-source.mjs": "9edd123d29daba63921e994750c0ea11cdf9f2beacaf36d198d25c9352c56d47",
+    "tools/preparation-retirement-witness.mjs": "4018bb6a61f336ae5c77c34a9c7c642b663b242e09deda56cea0e34c9edf5ab8",
+    "tools/preparation-retirement.mjs": "2e87f9695090aec53fd38a85e9badd9851209da6d872901ada84ca364b3f56fb",
+    "tools/prepared-artifact-loss.mjs": "28c4cc369d4b477e952ca011035893d2ddd75e07c3759ae2d374369251c19980",
+    "tools/publish-latest-main.mjs": "ce9b19f3282aebc13d41cd360a54e991131ed9b039bfa1430015ebe8cb845c2f"
+  }
+}

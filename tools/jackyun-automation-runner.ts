@@ -1,3 +1,6 @@
+import { readJsonFileOr } from "../lib/jackyun/json-file";
+import { jackyunDateContext, newJackyunDateContext, type JackyunDateContext } from "../lib/jackyun/run-contract";
+import { workflowLocalDate, workflowTimeZone } from "../lib/imports/local-time";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runController } from "./jackyun-browser-controller";
@@ -6,7 +9,7 @@ import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-export type JackyunAutomationOptions = {
+export type JackyunAutomationOptions = JackyunDateContext & {
   runId: string;
   snapshotDate: string;
   asOfDate: string;
@@ -22,35 +25,29 @@ export type JackyunAutomationOptions = {
   signal?: AbortSignal;
 };
 
-function shanghaiYesterday() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(new Date());
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
-  const today = new Date(`${part("year")}-${part("month")}-${part("day")}T00:00:00Z`);
-  today.setUTCDate(today.getUTCDate() - 1);
-  return today.toISOString().slice(0, 10);
+function localYesterday(context: JackyunDateContext = newJackyunDateContext()) {
+  return workflowLocalDate(new Date(), -1, jackyunDateContext(context).timeZone ?? "Asia/Shanghai");
 }
 
-export function assertJackyunDailyDatePolicy(snapshotDate: string, asOfDate: string) {
-  const yesterday = shanghaiYesterday();
+export function assertJackyunDailyDatePolicy(snapshotDate: string, asOfDate: string, context: JackyunDateContext = newJackyunDateContext()) {
+  const yesterday = localYesterday(context);
   if (snapshotDate !== yesterday || asOfDate !== yesterday) {
     throw new JackyunDailyRunError(
       "FIELD_MISMATCH",
       "validate_daily_date_policy",
-      `每日自动化的 snapshotDate 与 asOfDate 必须同时等于北京时间昨天 ${yesterday}；历史补跑必须使用独立人工取证流程。`,
+      `每日自动化的 snapshotDate 与 asOfDate 必须同时等于本机时区昨天 ${yesterday}；历史补跑必须使用独立人工取证流程。`,
     );
   }
 }
 
 function defaultRunId() {
   return new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
+    timeZone: workflowTimeZone(), year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
   }).format(new Date()).replace(/[-: ]/g, "").replace(/^(\d{8})(\d{6})$/, "$1-$2");
 }
 
-function parseArgs(): JackyunAutomationOptions {
+async function parseArgs(): Promise<JackyunAutomationOptions> {
   const values = new Map<string, string>();
   let resume = false;
   let dryRun = false;
@@ -66,13 +63,18 @@ function parseArgs(): JackyunAutomationOptions {
     values.set(argument, next);
     index += 1;
   }
-  const yesterday = shanghaiYesterday();
+  const runId = values.get("--run-id") ?? defaultRunId();
+  const outputRoot = path.resolve(values.get("--output-root") ?? path.join(projectRoot, "outputs", "jackyun-import-runs"));
+  const saved = resume ? await readJsonFileOr<JackyunDateContext | null>(path.join(outputRoot, runId, "daily-run-contract.json"), null) : null;
+  const context = saved ? jackyunDateContext(saved) : newJackyunDateContext();
+  const yesterday = localYesterday(context);
   return {
-    runId: values.get("--run-id") ?? defaultRunId(),
+    ...context,
+    runId,
     snapshotDate: values.get("--snapshot") ?? yesterday,
     asOfDate: values.get("--as-of") ?? yesterday,
     eventDirectory: path.resolve(values.get("--event-dir") ?? path.join(projectRoot, "outputs", "jackyun-browser-events")),
-    outputRoot: path.resolve(values.get("--output-root") ?? path.join(projectRoot, "outputs", "jackyun-import-runs")),
+    outputRoot,
     baseUrl: (values.get("--base-url") ?? "http://localhost:3000").replace(/\/$/, ""),
     chromePath: values.get("--chrome-path"),
     profileDirectory: values.get("--profile-dir"),
@@ -162,6 +164,7 @@ export async function runJackyunAutomationUnderLock(
     throw error;
   });
   const browser = cancelPeerOnFailure((dependencies.runBrowser ?? runController)({
+    ...jackyunDateContext(options),
     runId: options.runId,
     snapshotDate: options.snapshotDate,
     asOfDate: options.asOfDate,
@@ -187,6 +190,7 @@ export async function runJackyunAutomationUnderLock(
     return result;
   }));
   const daily = cancelPeerOnFailure((dependencies.runDaily ?? runJackyunDaily)({
+    ...jackyunDateContext(options),
     runId: options.runId,
     snapshotDate: options.snapshotDate,
     asOfDate: options.asOfDate,
@@ -211,7 +215,7 @@ export async function runJackyunAutomationUnderLock(
 }
 
 export async function runJackyunAutomation(options: JackyunAutomationOptions) {
-  assertJackyunDailyDatePolicy(options.snapshotDate, options.asOfDate);
+  assertJackyunDailyDatePolicy(options.snapshotDate, options.asOfDate, options);
   return withJackyunRunLock(
     { runId: options.runId, purpose: "five_dataset_automation" },
     () => runJackyunAutomationUnderLock(options),
@@ -219,7 +223,7 @@ export async function runJackyunAutomation(options: JackyunAutomationOptions) {
 }
 
 if (path.resolve(process.argv[1] ?? "") === path.resolve(fileURLToPath(import.meta.url))) {
-  runJackyunAutomation(parseArgs())
+  runJackyunAutomation(await parseArgs())
     .then(({ browserResult, dailyResult }) => {
       console.log(JSON.stringify({
         type: resultStatus(dailyResult) === "completed" ? "jackyun_automation_completed" : "jackyun_automation_prepared",

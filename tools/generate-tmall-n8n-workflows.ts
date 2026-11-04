@@ -170,7 +170,7 @@ function replaceStoreSpecificText(content: string, definition: TmallN8nWorkflowD
   return [
     "## 店铺绑定",
     `本模板固定绑定 \`${definition.shopName}\`（\`${definition.storeKey}\`）。工作流与店铺键不匹配时，helper 会在业务节点前失败关闭。`,
-    `定时执行仍每日完成 A→B→C→P；M 货品主数据按上海日期每 ${definition.productMasterCadence.intervalDays} 天到期一次，初始到期日为 \`${definition.productMasterCadence.initialDueDate}\`。未到期时 M 返回 \`not_due\`，只负责关闭本店浏览器并释放 helper；到期失败不推进下次日期，翌日完整流程继续补跑。手动完整运行明确强制执行 M。`,
+    `定时执行仍每日完成 A→B→C→P；M 货品主数据按本地日期每 ${definition.productMasterCadence.intervalDays} 天到期一次，初始到期日为 \`${definition.productMasterCadence.initialDueDate}\`。未到期时 M 返回 \`not_due\`，只负责关闭本店浏览器并释放 helper；到期失败不推进下次日期，翌日完整流程继续补跑。手动完整运行明确强制执行 M。`,
     bindingEndMarker,
     "",
     adapted,
@@ -266,7 +266,8 @@ export function buildTmallN8nWorkflow(
   workflow.versionId = definition.storeKey === "tmall-yijiu"
     ? source.versionId
     : stableUuid(`teruisi:${definition.storeKey}:tmall-daily:v1`);
-  workflow.settings = { ...(workflow.settings ?? {}), executionOrder: "v1", timezone: "Asia/Shanghai" };
+  workflow.settings = { ...(workflow.settings ?? {}), executionOrder: "v1" };
+  delete workflow.settings.timezone;
 
   const schedule = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
   if (!schedule) throw new Error("天猫 n8n 基础模板缺少 scheduleTrigger");
@@ -437,7 +438,7 @@ export function buildTmallYijiuDirectPmCandidateWorkflow(source: WorkflowTemplat
       "这是同一工作流 ID 的现行替换版本，不是可并行激活的第二条流程。仓库文件固定 active=false；发布时必须先部署配套 helper，再在 n8n 中受控替换并确认只有最新版本激活。旧版本只保留历史审计，不得用于新的定时或恢复 execution。",
       "",
       "## A→B→C→P→M",
-      "A 固定注册起始日至昨天的范围；B/C/P 每个循环只补最早缺失日，N 重新核验商品日和推广日覆盖后循环回 B。每店最多补 14 天，30 分钟后不再开启新日；最后 M 执行一次并收尾，预算耗尽仍有缺口明确报未完成。同一 execution ID、店铺键与共享 helper 串行认领不变。亿玖 M 按上海日期每天到期一次，成功后将 nextDueDate 推进到下一日，失败不推进并由下一次新的完整 execution 补跑。",
+      "A 固定注册起始日至昨天的范围；B/C/P 每个循环只补最早缺失日，N 重新核验商品日和推广日覆盖后循环回 B。每店最多补 14 天，30 分钟后不再开启新日；最后 M 执行一次并收尾，预算耗尽仍有缺口明确报未完成。同一 execution ID、店铺键与共享 helper 串行认领不变。亿玖 M 按本地日期每天到期一次，成功后将 nextDueDate 推进到下一日，失败不推进并由下一次新的完整 execution 补跑。",
       "",
       "## P·阿里妈妈直连任务",
       "从亿玖独立浏览器的阿里妈妈下载列表真实请求中临时取得 csrfId 与 loginPointId；按同一天起止日期、分天、全部指标、last_click_by_effect_time、15 天累计、货品全站推广/关键词推广/人群推广/店铺直达四场景及商品+计划维度创建商品报表。创建前先写 report_submitting 栅栏，响应未决时禁止自动重提；成功后只按唯一 taskId 轮询，立即下载受控 OSS ZIP，校验店铺、日期、行数与哈希，再单次导入并回查日期覆盖。",

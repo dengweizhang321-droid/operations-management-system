@@ -30,6 +30,45 @@ KEY_TABLE = "public.protected_business_budget_v11_verifier_keys"
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 
+def _require_django_app_registry():
+    """Load the app registry so catalogue checks can import Django models.
+
+    From generation153 the catalogues compare against real model classes
+    (ai_assistant.pi_models), which need a populated registry; earlier
+    generations only read migration modules and so never did. The maintenance
+    operator runs this process with the approved libpq variables alone, so
+    nothing configures Django here and the import would raise
+    ImproperlyConfigured before any catalogue is read.
+
+    Verification keeps using the caller's cursor; Django's own connection is
+    never opened. The placeholder URL therefore carries no credential and only
+    pins the PostgreSQL backend, which is what db_type() reads. It also keeps
+    the deployed-app SQLite refusal intact, so a misconfigured environment can
+    never silently compare against a different vendor's column types.
+    """
+    from django.apps import apps
+
+    if apps.ready:
+        return
+    import os
+
+    import django
+
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "teruisi_backend.settings")
+    if not os.environ.get("TERUISI_DJANGO_DATABASE_URL"):
+        # No database is configured for this process, so supply the whole
+        # placeholder configuration rather than inherit half of one: a stray
+        # production marker from a parent shell would otherwise demand real
+        # credentials and block the backup on an unrelated variable.
+        os.environ["TERUISI_DJANGO_ENVIRONMENT"] = "development"
+        os.environ["DJANGO_DEBUG"] = "true"
+        os.environ["TERUISI_DJANGO_DATABASE_URL"] = (
+            "postgresql://catalogue-verification-only@127.0.0.1:5432/teruisi_sales"
+            "?sslmode=disable"
+        )
+    django.setup()
+
+
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"),
         ensure_ascii=True, allow_nan=False).encode("ascii")
@@ -41,6 +80,7 @@ def digest(value):
 
 def verify_receipt_generation(cursor, *, jd_permissions=True):
     """Exact closed catalogues and schema, never a row-count admission shortcut."""
+    _require_django_app_registry()
     from integration_migration_plan import load_policy, LEGACY_CATALOGUE_SHA256, DELTA_STEP
     policy = load_policy(Path(__file__).resolve().parents[1] / "config/integration-migration-policy-v3.json")
     baseline = sorted(policy.baseline + policy.steps)
@@ -71,12 +111,19 @@ def verify_receipt_generation(cursor, *, jd_permissions=True):
     generation153 = sorted([*generation152, *native_steps])
     from sales_preflight_catalog import STEPS as sales_preflight_steps, verify_index
     generation154 = sorted([*generation153, *sales_preflight_steps])
-    sales_preflight_installed = receipts == generation154
+    from workflow_automation_catalog import STEPS as workflow_automation_steps, verify_tables as verify_workflow_automation_tables
+    # Two steps in one generation: 0010's RunPython seeds the registry rows into
+    # the table 0009 creates, so 155 is not a separately installable state.
+    generation156 = sorted([*generation154, *workflow_automation_steps])
+    workflow_automation_installed = receipts == generation156
+    sales_preflight_installed = receipts in (generation154, generation156)
     verify_index(cursor, installed=sales_preflight_installed)
-    native_installed = receipts in (generation153, generation154)
-    business_installed = receipts in (generation152, generation153, generation154)
-    workspace_installed = receipts in (generation151, generation152, generation153, generation154)
-    pi_installed = receipts in (generation150, generation151, generation152, generation153, generation154)
+    verify_workflow_automation_tables(cursor, installed=workflow_automation_installed,
+                                      permissions=workflow_automation_installed)
+    native_installed = receipts in (generation153, generation154, generation156)
+    business_installed = receipts in (generation152, generation153, generation154, generation156)
+    workspace_installed = receipts in (generation151, generation152, generation153, generation154, generation156)
+    pi_installed = receipts in (generation150, generation151, generation152, generation153, generation154, generation156)
     verify_pi_catalog(cursor, installed=pi_installed, permissions=pi_installed and jd_permissions, workspace=workspace_installed, business=business_installed, native=native_installed)
     if pi_installed:
         verify_workspace_catalog(cursor, installed=workspace_installed, permissions=workspace_installed and jd_permissions, business=business_installed, native=native_installed)
@@ -84,9 +131,9 @@ def verify_receipt_generation(cursor, *, jd_permissions=True):
         verify_business_catalog(cursor, installed=business_installed, permissions=business_installed and (native_installed or jd_permissions), native=native_installed)
     if business_installed:
         verify_native_catalog(cursor, installed=native_installed, permissions=native_installed and (sales_preflight_installed or jd_permissions))
-    tmall_installed = receipts in (generation149, generation150, generation151, generation152, generation153, generation154)
+    tmall_installed = receipts in (generation149, generation150, generation151, generation152, generation153, generation154, generation156)
     verify_tmall_catalog(cursor, installed=tmall_installed, permissions=tmall_installed and jd_permissions)
-    monitoring_installed = receipts in (generation148, generation149, generation150, generation151, generation152, generation153, generation154)
+    monitoring_installed = receipts in (generation148, generation149, generation150, generation151, generation152, generation153, generation154, generation156)
     preferences_installed = receipts == generation147
     jd_installed = receipts == generation146
     if monitoring_installed:
@@ -95,7 +142,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True):
         verify_preferences_catalog(cursor, permissions=jd_permissions)
     else:
         verify_jd_catalog(cursor, installed=jd_installed, permissions=jd_installed and jd_permissions)
-    schedule_installed = receipts in (generation143, generation146, generation147, generation148, generation149, generation150, generation151, generation152, generation153, generation154)
+    schedule_installed = receipts in (generation143, generation146, generation147, generation148, generation149, generation150, generation151, generation152, generation153, generation154, generation156)
     # A receipt-free/partial 0083 must never be mistaken for an old backup.
     # This read-only catalogue has no dependency on adoption finalization.
     verify_schedule_catalog(cursor, installed=schedule_installed)
@@ -118,7 +165,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True):
         from netshop.promotion_presence import verify_cache_catalog
         verify_cache_catalog(cursor)
         return 139
-    if receipts in (parent140, parent142, generation143, generation146, generation147, generation148, generation149, generation150, generation151, generation152, generation153, generation154):
+    if receipts in (parent140, parent142, generation143, generation146, generation147, generation148, generation149, generation150, generation151, generation152, generation153, generation154, generation156):
         audit_installed = receipts != parent140
         verify_audit_catalog(cursor, installed=audit_installed)
         from netshop.promotion_presence import verify_cache_catalog
@@ -132,7 +179,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True):
         cursor.execute("SELECT t.tgtype,p.proname,t.tgenabled FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE t.tgrelid=to_regclass('public.finance_erp_targets') AND t.tgname='finance_erp_target_revision_required' AND NOT t.tgisinternal")
         if cursor.fetchall()!=[(30,"finance_source_mark_revision_required","O")]:
             raise RuntimeError("ERP-goal addition revision guard differs")
-        return 154 if sales_preflight_installed else 153 if native_installed else 152 if business_installed else 151 if workspace_installed else 150 if pi_installed else 149 if tmall_installed else 148 if monitoring_installed else 147 if preferences_installed else 146 if jd_installed else 143 if schedule_installed else 142 if audit_installed else 140
+        return 156 if workflow_automation_installed else 154 if sales_preflight_installed else 153 if native_installed else 152 if business_installed else 151 if workspace_installed else 150 if pi_installed else 149 if tmall_installed else 148 if monitoring_installed else 147 if preferences_installed else 146 if jd_installed else 143 if schedule_installed else 142 if audit_installed else 140
     raise RuntimeError("no-key backup migration catalogue is not a reviewed generation")
 
 

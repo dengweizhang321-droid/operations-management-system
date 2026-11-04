@@ -560,3 +560,11 @@ class NewProductWeeklyDelivery(models.Model):
             models.Index(fields=["week_start", "status"], name="workflow_npl_delivery_week_idx"),
             models.Index(fields=["created_at"], name="workflow_npl_delivery_time_idx"),
         ]
+
+
+from .automation_models import (  # noqa: E402,F401
+    AutomationAttempt,
+    AutomationLogicalRun,
+    AutomationModule,
+    AutomationModuleResult,
+)

@@ -1,0 +1,30 @@
+test_development_default_path_and_existing_data_are_preserved (teruisi_backend.test_settings_database.DatabaseFallbackSettingsTests.test_development_default_path_and_existing_data_are_preserved) ... ok
+test_development_explicit_sqlite_path_is_preserved (teruisi_backend.test_settings_database.DatabaseFallbackSettingsTests.test_development_explicit_sqlite_path_is_preserved) ... ok
+test_directory_marker_does_not_enable_fallback (teruisi_backend.test_settings_database.DatabaseFallbackSettingsTests.test_directory_marker_does_not_enable_fallback) ... ok
+test_malformed_marker_does_not_enable_fallback (teruisi_backend.test_settings_database.DatabaseFallbackSettingsTests.test_malformed_marker_does_not_enable_fallback) ... ok
+test_managed_blank_database_url_is_rejected (teruisi_backend.test_settings_database.DatabaseFallbackSettingsTests.test_managed_blank_database_url_is_rejected) ... ok
+test_managed_development_and_test_cannot_enable_fallback (teruisi_backend.test_settings_database.DatabaseFallbackSettingsTests.test_managed_development_and_test_cannot_enable_fallback) ... ok
+test_managed_import_without_database_or_environment_creates_nothing (teruisi_backend.test_settings_database.DatabaseFallbackSettingsTests.test_managed_import_without_database_or_environment_creates_nothing) ... ok
+test_managed_postgres_configuration_imports_without_creating_files (teruisi_backend.test_settings_database.DatabaseFallbackSettingsTests.test_managed_postgres_configuration_imports_without_creating_files) ... ok
+test_managed_sqlite_override_inside_or_outside_app_is_rejected (teruisi_backend.test_settings_database.DatabaseFallbackSettingsTests.test_managed_sqlite_override_inside_or_outside_app_is_rejected) ... ok
+test_managed_sqlite_url_is_still_rejected (teruisi_backend.test_settings_database.DatabaseFallbackSettingsTests.test_managed_sqlite_url_is_still_rejected) ... ok
+test_unmanaged_production_still_rejects_missing_database (teruisi_backend.test_settings_database.DatabaseFallbackSettingsTests.test_unmanaged_production_still_rejects_missing_database) ... ok
+test_documented_placeholder_is_rejected (teruisi_backend.test_settings_validate_secret.ValidateSecretTests.test_documented_placeholder_is_rejected) ... ok
+test_empty_value_allowed_when_not_required (teruisi_backend.test_settings_validate_secret.ValidateSecretTests.test_empty_value_allowed_when_not_required) ... ok
+test_empty_value_rejected_when_required (teruisi_backend.test_settings_validate_secret.ValidateSecretTests.test_empty_value_rejected_when_required) ... ok
+test_example_like_value_is_rejected_even_if_long_enough (teruisi_backend.test_settings_validate_secret.ValidateSecretTests.test_example_like_value_is_rejected_even_if_long_enough) ... ok
+test_low_entropy_value_is_rejected (teruisi_backend.test_settings_validate_secret.ValidateSecretTests.test_low_entropy_value_is_rejected) ... ok
+test_too_short_secret_is_rejected (teruisi_backend.test_settings_validate_secret.ValidateSecretTests.test_too_short_secret_is_rejected) ... ok
+test_valid_secret_passes (teruisi_backend.test_settings_validate_secret.ValidateSecretTests.test_valid_secret_passes) ... ok
+test_production_database_is_fixed_to_loopback_postgres (sales.tests.test_settings.DeploymentSettingsTests.test_production_database_is_fixed_to_loopback_postgres) ... ok
+test_production_secret_accepts_non_placeholder_32_byte_value (sales.tests.test_settings.DeploymentSettingsTests.test_production_secret_accepts_non_placeholder_32_byte_value) ... ok
+test_production_secrets_reject_short_and_placeholder_values (sales.tests.test_settings.DeploymentSettingsTests.test_production_secrets_reject_short_and_placeholder_values) ... ok
+test_security_boolean_configuration_is_strict (sales.tests.test_settings.DeploymentSettingsTests.test_security_boolean_configuration_is_strict) ... ok
+
+----------------------------------------------------------------------
+Ran 22 tests in 1.954s
+
+OK
+Found 22 test(s).
+Skipping setup of unused database(s): default.
+System check identified no issues (0 silenced).

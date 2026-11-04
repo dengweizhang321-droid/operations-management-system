@@ -1,0 +1,253 @@
+{
+  "mainBase": "1164aed2e197d90ac9d06d5a69121b3cbc1ca318",
+  "adoptedBundle": "804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02",
+  "adoptedSourceCommit": "1456b9ef2abb6bc3301aa0850fd100e98db1b303",
+  "files": [
+    {
+      "file": "tools/cleaned-preparation-observer.mjs",
+      "sha256": "c202cf888115e7842c1716c89f1946485dab1e3c26d08f93022de2293cd41d6d",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\cleaned-preparation-observer.mjs"
+    },
+    {
+      "file": "tools/cleaned-preparation-writer.mjs",
+      "sha256": "45d8cceb6ee72dddec4ba43ed5e0183b80dc05502265271c2f358397abe6735b",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\cleaned-preparation-writer.mjs"
+    },
+    {
+      "file": "tools/frozen-main-source.mjs",
+      "sha256": "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\frozen-main-source.mjs"
+    },
+    {
+      "file": "tools/main-control-dispatch.mjs",
+      "sha256": "3dae7ceb2257dbea3cc3c168c895b97c34228a3f6c01229fb2cec2b6006625a7",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\main-control-dispatch.mjs"
+    },
+    {
+      "file": "tools/main-prebuild-hook.mjs",
+      "sha256": "2ef7e9bcb61b31eb23f7eb88a9571d6d8ac72563f41a549039fff355ae327286",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\main-prebuild-hook.mjs"
+    },
+    {
+      "file": "tools/main-prebuild-queue.mjs",
+      "sha256": "3d14c5fe0b9d84c714b5ad5b714d060a8dce2a53c53cd8a1f78f76196ed45048",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\main-prebuild-queue.mjs"
+    },
+    {
+      "file": "tools/main-prebuild-status.mjs",
+      "sha256": "9010056cc8b1ead2cfd4ba17ad5e427f0a0849f6b77ab708b8c3443795e12dc3",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\main-prebuild-status.mjs"
+    },
+    {
+      "file": "tools/main-prebuild-task.mjs",
+      "sha256": "01039063526861c70d748d796bd56d4e6e5b15fdfb070fbf049043b33e57f45d",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\main-prebuild-task.mjs"
+    },
+    {
+      "file": "tools/main-preparation-reconcile.mjs",
+      "sha256": "99d113b77e309c1bae50edcd4c70f8bd5bc600e5aa02865d97a18aae379d6603",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\main-preparation-reconcile.mjs"
+    },
+    {
+      "file": "tools/main-schema-release.mjs",
+      "sha256": "793c0c31a30199d79bb97293df41a88af7bc0e784d205bca03afec9b1decb6f7",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\main-schema-release.mjs"
+    },
+    {
+      "file": "tools/preparation-producer-qualification.mjs",
+      "sha256": "4a4676a0fb7093ba75c451aa5729db29a69fa7916e62694ad21c414f140bf7fb",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-producer-qualification.mjs"
+    },
+    {
+      "file": "tools/preparation-resolution-history.mjs",
+      "sha256": "28811bd41c716bce1005588715c58cf2a8e453cc7f3c48f41697e1fb4daaff7d",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-resolution-history.mjs"
+    },
+    {
+      "file": "tools/preparation-resolution.mjs",
+      "sha256": "8fb1c147e27ab1202076af3046d977b8aa024ef6814277be4f0846b71512a2ed",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-resolution.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement-admission.mjs",
+      "sha256": "a11c4b6f46d4d362b5164b7f440f958aa86332d21f4302ddcc21421750e058db",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-admission.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement-archive.mjs",
+      "sha256": "1fef3adbc1c1c6f4eee7f6a182ea8ccc525870eac00e5b3ad76d3a6f70b10230",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-archive.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement-boot.mjs",
+      "sha256": "e00fe4ee68faff34b82fbe94317f56e1feb6908fb6f9c7cd40a19ee7fa9da133",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-boot.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement-collector.mjs",
+      "sha256": "07a9a0989748d74260dc73c88c62a0c9cc4c01b7038c6395130901559ca3479e",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-collector.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement-console.mjs",
+      "sha256": "4686c902ca6172190236d9ca50ae87d8c92baa3d938b6588a2d270aa546d12a3",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-console.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement-entry.mjs",
+      "sha256": "d45eae8140935775504ff7c4d003120fa13eff90c36ab63454ad33f7048cec6e",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-entry.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement-evidence.mjs",
+      "sha256": "e818c8b821c8bf521ba3a7781206aae69307eb67bf19d5ac32dd07a9b9d83df7",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-evidence.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement-fs.mjs",
+      "sha256": "8befa5711ac354aa92c089c60cbf431d6d1e38d698bcbd2555177234a40aed62",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-fs.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement-handoff-runner.ps1",
+      "sha256": "91c8ccb610e1f1bca3e4e6d69569a1a84c5c8742ae7d85935118c9ca61afa68b",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-handoff-runner.ps1"
+    },
+    {
+      "file": "tools/preparation-retirement-handoff.mjs",
+      "sha256": "910f7679917b533779789327de0c79ae7fa9b744ba103b3aafb986b996ebad19",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-handoff.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement-history.mjs",
+      "sha256": "3ebf251a19f8f06d164acc9dca6e2395cef7c6c10c7cd440f282e805582c9e9f",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-history.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement-native.mjs",
+      "sha256": "63c925d9649646723627ed9ffe82704b0055fbb08dcaca950aeaabf9c4f3c467",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-native.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement-observer.mjs",
+      "sha256": "fbfdec89b0843befe2e497627159eb7beef33733409abbad6cddd7b401935f60",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-observer.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement-qualification.mjs",
+      "sha256": "e40c6a9a755fdcdf5c5c783c48ff1292ffbb30cf976c8b28455653fd3a89bfb0",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-qualification.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement-ref.mjs",
+      "sha256": "f7f4ceb0de38a5ad7ee9a8daf284dfa484fea99117b44705d8ee3f08298cffa6",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-ref.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement-source.mjs",
+      "sha256": "9edd123d29daba63921e994750c0ea11cdf9f2beacaf36d198d25c9352c56d47",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-source.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement-witness.mjs",
+      "sha256": "4018bb6a61f336ae5c77c34a9c7c642b663b242e09deda56cea0e34c9edf5ab8",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement-witness.mjs"
+    },
+    {
+      "file": "tools/preparation-retirement.mjs",
+      "sha256": "2e87f9695090aec53fd38a85e9badd9851209da6d872901ada84ca364b3f56fb",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\preparation-retirement.mjs"
+    },
+    {
+      "file": "tools/publish-latest-main.mjs",
+      "sha256": "f730c55a097a2d292eab1ab0223bada4fc19a83f84b80e3ffbf16a21e113e4fc",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\publish-latest-main.mjs"
+    },
+    {
+      "file": "tools/publish-main-progress.mjs",
+      "sha256": "a8c0292fc777862a2880b32b5d7f190624e4e986c41ae857e0b975f209c60267",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\publish-main-progress.mjs"
+    },
+    {
+      "file": "tools/release-scope-plan.mjs",
+      "sha256": "e32e1e37ae99975b21816a021c266c360bb46c02254586796b09e2a6e3a281b2",
+      "source": "D:\\codex-isolated\\main-manual-release-20261016\\control-bundles\\804a1331b88adcbeca9542bfcc7f1b8ec0f56e892dfd301154363d8b79177b02\\tools\\release-scope-plan.mjs"
+    },
+    {
+      "file": "tools/install-main-prebuild.mjs",
+      "sha256": "5c95061e338df562f4c06f478833d90df66ec0cf3000477e3dd64312f738c417",
+      "source": "git:1456b9ef2abb6bc3301aa0850fd100e98db1b303:tools/install-main-prebuild.mjs"
+    },
+    {
+      "file": "tests/main-prebuild-queue-v2.test.mjs",
+      "sha256": "4485d0e5d1b661887abae3b229f79421dcd27f29914066180b45bb5d6ea9639b",
+      "source": "git:1456b9ef2abb6bc3301aa0850fd100e98db1b303:tests/main-prebuild-queue-v2.test.mjs"
+    },
+    {
+      "file": "tests/main-prebuild-queue-abandonment.test.mjs",
+      "sha256": "cf40f99f0aad8ac75d79d1315e3984eece647fa4eb8618b77ddd649b66368d6a",
+      "source": "git:1456b9ef2abb6bc3301aa0850fd100e98db1b303:tests/main-prebuild-queue-abandonment.test.mjs"
+    },
+    {
+      "file": "tests/main-prebuild-generation-rejection.test.mjs",
+      "sha256": "9d0f2512850618c3b4f057942bd7cc9b048c37cc1c5f0f107aba15b227d52647",
+      "source": "git:1456b9ef2abb6bc3301aa0850fd100e98db1b303:tests/main-prebuild-generation-rejection.test.mjs"
+    },
+    {
+      "file": "tests/manual-preparation-recovery.test.mjs",
+      "sha256": "a3d362d3ab2b7aa267cd647cb0c859b064b7d053dc9143c61a8f3997bc3713bb",
+      "source": "git:1456b9ef2abb6bc3301aa0850fd100e98db1b303:tests/manual-preparation-recovery.test.mjs"
+    },
+    {
+      "file": "tests/main-prebuild-hook.test.mjs",
+      "sha256": "f51c31714a39318b99d0979ba9aa4e2141fa65e89171b26228311ba795571674",
+      "source": "git:1456b9ef2abb6bc3301aa0850fd100e98db1b303:tests/main-prebuild-hook.test.mjs"
+    },
+    {
+      "file": "tests/main-prebuild-status.test.mjs",
+      "sha256": "b9cc2886940ff696ccb51aac37b75b77b47152700596bf27f2af8d72cd98e683",
+      "source": "git:1456b9ef2abb6bc3301aa0850fd100e98db1b303:tests/main-prebuild-status.test.mjs"
+    },
+    {
+      "file": "tests/main-prebuild-eligibility.test.mjs",
+      "sha256": "cc17131f0387d2aec1e1575eccc25c28227c3c04dcba70c5177aff2cff828f64",
+      "source": "git:1456b9ef2abb6bc3301aa0850fd100e98db1b303:tests/main-prebuild-eligibility.test.mjs"
+    },
+    {
+      "file": "tests/publish-latest-main.test.mjs",
+      "sha256": "c9821aaee1f348995cf96c0c2b49c218a1eed204e2383d0a41bc238bcaed90d7",
+      "source": "git:1456b9ef2abb6bc3301aa0850fd100e98db1b303:tests/publish-latest-main.test.mjs"
+    },
+    {
+      "file": "tests/main-publication-readiness.test.mjs",
+      "sha256": "ec877991f3e5baf81599c96f24d83ee45542028c64c09336102ce1f5c077eedf",
+      "source": "git:1456b9ef2abb6bc3301aa0850fd100e98db1b303:tests/main-publication-readiness.test.mjs"
+    },
+    {
+      "file": "tests/publish-main-preparation-failure.test.mjs",
+      "sha256": "59a7eaafc1c2ca4f162f6ec3f8923236c33683ab0b89f090f03bee873f445ca5",
+      "source": "git:1456b9ef2abb6bc3301aa0850fd100e98db1b303:tests/publish-main-preparation-failure.test.mjs"
+    },
+    {
+      "file": "tests/main-control-upgrade.test.mjs",
+      "sha256": "05f854c4b67a95fcce58b5833b69d5fa0685ba4e4d8a83611288a6c228be6cdf",
+      "source": "git:1456b9ef2abb6bc3301aa0850fd100e98db1b303:tests/main-control-upgrade.test.mjs"
+    },
+    {
+      "file": "tests/preparation-retirement-entry.test.mjs",
+      "sha256": "7418858e5ef9cc6004e20996f05567899bd2d54b6946714b44e19dbe97c1a83d",
+      "source": "git:1456b9ef2abb6bc3301aa0850fd100e98db1b303:tests/preparation-retirement-entry.test.mjs"
+    },
+    {
+      "file": "tests/preparation-retirement-ref.test.mjs",
+      "sha256": "826bfea0fca695a4f95685c84e291ea03209943079369d3b0f82d0f65a106121",
+      "source": "git:1456b9ef2abb6bc3301aa0850fd100e98db1b303:tests/preparation-retirement-ref.test.mjs"
+    }
+  ],
+  "protectedFiles": {
+    "package.json": "c4c7f6a0422370d7ac7c2c75bff2ad0c77f19d507d07cc8d98dcc8440f1d5056",
+    "tools/worker-local-release-rotation.mjs": "5171f54839b42a64d986db919770aa3f72d76dce77babb8abea250a02b8b6037",
+    "tools/publish-prepared-main.mjs": "e50f8112e0ae6553a4f66632ebfc95a76fba1030041c6d9d96af4273d98ae6d1",
+    "tools/worker-local-release.mjs": "6dcd3016f6164a0c897c94ae26ec300b82f69ad122739ea1ba5b843ca95a8333"
+  }
+}
