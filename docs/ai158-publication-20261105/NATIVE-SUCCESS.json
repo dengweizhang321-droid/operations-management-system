@@ -1,0 +1,84 @@
+{
+  "status": "deployed_and_ready",
+  "at": "2026-11-04T16:51:59.588Z",
+  "mainCommit": "ece8c7ec46ac7bd7dc0a5a3e3eed8fcf065d3b65",
+  "components": [
+    "worker",
+    "django"
+  ],
+  "workerRelease": "20261104T135815Z-28278a3e8f6ac4fb",
+  "workerManifestSha256": "1ccf5583bb1b52200dc075cee546331eb2df61cd29d454abd70b7a8d383c0a74",
+  "djangoManifestSha256": "04a31bc0a281df1360ffc7675d7b98194388417bf117672310520e0fe8099fd7",
+  "source": "D:\\codex-isolated\\main-release-packages\\ece8c7ec46ac-7094807e-2c9a9ad3\\source",
+  "sourceTree": "cd27517414ddcef1e441f9e2504e7b45a1fe83fa",
+  "djangoPreparedId": "b46a7bb33d0c46b191277c19770ce38f",
+  "maintenanceId": "25954b4507a347688e4751275e4dbc67",
+  "migration": "ai_assistant.0088_task_feedback",
+  "schemaReceipt": {
+    "operationId": "a30d888b13024bf1adfa1ef8f4c31f67",
+    "maintenanceId": "25954b4507a347688e4751275e4dbc67",
+    "release": {
+      "version": "teruisi-main-schema-release-v1",
+      "additionKind": "AiTaskFeedbackCandidates",
+      "fromGeneration": 156,
+      "toGeneration": 158,
+      "steps": [
+        "ai_assistant.0088_task_feedback",
+        "ai_assistant.0089_skill_candidates"
+      ],
+      "recipeSha256": "60b40106426dce7e306ed314dc24ce3579826079d6c5455c314fcbe8bb96f853",
+      "evidencePath": "D:\\codex-isolated\\main-release-packages\\ece8c7ec46ac-7094807e-2c9a9ad3\\schema\\ai-0088-0089-evidence.json",
+      "evidenceSha256": "ceb08354ccb0f3e145c6392368611ec1560940729b8cb4a1d1828b820ac656fd",
+      "validationSha256": "812d2f6129cbfa1153ed8e7f7d4e044374113590aea22468641e63541b2c3083",
+      "codeSha256": "073e39cf954733c708f2f44bf37d68f97b6435f22375b9c2dab860148c348c88"
+    },
+    "installed": {
+      "status": "verified",
+      "result": {
+        "version": "teruisi-ai-task-feedback-candidates-schema-addition-v1",
+        "status": "schema_installed",
+        "steps": [
+          "ai_assistant.0088_task_feedback",
+          "ai_assistant.0089_skill_candidates"
+        ],
+        "migrationCount": 158,
+        "migrationSha256": "0f35b6baa32a0728ac97bbac51049ba11727f150911f0bddf9a8017dc21a7a45",
+        "planSha256": "70bdf693f83d99419ef7ae8c4afd5d4ba858d74e2a75d87a91eff264d6ef28a1",
+        "legacyDataPreserved": true,
+        "preservation": {
+          "legacyRowsSha256": "a933fa35d7a144017e4653b155c8d79fb095e0c2f298df14d60a175c3ebfdb9c",
+          "permissionsSha256": "45ed47dee1ee21179a387c00d930e06c02ff33f5d2580e48d2197887ce08dc34",
+          "rows": 2905
+        },
+        "installIntentSha256": "b7228d091727f1c490cd52550a27f04f9c715af6b6094bbf96f4a0577ac5e6b2",
+        "databasePolicy": "schema-only-no-full-backup-or-restore-v1"
+      }
+    },
+    "finalized": {
+      "status": "verified",
+      "result": {
+        "databasePolicy": "schema-only-no-full-backup-or-restore-v1",
+        "installIntentSha256": "b7228d091727f1c490cd52550a27f04f9c715af6b6094bbf96f4a0577ac5e6b2",
+        "legacyDataPreserved": true,
+        "migrationCount": 158,
+        "migrationSha256": "0f35b6baa32a0728ac97bbac51049ba11727f150911f0bddf9a8017dc21a7a45",
+        "planSha256": "70bdf693f83d99419ef7ae8c4afd5d4ba858d74e2a75d87a91eff264d6ef28a1",
+        "preservation": {
+          "legacyRowsSha256": "a933fa35d7a144017e4653b155c8d79fb095e0c2f298df14d60a175c3ebfdb9c",
+          "permissionsSha256": "45ed47dee1ee21179a387c00d930e06c02ff33f5d2580e48d2197887ce08dc34",
+          "rows": 2905
+        },
+        "status": "verified",
+        "steps": [
+          "ai_assistant.0088_task_feedback",
+          "ai_assistant.0089_skill_candidates"
+        ],
+        "version": "teruisi-ai-task-feedback-candidates-schema-addition-v1",
+        "permissionsVerified": true
+      }
+    }
+  },
+  "startupVerified": true,
+  "readyVerified": true,
+  "backupPerformed": false
+}

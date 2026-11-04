@@ -1,0 +1,80 @@
+{
+  "launcher": [
+    {
+      "timestamp": "2026-11-05T00:33:21.4979953+08:00",
+      "runId": "20261105-003211-a67fe6cc",
+      "action": "BeginMaintenance",
+      "event": "system_maintenance_entered",
+      "message": "25954b4507a347688e4751275e4dbc67"
+    },
+    {
+      "timestamp": "2026-11-05T00:48:02.7353658+08:00",
+      "runId": "20261105-004707-897160b6",
+      "action": "EndMaintenance",
+      "event": "system_maintenance_ended",
+      "message": "25954b4507a347688e4751275e4dbc67"
+    },
+    {
+      "timestamp": "2026-11-05T00:49:40.1460969+08:00",
+      "runId": "20261105-004828-0ba4b9ae",
+      "action": "Start",
+      "event": "service_stack_ready",
+      "message": ""
+    }
+  ],
+  "worker": [
+    {
+      "at": "2026-11-04T16:51:16.305Z",
+      "event": "supervisor_start",
+      "role": null,
+      "pid": 35056,
+      "childPid": null,
+      "manifestSha256": "1ccf5583bb1b52200dc075cee546331eb2df61cd29d454abd70b7a8d383c0a74"
+    },
+    {
+      "at": "2026-11-04T16:51:28.743Z",
+      "event": "child_spawn",
+      "role": "helper",
+      "pid": 35056,
+      "childPid": 40892,
+      "manifestSha256": "1ccf5583bb1b52200dc075cee546331eb2df61cd29d454abd70b7a8d383c0a74"
+    },
+    {
+      "at": "2026-11-04T16:51:28.765Z",
+      "event": "child_spawn",
+      "role": "worker",
+      "pid": 35056,
+      "childPid": 58616,
+      "manifestSha256": "1ccf5583bb1b52200dc075cee546331eb2df61cd29d454abd70b7a8d383c0a74"
+    }
+  ],
+  "startupTimings": [
+    {
+      "version": 1,
+      "processId": 36020,
+      "action": "Start",
+      "stage": "Ensure-DjangoSystemReady",
+      "startedAt": "2026-11-04T16:48:10.1766686+00:00",
+      "elapsedMilliseconds": 168834,
+      "outcome": "completed"
+    },
+    {
+      "version": 1,
+      "processId": 36020,
+      "action": "Start",
+      "stage": "Start-VerifiedWorkerSupervisor",
+      "startedAt": "2026-11-04T16:51:16.1399457+00:00",
+      "elapsedMilliseconds": 21792,
+      "outcome": "completed"
+    },
+    {
+      "version": 1,
+      "processId": 36020,
+      "action": "Start",
+      "stage": "Invoke-WorkerSystemStart",
+      "startedAt": "2026-11-04T16:48:10.1066922+00:00",
+      "elapsedMilliseconds": 207865,
+      "outcome": "completed"
+    }
+  ]
+}

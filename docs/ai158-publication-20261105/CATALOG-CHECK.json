@@ -1,0 +1,9 @@
+{
+  "status": "matched",
+  "receiptPath": "D:\\codex-isolated\\main-release-packages\\ece8c7ec46ac-7094807e-2c9a9ad3\\publish-ece8c7ec46ac\\SUCCESS.json",
+  "receiptSha256": "89d1c71b02570e047c411b41f26778dd0e959685f1b7b95a5adbe53b121a9d53",
+  "mainCommit": "ece8c7ec46ac7bd7dc0a5a3e3eed8fcf065d3b65",
+  "workerRelease": "20261104T135815Z-28278a3e8f6ac4fb",
+  "workerManifestSha256": "1ccf5583bb1b52200dc075cee546331eb2df61cd29d454abd70b7a8d383c0a74",
+  "djangoManifestSha256": "04a31bc0a281df1360ffc7675d7b98194388417bf117672310520e0fe8099fd7"
+}

@@ -1,0 +1,13 @@
+{
+  "observedAt": "2026-11-05T00:42:53.152036+08:00",
+  "nativeStep": "Install",
+  "nativeExitCode": 0,
+  "outerStatus": "verified",
+  "schemaStatus": "schema_installed",
+  "migrationCount": 158,
+  "steps": [
+    "ai_assistant.0088_task_feedback",
+    "ai_assistant.0089_skill_candidates"
+  ],
+  "finalPermissionsNotYetClaimed": true
+}

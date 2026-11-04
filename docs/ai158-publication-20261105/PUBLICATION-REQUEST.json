@@ -1,0 +1,11 @@
+{
+  "invokedAt": "2026-11-05T00:25:25.895640+08:00",
+  "entry": "fixed control/tools/publish-latest-main.mjs",
+  "mode": "default deploy-ready; consume-preparation is queue consumer, not deploy",
+  "preparedSha256": "3a8684e5c63129335c6d7f770b888db27533ecfd2e45bef2fb2aaeea2c138020",
+  "midnightExecutionId": 11196,
+  "midnightExecutionStatus": "success",
+  "checkExitCode": 0,
+  "checkContentPreconditions": "passed",
+  "noRebuild": true
+}

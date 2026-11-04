@@ -1,0 +1,127 @@
+{
+  "observedAt": "2026-11-04T16:24:19.313447+00:00",
+  "executionId": 11196,
+  "status": "success",
+  "finished": 1,
+  "startedAt": "2026-11-04 16:10:00.477",
+  "stoppedAt": "2026-11-04 16:21:49.702",
+  "lastNode": "E·独立核验五类精确批次",
+  "errorName": null,
+  "nodes": [
+    {
+      "node": "每天本机时间 00:10",
+      "startTime": 1793808600554,
+      "executionTime": 13,
+      "status": "success",
+      "hasError": false
+    },
+    {
+      "node": "固定原执行计划时间",
+      "startTime": 1793808600607,
+      "executionTime": 52,
+      "status": "success",
+      "hasError": false
+    },
+    {
+      "node": "领取共享 helper",
+      "startTime": 1793808600676,
+      "executionTime": 151,
+      "status": "success",
+      "hasError": false
+    },
+    {
+      "node": "领取共享 helper",
+      "startTime": 1793808901129,
+      "executionTime": 595,
+      "status": "success",
+      "hasError": false
+    },
+    {
+      "node": "helper 领取成功？",
+      "startTime": 1793808600833,
+      "executionTime": 7,
+      "status": "success",
+      "hasError": false
+    },
+    {
+      "node": "helper 领取成功？",
+      "startTime": 1793808901735,
+      "executionTime": 3,
+      "status": "success",
+      "hasError": false
+    },
+    {
+      "node": "等待前序流程释放 helper",
+      "startTime": 1793808901099,
+      "executionTime": 12,
+      "status": "success",
+      "hasError": false
+    },
+    {
+      "node": "A·固定采集日和销售日期",
+      "startTime": 1793808901747,
+      "executionTime": 5376,
+      "status": "success",
+      "hasError": false
+    },
+    {
+      "node": "A·固定采集日和销售日期·恢复等待？",
+      "startTime": 1793808907139,
+      "executionTime": 2,
+      "status": "success",
+      "hasError": false
+    },
+    {
+      "node": "B·接口校验与五表下载",
+      "startTime": 1793808907155,
+      "executionTime": 137830,
+      "status": "success",
+      "hasError": false
+    },
+    {
+      "node": "B·接口校验与五表下载·恢复等待？",
+      "startTime": 1793809045040,
+      "executionTime": 3,
+      "status": "success",
+      "hasError": false
+    },
+    {
+      "node": "C·五表完整校验和导入演练",
+      "startTime": 1793809045123,
+      "executionTime": 39932,
+      "status": "success",
+      "hasError": false
+    },
+    {
+      "node": "C·五表完整校验和导入演练·恢复等待？",
+      "startTime": 1793809085123,
+      "executionTime": 2,
+      "status": "success",
+      "hasError": false
+    },
+    {
+      "node": "D·统一导入运营管理系统",
+      "startTime": 1793809085141,
+      "executionTime": 214750,
+      "status": "success",
+      "hasError": false
+    },
+    {
+      "node": "D·统一导入运营管理系统·恢复等待？",
+      "startTime": 1793809300055,
+      "executionTime": 65,
+      "status": "success",
+      "hasError": false
+    },
+    {
+      "node": "E·独立核验五类精确批次",
+      "startTime": 1793809300130,
+      "executionTime": 9556,
+      "status": "success",
+      "hasError": false
+    }
+  ],
+  "executionDataSha256": "ee982b3ca7cffd4d11fdc6a9c8ec14508a02f0dd3d724f9daf990d25dfa5bdd4",
+  "businessOutputsReported": false,
+  "onlyExecutionMetadataExtracted": true
+}
