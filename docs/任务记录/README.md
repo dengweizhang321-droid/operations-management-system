@@ -1,6 +1,6 @@
 # 任务记录目录
 
-本轮只读方案：[Ready 自锁四路径调查](../readiness-selflock-20261104/REPORT.md)（未合并；未发布、未改生产）。
+本轮：[Ready 自锁四路径调查](../readiness-selflock-20261104/REPORT.md) · [单次检查](../readiness-selflock-20261104/CHECK-RUN.md) · [正式发布记录](../readiness-selflock-20261104/PRODUCTION.md)（ba78ceff 已发布；报告分支未合并）。
 
 本轮候选：[Ready 503稳定性修复](../readiness-stability-20261103/REPORT.md) · [实现反审](../readiness-stability-20261103/REVIEW.md) · [固定兼容检查](../readiness-stability-20261103/COMPATIBILITY.md)（未合并/采用，程序与隔离兼容检查通过）。
 

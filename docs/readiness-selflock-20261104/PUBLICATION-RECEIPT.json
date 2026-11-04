@@ -1,0 +1,53 @@
+{
+  "recordedAt": "2026-11-04T09:08:26.105688+08:00",
+  "authorization": "User: 发布上线",
+  "run": {
+    "command": "\"C:\\Program Files\\nodejs\\node.exe\" \"D:\\codex-isolated\\main-manual-release-20261016\\control\\tools\\publish-latest-main.mjs\" --config \"D:\\codex-isolated\\main-manual-release-20261016\\main-publisher-config.json\"",
+    "startedAt": "2026-11-04T08:45:45.3551734+08:00",
+    "administrator": false,
+    "authorizedTarget": "ba78ceff052c543ff568f7c7eac0c42b983129e7",
+    "catalogSha256Before": "98a604d3a7d79f341de89ffaf658e3452d1749943f78e1c2e56a0345612c030c",
+    "preparedSha256": "b6e65171d5e8e59de945cfd6e579eadbb826e3067a1a2ad6b8219e88197eadb2",
+    "commandLaunchCount": 1,
+    "childPid": 43412,
+    "exitCode": 0,
+    "endedAt": "2026-11-04T09:06:48.2404405+08:00",
+    "elapsedMilliseconds": 1262824
+  },
+  "successReceiptPath": "D:\\codex-isolated\\main-release-packages\\ba78ceff052c-9918ce3e-527bb5f5\\publish-ba78ceff052c\\SUCCESS.json",
+  "successReceiptSha256": "c035dfdccba4c66ab07fc1da00e72db0f6003088781b11e0b8e5a43a774ed1a8",
+  "success": {
+    "status": "deployed_and_ready",
+    "at": "2026-11-04T01:06:30.860Z",
+    "mainCommit": "ba78ceff052c543ff568f7c7eac0c42b983129e7",
+    "components": [
+      "worker",
+      "django"
+    ],
+    "workerRelease": "20261103T151159Z-f230d1a1bd5bf0d3",
+    "workerManifestSha256": "186b7a0f56c7ce2ba31f0d5f94f4e87fa6150b5cb79cf30591b05207e3756a8e",
+    "djangoManifestSha256": "2c9a9ad3d040ab8b29caf6ff29e064d293da124dadb79df35526c2f4dea4c4ac",
+    "source": "D:\\codex-isolated\\main-release-packages\\ba78ceff052c-9918ce3e-527bb5f5\\source",
+    "sourceTree": "9b27650d26c21fda86589f73e618eb349836a861",
+    "djangoPreparedId": "fd4361f6ff2041d294067805b6791b7e",
+    "maintenanceId": "a992400512fa4e6ba0772d75dcf2a2bb",
+    "migration": null,
+    "startupVerified": true,
+    "readyVerified": true,
+    "backupPerformed": false
+  },
+  "catalogPath": "D:\\codex-isolated\\main-manual-release-20261016\\PUBLISHED-MAIN.json",
+  "catalogSha256": "51a737a53cb6257a410c60a2a28bdcfac49fc16d73b0be122c397956ea317b76",
+  "catalogMatchesSuccess": true,
+  "preparedUnchanged": true,
+  "nativeReady": {
+    "attempts": 1,
+    "httpStatus": 200,
+    "elapsedMs": 3276,
+    "totalElapsedMs": 3277,
+    "serviceCount": 23,
+    "allReady": true,
+    "unavailableServices": []
+  },
+  "verificationScope": "Original native receipts and catalog only; no added HTTP or business verification"
+}
