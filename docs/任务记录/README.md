@@ -1,5 +1,7 @@
 # 任务记录目录
 
+本轮候选：[京东客服人工闭合安全诊断](../jd-cs-close-diagnostics-20261105/REPORT.md) · [双独立反审](../jd-cs-close-diagnostics-20261105/REVIEW.md)（未合并/上线，保留来源计数判据）。
+
 本轮候选：[Ready 503稳定性修复](../readiness-stability-20261103/REPORT.md) · [实现反审](../readiness-stability-20261103/REVIEW.md) · [固定兼容检查](../readiness-stability-20261103/COMPATIBILITY.md)（未合并/采用，程序与隔离兼容检查通过）。
 
 本轮：[自动导入 E1—E6 统一施工交付](../autoimport-workflow-unification-20261029/统一施工交付-20261103.md) · [独立反审](../autoimport-workflow-unification-20261029/统一反审-20261103.md)（E1/E4/E5 与全部文档已合入 main；E2 巡检安装代码仍在分支，巡检未安装，现场采用另行执行）。
