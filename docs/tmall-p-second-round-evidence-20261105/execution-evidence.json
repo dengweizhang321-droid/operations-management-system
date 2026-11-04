@@ -1,0 +1,1451 @@
+[
+  {
+    "id": 11192,
+    "workflowId": "TmallMasituDaily2026",
+    "mode": "webhook",
+    "status": "error",
+    "startedAt": "2026-11-04 15:53:01.204",
+    "stoppedAt": "2026-11-04 15:54:08.864",
+    "workflowVersionId": "aebe3c0c-590d-445c-91a2-cb53471527c6",
+    "dataBytes": 15705,
+    "dataSha256": "f2eb75473082c60e8a9184d9102dc46c88510de71857612555a027b8a6b33a5d",
+    "savedWorkflowVersionId": null,
+    "dataVersionId": "aebe3c0c-590d-445c-91a2-cb53471527c6",
+    "resultKeys": [
+      "error",
+      "runData",
+      "lastNodeExecuted"
+    ],
+    "error": {
+      "description": "waiting_login：阿里妈妈需要人工验证或凭据被拒绝，停止自动登录",
+      "node": {
+        "parameters": {
+          "headerParameters": {
+            "parameters": [
+              {},
+              {},
+              {}
+            ]
+          }
+        },
+        "position": [
+          512,
+          48
+        ]
+      },
+      "messages": [
+        null
+      ],
+      "message": "[unclassified error; omitted]"
+    },
+    "lastNodeExecuted": "P·直连创建商品报表、下载、汇总导入并回查",
+    "runs": [
+      {
+        "node": "A·计划目标日期",
+        "runIndex": 0,
+        "startTimeEpochMs": 1793807582917,
+        "executionTimeMs": 15250,
+        "executionStatus": "success",
+        "error": {},
+        "output": {
+          "main": [
+            [
+              {
+                "json": {
+                  "ok": true,
+                  "stage": "plan",
+                  "dates": [],
+                  "startDate": "2026-10-28",
+                  "endDate": "2026-11-03",
+                  "promotionDates": [
+                    "2026-10-28"
+                  ],
+                  "selectedDates": [
+                    "2026-10-28"
+                  ],
+                  "missingProductDates": [
+                    "2026-10-29",
+                    "2026-10-30",
+                    "2026-10-31",
+                    "2026-11-01",
+                    "2026-11-02",
+                    "2026-11-03"
+                  ],
+                  "missingPromotionDates": [
+                    "2026-10-28",
+                    "2026-10-29",
+                    "2026-10-30",
+                    "2026-10-31",
+                    "2026-11-01",
+                    "2026-11-02",
+                    "2026-11-03"
+                  ],
+                  "remainingDates": [
+                    "2026-10-29",
+                    "2026-10-30",
+                    "2026-10-31",
+                    "2026-11-01",
+                    "2026-11-02",
+                    "2026-11-03"
+                  ],
+                  "authentication": {
+                    "ok": true,
+                    "status": "authenticated",
+                    "storeKey": "tmall-masitu"
+                  },
+                  "dailyBackfill": {
+                    "storeKey": "tmall-masitu",
+                    "startDate": "2026-10-28",
+                    "endDate": "2026-11-03",
+                    "currentDates": [
+                      "2026-10-28"
+                    ],
+                    "completedDates": [],
+                    "remainingDates": [
+                      "2026-10-28",
+                      "2026-10-29",
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "missingProductDates": [
+                      "2026-10-29",
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "missingPromotionDates": [
+                      "2026-10-28",
+                      "2026-10-29",
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "status": "running"
+                  }
+                }
+              }
+            ]
+          ]
+        },
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "data"
+        ]
+      },
+      {
+        "node": "B·逐日下载并验证 XLS",
+        "runIndex": 0,
+        "startTimeEpochMs": 1793807598167,
+        "executionTimeMs": 31,
+        "executionStatus": "success",
+        "error": {},
+        "output": {
+          "main": [
+            [
+              {
+                "json": {
+                  "ok": true,
+                  "stage": "fetch",
+                  "rows": 0
+                }
+              }
+            ]
+          ]
+        },
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "data"
+        ]
+      },
+      {
+        "node": "B·逐日下载并验证 XLS",
+        "runIndex": 1,
+        "startTimeEpochMs": 1793807633588,
+        "executionTimeMs": 1696,
+        "executionStatus": "success",
+        "error": {},
+        "output": {
+          "main": [
+            [
+              {
+                "json": {
+                  "ok": true,
+                  "stage": "fetch",
+                  "rows": 59
+                }
+              }
+            ]
+          ]
+        },
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "data"
+        ]
+      },
+      {
+        "node": "C·签收、导入并覆盖回查",
+        "runIndex": 0,
+        "startTimeEpochMs": 1793807598198,
+        "executionTimeMs": 47,
+        "executionStatus": "success",
+        "error": {},
+        "output": {
+          "main": [
+            [
+              {
+                "json": {
+                  "ok": true,
+                  "stage": "import",
+                  "dates": [],
+                  "coverageConfirmed": true
+                }
+              }
+            ]
+          ]
+        },
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "data"
+        ]
+      },
+      {
+        "node": "C·签收、导入并覆盖回查",
+        "runIndex": 1,
+        "startTimeEpochMs": 1793807635284,
+        "executionTimeMs": 1552,
+        "executionStatus": "success",
+        "error": {},
+        "output": {
+          "main": [
+            [
+              {
+                "json": {
+                  "ok": true,
+                  "stage": "import",
+                  "dates": [
+                    "2026-10-29"
+                  ],
+                  "coverageConfirmed": true,
+                  "batches": [
+                    {
+                      "rowCount": 59,
+                      "status": "imported",
+                      "storeKey": "tmall-masitu"
+                    }
+                  ]
+                }
+              }
+            ]
+          ]
+        },
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "data"
+        ]
+      },
+      {
+        "node": "P·直连创建商品报表、下载、汇总导入并回查",
+        "runIndex": 0,
+        "startTimeEpochMs": 1793807598245,
+        "executionTimeMs": 34595,
+        "executionStatus": "success",
+        "error": {},
+        "output": {
+          "main": [
+            [
+              {
+                "json": {
+                  "ok": true,
+                  "stage": "promotion",
+                  "status": "imported",
+                  "storeKey": "tmall-masitu",
+                  "startDate": "2026-10-28",
+                  "endDate": "2026-10-28",
+                  "dates": [
+                    "2026-10-28"
+                  ],
+                  "plannedDates": [
+                    "2026-10-28"
+                  ],
+                  "completedDates": [
+                    "2026-10-28"
+                  ],
+                  "rowCount": 20,
+                  "warningCount": 0,
+                  "dailyResults": [
+                    {
+                      "ok": true,
+                      "stage": "promotion_day",
+                      "status": "imported",
+                      "storeKey": "tmall-masitu",
+                      "date": "2026-10-28",
+                      "startDate": "2026-10-28",
+                      "endDate": "2026-10-28",
+                      "dates": [
+                        "2026-10-28"
+                      ],
+                      "rowCount": 20,
+                      "warningCount": 0,
+                      "coverageConfirmed": true
+                    }
+                  ],
+                  "coverageConfirmed": true
+                }
+              }
+            ]
+          ]
+        },
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "data"
+        ]
+      },
+      {
+        "node": "P·直连创建商品报表、下载、汇总导入并回查",
+        "runIndex": 1,
+        "startTimeEpochMs": 1793807636837,
+        "executionTimeMs": 12001,
+        "executionStatus": "error",
+        "error": {
+          "description": "waiting_login：阿里妈妈需要人工验证或凭据被拒绝，停止自动登录",
+          "node": {
+            "parameters": {
+              "headerParameters": {
+                "parameters": [
+                  {},
+                  {},
+                  {}
+                ]
+              }
+            },
+            "position": [
+              512,
+              48
+            ]
+          },
+          "messages": [
+            null
+          ],
+          "message": "[unclassified error; omitted]"
+        },
+        "output": {},
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "error"
+        ]
+      },
+      {
+        "node": "N·复查缺口并计划下一日",
+        "runIndex": 0,
+        "startTimeEpochMs": 1793807632912,
+        "executionTimeMs": 673,
+        "executionStatus": "success",
+        "error": {},
+        "output": {
+          "main": [
+            [
+              {
+                "json": {
+                  "ok": true,
+                  "stage": "next_day",
+                  "dailyBackfill": {
+                    "storeKey": "tmall-masitu",
+                    "startDate": "2026-10-28",
+                    "endDate": "2026-11-03",
+                    "currentDates": [
+                      "2026-10-29"
+                    ],
+                    "completedDates": [
+                      "2026-10-28"
+                    ],
+                    "remainingDates": [
+                      "2026-10-29",
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "missingProductDates": [
+                      "2026-10-29",
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "missingPromotionDates": [
+                      "2026-10-29",
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "status": "running"
+                  }
+                }
+              }
+            ]
+          ]
+        },
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "data"
+        ]
+      },
+      {
+        "node": "还有缺口？",
+        "runIndex": 0,
+        "startTimeEpochMs": 1793807633586,
+        "executionTimeMs": 2,
+        "executionStatus": "success",
+        "error": {},
+        "output": {
+          "main": [
+            [
+              {
+                "json": {
+                  "ok": true,
+                  "stage": "next_day",
+                  "dailyBackfill": {
+                    "storeKey": "tmall-masitu",
+                    "startDate": "2026-10-28",
+                    "endDate": "2026-11-03",
+                    "currentDates": [
+                      "2026-10-29"
+                    ],
+                    "completedDates": [
+                      "2026-10-28"
+                    ],
+                    "remainingDates": [
+                      "2026-10-29",
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "missingProductDates": [
+                      "2026-10-29",
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "missingPromotionDates": [
+                      "2026-10-29",
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "status": "running"
+                  }
+                }
+              }
+            ],
+            []
+          ]
+        },
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "data"
+        ]
+      }
+    ],
+    "workflow": {
+      "active": true,
+      "currentVersionId": "aebe3c0c-590d-445c-91a2-cb53471527c6",
+      "activeVersionId": "aebe3c0c-590d-445c-91a2-cb53471527c6",
+      "savedNodeCount": 18,
+      "savedMatchesCurrentNodes": false,
+      "savedMatchesCurrentConnections": true,
+      "savedMatchesCurrentSettings": true,
+      "savedMatchesPublishedNodes": false,
+      "savedMatchesPublishedConnections": true,
+      "savedMatchesRepoNodes": false,
+      "savedMatchesRepoConnections": true,
+      "savedMatchesRepoSettings": false,
+      "pRetryOnFail": [
+        null
+      ],
+      "pOnError": [
+        null
+      ],
+      "savedCurrentNodeDifferencePaths": [
+        "/0/parameters/notice",
+        "/1/parameters/language",
+        "/1/parameters/mode",
+        "/1/parameters/notice",
+        "/2/parameters/looseTypeValidation",
+        "/3/parameters/amount",
+        "/3/parameters/resume",
+        "/4/parameters/authentication",
+        "/4/parameters/curlImport",
+        "/4/parameters/infoMessage",
+        "/4/parameters/provideSslCertificates",
+        "/4/parameters/sendBody",
+        "/4/parameters/sendQuery",
+        "/4/parameters/specifyHeaders",
+        "/5/parameters/authentication",
+        "/5/parameters/curlImport",
+        "/5/parameters/infoMessage",
+        "/5/parameters/provideSslCertificates",
+        "/5/parameters/sendBody",
+        "/5/parameters/sendQuery",
+        "/5/parameters/specifyHeaders",
+        "/6/parameters/authentication",
+        "/6/parameters/curlImport",
+        "/6/parameters/infoMessage",
+        "/6/parameters/provideSslCertificates",
+        "/6/parameters/sendBody",
+        "/6/parameters/sendQuery",
+        "/6/parameters/specifyHeaders",
+        "/7/parameters/authentication",
+        "/7/parameters/curlImport",
+        "/7/parameters/infoMessage",
+        "/7/parameters/provideSslCertificates",
+        "/7/parameters/sendBody",
+        "/7/parameters/sendQuery",
+        "/7/parameters/specifyHeaders",
+        "/8/parameters/authentication",
+        "/8/parameters/curlImport",
+        "/8/parameters/infoMessage",
+        "/8/parameters/provideSslCertificates",
+        "/8/parameters/sendBody",
+        "/8/parameters/sendQuery",
+        "/8/parameters/specifyHeaders",
+        "/11/parameters/authentication",
+        "/11/parameters/contentTypeNotice",
+        "/11/parameters/multipleMethods",
+        "/11/parameters/responseMode",
+        "/12/parameters/notice",
+        "/12/parameters/rule/interval/0/notice",
+        "/13/parameters/language",
+        "/13/parameters/mode",
+        "/13/parameters/notice",
+        "/14/parameters/authentication",
+        "/14/parameters/curlImport",
+        "/14/parameters/infoMessage",
+        "/14/parameters/provideSslCertificates",
+        "/14/parameters/sendBody",
+        "/14/parameters/sendQuery",
+        "/14/parameters/specifyHeaders",
+        "/15/parameters/looseTypeValidation",
+        "/16/parameters/looseTypeValidation",
+        "/17/parameters/errorType"
+      ],
+      "savedRepoNodeDifferencePaths": [
+        "/0/parameters/notice",
+        "/1/parameters/language",
+        "/1/parameters/mode",
+        "/1/parameters/notice",
+        "/2/parameters/looseTypeValidation",
+        "/3/parameters/amount",
+        "/3/parameters/resume",
+        "/4/parameters/authentication",
+        "/4/parameters/curlImport",
+        "/4/parameters/infoMessage",
+        "/4/parameters/provideSslCertificates",
+        "/4/parameters/sendBody",
+        "/4/parameters/sendQuery",
+        "/4/parameters/specifyHeaders",
+        "/5/parameters/authentication",
+        "/5/parameters/curlImport",
+        "/5/parameters/infoMessage",
+        "/5/parameters/provideSslCertificates",
+        "/5/parameters/sendBody",
+        "/5/parameters/sendQuery",
+        "/5/parameters/specifyHeaders",
+        "/6/parameters/authentication",
+        "/6/parameters/curlImport",
+        "/6/parameters/infoMessage",
+        "/6/parameters/provideSslCertificates",
+        "/6/parameters/sendBody",
+        "/6/parameters/sendQuery",
+        "/6/parameters/specifyHeaders",
+        "/7/parameters/authentication",
+        "/7/parameters/curlImport",
+        "/7/parameters/infoMessage",
+        "/7/parameters/provideSslCertificates",
+        "/7/parameters/sendBody",
+        "/7/parameters/sendQuery",
+        "/7/parameters/specifyHeaders",
+        "/8/parameters/authentication",
+        "/8/parameters/curlImport",
+        "/8/parameters/infoMessage",
+        "/8/parameters/provideSslCertificates",
+        "/8/parameters/sendBody",
+        "/8/parameters/sendQuery",
+        "/8/parameters/specifyHeaders",
+        "/9/parameters/content",
+        "/10/parameters/content",
+        "/11/parameters/authentication",
+        "/11/parameters/contentTypeNotice",
+        "/11/parameters/multipleMethods",
+        "/11/parameters/responseMode",
+        "/12/parameters/notice",
+        "/12/parameters/rule/interval/0/notice",
+        "/13/parameters/language",
+        "/13/parameters/mode",
+        "/13/parameters/notice",
+        "/14/parameters/authentication",
+        "/14/parameters/curlImport",
+        "/14/parameters/infoMessage",
+        "/14/parameters/provideSslCertificates",
+        "/14/parameters/sendBody",
+        "/14/parameters/sendQuery",
+        "/14/parameters/specifyHeaders",
+        "/15/parameters/looseTypeValidation",
+        "/16/parameters/looseTypeValidation",
+        "/17/parameters/errorType"
+      ],
+      "savedRepoSettingsDifferencePaths": [
+        "/timezone"
+      ]
+    },
+    "savedShape": {
+      "rootKeys": [
+        "version",
+        "startData",
+        "resultData",
+        "executionData",
+        "resumeToken"
+      ],
+      "workflowKeys": [
+        "id",
+        "name",
+        "nodes",
+        "connections",
+        "settings",
+        "nodeGroups"
+      ]
+    },
+    "diagnosticFieldOccurrences": {
+      "challengePresent": 0,
+      "credentialRejected": 0,
+      "temporarilyLocked": 0,
+      "frameIndex": 0,
+      "ruleId": 0
+    },
+    "helperErrorPayloads": [
+      {
+        "ok": false,
+        "stage": "failed",
+        "error": "waiting_login：阿里妈妈需要人工验证或凭据被拒绝，停止自动登录",
+        "browserClosure": {
+          "ok": true,
+          "status": "closed"
+        },
+        "dailyBackfill": {
+          "storeKey": "tmall-masitu",
+          "startDate": "2026-10-28",
+          "endDate": "2026-11-03",
+          "currentDates": [
+            "2026-10-29"
+          ],
+          "completedDates": [
+            "2026-10-28"
+          ],
+          "remainingDates": [
+            "2026-10-29",
+            "2026-10-30",
+            "2026-10-31",
+            "2026-11-01",
+            "2026-11-02",
+            "2026-11-03"
+          ],
+          "missingProductDates": [
+            "2026-10-29",
+            "2026-10-30",
+            "2026-10-31",
+            "2026-11-01",
+            "2026-11-02",
+            "2026-11-03"
+          ],
+          "missingPromotionDates": [
+            "2026-10-29",
+            "2026-10-30",
+            "2026-10-31",
+            "2026-11-01",
+            "2026-11-02",
+            "2026-11-03"
+          ],
+          "status": "running"
+        }
+      }
+    ]
+  },
+  {
+    "id": 11193,
+    "workflowId": "TmallCuizhiwangDaily2026",
+    "mode": "webhook",
+    "status": "error",
+    "startedAt": "2026-11-04 15:53:02.096",
+    "stoppedAt": "2026-11-04 15:54:09.015",
+    "workflowVersionId": "a50decc9-91a3-40ff-b872-84c846892d39",
+    "dataBytes": 15637,
+    "dataSha256": "232b09892baf1bc5082b1f53d20a782acd5e8ed3918d18fd307ac206b5691439",
+    "savedWorkflowVersionId": null,
+    "dataVersionId": "a50decc9-91a3-40ff-b872-84c846892d39",
+    "resultKeys": [
+      "error",
+      "runData",
+      "lastNodeExecuted"
+    ],
+    "error": {
+      "description": "waiting_login：阿里妈妈需要人工验证或凭据被拒绝，停止自动登录",
+      "node": {
+        "parameters": {
+          "headerParameters": {
+            "parameters": [
+              {},
+              {},
+              {}
+            ]
+          }
+        },
+        "position": [
+          512,
+          48
+        ]
+      },
+      "messages": [
+        null
+      ],
+      "message": "[unclassified error; omitted]"
+    },
+    "lastNodeExecuted": "P·直连创建商品报表、下载、汇总导入并回查",
+    "runs": [
+      {
+        "node": "A·计划目标日期",
+        "runIndex": 0,
+        "startTimeEpochMs": 1793807583013,
+        "executionTimeMs": 15369,
+        "executionStatus": "success",
+        "error": {},
+        "output": {
+          "main": [
+            [
+              {
+                "json": {
+                  "ok": true,
+                  "stage": "plan",
+                  "dates": [],
+                  "startDate": "2026-10-28",
+                  "endDate": "2026-11-03",
+                  "promotionDates": [
+                    "2026-10-29"
+                  ],
+                  "selectedDates": [
+                    "2026-10-29"
+                  ],
+                  "missingProductDates": [
+                    "2026-10-30",
+                    "2026-10-31",
+                    "2026-11-01",
+                    "2026-11-02",
+                    "2026-11-03"
+                  ],
+                  "missingPromotionDates": [
+                    "2026-10-29",
+                    "2026-10-30",
+                    "2026-10-31",
+                    "2026-11-01",
+                    "2026-11-02",
+                    "2026-11-03"
+                  ],
+                  "remainingDates": [
+                    "2026-10-30",
+                    "2026-10-31",
+                    "2026-11-01",
+                    "2026-11-02",
+                    "2026-11-03"
+                  ],
+                  "authentication": {
+                    "ok": true,
+                    "status": "authenticated",
+                    "storeKey": "tmall-cuizhiwang"
+                  },
+                  "dailyBackfill": {
+                    "storeKey": "tmall-cuizhiwang",
+                    "startDate": "2026-10-28",
+                    "endDate": "2026-11-03",
+                    "currentDates": [
+                      "2026-10-29"
+                    ],
+                    "completedDates": [],
+                    "remainingDates": [
+                      "2026-10-29",
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "missingProductDates": [
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "missingPromotionDates": [
+                      "2026-10-29",
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "status": "running"
+                  }
+                }
+              }
+            ]
+          ]
+        },
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "data"
+        ]
+      },
+      {
+        "node": "B·逐日下载并验证 XLS",
+        "runIndex": 0,
+        "startTimeEpochMs": 1793807598383,
+        "executionTimeMs": 29,
+        "executionStatus": "success",
+        "error": {},
+        "output": {
+          "main": [
+            [
+              {
+                "json": {
+                  "ok": true,
+                  "stage": "fetch",
+                  "rows": 0
+                }
+              }
+            ]
+          ]
+        },
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "data"
+        ]
+      },
+      {
+        "node": "B·逐日下载并验证 XLS",
+        "runIndex": 1,
+        "startTimeEpochMs": 1793807633571,
+        "executionTimeMs": 1734,
+        "executionStatus": "success",
+        "error": {},
+        "output": {
+          "main": [
+            [
+              {
+                "json": {
+                  "ok": true,
+                  "stage": "fetch",
+                  "rows": 73
+                }
+              }
+            ]
+          ]
+        },
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "data"
+        ]
+      },
+      {
+        "node": "C·签收、导入并覆盖回查",
+        "runIndex": 0,
+        "startTimeEpochMs": 1793807598413,
+        "executionTimeMs": 132,
+        "executionStatus": "success",
+        "error": {},
+        "output": {
+          "main": [
+            [
+              {
+                "json": {
+                  "ok": true,
+                  "stage": "import",
+                  "dates": [],
+                  "coverageConfirmed": true
+                }
+              }
+            ]
+          ]
+        },
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "data"
+        ]
+      },
+      {
+        "node": "C·签收、导入并覆盖回查",
+        "runIndex": 1,
+        "startTimeEpochMs": 1793807635306,
+        "executionTimeMs": 1539,
+        "executionStatus": "success",
+        "error": {},
+        "output": {
+          "main": [
+            [
+              {
+                "json": {
+                  "ok": true,
+                  "stage": "import",
+                  "dates": [
+                    "2026-10-30"
+                  ],
+                  "coverageConfirmed": true,
+                  "batches": [
+                    {
+                      "rowCount": 73,
+                      "status": "completed_with_warnings",
+                      "storeKey": "tmall-cuizhiwang"
+                    }
+                  ]
+                }
+              }
+            ]
+          ]
+        },
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "data"
+        ]
+      },
+      {
+        "node": "P·直连创建商品报表、下载、汇总导入并回查",
+        "runIndex": 0,
+        "startTimeEpochMs": 1793807598547,
+        "executionTimeMs": 34556,
+        "executionStatus": "success",
+        "error": {},
+        "output": {
+          "main": [
+            [
+              {
+                "json": {
+                  "ok": true,
+                  "stage": "promotion",
+                  "status": "imported",
+                  "storeKey": "tmall-cuizhiwang",
+                  "startDate": "2026-10-29",
+                  "endDate": "2026-10-29",
+                  "dates": [
+                    "2026-10-29"
+                  ],
+                  "plannedDates": [
+                    "2026-10-29"
+                  ],
+                  "completedDates": [
+                    "2026-10-29"
+                  ],
+                  "rowCount": 45,
+                  "warningCount": 0,
+                  "dailyResults": [
+                    {
+                      "ok": true,
+                      "stage": "promotion_day",
+                      "status": "imported",
+                      "storeKey": "tmall-cuizhiwang",
+                      "date": "2026-10-29",
+                      "startDate": "2026-10-29",
+                      "endDate": "2026-10-29",
+                      "dates": [
+                        "2026-10-29"
+                      ],
+                      "rowCount": 45,
+                      "warningCount": 0,
+                      "coverageConfirmed": true
+                    }
+                  ],
+                  "coverageConfirmed": true
+                }
+              }
+            ]
+          ]
+        },
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "data"
+        ]
+      },
+      {
+        "node": "P·直连创建商品报表、下载、汇总导入并回查",
+        "runIndex": 1,
+        "startTimeEpochMs": 1793807636845,
+        "executionTimeMs": 12170,
+        "executionStatus": "error",
+        "error": {
+          "description": "waiting_login：阿里妈妈需要人工验证或凭据被拒绝，停止自动登录",
+          "node": {
+            "parameters": {
+              "headerParameters": {
+                "parameters": [
+                  {},
+                  {},
+                  {}
+                ]
+              }
+            },
+            "position": [
+              512,
+              48
+            ]
+          },
+          "messages": [
+            null
+          ],
+          "message": "[unclassified error; omitted]"
+        },
+        "output": {},
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "error"
+        ]
+      },
+      {
+        "node": "N·复查缺口并计划下一日",
+        "runIndex": 0,
+        "startTimeEpochMs": 1793807633106,
+        "executionTimeMs": 452,
+        "executionStatus": "success",
+        "error": {},
+        "output": {
+          "main": [
+            [
+              {
+                "json": {
+                  "ok": true,
+                  "stage": "next_day",
+                  "dailyBackfill": {
+                    "storeKey": "tmall-cuizhiwang",
+                    "startDate": "2026-10-28",
+                    "endDate": "2026-11-03",
+                    "currentDates": [
+                      "2026-10-30"
+                    ],
+                    "completedDates": [
+                      "2026-10-29"
+                    ],
+                    "remainingDates": [
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "missingProductDates": [
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "missingPromotionDates": [
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "status": "running"
+                  }
+                }
+              }
+            ]
+          ]
+        },
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "data"
+        ]
+      },
+      {
+        "node": "还有缺口？",
+        "runIndex": 0,
+        "startTimeEpochMs": 1793807633559,
+        "executionTimeMs": 11,
+        "executionStatus": "success",
+        "error": {},
+        "output": {
+          "main": [
+            [
+              {
+                "json": {
+                  "ok": true,
+                  "stage": "next_day",
+                  "dailyBackfill": {
+                    "storeKey": "tmall-cuizhiwang",
+                    "startDate": "2026-10-28",
+                    "endDate": "2026-11-03",
+                    "currentDates": [
+                      "2026-10-30"
+                    ],
+                    "completedDates": [
+                      "2026-10-29"
+                    ],
+                    "remainingDates": [
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "missingProductDates": [
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "missingPromotionDates": [
+                      "2026-10-30",
+                      "2026-10-31",
+                      "2026-11-01",
+                      "2026-11-02",
+                      "2026-11-03"
+                    ],
+                    "status": "running"
+                  }
+                }
+              }
+            ],
+            []
+          ]
+        },
+        "runKeys": [
+          "startTime",
+          "executionIndex",
+          "source",
+          "hints",
+          "executionTime",
+          "executionStatus",
+          "data"
+        ]
+      }
+    ],
+    "workflow": {
+      "active": true,
+      "currentVersionId": "a50decc9-91a3-40ff-b872-84c846892d39",
+      "activeVersionId": "a50decc9-91a3-40ff-b872-84c846892d39",
+      "savedNodeCount": 18,
+      "savedMatchesCurrentNodes": false,
+      "savedMatchesCurrentConnections": true,
+      "savedMatchesCurrentSettings": true,
+      "savedMatchesPublishedNodes": false,
+      "savedMatchesPublishedConnections": true,
+      "savedMatchesRepoNodes": false,
+      "savedMatchesRepoConnections": true,
+      "savedMatchesRepoSettings": false,
+      "pRetryOnFail": [
+        null
+      ],
+      "pOnError": [
+        null
+      ],
+      "savedCurrentNodeDifferencePaths": [
+        "/0/parameters/notice",
+        "/1/parameters/language",
+        "/1/parameters/mode",
+        "/1/parameters/notice",
+        "/2/parameters/looseTypeValidation",
+        "/3/parameters/amount",
+        "/3/parameters/resume",
+        "/4/parameters/authentication",
+        "/4/parameters/curlImport",
+        "/4/parameters/infoMessage",
+        "/4/parameters/provideSslCertificates",
+        "/4/parameters/sendBody",
+        "/4/parameters/sendQuery",
+        "/4/parameters/specifyHeaders",
+        "/5/parameters/authentication",
+        "/5/parameters/curlImport",
+        "/5/parameters/infoMessage",
+        "/5/parameters/provideSslCertificates",
+        "/5/parameters/sendBody",
+        "/5/parameters/sendQuery",
+        "/5/parameters/specifyHeaders",
+        "/6/parameters/authentication",
+        "/6/parameters/curlImport",
+        "/6/parameters/infoMessage",
+        "/6/parameters/provideSslCertificates",
+        "/6/parameters/sendBody",
+        "/6/parameters/sendQuery",
+        "/6/parameters/specifyHeaders",
+        "/7/parameters/authentication",
+        "/7/parameters/curlImport",
+        "/7/parameters/infoMessage",
+        "/7/parameters/provideSslCertificates",
+        "/7/parameters/sendBody",
+        "/7/parameters/sendQuery",
+        "/7/parameters/specifyHeaders",
+        "/8/parameters/authentication",
+        "/8/parameters/curlImport",
+        "/8/parameters/infoMessage",
+        "/8/parameters/provideSslCertificates",
+        "/8/parameters/sendBody",
+        "/8/parameters/sendQuery",
+        "/8/parameters/specifyHeaders",
+        "/11/parameters/authentication",
+        "/11/parameters/contentTypeNotice",
+        "/11/parameters/multipleMethods",
+        "/11/parameters/responseMode",
+        "/12/parameters/notice",
+        "/12/parameters/rule/interval/0/notice",
+        "/13/parameters/language",
+        "/13/parameters/mode",
+        "/13/parameters/notice",
+        "/14/parameters/authentication",
+        "/14/parameters/curlImport",
+        "/14/parameters/infoMessage",
+        "/14/parameters/provideSslCertificates",
+        "/14/parameters/sendBody",
+        "/14/parameters/sendQuery",
+        "/14/parameters/specifyHeaders",
+        "/15/parameters/looseTypeValidation",
+        "/16/parameters/looseTypeValidation",
+        "/17/parameters/errorType"
+      ],
+      "savedRepoNodeDifferencePaths": [
+        "/0/parameters/notice",
+        "/1/parameters/language",
+        "/1/parameters/mode",
+        "/1/parameters/notice",
+        "/2/parameters/looseTypeValidation",
+        "/3/parameters/amount",
+        "/3/parameters/resume",
+        "/4/parameters/authentication",
+        "/4/parameters/curlImport",
+        "/4/parameters/infoMessage",
+        "/4/parameters/provideSslCertificates",
+        "/4/parameters/sendBody",
+        "/4/parameters/sendQuery",
+        "/4/parameters/specifyHeaders",
+        "/5/parameters/authentication",
+        "/5/parameters/curlImport",
+        "/5/parameters/infoMessage",
+        "/5/parameters/provideSslCertificates",
+        "/5/parameters/sendBody",
+        "/5/parameters/sendQuery",
+        "/5/parameters/specifyHeaders",
+        "/6/parameters/authentication",
+        "/6/parameters/curlImport",
+        "/6/parameters/infoMessage",
+        "/6/parameters/provideSslCertificates",
+        "/6/parameters/sendBody",
+        "/6/parameters/sendQuery",
+        "/6/parameters/specifyHeaders",
+        "/7/parameters/authentication",
+        "/7/parameters/curlImport",
+        "/7/parameters/infoMessage",
+        "/7/parameters/provideSslCertificates",
+        "/7/parameters/sendBody",
+        "/7/parameters/sendQuery",
+        "/7/parameters/specifyHeaders",
+        "/8/parameters/authentication",
+        "/8/parameters/curlImport",
+        "/8/parameters/infoMessage",
+        "/8/parameters/provideSslCertificates",
+        "/8/parameters/sendBody",
+        "/8/parameters/sendQuery",
+        "/8/parameters/specifyHeaders",
+        "/9/parameters/content",
+        "/10/parameters/content",
+        "/11/parameters/authentication",
+        "/11/parameters/contentTypeNotice",
+        "/11/parameters/multipleMethods",
+        "/11/parameters/responseMode",
+        "/12/parameters/notice",
+        "/12/parameters/rule/interval/0/notice",
+        "/13/parameters/language",
+        "/13/parameters/mode",
+        "/13/parameters/notice",
+        "/14/parameters/authentication",
+        "/14/parameters/curlImport",
+        "/14/parameters/infoMessage",
+        "/14/parameters/provideSslCertificates",
+        "/14/parameters/sendBody",
+        "/14/parameters/sendQuery",
+        "/14/parameters/specifyHeaders",
+        "/15/parameters/looseTypeValidation",
+        "/16/parameters/looseTypeValidation",
+        "/17/parameters/errorType"
+      ],
+      "savedRepoSettingsDifferencePaths": [
+        "/timezone"
+      ]
+    },
+    "savedShape": {
+      "rootKeys": [
+        "version",
+        "startData",
+        "resultData",
+        "executionData",
+        "resumeToken"
+      ],
+      "workflowKeys": [
+        "id",
+        "name",
+        "nodes",
+        "connections",
+        "settings",
+        "nodeGroups"
+      ]
+    },
+    "diagnosticFieldOccurrences": {
+      "challengePresent": 0,
+      "credentialRejected": 0,
+      "temporarilyLocked": 0,
+      "frameIndex": 0,
+      "ruleId": 0
+    },
+    "helperErrorPayloads": [
+      {
+        "ok": false,
+        "stage": "failed",
+        "error": "waiting_login：阿里妈妈需要人工验证或凭据被拒绝，停止自动登录",
+        "browserClosure": {
+          "ok": true,
+          "status": "closed"
+        },
+        "dailyBackfill": {
+          "storeKey": "tmall-cuizhiwang",
+          "startDate": "2026-10-28",
+          "endDate": "2026-11-03",
+          "currentDates": [
+            "2026-10-30"
+          ],
+          "completedDates": [
+            "2026-10-29"
+          ],
+          "remainingDates": [
+            "2026-10-30",
+            "2026-10-31",
+            "2026-11-01",
+            "2026-11-02",
+            "2026-11-03"
+          ],
+          "missingProductDates": [
+            "2026-10-30",
+            "2026-10-31",
+            "2026-11-01",
+            "2026-11-02",
+            "2026-11-03"
+          ],
+          "missingPromotionDates": [
+            "2026-10-30",
+            "2026-10-31",
+            "2026-11-01",
+            "2026-11-02",
+            "2026-11-03"
+          ],
+          "status": "running"
+        }
+      }
+    ]
+  }
+]

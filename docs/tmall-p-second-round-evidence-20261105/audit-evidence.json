@@ -1,0 +1,448 @@
+{
+  "audits": [
+    {
+      "name": "active-tmall-masitu.json",
+      "bytes": 578,
+      "sha256": "3840497da2deef0cb9020acafcea74fbbdfe88524ad1583e809da1f0d99adff0",
+      "fields": {
+        "protocol": "alimama_item_promotion_direct_v1",
+        "runId": "938c9a59-644f-4fda-a39a-94cd6137a414",
+        "storeKey": "tmall-masitu",
+        "startDate": "2026-10-29",
+        "endDate": "2026-10-29",
+        "stage": "failed",
+        "resumeStage": "planned",
+        "startedAt": "2026-11-04T15:53:57.047Z",
+        "updatedAt": "2026-11-04T15:54:08.180Z"
+      },
+      "errorMatchesInspectBranch": true,
+      "taskIdPresent": false,
+      "filePresent": false,
+      "importResultPresent": false,
+      "importStatus": null,
+      "warningCount": null,
+      "fileRowCount": null,
+      "keys": [
+        "version",
+        "protocol",
+        "runId",
+        "storeKey",
+        "shopName",
+        "baseUrl",
+        "startDate",
+        "endDate",
+        "startedAt",
+        "updatedAt",
+        "stage",
+        "reportName",
+        "resumeStage",
+        "error"
+      ]
+    },
+    {
+      "name": "active-tmall-cuizhiwang.json",
+      "bytes": 582,
+      "sha256": "1cecf57313a261855824dd0a63572c4883f7bd91081fa23b5795ef3ad8402708",
+      "fields": {
+        "protocol": "alimama_item_promotion_direct_v1",
+        "runId": "9c14ff80-5506-4fae-b062-23cd972d73ce",
+        "storeKey": "tmall-cuizhiwang",
+        "startDate": "2026-10-30",
+        "endDate": "2026-10-30",
+        "stage": "failed",
+        "resumeStage": "planned",
+        "startedAt": "2026-11-04T15:53:57.047Z",
+        "updatedAt": "2026-11-04T15:54:08.180Z"
+      },
+      "errorMatchesInspectBranch": true,
+      "taskIdPresent": false,
+      "filePresent": false,
+      "importResultPresent": false,
+      "importStatus": null,
+      "warningCount": null,
+      "fileRowCount": null,
+      "keys": [
+        "version",
+        "protocol",
+        "runId",
+        "storeKey",
+        "shopName",
+        "baseUrl",
+        "startDate",
+        "endDate",
+        "startedAt",
+        "updatedAt",
+        "stage",
+        "reportName",
+        "resumeStage",
+        "error"
+      ]
+    },
+    {
+      "name": "run-ac4515fe-1b73-42aa-b594-7418a08bb2e6.json",
+      "bytes": 1221,
+      "sha256": "413315f89e8df5c2d3a25be75e71b426cef7bb196a9579f1b5aed90ddf722b0a",
+      "fields": {
+        "protocol": "alimama_item_promotion_direct_v1",
+        "runId": "ac4515fe-1b73-42aa-b594-7418a08bb2e6",
+        "storeKey": "tmall-masitu",
+        "startDate": "2026-10-28",
+        "endDate": "2026-10-28",
+        "stage": "completed",
+        "startedAt": "2026-11-03T03:40:42.299Z",
+        "updatedAt": "2026-11-04T15:53:52.547Z"
+      },
+      "errorMatchesInspectBranch": false,
+      "taskIdPresent": true,
+      "filePresent": true,
+      "importResultPresent": true,
+      "importStatus": "imported",
+      "warningCount": 0,
+      "fileRowCount": 20,
+      "keys": [
+        "version",
+        "protocol",
+        "runId",
+        "storeKey",
+        "shopName",
+        "baseUrl",
+        "startDate",
+        "endDate",
+        "startedAt",
+        "updatedAt",
+        "stage",
+        "reportName",
+        "taskId",
+        "file",
+        "importResult"
+      ]
+    },
+    {
+      "name": "run-32e858cd-2e8d-4e57-9b4d-2fe1167fc81e.json",
+      "bytes": 1229,
+      "sha256": "9fee91013e8aecdb44ab4ab7f1139123a3024decdb37445babd0f8694041743b",
+      "fields": {
+        "protocol": "alimama_item_promotion_direct_v1",
+        "runId": "32e858cd-2e8d-4e57-9b4d-2fe1167fc81e",
+        "storeKey": "tmall-cuizhiwang",
+        "startDate": "2026-10-29",
+        "endDate": "2026-10-29",
+        "stage": "completed",
+        "startedAt": "2026-11-03T03:31:36.981Z",
+        "updatedAt": "2026-11-04T15:53:52.663Z"
+      },
+      "errorMatchesInspectBranch": false,
+      "taskIdPresent": true,
+      "filePresent": true,
+      "importResultPresent": true,
+      "importStatus": "imported",
+      "warningCount": 0,
+      "fileRowCount": 45,
+      "keys": [
+        "version",
+        "protocol",
+        "runId",
+        "storeKey",
+        "shopName",
+        "baseUrl",
+        "startDate",
+        "endDate",
+        "startedAt",
+        "updatedAt",
+        "stage",
+        "reportName",
+        "taskId",
+        "file",
+        "importResult"
+      ]
+    }
+  ],
+  "backfills": [
+    {
+      "name": "backfill-11192-tmall-masitu-0.json",
+      "bytes": 759,
+      "sha256": "b9c176cf346119fe2e3c0759b323ad03dce14faf43b83f0509b255c2b2725d26",
+      "summary": {
+        "storeKey": "tmall-masitu",
+        "startDate": "2026-10-28",
+        "endDate": "2026-11-03",
+        "currentDates": [
+          "2026-10-28"
+        ],
+        "completedDates": [],
+        "remainingDates": [
+          "2026-10-28",
+          "2026-10-29",
+          "2026-10-30",
+          "2026-10-31",
+          "2026-11-01",
+          "2026-11-02",
+          "2026-11-03"
+        ],
+        "missingProductDates": [
+          "2026-10-29",
+          "2026-10-30",
+          "2026-10-31",
+          "2026-11-01",
+          "2026-11-02",
+          "2026-11-03"
+        ],
+        "missingPromotionDates": [
+          "2026-10-28",
+          "2026-10-29",
+          "2026-10-30",
+          "2026-10-31",
+          "2026-11-01",
+          "2026-11-02",
+          "2026-11-03"
+        ],
+        "planPathsBase64": [
+          null
+        ],
+        "status": "running"
+      },
+      "keys": [
+        "version",
+        "executionId",
+        "storeKey",
+        "startedAt",
+        "startDate",
+        "endDate",
+        "cycle",
+        "currentDates",
+        "completedDates",
+        "remainingDates",
+        "missingProductDates",
+        "missingPromotionDates",
+        "planPathsBase64",
+        "status",
+        "budgetReason",
+        "policy"
+      ]
+    },
+    {
+      "name": "backfill-11192-tmall-masitu-1.json",
+      "bytes": 888,
+      "sha256": "aee96e160c95f5cbac91cf3bcb273ddb4cfe50614b9314a24402ba45519738a8",
+      "summary": {
+        "storeKey": "tmall-masitu",
+        "startDate": "2026-10-28",
+        "endDate": "2026-11-03",
+        "currentDates": [
+          "2026-10-29"
+        ],
+        "completedDates": [
+          "2026-10-28"
+        ],
+        "remainingDates": [
+          "2026-10-29",
+          "2026-10-30",
+          "2026-10-31",
+          "2026-11-01",
+          "2026-11-02",
+          "2026-11-03"
+        ],
+        "missingProductDates": [
+          "2026-10-29",
+          "2026-10-30",
+          "2026-10-31",
+          "2026-11-01",
+          "2026-11-02",
+          "2026-11-03"
+        ],
+        "missingPromotionDates": [
+          "2026-10-29",
+          "2026-10-30",
+          "2026-10-31",
+          "2026-11-01",
+          "2026-11-02",
+          "2026-11-03"
+        ],
+        "planPathsBase64": [
+          null,
+          null
+        ],
+        "status": "running"
+      },
+      "keys": [
+        "version",
+        "executionId",
+        "storeKey",
+        "startedAt",
+        "startDate",
+        "endDate",
+        "cycle",
+        "currentDates",
+        "completedDates",
+        "remainingDates",
+        "missingProductDates",
+        "missingPromotionDates",
+        "planPathsBase64",
+        "status",
+        "budgetReason",
+        "policy"
+      ]
+    },
+    {
+      "name": "backfill-11193-tmall-cuizhiwang-0.json",
+      "bytes": 724,
+      "sha256": "8f88dc9d5d776fde520da6fb7473af83ca9170d6b56cd518efafb0f5f39ce6ab",
+      "summary": {
+        "storeKey": "tmall-cuizhiwang",
+        "startDate": "2026-10-28",
+        "endDate": "2026-11-03",
+        "currentDates": [
+          "2026-10-29"
+        ],
+        "completedDates": [],
+        "remainingDates": [
+          "2026-10-29",
+          "2026-10-30",
+          "2026-10-31",
+          "2026-11-01",
+          "2026-11-02",
+          "2026-11-03"
+        ],
+        "missingProductDates": [
+          "2026-10-30",
+          "2026-10-31",
+          "2026-11-01",
+          "2026-11-02",
+          "2026-11-03"
+        ],
+        "missingPromotionDates": [
+          "2026-10-29",
+          "2026-10-30",
+          "2026-10-31",
+          "2026-11-01",
+          "2026-11-02",
+          "2026-11-03"
+        ],
+        "planPathsBase64": [
+          null
+        ],
+        "status": "running"
+      },
+      "keys": [
+        "version",
+        "executionId",
+        "storeKey",
+        "startedAt",
+        "startDate",
+        "endDate",
+        "cycle",
+        "currentDates",
+        "completedDates",
+        "remainingDates",
+        "missingProductDates",
+        "missingPromotionDates",
+        "planPathsBase64",
+        "status",
+        "budgetReason",
+        "policy"
+      ]
+    },
+    {
+      "name": "backfill-11193-tmall-cuizhiwang-1.json",
+      "bytes": 853,
+      "sha256": "6f00f5a90bf0651545bfa50e6602814827af51162a15de6de07efda28089e770",
+      "summary": {
+        "storeKey": "tmall-cuizhiwang",
+        "startDate": "2026-10-28",
+        "endDate": "2026-11-03",
+        "currentDates": [
+          "2026-10-30"
+        ],
+        "completedDates": [
+          "2026-10-29"
+        ],
+        "remainingDates": [
+          "2026-10-30",
+          "2026-10-31",
+          "2026-11-01",
+          "2026-11-02",
+          "2026-11-03"
+        ],
+        "missingProductDates": [
+          "2026-10-30",
+          "2026-10-31",
+          "2026-11-01",
+          "2026-11-02",
+          "2026-11-03"
+        ],
+        "missingPromotionDates": [
+          "2026-10-30",
+          "2026-10-31",
+          "2026-11-01",
+          "2026-11-02",
+          "2026-11-03"
+        ],
+        "planPathsBase64": [
+          null,
+          null
+        ],
+        "status": "running"
+      },
+      "keys": [
+        "version",
+        "executionId",
+        "storeKey",
+        "startedAt",
+        "startDate",
+        "endDate",
+        "cycle",
+        "currentDates",
+        "completedDates",
+        "remainingDates",
+        "missingProductDates",
+        "missingPromotionDates",
+        "planPathsBase64",
+        "status",
+        "budgetReason",
+        "policy"
+      ]
+    }
+  ],
+  "sourceAtMainEce8c7ec": [
+    {
+      "path": "tools/tmall-alimama-login.ts",
+      "bytes": 6041,
+      "sha256": "60d245e58e936062be02f6eb72cc641e553f7dedb4abeaf6daf818b2111093d8"
+    },
+    {
+      "path": "tools/tmall-saved-login.ts",
+      "bytes": 15419,
+      "sha256": "5c8a9bee99cf81899cabf5c5ee9d3fe821a0ced66aa1e927da4b6a4f2912221f"
+    },
+    {
+      "path": "tools/tmall-direct-promotion-export.ts",
+      "bytes": 26170,
+      "sha256": "c8971b7a9615b3ee3b4492c41fe2f8bbc54665f775aedfcbd9fcf606609b7778"
+    },
+    {
+      "path": "tools/tmall-promotion-export.ts",
+      "bytes": 153894,
+      "sha256": "88f19265fe46b413fcbdd91b47e5707e7e1b8f664df1733975441a49d6f5f1ed"
+    },
+    {
+      "path": "tools/tmall-sycm-cookie-pipeline.ts",
+      "bytes": 95288,
+      "sha256": "96088ee1860e49e79d8ac8ec2e5b51835367407342eb368fbeafe4f8ce0ae301"
+    },
+    {
+      "path": "tools/tmall-daily-backfill.ts",
+      "bytes": 5245,
+      "sha256": "b4f07c34cac4acb698b04be97c7c71f7acc686e52aa75ca6f40a16a200b636c2"
+    },
+    {
+      "path": "tools/tmall-uniform-direct-workflows.ts",
+      "bytes": 8563,
+      "sha256": "65dca573d2189a7f274781227044eb9e8819acb93a681ad918db10e50f6606d1"
+    },
+    {
+      "path": "tools/generate-tmall-n8n-workflows.ts",
+      "bytes": 30798,
+      "sha256": "713bc656c98162a6990d2ea82bb437f2ed2fef3de1dd8acda78d8a8d303a6219"
+    }
+  ]
+}
