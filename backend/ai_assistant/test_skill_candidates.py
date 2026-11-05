@@ -474,3 +474,51 @@ class SkillCandidateTests(TestCase):
     def test_wrong_method_on_skill_candidates_listing_is_404(self):
         response = self.call("/api/ai/pi/skill-candidates", {}, self.owner, method="POST")
         self.assertEqual(response.status_code, 404, response.content)
+    # -- review_note is byte-limited, matching the database's
+    # octet_length(review_note)<=2000 CHECK (migration 0089). sqlite test
+    # databases never install that CHECK, so these tests only prove the
+    # application rejects an overlong note before it would ever reach the
+    # database.
+
+    def test_review_note_at_666_chinese_characters_1998_bytes_is_accepted(self):
+        op = self.settled()
+        item = skill_candidates.save(op.id, self.body(), self.owner,
+                                     registry_tools=TOOLS)["item"]
+        note = "审" * 666
+        self.assertEqual(len(note.encode("utf-8")), 1998)
+        approved = skill_candidates.review(item["id"], {
+            "status": "approved", "expectedVersion": item["version"],
+            "contentDigest": item["contentDigest"], "note": note}, self.owner)["item"]
+        self.assertEqual(approved["reviewNote"], note)
+
+    def test_review_note_at_667_chinese_characters_2001_bytes_is_rejected_as_400(self):
+        # 667 * 3 = 2001 bytes, over the 2000-byte CHECK, from only 667
+        # characters -- text()'s character count (maximum=2000) would have
+        # allowed this.
+        op = self.settled()
+        item = skill_candidates.save(op.id, self.body(), self.owner,
+                                     registry_tools=TOOLS)["item"]
+        note = "审" * 667
+        self.assertEqual(len(note.encode("utf-8")), 2001)
+        with self.assertRaises(AiError) as caught:
+            skill_candidates.review(item["id"], {
+                "status": "approved", "expectedVersion": item["version"],
+                "contentDigest": item["contentDigest"], "note": note}, self.owner)
+        self.assertEqual(caught.exception.status, 413)
+        # The rejected review must not have landed: still draft.
+        self.assertEqual(m.AiSkillCandidate.objects.get(id=item["id"]).status, "draft")
+
+    def test_review_note_at_exactly_2000_bytes_is_accepted(self):
+        # Pins the upper edge itself, not just a value 2 bytes under it: pure
+        # Chinese text can only land on multiples of 3 (2000 % 3 == 2), so a
+        # mixed-width note is needed to hit the boundary exactly, the same way
+        # targetRef's mixed-width test does.
+        op = self.settled()
+        item = skill_candidates.save(op.id, self.body(), self.owner,
+                                     registry_tools=TOOLS)["item"]
+        note = ("审" * 666) + "xy"
+        self.assertEqual(len(note.encode("utf-8")), 2000)
+        approved = skill_candidates.review(item["id"], {
+            "status": "approved", "expectedVersion": item["version"],
+            "contentDigest": item["contentDigest"], "note": note}, self.owner)["item"]
+        self.assertEqual(approved["reviewNote"], note)
