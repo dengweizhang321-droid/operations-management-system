@@ -356,6 +356,61 @@ export function readN8nJackyunCloseEvidence(ids: string[]) {
   } finally { db.close(); }
 }
 
+export type JackyunCloseEvidence = ReturnType<typeof readN8nJackyunCloseEvidence>;
+
+/** Continue an intent whose n8n rows were pruned after the intent was sealed.
+ *
+ * The intent's evidenceDigest already commits to the exact census taken while
+ * those rows existed, so a candidate census that reproduces the sealed digest
+ * is the same proof — not a relaxed one. Rows that are still present must keep
+ * passing the strict terminal-failure census above; only rows n8n no longer has
+ * may be supplied from the sealed commitment, and the stored digest decides.
+ */
+type CloseRowReader = { anyActive: () => boolean; row: (id: string) => Record<string, unknown> | undefined };
+
+export function assertSealedJackyunCloseEvidence(ids: string[], sealed: {
+  evidenceDigest: string; files: Record<string, string>; candidate: JackyunCloseEvidence;
+  digest: (value: unknown) => string;
+}, reader: CloseRowReader): JackyunCloseEvidence {
+  if (!ids.length || ids.some(id => !/^[1-9]\d{0,19}$/.test(id))) throw new Error("闭合执行身份无效。");
+  if (!/^[a-f0-9]{64}$/.test(sealed.evidenceDigest)) throw new Error("原闭合证据摘要无效。");
+  const unique = [...new Set(ids)];
+  if (!Array.isArray(sealed.candidate) || sealed.candidate.length !== unique.length
+    || sealed.candidate.some((entry, index) => !entry || typeof entry !== "object" || entry.executionId !== unique[index]
+      || !["error", "canceled", "crashed"].includes(entry.status)
+      || Object.keys(entry).sort().join() !== ["executionId", "status", "startedAt", "stoppedAt"].sort().join()
+      || !Number.isFinite(Date.parse(entry.startedAt)) || !Number.isFinite(Date.parse(entry.stoppedAt))
+      || Date.parse(entry.stoppedAt) < Date.parse(entry.startedAt))) throw new Error("原闭合证据与当前闭合目标不一致。");
+  if (reader.anyActive()) throw new Error("该工作流仍有运行或等待中的任务，暂不能闭合。");
+  let missing = 0;
+  for (const entry of sealed.candidate) {
+    const row = reader.row(entry.executionId);
+    if (!row) { missing += 1; continue; }
+    // Still recorded: the original strict census stays in force, and it must
+    // also match what the sealed intent committed to.
+    if (!["error", "canceled", "crashed"].includes(String(row.status)) || row.deletedAt !== null || row.retrySuccessId !== null || !row.stoppedAt) throw new Error("原任务缺少明确失败终态，暂不能闭合。");
+    if (String(row.status) !== entry.status || n8nEvidenceTime(row.startedAt) !== entry.startedAt
+      || n8nEvidenceTime(row.stoppedAt) !== entry.stoppedAt) throw new Error("原任务终态与原闭合证据不一致，需核查原任务。");
+  }
+  if (!missing) throw new Error("原任务证据仍完整，必须按原闭合核验继续。");
+  if (sealed.digest({ files: sealed.files, n8n: sealed.candidate }) !== sealed.evidenceDigest) throw new Error("原闭合证据摘要无法复现，禁止在缺少 n8n 记录时闭合。");
+  return sealed.candidate;
+}
+
+export function readSealedJackyunCloseEvidence(ids: string[], sealed: {
+  evidenceDigest: string; files: Record<string, string>; candidate: JackyunCloseEvidence;
+  digest: (value: unknown) => string;
+}): JackyunCloseEvidence {
+  const db = openN8nMetadata();
+  try {
+    db.exec("PRAGMA query_only=ON; PRAGMA busy_timeout=3000; BEGIN");
+    return assertSealedJackyunCloseEvidence(ids, sealed, {
+      anyActive: () => !!db.prepare("SELECT id FROM execution_entity WHERE workflowId=? AND deletedAt IS NULL AND status NOT IN ('error','success','canceled','crashed') LIMIT 1").get(jackyunWorkflowId),
+      row: id => db.prepare("SELECT id,status,startedAt,stoppedAt,retrySuccessId,deletedAt FROM execution_entity WHERE id=? AND workflowId=?").get(id, jackyunWorkflowId),
+    });
+  } finally { db.close(); }
+}
+
 export function assertN8nJackyunAAdmission(executionId: string) {
   if (!/^[1-9]\d{0,19}$/.test(executionId)) throw new Error("完整 A 领取身份无效。");
   const db = openN8nMetadata();

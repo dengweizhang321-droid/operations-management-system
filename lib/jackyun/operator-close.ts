@@ -7,7 +7,7 @@ import { readJsonDurableOr, writeJsonDurable } from "./json-file";
 import { readJackyunRecoveryTarget, readHumanRetryAuthority, type HumanRetryAuthority } from "./human-retry";
 import { closedIndex, closeDirectory, closeRecord, readCloseIntent, type CloseIntent } from "./operator-close-fence";
 import { validJackyunCloseIdentity, type JackyunCloseIdentity, type JackyunCloseTarget } from "./operator-close-contract";
-import { readAcceptedJackyunHumanDispatch, readN8nJackyunCloseEvidence, readN8nJackyunOwnerState } from "./n8n-preflight-evidence";
+import { readAcceptedJackyunHumanDispatch, readN8nJackyunCloseEvidence, readN8nJackyunOwnerState, readSealedJackyunCloseEvidence, type JackyunCloseEvidence } from "./n8n-preflight-evidence";
 import { defaultJackyunRunLockDirectory, inspectJackyunRunLock, retireExitedJackyunSlotLock, withJackyunRunLock } from "./run-lock";
 import { assertJackyunCloseResourcesIdle } from "./operator-close-resources";
 import { importRecoveryQuery, importRecoveryScope } from "./publication-baseline";
@@ -187,6 +187,23 @@ async function revokeHumanDispatches(root: string, intent: CloseIntent, request:
     }
   }
 }
+/** Live census first; fall back to the intent's sealed commitment only when n8n
+ * no longer holds the rows. The declaration is an operator file, never derived
+ * here, and the intent's own evidenceDigest is the only thing that accepts it. */
+function assertSealedOrLiveCloseEvidence(root: string, intent: CloseIntent, target: JackyunCloseIdentity) {
+  try { readN8nJackyunCloseEvidence(ids(target)); return; }
+  catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message !== "原任务缺少明确失败终态，暂不能闭合。") throw error;
+  }
+  const file = path.join(closeDirectory(root, target.logicalExecutionId), "pruned-evidence.json");
+  const declared = closeRecord(file) as { version?: string; authorizationId?: string; n8n?: unknown } | null;
+  if (!declared) throw new Error("原任务 n8n 记录已缺失；闭合需要操作者声明原终态证据（pruned-evidence.json），请核查原任务。");
+  if (declared.version !== "jackyun-operator-close-pruned-evidence-v1" || declared.authorizationId !== intent.authorizationId
+    || !Array.isArray(declared.n8n)) throw new Error("原终态证据声明身份无效。");
+  readSealedJackyunCloseEvidence(ids(target), { evidenceDigest: target.evidenceDigest, files: intent.files,
+    candidate: declared.n8n as JackyunCloseEvidence, digest: controlDigest });
+}
 async function publishIntent(root: string, value: Awaited<ReturnType<typeof inspect>>, approved: Authority) {
   const staging = path.join(base(root), "operator-closure-staging", approved.authorizationId), dir = closeDirectory(root, value.target.logicalExecutionId);
   await mkdir(staging, { recursive: true });
@@ -241,7 +258,7 @@ export async function closeJackyunExecution(root: string, authorizationId: strin
       }
       const done = closeRecord(path.join(dir, "closed.json"));
       if (done) { closedIndex(root); return { ok: true, state: "closed", authorizationId: intent.authorizationId }; }
-      readN8nJackyunCloseEvidence(ids(target)); frozen.assertExited();
+      assertSealedOrLiveCloseEvidence(root, intent, target); frozen.assertExited();
       const plan = await readJsonDurableOr<Plan | null>(path.join(base(root), `n8n-export-first-${target.sourceExecutionId}.json`), null);
       if (!plan || controlDigest(plan) !== target.planDigest || !isDeepStrictEqual(await metadata(root, target.sourceExecutionId), intent.files)
         || (await readRecoveryControl(root, target.logicalExecutionId))?.digest !== (target.controlDigest === controlDigest(null) ? undefined : target.controlDigest)) throw new Error("原闭合证据已变化，保留冻结状态，需核查原任务。");
