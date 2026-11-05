@@ -28,17 +28,6 @@ from .policy import AiError, canonical, integer, record, text
 CANDIDATE_ROW_CEILING = 4000
 
 
-class _Ranked(list):
-    """A plain list of (row, score) pairs that also carries whether the
-    database admission scan hit CANDIDATE_ROW_CEILING. Subclassing list
-    instead of returning a tuple keeps every existing caller (len(), slicing,
-    `for row, score in ranked`) working unchanged; only code that reads the
-    new `.admission_truncated` attribute needs to know about it.
-    """
-
-    admission_truncated = False
-
-
 def rank(query, principal):
     normalized = re.sub(r"\s+", " ", query.lower()).strip()
     segments = [
@@ -132,14 +121,24 @@ def rank(query, principal):
     # user's prompt, for a curator-maintained table where "most recently
     # maintained" is the more defensible tie-break, not an arbitrary
     # id-ordering artifact.
-    ranked = _Ranked(
-        sorted(results, key=lambda entry: (-entry[1], -entry[0].updated_at.timestamp(), entry[0].id))
+    ranked = sorted(
+        results, key=lambda entry: (-entry[1], -entry[0].updated_at.timestamp(), entry[0].id)
     )
-    # Admission (row-scan) truncation is distinct from the output limit
-    # search() applies afterwards; expose it so a caller can tell the two
-    # apart instead of only ever seeing the already-visible output cut.
-    ranked.admission_truncated = truncated
-    return ranked
+    # Returns (ranked, admission_truncated) as an explicit tuple, not a
+    # list subclass carrying admission_truncated as an instance attribute.
+    # An earlier version used a `list` subclass for this; a reviewer caught
+    # that Python's list slicing (`ranked[:4]`, `ranked[:limit]` -- exactly
+    # what both callers below do) always returns a plain `list`, silently
+    # dropping both the subclass and the attribute back to the class-level
+    # default (False) with no error, no type complaint, and no guaranteed
+    # test coverage. Both current callers happened to read the attribute
+    # off the full pre-slice object, so they were not actually affected,
+    # but the trap was real for any future caller that slices first. An
+    # explicit tuple makes the two pieces of information impossible to
+    # silently decouple: there is no attribute to forget to re-attach,
+    # because there is no object identity for it to silently ride along
+    # with (or fail to).
+    return ranked, truncated
 
 
 def search(query, principal, limit=4):
@@ -153,7 +152,7 @@ def search(query, principal, limit=4):
     if len(query) < 2:
         raise AiError("知识 query 至少 2 个字符")
     limit = integer(limit, "limit", 1, 8)
-    ranked = rank(query, principal)
+    ranked, admission_truncated = rank(query, principal)
     items = []
     for row, score in ranked[:limit]:
         item = record(
@@ -199,7 +198,7 @@ def search(query, principal, limit=4):
         # old implementation hit this silently on every call (recency window
         # of 100) with no way for a caller to tell; this field makes that
         # condition visible instead of leaving it undetectable.
-        "admissionTruncated": ranked.admission_truncated,
+        "admissionTruncated": admission_truncated,
         "items": items,
     }
 
@@ -207,7 +206,7 @@ def search(query, principal, limit=4):
 def context(query, principal):
     if len(query.strip()) < 2:
         return ""
-    ranked = rank(query[:80], principal)
+    ranked, admission_truncated = rank(query[:80], principal)
     blocks = []
     for row, _ in ranked[:4]:
         item = dict(
@@ -217,7 +216,7 @@ def context(query, principal):
         if sum(len(v) for v in blocks) + len(encoded) > 3000:
             break
         blocks.append(encoded)
-    if not blocks and not ranked.admission_truncated:
+    if not blocks and not admission_truncated:
         return ""
     # Admission truncation has to be visible here too, not only on
     # search()'s structured response: the model is the direct consumer of
@@ -227,5 +226,5 @@ def context(query, principal):
     # silent empty string or a silently partial <knowledge> block both read
     # to the model as "no better match exists", which is not what
     # admission truncation means.
-    note = "<truncated>知识库候选超过扫描上限，结果可能不完整</truncated>" if ranked.admission_truncated else ""
+    note = "<truncated>知识库候选超过扫描上限，结果可能不完整</truncated>" if admission_truncated else ""
     return "\n<knowledge>" + "\n".join(blocks) + note + "</knowledge>"

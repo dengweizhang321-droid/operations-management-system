@@ -232,16 +232,16 @@ class KnowledgeRankTruncationTests(TestCase):
                 content_digest="d" * 64,
                 updated_at=base - timedelta(seconds=offset),
             )
-        ranked_ids = [row.id for row, _ in knowledge.rank("稀有探针词", self.owner)]
+        ranked, _ = knowledge.rank("稀有探针词", self.owner)
+        ranked_ids = [row.id for row, _ in ranked]
         self.assertEqual(
             ranked_ids,
             ["knowledge-tie-c", "knowledge-tie-b", "knowledge-tie-a"],
             "tied-score rows must sort by recency (most recent first), "
             "falling back to id only when updated_at also ties",
         )
-        self.assertEqual(
-            ranked_ids, [row.id for row, _ in knowledge.rank("稀有探针词", self.owner)]
-        )
+        ranked_again, _ = knowledge.rank("稀有探针词", self.owner)
+        self.assertEqual(ranked_ids, [row.id for row, _ in ranked_again])
 
     def test_tied_scores_and_tied_updated_at_fall_back_to_id(self):
         """When score AND updated_at both tie, id is the final tiebreaker
@@ -261,7 +261,8 @@ class KnowledgeRankTruncationTests(TestCase):
                 content_digest="d" * 64,
                 updated_at=base,  # identical updated_at for all three
             )
-        ranked_ids = [row.id for row, _ in knowledge.rank("稀有探针词", self.owner)]
+        ranked, _ = knowledge.rank("稀有探针词", self.owner)
+        ranked_ids = [row.id for row, _ in ranked]
         self.assertEqual(
             ranked_ids,
             ["knowledge-idtie-a", "knowledge-idtie-b", "knowledge-idtie-c"],
@@ -524,7 +525,7 @@ class KnowledgeRankTruncationTests(TestCase):
             allowed_roles_json='["analyst"]',
             content_digest="a" * 64,
         )
-        ranked = knowledge.rank("大毛利率", self.owner)
+        ranked, _ = knowledge.rank("大毛利率", self.owner)
         self.assertEqual(len(ranked), 1)
         row, score = ranked[0]
         self.assertEqual(row.id, "knowledge-score-exact-title")
@@ -577,6 +578,24 @@ class KnowledgeRankTruncationTests(TestCase):
         result = knowledge.search("完全不存在的探针词絕對不匹配", self.owner)
         self.assertTrue(result["admissionTruncated"])
         self.assertEqual(result["returned"], 0)
+
+    def test_truncated_signal_survives_slicing_the_ranked_list(self):
+        """rank() must return (ranked, truncated) as an explicit tuple, not
+        a list subclass carrying truncated as an instance attribute -- a
+        reviewer caught that Python's list slicing (`ranked[:n]`, exactly
+        what both search() and context() do on the ranked list) always
+        returns a plain `list`, silently dropping a subclass and any
+        instance attribute on it back to a class-level default with no
+        error. This pins the fix directly at the rank() boundary: unpack
+        the tuple, slice only the `ranked` half, and confirm the
+        `truncated` half -- obtained from the same unpacking, before any
+        slicing touches `ranked` -- is unaffected by that slice.
+        """
+        seed_filler(knowledge.CANDIDATE_ROW_CEILING + 1)
+        ranked, truncated = knowledge.rank("完全不存在的探针词絕對不匹配", self.owner)
+        sliced = ranked[:4]
+        self.assertEqual(sliced, [])
+        self.assertTrue(truncated)
 
     # -- Chinese long-query safety: no SQL substring pushdown means no
     # -- SQLite expression-tree limit to hit --
