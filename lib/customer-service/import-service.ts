@@ -71,14 +71,23 @@ export const CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT = 200;
 export const CUSTOMER_SERVICE_IMPORT_MESSAGE_CONTENT_LIMIT = 4_000;
 export const CUSTOMER_SERVICE_IMPORT_CONVERSATION_MESSAGE_BYTES_LIMIT = 128 * 1024;
 
+// Keep this text classifier in sync with Django's MESSAGE_COUNT_WARNING.
+// The public warnings contract remains string[] for existing batches/clients.
+const MESSAGE_COUNT_WARNING = /^第 \d+ 条客服会话含 \d+ 条消息，超过 \d+ 条警告阈值，已保留全部消息。$/;
+
 export function summarizeCustomerServiceWarnings(warnings: readonly unknown[], totalCount = warnings.length) {
   const items: string[] = [];
   const encoder = new TextEncoder();
-  for (const warning of warnings) {
-    if (items.length >= CUSTOMER_SERVICE_WARNING_LIMIT) break;
-    const candidate = String(warning ?? "").slice(0, CUSTOMER_SERVICE_WARNING_CONTENT_LIMIT);
-    if (encoder.encode(JSON.stringify([...items, candidate])).byteLength > CUSTOMER_SERVICE_WARNING_BYTES_LIMIT) break;
-    items.push(candidate);
+  // Stable priority selection: late count warnings can displace ambiguity
+  // details without changing either the total count or the payload budgets.
+  selection: for (const priority of [true, false]) {
+    for (const warning of warnings) {
+      const candidate = String(warning ?? "").slice(0, CUSTOMER_SERVICE_WARNING_CONTENT_LIMIT);
+      if (MESSAGE_COUNT_WARNING.test(candidate) !== priority) continue;
+      if (items.length >= CUSTOMER_SERVICE_WARNING_LIMIT) break selection;
+      if (encoder.encode(JSON.stringify([...items, candidate])).byteLength > CUSTOMER_SERVICE_WARNING_BYTES_LIMIT) break selection;
+      items.push(candidate);
+    }
   }
   const normalizedTotal = Math.max(items.length, Number.isSafeInteger(totalCount) && totalCount >= 0 ? totalCount : warnings.length);
   return { warnings: items, warningTotalCount: normalizedTotal, warningsTruncated: items.length < normalizedTotal };
@@ -126,11 +135,11 @@ function numberOrNull(value: unknown, field: string, rowNumber: number, integer 
   return number;
 }
 
-export function validateCustomerServiceConversationMessages(conversations: readonly CustomerServiceConversationInput[], policy: "import" | "closure_evidence" = "import") {
+export function validateCustomerServiceConversationMessages(conversations: readonly CustomerServiceConversationInput[], policy: "import" | "closure_evidence" = "import", addWarning?: (warning: string) => void) {
   const encoder = new TextEncoder();
   conversations.forEach((conversation, conversationIndex) => {
     if (policy === "import" && conversation.messages.length > CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT) {
-      throw new CustomerServiceImportError(`第 ${conversationIndex + 1} 条客服会话消息数超过 ${CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT} 条上限`, "MESSAGE_LIMIT_EXCEEDED");
+      addWarning?.(`第 ${conversationIndex + 1} 条客服会话含 ${conversation.messages.length} 条消息，超过 ${CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT} 条警告阈值，已保留全部消息。`);
     }
     conversation.messages.forEach((message, messageIndex) => {
       if (message.content.length > CUSTOMER_SERVICE_IMPORT_MESSAGE_CONTENT_LIMIT) {
@@ -419,6 +428,10 @@ export function matchCustomerServiceRecords(sessions: CustomerServiceSession[], 
 
 export function parseCustomerServiceImport(sessionBytes: Uint8Array, chatLog: string, policy: "import" | "closure_evidence" = "import") {
   const parsed = matchCustomerServiceRecords(parseSessionWorkbook(sessionBytes), parseChatLog(chatLog, policy));
-  validateCustomerServiceConversationMessages(parsed.conversations, policy);
+  validateCustomerServiceConversationMessages(parsed.conversations, policy, (warning) => {
+    Object.assign(parsed, summarizeCustomerServiceWarnings(
+      [...parsed.warnings, warning], (parsed.warningTotalCount ?? parsed.warnings.length) + 1,
+    ));
+  });
   return parsed;
 }

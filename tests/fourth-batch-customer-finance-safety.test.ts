@@ -287,7 +287,7 @@ test.skip("客服消息与 D1 原子发布按单会话、总字节和语句数�
     sentAt: `2026-08-05 10:${String(index % 60).padStart(2, "0")}:00`,
     content: "内容",
   }));
-  assert.throws(() => planCustomerServiceImportPayloads("测试店铺", tooManyMessages.conversations), /消息数超过/);
+  assert.equal(JSON.parse(planCustomerServiceImportPayloads("测试店铺", tooManyMessages.conversations).payloads[0])[0].messages.length, CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT + 1);
 
   const boundary = customerImport("客服甲", "内容");
   boundary.conversations = Array.from({ length: 81 }, (_, index) => ({
