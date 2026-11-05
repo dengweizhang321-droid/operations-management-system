@@ -32,10 +32,25 @@ const terminalFailurePatterns = [
   "JACKYUN_PREFLIGHT_RETRY_READY",
   "API_LOGIN_PAGE_NOT_UNIQUE|原运行 n8n-export-first-[1-9]\\d{0,19} 尚未闭合",
   "店铺身份|账号身份|identity(?: mismatch| invalid)|cross[- ]store|跨店|wrong store",
-  "登录失效|需要登录|登录.*(?:失败|异常|拒绝|未就绪)|login (?:required|failed|failure)|not authenticated|session invalid|cookie invalid|passport\\.jd\\.com|login\\.taobao\\.com",
+  // 登录态加载超时是风控/掉登录的前兆，不是网络抖动：11-04 两店这一条
+  // 之后一小时就转为 waiting_login，重试只是把人工介入推迟一轮。
+  // 必须作为精确字面量，不能挂进后面那组 `登录.*(?:…)`：failureText 是把 error
+  // 各字段拼接而成，`.*` 会跨字段匹配——节点名 `B·共用登录态：顺序导出五表`
+  // 加上无关的 `…状态加载超时` 就会被误判终局。
+  // `登录` 与尾巴之间用 [^\s] 且限长 12：failureText 由各字段 join(" ") 拼成，
+  // 禁止空白即禁止跨字段，`.*` 会让节点名 `B·共用登录态：顺序导出五表` 配上无关的
+  // `下载失败（网络）` 被误判终局。仓库内 8 条真实文案的最大间隔为 10 且均不含空白。
+  "登录失效|需要登录|登录状态加载超时|登录[^\\s]{0,12}?(?:失败|异常|拒绝|未就绪)|login (?:required|failed|failure)|not authenticated|session invalid|cookie invalid|passport\\.jd\\.com|login\\.taobao\\.com",
   "多个候选|候选.*不唯一|任务.*歧义|ambiguous|multiple candidates",
-  "点击结果未决|提交结果未决|result unknown|dispatch unknown|click unknown",
+  // 响应未决/点击未决与「结果未决」同类：远端可能已受理建任务或导出提交，
+  // 自动重发会重复提交。禁止重提类文案一并收口，不要放宽成裸「未决」。
+  "点击结果未决|提交结果未决|响应未决|点击未决|禁止自动重提|禁止重新创建任务|禁止重复创建|result unknown|dispatch unknown|click unknown",
   "export_submitting|report_submitting|page_export_submitting|task_click_invoked",
+  // 清单已置 submitting 并点过「开始生成」后才抛，远端可能已在生成：
+  // 重试会重复建任务（jd-promotion-export.ts:384）。按稳定的「禁止重建」记号匹配，
+  // 不要去对那句长文案：原先的 `在 \d+ 秒内` 写法对空格和全角都敏感，
+  // 超时常量一改或文案微调就会静默失效。
+  "禁止重建|下载中心在\\s*\\d+\\s*秒内未出现本轮唯一任务",
   "source[_ -]?not[_ -]?ready|来源数据未就绪|数据源未就绪|日期.*disabled",
   "活动清单.*无法证明|manifest.*(?:mismatch|ambiguous|invalid)|owner.*conflict|owner.*冲突",
   "唯一商品数.*出售中总数|内容完整性错误|content completeness|内容校验失败|validation failed|日期覆盖.*(?:缺失|不一致)|date coverage.*(?:missing|mismatch)|空文件|零行业务|malformed workbook|批次.*(?:不匹配|回查失败)",
@@ -457,19 +472,30 @@ return [{ json: { manualAction: { workflowId: p.retryPolicy?.workflowId,
 const codes = ['terminal_manual_action','execution_mode_not_automatic','retry_dispatch_result_unknown',
   'retry_context_wait_expired_manual_action','retry_context_unverified_manual_action',
   'retry_reservation_result_unknown_manual_action','retry_already_reserved_or_unverified_manual_action'];
-return $input.all().map((item, index) => {
+// 逐条校验、逐条产出：sender 的 executeOnce=false，每条 item 调一次脚本，
+// 所以合法条目各自都会发出去。整批 throw 会让同批合法告警一起发不出去
+// （失败点在 sender 上游），那是「终局但人收不到通知」——只满足要求的一半。
+// 被拒条目不静默丢弃：计数并在最后用原错误码抛出，保持终局性。
+const rejected = [];
+const prepared = [];
+for (const [index, item] of $input.all().entries()) {
   const p = item.json.manualAction;
-  if (!p || !workflows.includes(p.workflowId) || !codes.includes(p.code)
+  const invalid = !p || !workflows.includes(p.workflowId) || !codes.includes(p.code)
     || !/^[1-9][0-9]{0,19}$/.test(String(p.logicalExecutionId))
-    || !/^[1-9][0-9]{0,19}$/.test(String(p.failedExecutionId))) throw new Error('manual_alert_payload_invalid');
+    || !/^[1-9][0-9]{0,19}$/.test(String(p.failedExecutionId));
+  if (invalid) { rejected.push(index); continue; }
   const payload = {version:1, workflowId:p.workflowId, logicalExecutionId:String(p.logicalExecutionId),
     failedExecutionId:String(p.failedExecutionId), code:p.code};
   const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
-  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded) || encoded.length > 8192) throw new Error('manual_alert_payload_invalid');
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded) || encoded.length > 8192) { rejected.push(index); continue; }
   const terminalCode = codes.includes(item.json.terminalCode) ? item.json.terminalCode
     : 'dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST';
-  return {json:{manualAlertPayloadBase64:encoded, terminalCode}, pairedItem:{item:index}};
-});` },
+  prepared.push({json:{manualAlertPayloadBase64:encoded, terminalCode}, pairedItem:{item:index}});
+}
+// 一条都不合法时行为与原先一致：直接终局，没有可发的告警。
+if (!prepared.length) throw new Error('manual_alert_payload_invalid');
+if (rejected.length) console.warn('manual_alert_payload_invalid items=' + rejected.join(','));
+return prepared;` },
         id: stableUuid("teruisi-hourly-retry:prepare-alert"), name: prepareAlertName,
         type: "n8n-nodes-base.code", typeVersion: 2, position: [660, 0],
       },
