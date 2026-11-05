@@ -150,3 +150,46 @@ class TaskFeedbackTests(TestCase):
         self.assertNotIn("按分摊后金额合计计算", data)
         self.assertIn(saved["id"], "".join(
             m.PiEvent.objects.filter(operation=op).values_list("data_json", flat=True)))
+
+    def _session_event_seq_matches_max_event(self, session_id):
+        session = m.PiSession.objects.get(id=session_id)
+        latest = (m.PiEvent.objects.filter(session=session)
+                  .order_by("-event_seq").values_list("event_seq", flat=True).first())
+        self.assertEqual(session.event_seq, latest or 0,
+            "session.event_seq must stay the single source of truth for the "
+            "next event's key; task_feedback must not advance PiEvent.event_seq "
+            "past what the session counter knows about")
+
+    def test_a_correction_does_not_block_the_sessions_next_message(self):
+        # Regression for the production deadlock: once a correction is written
+        # against a settled operation, the *next* prompt on that same session
+        # must still succeed. Before the fix, task_feedback._event() computed
+        # its own event_seq from max(PiEvent) without advancing
+        # session.event_seq, so the following pi_service.event() call (made by
+        # prompt()) recomputed an already-taken event_seq and the unique
+        # constraint on (session, event_seq) raised IntegrityError -
+        # permanently, since the session counter can never catch up on its own.
+        op = self.settled()
+        task_feedback.save(op.id, self.body(), self.owner)
+        self._session_event_seq_matches_max_event(op.session_id)
+        result = service.prompt(op.session_id,
+            {"clientRequestId": "prompt-2", "message": "第二条消息"}, self.owner)
+        self.assertFalse(result["replayed"])
+        self._session_event_seq_matches_max_event(op.session_id)
+
+    def test_repeated_corrections_including_supersede_do_not_block_the_next_message(self):
+        # The supersede path writes two events in one call (superseded +
+        # confirmed); withdraw writes a third on top. All three must still
+        # leave the session able to continue.
+        op = self.settled()
+        first = task_feedback.save(op.id, self.body(), self.owner)["item"]
+        task_feedback.save(op.id, self.body(newValue="改第二次"), self.owner)
+        task_feedback.withdraw(
+            op.id, m.AiTaskFeedback.objects.get(operation=op, status="confirmed").id,
+            {"expectedVersion": 1}, self.owner)
+        self._session_event_seq_matches_max_event(op.session_id)
+        result = service.prompt(op.session_id,
+            {"clientRequestId": "prompt-2", "message": "第二条消息"}, self.owner)
+        self.assertFalse(result["replayed"])
+        self._session_event_seq_matches_max_event(op.session_id)
+        self.assertIsNotNone(first["id"])

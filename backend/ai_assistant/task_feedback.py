@@ -15,8 +15,9 @@ from django.db import transaction
 from django.utils import timezone
 
 from . import models as m
+from . import pi_service as service
 from .feedback_models import APPLIES_TO, SOURCES, TARGET_KINDS
-from .pi_models import PiEvent, PiOperation
+from .pi_models import PiOperation
 from .policy import (AiError, canonical, cas, digest, fields, identifier,
                      mutation, passive, text, uid)
 
@@ -68,28 +69,30 @@ def record(row):
     }
 
 
-def _event(operation, feedback, event_type, principal):
+def _event(session, operation, feedback, event_type, principal):
     # Appended to the operation's own event stream, which already orders stages
     # by (session, event_seq). Values are summarised by digest rather than
     # repeated here: the row holds them, the stream only proves what happened.
-    last = (PiEvent.objects.filter(session=operation.session)
-            .order_by("-event_seq").values_list("event_seq", flat=True).first())
-    PiEvent.objects.create(
-        id=uid("pi-event"), session=operation.session, operation=operation,
-        generation=operation.generation, event_seq=(last or 0) + 1,
-        event_type=event_type,
-        data_json=canonical({
-            "feedbackId": feedback.id,
-            "targetKind": feedback.target_kind,
-            "appliesTo": feedback.applies_to,
-            "source": feedback.source,
-            "status": feedback.status,
-            "valueDigest": digest({"old": feedback.old_value_json,
-                                   "new": feedback.new_value_json}),
-            "actor": principal.email.lower(),
-            "actorRole": principal.role,
-        }),
-    )
+    #
+    # This must go through pi_service.event() rather than creating a PiEvent
+    # row directly: that function is the sole owner of session.event_seq, the
+    # counter every other writer (~25 call sites) relies on to allocate the
+    # next event_seq. A bespoke max(PiEvent.event_seq)+1 here would advance the
+    # table past what session.event_seq knows about without moving the counter
+    # itself, so the next real event() call recomputes an already-taken
+    # event_seq and the (session, event_seq) unique constraint rejects it -
+    # permanently, since the stale counter can never catch up on its own.
+    service.event(session, event_type, {
+        "feedbackId": feedback.id,
+        "targetKind": feedback.target_kind,
+        "appliesTo": feedback.applies_to,
+        "source": feedback.source,
+        "status": feedback.status,
+        "valueDigest": digest({"old": feedback.old_value_json,
+                               "new": feedback.new_value_json}),
+        "actor": principal.email.lower(),
+        "actorRole": principal.role,
+    }, operation)
 
 
 def listing(operation_id, principal):
@@ -129,6 +132,10 @@ def save(operation_id, body, principal):
         with transaction.atomic():
             operation = _owned(operation_id, principal, lock=True)
             _settled(operation)
+            # event() requires the caller to hold the session lock (it mutates
+            # session.event_seq under it); the operation lock above does not
+            # cover that.
+            session = service.get_session(operation.session_id, principal, lock=True)
             live = (m.AiTaskFeedback.objects.select_for_update()
                     .filter(operation=operation, target_kind=kind, target_ref=ref,
                             status="confirmed").first())
@@ -141,7 +148,7 @@ def save(operation_id, body, principal):
                 live.status, live.version = "superseded", live.version + 1
                 live.updated_at = timezone.now()
                 live.save(update_fields=["status", "version", "updated_at"])
-                _event(operation, live, "task_feedback_superseded", principal)
+                _event(session, operation, live, "task_feedback_superseded", principal)
             row = m.AiTaskFeedback.objects.create(
                 id=uid("ai-feedback"), operation=operation,
                 generation=operation.generation,
@@ -154,7 +161,7 @@ def save(operation_id, body, principal):
                 applies_to=applies_to, source=source,
                 confirmed_by=principal.email.lower(),
             )
-            _event(operation, row, "task_feedback_confirmed", principal)
+            _event(session, operation, row, "task_feedback_confirmed", principal)
     return {"item": record(row), "superseded": live.id if live else None}
 
 
@@ -163,6 +170,7 @@ def withdraw(operation_id, feedback_id, body, principal):
     with mutation(principal):
         with transaction.atomic():
             operation = _owned(operation_id, principal, lock=True)
+            session = service.get_session(operation.session_id, principal, lock=True)
             row = (m.AiTaskFeedback.objects.select_for_update()
                    .filter(id=identifier(feedback_id), operation=operation).first())
             if row is None:
@@ -176,5 +184,5 @@ def withdraw(operation_id, feedback_id, body, principal):
             row.status, row.version = "withdrawn", row.version + 1
             row.updated_at = timezone.now()
             row.save(update_fields=["status", "version", "updated_at"])
-            _event(operation, row, "task_feedback_withdrawn", principal)
+            _event(session, operation, row, "task_feedback_withdrawn", principal)
     return {"item": record(row)}
