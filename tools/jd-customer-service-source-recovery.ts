@@ -133,6 +133,8 @@ function diagnosticReason(diagnostic: CustomerServiceCloseDiagnostic) {
     file_missing: "来源文件缺失", file_invalid: "文件或目录安全检查不通过", digest_mismatch: "文件摘要不符", size_mismatch: "文件大小不符",
     count_mismatch: "来源计数不等", parse_rejected: "来源解析被拒绝", plan_invalid: "计划结构不符", registry_mismatch: "店铺注册信息不符",
     boundary_invalid: "失败边界证据不符", checkpoint_invalid: "下载检查点不符", directory_mismatch: "目录条目不符", duration_anomaly_missing: "未发现所需时长异常证据",
+    failure_boundary_missing: "缺少 failureBoundary，无法确认失败边界", partial_import_progress: "已有部分导入进度证据，需要另行核查",
+    directory_residue: "来源为空但下载目录有残留", failure_code_mismatch: "failureCode 不符合双文件闭合要求 PAIR_PARSE_REJECTED",
   };
   return `${labels[diagnostic.category]}（${diagnostic.category}${diagnostic.file ? `，${diagnostic.file}` : ""}${diagnostic.expected !== undefined ? `，expected=${diagnostic.expected}` : ""}${diagnostic.actual !== undefined ? `，actual=${diagnostic.actual}` : ""}）`;
 }
@@ -153,7 +155,8 @@ export async function inspectCustomerServiceCloseEvidence(root: string, previous
   if (previous.version !== 1 || previous.stage !== "failed" || previous.shopName !== store.shopName || previous.shopId !== store.shopId
     || !Array.isArray(previous.proofs) || previous.proofs.length
     || Object.keys(previous).some(key => !["version", "storeKey", "shopId", "shopName", "executionId", "period", "createdAt", "updatedAt", "stage", "source", "proofs", "failureCode", "failureBoundary"].includes(key))
-    || ["sourceRecovery", "importingDate", "dailyFiles", "derivedDirectory", "sourceSessionSha256", "sourceChatSha256", "sourceCounts", "durationAnomalies", "normalizedSessionSha256", "operatorVerification"].some(key => key in previous)) closeReject({ category: "plan_invalid" });
+    || ["sourceRecovery", "importingDate", "dailyFiles", "derivedDirectory", "sourceSessionSha256", "sourceChatSha256", "sourceCounts", "durationAnomalies", "normalizedSessionSha256", "operatorVerification"].some(key => key in previous)) closeReject({ category:
+      Array.isArray(previous.proofs) && previous.proofs.length || "importingDate" in previous || "dailyFiles" in previous ? "partial_import_progress" : "plan_invalid" });
   const registered = validateJdStoreRegistry(JSON.parse(await readFile(path.join(root, "config/jd-store-accounts.json"), "utf8")), root).find(item => item.storeKey === store.storeKey);
   if (!registered?.enabled || registered.shopId !== store.shopId || registered.shopName !== store.shopName) closeReject({ category: "registry_mismatch" });
   const parentDirectory = path.join(registered.browser.downloadDir, "customer-service", previous.executionId);
@@ -166,7 +169,8 @@ export async function inspectCustomerServiceCloseEvidence(root: string, previous
   } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   if (!views) {
     if (!zeroEffectCodes.includes(previous.failureCode ?? "") || !previous.failureBoundary?.browserClosed || previous.failureBoundary.version !== 1
-      || !["browser_start", "open_customer_service_page", "export_list", "export_messages"].includes(previous.failureBoundary.step) || names.length) closeReject({ category: "boundary_invalid" });
+      || !["browser_start", "open_customer_service_page", "export_list", "export_messages"].includes(previous.failureBoundary.step) || names.length) closeReject({ category:
+        !previous.failureBoundary ? "failure_boundary_missing" : names.length ? "directory_residue" : "boundary_invalid" });
     return { kind: "pre_export_zero_effect" as const, registered, sourceEvidence: { files: [], sourceCount: 0 } };
   }
   const listOnly = views === "list";
@@ -175,9 +179,12 @@ export async function inspectCustomerServiceCloseEvidence(root: string, previous
     // from assertStore's page gate; later failures would retain a checkpoint.
     if (!["CHAT_PAGE_MISMATCH", "CHAT_PAGE_NOT_READY_MANUAL_ACTION"].includes(previous.failureCode ?? "")
       || previous.failureBoundary?.version !== 1 || previous.failureBoundary.browserClosed !== true || previous.failureBoundary.step !== "export_messages"
-      || previous.failureCode === "CHAT_PAGE_NOT_READY_MANUAL_ACTION" && previous.failureBoundary.preSubmitView !== "messages") closeReject({ category: "boundary_invalid" });
+      || previous.failureCode === "CHAT_PAGE_NOT_READY_MANUAL_ACTION" && previous.failureBoundary.preSubmitView !== "messages") closeReject({ category: !previous.failureBoundary ? "failure_boundary_missing" : "boundary_invalid" });
   } else if (views !== "list,messages" || previous.failureCode !== "PAIR_PARSE_REJECTED"
-    || previous.failureBoundary?.version !== 1 || previous.failureBoundary.browserClosed !== true || previous.failureBoundary.step !== "export_messages") closeReject({ category: "boundary_invalid" });
+    || previous.failureBoundary?.version !== 1 || previous.failureBoundary.browserClosed !== true || previous.failureBoundary.step !== "export_messages") closeReject({ category:
+      views === "list,messages" && previous.source.list?.phase === "downloaded" && previous.source.messages?.phase === "downloaded"
+        && previous.failureCode !== "PAIR_PARSE_REJECTED" ? "failure_code_mismatch"
+        : !previous.failureBoundary ? "failure_boundary_missing" : "boundary_invalid" });
   const files: { view: string; savedPath: string; sha256: string; sizeBytes: number; sourceCount: number }[] = [];
   const bytes: Uint8Array[] = [];
   for (const view of listOnly ? ["list"] as const : ["list", "messages"] as const) {

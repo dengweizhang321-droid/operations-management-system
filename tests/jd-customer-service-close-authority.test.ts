@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import type { CloseSlotCoordinator } from "../lib/jackyun/operator-close";
 import * as XLSX from "xlsx";
 import { customerServicePeriod } from "../lib/jd/customer-service-workflow";
 import { jdCustomerServiceStores } from "../lib/jd/customer-service-stores";
@@ -49,11 +50,12 @@ async function downloadedPairFixture() {
   const p = pair();
   const plan = await planCustomerServiceRun(root, "stuck", new Date(), store.storeKey);
   const directory = path.join(root, "downloads", store.storeKey, "customer-service/stuck"); await mkdir(directory, { recursive: true });
-  for (const [view, bytes, name] of [["list", p.session, "source.xlsx"], ["messages", p.chat, "source.log"]] as const) {
+  for (const [view, bytes, name] of [["list", p.session, "list.xlsx"], ["messages", p.chat, "messages.log"]] as const) {
     const file = path.join(directory, name); await writeFile(file, bytes);
     plan.source[view] = { view, phase: "downloaded", sourceCount: 1, savedPath: file, sha256: sha(bytes), sizeBytes: bytes.length };
   }
   plan.stage = "failed"; plan.failureCode = "PAIR_PARSE_REJECTED";
+  plan.failureBoundary = { version: 1, browserClosed: true, step: "export_messages" };
   const planPath = path.join(root, "outputs/jd-customer-service-pipeline", store.storeKey, "stuck.json");
   const planBytes = Buffer.from(JSON.stringify(plan)); await writeFile(planPath, planBytes);
   const target: CustomerServiceCloseAuthorityTarget = { storeKey: store.storeKey, kind: "downloaded_pair",
@@ -155,31 +157,50 @@ test("店铺范围外的storeKey被拒绝", async () => {
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 
-test("dispatchCustomerServiceCloseAuthority 重新核验Worker回执版本、身份与有效期后才生成", async () => {
+test("dispatchCustomerServiceCloseAuthority 核验现行v2授权后只返回既有精确闭合结果，不生成来源恢复许可", async () => {
   const f = await zeroEffectFixture();
   const authorizationId = "11111111-1111-1111-1111-111111111111";
   const createdAt = new Date().toISOString(), expiresAt = new Date(Date.now() + 3600000).toISOString();
-  const good = { ok: true, version: "jd-customer-service-operator-close-authority-v1", action: "close", target: f.target, authorizationId, createdAt, expiresAt };
-  const fetchStub = async (_url: string) => ({ ok: true, text: async () => JSON.stringify(good) }) as Response;
+  const good = { ok: true, version: "jd-customer-service-operator-reconcile-authority-v2", action: "close", target: f.target, authorizationId, createdAt, expiresAt };
+  const fetchStub: typeof fetch = async () => new Response(JSON.stringify(good));
+  // Exercise authorization before an already-committed synthetic target is
+  // returned. This path never reads live n8n, drain state or browser ports,
+  // and cannot create a new business closure in the test.
+  const coordinator: CloseSlotCoordinator = { observe: () => { throw Error("UNEXPECTED_RESOURCE_ACCESS"); }, freeze: () => { throw Error("UNEXPECTED_RESOURCE_ACCESS"); } };
+  const committedAuthorizationId = "33333333-3333-3333-3333-333333333333";
+  const closedDirectory = path.join(path.dirname(f.planPath), "operator-closures");
+  await mkdir(closedDirectory);
+  const closedPath = path.join(closedDirectory, `stuck-${f.target.originalPlanSha256}.json`);
+  await writeFile(closedPath, JSON.stringify({ version: "jd-customer-service-operator-reconcile-v1", authorizationId: committedAuthorizationId,
+    action: "close", target: f.target, outcome: "failed_closed", completedAt: createdAt }));
+  const closedBytes = await readFile(closedPath);
   try {
-    const result = await dispatchCustomerServiceCloseAuthority(f.root, authorizationId, fetchStub);
+    // Invalid permissions must be rejected before a request is durably
+    // recorded. Once a request has a committed result, retries intentionally
+    // query that result without requiring a renewed/changed authorization.
+    const wrongVersion = { ...good, version: "wrong-version" };
+    const stubBad: typeof fetch = async () => new Response(JSON.stringify(wrongVersion));
+    await assert.rejects(dispatchCustomerServiceCloseAuthority(f.root, authorizationId, coordinator, stubBad), /CUSTOMER_SERVICE_OPERATOR_RECONCILIATION_BLOCKED/);
+
+    const mismatchedId = { ...good, authorizationId: "22222222-2222-2222-2222-222222222222" };
+    const stubMismatch: typeof fetch = async () => new Response(JSON.stringify(mismatchedId));
+    await assert.rejects(dispatchCustomerServiceCloseAuthority(f.root, authorizationId, coordinator, stubMismatch), /CUSTOMER_SERVICE_OPERATOR_RECONCILIATION_BLOCKED/);
+
+    const expired = { ...good, expiresAt: new Date(Date.now() - 1000).toISOString() };
+    const stubExpired: typeof fetch = async () => new Response(JSON.stringify(expired));
+    await assert.rejects(dispatchCustomerServiceCloseAuthority(f.root, authorizationId, coordinator, stubExpired), /CUSTOMER_SERVICE_OPERATOR_RECONCILIATION_BLOCKED/);
+
+    await assert.rejects(dispatchCustomerServiceCloseAuthority(f.root, "not-a-uuid", coordinator, fetchStub), /CUSTOMER_SERVICE_OPERATOR_RECONCILIATION_BLOCKED/);
+    const result = await dispatchCustomerServiceCloseAuthority(f.root, authorizationId, coordinator, fetchStub);
     assert.equal(result.ok, true);
     assert.equal(result.storeKey, f.store.storeKey);
     assert.equal(result.originalExecutionId, "stuck");
-
-    const wrongVersion = { ...good, version: "wrong-version" };
-    const stubBad = async (_url: string) => ({ ok: true, text: async () => JSON.stringify(wrongVersion) }) as Response;
-    await assert.rejects(dispatchCustomerServiceCloseAuthority(f.root, authorizationId, stubBad));
-
-    const mismatchedId = { ...good, authorizationId: "22222222-2222-2222-2222-222222222222" };
-    const stubMismatch = async (_url: string) => ({ ok: true, text: async () => JSON.stringify(mismatchedId) }) as Response;
-    await assert.rejects(dispatchCustomerServiceCloseAuthority(f.root, authorizationId, stubMismatch));
-
-    const expired = { ...good, expiresAt: new Date(Date.now() - 1000).toISOString() };
-    const stubExpired = async (_url: string) => ({ ok: true, text: async () => JSON.stringify(expired) }) as Response;
-    await assert.rejects(dispatchCustomerServiceCloseAuthority(f.root, authorizationId, stubExpired));
-
-    await assert.rejects(dispatchCustomerServiceCloseAuthority(f.root, "not-a-uuid", fetchStub));
+    assert.equal(result.outcome, "failed_closed");
+    assert.equal(result.committedAuthorizationId, committedAuthorizationId);
+    assert.equal(result.requestedAuthorizationId, authorizationId);
+    assert.deepEqual(await readFile(closedPath), closedBytes);
+    assert.deepEqual(await readFile(f.planPath), f.planBytes);
+    await assert.rejects(readdir(customerServiceRecoveryDirectory(f.root, f.store.storeKey)), { code: "ENOENT" });
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 
@@ -241,6 +262,7 @@ test("readCustomerServiceCloseTarget: 无 failureBoundary 的旧格式计划报�
     const result = await readCustomerServiceCloseTarget(f.root, f.store.storeKey);
     assert.equal(result.closeAllowed, false);
     assert.match(result.reason, /failureBoundary/);
+    assert.equal(result.diagnostic?.category, "failure_boundary_missing");
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 
@@ -252,7 +274,8 @@ test("readCustomerServiceCloseTarget: source 非空但失败码不是 PAIR_PARSE
     await writeFile(f.planPath, raw);
     const result = await readCustomerServiceCloseTarget(f.root, f.store.storeKey);
     assert.equal(result.closeAllowed, false);
-    assert.equal(result.target?.kind, "downloaded_pair");
+    assert.equal(result.target, undefined);
+    assert.equal(result.diagnostic?.category, "failure_code_mismatch");
     assert.match(result.reason, /PAIR_PARSE_REJECTED/);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
@@ -283,26 +306,43 @@ test("readCustomerServiceCloseTarget: 没有活动任务时报告没有可闭合
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("readCustomerServiceCloseTarget: stage 非 failed 时报告无需闭合", async () => {
+test("readCustomerServiceCloseTarget: 用户确认保留executed_verify候选，其余非failed状态无需闭合", async () => {
   const f = await zeroEffectFixture();
   try {
     f.plan.stage = "executed";
+    delete f.plan.failureCode;
     await writeFile(f.planPath, JSON.stringify(f.plan));
     const result = await readCustomerServiceCloseTarget(f.root, f.store.storeKey);
-    assert.equal(result.closeAllowed, false);
-    assert.match(result.reason, /executed/);
+    assert.equal(result.closeAllowed, true);
+    assert.equal(result.target?.kind, "executed_verify");
+    assert.equal(result.target?.failureCode, "");
+    assert.match(result.reason, /原 C 验证/);
+    assert.match(result.reason, /不重跑导出或导入/);
+    for (const stage of ["planned", "completed"] as const) {
+      f.plan.stage = stage;
+      await writeFile(f.planPath, JSON.stringify(f.plan));
+      const other = await readCustomerServiceCloseTarget(f.root, f.store.storeKey);
+      assert.equal(other.closeAllowed, false);
+      assert.equal(other.target, undefined);
+    }
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 
-test("readCustomerServiceCloseTarget: 已有部分导入进度(proofs非空)时拒绝", async () => {
-  const f = await zeroEffectFixture();
-  try {
-    f.plan.proofs = [{ date: f.plan.period.endDate } as typeof f.plan.proofs[number]];
-    await writeFile(f.planPath, JSON.stringify(f.plan));
-    const result = await readCustomerServiceCloseTarget(f.root, f.store.storeKey);
-    assert.equal(result.closeAllowed, false);
-    assert.match(result.reason, /部分导入进度/);
-  } finally { await rm(f.root, { recursive: true, force: true }); }
+test("readCustomerServiceCloseTarget: 已有部分导入进度(proofs/importingDate/dailyFiles)时拒绝", async () => {
+  for (const change of ["proofs", "importingDate", "dailyFiles"] as const) {
+    const f = await zeroEffectFixture();
+    try {
+      if (change === "proofs") f.plan.proofs = [{ date: f.plan.period.endDate } as typeof f.plan.proofs[number]];
+      if (change === "importingDate") f.plan.importingDate = f.plan.period.endDate;
+      if (change === "dailyFiles") f.plan.dailyFiles = [];
+      await writeFile(f.planPath, JSON.stringify(f.plan));
+      const result = await readCustomerServiceCloseTarget(f.root, f.store.storeKey);
+      assert.equal(result.closeAllowed, false);
+      assert.equal(result.target, undefined);
+      assert.match(result.reason, /部分导入进度/);
+      assert.equal(result.diagnostic?.category, "partial_import_progress");
+    } finally { await rm(f.root, { recursive: true, force: true }); }
+  }
 });
 
 test("readCustomerServiceCloseTarget: pre_export_zero_effect 但下载目录仍有残留文件时拒绝", async () => {
@@ -315,6 +355,7 @@ test("readCustomerServiceCloseTarget: pre_export_zero_effect 但下载目录仍�
     const result = await readCustomerServiceCloseTarget(f.root, f.store.storeKey);
     assert.equal(result.closeAllowed, false);
     assert.match(result.reason, /残留/);
+    assert.equal(result.diagnostic?.category, "directory_residue");
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 

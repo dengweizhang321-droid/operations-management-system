@@ -18,7 +18,8 @@ export type CustomerServiceCloseTarget = {
 // the helper. Never include source paths, parser messages or conversation data.
 export type CustomerServiceCloseDiagnostic = {
   category: "file_missing" | "file_invalid" | "digest_mismatch" | "size_mismatch" | "count_mismatch" | "parse_rejected"
-    | "plan_invalid" | "registry_mismatch" | "boundary_invalid" | "checkpoint_invalid" | "directory_mismatch" | "duration_anomaly_missing";
+    | "plan_invalid" | "registry_mismatch" | "boundary_invalid" | "checkpoint_invalid" | "directory_mismatch" | "duration_anomaly_missing"
+    | "failure_boundary_missing" | "partial_import_progress" | "directory_residue" | "failure_code_mismatch";
   file?: "list.xlsx" | "messages.log";
   expected?: number;
   actual?: number;

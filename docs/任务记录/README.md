@@ -1,5 +1,7 @@
 # 任务记录目录
 
+本轮候选：[京东客服闭合既有红测试修复](../jd-cs-close-red-tests-20261105/REPORT.md) · [双独立反审](../jd-cs-close-red-tests-20261105/REVIEW.md)（既有20/20，指定五套49/49，完整类型检查零新增；未合并/上线）。
+
 本轮候选：[京东客服人工闭合安全诊断](../jd-cs-close-diagnostics-20261105/REPORT.md) · [双独立反审](../jd-cs-close-diagnostics-20261105/REVIEW.md)（未合并/上线，保留来源计数判据）。
 
 本轮候选：[Ready 503稳定性修复](../readiness-stability-20261103/REPORT.md) · [实现反审](../readiness-stability-20261103/REVIEW.md) · [固定兼容检查](../readiness-stability-20261103/COMPATIBILITY.md)（未合并/采用，程序与隔离兼容检查通过）。
