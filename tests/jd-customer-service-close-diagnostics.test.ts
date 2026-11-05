@@ -84,9 +84,22 @@ test("11039 downloaded_list_only and 11018 executed_verify remain read-only cand
     } finally { await rm(f.root, { recursive: true, force: true }); }
   }
 });
+test("messages.log parsed count below the promised export count still closes", async () => {
+  // JD's export confirmation count is a promise, not a ground truth; the real
+  // log always parses to fewer sessions than promised. Below-promise must allow.
+  const f = await fixture("pair", { messagesCount: 1 });
+  try {
+    const before = await snapshot(f.root);
+    const result = await readCustomerServiceCloseTarget(f.root, f.store.storeKey);
+    assert.equal(result.closeAllowed, true);
+    assert.equal(result.target?.kind, "downloaded_pair");
+    assert.equal(result.diagnostic, undefined);
+    assert.deepEqual(await snapshot(f.root), before);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
 test("precise source rejections report only whitelisted categories, basenames and counts", async () => {
-  for (const change of ["missing", "digest", "size", "checkpoint-count", "list-count", "messages-count", "parse"] as const) {
-    const f = await fixture("pair", change === "messages-count" ? { messagesCount: 1 } : change === "parse" ? { invalidChat: true } : {});
+  for (const change of ["missing", "digest", "size", "checkpoint-count", "list-count", "messages-count-exceeds", "parse"] as const) {
+    const f = await fixture("pair", change === "messages-count-exceeds" ? { messagesCount: 3 } : change === "parse" ? { invalidChat: true } : {});
     try {
       if (change === "missing") await rm(f.plan.source.messages!.savedPath!);
       if (change === "digest") f.plan.source.messages!.sha256 = "a".repeat(64);
@@ -101,7 +114,7 @@ test("precise source rejections report only whitelisted categories, basenames an
       assert.equal(result.diagnostic?.category, category);
       const expected = change === "checkpoint-count" ? { category, file: "messages.log", expected: 2, actual: 3 }
         : change === "list-count" ? { category, file: "list.xlsx", expected: 3, actual: 2 }
-        : change === "messages-count" ? { category, file: "messages.log", expected: 2, actual: 1 }
+        : change === "messages-count-exceeds" ? { category, file: "messages.log", expected: 2, actual: 3 }
         : change === "parse" ? { category } : { category, file: "messages.log" };
       assert.deepEqual(result.diagnostic, expected);
       assert.match(result.reason, new RegExp(category));
