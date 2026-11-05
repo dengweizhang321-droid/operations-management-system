@@ -276,6 +276,29 @@ test("客服导入严格验证上海自然时间，空数值为 null 且计数�
   assert.equal(leap[0]?.startedAt, "2024-02-29 23:59:59");
 });
 
+// tools/jd-customer-service-source-recovery.ts 的闭合计数闸依赖一个前提：
+// parseChatLog 对识别不到任何会话的聊天记录永远抛出，从不返回空数组。
+// 这条测试把该前提钉死——两种调用方（普通导入 import 和闭合证据 closure_evidence）
+// 都要覆盖，因为 200 条消息上限等其他校验只在 import policy 下生效，
+// 不能只验证一种 policy 就假定另一种行为相同。
+test("聊天记录未识别到任何会话时，parseChatLog 在两种 policy 下均拒绝而不返回空数组", () => {
+  const emptyForms = [
+    "",
+    "   \n\t  \n",
+    "﻿",
+    "/* 以下为一通会话 */",
+    "/* 以下为一通会话 */\n/* 以下为一通会话 */",
+    "/* 以下为一通会话 */\n\n",
+    "/* 以下为一通会话 */\n顾客说了一些话但没有时间戳\n",
+    "这是一段没有分隔符的纯文本内容",
+  ];
+  for (const policy of ["import", "closure_evidence"] as const) {
+    for (const text of emptyForms) {
+      assert.throws(() => parseChatLog(text, policy), /未识别到会话分隔符/);
+    }
+  }
+});
+
 test.skip("客服消息与 D1 原子发布按单会话、总字节和语句数预算在数据库访问前拒绝", async () => {
   assert.throws(
     () => parseChatLog(`/* 以下为一通会话 */\n顾客 2026-08-05 10:00:00\n${"x".repeat(25 * 1024 * 1024)}`),
