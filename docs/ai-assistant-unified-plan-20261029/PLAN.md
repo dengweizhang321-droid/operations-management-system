@@ -2,7 +2,12 @@
 
 日期：2026-10-29。源码核对基线：`bf9d81e318421ad110f74f99b9766003d10729f4`，来自本次最新 `origin/main`。v3.1纳入推广链费用补充及其事实修正，主线阶段与独立专项划分保持。
 本文件统一任务/Skill方案、能力复核、F1—F8修复建议及最新审查结论，作为自足的施工正文；执行不依赖其他工作树中的旧PLAN或FIXPLAN。
-当前只交付方案，未实施应用、运行功能测试、读取凭据、调用付费模型、发送消息或操作生产。所有新增名称、接口与字段均为拟定，开发前核对最新main。
+所有新增名称、接口与字段为当时拟定，开发前核对最新main。
+
+> **2026-11-05 进度批注**：本方案已部分实施。P0-01—P0-04 与 P1a 候选侧已合并 main（`ece8c7ec`），
+> 对应迁移 0088/0089 的结构发布适配亦已合并、控制包已采用、应用制品已就绪，**尚未上线**。
+> 其余工作包仍为方案状态。各包状态见第 3 节表格"状态"列，逐项证据见第 3.1 节。
+> 正文其余章节未随实施回写，描述与已落地代码可能有细节差异，施工前以 main 实际代码为准。
 
 ## 1. 目标、原则与最小首批
 
@@ -44,21 +49,49 @@ P2先做一个明确授权的钉钉任务，再扩触发类型。P3公开研究�
 
 ## 3. 工作包映射、依赖与完成状态
 
-下表“完成形态”是将来需交付的材料/实现，不是本轮已完成业务。当前各增量均为**方案状态，尚未实施或启用**；已有能力以第2节为准。
+下表“完成形态”是将来需交付的材料/实现，不是本轮已完成业务。已有能力以第2节为准。
 
-| 包 | 归并来源 | 交付范围、入口与完成形态 | 依赖/复杂度 |
-| --- | --- | --- | --- |
-| P0 | v2 P0＋F5基础 | 必要工具/来源/反馈；provider能力、受控outputSchema及本地验证 | 中；只选当前案例所需工具 |
-| P1a | v2 P1候选管理＋F5 consumer | skill_candidates、report_library：Schema消费后形成可审候选/版本 | 中；依赖P0，不等受管loader |
-| P1b | v2 P1加载桥 | pi_service/Runner/server/protocol/launcher：正式包真实加载复用 | 高；依赖P1a固定包，初次需匹配镜像 |
-| P2 | v2 P2＋F8 | 连接器、统一任务、触发/数据依赖、投递和异常处置归属 | 高；依赖可运行固定Skill及明确任务授权 |
-| P3-R | v2 P3-03＋F6 | 中央研究工具、公共主题/query与sourceId/linkId broker | 中；竞品案例可前移，不普遍前置 |
-| P3-D | v2 P3-01/02 | PostgreSQL分片、Runner传输、视觉/PDF与引用 | 高；按材料/产物需求启动 |
-| P3-C | v2 P3-04/05 | 真文本delta、安全压缩、知识索引及可选向量 | 中高；基础记录在P0先交付 |
-| P3-A | v2 P3-06 | Responses、更多只读平台、价格/用量能力 | 按接口准入；非首批必要 |
-| H1/H2/H3 | F1/F2/F4 | 测试/legacy引用闭包、零生产引用reader、预留surface定性 | 独立卫生；不阻塞P主线 |
-| M1—M6 | F3路线B | 合格来源、新profile、付费/owning证据、数值引用 | 独立专项；无真实付费/运行授权 |
-| W1—W4 | F7 | 平台动作准入、预览/授权/并发控制、回执协调及首动作 | 独立专项；默认关闭，不预选预算为最优 |
+**进度更新（2026-11-05 核对，基线 main `ece8c7ec`）**：P0 全部四项与 P1a 的候选那一半已实施并合并 main，制品已就绪待上线；其余仍为方案状态。逐项核对见下表“状态”列与第 3.1 节。本节原文的“当前各增量均为方案状态”已不适用于 P0/P1a。
+
+| 包 | 状态 | 归并来源 | 交付范围、入口与完成形态 | 依赖/复杂度 |
+| --- | --- | --- | --- | --- |
+| P0 | ✅ 已合并，制品待上线 | v2 P0＋F5基础 | 必要工具/来源/反馈；provider能力、受控outputSchema及本地验证 | 中；只选当前案例所需工具 |
+| P1a | 🟡 候选已做、版本库沿用旧实现 | v2 P1候选管理＋F5 consumer | skill_candidates、report_library：Schema消费后形成可审候选/版本 | 中；依赖P0，不等受管loader |
+| P1b | ⬜ 未做 | v2 P1加载桥 | pi_service/Runner/server/protocol/launcher：正式包真实加载复用 | 高；依赖P1a固定包，初次需匹配镜像 |
+| P2 | ⬜ 未做 | v2 P2＋F8 | 连接器、统一任务、触发/数据依赖、投递和异常处置归属 | 高；依赖可运行固定Skill及明确任务授权 |
+| P3-R | ⬜ 未做 | v2 P3-03＋F6 | 中央研究工具、公共主题/query与sourceId/linkId broker | 中；竞品案例可前移，不普遍前置 |
+| P3-D | ⬜ 未做 | v2 P3-01/02 | PostgreSQL分片、Runner传输、视觉/PDF与引用 | 高；按材料/产物需求启动 |
+| P3-C | ⬜ 未做 | v2 P3-04/05 | 真文本delta、安全压缩、知识索引及可选向量 | 中高；基础记录在P0先交付 |
+| P3-A | ⬜ 未做 | v2 P3-06 | Responses、更多只读平台、价格/用量能力 | 按接口准入；非首批必要 |
+| H1/H2/H3 | ⬜ 未做 | F1/F2/F4 | 测试/legacy引用闭包、零生产引用reader、预留surface定性 | 独立卫生；不阻塞P主线 |
+| M1—M6 | ⬜ 未做 | F3路线B | 合格来源、新profile、付费/owning证据、数值引用 | 独立专项；无真实付费/运行授权 |
+| W1—W4 | ⬜ 未做 | F7 | 平台动作准入、预览/授权/并发控制、回执协调及首动作 | 独立专项；默认关闭，不预选预算为最优 |
+
+### 3.1 逐项核对（2026-11-05，对 main `ece8c7ec` 实查）
+
+已实施并合并 main 的部分：
+
+| 项 | 落地物 | 证据 |
+| --- | --- | --- |
+| P0-01 工具可达矩阵 | `docs/ai-tool-reachability-20261029/MATRIX.md` | 86 条目 / 16 条 Pi 可达 / 6 条单店 |
+| P0-02 单店记忆围栏 | `memory.py` 的 `SHOP_UNPROVABLE_KINDS`、`recall(single_shop=)` | 执行上下文旁路标记，不进 `arguments` |
+| P0-03 来源/阶段/修正绑定 | `pi_sources.py` 148 行、`task_feedback.py` 180 行、`feedback_models.py` | 迁移 0088，表 `ai_task_feedback` |
+| P0-04 受控结构化输出 | `model_capabilities.py` 214 行 | `structuredOutputSupport`、`strict_schema_violations()` |
+| P1a 候选提炼 | `skill_candidates.py` 188 行、`output_schemas.py` 121 行、`candidate_models.py` | 迁移 0089，表 `ai_skill_candidates` |
+| 发布适配 | `config/main-schema-releases/ai-0088-0089.json` 等 27 个文件 | 156→158，控制包 `9cfa94a9` 已采用，制品已就绪 |
+
+仍未做的部分，核对结论：
+
+- **P1a 的 `report_library` 那一半并非本轮产出**。`backend/ai_assistant/report_library.py`（160 行）由 `d74678fc`（2026-09-14）引入，早于本方案。本轮只交付了 skill_candidates 侧，表格状态按此标为 🟡。
+- **P1b 是当前最实质的缺口**，且它让 P1a 的产出暂时无人消费：实查 `skill_candidates` / `AiSkillCandidate` 的引用方只有自身模型、`database_contract`、`table_manifest` 与自身测试，**`pi_service` 与 Runner 侧零引用**。即候选可以走到 `approved`，但批准后没有任何代码会加载它。
+- **结构化输出目前只有 P1a 一个 consumer**：`structured_output` 的引用方仅 `model_capabilities.py` 与 `provider.py`，没有第二个业务消费者。
+- **H 系列未动**：`tests/legacy` 仍存在（4 项），H1 的引用闭包未收口，H2a 不具备删除前提。
+- **`pi_research` 仍未注册**：`lib/ai/tool-registry.ts` 中 grep 计数为 0，这是第 2 节记录的接线缺口，至今未接。
+- **M 系列未启用**：`AI_MARKET_V2_AGENT_RUNTIME_ENABLED` 仍需显式为 `"true"` 才放行（`lib/ai/django-edge.ts:94`），默认关闭。
+- **W 系列无落地物**：`tool-registry.ts` 中无外部平台 writer 相关条目。
+- **P3-R / P3-D / P3-C / P3-A 无落地物**，均保持方案状态。
+
+本节只核"有没有做、落地物在不在"，不含功能与业务效果验收——后者按 AGENTS.md 第 4 条由用户上线后检测。
 
 ```mermaid
 flowchart LR
