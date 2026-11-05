@@ -1,0 +1,18 @@
+{
+  "checkedAt": "2026-11-05T15:45:44.416Z",
+  "mode": "compile-only-no-execution",
+  "results": [
+    {
+      "name": "仅保留可安全自动重试的失败",
+      "sha256": "6d5bfead65cd7bdbeb4686079b49dc40cceab19febca3a5d6e9a9f1622ce0d99",
+      "syntaxValid": true,
+      "executed": false
+    },
+    {
+      "name": "准备人工提醒参数",
+      "sha256": "7606868efdf2bca54ea673b94758b9f73530903e4d69d8ced4d73d88c61a7d42",
+      "syntaxValid": true,
+      "executed": false
+    }
+  ]
+}

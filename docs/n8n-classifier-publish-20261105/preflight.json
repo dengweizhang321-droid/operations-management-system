@@ -1,0 +1,36 @@
+{
+  "checkedAt": "2026-11-05T15:44:50.569538+00:00",
+  "sourceCommit": "e3f2b1b8373830bfca26c5b5b25db7fee7f00f9a",
+  "id": "TeruisiHourlyRetry2026",
+  "versionId": "62d4ae60-3780-4278-92f6-052b9e0cbdca",
+  "activeVersionId": "62d4ae60-3780-4278-92f6-052b9e0cbdca",
+  "active": 1,
+  "liveNodeCount": 16,
+  "artifactNodeCount": 16,
+  "nodeNamesEqual": true,
+  "connectionsEqualToArtifact": true,
+  "settingsEqualToArtifact": true,
+  "nonJsNodeDifferences": [],
+  "jsCodeDifferences": [
+    {
+      "name": "仅保留可安全自动重试的失败",
+      "liveCharacters": 7008,
+      "targetCharacters": 7097,
+      "liveSha256": "c40798a5641dd48055f827ad450b6c5e21883b4c00c14c5730d225de115428e0",
+      "targetSha256": "6d5bfead65cd7bdbeb4686079b49dc40cceab19febca3a5d6e9a9f1622ce0d99"
+    },
+    {
+      "name": "准备人工提醒参数",
+      "liveCharacters": 1676,
+      "targetCharacters": 2126,
+      "liveSha256": "56968edee25f0aebbd4cce47f87744a74a7360e3fdd0f8de217196ecc5540d15",
+      "targetSha256": "7606868efdf2bca54ea673b94758b9f73530903e4d69d8ced4d73d88c61a7d42"
+    }
+  ],
+  "activeHistoryFound": true,
+  "activeHistoryNodesEqual": true,
+  "activeHistoryConnectionsEqual": true,
+  "otherWorkflowCount": 23,
+  "backupFile": "workflow-before.private.json",
+  "backupSha256": "b469fd9c1bebcfb5d563a83e869682b27cc23e4069817d835a4298f3b92d5855"
+}

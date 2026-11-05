@@ -1,0 +1,14 @@
+{
+  "checkedAt": "2026-11-05T15:45:45.464565+00:00",
+  "status": "blocked_ui_connection_no_live_write",
+  "versionId": "62d4ae60-3780-4278-92f6-052b9e0cbdca",
+  "activeVersionId": "62d4ae60-3780-4278-92f6-052b9e0cbdca",
+  "active": 1,
+  "workflowDefinitionUnchanged": true,
+  "targetVersionAndActiveUnchanged": true,
+  "other23WorkflowsUnchanged": true,
+  "liveWritesExecuted": false,
+  "published": false,
+  "uiConnectionError": "Computer Use native pipe is unavailable: failed to connect native pipe: system cannot find the file (os error 2)",
+  "browserConnectionError": "The browser access host is unavailable"
+}
