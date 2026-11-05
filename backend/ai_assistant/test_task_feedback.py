@@ -96,7 +96,8 @@ class TaskFeedbackTests(TestCase):
         op = self.settled()
         first = task_feedback.save(op.id, self.body(), self.owner)["item"]
         second = task_feedback.save(
-            op.id, self.body(newValue="不扣费用分摊"), self.owner)
+            op.id, self.body(newValue="不扣费用分摊", expectedVersion=first["version"]),
+            self.owner)
         self.assertEqual(second["superseded"], first["id"])
         # The old row stays readable rather than being rewritten.
         self.assertEqual(
@@ -133,7 +134,9 @@ class TaskFeedbackTests(TestCase):
     def test_every_write_is_recorded_on_the_operations_event_stream(self):
         op = self.settled()
         saved = task_feedback.save(op.id, self.body(), self.owner)["item"]
-        task_feedback.save(op.id, self.body(newValue="改第二次"), self.owner)
+        task_feedback.save(
+            op.id, self.body(newValue="改第二次", expectedVersion=saved["version"]),
+            self.owner)
         task_feedback.withdraw(
             op.id, m.AiTaskFeedback.objects.get(operation=op, status="confirmed").id,
             {"expectedVersion": 1}, self.owner)
@@ -150,3 +153,101 @@ class TaskFeedbackTests(TestCase):
         self.assertNotIn("按分摊后金额合计计算", data)
         self.assertIn(saved["id"], "".join(
             m.PiEvent.objects.filter(operation=op).values_list("data_json", flat=True)))
+
+    # -- targetRef is byte-limited, matching the database's
+    # octet_length(target_ref)<=400 CHECK (migration 0088). sqlite test
+    # databases never install that CHECK (0088's install() returns early on
+    # non-postgresql vendors), so these tests cannot observe the database
+    # reject an overlong value; they only prove the application now rejects
+    # it first, with a clean AiError rather than ever reaching the database.
+
+    def test_targetref_at_133_chinese_characters_399_bytes_is_accepted(self):
+        # 133 * 3 = 399 bytes: one byte under the 400-byte CHECK.
+        op = self.settled()
+        ref = "测" * 133
+        self.assertEqual(len(ref.encode("utf-8")), 399)
+        saved = task_feedback.save(op.id, self.body(targetRef=ref), self.owner)["item"]
+        self.assertEqual(saved["targetRef"], ref)
+
+    def test_targetref_at_134_chinese_characters_402_bytes_is_rejected_as_400(self):
+        # 134 * 3 = 402 bytes: over the 400-byte CHECK, but only 134
+        # characters, which text()'s character-counting would have let
+        # through (maximum=400). Must be rejected by the application itself,
+        # as a 400-class AiError, not surface as a 500/IntegrityError.
+        op = self.settled()
+        ref = "测" * 134
+        self.assertEqual(len(ref.encode("utf-8")), 402)
+        with self.assertRaises(AiError) as caught:
+            task_feedback.save(op.id, self.body(targetRef=ref), self.owner)
+        self.assertEqual(caught.exception.status, 413)
+        self.assertEqual(m.AiTaskFeedback.objects.count(), 0)
+
+    def test_targetref_mixed_ascii_and_chinese_is_counted_in_bytes_not_chars(self):
+        # 300 ASCII bytes (1 byte/char) + 34 Chinese chars (3 bytes/char) =
+        # 300 + 102 = 402 bytes from only 334 characters: proves the check
+        # is not a simple char-count-times-3 shortcut either.
+        op = self.settled()
+        ref = ("a" * 300) + ("测" * 34)
+        self.assertEqual(len(ref), 334)
+        self.assertEqual(len(ref.encode("utf-8")), 402)
+        with self.assertRaises(AiError):
+            task_feedback.save(op.id, self.body(targetRef=ref), self.owner)
+        # One byte under: same character mix, one fewer Chinese character.
+        ok_ref = ("a" * 300) + ("测" * 33) + "x"
+        self.assertEqual(len(ok_ref.encode("utf-8")), 400)
+        saved = task_feedback.save(op.id, self.body(targetRef=ok_ref), self.owner)["item"]
+        self.assertEqual(saved["targetRef"], ok_ref)
+
+    # -- expectedVersion / CAS: fields() previously had no "expectedVersion"
+    # entry in save()'s allowed set, so passing it raised a 400 (unknown
+    # field) and the CAS check at the mutation site ("expectedVersion" in
+    # body) could never see a body that contained it: cas() was dead code
+    # and a request with no expectedVersion silently overwrote whatever was
+    # live.
+
+    def test_expected_version_is_now_an_accepted_field_and_enforces_cas(self):
+        op = self.settled()
+        first = task_feedback.save(op.id, self.body(), self.owner)["item"]
+        # Correct expectedVersion: replacement proceeds normally.
+        second = task_feedback.save(
+            op.id, self.body(newValue="改一次", expectedVersion=first["version"]),
+            self.owner)
+        self.assertEqual(second["superseded"], first["id"])
+
+    def test_wrong_expected_version_is_rejected_as_a_conflict(self):
+        op = self.settled()
+        first = task_feedback.save(op.id, self.body(), self.owner)["item"]
+        with self.assertRaises(AiError) as caught:
+            task_feedback.save(
+                op.id,
+                self.body(newValue="改一次", expectedVersion=first["version"] + 1),
+                self.owner)
+        self.assertEqual(caught.exception.status, 409)
+        # The conflicting write must not have landed.
+        self.assertEqual(
+            m.AiTaskFeedback.objects.filter(operation=op, status="confirmed").count(), 1)
+
+    def test_omitting_expected_version_against_a_live_row_is_rejected_as_400(self):
+        # The silent-overwrite path is closed, not preserved: this endpoint
+        # has no reachable caller yet (pi/operations is not in Worker's
+        # PI_PUBLIC_PATH whitelist), so there is no existing caller that
+        # omitting expectedVersion here could break. Overwriting a live
+        # correction now requires proving the caller saw it.
+        op = self.settled()
+        task_feedback.save(op.id, self.body(), self.owner)
+        with self.assertRaises(AiError) as caught:
+            task_feedback.save(op.id, self.body(newValue="改一次"), self.owner)
+        self.assertEqual(caught.exception.status, 400)
+        self.assertEqual(
+            m.AiTaskFeedback.objects.filter(operation=op, status="confirmed").count(), 1)
+
+    def test_expected_version_against_a_target_with_no_live_row_is_a_conflict(self):
+        # expectedVersion only means something relative to a live row. With no
+        # live correction for this target, the caller's belief that one
+        # exists at that version is wrong -- this must not be silently
+        # ignored and treated as a fresh, unconditional create.
+        op = self.settled()
+        with self.assertRaises(AiError) as caught:
+            task_feedback.save(op.id, self.body(expectedVersion=999), self.owner)
+        self.assertEqual(caught.exception.status, 409)
+        self.assertEqual(m.AiTaskFeedback.objects.count(), 0)

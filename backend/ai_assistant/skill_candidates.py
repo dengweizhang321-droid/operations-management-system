@@ -17,7 +17,7 @@ from django.utils import timezone
 from . import models as m, output_schemas, pi_sources
 from .candidate_models import STATUSES
 from .policy import (AiError, canonical, cas, digest, fields, identifier,
-                     mutation, passive, text, uid)
+                     mutation, passive, text, text_bytes, uid)
 
 SCHEMA_REF = "skill-candidate-v1"
 MAX_CONTENT_BYTES = 32768
@@ -180,7 +180,10 @@ def review(candidate_id, body, principal):
             if target in {"approved", "rejected"}:
                 row.reviewed_by = principal.email.lower()
                 row.reviewed_at = timezone.now()
-                row.review_note = text(body.get("note", ""), "note", MAX_NOTE, empty=True)
+                # MAX_NOTE mirrors the database's octet_length(review_note)<=2000
+                # CHECK (migration 0089): a byte count, not a character count,
+                # so Chinese review notes need the byte-counting helper.
+                row.review_note = text_bytes(body.get("note", ""), "note", MAX_NOTE, empty=True)
             row.status, row.version = target, row.version + 1
             row.updated_at = timezone.now()
             row.save(update_fields=["status", "version", "reviewed_by", "reviewed_at",

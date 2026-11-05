@@ -18,7 +18,7 @@ from . import models as m
 from .feedback_models import APPLIES_TO, SOURCES, TARGET_KINDS
 from .pi_models import PiEvent, PiOperation
 from .policy import (AiError, canonical, cas, digest, fields, identifier,
-                     mutation, passive, text, uid)
+                     mutation, passive, text, text_bytes, uid)
 
 MAX_VALUE_BYTES = 16384
 MAX_TARGET_REF = 400
@@ -104,14 +104,18 @@ def listing(operation_id, principal):
 
 def save(operation_id, body, principal):
     fields(body, {"targetKind", "targetRef", "oldValue", "newValue", "appliesTo",
-                  "source", "confirmed"},
+                  "source", "confirmed", "expectedVersion"},
            {"targetKind", "targetRef", "newValue", "confirmed"})
     if body["confirmed"] is not True:
         raise AiError("修正必须由用户明确确认")
     kind = text(body["targetKind"], "targetKind", 40)
     if kind not in TARGET_KINDS:
         raise AiError("修正对象类型无效")
-    ref = text(body["targetRef"], "targetRef", MAX_TARGET_REF)
+    # MAX_TARGET_REF is a byte count: it mirrors the database's
+    # octet_length(target_ref)<=400 CHECK (migration 0088). text() counts
+    # characters, so Chinese input that text() would pass can still overflow
+    # the CHECK and surface as a 500 instead of a 400.
+    ref = text_bytes(body["targetRef"], "targetRef", MAX_TARGET_REF)
     applies_to = text(body.get("appliesTo", "this_report"), "appliesTo", 20)
     if applies_to not in APPLIES_TO:
         raise AiError("适用范围无效")
@@ -134,14 +138,27 @@ def save(operation_id, body, principal):
                             status="confirmed").first())
             if live is not None:
                 # Replacing a correction keeps the old row: what was believed
-                # when stays readable, and expectedVersion proves the caller saw
-                # the value being replaced.
-                cas(live, body.get("expectedVersion", live.version)
-                    if "expectedVersion" in body else live.version)
+                # when stays readable, and expectedVersion proves the caller
+                # saw the value being replaced. Required (not defaulted to
+                # live.version) once there is a live row to replace: this
+                # endpoint has no reachable caller yet (Worker's
+                # PI_PUBLIC_PATH whitelist does not cover pi/operations), so
+                # closing the silent-overwrite gap now costs nothing -- no
+                # existing caller can be broken by it.
+                if "expectedVersion" not in body:
+                    raise AiError("覆盖已有修正需要提供 expectedVersion", "invalid_request", 400)
+                cas(live, body["expectedVersion"])
                 live.status, live.version = "superseded", live.version + 1
                 live.updated_at = timezone.now()
                 live.save(update_fields=["status", "version", "updated_at"])
                 _event(operation, live, "task_feedback_superseded", principal)
+            elif "expectedVersion" in body:
+                # expectedVersion only means something against the live row it
+                # names. With no live row for this target, the caller believed
+                # one existed at that version; that belief is wrong, so this is
+                # the same conflict cas() would have raised had there been a
+                # row to compare against -- not something to silently ignore.
+                raise AiError("该目标当前没有生效修正，expectedVersion 无意义", "conflict", 409)
             row = m.AiTaskFeedback.objects.create(
                 id=uid("ai-feedback"), operation=operation,
                 generation=operation.generation,
