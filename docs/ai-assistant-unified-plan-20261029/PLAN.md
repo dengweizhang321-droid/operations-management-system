@@ -100,7 +100,15 @@ schema 回执 `operationId a30d888b…`、`AiTaskFeedbackCandidates 156→158`�
 - **P1b 是当前最实质的缺口**，且它让 P1a 的产出暂时无人消费：实查 `skill_candidates` / `AiSkillCandidate` 的引用方只有自身模型、`database_contract`、`table_manifest` 与自身测试，**`pi_service` 与 Runner 侧零引用**。即候选可以走到 `approved`，但批准后没有任何代码会加载它。
 - **结构化输出目前只有 P1a 一个 consumer**：`structured_output` 的引用方仅 `model_capabilities.py` 与 `provider.py`，没有第二个业务消费者。
 - **H 系列未动**：`tests/legacy` 仍存在（4 项），H1 的引用闭包未收口，H2a 不具备删除前提。
-- **`pi_research` 仍未注册**：`lib/ai/tool-registry.ts` 中 grep 计数为 0，这是第 2 节记录的接线缺口，至今未接。
+- **`pi_research.py` 的检索能力尚未封装为中央工具**（P3-R 未开工）。
+  2026-11-05 实查澄清一处**概念混淆**：`pi_research` **从来不是 surface**——
+  `aiToolSurfaces` 的 17 个成员里没有它，`validateToolRegistry` 对越界的
+  `allowedSurfaces` 会直接抛错，所以它也不是 `ai_sandbox` 那种"已声明但闲置"的条目。
+  真实情况是：`backend/ai_assistant/pi_research.py`（502 行，Bing RSS + 公网 GET，
+  含 DNS/SSRF/字节边界守卫）是现役模块，被 `pi_workspace.py` 消费，有自己的测试；
+  缺的是把它封装成注册工具（第 11 节 P3-R 拟定的 `search_public_sources` /
+  `read_public_source` 与 `lib/ai/pi-research-tools.ts`，该文件确认不存在）。
+  所以这不是 `tool-registry.ts` 的缺陷，而是一个未开工的工作包。
 - **M 系列未启用**：`AI_MARKET_V2_AGENT_RUNTIME_ENABLED` 仍需显式为 `"true"` 才放行（`lib/ai/django-edge.ts:94`），默认关闭。
 - **W 系列无落地物**：`tool-registry.ts` 中无外部平台 writer 相关条目。
 - **P3-R / P3-D / P3-C / P3-A 无落地物**，均保持方案状态。
