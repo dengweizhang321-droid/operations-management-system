@@ -59,6 +59,22 @@ def text(value, field, maximum, *, empty=False):
     return result
 
 
+def text_bytes(value, field, maximum, *, empty=False):
+    # Same normalisation as text(), but the limit is UTF-8 byte length rather
+    # than character count. Use this wherever the stored column is guarded by
+    # a PostgreSQL octet_length(...) CHECK: Chinese text is 3 bytes/char, so a
+    # character-counted limit lets the application accept what the database
+    # then rejects with a 500 (IntegrityError) instead of a clean 400/413.
+    if not isinstance(value, str):
+        raise AiError(f"{field} 必须是字符串")
+    result = value.replace("\r\n", "\n").replace("\r", "\n").replace("\0", "").strip()
+    if not empty and not result:
+        raise AiError(f"{field} 不能为空")
+    if len(result.encode("utf-8")) > maximum:
+        raise AiError(f"{field} 超出上限", "payload_too_large", 413)
+    return result
+
+
 def integer(value, field, lo=1, hi=2**53 - 1):
     if type(value) is not int or not lo <= value <= hi:
         raise AiError(f"{field} 必须在 {lo} 到 {hi} 之间")
