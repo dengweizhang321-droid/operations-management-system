@@ -4,9 +4,12 @@
 本文件统一任务/Skill方案、能力复核、F1—F8修复建议及最新审查结论，作为自足的施工正文；执行不依赖其他工作树中的旧PLAN或FIXPLAN。
 所有新增名称、接口与字段为当时拟定，开发前核对最新main。
 
-> **2026-11-05 进度批注**：本方案已部分实施。P0-01—P0-04 与 P1a 候选侧已合并 main（`ece8c7ec`），
-> 对应迁移 0088/0089 的结构发布适配亦已合并、控制包已采用、应用制品已就绪，**尚未上线**。
-> 其余工作包仍为方案状态。各包状态见第 3 节表格"状态"列，逐项证据见第 3.1 节。
+> **2026-11-05 进度批注**：本方案已部分实施，**且已完成的部分全部上线**。
+> P0-01—P0-04 与 P1a 候选侧已合并 main 并随 `ece8c7ec` 发布到生产
+> （`PUBLISHED-MAIN.json` 为 `deployed_and_ready`，schema 回执
+> `AiTaskFeedbackCandidates 156→158`，`installed`/`finalized` 均 `verified`）。
+> 其余工作包仍为方案状态，**无任何半上线或部分启用的中间态**。
+> 各包状态见第 3 节表格"状态"列，逐项证据见第 3.1 节。
 > 正文其余章节未随实施回写，描述与已落地代码可能有细节差异，施工前以 main 实际代码为准。
 
 ## 1. 目标、原则与最小首批
@@ -51,12 +54,12 @@ P2先做一个明确授权的钉钉任务，再扩触发类型。P3公开研究�
 
 下表“完成形态”是将来需交付的材料/实现，不是本轮已完成业务。已有能力以第2节为准。
 
-**进度更新（2026-11-05 核对，基线 main `ece8c7ec`）**：P0 全部四项与 P1a 的候选那一半已实施并合并 main，制品已就绪待上线；其余仍为方案状态。逐项核对见下表“状态”列与第 3.1 节。本节原文的“当前各增量均为方案状态”已不适用于 P0/P1a。
+**进度更新（2026-11-05 核对；最新 main `04c009fb`，生产现役 `ece8c7ec`）**：P0 全部四项与 P1a 的候选那一半已实施、合并并**上线生产**；其余仍为方案状态。已完成的部分没有留下半上线状态。逐项核对见下表“状态”列与第 3.1 节。本节原文的“当前各增量均为方案状态”已不适用于 P0/P1a。
 
 | 包 | 状态 | 归并来源 | 交付范围、入口与完成形态 | 依赖/复杂度 |
 | --- | --- | --- | --- | --- |
-| P0 | ✅ 已合并，制品待上线 | v2 P0＋F5基础 | 必要工具/来源/反馈；provider能力、受控outputSchema及本地验证 | 中；只选当前案例所需工具 |
-| P1a | 🟡 候选已做、版本库沿用旧实现 | v2 P1候选管理＋F5 consumer | skill_candidates、report_library：Schema消费后形成可审候选/版本 | 中；依赖P0，不等受管loader |
+| P0 | ✅ 已上线 | v2 P0＋F5基础 | 必要工具/来源/反馈；provider能力、受控outputSchema及本地验证 | 中；只选当前案例所需工具 |
+| P1a | 🟡 候选侧已上线、版本库沿用旧实现 | v2 P1候选管理＋F5 consumer | skill_candidates、report_library：Schema消费后形成可审候选/版本 | 中；依赖P0，不等受管loader |
 | P1b | ⬜ 未做 | v2 P1加载桥 | pi_service/Runner/server/protocol/launcher：正式包真实加载复用 | 高；依赖P1a固定包，初次需匹配镜像 |
 | P2 | ⬜ 未做 | v2 P2＋F8 | 连接器、统一任务、触发/数据依赖、投递和异常处置归属 | 高；依赖可运行固定Skill及明确任务授权 |
 | P3-R | ⬜ 未做 | v2 P3-03＋F6 | 中央研究工具、公共主题/query与sourceId/linkId broker | 中；竞品案例可前移，不普遍前置 |
@@ -67,9 +70,9 @@ P2先做一个明确授权的钉钉任务，再扩触发类型。P3公开研究�
 | M1—M6 | ⬜ 未做 | F3路线B | 合格来源、新profile、付费/owning证据、数值引用 | 独立专项；无真实付费/运行授权 |
 | W1—W4 | ⬜ 未做 | F7 | 平台动作准入、预览/授权/并发控制、回执协调及首动作 | 独立专项；默认关闭，不预选预算为最优 |
 
-### 3.1 逐项核对（2026-11-05，对 main `ece8c7ec` 实查）
+### 3.1 逐项核对（2026-11-05 实查；最新 main `04c009fb`，生产现役 `ece8c7ec`）
 
-已实施并合并 main 的部分：
+已实施、合并并**已上线生产**的部分（全部包含在现役提交 `ece8c7ec` 中，逐文件核过）：
 
 | 项 | 落地物 | 证据 |
 | --- | --- | --- |
@@ -78,7 +81,18 @@ P2先做一个明确授权的钉钉任务，再扩触发类型。P3公开研究�
 | P0-03 来源/阶段/修正绑定 | `pi_sources.py` 148 行、`task_feedback.py` 180 行、`feedback_models.py` | 迁移 0088，表 `ai_task_feedback` |
 | P0-04 受控结构化输出 | `model_capabilities.py` 214 行 | `structuredOutputSupport`、`strict_schema_violations()` |
 | P1a 候选提炼 | `skill_candidates.py` 188 行、`output_schemas.py` 121 行、`candidate_models.py` | 迁移 0089，表 `ai_skill_candidates` |
-| 发布适配 | `config/main-schema-releases/ai-0088-0089.json` 等 27 个文件 | 156→158，控制包 `9cfa94a9` 已采用，制品已就绪 |
+| 发布适配 | `config/main-schema-releases/ai-0088-0089.json` 等 27 个文件 | 156→158，控制包 `9cfa94a9` 已采用，已随 `ece8c7ec` 上线 |
+
+上线证据（`PUBLISHED-MAIN.json`，2026-11-05 00:51:59 北京时间）：
+`status=deployed_and_ready`、`mainCommit=ece8c7ec`、`components=[worker,django]`；
+schema 回执 `operationId a30d888b…`、`AiTaskFeedbackCandidates 156→158`、
+双 steps 齐全、`installed` 与 `finalized` 均为 `verified`。
+停机窗口实测 `00:33:21 → 00:49:40`（约 16 分 19 秒），避开了 00:00 的定时任务。
+上表十个落地文件已逐个确认存在于现役提交 `ece8c7ec` 中。
+
+所以**已完成的部分不存在"代码合了但没上线"或"部分启用"的中间态**。
+`ece8c7ec → 04c009fb` 之间 `backend/ai_assistant/` 与 `lib/ai/` 零改动，
+故本节结论对最新 main 同样成立。
 
 仍未做的部分，核对结论：
 
