@@ -5,10 +5,13 @@ import {
   CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT,
   CUSTOMER_SERVICE_IMPORT_MESSAGE_CONTENT_LIMIT,
   CUSTOMER_SERVICE_WARNING_LIMIT,
+  CUSTOMER_SERVICE_WARNING_CONTENT_LIMIT,
+  CUSTOMER_SERVICE_WARNING_BYTES_LIMIT,
   matchCustomerServiceRecords,
   parseChatLog,
   parseCustomerServiceImport,
   parseSessionWorkbook,
+  summarizeCustomerServiceWarnings,
   validateCustomerServiceConversationMessages,
 } from "../lib/customer-service/import-service";
 import { buildCustomerServiceDailyFiles } from "../tools/jd-customer-service-daily-files";
@@ -64,9 +67,49 @@ test("条数警告与既有匹配警告累加，未匹配内容也完整保留",
   assert.equal(parsed.summary.ambiguousCount, 1);
   assert.equal(parsed.warningTotalCount, 2);
   assert.equal(parsed.warnings.length, 2);
-  assert.match(parsed.warnings[0], /未自动拼接/);
-  assert.match(parsed.warnings[1], /201 条.*200 条/);
+  assert.match(parsed.warnings[0], /201 条.*200 条/);
+  assert.match(parsed.warnings[1], /未自动拼接/);
   assert.equal(parsed.conversations.find(row => row.matchStatus === "ambiguous")?.messages.length, 201);
+});
+
+test("829条歧义后追加的223条消息警告进入最终50条，总数仍为830", () => {
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([
+    ["咨询时间", "顾客", "cid"],
+    [timestamp, "customer-A", "cid-A"],
+    [timestamp, "customer-B", "cid-B"],
+  ]), "会话");
+  const logs = Array.from({ length: 829 }, (_, index) =>
+    "/* 以下为一通会话 */\n" + Array.from({ length: index === 828 ? 223 : 1 }, (_, message) =>
+      `unknown-${index} ${timestamp}\n合成消息${message}\n`).join(""));
+  const parsed = parseCustomerServiceImport(
+    new Uint8Array(XLSX.write(book, { type: "array", bookType: "xlsx" })), logs.join("\n"),
+  );
+  assert.equal(parsed.summary.ambiguousCount, 829);
+  assert.equal(parsed.warningTotalCount, 830);
+  assert.equal(parsed.warningsTruncated, true);
+  assert.equal(parsed.warnings.length, 50);
+  assert.match(parsed.warnings[0], /第 829 条客服会话含 223 条消息，超过 200 条警告阈值/);
+  assert.ok(parsed.warnings.slice(1).every(warning => warning.includes("未自动拼接")));
+  assert.equal(parsed.conversations[828].messages.length, 223);
+  // Reapplying the bounded summary, as downstream consumers do, is stable.
+  assert.deepEqual(summarizeCustomerServiceWarnings(parsed.warnings, parsed.warningTotalCount), {
+    warnings: parsed.warnings, warningTotalCount: 830, warningsTruncated: true,
+  });
+});
+
+test("优先选择仍遵守500字符和32KB预算，并保持各类内部顺序", () => {
+  const first = "第 1 条客服会话含 201 条消息，超过 200 条警告阈值，已保留全部消息。";
+  const second = "第 2 条客服会话含 223 条消息，超过 200 条警告阈值，已保留全部消息。";
+  const warnings = ["中".repeat(600), ...Array.from({ length: 49 }, () => "文".repeat(500)), first, second];
+  const result = summarizeCustomerServiceWarnings(warnings);
+  assert.deepEqual(result.warnings.slice(0, 2), [first, second]);
+  assert.equal(result.warnings[2], "中".repeat(500));
+  assert.ok(result.warnings.every(warning => warning.length <= CUSTOMER_SERVICE_WARNING_CONTENT_LIMIT));
+  assert.ok(Buffer.byteLength(JSON.stringify(result.warnings)) <= CUSTOMER_SERVICE_WARNING_BYTES_LIMIT);
+  assert.ok(result.warnings.length < CUSTOMER_SERVICE_WARNING_LIMIT);
+  assert.equal(result.warningTotalCount, 52);
+  assert.equal(result.warningsTruncated, true);
 });
 
 test("closure_evidence的201条输入保持原匹配结果和零条数警告", () => {

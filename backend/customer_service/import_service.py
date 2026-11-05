@@ -31,6 +31,9 @@ MAX_MESSAGE_CONTENT = 4_000
 MAX_MESSAGE_BYTES = 128 * 1024
 WARNING_LIMIT = 50
 WARNING_CONTENT_LIMIT = 500
+WARNING_BYTES_LIMIT = 32 * 1024
+# Keep this text classifier in sync with the Worker MESSAGE_COUNT_WARNING.
+MESSAGE_COUNT_WARNING = re.compile(r"^第 \d+ 条客服会话含 \d+ 条消息，超过 \d+ 条警告阈值，已保留全部消息。$")
 
 ROW_KEYS = {
     "sourceRowNumber", "consultedAt", "customerId", "customerAlias", "consultationType",
@@ -149,10 +152,24 @@ def _row(value: object, index: int, shop_name: str) -> dict[str, object]:
     }
 
 
+def _warning_items(value: list[object]) -> list[str]:
+    items: list[str] = []
+    # Preserve order within each class, including for legacy batch summaries.
+    for priority in (True, False):
+        for warning in value:
+            candidate = str(warning)[:WARNING_CONTENT_LIMIT]
+            if bool(MESSAGE_COUNT_WARNING.fullmatch(candidate)) != priority:
+                continue
+            if len(items) >= WARNING_LIMIT or len(_canonical([*items, candidate])) > WARNING_BYTES_LIMIT:
+                return items
+            items.append(candidate)
+    return items
+
+
 def _warnings(value: object, total: object) -> dict[str, object]:
     if not isinstance(value, list) or isinstance(total, bool) or not isinstance(total, int) or total < 0:
         raise CustomerServiceApiError("导入告警摘要无效")
-    items = [str(item)[:WARNING_CONTENT_LIMIT] for item in value[:WARNING_LIMIT]]
+    items = _warning_items(value)
     total_count = max(len(items), total)
     return {"items": items, "totalCount": total_count, "truncated": len(items) < total_count}
 
@@ -177,6 +194,7 @@ def _batch_payload(batch: CustomerServiceImportBatch) -> dict[str, object]:
     warnings = batch.warnings_json if isinstance(batch.warnings_json, dict) else {}
     items = warnings.get("items", []) if isinstance(warnings.get("items", []), list) else []
     total = max(len(items), int(warnings.get("totalCount", len(items)) or 0))
+    warning_summary = _warnings(items, total)
     return {
         "id": batch.id,
         "shopName": batch.shop_name,
@@ -189,9 +207,7 @@ def _batch_payload(batch: CustomerServiceImportBatch) -> dict[str, object]:
         "sessionOnlyCount": int(batch.session_only_count),
         "chatOnlyCount": int(batch.chat_only_count),
         "ambiguousCount": int(batch.ambiguous_count),
-        "warnings": [str(item)[:WARNING_CONTENT_LIMIT] for item in items[:WARNING_LIMIT]],
-        "warningTotalCount": total,
-        "warningsTruncated": len(items[:WARNING_LIMIT]) < total,
+        **_public_warnings(warning_summary),
         "createdAt": batch.created_at.isoformat(),
         "completedAt": batch.completed_at.isoformat() if batch.completed_at else None,
     }
