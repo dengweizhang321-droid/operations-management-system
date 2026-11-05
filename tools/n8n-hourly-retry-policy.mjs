@@ -472,19 +472,30 @@ return [{ json: { manualAction: { workflowId: p.retryPolicy?.workflowId,
 const codes = ['terminal_manual_action','execution_mode_not_automatic','retry_dispatch_result_unknown',
   'retry_context_wait_expired_manual_action','retry_context_unverified_manual_action',
   'retry_reservation_result_unknown_manual_action','retry_already_reserved_or_unverified_manual_action'];
-return $input.all().map((item, index) => {
+// 逐条校验、逐条产出：sender 的 executeOnce=false，每条 item 调一次脚本，
+// 所以合法条目各自都会发出去。整批 throw 会让同批合法告警一起发不出去
+// （失败点在 sender 上游），那是「终局但人收不到通知」——只满足要求的一半。
+// 被拒条目不静默丢弃：计数并在最后用原错误码抛出，保持终局性。
+const rejected = [];
+const prepared = [];
+for (const [index, item] of $input.all().entries()) {
   const p = item.json.manualAction;
-  if (!p || !workflows.includes(p.workflowId) || !codes.includes(p.code)
+  const invalid = !p || !workflows.includes(p.workflowId) || !codes.includes(p.code)
     || !/^[1-9][0-9]{0,19}$/.test(String(p.logicalExecutionId))
-    || !/^[1-9][0-9]{0,19}$/.test(String(p.failedExecutionId))) throw new Error('manual_alert_payload_invalid');
+    || !/^[1-9][0-9]{0,19}$/.test(String(p.failedExecutionId));
+  if (invalid) { rejected.push(index); continue; }
   const payload = {version:1, workflowId:p.workflowId, logicalExecutionId:String(p.logicalExecutionId),
     failedExecutionId:String(p.failedExecutionId), code:p.code};
   const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
-  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded) || encoded.length > 8192) throw new Error('manual_alert_payload_invalid');
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded) || encoded.length > 8192) { rejected.push(index); continue; }
   const terminalCode = codes.includes(item.json.terminalCode) ? item.json.terminalCode
     : 'dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST';
-  return {json:{manualAlertPayloadBase64:encoded, terminalCode}, pairedItem:{item:index}};
-});` },
+  prepared.push({json:{manualAlertPayloadBase64:encoded, terminalCode}, pairedItem:{item:index}});
+}
+// 一条都不合法时行为与原先一致：直接终局，没有可发的告警。
+if (!prepared.length) throw new Error('manual_alert_payload_invalid');
+if (rejected.length) console.warn('manual_alert_payload_invalid items=' + rejected.join(','));
+return prepared;` },
         id: stableUuid("teruisi-hourly-retry:prepare-alert"), name: prepareAlertName,
         type: "n8n-nodes-base.code", typeVersion: 2, position: [660, 0],
       },

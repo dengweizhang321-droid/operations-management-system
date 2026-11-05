@@ -49,11 +49,38 @@ test("error workflow verifies context before dispatch and forwards exact inherit
     ?{statusCode:200,body:{ok:true,reservationStatus:"reserved",failedExecutionId:"42",retryExecutionId:"50"}}
     :{statusCode:200,body:{ok:true,...context}})}};
   assert.equal((await execute.call(client,lookup,0,{id:"50"}))[0].json.originalExecutionId,"30");
+  // 已知 manual code 不再 throw：改为产出结构化 item，经同一 sender 发钉钉后由
+  // 下游 stopAndError 用原错误码终局（13eb2579 把通知移出 Code 节点所致）。
   client.helpers.httpRequest=async()=>({statusCode:409,body:{ok:false,...context}});
-  await assert.rejects(execute.call(client,lookup,1),/unverified_manual_action/);
+  const unverified=(await execute.call(client,lookup,1))[0].json;
+  assert.equal(unverified.manualAction.code,"retry_context_unverified_manual_action");
+  assert.equal(unverified.terminalCode,"retry_context_unverified_manual_action");
   client.helpers.httpRequest=async()=>({statusCode:503,body:{ok:false,...context}});
   assert.equal((await execute.call(client,lookup,2))[0].json.contextStatus,"waiting");
-  await assert.rejects(execute.call(client,lookup,72),/wait_expired/);
+  const expired=(await execute.call(client,lookup,72))[0].json;
+  assert.equal(expired.manualAction.code,"retry_context_wait_expired_manual_action");
+  assert.equal(expired.terminalCode,"retry_context_wait_expired_manual_action");
+  // reserve 抛出属于已知 manual code，同样走人工出口而非原样抛。
+  client.helpers.httpRequest=async(request:{url:string})=>{
+    if(request.url.endsWith("reserve-retry")) throw new Error("socket hang up");
+    return {statusCode:200,body:{ok:true,...context}};
+  };
+  const unknown=(await execute.call(client,lookup,3,{id:"50"}))[0].json;
+  assert.equal(unknown.manualAction.code,"retry_reservation_result_unknown_manual_action");
+  assert.equal(unknown.manualAction.logicalExecutionId,"30","应沿用已核验到的原 execution");
+  // 终局性由下游链路保证，而非 throw：旧的 assert.rejects 曾是「转人工不会静默
+  // continue」的唯一守卫，语义改掉后无人接替，故在此固定整条拓扑。
+  const main=(name:string)=>workflow.connections[name as keyof typeof workflow.connections]!.main!;
+  assert.equal(main("读取原执行计划时间")[0]![0]!.node,"原计划需要人工？");
+  assert.equal(main("原计划需要人工？")[0]![0]!.node,"准备人工提醒参数");
+  assert.equal(main("准备人工提醒参数")[0]![0]!.node,"转人工发钉钉提醒");
+  const sender=main("转人工发钉钉提醒");
+  assert.equal(sender.length,2,"sender 的成功与失败两路都必须接到 stopAndError");
+  for(const out of sender) assert.equal(out![0]!.node,"重试派发结果未知转人工");
+  const terminal=workflow.nodes.find(n=>n.name==="重试派发结果未知转人工")!;
+  assert.equal(terminal.type,"n8n-nodes-base.stopAndError");
+  assert.equal(workflow.connections["重试派发结果未知转人工" as keyof typeof workflow.connections],undefined,
+    "stopAndError 不得有下游，否则执行不会终止");
   const dispatch=workflow.nodes.find(n=>n.name==="启动新的完整工作流 execution")!;
   assert.equal(dispatch.retryOnFail,false);
   assert.match(dispatch.parameters.jsonBody!,/originalScheduledAt/);
