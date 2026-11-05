@@ -79,6 +79,32 @@ def dispatch(request, path, principal):
             # body, so resubmitting an older body cannot retire a different one.
             if request.method == "POST" and len(parts) == 6 and parts[5] == "withdraw":
                 return response(task_feedback.withdraw(parts[2], parts[4], payload, principal))
+        if name == "skill-candidates" and request.method == "POST" and len(parts) == 4:
+            from . import pi_gateway, skill_candidates
+            from .pi_models import PiOperation
+            # registry_tools must reflect this run's own operation (its granted
+            # business intents), not a tool-less or unrelated catalog -- a
+            # candidate step naming a tool this run never had cannot be
+            # validated against some other operation's permissions. Ownership
+            # of parts[2] is re-checked inside skill_candidates.save() itself
+            # (via request_schema -> pi_sources.evidence); this lookup only
+            # needs the row to ask the gateway what this run may call.
+            operation = PiOperation.objects.filter(id=parts[2]).first()
+            if operation is None or operation.session.owner_email.lower() != principal.email.lower():
+                raise AiError("任务不存在或不属于当前账号", "not_found", 404)
+            entries, _readonly = pi_gateway.catalog(principal, operation)
+            registry_tools = {item["name"] for item in entries if "name" in item}
+            return response(skill_candidates.save(parts[2], payload, principal,
+                registry_tools=registry_tools), 201)
+    if parts == ["pi", "skill-candidates"] and request.method == "GET":
+        from . import skill_candidates
+        return response(skill_candidates.listing(params, principal))
+    if len(parts) == 4 and parts[:2] == ["pi", "skill-candidates"] and request.method == "POST":
+        from . import skill_candidates
+        if parts[3] == "review":
+            return response(skill_candidates.review(parts[2], payload, principal))
+        if parts[3] == "publish":
+            return response(skill_candidates.publish(parts[2], payload, principal))
     raise AiError("Pi 接口不存在或方法不支持", "not_found", 404)
 
 
