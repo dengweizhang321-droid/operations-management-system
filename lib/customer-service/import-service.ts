@@ -126,11 +126,11 @@ function numberOrNull(value: unknown, field: string, rowNumber: number, integer 
   return number;
 }
 
-export function validateCustomerServiceConversationMessages(conversations: readonly CustomerServiceConversationInput[], policy: "import" | "closure_evidence" = "import") {
+export function validateCustomerServiceConversationMessages(conversations: readonly CustomerServiceConversationInput[], policy: "import" | "closure_evidence" = "import", addWarning?: (warning: string) => void) {
   const encoder = new TextEncoder();
   conversations.forEach((conversation, conversationIndex) => {
     if (policy === "import" && conversation.messages.length > CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT) {
-      throw new CustomerServiceImportError(`第 ${conversationIndex + 1} 条客服会话消息数超过 ${CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT} 条上限`, "MESSAGE_LIMIT_EXCEEDED");
+      addWarning?.(`第 ${conversationIndex + 1} 条客服会话含 ${conversation.messages.length} 条消息，超过 ${CUSTOMER_SERVICE_IMPORT_MESSAGE_LIMIT} 条警告阈值，已保留全部消息。`);
     }
     conversation.messages.forEach((message, messageIndex) => {
       if (message.content.length > CUSTOMER_SERVICE_IMPORT_MESSAGE_CONTENT_LIMIT) {
@@ -419,6 +419,10 @@ export function matchCustomerServiceRecords(sessions: CustomerServiceSession[], 
 
 export function parseCustomerServiceImport(sessionBytes: Uint8Array, chatLog: string, policy: "import" | "closure_evidence" = "import") {
   const parsed = matchCustomerServiceRecords(parseSessionWorkbook(sessionBytes), parseChatLog(chatLog, policy));
-  validateCustomerServiceConversationMessages(parsed.conversations, policy);
+  validateCustomerServiceConversationMessages(parsed.conversations, policy, (warning) => {
+    Object.assign(parsed, summarizeCustomerServiceWarnings(
+      [...parsed.warnings, warning], (parsed.warningTotalCount ?? parsed.warnings.length) + 1,
+    ));
+  });
   return parsed;
 }

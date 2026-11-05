@@ -42,6 +42,33 @@ class CustomerServiceApiTests(TestCase):
         )
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_message_count_warning_preserves_all_messages_and_warning_summary(self) -> None:
+        payload = body_for()
+        row = payload["conversations"][0]
+        row["messages"] = [dict(row["messages"][0], content=f"合成消息{index}") for index in range(201)]
+        payload["warnings"] = ["第 1 条客服会话含 201 条消息，超过 200 条警告阈值，已保留全部消息。"]
+        payload["warningTotalCount"] = 1
+        response = self.post(payload, "customer-message-count-warning")
+        self.assertEqual(response.status_code, 201, response.content)
+        result = response.json()
+        self.assertEqual(result["warnings"], payload["warnings"])
+        self.assertEqual(result["warningTotalCount"], 1)
+        self.assertEqual(result["batch"]["warningTotalCount"], 1)
+        self.assertEqual(CustomerServiceConversation.objects.get().messages, row["messages"])
+        self.assertEqual(result["batch"]["conversationCount"], 1)
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_high_message_count_still_rejects_content_and_byte_overflow(self) -> None:
+        for content in ["x" * 4_001, "x" * 1_000]:
+            with self.subTest(content_length=len(content)):
+                payload = body_for()
+                row = payload["conversations"][0]
+                row["messages"] = [dict(row["messages"][0], content=content) for _ in range(201)]
+                response = self.post(payload, f"customer-message-budget-{len(content)}")
+                self.assertEqual(response.status_code, 400, response.content)
+                self.assertEqual(CustomerServiceConversation.objects.count(), 0)
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_import_is_atomic_idempotent_and_replay_fenced(self) -> None:
         payload = body_for()
         first = self.post(payload, "customer-import-1")

@@ -27,7 +27,6 @@ DATE_TIME = re.compile(r"^(?:19|20|21)\d\d-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[
 MATCH_STATUSES = {"matched", "session_only", "chat_only", "ambiguous"}
 MATCH_CONFIDENCES = {"exact", "time_only", "review", "none"}
 MAX_CONVERSATIONS = 20_000
-MAX_MESSAGES = 200
 MAX_MESSAGE_CONTENT = 4_000
 MAX_MESSAGE_BYTES = 128 * 1024
 WARNING_LIMIT = 50
@@ -94,7 +93,9 @@ def _datetime_text(value: object, label: str, *, required: bool = False) -> str:
 
 
 def _messages(value: object, row_number: int) -> list[dict[str, str]]:
-    if not isinstance(value, list) or len(value) > MAX_MESSAGES:
+    # The parser reports high message counts through the existing warnings;
+    # retain every message here, with content and byte budgets still enforced.
+    if not isinstance(value, list):
         raise CustomerServiceApiError(f"第 {row_number} 条会话消息集合无效")
     output: list[dict[str, str]] = []
     for index, item in enumerate(value, start=1):
