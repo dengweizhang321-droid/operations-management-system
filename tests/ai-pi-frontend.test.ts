@@ -56,6 +56,28 @@ test("Pi public paths are exact and all reads use their writer owner", async () 
   for (const suffix of ["", "skills/", "skills/run", "sessions/s_1/internal", "sessions/s_1/messages/retry", "files/f_1/content/extra", `sessions/${"a".repeat(161)}`]) assert.equal(isPublicAiPath(`/api/ai/pi/${suffix}`), false, suffix);
 });
 
+test("Pi operations paths (evidence, stages, feedback, feedback withdraw) are public and writer-owned", async () => {
+  const operationPaths = ["operations/op_1/evidence", "operations/op_1/stages", "operations/op_1/feedback", "operations/op_1/feedback/fb_1/withdraw"];
+  for (const suffix of operationPaths) {
+    const path = `/api/ai/pi/${suffix}`;
+    assert.equal(isPublicAiPath(path), true, path);
+    let endpoint = "";
+    await requestDjangoAi(principal, { path }, { environment, fetchImpl: async (url) => { endpoint = String(url); return Response.json({}, { headers: { "x-ai-revision": "1" } }); } });
+    assert.equal(new URL(endpoint).port, "18112");
+    await assert.rejects(requestDjangoAi(principal, { path, service: "reader" }, { environment }), /writer/);
+  }
+  // Rejected variants: wrong segment count, path traversal, extra suffixes, and the one
+  // Django does not expose ("events" was never the real segment name - it is "stages").
+  for (const suffix of [
+    "operations", "operations/", "operations/op_1", "operations/op_1/", "operations/op_1/events",
+    "operations/op_1/evidence/extra", "operations/op_1/stages/extra", "operations/op_1/feedback/extra",
+    "operations/op_1/feedback/fb_1", "operations/op_1/feedback/fb_1/withdraw/extra",
+    "operations/../sessions", "operations/op_1/../files/f_1", "operations/op_1/feedback/../evidence",
+    `operations/${"a".repeat(161)}/evidence`, `operations/op_1/feedback/${"a".repeat(161)}/withdraw`,
+    "operations/op 1/evidence", "operations/op_1/Evidence",
+  ]) assert.equal(isPublicAiPath(`/api/ai/pi/${suffix}`), false, suffix);
+});
+
 test("Pi passive file transport accommodates an 8 MiB file base64 envelope and remains bounded", async () => {
   const payload = { base64: Buffer.alloc(8 * 1024 * 1024, 97).toString("base64"), fileName: "fixture.bin", mimeType: "application/octet-stream" };
   const result = await requestDjangoAi<typeof payload>(principal, { path: "/api/ai/pi/files/f_1/content" }, { environment, fetchImpl: async () => Response.json(payload, { headers: { "x-ai-revision": "1" } }) });
@@ -72,7 +94,7 @@ test("Pi event transport preserves complete large UTF-8 replies within its indep
 });
 
 test("Pi route files expose only the intended passive GET and explicit POST", async () => {
-  const routes = { "skills": ["GET"], "sessions": ["GET", "POST"], "sessions/[id]": ["GET"], "sessions/[id]/messages": ["POST"], "sessions/[id]/events": ["GET"], "sessions/[id]/abort": ["POST"], "sessions/[id]/files": ["POST"], "sessions/[id]/workspace": ["GET", "POST"], "files/[id]": ["GET"], "files/[id]/content": ["GET"] };
+  const routes = { "skills": ["GET"], "sessions": ["GET", "POST"], "sessions/[id]": ["GET"], "sessions/[id]/messages": ["POST"], "sessions/[id]/events": ["GET"], "sessions/[id]/abort": ["POST"], "sessions/[id]/files": ["POST"], "sessions/[id]/workspace": ["GET", "POST"], "files/[id]": ["GET"], "files/[id]/content": ["GET"], "operations/[id]/evidence": ["GET"], "operations/[id]/stages": ["GET"], "operations/[id]/feedback": ["GET", "POST"], "operations/[id]/feedback/[fid]/withdraw": ["POST"] };
   for (const [path, methods] of Object.entries(routes)) {
     const source = await readFile(`app/api/ai/pi/${path}/route.ts`, "utf8");
     assert.deepEqual([...source.matchAll(/export const (\w+) = forwardAiRequest/g)].map(match => match[1]), methods);
@@ -98,6 +120,10 @@ test("Pi thin route keeps origin, roles and bounded upload parsing, and forces p
   assert.equal((await forwardAiRequest(request("sessions/s_1/files", { base64: "a".repeat(740000) }))).status, 413);
   assert.equal((await forwardAiRequest(request("sessions/s_1/messages", { message: "只读分析".repeat(15000) }))).status, 200);
   assert.equal((await forwardAiRequest(request("sessions/s_1/messages", {}, "https://cross-site.invalid"))).status, 403);
+  assert.equal((await forwardAiRequest(request("operations/op_1/feedback", { targetKind: "field", targetRef: "x", newValue: "y" }))).status, 200);
+  assert.equal((await forwardAiRequest(request("operations/op_1/feedback", {}, "https://cross-site.invalid"))).status, 403);
+  assert.equal((await forwardAiRequest(request("operations/op_1/feedback/fb_1/withdraw", { expectedVersion: 1 }))).status, 200);
+  assert.equal((await forwardAiRequest(request("operations/op_1/feedback/fb_1/withdraw", {}, "https://cross-site.invalid"))).status, 403);
   const attachment = await forwardAiRequest(new Request("https://fixture.invalid/api/ai/pi/files/f_1/content"));
   assert.match(attachment.headers.get("content-disposition"), /^attachment;/);
   assert.equal(attachment.headers.get("x-content-type-options"), "nosniff");
