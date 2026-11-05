@@ -1,0 +1,25 @@
+{
+  "verifiedAtUtc": "2026-11-05T16:50:13.299396+00:00",
+  "sourceCommit": "e3f2b1b8373830bfca26c5b5b25db7fee7f00f9a",
+  "before": {
+    "versionId": "62d4ae60-3780-4278-92f6-052b9e0cbdca",
+    "activeVersionId": "62d4ae60-3780-4278-92f6-052b9e0cbdca",
+    "active": 1
+  },
+  "after": {
+    "versionId": "dbe5c5ea-b80e-422e-b008-cd7c4c7dfa01",
+    "activeVersionId": "dbe5c5ea-b80e-422e-b008-cd7c4c7dfa01",
+    "active": 1
+  },
+  "nodeCount": 16,
+  "onlyTwoJsCodeChanged": true,
+  "allOtherWorkflowCount": 23,
+  "allOtherWorkflowsUnchanged": true,
+  "connectionsUnchanged": true,
+  "settingsUnchanged": true,
+  "publishedHistoryMatches": true,
+  "codeSha256": {
+    "仅保留可安全自动重试的失败": "6d5bfead65cd7bdbeb4686079b49dc40cceab19febca3a5d6e9a9f1622ce0d99",
+    "准备人工提醒参数": "7606868efdf2bca54ea673b94758b9f73530903e4d69d8ced4d73d88c61a7d42"
+  }
+}

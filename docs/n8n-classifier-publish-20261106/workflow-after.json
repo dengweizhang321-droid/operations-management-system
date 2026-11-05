@@ -1,0 +1,509 @@
+{
+  "id": "TeruisiHourlyRetry2026",
+  "name": "数据下载导入工作流每小时安全重试",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "24290b62-2475-4bc1-8fa0-d416e2db0b47",
+      "name": "数据下载导入工作流失败",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const targets = {\"J8kY2mQ5vR7sT4pN\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-fc753414409a49c05026b800c1eced5bf3875b69\",\"JdN8nSilentCopy2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-b12ca72b424761db1f0c7f165bab115ab54fac22\",\"JdMarketSilentCopy2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-433789cd0a25c6daf93a4dfcc83d1ef227236957\",\"JdPromotionDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-e30f35b5bcbba9b6372a866c8d8ba9c05d0be4c5\",\"JdPromotionCutMeat2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-c299587c4711e52824c319f192a6429ca61eb55f\",\"M4xY8kQ2vR6sT9pC\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-46892fbc3a30a11922bfa53523d5af695645e453\",\"TmallLiliDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-5bf5673970f4b8262809dd8f152d1603dc03c133\",\"TmallTuofengDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-16548ad67bffa402d516bbe87fbd2143fbd4d1be\",\"TmallCuizhiwangDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-d14bda4ec9c13c68832c6cc82e7465ad3ce90817\",\"TmallMasituDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-699bf7e42f83386073c4d5b40b5222c4a93b65ea\",\"TmallYiyongDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-1311a7e06af8415e5080650e1668871676ddebb1\",\"JdCustomerService2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-dd409357b3a4cc0776236c9b6214fbd2e23d0c47\",\"JdCustomerServiceCutMeat2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-f8665ff01279a10b58d3d741e4ca5812bad5d77a\",\"JdCustomerServiceChudian2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-c05d29871fcbebf3e30c7907f2855d933a17c46c\",\"JdCustomerServiceDishwasher2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-8e2c575f6b8973f70c0089433919ed8ef0a65e9b\",\"JdLogisticsDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-4a047ca9719d556030914bd51e5467913ceb25b2\"};\nconst terminalPatterns = [\"JACKYUN_OSS_DOWNLOAD_|JACKYUN_API_RESUME_MANUAL_ACTION|JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED\",\"maintenance_requires_plan_anchor|execution_plan_anchor_changed|coordination_wait_expired|manual_action|maintenance_wait\",\"challenge_present|waiting_login\",\"captcha|验证码|滑块|短信验证|安全验证|security verification|risk control|风控|\\\\b601\\\\b\",\"credential|credentials|凭据|dpapi|密码.*(?:缺失|损坏|错误)|授权失效|unauthori[sz]ed|authentication failed|http 40[13]\",\"JACKYUN_PREFLIGHT_RETRY_READY\",\"API_LOGIN_PAGE_NOT_UNIQUE|原运行 n8n-export-first-[1-9]\\\\d{0,19} 尚未闭合\",\"店铺身份|账号身份|identity(?: mismatch| invalid)|cross[- ]store|跨店|wrong store\",\"登录失效|需要登录|登录状态加载超时|登录[^\\\\s]{0,12}?(?:失败|异常|拒绝|未就绪)|login (?:required|failed|failure)|not authenticated|session invalid|cookie invalid|passport\\\\.jd\\\\.com|login\\\\.taobao\\\\.com\",\"多个候选|候选.*不唯一|任务.*歧义|ambiguous|multiple candidates\",\"点击结果未决|提交结果未决|响应未决|点击未决|禁止自动重提|禁止重新创建任务|禁止重复创建|result unknown|dispatch unknown|click unknown\",\"export_submitting|report_submitting|page_export_submitting|task_click_invoked\",\"禁止重建|下载中心在\\\\s*\\\\d+\\\\s*秒内未出现本轮唯一任务\",\"source[_ -]?not[_ -]?ready|来源数据未就绪|数据源未就绪|日期.*disabled\",\"活动清单.*无法证明|manifest.*(?:mismatch|ambiguous|invalid)|owner.*conflict|owner.*冲突\",\"唯一商品数.*出售中总数|内容完整性错误|content completeness|内容校验失败|validation failed|日期覆盖.*(?:缺失|不一致)|date coverage.*(?:missing|mismatch)|空文件|零行业务|malformed workbook|批次.*(?:不匹配|回查失败)\",\"逐页货品文件合计 \\\\d+ 个唯一商品，与出售中总数 \\\\d+ 不一致|市场榜单导入响应与签收文件、身份、日期或行数不一致\",\"需要人工|转人工|manual action|required human\",\"京东物流流程未完成；原计划与未决任务已保留，禁止自动重发导出或导入\",\"文件校验未通过\",\"导入未全部完成或覆盖回查未命中\",\"\\\\bAPI_SERVER_CLOCK_UNVERIFIED\\\\b\",\"\\\\bhttp\\\\s+(?:400|413|415|422)\\\\b\"].map((source) => new RegExp(source, \"iu\"));\nconst boundDownloadPattern = new RegExp(\"^JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=(?:ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENETUNREACH|EHOSTUNREACH|UND_ERR_CONNECT_TIMEOUT|UND_ERR_HEADERS_TIMEOUT|UND_ERR_BODY_TIMEOUT|UND_ERR_SOCKET|HTTP_408|HTTP_429|HTTP_500|HTTP_502|HTTP_503|HTTP_504) attempts=[1-3]$\");\nconst collect = (value, output = []) => {\n  if (typeof value === 'string') output.push(value);\n  else if (Array.isArray(value)) for (const item of value) collect(item, output);\n  else if (value && typeof value === 'object') for (const item of Object.values(value)) collect(item, output);\n  return output.join(' ').slice(0, 32768);\n};\nconst result = [];\nconst droppedFailures = [];\nconst describe = (payload, workflowId, reason) => ({ workflowId,\n  workflowName: String(payload.workflow?.name ?? ''),\n  lastNodeExecuted: String(payload.execution?.lastNodeExecuted ?? ''),\n  failedExecutionId: String(payload.execution?.id ?? ''), reason });\nfor (const item of $input.all()) {\n  const payload = item.json ?? {};\n  const workflowId = String(payload.workflow?.id ?? '');\n  const mode = String(payload.execution?.mode ?? payload.trigger?.mode ?? '');\n  if (!targets[workflowId] || !['trigger', 'webhook'].includes(mode)) {\n    // 原逻辑在这里静默丢弃，现在记下来报警\n    if (workflowId) droppedFailures.push(describe(payload, workflowId,\n      targets[workflowId] ? ('触发方式 ' + mode + ' 不参与自动重试') : '该流程未接入自动重试'));\n    continue;\n  }\n  const failureText = collect({ error: payload.execution?.error ?? payload.trigger?.error, lastNodeExecuted: payload.execution?.lastNodeExecuted });\n  if (workflowId === 'J8kY2mQ5vR7sT4pN' && /API_(?:RUN_BINDING_CHANGED|STATE_EVIDENCE_INVALID|ARCHIVE_(?:CHANGED|INCOMPLETE|IDENTITY_INVALID)|TENANT_BINDING_CHANGED|FIELD_PERMISSIONS_CHANGED_RECALIBRATE|LEGACY_STATE_SCHEMA_CHANGED)/u.test(failureText)) continue;\n  if (workflowId === 'J8kY2mQ5vR7sT4pN' && payload.execution?.lastNodeExecuted === 'B·接口校验与五表下载' && payload.execution?.error?.description === 'JACKYUN_PREFLIGHT_RETRY_READY' && !terminalPatterns.some((pattern) => pattern.test(failureText.replaceAll('JACKYUN_PREFLIGHT_RETRY_READY', '')))) {\n    result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60 }, failedExecutionId: String(payload.execution?.id ?? '') } });\n    continue;\n  }\n  const downloadDescription = String(payload.execution?.error?.description ?? '');\n  const jackyunDownloadNode = workflowId === 'J8kY2mQ5vR7sT4pN' && payload.execution?.lastNodeExecuted === 'B·接口校验与五表下载';\n  if (jackyunDownloadNode && boundDownloadPattern.test(downloadDescription) && !terminalPatterns.some(pattern => pattern.test(failureText.replaceAll(downloadDescription, '')))) {\n    result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60, reason: 'bound_download_resume_required' }, failedExecutionId: String(payload.execution?.id ?? '') } });\n    continue;\n  }\n  if (jackyunDownloadNode && /fetch failed/iu.test(failureText)) continue;\n  if (terminalPatterns.some((pattern) => pattern.test(failureText))) {\n    // 终局失败（掉登录、验证码等），不该自动重试 —— 必须有人处理\n    droppedFailures.push(describe(payload, workflowId, '终局失败，不会自动重试'));\n    continue;\n  }\n  result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60 }, failedExecutionId: String(payload.execution?.id ?? '') } });\n}\n// 单失败 ErrorTrigger 的终局记录经 IF 进入人工分支，不进入 Wait。\nif (droppedFailures.length > 0) result.push({ json: { droppedFailures, noRetryTarget: true } });\nreturn result;\n"
+      },
+      "id": "0dcc9c2e-5f1b-4f91-b5cf-ae8e5381d57e",
+      "name": "仅保留可安全自动重试的失败",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f158f7ea-20ac-4fa8-a1db-7aee04ca05ea",
+              "leftValue": "={{ !!$json.retryPolicy && $json.noRetryTarget !== true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ef6d1bee-c514-47c5-b2b7-0122068f7656",
+      "name": "本次可安全自动重试？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 1,
+        "unit": "hours"
+      },
+      "id": "d1a2f3ae-5a94-49eb-9e98-f52a8e1aca8d",
+      "name": "等待一小时",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -60,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Known manual-action errors route through the shared sender then StopAndError.\n// All other errors still throw unchanged; no notification HTTP side channel.\nconst manualCodes = new Set(['retry_context_wait_expired_manual_action',\n  'retry_context_unverified_manual_action','retry_reservation_result_unknown_manual_action',\n  'retry_already_reserved_or_unverified_manual_action']);\nlet knownOriginalExecutionId = '';\ntry {\n\n  const pending = $('仅保留可安全自动重试的失败').first().json;\n  if ($runIndex >= 72) throw new Error('retry_context_wait_expired_manual_action');\n  let response;\n  try {\n    response = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/retry-context',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,\n      headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId}});\n  } catch(error) {\n    const status = Number(error.statusCode ?? error.response?.statusCode ?? error.httpCode ?? 0);\n    if(status >= 400 && status < 500) throw new Error('retry_context_unverified_manual_action');\n    return [{json:{...pending,contextStatus:'waiting'}}];\n  }\n  const status = Number(response.statusCode);\n  if(status >= 500) return [{json:{...pending,contextStatus:'waiting'}}];\n  if(status !== 200) throw new Error('retry_context_unverified_manual_action');\n  const context = response.body;\n  if(context?.ok !== true || context.version !== 'teruisi-retry-context-v1' || context.workflowId !== pending.retryPolicy.workflowId\n    || context.failedExecutionId !== pending.failedExecutionId || !context.originalScheduledAt || !context.originalExecutionId) throw new Error('retry_context_unverified_manual_action');\n  knownOriginalExecutionId = String(context.originalExecutionId);\n  let reservation;\n  try {\n    reservation = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/reserve-retry',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,\n      headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId,'X-TERUISI-RETRY-EXECUTION-ID':String($execution.id)}});\n  } catch { throw new Error('retry_reservation_result_unknown_manual_action'); }\n  if(pending.retryPolicy.workflowId === 'J8kY2mQ5vR7sT4pN' && reservation.statusCode === 200) {\n    if(['completed','accepted'].includes(reservation.body?.reservationStatus)) return [];\n    if(reservation.body?.reservationStatus === 'waiting') return [{json:{...pending,contextStatus:'waiting',nextRetryDelayMinutes:reservation.body.nextRetryDelayMinutes}}];\n  }\n  if(reservation.statusCode !== 200 || reservation.body?.reservationStatus !== 'reserved'\n    || reservation.body.failedExecutionId !== pending.failedExecutionId || reservation.body.retryExecutionId !== String($execution.id)) throw new Error('retry_already_reserved_or_unverified_manual_action');\n  return [{json:{...pending,...context,contextStatus:'verified'}}];\n} catch (error) {\n  const code = error?.message ?? '';\n  if (manualCodes.has(code)) {\n    const p = $('仅保留可安全自动重试的失败').first().json ?? {};\n    // Route only these known errors through the common sender, then fail\n    // with this same code. Unrecognized errors still throw unchanged.\n    return [{ json: { manualAction: { code, workflowId: p.retryPolicy?.workflowId,\n      failedExecutionId: p.failedExecutionId,\n      logicalExecutionId: knownOriginalExecutionId || p.originalExecutionId || p.failedExecutionId }, terminalCode: code } }];\n  }\n  throw error;\n}\n"
+      },
+      "id": "3ecdf16a-d64e-4569-a1c7-7f1ed8ac4ccc",
+      "name": "读取原执行计划时间",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "61eb5f7d-9ced-4fd6-af0e-e2a24761a245",
+              "leftValue": "={{ $json.contextStatus }}",
+              "rightValue": "verified",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "10c36f4f-85d7-4854-be8b-64b1c277dcd9",
+      "name": "原计划核验完成？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        380,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.retryPolicy.retryUrl }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {version:$json.version,workflowId:$json.workflowId,failedExecutionId:$json.failedExecutionId,originalScheduledAt:$json.originalScheduledAt,originalExecutionId:$json.originalExecutionId,...($json.retryPolicy.workflowId === 'J8kY2mQ5vR7sT4pN' ? {retryDispatchExecutionId:String($execution.id)} : {})} }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "d41c44f7-53f2-438c-a9a9-83fc16733519",
+      "name": "启动新的完整工作流 execution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        180,
+        0
+      ],
+      "retryOnFail": false,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $('准备人工提醒参数').item.json.terminalCode }}"
+      },
+      "id": "f778a31a-9171-4da9-8f28-b0a39cef5cfb",
+      "name": "重试派发结果未知转人工",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        420,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2781aad2-862b-4019-ab18-14b35d95e5fa",
+              "leftValue": "={{ $json.retryPolicy?.workflowId === 'J8kY2mQ5vR7sT4pN' && Number.isInteger($json.nextRetryDelayMinutes) && $json.nextRetryDelayMinutes > 0 && $json.nextRetryDelayMinutes <= 240 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2781aad2-862b-4019-ab18-14b35d95e5fa",
+      "name": "吉客云需要继续退避？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        380,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $json.nextRetryDelayMinutes }}",
+        "unit": "minutes"
+      },
+      "id": "0b1618ad-9fd4-4ad1-b5df-d01f53f1ffe2",
+      "name": "等待吉客云下一次允许时间",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        600,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 失败后每 60 分钟安全重跑\n仅接收已登记的数据下载/导入工作流的定时或自动重试失败。等待 1 小时后，通过 127.0.0.1:5678 的专用 Webhook 创建新的完整 execution，并重新经过共享 helper 领取门禁；新 execution 再失败会重新进入本流程，成功后不会产生下一轮。吉客云仅在 DPAPI 登录前的临时失败已由 helper 核验零业务效果并 create-only 闭合时允许重试。验证码、安全验证、密码或登录被拒、凭据读取/损坏、店铺身份不符、跨店、任务歧义、业务点击或提交结果未决、来源未就绪及需要人工确认的内容完整性错误仍停止自动重试。不得改成失败节点重试，不得绕过 A 或直接调用业务 helper。发布时先发布本错误工作流，再更新当前正式目标工作流；未采用的兼容模板继续保持未激活。",
+        "height": 280,
+        "width": 760,
+        "color": 3
+      },
+      "id": "31c7608a-cb71-46f0-bccb-1b0bd5a53970",
+      "name": "每小时安全重试说明",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -540,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "command": "={{ 'pwsh.exe -NoProfile -NonInteractive -File \"D:\\\\运营管理系统\\\\tools\\\\n8n-manual-action-alert.ps1\" -Execute -PayloadBase64 \"' + $json.manualAlertPayloadBase64 + '\"' }}",
+        "executeOnce": false
+      },
+      "id": "a1e7c0d4-6b2f-4e8a-9c31-5d0f8b7a2e64",
+      "name": "转人工发钉钉提醒",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        660,
+        220
+      ],
+      "retryOnFail": false,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 出口四：筛选节点原本直接 continue 掉的失败在这里转为告警。\n// 这些是 terminalPatterns 命中的终局失败（掉登录、验证码、额度耗尽等不该\n// 自动重试的），或流程不在 targets 白名单里。原逻辑连 execution 失败都不留，\n// 而这一类恰恰最需要人介入。\nconst dropped = $input.first().json?.droppedFailures ?? [];\nreturn dropped.map((item) => ({ json: { manualAction: {\n  workflowId: item.workflowId, failedExecutionId: item.failedExecutionId,\n  logicalExecutionId: item.originalExecutionId || item.failedExecutionId,\n  code: item.reason === '终局失败，不会自动重试' ? 'terminal_manual_action' : 'execution_mode_not_automatic',\n}, terminalCode: 'dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST' } }));"
+      },
+      "id": "b2f8d1e5-7c3a-4f9b-8d42-6e1a9c8b3f75",
+      "name": "收集被丢弃的终局失败",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 重试 Webhook 可能已被受理，禁止自动再次 POST —— 必须人工核查。\nconst p = $('读取原执行计划时间').item.json ?? {};\nreturn [{ json: { manualAction: { workflowId: p.retryPolicy?.workflowId,\n  failedExecutionId: p.failedExecutionId, logicalExecutionId: p.originalExecutionId || p.failedExecutionId,\n  code: 'retry_dispatch_result_unknown' },\n  terminalCode: 'dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST' } }];"
+      },
+      "id": "c3a9e2f6-8d4b-4a1c-9e53-7f2b0d9c4a86",
+      "name": "告警-派发未知",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "bd7ef88f-aea8-4e6a-9491-327dad5b6837",
+              "leftValue": "={{ Boolean($json.manualAction) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3c173690-7e71-4b69-b1d7-e974b2b9ba2d",
+      "name": "原计划需要人工？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        380,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const workflows = [\"J8kY2mQ5vR7sT4pN\",\"JdN8nSilentCopy2026\",\"JdMarketSilentCopy2026\",\"JdPromotionDaily2026\",\"JdPromotionCutMeat2026\",\"M4xY8kQ2vR6sT9pC\",\"TmallLiliDaily2026\",\"TmallTuofengDaily2026\",\"TmallCuizhiwangDaily2026\",\"TmallMasituDaily2026\",\"TmallYiyongDaily2026\",\"JdCustomerService2026\",\"JdCustomerServiceCutMeat2026\",\"JdCustomerServiceChudian2026\",\"JdCustomerServiceDishwasher2026\",\"JdLogisticsDaily2026\"];\nconst codes = ['terminal_manual_action','execution_mode_not_automatic','retry_dispatch_result_unknown',\n  'retry_context_wait_expired_manual_action','retry_context_unverified_manual_action',\n  'retry_reservation_result_unknown_manual_action','retry_already_reserved_or_unverified_manual_action'];\n// 逐条校验、逐条产出：sender 的 executeOnce=false，每条 item 调一次脚本，\n// 所以合法条目各自都会发出去。整批 throw 会让同批合法告警一起发不出去\n// （失败点在 sender 上游），那是「终局但人收不到通知」——只满足要求的一半。\n// 被拒条目不静默丢弃：计数并在最后用原错误码抛出，保持终局性。\nconst rejected = [];\nconst prepared = [];\nfor (const [index, item] of $input.all().entries()) {\n  const p = item.json.manualAction;\n  const invalid = !p || !workflows.includes(p.workflowId) || !codes.includes(p.code)\n    || !/^[1-9][0-9]{0,19}$/.test(String(p.logicalExecutionId))\n    || !/^[1-9][0-9]{0,19}$/.test(String(p.failedExecutionId));\n  if (invalid) { rejected.push(index); continue; }\n  const payload = {version:1, workflowId:p.workflowId, logicalExecutionId:String(p.logicalExecutionId),\n    failedExecutionId:String(p.failedExecutionId), code:p.code};\n  const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');\n  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded) || encoded.length > 8192) { rejected.push(index); continue; }\n  const terminalCode = codes.includes(item.json.terminalCode) ? item.json.terminalCode\n    : 'dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST';\n  prepared.push({json:{manualAlertPayloadBase64:encoded, terminalCode}, pairedItem:{item:index}});\n}\n// 一条都不合法时行为与原先一致：直接终局，没有可发的告警。\nif (!prepared.length) throw new Error('manual_alert_payload_invalid');\nif (rejected.length) console.warn('manual_alert_payload_invalid items=' + rejected.join(','));\nreturn prepared;"
+      },
+      "id": "622749cd-8eee-4403-a5c2-2f3e65829b0a",
+      "name": "准备人工提醒参数",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "数据下载导入工作流失败": {
+      "main": [
+        [
+          {
+            "node": "仅保留可安全自动重试的失败",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "仅保留可安全自动重试的失败": {
+      "main": [
+        [
+          {
+            "node": "本次可安全自动重试？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "本次可安全自动重试？": {
+      "main": [
+        [
+          {
+            "node": "等待一小时",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "收集被丢弃的终局失败",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "等待一小时": {
+      "main": [
+        [
+          {
+            "node": "读取原执行计划时间",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "读取原执行计划时间": {
+      "main": [
+        [
+          {
+            "node": "原计划需要人工？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "原计划需要人工？": {
+      "main": [
+        [
+          {
+            "node": "准备人工提醒参数",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "原计划核验完成？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "原计划核验完成？": {
+      "main": [
+        [
+          {
+            "node": "启动新的完整工作流 execution",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "吉客云需要继续退避？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "吉客云需要继续退避？": {
+      "main": [
+        [
+          {
+            "node": "等待吉客云下一次允许时间",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "等待一小时",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "等待吉客云下一次允许时间": {
+      "main": [
+        [
+          {
+            "node": "读取原执行计划时间",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "启动新的完整工作流 execution": {
+      "main": [
+        [],
+        [
+          {
+            "node": "告警-派发未知",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "告警-派发未知": {
+      "main": [
+        [
+          {
+            "node": "准备人工提醒参数",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "准备人工提醒参数": {
+      "main": [
+        [
+          {
+            "node": "转人工发钉钉提醒",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "转人工发钉钉提醒": {
+      "main": [
+        [
+          {
+            "node": "重试派发结果未知转人工",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "重试派发结果未知转人工",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "收集被丢弃的终局失败": {
+      "main": [
+        [
+          {
+            "node": "准备人工提醒参数",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": 1,
+  "versionId": "dbe5c5ea-b80e-422e-b008-cd7c4c7dfa01",
+  "activeVersionId": "dbe5c5ea-b80e-422e-b008-cd7c4c7dfa01"
+}
