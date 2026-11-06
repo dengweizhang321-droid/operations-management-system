@@ -21,7 +21,16 @@ from . import business_diagnostic_screening as screening, models as m
 from . import test_business_diagnostic_screening as fixtures
 from .database_contract import MODELS, READ_TABLES, WRITER_PRIVILEGES
 from .policy import canonical, digest
-from .table_manifest import AI_TABLES, AI_TABLES_PRE_TOOL_RECEIPTS, AI_TABLES_PRE_V3_REPORT_INTENTS, AI_TABLES_PRE_V4_LEDGER, AI_TABLES_PRE_V4_VALIDATION, AI_TABLES_PRE_V4_SEALS, AI_TABLES_PRE_V4_TICKETS, AI_TABLES_PRE_V4_CONSUMPTIONS, AI_TABLES_PRE_MARKET_V2_MATERIALS
+from .table_manifest import (AI_TABLES, AI_TABLES_PRE_TOOL_RECEIPTS, AI_TABLES_PRE_V3_REPORT_INTENTS,
+    AI_TABLES_PRE_V4_LEDGER, AI_TABLES_PRE_V4_VALIDATION, AI_TABLES_PRE_V4_SEALS, AI_TABLES_PRE_V4_TICKETS,
+    AI_TABLES_PRE_V4_CONSUMPTIONS, AI_TABLES_PRE_MARKET_V2_MATERIALS, AI_TABLES_PRE_V4_REPLAY_PROGRESS,
+    AI_TABLES_PRE_V4_PERIOD_CANDIDATES, AI_TABLES_PRE_BUDGET_V10_ATTESTATIONS,
+    AI_TABLES_PRE_MARKET_V2_CONTEXT_PROOFS, AI_TABLES_PRE_MARKET_V2_READ_RECEIPTS,
+    AI_TABLES_PRE_MARKET_V2_EXECUTION_PLANS, AI_TABLES_PRE_MARKET_V2_COST_LEDGER_CANDIDATES,
+    AI_TABLES_PRE_BUDGET_V11_ATTESTATIONS, AI_TABLES_PRE_MARKET_V2_PAID_REHEARSAL,
+    AI_TABLES_PRE_PI_RUNTIME, AI_TABLES_PRE_PI_BUSINESS, AI_TABLES_PRE_PI_NATIVE,
+    AI_TABLES_PRE_TASK_FEEDBACK, PI_TABLES, PI_WORKSPACE_TABLES, PI_BUSINESS_TABLES,
+    PI_NATIVE_TABLES, TASK_FEEDBACK_TABLES, SKILL_CANDIDATE_TABLES)
 
 
 def row_values(bundle, tag):
@@ -79,7 +88,10 @@ def variant(bundle, tag):
 
 class InventoryTests(TestCase):
     def test_exact_models_tables_and_append_only_grants(self):
-        self.assertEqual(len(AI_TABLES),78)
+        # AI_TABLES is the live export and must be bumped here whenever a
+        # migration adds an AI table; the AI_TABLES_PRE_* checkpoints below
+        # are the true frozen historical proofs and must never be rewritten.
+        self.assertEqual(len(AI_TABLES),112)
         self.assertEqual(len(AI_TABLES_PRE_TOOL_RECEIPTS), 65)
         self.assertEqual(len(AI_TABLES_PRE_V3_REPORT_INTENTS), 66)
         self.assertEqual(set(AI_TABLES_PRE_V3_REPORT_INTENTS) - set(AI_TABLES_PRE_TOOL_RECEIPTS),
@@ -105,8 +117,48 @@ class InventoryTests(TestCase):
         self.assertEqual(len(AI_TABLES_PRE_MARKET_V2_MATERIALS), 77)
         self.assertEqual(set(AI_TABLES_PRE_MARKET_V2_MATERIALS) - set(AI_TABLES_PRE_V4_CONSUMPTIONS),
                          {"ai_business_v4_seal_consumptions"})
-        self.assertEqual(set(AI_TABLES) - set(AI_TABLES_PRE_MARKET_V2_MATERIALS),
+        self.assertEqual(len(AI_TABLES_PRE_V4_REPLAY_PROGRESS), 78)
+        self.assertEqual(set(AI_TABLES_PRE_V4_REPLAY_PROGRESS) - set(AI_TABLES_PRE_MARKET_V2_MATERIALS),
                          {"ai_business_market_v2_materials"})
+        self.assertEqual(len(AI_TABLES_PRE_V4_PERIOD_CANDIDATES), 79)
+        self.assertEqual(set(AI_TABLES_PRE_V4_PERIOD_CANDIDATES) - set(AI_TABLES_PRE_V4_REPLAY_PROGRESS),
+                         {"ai_business_v4_sealer_replay_progress"})
+        self.assertEqual(len(AI_TABLES_PRE_BUDGET_V10_ATTESTATIONS), 80)
+        self.assertEqual(set(AI_TABLES_PRE_BUDGET_V10_ATTESTATIONS) - set(AI_TABLES_PRE_V4_PERIOD_CANDIDATES),
+                         {"ai_business_v4_period_plan_candidates"})
+        self.assertEqual(len(AI_TABLES_PRE_MARKET_V2_CONTEXT_PROOFS), 81)
+        self.assertEqual(set(AI_TABLES_PRE_MARKET_V2_CONTEXT_PROOFS) - set(AI_TABLES_PRE_BUDGET_V10_ATTESTATIONS),
+                         {"ai_business_promotion_budget_v10_attestations"})
+        self.assertEqual(len(AI_TABLES_PRE_MARKET_V2_READ_RECEIPTS), 82)
+        self.assertEqual(set(AI_TABLES_PRE_MARKET_V2_READ_RECEIPTS) - set(AI_TABLES_PRE_MARKET_V2_CONTEXT_PROOFS),
+                         {"ai_business_market_v2_context_proofs"})
+        self.assertEqual(len(AI_TABLES_PRE_MARKET_V2_EXECUTION_PLANS), 83)
+        self.assertEqual(set(AI_TABLES_PRE_MARKET_V2_EXECUTION_PLANS) - set(AI_TABLES_PRE_MARKET_V2_READ_RECEIPTS),
+                         {"ai_business_market_v2_read_receipts"})
+        self.assertEqual(len(AI_TABLES_PRE_MARKET_V2_COST_LEDGER_CANDIDATES), 84)
+        self.assertEqual(set(AI_TABLES_PRE_MARKET_V2_COST_LEDGER_CANDIDATES) - set(AI_TABLES_PRE_MARKET_V2_EXECUTION_PLANS),
+                         {"ai_business_market_v2_execution_plans"})
+        self.assertEqual(len(AI_TABLES_PRE_BUDGET_V11_ATTESTATIONS), 85)
+        self.assertEqual(set(AI_TABLES_PRE_BUDGET_V11_ATTESTATIONS) - set(AI_TABLES_PRE_MARKET_V2_COST_LEDGER_CANDIDATES),
+                         {"ai_business_market_v2_cost_ledger_candidates"})
+        self.assertEqual(len(AI_TABLES_PRE_MARKET_V2_PAID_REHEARSAL), 86)
+        self.assertEqual(set(AI_TABLES_PRE_MARKET_V2_PAID_REHEARSAL) - set(AI_TABLES_PRE_BUDGET_V11_ATTESTATIONS),
+                         {"ai_business_promotion_budget_v11_attestations"})
+        self.assertEqual(len(AI_TABLES_PRE_PI_RUNTIME), 89)
+        self.assertEqual(set(AI_TABLES_PRE_PI_RUNTIME) - set(AI_TABLES_PRE_MARKET_V2_PAID_REHEARSAL),
+                         {"ai_business_market_v2_paid_authorities", "ai_business_market_v2_round_reservations",
+                          "ai_business_market_v2_round_events"})
+        self.assertEqual(len(AI_TABLES_PRE_PI_BUSINESS), 100)
+        self.assertEqual(set(AI_TABLES_PRE_PI_BUSINESS) - set(AI_TABLES_PRE_PI_RUNTIME),
+                         set(PI_TABLES) | set(PI_WORKSPACE_TABLES))
+        self.assertEqual(len(AI_TABLES_PRE_PI_NATIVE), 103)
+        self.assertEqual(set(AI_TABLES_PRE_PI_NATIVE) - set(AI_TABLES_PRE_PI_BUSINESS),
+                         set(PI_BUSINESS_TABLES))
+        self.assertEqual(len(AI_TABLES_PRE_TASK_FEEDBACK), 110)
+        self.assertEqual(set(AI_TABLES_PRE_TASK_FEEDBACK) - set(AI_TABLES_PRE_PI_NATIVE),
+                         set(PI_NATIVE_TABLES))
+        self.assertEqual(set(AI_TABLES) - set(AI_TABLES_PRE_TASK_FEEDBACK),
+                         set(TASK_FEEDBACK_TABLES) | set(SKILL_CANDIDATE_TABLES))
         self.assertEqual(set(AI_TABLES),set(MODELS))
         for table in ("ai_business_v4_seal_tickets", "ai_business_v4_seal_claims",
                       "ai_business_v4_seal_consumptions",

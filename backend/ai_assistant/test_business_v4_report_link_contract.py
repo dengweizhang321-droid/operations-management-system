@@ -4,8 +4,8 @@ from pathlib import Path
 from unittest import TestCase
 
 from . import business_v4_report_link_sql as link
-from .table_manifest import (AI_TABLES, AI_SQL_ONLY_0070,
-    AI_SQL_ONLY_0071, AI_FULL_TABLES_PRE_V4_REPORT_LINKS,
+from .table_manifest import (AI_TABLES, AI_TABLES_PRE_PI_RUNTIME,
+    AI_SQL_ONLY_0070, AI_SQL_ONLY_0071, AI_FULL_TABLES_PRE_V4_REPORT_LINKS,
     AI_FULL_TABLES_AFTER_V4_REPORT_LINKS)
 
 
@@ -18,7 +18,11 @@ class V4ReportLinkContractTests(TestCase):
                 "0070_business_promotion_budget_v11_limited_identity")])
         from .database_contract import MODELS
         self.assertEqual(set(AI_TABLES), set(MODELS))
-        self.assertEqual(len(AI_TABLES), 89)
+        # AI_TABLES is the live, ever-growing export; the 0071 contract only
+        # pins the ORM inventory as it stood at that migration, which is the
+        # frozen AI_TABLES_PRE_PI_RUNTIME checkpoint (later PI/task/skill
+        # tables must not rewrite this historical proof).
+        self.assertEqual(len(AI_TABLES_PRE_PI_RUNTIME), 89)
         self.assertEqual(len(AI_SQL_ONLY_0070), 2)
         self.assertEqual(len(AI_SQL_ONLY_0071), 2)
         self.assertTrue(all(item.startswith("protected_business_v4_report_")
