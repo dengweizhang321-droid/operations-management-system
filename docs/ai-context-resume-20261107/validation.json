@@ -1,0 +1,55 @@
+{
+  "date": "2026-11-07",
+  "schemaVersion": 1,
+  "baseCommit": "3c34498cb2f0b18da55eba8165019db8b63e5141",
+  "environment": {
+    "database": "isolated SQLite :memory:",
+    "networkModelCalls": 0,
+    "python": "3.12",
+    "productionChanges": 0,
+    "django": "5.2.17"
+  },
+  "sourceHashes": [
+    {
+      "path": "app/ai-pi-recovery.tsx",
+      "sha256": "ec5a0e2d4b6fd792a763eec9a8856995994a75cfbaae84b0f48373f3638d2ad6"
+    },
+    {
+      "path": "app/ai-pi-workspace.tsx",
+      "sha256": "56d44e8c506a3471f683538089f075df85809463ce7c74a59ee0ee9b2e2241d7"
+    },
+    {
+      "path": "backend/ai_assistant/pi_context.py",
+      "sha256": "7ade908c935417d432b92b772e6bf5601a518007409ef7eb05863b8b8eae7f0c"
+    },
+    {
+      "path": "backend/ai_assistant/pi_workspace.py",
+      "sha256": "5742d1363546d499fd2b04b2b3114d36bc9a8e2f77e1eb9b3d69e1999e1cc8d3"
+    },
+    {
+      "path": "backend/pi_runner/workspace.py",
+      "sha256": "4748ae0b2092e0e404116447d0a6dbb58953228b6d0c325668a4275d19e5f89e"
+    },
+    {
+      "path": "backend/ai_assistant/test_pi_context.py",
+      "sha256": "b3ad62f59a3f9de6505dc4ca67248e8a2d30c875aa7518836aa9af4e6e986c6b"
+    },
+    {
+      "path": "backend/pi_runner/test_compact_safe_point.py",
+      "sha256": "3a9af72c45fc89333e0a55c7da53efd42d5e733c3a5197376b1cd64ac384da7e"
+    }
+  ],
+  "checks": {
+    "typescriptTargeted": "passed strict component/direct-dependency compilation",
+    "typescriptFull": "failed in unrelated unchanged paths; not reported as passed",
+    "diffCheck": "passed",
+    "fileHtml": "passed file protocol, details toggle, synthetic read action, zero external requests",
+    "djangoTargeted": "passed: 10 tests, 0.721s, SQLite :memory:, system check no issues"
+  },
+  "sourceHashBinding": "SHA256 raw worktree file bytes, before Git normalization; not a production/prepared binding",
+  "commands": [
+    "py -3.12 manage.py test ai_assistant.test_pi_context pi_runner.test_compact_safe_point ai_assistant.test_pi_workspace.PiWorkspaceTests.test_compact_is_real_new_operation_not_a_fake_success ai_assistant.test_pi_workspace.PiWorkspaceTests.test_workspace_operations_keep_single_shop_authority_snapshot --noinput --verbosity 1",
+    "node node_modules/typescript/bin/tsc --noEmit --pretty false --strict --jsx react-jsx --module esnext --moduleResolution bundler --target es2022 --lib dom,dom.iterable,es2022 --esModuleInterop --skipLibCheck app/ai-pi-recovery.tsx app/ai-pi-workspace.tsx",
+    "git diff --check"
+  ]
+}

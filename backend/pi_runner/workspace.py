@@ -841,6 +841,16 @@ def execute_control(session, job, control_id, command, payload):
     if command == 'compact':
         if session.phase not in IDLE or job['seq'] <= session.last_seq:
             raise Rejected('compact_requires_new_operation')
+        # Phase alone does not cover PTY writers or an outstanding local tool.
+        # Check the live owner, not Django's earlier workspace observation.
+        if (session.ui_pending or session.local_calls or getattr(session, 'bash_control', None)
+                or getattr(session, 'resource_installing', None)
+                or any(t.status in {'starting', 'running', 'unknown'} for t in session.terminals.values())
+                or any(a['status'] in {'active', 'unknown'} for a in activities(session))):
+            raise Rejected('compact_unsafe_point')
+        if (getattr(session, 'executing_controls', set()) - {control_id}
+                or set(session.broker.process_inventory(session)) - set(getattr(session, 'baseline_processes', []))):
+            raise Rejected('compact_background_writers')
         timeout = payload.get('timeoutMs')
         if type(timeout) is not int or not 1 <= timeout <= 9007199254740991:
             raise Rejected('operation_timeout_required')
