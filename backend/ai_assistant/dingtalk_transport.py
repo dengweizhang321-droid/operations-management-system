@@ -106,8 +106,24 @@ def send_media(config_reader, session, raw, file_name, kind, caption="", *, befo
         + name + b"\"\r\nContent-Type: application/octet-stream\r\n\r\n" + raw
         + f"\r\n--{boundary}--\r\n".encode())
     upload_url = UPLOAD_API + "?access_token=" + token + "&type=" + kind
-    if before_send is not None:
-        before_send()
+    # before_send runs exactly once, immediately before the final send below
+    # (not here, before the upload that follows). This matches send()'s own
+    # convention: before_send only gates the last network call right before
+    # external delivery, not the preparatory calls ahead of it (there,
+    # access_token() and verify_group() are likewise unguarded). The upload
+    # here was briefly double-guarded by an isolated +2 hunk added in
+    # fbf4a6d4 ("Implement PiAgent phase three controlled business
+    # execution"); that duplicate call is what this fix removes.
+    # This is a trade-off, not a free win: the caller-supplied before_send is
+    # typically itself preceded by its own fresh guard (dingtalk_schedules.py
+    # channel_guard, pi_business_report.py check()), and dingtalk.guard() is
+    # re-read just above at the top of this function. So removing the
+    # upload-time call only widens the unguarded window by the one
+    # access_token() round-trip in between, not the whole preparation phase.
+    # It does NOT reduce the chance of an orphaned "uploaded but never sent"
+    # attachment on drift between upload and send -- there is no cleanup path
+    # for an uploaded media_id in this codebase, so that exposure is accepted
+    # here to stay consistent with send()'s existing guarding convention.
     uploaded = transport._bounded_json(upload_url, body,
         headers={"Content-Type": "multipart/form-data; boundary=" + boundary},
         timeout=30, maximum=4096, fixed_addresses=media_addresses(upload_url),
