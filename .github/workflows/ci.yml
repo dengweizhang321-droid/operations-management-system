@@ -71,6 +71,9 @@ jobs:
         # still naming an existing file.
         run: node --test --test-timeout=30000 tests/doc-path-literal-gate.test.mjs
 
+      - name: Frozen policy caller and installer source checks
+        run: python -B .github/workflows/check-reviewed-policy.py
+
       - name: Frozen catalog OWNER privileges
         # Source-only data check; no runtime/PrepareApp hook or database.
         run: |
