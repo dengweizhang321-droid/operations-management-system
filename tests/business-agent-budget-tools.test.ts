@@ -31,9 +31,14 @@ const response = (data: object) => Response.json(data, { headers: { "x-ai-revisi
 
 test("historical catalogs retain their frozen hashes after projecting the reviewed integration changes", async () => {
   const baseline = JSON.parse(await readFile(new URL("./fixtures/business-agent-budget-legacy-catalog.json", import.meta.url), "utf8"));
-  assert.deepEqual(aiToolSurfaces.filter(surface => baseline.legacySurfaces.includes(surface)), baseline.legacySurfaces);
-  assert.deepEqual(aiToolSurfaces.slice(0, baseline.legacySurfaces.length), baseline.legacySurfaces);
-  assert.ok(aiToolSurfaces.includes(context.surface));
+  // surface 注册表是集合：生产代码只做成员判断（validateToolRegistry 的 Set、
+  // allowedSurfaces.some、django-edge 的 includes），没有任何地方按下标或顺序取值。
+  // 只断言成员在册，不断言位置：原先的前缀断言会被任何无关的新增 surface 踩中。
+  const registered = new Set<string>(aiToolSurfaces);
+  for (const expected of [...baseline.legacySurfaces, context.surface]) {
+    assert.ok(registered.has(expected), `surface 已不在契约中：${expected}`);
+  }
+  assert.equal(registered.size, aiToolSurfaces.length, "aiToolSurfaces 不得有重复成员");
   const oldEntries = preIntegrationCatalog(aiToolRegistry).filter(entry => !continuationNames.includes(entry.name)
     && entry.execution.allowedSurfaces.some(surface => baseline.legacySurfaces.includes(surface)));
   assert.deepEqual({ count: oldEntries.length, sha256: sha(canonicalAiEdge(oldEntries.map(strip))) }, baseline.registry);

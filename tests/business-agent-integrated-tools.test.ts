@@ -34,8 +34,14 @@ const boundPayload = (name: string) => ({
 
 test("44 historical entries and their catalogs retain frozen bytes under the reviewed integration projection", async () => {
   const baseline = JSON.parse(await readFile(new URL("./fixtures/business-agent-integrated-legacy-catalog.json", import.meta.url), "utf8"));
-  assert.deepEqual(aiToolSurfaces.slice(0, baseline.legacySurfaces.length), baseline.legacySurfaces);
-  assert.ok(aiToolSurfaces.includes(surface));
+  // surface 注册表是集合：生产代码只做成员判断（validateToolRegistry 的 Set、
+  // allowedSurfaces.some、django-edge 的 includes），没有任何地方按下标或顺序取值。
+  // 只断言成员在册，不断言位置：原先的前缀断言会被任何无关的新增 surface 踩中。
+  const registered = new Set<string>(aiToolSurfaces);
+  for (const expected of [...baseline.legacySurfaces, surface]) {
+    assert.ok(registered.has(expected), `surface 已不在契约中：${expected}`);
+  }
+  assert.equal(registered.size, aiToolSurfaces.length, "aiToolSurfaces 不得有重复成员");
   const old = preIntegrationCatalog(aiToolRegistry).filter(entry => baseline.legacyToolNames.includes(entry.name));
   assert.deepEqual(old.map(entry => entry.name), baseline.legacyToolNames);
   assert.deepEqual({ count: old.length, sha256: sha(canonicalAiEdge(old.map(strip))) }, baseline.registry);
