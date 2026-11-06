@@ -7,12 +7,15 @@ An interrupted send is observed by ID; it is never sent again.
 import base64
 import hashlib
 import json
+import logging
 import re
 
 from django.utils import timezone
 from . import pi_service as service, pi_transport
 from .pi_models import PiWorkspace, PiControl, PiUiRequest, PiSession, PiOperation
 from .policy import AiError, canonical, current_principal, digest, fields, identifier, integer, mutation, passive, record, text, uid
+
+logger = logging.getLogger(__name__)
 
 COMMANDS = {"steer", "follow_up", "clear_queue", "bash", "abort_bash", "tree", "stats", "session_new", "session_switch",
     "session_fork", "session_clone", "session_navigate", "compact", "export_html", "model_set", "thinking_set", "ui_response",
@@ -713,6 +716,31 @@ def control(session_id, body, principal):
             _finish_init(operation)
         return {**detail(session_id, {}, principal, poll=False), "control": control_record(row), "replayed": False}
     except Exception as error:
+        # Diagnosability only: the status decision below is unchanged. This
+        # catch is deliberately wide because `unknown` is a safety fence, not
+        # error handling -- anything unexpected after the request may have
+        # reached the Runner, so it must keep blocking an automatic resend.
+        # The cost is that a programming error (KeyError/TypeError/AttributeError
+        # against our own structures) is reported as "result unknown" with no
+        # trace of what actually broke. Logging here, before the fence logic,
+        # is what tells those two apart in production.
+        #
+        # A missing `code` is the signal, not `not isinstance(error, AiError)`:
+        # deliberate failures in this block carry a code the fence then reads
+        # on the next line, and not all of them are AiError -- pi_research's
+        # ResearchError is a coded ValueError (pi_research.py:36-39), so keying
+        # on AiError would log every research network failure as a code fault
+        # and bury the real ones. Programming errors carry no code.
+        #
+        # `runner_sent` is the same request-boundary flag the fence uses below;
+        # it is set at pi_workspace.py:684 immediately before pi_transport
+        # .command, so a False here means nothing was put on the wire.
+        if not hasattr(error, "code"):
+            logger.exception(
+                "pi_workspace control raised an uncoded exception: controlId=%s command=%s session=%s "
+                "errorType=%s runnerSent=%s environmentKnown=%s activityUncertain=%s",
+                row.id, command, session_id, type(error).__name__,
+                runner_sent, environment_known, activity_uncertain)
         with mutation():
             row.refresh_from_db()
             if row.status not in {"completed", "handled", "failed"}:
