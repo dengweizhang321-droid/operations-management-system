@@ -1,5 +1,7 @@
 "use client";
 
+import { piLiveText } from "@/lib/ai/pi-live-text";
+
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import type { AppCurrentUser } from "./shell/view-contract";
 import { SearchableSelect } from "./ui/searchable-select";
@@ -314,9 +316,9 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "", 
     if (result && selectedRef.current === id) setFileIds(items => [...items, result.file.id]);
   };
   const messages = events.filter(item => ["user_message", "assistant_message"].includes(item.type));
-  const liveText = events.filter(item => item.type === "text_delta" && !events.some(final => final.type === "assistant_message" && final.operationId === item.operationId)).map(eventText).join("");
-  const process = events.filter(item => !["user_message", "assistant_message", "text_delta"].includes(item.type));
   const latest = detail?.operations[0];
+  const liveText = latest?.status === "running" ? piLiveText(events, latest.id) : "";
+  const process = events.filter(item => !["user_message", "assistant_message", "text_delta", "provider_text_delta", "provider_text_end"].includes(item.type));
   const completedFiles = latest?.status === "succeeded" ? detail?.files.filter(file => file.operationId === latest.id && file.direction === "output") ?? [] : [];
   const displayStatus = frozen ? detail?.operations.some(op => op.status === "unknown") ? "unknown" : detail?.session.status ?? "frozen" : latest?.status ?? detail?.session.status ?? "idle";
   const finalAnswerSeq = eventsCaughtUp ? messages.filter(item => item.type === "assistant_message" && item.operationId === latest?.id).at(-1)?.eventSeq : undefined;

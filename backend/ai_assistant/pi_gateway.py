@@ -156,7 +156,12 @@ def _model(payload, op, principal):
     model = configuration.resolve_model(op.model_id)
     if model.version != op.model_version:
         raise AiError("模型配置版本已变化，请在新环境开始", "access_denied", 403)
+    from . import capability_probes
+    from .pi_public_text import PublicText
     from .pi_workspace import effective_model
+    stream = (PublicText(op, payload["requestId"])
+              if op.kind == "prompt" and capability_probes.record(model)["sse"]["status"] == "passed"
+              else None)
     model = effective_model(model, json.loads(op.payload_json).get("thinkingLevel", ""))
     from . import pi_selection
     _, entries = catalog(principal, op)
@@ -191,7 +196,10 @@ def _model(payload, op, principal):
     service.principal_for_work(op)
     with transport.request_cancellation(cancellation, watcher_scope=watcher_scope), transport.request_budget(min(remaining_seconds(op), options(model)["taskTimeoutMs"] / 1000)), provider.conversation_session(f"pi/{op.session_id}/{op.generation}"):
         value = provider.turn(model, messages, system, tools, retain_reasoning=True, preserve_context=True,
-            tool_argument_limits={item["name"]: LOCAL_ARGUMENT_BYTES for item in tools if item["name"] in LOCAL_CODE_TOOLS})
+            tool_argument_limits={item["name"]: LOCAL_ARGUMENT_BYTES for item in tools if item["name"] in LOCAL_CODE_TOOLS},
+            **({"on_text": stream.append} if stream else {}))
+        if stream:
+            stream.flush(finished=True)
     service.principal_for(PiOperation.objects.get(pk=op.pk))
     central = {item["name"] for item in entries}
     content = ([{"type": "text", "text": value["text"]}] if value["text"] else []) + [
