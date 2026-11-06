@@ -44,6 +44,33 @@ jobs:
         # disabling the gate).
         run: node .github/workflows/check-lint-baseline.mjs
 
+      - name: Read document path literals exist
+        # Static filesystem check (no DB, no runtime): fails if code reads a
+        # Markdown file that does not exist. docs/规范/文档管理.md:29 already
+        # requires updating 代码中的文档路径字面量 when a document moves, but
+        # nothing read that requirement — f5da8fb3 wrote the rule and broke it
+        # in the same 472-file tidy-up, leaving
+        # backend/ai_assistant/test_business_promotion_budget_v11_limited_identity_blocker.py:45
+        # pointing at a renamed design doc and ERRORing ever since. This step
+        # is that rule's reader. Zero tolerance (no baseline count): the only
+        # real dead reference is fixed, so the honest floor is 0, and genuine
+        # exceptions go in the script's dated EXEMPTIONS allowlist instead.
+        # Scope is deliberately narrow — see the script header for the measured
+        # effect of each of its three noise filters (1238 -> 26 -> 3 -> 1
+        # against origin/main @ 142becaf). Guards a documentation contract, not
+        # business behavior. node exits with the script's own status, so this
+        # step's pass/fail is the gate's verdict directly.
+        run: node .github/workflows/check-doc-path-literals.mjs
+
+      - name: Gate's own unit tests (document path literals)
+        # The gate itself must be tested, or it shares the fate of the prose
+        # rule it enforces: able to stop finding anything with nobody noticing.
+        # Covers the real dead reference's two-line literal shape, each of the
+        # three noise filters, non-UTF-8 files being skipped rather than
+        # decoded into mojibake findings, and the gate's one self-exclusion
+        # still naming an existing file.
+        run: node --test --test-timeout=30000 tests/doc-path-literal-gate.test.mjs
+
       - name: Frozen catalog OWNER privileges
         # Source-only data check; no runtime/PrepareApp hook or database.
         run: |
