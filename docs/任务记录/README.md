@@ -1,5 +1,7 @@
 # 任务记录目录
 
+本轮候选：[Pi 有界上下文恢复清单](../ai-context-resume-20261107/REPORT.md)（P3-C；原 compact 身份、原证据分页与安全点；未合并/上线）。
+
 [AI 助理四项任务交接](../ai-skill-handoff-20261107/REPORT.md) · [调度存储字节边界复核](../schedule-storage-bounds-20261107/REPORT.md)
 
 本轮候选：[Skill 步骤工具登记校验](../skill-step-toolname-20261107/REPORT.md)（保存时校验，兼容旧候选读取；未合并/上线）。

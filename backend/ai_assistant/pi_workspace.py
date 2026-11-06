@@ -333,7 +333,10 @@ def ingest(session, workspace, operation, result, *, snapshot=True):
 
 
 def detail(session_id, params, principal, *, poll=True):
-    fields(params, {"afterTerminalSeq"})
+    fields(params, {"afterTerminalSeq", "recoveryBeforeControlSeq", "recoveryControlSeq", "recoveryTextOffset"})
+    before_control_seq = service.number(params["recoveryBeforeControlSeq"], "recoveryBeforeControlSeq", 1, 2**53-1) if "recoveryBeforeControlSeq" in params else None
+    if "recoveryTextOffset" in params and "recoveryControlSeq" not in params:
+        raise AiError("原记录正文游标需要控制序号")
     session = service.get_session(session_id, principal)
     with mutation():
         session = service.get_session(session_id, principal, lock=True)
@@ -387,6 +390,13 @@ def detail(session_id, params, principal, *, poll=True):
     from .pi_native import snapshot
     result = {"native": snapshot(session), "session": service.session_record(session), "workspace": workspace_record(session, workspace),
         "controls": [] if session.status == "frozen" else [control_record(c, history=True) for c in PiControl.objects.filter(session=session, generation=session.generation).order_by("-control_seq")[:100]]}
+    from .pi_context import recovery
+    result["recovery"] = recovery(session, workspace, before_control_seq=before_control_seq)
+    if "recoveryControlSeq" in params:
+        from .pi_context import control_evidence
+        result["recovery"]["sourceControl"] = control_evidence(session,
+            service.number(params["recoveryControlSeq"], "recoveryControlSeq", 1, 2**53-1),
+            service.number(params.get("recoveryTextOffset", "0"), "recoveryTextOffset", 0, 2**53-1))
     return result
 
 
@@ -567,6 +577,8 @@ def control(session_id, body, principal):
             # Internal re-authorization, no client-supplied admission to compare.
             pi_native.authorize(operation, kind="workspace", name=command, lock=True, require_supplied=False)
         active = operation and operation.status in service.ACTIVE
+        if active and operation.kind == "workspace:compact" and command not in READ_COMMANDS | {"pause"}:
+            raise AiError("原压缩尚未完成，请观察原控制回执", "pi_control_active", 409)
         if command == "pause" and active:
             raise AiError("暂停环境需要先停止当前操作并确认终态", "pi_operation_active", 409)
         if (session.status == "unknown" or operation and operation.status == "unknown") and command != "pause":
@@ -595,6 +607,11 @@ def control(session_id, body, principal):
             plans = json.loads(workspace.state_json).get("upgradePlans", [])
             if not any(isinstance(p, dict) and p.get("planId") == payload["planId"] for p in plans):
                 raise AiError("环境升级需要已登记的新镜像与兼容性计划", "pi_upgrade_plan_required", 409)
+        recovery_manifest = None
+        if command == "compact":
+            from .pi_context import recovery, compact_payload
+            recovery_manifest = recovery(session, workspace)
+            payload = compact_payload(payload, recovery_manifest)
         workspace.control_seq += 1
         workspace.updated_at = timezone.now(); workspace.save(update_fields=["control_seq", "updated_at"])
         # `active` is the routing switch between model_set's two mechanisms:
@@ -613,7 +630,8 @@ def control(session_id, body, principal):
             request_digest=binding, epoch=session.epoch, generation=session.generation, control_seq=workspace.control_seq,
             command=command, payload_json=canonical(payload))
         if command == "compact":
-            operation = _new_operation(session, workspace, principal, "workspace:compact", {"controlId": row.id}, queued=True)
+            operation = _new_operation(session, workspace, principal, "workspace:compact",
+                {"controlId": row.id, "recovery": recovery_manifest}, queued=True)
             row.operation, row.status = operation, "queued"; row.save(update_fields=["operation", "status"])
             service.event(session, "workspace_control", {"controlId": row.id, "command": command, "status": "queued"}, operation)
             return {**detail(session_id, {}, principal, poll=False), "control": control_record(row), "replayed": False}

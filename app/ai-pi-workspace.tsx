@@ -4,13 +4,14 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import type { Terminal } from "@xterm/xterm";
 import AiPiNativeControls, { type PiNative, piNativeLabel } from "./ai-pi-native-controls";
 import AiPiQuestionnaire, { type PiUiRequest } from "./ai-pi-questionnaire";
+import AiPiRecovery, { type PiRecovery } from "./ai-pi-recovery";
 
 export type WorkspacePanel = "chat" | "files" | "terminal";
 export type WorkspaceHandle = { submit: (command: string, payload?: Record<string, unknown>, submittedDraft?: string) => Promise<boolean>; targetAgentId: string; targetAgent?: { status: string; activeOperationId?: string | null } };
 type Control = { id: string; clientRequestId: string; controlSeq: number; command: string; status: string; result?: Record<string, unknown>; errorCode?: string };
 type Entry = { path: string; name?: string; type?: string; kind?: string; sizeBytes?: number; sha256?: string };
 type Pty = { id?: string; terminalId?: string; status: string; exitCode?: number | null; nextInputSeq?: number; inputSeq?: number; output?: { seq: number; data: string }[]; lastOutputSeq?: number; hasGap?: boolean; acks?: { inputId: string; inputSeq: number; status: string }[] };
-type Snapshot = { native?: PiNative; workspace: { status: string; native?: PiNative; initialized?: boolean; epoch?: number; generation?: number; controlSeq?: number; effective?: Record<string, unknown>; usage?: Record<string, unknown>; state?: Record<string, unknown> & { terminals?: Pty[]; files?: Entry[]; pendingUi?: PiUiRequest[] } }; controls: Control[] };
+type Snapshot = { native?: PiNative; recovery?: PiRecovery; workspace: { status: string; native?: PiNative; initialized?: boolean; epoch?: number; generation?: number; controlSeq?: number; effective?: Record<string, unknown>; usage?: Record<string, unknown>; state?: Record<string, unknown> & { terminals?: Pty[]; files?: Entry[]; pendingUi?: PiUiRequest[] } }; controls: Control[] };
 type Intent = { clientRequestId: string; command: string; terminalId?: string; targetSessionId?: string };
 const settled = new Set(["completed", "handled", "processed", "succeeded", "failed", "canceled", "cancelled", "rejected"]);
 const label = (status: string) => ({ ready: "可用", paused: "已暂停", uninitialized: "尚未启动", accepted: "已接收", queued: "已排队", processed: "已处理", handled: "已处理", completed: "已完成", running: "执行中", unknown: "结果待核实", frozen: "已冻结", failed: "失败", canceled: "已取消", cancelled: "已取消", exited: "已退出", closed: "已关闭" } as Record<string, string>)[status] ?? status;
@@ -254,6 +255,7 @@ const AiPiWorkspace = forwardRef<WorkspaceHandle, { sessionId: string; epoch: nu
     {capabilities.needsImageUpgrade === true && <div className="ai-workbench-feedback" role="status">当前是保留的一期镜像，原会话与文件仍保留。网页终端、文件面板和用户依赖需要先采用已登记的镜像升级计划；也可明确新建环境使用新镜像。升级不会自动复活旧后台进程。</div>}
     {error && <div className="ai-workbench-feedback is-error" role="alert">{error}</div>}
     {notice && <div className="ai-workbench-feedback" role="status">{notice}</div>}
+    <AiPiRecovery key={key} sessionId={sessionId} value={snapshot?.recovery} />
     {controls.some(control => ["steer", "follow_up", "agent_follow_up", "agent_send", "clear_queue"].includes(control.command)) && <details className="ai-pi-control-history"><summary>消息队列与清队列回执</summary><p>已受理、排队、消费和清除分别由服务端回执确认。</p><button type="button" disabled={disabled} onClick={() => { void submit("clear_queue", targetAgentId ? { targetAgentId } : {}); }}>清除目标待执行队列</button><ol>{controls.filter(control => ["steer", "follow_up", "agent_follow_up", "agent_send", "clear_queue"].includes(control.command)).map(control => <li key={control.id}>#{control.controlSeq} {control.command} · {piNativeLabel(control.status)}<pre>{JSON.stringify(control.result ?? {}, null, 2)}</pre></li>)}</ol></details>}
     {Array.isArray(state.bashRuns) && state.bashRuns.map((value: unknown) => {
       const run = object(value);
