@@ -10,10 +10,11 @@ export async function forwardAiRequest(request: Request) {
     const url = new URL(request.url);
     if (!isPublicAiPath(url.pathname)) throw new PublicApiError(404, "not_found", "AI 接口不存在。");
     const read = request.method === "GET";
+    const marketSourceQualification = /^\/api\/ai\/reports\/[A-Za-z0-9_-]{1,160}\/market-source-qualification$/.test(url.pathname);
     const datasetQuery = request.method === "POST" && /^\/api\/ai\/datasets\/[a-z][a-z0-9_]{0,63}\/query$/.test(url.pathname);
     if (!read) requireAiSameOriginWrite(request);
     const principal = await requireAppPrincipal(read || datasetQuery ? undefined : ["admin", "operator", "analyst"]);
-    if (/^\/api\/ai\/(?:business-plan|business-evidence|business-reports|market-v2-parked-reports|market-v2-cap-approvals)(?:\/|$)/.test(url.pathname)) {
+    if (marketSourceQualification || /^\/api\/ai\/(?:business-plan|business-evidence|business-reports|market-v2-parked-reports|market-v2-cap-approvals)(?:\/|$)/.test(url.pathname)) {
       if (principal.role !== "admin") throw new PublicApiError(403, "access_denied", "经营分析仅允许管理员。");
       requireUnrestrictedDataScope(principal, "经营分析");
     }
@@ -57,7 +58,7 @@ export async function forwardAiRequest(request: Request) {
       const result = await requestDjangoAi<Record<string, unknown>>(principal, { path: url.pathname, method: request.method as "GET" | "POST" | "PUT" | "PATCH" | "DELETE", query: url.searchParams, payload,
         ...(url.pathname === "/api/ai/models" && request.method === "GET"
           ? { service: "writer" as const }
-          : (url.pathname === "/api/ai/business-plan/preview" || /^\/api\/ai\/(?:reports|business-evidence)\/[A-Za-z0-9_-]{1,160}\/budget-preview$/.test(url.pathname)) && request.method === "POST"
+          : (marketSourceQualification || url.pathname === "/api/ai/business-plan/preview" || /^\/api\/ai\/(?:reports|business-evidence)\/[A-Za-z0-9_-]{1,160}\/budget-preview$/.test(url.pathname)) && request.method === "POST"
             ? { service: "reader" as const }
             : {}) }, { signal: request.signal });
       const generatedContent = /^\/api\/ai\/(?:reports|space\/assets|pi\/files)\/[A-Za-z0-9_-]{1,160}\/content$/.test(url.pathname);
