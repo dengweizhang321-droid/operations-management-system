@@ -1,0 +1,45 @@
+{
+  "scope": "same inherited backup fake fixtures; baseline inventory restored to its original pre0090 constant",
+  "results": {
+    "baseline77382b5f": {
+      "run": 31,
+      "errors": [
+        "test_business_evidence_tables_require_exact_migration_generation (backup_test_fixture.ConsistentBackupTests.test_business_evidence_tables_require_exact_migration_generation)",
+        "test_evidence_accepts_both_backup_generations_with_stable_content_digest (backup_test_fixture.ConsistentBackupTests.test_evidence_accepts_both_backup_generations_with_stable_content_digest)",
+        "test_market_v2_material_requires_0045_receipt_and_closed_contract (backup_test_fixture.ConsistentBackupTests.test_market_v2_material_requires_0045_receipt_and_closed_contract)",
+        "test_market_v2_parked_guards_follow_exact_migration_receipt (backup_test_fixture.ConsistentBackupTests.test_market_v2_parked_guards_follow_exact_migration_receipt)",
+        "test_paused_intent_generation_has_explicit_67_table_boundary (backup_test_fixture.ConsistentBackupTests.test_paused_intent_generation_has_explicit_67_table_boundary)",
+        "test_promotion_trial_renderer9_requires_0046_receipt_and_exact_file_gates (backup_test_fixture.ConsistentBackupTests.test_promotion_trial_renderer9_requires_0046_receipt_and_exact_file_gates)",
+        "test_receipt_generation_has_explicit_66_table_boundary (backup_test_fixture.ConsistentBackupTests.test_receipt_generation_has_explicit_66_table_boundary)",
+        "test_v4_claimed_reader_retains_76_tables_and_closed_publication (backup_test_fixture.ConsistentBackupTests.test_v4_claimed_reader_retains_76_tables_and_closed_publication)",
+        "test_v4_consumption_candidate_has_explicit_77_table_boundary (backup_test_fixture.ConsistentBackupTests.test_v4_consumption_candidate_has_explicit_77_table_boundary)",
+        "test_v4_ledger_generation_has_explicit_71_table_boundary (backup_test_fixture.ConsistentBackupTests.test_v4_ledger_generation_has_explicit_71_table_boundary)",
+        "test_v4_seal_generation_has_explicit_74_table_boundary (backup_test_fixture.ConsistentBackupTests.test_v4_seal_generation_has_explicit_74_table_boundary)",
+        "test_v4_ticket_generation_has_explicit_76_table_boundary (backup_test_fixture.ConsistentBackupTests.test_v4_ticket_generation_has_explicit_76_table_boundary)",
+        "test_v4_validation_generation_has_explicit_73_table_boundary (backup_test_fixture.ConsistentBackupTests.test_v4_validation_generation_has_explicit_73_table_boundary)"
+      ],
+      "failures": []
+    },
+    "p2_current": {
+      "run": 31,
+      "errors": [
+        "test_business_evidence_tables_require_exact_migration_generation (backup_test_fixture.ConsistentBackupTests.test_business_evidence_tables_require_exact_migration_generation)",
+        "test_evidence_accepts_both_backup_generations_with_stable_content_digest (backup_test_fixture.ConsistentBackupTests.test_evidence_accepts_both_backup_generations_with_stable_content_digest)",
+        "test_market_v2_material_requires_0045_receipt_and_closed_contract (backup_test_fixture.ConsistentBackupTests.test_market_v2_material_requires_0045_receipt_and_closed_contract)",
+        "test_market_v2_parked_guards_follow_exact_migration_receipt (backup_test_fixture.ConsistentBackupTests.test_market_v2_parked_guards_follow_exact_migration_receipt)",
+        "test_paused_intent_generation_has_explicit_67_table_boundary (backup_test_fixture.ConsistentBackupTests.test_paused_intent_generation_has_explicit_67_table_boundary)",
+        "test_promotion_trial_renderer9_requires_0046_receipt_and_exact_file_gates (backup_test_fixture.ConsistentBackupTests.test_promotion_trial_renderer9_requires_0046_receipt_and_exact_file_gates)",
+        "test_receipt_generation_has_explicit_66_table_boundary (backup_test_fixture.ConsistentBackupTests.test_receipt_generation_has_explicit_66_table_boundary)",
+        "test_v4_claimed_reader_retains_76_tables_and_closed_publication (backup_test_fixture.ConsistentBackupTests.test_v4_claimed_reader_retains_76_tables_and_closed_publication)",
+        "test_v4_consumption_candidate_has_explicit_77_table_boundary (backup_test_fixture.ConsistentBackupTests.test_v4_consumption_candidate_has_explicit_77_table_boundary)",
+        "test_v4_ledger_generation_has_explicit_71_table_boundary (backup_test_fixture.ConsistentBackupTests.test_v4_ledger_generation_has_explicit_71_table_boundary)",
+        "test_v4_seal_generation_has_explicit_74_table_boundary (backup_test_fixture.ConsistentBackupTests.test_v4_seal_generation_has_explicit_74_table_boundary)",
+        "test_v4_ticket_generation_has_explicit_76_table_boundary (backup_test_fixture.ConsistentBackupTests.test_v4_ticket_generation_has_explicit_76_table_boundary)",
+        "test_v4_validation_generation_has_explicit_73_table_boundary (backup_test_fixture.ConsistentBackupTests.test_v4_validation_generation_has_explicit_73_table_boundary)"
+      ],
+      "failures": []
+    }
+  },
+  "unchangedFailureSet": true,
+  "productionTouched": false
+}

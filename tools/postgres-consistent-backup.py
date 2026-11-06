@@ -702,6 +702,21 @@ def verify_market_v2_parked_guards(cursor, *, execution_profile_installed=False,
             raise RuntimeError("AI market v2 parked profile guard drift")
 
 
+def ai_inventory_for_snapshot(ai_migrations, present_ai_tables):
+    """Select the closed inventory using this backup transaction's receipts."""
+    from ai_assistant.table_manifest import (
+        AI_TABLES, AI_TABLES_PRE_UNIFIED_TASKS, UNIFIED_TASK_TABLES,
+    )
+    present = set(present_ai_tables) & set(UNIFIED_TASK_TABLES)
+    if "0090_unified_tasks" in ai_migrations:
+        if "0089_skill_candidates" not in ai_migrations or present != set(UNIFIED_TASK_TABLES):
+            raise RuntimeError("Unified task tables do not match this snapshot's migration receipt")
+        return set(AI_TABLES)
+    if present:
+        raise RuntimeError("Unified task tables lack this snapshot's migration receipt")
+    return set(AI_TABLES_PRE_UNIFIED_TASKS)
+
+
 def collect_evidence(
     connection: psycopg.Connection[Any],
     expected_database: str,
@@ -921,7 +936,6 @@ def collect_evidence(
         }
         if ai_tables or ai_migrations:
             sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
-            from ai_assistant.table_manifest import AI_TABLES
             if "0001_initial" not in ai_migrations:
                 raise RuntimeError("AI table inventory has no initial migration evidence")
             if "0044_business_market_v2_profile" in ai_migrations:
@@ -1087,7 +1101,7 @@ def collect_evidence(
             # Restore probes run with today's helper against the backup's schema.
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
-            expected_ai_tables = set(AI_TABLES)
+            expected_ai_tables = ai_inventory_for_snapshot(ai_migrations, ai_tables)
             from pi_agent_catalog import TABLES as pi_tables
             if "0084_pi_agent_independent_runtime" not in ai_migrations:
                 expected_ai_tables.difference_update(pi_tables)

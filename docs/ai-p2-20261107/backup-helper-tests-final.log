@@ -1,0 +1,187 @@
+...EE.........EE..EE....E.EEEEEE
+======================================================================
+ERROR: test_business_evidence_tables_require_exact_migration_generation (__main__.ConsistentBackupTests.test_business_evidence_tables_require_exact_migration_generation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 759, in test_business_evidence_tables_require_exact_migration_generation
+    current = _ai_evidence(AI_TABLES, migrations)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 350, in _ai_evidence
+    return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tools\postgres-consistent-backup.py", line 1221, in collect_evidence
+    raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
+RuntimeError: AI closed table inventory is incomplete or contains unknown tables
+
+======================================================================
+ERROR: test_evidence_accepts_both_backup_generations_with_stable_content_digest (__main__.ConsistentBackupTests.test_evidence_accepts_both_backup_generations_with_stable_content_digest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 808, in test_evidence_accepts_both_backup_generations_with_stable_content_digest
+    legacy = _ai_evidence(legacy_tables, legacy_migrations)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 350, in _ai_evidence
+    return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tools\postgres-consistent-backup.py", line 1221, in collect_evidence
+    raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
+RuntimeError: AI closed table inventory is incomplete or contains unknown tables
+
+======================================================================
+ERROR: test_market_v2_material_requires_0045_receipt_and_closed_contract (__main__.ConsistentBackupTests.test_market_v2_material_requires_0045_receipt_and_closed_contract)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 694, in test_market_v2_material_requires_0045_receipt_and_closed_contract
+    current = _ai_evidence(PRE_REPLAY_AI_TABLES, migrations)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 350, in _ai_evidence
+    return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tools\postgres-consistent-backup.py", line 1221, in collect_evidence
+    raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
+RuntimeError: AI closed table inventory is incomplete or contains unknown tables
+
+======================================================================
+ERROR: test_market_v2_parked_guards_follow_exact_migration_receipt (__main__.ConsistentBackupTests.test_market_v2_parked_guards_follow_exact_migration_receipt)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 666, in test_market_v2_parked_guards_follow_exact_migration_receipt
+    current = _ai_evidence(PRE_MARKET_AI_TABLES, migrations)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 350, in _ai_evidence
+    return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tools\postgres-consistent-backup.py", line 1221, in collect_evidence
+    raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
+RuntimeError: AI closed table inventory is incomplete or contains unknown tables
+
+======================================================================
+ERROR: test_paused_intent_generation_has_explicit_67_table_boundary (__main__.ConsistentBackupTests.test_paused_intent_generation_has_explicit_67_table_boundary)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 736, in test_paused_intent_generation_has_explicit_67_table_boundary
+    current = _ai_evidence(PRE_V4_AI_TABLES, migrations)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 350, in _ai_evidence
+    return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tools\postgres-consistent-backup.py", line 1221, in collect_evidence
+    raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
+RuntimeError: AI closed table inventory is incomplete or contains unknown tables
+
+======================================================================
+ERROR: test_promotion_trial_renderer9_requires_0046_receipt_and_exact_file_gates (__main__.ConsistentBackupTests.test_promotion_trial_renderer9_requires_0046_receipt_and_exact_file_gates)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 454, in test_promotion_trial_renderer9_requires_0046_receipt_and_exact_file_gates
+    current = _ai_evidence(PRE_REPLAY_AI_TABLES, migrations)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 350, in _ai_evidence
+    return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tools\postgres-consistent-backup.py", line 1221, in collect_evidence
+    raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
+RuntimeError: AI closed table inventory is incomplete or contains unknown tables
+
+======================================================================
+ERROR: test_receipt_generation_has_explicit_66_table_boundary (__main__.ConsistentBackupTests.test_receipt_generation_has_explicit_66_table_boundary)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 748, in test_receipt_generation_has_explicit_66_table_boundary
+    current = _ai_evidence(PRE_INTENT_AI_TABLES, migrations)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 350, in _ai_evidence
+    return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tools\postgres-consistent-backup.py", line 1221, in collect_evidence
+    raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
+RuntimeError: AI closed table inventory is incomplete or contains unknown tables
+
+======================================================================
+ERROR: test_v4_claimed_reader_retains_76_tables_and_closed_publication (__main__.ConsistentBackupTests.test_v4_claimed_reader_retains_76_tables_and_closed_publication)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 636, in test_v4_claimed_reader_retains_76_tables_and_closed_publication
+    current = _ai_evidence(PRE_CONSUMPTION_AI_TABLES, migrations)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 350, in _ai_evidence
+    return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tools\postgres-consistent-backup.py", line 1221, in collect_evidence
+    raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
+RuntimeError: AI closed table inventory is incomplete or contains unknown tables
+
+======================================================================
+ERROR: test_v4_consumption_candidate_has_explicit_77_table_boundary (__main__.ConsistentBackupTests.test_v4_consumption_candidate_has_explicit_77_table_boundary)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 646, in test_v4_consumption_candidate_has_explicit_77_table_boundary
+    current = _ai_evidence(PRE_MARKET_AI_TABLES, migrations)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 350, in _ai_evidence
+    return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tools\postgres-consistent-backup.py", line 1221, in collect_evidence
+    raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
+RuntimeError: AI closed table inventory is incomplete or contains unknown tables
+
+======================================================================
+ERROR: test_v4_ledger_generation_has_explicit_71_table_boundary (__main__.ConsistentBackupTests.test_v4_ledger_generation_has_explicit_71_table_boundary)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 585, in test_v4_ledger_generation_has_explicit_71_table_boundary
+    current = _ai_evidence(PRE_VALIDATION_AI_TABLES, migrations)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 350, in _ai_evidence
+    return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tools\postgres-consistent-backup.py", line 1221, in collect_evidence
+    raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
+RuntimeError: AI closed table inventory is incomplete or contains unknown tables
+
+======================================================================
+ERROR: test_v4_seal_generation_has_explicit_74_table_boundary (__main__.ConsistentBackupTests.test_v4_seal_generation_has_explicit_74_table_boundary)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 611, in test_v4_seal_generation_has_explicit_74_table_boundary
+    current = _ai_evidence(PRE_TICKET_AI_TABLES, migrations)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 350, in _ai_evidence
+    return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tools\postgres-consistent-backup.py", line 1221, in collect_evidence
+    raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
+RuntimeError: AI closed table inventory is incomplete or contains unknown tables
+
+======================================================================
+ERROR: test_v4_ticket_generation_has_explicit_76_table_boundary (__main__.ConsistentBackupTests.test_v4_ticket_generation_has_explicit_76_table_boundary)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 623, in test_v4_ticket_generation_has_explicit_76_table_boundary
+    current = _ai_evidence(PRE_CONSUMPTION_AI_TABLES, migrations)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 350, in _ai_evidence
+    return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tools\postgres-consistent-backup.py", line 1221, in collect_evidence
+    raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
+RuntimeError: AI closed table inventory is incomplete or contains unknown tables
+
+======================================================================
+ERROR: test_v4_validation_generation_has_explicit_73_table_boundary (__main__.ConsistentBackupTests.test_v4_validation_generation_has_explicit_73_table_boundary)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 598, in test_v4_validation_generation_has_explicit_73_table_boundary
+    current = _ai_evidence(PRE_SEAL_AI_TABLES, migrations)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tests\postgres-consistent-backup.test.py", line 350, in _ai_evidence
+    return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\ai-p2-20261107\tools\postgres-consistent-backup.py", line 1221, in collect_evidence
+    raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
+RuntimeError: AI closed table inventory is incomplete or contains unknown tables
+
+----------------------------------------------------------------------
+Ran 32 tests in 0.416s
+
+FAILED (errors=13)

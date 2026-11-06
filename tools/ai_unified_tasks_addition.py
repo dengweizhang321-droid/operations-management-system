@@ -25,6 +25,14 @@ VERSION = "teruisi-ai-unified-tasks-schema-addition-v1"
 POLICY = "schema-only-no-full-backup-or-restore-v1"
 ACTIVE = "ai-unified-tasks-addition-active.json"
 CHECKS = {"python-syntax", "node-syntax", "powershell-syntax", "migration-closure"}
+STRUCTURE_PROOF_VERSION = "teruisi-ai-unified-tasks-pg-structure-v1"
+STRUCTURE_CHECKS = {
+    "exact158-parent", "exact159-catalog", "new-tables-empty", "old-rows-and-ACL-preserved",
+    "restricted-writer-zero-reader-grants", "disabled-native-FK-rejected-and-rolled-back",
+    "committed159-not-replayed", "snapshot-backup-inventory158", "snapshot-backup-inventory159",
+    "snapshot-backup-unreceipted0090-tables-rejected", "disabled-FK-ALTER-failure-propagates",
+    "disabled-FK-SET-ROLE-failure-propagates", "unrelated-catalog-error-propagates",
+}
 CODE_FILES = tuple(dict.fromkeys((*parent.CODE_FILES,
     "tools/ai_unified_tasks_addition.py", "tools/ai_unified_tasks_catalog.py",
     "tools/ai_unified_tasks_catalog.json", "tools/ai_unified_tasks_candidate.py",
@@ -78,6 +86,67 @@ def code_digest(root):
     return common.digest({name: common.sha(Path(root) / name) for name in CODE_FILES})
 
 
+def verify_structure_evidence(root, validation):
+    """G05: a real PG result and its exact structure inputs, separate from code checks."""
+    root = Path(root)
+    ref = validation.get("structureEvidence")
+    expected_path = "docs/ai-p2-20261107/structure-result.json"
+    if (type(ref) is not dict or set(ref) != {"path", "sha256"} or ref["path"] != expected_path
+            or not isinstance(ref["sha256"], str) or not common.HEX.fullmatch(ref["sha256"])):
+        raise ValueError("AI159 requires its SHA-bound real PostgreSQL structure proof")
+    result = common.read(root / expected_path, ref["sha256"])
+    if type(result) is not dict:
+        raise ValueError("AI159 PostgreSQL structure proof must be an object")
+    database = result.get("database")
+    cleanup = result.get("cleanup")
+    if (result.get("version") != STRUCTURE_PROOF_VERSION or result.get("status") != "passed"
+            or result.get("generations") != [158, 159] or set(result.get("checks", [])) != STRUCTURE_CHECKS
+            or result.get("productionTouched") is not False or result.get("fullBackupOrRestorePerformed") is not False
+            or type(database) is not dict or set(database) != {"name", "user", "port", "serverVersionNumber"}
+            or database["name"] != "teruisi_ai_unified_tasks_rehearsal" or database["user"] != "ai159_fixture"
+            or type(database["port"]) is not int or not 55522 <= database["port"] < 55532
+            or type(database["serverVersionNumber"]) is not int or not 170000 <= database["serverVersionNumber"] < 180000
+            or type(cleanup) is not dict or set(cleanup) != {"started", "stopped", "privateDataRemoved", "passwordFileRemoved", "childExitZero"}
+            or any(value is not True for value in cleanup.values())):
+        raise ValueError("AI159 PostgreSQL result, generation, checks or cleanup is incomplete")
+    files = result.get("sourceFiles")
+    required = {"tools/ai_unified_tasks_rehearsal.py", "tools/ai_unified_tasks_addition.py",
+        "tools/ai_unified_tasks_catalog.py", "tools/ai_unified_tasks_catalog.json", "tools/postgres-consistent-backup.py",
+        "backend/ai_assistant/migrations/0090_unified_tasks.py", "backend/ai_assistant/task_models.py",
+        "backend/ai_assistant/table_manifest.py", "backend/ai_assistant/database_contract.py", "backend/requirements.txt"}
+    if (type(files) is not dict or not required <= set(files) or not len(required) <= len(files) <= 1024
+            or result.get("sourceFilesSha256") != common.digest(files)):
+        raise ValueError("AI159 PostgreSQL structure input set is incomplete")
+    for name, expected in files.items():
+        if (not isinstance(name, str) or "\\" in name or ":" in name or name.startswith("/")
+                or any(part in {"", ".", ".."} for part in name.split("/"))
+                or name.split("/", 1)[0] not in {"backend", "tools", "config"}
+                or not isinstance(expected, str) or not common.HEX.fullmatch(expected)):
+            raise ValueError("AI159 PostgreSQL structure input reference is invalid")
+        source = root / name
+        if (any(p.is_symlink() or getattr(p, "is_junction", lambda: False)() for p in (source, *source.parents))
+                or not source.is_file() or source.stat().st_nlink != 1 or source.stat().st_size > 16*1024*1024
+                or common.sha(source) != expected):
+            raise ValueError("AI159 PostgreSQL structure input changed; isolated PG rehearsal required: " + name)
+    migrations = common.migrations(root)
+    nodes = {Path(name).parts[1] + "." + Path(name).stem for name in migrations if Path(name).stem != "__init__"}
+    nodes |= {"contenttypes.0001_initial", "contenttypes.0002_remove_content_type_name"}
+    parent_nodes = nodes - set(STEPS)
+    expected_receipts = {"158": {"count": 158, "sha256": common.digest(sorted(parent_nodes))},
+                         "159": {"count": 159, "sha256": common.digest(sorted(nodes))}}
+    if (len(nodes) != 159 or len(parent_nodes) != 158 or result.get("receiptGenerations") != expected_receipts
+            or result.get("migrationSha256") != common.digest(migrations)):
+        raise ValueError("AI159 PostgreSQL receipt catalogue or migration source differs")
+    pins = dict(re.findall(r"^(Django|psycopg\[binary\])==([^\r\n]+)$", (root / "backend/requirements.txt").read_text(encoding="utf8"), re.M | re.I))
+    pins = {key.lower(): value for key, value in pins.items()}
+    versions = result.get("toolchain")
+    if (type(versions) is not dict or set(versions) != {"django", "psycopg", "python"}
+            or versions["django"] != pins.get("django") or versions["psycopg"] != pins.get("psycopg[binary]")
+            or not isinstance(versions["python"], str) or not versions["python"]):
+        raise ValueError("AI159 PostgreSQL rehearsal dependency versions differ from pinned source")
+    return result
+
+
 def source_inventory(root):
     """Exact shipped backend bytes, excluding the same caches/tests as CopyApp."""
     root = Path(root)
@@ -123,6 +192,7 @@ def admission(root, runtime, evidence, evidence_sha):
             or proof.get("migrationSha256") != value["migrationSha256"]
             or set(proof.get("checks", [])) != CHECKS):
         raise ValueError("Bound AiUnifiedTasks mandatory code-check record is incomplete")
+    verify_structure_evidence(root, proof)
     return value
 
 

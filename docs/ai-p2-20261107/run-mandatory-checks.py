@@ -30,6 +30,13 @@ assert not str(DELIVERY).lower().startswith("d:\\teruisi-runtime"), "Private del
 sys.path.insert(0, str(ROOT / "tools"))
 import ai_unified_tasks_addition as gate
 
+# The PG proof binds only files actually consumed by the isolated structure
+# process. Unrelated app changes can reuse it; a changed structure input must
+# be rehearsed again before this code-check material can be generated.
+structure_name = "docs/ai-p2-20261107/structure-result.json"
+structure_ref = {"path": structure_name, "sha256": gate.common.sha(ROOT / structure_name)}
+gate.verify_structure_evidence(ROOT, {"structureEvidence": structure_ref})
+
 ENV = {k: v for k, v in os.environ.items() if k.upper() in {
     "PATH", "SYSTEMROOT", "WINDIR", "COMSPEC", "TEMP", "TMP", "APPDATA", "LOCALAPPDATA", "USERPROFILE"}}
 ENV.update(PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1", GIT_TERMINAL_PROMPT="0")
@@ -66,7 +73,8 @@ supplemental_names = ["backend/teruisi_backend/settings.py", "tools/ai_unified_t
                       "backend/ai_assistant/task_dispatch.py", "backend/ai_assistant/task_legacy_adapters.py",
                       "backend/ai_assistant/task_dependencies.py",
                       "backend/ai_assistant/database_contract.py", "backend/ai_assistant/pi_views.py",
-                      "tests/ai159-acl-catalog-boundary.py", "tools/check_schema_code_digest.py", "tools/check_catalog_baselines.py",
+                      "tests/ai159-acl-catalog-boundary.py", "tests/ai159-structure-evidence.py",
+                      "tests/postgres-consistent-backup.test.py", "tools/check_schema_code_digest.py", "tools/check_catalog_baselines.py",
                       REL + "/run-mandatory-checks.py"]
 supplemental = {name: gate.common.sha(ROOT / name) for name in supplemental_names}
 selected = list(dict.fromkeys([*files, *supplemental]))
@@ -163,7 +171,8 @@ proof = {"version": "ai-unified-tasks-mandatory-code-checks-v1", "status": "code
          "checkedAt": execution["checkedAt"], "productionTouched": False, "functionalValidationPerformed": False,
          "fullBackupOrRestorePerformed": False, "generations": [158, 159], "parentVariants": [[158, 159]],
          "steps": list(gate.STEPS), "codeSha256": code_sha, "migrationSha256": migration_sha,
-         "checks": sorted(gate.CHECKS), "evidence": {"path": execution_path, "sha256": execution_sha}}
+         "checks": sorted(gate.CHECKS), "evidence": {"path": execution_path, "sha256": execution_sha},
+         "structureEvidence": structure_ref}
 proof_path, proof_sha = write("ai159-checks.json", proof)
 recipe = {"version": "teruisi-main-schema-recipe-v1", "additionKind": "AiUnifiedTasks",
           "fromGeneration": 158, "toGeneration": 159, "steps": list(gate.STEPS), "stepFiles": gate.FILES,

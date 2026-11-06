@@ -47,6 +47,7 @@ def candidate(root, runtime, recipe_path, *, full_parent=True):
             or proof.get("codeSha256") != code_sha or proof.get("migrationSha256") != migration_sha
             or proof.get("steps") != list(gate.STEPS) or set(proof.get("checks", [])) != gate.CHECKS):
         raise ValueError("Bound mandatory code checks do not cover these exact installer bytes")
+    gate.verify_structure_evidence(root, proof)
     if full_parent:
         base, parent_sha = gate.parent_proof(runtime, runtime / "app")
     else:
