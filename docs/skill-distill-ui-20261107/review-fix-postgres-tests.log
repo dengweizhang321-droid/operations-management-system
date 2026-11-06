@@ -1,30 +1,30 @@
-Creating test database for alias 'default'...
-2026-11-07 01:41:55,745 level=WARNING logger=django.request message=Unprocessable Entity: /api/ai/pi/operations/pi-op-7ce29dd4-df9f-412b-b077-be8f6454c19b/skill-candidates/distill
-2026-11-07 01:41:55,751 level=WARNING logger=django.request message=Unprocessable Entity: /api/ai/pi/operations/pi-op-7ce29dd4-df9f-412b-b077-be8f6454c19b/skill-candidates/distill
-.2026-11-07 01:41:55,881 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-7559b030-b13e-44df-bc7c-d4e30fdbb781/skill-candidates/distill
-2026-11-07 01:41:55,895 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-7559b030-b13e-44df-bc7c-d4e30fdbb781/skill-candidates/distill
-.2026-11-07 01:41:56,010 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-9e8f245d-44a3-4a69-99bb-3298610742f8/skill-candidates/distill
-.2026-11-07 01:41:56,142 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-d2f34b91-d1ef-4d6c-8036-2708295cb7b9/skill-candidates/distill
-.2026-11-07 01:41:56,224 level=WARNING logger=django.request message=Not Found: /api/ai/pi/operations/pi-op-eabb0de5-9d2d-49da-b732-b62e0c0e879d/skill-candidates/distill
-2026-11-07 01:41:56,239 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-eabb0de5-9d2d-49da-b732-b62e0c0e879d/skill-candidates/distill
-..2026-11-07 01:41:56,461 level=ERROR logger=django.request message=Service Unavailable: /api/ai/pi/operations/pi-op-bbfdf94e-b26c-461e-967f-840623759b53/skill-candidates/distill
-.2026-11-07 01:41:56,624 level=ERROR logger=django.request message=Service Unavailable: /api/ai/pi/operations/pi-op-5f32b736-067c-4037-8a4a-86c2d2e1d0b4/skill-candidates/distill
-2026-11-07 01:41:56,629 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-5f32b736-067c-4037-8a4a-86c2d2e1d0b4/skill-candidates/distill
-.2026-11-07 01:41:56,821 level=WARNING logger=django.request message=Not Found: /api/ai/pi/operations/pi-op-6dc488db-5fdb-4e69-b3b9-3c2a2f8a82c6/skill-candidates
-2026-11-07 01:41:56,824 level=WARNING logger=django.request message=Bad Request: /api/ai/pi/operations/pi-op-6dc488db-5fdb-4e69-b3b9-3c2a2f8a82c6/skill-candidates
-2026-11-07 01:41:56,827 level=WARNING logger=django.request message=Bad Request: /api/ai/pi/operations/pi-op-6dc488db-5fdb-4e69-b3b9-3c2a2f8a82c6/skill-candidates
-.2026-11-07 01:41:56,944 level=ERROR logger=django.request message=Service Unavailable: /api/ai/pi/operations/pi-op-a834b9a6-e709-430b-925a-a04e5aa44e17/skill-candidates/distill
-2026-11-07 01:41:56,991 level=ERROR logger=django.request message=Service Unavailable: /api/ai/pi/operations/pi-op-a834b9a6-e709-430b-925a-a04e5aa44e17/skill-candidates/distill
-.2026-11-07 01:41:57,115 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-a87d9cdd-b97b-4676-95d2-4845f95fecec/skill-candidates/distill
-2026-11-07 01:41:57,150 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-a87d9cdd-b97b-4676-95d2-4845f95fecec/skill-candidates/distill
-.2026-11-07 01:41:57,300 level=ERROR logger=django.request message=Service Unavailable: /api/ai/pi/operations/pi-op-b8f627d3-47c6-4c5d-a1ca-92796f055e81/skill-candidates/distill
-2026-11-07 01:41:57,307 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-b8f627d3-47c6-4c5d-a1ca-92796f055e81/skill-candidates/distill
-.2026-11-07 01:41:57,416 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-6b32e915-6f1e-4b71-bf0c-ecf0798d61d3/skill-candidates/distill
-.
-----------------------------------------------------------------------
-Ran 13 tests in 1.956s
-
-OK
-Destroying test database for alias 'default'...
-Found 13 test(s).
-System check identified no issues (0 silenced).
+Creating test database for alias 'default'...
+2026-11-07 01:41:55,745 level=WARNING logger=django.request message=Unprocessable Entity: /api/ai/pi/operations/pi-op-7ce29dd4-df9f-412b-b077-be8f6454c19b/skill-candidates/distill
+2026-11-07 01:41:55,751 level=WARNING logger=django.request message=Unprocessable Entity: /api/ai/pi/operations/pi-op-7ce29dd4-df9f-412b-b077-be8f6454c19b/skill-candidates/distill
+.2026-11-07 01:41:55,881 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-7559b030-b13e-44df-bc7c-d4e30fdbb781/skill-candidates/distill
+2026-11-07 01:41:55,895 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-7559b030-b13e-44df-bc7c-d4e30fdbb781/skill-candidates/distill
+.2026-11-07 01:41:56,010 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-9e8f245d-44a3-4a69-99bb-3298610742f8/skill-candidates/distill
+.2026-11-07 01:41:56,142 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-d2f34b91-d1ef-4d6c-8036-2708295cb7b9/skill-candidates/distill
+.2026-11-07 01:41:56,224 level=WARNING logger=django.request message=Not Found: /api/ai/pi/operations/pi-op-eabb0de5-9d2d-49da-b732-b62e0c0e879d/skill-candidates/distill
+2026-11-07 01:41:56,239 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-eabb0de5-9d2d-49da-b732-b62e0c0e879d/skill-candidates/distill
+..2026-11-07 01:41:56,461 level=ERROR logger=django.request message=Service Unavailable: /api/ai/pi/operations/pi-op-bbfdf94e-b26c-461e-967f-840623759b53/skill-candidates/distill
+.2026-11-07 01:41:56,624 level=ERROR logger=django.request message=Service Unavailable: /api/ai/pi/operations/pi-op-5f32b736-067c-4037-8a4a-86c2d2e1d0b4/skill-candidates/distill
+2026-11-07 01:41:56,629 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-5f32b736-067c-4037-8a4a-86c2d2e1d0b4/skill-candidates/distill
+.2026-11-07 01:41:56,821 level=WARNING logger=django.request message=Not Found: /api/ai/pi/operations/pi-op-6dc488db-5fdb-4e69-b3b9-3c2a2f8a82c6/skill-candidates
+2026-11-07 01:41:56,824 level=WARNING logger=django.request message=Bad Request: /api/ai/pi/operations/pi-op-6dc488db-5fdb-4e69-b3b9-3c2a2f8a82c6/skill-candidates
+2026-11-07 01:41:56,827 level=WARNING logger=django.request message=Bad Request: /api/ai/pi/operations/pi-op-6dc488db-5fdb-4e69-b3b9-3c2a2f8a82c6/skill-candidates
+.2026-11-07 01:41:56,944 level=ERROR logger=django.request message=Service Unavailable: /api/ai/pi/operations/pi-op-a834b9a6-e709-430b-925a-a04e5aa44e17/skill-candidates/distill
+2026-11-07 01:41:56,991 level=ERROR logger=django.request message=Service Unavailable: /api/ai/pi/operations/pi-op-a834b9a6-e709-430b-925a-a04e5aa44e17/skill-candidates/distill
+.2026-11-07 01:41:57,115 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-a87d9cdd-b97b-4676-95d2-4845f95fecec/skill-candidates/distill
+2026-11-07 01:41:57,150 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-a87d9cdd-b97b-4676-95d2-4845f95fecec/skill-candidates/distill
+.2026-11-07 01:41:57,300 level=ERROR logger=django.request message=Service Unavailable: /api/ai/pi/operations/pi-op-b8f627d3-47c6-4c5d-a1ca-92796f055e81/skill-candidates/distill
+2026-11-07 01:41:57,307 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-b8f627d3-47c6-4c5d-a1ca-92796f055e81/skill-candidates/distill
+.2026-11-07 01:41:57,416 level=WARNING logger=django.request message=Conflict: /api/ai/pi/operations/pi-op-6b32e915-6f1e-4b71-bf0c-ecf0798d61d3/skill-candidates/distill
+.
+----------------------------------------------------------------------
+Ran 13 tests in 1.956s
+
+OK
+Destroying test database for alias 'default'...
+Found 13 test(s).
+System check identified no issues (0 silenced).

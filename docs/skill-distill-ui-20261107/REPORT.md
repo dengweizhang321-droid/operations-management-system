@@ -58,4 +58,6 @@ SQLite 子进程使用 `py -3.12 -B`（Django 5.2.17），明确 `TERUISI_DJANGO
 - SQLite 23 项通过（原 schema 读契约与提炼模块）；随后增加“撤回发生在第一次查询后、锁内准入前”的交错用例，在最终 PostgreSQL 组合中一并运行。
 - 最终隔离 PostgreSQL：`py -3.12 tools/ai-postgres-rehearsal.py --tests-only --preprovision-ai-runtime-roles --test-label ai_assistant.test_skill_distillation --port 55903`，13 项通过，系统检查 0 issue，测试耗时 1.956s；完整原生日志：[review-fix-postgres-tests.log](review-fix-postgres-tests.log)。覆盖报告版本复原仍不能重放撤回的旧标识、明确重授权的新标识、其他候选竞争、未知派发拒绝撤回、撤回幂等、锁内准入交错，以及真实旧保存函数接受 `parameters:null` 后的读取与退回。工具回执 `productionWrites:false`，临时集群已由原工具关闭，未接触生产业务库。
 
+归档日志保留完整正文，仅将 Windows 子进程的重复 CR 换行归一为 LF，避免文档差异检查误判行末空白；原字节仍保存在本工作树 `.runtime/ai-pg-73d66deb6637/tests.log`。这是证据排版调整，不改测试结果。
+
 以上为执行者修复和定向验证结果，待 lead 安排原 Astra 上下文增量复审；不代表已获独审通过、合并或上线授权。
