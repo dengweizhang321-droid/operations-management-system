@@ -1726,3 +1726,4 @@ from .business_budget_models import AiBusinessBudgetPlan  # noqa: E402,F401
 from .business_screening_models import AiBusinessScreeningRun, AiBusinessScreeningPage  # noqa: E402,F401
 from .feedback_models import AiTaskFeedback  # noqa: E402,F401
 from .candidate_models import AiSkillCandidate  # noqa: E402,F401
+from .task_models import TaskDefinition, TaskRevision, TaskGrant, TaskRun, TaskIncident  # noqa: E402,F401

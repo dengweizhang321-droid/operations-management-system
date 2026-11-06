@@ -2,6 +2,7 @@
 
 from . import models as m
 from .pi_models import PI_MODELS
+from .task_models import TASK_MODELS
 from .control_models import (
     AiDataRevision,
     AiWriteAuthority,
@@ -18,6 +19,7 @@ CONTROL_MODELS = (
     AiMigrationRun,
 )
 MODELS = {
+    **{model._meta.db_table: model for model in TASK_MODELS},
     **{model._meta.db_table: model for model in PI_MODELS},
     # Corrections keep their lifecycle columns writable, so this is a regular
     # writer table rather than an append-only evidence one. Its identity
@@ -179,6 +181,9 @@ APPEND_ONLY = {
 WRITER_PRIVILEGES = {
     table: ("SELECT", "INSERT", "UPDATE", "DELETE") for table in MODELS
 }
+for model in TASK_MODELS:
+    WRITER_PRIVILEGES[model._meta.db_table] = ("SELECT", "INSERT", "UPDATE")
+WRITER_PRIVILEGES["ai_task_revisions"] = ("SELECT", "INSERT")
 for table in APPEND_ONLY:
     WRITER_PRIVILEGES[table] = ("SELECT", "INSERT")
 for table in {
@@ -248,7 +253,7 @@ def provision(connection, reader_password, writer_password):
     with connection.transaction(), connection.cursor() as cursor:
         from .table_manifest import (
             PI_TABLES, PI_WORKSPACE_TABLES, PI_BUSINESS_TABLES, PI_NATIVE_TABLES,
-            TASK_FEEDBACK_TABLES, SKILL_CANDIDATE_TABLES,
+            TASK_FEEDBACK_TABLES, SKILL_CANDIDATE_TABLES, UNIFIED_TASK_TABLES,
         )
         cursor.execute("SELECT name FROM public.django_migrations WHERE app='ai_assistant' AND name='0084_pi_agent_independent_runtime'")
         pi_receipt = cursor.fetchone() is not None
@@ -286,6 +291,12 @@ def provision(connection, reader_password, writer_password):
         skill_candidate_present = {row[0] for row in cursor.fetchall()}
         if bool(skill_candidate_present) != skill_candidate_receipt or skill_candidate_present and skill_candidate_present != set(SKILL_CANDIDATE_TABLES):
             raise ValueError("Skill candidate receipt/table inventory mismatch")
+        cursor.execute("SELECT name FROM public.django_migrations WHERE app='ai_assistant' AND name='0090_unified_tasks'")
+        task_receipt = cursor.fetchone() is not None
+        cursor.execute("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=ANY(%s)", [list(UNIFIED_TASK_TABLES)])
+        task_present = {row[0] for row in cursor.fetchall()}
+        if bool(task_present) != task_receipt or task_present and task_present != set(UNIFIED_TASK_TABLES):
+            raise ValueError("Unified task receipt/table inventory mismatch")
         for role, password in [
             ("teruisi_ai_reader", reader_password),
             ("teruisi_ai_writer", writer_password),

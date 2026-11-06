@@ -22,7 +22,7 @@ export async function aiEnvironment(): Promise<Environment> {
   return { ...(globalThis.process?.env ?? {}), ...worker };
 }
 
-const PI_PUBLIC_PATH = new RegExp(`^/api/ai/pi/(?:skills|sessions(?:/${ENTITY}(?:/(?:messages|events|abort|files|workspace|business-actions))?)?|files/${ENTITY}(?:/content)?|skill-candidates(?:/${ENTITY}/(?:review|publish))?|operations/${ENTITY}/(?:evidence|stages|skill-candidates|feedback(?:/${ENTITY}/withdraw)?))$`);
+const PI_PUBLIC_PATH = new RegExp(`^/api/ai/pi/(?:task-connectors|legacy-tasks|task-definitions(?:/${ENTITY}(?:/(?:revisions|runs|incidents|enable|disable))?)?|task-incidents/${ENTITY}/(?:claim|close)|skills|sessions(?:/${ENTITY}(?:/(?:messages|events|abort|files|workspace|business-actions))?)?|files/${ENTITY}(?:/content)?|skill-candidates(?:/${ENTITY}/(?:review|publish))?|operations/${ENTITY}/(?:evidence|stages|skill-candidates|feedback(?:/${ENTITY}/withdraw)?))$`);
 export function isPublicAiPath(path: string) { return PUBLIC_PATH.test(path) || PI_PUBLIC_PATH.test(path); }
 export function isInternalPromotionDispatchPath(path: string) { return INTERNAL_PROMOTION_DISPATCH_PATH.test(path); }
 export function isInternalMarketV2CandidatePath(path: string) { return INTERNAL_MARKET_V2_CANDIDATE_PATH.test(path); }
