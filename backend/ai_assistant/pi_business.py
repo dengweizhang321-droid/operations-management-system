@@ -19,6 +19,9 @@ TOOLS = {"prepare_pi_work_plan": "create_work_plan", "prepare_pi_replenishment_d
     "prepare_pi_gap_execution": "execute_registered_gap", "prepare_pi_report_delivery": "deliver_report"}
 PENDING = {"prepared", "queued", "claimed"}
 TERMINAL = {"succeeded", "failed", "canceled"}
+# Mirrors the ai_pi_business_payload_bytes CHECK on result_json in
+# migrations/0086_pi_business_actions.py:65.
+RESULT_MAX_BYTES = 131072
 
 
 def grants(value):
@@ -424,6 +427,17 @@ def _merge_n8n_receipt(existing, incoming):
         merged_receipt["executionId"] = bound
     if merged_receipt:
         merged["receipt"] = merged_receipt
+    if len(canonical(merged).encode()) > RESULT_MAX_BYTES:
+        # Each receipt alone passes passive(result, 128*1024) at :469 and :521,
+        # but the shallow merge above sums disjoint top-level keys and
+        # ai_pi_business_payload_bytes caps result_json at 131072 bytes
+        # (migrations/0086_pi_business_actions.py:65). Refuse the merge instead
+        # of storing a row whose UPDATE PostgreSQL rejects with an
+        # IntegrityError. The already-stored receipt is preserved intact and the
+        # incoming one stays observable: this path is reached from an append-only
+        # lease that may observe the original execution again after expiry, so
+        # the caller records the refusal code rather than losing the binding.
+        raise AiError("n8n 原执行回执合并后超过存储上限", "pi_n8n_receipt_too_large", 409)
     return merged
 
 
@@ -485,7 +499,10 @@ safe to observe again after expiry because this path never invokes execute().
                         row.error_code = ""
             except AiError as error:
                 error_code = error.code
-                if error.code == "pi_n8n_execution_binding_conflict":
+                if error.code in {"pi_n8n_execution_binding_conflict", "pi_n8n_receipt_too_large"}:
+                    # Both leave the stored receipt untouched, so the original
+                    # execution stays observable rather than being recorded as a
+                    # terminal state derived from an unstored receipt.
                     row.status, row.error_code = "unknown", error.code
             row.version += 1
             row.updated_at = timezone.now()

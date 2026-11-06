@@ -51,6 +51,9 @@ page_context 只表示当前页面选择，不表示已查询到数据。调用�
 PROMOTION_CONTEXT_TAG = "verified_promotion_context"
 PROMOTION_TOOL = "get_jd_promotion_diagnostic"
 PROMOTION_SHOP = "志高商用设备旗舰店"
+# Mirrors the ai_execution_bound CHECK on ai_conversation_messages.execution_json
+# in migrations/0009_model_generation_capabilities.py:10.
+EXECUTION_MAX_BYTES = 16384
 
 
 def _promotion_locator(results):
@@ -112,6 +115,43 @@ def _promotion_evidence(results, expected_locator):
         if len(canonical(evidence).encode()) <= 8192:
             return evidence
     return None
+
+
+def _fit_execution(execution):
+    """Fit execution inside ai_conversation_messages.execution_json's CHECK.
+
+    PostgreSQL enforces octet_length(execution_json)<=16384 (together with
+    jsonb_typeof='object') in migrations/0009_model_generation_capabilities.py:10.
+    Every other member of this dict is a number, a short enum or already
+    byte-bounded (promotionEvidence <=8192 at :112), so the only member that
+    scales with administrator configuration is "guidance": each cited rule costs
+    up to 1152 bytes because prompt_settings.validate() counts characters, not
+    bytes (prompt_settings.py:48-50). 14 Chinese rules already exceed the CHECK.
+
+    The citation list is NOT write-only: app/ai-chat-workbench.tsx renders the
+    rule names to the user (:52, :152). prompt_settings.fit_evidence() therefore
+    drops the unread "source" field (732 of those 1152 bytes) before it drops
+    any rule, and only trims whole rules if that is still not enough.
+
+    Returns (encoded, execution) so the caller stores and returns the same
+    value. Returning the pre-fit dict while storing the fitted one would show
+    the asker a list that silently shrinks when the page is reloaded.
+    """
+    encoded = canonical(execution)
+    if len(encoded.encode()) <= EXECUTION_MAX_BYTES:
+        return encoded, execution
+    without = {k: v for k, v in execution.items() if k != "guidance"}
+    # canonical(without) omits the key itself, so reserve '"guidance":' plus the
+    # separating comma before handing the remainder to the fitter.
+    headroom = EXECUTION_MAX_BYTES - len(canonical(without).encode()) - len('"guidance":,')
+    from . import prompt_settings
+    fitted = dict(execution, guidance=prompt_settings.fit_evidence(execution.get("guidance"), max(headroom, 0)))
+    encoded = canonical(fitted)
+    if len(encoded.encode()) > EXECUTION_MAX_BYTES:
+        # Nothing left to give up: refuse rather than hand PostgreSQL a row its
+        # CHECK will reject with an IntegrityError surfaced as a 500.
+        raise AiError("本次回答的执行记录超过存储上限", "payload_too_large", 413)
+    return encoded, fitted
 
 
 def _promotion_prompt_conflicts(prompt, locator):
@@ -1199,7 +1239,10 @@ def answer(body, principal, request_id, *, dingtalk_session=None, dingtalk_unbou
                 execution["promotionEvidence"] = promotion_evidence
             message = append(conv.id, "assistant", reply, shortcut or "message")
             execution["durationMs"] = int((time.monotonic() - started_at) * 1000)
-            message.execution_json = canonical(execution)
+            # Bind the returned dict to the stored one: the caller renders these
+            # rule names, so handing back the pre-fit value would make them
+            # disappear on the next reload with no explanation.
+            message.execution_json, execution = _fit_execution(execution)
             message.save(update_fields=["execution_json"])
             assets = _artifacts(results, conv, message, principal) if dingtalk_session is None else []
             result = {

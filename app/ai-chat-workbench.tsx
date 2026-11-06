@@ -49,14 +49,17 @@ function ExecutionDetails({ value }: { value?: AiExecutionInfo }) {
     <div><dt>本轮估算输入 / 上下文预算</dt><dd>{number(value.context?.estimatedInputTokens)} / {number(value.context?.contextWindowTokens)}</dd></div>
     {!!value.context?.droppedMessages && <div><dt>因预算移出上下文的旧消息</dt><dd>{value.context.droppedMessages} 条（历史记录保留）</dd></div>}
     <div><dt>配置版本</dt><dd>{guidance ? guidance.version === 0 ? "系统默认" : `v${guidance.version}` : "未记录"}</dd></div>
-    {guidance && <div><dt>本次业务口径</dt><dd>{guidance.names.join("、") || "通用口径"}</dd></div>}
+    {guidance && <div><dt>本次业务口径</dt><dd>{guidance.names.join("、") || "通用口径"}{selectionNote(guidance)}</dd></div>}
     <div><dt>本次技能{skills ? ` · v${skills.version}` : ""}</dt><dd>{skills ? skills.names.join("、") || "未匹配技能" : "未记录"}</dd></div>
   </dl><small>上下文为估算值，实际用量以供应商返回为准。{(value.usageReportedCalls ?? 0) < (value.providerCalls ?? 0) ? "部分调用未报告完整用量，以上不代表总计。" : ""}</small></details>;
 }
 
 // Scheduled and older replies can omit selection evidence or persist an empty object.
 // Missing evidence must not be presented as the default configuration or an empty selection.
-function executionSelection(value: unknown, key: "rules" | "skills"): { version: number; names: string[] } | null {
+// A reply whose citations did not fit execution_json's 16384-byte CHECK carries
+// `rulesOmitted` (prompt_settings.fit_evidence); the names below are shown to the
+// user, so a shortened list must say so instead of reading as the whole list.
+function executionSelection(value: unknown, key: "rules" | "skills"): { version: number; names: string[]; omitted: number | null; partial: boolean } | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
   const items = record[key];
@@ -66,7 +69,16 @@ function executionSelection(value: unknown, key: "rules" | "skills"): { version:
     if (!item || typeof item !== "object" || typeof item.name !== "string") return null;
     names.push(item.name);
   }
-  return { version: record.version, names };
+  // A malformed count still proves the list is partial, so keep the warning and
+  // drop only the number rather than presenting the remainder as complete.
+  const recorded = key === "rules" ? record.rulesOmitted : undefined;
+  const omitted = typeof recorded === "number" && Number.isSafeInteger(recorded) && recorded > 0 ? recorded : null;
+  return { version: record.version, names, omitted, partial: recorded !== undefined && recorded !== false && recorded !== 0 };
+}
+
+function selectionNote(selection: { omitted: number | null; partial: boolean }) {
+  if (!selection.partial) return "";
+  return selection.omitted === null ? "（另有部分口径未记录）" : `（另有 ${selection.omitted} 条口径未记录）`;
 }
 
 function date(value: string) { const parsed = new Date(value); return Number.isNaN(parsed.getTime()) ? "" : parsed.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }); }
@@ -149,7 +161,7 @@ export default function AiChatWorkbench(props: AiWorkbenchProps) {
           actions={<>{props.composerModeControl}<div className="ai-workbench-model"><SearchableSelect value={props.selectedModelId} onChange={props.onModel} ariaLabel="本对话模型" searchPlaceholder="搜索对话模型" disabled={props.busy || props.recoveryBlocked || !props.models.length} options={props.models.map(model => ({ value: model.id, label: `${model.name}${model.modelType === "vision" ? " · 视觉" : ""}${model.isDefault ? " · 默认" : ""}` }))} /></div><button type="button" className="ai-workbench-send" aria-label={props.sending ? "停止生成" : "发送消息"} disabled={!props.sending && !canSend} onClick={props.sending ? props.onStop : props.onSend}><Symbol name={props.sending ? "stop" : "arrow"} /></button></>}
           note={<><span>回答请结合数据来源与统计口径复核</span><span>Shift + Enter 换行</span></>} />
       </section>
-      {detailsOpen && <aside className="ai-workbench-details"><header><h3>对话详情</h3><button type="button" className="ai-workbench-icon" aria-label="关闭对话详情" onClick={() => setDetailsOpen(false)}><Symbol name="close" /></button></header><h4>当前模型</h4><p>{props.models.find(model => model.id === props.selectedModelId)?.name || "尚未选择"}</p><small>切换模型后从下一条消息起生效。</small><h4>页面上下文</h4>{props.context ? <><p>{props.context.moduleLabel}</p><ul>{aiPageFilterSummary(props.context.filters).map(item => <li key={item}>{item}</li>)}</ul><small>页面筛选不是查询结果，回复以实际读取的数据为准。</small></> : <p>未附加页面条件。</p>}<h4>最近回复采用的配置</h4>{latestGuidance ? <p>{latestGuidance.version === 0 ? "系统默认" : `版本 v${latestGuidance.version}`} · {latestGuidance.names.join("、") || "通用口径"}</p> : <p>暂无配置版本记录。新回复将在执行详情中记录。</p>}<h4>会话与权限</h4><p>仅显示你有权访问的个人会话。查询按当前账号的数据范围执行。</p><small>断线后核对原请求回执，不自动重发模型请求。</small></aside>}
+      {detailsOpen && <aside className="ai-workbench-details"><header><h3>对话详情</h3><button type="button" className="ai-workbench-icon" aria-label="关闭对话详情" onClick={() => setDetailsOpen(false)}><Symbol name="close" /></button></header><h4>当前模型</h4><p>{props.models.find(model => model.id === props.selectedModelId)?.name || "尚未选择"}</p><small>切换模型后从下一条消息起生效。</small><h4>页面上下文</h4>{props.context ? <><p>{props.context.moduleLabel}</p><ul>{aiPageFilterSummary(props.context.filters).map(item => <li key={item}>{item}</li>)}</ul><small>页面筛选不是查询结果，回复以实际读取的数据为准。</small></> : <p>未附加页面条件。</p>}<h4>最近回复采用的配置</h4>{latestGuidance ? <p>{latestGuidance.version === 0 ? "系统默认" : `版本 v${latestGuidance.version}`} · {latestGuidance.names.join("、") || "通用口径"}{selectionNote(latestGuidance)}</p> : <p>暂无配置版本记录。新回复将在执行详情中记录。</p>}<h4>会话与权限</h4><p>仅显示你有权访问的个人会话。查询按当前账号的数据范围执行。</p><small>断线后核对原请求回执，不自动重发模型请求。</small></aside>}
     </div>{copied === "failed" && <p role="status" className="ai-workbench-feedback">复制不可用，请选择正文手动复制。</p>}
   </article>;
 }
