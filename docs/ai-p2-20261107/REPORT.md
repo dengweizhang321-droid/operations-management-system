@@ -1,64 +1,43 @@
-# P2 统一自动任务控制主体
+# P2 统一任务与首场景隔离交付
 
-基线：`77382b5fc4ad958e1c22e7d9f8431bffdafdb204`。施工依据为统一方案 §8/9/10/17；本包不接管旧任务，不启用自动执行。
+本分支完成停用任务管理主体、京东志高商用设备旗舰店经营日报的合成隔离演练，以及 `0090_unified_tasks` 的有限158→159结构发布材料。源码已具备审查条件；最终Astra反审由主任务收口。未合入main、准备生产制品、采用控制包、迁移生产库、启用任务、调用真实模型或投递消息。
 
-## 已实现的小项 1：持久控制契约与可调用管理接口
+## 最终行为
 
-- 默认停用的任务草稿、追加式不可变 revision、精确 Skill 版本/摘要、单店、模型版本、时间/消息/事件/条件触发定义、原时点窗口、漏跑策略、数据依赖及投递目标。客户端不能指定 owner、角色、executor 或 enabled。
-- 五张新增表：definition/revision/grant/run/incident。`(task, trigger_kind, occurrence_key)` 跨 revision 唯一；run 冻结原 revision。租约采用单调 fencing；已关联 operation 或 unknown 不重新领取。
-- Pi handoff 只绑定原 operation，检查 run 身份、owner、角色及范围；观察原操作不会新建执行。此为内部控制账本接口，尚无已采用的自动触发/执行调用者。
-- Incident 固定规则版本、证据、归属、恢复条件、通知身份；认领/关闭均 CAS。关闭不改原 failed/unknown、不自动重跑、不发送通知。
-- legacy-owned 只读投影复用原钉钉调度，n8n 继续原 owner；不登记、复制 cron、迁移历史或触发补跑。
-- `GET/POST /api/ai/pi/task-definitions`；`GET /{id}` 与 `/revisions`、`/runs`、`/incidents`；`POST /{id}/enable|disable`；`POST /api/ai/pi/task-incidents/{id}/claim|close`；只读 `/task-connectors`、`/legacy-tasks`。全部走原 AI writer、真实 principal 与服务端 admin gate。
-- enable 返回具体未就绪项；PostgreSQL guard 同时拒绝 enabled=true。资源库 guidance 与 Pi 容器 Skill 明确区分，未冒称已加载。
+- 管理API复用AI writer和真实管理员身份。owner/角色/范围由服务端确定；创建用owner+clientRequestId及稳定原始请求摘要防重，响应丢失后的重试在同事务鉴权后返回原草稿，不因现时资源库/Skill失效重新绑定。
+- 草稿冻结Skill精确版本/摘要、模型版本、单店、参数、触发窗口、依赖、漏跑策略和目标。追加revision不可修改；延迟复合FK禁止定义指向不存在的revision提交。保存始终停用；SQL及内部生产派发入口也关闭。
+- run冻结原revision、grant和triage规则版本；时点身份跨revision唯一，租约fencing单调，未来时点不能提前领取。Pi关联核专属会话、owner/角色/代际、范围、店铺、模型、Skill、完整指令和参数，不能认领同账号其他会话的请求。
+- 原Pi完成只表示报告ready；存在投递目标时保持delegated/pending，原投递回执到齐后才sent/succeeded，unknown/failed单独入账和分诊。观察不发消息、不重放模型。原deliveryId、targetDigest、receiptRef和已终结回执不可替换。
+- 首期明确只接受0或1投递目标，应用及数据库均拒绝多目标；多目标逐项协调属于后续扩展。SQL重算冻结目标规范摘要和deliveryId，严格校验回执对象/键集/状态/非空receiptRef，缺字段/null不能伪造成功。
+- Incident认领/关闭走CAS，仅拥有者认领、非空说明后关闭；终态与闭合证据不可改。关闭不恢复或重发原业务。详情有白名单证据引用及原Pi evidence读取地址。
+- 列表只返摘要，limit<=50及cursor；revision/run/incident均有分页和独立详情。原钉钉任务只读标为legacy-owned，不切owner或复制cron；n8n继续原执行/通知归属。
 
-隔离核验：原 `tools/ai-postgres-rehearsal.py --tests-only --preprovision-ai-runtime-roles --test-label ai_assistant.test_unified_tasks --test-verbosity 2`，独立端口 55443、独立临时集群，7 项通过；原日志 `.runtime/ai-pg-51552286de0e/tests.log`。`makemigrations --check --dry-run` 无模型漂移，`git diff --check` 通过。首轮 migration RunPython 放置错误在隔离迁移规划阶段被拒绝，已移至 operations；原失败日志保留 `.runtime/ai-pg-1cd2fea02596/failure.log`，最终通过不覆盖失败证据。
+接口与前端接线见 [API.md](API.md)。最小管理界面由主任务并线交付，本分支不启动浏览器预览。
 
-## 尚未完成或未获准的业务范围
+## 首场景隔离结果
 
-- 本分支提供可调用 API；最小管理前端由主任务并线交付，按 API.md 协议接线。
-- 未采用统一 Pi 自动执行 adapter、长期成本授权、可信消息/事件/条件生产者、精确数据依赖读取器、跨端 principal 与投递目标绑定；因此当前没有可启用的统一任务。
-- 未创建任何真实任务或授权，未做身份绑定、账号接入、历史任务登记/切 owner、补跑、真实模型调用、外部投递或生产数据写入。
-- 启用首个场景仍需明确：日报/库存/其他；精确店铺、Skill 和模型版本；时间/窗口/漏跑规则；执行账号与投递对象；长期授权有效期和成本边界。微信另需账号形态及 API 许可。
+用户已确定首场景为京东志高商用设备旗舰店经营日报。演练用独立PG、合成源/模型/投递边界，真实网络边界被拒绝。ERP销售固定本店，库存另列“全部计入库存的仓”，各自固定日期、字段和revision；缺ERP金额字段时等待且模型/投递均为0。补齐同日新版本后，真实Pi队列和绑定核验经过合成模型，再由实际observer记录报告ready→投递pending→原合成账本unknown；重复时点/观察不重新模型或投递。另有sent回执到齐才succeeded的案例。
 
-## 已实现的小项 2：有限 158→159 结构发布适配
+结果见 [daily-scenario-result.json](daily-scenario-result.json)。合成账本不是生产准入或真实投递证明；真实ERP/库存依赖读取适配、跨端principal/目标绑定、长期费用授权及生产执行器均未采用，缺口明确显示等待/未就绪。
 
-- `ai_unified_tasks_{addition,catalog,candidate}.py` 只接受精确 158 代前驱和新 `0090_unified_tasks`，保留祖代 active/baseline/历史 recipe。结构安装只增空表、约束和 guard；不创建任务/授权或回填业务数据。
-- PostgreSQL 17.11 独立集群验证：精确 158→159、五表为空、旧行/ACL 保留、writer 的 SELECT/INSERT/UPDATE（revision 仅 SELECT/INSERT）、reader 零授权、原生 FK trigger 禁用被拒绝、已提交159不重放。7 类检查通过，端口55522，集群已停、password/data 已清理。见 `structure-result.json`。结构结果记录运行当时的宽范围 codeSha，后续控制入口补齐不改已核 DDL/catalog，最终发布绑定以 mandatory checks/recipe 为准。
-- PS5、PS7 各33项原生参数/分支/拒绝与 AST 检查通过；移除新有限分支及四个 CopyApp 成员后，原控制器 token 与基线一致。未执行完整服务冷启动，未更改 stop/start 语义。
-- 发布器显式调用新代 AI ProvisionRoles，失败即停，不 finalize/启动/重放；不触发 Pi Runner 升级。Node 153 项定向检查通过，包含新代两项及所有直接受影响的原编排检查。
-- 原生 Django 源码资格只追加本次候选 SHA，不修改祖代资格、现役控制包或生产签名。固定发布入口、启动完成 gate、备份结构清单、CI recipe 和冻结 OWNER 检查已接线。
-- `tests/ai159-acl-catalog-boundary.py` 87 项静态契约检查、`check_catalog_baselines.py` 通过。最终 mandatory checks 在独立干净冻结树执行，recipe 绑定真实 gate.code_digest，不手填成功。
+## 验证与证据
 
-本包尚未合入 main、推送 main、准备生产制品、采用控制包、部署、迁移生产库或启用任务。后续应用组件范围为 Worker+Django及必要结构迁移。
+| 检查 | 结果 |
+| --- | --- |
+| 核心及首场景独立PG | 15项通过；`.runtime/ai-pg-0f36a32c4085/tests.log`，包括raw writer坏回执及单目标拒绝 |
+| 资源库失效后的创建重试 | 定向1项通过；`.runtime/ai-pg-a139ebae2e60/tests.log` |
+| 158→159结构/ACL | 7类通过，旧行/ACL保持、新表为空、原生FK禁用拒绝、已提交159不重放；[structure-result.json](structure-result.json) |
+| PS5/PS7有限控制器 | 各33项通过；[ps5-native.json](ps5-native.json)、[ps7-native.json](ps7-native.json)，未做完整服务冷启动 |
+| Node直接影响编排 | 153项通过；`node-targeted-final.log`；本代显式AI provision、不触发Pi镜像升级、失败不finalize或重放 |
+| 静态ACL/OWNER | 87项契约及冻结OWNER检查通过 |
+| 冻结源码必需检查 | Python90文件、Node5文件、PS5/PS7各11文件、迁移/模型闭包通过；[ai159-execution.json](ai159-execution.json) |
+| recipe真实算法绑定 | `gate.code_digest(root)` 111成员；[schema-bindings.json](schema-bindings.json)通过 |
+| 本次TS语法 | 16文件通过；[changed-typescript-syntax.json](changed-typescript-syntax.json) |
 
+全仓TypeScript有168条既有诊断，诊断文件均无P2差异；backend-boundary仅报既有天猫到吉客云预检引用，相关源文件均无P2差异。原日志与范围证明见 [existing-check-limitations.json](existing-check-limitations.json)，两项未冒称通过。首次隔离迁移RunPython放置错误及开发期Node未登记资格的失败日志保留，没有覆盖成成功。
 
-## Astra 小项1反审后的核心增量
+## 结构与采用边界
 
-创建以 owner+clientRequestId 唯一、请求摘要冲突拒绝；精确原任务关联同时核同一专属会话、scope/角色/代际、店铺、模型版本、Skill 版本/摘要、完整指令/参数和原 grant 身份。生产内部 accept/claim/handoff 另有显式关闭门禁，不能绕过 API 停用状态。
+五表definition/revision/grant/run/incident和一个guard函数由新0090创建，未改写历史migration、回填、登记旧任务或创建真实授权。有限addition/catalog/candidate、recipe、PrepareApp复制清单、原生入口/启动gate、备份结构清单、AI provision、CI recipe和候选控制器源码资格均已接线。Install只核owner-only，ProvisionRoles后writer受限授权、reader零授权；未知安装只协调原状态，不重放DDL。
 
-数据库封死 unknown/终态回退，终态证据不可修改；Incident 只允许 open→claimed→closed、拥有者认领和非空说明，闭合后不可改。definition 指向 revision 的复合外键可延迟到提交，兼容先写定义后写 revision，同时拒绝悬空提交。run 冻结原 grant 与 triage ruleVersion，incident 继承该版本。未来时点不允许领取，原执行账号每次派发前重新核验。
-
-列表只返摘要，limit<=50+cursor；历史修订、run、incident 全部可分页及按 ID 读取详情。run/incident 详情提供有界白名单证据引用和原 Pi evidence 读取路径，不返回原始外部正文。
-
-最终核心+首场景隔离 PostgreSQL 共13项通过，原日志 `.runtime/ai-pg-469268264020/tests.log`。场景为用户确认的京东志高商用设备旗舰店经营日报：ERP本店销售与全部计入库存仓分别绑定范围、日期、字段和revision；缺ERP金额字段时无模型/投递，补齐同日期新版本后用真实Pi队列和冻结绑定经过合成模型/合成投递边界。原投递unknown仅观察/分诊，重复tick不新增模型或投递。结果见 `daily-scenario-result.json`。
-
-该演练使用独立PG和合成源/模型/投递，不是生产dispatcher启用证明；生产任务仍停用，内部派发关闭。可复现命令：`python -B tools/ai-postgres-rehearsal.py --tests-only --preprovision-ai-runtime-roles --test-label ai_assistant.test_unified_tasks --test-label ai_assistant.test_unified_task_daily_scenario --test-verbosity 2`。
-
-
-## 报告与投递阶段增量
-
-Astra 指出“Pi成功不能代表任务投递成功”后，已在 run 增加 report_status、delivery_status 与每目标稳定 deliveryId/targetDigest/original receiptRef 的有界持久回执。实际 observer 先把 Pi succeeded 记为 report ready；若有目标，run 保持 delegated/delivery pending。只有原回执全部 sent 才 final succeeded；unknown/failed 分别入账和分诊，原 ID/目标和已终结回执不可替换。observer 本身只读原账本，不发消息，未采用的生产投递 adapter 留 pending。
-
-首场景已移除手工改 unknown 的路径，真实 observer 依次观察报告成功→投递pending→原合成账本unknown；重复观察不调用发送或改ID。另一个隔离案例验证 sent 回执到齐后才 succeeded。最新核心+场景14项通过，原日志 `.runtime/ai-pg-c1bc219f7693/tests.log`；SQL和catalog已重采。
-
-## 仓库既有检查限制
-
-全仓 TypeScript 检查有168条既有诊断，全部诊断文件相对 origin/main 无P2修改；本次没有改变公开TS类型接口。backend-boundary 只报既有 `tools/tmall-sycm-cookie-pipeline.ts -> lib/jackyun/n8n-preflight-evidence.ts`，相关三个检查/源文件均无P2差异。原日志及范围证明为 `typescript.log`、`backend-boundary.log`、`existing-check-limitations.json`。未据此扩入天猫或全仓类型修复，也不把这两项冒称通过。
-
-
-## 单目标首期与原生回执约束
-
-按首场景范围将投递收敛为0或1目标，应用和数据库都拒绝多个目标。多目标逐项协调为后续独立扩展，本包不接受多目标定义后提前冻结。PostgreSQL按冻结目标的规范JSON重新计算 targetDigest 和 deliveryId，校验原回执键集、四字段对象、非空有效 receiptRef 与真实字符串状态；缺 status/null/假目标/假ID不能借SQL NULL比较伪装成功。报告ready同时核原Pi操作确已成功且绑定本任务专属会话/店铺/模型。
-
-最终核心+场景15项隔离PG通过（原日志 `.runtime/ai-pg-0f36a32c4085/tests.log`），含7个raw writer坏回执反例、数据库多目标拒绝及合法sent正例。创建重试按原请求摘要返回原定义，不因当下Skill bundle变化重新绑定。冻结catalog已按此最终DDL重采。
+当前源码与计数见 [FINAL.json](FINAL.json)。本代结构控制包、应用制品及生产前驱绑定尚未准备/采用。合并其他任务若修改111成员或supplemental源文件，须在最终组合的干净冻结树重跑 `run-mandatory-checks.py`，只更新本代recipe/执行材料，不刷新祖代历史recipe。用户未授权本任务main合并或上线。

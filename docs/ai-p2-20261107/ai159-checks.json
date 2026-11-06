@@ -1,0 +1,33 @@
+{
+  "version": "ai-unified-tasks-mandatory-code-checks-v1",
+  "status": "code-checked",
+  "checkedAt": "2026-11-06T18:15:08.924577+00:00",
+  "productionTouched": false,
+  "functionalValidationPerformed": false,
+  "fullBackupOrRestorePerformed": false,
+  "generations": [
+    158,
+    159
+  ],
+  "parentVariants": [
+    [
+      158,
+      159
+    ]
+  ],
+  "steps": [
+    "ai_assistant.0090_unified_tasks"
+  ],
+  "codeSha256": "538ad54bf59e244eaa51d63e64e32ca50264ba299c277d53cc9c4fe46d2a7822",
+  "migrationSha256": "4fcc89b07c1e4b735d094c5e4efc27a291cfcc5a37a8b8beddfa03540ffd897c",
+  "checks": [
+    "migration-closure",
+    "node-syntax",
+    "powershell-syntax",
+    "python-syntax"
+  ],
+  "evidence": {
+    "path": "docs/ai-p2-20261107/ai159-execution.json",
+    "sha256": "4a4dd3cad15efd9fecec4c65f9883c8be5d678b6f4a6ed4d07166e15f11e8330"
+  }
+}

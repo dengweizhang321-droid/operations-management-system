@@ -1,0 +1,105 @@
+{
+  "status": "development_candidate_ready_for_parent_review",
+  "sourceCommit": "df414b09cd4eb459c2e419d04477524ce0b8b3fa",
+  "baseMain": "77382b5fc4ad958e1c22e7d9f8431bffdafdb204",
+  "branch": "codex/ai-p2-20261107",
+  "schema": {
+    "fromGeneration": 158,
+    "toGeneration": 159,
+    "steps": [
+      "ai_assistant.0090_unified_tasks"
+    ],
+    "tables": [
+      "ai_task_definitions",
+      "ai_task_grants",
+      "ai_task_incidents",
+      "ai_task_revisions",
+      "ai_task_runs"
+    ],
+    "functions": [
+      "public.ai_unified_task_guard()"
+    ]
+  },
+  "codeFileCount": 111,
+  "codeSha256": "538ad54bf59e244eaa51d63e64e32ca50264ba299c277d53cc9c4fe46d2a7822",
+  "recipeSha256": "b477520af71ccf9ccdc9d8a110a5bb454ab520941708cb0fb4769fde3d57959a",
+  "syntax": {
+    "python": {
+      "status": "passed",
+      "files": 90
+    },
+    "node": {
+      "status": "passed",
+      "files": 5
+    },
+    "powershell": {
+      "status": "passed",
+      "files": 11
+    }
+  },
+  "migrationClosure": {
+    "status": "passed",
+    "fromGeneration": 158,
+    "toGeneration": 159,
+    "baselineCommit": "77382b5fc4ad958e1c22e7d9f8431bffdafdb204",
+    "migrationSha256": "4fcc89b07c1e4b735d094c5e4efc27a291cfcc5a37a8b8beddfa03540ffd897c",
+    "stepFiles": {
+      "backend/ai_assistant/migrations/0090_unified_tasks.py": "f955d5ffbca0a3eea761597b79e7445e76e37ccf329e39aafa022f91d301e39a"
+    },
+    "added": [
+      "backend/ai_assistant/migrations/0090_unified_tasks.py"
+    ],
+    "graphMigrationNodes": 159,
+    "operations": {
+      "ai_assistant.0090_unified_tasks": [
+        "CreateModel",
+        "CreateModel",
+        "CreateModel",
+        "CreateModel",
+        "CreateModel",
+        "AddConstraint",
+        "AddConstraint",
+        "AddIndex",
+        "AddConstraint",
+        "AddConstraint",
+        "AddConstraint",
+        "AddConstraint",
+        "AddConstraint",
+        "AddConstraint",
+        "AddConstraint",
+        "AddConstraint",
+        "AddConstraint",
+        "AddConstraint",
+        "AddConstraint",
+        "RunPython"
+      ]
+    },
+    "modelsMatchMigrationState": true,
+    "databaseContacted": false,
+    "installedParentVerified": false
+  },
+  "isolatedCoreAndScenarioTests": 15,
+  "targetedRetryUnderMissingLibraryTest": 1,
+  "postgresStructureChecks": [
+    "exact158-parent",
+    "exact159-catalog",
+    "new-tables-empty",
+    "old-rows-and-ACL-preserved",
+    "restricted-writer-zero-reader-grants",
+    "disabled-native-FK-rejected-and-rolled-back",
+    "committed159-not-replayed"
+  ],
+  "nativeControllerCasesPerHost": 33,
+  "targetedNodeTests": 153,
+  "staticAclChecks": 87,
+  "changedTypeScriptSyntaxFiles": 16,
+  "fullTypeScriptPassed": false,
+  "backendBoundaryPassed": false,
+  "limitationsFile": "existing-check-limitations.json",
+  "astraFinalReview": "parent_pending",
+  "productionTouched": false,
+  "productionArtifactPrepared": false,
+  "controlPackageAdopted": false,
+  "productionTaskEnabled": false,
+  "realModelOrDeliveryCalled": false
+}
