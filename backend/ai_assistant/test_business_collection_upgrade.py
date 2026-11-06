@@ -15,10 +15,26 @@ def _isolated_sqlite_alias(base_connection):
     set). See docs/fix-shanghai-attr-20261106 review notes: the earlier
     backwards-migrate approach broke the first time an irreversible
     migration landed anywhere between 0014 and the current leaf, and
-    mis-attributed the break to whichever one happened to be hit first."""
-    base_cfg = base_connection.settings_dict
+    mis-attributed the break to whichever one happened to be hit first.
+
+    ENGINE is what keeps this alias off the real server: without it the dict
+    inherited django.db.backends.postgresql and asked the isolated rehearsal
+    cluster for a database named ":memory:" (FATAL: database ":memory:" does
+    not exist). Blanking USER/HOST/PORT would not have helped -- the rehearsal
+    exports PGHOST/PGPORT/PGUSER, and libpq reads those. The test passed on
+    sqlite only because the engine it never declared happened to be right
+    there. OPTIONS must be replaced rather than inherited: sqlite3's
+    get_connection_params splats them into sqlite3.connect(), where a psycopg
+    key such as sslmode is a TypeError. The deepcopy stays for AUTOCOMMIT,
+    which base.connect() reads unconditionally -- assigning into
+    connections.databases after ConnectionHandler is built skips
+    configure_settings, so a hand-written dict has to spell out every
+    scaffolding key and breaks on the next one Django adds."""
+    base_cfg = copy.deepcopy(base_connection.settings_dict)
+    base_cfg.update(ENGINE="django.db.backends.sqlite3", NAME=":memory:", OPTIONS={},
+        TIME_ZONE=None, TEST={"NAME": None, "MIRROR": None})
     alias = "collection_upgrade_" + uuid.uuid4().hex
-    connections.databases[alias] = {**copy.deepcopy(base_cfg), "NAME": ":memory:", "TEST": {"NAME": None}}
+    connections.databases[alias] = base_cfg
     return alias
 
 
