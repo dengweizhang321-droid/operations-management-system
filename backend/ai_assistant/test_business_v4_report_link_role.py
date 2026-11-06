@@ -18,20 +18,20 @@ from . import (business_v4_report_link_sql as link, business_reports,
     models as m)
 from .control_models import AiWriteAuthority
 from .policy import canonical, digest, mutation
-from .test_business_integrated_guard import BusinessIntegratedGuardTests as fixture
+from . import test_business_integrated_guard as fixture
 
 
 @override_settings(DJANGO_PROCESS_ROLE="development",
     DJANGO_ENVIRONMENT="test")
 class V4ReportLinkRoleTarget(TransactionTestCase):
-    user = fixture.user
-    call = fixture.call
-    bundle = fixture.bundle
-    input_for = fixture.input_for
-    insert = fixture.insert
-    seed = fixture.seed
-    collect_body = fixture.collect_body
-    setUp = fixture.setUp
+    user = fixture.BusinessIntegratedGuardTests.user
+    call = fixture.BusinessIntegratedGuardTests.call
+    bundle = fixture.BusinessIntegratedGuardTests.bundle
+    input_for = fixture.BusinessIntegratedGuardTests.input_for
+    insert = fixture.BusinessIntegratedGuardTests.insert
+    seed = fixture.BusinessIntegratedGuardTests.seed
+    collect_body = fixture.BusinessIntegratedGuardTests.collect_body
+    setUp = fixture.BusinessIntegratedGuardTests.setUp
 
     def database(self):
         item = connection.settings_dict

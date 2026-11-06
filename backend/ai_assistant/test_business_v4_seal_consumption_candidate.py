@@ -9,27 +9,27 @@ from business_analysis.contracts import canonical, digest
 from . import (business_v4_seal_hmac as seal_hmac,
     business_v4_seal_verify as verifier, models as m)
 from .policy import AiError
-from .test_business_v4_seal_ticket import BusinessV4SealTicketTests as fixture
-from .test_business_v4_seal_writer_gate import BusinessV4SealWriterGateTests as old_gate
+from . import test_business_v4_seal_ticket as fixture
+from . import test_business_v4_seal_writer_gate as old_gate
 
 
 class BusinessV4SealConsumptionCandidateTests(TransactionTestCase):
-    promotion_owner = fixture.promotion_owner
-    rebuild_plan = fixture.rebuild_plan
-    finance_owner = fixture.finance_owner
-    owner = fixture.owner
-    collect = fixture.collect
-    complete_mixed = fixture.complete_mixed
-    attempt = fixture.attempt
-    database = fixture.database
-    _identity = fixture._identity
-    _role_connection = fixture._role_connection
-    issue = fixture.issue
-    claim = fixture.claim
-    body = old_gate.body
-    call_as_sealer = old_gate.call_as_sealer
-    setUp = fixture.setUp
-    tearDown = fixture.tearDown
+    promotion_owner = fixture.BusinessV4SealTicketTests.promotion_owner
+    rebuild_plan = fixture.BusinessV4SealTicketTests.rebuild_plan
+    finance_owner = fixture.BusinessV4SealTicketTests.finance_owner
+    owner = fixture.BusinessV4SealTicketTests.owner
+    collect = fixture.BusinessV4SealTicketTests.collect
+    complete_mixed = fixture.BusinessV4SealTicketTests.complete_mixed
+    attempt = fixture.BusinessV4SealTicketTests.attempt
+    database = fixture.BusinessV4SealTicketTests.database
+    _identity = fixture.BusinessV4SealTicketTests._identity
+    _role_connection = fixture.BusinessV4SealTicketTests._role_connection
+    issue = fixture.BusinessV4SealTicketTests.issue
+    claim = fixture.BusinessV4SealTicketTests.claim
+    body = old_gate.BusinessV4SealWriterGateTests.body
+    call_as_sealer = old_gate.BusinessV4SealWriterGateTests.call_as_sealer
+    setUp = fixture.BusinessV4SealTicketTests.setUp
+    tearDown = fixture.BusinessV4SealTicketTests.tearDown
 
     def test_no_ticket_consume_result_and_direct_commit_remain_closed(self):
         attempt_id = self.attempt()

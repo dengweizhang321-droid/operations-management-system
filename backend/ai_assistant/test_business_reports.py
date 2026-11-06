@@ -3,20 +3,20 @@ from copy import deepcopy
 from unittest.mock import patch
 from django.test import TestCase, override_settings
 from . import business_reports as reports, business_evidence as evidence, business_diagnosis, workflows, models as m
-from .test_business_evidence import BusinessEvidenceTests
+from . import test_business_evidence
 from . import tests as fixtures
 from .policy import AiError, canonical
 
 
 @override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
 class BusinessReportTests(TestCase):
-    user = BusinessEvidenceTests.user
-    call = BusinessEvidenceTests.call
-    execute = BusinessEvidenceTests.execute
-    collect = BusinessEvidenceTests.collect
+    user = test_business_evidence.BusinessEvidenceTests.user
+    call = test_business_evidence.BusinessEvidenceTests.call
+    execute = test_business_evidence.BusinessEvidenceTests.execute
+    collect = test_business_evidence.BusinessEvidenceTests.collect
 
     def setUp(self):
-        BusinessEvidenceTests.setUp(self)
+        test_business_evidence.BusinessEvidenceTests.setUp(self)
         self.evidence_id = evidence.create(self.body, self.admin)["item"]["id"]
         self.collect(self.evidence_id, 1)
         self.collect(self.evidence_id, 2)

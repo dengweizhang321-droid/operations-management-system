@@ -18,8 +18,8 @@ from netshop.models import NetshopRow
 from . import (business_v4_finance_collection as finance_collector,
     business_v4_netshop_promotion as promotion_collector,
     business_v4_validation as validation, models as m, transport)
-from .test_business_v4_netshop_promotion import (BusinessV4NetshopPromotionTests,
-    tool as promotion_tool)
+from . import test_business_v4_netshop_promotion
+from .test_business_v4_netshop_promotion import tool as promotion_tool
 from .policy import AiError, canonical, digest, uid
 
 
@@ -30,10 +30,10 @@ def finance_tool():
 
 
 class BusinessV4ValidationTests(TestCase):
-    promotion_owner = BusinessV4NetshopPromotionTests.owner
+    promotion_owner = test_business_v4_netshop_promotion.BusinessV4NetshopPromotionTests.owner
 
     def setUp(self):
-        BusinessV4NetshopPromotionTests.setUp(self)
+        test_business_v4_netshop_promotion.BusinessV4NetshopPromotionTests.setUp(self)
         FinanceWriteAuthority.objects.filter(id=1).update(status="postgres")
         import_finance_payload(prepared_payload("2026-08"), self.principal.email)
         import_finance_payload(prepared_payload("2026-09"), self.principal.email)

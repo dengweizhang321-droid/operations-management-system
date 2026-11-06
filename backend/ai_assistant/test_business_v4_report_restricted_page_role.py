@@ -16,25 +16,25 @@ from access_control.models import AppUser
 from . import (business_v4_report_restricted_page_sql as page_sql,
     models as m)
 from .policy import canonical, digest
-from .test_business_v4_report_link_role import V4ReportLinkRoleTarget as prior
+from . import test_business_v4_report_link_role as prior
 
 
 @override_settings(DJANGO_PROCESS_ROLE="development",
     DJANGO_ENVIRONMENT="test")
 class V4ReportRestrictedPageRoleTarget(TransactionTestCase):
-    user = prior.user
-    call = prior.call
-    bundle = prior.bundle
-    input_for = prior.input_for
-    insert = prior.insert
-    seed = prior.seed
-    collect_body = prior.collect_body
-    database = prior.database
-    three_window_v2 = prior.three_window_v2
-    synthetic_v4_identity = prior.synthetic_v4_identity
-    workflow_for = prior.workflow_for
-    insert_with_intent = prior.insert_with_intent
-    setUp = prior.setUp
+    user = prior.V4ReportLinkRoleTarget.user
+    call = prior.V4ReportLinkRoleTarget.call
+    bundle = prior.V4ReportLinkRoleTarget.bundle
+    input_for = prior.V4ReportLinkRoleTarget.input_for
+    insert = prior.V4ReportLinkRoleTarget.insert
+    seed = prior.V4ReportLinkRoleTarget.seed
+    collect_body = prior.V4ReportLinkRoleTarget.collect_body
+    database = prior.V4ReportLinkRoleTarget.database
+    three_window_v2 = prior.V4ReportLinkRoleTarget.three_window_v2
+    synthetic_v4_identity = prior.V4ReportLinkRoleTarget.synthetic_v4_identity
+    workflow_for = prior.V4ReportLinkRoleTarget.workflow_for
+    insert_with_intent = prior.V4ReportLinkRoleTarget.insert_with_intent
+    setUp = prior.V4ReportLinkRoleTarget.setUp
 
     def _three_linked_pages(self):
         request = self.three_window_v2()

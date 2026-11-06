@@ -2,8 +2,9 @@ from copy import deepcopy
 from unittest.mock import patch, Mock
 from django.test import TestCase, override_settings
 from . import dingtalk, dingtalk_settings as service, models as m, datasets
-from .tests import AiDomainTests, ADMIN, CATALOG
-from .test_dingtalk import DingTalkTests
+from . import tests
+from .tests import ADMIN, CATALOG
+from . import test_dingtalk
 from .policy import AiError, revision
 from .control_models import AiMutationAudit
 from .transport import signed_headers
@@ -14,8 +15,8 @@ import os
 
 @override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
 class DingTalkSettingsTests(TestCase):
-    user = AiDomainTests.user
-    data = DingTalkTests.data
+    user = tests.AiDomainTests.user
+    data = test_dingtalk.DingTalkTests.data
 
     def call(self, path, payload=None, principal=None, method="POST", request_id=None):
         def headers(*args):
@@ -26,10 +27,10 @@ class DingTalkSettingsTests(TestCase):
                 result["X-Teruisi-Signature"] = "v1=" + hmac.new(os.environ["TERUISI_DJANGO_INTERNAL_SECRET"].encode(), message.encode(), hashlib.sha256).hexdigest()
             return result
         with patch("ai_assistant.tests.signed_headers", side_effect=headers):
-            return AiDomainTests.call(self, path, payload, principal, method, request_id)
+            return tests.AiDomainTests.call(self, path, payload, principal, method, request_id)
 
     def setUp(self):
-        AiDomainTests.setUp(self)
+        tests.AiDomainTests.setUp(self)
         self.base = {"version": 1, "enabled": True, "profile": "corp:operator", "corpId": "corp",
             "unifiedAppId": "app", "robotCode": "robot", "robotName": "志高助手",
             "groups": [{"id": "group", "name": "测试群聊"}],

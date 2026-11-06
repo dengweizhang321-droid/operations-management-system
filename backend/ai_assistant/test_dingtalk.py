@@ -5,7 +5,8 @@ from django.utils import timezone
 from access_control.models import AppUser
 from . import dingtalk as service, chat, models as m, provider
 from .policy import AiError
-from .tests import AiDomainTests, CATALOG
+from . import tests
+from .tests import CATALOG
 from .test_dataset_chat import wire
 
 
@@ -21,10 +22,10 @@ def catalog():
 
 @override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
 class DingTalkTests(TestCase):
-    user = AiDomainTests.user
+    user = tests.AiDomainTests.user
 
     def setUp(self):
-        AiDomainTests.setUp(self)
+        tests.AiDomainTests.setUp(self)
         self.config = {"version": 1, "enabled": True, "profile": "corp:operator", "corpId": "corp",
             "unifiedAppId": "app", "robotCode": "robot", "robotName": "志高助手",
             "groups": [{"id": "group", "name": "测试群聊"}],

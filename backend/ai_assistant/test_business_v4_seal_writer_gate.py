@@ -10,18 +10,18 @@ from . import (business_v4_seal_admission as admission,
     business_v4_validation as validation, models as m)
 from .control_models import AiDataRevision, AiWriteAuthority
 from .policy import canonical, digest
-from .test_business_v4_seal_admission import BusinessV4SealAdmissionTests as fixture
+from . import test_business_v4_seal_admission as fixture
 
 
 class BusinessV4SealWriterGateTests(TransactionTestCase):
-    promotion_owner = fixture.promotion_owner
-    rebuild_plan = fixture.rebuild_plan
-    finance_owner = fixture.finance_owner
-    owner = fixture.owner
-    collect = fixture.collect
-    complete_mixed = fixture.complete_mixed
-    attempt = fixture.attempt
-    tearDown = fixture.tearDown
+    promotion_owner = fixture.BusinessV4SealAdmissionTests.promotion_owner
+    rebuild_plan = fixture.BusinessV4SealAdmissionTests.rebuild_plan
+    finance_owner = fixture.BusinessV4SealAdmissionTests.finance_owner
+    owner = fixture.BusinessV4SealAdmissionTests.owner
+    collect = fixture.BusinessV4SealAdmissionTests.collect
+    complete_mixed = fixture.BusinessV4SealAdmissionTests.complete_mixed
+    attempt = fixture.BusinessV4SealAdmissionTests.attempt
+    tearDown = fixture.BusinessV4SealAdmissionTests.tearDown
 
     def setUp(self):
         with connection.cursor() as cursor:
@@ -29,7 +29,7 @@ class BusinessV4SealWriterGateTests(TransactionTestCase):
                 "text,text,text,bigint,bigint,text,text)')")
             if cursor.fetchone()[0] is not None:
                 self.skipTest("0038直达封存已由0041票据门禁关闭；历史行为由升级演练验收")
-        fixture.setUp(self)
+        fixture.BusinessV4SealAdmissionTests.setUp(self)
 
     def database(self):
         settings = connection.settings_dict

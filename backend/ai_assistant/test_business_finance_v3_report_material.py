@@ -16,7 +16,7 @@ from . import business_v3_seal as seal
 from . import business_v3_source_read as bridge
 from . import models as m, transport
 from .policy import AiError, digest
-from .test_business_v3_seal import BusinessV3SealTests as fixture
+from . import test_business_v3_seal as fixture
 
 
 class FinanceV3MonthlyComparisonTests(TestCase):
@@ -55,9 +55,9 @@ class FinanceV3MonthlyComparisonTests(TestCase):
 
 @override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
 class FinanceV3ReportMaterialTests(DjangoTestCase):
-    setUp = fixture.setUp
-    signed_page = fixture.signed_page
-    collect = fixture.collect
+    setUp = fixture.BusinessV3SealTests.setUp
+    signed_page = fixture.BusinessV3SealTests.signed_page
+    collect = fixture.BusinessV3SealTests.collect
 
     def report_intent(self):
         self.collect()

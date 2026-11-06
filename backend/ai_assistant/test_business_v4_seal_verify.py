@@ -17,21 +17,21 @@ from . import (business_v4_seal_hmac as seal_hmac,
     business_v4_seal_verify as verifier,
     business_v4_validation as validation, models as m)
 from .policy import AiError
-from .test_business_v4_seal_writer_gate import BusinessV4SealWriterGateTests as gate
+from . import test_business_v4_seal_writer_gate as gate
 
 
 class BusinessV4SealVerifyTests(TransactionTestCase):
-    promotion_owner = gate.promotion_owner
-    rebuild_plan = gate.rebuild_plan
-    finance_owner = gate.finance_owner
-    owner = gate.owner
-    collect = gate.collect
-    complete_mixed = gate.complete_mixed
-    attempt = gate.attempt
-    database = gate.database
-    body = gate.body
-    call_as_sealer = gate.call_as_sealer
-    tearDown = gate.tearDown
+    promotion_owner = gate.BusinessV4SealWriterGateTests.promotion_owner
+    rebuild_plan = gate.BusinessV4SealWriterGateTests.rebuild_plan
+    finance_owner = gate.BusinessV4SealWriterGateTests.finance_owner
+    owner = gate.BusinessV4SealWriterGateTests.owner
+    collect = gate.BusinessV4SealWriterGateTests.collect
+    complete_mixed = gate.BusinessV4SealWriterGateTests.complete_mixed
+    attempt = gate.BusinessV4SealWriterGateTests.attempt
+    database = gate.BusinessV4SealWriterGateTests.database
+    body = gate.BusinessV4SealWriterGateTests.body
+    call_as_sealer = gate.BusinessV4SealWriterGateTests.call_as_sealer
+    tearDown = gate.BusinessV4SealWriterGateTests.tearDown
 
     def setUp(self):
         with connection.cursor() as cursor:
@@ -39,7 +39,7 @@ class BusinessV4SealVerifyTests(TransactionTestCase):
                 "text,text,text,bigint,bigint,text,text)')")
             if cursor.fetchone()[0] is not None:
                 self.skipTest("0038直达封存验签夹具已由0041票据门禁关闭")
-        gate.setUp(self)
+        gate.BusinessV4SealWriterGateTests.setUp(self)
 
     def sealed(self, *, authentic=True):
         attempt_id = self.attempt()

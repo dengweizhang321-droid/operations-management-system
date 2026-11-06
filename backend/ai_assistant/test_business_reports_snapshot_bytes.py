@@ -26,7 +26,8 @@ from urllib.parse import urlencode
 from netshop.models import NetshopRow
 from netshop.analysis import read_page, validate_request
 from . import business_evidence as evidence, business_reports as reports, models as m
-from .test_business_evidence import BusinessEvidenceTests, versioned_netshop_facts
+from . import test_business_evidence
+from .test_business_evidence import versioned_netshop_facts
 from . import tests as fixtures
 from .policy import AiError, canonical
 
@@ -53,11 +54,11 @@ class BusinessReportSnapshotByteTests(TestCase):
     """Builds real sealed v1 netshop-promotion evidence with many sku rows so
     business_budget.resolve() runs the actual Reader/stream_table path, not a
     mock -- the same path reports.create() uses in production."""
-    user = BusinessEvidenceTests.user
-    call = BusinessEvidenceTests.call
+    user = test_business_evidence.BusinessEvidenceTests.user
+    call = test_business_evidence.BusinessEvidenceTests.call
 
     def setUp(self):
-        BusinessEvidenceTests.setUp(self)
+        test_business_evidence.BusinessEvidenceTests.setUp(self)
         self.tools = [fixtures.CATALOG[0], *[{**fixtures.CATALOG[0], "name": name} for name in sorted(reports.TOOLS | {reports.BUDGET_TOOL})]]
 
     def seal_evidence(self, n):

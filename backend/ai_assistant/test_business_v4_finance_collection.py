@@ -11,7 +11,7 @@ from business_analysis import evidence_v4, finance_collection_state_v4 as verifi
 from finance import business_evidence_page as owning
 from finance.errors import FinanceApiError
 from finance.models import FinanceDataRevision, FinanceLine, FinanceMonth
-from finance.tests.test_business_evidence_page import FinanceEvidencePageTests
+from finance.tests import test_business_evidence_page
 from sales.auth import Principal
 
 from . import (business_v4_finance_collection as collector,
@@ -26,10 +26,10 @@ def tool():
 
 
 class BusinessV4FinanceCollectionTests(TestCase):
-    extend_rows = FinanceEvidencePageTests.extend_rows
+    extend_rows = test_business_evidence_page.FinanceEvidencePageTests.extend_rows
 
     def setUp(self):
-        FinanceEvidencePageTests.setUp(self)
+        test_business_evidence_page.FinanceEvidencePageTests.setUp(self)
         self.plan()
 
     def plan(self):

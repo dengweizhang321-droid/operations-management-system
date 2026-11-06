@@ -8,24 +8,24 @@ from django.test import TransactionTestCase
 from access_control.models import AppUser
 
 from . import models as m
-from .test_business_v4_seal_ticket import BusinessV4SealTicketTests as fixture
+from . import test_business_v4_seal_ticket as fixture
 
 
 class BusinessV4ClaimedReadTests(TransactionTestCase):
-    promotion_owner = fixture.promotion_owner
-    rebuild_plan = fixture.rebuild_plan
-    finance_owner = fixture.finance_owner
-    owner = fixture.owner
-    collect = fixture.collect
-    complete_mixed = fixture.complete_mixed
-    attempt = fixture.attempt
-    database = fixture.database
-    _identity = fixture._identity
-    _role_connection = fixture._role_connection
-    issue = fixture.issue
-    claim = fixture.claim
-    setUp = fixture.setUp
-    tearDown = fixture.tearDown
+    promotion_owner = fixture.BusinessV4SealTicketTests.promotion_owner
+    rebuild_plan = fixture.BusinessV4SealTicketTests.rebuild_plan
+    finance_owner = fixture.BusinessV4SealTicketTests.finance_owner
+    owner = fixture.BusinessV4SealTicketTests.owner
+    collect = fixture.BusinessV4SealTicketTests.collect
+    complete_mixed = fixture.BusinessV4SealTicketTests.complete_mixed
+    attempt = fixture.BusinessV4SealTicketTests.attempt
+    database = fixture.BusinessV4SealTicketTests.database
+    _identity = fixture.BusinessV4SealTicketTests._identity
+    _role_connection = fixture.BusinessV4SealTicketTests._role_connection
+    issue = fixture.BusinessV4SealTicketTests.issue
+    claim = fixture.BusinessV4SealTicketTests.claim
+    setUp = fixture.BusinessV4SealTicketTests.setUp
+    tearDown = fixture.BusinessV4SealTicketTests.tearDown
 
     def _read(self, db, kind, attempt_id, nonce, token, *, run_id=None,
               actor=None, version=None, source_id=None, number=1):

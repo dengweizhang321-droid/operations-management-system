@@ -14,18 +14,19 @@ from business_analysis.test_budget import fixture
 from business_analysis.test_report_files import ReportData
 from business_analysis.report_files import NS, column_name
 from . import business_budget, business_evidence as evidence, business_reports as reports, business_export, models as m, workflows
-from .test_business_evidence import BusinessEvidenceTests, versioned_netshop_facts
+from . import test_business_evidence
+from .test_business_evidence import versioned_netshop_facts
 from . import tests as fixtures
 from .policy import AiError, canonical
 
 
 @override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
 class BusinessBudgetTests(TestCase):
-    user = BusinessEvidenceTests.user
-    call = BusinessEvidenceTests.call
+    user = test_business_evidence.BusinessEvidenceTests.user
+    call = test_business_evidence.BusinessEvidenceTests.call
 
     def setUp(self):
-        BusinessEvidenceTests.setUp(self)
+        test_business_evidence.BusinessEvidenceTests.setUp(self)
         with versioned_netshop_facts():
             for i in range(2):
                 NetshopRow.objects.create(source_row_key=f"budget-{i}", source_row_hash=f"{i+1:064x}", first_import_batch_id="fixture", last_import_batch_id="fixture", source_row_number=i+1,
