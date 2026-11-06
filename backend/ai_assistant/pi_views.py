@@ -79,6 +79,18 @@ def dispatch(request, path, principal):
             # body, so resubmitting an older body cannot retire a different one.
             if request.method == "POST" and len(parts) == 6 and parts[5] == "withdraw":
                 return response(task_feedback.withdraw(parts[2], parts[4], payload, principal))
+        # The read half of distillation: what the caller must send, and the
+        # evidence it may cite. Served before any paid model call so the user
+        # can be shown which run is about to be distilled -- without it a
+        # caller cannot assemble the schemaRef/schemaDigest pair that POST
+        # below requires. Ownership of parts[2] is enforced inside
+        # request_schema() (via pi_sources.evidence -> _owned), the same way
+        # the evidence branch above relies on it, so there is no second
+        # lookup here to fall out of step with it.
+        if name == "skill-candidates" and request.method == "GET" and len(parts) == 4:
+            from . import skill_candidates
+            fields(params, set())
+            return response(skill_candidates.request_schema(parts[2], principal))
         if name == "skill-candidates" and request.method == "POST" and len(parts) == 4:
             from . import pi_gateway, skill_candidates
             from .pi_models import PiOperation
