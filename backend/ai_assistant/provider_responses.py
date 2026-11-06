@@ -29,7 +29,13 @@ def _replay(item):
         if not isinstance(item["id"], str) or not item["id"]:
             raise _invalid("responses_item_id")
         identity["id"] = item["id"]
+    if isinstance(item, dict) and "status" in item:
+        if item["status"] not in ("completed", "in_progress", "incomplete"):
+            raise _invalid("responses_item_status")
+        identity["status"] = item["status"]
     if kind == "reasoning":
+        if "id" not in identity:
+            raise _invalid("responses_reasoning_id")
         encrypted = item.get("encrypted_content")
         if not isinstance(encrypted, str) or not encrypted:
             raise _invalid("responses_reasoning_encrypted_content")
@@ -56,7 +62,13 @@ def _replay(item):
             key = "text" if p["type"] == "output_text" else "refusal"
             if not isinstance(p.get(key), str):
                 raise _invalid("responses_content")
-            parts.append({"type": p["type"], key: p[key], **({"annotations": []} if key == "text" else {})})
+            part = {"type": p["type"], key: p[key]}
+            if key == "text":
+                annotations = p.get("annotations", [])
+                if not isinstance(annotations, list) or any(not isinstance(a, dict) for a in annotations):
+                    raise _invalid("responses_output_annotations")
+                part["annotations"] = annotations
+            parts.append(part)
         phase = item.get("phase")
         if phase is not None and phase not in {"commentary", "final_answer"}:
             raise _invalid("responses_message_phase")

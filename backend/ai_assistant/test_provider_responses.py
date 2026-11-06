@@ -56,9 +56,10 @@ class ResponsesTests(TestCase):
         self.assertEqual(body["input"][-1]["type"], "function_call_output")
 
     def test_intermediate_message_keeps_phase_when_replayed(self):
-        frame, _ = self.turn(reply([{**message("checking"), "phase": "commentary"}]), [], retain_reasoning=True)
+        frame, _ = self.turn(reply([{**message("checking"), "id": "msg_local", "status": "completed", "phase": "commentary"}]), [], retain_reasoning=True)
         _, body = self.turn(reply([message("done")]), [frame["frame"]])
-        self.assertEqual(body["input"][0]["phase"], "commentary")
+        item = body["input"][0]
+        self.assertEqual((item["id"], item["status"], item["phase"]), ("msg_local", "completed", "commentary"))
 
     def test_schema_and_visual_input(self):
         frames = [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/png;base64,AA=="}}]}]
