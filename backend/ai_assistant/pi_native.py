@@ -9,6 +9,9 @@ import os
 from datetime import timedelta
 
 from django.utils import timezone
+from django.db.models import JSONField, OuterRef, Q, Subquery
+from django.db.models.fields.json import KeyTextTransform
+from django.db.models.functions import Cast
 from sales.auth import Principal
 from . import pi_service as service
 from .pi_models import (PiNativeState, PiAgent, PiPlanRevision, PiAgentMessage,
@@ -261,6 +264,10 @@ def message_session_binding(session, agent=None):
 
 def visible_messages(session, state, root):
     """No historical message text without exact creation-time participant proof."""
+    return _bound_message_rows(session, state, root)
+
+
+def _bound_message_rows(session, state, root, *, target_id=None, kinds=None, after_seq=0, after_created=None, ascending=False, limit=101):
     members = {member.session_id: member for member in _members(state)}
     allowed = {}
     for member_id, member in members.items():
@@ -274,22 +281,32 @@ def visible_messages(session, state, root):
         allowed[member_id] = target
     root_binding = message_session_binding(root, members.get(root.id))
     bindings = {key: message_session_binding(value, members[key]) for key, value in allowed.items()}
-    evidence = {}
     # New messages carry a root/endpoint proof in the existing immutable event.
-    # Old rows without that proof stay in audit storage and are not fabricated.
-    for event in PiEvent.objects.filter(event_type="agent_message", session_id__in=allowed,
-            data_json__contains='"rootSessionId":"'+root.id+'"').order_by("-created_at", "-id")[:101]:
+    # Filter that proof BEFORE the bounded row window: an unproved old prefix
+    # must neither become new prompt text nor starve later valid follow-ups.
+    events = PiEvent.objects.filter(event_type="agent_message", session_id__in=allowed).annotate(
+        _payload=Cast("data_json", JSONField()), _message_id=KeyTextTransform("messageId", Cast("data_json", JSONField())))
+    events = events.filter(_payload__binding__root__sessionId=root.id,
+        _payload__binding__root__epoch=root.epoch, _payload__binding__root__generation=root.generation)
+    candidates = PiAgentMessage.objects.filter(root_session=root, from_session_id__in=allowed, to_session_id__in=allowed,
+        seq__gt=after_seq, id__in=Subquery(events.values("_message_id")))
+    if session.id != root.id:
+        candidates = candidates.filter(Q(from_session=session) | Q(to_session=session))
+    if target_id is not None: candidates = candidates.filter(to_session_id=target_id)
+    if kinds is not None: candidates = candidates.filter(kind__in=kinds)
+    if after_created is not None: candidates = candidates.filter(created_at__gt=after_created)
+    candidates = list(candidates.annotate(_proof_event_id=Subquery(events.filter(_message_id=OuterRef("id")).values("id")[:1]))
+        .order_by("seq" if ascending else "-seq")[:limit])
+    proofs = {event.id:event for event in PiEvent.objects.filter(id__in=[row._proof_event_id for row in candidates])}
+    result = []
+    for row in candidates:
+        event = proofs[row._proof_event_id]
         data = json.loads(event.data_json); proof = data.get("binding")
         if not isinstance(proof, dict) or proof.get("root") != root_binding: continue
         source_id = proof.get("source", {}).get("sessionId"); target_id = proof.get("target", {}).get("sessionId")
         if (source_id not in bindings or target_id not in bindings or proof.get("source") != bindings[source_id]
                 or proof.get("target") != bindings[target_id] or event.session_id != target_id
                 or event.generation != allowed[target_id].generation): continue
-        if session.id != root.id and session.id not in {source_id, target_id}: continue
-        evidence[data.get("messageId")] = data
-    result = []
-    for row in PiAgentMessage.objects.filter(root_session=root, id__in=evidence).order_by("-seq")[:101]:
-        data = evidence[row.id]; proof = data["binding"]
         if (row.from_session_id == proof["source"]["sessionId"] and row.to_session_id == proof["target"]["sessionId"]
                 and row.seq == data.get("seq") and row.kind == data.get("kind")
                 and hashlib.sha256(row.message.encode()).hexdigest() == data.get("messageSha256")):
@@ -297,7 +314,7 @@ def visible_messages(session, state, root):
     return result
 
 
-def _new_run(target, message, *, parent=None):
+def _new_run(target, message, *, parent=None, message_cursor=None):
     from . import configuration
     settings = json.loads(target.settings_json)
     previous = PiOperation.objects.filter(session_id=target.session_id).order_by("-seq").first()
@@ -321,7 +338,7 @@ def _new_run(target, message, *, parent=None):
         generation=session.generation, seq=session.operation_seq, actor_role=session.actor_role,
         scope_json=session.scope_json, model_id=model.id, model_version=model.version,
         skills_json=canonical(settings.get("skills", [])), payload_json=canonical({"message": message,
-            "messageCursor": state_for(session).message_seq,
+            "messageCursor": state_for(session).message_seq if message_cursor is None else message_cursor,
             "skillIds": [s["id"] for s in settings.get("skills", [])], "fileIds": [],
             "handoffIds": list(PiFileHandoff.objects.filter(target_session=session, target_generation=session.generation).values_list("id", flat=True)),
             "thinkingLevel": level, "shopSelection": json.loads(session.selection_json)}))
@@ -781,16 +798,27 @@ def scheduler_tick():
             reconcile_mode(state)
             if state.transition_status != "stable":
                 continue
+            root = PiSession.objects.get(pk=state.root_session_id)
+            if root.status == "frozen": continue
+            try:
+                current_principal(Principal(root.owner_email,root.owner_email,root.actor_role,json.loads(root.scope_json)),write=True,background=True)
+            except AiError:
+                continue
             for target in _members(state).filter(lifecycle="open"):
                 if target.session.active_operation_id:
                     continue
-                latest = PiOperation.objects.filter(session=target.session).order_by("-seq").first()
-                after = latest.created_at if latest else target.created_at
-                cleared = PiAgentMessage.objects.filter(to_session=target.session, kind="queue_cleared").order_by("-seq").first()
-                pending = list(PiAgentMessage.objects.filter(to_session=target.session, kind="follow_up", created_at__gt=after,
-                    seq__gt=cleared.seq if cleared else 0).order_by("seq")[:100])
+                settings = json.loads(target.settings_json)
+                if target.session_id != root.id and (settings.get("rootEpoch") != root.epoch or settings.get("rootGeneration") != root.generation): continue
+                latest = PiOperation.objects.filter(session=target.session,generation=target.session.generation).order_by("-seq").first()
+                cursor = json.loads(latest.payload_json).get("messageCursor") if latest else None
+                has_cursor = type(cursor) is int and cursor >= 0
+                after = None if has_cursor else latest.created_at if latest else target.created_at
+                cleared = _bound_message_rows(target.session,state,root,target_id=target.session_id,kinds=["queue_cleared"],limit=1)
+                cursor = max(cursor if has_cursor else 0,cleared[0].seq if cleared else 0)
+                pending = _bound_message_rows(target.session,state,root,target_id=target.session_id,kinds=["follow_up"],
+                    after_seq=cursor,after_created=after,ascending=True,limit=100)
                 if pending:
-                    _new_run(target, "\n\n".join(m.message for m in pending))
+                    _new_run(target, "\n\n".join(m.message for m in pending),message_cursor=pending[-1].seq)
     # Signed environment propagation is separate from the root transaction.
     # Each immutable dispatch is sent at most once; an unknown keeps switching.
     for state in PiNativeState.objects.filter(transition_status="switching")[:100]:

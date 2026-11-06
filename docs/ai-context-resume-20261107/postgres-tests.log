@@ -1,12 +1,12 @@
 Creating test database for alias 'default'...
-..........2026-11-07 02:48:44,156 level=WARNING logger=django.request message=Conflict: /api/ai/pi/sessions/pi-session-c555b3c1-c35e-488f-96aa-2755c1166418/workspace
-2026-11-07 02:48:44,306 level=WARNING logger=django.request message=Forbidden: /api/ai/pi/sessions/pi-session-208b90a5-b0d7-41c1-97fe-fcc24e039ba4/workspace
-2026-11-07 02:48:44,457 level=WARNING logger=django.request message=Conflict: /api/ai/pi/sessions/pi-session-555e1f0e-2166-45ce-8fc2-aaa11567563c/workspace
-..............
+..........2026-11-07 03:00:01,679 level=WARNING logger=django.request message=Conflict: /api/ai/pi/sessions/pi-session-79079e37-0aeb-4693-8fe9-79335e036162/workspace
+2026-11-07 03:00:01,834 level=WARNING logger=django.request message=Forbidden: /api/ai/pi/sessions/pi-session-fe9bdd74-df4f-43d4-8fad-29d9a9425615/workspace
+2026-11-07 03:00:01,980 level=WARNING logger=django.request message=Conflict: /api/ai/pi/sessions/pi-session-b50a6fa6-09d8-4945-8196-4b8bc5c8e277/workspace
+..................
 ----------------------------------------------------------------------
-Ran 24 tests in 6.983s
+Ran 28 tests in 9.928s
 
 OK
 Destroying test database for alias 'default'...
-Found 24 test(s).
+Found 28 test(s).
 System check identified no issues (0 silenced).

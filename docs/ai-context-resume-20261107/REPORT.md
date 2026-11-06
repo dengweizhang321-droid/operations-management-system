@@ -60,4 +60,12 @@ Worker 前端、Django 和独立 Runner broker 源码均有变化，无 migratio
 - compact operation继承原 Skills 快照，真实 worker经过真实 `Broker.create/update_skills`，验证 excel-report 环境存在后台进程时不会先清空 Skills 导致隐式升级。只对当前 compact create 的确切签名 `skill_update_while_busy` 拒绝分类为未开始，结束原 queued control和 operation；无签名/错误签名、普通 create错误或真正传输未知仍保持 unknown。异常路径所需的 mutation/canonical/PiDispatch 均在 try前绑定，不再因局部 import 迟到触发 UnboundLocalError。
 - 已将新增夹具改为真实控制创建路径、64位摘要和正常 spawn建立旧 child，停止更新不可变 PiAgent 身份。隔离 PG 入口为 `py -3.12 tools/ai-postgres-rehearsal.py --tests-only --preprovision-ai-runtime-roles --test-label ai_assistant.test_pi_context --test-label pi_runner.test_compact_safe_point --port 55876`。独立端口、随机凭据及数据目录由既有脚本创建/清理，无生产写入；最终结果与证据入口见 validation.json。
 
-最终隔离 PostgreSQL 结果：24 项通过，6.983 秒；证据 [postgres-tests.log](postgres-tests.log)。定向严格 TypeScript 与 git diff --check 同样通过。
+最终隔离 PostgreSQL 结果：28 项通过，9.928 秒；证据 [postgres-tests.log](postgres-tests.log)。定向严格 TypeScript 的有效结果复用，新增后端差异的 git diff --check 通过。
+
+## 调度领取的最后一个正文入口
+
+`scheduler_tick` 不再直接将原始 follow_up 表行拼成新 prompt。快照、Gateway 所用的三参 `visible_messages(session,state,root)` 接口保持不变；内部共用证明选择器，先以根代际证明、目标、消息类型和原 cursor过滤，再取得有界消息，并复核确切收发双方/parent/授权和正文摘要。没有证明的旧前缀不占前 100 条，也不会把旧正文转写成新 operation/user_message。
+
+调度只承认同一证明下的 queue_cleared，并校验当前根授权和 child root epoch。新派生 run 的 messageCursor 绑定本批实际领取的最后一条 seq；有持久游标时按原 seq 续领，缺少游标的原操作仍使用其原创建时间边界。每批最多 100 条，有效消息按 seq 排序；剩余合法批次不会因为新 run 的创建时间而丢失，已消费条目不重放。
+
+新增真实 tick及后续 GET 反例覆盖：无证明旧 follow_up不生成新操作/用户事件；105 条无证明旧前缀及无证明 clear不能阻塞后续两条合法消息；有证明清队列生效；102 条合法消息分为 100/2 按序续领且重复 tick不重放。所有检查均在私有 PostgreSQL 55876中执行，不运行模型或发送外部消息。

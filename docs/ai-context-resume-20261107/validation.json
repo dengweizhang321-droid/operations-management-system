@@ -28,7 +28,7 @@
     },
     {
       "path": "backend/ai_assistant/pi_native.py",
-      "sha256": "d9d0e55679e0023b42cdff3446de69f7ca8e381234267b2f2985561cbfa4fe25"
+      "sha256": "d0565e7abbddf1942b6c716febdae6f3a9dd253d82861ea4efa36f2234e00039"
     },
     {
       "path": "backend/ai_assistant/pi_service.py",
@@ -48,7 +48,7 @@
     },
     {
       "path": "backend/ai_assistant/test_pi_context.py",
-      "sha256": "796c3f7aab6c4c1bb00a250b1414fd20791170e9bcba78e50a4bf40d3243e148"
+      "sha256": "eceeb5db02b9b824f2fa3497e99476d487ebc3d4502716799e51872fa558a03e"
     },
     {
       "path": "backend/pi_runner/test_compact_safe_point.py",
@@ -60,7 +60,7 @@
     "typescriptFull": "failed in unrelated unchanged paths; not reported as passed",
     "diffCheck": "passed",
     "fileHtml": "passed file protocol, details toggle, unknown-branch/history labels, synthetic read action, zero external requests",
-    "djangoTargeted": "passed: 24 tests, 6.983s, isolated PostgreSQL, system check no issues"
+    "djangoTargeted": "passed: 28 tests, 9.928s, isolated PostgreSQL, system check no issues"
   },
   "sourceHashBinding": "SHA256 raw worktree file bytes, before Git normalization; not a production/prepared binding",
   "commands": [
@@ -69,7 +69,7 @@
     "git diff --check",
     "py -3.12 tools/ai-postgres-rehearsal.py --tests-only --preprovision-ai-runtime-roles --test-label ai_assistant.test_pi_context --test-label pi_runner.test_compact_safe_point --port 55876"
   ],
-  "reviewDelta": "exact root/endpoint message event evidence; final HTTP authorization/generation recheck; compact skill snapshot reuse through real Broker.create; signed create non-start vs unknown; PostgreSQL-compliant fixtures",
-  "postgresEvidence": "docs/ai-context-resume-20261107/postgres-tests.log (newline-normalized; raw source .runtime/ai-pg-9efeb50bbb7d/tests.log)",
-  "postgresRawSha256": "b2c6c3aa9ca8a3800b4177a831f7cda0fadb6064b681e156d6f02cc4ce5131ef"
+  "reviewDelta": "shared exact message proof for scheduler ingestion; proof-before-window selection; original queue clear/cursor; no legacy followup to prompt; ordered remaining batches without replay",
+  "postgresEvidence": "docs/ai-context-resume-20261107/postgres-tests.log (newline-normalized; raw source .runtime/ai-pg-c9414a9f7ac4/tests.log)",
+  "postgresRawSha256": "357f5a17a55fdeaba2a3dc1ac9923528bd73c94d0612f3f2d85ad5f05922f752"
 }
