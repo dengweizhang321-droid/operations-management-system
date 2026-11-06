@@ -81,7 +81,7 @@ class ProviderStream:
             result = event.get("response")
             if not isinstance(result, dict) or kind != "response." + str(result.get("status")):
                 raise invalid("responses_terminal_shape")
-            final = normalize(result)["choices"][0]["message"]["content"]
+            final = normalize(result)["publicText"]
             if self.text_count and self.message["content"] != final:
                 raise invalid("responses_stream_text_mismatch")
             if not self.text_count:

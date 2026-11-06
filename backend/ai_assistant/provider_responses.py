@@ -120,15 +120,23 @@ def normalize(response):
     if not isinstance(response.get("output"), list):
         raise _invalid("responses_output")
     items = [_replay(item) for item in response["output"]]
-    calls, texts = [], []
+    calls, texts, final_texts, unphased = [], [], [], []
     for item in items:
         if item["type"] == "function_call":
             calls.append({"type": "function", "id": item["call_id"],
                           "function": {"name": item["name"], "arguments": item["arguments"]}})
         elif item["type"] == "message":
-            texts.extend(p.get("text", p.get("refusal", "")) for p in item["content"])
+            text = "".join(p.get("text", p.get("refusal", "")) for p in item["content"])
+            texts.append(text)
+            if item.get("phase") == "final_answer":
+                final_texts.append(text)
+            elif item.get("phase") is None:
+                unphased.append(text)
     if calls and finish == "length":
         raise _invalid("responses_incomplete_tool_call")
-    message = {"role": "assistant", "content": "".join(texts), "tool_calls": calls}
-    return {"id": response.get("id", ""), "usage": response.get("usage") or {}, "responses_items": items,
+    if not calls and status == "completed" and texts and not final_texts and not unphased:
+        raise _invalid("responses_missing_final_answer")
+    answer = "".join(final_texts or unphased or (texts if calls else []))
+    message = {"role": "assistant", "content": answer, "tool_calls": calls}
+    return {"id": response.get("id", ""), "usage": response.get("usage") or {}, "responses_items": items, "publicText": "".join(texts),
             "choices": [{"index": 0, "finish_reason": "tool_calls" if calls else finish, "message": message}]}

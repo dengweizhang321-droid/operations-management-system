@@ -56,10 +56,29 @@ class ResponsesTests(TestCase):
         self.assertEqual(body["input"][-1]["type"], "function_call_output")
 
     def test_intermediate_message_keeps_phase_when_replayed(self):
-        frame, _ = self.turn(reply([{**message("checking"), "id": "msg_local", "status": "completed", "phase": "commentary"}]), [], retain_reasoning=True)
+        frame, _ = self.turn(reply([{**message("checking"), "id": "msg_local", "status": "completed", "phase": "commentary"},
+                                    {**message("answer"), "phase": "final_answer"}]), [], retain_reasoning=True)
+        self.assertEqual(frame["text"], "answer")
         _, body = self.turn(reply([message("done")]), [frame["frame"]])
         item = body["input"][0]
         self.assertEqual((item["id"], item["status"], item["phase"]), ("msg_local", "completed", "commentary"))
+
+    def test_commentary_does_not_corrupt_a_final_structured_answer(self):
+        commentary = {**message("checking"), "phase": "commentary"}
+        final = {**message('{"answer":42}'), "phase": "final_answer"}
+        answer = reply([commentary, final])
+        value, _ = self.turn(answer, [{"role": "user", "content": "result"}])
+        self.assertEqual(json.loads(value["text"]), {"answer": 42})
+        with self.assertRaises(InvalidProviderResponse):
+            self.turn(reply([commentary]), [])
+        texts = []
+        stream = ProviderStream("openai_responses", texts.append)
+        for event in ({"type": "response.output_text.delta", "delta": "checking"},
+                      {"type": "response.output_text.delta", "delta": '{"answer":42}'},
+                      {"type": "response.completed", "response": answer}):
+            stream.feed(("data: " + json.dumps(event) + "\n\n").encode())
+        self.assertEqual(stream.finish(), answer)
+        self.assertEqual(texts, ["checking", '{"answer":42}'])
 
     def test_schema_and_visual_input(self):
         frames = [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/png;base64,AA=="}}]}]
