@@ -5,9 +5,15 @@ const errors: Record<string, string> = {
   provider_timeout: "模型响应超时。",
   provider_dns_timeout: "模型地址解析超时，尚未发起模型请求。",
   provider_dns_unavailable: "模型地址解析失败，尚未发起模型请求。",
+  ai_chat_quota_exceeded: "本系统当日 AI 派发或并发额度已用满，未调用模型。请错开其他 AI 任务时段，或等当日计数重置后再执行。",
+  ai_chat_result_unknown: "模型调用已提交但结果未确认，未自动重发。请勿手工重跑；先在 AI 对话记录中核实本次是否已出结果。",
   delivery_unknown: "平台受理结果未确认，未自动重发。",
+  channel_unavailable: "钉钉机器人媒体通道、DWS 或截图浏览器不可用。请先按本次运行状态确认是否已发出，再检查通道登录与可用性后手工补发。",
   missed_window: "执行器错过计划时段，未补发。",
   interrupted_result_unknown: "执行中断，结果未确认，未自动重发。",
+  execution_result_unknown: "执行中出现未预期错误，本次结果无法确认，未自动重发。请勿直接重跑；先到目标群或私聊确认是否已收到。",
+  access_denied: "任务绑定的目标群、执行账号或钉钉配置在执行时已不成立，本次未发送。请核对任务配置与钉钉账号绑定后重新保存并启用。",
+  conflict: "同一任务已有在执行的运行，或所需报告尚未复核通过，本次未新建执行。请等当前运行结束或先完成报告复核，再手工执行一次。",
   prior_stage_failed: "前序阶段失败，未执行。",
   prior_stage_unknown: "前序阶段结果未知，未执行。",
   prior_stage_interrupted: "前序阶段中断，未执行。",
@@ -23,6 +29,9 @@ const errors: Record<string, string> = {
   schedule_no_alerts: "无符合条件的预警，无需分析或发送。",
   scheduled_analysis_incomplete: "模型未生成完整解读，未发送。",
   schedule_content_too_large: "监控内容超过渠道容量，未截断发送。",
+  dingtalk_sender_unbound: "任务的执行 staffId 不在钉钉 AI 配置的账号绑定里，本次未发送。请在钉钉 AI 设置中为该 staffId 补一条绑定，或把任务改到已绑定的执行账号。",
+  dingtalk_identity_mismatch: "消息携带的机器人编码或企业 ID 与已采用的钉钉配置不一致，本次未受理。请核对钉钉 AI 设置里的 robotCode 与 corpId 是否仍是当前企业和机器人。",
+  dingtalk_group_not_allowed: "提问来自未批准的群，或群内没有 @ 机器人，本次未受理。请把该群加入钉钉 AI 设置的许可群并启用，提问时记得 @ 机器人。",
 };
 
 export function scheduleErrorLabel(code: string): string {

@@ -188,11 +188,19 @@ class DingTalkScheduleTests(TestCase):
         item = schedules.save(self.payload, ADMIN)["item"]
         old = datetime.now(utc.utc) - timedelta(days=2)
         m.AiDingTalkSchedule.objects.filter(pk=item["id"]).update(next_run_at=old)
+        # The sender must not be reached at all: a skipped slot is observable
+        # but never a delivery. Asserting on the mock (rather than passing a
+        # bare Mock() that silently absorbs a call) is what pins the
+        # no-backlog policy itself, not just the recorded status.
+        sender = Mock()
         with patch.object(schedules.chat, "answer") as answer:
-            self.assertTrue(schedules.step(lambda: dingtalk_settings.effective(self.config), Mock()))
+            self.assertTrue(schedules.step(lambda: dingtalk_settings.effective(self.config), sender))
         answer.assert_not_called()
+        sender.assert_not_called()
         skipped = m.AiDingTalkScheduleRun.objects.get(schedule_id=item["id"], scheduled_at=old)
         self.assertEqual((skipped.status, skipped.error_code), ("denied", "missed_window"))
+        for phase in ("data", "analysis", "delivery"):
+            self.assertEqual(getattr(skipped, phase + "_status"), "not_required")
         self.assertGreater(m.AiDingTalkSchedule.objects.get(pk=item["id"]).next_run_at, datetime.now(utc.utc))
 
     def test_admin_revocation_after_queue_prevents_ai_and_delivery(self):
