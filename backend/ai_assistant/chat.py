@@ -51,6 +51,9 @@ page_context 只表示当前页面选择，不表示已查询到数据。调用�
 PROMOTION_CONTEXT_TAG = "verified_promotion_context"
 PROMOTION_TOOL = "get_jd_promotion_diagnostic"
 PROMOTION_SHOP = "志高商用设备旗舰店"
+# Mirrors the ai_execution_bound CHECK on ai_conversation_messages.execution_json
+# in migrations/0009_model_generation_capabilities.py:10.
+EXECUTION_MAX_BYTES = 16384
 
 
 def _promotion_locator(results):
@@ -112,6 +115,39 @@ def _promotion_evidence(results, expected_locator):
         if len(canonical(evidence).encode()) <= 8192:
             return evidence
     return None
+
+
+def _fit_execution(execution):
+    """Serialize execution within ai_conversation_messages.execution_json's CHECK.
+
+    PostgreSQL enforces octet_length(execution_json)<=16384 (together with
+    jsonb_typeof='object') in migrations/0009_model_generation_capabilities.py:10.
+    Every other member of this dict is a number, a short enum or already
+    byte-bounded (promotionEvidence <=8192 at :112), so the only member that
+    scales with administrator configuration is "guidance": each cited rule costs
+    up to 1151 bytes because prompt_settings.validate() counts characters, not
+    bytes (prompt_settings.py:48-50). 14 Chinese rules already exceed the CHECK.
+
+    The citations are an audit trail, so a partial list is strictly better than
+    failing the question: the answer is already computed and the model never
+    reads this column. Trim the rule tail rather than raising 413.
+    """
+    encoded = canonical(execution)
+    if len(encoded.encode()) <= EXECUTION_MAX_BYTES:
+        return encoded
+    trimmed = dict(execution)
+    without = {k: v for k, v in execution.items() if k != "guidance"}
+    # canonical(without) omits the key itself, so reserve '"guidance":' plus the
+    # separating comma before handing the remainder to the trimmer.
+    headroom = EXECUTION_MAX_BYTES - len(canonical(without).encode()) - len('"guidance":,')
+    from . import prompt_settings
+    trimmed["guidance"] = prompt_settings.fit_evidence(execution.get("guidance"), max(headroom, 0))
+    encoded = canonical(trimmed)
+    if len(encoded.encode()) > EXECUTION_MAX_BYTES:
+        # Nothing left to trim: refuse rather than hand PostgreSQL a row its
+        # CHECK will reject with an IntegrityError surfaced as a 500.
+        raise AiError("本次回答的执行记录超过存储上限", "payload_too_large", 413)
+    return encoded
 
 
 def _promotion_prompt_conflicts(prompt, locator):
@@ -1199,7 +1235,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, dingtalk_unbou
                 execution["promotionEvidence"] = promotion_evidence
             message = append(conv.id, "assistant", reply, shortcut or "message")
             execution["durationMs"] = int((time.monotonic() - started_at) * 1000)
-            message.execution_json = canonical(execution)
+            message.execution_json = _fit_execution(execution)
             message.save(update_fields=["execution_json"])
             assets = _artifacts(results, conv, message, principal) if dingtalk_session is None else []
             result = {

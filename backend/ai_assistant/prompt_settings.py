@@ -103,6 +103,34 @@ def tool_domains(tools):
     return {d for d in DOMAINS if (d if d != "netshop" else "shop") in names or d == "netshop" and "netshop" in names}
 
 
+def fit_evidence(evidence, maximum):
+    """Drop trailing rule citations until the evidence fits `maximum` UTF-8 bytes.
+
+    Every rule field validate() accepts is character-counted (name 80, source
+    240 at :48-50), so 24 Chinese rules reach ~27.8 KiB while
+    ai_conversation_messages.execution_json is capped by
+    octet_length(...)<=16384 (migrations/0009:10). Trimming keeps the answer
+    alive -- the citation list is an audit trail read by chat.py:447, never by
+    the model -- while `rulesOmitted` records that the record is partial.
+    """
+    if not isinstance(evidence, dict) or not isinstance(evidence.get("rules"), list):
+        return evidence
+    kept = list(evidence["rules"])
+    result = dict(evidence)
+    while kept:
+        # Rules keep compose()'s configured order, so the dropped tail is
+        # deterministic for a given configuration and question.
+        result["rules"] = kept
+        omitted = len(evidence["rules"]) - len(kept)
+        if omitted:
+            result["rulesOmitted"] = omitted
+        if len(canonical(result).encode()) <= maximum:
+            return result
+        kept.pop()
+    return {**{k: v for k, v in evidence.items() if k != "rules"},
+            "rules": [], "rulesOmitted": len(evidence["rules"])}
+
+
 def compose(item, question, context, tools, used_domains=()):
     """Use only domains represented in the principal's actual tool catalog."""
     config = item["config"]
