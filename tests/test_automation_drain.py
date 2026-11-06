@@ -5,7 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from teruisi_backend.automation_drain import AdmissionClosed, PROTOCOL, protected_activity, read_gate
@@ -106,33 +106,16 @@ try { $stream.Lock(0,1); $stream.Unlock(0,1) } catch { exit 12 } finally { $stre
             self.assertEqual(attempt(), 12)
         self.assertEqual(attempt(), 0)
 
-    def test_missed_schedule_executes_real_branch_and_records_original_slot(self):
-        # Execute the real function body with a synthetic ORM, no database or
-        # external sender. PostgreSQL integration remains a separate gate.
-        import ast
-        from contextlib import nullcontext
-        from datetime import datetime, timedelta, timezone
-        from types import SimpleNamespace
-        source = Path(__file__).resolve().parents[1] / "backend/ai_assistant/dingtalk_schedules.py"
-        tree = ast.parse(source.read_text(encoding="utf-8-sig"))
-        function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "step")
-        now = datetime(2026, 9, 30, tzinfo=timezone.utc)
-        original = now - timedelta(days=1)
-        row = SimpleNamespace(next_run_at=original, cadence="daily", hour=9, minute=0, day=None, version=1, save=Mock())
-        runs, schedules = Mock(), Mock()
-        runs.select_for_update.return_value.filter.return_value.order_by.return_value.first.return_value = None
-        schedules.select_for_update.return_value.filter.return_value.order_by.return_value.first.return_value = row
-        env = {"mutation": nullcontext, "timezone": SimpleNamespace(now=lambda: now), "timedelta": timedelta,
-               "m": SimpleNamespace(AiDingTalkScheduleRun=SimpleNamespace(objects=runs), AiDingTalkSchedule=SimpleNamespace(objects=schedules)),
-               "next_slot": lambda *args: now + timedelta(days=1), "uid": lambda _: "synthetic-run"}
-        exec(compile(ast.Module(body=[function], type_ignores=[]), str(source), "exec"), env)
-        sender = Mock(side_effect=AssertionError("unexpected send"))
-        self.assertTrue(env["step"](lambda: {"enabled": True}, sender))
-        saved = runs.get_or_create.call_args.kwargs
-        self.assertEqual(saved["scheduled_at"], original)
-        self.assertEqual(saved["defaults"]["status"], "denied")
-        self.assertEqual(saved["defaults"]["error_code"], "missed_window")
-        sender.assert_not_called()
+    # A missed-slot test used to live here, reconstructing
+    # dingtalk_schedules.step() with ast.parse + exec into a hand-built
+    # globals dict. It tested the scheduler, not this module's drain gate, and
+    # the hand-built dict silently went stale twice as step() gained names
+    # (a tuple-returning get_or_create, then the schedule_core imports), each
+    # time failing inside the reconstructed body rather than on an assertion.
+    # The same branch is covered against the real ORM by
+    # ai_assistant.test_dingtalk_schedules
+    # .test_missed_automatic_slot_is_skipped_without_model_or_send, so it is
+    # not re-created here in a form that cannot see such drift.
 
 
 if __name__ == "__main__":
