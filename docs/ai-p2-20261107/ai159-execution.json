@@ -1,7 +1,7 @@
 {
   "version": "teruisi-schema-mandatory-code-execution-v1",
-  "checkedAt": "2026-11-06T18:48:50.445457+00:00",
-  "baseCommit": "bee32c95110341832dcedb3d5dcbea9b79c302a3",
+  "checkedAt": "2026-11-06T19:05:44.406051+00:00",
+  "baseCommit": "f3e69c28345ecdfdbdef2511a630b5c07ee5f89d",
   "productionTouched": false,
   "functionalValidationPerformed": false,
   "fullBackupOrRestorePerformed": false,
@@ -11,7 +11,7 @@
     "powershell-syntax",
     "python-syntax"
   ],
-  "codeSha256": "979ddb75451bcd5ec876d924cb3b37a3be2a7fd31c426519d09abe0f0aa86020",
+  "codeSha256": "b6abb0a570be213f2b7afa02c86ebe751615ada9d48cc27d643a80588c429bb8",
   "migrationSha256": "4fcc89b07c1e4b735d094c5e4efc27a291cfcc5a37a8b8beddfa03540ffd897c",
   "sourceFiles": {
     "tools/jd_monitor_preferences_addition.py": "94e93413b02bde911c11cc251c437f9480d8b9b4d1922369c5b29991d9470267",
@@ -62,11 +62,11 @@
     "backend/ai_assistant/pi_models.py": "0fcbcf59983c80ec102612938893486d64e8d0948f3659082d25e01356741343",
     "backend/ai_assistant/database_contract.py": "2e2e04b93f4076bf2303edb608b28ab835ef79c18aff2c4f0db1828973061d22",
     "backend/ai_assistant/table_manifest.py": "c2a3019dadac713c211285aec732d216725cdad95b663e647b7ef9f18e1b6300",
-    "backend/ai_assistant/pi_worker.py": "5d99b6e555dc8643fd10399b1ab618557587f59792fb33db3d7a9e617b3497fc",
-    "backend/ai_assistant/pi_service.py": "60461e8ceef5e956552f6c321a150b8ca9b33def2f1190054f3ace8d0c2a1146",
-    "backend/ai_assistant/pi_gateway.py": "cf692b5d007ff7ed338a4ce0ee38b13d70f2b0e375ef2583f81c07d99a0a288b",
+    "backend/ai_assistant/pi_worker.py": "27d7a4b7e6517782dad4e640bcff1171cfad0c858c0a930dda60fcb70338ca36",
+    "backend/ai_assistant/pi_service.py": "6c84e5dd81f987043e27749602a1071ac0ffe6dcc68cea31ca05964c7402ce4a",
+    "backend/ai_assistant/pi_gateway.py": "3ba31465b6356d03da8c688d34808a0fe319a3ac246dfdbc217181f769b8e91b",
     "backend/ai_assistant/pi_exports.py": "5c9f7c942de195dcb65341d0b5663aee572610b42bfd0c3f1cbbbf41f4c9acd7",
-    "backend/ai_assistant/pi_transport.py": "1321d0ef8e4a0bb3180f5263b83c80cf95358bd6fdf8e5b3b6cb945a443549fa",
+    "backend/ai_assistant/pi_transport.py": "8ba846889b21f717f1751a0395426916acdc2a0f2a23552d306e92a8ed3ed1a8",
     "backend/ai_assistant/pi_selection.py": "b25ec1957b19f140e655977613aa10a8c04b0e6b229d1babe4a57dc36e79cbca",
     "tools/pi_workspace_addition.py": "a2289bbfd922643b982ed29e1c2240314b53e0b1362ebe7e72fe8430b49383aa",
     "tools/pi_workspace_catalog.py": "8b458b66363df4b1cb01812b12f9f0eeff4d74490a94e40dde34ab83c611b194",
@@ -76,7 +76,7 @@
     "tools/manual-maintenance-process.psm1": "a07a4d1fdb65dba6c5e7caaf27ad463a1613c182f30f56269a2f1e8175c116a5",
     "tools/manual-maintenance-preflight.ps1": "1b4dbc31076f7722718eb060d0ff77a8527034584d8afa7de50ddb843a3a6a2f",
     "tools/frozen-main-source.mjs": "c0b4f216ff749f3a6e71b73614dfbfd1556485f13cd168fab15d06de3635b882",
-    "backend/ai_assistant/pi_workspace.py": "11cba3dd7c2097499b09e5d4cd8265b6354d549d1a56ddbddae6f65be60a5754",
+    "backend/ai_assistant/pi_workspace.py": "1bf789091ef7fb2501c4fffe0cd5bbf2dab7e79f7a9a1fef513034564166f69a",
     "backend/ai_assistant/migrations/0085_pi_workspace_controls.py": "b4bd9ca8d870caa3b747b70446108a67af820610e79273ca35a752e850091d07",
     "tools/pi_business_addition.py": "0b83c317cbad37300fedf2d5922602ce2a82dda6283272ee92a9b73ee85521ce",
     "tools/pi_business_catalog.py": "6d257bdd06e808609d97c82e9078b34227b2e2042d2839a38c44620bbcae68e6",
@@ -131,11 +131,11 @@
     "tools/ai_unified_tasks_rehearsal.py": "15db7ae18cec3bf82311b8fca4d6ac875423c64b8181b255a844b5949d0179a6",
     "backend/ai_assistant/task_definitions.py": "d6fc27662f420bbae500af4487922fc5ad84734a1b719fec24f4fda20dc0a923",
     "backend/ai_assistant/task_connectors.py": "dec9b154186a1becfd7fdc6fb9778207e3043023f8b360770a552280f28f7945",
-    "backend/ai_assistant/task_dispatch.py": "31ed6372638c0ba5b9aff1497e2b61a42e6290159e5cd1dd2e98a097e1d3c716",
+    "backend/ai_assistant/task_dispatch.py": "c303f7e90294193a99ebdc6bea6b049a0fcc6027ddff3f62cf6be7e5f2f8b549",
     "backend/ai_assistant/task_legacy_adapters.py": "aa5cd2484016cb0440eed5efd48631eb02cb88598209ce756ac2e90b1203aeb3",
     "backend/ai_assistant/task_dependencies.py": "256f53591fb10cd05117598c78f81ec3f3988c6bb79efb53cdec0f8165cb726b",
     "backend/ai_assistant/database_contract.py": "2e2e04b93f4076bf2303edb608b28ab835ef79c18aff2c4f0db1828973061d22",
-    "backend/ai_assistant/pi_views.py": "1780b765fd55b4099e1286ac22780f23f354e2a8b73d414a6eee03b5d4c3e1b0",
+    "backend/ai_assistant/pi_views.py": "63dc28cc1638225b4cf160f097ea7ab48da2e3ef48c820bdea5a48aa08798657",
     "tests/ai159-acl-catalog-boundary.py": "8257fd9707661d73185c7353bfdf310d585b0e54f3b6268325e18de4531cd26f",
     "tests/ai159-structure-evidence.py": "24a0e16cc8d39429582161c29263f49669b6f9f9e7420274ae31be75bb1e30ad",
     "tests/postgres-consistent-backup.test.py": "3c61e7394407547b2c248508ca4110285c8b5102eef9d230adea75730430a9cb",
@@ -275,8 +275,8 @@
         },
         {
           "host": "pwsh.exe",
-          "status": "passed",
           "version": "7.6.9",
+          "status": "passed",
           "files": 11
         }
       ]
@@ -286,7 +286,7 @@
     "status": "passed",
     "fromGeneration": 158,
     "toGeneration": 159,
-    "baselineCommit": "77382b5fc4ad958e1c22e7d9f8431bffdafdb204",
+    "baselineCommit": "3c34498cb2f0b18da55eba8165019db8b63e5141",
     "migrationSha256": "4fcc89b07c1e4b735d094c5e4efc27a291cfcc5a37a8b8beddfa03540ffd897c",
     "stepFiles": {
       "backend/ai_assistant/migrations/0090_unified_tasks.py": "f955d5ffbca0a3eea761597b79e7445e76e37ccf329e39aafa022f91d301e39a"

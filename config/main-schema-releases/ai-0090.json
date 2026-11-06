@@ -10,6 +10,6 @@
     "backend/ai_assistant/migrations/0090_unified_tasks.py": "f955d5ffbca0a3eea761597b79e7445e76e37ccf329e39aafa022f91d301e39a"
   },
   "validation": "docs/ai-p2-20261107/ai159-checks.json",
-  "validationSha256": "7100d12fcca012cebad199fc6f867ccdfeded5ffcaff9f5f4231e2055526b69f",
-  "codeSha256": "979ddb75451bcd5ec876d924cb3b37a3be2a7fd31c426519d09abe0f0aa86020"
+  "validationSha256": "f8b5f89b2ae6a866072d3468175391bb64c0be4c224565b6739d96ebcfbf2d39",
+  "codeSha256": "b6abb0a570be213f2b7afa02c86ebe751615ada9d48cc27d643a80588c429bb8"
 }

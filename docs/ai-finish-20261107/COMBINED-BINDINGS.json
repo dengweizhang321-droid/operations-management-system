@@ -1,0 +1,37 @@
+{
+  "baseMain": "3c34498cb2f0b18da55eba8165019db8b63e5141",
+  "verifiedSource": "f3e69c28345ecdfdbdef2511a630b5c07ee5f89d",
+  "publishedPredecessor": "c06ccb66ab7996da2e188387264a4743076eb878",
+  "components": [
+    "worker",
+    "django"
+  ],
+  "brokerSourceUpdate": true,
+  "imageInputsChanged": false,
+  "generation": [
+    158,
+    159
+  ],
+  "migration": [
+    "ai_assistant.0090_unified_tasks"
+  ],
+  "recipe": "config/main-schema-releases/ai-0090.json",
+  "recipeSha256": "aa1b30b8dd09d2fb3c7da640b767983389429cb3bbd771d6bba2156d397d9488",
+  "codeSha256": "b6abb0a570be213f2b7afa02c86ebe751615ada9d48cc27d643a80588c429bb8",
+  "codeMembers": 111,
+  "supplementalMembers": 15,
+  "validationSha256": "f8b5f89b2ae6a866072d3468175391bb64c0be4c224565b6739d96ebcfbf2d39",
+  "structureProof": {
+    "path": "docs/ai-p2-20261107/structure-result.json",
+    "sha256": "6bc2d25455322633635565f1ffaf6fceacf729ead0a8732d0a074b0e771cba3b"
+  },
+  "structureInputCount": 309,
+  "structureChecks": 13,
+  "combinedPostgres": {
+    "count": 71,
+    "status": "passed",
+    "log": ".runtime/ai-pg-64442f9430d1/tests.log",
+    "logSha256": "e7c7b1836e5bd22e318425510871766e4cbf4fdb91e57bed731a528e9d7e3506"
+  },
+  "productionOperations": false
+}
