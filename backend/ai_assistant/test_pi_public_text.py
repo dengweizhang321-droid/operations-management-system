@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 
-from . import pi_service, pi_worker, test_skill_candidates as fixtures
+from . import pi_service, pi_worker, test_pi_runtime as runtime_fixture, test_skill_candidates as fixtures
 from .pi_models import PiEvent, PiOperation
 from .pi_public_text import PublicText, record_runner_answer
 from .policy import AiError, mutation
@@ -58,3 +58,34 @@ class PiPublicTextTests(TestCase):
             writer.flush(finished=True, final="不再显示")
         self.assertEqual(finished.exception.code, "pi_canceled_during_dispatch")
         self.assertEqual(PiEvent.objects.filter(operation=op, event_type="provider_text_delta").count(), 2)
+
+
+@override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
+class PiModelHistoryTests(TestCase):
+    setUp = runtime_fixture.PiRuntimeTests.setUp
+    user = runtime_fixture.PiRuntimeTests.user
+    session = runtime_fixture.PiRuntimeTests.session
+    prompt = runtime_fixture.PiRuntimeTests.prompt
+    running = runtime_fixture.PiRuntimeTests.running
+    request = runtime_fixture.PiRuntimeTests.request
+
+    def test_unproven_agent_message_never_enters_model_prompt(self):
+        from . import pi_gateway, pi_native
+        from .pi_models import PiAgentMessage
+        import secrets
+        op, token = self.running()
+        state = pi_native.state_for(op.session)
+        with mutation():
+            state.message_seq += 1
+            state.save(update_fields=["message_seq"])
+            PiAgentMessage.objects.create(id="old-agent-message", root_session=op.session,
+                from_session=op.session, to_session=op.session, seq=state.message_seq, kind="send", message="旧权限原文")
+            pi_native._message(state, op.session, op.session, "send", "本代已绑定原文")
+        result = {"text": "正常", "calls": [], "usage": {}, "frame": {}, "providerRequestId": "fixture"}
+        with patch.object(pi_gateway, "catalog", return_value=([], [])), patch.object(
+                pi_gateway.provider, "turn", return_value=result) as model, patch(
+                "ai_assistant.secrets.encrypt", return_value="synthetic"):
+            pi_gateway.execute(self.request(op, token), secrets.token_hex(16))
+        system = model.call_args.args[2]
+        self.assertNotIn("旧权限原文", system)
+        self.assertIn("本代已绑定原文", system)

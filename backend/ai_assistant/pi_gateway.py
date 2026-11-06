@@ -179,9 +179,9 @@ def _model(payload, op, principal):
     if state.mode == "plan":
         tools = [item for item in tools if item["name"] not in LOCAL_TOOLS - pi_native.PLAN_LOCAL]
     messages, system = transcript(payload, model)
-    from .pi_models import PiAgentMessage
-    inbound = list(PiAgentMessage.objects.filter(to_session_id=op.session_id, kind__in=["send", "follow_up"])
-        .order_by("-seq")[:50])
+    root = service.get_session(state.root_session_id, principal)
+    inbound = [row for row in pi_native.visible_messages(op.session, state, root)
+               if row.to_session_id == op.session_id and row.kind in {"send", "follow_up"}][:50]
     if inbound:
         selected, used = [], 0
         for row in inbound:
@@ -201,6 +201,7 @@ def _model(payload, op, principal):
     from .pi_cancellation import model_checks
     cancellation, watcher_scope = model_checks(op, parent_cancel)
     service.principal_for_work(op)
+    pi_native.authorize(op, payload.get("admission"), kind="model")
     with transport.request_cancellation(cancellation, watcher_scope=watcher_scope), transport.request_budget(min(remaining_seconds(op), options(model)["taskTimeoutMs"] / 1000)), provider.conversation_session(f"pi/{op.session_id}/{op.generation}"):
         value = provider.turn(model, messages, system, tools, retain_reasoning=True, preserve_context=True,
             tool_argument_limits={item["name"]: LOCAL_ARGUMENT_BYTES for item in tools if item["name"] in LOCAL_CODE_TOOLS},
