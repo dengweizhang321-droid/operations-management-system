@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>模型协议与经营日报草稿</title>
+<style>body{margin:0;background:#f4f6f8;color:#172b39;font:16px/1.65 system-ui,sans-serif}main{max-width:820px;margin:40px auto;padding:0 20px}section{background:white;border:1px solid #d3dde2;border-radius:10px;padding:22px 26px;margin:20px 0}h1{font-size:1.7rem}h2{font-size:1.15rem;margin:0 0 12px}label{display:grid;gap:4px;margin:12px 0}select,input,button{font:inherit;padding:6px 10px;border:1px solid #adc3c9;border-radius:5px}button{background:#175f67;color:white;cursor:pointer}small{color:#4d626e}output{display:block;margin-top:12px}code{overflow-wrap:anywhere}</style>
+<main><h1>模型协议与经营日报草稿</h1><p>离线交互示例。所有修改只在本页显示。</p>
+<section><h2>模型请求协议</h2><label>OpenAI 端点<select id="protocol"><option>Chat Completions</option><option selected>Responses</option></select></label><output id="endpoint">/responses · store: false · 历史由本地管理</output></section>
+<section><h2>京东志高商用设备旗舰店经营日报</h2><p>ERP 销售只计本店；库存另列全部计入库存的仓。</p><label>草稿计划时间（上海）<input type="time" value="09:00" id="when" required></label><p>正式页面从实际可用模型和已发布方法中选择版本。未绑定投递目标。</p><button id="preview">查看停用草稿</button><output id="result" role="status"></output></section></main>
+<script>
+const protocol=document.querySelector("#protocol"),endpoint=document.querySelector("#endpoint");
+protocol.onchange=()=>endpoint.textContent=protocol.selectedIndex===1?"/responses · store: false · 历史由本地管理":"/chat/completions";
+document.querySelector("#preview").onclick=()=>{const t=document.querySelector("#when");if(t.reportValidity())document.querySelector("#result").textContent="每日 "+t.value+"（上海） · 停用 · 无真实投递";};
+</script></html>

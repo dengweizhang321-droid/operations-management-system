@@ -14,6 +14,7 @@ const AiSpaceView = lazy(() => import("./ai-space-view"));
 const AiSpaceManagementView = lazy(() => import("./ai-space-management-view"));
 const AiReportWorkbenchView = lazy(() => import("./ai-report-workbench-view"));
 const AiPromptSettingsView = lazy(() => import("./ai-prompt-settings-view"));
+const AiDailyTaskDrafts = lazy(() => import("./ai-daily-task-drafts"));
 const AiDingTalkSchedulesView = lazy(() => import("./ai-dingtalk-schedules-view"));
 
 type AiView = ModuleViewKey<"ai">;
@@ -121,6 +122,7 @@ export default function AiModuleView({
     {moduleView === "scheduled" && canManage && <div id="ai-panel-scheduled" role="tabpanel" aria-labelledby="ai-tab-scheduled" tabIndex={0}>
       <Suspense fallback={<AiViewLoading label={aiViewLabels.scheduled} />}>
         <AiDingTalkSchedulesView />
+        <AiDailyTaskDrafts key={currentUser.email} owner={currentUser.email} />
       </Suspense>
     </div>}
     {moduleView === "scheduled" && !canManage && <section className="panel ai-permission-card" role="alert">
