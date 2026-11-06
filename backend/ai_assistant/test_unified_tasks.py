@@ -116,6 +116,9 @@ class UnifiedTaskTests(TestCase):
         from unittest.mock import patch
         with patch.object(definitions, "normalize", side_effect=AssertionError("a retry must not rebind the current skill bundle")):
             self.assertTrue(definitions.save({"clientRequestId": "task-create-1", "name": "合成日报", "spec": spec}, actor)["replayed"])
+        from . import report_library
+        with patch.object(report_library, "snapshot", side_effect=AiError("published method unavailable", "not_found", 404)):
+            self.assertEqual(definitions.save({"clientRequestId": "task-create-1", "name": "合成日报", "spec": spec}, actor)["item"]["id"], item["id"])
         with self.assertRaises(AiError):
             definitions.save({"clientRequestId": "task-create-1", "name": "另一任务", "spec": spec}, actor)
         self.assertEqual(TaskDefinition.objects.count(), 1)

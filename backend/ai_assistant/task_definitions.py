@@ -143,11 +143,12 @@ def save(payload, principal):
     if "id" not in payload:
         key = identifier(payload.get("clientRequestId"), "clientRequestId")
         binding = digest({"name": name, "spec": payload["spec"], "scope": principal.scope, "role": principal.role})
-        old = TaskDefinition.objects.filter(owner_email=principal.email.lower(), client_request_id=key).first()
-        if old:
-            if old.request_digest != binding:
-                raise AiError("创建请求标识已绑定其他内容", "conflict", 409)
-            return {"item": record(old), "replayed": True}
+        with mutation(principal):
+            old = TaskDefinition.objects.filter(owner_email=principal.email.lower(), client_request_id=key).first()
+            if old:
+                if old.request_digest != binding:
+                    raise AiError("创建请求标识已绑定其他内容", "conflict", 409)
+                return {"item": record(old), "replayed": True}
     spec = normalize(payload["spec"], principal)
     with mutation(principal):
         if "id" in payload:
