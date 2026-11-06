@@ -32,11 +32,19 @@ class PiBusinessVerificationTests(TestCase):
         from workflow.models import WorkflowDataRevision, WorkflowOperationsWriteAuthority
         from inventory.models import InventoryDataRevision, InventoryWriteAuthority
         WorkflowDataRevision.objects.get_or_create(domain="workflow")
-        WorkflowOperationsWriteAuthority.objects.get_or_create(id=1, defaults={"status": "postgres"})
+        # The singleton gate row (id=1) is already pre-seeded by migration 0005 with
+        # status="disabled" (production default). get_or_create(defaults=...) silently
+        # ignores `defaults` once the row exists, so it would never flip the gate open;
+        # force the intended isolated-fixture state explicitly instead.
+        # A truncating TransactionTestCase drops the pre-seeded row, and update() would
+        # then no-op in silence -- the same gate left shut, only harder to trace.
+        self.assertEqual(WorkflowOperationsWriteAuthority.objects.filter(id=1).update(status="postgres"), 1)
         InventoryDataRevision.objects.get_or_create(domain="inventory")
-        InventoryWriteAuthority.objects.get_or_create(id=1, defaults={"status": "postgres",
-            "authority_epoch": "33333333-3333-4333-8333-333333333333", "cutover_id": "isolated-verification",
-            "migration_verify_run_id": "isolated-verify", "activated_at": timezone.now()})
+        # Same trap: inventory's singleton row is pre-seeded by migration 0002 with
+        # status="d1". get_or_create(defaults=...) would no-op here too.
+        self.assertEqual(InventoryWriteAuthority.objects.filter(id=1).update(status="postgres",
+            authority_epoch="33333333-3333-4333-8333-333333333333", cutover_id="isolated-verification",
+            migration_verify_run_id="isolated-verify", activated_at=timezone.now()), 1)
 
     def operation(self, kind):
         sid = service.create_session({"clientRequestId": "session-" + kind}, self.actor)["session"]["id"]
