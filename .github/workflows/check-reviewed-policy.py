@@ -107,17 +107,21 @@ def check_installer(root):
     class GuardReached(Exception):
         pass
 
-    def guard(*args, **kwargs):
+    def guard(observed_root, operation_id=None):
+        if (observed_root, operation_id) != (runtime, expected):
+            raise SystemExit("Installer guard received a different runtime or operation")
         raise GuardReached
+
     env["context"] = guard
     for name in ("install", "finalize"):
         node = next(n for n in module.body if isinstance(n, ast.FunctionDef) and n.name == name)
         exec(compile(ast.Module(body=[node], type_ignores=[]), str(path), "exec"), env)
-        try:
-            env[name](runtime, operation_id)
-        except GuardReached:
-            continue
-        raise SystemExit(f"Installer {name} did not call the protected-source guard")
+        for expected in (None, operation_id, "2" * 32):
+            try:
+                env[name](runtime, expected)
+            except GuardReached:
+                continue
+            raise SystemExit(f"Installer {name} did not call the protected-source guard")
 
 
 if __name__ == "__main__":
