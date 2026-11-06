@@ -26,7 +26,7 @@
 
 返回 [文档首页](../README.md) · [逐篇文档目录](../文档目录.md)
 
-[从已完成任务提炼 Skill 草稿](../skill-distillation-20261107/REPORT.md)
+[从已完成任务提炼 Skill 草稿](../skill-distillation-20261107/REPORT.md) · [提炼入口与候选审核](../skill-distill-ui-20261107/REPORT.md)
 
 本轮候选：[Start 分项预算与接收器解耦](../start-timing-20261022/REPORT.md) · [独立审查](../start-timing-20261022/REVIEW.md) · [证据索引](../start-timing-20261022/EVIDENCE.md)。
 

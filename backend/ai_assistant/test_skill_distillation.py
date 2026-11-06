@@ -6,13 +6,16 @@ from django.test import TestCase, override_settings
 from . import provider, skill_candidates, task_feedback, test_skill_candidates as fixtures
 from .pi_models import PiDispatch
 from .pi_service import event
-from .policy import AiError, canonical, mutation
+from .policy import AiError, canonical, mutation, revision
+from . import test_skill_candidate_schema_route as schema_fixtures
 
 REAL_PROVIDER_TURN = provider.turn
 
 
 @override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
 class DistillationTests(TestCase):
+    path = schema_fixtures.SkillCandidateSchemaRouteTests.path
+    get = schema_fixtures.SkillCandidateSchemaRouteTests.get
     user = fixtures.SkillCandidateTests.user
     call = fixtures.SkillCandidateTests.call
     settled = fixtures.SkillCandidateTests.settled
@@ -98,3 +101,95 @@ class DistillationTests(TestCase):
         self.assertEqual(self.submit(principal=self.other).status_code, 404)
         self.assertEqual(self.submit(version="a" * 64).status_code, 409)
         self.turn.assert_not_called()
+
+    def test_optional_receipts_preserve_legacy_read_and_bound_recovery(self):
+        path = f"/api/ai/pi/operations/{self.op.id}/skill-candidates"
+        legacy = self.call(path, principal=self.owner, method="GET")
+        self.assertEqual(legacy.status_code, 200, legacy.content)
+        self.assertNotIn("distillation", legacy.json())
+        self.assertEqual(self.submit().status_code, 201)
+        before = int(revision())
+        result = self.get(self.op.id, query="?includeDistillations=1&distillationRequestId=request1")
+        self.assertEqual(result.status_code, 200, result.content)
+        self.assertEqual(int(revision()), before)
+        state = result.json()["distillation"]
+        self.assertFalse(state["blocked"])
+        self.assertEqual(state["requested"], {"clientRequestId": "request1", "status": "completed", "errorCode": None})
+        self.assertEqual(state["candidate"]["status"], "draft")
+        self.assertEqual(self.get(self.op.id, self.other, query="?includeDistillations=1").status_code, 404)
+        self.assertEqual(self.get(self.op.id, query="?includeDistillations=0").status_code, 400)
+        self.assertEqual(self.get(self.op.id, query="?distillationRequestId=request1").status_code, 400)
+        self.turn.assert_called_once()
+
+    def test_receipts_distinguish_unknown_from_known_terminal_failure(self):
+        query = "?includeDistillations=1&distillationRequestId=request1"
+        self.turn.side_effect = provider.ProviderCredentialError("local failure", "service_unavailable", 503)
+        self.assertEqual(self.submit().status_code, 503)
+        state = self.get(self.op.id, query=query).json()["distillation"]
+        self.assertFalse(state["blocked"])
+        self.assertEqual(state["requested"]["status"], "completed")
+        self.assertEqual(state["requested"]["errorCode"], "service_unavailable")
+        self.turn.side_effect = AiError("unknown send", "provider_timeout", 503)
+        self.assertEqual(self.submit("second").status_code, 503)
+        state = self.get(self.op.id, query=query).json()["distillation"]
+        self.assertTrue(state["blocked"])
+        self.assertEqual(state["latest"]["status"], "unknown")
+        self.assertIsNone(state["candidate"])
+
+    def withdraw(self, key="request1", version=None):
+        return self.call(f"/api/ai/pi/operations/{self.op.id}/skill-candidates/distill",
+            {"clientRequestId": key, "reportVersionDigest": version or self.version,
+             "withdrawAuthorization": True}, self.owner)
+
+    def test_withdraw_fences_a_report_rejected_before_dispatch_and_requires_new_intent(self):
+        correction = self.correct("new report basis")
+        self.assertEqual(self.submit().status_code, 409)
+        self.assertFalse(PiDispatch.objects.filter(operation=self.op, kind="skill_distillation").exists())
+        self.assertTrue(self.withdraw().json()["withdrawn"])
+        # Even if the old report version is current again, the delayed old POST
+        # hits its terminal authorization receipt before any provider call.
+        task_feedback.withdraw(self.op.id, correction["id"], {"expectedVersion": correction["version"]}, self.owner)
+        self.assertEqual(skill_candidates.request_schema(self.op.id, self.owner)["reportVersionDigest"], self.version)
+        self.assertEqual(self.submit().json()["code"], "distillation_authorization_withdrawn")
+        self.turn.assert_not_called()
+        current = skill_candidates.request_schema(self.op.id, self.owner)["reportVersionDigest"]
+        self.assertEqual(self.submit("new-authorized-request", version=current).status_code, 201)
+        self.turn.assert_called_once()
+
+    def test_competing_candidate_does_not_prevent_withdrawing_unadmitted_request(self):
+        self.assertEqual(self.submit("other-tab").status_code, 201)
+        self.assertEqual(self.submit().status_code, 409)
+        self.assertTrue(self.withdraw().json()["withdrawn"])
+        self.assertEqual(self.submit().json()["code"], "distillation_authorization_withdrawn")
+        self.turn.assert_called_once()
+
+    def test_withdraw_wins_between_first_check_and_locked_admission(self):
+        def withdraw_before_locked_admission(*args):
+            self.assertTrue(self.withdraw().json()["withdrawn"])
+            entries = [{"name": name} for name in fixtures.TOOLS]
+            return entries, entries
+        with patch("ai_assistant.pi_gateway.catalog", side_effect=withdraw_before_locked_admission):
+            response = self.submit()
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["code"], "distillation_authorization_withdrawn")
+        self.turn.assert_not_called()
+
+    def test_withdraw_refuses_already_dispatched_or_unknown_and_is_idempotent(self):
+        self.turn.side_effect = AiError("unknown send", "provider_timeout", 503)
+        self.assertEqual(self.submit().status_code, 503)
+        self.assertEqual(self.withdraw().status_code, 409)
+        self.assertEqual(PiDispatch.objects.get(operation=self.op, kind="skill_distillation").status, "unknown")
+        self.assertTrue(self.withdraw("never-sent").json()["withdrawn"])
+        self.assertTrue(self.withdraw("never-sent").json()["withdrawn"])
+        self.assertEqual(PiDispatch.objects.filter(operation=self.op, request_id="never-sent").count(), 1)
+
+    def test_legacy_malformed_candidate_remains_readable_and_can_be_rejected(self):
+        basis = skill_candidates.request_schema(self.op.id, self.owner)
+        saved = skill_candidates.save(self.op.id, {"schemaRef": basis["outputSchemaRef"],
+            "schemaDigest": basis["schemaDigest"], "content": self.content(parameters=None)},
+            self.owner, registry_tools=fixtures.TOOLS)["item"]
+        response = self.get(self.op.id, query="?includeDistillations=1")
+        self.assertIsNone(response.json()["distillation"]["candidate"]["content"]["parameters"])
+        reviewed = skill_candidates.review(saved["id"], {"status": "rejected",
+            "expectedVersion": saved["version"], "contentDigest": saved["contentDigest"]}, self.owner)
+        self.assertEqual(reviewed["item"]["status"], "rejected")

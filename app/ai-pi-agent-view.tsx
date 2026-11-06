@@ -9,6 +9,7 @@ import { AiMarkdown } from "./ai-chat-workbench";
 import AiPiBusinessActions, { piBusinessChoices } from "./ai-pi-business-actions";
 import AiPiWorkspace, { commandFromDraft, type WorkspaceHandle, type WorkspacePanel } from "./ai-pi-workspace";
 import { AiConversationComposer, useConversationSurface } from "./ai-conversation-shell";
+import AiPiSkillDistillation from "./ai-pi-skill-distillation";
 
 type PiShopSelection = { platform: "京东" | "天猫"; shop: string };
 type PiSession = { id: string; title: string; status: string; latestOperationStatus?: string; epoch: number; generation: number; scope?: PiScope; shopSelection?: PiShopSelection | null; activeOperationId?: string | null; createClientRequestId?: string; updatedAt: string };
@@ -349,6 +350,7 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "", 
         {frozen && <div className="ai-workbench-feedback is-error" role="alert">{piFailureLabel(detail?.operations.find(operation => operation.status === "unknown")?.errorCode) ?? "当前环境因权限变化或未知结果被冻结，不能继续执行。"}{detail?.session.status === "unknown" || detail?.operations.some(operation => operation.status === "unknown") ? "请先核实原操作，不要重发原任务。" : "请创建新环境，并重新选择当前授权范围。"}</div>}
         {currentPending && <div className="ai-workbench-feedback" role="status">原请求正在核实中。请使用刷新记录查看；同一环境暂不接收新消息。</div>}
         {latest?.status === "succeeded" && !frozen && <div className="ai-pi-completed" role="status"><strong>主代理本轮已完成</strong><span>协作树状态见代理面板</span><button type="button" className="ai-workbench-text" disabled={finalAnswerSeq === undefined} onClick={() => lastAnswer.current?.scrollIntoView({ block: "start" })}>{finalAnswerSeq === undefined ? eventsCaughtUp ? "本轮未返回正文" : "正在恢复结果…" : "查看分析结果"}</button>{completedFiles.map(file => <a key={file.id} href={`/api/ai/pi/files/${encodeURIComponent(file.id)}/content`} download>{file.fileName}</a>)}</div>}
+        {detail && !frozen && <AiPiSkillDistillation key={`${storageKey}:${sessionId}`} operations={detail.operations} ownerKey={storageKey} writable={canWrite && storageReady && !frozen} models={models} />}
         {detail && !frozen && <AiPiWorkspace ref={workspaceRef} sessionId={sessionId} epoch={detail.session.epoch} generation={detail.session.generation} ownerKey={storageKey} writable={canWrite && storageReady && !frozen} active={active} panel={panel} onPanel={setPanel} onEditorText={value => { setDraft(value); setPanel("chat"); }} onModelChange={setModelId} onDraftSettled={clearSubmittedDraft} onOpenSession={selectSession} models={models} files={detail.files} parentSkills={latest?.skills} businessIntents={latest?.businessIntents} />}
         {detail && <AiPiBusinessActions sessionId={sessionId} epoch={detail.session.epoch} generation={detail.session.generation} ownerKey={storageKey} writable={canWrite && storageReady && !forbidden && !["frozen", "revoked"].includes(detail.session.status)} />}
         <div className="ai-workbench-scroll" hidden={panel !== "chat"} ref={scroll}
