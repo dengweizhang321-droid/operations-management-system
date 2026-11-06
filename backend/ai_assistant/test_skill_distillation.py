@@ -110,6 +110,26 @@ class DistillationTests(TestCase):
         self.turn.side_effect = None
         self.assertEqual(self.submit("new-intent").status_code, 201)
 
+    def test_catalog_uses_the_finished_operation_scope_even_after_owner_scope_widens(self):
+        from dataclasses import replace
+        from access_control.models import AppUser
+        widened = replace(self.owner, scope=None)
+        AppUser.objects.filter(email=self.owner.email).update(scope=None)
+        with patch("ai_assistant.pi_gateway.catalog", return_value=([], [])) as catalog:
+            self.submit(principal=widened)
+        self.assertEqual(catalog.call_args.args[0].scope, self.owner.scope)
+        self.assertEqual(catalog.call_args.args[1].id, self.op.id)
+
+    def test_fully_received_invalid_provider_shape_is_terminal(self):
+        self.turn.side_effect = REAL_PROVIDER_TURN
+        malformed = {"choices": [{"finish_reason": "stop", "message": {"content": {"bad": "shape"}}}]}
+        with patch("ai_assistant.provider.decrypt", return_value="test-only"), patch(
+                "ai_assistant.provider.bounded_json", return_value=malformed):
+            self.assertEqual(self.submit().json()["code"], "invalid_provider_response")
+        self.assertEqual(PiDispatch.objects.get(kind="skill_distillation").status, "completed")
+        self.turn.side_effect = None
+        self.assertEqual(self.submit("retry-explicit").status_code, 201)
+
     def test_foreign_owner_and_stale_report_cannot_start_paid_turn(self):
         self.assertEqual(self.submit(principal=self.other).status_code, 404)
         self.assertEqual(self.submit(version="a" * 64).status_code, 409)

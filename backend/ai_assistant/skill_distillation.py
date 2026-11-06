@@ -1,11 +1,13 @@
 """Explicit, once-per-request model distillation of a finished Pi report."""
 import json
+from dataclasses import replace
 
 from django.utils import timezone
 
 from . import (chat, configuration, models, output_schemas, pi_gateway, pi_selection,
                pi_sources, provider, skill_candidates)
 from .model_capabilities import options, structured_output_parameters
+from .provider_contract import InvalidProviderResponse
 from .pi_models import PiDispatch, PiEvent, PiOperation
 from .pi_workspace import effective_model
 from .policy import AiError, canonical, digest, fields, identifier, mutation, scope_covers, uid
@@ -163,7 +165,10 @@ def distill(operation_id, body, principal):
     replay = _existing(op, key, binding)
     if replay:
         return replay
-    _, permitted = pi_gateway.catalog(principal, op)
+    # Distilling an old run may be requested by an owner whose current rights
+    # have widened. Only tools available under the original scope can be cited.
+    run_principal = replace(principal, scope=json.loads(op.scope_json))
+    _, permitted = pi_gateway.catalog(run_principal, op)
     tools = {entry["name"] for entry in pi_selection.filter_catalog(permitted, pi_selection.for_operation(op))}
     contract = output_schemas.resolve(skill_candidates.SCHEMA_REF)
     structured = {"name": contract["name"], "schema": contract["schema"]}
@@ -203,6 +208,8 @@ def distill(operation_id, body, principal):
         if isinstance(error, (provider.ProviderCredentialError, provider.EmptyProviderResponse)):
             uncertain = False
         if isinstance(error, ProviderTransportError) and not error.diagnostics["requestStarted"]:
+            uncertain = False
+        if isinstance(error, InvalidProviderResponse) and error.diagnostics.get("stage") in {"response", "tool_calls"}:
             uncertain = False
         if isinstance(error, ProviderHttpError) and 400 <= error.diagnostics["httpStatus"] < 500:
             uncertain = False
