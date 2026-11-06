@@ -22,7 +22,7 @@ DEFAULTS = {
 def options(model):
     try:
         value = json.loads(getattr(model, "generation_options_json", "{}"))
-        if not isinstance(value, dict) or set(value) - set(DEFAULTS): raise ValueError()
+        if not isinstance(value, dict) or set(value) - (set(DEFAULTS) | {"openaiApiMode"}): raise ValueError()
         # Older saves used the database boolean helper and persisted JSON 0/1.
         # Normalize only that stored legacy representation, not request input.
         if type(value.get("includeStreamUsage")) is int and value["includeStreamUsage"] in (0, 1):
@@ -35,8 +35,15 @@ def options(model):
 def validate(value, *, protocol, max_tokens, reasoning_mode):
     if not isinstance(value, dict):
         raise AiError("生成参数必须为对象")
-    fields(value, set(DEFAULTS))
+    fields(value, set(DEFAULTS) | {"openaiApiMode"})
     result = {**DEFAULTS, **value}
+    api_mode = choice(value.get("openaiApiMode", "chat_completions"), ["chat_completions", "responses"], "OpenAI 请求协议")
+    if api_mode == "responses" and protocol != "openai_compatible":
+        raise AiError("Responses 仅适用于 OpenAI 协议")
+    if api_mode == "chat_completions":
+        result.pop("openaiApiMode", None)
+    if api_mode == "responses" and result["reasoningFormat"] not in {"default", "reasoning_effort"}:
+        raise AiError("Responses 推理格式需选择供应商默认或 reasoning_effort")
     result["contextWindowTokens"] = integer(result["contextWindowTokens"], "上下文窗口")
     result["taskTimeoutMs"] = integer(result["taskTimeoutMs"], "任务总时限")
     result["outputTokenParameter"] = choice(result["outputTokenParameter"], ["max_tokens", "max_completion_tokens"], "输出参数格式")

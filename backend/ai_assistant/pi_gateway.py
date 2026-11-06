@@ -203,7 +203,7 @@ def _model(payload, op, principal):
     frame = value.get("frame", {})
     thinking = frame.get("reasoning_content", "") if model.protocol != "anthropic" else "\n".join(
         block.get("thinking", "") for block in frame.get("content", []) if isinstance(block, dict) and block.get("type") == "thinking")
-    if thinking or model.protocol == "anthropic" and any(isinstance(block, dict) and block.get("type") in {"thinking", "redacted_thinking"} for block in frame.get("content", [])):
+    if thinking or frame.get("responses_items") or model.protocol == "anthropic" and any(isinstance(block, dict) and block.get("type") in {"thinking", "redacted_thinking"} for block in frame.get("content", [])):
         content.insert(0, {"type": "thinking", "thinking": thinking, "thinkingSignature": canonical({"version": 1, "protocol": model.protocol,
             "modelConfigId": model.id, "modelVersion": model.version, "frame": frame})})
     return result, value.get("usage", {}), value.get("providerRequestId", "")

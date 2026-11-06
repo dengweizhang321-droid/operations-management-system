@@ -93,6 +93,8 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
         key = decrypt(model.api_key_encrypted)
     except AiError as error:
         raise ProviderCredentialError(str(error), error.code, error.status) from error
+    use_responses = model.protocol == "openai_compatible" and cfg.get("openaiApiMode") == "responses"
+    wire_protocol = "openai_responses" if use_responses else model.protocol
     mode = "json" if on_text is None else "sse"
     def invalid(reason, *, stage="response"):
         return InvalidProviderResponse(reason, stage=stage, protocol=model.protocol, mode=mode)
@@ -103,10 +105,10 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
         try:
             if on_text is None:
                 return bounded_json(url, body, headers, timeout=timeout, maximum=MAX_PROVIDER_BYTES)
-            if model.protocol == "openai_compatible" and cfg["includeStreamUsage"]:
+            if not use_responses and model.protocol == "openai_compatible" and cfg["includeStreamUsage"]:
                 body = {**body, "stream_options": {"include_usage": True}}
             return bounded_sse(url, body, headers, timeout=timeout,
-                               collector=ProviderStream(model.protocol, on_text))
+                               collector=ProviderStream(wire_protocol, on_text))
         except (InvalidProviderResponse, ProviderTransportError) as error:
             error.diagnostics.update(protocol=model.protocol, responseMode=mode)
             raise
@@ -159,30 +161,32 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
                 )
         frame = {"role": "assistant", "content": blocks}
     else:
-        body = {
-            "model": model.model_name,
-            **provider_parameters(model),
-            **extra_params,
-            "messages": [{"role": "system", "content": system}, *transcript],
-        }
-        if tools:
-            body["tools"] = [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": t["name"],
-                        "description": t["description"],
-                        "parameters": t["inputSchema"],
-                    },
-                }
-                for t in tools
-            ]
-        result = request(
-            base + "/chat/completions",
-            body,
-            {"Authorization": "Bearer " + key},
-            timeout=cfg["taskTimeoutMs"] / 1000,
-        )
+        if use_responses:
+            from . import provider_responses
+            body = provider_responses.request_body(model, cfg, transcript, system, tools, extra_params)
+            result = provider_responses.normalize(request(base + "/responses", body,
+                {"Authorization": "Bearer " + key}, timeout=cfg["taskTimeoutMs"] / 1000))
+        else:
+            body = {
+                "model": model.model_name,
+                **provider_parameters(model),
+                **extra_params,
+                "messages": [{"role": "system", "content": system}, *transcript],
+            }
+            if tools:
+                body["tools"] = [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": t["name"],
+                            "description": t["description"],
+                            "parameters": t["inputSchema"],
+                        },
+                    }
+                    for t in tools
+                ]
+            result = request(base + "/chat/completions", body,
+                {"Authorization": "Bearer " + key}, timeout=cfg["taskTimeoutMs"] / 1000)
         choices = result.get("choices")
         if not isinstance(choices, list) or len(choices) != 1 or not isinstance(choices[0], dict):
             raise invalid("choices_shape")
@@ -194,6 +198,8 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
         if message.get("reasoning_content") is not None and not isinstance(message["reasoning_content"], str):
             raise invalid("reasoning_shape")
         frame = {"role": "assistant", "content": message.get("content")}
+        if use_responses and (retain_reasoning or message.get("tool_calls")):
+            frame["responses_items"] = result["responses_items"]
         # Interleaved thinking is part of the provider's tool-turn contract.
         # Keep it only in this request's in-memory transcript, never as a reply.
         if retain_reasoning and isinstance(message.get("reasoning_content"), str):

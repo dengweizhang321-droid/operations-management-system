@@ -5,6 +5,8 @@ export const AI_CHAT_RELAY_TIMEOUT_MS = null;
 export const MAX_AI_REPLY_CHARACTERS = 524288;
 export const MAX_AI_STREAM_BYTES = 32 * 1024 * 1024;
 export type AiGenerationOptions = {
+  openaiApiMode?: "chat_completions" | "responses";
+  structuredOutputSupport?: "none" | "json_schema";
   contextWindowTokens: number; taskTimeoutMs: number;
   outputTokenParameter: "max_tokens" | "max_completion_tokens";
   temperatureMode: "default" | "custom";

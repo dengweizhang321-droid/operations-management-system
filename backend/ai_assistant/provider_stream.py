@@ -46,7 +46,7 @@ class ProviderStream:
             if not data:
                 continue
             if data == "[DONE]":
-                if self.protocol == "anthropic" or self.reason not in {"stop", "length", "tool_calls"}:
+                if self.protocol in {"anthropic", "openai_responses"} or self.reason not in {"stop", "length", "tool_calls"}:
                     raise invalid("sse_terminal_order")
                 self.done = True
                 break
@@ -56,12 +56,34 @@ class ProviderStream:
                 raise invalid("sse_event_json") from error
             if not isinstance(event, dict) or event.get("error"):
                 raise invalid("sse_error_event" if isinstance(event, dict) and event.get("error") else "sse_event_shape")
-            if self.protocol == "anthropic":
+            if self.protocol == "openai_responses":
+                self.responses(event)
+            elif self.protocol == "anthropic":
                 self.anthropic(event)
             else:
                 self.openai(event)
         if len(self.buffer.encode()) > 256 * 1024:
             raise invalid("sse_event_size")
+
+    def responses(self, event):
+        from .provider_responses import normalize
+        kind = event.get("type")
+        if kind in {"response.output_text.delta", "response.refusal.delta"}:
+            delta = event.get("delta")
+            self.text(delta)
+            self.message["content"] += delta
+        elif kind in {"response.completed", "response.incomplete"}:
+            result = event.get("response")
+            if not isinstance(result, dict) or kind != "response." + str(result.get("status")):
+                raise invalid("responses_terminal_shape")
+            final = normalize(result)["choices"][0]["message"]["content"]
+            if self.text_count and self.message["content"] != final:
+                raise invalid("responses_stream_text_mismatch")
+            if not self.text_count:
+                self.text(final)
+            self.result, self.done = result, True
+        elif kind in {"error", "response.failed", "response.cancelled"}:
+            raise invalid("responses_stream_failure")
 
     def openai(self, event):
         if "id" in event:
@@ -177,6 +199,8 @@ class ProviderStream:
         self.decoder.decode(b"", final=True)
         if not self.done:
             raise invalid("sse_incomplete")
+        if self.protocol == "openai_responses":
+            return self.result
         if self.protocol == "anthropic":
             return {**self.result, "content": [self.blocks[k] for k in sorted(self.blocks)], "stop_reason": self.reason}
         if self.calls:

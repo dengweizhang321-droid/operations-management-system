@@ -15,6 +15,7 @@ import { sanitizeAnnotationFailureMessage } from "./annotation-failure";
 export type AnnotationModelConfig = {
   id: string; name: string; protocol: string; model_type: string; model_name: string;
   base_url: string; api_key_encrypted: string; status: string;
+  generation_options_json?: string;
   timeout_ms?: number; max_tokens?: number; reasoning_mode?: string; temperature_milli?: number;
   max_tool_rounds?: number; max_total_tool_calls?: number;
 };
@@ -26,15 +27,17 @@ const VISION_ANNOTATION_OUTPUT_TOKEN_MAX = 600;
 const VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX = 320;
 const VISION_PROBE_IMAGE_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAvSURBVFhH7c6hAQAACMOw/f/08BwAJqKmKmnSz7LHdQAAAAAAAAAAAAAAAAAAAANUDfhqnpuFxwAAAABJRU5ErkJggg==";
 
-type PublicModel = { id: string; name: string; protocol: string; modelName: string };
+type PublicModel = { id: string; name: string; protocol: string; modelName: string; generationOptions?: { openaiApiMode?: string } };
 export async function listAnnotationModels(principal?: AppPrincipal) {
-  return (await aiConsumer<{ items: PublicModel[] }>(principal ?? (await (await import("@/lib/auth/authorization")).requireAppPrincipal()), { operation: "model-list", modelType: "vision" })).items.map(({ id, name, protocol, modelName }) => ({ id, name, protocol, modelName }));
+  return (await aiConsumer<{ items: PublicModel[] }>(principal ?? (await (await import("@/lib/auth/authorization")).requireAppPrincipal()), { operation: "model-list", modelType: "vision" })).items.filter(model => model.generationOptions?.openaiApiMode !== "responses").map(({ id, name, protocol, modelName }) => ({ id, name, protocol, modelName }));
 }
 export async function listPromptTextModels(principal?: AppPrincipal) {
-  return (await aiConsumer<{ items: PublicModel[] }>(principal ?? (await (await import("@/lib/auth/authorization")).requireAppPrincipal()), { operation: "model-list", modelType: "text" })).items.map(({ id, name, protocol, modelName }) => ({ id, name, protocol, modelName }));
+  return (await aiConsumer<{ items: PublicModel[] }>(principal ?? (await (await import("@/lib/auth/authorization")).requireAppPrincipal()), { operation: "model-list", modelType: "text" })).items.filter(model => model.generationOptions?.openaiApiMode !== "responses").map(({ id, name, protocol, modelName }) => ({ id, name, protocol, modelName }));
 }
 async function getModel(id: string, type: "vision" | "text", principal?: AppPrincipal, signal?: AbortSignal) {
-  return (await aiConsumer<{ model: ModelRow }>(principal ?? (await (await import("@/lib/auth/authorization")).requireAppPrincipal()), { operation: "model-runtime", id, modelType: type, allowFallback: false }, { signal })).model;
+  const model = (await aiConsumer<{ model: ModelRow }>(principal ?? (await (await import("@/lib/auth/authorization")).requireAppPrincipal()), { operation: "model-runtime", id, modelType: type, allowFallback: false }, { signal })).model;
+  if (JSON.parse(model.generation_options_json || "{}").openaiApiMode === "responses") throw new Error("市场标注使用独立适配器，请选择支持 Chat Completions 或 Anthropic Messages 的模型。");
+  return model;
 }
 
 export async function probeVisionModelConnection(model: AnnotationModelConfig): Promise<string> {
