@@ -223,7 +223,12 @@ def ingest(op, result):
             if kind == "agent_settled":
                 settled = True
                 service.event(session, "agent_settled", {"status": data.get("status", "settled")}, current)
-            elif kind in {"text_delta", "assistant_message", "user_message"}:
+            elif kind == "assistant_message":
+                from .pi_public_text import record_runner_answer
+                txt = data.get("text", "")
+                if isinstance(txt, str):
+                    record_runner_answer(session, current, txt)
+            elif kind in {"text_delta", "user_message"}:
                 txt = data.get("text", data.get("delta", ""))
                 if isinstance(txt, str):
                     service.event(session, kind, {"text": txt}, current)
@@ -237,7 +242,8 @@ def ingest(op, result):
                     content = message.get("content", [])
                     txt = "\n".join(block["text"] for block in content if isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str)) if isinstance(content, list) else ""
                     if txt:
-                        service.event(session, "assistant_message", {"text": txt}, current)
+                        from .pi_public_text import record_runner_answer
+                        record_runner_answer(session, current, txt)
             elif kind in {"tool_execution_start", "tool_execution_end"}:
                 service.event(session, "tool_start" if kind.endswith("start") else "tool_end", {"name": str(data.get("toolName", ""))[:160]}, current)
             elif kind == "workspace_ui":

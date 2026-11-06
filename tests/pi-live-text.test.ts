@@ -14,6 +14,15 @@ test("Pi replays one public preview, ignores duplicates, and replaces it with th
   assert.equal(piLiveText(events, "op"), "中😀文");
   events.push(event("provider_text_end", { messageId: "r2" }), event("text_delta", { text: "中😀文" }));
   assert.equal(piLiveText(events, "op"), "中😀文");
-  events.push(event("assistant_message", { text: "中😀文" }));
+  events.push(event("assistant_message", { messageId: "r2", text: "中😀文" }));
   assert.equal(piLiveText(events, "op"), "");
+});
+
+test("an earlier runner result never clears the next dispatch preview", () => {
+  const events = [event("provider_text_delta", { messageId: "a", offset: 0, text: "A" }),
+    event("provider_text_end", { messageId: "a" })];
+  assert.equal(piLiveText(events, "op"), "A");
+  events.push(event("provider_text_delta", { messageId: "b", offset: 0, text: "B" }),
+    event("text_delta", { text: "A" }), event("assistant_message", { messageId: "a", text: "A" }));
+  assert.equal(piLiveText(events, "op"), "B");
 });

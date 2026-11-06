@@ -13,13 +13,14 @@ export function piLiveText(events: TextEvent[], operationId?: string): string {
         preview = "";
       }
       if (preview.length === data.offset) preview += data.text;
-    } else if (event.type === "provider_text_end" && messageId === data.messageId) {
-      messageId = undefined;
-      preview = "";
     } else if (event.type === "text_delta" && typeof data.text === "string") {
       runner += data.text;
     } else if (event.type === "assistant_message") {
       runner = "";
+      if (data.messageId === messageId) {
+        messageId = undefined;
+        preview = "";
+      }
     }
   }
   return messageId ? preview : runner;

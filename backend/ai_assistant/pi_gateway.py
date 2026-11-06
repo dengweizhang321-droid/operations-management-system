@@ -159,9 +159,6 @@ def _model(payload, op, principal):
     from . import capability_probes
     from .pi_public_text import PublicText
     from .pi_workspace import effective_model
-    stream = (PublicText(op, payload["requestId"])
-              if op.kind == "prompt" and capability_probes.record(model)["sse"]["status"] == "passed"
-              else None)
     model = effective_model(model, json.loads(op.payload_json).get("thinkingLevel", ""))
     from . import pi_selection
     _, entries = catalog(principal, op)
@@ -169,6 +166,9 @@ def _model(payload, op, principal):
     tools = model_tools(payload, entries)
     from . import pi_native
     state = pi_native.state_for(op.session)
+    stream = (PublicText(op, payload["requestId"])
+              if op.kind == "prompt" and state.root_session_id == op.session_id
+              and capability_probes.record(model)["sse"]["status"] == "passed" else None)
     if state.mode == "plan":
         tools = [item for item in tools if item["name"] not in LOCAL_TOOLS - pi_native.PLAN_LOCAL]
     messages, system = transcript(payload, model)
@@ -199,7 +199,7 @@ def _model(payload, op, principal):
             tool_argument_limits={item["name"]: LOCAL_ARGUMENT_BYTES for item in tools if item["name"] in LOCAL_CODE_TOOLS},
             **({"on_text": stream.append} if stream else {}))
         if stream:
-            stream.flush(finished=True)
+            stream.flush(finished=True, final=value["text"])
     service.principal_for(PiOperation.objects.get(pk=op.pk))
     central = {item["name"] for item in entries}
     content = ([{"type": "text", "text": value["text"]}] if value["text"] else []) + [
