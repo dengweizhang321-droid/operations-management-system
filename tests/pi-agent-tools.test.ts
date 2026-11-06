@@ -14,7 +14,17 @@ test("Pi explicitly admits its reviewed read tools without inheriting legacy age
   validateToolRegistry(aiToolRegistry);
   const names = getToolsForPrincipal(actor, "pi_agent").map(item => item.name);
   for (const name of ["start_pi_dataset_export", "get_pi_dataset_export", "describe_system_datasets", "query_system_dataset", "get_data_freshness", "get_sales_summary", "get_inventory_health", "get_netshop_performance"]) assert.ok(names.includes(name), name);
-  for (const name of ["run_pandas_analysis", "search_personal_memory", "get_customer_service_conversations", "get_workflow_page_data", "get_automation_run_status"]) assert.ok(!names.includes(name), name);
+  // 这四个仍留在旧 agent 面上：Pi 没有评审接通它们，继承即越界。
+  // search_personal_memory 已由 5d2608ce（P0-02）评审后显式接通 pi_agent，
+  // 单店隔离走执行 context 的 singleShop 而非工具参数，边界由
+  // tests/ai-single-shop-edge-gate.test.ts 单独证明，故不再列入排除。
+  for (const name of ["run_pandas_analysis", "get_customer_service_conversations", "get_workflow_page_data", "get_automation_run_status"]) assert.ok(!names.includes(name), name);
+  // 上面的排除清单是手工维护的，只认这四个名字；任何未被它点名的新接通都会静默通过，
+  // 本基线就是这样变红的。补一条完整名册断言做兜底：pi_agent 成员只能经 piReadOnly()
+  // 显式声明（lib/ai/tool-registry.ts:141），新增无关工具不会进入这里，所以这条只会在
+  // 「确有一次 Pi 准入变更」时失败——那正是需要评审的时刻。
+  assert.deepEqual([...names].sort(), ["describe_system_datasets", "get_data_freshness", "get_inventory_health", "get_inventory_page_data", "get_netshop_page_data", "get_netshop_performance", "get_pi_dataset_export", "get_pi_netshop_performance_page", "get_product_performance", "get_sales_category_analysis", "get_sales_summary", "query_system_dataset", "search_personal_memory", "search_system_knowledge", "start_pi_dataset_export"]);
+  assert.equal(new Set(names).size, names.length, "pi_agent 名册不得有重复条目");
   const existing = aiToolRegistry.find(item => item.name === "get_sales_summary")!;
   const future = { ...existing, name: "future_tool", execution: { ...existing.execution, allowedSurfaces: ["ai_agent" as const] } };
   assert.deepEqual(getToolsForPrincipal(actor, "pi_agent", [future]), []);
