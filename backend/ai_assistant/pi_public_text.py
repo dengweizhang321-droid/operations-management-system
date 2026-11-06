@@ -23,7 +23,7 @@ class PublicText:
             self.flush()
 
     def flush(self, *, finished=False, final=""):
-        if not self.pending and not (finished and self.offset):
+        if not self.pending and not finished:
             return
         text = "".join(self.pending)
         try:

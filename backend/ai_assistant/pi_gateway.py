@@ -10,7 +10,7 @@ import json
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from . import configuration, provider, transport
-from .pi_models import PiDispatch, PiGatewayNonce, PiOperation, PiSession
+from .pi_models import PiDispatch, PiEvent, PiGatewayNonce, PiOperation, PiSession
 from . import pi_service as service
 from .policy import AiError, canonical, digest, fields, identifier, mutation, passive, uid
 
@@ -166,9 +166,16 @@ def _model(payload, op, principal):
     tools = model_tools(payload, entries)
     from . import pi_native
     state = pi_native.state_for(op.session)
-    stream = (PublicText(op, payload["requestId"])
-              if op.kind == "prompt" and state.root_session_id == op.session_id
-              and capability_probes.record(model)["sse"]["status"] == "passed" else None)
+    public = None
+    if op.kind == "prompt" and state.root_session_id == op.session_id:
+        # A prompt started on older code might still have an unmarked JSON
+        # answer queued at the Runner. Keep that entire prompt on its old path.
+        first = PiDispatch.objects.filter(operation=op, kind="model").order_by("created_at", "id").first()
+        if first is not None and (first.request_id == payload["requestId"] or
+                PiEvent.objects.filter(operation=op, event_type="provider_text_end",
+                    data_json__contains='"messageId":' + canonical(first.request_id)).exists()):
+            public = PublicText(op, payload["requestId"])
+    stream = public if public and capability_probes.record(model)["sse"]["status"] == "passed" else None
     if state.mode == "plan":
         tools = [item for item in tools if item["name"] not in LOCAL_TOOLS - pi_native.PLAN_LOCAL]
     messages, system = transcript(payload, model)
@@ -198,8 +205,10 @@ def _model(payload, op, principal):
         value = provider.turn(model, messages, system, tools, retain_reasoning=True, preserve_context=True,
             tool_argument_limits={item["name"]: LOCAL_ARGUMENT_BYTES for item in tools if item["name"] in LOCAL_CODE_TOOLS},
             **({"on_text": stream.append} if stream else {}))
-        if stream:
-            stream.flush(finished=True, final=value["text"])
+        if public:
+            # Mark JSON rounds as well: a probe can become valid between two
+            # calls, and identical text alone cannot identify a dispatch.
+            public.flush(finished=True, final=value["text"])
     service.principal_for(PiOperation.objects.get(pk=op.pk))
     central = {item["name"] for item in entries}
     content = ([{"type": "text", "text": value["text"]}] if value["text"] else []) + [

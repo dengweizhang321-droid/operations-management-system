@@ -13,6 +13,22 @@ class PiPublicTextTests(TestCase):
     user = fixtures.SkillCandidateTests.user
     setUp = fixtures.SkillCandidateTests.setUp
 
+    def test_delayed_json_answer_cannot_consume_an_identical_sse_answer(self):
+        session = pi_service.create_session({"clientRequestId": "delayed-json"}, self.owner)["session"]["id"]
+        pi_service.prompt(session, {"clientRequestId": "same-text", "message": "日报"}, self.owner)
+        op = pi_worker.claim()
+        PublicText(op, "first-json").flush(finished=True, final="同文")
+        streamed = PublicText(op, "next-sse")
+        streamed.append("同文")
+        streamed.flush(finished=True, final="同文")
+        with mutation():
+            op.session.refresh_from_db()
+            record_runner_answer(op.session, op, "同文")
+            record_runner_answer(op.session, op, "同文")
+        events = pi_service.events(session, {"after": "0"}, self.owner)["items"]
+        self.assertEqual([item["data"]["messageId"] for item in events if item["type"] == "assistant_message"],
+                         ["first-json", "next-sse"])
+
     def test_chunks_are_bound_to_dispatch_and_cancellation_stops_further_writes(self):
         session = pi_service.create_session({"clientRequestId": "stream-test"}, self.owner)["session"]["id"]
         pi_service.prompt(session, {"clientRequestId": "stream-1", "message": "报告"}, self.owner)
