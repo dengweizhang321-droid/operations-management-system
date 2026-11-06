@@ -1,0 +1,27 @@
+Baseline: 77382b5f
+Branch: codex/fix-sched-bytes2-20261106
+Isolation: 127.0.0.1:55862 / test_teruisi_ai_rehearsal; productionWrites=false
+
+Focused command:
+py -3.12 tools/ai-postgres-rehearsal.py --tests-only --preprovision-ai-runtime-roles --test-label ai_assistant.test_schedule_storage_bounds --test-verbosity 2 --port 55862
+Result: 7 tests, OK (all PostgreSQL CHECKs installed; no skips)
+Full focused log: D:\.codex\worktrees\fix-sched-bytes2-20261106\.runtime\ai-pg-ec79315ca9d1\tests.log
+SHA256: 3CB13F26CD9128F1E89197769C951018C6220EE1A35A8388176C22C05AA01DB8
+
+Broader command:
+py -3.12 tools/ai-postgres-rehearsal.py --tests-only --preprovision-ai-runtime-roles --test-label ai_assistant.test_schedule_storage_bounds --test-label ai_assistant.test_dingtalk_schedules --test-label ai_assistant.test_schedule_monitor --test-label ai_assistant.test_schedule_core --test-verbosity 2 --port 55862
+Result: 80 tests; 79 passed, 1 pre-existing PostgreSQL fixture error.
+Error: test_schedule_core.RecoverInterruptedRunsTests.test_completed_at_is_taken_fresh_per_run_not_hoisted_before_the_loop
+Location: backend/ai_assistant/test_schedule_core.py:113
+Operation: update(scheduled_at=timezone.now() - timedelta(minutes=10))
+Database error: django.db.utils.ProgrammingError: ai_immutable_identity
+The identity trigger rejects changing scheduled_at; that baseline test file is unchanged.
+Full broader log: D:\.codex\worktrees\fix-sched-bytes2-20261106\.runtime\ai-pg-a7c0924b4062\failure.log
+SHA256: A2F6A04B654B98CEDD52CBD64170E3F32E640AC29F21F5104ECB6B541860844F
+
+Arithmetic witnesses: model_snapshot_json <=1878 bytes; stage_details_json <=561 bytes;
+facts_json <=40000*4-118*3+81=159727 bytes; text content <=12000 bytes;
+screenshot prompt/content exactly16000 bytes accepted.
+
+Syntax and whitespace: py -3.12 AST parse + git diff --check passed.
+No runtime code, migration, production operation, push, merge, package or deployment.
