@@ -24,6 +24,22 @@ class RecoveryTests(TestCase):
     runner = fixtures.PiWorkspaceTests.runner
     call = fixtures.PiWorkspaceTests.call
 
+    def test_model_inbox_limits_only_the_current_sessions_eligible_messages(self):
+        op = self.ready()
+        child_id = self.send(op.session_id, "agent_spawn", {"task": "child"}, key="inbox-child")["control"]["result"]["sessionId"]
+        root = PiSession.objects.get(pk=op.session_id)
+        child = PiSession.objects.get(pk=child_id)
+        state = pi_native.state_for(root)
+        with mutation():
+            pi_native._message(state, root, root, "send", "保留给根的指示")
+            for number in range(101):
+                pi_native._message(state, root, child, "send", "子任务-" + str(number))
+        self.assertEqual([row.message for row in pi_native.visible_messages(root, state, root, model_inbox=True)],
+                         ["保留给根的指示"])
+        child_rows = pi_native.visible_messages(child, state, root, model_inbox=True)
+        self.assertEqual(len(child_rows), 50)
+        self.assertEqual(child_rows[-1].message, "子任务-51")
+
     def test_normal_detail_is_bounded_evidence_and_does_not_send_or_write(self):
         op = self.ready()
         before = (PiControl.objects.count(), PiOperation.objects.count(), PiDispatch.objects.count())

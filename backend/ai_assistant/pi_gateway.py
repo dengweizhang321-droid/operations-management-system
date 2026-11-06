@@ -180,8 +180,7 @@ def _model(payload, op, principal):
         tools = [item for item in tools if item["name"] not in LOCAL_TOOLS - pi_native.PLAN_LOCAL]
     messages, system = transcript(payload, model)
     root = service.get_session(state.root_session_id, principal)
-    inbound = [row for row in pi_native.visible_messages(op.session, state, root)
-               if row.to_session_id == op.session_id and row.kind in {"send", "follow_up"}][:50]
+    inbound = pi_native.visible_messages(op.session, state, root, model_inbox=True)
     if inbound:
         selected, used = [], 0
         for row in inbound:

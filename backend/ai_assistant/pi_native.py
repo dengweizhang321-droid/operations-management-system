@@ -262,8 +262,10 @@ def message_session_binding(session, agent=None):
         "rootEpoch": settings.get("rootEpoch"), "rootGeneration": settings.get("rootGeneration")}
 
 
-def visible_messages(session, state, root):
+def visible_messages(session, state, root, *, model_inbox=False):
     """No historical message text without exact creation-time participant proof."""
+    if model_inbox:
+        return _bound_message_rows(session, state, root, target_id=session.id, kinds=["send", "follow_up"], limit=50)
     return _bound_message_rows(session, state, root)
 
 
