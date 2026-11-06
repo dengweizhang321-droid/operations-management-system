@@ -385,6 +385,19 @@ class _SnapshotConnection:
 
 
 class ConsistentBackupTests(unittest.TestCase):
+    def test_ai_snapshot_158_159_inventory_and_unreceipted_task_tables(self):
+        from ai_assistant.table_manifest import AI_TABLES_PRE_UNIFIED_TASKS, UNIFIED_TASK_TABLES
+        old = set(AI_TABLES_PRE_UNIFIED_TASKS)
+        new = old | set(UNIFIED_TASK_TABLES)
+        receipts158 = {"0089_skill_candidates"}
+        receipts159 = receipts158 | {"0090_unified_tasks"}
+        self.assertEqual(MODULE.ai_inventory_for_snapshot(receipts158, old), old)
+        self.assertEqual(MODULE.ai_inventory_for_snapshot(receipts159, new), new)
+        with self.assertRaisesRegex(RuntimeError, "lack this snapshot's migration receipt"):
+            MODULE.ai_inventory_for_snapshot(receipts158, new)
+        with self.assertRaisesRegex(RuntimeError, "do not match this snapshot's migration receipt"):
+            MODULE.ai_inventory_for_snapshot(receipts159, old)
+
     def test_finance_0006_exact_receipt_and_tables_block_formal_archive(self):
         self.assertEqual(MODULE.FINANCE_RAW_WORKBOOK_MIGRATION,
             "0006_raw_workbook_bytes_v2")

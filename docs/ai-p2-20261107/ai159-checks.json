@@ -1,7 +1,7 @@
 {
   "version": "ai-unified-tasks-mandatory-code-checks-v1",
   "status": "code-checked",
-  "checkedAt": "2026-11-06T18:15:08.924577+00:00",
+  "checkedAt": "2026-11-06T18:48:50.445457+00:00",
   "productionTouched": false,
   "functionalValidationPerformed": false,
   "fullBackupOrRestorePerformed": false,
@@ -18,7 +18,7 @@
   "steps": [
     "ai_assistant.0090_unified_tasks"
   ],
-  "codeSha256": "538ad54bf59e244eaa51d63e64e32ca50264ba299c277d53cc9c4fe46d2a7822",
+  "codeSha256": "979ddb75451bcd5ec876d924cb3b37a3be2a7fd31c426519d09abe0f0aa86020",
   "migrationSha256": "4fcc89b07c1e4b735d094c5e4efc27a291cfcc5a37a8b8beddfa03540ffd897c",
   "checks": [
     "migration-closure",
@@ -28,6 +28,10 @@
   ],
   "evidence": {
     "path": "docs/ai-p2-20261107/ai159-execution.json",
-    "sha256": "4a4dd3cad15efd9fecec4c65f9883c8be5d678b6f4a6ed4d07166e15f11e8330"
+    "sha256": "6fa94d5b7c8793fb442a94c644296fd3f3c9064a19c47370aa4fbe50b9279bda"
+  },
+  "structureEvidence": {
+    "path": "docs/ai-p2-20261107/structure-result.json",
+    "sha256": "6bc2d25455322633635565f1ffaf6fceacf729ead0a8732d0a074b0e771cba3b"
   }
 }

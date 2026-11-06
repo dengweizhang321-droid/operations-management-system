@@ -11,13 +11,13 @@
       "declaredChecksExecuted": false,
       "additionKind": "AiUnifiedTasks",
       "codeFileCount": 111,
-      "actualCodeSha256": "538ad54bf59e244eaa51d63e64e32ca50264ba299c277d53cc9c4fe46d2a7822",
+      "actualCodeSha256": "979ddb75451bcd5ec876d924cb3b37a3be2a7fd31c426519d09abe0f0aa86020",
       "actualMigrationSha256": "4fcc89b07c1e4b735d094c5e4efc27a291cfcc5a37a8b8beddfa03540ffd897c",
       "migrationSourceFileCount": 169,
       "migrationScope": "source-inventory-only; no installed-parent comparison",
       "validationMode": "mandatory-code-contract",
-      "actualValidationSha256": "08021bc494ad8c7dcf67e9472f441742c2ec3e50993e626879df072fa487be23",
-      "supplementalSourceFileCount": 13,
+      "actualValidationSha256": "7100d12fcca012cebad199fc6f867ccdfeded5ffcaff9f5f4231e2055526b69f",
+      "supplementalSourceFileCount": 15,
       "supplementalSourceScope": "additional evidence bindings; not gate.code_digest members"
     }
   ]

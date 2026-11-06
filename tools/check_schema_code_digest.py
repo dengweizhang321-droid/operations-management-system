@@ -147,6 +147,8 @@ def check_recipe(root, recipe_name):
                     and len(checks) == len(gate.CHECKS) and set(checks) == gate.CHECKS,
                     "Mandatory proof checks differ")
         if kind in EXECUTION_MATERIAL_KINDS:
+            if kind == "AiUnifiedTasks":
+                gate.verify_structure_evidence(root, proof)
             # These records also bind the new execution material, preventing a
             # proof-only digest edit from retaining an old CHECKS source map.
             # The "Sales ..." message prefixes are kept verbatim: they are the

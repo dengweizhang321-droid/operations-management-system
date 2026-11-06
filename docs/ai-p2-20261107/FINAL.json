@@ -1,6 +1,6 @@
 {
   "status": "development_candidate_ready_for_parent_review",
-  "sourceCommit": "df414b09cd4eb459c2e419d04477524ce0b8b3fa",
+  "sourceCommit": "bee32c95110341832dcedb3d5dcbea9b79c302a3",
   "baseMain": "77382b5fc4ad958e1c22e7d9f8431bffdafdb204",
   "branch": "codex/ai-p2-20261107",
   "schema": {
@@ -21,12 +21,12 @@
     ]
   },
   "codeFileCount": 111,
-  "codeSha256": "538ad54bf59e244eaa51d63e64e32ca50264ba299c277d53cc9c4fe46d2a7822",
-  "recipeSha256": "b477520af71ccf9ccdc9d8a110a5bb454ab520941708cb0fb4769fde3d57959a",
+  "codeSha256": "979ddb75451bcd5ec876d924cb3b37a3be2a7fd31c426519d09abe0f0aa86020",
+  "recipeSha256": "9bfcc89a4987d6e4b666e0f4e83f810ce4ebbc3db977792aebcee7e4e7d26ba0",
   "syntax": {
     "python": {
       "status": "passed",
-      "files": 90
+      "files": 92
     },
     "node": {
       "status": "passed",
@@ -86,7 +86,13 @@
     "new-tables-empty",
     "old-rows-and-ACL-preserved",
     "restricted-writer-zero-reader-grants",
+    "snapshot-backup-inventory158",
+    "snapshot-backup-inventory159",
+    "snapshot-backup-unreceipted0090-tables-rejected",
     "disabled-native-FK-rejected-and-rolled-back",
+    "disabled-FK-ALTER-failure-propagates",
+    "disabled-FK-SET-ROLE-failure-propagates",
+    "unrelated-catalog-error-propagates",
     "committed159-not-replayed"
   ],
   "nativeControllerCasesPerHost": 33,
@@ -101,5 +107,36 @@
   "productionArtifactPrepared": false,
   "controlPackageAdopted": false,
   "productionTaskEnabled": false,
-  "realModelOrDeliveryCalled": false
+  "realModelOrDeliveryCalled": false,
+  "structureEvidence": {
+    "path": "docs/ai-p2-20261107/structure-result.json",
+    "sha256": "6bc2d25455322633635565f1ffaf6fceacf729ead0a8732d0a074b0e771cba3b"
+  },
+  "structureSourceFileCount": 309,
+  "structureSourceFilesSha256": "4b9dd9659e4dbe64a0c14438afe0db5147f1867e5f03ae3e7197bf64d8e55c99",
+  "postgresReceiptGenerations": {
+    "158": {
+      "count": 158,
+      "sha256": "6ed135d72c8cf589ad6428ac24d3dd79440b03495236bb93bdbfb7cdb7fc752e"
+    },
+    "159": {
+      "count": 159,
+      "sha256": "cd98bd6810d65943c7350ed1aecb5313a7d25748ab8db6e98cdf9698fd6bc47a"
+    }
+  },
+  "postgresToolchain": {
+    "django": "5.2.17",
+    "psycopg": "3.3.4",
+    "python": "3.12.10"
+  },
+  "postgresCleanup": {
+    "started": true,
+    "stopped": true,
+    "privateDataRemoved": true,
+    "passwordFileRemoved": true,
+    "childExitZero": true
+  },
+  "structureEvidenceFileGateTests": 4,
+  "backupInventoryTargetedTests": 1,
+  "backupInventoryScope": "real-PG-repeatable-read-AI-directory-and-receipts; no full collector or dump"
 }
