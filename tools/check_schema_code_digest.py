@@ -24,6 +24,8 @@ SPECS = {
     "PiNative": ("pi_native_candidate", (152,), 153, "pi-native-mandatory-code-checks-v1"),
     "SalesPreflightIndex": ("sales_preflight_candidate", (153,), 154,
                             "sales-preflight-index-mandatory-code-checks-v1"),
+    "AiUnifiedTasks": ("ai_unified_tasks_candidate", (158,), 159,
+                           "ai-unified-tasks-mandatory-code-checks-v1"),
     "AiTaskFeedbackCandidates": ("ai_task_feedback_candidates_candidate", (156,), 158,
                            "ai-task-feedback-candidates-mandatory-code-checks-v1"),
     "WorkflowAutomation": ("workflow_automation_candidate", (154,), 156,
@@ -32,7 +34,7 @@ SPECS = {
 # These kinds additionally bind the execution material, so a proof-only digest
 # edit cannot retain an old CHECKS source map. Earlier kinds predate that
 # binding and keep their historical, weaker validation mode.
-EXECUTION_MATERIAL_KINDS = {"SalesPreflightIndex", "WorkflowAutomation", "AiTaskFeedbackCandidates"}
+EXECUTION_MATERIAL_KINDS = {"SalesPreflightIndex", "WorkflowAutomation", "AiTaskFeedbackCandidates", "AiUnifiedTasks"}
 RECIPE_FIELDS = {"version", "additionKind", "fromGeneration", "toGeneration", "steps",
                  "stepFiles", "validation", "validationSha256", "codeSha256"}
 

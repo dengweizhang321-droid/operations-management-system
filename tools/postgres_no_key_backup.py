@@ -78,7 +78,7 @@ def digest(value):
     return hashlib.sha256(canonical(value)).hexdigest()
 
 
-def verify_receipt_generation(cursor, *, jd_permissions=True, ai_task_feedback_permissions=True):
+def verify_receipt_generation(cursor, *, jd_permissions=True, ai_task_feedback_permissions=True, unified_task_permissions=True):
     """Exact closed catalogues and schema, never a row-count admission shortcut."""
     _require_django_app_registry()
     from integration_migration_plan import load_policy, LEGACY_CATALOGUE_SHA256, DELTA_STEP
@@ -117,18 +117,23 @@ def verify_receipt_generation(cursor, *, jd_permissions=True, ai_task_feedback_p
     generation156 = sorted([*generation154, *workflow_automation_steps])
     from ai_task_feedback_candidates_catalog import STEPS as feedback_candidate_steps, verify_tables as verify_feedback_candidate_tables
     generation158 = sorted([*generation156, *feedback_candidate_steps])
-    feedback_candidates_installed = receipts == generation158
+    from ai_unified_tasks_catalog import STEPS as unified_task_steps, verify_tables as verify_unified_task_tables
+    generation159 = sorted([*generation158, *unified_task_steps])
+    unified_tasks_installed = receipts == generation159
+    verify_unified_task_tables(cursor, installed=unified_tasks_installed,
+                              permissions=unified_tasks_installed and unified_task_permissions)
+    feedback_candidates_installed = receipts in (generation158, generation159)
     verify_feedback_candidate_tables(cursor, installed=feedback_candidates_installed,
                                      permissions=feedback_candidates_installed and ai_task_feedback_permissions)
-    workflow_automation_installed = receipts in (generation156, generation158)
-    sales_preflight_installed = receipts in (generation154, generation156, generation158)
+    workflow_automation_installed = receipts in (generation156, generation158, generation159)
+    sales_preflight_installed = receipts in (generation154, generation156, generation158, generation159)
     verify_index(cursor, installed=sales_preflight_installed)
     verify_workflow_automation_tables(cursor, installed=workflow_automation_installed,
                                       permissions=workflow_automation_installed)
-    native_installed = receipts in (generation153, generation154, generation156, generation158)
-    business_installed = receipts in (generation152, generation153, generation154, generation156, generation158)
-    workspace_installed = receipts in (generation151, generation152, generation153, generation154, generation156, generation158)
-    pi_installed = receipts in (generation150, generation151, generation152, generation153, generation154, generation156, generation158)
+    native_installed = receipts in (generation153, generation154, generation156, generation158, generation159)
+    business_installed = receipts in (generation152, generation153, generation154, generation156, generation158, generation159)
+    workspace_installed = receipts in (generation151, generation152, generation153, generation154, generation156, generation158, generation159)
+    pi_installed = receipts in (generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159)
     verify_pi_catalog(cursor, installed=pi_installed, permissions=pi_installed and jd_permissions, workspace=workspace_installed, business=business_installed, native=native_installed)
     if pi_installed:
         verify_workspace_catalog(cursor, installed=workspace_installed, permissions=workspace_installed and jd_permissions, business=business_installed, native=native_installed)
@@ -136,9 +141,9 @@ def verify_receipt_generation(cursor, *, jd_permissions=True, ai_task_feedback_p
         verify_business_catalog(cursor, installed=business_installed, permissions=business_installed and (native_installed or jd_permissions), native=native_installed)
     if business_installed:
         verify_native_catalog(cursor, installed=native_installed, permissions=native_installed and (sales_preflight_installed or jd_permissions))
-    tmall_installed = receipts in (generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158)
+    tmall_installed = receipts in (generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159)
     verify_tmall_catalog(cursor, installed=tmall_installed, permissions=tmall_installed and jd_permissions)
-    monitoring_installed = receipts in (generation148, generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158)
+    monitoring_installed = receipts in (generation148, generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159)
     preferences_installed = receipts == generation147
     jd_installed = receipts == generation146
     if monitoring_installed:
@@ -147,7 +152,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True, ai_task_feedback_p
         verify_preferences_catalog(cursor, permissions=jd_permissions)
     else:
         verify_jd_catalog(cursor, installed=jd_installed, permissions=jd_installed and jd_permissions)
-    schedule_installed = receipts in (generation143, generation146, generation147, generation148, generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158)
+    schedule_installed = receipts in (generation143, generation146, generation147, generation148, generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159)
     # A receipt-free/partial 0083 must never be mistaken for an old backup.
     # This read-only catalogue has no dependency on adoption finalization.
     verify_schedule_catalog(cursor, installed=schedule_installed)
@@ -170,7 +175,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True, ai_task_feedback_p
         from netshop.promotion_presence import verify_cache_catalog
         verify_cache_catalog(cursor)
         return 139
-    if receipts in (parent140, parent142, generation143, generation146, generation147, generation148, generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158):
+    if receipts in (parent140, parent142, generation143, generation146, generation147, generation148, generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159):
         audit_installed = receipts != parent140
         verify_audit_catalog(cursor, installed=audit_installed)
         from netshop.promotion_presence import verify_cache_catalog
@@ -184,7 +189,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True, ai_task_feedback_p
         cursor.execute("SELECT t.tgtype,p.proname,t.tgenabled FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE t.tgrelid=to_regclass('public.finance_erp_targets') AND t.tgname='finance_erp_target_revision_required' AND NOT t.tgisinternal")
         if cursor.fetchall()!=[(30,"finance_source_mark_revision_required","O")]:
             raise RuntimeError("ERP-goal addition revision guard differs")
-        return 158 if feedback_candidates_installed else 156 if workflow_automation_installed else 154 if sales_preflight_installed else 153 if native_installed else 152 if business_installed else 151 if workspace_installed else 150 if pi_installed else 149 if tmall_installed else 148 if monitoring_installed else 147 if preferences_installed else 146 if jd_installed else 143 if schedule_installed else 142 if audit_installed else 140
+        return 159 if unified_tasks_installed else 158 if feedback_candidates_installed else 156 if workflow_automation_installed else 154 if sales_preflight_installed else 153 if native_installed else 152 if business_installed else 151 if workspace_installed else 150 if pi_installed else 149 if tmall_installed else 148 if monitoring_installed else 147 if preferences_installed else 146 if jd_installed else 143 if schedule_installed else 142 if audit_installed else 140
     raise RuntimeError("no-key backup migration catalogue is not a reviewed generation")
 
 

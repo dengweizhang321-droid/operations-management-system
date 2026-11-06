@@ -92,7 +92,7 @@ jobs:
           python -m venv .runtime/schema-digest-ci
           .runtime/schema-digest-ci/bin/python -c "from pathlib import Path; import subprocess, sys; pins = [s.strip() for s in Path('backend/requirements.txt').read_text().splitlines() if s.strip().startswith('psycopg[binary]==')]; assert len(pins) == 1, 'Expected one exact psycopg pin'; subprocess.run([sys.executable, '-m', 'pip', 'install', pins[0]], check=True)"
           .runtime/schema-digest-ci/bin/python -B tests/schema-code-digest-static.py
-          .runtime/schema-digest-ci/bin/python -B tools/check_schema_code_digest.py --recipe config/main-schema-releases/ai-0088-0089.json
+          .runtime/schema-digest-ci/bin/python -B tools/check_schema_code_digest.py --recipe config/main-schema-releases/ai-0090.json
 
       - name: Build (includes type checking)
         # tsconfig.json has strict: true and noEmit: true; `vinext build`

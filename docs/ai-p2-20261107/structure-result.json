@@ -1,0 +1,28 @@
+{
+  "status": "passed",
+  "generations": [
+    158,
+    159
+  ],
+  "checks": [
+    "exact158-parent",
+    "exact159-catalog",
+    "new-tables-empty",
+    "old-rows-and-ACL-preserved",
+    "restricted-writer-zero-reader-grants",
+    "disabled-native-FK-rejected-and-rolled-back",
+    "committed159-not-replayed"
+  ],
+  "productionTouched": false,
+  "fullBackupOrRestorePerformed": false,
+  "port": 55522,
+  "database": "teruisi_ai_unified_tasks_rehearsal",
+  "codeSha256": "8cdcc9e4a9a54afc456b5abc4e25cf0be4dfb832d401b3f1ba8988bf2b8b4eb1",
+  "migrationSha256": "ca09e7bc3674b16119192c975ddef163efbce4b14e2e5d22672ee95324443b83",
+  "cleanup": {
+    "started": true,
+    "stopped": true,
+    "privateDataRemoved": true,
+    "childExitZero": true
+  }
+}

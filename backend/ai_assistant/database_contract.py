@@ -181,8 +181,8 @@ APPEND_ONLY = {
 WRITER_PRIVILEGES = {
     table: ("SELECT", "INSERT", "UPDATE", "DELETE") for table in MODELS
 }
-for model in TASK_MODELS:
-    WRITER_PRIVILEGES[model._meta.db_table] = ("SELECT", "INSERT", "UPDATE")
+for table in ("ai_task_definitions", "ai_task_revisions", "ai_task_grants", "ai_task_runs", "ai_task_incidents"):
+    WRITER_PRIVILEGES[table] = ("SELECT", "INSERT", "UPDATE")
 WRITER_PRIVILEGES["ai_task_revisions"] = ("SELECT", "INSERT")
 for table in APPEND_ONLY:
     WRITER_PRIVILEGES[table] = ("SELECT", "INSERT")
@@ -365,6 +365,8 @@ def provision(connection, reader_password, writer_password):
                 privileges = {table: allowed for table, allowed in privileges.items() if table not in TASK_FEEDBACK_TABLES}
             if not skill_candidate_receipt:
                 privileges = {table: allowed for table, allowed in privileges.items() if table not in SKILL_CANDIDATE_TABLES}
+            if not task_receipt:
+                privileges = {table: allowed for table, allowed in privileges.items() if table not in UNIFIED_TASK_TABLES}
             # Historical isolated upgrade rehearsals provision exact pre-0032
             # schemas with today's code. Only the newly introduced receipt
             # table is conditional; every predecessor grant remains unchanged.

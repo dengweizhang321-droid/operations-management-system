@@ -21,4 +21,13 @@
 - 未创建任何真实任务或授权，未做身份绑定、账号接入、历史任务登记/切 owner、补跑、真实模型调用、外部投递或生产数据写入。
 - 启用首个场景仍需明确：日报/库存/其他；精确店铺、Skill 和模型版本；时间/窗口/漏跑规则；执行账号与投递对象；长期授权有效期和成本边界。微信另需账号形态及 API 许可。
 
-结构发布材料、冻结 catalog、有限 158→159 recipe 与原生发布接线作为小项 2 继续交付；此阶段尚未声明可合并或可发布。
+## 已实现的小项 2：有限 158→159 结构发布适配
+
+- `ai_unified_tasks_{addition,catalog,candidate}.py` 只接受精确 158 代前驱和新 `0090_unified_tasks`，保留祖代 active/baseline/历史 recipe。结构安装只增空表、约束和 guard；不创建任务/授权或回填业务数据。
+- PostgreSQL 17.11 独立集群验证：精确 158→159、五表为空、旧行/ACL 保留、writer 的 SELECT/INSERT/UPDATE（revision 仅 SELECT/INSERT）、reader 零授权、原生 FK trigger 禁用被拒绝、已提交159不重放。7 类检查通过，端口55522，集群已停、password/data 已清理。见 `structure-result.json`。结构结果记录运行当时的宽范围 codeSha，后续控制入口补齐不改已核 DDL/catalog，最终发布绑定以 mandatory checks/recipe 为准。
+- PS5、PS7 各33项原生参数/分支/拒绝与 AST 检查通过；移除新有限分支及四个 CopyApp 成员后，原控制器 token 与基线一致。未执行完整服务冷启动，未更改 stop/start 语义。
+- 发布器显式调用新代 AI ProvisionRoles，失败即停，不 finalize/启动/重放；不触发 Pi Runner 升级。Node 153 项定向检查通过，包含新代两项及所有直接受影响的原编排检查。
+- 原生 Django 源码资格只追加本次候选 SHA，不修改祖代资格、现役控制包或生产签名。固定发布入口、启动完成 gate、备份结构清单、CI recipe 和冻结 OWNER 检查已接线。
+- `tests/ai159-acl-catalog-boundary.py` 87 项静态契约检查、`check_catalog_baselines.py` 通过。最终 mandatory checks 在独立干净冻结树执行，recipe 绑定真实 gate.code_digest，不手填成功。
+
+本包尚未合入 main、推送 main、准备生产制品、采用控制包、部署、迁移生产库或启用任务。后续应用组件范围为 Worker+Django及必要结构迁移。

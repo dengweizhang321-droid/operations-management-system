@@ -8,7 +8,7 @@ import {promisify} from 'node:util';
 import {createHash} from 'node:crypto';
 import {firstMaintenancePredecessor as k,assertFirstMaintenanceContinuation,continueFirstMaintenance,isFirstMaintenancePredecessor,assertMaintenanceControllerGeneration,piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,bWorkerJsonFailureCauseScriptSha256,piNativeCandidateControllerSha256} from '../tools/manual-maintenance-continuation.mjs';
 import {publishPreparedMain} from '../tools/publish-prepared-main.mjs';
-import {aiTaskFeedbackCandidatesDjangoScriptSha256} from '../tools/manual-maintenance-continuation.mjs';
+import {aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256} from '../tools/manual-maintenance-continuation.mjs';
 import {readinessCopyControllerPair} from '../tools/manual-maintenance-continuation.mjs';
 // Execute the actual pure adapter declaration without importing release-impact's
 // TypeScript-dependent deployment analysis into this dependency-free fixture.
@@ -36,7 +36,7 @@ test('reviewed Django controller generations preserve historical exceptions and 
  // than accepted by this static tripwire, so this compares against the
  // registered constant and never recomputes it from the file.
  const source=await fs.readFile(new URL('../tools/django-local-service.ps1',import.meta.url));
- assert.equal(createHash('sha256').update(source).digest('hex'),aiTaskFeedbackCandidatesDjangoScriptSha256);
+ assert.equal(createHash('sha256').update(source).digest('hex'),aiUnifiedTasksDjangoScriptSha256);
  assert.equal(readinessCopyControllerPair.installedSha,workflowAutomationSchemaAdditionDjangoScriptSha256);
  assert.notEqual(workflowAutomationSchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256);
  assert.notEqual(batchedStatusEnumerationDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256);
@@ -58,7 +58,7 @@ test('A项: descendant CreationDate guard candidate is qualified; other names an
  // Both generations stay registered: forward (install old, ship new) and
  // backward (install new, ship old) must both be admissible so a rollback of
  // this change is not blocked by its own qualification entry.
- assert.deepEqual(pins,[piNativeCandidateDjangoScriptSha256,candidate,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256]);
+ assert.deepEqual(pins,[piNativeCandidateDjangoScriptSha256,candidate,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256]);
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}));
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:candidate,expected:piNativeCandidateDjangoScriptSha256,candidateSha:piNativeCandidateDjangoScriptSha256}));
  // An unqualified byte sequence for this controller still fails closed.
@@ -71,7 +71,7 @@ test('Sales154: append exact qualification, retain old generation, and reject fo
  const old=aDescendantCreationGuardDjangoScriptSha256,candidate=sales154SchemaAdditionDjangoScriptSha256;
  assert.equal(old,'4ba1fcaf3cd1568a64098a9d2d32039f850ec2db1da4f81aa97fa3ab9530723a');
  assert.equal(candidate,'98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b');
- assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,old,candidate,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256]);
+ assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,old,candidate,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256]);
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:old,expected:candidate,candidateSha:candidate}));
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:candidate,expected:old,candidateSha:old}));
  const changed=candidate.slice(0,-1)+(candidate.endsWith('0')?'1':'0');
@@ -88,7 +88,7 @@ test('batched status enumeration: append exact qualification, retain Sales154, a
  const old=sales154SchemaAdditionDjangoScriptSha256,candidate=batchedStatusEnumerationDjangoScriptSha256;
  assert.equal(old,'98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b');
  assert.equal(candidate,'fbb62792eb0962cb91b76b0045a08812d29de0dabb0ab9056ac9ce235d76bddb');
- assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,old,candidate,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256]);
+ assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,old,candidate,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256]);
  // Forward adoption (Sales154 installed, ship this) and backward rollback
  // (this installed, ship Sales154) must both be admissible, so reverting this
  // change is never blocked by its own qualification entry.
@@ -113,7 +113,7 @@ test('Workflow156: append exact qualification, retain every older generation, an
  const old=batchedStatusEnumerationDjangoScriptSha256,candidate=workflowAutomationSchemaAdditionDjangoScriptSha256;
  assert.equal(old,'fbb62792eb0962cb91b76b0045a08812d29de0dabb0ab9056ac9ce235d76bddb');
  assert.equal(candidate,'af6b3b4242f0863296f018d3908ce9d9e93a1d8ec89565e299c7dba16e6e279c');
- assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,old,candidate,aiTaskFeedbackCandidatesDjangoScriptSha256]);
+ assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,old,candidate,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256]);
  // Forward adoption (batched-status installed, ship this) and backward
  // rollback (this installed, ship batched-status) must both be admissible, so
  // reverting this change is never blocked by its own qualification entry.
