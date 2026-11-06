@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchBoundedJson } from "@/lib/ai/bounded-fetch";
-import { correspondingMarketBaselineDate, marketPairs, marketSelector, validateMarketPreview, validateParkedCreate,
-  type MarketPair, type MarketPreview, type MarketSource, type MarketView } from "@/lib/ai/business-market-v2-preview";
+import { correspondingMarketBaselineDate, marketPairs, marketSelector, validateMarketPreview, validateParkedCreate, validateMarketSourceQualification,
+  type MarketPair, type MarketPreview, type MarketSource, type MarketView, type MarketSourceQualification } from "@/lib/ai/business-market-v2-preview";
 
 type Report = { id: string; status: string; createdAt: string };
 type DirectoryPage = { schemaVersion: string; runId: string; evidenceVersion: number; catalogDigest: string;
@@ -44,12 +44,18 @@ export default function AiBusinessMarketV2Preview({ principalKey, evidenceRunId,
   const [pending, setPending] = useState<Pending | null>(null), [createdId, setCreatedId] = useState("");
   const [last, setLast] = useState<LastPreview | null>(null);
   const [summary, setSummary] = useState<MarketPreview | null>(null), [page, setPage] = useState<MarketPreview | null>(null);
+  const [storedQualification, setQualification] = useState<{ identity: string; value: MarketSourceQualification } | null>(null);
   const [view, setView] = useState<MarketView>("price_band_summary"), [offset, setOffset] = useState(0);
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
   const op = useRef<AbortController | null>(null);
   const pairs = useMemo(() => marketPairs(sources), [sources]);
   const chosen: MarketPair | undefined = pairs[pairIndex];
   const locked = disabled || busy || !!pending;
+  const qualificationIdentity = JSON.stringify([principalKey, evidenceRunId, evidenceVersion, catalogDigest,
+    sourceReportId, reports.find(report => report.id === sourceReportId), pairIndex, currentDate, baselineDate, boundary]);
+  const qualificationIdentityRef = useRef(qualificationIdentity);
+  qualificationIdentityRef.current = qualificationIdentity;
+  const qualification = storedQualification?.identity === qualificationIdentity ? storedQualification.value : null;
 
   useEffect(() => {
     const ctl = new AbortController();
@@ -59,7 +65,6 @@ export default function AiBusinessMarketV2Preview({ principalKey, evidenceRunId,
     return () => ctl.abort();
   }, []);
   useEffect(() => {
-    if (!enabled) return;
     const ctl = new AbortController(); let active = true;
     setSources([]); setDirectoryError(""); setLoading(true);
     void (async () => {
@@ -88,7 +93,7 @@ export default function AiBusinessMarketV2Preview({ principalKey, evidenceRunId,
       finally { if (active && !ctl.signal.aborted) setLoading(false); }
     })();
     return () => { active = false; ctl.abort(); };
-  }, [enabled, evidenceRunId, evidenceVersion, catalogDigest, sourceCount, retry]);
+  }, [evidenceRunId, evidenceVersion, catalogDigest, sourceCount, retry]);
   useEffect(() => {
     if (!enabled) return;
     try {
@@ -111,6 +116,23 @@ export default function AiBusinessMarketV2Preview({ principalKey, evidenceRunId,
     } catch (caught) { setError(message(caught) + " 请核验会话存储；未重复创建报告。"); }
   }, [enabled, principalKey, evidenceRunId, reports]);
   useEffect(() => () => op.current?.abort(), []);
+  // A selection/identity change invalidates the displayed source observation.
+  useEffect(() => { setQualification(null); }, [qualificationIdentity]);
+
+  async function qualify() {
+    if (!chosen || !sourceReportId || !reports.some(report => report.id === sourceReportId)) return;
+    const requestedIdentity = qualificationIdentity;
+    op.current?.abort(); const ctl = new AbortController(); op.current = ctl;
+    setBusy(true); setError(""); setQualification(null);
+    try {
+      const selector = marketSelector(chosen, currentDate, baselineDate, boundary);
+      const raw = await post<unknown>(`/api/ai/reports/${encodeURIComponent(sourceReportId)}/market-source-qualification`,
+        JSON.stringify({ schemaVersion: "business-market-source-qualification-request-v1", marketSelector: selector }), ctl.signal);
+      if (ctl.signal.aborted || op.current !== ctl || qualificationIdentityRef.current !== requestedIdentity) return;
+      setQualification({ identity: requestedIdentity, value: validateMarketSourceQualification(raw, sourceReportId, selector) });
+    } catch (caught) { if (!ctl.signal.aborted && op.current === ctl && qualificationIdentityRef.current === requestedIdentity) setError(message(caught)); }
+    finally { if (op.current === ctl) { op.current = null; setBusy(false); } }
+  }
 
   async function readPreview(reportId: string, sourceId: string, selected?: MarketView, start = 0) {
     op.current?.abort(); const ctl = new AbortController(); op.current = ctl; setBusy(true); setError("");
@@ -161,9 +183,8 @@ export default function AiBusinessMarketV2Preview({ principalKey, evidenceRunId,
     } catch (caught) { setError(message(caught) + " 未创建报告。"); }
   }
 
-  if (!enabled) return null;
   const visiblePage = page?.page && page.reportId === createdId && page.page.view === view && page.page.offset === offset ? page.page : null;
-  return <section className="bw-card" aria-label="市场样本预览"><h4>市场样本预览</h4>
+  return <section className="bw-card" aria-label="市场来源核验与样本预览"><h4>市场来源核验与样本预览</h4>
     <p role="status">市场样本预览，未生成 Agent 诊断/正式文件。价格带汇总与成员来自同一 TOP 样本，不可相加；市场数据也不能计入本店、ERP 或 B 端销售。</p>
     {loading && <p role="status">正在核验封存市场来源目录…</p>}
     {directoryError && <p role="alert" className="bw-error">{directoryError} <button type="button" onClick={() => setRetry(value => value + 1)}>重读来源目录</button></p>}
@@ -181,7 +202,15 @@ export default function AiBusinessMarketV2Preview({ principalKey, evidenceRunId,
       <label>基期对应观察日<input aria-label="基期对应观察日" type="date" readOnly value={baselineDate} /></label></div>}
       <label>价格两档分界（元）<input aria-label="价格两档分界" type="text" inputMode="decimal" disabled={locked} value={boundary} onChange={event => { setBoundary(event.target.value); setSummary(null); setPage(null); setCreatedId(""); }} /></label>
       <p>基期观察日按本期选中日期和固定环比/同比规则对应；处于比较窗口不代表当天有榜单事实。价格分界只用于本次 TOP 样本分组。</p>
-      <div className="bw-actions"><button type="button" disabled={locked || !chosen || !sourceReportId || !currentDate || !baselineDate} onClick={create}>创建停放报告并读取样本</button></div></>}
+      <div className="bw-actions"><button type="button" disabled={locked || !chosen || !sourceReportId || !currentDate || !baselineDate} onClick={() => void qualify()}>核验来源资格</button>
+        {enabled && <button type="button" disabled={locked || !chosen || !sourceReportId || !currentDate || !baselineDate} onClick={create}>创建停放报告并读取样本</button>}</div></>}
+    {!enabled && <p>停放报告预览未启用；可先核验已有封存报告中的来源与日期覆盖。</p>}
+    {qualification && <section aria-label="市场来源资格结果"><h5>来源资格核验</h5>
+      <p>{qualification.reusableSourceMaterialAvailable ? "本次选择的封存来源已完整重放，三张市场表可作为后续准入的来源材料。" : "本次选择缺少观察日覆盖，请补齐对应来源后重新核验。"}</p>
+      <p>本期：{qualification.observationStatus.current === "observed_date" ? "已覆盖" : "缺覆盖"}；基期：{qualification.observationStatus.baseline === "observed_date" ? "已覆盖" : "缺覆盖"}。</p>
+      {qualification.material && <div className="bw-scroll"><table><thead><tr><th>已核验样本表</th><th>行数</th></tr></thead><tbody>{qualification.material.tables.map(table => <tr key={table.view}><td>{viewNames[table.view]}</td><td>{table.rowCount}</td></tr>)}</tbody></table></div>}
+      <p>正式分析仍待费用授权和逐轮金额预留、新流程准入、同任务已读及精确数值证明；本次核验不会启动模型或创建报告。</p>
+    </section>}
     {pending && <div className="bw-pending"><p>同一次创建请求已保留，结果可能尚未确认。仅重试原请求，不启动 Agent。</p><button type="button" disabled={busy || disabled} onClick={() => void submit(pending)}>重试同一次市场预览创建</button></div>}
     {last && !pending && !summary && <button type="button" disabled={busy || disabled} onClick={() => { setSourceReportId(last.sourceReportId); void readPreview(last.reportId, last.sourceReportId); }}>重读上次停放报告的市场样本</button>}
     {error && <p role="alert" className="bw-error">{error}</p>}

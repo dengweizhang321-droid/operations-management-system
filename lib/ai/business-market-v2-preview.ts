@@ -6,6 +6,13 @@ export type MarketSelector = {
   currentObservationDate: string; baselineObservationDate: string;
   bands: { key: string; lowerCents: number; upperExclusiveCents: number | null }[];
 };
+export type MarketSourceQualification = {
+  sourceReportId: string; reusableSourceMaterialAvailable: boolean;
+  observationStatus: { current: string; baseline: string };
+  material: null | { rowCount: number; pageCount: number; manifestDigest: string;
+    tables: { view: MarketView; rowCount: number }[] };
+  sourceGaps: string[]; remainingRuntimeRequirements: string[];
+};
 export type MarketPreviewColumn = { key: string; label: string; kind: string };
 export type MarketPreviewTable = { view: string; title: string; rowCount: number; columns: MarketPreviewColumn[] };
 export type MarketPreview = {
@@ -25,6 +32,33 @@ export type MarketView = typeof MARKET_V2_VIEWS[number];
 function fail(message = "市场样本预览回执与当前报告或页不一致，请重新读取。"): never { throw new Error(message); }
 function record(value: unknown): value is Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value); }
 function nonnegative(value: unknown): value is number { return Number.isSafeInteger(value) && (value as number) >= 0; }
+export function validateMarketSourceQualification(raw: unknown, reportId: string, selector: MarketSelector): MarketSourceQualification {
+  const selected = record(raw) && record(raw.selector) ? raw.selector : null;
+  if (!record(raw) || raw.schemaVersion !== "business-market-source-qualification-v1"
+    || raw.sourceReportId !== reportId || !record(raw.binding) || raw.binding.reportId !== reportId
+    || raw.sourceProfile !== "business-agent-screening-promotion-reference-v1"
+    || !selected || !Array.isArray(selected.bands) || selected.bands.length !== selector.bands.length
+    || selected.bands.some((band, index) => !record(band) || Object.entries(selector.bands[index]).some(([key, value]) => band[key] !== value))
+    || Object.entries(selector).some(([key, value]) => key !== "bands" && selected[key] !== value)
+    || !record(raw.observationStatus) || !["observed_date", "date_not_covered"].includes(String(raw.observationStatus.current))
+    || !["observed_date", "date_not_covered"].includes(String(raw.observationStatus.baseline))
+    || typeof raw.resultDigest !== "string" || !sha.test(raw.resultDigest)
+    || typeof raw.reusableSourceMaterialAvailable !== "boolean"
+    || !Array.isArray(raw.sourceGaps) || !raw.sourceGaps.every(item => typeof item === "string")
+    || !Array.isArray(raw.remainingRuntimeRequirements) || !raw.remainingRuntimeRequirements.every(item => typeof item === "string")
+    || ["newReportCreated", "providerCallsAllowed", "fundsReserved", "agentReadPersisted", "numericCitationAllowed",
+      "publicationAllowed", "wholeMarketCoverageVerified", "marketAndOwnSalesAdditive"].some(key => raw[key] !== false))
+    fail("市场来源资格回执与当前报告或选择不一致，请重新核验。");
+  if (raw.reusableSourceMaterialAvailable) {
+    const material = raw.material;
+    if (raw.observationStatus.current !== "observed_date" || raw.observationStatus.baseline !== "observed_date"
+      || raw.sourceGaps.length !== 0 || !record(material) || !nonnegative(material.rowCount) || !nonnegative(material.pageCount)
+      || typeof material.manifestDigest !== "string" || !sha.test(material.manifestDigest)
+      || !Array.isArray(material.tables) || material.tables.length !== MARKET_V2_VIEWS.length
+      || material.tables.some((table, index) => !record(table) || table.view !== MARKET_V2_VIEWS[index] || !nonnegative(table.rowCount))) fail();
+  } else if (raw.material !== null || raw.sourceGaps.length === 0) fail();
+  return raw as unknown as MarketSourceQualification;
+}
 function columns(value: unknown): value is MarketPreviewColumn[] {
   return Array.isArray(value) && value.length > 0 && value.length <= 40 && value.every(column => record(column)
     && typeof column.key === "string" && column.key.length > 0 && column.key.length <= 100

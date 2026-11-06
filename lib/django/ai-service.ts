@@ -13,6 +13,7 @@ const INTERNAL_PROMOTION_DISPATCH_PATH = new RegExp(`^/api/ai/promotion-tool-dis
 const INTERNAL_MARKET_V2_CANDIDATE_PATH = new RegExp(`^/api/ai/market-v2-tool-candidate/(${ENTITY})$`);
 const INTERNAL_MARKET_V2_BASE_CANDIDATE_PATH = new RegExp(`^/api/ai/market-v2-base-tool-candidate/(${ENTITY})$`);
 const INTERNAL_MARKET_OBSERVATION_PATH = new RegExp(`^/api/ai/reports/${ENTITY}/market-observation$`);
+const MARKET_SOURCE_QUALIFICATION_PATH = new RegExp(`^/api/ai/reports/${ENTITY}/market-source-qualification$`);
 const HUMAN_CAP_PATH = /^\/api\/ai\/market-v2-cap-approvals\/[0-9a-f]{64}(?:\/(?:preview|outcome|revoke))?$/;
 const INTERNAL_V3_SOURCE_READ_PATH = new RegExp(`^/api/ai/business-v3-source-read/${ENTITY}/(?:directory|pages/${ENTITY})$`);
 
@@ -23,7 +24,7 @@ export async function aiEnvironment(): Promise<Environment> {
 }
 
 const PI_PUBLIC_PATH = new RegExp(`^/api/ai/pi/(?:skills|sessions(?:/${ENTITY}(?:/(?:messages|events|abort|files|workspace|business-actions))?)?|files/${ENTITY}(?:/content)?|skill-candidates(?:/${ENTITY}/(?:review|publish))?|operations/${ENTITY}/(?:evidence|stages|skill-candidates|feedback(?:/${ENTITY}/withdraw)?))$`);
-export function isPublicAiPath(path: string) { return PUBLIC_PATH.test(path) || PI_PUBLIC_PATH.test(path); }
+export function isPublicAiPath(path: string) { return PUBLIC_PATH.test(path) || PI_PUBLIC_PATH.test(path) || MARKET_SOURCE_QUALIFICATION_PATH.test(path); }
 export function isInternalPromotionDispatchPath(path: string) { return INTERNAL_PROMOTION_DISPATCH_PATH.test(path); }
 export function isInternalMarketV2CandidatePath(path: string) { return INTERNAL_MARKET_V2_CANDIDATE_PATH.test(path); }
 export function isInternalMarketV2BaseCandidatePath(path: string) { return INTERNAL_MARKET_V2_BASE_CANDIDATE_PATH.test(path); }
@@ -70,9 +71,13 @@ export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
   const marketV2Candidate = INTERNAL_MARKET_V2_CANDIDATE_PATH.exec(input.path);
   const marketV2BaseCandidate = INTERNAL_MARKET_V2_BASE_CANDIDATE_PATH.exec(input.path);
   const marketObservationRead = isInternalMarketObservationPath(input.path);
+  const marketSourceQualification = MARKET_SOURCE_QUALIFICATION_PATH.test(input.path);
   const humanCap = isHumanCapApprovalPath(input.path);
   const v3SourceRead = isInternalV3SourceReadPath(input.path);
   if (promotionRead && (method !== "GET" || input.service === "writer")) throw new PublicApiError(400, "invalid_request", "推广词货接口仅允许reader GET。");
+  if (marketSourceQualification && (method !== "POST" || input.service !== "reader"
+    || input.query?.toString() || input.payload === undefined))
+    throw new PublicApiError(400, "invalid_request", "市场来源资格仅允许精确reader POST。");
   if (marketObservationRead && (method !== "GET" || input.service !== "reader"
     || input.payload !== undefined || !input.query?.toString() || input.query.toString().length > 600))
     throw new PublicApiError(400, "invalid_request", "市场观察仅允许内部reader精确GET。");
