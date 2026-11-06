@@ -3,10 +3,12 @@ from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 
-from . import skill_candidates, task_feedback, test_skill_candidates as fixtures
+from . import provider, skill_candidates, task_feedback, test_skill_candidates as fixtures
 from .pi_models import PiDispatch
 from .pi_service import event
 from .policy import AiError, canonical, mutation
+
+REAL_PROVIDER_TURN = provider.turn
 
 
 @override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
@@ -81,6 +83,16 @@ class DistillationTests(TestCase):
         self.assertEqual(self.submit("another").status_code, 409)
         self.turn.assert_called_once()
         self.assertEqual(PiDispatch.objects.get(kind="skill_distillation").status, "unknown")
+
+    def test_local_credential_failure_allows_a_fresh_attempt_without_double_send(self):
+        self.turn.side_effect = REAL_PROVIDER_TURN
+        with patch("ai_assistant.provider.bounded_json") as network:
+            response = self.submit()
+            self.assertEqual(response.status_code, 503, response.content)
+            network.assert_not_called()
+        self.assertEqual(PiDispatch.objects.get(kind="skill_distillation").status, "completed")
+        self.turn.side_effect = None
+        self.assertEqual(self.submit("after-credential-fix").status_code, 201)
 
     def test_foreign_owner_and_stale_report_cannot_start_paid_turn(self):
         self.assertEqual(self.submit(principal=self.other).status_code, 404)

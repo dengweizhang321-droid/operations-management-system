@@ -34,6 +34,10 @@ def conversation_session(identity):
         _conversation_session.reset(token)
 
 
+class ProviderCredentialError(AiError):
+    """Local credential resolution failed before any provider request."""
+
+
 class EmptyProviderResponse(AiError):
     """A fully received, valid response with no public answer or tool call."""
 
@@ -85,7 +89,10 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
     else:
         transcript, context_info = fit_context(model, transcript, system, tools)
     base = endpoint(model.base_url)
-    key = decrypt(model.api_key_encrypted)
+    try:
+        key = decrypt(model.api_key_encrypted)
+    except AiError as error:
+        raise ProviderCredentialError(str(error), error.code, error.status) from error
     mode = "json" if on_text is None else "sse"
     def invalid(reason, *, stage="response"):
         return InvalidProviderResponse(reason, stage=stage, protocol=model.protocol, mode=mode)
