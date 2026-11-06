@@ -40,6 +40,10 @@
 
 ## AI助手
 
+施工方案：[AI 助理任务、Skill 与自动工作流施工方案](../ai-assistant-capability-plan-20261028/PLAN.md) · [方案审查与交付记录](../ai-assistant-capability-plan-20261028/REVIEW.md)（v2方案文档，未实施）。
+
+统一施工入口：[AI 助理统一施工方案 v3.1](../ai-assistant-unified-plan-20261029/PLAN.md) · [审查与交付记录](../ai-assistant-unified-plan-20261029/REVIEW.md)（进度见方案正文）。
+
 本轮补充：[Chat/Pi统一界面、能力接线与真实验收](../pi-unified-chat-20261020/REPORT.md)（未合并；真实投递验收按停止指令中止）。
 
 本轮补充：[PiAgent三期功能验证与修复（未合并）](../piagent-phase3-verification-20261020/REPORT.md)。
