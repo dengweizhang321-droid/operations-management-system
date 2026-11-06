@@ -57,7 +57,9 @@ test("Pi skill-candidate neighbours one segment off are refused", async () => {
 
 test("Pi skill-candidate route files expose only the method Django serves", async () => {
   const routes = {
-    "operations/[id]/skill-candidates": ["POST"],
+    // GET and POST share one path: Django branches on the method at
+    // pi_views.py:82 (schema read) and :95 (create).
+    "operations/[id]/skill-candidates": ["GET", "POST"],
     "skill-candidates": ["GET"],
     "skill-candidates/[id]/review": ["POST"],
     "skill-candidates/[id]/publish": ["POST"],
@@ -112,4 +114,46 @@ test("Pi skill-candidate writes keep same-origin enforcement and forward their b
   // analyst who proposed the candidate.
   const route = await readFile("lib/ai/django-route.ts", "utf8");
   assert.doesNotMatch(route, /skill-candidates/);
+});
+
+test("the skill-candidate schema read is reachable as a GET on the create path", async () => {
+  // The read half of distillation (pi_views.py:82). It shares its path with
+  // the create POST, so PI_PUBLIC_PATH already admits it -- the regex is
+  // method-blind. What was missing, and what this pins, is the Next route
+  // file exporting GET at all: without that export the path resolves to a
+  // route with no GET handler and the caller gets 405 from the framework,
+  // never reaching Django's branch.
+  const path = "/api/ai/pi/operations/op_1/skill-candidates";
+  assert.equal(isPublicAiPath(path), true);
+  const route = await readFile("app/api/ai/pi/operations/[id]/skill-candidates/route.ts", "utf8");
+  assert.match(route, /export const GET = forwardAiRequest/);
+
+  // A GET on this path goes to the writer, like every other Pi path.
+  let endpoint = "";
+  await requestDjangoAi(principal, { path, method: "GET" }, { environment, fetchImpl: async (url) => { endpoint = String(url); return Response.json({}, { headers: { "x-ai-revision": "1" } }); } });
+  assert.equal(new URL(endpoint).port, "18112");
+
+  // Through the thin route: a read needs no non-viewer role (django-route.ts:15)
+  // and no same-origin header (:14), and it forwards no payload. Ownership is
+  // Django's to enforce, not the Worker's.
+  const bundle = await build({ entryPoints: ["lib/ai/django-route.ts"], bundle: true, write: false, platform: "node", format: "esm", plugins: [{ name: "schema-read-boundaries", setup(builder) {
+    builder.onResolve({ filter: /^@\/lib\/(?:auth\/authorization|django\/(?:ai-service|ai-stream))$/ }, args => ({ path: args.path, namespace: "fixture" }));
+    builder.onLoad({ filter: /.*/, namespace: "fixture" }, args => ({ loader: "js", contents: args.path.includes("authorization") ? `
+      export const requireAppPrincipal = async (roles) => {globalThis.__schemaRoles=roles;return {role:'analyst',scope:null}};
+      export const requireUnrestrictedDataScope = () => {};
+      export const authorizationErrorResponse = () => null;`
+      : args.path.includes("ai-stream") ? `export const requestDjangoAiStream = () => {throw Error('no SSE')}`
+      : `export const isPublicAiPath = () => true;
+      export const requestDjangoAi = async (_,input) => {globalThis.__schemaInput=input;return {status:200,revision:'1',data:{outputSchemaRef:'skill-candidate-v1'}}};` }));
+  } }] });
+  const { forwardAiRequest } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`);
+  (globalThis as unknown as { __schemaRoles?: string[] }).__schemaRoles = undefined;
+  const read = await forwardAiRequest(new Request(`https://fixture.invalid${path}`));
+  assert.equal(read.status, 200);
+  assert.equal((await read.json()).outputSchemaRef, "skill-candidate-v1");
+  const sent = (globalThis as unknown as { __schemaInput: { path: string; method: string; payload?: unknown } }).__schemaInput;
+  assert.equal(sent.path, path);
+  assert.equal(sent.method, "GET");
+  assert.equal(sent.payload, undefined);
+  assert.equal((globalThis as unknown as { __schemaRoles?: string[] }).__schemaRoles, undefined);
 });
