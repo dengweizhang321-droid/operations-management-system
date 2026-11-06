@@ -18,6 +18,26 @@ SYSTEM = ("将已结束任务的报告、来源和用户确认修正提炼为可
           "不要将本次的个人信息、具体经营数值或本店结论写成通用规则。")
 
 
+def snapshot(operation_id, principal, request_id=None):
+    """Bounded, read-only receipts; never infer completion from HTTP errors."""
+    op = _operation(operation_id, principal)
+    rows = PiDispatch.objects.filter(operation=op, kind=KIND)
+
+    def receipt(row):
+        if row is None:
+            return None
+        return {"clientRequestId": row.request_id, "status": row.status,
+                "errorCode": row.error_code or None}
+
+    requested = (rows.filter(request_id=identifier(request_id, "distillationRequestId")).first()
+                 if request_id is not None else None)
+    candidate = models.AiSkillCandidate.objects.filter(operation=op).order_by("-created_at", "id").first()
+    return {"blocked": rows.filter(status__in=("prepared", "sent", "unknown")).exists(),
+            "latest": receipt(rows.order_by("-created_at", "id").first()),
+            "requested": receipt(requested),
+            "candidate": skill_candidates.record(candidate) if candidate else None}
+
+
 def _operation(operation_id, principal):
     op = PiOperation.objects.select_related("session").filter(id=identifier(operation_id)).first()
     if (op is None or op.session.owner_email.lower() != principal.email.lower()

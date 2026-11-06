@@ -6,13 +6,16 @@ from django.test import TestCase, override_settings
 from . import provider, skill_candidates, task_feedback, test_skill_candidates as fixtures
 from .pi_models import PiDispatch
 from .pi_service import event
-from .policy import AiError, canonical, mutation
+from .policy import AiError, canonical, mutation, revision
+from . import test_skill_candidate_schema_route as schema_fixtures
 
 REAL_PROVIDER_TURN = provider.turn
 
 
 @override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
 class DistillationTests(TestCase):
+    path = schema_fixtures.SkillCandidateSchemaRouteTests.path
+    get = schema_fixtures.SkillCandidateSchemaRouteTests.get
     user = fixtures.SkillCandidateTests.user
     call = fixtures.SkillCandidateTests.call
     settled = fixtures.SkillCandidateTests.settled
@@ -98,3 +101,37 @@ class DistillationTests(TestCase):
         self.assertEqual(self.submit(principal=self.other).status_code, 404)
         self.assertEqual(self.submit(version="a" * 64).status_code, 409)
         self.turn.assert_not_called()
+
+    def test_optional_receipts_preserve_legacy_read_and_bound_recovery(self):
+        path = f"/api/ai/pi/operations/{self.op.id}/skill-candidates"
+        legacy = self.call(path, principal=self.owner, method="GET")
+        self.assertEqual(legacy.status_code, 200, legacy.content)
+        self.assertNotIn("distillation", legacy.json())
+        self.assertEqual(self.submit().status_code, 201)
+        before = int(revision())
+        result = self.get(self.op.id, query="?includeDistillations=1&distillationRequestId=request1")
+        self.assertEqual(result.status_code, 200, result.content)
+        self.assertEqual(int(revision()), before)
+        state = result.json()["distillation"]
+        self.assertFalse(state["blocked"])
+        self.assertEqual(state["requested"], {"clientRequestId": "request1", "status": "completed", "errorCode": None})
+        self.assertEqual(state["candidate"]["status"], "draft")
+        self.assertEqual(self.get(self.op.id, self.other, query="?includeDistillations=1").status_code, 404)
+        self.assertEqual(self.get(self.op.id, query="?includeDistillations=0").status_code, 400)
+        self.assertEqual(self.get(self.op.id, query="?distillationRequestId=request1").status_code, 400)
+        self.turn.assert_called_once()
+
+    def test_receipts_distinguish_unknown_from_known_terminal_failure(self):
+        query = "?includeDistillations=1&distillationRequestId=request1"
+        self.turn.side_effect = provider.ProviderCredentialError("local failure", "service_unavailable", 503)
+        self.assertEqual(self.submit().status_code, 503)
+        state = self.get(self.op.id, query=query).json()["distillation"]
+        self.assertFalse(state["blocked"])
+        self.assertEqual(state["requested"]["status"], "completed")
+        self.assertEqual(state["requested"]["errorCode"], "service_unavailable")
+        self.turn.side_effect = AiError("unknown send", "provider_timeout", 503)
+        self.assertEqual(self.submit("second").status_code, 503)
+        state = self.get(self.op.id, query=query).json()["distillation"]
+        self.assertTrue(state["blocked"])
+        self.assertEqual(state["latest"]["status"], "unknown")
+        self.assertIsNone(state["candidate"])

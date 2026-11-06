@@ -92,8 +92,14 @@ def dispatch(request, path, principal):
             return response(distill(parts[2], payload, principal), 201)
         if name == "skill-candidates" and request.method == "GET" and len(parts) == 4:
             from . import skill_candidates
-            fields(params, set())
-            return response(skill_candidates.request_schema(parts[2], principal))
+            fields(params, {"includeDistillations", "distillationRequestId"})
+            if params and params.get("includeDistillations") != "1":
+                raise AiError("提炼回执查询参数无效")
+            result = skill_candidates.request_schema(parts[2], principal)
+            if params.get("includeDistillations") == "1":
+                from .skill_distillation import snapshot
+                result["distillation"] = snapshot(parts[2], principal, params.get("distillationRequestId"))
+            return response(result)
         if name == "skill-candidates" and request.method == "POST" and len(parts) == 4:
             from . import pi_gateway, skill_candidates
             from .pi_models import PiOperation
