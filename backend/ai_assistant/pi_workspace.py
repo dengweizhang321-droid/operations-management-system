@@ -549,11 +549,11 @@ def control(session_id, body, principal):
             raise AiError("原下载活动尚未确认结束，请观察原回执", "pi_activity_unknown", 409)
         if PiControl.objects.filter(session=session, generation=session.generation, status__in=["sent", "unknown"]).exists() and command != "pause":
             raise AiError("原控制效果尚未确认，请观察原回执", "pi_control_unknown", 409)
-        exclusive = {"dependency_install", "upgrade", "reset", "session_new", "session_switch", "session_fork", "session_clone"}
+        exclusive = {"dependency_install", "upgrade", "reset", "model_set", "session_new", "session_switch", "session_fork", "session_clone"}
         if command not in READ_COMMANDS and PiControl.objects.filter(session=session, generation=session.generation,
                 command__in=exclusive, status__in=["prepared", "queued", "sent", "accepted", "unknown"]).exists():
             raise AiError("环境变更尚未确定完成，禁止新增写入或终端输入", "pi_control_active", 409)
-        compatible = READ_COMMANDS | {"steer", "follow_up", "clear_queue", "abort_bash", "ui_response", "terminal_create", "terminal_input", "terminal_resize", "terminal_close", "model_set", "thinking_set", "skills_reload"}
+        compatible = READ_COMMANDS | {"steer", "follow_up", "clear_queue", "abort_bash", "ui_response", "terminal_create", "terminal_input", "terminal_resize", "terminal_close", "thinking_set", "skills_reload"}
         if command not in compatible and PiControl.objects.filter(session=session, generation=session.generation,
                 status__in=["prepared", "queued", "accepted"]).exists():
             raise AiError("原工作区控制尚未完成，请观察原回执", "pi_control_active", 409)
@@ -593,6 +593,16 @@ def control(session_id, body, principal):
                 raise AiError("环境升级需要已登记的新镜像与兼容性计划", "pi_upgrade_plan_required", 409)
         workspace.control_seq += 1
         workspace.updated_at = timezone.now(); workspace.save(update_fields=["control_seq", "updated_at"])
+        # `active` is the routing switch between model_set's two mechanisms:
+        # while active, model_set stays a lightweight control (below) that the
+        # Pi runner queues as pendingModel and applies at its own safe point
+        # (pi_runner/workspace.py:558-585); only when genuinely idle does it
+        # fall through to a full _create_environment rebuild via needs_init.
+        # model_set is in `exclusive`, not `compatible`, specifically so a
+        # sibling control left accepted while NOT active (e.g. bash) blocks
+        # model_set earlier, before this clause can race a rebuild against
+        # that still-live container. See
+        # test_model_set_with_bash_in_flight_rejects_cleanly_and_session_stays_usable.
         needs_init = not active and (not operation or workspace.status == "uninitialized" or command == "model_set")
         research = command in {"research_search", "research_read"}
         row = PiControl.objects.create(id=uid("pi-control"), session=session, operation=None if command == "compact" or needs_init and not research else operation, client_request_id=key,
