@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import timedelta
 from unittest.mock import patch
 from urllib.parse import quote
 
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
 from sales.tests.factories import TEST_SECRET, signed_headers
 from workflow.models import (
@@ -14,6 +16,15 @@ from workflow.models import (
     WorkflowOperationsWriteAuthority,
     WorkflowWriteAuthority,
 )
+
+
+# serialize_project() derives "overdue" from stages still open past
+# timezone.localdate(). A fixed launch date silently turns every seeded stage
+# overdue once it passes, which makes the overdue filter return every project
+# and hides whether filtering really precedes pagination. Keep the fixture
+# anchored ahead of today so seeded stages stay on time.
+TARGET_LAUNCH_DATE = timezone.localdate() + timedelta(days=30)
+PROPOSED_DATE = TARGET_LAUNCH_DATE - timedelta(days=14)
 
 
 def body_bytes(payload: dict[str, object]) -> bytes:
@@ -31,9 +42,9 @@ def project_payload() -> dict[str, object]:
         "spuCode": "SPU-NEW-001",
         "productImageUrl": "https://example.test/product.jpg",
         "proposedBy": "商品经理",
-        "proposedDate": "2026-09-02",
+        "proposedDate": PROPOSED_DATE.isoformat(),
         "owner": "新品负责人",
-        "targetLaunchDate": "2026-09-16",
+        "targetLaunchDate": TARGET_LAUNCH_DATE.isoformat(),
         "lifecycleStatus": "active",
         "priority": "high",
         "recommendedPriceCents": 399_900,
@@ -218,7 +229,7 @@ class WorkflowApiContractTests(TestCase):
             [stage["stageKey"] for stage in item["stages"]],
             ["modeling", "pricing", "image", "video", "listing", "stocking", "review"],
         )
-        self.assertEqual(item["stages"][-1]["plannedDueDate"], "2026-09-23")
+        self.assertEqual(item["stages"][-1]["plannedDueDate"], (TARGET_LAUNCH_DATE + timedelta(days=7)).isoformat())
         self.assertTrue(created["X-Workflow-Data-Revision"].startswith("1:"))
 
         url = (
@@ -347,7 +358,8 @@ class WorkflowApiContractTests(TestCase):
         self.assertEqual(forbidden.status_code, 403)
 
         bad_date = project_payload()
-        bad_date["targetLaunchDate"] = "2026-09-01"
+        # Launch before the proposal date stays rejected whatever today is.
+        bad_date["targetLaunchDate"] = (PROPOSED_DATE - timedelta(days=1)).isoformat()
         invalid = self.request_json(
             "POST", "/api/workflow/launch-projects", bad_date, "workflow-bad-date"
         )

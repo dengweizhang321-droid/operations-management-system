@@ -31,7 +31,7 @@ class JdCustomerServiceCloseAuthorityTests(TestCase):
         first = self.authorize(request_id)
         self.assertEqual(first.status_code, 200, first.content)
         self.assertEqual(first.json()["authorizationId"], request_id)
-        self.assertEqual(first.json()["version"], "jd-customer-service-operator-close-authority-v1")
+        self.assertEqual(first.json()["version"], "jd-customer-service-operator-reconcile-authority-v2")
         self.assertEqual(self.authorize(request_id).json(), first.json())
         changed = {**VALID_TARGET, "originalExecutionId": "7266"}
         self.assertEqual(self.authorize(request_id, {"action": "close", "target": changed}).status_code, 409)
@@ -101,8 +101,11 @@ class JdCustomerServiceCloseAuthorityTests(TestCase):
                 self.assertEqual(self.authorize(str(uuid.uuid4()), {"action": "close", "target": invalid}).status_code, 400)
         self.assertEqual(self.authorize(str(uuid.uuid4()), {"action": "retry", "target": VALID_TARGET}).status_code, 400)
 
-    def test_close_request_id_must_be_a_uuid_when_present(self):
-        payload = {"action": "close", "target": VALID_TARGET, "closeRequestId": "not-a-uuid"}
-        self.assertEqual(self.authorize(str(uuid.uuid4()), payload).status_code, 400)
-        payload = {"action": "close", "target": VALID_TARGET, "closeRequestId": str(uuid.uuid4())}
-        self.assertEqual(self.authorize(str(uuid.uuid4()), payload).status_code, 200)
+    def test_close_request_id_is_not_an_accepted_key_whatever_its_shape(self):
+        # The reconcile authority binds exactly {action, target}; the half-closed
+        # continuation key belongs to the jackyun close authority, not this one.
+        # A well-formed UUID must not buy acceptance of an unaccepted key.
+        for value in ("not-a-uuid", str(uuid.uuid4())):
+            with self.subTest(closeRequestId=value):
+                payload = {"action": "close", "target": VALID_TARGET, "closeRequestId": value}
+                self.assertEqual(self.authorize(str(uuid.uuid4()), payload).status_code, 400)

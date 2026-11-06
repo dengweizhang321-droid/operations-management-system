@@ -70,6 +70,17 @@ class ImportChainStatusTests(SimpleTestCase):
     def read(self):
         return read_today_status(now=self.now)
 
+    def assertCompletedAt(self, item, expected_utc):
+        # summarize_workflow() projects host-local offsets via .astimezone(),
+        # which reads the machine zone and ignores settings.TIME_ZONE. Assert
+        # the instant plus the explicit-offset property, so the contract holds
+        # on a server that is not in UTC+8 instead of pinning "+08:00".
+        expected = datetime.fromisoformat(expected_utc)
+        actual = datetime.fromisoformat(item["completedAt"])
+        self.assertEqual(actual, expected)
+        self.assertEqual(actual.utcoffset(), expected.astimezone().utcoffset())
+        self.assertEqual(item["completedAt"], expected.astimezone().isoformat())
+
     def test_clean_native_child_resolves_persisted_config_through_settings_and_reads_metadata(self):
         self.add()
         # A real new Python process has no inherited application configuration.
@@ -97,7 +108,17 @@ print(json.dumps({'source': result['source'], 'completed': result['items'][0]['c
         self.assertEqual(json.loads(result.stdout), {"source": "n8n_execution_metadata", "completed": True})
 
     def test_inventory_manual_completion_requires_all_stages_and_successful_release(self):
-        workflows = ("JdLogisticsDaily2026", "TmallWarehouseDaily2026")
+        # The shared-helper chains are whichever catalog entries carry the
+        # acquire/release pair, not a hand-copied name list: a chain that gains
+        # or loses the helper must be covered here without editing this test.
+        catalog = json.loads(CATALOG.read_text(encoding="utf8"))["manualCompletion"]
+        workflows = tuple(key for key, contract in catalog.items()
+                          if {"领取共享 helper", "成功后释放 helper"} <= {node["name"] for node in contract})
+        self.assertTrue(workflows)
+        for workflow in workflows:
+            # A released helper is worthless without the ownership gate that
+            # proves this run, and not a rival run, held it.
+            self.assertIn("已领取执行所有权？", [node["name"] for node in catalog[workflow]])
         for workflow in workflows:
             with self.subTest(workflow=workflow):
                 self.manual(workflow=workflow)
@@ -114,7 +135,7 @@ print(json.dumps({'source': result['source'], 'completed': result['items'][0]['c
                 lambda r, d: r["startData"].update(destinationNode="成功后释放 helper"),
                 lambda r, d: r["resultData"]["runData"].pop(next(n["name"] for n in d["nodes"] if n["name"].startswith("C·"))),
             ]
-            if workflow == workflows[0]:
+            if any(node["name"].startswith("D·") for node in catalog[workflow]):
                 mutations.append(lambda r, d: r["resultData"]["runData"].pop(next(n["name"] for n in d["nodes"] if n["name"].startswith("D·"))))
             for mutate in mutations:
                 self.manual(workflow=workflow, mutate=mutate)
@@ -237,7 +258,7 @@ print(json.dumps({'source': result['source'], 'completed': result['items'][0]['c
         item = self.read()["items"][0]
         self.assertFalse(item["active"])
         self.assertTrue(item["completedToday"])
-        self.assertEqual(item["completedAt"], "2026-09-10T01:00:00.123000+00:00")
+        self.assertCompletedAt(item, "2026-09-10T01:00:00.123000+00:00")
         self.assertEqual(item["completedMode"], "trigger")
 
     def test_webhook_completion_is_identified_as_automatic_retry(self):
@@ -246,7 +267,7 @@ print(json.dumps({'source': result['source'], 'completed': result['items'][0]['c
         item = self.read()["items"][0]
         self.assertEqual(item["state"], "completed")
         self.assertTrue(item["completedToday"])
-        self.assertEqual(item["completedAt"], "2026-09-10T01:07:00+00:00")
+        self.assertCompletedAt(item, "2026-09-10T01:07:00+00:00")
         self.assertEqual(item["completedMode"], "webhook")
         self.assertEqual(item["executionMode"], "webhook")
 
