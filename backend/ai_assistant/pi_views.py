@@ -87,6 +87,9 @@ def dispatch(request, path, principal):
         # request_schema() (via pi_sources.evidence -> _owned), the same way
         # the evidence branch above relies on it, so there is no second
         # lookup here to fall out of step with it.
+        if parts[3:] == ["skill-candidates", "distill"] and request.method == "POST":
+            from .skill_distillation import distill
+            return response(distill(parts[2], payload, principal), 201)
         if name == "skill-candidates" and request.method == "GET" and len(parts) == 4:
             from . import skill_candidates
             fields(params, set())

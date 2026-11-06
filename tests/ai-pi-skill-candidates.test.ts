@@ -12,6 +12,7 @@ const environment = { TERUISI_DJANGO_INTERNAL_SECRET: "Isolated-candidate-hmac-s
 // path and review/publish are 4-segment siblings of it.
 const candidatePaths = [
   "operations/op_1/skill-candidates",
+  "operations/op_1/skill-candidates/distill",
   "skill-candidates",
   "skill-candidates/c_1/review",
   "skill-candidates/c_1/publish",
@@ -60,6 +61,7 @@ test("Pi skill-candidate route files expose only the method Django serves", asyn
     // GET and POST share one path: Django branches on the method at
     // pi_views.py:90 (schema read) and :94 (create).
     "operations/[id]/skill-candidates": ["GET", "POST"],
+    "operations/[id]/skill-candidates/distill": ["POST"],
     "skill-candidates": ["GET"],
     "skill-candidates/[id]/review": ["POST"],
     "skill-candidates/[id]/publish": ["POST"],
@@ -91,6 +93,7 @@ test("Pi skill-candidate writes keep same-origin enforcement and forward their b
   // there is no second Worker-side key allowlist to fall out of step with it.
   const bodies: Array<[string, Record<string, unknown>]> = [
     ["operations/op_1/skill-candidates", { content: { goal: "g" }, schemaRef: "skill-candidate-v1", schemaDigest: "a".repeat(64) }],
+    ["operations/op_1/skill-candidates/distill", { clientRequestId: "request-1", reportVersionDigest: "a".repeat(64) }],
     ["skill-candidates/c_1/review", { status: "approved", expectedVersion: 1, contentDigest: "b".repeat(64), note: "可以" }],
     ["skill-candidates/c_1/publish", { domains: ["netshop"], keywords: ["京东"], expectedLibraryVersion: 3 }],
   ];
