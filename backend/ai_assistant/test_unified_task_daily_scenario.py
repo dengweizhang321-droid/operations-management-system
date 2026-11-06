@@ -127,6 +127,12 @@ class SyntheticDailyReportScenario(TestCase):
             op_id = pi_service.prompt(session["id"], request, actor)["operation"]["id"]
             operation = PiOperation.objects.select_related("session").get(pk=op_id)
             dispatch.check_operation_binding(run, operation)
+            from copy import copy
+            foreign_branch = copy(operation)
+            foreign_branch.payload_json = canonical({**json.loads(operation.payload_json),
+                "nativeBranchBinding": {"nativeSessionId": "other-branch", "historyControlSeq": 1}})
+            with self.assertRaises(AiError):
+                dispatch.check_operation_binding(run, foreign_branch)
             run.status, run.operation_id, run.version = "delegated", op_id, 5
             run.save()
         model_calls.append({"operationId": op_id, "sourceDigest": source_digest})

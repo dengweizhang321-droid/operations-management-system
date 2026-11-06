@@ -202,6 +202,10 @@ def check_operation_binding(run, op):
         raise AiError("Pi 操作与原任务、会话或模型绑定不符", "access_denied", 403)
     payload = json.loads(op.payload_json)
     required = {key: expected[key] for key in ("message", "skillIds", "shopSelection", "fileIds", "businessExecution")}
+    # Newer Pi prompts also record branch provenance. A dedicated task session
+    # may start without a native branch; an existing branch is not authorized.
+    if "nativeBranchBinding" in payload:
+        required["nativeBranchBinding"] = None
     if payload != required:
         raise AiError("Pi 指令、参数、店铺或动作授权与原版本不符", "access_denied", 403)
     skills = json.loads(op.skills_json)
