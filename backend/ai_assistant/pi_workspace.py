@@ -561,7 +561,8 @@ def control(session_id, body, principal):
         if command in {"session_new", "session_switch", "session_fork", "session_clone"}:
             pi_native.history_preflight(session)
         if operation and command not in {"clear_queue", "abort_bash", "ui_response", "terminal_close", "pause"}:
-            pi_native.authorize(operation, kind="workspace", name=command, lock=True)
+            # Internal re-authorization, no client-supplied admission to compare.
+            pi_native.authorize(operation, kind="workspace", name=command, lock=True, require_supplied=False)
         active = operation and operation.status in service.ACTIVE
         if command == "pause" and active:
             raise AiError("暂停环境需要先停止当前操作并确认终态", "pi_operation_active", 409)

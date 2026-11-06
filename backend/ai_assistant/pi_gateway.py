@@ -237,7 +237,9 @@ def _tool(payload, op, principal):
     from . import pi_business
     if name in pi_business.TOOLS or name in {"get_pi_business_action", "get_pi_business_options"}:
         with mutation():
-            pi_native.authorize(op, kind="business" if name in pi_business.TOOLS else "tool", name=name, lock=True)
+            # Internal re-authorization, no client-supplied admission to compare.
+            pi_native.authorize(op, kind="business" if name in pi_business.TOOLS else "tool", name=name, lock=True,
+                require_supplied=False)
         service.principal_for_work(op)
         try:
             if name == "get_pi_business_options":
@@ -296,6 +298,10 @@ def _local(payload, op, principal):
         # Recheck the tree and capture its admission under the AI authority lock;
         # PostgreSQL SELECT FOR UPDATE requires an active transaction here.
         with mutation():
+            # Client-supplied value: leave require_supplied at its default
+            # (True) so a null admission is enforced, not skipped. Defense in
+            # depth: execute()'s own gate already rejects null before this
+            # handler is reached, but this call carries the same client value.
             pi_native.authorize(op, payload.get("admission"), kind="admission", name=args["toolName"], lock=True)
             return {"admitted": True, "toolCallId": tool_call, "admission": pi_native.admission(op)}, {}, ""
     if payload.get("name") != "local_complete" or args.get("status") not in {"completed", "failed"}:
@@ -347,6 +353,9 @@ def execute(payload, nonce):
         if not (payload["kind"] == "admission" and payload.get("name") == "local_complete"):
             if "admission" not in payload:
                 raise AiError("缺少代理树准入绑定，请升级Runner", "pi_admission_required", 409)
+            # A null admission is a present-but-empty binding, not an absent one:
+            # leave require_supplied at its default (True) so it cannot skip
+            # the version comparison below (see pi_native.authorize).
             pi_native.authorize(current, payload["admission"], kind=payload["kind"],
                 name=payload.get("args", {}).get("toolName", payload.get("name", "")), lock=True)
         dispatch = PiDispatch.objects.create(id=uid("pi-dispatch"), operation=op, kind=payload["kind"], request_id=payload["requestId"],

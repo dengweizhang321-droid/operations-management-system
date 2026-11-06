@@ -157,7 +157,8 @@ def tool_prepare(operation, user_intent_id, tool_name, parameters, invocation_id
         service.principal_for_work(executor)
         from .pi_models import PiBusinessDelegation
         from . import pi_native
-        pi_native.authorize(executor, kind="business", name=tool_name, lock=True)
+        # Internal re-authorization, no client-supplied admission to compare.
+        pi_native.authorize(executor, kind="business", name=tool_name, lock=True, require_supplied=False)
         intent = PiBusinessIntent.objects.select_for_update().filter(id=identifier(user_intent_id, "userIntentId"), action_type=TOOLS[tool_name]).first()
         delegation = PiBusinessDelegation.objects.select_for_update().filter(intent=intent).first() if intent else None
         state = pi_native.state_for(executor.session)
