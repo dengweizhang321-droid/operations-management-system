@@ -1,5 +1,7 @@
 # 任务记录目录
 
+本轮候选：[Skill 步骤工具登记校验](../skill-step-toolname-20261107/REPORT.md)（保存时校验，兼容旧候选读取；未合并/上线）。
+
 本轮候选：[客服消息条数超限改警告](../customer-service-message-warning-20261105/REPORT.md) · [独立反审](../customer-service-message-warning-20261105/REVIEW.md)（Worker 与 Django 配套修改，无迁移，未合并/上线）。
 
 本轮候选：[京东客服闭合既有红测试修复](../jd-cs-close-red-tests-20261105/REPORT.md) · [双独立反审](../jd-cs-close-red-tests-20261105/REVIEW.md)（既有20/20，指定五套49/49，完整类型检查零新增；未合并/上线）。

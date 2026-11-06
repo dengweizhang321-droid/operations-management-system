@@ -104,6 +104,20 @@ def _validate_content(raw, allowed_refs, registry_tools):
     for name in content["requiredTools"]:
         if name not in registry_tools:
             raise AiError(f"候选引用了未登记的工具：{name}", "invalid_request", 400)
+    if not isinstance(content["steps"], list):
+        raise AiError("steps 必须是数组", "invalid_request", 400)
+    for index, step in enumerate(content["steps"]):
+        if not isinstance(step, dict):
+            raise AiError(f"第 {index + 1} 步必须是对象", "invalid_request", 400)
+        # No-tool steps may omit toolName or use strict output's empty string.
+        # Check registration only; requiredTools need not mirror the steps,
+        # and this catalog is not an execution permission grant.
+        name = step.get("toolName", "")
+        if not isinstance(name, str):
+            raise AiError(f"steps[{index}].toolName 必须是字符串", "invalid_request", 400)
+        if name and name not in registry_tools:
+            raise AiError(f"候选引用了未登记的工具：{name}（steps[{index}].toolName）",
+                          "invalid_request", 400)
     # Evidence references must come from the run itself. Without this the model
     # could cite an export belonging to another task, and the candidate would
     # look traceable while pointing somewhere else.
