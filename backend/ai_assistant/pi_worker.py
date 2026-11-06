@@ -8,6 +8,7 @@ import base64
 from datetime import timedelta
 import hashlib
 import json
+import logging
 import os
 import secrets
 import threading
@@ -516,6 +517,17 @@ def perform(op, stopped=None):
             if current.cancel_requested and not aborted:
                 # Stop always clears the native queue before abort. A clear
                 # failure remains recorded but must never prevent stopping.
+                # Any Exception here is swallowed on purpose (not just AiError):
+                # the realistic failure is the mutation() block below losing
+                # its DB connection (e.g. OperationalError), not a concurrent
+                # collision -- this row is serialized by mutation()'s single-row
+                # FOR UPDATE, so two stops can never race here. Note this except
+                # only saves the clear_queue step itself: if runner_dispatch for
+                # "workspace" fails instead, freeze() already marks the op/dispatch
+                # unknown before the exception reaches here, and the abort call
+                # below will then be rejected by principal_for (status no longer
+                # running/canceling) -- catching wider would not recover that case.
+                # Logged, not silent, so a failure here is still visible.
                 try:
                     with mutation():
                         from .pi_workspace import _workspace
@@ -526,8 +538,9 @@ def perform(op, stopped=None):
                         stop_seq = stop_workspace.control_seq
                     runner_dispatch(op, "workspace", {"action": "control", "controlId": "stop-clear-"+op.id,
                         "controlSeq": stop_seq, "command": "clear_queue", "payload": {}}, request_id="stop-clear-queue")
-                except AiError:
-                    pass
+                except Exception:
+                    logging.getLogger(__name__).exception(
+                        "pi_worker stop-clear-queue failed for operation %s; continuing to abort", op.id)
                 result = runner_dispatch(op, "abort", {})
                 settled = ingest(op, result) or handled(result) or settled
                 aborted = True
