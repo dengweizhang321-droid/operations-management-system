@@ -68,8 +68,6 @@ def validate(payload):
     if target["failureCode"] not in FAILURE_CODES_BY_KIND[target["kind"]]:
         raise WorkflowApiError("该恢复种类不允许闭合此失败码")
     _period(target["period"])
-    if "closeRequestId" in payload:
-        identity(payload["closeRequestId"])
     return payload
 
 
@@ -97,5 +95,10 @@ def read_authority(request_id):
     value = receipt.response_payload
     if not isinstance(value, dict) or value.get("version") != VERSION or value.get("authorizationId") != request_id:
         raise WorkflowApiError("闭合授权回执不完整", status=409)
-    validate({key: value[key] for key in ("action", "target", "closeRequestId") if key in value})
+    # Only the two keys validate() admits. A receipt minted before edca421c
+    # narrowed the key set can still carry closeRequestId -- they live seven
+    # days -- and projecting it back in would make validate() reject the very
+    # receipt it just authenticated. jackyun's equivalent keeps the key because
+    # its own validate() accepts it; this one does not.
+    validate({key: value[key] for key in ("action", "target") if key in value})
     return value
