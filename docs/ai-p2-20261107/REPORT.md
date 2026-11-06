@@ -16,7 +16,7 @@
 
 ## 尚未完成或未获准的业务范围
 
-- 未实现任务管理前端；本包提供可调用 API。
+- 本分支提供可调用 API；最小管理前端由主任务并线交付，按 API.md 协议接线。
 - 未采用统一 Pi 自动执行 adapter、长期成本授权、可信消息/事件/条件生产者、精确数据依赖读取器、跨端 principal 与投递目标绑定；因此当前没有可启用的统一任务。
 - 未创建任何真实任务或授权，未做身份绑定、账号接入、历史任务登记/切 owner、补跑、真实模型调用、外部投递或生产数据写入。
 - 启用首个场景仍需明确：日报/库存/其他；精确店铺、Skill 和模型版本；时间/窗口/漏跑规则；执行账号与投递对象；长期授权有效期和成本边界。微信另需账号形态及 API 许可。
@@ -31,3 +31,16 @@
 - `tests/ai159-acl-catalog-boundary.py` 87 项静态契约检查、`check_catalog_baselines.py` 通过。最终 mandatory checks 在独立干净冻结树执行，recipe 绑定真实 gate.code_digest，不手填成功。
 
 本包尚未合入 main、推送 main、准备生产制品、采用控制包、部署、迁移生产库或启用任务。后续应用组件范围为 Worker+Django及必要结构迁移。
+
+
+## Astra 小项1反审后的核心增量
+
+创建以 owner+clientRequestId 唯一、请求摘要冲突拒绝；精确原任务关联同时核同一专属会话、scope/角色/代际、店铺、模型版本、Skill 版本/摘要、完整指令/参数和原 grant 身份。生产内部 accept/claim/handoff 另有显式关闭门禁，不能绕过 API 停用状态。
+
+数据库封死 unknown/终态回退，终态证据不可修改；Incident 只允许 open→claimed→closed、拥有者认领和非空说明，闭合后不可改。definition 指向 revision 的复合外键可延迟到提交，兼容先写定义后写 revision，同时拒绝悬空提交。run 冻结原 grant 与 triage ruleVersion，incident 继承该版本。未来时点不允许领取，原执行账号每次派发前重新核验。
+
+列表只返摘要，limit<=50+cursor；历史修订、run、incident 全部可分页及按 ID 读取详情。run/incident 详情提供有界白名单证据引用和原 Pi evidence 读取路径，不返回原始外部正文。
+
+最终核心+首场景隔离 PostgreSQL 共13项通过，原日志 `.runtime/ai-pg-469268264020/tests.log`。场景为用户确认的京东志高商用设备旗舰店经营日报：ERP本店销售与全部计入库存仓分别绑定范围、日期、字段和revision；缺ERP金额字段时无模型/投递，补齐同日期新版本后用真实Pi队列和冻结绑定经过合成模型/合成投递边界。原投递unknown仅观察/分诊，重复tick不新增模型或投递。结果见 `daily-scenario-result.json`。
+
+该演练使用独立PG和合成源/模型/投递，不是生产dispatcher启用证明；生产任务仍停用，内部派发关闭。可复现命令：`python -B tools/ai-postgres-rehearsal.py --tests-only --preprovision-ai-runtime-roles --test-label ai_assistant.test_unified_tasks --test-label ai_assistant.test_unified_task_daily_scenario --test-verbosity 2`。

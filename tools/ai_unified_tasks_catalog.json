@@ -1,7 +1,7 @@
 {
   "version": "teruisi-ai-unified-tasks-catalog-v1",
   "migrationFiles": {
-    "backend/ai_assistant/migrations/0090_unified_tasks.py": "a1a4d4627c89f17ab10f6e15be2f937817bb4a306d815899c1f85928169edbdf"
+    "backend/ai_assistant/migrations/0090_unified_tasks.py": "c6ba998339dbd2d2934c9c52c74a8c0cb7dc4f62abe86980230ed120a8cbdc64"
   },
   "tables": {
     "ai_task_definitions": {
@@ -24,6 +24,24 @@
         ],
         [
           "owner_email",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "client_request_id",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "request_digest",
           "text",
           true,
           null,
@@ -132,12 +150,20 @@
           "CHECK-TREE [\"AND\",[[\"atom\",\"current_revision >= 1\"],[\"atom\",\"version >= 1\"]]]"
         ],
         [
+          "ai_task_create_request_uq",
+          "u",
+          true,
+          false,
+          false,
+          "UNIQUE (owner_email, client_request_id)"
+        ],
+        [
           "ai_task_definitions_bytes",
           "c",
           true,
           false,
           false,
-          "CHECK-TREE [\"AND\",[[\"atom\",\"octet_length(name) <= 400\"],[\"atom\",\"octet_length(scope_json) <= 65536\"],[\"atom\",\"octet_length(owner_email) <= 320\"]]]"
+          "CHECK-TREE [\"AND\",[[\"atom\",\"octet_length(name) <= 400\"],[\"atom\",\"octet_length(scope_json) <= 65536\"],[\"atom\",\"octet_length(owner_email) <= 320\"],[\"atom\",\"octet_length(client_request_id) <= 160\"],[\"atom\",\"request_digest ~ '^[a-f0-9]{64}$'::text\"]]]"
         ],
         [
           "ai_task_definitions_current_revision_check",
@@ -178,9 +204,24 @@
           false,
           false,
           "CHECK-TREE [\"atom\",\"executor_kind = 'unified_pi'::text\"]"
+        ],
+        [
+          "ai_task_revision_pointer_fk",
+          "f",
+          true,
+          true,
+          true,
+          "FOREIGN KEY (id, current_revision) REFERENCES ai_task_revisions(task_id, revision) DEFERRABLE INITIALLY DEFERRED"
         ]
       ],
       "indexes": [
+        [
+          "ai_task_create_request_uq",
+          true,
+          true,
+          true,
+          "CREATE UNIQUE INDEX ai_task_create_request_uq ON public.ai_task_definitions USING btree (owner_email, client_request_id)"
+        ],
         [
           "ai_task_definitions_id_604c347a_like",
           true,
@@ -210,8 +251,8 @@
           "O",
           "public",
           "ai_immutable_record_guard",
-          "6964006f776e65725f656d61696c006163746f725f726f6c650073636f70655f6a736f6e006578656375746f725f6b696e6400637265617465645f617400",
-          "CREATE TRIGGER ai_immutable_identity BEFORE UPDATE ON public.ai_task_definitions FOR EACH ROW EXECUTE FUNCTION ai_immutable_record_guard('id', 'owner_email', 'actor_role', 'scope_json', 'executor_kind', 'created_at')"
+          "6964006f776e65725f656d61696c006163746f725f726f6c650073636f70655f6a736f6e006578656375746f725f6b696e6400636c69656e745f726571756573745f696400726571756573745f64696765737400637265617465645f617400",
+          "CREATE TRIGGER ai_immutable_identity BEFORE UPDATE ON public.ai_task_definitions FOR EACH ROW EXECUTE FUNCTION ai_immutable_record_guard('id', 'owner_email', 'actor_role', 'scope_json', 'executor_kind', 'client_request_id', 'request_digest', 'created_at')"
         ],
         [
           "ai_task_state",
@@ -290,7 +331,76 @@
         ]
       ],
       "columnAcl": [],
-      "foreignKeyTriggers": [],
+      "foreignKeyTriggers": [
+        [
+          "public",
+          "ai_task_definitions",
+          "public",
+          "ai_task_definitions",
+          "public",
+          "ai_task_revisions",
+          "ai_task_revision_pointer_fk",
+          5,
+          "O",
+          true,
+          true,
+          "pg_catalog",
+          "RI_FKey_check_ins",
+          "",
+          ""
+        ],
+        [
+          "public",
+          "ai_task_definitions",
+          "public",
+          "ai_task_definitions",
+          "public",
+          "ai_task_revisions",
+          "ai_task_revision_pointer_fk",
+          17,
+          "O",
+          true,
+          true,
+          "pg_catalog",
+          "RI_FKey_check_upd",
+          "",
+          ""
+        ],
+        [
+          "public",
+          "ai_task_revisions",
+          "public",
+          "ai_task_definitions",
+          "public",
+          "ai_task_revisions",
+          "ai_task_revision_pointer_fk",
+          9,
+          "O",
+          true,
+          true,
+          "pg_catalog",
+          "RI_FKey_noaction_del",
+          "",
+          ""
+        ],
+        [
+          "public",
+          "ai_task_revisions",
+          "public",
+          "ai_task_definitions",
+          "public",
+          "ai_task_revisions",
+          "ai_task_revision_pointer_fk",
+          17,
+          "O",
+          true,
+          true,
+          "pg_catalog",
+          "RI_FKey_noaction_upd",
+          "",
+          ""
+        ]
+      ],
       "policies": []
     },
     "ai_task_grants": {
@@ -1100,7 +1210,7 @@
           true,
           false,
           false,
-          "CHECK-TREE [\"AND\",[[\"atom\",\"octet_length(spec_json) <= 32768\"],[\"atom\",\"jsonb_typeof((spec_json)::jsonb) = 'object'::text\"],[\"atom\",\"spec_digest ~ '^[a-f0-9]{64}$'::text\"]]]"
+          "CHECK-TREE [\"AND\",[[\"atom\",\"octet_length(spec_json) <= 32768\"],[\"atom\",\"jsonb_typeof((spec_json)::jsonb) = 'object'::text\"],[\"atom\",\"spec_digest = encode(sha256(convert_to(spec_json, 'UTF8'::name)), 'hex'::text)\"]]]"
         ],
         [
           "ai_task_revisions_pkey",
@@ -1337,6 +1447,24 @@
           "\"default\""
         ],
         [
+          "rule_version",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
+          "grant_id",
+          "text",
+          true,
+          null,
+          "",
+          "",
+          "\"default\""
+        ],
+        [
           "trigger_kind",
           "text",
           true,
@@ -1540,6 +1668,14 @@
           "CHECK-TREE [\"atom\",\"fence >= 0\"]"
         ],
         [
+          "ai_task_runs_grant_id_68a12a91_fk_ai_task_grants_id",
+          "f",
+          true,
+          true,
+          true,
+          "FOREIGN KEY (grant_id) REFERENCES ai_task_grants(id) DEFERRABLE INITIALLY DEFERRED"
+        ],
+        [
           "ai_task_runs_pkey",
           "p",
           true,
@@ -1589,11 +1725,32 @@
           "CREATE UNIQUE INDEX ai_task_occurrence_uq ON public.ai_task_runs USING btree (task_id, trigger_kind, occurrence_key)"
         ],
         [
+          "ai_task_operation_uq",
+          true,
+          true,
+          true,
+          "CREATE UNIQUE INDEX ai_task_operation_uq ON public.ai_task_runs USING btree (operation_id) WHERE (NOT (operation_id = ''::text))"
+        ],
+        [
           "ai_task_run_time_idx",
           true,
           true,
           false,
           "CREATE INDEX ai_task_run_time_idx ON public.ai_task_runs USING btree (task_id, created_at)"
+        ],
+        [
+          "ai_task_runs_grant_id_68a12a91",
+          true,
+          true,
+          false,
+          "CREATE INDEX ai_task_runs_grant_id_68a12a91 ON public.ai_task_runs USING btree (grant_id)"
+        ],
+        [
+          "ai_task_runs_grant_id_68a12a91_like",
+          true,
+          true,
+          false,
+          "CREATE INDEX ai_task_runs_grant_id_68a12a91_like ON public.ai_task_runs USING btree (grant_id text_pattern_ops)"
         ],
         [
           "ai_task_runs_id_3bf4d6ea_like",
@@ -1645,8 +1802,8 @@
           "O",
           "public",
           "ai_immutable_record_guard",
-          "6964007461736b5f6964007265766973696f6e5f696400747269676765725f6b696e64006f6363757272656e63655f6b6579007363686564756c65645f617400646561646c696e655f617400637265617465645f617400",
-          "CREATE TRIGGER ai_immutable_identity BEFORE UPDATE ON public.ai_task_runs FOR EACH ROW EXECUTE FUNCTION ai_immutable_record_guard('id', 'task_id', 'revision_id', 'trigger_kind', 'occurrence_key', 'scheduled_at', 'deadline_at', 'created_at')"
+          "6964007461736b5f6964007265766973696f6e5f6964006772616e745f69640072756c655f76657273696f6e00747269676765725f6b696e64006f6363757272656e63655f6b6579007363686564756c65645f617400646561646c696e655f617400637265617465645f617400",
+          "CREATE TRIGGER ai_immutable_identity BEFORE UPDATE ON public.ai_task_runs FOR EACH ROW EXECUTE FUNCTION ai_immutable_record_guard('id', 'task_id', 'revision_id', 'grant_id', 'rule_version', 'trigger_kind', 'occurrence_key', 'scheduled_at', 'deadline_at', 'created_at')"
         ],
         [
           "ai_task_state",
@@ -1726,6 +1883,74 @@
       ],
       "columnAcl": [],
       "foreignKeyTriggers": [
+        [
+          "public",
+          "ai_task_grants",
+          "public",
+          "ai_task_runs",
+          "public",
+          "ai_task_grants",
+          "ai_task_runs_grant_id_68a12a91_fk_ai_task_grants_id",
+          9,
+          "O",
+          true,
+          true,
+          "pg_catalog",
+          "RI_FKey_noaction_del",
+          "",
+          ""
+        ],
+        [
+          "public",
+          "ai_task_grants",
+          "public",
+          "ai_task_runs",
+          "public",
+          "ai_task_grants",
+          "ai_task_runs_grant_id_68a12a91_fk_ai_task_grants_id",
+          17,
+          "O",
+          true,
+          true,
+          "pg_catalog",
+          "RI_FKey_noaction_upd",
+          "",
+          ""
+        ],
+        [
+          "public",
+          "ai_task_runs",
+          "public",
+          "ai_task_runs",
+          "public",
+          "ai_task_grants",
+          "ai_task_runs_grant_id_68a12a91_fk_ai_task_grants_id",
+          5,
+          "O",
+          true,
+          true,
+          "pg_catalog",
+          "RI_FKey_check_ins",
+          "",
+          ""
+        ],
+        [
+          "public",
+          "ai_task_runs",
+          "public",
+          "ai_task_runs",
+          "public",
+          "ai_task_grants",
+          "ai_task_runs_grant_id_68a12a91_fk_ai_task_grants_id",
+          17,
+          "O",
+          true,
+          true,
+          "pg_catalog",
+          "RI_FKey_check_upd",
+          "",
+          ""
+        ],
         [
           "public",
           "ai_task_revisions",
@@ -1884,8 +2109,8 @@
       "configuration": [
         "search_path=pg_catalog, public"
       ],
-      "source": "\nDECLARE r public.ai_task_revisions; t public.ai_task_definitions; u public.ai_task_runs;\nBEGIN\n IF TG_TABLE_NAME='ai_task_definitions' THEN\n  IF NEW.enabled THEN RAISE EXCEPTION 'ai_unified_task_executor_not_adopted'; END IF;\n  IF TG_OP='INSERT' AND (NEW.version<>1 OR NEW.current_revision<>1) THEN RAISE EXCEPTION 'ai_unified_task_initial'; END IF;\n  IF TG_OP='UPDATE' AND (NEW.version<=OLD.version OR NEW.current_revision<OLD.current_revision OR NEW.current_revision>OLD.current_revision+1)\n    THEN RAISE EXCEPTION 'ai_unified_task_version'; END IF;\n ELSIF TG_TABLE_NAME='ai_task_revisions' THEN\n  SELECT * INTO t FROM public.ai_task_definitions WHERE id=NEW.task_id;\n  IF t.id IS NULL OR NEW.created_by<>t.owner_email OR NEW.revision<>t.current_revision\n    THEN RAISE EXCEPTION 'ai_unified_task_revision_binding'; END IF;\n ELSIF TG_TABLE_NAME='ai_task_grants' THEN\n  SELECT * INTO r FROM public.ai_task_revisions WHERE id=NEW.revision_id;\n  SELECT * INTO t FROM public.ai_task_definitions WHERE id=r.task_id;\n  IF t.id IS NULL OR NEW.owner_email<>t.owner_email OR NEW.expires_at<=NEW.created_at\n    THEN RAISE EXCEPTION 'ai_unified_task_grant_binding'; END IF;\n  IF TG_OP='UPDATE' AND OLD.revoked_at IS NOT NULL AND NEW.revoked_at IS DISTINCT FROM OLD.revoked_at\n    THEN RAISE EXCEPTION 'ai_unified_task_grant_no_reopen'; END IF;\n ELSIF TG_TABLE_NAME='ai_task_runs' THEN\n  SELECT * INTO r FROM public.ai_task_revisions WHERE id=NEW.revision_id;\n  IF r.id IS NULL OR r.task_id<>NEW.task_id THEN RAISE EXCEPTION 'ai_unified_task_run_binding'; END IF;\n  IF TG_OP='UPDATE' AND (NEW.version<=OLD.version OR NEW.fence<OLD.fence OR NEW.fence>OLD.fence+1\n      OR (OLD.operation_id<>'' AND NEW.operation_id<>OLD.operation_id)\n      OR (OLD.execution_ref<>'' AND NEW.execution_ref<>OLD.execution_ref))\n    THEN RAISE EXCEPTION 'ai_unified_task_run_fence'; END IF;\n ELSIF TG_TABLE_NAME='ai_task_incidents' THEN\n  SELECT * INTO u FROM public.ai_task_runs WHERE id=NEW.run_id;\n  SELECT * INTO t FROM public.ai_task_definitions WHERE id=u.task_id;\n  IF t.id IS NULL OR NEW.owner_email<>t.owner_email THEN RAISE EXCEPTION 'ai_unified_task_incident_owner'; END IF;\n  IF TG_OP='UPDATE' AND (NEW.version<=OLD.version OR (OLD.state='closed' AND NEW.state<>'closed'))\n    THEN RAISE EXCEPTION 'ai_unified_task_incident_version'; END IF;\n END IF;\n RETURN NEW;\nEND ",
-      "definition": "CREATE OR REPLACE FUNCTION public.ai_unified_task_guard()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE r public.ai_task_revisions; t public.ai_task_definitions; u public.ai_task_runs;\nBEGIN\n IF TG_TABLE_NAME='ai_task_definitions' THEN\n  IF NEW.enabled THEN RAISE EXCEPTION 'ai_unified_task_executor_not_adopted'; END IF;\n  IF TG_OP='INSERT' AND (NEW.version<>1 OR NEW.current_revision<>1) THEN RAISE EXCEPTION 'ai_unified_task_initial'; END IF;\n  IF TG_OP='UPDATE' AND (NEW.version<=OLD.version OR NEW.current_revision<OLD.current_revision OR NEW.current_revision>OLD.current_revision+1)\n    THEN RAISE EXCEPTION 'ai_unified_task_version'; END IF;\n ELSIF TG_TABLE_NAME='ai_task_revisions' THEN\n  SELECT * INTO t FROM public.ai_task_definitions WHERE id=NEW.task_id;\n  IF t.id IS NULL OR NEW.created_by<>t.owner_email OR NEW.revision<>t.current_revision\n    THEN RAISE EXCEPTION 'ai_unified_task_revision_binding'; END IF;\n ELSIF TG_TABLE_NAME='ai_task_grants' THEN\n  SELECT * INTO r FROM public.ai_task_revisions WHERE id=NEW.revision_id;\n  SELECT * INTO t FROM public.ai_task_definitions WHERE id=r.task_id;\n  IF t.id IS NULL OR NEW.owner_email<>t.owner_email OR NEW.expires_at<=NEW.created_at\n    THEN RAISE EXCEPTION 'ai_unified_task_grant_binding'; END IF;\n  IF TG_OP='UPDATE' AND OLD.revoked_at IS NOT NULL AND NEW.revoked_at IS DISTINCT FROM OLD.revoked_at\n    THEN RAISE EXCEPTION 'ai_unified_task_grant_no_reopen'; END IF;\n ELSIF TG_TABLE_NAME='ai_task_runs' THEN\n  SELECT * INTO r FROM public.ai_task_revisions WHERE id=NEW.revision_id;\n  IF r.id IS NULL OR r.task_id<>NEW.task_id THEN RAISE EXCEPTION 'ai_unified_task_run_binding'; END IF;\n  IF TG_OP='UPDATE' AND (NEW.version<=OLD.version OR NEW.fence<OLD.fence OR NEW.fence>OLD.fence+1\n      OR (OLD.operation_id<>'' AND NEW.operation_id<>OLD.operation_id)\n      OR (OLD.execution_ref<>'' AND NEW.execution_ref<>OLD.execution_ref))\n    THEN RAISE EXCEPTION 'ai_unified_task_run_fence'; END IF;\n ELSIF TG_TABLE_NAME='ai_task_incidents' THEN\n  SELECT * INTO u FROM public.ai_task_runs WHERE id=NEW.run_id;\n  SELECT * INTO t FROM public.ai_task_definitions WHERE id=u.task_id;\n  IF t.id IS NULL OR NEW.owner_email<>t.owner_email THEN RAISE EXCEPTION 'ai_unified_task_incident_owner'; END IF;\n  IF TG_OP='UPDATE' AND (NEW.version<=OLD.version OR (OLD.state='closed' AND NEW.state<>'closed'))\n    THEN RAISE EXCEPTION 'ai_unified_task_incident_version'; END IF;\n END IF;\n RETURN NEW;\nEND $function$\n",
+      "source": "\nDECLARE r public.ai_task_revisions; t public.ai_task_definitions; u public.ai_task_runs; g public.ai_task_grants;\nBEGIN\n IF TG_TABLE_NAME='ai_task_definitions' THEN\n  IF NEW.enabled THEN RAISE EXCEPTION 'ai_unified_task_executor_not_adopted'; END IF;\n  IF TG_OP='INSERT' AND (NEW.version<>1 OR NEW.current_revision<>1) THEN RAISE EXCEPTION 'ai_unified_task_initial'; END IF;\n  IF TG_OP='UPDATE' AND (NEW.version<=OLD.version OR NEW.current_revision<OLD.current_revision OR NEW.current_revision>OLD.current_revision+1)\n    THEN RAISE EXCEPTION 'ai_unified_task_version'; END IF;\n ELSIF TG_TABLE_NAME='ai_task_revisions' THEN\n  SELECT * INTO t FROM public.ai_task_definitions WHERE id=NEW.task_id;\n  IF t.id IS NULL OR NEW.created_by<>t.owner_email OR NEW.revision<>t.current_revision\n    THEN RAISE EXCEPTION 'ai_unified_task_revision_binding'; END IF;\n ELSIF TG_TABLE_NAME='ai_task_grants' THEN\n  SELECT * INTO r FROM public.ai_task_revisions WHERE id=NEW.revision_id;\n  SELECT * INTO t FROM public.ai_task_definitions WHERE id=r.task_id;\n  IF t.id IS NULL OR NEW.owner_email<>t.owner_email OR NEW.expires_at<=NEW.created_at\n    THEN RAISE EXCEPTION 'ai_unified_task_grant_binding'; END IF;\n  IF TG_OP='UPDATE' AND OLD.revoked_at IS NOT NULL AND NEW.revoked_at IS DISTINCT FROM OLD.revoked_at\n    THEN RAISE EXCEPTION 'ai_unified_task_grant_no_reopen'; END IF;\n ELSIF TG_TABLE_NAME='ai_task_runs' THEN\n  SELECT * INTO r FROM public.ai_task_revisions WHERE id=NEW.revision_id;\n  IF r.id IS NULL OR r.task_id<>NEW.task_id THEN RAISE EXCEPTION 'ai_unified_task_run_binding'; END IF;\n  SELECT * INTO g FROM public.ai_task_grants WHERE id=NEW.grant_id;\n  SELECT * INTO t FROM public.ai_task_definitions WHERE id=NEW.task_id;\n  IF g.id IS NULL OR g.revision_id<>NEW.revision_id OR g.owner_email<>t.owner_email\n    THEN RAISE EXCEPTION 'ai_unified_task_run_grant'; END IF;\n  IF TG_OP='UPDATE' AND (NEW.version<=OLD.version OR NEW.fence<OLD.fence OR NEW.fence>OLD.fence+1\n      OR (OLD.operation_id<>'' AND NEW.operation_id<>OLD.operation_id)\n      OR (OLD.execution_ref<>'' AND NEW.execution_ref<>OLD.execution_ref))\n    THEN RAISE EXCEPTION 'ai_unified_task_run_fence'; END IF;\n  IF TG_OP='UPDATE' THEN\n   IF OLD.status IN ('succeeded','failed','unknown','missed','expired','canceled') AND\n     (to_jsonb(NEW)-'version'-'updated_at') IS DISTINCT FROM (to_jsonb(OLD)-'version'-'updated_at')\n     THEN RAISE EXCEPTION 'ai_unified_task_terminal_immutable'; END IF;\n   IF (OLD.status='queued' AND NEW.status NOT IN ('queued','waiting_data','leased','missed','expired','canceled'))\n     OR (OLD.status='waiting_data' AND NEW.status NOT IN ('waiting_data','leased','expired','canceled'))\n     OR (OLD.status='leased' AND NEW.status NOT IN ('leased','waiting_data','delegated','unknown','expired','canceled'))\n     OR (OLD.status='delegated' AND NEW.status NOT IN ('delegated','succeeded','failed','unknown','canceled'))\n     THEN RAISE EXCEPTION 'ai_unified_task_transition'; END IF;\n   IF NEW.operation_id<>OLD.operation_id AND (OLD.operation_id<>'' OR OLD.status<>'leased' OR NEW.status<>'delegated')\n     THEN RAISE EXCEPTION 'ai_unified_task_handoff_state'; END IF;\n  END IF;\n ELSIF TG_TABLE_NAME='ai_task_incidents' THEN\n  SELECT * INTO u FROM public.ai_task_runs WHERE id=NEW.run_id;\n  SELECT * INTO t FROM public.ai_task_definitions WHERE id=u.task_id;\n  IF t.id IS NULL OR NEW.owner_email<>t.owner_email OR NEW.rule_version<>u.rule_version THEN RAISE EXCEPTION 'ai_unified_task_incident_owner'; END IF;\n  IF TG_OP='INSERT' AND (NEW.state<>'open' OR NEW.assignee<>'' OR NEW.resolution_note<>'' OR NEW.version<>1)\n    THEN RAISE EXCEPTION 'ai_unified_task_incident_initial'; END IF;\n  IF TG_OP='UPDATE' AND (NEW.version<=OLD.version OR (OLD.state='closed' AND NEW.state<>'closed'))\n    THEN RAISE EXCEPTION 'ai_unified_task_incident_version'; END IF;\n  IF TG_OP='UPDATE' THEN\n   IF OLD.state='closed' THEN RAISE EXCEPTION 'ai_unified_task_incident_closed'; END IF;\n   IF (OLD.state='open' AND NEW.state NOT IN ('open','claimed')) OR (OLD.state='claimed' AND NEW.state NOT IN ('claimed','closed'))\n     THEN RAISE EXCEPTION 'ai_unified_task_incident_transition'; END IF;\n   IF (NEW.state='open' AND (NEW.assignee<>'' OR NEW.resolution_note<>''))\n     OR (NEW.state IN ('claimed','closed') AND NEW.assignee<>NEW.owner_email)\n     OR (OLD.assignee<>'' AND NEW.assignee<>OLD.assignee)\n     OR (NEW.state='claimed' AND NEW.resolution_note<>'')\n     OR (NEW.state='closed' AND btrim(NEW.resolution_note)='')\n     THEN RAISE EXCEPTION 'ai_unified_task_incident_claim'; END IF;\n  END IF;\n END IF;\n RETURN NEW;\nEND ",
+      "definition": "CREATE OR REPLACE FUNCTION public.ai_unified_task_guard()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE r public.ai_task_revisions; t public.ai_task_definitions; u public.ai_task_runs; g public.ai_task_grants;\nBEGIN\n IF TG_TABLE_NAME='ai_task_definitions' THEN\n  IF NEW.enabled THEN RAISE EXCEPTION 'ai_unified_task_executor_not_adopted'; END IF;\n  IF TG_OP='INSERT' AND (NEW.version<>1 OR NEW.current_revision<>1) THEN RAISE EXCEPTION 'ai_unified_task_initial'; END IF;\n  IF TG_OP='UPDATE' AND (NEW.version<=OLD.version OR NEW.current_revision<OLD.current_revision OR NEW.current_revision>OLD.current_revision+1)\n    THEN RAISE EXCEPTION 'ai_unified_task_version'; END IF;\n ELSIF TG_TABLE_NAME='ai_task_revisions' THEN\n  SELECT * INTO t FROM public.ai_task_definitions WHERE id=NEW.task_id;\n  IF t.id IS NULL OR NEW.created_by<>t.owner_email OR NEW.revision<>t.current_revision\n    THEN RAISE EXCEPTION 'ai_unified_task_revision_binding'; END IF;\n ELSIF TG_TABLE_NAME='ai_task_grants' THEN\n  SELECT * INTO r FROM public.ai_task_revisions WHERE id=NEW.revision_id;\n  SELECT * INTO t FROM public.ai_task_definitions WHERE id=r.task_id;\n  IF t.id IS NULL OR NEW.owner_email<>t.owner_email OR NEW.expires_at<=NEW.created_at\n    THEN RAISE EXCEPTION 'ai_unified_task_grant_binding'; END IF;\n  IF TG_OP='UPDATE' AND OLD.revoked_at IS NOT NULL AND NEW.revoked_at IS DISTINCT FROM OLD.revoked_at\n    THEN RAISE EXCEPTION 'ai_unified_task_grant_no_reopen'; END IF;\n ELSIF TG_TABLE_NAME='ai_task_runs' THEN\n  SELECT * INTO r FROM public.ai_task_revisions WHERE id=NEW.revision_id;\n  IF r.id IS NULL OR r.task_id<>NEW.task_id THEN RAISE EXCEPTION 'ai_unified_task_run_binding'; END IF;\n  SELECT * INTO g FROM public.ai_task_grants WHERE id=NEW.grant_id;\n  SELECT * INTO t FROM public.ai_task_definitions WHERE id=NEW.task_id;\n  IF g.id IS NULL OR g.revision_id<>NEW.revision_id OR g.owner_email<>t.owner_email\n    THEN RAISE EXCEPTION 'ai_unified_task_run_grant'; END IF;\n  IF TG_OP='UPDATE' AND (NEW.version<=OLD.version OR NEW.fence<OLD.fence OR NEW.fence>OLD.fence+1\n      OR (OLD.operation_id<>'' AND NEW.operation_id<>OLD.operation_id)\n      OR (OLD.execution_ref<>'' AND NEW.execution_ref<>OLD.execution_ref))\n    THEN RAISE EXCEPTION 'ai_unified_task_run_fence'; END IF;\n  IF TG_OP='UPDATE' THEN\n   IF OLD.status IN ('succeeded','failed','unknown','missed','expired','canceled') AND\n     (to_jsonb(NEW)-'version'-'updated_at') IS DISTINCT FROM (to_jsonb(OLD)-'version'-'updated_at')\n     THEN RAISE EXCEPTION 'ai_unified_task_terminal_immutable'; END IF;\n   IF (OLD.status='queued' AND NEW.status NOT IN ('queued','waiting_data','leased','missed','expired','canceled'))\n     OR (OLD.status='waiting_data' AND NEW.status NOT IN ('waiting_data','leased','expired','canceled'))\n     OR (OLD.status='leased' AND NEW.status NOT IN ('leased','waiting_data','delegated','unknown','expired','canceled'))\n     OR (OLD.status='delegated' AND NEW.status NOT IN ('delegated','succeeded','failed','unknown','canceled'))\n     THEN RAISE EXCEPTION 'ai_unified_task_transition'; END IF;\n   IF NEW.operation_id<>OLD.operation_id AND (OLD.operation_id<>'' OR OLD.status<>'leased' OR NEW.status<>'delegated')\n     THEN RAISE EXCEPTION 'ai_unified_task_handoff_state'; END IF;\n  END IF;\n ELSIF TG_TABLE_NAME='ai_task_incidents' THEN\n  SELECT * INTO u FROM public.ai_task_runs WHERE id=NEW.run_id;\n  SELECT * INTO t FROM public.ai_task_definitions WHERE id=u.task_id;\n  IF t.id IS NULL OR NEW.owner_email<>t.owner_email OR NEW.rule_version<>u.rule_version THEN RAISE EXCEPTION 'ai_unified_task_incident_owner'; END IF;\n  IF TG_OP='INSERT' AND (NEW.state<>'open' OR NEW.assignee<>'' OR NEW.resolution_note<>'' OR NEW.version<>1)\n    THEN RAISE EXCEPTION 'ai_unified_task_incident_initial'; END IF;\n  IF TG_OP='UPDATE' AND (NEW.version<=OLD.version OR (OLD.state='closed' AND NEW.state<>'closed'))\n    THEN RAISE EXCEPTION 'ai_unified_task_incident_version'; END IF;\n  IF TG_OP='UPDATE' THEN\n   IF OLD.state='closed' THEN RAISE EXCEPTION 'ai_unified_task_incident_closed'; END IF;\n   IF (OLD.state='open' AND NEW.state NOT IN ('open','claimed')) OR (OLD.state='claimed' AND NEW.state NOT IN ('claimed','closed'))\n     THEN RAISE EXCEPTION 'ai_unified_task_incident_transition'; END IF;\n   IF (NEW.state='open' AND (NEW.assignee<>'' OR NEW.resolution_note<>''))\n     OR (NEW.state IN ('claimed','closed') AND NEW.assignee<>NEW.owner_email)\n     OR (OLD.assignee<>'' AND NEW.assignee<>OLD.assignee)\n     OR (NEW.state='claimed' AND NEW.resolution_note<>'')\n     OR (NEW.state='closed' AND btrim(NEW.resolution_note)='')\n     THEN RAISE EXCEPTION 'ai_unified_task_incident_claim'; END IF;\n  END IF;\n END IF;\n RETURN NEW;\nEND $function$\n",
       "acl": [
         [
           "OWNER",

@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.utils import timezone
 from . import models as m, tests as domain, task_definitions as definitions, task_dispatch as dispatch
 from .policy import AiError, canonical, digest, mutation
-from .task_models import TaskDefinition, TaskRevision, TaskRun
+from .task_models import TaskDefinition, TaskRevision, TaskGrant, TaskRun
 
 
 class UnifiedTaskTests(TestCase):
@@ -22,11 +22,14 @@ class UnifiedTaskTests(TestCase):
             "modelId": self.model.id, "modelVersion": self.model.version,
             "trigger": {"kind": "time", "timezone": "Asia/Shanghai", "cadence": "daily", "hour": 9, "minute": 0, "day": 1, "windowSeconds": 3600},
             "dataDependencies": [], "deliveryTargets": [], "missedPolicy": "skip", "parameters": {}}
-        return admin, spec, definitions.save({"name": "合成日报", "spec": spec}, admin)["item"]
+        return admin, spec, definitions.save({"clientRequestId": "task-create-1", "name": "合成日报", "spec": spec}, admin)["item"]
 
     def synthetic_run(self, item, status="unknown"):
         now = timezone.now()
+        grant = TaskGrant.objects.create(id="synthetic-grant", revision_id=item["revisionId"], owner_email=item["ownerEmail"],
+            authorization_ref="synthetic_fixture_only", expires_at=now+timedelta(days=1))
         return TaskRun.objects.create(id="synthetic-task-run", task_id=item["id"], revision_id=item["revisionId"],
+            grant=grant,
             trigger_kind="time", occurrence_key="2026-11-07T01:00:00Z", scheduled_at=now,
             deadline_at=now+timedelta(hours=1), status=status)
 
@@ -54,7 +57,7 @@ class UnifiedTaskTests(TestCase):
         actor, spec, item = self.draft()
         for extra in ({"enabled": True}, {"ownerEmail": "other@example.invalid"}, {"executorKind": "n8n"}):
             with self.assertRaises(AiError):
-                definitions.save({"name": "非法", "spec": spec, **extra}, actor)
+                definitions.save({"clientRequestId": "invalid", "name": "非法", "spec": spec, **extra}, actor)
         with self.assertRaises(AiError):
             definitions.normalize({**spec, "shopSelection": None}, actor)
         with self.assertRaises(AiError):
@@ -104,3 +107,86 @@ class UnifiedTaskTests(TestCase):
             with self.assertRaises(DatabaseError), transaction.atomic(), connection.cursor() as cursor:
                 cursor.execute(sql, params)
         self.assertFalse(TaskDefinition.objects.get(pk=item["id"]).enabled)
+
+    def test_create_is_idempotent_and_payload_changes_conflict(self):
+        actor, spec, item = self.draft()
+        again = definitions.save({"clientRequestId": "task-create-1", "name": "合成日报", "spec": spec}, actor)
+        self.assertTrue(again["replayed"])
+        self.assertEqual(again["item"]["id"], item["id"])
+        with self.assertRaises(AiError):
+            definitions.save({"clientRequestId": "task-create-1", "name": "另一任务", "spec": spec}, actor)
+        self.assertEqual(TaskDefinition.objects.count(), 1)
+
+    def test_summaries_paginate_and_revision_detail_has_the_exact_spec(self):
+        actor, spec, item = self.draft()
+        for index in range(3):
+            definitions.save({"clientRequestId": f"task-create-extra-{index}", "name": "分页", "spec": spec}, actor)
+        first = definitions.listing({"limit": "2"}, actor)
+        second = definitions.listing({"limit": "2", "cursor": first["nextCursor"]}, actor)
+        self.assertEqual(len({r["id"] for r in first["items"] + second["items"]}), 4)
+        self.assertTrue(all("spec" not in r for r in first["items"] + second["items"]))
+        history = definitions.detail(item["id"], {"limit": "1"}, actor, "revisions")
+        self.assertNotIn("spec", history["items"][0])
+        self.assertEqual(definitions.detail(item["id"], {}, actor, "revisions", item["revisionId"])["item"]["spec"], spec)
+
+    def test_native_terminal_incident_and_revision_pointer_guards(self):
+        if connection.vendor != "postgresql":
+            self.skipTest("native PostgreSQL constraints")
+        actor, _spec, item = self.draft()
+        with mutation():
+            run = self.synthetic_run(item)
+            incident = dispatch.incident(run, "dispatch_unknown", {"reason": "await_original_receipt", "body": "must_not_be_returned"})
+        for sql, params in (
+            ("UPDATE ai_task_runs SET status='queued',version=version+1 WHERE id=%s", [run.id]),
+            ("UPDATE ai_task_incidents SET state='closed',version=version+1 WHERE id=%s", [incident.id]),
+            ("UPDATE ai_task_definitions SET current_revision=current_revision+1,version=version+1 WHERE id=%s", [item["id"]]),
+        ):
+            with self.assertRaises(DatabaseError), transaction.atomic(), connection.cursor() as cursor:
+                cursor.execute(sql, params)
+                cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
+        dispatch.incident_control(incident.id, {"expectedVersion": 1}, actor, "claim")
+        dispatch.incident_control(incident.id, {"expectedVersion": 2, "resolutionNote": "已核查原记录，无重发"}, actor, "close")
+        with self.assertRaises(DatabaseError), transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute("UPDATE ai_task_incidents SET resolution_note='changed',version=version+1 WHERE id=%s", [incident.id])
+        evidence = definitions.detail(item["id"], {}, actor, "incidents", incident.id)["item"]["evidence"]
+        self.assertEqual(evidence["reasonCode"], "await_original_receipt")
+        self.assertNotIn("body", evidence)
+
+    def test_internal_production_execution_is_closed_and_future_slots_are_not_claimed(self):
+        actor, _spec, item = self.draft()
+        with mutation():
+            run = self.synthetic_run(item, "queued")
+        self.assertIsNone(dispatch.claim(run.id, "worker", now=run.scheduled_at-timedelta(seconds=1)))
+        with self.assertRaises(AiError) as blocked:
+            dispatch.claim(run.id, "worker", now=run.scheduled_at)
+        self.assertEqual(blocked.exception.code, "task_executor_not_adopted")
+        with self.assertRaises(AiError):
+            dispatch.handoff(run.id, "worker", 1, "not-an-operation")
+        run.refresh_from_db()
+        self.assertEqual((run.status, run.fence), ("queued", 0))
+
+    def test_operation_binding_covers_every_frozen_input_and_session(self):
+        from copy import deepcopy
+        from types import SimpleNamespace as Obj
+        spec = {"skill": {"kind": "bundled", "id": "fixture", "version": "1.0.0", "digest": "a"*64},
+            "prompt": "精确日报", "parameters": {"day": "original"}, "modelId": "model", "modelVersion": 9,
+            "shopSelection": {"platform": "京东", "shop": "志高商用设备旗舰店"}}
+        run = Obj(id="run-fixed", task_id="task-fixed", revision_id="revision-fixed", grant_id="grant-fixed",
+            scheduled_at=timezone.now(), occurrence_key="original", revision=Obj(spec_json=canonical(spec), spec_digest=digest(spec)),
+            task=Obj(owner_email="owner", actor_role="admin", scope_json="null"))
+        request = dispatch.operation_payload(run)
+        payload = {key: request[key] for key in ("message", "skillIds", "shopSelection", "fileIds", "businessExecution")}
+        op = Obj(session=Obj(owner_email="owner", actor_role="admin", scope_json="null", selection_json=canonical(spec["shopSelection"]),
+            client_request_id="task-session-run-fixed", epoch=1, generation=1), scope_json="null", actor_role="admin",
+            epoch=1, generation=1, client_request_id=run.id, kind="prompt", model_id="model", model_version=9,
+            payload_json=canonical(payload), skills_json=canonical([{"id": "fixture", "version": "1.0.0", "sha256": "a"*64}]))
+        dispatch.check_operation_binding(run, op)
+        mutations = [lambda o: setattr(o.session, "client_request_id", "foreign-session"),
+            lambda o: setattr(o, "model_version", 10), lambda o: setattr(o, "skills_json", "[]"),
+            lambda o: setattr(o, "payload_json", canonical({**payload, "message": "different"})),
+            lambda o: setattr(o.session, "selection_json", canonical({"platform": "京东", "shop": "别店"}))]
+        for change in mutations:
+            other = deepcopy(op)
+            change(other)
+            with self.assertRaises(AiError):
+                dispatch.check_operation_binding(run, other)

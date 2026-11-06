@@ -64,6 +64,7 @@ for name, digest in files.items():
 supplemental_names = ["backend/teruisi_backend/settings.py", "tools/ai_unified_tasks_rehearsal.py",
                       "backend/ai_assistant/task_definitions.py", "backend/ai_assistant/task_connectors.py",
                       "backend/ai_assistant/task_dispatch.py", "backend/ai_assistant/task_legacy_adapters.py",
+                      "backend/ai_assistant/task_dependencies.py",
                       "backend/ai_assistant/database_contract.py", "backend/ai_assistant/pi_views.py",
                       "tests/ai159-acl-catalog-boundary.py", "tools/check_schema_code_digest.py", "tools/check_catalog_baselines.py",
                       REL + "/run-mandatory-checks.py"]

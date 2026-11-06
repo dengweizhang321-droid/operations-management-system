@@ -1,0 +1,103 @@
+{
+  "status": "passed",
+  "mode": "synthetic_isolated_executor",
+  "shop": {
+    "platform": "京东",
+    "shop": "志高商用设备旗舰店"
+  },
+  "scheduledAt": "2026-11-08T01:00:00+00:00",
+  "dataDate": "2026-11-07",
+  "source": {
+    "erpSales": {
+      "dataset": "erp_shop_sales",
+      "scope": {
+        "platform": "京东",
+        "shop": "志高商用设备旗舰店"
+      },
+      "date": "2026-11-07",
+      "revision": "synthetic-erp-v2",
+      "complete": true,
+      "fields": [
+        "quantity",
+        "sales_amount_cents"
+      ],
+      "quantity": 7,
+      "sales_amount_cents": 123400
+    },
+    "inventory": {
+      "dataset": "inventory_included_warehouses",
+      "scope": {
+        "warehousePolicy": "全部计入库存的仓"
+      },
+      "date": "2026-11-07",
+      "revision": "synthetic-inventory-v1",
+      "complete": true,
+      "fields": [
+        "included_warehouse_quantity"
+      ],
+      "included_warehouse_quantity": 55,
+      "warehouses": [
+        {
+          "name": "合成计入仓A",
+          "included": true,
+          "quantity": 30
+        },
+        {
+          "name": "合成计入仓B",
+          "included": true,
+          "quantity": 25
+        }
+      ]
+    }
+  },
+  "report": {
+    "title": "合成经营日报",
+    "platform": "京东",
+    "shop": "志高商用设备旗舰店",
+    "date": "2026-11-07",
+    "sections": [
+      {
+        "name": "ERP 本店销售",
+        "scope": {
+          "platform": "京东",
+          "shop": "志高商用设备旗舰店"
+        },
+        "quantity": 7,
+        "sales_amount_cents": 123400
+      },
+      {
+        "name": "库存：全部计入库存的仓",
+        "scope": {
+          "warehousePolicy": "全部计入库存的仓"
+        },
+        "included_warehouse_quantity": 55
+      }
+    ],
+    "sourceDigest": "b27b0651fba6f0e1682cb7872c11b143f6cfdc66a414f8fd46a03c524928d5d0",
+    "synthetic": true
+  },
+  "modelCalls": 1,
+  "deliveryCalls": 1,
+  "deliveryId": "f5d7470122b0e47a0b26614f3a466ba5aa8f9fd22dedd87209f55e6b24d243ea",
+  "reportStatus": "ready",
+  "deliveryStatus": "unknown",
+  "runStatus": "unknown",
+  "checks": [
+    "deterministic-original-slot",
+    "ERP-shop-sales-and-included-warehouse-inventory-separate",
+    "missing-field-waits-with-no-side-effects",
+    "same-day-versioned-dependency-resume",
+    "stale-fence-rejected",
+    "exact-Pi-operation-binding",
+    "single-synthetic-model-call",
+    "single-synthetic-delivery",
+    "duplicate-tick-returns-original",
+    "delivery-unknown-never-replayed",
+    "evidence-visible-to-owner"
+  ],
+  "productionTaskEnabled": false,
+  "realProviderCalled": false,
+  "realDeliveryPerformed": false,
+  "productionAuthorizationCreated": false,
+  "productionTouched": false
+}

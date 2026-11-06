@@ -78,7 +78,7 @@ def normalize(spec, principal):
         raise AiError("数据依赖数量无效")
     for dep in deps:
         fields(dep, {"dataset", "dayOffset", "requiredFields"}, {"dataset", "dayOffset", "requiredFields"})
-        _enum(dep["dataset"], {"netshop_product_daily", "netshop_promotion_daily"}, "数据依赖")
+        _enum(dep["dataset"], {"netshop_product_daily", "netshop_promotion_daily", "erp_shop_sales", "inventory_included_warehouses"}, "数据依赖")
         integer(dep["dayOffset"], "相对原时点日期", 1, 31)
         if not isinstance(dep["requiredFields"], list) or not 1 <= len(dep["requiredFields"]) <= 20 or any(not isinstance(v, str) for v in dep["requiredFields"]) or len(set(dep["requiredFields"])) != len(dep["requiredFields"]):
             raise AiError("必需字段列表无效")
@@ -121,6 +121,12 @@ def revision_for(row):
     return TaskRevision.objects.get(task=row, revision=row.current_revision)
 
 
+def summary(row):
+    return {"id": row.id, "name": row.name, "ownerEmail": row.owner_email, "executorKind": row.executor_kind,
+            "enabled": row.enabled, "version": row.version, "revision": row.current_revision,
+            "updatedAt": row.updated_at.isoformat()}
+
+
 def record(row):
     rev = revision_for(row)
     return {"id": row.id, "name": row.name, "ownerEmail": row.owner_email, "executorKind": row.executor_kind,
@@ -132,11 +138,13 @@ def record(row):
 
 def save(payload, principal):
     current_principal(principal, admin=True, write=True)
-    fields(payload, {"id", "expectedVersion", "name", "spec"}, {"name", "spec"})
+    fields(payload, {"id", "expectedVersion", "clientRequestId", "name", "spec"}, {"name", "spec"})
     spec = normalize(payload["spec"], principal)
     name = text(payload["name"], "名称", 100)
     with mutation(principal):
         if "id" in payload:
+            if "clientRequestId" in payload:
+                raise AiError("编辑不接受创建请求标识")
             row = owned(payload["id"], principal, lock=True)
             if integer(payload.get("expectedVersion"), "版本", 1) != row.version:
                 raise AiError("任务已更新，请重新读取", "version_conflict", 409)
@@ -150,37 +158,67 @@ def save(payload, principal):
             else:
                 return {"item": record(row), "unchanged": True}
         else:
+            key = identifier(payload.get("clientRequestId"), "clientRequestId")
+            binding = digest({"name": name, "spec": spec, "scope": principal.scope, "role": principal.role})
+            old = TaskDefinition.objects.filter(owner_email=principal.email.lower(), client_request_id=key).first()
+            if old:
+                if old.request_digest != binding:
+                    raise AiError("创建请求标识已绑定其他内容", "conflict", 409)
+                return {"item": record(old), "replayed": True}
             if "expectedVersion" in payload or TaskDefinition.objects.filter(owner_email=principal.email.lower()).count() >= 100:
                 raise AiError("任务数量或初始版本无效")
             row = TaskDefinition.objects.create(id=uid("task"), owner_email=principal.email.lower(), actor_role=principal.role,
-                scope_json=canonical(principal.scope), name=name)
+                scope_json=canonical(principal.scope), name=name, client_request_id=key, request_digest=binding)
         TaskRevision.objects.create(id=uid("task-revision"), task=row, revision=row.current_revision,
             spec_json=canonical(spec), spec_digest=digest(spec), created_by=principal.email.lower())
     return {"item": record(row)}
 
 
+def page(query, params, *, revision=False):
+    fields(params, {"cursor", "limit"})
+    from .pi_service import number
+    limit = number(params.get("limit", "30"), "limit", 1, 50)
+    if "cursor" in params:
+        query = query.filter(revision__lt=number(params["cursor"], "cursor", 1, 2**53-1)) if revision else query.filter(id__gt=identifier(params["cursor"], "cursor"))
+    rows = list(query.order_by("-revision" if revision else "id")[:limit+1])
+    items = rows[:limit]
+    return items, {"hasMore": len(rows) > limit,
+        "nextCursor": str(items[-1].revision if revision else items[-1].id) if len(rows) > limit else None}
+
+
 def listing(params, principal):
     current_principal(principal, admin=True)
-    fields(params, set())
-    rows = list(TaskDefinition.objects.filter(owner_email=principal.email.lower()).order_by("-updated_at", "id")[:101])
-    return {"items": [record(row) for row in rows[:100]], "hasMore": len(rows) > 100}
+    rows, paging = page(TaskDefinition.objects.filter(owner_email=principal.email.lower()), params)
+    return {"items": [summary(row) for row in rows], **paging}
 
 
-def detail(task_id, params, principal, section=None):
-    fields(params, set())
+def detail(task_id, params, principal, section=None, item_id=None):
     row = owned(task_id, principal)
+    if item_id is not None:
+        fields(params, set())
+        if section == "revisions":
+            rev = TaskRevision.objects.filter(task=row, id=identifier(item_id)).first()
+            if rev:
+                return {"item": {"id": rev.id, "revision": rev.revision, "digest": rev.spec_digest, "spec": json.loads(rev.spec_json)}}
+        elif section in {"runs", "incidents"}:
+            from .task_dispatch import incident_record, run_record
+            model, lookup = (TaskRun, {"task": row}) if section == "runs" else (TaskIncident, {"run__task": row})
+            found = model.objects.filter(id=identifier(item_id), **lookup).first()
+            if found:
+                return {"item": run_record(found, evidence=True) if section == "runs" else incident_record(found, evidence=True)}
+        raise AiError("任务记录不存在", "not_found", 404)
     if section == "revisions":
-        rows = list(TaskRevision.objects.filter(task=row).order_by("-revision")[:51])
-        return {"items": [{"id": r.id, "revision": r.revision, "digest": r.spec_digest, "spec": json.loads(r.spec_json)} for r in rows[:50]], "hasMore": len(rows) > 50}
+        rows, paging = page(TaskRevision.objects.filter(task=row), params, revision=True)
+        return {"items": [{"id": r.id, "revision": r.revision, "digest": r.spec_digest} for r in rows], **paging}
     if section == "runs":
-        rows = list(TaskRun.objects.filter(task=row).order_by("-created_at", "id")[:101])
-        return {"items": [{"id": r.id, "revisionId": r.revision_id, "triggerKind": r.trigger_kind, "occurrenceKey": r.occurrence_key,
-            "scheduledAt": r.scheduled_at.isoformat(), "deadlineAt": r.deadline_at.isoformat(), "status": r.status,
-            "operationId": r.operation_id, "executionRef": r.execution_ref, "errorCode": r.error_code, "version": r.version} for r in rows[:100]], "hasMore": len(rows) > 100}
+        from .task_dispatch import run_record
+        rows, paging = page(TaskRun.objects.filter(task=row), params)
+        return {"items": [run_record(r) for r in rows], **paging}
     if section == "incidents":
         from .task_dispatch import incident_record
-        rows = list(TaskIncident.objects.filter(run__task=row).order_by("-created_at", "id")[:101])
-        return {"items": [incident_record(r) for r in rows[:100]], "hasMore": len(rows) > 100}
+        rows, paging = page(TaskIncident.objects.filter(run__task=row), params)
+        return {"items": [incident_record(r) for r in rows], **paging}
+    fields(params, set())
     from .task_connectors import readiness
     return {"item": record(row), "readiness": readiness(row, principal)}
 

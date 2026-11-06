@@ -11,7 +11,7 @@ from pathlib import Path
 from psycopg import sql
 
 STEPS = ("ai_assistant.0090_unified_tasks",)
-FILES = {"backend/ai_assistant/migrations/0090_unified_tasks.py": "a1a4d4627c89f17ab10f6e15be2f937817bb4a306d815899c1f85928169edbdf"}
+FILES = {"backend/ai_assistant/migrations/0090_unified_tasks.py": "c6ba998339dbd2d2934c9c52c74a8c0cb7dc4f62abe86980230ed120a8cbdc64"}
 TABLES = ("ai_task_definitions", "ai_task_grants", "ai_task_incidents", "ai_task_revisions", "ai_task_runs")
 FUNCTIONS = ("ai_unified_task_guard",)
 VERSION = "teruisi-ai-unified-tasks-catalog-v1"

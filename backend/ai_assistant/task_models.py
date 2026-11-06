@@ -6,6 +6,8 @@ from django.utils import timezone
 class TaskDefinition(models.Model):
     id = models.TextField(primary_key=True)
     owner_email = models.TextField()
+    client_request_id = models.TextField()
+    request_digest = models.TextField()
     actor_role = models.TextField()
     scope_json = models.TextField()
     name = models.TextField()
@@ -21,6 +23,7 @@ class TaskDefinition(models.Model):
         db_table = "ai_task_definitions"
         indexes = [models.Index(fields=["owner_email", "updated_at"], name="ai_task_owner_idx")]
         constraints = [
+            models.UniqueConstraint(fields=["owner_email", "client_request_id"], name="ai_task_create_request_uq"),
             models.CheckConstraint(condition=models.Q(version__gte=1, current_revision__gte=1), name="ai_task_counters"),
             models.CheckConstraint(condition=models.Q(executor_kind="unified_pi"), name="ai_task_executor"),
             models.CheckConstraint(condition=models.Q(enabled=False, next_run_at__isnull=True) | models.Q(enabled=True), name="ai_task_disabled_clock"),
@@ -59,6 +62,8 @@ class TaskRun(models.Model):
     id = models.TextField(primary_key=True)
     task = models.ForeignKey(TaskDefinition, on_delete=models.PROTECT)
     revision = models.ForeignKey(TaskRevision, on_delete=models.PROTECT)
+    grant = models.ForeignKey(TaskGrant, on_delete=models.PROTECT)
+    rule_version = models.TextField(default="unified-task-triage-v1")
     trigger_kind = models.TextField()
     occurrence_key = models.TextField()
     scheduled_at = models.DateTimeField()
@@ -80,6 +85,7 @@ class TaskRun(models.Model):
         indexes = [models.Index(fields=["task", "created_at"], name="ai_task_run_time_idx")]
         constraints = [
             models.UniqueConstraint(fields=["task", "trigger_kind", "occurrence_key"], name="ai_task_occurrence_uq"),
+            models.UniqueConstraint(fields=["operation_id"], condition=~models.Q(operation_id=""), name="ai_task_operation_uq"),
             models.CheckConstraint(condition=models.Q(trigger_kind__in=("time", "message", "event", "condition")), name="ai_task_trigger_kind"),
             models.CheckConstraint(condition=models.Q(status__in=("queued", "waiting_data", "leased", "delegated", "succeeded", "failed", "unknown", "missed", "expired", "canceled")), name="ai_task_run_status"),
             models.CheckConstraint(condition=models.Q(version__gte=1), name="ai_task_run_version"),

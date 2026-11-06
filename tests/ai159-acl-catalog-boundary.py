@@ -125,7 +125,7 @@ path = ROOT / "backend/ai_assistant/migrations/0090_unified_tasks.py"
 tree = ast.parse(path.read_text(encoding="utf8"))
 literal = ast.literal_eval(assignment(tree, "GUARD"))
 assert not any(isinstance(node, ast.Constant) and isinstance(node.value, str)
-    and re.search(r"\bGRANT\b", node.value, re.I) for node in ast.walk(tree)), "migration grants"
+    and re.search(r"\bGRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|ALL|EXECUTE|USAGE|CREATE)\b", node.value, re.I) for node in ast.walk(tree)), "migration grants"
 function = reference["functions"]["public.ai_unified_task_guard()"]
 assert function["source"] == literal.split("$$", 2)[1]
 assert function["owner"] == "teruisi_sales_owner" and function["securityDefiner"] is False

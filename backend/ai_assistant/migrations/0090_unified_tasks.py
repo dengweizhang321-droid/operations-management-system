@@ -7,14 +7,14 @@ from django.db import migrations, models
 
 TABLES = ('ai_task_definitions', 'ai_task_revisions', 'ai_task_grants', 'ai_task_runs', 'ai_task_incidents')
 IDENTITIES = {
-    'ai_task_definitions': 'id owner_email actor_role scope_json executor_kind created_at',
+    'ai_task_definitions': 'id owner_email actor_role scope_json executor_kind client_request_id request_digest created_at',
     'ai_task_grants': 'id revision_id owner_email authorization_ref expires_at created_at',
-    'ai_task_runs': 'id task_id revision_id trigger_kind occurrence_key scheduled_at deadline_at created_at',
+    'ai_task_runs': 'id task_id revision_id grant_id rule_version trigger_kind occurrence_key scheduled_at deadline_at created_at',
     'ai_task_incidents': 'id run_id error_class rule_version evidence_json owner_email next_action resume_conditions notification_key created_at',
 }
 GUARD = """CREATE FUNCTION public.ai_unified_task_guard() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,public AS $$
-DECLARE r public.ai_task_revisions; t public.ai_task_definitions; u public.ai_task_runs;
+DECLARE r public.ai_task_revisions; t public.ai_task_definitions; u public.ai_task_runs; g public.ai_task_grants;
 BEGIN
  IF TG_TABLE_NAME='ai_task_definitions' THEN
   IF NEW.enabled THEN RAISE EXCEPTION 'ai_unified_task_executor_not_adopted'; END IF;
@@ -35,16 +35,45 @@ BEGIN
  ELSIF TG_TABLE_NAME='ai_task_runs' THEN
   SELECT * INTO r FROM public.ai_task_revisions WHERE id=NEW.revision_id;
   IF r.id IS NULL OR r.task_id<>NEW.task_id THEN RAISE EXCEPTION 'ai_unified_task_run_binding'; END IF;
+  SELECT * INTO g FROM public.ai_task_grants WHERE id=NEW.grant_id;
+  SELECT * INTO t FROM public.ai_task_definitions WHERE id=NEW.task_id;
+  IF g.id IS NULL OR g.revision_id<>NEW.revision_id OR g.owner_email<>t.owner_email
+    THEN RAISE EXCEPTION 'ai_unified_task_run_grant'; END IF;
   IF TG_OP='UPDATE' AND (NEW.version<=OLD.version OR NEW.fence<OLD.fence OR NEW.fence>OLD.fence+1
       OR (OLD.operation_id<>'' AND NEW.operation_id<>OLD.operation_id)
       OR (OLD.execution_ref<>'' AND NEW.execution_ref<>OLD.execution_ref))
     THEN RAISE EXCEPTION 'ai_unified_task_run_fence'; END IF;
+  IF TG_OP='UPDATE' THEN
+   IF OLD.status IN ('succeeded','failed','unknown','missed','expired','canceled') AND
+     (to_jsonb(NEW)-'version'-'updated_at') IS DISTINCT FROM (to_jsonb(OLD)-'version'-'updated_at')
+     THEN RAISE EXCEPTION 'ai_unified_task_terminal_immutable'; END IF;
+   IF (OLD.status='queued' AND NEW.status NOT IN ('queued','waiting_data','leased','missed','expired','canceled'))
+     OR (OLD.status='waiting_data' AND NEW.status NOT IN ('waiting_data','leased','expired','canceled'))
+     OR (OLD.status='leased' AND NEW.status NOT IN ('leased','waiting_data','delegated','unknown','expired','canceled'))
+     OR (OLD.status='delegated' AND NEW.status NOT IN ('delegated','succeeded','failed','unknown','canceled'))
+     THEN RAISE EXCEPTION 'ai_unified_task_transition'; END IF;
+   IF NEW.operation_id<>OLD.operation_id AND (OLD.operation_id<>'' OR OLD.status<>'leased' OR NEW.status<>'delegated')
+     THEN RAISE EXCEPTION 'ai_unified_task_handoff_state'; END IF;
+  END IF;
  ELSIF TG_TABLE_NAME='ai_task_incidents' THEN
   SELECT * INTO u FROM public.ai_task_runs WHERE id=NEW.run_id;
   SELECT * INTO t FROM public.ai_task_definitions WHERE id=u.task_id;
-  IF t.id IS NULL OR NEW.owner_email<>t.owner_email THEN RAISE EXCEPTION 'ai_unified_task_incident_owner'; END IF;
+  IF t.id IS NULL OR NEW.owner_email<>t.owner_email OR NEW.rule_version<>u.rule_version THEN RAISE EXCEPTION 'ai_unified_task_incident_owner'; END IF;
+  IF TG_OP='INSERT' AND (NEW.state<>'open' OR NEW.assignee<>'' OR NEW.resolution_note<>'' OR NEW.version<>1)
+    THEN RAISE EXCEPTION 'ai_unified_task_incident_initial'; END IF;
   IF TG_OP='UPDATE' AND (NEW.version<=OLD.version OR (OLD.state='closed' AND NEW.state<>'closed'))
     THEN RAISE EXCEPTION 'ai_unified_task_incident_version'; END IF;
+  IF TG_OP='UPDATE' THEN
+   IF OLD.state='closed' THEN RAISE EXCEPTION 'ai_unified_task_incident_closed'; END IF;
+   IF (OLD.state='open' AND NEW.state NOT IN ('open','claimed')) OR (OLD.state='claimed' AND NEW.state NOT IN ('claimed','closed'))
+     THEN RAISE EXCEPTION 'ai_unified_task_incident_transition'; END IF;
+   IF (NEW.state='open' AND (NEW.assignee<>'' OR NEW.resolution_note<>''))
+     OR (NEW.state IN ('claimed','closed') AND NEW.assignee<>NEW.owner_email)
+     OR (OLD.assignee<>'' AND NEW.assignee<>OLD.assignee)
+     OR (NEW.state='claimed' AND NEW.resolution_note<>'')
+     OR (NEW.state='closed' AND btrim(NEW.resolution_note)='')
+     THEN RAISE EXCEPTION 'ai_unified_task_incident_claim'; END IF;
+  END IF;
  END IF;
  RETURN NEW;
 END $$"""
@@ -59,12 +88,13 @@ def install(apps, schema_editor):
             cursor.execute(f'CREATE TRIGGER ai_write_fence BEFORE INSERT OR UPDATE OR DELETE ON public.{table} FOR EACH ROW EXECUTE FUNCTION public.ai_runtime_write_fence()')
             cursor.execute(f'CREATE TRIGGER ai_task_state BEFORE INSERT OR UPDATE ON public.{table} FOR EACH ROW EXECUTE FUNCTION public.ai_unified_task_guard()')
         cursor.execute('CREATE TRIGGER ai_immutable_evidence BEFORE UPDATE OR DELETE ON public.ai_task_revisions FOR EACH ROW EXECUTE FUNCTION public.ai_immutable_record_guard()')
+        cursor.execute('ALTER TABLE public.ai_task_definitions ADD CONSTRAINT ai_task_revision_pointer_fk FOREIGN KEY (id,current_revision) REFERENCES public.ai_task_revisions(task_id,revision) DEFERRABLE INITIALLY DEFERRED')
         for table, names in IDENTITIES.items():
             args = ','.join("'" + name + "'" for name in names.split())
             cursor.execute(f'CREATE TRIGGER ai_immutable_identity BEFORE UPDATE ON public.{table} FOR EACH ROW EXECUTE FUNCTION public.ai_immutable_record_guard({args})')
         checks = {
-            'ai_task_definitions': "octet_length(name)<=400 AND octet_length(scope_json)<=65536 AND octet_length(owner_email)<=320",
-            'ai_task_revisions': "octet_length(spec_json)<=32768 AND jsonb_typeof(spec_json::jsonb)='object' AND spec_digest ~ '^[a-f0-9]{64}$'",
+            'ai_task_definitions': "octet_length(name)<=400 AND octet_length(scope_json)<=65536 AND octet_length(owner_email)<=320 AND octet_length(client_request_id)<=160 AND request_digest ~ '^[a-f0-9]{64}$'",
+            'ai_task_revisions': "octet_length(spec_json)<=32768 AND jsonb_typeof(spec_json::jsonb)='object' AND spec_digest=encode(sha256(convert_to(spec_json,'UTF8')),'hex')",
             'ai_task_grants': "octet_length(authorization_ref)<=1000",
             'ai_task_runs': "octet_length(occurrence_key)<=2000 AND octet_length(evidence_json)<=8192 AND jsonb_typeof(evidence_json::jsonb)='object'",
             'ai_task_incidents': "octet_length(evidence_json)<=8192 AND jsonb_typeof(evidence_json::jsonb)='object' AND octet_length(resolution_note)<=8000",
@@ -91,6 +121,8 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.TextField(primary_key=True, serialize=False)),
                 ('owner_email', models.TextField()),
+                ('client_request_id', models.TextField()),
+                ('request_digest', models.TextField()),
                 ('actor_role', models.TextField()),
                 ('scope_json', models.TextField()),
                 ('name', models.TextField()),
@@ -105,7 +137,7 @@ class Migration(migrations.Migration):
             options={
                 'db_table': 'ai_task_definitions',
                 'indexes': [models.Index(fields=['owner_email', 'updated_at'], name='ai_task_owner_idx')],
-                'constraints': [models.CheckConstraint(condition=models.Q(('current_revision__gte', 1), ('version__gte', 1)), name='ai_task_counters'), models.CheckConstraint(condition=models.Q(('executor_kind', 'unified_pi')), name='ai_task_executor'), models.CheckConstraint(condition=models.Q(models.Q(('enabled', False), ('next_run_at__isnull', True)), ('enabled', True), _connector='OR'), name='ai_task_disabled_clock')],
+                'constraints': [models.UniqueConstraint(fields=('owner_email', 'client_request_id'), name='ai_task_create_request_uq'), models.CheckConstraint(condition=models.Q(('current_revision__gte', 1), ('version__gte', 1)), name='ai_task_counters'), models.CheckConstraint(condition=models.Q(('executor_kind', 'unified_pi')), name='ai_task_executor'), models.CheckConstraint(condition=models.Q(models.Q(('enabled', False), ('next_run_at__isnull', True)), ('enabled', True), _connector='OR'), name='ai_task_disabled_clock')],
             },
         ),
         migrations.CreateModel(
@@ -142,6 +174,8 @@ class Migration(migrations.Migration):
             name='TaskRun',
             fields=[
                 ('id', models.TextField(primary_key=True, serialize=False)),
+                ('rule_version', models.TextField(default='unified-task-triage-v1')),
+                ('grant', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='ai_assistant.taskgrant')),
                 ('trigger_kind', models.TextField()),
                 ('occurrence_key', models.TextField()),
                 ('scheduled_at', models.DateTimeField()),
@@ -232,5 +266,6 @@ class Migration(migrations.Migration):
             model_name='taskincident',
             constraint=models.CheckConstraint(condition=models.Q(('notification_status__in', ('not_sent', 'legacy_notified', 'pending', 'sent', 'failed', 'unknown'))), name='ai_task_notification_status'),
         ),
+        migrations.AddConstraint(model_name='taskrun', constraint=models.UniqueConstraint(fields=('operation_id',), condition=~models.Q(operation_id=''), name='ai_task_operation_uq')),
         migrations.RunPython(install, uninstall),
     ]
