@@ -70,5 +70,6 @@
     "py -3.12 tools/ai-postgres-rehearsal.py --tests-only --preprovision-ai-runtime-roles --test-label ai_assistant.test_pi_context --test-label pi_runner.test_compact_safe_point --port 55876"
   ],
   "reviewDelta": "exact root/endpoint message event evidence; final HTTP authorization/generation recheck; compact skill snapshot reuse through real Broker.create; signed create non-start vs unknown; PostgreSQL-compliant fixtures",
-  "postgresEvidence": "docs/ai-context-resume-20261107/postgres-tests.log (source .runtime/ai-pg-9efeb50bbb7d/tests.log)"
+  "postgresEvidence": "docs/ai-context-resume-20261107/postgres-tests.log (newline-normalized; raw source .runtime/ai-pg-9efeb50bbb7d/tests.log)",
+  "postgresRawSha256": "b2c6c3aa9ca8a3800b4177a831f7cda0fadb6064b681e156d6f02cc4ce5131ef"
 }
