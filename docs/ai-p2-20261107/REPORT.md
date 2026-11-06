@@ -26,11 +26,11 @@
 | --- | --- |
 | 核心及首场景独立PG | 15项通过；`.runtime/ai-pg-0f36a32c4085/tests.log`，包括raw writer坏回执及单目标拒绝 |
 | 资源库失效后的创建重试 | 定向1项通过；`.runtime/ai-pg-a139ebae2e60/tests.log` |
-| 158→159结构/ACL | 7类通过，旧行/ACL保持、新表为空、原生FK禁用拒绝、已提交159不重放；[structure-result.json](structure-result.json) |
+| 158→159结构/ACL | 最终13类通过，旧行/ACL保持、新表为空、原生FK禁用拒绝、已提交159不重放；[structure-result.json](structure-result.json) |
 | PS5/PS7有限控制器 | 各33项通过；[ps5-native.json](ps5-native.json)、[ps7-native.json](ps7-native.json)，未做完整服务冷启动 |
 | Node直接影响编排 | 153项通过；`node-targeted-final.log`；本代显式AI provision、不触发Pi镜像升级、失败不finalize或重放 |
 | 静态ACL/OWNER | 87项契约及冻结OWNER检查通过 |
-| 冻结源码必需检查 | Python90文件、Node5文件、PS5/PS7各11文件、迁移/模型闭包通过；[ai159-execution.json](ai159-execution.json) |
+| 冻结源码必需检查 | Python92文件、Node5文件、PS5/PS7各11文件、迁移/模型闭包通过；[ai159-execution.json](ai159-execution.json) |
 | recipe真实算法绑定 | `gate.code_digest(root)` 111成员；[schema-bindings.json](schema-bindings.json)通过 |
 | 本次TS语法 | 16文件通过；[changed-typescript-syntax.json](changed-typescript-syntax.json) |
 
@@ -52,3 +52,5 @@ FK禁用探针只在verify_catalog抛出精确的本代catalog差异时，用专
 G05真实PG证明现以 `structureEvidence` 的路径/SHA绑定在本代validation中，由candidate、admission及静态recipe检查器共同核验。PG过程审计实际读取的309个源码/依赖输入，记录集合摘要、158/159真实migration receipt摘要、代际、Django/psycopg/Python版本、通过项以及停止/删data/password的清理结果。结构输入变化要求重演；不在该集合中的应用改动可复用结构证明，再生成最终代码检查。本轮PG共13类检查通过。
 
 文件准入4项通过（`structure-evidence-tests.log`）：删改PG结果同时阻断candidate/admission、修改结构输入拒绝、无关应用文件可复用、重算SHA后的失败/错误收据/未清理状态仍拒绝。备份新目录定向1项通过（`backup-inventory-targeted.log`）。原备份旧假fixture全套的13个历史失败与77382b5f基线同集，见 `backup-helper-baseline-comparison.json`，未把这些既有问题写成通过。
+
+本次最终代码检查绑定干净源码 `bee32c95110341832dcedb3d5dcbea9b79c302a3`，111个gate成员，真实PG输入309项；本代recipe静态核对通过。此前核心/场景检查在相同业务代码上复用，本轮不重复业务验收、不生成生产制品。

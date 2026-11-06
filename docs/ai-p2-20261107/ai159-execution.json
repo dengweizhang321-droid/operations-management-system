@@ -1,7 +1,7 @@
 {
   "version": "teruisi-schema-mandatory-code-execution-v1",
-  "checkedAt": "2026-11-06T18:15:08.924577+00:00",
-  "baseCommit": "df414b09cd4eb459c2e419d04477524ce0b8b3fa",
+  "checkedAt": "2026-11-06T18:48:50.445457+00:00",
+  "baseCommit": "bee32c95110341832dcedb3d5dcbea9b79c302a3",
   "productionTouched": false,
   "functionalValidationPerformed": false,
   "fullBackupOrRestorePerformed": false,
@@ -11,7 +11,7 @@
     "powershell-syntax",
     "python-syntax"
   ],
-  "codeSha256": "538ad54bf59e244eaa51d63e64e32ca50264ba299c277d53cc9c4fe46d2a7822",
+  "codeSha256": "979ddb75451bcd5ec876d924cb3b37a3be2a7fd31c426519d09abe0f0aa86020",
   "migrationSha256": "4fcc89b07c1e4b735d094c5e4efc27a291cfcc5a37a8b8beddfa03540ffd897c",
   "sourceFiles": {
     "tools/jd_monitor_preferences_addition.py": "94e93413b02bde911c11cc251c437f9480d8b9b4d1922369c5b29991d9470267",
@@ -119,16 +119,16 @@
     "backend/ai_assistant/feedback_models.py": "b5d85c698e5dbd63c06d9f7e1f404b04ca1d7c7a685fdd41f825c5faa26c9bc4",
     "backend/ai_assistant/candidate_models.py": "b7a6f638ef264dc891ba53cad5d16ccca5baf3f762ded0134483bece53a2cdf7",
     "backend/ai_assistant/migrations/0003_runtime_fencing.py": "d547fc51f47680ac9faf9585ec8e6611129496f7804511436729485533aa27c3",
-    "tools/ai_unified_tasks_addition.py": "57b3c79adb7873213e23a824cd323e1e83e56e2dd3da9c22dbea428df24945d1",
+    "tools/ai_unified_tasks_addition.py": "66f6231ac971120e84fa92599ca7ba56576bea0d4d21a003ea4e666fe02051f7",
     "tools/ai_unified_tasks_catalog.py": "a3ebd6adb5e2c1a22477714dbcf0875ff72fc3bf2b1e549cfa0fa5892868be0c",
     "tools/ai_unified_tasks_catalog.json": "50bbcc919b8cbc1f70eb16469e738b6e11ac332d6cd5613ebb04a333c0225dd0",
-    "tools/ai_unified_tasks_candidate.py": "7067475e60f85977b85346f17fb67912ca67cd0bec2ea62d1af587b6f17a49bf",
+    "tools/ai_unified_tasks_candidate.py": "15e764829f61930852176a517b1b0c61d1cdcccb757ae5d58b77d3734cd105af",
     "backend/ai_assistant/migrations/0090_unified_tasks.py": "f955d5ffbca0a3eea761597b79e7445e76e37ccf329e39aafa022f91d301e39a",
     "backend/ai_assistant/task_models.py": "3c34ad724d0ead9433e1f5d57c289b61c1aef730dc25bf31c650b27cc033ec43"
   },
   "supplementalSourceFiles": {
     "backend/teruisi_backend/settings.py": "d22aaaa867d7ee67fd7d953cf5bcbba0f612b6e1f887ca8ec1bfb019b53c3512",
-    "tools/ai_unified_tasks_rehearsal.py": "d6e59ca3d4aee763c327593ef9ae576428764e977169b2a2d64bb7308b644f75",
+    "tools/ai_unified_tasks_rehearsal.py": "15db7ae18cec3bf82311b8fca4d6ac875423c64b8181b255a844b5949d0179a6",
     "backend/ai_assistant/task_definitions.py": "d6fc27662f420bbae500af4487922fc5ad84734a1b719fec24f4fda20dc0a923",
     "backend/ai_assistant/task_connectors.py": "dec9b154186a1becfd7fdc6fb9778207e3043023f8b360770a552280f28f7945",
     "backend/ai_assistant/task_dispatch.py": "31ed6372638c0ba5b9aff1497e2b61a42e6290159e5cd1dd2e98a097e1d3c716",
@@ -137,9 +137,11 @@
     "backend/ai_assistant/database_contract.py": "2e2e04b93f4076bf2303edb608b28ab835ef79c18aff2c4f0db1828973061d22",
     "backend/ai_assistant/pi_views.py": "1780b765fd55b4099e1286ac22780f23f354e2a8b73d414a6eee03b5d4c3e1b0",
     "tests/ai159-acl-catalog-boundary.py": "8257fd9707661d73185c7353bfdf310d585b0e54f3b6268325e18de4531cd26f",
-    "tools/check_schema_code_digest.py": "cf7667ba9b3eb57e4db981ed34a341f305f1b4f1001499bec24ccf1be1321f88",
+    "tests/ai159-structure-evidence.py": "24a0e16cc8d39429582161c29263f49669b6f9f9e7420274ae31be75bb1e30ad",
+    "tests/postgres-consistent-backup.test.py": "3c61e7394407547b2c248508ca4110285c8b5102eef9d230adea75730430a9cb",
+    "tools/check_schema_code_digest.py": "1c90dce6777dfd2d5019a37178cc40346ff67f864453309894b19b5679d3ee02",
     "tools/check_catalog_baselines.py": "59aa5c75e02232d0cdf6df51b48dc2c93f7f6550af6bb0350e5f7cd642ca2a90",
-    "docs/ai-p2-20261107/run-mandatory-checks.py": "20296bc8f3613403bd4939ee9220f9724893ce2d9c4453a0800e6ac0d44d380b"
+    "docs/ai-p2-20261107/run-mandatory-checks.py": "ccce173416e5141616ce7204c0a9c742421a491d39a9f8a02f299198983fb152"
   },
   "syntax": {
     "python": {
@@ -232,6 +234,8 @@
         "backend/ai_assistant/task_dependencies.py",
         "backend/ai_assistant/pi_views.py",
         "tests/ai159-acl-catalog-boundary.py",
+        "tests/ai159-structure-evidence.py",
+        "tests/postgres-consistent-backup.test.py",
         "tools/check_schema_code_digest.py",
         "tools/check_catalog_baselines.py",
         "docs/ai-p2-20261107/run-mandatory-checks.py"
@@ -271,9 +275,9 @@
         },
         {
           "host": "pwsh.exe",
+          "status": "passed",
           "version": "7.6.9",
-          "files": 11,
-          "status": "passed"
+          "files": 11
         }
       ]
     }
@@ -341,5 +345,5 @@
       "tools/ai_unified_tasks_catalog.json"
     ]
   },
-  "executionScriptSha256": "20296bc8f3613403bd4939ee9220f9724893ce2d9c4453a0800e6ac0d44d380b"
+  "executionScriptSha256": "ccce173416e5141616ce7204c0a9c742421a491d39a9f8a02f299198983fb152"
 }
