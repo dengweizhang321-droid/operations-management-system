@@ -1,0 +1,196 @@
+✔ only the finite148 descriptor permits a migration request (6.0694ms)
+✔ recipe refuses rewritten/extra migrations, changed proof and changed0016 bytes (124.9195ms)
+✔ freeze binds exact evidence and publisher rechecks the same bytes through the read-only binder (87.0128ms)
+✔ binder children never inherit production connection, library or channel variables (0.4361ms)
+✔ an independently frozen request reuses its approved evidence SHA through check, never another output (78.2803ms)
+✔ Ai158 requires both exact additions; change ordering is irrelevant and157 is never a completion (1.2698ms)
+✔ Ai158 ACL contract runs before the fixed binder; failures produce no schema evidence (41.0139ms)
+✖ repository django-local-service.ps1 bytes have an explicit reviewed candidate qualification (10.4216ms)
+✔ repository worker-local-service.ps1 bytes have an explicit reviewed candidate qualification (7.4485ms)
+✔ repository process-deadline.ps1 remains the exact already-reviewed predecessor transport (4.3005ms)
+✔ finite old pair only; native Stop exit0 is not a precondition or inferred claim (4.5359ms)
+✖ reviewed Django controller generations preserve historical exceptions and match current source (11.5569ms)
+✔ A项: descendant CreationDate guard candidate is qualified; other names and bytes still fail closed (1.9074ms)
+✔ Sales154: append exact qualification, retain old generation, and reject foreign or modified hashes (0.9417ms)
+✔ batched status enumeration: append exact qualification, retain Sales154, and reject foreign or modified hashes (0.7721ms)
+✔ Workflow156: append exact qualification, retain every older generation, and reject foreign or modified hashes (0.6745ms)
+✔ B项: worker -Json failure-cause candidate is qualified; bytes match the repository controller (3.5744ms)
+✔ S04a: A1-fixed candidate local-service is qualified against the installed 988810cf controller (0.6559ms)
+✔ S05a: B1 worker controller is qualified per controller; other names still fail closed (0.8015ms)
+✔ wrong maintenance ID fails closed (0.4964ms)
+✔ coerced maintenance keepPG fails closed (0.5455ms)
+✔ maintenance array fails closed (6.0897ms)
+✔ wrong native runtime root fails closed (0.4627ms)
+✔ wrong request phase fails closed (0.306ms)
+✔ coerced drainedStopped fails closed (0.2451ms)
+✔ source bytes changed fails closed (0.3112ms)
+✔ request drift fails closed (0.24ms)
+✔ rotation owner changed fails closed (0.2657ms)
+✔ no pre-bound actor fails closed (0.2555ms)
+✔ original actor still alive fails closed (0.2007ms)
+✔ late Report participant fails closed (0.8377ms)
+✔ only vacant Windows ports fails closed (0.2088ms)
+✔ partial stopped services fails closed (0.3329ms)
+✔ Worker supervisor receipt remains fails closed (1.3682ms)
+✔ ambiguous native Worker state fails closed (0.2576ms)
+✔ owned PostgreSQL unknown fails closed (0.1903ms)
+✔ Linux observation unavailable fails closed (0.2688ms)
+✔ Linux service active fails closed (0.2275ms)
+✔ Linux containers unresolved fails closed (0.3548ms)
+✔ wrong Linux user fails closed (0.2657ms)
+✔ unknown Pandas configuration fails closed (0.238ms)
+✔ downstream deployment possible fails closed (0.3331ms)
+✔ old Django bytes changed fails closed (0.2059ms)
+✔ completion evidence contradicts current state fails closed (0.2173ms)
+✔ no Linux requirement is added when the original Stop has no configured Pandas (0.1436ms)
+✔ one in-call continuation calls same-ID once; no build/migrate/publisher seam (0.5345ms)
+✔ one in-call continuation coordinates durable commit; no build/migrate/publisher seam (0.2235ms)
+✔ bad fresh proof cannot reach continuation Enter; second failure is not retried (0.657ms)
+✔ publisher preserves original failure, then advances only after finite proof and native continuation (144.0057ms)
+✔ publisher late-actor rejection preserves unknown STARTED and cannot re-enter on another invocation (55.5909ms)
+✔ the exact old manifest pins an existing original Worker process transport (4.583ms)
+✔ C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe production assertions reject actual transport bootstraps on private process objects (1455.6161ms)
+✔ pwsh.exe production assertions reject actual transport bootstraps on private process objects (974.1558ms)
+✔ Q14: registered django-ai hashes are exactly the reviewed pair and match the real bytes (0.4381ms)
+✔ Q14: the exact installed -> candidate django-ai pair reaches the native exit-observer route (43.7126ms)
+✔ Q14: unchanged django-ai (installed = candidate) is unaffected by the new pair (39.6097ms)
+✔ Q14: any other django-ai pair is still refused by the original predecessor checks (127.4555ms)
+✔ Q14: a one-digit hash error on either side is refused (reported hashes, real bytes) (70.1269ms)
+✔ Q14: installed bytes that change after the pair was recognised cannot ride on the registered hash (36.4101ms)
+✔ Q14: a candidate that edits the Pi stop protocol is refused before the pair is considered (34.7774ms)
+✔ Q14: the pair keeps per-controller generation checks for every other controller (154.6074ms)
+✔ missing maintenance material fails before STARTED and the same prepared package can recheck (223.9535ms)
+✔ known read-only preflight failure retains its attempt and can recheck the same prepared package before STARTED (113.3808ms)
+✔ worker-only calls the real engine boundaries in order without preparing or stopping Django (87.7272ms)
+✔ django-only keeps old Worker and never prepares or applies a Worker release (87.706ms)
+✔ combined uses full native maintenance without any migration operator (95.3153ms)
+✔ Runner source-only release prepares and adopts the bound Runner without a schema migration (140.5063ms)
+✔ UpgradePi catch exact state windows_complete never reapplies the upgrade (125.0137ms)
+✔ UpgradePi catch exact state reconcile_available never reapplies the upgrade (146.034ms)
+✔ UpgradePi catch exact state blocked never reapplies the upgrade (76.7442ms)
+✔ release lease covers preparation, reverification, Start and ready with bounded refreshes (109.6029ms)
+✔ release lease is removed after preparation and deployment exceptions (98.997ms)
+✔ release lease write failure records a warning and never blocks publication (113.8162ms)
+✔ migration requests fail before any engine or result write (1.7492ms)
+✔ existing SUCCESS only reports current when target and both live bindings match (65.5718ms)
+✔ existing STARTED never retries an unknown result (4.4388ms)
+✔ failure at BeginWorkerDrain retains FAILED and never retries or writes success (37.1794ms)
+✔ failure at StopForRelease retains FAILED and never retries or writes success (39.0442ms)
+✔ failure at apply retains FAILED and never retries or writes success (40.8939ms)
+✔ failure at Start retains FAILED and never retries or writes success (57.5171ms)
+✔ failure at EndWorkerDrain retains FAILED and never retries or writes success (54.0461ms)
+✔ failure at VerifyStartup retains FAILED and never retries or writes success (56.7905ms)
+✔ failure at ready retains FAILED and never retries or writes success (64.4495ms)
+✔ drain cancellation failure preserves the original error: fixture cancellation failure (37.4002ms)
+✔ drain cancellation failure preserves the original error: Exact drain owner is required (39.4337ms)
+✔ worker material failure before STARTED never cancels a drain (22.6423ms)
+✔ full maintenance failure at EnterMaintenance stops without replay or automatic cleanup (50.97ms)
+✔ full maintenance failure at Stop stops without replay or automatic cleanup (48.6994ms)
+✔ full maintenance failure at DeployApp stops without replay or automatic cleanup (55.3415ms)
+✔ full maintenance failure at HardenAcl stops without replay or automatic cleanup (67.6196ms)
+✔ full maintenance failure at apply stops without replay or automatic cleanup (67.7101ms)
+✔ full maintenance failure at ExitMaintenance stops without replay or automatic cleanup (75.0377ms)
+✔ full maintenance failure at Start stops without replay or automatic cleanup (129.8921ms)
+✔ unready HTTP or final Django drift cannot save SUCCESS (1139.1636ms)
+✔ ready transient recovery reuses completed deployment and emits bounded observations (131.8894ms)
+✔ ready success reuse remains a single check and does not rewrite original observations (79.8004ms)
+✔ HTTP 200 with HTML or non-ready JSON never saves SUCCESS (183.0018ms)
+✔ real Fetch Response consumed by JSON can publish successfully (51.0073ms)
+✔ prepare-only and deploy-only reuse exact worker artifacts (67.2822ms)
+✔ prepare-only and deploy-only reuse exact django artifacts (88.4325ms)
+✔ prepare-only and deploy-only reuse exact worker+django artifacts (98.0449ms)
+✔ deploy-only without a prepared artifact never builds or starts publication (27.4981ms)
+✔ omitted programmatic mode also refuses inline preparation (10.7783ms)
+✔ preparation failure identity preserves preparation evidence without a deployment STARTED (17.3473ms)
+✔ preparation failure plan preserves preparation evidence without a deployment STARTED (18.3037ms)
+✔ preparation failure PrepareApp preserves preparation evidence without a deployment STARTED (22.2952ms)
+✔ source/request drift and native Worker reuse failure stop before maintenance (35.4496ms)
+✔ known scope gap: contract-only release skips role provisioning: backend/ai_assistant/database_contract.py (565.569ms)
+ℹ Known unresolved gap: the mocked ready response does not prove real database privileges or startup readiness.
+✔ known scope gap: contract-only release skips role provisioning: tools/django-inventory-service.ps1 (519.9865ms)
+ℹ Known unresolved gap: the mocked ready response does not prove real database privileges or startup readiness.
+✔ known scope gap: contract-only release skips role provisioning: backend/ai_assistant/database_contract.py, tools/django-inventory-service.ps1 (521.8622ms)
+ℹ Known unresolved gap: the mocked ready response does not prove real database privileges or startup readiness.
+✔ original role trigger remains once: TmallWarehouse path=false (100.5466ms)
+✔ original role trigger remains once: TmallWarehouse path=true (98.2919ms)
+✔ original role trigger remains once: PiAgent path=false (212.842ms)
+✔ original role trigger remains once: PiAgent path=true (126.6237ms)
+✔ original role trigger remains once: PiWorkspace path=false (103.5263ms)
+✔ original role trigger remains once: PiWorkspace path=true (107.483ms)
+✔ original role trigger remains once: PiBusiness path=false (95.661ms)
+✔ original role trigger remains once: PiBusiness path=true (120.9039ms)
+✔ original role trigger remains once: PiNative path=false (100.3074ms)
+✔ original role trigger remains once: PiNative path=true (99.7603ms)
+✔ WorkflowAutomation provisions by exact contract path: AI contract modified (103.8786ms)
+✔ WorkflowAutomation provisions by exact contract path: AI contract renamed from (105.3419ms)
+✔ WorkflowAutomation provisions by exact contract path: AI contract renamed to (107.996ms)
+✔ WorkflowAutomation provisions by exact contract path: inventory contract modified (104.8712ms)
+✔ WorkflowAutomation provisions by exact contract path: inventory contract renamed from (103.4151ms)
+✔ WorkflowAutomation provisions by exact contract path: both contracts once (110.9443ms)
+✔ WorkflowAutomation provisions by exact contract path: unrelated paths (99.9872ms)
+✔ WorkflowAutomation provisions by exact contract path: missing changes (107.7056ms)
+✔ WorkflowAutomation provisions by exact contract path: empty changes (111.7407ms)
+✔ Ai158 explicitly provisions four-privilege AI tables without a contract diff or Pi Runner upgrade (100.3906ms)
+✔ Ai158 failed role provisioning never finalizes, starts or replays (78.9647ms)
+✔ WorkflowAutomation role failure stops before Finalize and never replays: backend/ai_assistant/database_contract.py (85.239ms)
+✔ WorkflowAutomation role failure stops before Finalize and never replays: tools/django-inventory-service.ps1 (74.4979ms)
+✔ 148 preparation never migrates; manual deployment binds original operation and native receipts (97.5115ms)
+✔ 148 failure at Plan retains unknown publication and never replays (60.4459ms)
+✔ 148 failure at Install retains unknown publication and never replays (77.6974ms)
+✔ 148 failure at Finalize retains unknown publication and never replays (76.7494ms)
+✔ schema evidence drift during reuse is rejected before maintenance (34.0882ms)
+✔ finite149 parent 147 provisions exact roles before finalization and never during prepare (111.7415ms)
+✔ finite149 parent 148 provisions exact roles before finalization and never during prepare (122.9044ms)
+✔ 149 Install failure preserves unknown and stops the remaining chain (73.7196ms)
+✔ 149 ProvisionRoles failure preserves unknown and stops the remaining chain (78.0034ms)
+✔ 149 Finalize failure preserves unknown and stops the remaining chain (85.3634ms)
+✔ Pi150 provisions only its AI roles after Install and before Finalize (106.8296ms)
+✔ Pi150 role provisioning uncertainty preserves the original operation without replay (80.0477ms)
+✔ Pi151 prepares the independent Runner without starting it and upgrades after schema before service start (135.6189ms)
+✔ Pi151 upgrade failure keeps the original publication unknown and never starts or replays (103.5289ms)
+✔ Pi151 failed upgrade preparation check cannot publish PREPARED or enter maintenance (29.6348ms)
+✔ non-canonical preparation source spelling is normalized before the Worker source binding (17.4892ms)
+✔ predecessor qualification runs before expensive reused-package verification (90.4101ms)
+ℹ tests 150
+ℹ suites 0
+ℹ pass 148
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10059.5496
+
+✖ failing tests:
+
+test at tests\maintenance-controller-qualification.test.mjs:17:3
+✖ repository django-local-service.ps1 bytes have an explicit reviewed candidate qualification (10.4216ms)
+  AssertionError [ERR_ASSERTION]: django-local-service.ps1: repository SHA-256 37c6dc571aeefe4954f977f5b3a64ec08516362a67775729f45f60b17bca99a6 is not in its reviewed qualification list; review the controller before adding a hash
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/ai-p2-20261107/tests/maintenance-controller-qualification.test.mjs:21:12)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\manual-maintenance-continuation.test.mjs:32:1
+✖ reviewed Django controller generations preserve historical exceptions and match current source (11.5569ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '37c6dc571aeefe4954f977f5b3a64ec08516362a67775729f45f60b17bca99a6'
+  - 'f23314bc00541d14f72584973bc5bf0560b86cac4e3427ab0307adee22efdad8'
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/ai-p2-20261107/tests/manual-maintenance-continuation.test.mjs:39:9)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '37c6dc571aeefe4954f977f5b3a64ec08516362a67775729f45f60b17bca99a6',
+    expected: 'f23314bc00541d14f72584973bc5bf0560b86cac4e3427ab0307adee22efdad8',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

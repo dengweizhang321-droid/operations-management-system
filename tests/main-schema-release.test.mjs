@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
-import {monitoringSchema,monitoringMigration,monitoringRecipe,schemaForRequest,readSchemaRecipe,prepareMainSchemaRelease,verifyMainSchemaRelease,schemaPreparationEnvironment,aiTaskFeedbackCandidatesSchema,aiTaskFeedbackCandidatesMigrations,assertMainSchemaPlanSupported} from '../tools/main-schema-release.mjs';
+import {monitoringSchema,monitoringMigration,monitoringRecipe,schemaForRequest,readSchemaRecipe,prepareMainSchemaRelease,verifyMainSchemaRelease,schemaPreparationEnvironment,aiTaskFeedbackCandidatesSchema,aiTaskFeedbackCandidatesMigrations,aiUnifiedTasksSchema,assertMainSchemaPlanSupported} from '../tools/main-schema-release.mjs';
 const sourceRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 async function fixture(t){
@@ -84,4 +84,11 @@ test('Ai158 ACL contract runs before the fixed binder; failures produce no schem
  assert.equal(bindCalls,0);await assert.rejects(fs.access(path.join(packet,'schema/ai-0088-0089-evidence.json')));
  const descriptor=await prepareMainSchemaRelease({source,packet,plan},{run,runAcl:async(exe,args)=>{aclCalls++;assert.ok(args[0].endsWith('ai158-acl-catalog-boundary.py'));}});
  assert.equal(descriptor.toGeneration,158);assert.equal(bindCalls,1);assert.equal(aclCalls,1);
+});
+
+test('Ai159 supports only the exact0090 addition and rejects rewritten or combined migrations',()=>{
+ const change={status:'A',path:'backend/ai_assistant/migrations/0090_unified_tasks.py'};
+ assert.deepEqual(assertMainSchemaPlanSupported({migrate:true,changes:[change]}),aiUnifiedTasksSchema);
+ for(const changes of [[{...change,status:'M'}],[change,{status:'A',path:'backend/ai_assistant/migrations/0091_unknown.py'}]])
+  assert.throws(()=>assertMainSchemaPlanSupported({migrate:true,changes}));
 });

@@ -1795,6 +1795,28 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   # sales_preflight_addition._verify_active_with_base, plus the exact
   # workflow-only delta against this generation's own baseline.
   # Ai158 is a finite schema-only child of the verified Workflow156 parent.
+  $aiUnifiedTasksGate = Join-Path $candidateRoot 'tools\ai_unified_tasks_addition.py'
+  $aiUnifiedTasksDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('ai-unified-tasks-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -ceq 'teruisi-ai-unified-tasks-schema-addition-v1' -or $aiUnifiedTasksDeployment -or
+      (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'ai-unified-tasks-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $aiUnifiedTasksGate -PathType Leaf)) {throw 'Ai159 requires its exact verifier'}
+    $aiUnifiedTasksCommand = if ($Operation -ceq 'PrepareApp') {if ($null -ne $biEvidence) {'admission'} else {'successor'}} elseif ($Operation -ceq 'DeployApp') {if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'}} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported Ai159 lifecycle operation'}
+    $aiUnifiedTasksArgs = @($aiUnifiedTasksGate,$aiUnifiedTasksCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if ($aiUnifiedTasksCommand -ceq 'admission') {$aiUnifiedTasksArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if ($aiUnifiedTasksCommand -ceq 'deployment') {$aiUnifiedTasksArgs += @('--operation',$IntegrationOperationId)}
+    $aiUnifiedTasksRun = Invoke-BoundedNativeProcess $Python $aiUnifiedTasksArgs $candidateRoot
+    if ($aiUnifiedTasksRun -isnot [pscustomobject] -or $aiUnifiedTasksRun.ExitCode -isnot [int] -or
+        $aiUnifiedTasksRun.LaunchFailed -isnot [bool] -or $aiUnifiedTasksRun.LaunchFailed -or
+        $aiUnifiedTasksRun.Diagnostic.OutputTruncated -isnot [bool] -or $aiUnifiedTasksRun.Diagnostic.OutputTruncated -or
+        @($aiUnifiedTasksRun.Output | Where-Object {$_ -is [string] -and $_.TrimStart().StartsWith('{')}).Count -ne 1) {
+      throw 'Ai159 requires one complete typed native JSON object'
+    }
+    $aiUnifiedTasksProof = ConvertFrom-UniqueNativeJson $aiUnifiedTasksRun 'Verify finite Ai159 schema addition'
+    if ($aiUnifiedTasksProof -isnot [pscustomobject] -or $aiUnifiedTasksProof.status -isnot [string] -or
+        $aiUnifiedTasksProof.status -cne 'verified') {throw 'Ai159 schema addition gate refused'}
+    return
+  }
   $aiTaskFeedbackCandidatesGate = Join-Path $candidateRoot 'tools\ai_task_feedback_candidates_addition.py'
   $aiTaskFeedbackCandidatesDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
     (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('ai-task-feedback-candidates-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
@@ -2259,6 +2281,10 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\ai_unified_tasks_addition.py",
+      "tools\ai_unified_tasks_catalog.py",
+      "tools\ai_unified_tasks_catalog.json",
+      "tools\ai_unified_tasks_candidate.py",
       "tools\ai_task_feedback_candidates_addition.py",
       "tools\ai_task_feedback_candidates_catalog.py",
       "tools\ai_task_feedback_candidates_catalog.json",

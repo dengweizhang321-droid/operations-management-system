@@ -22,6 +22,27 @@ def dispatch(request, path, principal):
     payload = body(request) if request.method == "POST" else {}
     if request.method == "POST" and params:
         raise AiError("Pi 写接口不接受查询参数")
+    if parts == ["pi", "task-connectors"] and request.method == "GET":
+        from . import task_connectors
+        return response(task_connectors.listing(principal, params))
+    if parts == ["pi", "legacy-tasks"] and request.method == "GET":
+        from . import task_legacy_adapters
+        fields(params, set())
+        return response(task_legacy_adapters.listing(principal))
+    if parts == ["pi", "task-definitions"]:
+        from . import task_definitions
+        return response(task_definitions.listing(params, principal) if request.method == "GET"
+                        else task_definitions.save(payload, principal), 200 if request.method == "GET" else 201)
+    if len(parts) in {3, 4, 5} and parts[:2] == ["pi", "task-definitions"]:
+        from . import task_definitions
+        if request.method == "GET" and (len(parts) == 3 or parts[3] in {"revisions", "runs", "incidents"}):
+            return response(task_definitions.detail(parts[2], params, principal,
+                parts[3] if len(parts) >= 4 else None, parts[4] if len(parts) == 5 else None))
+        if request.method == "POST" and len(parts) == 4 and parts[3] in {"enable", "disable"}:
+            return response(task_definitions.control(parts[2], payload, principal, parts[3]))
+    if len(parts) == 4 and parts[:2] == ["pi", "task-incidents"] and parts[3] in {"claim", "close"} and request.method == "POST":
+        from .task_dispatch import incident_control
+        return response(incident_control(parts[2], payload, principal, parts[3]))
     if parts == ["pi", "business-admission"] and request.method == "POST":
         from . import pi_business
         return response(pi_business.admission(payload, principal))

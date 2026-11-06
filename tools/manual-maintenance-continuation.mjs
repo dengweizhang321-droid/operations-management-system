@@ -171,8 +171,10 @@ export const bWorkerJsonFailureCauseScriptSha256='1b8c5d4d61ba491d042f41ae91e9cc
 // AI158: append-only finite admission/copy-list branch; reviewed evidence lives in
 // docs/ai-task-feedback-candidates-addition-20261104. Ancestor qualifications remain.
 export const aiTaskFeedbackCandidatesDjangoScriptSha256='f23314bc00541d14f72584973bc5bf0560b86cac4e3427ab0307adee22efdad8';
+// AI159: finite schema branch and copy-list only; PS5/PS7 AST evidence in docs/ai-p2-20261107.
+export const aiUnifiedTasksDjangoScriptSha256='37c6dc571aeefe4954f977f5b3a64ec08516362a67775729f45f60b17bca99a6';
 export const piNativeCandidateControllerSha256=Object.freeze({
- 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256]),
+ 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256]),
  'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256]),
  'process-deadline.ps1':Object.freeze([])
 });

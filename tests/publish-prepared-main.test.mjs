@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {publishPreparedMain,piWorkspaceImage,piBusinessImage,piNativeImage,releaseLeaseTtlMs} from '../tools/publish-prepared-main.mjs';
-import {monitoringSchema,tmallSchema,tmall148Schema,piAgentSchema,piWorkspaceSchema,piBusinessSchema,piNativeSchema,workflowAutomationSchema,aiTaskFeedbackCandidatesSchema} from '../tools/main-schema-release.mjs';
+import {monitoringSchema,tmallSchema,tmall148Schema,piAgentSchema,piWorkspaceSchema,piBusinessSchema,piNativeSchema,workflowAutomationSchema,aiTaskFeedbackCandidatesSchema,aiUnifiedTasksSchema} from '../tools/main-schema-release.mjs';
 import {classifyRelease} from '../tools/release-scope-plan.mjs';
 
 async function fixture(t,components=['worker'],failAt=null){
@@ -460,6 +460,31 @@ test('Ai158 explicitly provisions four-privilege AI tables without a contract di
 
 test('Ai158 failed role provisioning never finalizes, starts or replays',async t=>{
  const f=await migrationFixture(t,'ProvisionRoles',aiTaskFeedbackCandidatesSchema);
+ f.request.releasePlan.changes=[];
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});f.events.length=0;
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/fixture failure/);
+ for(const action of ['Finalize','UpgradePi','apply','ExitMaintenance','Start'])assert.ok(!f.events.includes(action));
+ await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
+ f.events.length=0;await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/结果未知/);
+ assert.ok(!f.events.includes('ProvisionRoles'));
+});
+
+test('Ai159 explicitly provisions restricted unified task tables without a contract diff or Pi Runner upgrade',async t=>{
+ const f=await migrationFixture(t,null,aiUnifiedTasksSchema),native=f.context.runStep,calls=[];
+ f.request.releasePlan.changes=[];
+ f.context.runStep=async args=>{if(args.action==='ProvisionRoles')calls.push(path.basename(args.script));return native(args);};
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ assert.deepEqual(calls,[]);assert.ok(!f.events.includes('EnterMaintenance'));
+ f.events.length=0;
+ const result=await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ assert.deepEqual(calls,['django-ai.ps1']);assert.equal(result.schemaReceipt.finalized.result.migrationCount,159);
+ assert.ok(f.events.indexOf('Install')<f.events.indexOf('ProvisionRoles'));
+ assert.ok(f.events.indexOf('ProvisionRoles')<f.events.indexOf('Finalize'));
+ assert.ok(!f.events.includes('UpgradePi'));
+});
+
+test('Ai159 failed role provisioning never finalizes, starts or replays',async t=>{
+ const f=await migrationFixture(t,'ProvisionRoles',aiUnifiedTasksSchema);
  f.request.releasePlan.changes=[];
  await publishPreparedMain(f.request,{...f.context,prepareOnly:true});f.events.length=0;
  await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/fixture failure/);

@@ -47,3 +47,8 @@ tests/ai158-schema-native.test.ps1 -text whitespace=cr-at-eol
 docs/ai-task-feedback-candidates-addition-20261104/*.json -text whitespace=cr-at-eol
 docs/ai-task-feedback-candidates-addition-20261104/*.log -text -diff
 docs/ai-task-feedback-candidates-addition-20261104/*.txt -text whitespace=cr-at-eol
+
+# AI159 delivery evidence and native-test byte bindings are kept verbatim.
+tests/ai159-schema-native.test.ps1 -text whitespace=cr-at-eol
+docs/ai-p2-20261107/*.json -text whitespace=cr-at-eol
+docs/ai-p2-20261107/*.log -text -diff
