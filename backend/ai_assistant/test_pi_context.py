@@ -1,12 +1,15 @@
 """Isolated recovery/control evidence checks; no provider or Runner effects."""
 import json
-from unittest.mock import patch
+from unittest.mock import patch, Mock
+from pathlib import Path
+from types import SimpleNamespace
+import threading
 
 from django.test import TestCase, override_settings
 
 from . import pi_context, pi_workspace as workspace, pi_native, pi_service as service, pi_worker as worker
-from .pi_models import PiControl, PiDispatch, PiOperation, PiSession, PiWorkspace, PiAgent
-from .policy import AiError, canonical, mutation
+from .pi_models import PiControl, PiDispatch, PiOperation, PiSession, PiWorkspace, PiAgent, PiAgentMessage
+from .policy import AiError, canonical, mutation, digest, uid
 from . import test_pi_workspace as fixtures
 
 
@@ -54,7 +57,7 @@ class RecoveryTests(TestCase):
         op = self.ready()
         with mutation():
             PiDispatch.objects.create(id="unknown-model", operation=op, kind="model", request_id="original",
-                request_digest="synthetic", status="unknown", response_json=canonical({"providerFrame": "private"}))
+                request_digest=digest({"fixture":"unknown-model"}), status="unknown", response_json=canonical({"providerFrame": "private"}))
         with patch.object(workspace.pi_transport, "command") as send:
             state = workspace.detail(op.session_id, {}, self.owner, poll=False)["recovery"]
             with self.assertRaises(AiError) as caught: self.send(op.session_id, "compact")
@@ -65,24 +68,22 @@ class RecoveryTests(TestCase):
         self.assertEqual(PiControl.objects.count(), 0)
 
     def test_user_decisions_are_verbatim_with_omission_and_original_control_ids(self):
-        op = self.ready()
-        with mutation():
+        op = self.ready(active=True)
+        original_ids = []
+        with patch.object(workspace.pi_transport, "command", side_effect=self.runner):
             for i in range(pi_context.LIMIT+2):
-                PiControl.objects.create(id=f"decision-{i}", session_id=op.session_id, operation=op,
-                    client_request_id=f"decision-{i}", request_digest="synthetic", epoch=op.epoch,
-                    generation=op.generation, control_seq=i+1, command="steer", status="completed",
-                    payload_json=canonical({"message": "已确认修正"*1000}))
+                original_ids.append(self.send(op.session_id,"steer",{"message":"已确认修正"*1000},key=f"decision-{i}")["control"]["id"])
         state = workspace.detail(op.session_id, {}, self.owner, poll=False)["recovery"]
         decisions = state["userDecisionsAndCorrections"]
         self.assertTrue(decisions["hasMore"])
         self.assertEqual(len(decisions["items"]), pi_context.LIMIT)
         self.assertTrue(decisions["items"][0]["evidence"]["truncated"])
-        self.assertEqual(decisions["items"][0]["controlId"], f"decision-{pi_context.LIMIT+1}")
+        self.assertEqual(decisions["items"][0]["controlId"], original_ids[-1])
         self.assertLess(len(canonical(state).encode()), 96*1024)
         next_page = workspace.detail(op.session_id, {"recoveryBeforeControlSeq": str(decisions["nextBeforeControlSeq"])}, self.owner, poll=False)["recovery"]
         self.assertEqual(next_page["userDecisionsAndCorrections"]["items"][0]["controlSeq"], 2)
         source = workspace.detail(op.session_id, {"recoveryControlSeq": "1", "recoveryTextOffset": "1200"}, self.owner, poll=False)["recovery"]["sourceControl"]
-        self.assertEqual(source["controlId"], "decision-0")
+        self.assertEqual(source["controlId"], original_ids[0])
         self.assertEqual(source["offset"], 1200)
         self.assertIsNotNone(source["nextOffset"])
 
@@ -202,10 +203,9 @@ class RecoveryTests(TestCase):
 
     def test_old_child_root_epoch_does_not_receive_new_root_plan(self):
         op = self.ready()
-        child_id = self.session()
+        child_id = self.send(op.session_id,"agent_spawn",{"task":"old-child"},key="create-old-child")["control"]["result"]["sessionId"]
+        workspace._finish_init(worker.claim())
         with mutation():
-            PiAgent.objects.filter(session_id=child_id).update(root_session_id=op.session_id, parent_session_id=op.session_id,
-                settings_json=canonical({"rootEpoch":1,"rootGeneration":1}))
             root = PiSession.objects.get(pk=op.session_id)
             root.epoch += 1; root.generation += 1; root.save()
             pi_native.save_plan(root, {"plan":{"goal":"new-root-secret","constraints":[],"steps":[],"deliverables":[],"openQuestions":[]}})
@@ -218,17 +218,14 @@ class RecoveryTests(TestCase):
             ws = PiWorkspace.objects.get(session_id=op.session_id)
             ws.state_json = canonical({"piState":{"sessionId":"branch-a"}}); ws.save()
         service.prompt(op.session_id, {"clientRequestId":"branch-bound-prompt", "message":"branch-a-secret"}, self.owner)
-        bound = worker.claim(); workspace._finish_init(bound)
+        bound = worker.claim()
         self.assertEqual(json.loads(bound.payload_json)["nativeBranchBinding"]["nativeSessionId"], "branch-a")
-        with mutation():
-            PiControl.objects.create(id="branch-steer", session_id=op.session_id, operation=bound, client_request_id="branch-steer",
-                request_digest="synthetic", epoch=bound.epoch, generation=bound.generation, control_seq=1, command="steer",
-                status="completed", payload_json=canonical({"message":"branch-a-decision-secret"}))
+        with patch.object(workspace.pi_transport,"command",side_effect=self.runner):
+            self.send(op.session_id,"steer",{"message":"branch-a-decision-secret"},key="branch-steer")
+        workspace._finish_init(bound)
         def switched(request):
             return {**self.runner(request), "workspace":{"terminals":[],"pendingUi":[],"piState":{"sessionId":"branch-b"}}}
         with patch.object(workspace.pi_transport, "command", side_effect=switched):
-            # Reserve a new control sequence after the synthetic prior steer.
-            with mutation(): PiWorkspace.objects.filter(session_id=op.session_id).update(control_seq=1)
             self.send(op.session_id, "session_new", key="new-native-branch")
         current = workspace.detail(op.session_id, {}, self.owner, poll=False)["recovery"]
         self.assertIsNone(current["goal"])
@@ -237,3 +234,115 @@ class RecoveryTests(TestCase):
         instruction = PiControl.objects.get(pk=compact["control"]["id"]).payload_json
         self.assertNotIn("branch-a-secret", instruction)
         self.assertNotIn("branch-a-decision-secret", instruction)
+
+    def test_real_get_hides_old_agent_message_after_same_scope_reset(self):
+        op=self.ready()
+        self.send(op.session_id,"agent_send",{"agentId":op.session_id,"message":"old-agent-message-secret"},key="old-send")
+        self.assertIn("old-agent-message-secret",canonical(self.http_workspace(op.session_id)))
+        with patch.object(worker,"dispose_environment"), patch.object(workspace,"_create_environment",return_value={"workspace":{"terminals":[],"pendingUi":[]}}):
+            self.send(op.session_id,"reset",key="message-reset")
+        self.assertNotIn("old-agent-message-secret",canonical(self.http_workspace(op.session_id)))
+
+    def test_real_get_does_not_fabricate_evidence_for_legacy_message(self):
+        op=self.ready()
+        with mutation():
+            session=PiSession.objects.get(pk=op.session_id);state=pi_native.state_for(session,lock=True)
+            state.message_seq+=1;state.save(update_fields=["message_seq"])
+            row=PiAgentMessage.objects.create(id=uid("pi-message"),root_session=session,from_session=session,
+                to_session=session,seq=state.message_seq,kind="send",message="unbound-legacy-secret")
+            service.event(session,"agent_message",{"messageId":row.id,"fromSessionId":session.id,"kind":"send","seq":row.seq})
+        result=self.http_workspace(op.session_id)
+        self.assertNotIn("unbound-legacy-secret",canonical(result))
+        self.assertTrue(result["native"]["messageHistoryMayBeOmitted"])
+
+    def test_real_get_child_only_sees_exact_messages_and_never_new_root_after_reset(self):
+        op=self.ready()
+        child=self.send(op.session_id,"agent_spawn",{"task":"child"},key="message-child")["control"]["result"]["sessionId"]
+        workspace._finish_init(worker.claim())
+        self.send(op.session_id,"agent_send",{"agentId":child,"message":"explicit-child-message"},key="to-child")
+        self.send(op.session_id,"agent_send",{"agentId":op.session_id,"message":"root-only-message"},key="to-root")
+        view=canonical(self.http_workspace(child))
+        self.assertIn("explicit-child-message",view); self.assertNotIn("root-only-message",view)
+        with patch.object(worker,"dispose_environment"), patch.object(workspace,"_create_environment",return_value={"workspace":{"terminals":[],"pendingUi":[]}}):
+            self.send(op.session_id,"reset",key="new-root-generation")
+        self.send(op.session_id,"agent_send",{"agentId":op.session_id,"message":"new-root-message-secret"},key="new-root-send")
+        self.assertNotIn("new-root-message-secret",canonical(self.http_workspace(child)))
+
+    def test_real_get_rechecks_generation_and_permissions_after_runner_gap(self):
+        from access_control.models import AppUser
+        for mode in ("generation", "scope", "error_generation"):
+            with self.subTest(mode=mode):
+                op=self.ready(active=True)
+                with patch.object(workspace.pi_transport,"command",side_effect=self.runner):
+                    self.send(op.session_id,"steer",{"message":"old-control-secret"},key="gap-steer")
+                workspace._finish_init(op)
+                def transport(request):
+                    if mode == "scope": AppUser.objects.filter(email=self.owner.email).update(scope={"warehouses":[],"channels":[],"platforms":[]})
+                    else:
+                        with mutation():
+                            row=PiSession.objects.get(pk=op.session_id);row.epoch+=1;row.generation+=1;row.save()
+                    if mode == "error_generation": raise AiError("synthetic gap", "pi_runner_unknown",503)
+                    return self.runner(request)
+                with patch.object(workspace.pi_transport,"command",side_effect=transport):
+                    response=self.call(f"/api/ai/pi/sessions/{op.session_id}/workspace",method="GET")
+                self.assertIn(response.status_code,(403,409)); self.assertNotIn("old-control-secret",response.content.decode())
+                if mode == "scope": AppUser.objects.filter(email=self.owner.email).update(scope=self.owner.scope)
+
+    @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY":"isolated-context-compaction-rejection-key-123456789"})
+    def test_real_worker_keeps_skills_through_real_broker_create_with_background_process(self):
+        from pi_runner.server import Broker
+        from pi_runner.skills import build
+        from pi_runner.protocol import workspace_key
+        selected=next(item for item in service.skills() if item["id"]=="excel-report")
+        result=self.prompt(skillIds=["excel-report"]); previous=worker.claim();workspace._finish_init(previous)
+        with mutation(): PiWorkspace.objects.create(session_id=previous.session_id,status="ready",model_id=self.model.id,model_version=self.model.version)
+        compact=self.send(previous.session_id,"compact");current=worker.claim()
+        manifest=build(Path(__file__).resolve().parents[1]/"pi_runner"/"bundled_skills"/selected["version"])
+        native=SimpleNamespace(phase="settled",active={"operationId":previous.id},skills=[s for s in manifest["skills"] if s["id"]=="excel-report"],
+            skill_version=selected["version"],bind=Mock(),baseline_processes={"pi"},metadata_lock=threading.RLock())
+        broker=SimpleNamespace(lock=threading.RLock(),sessions={workspace_key(worker.identity(current)):native},skill_bundles={selected["version"]:manifest},
+            transfer=Mock(return_value=manifest),workspace_active=Mock(return_value=True),process_inventory=Mock(return_value=["pi","background"]))
+        broker.update_skills=lambda *args: Broker.update_skills(broker,*args)
+        broker._update_skills=lambda *args: Broker._update_skills(broker,*args)
+        control=PiControl.objects.get(pk=compact["control"]["id"])
+        failures=[]
+        def transport(request):
+            if request["command"]=="create":
+                self.assertEqual(request["payload"]["skillIds"],["excel-report"])
+                try: Broker.create(broker,request)
+                except Exception as error:
+                    failures.append(type(error).__name__+":"+str(error)); raise
+                return {"skills":native.skills,"state":{"commands":[{"name":"skill:excel-report","source":"skill"}]}}
+            return {"control":{"controlId":control.id,"controlSeq":control.control_seq,"status":"failed","errorCode":"compact_background_writers",
+                "result":{"compactPreBindRejection":{"operationId":current.id,"seq":current.seq,"modelBound":False,"code":"compact_background_writers"}}}}
+        with patch.object(worker,"heartbeat"), patch.object(workspace.pi_transport,"command",side_effect=transport): worker.perform(current)
+        current.refresh_from_db();control.refresh_from_db()
+        self.assertEqual((current.status,control.status),("failed","failed"),(current.error_code,failures,list(PiDispatch.objects.filter(operation=current).values_list("kind","error_code"))))
+        broker.process_inventory.assert_not_called()
+
+    @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY":"isolated-context-compaction-rejection-key-123456789"})
+    def test_real_worker_known_create_rejection_closes_but_transport_unknown_stays_unknown(self):
+        from .pi_transport import CompactCreateRejected
+        for rejection, status in [(CompactCreateRejected(),"failed"),(AiError("lost","pi_runner_unknown",503),"unknown")]:
+            with self.subTest(status=status):
+                op=self.ready(); compact=self.send(op.session_id,"compact");current=worker.claim()
+                with patch.object(worker,"heartbeat"),patch.object(workspace.pi_transport,"command",side_effect=rejection):worker.perform(current)
+                current.refresh_from_db();control=PiControl.objects.get(pk=compact["control"]["id"])
+                self.assertEqual(current.status,status); self.assertEqual(control.status,status)
+
+    def test_transport_only_accepts_exact_signed_compact_create_rejection(self):
+        from . import pi_transport
+        for valid, marked in [(True,True),(False,True),(True,False)]:
+            with self.subTest(valid=valid,marked=marked):
+                key=b"synthetic-signing-key-12345678901234567890"
+                body=canonical({"error":"skill_update_while_busy"}).encode()
+                value={"operationId":"compact","ownerId":"synthetic","conversationId":"isolated","epoch":1,"generation":1,"seq":2,
+                    "command":"create","payload":{"compactControlId":"control"} if marked else {}}
+                headers={};reply=Mock(status=400);reply.read.return_value=body
+                reply.getheader.side_effect=lambda name,default="": "application/json" if name=="Content-Type" else (
+                    pi_transport.signature(key,headers["X-Timestamp"],headers["X-Nonce"],body,"response") if valid else "invalid")
+                with patch.object(pi_transport,"secret",return_value=key),patch.object(pi_transport.http.client,"HTTPConnection") as connection:
+                    connection.return_value.request.side_effect=lambda method,path,raw,supplied: headers.update(supplied)
+                    connection.return_value.getresponse.return_value=reply
+                    with self.assertRaises(AiError) as caught: pi_transport.command(value)
+                self.assertEqual(caught.exception.code,"pi_compact_create_rejected" if valid and marked else "pi_runner_unknown")

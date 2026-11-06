@@ -342,6 +342,8 @@ def detail(session_id, params, principal, *, poll=True):
         session = service.get_session(session_id, principal, lock=True)
         workspace = _workspace(session)
         observation_seq = workspace.control_seq
+        observation_identity = (session.epoch, session.generation, session.status == "frozen")
+    observation_error = None
     operation = _operation(session)
     if poll and operation and session.status != "frozen" and workspace.status != "uninitialized":
         payload = {"action": "state"}
@@ -387,16 +389,25 @@ def detail(session_id, params, principal, *, poll=True):
             state = json.loads(workspace.state_json)
             state["observationError"] = error.code
             workspace.state_json = canonical(state)
-    from .pi_native import snapshot
-    result = {"native": snapshot(session), "session": service.session_record(session), "workspace": workspace_record(session, workspace),
-        "controls": [] if session.status == "frozen" else [control_record(c, history=True) for c in PiControl.objects.filter(session=session, generation=session.generation).order_by("-control_seq")[:100]]}
-    from .pi_context import recovery
-    result["recovery"] = recovery(session, workspace, before_control_seq=before_control_seq)
-    if "recoveryControlSeq" in params:
-        from .pi_context import control_evidence
-        result["recovery"]["sourceControl"] = control_evidence(session,
-            service.number(params["recoveryControlSeq"], "recoveryControlSeq", 1, 2**53-1),
-            service.number(params.get("recoveryTextOffset", "0"), "recoveryTextOffset", 0, 2**53-1))
+            observation_error = error.code
+    # A network gap cannot pin old scope or generation into the response.
+    with mutation(principal):
+        session = service.get_session(session_id, principal, lock=True)
+        if (session.epoch, session.generation, session.status == "frozen") != observation_identity:
+            raise AiError("读取期间环境授权或代际已变化，请重新读取", "pi_observation_changed", 409)
+        workspace = _workspace(session)
+        if observation_error:
+            workspace.state_json = canonical({**json.loads(workspace.state_json), "observationError": observation_error})
+        from .pi_native import snapshot
+        result = {"native": snapshot(session), "session": service.session_record(session), "workspace": workspace_record(session, workspace),
+            "controls": [] if session.status == "frozen" else [control_record(c, history=True) for c in PiControl.objects.filter(session=session, generation=session.generation).order_by("-control_seq")[:100]]}
+        from .pi_context import recovery
+        result["recovery"] = recovery(session, workspace, before_control_seq=before_control_seq)
+        if "recoveryControlSeq" in params:
+            from .pi_context import control_evidence
+            result["recovery"]["sourceControl"] = control_evidence(session,
+                service.number(params["recoveryControlSeq"], "recoveryControlSeq", 1, 2**53-1),
+                service.number(params.get("recoveryTextOffset", "0"), "recoveryTextOffset", 0, 2**53-1))
     return result
 
 
@@ -472,12 +483,15 @@ def _validate(command, payload):
 def _new_operation(session, workspace, principal, kind, payload, *, queued):
     from . import configuration
     model = configuration.resolve_model(workspace.model_id or None)
+    previous = _operation(session) if kind == "workspace:compact" else None
+    inherited_skills = json.loads(previous.skills_json) if previous else []
     session.operation_seq += 1
     payload = {**payload, "shopSelection": json.loads(session.selection_json),
         **({"thinkingLevel": workspace.thinking_level} if workspace.thinking_level else {})}
     operation = PiOperation.objects.create(id=uid("pi-op"), session=session, client_request_id=uid("workspace"),
         request_digest=digest(payload), kind=kind, epoch=session.epoch, generation=session.generation, seq=session.operation_seq,
-        actor_role=principal.role, scope_json=session.scope_json, payload_json=canonical(payload), model_id=model.id, model_version=model.version)
+        actor_role=principal.role, scope_json=session.scope_json, payload_json=canonical(payload), model_id=model.id, model_version=model.version,
+        skills_json=canonical(inherited_skills))
     session.active_operation_id, session.status = operation.id, "queued"
     session.save()
     if not workspace.model_id:

@@ -23,6 +23,12 @@ class NativeImageUpgradeRequired(AiError):
         super().__init__("此保留环境需要先升级原生能力镜像，历史与文件已保留", "workspace_native_image_upgrade_required", 409)
 
 
+class CompactCreateRejected(AiError):
+    def __init__(self):
+        self.reason = "skill_update_while_busy"
+        super().__init__("原环境仍有活动，压缩尚未派发", "pi_compact_create_rejected", 409)
+
+
 def secret():
     path = os.getenv("PI_RUNNER_HMAC_KEY_FILE", "")
     if path:
@@ -67,6 +73,9 @@ def command(value):
                 or not hmac.compare_digest(reply.getheader("X-Signature", ""), signature(key, stamp, nonce, body, "response"))):
             raise AiError("PiRunner 响应未知，禁止重发", "pi_runner_unknown", 503)
         result = json.loads(body)
+        if (reply.status == 400 and result == {"error":"skill_update_while_busy"}
+                and value.get("command") == "create" and isinstance(value.get("payload", {}).get("compactControlId"), str)):
+            raise CompactCreateRejected()
         if reply.status == 400 and result == {"error": "workspace_native_image_upgrade_required"} and (
                 value.get("command") == "create" or value.get("command") == "workspace" and value.get("payload", {}).get("command") == "wake"):
             raise NativeImageUpgradeRequired()
