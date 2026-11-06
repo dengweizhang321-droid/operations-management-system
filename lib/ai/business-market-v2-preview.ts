@@ -32,10 +32,13 @@ export type MarketView = typeof MARKET_V2_VIEWS[number];
 function fail(message = "市场样本预览回执与当前报告或页不一致，请重新读取。"): never { throw new Error(message); }
 function record(value: unknown): value is Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value); }
 function nonnegative(value: unknown): value is number { return Number.isSafeInteger(value) && (value as number) >= 0; }
-export function validateMarketSourceQualification(raw: unknown, reportId: string, selector: MarketSelector): MarketSourceQualification {
+export function validateMarketSourceQualification(raw: unknown, reportId: string, selector: MarketSelector,
+  evidence: { runId: string; version: number; catalogDigest: string }): MarketSourceQualification {
   const selected = record(raw) && record(raw.selector) ? raw.selector : null;
   if (!record(raw) || raw.schemaVersion !== "business-market-source-qualification-v1"
     || raw.sourceReportId !== reportId || !record(raw.binding) || raw.binding.reportId !== reportId
+    || raw.evidenceRunId !== evidence.runId || raw.evidenceVersion !== evidence.version || raw.catalogDigest !== evidence.catalogDigest
+    || raw.binding.evidenceRunId !== evidence.runId || raw.binding.evidenceVersion !== evidence.version
     || raw.sourceProfile !== "business-agent-screening-promotion-reference-v1"
     || !selected || !Array.isArray(selected.bands) || selected.bands.length !== selector.bands.length
     || selected.bands.some((band, index) => !record(band) || Object.entries(selector.bands[index]).some(([key, value]) => band[key] !== value))

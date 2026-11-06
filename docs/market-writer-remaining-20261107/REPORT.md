@@ -11,6 +11,9 @@
 ```json
 {
   "schemaVersion": "business-market-source-qualification-request-v1",
+  "evidenceRunId": "example-evidence-run",
+  "evidenceVersion": 1,
+  "catalogDigest": "0000000000000000000000000000000000000000000000000000000000000000",
   "marketSelector": {
     "priceBandSourceKey": "market-current",
     "rankCurrentSourceKey": "market-current",
@@ -66,3 +69,10 @@
 - 未新增或执行业务功能测试、生产数据回查、浏览器验收、模型调用、结构迁移、制品准备或发布；功能按项目分工由用户上线后检测。
 
 本轮后续：独立 Astra 反审 M1 与 W1；根据结论修订后，再继续 M2—M6。当前分支仅为开发候选，不能据此认为 M 全专项完成或已上线。
+
+## Astra M1 首轮反审修订
+
+1. 近期关联报告只显示10份，不能覆盖更早的合格词货报告。本次采用有界**精确编号查找并核验**：在原市场选择控件下增加历史词货报告编号输入，可直接核验不在近期列表内的报告，不扩大默认列表。M1请求显式绑定当前 `evidenceRunId/evidenceVersion/catalogDigest`；Django先校验本人拥有的当前sealed-v2任务，再验证目标词货报告属于同run及版本，最终重读并校验当前任务。跨run、过期版本、其他owner、非词货profile都不能作为历史报告成功结果。客户端也核对返回任务、版本和目录身份。
+2. 完整目录中没有适用双窗口属于正常不适用状态：目录结构仍经原校验，`marketPairs`返回空时保留普通说明，无alert、无“重读来源目录”按钮。网络/权限/版本/目录完整性异常仍沿真实错误分支展示alert与重读。没有因不适用而屏蔽真实目录错误。
+
+本轮修订只做定向TypeScript及Python语法、差异检查；不运行功能测试或生产回查。交原Astra上下文增量复审。

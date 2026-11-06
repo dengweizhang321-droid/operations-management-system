@@ -40,6 +40,7 @@ export default function AiBusinessMarketV2Preview({ principalKey, evidenceRunId,
   const [enabled, setEnabled] = useState(false), [sources, setSources] = useState<MarketSource[]>([]);
   const [directoryError, setDirectoryError] = useState(""), [loading, setLoading] = useState(false), [retry, setRetry] = useState(0);
   const [sourceReportId, setSourceReportId] = useState(""), [pairIndex, setPairIndex] = useState(0);
+  const [historicalReportId, setHistoricalReportId] = useState("");
   const [currentDate, setCurrentDate] = useState(""), [baselineDate, setBaselineDate] = useState(""), [boundary, setBoundary] = useState("1000.00");
   const [pending, setPending] = useState<Pending | null>(null), [createdId, setCreatedId] = useState("");
   const [last, setLast] = useState<LastPreview | null>(null);
@@ -52,7 +53,7 @@ export default function AiBusinessMarketV2Preview({ principalKey, evidenceRunId,
   const chosen: MarketPair | undefined = pairs[pairIndex];
   const locked = disabled || busy || !!pending;
   const qualificationIdentity = JSON.stringify([principalKey, evidenceRunId, evidenceVersion, catalogDigest,
-    sourceReportId, reports.find(report => report.id === sourceReportId), pairIndex, currentDate, baselineDate, boundary]);
+    sourceReportId, reports.find(report => report.id === sourceReportId), historicalReportId, pairIndex, currentDate, baselineDate, boundary]);
   const qualificationIdentityRef = useRef(qualificationIdentity);
   qualificationIdentityRef.current = qualificationIdentity;
   const qualification = storedQualification?.identity === qualificationIdentity ? storedQualification.value : null;
@@ -86,8 +87,7 @@ export default function AiBusinessMarketV2Preview({ principalKey, evidenceRunId,
           next = value.nextOffset;
           if (collected.length > 48) throw new Error("来源目录超出固定容量。");
         }
-        const matches = marketPairs(collected);
-        if (matches.length === 0) throw new Error("当前封存证据没有同条件的京东市场本期与比较基期来源。");
+        marketPairs(collected); // Invalid directories still fail; no matching pair is a normal state.
         setSources(collected); setPairIndex(0);
       } catch (caught) { if (active && !ctl.signal.aborted) setDirectoryError(message(caught)); }
       finally { if (active && !ctl.signal.aborted) setLoading(false); }
@@ -119,17 +119,20 @@ export default function AiBusinessMarketV2Preview({ principalKey, evidenceRunId,
   // A selection/identity change invalidates the displayed source observation.
   useEffect(() => { setQualification(null); }, [qualificationIdentity]);
 
-  async function qualify() {
-    if (!chosen || !sourceReportId || !reports.some(report => report.id === sourceReportId)) return;
+  async function qualify(exactReportId = sourceReportId) {
+    if (!chosen) return;
     const requestedIdentity = qualificationIdentity;
     op.current?.abort(); const ctl = new AbortController(); op.current = ctl;
     setBusy(true); setError(""); setQualification(null);
     try {
+      if (!/^[A-Za-z0-9_-]{1,160}$/.test(exactReportId)) throw new Error("请输入精确的词货报告编号。");
       const selector = marketSelector(chosen, currentDate, baselineDate, boundary);
-      const raw = await post<unknown>(`/api/ai/reports/${encodeURIComponent(sourceReportId)}/market-source-qualification`,
-        JSON.stringify({ schemaVersion: "business-market-source-qualification-request-v1", marketSelector: selector }), ctl.signal);
+      const raw = await post<unknown>(`/api/ai/reports/${encodeURIComponent(exactReportId)}/market-source-qualification`,
+        JSON.stringify({ schemaVersion: "business-market-source-qualification-request-v1", marketSelector: selector,
+          evidenceRunId, evidenceVersion, catalogDigest }), ctl.signal);
       if (ctl.signal.aborted || op.current !== ctl || qualificationIdentityRef.current !== requestedIdentity) return;
-      setQualification({ identity: requestedIdentity, value: validateMarketSourceQualification(raw, sourceReportId, selector) });
+      setQualification({ identity: requestedIdentity, value: validateMarketSourceQualification(raw, exactReportId, selector,
+        { runId: evidenceRunId, version: evidenceVersion, catalogDigest }) });
     } catch (caught) { if (!ctl.signal.aborted && op.current === ctl && qualificationIdentityRef.current === requestedIdentity) setError(message(caught)); }
     finally { if (op.current === ctl) { op.current = null; setBusy(false); } }
   }
@@ -188,6 +191,7 @@ export default function AiBusinessMarketV2Preview({ principalKey, evidenceRunId,
     <p role="status">市场样本预览，未生成 Agent 诊断/正式文件。价格带汇总与成员来自同一 TOP 样本，不可相加；市场数据也不能计入本店、ERP 或 B 端销售。</p>
     {loading && <p role="status">正在核验封存市场来源目录…</p>}
     {directoryError && <p role="alert" className="bw-error">{directoryError} <button type="button" onClick={() => setRetry(value => value + 1)}>重读来源目录</button></p>}
+    {!loading && !directoryError && pairs.length === 0 && <p>当前封存任务没有同条件的京东市场本期与比较基期来源，暂无市场来源可核验。</p>}
     {pairs.length > 0 && <><label>已关联的词货来源报告<select aria-label="市场预览来源报告" disabled={locked} value={sourceReportId} onChange={event => { setSourceReportId(event.target.value); setSummary(null); setPage(null); setCreatedId(""); }}>
       <option value="">请选择报告</option>{reports.map(report => <option key={report.id} value={report.id}>{report.createdAt} · {report.id} · {report.status}</option>)}
     </select></label><label>同条件本期与比较基期<select aria-label="市场双窗口来源" disabled={locked} value={pairIndex} onChange={event => { setPairIndex(Number(event.target.value)); setCurrentDate(""); setBaselineDate(""); setSummary(null); setPage(null); setCreatedId(""); }}>
@@ -203,9 +207,13 @@ export default function AiBusinessMarketV2Preview({ principalKey, evidenceRunId,
       <label>价格两档分界（元）<input aria-label="价格两档分界" type="text" inputMode="decimal" disabled={locked} value={boundary} onChange={event => { setBoundary(event.target.value); setSummary(null); setPage(null); setCreatedId(""); }} /></label>
       <p>基期观察日按本期选中日期和固定环比/同比规则对应；处于比较窗口不代表当天有榜单事实。价格分界只用于本次 TOP 样本分组。</p>
       <div className="bw-actions"><button type="button" disabled={locked || !chosen || !sourceReportId || !currentDate || !baselineDate} onClick={() => void qualify()}>核验来源资格</button>
-        {enabled && <button type="button" disabled={locked || !chosen || !sourceReportId || !currentDate || !baselineDate} onClick={create}>创建停放报告并读取样本</button>}</div></>}
+        {enabled && <button type="button" disabled={locked || !chosen || !sourceReportId || !currentDate || !baselineDate} onClick={create}>创建停放报告并读取样本</button>}</div>
+      <label>历史词货报告编号<input aria-label="历史词货报告编号" type="text" maxLength={160} disabled={locked} value={historicalReportId} onChange={event => setHistoricalReportId(event.target.value)} placeholder="粘贴报告列表中的精确编号" /></label>
+      <p>较早报告可按编号查找并核验；必须属于当前封存任务、版本及本人账号。</p>
+      <button type="button" disabled={locked || !historicalReportId.trim() || !currentDate || !baselineDate} onClick={() => void qualify(historicalReportId.trim())}>按编号核验历史词货报告</button></>}
     {!enabled && <p>停放报告预览未启用；可先核验已有封存报告中的来源与日期覆盖。</p>}
     {qualification && <section aria-label="市场来源资格结果"><h5>来源资格核验</h5>
+      <p>来源报告：{qualification.sourceReportId}</p>
       <p>{qualification.reusableSourceMaterialAvailable ? "本次选择的封存来源已完整重放，三张市场表可作为后续准入的来源材料。" : "本次选择缺少观察日覆盖，请补齐对应来源后重新核验。"}</p>
       <p>本期：{qualification.observationStatus.current === "observed_date" ? "已覆盖" : "缺覆盖"}；基期：{qualification.observationStatus.baseline === "observed_date" ? "已覆盖" : "缺覆盖"}。</p>
       {qualification.material && <div className="bw-scroll"><table><thead><tr><th>已核验样本表</th><th>行数</th></tr></thead><tbody>{qualification.material.tables.map(table => <tr key={table.view}><td>{viewNames[table.view]}</td><td>{table.rowCount}</td></tr>)}</tbody></table></div>}
