@@ -3,7 +3,7 @@
 skill_candidates.request_schema() existed with no route at all, so a caller
 could not obtain the schemaRef/schemaDigest pair -- nor the citable evidence
 ids -- that the POST on the same path requires. These tests pin the new GET
-branch (pi_views.py:82-94) and, above all, that what the GET hands back is
+branch (pi_views.py:90-93) and, above all, that what the GET hands back is
 sufficient to build a POST the server accepts.
 """
 from unittest.mock import patch
@@ -106,11 +106,15 @@ class SkillCandidateSchemaRouteTests(TestCase):
         # absent: the same path and principal pair succeeds for the owner.
         self.assertEqual(self.get(op.id).status_code, 200)
 
-    def test_a_viewer_cannot_reach_any_run_through_this_get(self):
+    def test_a_viewer_who_owns_nothing_is_refused_by_this_get(self):
         # current_principal(write=False) lets a viewer past the role gate on
         # every Pi GET, which is why ownership has to be the real barrier
-        # here. A viewer can never own a Pi session (create_session is a
-        # write), so there is no operation this GET can hand them.
+        # here. What this pins is only that a viewer who owns nothing is
+        # refused -- not that no viewer can ever reach a run. Demotion keeps
+        # ownership: update_user rewrites role_id and leaves owner_email
+        # alone, so a demoted owner still reads their own past runs through
+        # this GET and the three beside it. That gate is pi_views.py:15,
+        # which predates this route; the write half still refuses them.
         op = self.settled()
         self.export(op)
         response = self.get(op.id, self.viewer)
@@ -159,7 +163,10 @@ class SkillCandidateSchemaRouteTests(TestCase):
 
         Every value the POST needs is taken from the GET payload -- the schema
         reference, the digest the dispatch is pinned to, the content shape, and
-        the evidence ids it may cite. Nothing is hardcoded from the module.
+        the evidence ids it may cite. Every value below comes from that
+        response except requiredTools, which has to be hardcoded: no read
+        outlet lists registry tool names, so the closure is complete apart
+        from that one field -- a caller holding only this GET cannot fill it.
         """
         op = self.settled()
         export = self.export(op)

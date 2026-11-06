@@ -7,7 +7,7 @@ import { isPublicAiPath, requestDjangoAi } from "../lib/django/ai-service";
 const principal = { email: "candidate-fixture@example.invalid", displayName: "镜像", role: "analyst" as const, scope: { platforms: ["京东"], warehouses: [], channels: [] } };
 const environment = { TERUISI_DJANGO_INTERNAL_SECRET: "Isolated-candidate-hmac-secret-32-bytes", TERUISI_DJANGO_AI_READER_BASE_URL: "http://127.0.0.1:18111", TERUISI_DJANGO_AI_WRITER_BASE_URL: "http://127.0.0.1:18112" };
 
-// The four routes Django already serves (pi_views.py:82, 99, 102-107). Creation
+// The four routes Django already serves (pi_views.py:94, 111, 114-119). Creation
 // is nested under operations/ (4 segments); listing is a 2-segment pi/ top-level
 // path and review/publish are 4-segment siblings of it.
 const candidatePaths = [
@@ -32,15 +32,15 @@ test("Pi skill-candidate paths are public and writer-owned", async () => {
 
 test("Pi skill-candidate neighbours one segment off are refused", async () => {
   for (const suffix of [
-    // Creation: Django guards len(parts) == 4 (pi_views.py:82), so the
+    // Creation: Django guards len(parts) == 4 (pi_views.py:94), so the
     // subresource segment is mandatory and nothing may follow it.
     "operations/skill-candidates", "operations/op_1", "operations/op_1/skill-candidates/extra",
     "operations/op_1/skill-candidates/", "operations/op_1/skill-candidate",
-    // Listing is exactly 2 segments (pi_views.py:99). The 3-segment
+    // Listing is exactly 2 segments (pi_views.py:111). The 3-segment
     // pi/skill-candidates/<id> in between has no Django branch at all: the
     // optional group must not degrade into it.
     "skill-candidates/", "skill-candidates/c_1", "skill-candidate",
-    // review/publish are exactly 4 segments (pi_views.py:102). No other
+    // review/publish are exactly 4 segments (pi_views.py:114). No other
     // action name, no fifth segment, no extra id segment.
     "skill-candidates/c_1/review/extra", "skill-candidates/c_1/publish/extra",
     "skill-candidates/c_1/no-such-action", "skill-candidates/c_1/c_2/review",
@@ -58,7 +58,7 @@ test("Pi skill-candidate neighbours one segment off are refused", async () => {
 test("Pi skill-candidate route files expose only the method Django serves", async () => {
   const routes = {
     // GET and POST share one path: Django branches on the method at
-    // pi_views.py:82 (schema read) and :95 (create).
+    // pi_views.py:90 (schema read) and :94 (create).
     "operations/[id]/skill-candidates": ["GET", "POST"],
     "skill-candidates": ["GET"],
     "skill-candidates/[id]/review": ["POST"],
@@ -117,7 +117,7 @@ test("Pi skill-candidate writes keep same-origin enforcement and forward their b
 });
 
 test("the skill-candidate schema read is reachable as a GET on the create path", async () => {
-  // The read half of distillation (pi_views.py:82). It shares its path with
+  // The read half of distillation (pi_views.py:90). It shares its path with
   // the create POST, so PI_PUBLIC_PATH already admits it -- the regex is
   // method-blind. What was missing, and what this pins, is the Next route
   // file exporting GET at all: without that export the path resolves to a
