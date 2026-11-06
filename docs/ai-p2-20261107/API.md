@@ -50,3 +50,5 @@
 
 
 run 列表另含 `reportStatus`（pending/ready/failed/unknown）和 `deliveryStatus`（pending/not_required/sent/failed/unknown）。run详情含 `deliveries:[{deliveryId,targetDigest,status,receiptRef}]`；报告ready且投递pending时 run仍为delegated，Pi完成不表示已投递或已读。
+
+首期单店日报的 `deliveryTargets` 只允许空列表或一个目标；多个目标会在接口与 PostgreSQL revision guard 双侧拒绝。多目标逐项完成与观察尚未交付，不会接受后默默漏账。

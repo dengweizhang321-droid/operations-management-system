@@ -113,6 +113,9 @@ class UnifiedTaskTests(TestCase):
         again = definitions.save({"clientRequestId": "task-create-1", "name": "合成日报", "spec": spec}, actor)
         self.assertTrue(again["replayed"])
         self.assertEqual(again["item"]["id"], item["id"])
+        from unittest.mock import patch
+        with patch.object(definitions, "normalize", side_effect=AssertionError("a retry must not rebind the current skill bundle")):
+            self.assertTrue(definitions.save({"clientRequestId": "task-create-1", "name": "合成日报", "spec": spec}, actor)["replayed"])
         with self.assertRaises(AiError):
             definitions.save({"clientRequestId": "task-create-1", "name": "另一任务", "spec": spec}, actor)
         self.assertEqual(TaskDefinition.objects.count(), 1)
@@ -190,3 +193,43 @@ class UnifiedTaskTests(TestCase):
             change(other)
             with self.assertRaises(AiError):
                 dispatch.check_operation_binding(run, other)
+
+    def test_postgres_delivery_receipt_shape_and_frozen_target_binding(self):
+        if connection.vendor != "postgresql":
+            self.skipTest("native PostgreSQL constraints")
+        from . import pi_service
+        from .pi_models import PiOperation, PiSession
+        actor, spec, item = self.draft()
+        bundle = pi_service.skills()[0]
+        target = {"connector": "dingtalk", "targetType": "person", "targetId": "synthetic-self", "senderId": "synthetic-self"}
+        spec = {**spec, "skill": {"kind": "bundled", "id": bundle["id"], "version": bundle["version"], "digest": bundle["sha256"]}, "deliveryTargets": [target]}
+        with self.assertRaises(AiError):
+            definitions.normalize({**spec, "deliveryTargets": [target, {**target, "targetId": "second", "senderId": "second"}]}, actor)
+        item = definitions.save({"id": item["id"], "expectedVersion": 1, "name": "单目标", "spec": spec}, actor)["item"]
+        invalid = {**spec, "deliveryTargets": [target, {**target, "targetId": "second", "senderId": "second"}]}
+        with self.assertRaisesRegex(DatabaseError, "single_target_only"), transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute("UPDATE ai_task_definitions SET current_revision=3,version=version+1 WHERE id=%s", [item["id"]])
+            TaskRevision.objects.create(id="invalid-multi-target", task_id=item["id"], revision=3,
+                spec_json=canonical(invalid), spec_digest=digest(invalid), created_by=actor.email)
+        with mutation():
+            run = self.synthetic_run(item, "leased")
+            session = pi_service.create_session({"clientRequestId": "task-session-"+run.id, "scope": actor.scope, "shopSelection": spec["shopSelection"]}, actor)["session"]
+            operation_id = pi_service.prompt(session["id"], dispatch.operation_payload(run), actor)["operation"]["id"]
+            run.operation_id, run.status, run.version = operation_id, "delegated", 2
+            run.save()
+            operation = PiOperation.objects.get(pk=operation_id)
+            operation.status = "succeeded"
+            operation.save(update_fields=["status"])
+            row = PiSession.objects.get(pk=session["id"])
+            row.status, row.active_operation_id = "idle", ""
+            row.save(update_fields=["status", "active_operation_id"])
+        key = digest({"runId": run.id, "target": target})
+        valid = {"deliveryId": key, "targetDigest": digest(target), "status": "sent", "receiptRef": "synthetic-original-receipt"}
+        corrupt = [{"fabricated": {}}, {key: {}}, {key: {**valid, "status": None}},
+            {key: {**valid, "targetDigest": "0"*64}}, {key: {**valid, "deliveryId": "0"*64}},
+            {key: {**valid, "receiptRef": ""}}, {key: {k: v for k, v in valid.items() if k != "status"}}]
+        for value in corrupt:
+            with self.assertRaisesRegex(DatabaseError, "ai_unified_task_delivery_"), transaction.atomic(), connection.cursor() as cursor:
+                cursor.execute("UPDATE ai_task_runs SET status='succeeded',report_status='ready',delivery_status='sent',delivery_receipts_json=%s,version=version+1 WHERE id=%s", [canonical(value), run.id])
+        observed = dispatch.observe(run.id, delivery_receipt_reader=lambda *_: valid)
+        self.assertEqual((observed.status, observed.report_status, observed.delivery_status), ("succeeded", "ready", "sent"))

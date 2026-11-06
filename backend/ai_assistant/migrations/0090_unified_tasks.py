@@ -16,6 +16,8 @@ GUARD = """CREATE FUNCTION public.ai_unified_task_guard() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,public AS $$
 DECLARE r public.ai_task_revisions; t public.ai_task_definitions; u public.ai_task_runs; g public.ai_task_grants;
  key text; old_delivery jsonb; new_delivery jsonb;
+ target jsonb; target_text text; target_sha text; delivery_key text; target_count integer;
+ o public.ai_pi_operations; s public.ai_pi_sessions;
 BEGIN
  IF TG_TABLE_NAME='ai_task_definitions' THEN
   IF NEW.enabled THEN RAISE EXCEPTION 'ai_unified_task_executor_not_adopted'; END IF;
@@ -26,6 +28,10 @@ BEGIN
   SELECT * INTO t FROM public.ai_task_definitions WHERE id=NEW.task_id;
   IF t.id IS NULL OR NEW.created_by<>t.owner_email OR NEW.revision<>t.current_revision
     THEN RAISE EXCEPTION 'ai_unified_task_revision_binding'; END IF;
+  IF jsonb_typeof(NEW.spec_json::jsonb->'deliveryTargets') IS DISTINCT FROM 'array'
+    THEN RAISE EXCEPTION 'ai_unified_task_targets'; END IF;
+  IF jsonb_array_length(NEW.spec_json::jsonb->'deliveryTargets')>1
+    THEN RAISE EXCEPTION 'ai_unified_task_single_target_only'; END IF;
  ELSIF TG_TABLE_NAME='ai_task_grants' THEN
   SELECT * INTO r FROM public.ai_task_revisions WHERE id=NEW.revision_id;
   SELECT * INTO t FROM public.ai_task_definitions WHERE id=r.task_id;
@@ -40,6 +46,48 @@ BEGIN
   SELECT * INTO t FROM public.ai_task_definitions WHERE id=NEW.task_id;
   IF g.id IS NULL OR g.revision_id<>NEW.revision_id OR g.owner_email<>t.owner_email
     THEN RAISE EXCEPTION 'ai_unified_task_run_grant'; END IF;
+  target_count := jsonb_array_length(r.spec_json::jsonb->'deliveryTargets');
+  IF target_count=0 AND NEW.delivery_receipts_json::jsonb<>'{}'::jsonb
+    THEN RAISE EXCEPTION 'ai_unified_task_delivery_target_set'; END IF;
+  IF target_count=1 THEN
+   target := r.spec_json::jsonb->'deliveryTargets'->0;
+   IF jsonb_typeof(target) IS DISTINCT FROM 'object' OR
+      (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(target) k) IS DISTINCT FROM ARRAY['connector','senderId','targetId','targetType']
+     THEN RAISE EXCEPTION 'ai_unified_task_delivery_target_schema'; END IF;
+   IF jsonb_typeof(target->'connector') IS DISTINCT FROM 'string' OR target->>'connector' IS DISTINCT FROM 'dingtalk'
+     OR jsonb_typeof(target->'targetType') IS DISTINCT FROM 'string' OR (target->>'targetType') NOT IN ('person','group')
+     OR jsonb_typeof(target->'senderId') IS DISTINCT FROM 'string' OR btrim(target->>'senderId')=''
+     OR jsonb_typeof(target->'targetId') IS DISTINCT FROM 'string' OR btrim(target->>'targetId')=''
+     THEN RAISE EXCEPTION 'ai_unified_task_delivery_target_schema'; END IF;
+   target_text := '{"connector":'||to_json(target->>'connector')::text||',"senderId":'||to_json(target->>'senderId')::text||',"targetId":'||to_json(target->>'targetId')::text||',"targetType":'||to_json(target->>'targetType')::text||'}';
+   target_sha := encode(sha256(convert_to(target_text,'UTF8')),'hex');
+   delivery_key := encode(sha256(convert_to('{"runId":'||to_json(NEW.id)::text||',"target":'||target_text||'}','UTF8')),'hex');
+   IF NEW.delivery_receipts_json::jsonb<>'{}'::jsonb THEN
+    IF (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(NEW.delivery_receipts_json::jsonb) k) IS DISTINCT FROM ARRAY[delivery_key]
+      THEN RAISE EXCEPTION 'ai_unified_task_delivery_target_set'; END IF;
+    new_delivery := NEW.delivery_receipts_json::jsonb->delivery_key;
+    IF jsonb_typeof(new_delivery) IS DISTINCT FROM 'object' OR
+       (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(new_delivery) k) IS DISTINCT FROM ARRAY['deliveryId','receiptRef','status','targetDigest']
+      THEN RAISE EXCEPTION 'ai_unified_task_delivery_receipt_schema'; END IF;
+    IF new_delivery->>'deliveryId' IS DISTINCT FROM delivery_key OR new_delivery->>'targetDigest' IS DISTINCT FROM target_sha
+      OR jsonb_typeof(new_delivery->'status') IS DISTINCT FROM 'string' OR (new_delivery->>'status') NOT IN ('pending','sent','failed','unknown')
+      OR jsonb_typeof(new_delivery->'receiptRef') IS DISTINCT FROM 'string'
+      OR (new_delivery->>'status'='pending' AND new_delivery->>'receiptRef' IS DISTINCT FROM '')
+      OR (new_delivery->>'status'<>'pending' AND (new_delivery->>'receiptRef') !~ '^[A-Za-z0-9_-]{1,160}$')
+      THEN RAISE EXCEPTION 'ai_unified_task_delivery_receipt_binding'; END IF;
+   ELSIF NEW.report_status='ready' THEN RAISE EXCEPTION 'ai_unified_task_delivery_identity_missing';
+   END IF;
+  END IF;
+  IF NEW.report_status='ready' THEN
+   SELECT * INTO o FROM public.ai_pi_operations WHERE id=NEW.operation_id;
+   SELECT * INTO s FROM public.ai_pi_sessions WHERE id=o.session_id;
+   IF o.id IS NULL OR s.id IS NULL OR o.status<>'succeeded' OR o.client_request_id<>NEW.id
+     OR s.client_request_id<>'task-session-'||NEW.id OR s.owner_email<>t.owner_email
+     OR o.model_id IS DISTINCT FROM r.spec_json::jsonb->>'modelId'
+     OR o.model_version IS DISTINCT FROM (r.spec_json::jsonb->>'modelVersion')::bigint
+     OR s.selection_json::jsonb IS DISTINCT FROM r.spec_json::jsonb->'shopSelection'
+     THEN RAISE EXCEPTION 'ai_unified_task_report_binding'; END IF;
+  END IF;
   IF TG_OP='UPDATE' AND (NEW.version<=OLD.version OR NEW.fence<OLD.fence OR NEW.fence>OLD.fence+1
       OR (OLD.operation_id<>'' AND NEW.operation_id<>OLD.operation_id)
       OR (OLD.execution_ref<>'' AND NEW.execution_ref<>OLD.execution_ref))
@@ -72,7 +120,7 @@ BEGIN
     OR (jsonb_array_length(r.spec_json::jsonb->'deliveryTargets')=0 AND NEW.delivery_status<>'not_required')
     OR (jsonb_array_length(r.spec_json::jsonb->'deliveryTargets')>0 AND
       (NEW.delivery_status<>'sent' OR (SELECT count(*) FROM jsonb_object_keys(NEW.delivery_receipts_json::jsonb))<>jsonb_array_length(r.spec_json::jsonb->'deliveryTargets')))
-    OR EXISTS(SELECT 1 FROM jsonb_each(NEW.delivery_receipts_json::jsonb) d WHERE d.value->>'status'<>'sent'))
+    OR EXISTS(SELECT 1 FROM jsonb_each(NEW.delivery_receipts_json::jsonb) d WHERE d.value->>'status' IS DISTINCT FROM 'sent'))
     THEN RAISE EXCEPTION 'ai_unified_task_delivery_incomplete'; END IF;
  ELSIF TG_TABLE_NAME='ai_task_incidents' THEN
   SELECT * INTO u FROM public.ai_task_runs WHERE id=NEW.run_id;

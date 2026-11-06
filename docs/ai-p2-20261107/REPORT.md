@@ -55,3 +55,10 @@ Astra 指出“Pi成功不能代表任务投递成功”后，已在 run 增加 
 ## 仓库既有检查限制
 
 全仓 TypeScript 检查有168条既有诊断，全部诊断文件相对 origin/main 无P2修改；本次没有改变公开TS类型接口。backend-boundary 只报既有 `tools/tmall-sycm-cookie-pipeline.ts -> lib/jackyun/n8n-preflight-evidence.ts`，相关三个检查/源文件均无P2差异。原日志及范围证明为 `typescript.log`、`backend-boundary.log`、`existing-check-limitations.json`。未据此扩入天猫或全仓类型修复，也不把这两项冒称通过。
+
+
+## 单目标首期与原生回执约束
+
+按首场景范围将投递收敛为0或1目标，应用和数据库都拒绝多个目标。多目标逐项协调为后续独立扩展，本包不接受多目标定义后提前冻结。PostgreSQL按冻结目标的规范JSON重新计算 targetDigest 和 deliveryId，校验原回执键集、四字段对象、非空有效 receiptRef 与真实字符串状态；缺 status/null/假目标/假ID不能借SQL NULL比较伪装成功。报告ready同时核原Pi操作确已成功且绑定本任务专属会话/店铺/模型。
+
+最终核心+场景15项隔离PG通过（原日志 `.runtime/ai-pg-0f36a32c4085/tests.log`），含7个raw writer坏回执反例、数据库多目标拒绝及合法sent正例。创建重试按原请求摘要返回原定义，不因当下Skill bundle变化重新绑定。冻结catalog已按此最终DDL重采。

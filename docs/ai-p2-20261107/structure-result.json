@@ -17,8 +17,8 @@
   "fullBackupOrRestorePerformed": false,
   "port": 55522,
   "database": "teruisi_ai_unified_tasks_rehearsal",
-  "codeSha256": "b2701f046531438ce92ce8741791ac3dcca7298df30b95f87f64aaa744637823",
-  "migrationSha256": "047e6583def2d9d1df4672c1454c8af472b26fa09c70ae63d41bb89a63be0c65",
+  "codeSha256": "feb97b7678254622d2f8f2922e01fd93058d93c913654edd5efad27f10a49ad6",
+  "migrationSha256": "326768574c10c665347bf58e2b8bb5c34f7d72f3225292bc42144af4e2d55afa",
   "cleanup": {
     "started": true,
     "stopped": true,

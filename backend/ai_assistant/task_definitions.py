@@ -85,7 +85,7 @@ def normalize(spec, principal):
         for field in dep["requiredFields"]:
             identifier(field, "必需字段")
     targets = spec["deliveryTargets"]
-    if not isinstance(targets, list) or len(targets) > 4:
+    if not isinstance(targets, list) or len(targets) > 1:
         raise AiError("投递目标数量无效")
     for target in targets:
         fields(target, {"connector", "targetType", "targetId", "senderId"}, {"connector", "targetType", "targetId", "senderId"})
@@ -139,8 +139,16 @@ def record(row):
 def save(payload, principal):
     current_principal(principal, admin=True, write=True)
     fields(payload, {"id", "expectedVersion", "clientRequestId", "name", "spec"}, {"name", "spec"})
-    spec = normalize(payload["spec"], principal)
     name = text(payload["name"], "名称", 100)
+    if "id" not in payload:
+        key = identifier(payload.get("clientRequestId"), "clientRequestId")
+        binding = digest({"name": name, "spec": payload["spec"], "scope": principal.scope, "role": principal.role})
+        old = TaskDefinition.objects.filter(owner_email=principal.email.lower(), client_request_id=key).first()
+        if old:
+            if old.request_digest != binding:
+                raise AiError("创建请求标识已绑定其他内容", "conflict", 409)
+            return {"item": record(old), "replayed": True}
+    spec = normalize(payload["spec"], principal)
     with mutation(principal):
         if "id" in payload:
             if "clientRequestId" in payload:
@@ -158,8 +166,6 @@ def save(payload, principal):
             else:
                 return {"item": record(row), "unchanged": True}
         else:
-            key = identifier(payload.get("clientRequestId"), "clientRequestId")
-            binding = digest({"name": name, "spec": spec, "scope": principal.scope, "role": principal.role})
             old = TaskDefinition.objects.filter(owner_email=principal.email.lower(), client_request_id=key).first()
             if old:
                 if old.request_digest != binding:
