@@ -232,7 +232,7 @@ function modelCallError(kind: "文本" | "视觉", status: number, data: unknown
   });
 }
 
-function visionSessionHeaders(endpointUrl: string, sessionIdentity?: string) {
+function visionSessionHeaders(endpointUrl: string, sessionIdentity?: string): Record<string, string> {
   const endpoint = new URL(endpointUrl);
   if (endpoint.origin !== "https://opencode.ai" || endpoint.pathname !== "/zen/go/v1/chat/completions") return {};
   if (!sessionIdentity || sessionIdentity.length > 200) throw visionFailure("视觉模型配置缺少有效的服务端任务会话标识", "model_configuration");

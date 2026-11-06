@@ -8,4 +8,4 @@ Django 在每轮发送系统指令和本地构造的 input。请求固定 `store
 
 官方语义依据：[Responses 迁移指南](https://developers.openai.com/api/docs/guides/migrate-to-responses) · [会话状态](https://developers.openai.com/api/docs/guides/conversation-state)。
 
-验证使用模拟供应商和隔离应用库。新增五项协议回归覆盖无供应商会话、加密推理及工具回放、视觉与 schema、公开流终态、拒绝托管工具和截断调用、旧配置兼容。
+验证使用模拟供应商和隔离应用库。八项协议回归覆盖无供应商会话、加密推理及工具回放、视觉与 schema、公开流终态、拒绝托管工具和截断调用、旧配置兼容。
