@@ -557,7 +557,7 @@ def dispatch_budget(owner, model_id):
     auxiliary = m.AiToolAuditLogs.objects.filter(
         created_at__gte=today,
         status="started",
-        tool_name__in=["configured_analysis", "model_probe"],
+        tool_name__in=["configured_analysis", "model_probe", "skill_distillation"],
     )
     from django.db.models import JSONField
     from django.db.models.functions import Cast
