@@ -1,6 +1,7 @@
 import { customerServiceRecoveryHeader, parseCustomerServiceRecoveryHeader } from "./jd-customer-service-source-recovery";
 import { createHash, randomUUID } from "node:crypto";
 import { customerServiceStore, customerServiceStoreHeader, customerServiceStoreContextError } from "../lib/jd/customer-service-stores";
+import { JdCustomerServiceWorkflowError } from "../lib/jd/customer-service-workflow";
 import { customerServiceHelperError, planCustomerServiceRun, runCustomerServicePlan, verifyCustomerServicePlan, restoreAndVerifyCustomerServicePlan, publicCustomerServicePlan, type CustomerServiceN8nPlan } from "./jd-customer-service-n8n-pipeline";
 import { execFile as execFileCallback } from "node:child_process";
 import { mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
@@ -1877,6 +1878,9 @@ async function serveCommand(argv: string[]) {
         ...(jackyunFailure ? { failureStage: jackyunFailure.stage } : {}),
         code: jackyunFailure?.code ?? (error instanceof TmallPipelineError ? error.code : "PIPELINE_FAILED"),
         error: error instanceof Error ? error.message : String(error),
+        // A fixed reason token from a closed vocabulary, so n8n keeps the cause
+        // of an otherwise collapsed code. Never page text or a signed URL.
+        ...(error instanceof JdCustomerServiceWorkflowError && error.detailCode ? { failureReason: error.detailCode } : {}),
         ...(workflow === "tmall" ? {
           browserClosure: tmallBrowserClosure ?? { ok: false, status: "failed", error: tmallBrowserCloseError },
           ...(tmallBackfill ? { dailyBackfill: publicTmallBackfill(tmallBackfill) } : {}),

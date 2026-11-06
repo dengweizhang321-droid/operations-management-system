@@ -12,6 +12,7 @@ import {
   hourlyRetryTargets,
   hourlyRetryTriggerName,
   hourlyRetryWebhookPath,
+  terminalAlertReason,
 } from "../tools/n8n-hourly-retry-policy.mjs";
 
 const workflowDirectory = new URL("../automation/n8n/", import.meta.url);
@@ -347,6 +348,82 @@ test("live 4605 login challenge and other waiting-login failures never dispatch 
       assert.equal(classifyHourlyRetryFailure(payload).retry, true);
       assert.equal(execute({ all: () => [{ json: payload }] }).length, 1);
     }
+  }
+});
+
+// The alert script rejects any code outside its $hints table as
+// invalid_payload, and that rejection happens upstream of the sender: one
+// unknown code means the operator is told nothing at all. Both lists are hand
+// maintained in different languages, so pin them to each other.
+test("every alert code the classifier can emit has wording in the alert script", async () => {
+  const script = await readFile(new URL("../tools/n8n-manual-action-alert.ps1", import.meta.url), "utf8");
+  const hints = script.slice(script.indexOf("$hints=@{"), script.indexOf("\n  }", script.indexOf("$hints=@{")));
+  const scripted = new Set([...hints.matchAll(/([a-z_]+)=@\(/g)].map(match => match[1]!));
+  assert.ok(scripted.size >= 9, `expected the hint table to be found, saw ${scripted.size}`);
+
+  const emitted = new Set<string>();
+  const workflow = buildHourlyRetryErrorWorkflow();
+  const prepare = JSON.stringify(workflow.nodes.find(node => /准备人工提醒参数/.test(node.name)));
+  for (const code of scripted) {
+    // Mirrors the validator's own allowlist: a code it does not list is dropped
+    // before the alert is ever built.
+    if (prepare?.includes(`'${code}'`)) emitted.add(code);
+  }
+  for (const text of ["出现验证码或安全验证", "凭据缺失", "操作受限或过于频繁", "店铺身份不符",
+    "提交结果未决", "来源数据未就绪", "尚未登录", "登录状态加载超时", "内容完整性错误"]) {
+    emitted.add(terminalAlertReason(text));
+  }
+  const missing = [...emitted].filter(code => !scripted.has(code));
+  assert.deepEqual(missing, [], `codes without operator wording: ${missing.join(",")}`);
+});
+
+// The point of this split is that a human reads a different sentence per cause.
+// Collapsing two of these back together would silently restore the old
+// "go and handle the login" advice for failures no login can fix.
+test("login-gate causes map to distinct operator instructions", () => {
+  const distinct = new Map([
+    ["waiting_login：某店 出现验证码或安全验证，需要人工处理", "manual_action_challenge"],
+    ["waiting_login：某店 本机加密凭据未被平台接受，请重新配置并人工核验", "manual_action_credential"],
+    ["waiting_login：某店 登录操作受限或过于频繁，需要稍后人工检查", "manual_action_locked"],
+    ["waiting_login：某店 独立 Chromium 尚未登录，请先人工登录", "manual_action_session_absent"],
+    ["waiting_login：某店 登录状态在有界等待后仍无法确认，需要人工检查", "manual_action_login_pending"],
+  ]);
+  for (const [text, code] of distinct) assert.equal(terminalAlertReason(text), code, text);
+  assert.equal(new Set(distinct.values()).size, distinct.size);
+
+  // The helper's fixed reason token wins over the collapsed code, including
+  // through the escaped JSON body that n8n actually stores (exec 11229).
+  assert.equal(terminalAlertReason(
+    'LOGIN_GATE_MANUAL_ACTION 500 - "{\\"error\\":\\"LOGIN_GATE_MANUAL_ACTION\\",\\"failureReason\\":\\"challenge_present\\"}"'),
+    "manual_action_challenge");
+  // Without a reason token there is nothing to tell the nine causes apart, so
+  // the generic wording is correct rather than a guess.
+  assert.equal(terminalAlertReason("B·双视图导出按日导入 LOGIN_GATE_MANUAL_ACTION"), "terminal_manual_action");
+
+  // `failureText` is a join(" ") of error fields and the node name: a pattern
+  // that spans whitespace would let this real node name borrow an unrelated
+  // tail and mislabel the cause.
+  assert.equal(terminalAlertReason("B·共用登录态：顺序导出五表 下载失败（网络）"), "terminal_manual_action");
+});
+
+test("wording selection never changes whether a failure is retried", () => {
+  // Each of these is terminal for an independent reason; classifying the
+  // wording must not move any of them back into the retry path. These are the
+  // real repository messages, not fragments: a bare fragment such as
+  // "过于频繁" is retryable by design, because no throw site emits it alone.
+  for (const text of ["waiting_login：某店 出现验证码或安全验证，需要人工处理",
+    "waiting_login：某店 本机加密凭据未被平台接受，请重新配置并人工核验",
+    "waiting_login：某店 登录操作受限或过于频繁，需要稍后人工检查",
+    "PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION 店铺身份不符",
+    "提交结果未决", "来源数据未就绪",
+    "waiting_login：某店 独立 Chromium 尚未登录，请先人工登录",
+    "登录状态加载超时"]) {
+    const verdict = classifyHourlyRetryFailure({
+      workflow: { id: hourlyRetryTargets[0]!.workflowId },
+      execution: { id: "1", mode: "trigger", error: { description: text } },
+    });
+    assert.equal(verdict.retry, false, text);
+    assert.notEqual(terminalAlertReason(text), "terminal_manual_action");
   }
 });
 

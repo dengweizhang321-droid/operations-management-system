@@ -20,6 +20,41 @@ export type JdLoginPageState = {
   temporarilyLocked: boolean;
 };
 
+/**
+ * Stable, non-sensitive reason for a login gate. The Chinese messages below are
+ * matched verbatim by `openCustomerServicePage` (its pending-surface rescue) and
+ * by the hourly retry classifier, so a reason travels as a separate field and
+ * never alters the message text.
+ *
+ * Only these fixed tokens leave this module: no page text, shop name, credential
+ * state or signed URL may be derived from them.
+ */
+export type JdLoginGateReason =
+  /** A captcha or security check is on screen; a human must clear it. */
+  | "challenge_present"
+  /** Surface stayed `pending` within the bounded wait; usually a slow page. */
+  | "surface_pending"
+  /** Manual-login store whose saved session has lapsed. */
+  | "session_absent"
+  /** The unique account/password form never became ready. */
+  | "login_form_missing"
+  /** The login button was missing, or the controls were not unique. */
+  | "login_control_unusable"
+  /** The platform refused the locally encrypted credential. */
+  | "credential_rejected"
+  /** Login attempts are rate limited or temporarily locked. */
+  | "temporarily_locked"
+  /** Submitted once, but the session never turned authenticated in time. */
+  | "post_submit_unconfirmed";
+
+export class JdLoginGateError extends Error {
+  constructor(message: string, public readonly reason: JdLoginGateReason) { super(message); }
+}
+
+export function jdLoginGateReason(error: unknown): JdLoginGateReason | undefined {
+  return error instanceof JdLoginGateError ? error.reason : undefined;
+}
+
 export const jdAutomatedLoginFormWaitMs = 20_000;
 
 async function visibleCandidates(locator: Locator, limit = 20) {
@@ -272,22 +307,22 @@ export async function ensureJdStoreAuthenticatedSession(
 ) {
   const initialState = await inspectJdLoginPageState(page);
   if (initialState.challengePresent) {
-    throw new Error(`waiting_login：${store.shopName} 出现验证码或安全验证，需要人工处理`);
+    throw new JdLoginGateError(`waiting_login：${store.shopName} 出现验证码或安全验证，需要人工处理`, "challenge_present");
   }
   const initialSurface = await waitForJdSessionSurface(page);
   if (initialSurface === "authenticated") {
     return { status: "authenticated" as const, authentication: "existing_session" as const };
   }
   if (initialSurface === "pending") {
-    throw new Error(`waiting_login：${store.shopName} 登录状态在有界等待后仍无法确认，需要人工检查`);
+    throw new JdLoginGateError(`waiting_login：${store.shopName} 登录状态在有界等待后仍无法确认，需要人工检查`, "surface_pending");
   }
   if (store.loginMode !== "windows_dpapi_credentials") {
-    throw new Error(`waiting_login：${store.shopName} 独立 Chromium 尚未登录，请先人工登录`);
+    throw new JdLoginGateError(`waiting_login：${store.shopName} 独立 Chromium 尚未登录，请先人工登录`, "session_absent");
   }
 
   const login = await autoLoginJdWithWindowsDpapiCredential(page, store.storeKey);
   if (login.reason === "challenge_present") {
-    throw new Error(`waiting_login：${store.shopName} 出现验证码或安全验证，需要人工处理`);
+    throw new JdLoginGateError(`waiting_login：${store.shopName} 出现验证码或安全验证，需要人工处理`, "challenge_present");
   }
   if (!login.submitted) {
     const reason = login.reason === "login_control_ambiguous"
@@ -295,20 +330,21 @@ export async function ensureJdStoreAuthenticatedSession(
       : login.reason === "login_control_missing"
         ? "登录按钮缺失或不可用"
         : "唯一账号密码表单尚未就绪";
-    throw new Error(`waiting_login：${store.shopName} ${reason}，请人工检查`);
+    throw new JdLoginGateError(`waiting_login：${store.shopName} ${reason}，请人工检查`,
+      login.reason === "login_form_missing" ? "login_form_missing" : "login_control_unusable");
   }
 
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const state = await inspectJdLoginPageState(page);
     if (state.challengePresent) {
-      throw new Error(`waiting_login：${store.shopName} 自动登录后出现验证码或安全验证，需要人工处理`);
+      throw new JdLoginGateError(`waiting_login：${store.shopName} 自动登录后出现验证码或安全验证，需要人工处理`, "challenge_present");
     }
     if (state.credentialRejected) {
-      throw new Error(`waiting_login：${store.shopName} 本机加密凭据未被平台接受，请重新配置并人工核验`);
+      throw new JdLoginGateError(`waiting_login：${store.shopName} 本机加密凭据未被平台接受，请重新配置并人工核验`, "credential_rejected");
     }
     if (state.temporarilyLocked) {
-      throw new Error(`waiting_login：${store.shopName} 登录操作受限或过于频繁，需要稍后人工检查`);
+      throw new JdLoginGateError(`waiting_login：${store.shopName} 登录操作受限或过于频繁，需要稍后人工检查`, "temporarily_locked");
     }
     const surface = await readJdSessionSurface(page);
     if (surface === "authenticated") {
@@ -316,5 +352,5 @@ export async function ensureJdStoreAuthenticatedSession(
     }
     await page.waitForTimeout(250);
   }
-  throw new Error(`waiting_login：${store.shopName} 自动提交后仍未完成登录，可能需要人工安全验证`);
+  throw new JdLoginGateError(`waiting_login：${store.shopName} 自动提交后仍未完成登录，可能需要人工安全验证`, "post_submit_unconfirmed");
 }

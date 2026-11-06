@@ -85,6 +85,59 @@ function collectFailureText(value, output = []) {
   return output.join(" ").slice(0, 32_768);
 }
 
+/**
+ * Pick the alert wording for a terminal failure. Every branch below is already
+ * terminal; this only decides which sentence the operator reads, and never
+ * whether a retry happens.
+ *
+ * Order matters: the first match wins, so the causes a human must act on are
+ * tested before the generic ones. `manual_action_login_pending` deliberately
+ * sits last among the login group — a bounded-wait timeout is the one case that
+ * usually clears itself, and claiming it needs a scan would be the same false
+ * alarm this change exists to remove.
+ *
+ * As in `terminalFailurePatterns`, patterns must not span fields: `failureText`
+ * is a `join(" ")` of error fields and the node name, so a `.*` would let an
+ * unrelated field supply the tail. Forbid whitespace instead of bounding length.
+ */
+const terminalAlertReasons = [
+  // A fixed token the customer-service helper now returns alongside the
+  // collapsed code. Matched first and anchored to the field name so it beats
+  // the text heuristics below, which cannot see past that collapsing.
+  // `\\\\?"` because the helper body reaches n8n as an escaped JSON string
+  // inside the error text (`500 - "{\\"failureReason\\":\\"…\\"}"`), so the
+  // quotes may or may not carry a backslash. Verified against exec 11229.
+  ["manual_action_challenge", 'failureReason\\\\?":\\\\?"challenge_present'],
+  ["manual_action_credential", 'failureReason\\\\?":\\\\?"credential_rejected'],
+  ["manual_action_locked", 'failureReason\\\\?":\\\\?"temporarily_locked'],
+  ["manual_action_session_absent", 'failureReason\\\\?":\\\\?"session_absent'],
+  ["manual_action_login_pending", 'failureReason\\\\?":\\\\?"(?:surface_pending|post_submit_unconfirmed)'],
+  // Captcha, slider, SMS or any security check: a human must clear it on screen.
+  ["manual_action_challenge", "captcha|验证码|滑块|短信验证|安全验证|security verification|challenge[_ ]present"],
+  // Credential missing, corrupt or refused: re-enter it, no amount of scanning helps.
+  ["manual_action_credential", "credential[_ ]rejected|凭据(?:缺失|损坏|被拒|未被平台接受)|dpapi|密码[^\\s]{0,6}?(?:缺失|损坏|错误)|授权失效|unauthori[sz]ed|authentication failed"],
+  // Rate limited or temporarily locked: waiting is the remedy, not re-login.
+  ["manual_action_locked", "风控|操作受限|过于频繁|temporarily[_ ]locked|rate limit|risk control|\\b601\\b"],
+  // Wrong shop on screen: never retried on another profile by design.
+  ["manual_action_identity", "店铺身份|账号身份|identity(?: mismatch| invalid)|cross[- ]store|跨店|wrong store"],
+  // Remote may already have accepted the submit; re-sending could duplicate data.
+  ["manual_action_submit_unknown", "点击结果未决|提交结果未决|响应未决|点击未决|禁止自动重提|禁止重新创建任务|禁止重复创建|禁止重建|result unknown|dispatch unknown|click unknown|export_submitting|report_submitting|page_export_submitting|task_click_invoked"],
+  // Upstream data for the target day is not published yet: nothing to fix locally.
+  ["manual_action_source_not_ready", "source[_ -]?not[_ -]?ready|来源数据未就绪|数据源未就绪"],
+  // Session genuinely absent or expired, with no challenge reported.
+  ["manual_action_session_absent", "session[_ ]absent|尚未登录|登录失效|需要登录|not authenticated|session invalid|cookie invalid|passport\\.jd\\.com|login\\.taobao\\.com"],
+  // Bounded wait elapsed without a verdict. Historically self-clearing.
+  ["manual_action_login_pending", "登录状态加载超时|登录状态在有界等待后仍无法确认|login[_ ]pending|waiting_login|登录[^\\s]{0,12}?(?:失败|异常|拒绝|未就绪)"],
+];
+
+export function terminalAlertReason(failureText) {
+  const text = String(failureText ?? "");
+  for (const [code, source] of terminalAlertReasons) {
+    if (new RegExp(source, "iu").test(text)) return code;
+  }
+  return "terminal_manual_action";
+}
+
 export function classifyHourlyRetryFailure(payload) {
   const workflowId = String(payload?.workflow?.id ?? "");
   if (!hourlyRetryTargets.some((target) => target.workflowId === workflowId)) {
@@ -200,6 +253,10 @@ function retryClassifierCode() {
   return [
     `const targets = ${JSON.stringify(targets)};`,
     `const terminalPatterns = ${JSON.stringify(terminalFailurePatterns)}.map((source) => new RegExp(source, "iu"));`,
+    // Same table as terminalAlertReason(): the n8n Code node cannot import, so
+    // it is inlined here from one source of truth and asserted equal in tests.
+    `const alertReasons = ${JSON.stringify(terminalAlertReasons)}.map(([code, source]) => [code, new RegExp(source, "iu")]);`,
+    "const alertReasonFor = (text) => (alertReasons.find(([, pattern]) => pattern.test(text)) ?? ['terminal_manual_action'])[0];",
     `const boundDownloadPattern = new RegExp(${JSON.stringify(boundDownloadFailurePattern)});`,
     "const collect = (value, output = []) => {",
     "  if (typeof value === 'string') output.push(value);",
@@ -209,10 +266,11 @@ function retryClassifierCode() {
     "};",
     "const result = [];",
     "const droppedFailures = [];",
-    "const describe = (payload, workflowId, reason) => ({ workflowId,",
+    "const describe = (payload, workflowId, reason, alertCode) => ({ workflowId,",
     "  workflowName: String(payload.workflow?.name ?? ''),",
     "  lastNodeExecuted: String(payload.execution?.lastNodeExecuted ?? ''),",
-    "  failedExecutionId: String(payload.execution?.id ?? ''), reason });",
+    "  failedExecutionId: String(payload.execution?.id ?? ''), reason,",
+    "  ...(alertCode ? { alertCode } : {}) });",
     "for (const item of $input.all()) {",
     "  const payload = item.json ?? {};",
     "  const workflowId = String(payload.workflow?.id ?? '');",
@@ -237,8 +295,9 @@ function retryClassifierCode() {
     "  }",
     "  if (jackyunDownloadNode && /fetch failed/iu.test(failureText)) continue;",
     "  if (terminalPatterns.some((pattern) => pattern.test(failureText))) {",
-    "    // 终局失败（掉登录、验证码等），不该自动重试 —— 必须有人处理",
-    "    droppedFailures.push(describe(payload, workflowId, '终局失败，不会自动重试'));",
+    "    // 终局失败（掉登录、验证码等），不该自动重试 —— 必须有人处理。",
+    "    // alertCode 只决定提醒文案，不改变这里已经判定的「不重试」。",
+    "    droppedFailures.push(describe(payload, workflowId, '终局失败，不会自动重试', alertReasonFor(failureText)));",
     "    continue;",
     "  }",
     "  result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60 }, failedExecutionId: String(payload.execution?.id ?? '') } });",
@@ -436,7 +495,10 @@ const dropped = $input.first().json?.droppedFailures ?? [];
 return dropped.map((item) => ({ json: { manualAction: {
   workflowId: item.workflowId, failedExecutionId: item.failedExecutionId,
   logicalExecutionId: item.originalExecutionId || item.failedExecutionId,
-  code: item.reason === '终局失败，不会自动重试' ? 'terminal_manual_action' : 'execution_mode_not_automatic',
+  // 终局失败用分类器给出的具体原因码，缺失时回退到原通用码；
+  // 非自动触发那一类与原先一致。
+  code: item.reason === '终局失败，不会自动重试'
+    ? (item.alertCode || 'terminal_manual_action') : 'execution_mode_not_automatic',
 }, terminalCode: 'dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST' } }));`,
         },
         id: "b2f8d1e5-7c3a-4f9b-8d42-6e1a9c8b3f75",
@@ -469,9 +531,14 @@ return [{ json: { manualAction: { workflowId: p.retryPolicy?.workflowId,
       },
       {
         parameters: { mode: "runOnceForAllItems", jsCode: `const workflows = ${JSON.stringify(hourlyRetryTargets.map(t => t.workflowId))};
+// 必须与 n8n-manual-action-alert.ps1 的 $hints 键集合完全一致：脚本对不认识的
+// code 返回 invalid_payload，那会让告警一条都发不出去。测试逐键比对两侧。
 const codes = ['terminal_manual_action','execution_mode_not_automatic','retry_dispatch_result_unknown',
   'retry_context_wait_expired_manual_action','retry_context_unverified_manual_action',
-  'retry_reservation_result_unknown_manual_action','retry_already_reserved_or_unverified_manual_action'];
+  'retry_reservation_result_unknown_manual_action','retry_already_reserved_or_unverified_manual_action',
+  'manual_action_challenge','manual_action_credential','manual_action_locked',
+  'manual_action_identity','manual_action_submit_unknown','manual_action_source_not_ready',
+  'manual_action_session_absent','manual_action_login_pending'];
 // 逐条校验、逐条产出：sender 的 executeOnce=false，每条 item 调一次脚本，
 // 所以合法条目各自都会发出去。整批 throw 会让同批合法告警一起发不出去
 // （失败点在 sender 上游），那是「终局但人收不到通知」——只满足要求的一半。

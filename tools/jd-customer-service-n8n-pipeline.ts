@@ -13,7 +13,7 @@ import { validateJdStoreRegistry } from "../lib/jd/store-registry";
 import { launchDedicatedChrome, closeChromeBrowser } from "../lib/jackyun/cdp-client";
 import { connectPlaywrightBrowser } from "../lib/jackyun/playwright-client";
 import { jdBrowserLaunchMode } from "../lib/jd/browser-mode";
-import { ensureJdStoreAuthenticatedSession } from "./jd-saved-login";
+import { ensureJdStoreAuthenticatedSession, jdLoginGateReason } from "./jd-saved-login";
 import { assertCustomerServiceShop, exportCustomerServiceView, openCustomerServicePage, type CustomerServiceExportCheckpoint } from "./jd-customer-service-export";
 import { buildCustomerServiceDailyFiles } from "./jd-customer-service-daily-files";
 import { importCustomerServiceDay, verifyCustomerServiceBatch, type CustomerServiceBatchProof } from "./jd-customer-service-import";
@@ -36,7 +36,7 @@ export type CustomerServiceN8nPlan = {
   sourceCounts?: { listRows: number; logSessions: number; ambiguous: number };
   dailyFiles?: Array<{ date: string; sessionSha256: string; chatSha256: string; contentSha256: string; conversationCount: number }>;
   failureCode?: string;
-  failureBoundary?: { version: 1; browserClosed: boolean; step: string; preSubmitView?: "messages" };
+  failureBoundary?: { version: 1; browserClosed: boolean; step: string; preSubmitView?: "messages"; failureReason?: string };
   operatorVerification?: { authorizationId: string; originalPlanSha256: string; completedAt: string };
 };
 function reject(code: string): never { throw new JdCustomerServiceWorkflowError(code); }
@@ -48,6 +48,17 @@ export function customerServiceFailureCode(error: unknown) {
     if (/waiting_login：/.test(error.message)) return "LOGIN_GATE_MANUAL_ACTION";
   }
   return "CUSTOMER_SERVICE_FAILED_MANUAL_ACTION";
+}
+/**
+ * `LOGIN_GATE_MANUAL_ACTION` collapses nine distinct login-gate causes, and the
+ * message that distinguishes them is deliberately dropped so page text and
+ * signed URLs cannot leak. Carry the throw site's fixed reason token instead: it
+ * is a closed vocabulary with no remote text, so an operator can tell a captcha
+ * (go and clear it) from a slow surface (it retries itself) without reading the
+ * original page. Returns undefined when the failure is not a login gate.
+ */
+export function customerServiceFailureReason(error: unknown) {
+  return jdLoginGateReason(error) ?? (error instanceof JdCustomerServiceWorkflowError ? error.detailCode : undefined);
 }
 export function customerServicePlanFiles(root: string, executionId: string, storeKey = contract.storeKey as string) {
   const store = customerServiceStore(storeKey);
@@ -195,12 +206,19 @@ export async function runCustomerServicePlan(root: string, plan: CustomerService
   } catch (error) {
     plan.stage = "failed";
     plan.failureCode = customerServiceFailureCode(error);
+    const failureReason = customerServiceFailureReason(error);
+    // `failureReason` rides inside the boundary on purpose:
+    // `isCustomerServicePreSubmitFailure` rejects unknown top-level plan keys, so
+    // a new sibling of `failureCode` would make every pre-submit failure
+    // uncloseable and re-create the self-locking loop that stalled four stores.
     plan.failureBoundary = { version: 1, browserClosed, step,
+      ...(failureReason ? { failureReason } : {}),
       ...(step === "export_messages" && !plan.source.messages && ["CHAT_PAGE_MISMATCH", "CHAT_PAGE_NOT_READY_MANUAL_ACTION"].includes(plan.failureCode) ? { preSubmitView: "messages" as const } : {}) };
     await save();
     // Do not let browser exceptions leak page text or signed download URLs.
+    // The reason is a fixed token from a closed vocabulary, never remote text.
     throw new JdCustomerServiceWorkflowError(plan.failureCode.endsWith("_MANUAL_ACTION") ? plan.failureCode : `${plan.failureCode}_MANUAL_ACTION`,
-      error instanceof JdCustomerServiceWorkflowError ? error.detailCode : undefined, { cause: error });
+      failureReason, { cause: error });
   }
 }
 // Restore only the original C operation. The caller must already own this exact

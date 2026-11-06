@@ -24,8 +24,21 @@ function Invoke-ManualActionAlert([string]$EncodedPayload,[bool]$SendEnabled,[st
     JdLogisticsDaily2026='京东物流'
   }
   # No remote/raw exception text or caller-provided label enters the message.
+  # Each key is one cause, so the message says what to actually do. The generic
+  # terminal_manual_action remains the fallback for an unclassified failure.
+  # Keys must stay identical to the classifier's allowlist in
+  # tools/n8n-hourly-retry-policy.mjs: an unknown code is rejected as
+  # invalid_payload and no alert goes out at all.
   $hints=@{
     terminal_manual_action=@('原流程已停止自动重试，需核查失败原因','到 n8n 打开原 execution，按失败节点说明处理登录、验证或来源问题；确认原状态后再恢复')
+    manual_action_challenge=@('出现验证码或安全验证，需要人工在页面上通过','打开该店铺的浏览器，人工完成验证码或安全验证；通过后等下一轮定时，不要手动重跑')
+    manual_action_credential=@('本机加密凭据缺失、损坏或被平台拒绝','重新录入该店铺的本机凭据后再恢复；这一类不是扫码能解决的，不要反复重跑')
+    manual_action_locked=@('登录或操作被平台限流、暂时锁定','先不要重试，等平台限制解除后再跑下一轮；反复尝试会延长锁定')
+    manual_action_identity=@('页面店铺或账号身份与计划不符','核对该流程绑定的店铺与当前登录身份；不要在另一个店铺的 Profile 上重试')
+    manual_action_submit_unknown=@('业务点击或提交结果未决，远端可能已受理','先核查远端是否已生成任务或数据，再决定下一步；禁止直接重发，会造成重复')
+    manual_action_source_not_ready=@('来源数据尚未就绪','等来源平台发布当日数据后再跑；这不是本机故障，不需要处理登录')
+    manual_action_session_absent=@('登录态缺失或已失效，需要人工登录','打开该店铺的浏览器完成人工登录，确认进入目标页面后再恢复')
+    manual_action_login_pending=@('登录状态在限定时间内未确认，多为页面加载慢','通常下一轮定时会自行恢复，一般不需要处理登录；连续多轮同样失败再去核查会话')
     execution_mode_not_automatic=@('本次触发方式不参与自动重试','到 n8n 查看原 execution 与业务状态，确认下一步人工处理方式')
     retry_dispatch_result_unknown=@('重试 Webhook 派发结果未知，可能已受理','核查该流程最近的 execution 与原计划；禁止直接再次派发')
     retry_context_wait_expired_manual_action=@('等待原计划核验已达 72 小时上限','核查原计划为何未完成，按原恢复入口处理，禁止盲目重跑')

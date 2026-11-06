@@ -3,7 +3,8 @@ import test from "node:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { customerServiceHelperError, planCustomerServiceRun, publicCustomerServicePlan } from "../tools/jd-customer-service-n8n-pipeline";
+import { customerServiceFailureCode, customerServiceFailureReason, customerServiceHelperError, planCustomerServiceRun, publicCustomerServicePlan } from "../tools/jd-customer-service-n8n-pipeline";
+import { JdLoginGateError, jdLoginGateReason } from "../tools/jd-saved-login";
 test("客服helper阶段必须属于已领取的同一execution", () => {
   assert.equal(customerServiceHelperError("ready", false, "/jd/customer-service/plan", "fixture", "fixture"), null);
   assert.equal(customerServiceHelperError("planned", false, "/jd/customer-service/run", "fixture", "fixture"), null);
@@ -44,4 +45,38 @@ test("n8n候选禁用、固定9点和时间锚点，不包含旧日期或自动�
     assert.ok(node.parameters.headerParameters.parameters.some((header: {name: string}) => header.name === "X-TERUISI-SCHEDULED-AT"));
   }
   assert.ok(!JSON.stringify(candidate).includes("2026-08-20"));
+});
+
+// LOGIN_GATE_MANUAL_ACTION collapses nine login-gate causes and the message that
+// told them apart is dropped on purpose (page text and signed URLs must not
+// leak). The fixed reason token is the only thing left that can distinguish a
+// captcha from a slow surface, so assert it survives — and that it stays a
+// closed vocabulary rather than anything derived from the page.
+test("客服登录闸失败保留可诊断的原因细分码，且只含固定词表", () => {
+  const store = { storeKey: "jd-cuizhiwang-dengweizhang", shopName: "志高商用洗碗机旗舰店",
+    loginMode: "windows_dpapi_credentials" as const };
+  const reasons = new Set<string>();
+  for (const [reason, message] of [
+    ["challenge_present", `waiting_login：${store.shopName} 出现验证码或安全验证，需要人工处理`],
+    ["surface_pending", `waiting_login：${store.shopName} 登录状态在有界等待后仍无法确认，需要人工检查`],
+    ["session_absent", `waiting_login：${store.shopName} 独立 Chromium 尚未登录，请先人工登录`],
+    ["credential_rejected", `waiting_login：${store.shopName} 本机加密凭据未被平台接受，请重新配置并人工核验`],
+    ["temporarily_locked", `waiting_login：${store.shopName} 登录操作受限或过于频繁，需要稍后人工检查`],
+    ["post_submit_unconfirmed", `waiting_login：${store.shopName} 自动提交后仍未完成登录，可能需要人工安全验证`],
+  ] as const) {
+    const error = new JdLoginGateError(message, reason);
+    assert.equal(jdLoginGateReason(error), reason);
+    // The collapsed code is unchanged: existing closure whitelists key off it.
+    assert.equal(customerServiceFailureCode(error),
+      reason === "surface_pending" ? "CUSTOMER_SERVICE_LOGIN_PENDING" : "LOGIN_GATE_MANUAL_ACTION");
+    // This is what makes the cause recoverable downstream.
+    assert.equal(customerServiceFailureReason(error), reason);
+    reasons.add(reason);
+  }
+  assert.equal(reasons.size, 6);
+  // No shop name, page text or URL may ride along in a reason token.
+  for (const reason of reasons) assert.match(reason, /^[a-z][a-z_]{0,40}$/);
+
+  // A non-login failure must not acquire a login reason.
+  assert.equal(customerServiceFailureReason(new Error("导入未全部完成")), undefined);
 });
