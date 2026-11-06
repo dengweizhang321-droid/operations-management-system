@@ -200,7 +200,7 @@ def distill(operation_id, body, principal):
         # A request that may have reached the provider cannot be replayed with
         # another key. A known local rejection or a received reply is terminal.
         uncertain = result is None and (not isinstance(error, AiError) or error.status >= 500)
-        if isinstance(error, provider.ProviderCredentialError):
+        if isinstance(error, (provider.ProviderCredentialError, provider.EmptyProviderResponse)):
             uncertain = False
         if isinstance(error, ProviderTransportError) and not error.diagnostics["requestStarted"]:
             uncertain = False

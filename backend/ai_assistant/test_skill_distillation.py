@@ -97,6 +97,19 @@ class DistillationTests(TestCase):
         self.turn.side_effect = None
         self.assertEqual(self.submit("after-credential-fix").status_code, 201)
 
+    def test_complete_empty_provider_reply_does_not_block_a_new_authorization(self):
+        self.turn.side_effect = REAL_PROVIDER_TURN
+        reply = {"choices": [{"finish_reason": "length", "message": {"content": ""}}], "usage": {"completion_tokens": 8}}
+        with patch("ai_assistant.provider.decrypt", return_value="test-only"), patch(
+                "ai_assistant.provider.bounded_json", return_value=reply) as transport:
+            response = self.submit()
+            self.assertEqual(response.json()["code"], "provider_output_limit")
+            transport.assert_called_once()
+        self.assertEqual(PiDispatch.objects.get(kind="skill_distillation").status, "completed")
+        self.assertEqual(self.submit().json()["code"], "provider_output_limit")
+        self.turn.side_effect = None
+        self.assertEqual(self.submit("new-intent").status_code, 201)
+
     def test_foreign_owner_and_stale_report_cannot_start_paid_turn(self):
         self.assertEqual(self.submit(principal=self.other).status_code, 404)
         self.assertEqual(self.submit(version="a" * 64).status_code, 409)
