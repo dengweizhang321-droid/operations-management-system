@@ -1,6 +1,7 @@
 from __future__ import annotations
 import hashlib
 import json
+import logging
 import re
 from datetime import timedelta
 from threading import BoundedSemaphore
@@ -42,6 +43,8 @@ from .policy import (
     authority,
     uid,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # processing 回执的租期：进程崩溃在 handler() 执行期间（finish() 之前）会让回执永远停在
@@ -680,6 +683,7 @@ def _dispatch(request, path=""):
             headers={"Cache-Control": "no-store"},
         )
     except Exception:
+        logger.exception("Unhandled AI dispatch error")
         return JsonResponse(
             {"error": "AI 服务暂时不可用", "code": "service_unavailable"},
             status=503,
