@@ -16,12 +16,15 @@ const statusLabels: Record<string, string> = { draft: "草稿", in_review: "审�
 
 function candidateContent(value: unknown): value is CandidateContent {
   const object = (item: unknown): item is Record<string, unknown> => !!item && typeof item === "object" && !Array.isArray(item);
-  const strings = (item: unknown, maximum: number, length: number) => Array.isArray(item) && item.length <= maximum && item.every(entry => typeof entry === "string" && entry.length <= length);
+  // JSON Schema maxLength and Python len() count Unicode code points, while
+  // JavaScript string.length counts UTF-16 units (emoji usually occupy two).
+  const string = (item: unknown, maximum: number): item is string => typeof item === "string" && Array.from(item).length <= maximum;
+  const strings = (item: unknown, maximum: number, length: number) => Array.isArray(item) && item.length <= maximum && item.every(entry => string(entry, length));
   const exact = (item: Record<string, unknown>, keys: string[]) => Object.keys(item).sort().join(",") === keys.sort().join(",");
   return object(value) && exact(value, ["goal", "body", "parameters", "steps", "requiredTools", "templateRefs", "sourceEvidenceRefs", "unverifiedRecommendations", "openQuestions"])
-    && typeof value.goal === "string" && !!value.goal.trim() && value.goal.length <= 240 && typeof value.body === "string" && !!value.body.trim() && value.body.length <= 2000
-    && Array.isArray(value.parameters) && value.parameters.length <= 12 && value.parameters.every(item => object(item) && exact(item, ["name", "kind", "required", "meaning", "defaultRule"]) && typeof item.name === "string" && typeof item.meaning === "string" && typeof item.defaultRule === "string" && typeof item.required === "boolean" && typeof item.kind === "string" && ["shop", "platform", "businessDate", "compareWindow", "threshold", "warehouse", "replenishmentDays", "other"].includes(item.kind))
-    && Array.isArray(value.steps) && value.steps.length <= 20 && value.steps.every(item => object(item) && exact(item, ["order", "action", "missingDataBranch", ...(Object.hasOwn(item, "toolName") ? ["toolName"] : [])]) && Number.isInteger(item.order) && Number(item.order) >= 1 && Number(item.order) <= 20 && typeof item.action === "string" && typeof item.missingDataBranch === "string" && (item.toolName === undefined || typeof item.toolName === "string"))
+    && string(value.goal, 240) && !!value.goal.trim() && string(value.body, 2000) && !!value.body.trim()
+    && Array.isArray(value.parameters) && value.parameters.length <= 12 && value.parameters.every(item => object(item) && exact(item, ["name", "kind", "required", "meaning", "defaultRule"]) && string(item.name, 40) && string(item.meaning, 200) && string(item.defaultRule, 200) && typeof item.required === "boolean" && typeof item.kind === "string" && ["shop", "platform", "businessDate", "compareWindow", "threshold", "warehouse", "replenishmentDays", "other"].includes(item.kind))
+    && Array.isArray(value.steps) && value.steps.length <= 20 && value.steps.every(item => object(item) && exact(item, ["order", "action", "missingDataBranch", ...(Object.hasOwn(item, "toolName") ? ["toolName"] : [])]) && Number.isInteger(item.order) && Number(item.order) >= 1 && Number(item.order) <= 20 && string(item.action, 300) && string(item.missingDataBranch, 200) && (item.toolName === undefined || string(item.toolName, 80)))
     && strings(value.requiredTools, 16, 80) && strings(value.templateRefs, 4, 64) && strings(value.sourceEvidenceRefs, 20, 120) && strings(value.unverifiedRecommendations, 10, 300) && strings(value.openQuestions, 10, 200);
 }
 

@@ -19,7 +19,7 @@ const act = (callback: () => unknown) => renderer!.act(callback);
 const options = { skip: !renderer && "isolated react-test-renderer is not installed", timeout: 10_000 };
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const oldVersion = "a".repeat(64), newVersion = "b".repeat(64), storageKey = "fixture:distill:op";
-function content() { return { goal: "goal", body: "method", parameters: [{ name: "shop", kind: "shop", required: true, meaning: "one shop", defaultRule: "ask" }], steps: [{ order: 1, action: "read", toolName: "tool", missingDataBranch: "stop" }], requiredTools: ["tool"], templateRefs: [], sourceEvidenceRefs: [], unverifiedRecommendations: ["unverified"], openQuestions: [] }; }
+function content() { return { goal: "goal", body: "method", parameters: [{ name: "shop", kind: "shop", required: true, meaning: "one shop", defaultRule: "ask" }], steps: [{ order: 1, action: "read", toolName: "tool", missingDataBranch: "stop" }], requiredTools: ["tool"], templateRefs: [] as string[], sourceEvidenceRefs: [] as string[], unverifiedRecommendations: ["unverified"], openQuestions: [] as string[] }; }
 function candidate(body: unknown = content()) { return { id: "candidate", status: "draft", version: 7, contentDigest: "c".repeat(64), reportVersionDigest: newVersion, content: body, unverifiedRecommendations: 1 }; }
 function text(node: Node | string | null): string { return typeof node === "string" ? node : node?.children?.map(text).join("") ?? ""; }
 const button = (root: Root, name: string) => { const found = root.root.findAllByType("button").find(item => text(item) === name); assert.ok(found, `button ${name}`); return found; };
@@ -120,6 +120,49 @@ test("real component renders malformed stored candidates safely, refuses approva
       await click(button(root, "退回候选"));
       assert.deepEqual(fixture.state.writes[0], { status: "rejected", expectedVersion: 7, contentDigest: "c".repeat(64), note: "" });
       assert.match(text(root.toJSON()), /已退回/);
+    } finally { await act(() => root.unmount()); }
+  }
+});
+
+test("real component uses Unicode code points for every schema string boundary and approves the exact-limit candidate", options, async () => {
+  const boundaries: [string, number, (value: ReturnType<typeof content>, text: string) => void][] = [
+    ["goal", 240, (value, text) => { value.goal = text; }],
+    ["body", 2000, (value, text) => { value.body = text; }],
+    ["parameter name", 40, (value, text) => { value.parameters[0].name = text; }],
+    ["parameter meaning", 200, (value, text) => { value.parameters[0].meaning = text; }],
+    ["parameter default rule", 200, (value, text) => { value.parameters[0].defaultRule = text; }],
+    ["step action", 300, (value, text) => { value.steps[0].action = text; }],
+    ["step tool", 80, (value, text) => { value.steps[0].toolName = text; }],
+    ["step missing data", 200, (value, text) => { value.steps[0].missingDataBranch = text; }],
+    ["required tool", 80, (value, text) => { value.requiredTools = [text]; }],
+    ["template reference", 64, (value, text) => { value.templateRefs = [text]; }],
+    ["source reference", 120, (value, text) => { value.sourceEvidenceRefs = [text]; }],
+    ["unverified recommendation", 300, (value, text) => { value.unverifiedRecommendations = [text]; }],
+    ["open question", 200, (value, text) => { value.openQuestions = [text]; }],
+  ];
+  const exact = content();
+  for (const [, maximum, set] of boundaries) set(exact, "甲".repeat(maximum - 1) + "📊");
+  assert.equal(exact.body.length, 2001);
+  assert.equal(Array.from(exact.body).length, 2000);
+  const fixture = harness(); fixture.state.candidate = candidate(exact);
+  const root = await fixture.mount();
+  try {
+    assert.doesNotMatch(text(root.toJSON()), /候选正文格式异常/);
+    assert.equal(button(root, "批准此版本").props.disabled, false);
+    await click(button(root, "批准此版本"));
+    assert.deepEqual(fixture.state.writes[0], { status: "approved", expectedVersion: 7, contentDigest: "c".repeat(64), note: "" });
+    assert.match(text(root.toJSON()), /已批准/);
+  } finally { await act(() => root.unmount()); }
+  for (const [name, maximum, set] of boundaries) {
+    const oversized = content(); set(oversized, "甲".repeat(maximum) + "📊");
+    const fixture = harness(); fixture.state.candidate = candidate(oversized);
+    const root = await fixture.mount();
+    try {
+      assert.match(text(root.toJSON()), /候选正文格式异常/, name);
+      assert.equal(button(root, "批准此版本").props.disabled, true, name);
+      await act(async () => { (button(root, "批准此版本").props.onClick as () => void)(); });
+      assert.equal(fixture.state.writes.length, 0, name);
+      assert.equal(button(root, "退回候选").props.disabled, false, name);
     } finally { await act(() => root.unmount()); }
   }
 });
