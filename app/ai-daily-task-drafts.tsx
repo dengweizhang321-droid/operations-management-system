@@ -18,13 +18,13 @@ const labels: Record<string, string> = {
 };
 
 class TaskRequestError extends Error {
-  constructor(public readonly status: number, message: string) { super(message); }
+  constructor(public readonly status: number, public readonly code: string, message: string) { super(message); }
 }
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch("/api/ai/pi/" + path, { cache: "no-store", ...init });
   const data = await response.json();
-  if (!response.ok) throw new TaskRequestError(response.status, data.error || "任务请求失败");
+  if (!response.ok) throw new TaskRequestError(response.status, data.code || "", data.error || "任务请求失败");
   return data as T;
 }
 
@@ -53,6 +53,7 @@ export default function AiDailyTaskDrafts({ owner }: { owner: string }) {
   const [methodKey, setMethodKey] = useState(""), [modelId, setModelId] = useState(""), [time, setTime] = useState("09:00");
   const [pending, setPending] = useState(""), [busy, setBusy] = useState(false), sending = useRef(false);
   const [notice, setNotice] = useState(""), [error, setError] = useState("");
+  const [saveError, setSaveError] = useState(""), [optionsError, setOptionsError] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -60,10 +61,12 @@ export default function AiDailyTaskDrafts({ owner }: { owner: string }) {
     setError(""); setPage(null); setOptions(null);
     try { setPending(sessionStorage.getItem(storageKey) || ""); }
     catch { setError("浏览器无法保存请求标识，暂时无法创建草稿。"); }
-    Promise.all([api<{ draftOptions: Options }>("task-connectors?draftOptions=1"),
-      api<Page>("task-definitions?limit=20" + (cursor ? "&cursor=" + encodeURIComponent(cursor) : ""))])
-      .then(([opts, rows]) => { if (current) { setOptions(opts.draftOptions); setPage(rows); } })
-      .catch(e => { if (current) setError(e.message); });
+    setOptionsError("");
+    api<{ draftOptions: Options }>("task-connectors?draftOptions=1")
+      .then(opts => { if (current) setOptions(opts.draftOptions); })
+      .catch(e => { if (current) setOptionsError(e.message); });
+    api<Page>("task-definitions?limit=20" + (cursor ? "&cursor=" + encodeURIComponent(cursor) : ""))
+      .then(rows => { if (current) setPage(rows); }).catch(e => { if (current) setError(e.message); });
     return () => { current = false; };
   }, [open, storageKey, revision, cursor]);
 
@@ -78,13 +81,13 @@ export default function AiDailyTaskDrafts({ owner }: { owner: string }) {
   const method = options?.methods.find(item => item.kind + ":" + item.id === methodKey);
   const model = options?.models.find(item => item.id === modelId);
   async function save() {
-    if (!options || sending.current) return;
+    if (sending.current || (!pending && !options)) return;
     if (!pending && (!method || !model || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) return;
-    sending.current = true; setBusy(true); setError(""); setNotice("");
+    sending.current = true; setBusy(true); setSaveError(""); setNotice("");
     try {
       let raw = sessionStorage.getItem(storageKey);
       if (!raw) {
-        if (!method || !model) return;
+        if (!options || !method || !model) return;
         raw = JSON.stringify(dailyDraft(options, method, model, time, crypto.randomUUID()));
         sessionStorage.setItem(storageKey, raw);
       }
@@ -95,12 +98,15 @@ export default function AiDailyTaskDrafts({ owner }: { owner: string }) {
       sessionStorage.removeItem(storageKey); setPending(""); setSelected(result.item.id); setCursor("");
       setRevision(v => v + 1); setNotice("停用草稿已保存。");
     } catch (e) {
-      if (e instanceof TaskRequestError && [400, 403, 404, 409, 413, 422].includes(e.status)) {
+      // The server checks ownership before looking up an old request ID. A
+      // denied account cannot establish whether an earlier attempt committed.
+      if (e instanceof TaskRequestError && ((e.status === 400 && e.code === "invalid_request")
+          || (e.status === 409 && e.code === "version_conflict") || e.status === 413)) {
         try { sessionStorage.removeItem(storageKey); setPending(""); }
         catch { /* The pending ID is still safe to retry when storage returns. */ }
         setRevision(v => v + 1);
       }
-      setError(e instanceof Error ? e.message : "保存失败");
+      setSaveError(e instanceof Error ? e.message : "保存失败");
     }
     finally { setBusy(false); sending.current = false; }
   }
@@ -109,12 +115,12 @@ export default function AiDailyTaskDrafts({ owner }: { owner: string }) {
     <div className="section-header"><div><h3>经营日报任务草稿</h3><p>京东志高商用设备旗舰店 · ERP 销售按店，库存按计入库存的仓单列。</p></div>
       <button type="button" className="secondary-button" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "收起" : "管理草稿"}</button></div>
     {open && <>
-      {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+      {error && <p role="alert">{error}</p>}{optionsError && <p role="alert">方法或模型目录暂不可用：{optionsError}</p>}{saveError && <p role="alert">{saveError}</p>}{notice && <p role="status">{notice}</p>}
       <div className="ai-config-form"><label>已发布方法<select disabled={!!pending || busy} value={methodKey} onChange={e => setMethodKey(e.target.value)}>
         <option value="">请选择方法及版本</option>{options?.methods.map(x => <option key={x.kind + ":" + x.id} value={x.kind + ":" + x.id}>{x.name} · {x.version} · {x.kind === "bundled" ? "Pi 技能" : "报告方法"}</option>)}</select></label>
         <label>模型<select disabled={!!pending || busy} value={modelId} onChange={e => setModelId(e.target.value)}><option value="">请选择模型及版本</option>{options?.models.map(x => <option value={x.id} key={x.id}>{x.name} · v{x.version}</option>)}</select></label>
         <label>计划时间（上海）<input type="time" value={time} disabled={!!pending || busy} onChange={e => setTime(e.target.value)}/></label>
-        <button type="button" className="secondary-button" disabled={busy || !options || (!pending && (!method || !model || !time))} onClick={() => void save()}>{pending ? "重试原保存请求" : "保存停用草稿"}</button>
+        <button type="button" className="secondary-button" disabled={busy || (!pending && (!options || !method || !model || !time))} onClick={() => void save()}>{pending ? "重试原保存请求" : "保存停用草稿"}</button>
       </div>
       {pending && <p role="status">已保留原保存请求，重试会使用同一标识。</p>}
       {options && (!options.methods.length || !options.models.length) && <p>保存草稿需要可用模型和已发布的方法，请先在 AI 管理中配置。</p>}
