@@ -676,7 +676,23 @@ def _dispatch(request, path=""):
             status=error.status,
             headers={"Cache-Control": "no-store"},
         )
-    except (ValueError, TypeError, KeyError):
+    # ValueError 单独成层，因为它在这个 try 块里有已核实的真实客户端来源：少数取数接口
+    # 对查询参数直接 int() 而没有就地 try，坏参数会以裸 ValueError 冒到这里，这些本来就
+    # 该是 400。不在这里逐一枚举站点：清单会随代码漂移，而且相邻接口里既有裸 int() 也有
+    # 自带 try/except 的（prompt_settings.read 就是后者），照清单反推会判错。要定位是哪
+    # 一处，看下面这条 warning 带的栈。
+    #
+    # TypeError / KeyError 不在这一层：客户端字段一律先过 fields()/text()/integer()/
+    # choice() 等校验器，它们只抛 AiError（走第一层），所以冒到这里的是内部编程错误，
+    # 由下面第三层按 503 + logger.exception 兜底——报成"客户端请求格式错误"会让排障的
+    # 人把它当调用方传错而跳过。
+    except ValueError:
+        # 级别用 warning 而不是 exception：这是调用方输错，不是服务端故障。保留 exc_info
+        # 是因为异常消息本身区分不出站点（各处都只是 "invalid literal for int() with
+        # base 10: 'abc'"，实测逐字节相同），栈是唯一的定位信息。
+        logger.warning(
+            "AI dispatch rejected malformed request input", exc_info=True
+        )
         return JsonResponse(
             {"error": "AI 请求格式无效", "code": "invalid_request"},
             status=400,
@@ -813,11 +829,10 @@ def mutate(parts, params, payload, principal, request_id, method):
         if method == "PATCH" and payload.get("action") == "activate":
             from .conversation_workspace import activate
             return activate(payload, principal), 200
-        return (
-            chat.delete(params["id"], principal)
-            if method == "DELETE"
-            else chat.change_model(payload, principal)
-        ), 200
+        if method == "DELETE":
+            fields(params, {"id"}, {"id"})
+            return chat.delete(params["id"], principal), 200
+        return chat.change_model(payload, principal), 200
     if root == "memories":
         if method == "DELETE":
             return memory.archive(parts[1], payload, principal, request_id), 200
@@ -1035,6 +1050,7 @@ def consumer(payload, principal, request_id):
                 response_payload["conversationId"] = conv.id
         return response_payload
     if operation == "analysis-plan":
+        fields(payload, {"operation", "input"}, {"operation", "input"})
         return sandbox.run(payload["input"], principal, request_id)
     if operation in {"datasets-describe", "datasets-query"}:
         return datasets.consumer(payload, principal, request_id)
