@@ -28,6 +28,17 @@ BUDGET_TABLE_TOOL = "get_business_budget_analysis_table_v1"
 BUDGET_REFERENCE_TOOL = "get_business_budget_scenarios_v1"
 BUDGET_TOOLS = frozenset({BUDGET_DIRECTORY_TOOL, BUDGET_TABLE_TOOL, BUDGET_REFERENCE_TOOL})
 BUDGET_OUTPUT_LIMITS = {"commerce": 2000, "promotion": 2000, "market_b2b": 2000, "independent_review": 1500, "report": 8000}
+# Must track the "ai_report_runs" CHECK in migrations/0012_report_library.py
+# (octet_length(snapshot_json)<=32768). That CHECK bounds the whole row, not
+# just budgetPlan; business_analysis.budget.normalize()'s own 48000-byte cap
+# is a separate, larger bound on the plan contract alone (shared by the v2
+# budget-reference/integrated/promotion/screening paths, which store the plan
+# in ai_business_budget_plans instead of embedding it in this snapshot). Only
+# this legacy v1 path embeds the full plan inline, so only here must we also
+# enforce the tighter, row-level bound -- before any workflow/tool work runs,
+# so a plan that is valid on its own terms still gets a fast, specific error
+# instead of succeeding at budget-resolution and failing deep in execution.
+SNAPSHOT_MAX_BYTES = 32768
 
 
 def is_budget_snapshot(snapshot):
@@ -162,6 +173,9 @@ def create(body, principal, *, commit=None):
         if budget_result is None or json.loads(previous.snapshot_json).get("evidenceRunId") != evidence_id:
             raise AiError("预算新版本须与前一报告使用相同封存证据", "conflict", 409)
         snapshot["previousReportId"] = previous.id
+    snapshot_size = len(canonical(snapshot).encode())
+    if snapshot_size > SNAPSHOT_MAX_BYTES:
+        raise AiError(f"预算对象或情景过多，报告快照{snapshot_size}字节超过{SNAPSHOT_MAX_BYTES}字节容量上限，请精简预算对象、情景名称或责任角色后重试", "payload_too_large", 413)
     with mutation(principal):
         old = m.AiReportRun.objects.select_related("workflow").filter(owner_email=principal.email.lower(), client_request_id=client).first()
         if old:
