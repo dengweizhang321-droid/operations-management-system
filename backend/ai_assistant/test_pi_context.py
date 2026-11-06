@@ -346,3 +346,72 @@ class RecoveryTests(TestCase):
                     connection.return_value.getresponse.return_value=reply
                     with self.assertRaises(AiError) as caught: pi_transport.command(value)
                 self.assertEqual(caught.exception.code,"pi_compact_create_rejected" if valid and marked else "pi_runner_unknown")
+
+    def legacy_agent_message(self, session_id, kind, message):
+        # The former durable schema: no invented generation/permission proof.
+        with mutation():
+            session=PiSession.objects.get(pk=session_id);state=pi_native.state_for(session,lock=True)
+            state.message_seq+=1;state.save(update_fields=["message_seq"])
+            row=PiAgentMessage.objects.create(id=uid("pi-message"),root_session=session,from_session=session,
+                to_session=session,seq=state.message_seq,kind=kind,message=message)
+            service.event(session,"agent_message",{"messageId":row.id,"fromSessionId":session.id,"kind":kind,"seq":row.seq})
+            return row
+
+    def bound_follow_up(self, session_id, message):
+        with mutation():
+            session=PiSession.objects.get(pk=session_id);state=pi_native.state_for(session,lock=True)
+            return pi_native._message(state,session,session,"follow_up",message)
+
+    def test_real_tick_never_turns_unproved_followup_into_new_prompt_or_view(self):
+        op=self.ready()
+        self.legacy_agent_message(op.session_id,"follow_up","unproved-scheduler-secret")
+        before=PiOperation.objects.count()
+        pi_native.scheduler_tick();pi_native.scheduler_tick()
+        self.assertEqual(PiOperation.objects.count(),before)
+        self.assertNotIn("unproved-scheduler-secret",canonical(self.http_workspace(op.session_id)))
+        self.assertNotIn("unproved-scheduler-secret",canonical(service.events(op.session_id,{},self.owner)))
+
+    def test_unproved_prefix_and_clear_do_not_starve_proved_followups(self):
+        op=self.ready(active=True)
+        for _ in range(105): self.legacy_agent_message(op.session_id,"follow_up","unproved-prefix-secret")
+        first=self.bound_follow_up(op.session_id,"proved-first")
+        self.legacy_agent_message(op.session_id,"queue_cleared","legacy-clear")
+        last=self.bound_follow_up(op.session_id,"proved-second")
+        workspace._finish_init(op)
+        pi_native.scheduler_tick()
+        queued=PiOperation.objects.get(session_id=op.session_id,status="queued")
+        payload=json.loads(queued.payload_json)
+        self.assertEqual(payload["message"],"proved-first\n\nproved-second")
+        self.assertEqual(payload["messageCursor"],last.seq)
+        view=canonical(self.http_workspace(op.session_id))
+        self.assertIn("proved-first",view);self.assertNotIn("unproved-prefix-secret",view)
+        pi_native.scheduler_tick()
+        self.assertEqual(PiOperation.objects.filter(session_id=op.session_id).count(),2)
+        workspace._finish_init(worker.claim());pi_native.scheduler_tick()
+        self.assertEqual(PiOperation.objects.filter(session_id=op.session_id).count(),2)
+
+    def test_real_tick_honors_proved_queue_clear_and_consumed_cursor(self):
+        op=self.ready(active=True)
+        self.bound_follow_up(op.session_id,"cleared-message")
+        with patch.object(workspace.pi_transport,"command",side_effect=self.runner): self.send(op.session_id,"clear_queue",key="clear-proved-queue")
+        kept=self.bound_follow_up(op.session_id,"kept-message")
+        workspace._finish_init(op);pi_native.scheduler_tick()
+        queued=PiOperation.objects.get(session_id=op.session_id,status="queued")
+        self.assertEqual(json.loads(queued.payload_json)["message"],"kept-message")
+        self.assertEqual(json.loads(queued.payload_json)["messageCursor"],kept.seq)
+        workspace._finish_init(worker.claim());pi_native.scheduler_tick()
+        self.assertEqual(PiOperation.objects.filter(session_id=op.session_id).count(),2)
+
+    def test_real_tick_preserves_remaining_proved_batch_order_without_replay(self):
+        op=self.ready(active=True)
+        rows=[self.bound_follow_up(op.session_id,f"ordered-{i:03}") for i in range(102)]
+        workspace._finish_init(op);pi_native.scheduler_tick()
+        first=worker.claim();first_payload=json.loads(first.payload_json)
+        self.assertEqual(first_payload["message"],"\n\n".join(row.message for row in rows[:100]))
+        self.assertEqual(first_payload["messageCursor"],rows[99].seq)
+        workspace._finish_init(first);pi_native.scheduler_tick()
+        second=worker.claim();second_payload=json.loads(second.payload_json)
+        self.assertEqual(second_payload["message"],"ordered-100\n\nordered-101")
+        self.assertEqual(second_payload["messageCursor"],rows[-1].seq)
+        workspace._finish_init(second);pi_native.scheduler_tick()
+        self.assertEqual(PiOperation.objects.filter(session_id=op.session_id).count(),3)
