@@ -49,7 +49,7 @@ def admission(operation, *, lock=False):
         "scopeSha256": hashlib.sha256(operation.scope_json.encode()).hexdigest()}
 
 
-def authorize(operation, supplied=None, *, kind="model", name="", lock=False):
+def authorize(operation, supplied=None, *, kind="model", name="", lock=False, require_supplied=True):
     state = state_for(operation.session, lock=lock)
     principal = current_principal(Principal(operation.session.owner_email, operation.session.owner_email,
         operation.actor_role, json.loads(operation.scope_json)), write=True, background=True)
@@ -61,7 +61,14 @@ def authorize(operation, supplied=None, *, kind="model", name="", lock=False):
     if root.status == "frozen" or agent.lifecycle != "open":
         raise AiError("代理树已停止或隔离", "pi_tree_fenced", 409)
     expected = admission(operation)
-    if supplied is not None and (not isinstance(supplied, dict) or set(supplied) != set(expected)
+    # require_supplied defaults to True: any caller that passes no `supplied`
+    # and does not explicitly opt out gets the comparison enforced against a
+    # null/missing value, so a future client-facing call site that forgets to
+    # pass an admission cannot silently skip the check (the null bypass this
+    # function exists to close). The small, closed set of internal callers
+    # that re-authorize with no client value to compare (listed at each call
+    # site) pass require_supplied=False explicitly.
+    if (supplied is not None or require_supplied) and (not isinstance(supplied, dict) or set(supplied) != set(expected)
             or any(supplied[k] != v or type(supplied[k]) is not type(v) for k, v in expected.items() if k != "treeVersion")
             or type(supplied.get("treeVersion")) is not int or not 1 <= supplied["treeVersion"] <= expected["treeVersion"]):
         raise AiError("代理树准入版本已变化", "pi_admission_changed", 409)
@@ -790,7 +797,8 @@ def consumer(payload, principal):
     if not PiDispatch.objects.filter(operation=op, kind="tool", request_id=identifier(payload["invocationId"]), status="sent").exists():
         raise AiError("缺少持久网关准入", "access_denied", 403)
     with mutation(principal):
-        authorize(op, kind="tool", name=payload["name"], lock=True)
+        # Internal re-authorization, no client-supplied admission to compare.
+        authorize(op, kind="tool", name=payload["name"], lock=True, require_supplied=False)
         return run_command(op.session, payload["name"], payload["arguments"], op, principal, from_model=True)
 
 
