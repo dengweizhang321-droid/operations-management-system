@@ -21,7 +21,13 @@ export type AiExecutionInfo = {
   inputTokens?: number | null; outputTokens?: number | null; reasoningTokens?: number | null;
   durationMs?: number; providerCalls?: number; usageReportedCalls?: number; toolCalls?: number;
   stopReason?: string; outputTruncated?: boolean;
-  guidance?: { version: number; digest: string; rules: { id: string; name: string; source: string }[] };
+  // execution_json is capped at 16384 bytes by ai_execution_bound
+  // (ai_assistant/migrations/0009_model_generation_capabilities.py:10). When the
+  // citations do not fit, prompt_settings.fit_evidence() first drops each rule's
+  // unread `source` (ruleSourcesOmitted) and only then whole rules from the tail
+  // (rulesOmitted) -- the names are rendered to the user, so a shortened list
+  // must be labelled as partial.
+  guidance?: { version: number; digest: string; rules: { id: string; name: string; source?: string }[]; ruleSourcesOmitted?: boolean; rulesOmitted?: number };
   skills?: { version: number; digest: string; skills: { id: string; name: string }[] };
   context?: { estimatedInputTokens?: number; contextWindowTokens?: number; droppedMessages?: number; tokenCountMethod?: string };
   promotionReport?: { shopName: string; startDate: string; endDate: string; sourceRevision: string };

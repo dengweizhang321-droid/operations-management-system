@@ -53,6 +53,47 @@ test("valid execution selections retain their versions and names", () => {
   assert.match(html, /库存分析/);
 });
 
+// execution_json is capped at 16384 bytes by ai_execution_bound
+// (backend/ai_assistant/migrations/0009_model_generation_capabilities.py:10).
+// prompt_settings.fit_evidence() gives up each rule's unread "source" first, and
+// only drops whole rules -- recording rulesOmitted -- if that is not enough. The
+// names are rendered to the user, so a shortened list must say it is shortened.
+test("a citation list shortened to fit the byte CHECK is labelled as partial", () => {
+  const rules = [{ id: "kept-1", name: "净销售额口径" }, { id: "kept-2", name: "库存口径" }];
+  const html = renderHistory({ guidance: { version: 4, digest: "synthetic", rules, rulesOmitted: 9 } });
+  // Both retained names still shown, and the omission is stated, not implied.
+  assert.match(html, /净销售额口径、库存口径（另有 9 条口径未记录）/);
+});
+
+test("dropping only the unread source is not reported as a missing rule", () => {
+  const html = renderHistory({
+    guidance: { version: 4, digest: "synthetic", ruleSourcesOmitted: true,
+      rules: [{ id: "kept-1", name: "净销售额口径" }, { id: "kept-2", name: "库存口径" }] },
+  });
+  // No rule was lost, so the row must read as a complete list. ("本次技能 ·
+  // 未记录" is a separate, unconditional row, so match the guidance one only.)
+  assert.match(html, /本次业务口径<\/dt><dd>净销售额口径、库存口径<\/dd>/);
+  assert.doesNotMatch(html, /口径未记录/);
+});
+
+test("a malformed omission count still warns instead of claiming a full list", () => {
+  for (const rulesOmitted of ["9", 1.5, Number.NaN, -1, true, null] as unknown[]) {
+    const html = renderHistory({
+      guidance: { version: 4, digest: "synthetic", rulesOmitted, rules: [{ id: "kept", name: "库存口径" }] },
+    });
+    assert.match(html, /库存口径（另有部分口径未记录）/, `rulesOmitted=${String(rulesOmitted)}`);
+    assert.doesNotMatch(html, /另有 (?:NaN|undefined|null|-1|1\.5|true)/);
+  }
+  // Absent or zero means nothing was dropped: the row reads as complete.
+  for (const rulesOmitted of [undefined, 0, false] as unknown[]) {
+    const html = renderHistory({
+      guidance: { version: 4, digest: "synthetic", rulesOmitted, rules: [{ id: "kept", name: "库存口径" }] },
+    });
+    assert.match(html, /本次业务口径<\/dt><dd>库存口径<\/dd>/, `rulesOmitted=${String(rulesOmitted)}`);
+    assert.doesNotMatch(html, /口径未记录/, `rulesOmitted=${String(rulesOmitted)}`);
+  }
+});
+
 test("explicit default and empty selections remain distinct from missing evidence", () => {
   const html = renderHistory({ guidance: { version: 0, rules: [] }, skills: { version: 0, skills: [] } });
   assert.match(html, /系统默认/);

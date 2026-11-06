@@ -104,31 +104,58 @@ def tool_domains(tools):
 
 
 def fit_evidence(evidence, maximum):
-    """Drop trailing rule citations until the evidence fits `maximum` UTF-8 bytes.
+    """Shrink the rule citations until the evidence fits `maximum` UTF-8 bytes.
 
     Every rule field validate() accepts is character-counted (name 80, source
-    240 at :48-50), so 24 Chinese rules reach ~27.8 KiB while
+    240 at :48-50), so 24 Chinese rules reach 27752 bytes of citation while
     ai_conversation_messages.execution_json is capped by
-    octet_length(...)<=16384 (migrations/0009:10). Trimming keeps the answer
-    alive -- the citation list is an audit trail read by chat.py:447, never by
-    the model -- while `rulesOmitted` records that the record is partial.
+    octet_length(...)<=16384 (migrations/0009:10).
+
+    The rule names are NOT an internal audit trail: app/ai-chat-workbench.tsx
+    renders them as "本次业务口径" (:52) and in the conversation detail panel
+    (:152), so dropping a rule drops a line the user reads. "source" is the
+    opposite -- no consumer in backend/ or app/ ever reads it -- and it is 732
+    of the 1152 bytes a maximum-width CJK rule costs. So give up the unread
+    field before the read one:
+
+      1. full citation (id+name+source) ... 1152 bytes/rule
+      2. id+name, `ruleSourcesOmitted` ....  420 bytes/rule
+      3. trim the tail, `rulesOmitted` ..... only if (2) still does not fit
+
+    Tier 2 alone takes validate()'s own ceiling of 24 maximum-width CJK rules
+    to 10184 bytes, so no configuration an administrator can save reaches tier
+    3 any more; it remains for an execution whose other members are large. The
+    dropped "source" stays recoverable: `version` identifies the revision in
+    the append-only ai_prompt_settings_revisions (migrations/0011:11 installs
+    ai_immutable_evidence, and nothing deletes rows), and `digest` proves which
+    bytes it was. A trimmed rule name has no such reference, which is why
+    `rulesOmitted` is surfaced to the reader rather than only recorded.
     """
     if not isinstance(evidence, dict) or not isinstance(evidence.get("rules"), list):
         return evidence
-    kept = list(evidence["rules"])
-    result = dict(evidence)
+    if len(canonical(evidence).encode()) <= maximum:
+        return evidence
+    compact = dict(evidence, rules=[{k: v for k, v in r.items() if k != "source"}
+                                    if isinstance(r, dict) else r for r in evidence["rules"]])
+    if any(isinstance(r, dict) and "source" in r for r in evidence["rules"]):
+        # Record the omission in the row itself: "source" is absent here but
+        # present in the revision `version`/`digest` name, so a reader can tell
+        # "not cited" apart from "the rule carried no source".
+        compact["ruleSourcesOmitted"] = True
+    if len(canonical(compact).encode()) <= maximum:
+        return compact
+    kept = list(compact["rules"])
     while kept:
         # Rules keep compose()'s configured order, so the dropped tail is
         # deterministic for a given configuration and question.
-        result["rules"] = kept
-        omitted = len(evidence["rules"]) - len(kept)
+        result = dict(compact, rules=kept)
+        omitted = len(compact["rules"]) - len(kept)
         if omitted:
             result["rulesOmitted"] = omitted
         if len(canonical(result).encode()) <= maximum:
             return result
         kept.pop()
-    return {**{k: v for k, v in evidence.items() if k != "rules"},
-            "rules": [], "rulesOmitted": len(evidence["rules"])}
+    return dict(compact, rules=[], rulesOmitted=len(compact["rules"]))
 
 
 def compose(item, question, context, tools, used_domains=()):

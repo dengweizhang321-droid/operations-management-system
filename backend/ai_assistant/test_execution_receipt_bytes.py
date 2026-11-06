@@ -26,6 +26,12 @@ database rejecting a value the application could never produce.
 Application-side ceilings, for the record:
   gap 1: prompt_settings.validate() accepts 24 rules / 65536 config bytes;
          14 CJK rules produce 16651 execution bytes against a 16384 CHECK.
+         The citation list is read by the user, not only by auditors
+         (app/ai-chat-workbench.tsx:52 renders the names), so fit_evidence()
+         gives up the unread "source" -- 732 of the 1152 bytes a maximum-width
+         CJK rule costs -- before it drops any rule. At id+name even
+         validate()'s widest legal configuration is 10184 bytes, so no
+         administrator configuration loses a name any more.
   gap 2: passive(result, 131072) accepts each receipt; two 66060-byte receipts
          with disjoint top-level keys merge to 132071 bytes against a 131072
          CHECK, and passive()'s 100-key dict cap allows far more.
@@ -125,12 +131,14 @@ class ExecutionGuidanceByteTests(TestCase):
         # jsonb_typeof(...)='object' is the other half of the same CHECK.
         self.assertIsInstance(saved, dict)
 
-    def test_fourteen_cjk_rules_are_trimmed_instead_of_failing_the_answer(self):
-        """Just over: the question still succeeds and the row fits the CHECK.
+    def test_fourteen_cjk_rules_keep_every_name_by_dropping_sources(self):
+        """Just over: the question succeeds, the row fits, no name is lost.
 
-        Before the fix this wrote 16651 bytes, which PostgreSQL rejected with an
-        IntegrityError naming ai_execution_bound, turning a valid question into
-        a 500 for every conversation matching 14 rules.
+        Before the byte fix this wrote 16651 bytes, which PostgreSQL rejected
+        with an IntegrityError naming ai_execution_bound, turning a valid
+        question into a 500 for every conversation matching 14 rules. Dropping
+        the tail would have fixed the bytes by deleting names the user reads at
+        app/ai-chat-workbench.tsx:52, so the unread "source" goes instead.
         """
         self.save_config(14)
         result = self.ask("exec-over")
@@ -138,29 +146,57 @@ class ExecutionGuidanceByteTests(TestCase):
         raw, saved = self.stored(result)
         size = len(raw.encode())
         self.assertLessEqual(size, EXECUTION_CHECK_BYTES, f"execution_json was {size} bytes")
-        self.assertEqual(len(saved["guidance"]["rules"]), 13)
-        self.assertEqual(saved["guidance"]["rulesOmitted"], 1)
-        # The audit trail keeps the configuration identity even when partial,
-        # so a reviewer can still tell which revision produced the answer.
+        # Every rule the answer used is still named: nothing user-visible lost.
+        self.assertEqual(len(saved["guidance"]["rules"]), 14)
+        self.assertNotIn("rulesOmitted", saved["guidance"])
+        self.assertEqual([r["name"] for r in saved["guidance"]["rules"]],
+                         [rule(i)["name"] for i in range(14)])
+        # "source" is the field given up, and the row says so.
+        self.assertTrue(saved["guidance"]["ruleSourcesOmitted"])
+        self.assertTrue(all("source" not in r for r in saved["guidance"]["rules"]))
+        # version + digest still identify the revision the sources came from,
+        # which is what makes giving them up recoverable rather than lossy.
         self.assertIn("digest", saved["guidance"])
         self.assertIn("version", saved["guidance"])
 
-    def test_maximum_configuration_trims_deterministically(self):
-        """24 rules is validate()'s ceiling: 28171 bytes, 1.7x the CHECK."""
+    def test_maximum_configuration_keeps_all_names_without_trimming(self):
+        """24 rules is validate()'s ceiling: 27752 citation bytes, 1.7x the
+        CHECK. id+name is 10184, so even the widest legal configuration keeps
+        every name and never reaches the tail trimmer."""
         self.save_config(24)
         first = self.ask("exec-max-a")
         second = self.ask("exec-max-b")
         raw_a, saved_a = self.stored(first)
         raw_b, saved_b = self.stored(second)
         self.assertLessEqual(len(raw_a.encode()), EXECUTION_CHECK_BYTES)
-        self.assertEqual(saved_a["guidance"]["rulesOmitted"], 11)
-        # Deterministic: the same configuration and question drop the same tail.
+        self.assertEqual(len(saved_a["guidance"]["rules"]), 24)
+        self.assertNotIn("rulesOmitted", saved_a["guidance"])
+        self.assertTrue(saved_a["guidance"]["ruleSourcesOmitted"])
+        # Deterministic: the same configuration and question store the same list.
         self.assertEqual([r["id"] for r in saved_a["guidance"]["rules"]],
                          [r["id"] for r in saved_b["guidance"]["rules"]])
-        # The retained head is compose()'s configured order, not an arbitrary
-        # subset, so the citation list stays interpretable.
+        # The list is compose()'s configured order, so it stays interpretable.
         self.assertEqual([r["id"] for r in saved_a["guidance"]["rules"]],
-                         [rule(i)["id"] for i in range(13)])
+                         [rule(i)["id"] for i in range(24)])
+
+    def test_returned_execution_matches_the_stored_row(self):
+        """chat.answer() must not hand back a value wider than it stored.
+
+        The caller renders these names (app/ai-chat-workbench.tsx:52, :104), so
+        returning the pre-fit dict made the list shrink on the next reload with
+        no explanation.
+        """
+        self.save_config(24)
+        result = self.ask("exec-returned")
+        raw, saved = self.stored(result)
+        self.assertEqual(canonical(result["execution"]), raw)
+        self.assertEqual(result["execution"], saved)
+        # Not vacuous: this execution really was fitted, so the two values
+        # would differ if the return path used the original dict.
+        self.assertTrue(saved["guidance"]["ruleSourcesOmitted"])
+        # The receipt row, which is replayed to the asker, carries the same one.
+        receipt = m.AiChatRequestReceipts.objects.get(client_request_id="exec-returned")
+        self.assertEqual(json.loads(receipt.result_json)["execution"], saved)
 
     def test_ascii_rules_at_the_same_count_are_never_trimmed(self):
         """ASCII is 1 byte/char: 24 ASCII rules are 12811 bytes, inside the
@@ -176,21 +212,49 @@ class ExecutionGuidanceByteTests(TestCase):
 class FitEvidenceUnitTests(TestCase):
     """fit_evidence()/_fit_execution() arithmetic, without the chat harness."""
 
-    def test_trimming_stops_at_the_first_fitting_prefix(self):
-        evidence = {"version": 7, "digest": "a" * 64,
-                    "rules": [{"id": rule(i)["id"], "name": rule(i)["name"], "source": rule(i)["source"]}
-                              for i in range(24)]}
+    def evidence(self, count):
+        return {"version": 7, "digest": "a" * 64,
+                "rules": [{"id": rule(i)["id"], "name": rule(i)["name"], "source": rule(i)["source"]}
+                          for i in range(count)]}
+
+    def test_the_unread_source_is_given_up_before_any_rule_name(self):
+        """id+name is 420 bytes/rule against 1152 for the full citation, so a
+        budget that cannot hold the sources can still hold every name."""
+        evidence = self.evidence(24)
+        self.assertGreater(len(canonical(evidence).encode()), 12288)
+        fitted = prompt_settings.fit_evidence(evidence, 12288)
+        self.assertLessEqual(len(canonical(fitted).encode()), 12288)
+        self.assertEqual([r["name"] for r in fitted["rules"]],
+                         [r["name"] for r in evidence["rules"]])
+        self.assertNotIn("rulesOmitted", fitted)
+        self.assertTrue(fitted["ruleSourcesOmitted"])
+        self.assertTrue(all("source" not in r for r in fitted["rules"]))
+        # The input is untouched: fit_evidence must not mutate compose()'s dict.
+        self.assertTrue(all("source" in r for r in evidence["rules"]))
+
+    def test_a_fitting_evidence_is_returned_unchanged_with_its_sources(self):
+        """Sources are only given up under pressure, never pre-emptively."""
+        evidence = self.evidence(3)
+        self.assertLessEqual(len(canonical(evidence).encode()), 8192)
         fitted = prompt_settings.fit_evidence(evidence, 8192)
-        self.assertLessEqual(len(canonical(fitted).encode()), 8192)
-        # One more rule than kept would exceed the budget: the prefix is maximal.
-        over = dict(fitted, rules=evidence["rules"][: len(fitted["rules"]) + 1])
-        over.pop("rulesOmitted", None)
-        self.assertGreater(len(canonical(over).encode()), 8192)
+        self.assertEqual(fitted, evidence)
+        self.assertNotIn("ruleSourcesOmitted", fitted)
+
+    def test_trimming_stops_at_the_first_fitting_prefix(self):
+        """Tier 3: a budget too small even for id+name trims the tail, and
+        records how many rules the reader is not being shown."""
+        evidence = self.evidence(24)
+        fitted = prompt_settings.fit_evidence(evidence, 4096)
+        self.assertLessEqual(len(canonical(fitted).encode()), 4096)
         self.assertEqual(fitted["rulesOmitted"], 24 - len(fitted["rules"]))
+        # One more rule than kept would exceed the budget: the prefix is maximal.
+        over = dict(fitted, rules=[{k: v for k, v in r.items() if k != "source"}
+                                   for r in evidence["rules"][: len(fitted["rules"]) + 1]])
+        over.pop("rulesOmitted", None)
+        self.assertGreater(len(canonical(over).encode()), 4096)
 
     def test_a_budget_smaller_than_one_rule_keeps_the_identity_fields(self):
-        evidence = {"version": 7, "digest": "a" * 64,
-                    "rules": [{"id": rule(0)["id"], "name": rule(0)["name"], "source": rule(0)["source"]}]}
+        evidence = self.evidence(1)
         fitted = prompt_settings.fit_evidence(evidence, 16)
         self.assertEqual(fitted["rules"], [])
         self.assertEqual(fitted["rulesOmitted"], 1)
@@ -210,7 +274,23 @@ class FitEvidenceUnitTests(TestCase):
     def test_execution_inside_the_check_is_returned_byte_identical(self):
         execution = {"stopReason": "shortcut", "toolCalls": 0,
                      "guidance": {"version": 1, "digest": "a" * 64, "rules": []}}
-        self.assertEqual(chat._fit_execution(execution), canonical(execution))
+        encoded, returned = chat._fit_execution(execution)
+        self.assertEqual(encoded, canonical(execution))
+        self.assertEqual(returned, execution)
+
+    def test_the_second_return_value_always_encodes_to_the_first(self):
+        """The stored bytes and the returned dict are the same value, so what
+        the asker sees now is what a reload will show."""
+        for count in (0, 14, 24):
+            execution = {"stopReason": "completed", "durationMs": 1234,
+                         "guidance": {"version": 7, "digest": "a" * 64,
+                                      "rules": [{"id": rule(i)["id"], "name": rule(i)["name"],
+                                                 "source": rule(i)["source"]} for i in range(count)]}}
+            encoded, returned = chat._fit_execution(execution)
+            self.assertEqual(canonical(returned), encoded, f"{count} rules diverged")
+            self.assertLessEqual(len(encoded.encode()), EXECUTION_CHECK_BYTES)
+            # Every name survives at every legal count: no silent loss at all.
+            self.assertEqual(len(returned["guidance"]["rules"]), count)
 
 
 class MergedReceiptByteTests(TestCase):
