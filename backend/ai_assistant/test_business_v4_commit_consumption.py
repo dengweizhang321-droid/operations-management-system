@@ -17,26 +17,26 @@ from . import business_v4_seal_verify as verifier
 from . import business_v4_validation as validation
 from . import models as m
 from .policy import canonical, digest
-from .test_business_v4_sealer_step_core import BusinessV4SealerStepCoreTests as fixture
-from .test_business_v4_seal_writer_gate import BusinessV4SealWriterGateTests as old_gate
+from . import test_business_v4_sealer_step_core as fixture
+from . import test_business_v4_seal_writer_gate as old_gate
 from .v4_commit_consumption_catalog import verify as verify_catalog
 
 
 class BusinessV4CommitConsumptionTests(TransactionTestCase):
-    promotion_owner = fixture.promotion_owner
-    rebuild_plan = fixture.rebuild_plan
-    finance_owner = fixture.finance_owner
-    owner = fixture.owner
-    collect = fixture.collect
-    complete_mixed = fixture.complete_mixed
-    attempt = fixture.attempt
-    database = fixture.database
-    _identity = fixture._identity
-    _role_connection = fixture._role_connection
-    claim = fixture.claim
-    body = old_gate.body
-    setUp = fixture.setUp
-    tearDown = fixture.tearDown
+    promotion_owner = fixture.BusinessV4SealerStepCoreTests.promotion_owner
+    rebuild_plan = fixture.BusinessV4SealerStepCoreTests.rebuild_plan
+    finance_owner = fixture.BusinessV4SealerStepCoreTests.finance_owner
+    owner = fixture.BusinessV4SealerStepCoreTests.owner
+    collect = fixture.BusinessV4SealerStepCoreTests.collect
+    complete_mixed = fixture.BusinessV4SealerStepCoreTests.complete_mixed
+    attempt = fixture.BusinessV4SealerStepCoreTests.attempt
+    database = fixture.BusinessV4SealerStepCoreTests.database
+    _identity = fixture.BusinessV4SealerStepCoreTests._identity
+    _role_connection = fixture.BusinessV4SealerStepCoreTests._role_connection
+    claim = fixture.BusinessV4SealerStepCoreTests.claim
+    body = old_gate.BusinessV4SealWriterGateTests.body
+    setUp = fixture.BusinessV4SealerStepCoreTests.setUp
+    tearDown = fixture.BusinessV4SealerStepCoreTests.tearDown
 
     def test_frozen_wrapper_catalog_rejects_execute_acl_drift(self):
         with connection.cursor() as cursor:

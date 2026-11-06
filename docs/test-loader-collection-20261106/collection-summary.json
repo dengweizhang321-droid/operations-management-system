@@ -1,0 +1,224 @@
+{
+  "baseline_commit": "77382b5fc4ad958e1c22e7d9f8431bffdafdb204",
+  "baseline": {
+    "total": 4945,
+    "unique": 4563,
+    "duplicates": 382,
+    "discovery_errors": 0,
+    "unique_ids_sha256": "629658a6be9d3c1ca76dfd9adbac517e1a29e814839b0e323e9cbd8a496b5d48"
+  },
+  "after": {
+    "total": 4639,
+    "unique": 4564,
+    "duplicates": 75,
+    "discovery_errors": 0,
+    "unique_ids_sha256": "15b7d4a209d674135cb482391636020d2e759aef87058f562d783371dc2fe204"
+  },
+  "removed_original_unique_ids": [],
+  "added_unique_ids": [
+    "ai_assistant.test_collection.TestCollectionTests.test_modules_collect_only_their_own_cases_once"
+  ],
+  "removed_duplicate_occurrences": 307,
+  "baseline_fixture_replay": {
+    "failing_module_subtests": 28,
+    "errors": 0
+  },
+  "modules": [
+    {
+      "module": "ai_assistant.test_business_budget",
+      "before": 18,
+      "after": 7,
+      "own_before_and_after": 7,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_finance_v3_report_material",
+      "before": 16,
+      "after": 5,
+      "own_before_and_after": 5,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_market_v6_source_ticket_role",
+      "before": 6,
+      "after": 1,
+      "own_before_and_after": 1,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_reports",
+      "before": 16,
+      "after": 5,
+      "own_before_and_after": 5,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_reports_snapshot_bytes",
+      "before": 14,
+      "after": 3,
+      "own_before_and_after": 3,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_claimed_read",
+      "before": 9,
+      "after": 4,
+      "own_before_and_after": 4,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_commit_consumption",
+      "before": 15,
+      "after": 6,
+      "own_before_and_after": 6,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_cross_ticket_replay",
+      "before": 6,
+      "after": 1,
+      "own_before_and_after": 1,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_finance_collection",
+      "before": 12,
+      "after": 5,
+      "own_before_and_after": 5,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_period_plan_candidate",
+      "before": 12,
+      "after": 7,
+      "own_before_and_after": 7,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_replay_read_cast",
+      "before": 5,
+      "after": 2,
+      "own_before_and_after": 2,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_report_link_role",
+      "before": 17,
+      "after": 3,
+      "own_before_and_after": 3,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_report_restricted_page_role",
+      "before": 6,
+      "after": 3,
+      "own_before_and_after": 3,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_report_stream_owning_role",
+      "before": 3,
+      "after": 1,
+      "own_before_and_after": 1,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_seal_admission",
+      "before": 13,
+      "after": 8,
+      "own_before_and_after": 8,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_seal_consumption_candidate",
+      "before": 17,
+      "after": 5,
+      "own_before_and_after": 5,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_seal_ticket",
+      "before": 20,
+      "after": 5,
+      "own_before_and_after": 5,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_seal_verify",
+      "before": 14,
+      "after": 7,
+      "own_before_and_after": 7,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_seal_writer_gate",
+      "before": 15,
+      "after": 7,
+      "own_before_and_after": 7,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_sealer_ledger_read",
+      "before": 13,
+      "after": 6,
+      "own_before_and_after": 6,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_sealer_narrow_stream",
+      "before": 13,
+      "after": 6,
+      "own_before_and_after": 6,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_v4_validation",
+      "before": 12,
+      "after": 5,
+      "own_before_and_after": 5,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_business_workbench_catalog_acceptance",
+      "before": 2,
+      "after": 1,
+      "own_before_and_after": 1,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_dingtalk",
+      "before": 48,
+      "after": 20,
+      "own_before_and_after": 20,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_dingtalk_schedules",
+      "before": 47,
+      "after": 19,
+      "own_before_and_after": 19,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_dingtalk_settings",
+      "before": 56,
+      "after": 8,
+      "own_before_and_after": 8,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_pi_business_boundaries",
+      "before": 28,
+      "after": 8,
+      "own_before_and_after": 8,
+      "own_ids_unchanged": true
+    },
+    {
+      "module": "ai_assistant.test_pi_live_acceptance_cancellation",
+      "before": 20,
+      "after": 8,
+      "own_before_and_after": 8,
+      "own_ids_unchanged": true
+    }
+  ]
+}

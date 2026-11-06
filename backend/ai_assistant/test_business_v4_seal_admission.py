@@ -16,17 +16,17 @@ from netshop.models import NetshopDataRevision, NetshopWriteAuthority
 from . import (business_v4_seal_admission as admission,
     business_v4_validation as validation, models as m)
 from .control_models import AiDataRevision, AiWriteAuthority
-from .test_business_v4_validation import BusinessV4ValidationTests as fixture
+from . import test_business_v4_validation as fixture
 from .policy import AiError
 
 
 class BusinessV4SealAdmissionTests(TransactionTestCase):
-    promotion_owner = fixture.promotion_owner
-    rebuild_plan = fixture.rebuild_plan
-    finance_owner = fixture.finance_owner
-    owner = fixture.owner
-    collect = fixture.collect
-    complete_mixed = fixture.complete_mixed
+    promotion_owner = fixture.BusinessV4ValidationTests.promotion_owner
+    rebuild_plan = fixture.BusinessV4ValidationTests.rebuild_plan
+    finance_owner = fixture.BusinessV4ValidationTests.finance_owner
+    owner = fixture.BusinessV4ValidationTests.owner
+    collect = fixture.BusinessV4ValidationTests.collect
+    complete_mixed = fixture.BusinessV4ValidationTests.complete_mixed
 
     def setUp(self):
         if connection.vendor != "postgresql":
@@ -57,7 +57,7 @@ class BusinessV4SealAdmissionTests(TransactionTestCase):
         # Publish its final global revision in the same real transaction so
         # the new source-write marker passes without a test-only bypass.
         with transaction.atomic():
-            fixture.setUp(self)
+            fixture.BusinessV4ValidationTests.setUp(self)
             current = NetshopDataRevision.objects.select_for_update().get(
                 domain="netshop")
             NetshopDataRevision.objects.filter(domain="netshop").update(

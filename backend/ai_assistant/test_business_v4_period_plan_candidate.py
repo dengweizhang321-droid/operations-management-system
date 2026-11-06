@@ -15,7 +15,7 @@ from . import business_v4_period_plan_candidate as owning, models as m
 from .v4_period_plan_catalog import verify as verify_catalog
 from .control_models import AiDataRevision
 from .policy import AiError, canonical, digest, uid
-from .test_business_v4_seal_ticket import BusinessV4SealTicketTests as fixture
+from . import test_business_v4_seal_ticket as fixture
 
 
 class BusinessV4PeriodPlanCatalogTests(TransactionTestCase):
@@ -32,18 +32,18 @@ class BusinessV4PeriodPlanCatalogTests(TransactionTestCase):
 
 
 class BusinessV4PeriodPlanCandidateTests(TransactionTestCase):
-    promotion_owner = fixture.promotion_owner
-    rebuild_plan = fixture.rebuild_plan
-    finance_owner = fixture.finance_owner
-    owner = fixture.owner
-    collect = fixture.collect
-    complete_mixed = fixture.complete_mixed
-    attempt = fixture.attempt
-    database = fixture.database
-    _role_connection = fixture._role_connection
+    promotion_owner = fixture.BusinessV4SealTicketTests.promotion_owner
+    rebuild_plan = fixture.BusinessV4SealTicketTests.rebuild_plan
+    finance_owner = fixture.BusinessV4SealTicketTests.finance_owner
+    owner = fixture.BusinessV4SealTicketTests.owner
+    collect = fixture.BusinessV4SealTicketTests.collect
+    complete_mixed = fixture.BusinessV4SealTicketTests.complete_mixed
+    attempt = fixture.BusinessV4SealTicketTests.attempt
+    database = fixture.BusinessV4SealTicketTests.database
+    _role_connection = fixture.BusinessV4SealTicketTests._role_connection
 
     def setUp(self):
-        fixture.setUp(self)
+        fixture.BusinessV4SealTicketTests.setUp(self)
         # Synthetic roles can be created after migrations in the isolated
         # fixture; production provisioning grants this during installation.
         with connection.cursor() as cursor:
@@ -56,7 +56,7 @@ class BusinessV4PeriodPlanCandidateTests(TransactionTestCase):
             cursor.execute("REVOKE EXECUTE ON FUNCTION "
                 "public.ai_v4_record_period_plan_candidate("
                 "text,text,text,bigint,text,text) FROM teruisi_ai_writer")
-        fixture.tearDown(self)
+        fixture.BusinessV4SealTicketTests.tearDown(self)
 
     def four_source_run(self, *, start="2026-08-16", end="2026-09-14"):
         # The existing admission fixture already owns two runs. Use another

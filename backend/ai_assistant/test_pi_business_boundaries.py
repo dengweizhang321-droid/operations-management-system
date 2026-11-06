@@ -17,15 +17,15 @@ from workflow.models import WorkflowWriteRequestReceipt
 from . import pi_business as business, pi_business_report as report
 from .pi_models import PiFile, PiBusinessAction
 from .policy import AiError, canonical
-from .test_pi_business_verification import PiBusinessVerificationTests as Fixture
+from . import test_pi_business_verification as Fixture
 
 
 @override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
 class PiBusinessBoundaryTests(TestCase):
-    setUp = Fixture.setUp
-    user = Fixture.user
-    operation = Fixture.operation
-    confirm = Fixture.confirm
+    setUp = Fixture.PiBusinessVerificationTests.setUp
+    user = Fixture.PiBusinessVerificationTests.user
+    operation = Fixture.PiBusinessVerificationTests.operation
+    confirm = Fixture.PiBusinessVerificationTests.confirm
 
     def bot_config(self):
         return {"enabled": True, "corpId": "synthetic-corp", "robotCode": "synthetic-bot", "robotName": "合成机器人",

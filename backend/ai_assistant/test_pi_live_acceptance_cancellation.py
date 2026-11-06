@@ -16,7 +16,7 @@ from . import tests as domain
 from .pi_cancellation import model_checks
 from .pi_models import PiDispatch, PiEvent, PiOperation
 from .policy import AiError
-from .test_transport_dns_phase import DnsPhaseTests
+from . import test_transport_dns_phase
 from .test_transport import HOST, URL, addresses
 
 
@@ -28,7 +28,7 @@ def capacity_failure():
 
 @override_settings(DJANGO_ENVIRONMENT="production")
 class CancellationTransportTests(SimpleTestCase):
-    wire = DnsPhaseTests.wire
+    wire = test_transport_dns_phase.DnsPhaseTests.wire
 
     def setUp(self):
         self.enterContext(patch.dict("os.environ", {"AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST": "https://"+HOST}))
@@ -131,7 +131,7 @@ class CancellationTransportTests(SimpleTestCase):
 class CancellationGatewayTests(TestCase):
     setUp=domain.AiDomainTests.setUp
     user=domain.AiDomainTests.user
-    wire=DnsPhaseTests.wire
+    wire=test_transport_dns_phase.DnsPhaseTests.wire
 
     def test_fixed_error_survives_provider_gateway_and_original_unknown_never_replays(self):
         actor=self.user("capacity-case@example.invalid","admin",None)

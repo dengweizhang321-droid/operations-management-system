@@ -11,22 +11,22 @@ from access_control.models import AppUser
 from . import models as m
 from .control_models import AiWriteAuthority
 from .policy import digest
-from .test_business_v4_seal_admission import BusinessV4SealAdmissionTests as admission_fixture
-from .test_business_v4_seal_writer_gate import BusinessV4SealWriterGateTests as fixture
+from . import test_business_v4_seal_admission as admission_fixture
+from . import test_business_v4_seal_writer_gate as fixture
 
 
 class BusinessV4SealTicketTests(TransactionTestCase):
-    promotion_owner = fixture.promotion_owner
-    rebuild_plan = fixture.rebuild_plan
-    finance_owner = fixture.finance_owner
-    owner = fixture.owner
-    collect = fixture.collect
-    complete_mixed = fixture.complete_mixed
-    attempt = fixture.attempt
-    database = fixture.database
+    promotion_owner = fixture.BusinessV4SealWriterGateTests.promotion_owner
+    rebuild_plan = fixture.BusinessV4SealWriterGateTests.rebuild_plan
+    finance_owner = fixture.BusinessV4SealWriterGateTests.finance_owner
+    owner = fixture.BusinessV4SealWriterGateTests.owner
+    collect = fixture.BusinessV4SealWriterGateTests.collect
+    complete_mixed = fixture.BusinessV4SealWriterGateTests.complete_mixed
+    attempt = fixture.BusinessV4SealWriterGateTests.attempt
+    database = fixture.BusinessV4SealWriterGateTests.database
 
     def setUp(self):
-        admission_fixture.setUp(self)
+        admission_fixture.BusinessV4SealAdmissionTests.setUp(self)
         # The historical fixture creates disposable roles by hand; production
         # ProvisionRoles grants this post-role-creation EXECUTE instead.
         with connection.cursor() as cursor:
@@ -37,7 +37,7 @@ class BusinessV4SealTicketTests(TransactionTestCase):
         with connection.cursor() as cursor:
             cursor.execute("REVOKE EXECUTE ON FUNCTION public.ai_v4_issue_seal_ticket("
                 "text,text,text,bigint,bigint,text,text) FROM teruisi_ai_writer")
-        admission_fixture.tearDown(self)
+        admission_fixture.BusinessV4SealAdmissionTests.tearDown(self)
 
     def _identity(self, attempt_id):
         parent = m.AiBusinessV4Run.objects.get(pk=self.parent.pk)

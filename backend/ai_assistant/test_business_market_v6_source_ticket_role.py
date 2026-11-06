@@ -13,7 +13,7 @@ from . import business_market_v6_paused_topology_persistence as topology_writer
 from . import business_market_v6_source_ticket_contract as contract
 from . import business_market_v6_source_ticket_replay as replay
 from . import models as m
-from .test_business_market_v6_paused_topology_role import PausedTopologyRoleTests
+from . import test_business_market_v6_paused_topology_role
 from .test_business_market_v2_material_role_bridge import session_role
 
 
@@ -25,7 +25,7 @@ OUTCOME_CALL = MIGRATION.source.OUTCOME.split("(", 1)[0]
 
 @djtest.override_settings(DJANGO_PROCESS_ROLE="development",
     DJANGO_ENVIRONMENT="test")
-class SourceTicketRoleTests(PausedTopologyRoleTests):
+class SourceTicketRoleTests(test_business_market_v6_paused_topology_role.PausedTopologyRoleTests):
     # Reuse the exact source/0077 fixture, not the five unrelated 0077 cases.
     test_real_login_create_cancel_outcome_and_closed_dispatch = None
     test_fifth_job_collision_rolls_back_first_four_and_report = None
@@ -55,7 +55,7 @@ class SourceTicketRoleTests(PausedTopologyRoleTests):
 
     def _create_0077(self):
         built = self._built("market-v6-source-ticket-role")
-        with PausedTopologyRoleTests._login(self) as db, djtest.override_settings(
+        with test_business_market_v6_paused_topology_role.PausedTopologyRoleTests._login(self) as db, djtest.override_settings(
                 AI_MARKET_V6_PAUSED_TOPOLOGY_RECORD_ENABLED=True):
             committed = topology_writer.create_once(db, built,
                 port=int(settings.DATABASES["default"]["PORT"]))

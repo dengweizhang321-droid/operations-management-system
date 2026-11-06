@@ -9,13 +9,13 @@ from . import business_v4_seal_hmac as seal_hmac
 from . import business_v4_seal_verify as verifier
 from . import models as m
 from .policy import AiError
-from .test_business_v4_final_commit_step import BusinessV4FinalCommitStepTests as role_fixture
+from . import test_business_v4_final_commit_step as role_fixture
 
 @override_settings(DJANGO_PROCESS_ROLE="development",
     DJANGO_ENVIRONMENT="test")
 class V4ReportOwnerRealRoleTarget(TransactionTestCase):
     """Run only on the parent's isolated PG harness; no production writes."""
-    prior = role_fixture
+    prior = role_fixture.BusinessV4FinalCommitStepTests
     promotion_owner = prior.promotion_owner
     rebuild_plan = prior.rebuild_plan
     finance_owner = prior.finance_owner

@@ -13,27 +13,26 @@ from . import test_business_v4_finance_replay_progress as finance_fixture
 
 migration = import_module(
     "ai_assistant.migrations.0050_business_v4_replay_read_cast")
-reader_fixture = fixture.BusinessV4SealerReplayProgressTests
 
 
 class BusinessV4ReplayReadCastTests(TransactionTestCase):
-    promotion_owner = reader_fixture.promotion_owner
-    rebuild_plan = reader_fixture.rebuild_plan
-    finance_owner = reader_fixture.finance_owner
-    owner = reader_fixture.owner
-    collect = reader_fixture.collect
-    complete_mixed = reader_fixture.complete_mixed
-    attempt = reader_fixture.attempt
-    database = reader_fixture.database
-    _identity = reader_fixture._identity
-    _role_connection = reader_fixture._role_connection
-    issue = reader_fixture.issue
-    claim = reader_fixture.claim
-    _candidate = reader_fixture._candidate
+    promotion_owner = fixture.BusinessV4SealerReplayProgressTests.promotion_owner
+    rebuild_plan = fixture.BusinessV4SealerReplayProgressTests.rebuild_plan
+    finance_owner = fixture.BusinessV4SealerReplayProgressTests.finance_owner
+    owner = fixture.BusinessV4SealerReplayProgressTests.owner
+    collect = fixture.BusinessV4SealerReplayProgressTests.collect
+    complete_mixed = fixture.BusinessV4SealerReplayProgressTests.complete_mixed
+    attempt = fixture.BusinessV4SealerReplayProgressTests.attempt
+    database = fixture.BusinessV4SealerReplayProgressTests.database
+    _identity = fixture.BusinessV4SealerReplayProgressTests._identity
+    _role_connection = fixture.BusinessV4SealerReplayProgressTests._role_connection
+    issue = fixture.BusinessV4SealerReplayProgressTests.issue
+    claim = fixture.BusinessV4SealerReplayProgressTests.claim
+    _candidate = fixture.BusinessV4SealerReplayProgressTests._candidate
     _finance_candidate = finance_fixture.BusinessV4FinanceReplayProgressTests._finance_candidate
-    _record = reader_fixture._record
-    setUp = reader_fixture.setUp
-    tearDown = reader_fixture.tearDown
+    _record = fixture.BusinessV4SealerReplayProgressTests._record
+    setUp = fixture.BusinessV4SealerReplayProgressTests.setUp
+    tearDown = fixture.BusinessV4SealerReplayProgressTests.tearDown
 
     def test_stored_candidate_reads_as_text_only_for_matching_claim(self):
         attempt_id = self.attempt()

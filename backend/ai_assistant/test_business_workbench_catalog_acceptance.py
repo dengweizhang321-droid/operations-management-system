@@ -14,7 +14,7 @@ from django.test import TransactionTestCase, override_settings
 from business_analysis import volume_delivery
 from . import business_planning, business_evidence as evidence, business_reports as reports
 from . import business_parallel, business_files, business_volume_files, models as m, workflows, tests as fixtures
-from .test_business_export_catalog_acceptance import BusinessExportCatalogAcceptanceTests
+from . import test_business_export_catalog_acceptance
 from .policy import canonical, digest
 
 
@@ -42,7 +42,7 @@ class BusinessWorkbenchCatalogAcceptanceTests(TransactionTestCase):
         from netshop.models import NetshopDataRevision
         MarketDataRevision.objects.get_or_create(domain="market", defaults={"revision": 0, "source_digest": "0"*64})
         NetshopDataRevision.objects.get_or_create(domain="netshop", defaults={"revision": 0, "source_digest": "0"*64})
-        BusinessExportCatalogAcceptanceTests.setUp(self)
+        test_business_export_catalog_acceptance.BusinessExportCatalogAcceptanceTests.setUp(self)
 
     def test_planned_19_sources_complete_five_agent_review_and_persistent_156_tables(self):
         row = evidence.get_run(self.run_id, self.admin)

@@ -21,23 +21,23 @@ from netshop.models import NetshopDataRevision, NetshopRow
 
 from . import business_v4_validation as validation, models as m
 from .policy import digest
-from .test_business_v4_seal_ticket import BusinessV4SealTicketTests as fixture
+from . import test_business_v4_seal_ticket as fixture
 
 
 class BusinessV4CrossTicketReplayTests(TransactionTestCase):
-    promotion_owner = fixture.promotion_owner
-    rebuild_plan = fixture.rebuild_plan
-    finance_owner = fixture.finance_owner
-    owner = fixture.owner
-    collect = fixture.collect
-    complete_mixed = fixture.complete_mixed
-    database = fixture.database
-    _identity = fixture._identity
-    _role_connection = fixture._role_connection
-    issue = fixture.issue
-    claim = fixture.claim
-    setUp = fixture.setUp
-    tearDown = fixture.tearDown
+    promotion_owner = fixture.BusinessV4SealTicketTests.promotion_owner
+    rebuild_plan = fixture.BusinessV4SealTicketTests.rebuild_plan
+    finance_owner = fixture.BusinessV4SealTicketTests.finance_owner
+    owner = fixture.BusinessV4SealTicketTests.owner
+    collect = fixture.BusinessV4SealTicketTests.collect
+    complete_mixed = fixture.BusinessV4SealTicketTests.complete_mixed
+    database = fixture.BusinessV4SealTicketTests.database
+    _identity = fixture.BusinessV4SealTicketTests._identity
+    _role_connection = fixture.BusinessV4SealTicketTests._role_connection
+    issue = fixture.BusinessV4SealTicketTests.issue
+    claim = fixture.BusinessV4SealTicketTests.claim
+    setUp = fixture.BusinessV4SealTicketTests.setUp
+    tearDown = fixture.BusinessV4SealTicketTests.tearDown
 
     @staticmethod
     def _publish_netshop_revision(label):

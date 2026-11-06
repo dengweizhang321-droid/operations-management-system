@@ -6,7 +6,8 @@ from django.test import TestCase, override_settings
 
 from . import dingtalk_schedules as schedules, dingtalk_settings, models as m
 from .policy import AiError
-from .tests import ADMIN, AiDomainTests
+from . import tests
+from .tests import ADMIN
 
 
 def background(*args, **kwargs):
@@ -15,10 +16,10 @@ def background(*args, **kwargs):
 
 @override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
 class DingTalkScheduleTests(TestCase):
-    user = AiDomainTests.user
+    user = tests.AiDomainTests.user
 
     def setUp(self):
-        AiDomainTests.setUp(self)
+        tests.AiDomainTests.setUp(self)
         self.config = {"version": 1, "enabled": True, "profile": "corp:operator", "corpId": "corp",
             "unifiedAppId": "app", "robotCode": "robot", "robotName": "志高助手",
             "groups": [{"id": "group", "name": "测试群聊"}],
@@ -72,15 +73,15 @@ class DingTalkScheduleTests(TestCase):
         self.assertEqual(m.AiDingTalkSchedule.objects.get(pk=item["id"]).version, 1)
 
     def test_public_api_admin_gate_and_request_receipt(self):
-        self.assertEqual(AiDomainTests.call(self, "/api/ai/dingtalk-schedules", principal=self.owner, method="GET").status_code, 403)
-        forbidden = AiDomainTests.call(self, "/api/ai/dingtalk-schedules", self.payload, self.owner, request_id="ding-schedule-forbidden")
+        self.assertEqual(tests.AiDomainTests.call(self, "/api/ai/dingtalk-schedules", principal=self.owner, method="GET").status_code, 403)
+        forbidden = tests.AiDomainTests.call(self, "/api/ai/dingtalk-schedules", self.payload, self.owner, request_id="ding-schedule-forbidden")
         self.assertEqual(forbidden.status_code, 403)
-        created = AiDomainTests.call(self, "/api/ai/dingtalk-schedules", self.payload, ADMIN, request_id="ding-schedule-create")
+        created = tests.AiDomainTests.call(self, "/api/ai/dingtalk-schedules", self.payload, ADMIN, request_id="ding-schedule-create")
         self.assertEqual(created.status_code, 200, created.content)
-        replayed = AiDomainTests.call(self, "/api/ai/dingtalk-schedules", self.payload, ADMIN, request_id="ding-schedule-create")
+        replayed = tests.AiDomainTests.call(self, "/api/ai/dingtalk-schedules", self.payload, ADMIN, request_id="ding-schedule-create")
         self.assertEqual(replayed.status_code, 200)
         self.assertEqual(m.AiDingTalkSchedule.objects.count(), 1)
-        self.assertEqual(AiDomainTests.call(self, "/api/ai/dingtalk-schedules", principal=ADMIN, method="GET").json()["items"][0]["id"], created.json()["item"]["id"])
+        self.assertEqual(tests.AiDomainTests.call(self, "/api/ai/dingtalk-schedules", principal=ADMIN, method="GET").json()["items"][0]["id"], created.json()["item"]["id"])
 
     def test_manual_run_is_single_queued_slot_then_sends_once(self):
         item = schedules.save(self.payload, ADMIN)["item"]
