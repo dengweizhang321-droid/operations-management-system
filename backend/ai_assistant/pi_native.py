@@ -238,9 +238,63 @@ def _message(state, source, target, kind, message):
     row = PiAgentMessage.objects.create(id=uid("pi-message"), root_session_id=state.root_session_id,
         from_session=source, to_session=target, seq=state.message_seq, kind=kind, message=message)
     target = PiSession.objects.select_for_update().get(pk=target.pk)
-    service.event(target, "agent_message", {"messageId": row.id, "fromSessionId": source.id, "kind": kind, "seq": row.seq})
+    root = PiSession.objects.get(pk=state.root_session_id)
+    binding = {"root": message_session_binding(root), "source": message_session_binding(source),
+        "target": message_session_binding(target)}
+    service.event(target, "agent_message", {"messageId": row.id, "fromSessionId": source.id,
+        "kind": kind, "seq": row.seq, "messageSha256": hashlib.sha256(message.encode()).hexdigest(), "binding": binding})
     wake_waits(state)
     return row
+
+
+def message_session_binding(session, agent=None):
+    agent = agent or PiAgent.objects.filter(session=session).first()
+    settings = json.loads(agent.settings_json) if agent else {}
+    return {"sessionId": session.id, "epoch": session.epoch, "generation": session.generation,
+        "ownerSha256": hashlib.sha256(session.owner_email.encode()).hexdigest(), "actorRole": session.actor_role,
+        "scopeSha256": hashlib.sha256(session.scope_json.encode()).hexdigest(),
+        "selectionSha256": hashlib.sha256(session.selection_json.encode()).hexdigest(),
+        "rootSessionId": agent.root_session_id if agent else None,
+        "parentSessionId": agent.parent_session_id if agent else None,
+        "rootEpoch": settings.get("rootEpoch"), "rootGeneration": settings.get("rootGeneration")}
+
+
+def visible_messages(session, state, root):
+    """No historical message text without exact creation-time participant proof."""
+    members = {member.session_id: member for member in _members(state)}
+    allowed = {}
+    for member_id, member in members.items():
+        target = member.session
+        settings = json.loads(member.settings_json)
+        if (target.owner_email != root.owner_email or target.actor_role != root.actor_role
+                or not scope_covers(json.loads(root.scope_json), target.scope_json)):
+            continue
+        if member_id != root.id and (settings.get("rootEpoch") != root.epoch or settings.get("rootGeneration") != root.generation):
+            continue
+        allowed[member_id] = target
+    root_binding = message_session_binding(root, members.get(root.id))
+    bindings = {key: message_session_binding(value, members[key]) for key, value in allowed.items()}
+    evidence = {}
+    # New messages carry a root/endpoint proof in the existing immutable event.
+    # Old rows without that proof stay in audit storage and are not fabricated.
+    for event in PiEvent.objects.filter(event_type="agent_message", session_id__in=allowed,
+            data_json__contains='"rootSessionId":"'+root.id+'"').order_by("-created_at", "-id")[:101]:
+        data = json.loads(event.data_json); proof = data.get("binding")
+        if not isinstance(proof, dict) or proof.get("root") != root_binding: continue
+        source_id = proof.get("source", {}).get("sessionId"); target_id = proof.get("target", {}).get("sessionId")
+        if (source_id not in bindings or target_id not in bindings or proof.get("source") != bindings[source_id]
+                or proof.get("target") != bindings[target_id] or event.session_id != target_id
+                or event.generation != allowed[target_id].generation): continue
+        if session.id != root.id and session.id not in {source_id, target_id}: continue
+        evidence[data.get("messageId")] = data
+    result = []
+    for row in PiAgentMessage.objects.filter(root_session=root, id__in=evidence).order_by("-seq")[:101]:
+        data = evidence[row.id]; proof = data["binding"]
+        if (row.from_session_id == proof["source"]["sessionId"] and row.to_session_id == proof["target"]["sessionId"]
+                and row.seq == data.get("seq") and row.kind == data.get("kind")
+                and hashlib.sha256(row.message.encode()).hexdigest() == data.get("messageSha256")):
+            result.append(row)
+    return result
 
 
 def _new_run(target, message, *, parent=None):
@@ -613,6 +667,13 @@ def snapshot(session):
         return {}
     state = state_for(session)
     root = PiSession.objects.get(pk=state.root_session_id)
+    requester = PiAgent.objects.get(session=session)
+    requester_settings = json.loads(requester.settings_json)
+    if (root.status == "frozen" or root.owner_email != session.owner_email or root.actor_role != session.actor_role
+            or not scope_covers(json.loads(root.scope_json), session.scope_json)
+            or session.id != root.id and (requester.lifecycle != "open" or requester_settings.get("rootEpoch") != root.epoch
+                or requester_settings.get("rootGeneration") != root.generation)):
+        return {}
     # Read paths never return descendants after a principal scope change.
     plans = visible_plans(session, state)
     agents = []
@@ -621,6 +682,8 @@ def snapshot(session):
         if member.owner_email != session.owner_email or member.actor_role != session.actor_role or not scope_covers(json.loads(session.scope_json), member.scope_json):
             continue
         settings = json.loads(agent.settings_json)
+        if member.id != root.id and (settings.get("rootEpoch") != root.epoch or settings.get("rootGeneration") != root.generation):
+            continue
         last_operation = PiOperation.objects.filter(session=member).order_by("-seq").first()
         queue_cursor = json.loads(last_operation.payload_json).get("messageCursor", 0) if last_operation else 0
         agents.append({"id": member.id, "sessionId": member.id, "parentSessionId": agent.parent_session_id,
@@ -628,7 +691,8 @@ def snapshot(session):
             "activeOperationId": member.active_operation_id, "modelId": settings.get("modelId", ""),
             "thinkingLevel": settings.get("thinkingLevel", ""), "dependencies": json.loads(agent.dependencies_json), "queueCursor": queue_cursor})
     messages, message_bytes = [], 0
-    for m in PiAgentMessage.objects.filter(root_session=root).order_by("-seq")[:100]:
+    message_rows = visible_messages(session, state, root)
+    for m in message_rows[:100]:
         size = len(m.message.encode())
         if messages and message_bytes+size > 512*1024: break
         messages.append({"id": m.id, "fromSessionId": m.from_session_id, "toSessionId": m.to_session_id, "seq": m.seq,
@@ -651,7 +715,9 @@ def snapshot(session):
         "plan": json.loads(plans[0].plan_json) if plans else None,
         "planHistory": [{"revision": p.revision, "plan": json.loads(p.plan_json), "createdAt": p.created_at.isoformat()} for p in plans[:5]],
         "planHistoryHasMore": len(plans)>5,
-        "agents": agents, "messages": messages, "messagesHasMore": bool(messages and PiAgentMessage.objects.filter(root_session=root, seq__lt=messages[-1]["seq"]).exists()), "waits": waits, "cursor": state.message_seq,
+        "agents": agents, "messages": messages, "messagesHasMore": len(message_rows)>len(messages), "waits": waits, "cursor": state.message_seq,
+        "messageEvidencePolicy": "exact_current_root_and_participant_binding_only",
+        "messageHistoryMayBeOmitted": PiAgentMessage.objects.filter(root_session=root).exclude(id__in=[row.id for row in message_rows]).exists(),
         "queue": [{"agentId": a["id"], "items": [m for m in reversed(messages) if m["toSessionId"] == a["id"] and m["kind"] == "follow_up"
             and m["seq"] > max([a["queueCursor"], *[x["seq"] for x in messages if x["toSessionId"] == a["id"] and x["kind"] == "queue_cleared"]])]} for a in agents],
         "handoffs": [{"id": h.id, "fileId": h.source_file_id, "fileName": h.source_file.file_name,

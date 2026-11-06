@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "baseCommit": "3c34498cb2f0b18da55eba8165019db8b63e5141",
   "environment": {
-    "database": "isolated SQLite :memory:",
+    "database": "isolated PostgreSQL, private port 55876, random test-only credentials",
     "networkModelCalls": 0,
     "python": "3.12",
     "productionChanges": 0,
@@ -11,44 +11,48 @@
   },
   "sourceHashes": [
     {
-      "sha256": "0e2d71ece966401cc19f927e77c79947bf36224823696b3723bde755d3461f9b",
-      "path": "app/ai-pi-recovery.tsx"
+      "path": "app/ai-pi-recovery.tsx",
+      "sha256": "0e2d71ece966401cc19f927e77c79947bf36224823696b3723bde755d3461f9b"
     },
     {
-      "sha256": "56d44e8c506a3471f683538089f075df85809463ce7c74a59ee0ee9b2e2241d7",
-      "path": "app/ai-pi-workspace.tsx"
+      "path": "app/ai-pi-workspace.tsx",
+      "sha256": "56d44e8c506a3471f683538089f075df85809463ce7c74a59ee0ee9b2e2241d7"
     },
     {
-      "sha256": "1e0acc09d5d184a6f05d9d49e6a52f3fa711531dc3be7bdf6559baa2f875ba89",
-      "path": "backend/ai_assistant/pi_context.py"
+      "path": "backend/ai_assistant/pi_context.py",
+      "sha256": "1e0acc09d5d184a6f05d9d49e6a52f3fa711531dc3be7bdf6559baa2f875ba89"
     },
     {
-      "sha256": "2d855926b2d900053ad0b4616d70f0d5dd5a11ea73045236b344b9cd9b40890a",
-      "path": "backend/ai_assistant/pi_workspace.py"
+      "path": "backend/ai_assistant/pi_workspace.py",
+      "sha256": "1bf789091ef7fb2501c4fffe0cd5bbf2dab7e79f7a9a1fef513034564166f69a"
     },
     {
-      "sha256": "0c10af70bf852a1e7864dee70dde230bda49005a5078453fa77a41209cd57244",
-      "path": "backend/ai_assistant/pi_native.py"
+      "path": "backend/ai_assistant/pi_native.py",
+      "sha256": "d9d0e55679e0023b42cdff3446de69f7ca8e381234267b2f2985561cbfa4fe25"
     },
     {
-      "sha256": "6c84e5dd81f987043e27749602a1071ac0ffe6dcc68cea31ca05964c7402ce4a",
-      "path": "backend/ai_assistant/pi_service.py"
+      "path": "backend/ai_assistant/pi_service.py",
+      "sha256": "6c84e5dd81f987043e27749602a1071ac0ffe6dcc68cea31ca05964c7402ce4a"
     },
     {
-      "sha256": "0d2357c79706d51d964a8cbcc54673cf1fe37b7b24405f92d75ddb50112d1333",
-      "path": "backend/ai_assistant/pi_worker.py"
+      "path": "backend/ai_assistant/pi_worker.py",
+      "sha256": "8b1708a2f3b837090869bdb72a76dc12204b165048874bd1866a54bbc7789192"
     },
     {
-      "sha256": "2b7056444f8f859cb51801ccd65262293ac5cc86772d8271f700a9c966498eda",
-      "path": "backend/pi_runner/workspace.py"
+      "path": "backend/ai_assistant/pi_transport.py",
+      "sha256": "8ba846889b21f717f1751a0395426916acdc2a0f2a23552d306e92a8ed3ed1a8"
     },
     {
-      "sha256": "aec13db216745a0519cdfbbfadc10605460e90713574e7cfd7f452561bc601f9",
-      "path": "backend/ai_assistant/test_pi_context.py"
+      "path": "backend/pi_runner/workspace.py",
+      "sha256": "2b7056444f8f859cb51801ccd65262293ac5cc86772d8271f700a9c966498eda"
     },
     {
-      "sha256": "9eb11424efe4e3e649d5f97ff142c879f689a7d355b4cb6b3bfdb493c16ce6d5",
-      "path": "backend/pi_runner/test_compact_safe_point.py"
+      "path": "backend/ai_assistant/test_pi_context.py",
+      "sha256": "796c3f7aab6c4c1bb00a250b1414fd20791170e9bcba78e50a4bf40d3243e148"
+    },
+    {
+      "path": "backend/pi_runner/test_compact_safe_point.py",
+      "sha256": "9eb11424efe4e3e649d5f97ff142c879f689a7d355b4cb6b3bfdb493c16ce6d5"
     }
   ],
   "checks": {
@@ -56,13 +60,15 @@
     "typescriptFull": "failed in unrelated unchanged paths; not reported as passed",
     "diffCheck": "passed",
     "fileHtml": "passed file protocol, details toggle, unknown-branch/history labels, synthetic read action, zero external requests",
-    "djangoTargeted": "passed: 19 tests, 1.914s, SQLite :memory:, system check no issues"
+    "djangoTargeted": "passed: 24 tests, 6.983s, isolated PostgreSQL, system check no issues"
   },
   "sourceHashBinding": "SHA256 raw worktree file bytes, before Git normalization; not a production/prepared binding",
   "commands": [
     "py -3.12 manage.py test ai_assistant.test_pi_context pi_runner.test_compact_safe_point ai_assistant.test_pi_workspace.PiWorkspaceTests.test_compact_is_real_new_operation_not_a_fake_success ai_assistant.test_pi_workspace.PiWorkspaceTests.test_workspace_operations_keep_single_shop_authority_snapshot --noinput --verbosity 1",
     "node node_modules/typescript/bin/tsc --noEmit --pretty false --strict --jsx react-jsx --module esnext --moduleResolution bundler --target es2022 --lib dom,dom.iterable,es2022 --esModuleInterop --skipLibCheck app/ai-pi-recovery.tsx app/ai-pi-workspace.tsx",
-    "git diff --check"
+    "git diff --check",
+    "py -3.12 tools/ai-postgres-rehearsal.py --tests-only --preprovision-ai-runtime-roles --test-label ai_assistant.test_pi_context --test-label pi_runner.test_compact_safe_point --port 55876"
   ],
-  "reviewDelta": "root-generation plan evidence; native-branch historical clues; compact writer/native-control fence; exact pre-bind control proof and immediate/delayed real-worker closure"
+  "reviewDelta": "exact root/endpoint message event evidence; final HTTP authorization/generation recheck; compact skill snapshot reuse through real Broker.create; signed create non-start vs unknown; PostgreSQL-compliant fixtures",
+  "postgresEvidence": "docs/ai-context-resume-20261107/postgres-tests.log (source .runtime/ai-pg-9efeb50bbb7d/tests.log)"
 }

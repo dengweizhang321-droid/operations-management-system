@@ -31,7 +31,7 @@
 
 ## 隔离核验
 
-- Python 3.12 / Django 5.2.17；明确 test/development，清空数据库 URL、`:memory:` SQLite。增量后 19 项定向检查通过，包含原只读/身份/unknown/分页检查、真实签名 GET 和 compact 的同 scope reset/换 scope/店铺/角色计划隔离、过期子代理根 epoch、原生 session_new 的分支线索隔离、真实 worker 的立即/异步迟到未派发拒绝收尾、Runner 原控制证明与后到 export 并发反例，以及原 compact operation 路径与单店快照隔离。
+- Python 3.12 / Django 5.2.17；明确 test/development，清空数据库 URL、`:memory:` SQLite。首轮增量 19 项定向 SQLite 检查通过（后续最终 24 项隔离 PG 结果见文末），包含原只读/身份/unknown/分页检查、真实签名 GET 和 compact 的同 scope reset/换 scope/店铺/角色计划隔离、过期子代理根 epoch、原生 session_new 的分支线索隔离、真实 worker 的立即/异步迟到未派发拒绝收尾、Runner 原控制证明与后到 export 并发反例，以及原 compact operation 路径与单店快照隔离。
 - 改动前端及直接组件依赖的严格定向 TypeScript 检查通过。全仓 `tsc` 被未修改路径的类型错误阻断（包括历史 demo、市场候选与发布测试）；没有将该命令报告为通过，也未扩入无关修复。
 - [preview.html](preview.html) 从真实恢复组件静态渲染，只含合成材料；使用 headless Chrome 通过 `file:///D:/...` 打开，验证 details 展开和合成原记录交互，外部网络请求为 0。没有启动在线预览或展示浏览器。
 - `git diff --check` 通过。源文件摘要和检查命令见 [validation.json](validation.json)。
@@ -51,3 +51,13 @@ Worker 前端、Django 和独立 Runner broker 源码均有变化，无 migratio
 2. 压缩期从读取准入移除实际会写文件的 `export_html`；根树原生新写也在原 authority 事务阻止，真正只读和用户取消保留。Runner用同一 session.lock登记 compact 占位与写者，后到 export/写者不能越过原安全点。
 3. native compact绑定前的确定拒绝由原 control 持久保存精确 operation/seq/未开始证明。真实 worker核该证明、原派发账本及无模型派发后结束原 compact 为 failed/canceled；accepted尚未绑定时先只读原workspace/control，不对上一run调用native state；不等待不存在的 native run/file receipt，不伪造文件收集，不把缺失/不匹配证明当成成功。
 4. 新 prompt记录原生分支ID和历史控制序号。历史无绑定或session_new/switch/fork后的目标/决定只作带标签的线索；当前目标未知保持未知。正常入口的原生 session_new检查还暴露独立session实例追加事件后的旧event_seq，已在原事务内回读事件序号后再追加workspace事件，避免真实入口产生唯一键冲突。
+
+## 第二轮确证反例与真实 PostgreSQL
+
+- `native.messages` 与 `workspace.native.messages` 统一使用 `visible_messages(session,state,root)`。新消息在原不可变 `agent_message` 事件记录 root及收发双方的 epoch/generation、owner/role/scope/shop 摘要、确切 root/parent 关系和正文摘要。当前子代理只能读取显式发给自身或自身发送的消息；过期 child 的原生快照为空，不反向读取新根消息。旧代成员也不继续作为当前树成员投影。
+- 没有这份精确证明的历史消息不会被补造绑定，也不会作为当前正文返回。原数据库行与旧事件保留，`messageHistoryMayBeOmitted` 明示存在未投影历史；这是兼容性限制，并非删除记录。主负责人负责将同一 helper 接入其持有的 gateway 入模路径；本分支未争写 `pi_gateway.py`。
+- `/workspace` 在 Runner 等待间隙后，最终响应在 authority 事务重新核 principal、epoch/generation/frozen，重新读取当前 workspace。成功、异常和 frozen 分支均不复用旧对象返回正文；变化时拒绝或返回已验证的冻结视图。正常签名 HTTP 反例覆盖换代、收紧 scope 和 Runner 错误后的换代。
+- compact operation继承原 Skills 快照，真实 worker经过真实 `Broker.create/update_skills`，验证 excel-report 环境存在后台进程时不会先清空 Skills 导致隐式升级。只对当前 compact create 的确切签名 `skill_update_while_busy` 拒绝分类为未开始，结束原 queued control和 operation；无签名/错误签名、普通 create错误或真正传输未知仍保持 unknown。异常路径所需的 mutation/canonical/PiDispatch 均在 try前绑定，不再因局部 import 迟到触发 UnboundLocalError。
+- 已将新增夹具改为真实控制创建路径、64位摘要和正常 spawn建立旧 child，停止更新不可变 PiAgent 身份。隔离 PG 入口为 `py -3.12 tools/ai-postgres-rehearsal.py --tests-only --preprovision-ai-runtime-roles --test-label ai_assistant.test_pi_context --test-label pi_runner.test_compact_safe_point --port 55876`。独立端口、随机凭据及数据目录由既有脚本创建/清理，无生产写入；最终结果与证据入口见 validation.json。
+
+最终隔离 PostgreSQL 结果：24 项通过，6.983 秒；证据 [postgres-tests.log](postgres-tests.log)。定向严格 TypeScript 与 git diff --check 同样通过。
