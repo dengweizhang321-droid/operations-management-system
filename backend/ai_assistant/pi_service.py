@@ -282,10 +282,12 @@ def prompt(session_id, payload, principal):
         session.operation_seq += 1
         if session.title == "新对话":
             session.title = " ".join(message.split())[:60]
+        from .pi_context import branch_binding
         op = PiOperation.objects.create(id=uid("pi-op"), session=session, client_request_id=key, request_digest=binding,
             epoch=session.epoch, generation=session.generation, seq=session.operation_seq, actor_role=principal.role,
             scope_json=canonical(scope), model_id=model.id, model_version=model.version,
             skills_json=canonical(selected), payload_json=canonical({"message": message, "fileIds": files, "skillIds": skill_ids, "shopSelection": selection,
+                "nativeBranchBinding": branch_binding(session, workspace) if workspace and workspace.generation == session.generation else None,
                 "businessExecution": {"allowedActions": business_grants},
                 **({"thinkingLevel": workspace.thinking_level} if workspace and workspace.thinking_level else {})}))
         pi_business.create_intents(session, op, business_grants, message, principal)

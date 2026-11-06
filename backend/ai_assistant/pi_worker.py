@@ -432,6 +432,42 @@ def fail_before_prompt(operation, error):
         service.event(session, "error", {"code": error.code, "status": "failed", "historyPreserved": True}, op)
 
 
+def finish_unstarted_compact(operation):
+    """Close only an exact signed control proof that native compact never bound.
+
+    There is no native run or file collection to wait for in this case. Missing,
+    mismatched or post-bind evidence retains the normal unknown/terminal path.
+    """
+    from .pi_models import PiOperation, PiSession, PiControl, PiDispatch
+    from .policy import mutation
+    from . import pi_service as service
+    if operation.kind != "workspace:compact": return False
+    with mutation():
+        op = PiOperation.objects.select_for_update().get(pk=operation.pk)
+        session = PiSession.objects.select_for_update().get(pk=op.session_id)
+        control = PiControl.objects.filter(operation=op, id=json.loads(op.payload_json).get("controlId"),
+            command="compact", status="failed", epoch=op.epoch, generation=op.generation).first()
+        if not control: return False
+        proof = json.loads(control.result_json).get("compactPreBindRejection")
+        if (not isinstance(proof, dict) or set(proof) != {"operationId", "seq", "modelBound", "code"}
+                or proof["operationId"] != op.id or type(proof["seq"]) is not int or proof["seq"] != op.seq
+                or proof["modelBound"] is not False or not isinstance(proof["code"], str)
+                or proof["code"] != control.error_code): return False
+        if (op.status not in {"running", "canceling"} or session.active_operation_id != op.id or session.generation != op.generation
+                or session.epoch != op.epoch or session.status not in {"running", "canceling"}
+                or PiDispatch.objects.filter(operation=op, kind__in=["model", "runner:prompt"]).exists()
+                or not PiDispatch.objects.filter(operation=op, kind="runner:workspace", request_id=control.id, status="completed").exists()):
+            return False
+        service.principal_for(op)
+        op.status, op.error_code, op.capability_hash, op.lease_token, op.lease_expires_at = "canceled" if op.cancel_requested else "failed", proof["code"], "", "", None
+        op.save()
+        session.status, session.active_operation_id = "idle", ""
+        session.save(update_fields=["status", "active_operation_id"])
+        service.event(session, "status", {"status": op.status, "code": proof["code"],
+            "controlId": control.id, "nativeCompactStarted": False, "historyPreserved": True}, op)
+        return True
+
+
 def perform(op, stopped=None):
     from .pi_models import PiOperation, PiFile, PiSession
     from .pi_gateway import freeze
@@ -513,13 +549,25 @@ def perform(op, stopped=None):
             accepted = runner_dispatch(op, "prompt", {"admission": native_admission(op), "message": payload["message"], "skillIds": payload["skillIds"], "gateway": gateway, "files": files,
                 "model": model_binding, "timeoutMs": remaining_ms})
         settled = ingest(op, accepted) or handled(accepted)
+        if finish_unstarted_compact(op): return
         result = accepted
         aborted = False
         while not stopped.is_set():
             current = PiOperation.objects.get(pk=op.pk)
+            if finish_unstarted_compact(op): return
             service.principal_for(current)
             from .pi_gateway import remaining_seconds
             remaining_seconds(current)
+            if op.kind == "workspace:compact":
+                # Accepted is not evidence that the async compact bound a run.
+                # Read its original workspace/control before native state, whose
+                # operation mismatch fence still belongs to the previous run.
+                observed = pi_transport.command({**identity(op), "command": "workspace", "payload": {"action": "state"}})
+                ingest(op, observed)
+                if finish_unstarted_compact(op): return
+                if observed.get("workspace", {}).get("activeOperationId") != op.id:
+                    stopped.wait(.5)
+                    continue
             if current.cancel_requested and not aborted:
                 # Stop always clears the native queue before abort. A clear
                 # failure remains recorded but must never prevent stopping.

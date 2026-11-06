@@ -16,14 +16,14 @@
 
 新增 `backend/ai_assistant/pi_context.py`，从原 Pi operation/control/dispatch、用户事件、计划、业务意图/确认及文件元数据生成 `pi-recovery-v1`：
 
-- 保留最近一轮原始目标、原用户消息/插话/跟进/问卷/计划批准记录、确切计划 ID 和版本、授权意图 ID、确认/预览摘要、文件 ID/SHA256/大小，以及原取消、终态、unknown 和待办证据。
+- 保留可证明属于当前原生分支的目标/用户决定；未绑定或已切换分支的原目标/用户记录明确标为历史线索，不加入 compact 当前目标/决定。另保留确切计划 ID 和版本、授权意图 ID、确认/预览摘要、文件 ID/SHA256/大小，以及原取消、终态、unknown 和待办证据。
 - 原文只作逐字证据，不自动分类“已确认修正”，不猜测未记录的目标或步骤完成情况。问卷回复、摘要和文件内容均不是新业务授权；不会写个人永久记忆。
 - 每类最多 8 条，文本默认最多 1200 UTF-8 字节，计划片段最多 2000 字节，清单上限 96 KiB。所有省略显式返回 `truncated`/`hasMore` 与来源 ID；不会读取附件字节、dispatch response/providerFrame 或隐藏推理。
 - 正常 `GET /api/ai/pi/sessions/{sessionId}/workspace` 附带清单。UI 沿用 Pi 工作区，增加可展开的“上下文恢复清单”，不更改 `ai-pi-agent-view.tsx`。
 - 较早用户控制记录用 `recoveryBeforeControlSeq` 分页；精确原记录用 `recoveryControlSeq`、`recoveryTextOffset` 逐 1200 字符读取，附完整原文摘要与下一游标。原用户消息继续从已有 events 游标读取，计划/文件/业务动作继续引用原证据。
 - UI 读取原记录使用 GET，取消旧读取并核 epoch/generation，不重发 operation、dispatch 或控制请求。环境隔离后不返回清单。
 
-手动 compact 在原 authority 事务内冻结同一份清单，写入原 compact operation 的 payload，同时将保留要求和清单交给原 `customInstructions`。客户端请求摘要、control ID、controlSeq 及重放规则不变；同 ID 重复只观察原回执。
+手动 compact 在原 authority 事务内冻结恢复清单，写入原 compact operation 的 payload；传给原 `customInstructions` 前剔除未证明属于当前分支的历史目标/决定。客户端请求摘要、control ID、controlSeq 及重放规则不变；同 ID 重复只观察原回执。
 
 压缩前补查未决 operation/control/dispatch、业务动作、下载活动以及已观察的 PTY/交互状态。压缩排队或执行期间禁止新增工作区写控制。Runner 在原 compact 分支再次核验实时 PTY、本地工具、bash、交互及活动，避免把 Django 旧观察当作实时空闲证明。正常读取不实施恢复、续跑、自动压缩、供应商切换、参数降级、文件外传或生产启用。
 
@@ -31,7 +31,7 @@
 
 ## 隔离核验
 
-- Python 3.12 / Django 5.2.17；明确 test/development，清空数据库 URL、`:memory:` SQLite。10 项定向检查通过：正常只读、同 compact ID 不重发、unknown 原 dispatch 保留/阻断、用户证据截断及原记录分页、环境冻结、compact 期间写者阻断、Runner 实时写者/工具/后台子进程安全点、原 compact operation 路径与单店快照隔离。
+- Python 3.12 / Django 5.2.17；明确 test/development，清空数据库 URL、`:memory:` SQLite。增量后 19 项定向检查通过，包含原只读/身份/unknown/分页检查、真实签名 GET 和 compact 的同 scope reset/换 scope/店铺/角色计划隔离、过期子代理根 epoch、原生 session_new 的分支线索隔离、真实 worker 的立即/异步迟到未派发拒绝收尾、Runner 原控制证明与后到 export 并发反例，以及原 compact operation 路径与单店快照隔离。
 - 改动前端及直接组件依赖的严格定向 TypeScript 检查通过。全仓 `tsc` 被未修改路径的类型错误阻断（包括历史 demo、市场候选与发布测试）；没有将该命令报告为通过，也未扩入无关修复。
 - [preview.html](preview.html) 从真实恢复组件静态渲染，只含合成材料；使用 headless Chrome 通过 `file:///D:/...` 打开，验证 details 展开和合成原记录交互，外部网络请求为 0。没有启动在线预览或展示浏览器。
 - `git diff --check` 通过。源文件摘要和检查命令见 [validation.json](validation.json)。
@@ -41,6 +41,13 @@
 ## 交付与采用边界
 
 Worker 前端、Django 和独立 Runner broker 源码均有变化，无 migration。
-`backend/pi_runner/workspace.py` 是容器外 broker 源码：`containers/pi-agent/Dockerfile` 不复制它，镜像构建输入仅为 `containers/pi-agent/*` 及 `bundled_skills`。因此本小项改变 Runner `source_digest()`，没有改变容器镜像输入，无需为这 10 行安全点检查重建同一镜像。
+`backend/pi_runner/workspace.py` 是容器外 broker 源码：`containers/pi-agent/Dockerfile` 不复制它，镜像构建输入仅为 `containers/pi-agent/*` 及 `bundled_skills`。因此本小项改变 Runner `source_digest()`，没有改变容器镜像输入，无需为本次安全点检查重建同一镜像。
 
 采用必须经既有 `runtime_upgrade` 及发布入口绑定新 Runner source、原精确 image 和既有权限/互斥/未知状态门禁。本次没有构建或采用镜像、安装/重启服务、迁移、合并 main、准备发布制品或上线。主负责人在独立审查后决定后续交付；合并、准备及上线仍分别遵守当前授权边界。
+
+## 独立反审后的增量修正
+
+1. 计划可见性统一由 `pi_native.visible_plans` 判断：原根会话当前 generation 的 `plan_saved` 事件、scope/owner/role及子代理保存的 root epoch/generation共同证明来源。同 scope reset 也不沿用旧计划文字；新保存事件追加精确 rootBinding，旧事件只在原当前代际且内容摘要一致时复用。snapshot、recovery、计划批准与历史分支计划续接使用同一判断。
+2. 压缩期从读取准入移除实际会写文件的 `export_html`；根树原生新写也在原 authority 事务阻止，真正只读和用户取消保留。Runner用同一 session.lock登记 compact 占位与写者，后到 export/写者不能越过原安全点。
+3. native compact绑定前的确定拒绝由原 control 持久保存精确 operation/seq/未开始证明。真实 worker核该证明、原派发账本及无模型派发后结束原 compact 为 failed/canceled；accepted尚未绑定时先只读原workspace/control，不对上一run调用native state；不等待不存在的 native run/file receipt，不伪造文件收集，不把缺失/不匹配证明当成成功。
+4. 新 prompt记录原生分支ID和历史控制序号。历史无绑定或session_new/switch/fork后的目标/决定只作带标签的线索；当前目标未知保持未知。正常入口的原生 session_new检查还暴露独立session实例追加事件后的旧event_seq，已在原事务内回读事件序号后再追加workspace事件，避免真实入口产生唯一键冲突。

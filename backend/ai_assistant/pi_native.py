@@ -14,7 +14,7 @@ from . import pi_service as service
 from .pi_models import (PiNativeState, PiAgent, PiPlanRevision, PiAgentMessage,
     PiAgentWait, PiFileHandoff, PiBusinessDelegation, PiBusinessIntent,
     PiBusinessAction, PiSession, PiOperation, PiDispatch, PiFile, PiWorkspace,
-    PiControl, PiUiRequest)
+    PiControl, PiUiRequest, PiEvent)
 from .policy import (AiError, canonical, digest, fields, identifier, integer,
     mutation, passive, scope_covers, text, uid, current_principal)
 
@@ -112,12 +112,53 @@ def save_plan(session, payload):
         raise AiError("计划版本已变化", "pi_plan_revision_conflict", 409)
     value = _plan(payload["plan"])
     state.plan_revision += 1
-    PiPlanRevision.objects.create(id=uid("pi-plan"), root_session_id=state.root_session_id,
+    saved = PiPlanRevision.objects.create(id=uid("pi-plan"), root_session_id=state.root_session_id,
         revision=state.plan_revision, mode_revision=state.mode_revision, tree_version=state.tree_version,
         scope_sha256=hashlib.sha256(PiSession.objects.get(pk=state.root_session_id).scope_json.encode()).hexdigest(), plan_json=canonical(value))
     state.save(update_fields=["plan_revision"])
-    service.event(session, "plan_saved", {"planRevision": state.plan_revision, "plan": value})
+    root = PiSession.objects.select_for_update().get(pk=state.root_session_id)
+    evidence = {"planId": saved.id, "planRevision": state.plan_revision, "plan": value,
+        "rootBinding": {"rootSessionId": root.id, "epoch": root.epoch, "generation": root.generation,
+            "scopeSha256": hashlib.sha256(root.scope_json.encode()).hexdigest(),
+            "selectionSha256": hashlib.sha256(root.selection_json.encode()).hexdigest(), "actorRole": root.actor_role}}
+    service.event(root, "plan_saved", evidence)
+    if session.id != root.id:
+        service.event(session, "plan_saved", evidence)
+    else:
+        session.event_seq = root.event_seq
     return {"planRevision": state.plan_revision, "plan": value}
+
+
+def visible_plans(session, state, *, limit=30):
+    """Plan text needs original current-root-generation save evidence.
+
+    Revision and equal scope alone cannot distinguish a reset to the same scope.
+    Old root events remain audit evidence, never new-environment context.
+    """
+    root = PiSession.objects.get(pk=state.root_session_id)
+    member = PiAgent.objects.filter(session=session).first()
+    if (root.status == "frozen" or root.owner_email != session.owner_email or root.actor_role != session.actor_role
+            or not scope_covers(json.loads(session.scope_json), root.scope_json)):
+        return []
+    if session.id != root.id:
+        settings = json.loads(member.settings_json) if member else {}
+        if (not member or member.lifecycle != "open" or settings.get("rootEpoch") != root.epoch
+                or settings.get("rootGeneration") != root.generation):
+            return []
+    scope_sha = hashlib.sha256(root.scope_json.encode()).hexdigest()
+    expected = {"rootSessionId": root.id, "epoch": root.epoch, "generation": root.generation,
+        "scopeSha256": scope_sha, "selectionSha256": hashlib.sha256(root.selection_json.encode()).hexdigest(), "actorRole": root.actor_role}
+    evidence = {}
+    for event in PiEvent.objects.filter(session=root, generation=root.generation, event_type="plan_saved").order_by("-event_seq")[:limit]:
+        data = json.loads(event.data_json)
+        if "rootBinding" in data and data["rootBinding"] != expected:
+            continue
+        revision = data.get("planRevision")
+        if type(revision) is int and revision not in evidence:
+            evidence[revision] = data
+    plans = PiPlanRevision.objects.filter(root_session=root, scope_sha256=scope_sha, revision__in=evidence).order_by("-revision")
+    return [plan for plan in plans if evidence[plan.revision].get("plan") == json.loads(plan.plan_json)
+        and evidence[plan.revision].get("planId", plan.id) == plan.id][:limit]
 
 
 def reconcile_mode(state):
@@ -158,7 +199,9 @@ def set_mode(session, payload, *, from_model=False):
                 or expected_revision != state.mode_revision or payload.get("treeVersion") != state.tree_version):
             raise AiError("请复核当前计划及代理树版本后批准", "pi_plan_approval_stale", 409)
         scope_sha = hashlib.sha256(session.scope_json.encode()).hexdigest()
-        latest = PiPlanRevision.objects.get(root_session=session, revision=state.plan_revision)
+        latest = next((plan for plan in visible_plans(session, state) if plan.revision == state.plan_revision), None)
+        if latest is None:
+            raise AiError("当前环境没有可批准的原计划，请重新保存", "pi_plan_scope_changed", 409)
         if latest.scope_sha256 != scope_sha or payload.get("scopeSha256", scope_sha) != scope_sha:
             raise AiError("计划范围已变化，请重新保存计划", "pi_plan_scope_changed", 409)
     if target == state.mode and state.transition_status == "stable":
@@ -387,7 +430,8 @@ def history_preflight(session):
 
 def history_changed(session):
     state = state_for(session, lock=True)
-    latest_plan = PiPlanRevision.objects.filter(root_session_id=state.root_session_id).order_by("-revision").first()
+    plans = visible_plans(session, state)
+    latest_plan = plans[0] if plans else None
     for member in _members(state).exclude(session=session).exclude(lifecycle="closed"):
         member.lifecycle = "closed"
         member.save(update_fields=["lifecycle"])
@@ -460,6 +504,8 @@ def wait_for(session, payload, operation):
 
 
 def run_command(session, command, payload, operation, principal, *, from_model=False):
+    if command not in {"agent_list", "agent_cancel"}:
+        reject_during_compact(session)
     state = state_for(session, lock=True)
     if command == "mode_set":
         return set_mode(session, payload, from_model=from_model)
@@ -513,6 +559,20 @@ def run_command(session, command, payload, operation, principal, *, from_model=F
     raise AiError("代理命令无效")
 
 
+def reject_during_compact(session):
+    state = state_for(session, lock=True)
+    if session.id != state.root_session_id:
+        root = PiSession.objects.get(pk=state.root_session_id)
+        member = PiAgent.objects.get(session=session)
+        settings = json.loads(member.settings_json)
+        if (member.lifecycle != "open" or settings.get("rootEpoch") != root.epoch
+                or settings.get("rootGeneration") != root.generation):
+            raise AiError("原子代理的根环境代际已变化", "pi_root_generation_changed", 403)
+    if PiOperation.objects.filter(session_id__in=_members(state).values("session_id"),
+            kind="workspace:compact", status__in=service.ACTIVE).exists():
+        raise AiError("原压缩尚未完成，禁止变更当前任务树", "pi_control_active", 409)
+
+
 def control(session_id, body, principal):
     fields(body, {"clientRequestId", "command", "payload"}, {"clientRequestId", "command", "payload"})
     command = body["command"]
@@ -554,7 +614,7 @@ def snapshot(session):
     state = state_for(session)
     root = PiSession.objects.get(pk=state.root_session_id)
     # Read paths never return descendants after a principal scope change.
-    plans = list(PiPlanRevision.objects.filter(root_session=root).order_by("-revision")[:30])
+    plans = visible_plans(session, state)
     agents = []
     for agent in _members(state).order_by("created_at")[:100]:
         member = agent.session
