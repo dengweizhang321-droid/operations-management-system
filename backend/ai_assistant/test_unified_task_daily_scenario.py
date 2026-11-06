@@ -39,7 +39,17 @@ class SyntheticDailyReportScenario(TestCase):
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(result, ensure_ascii=False, indent=2)+"\n", encoding="utf8", newline="\n")
 
-    def rehearse(self):
+    def test_daily_report_success_requires_a_persisted_sent_receipt(self):
+        db = connection.settings_dict
+        if connection.vendor != "postgresql" or db["HOST"] != "127.0.0.1" or not 55440 <= int(db["PORT"]) <= 55999:
+            self.skipTest("requires disposable rehearsal PostgreSQL identity")
+        with patch("ai_assistant.transport.edge", side_effect=AssertionError("real edge forbidden")), patch(
+                "ai_assistant.channels.send", side_effect=AssertionError("real delivery forbidden")), patch(
+                "ai_assistant.provider.turn", side_effect=AssertionError("real model forbidden")):
+            result = self.rehearse("sent")
+        self.assertEqual((result["reportStatus"], result["deliveryStatus"], result["runStatus"]), ("ready", "sent", "succeeded"))
+
+    def rehearse(self, outcome="unknown"):
         actor = self.user("p2-synthetic-owner@example.invalid", "admin", None)
         skill = pi_service.skills()[0]
         slot = next_slot("daily", 9, 0, 1, timezone.now()+timedelta(days=1))
@@ -131,27 +141,43 @@ class SyntheticDailyReportScenario(TestCase):
             sess = PiSession.objects.get(pk=session["id"])
             sess.status, sess.active_operation_id = "idle", ""
             sess.save(update_fields=["status", "active_operation_id"])
+        # Observe the model's real persisted terminal state first. A ready
+        # report with a target is still an in-flight task, not final success.
+        run = dispatch.observe(run.id)
+        self.assertEqual((run.status, run.report_status, run.delivery_status), ("delegated", "ready", "pending"))
         # A stable delivery identity returns unknown. Rehearsal deliberately
         # retains that result and never sends to a new identity or recipient.
-        delivery_id = digest({"runId": run.id, "target": spec["deliveryTargets"][0]})
-        delivery_calls.append({"deliveryId": delivery_id, "sink": "synthetic-only", "result": "unknown"})
-        with mutation():
-            run.status, run.version, run.error_code = "unknown", 6, "synthetic_delivery_unknown"
-            run.save()
-            unknown = dispatch.incident(run, "dispatch_unknown", {"reason": "synthetic_delivery_unknown"})
+        original_delivery_ledger = {}
+        intents = json.loads(run.delivery_receipts_json)
+        delivery_id = next(iter(intents))
+        def synthetic_send_once(intent):
+            if intent["deliveryId"] not in original_delivery_ledger:
+                delivery_calls.append(intent["deliveryId"])
+                original_delivery_ledger[intent["deliveryId"]] = {**intent, "status": outcome, "receiptRef": "synthetic-original-send-receipt"}
+            return original_delivery_ledger[intent["deliveryId"]]
+        synthetic_send_once(intents[delivery_id])
+        run = dispatch.observe(run.id, delivery_receipt_reader=lambda original_run, key, target: original_delivery_ledger.get(key))
+        self.assertEqual((run.status, run.report_status, run.delivery_status), ("unknown" if outcome == "unknown" else "succeeded", "ready", outcome))
+        from .task_models import TaskIncident
+        unknown = TaskIncident.objects.filter(run=run, error_class="dispatch_unknown").first()
+        self.assertEqual(unknown is not None, outcome == "unknown")
+        # Re-observing an unknown run never calls a send seam or replaces its
+        # original receipt. This is the same production observer as above.
+        dispatch.observe(run.id, delivery_receipt_reader=lambda *args: self.fail("unknown must retain its original receipt"))
         duplicate, created = dispatch.accept_occurrence(definition.id, trigger_kind="time", occurrence_key=key, scheduled_at=slot)
         self.assertFalse(created)
         self.assertEqual(duplicate.id, run.id)
         self.assertIsNone(dispatch.claim(run.id, "retry-worker"))
         self.assertEqual((len(model_calls), len(delivery_calls)), (1, 1))
         self.assertFalse(TaskDefinition.objects.get(pk=definition.id).enabled)
-        evidence = definitions.detail(definition.id, {}, actor, "incidents", unknown.id)["item"]["evidence"]
+        evidence = definitions.detail(definition.id, {}, actor, "incidents", unknown.id)["item"]["evidence"] if unknown else definitions.detail(definition.id, {}, actor, "runs", run.id)["item"]["evidence"]
         self.assertEqual(evidence["sourceRefs"][0]["id"], op_id)
         self.assertEqual(PiOperation.objects.get(pk=op_id).status, "succeeded")
         return {"status": "passed", "mode": "synthetic_isolated_executor", "shop": spec["shopSelection"],
             "scheduledAt": key, "dataDate": fixture_day, "source": source, "report": report,
             "modelCalls": len(model_calls), "deliveryCalls": len(delivery_calls), "deliveryId": delivery_id,
-            "reportStatus": "ready", "deliveryStatus": "unknown", "runStatus": "unknown",
+            "reportStatus": run.report_status, "deliveryStatus": run.delivery_status, "runStatus": run.status,
+            "deliveryReceipts": json.loads(run.delivery_receipts_json),
             "checks": ["deterministic-original-slot", "ERP-shop-sales-and-included-warehouse-inventory-separate", "missing-field-waits-with-no-side-effects", "same-day-versioned-dependency-resume",
                 "stale-fence-rejected", "exact-Pi-operation-binding", "single-synthetic-model-call", "single-synthetic-delivery",
                 "duplicate-tick-returns-original", "delivery-unknown-never-replayed", "evidence-visible-to-owner"],

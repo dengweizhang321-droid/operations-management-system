@@ -47,3 +47,6 @@
 `POST /task-definitions/{id}/disable|enable` 正文 `{expectedVersion}`；停用只阻止未来执行和撤销本任务授权，不重写旧 run/operation。`POST /task-incidents/{id}/claim` 正文 `{expectedVersion}`；`/close` 增加非空 `resolutionNote`。关闭分诊不会重跑业务，返回 `businessReplayed:false,originalRunChanged:false`。
 
 `GET /api/ai/pi/legacy-tasks` 只读呈现原钉钉任务的 `legacy-owned` 状态；没有切 owner 或 n8n 补跑动作。
+
+
+run 列表另含 `reportStatus`（pending/ready/failed/unknown）和 `deliveryStatus`（pending/not_required/sent/failed/unknown）。run详情含 `deliveries:[{deliveryId,targetDigest,status,receiptRef}]`；报告ready且投递pending时 run仍为delegated，Pi完成不表示已投递或已读。

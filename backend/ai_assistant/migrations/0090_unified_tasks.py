@@ -15,6 +15,7 @@ IDENTITIES = {
 GUARD = """CREATE FUNCTION public.ai_unified_task_guard() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,public AS $$
 DECLARE r public.ai_task_revisions; t public.ai_task_definitions; u public.ai_task_runs; g public.ai_task_grants;
+ key text; old_delivery jsonb; new_delivery jsonb;
 BEGIN
  IF TG_TABLE_NAME='ai_task_definitions' THEN
   IF NEW.enabled THEN RAISE EXCEPTION 'ai_unified_task_executor_not_adopted'; END IF;
@@ -54,7 +55,25 @@ BEGIN
      THEN RAISE EXCEPTION 'ai_unified_task_transition'; END IF;
    IF NEW.operation_id<>OLD.operation_id AND (OLD.operation_id<>'' OR OLD.status<>'leased' OR NEW.status<>'delegated')
      THEN RAISE EXCEPTION 'ai_unified_task_handoff_state'; END IF;
+   IF OLD.report_status='ready' AND NEW.report_status<>'ready' THEN RAISE EXCEPTION 'ai_unified_task_report_immutable'; END IF;
+   IF OLD.delivery_receipts_json::jsonb<>'{}'::jsonb AND
+     (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(OLD.delivery_receipts_json::jsonb) k) IS DISTINCT FROM
+     (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(NEW.delivery_receipts_json::jsonb) k)
+     THEN RAISE EXCEPTION 'ai_unified_task_delivery_identity'; END IF;
+   FOR key,old_delivery IN SELECT * FROM jsonb_each(OLD.delivery_receipts_json::jsonb) LOOP
+    new_delivery := NEW.delivery_receipts_json::jsonb->key;
+    IF new_delivery->>'deliveryId' IS DISTINCT FROM old_delivery->>'deliveryId'
+      OR new_delivery->>'targetDigest' IS DISTINCT FROM old_delivery->>'targetDigest'
+      OR (old_delivery->>'status'<>'pending' AND new_delivery IS DISTINCT FROM old_delivery)
+      THEN RAISE EXCEPTION 'ai_unified_task_delivery_receipt_immutable'; END IF;
+   END LOOP;
   END IF;
+  IF NEW.status='succeeded' AND (NEW.report_status<>'ready'
+    OR (jsonb_array_length(r.spec_json::jsonb->'deliveryTargets')=0 AND NEW.delivery_status<>'not_required')
+    OR (jsonb_array_length(r.spec_json::jsonb->'deliveryTargets')>0 AND
+      (NEW.delivery_status<>'sent' OR (SELECT count(*) FROM jsonb_object_keys(NEW.delivery_receipts_json::jsonb))<>jsonb_array_length(r.spec_json::jsonb->'deliveryTargets')))
+    OR EXISTS(SELECT 1 FROM jsonb_each(NEW.delivery_receipts_json::jsonb) d WHERE d.value->>'status'<>'sent'))
+    THEN RAISE EXCEPTION 'ai_unified_task_delivery_incomplete'; END IF;
  ELSIF TG_TABLE_NAME='ai_task_incidents' THEN
   SELECT * INTO u FROM public.ai_task_runs WHERE id=NEW.run_id;
   SELECT * INTO t FROM public.ai_task_definitions WHERE id=u.task_id;
@@ -96,7 +115,7 @@ def install(apps, schema_editor):
             'ai_task_definitions': "octet_length(name)<=400 AND octet_length(scope_json)<=65536 AND octet_length(owner_email)<=320 AND octet_length(client_request_id)<=160 AND request_digest ~ '^[a-f0-9]{64}$'",
             'ai_task_revisions': "octet_length(spec_json)<=32768 AND jsonb_typeof(spec_json::jsonb)='object' AND spec_digest=encode(sha256(convert_to(spec_json,'UTF8')),'hex')",
             'ai_task_grants': "octet_length(authorization_ref)<=1000",
-            'ai_task_runs': "octet_length(occurrence_key)<=2000 AND octet_length(evidence_json)<=8192 AND jsonb_typeof(evidence_json::jsonb)='object'",
+            'ai_task_runs': "octet_length(occurrence_key)<=2000 AND octet_length(evidence_json)<=8192 AND jsonb_typeof(evidence_json::jsonb)='object' AND octet_length(delivery_receipts_json)<=8192 AND jsonb_typeof(delivery_receipts_json::jsonb)='object'",
             'ai_task_incidents': "octet_length(evidence_json)<=8192 AND jsonb_typeof(evidence_json::jsonb)='object' AND octet_length(resolution_note)<=8000",
         }
         for table, check in checks.items():
@@ -181,6 +200,9 @@ class Migration(migrations.Migration):
                 ('scheduled_at', models.DateTimeField()),
                 ('deadline_at', models.DateTimeField()),
                 ('status', models.TextField(default='queued')),
+                ('report_status', models.TextField(default='pending')),
+                ('delivery_status', models.TextField(default='pending')),
+                ('delivery_receipts_json', models.TextField(default='{}')),
                 ('operation_id', models.TextField(default='')),
                 ('execution_ref', models.TextField(default='')),
                 ('lease_owner', models.TextField(default='')),
@@ -267,5 +289,7 @@ class Migration(migrations.Migration):
             constraint=models.CheckConstraint(condition=models.Q(('notification_status__in', ('not_sent', 'legacy_notified', 'pending', 'sent', 'failed', 'unknown'))), name='ai_task_notification_status'),
         ),
         migrations.AddConstraint(model_name='taskrun', constraint=models.UniqueConstraint(fields=('operation_id',), condition=~models.Q(operation_id=''), name='ai_task_operation_uq')),
+        migrations.AddConstraint(model_name='taskrun', constraint=models.CheckConstraint(condition=models.Q(report_status__in=('pending','ready','failed','unknown')), name='ai_task_report_status')),
+        migrations.AddConstraint(model_name='taskrun', constraint=models.CheckConstraint(condition=models.Q(delivery_status__in=('pending','not_required','sent','failed','unknown')), name='ai_task_delivery_status')),
         migrations.RunPython(install, uninstall),
     ]

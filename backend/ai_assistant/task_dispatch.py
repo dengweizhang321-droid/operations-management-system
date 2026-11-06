@@ -51,9 +51,11 @@ def run_record(row, *, evidence=False):
         "triggerKind": row.trigger_kind, "occurrenceKey": row.occurrence_key, "scheduledAt": row.scheduled_at.isoformat(),
         "deadlineAt": row.deadline_at.isoformat(), "status": row.status, "operationId": row.operation_id,
         "executionRef": row.execution_ref, "errorCode": row.error_code, "version": row.version,
+        "reportStatus": row.report_status, "deliveryStatus": row.delivery_status,
         "detailPath": f"/api/ai/pi/task-definitions/{row.task_id}/runs/{row.id}"}
     if evidence:
         result["evidence"] = evidence_record(row, row.evidence_json)
+        result["deliveries"] = list(json.loads(row.delivery_receipts_json).values())
     return result
 
 
@@ -229,17 +231,64 @@ def handoff(run_id, worker_id, fence, operation_id):
         return run
 
 
-def observe(run_id):
-    """Only observe the original Pi operation. Unknown never creates a new one."""
+def observe(run_id, *, delivery_receipt_reader=None):
+    """Observe original operation/receipts; this never initiates delivery.
+
+    A reader is a trusted connector adapter over its original send ledger, not
+    an HTTP request body. No production adapter is adopted; the default keeps
+    delivery pending. A synthetic adapter is used only in the private rehearsal.
+    """
     from .pi_models import PiOperation
     with mutation():
-        run = TaskRun.objects.select_for_update().select_related("task").get(pk=identifier(run_id))
+        run = TaskRun.objects.select_for_update().select_related("task", "revision").get(pk=identifier(run_id))
         if run.status != "delegated" or not run.operation_id:
             return run
         op = PiOperation.objects.filter(pk=run.operation_id).first()
-        state = {"succeeded": "succeeded", "failed": "failed", "canceled": "canceled", "frozen": "unknown", "unknown": "unknown"}.get(op.status if op else "unknown")
+        state = {"succeeded": "delegated", "failed": "failed", "canceled": "canceled", "frozen": "unknown", "unknown": "unknown"}.get(op.status if op else "unknown")
         if state:
+            if op and op.status == "succeeded":
+                run.report_status = "ready"
+                expected = {}
+                spec = json.loads(run.revision.spec_json)
+                for target in spec["deliveryTargets"]:
+                    key = digest({"runId": run.id, "target": target})
+                    expected[key] = {"deliveryId": key, "targetDigest": digest(target), "status": "pending", "receiptRef": ""}
+                receipts = json.loads(run.delivery_receipts_json)
+                if receipts and set(receipts) != set(expected):
+                    raise AiError("原投递身份集合与冻结任务不符", "conflict", 409)
+                receipts = receipts or expected
+                for key, receipt in receipts.items():
+                    if receipt["deliveryId"] != key or receipt["targetDigest"] != expected[key]["targetDigest"]:
+                        raise AiError("原投递目标绑定变化", "conflict", 409)
+                    if receipt["status"] != "pending" or delivery_receipt_reader is None:
+                        continue
+                    original = delivery_receipt_reader(run, key, receipt["targetDigest"])
+                    if original is None:
+                        continue
+                    fields(original, {"deliveryId", "targetDigest", "status", "receiptRef"}, {"deliveryId", "targetDigest", "status", "receiptRef"})
+                    if (original["deliveryId"] != key or original["targetDigest"] != receipt["targetDigest"]
+                            or original["status"] not in {"sent", "failed", "unknown"}):
+                        raise AiError("原投递回执绑定不符", "conflict", 409)
+                    identifier(original["receiptRef"], "原投递回执")
+                    receipts[key] = dict(original)
+                run.delivery_receipts_json = canonical(receipts)
+                statuses = {value["status"] for value in receipts.values()}
+                if "unknown" in statuses:
+                    state, run.delivery_status = "unknown", "unknown"
+                elif "failed" in statuses:
+                    state, run.delivery_status = "failed", "failed"
+                elif statuses == {"sent"}:
+                    state, run.delivery_status = "succeeded", "sent"
+                elif not receipts:
+                    state, run.delivery_status = "succeeded", "not_required"
+                else:
+                    run.delivery_status = "pending"
+            elif state in {"failed", "unknown", "canceled"}:
+                run.report_status = "unknown" if state == "unknown" else "failed"
+                run.delivery_status = "not_required"
             run.status, run.error_code = state, op.error_code if op else "original_operation_missing"
+            if run.delivery_status in {"failed", "unknown"}:
+                run.error_code = "delivery_" + run.delivery_status
             run.version += 1
             run.updated_at = timezone.now()
             run.save()

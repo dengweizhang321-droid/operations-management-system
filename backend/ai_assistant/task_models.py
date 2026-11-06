@@ -69,6 +69,9 @@ class TaskRun(models.Model):
     scheduled_at = models.DateTimeField()
     deadline_at = models.DateTimeField()
     status = models.TextField(default="queued")
+    report_status = models.TextField(default="pending")
+    delivery_status = models.TextField(default="pending")
+    delivery_receipts_json = models.TextField(default="{}")
     operation_id = models.TextField(default="")
     execution_ref = models.TextField(default="")
     lease_owner = models.TextField(default="")
@@ -89,6 +92,8 @@ class TaskRun(models.Model):
             models.CheckConstraint(condition=models.Q(trigger_kind__in=("time", "message", "event", "condition")), name="ai_task_trigger_kind"),
             models.CheckConstraint(condition=models.Q(status__in=("queued", "waiting_data", "leased", "delegated", "succeeded", "failed", "unknown", "missed", "expired", "canceled")), name="ai_task_run_status"),
             models.CheckConstraint(condition=models.Q(version__gte=1), name="ai_task_run_version"),
+            models.CheckConstraint(condition=models.Q(report_status__in=("pending", "ready", "failed", "unknown")), name="ai_task_report_status"),
+            models.CheckConstraint(condition=models.Q(delivery_status__in=("pending", "not_required", "sent", "failed", "unknown")), name="ai_task_delivery_status"),
             models.CheckConstraint(condition=models.Q(deadline_at__gte=models.F("scheduled_at")), name="ai_task_run_window"),
         ]
 

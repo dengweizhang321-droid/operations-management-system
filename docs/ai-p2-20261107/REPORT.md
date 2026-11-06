@@ -44,3 +44,14 @@
 最终核心+首场景隔离 PostgreSQL 共13项通过，原日志 `.runtime/ai-pg-469268264020/tests.log`。场景为用户确认的京东志高商用设备旗舰店经营日报：ERP本店销售与全部计入库存仓分别绑定范围、日期、字段和revision；缺ERP金额字段时无模型/投递，补齐同日期新版本后用真实Pi队列和冻结绑定经过合成模型/合成投递边界。原投递unknown仅观察/分诊，重复tick不新增模型或投递。结果见 `daily-scenario-result.json`。
 
 该演练使用独立PG和合成源/模型/投递，不是生产dispatcher启用证明；生产任务仍停用，内部派发关闭。可复现命令：`python -B tools/ai-postgres-rehearsal.py --tests-only --preprovision-ai-runtime-roles --test-label ai_assistant.test_unified_tasks --test-label ai_assistant.test_unified_task_daily_scenario --test-verbosity 2`。
+
+
+## 报告与投递阶段增量
+
+Astra 指出“Pi成功不能代表任务投递成功”后，已在 run 增加 report_status、delivery_status 与每目标稳定 deliveryId/targetDigest/original receiptRef 的有界持久回执。实际 observer 先把 Pi succeeded 记为 report ready；若有目标，run 保持 delegated/delivery pending。只有原回执全部 sent 才 final succeeded；unknown/failed 分别入账和分诊，原 ID/目标和已终结回执不可替换。observer 本身只读原账本，不发消息，未采用的生产投递 adapter 留 pending。
+
+首场景已移除手工改 unknown 的路径，真实 observer 依次观察报告成功→投递pending→原合成账本unknown；重复观察不调用发送或改ID。另一个隔离案例验证 sent 回执到齐后才 succeeded。最新核心+场景14项通过，原日志 `.runtime/ai-pg-c1bc219f7693/tests.log`；SQL和catalog已重采。
+
+## 仓库既有检查限制
+
+全仓 TypeScript 检查有168条既有诊断，全部诊断文件相对 origin/main 无P2修改；本次没有改变公开TS类型接口。backend-boundary 只报既有 `tools/tmall-sycm-cookie-pipeline.ts -> lib/jackyun/n8n-preflight-evidence.ts`，相关三个检查/源文件均无P2差异。原日志及范围证明为 `typescript.log`、`backend-boundary.log`、`existing-check-limitations.json`。未据此扩入天猫或全仓类型修复，也不把这两项冒称通过。

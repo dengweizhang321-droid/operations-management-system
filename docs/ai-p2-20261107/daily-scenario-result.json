@@ -82,6 +82,14 @@
   "reportStatus": "ready",
   "deliveryStatus": "unknown",
   "runStatus": "unknown",
+  "deliveryReceipts": {
+    "f5d7470122b0e47a0b26614f3a466ba5aa8f9fd22dedd87209f55e6b24d243ea": {
+      "deliveryId": "f5d7470122b0e47a0b26614f3a466ba5aa8f9fd22dedd87209f55e6b24d243ea",
+      "receiptRef": "synthetic-original-send-receipt",
+      "status": "unknown",
+      "targetDigest": "30bf53bc99cea325905e2121be3bbaeebe2c197609e37100aec828e4d80beb3c"
+    }
+  },
   "checks": [
     "deterministic-original-slot",
     "ERP-shop-sales-and-included-warehouse-inventory-separate",

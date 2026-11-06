@@ -11,7 +11,7 @@ from pathlib import Path
 from psycopg import sql
 
 STEPS = ("ai_assistant.0090_unified_tasks",)
-FILES = {"backend/ai_assistant/migrations/0090_unified_tasks.py": "c6ba998339dbd2d2934c9c52c74a8c0cb7dc4f62abe86980230ed120a8cbdc64"}
+FILES = {"backend/ai_assistant/migrations/0090_unified_tasks.py": "3ce2d788da376e81fa1330c67dae0c069750ec20fc43f40b9edb6e6b310956b0"}
 TABLES = ("ai_task_definitions", "ai_task_grants", "ai_task_incidents", "ai_task_revisions", "ai_task_runs")
 FUNCTIONS = ("ai_unified_task_guard",)
 VERSION = "teruisi-ai-unified-tasks-catalog-v1"
@@ -182,7 +182,7 @@ def verify_defaults(apps):
     verify_parent(apps)
     defaults = {
         "TaskDefinition": {"enabled": False, "version": 1, "current_revision": 1, "executor_kind": "unified_pi", "next_run_at": None},
-        "TaskRun": {"status": "queued", "version": 1, "fence": 0, "operation_id": "", "execution_ref": "", "evidence_json": "{}"},
+        "TaskRun": {"status": "queued", "version": 1, "fence": 0, "operation_id": "", "execution_ref": "", "evidence_json": "{}", "report_status": "pending", "delivery_status": "pending", "delivery_receipts_json": "{}"},
         "TaskIncident": {"state": "open", "version": 1, "notification_status": "not_sent", "rule_version": "unified-task-triage-v1"},
     }
     for name, fields in defaults.items():
