@@ -272,11 +272,10 @@ class TaskFeedbackTests(TestCase):
             m.AiTaskFeedback.objects.filter(operation=op, status="confirmed").count(), 1)
 
     def test_omitting_expected_version_against_a_live_row_is_rejected_as_400(self):
-        # The silent-overwrite path is closed, not preserved: this endpoint
-        # has no reachable caller yet (pi/operations is not in Worker's
-        # PI_PUBLIC_PATH whitelist), so there is no existing caller that
-        # omitting expectedVersion here could break. Overwriting a live
-        # correction now requires proving the caller saw it.
+        # The silent-overwrite path is closed, not preserved: overwriting a
+        # live correction requires proving the caller saw the value it
+        # replaces, so an omitted expectedVersion is a 400 rather than a
+        # defaulted overwrite.
         op = self.settled()
         task_feedback.save(op.id, self.body(), self.owner)
         with self.assertRaises(AiError) as caught:
