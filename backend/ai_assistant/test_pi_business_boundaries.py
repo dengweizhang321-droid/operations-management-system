@@ -130,7 +130,7 @@ class PiBusinessBoundaryTests(TestCase):
         return path, definition, store
 
     def native_args(self):
-        yesterday = datetime.now(native.SHANGHAI).date()-timedelta(days=1)
+        yesterday = datetime.now().astimezone().date()-timedelta(days=1)
         return {"capabilityId": native.CAPABILITY, "storeKey": "tmall-yijiu", "dataset": "product_and_promotion",
             "startDate": (yesterday-timedelta(days=6)).isoformat(), "endDate": yesterday.isoformat()}
 
