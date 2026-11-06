@@ -273,6 +273,103 @@ class PiWorkspaceTests(runtime_tests.PiRuntimeTests):
             with self.assertRaises(AiError): self.prompt(op.session_id, clientRequestId="new-prompt")
         self.assertEqual(PiOperation.objects.count(), 1)
 
+    def test_model_set_with_bash_in_flight_rejects_cleanly_and_session_stays_usable(self):
+        # Regression for d498852c moving model_set into compatible without
+        # accounting for needs_init's "not active" re-create path: when the
+        # operation itself is NOT active (e.g. already succeeded) but a bash
+        # control still sits accepted, model_set used to slip past the
+        # compatible gate, open a second workspace:init operation concurrently
+        # with the live bash container, fail there, and leave an unrecoverable
+        # workspace:unknown behind. In this specific shape (operation inactive,
+        # sibling control accepted) model_set must stay exclusive like reset.
+        # This does NOT apply when the operation itself is active/running: see
+        # test_model_set_while_operation_active_defers_to_runner_safe_point
+        # below for the legitimate d498852c pendingModel concurrency feature,
+        # which this fix preserves untouched.
+        op = self.ready()
+        def accepted(request):
+            result = self.runner(request)
+            result["control"]["status"] = "accepted"
+            return result
+        with patch.object(workspace.pi_transport, "command", side_effect=accepted) as send:
+            self.send(op.session_id, "bash", {"command": "sleep 10"})
+            with self.assertRaises(AiError) as error:
+                self.send(op.session_id, "model_set", {"modelId": self.model.id}, "leak-model-set")
+        self.assertEqual(error.exception.code, "pi_control_active")
+        # No leak: no second operation was created, and nothing was marked unknown.
+        self.assertEqual(PiOperation.objects.count(), 1)
+        self.assertEqual(PiWorkspace.objects.get(session_id=op.session_id).status, "ready")
+        session = PiSession.objects.get(pk=op.session_id)
+        self.assertNotEqual(session.status, "unknown")
+        self.assertFalse(PiOperation.objects.filter(status="unknown").exists())
+        self.assertFalse(PiControl.objects.filter(command="model_set").exists())
+        # The session must still be usable afterward: a compatible command that
+        # was already reachable while bash is in flight keeps working, proving
+        # the rejected model_set left no residual fence (no pi_control_active,
+        # no pi_operation_active, no unknown fence).
+        with patch.object(workspace.pi_transport, "command", side_effect=accepted):
+            recovered = self.send(op.session_id, "stats", {}, "after-leak-stats")
+        self.assertEqual(recovered["control"]["status"], "accepted")
+        self.assertEqual(PiOperation.objects.count(), 1)
+
+    def test_model_set_while_operation_active_defers_to_runner_safe_point(self):
+        # d498852c's real feature: while the operation is genuinely active
+        # (queued/running/canceling), model_set must NOT be fenced and must
+        # NOT go through needs_init/_create_environment. It is dispatched as
+        # a lightweight control; the Pi runner (pi_runner/workspace.py:868-877)
+        # queues it as pendingModel and only applies it later at a safe point
+        # (pi_runner/workspace.py:558-585, once bash_control is clear). Losing
+        # this path by over-fencing model_set would silently kill a working
+        # feature, which is why the regression fix above only moves model_set
+        # between exclusive/compatible and leaves RUNNING_COMMANDS untouched.
+        op = self.ready(active=True)
+        from . import pi_native
+        create_calls = []
+        original_create_environment = workspace._create_environment
+        def spy_create_environment(operation):
+            create_calls.append(operation.id)
+            return original_create_environment(operation)
+        def queued(request):
+            value = request["payload"]
+            if value["action"] == "state":
+                return {**request, "workspace": {"terminals": [], "pendingUi": []}}
+            # Mirrors the real Pi runner's BUSY-phase model_set branch: it
+            # queues pendingModel and defers application, never recreating
+            # the environment while bash/another operation is live.
+            return {**request, "control": {"controlId": value["controlId"], "controlSeq": value["controlSeq"],
+                "status": "queued", "result": {"disposition": "queued", "pendingModel": True}}, "workspace": {"terminals": [], "pendingUi": []}}
+        with patch.object(workspace, "_create_environment", side_effect=spy_create_environment), \
+                patch.object(workspace.pi_transport, "command", side_effect=queued):
+            result = self.send(op.session_id, "model_set", {"modelId": self.model.id}, "pending-model-set")
+        self.assertEqual(result["control"]["status"], "queued")
+        self.assertFalse(create_calls, "model_set while active must never call _create_environment")
+        self.assertEqual(PiOperation.objects.count(), 1)
+        row = PiControl.objects.get(client_request_id="pending-model-set")
+        self.assertIsNotNone(row.operation_id)
+        # The pending model has not been confirmed effective yet.
+        self.assertEqual(PiWorkspace.objects.get(session_id=op.session_id).model_id, self.model.id)
+        # Now simulate the Pi runner's safety-point completion arriving on a
+        # later poll: bash/other work has finished, apply_pending ran, and
+        # the control receipt is reconciled as completed with effectiveModel.
+        from .pi_native import model_binding
+        expected = {k: v for k, v in model_binding(self.model).items()
+            if k in {"contextWindow", "maxTokens", "reasoning", "supportedThinkingLevels"}}
+        def settled(request):
+            value = request["payload"]
+            if value["action"] == "state":
+                return {**request, "workspace": {"terminals": [], "pendingUi": [], "controls": [
+                    {"controlId": row.id, "controlSeq": row.control_seq, "status": "completed",
+                        "result": {"effectiveModel": expected}}]}}
+            raise AssertionError("no further control dispatch expected")
+        with patch.object(workspace, "_create_environment", side_effect=spy_create_environment), \
+                patch.object(workspace.pi_transport, "command", side_effect=settled):
+            workspace.detail(op.session_id, {}, self.owner)
+        self.assertFalse(create_calls, "safe-point reconciliation must also skip _create_environment")
+        row.refresh_from_db()
+        self.assertEqual(row.status, "completed")
+        self.assertEqual(PiWorkspace.objects.get(session_id=op.session_id).model_id, self.model.id)
+        self.assertEqual(PiOperation.objects.count(), 1)
+
     def test_exclusive_install_blocks_terminal_input_until_receipt_known(self):
         op = self.ready()
         from .pi_research import DependencyBroker
