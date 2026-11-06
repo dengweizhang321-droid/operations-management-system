@@ -1,5 +1,7 @@
 # 任务记录目录
 
+[AI 助理四项任务交接](../ai-skill-handoff-20261107/REPORT.md) · [调度存储字节边界复核](../schedule-storage-bounds-20261107/REPORT.md)
+
 本轮候选：[Skill 步骤工具登记校验](../skill-step-toolname-20261107/REPORT.md)（保存时校验，兼容旧候选读取；未合并/上线）。
 
 本轮候选：[unittest 测试类重复收集修复](../test-loader-collection-20261106/REPORT.md)（28 模块，原唯一测试 ID 全保留，未合并/上线）。
