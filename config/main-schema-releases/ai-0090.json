@@ -1,0 +1,15 @@
+{
+  "version": "teruisi-main-schema-recipe-v1",
+  "additionKind": "AiUnifiedTasks",
+  "fromGeneration": 158,
+  "toGeneration": 159,
+  "steps": [
+    "ai_assistant.0090_unified_tasks"
+  ],
+  "stepFiles": {
+    "backend/ai_assistant/migrations/0090_unified_tasks.py": "f955d5ffbca0a3eea761597b79e7445e76e37ccf329e39aafa022f91d301e39a"
+  },
+  "validation": "docs/ai-p2-20261107/ai159-checks.json",
+  "validationSha256": "08021bc494ad8c7dcf67e9472f441742c2ec3e50993e626879df072fa487be23",
+  "codeSha256": "538ad54bf59e244eaa51d63e64e32ca50264ba299c277d53cc9c4fe46d2a7822"
+}

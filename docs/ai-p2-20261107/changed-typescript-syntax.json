@@ -1,0 +1,25 @@
+{
+  "status": "passed",
+  "scope": "changed-TypeScript-syntax-only",
+  "files": [
+    "app/api/ai/pi/legacy-tasks/route.ts",
+    "app/api/ai/pi/task-connectors/route.ts",
+    "app/api/ai/pi/task-definitions/[id]/disable/route.ts",
+    "app/api/ai/pi/task-definitions/[id]/enable/route.ts",
+    "app/api/ai/pi/task-definitions/[id]/incidents/[recordId]/route.ts",
+    "app/api/ai/pi/task-definitions/[id]/incidents/route.ts",
+    "app/api/ai/pi/task-definitions/[id]/revisions/[recordId]/route.ts",
+    "app/api/ai/pi/task-definitions/[id]/revisions/route.ts",
+    "app/api/ai/pi/task-definitions/[id]/route.ts",
+    "app/api/ai/pi/task-definitions/[id]/runs/[recordId]/route.ts",
+    "app/api/ai/pi/task-definitions/[id]/runs/route.ts",
+    "app/api/ai/pi/task-definitions/route.ts",
+    "app/api/ai/pi/task-incidents/[id]/claim/route.ts",
+    "app/api/ai/pi/task-incidents/[id]/close/route.ts",
+    "lib/django/ai-service.ts",
+    "tests/ai-pi-skill-candidates.test.ts"
+  ],
+  "failures": [],
+  "typeCheckPassed": false,
+  "fullTypeCheckLimitations": "typescript.log"
+}

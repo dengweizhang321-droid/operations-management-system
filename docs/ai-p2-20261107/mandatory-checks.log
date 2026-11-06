@@ -1,0 +1,4 @@
+{"phase": "python-syntax", "files": 90}
+{"phase": "node-syntax", "files": 5}
+{"phase": "powershell-syntax", "hosts": [{"host": "powershell.exe", "status": "passed", "files": 11, "version": "5.1.26100.9444"}, {"host": "pwsh.exe", "version": "7.6.9", "files": 11, "status": "passed"}]}
+{"status": "code-checked", "codeFileCount": 111, "codeSha256": "538ad54bf59e244eaa51d63e64e32ca50264ba299c277d53cc9c4fe46d2a7822", "sourceCommit": "df414b09cd4eb459c2e419d04477524ce0b8b3fa", "checks": "docs/ai-p2-20261107/ai159-checks.json"}
