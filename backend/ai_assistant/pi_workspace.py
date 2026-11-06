@@ -577,7 +577,7 @@ def control(session_id, body, principal):
             # Internal re-authorization, no client-supplied admission to compare.
             pi_native.authorize(operation, kind="workspace", name=command, lock=True, require_supplied=False)
         active = operation and operation.status in service.ACTIVE
-        if active and operation.kind == "workspace:compact" and command not in READ_COMMANDS | {"pause"}:
+        if active and operation.kind == "workspace:compact" and command not in (READ_COMMANDS - {"export_html"}) | {"pause"}:
             raise AiError("原压缩尚未完成，请观察原控制回执", "pi_control_active", 409)
         if command == "pause" and active:
             raise AiError("暂停环境需要先停止当前操作并确认终态", "pi_operation_active", 409)
@@ -729,6 +729,9 @@ def control(session_id, body, principal):
                 if command == "pause": workspace.status = "paused"
                 if command == "wake": workspace.status = "ready"
                 workspace.save()
+            # History reconciliation may append root events through a separately
+            # loaded session instance under this same authority transaction.
+            current.refresh_from_db(fields=["event_seq", "updated_at"])
             service.event(current, "workspace_control", {"controlId": row.id, "command": command, "status": row.status}, operation)
         if initialize:
             _finish_init(operation)

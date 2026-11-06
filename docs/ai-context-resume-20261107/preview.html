@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>上下文恢复清单 · 合成演示</title><style>body{margin:0;background:#f6f7f9;color:#172033;font:15px/1.6 system-ui,"Microsoft YaHei",sans-serif}main{max-width:1000px;margin:36px auto;padding:26px;background:white;border:1px solid #e2e5eb;border-radius:12px}nav{padding:12px 0;border-bottom:1px solid #e2e5eb;color:#637085}details{margin:16px 0;padding:16px;border:1px solid #e2e5eb;border-radius:8px}summary{cursor:pointer;font-weight:600}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f8f9fb;padding:12px;border-radius:6px}button{padding:7px 13px;border:1px solid #d4d9e2;background:white;border-radius:5px;margin-right:8px;cursor:pointer}small{display:block;color:#68758a;overflow-wrap:anywhere}.note{color:#737d8d}</style><main><h1>AI 助理</h1><nav>Pi 工作区　 /　 对话　　文件　　终端</nav><p class="note">本地 HTML 合成演示：不连接服务、不调用模型、不执行恢复。</p><details class="ai-pi-control-history"><summary>上下文恢复清单</summary><p>按原记录保留目标、用户决定与修正、计划版本、授权来源和文件摘要。未记录或省略的内容保持待核实；查看清单不会继续执行任务。</p><p><strong>本轮目标：</strong>分析本月销售；使用用户确认口径，缺失数据保持待核实。</p><p>计划版本：2 · 用户控制记录截至 #3</p><p>上下文窗 128,000 tokens；当前配置保留输出 16,000、工具余量 6,400，输入预算 105,600。当前完整上下文用量未知；超出预算时提示手动压缩，不自动调整参数。</p><p>以下为用户原始控制记录，是否已应用以各自回执为准，问卷答案不构成业务授权。</p><ol><li>#3 · steer · completed<pre>已确认修正：退款日期按业务时区计算。</pre><button type="button">读取原记录</button></li></ol><details><summary>来源、文件与待办证据</summary><pre>{
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>上下文恢复清单 · 合成演示</title><style>body{margin:0;background:#f6f7f9;color:#172033;font:15px/1.6 system-ui,"Microsoft YaHei",sans-serif}main{max-width:1000px;margin:36px auto;padding:26px;background:white;border:1px solid #e2e5eb;border-radius:12px}nav{padding:12px 0;border-bottom:1px solid #e2e5eb;color:#637085}details{margin:16px 0;padding:16px;border:1px solid #e2e5eb;border-radius:8px}summary{cursor:pointer;font-weight:600}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f8f9fb;padding:12px;border-radius:6px}button{padding:7px 13px;border:1px solid #d4d9e2;background:white;border-radius:5px;margin-right:8px;cursor:pointer}small{display:block;color:#68758a;overflow-wrap:anywhere}.note{color:#737d8d}</style><main><h1>AI 助理</h1><nav>Pi 工作区　 /　 对话　　文件　　终端</nav><p class="note">本地 HTML 合成演示：不连接服务、不调用模型、不执行恢复。</p><details class="ai-pi-control-history"><summary>上下文恢复清单</summary><p>按原记录保留目标、用户决定与修正、计划版本、授权来源和文件摘要。未记录或省略的内容保持待核实；查看清单不会继续执行任务。</p><p>当前原生分支的目标尚未核实。</p><p><strong>历史目标线索（未证明属于当前分支，不加入本次压缩目标）：</strong>分析本月销售；使用用户确认口径，缺失数据保持待核实。</p><p>计划版本：2 · 用户控制记录截至 #3</p><p>上下文窗 128,000 tokens；当前配置保留输出 16,000、工具余量 6,400，输入预算 105,600。当前完整上下文用量未知；超出预算时提示手动压缩，不自动调整参数。</p><p>以下为用户原始控制记录，是否已应用以各自回执为准，问卷答案不构成业务授权。</p><ol><li>#3 · steer · completed · 历史线索（当前分支未核实，不加入压缩决定）<pre>已确认修正：退款日期按业务时区计算。</pre><button type="button">读取原记录</button></li></ol><details><summary>来源、文件与待办证据</summary><pre>{
   &quot;available&quot;: true,
   &quot;binding&quot;: {
     &quot;epoch&quot;: 1,
@@ -6,12 +6,7 @@
     &quot;throughEventSeq&quot;: 24,
     &quot;throughControlSeq&quot;: 3
   },
-  &quot;goal&quot;: {
-    &quot;text&quot;: &quot;分析本月销售；使用用户确认口径，缺失数据保持待核实。&quot;,
-    &quot;truncated&quot;: false,
-    &quot;sha256&quot;: &quot;synthetic&quot;,
-    &quot;operationId&quot;: &quot;synthetic-operation&quot;
-  },
+  &quot;goal&quot;: null,
   &quot;plan&quot;: {
     &quot;revision&quot;: 2
   },
@@ -26,7 +21,8 @@
           &quot;text&quot;: &quot;已确认修正：退款日期按业务时区计算。&quot;,
           &quot;truncated&quot;: false,
           &quot;sha256&quot;: &quot;synthetic&quot;
-        }
+        },
+        &quot;branchStatus&quot;: &quot;historical_unverified&quot;
       }
     ],
     &quot;hasMore&quot;: false,
@@ -50,5 +46,12 @@
       }
     ]
   },
-  &quot;authority&quot;: &quot;恢复清单不构成新授权。未知请求只观察原ID。&quot;
+  &quot;authority&quot;: &quot;恢复清单不构成新授权。未知请求只观察原ID。&quot;,
+  &quot;historicalGoal&quot;: {
+    &quot;text&quot;: &quot;分析本月销售；使用用户确认口径，缺失数据保持待核实。&quot;,
+    &quot;truncated&quot;: false,
+    &quot;sha256&quot;: &quot;synthetic&quot;,
+    &quot;operationId&quot;: &quot;synthetic-operation&quot;
+  },
+  &quot;goalStatus&quot;: &quot;current_goal_unknown&quot;
 }</pre></details></details><p id="sample-source" hidden>原控制 #3（合成）：已确认修正：退款日期按业务时区计算。</p></main><script>document.querySelectorAll("button").forEach(button=>button.addEventListener("click",()=>{document.getElementById("sample-source").hidden=false}));</script></html>

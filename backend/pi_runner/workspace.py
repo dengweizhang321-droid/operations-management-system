@@ -178,7 +178,7 @@ def controls(session):
     result=[]
     for row in reversed(rows):
         detail=decode(row[4]) if row[4] else {}
-        if row[2] not in {'terminal_input','terminal_resize','terminal_close','steer','follow_up','ui_response','pause','wake','upgrade','model_set','thinking_set'} or len(encode(detail))>1024:
+        if row[2] not in {'compact','terminal_input','terminal_resize','terminal_close','steer','follow_up','ui_response','pause','wake','upgrade','model_set','thinking_set'} or len(encode(detail))>1024:
             detail={'result':{key:value for key,value in detail.get('result',{}).items() if key in {'downloadId','path','sha256','sizeBytes','terminalId','inputId','inputSeq','status','disposition'}},
                     'resultOmitted':True,'resultSha256':hashlib.sha256(encode(detail)).hexdigest(),
                     **({'errorCode':detail['errorCode']} if 'errorCode' in detail else {})}
@@ -391,6 +391,7 @@ def public_state(session, payload=None):
     registry = value_get(session, 'sessions', {})
     current = value_get(session, 'currentSessionId')
     return {'workspaceId': session.key, 'generation': session.identity['generation'], 'environmentStatus': session.phase,
+        'activeOperationId': session.active['operationId'] if session.active else None,
         'containerId': session.container_id, 'image': session.image, 'volume': session.volume,
         'controlSeq': max([0, *[item['controlSeq'] for item in controls(session)]]), 'controls': controls(session),
         'sessions': [{'sessionId': sid, 'current': sid == current} for sid in registry],
@@ -641,6 +642,8 @@ def execute_control(session, job, control_id, command, payload):
         raise Rejected('workspace_unknown_fenced')
     if session.phase in {'creating','updating'}:raise Rejected('workspace_busy')
     if getattr(session,'workspace_maintenance',False):raise Rejected('workspace_busy')
+    if getattr(session, 'compact_control', None) not in {None, control_id} and command not in READ:
+        raise Rejected('compact_in_progress')
     from .admission import check
     supplied=payload.pop('admission',None) if command!='mode_set' else None
     if command=='mode_set':return set_mode(session,payload.get('admission'))
@@ -1012,11 +1015,20 @@ def dispatch(session, job):
     if cached_receipt is not None:
         return {**{key:job[key] for key in IDENTITY},'control':cached_receipt,'workspace':public_state(session)}
     def run():
+        compact_unbound = command == 'compact'
         try:
             if set(args)-(FIELDS[command]|{'admission'}):raise Rejected('invalid_file_payload' if command.startswith('file_') else 'invalid_control_payload')
+            with session.lock:
+                if getattr(session, 'compact_control', None) not in {None, control_id} and command not in READ:
+                    raise Rejected('compact_in_progress')
+                if command == 'compact':
+                    if getattr(session, 'executing_controls', set()):raise Rejected('compact_background_writers')
+                    session.compact_control = control_id
             if command in {'bash','terminal_create','terminal_input','file_write','file_delete','file_mkdir','file_rename','resource_install','resource_remove','export_html'}:
                 from .admission import check
                 with session.lock:
+                    if getattr(session, 'compact_control', None) not in {None, control_id}:
+                        raise Rejected('compact_in_progress')
                     try:check(session,args.get('admission'),execute=True)
                     except ValueError as error:raise Rejected(str(error)) from error
                     if not hasattr(session,'executing_controls'):session.executing_controls=set()
@@ -1038,13 +1050,22 @@ def dispatch(session, job):
                 control_update(session, control_id, status, result)
             session.last_activity = time.monotonic()
         except Rejected as error:
-            control_update(session, control_id, 'failed', error=str(error))
+            # No native model/run was bound. This control-bound proof closes
+            # only this rejected compact; it cannot terminate a previous run.
+            proof = None
+            if (compact_unbound and session.phase in IDLE and (not session.active or session.active.get('operationId') != job['operationId'])
+                    and job['seq'] > session.last_seq):
+                proof = {'compactPreBindRejection': {'operationId': job['operationId'], 'seq': job['seq'],
+                    'modelBound': False, 'code': str(error)}}
+            control_update(session, control_id, 'failed', proof, error=str(error))
         except Exception:
             control_update(session, control_id, 'unknown', error='control_outcome_unknown')
             session.fail('control_outcome_unknown')
         finally:
             if getattr(session,'resource_installing',None)==control_id:session.resource_installing=None
-            with session.lock:getattr(session,'executing_controls',set()).discard(control_id)
+            with session.lock:
+                getattr(session,'executing_controls',set()).discard(control_id)
+                if getattr(session, 'compact_control', None) == control_id:session.compact_control = None
     if command in ASYNC:
         control_update(session, control_id, 'accepted')
         threading.Thread(target=run, daemon=True).start()

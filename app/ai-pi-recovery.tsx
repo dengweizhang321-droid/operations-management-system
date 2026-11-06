@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 
 type Evidence = { text: string; truncated: boolean; sha256: string };
-type UserRecord = { controlId: string; controlSeq: number; command: string; status: string; evidence: Evidence };
+type UserRecord = { controlId: string; controlSeq: number; command: string; status: string; branchStatus?: string; evidence: Evidence };
 type SourceControl = { controlId: string; controlSeq: number; text: string; offset: number; nextOffset: number | null; totalCharacters: number; sha256: string };
 export type PiRecovery = {
   available: boolean;
   binding?: { epoch: number; generation: number; throughEventSeq: number; throughControlSeq: number };
   goal?: Evidence & { operationId: string };
+  historicalGoal?: Evidence & { operationId: string };
   plan?: { revision: number; evidence: Evidence };
   userDecisionsAndCorrections?: { items: UserRecord[]; hasMore: boolean; nextBeforeControlSeq: number | null };
   contextBudget?: { inputBudgetTokens?: number; contextWindowTokens?: number; reservedOutputTokens?: number; toolReserveTokens?: number };
@@ -45,11 +46,13 @@ export default function AiPiRecovery({ sessionId, value }: { sessionId: string; 
   return <details className="ai-pi-control-history"><summary>上下文恢复清单</summary>
     <p>按原记录保留目标、用户决定与修正、计划版本、授权来源和文件摘要。未记录或省略的内容保持待核实；查看清单不会继续执行任务。</p>
     {value.goal && <p><strong>本轮目标：</strong>{value.goal.text}{value.goal.truncated ? "（片段；完整内容见原对话）" : ""}</p>}
+    {!value.goal && <p>当前原生分支的目标尚未核实。</p>}
+    {value.historicalGoal && <p><strong>历史目标线索（未证明属于当前分支，不加入本次压缩目标）：</strong>{value.historicalGoal.text}</p>}
     <p>计划版本：{value.plan?.revision ?? "尚无已保存计划"} · 用户控制记录截至 #{value.binding?.throughControlSeq ?? 0}</p>
     {budget?.contextWindowTokens != null && <p>上下文窗 {budget.contextWindowTokens.toLocaleString()} tokens；当前配置保留输出 {budget.reservedOutputTokens?.toLocaleString()}、工具余量 {budget.toolReserveTokens?.toLocaleString()}，输入预算 {budget.inputBudgetTokens?.toLocaleString()}。当前完整上下文用量未知；超出预算时提示手动压缩，不自动调整参数。</p>}
     {!!value.compaction?.blockers.length && <p>当前仍有未决状态，压缩前需核实原回执。</p>}
     <p>以下为用户原始控制记录，是否已应用以各自回执为准，问卷答案不构成业务授权。</p>
-    <ol>{records?.items.map(item => <li key={item.controlId}>#{item.controlSeq} · {item.command} · {item.status}<pre>{item.evidence.text}{item.evidence.truncated ? "\n（片段）" : ""}</pre><button type="button" disabled={loading} onClick={() => { void read({ recoveryControlSeq: String(item.controlSeq) }, true); }}>读取原记录</button></li>)}</ol>
+    <ol>{records?.items.map(item => <li key={item.controlId}>#{item.controlSeq} · {item.command} · {item.status}{item.branchStatus !== "matched" ? " · 历史线索（当前分支未核实，不加入压缩决定）" : " · 当前分支已核实"}<pre>{item.evidence.text}{item.evidence.truncated ? "\n（片段）" : ""}</pre><button type="button" disabled={loading} onClick={() => { void read({ recoveryControlSeq: String(item.controlSeq) }, true); }}>读取原记录</button></li>)}</ol>
     {records?.hasMore && records.nextBeforeControlSeq != null && <button type="button" disabled={loading} onClick={() => { void read({ recoveryBeforeControlSeq: String(records.nextBeforeControlSeq) }); }}>读取更早用户记录</button>}
     {page && <button type="button" disabled={loading} onClick={() => setPage(null)}>返回最新记录</button>}
     {source && <section aria-label="原用户记录"><p>原控制 #{source.controlSeq} · 字符 {source.offset + 1}—{source.offset + source.text.length} / {source.totalCharacters}</p><pre>{source.text}</pre>{source.offset > 0 && <button type="button" disabled={loading} onClick={() => { void read({ recoveryControlSeq: String(source.controlSeq), recoveryTextOffset: String(Math.max(0, source.offset - 1200)) }, true); }}>上一段</button>}{source.nextOffset != null && <button type="button" disabled={loading} onClick={() => { void read({ recoveryControlSeq: String(source.controlSeq), recoveryTextOffset: String(source.nextOffset) }, true); }}>下一段</button>}<small>原文摘要：{source.sha256}</small></section>}

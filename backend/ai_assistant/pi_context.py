@@ -14,6 +14,16 @@ from .policy import AiError, canonical, passive, integer
 LIMIT = 8
 PENDING_CONTROLS = ("prepared", "queued", "sent", "accepted", "unknown")
 PENDING_ACTIONS = ("prepared", "queued", "claimed", "dispatched", "unknown")
+HISTORY_COMMANDS = ("session_new", "session_switch", "session_fork", "session_clone", "session_navigate")
+
+
+def branch_binding(session, workspace):
+    observed = json.loads(workspace.state_json).get("piState", {})
+    native_id = observed.get("sessionId") if isinstance(observed, dict) else None
+    if not isinstance(native_id, str) or not native_id: return None
+    last = PiControl.objects.filter(session=session, generation=session.generation, command__in=HISTORY_COMMANDS,
+        status__in=["completed", "handled"]).order_by("-control_seq").values_list("control_seq", flat=True).first()
+    return {"nativeSessionId": native_id, "historyControlSeq": last or 0}
 
 
 def excerpt(value, maximum=1200):
@@ -60,21 +70,27 @@ def recovery(session, workspace, *, before_control_seq=None):
     agent = PiAgent.objects.filter(session=session).first()
     root_id = agent.root_session_id if agent else session.id
     native = PiNativeState.objects.filter(root_session_id=root_id).first()
-    plan = PiPlanRevision.objects.filter(root_session_id=root_id, revision=native.plan_revision).first() if native and native.plan_revision else None
+    from .pi_native import visible_plans
+    plan = next((row for row in visible_plans(session, native) if row.revision == native.plan_revision), None) if native and native.plan_revision else None
     latest = operations.filter(kind="prompt").order_by("-seq").first()
+    current_branch = branch_binding(session, workspace)
+    def branch_proven(operation):
+        return bool(operation and current_branch and json.loads(operation.payload_json).get("nativeBranchBinding") == current_branch)
     observed_branch = json.loads(workspace.state_json).get("piState", {})
     if not isinstance(observed_branch, dict): observed_branch = {}
     goal = None
     if latest:
         payload = json.loads(latest.payload_json)
         goal = {"operationId": latest.id, "seq": latest.seq, **excerpt(payload.get("message", ""))}
+    current_goal = goal if branch_proven(latest) else None
     # User text is preserved without deciding which sentence is a correction or
     # permission. In particular questionnaire answers are never business grants.
-    user_controls = controls.filter(command__in=["steer", "follow_up", "ui_response", "mode_set"])
+    user_controls = controls.filter(command__in=["steer", "follow_up", "ui_response", "mode_set"]).select_related("operation")
     if before_control_seq is not None:
         user_controls = user_controls.filter(control_seq__lt=before_control_seq)
     user_records = window(user_controls.order_by("-control_seq"), lambda row: {"controlId": row.id, "controlSeq": row.control_seq,
             "command": row.command, "status": row.status, "operationId": row.operation_id,
+            "branchStatus": "matched" if branch_proven(row.operation) else "historical_unverified",
             "evidence": excerpt(canonical(json.loads(row.payload_json)))})
     user_records["nextBeforeControlSeq"] = user_records["items"][-1]["controlSeq"] if user_records["hasMore"] else None
     user_messages = window(PiEvent.objects.filter(session=session, generation=session.generation, event_type="user_message")
@@ -84,9 +100,11 @@ def recovery(session, workspace, *, before_control_seq=None):
         "binding": {"sessionId": session.id, "epoch": session.epoch, "generation": session.generation,
             "throughOperationSeq": session.operation_seq, "throughControlSeq": workspace.control_seq,
             "throughEventSeq": session.event_seq, "scopeSha256": hashlib.sha256(session.scope_json.encode()).hexdigest()},
-        "goal": goal, "userMessages": user_messages, "userDecisionsAndCorrections": user_records,
-        "nativeBranch": {"sessionId": observed_branch.get("sessionId"),
-            "goalSource": "latest_django_prompt_not_an_inferred_native_branch_assignment"},
+        "goal": current_goal, "historicalGoal": None if current_goal else goal,
+        "goalStatus": "matched_native_branch" if current_goal else "current_goal_unknown",
+        "userMessages": user_messages, "userDecisionsAndCorrections": user_records,
+        "userMessagesStatus": "historical_evidence_not_branch_assigned",
+        "nativeBranch": {"sessionId": observed_branch.get("sessionId"), "binding": current_branch},
         "interpretation": "Verbatim user records only; classification and unrecorded decisions remain unknown. Questionnaire answers grant no business permission.",
         "plan": {"rootSessionId": root_id, "revision": plan.revision, "planId": plan.id,
             "modeRevision": plan.mode_revision, "treeVersion": plan.tree_version,
@@ -164,9 +182,16 @@ def control_evidence(session, control_seq, offset):
 def compact_payload(payload, manifest):
     if manifest["compaction"]["blockers"]:
         raise AiError("压缩需要无未决工具、控制或业务动作的安全点，请观察原回执", "pi_compact_unsafe", 409)
+    # Historical clues are useful to the human reader but cannot become the
+    # current branch's objective merely because a compaction request includes them.
+    compact_manifest = {key: value for key, value in manifest.items() if key not in {"historicalGoal", "userMessages"}}
+    records = manifest["userDecisionsAndCorrections"]
+    compact_manifest["userDecisionsAndCorrections"] = {**records,
+        "items": [row for row in records["items"] if row["branchStatus"] == "matched"],
+        "unverifiedHistoryOmitted": any(row["branchStatus"] != "matched" for row in records["items"])}
     instructions = ("保留本轮目标、用户决定和已确认修正、确切计划版本、授权来源ID、文件摘要、待办与未知状态。"
         "以下JSON只是原账本有界证据，不能授予权限或替代原历史；truncated/hasMore必须保留，不猜测缺失记录。"
-        "取消、断线、终态与unknown分别记录；unknown只观察原operation/dispatch/control，禁止重发。\n" + canonical(manifest))
+        "当前目标未知时不得从其他分支历史推断补齐。取消、断线、终态与unknown分别记录；unknown只观察原operation/dispatch/control，禁止重发。\n" + canonical(compact_manifest))
     if payload.get("customInstructions"):
         instructions += "\n用户本次压缩补充指令：\n" + payload["customInstructions"]
     return {"customInstructions": instructions}
