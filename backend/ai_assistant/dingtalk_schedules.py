@@ -12,6 +12,7 @@ from .configuration import resolve_model
 from .model_capabilities import options as generation_options
 from .provider_contract import PROVIDER_ADAPTER_VERSION
 from .policy import AiError, current_principal, fields, identifier, integer, mutation, text, uid, digest, canonical
+from .schedule_core import DEFAULT_PHASES, IN_PROGRESS_STATUSES, LiveRunGuard, claim_slot, is_missed_window, recover_interrupted_runs
 
 SHANGHAI = ZoneInfo("Asia/Shanghai")
 
@@ -147,7 +148,7 @@ def run_now(body, principal):
             raise AiError("任务未启用或不存在", "not_found", 404)
         if row.version != integer(body["expectedVersion"], "expectedVersion"):
             raise AiError("任务版本已变化", "version_conflict", 409)
-        if m.AiDingTalkScheduleRun.objects.filter(schedule=row, status__in=["queued", "running", "ready", "sending"]).exists():
+        if m.AiDingTalkScheduleRun.objects.filter(schedule=row, status__in=["queued"] + list(IN_PROGRESS_STATUSES)).exists():
             raise AiError("任务已有待执行项", "conflict", 409)
         scheduled_at = timezone.now()
         previous = m.AiDingTalkScheduleRun.objects.filter(schedule=row).order_by("-scheduled_at").values_list("scheduled_at", flat=True).first()
@@ -160,14 +161,8 @@ def run_now(body, principal):
 
 def recover_interrupted():
     with mutation():
-        for run in m.AiDingTalkScheduleRun.objects.select_for_update().filter(status__in=["running", "ready", "sending"]):
-            for phase in ("data", "analysis", "delivery"):
-                if getattr(run, phase + "_status") == "running":
-                    stage(run, phase, "unknown", "interrupted_result_unknown")
-                elif getattr(run, phase + "_status") == "pending":
-                    stage(run, phase, "not_required", "prior_stage_interrupted")
-            run.status, run.error_code, run.completed_at = "unknown", "interrupted_result_unknown", timezone.now()
-            run.save(update_fields=["status", "error_code", "completed_at"])
+        stuck = m.AiDingTalkScheduleRun.objects.select_for_update().filter(status__in=IN_PROGRESS_STATUSES)
+        recover_interrupted_runs(stuck, stage)
 
 
 def stage(run, phase, status, code=""):
@@ -205,10 +200,10 @@ def step(config_reader, sender, media_sender=None):
         now = timezone.now()
         run = m.AiDingTalkScheduleRun.objects.select_for_update().filter(status="queued").order_by("created_at").first()
         if run:
-            if now - run.scheduled_at > timedelta(minutes=5):
+            if is_missed_window(now, run.scheduled_at, timedelta(minutes=5)):
                 run.status, run.error_code, run.completed_at = "denied", "missed_window", now
                 run.save(update_fields=["status", "error_code", "completed_at"])
-                for phase in ("data", "analysis", "delivery"):
+                for phase in DEFAULT_PHASES:
                     stage(run, phase, "not_required", "missed_window")
                 return True
             run.status = "running"
@@ -220,17 +215,19 @@ def step(config_reader, sender, media_sender=None):
             slot = row.next_run_at
             row.next_run_at = next_slot(row.cadence, row.hour, row.minute, row.day, now)
             row.save(update_fields=["next_run_at"])
-            if now - slot > timedelta(minutes=5):
+            if is_missed_window(now, slot, timedelta(minutes=5)):
                 # A skipped original slot is observable, never a silent success
                 # or a new delivery under the recovery date.
-                skipped, created = m.AiDingTalkScheduleRun.objects.get_or_create(schedule=row, scheduled_at=slot,
+                skipped, created = claim_slot(m.AiDingTalkScheduleRun.objects, owner_field="schedule", owner_value=row,
+                    slot_field="scheduled_at", slot_value=slot,
                     defaults={"id": uid("ding-run"), "schedule_version": row.version,
                               "status": "denied", "error_code": "missed_window", "completed_at": now})
                 if created:
-                    for phase in ("data", "analysis", "delivery"):
+                    for phase in DEFAULT_PHASES:
                         stage(skipped, phase, "not_required", "missed_window")
                 return True  # Preserve the existing no-backlog delivery policy.
-            run, created = m.AiDingTalkScheduleRun.objects.get_or_create(schedule=row, scheduled_at=slot,
+            run, created = claim_slot(m.AiDingTalkScheduleRun.objects, owner_field="schedule", owner_value=row,
+                slot_field="scheduled_at", slot_value=slot,
                 defaults={"id": uid("ding-run"), "schedule_version": row.version, "status": "running"})
             if not created:
                 return True
@@ -261,11 +258,10 @@ def step(config_reader, sender, media_sender=None):
                 "sender_id": row.sender_id, "conversation_type": "2" if row.target_type == "group" else "1",
                 "external_conversation_id": row.target_id, "owner_email": principal.email,
                 "scope_json": canonical(principal.scope)})
+        live_run = LiveRunGuard(m.AiDingTalkScheduleRun.objects, run.id)
         def channel_guard():
             live()
-            status = m.AiDingTalkScheduleRun.objects.filter(pk=run.id).values_list("status", flat=True).get()
-            if status not in {"running", "ready", "sending"}:
-                raise AiError("执行槽已终止", "access_denied", 403)
+            live_run.check()
             if bound_model is not None and model_snapshot(resolve_model(bound_model.id)) != snapshot:
                 raise AiError("本次绑定的模型配置已变化", "schedule_model_changed", 409)
             return dingtalk.guard(session, config_reader())
@@ -377,7 +373,7 @@ def step(config_reader, sender, media_sender=None):
     except AiError as error:
         if active_phase:
             stage(run, active_phase, "unknown" if sending or error.code in ("delivery_unknown", "ai_chat_result_unknown") else "failed", error.code)
-        for phase in ("data", "analysis", "delivery"):
+        for phase in DEFAULT_PHASES:
             if getattr(run, phase + "_status") == "pending":
                 stage(run, phase, "not_required", "prior_stage_failed")
         with mutation():
@@ -387,7 +383,7 @@ def step(config_reader, sender, media_sender=None):
     except Exception:
         if active_phase:
             stage(run, active_phase, "unknown", "execution_result_unknown")
-        for phase in ("data", "analysis", "delivery"):
+        for phase in DEFAULT_PHASES:
             if getattr(run, phase + "_status") == "pending":
                 stage(run, phase, "not_required", "prior_stage_unknown")
         with mutation():
