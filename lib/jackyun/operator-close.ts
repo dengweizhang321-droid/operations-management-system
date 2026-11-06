@@ -134,6 +134,18 @@ async function authority(id: string, request: typeof fetch): Promise<Authority> 
     || !Number.isFinite(Date.parse(value.createdAt)) || Date.parse(value.createdAt) > Date.now() || !Number.isFinite(Date.parse(value.expiresAt)) || Date.parse(value.expiresAt) <= Date.now()) throw new Error("闭合授权范围或有效期不符。");
   return value;
 }
+/** A named consumer's own state, or null when n8n no longer records it and the
+ * permission that could have dispatched it has already elapsed. Only that exact
+ * combination is unknown-but-safe; any other read error still fails the close. */
+export function jackyunCloseConsumerState(executionId: string, expired: boolean,
+  read: (id: string) => string = readN8nJackyunOwnerState) {
+  try { return { executionId, status: read(executionId) }; }
+  catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (!expired || message !== "原业务 owner 状态无法确认，请核查精确 execution。") throw error;
+    return null;
+  }
+}
 async function revokeHumanDispatches(root: string, intent: CloseIntent, request: typeof fetch) {
   for (const folder of ["human-dispatch", "human-authorizations"]) {
     const dir = path.join(base(root), folder), names = await readdir(dir).catch(e => { if (e.code === "ENOENT") return []; throw e; });
@@ -166,12 +178,20 @@ async function revokeHumanDispatches(root: string, intent: CloseIntent, request:
       let relevant = permission.kind === "retry" && (ids(intent.target).includes(permission.logicalExecutionId) || ids(intent.target).includes(permission.failedExecutionId));
       if (permission.kind === "new") {
         relevant = !!permission.supersedes && [permission.supersedes.logicalExecutionId, permission.supersedes.sourceExecutionId, permission.supersedes.failedExecutionId].some(id => ids(intent.target).includes(id));
-        const consumer = record.executionId ? { executionId: String(record.executionId), status: readN8nJackyunOwnerState(String(record.executionId)) }
+        // An authorization outlives n8n's retention, so a named consumer can be
+        // pruned while the record keeps pointing at it. An elapsed permission can
+        // no longer dispatch anything, which is the same ground that lets an
+        // unknown consumer pass below; an unexpired one still has to be proven.
+        const expired = Date.parse(permission.expiresAt) <= Date.now();
+        const named = record.executionId ? String(record.executionId) : null;
+        const consumer = named
+          ? jackyunCloseConsumerState(named, expired)
           : readAcceptedJackyunHumanDispatch(name.slice(0, -5), record.createdAt ?? permission.createdAt);
         if (consumer) {
           if (!["error", "success", "canceled", "crashed"].includes(consumer.status)) throw new Error("原人工新采集仍有在途执行，暂不能完成闭合。");
           relevant ||= ids(intent.target).includes(consumer.executionId);
-        } else if (Date.parse(permission.expiresAt) > Date.now()) throw new Error("原人工新采集派发尚未有终态消费证明，暂不能完成闭合。");
+        } else if (!expired) throw new Error("原人工新采集派发尚未有终态消费证明，暂不能完成闭合。");
+        else if (named && ids(intent.target).includes(named)) relevant = true;
       }
       if (!relevant) continue;
       const file = path.join(base(root), "human-authorizations", name);
