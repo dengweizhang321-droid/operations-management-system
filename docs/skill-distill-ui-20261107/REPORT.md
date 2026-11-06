@@ -19,7 +19,7 @@
 - `requested`：可选 `distillationRequestId` 所指定的准确请求回执；
 - `candidate`：此任务最新的单个候选，避免全账号最近 100 条列表截断导致任务候选无法恢复。
 
-读取复用提炼 `_operation()` 的真实所属账号、scope 与原角色检查，不返回模型调用正文、凭据、供应商响应或成本明细，不执行写入、不推进 revision。查询参数必须准确；默认 GET 契约与原派发/幂等/审核机制保持原样。没有模型或迁移变化。发布范围为 Worker＋Django。
+读取复用提炼 `_operation()` 的真实所属账号、scope 与原角色检查，不返回模型调用正文、凭据、供应商响应或成本明细，不执行写入、不推进 revision。查询参数必须准确；默认 GET 契约与正常派发/幂等/审核路径保留，反审增量增加下述显式撤回终态栅栏。没有模型或迁移变化。发布范围为 Worker＋Django。
 
 ## 可直接打开的方案
 
@@ -40,4 +40,22 @@
 
 SQLite 子进程使用 `py -3.12 -B`（Django 5.2.17），明确 `TERUISI_DJANGO_ENVIRONMENT=test`、`TERUISI_DJANGO_PROCESS_ROLE=development`、`DJANGO_DEBUG=true`、`TERUISI_DJANGO_SQLITE_PATH=:memory:`，清空数据库 URL、内部签名、AI 加密和 Runner secret 文件环境变量，不连接生产或读写生产运行目录。依赖仅复用主工作树 node_modules junction，不安装或改写依赖。
 
-本项不修改事务、数据库结构与派发逻辑，没有追加 PostgreSQL 演练、全仓测试、真实模型调用或业务数据验收。完整端到端显示及业务效果留待用户采用后检测；独立反审由 lead 按用户最新指令另派 Astra，本执行上下文未自审或代替独审。
+初始候选未修改事务、数据库结构与派发逻辑；以下反审增量加入撤回派发授权的锁内终态栅栏，因此追加隔离 PostgreSQL 定向验证。未执行全仓测试、真实模型调用或业务数据验收。独立反审由 lead 按用户最新指令另派 Astra，本执行上下文未自审或代替独审。
+
+## Astra 首轮阻断与增量修复
+
+首轮 Astra 反审指出两项阻断：报告变化或其他候选竞争发生在派发前时，HTTP 拒绝没有 dispatch 回执，客户端仍保留旧报告 pending；旧候选正文可能已被原保存函数接受为 `parameters:null` 等错形结构，直接 `.length/.map` 会使组件崩溃。原来的静态检查没有覆盖这两种实际交互。
+
+1. 新增显式「撤回未派发授权，重新确认」。沿原 POST `/distill` 传原 `clientRequestId`、原 `reportVersionDigest` 与严格布尔 `withdrawAuthorization:true`。服务端在现有 `mutation` 领域锁内检查准确请求；没有登记的请求写为 `completed`，错误码 `distillation_authorization_withdrawn`，保存原绑定及 409 回执并记审计。迟到原 POST 会在模型派发前命中终态，不因报告版本之后复原而重新获得授权。已有 sent/prepared/unknown 拒绝撤回并保持 pending，已有完成请求只返回实际终态，原候选仍由读取恢复。撤回响应丢失时只读准确回执完成恢复；返回格式异常不清理 pending。UI 不以“GET 暂无回执”作为可安全丢弃请求的证据。报告变化时不再显示重复提交旧摘要按钮；成功撤回后取消勾选，必须重新核对当前报告并明确授权，才可使用新标识。
+2. 候选正文按 `unknown` 读取，渲染前逐字段检查对象、数组、列表项和展示值结构。发现错形时明确显示“候选正文格式异常”、原始 JSON，禁止批准与标记审核中，事件 handler 同样拒绝此类调用。保留对原 `version/contentDigest` 的“退回候选”，没有把错形内容静默变成空列表后放行。
+
+最终 HTML 已重新生成，增加“报告派发前变化→重授权”和“旧候选格式异常→退回”两个合成场景。未启动浏览器。
+
+### 增量核验
+
+- 新增 `tests/ai-pi-skill-distillation-interaction.test.ts`，用与 React 相同版本的真实 `react-test-renderer@19.2.6` 挂载实际生产组件，执行 effects、状态更新、按钮与勾选 handler；不是源码字符串断言，也未用模拟 hooks 替代 React。4 项实际组件交互通过：旧报告无回执拒绝后撤回/重新授权；断线重载且撤回与 sent 竞争；另一个候选竞争后退回恢复；10 类错形正文不崩溃、禁批且准确 CAS 退回。渲染器在 `.runtime/skill-ui-harness` 隔离安装，不改生产 package/lock；其他检出未安装时这 4 项会说明原因并跳过，不能称为已验证。本次实跑 0 skip。渲染器会输出其上游弃用提示，不影响结果。
+- 最终 Node 三文件组合共 11 项通过、0 skip；定向 TypeScript、ESLint、HTML 重新 bundle 与 `git diff --check` 通过。
+- SQLite 23 项通过（原 schema 读契约与提炼模块）；随后增加“撤回发生在第一次查询后、锁内准入前”的交错用例，在最终 PostgreSQL 组合中一并运行。
+- 最终隔离 PostgreSQL：`py -3.12 tools/ai-postgres-rehearsal.py --tests-only --preprovision-ai-runtime-roles --test-label ai_assistant.test_skill_distillation --port 55903`，13 项通过，系统检查 0 issue，测试耗时 1.956s；完整原生日志：[review-fix-postgres-tests.log](review-fix-postgres-tests.log)。覆盖报告版本复原仍不能重放撤回的旧标识、明确重授权的新标识、其他候选竞争、未知派发拒绝撤回、撤回幂等、锁内准入交错，以及真实旧保存函数接受 `parameters:null` 后的读取与退回。工具回执 `productionWrites:false`，临时集群已由原工具关闭，未接触生产业务库。
+
+以上为执行者修复和定向验证结果，待 lead 安排原 Astra 上下文增量复审；不代表已获独审通过、合并或上线授权。

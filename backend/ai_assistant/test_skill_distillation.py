@@ -135,3 +135,61 @@ class DistillationTests(TestCase):
         self.assertTrue(state["blocked"])
         self.assertEqual(state["latest"]["status"], "unknown")
         self.assertIsNone(state["candidate"])
+
+    def withdraw(self, key="request1", version=None):
+        return self.call(f"/api/ai/pi/operations/{self.op.id}/skill-candidates/distill",
+            {"clientRequestId": key, "reportVersionDigest": version or self.version,
+             "withdrawAuthorization": True}, self.owner)
+
+    def test_withdraw_fences_a_report_rejected_before_dispatch_and_requires_new_intent(self):
+        correction = self.correct("new report basis")
+        self.assertEqual(self.submit().status_code, 409)
+        self.assertFalse(PiDispatch.objects.filter(operation=self.op, kind="skill_distillation").exists())
+        self.assertTrue(self.withdraw().json()["withdrawn"])
+        # Even if the old report version is current again, the delayed old POST
+        # hits its terminal authorization receipt before any provider call.
+        task_feedback.withdraw(self.op.id, correction["id"], {"expectedVersion": correction["version"]}, self.owner)
+        self.assertEqual(skill_candidates.request_schema(self.op.id, self.owner)["reportVersionDigest"], self.version)
+        self.assertEqual(self.submit().json()["code"], "distillation_authorization_withdrawn")
+        self.turn.assert_not_called()
+        current = skill_candidates.request_schema(self.op.id, self.owner)["reportVersionDigest"]
+        self.assertEqual(self.submit("new-authorized-request", version=current).status_code, 201)
+        self.turn.assert_called_once()
+
+    def test_competing_candidate_does_not_prevent_withdrawing_unadmitted_request(self):
+        self.assertEqual(self.submit("other-tab").status_code, 201)
+        self.assertEqual(self.submit().status_code, 409)
+        self.assertTrue(self.withdraw().json()["withdrawn"])
+        self.assertEqual(self.submit().json()["code"], "distillation_authorization_withdrawn")
+        self.turn.assert_called_once()
+
+    def test_withdraw_wins_between_first_check_and_locked_admission(self):
+        def withdraw_before_locked_admission(*args):
+            self.assertTrue(self.withdraw().json()["withdrawn"])
+            entries = [{"name": name} for name in fixtures.TOOLS]
+            return entries, entries
+        with patch("ai_assistant.pi_gateway.catalog", side_effect=withdraw_before_locked_admission):
+            response = self.submit()
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["code"], "distillation_authorization_withdrawn")
+        self.turn.assert_not_called()
+
+    def test_withdraw_refuses_already_dispatched_or_unknown_and_is_idempotent(self):
+        self.turn.side_effect = AiError("unknown send", "provider_timeout", 503)
+        self.assertEqual(self.submit().status_code, 503)
+        self.assertEqual(self.withdraw().status_code, 409)
+        self.assertEqual(PiDispatch.objects.get(operation=self.op, kind="skill_distillation").status, "unknown")
+        self.assertTrue(self.withdraw("never-sent").json()["withdrawn"])
+        self.assertTrue(self.withdraw("never-sent").json()["withdrawn"])
+        self.assertEqual(PiDispatch.objects.filter(operation=self.op, request_id="never-sent").count(), 1)
+
+    def test_legacy_malformed_candidate_remains_readable_and_can_be_rejected(self):
+        basis = skill_candidates.request_schema(self.op.id, self.owner)
+        saved = skill_candidates.save(self.op.id, {"schemaRef": basis["outputSchemaRef"],
+            "schemaDigest": basis["schemaDigest"], "content": self.content(parameters=None)},
+            self.owner, registry_tools=fixtures.TOOLS)["item"]
+        response = self.get(self.op.id, query="?includeDistillations=1")
+        self.assertIsNone(response.json()["distillation"]["candidate"]["content"]["parameters"])
+        reviewed = skill_candidates.review(saved["id"], {"status": "rejected",
+            "expectedVersion": saved["version"], "contentDigest": saved["contentDigest"]}, self.owner)
+        self.assertEqual(reviewed["item"]["status"], "rejected")

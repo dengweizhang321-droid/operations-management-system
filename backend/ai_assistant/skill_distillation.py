@@ -131,12 +131,35 @@ def _finish(dispatch, status, receipt, error="", result=None):
     dispatch.save()
 
 
+def _withdraw(op, key, binding, principal):
+    # A missing read receipt is not a cancellation: the original HTTP request
+    # may still arrive. Fence that exact authorization under the dispatch lock.
+    with mutation(principal):
+        prior = PiDispatch.objects.filter(operation=op, kind=KIND, request_id=key).first()
+        if prior:
+            if prior.request_digest != binding:
+                raise AiError("请求标识已绑定其他报告版本", "conflict", 409)
+            if prior.status != "completed":
+                raise AiError("原请求已派发或结果未知，不能撤回授权", "pi_dispatch_unknown", 409)
+        else:
+            prior = PiDispatch.objects.create(id=uid("pi-dispatch"), operation=op, kind=KIND,
+                request_id=key, request_digest=binding, status="completed",
+                error_code="distillation_authorization_withdrawn",
+                response_json=canonical({"httpStatus": 409}), completed_at=timezone.now())
+            chat.audit(principal, prior.id, "skill_distillation_authorization_withdrawal", "succeeded")
+    return {"withdrawn": prior.error_code == "distillation_authorization_withdrawn"}
+
+
 def distill(operation_id, body, principal):
-    fields(body, {"clientRequestId", "reportVersionDigest"}, {"clientRequestId", "reportVersionDigest"})
+    fields(body, {"clientRequestId", "reportVersionDigest", "withdrawAuthorization"}, {"clientRequestId", "reportVersionDigest"})
     key = identifier(body["clientRequestId"], "clientRequestId")
     version = identifier(body["reportVersionDigest"], "reportVersionDigest")
     binding = digest({"operation": operation_id, "version": version})
     op = _operation(operation_id, principal)
+    if "withdrawAuthorization" in body:
+        if body["withdrawAuthorization"] is not True:
+            raise AiError("撤回授权参数无效")
+        return _withdraw(op, key, binding, principal)
     replay = _existing(op, key, binding)
     if replay:
         return replay

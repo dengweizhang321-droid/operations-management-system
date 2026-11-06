@@ -5,13 +5,25 @@ import { useCallback, useEffect, useRef, useState } from "react";
 type Operation = { id: string; status: string; modelId?: string; modelVersion?: number };
 type Receipt = { clientRequestId: string; status: string; errorCode: string | null };
 export type DistillationIntent = { clientRequestId: string; reportVersionDigest: string };
-type Candidate = { id: string; status: string; version: number; contentDigest: string; reportVersionDigest: string; unverifiedRecommendations: number; reviewNote?: string; content: {
+type CandidateContent = {
   goal: string; body: string; parameters: { name: string; kind: string; required: boolean; meaning: string; defaultRule: string }[];
   steps: { order: number; action: string; toolName?: string; missingDataBranch: string }[];
   requiredTools: string[]; templateRefs: string[]; sourceEvidenceRefs: string[]; unverifiedRecommendations: string[]; openQuestions: string[];
-} };
+};
+type Candidate = { id: string; status: string; version: number; contentDigest: string; reportVersionDigest: string; unverifiedRecommendations: number; reviewNote?: string; content: unknown };
 type Basis = { reportVersionDigest: string; reportVersion: { operationId: string; modelId: string; modelVersion: number }; confirmedFeedbackIds: string[]; citableExportIds: string[]; citableFileIds: string[]; coverage: { sourcesComplete: boolean; truncated: Record<string, boolean> }; distillation: { blocked: boolean; latest: Receipt | null; requested: Receipt | null; candidate: Candidate | null } };
 const statusLabels: Record<string, string> = { draft: "草稿", in_review: "审核中", approved: "已批准", rejected: "已退回", superseded: "已替代" };
+
+function candidateContent(value: unknown): value is CandidateContent {
+  const object = (item: unknown): item is Record<string, unknown> => !!item && typeof item === "object" && !Array.isArray(item);
+  const strings = (item: unknown, maximum: number, length: number) => Array.isArray(item) && item.length <= maximum && item.every(entry => typeof entry === "string" && entry.length <= length);
+  const exact = (item: Record<string, unknown>, keys: string[]) => Object.keys(item).sort().join(",") === keys.sort().join(",");
+  return object(value) && exact(value, ["goal", "body", "parameters", "steps", "requiredTools", "templateRefs", "sourceEvidenceRefs", "unverifiedRecommendations", "openQuestions"])
+    && typeof value.goal === "string" && !!value.goal.trim() && value.goal.length <= 240 && typeof value.body === "string" && !!value.body.trim() && value.body.length <= 2000
+    && Array.isArray(value.parameters) && value.parameters.length <= 12 && value.parameters.every(item => object(item) && exact(item, ["name", "kind", "required", "meaning", "defaultRule"]) && typeof item.name === "string" && typeof item.meaning === "string" && typeof item.defaultRule === "string" && typeof item.required === "boolean" && typeof item.kind === "string" && ["shop", "platform", "businessDate", "compareWindow", "threshold", "warehouse", "replenishmentDays", "other"].includes(item.kind))
+    && Array.isArray(value.steps) && value.steps.length <= 20 && value.steps.every(item => object(item) && exact(item, ["order", "action", "missingDataBranch", ...(Object.hasOwn(item, "toolName") ? ["toolName"] : [])]) && Number.isInteger(item.order) && Number(item.order) >= 1 && Number(item.order) <= 20 && typeof item.action === "string" && typeof item.missingDataBranch === "string" && (item.toolName === undefined || typeof item.toolName === "string"))
+    && strings(value.requiredTools, 16, 80) && strings(value.templateRefs, 4, 64) && strings(value.sourceEvidenceRefs, 20, 120) && strings(value.unverifiedRecommendations, 10, 300) && strings(value.openQuestions, 10, 200);
+}
 
 export function parseDistillationIntent(value: string | null): DistillationIntent | null {
   if (!value) return null;
@@ -113,6 +125,7 @@ function DistillationPanel({ operation, storageKey, writable, modelName }: { ope
   async function review(status: string) {
     const candidate = basis?.distillation.candidate;
     if (!candidate || !writable || busyRef.current || stale || loading || !["draft", "in_review"].includes(candidate.status) || new TextEncoder().encode(note).length > 2000) return;
+    if (status !== "rejected" && !candidateContent(candidate.content)) return;
     busyRef.current = true; setBusy(true); setError(""); setNotice("");
     try {
       await request(`skill-candidates/${encodeURIComponent(candidate.id)}/review`, post({ status, expectedVersion: candidate.version, contentDigest: candidate.contentDigest, note }));
@@ -120,7 +133,20 @@ function DistillationPanel({ operation, storageKey, writable, modelName }: { ope
     } catch (cause) { if (alive.current) setError(`${cause instanceof Error ? cause.message : "审核连接中断"}。请刷新核实当前候选后再操作。`); }
     finally { busyRef.current = false; if (alive.current) { setBusy(false); setStale(true); setRevision(value => value + 1); } }
   }
+  async function withdraw() {
+    const intent = pendingRef.current;
+    if (!intent || !writable || !storageOk || busyRef.current || loading || stale || basis?.distillation.blocked) return;
+    busyRef.current = true; setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await request<{ withdrawn: boolean }>(`operations/${encodeURIComponent(operation.id)}/skill-candidates/distill`, post({ ...intent, withdrawAuthorization: true }));
+      if (!alive.current) return;
+      if (typeof result.withdrawn !== "boolean") throw Error("撤回回执无效，请刷新核实原请求");
+      persist(null); setConsent(""); setNotice(result.withdrawn ? "原未派发授权已撤回。请重新核对当前报告并勾选授权后发起新尝试。" : "原请求已结束。请核对当前候选与报告后再操作。");
+    } catch (cause) { if (alive.current) setError(`${cause instanceof Error ? cause.message : "撤回响应中断"}。保留原请求，刷新核实撤回结果。`); }
+    finally { busyRef.current = false; if (alive.current) { setBusy(false); setStale(true); setRevision(value => value + 1); } }
+  }
   const candidate = basis?.distillation.candidate;
+  const content = candidate && candidateContent(candidate.content) ? candidate.content : null;
   const blocked = basis?.distillation.blocked;
   const latest = basis?.distillation.latest;
   const canStart = writable && storageOk && !busy && !loading && !stale && !pending && !blocked && !["draft", "in_review", "approved"].includes(candidate?.status ?? "");
@@ -133,18 +159,19 @@ function DistillationPanel({ operation, storageKey, writable, modelName }: { ope
       <p>依据含 {basis.citableExportIds.length} 项取数来源、{basis.citableFileIds.length} 项附件、{basis.confirmedFeedbackIds.length} 条已确认修正。{!basis.coverage.sourcesComplete && "来源覆盖不完整，缺数仍须保留。"}{Object.values(basis.coverage.truncated).some(Boolean) && "依据列表存在截断，请审核覆盖范围。"}</p>
       <details><summary>报告版本与请求标识</summary><p>报告版本：<code>{basis.reportVersionDigest}</code></p><p>模型标识：<code>{basis.reportVersion.modelId}</code></p>{pending && <p>原请求：<code>{pending.clientRequestId}</code><br />绑定报告：<code>{pending.reportVersionDigest}</code></p>}</details>
       {(pending || blocked) && <p role="status">{latest?.status === "unknown" ? "提炼结果未知，已阻止新请求，请核实原派发。" : "原提炼请求正在核实，不能新建重复提炼。"}刷新只读取记录。</p>}
-      {pending && !blocked && <button type="button" className="secondary-button" disabled={!writable || !storageOk || busy || loading || stale} onClick={() => { void distill(true); }}>继续原请求 / 取回结果</button>}
+      {pending && pending.reportVersionDigest !== basis.reportVersionDigest && <p role="alert">报告版本已变化，原授权仍绑定旧版本。请先撤回原未派发授权，再重新确认当前报告。</p>}
+      {pending && !blocked && <div className="ai-pi-actions">{pending.reportVersionDigest === basis.reportVersionDigest && <button type="button" className="secondary-button" disabled={!writable || !storageOk || busy || loading || stale} onClick={() => { void distill(true); }}>继续原请求 / 取回结果</button>}<button type="button" className="secondary-button" disabled={!writable || !storageOk || busy || loading || stale} onClick={() => { void withdraw(); }}>撤回未派发授权，重新确认</button></div>}
       {latest?.status === "completed" && latest.errorCode && <p role="status">上次提炼已明确结束，未生成草稿（{latest.errorCode}）。修复原因后，可重新确认当前依据发起新尝试。</p>}
       {!candidate || ["rejected", "superseded"].includes(candidate.status) ? <><label className="ai-pi-distillation-consent"><input type="checkbox" checked={consent === basis.reportVersionDigest} disabled={!canStart} onChange={event => setConsent(event.target.checked ? basis.reportVersionDigest : "")} />允许按以上报告版本，使用原任务模型调用一次，提炼为待审核草稿（可能产生模型费用）。</label><button type="button" className="primary-button" disabled={!canStart || consent !== basis.reportVersionDigest} onClick={() => { void distill(); }}>{busy ? "正在处理…" : latest?.errorCode ? "重新提炼草稿" : "提炼 Skill 草稿"}</button></> : null}
       {candidate && <details className="ai-pi-candidate" open><summary>候选正文与审核 · {statusLabels[candidate.status] ?? candidate.status}</summary>
-        <h4>{candidate.content.goal}</h4><p className="ai-pi-candidate-body">{candidate.content.body}</p>
-        <h4>参数与口径</h4>{candidate.content.parameters.length ? <ul>{candidate.content.parameters.map((item, index) => <li key={index}><strong>{item.name} · {item.required ? "必填" : "可选"} · {item.kind}</strong><p>{item.meaning}<br />默认规则：{item.defaultRule || "待确认"}</p></li>)}</ul> : <p>无登记参数</p>}
-        <h4>执行步骤</h4><ol>{candidate.content.steps.map((item, index) => <li key={index}>{item.action}<p>工具：{item.toolName || "无"}<br />缺数分支：{item.missingDataBranch || "待确认"}</p></li>)}</ol>
-        {([["所需工具", candidate.content.requiredTools], ["模板引用", candidate.content.templateRefs], ["来源引用", candidate.content.sourceEvidenceRefs], ["未验证建议", candidate.content.unverifiedRecommendations], ["待确认问题", candidate.content.openQuestions]] as [string, string[]][]).map(([title, items]) => <div key={title}><h4>{title}</h4>{items.length ? <ul>{items.map((item, index) => <li key={index}>{item}</li>)}</ul> : <p>无</p>}</div>)}
+        {content ? <><h4>{content.goal}</h4><p className="ai-pi-candidate-body">{content.body}</p>
+        <h4>参数与口径</h4>{content.parameters.length ? <ul>{content.parameters.map((item, index) => <li key={index}><strong>{item.name} · {item.required ? "必填" : "可选"} · {item.kind}</strong><p>{item.meaning}<br />默认规则：{item.defaultRule || "待确认"}</p></li>)}</ul> : <p>无登记参数</p>}
+        <h4>执行步骤</h4><ol>{content.steps.map((item, index) => <li key={index}>{item.action}<p>工具：{item.toolName || "无"}<br />缺数分支：{item.missingDataBranch || "待确认"}</p></li>)}</ol>
+        {([["所需工具", content.requiredTools], ["模板引用", content.templateRefs], ["来源引用", content.sourceEvidenceRefs], ["未验证建议", content.unverifiedRecommendations], ["待确认问题", content.openQuestions]] as [string, string[]][]).map(([title, items]) => <div key={title}><h4>{title}</h4>{items.length ? <ul>{items.map((item, index) => <li key={index}>{item}</li>)}</ul> : <p>无</p>}</div>)}</> : <><p role="alert">候选正文格式异常，无法完整审阅。已禁止批准或标记审核中；可以查看原始正文并退回候选。</p><details open><summary>原始候选正文</summary><pre>{JSON.stringify(candidate.content, null, 2)}</pre></details></>}
         <p>保留 {candidate.unverifiedRecommendations} 条未验证建议。批准方法不代表建议已验证；批准后仍需管理员通过资源库发布流程启用。</p>
         {candidate.reportVersionDigest !== basis.reportVersionDigest && <p role="alert">候选绑定的报告版本与当前依据不同，请核对原版本再审核。</p>}
         <details><summary>候选版本</summary><p>{candidate.id} · 版本 {candidate.version}</p><p>内容：{candidate.contentDigest}<br />来源报告：{candidate.reportVersionDigest}</p>{candidate.reviewNote && <p>审核备注：{candidate.reviewNote}</p>}</details>
-        {["draft", "in_review"].includes(candidate.status) && <><label className="ai-pi-distillation-note">审核备注<textarea aria-label="Skill 候选审核备注" value={note} maxLength={2000} onChange={event => setNote(event.target.value)} disabled={!writable || busy} /></label><small>{new TextEncoder().encode(note).length} / 2000 字节</small><div className="ai-pi-actions">{candidate.status === "draft" && <button type="button" className="secondary-button" disabled={!writable || busy || loading || stale} onClick={() => { void review("in_review"); }}>标记审核中</button>}<button type="button" className="secondary-button" disabled={!writable || busy || loading || stale || new TextEncoder().encode(note).length > 2000} onClick={() => { void review("rejected"); }}>退回候选</button><button type="button" className="primary-button" disabled={!writable || busy || loading || stale || new TextEncoder().encode(note).length > 2000} onClick={() => { void review("approved"); }}>批准此版本</button></div></>}
+        {["draft", "in_review"].includes(candidate.status) && <><label className="ai-pi-distillation-note">审核备注<textarea aria-label="Skill 候选审核备注" value={note} maxLength={2000} onChange={event => setNote(event.target.value)} disabled={!writable || busy} /></label><small>{new TextEncoder().encode(note).length} / 2000 字节</small><div className="ai-pi-actions">{candidate.status === "draft" && <button type="button" className="secondary-button" disabled={!content || !writable || busy || loading || stale} onClick={() => { void review("in_review"); }}>标记审核中</button>}<button type="button" className="secondary-button" disabled={!writable || busy || loading || stale || new TextEncoder().encode(note).length > 2000} onClick={() => { void review("rejected"); }}>退回候选</button><button type="button" className="primary-button" disabled={!content || !writable || busy || loading || stale || new TextEncoder().encode(note).length > 2000} onClick={() => { void review("approved"); }}>批准此版本</button></div></>}
       </details>}
     </>}
   </div>;

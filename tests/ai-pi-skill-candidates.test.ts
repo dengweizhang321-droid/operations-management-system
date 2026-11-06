@@ -94,6 +94,7 @@ test("Pi skill-candidate writes keep same-origin enforcement and forward their b
   const bodies: Array<[string, Record<string, unknown>]> = [
     ["operations/op_1/skill-candidates", { content: { goal: "g" }, schemaRef: "skill-candidate-v1", schemaDigest: "a".repeat(64) }],
     ["operations/op_1/skill-candidates/distill", { clientRequestId: "request-1", reportVersionDigest: "a".repeat(64) }],
+    ["operations/op_1/skill-candidates/distill", { clientRequestId: "request-1", reportVersionDigest: "a".repeat(64), withdrawAuthorization: true }],
     ["skill-candidates/c_1/review", { status: "approved", expectedVersion: 1, contentDigest: "b".repeat(64), note: "可以" }],
     ["skill-candidates/c_1/publish", { domains: ["netshop"], keywords: ["京东"], expectedLibraryVersion: 3 }],
   ];
