@@ -1,22 +1,43 @@
 """Check the two assumptions under which the frozen migration policy stays dormant."""
 import ast
+import json
+import re
 import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 REHEARSAL = Path("tools/integration-migration-role-rehearsal.py")
 MONITOR = Path(__file__).resolve().relative_to(ROOT)
-CODE = {".py", ".ps1", ".psm1", ".cmd", ".bat", ".sh", ".mjs", ".js", ".ts", ".yml", ".yaml"}
+CODE = {".py", ".ps1", ".psm1", ".cmd", ".bat", ".sh", ".mjs", ".js", ".ts", ".yml", ".yaml", ".tsx", ".jsx", ".bash", ".zsh", ".fish", ".psd1", ".cts", ".cjs", ".mts"}
+
+
+OPTION = "--use-reviewed-policy"
+PREFIXES = {OPTION[:n] for n in range(3, len(OPTION) + 1)}
 
 
 def external_callers(root):
     tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=root).decode().split("\0")
     for name in filter(None, tracked):
         path = Path(name)
-        if path in {REHEARSAL, MONITOR} or path.suffix.lower() not in CODE:
+        if path in {REHEARSAL, MONITOR}:
             continue
-        data = (root / path).read_bytes()
-        if b"--use-reviewed-policy" in data:
+        if path.suffix.lower() not in CODE and path.name != "package.json" and path.suffix:
+            continue
+        source = root / path
+        if not source.is_file():
+            continue
+        data = source.read_bytes()
+        if not path.suffix and not data.startswith(b"#!"):
+            continue
+        if data.startswith((b"\xff\xfe", b"\xfe\xff")):
+            code = data.decode("utf-16")
+        else:
+            code = data.decode("utf-8-sig", errors="replace")
+        if path.name == "package.json":
+            code = "\n".join(json.loads(code).get("scripts", {}).values())
+        # argparse accepts any unambiguous prefix starting at "--u".
+        # Report a possible invocation for human review, not proof of execution.
+        if any(match.group(0) in PREFIXES for match in re.finditer(r"(?<![\w-])--[\w-]+", code)):
             yield name
         # One wrapper loads the rehearsal Python module directly. A changed
         # reviewed_policy argument must be reviewed even without a CLI flag.
@@ -51,21 +72,52 @@ def check_installer(root):
         pass
 
     runtime = root / "synthetic-runtime"
-    protected = (runtime / "integration-installs" / "example" / "source").resolve()
+    operation_id = "1" * 32
+    baseline = runtime / "integration-installs" / "example"
+    delta = runtime / "integration-deltas" / operation_id
     plan = {"operationId": "example"}
-    env = {"Path": Path, "RUNTIME": runtime, "ROOT": protected, "PlanBlocked": Blocked,
+    env = {"Path": Path, "RUNTIME": runtime, "PlanBlocked": Blocked,
            "read_json": lambda _: (plan, "hash"), "verify_deployment": lambda *a, **kw: plan,
-           "delta_directory": lambda *a: protected.parent, "verify_delta_deployment": lambda *a, **kw: plan}
+           "delta_directory": lambda runtime, key: runtime / "integration-deltas" / key,
+           "verify_delta_deployment": lambda *a, **kw: plan}
+    root_binding = [n for n in module.body if isinstance(n, ast.Assign)
+                    and any(isinstance(t, ast.Name) and t.id == "ROOT" for t in n.targets)]
+    if len(root_binding) != 1:
+        raise SystemExit("Review the installer's ROOT binding")
     exec(compile(ast.Module(body=[context], type_ignores=[]), str(path), "exec"), env)
-    for operation in (None, "example"):
-        env["ROOT"] = protected
-        env["context"](runtime, operation)
-        env["ROOT"] = root
+    for operation, target in ((None, baseline), (operation_id, delta)):
+        protected = (target / "source").resolve()
+        for tree in (protected, root, runtime / "app", (baseline if operation else delta) / "source",
+                     target.parent / "sibling" / "source"):
+            env["__file__"] = str(tree / "tools" / "integration_install.py")
+            exec(compile(ast.Module(body=root_binding, type_ignores=[]), str(path), "exec"), env)
+            if env["ROOT"] != tree.resolve():
+                raise SystemExit("Installer ROOT is not bound to the executing source tree")
+            try:
+                result = env["context"](runtime, operation)
+            except Blocked:
+                if tree.resolve() == protected:
+                    raise
+            else:
+                if tree.resolve() != protected or result[0] != target:
+                    raise SystemExit("Installer accepted a source outside the protected snapshot")
+
+    # Call the actual entrypoint functions with the guard replaced by a
+    # sentinel. No database, environment mutation or command may precede it.
+    class GuardReached(Exception):
+        pass
+
+    def guard(*args, **kwargs):
+        raise GuardReached
+    env["context"] = guard
+    for name in ("install", "finalize"):
+        node = next(n for n in module.body if isinstance(n, ast.FunctionDef) and n.name == name)
+        exec(compile(ast.Module(body=[node], type_ignores=[]), str(path), "exec"), env)
         try:
-            env["context"](runtime, operation)
-        except Blocked:
+            env[name](runtime, operation_id)
+        except GuardReached:
             continue
-        raise SystemExit("Installer accepted a source outside the protected snapshot")
+        raise SystemExit(f"Installer {name} did not call the protected-source guard")
 
 
 if __name__ == "__main__":
