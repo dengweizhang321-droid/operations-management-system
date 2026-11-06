@@ -24,16 +24,27 @@ def _user_content(content):
 
 def _replay(item):
     kind = item.get("type") if isinstance(item, dict) else None
+    identity = {}
+    if isinstance(item, dict) and "id" in item:
+        if not isinstance(item["id"], str) or not item["id"]:
+            raise _invalid("responses_item_id")
+        identity["id"] = item["id"]
     if kind == "reasoning":
         encrypted = item.get("encrypted_content")
         if not isinstance(encrypted, str) or not encrypted:
             raise _invalid("responses_reasoning_encrypted_content")
-        return {"type": kind, "summary": [], "encrypted_content": encrypted}
+        summary = item.get("summary", [])
+        if not isinstance(summary, list) or any(not isinstance(entry, dict)
+                or entry.get("type") != "summary_text" or not isinstance(entry.get("text"), str) for entry in summary):
+            raise _invalid("responses_reasoning_summary")
+        return {"type": kind, **identity, "summary": summary, "encrypted_content": encrypted}
     if kind == "function_call":
+        if item.get("status", "completed") != "completed":
+            raise _invalid("responses_unfinished_function_call")
         fields = ("call_id", "name", "arguments")
         if not all(isinstance(item.get(k), str) for k in fields):
             raise _invalid("responses_function_call")
-        return {"type": kind, **{k: item[k] for k in fields}}
+        return {"type": kind, **identity, **{k: item[k] for k in fields}, "status": "completed"}
     if kind == "message" and item.get("role") == "assistant":
         content = item.get("content")
         if not isinstance(content, list):
@@ -46,7 +57,11 @@ def _replay(item):
             if not isinstance(p.get(key), str):
                 raise _invalid("responses_content")
             parts.append({"type": p["type"], key: p[key], **({"annotations": []} if key == "text" else {})})
-        return {"type": kind, "role": "assistant", "content": parts}
+        phase = item.get("phase")
+        if phase is not None and phase not in {"commentary", "final_answer"}:
+            raise _invalid("responses_message_phase")
+        return {"type": kind, **identity, "role": "assistant", "content": parts,
+                **({"phase": phase} if phase is not None else {})}
     raise _invalid("responses_unexpected_item")
 
 

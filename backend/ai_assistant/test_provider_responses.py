@@ -51,9 +51,14 @@ class ResponsesTests(TestCase):
         last, body = self.turn(reply([message("done")]), history)
         self.assertEqual(last["text"], "done")
         self.assertEqual(body["input"][1]["encrypted_content"], "opaque")
-        self.assertNotIn("id", body["input"][1])
+        self.assertEqual(body["input"][1]["id"], "remote-only")
         self.assertEqual(body["input"][-1]["call_id"], "call-1")
         self.assertEqual(body["input"][-1]["type"], "function_call_output")
+
+    def test_intermediate_message_keeps_phase_when_replayed(self):
+        frame, _ = self.turn(reply([{**message("checking"), "phase": "commentary"}]), [], retain_reasoning=True)
+        _, body = self.turn(reply([message("done")]), [frame["frame"]])
+        self.assertEqual(body["input"][0]["phase"], "commentary")
 
     def test_schema_and_visual_input(self):
         frames = [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "data:image/png;base64,AA=="}}]}]
@@ -79,7 +84,20 @@ class ResponsesTests(TestCase):
         with self.assertRaises(InvalidProviderResponse):
             stream.finish()
 
+    def test_full_sse_terminal_can_span_many_transport_reads(self):
+        text = "a" * 400_000
+        stream = ProviderStream("openai_responses", lambda _: None)
+        payload = ("data: " + json.dumps({"type": "response.completed",
+                    "response": reply([message(text)])}) + "\n\n").encode()
+        for offset in range(0, len(payload), 64 * 1024):
+            stream.feed(payload[offset:offset + 64 * 1024])
+        self.assertEqual(stream.finish()["output"][0]["content"][0]["text"], text)
+
     def test_reject_unexpected_hosted_tools_and_truncated_tool_calls(self):
+        for status in ("in_progress", "incomplete"):
+            with self.subTest(status=status), self.assertRaises(InvalidProviderResponse):
+                self.turn(reply([{"type": "function_call", "status": status, "call_id": "c",
+                                  "name": "tool", "arguments": "{}"}]), [])
         with self.assertRaises(InvalidProviderResponse):
             self.turn(reply([{"type": "web_search_call", "status": "completed"}]), [])
         with self.assertRaises(InvalidProviderResponse):

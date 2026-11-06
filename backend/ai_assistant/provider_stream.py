@@ -7,7 +7,7 @@ import codecs
 import json
 import re
 from .policy import AiError
-from .model_capabilities import MAX_REPLY_CHARACTERS
+from .model_capabilities import MAX_PROVIDER_BYTES, MAX_REPLY_CHARACTERS
 from .provider_contract import InvalidProviderResponse
 
 
@@ -41,6 +41,8 @@ class ProviderStream:
             if not boundary:
                 break
             block = self.buffer[:boundary.start()]
+            if self.protocol == "openai_responses" and len(block.encode()) > MAX_PROVIDER_BYTES:
+                raise invalid("sse_event_size")
             self.buffer = self.buffer[boundary.end():]
             data = "\n".join(line[5:].lstrip() for line in block.splitlines() if line.startswith("data:"))
             if not data:
@@ -62,7 +64,10 @@ class ProviderStream:
                 self.anthropic(event)
             else:
                 self.openai(event)
-        if len(self.buffer.encode()) > 256 * 1024:
+        # A Responses terminal event repeats the complete response, including
+        # every output item. Bound it like a JSON response, not a small delta.
+        limit = MAX_PROVIDER_BYTES if self.protocol == "openai_responses" else 256 * 1024
+        if len(self.buffer.encode()) > limit:
             raise invalid("sse_event_size")
 
     def responses(self, event):
