@@ -220,7 +220,11 @@ class PiWorkspaceTests(runtime_tests.PiRuntimeTests):
             self.send(op.session_id, "dependency_install", {"ecosystem": "pip", "packages": [{"name": "six", "version": "1.17.0"}]})
         installed = next(call.args[0]["payload"] for call in send.call_args_list if call.args[0]["payload"]["action"] == "control")
         self.assertEqual(installed["command"], "resource_install")
-        self.assertEqual(installed["payload"], {"bundle": bundle})
+        # Every workspace control payload now carries the admission fence
+        # (pi_workspace.py's _control attaches it unconditionally) so the
+        # Runner can validate it before resource_install executes.
+        from . import pi_native
+        self.assertEqual(installed["payload"], {"bundle": bundle, "admission": pi_native.admission(op)})
 
     def test_research_is_explicit_has_no_container_and_read_failure_is_known(self):
         session = self.session()

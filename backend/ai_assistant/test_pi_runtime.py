@@ -40,8 +40,12 @@ class PiRuntimeTests(TestCase):
         return op, token
 
     def request(self, op, token, **kwargs):
+        from . import pi_native
+        # The real Runner always echoes back the admission fence it was
+        # given on create/prompt (pi_runner/server.py's gateway dispatch);
+        # match that here instead of a 403-by-omission payload.
         return {**worker.identity(op), "kind": "model", "requestId": "gateway-1", "capability": token,
-            "messages": [{"role": "user", "content": "合成测试"}], "tools": [], **kwargs}
+            "messages": [{"role": "user", "content": "合成测试"}], "tools": [], "admission": pi_native.admission(op), **kwargs}
 
     def test_public_queue_is_independent_and_refresh_is_read_only(self):
         session = self.session()
@@ -249,13 +253,16 @@ class PiRuntimeTests(TestCase):
             if command == "prompt":
                 service.abort(op.session_id, {"clientRequestId": "stop-before-bridge"}, self.owner)
                 return {"status": "running", "state": {"pendingGatewayRequests": [self.request(op, token, kind="tool")]}}
+            if command == "workspace":
+                # Stop clears the native queue before abort; its result is discarded.
+                return {"status": "idle"}
             self.assertEqual(command, "abort")
             return {"status": "aborted", "events": [{**worker.identity(op), "eventSeq": 1, "type": "agent_settled"}],
                 "files": [], "filesCollected": True,
                 "terminalReceipt": {"operationId": op.id, "status": "aborted", "eventSeq": 1, "files": []}}
         with patch.object(worker, "heartbeat"), patch.object(worker, "runner_dispatch", side_effect=runner), patch.object(worker, "bridge") as bridge, patch("ai_assistant.pi_transport.command", return_value={}) as transport:
             worker.perform(op)
-        self.assertEqual(commands, ["create", "prompt", "abort"])
+        self.assertEqual(commands, ["create", "prompt", "workspace", "abort"])
         self.assertFalse(bridge.called)
         self.assertEqual(transport.call_args.args[0]["command"], "ack")
         self.assertEqual(PiOperation.objects.get(pk=op.pk).status, "canceled")
