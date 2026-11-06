@@ -27,6 +27,12 @@
 python -B manage.py test ai_assistant.test_skill_candidate_step_tools ai_assistant.test_skill_candidates ai_assistant.test_skill_candidate_schema_route --noinput -v 1
 ```
 
-解释器为上述完整路径，`PYTHONDONTWRITEBYTECODE=1`、`PYTHONUTF8=1`。2026-11-07 测试结果：`Ran 56 tests in 3.807s` / `OK` / exit 0；系统检查 0 issue。新模块 11 项，原 candidate 与 schema 路由两模块合计 45 项。覆盖逐步登记、独立于 requiredTools 的拒绝、可选字段、类型错误、目录来源、HTTP 400/201、存量读取，并复用原所有权/审核/发布回归。SQLite 结果不代表 PostgreSQL 行锁或数据库特有约束验证；本次没有修改事务、模型或迁移。
+解释器为上述完整路径，`PYTHONDONTWRITEBYTECODE=1`、`PYTHONUTF8=1`。2026-11-07 首轮 SQLite 测试结果：`Ran 56 tests in 3.807s` / `OK` / exit 0；系统检查 0 issue。新模块 11 项，原 candidate 与 schema 路由两模块合计 45 项。覆盖逐步登记、独立于 requiredTools 的拒绝、可选字段、类型错误、目录来源、HTTP 400/201、存量读取，并复用原所有权/审核/发布回归。SQLite 结果不代表 PostgreSQL 行锁或数据库特有约束验证；本次没有修改事务、模型或迁移。
+
+### PostgreSQL 发现与夹具修正
+
+后续组合分支的真实隔离 PostgreSQL 验证执行 24 项，出现 1 个 error：本项 `test_legacy_candidate_with_unknown_step_still_reads` 先保存再 UPDATE `content_json`，被 `ai_immutable_record_guard()` 以 `ai_immutable_identity` 拒绝。该错误属于旧数据测试夹具，不是保存或读取生产行为的缺陷；首轮 SQLite 通过不能说明这项夹具适用于 PostgreSQL。原日志保留于组合工作树 `.runtime/ai-pg-0b0e9cab5508/failure.log`。
+
+增量仅修正测试：通过已完成 operation 的真实 `request_schema()` 取得报告、schema、反馈绑定，带合法的 export 来源引用和真实 `canonical()` / `digest()`，一次 INSERT 完整 draft 字段，模拟旧版已接受的正文。没有 UPDATE 不可变内容、关闭触发器或放宽生产门禁。读取时同时核对步骤、正文摘要及报告版本摘要。相同隔离 SQLite 配置下单独执行修正用例：`Ran 1 test in 0.099s` / `OK` / exit 0，系统检查 0 issue。PostgreSQL 增量结果由主任务后续组合重跑后记录。
 
 `git diff --check` 通过。未执行全仓测试、生产迁移、服务启停、推送、制品准备或上线；下一步由主任务安排独立审查。

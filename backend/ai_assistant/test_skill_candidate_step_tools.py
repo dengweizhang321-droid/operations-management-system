@@ -2,10 +2,11 @@
 from unittest.mock import patch
 
 from django.test import TestCase
+from django.utils import timezone
 
 from . import (pi_gateway, skill_candidates, test_skill_candidates as candidates,
                tests as domain)
-from .policy import AiError, canonical, mutation
+from .policy import AiError, canonical, digest, mutation, uid
 
 TOOLS = candidates.TOOLS
 
@@ -118,16 +119,31 @@ class SkillCandidateStepToolTests(TestCase):
                                  before + int(expected == 201))
 
     def test_legacy_candidate_with_unknown_step_still_reads(self):
-        item = self.saved()
-        row = skill_candidates.m.AiSkillCandidate.objects.get(id=item["id"])
-        legacy = item["content"]
-        legacy["steps"] = [self.step("retired_tool_xyz")]
-        # Simulate content saved before registration validation existed.
-        with mutation():
-            row.content_json = canonical(legacy)
-            row.save(update_fields=["content_json"])
+        op = self.settled()
+        export = self.export(op)
+        request = skill_candidates.request_schema(op.id, self.owner)
+        legacy = self.content(steps=[self.step("retired_tool_xyz")],
+                              sourceEvidenceRefs=[export.id])
+        # Simulate the old save path with a complete INSERT. Candidate
+        # content/provenance are immutable in PostgreSQL, even for drafts.
+        now = timezone.now()
+        with mutation(self.owner):
+            skill_candidates.m.AiSkillCandidate.objects.create(
+                id=uid("ai-candidate"), operation_id=op.id,
+                owner_email=self.owner.email.lower(),
+                report_version_digest=request["reportVersionDigest"],
+                report_version_json=canonical(request["reportVersion"]),
+                content_json=canonical(legacy), content_digest=digest(legacy),
+                schema_ref=request["outputSchemaRef"],
+                schema_digest=request["schemaDigest"],
+                feedback_ids_json=canonical(request["confirmedFeedbackIds"]),
+                unverified_count=len(legacy["unverifiedRecommendations"]),
+                status="draft", reviewed_by="", reviewed_at=None, review_note="",
+                version=1, created_at=now, updated_at=now)
         listed = skill_candidates.listing({}, self.owner)["items"]
         self.assertEqual(listed[0]["content"]["steps"], legacy["steps"])
+        self.assertEqual(listed[0]["contentDigest"], digest(legacy))
+        self.assertEqual(listed[0]["reportVersionDigest"], request["reportVersionDigest"])
         response = self.call("/api/ai/pi/skill-candidates", None,
                              self.owner, method="GET")
         self.assertEqual(response.status_code, 200, response.content)
