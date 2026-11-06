@@ -147,11 +147,9 @@ def save(operation_id, body, principal):
                 # Replacing a correction keeps the old row: what was believed
                 # when stays readable, and expectedVersion proves the caller
                 # saw the value being replaced. Required (not defaulted to
-                # live.version) once there is a live row to replace: this
-                # endpoint has no reachable caller yet (Worker's
-                # PI_PUBLIC_PATH whitelist does not cover pi/operations), so
-                # closing the silent-overwrite gap now costs nothing -- no
-                # existing caller can be broken by it.
+                # live.version) once there is a live row to replace: the
+                # silent-overwrite path is closed rather than preserved, so a
+                # caller must prove it saw the correction it is replacing.
                 if "expectedVersion" not in body:
                     raise AiError("覆盖已有修正需要提供 expectedVersion", "invalid_request", 400)
                 cas(live, body["expectedVersion"])
