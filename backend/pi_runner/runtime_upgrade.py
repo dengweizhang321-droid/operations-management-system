@@ -242,7 +242,9 @@ def apply(value):
             except (OSError,ValueError):
                 if time.monotonic()>deadline:raise ValueError('source_upgrade_candidate_unknown')
                 time.sleep(.2)
-        intent.update({'status':'runner_verified','candidateStateSha256':state_manifest(new/'state')})
+        # Keep the stopped copy's digest from switching. Signed health writes
+        # replay-protection nonces to the live candidate ledger.
+        intent['status']='runner_verified'
         atomic(intent_path,encode(intent))
         return {'upgraded':True,'sourceSha256':plan['newSourceSha256'],'image':plan['newImage'],'freshStateSha256':fresh,
                 'candidateStateSha256':intent['candidateStateSha256'],'operationId':plan['operationId'],'planSha256':sha(raw),'oldReleaseRetained':True}

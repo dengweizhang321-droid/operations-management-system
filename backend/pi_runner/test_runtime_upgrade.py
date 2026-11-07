@@ -1,6 +1,7 @@
 """Actual isolated old-source user-unit -> new-source signed Runner handoff."""
 import base64
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -12,13 +13,169 @@ import unittest
 import uuid
 import tempfile
 import importlib.util
+from http.server import ThreadingHTTPServer
+import threading
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
+from . import runtime_upgrade
 from .client import command
 from .protocol import HEALTH_PATH,decode,encode
-from .runtime_upgrade import prepare,apply,check,reconcile,systemctl,source_digest,sha
+from .runtime_upgrade import prepare,apply,check,reconcile,systemctl,source_digest,sha,state_manifest
+from .server import Broker, Handler, Ledger
 
 CONFIG=os.environ.get('PI_RUNNER_TEST_CONFIG')
 LEGACY=os.environ.get('PI_RUNNER_LEGACY_SOURCE_DIR')
+
+
+class UpgradeProbeHandler(Handler):
+    def do_POST(self):
+        if not self.server.drop_response:
+            return super().do_POST()
+        # Process and sign the real response, then simulate a lost transport.
+        stream = self.wfile
+        self.wfile = io.BytesIO()
+        try:
+            super().do_POST()
+        finally:
+            self.wfile = stream
+
+
+@unittest.skipUnless(os.name == 'posix' and Path('/proc').is_dir(), 'Linux upgrade filesystem')
+class SourceUpgradeSignedProbeTests(unittest.TestCase):
+    def setUp(self):
+        root = Path(self.enterContext(tempfile.TemporaryDirectory(prefix='pi-upgrade-probe-')))
+        base = root / 'releases'
+        self.old, self.new = base / ('a' * 64), base / source_digest()
+        self.old_state, self.new_state = self.old / 'state', self.new / 'state'
+        self.old_state.mkdir(mode=0o700, parents=True)
+        self.unit, self.unit_name = root / 'pi-test-upgrade.service', 'pi-test-upgrade.service'
+        self.key = os.urandom(32)
+        self.old_image, self.new_image = 'sha256:' + 'b' * 64, 'sha256:' + 'c' * 64
+        self.old_unit = f'WorkingDirectory={self.old}/backend\n'.encode()
+        old_config = {'namespace': 'pi-test-upgrade', 'image': self.old_image, 'docker': '/unused/docker',
+                      'stateDirectory': str(self.old_state), 'keyFile': str(self.old / 'channel.key')}
+        for path, raw in [(self.unit, self.old_unit), (self.old / 'config.json', encode(old_config)),
+                          (self.old / 'channel.key', self.key)]:
+            path.write_bytes(raw)
+            path.chmod(0o600)
+        ledger = Ledger(self.old_state / 'ledger.sqlite3')
+        try:
+            with ledger.db:
+                ledger.db.execute("INSERT INTO sessions (workspace,status) VALUES ('prior','stopped')")
+        finally:
+            ledger.db.close()
+        (self.old_state / 'download').write_bytes(b'copied bytes')
+        self.server = ThreadingHTTPServer(('127.0.0.1', 0), UpgradeProbeHandler)
+        self.server.drop_response = False
+        self.addCleanup(self.server.server_close)
+        self.status = 'inactive'
+        self.start_fails = False
+        self.control = Mock(side_effect=self.service_control)
+        self.enterContext(patch.object(runtime_upgrade, 'systemctl', self.control))
+        self.enterContext(patch.object(runtime_upgrade, 'subprocess', SimpleNamespace(run=self.docker)))
+        self.enterContext(patch.object(runtime_upgrade, 'context',
+                                       return_value=(base, self.unit, self.unit_name, self.server.server_port)))
+        self.value = {'operationId': 'probe-regression', 'namespace': 'pi-test-upgrade', 'unitName': self.unit_name,
+                      'unitPath': str(self.unit), 'releaseParent': str(base), 'port': self.server.server_port,
+                      'oldSourceSha256': self.old.name, 'newSourceSha256': self.new.name, 'oldImage': self.old_image,
+                      'newImage': self.new_image, 'channelKeySha256': sha(self.key),
+                      'windowsConfigSha256': 'd' * 64, 'windowsKeyFileSha256': 'e' * 64}
+        self.value['planSha256'] = prepare(self.value)['planSha256']
+
+    def docker(self, args, **_):
+        if args == ['/unused/docker', 'image', 'inspect', self.new_image]:
+            image = {'Id': self.new_image, 'Os': 'linux', 'Config': {'Entrypoint': ['node', '/opt/pi/entrypoint.mjs']}}
+            return SimpleNamespace(stdout=encode([image]))
+        self.assertEqual(args, ['/unused/docker', 'ps', '-aq', '--filter', 'label=teruisi.pi.namespace=pi-test-upgrade'])
+        return SimpleNamespace(stdout=b'')
+
+    def intent(self):
+        return decode((self.new / 'source-upgrade-intent.json').read_bytes())
+
+    def service_control(self, unit_name, *args):
+        self.assertEqual(unit_name, self.unit_name)
+        if args == ('show', '--property=ActiveState', '--value'):
+            return self.status
+        if args == ('show', '--property=MainPID', '--value'):
+            return '123' if self.status == 'active' else '0'
+        if args == ('daemon-reload',):
+            return ''
+        self.assertEqual(args, ('start',))
+        self.assertEqual(self.unit.read_bytes(), (self.new / 'pi-runner.service').read_bytes())
+        self.switching = self.intent()
+        self.assertEqual(self.switching['status'], 'switching')
+        self.assertEqual(self.switching['candidateStateSha256'], state_manifest(self.new_state))
+        if self.start_fails:
+            self.status = 'failed'
+            raise subprocess.CalledProcessError(1, ['systemctl', 'start'])
+        broker = Broker.__new__(Broker)
+        broker.key, broker.image, broker.namespace = self.key, self.new_image, self.value['namespace']
+        broker.sessions, broker.preflight = {}, lambda: None
+        broker.ledger = Ledger(self.new_state / 'ledger.sqlite3')
+        self.server.broker = broker
+        thread = threading.Thread(target=self.server.serve_forever, kwargs={'poll_interval': .02}, daemon=True)
+        thread.start()
+        self.addCleanup(broker.ledger.db.close)
+        self.addCleanup(thread.join, 5)
+        self.addCleanup(self.server.shutdown)
+        self.status = 'active'
+
+    def assert_probe_wrote_wal(self):
+        ledger = self.server.broker.ledger
+        with ledger.lock:
+            self.assertEqual(ledger.db.execute('SELECT count(*) FROM nonce').fetchone(), (1,))
+            self.assertGreater((self.new_state / 'ledger.sqlite3-wal').stat().st_size, 0)
+            self.assertEqual(ledger.db.execute("SELECT image FROM sessions WHERE workspace='prior'").fetchone(),
+                             (self.old_image,))
+
+    def assert_apply_cannot_replay(self):
+        self.control.reset_mock()
+        with self.assertRaisesRegex(ValueError, 'source_upgrade_unknown_no_replay'):
+            apply(self.value)
+        self.control.assert_not_called()
+
+    def test_signed_health_leaves_wal_and_keeps_stopped_candidate_digest(self):
+        result = apply(self.value)
+        self.assert_probe_wrote_wal()
+        self.assertEqual(self.intent(), {**self.switching, 'status': 'runner_verified'})
+        self.assertEqual(result['candidateStateSha256'], self.switching['candidateStateSha256'])
+        self.assertEqual(result['freshStateSha256'], state_manifest(self.old_state))
+        self.assertTrue(result['oldReleaseRetained'])
+        self.assertEqual((self.new_state / 'download').read_bytes(), b'copied bytes')
+        self.assert_apply_cannot_replay()
+        self.assertEqual(reconcile(self.value), {**result, 'reconciled': True})
+
+    def test_start_failure_restores_old_unit_without_restarting_it(self):
+        self.start_fails = True
+        with self.assertRaisesRegex(ValueError, 'source_upgrade_rejected_old_retained'):
+            apply(self.value)
+        self.assertEqual(self.intent(), {**self.switching, 'status': 'rejected_old_unit_restored'})
+        self.assertEqual(self.unit.read_bytes(), self.old_unit)
+        self.assertEqual(state_manifest(self.old_state), self.switching['freshStateSha256'])
+        self.assertEqual(state_manifest(self.new_state), self.switching['candidateStateSha256'])
+        self.assertEqual(sum(call.args[1:] == ('start',) for call in self.control.call_args_list), 1)
+        self.assert_apply_cannot_replay()
+
+    def test_lost_signed_response_retains_original_intent_for_reconcile(self):
+        self.server.drop_response = True
+        clock = SimpleNamespace(monotonic=Mock(side_effect=(0, 21)))
+        with patch.object(runtime_upgrade, 'time', clock):
+            with self.assertRaisesRegex(ValueError, 'source_upgrade_candidate_unknown'):
+                apply(self.value)
+        self.assert_probe_wrote_wal()
+        unknown = {**self.switching, 'status': 'unknown'}
+        self.assertEqual(self.intent(), unknown)
+        self.assertEqual(self.unit.read_bytes(), (self.new / 'pi-runner.service').read_bytes())
+        self.assert_apply_cannot_replay()
+        self.server.drop_response = False
+        result = reconcile(self.value)
+        self.assertTrue(result['reconciled'])
+        for field in ('candidateStateSha256', 'freshStateSha256', 'operationId', 'planSha256'):
+            self.assertEqual(result[field], unknown[field])
+        self.assertEqual(self.intent(), unknown)
+        self.assertEqual([call.args[1:] for call in self.control.call_args_list],
+                         [('show', '--property=ActiveState', '--value')])
 
 
 @unittest.skipUnless(os.name=='nt','CurrentUser DPAPI Windows boundary')
@@ -131,13 +288,21 @@ class SourceUpgradeRealTests(unittest.TestCase):
                 meta=decode(dc('inspect',container_id))[0]
                 self.assertEqual(meta['Config']['Labels']['teruisi.pi.namespace'],namespace)
                 if meta['State']['Running']:dc('stop','--time','1',meta['Id'])
-            result=apply({**value,'action':'apply','planSha256':prepared['planSha256']})
+            apply_value={**value,'action':'apply','planSha256':prepared['planSha256']}
+            result=apply(apply_value)
             self.assertTrue(result['upgraded']);self.assertTrue(result['oldReleaseRetained'])
+            new=base/value['newSourceSha256']
+            intent=decode((new/'source-upgrade-intent.json').read_bytes())
+            self.assertEqual(intent['status'],'runner_verified')
+            self.assertEqual(result['candidateStateSha256'],intent['candidateStateSha256'])
+            self.assertGreater((new/'state/ledger.sqlite3-wal').stat().st_size,0)
+            self.assertEqual(state_manifest(old/'state'),result['freshStateSha256'])
+            with self.assertRaisesRegex(ValueError,'source_upgrade_unknown_no_replay'):
+                apply(apply_value)
             candidate_pid=systemctl(unit_name,'show','--property=MainPID','--value')
             recovered=reconcile({**value,'action':'reconcile','planSha256':prepared['planSha256']})
             self.assertTrue(recovered['reconciled'])
             self.assertEqual(systemctl(unit_name,'show','--property=MainPID','--value'),candidate_pid)
-            new=base/value['newSourceSha256']
             self.assertEqual((new/'state/workspace-downloads/synthetic-snapshot').read_bytes(),b'immutable-after-prepare')
             self.assertEqual((old/'channel.key').read_bytes(),(new/'channel.key').read_bytes())
             health=command(url,key,{},path=HEALTH_PATH)
