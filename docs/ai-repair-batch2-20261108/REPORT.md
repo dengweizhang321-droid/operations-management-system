@@ -1,6 +1,6 @@
 # AI 修复第二批交付
 
-2026-11-08（Asia/Shanghai）。应用小任务开发、必要检查、对应专项验证和独立 Astra 反审已经完成；最终 G02 固定入口仍在收口。本页在固定入口完成后更新交付状态。
+2026-11-08（Asia/Shanghai）。第二批开发、必要检查、对应专项验证、逐小任务独立 Astra 反审和最终 G02 固定检查均已完成，无剩余本批阻断。当前仅交开发分支，未合并 main 或上线。
 
 ## 本批变化
 
@@ -28,6 +28,10 @@
 
 各应用小项独审：[W5](REVIEW-W5.md)、[W6b](REVIEW-W6B.md)、[W6R](REVIEW-W6R.md)、[W8](REVIEW-W8.md)、[W9](REVIEW-W9.md)。当前无剩余应用源码阻断。
 
-TypeScript候选与精确main的167条诊断逐项一致，新增0；不是全仓全绿。G02第一轮在无效owner参数已被PowerShell原生拒绝后，因长路径错误排版把参数名拆行而失败；原failed报告与输出保留，隔离候选已清理。只修复验证器对显示折行的适配，不改变生产参数检查。最终固定入口及其独审结果将在本页和交接中依据真实回执更新。
+TypeScript候选与精确main的167条诊断逐项一致，新增0；不是全仓全绿。G02第一轮在无效owner参数已被PowerShell原生拒绝后，因长路径错误排版把参数名拆行而失败；原failed报告与输出保留，隔离候选已清理。只修复验证器对显示折行的适配，不改变生产参数检查。
+
+最终固定入口绑定 `9368676d81a175c86c0d7bd6f90d1de395765d67`、tree `b0da82f7639516fa9c3927b0758ea65aa024dba6`，四项检查均实际退出0。机器报告 SHA-256 `3ed9b8c46b4be6dfba7d62dde28df3b452f7f05f96c9698f1f6353ec2cb2e8a4`；`packageIntegrity=true`、`nativeEntryBoundary=true`，限定Pandas原生范围有实证，完整Windows栈 `nativeColdStart=false`。候选工作树已清理。原Astra核验8,486项载荷、5工具、8日志及全部引用后 [增量通过](REVIEW-G02.md)。之后仅任务文档/离线HTML收尾，运行字节未变；最终远端HEAD见外置 [DELIVERY.json](D:/codex-artifacts/ai-repair-batch2-20261108/DELIVERY.json)。
+
+可直接打开 [离线交付报告](REPORT.html)。本批专用测试发行版已验证四个试验unit停止、端口无监听、本域零容器，随后停止rootlessDocker并仅终止本批WSL实例。发行版和故障意图保留，生产实例未触碰；[环境收尾回执](D:/codex-artifacts/ai-repair-batch2-20261108/environment/FINAL-STATE.json)。
 
 后续第三批仅W10/W11/W12，按 [HANDOFF.md](HANDOFF.md) 另建一个独立项目聊天/worktree，不能在本聊天继续施工，也不能把连续开发授权当main或上线授权。

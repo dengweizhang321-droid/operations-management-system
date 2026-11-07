@@ -1,12 +1,12 @@
 # 第二批到第三批交接
 
-状态：应用源码、专项验证与逐小任务Astra均已通过；第二批最终G02固定入口仍在收口。本状态更新为完成后才创建第三批聊天。本文件准备本身不代表已创建或启动第三批。
+状态：第二批开发、必要检查、对应专项验证、逐小任务Astra及最终G02固定入口均已完成，可以按已有授权创建紧接的第三批一个聊天。第三批实际创建信息见最终外置交付回执；本文件不代替工具创建结果。
 
 ## 权威来源与当前状态
 
 - 工作树 `D:/.codex/worktrees/3063/运营管理系统`；任务分支 `codex/ai-repair-batch2-20261108`。
 - 本批基线、再次fetch的远端main：`0c7d0feb33f45cfc6ae1f283b81d401c873c5768`。下一批开工须重新fetch，不把本次观察当永久状态。
-- 应用冻结提交 `638fd30db3e1fa670805878d060ee3894baa462d`，tree `116000d9b258178234ac489c3b24d445815bd672`。最终受检提交、远端HEAD和外置回执由本批完成记录给出；交接时未合main、无正式制品、未上线。
+- 应用冻结提交 `638fd30db3e1fa670805878d060ee3894baa462d`，tree `116000d9b258178234ac489c3b24d445815bd672`。最终受检提交 `9368676d81a175c86c0d7bd6f90d1de395765d67`，其后仅文档/HTML；最终远端HEAD见 `D:/codex-artifacts/ai-repair-batch2-20261108/DELIVERY.json`。交接时未合main、无正式制品、未上线。
 - 本批报告 [REPORT.md](REPORT.md)、检查 [CHECKS.md](CHECKS.md)、小任务/型号/提交/反审状态 [STATUS.md](STATUS.md)。外置原件根 `D:/codex-artifacts/ai-repair-batch2-20261108/`，每个小包保留初审失败、返修、原件与最终审查，不覆盖成一次全绿。
 - 原施工总方案：`D:/codex-worktrees/ai-repair-plan-20261107/docs/ai-repair-plan-20261107/PLAN.md`，方案提交 `492e54bd0e2d408548efc6b918ee9cae216c306f`；同目录REVIEW/EVIDENCE。路径缺失时从精确Git提交读取。
 - 第一批交接目录 `D:/codex-worktrees/ai-repair-batch1-20261107/docs/ai-repair-batch1-20261107/`，最终头 `265ef9bb7ad240dfbd9b92c18bdffd73a728040c`；未合main。
@@ -33,11 +33,12 @@
 - 原生Pandas阶段有真实root/systemd/UID1000/同nonce账本、严格probe、自测、两来源容器、unknown及清理原件；Windows原启动函数接缝真实连接私有WSL，但Windows保活/安装保护/发布租约为夹具。完整Windows应用栈冷启动未测。最终G02限定资格只覆盖本批精确字节，后续改动需按影响补证。
 - 钉钉旧unknown保留、测试任务停用状态不擅改；生成成功、平台受理、送达/已读分别解释。没有新增真实外发，不能以用户没收到认定未发送，更不能换ID重放或改投群。
 - W9收益仅为同条件合成三节点样本少2次调度轮次，不能外推线上秒数或把原1005秒全算调度浪费。
+- G02成功原件 `candidate-compatibility-g02-v2/REPORT.json` SHA `3ed9b8c46b4be6dfba7d62dde28df3b452f7f05f96c9698f1f6353ec2cb2e8a4`；四项退出0、8,486载荷与原件绑定、候选清理均经原Astra最终复核。第一次PS5错误折行断言失败保留，修正仅涉及验证器。TypeScript167条基线既有诊断、两条readiness历史候选断言及旧installed inventory缺口没有全仓扩修。下一批不可拿本批55路径/54字节资格放行任意更改。
 
 ## 工作树、环境与授权
 
 下一批从届时最新main创建一个新的项目聊天和独立worktree/codex分支。应用若已建合规工作树，核验后直接复用，不再造第二个批次树。第二批树未合且为来源与审阅证据，继续保留，保护主工作区用户改动。
 
-专用非生产测试发行版 `Codex-AI-Batch2-20261108` 位于 `D:/codex-isolated/ai-repair-batch2-20261108-wsl`，禁止混同生产 `TERUISI-Pandas`。根持有的测试保活、最终启停与保留状态在完成回执中记录，后续使用须核现场。镜像 `sha256:4c5815d845a4579d5402f2f4c22c8c822701a0116df2e0fc8b28ef31e832d580` 仅测试；所有残留/故障注入意图保留原身份，不借生产环境补测。
+专用非生产测试发行版 `Codex-AI-Batch2-20261108` 位于 `D:/codex-isolated/ai-repair-batch2-20261108-wsl`，禁止混同生产 `TERUISI-Pandas`。四个试验unit停止、18129零监听与本域零容器后，rootlessDocker和该发行版及根保活已停止，磁盘与故障意图保留；权威回执为外置 `environment/FINAL-STATE.json`，后续使用须核现场。镜像 `sha256:4c5815d845a4579d5402f2f4c22c8c822701a0116df2e0fc8b28ef31e832d580` 仅测试；所有故障注入意图保留原身份，不借生产环境补测。
 
 已有授权是连续三批开发、必要检查、相应专项验证、逐小任务Astra及任务分支推送。main合并和对应正式制品、上线、生产旧容器处置、默认模型/生产配置修改、业务写入、长期调度和新增外发均不由此授权。没有明确次数的新真实供应商/钉钉动作先做可审材料再问实际缺项；旧unknown永不重放。只在本批最终完成后创建紧接的第三批一个聊天，不提前开多批。
