@@ -22,4 +22,15 @@
 - [组合编排检查](D:/codex-artifacts/ai-repair-batch3-20261108/integration/dual-release-final.log)
 - [组合串行复跑](D:/codex-artifacts/ai-repair-batch3-20261108/integration/publisher-serial-rerun.log)
 
+## 第三批应用叠入验证
+
+将第三批冻结应用 `d9a14833` 叠到同一隔离投影后，另外两处冲突分别位于文字资源库和报告工作台。资源库保留第一批转化口径常量与第三批文字方法标识规则。工作台保留第二批报告模型选择、任务模型显示与第三批文字方法停用和发布区。原五处冲突决议字节保持可核。
+
+组合 Django 50 项通过、1 项 PG 条件跳过，组件与路由 14 项通过。实际合并 JSX 在 Windows 文件中渲染默认与两个合成模型选项，选中 B 且零外部请求。
+
+- [三批应用源码绑定](D:/codex-artifacts/ai-repair-batch3-20261108/integration/FULL-APPLICATION-SOURCE.json)
+- [原 Astra 增量反审](D:/codex-artifacts/ai-repair-batch3-20261108/integration/astra/REVIEW-R1.md)
+- [合并工作台模型选择回执](D:/codex-artifacts/ai-repair-batch3-20261108/integration/w5-merged/selection-html-check.json)
+- [组合 Django 检查](D:/codex-artifacts/ai-repair-batch3-20261108/integration/three-batch-django.log) · [组件与路由检查](D:/codex-artifacts/ai-repair-batch3-20261108/integration/three-batch-worker-final.log)
+
 前两批各自的 G02 仅绑定各自源码字节。采用组合时，应用和控制器的最终差异、真实前驱、制品及续接准入必须重新核对。第三批的独立 G02 也只覆盖其主线基线上的精确应用候选。

@@ -13,17 +13,21 @@
 
 ## 独立反审与组合
 
+- W10 初审复现未知的付费探测换请求号重派。R1 将未决意图绑定已保存的配置、版本和探测类型，图片再绑定场景尺寸。新请求号和不同管理员均沿原回执阻断未决意图，明确终态允许人工重测。原 Astra 的 7 项独立检查通过。
 - W11a 通过 65 项独立 Django 和 12 项组件/路由测试。其文字发布接缝与第一批 W7 指标指导组合通过。
 - W11b 独立验证 9 项后端和 8 项前端状态，并按第一批 W1/W2 精确源码、镜像输入、签名链、真实产物与清理原件确认。
 - W12 初审复现错渠道行计入。R1 精确校验渠道、平台、店铺和批次，错渠道单独出现或与正常行混合都停止取数；原 Astra 复核通过。
 - 前两批组合保留 W2 和 W6R 的不同原生证明，W3 发送围栏及 W5/W8 传输诊断，W7 指标口径及 W6b 完整数据入口。四项独立隔离编排与 128 项串行定向检查通过。实际组合冷启动仍待验证。
 
-[逐项提交和审查](STATUS.md) · [日报详细证据](W12.md) · [精确依赖与组合](INTEGRATION.md)
+[逐项提交和审查](STATUS.md) · [日报详细证据](W12.md) · [精确依赖与组合](INTEGRATION.md) · [验证记录](CHECKS.md)
+
+固定 G02 绑定应用 `d9a14833`、受检候选 `304c7d64`，九项检查通过，覆盖 8,463 项载荷。Worker 最终构建通过，Django 检查无异常。全仓类型诊断与主线逐项一致，仍有既有全仓诊断。完整 Windows 冷启动和三批真实组合启动尚未验证。
 
 ## 证据入口
 
 - [可直接打开的 HTML](REPORT.html) 使用合成展示数据。已在 Windows `file:///D:/...` 验证场景切换、展开和零资源请求。
 - [真实隔离 Pi 工作簿](D:/codex-artifacts/ai-repair-batch3-20261108/w11b/w11-reviewed.xlsx) 与 [原生回执](D:/codex-artifacts/ai-repair-batch3-20261108/w11b/NATIVE.json)。
+- [模型准入增量复核](D:/codex-artifacts/ai-repair-batch3-20261108/w10/astra/r1/REVIEW.md) · [组合冲突独立审查](D:/codex-artifacts/ai-repair-batch3-20261108/integration/astra/REVIEW.md)。
 - [文字闭环独立审查](D:/codex-artifacts/ai-repair-batch3-20261108/w11a/astra/REVIEW.md) · [Pi 包独立审查](D:/codex-artifacts/ai-repair-batch3-20261108/w11b/astra/REVIEW.md) · [日报增量复核](D:/codex-artifacts/ai-repair-batch3-20261108/w12/astra/REVIEW-R1.md)。
 
 ## 授权状态
