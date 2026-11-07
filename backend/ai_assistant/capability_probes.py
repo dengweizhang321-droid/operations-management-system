@@ -2,6 +2,8 @@
 import json
 import uuid
 from copy import deepcopy
+from django.db.models import F, JSONField
+from django.db.models.functions import Cast
 from django.utils import timezone
 from . import output_schemas
 from .policy import AiError, canonical, digest, mutation, current_principal
@@ -13,6 +15,30 @@ LABELS = {"connection": "普通连接", "tool_roundtrip_json": "非流式工具�
 KINDS = {"connection": "connection", "tool_roundtrip_json": "nonStreaming", "tool_roundtrip_sse": "sse",
          "structured_output": "structuredOutput"}
 STRUCTURED_CONTRACT = "skill-candidate-v1"
+
+
+class ProbeIntentPending(AiError):
+    def __init__(self):
+        super().__init__("此配置的同项测试已受理或结果未知，请等待回执或人工核对。", "conflict", 409)
+
+
+def check_probe_intent(request_id, *, path, audit_name, intent, legacy_args):
+    """Check and return the audit binding while holding the AI mutation lock."""
+    from . import models
+    from .control_models import AiWriteReceipt
+
+    binding = "model-probe-intent-" + digest(intent)
+    pending = AiWriteReceipt.objects.filter(path=path, request_id__startswith="w10-probe-",
+        status__in=("processing", "stale_manual_review")).exclude(request_id=request_id).values("request_id")
+    started = models.AiToolAuditLogs.objects.filter(tool_name=audit_name, status="started", request_id__in=pending)
+    # Earlier candidates put the signed request ID in invocation_id. They
+    # did not record a version for native Schema, so those rows fence the model ID.
+    legacy = started.filter(invocation_id=F("request_id")).annotate(_args=Cast("arguments_json", JSONField()))
+    if started.filter(invocation_id=binding).exists() or legacy.filter(**{
+        "_args__" + key: value for key, value in legacy_args.items()
+    }).exists():
+        raise ProbeIntentPending()
+    return binding
 
 
 def fingerprint(model):
@@ -137,16 +163,26 @@ def run(model, principal, request_id, mode):
     current_principal(principal, write=True, admin=True)
     contract = output_schemas.resolve(STRUCTURED_CONTRACT) if mode == "structured_output" else None
     attempted = []
+    invocation_id = ""
+    arguments = {"modelId": model.id, "mode": mode}
+    if contract:
+        arguments.update(modelVersion=model.version, schemaDigest=contract["schemaDigest"])
+
     def before_call(ordinal):
+        nonlocal invocation_id
         with mutation(principal):
             current_principal(principal, write=True, admin=True)
             current = configuration.resolve_model(model.id)
             if current.version != model.version:
                 raise AiError("模型配置已变化，请重新测试", "model_version_changed", 409)
+            if contract:
+                invocation_id = check_probe_intent(request_id, path="/api/ai/models", audit_name="model_probe",
+                    intent=[mode, model.id, model.version, contract["schemaDigest"]],
+                    legacy_args={"modelId": model.id, "mode": mode})
             chat.dispatch_budget(principal.email.lower(), model.id)
             chat.audit(principal, request_id, "model_probe", "started",
-                       arguments={"modelId": model.id, "mode": mode, "ordinal": ordinal,
-                                  "adapterVersion": PROVIDER_ADAPTER_VERSION})
+                       invocation_id=invocation_id,
+                       arguments={**arguments, "ordinal": ordinal, "adapterVersion": PROVIDER_ADAPTER_VERSION})
             attempted.append(ordinal)
     error = None
     try:
@@ -161,6 +197,8 @@ def run(model, principal, request_id, mode):
                     raise InvalidProviderResponse("probe_budget_insufficient", stage="capability", protocol=model.protocol,
                                                   mode="sse" if mode == "tool_roundtrip_sse" else "json")
                 tool_roundtrip(model, streaming=mode == "tool_roundtrip_sse", before_call=before_call)
+    except ProbeIntentPending:
+        raise
     except AiError as caught:
         error = caught
     observation = {"status": "failed" if error else "passed", "testedAt": timezone.now().isoformat()}
@@ -187,7 +225,7 @@ def run(model, principal, request_id, mode):
         current.last_tested_at = timezone.now()
         current.save(update_fields=["last_test_result", "last_tested_at"])
         chat.audit(principal, request_id, "model_probe", "failed" if error else "succeeded",
-                   arguments={"modelId": model.id, "mode": mode, "providerCalls": len(attempted)},
+                   invocation_id=invocation_id, arguments={**arguments, "providerCalls": len(attempted)},
                    result={"status": observation["status"], "reason": observation.get("reason")},
                    error_code=error.code if error else None)
     if error:

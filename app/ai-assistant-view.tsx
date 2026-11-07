@@ -1098,9 +1098,9 @@ function AiAssistantView({
     try {
       const attempt = native ? await probeAttempt(currentUser?.email ?? "", `schema:${id}:${expectedVersion}`) : null;
       const response = await fetch(type === "model" ? "/api/ai/models" : "/api/ai/channels", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "test", id, ...(type === "model" ? { testMode } : {}), ...(attempt ? { expectedVersion, clientRequestId: attempt.clientRequestId } : {}) }) });
-      const payload = await response.json().catch(() => null) as { ok?: boolean; message?: string; error?: string } | null;
+      const payload = await response.json().catch(() => null) as { ok?: boolean; message?: string; error?: string; code?: string } | null;
       if (!response.ok) {
-        if (response.status < 500 && response.status !== 409) attempt?.finish();
+        if (response.status < 500 && (response.status !== 409 || payload?.code === "conflict")) attempt?.finish();
         throw new Error(payload?.error || "连通性测试失败");
       }
       if (attempt) {

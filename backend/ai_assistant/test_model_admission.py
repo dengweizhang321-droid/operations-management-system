@@ -2,11 +2,13 @@
 import base64
 import hashlib
 import uuid
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
-from . import capability_probes as probes, configuration, models as m, output_schemas, provider, space, transport
+from . import capability_probes as probes, chat, configuration, models as m, output_schemas, provider, space, transport
 from . import tests as support
 from .control_models import AiWriteReceipt
 from .policy import AiError, canonical, mutation
@@ -119,15 +121,33 @@ class ModelAdmissionTests(TestCase):
         body = self.enable_schema_declaration()
         path = "/api/ai/models"
         key = str(uuid.uuid4())
+        other_admin = self.user("second-admin@example.invalid", "admin", None)
+
+        def timeout_while_other_admin_tries(*_args, **_kwargs):
+            # The first dispatch reservation must already fence another key
+            # before the original provider response is known.
+            self.assert_pending(self.probe_call(path, body, principal=other_admin))
+            raise transport.ProviderTransportError(stage="response_headers", reason="timeout", request_started=True)
+
         with (patch.object(provider, "decrypt", return_value="synthetic"),
-              patch.object(provider, "bounded_json", side_effect=transport.ProviderTransportError(
-                  stage="response_headers", reason="timeout", request_started=True)) as paid):
+              patch.object(provider, "bounded_json", side_effect=timeout_while_other_admin_tries) as paid):
             self.assertEqual(self.probe_call(path, body, key=key).status_code, 503)
             self.assertEqual(self.probe_call(path, body, key=key).status_code, 409)
+            self.model.refresh_from_db()
+            before = self.model.last_test_result
+            self.assert_pending(self.probe_call(path, body))
+            self.model.refresh_from_db()
+            self.assertEqual(self.model.last_test_result, before)
             paid.assert_called_once()
-        self.model.refresh_from_db()
         self.assertEqual(probes.record(self.model)["structuredOutput"]["status"], "inconclusive")
         self.assertEqual(AiWriteReceipt.objects.get(request_id=request_identity(path, support.ADMIN, key)).status, "processing")
+        self.assertEqual(AiWriteReceipt.objects.filter(status="processing").count(), 1)
+        self.assertEqual(m.AiToolAuditLogs.objects.filter(tool_name="model_probe", status="started").count(), 1)
+
+    def assert_pending(self, response):
+        self.assertEqual(response.status_code, 409, response.content)
+        self.assertEqual(response.json()["code"], "conflict")
+        self.assertIn("同项测试已受理或结果未知", response.json()["error"])
 
     def image_profile(self):
         return m.AiSpaceModelProfiles.objects.create(id="image-profile", name="Synthetic images",
@@ -193,9 +213,17 @@ class ModelAdmissionTests(TestCase):
         path = "/api/ai/space/profiles"
         body = {"id": profile.id, "expectedVersion": profile.version, "scene": "promotion", "size": "1536x1024"}
         wrong = {"data": [{"b64_json": base64.b64encode(self.image_bytes()).decode()}]}
-        unknown = transport.ProviderTransportError(stage="response_headers", reason="timeout", request_started=True)
+        other_admin = self.user("second-admin@example.invalid", "admin", None)
+
+        def invalid_then_unknown(*_args, **_kwargs):
+            if paid.call_count == 1:
+                return wrong
+            self.assertEqual(paid.call_count, 2)
+            self.assert_pending(self.probe_call(path, body, principal=other_admin))
+            raise transport.ProviderTransportError(stage="response_headers", reason="timeout", request_started=True)
+
         with (patch.object(space, "decrypt", return_value="synthetic"),
-              patch.object(space.transport, "bounded_json", side_effect=[wrong, unknown]) as paid):
+              patch.object(space.transport, "bounded_json", side_effect=invalid_then_unknown) as paid):
             self.assertEqual(self.probe_call(path, body, principal=self.owner).status_code, 403)
             self.assertEqual(self.probe_call(path, {**body, "size": "4096x4096"}).status_code, 400)
             self.assertEqual(self.probe_call(path, {**body, "expectedVersion": 2}).status_code, 409)
@@ -206,7 +234,48 @@ class ModelAdmissionTests(TestCase):
             key = str(uuid.uuid4())
             self.assertEqual(self.probe_call(path, body, key=key).status_code, 503)
             self.assertEqual(self.probe_call(path, body, key=key).status_code, 409)
+            self.assert_pending(self.probe_call(path, body))
             self.assertEqual(paid.call_count, 2)
         profile.refresh_from_db()
         self.assertEqual(space.image_admissions(profile), [])
         self.assertEqual(profile.last_success_result, "真实图片生成成功")
+        self.assertEqual(AiWriteReceipt.objects.filter(status="processing").count(), 1)
+        self.assertEqual(m.AiToolAuditLogs.objects.filter(tool_name=space.IMAGE_PROBE_AUDIT, status="started").count(), 2)
+
+    def test_known_terminal_probes_allow_explicit_new_attempts(self):
+        with (patch.object(provider, "decrypt", return_value="synthetic"),
+              patch.object(provider, "bounded_json", side_effect=self.native_reply) as paid):
+            body = self.enable_schema_declaration()
+            for _ in range(2):
+                self.assertTrue(self.probe_call("/api/ai/models", body).json()["ok"])
+            self.assertEqual(paid.call_count, 2)
+        profile = self.image_profile()
+        with (patch.object(space, "decrypt", return_value="synthetic"),
+              patch.object(space.transport, "bounded_json", side_effect=self.image_reply) as paid):
+            body = {"id": profile.id, "expectedVersion": profile.version, "scene": "promotion", "size": "1536x1024"}
+            for _ in range(2):
+                self.assertTrue(self.probe_call("/api/ai/space/profiles", body).json()["ok"])
+            self.assertEqual(paid.call_count, 2)
+
+    def test_old_unknown_receipts_remain_fenced_without_blocking_other_image_sizes(self):
+        profile = self.image_profile()
+        native = self.enable_schema_declaration()
+        image = {"id": profile.id, "expectedVersion": profile.version, "scene": "promotion", "size": "1536x1024"}
+        cases = [
+            ("/api/ai/models", native, "model_probe", {"modelId": self.model.id, "mode": "structured_output"}),
+            ("/api/ai/space/profiles", image, space.IMAGE_PROBE_AUDIT,
+             {"modelId": profile.id, "profileVersion": profile.version, "scene": "promotion", "size": "1536x1024"}),
+        ]
+        for path, body, name, arguments in cases:
+            old_id = request_identity(path, support.ADMIN, str(uuid.uuid4()))
+            AiWriteReceipt.objects.create(request_id=old_id, path=path, method="POST", status="stale_manual_review",
+                created_at=timezone.now() - timedelta(days=14))
+            chat.audit(support.ADMIN, old_id, name, "started", arguments=arguments)
+            with patch.object(provider, "bounded_json") as text_paid, patch.object(space.transport, "bounded_json") as image_paid:
+                self.assert_pending(self.probe_call(path, body))
+                text_paid.assert_not_called()
+                image_paid.assert_not_called()
+        with (patch.object(space, "decrypt", return_value="synthetic"),
+              patch.object(space.transport, "bounded_json", side_effect=self.image_reply) as paid):
+            self.assertTrue(self.probe_call("/api/ai/space/profiles", {**image, "size": "1024x1536"}).json()["ok"])
+            paid.assert_called_once()

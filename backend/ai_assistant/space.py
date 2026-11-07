@@ -110,6 +110,8 @@ def image_dispatch_budget(owner, profile_id):
 
 
 def test_profile(body, principal, request_id):
+    from .capability_probes import check_probe_intent, probe_outcome_known
+
     fields(body, {"action", "id", "expectedVersion", "clientRequestId", "scene", "size"},
            {"action", "id", "expectedVersion", "clientRequestId", "scene", "size"})
     scene = choice(body["scene"], [item["id"] for item in SCENES], "scene")
@@ -123,19 +125,22 @@ def test_profile(body, principal, request_id):
             raise AiError("图片模型不可用")
         cas(profile, body["expectedVersion"])
         endpoint(profile.base_url)
-        image_dispatch_budget(principal.email.lower(), profile.id)
         arguments = {"modelId": profile.id, "profileVersion": profile.version, "scene": scene, "size": size}
-        audit(principal, request_id, IMAGE_PROBE_AUDIT, "started", arguments=arguments, surface="ai_space")
+        invocation_id = check_probe_intent(request_id, path="/api/ai/space/profiles", audit_name=IMAGE_PROBE_AUDIT,
+            intent=[IMAGE_PROBE_AUDIT, profile.id, profile.version, scene, size], legacy_args=arguments)
+        image_dispatch_budget(principal.email.lower(), profile.id)
+        audit(principal, request_id, IMAGE_PROBE_AUDIT, "started", arguments=arguments,
+              invocation_id=invocation_id, surface="ai_space")
 
     description = next(item["description"] for item in SCENES if item["id"] == scene)
     prompt = f"生成一张虚构的不锈钢厨具示意图，用于图片端点测试。构图要求：{description}。\n{SAFETY}"
     try:
         generate_image(profile, prompt, size)
     except AiError as error:
-        from .capability_probes import probe_outcome_known
         known = probe_outcome_known(error)
         with mutation():
             audit(principal, request_id, IMAGE_PROBE_AUDIT, "failed", arguments=arguments,
+                  invocation_id=invocation_id,
                   result={"status": "failed" if error.code == "invalid_image_generation_response" else "inconclusive"},
                   error_code=error.code, surface="ai_space")
         if known:
@@ -151,7 +156,8 @@ def test_profile(body, principal, request_id):
         observations.append({"scene": scene, "size": size, "testedAt": timezone.now().isoformat()})
         current.last_success_result = canonical({"kind": IMAGE_ADMISSION_KIND, "version": current.version, "items": observations})
         current.save(update_fields=["last_success_result"])
-        audit(principal, request_id, IMAGE_PROBE_AUDIT, "succeeded", arguments=arguments, surface="ai_space")
+        audit(principal, request_id, IMAGE_PROBE_AUDIT, "succeeded", arguments=arguments,
+              invocation_id=invocation_id, surface="ai_space")
     return {"ok": True, "message": "当前图片模型版本已通过该场景和尺寸的生成测试"}
 
 

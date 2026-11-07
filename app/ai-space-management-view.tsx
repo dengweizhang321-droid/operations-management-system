@@ -216,9 +216,12 @@ export default function AiSpaceManagementView({ currentUser }: { currentUser: Ap
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "test", id: item.id, expectedVersion: item.version, clientRequestId: attempt.clientRequestId, scene, size }),
       });
-      if (!response.ok && response.status < 500 && response.status !== 409) attempt.finish();
-      const result = await readJson<{ ok: boolean; message?: string }>(response, "图片模型测试失败");
-      if (typeof result.ok !== "boolean") throw new Error("未取得图片模型测试回执");
+      const result = await response.json().catch(() => null) as { ok?: boolean; message?: string; error?: string; code?: string } | null;
+      if (!response.ok) {
+        if (response.status < 500 && (response.status !== 409 || result?.code === "conflict")) attempt.finish();
+        throw new Error(result?.error || "图片模型测试失败");
+      }
+      if (typeof result?.ok !== "boolean") throw new Error("未取得图片模型测试回执");
       attempt.finish();
       if (!result.ok) throw new Error(result.message || "图片模型测试未通过");
       setNotice(result.message || "当前场景和尺寸测试通过。");
