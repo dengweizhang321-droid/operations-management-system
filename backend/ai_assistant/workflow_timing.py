@@ -36,10 +36,10 @@ def summarize(row, nodes):
         workflow_run_id=row.id, id__in=node_ids).only(
             "id", "created_at", "started_at", "completed_at")[:24]}
     providers = list(m.AiAgentProviderDispatches.objects.filter(job_id__in=jobs)
-                     .only("id", "job_id", "reserved_at", "completed_at")
+                     .only("id", "job_id", "state", "reserved_at", "completed_at")
                      .order_by("reserved_at", "id")[:481])
     tools = list(m.AiAgentToolDispatches.objects.filter(job_id__in=jobs)
-                 .only("id", "job_id", "reserved_at", "completed_at")
+                 .only("id", "job_id", "state", "reserved_at", "completed_at")
                  .order_by("reserved_at", "id")[:961])
     bounded = len(providers) <= 480 and len(tools) <= 960
     # Never describe a partial result as a full timing total.
@@ -57,9 +57,11 @@ def summarize(row, nodes):
                         else row.created_at if not dependencies else None)
         except (TypeError, ValueError, KeyError):
             ready_at = None
-        model_windows = [(d.reserved_at, d.completed_at) for d in providers
+        # _fail writes a local completed_at while preserving state=unknown.
+        # That timestamp is not proof that the external call completed.
+        model_windows = [(d.reserved_at, d.completed_at if d.state in {"succeeded", "failed"} else None) for d in providers
                          if job is not None and d.job_id == job.id]
-        tool_windows = [(d.reserved_at, d.completed_at) for d in tools
+        tool_windows = [(d.reserved_at, d.completed_at if d.state in {"succeeded", "failed"} else None) for d in tools
                         if job is not None and d.job_id == job.id]
         windows["provider"].extend(model_windows)
         windows["tool"].extend(tool_windows)

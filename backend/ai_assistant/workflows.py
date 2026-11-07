@@ -1053,6 +1053,7 @@ def workflow_tick():
             return business_parallel.workflow_step(row, principal, nodes)
         by_key = {n.node_key: n for n in nodes}
         active = next((n for n in nodes if n.status == "running"), None)
+        observed_child = False
         if active:
             child = m.AiAgentJobs.objects.get(id=active.agent_job_id)
             if child.status in {"queued", "running"}:
@@ -1080,6 +1081,7 @@ def workflow_tick():
             active.version += 1
             active.save()
             row.current_node_key = None
+            observed_child = True
         # Observing a known terminal child and advancing the existing DAG are
         # local writes under this same mutation. Do not spend another scheduled
         # tick between them. This never runs a provider or skips human review.
@@ -1136,7 +1138,14 @@ def workflow_tick():
                     or active_jobs.filter(owner_email=row.owner_email).count() >= 8
                 ):
                     row.updated_at = timezone.now()
-                    row.save(update_fields=["updated_at"])
+                    if observed_child:
+                        # Capacity can postpone the successor, but must not
+                        # discard the completed-child observation above.
+                        row.version += 1
+                        row.save(update_fields=["current_node_key", "version", "updated_at"])
+                        event(row, principal, "node_progressed", row.status, active.node_key)
+                    else:
+                        row.save(update_fields=["updated_at"])
                     return {"status": "waiting_capacity", "runId": row.id}
                 child = m.AiAgentJobs.objects.create(
                     id=uid("ai-agent"),

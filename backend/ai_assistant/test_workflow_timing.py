@@ -110,3 +110,33 @@ class WorkflowTimingTests(TestCase):
             second = m.AiWorkflowNodeRuns.objects.get(run_id=run_id, node_key="second")
             self.assertIsNone(second.agent_job_id)
             self.assertEqual(provider.call_count, 1)
+            dispatch = m.AiAgentProviderDispatches.objects.get(job_id=first.agent_job_id)
+            self.assertEqual(dispatch.state, "unknown")
+            self.assertIsNotNone(dispatch.completed_at)  # Local failure time only.
+            timing = workflows.mapping(m.AiWorkflowRuns.objects.get(pk=run_id))["timing"]
+            self.assertEqual(timing["unknownDispatches"], 1)
+            self.assertIsNone(timing["providerDispatchUnionMs"])
+
+    def test_capacity_wait_persists_completed_child_observation(self):
+        with patch.object(workflows.transport, "catalog", return_value=CATALOG), \
+                patch.object(workflows.provider, "turn", return_value=self.response()):
+            run_id = self.create("capacity")
+            workflows.workflow_tick()
+            row = m.AiWorkflowRuns.objects.get(pk=run_id)
+            previous_version = row.version
+            first = m.AiWorkflowNodeRuns.objects.get(run_id=run_id, node_key="first")
+            workflows.agent_tick(job_id=first.agent_job_id)
+            for index in range(8):
+                workflows.create({"clientRequestId": f"capacity-other-{index}", "task": "synthetic queued"}, self.owner)
+            self.assertEqual(workflows.workflow_tick()["status"], "waiting_capacity")
+            row.refresh_from_db()
+            first.refresh_from_db()
+            self.assertEqual(first.status, "completed")
+            self.assertIsNone(row.current_node_key)
+            self.assertEqual(row.version, previous_version + 1)
+            self.assertTrue(m.AiWorkflowEvents.objects.filter(run_id=run_id, run_version=row.version,
+                            event_type="node_progressed", node_key="first").exists())
+            self.assertIsNone(m.AiWorkflowNodeRuns.objects.get(run_id=run_id, node_key="second").agent_job_id)
+            self.assertEqual(workflows.workflow_tick()["status"], "waiting_capacity")
+            row.refresh_from_db()
+            self.assertEqual(row.version, previous_version + 1)  # No repeated completion event.
