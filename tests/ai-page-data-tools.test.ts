@@ -294,6 +294,32 @@ test("inventory age and inbound adapters validate filters, bound rows, and fail 
   );
 });
 
+test("netshop performance keeps the authoritative rate and its two bounded field qualifications", async () => {
+  const available = { complete: true, reasonCode: null };
+  const missing = { complete: false, reasonCode: "missing_field" };
+  for (const [label, visitors, rate, customerStatus, visitorStatus] of [
+    ["true zero", 20, 0, available, available],
+    ["missing customers", 20, 0, missing, available],
+    ["missing visitors", 12, 0, available, missing],
+    ["zero visitors", 0, null, available, available],
+  ] as const) {
+    const period = { startDate: "2026-09-01", endDate: "2026-09-02" };
+    const facts = { transactionCustomers: 0, transactionQuantity: 8, visitors, conversionRate: rate };
+    const expected = { transactionCustomers: customerStatus, visitors: visitorStatus };
+    const source = { transactionCustomers: { ...customerStatus, other: "omit" }, visitors: visitorStatus, transactionQuantity: available };
+    const result = await getNetshopProductPerformancePageData(period, { principal: restrictedAnalyst }, {
+      readNetshopPerformance: async () => ({ requestedPeriod: period, visitorAggregation: "product_day_sum",
+        summary: facts, summaryFieldAvailability: source, items: [{ ...facts, fieldAvailability: source }] }),
+    });
+    assert.deepEqual(result.requestedPeriod, period, label);
+    assert.equal(result.visitorAggregation, "product_day_sum", label);
+    assert.equal(result.summary.conversionRate, rate, label);
+    assert.equal(result.items[0].conversionRate, rate, label);
+    assert.deepEqual(result.summaryFieldAvailability, expected, label);
+    assert.deepEqual(result.items[0].fieldAvailability, expected, label);
+  }
+});
+
 test("netshop adapters enforce principal platforms, channels, outlet identity, and SKU platform semantics", async () => {
   let catalogInput: unknown;
   const catalog = await getNetshopProductCatalogPageData({

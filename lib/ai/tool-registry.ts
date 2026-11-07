@@ -1201,7 +1201,7 @@ export const aiToolRegistry = [
   {
     name: NETSHOP_PRODUCT_INSIGHTS_TOOL_NAME,
     title: "商品表现完整汇总、比较与分页列表",
-    description: "只读运营系统已导入网店数据的商品表现：完整经营范围汇总、两期比较、先配对全集再排序的贡献排行及当前列表页，保留覆盖缺口、来源版本和基期错误。金额按安全整数分，商品访客及客户为商品×日累计；SKU/SPU不混用。q只筛列表，不改变经营汇总；类目是来源标签，不代表跨平台官方分类。明示分页，不能从一页求全店总额或把缺字段当零。snapshotToken和sectionToken仅在各自同种范围内续读；超过完整40000字符预算需缩小店铺、日期或pageSize，不截掉汇总或覆盖。未核验的历史映射、ERP/推广关联不推断；仅列表工具，不读取单品详情、不操作外部平台。",
+    description: "只读运营系统已导入网店数据的商品表现：完整经营范围汇总、两期比较、先配对全集再排序的贡献排行及当前列表页，保留覆盖缺口、来源版本和基期错误。金额按安全整数分，SKU/SPU不混用。成交转化率取可用的服务端 conversion（成交客户数÷访客数）；商品访客及客户为商品×日累计，不能跨日或跨商品相加充当区间去重人数。q只筛列表，不改变经营汇总；类目是来源标签，不代表跨平台官方分类。明示分页，不能从一页求全店总额或把缺字段当零。snapshotToken和sectionToken仅在各自同种范围内续读；超过完整40000字符预算需缩小店铺、日期或pageSize，不截掉汇总或覆盖。未核验的历史映射、ERP/推广关联不推断；仅列表工具，不读取单品详情、不操作外部平台。",
     inputSchema: netshopProductInsightsInputSchema,
     annotations: readOnlyAnnotations,
     risk: "read_only",
@@ -1245,7 +1245,7 @@ export const aiToolRegistry = [
   {
     name: "get_netshop_performance",
     title: "网店商品与推广表现",
-    description: "按认证账号的平台范围，只读查询网店商品日表现或推广表现。商品访客为商品×日累计，不能解释为店铺去重UV；所有金额字段单位均为人民币分。",
+    description: "按认证账号的平台范围，只读查询网店商品日表现或推广表现。商品成交转化率优先取同期间服务端 conversionRate（transactionCustomers 成交客户数÷visitors 访客数，不用成交件数）；先查汇总 summaryFieldAvailability 或行 fieldAvailability，两项字段及日期须完整，访客为零不计算。人数按商品×日累计，不能当作店铺区间去重人数；缺少权威去重值须说明。金额优先使用以人民币分表示的字段。",
     inputSchema: {
       type: "object",
       properties: {
@@ -1357,7 +1357,7 @@ export const aiToolRegistry = [
   {
     name: "get_netshop_page_data",
     title: "网店货品与表现页面数据",
-    description: "按真实 principal 平台、渠道和店铺范围，复用网店货品目录或商品表现页面服务。SKU 日表现仅支持京东，天猫使用 SPU；商品访客不能解释为店铺去重 UV。",
+    description: "按真实 principal 平台、渠道和店铺范围，复用网店货品目录或商品表现页面服务。SKU 日表现仅支持京东，天猫使用 SPU。商品成交转化率取字段和覆盖均完整的服务端 conversionRate（成交客户数÷访客数），访客为零时不可计算；商品×日累计人数不能解释为店铺区间去重人数。",
     inputSchema: {
       type: "object",
       properties: {
