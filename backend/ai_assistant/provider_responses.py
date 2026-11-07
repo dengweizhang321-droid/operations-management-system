@@ -57,7 +57,7 @@ def _replay(item):
             raise _invalid("responses_message")
         parts = []
         for p in content:
-            if not isinstance(p, dict) or p.get("type") not in {"output_text", "refusal"}:
+            if not isinstance(p, dict) or p.get("type") not in ("output_text", "refusal"):
                 raise _invalid("responses_content")
             key = "text" if p["type"] == "output_text" else "refusal"
             if not isinstance(p.get(key), str):
@@ -70,7 +70,7 @@ def _replay(item):
                 part["annotations"] = annotations
             parts.append(part)
         phase = item.get("phase")
-        if phase is not None and phase not in {"commentary", "final_answer"}:
+        if phase is not None and phase not in ("commentary", "final_answer"):
             raise _invalid("responses_message_phase")
         return {"type": kind, **identity, "role": "assistant", "content": parts,
                 **({"phase": phase} if phase is not None else {})}
@@ -111,7 +111,8 @@ def request_body(model, cfg, transcript, instructions, tools, extra):
 
 def normalize(response):
     status = response.get("status")
-    if status == "incomplete" and (response.get("incomplete_details") or {}).get("reason") == "max_output_tokens":
+    incomplete = response.get("incomplete_details")
+    if status == "incomplete" and isinstance(incomplete, dict) and incomplete.get("reason") == "max_output_tokens":
         finish = "length"
     elif status == "completed":
         finish = "stop"

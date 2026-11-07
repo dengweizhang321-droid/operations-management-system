@@ -73,6 +73,8 @@ class ProviderStream:
     def responses(self, event):
         from .provider_responses import normalize
         kind = event.get("type")
+        if not isinstance(kind, str):
+            raise invalid()
         if kind in {"response.output_text.delta", "response.refusal.delta"}:
             delta = event.get("delta")
             self.text(delta)
@@ -139,7 +141,7 @@ class ProviderStream:
                     container[key] += value
         if choice.get("finish_reason") is not None:
             self.reason = choice["finish_reason"]
-            if self.reason not in {"stop", "length", "tool_calls"}:
+            if self.reason not in ("stop", "length", "tool_calls"):
                 raise invalid("sse_finish_reason")
 
     def anthropic(self, event):
@@ -147,7 +149,8 @@ class ProviderStream:
         if kind == "ping":
             return
         if kind == "message_start":
-            if self.started or not isinstance(event.get("message"), dict):
+            if (self.started or not isinstance(event.get("message"), dict)
+                    or not isinstance(event["message"].get("usage", {}), dict)):
                 raise invalid()
             self.started = True
             self.result = {**event["message"]}
@@ -166,15 +169,16 @@ class ProviderStream:
                 raise invalid()
             block = self.blocks[index]
             mapping = {"text_delta": ("text", "text"), "thinking_delta": ("thinking", "thinking"), "signature_delta": ("thinking", "signature")}
-            if delta.get("type") in mapping:
-                block_type, key = mapping[delta["type"]]
+            delta_type = delta.get("type")
+            if isinstance(delta_type, str) and delta_type in mapping:
+                block_type, key = mapping[delta_type]
                 value = delta.get(key)
                 if block.get("type") != block_type or not isinstance(value, str):
                     raise invalid()
                 block[key] = block.get(key, "") + value
                 if key == "text":
                     self.text(value)
-            elif delta.get("type") == "input_json_delta" and block.get("type") == "tool_use" and isinstance(delta.get("partial_json"), str):
+            elif delta_type == "input_json_delta" and block.get("type") == "tool_use" and isinstance(delta.get("partial_json"), str):
                 self.partial_json[index] = self.partial_json.get(index, "") + delta["partial_json"]
             else:
                 raise invalid()
@@ -194,7 +198,7 @@ class ProviderStream:
             self.reason = event["delta"].get("stop_reason") or self.reason
             self.result["usage"] = {**self.result.get("usage", {}), **event.get("usage", {})}
         elif kind == "message_stop":
-            if self.reason not in {"end_turn", "tool_use", "max_tokens", "stop_sequence"} or self.partial_json or set(self.blocks) != self.closed_blocks:
+            if self.reason not in ("end_turn", "tool_use", "max_tokens", "stop_sequence") or self.partial_json or set(self.blocks) != self.closed_blocks:
                 raise invalid()
             self.done, self.stopped = True, True
         else:

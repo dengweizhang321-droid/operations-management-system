@@ -97,6 +97,95 @@ class ReportLibraryTests(TestCase):
             response = self.call("/api/ai/reports/" + first.json()["item"]["id"] + "/content", principal=self.admin, method="GET")
             self.assertEqual(response.status_code, 403)
 
+    def second_model(self):
+        with mutation(self.admin):
+            return m.AiModels.objects.create(
+                id="model-b", name="Second isolated provider", protocol="openai_compatible",
+                model_type="text", model_name="fixture-b", base_url="https://api.openai.com/v1",
+                api_key_encrypted="encrypted-fixture-b", status="enabled", version=7,
+            )
+
+    def test_three_signed_report_scenes_pin_model_version_and_dedupe_by_model(self):
+        second = self.second_model()
+        with patch("ai_assistant.transport.catalog", return_value=fixtures.CATALOG), \
+                patch("ai_assistant.provider.turn") as provider_turn:
+            for pipeline in library.DEFAULTS["pipelines"]:
+                with self.subTest(pipeline=pipeline["id"]):
+                    body = {**self.request, "pipelineId": pipeline["id"], "dryRun": False,
+                            "clientRequestId": pipeline["id"] + "-a"}
+                    default = self.call("/api/ai/reports", body, self.admin)
+                    self.assertEqual(default.status_code, 200, default.content)
+                    a = default.json()["item"]
+                    self.assertEqual(a["modelId"], self.model.id)
+                    self.assertIsNone(a["selectedModelId"])
+                    conflicting = self.call("/api/ai/reports", {**body, "modelId": second.id}, self.admin)
+                    self.assertEqual(conflicting.status_code, 409)
+                    body.update(clientRequestId=pipeline["id"] + "-b", modelId=second.id)
+                    response = self.call("/api/ai/reports", body, self.admin)
+                    self.assertEqual(response.status_code, 200, response.content)
+                    b = response.json()["item"]
+                    self.assertNotEqual(a["id"], b["id"])
+                    self.assertEqual((b["modelId"], b["modelVersion"], b["selectedModelId"]),
+                                     (second.id, second.version, second.id))
+                    self.assertEqual(self.call("/api/ai/reports", body, self.admin).json()["item"]["id"], b["id"])
+                    alias = {**body, "clientRequestId": pipeline["id"] + "-b-alias"}
+                    self.assertEqual(self.call("/api/ai/reports", alias, self.admin).json()["item"]["id"], b["id"])
+                    self.assertEqual(reports.detail(b["id"], self.admin)["workflow"]["modelVersion"], second.version)
+                    for report in (a, b):
+                        workflows.control(report["workflowId"], {"expectedVersion": 1}, self.admin, "cancel", True)
+        provider_turn.assert_not_called()
+
+    def test_version_drift_stops_report_before_post_and_exposes_failed_node(self):
+        second = self.second_model()
+        body = {**self.request, "clientRequestId": "report-original-request", "dryRun": False, "modelId": second.id}
+        with patch("ai_assistant.transport.catalog", return_value=fixtures.CATALOG), \
+                patch("ai_assistant.provider.turn") as provider_turn:
+            item = reports.create(body, self.admin)["item"]
+            self.assertEqual(workflows.workflow_tick()["status"], "running")
+            with mutation(self.admin):
+                m.AiModels.objects.filter(pk=second.id).update(version=second.version + 1)
+            with self.assertLogs("ai_assistant.workflows", "WARNING") as logs:
+                self.assertEqual(workflows.agent_tick()["errorCode"], "model_version_changed")
+            log = json.loads(logs.output[0].split("ai_execution_phase ", 1)[1])
+            self.assertEqual((log["requestId"], log["stage"]), ("report-original-request", "admission"))
+            self.assertIn("admission", log["timingsMs"])
+            self.assertEqual(workflows.workflow_tick()["status"], "failed")
+        provider_turn.assert_not_called()
+        node = reports.detail(item["id"], self.admin)["workflow"]["nodes"][0]
+        self.assertEqual((node["key"], node["status"], node["errorCode"]),
+                         ("collect", "failed", "model_version_changed"))
+
+    def test_selected_model_failure_receipts_keep_original_request_and_phase(self):
+        from .provider_contract import InvalidProviderResponse
+        from .transport import ProviderHttpError, ProviderTransportError
+        second = self.second_model()
+        failures = (
+            (ProviderHttpError(429, b'{"message":"private-synthetic-fixture"}'), "provider_http"),
+            (ProviderTransportError(stage="system_dns", reason="timeout"), "system_dns"),
+            (InvalidProviderResponse("json_invalid", stage="transport", mode="json"), "response_parse"),
+        )
+        for index, (error, phase) in enumerate(failures):
+            request_id = f"original-model-failure-{index}"
+            body = {**self.request, "clientRequestId": request_id, "dryRun": False, "modelId": second.id}
+            with self.subTest(phase=phase), patch("ai_assistant.transport.catalog", return_value=fixtures.CATALOG), \
+                    patch("ai_assistant.provider.turn", side_effect=error) as turn:
+                item = reports.create(body, self.admin)["item"]
+                self.assertEqual(workflows.workflow_tick()["status"], "running")
+                with self.assertLogs("ai_assistant.workflows", "WARNING") as logs:
+                    self.assertEqual(workflows.agent_tick()["errorCode"], error.code)
+                turn.assert_called_once()
+                self.assertEqual((turn.call_args.args[0].id, turn.call_args.args[0].version), (second.id, second.version))
+                event = json.loads(logs.output[0].split("ai_execution_phase ", 1)[1])
+                self.assertEqual((event["requestId"], event["workflowId"], event["stage"]),
+                                 (request_id, item["workflowId"], phase))
+                self.assertIn("provider", event["timingsMs"])
+                self.assertNotIn("private-synthetic", logs.output[0])
+                if phase == "provider_http":
+                    self.assertEqual((event["error"]["httpStatus"], event["error"]["appStatus"]), (429, 503))
+                self.assertEqual(workflows.workflow_tick()["status"], "failed")
+                self.assertEqual(workflows.agent_tick()["status"], "idle")
+                turn.assert_called_once()
+
     def test_disabled_references_block_new_run_without_affecting_snapshot(self):
         item = self.create()
         skill = deepcopy(library.DEFAULTS["skills"][0]); skill["enabled"] = False

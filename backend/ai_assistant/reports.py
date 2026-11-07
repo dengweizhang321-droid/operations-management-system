@@ -2,6 +2,7 @@
 import json
 from datetime import date
 from . import models as m, report_library as library, workflows
+from .configuration import resolve_model
 from .policy import AiError, authorize_owner, canonical, current_principal, digest, fields, identifier, mutation, owned, page, text, uid
 
 
@@ -14,6 +15,8 @@ def mapping(row):
     flow = row.workflow
     return {"id": row.id, "name": data["pipeline"]["name"], "createdAt": row.created_at.isoformat(),
             "status": flow.status, "dryRun": bool(flow.dry_run), "workflowId": flow.id,
+            "modelId": flow.model_id, "modelVersion": flow.model_version,
+            "selectedModelId": data.get("modelId"),
             "version": data["libraryVersion"], "scope": data["scope"], "template": data["template"]["name"],
             "format": data["template"]["format"], "skills": [s["name"] for s in data["skills"]]}
 
@@ -47,8 +50,10 @@ def scope(value):
 
 def create(body, principal):
     current_principal(principal, admin=True, write=True)
-    fields(body, {"clientRequestId", "pipelineId", "expectedVersion", "scope", "dryRun"}, {"clientRequestId", "pipelineId", "expectedVersion", "scope", "dryRun"})
+    required = {"clientRequestId", "pipelineId", "expectedVersion", "scope", "dryRun"}
+    fields(body, required | {"modelId"}, required)
     client = identifier(body["clientRequestId"])
+    model_id = identifier(body["modelId"], "modelId") if "modelId" in body else None
     if type(body["dryRun"]) is not bool or type(body["expectedVersion"]) is not int:
         raise AiError("空跑或版本字段无效")
     filters = scope(body["scope"])
@@ -71,13 +76,20 @@ def create(body, principal):
         skills = [s for s in config["skills"] if s["id"] in pipeline["skillIds"] and s["enabled"]]
         if not template or len(skills) != len(pipeline["skillIds"]):
             raise AiError("关联模板或技能已停用", "conflict", 409)
-        snapshot_json = canonical({"libraryVersion": version["version"], "libraryDigest": digest(config),
-            "template": template, "skills": skills, "pipeline": pipeline, "scope": filters})
+        snapshot = {"libraryVersion": version["version"], "libraryDigest": digest(config),
+            "template": template, "skills": skills, "pipeline": pipeline, "scope": filters}
+        selected_model = resolve_model(model_id) if model_id else None
+        if selected_model is not None:
+            snapshot["modelId"] = selected_model.id
+        snapshot_json = canonical(snapshot)
         if len(snapshot_json.encode()) > 32768:
             raise AiError("本次模板与技能快照超过32 KiB，请精简正文", "payload_too_large", 413)
         active = m.AiReportRun.objects.select_related("workflow").filter(owner_email=principal.email.lower(),
             scope_json=canonical(principal.scope), snapshot_json=snapshot_json,
-            workflow__status__in=workflows.ACTIVE, workflow__dry_run=int(body["dryRun"])).first()
+            workflow__status__in=workflows.ACTIVE, workflow__dry_run=int(body["dryRun"]))
+        if selected_model is not None and not body["dryRun"]:
+            active = active.filter(workflow__model_id=selected_model.id, workflow__model_version=selected_model.version)
+        active = active.first()
         if active:
             return {"item": mapping(active), "replayed": True}
         specification = {"sections": [{"title": title, "body": "有依据的文字，包含必要数值及单位"} for title in template["sections"]]}
@@ -86,8 +98,11 @@ def create(body, principal):
             {"key": "report", "type": "agent", "dependsOn": ["collect"], "instruction": "根据已取得的事实生成报告，缺失不能补造。仅输出JSON，无代码块；严格使用下列章节名称和顺序，每章body为字符串，合计不超过10000字。结构：" + canonical(specification) + "\n写作要求：" + template["writingRules"]},
             {"key": "review", "type": "human_review", "dependsOn": ["report"], "instruction": "核对报告范围、数据完整性、取数证据与结论。通过后才可导出正式报告及确认通知；拒绝不自动重跑模型。"},
         ]}
-        result = workflows.create({"clientRequestId": "report-"+digest([principal.email.lower(), client]), "name": pipeline["name"], "graph": graph,
-            "input": filters, "dryRun": body["dryRun"]}, principal, True, skill_ids=pipeline["skillIds"], library_snapshot=version)
+        flow_body = {"clientRequestId": "report-"+digest([principal.email.lower(), client]),
+            "name": pipeline["name"], "graph": graph, "input": filters, "dryRun": body["dryRun"]}
+        if model_id is not None:
+            flow_body["modelId"] = model_id
+        result = workflows.create(flow_body, principal, True, skill_ids=pipeline["skillIds"], library_snapshot=version)
         row = m.AiReportRun.objects.create(id=uid("ai-report"), owner_email=principal.email.lower(), scope_json=canonical(principal.scope),
             client_request_id=client, request_digest=request_digest, workflow_id=result["item"]["id"],
             snapshot_json=snapshot_json)

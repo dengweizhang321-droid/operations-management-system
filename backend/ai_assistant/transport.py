@@ -8,6 +8,7 @@ import http.client
 import ipaddress
 import json
 import os
+import re
 import socket
 import ssl
 import time
@@ -17,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from threading import BoundedSemaphore, Event, Lock, Thread
 from urllib.parse import urlencode, urlsplit
 from django.conf import settings
+from .diagnostics import PhaseTimer, capture_timings, publish_timings
 from .policy import AiError, canonical, current_principal, uid
 from .provider_contract import InvalidProviderResponse, PROVIDER_ADAPTER_VERSION
 
@@ -102,7 +104,23 @@ class ProviderHttpError(AiError):
             except (ValueError, TypeError, AttributeError, RecursionError):
                 pass
         super().__init__(message, code, 503)
-        self.diagnostics = {"httpStatus": status}
+        self.diagnostics = {"stage": "provider_http", "httpStatus": status,
+                            "appStatus": self.status, "requestStarted": True}
+
+
+def _rejection_projection(project, rejected):
+    try:
+        projected = project(rejected)
+    except Exception:
+        # Diagnostics cannot replace a received HTTP status or expose body
+        # content through an owning parser's exception.
+        return {}
+    if not isinstance(projected, dict):
+        return {}
+    patterns = {"platformCode": r"[A-Za-z0-9.]{1,32}",
+                "platformCodeSha256": r"[0-9a-f]{64}", "requestIdSha256": r"[0-9a-f]{64}"}
+    return {name: value for name, pattern in patterns.items()
+            if isinstance(value := projected.get(name), str) and re.fullmatch(pattern, value)}
 
 
 @contextmanager
@@ -512,6 +530,30 @@ def _bounded_json(
     fixed_addresses=None,
     stream_collector=None,
     resolver=None,
+    rejection_summary=None,
+):
+    timer = PhaseTimer("system_dns" if fixed_addresses is None else "connect")
+    failure = None
+    try:
+        # Nested pinned DoH requests belong to the outer DNS recovery phase.
+        with capture_timings():
+            return _request_json(
+                url, body, headers, timeout, maximum, internal, method,
+                fixed_addresses, stream_collector, resolver, rejection_summary, timer,
+            )
+    except AiError as error:
+        failure = error
+        raise
+    finally:
+        timings = timer.finish()
+        publish_timings(timings)
+        if isinstance(failure, (ProviderHttpError, ProviderTransportError, InvalidProviderResponse)):
+            failure.diagnostics.update(timingsMs=timings, appStatus=failure.status)
+
+
+def _request_json(
+    url, body, headers, timeout, maximum, internal, method,
+    fixed_addresses, stream_collector, resolver, rejection_summary, timer,
 ):
     parts = urlsplit(url)
     if (
@@ -543,6 +585,7 @@ def _bounded_json(
     if not addresses or len(addresses) > 32:
         raise ProviderTransportError(stage="system_dns", reason="invalid_response")
     if not internal and fixed_addresses is None and not local:
+        timer.advance("dns_recovery")
         addresses = public_model_addresses(
             url, addresses, timeout - (time.monotonic() - started)
         )
@@ -552,9 +595,11 @@ def _bounded_json(
         # resolver to get the same second chance.
         if resolver is None:
             def resolver(tried):
+                timer.advance("system_dns")
+                resolved = resolve_addresses(host, port, timeout - (time.monotonic() - started))
+                timer.advance("dns_recovery")
                 return public_model_addresses(
-                    url,
-                    resolve_addresses(host, port, timeout - (time.monotonic() - started)),
+                    url, resolved,
                     timeout - (time.monotonic() - started),
                     exclude=tried,
                 )
@@ -607,6 +652,7 @@ def _bounded_json(
                 remaining_for_resolver = timeout - (time.monotonic() - started)
                 if remaining_for_resolver <= 0:
                     raise ProviderTransportError(stage=phase, reason="timeout", request_started=False)
+                timer.advance("dns_recovery")
                 pending = [addr for addr in admit(resolver(tried)) if addr[4][0] not in tried]
                 if not pending:
                     raise ProviderTransportError(stage=phase, reason="unavailable", request_started=False)
@@ -614,6 +660,7 @@ def _bounded_json(
             family, socktype, proto, _, target = pending.pop(0)
             tried.add(target[0])
             phase = "connect"
+            timer.advance(phase)
             candidate = socket.socket(family, socktype, proto)
             remaining = timeout - (time.monotonic() - started)
             if remaining <= 0:
@@ -627,6 +674,7 @@ def _bounded_json(
                 sock.connect(target)
                 if parts.scheme == "https":
                     phase = "tls"
+                    timer.advance(phase)
                     bounded_socket()
                     sock = ssl.create_default_context().wrap_socket(
                         sock, server_hostname=host, do_handshake_on_connect=False
@@ -669,6 +717,7 @@ def _bounded_json(
             **(headers or {}),
         }
         phase = "request_send"
+        timer.advance(phase)
         bounded_socket()
         # The request may be partially written even if request() raises. This
         # marks an attempt, never proof of provider receipt or permission to retry.
@@ -682,22 +731,39 @@ def _bounded_json(
             request_headers,
         )
         phase = "response_headers"
+        timer.advance(phase)
         bounded_socket()
         response = connection.getresponse()
         phase = "response_body"
         if 300 <= response.status < 400:
             raise AiError("拒绝重定向", "provider_redirect", 503)
         if not 200 <= response.status < 300:
-            # The same bounded rejection handling applies to JSON and SSE.
+            timer.advance("provider_http")
+            # The HTTP status is already known. Only the fixed subscription
+            # check or an owning adapter's projection needs the rejection body.
             rejected = bytearray()
-            while not response.isclosed() and len(rejected) <= 16384:
-                _network_budget(timeout, phase, request_started)
-                bounded_socket()
-                part = response.read1(16385 - len(rejected))
-                if not part:
-                    break
-                rejected.extend(part)
-            raise ProviderHttpError(response.status, bytes(rejected))
+            complete = False
+            if response.status == 400 or rejection_summary is not None:
+                try:
+                    while not response.isclosed() and len(rejected) <= 16384:
+                        bounded_socket()
+                        part = response.read1(16385 - len(rejected))
+                        if not part:
+                            break
+                        rejected.extend(part)
+                    # A known Content-Length must be fully received.
+                    remaining_length = response.length
+                    complete = len(rejected) <= 16384 and not (
+                        type(remaining_length) is int and remaining_length != 0
+                    )
+                except (OSError, ValueError, http.client.HTTPException, ProviderTransportError) as error:
+                    if isinstance(error, CancellationCheckError):
+                        raise
+            http_error = ProviderHttpError(response.status, bytes(rejected) if complete else b"")
+            if complete and rejection_summary is not None:
+                http_error.rejection_summary = _rejection_projection(rejection_summary, bytes(rejected))
+            raise http_error
+        timer.advance(phase)
         length = response.getheader("Content-Length")
         if length and (not length.isdigit() or int(length) > maximum):
             raise AiError("响应超限", "response_too_large", 503)
@@ -721,10 +787,15 @@ def _bounded_json(
             if stream_collector is None:
                 chunks.append(part)
             else:
+                timer.advance("response_parse")
                 stream_collector.feed(part)
+                timer.advance(phase)
                 if stream_collector.done:
                     break
         _network_budget(timeout, phase, request_started)
+        timer.advance("response_parse")
+        if stream_collector is None and type(response.length) is int and response.length > 0:
+            raise InvalidProviderResponse("response_truncated", stage="transport", mode="json")
         value = (stream_collector.finish() if stream_collector is not None
                  else json.loads(b"".join(chunks).decode("utf-8")))
         stop_watching.raise_if_failed(request_started=request_started)
@@ -739,23 +810,30 @@ def _bounded_json(
     except (json.JSONDecodeError, UnicodeDecodeError, RecursionError) as error:
         if stop_watching is not None:
             stop_watching.raise_if_failed(request_started=request_started)
-        raise InvalidProviderResponse(
+        failure = InvalidProviderResponse(
             "utf8_invalid" if isinstance(error, UnicodeDecodeError) else "json_invalid",
             stage="transport", mode="sse" if stream_collector is not None else "json",
-        ) from error
+        )
+        failure.diagnostics["requestStarted"] = request_started
+        raise failure from error
+    except InvalidProviderResponse as error:
+        error.diagnostics["requestStarted"] = request_started
+        raise
     except (OSError, ValueError, http.client.HTTPException) as error:
         if stop_watching is not None:
             stop_watching.raise_if_failed(request_started=request_started)
         _network_budget(timeout, phase, request_started)
         raise ProviderTransportError(stage=phase, reason="unavailable", request_started=request_started) from error
     finally:
+        timer.advance("finalize")
         if stop_watching is not None:
             stop_watching()
         try:
             if connection:
                 connection.close()
         finally:
-            sock.close()
+            if sock is not None:
+                sock.close()
         if stop_watching is not None:
             stop_watching.raise_if_failed(request_started=request_started)
             stop_watching.require_finished(request_started=request_started)
