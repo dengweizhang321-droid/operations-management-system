@@ -108,11 +108,15 @@ def descriptor(dataset_id, entry, *, detail=False):
                 "collection": "trend.items" if dataset_id == "sales_category" else (
                     "items" if dataset_id in {"inventory_age", "inventory_inbound", "inventory_guangdong",
                     "inventory_health", "product_performance", "replenishment_plans", "finance_targets",
-                    "netshop_catalog", "netshop_products", "customer_service", "workflow_operations", "workflow_tasks",
+                    "netshop_catalog", "netshop_products", "netshop_product_daily", "customer_service", "workflow_operations", "workflow_tasks",
                     "workflow_launch_projects"} else None),
                 "instructions": "先 query_system_dataset 检查实际数组和标量字段；inputsJson 可用 columns 选择所需字段，排除嵌套对象。分页分析数据从 page=1 开始，完整性由来源分页信息验证；没有完整性证明的数组不能计算全量。",
             },
         })
+        if dataset_id == "netshop_product_daily":
+            item["pandasExport"]["instructions"] += " 商品日 items 按平台、店铺和 SPU 汇总，访客为商品×日累计。导出自动连续翻页并核对来源版本；普通查询仍只返回第一页。"
+        elif dataset_id == "sales_category":
+            item["pandasExport"]["instructions"] += " trend.items 有来源品类上限，须覆盖全部匹配品类；完整详情可使用 items，明确选择标量列。"
     return item
 
 
@@ -163,6 +167,10 @@ def _result(value, expected_tool):
             raise AiError("当前账号无权查询数据集", "access_denied", 403)
         if code in {"payload_too_large", "tool_result_too_large"}:
             raise AiError("请缩小字段范围或分页大小", "payload_too_large", 413)
+        if code == "source_revision_changed":
+            raise SourceResultError("商品日来源版本已变化，请缩小范围后重新发起", "version_conflict", 409, code)
+        if code == "invalid_source_structure":
+            raise SourceResultError("数据集来源响应无效", "service_unavailable", 503, code)
         raise SourceResultError("数据集来源执行失败，请检查权限、范围或稍后重试", "service_unavailable", 503,
                                 "source_execution_failed")
     if not isinstance(value.get("data"), dict):
@@ -170,7 +178,8 @@ def _result(value, expected_tool):
     return value["data"]
 
 
-def query(dataset_id, body, principal, request_id, *, surface=SURFACE, diagnostic_stage=no_stage):
+def query(dataset_id, body, principal, request_id, *, surface=SURFACE, diagnostic_stage=no_stage,
+          pandas_product_page=None):
     identifier(dataset_id, "dataset")
     fields(body, {"query"})
     args = body.get("query", {})
@@ -201,7 +210,17 @@ def query(dataset_id, body, principal, request_id, *, surface=SURFACE, diagnosti
     with diagnostic_stage("source_freshness"):
         freshness = execute("get_data_freshness", {})
     with diagnostic_stage("source_reader"):
-        data = execute(tool, {"dataset": dataset_id, "queryJson": canonical(args)} if record_spec else {**args, **fixed})
+        if pandas_product_page is None:
+            data = execute(tool, {"dataset": dataset_id, "queryJson": canonical(args)} if record_spec else {**args, **fixed})
+        else:
+            if dataset_id != "netshop_product_daily" or surface not in {"ai_chat", "dingtalk_chat"}:
+                raise AiError("商品日导出入口无效", "access_denied", 403)
+            page, snapshot = pandas_product_page
+            arguments = {**args, **fixed, "page": page}
+            if snapshot is not None:
+                arguments["snapshotToken"] = snapshot
+            data = _result(transport.edge("execute", {"name": tool, "arguments": arguments, "surface": surface,
+                           "requestId": request_id, "policyDigest": policy_digest, "pandasProductPage": True}, principal), tool)
     result = {
         "schemaVersion": "1", "dataset": dataset_id,
         "source": {"domain": domain, "tool": tool, "storage": "Django/PostgreSQL"},

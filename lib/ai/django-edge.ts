@@ -1,7 +1,7 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
 import { aiEnvironment, aiSha256 } from "@/lib/django/ai-service";
 import { resolveAiBackgroundPrincipal } from "@/lib/ai/background-principal";
-import { executeRegisteredToolCall, getMarketV2EnabledRegistry, getToolsForPrincipal, type AiToolSurface } from "@/lib/ai/tool-registry";
+import { executeRegisteredToolCall, getMarketV2EnabledRegistry, getToolsForPrincipal, pandasProductPageTool, type AiToolSurface } from "@/lib/ai/tool-registry";
 import { PublicApiError, safeApiErrorResponse } from "@/lib/http/api-error";
 import { readAiBoundedText } from "@/app/api/ai/route-helpers";
 
@@ -100,9 +100,18 @@ export async function handleAiEdge(request: Request) {
     } else if (body.action === "catalog") {
       exact(body, ["action", "surface"]); result = { entries: entries(principal, body.surface, marketV2Enabled) };
     } else if (body.action === "execute") {
-      exact(body, ["action", "name", "arguments", "surface", "requestId", "providerCallId", "policyDigest", "singleShop"]);
+      exact(body, ["action", "name", "arguments", "surface", "requestId", "providerCallId", "policyDigest", "singleShop", "pandasProductPage"]);
       if (body.policyDigest !== await aiSha256(canonicalAiEdge(entries(principal, body.surface, marketV2Enabled)))) throw denied();
-      result = await executeRegisteredToolCall(text(body.name, 100), body.arguments, { principal, surface: surface(body.surface, marketV2Enabled), persistentPiGateway: body.surface === "pi_business", singleShop: body.surface === "pi_agent" && body.singleShop === true, requestId: text(body.requestId, 128), providerCallId: typeof body.providerCallId === "string" ? body.providerCallId.slice(0, 200) : undefined, signal: request.signal }, { entries: getMarketV2EnabledRegistry(marketV2Enabled) });
+      const toolSurface = surface(body.surface, marketV2Enabled);
+      let registry = getMarketV2EnabledRegistry(marketV2Enabled);
+      if (body.pandasProductPage !== undefined) {
+        if (body.pandasProductPage !== true || body.name !== "get_netshop_performance"
+          || (toolSurface !== "ai_chat" && toolSurface !== "dingtalk_chat")) throw denied();
+        const exportTool = pandasProductPageTool(registry);
+        if (!exportTool) throw denied();
+        registry = [exportTool];
+      }
+      result = await executeRegisteredToolCall(text(body.name, 100), body.arguments, { principal, surface: toolSurface, persistentPiGateway: body.surface === "pi_business", singleShop: body.surface === "pi_agent" && body.singleShop === true, requestId: text(body.requestId, 128), providerCallId: typeof body.providerCallId === "string" ? body.providerCallId.slice(0, 200) : undefined, signal: request.signal }, { entries: registry });
     } else if (body.action === "pi_business_domain") {
       const { piBusinessN8nDomain } = await import("@/lib/ai/pi-business-n8n");
       result = await piBusinessN8nDomain(body, principal, request.signal);
