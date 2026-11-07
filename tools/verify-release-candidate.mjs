@@ -473,11 +473,6 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
  await fs.mkdir(directory,{recursive:false});
  const plan=makeReleasePlan({base:baseCommit,head:commit,cwd:source});
  const batch3=await reviewedAiRepairBatch3(source,baseCommit,commit);
- if(batch3){
-  assert.deepEqual(plan.components,['worker','django']);
-  assert.equal(plan.scope,'combined');
-  assert.equal(plan.migrate,false);
- }
  const profile=batch3?{
   version:'ai-repair-batch3-application-compatibility-v1',qualification:batch3,
   paths:plan.changes.map(change=>change.path),unsupported:[],
@@ -529,6 +524,11 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
  const candidate=path.join(directory,'candidate');let attached=false;
  try{
   assert.equal(profile.unsupported.length,0,'本验证器没有覆盖这些变更，需补受影响兼容适配器：'+profile.unsupported.join(', '));
+  if(batch3){
+   assert.deepEqual(plan.components,['worker','django']);
+   assert.equal(plan.scope,'full');
+   assert.equal(plan.migrate,false);
+  }
   const where=async name=>(await execute('C:/Windows/System32/where.exe',[name],{encoding:'utf8',windowsHide:true})).stdout.trim().split(/\r?\n/)[0];
   const shell5='C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',shell7=await where('pwsh.exe'),gitExe=await where('git.exe'),pythonExe=path.isAbsolute(python)?python:await where(python);
   const environment=candidateTestEnvironment({gitExe,shell5,shell7,pythonExe,directory});
