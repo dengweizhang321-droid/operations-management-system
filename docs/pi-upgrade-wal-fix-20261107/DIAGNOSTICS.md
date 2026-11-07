@@ -16,10 +16,12 @@ Linux 传输代码生成单条结构化 stderr 诊断。Windows 仅在 stderr �
 
 ## 隔离验证
 
-[`tests/pi-upgrade-runtime-diagnostics.test.py`](../../tests/pi-upgrade-runtime-diagnostics.test.py) 通过 13 项测试（Python 3.12）：实际私有 Python 子进程执行生产 `LINUX` 包装字符串，仅 UID 和被导入 dispatch 模块使用合成夹具，WSL transport 在 Windows 端用该子进程实际结果替代。
+[`tests/pi-upgrade-runtime-diagnostics.test.py`](../../tests/pi-upgrade-runtime-diagnostics.test.py) 通过 15 项测试（Python 3.12）：实际私有 Python 子进程执行生产 `LINUX` 包装字符串，仅 UID 和被导入 dispatch 模块使用合成夹具，WSL transport 在 Windows 端用该子进程实际结果替代。
 
 覆盖 WAL 错误码、拒绝候选的受控异常链、敏感异常/系统调用输出不泄漏、WSL warning、非零退出与伪成功冲突、超时中的部分成功输出、畸形/多条/超限诊断、零退出与失败诊断冲突、正常成功兼容及实际 CLI 拒绝路径的 JSON 与 exit 1。每项失败只调用一次 transport。
 
 命令：`py -3.12 tests/pi-upgrade-runtime-diagnostics.test.py`。语法编译与 `git diff --check` 通过。Windows 原有 `WindowsSourceUpgradeReceiptTests` 也通过，覆盖响应丢失、文件碎片及同一 CurrentUser DPAPI 所属保持。此诊断测试不声称覆盖真实 WSL / systemd 的完整升级生命周期；该证据由核心修复和独立隔离演练提供。
+
+真实 Windows → WSL 拒绝测试补充：调用 `invoke({'action':'check','namespace':'pi-test-diagnostic-rejection'})`，在固定 namespace 校验处失败，未读取配置、导入 runtime_upgrade 或调用 dispatch。首次发现 WSL 自身警告为 UTF-16LE，子进程诊断为 UTF-8；按行切分后诊断行前残留一个 NUL，使原解析返回未知。增量仅接受前一行以 UTF-16LE 的 `CR NUL` 结束、下一行以 `NUL {` 开始的边界，剥去这一字节；不修改 JSON 内部 NUL 或接受任意 NUL 前缀。增加合成混合编码正反例后，实际相同拒绝测试返回 `stage=linux_check`、`reason=fixed_upgrade_owner_required`、`directExitCode=1`。stdout 为空，stderr 共 235 字节；未保存或输出警告正文。
 
 执行子代理由主代理继承模型，工具回执未独立报告实际底层型号；本文件不将自身核对称为独立反审。

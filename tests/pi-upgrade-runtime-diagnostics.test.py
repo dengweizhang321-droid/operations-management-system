@@ -82,6 +82,23 @@ class UpgradeDiagnosticsTests(unittest.TestCase):
         child.stderr=SECRET.encode()+b' WSL warning\n'+child.stderr
         self.assertEqual(self.invoke(child)['diagnostic']['reason'],'source_upgrade_unknown_no_replay')
 
+    def test_utf16_wsl_warning_then_utf8_failure_keeps_exact_record(self):
+        child=self.linux("raise ValueError('fixed_upgrade_owner_required')")
+        warning=('wsl: \u542f\u52a8\u8b66\u544a '+SECRET+'\r\n').encode('utf-16-le')
+        child.stderr=warning+child.stderr
+        self.assertEqual(self.invoke(child)['diagnostic']['reason'],'fixed_upgrade_owner_required')
+
+    def test_mixed_encoding_fix_does_not_normalize_arbitrary_nuls(self):
+        good=json.dumps({'piUpgradeFailure':1,'stage':'linux_apply',
+            'reason':'fixed_upgrade_owner_required','causeReasons':[]}).encode()
+        warning='wsl: synthetic warning\r\n'.encode('utf-16-le')
+        for stderr in [b'\x00'+good,warning+b'\x00'+good,
+                       warning+good.replace(b'linux_apply',b'linux_\x00apply'),
+                       warning+good+b'\n'+good]:
+            with self.subTest(stderr=stderr[:50]):
+                child=subprocess.CompletedProcess(['synthetic'],1,b'',stderr)
+                self.assertEqual(self.invoke(child)['diagnostic']['reason'],'linux_failure_unknown')
+
     def test_nonzero_exit_never_accepts_success_stdout(self):
         child=self.linux("raise ValueError('ledger_wal_not_checkpointed')")
         child.returncode=23

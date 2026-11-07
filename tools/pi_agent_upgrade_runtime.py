@@ -151,7 +151,14 @@ def linux_failure(stderr,action):
     """Accept one bounded diagnostic; WSL warnings are discarded, never echoed."""
     if len(stderr)>4096:return None
     records=[]
-    for line in stderr.splitlines():
+    lines=stderr.split(b'\n')
+    for index,line in enumerate(lines):
+        # wsl.exe can prepend UTF-16LE warnings to the child's UTF-8 stderr.
+        # Splitting its CR\0 LF\0 leaves one NUL before the JSON object. Strip
+        # exactly that byte only at this observed transport boundary; never
+        # normalize NULs within JSON or decode the mixed stream as one codec.
+        if index and lines[index-1].endswith(b'\r\x00') and line.startswith(b'\x00{'):
+            line=line[1:]
         try:record=json.loads(line)
         except (ValueError,UnicodeError):continue
         if type(record) is dict and 'piUpgradeFailure' in record:records.append(record)
