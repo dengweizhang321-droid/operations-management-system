@@ -7,7 +7,7 @@ import {createHash} from 'node:crypto';
 import {inspectMainPublication,resumeAi159OriginalTail,resumeMainPublication,resumeProtocol} from '../tools/publish-main-resume.mjs';
 import {reconcileMainPiUpgrade} from '../tools/publish-main-pi-reconciliation.mjs';
 import {verifyPublisherRetired} from '../tools/publish-main-owner.mjs';
-import {assertAi159InitialPi} from '../tools/publish-ai159-resume.mjs';
+import {assertAi159InitialPi,assertAi159RetryInvocations} from '../tools/publish-ai159-resume.mjs';
 import {resumeAi159PreparedMain} from '../tools/publish-prepared-main.mjs';
 const hash=b=>createHash('sha256').update(b).digest('hex');
 const write=async(p,v)=>{await fs.mkdir(path.dirname(p),{recursive:true});await fs.writeFile(p,typeof v==='string'?v:JSON.stringify(v)+'\n');};
@@ -146,6 +146,15 @@ test('AI159 Pi observation requires the original operation, plan and inactive re
  for(const mutation of [{reason:'linux_state_unknown'},{status:'reconcile_available'},{registeredPlanSha256:hex('f')},{operationId:'f'.repeat(32)},{upgradeReceipt:{}}]){
   assert.throws(()=>assertAi159InitialPi({...inactive,...mutation},prepared));
  }
+});
+
+test('AI159 retry requires the exact prior prestart invocation and allows one successor only',()=>{
+ const prior='1bfffddeb6b14b1689a6f29c99b04d64',next='a'.repeat(32);
+ assert.doesNotThrow(()=>assertAi159RetryInvocations([prior]));
+ assert.doesNotThrow(()=>assertAi159RetryInvocations([next,prior],next));
+ for(const bad of [[],[next],[prior,next]])assert.throws(()=>assertAi159RetryInvocations(bad));
+ assert.throws(()=>assertAi159RetryInvocations([prior],prior));
+ assert.throws(()=>assertAi159RetryInvocations([next,prior,'b'.repeat(32)],next));
 });
 
 test('AI159 keeper failure after catalog can only coordinate the index and keeper',async t=>{

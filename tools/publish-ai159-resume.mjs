@@ -8,11 +8,12 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import {assertFrozenSource} from './frozen-main-source.mjs';
 import {schemaForRequest} from './main-schema-release.mjs';
 import {assertControlGeneration,readAdoptedControl} from './main-control-dispatch.mjs';
-import {assertOrdinaryIdentity,currentPreparationIdentity,taskHost} from './main-prebuild-task.mjs';
+import {assertOrdinaryIdentity,currentPreparationIdentity,taskHost,taskPowerShell} from './main-prebuild-task.mjs';
 import {acquireMainPublicationQueue,publisherEnvironment} from './publish-latest-main.mjs';
 import {assertPublicationReady,publicationDeadline,waitForPublicationReady} from './publication-readiness.mjs';
 import {manualStepCommand} from './publish-main-command.mjs';
 import {resumeAi159OriginalTail} from './publish-main-resume.mjs';
+import {assertPublicationRetired} from './publish-main-owner.mjs';
 import {mainResumeCatalog} from './publish-main-status.mjs';
 import {createMainPublicationStep} from './publish-main-step.mjs';
 
@@ -26,6 +27,20 @@ const operatorPath='D:/.codex/worktrees/ai159-pi-recovery-20261107';
 const installed='D:/teruisi-runtime/django-sales/app';
 const resumeLeaf='resume-ai159';
 const piGuardName='PiRunnerRecovery-started.json';
+const prestartInvocation='1bfffddeb6b14b1689a6f29c99b04d64';
+const prestartCommit='2ae71db4df2ce1a7cbd73723cdcd4c693fb36dd0';
+const prestartHelperBlob='2810254725d0af2839642c0e6026cf4f6c4b71f4';
+const helperPath='tools/ai159-pi-source-recovery.ps1';
+const prestartLabel='恢复Pi Runner原新单元';
+const prestartPins=Object.freeze({
+ 'STARTED.json':'7eda94fccb5f50124c97c905814347a1a5f02fe6672f81835ef9462005e474ad',
+ 'FAILED.json':'7c92735d74bdfe36face769c199a28f66bfc86c87e9ca5bc4b41df4457cf8a98',
+ 'AI159-SCHEMA-VERIFIED.json':'90e21d294bcd1648a1eaec1eb557064d29b801a165847eec410984c53b9dac63',
+ [prestartLabel+'-started.json']:'3f54e0f184b01fc9a088529935f952c517cd76930d01c7ad268b958e17d53945',
+ [prestartLabel+'-process.json']:'3cd9a37609ce74859efbcdc3cc1cdbbf08e59fcfe00936cba3ea9b4a8deffc16',
+ [prestartLabel+'.stdout.log']:'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+ [prestartLabel+'.stderr.log']:'0fbc3a7c4bffeebe3ba3c9d576e48b0b40953e4b938e4e05122046553fa5b089',
+});
 const predecessorCatalogSha256='f776dfab17edecbd7a1acf0399d1b109cc3dde834493cf40c2d1b5db3bfdeff6';
 const originalPins=Object.freeze({
  'STARTED.json':'fa16a6ba406f55213bdac1d9c1c92120ca76cb78eb8191c5704c5d405045a01b',
@@ -82,6 +97,43 @@ async function pinnedFiles(root,pins){
   records[name]=bytes;
  }
  return records;
+}
+
+export function assertAi159RetryInvocations(entries,successId){
+ const expected=[prestartInvocation];
+ if(successId!==undefined){
+  assert.match(successId,/^[a-f0-9]{32}$/);
+  assert.notEqual(successId,prestartInvocation,'原启动前失败不能成为成功回执');
+  expected.push(successId);
+ }
+ assert.deepEqual([...entries].sort(),expected.sort(),'AI159恢复历史只能包含已证实的启动前失败及唯一成功续接');
+}
+
+async function verifyPrestartFailure(resumed){
+ const prior=path.join(resumed,'attempts',prestartInvocation);
+ assert.deepEqual((await fs.readdir(prior)).sort(),Object.keys(prestartPins).sort(),'原恢复出现额外记录，不能证明尚未启动');
+ const records=await pinnedFiles(prior,prestartPins);
+ const owner=JSON.parse(records['STARTED.json']);
+ const started=JSON.parse(records[prestartLabel+'-started.json']);
+ const failure=JSON.parse(records['FAILED.json']);
+ const {processEvidence,originalBytesRetained}=JSON.parse(records[prestartLabel+'-process.json']);
+ assert.equal(owner.operatorSource.commit,prestartCommit);
+ assert.equal(owner.operatorSource.root,path.resolve(operatorPath));
+ assert.equal(started.script,path.join(owner.operatorSource.root,helperPath));
+ assert.equal(started.action,'RestoreRunner');
+ assert.deepEqual(started.extra,['-Invocation',prior]);
+ assert.equal(failure.phase,prestartLabel);
+ assert.equal(failure.automaticReplay,false);
+ assert.deepEqual(failure.processEvidence,processEvidence);
+ assert.equal(originalBytesRetained,true);
+ assert.equal(processEvidence.code,'nonzero_exit');
+ assert.equal(processEvidence.exitCode,1);
+ assert.equal(processEvidence.timeoutType,null);
+ assert.equal(processEvidence.outputProtocol,'direct-exit-files');
+ assert.equal(processEvidence.processId,11460);
+ assert.equal(processEvidence.stderrSha256,prestartPins[prestartLabel+'.stderr.log']);
+ assert.equal(processEvidence.stdoutSha256,prestartPins[prestartLabel+'.stdout.log']);
+ return {owner:owner.owner,actorPid:processEvidence.processId};
 }
 
 export function assertAi159InitialPi(pi,prepared){
@@ -199,6 +251,10 @@ export async function runAi159PreparedRecovery({configFile=controlPath,attempt=a
  const verifyOperator=()=>assertFrozenSource({source:operatorRoot,mainCommit:operatorCommit});
  const operatorSource={root:operatorRoot,...await verifyOperator()};
  execFileSync('git',['merge-base','--is-ancestor',mainCommit,operatorCommit],{cwd:operatorRoot,windowsHide:true,stdio:'pipe'});
+ const helperBlob=commit=>execFileSync('git',['rev-parse',`${commit}:${helperPath}`],{cwd:operatorRoot,windowsHide:true,encoding:'utf8'}).trim();
+ assert.equal(helperBlob(prestartCommit),prestartHelperBlob,'原启动前失败的脚本来源变化');
+ assert.notEqual(helperBlob(operatorCommit),prestartHelperBlob,'续接必须使用已修复并审查的恢复脚本');
+ execFileSync('git',['merge-base','--is-ancestor',prestartCommit,operatorCommit],{cwd:operatorRoot,windowsHide:true,stdio:'pipe'});
  await assertFrozenSource({source,mainCommit,sourceTree:JSON.parse(original['STARTED.json']).sourceTree});
  const load=name=>import(pathToFileURL(path.join(source,'tools',name)));
  const [api,rotation,transport,pi,adapter]=await Promise.all([
@@ -220,7 +276,8 @@ export async function runAi159PreparedRecovery({configFile=controlPath,attempt=a
    assert.equal(file,path.join(state.resumed,'SUCCESS.json'));
    const auditRoot=path.join(state.resumed,'attempts');
    assert.match(success.recoveryInvocationId??'',/^[a-f0-9]{32}$/);
-   assert.deepEqual(await fs.readdir(auditRoot),[success.recoveryInvocationId]);
+   assertAi159RetryInvocations(await fs.readdir(auditRoot),success.recoveryInvocationId);
+   await verifyPrestartFailure(state.resumed);
    const invocation=path.join(auditRoot,success.recoveryInvocationId);
    assert.match(success.schemaDatabaseProofSha256??'',/^[a-f0-9]{64}$/);
    const evidence=await pinnedFiles(invocation,{'AI159-SCHEMA-VERIFIED.json':success.schemaDatabaseProofSha256});
@@ -267,7 +324,17 @@ export async function runAi159PreparedRecovery({configFile=controlPath,attempt=a
    assert.ok(Object.values(steps).every(step=>step.state==='not_started'),'AI159原发布尾部已开始');
    for(const name of await fs.readdir(out))assert.ok(!Object.keys(steps).some(label=>name.startsWith(label+'-')||name.startsWith(label+'.')),'AI159原尾部存在未完成原证据：'+name);
    assert.equal(await exists(path.join(out,piGuardName)),false,'AI159 Pi一次性启动已经开始');
-   assert.equal(await exists(path.join(resumed,'attempts')),false,'AI159恢复已开始，保留原记录');
+   assertAi159RetryInvocations(await fs.readdir(path.join(resumed,'attempts')));
+   const prior=await verifyPrestartFailure(resumed);
+   const prepared=JSON.parse(original['preparation/PREPARED.json']);
+   await assertPublicationRetired({owner:prior.owner,actorPids:[prior.actorPid],source,attempt:out,prepared});
+   // The old reviewed helper had to serialize its first keeper record before Start-Process.
+   // No record plus its exact direct serialization failure is corroborated with a live census.
+   const keeperAbsent=await taskPowerShell(String.raw`
+    $keepers=@(Get-CimInstance Win32_Process -Filter "Name = 'wsl.exe'" -ErrorAction Stop)
+    foreach($p in $keepers){if(-not $p.CommandLine -or $p.CommandLine -match '(?:^|\s)/usr/bin/sleep\s+2147483647(?:\s|$)'){throw 'AI159 recovery keeper identity is live or unreadable'}}
+    'true'`);
+   assert.equal(keeperAbsent,true);
    assertAi159InitialPi(pi,preparedPi);
    return true;
   },

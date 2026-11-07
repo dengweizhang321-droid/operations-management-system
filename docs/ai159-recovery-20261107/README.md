@@ -11,3 +11,5 @@ node tools/publish-prepared-main.mjs --recover-ai159 --operator-commit <审定�
 本入口固定原配置和发布目录。它单独记录执行代码的工作树、提交和树摘要，发布目标沿用冻结包原提交。先持有原准备队列、Worker rotation 锁和发布租约，并核验原执行者退役、Django 制品、AI159 原结构回执、维护窗和 Worker 前驱。正式 PostgreSQL 上使用已安装的 `integration_release_gate.py database` 在默认只读事务连接中核对 AI159 的实际迁移目录与权限。只有该检查成功才能恢复原 Runner 候选并使用原协调入口。
 
 原 `STARTED.json`、`FAILED.json` 和准备包保留。新增证据位于原发布目录下的 `resume-ai159`，一次性启动 guard 位于原发布目录。共享发布尾部执行原 Worker plan、退出维护、启动与版本和就绪门禁，随后生成真实 `SUCCESS.json` 并通过原发布目录 CAS 更新 `PUBLISHED-MAIN.json`。记账成功后，确认正式 keeper 已接续，再释放此次临时 keeper。已有完整成功回执时，本入口只允许协调原索引和临时 keeper 的释放。其他在途状态需要保留证据并重新确认。
+
+首次恢复调用 `1bfffddeb6b14b1689a6f29c99b04d64` 在临时 keeper 的启动前记录序列化时直接退出。续接只接受该调用的原始退出、输出及文件清单，验证原进程已退役、现场无临时 keeper，并重新走只读 AI159 核验和原维护门禁。下一次调用追加独立记录。出现任何额外尝试或启动证据即停止。
