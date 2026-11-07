@@ -46,29 +46,7 @@ export async function runMainStatusCli(args=process.argv.slice(2)){
   const result=await api.runProcess(command.host,transport.productionCommandArguments(command.host,command.args),{cwd:path.dirname(command.args[3]),env:transport.productionCommandEnvironment(command.host),timeoutMs:240000,outputProtocol:'direct-exit-files',cleanup:'preserve',captureOutputBuffers:true,label:'read-only original Pi upgrade status'});
   return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(result.rawOutput.stdout));
  };
- const catalogFile=path.join(config.stateDirectory,'PUBLISHED-MAIN.json'),expectedFile=path.join(out,'resume/CATALOG-EXPECTED.json');
- const publishCatalog=async(result,state)=>{
-  await assertControlGeneration(binding);
-  const chain=await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true});assert.equal(chain.head.releaseId,result.workerRelease);assert.equal(chain.head.manifestSha256,result.workerManifestSha256);
-  assert.equal(sha(await fs.readFile(path.join(installed,'deployment.json'))),result.djangoManifestSha256);
-  const receiptRaw=await fs.readFile(result.receiptPath),receipt=JSON.parse(receiptRaw);assert.equal(receipt.status,'deployed_and_ready');assert.equal(receipt.mainCommit,state.request.mainCommit);assert.equal(receipt.startupVerified,true);assert.equal(receipt.readyVerified,true);
-  for(const name of ['system-maintenance.json','automation-drain.json'])assert.equal(await exists(path.join(path.dirname(installed),'run',name)),false,'维护未退出');
-  await ready();
-  const sourceTree=await api.hashRelativeFiles(source,await api.listGitSourceFiles(source));
-  const rawBefore=await fs.readFile(catalogFile),previous=JSON.parse(rawBefore),receiptSha256=sha(receiptRaw);
-  if(previous.receiptPath===result.receiptPath&&previous.receiptSha256===receiptSha256)return;
-  const expected=await read(expectedFile);assert.equal(sha(rawBefore),expected.sha256,'发布目录CAS已变化；只协调索引，不重做发布步骤');
-  const catalog={...receipt,source,sourceTree,receiptPath:result.receiptPath,receiptSha256};
-  const temp=catalogFile+'.'+randomUUID()+'.tmp';await fs.writeFile(temp,JSON.stringify(catalog,null,2)+'\n',{flag:'wx'});
-  assert.equal(sha(await fs.readFile(catalogFile)),expected.sha256);await fs.rename(temp,catalogFile);
-  assert.deepEqual(await read(catalogFile),catalog);
- };
- const beforeResume=async()=>{
-  if(!await exists(expectedFile)){
-   await fs.mkdir(path.dirname(expectedFile),{recursive:true});const bytes=await fs.readFile(catalogFile);
-   await fs.writeFile(expectedFile,JSON.stringify({at:new Date().toISOString(),sha256:sha(bytes),originalStartedSha256:sha(await fs.readFile(path.join(out,'STARTED.json')))})+'\n',{flag:'wx'});
-  }else assert.equal((await read(expectedFile)).originalStartedSha256,sha(await fs.readFile(path.join(out,'STARTED.json'))));
- };
+ const {publishCatalog,beforeResume}=mainResumeCatalog({config,out,binding,rotation,installed,ready,source,api});
  const context={api,rotation,transport,installedRoot:installed,observePi,ready,publishCatalog,beforeResume};
  if(!values.resume){
   const observed=await inspectMainPublication(out,context);
@@ -79,5 +57,48 @@ export async function runMainStatusCli(args=process.argv.slice(2)){
   unlock=await acquireMainPublicationQueue(binding);
   const result=await resumeMainPublication(out,context);console.log(JSON.stringify({status:result.status,mainCommit:result.mainCommit,receiptPath:result.receiptPath,publicationPerformed:result.status==='deployed_and_ready'}));
  }finally{await unlock?.();}
+}
+
+export function mainResumeCatalog({config,out,binding,rotation,installed,ready,source,api,predecessorCatalogSha256,resumeLeaf='resume'}){
+ const catalogFile=path.join(config.stateDirectory,'PUBLISHED-MAIN.json'),expectedFile=path.join(out,resumeLeaf,'CATALOG-EXPECTED.json');
+ const publishCatalog=async(result,state)=>{
+  await assertControlGeneration(binding);
+  const chain=await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true});assert.equal(chain.head.releaseId,result.workerRelease);assert.equal(chain.head.manifestSha256,result.workerManifestSha256);
+  assert.equal(sha(await fs.readFile(path.join(installed,'deployment.json'))),result.djangoManifestSha256);
+  const receiptRaw=await fs.readFile(result.receiptPath),receipt=JSON.parse(receiptRaw);assert.equal(receipt.status,'deployed_and_ready');assert.equal(receipt.mainCommit,state.request.mainCommit);assert.equal(receipt.startupVerified,true);assert.equal(receipt.readyVerified,true);
+  for(const name of ['system-maintenance.json','automation-drain.json'])assert.equal(await exists(path.join(path.dirname(installed),'run',name)),false,'维护未退出');
+  await ready();
+  const sourceTree=await api.hashRelativeFiles(source,await api.listGitSourceFiles(source));
+  const rawBefore=await fs.readFile(catalogFile),previous=JSON.parse(rawBefore),receiptSha256=sha(receiptRaw);
+  if(previous.receiptPath===result.receiptPath&&previous.receiptSha256===receiptSha256){
+   if(predecessorCatalogSha256)assert.deepEqual(previous,{...receipt,source,sourceTree,receiptPath:result.receiptPath,receiptSha256},'已恢复发布目录与原成功回执不一致');
+   return;
+  }
+  const expected=await read(expectedFile);assert.equal(sha(rawBefore),expected.sha256,'发布目录CAS已变化；只协调索引，不重做发布步骤');
+  const catalog={...receipt,source,sourceTree,receiptPath:result.receiptPath,receiptSha256};
+  const temp=catalogFile+'.'+randomUUID()+'.tmp';await fs.writeFile(temp,JSON.stringify(catalog,null,2)+'\n',{flag:'wx'});
+  assert.equal(sha(await fs.readFile(catalogFile)),expected.sha256);await fs.rename(temp,catalogFile);
+  assert.deepEqual(await read(catalogFile),catalog);
+ };
+ const beforeResume=async state=>{
+  const bytes=await fs.readFile(catalogFile),current=JSON.parse(bytes);
+  if(predecessorCatalogSha256){
+   if(state.status==='recorded_complete'&&current.receiptPath===state.receiptPath){
+    assert.equal(current.receiptSha256,sha(await fs.readFile(state.receiptPath)),'已记账恢复收据已变化');
+    return;
+   }
+   assert.equal(sha(bytes),predecessorCatalogSha256,'原前驱发布目录已变化');
+  }
+  if(!await exists(expectedFile)){
+   assert.ok(!predecessorCatalogSha256||state.status!=='recorded_complete','已恢复发布缺少原CAS记录');
+   await fs.mkdir(path.dirname(expectedFile),{recursive:true});
+   await fs.writeFile(expectedFile,JSON.stringify({at:new Date().toISOString(),sha256:sha(bytes),originalStartedSha256:sha(await fs.readFile(path.join(out,'STARTED.json')))})+'\n',{flag:'wx'});
+  }else{
+   const expected=await read(expectedFile);
+   assert.equal(expected.originalStartedSha256,sha(await fs.readFile(path.join(out,'STARTED.json'))));
+   if(predecessorCatalogSha256)assert.equal(expected.sha256,predecessorCatalogSha256,'恢复CAS前驱不匹配');
+  }
+ };
+ return {publishCatalog,beforeResume};
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))runMainStatusCli().catch(error=>{console.error(JSON.stringify({status:'blocked',canResume:false,reason:String(error.message),processEvidence:error.processEvidence??null,publicationPerformed:false}));process.exitCode=1;});

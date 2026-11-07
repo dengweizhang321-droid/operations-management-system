@@ -4,9 +4,11 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-import {inspectMainPublication,resumeMainPublication,resumeProtocol} from '../tools/publish-main-resume.mjs';
+import {inspectMainPublication,resumeAi159OriginalTail,resumeMainPublication,resumeProtocol} from '../tools/publish-main-resume.mjs';
 import {reconcileMainPiUpgrade} from '../tools/publish-main-pi-reconciliation.mjs';
 import {verifyPublisherRetired} from '../tools/publish-main-owner.mjs';
+import {assertAi159InitialPi} from '../tools/publish-ai159-resume.mjs';
+import {resumeAi159PreparedMain} from '../tools/publish-prepared-main.mjs';
 const hash=b=>createHash('sha256').update(b).digest('hex');
 const write=async(p,v)=>{await fs.mkdir(path.dirname(p),{recursive:true});await fs.writeFile(p,typeof v==='string'?v:JSON.stringify(v)+'\n');};
 const read=async p=>JSON.parse(await fs.readFile(p,'utf8'));
@@ -129,4 +131,38 @@ test('Reconcile timeout preserves its guard and does not read past a potentially
   throw Error('must not proceed');
  };
  await assert.rejects(reconcileMainPiUpgrade({prepared:f.prepared.piRunnerUpgrade,installed:f.installed,out:f.out,step}),/直接退出/);assert.deepEqual(events,['PiUpgradeStatus','ReconcilePiUpgrade']);assert.ok(await fs.stat(path.join(f.out,'PiReconcile-started.json')));
+});
+
+test('AI159 public entry rejects a different attempt before reading production',async t=>{
+ const f=await fixture(t);
+ await assert.rejects(resumeAi159PreparedMain({attempt:f.out}),/仅接受原发布目录/);
+ assert.deepEqual(f.events,[]);
+});
+
+test('AI159 Pi observation requires the original operation, plan and inactive reason',async t=>{
+ const f=await fixture(t),prepared=f.prepared.piRunnerUpgrade;
+ const inactive={...f.pi,status:'blocked',reason:'linux_successor_not_active',postconditionsVerified:false,upgradeReceipt:null};
+ assert.doesNotThrow(()=>assertAi159InitialPi(inactive,prepared));
+ for(const mutation of [{reason:'linux_state_unknown'},{status:'reconcile_available'},{registeredPlanSha256:hex('f')},{operationId:'f'.repeat(32)},{upgradeReceipt:{}}]){
+  assert.throws(()=>assertAi159InitialPi({...inactive,...mutation},prepared));
+ }
+});
+
+test('AI159 keeper failure after catalog can only coordinate the index and keeper',async t=>{
+ const f=await fixture(t),failure=await fs.readFile(path.join(f.out,'FAILED.json'));
+ const schemaReceipt={release:{steps:['ai_assistant.0090_unified_tasks']},operationId:'private'};
+ const recovery={protocol:'private-ai159',operatorSource:{commit:'d'.repeat(40)},preparationSha256:hex('e'),
+  verifyOriginal:async()=>schemaReceipt,verifySuccess:async success=>assert.deepEqual(success.schemaReceipt,schemaReceipt),canResume:async()=>true,
+  runPi:async()=>({receipt:f.receipt,schemaDatabaseVerified:true,schemaDatabaseProofSha256:hex('f'),releaseKeeper:async()=>{
+   f.events.push('releaseKeeper');throw Error('private keeper cleanup failed');
+  }}),
+  cleanupRecordedKeeper:async()=>f.events.push('cleanupRecordedKeeper'),
+ };
+ await assert.rejects(resumeAi159OriginalTail(f.out,f.context,recovery),/private keeper cleanup failed/);
+ assert.deepEqual(f.events.slice(-3),['ready','catalog','releaseKeeper']);
+ f.events.length=0;
+ const result=await resumeAi159OriginalTail(f.out,f.context,recovery);
+ assert.equal(result.status,'already-current');
+ assert.deepEqual(f.events.filter(e=>!['rotation','retired'].includes(e)),['catalog','cleanupRecordedKeeper']);
+ assert.deepEqual(await fs.readFile(path.join(f.out,'FAILED.json')),failure);
 });

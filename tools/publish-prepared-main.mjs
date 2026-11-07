@@ -2,6 +2,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import {fileURLToPath} from 'node:url';
+import {parseArgs} from 'node:util';
 import {assertPublicationReady,waitForPublicationReady,publicationDeadline,readyRequestTimeoutMs,PublicationReadinessError} from './publication-readiness.mjs';
 import {randomUUID,createHash} from 'node:crypto';
 import {assertFrozenSource} from './frozen-main-source.mjs';
@@ -15,6 +17,22 @@ import {continueFirstMaintenance,isFirstMaintenancePredecessor,continuePiMainten
 export const piWorkspaceImage='sha256:ab4ee452bfc6f66dedac6e874dec7ed492b687d24f217c75e80fc9535a26bbb2';
 export const piBusinessImage='sha256:4466957e80e75b04fedc888029defa897d9d1b26173a3228558ccdadf169486f';
 export const piNativeImage='sha256:87e41e7e4d646d779eba8b552a213d5356c4afa935d42dbb618d19fab7e15956';
+
+// One reviewed incident, deliberately separate from normal prepared publication.
+export async function resumeAi159PreparedMain(options){
+ const {runAi159PreparedRecovery}=await import('./publish-ai159-resume.mjs');
+ return runAi159PreparedRecovery(options);
+}
+
+if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
+ const main=async()=>{
+  const {values}=parseArgs({options:{'recover-ai159':{type:'boolean'},config:{type:'string'},attempt:{type:'string'},'operator-commit':{type:'string'}}});
+  assert.equal(values['recover-ai159'],true,'需要明确指定 --recover-ai159');
+  const result=await resumeAi159PreparedMain({configFile:values.config,attempt:values.attempt,operatorCommit:values['operator-commit']});
+  console.log(JSON.stringify({status:result.status,mainCommit:result.mainCommit,receiptPath:result.receiptPath,keeperReleased:true}));
+ };
+ main().catch(error=>{console.error(JSON.stringify({status:'stopped',reason:String(error.message).slice(0,1200),processEvidence:error.processEvidence??null}));process.exitCode=1;});
+}
 function verifyPiUpgrade(record,expectedImage=piWorkspaceImage){assert.equal(record?.prepared,true,'缺少已准备Pi Runner升级');assert.equal(record?.started,false,'准备不能启动Runner');assert.match(record.registeredPlanSha256??'',/^[a-f0-9]{64}$/);assert.match(record.sourceSha256??'',/^[a-f0-9]{64}$/);assert.equal(record.image,expectedImage,'Runner升级镜像与本次交付不一致');return record;}
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const exists=async file=>{try{await fs.access(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};

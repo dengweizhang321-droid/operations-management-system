@@ -42,8 +42,8 @@ async function assertLeafTree(root){
  let current=path.resolve(root);
  for(;;){const stat=await fs.lstat(current);assert.equal(stat.isSymbolicLink(),false,'发布路径不能经过链接');const parent=path.dirname(current);if(parent===current)break;current=parent;}
 }
-export async function inspectMainPublication(attempt,context){
- const out=path.resolve(attempt),resumed=path.join(out,'resume');
+async function inspectBoundPublication(attempt,context,recovery){
+ const out=path.resolve(attempt),resumed=path.join(out,recovery?.resumeLeaf??'resume');
  await assertLeafTree(out);
  const started=await read(path.join(out,'STARTED.json'));
  assert.equal(started.resumeProtocol,resumeProtocol,'历史/未知发布协议不适用通用续接');
@@ -55,18 +55,25 @@ export async function inspectMainPublication(attempt,context){
  assert.equal(request.mainCommit,started.mainCommit);assert.equal(prepared.version,'teruisi-main-preparation-v1');
  assert.equal(hash(Buffer.from(JSON.stringify(request))),started.requestSha256);assert.equal(prepared.requestSha256,started.requestSha256);
  assert.deepEqual(started.components,request.components);assert.deepEqual(request.components,['worker','django'],'首版仅支持Worker+Django的Runner升级尾部');
- assert.equal(request.migrate,false,'结构发布保持原专用恢复');assert.equal(request.releasePlan?.migrate,false);assert.equal(started.schemaRelease,undefined);assert.equal(started.operationId,undefined);
- assert.equal(request.completedTask,undefined,'历史专用入口不能通用续接');assert.equal(request.schemaRelease,undefined);
+ assert.equal(request.completedTask,undefined,'历史专用入口不能通用续接');
+ if(!recovery){
+  assert.equal(request.migrate,false,'结构发布保持原专用恢复');assert.equal(request.releasePlan?.migrate,false);
+  assert.equal(started.schemaRelease,undefined);assert.equal(started.operationId,undefined);assert.equal(request.schemaRelease,undefined);
+ }
  assert.equal(request.releasePlan.headSha,request.mainCommit);assert.equal(request.releasePlan.baseSha,request.deployedCommit);assert.deepEqual(request.releasePlan.components,request.components);
  assert.ok(prepared.workerPlan&&prepared.djangoPackage&&prepared.piRunnerUpgrade,'缺少本次完整准备包');
  assert.match(prepared.djangoManifestSha256??'',/^[a-f0-9]{64}$/);assert.match(prepared.piRunnerUpgrade.registeredPlanSha256??'',/^[a-f0-9]{64}$/);
  assert.deepEqual(prepared.sourceIdentity,{commit:started.mainCommit,tree:started.sourceTree});
  const identity=await (context.sourceIdentity??(()=>assertFrozenSource({source,mainCommit:started.mainCommit,sourceTree:request.sourceTree})))();
  assert.deepEqual(identity,prepared.sourceIdentity,'原冻结来源发生变化');
+ if(await exists(resumed))await assertLeafTree(resumed);
  const failure=await exists(path.join(out,'FAILED.json'))?await read(path.join(out,'FAILED.json')):null;
+ const original={request,prepared,started,source,out,resumed,identity,failure};
+ const schemaReceipt=recovery?await recovery.verifyOriginal(original):null;
  for(const file of [path.join(out,'SUCCESS.json'),path.join(resumed,'SUCCESS.json')])if(await exists(file)){
   const success=await read(file);assert.equal(success.status,'deployed_and_ready');assert.equal(success.mainCommit,request.mainCommit);
-  return {status:'recorded_complete',canResume:false,receiptPath:file,mainCommit:request.mainCommit,success,request,prepared,started,source,out,resumed,identity};
+  if(recovery)await recovery.verifySuccess(success,file,{...original,schemaReceipt});
+  return {status:'recorded_complete',canResume:false,receiptPath:file,mainCommit:request.mainCommit,success,...original,schemaReceipt};
  }
  assert.ok(failure,'原失败回执缺失，不能自动续接');assert.equal(failure.mainCommit,request.mainCommit);assert.equal(failure.maintenanceStarted,true);
  const {api,rotation}=context,installed=context.installedRoot??'D:/teruisi-runtime/django-sales/app',runtime=context.workerRuntimeRoot??api.workerRuntimeRoot;
@@ -120,16 +127,24 @@ export async function inspectMainPublication(attempt,context){
  const pi=await context.observePi(prepared.piRunnerUpgrade,installed);
  assert.equal(pi.registeredPlanSha256,prepared.piRunnerUpgrade.registeredPlanSha256);assert.equal(pi.sourceSha256,prepared.piRunnerUpgrade.sourceSha256);assert.equal(pi.image,prepared.piRunnerUpgrade.image);
  const reconciliationAttempted=await exists(path.join(out,'PiReconcile-started.json'));
- const canResume=pi.status==='windows_complete'||pi.status==='reconcile_available'&&!reconciliationAttempted;
+ const canResume=recovery
+  ?await recovery.canResume({pi,steps,reconciliationAttempted,resumed})
+  :pi.status==='windows_complete'||pi.status==='reconcile_available'&&!reconciliationAttempted;
  if(completed.WorkerApply)assert.equal(pi.status,'windows_complete','Worker已切换但Pi升级未完成');
- return {status:canResume?'resumable':'blocked',canResume,reason:canResume?null:reconciliationAttempted?'original_reconciliation_already_started':pi.reason,mainCommit:request.mainCommit,source,out,resumed,request,prepared,started,identity,installed,runtime,pi,steps,completed,chain};
+ return {status:canResume?'resumable':'blocked',canResume,reason:canResume?null:reconciliationAttempted?'original_reconciliation_already_started':pi.reason,mainCommit:request.mainCommit,...original,installed,runtime,pi,steps,completed,chain,schemaReceipt};
 }
 
-export async function resumeMainPublication(attempt,context){
+export const inspectMainPublication=(attempt,context)=>inspectBoundPublication(attempt,context);
+export const resumeMainPublication=(attempt,context)=>resumeBoundPublication(attempt,context);
+
+// Internal adapter for the separately pinned and explicitly selected AI159 incident.
+export const resumeAi159OriginalTail=(attempt,context,recovery)=>resumeBoundPublication(attempt,context,recovery);
+
+async function resumeBoundPublication(attempt,context,recovery){
  const {rotation,api}=context;
  return rotation.withRotationLock(async rotationLease=>{
   await rotation.assertActiveBatchOwnership(context.workerRuntimeRoot??api.workerRuntimeRoot);
-  const state=await inspectMainPublication(attempt,context);
+  const state=await inspectBoundPublication(attempt,context,recovery);
   if(state.status==='recorded_complete'){
    // Index coordination only: never re-enter a lifecycle step after SUCCESS.
    const check=context.assertRetired??assertPublicationRetired;
@@ -140,14 +155,16 @@ export async function resumeMainPublication(attempt,context){
     assert.equal(owner.originalStartedSha256,await sha(path.join(state.out,'STARTED.json')));await check({owner:owner.owner,actorPids:[],source:state.source,attempt:state.out,prepared:state.prepared});
    }
    await context.beforeResume?.(state);
-   await context.publishCatalog({...state.success,receiptPath:state.receiptPath},state);return {...state.success,status:'already-current',receiptPath:state.receiptPath};
+   await context.publishCatalog({...state.success,receiptPath:state.receiptPath},state);
+   if(recovery)await recovery.cleanupRecordedKeeper(state);
+   return {...state.success,status:'already-current',receiptPath:state.receiptPath};
   }
   assert.equal(state.canResume,true,state.reason??'发布不具备受限续接条件');
   await context.beforeResume?.(state);
   const {out,resumed,request,prepared,started,source,identity,installed,completed}=state;
   await fs.mkdir(path.join(resumed,'attempts'),{recursive:true});const invocation=path.join(resumed,'attempts',randomUUID().replaceAll('-',''));await fs.mkdir(invocation);
   const save=(name,value)=>fs.writeFile(path.join(resumed,name),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
-  await fs.writeFile(path.join(invocation,'STARTED.json'),JSON.stringify({at:new Date().toISOString(),originalStartedSha256:await sha(path.join(out,'STARTED.json')),originalFailureSha256:await sha(path.join(out,'FAILED.json')),owner:await (context.captureOwner??capturePublicationOwner)(),mainCommit:request.mainCommit,maintenanceId:started.maintenanceId})+'\n',{flag:'wx'});
+  await fs.writeFile(path.join(invocation,'STARTED.json'),JSON.stringify({at:new Date().toISOString(),originalStartedSha256:await sha(path.join(out,'STARTED.json')),originalFailureSha256:await sha(path.join(out,'FAILED.json')),owner:await (context.captureOwner??capturePublicationOwner)(),mainCommit:request.mainCommit,maintenanceId:started.maintenanceId,...(recovery?{operatorSource:recovery.operatorSource,recoveryProtocol:recovery.protocol}:{})})+'\n',{flag:'wx'});
   const leaseFile=path.join(path.dirname(installed),'run/release-publication-lease.json');let ownLease=null,phase='Pi升级对账';const createdAt=new Date().toISOString();
   const refreshLease=async label=>{
    if(ownLease!==null)assert.equal(await fs.readFile(leaseFile,'utf8'),ownLease,'续接lease owner发生变化');
@@ -160,9 +177,20 @@ export async function resumeMainPublication(attempt,context){
   const observeStep=(label,...args)=>step(label,...args.slice(0,3),{...(args[3]??{}),directory:invocation});
   try{
    await refreshLease(phase);
-   const upgrade=await reconcileMainPiUpgrade({prepared:prepared.piRunnerUpgrade,installed,out:invocation,intentRoot:out,step:observeStep,requireReconcileDirectExit:!context.runStep});
-   const result=await finishMainPublication({request,components:{worker:true,django:true},source,identity,installed,out:resumed,api,rotation,rotationLease,before:{head:request.predecessorWorker},plan:prepared.workerPlan,pkg:prepared.djangoPackage,djangoExpected:prepared.djangoManifestSha256,maintenanceId:started.maintenanceId,schema:null,schemaReceipt:null,piUpgradeReceipt:upgrade,step,save,sha:context.sha??sha,ready:context.ready,refreshLease,endLease,progress,phase:value=>{phase=value;},completed,receiptExtra:{manualRecovery:true,automatedPublisherSuccess:false,originalAttempt:out,originalStartedSha256:await sha(path.join(out,'STARTED.json')),originalFailureSha256:await sha(path.join(out,'FAILED.json'))}});
+   let upgrade,releaseKeeper,receiptExtra={};
+   if(recovery){
+    const recovered=await recovery.runPi({state,invocation,step:observeStep});
+    upgrade=recovered.receipt;releaseKeeper=recovered.releaseKeeper;
+    receiptExtra={recoveryProtocol:recovery.protocol,operatorSource:recovery.operatorSource,originalPreparationSha256:recovery.preparationSha256,recoveryInvocationId:path.basename(invocation),schemaDatabaseVerified:recovered.schemaDatabaseVerified,schemaDatabaseProofSha256:recovered.schemaDatabaseProofSha256};
+   }else{
+    upgrade=await reconcileMainPiUpgrade({prepared:prepared.piRunnerUpgrade,installed,out:invocation,intentRoot:out,step:observeStep,requireReconcileDirectExit:!context.runStep});
+   }
+   const result=await finishMainPublication({request,components:{worker:true,django:true},source,identity,installed,out:resumed,api,rotation,rotationLease,before:{head:request.predecessorWorker},plan:prepared.workerPlan,pkg:prepared.djangoPackage,djangoExpected:prepared.djangoManifestSha256,maintenanceId:started.maintenanceId,schema:state.schemaReceipt?.release??null,schemaReceipt:state.schemaReceipt,piUpgradeReceipt:upgrade,step,save,sha:context.sha??sha,ready:context.ready,waitReady:context.waitReady,refreshLease,endLease:recovery?async()=>{}:endLease,progress,phase:value=>{phase=value;},completed,receiptExtra:{...receiptExtra,manualRecovery:true,automatedPublisherSuccess:false,originalAttempt:out,originalStartedSha256:await sha(path.join(out,'STARTED.json')),originalFailureSha256:await sha(path.join(out,'FAILED.json'))}});
    await context.publishCatalog(result,state);
+   if(releaseKeeper){
+    phase='释放本次Pi恢复保活';
+    await releaseKeeper();
+   }
    await fs.writeFile(path.join(invocation,'COMPLETED.json'),JSON.stringify({at:new Date().toISOString(),status:result.status,receiptPath:result.receiptPath,receiptSha256:await sha(result.receiptPath)})+'\n',{flag:'wx'});return result;
   }catch(error){await fs.writeFile(path.join(invocation,'FAILED.json'),JSON.stringify({at:new Date().toISOString(),phase,error:String(error.message).slice(0,1200),processEvidence:error.processEvidence??null,automaticReplay:false})+'\n',{flag:'wx'});throw error;}
   finally{await endLease();}
