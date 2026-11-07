@@ -3,6 +3,7 @@
 from __future__ import annotations
 import json
 import logging
+import time
 from datetime import timedelta
 from django.conf import settings
 from django.db.models import Q, F, Sum, Min, OuterRef, Subquery
@@ -56,9 +57,10 @@ def mapping(row, detail=True):
     )
     if detail and workflow:
         result["nodes"] = []
-        for node in m.AiWorkflowNodeRuns.objects.filter(run_id=row.id).order_by(
+        nodes = list(m.AiWorkflowNodeRuns.objects.filter(run_id=row.id).order_by(
             "position"
-        )[:24]:
+        )[:24])
+        for node in nodes:
             item = record(
                 node,
                 "id position instruction depends_on_json input_json output_json status version agent_job_id reviewer_email reviewed_at error_code error_message started_at completed_at",
@@ -66,6 +68,8 @@ def mapping(row, detail=True):
             )
             item.update(key=node.node_key, type=node.node_type)
             result["nodes"].append(item)
+        from .workflow_timing import summarize
+        result["timing"] = summarize(row, nodes)
     elif detail:
         result["checkpoints"] = [
             record(
@@ -518,6 +522,7 @@ def agent_candidates():
 
 
 def agent_tick(*, job_id=None):
+    claim_started = time.monotonic()
     eligible = agent_candidates()
     if job_id is not None:
         eligible = eligible.filter(pk=job_id)
@@ -559,6 +564,7 @@ def agent_tick(*, job_id=None):
         row.save()
         lease = (row.id, row.lease_token, row.lease_epoch)
     timer = PhaseTimer("admission")
+    timer.timings["claim"] = max(0, int((time.monotonic() - claim_started) * 1000))
     dispatch = failure = None
     transport_timings = {}
     request_id = row.original_report_request or row.original_workflow_request or row.client_request_id
@@ -1074,7 +1080,10 @@ def workflow_tick():
             active.version += 1
             active.save()
             row.current_node_key = None
-        elif all(n.status in {"completed", "skipped"} for n in nodes):
+        # Observing a known terminal child and advancing the existing DAG are
+        # local writes under this same mutation. Do not spend another scheduled
+        # tick between them. This never runs a provider or skips human review.
+        if all(n.status in {"completed", "skipped"} for n in nodes):
             output = {
                 n.node_key: json.loads(n.output_json) if n.output_json else None
                 for n in nodes
