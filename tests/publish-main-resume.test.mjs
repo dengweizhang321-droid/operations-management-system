@@ -148,13 +148,14 @@ test('AI159 Pi observation requires the original operation, plan and inactive re
  }
 });
 
-test('AI159 retry requires the exact prior prestart invocation and allows one successor only',()=>{
- const prior='1bfffddeb6b14b1689a6f29c99b04d64',next='a'.repeat(32);
- assert.doesNotThrow(()=>assertAi159RetryInvocations([prior]));
- assert.doesNotThrow(()=>assertAi159RetryInvocations([next,prior],next));
- for(const bad of [[],[next],[prior,next]])assert.throws(()=>assertAi159RetryInvocations(bad));
- assert.throws(()=>assertAi159RetryInvocations([prior],prior));
- assert.throws(()=>assertAi159RetryInvocations([next,prior,'b'.repeat(32)],next));
+test('AI159 keeper adoption requires both exact prior invocations and permits one successor only',()=>{
+ const prior='1bfffddeb6b14b1689a6f29c99b04d64',keeper='de108347aca1418fa36f97129ba7e178',next='a'.repeat(32);
+ assert.doesNotThrow(()=>assertAi159RetryInvocations([prior,keeper]));
+ assert.doesNotThrow(()=>assertAi159RetryInvocations([next,keeper,prior],next));
+ for(const bad of [[],[prior],[keeper],[next],[prior,next],[prior,keeper,next]])assert.throws(()=>assertAi159RetryInvocations(bad));
+ assert.throws(()=>assertAi159RetryInvocations([prior,keeper],prior));
+ assert.throws(()=>assertAi159RetryInvocations([prior,keeper],keeper));
+ assert.throws(()=>assertAi159RetryInvocations([next,prior,keeper,'b'.repeat(32)],next));
 });
 
 test('AI159 keeper failure after catalog can only coordinate the index and keeper',async t=>{

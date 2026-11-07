@@ -8,7 +8,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import {assertFrozenSource} from './frozen-main-source.mjs';
 import {schemaForRequest} from './main-schema-release.mjs';
 import {assertControlGeneration,readAdoptedControl} from './main-control-dispatch.mjs';
-import {assertOrdinaryIdentity,currentPreparationIdentity,taskHost,taskPowerShell} from './main-prebuild-task.mjs';
+import {assertOrdinaryIdentity,currentPreparationIdentity,taskHost} from './main-prebuild-task.mjs';
 import {acquireMainPublicationQueue,publisherEnvironment} from './publish-latest-main.mjs';
 import {assertPublicationReady,publicationDeadline,waitForPublicationReady} from './publication-readiness.mjs';
 import {manualStepCommand} from './publish-main-command.mjs';
@@ -30,6 +30,9 @@ const piGuardName='PiRunnerRecovery-started.json';
 const prestartInvocation='1bfffddeb6b14b1689a6f29c99b04d64';
 const prestartCommit='2ae71db4df2ce1a7cbd73723cdcd4c693fb36dd0';
 const prestartHelperBlob='2810254725d0af2839642c0e6026cf4f6c4b71f4';
+const keeperInvocation='de108347aca1418fa36f97129ba7e178';
+const keeperCommit='0366d5913398c77367f6db96989701dc8a12d066';
+const keeperHelperBlob='d65b5788ec6c017f93eab88506a5e7b964d01334';
 const helperPath='tools/ai159-pi-source-recovery.ps1';
 const prestartLabel='恢复Pi Runner原新单元';
 const prestartPins=Object.freeze({
@@ -41,6 +44,17 @@ const prestartPins=Object.freeze({
  [prestartLabel+'.stdout.log']:'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
  [prestartLabel+'.stderr.log']:'0fbc3a7c4bffeebe3ba3c9d576e48b0b40953e4b938e4e05122046553fa5b089',
 });
+const keeperPins=Object.freeze({
+ 'STARTED.json':'27761eddae14e6b99d11dbcf82337f8df11a56e9c8ca97cfc53fdf8ad7acee06',
+ 'FAILED.json':'ca425c12b1c2fa748527cc5e777e36ef501c88fa96132be5988d82aeaaa1a3d6',
+ 'AI159-SCHEMA-VERIFIED.json':'7a7a2bf4404809b43f35a23e34bc3f69a2de9e091617b4464c7b2418a562aa20',
+ 'RunnerKeeper-started.json':'d9366af3c076950757d4507516adc34dcf5dc94ae620147bc965670cf8001594',
+ [prestartLabel+'-started.json']:'25ac1463a1b8e19779b24d7160221672cd0d95567f2f0ef9ed505d6c04550b41',
+ [prestartLabel+'-process.json']:'9146eb864cbbdc52dc1ab9a2bdaf77e334008888dc711059f88cb39a06ba5b26',
+ [prestartLabel+'.stdout.log']:'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+ [prestartLabel+'.stderr.log']:'b5b47fc1d702b8c0e40a5d317e877f8d749bb7aaaa6d6a06485bdd7dac1f694f',
+});
+const keeperLogs=['RunnerKeeper.stderr.log','RunnerKeeper.stdout.log'];
 const predecessorCatalogSha256='f776dfab17edecbd7a1acf0399d1b109cc3dde834493cf40c2d1b5db3bfdeff6';
 const originalPins=Object.freeze({
  'STARTED.json':'fa16a6ba406f55213bdac1d9c1c92120ca76cb78eb8191c5704c5d405045a01b',
@@ -100,24 +114,30 @@ async function pinnedFiles(root,pins){
 }
 
 export function assertAi159RetryInvocations(entries,successId){
- const expected=[prestartInvocation];
+ const expected=[prestartInvocation,keeperInvocation];
  if(successId!==undefined){
   assert.match(successId,/^[a-f0-9]{32}$/);
-  assert.notEqual(successId,prestartInvocation,'原启动前失败不能成为成功回执');
+  assert.ok(!expected.includes(successId),'原启动前失败不能成为成功回执');
   expected.push(successId);
  }
- assert.deepEqual([...entries].sort(),expected.sort(),'AI159恢复历史只能包含已证实的启动前失败及唯一成功续接');
+ assert.deepEqual([...entries].sort(),expected.sort(),'AI159恢复历史只能包含两次已证实的Runner启动前失败及唯一成功续接');
 }
 
-async function verifyPrestartFailure(resumed){
- const prior=path.join(resumed,'attempts',prestartInvocation);
- assert.deepEqual((await fs.readdir(prior)).sort(),Object.keys(prestartPins).sort(),'原恢复出现额外记录，不能证明尚未启动');
- const records=await pinnedFiles(prior,prestartPins);
+async function verifyPriorFailure(resumed,{id,commit,pins,pid,logs=[]}){
+ const prior=path.join(resumed,'attempts',id);
+ assert.deepEqual((await fs.readdir(prior)).sort(),[...Object.keys(pins),...logs].sort(),'原恢复出现额外记录，不能证明Runner尚未启动');
+ const records=await pinnedFiles(prior,pins);
+ // These two output files remain owned by the live keeper. They are expected
+ // leaves, while only the retired controller's outputs are immutable evidence.
+ for(const name of logs){
+  const file=path.join(prior,name),stat=await fs.lstat(file);
+  assert.ok(stat.isFile()&&!stat.isSymbolicLink()&&stat.nlink===1&&stat.size<=65536,'原临时keeper输出路径不安全');
+ }
  const owner=JSON.parse(records['STARTED.json']);
  const started=JSON.parse(records[prestartLabel+'-started.json']);
  const failure=JSON.parse(records['FAILED.json']);
  const {processEvidence,originalBytesRetained}=JSON.parse(records[prestartLabel+'-process.json']);
- assert.equal(owner.operatorSource.commit,prestartCommit);
+ assert.equal(owner.operatorSource.commit,commit);
  assert.equal(owner.operatorSource.root,path.resolve(operatorPath));
  assert.equal(started.script,path.join(owner.operatorSource.root,helperPath));
  assert.equal(started.action,'RestoreRunner');
@@ -130,10 +150,22 @@ async function verifyPrestartFailure(resumed){
  assert.equal(processEvidence.exitCode,1);
  assert.equal(processEvidence.timeoutType,null);
  assert.equal(processEvidence.outputProtocol,'direct-exit-files');
- assert.equal(processEvidence.processId,11460);
- assert.equal(processEvidence.stderrSha256,prestartPins[prestartLabel+'.stderr.log']);
- assert.equal(processEvidence.stdoutSha256,prestartPins[prestartLabel+'.stdout.log']);
+ assert.equal(processEvidence.processId,pid);
+ assert.equal(processEvidence.stderrSha256,pins[prestartLabel+'.stderr.log']);
+ assert.equal(processEvidence.stdoutSha256,pins[prestartLabel+'.stdout.log']);
+ if(logs.length){
+  const keeper=JSON.parse(records['RunnerKeeper-started.json']);
+  assert.equal(keeper.sourceCommit,mainCommit);
+  assert.equal(keeper.operationId,'88b7e64f18dd4afdb67869895c5d7f1e');
+  assert.deepEqual(keeper.arguments,['-d','TERUISI-Pandas','-u','teruisi-pandas','--exec','/usr/bin/sleep','2147483647']);
+ }
  return {owner:owner.owner,actorPid:processEvidence.processId};
+}
+
+async function verifyPriorFailures(resumed){
+ const prestart=await verifyPriorFailure(resumed,{id:prestartInvocation,commit:prestartCommit,pins:prestartPins,pid:11460});
+ const keeper=await verifyPriorFailure(resumed,{id:keeperInvocation,commit:keeperCommit,pins:keeperPins,pid:12576,logs:keeperLogs});
+ return {owner:keeper.owner,actorPids:[prestart.actorPid,keeper.actorPid]};
 }
 
 export function assertAi159InitialPi(pi,prepared){
@@ -253,8 +285,9 @@ export async function runAi159PreparedRecovery({configFile=controlPath,attempt=a
  execFileSync('git',['merge-base','--is-ancestor',mainCommit,operatorCommit],{cwd:operatorRoot,windowsHide:true,stdio:'pipe'});
  const helperBlob=commit=>execFileSync('git',['rev-parse',`${commit}:${helperPath}`],{cwd:operatorRoot,windowsHide:true,encoding:'utf8'}).trim();
  assert.equal(helperBlob(prestartCommit),prestartHelperBlob,'原启动前失败的脚本来源变化');
- assert.notEqual(helperBlob(operatorCommit),prestartHelperBlob,'续接必须使用已修复并审查的恢复脚本');
- execFileSync('git',['merge-base','--is-ancestor',prestartCommit,operatorCommit],{cwd:operatorRoot,windowsHide:true,stdio:'pipe'});
+ assert.equal(helperBlob(keeperCommit),keeperHelperBlob,'原keeper启动脚本来源变化');
+ assert.ok(![prestartHelperBlob,keeperHelperBlob].includes(helperBlob(operatorCommit)),'续接必须使用已修复并审查的恢复脚本');
+ execFileSync('git',['merge-base','--is-ancestor',keeperCommit,operatorCommit],{cwd:operatorRoot,windowsHide:true,stdio:'pipe'});
  await assertFrozenSource({source,mainCommit,sourceTree:JSON.parse(original['STARTED.json']).sourceTree});
  const load=name=>import(pathToFileURL(path.join(source,'tools',name)));
  const [api,rotation,transport,pi,adapter]=await Promise.all([
@@ -277,7 +310,7 @@ export async function runAi159PreparedRecovery({configFile=controlPath,attempt=a
    const auditRoot=path.join(state.resumed,'attempts');
    assert.match(success.recoveryInvocationId??'',/^[a-f0-9]{32}$/);
    assertAi159RetryInvocations(await fs.readdir(auditRoot),success.recoveryInvocationId);
-   await verifyPrestartFailure(state.resumed);
+   await verifyPriorFailures(state.resumed);
    const invocation=path.join(auditRoot,success.recoveryInvocationId);
    assert.match(success.schemaDatabaseProofSha256??'',/^[a-f0-9]{64}$/);
    const evidence=await pinnedFiles(invocation,{'AI159-SCHEMA-VERIFIED.json':success.schemaDatabaseProofSha256});
@@ -325,16 +358,9 @@ export async function runAi159PreparedRecovery({configFile=controlPath,attempt=a
    for(const name of await fs.readdir(out))assert.ok(!Object.keys(steps).some(label=>name.startsWith(label+'-')||name.startsWith(label+'.')),'AI159原尾部存在未完成原证据：'+name);
    assert.equal(await exists(path.join(out,piGuardName)),false,'AI159 Pi一次性启动已经开始');
    assertAi159RetryInvocations(await fs.readdir(path.join(resumed,'attempts')));
-   const prior=await verifyPrestartFailure(resumed);
+   const prior=await verifyPriorFailures(resumed);
    const prepared=JSON.parse(original['preparation/PREPARED.json']);
-   await assertPublicationRetired({owner:prior.owner,actorPids:[prior.actorPid],source,attempt:out,prepared});
-   // The old reviewed helper had to serialize its first keeper record before Start-Process.
-   // No record plus its exact direct serialization failure is corroborated with a live census.
-   const keeperAbsent=await taskPowerShell(String.raw`
-    $keepers=@(Get-CimInstance Win32_Process -Filter "Name = 'wsl.exe'" -ErrorAction Stop)
-    foreach($p in $keepers){if(-not $p.CommandLine -or $p.CommandLine -match '(?:^|\s)/usr/bin/sleep\s+2147483647(?:\s|$)'){throw 'AI159 recovery keeper identity is live or unreadable'}}
-    'true'`);
-   assert.equal(keeperAbsent,true);
+   await assertPublicationRetired({owner:prior.owner,actorPids:prior.actorPids,source,attempt:out,prepared});
    assertAi159InitialPi(pi,preparedPi);
    return true;
   },
@@ -344,7 +370,7 @@ export async function runAi159PreparedRecovery({configFile=controlPath,attempt=a
    assert.deepEqual(await verifyOperator(),{commit:operatorSource.commit,tree:operatorSource.tree});
    assert.deepEqual(await assertFrozenSource({source,mainCommit,sourceTree:state.identity.tree}),state.identity);
    const prepared=state.prepared.piRunnerUpgrade;
-   const recovered=await adapter.recoverAi159Pi({prepared,installed,source,originalAttempt:out,invocation,step,reconcileMainPiUpgrade:pi.reconcileMainPiUpgrade});
+   const recovered=await adapter.recoverAi159Pi({prepared,installed,source,originalAttempt:out,invocation,step,reconcileMainPiUpgrade:pi.reconcileMainPiUpgrade,adoptRecordedKeeper:true});
    pi.verifyUpgradeReceipt(recovered.receipt,prepared);
    assert.equal(typeof recovered.releaseKeeper,'function');
    return {...recovered,...schemaProof};

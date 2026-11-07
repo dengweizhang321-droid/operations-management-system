@@ -111,6 +111,16 @@ class SourceRecovery(unittest.TestCase):
         self.assertEqual(ctl.call_count, 1)
         self.assertEqual(ctl.call_args.args[1:], ('start', 'teruisi-pi-runner.service'))
 
+    def test_guest_manager_pid_accepts_real_busctl_shape_and_rejects_extra_fields(self):
+        functions = guest()
+        run = Mock(return_value=SimpleNamespace(returncode=0, stdout=b'u 209\n'))
+        functions['subprocess'] = SimpleNamespace(run=run)
+        self.assertEqual(functions['bus_manager_pid'](), 209)
+        for raw in (b'u 209 unexpected\n', b'u 0\n', b'i 209\n'):
+            run.return_value.stdout = raw
+            with self.assertRaisesRegex(ValueError, 'user_manager_unproved'):
+                functions['bus_manager_pid']()
+
     def test_sqlite_signed_nonce_write_reproduces_original_manifest_failure(self):
         ledger = Ledger(self.root / 'ledger.sqlite3')
         self.addCleanup(ledger.db.close)

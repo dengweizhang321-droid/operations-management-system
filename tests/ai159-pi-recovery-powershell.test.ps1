@@ -17,6 +17,16 @@ $call = $candidate.Find({param($ast) $ast -is [Management.Automation.Language.Co
 . ([scriptblock]::Create($mutex.Extent.Text))
 . ([scriptblock]::Create($writer.Extent.Text))
 
+$candidate.FindAll({
+  param($ast)
+  $ast -is [Management.Automation.Language.AssignmentStatementAst] -and
+  $ast.Left.Extent.Text -cmatch '\$Recovery(?:Keeper|Formal)(?:Arguments|CommandPattern)$'
+}, $true) | ForEach-Object { . ([scriptblock]::Create($_.Extent.Text)) }
+$observedWsl = '"C:\WINDOWS\System32\wsl.exe" -d TERUISI-Pandas -u teruisi-pandas --exec /usr/bin/sleep 2147483647 '
+if ($observedWsl -cnotmatch $RecoveryKeeperCommandPattern -or
+    $observedWsl.Replace('2147483647','infinity') -cnotmatch $RecoveryFormalCommandPattern -or
+    ($observedWsl + 'unexpected') -cmatch $RecoveryKeeperCommandPattern) { throw 'Real WSL argv shape was not matched precisely' }
+
 function Get-CanonicalPath([string]$Path) { return [IO.Path]::GetFullPath($Path) }
 function Get-Sha256Text([string]$Text) { return [IO.Path]::GetFileName($Text) }
 function Assert-DeployedApplication {}
@@ -32,9 +42,17 @@ function Get-ProcessSnapshot([int]$Id) {
 function Get-PortListeners { return @() }
 function Resolve-OwnedProcess { return $null }
 function Get-CimInstance { return @() }
-function Start-Process { return [pscustomobject]@{ Id=91000 } }
+$script:fixtureLaunches = 0
+function Start-Process { $script:fixtureLaunches++; return [pscustomobject]@{ Id=91000 } }
 function Assert-PlainPath([string]$Path) {}
 function Invoke-BoundedNativeProcess { throw 'fixture stopped before invoking WSL' }
+function Get-RecoveryKeeper {}
+function Get-PreviouslyStartedRecoveryKeeper {
+  return [pscustomobject]@{
+    Root=(Get-ProcessSnapshot 91000)
+    Child=[pscustomobject]@{ ProcessId=91001; CreationDate='2026-11-07T06:00:01.0000000Z'; CommandLine='fixture' }
+  }
+}
 
 $fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ([Guid]::NewGuid().ToString('N'))
 $null = New-Item -ItemType Directory -Path $fixtureRoot
@@ -89,9 +107,31 @@ try {
       $identity.executablePath -isnot [string] -or $identity.executablePath -cne $RecoveryWsl -or
       $identity.commandLine -isnot [string] -or $identity.commandLine -cne 'fixture' -or
       ($identity.arguments -join '|') -cne ($RecoveryKeeperArguments -join '|')) { throw 'Keeper receipt has the wrong typed identity' }
-  Write-Output 'Native mutex scope, keeper guard and exact keeper receipt passed'
+
+  $Action = 'AdoptKeeper'
+  $RecoveryAction = $Action
+  $RecoveryKeeperPath = Join-Path $fixtureRoot 'adopted-keeper.json'
+  $RecoveryPriorGuard = Join-Path $fixtureRoot 'RunnerKeeper-started.json'
+  $RecoveryPriorGuardSha256 = 'd' * 64
+  $RecoveryRootExeSha256 = 'e' * 64
+  $RecoveryChildExeSha256 = 'f' * 64
+  $RecoveryWslChild = 'fixture child'
+  $prior = [IO.File]::ReadAllText($RecoveryPriorGuard)
+  try {
+    & ([scriptblock]::Create($call.Extent.Text))
+    throw 'The adoption boundary was not reached'
+  } catch {
+    if ($_.Exception.Message -cne 'fixture stopped before invoking WSL') { throw }
+  }
+  $adopted = [IO.File]::ReadAllText($RecoveryKeeperPath) | ConvertFrom-Json
+  if ($script:fixtureLaunches -ne 1 -or [IO.File]::ReadAllText($RecoveryPriorGuard) -cne $prior -or
+      $adopted.adopted -cne $true -or $adopted.processId -ne 91000 -or $adopted.childProcessId -ne 91001 -or
+      $adopted.startedPath -cne $RecoveryPriorGuard -or $adopted.startedSha256 -cne $RecoveryPriorGuardSha256) {
+    throw 'Keeper adoption did not preserve the exact original start'
+  }
+  Write-Output 'Native mutex scope, observed WSL argv and exact keeper adoption passed'
 } finally {
-  foreach ($name in @('RunnerKeeper-started.json','RunnerKeeper.json','non-primitive.json')) {
+  foreach ($name in @('RunnerKeeper-started.json','RunnerKeeper.json','adopted-keeper.json','non-primitive.json')) {
     $file = Join-Path $fixtureRoot $name
     if (Test-Path -LiteralPath $file -PathType Leaf) { Remove-Item -LiteralPath $file -Force }
   }

@@ -12,4 +12,4 @@ node tools/publish-prepared-main.mjs --recover-ai159 --operator-commit <审定�
 
 原 `STARTED.json`、`FAILED.json` 和准备包保留。新增证据位于原发布目录下的 `resume-ai159`，一次性启动 guard 位于原发布目录。共享发布尾部执行原 Worker plan、退出维护、启动与版本和就绪门禁，随后生成真实 `SUCCESS.json` 并通过原发布目录 CAS 更新 `PUBLISHED-MAIN.json`。记账成功后，确认正式 keeper 已接续，再释放此次临时 keeper。已有完整成功回执时，本入口只允许协调原索引和临时 keeper 的释放。其他在途状态需要保留证据并重新确认。
 
-首次恢复调用 `1bfffddeb6b14b1689a6f29c99b04d64` 在临时 keeper 的启动前记录序列化时直接退出。续接只接受该调用的原始退出、输出及文件清单，验证原进程已退役、现场无临时 keeper，并重新走只读 AI159 核验和原维护门禁。下一次调用追加独立记录。出现任何额外尝试或启动证据即停止。
+首次恢复调用 `1bfffddeb6b14b1689a6f29c99b04d64` 在临时 keeper 的启动前记录序列化时直接退出。第二次恢复调用 `de108347aca1418fa36f97129ba7e178` 已启动临时 keeper，随后在 Windows 命令行核验处直接退出，尚未调用 Linux Runner。下一次调用固定两次原始退出、输出及文件清单，核对原控制进程退役后，重新走只读 AI159 核验和原维护门禁，并只接管已存在且身份匹配的临时 keeper。出现额外尝试、额外 keeper 或 Runner 启动证据即停止。

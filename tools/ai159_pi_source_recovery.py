@@ -122,8 +122,10 @@ def bus_manager_pid():
  run=subprocess.run(['/usr/bin/busctl','--user','call','org.freedesktop.DBus','/org/freedesktop/DBus',
   'org.freedesktop.DBus','GetConnectionUnixProcessID','s','org.freedesktop.systemd1'],capture_output=True,timeout=5,
   env={'HOME':str(Path.home()),'PATH':'/usr/bin:/bin','XDG_RUNTIME_DIR':'/run/user/1000','DBUS_SESSION_BUS_ADDRESS':'unix:path=/run/user/1000/bus'})
- require(run.returncode==0 and re.fullmatch(rb'u [1-9][0-9]*\s*',run.stdout) is not None,'recovery_user_manager_unproved')
- return int(run.stdout.split()[1])
+ tokens=run.stdout.decode('utf-8',errors='strict').split()
+ require(run.returncode==0 and len(tokens)==2 and tokens[0]=='u' and tokens[1].isascii() and tokens[1].isdecimal()
+  and int(tokens[1])>0,'recovery_user_manager_unproved')
+ return int(tokens[1])
 
 def ready(p,values,pid,expected):
  require(re.fullmatch('[a-f0-9]{32}',values['InvocationID']) and values['InvocationID']!=expected['invocationId']

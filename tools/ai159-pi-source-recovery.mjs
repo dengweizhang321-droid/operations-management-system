@@ -46,7 +46,7 @@ async function pinned(file, expected) {
   return raw;
 }
 
-export async function recoverAi159Pi({ prepared, installed, originalAttempt, invocation, step, reconcileMainPiUpgrade }) {
+export async function recoverAi159Pi({ prepared, installed, originalAttempt, invocation, step, reconcileMainPiUpgrade, adoptRecordedKeeper = false }) {
   bind(prepared, prepared);
   assert.equal(prepared.image, originalImage);
   assertPaths(installed, originalAttempt, invocation);
@@ -62,7 +62,7 @@ export async function recoverAi159Pi({ prepared, installed, originalAttempt, inv
   await absent(path.join(originalAttempt, 'PiRunnerRecovery-started.json'));
   await absent(path.join(originalAttempt, 'PiReconcile-started.json'));
 
-  const native = await step('恢复Pi Runner原新单元', script, 'RestoreRunner', ['-Invocation', invocation]);
+  const native = await step('恢复Pi Runner原新单元', script, adoptRecordedKeeper ? 'AdoptKeeper' : 'RestoreRunner', ['-Invocation', invocation]);
   bind(native, prepared);
   assert.equal(native.sourceCommit, sourceCommit);
   assert.equal(native.activeSuccessorVerified, true);
@@ -71,6 +71,12 @@ export async function recoverAi159Pi({ prepared, installed, originalAttempt, inv
   assert.equal(native.keeper?.sourceCommit, sourceCommit);
   assert.equal(native.keeper.operationId, originalIdentity.operationId);
   assert.ok(Number.isInteger(native.keeper.processId) && native.keeper.processId > 0);
+  if (adoptRecordedKeeper) {
+    assert.equal(native.keeper.adopted, true);
+    assert.equal(native.keeper.processId, 36128);
+    assert.equal(native.keeper.childProcessId, 11916);
+    assert.equal(native.keeper.startedSha256, 'd9366af3c076950757d4507516adc34dcf5dc94ae620147bc965670cf8001594');
+  }
 
   const receipt = await reconcileMainPiUpgrade({
     prepared, installed, out: invocation, intentRoot: originalAttempt, step, requireDirectExit: true,
@@ -85,6 +91,7 @@ export async function releaseAi159Keeper({ invocation, step, keeper, directory =
   assert.equal(release.released, true);
   assert.equal(release.operationId, originalIdentity.operationId);
   assert.equal(release.processId, keeper.processId);
+  if (keeper.adopted === true) assert.equal(release.childProcessId, keeper.childProcessId);
   assert.ok(Number.isInteger(release.formalProcessId) && release.formalProcessId > 0 && release.formalProcessId !== release.processId);
   return release;
 }
