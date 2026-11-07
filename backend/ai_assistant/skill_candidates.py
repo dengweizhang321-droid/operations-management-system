@@ -15,23 +15,36 @@ from django.db import transaction
 from django.utils import timezone
 
 from . import models as m, output_schemas, pi_sources, pi_service, prompt_settings, report_library
-from .pi_models import PiSession
+from .pi_models import PiEvent, PiOperation, PiSession
 from .candidate_models import STATUSES
 from .policy import (AiError, canonical, cas, current_principal, digest, fields,
-                     identifier, integer, mutation, passive, text, text_bytes,
-                     uid)
+                     identifier, integer, mutation, passive, scope_covers,
+                     scope_filter, text, text_bytes, uid)
 
 SCHEMA_REF = "skill-candidate-v1"
 MAX_CONTENT_BYTES = 32768
 MAX_NOTE = 2000
 MAX_KEYWORDS = 8
 MAX_DOMAINS = 6
+PUBLICATION_EVENT = "skill_candidate_published"
+PUBLICATION_PAGE_SIZE = 10
+
+
+def source_operation(operation_id, principal):
+    row = (PiOperation.objects.select_related("session")
+           .filter(id=identifier(operation_id)).first())
+    if (row is None or row.session.owner_email.lower() != principal.email.lower()
+            or row.actor_role != principal.role or not scope_covers(principal.scope, row.scope_json)):
+        raise AiError("任务不存在或超出当前权限", "not_found", 404)
+    return row
 
 
 def _owned(candidate_id, principal, *, lock=False):
     query = m.AiSkillCandidate.objects.select_for_update() if lock else m.AiSkillCandidate.objects
-    row = query.filter(id=identifier(candidate_id)).first()
-    if row is None or row.owner_email.lower() != principal.email.lower():
+    row = query.select_related("operation").filter(id=identifier(candidate_id)).first()
+    if (row is None or row.owner_email.lower() != principal.email.lower()
+            or row.operation.actor_role != principal.role
+            or not scope_covers(principal.scope, row.operation.scope_json)):
         raise AiError("候选不存在或不属于当前账号", "not_found", 404)
     return row
 
@@ -63,6 +76,7 @@ def request_schema(operation_id, principal):
     Returned rather than built inside the dispatch so the caller can show the
     user which run is being distilled before any paid call is made.
     """
+    source_operation(operation_id, principal)
     evidence = pi_sources.evidence(operation_id, {}, principal)
     if not evidence["citable"]:
         raise AiError("任务未成功结束，不能作为提炼依据", "conflict", 409)
@@ -138,11 +152,10 @@ def save(operation_id, body, principal, *, registry_tools=()):
         # The schema changed between the dispatch and the reply. Accepting it
         # would store content shaped by a contract that no longer holds.
         raise AiError("登记 schema 已变化，请重新发起提炼", "conflict", 409)
-    request = request_schema(operation_id, principal)
-    allowed = set(request["citableExportIds"]) | set(request["citableFileIds"])
-    content = _validate_content(body["content"], allowed, set(registry_tools))
-
     with mutation(principal):
+        request = request_schema(operation_id, principal)
+        allowed = set(request["citableExportIds"]) | set(request["citableFileIds"])
+        content = _validate_content(body["content"], allowed, set(registry_tools))
         with transaction.atomic():
             live = (m.AiSkillCandidate.objects.select_for_update()
                     .filter(operation_id=request["reportVersion"]["operationId"],
@@ -167,8 +180,13 @@ def save(operation_id, body, principal, *, registry_tools=()):
 
 
 def listing(params, principal):
+    if "publicationPage" in params or "publicationId" in params:
+        return _publication_listing(params, principal)
     fields(params, {"status"})
-    rows = m.AiSkillCandidate.objects.filter(owner_email=principal.email.lower())
+    current_principal(principal)
+    rows = scope_filter(m.AiSkillCandidate.objects.filter(
+        owner_email=principal.email.lower(), operation__actor_role=principal.role),
+        principal, field="operation__scope_json")
     if "status" in params:
         if params["status"] not in STATUSES:
             raise AiError("候选状态无效")
@@ -195,6 +213,10 @@ def review(candidate_id, body, principal):
                 # The reviewer approved something else. Re-reading the digest is
                 # what stops an edited candidate inheriting an old approval.
                 raise AiError("候选内容已变化，请重新审阅", "conflict", 409)
+            if target != "rejected" and not _reviewable(json.loads(row.content_json)):
+                raise AiError("候选正文与登记格式不一致，请退回候选", "invalid_candidate_output", 422)
+            if target == "approved" and request_schema(row.operation_id, principal)["reportVersionDigest"] != row.report_version_digest:
+                raise AiError("报告版本已变化，请退回候选并重新提炼", "version_conflict", 409)
             if target in {"approved", "rejected"}:
                 row.reviewed_by = principal.email.lower()
                 row.reviewed_at = timezone.now()
@@ -220,6 +242,90 @@ def _slug_from_candidate(row):
     # slug()'s 64-char limit, and there is no reason to shorten it and invite
     # a collision between two different candidates' trailing segments.
     return "candidate-" + row.id.removeprefix("ai-candidate-")
+
+
+def _method(row, content):
+    goal = text(content["goal"], "goal", 240)
+    return {"id": _slug_from_candidate(row), "name": goal[:80].strip(),
+            "description": goal, "body": text(content["body"], "body", 2000)}
+
+
+def _reviewable(content):
+    if not isinstance(content, dict) or not isinstance(content.get("steps"), list):
+        return False
+    # The legacy save API allowed toolName to be omitted for a no-tool step.
+    # Normalize only that field for validation, leaving stored content intact.
+    value = {**content, "steps": [{"toolName": "", **step} if isinstance(step, dict) else step
+                                  for step in content["steps"]]}
+    return output_schemas.matches(value, output_schemas.CATALOG[SCHEMA_REF])
+
+
+def _publication_receipts(rows):
+    by_operation = {row.operation_id: row for row in rows}
+    events = PiEvent.objects.filter(operation_id__in=by_operation, event_type=PUBLICATION_EVENT)
+    receipts = {}
+    for operation_id, raw in events.order_by("event_seq").values_list("operation_id", "data_json"):
+        event = json.loads(raw)
+        row = by_operation[operation_id]
+        if event.get("candidateId") == row.id and event.get("skillId") == _slug_from_candidate(row):
+            receipts[row.id] = event
+    return receipts
+
+
+def _publication(row, library, receipt):
+    skill_id = _slug_from_candidate(row)
+    skill = next((item for item in library["config"]["skills"] if item["id"] == skill_id), None)
+    content = json.loads(row.content_json)
+    if (skill and receipt and all(skill.get(key) == value for key, value in _method(row, content).items())):
+        state = "enabled" if skill["enabled"] else "disabled"
+    else:
+        state = "unavailable" if skill or receipt or not _reviewable(content) else "unpublished"
+    return {"state": state, "skillId": skill_id, "libraryVersion": library["version"],
+            "publishedLibraryVersion": receipt["libraryVersion"] if receipt else None}
+
+
+def publication(row):
+    library, receipts = _publication_state([row])
+    return _publication(row, library, receipts.get(row.id))
+
+
+def _publication_state(rows):
+    library = report_library.snapshot()
+    receipts = _publication_receipts(rows)
+    # The read can straddle publication's atomic revision + event commit.
+    if any(receipt["libraryVersion"] > library["version"] for receipt in receipts.values()):
+        library = report_library.snapshot()
+    return library, receipts
+
+
+def _publication_listing(params, principal):
+    current_principal(principal, admin=True)
+    rows = m.AiSkillCandidate.objects.filter(status="approved").order_by("-reviewed_at", "id")
+    if "publicationId" in params:
+        fields(params, {"publicationId"})
+        items = list(rows.filter(id=identifier(params["publicationId"]))[:1])
+        if not items:
+            raise AiError("已批准的候选不存在", "not_found", 404)
+    else:
+        fields(params, {"publicationPage"})
+        page = params["publicationPage"]
+        if not isinstance(page, str) or not page.isascii() or not page.isdecimal() or len(page) > 5:
+            raise AiError("页码无效")
+        offset = (integer(int(page), "页码", 1, 99999) - 1) * PUBLICATION_PAGE_SIZE
+        items = list(rows[offset:offset + PUBLICATION_PAGE_SIZE + 1])
+    library, receipts = _publication_state(items[:PUBLICATION_PAGE_SIZE])
+    return {
+        "items": [{
+            "id": row.id, "operationId": row.operation_id, "version": row.version,
+            "reportVersionDigest": row.report_version_digest, "contentDigest": row.content_digest,
+            "reviewedBy": row.reviewed_by, "reviewedAt": row.reviewed_at.isoformat() if row.reviewed_at else None,
+            "reviewNote": row.review_note, "unverifiedRecommendations": row.unverified_count,
+            "method": _method(row, json.loads(row.content_json)),
+            "publication": _publication(row, library, receipts.get(row.id)),
+        } for row in items[:PUBLICATION_PAGE_SIZE]],
+        "domains": prompt_settings.DOMAINS,
+        "hasMore": len(items) > PUBLICATION_PAGE_SIZE,
+    }
 
 
 def _round_robin_keywords(domains):
@@ -265,18 +371,17 @@ def publish(candidate_id, body, principal):
     system-wide, so publish does not use _owned()/row-level ownership at all
     -- an admin must be able to publish someone else's approved candidate.
     """
-    fields(body, {"domains", "keywords", "expectedLibraryVersion"},
+    fields(body, {"domains", "keywords", "expectedLibraryVersion", "expectedVersion", "contentDigest"},
            {"domains", "expectedLibraryVersion"})
     expected = integer(body["expectedLibraryVersion"], "资源库版本", 0)
     current_principal(principal, admin=True)
-    row = (m.AiSkillCandidate.objects.filter(id=identifier(candidate_id)).first())
-    if row is None:
-        raise AiError("候选不存在", "not_found", 404)
-    if row.status != "approved":
-        raise AiError("只有已批准的候选可以发布", "conflict", 409)
+    candidate_id = identifier(candidate_id)
+    bound = "expectedVersion" in body or "contentDigest" in body
+    if bound and not {"expectedVersion", "contentDigest"} <= set(body):
+        raise AiError("须同时提交候选版本和内容摘要")
     domains = body["domains"]
     if (not isinstance(domains, list) or not 1 <= len(domains) <= MAX_DOMAINS
-            or any(d not in prompt_settings.DOMAINS for d in domains)
+            or any(not isinstance(d, str) or d not in prompt_settings.DOMAINS for d in domains)
             or len(set(domains)) != len(domains)):
         raise AiError("领域无效", "invalid_request", 400)
     # keywords: explicit body value wins (an admin publishing with domain
@@ -293,57 +398,48 @@ def publish(candidate_id, body, principal):
         keywords = _round_robin_keywords(domains)
         if not keywords:
             raise AiError("所选领域没有可用触发词，请显式提供 keywords", "invalid_request", 400)
-    content = json.loads(row.content_json)
-    slug = _slug_from_candidate(row)
-    # goal is required and non-empty by _validate_content's own text() check,
-    # but that check runs on the *unstripped* value and canonical() preserves
-    # whatever whitespace the model produced -- a goal that is leading-padded
-    # past 80/240 chars would otherwise slice down to pure whitespace here,
-    # which report_library.validate_item()'s own text() then strips to an
-    # empty string and rejects with a "名称" error that points at a field the
-    # caller never passed. Stripping before slicing is what keeps a goal with
-    # incidental leading whitespace publishable at all.
-    goal = content["goal"].strip()
-    item = {
-        "id": slug, "name": goal[:80], "enabled": True,
-        "description": goal[:240], "body": content["body"],
-        "keywords": keywords, "domains": domains,
-    }
     with mutation(principal):
         current_principal(principal, admin=True)
-        # No path in this codebase removes an id from report_library's skills
-        # list (report_library.save() only appends-or-replaces by id; views.py
-        # exposes read()/save(), nothing else). So "has this candidate already
-        # been published" and "is this candidate's slug present in the current
-        # snapshot" are the same question today -- there is no history to
-        # check beyond the live snapshot. If a delete path is ever added this
-        # check must change with it; it is not forward-looking as written.
+        row = m.AiSkillCandidate.objects.select_for_update().filter(id=candidate_id).first()
+        if row is None:
+            raise AiError("候选不存在", "not_found", 404)
+        if row.status != "approved" or not row.reviewed_by or not row.reviewed_at:
+            raise AiError("只有已批准的候选可以发布", "conflict", 409)
+        if bound:
+            cas(row, body["expectedVersion"])
+            if body["contentDigest"] != row.content_digest:
+                raise AiError("候选内容已变化，请重新读取", "version_conflict", 409)
+        content = json.loads(row.content_json)
+        if not _reviewable(content):
+            raise AiError("候选正文与登记格式不一致，无法发布", "invalid_candidate_output", 422)
+        item = report_library.validate_item("skills", {
+            **_method(row, content), "enabled": True,
+            "keywords": keywords, "domains": domains,
+        })
+        slug = item["id"]
         current = report_library.snapshot()
-        already_live = any(s["id"] == slug for s in current["config"]["skills"])
-        if already_live:
+        prior = _publication_receipts([row]).get(row.id)
+        if prior:
+            # A lost HTTP response can be recovered using the exact same approved
+            # version, library precondition and published selection.
+            if bound and prior["libraryVersion"] == expected + 1:
+                original = report_library.snapshot(prior["libraryVersion"])
+                if item in original["config"]["skills"]:
+                    return {"item": record(row), "library": original,
+                            "publication": _publication(row, current, prior)}
             raise AiError("该候选已经发布，不能重复发布", "conflict", 409)
-        # expectedVersion is required by report_library.save()'s own CAS.
-        # expectedLibraryVersion is a required body field (not read from the
-        # current snapshot here) so a caller's stale read of the library
-        # surfaces as a visible 409 instead of silently overwriting whatever
-        # changed since -- the same reasoning review() uses for contentDigest.
+        if any(skill["id"] == slug for skill in current["config"]["skills"]):
+            raise AiError("方法标识已存在，未找到此候选的发布回执", "conflict", 409)
         result = report_library.save(
-            {"kind": "skills", "item": item, "expectedVersion": expected}, principal)
-        # pi_service.event()'s contract is "caller owns the session lock":
-        # row.operation.session is an unlocked read, which is only safe here
-        # because it sits after the AiDataRevision lock mutation() already
-        # took. Taking the row lock explicitly (the same
-        # select_for_update().get(pk=...) idiom pi_gateway.freeze() and every
-        # pi_worker.py call site use for admin/background session writes,
-        # rather than pi_service.get_session() -- that helper 404s on an
-        # owner mismatch, and the actor here is the publishing admin, not the
-        # candidate's owner) removes the dependency on that ordering so a
-        # future refactor that moves this call out of mutation() cannot
-        # silently reintroduce an unlocked write.
+            {"kind": "skills", "item": item, "expectedVersion": expected}, principal, candidate_publication=True)
         session = PiSession.objects.select_for_update().get(pk=row.operation.session_id)
-        pi_service.event(session, "skill_candidate_published", {
+        receipt = {
             "candidateId": row.id, "skillId": slug,
             "libraryVersion": result["item"]["version"],
+            "candidateVersion": row.version, "contentDigest": row.content_digest,
+            "reportVersionDigest": row.report_version_digest,
             "actor": principal.email.lower(),
-        }, row.operation)
-    return {"item": record(row), "library": result["item"]}
+        }
+        pi_service.event(session, PUBLICATION_EVENT, receipt, row.operation)
+    return {"item": record(row), "library": result["item"],
+            "publication": _publication(row, result["item"], receipt)}

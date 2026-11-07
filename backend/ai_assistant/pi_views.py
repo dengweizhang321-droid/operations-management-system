@@ -1,6 +1,7 @@
 """Pi routes, intentionally served only by the AI writer process."""
 import json
 import re
+from dataclasses import replace
 
 from django.conf import settings
 from . import configuration, pi_service as service, pi_exports
@@ -123,18 +124,9 @@ def dispatch(request, path, principal):
             return response(result)
         if name == "skill-candidates" and request.method == "POST" and len(parts) == 4:
             from . import pi_gateway, skill_candidates
-            from .pi_models import PiOperation
-            # registry_tools must reflect this run's own operation (its granted
-            # business intents), not a tool-less or unrelated catalog -- a
-            # candidate step naming a tool this run never had cannot be
-            # validated against some other operation's permissions. Ownership
-            # of parts[2] is re-checked inside skill_candidates.save() itself
-            # (via request_schema -> pi_sources.evidence); this lookup only
-            # needs the row to ask the gateway what this run may call.
-            operation = PiOperation.objects.filter(id=parts[2]).first()
-            if operation is None or operation.session.owner_email.lower() != principal.email.lower():
-                raise AiError("任务不存在或不属于当前账号", "not_found", 404)
-            entries, _readonly = pi_gateway.catalog(principal, operation)
+            operation = skill_candidates.source_operation(parts[2], principal)
+            run_principal = replace(principal, scope=json.loads(operation.scope_json))
+            entries, _readonly = pi_gateway.catalog(run_principal, operation)
             registry_tools = {item["name"] for item in entries if "name" in item}
             return response(skill_candidates.save(parts[2], payload, principal,
                 registry_tools=registry_tools), 201)
