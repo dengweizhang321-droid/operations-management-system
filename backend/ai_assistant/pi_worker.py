@@ -498,11 +498,13 @@ def perform(op, stopped=None):
         model_options = options(model)
         from .pi_native import model_binding as native_model_binding
         model_binding = native_model_binding(model, payload.get("thinkingLevel", ""))
-        version = selected[0]["version"] if selected else os.getenv("PI_SKILL_VERSION", "1.0.0")
+        version = selected[0].get("packageVersion", selected[0]["version"]) if selected else os.getenv("PI_SKILL_VERSION", "1.0.0")
         created = runner_dispatch(op, "create", {"admission": native_admission(op), "gateway": gateway, "skillIds": payload["skillIds"], "skillVersion": version,
             "model": model_binding, **({"compactControlId": payload["controlId"]} if op.kind == "workspace:compact" else {})})
         advertised = created.get("skills", created.get("state", {}).get("skills", []))
         if selected:
+            if any("packageVersion" in item for item in selected) and created.get("state", {}).get("skillVersion") != version:
+                raise AiError("Pi 运行器未确认所选技能包版本", "pi_skills_mismatch", 503)
             if not isinstance(advertised, list):
                 raise AiError("Pi 技能证明缺失", "pi_skills_mismatch", 503)
             available = {item.get("id"): item for item in advertised if isinstance(item, dict)}
@@ -515,7 +517,7 @@ def perform(op, stopped=None):
         from .policy import canonical, digest, mutation, uid
         from .pi_models import PiDispatch
         from django.utils import timezone
-        loaded = [{key: item[key] for key in ("id", "version", "sha256")} for item in selected]
+        loaded = [{key: item[key] for key in ("id", "packageVersion", "version", "sha256") if key in item} for item in selected]
         with mutation():
             session = PiSession.objects.select_for_update().get(pk=op.session_id)
             PiDispatch.objects.create(id=uid("pi-skills-loaded"), operation=op, kind="control:skills_loaded", request_id="skills",
@@ -753,7 +755,7 @@ def main():
         secret()
         values = skills()
         print(json.dumps({"status": "verified", "queue": "pi", "providerCalls": 0,
-            "skillVersion": values[0]["version"] if values else None}, separators=(",", ":")))
+            "skillVersion": values[0]["packageVersion"] if values else None}, separators=(",", ":")))
         return
     stopped = threading.Event()
     if bool(args.control_file) != bool(args.control_token):
