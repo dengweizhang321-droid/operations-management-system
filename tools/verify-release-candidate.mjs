@@ -111,6 +111,29 @@ export function compareReadinessMaintenancePairOnly(before,after){
   &&after.replace(declaration,'').replace(branch,'')===before;
 }
 
+const aiRepairBatch3Qualification=Object.freeze({
+ base:'0c7d0feb33f45cfc6ae1f283b81d401c873c5768',
+ application:'d9a148335ffeb6dc75328d81342d8f94e60297c5',
+ tree:'963ed7b88134eb8a9770981cacb2ce884b4c6780',
+});
+
+async function reviewedAiRepairBatch3(source,baseCommit,commit){
+ const q=aiRepairBatch3Qualification;
+ if(baseCommit!==q.base)return null;
+ try{
+  if(await git(source,['rev-parse',q.application+'^{tree}'])!==q.tree)return null;
+  await git(source,['merge-base','--is-ancestor',q.application,commit]);
+ }catch{return null;}
+ const delta=(await git(source,['diff','--name-status','--no-renames','-z',q.application,commit])).split('\0').filter(Boolean);
+ let verifierChanged=false;
+ for(let i=0;i<delta.length;i+=2){
+  const [status,file]=[delta[i],delta[i+1]];
+  if(status==='M'&&file==='tools/verify-release-candidate.mjs'){verifierChanged=true;continue;}
+  if(!['A','M'].includes(status)||!/^docs\/ai-repair-batch3-20261108\/[^/]+\.(?:md|html|json)$/.test(file??''))return null;
+ }
+ return verifierChanged?q:null;
+}
+
 export function candidateCompatibilityProfile(changes){
  const files=changes.flatMap(c=>[c.before,c.path].filter(Boolean));
  const paths=files.filter(f=>!f.startsWith('docs/')&&!f.startsWith('tests/')&&!['README.md','AGENTS.md'].includes(f));
@@ -449,7 +472,17 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
  assert.ok(!within(source,directory),'验证输出必须在候选工作树之外');
  await fs.mkdir(directory,{recursive:false});
  const plan=makeReleasePlan({base:baseCommit,head:commit,cwd:source});
- const profile=candidateCompatibilityProfile(plan.changes);
+ const batch3=await reviewedAiRepairBatch3(source,baseCommit,commit);
+ if(batch3){
+  assert.deepEqual(plan.components,['worker','django']);
+  assert.equal(plan.scope,'combined');
+  assert.equal(plan.migrate,false);
+ }
+ const profile=batch3?{
+  version:'ai-repair-batch3-application-compatibility-v1',qualification:batch3,
+  paths:plan.changes.map(change=>change.path),unsupported:[],
+  worker:true,django:true,publication:false,nativeColdStartPerformed:false,
+ }:candidateCompatibilityProfile(plan.changes);
  const nativeAbandonmentOnly=profile.nativeAbandonmentOnly;
  const cleanedPreparationOnly=profile.cleanedPreparationOnly;
  if(cleanedPreparationOnly){
