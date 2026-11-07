@@ -1,12 +1,17 @@
 import base64
 from copy import deepcopy
+from contextlib import ExitStack
+from datetime import timedelta
 import io
 import json
+import secrets
 from unittest.mock import patch
+from uuid import uuid4
 import zipfile
 from xml.etree import ElementTree
 from django.db import connection, transaction, DatabaseError
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from . import tests as fixtures, models as m, reports, report_library as library, report_render, workflows, channels
 from .policy import AiError, canonical, mutation
 
@@ -104,6 +109,80 @@ class ReportLibraryTests(TestCase):
                 model_type="text", model_name="fixture-b", base_url="https://api.openai.com/v1",
                 api_key_encrypted="encrypted-fixture-b", status="enabled", version=7,
             )
+
+    def test_active_alias_rejects_different_model_on_fresh_signed_request(self):
+        second = self.second_model()
+        original = {**self.request, "dryRun": False, "modelId": self.model.id, "clientRequestId": "original-a"}
+        alias = {**original, "clientRequestId": "alias-a"}
+        with patch("ai_assistant.transport.catalog", return_value=fixtures.CATALOG), \
+                patch("ai_assistant.provider.turn") as turn:
+            report = self.call("/api/ai/reports", original, self.admin, request_id="signed-original").json()["item"]
+            reused = self.call("/api/ai/reports", alias, self.admin, request_id="signed-alias-1")
+            self.assertEqual(reused.status_code, 200, reused.content)
+            self.assertEqual(reused.json()["item"]["id"], report["id"])
+            changed = self.call("/api/ai/reports", {**alias, "modelId": second.id}, self.admin,
+                                request_id="signed-alias-2")
+            self.assertEqual((changed.status_code, changed.json()["code"]), (409, "conflict"))
+            self.assertEqual(m.AiReportRun.objects.count(), 1)
+            self.assertEqual(m.AiWorkflowRuns.objects.count(), 1)
+            other = self.user("second-report-owner@example.invalid", "admin", None)
+            other_report = self.call("/api/ai/reports", alias, other, request_id="signed-alias-other")
+            self.assertEqual(other_report.status_code, 200, other_report.content)
+            self.assertNotEqual(other_report.json()["item"]["id"], report["id"])
+            turn.assert_not_called()
+
+    def test_active_alias_survives_terminal_target_and_signed_receipt_expiry(self):
+        from sales.auth import REQUEST_ID_RE
+        from .control_models import AiWriteAuthority, AiWriteReceipt
+        from .database_contract import provision
+        from .test_business_market_v2_material_role_bridge import session_role
+        from .views import COMPLETED_RECEIPT_TTL
+
+        original = {**self.request, "dryRun": False, "modelId": self.model.id, "clientRequestId": "original-terminal"}
+        alias = {**original, "clientRequestId": "alias-terminal"}
+        with ExitStack() as stack:
+            if connection.vendor == "postgresql":
+                provision(connection.connection, secrets.token_hex(32), secrets.token_hex(32))
+                epoch = uuid4()
+                cutover = "report-alias-isolated"
+                AiWriteAuthority.objects.filter(pk=1).update(
+                    status="postgres", authority_epoch=epoch, cutover_id=cutover,
+                    migration_verify_run_id=cutover, activated_at=timezone.now(),
+                )
+                stack.enter_context(override_settings(DJANGO_PROCESS_ROLE="ai_writer",
+                    AI_WRITE_AUTHORITY_EPOCH=str(epoch), AI_WRITE_CUTOVER_ID=cutover))
+                stack.enter_context(session_role("teruisi_ai_writer"))
+            stack.enter_context(patch("ai_assistant.transport.catalog", return_value=fixtures.CATALOG))
+            turn = stack.enter_context(patch("ai_assistant.provider.turn"))
+            report = self.call("/api/ai/reports", original, self.admin, request_id="signed-report").json()["item"]
+            reused = self.call("/api/ai/reports", alias, self.admin, request_id="signed-alias-old")
+            self.assertEqual(reused.status_code, 200, reused.content)
+            self.assertEqual(reused.json()["item"]["id"], report["id"])
+            binding = AiWriteReceipt.objects.get(status="report_alias")
+            self.assertEqual(binding.response_payload, {"reportId": report["id"]})
+            self.assertNotRegex(binding.pk, REQUEST_ID_RE)
+            age = timezone.now() - COMPLETED_RECEIPT_TTL - timedelta(seconds=1)
+            with mutation(self.admin):
+                AiWriteReceipt.objects.filter(pk__in=["signed-alias-old", binding.pk]).update(completed_at=age)
+            workflows.control(report["workflowId"], {"expectedVersion": 1}, self.admin, "cancel", True)
+            with mutation(self.admin):
+                m.AiModels.objects.filter(pk=self.model.id).update(version=self.model.version + 1)
+            retried = self.call("/api/ai/reports", alias, self.admin, request_id="signed-alias-new")
+            self.assertEqual(retried.status_code, 200, retried.content)
+            self.assertTrue(retried.json()["replayed"])
+            self.assertEqual((retried.json()["item"]["id"], retried.json()["item"]["status"]),
+                             (report["id"], "cancelled"))
+            self.assertEqual(retried.json()["item"]["modelVersion"], self.model.version)
+            self.assertFalse(AiWriteReceipt.objects.filter(pk="signed-alias-old").exists())
+            self.assertTrue(AiWriteReceipt.objects.filter(pk=binding.pk).exists())
+            self.assertEqual(m.AiReportRun.objects.count(), 1)
+            fresh = self.call("/api/ai/reports", {**alias, "clientRequestId": "fresh-explicit"}, self.admin,
+                              request_id="signed-fresh")
+            self.assertEqual(fresh.status_code, 200, fresh.content)
+            self.assertNotEqual(fresh.json()["item"]["id"], report["id"])
+            self.assertEqual(fresh.json()["item"]["modelVersion"], self.model.version + 1)
+            self.assertEqual(m.AiWorkflowRuns.objects.count(), 2)
+            turn.assert_not_called()
 
     def test_three_signed_report_scenes_pin_model_version_and_dedupe_by_model(self):
         second = self.second_model()
