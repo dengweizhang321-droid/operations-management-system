@@ -403,3 +403,60 @@ AI检查仅限必要语法、类型、依赖、构建闭包、迁移安装/启�
 实施启动先冻结当前案例输入/输出、工具可达矩阵、Skill包及加载兼容契约；这些是开发资料，不提前生成制品。需要用户实际决定的是首个店铺/日期口径、明确修正、发布Skill版本、长期任务范围与投递对象；未获启用授权保留定义为disabled。附件配额、公开主题、外部embedding和微信/店铺API准入在对应P3任务中再明确，不使未知平台权限阻塞首个日报。遇到其他任务已实现的接缝先复用，不能重复建库、调度或工具。
 
 公开资料依据为本轮已核验的OpenAI官方指南：[Tools](https://developers.openai.com/api/docs/guides/tools)、[Images and vision](https://developers.openai.com/api/docs/guides/images-vision)、[File search](https://developers.openai.com/api/docs/guides/tools-file-search)、[Background mode](https://developers.openai.com/api/docs/guides/background)。这些资料分别用于区分模型工具与应用执行器、视觉输入链路、托管检索和异步响应状态；不证明本系统、任意兼容供应商或当前账户已支持对应能力。实际施工继续以本项目源码契约、选用供应商和当时可核验能力为准。
+
+## 17. 2026-10-29 独立复核：能力差距、方案调整项与未启用代码
+
+本节为独立上下文按用户要求对本方案所做的只读复核，基线为本机main `1bc539c4`（本分支落后26个提交）。所有结论来自当次直接读取的源码与配置，不复用方案正文的自述。本节只记录复核事实与建议，不构成实施、合并、制品准备或上线授权，也不表示其中任何建议已被采纳。
+
+### 17.1 当前能力面的实测事实
+
+[tool-registry.ts](../../lib/ai/tool-registry.ts)共1765行，87个条目中75条`read_only`、12条`write`。业务只读覆盖销售、库存、网店、推广、市场、客服、财务、导入状态与数据新鲜度。模型底层能力的实测缺项如下，均为当次直接核对：
+
+| 能力 | 实测状态与证据 |
+| --- | --- |
+| 结构化输出 / JSON Schema | 缺。[provider.py](../../backend/ai_assistant/provider.py)与[model_capabilities.py](../../backend/ai_assistant/model_capabilities.py)全文无`response_format`、`json_schema`、`strict` |
+| embedding / 向量检索 | 缺。`embedding`、`pgvector`、`vector_store`在`backend/`与`lib/`下零命中；[knowledge.py](../../backend/ai_assistant/knowledge.py)仅99行词法检索 |
+| prompt caching | AI助理主链缺。[model-gateway.ts](../../lib/ai/model-gateway.ts)读取`cache_read_input_tokens`，但该文件仅被市场标注`lib/market/annotation-model.ts`引用；Django `provider.py`无任何`cache_control` |
+| 视觉输入 | 部分。`provider.py:279`要求`model_type == "vision"`，仅base64 PNG单图；无PDF原生输入与多页文档 |
+| 思考 / 推理档位 | 有。`model_capabilities.py:41`已适配`thinking`、`reasoning_effort`、`anthropic_budget`、`anthropic_adaptive`四种格式 |
+| 流式 | 部分。[provider_stream.py](../../backend/ai_assistant/provider_stream.py)186行支持Chat流式；Pi内部网关仍为一次请求一次回答，与方案第11节自述一致 |
+| 模型自主公开研究 | 缺注册。[pi_research.py](../../backend/ai_assistant/pi_research.py)第315行已有Bing RSS搜索与公网GET、SSRF与敏感参数检查齐全，但`lib/ai`下无`search_public_sources`、`read_public_source`或任何引用它的注册条目，模型工具目录中不存在该能力 |
+| 附件体积 | [pi_service.py](../../backend/ai_assistant/pi_service.py)第17行`MAX_INPUT_FILE = 512 * 1024`，输出8 MiB，与方案第8节自述一致 |
+
+Pi Runner侧已有计划模式与不可变计划版本、子代理派工、结构化问卷、异步等待、取消与关闭、容器内终端、文件与依赖安装、会话树分叉及手动压缩；内置Skill为[bundled_skills](../../backend/pi_runner/bundled_skills)下`excel-report`、`sales-promotion-inventory`、`stock-replenishment`三个固定包的多个版本。
+
+按性价比排序的补齐建议：先做结构化输出（改动集中在`provider.py`与`model_capabilities.py`，可复用现有参数能力协商机制，直接提升自动化链路可靠性）；再把`pi_research`按方案第10节的broker设计接入中央注册表（读取器与外发校验已完成，缺注册条目与sourceId代理）；embedding与prompt caching可后置，前者先按方案P3-05第一步做全量分页词法索引即可，后者只影响成本不影响能力。
+
+### 17.2 对本方案的调整建议
+
+以下六项是本次复核认为方案需要补充或调整的地方，按影响程度排列。
+
+**一、缺少外部平台动作层，这是"全自动电商工作流"的必经环节。** [pi_business.py](../../backend/ai_assistant/pi_business.py)第16行当前只有四个意图：`work_plan.create`、`replenishment_draft.create`、`n8n_gap.run`、`report.deliver`，全部是系统内部写入与投递。方案从P0到P3-06的所有写动作终点都是"生成建议并投递给人"：P2的`deliveryTargets`是钉钉消息，P3-06仅表述为"外部平台先核账号类型和真实API授权，缺能力保持待接入"。建议单列一个与P2平行的工程包，而非置于P3-06末尾：先定义外部平台writer契约（幂等键、预览、确认、领域回执、对账与回滚边界），再接第一个真实动作。建议从调推广预算起步，它可逆、影响面可控且有现成推广诊断数据支撑；不建议以改价或下采购单作为首个动作。
+
+**二、P1的Skill加载桥工程量被低估，建议拆期。** 方案第5.3节自述接通受管loader需同时覆盖[server.py](../../backend/pi_runner/server.py)发现校验、launcher与native loader、持久身份、重启恢复、技能重载和资源读取审计，并需新镜像与Runner源码一并采用。该项同时触及Python、容器镜像与发布契约三层，是全案最重且最易拖期的一环，却被列入"最小首批"。建议P1先只交付Skill候选、审核与发布的数据层闭环，Pi真实加载单独作为P1.5一期；首个日报案例用现有三个内置包加既有guidance文字指导即可跑通，不必等受管loader就绪。
+
+**三、方案本身尚未进入根AGENTS.md第4条的第一步。** `docs/ai-assistant-capability-plan-20261028/PLAN.md`当前只存在于分支`codex/ai-assistant-capability-plan-20261028`，main上无此路径。方案文首"隔离分支已合入本机main `18dc5006`"指的是把main合入本分支，不是反向合并；合并授权仍未取得。
+
+**四、首个案例的店铺选择会先被单店边界卡住。** [pi_selection.py](../../backend/ai_assistant/pi_selection.py)的限制是有意边界，ERP渠道、仓库与全局库存都不能当作店铺；方案第13节亦承认当前handler只传principal而`shopSelection`不是`principal.scope`。建议在P0-01之前先确认具体哪个店铺的哪些工具能真正证明归属，否则"工具可达矩阵"会得出一个过小的可用集合，日报章节需要相应缩减。
+
+**五、建议补充异常分诊层，这是方案目前的空白。** 全自动工作流的难点在异常路径。现设计中数据未就绪为`waiting_data`、投递未知为`unknown`不重放、权限收窄即阻止派发，这些语义都正确，但没有任何一条说明异常之后由谁处置。当前11个n8n流程共用一个errorWorkflow发钉钉提醒、依赖人工查看。走向自动化需要明确分诊：哪些可自动重试（幂等且结果已知）、哪些降级执行、哪些必须停止并通知。建议纳入P2，不留到上线后补。
+
+**六、建议从正文抽出一份施工红线单页。** 方案405行中有大量"A不是B、不能把C说成D"的否定式约束，这些约束本身成立且看得出有实际教训支撑，但密度高到施工时难以作为检查清单使用。建议抽取20条以内的施工红线单独成页，正文保留完整论证。
+
+### 17.3 未启用的AI代码
+
+前端与路由层无孤岛：37个`app/ai-*.tsx`均有父级import链，86条`app/api/ai/**/route.ts`均有调用方，注册表中工具handler全部指向真实实现，无空壳或TODO。未启用代码集中在以下四类，判断依据为有无生产调用方而非有无注册。
+
+**残留。** `tests/legacy/`下46个文件是D1时代AI实现的全量副本，`git log`仅一条提交`d04a57f2 refactor(ai): move full assistant domain to Django PostgreSQL`，含15个`tests/legacy/ai/*.ts`与30个旧route.ts，`tests/legacy/ai/analysis-sandbox.ts:7`仍`import type { D1Database }`。对照现役`app/api/ai/chat/route.ts`仅4行转发，legacy同名文件为82行完整实现。需注意[entry-context.ts](../../lib/ai/entry-context.ts)与[channel-callbacks.ts](../../lib/ai/channel-callbacks.ts)的唯一调用方即在该目录内。本次已核实现役回调链的验签位置：薄Worker的`app/api/ai/webhooks/[channelId]/route.ts`只做路径校验与透传，真实验签和解密在Django侧[channels.py](../../backend/ai_assistant/channels.py)第222行`hmac.compare_digest`与AES解密处，符合架构的薄Worker边界，不构成安全缺口。
+
+**可删的第二套实现。** [business-promotion-screening-tools.ts](../../lib/ai/business-promotion-screening-tools.ts)第13行`readBusinessPromotionKeywordSkuV1`全仓仅定义处一处命中，无任何测试；[business-market-observation.ts](../../lib/ai/business-market-observation.ts)第16行`readBusinessMarketObservationV2`仅被`tests/business-market-observation.test.ts`引用。两者对应的后端端点均在用但走另一条路（`views.py:439-441`与`:445-447`分派至`business_promotion_runtime_tools`与`business_market_observation_runtime_tools`），注册表中实际在用的`get_business_promotion_keyword_sku_v1`（`tool-registry.ts:391`）handler指向`business-promotion-dispatch-tools.ts:53`。建议删除而非接线，保留两套读取器只会让后续改动改错一侧。
+
+**需要决策的停放态市场v2。** `backend/ai_assistant/business_market_v2*.py`共51个模块约5694行，加Worker侧3个文件，是当前最大的一块未启用代码，且为有意停放：[settings.py](../../backend/teruisi_backend/settings.py)第200至210行只声明3个AI门控且全部default False；另有12个门控被`getattr(settings, "...", False)`读取但settings.py完全未声明、亦无env读取点，因此任何环境变量下恒为False，仅测试`override_settings`可开；数据库触发器主动拒绝该版本的Agent job、第五工具派发与工具结果。其中8个模块既无生产调用方、内部门控又恒为False：`business_market_v2_active_synthetic`、`_owned_result`、`_read_admission_v5`、`_tool_observation_v6`、`_model_transport_owner`、`business_market_v6_paused_topology_owner`、`_persistence`、`_source_ticket_replay`。建议要么给出启用路线图，要么归档；5694行挂在恒假门控后面，每次改注册表或surface都需绕过，是实际维护负担。
+
+**多代并存。** 两套screening工具描述与inputSchema逐字重复，仅surface与handler不同：`get_business_promotion_screening_*`对应surface `business_agent_screening_promotion_v1`，`get_business_screening_*`对应`business_agent_screening_v1`，由[workflows.py](../../backend/ai_assistant/workflows.py)第216至218行按`execution_profile`分岔，两套均可达但功能重复，测试中两边互称old。另有27个后端模块只被`test_*.py`引用，`views.py`、`workflows.py`与`pi_views.py`均无import，含budget v10/v11五代并存、v4系列5个`_owning`/`candidate`/`replay`模块，以及`business_promotion_views.py`（110行，入口`table`/`page`/`read_row`无调用方）。本次抽验`business_promotion_activation`、`business_market_v2_owned_result`确认生产侧零引用，`business_v4_period_plan_candidate`的非测试命中经核对均为db_table名与migration名、非模块调用。`business-evidence/[id]/mapping`与`mapping-v2`两条路由并存，后端白名单均保留，测试将前者标为`app.legacy`。
+
+**一项可能的接线遗漏。** 工具面`ai_sandbox`注册在白名单但全仓零setter：[tool-registry-contract.ts](../../lib/ai/tool-registry-contract.ts)第19行列入`aiToolSurfaces`，[django-edge.ts](../../lib/ai/django-edge.ts)第63行放行，`tool-registry.ts`第120行一组工具的`allowedSurfaces`含它，但没有任何代码把执行上下文的surface设为`"ai_sandbox"`（对照`business_collection` 20处、`ai_chat` 4处、`pi_agent` 3处、`ai_sandbox` 0处，仅测试构造）。`/api/ai/sandbox`前端亦无fetch调用方，而后端实现仍在用（`views.py:593-594`与`:730-731`）。这意味着该组工具经`ai_sandbox`永久不可达，需判断是漏接前端还是应从白名单摘除。
+
+### 17.4 本节复核范围
+
+只读分析，未修改任何应用代码、未执行构建、测试、模型调用、迁移或发布。前端视图与路由可达性、后端模块引用计数由受委派的独立只读上下文完成全仓标识符扫描，其中三条结论经本上下文抽样复验一致；模型能力面各项由本上下文逐条直接核对源码。能力盘点另有一个受委派上下文因供应商529过载提前终止、未产出结果，其待查项已由本上下文独立完成，本节不含该上下文的任何内容。

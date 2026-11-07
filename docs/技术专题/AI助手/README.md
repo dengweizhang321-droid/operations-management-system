@@ -4,7 +4,7 @@
 
 返回 [文档首页](../../README.md) · [完整文档目录](../../文档目录.md)
 
-任务、Skill 与自动工作流施工入口：[v2详细方案](../../ai-assistant-capability-plan-20261028/PLAN.md) · [方案审查](../../ai-assistant-capability-plan-20261028/REVIEW.md)（方案文档，未实施）。
+任务、Skill 与自动工作流施工入口：[v2详细方案](../../ai-assistant-capability-plan-20261028/PLAN.md) · [方案审查](../../ai-assistant-capability-plan-20261028/REVIEW.md) · [能力修复施工方案](../../ai-assistant-capability-plan-20261028/FIXPLAN.md)（方案文档，未实施）。
 
 统一施工入口：[AI 助理统一施工方案 v3.1](../../ai-assistant-unified-plan-20261029/PLAN.md) · [方案审查](../../ai-assistant-unified-plan-20261029/REVIEW.md)（进度见方案正文）。
 

@@ -1,5 +1,7 @@
 # 任务记录目录
 
+[AI 助理与 Claude 全部合并交接](../ai-finish-merge-20261107/REPORT.md)
+
 [AI 助理剩余工作交接](../ai-finish-20261107/REPORT.md)
 
 本轮候选：[Pi 有界上下文恢复清单](../ai-context-resume-20261107/REPORT.md)（P3-C；原 compact 身份、原证据分页与安全点；未合并/上线）。
@@ -44,7 +46,7 @@
 
 ## AI助手
 
-施工方案：[AI 助理任务、Skill 与自动工作流施工方案](../ai-assistant-capability-plan-20261028/PLAN.md) · [方案审查与交付记录](../ai-assistant-capability-plan-20261028/REVIEW.md)（v2方案文档，未实施）。
+施工方案：[AI 助理任务、Skill 与自动工作流施工方案](../ai-assistant-capability-plan-20261028/PLAN.md) · [方案审查与交付记录](../ai-assistant-capability-plan-20261028/REVIEW.md) · [能力修复施工方案](../ai-assistant-capability-plan-20261028/FIXPLAN.md)（v2方案文档，未实施）。
 
 统一施工入口：[AI 助理统一施工方案 v3.1](../ai-assistant-unified-plan-20261029/PLAN.md) · [审查与交付记录](../ai-assistant-unified-plan-20261029/REVIEW.md)（进度见方案正文）。
 
@@ -212,3 +214,7 @@
 | `watchdog-native-census-20261012` | 3 | [验证与审查事实](../watchdog-native-census-20261012/REPORT.md) |
 | `watchdog-recovery-install-safe-20261011` | 3 | [看门狗恢复闭合、安装事务和完整诊断](../watchdog-recovery-install-safe-20261011/REPORT.md) |
 | `watchdog-stability-20261011` | 2 | [运行监控稳定性排查与通知修复](../watchdog-stability-20261011/REPORT.md) |
+
+[AI158 控制采用历史回执](../ai158-control-adoption-20261104/REPORT.md)
+
+[AI158 发布历史回执](../ai158-publication-20261105/REPORT.md)
