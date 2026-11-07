@@ -1,0 +1,50 @@
+{
+  "at": "2026-11-04T16:51:38.037Z",
+  "value": {
+    "status": "started",
+    "version": "teruisi-local-worker-status-v1",
+    "releaseId": "20261104T135815Z-28278a3e8f6ac4fb",
+    "manifestSha256": "1ccf5583bb1b52200dc075cee546331eb2df61cd29d454abd70b7a8d383c0a74",
+    "supervisorProcessId": 35056,
+    "startCompletedAt": "2026-11-04T16:51:37.9434469+00:00",
+    "startupPhases": {
+      "DjangoEnsure": {
+        "phase": "DjangoEnsure",
+        "budgetMilliseconds": 400000,
+        "deadlineUnixMs": 1793811290152,
+        "startedAt": "2026-11-04T16:48:10.1536693+00:00",
+        "elapsedMilliseconds": 168863,
+        "outcome": "completed",
+        "code": "completed",
+        "processEvidence": null
+      },
+      "ReleaseVerification": {
+        "phase": "ReleaseVerification",
+        "budgetMilliseconds": 220000,
+        "deadlineUnixMs": 1793811279021,
+        "startedAt": "2026-11-04T16:50:59.0217727+00:00",
+        "elapsedMilliseconds": 17092,
+        "outcome": "completed",
+        "code": "completed",
+        "processEvidence": null
+      },
+      "SupervisorStart": {
+        "phase": "SupervisorStart",
+        "budgetMilliseconds": 90000,
+        "deadlineUnixMs": 1793811166115,
+        "startedAt": "2026-11-04T16:51:16.1154281+00:00",
+        "elapsedMilliseconds": 21823,
+        "outcome": "completed",
+        "code": "completed",
+        "processEvidence": null
+      }
+    },
+    "dingTalk": {
+      "status": "observing",
+      "observationPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\logs\\dingtalk-startup-ac40840bc6934093b30e829aad8ad3ce.json",
+      "observationId": "ac40840bc6934093b30e829aad8ad3ce",
+      "requiredForStart": false,
+      "observerProcessId": 54488
+    }
+  }
+}

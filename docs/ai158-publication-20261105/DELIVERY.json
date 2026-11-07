@@ -1,0 +1,71 @@
+{
+  "version": "ai158-publication-delivery-v1",
+  "status": "deployed_and_ready",
+  "sourceCommit": "ece8c7ec46ac7bd7dc0a5a3e3eed8fcf065d3b65",
+  "publicationExitCode": 0,
+  "nativeSuccessAt": "2026-11-04T16:51:59.588Z",
+  "nativeSuccessPath": "D:\\codex-isolated\\main-release-packages\\ece8c7ec46ac-7094807e-2c9a9ad3\\publish-ece8c7ec46ac\\SUCCESS.json",
+  "nativeSuccessSha256": "89d1c71b02570e047c411b41f26778dd0e959685f1b7b95a5adbe53b121a9d53",
+  "publishedCatalogMatchesSuccess": true,
+  "workerRelease": "20261104T135815Z-28278a3e8f6ac4fb",
+  "workerManifestSha256": "1ccf5583bb1b52200dc075cee546331eb2df61cd29d454abd70b7a8d383c0a74",
+  "djangoPreparedId": "b46a7bb33d0c46b191277c19770ce38f",
+  "djangoManifestSha256": "04a31bc0a281df1360ffc7675d7b98194388417bf117672310520e0fe8099fd7",
+  "originalPreparedSha256": "3a8684e5c63129335c6d7f770b888db27533ecfd2e45bef2fb2aaeea2c138020",
+  "migration": {
+    "steps": [
+      "ai_assistant.0088_task_feedback",
+      "ai_assistant.0089_skill_candidates"
+    ],
+    "migrationCount": 158,
+    "permissionsVerified": true,
+    "expectedWriterPrivileges": [
+      "SELECT",
+      "INSERT",
+      "UPDATE",
+      "DELETE"
+    ],
+    "expectedReaderPrivileges": [],
+    "evidence": "original Finalize + bound catalog; no independent permission scenario"
+  },
+  "startupVerified": true,
+  "readyVerified": true,
+  "timing": {
+    "maintenanceId": "25954b4507a347688e4751275e4dbc67",
+    "maintenanceEntered": "2026-11-05T00:33:21.4979953+08:00",
+    "serviceStackReady": "2026-11-05T00:49:40.1460969+08:00",
+    "markerWindowSeconds": 978.648,
+    "workerChildSpawn": "2026-11-05T00:51:28.765+08:00",
+    "workerStableOwnershipAndHelperHealthConfirmed": "2026-11-05T00:51:37.943446+08:00",
+    "workerConfirmationAfterStackReadySeconds": 117.797,
+    "enteredToWorkerConfirmationSeconds": 1096.445,
+    "exactFirstListenerTimestampMeasured": false,
+    "interpretation": "Primary recovery confirmation is original Start result startCompletedAt, after stable3000/5791 ownership and helper health. Not an exact first-listen/HTTP timestamp.",
+    "timingFunctionDerivedConfirmation": "2026-11-05T00:51:37.931+08:00",
+    "workerNativeStartCompletedAt": "2026-11-04T16:51:37.9434469+00:00"
+  },
+  "midnightExecutionId": 11196,
+  "midnightCompletedBeforeMaintenance": true,
+  "noRebuildOrControlReAdoption": true,
+  "noRollbackPerformed": true,
+  "noIndependentBusinessAcceptance": true,
+  "knownPriorValidationLimits": [
+    "No complete isolated native cold-start had been performed before this release",
+    "A layer parent proof below154 is synthetic seam"
+  ],
+  "evidenceSha256": {
+    "CATALOG-CHECK.json": "c0c2c76de4947a293eaaef2fb8a5159b7741c6fcee3119e74ee2684c43e9ac0c",
+    "MIDNIGHT-AFTER.json": "c73c876b6271b92f83994c4f14cf76ec8a2fdc61e9d0651c0baabcb08112667b",
+    "MIDNIGHT-EXECUTION-METADATA.json": "f9fe8bb66c8fa69d5fb0e572fb62f828c5197700b30410a2e75e90fb95b1ebe5",
+    "NATIVE-START.json": "316320aeb365828f869cb445b4915b4068fce51eeeb0fbe84bf3777378ba6ef4",
+    "NATIVE-STEPS.json": "a017c20eb3a7e3d88e024f74982574883febeff3a211d6db93bd7f1641b28b55",
+    "NATIVE-SUCCESS.json": "89d1c71b02570e047c411b41f26778dd0e959685f1b7b95a5adbe53b121a9d53",
+    "PRECHECKS.json": "7e22bb86c65c29661187527197049e6c21dc42039ed0ceafb2ecf3c82b6533ea",
+    "PUBLICATION-REQUEST.json": "0dc24f3d261723e8f44046a103b366e26becdb709e25445bcb2ab556b932df39",
+    "REVIEW.json": "2c2a816622f204ce7ddac7f536b7ce8a66639fd54198b558d4e8dca1dab60ec4",
+    "SCHEMA-FINALIZED-OBSERVATION.json": "fe5b3eb476e9f7daec23dfa02a29554488e732a3d5acdaf16ab569e1a11c8a04",
+    "SCHEMA-INSTALLED-OBSERVATION.json": "2fe2b178b3e6c415f61a501b0d46e8d402abfc6d88a7eb427c72ffc9faa691f2",
+    "TIMING-OBSERVATION.json": "c3b5180bfb0b8979005e921094a413fdac758aa839cb4c992a67921f16193373",
+    "TIMING-SUMMARY.json": "350d929267286938566bf8b2a654eb5fe419af685299ebabad602f93ebac2975"
+  }
+}

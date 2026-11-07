@@ -1,0 +1,18 @@
+{
+  "first": {
+    "exitCode": 0,
+    "contentPreflight": "blocked",
+    "warnings": [
+      "[2026-11-04T16:19:21.781Z] 注意：现在发布会被拒绝。发布前检查未通过：Assert-RuntimeAclHardened：运行目录不得包含重解析点：D:\\teruisi-runtime\\django-sales\\postgres-data\\base\\pgsql_tmp\\pgsql_tmp56836.0；Assert-NoForeignServiceChildren：发现 1 个程序：powershell.exe（进程号 55832，声称的父进程 38840 node.exe，身份无法读取）。该程序的父进程号与后台服务进程相同，停止服务时会被误判或误杀；请先退出该程序（例如 360 办公的 readertray.exe）或重启电脑后再发布。修复办法：以普通权限运行 powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\teruisi-runtime\\django-sales\\app\\tools\\django-local-service.ps1\" -Action HardenAcl，完成后重新双击 发布main.bat"
+    ]
+  },
+  "second": {
+    "exitCode": 0,
+    "contentPreflight": "passed",
+    "readyPreparationRecognized": true
+  },
+  "transientObjectsAbsentOnRecheck": true,
+  "manualAclRepairOrUnknownProcessKillPerformed": false,
+  "formalPublisherHardenAclStepPerformed": true,
+  "commandCorrection": "consume-preparation drains preparation queue; default fixed-shim deploy-ready mode publishes"
+}

@@ -1,0 +1,13 @@
+{
+  "observedAt": "2026-11-05T00:46:18.639025+08:00",
+  "schemaStatus": "verified",
+  "migrationCount": 158,
+  "permissionsVerified": true,
+  "ProvisionRolesNativeExit": 0,
+  "steps": [
+    "ai_assistant.0088_task_feedback",
+    "ai_assistant.0089_skill_candidates"
+  ],
+  "checksFrom": "original Finalize and ProvisionRoles receipts; no independent business/ACL test",
+  "applicationRecoveryNotYetClaimed": true
+}

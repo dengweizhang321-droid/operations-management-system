@@ -1,0 +1,161 @@
+{
+  "scope": "original-step-receipts-only",
+  "steps": [
+    {
+      "label": "\u8fdb\u5165\u7ef4\u62a4",
+      "action": "EnterMaintenance",
+      "startedAt": "2026-11-04T16:32:00.941Z",
+      "resultAt": "2026-11-04T16:37:10.965Z",
+      "processCode": "completed",
+      "exitCode": 0,
+      "timeoutType": null,
+      "resultSha256": "aa8c42f76587c989691962e6b31b294846e66b8c76211c608d14255a61eba964",
+      "processSha256": "23a765173ec0188b6de94670762da48470fa63f5261e438f6c3f3e84bb7e3888"
+    },
+    {
+      "label": "\u767b\u8bb0\u7ed3\u6784\u8fc1\u79fb",
+      "action": "Plan",
+      "startedAt": "2026-11-04T16:37:18.743Z",
+      "resultAt": "2026-11-04T16:38:49.950Z",
+      "processCode": "completed",
+      "exitCode": 0,
+      "timeoutType": null,
+      "resultSha256": "96ee3e56ee4f82d82800bd9cb3ecc00651850052cc7ac7aaca9493966f593e53",
+      "processSha256": "64988c71689b8942de2cb1fbf908cd5d56a4260a65ab8f3e3189a23be45990d2"
+    },
+    {
+      "label": "\u90e8\u7f72\u540e\u53f0",
+      "action": "DeployApp",
+      "startedAt": "2026-11-04T16:38:49.954Z",
+      "resultAt": "2026-11-04T16:39:34.638Z",
+      "processCode": "completed",
+      "exitCode": 0,
+      "timeoutType": null,
+      "resultSha256": "6a661b1049cd8ce448808a0b9c41593c9ddcaf2d39e0d328ec3afa61ee44fb8c",
+      "processSha256": "03ea3d5f36be655eb39409ff1969d5e4c0feb4896f16171e0a29c2a662d04b16"
+    },
+    {
+      "label": "\u5e94\u7528\u540e\u53f0\u6743\u9650",
+      "action": "HardenAcl",
+      "startedAt": "2026-11-04T16:39:34.643Z",
+      "resultAt": "2026-11-04T16:40:35.442Z",
+      "processCode": "completed",
+      "exitCode": 0,
+      "timeoutType": null,
+      "resultSha256": "85917e1303df106359a9f6bd457d7c21971e629d5afe3ea0b9f8454733c3fcc2",
+      "processSha256": "82e0a022da77957832bec73f4a74a6dfab50eee3a772fe37642b941e7396c66d"
+    },
+    {
+      "label": "\u8fc1\u79fb\u76d1\u63a7\u5b57\u6bb5",
+      "action": "Install",
+      "startedAt": "2026-11-04T16:40:35.446Z",
+      "resultAt": "2026-11-04T16:42:13.041Z",
+      "processCode": "completed",
+      "exitCode": 0,
+      "timeoutType": null,
+      "resultSha256": "4a81bd0c6c63799684459bce932663a4acb812dfd1e7a7b302b9dbf145c926fb",
+      "processSha256": "11cd6c88a43bffe58d9a334303914e7d419917949bab3c9df7a8a4a9ac2339fc",
+      "schemaResult": {
+        "version": "teruisi-ai-task-feedback-candidates-schema-addition-v1",
+        "status": "schema_installed",
+        "steps": [
+          "ai_assistant.0088_task_feedback",
+          "ai_assistant.0089_skill_candidates"
+        ],
+        "migrationCount": 158,
+        "migrationSha256": "0f35b6baa32a0728ac97bbac51049ba11727f150911f0bddf9a8017dc21a7a45",
+        "planSha256": "70bdf693f83d99419ef7ae8c4afd5d4ba858d74e2a75d87a91eff264d6ef28a1",
+        "legacyDataPreserved": true,
+        "preservation": {
+          "legacyRowsSha256": "a933fa35d7a144017e4653b155c8d79fb095e0c2f298df14d60a175c3ebfdb9c",
+          "permissionsSha256": "45ed47dee1ee21179a387c00d930e06c02ff33f5d2580e48d2197887ce08dc34",
+          "rows": 2905
+        },
+        "installIntentSha256": "b7228d091727f1c490cd52550a27f04f9c715af6b6094bbf96f4a0577ac5e6b2",
+        "databasePolicy": "schema-only-no-full-backup-or-restore-v1"
+      }
+    },
+    {
+      "label": "\u914d\u7f6ePi\u8fd0\u884c\u8d26\u672c\u6743\u9650",
+      "action": "ProvisionRoles",
+      "startedAt": "2026-11-04T16:42:13.047Z",
+      "resultAt": "2026-11-04T16:42:59.796Z",
+      "processCode": "completed",
+      "exitCode": 0,
+      "timeoutType": null,
+      "resultSha256": "625f833116173a37e608649983d5eeaf9549e3e765b179fd30a1ba8afea120d5",
+      "processSha256": "61db144634430083a2f89e2a220805cae5581b874171b330c6d8ea8c7fce1376"
+    },
+    {
+      "label": "\u5b8c\u6210\u7ed3\u6784\u8fc1\u79fb",
+      "action": "Finalize",
+      "startedAt": "2026-11-04T16:42:59.801Z",
+      "resultAt": "2026-11-04T16:44:26.168Z",
+      "processCode": "completed",
+      "exitCode": 0,
+      "timeoutType": null,
+      "resultSha256": "b3eaa23d9fbf3dffc458a0c7efa024dcb767baf5d6df05c1aa0317e6f88954f9",
+      "processSha256": "b66ac3d63e932d93072d2b0c9ed4adce6e2798d977c271817aaecbc797caf094",
+      "schemaResult": {
+        "databasePolicy": "schema-only-no-full-backup-or-restore-v1",
+        "installIntentSha256": "b7228d091727f1c490cd52550a27f04f9c715af6b6094bbf96f4a0577ac5e6b2",
+        "legacyDataPreserved": true,
+        "migrationCount": 158,
+        "migrationSha256": "0f35b6baa32a0728ac97bbac51049ba11727f150911f0bddf9a8017dc21a7a45",
+        "planSha256": "70bdf693f83d99419ef7ae8c4afd5d4ba858d74e2a75d87a91eff264d6ef28a1",
+        "preservation": {
+          "legacyRowsSha256": "a933fa35d7a144017e4653b155c8d79fb095e0c2f298df14d60a175c3ebfdb9c",
+          "permissionsSha256": "45ed47dee1ee21179a387c00d930e06c02ff33f5d2580e48d2197887ce08dc34",
+          "rows": 2905
+        },
+        "status": "verified",
+        "steps": [
+          "ai_assistant.0088_task_feedback",
+          "ai_assistant.0089_skill_candidates"
+        ],
+        "version": "teruisi-ai-task-feedback-candidates-schema-addition-v1",
+        "permissionsVerified": true
+      }
+    },
+    {
+      "label": "\u9000\u51fa\u7ef4\u62a4",
+      "action": "ExitMaintenance",
+      "startedAt": "2026-11-04T16:46:59.487Z",
+      "resultAt": "2026-11-04T16:48:02.771Z",
+      "processCode": "completed",
+      "exitCode": 0,
+      "timeoutType": null,
+      "resultSha256": "8756813be030171c6e4d29a6933fdcddcb48326174e82d3db11c16d5408f9480",
+      "processSha256": "a47fc9342fb52ab8a041e1eb8ac1097e125216d4c4b958b905511d4ee954f085"
+    },
+    {
+      "label": "\u542f\u52a8\u670d\u52a1",
+      "action": "Start",
+      "startedAt": "2026-11-04T16:48:02.775Z",
+      "resultAt": "2026-11-04T16:51:38.037Z",
+      "processCode": "completed",
+      "exitCode": 0,
+      "timeoutType": null,
+      "resultSha256": "316320aeb365828f869cb445b4915b4068fce51eeeb0fbe84bf3777378ba6ef4",
+      "processSha256": "91f53a7a345e32bc689e3c3c2758e3696706f580ac65666ae27f47efaaed3c20"
+    },
+    {
+      "label": "\u786e\u8ba4\u542f\u52a8\u7248\u672c",
+      "action": "VerifyStartup",
+      "startedAt": "2026-11-04T16:51:38.048Z",
+      "resultAt": "2026-11-04T16:51:47.904Z",
+      "processCode": "completed",
+      "exitCode": 0,
+      "timeoutType": null,
+      "resultSha256": "ed7836821df287260bbb67195a777a2f51af5221e035dbfb187fcd0a46bca030",
+      "processSha256": "9186e1a5b59510387deb59e046524602e8b8401cfe86b401293e2b406e477093",
+      "startupResult": {
+        "status": "verified",
+        "version": "teruisi-local-worker-status-v1",
+        "releaseId": "20261104T135815Z-28278a3e8f6ac4fb",
+        "manifestSha256": "1ccf5583bb1b52200dc075cee546331eb2df61cd29d454abd70b7a8d383c0a74",
+        "startupVerified": true
+      }
+    }
+  ]
+}

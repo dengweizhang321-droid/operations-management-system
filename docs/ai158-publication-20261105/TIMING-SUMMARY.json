@@ -1,0 +1,14 @@
+{
+  "maintenanceId": "25954b4507a347688e4751275e4dbc67",
+  "maintenanceEntered": "2026-11-05T00:33:21.4979953+08:00",
+  "serviceStackReady": "2026-11-05T00:49:40.1460969+08:00",
+  "markerWindowSeconds": 978.648,
+  "workerChildSpawn": "2026-11-05T00:51:28.765+08:00",
+  "workerStableOwnershipAndHelperHealthConfirmed": "2026-11-05T00:51:37.943446+08:00",
+  "workerConfirmationAfterStackReadySeconds": 117.797,
+  "enteredToWorkerConfirmationSeconds": 1096.445,
+  "exactFirstListenerTimestampMeasured": false,
+  "interpretation": "Primary recovery confirmation is original Start result startCompletedAt, after stable3000/5791 ownership and helper health. Not an exact first-listen/HTTP timestamp.",
+  "timingFunctionDerivedConfirmation": "2026-11-05T00:51:37.931+08:00",
+  "workerNativeStartCompletedAt": "2026-11-04T16:51:37.9434469+00:00"
+}

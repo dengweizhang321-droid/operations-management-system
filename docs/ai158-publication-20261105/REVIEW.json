@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "recordedBy": "root from independent read-only review messages",
+  "requestedModel": "gpt-6.1-sol",
+  "requestedReasoningEffort": "high",
+  "actualModelIndependentlyConfirmed": false,
+  "scope": [
+    "native SUCCESS/catalog/step evidence and bytes",
+    "timing logs and direct native Start completion",
+    "midnight execution metadata boundary",
+    "actual publication entry and first check warning"
+  ],
+  "noAdditionalFunctionalTestsPerformed": true,
+  "remainingBlockingFindings": []
+}

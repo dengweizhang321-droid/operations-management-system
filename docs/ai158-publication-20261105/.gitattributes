@@ -1,0 +1,2 @@
+# Native receipts retain the exact bytes used for their hashes.
+*.json -text whitespace=cr-at-eol
