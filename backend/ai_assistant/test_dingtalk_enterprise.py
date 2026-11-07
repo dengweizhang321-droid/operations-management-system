@@ -74,6 +74,7 @@ class EnterpriseCredentialsTests(SimpleTestCase):
 
 class EnterpriseDeliveryTests(SimpleTestCase):
     def setUp(self):
+        self.requests = []
         for target, replacement in (("guard", Mock()), ("credentials", Mock(return_value=("bot", "fixture-secret"))),
                                     ("media_addresses", Mock(return_value=[]))):
             item = patch.object(platform, target, replacement)
@@ -84,6 +85,8 @@ class EnterpriseDeliveryTests(SimpleTestCase):
         self.addCleanup(item.stop)
 
     def response(self, url, body, **kwargs):
+        transport.commit_provider_send()
+        self.requests.append((url, body))
         if url == platform.TOKEN_API: return {"accessToken": "fixture-token"}
         if url == platform.GROUP_BOTS_API:
             return {"chatbotInstanceVOList": [{"name": "志高助手", "robotCode": "bot"}]}
@@ -94,9 +97,9 @@ class EnterpriseDeliveryTests(SimpleTestCase):
 
     def test_text_to_person_and_exact_group_needs_no_personal_login(self):
         for group in (False, True):
-            with patch.object(transport, "_bounded_json", side_effect=self.response) as calls:
+            with patch.object(transport, "_bounded_json", side_effect=self.response):
                 platform.send(lambda: CONFIG, self.session(group), "只读结果")
-            url, body = calls.call_args.args
+            url, body = self.requests[-1]
             self.assertEqual(url, platform.GROUP_MEDIA_API if group else platform.PERSON_MEDIA_API)
             self.assertEqual(body["msgKey"], "sampleText")
             self.assertEqual(json.loads(body["msgParam"]), {"content": "只读结果"})
@@ -122,29 +125,31 @@ class EnterpriseDeliveryTests(SimpleTestCase):
         ):
             def response(url, body, **kw):
                 return broken if url == broken_url else self.response(url, body, **kw)
-            with patch.object(transport, "_bounded_json", side_effect=response) as calls, self.assertRaises(AiError):
+            with patch.object(transport, "_bounded_json", side_effect=response), self.assertRaises(AiError):
                 platform.send(lambda: CONFIG, self.session(True), "result")
-            self.assertFalse(any(c.args[0] in (platform.GROUP_MEDIA_API, platform.PERSON_MEDIA_API) for c in calls.call_args_list))
-        with patch.object(transport, "_bounded_json", side_effect=self.response) as calls, self.assertRaises(AiError):
+            self.assertFalse(any(url in (platform.GROUP_MEDIA_API, platform.PERSON_MEDIA_API) for url, _ in self.requests))
+        self.requests.clear()
+        with patch.object(transport, "_bounded_json", side_effect=self.response), self.assertRaises(AiError):
             platform.send(lambda: {**CONFIG, "groups": []}, self.session(True), "result")
-        self.assertEqual(calls.call_count, 1)
+        self.assertEqual([url for url, _ in self.requests], [platform.TOKEN_API])
 
     def test_revocation_after_token_fetch_and_token_failure_do_not_send(self):
         with patch.object(platform, "guard", side_effect=[None, AiError("revoked", status=403)]), \
-                patch.object(transport, "_bounded_json", side_effect=self.response) as calls, self.assertRaises(AiError):
+                patch.object(transport, "_bounded_json", side_effect=self.response), self.assertRaises(AiError):
             platform.send(lambda: CONFIG, self.session(), "result")
-        self.assertEqual(calls.call_count, 1)
+        self.assertEqual([url for url, _ in self.requests], [platform.TOKEN_API])
         before = Mock(side_effect=AiError("task revoked", status=403))
-        with patch.object(transport, "_bounded_json", side_effect=self.response) as calls, self.assertRaises(AiError):
+        self.requests.clear()
+        with patch.object(transport, "_bounded_json", side_effect=self.response), self.assertRaises(AiError):
             platform.send(lambda: CONFIG, self.session(), "result", before_send=before)
         before.assert_called_once()
-        self.assertEqual(calls.call_count, 1)
+        self.assertEqual([url for url, _ in self.requests], [platform.TOKEN_API])
 
     def test_group_display_name_never_resolves_or_redirects_the_approved_id(self):
         renamed = {**CONFIG, "groups": [{"id": "group", "name": "new display label"}]}
         with patch.object(transport, "_bounded_json", side_effect=self.response) as calls:
             platform.send(lambda: renamed, self.session(True), "result")
-        self.assertEqual(calls.call_args.args[1]["openConversationId"], "group")
+        self.assertEqual(self.requests[-1][1]["openConversationId"], "group")
         verification = [c for c in calls.call_args_list if c.args[0] == platform.GROUP_BOTS_API]
         self.assertEqual(verification[0].args[1], {"openConversationId": "group"})
         with patch.object(transport, "_bounded_json", return_value={"errcode": 1}) as calls, self.assertRaises(AiError):

@@ -1,17 +1,30 @@
 from datetime import datetime, timedelta, timezone as utc
 import copy
+import json
+from urllib.parse import urlsplit
 from unittest.mock import Mock, patch
 from types import SimpleNamespace
 from django.test import TestCase, override_settings
 
-from . import dingtalk_schedules as schedules, dingtalk_settings, models as m
+from . import dingtalk_schedules as schedules, dingtalk_settings, dingtalk_transport as platform, models as m
 from .policy import AiError
 from . import tests
+from .test_dingtalk_transport import fake_dingtalk_wire
 from .tests import ADMIN
 
 
 def background(*args, **kwargs):
     return {"ok": True, "principal": {"role": "admin"}}
+
+
+def accepted_delivery(*args, before_send):
+    before_send()
+    return platform.validate_receipt({"processQueryKey": "synthetic-accepted-receipt"})
+
+
+def lost_delivery(*args, before_send):
+    before_send()
+    raise TimeoutError()
 
 
 @override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
@@ -88,7 +101,7 @@ class DingTalkScheduleTests(TestCase):
         queued = schedules.run_now({"id": item["id"], "expectedVersion": item["version"]}, ADMIN)
         with self.assertRaises(AiError):
             schedules.run_now({"id": item["id"], "expectedVersion": item["version"]}, ADMIN)
-        sender = Mock()
+        sender = Mock(side_effect=accepted_delivery)
         with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.chat, "answer", return_value={"reply": "经营结论"}) as answer:
             self.assertTrue(schedules.step(lambda: dingtalk_settings.effective(self.config), sender))
         self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=queued["id"]).status, "sent")
@@ -124,6 +137,7 @@ class DingTalkScheduleTests(TestCase):
                 self.assertEqual(contender.execute("SELECT pg_try_advisory_lock(841327,1910)").fetchone(), (True,))
             before_send()
             delivered.append(content)
+            return platform.validate_receipt({"processQueryKey": "synthetic-accepted-receipt"})
         with patch("ai_assistant.transport.edge", side_effect=background), \
                 patch.object(schedules.chat, "answer", return_value={"reply": "结果"}), \
                 patch.object(worker.dingtalk, "load_config", return_value=self.config), \
@@ -151,9 +165,138 @@ class DingTalkScheduleTests(TestCase):
             schedules.step(lambda: dingtalk_settings.effective(self.config), prepare_sender)
         actual_send.assert_not_called()
         run = m.AiDingTalkScheduleRun.objects.get(pk=queued["id"])
-        self.assertEqual(run.status, "unknown")  # The existing durable reservation stays terminal.
+        self.assertEqual((run.status, run.analysis_status, run.delivery_status), ("denied", "succeeded", "failed"))
         self.assertEqual(run.error_code, "access_denied")
         self.assertFalse(schedules.step(lambda: dingtalk_settings.effective(self.config), actual_send))
+
+    def test_delivery_ledger_separates_token_rejection_lost_receipt_and_acceptance(self):
+        reader = lambda: dingtalk_settings.effective(self.config)
+        token_path = urlsplit(platform.TOKEN_API).path
+        recipient_path = urlsplit(platform.PERSON_MEDIA_API).path
+        for case, terminal, code, stage_name, outcome in (
+            ("credentials", "failed", "bot_credentials_unavailable", "credentials", "not_sent"),
+            ("token", "failed", "dingtalk_token_unavailable", "token", "not_sent"),
+            ("rejected", "failed", "dingtalk_send_rejected", "send_request", "rejected"),
+            ("gateway", "unknown", "delivery_unknown", "send_request", "unknown"),
+            ("lost", "unknown", "delivery_unknown", "send_request", "unknown"),
+            ("accepted", "sent", "", "receipt", "accepted"),
+        ):
+            with self.subTest(case=case):
+                item = schedules.save(self.payload, ADMIN)["item"]
+                queued = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
+                synthetic_accepts = []
+
+                def route(host, path, body):
+                    status = m.AiDingTalkScheduleRun.objects.get(pk=queued["id"]).status
+                    if path == token_path:
+                        self.assertEqual(status, "ready")
+                        if case == "token":
+                            return 401, {"code": "InvalidAccessToken", "requestId": "private-correlation-id"}
+                        return 200, {"accessToken": "synthetic-access-token"}
+                    self.assertEqual((path, status), (recipient_path, "sending"))
+                    self.assertEqual(json.loads(body)["userIds"], ["staff"])
+                    if case == "rejected":
+                        return 403, {"code": "Forbidden.AccessDenied", "requestId": "private-correlation-id", "message": "private-provider-error"}
+                    if case == "gateway":
+                        return 503, {"code": "private-unknown-code", "requestId": "private-correlation-id"}
+                    synthetic_accepts.append(path)
+                    if case == "lost":
+                        raise TimeoutError("lost after synthetic acceptance")
+                    return 200, {"processQueryKey": "private-platform-receipt", "requestId": "private-correlation-id"}
+
+                def credentials(config):
+                    if case == "credentials":
+                        raise AiError("private-credential-detail", "bot_credentials_unavailable", 503)
+                    return "synthetic-key", "synthetic-secret"
+
+                with patch("ai_assistant.transport.edge", side_effect=background), \
+                        patch.object(schedules.chat, "answer", return_value={"reply": "合成结果"}) as answer, \
+                        patch.object(platform, "credentials", side_effect=credentials), fake_dingtalk_wire(route) as posted:
+                    sender = lambda *args, **kw: platform.send(reader, *args, **kw)
+                    self.assertTrue(schedules.step(reader, sender))
+                    self.assertFalse(schedules.step(reader, sender))
+                answer.assert_called_once()
+                run = m.AiDingTalkScheduleRun.objects.get(pk=queued["id"])
+                self.assertEqual((run.status, run.error_code, run.analysis_status), (terminal, code, "succeeded"))
+                expected_paths = [] if case == "credentials" else [token_path] if case == "token" else [token_path, recipient_path]
+                self.assertEqual([path for _, path, _ in posted], expected_paths)
+                self.assertEqual(len(synthetic_accepts), int(case in ("lost", "accepted")))
+                self.assertLess(len(run.stage_details_json.encode()), 8000)
+                observation = json.loads(run.stage_details_json)["delivery"]["observation"]
+                self.assertEqual((observation["stage"], observation["outcome"]), (stage_name, outcome))
+                self.assertGreaterEqual(observation["elapsedMs"], 0)
+                for private in ("private-", "synthetic-key", "synthetic-secret", "synthetic-access-token"):
+                    self.assertNotIn(private, run.stage_details_json)
+                if case in ("token", "rejected", "gateway"):
+                    self.assertEqual(observation["transport"]["httpStatus"], {"token": 401, "rejected": 403, "gateway": 503}[case])
+                    self.assertEqual(len(observation["requestIdSha256"]), 64)
+                if case == "gateway":
+                    self.assertEqual(len(observation["platformCodeSha256"]), 64)
+                if case == "accepted":
+                    self.assertEqual(observation["recipientObservation"], "unavailable")
+                    self.assertEqual(len(observation["receiptSha256"]), 64)
+                else:
+                    self.assertNotIn("receiptSha256", observation)
+
+    def test_stop_before_wire_blocks_send_and_late_receipt_survives_stop(self):
+        reader = lambda: dingtalk_settings.effective(self.config)
+        for stop_before_wire in (True, False):
+            with self.subTest(stop_before_wire=stop_before_wire):
+                item = schedules.save(self.payload, ADMIN)["item"]
+                queued = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
+                connections = []
+
+                def stop():
+                    saved = schedules.save({**self.payload, "id": item["id"], "expectedVersion": 1, "enabled": False}, ADMIN)
+                    self.assertIsNone(saved["item"]["nextRunAt"])
+
+                def connect(address):
+                    connections.append(address)
+                    if len(connections) == 2 and stop_before_wire:
+                        stop()
+
+                def route(host, path, body):
+                    if path.endswith("/accessToken"):
+                        return 200, {"accessToken": "fixture-token"}
+                    self.assertFalse(stop_before_wire)
+                    stop()
+                    return 200, {"processQueryKey": "fixture-receipt"}
+
+                with patch("ai_assistant.transport.edge", side_effect=background), \
+                        patch.object(schedules.chat, "answer", return_value={"reply": "合成结果"}), \
+                        patch.object(platform, "credentials", return_value=("fixture", "fixture")), \
+                        fake_dingtalk_wire(route, on_connect=connect) as posted:
+                    sender = lambda *args, **kw: platform.send(reader, *args, **kw)
+                    self.assertTrue(schedules.step(reader, sender))
+                    self.assertFalse(schedules.step(reader, sender))
+                run = m.AiDingTalkScheduleRun.objects.get(pk=queued["id"])
+                self.assertEqual((run.status, run.analysis_status), ("denied" if stop_before_wire else "sent", "succeeded"))
+                self.assertEqual(len(posted), 1 if stop_before_wire else 2)
+                self.assertFalse(run.schedule.enabled)
+                self.assertIsNone(run.schedule.next_run_at)
+
+    def test_stopping_revoked_group_does_not_require_reapproval(self):
+        payload = {**self.payload, "targetType": "group", "targetId": "group"}
+        item = schedules.save(payload, ADMIN)["item"]
+        dingtalk_settings.save({"enabled": True, "groups": [{"id": "group", "name": "测试群聊", "enabled": False}], "expectedVersion": 1}, ADMIN)
+        stopped = schedules.save({**payload, "id": item["id"], "expectedVersion": 1, "enabled": False}, ADMIN)["item"]
+        self.assertEqual((stopped["enabled"], stopped["nextRunAt"]), (False, None))
+
+    def test_recovery_distinguishes_preparation_without_rewriting_legacy_unknown(self):
+        item = schedules.save(self.payload, ADMIN)["item"]
+        first = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)["id"]
+        m.AiDingTalkScheduleRun.objects.filter(pk=first).update(status="unknown", error_code="provider_unavailable")
+        old = m.AiDingTalkScheduleRun.objects.filter(pk=first).values().get()
+        second = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)["id"]
+        m.AiDingTalkScheduleRun.objects.filter(pk=second).update(status="ready", analysis_status="succeeded", delivery_status="running",
+            stage_details_json='{"delivery":{"observation":{"stage":"preparation","outcome":"preparing"}}}')
+        schedules.recover_interrupted()
+        self.assertEqual(m.AiDingTalkScheduleRun.objects.filter(pk=first).values().get(), old)
+        run = m.AiDingTalkScheduleRun.objects.get(pk=second)
+        self.assertEqual((run.status, run.error_code, run.analysis_status), ("failed", "dingtalk_preparation_interrupted", "succeeded"))
+        sender = Mock()
+        self.assertFalse(schedules.step(lambda: dingtalk_settings.effective(self.config), sender))
+        sender.assert_not_called()
 
     def test_revocation_before_dispatch_and_unknown_send_do_not_retry(self):
         item = schedules.save({**self.payload, "targetType": "group", "targetId": "group"}, ADMIN)["item"]
@@ -167,7 +310,7 @@ class DingTalkScheduleTests(TestCase):
         dingtalk_settings.save({"enabled": True, "groups": [{"id": "group", "name": "测试群聊", "enabled": True}], "expectedVersion": 2}, ADMIN)
         run2 = schedules.run_now({"id": item["id"], "expectedVersion": item["version"]}, ADMIN)
         with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.chat, "answer", return_value={"reply": "经营结论"}):
-            schedules.step(lambda: dingtalk_settings.effective(self.config), Mock(side_effect=TimeoutError()))
+            schedules.step(lambda: dingtalk_settings.effective(self.config), Mock(side_effect=lost_delivery))
         self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=run2["id"]).status, "unknown")
         self.assertFalse(schedules.step(lambda: dingtalk_settings.effective(self.config), sender))
         sender.assert_not_called()
@@ -241,7 +384,7 @@ class DingTalkScheduleTests(TestCase):
         item = schedules.save({**self.payload, "contentType": "screenshot", "sourceRef": "dashboard:overview", "prompt": ""}, ADMIN)["item"]
         run = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
         image = b"\x89PNG\r\n\x1a\nfixture"
-        media_sender, text_sender = Mock(), Mock()
+        media_sender, text_sender = Mock(side_effect=accepted_delivery), Mock()
         with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.scheduled_page_capture, "capture", return_value=image) as capture, patch.object(schedules.chat, "answer") as answer:
             self.assertTrue(schedules.step(lambda: dingtalk_settings.effective(self.config), text_sender, media_sender))
         capture.assert_called_once_with("dashboard:overview", ADMIN.email)
@@ -257,7 +400,7 @@ class DingTalkScheduleTests(TestCase):
         with patch.object(schedules.reports, "get", return_value=SimpleNamespace(workflow=SimpleNamespace(status="completed", dry_run=False))):
             item = schedules.save({**self.payload, "contentType": "report_file", "sourceRef": "report-1", "prompt": ""}, ADMIN)["item"]
         run = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
-        sender = Mock(side_effect=TimeoutError())
+        sender = Mock(side_effect=lost_delivery)
         with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.reports, "download", return_value={"base64": "UEsDBA=="}), patch.object(schedules.chat, "answer") as answer:
             schedules.step(lambda: dingtalk_settings.effective(self.config), Mock(), sender)
         answer.assert_not_called()
@@ -299,9 +442,10 @@ class DingTalkScheduleTests(TestCase):
                         m.AiDingTalkSchedule.objects.filter(pk=item["id"]).update(version=2)
                     return image
                 def deliver(*args, **kwargs):
-                    self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=run["id"]).status, "sending")
+                    self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=run["id"]).status, "ready")
                     if scenario == "delivery_unknown":
-                        raise TimeoutError()
+                        return lost_delivery(*args, **kwargs)
+                    return accepted_delivery(*args, **kwargs)
                 media, sender = Mock(side_effect=deliver), Mock()
                 with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.scheduled_page_capture, "capture", side_effect=capture), patch.object(schedules.chat, "answer") as answer:
                     schedules.step(lambda: dingtalk_settings.effective(self.config), sender, media)
