@@ -8,7 +8,7 @@ import {createMainPublicationStep} from './publish-main-step.mjs';
 import {finishMainPublication} from './publish-main-tail.mjs';
 import {reconcileMainPiUpgrade} from './publish-main-pi-reconciliation.mjs';
 import {assertPublicationRetired,capturePublicationOwner} from './publish-main-owner.mjs';
-import {releaseLeaseTtlMs,releaseLeaseVersion} from './publish-prepared-main.mjs';
+import {releaseLeaseTtlMs,releaseLeaseVersion,verifyPreparedPiImageSelection} from './publish-prepared-main.mjs';
 export const resumeProtocol='teruisi-pi-main-resume-v1';
 const hash=b=>createHash('sha256').update(b).digest('hex');
 const sha=async file=>hash(await fs.readFile(file));
@@ -63,6 +63,7 @@ export async function inspectMainPublication(attempt,context){
  assert.deepEqual(prepared.sourceIdentity,{commit:started.mainCommit,tree:started.sourceTree});
  const identity=await (context.sourceIdentity??(()=>assertFrozenSource({source,mainCommit:started.mainCommit,sourceTree:request.sourceTree})))();
  assert.deepEqual(identity,prepared.sourceIdentity,'原冻结来源发生变化');
+ await verifyPreparedPiImageSelection(request,prepared,path.join(out,'preparation'),identity);
  const failure=await exists(path.join(out,'FAILED.json'))?await read(path.join(out,'FAILED.json')):null;
  for(const file of [path.join(out,'SUCCESS.json'),path.join(resumed,'SUCCESS.json')])if(await exists(file)){
   const success=await read(file);assert.equal(success.status,'deployed_and_ready');assert.equal(success.mainCommit,request.mainCommit);
