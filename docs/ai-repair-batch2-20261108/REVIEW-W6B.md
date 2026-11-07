@@ -1,5 +1,7 @@
 # W6b 数据导出与根因证据独立反审
 
+**最新增量结论：两份合成来源经 W6b 导出器进入真实 rootless 容器并得到结果的证据已复核通过。** 原源码结论保持；下方首轮“真实容器待补”是当时状态，已由文末增量补齐。W6R 轮换实现由另一独立审查负责，历史两次真实失败内因仍未知。
+
 2026-11-08，Asia/Shanghai。按本次用户逐小任务要求请求 Astra High；工具没有独立回传实际底层型号，故仅记录请求选型。审查者未参与实现，未改被审源码、生产、Git 或 main，未外发、未转派。
 
 **结论：本子包冻结源码及已测范围通过，未发现需返修的阻断。W6 整体尚未完成。** 两来源真实 rootless 容器 DataFrame/结果、独立 Broker 内层诊断与受控轮换仍待各自补证；本结论不代表历史两次失败根因已查明、整链验证通过、可直接上线或任何合并/发布授权。
@@ -41,3 +43,17 @@
 后续只将新的真实容器原件、精确源码/镜像绑定及对应结果交回本审查上下文做增量复核。若补证触发源码修改，重新冻结改动及直接影响；未变源码不需要整包重审。W6 整体完成判定还须遵守原计划的“各来源得到结果或明确新阻断”，不能用本窄包通过替代。
 
 机器回执：[W6B-REVIEW.json](D:/codex-artifacts/ai-repair-batch2-20261108/w6b/W6B-REVIEW.json)。长期项目状态由根负责人统一回写共享记忆，避免子代理并发改同一项目笔记。
+
+## 增量：两来源真实 DataFrame 证据
+
+2026-11-08。本轮只追加来源导出→容器输入→签名结果的证据核对，没有重审未变源码、审查 W6R 轮换实现或重复运行原生试验。W6b 原冻结 9 个源码/测试及 W6B.md 的 10 项摘要仍全部匹配。W6R 恢复 Broker 候选和专用轮换属于后续独立子包，不把首轮原 Broker 摘要误作当前集成树摘要。
+
+**通过范围：** W6b `export_frames` 接合成来源，商品日 2 页/2 行、销售品类趋势 1 页/1 行；两帧同一请求进入真实 UID 1000 rootless 容器，返回 `productRows=2`、`salesRows=1`、`netCents=-300`。这是可复核的合成来源真实容器正向结果，不是生产数据读取、实际 owning reader 到 Worker/Django 的单次整链验证或两来源历史根因闭合。
+
+- [prepare_native_fixture.py](D:/codex-artifacts/ai-repair-batch2-20261108/w6r/prepare_native_fixture.py) 使用本包真实 `export_frames`，仅在 `datasets.query` 边界提供三个合成来源信封。其 `validate_job` 后的完整 job、provenance 与 expectedRows 写入 [frames-fixture.json](D:/codex-artifacts/ai-repair-batch2-20261108/w6r/frames-fixture.json)，原始同一 bundle 作为 `frames.json` 送往隔离目录。后续 retry 脚本只更新 native/operator，不替换 frames 材料。
+- 独立复算两帧 canonical JSON 的 SHA-256，分别与 provenance 中 `79733de9…`、`85db67f9…` 一致，行数分别 2、1。实际 native fixture 读取这个 `frames.json` 的 `job`，将 `encode(job)` 签名发送到私有 18129 端口；回信 HMAC 验签通过后，断言 HTTP 200、`cleanupVerified` 与完整预期结果相等，再输出 [native-run-05.stdout](D:/codex-artifacts/ai-repair-batch2-20261108/w6r/native-run-05.stdout)。未用预期结果替代实际结果字段。
+- stdout 的实际结果、完整 provenance、镜像与 fixture/IMAGE 材料逐项匹配。镜像为 `sha256:4c5815d845a4579d5402f2f4c22c8c822701a0116df2e0fc8b28ef31e832d580`，Broker 为已保全候选 `5bfb727f…`。native 源码对该次请求的 nonce 摘要筛选 journal，并断言十个成功阶段齐全；[后置原件](D:/codex-artifacts/ai-repair-batch2-20261108/w6r/native-rehearsal-observed.json) 保留同一个 brokerRef 的十个阶段，含 container_execute、container_result_validation、container_cleanup 和 broker_reply。未输出原 nonce 或密钥。
+- 后置观察记录独立发行版的三个试验 unit inactive/MainPID 0、私有端口无监听、本域零容器；stdout 的精确清理后置及 startup 摘要与观察原件一致。这里复核数据调用/清理证据，不代替 W6R 的轮换安全性结论。
+- [W6R-runtime-freeze.json](D:/codex-artifacts/ai-repair-batch2-20261108/w6r/W6R-runtime-freeze.json) SHA-256 为 `5c64aa4e82ee967c3b9bf63e8b9e5aeea4055c68c781b3216227583be4732863`；本轮独立核对上述 7 份材料和 native fixture 源码均匹配其冻结摘要。未重新运行 WSL、容器、模型或生产请求。
+
+本次补齐本子包“两来源各自到真实 DataFrame/结果”的合成验证层。首轮 owning ORM/Worker/Django 测试与本次真实容器证据是分别验证的层次，不合称一次真实生产全栈测试。历史两次失败仍缺当次参数与内层证据；不改变未知结论，不重放旧 unknown。W6 整体是否完成由负责人结合 W6R 独立审查判断，本审不代为宣布。

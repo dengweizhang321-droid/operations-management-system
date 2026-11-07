@@ -24,11 +24,11 @@
 | 小任务 | 执行者 / 请求型号强度 | 文件归属 / 依赖 | 开发和验证 | 独立 Astra | 提交 |
 | --- | --- | --- | --- | --- | --- |
 | W5 模型失败分层、报告选择 | w5 / gpt-6.1-sol high | provider/transport/diagnostics、reports/workflows、报告选择组件 | 开发/PG/合成检查完成；别名绑定 R1 已返修 | astra_w5 原上下文 R1 增量通过，无剩余阻断 | `ab8cb303`、`aa95585e` 已推 |
-| W6b 完整导出与两来源定位 | w6b / gpt-6.1-sol xhigh（来源完整性局部） | datasets/pandas_sandbox、网店完整导出、中央工具桥；依赖 W6a | 源码/合成来源完成；真实两来源 DataFrame 待补 | astra_w6b 源码及已测范围通过；W6整体未完成 | `6eee6e6a` 已推 |
-| W6R Broker 内层与专用轮换 | w6b / gpt-6.1-sol xhigh；根负责 Node 集成 | 原候选保全；严格 digest 与独立 root/UID1000 生命周期 | 专用 operator/PS 与 Node 发布接线进行中；独立测试 WSL 和固定镜像就绪 | 待完整冻结后单独独审，不复用第一批轮换资格 | — |
+| W6b 完整导出与两来源定位 | w6b / gpt-6.1-sol xhigh（来源完整性局部） | datasets/pandas_sandbox、网店完整导出、中央工具桥；依赖 W6a | 源码/合成来源完成；真实两来源 DataFrame 已补 | astra_w6b 源码及原上下文 DataFrame 增量通过；旧失败内因仍未知 | `6eee6e6a` 已推 |
+| W6R Broker 内层与专用轮换 | w6b / gpt-6.1-sol xhigh；根负责 Node 集成 | 原候选保全；严格 digest 与独立 root/UID1000 生命周期 | Linux原生05、实际PS未配置入口及已配置函数接缝、Node10通过；完整Windows栈未测 | astra_w6r 通过，39项原始字节/证据校验匹配 | `638fd30d` 已推 |
 | W8 投递阶段与回执 | w8 / gpt-6.1-sol high | dingtalk_schedules/dingtalk_transport 与专用页面；未改 schedule_core；消费 W5 诊断接口 | PG83、SQLite73+8skip、合成HTML检查完成，真实外发0 | astra_w8 通过，无阻断；独立22项 | `b3699853` 已推 |
-| W9 DAG 等待拆分及局部提速 | 批次负责人 | 串行接续 W5 workflows，保持原租约/取消 | 原SQLite5/PG5；同条件各10样本6→4轮次；R1 SQLite6/PG2通过 | astra_w9 两项P2已定向返修，待原上下文增量 | `615506fa` 已推；返修提交另记 |
-| G02 本批精确兼容资格与固定检查 | g02 / gpt-6.1-sol xhigh（控制器接缝局部） | 最终完整差异、两PS精确字节、Pandas原生证据 | 实施中；不沿用第一批任意路径资格 | 完成后独立 Astra | — |
+| W9 DAG 等待拆分及局部提速 | 批次负责人 | 串行接续 W5 workflows，保持原租约/取消 | 原SQLite5/PG5；同条件各10样本6→4轮次；R1 SQLite6/PG2通过 | astra_w9 原上下文增量通过，两P2闭合 | `615506fa`、`f64a8cca` 已推 |
+| G02 本批精确兼容资格与固定检查 | g02 / gpt-6.1-sol xhigh（控制器接缝局部） | 最终完整差异、两PS精确字节、Pandas原生证据 | 55路径/54字节绑定，开发定向4通过；待最终干净候选固定入口 | 待独立 Astra；不沿用第一批任意路径资格 | 待统一提交 |
 
 模型列记录实际请求；工具未回传可独立核实的底层型号。执行者不自行提交共同分支，不自审；阻断返原执行者修复后回原 Astra 增量核验。原失败和证据分层保留，不以最终总审替代逐项反审。
 
