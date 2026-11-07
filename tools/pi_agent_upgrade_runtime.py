@@ -56,17 +56,67 @@ def finish_windows(config_path,result_path,receipt,result,key_file_sha,reconcile
     return complete
 
 
-LINUX=r'''
+SAFE_FAILURE_REASONS=frozenset('''
+upgrade_compare_changed upgrade_source_digest_required upgrade_owner_required
+fixed_upgrade_paths_required isolated_upgrade_paths_required upgrade_real_parent_required
+upgrade_source_required old_runner_binding_changed upgrade_preparation_exists
+reviewed_upgrade_image_required ledger_checkpoint_busy ledger_wal_not_checkpointed
+unsafe_runner_state prepared_upgrade_binding_changed source_upgrade_unknown_no_replay
+source_upgrade_intent_requires_reconciliation current_runner_binding_changed
+current_runner_signed_probe_failed source_upgrade_reconciliation_unproved
+successor_not_verified_active successor_reconciliation_unknown upgrade_plan_changed
+upgrade_predecessor_changed old_runner_must_be_stopped old_runner_process_still_present
+runner_containers_must_be_stopped old_state_changed_during_copy candidate_runner_identity_changed
+source_upgrade_candidate_unknown upgrade_predecessor_unit_changed source_upgrade_rejected_old_retained
+pi_upgrade_foreign_fragment_retained pi_upgrade_config_changed pi_upgrade_receipt_exists
+pi_upgrade_foreign_config_retained pi_upgrade_config_already_published upgrade_result_changed
+pi_upgrade_history_bound pi_upgrade_history_identity_changed previous_pi_upgrade_fragment_retained
+previous_pi_upgrade_orphaned_records previous_pi_upgrade_incomplete
+previous_pi_upgrade_completion_binding_changed current_pi_config_serialization_changed
+previous_pi_upgrade_not_current_completed_predecessor native_pi_upgrade_required
+runtime_links_forbidden existing_pi_owner_key_required exact_skill_version_required
+exact_source_image_required different_registered_upgrade_plan pi_upgrade_preparation_fragment_retained
+unsafe_runner_source upgrade_preparation_unknown registered_upgrade_plan_required
+upgrade_original_intent_changed source_upgrade_response_unknown fixed_upgrade_owner_required
+unsafe_source_archive subprocess_failed subprocess_timeout os_error unexpected_error
+'''.split())
+UPGRADE_ACTIONS=frozenset({'prepare','apply','check','current','reconcile'})
+FAILURE_MESSAGE='Inspect original registered plan and intent; do not replay'
+
+
+def safe_reason(error):
+    # Never turn exception text, filenames, argv or captured streams into logs.
+    if type(error) is ValueError and len(error.args)==1 and type(error.args[0]) is str and error.args[0] in SAFE_FAILURE_REASONS:
+        return error.args[0]
+    if isinstance(error,subprocess.TimeoutExpired):return 'subprocess_timeout'
+    if isinstance(error,subprocess.CalledProcessError):return 'subprocess_failed'
+    if isinstance(error,OSError):return 'os_error'
+    return 'unexpected_error'
+
+
+class UpgradeInvocationError(ValueError):
+    def __init__(self,diagnostic):
+        super().__init__('pi_source_upgrade_failed_closed')
+        self.diagnostic=diagnostic
+
+
+def failure_document(error):
+    diagnostic=error.diagnostic if isinstance(error,UpgradeInvocationError) else {
+        'stage':'windows_upgrade','reason':safe_reason(error)}
+    return {'error':'pi_source_upgrade_failed_closed','message':FAILURE_MESSAGE,'diagnostic':diagnostic}
+
+
+LINUX_BODY=r'''
 import base64,io,json,os,sys,tarfile
 from pathlib import Path
 v=json.load(sys.stdin)
-if os.getuid()!=1000 or v['namespace']!='pi-agent-v1':raise ValueError('fixed owner required')
+if os.getuid()!=1000 or v['namespace']!='pi-agent-v1':raise ValueError('fixed_upgrade_owner_required')
 os.umask(0o077)
 if v['action']=='prepare':
  root=Path.home()/'.cache'/('pi-source-upgrade-'+v['operationId']);root.mkdir(mode=0o700)
  with tarfile.open(fileobj=io.BytesIO(base64.b64decode(v.pop('archive'))),mode='r:gz') as archive:
   members=archive.getmembers()
-  if any(m.issym() or m.islnk() or not(m.isfile() or m.isdir()) or m.name.startswith('/') or '..' in m.name.split('/') or not m.name.startswith('pi_runner/') for m in members):raise ValueError('unsafe source archive')
+  if any(m.issym() or m.islnk() or not(m.isfile() or m.isdir()) or m.name.startswith('/') or '..' in m.name.split('/') or not m.name.startswith('pi_runner/') for m in members):raise ValueError('unsafe_source_archive')
   archive.extractall(root,filter='data')
  sys.path.insert(0,str(root))
 else:
@@ -74,16 +124,71 @@ else:
 from pi_runner.runtime_upgrade import dispatch
 print(json.dumps(dispatch(v),sort_keys=True,separators=(',',':')))
 '''
+# The transport reports only reviewed static codes. A traceback can contain keys
+# or customer payloads; never relay it, even when the subprocess itself failed.
+LINUX=('import json,subprocess,sys\nSAFE_FAILURE_REASONS='+repr(SAFE_FAILURE_REASONS)+'\n'
+       'v={}\ntry:\n'+''.join(' '+line+'\n' for line in LINUX_BODY.splitlines())+r'''
+except Exception as error:
+ def reason(e):
+  if type(e) is ValueError and len(e.args)==1 and type(e.args[0]) is str and e.args[0] in SAFE_FAILURE_REASONS:return e.args[0]
+  if isinstance(e,subprocess.TimeoutExpired):return 'subprocess_timeout'
+  if isinstance(e,subprocess.CalledProcessError):return 'subprocess_failed'
+  if isinstance(e,OSError):return 'os_error'
+  return 'unexpected_error'
+ action=v.get('action') if type(v) is dict else None
+ stage='linux_'+action if type(action) is str and action in {'prepare','apply','check','current','reconcile'} else 'linux_input'
+ detail={'stage':stage,'reason':reason(error),'causeReasons':[]}
+ cause=error.__cause__ or error.__context__
+ for _ in range(3):
+  if cause is None:break
+  detail['causeReasons'].append(reason(cause));cause=cause.__cause__ or cause.__context__
+ print(json.dumps({'piUpgradeFailure':1,**detail},separators=(',',':')),file=sys.stderr)
+ raise SystemExit(1)
+''')
+
+
+def linux_failure(stderr,action):
+    """Accept one bounded diagnostic; WSL warnings are discarded, never echoed."""
+    if len(stderr)>4096:return None
+    records=[]
+    for line in stderr.splitlines():
+        try:record=json.loads(line)
+        except (ValueError,UnicodeError):continue
+        if type(record) is dict and 'piUpgradeFailure' in record:records.append(record)
+    if len(records)!=1:return None
+    record=records[0]
+    if (set(record)!={'piUpgradeFailure','stage','reason','causeReasons'}
+            or type(record['piUpgradeFailure']) is not int or record['piUpgradeFailure']!=1
+            or type(record['stage']) is not str or record['stage'] not in {'linux_input','linux_'+action}
+            or type(record['reason']) is not str or record['reason'] not in SAFE_FAILURE_REASONS
+            or type(record['causeReasons']) is not list or len(record['causeReasons'])>3
+            or any(type(reason) is not str or reason not in SAFE_FAILURE_REASONS for reason in record['causeReasons'])):
+        return None
+    return {key:record[key] for key in ('stage','reason','causeReasons')}
 
 
 def invoke(value):
     wsl=Path(os.environ['SystemRoot'])/'System32/wsl.exe'
     env={key:value for key,value in os.environ.items() if key.upper() in {'SYSTEMROOT','WINDIR','PATH','TEMP','TMP','USERPROFILE'}}
-    result=subprocess.run([str(wsl),'-d','TERUISI-Pandas','-u','teruisi-pandas','--exec','/usr/bin/python3','-B','-c',LINUX],
-        input=json.dumps(value).encode(),capture_output=True,timeout=180,env=env)
-    if result.returncode:raise ValueError('pi_source_upgrade_failed_closed')
-    records=[json.loads(line) for line in result.stdout.splitlines() if line.strip()]
-    if len(records)!=1:raise ValueError('pi_source_upgrade_response_unknown')
+    action=value.get('action')
+    if type(action) is not str or action not in UPGRADE_ACTIONS:action='unknown'
+    try:
+        result=subprocess.run([str(wsl),'-d','TERUISI-Pandas','-u','teruisi-pandas','--exec','/usr/bin/python3','-B','-c',LINUX],
+            input=json.dumps(value).encode(),capture_output=True,timeout=180,env=env)
+    except (subprocess.TimeoutExpired,OSError) as error:
+        raise UpgradeInvocationError({'stage':'wsl_transport','action':action,
+            'reason':'wsl_timeout' if isinstance(error,subprocess.TimeoutExpired) else 'wsl_launch_failed',
+            'directExitCode':None}) from None
+    if result.returncode:
+        diagnostic=linux_failure(result.stderr,action) or {'stage':'wsl_transport','reason':'linux_failure_unknown'}
+        raise UpgradeInvocationError({**diagnostic,'action':action,'directExitCode':result.returncode})
+    try:
+        records=[json.loads(line) for line in result.stdout.splitlines() if line.strip()]
+        if (len(records)!=1 or type(records[0]) is not dict
+                or linux_failure(result.stderr,action) is not None):raise ValueError()
+    except (ValueError,UnicodeError):
+        raise UpgradeInvocationError({'stage':'wsl_response','action':action,
+            'reason':'pi_source_upgrade_response_unknown','directExitCode':result.returncode}) from None
     return records[0]
 
 
@@ -215,6 +320,6 @@ def main():
 
 if __name__=='__main__':
     try:main()
-    except Exception:
-        print('{"error":"pi_source_upgrade_failed_closed","message":"Inspect original registered plan and intent; do not replay"}')
+    except Exception as error:
+        print(json.dumps(failure_document(error),separators=(',',':')))
         raise SystemExit(1)
