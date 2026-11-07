@@ -1,5 +1,7 @@
 # 任务记录目录
 
+本轮候选：[Runner 升级 WAL 通用修复](../pi-upgrade-wal-fix-20261107/REPORT.md) · [逐项 Astra 反审](../pi-upgrade-wal-fix-20261107/REVIEW.md)（独立真实升级对照；未合并、未采用、未上线）。
+
 [AI 助理与 Claude 全部合并交接](../ai-finish-merge-20261107/REPORT.md)
 
 [AI 助理剩余工作交接](../ai-finish-20261107/REPORT.md)

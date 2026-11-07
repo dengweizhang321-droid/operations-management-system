@@ -1,0 +1,6 @@
+test_online_prepare_fresh_ledger_unknown_and_same_session_continuation (pi_runner.test_runtime_upgrade.SourceUpgradeRealTests.test_online_prepare_fresh_ledger_unknown_and_same_session_continuation) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 10.344s
+
+OK

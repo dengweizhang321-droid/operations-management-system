@@ -61,7 +61,9 @@ class PiRunnerStateManifestTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="pi-state-link-") as folder:
             root = Path(folder)
             target = root / "target"
-            target.write_bytes(b"x")
+            # An empty sidecar reaches the link guard. A nonempty WAL is already
+            # rejected earlier by the stopped-ledger invariant.
+            target.write_bytes(b"")
             link = root / "ledger.sqlite3-wal"
             try:
                 link.symlink_to(target)

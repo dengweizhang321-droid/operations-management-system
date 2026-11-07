@@ -1,0 +1,21 @@
+test_online_prepare_fresh_ledger_unknown_and_same_session_continuation (pi_runner.test_runtime_upgrade.SourceUpgradeRealTests.test_online_prepare_fresh_ledger_unknown_and_same_session_continuation) ... ERROR
+
+======================================================================
+ERROR: test_online_prepare_fresh_ledger_unknown_and_same_session_continuation (pi_runner.test_runtime_upgrade.SourceUpgradeRealTests.test_online_prepare_fresh_ledger_unknown_and_same_session_continuation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/teruisi-pandas/.cache/pi-wal-proof-394bc1ca14/baseline/pi_runner/test_runtime_upgrade.py", line 302, in test_online_prepare_fresh_ledger_unknown_and_same_session_continuation
+    result=apply(apply_value)
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/teruisi-pandas/.cache/pi-wal-proof-394bc1ca14/baseline/pi_runner/runtime_upgrade.py", line 245, in apply
+    intent.update({'status':'runner_verified','candidateStateSha256':state_manifest(new/'state')})
+                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/teruisi-pandas/.cache/pi-wal-proof-394bc1ca14/baseline/pi_runner/runtime_upgrade.py", line 127, in state_manifest
+    if wal.exists() and wal.stat().st_size:raise ValueError('ledger_wal_not_checkpointed')
+                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: ledger_wal_not_checkpointed
+
+----------------------------------------------------------------------
+Ran 1 test in 8.129s
+
+FAILED (errors=1)
