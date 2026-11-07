@@ -10,7 +10,7 @@
 | 生产后端边界 | 1 个基线既有失败，无新增违规链 | `backend-boundary.log`、`backend-boundary-baseline.json`。`tools/tmall-sycm-cookie-pipeline.ts → lib/jackyun/n8n-preflight-evidence.ts` 的批准摘要与基线源码摘要不符；检查器、资格文件、入口、目标及 package.json 均与 `0c7d0feb` 原字节相同。未扩为无关整改。 |
 | 发布准备与续接定向检查 | 118 项通过 | `pi/W2-publisher.log`；仅编排边界夹具，不替代 Windows 全栈冷启动或正式准备。 |
 | 既有发布 profile 引用检查 | 10 项中 9 过，1 个基线同红 | `pi/W2-profile-fixtures.log`、`pi/W2-profile-baseline.log`。inventory 报 `Missing installed module: tools/publish-latest-main.mjs`，精确基线归档独立复跑同样失败。未修改 PowerShell 控制器资格字节。 |
-| G02 固定候选验证入口 | 等最终干净候选执行，不能提前称通过 | 纯 profile 检查已发现当前适配器不覆盖本批混合应用与 Pi 镜像路径；最终入口结果及不覆盖清单须原样记录。定向测试不代替该回执。 |
+| G02 固定候选验证入口 | 首次在干净 `eee39f9d` 拒绝：37 个 unsupported 路径，实际检查尚未开始 | `candidate-compatibility/REPORT.json`，`checks=[]`，三种 evidence 均 false，未发布。正按独立方案补本批精确闭包适配与必要 Pi 原生入口证据；不把定向测试或源码审查冒称该入口通过。 |
 
 Python 语法、Node 导入、Git 空白与最终源摘要在各小包及最终集成记录中给出。没有 package-lock、模型配置或数据库迁移变更。正式应用构建/制品准备仍须本次明确合并授权，不在开发阶段生成正式发布包。
 
