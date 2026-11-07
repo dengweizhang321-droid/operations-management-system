@@ -117,7 +117,7 @@ export const aiRepairBatch2Qualification=Object.freeze({
  applicationTree:'116000d9b258178234ac489c3b24d445815bd672',
  // Fixed application and adapter bytes, never supplied by a caller. The
  // verifier itself cannot self-pin; review it with the full payload receipt.
- reviewedBytesSha256:'117feacaa707845c353b3820cd4b2087d4d8c096dd37b5b025cf2688afe4649c',
+ reviewedBytesSha256:'69324e8df7b382016184b78ba448c50156a50dfe51e2adb952877c149f823eef',
 });
 export const aiRepairBatch2Reviewed=Object.freeze({
  'app/ai-dingtalk-schedules-view.tsx':'M',

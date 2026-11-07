@@ -168,7 +168,11 @@ test('batch 2 frozen source, actual PowerShell entry and pinned original evidenc
   }
   const bad=invoke('SwitchPandasRotation',pandasArguments(prepared,{...owner,ownerPid:'invalid'}));
   assert.equal(bad.status,1,bad.error?.message??bad.stderr);
-  assert.match(bad.stderr,/PandasPublicationOwnerPid/);
+  assert.equal(bad.stdout.trim(),'');
+  // Windows PowerShell can hard-wrap parameter names on deep checkout paths.
+  const diagnostic=bad.stderr.replace(/\r?\n/g,'');
+  assert.match(diagnostic,/PandasPublicationOwnerPid/);
+  assert.match(diagnostic,/System\.Int32/);
   assert.deepEqual(await fs.readdir(runtime),[],'参数夹具不得产生运行文件');
  }
 
