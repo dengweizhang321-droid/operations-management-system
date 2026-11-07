@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { registerHooks } from "node:module";
 import test from "node:test";
 import { validateToolArguments, validateToolRegistry, type AiToolEntry } from "../lib/ai/tool-registry-contract";
@@ -36,19 +37,28 @@ test("central handler uses writer, server invocation identity and fixed surface;
   Object.assign(process.env, env);
   t.after(() => { globalThis.fetch = originalFetch; for (const [k, v] of Object.entries(previous)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } });
   let dispatched = 0;
+  let auditedInvocation: string | undefined;
   globalThis.fetch = async (url, init) => {
     assert.equal(String(url), "http://127.0.0.1:18112/api/ai/consumer");
     const payload = JSON.parse(String(init?.body));
     assert.equal(payload.operation, "pandas-analysis");
     assert.equal(payload.surface, "dingtalk_chat");
-    assert.equal(new Headers(init?.headers).get("x-teruisi-request-id"), "fixture-invocation");
+    assert.equal(payload.parentRequestRef, createHash("sha256").update("fixture-request").digest("hex"));
+    assert.ok(!String(init?.body).includes("fixture-request"));
+    assert.ok(auditedInvocation);
+    assert.equal(new Headers(init?.headers).get("x-teruisi-request-id"), auditedInvocation);
     dispatched++;
     return Response.json({ items: [{ amount: 800 }], returned: 1, truncated: false }, { headers: { "x-ai-revision": "1" } });
   };
-  const result = await entry.handler({ inputsJson: "[]", code: "result = frames['sales']" },
-    { principal: admin, surface: "dingtalk_chat", requestId: "fixture-request", invocationId: "fixture-invocation" });
+  const result = await executeRegisteredToolCall(entry.name, { inputsJson: "[]", code: "result = frames['sales']" },
+    { principal: admin, surface: "dingtalk_chat", requestId: "fixture-request" }, { audit: async event => {
+      assert.equal(event.requestId, "fixture-request");
+      if (event.status === "started") auditedInvocation = event.invocationId;
+      else assert.equal(event.invocationId, auditedInvocation);
+    } });
   assert.equal(dispatched, 1);
-  assert.equal(result.returned, 1);
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal((result.data as { returned: number }).returned, 1);
   const summary = JSON.stringify(summarizeToolArguments({ code: "sensitive literal", inputsJson: "query literal" }));
   assert.ok(!summary.includes("sensitive literal"));
   assert.ok(!summary.includes("query literal"));
