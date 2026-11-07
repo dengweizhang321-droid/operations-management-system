@@ -11,3 +11,9 @@
 Pi 私有冷启动使用已构建隔离镜像 `sha256:7975d9cae783f1b33fb21063d6be40a2fdbb1a7d718550fd13a54ed64961097d`，复制 Git 归档的确切 Runner 源码，源码摘要为 `fb02a402f02764b6eab3cb2c890f7d36a44e5f4bdc8b1e9ba6680cb57c74df08`。原生 `pi_runner.server.main` 两次启动均通过签名 health。两个精确 PID 接受 SIGTERM 后各以 0 退出。两次为同一 SQLite 设备和 inode，health nonce 计数从 1 增至 2。端口、进程、命名空间资源和私有目录均已核对并清理。 `g02-pi-native-v3/NATIVE.json` 与原 stdout/stderr 保留原始身份，前两次夹具失败也保留，第二次残留的精确私有目录另有清理回执。 [私有入口夹具](../../tests/ai-repair-batch1-pi-native-start.py)
 
 完整 Windows 应用栈冷启动仍为 `nativeColdStart=false`。本批实际变化需要的 `piRunner` 范围单独记录在 `requiredNativeScopes` 和 `scopedNativeEvidence`。同账本启动的证据限于本轮空私有账本。此前容量、保卷、升级和唤醒证据沿原受审范围复用。正式制品、维护、合并和发布仍依当次授权执行。
+
+## 最终固定入口
+
+根负责人在干净提交 `5d9090b7ef54a2937efe9cfe8556262ccb835294`、tree `40bc87ada55e8fff9fae8628a3add38619280107` 上执行方案固定命令，结果 `passed`。四项实际检查退出均为 0，私有验证 worktree 已移除；`packageIntegrity=true`、`nativeEntryBoundary=true`，完整 Windows `nativeColdStart=false`，本批 required `piRunner` scope 已实际闭合，`publicationPerformed=false`。
+
+原件 `candidate-compatibility-g02-v1/REPORT.json` 的 SHA-256 为 `182ff5ac263d820f4d84410ddd484d09d65ebe08db93bdcef82ac27a658149c0`。原 Astra 已独立核对最终提交、源码、四项执行、日志和复用摘要、载荷及清理，详见 [REVIEW-G02.md](REVIEW-G02.md)。后续只有任务文档收尾，运行与验证程序字节保持，复用该真实回执；不将本批有限资格推广到其他源码或未来发布。

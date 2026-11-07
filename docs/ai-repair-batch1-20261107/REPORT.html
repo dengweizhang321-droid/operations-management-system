@@ -10,8 +10,8 @@
   <span class="tag">第一批 · 开发分支候选</span>
   <h1>AI 修复第一批</h1>
   <p class="muted">启动于 2026-11-07，更新于 2026-11-08（上海）。每个工作包分别由独立 Astra 反审；本页为离线交付记录，不连接生产接口。</p>
-  <p><strong id="batch-state">六个工作包源码独审通过；整批候选交付检查单列。</strong></p>
-  <p>分支：<code>codex/ai-repair-batch1-20261107</code><br>开工 main 基线：<code>0c7d0feb33f45cfc6ae1f283b81d401c873c5768</code></p>
+  <p><strong id="batch-state">第一批开发、逐项独审及固定 G02 检查均已完成，最终回执增量复核通过。</strong></p>
+  <p>分支：<code>codex/ai-repair-batch1-20261107</code><br>开工 main 基线：<code>0c7d0feb33f45cfc6ae1f283b81d401c873c5768</code><br>应用源码：<code>eee39f9d</code> · 完整受检代码：<code>5d9090b7</code></p>
   <p>未合并 main，未准备正式应用制品，未上线，未清理生产容器。</p>
 </header>
 <section>
@@ -19,7 +19,7 @@
   <div class="table"><table>
     <thead><tr><th>工作包</th><th>交付行为</th><th>审查与状态</th><th>阅读</th></tr></thead>
     <tbody>
-      <tr><td>W1 · Pi 容量与保卷</td><td>精确容量拒绝收尾；保留卷、历史、身份和未知回执；保护升级前驱。</td><td class="ok">原问题及恢复保全增量通过，随 W2 共享文件收口</td><td><a href="PI.md">实施</a> · <a href="REVIEW-W1.md">独审</a></td></tr>
+      <tr><td>W1 · Pi 容量与保卷</td><td>精确容量拒绝收尾；保留卷、历史、身份和未知回执；保护升级前驱。</td><td class="ok">原问题及恢复保全增量通过 · eee39f9d</td><td><a href="PI.md">实施</a> · <a href="REVIEW-W1.md">独审</a></td></tr>
       <tr><td>W2 · 唤醒</td><td>本地执行绑定与网关授权分开；准备阶段绑定镜像，发布阶段复用回执。</td><td id="w2-state" class="ok">旧暂停会话返修通过原 Astra 增量复核</td><td><a href="PI.md">实施</a> · <a href="REVIEW-W2.md">独审</a></td></tr>
       <tr><td>W3 · 持久停止</td><td>显式 Stop 可保存和刷新；普通断流不写停止；未知请求不能换号自动重放。</td><td class="ok">两项 P1 已闭合 · 79ac59cd</td><td><a href="CHAT.md">实施</a> · <a href="REVIEW-W3.md">独审</a></td></tr>
       <tr><td>W4 · 问题分流</td><td>普通问数不误入推广；明确推广、可信续问和页面入口保留原权限。</td><td class="ok">四项问题已闭合 · e268b287</td><td><a href="W4.md">实施</a> · <a href="REVIEW-W4.md">独审</a></td></tr>
@@ -32,7 +32,7 @@
   <h2>验证应如何理解</h2>
   <p>私有 PostgreSQL、合成模型、真实隔离容器和生产整链是不同证据。本批没有新的真实供应商调用或生产整链验收，也不能承诺供应商已经停止执行。</p>
   <details id="checks"><summary>查看代码检查与既有缺口</summary>
-    <ul><li>整包 TypeScript 与精确基线均为 167 条，逐项相同，无新增诊断。</li><li>后端边界检查有一项基线既有 n8n 资格摘要失败；相关源文件未改。</li><li>旧发布 profile 的一项清单检查在基线和候选均失败，未扩为无关整改。</li><li id="g02-state">G02 首次在干净候选上拒绝 37 个未覆盖路径；正在补本批精确适配，尚未通过。</li></ul>
+    <ul><li>整包 TypeScript 与精确基线均为 167 条，逐项相同，无新增诊断。</li><li>后端边界检查有一项基线既有 n8n 资格摘要失败；相关源文件未改。</li><li>旧发布 profile 的一项清单检查在基线和候选均失败，未扩为无关整改。</li><li id="g02-state">G02 已在干净 5d9090b7 通过本批精确适配。私有包、PS入口与限定 Pi 原生启动已核验；完整 Windows 栈冷启动未验证。首次37路径拒绝原件保留。</li></ul>
     <p><a href="CHECKS.md">完整分层检查记录</a></p>
   </details>
   <details id="pandas"><summary>为什么 Broker 内部诊断留到下一批</summary>
@@ -47,7 +47,7 @@
   <h2>交接与授权</h2>
   <p>本批收口后只新建一个第二批聊天，使用独立工作树与分支，从届时最新 main 开始。对尚未合并的第一批成果，必须明确开发来源和依赖，不能默默叠加或声称 main 已包含。</p>
   <p>合并 main 需用户针对具体交付明确授权，该授权包含从最终合并提交准备制品；上线另行授权。</p>
-  <p><a href="REPORT.md">总报告</a> · <a href="STATUS.md">小任务状态</a> · <a href="HANDOFF.md">下一批交接</a></p>
+  <p><a href="REPORT.md">总报告</a> · <a href="STATUS.md">小任务状态</a> · <a href="REVIEW-G02.md">最终兼容复核</a> · <a href="HANDOFF.md">下一批交接</a></p>
 </section>
 <footer>所有失败、反例和后续通过分别保留。原件目录：<code>D:/codex-artifacts/ai-repair-batch1-20261107/</code></footer>
 </html>

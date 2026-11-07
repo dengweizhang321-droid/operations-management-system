@@ -10,7 +10,9 @@
 | 生产后端边界 | 1 个基线既有失败，无新增违规链 | `backend-boundary.log`、`backend-boundary-baseline.json`。`tools/tmall-sycm-cookie-pipeline.ts → lib/jackyun/n8n-preflight-evidence.ts` 的批准摘要与基线源码摘要不符；检查器、资格文件、入口、目标及 package.json 均与 `0c7d0feb` 原字节相同。未扩为无关整改。 |
 | 发布准备与续接定向检查 | 118 项通过 | `pi/W2-publisher.log`；仅编排边界夹具，不替代 Windows 全栈冷启动或正式准备。 |
 | 既有发布 profile 引用检查 | 10 项中 9 过，1 个基线同红 | `pi/W2-profile-fixtures.log`、`pi/W2-profile-baseline.log`。inventory 报 `Missing installed module: tools/publish-latest-main.mjs`，精确基线归档独立复跑同样失败。未修改 PowerShell 控制器资格字节。 |
-| G02 固定候选验证入口 | 首次在干净 `eee39f9d` 拒绝：37 个 unsupported 路径，实际检查尚未开始 | `candidate-compatibility/REPORT.json`，`checks=[]`，三种 evidence 均 false，未发布。正按独立方案补本批精确闭包适配与必要 Pi 原生入口证据；不把定向测试或源码审查冒称该入口通过。 |
+| G02 固定候选验证入口 | 干净 `5d9090b7` 实际通过 | `candidate-compatibility-g02-v1/REPORT.json`：四项执行均退出0，`packageIntegrity=true`、`nativeEntryBoundary=true`，验证 worktree 已清理，`publicationPerformed=false`。首次 `eee39f9d` 的37路径拒绝保留在 `candidate-compatibility/REPORT.json`，未改写。 |
+| Pi 原生入口限定冷启动 | 同一私有账本两次实际 main→签名 health→SIGTERM→exit0 | `g02-pi-native-v3/NATIVE.json`；nonce1→2、同inode，进程/端口/namespace/私有目录清理通过。G02 已机器核验为 `scopedNativeEvidence.piRunner`；完整 Windows 栈 `nativeColdStart` 仍为 false。 |
+| 离线 HTML 与文档链接 | file:/// 实际读取/展开通过；1100/390px 无整页溢出；18 个 HTML 链接及任务 Markdown 链接有效 | `report-html-check.json`；网络请求0，没有启动在线预览。HTML SHA-256 `ba4cf8bd1a01367f833fec4c6e069c09a719b5644da4982352ccdcf54defa94c`。 |
 
 Python 语法、Node 导入、Git 空白与最终源摘要在各小包及最终集成记录中给出。没有 package-lock、模型配置或数据库迁移变更。正式应用构建/制品准备仍须本次明确合并授权，不在开发阶段生成正式发布包。
 

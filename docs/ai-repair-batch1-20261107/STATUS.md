@@ -4,12 +4,13 @@
 
 | 批次 | 小任务 | 执行者 | 依赖 | 开发/验证 | Astra 独审 | 提交 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 一 | W1 确定容量拒绝、保卷生命周期 | pi_core / Sol XHigh | 原 Runner/ledger | 原 PG/容器证据复用；恢复保全交叉增量4项及独立补验 | astra_w1 R1/Q1 和最后共享增量通过 | 随本次 Pi 合包提交 |
-| 一 | W2 唤醒本地绑定 | pi_core / Sol XHigh | W1 恢复分支/镜像 | 镜像编排118项；真实签名整链与旧空/有历史恢复 | astra_w2 原P1闭合，增量通过 | 随本次 Pi 合包提交 |
+| 一 | W1 确定容量拒绝、保卷生命周期 | pi_core / Sol XHigh | 原 Runner/ledger | 原 PG/容器证据复用；恢复保全交叉增量4项及独立补验 | astra_w1 R1/Q1 和最后共享增量通过 | `eee39f9d` 已推任务分支 |
+| 一 | W2 唤醒本地绑定 | pi_core / Sol XHigh | W1 恢复分支/镜像 | 镜像编排118项；真实签名整链与旧空/有历史恢复 | astra_w2 原P1闭合，增量通过 | `eee39f9d` 已推任务分支 |
 | 一 | W3 持久取消与竞态 | chat_reliability / Sol XHigh | 原回执/mutation | PG 9/9复用；Django 37/37、Node 41/41；独审交互7/7 | astra_w3 两项 P1 已闭合，通过 | `79ac59cd` 已推任务分支 |
 | 一 | W4 普通问题分流 | chat_reliability / Sol XHigh | 原推广权限 | SQLite/合成模型 10/10；Astra 独立函数 7/7 | astra_w4 R1—R4 全闭合，通过 | `e268b287` 已推任务分支 |
 | 一 | W7 指标口径 | metrics_diagnostics / Sol High | 权威字段/availability | 增量 Worker 58/58、Django 1/1 | astra_w7 P1 已闭合，增量通过 | `74061295` 已推任务分支 |
 | 一 | W6a Worker/Django 外层诊断 | metrics_diagnostics / Sol High | 原签名/审计链 | 拆包后 Worker 3/3、Django 25/25；Broker 8运行文件字节等于基线 | 原 Astra 增量通过，W6A-01 已解除；内层后置 | `7caf36f0` 已推任务分支 |
+| 一 | G02 精确兼容适配 | pi_core / Sol XHigh；独立 Astra 规划 | 已审应用字节 eee39f9d | 固定入口四项实际检查通过；Pi原生scope闭合 | 新Astra源码及最终报告增量均通过 | `5d9090b7` 已推任务分支 |
 | 二 | W5 模型失败分层/报告模型选择 | 待分配 | 第一批集成；原模型版本围栏 | 尚未开始 | 尚未开始 | — |
 | 二 | W6b 按阶段修复与完整导出 | 待分配 | W6a 的具体证据 | 尚未开始 | 尚未开始 | — |
 | 二 | W8 投递阶段与回执 | 待分配 | 既有投递账本；旧 unknown 不重放 | 尚未开始 | 尚未开始 | — |
