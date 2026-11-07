@@ -16,7 +16,20 @@ type SpaceTemplate = {
   isEnabled: boolean;
   isDefault: boolean;
 };
-type SpaceProfile = { id: string; name: string; modelName: string; lastSuccessAt: string | null };
+type SpaceProfile = { id: string; name: string; modelName: string; imageAdmissions?: { scene: SceneId; size: ImageSize }[] };
+
+function admittedProfiles(profiles: SpaceProfile[] | undefined, template: SpaceTemplate | null | undefined) {
+  if (!template) return [];
+  return (profiles ?? []).filter((profile) => profile.imageAdmissions?.some(
+    (admission) => admission.scene === template.scene && admission.size === template.size,
+  ));
+}
+
+function chooseProfile(profiles: SpaceProfile[], preferredId: string, fallbackId?: string | null) {
+  return profiles.find((item) => item.id === preferredId)?.id
+    ?? profiles.find((item) => item.id === fallbackId)?.id
+    ?? profiles[0]?.id ?? "";
+}
 type SpaceMeta = {
   scenes: SpaceScene[];
   templates: SpaceTemplate[];
@@ -179,11 +192,7 @@ export default function AiSpaceView({
       const template = sceneTemplates.find((item) => item.id === current.templateId)
         ?? sceneTemplates.find((item) => item.isDefault)
         ?? sceneTemplates[0];
-      const profileId = nextMeta.profiles.some((item) => item.id === current.modelProfileId)
-        ? current.modelProfileId
-        : template?.modelProfileId && nextMeta.profiles.some((item) => item.id === template.modelProfileId)
-          ? template.modelProfileId
-          : nextMeta.profiles[0]?.id ?? "";
+      const profileId = chooseProfile(admittedProfiles(nextMeta.profiles, template), current.modelProfileId, template?.modelProfileId);
       return { ...current, templateId: template?.id ?? "", modelProfileId: profileId };
     });
   }, []);
@@ -297,6 +306,8 @@ export default function AiSpaceView({
     [draft.scene, meta?.templates],
   );
   const selectedTemplate = sceneTemplates.find((item) => item.id === draft.templateId) ?? null;
+  const sceneProfiles = admittedProfiles(meta?.profiles, selectedTemplate);
+  const hasAdmittedProfile = sceneProfiles.some((item) => item.id === draft.modelProfileId);
 
   const chooseScene = (scene: SceneId) => {
     const candidates = meta?.templates.filter((item) => item.scene === scene && item.isEnabled) ?? [];
@@ -305,9 +316,7 @@ export default function AiSpaceView({
       ...current,
       scene,
       templateId: template?.id ?? "",
-      modelProfileId: template?.modelProfileId && meta?.profiles.some((item) => item.id === template.modelProfileId)
-        ? template.modelProfileId
-        : current.modelProfileId,
+      modelProfileId: chooseProfile(admittedProfiles(meta?.profiles, template), template?.modelProfileId ?? "", current.modelProfileId),
     }));
   };
 
@@ -328,7 +337,7 @@ export default function AiSpaceView({
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!meta?.permissions.canGenerate || submitting) return;
+    if (!meta?.permissions.canGenerate || submitting || !hasAdmittedProfile) return;
     const requestBody = {
       scene: draft.scene,
       templateId: draft.templateId,
@@ -490,15 +499,16 @@ export default function AiSpaceView({
           <label className="ai-space-form-wide"><span>补充构图要求</span><textarea maxLength={800} value={draft.additionalInstructions} onChange={(event) => setDraft((current) => ({ ...current, additionalInstructions: event.target.value }))} placeholder="例如：左侧柔光，右侧保留活动文案留白" /></label>
           <label><span>场景模板 *</span><select required value={draft.templateId} onChange={(event) => {
             const template = sceneTemplates.find((item) => item.id === event.target.value);
-            setDraft((current) => ({ ...current, templateId: event.target.value, modelProfileId: template?.modelProfileId ?? current.modelProfileId }));
+            const templateId = event.target.value;
+            setDraft((current) => ({ ...current, templateId, modelProfileId: chooseProfile(admittedProfiles(meta?.profiles, template), template?.modelProfileId ?? "", current.modelProfileId) }));
           }}><option value="">请选择模板</option>{sceneTemplates.map((template) => <option key={template.id} value={template.id}>{template.name} · v{template.version}</option>)}</select></label>
-          <label><span>图片生成模型 *</span><select required value={draft.modelProfileId} onChange={(event) => setDraft((current) => ({ ...current, modelProfileId: event.target.value }))}><option value="">请选择模型</option>{(meta?.profiles ?? []).map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.modelName}</option>)}</select></label>
+          <label><span>图片生成模型 *</span><select required value={hasAdmittedProfile ? draft.modelProfileId : ""} onChange={(event) => setDraft((current) => ({ ...current, modelProfileId: event.target.value }))}><option value="">请选择模型</option>{sceneProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.modelName}</option>)}</select></label>
           <div className="ai-space-submit-row ai-space-form-wide">
             <div><strong>{selectedTemplate?.size ?? "—"}</strong><small>模板输出尺寸 · 每日最多 {meta?.limits.maximumDailyImagesPerOwner ?? 40} 张</small></div>
-            <button type="submit" className="primary-button" disabled={!meta?.permissions.canGenerate || submitting || !draft.templateId || !draft.modelProfileId}>{submitting ? "正在提交…" : meta?.permissions.canGenerate ? `生成 ${draft.count} 张图片` : "当前身份仅可浏览"}</button>
+            <button type="submit" className="primary-button" disabled={!meta?.permissions.canGenerate || submitting || !hasAdmittedProfile}>{submitting ? "正在提交…" : meta?.permissions.canGenerate ? `生成 ${draft.count} 张图片` : "当前身份仅可浏览"}</button>
           </div>
         </form>
-        {(meta?.profiles.length ?? 0) === 0 && <div className="ai-space-config-needed"><div><strong>尚未配置图片生成模型</strong><p>图片生成模型与对话/视觉识别模型相互独立，管理员需要先配置 OpenAI Images 兼容端点。</p></div>{meta?.permissions.canManage && <button type="button" className="secondary-button" onClick={onOpenManagement}>前往 AI 管理</button>}</div>}
+        {meta && sceneProfiles.length === 0 && <div className="ai-space-config-needed"><div><strong>当前模板暂无可用图片模型</strong><p>管理员可在 AI 管理中配置 OpenAI Images 兼容端点，并测试该模板的场景与尺寸。</p></div>{meta.permissions.canManage && <button type="button" className="secondary-button" onClick={onOpenManagement}>前往 AI 管理</button>}</div>}
       </article>
     </div>
 
