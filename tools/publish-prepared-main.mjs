@@ -9,6 +9,7 @@ import {createMainPublicationStep} from './publish-main-step.mjs';
 import {reconcileMainPiUpgrade,verifyUpgradeReceipt} from './publish-main-pi-reconciliation.mjs';
 import {capturePublicationOwner} from './publish-main-owner.mjs';
 import {finishMainPublication} from './publish-main-tail.mjs';
+import {pandasRuntimeChanged,pandasArguments,verifyPandasPreparation,verifyPandasCheck,verifyPandasSwitch,verifyPandasCompletion} from './publish-main-pandas.mjs';
 import {schemaForRequest,verifyMainSchemaRelease} from './main-schema-release.mjs';
 import {continueFirstMaintenance,isFirstMaintenancePredecessor,continuePiMaintenance,isPiMaintenancePredecessor,maintenanceReadiness,piMaintenancePredecessor} from './manual-maintenance-continuation.mjs';
 
@@ -75,6 +76,8 @@ export async function publishPreparedMain(request,context){
   !file.split('/').some(part=>part==='tests'||part.startsWith('test_'))));
  const piUpgradeKind=['PiWorkspace','PiBusiness','PiNative'].includes(schema?.additionKind)?schema.additionKind:piRuntimeChanged?'PiNative':null;
  const piUpgradeRequired=piUpgradeKind!==null;
+ const pandasRotationRequired=pandasRuntimeChanged(request);
+ assert.ok(!pandasRotationRequired||components.django,'Pandas轮换必须绑定本次Django准备包');
   // Role contracts can change alongside any schema addition, not just their original additions.
   const aiRolesChanged=(request.releasePlan?.changes??[]).some(change=>[change.path,change.before].includes('backend/ai_assistant/database_contract.py'));
   const inventoryRolesChanged=(request.releasePlan?.changes??[]).some(change=>[change.path,change.before].includes('tools/django-inventory-service.ps1'));
@@ -153,6 +156,14 @@ export async function publishPreparedMain(request,context){
    assert.equal(before.head.releaseId,receipt.workerRelease,'当前Worker已改变');
    assert.equal(before.head.manifestSha256,receipt.workerManifestSha256,'当前Worker manifest已改变');
    assert.equal(djangoBefore,receipt.djangoManifestSha256,'当前Django已改变');
+   if(pandasRotationRequired){
+    const savedPreparation=await read(path.join(preparationOut,'PREPARED.json'));
+    const pandasPrepared=verifyPandasPreparation(savedPreparation.pandasBrokerRotation,{pkg:savedPreparation.djangoPackage,request});
+    if(pandasPrepared.configured){
+     const switched=(await read(path.join(out,'PandasRotation-switched.json'))).value;
+     verifyPandasCompletion(receipt.pandasBrokerRotation,pandasPrepared,switched);
+    }else assert.deepEqual(receipt.pandasBrokerRotation,pandasPrepared);
+   }
    await ready();
    progress.log('当前已是目标main，本次没有发布：'+request.mainCommit);
    return {...receipt,status:'already-current',receiptPath:path.join(out,'SUCCESS.json')};
@@ -168,7 +179,7 @@ export async function publishPreparedMain(request,context){
    await beginLease();
    if(schema)await (context.verifySchemaRelease??(()=>verifyMainSchemaRelease(request,source)))();
    await refreshLease(phase);
-   let plan=null,pkg=null,piRunnerUpgrade=null,piUpgradeReceipt=null,reusedPreparation=false,djangoExpected=djangoBefore;
+   let plan=null,pkg=null,piRunnerUpgrade=null,piUpgradeReceipt=null,pandasBrokerRotation=null,pandasSwitchReceipt=null,reusedPreparation=false,djangoExpected=djangoBefore;
    if(await exists(preparationFile)){
     reusedPreparation=true;const prepared=await read(preparationFile);
     assert.equal(prepared.version,'teruisi-main-preparation-v1');
@@ -176,6 +187,7 @@ export async function publishPreparedMain(request,context){
     assert.deepEqual(prepared.sourceIdentity,identity,'准备包的源码版本已变化');
     plan=prepared.workerPlan;pkg=prepared.djangoPackage;djangoExpected=prepared.djangoManifestSha256;
     if(piUpgradeRequired)piRunnerUpgrade=verifyPiUpgrade(prepared.piRunnerUpgrade,piUpgradeImage);
+    if(pandasRotationRequired)pandasBrokerRotation=verifyPandasPreparation(prepared.pandasBrokerRotation,{pkg,request});
     assert.equal(Boolean(plan),components.worker,'准备包Worker范围不一致');
     assert.equal(Boolean(pkg),components.django,'准备包Django范围不一致');
     // Cheap predecessor/controller qualification must fail before the expensive
@@ -228,6 +240,9 @@ export async function publishPreparedMain(request,context){
     if(piUpgradeRequired){
      piRunnerUpgrade=verifyPiUpgrade(await step('准备Pi Runner升级',path.join(source,'tools/django-ai.ps1'),'PreparePiUpgrade',['-PiImage',piUpgradeImage,...(piUpgradeKind==='PiNative'?['-PiSkillVersion','1.3.0']:piUpgradeKind==='PiBusiness'?['-PiSkillVersion','1.2.0']:[]),'-PiPreparedAppId',pkg.id,'-PiPreparedAppSha256',pkg.receiptSha256],{directory:preparationOut}),piUpgradeImage);
     }
+    if(pandasRotationRequired){
+     pandasBrokerRotation=verifyPandasPreparation(await step('准备Pandas Broker轮换',path.join(source,'tools/django-ai.ps1'),'PreparePandasRotation',pandasArguments(null,{pkg,request}),{directory:preparationOut}),{pkg,request});
+    }
     assert.deepEqual(await sourceIdentity(),identity,'打包期间源码变化');
     assert.deepEqual((await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true})).head,before.head,'准备期间Worker前驱改变');
     assert.equal(await sha(path.join(installed,'deployment.json')),djangoBefore,'准备期间Django前驱改变');
@@ -239,12 +254,16 @@ export async function publishPreparedMain(request,context){
     assert.equal(checked.checked,true);verifyPiUpgrade(checked,piUpgradeImage);assert.equal(checked.registeredPlanSha256,piRunnerUpgrade.registeredPlanSha256);assert.equal(checked.sourceSha256,piRunnerUpgrade.sourceSha256);
    }
     const temporary=preparationFile+'.'+randomUUID()+'.tmp';
-    await fs.writeFile(temporary,JSON.stringify({version:'teruisi-main-preparation-v1',at:new Date().toISOString(),requestSha256,sourceIdentity:identity,workerPlan:plan,djangoPackage:pkg,djangoManifestSha256:djangoExpected,...(piRunnerUpgrade?{piRunnerUpgrade}:{})},null,2)+'\n',{flag:'wx'});
+    if(pandasBrokerRotation)verifyPandasCheck(await step('复验Pandas Broker轮换计划',path.join(source,'tools/django-ai.ps1'),'PandasRotationCheck',pandasArguments(pandasBrokerRotation,{pkg,request}),{directory:await fs.mkdtemp(path.join(preparationOut,'pandas-check-'))}),pandasBrokerRotation,{pkg,request});
+    await fs.writeFile(temporary,JSON.stringify({version:'teruisi-main-preparation-v1',at:new Date().toISOString(),requestSha256,sourceIdentity:identity,workerPlan:plan,djangoPackage:pkg,djangoManifestSha256:djangoExpected,...(piRunnerUpgrade?{piRunnerUpgrade}:{}),...(pandasBrokerRotation?{pandasBrokerRotation}:{})},null,2)+'\n',{flag:'wx'});
     await fs.rename(temporary,preparationFile);
    }
    if(piRunnerUpgrade&&reusedPreparation){
     const checked=await step('复验Pi Runner升级计划',path.join(source,'tools/django-ai.ps1'),'PiUpgradeCheck',['-PiUpgradePlanSha256',piRunnerUpgrade.registeredPlanSha256,'-PiPreparedAppId',pkg.id,'-PiPreparedAppSha256',pkg.receiptSha256],{directory:await fs.mkdtemp(path.join(preparationOut,'pi-check-'))});
     assert.equal(checked.checked,true);verifyPiUpgrade(checked,piUpgradeImage);assert.equal(checked.registeredPlanSha256,piRunnerUpgrade.registeredPlanSha256);assert.equal(checked.sourceSha256,piRunnerUpgrade.sourceSha256);
+   }
+   if(pandasBrokerRotation&&reusedPreparation){
+    verifyPandasCheck(await step('复验Pandas Broker轮换计划',path.join(source,'tools/django-ai.ps1'),'PandasRotationCheck',pandasArguments(pandasBrokerRotation,{pkg,request}),{directory:await fs.mkdtemp(path.join(preparationOut,'pandas-check-'))}),pandasBrokerRotation,{pkg,request});
    }
    if(context.prepareOnly){
     await endLease();
@@ -286,7 +305,7 @@ export async function publishPreparedMain(request,context){
    assert.deepEqual(await sourceIdentity(),identity,'维护前冻结源码变化');
    await refreshLease(phase);
    const publisherOwner=context.runStep?null:await capturePublicationOwner();
-   await save('STARTED.json',{resumeProtocol:'teruisi-pi-main-resume-v1',publisherOwner,at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,maintenanceId,source,sourceTree:identity.tree??null,requestSha256,predecessorChainStateSha256:before.chainStateSha256,...(schema?{operationId,schemaRelease:schema}:{})});
+   await save('STARTED.json',{resumeProtocol:'teruisi-pi-main-resume-v1',publisherOwner,at:new Date().toISOString(),mainCommit:request.mainCommit,components:request.components,maintenanceId,source,sourceTree:identity.tree??null,requestSha256,predecessorChainStateSha256:before.chainStateSha256,...(schema?{operationId,schemaRelease:schema}:{}),...(pandasBrokerRotation?{pandasBrokerRotation}:{})});
    publicationStarted=true;
    maintenanceStarted=true;
    if(!components.django){
@@ -344,7 +363,11 @@ export async function publishPreparedMain(request,context){
     }
     await save('PiUpgrade-completed.json',{at:new Date().toISOString(),registeredPlanSha256:piRunnerUpgrade.registeredPlanSha256,value:piUpgradeReceipt});
    }
-   return await finishMainPublication({request,components,source,identity,installed,out,api,rotation,rotationLease,before,plan,pkg,djangoExpected,maintenanceId,schema,schemaReceipt,piUpgradeReceipt,step,save,sha,ready,waitReady,refreshLease,endLease,progress,phase:label=>{phase=label;}});
+   if(pandasBrokerRotation?.configured){
+    pandasSwitchReceipt=verifyPandasSwitch(await step('切换Pandas Broker单元',path.join(installed,'tools/django-ai.ps1'),'SwitchPandasRotation',pandasArguments(pandasBrokerRotation,{maintenanceId,ownerPid:process.pid})),pandasBrokerRotation,maintenanceId,process.pid);
+    await save('PandasRotation-switched.json',{at:new Date().toISOString(),value:pandasSwitchReceipt});
+   }
+   return await finishMainPublication({request,components,source,identity,installed,out,api,rotation,rotationLease,before,plan,pkg,djangoExpected,maintenanceId,schema,schemaReceipt,piUpgradeReceipt,pandasBrokerRotation,pandasSwitchReceipt,step,save,sha,ready,waitReady,refreshLease,endLease,progress,phase:label=>{phase=label;}});
   }catch(error){
    const failure={at:new Date().toISOString(),mainCommit:request.mainCommit,phase,error:String(error.message).slice(0,1600),processEvidence:error.processEvidence??null,maintenanceStarted,automaticRetry:false};
    if(error instanceof PublicationReadinessError)failure.readiness=error.readiness;
