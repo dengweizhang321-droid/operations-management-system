@@ -314,7 +314,7 @@ test("netshop performance keeps the authoritative rate and its two bounded field
     assert.deepEqual(result.requestedPeriod, period, label);
     assert.equal(result.visitorAggregation, "product_day_sum", label);
     assert.equal(result.summary.conversionRate, rate, label);
-    assert.equal(result.items[0].conversionRate, rate, label);
+    assert.equal((result.items[0] as Record<string, unknown>).conversionRate, rate, label);
     assert.deepEqual(result.summaryFieldAvailability, expected, label);
     assert.deepEqual(result.items[0].fieldAvailability, expected, label);
   }
