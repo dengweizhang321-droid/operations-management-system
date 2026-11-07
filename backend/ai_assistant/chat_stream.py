@@ -23,7 +23,7 @@ class ChatStream:
 
     def check(self):
         if self.cancelled.is_set():
-            raise AiError("已停止生成", "ai_request_cancelled", 499)
+            raise AiError("客户端连接已关闭", "ai_chat_stream_disconnected", 499)
 
     def emit(self, event, value):
         self.check()
@@ -31,7 +31,7 @@ class ChatStream:
             self.queue.put((event, value), timeout=2)
         except queue.Full as error:
             self.cancelled.set()
-            raise AiError("客户端读取超时，生成已停止", "ai_request_cancelled", 499) from error
+            raise AiError("客户端读取超时，连接已关闭", "ai_chat_stream_disconnected", 499) from error
 
     def release_once(self):
         with self.lock:

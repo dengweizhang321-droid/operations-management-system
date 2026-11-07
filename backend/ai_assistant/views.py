@@ -288,6 +288,7 @@ def _dispatch(request, path=""):
         credential_read = root == "consumer" and payload.get("operation") in {
             "model-runtime", "model-list"}
         model_admin_read = root == "models" and request.method == "GET"
+        chat_status_read = path == "chat" and request.method == "GET" and "clientRequestId" in request.GET
         report_detail_shape = (request.method == "GET" and
             re.fullmatch(r"reports/[A-Za-z0-9_-]{1,160}", endpoint) is not None)
         # URLConf accepts a trailing slash in its generic capture. Do not let
@@ -301,7 +302,7 @@ def _dispatch(request, path=""):
         writer = (
             request.method != "GET" or root in {"artifacts"} or
             root == "reports" and parts[-1] == "content" or
-            model_admin_read or report_detail_read or human_cap_path
+            model_admin_read or chat_status_read or report_detail_read or human_cap_path
         ) and not consumer_read and root != "datasets"
         if re.fullmatch(r"(?:reports|business-evidence)/[A-Za-z0-9_-]{1,160}/budget-preview", endpoint) and request.method == "POST":
             writer = False
@@ -328,7 +329,7 @@ def _dispatch(request, path=""):
         params = request.GET.dict()
         if root not in {"callback", "scheduler"}:
             principal = current_principal(
-                principal, write=writer and not model_admin_read and
+                principal, write=writer and not (model_admin_read or chat_status_read) and
                     root not in {"consumer", "artifacts", "reports"}
             )
         if root in {"models", "channels", "prompt-settings", "dingtalk-settings", "dingtalk-schedules", "market-v2-cap-approvals"} or parts[:2] in [
@@ -643,6 +644,9 @@ def _dispatch(request, path=""):
             # process.  Keep it outside write() so it creates no mutation
             # receipt and cannot be replayed as a state-changing request.
             return response(consumer(payload, principal, request_id))
+        if chat_status_read:
+            # Only this scoped lookup needs access to the protected receipts.
+            return response(chat.messages(params, principal))
         if model_admin_read:
             # The existing administrator settings response includes a key
             # suffix and diagnostics.  It belongs to the credential process,
@@ -854,13 +858,8 @@ def mutate(parts, params, payload, principal, request_id, method):
         )
         return result, 201 if result.get("created") else 200
     if root == "chat" and parts[1:] == ["cancel"]:
-        fields(payload, {"clientRequestId"}, {"clientRequestId"})
-        m.AiChatRequestReceipts.objects.filter(
-            owner_email=principal.email.lower(),
-            client_request_id=identifier(payload["clientRequestId"]),
-            status__in=["processing", "dispatched"],
-        ).update(cancel_requested=True)
-        return {"ok": True}, 200
+        fields(params, set())
+        return chat.cancel(payload, principal), 200
     if root in {"agent-jobs", "workflow-runs"}:
         if len(parts) == 5 and parts[2] == "nodes" and parts[4] == "review":
             return workflows.review(parts[1], parts[3], payload, principal), 200

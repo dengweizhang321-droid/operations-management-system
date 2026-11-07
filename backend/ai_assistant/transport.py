@@ -21,6 +21,7 @@ from .policy import AiError, canonical, current_principal, uid
 from .provider_contract import InvalidProviderResponse, PROVIDER_ADAPTER_VERSION
 
 _deadline = ContextVar("ai_network_deadline", default=None)
+_provider_send_fence = ContextVar("ai_provider_send_fence", default=None)
 _cancel_check = ContextVar("ai_network_cancel_check", default=None)
 _cancel_watcher_scope = ContextVar("ai_network_cancel_watcher_scope", default=None)
 _dns_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ai-dns")
@@ -148,6 +149,21 @@ def request_cancellation(check, *, watcher_scope=None):
     finally:
         _cancel_watcher_scope.reset(scope_token)
         _cancel_check.reset(token)
+
+
+@contextmanager
+def provider_send_fence(commit):
+    token = _provider_send_fence.set(commit)
+    try:
+        yield
+    finally:
+        _provider_send_fence.reset(token)
+
+
+def commit_provider_send(check_budget=None):
+    commit = _provider_send_fence.get()
+    if commit is not None:
+        commit(check_budget)
 
 
 class _SocketCancellationWatch:
@@ -656,6 +672,8 @@ def _bounded_json(
         bounded_socket()
         # The request may be partially written even if request() raises. This
         # marks an attempt, never proof of provider receipt or permission to retry.
+        if method == "POST" and not internal:
+            commit_provider_send(bounded_socket)
         request_started = True
         connection.request(
             method,

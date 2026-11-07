@@ -3,7 +3,7 @@ import { aiEnvironment, aiHeaders } from "./ai-service";
 import { PublicApiError } from "@/lib/http/api-error";
 
 export async function requestDjangoAiStream(principal: AppPrincipal, payload: Record<string, unknown>, options: {
-  signal?: AbortSignal; environment?: Record<string, string | undefined>; fetchImpl?: typeof fetch; onCancel?: () => void;
+  signal?: AbortSignal; environment?: Record<string, string | undefined>; fetchImpl?: typeof fetch;
 } = {}): Promise<Response> {
   const unavailable = () => new PublicApiError(503, "service_unavailable", "AI 流式连接中断，请核对原请求结果。");
   const environment = options.environment ?? await aiEnvironment();
@@ -16,8 +16,8 @@ export async function requestDjangoAiStream(principal: AppPrincipal, payload: Re
   if (new TextEncoder().encode(body).length > 1024 * 1024) throw new PublicApiError(413, "payload_too_large", "AI 请求超过传输上限。");
   const headers = await aiHeaders({ secret: environment.TERUISI_DJANGO_INTERNAL_SECRET ?? "", principal, method: "POST", path: "/api/ai/chat", query: "", body, requestId: crypto.randomUUID() });
   headers.set("accept", "text/event-stream");
-  const controller = new AbortController(); let cancelled = false;
-  const abort = () => { controller.abort(); if (!cancelled) { cancelled = true; options.onCancel?.(); } };
+  const controller = new AbortController();
+  const abort = () => controller.abort();
   const cleanup = () => { options.signal?.removeEventListener("abort", abort); };
   options.signal?.addEventListener("abort", abort, { once: true });
   if (options.signal?.aborted) { abort(); cleanup(); throw unavailable(); }
