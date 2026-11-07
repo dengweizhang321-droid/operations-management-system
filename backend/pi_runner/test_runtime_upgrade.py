@@ -244,9 +244,17 @@ class SourceUpgradeRealTests(unittest.TestCase):
         def call(job,name,payload=None):return command(url,key,{**job,'command':name,'payload':payload or {}},timeout=60)
         def identity(conversation=None,seq=1):
             value={'operationId':'source-'+uuid.uuid4().hex,'ownerId':'synthetic@example.invalid','conversationId':conversation or 'conversation-'+uuid.uuid4().hex,'epoch':1,'generation':1,'seq':seq};jobs.append(value);return value
-        def create(job):return call(job,'create',{'gateway':{'url':config['gatewayUrl'],'capability':'synthetic-'+job['operationId']},'model':{'contextWindow':65536,'maxTokens':8192,'reasoning':True}})
+        def binding(job):
+            return {
+                'gateway': {'url': config['gatewayUrl'], 'capability': 'synthetic-' + job['operationId']},
+                'admission': {'mode': 'execute', 'modeRevision': 1, 'admissionEpoch': 1,
+                              'rootSessionId': job['conversationId'], 'treeVersion': 1, 'scopeSha256': 'a' * 64},
+            }
+        def create(job):
+            return call(job, 'create', {**binding(job),
+                'model': {'id': 'synthetic', 'contextWindow': 65536, 'maxTokens': 8192, 'reasoning': True}})
         def prompt(job,text,reply=None,verify=None):
-            call(job,'prompt',{'message':text,'timeoutMs':600000,'gateway':{'url':config['gatewayUrl'],'capability':'synthetic-'+job['operationId']}})
+            call(job, 'prompt', {**binding(job), 'message': text, 'timeoutMs': 600000})
             end=time.monotonic()+30;seen=set()
             while time.monotonic()<end:
                 state=call(job,'state')
