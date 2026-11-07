@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "recordedBy": "root from independent read-only review messages",
+  "requestedModel": "gpt-6.1-sol",
+  "requestedReasoningEffort": "high",
+  "actualModelIndependentlyConfirmed": false,
+  "reviewed": [
+    "canonical38 members and old37",
+    "installation/intent/manifest/transition identities and three empty frames",
+    "hook change matches new immutable path",
+    "check/prepare-only exits and PREPARED/Worker/Django receipts",
+    "frozen test native exits/framework counts/log hashes/source identity",
+    "reuse/pause/first failure truthfulness",
+    "no publication markers in this attempt"
+  ],
+  "remainingBlockers": []
+}

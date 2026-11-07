@@ -1,0 +1,12 @@
+{
+  "status": "resume-bindings-verified",
+  "controlInstallId": "da1c53d3-e8d7-46dd-be10-aa584c707906",
+  "bundleSha256": "9cfa94a96ab064910422df3b8c7d7b999622122eb83822f14ed1b4387b91ad8f",
+  "bundleMembersVerified": 38,
+  "preparedSha256": "3a8684e5c63129335c6d7f770b888db27533ecfd2e45bef2fb2aaeea2c138020",
+  "sourceCommit": "ece8c7ec46ac7bd7dc0a5a3e3eed8fcf065d3b65",
+  "sourceClean": true,
+  "codeFileCount": 105,
+  "codeSha256": "073e39cf954733c708f2f44bf37d68f97b6435f22375b9c2dab860148c348c88",
+  "noAdoptionOrRebuild": true
+}

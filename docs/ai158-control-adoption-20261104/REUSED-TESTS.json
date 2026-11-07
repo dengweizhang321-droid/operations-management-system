@@ -1,0 +1,60 @@
+{
+  "status": "reused-after-resume-byte-check",
+  "sourceCommit": "ece8c7ec46ac7bd7dc0a5a3e3eed8fcf065d3b65",
+  "verifiedBy": "RESUME-CHECK.json",
+  "checks": {
+    "node": 149,
+    "control-node": 78,
+    "A": 10,
+    "static-bindings": 30,
+    "owner-baselines": 6,
+    "ACL": 48,
+    "PS5": 33
+  },
+  "nativeExitProof": {
+    "node": {
+      "phase": "node",
+      "state": "passed",
+      "exitCode": 0,
+      "elapsedSeconds": 11.937
+    },
+    "control-node": {
+      "phase": "control-node",
+      "state": "passed",
+      "exitCode": 0,
+      "elapsedSeconds": 72.907
+    },
+    "A": {
+      "phase": "A",
+      "state": "passed",
+      "exitCode": 0,
+      "elapsedSeconds": 13.344
+    },
+    "static-bindings": {
+      "phase": "static-bindings",
+      "state": "passed",
+      "exitCode": 0,
+      "elapsedSeconds": 28.016
+    },
+    "owner-baselines": {
+      "phase": "owner-baselines",
+      "state": "passed",
+      "exitCode": 0,
+      "elapsedSeconds": 0.61
+    },
+    "ACL": {
+      "phase": "ACL",
+      "state": "passed",
+      "exitCode": 0,
+      "elapsedSeconds": 0.187
+    },
+    "PS5": {
+      "phase": "PS5",
+      "state": "passed",
+      "exitCode": 0,
+      "elapsedSeconds": 25.484
+    }
+  },
+  "progressLogSha256": "1299bbd77171fd474366625b1db7237d357ed796cfa4ea0266679407fddcc715",
+  "PS7Reused": false
+}

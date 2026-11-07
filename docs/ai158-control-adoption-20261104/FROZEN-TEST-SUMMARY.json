@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "sourceCommit": "ece8c7ec46ac7bd7dc0a5a3e3eed8fcf065d3b65",
+  "source": "D:\\codex-isolated\\main-release-packages\\ece8c7ec46ac-7094807e-2c9a9ad3\\source",
+  "codeFileCount": 105,
+  "codeSha256": "073e39cf954733c708f2f44bf37d68f97b6435f22375b9c2dab860148c348c88",
+  "sourceBytesUnchanged": true,
+  "sourceClean": true,
+  "reused": {
+    "node": 149,
+    "control-node": 78,
+    "A": 10,
+    "static-bindings": 30,
+    "owner-baselines": 6,
+    "ACL": 48,
+    "PS5": 33
+  },
+  "resumed": {
+    "PS7": 33,
+    "Bnegatives": 824,
+    "guardMutations": 60,
+    "finalSchemaBinding": "passed"
+  },
+  "allNativeExitsZero": true,
+  "Bcleanup": {
+    "started": true,
+    "stopped": true,
+    "passwordFileRemoved": true,
+    "privateDataRemoved": true,
+    "childExitZero": true
+  },
+  "fullLogsDirectory": "D:\\codex-artifacts\\ai158-control-adoption-20261104",
+  "driverSha256": "6803bed18128e1958e6cf9e79bac7091d1264869d8067224608b18bc1cbf1107",
+  "resumeDriverSha256": "798c8159ff18686e34dc9651c1f8c7876984ac2c35c0f66f09a14ba80fbd9d05"
+}

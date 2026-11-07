@@ -1,0 +1,18 @@
+{
+  "status": "confirmed",
+  "reason": "PATHEXT missing from private test driver",
+  "cases": [
+    {
+      "case": "without-PATHEXT",
+      "exitCode": 1,
+      "stdout": "",
+      "stderrSha256": "5b1c29ad4d4e675433c9b500d2bcd32863bedcf556010d2872e8189ec27ba89a"
+    },
+    {
+      "case": "with-PATHEXT",
+      "exitCode": 0,
+      "stdout": "D:\\git\\Git\\cmd\\git.exe",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

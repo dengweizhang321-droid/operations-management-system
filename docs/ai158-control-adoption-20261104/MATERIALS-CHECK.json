@@ -1,0 +1,17 @@
+{
+  "installId": "da1c53d3-e8d7-46dd-be10-aa584c707906",
+  "sourceCommit": "ece8c7ec46ac7bd7dc0a5a3e3eed8fcf065d3b65",
+  "oldMemberCount": 37,
+  "newMemberCount": 38,
+  "oldBundle": "fe4e34dcea03ad77c47c288bd572841ae69428bb05147893f69c452102d45aa6",
+  "newBundle": "9cfa94a96ab064910422df3b8c7d7b999622122eb83822f14ed1b4387b91ad8f",
+  "canonicalHasFinalNewline": true,
+  "allMemberHashesVerified": true,
+  "changedMembers": [
+    "tools/main-schema-release.mjs",
+    "tools/publication-readiness.mjs",
+    "tools/publish-latest-main.mjs",
+    "tools/release-scope-plan.mjs"
+  ],
+  "adoptionPerformed": false
+}
