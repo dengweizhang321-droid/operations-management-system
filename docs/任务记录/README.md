@@ -1,5 +1,7 @@
 # 任务记录目录
 
+[AI 现有功能修复施工方案](../ai-repair-plan-20261107/PLAN.md) · [证据索引](../ai-repair-plan-20261107/EVIDENCE.md) · [独立方案反审](../ai-repair-plan-20261107/REVIEW.md)（仅方案，未开工）。
+
 本轮候选：[Runner 升级 WAL 通用修复](../pi-upgrade-wal-fix-20261107/REPORT.md) · [逐项 Astra 反审](../pi-upgrade-wal-fix-20261107/REVIEW.md)（独立真实升级对照；未合并、未采用、未上线）。
 
 [AI 助理与 Claude 全部合并交接](../ai-finish-merge-20261107/REPORT.md)
