@@ -226,7 +226,7 @@ class SourceUpgradeRealTests(unittest.TestCase):
         task_root=Path(CONFIG).parent;base=task_root/'releases';base.mkdir(mode=0o700)
         key=Path(config['keyFile']).read_bytes();old_image=os.environ['PI_RUNNER_UPGRADE_FROM_IMAGE']
         old_sha=subprocess.check_output(['/usr/bin/env','PYTHONPATH='+LEGACY,'/usr/bin/python3','-B','-c',
-            'from pi_runner.install_linux import source_digest;print(source_digest())']).decode().strip()
+            'from pi_runner.install_linux import source_digest;print(source_digest())'],cwd=LEGACY).decode().strip()
         old=base/old_sha;old.mkdir(mode=0o700);shutil.copytree(Path(LEGACY)/'pi_runner',old/'backend/pi_runner')
         (old/'state').mkdir(mode=0o700);(old/'channel.key').write_bytes(key);os.chmod(old/'channel.key',0o600)
         old_config={**config,'image':old_image,'keyFile':str(old/'channel.key'),'stateDirectory':str(old/'state')}
@@ -265,6 +265,8 @@ class SourceUpgradeRealTests(unittest.TestCase):
                 try:
                     health=command(url,key,{},path=HEALTH_PATH,timeout=1);break
                 except Exception:time.sleep(.1)
+            else:
+                self.fail('isolated_predecessor_signed_health_timeout')
             self.assertEqual(health['sourceSha256'],old_sha)
             first=identity();create(first);self.assertEqual(prompt(first,'source-history-first','source-answer-first')['status'],'settled')
             value={'action':'prepare','operationId':uuid.uuid4().hex,'namespace':namespace,'unitName':unit_name,'unitPath':str(unit),
