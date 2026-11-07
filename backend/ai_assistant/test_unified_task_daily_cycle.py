@@ -80,9 +80,10 @@ class UnifiedTaskDailyCycle(TestCase):
     def approve(self):
         return approve(self.task["id"], self.task["version"], self.owner, self.channel, self.config)
 
-    def publish_sales(self, *, mixed_identity=False):
+    def publish_sales(self, *, mixed_identity=False, target_channels=None):
         alias = sales_alias(SHOP["platform"], SHOP["shop"])
         channel, raw_shop = alias["rawChannel"], alias["rawShopName"]
+        sale_channel, refund_channel = target_channels or (channel, channel)
         batch = SalesImportBatch.objects.create(id="w12-erp-batch", source=SALES_IMPORT_SOURCE, file_name="synthetic.xlsx",
             file_size_bytes=1, file_hash="b" * 64, sheet_name="synthetic", status="completed", row_count=5,
             created_at=self.now.isoformat(), completed_at=self.now.isoformat(), scope_key=_scope_key(), published_state_token="c" * 64,
@@ -94,8 +95,8 @@ class UnifiedTaskDailyCycle(TestCase):
         SalesImportScopeHead.objects.update_or_create(pk=_scope_key(), defaults={"status": "ready", "current_batch_id": batch.id,
             "state_token": batch.published_state_token, "generation": 1})
         for number, amount, quantity, shop, row_channel, warehouse, ship in [
-            (201, 20000, 5, raw_shop, channel, "广东仓", "2026-11-07 10:00:00"),
-            (202, -3000, -1, raw_shop, channel, "广东仓", "2026-11-07 11:00:00"),
+            (201, 20000, 5, raw_shop, sale_channel, "广东仓", "2026-11-07 10:00:00"),
+            (202, -3000, -1, raw_shop, refund_channel, "广东仓", "2026-11-07 11:00:00"),
             (203, 90000, 90, "其他店铺", channel if mixed_identity else "其他渠道", "广东仓", "2026-11-07 12:00:00"),
             (204, 99000, 99, raw_shop, channel, "刷刷仓", "2026-11-07 13:00:00"),
             (205, 98000, 98, raw_shop, channel, "广东仓", "2026-11-08 00:00:00")]:
@@ -274,6 +275,22 @@ class UnifiedTaskDailyCycle(TestCase):
         self.assertEqual(run.status, "waiting_data")
         self.assertEqual({gap["dataset"] for gap in json.loads(run.evidence_json)["gaps"]}, {SALES, INVENTORY})
         self.assertEqual(PiOperation.objects.count(), 0)
+
+    def assert_erp_channel_conflict_waits(self, target_channels):
+        self.publish_sales(target_channels=target_channels)
+        self.publish_inventory()
+        run = self.approve().tick("w12-worker")
+        self.assertEqual(run.status, "waiting_data")
+        self.assertEqual(json.loads(run.evidence_json), {"reason": "daily_sources_not_ready",
+            "gaps": [{"dataset": SALES, "reason": "source_coverage_not_proven"}]})
+        self.assertFalse(PiOperation.objects.exists())
+
+    def test_target_store_with_only_wrong_channel_rows_waits(self):
+        self.assert_erp_channel_conflict_waits(("错误渠道", "错误渠道"))
+
+    def test_target_store_with_correct_and_wrong_channel_rows_waits(self):
+        channel = sales_alias(SHOP["platform"], SHOP["shop"])["rawChannel"]
+        self.assert_erp_channel_conflict_waits((channel, "错误渠道"))
 
     def test_published_gate_and_public_enable_stay_closed(self):
         with self.assertRaises(AiError):

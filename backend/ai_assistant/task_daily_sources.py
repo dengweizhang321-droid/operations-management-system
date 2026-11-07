@@ -48,7 +48,7 @@ def _erp_sales(principal, day, revision):
         return None
     rows = _scoped_business(principal).filter(business_date=day).filter(
         Q(channel=channel) | Q(platform=alias["platform"], shop_name=alias["rawShopName"]))
-    expected = rows.filter(platform=alias["platform"], shop_name=alias["rawShopName"], last_import_batch_id=batch.id)
+    expected = rows.filter(platform=alias["platform"], shop_name=alias["rawShopName"], channel=channel, last_import_batch_id=batch.id)
     if rows.exclude(pk__in=expected.values("pk")).exists():
         return None
     metrics = expressions()
