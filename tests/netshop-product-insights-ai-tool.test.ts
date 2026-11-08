@@ -20,6 +20,7 @@ registerHooks({ resolve(specifier, context, nextResolve) {
 } });
 const { aiToolRegistry } = await import("../lib/ai/tool-registry");
 const { getNetshopProductInsightsForAi, NETSHOP_PRODUCT_INSIGHTS_TOOL_NAME: name } = await import("../lib/ai/netshop-product-insights-tool");
+const { getNetshopPerformanceForAi } = await import("../lib/netshop/ai-tool");
 const { syntheticInsightsContext } = await import("../lib/netshop/insights-fixtures");
 const { compareMetrics } = await import("../lib/netshop/insights-contract");
 const { decodeProductInsights, productMetricKeys } = await import("../app/netshop/products/contract");
@@ -62,6 +63,38 @@ beforeEach(() => {
   };
 });
 afterEach(() => { globalThis.fetch = originalFetch; });
+
+test("ordinary AI product performance preserves the owner-calculated ratio, period and missing-field flags", async () => {
+  const requestedPeriod = { startDate: "2026-09-01", endDate: "2026-09-02", days: 2 };
+  const summary = { transactionCustomers: 2, transactionQuantity: 8, visitors: 20, conversionRate: 0.1 };
+  const complete = { complete: true, reasonCode: null };
+  const missing = { complete: false, reasonCode: "missing_field" };
+  const entry = aiToolRegistry.find(tool => tool.name === "get_netshop_performance")!;
+  for (const [metrics, availability] of [
+    [summary, { transactionCustomers: complete, visitors: complete }],
+    [{ ...summary, visitors: 0, conversionRate: null }, { transactionCustomers: complete, visitors: complete }],
+    [summary, { transactionCustomers: missing, visitors: complete }],
+  ] as const) {
+    globalThis.fetch = async input => {
+      const url = new URL(String(input));
+      assert.equal(url.pathname, "/api/netshop/product-performance");
+      assert.equal(url.searchParams.get("dimension"), "spu");
+      assert.equal(url.searchParams.get("startDate"), requestedPeriod.startDate);
+      assert.equal(url.searchParams.get("endDate"), requestedPeriod.endDate);
+      return Response.json({ requestedPeriod, visitorAggregation: "product_day_sum", summary: metrics,
+        summaryFieldAvailability: availability, items: [{ ...metrics, fieldAvailability: availability }],
+        pagination: { truncated: true } }, { headers: { "X-Netshop-Data-Revision": "1:aaaaaaaaaaaa" } });
+    };
+    const args = { platform: "京东", shop: "合成店A", startDate: requestedPeriod.startDate, endDate: requestedPeriod.endDate };
+    const result = await getNetshopPerformanceForAi(args, principal);
+    assert.deepEqual(await entry.handler(args, { principal, surface: "ai_chat", requestId: "synthetic-conversion" }), result);
+    assert.deepEqual(result.requestedPeriod, requestedPeriod);
+    assert.deepEqual(result.summary, metrics);
+    assert.deepEqual(result.summaryFieldAvailability, availability);
+    assert.equal(result.visitorAggregation, "product_day_sum");
+    assert.equal(result.truncated, true);
+  }
+});
 
 test("the actual central list entry uniquely derives closed schemas and explicit policies", () => {
   validateToolRegistry(aiToolRegistry);

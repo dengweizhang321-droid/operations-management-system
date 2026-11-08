@@ -15,4 +15,5 @@ USER 65532:65532
 WORKDIR /workspace
 LABEL teruisi.pi.workspace="2"
 LABEL teruisi.pi.native-capabilities="1"
+LABEL teruisi.pi.local-restore="1"
 ENTRYPOINT ["node", "/opt/pi/entrypoint.mjs"]

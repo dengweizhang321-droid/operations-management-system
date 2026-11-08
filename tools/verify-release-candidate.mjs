@@ -111,9 +111,95 @@ export function compareReadinessMaintenancePairOnly(before,after){
   &&after.replace(declaration,'').replace(branch,'')===before;
 }
 
-export function candidateCompatibilityProfile(changes){
+export const aiRepairBatch1Qualification=Object.freeze({
+ base:'0c7d0feb33f45cfc6ae1f283b81d401c873c5768',
+ app:'eee39f9d315eaf9dd71f8390181879cdb6ba2c82',
+ tree:'18ce84ef8fe69ebd9128dc2b540ee5c67dc977ed',
+ reviewedBytesSha256:'ba7fbd961afa817b4f8991a04bd902eea00a429e55bbb6380c3b8b97f1a2d12b',
+});
+const aiRepairBatch1Reviewed=Object.freeze({
+ 'app/ai-assistant-view.tsx':'M',
+ 'app/api/ai/chat/cancel/route.ts':'A',
+ 'backend/ai_assistant/chat.py':'M',
+ 'backend/ai_assistant/chat_stream.py':'M',
+ 'backend/ai_assistant/datasets.py':'M',
+ 'backend/ai_assistant/management/commands/pi_reclaim_stopped.py':'A',
+ 'backend/ai_assistant/pandas_diagnostics.py':'A',
+ 'backend/ai_assistant/pandas_sandbox.py':'M',
+ 'backend/ai_assistant/pi_transport.py':'M',
+ 'backend/ai_assistant/pi_worker.py':'M',
+ 'backend/ai_assistant/pi_workspace.py':'M',
+ 'backend/ai_assistant/report_library.py':'M',
+ 'backend/ai_assistant/test_chat_stop.py':'A',
+ 'backend/ai_assistant/test_chat_tool_budget.py':'M',
+ 'backend/ai_assistant/test_pandas_sandbox.py':'M',
+ 'backend/ai_assistant/test_pi_retained_lifecycle.py':'A',
+ 'backend/ai_assistant/test_promotion_chat.py':'M',
+ 'backend/ai_assistant/test_shop_conversion_guidance.py':'A',
+ 'backend/ai_assistant/test_streaming.py':'M',
+ 'backend/ai_assistant/tests.py':'M',
+ 'backend/ai_assistant/transport.py':'M',
+ 'backend/ai_assistant/views.py':'M',
+ 'backend/pi_runner/server.py':'M',
+ 'backend/pi_runner/test_retained_lifecycle.py':'A',
+ 'backend/pi_runner/upgrade_linux.py':'M',
+ 'backend/pi_runner/workspace.py':'M',
+ 'containers/pi-agent/Dockerfile':'M',
+ 'containers/pi-agent/build_image.py':'M',
+ 'containers/pi-agent/gateway-extension.mjs':'M',
+ 'lib/ai/analysis-sandbox.ts':'M',
+ 'lib/ai/django-route.ts':'M',
+ 'lib/ai/page-data-tools.ts':'M',
+ 'lib/ai/tool-registry.ts':'M',
+ 'lib/ai/workspace-recovery.ts':'M',
+ 'lib/django/ai-stream.ts':'M',
+ 'lib/netshop/ai-tool.ts':'M',
+ 'tests/ai-chat-recovery-interaction.test.ts':'A',
+ 'tests/ai-chat-stop-route.test.ts':'A',
+ 'tests/ai-chat-stream.test.ts':'M',
+ 'tests/ai-page-data-tools.test.ts':'M',
+ 'tests/ai-workspace-recovery.test.ts':'M',
+ 'tests/netshop-product-insights-ai-tool.test.ts':'M',
+ 'tests/pandas-sandbox.test.ts':'M',
+ 'tests/publish-prepared-main.test.mjs':'M',
+ 'tools/publish-main-resume.mjs':'M',
+ 'tools/publish-prepared-main.mjs':'M',
+});
+const aiRepairBatch1Adapter=Object.freeze({
+ 'tools/verify-release-candidate.mjs':'M',
+ 'tests/verify-release-candidate.test.mjs':'M',
+ 'tests/ai-repair-batch1-compatibility.test.mjs':'A',
+ 'tests/ai-repair-batch1-pi-native-start.py':'A',
+});
+const aiRepairBatch1Docs=file=>file==='docs/任务记录/README.md'||
+ /^docs\/ai-repair-batch1-20261107\/[^/]+\.(?:md|html|json)$/.test(file);
+
+export function aiRepairBatch1ScopeMatches(changes,baseCommit){
+ if(baseCommit!==aiRepairBatch1Qualification.base)return false;
+ const expected=new Map(Object.entries({...aiRepairBatch1Reviewed,...aiRepairBatch1Adapter}));
+ for(const {path:file,before,status} of changes){
+  if(typeof file!=='string'||before)return false;
+  if(aiRepairBatch1Docs(file)&&['A','M'].includes(status))continue;
+  if(expected.get(file)!==status)return false;
+  expected.delete(file);
+ }
+ return expected.size===0;
+}
+
+export function assertAiRepairBatch1Bytes(payload){
+ const digestByPath=new Map(payload.map(member=>[member.path,member.sha256]));
+ const rows=Object.keys(aiRepairBatch1Reviewed).sort().map(file=>[file,digestByPath.get(file)]);
+ assert.equal(sha(Buffer.from(JSON.stringify(rows))),aiRepairBatch1Qualification.reviewedBytesSha256,
+  '第一批AI应用候选字节已变化，原有限资格不适用');
+}
+
+export function candidateCompatibilityProfile(changes,{baseCommit}={}){
  const files=changes.flatMap(c=>[c.before,c.path].filter(Boolean));
  const paths=files.filter(f=>!f.startsWith('docs/')&&!f.startsWith('tests/')&&!['README.md','AGENTS.md'].includes(f));
+ if(aiRepairBatch1ScopeMatches(changes,baseCommit))return {
+  version:'ai-repair-batch1-compatibility-v1',aiRepairBatch1Only:true,paths,unsupported:[],
+  worker:true,django:true,publication:true,nativeColdStartPerformed:false,
+ };
  const readinessAllowed=new Set([...readinessStabilityFiles,'tools/verify-release-candidate.mjs']);
  const readinessStabilityOnly=readinessStabilityFiles.every(p=>paths.includes(p))
   &&paths.includes('tools/verify-release-candidate.mjs')&&paths.every(p=>readinessAllowed.has(p));
@@ -449,7 +535,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
  assert.ok(!within(source,directory),'验证输出必须在候选工作树之外');
  await fs.mkdir(directory,{recursive:false});
  const plan=makeReleasePlan({base:baseCommit,head:commit,cwd:source});
- const profile=candidateCompatibilityProfile(plan.changes);
+ const profile=candidateCompatibilityProfile(plan.changes,{baseCommit});
  const nativeAbandonmentOnly=profile.nativeAbandonmentOnly;
  const cleanedPreparationOnly=profile.cleanedPreparationOnly;
  if(cleanedPreparationOnly){
@@ -522,6 +608,16 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   report.payload=[];
   for(const name of members){const file=path.join(candidate,name);assert.ok(!(await fs.lstat(file)).isSymbolicLink(),'候选包含链接：'+name);report.payload.push({path:name,sha256:sha(await fs.readFile(file))});}
   report.payloadSha256=sha(Buffer.from(JSON.stringify(report.payload)));
+  if(profile.aiRepairBatch1Only){
+   const qualification=aiRepairBatch1Qualification;
+   assert.equal(await git(source,['rev-parse',qualification.app+'^{tree}']),qualification.tree);
+   await git(source,['merge-base','--is-ancestor',qualification.app,commit]);
+   assert.deepEqual(plan.components,['worker','django']);
+   assert.equal(plan.scope,'full');
+   assert.equal(plan.migrate,false);
+   assertAiRepairBatch1Bytes(report.payload);
+   report.applicationQualification=qualification;
+  }
   if(schemaAdmissionOnly){
    const mutable=new Set(profile.paths);for(const entry of preflightBaseline.payload)if(!entry.path.startsWith('docs/')&&!entry.path.startsWith('tests/')&&!mutable.has(entry.path))assert.equal(sha(await fs.readFile(path.join(candidate,entry.path))),entry.sha256,'前轮应用/生命周期字节变化：'+entry.path);
    await run('schema-current-proof-binding',pythonExe,['tests/release-chain-schema-binding.py'],'package-integrity');
@@ -547,7 +643,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    report.readinessDjangoCopyOnly=true;
    report.readinessControllerPair={installedSourceSha256:sha(old),candidateSha256:sha(current),runtimeObservedByVerifier:false};
   }
-  if(profile.django&&!profile.readinessStabilityOnly){
+  if(profile.django&&!profile.readinessStabilityOnly&&!profile.aiRepairBatch1Only){
    const old=path.join(directory,'before-django.ps1');
    const bytes=(await execute('git',['-C',source,'show',baseCommit+':tools/django-local-service.ps1'],{encoding:'buffer',maxBuffer:8*1024*1024,windowsHide:true})).stdout;
    await fs.writeFile(old,bytes);
@@ -618,6 +714,23 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    }catch(error){await fs.writeFile(output,error.stdout??Buffer.alloc(0));await fs.writeFile(errors,error.stderr??Buffer.alloc(0));item.error=String(error.message);item.exitCode=error.code??null;item.status='failed';throw error;}
    finally{item.elapsedMs=Date.now()-started;item.stdoutSha256=sha(await fs.readFile(output));item.stderrSha256=sha(await fs.readFile(errors));await write();}
   }
+  if(profile.aiRepairBatch1Only){
+   report.requiresNativeColdStart=true;
+   report.requiredNativeScopes=['piRunner'];
+   const output=path.join(directory,'ai-repair-batch1-verified-evidence.json');
+   await run('ai-repair-batch1-profile',process.execPath,['--test','--test-name-pattern=ai repair batch1','tests/verify-release-candidate.test.mjs'],'isolated-functions');
+   await run('ai-repair-batch1-compatibility',process.execPath,['--test','tests/ai-repair-batch1-compatibility.test.mjs'],'native-entry-boundary',
+    {...environment,TERUISI_AI_BATCH1_EVIDENCE_OUTPUT:output,TERUISI_AI_BATCH1_PYTHON:pythonExe});
+   const verified=JSON.parse(await fs.readFile(output,'utf8'));
+   assert.equal(verified.scopedNativeEvidence?.piRunner?.status,'passed','缺少本批Pi原入口启动证据');
+   report.reusedEvidence=verified.reusedEvidence;
+   report.scopedNativeEvidence=verified.scopedNativeEvidence;
+   report.frozenPublisherClosure=verified.frozenPublisherClosure;
+   report.unchangedControllers=verified.unchangedControllers;
+   report.piImageInputs=verified.imageInputs;
+   await run('powershell-entry',pythonExe,['-m','unittest','discover','-s','tests','-p','test_pi150_recovery_entry.py'],'native-entry-boundary');
+   await run('actual-django-package',shell7,['-NoProfile','-NonInteractive','-File','tests/release-candidate-package.test.ps1'],'package-integrity');
+  }else{
   if(profile.readinessStabilityOnly){
    await run('readiness-profile',process.execPath,['--test','--test-name-pattern=readiness stability','tests/verify-release-candidate.test.mjs'],'isolated-functions');
    await run('readiness-entry-closures',process.execPath,['--test','tests/readiness-entry-compatibility.test.mjs'],'package-integrity');
@@ -686,6 +799,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    if(!profile.readinessStabilityOnly)await run('powershell-entry',pythonExe,['-m','unittest','discover','-s','tests','-p','test_pi150_recovery_entry.py'],'native-entry-boundary');
    await run('actual-django-package',shell7,['-NoProfile','-NonInteractive','-File','tests/release-candidate-package.test.ps1'],'package-integrity');
   }
+  }
   assert.equal(await git(candidate,['status','--porcelain']),'','测试修改了候选工作树');
   for(const member of report.payload)assert.equal(sha(await fs.readFile(path.join(candidate,member.path))),member.sha256,'验证期间候选字节变化：'+member.path);
   if(report.dependencies)assert.deepEqual(await hashTree(report.dependencies.physicalRoot),report.dependencies.tree,'验证期间依赖字节发生变化');
@@ -698,6 +812,14 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   if(nativeAbandonmentOnly)report.evidence.fixedNativeAbandonmentResolution=true;
   if(cleanedPreparationOnly)report.evidence.fixedCleanedPreparationResolution=true;
   report.nativeColdStartReason=profile.readinessStabilityOnly?'Not executed: readiness budgets, bounded observations, direct caller and frozen/control import closures, and the exact old/new controller admission pair only; Django differs solely by the helper copy-list item. Package and isolated entry checks do not prove a native cold start.':profile.workerJsonFailureCauseOnly?'Not executed: exact AST-qualified terminal catch only; in -Json mode the real failure cause now reaches stderr while the stdout reconciliation key set is byte-identical. All 81 functions, the parameter block and the other 42 top-level statements are byte-identical, so no Start/Stop routing, maintenance, lock, drain, receipt or process-tree semantics changed.':profile.dingtalkScreenshotAclOnly?'Not executed: exact AST-qualified DingTalk screenshot ACL tolerance only (Assert-DingTalkScreenshotProfile plus one added helper); every other function and Start/Stop routing, including the Pi stop protocol, is byte-identical.':profile.piExitObservation?'Not executed: exact AST-qualified Windows Pi exit observer only; real private empty pi_worker.main and same-token Stop tested, fixed WSL runner lifecycle not executed.':'Not executed: profiles cover package digests, admission and native command boundaries; no Start/Stop routing semantics changed.';
+  if(profile.aiRepairBatch1Only){
+   report.evidenceScope={
+    packageIntegrity:'Private Django copy, dependencies, ACL and local Wrangler; frozen Pi image inputs. No formal Worker release.',
+    nativeEntryBoundary:'Frozen publisher import closure and actual PS entry parameters with probes stopped before the first side effect.',
+    nativeColdStart:'Original Pi Runner main and signed health passed in scope. Full Windows application stack cold start was not executed.',
+   };
+   report.nativeColdStartReason=report.evidenceScope.nativeColdStart;
+  }
   report.status='passed';
  }catch(error){report.status='failed';report.error=String(error.message);}
  finally{

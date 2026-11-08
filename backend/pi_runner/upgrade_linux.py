@@ -88,10 +88,14 @@ print(json.dumps({'workspaceManifest':sha(rows),'pythonPackages':sha(python),'no
 
 
 def probe_volume(broker,image,volume):
+    return run_volume_probe(broker,image,volume,PROBE,timeout=60)
+
+
+def run_volume_probe(broker,image,volume,program,*args,timeout=10,maximum=1000):
     return decode(broker.docker_command(['run','--rm','--pull=never','--network=none','--read-only','--user=65532:65532',
         '--cap-drop=ALL','--security-opt=no-new-privileges:true','--memory=256m','--memory-swap=256m','--cpus=1','--pids-limit=16',
-        '--log-driver=none','--mount','type=volume,src='+volume+',dst=/workspace,readonly',
-        '--entrypoint','python3',image,'-I','-B','-c',PROBE],timeout=60))
+        '--log-driver=none','--mount','type=volume,src='+volume+',dst=/workspace,readonly,volume-nocopy',
+        '--entrypoint','python3',image,'-I','-B','-c',program,*args],timeout=timeout,maximum=maximum))
 
 
 def recover_intents(broker):
@@ -147,20 +151,36 @@ def retained_reference(broker,name,container_id):
     return any(decode(raw).get('retiredContainerName')==name and decode(raw).get('oldContainerId')==container_id for _,raw in rows)
 
 
-def apply(session, plan_id):
-    from .workspace import Rejected, close_terminals, register_session
+def apply(session, plan_id, *, control_id=None, admission=None, local_model=None):
+    with session.broker.lock:
+        return _apply(session, plan_id, control_id, admission, local_model)
+
+
+def _apply(session, plan_id, control_id, admission, local_model):
+    from .workspace import Rejected, close_terminals, record_stop_history, register_session, value_get
     broker = session.broker
     plan = next((item for item in plans(broker) if item['planId'] == plan_id), None)
     if not plan or plan['fromImage'] != session.image:
         raise Rejected('upgrade_plan_unavailable')
     target = decode(broker.docker_command(['image', 'inspect', plan['toImage']], maximum=128000))[0]
+    target_labels=target['Config'].get('Labels') or {}
     if (target['Id'] != plan['toImage'] or target.get('Os') != 'linux' or target['Config'].get('Volumes')
             or target['Config'].get('Entrypoint') != ['node', '/opt/pi/entrypoint.mjs']
-            or target['Config'].get('Labels', {}).get('teruisi.pi.workspace') != '2'):
+            or target_labels.get('teruisi.pi.workspace') != '2' or target_labels.get('teruisi.pi.native-capabilities')!='1'):
         raise Rejected('upgrade_image_unavailable')
-    if session.phase not in {'idle', 'settled', 'handled', 'failed', 'aborted'} or getattr(session, 'bash_control', None):
+    stopped=session.phase=='stopped'
+    if session.phase not in {'idle', 'settled', 'handled', 'failed', 'aborted', 'stopped'} or getattr(session, 'bash_control', None):
         raise Rejected('workspace_busy')
-    if set(broker.process_inventory(session))-getattr(session,'baseline_processes',set()):raise Rejected('workspace_busy')
+    if stopped and (not session.container_id or broker.workspace_unresolved(session,control_id)):
+        raise Rejected('workspace_busy')
+    if not stopped and set(broker.process_inventory(session))-getattr(session,'baseline_processes',set()):raise Rejected('workspace_busy')
+    if len(broker.managed_containers())>=broker.limits['maxSessions']:
+        raise Rejected('session_limit')
+    restore=target_labels.get('teruisi.pi.local-restore')=='1' and (
+        stopped or local_model is not None or value_get(session,'localModel') is not None)
+    if restore:
+        try:broker.require_local_restore(session,target_labels,local_model)
+        except ValueError as error:raise Rejected(str(error)) from error
     with broker.ledger.lock:
         other=broker.ledger.db.execute("SELECT 1 FROM workspace_controls WHERE workspace=? AND command!='upgrade' AND status IN ('accepted','dispatching','queued') LIMIT 1",(session.key,)).fetchone()
     if other:raise Rejected('workspace_busy')
@@ -168,7 +188,15 @@ def apply(session, plan_id):
     proof=decode((broker.state/'upgrade-plans'/(plan_id+'.json')).read_bytes())['proof']['evidence']
     if (profile['pythonPackages']!=proof['pythonPackagesBefore'] or profile['nodePackages']!=proof['nodePackagesBefore'] or profile['runtime']!=proof['runtimeBefore']):
         raise Rejected('upgrade_plan_environment_changed')
-    old_session = register_session(session)['sessionId']
+    if stopped:
+        try:broker.start_stopped(session)
+        except ValueError as error:
+            if session.phase=='stopped' and str(error)=='workspace_native_image_upgrade_required':
+                raise Rejected(str(error)) from error
+            raise
+    record_stop_history(session)
+    old_session = value_get(session,'currentSessionId')
+    empty_history = value_get(session,'stoppedHistory') == {'sessionId':old_session,'seq':session.last_seq,'empty':True}
     old_history=hashlib.sha256(encode(session.rpc('get_messages',{})['data'])).hexdigest()
     with session.lock:
         close_terminals(session)
@@ -225,12 +253,15 @@ def apply(session, plan_id):
             with broker.ledger.lock,broker.ledger.db:
                 broker.ledger.db.execute('UPDATE workspace_upgrades SET status=?,intent=? WHERE workspace=? AND plan=?',('candidate',encode(intent),session.key,plan_id))
             broker.save_session(session)
-            session.start()
+            session.gateway=None;session.revoked=True
+            session.start(target_labels)
             current = register_session(session)
-            if current['sessionId'] != old_session:
+            if current['sessionId'] != old_session and not (empty_history and current.get('messageCount')==0):
                 raise ValueError('upgrade_session_changed')
             if hashlib.sha256(encode(session.rpc('get_messages',{})['data'])).hexdigest()!=old_history:
                 raise ValueError('upgrade_history_changed')
+            if restore:
+                session.restore_local(admission,local_model)
             # The operator proof has tested dependencies. This per-workspace probe
             # also proves the actual preserved environment still launches both tools.
             result = broker.docker_command(['exec', session.container, '/bin/sh', '-c',
@@ -247,7 +278,7 @@ def apply(session, plan_id):
                 broker.ledger.db.execute('UPDATE workspace_upgrades SET status=? WHERE workspace=? AND plan=?',('complete',session.key,plan_id))
             return {'planId': plan_id, 'fromImage': old_image, 'toImage': session.image, 'sourceSha256': plan['sourceSha256'],
                     'protocolVersion': plan['protocolVersion'], 'containerId': session.container_id, 'volume': session.volume,
-                    'sessionId': old_session, 'generation': session.identity['generation'], 'preservedWorkspace': True,
+                    'sessionId': current['sessionId'], 'generation': session.identity['generation'], 'preservedWorkspace': True,
                     'originalVolume':old_volume,'originalContainerId':old_id,'originalRetiredName':retired}
         except Exception:
             # Never rerun an unknown new Pi. Freeze it and preserve both immutable

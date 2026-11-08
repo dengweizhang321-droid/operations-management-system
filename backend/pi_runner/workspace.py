@@ -25,7 +25,7 @@ COMMANDS = READ | ASYNC | {'steer', 'follow_up', 'clear_queue', 'abort_bash', 'u
     'session_new', 'session_fork', 'session_clone', 'session_switch', 'session_navigate',
     'model_set', 'thinking_set', 'export_html', 'terminal_create', 'terminal_input',
     'terminal_resize', 'terminal_close', 'file_write', 'file_delete', 'file_mkdir',
-    'file_rename', 'pause', 'wake', 'resource_remove', 'resource_reload','mode_set','skills_reload'}
+    'file_rename', 'pause', 'wake', 'reclaim_stopped', 'resource_remove', 'resource_reload','mode_set','skills_reload'}
 FIELDS={'tree':set(),'stats':set(),'steer':{'message'},'follow_up':{'message'},'clear_queue':set(),
  'bash':{'command','excludeFromContext'},'abort_bash':set(),'compact':{'gateway','model','timeoutMs','customInstructions'},
  'ui_response':{'requestId','value','confirmed','cancelled'},'session_new':set(),'session_clone':set(),
@@ -35,7 +35,7 @@ FIELDS={'tree':set(),'stats':set(),'steer':{'message'},'follow_up':{'message'},'
  'terminal_resize':{'terminalId','cols','rows'},'terminal_close':{'terminalId'},
  'file_list':{'path'},'file_read':{'path','expectedSha256'},'file_download':{'path','expectedSha256'},
  'file_write':{'path','expectedSha256','base64'},'file_mkdir':{'path'},'file_delete':{'path','expectedSha256'},
- 'file_rename':{'path','target','expectedSha256'},'pause':set(),'wake':set(),'upgrade':{'planId'},
+ 'file_rename':{'path','target','expectedSha256'},'pause':set(),'wake':{'localModel'},'upgrade':{'planId','localModel'},'reclaim_stopped':{'expected','requireLocalRestore'},
  'resource_install':{'bundle'},'resource_remove':{'resourceId'},'resource_reload':set(),
  'mode_set':{'admission'},'skills_reload':set()}
 
@@ -178,7 +178,7 @@ def controls(session):
     result=[]
     for row in reversed(rows):
         detail=decode(row[4]) if row[4] else {}
-        if row[2] not in {'compact','terminal_input','terminal_resize','terminal_close','steer','follow_up','ui_response','pause','wake','upgrade','model_set','thinking_set'} or len(encode(detail))>1024:
+        if row[2] not in {'compact','terminal_input','terminal_resize','terminal_close','steer','follow_up','ui_response','pause','wake','reclaim_stopped','upgrade','model_set','thinking_set'} or len(encode(detail))>1024:
             detail={'result':{key:value for key,value in detail.get('result',{}).items() if key in {'downloadId','path','sha256','sizeBytes','terminalId','inputId','inputSeq','status','disposition'}},
                     'resultOmitted':True,'resultSha256':hashlib.sha256(encode(detail)).hexdigest(),
                     **({'errorCode':detail['errorCode']} if 'errorCode' in detail else {})}
@@ -210,11 +210,67 @@ def register_session(session):
         value_set(session, 'sessions', registry)
     value_set(session, 'currentSessionId', session_id)
     session.pi_state = {k: state.get(k) for k in ('sessionId', 'thinkingLevel', 'messageCount', 'pendingMessageCount', 'isStreaming', 'isCompacting')}
+    model=value_get(session,'localModel') if getattr(session,'local_bound',False) else None
+    if model and state.get('thinkingLevel') in model.get('supportedThinkingLevels',[]) and model.get('thinkingLevel')!=state['thinkingLevel']:
+        value_set(session,'localModel',{**model,'thinkingLevel':state['thinkingLevel']})
     available=session.rpc('get_available_thinking_levels',{})
     if not available.get('success'):raise ValueError('thinking_capabilities_unknown')
     provider=getattr(session,'provider_thinking_levels',None)
     session.supported_thinking_levels=[level for level in available.get('data',{}).get('levels',[]) if provider is None or level in provider]
     return state
+
+
+HISTORY_FILE_PRESENT="""import os, stat, sys
+p=sys.argv[1]
+if os.path.realpath(p)!=p:raise ValueError('unsafe_session_path')
+try:s=os.lstat(p)
+except FileNotFoundError:print('false')
+else:
+ if not stat.S_ISREG(s.st_mode) or s.st_nlink!=1:raise ValueError('unsafe_session_file')
+ print('true')
+"""
+
+
+def record_stop_history(session):
+    state=register_session(session)
+    path=state.get('sessionFile')
+    # Pi can report a prospective file before the first persisted message.
+    present=path and decode(session.broker.docker_command(
+        ['exec',session.container,'python3','-I','-B','-c',HISTORY_FILE_PRESENT,path],maximum=100))
+    value_set(session,'stoppedHistory',{'sessionId':state['sessionId'],'seq':session.last_seq,
+        'empty':not present and state.get('messageCount')==0})
+
+
+def verify_stopped_history(session):
+    """Identify persisted history or prove the native session never wrote it."""
+    from .upgrade_linux import run_volume_probe
+    native_id=value_get(session,'currentSessionId')
+    if not isinstance(native_id,str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}',native_id):
+        raise Rejected('workspace_history_unverified')
+    path=value_get(session,'sessions',{}).get(native_id)
+    if path is not None:
+        if (not isinstance(path,str) or not path.startswith('/workspace/sessions/')
+                or '..' in path.split('/') or not path.endswith('.jsonl')):
+            raise Rejected('workspace_history_unverified')
+        if run_volume_probe(session.broker,session.image,session.volume,HISTORY_FILE_PRESENT,path) is True:
+            return {'sessionId':native_id,'seq':session.last_seq,'empty':False}
+    empty={'sessionId':native_id,'seq':session.last_seq,'empty':True}
+    proof=value_get(session,'stoppedHistory')
+    if proof==empty:
+        return empty
+    # Old Runners recorded a prospective path but not whether Pi ever flushed
+    # it. The exact absent path plus zero run sequence and no history writers
+    # prove a never-used native session. A missing file from an older used
+    # session has no such proof and keeps its original shell.
+    if proof is None and session.last_seq==0:
+        with session.broker.ledger.lock:
+            writer=session.broker.ledger.db.execute(
+                """SELECT 1 FROM workspace_controls WHERE workspace=? AND command IN
+                   ('bash','compact','steer','follow_up','session_new','session_switch','session_fork','session_clone','session_navigate')
+                   LIMIT 1""",(session.key,)).fetchone()
+        if writer is None:
+            return empty
+    raise Rejected('workspace_history_unverified')
 
 
 class Terminal:
@@ -393,6 +449,7 @@ def public_state(session, payload=None):
     return {'workspaceId': session.key, 'generation': session.identity['generation'], 'environmentStatus': session.phase,
         'activeOperationId': session.active['operationId'] if session.active else None,
         'containerId': session.container_id, 'image': session.image, 'volume': session.volume,
+        'retainedWorkspace': bool(value_get(session,'retainedShell')), 'lastSeq': session.last_seq,
         'controlSeq': max([0, *[item['controlSeq'] for item in controls(session)]]), 'controls': controls(session),
         'sessions': [{'sessionId': sid, 'current': sid == current} for sid in registry],
         'piState': getattr(session, 'pi_state', {}), 'effectiveModel': getattr(session, 'effective_model', None),
@@ -607,7 +664,8 @@ def set_mode(session, supplied):
     with session.lock:fence=install(session,supplied)
     if fence['mode']=='execute':return {'admission':fence,'drained':True}
     if session.phase=='stopped':
-        if session.broker.inspect(session)['State'].get('Running'):raise ValueError('mode_stopped_identity_unknown')
+        if value_get(session,'retainedShell'):session.broker.verify_retained(session)
+        elif session.broker.inspect(session)['State'].get('Running'):raise ValueError('mode_stopped_identity_unknown')
         if any(a['status'] in {'active','unknown'} for a in activities(session)):raise ValueError('mode_activity_unknown')
         session.local_calls.clear()
         return {'admission':fence,'drained':True,'localCalls':0,'stoppedVerified':True}
@@ -640,7 +698,7 @@ def execute_control(session, job, control_id, command, payload):
     from .server import public_event
     if session.phase in {'unknown', 'frozen', 'freezing', 'disposed'}:
         raise Rejected('workspace_unknown_fenced')
-    if session.phase in {'creating','updating'}:raise Rejected('workspace_busy')
+    if session.phase in {'creating','updating','reclaiming'}:raise Rejected('workspace_busy')
     if getattr(session,'workspace_maintenance',False):raise Rejected('workspace_busy')
     if getattr(session, 'compact_control', None) not in {None, control_id} and command not in READ:
         raise Rejected('compact_in_progress')
@@ -659,20 +717,35 @@ def execute_control(session, job, control_id, command, payload):
         raise Rejected('workspace_image_upgrade_required')
     if command == 'session_navigate':
         raise Rejected('unsupported_pi_version')
+    if command == 'reclaim_stopped':
+        if supplied is None:raise Rejected('admission_required')
+        if type(payload.get('requireLocalRestore',False)) is not bool:raise Rejected('invalid_workspace_control')
+        return session.broker.reclaim_stopped(session,control_id,payload.get('expected'),payload.get('requireLocalRestore',False))
     if command == 'wake':
-        if session.phase == 'stopped':
-            try:session.start()
+        with session.broker.lock,session.metadata_lock:
+            if supplied is None:raise Rejected('admission_required')
+            if session.phase not in IDLE|{'stopped'} or session.broker.workspace_unresolved(session,control_id):
+                raise Rejected('workspace_busy')
+            try:
+                if session.phase=='stopped':
+                    session.broker.start_stopped(session,admission=supplied,local=True,fallback_model=payload.get('localModel'))
+                else:
+                    session.restore_local(supplied,payload.get('localModel'))
             except ValueError as error:
-                if str(error)!='workspace_native_image_upgrade_required':raise
+                if session.phase=='unknown' or str(error) not in {'session_limit','workspace_native_image_upgrade_required',
+                        'workspace_local_model_unavailable','workspace_history_unverified','admission_required','stale_admission','mode_switching'}:raise
                 raise Rejected(str(error)) from error
-            session.phase = 'idle'
-            session.broker.save_session(session)
-        return {'containerId': session.container_id, 'image': session.image, 'generation': session.identity['generation']}
+        return {'containerId':session.container_id,'image':session.image,'generation':session.identity['generation'],
+                'localRestoreVersion':1,'admission':supplied}
     if command == 'pause':
+        if session.phase=='stopped' and value_get(session,'retainedShell'):
+            session.broker.verify_retained(session)
+            return {'containerId':None,'stoppedVerified':True,'retainedWorkspace':True}
         if session.phase not in IDLE:
             raise Rejected('workspace_busy')
         close_terminals(session)
         session.broker.inspect(session)
+        record_stop_history(session)
         with session.lock:
             proc, session.proc = session.proc, None
         if proc:
@@ -684,13 +757,16 @@ def execute_control(session, job, control_id, command, payload):
         session.phase = 'stopped'
         session.broker.save_session(session)
         return {'containerId': session.container_id, 'stoppedVerified': True}
+    if command == 'upgrade':
+        from .upgrade_linux import apply
+        return apply(session,payload.get('planId'),control_id=control_id,admission=supplied,local_model=payload.get('localModel'))
     if session.phase == 'stopped':
         raise Rejected('workspace_paused')
     if command in {'steer', 'follow_up'}:
         message = payload.get('message')
         if session.phase not in BUSY or session.revoked:
             raise Rejected('operation_not_active')
-        if not isinstance(message, str) or not 1 <= len(message.encode()) <= 262144 or message.lstrip().startswith(('/runner-bind', '/reload')):
+        if not isinstance(message, str) or not 1 <= len(message.encode()) <= 262144 or message.lstrip().startswith(('/runner-bind', '/runner-restore', '/reload')):
             raise Rejected('invalid_queued_message')
         with session.lock:
             session.queued_controls[control_id] = message
@@ -897,9 +973,6 @@ def execute_control(session, job, control_id, command, payload):
         return {'disposition':'queued','pendingThinkingLevel':level}
     if session.phase not in IDLE:
         raise Rejected('workspace_busy')
-    if command == 'upgrade':
-        from .upgrade_linux import apply
-        return apply(session,payload.get('planId'))
     if command == 'model_set':
         try:
             with session.metadata_lock:
@@ -1002,13 +1075,14 @@ def dispatch(session, job):
     digest = hashlib.sha256(encode(job)).hexdigest()
     ledger = session.broker.ledger
     cached_receipt=None
-    with ledger.lock, ledger.db:
+    with session.lock,ledger.lock, ledger.db:
         row = ledger.db.execute('SELECT digest,id,seq,command,status,result FROM workspace_controls WHERE workspace=? AND id=?', (session.key, control_id)).fetchone()
         if row:
             if row[0] != digest:
                 raise Rejected('control_payload_changed')
             cached_receipt = {'controlId':row[1],'controlSeq':row[2],'command':row[3],'status':row[4],**(decode(row[5]) if row[5] else {})}
         else:
+            if session.phase=='reclaiming':raise Rejected('workspace_busy')
             last = ledger.db.execute('SELECT COALESCE(MAX(seq),0) FROM workspace_controls WHERE workspace=?', (session.key,)).fetchone()[0]
             if seq <= last:raise Rejected('stale_control_sequence')
             ledger.db.execute('INSERT INTO workspace_controls VALUES (?,?,?,?,?,?,NULL)', (session.key, control_id, seq, digest, command, 'dispatching'))
@@ -1040,7 +1114,7 @@ def dispatch(session, job):
                             or getattr(session,'bash_control',None)):
                         raise Rejected('workspace_busy')
                     session.resource_installing=control_id
-            result = execute_control(session, job, control_id, command, args)
+            result = execute_control(session, job, control_id, command, dict(args))
             status = 'queued' if result.get('disposition')=='queued' or command in {'steer', 'follow_up'} and result.get('disposition') != 'handled' else 'handled' if result.get('disposition') == 'handled' else 'completed'
             # The real message event can race ahead of the RPC response. Never
             # overwrite proof of consumption with the earlier queued receipt.

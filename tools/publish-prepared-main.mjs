@@ -20,6 +20,79 @@ const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const exists=async file=>{try{await fs.access(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};
 const read=async file=>JSON.parse(await fs.readFile(file,'utf8'));
 const noProgress={begin(){},complete(){},log(){},success(){}};
+const piImageProofName='PI-IMAGE.json';
+const piImageLabels={'teruisi.pi.workspace':'2','teruisi.pi.native-capabilities':'1','teruisi.pi.local-restore':'1'};
+const sha256Pattern=/^[a-f0-9]{64}$/;
+const piImagePattern=/^sha256:[a-f0-9]{64}$/;
+
+export function piImageInputsChanged(request){
+ const roots=['containers/pi-agent/','backend/pi_runner/bundled_skills/'];
+ return (request.releasePlan?.changes??[]).some(change=>[change.path,change.before].some(file=>
+  typeof file==='string'&&roots.some(root=>file.startsWith(root))));
+}
+
+async function piImageProof(directory,identity){
+ const file=path.join(directory,piImageProofName);
+ const raw=await fs.readFile(file);
+ assert.ok(raw.length<=16384,'Pi镜像准备回执超限');
+ const proof=JSON.parse(raw.toString('utf8'));
+ assert.equal(proof.version,'teruisi-pi-image-build-v1','Pi镜像准备回执版本不符');
+ assert.deepEqual({commit:proof.sourceCommit,tree:proof.sourceTree},identity,'Pi镜像准备回执的冻结源码不符');
+ assert.match(proof.image??'',piImagePattern,'Pi镜像摘要缺失');
+ assert.match(proof.inputsSha256??'',sha256Pattern,'Pi镜像输入摘要缺失');
+ assert.deepEqual(proof.labels,piImageLabels,'Pi镜像缺少本地恢复协议标签');
+ return {kind:'built',image:proof.image,inputsSha256:proof.inputsSha256,receiptSha256:digest(raw)};
+}
+
+export async function verifyPreparedPiImageSelection(request,prepared,directory,identity){
+ const selection=prepared.piImageSelection;
+ if(piImageInputsChanged(request)){
+  assert.equal(selection?.kind,'built','缺少本次冻结源码的Pi镜像准备证明');
+  assert.deepEqual(selection,await piImageProof(directory,identity),'Pi镜像准备回执或摘要变化');
+ }else if(selection){
+  assert.equal(selection.kind,'active-runner','仅Runner源码发布的镜像来源无效');
+  assert.match(selection.configSha256??'',sha256Pattern,'原Runner配置摘要缺失');
+  assert.match(selection.image??'',piImagePattern,'原Runner镜像摘要缺失');
+ }
+ if(selection)assert.equal(prepared.piRunnerUpgrade?.image,selection.image,'原Runner升级计划与准备镜像不符');
+ return selection?.image;
+}
+
+async function activePiImage(installed){
+ const file=path.join(path.dirname(installed),'config','pi-agent.json');
+ const stat=await fs.lstat(file);
+ assert.ok(stat.isFile()&&stat.size<=16384,'原Runner配置不是受管文件');
+ const raw=await fs.readFile(file);
+ const config=JSON.parse(raw.toString('utf8'));
+ assert.equal(config.version,1,'原Runner配置版本无效');
+ assert.equal(config.enabled,true,'原Runner未启用');
+ assert.match(config.runnerImage??'',piImagePattern,'原Runner镜像未绑定');
+ return {kind:'active-runner',image:config.runnerImage,configSha256:digest(raw)};
+}
+
+async function buildPiImage({source,identity,installed,directory,api,transport,buildImage}){
+ const output=path.join(directory,piImageProofName);
+ const tag='pi-main-'+identity.commit.slice(0,12)+':p'+randomUUID().replaceAll('-','');
+ if(buildImage)await buildImage({source,identity,tag,output});
+ else{
+  const python=path.join(path.dirname(installed),'venv','Scripts','python.exe');
+  const script=path.join(source,'containers','pi-agent','build_image.py');
+  const args=['-I','-B',script,'--tag',tag,'--output',output,'--source-commit',identity.commit,'--source-tree',identity.tree];
+  let process,failure;
+  try{process=await api.runProcess(python,transport.productionCommandArguments(python,args),{cwd:source,
+   env:transport.productionCommandEnvironment(python),timeoutMs:1800000,outputProtocol:'direct-exit-files',
+   cleanup:'preserve',captureOutputBuffers:true,label:'prepare-pi-image'});}
+  catch(error){failure=error;}
+  const observed=process??failure;
+  if(observed.rawOutput){
+   await fs.writeFile(path.join(directory,'pi-image.stdout.log'),observed.rawOutput.stdout,{flag:'wx'});
+   await fs.writeFile(path.join(directory,'pi-image.stderr.log'),observed.rawOutput.stderr,{flag:'wx'});
+  }
+  await fs.writeFile(path.join(directory,'pi-image-process.json'),JSON.stringify(observed.processEvidence??null)+'\n',{flag:'wx'});
+  if(failure)throw failure;
+ }
+ return piImageProof(directory,identity);
+}
 // Worker source bindings persist the Windows spelling of one frozen source.
 // Normalize separators, dot segments and a trailing separator before binding,
 // but preserve case: existing prepared packages bind the original spelling and
@@ -73,13 +146,15 @@ export async function publishPreparedMain(request,context){
  const piRuntimeChanged=(request.releasePlan?.changes??[]).some(change=>[change.path,change.before].some(file=>
   typeof file==='string'&&file.startsWith('backend/pi_runner/')&&file.endsWith('.py')&&
   !file.split('/').some(part=>part==='tests'||part.startsWith('test_'))));
- const piUpgradeKind=['PiWorkspace','PiBusiness','PiNative'].includes(schema?.additionKind)?schema.additionKind:piRuntimeChanged?'PiNative':null;
+ const piSchemaKind=['PiWorkspace','PiBusiness','PiNative'].includes(schema?.additionKind)?schema.additionKind:null;
+ const piImageChanged=piImageInputsChanged(request);
+ const piUpgradeKind=piImageChanged?'PiNative':piSchemaKind??(piRuntimeChanged?'PiNative':null);
  const piUpgradeRequired=piUpgradeKind!==null;
   // Role contracts can change alongside any schema addition, not just their original additions.
   const aiRolesChanged=(request.releasePlan?.changes??[]).some(change=>[change.path,change.before].includes('backend/ai_assistant/database_contract.py'));
   const inventoryRolesChanged=(request.releasePlan?.changes??[]).some(change=>[change.path,change.before].includes('tools/django-inventory-service.ps1'));
  assert.ok(!piUpgradeRequired||components.django,'Pi Runner升级必须绑定本次Django准备包');
- const piUpgradeImage=piUpgradeKind==='PiNative'?piNativeImage:piUpgradeKind==='PiBusiness'?piBusinessImage:piWorkspaceImage;
+ const legacyPiUpgradeImage=piUpgradeKind==='PiNative'?piNativeImage:piUpgradeKind==='PiBusiness'?piBusinessImage:piWorkspaceImage;
  const {out,api,rotation,transport}=context;
  const source=normalizePreparedSourceRoot(context.source);
  const progress=context.progress??noProgress;
@@ -168,14 +243,18 @@ export async function publishPreparedMain(request,context){
    await beginLease();
    if(schema)await (context.verifySchemaRelease??(()=>verifyMainSchemaRelease(request,source)))();
    await refreshLease(phase);
-   let plan=null,pkg=null,piRunnerUpgrade=null,piUpgradeReceipt=null,reusedPreparation=false,djangoExpected=djangoBefore;
+   let plan=null,pkg=null,piRunnerUpgrade=null,piUpgradeReceipt=null,piImageSelection=null,reusedPreparation=false,djangoExpected=djangoBefore;
+   let piUpgradeImage=legacyPiUpgradeImage;
    if(await exists(preparationFile)){
     reusedPreparation=true;const prepared=await read(preparationFile);
     assert.equal(prepared.version,'teruisi-main-preparation-v1');
     assert.equal(prepared.requestSha256,requestSha256,'准备包的请求已变化');
     assert.deepEqual(prepared.sourceIdentity,identity,'准备包的源码版本已变化');
     plan=prepared.workerPlan;pkg=prepared.djangoPackage;djangoExpected=prepared.djangoManifestSha256;
-    if(piUpgradeRequired)piRunnerUpgrade=verifyPiUpgrade(prepared.piRunnerUpgrade,piUpgradeImage);
+    if(piUpgradeRequired){
+     piUpgradeImage=await verifyPreparedPiImageSelection(request,prepared,preparationOut,identity)??legacyPiUpgradeImage;
+     piRunnerUpgrade=verifyPiUpgrade(prepared.piRunnerUpgrade,piUpgradeImage);
+    }
     assert.equal(Boolean(plan),components.worker,'准备包Worker范围不一致');
     assert.equal(Boolean(pkg),components.django,'准备包Django范围不一致');
     // Cheap predecessor/controller qualification must fail before the expensive
@@ -207,6 +286,7 @@ export async function publishPreparedMain(request,context){
     progress.log('复用本次main已准备的包，不再构建或安装依赖。');
    }else{
     assert.ok(!deployOnly,'目标main尚未准备好；先完成 --prepare-only，再执行发布。本次未部署');
+    if(piImageChanged)assert.equal(context.prepareOnly,true,'Pi镜像输入变化要求独立执行 --prepare-only');
     if(await exists(path.join(preparationOut,'PREPARING.json')))throw Error('准备包有未完成记录，请查看原准备日志，不能自动重放：'+preparationOut);
     await fs.writeFile(path.join(preparationOut,'PREPARING.json'),JSON.stringify({at:new Date().toISOString(),requestSha256,sourceIdentity:identity}),{flag:'wx'});
    if(components.worker){
@@ -226,7 +306,18 @@ export async function publishPreparedMain(request,context){
     djangoExpected=await sha(path.join(path.dirname(installed),'app.deploy-'+pkg.id,'deployment.json'));
    }
     if(piUpgradeRequired){
+     if(piImageChanged){
+      phase='构建Pi镜像';await refreshLease(phase);progress.begin(phase);
+      assert.deepEqual(await sourceIdentity(),identity,'构建Pi镜像前冻结源码已变化');
+      piImageSelection=await buildPiImage({source,identity,installed,directory:preparationOut,api,transport,buildImage:context.buildPiImage});
+      assert.deepEqual(await sourceIdentity(),identity,'构建Pi镜像期间冻结源码已变化');
+      await refreshLease(phase);progress.complete();
+     }else if(piRuntimeChanged&&!piSchemaKind){
+      piImageSelection=await activePiImage(installed);
+     }
+     piUpgradeImage=piImageSelection?.image??legacyPiUpgradeImage;
      piRunnerUpgrade=verifyPiUpgrade(await step('准备Pi Runner升级',path.join(source,'tools/django-ai.ps1'),'PreparePiUpgrade',['-PiImage',piUpgradeImage,...(piUpgradeKind==='PiNative'?['-PiSkillVersion','1.3.0']:piUpgradeKind==='PiBusiness'?['-PiSkillVersion','1.2.0']:[]),'-PiPreparedAppId',pkg.id,'-PiPreparedAppSha256',pkg.receiptSha256],{directory:preparationOut}),piUpgradeImage);
+     if(piImageSelection?.kind==='active-runner')assert.deepEqual(await activePiImage(installed),piImageSelection,'准备期间原Runner配置已变化');
     }
     assert.deepEqual(await sourceIdentity(),identity,'打包期间源码变化');
     assert.deepEqual((await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true})).head,before.head,'准备期间Worker前驱改变');
@@ -239,7 +330,7 @@ export async function publishPreparedMain(request,context){
     assert.equal(checked.checked,true);verifyPiUpgrade(checked,piUpgradeImage);assert.equal(checked.registeredPlanSha256,piRunnerUpgrade.registeredPlanSha256);assert.equal(checked.sourceSha256,piRunnerUpgrade.sourceSha256);
    }
     const temporary=preparationFile+'.'+randomUUID()+'.tmp';
-    await fs.writeFile(temporary,JSON.stringify({version:'teruisi-main-preparation-v1',at:new Date().toISOString(),requestSha256,sourceIdentity:identity,workerPlan:plan,djangoPackage:pkg,djangoManifestSha256:djangoExpected,...(piRunnerUpgrade?{piRunnerUpgrade}:{})},null,2)+'\n',{flag:'wx'});
+    await fs.writeFile(temporary,JSON.stringify({version:'teruisi-main-preparation-v1',at:new Date().toISOString(),requestSha256,sourceIdentity:identity,workerPlan:plan,djangoPackage:pkg,djangoManifestSha256:djangoExpected,...(piRunnerUpgrade?{piRunnerUpgrade}:{}),...(piImageSelection?{piImageSelection}:{})},null,2)+'\n',{flag:'wx'});
     await fs.rename(temporary,preparationFile);
    }
    if(piRunnerUpgrade&&reusedPreparation){

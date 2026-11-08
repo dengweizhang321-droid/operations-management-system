@@ -52,11 +52,11 @@ test("relay rejects bad endpoint, missing revision, JSON success, oversized body
   for (const bad of [new Response("",{status:302,headers:{location:"https://untrusted.example"}}),new Response("",{headers:{"content-type":"text/event-stream"}}),Response.json({reply:"no stream"})]) await assert.rejects(requestDjangoAiStream(principal,{}, {environment,fetchImpl:async()=>bad}));
   await assert.rejects(requestDjangoAiStream(principal,{}, {environment,fetchImpl:async()=>Response.json({error:"未派发",code:"ai_chat_not_dispatched"},{status:409})}), (error:unknown)=>error instanceof Error && error.message === "未派发");
 });
-test("browser cancel propagates to upstream once and never starts another request", async () => {
-  let cancellations=0; let calls=0; let upstreamSignal: AbortSignal | null | undefined;
-  const result=await requestDjangoAiStream(principal,{}, {environment,onCancel:()=>cancellations++,fetchImpl:async(_,init)=>{
+test("browser stream disconnect closes upstream and never starts another request", async () => {
+  let calls=0; let upstreamSignal: AbortSignal | null | undefined;
+  const result=await requestDjangoAiStream(principal,{}, {environment,fetchImpl:async(_,init)=>{
     calls++; upstreamSignal=init?.signal;
     return new Response(new ReadableStream({pull(c){c.enqueue(encoder.encode(": waiting\n\n"));}}),{headers:{"content-type":"text/event-stream","x-ai-revision":"1"}});
   }});
-  await result.body?.cancel(); assert.equal(cancellations,1); assert.equal(calls,1); assert.equal(upstreamSignal?.aborted,true);
+  await result.body?.cancel(); assert.equal(calls,1); assert.equal(upstreamSignal?.aborted,true);
 });

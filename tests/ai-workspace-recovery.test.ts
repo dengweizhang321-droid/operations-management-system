@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { recoverAiWorkspaceRequest } from "../lib/ai/workspace-recovery";
+import { recoverAiWorkspaceRequest, requestAiChatStop } from "../lib/ai/workspace-recovery";
 import { AI_PAGE_CONTEXT_CATALOG, createAiPageContext, normalizeAiPageContext, normalizeAiPageFilters } from "../lib/ai/page-context";
 import { requestAiConversationPageWithIdentityRecovery, resolvePendingAiChatRequest } from "../app/ai-assistant-view";
 
@@ -30,6 +30,28 @@ test("pending, missing and failed receipts never dispatch or release the pending
     }) as typeof fetch }), null);
     assert.equal(calls, 1);
   }
+});
+
+test("explicit Stop uses its own POST, and a cancelled request without a conversation survives refresh", async () => {
+  const stop = { status: "cancelled", conversationId: null, assistantMessageId: null, cancelRequested: true };
+  const result = await requestAiChatStop("request-one", "sales", (async (url, options) => {
+    assert.equal(url, "/api/ai/chat/cancel");
+    assert.equal(options?.method, "POST");
+    assert.equal(options?.signal, undefined);
+    assert.equal(options?.keepalive, true);
+    assert.deepEqual(JSON.parse(String(options?.body)), { clientRequestId: "request-one", workspaceModule: "sales" });
+    return json({ ok: true, request: stop });
+  }) as typeof fetch);
+  assert.deepEqual(result, stop);
+  for (const status of ["cancelled", "stopping", "stopped", "unknown"]) {
+    const request = { ...stop, status };
+    let calls = 0;
+    assert.deepEqual(await recoverAiWorkspaceRequest({ ...input(), fetcher: (async () => {
+      calls++; return json({ request });
+    }) as typeof fetch }), request);
+    assert.equal(calls, 1);
+  }
+  await assert.rejects(requestAiChatStop("request-one", "sales", (async () => json({ ok: true })) as typeof fetch), /尚未确认/);
 });
 
 test("a mismatched conversation or exact reply cannot release recovery", async () => {

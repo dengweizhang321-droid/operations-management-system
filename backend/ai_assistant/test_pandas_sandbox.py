@@ -28,6 +28,88 @@ def page(rows=None, more=False, cursor=None, **extra):
 
 
 class PandasExportTests(SimpleTestCase):
+    def test_diagnostics_distinguish_catalog_sources_and_omit_payloads(self):
+        from .pandas_diagnostics import reference
+
+        secret = "fixture-sensitive-content"
+        parent_ref = reference("parent-request")
+        cases = [
+            ("netshop_product_daily", "items", {"items": [{"sku": secret}], "truncated": True}, "source_pagination"),
+            ("sales_category", "trend.items", {"trend": {"other": secret}}, "source_collection"),
+        ]
+        for dataset, path, data, expected_failure in cases:
+            def reader(name, _args, _principal, **_kw):
+                return {"toolName": name, "ok": True, "data": {} if name == "get_data_freshness" else data}
+
+            payload = {**PAYLOAD, "parentRequestRef": parent_ref, "code": f"# {secret}",
+                       "inputsJson": canonical([{"name": "fixture", "dataset": dataset, "collection": path,
+                                                  "query": {"limit": 1}, "columns": [secret]}])}
+            invocation = f"invocation-{dataset}"
+            with self.subTest(dataset=dataset), patch.object(sandbox, "current_principal", return_value=ADMIN), \
+                    patch.object(sandbox, "config", return_value=(b"k" * 32, IMAGE)), \
+                    patch.object(datasets.transport, "catalog", return_value=catalog_fixture()), \
+                    patch.object(datasets.transport, "execute_tool", side_effect=reader), \
+                    patch.object(sandbox, "call_runner") as runner, \
+                    self.assertLogs(sandbox.logger, "INFO") as logs, self.assertRaises(AiError):
+                sandbox.run(payload, ADMIN, invocation)
+            runner.assert_not_called()
+            events = [json.loads(line.partition("pandas_stage ")[2]) for line in logs.output]
+            self.assertTrue(all(event["requestRef"] == parent_ref and event["invocationRef"] == reference(invocation)
+                                and type(event["elapsedMs"]) is int and event["elapsedMs"] >= 0 for event in events))
+            self.assertIn((dataset, 1, expected_failure, "invalid_request"), [
+                (event.get("dataset"), event.get("page"), event["stage"], event.get("code"))
+                for event in events if event["status"] == "failed"])
+            self.assertNotIn(secret, str(logs.output))
+            self.assertNotIn(invocation, str(logs.output))
+            self.assertNotIn("parent-request", str(logs.output))
+
+    def test_django_channel_diagnostics_with_legacy_signed_broker(self):
+        from http.server import HTTPServer
+        from threading import Thread
+        from pandas_runner.server import Handler
+        from pandas_runner.test_runner import BrokerTests
+        from functools import partial
+        from .pandas_diagnostics import reference, stage
+
+        cases = [
+            {},
+            {"fail_start": True},
+            {"raw": b'{"fixture-sensitive-content":"invalid"}'},
+            {"fail_cleanup": True},
+        ]
+        for fault in cases:
+            broker = BrokerTests().broker(**fault)
+            broker.key = b"k" * 32
+            broker.reserve = lambda nonce, stamp: None
+            app_events = []
+            server = HTTPServer(("127.0.0.1", 0), Handler)
+            server.broker = broker
+            thread = Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                with self.subTest(fault=fault), patch.object(sandbox, "PORT", server.server_port):
+                    trace = partial(stage, app_events.append, sandbox.diagnostic_code, requestRef=reference("request"),
+                                    invocationRef=reference("invocation"))
+                    job = {"code": "# fixture-sensitive-content", "frames": {"sample": [{"secret": "fixture-sensitive-content"}]}}
+                    if fault:
+                        with self.assertRaises(AiError) as caught:
+                            sandbox.call_runner(job, (broker.key, IMAGE), trace)
+                        self.assertEqual(caught.exception.status, 503)
+                    else:
+                        self.assertIn("rows", sandbox.call_runner(job, (broker.key, IMAGE), trace))
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+            self.assertEqual(len({event["brokerRef"] for event in app_events}), 1)
+            self.assertEqual(len(app_events[0]["brokerRef"]), 64)
+            self.assertEqual([(event["stage"], event["status"]) for event in app_events], [
+                ("runner_prepare", "ok"), ("signed_send", "ok"), ("runner_reply_read", "ok"),
+                ("runner_reply_authentication", "ok"), ("runner_result_validation", "failed" if fault else "ok"),
+            ])
+            self.assertEqual(app_events[-1].get("code"), "signed_runner_failure" if fault else None)
+            self.assertNotIn("fixture-sensitive-content", str(app_events))
+
     def test_guangdong_total_pages_contract_does_not_require_invented_truncated_flag(self):
         item = {"name": "stock", "dataset": "inventory_guangdong", "query": {"limit": 1}}
         def response(number):
