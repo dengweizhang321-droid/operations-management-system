@@ -52,8 +52,10 @@ Windows到专用WSL的原生自动localhost映射实测不可用，本轮采用�
 
 本轮Windows进程按PID、创建时间、命令及子进程身份精确停止；PG使用原pg_ctl正常停止。两套Runner单元、中继、两端临时密钥/profile已清理；私有Docker恢复inactive、WSL恢复Stopped。独立观察7个私有端口及本轮Python/Node/workerd为零，合成库、原失败和账本停止保留。旧4单元和24意图摘要保持，生产发行版/容器未操作。
 
+三份已停Miniflare缓存文件保留。自动审批先拒绝精确私有缓存目录的递归清理，再拒绝更窄的三个文件删除，仅返回`blocked by policy`；未换工具绕过。其实际文件清单、大小及只读表行数见[缓存残留](D:/codex-artifacts/ai-isolated-functional-20261108/CACHE-RESIDUE.json)。这不影响已完成的进程停止与临时密钥清理，但不称全部临时文件已移除。
+
 五个生产监听身份仅与上一阶段原件进行只读对照，PID及CIM微秒精度创建时间一致；不是本阶段新采集的起始快照或业务健康验收。原七小数精确比较的精度差异原件也保留。生成材料179文件/3,077,761字节对五项本轮私有凭据扫描零匹配；此为限定扫描，不是全磁盘秘密证明。
 
-[清理原件](D:/codex-artifacts/ai-isolated-functional-20261108/FINAL-CLEANUP.json) · [Runner清理](D:/codex-artifacts/ai-isolated-functional-20261108/runners/RUNNERS-CLEANUP.json) · [生产身份限定对照](D:/codex-artifacts/ai-isolated-functional-20261108/PRODUCTION-COMPARISON.json)
+[清理原件](D:/codex-artifacts/ai-isolated-functional-20261108/FINAL-CLEANUP.json) · [Runner清理](D:/codex-artifacts/ai-isolated-functional-20261108/runners/RUNNERS-CLEANUP.json) · [生产身份限定对照](D:/codex-artifacts/ai-isolated-functional-20261108/PRODUCTION-COMPARISON-EXACT.json)
 
 仅提交并推送开发分支，最终提交、远端回读和证据摘要由外置DELIVERY记录。本轮未合main、未准备正式制品、未安装生产控制包、未上线。后续是否合并由用户明确决定；若要求完整日报或真实登录验收，应先提供相应正常隔离入口或单独评审精确测试适配，不用本报告替代这些缺项。
