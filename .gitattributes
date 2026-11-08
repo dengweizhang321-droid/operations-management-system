@@ -52,3 +52,22 @@ docs/ai-task-feedback-candidates-addition-20261104/*.txt -text whitespace=cr-at-
 tests/ai159-schema-native.test.ps1 -text whitespace=cr-at-eol
 docs/ai-p2-20261107/*.json -text whitespace=cr-at-eol
 docs/ai-p2-20261107/*.log -text -diff
+
+# Native isolation qualification binds these actual Windows source bytes.
+tools/django-access-control.ps1 -text whitespace=cr-at-eol
+tools/django-ai.ps1 -text whitespace=cr-at-eol
+tools/django-bi-service.ps1 -text whitespace=cr-at-eol
+tools/django-customer-service.ps1 -text whitespace=cr-at-eol
+tools/django-erp-reference.ps1 -text whitespace=cr-at-eol
+tools/django-inventory-service.ps1 -text whitespace=cr-at-eol
+tools/django-market-service.ps1 -text whitespace=cr-at-eol
+tools/django-netshop-service.ps1 -text whitespace=cr-at-eol
+tools/django-products-service.ps1 -text whitespace=cr-at-eol
+tools/django-workflow-service.ps1 -text whitespace=cr-at-eol
+tools/operations-system-control.ps1 -text whitespace=cr-at-eol
+tools/operations-system-service.ps1 -text whitespace=cr-at-eol
+tools/start-local-worker.mjs -text whitespace=cr-at-eol
+tools/worker-authority-guard.mjs -text whitespace=cr-at-eol
+tools/worker-local-release.mjs -text whitespace=cr-at-eol
+tools/worker-local-runtime-supervisor.mjs -text whitespace=cr-at-eol
+tools/worker-local-service.ps1 -text whitespace=cr-at-eol
