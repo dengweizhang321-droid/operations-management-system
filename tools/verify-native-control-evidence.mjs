@@ -6,7 +6,7 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {parseArgs} from 'node:util';
-import {hashRelativeFilesWithInventory,listGitSourceFiles,windowsPathSha256} from './worker-local-release.mjs';
+import {assertNoReparsePoint,hashTree,hashRelativeFilesWithInventory,listGitSourceFiles,windowsPathSha256} from './worker-local-release.mjs';
 
 export const nativeControlApplication=Object.freeze({
  commit:'b7280770fa5ff81e3939d6516f021c9f50b496a3',tree:'0428e06fd80a20b808bb3ee5be0ce65f06b131dd',
@@ -33,6 +33,30 @@ async function bounded(file,maximum=8*1024*1024){
 function sourceFile(root,relative){
  assert.ok(!path.posix.isAbsolute(relative)&&!relative.split('/').includes('..'));
  return path.join(root,...relative.split('/'));
+}
+
+export async function bindNativeTypeScript({dependencies,sourceRoot}={}){
+ assert.ok(dependencies,'Native compatibility checks require an explicit dependency root');
+ const proofRaw=await bounded(nativeControlApplication.evidencePath,128*1024);
+ assert.equal(sha(proofRaw),nativeControlApplication.evidenceSha256);
+ const proof=JSON.parse(proofRaw);
+ assert.equal(normalized(proof.runtimeRoot),normalized('D:/codex-isolated/native-control-ai-20261108'));
+ assert.match(proof.releaseId,/^\d{8}T\d{6}Z-[a-f0-9]{16}$/);
+ const release=path.join(proof.runtimeRoot,'worker','releases',proof.releaseId);
+ const rawManifest=await bounded(path.join(release,'deployment-manifest.json'));
+ assert.equal(sha(rawManifest),proof.manifestSha256,'Native dependency origin manifest changed');
+ const manifest=JSON.parse(rawManifest),lockRaw=await fs.readFile(path.join(sourceRoot,'package-lock.json'));
+ assert.equal(sha(lockRaw),manifest.source.packageLockSha256,'Check dependencies belong to a different lock');
+ const lock=JSON.parse(lockRaw),physicalRoot=await fs.realpath(path.join(dependencies,'typescript'));
+ const nativePackageRoot=path.join(release,'node_modules','typescript');
+ await assertNoReparsePoint(nativePackageRoot,{label:'private native TypeScript package'});
+ const packageJson=JSON.parse(await bounded(path.join(physicalRoot,'package.json'),65536));
+ assert.equal(packageJson.name,'typescript');assert.equal(packageJson.version,lock.packages['node_modules/typescript'].version);
+ assert.equal(Object.keys(packageJson.dependencies??{}).length,0,'Unexpected transitive TypeScript check dependency');
+ const [tree,nativeTree]=await Promise.all([hashTree(physicalRoot),hashTree(nativePackageRoot)]);
+ assert.deepEqual(tree,nativeTree,'TypeScript check bytes differ from the native verified package');
+ return {scope:'typescript-package-only',physicalRoot,tree,version:packageJson.version,nativePackageRoot,
+  nativeManifestSha256:proof.manifestSha256,packageLockSha256:sha(lockRaw)};
 }
 
 export async function verifyNativeControlEvidence({applicationRoot,candidateRoot,evidenceFile=nativeControlApplication.evidencePath}={}){

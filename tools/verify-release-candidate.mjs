@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import {makeReleasePlan} from './release-scope-plan.mjs';
 import {publisherEnvironment} from './publish-latest-main.mjs';
 import {hashTree} from './worker-local-release.mjs';
-import {nativeControlApplication} from './verify-native-control-evidence.mjs';
+import {nativeControlApplication,bindNativeTypeScript} from './verify-native-control-evidence.mjs';
 import {dingtalkScreenshotAclQualification,aDescendantCreationGuardDjangoScriptSha256,piNativeCandidateDjangoScriptSha256,bWorkerJsonFailureCauseScriptSha256,readinessCopyControllerPair,pandasRotationControllerPair} from './manual-maintenance-continuation.mjs';
 
 /** A 项 (2026-10-25): one exact installed -> candidate django-local-service.ps1
@@ -334,7 +334,7 @@ export const nativeControlTailPins=Object.freeze({
  'tools/manual-maintenance-continuation.mjs':Object.freeze({blob:'97b69819e86adfbfb56a742b7841b837f62eff14',sha256:'dc8bd0e573c729309a771ffcd598ea04eb06dc2e7dbc138fa6ccc467dfe6e940'}),
  'tools/manual-maintenance-process.psm1':Object.freeze({blob:'d007b60858eb7e589b2dbb7129aea2433a08a53d',sha256:'cca4e66c4d07496c431d4e7e711bb189f2ecc4a33bb2951c52017879c4655796'}),
  'tools/native-isolation.ps1':Object.freeze({blob:'b5aca76d791c78e3c243cfc9c38edc68ed57a525',sha256:'a5499003d2e269b8a3d6cdb6bce70fcd2f02434c541620ccdaa151f0c7f52343'}),
- 'tools/verify-native-control-evidence.mjs':Object.freeze({blob:'ed334a2e914949ac9d2c5021b3999f45dfb53afc',sha256:'5223287df9e339d4de0cbfafe1280ff983ed0882fad5e2425baaacae7aca412c'}),
+ 'tools/verify-native-control-evidence.mjs':Object.freeze({blob:'6dd516d03da657a48c92f7d6fc1e6b64b7ae2af5',sha256:'f1a996db66cbe6ed998a183b1def5383c3d1f57cb3d51098a8036528ff5d6ebd'}),
  'tests/native-maintenance-pins.ps1':Object.freeze({blob:'ed32902261c687dcb26143a85bb5658e63c4f022',sha256:'61b9220177e528aca713f5cca020281bdf9a1bd2b252c230c439523a840c36f6'}),
  'tests/native-isolation-qualification.test.mjs':Object.freeze({blob:'0675b9ab5d8fc3b9f2caeba4c96cd75515aa9a46',sha256:'763ea38a4547be8b2601e908ae7934de1da569e33503165bb9f784f3fd2f2ef1'}),
  'tests/native-isolation-credential-gate.test.mjs':Object.freeze({blob:'eebfc9efa94f12e1c3245d2b8b2dce8a15239c02',sha256:'4c7544529c9f6fdeb532661d176e543464d2120a26aa690f08325b38baba5ec4'}),
@@ -836,10 +836,14 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   report.tools=await Promise.all([process.execPath,shell5,shell7,pythonExe,gitExe].map(async file=>({path:file,sha256:sha(await fs.readFile(file))})));
   report.powerShellModules={root:environment.PSModulePath,tree:await hashTree(environment.PSModulePath)};
   await git(source,['worktree','add','--detach',candidate,commit]);attached=true;
-  assert.ok(nativeControl||dependencies||(!profile.worker&&!profile.django&&!profile.publication),'该profile需要显式的只读依赖目录');
-  // This finite profile uses standard-library checks only and verifies the
-  // original native package/dependency proofs instead of rescanning a cache.
-  if(dependencies&&!nativeControl){
+  assert.ok(dependencies||(!profile.worker&&!profile.django&&!profile.publication),'该profile需要显式的只读依赖目录');
+  // This finite profile needs TypeScript for the original AST boundary check.
+  // Bind that complete package to the native installation, not the whole cache.
+  if(nativeControl){
+   report.dependencies=await bindNativeTypeScript({dependencies,sourceRoot:candidate});
+   await fs.mkdir(path.join(candidate,'node_modules'));
+   await fs.symlink(report.dependencies.physicalRoot,path.join(candidate,'node_modules','typescript'),'junction');
+  }else if(dependencies){
    assert.ok((await fs.stat(path.join(dependencies,'typescript','package.json'))).isFile(),'依赖不完整');
    await fs.symlink(path.resolve(dependencies),path.join(candidate,'node_modules'),'junction');
    const physicalRoot=await fs.realpath(dependencies);
@@ -1031,7 +1035,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    assert.equal(report.nativeVerification.nativeColdStart,true);assert.equal(report.nativeVerification.executedApplicationCommit,nativeControl.application);
    assert.equal(report.nativeVerification.evidenceSha256,nativeControl.evidenceSha256);
    report.nativeVerificationSha256=sha(await fs.readFile(verified));
-   report.dependencyValidation={mode:'original-native-package-evidence-reuse',checksUseStandardLibrariesOnly:true,...report.nativeVerification.nativeDependencyEvidence};
+   report.dependencyValidation={mode:'native-runtime-evidence-and-bounded-typescript',checkDependencyScope:'typescript-package-only',...report.nativeVerification.nativeDependencyEvidence};
   }else if(integration){
    await run('ai-repair-integration-scope-and-entry',process.execPath,['--test',integration.test],'native-entry-boundary',
     {...environment,TERUISI_AI_INTEGRATION_PS5:shell5,TERUISI_AI_INTEGRATION_PS7:shell7});
@@ -1194,6 +1198,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   if(nativeAttached){try{await git(source,['worktree','remove',nativeApplication]);report.nativeApplicationWorktreeRemoved=true;}catch(error){report.nativeApplicationWorktreeRemoved=false;report.cleanupError=String(error.message);report.status='failed';}}
   if(attached){
    try{
+    if(nativeControl&&report.dependencies){const link=path.join(candidate,'node_modules','typescript');const info=await fs.lstat(link);assert.ok(info.isSymbolicLink());assert.equal(await fs.realpath(link),report.dependencies.physicalRoot);await fs.unlink(link);await fs.rmdir(path.dirname(link));}
     const modules=path.join(candidate,'node_modules');try{if((await fs.lstat(modules)).isSymbolicLink())await fs.unlink(modules);}catch(e){if(e.code!=='ENOENT')throw e;}
     await git(source,['worktree','remove',candidate]);report.candidateWorktreeRemoved=true;
    }catch(error){report.candidateWorktreeRemoved=false;report.cleanupError=String(error.message);report.status='failed';}
