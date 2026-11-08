@@ -328,7 +328,18 @@ export const nativeControlQualification=Object.freeze({
  application:nativeControlApplication.commit,tree:nativeControlApplication.tree,
  evidenceSha256:nativeControlApplication.evidenceSha256,
  test:'tests/native-control-compatibility.test.mjs',
- testSha256:'d56aa01da62ca7739e59c0b80ff7e4dc88f3fa6f9b04f0ebad185f3db24a50e2',
+ testSha256:'d3ac369f89b73f1aeb10984a55465293e491a3dcc2fbb71fdee427dfc40bcfc2',
+});
+export const nativeControlTailPins=Object.freeze({
+ 'tools/manual-maintenance-continuation.mjs':Object.freeze({blob:'97b69819e86adfbfb56a742b7841b837f62eff14',sha256:'dc8bd0e573c729309a771ffcd598ea04eb06dc2e7dbc138fa6ccc467dfe6e940'}),
+ 'tools/manual-maintenance-process.psm1':Object.freeze({blob:'d007b60858eb7e589b2dbb7129aea2433a08a53d',sha256:'cca4e66c4d07496c431d4e7e711bb189f2ecc4a33bb2951c52017879c4655796'}),
+ 'tools/native-isolation.ps1':Object.freeze({blob:'b5aca76d791c78e3c243cfc9c38edc68ed57a525',sha256:'a5499003d2e269b8a3d6cdb6bce70fcd2f02434c541620ccdaa151f0c7f52343'}),
+ 'tools/verify-native-control-evidence.mjs':Object.freeze({blob:'ed334a2e914949ac9d2c5021b3999f45dfb53afc',sha256:'5223287df9e339d4de0cbfafe1280ff983ed0882fad5e2425baaacae7aca412c'}),
+ 'tests/native-maintenance-pins.ps1':Object.freeze({blob:'ed32902261c687dcb26143a85bb5658e63c4f022',sha256:'61b9220177e528aca713f5cca020281bdf9a1bd2b252c230c439523a840c36f6'}),
+ 'tests/native-isolation-qualification.test.mjs':Object.freeze({blob:'0675b9ab5d8fc3b9f2caeba4c96cd75515aa9a46',sha256:'763ea38a4547be8b2601e908ae7934de1da569e33503165bb9f784f3fd2f2ef1'}),
+ 'tests/native-isolation-credential-gate.test.mjs':Object.freeze({blob:'eebfc9efa94f12e1c3245d2b8b2dce8a15239c02',sha256:'4c7544529c9f6fdeb532661d176e543464d2120a26aa690f08325b38baba5ec4'}),
+ 'tests/native-control-compatibility.test.mjs':Object.freeze({blob:'c1d96ffabaeeca359b0111de6891e75bfafa1440',sha256:'d3ac369f89b73f1aeb10984a55465293e491a3dcc2fbb71fdee427dfc40bcfc2'}),
+ 'tests/worker-source-read-once.test.mjs':Object.freeze({blob:'5a4a3e493b1a8bc0b21618f516f3be81f159c5a2',sha256:'7f89e658370d0531e670e2aed539b90fe2d8d603ac4e9cd36e7e48f4fef3fcec'}),
 });
 export function nativeControlScopeMatches(records,baseCommit){
  if(baseCommit!==nativeControlQualification.base||records.length%2)return false;
@@ -337,13 +348,18 @@ export function nativeControlScopeMatches(records,baseCommit){
   ['tools/native-isolation.ps1','M'],['tools/verify-release-candidate.mjs','M'],['tools/verify-native-control-evidence.mjs','A'],
   ['tests/native-maintenance-pins.ps1','A'],['tests/native-isolation-qualification.test.mjs','A'],
   ['tests/native-isolation-credential-gate.test.mjs','A'],['tests/native-control-compatibility.test.mjs','A'],
+  ['tests/worker-source-read-once.test.mjs','M'],
  ]),seen=new Set();
  for(let index=0;index<records.length;index+=2){
   const [entry,file]=[records[index],records[index+1]];
-  const match=/^:(000000|100644) 100644 [a-f0-9]{40} [a-f0-9]{40} ([AM])$/.exec(entry);
-  if(!match||(match[1]==='000000')!==(match[2]==='A')||seen.has(file))return false;
+  const match=/^:(000000|100644) 100644 ([a-f0-9]{40}) ([a-f0-9]{40}) ([AM])$/.exec(entry);
+  if(!match||(match[1]==='000000')!==(match[4]==='A')||seen.has(file))return false;
   seen.add(file);
-  if(required.has(file)){if(required.get(file)!==match[2])return false;continue;}
+  if(required.has(file)){
+   if(required.get(file)!==match[4])return false;
+   if(file!=='tools/verify-release-candidate.mjs'&&nativeControlTailPins[file]?.blob!==match[3])return false;
+   continue;
+  }
   if(file==='docs/任务记录/README.md')continue;
   if(!/^docs\/ai-native-control-isolation-20261108\/[^/]+\.(?:md|html|json)$/.test(file))return false;
  }
@@ -841,6 +857,8 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   report.payloadSha256=sha(Buffer.from(JSON.stringify(report.payload)));
   if(nativeControl){
    assert.equal(report.payload.find(member=>member.path===nativeControl.test)?.sha256,nativeControl.testSha256,'Native scope checker bytes changed');
+   for(const [name,pin] of Object.entries(nativeControlTailPins))assert.equal(report.payload.find(member=>member.path===name)?.sha256,pin.sha256,'Native qualification tail bytes changed: '+name);
+   report.nativeQualificationTailPins=nativeControlTailPins;
    report.applicationQualification=nativeControl;report.requiresNativeColdStart=true;
    report.requiredNativeScopes=['windowsApplicationStack','piRunner','pandasBroker'];
   }

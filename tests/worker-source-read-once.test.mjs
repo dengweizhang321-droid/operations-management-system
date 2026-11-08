@@ -54,6 +54,7 @@ async function instrument(root) {
   source=source.replace('const toolchain = await resolveBundledNpmToolchain();',`const toolchain = {nodeExecutablePath:process.execPath,npmCliPath:'private-fixture',provenance:${JSON.stringify(provenance)}};`);
   source=source.replace('const result = await runProcess(toolchain.nodeExecutablePath, [toolchain.npmCliPath, "config", "get", key], { cwd: sourceRoot, label: "npm configuration identity" });','const result = {stdout:path.join(sourceRoot,"missing-"+key)};');
   source=source.replace('const identity=await workerPreparationIdentity(value.sourceRoot);','const identity=await workerPreparationIdentity(value.sourceRoot,globalThis['+JSON.stringify(key)+'].devVars);');
+  await writeFile(path.join(root,'native-isolation.mjs'),await readFile(new URL('../tools/native-isolation.mjs',import.meta.url)));
   const target=path.join(root,'instrumented.mjs');await writeFile(target,source);
   const api=await import(pathToFileURL(target));
   return {api,state,dispose:()=>{delete globalThis[key];}};
