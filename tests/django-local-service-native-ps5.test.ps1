@@ -72,6 +72,24 @@ exit $ExitCode
     throw "native failure summary exposed raw stderr or omitted bounded evidence"
   }
 
+  # Opt-in readable evidence (used for genuine native-process failures, e.g.
+  # ConvertFrom-UniqueNativeJson's exit-code check): credentials must still
+  # be redacted, but the failure text itself must now be legible instead of
+  # requiring the caller to reverse outputSha256 against a guessed literal.
+  $failureSummaryWithText = Get-NativeFailureSummary $failure $true
+  if ($failureSummaryWithText -notmatch "^exitCode=19; " -or
+      $failureSummaryWithText -notmatch "outputSha256=[0-9a-f]{64}; " -or
+      $failureSummaryWithText -notmatch "outputRedacted=" -or
+      $failureSummaryWithText -match "do-not-print|postgresql://user:|password=do-not-print") {
+    throw "redacted-text summary leaked a credential or omitted the hash"
+  }
+  if ($failureSummaryWithText -notmatch [regex]::Escape('warning credential=[redacted] postgresql://[redacted]@127.0.0.1/db')) {
+    throw "redacted-text summary did not surface a legible, redacted failure reason"
+  }
+  if (-not $failureSummaryWithText.StartsWith($failureSummary, [StringComparison]::Ordinal)) {
+    throw "redacted-text summary changed the existing default fields instead of only appending"
+  }
+
   $duplicateOutput = @('{"status":"first"}', 'warning after JSON', '{"status":"second"}')
   $duplicateRun = [pscustomobject][ordered]@{
     ExitCode = 0

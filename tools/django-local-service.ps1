@@ -257,6 +257,11 @@ function Get-BoundedNativeDiagnostic([object[]]$Output) {
     CapturedRecordCount = [int]$capturedRecords
     OutputTruncated = [bool]$truncated
     OutputSha256 = Get-Sha256Text $builder.ToString()
+    # Already bounded (<=4096 chars) and redacted above (credential/token/
+    # authorization and URI-embedded credential patterns). Kept alongside the
+    # hash so failures are diagnosable without reversing the hash against a
+    # guessed literal; the hash remains the exact-match evidence field.
+    RedactedText = $builder.ToString()
   }
 }
 
@@ -316,8 +321,20 @@ function Invoke-BoundedNativeProcess(
   }
 }
 
-function Get-NativeFailureSummary([object]$Run) {
-  return (
+function Get-NativeFailureSummary([object]$Run, [bool]$IncludeRedactedText = $false) {
+  # Default output is unchanged: exact existing format and length, still only
+  # the hash. Many call sites (process-identity checks, ambiguous-output
+  # rejection, etc.) rely on that string never echoing native output, even
+  # redacted output, by default; one such contract is asserted directly in
+  # tests/django-local-service-native-ps5.test.ps1 (duplicate JSON probe).
+  # Opting in with -IncludeRedactedText appends the same bounded text whose
+  # hash is outputSha256 (Get-BoundedNativeDiagnostic already redacts
+  # password/token/authorization and URI-embedded credentials before this
+  # point), so a caller handling a genuine native failure can surface a
+  # human-readable reason without reversing the hash against a guessed
+  # literal. outputSha256 is never removed; it stays the exact-match
+  # evidence field.
+  $summary = (
     "exitCode=$([int]$Run.ExitCode); " +
     "launchFailed=$([bool]$Run.LaunchFailed); " +
     "outputRecordCount=$([int]$Run.Diagnostic.OutputRecordCount); " +
@@ -325,11 +342,19 @@ function Get-NativeFailureSummary([object]$Run) {
     "outputTruncated=$([bool]$Run.Diagnostic.OutputTruncated); " +
     "outputSha256=$([string]$Run.Diagnostic.OutputSha256)"
   )
+  if ($IncludeRedactedText) {
+    $summary += "; outputRedacted=$([string]$Run.Diagnostic.RedactedText)"
+  }
+  return $summary
 }
 
 function ConvertFrom-UniqueNativeJson([object]$Run, [string]$Operation) {
   if ($Run.ExitCode -ne 0) {
-    throw "$Operation 失败（$(Get-NativeFailureSummary $Run)）"
+    # A nonzero exit code is a genuine native failure (the process itself
+    # reported it failed), not merely ambiguous output; surface the bounded
+    # redacted text so this does not require reversing outputSha256 against
+    # a guessed literal.
+    throw "$Operation 失败（$(Get-NativeFailureSummary $Run $true)）"
   }
   $payloads = [Collections.Generic.List[object]]::new()
   foreach ($record in @($Run.Output)) {
@@ -355,7 +380,10 @@ function Write-NativeDiagnosticLog(
   [string]$Operation,
   [object]$Run
 ) {
-  $line = "operation=$Operation; $(Get-NativeFailureSummary $Run)"
+  # This is itself the controlled diagnostic file (per-run log under
+  # $LogDirectory, not a caller-facing exception message), so it is safe to
+  # always record the bounded redacted text here rather than only the hash.
+  $line = "operation=$Operation; $(Get-NativeFailureSummary $Run $true)"
   [IO.File]::AppendAllText($Path, $line + [Environment]::NewLine, $Utf8NoBom)
   if ($Operation -in @('django_migrate', 'django_runtime_grants') -and
       $Run.PSObject.Properties.Name -contains 'ElapsedMilliseconds') {

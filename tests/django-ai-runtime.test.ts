@@ -57,3 +57,72 @@ Write-Output 'AI writer and reader callbacks each executed once'
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /AI writer and reader callbacks each executed once/);
 });
+
+test("Stop-AiStack runs every stop step even when earlier ones throw, then raises one aggregated error", t => {
+  const powershell = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32/WindowsPowerShell/v1.0/powershell.exe");
+  if (process.platform !== "win32" || !existsSync(powershell)) { t.skip("Windows PowerShell 5 is unavailable"); return; }
+  const controller = fileURLToPath(new URL("../tools/django-ai.ps1", import.meta.url));
+  const script = `
+$ErrorActionPreference='Stop'
+$sourcePath=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(controller).toString("base64")}'))
+$tokens=$null; $errors=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseInput([IO.File]::ReadAllText($sourcePath,[Text.Encoding]::UTF8),[ref]$tokens,[ref]$errors)
+if($errors.Count){throw 'Controller syntax error'}
+$target=$ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Stop-AiStack'},$true)
+if(-not $target){throw 'Missing Stop-AiStack'}
+function Assert-AiRuntimeEntry([string]$LifecycleAclToken=""){ $script:calls += 'Assert-AiRuntimeEntry' }
+function Stop-PiRuntime { $script:calls += 'Stop-PiRuntime'; throw 'pi runtime stop failed: synthetic' }
+function Stop-OwnedProcess([string]$Service,[string]$PidPath,[string]$ExpectedExecutable){ $script:calls += "Stop-OwnedProcess($Service)" }
+function Stop-PandasSandbox { $script:calls += 'Stop-PandasSandbox' }
+$DingTalkSchedulePidPath='x';$DingTalkPidPath='x';$AiWriterPidPath='x';$AiReaderPidPath='x';$Python='python';$Waitress='waitress'
+. ([scriptblock]::Create($target.Extent.Text))
+$script:calls=@()
+$threw=$false
+try { Stop-AiStack } catch {
+  $threw=$true
+  $message=[string]$_.Exception.Message
+  if($message -notmatch 'Stop-PiRuntime' -or $message -notmatch 'pi runtime stop failed: synthetic'){throw 'aggregated error missing failing step name or reason'}
+}
+if(-not $threw){throw 'Stop-AiStack did not raise despite a failing step'}
+$expectedOrder=@('Assert-AiRuntimeEntry','Stop-PiRuntime','Stop-OwnedProcess(django-ai-dingtalk-schedule)','Stop-OwnedProcess(django-ai-dingtalk)','Stop-OwnedProcess(django-ai-writer)','Stop-OwnedProcess(django-ai-reader)','Stop-PandasSandbox')
+if(@(Compare-Object $expectedOrder $script:calls -SyncWindow 0).Count -ne 0){throw "not every step ran despite the first throwing: $($script:calls -join ',')"}
+Write-Output 'all steps ran and the aggregated failure named the failing step'
+`;
+  const result = spawnSync(powershell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")], { encoding: "utf8", windowsHide: true, timeout: 10000 });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /all steps ran and the aggregated failure named the failing step/);
+});
+
+test("Stop-AiStack reports every failing step, not only the first", t => {
+  const powershell = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32/WindowsPowerShell/v1.0/powershell.exe");
+  if (process.platform !== "win32" || !existsSync(powershell)) { t.skip("Windows PowerShell 5 is unavailable"); return; }
+  const controller = fileURLToPath(new URL("../tools/django-ai.ps1", import.meta.url));
+  const script = `
+$ErrorActionPreference='Stop'
+$sourcePath=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(controller).toString("base64")}'))
+$tokens=$null; $errors=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseInput([IO.File]::ReadAllText($sourcePath,[Text.Encoding]::UTF8),[ref]$tokens,[ref]$errors)
+if($errors.Count){throw 'Controller syntax error'}
+$target=$ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Stop-AiStack'},$true)
+if(-not $target){throw 'Missing Stop-AiStack'}
+function Assert-AiRuntimeEntry([string]$LifecycleAclToken=""){}
+function Stop-PiRuntime { throw 'pi runtime stop failed: synthetic-A' }
+function Stop-OwnedProcess([string]$Service,[string]$PidPath,[string]$ExpectedExecutable){ if($Service -ceq 'django-ai-reader'){ throw 'reader stop failed: synthetic-B' } }
+function Stop-PandasSandbox { throw 'pandas sandbox stop failed: synthetic-C' }
+$DingTalkSchedulePidPath='x';$DingTalkPidPath='x';$AiWriterPidPath='x';$AiReaderPidPath='x';$Python='python';$Waitress='waitress'
+. ([scriptblock]::Create($target.Extent.Text))
+try {
+  Stop-AiStack
+  throw 'Stop-AiStack did not raise despite three failing steps'
+} catch {
+  $message=[string]$_.Exception.Message
+  foreach($needle in @('synthetic-A','synthetic-B','synthetic-C')){
+    if($message -notmatch $needle){throw "aggregated error dropped a failure: missing $needle in $message"}
+  }
+  Write-Output 'aggregated error named all three independent failures'
+}
+`;
+  const result = spawnSync(powershell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")], { encoding: "utf8", windowsHide: true, timeout: 10000 });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /aggregated error named all three independent failures/);
+});
