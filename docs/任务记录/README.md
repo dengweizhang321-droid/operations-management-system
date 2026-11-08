@@ -1,5 +1,7 @@
 # 任务记录目录
 
+[AI 原生 Windows 控制链隔离证明](../ai-native-control-isolation-20261108/REPORT.md) · [离线 HTML](../ai-native-control-isolation-20261108/REPORT.html) · [原生与 G02 独审](../ai-native-control-isolation-20261108/REVIEW-NATIVE-G02.md)（两轮原生启停与 G02 通过，未合并、未上线）。
+
 [AI 三批整合与隔离真实启动](../ai-repair-integration-20261108/REPORT.md) · [离线 HTML](../ai-repair-integration-20261108/REPORT.html) · [最终独立反审](../ai-repair-integration-20261108/REVIEW-FINAL.md)（开发候选，原生冷启动缺口保留，未合并、未上线）。
 
 [AI 修复第一批开发与逐项 Astra 反审](../ai-repair-batch1-20261107/REPORT.md) · [小任务状态](../ai-repair-batch1-20261107/STATUS.md) · [批次交接](../ai-repair-batch1-20261107/HANDOFF.md)
