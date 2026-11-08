@@ -1,3 +1,4 @@
+import { nativePort } from "./native-isolation.mjs";
 import { spawn } from "node:child_process";
 import { access, link, mkdir, stat } from "node:fs/promises";
 import { createConnection } from "node:net";
@@ -8,8 +9,8 @@ import { assertLegacyWorkerLaunchAllowed } from "./worker-authority-guard.mjs";
 
 const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const localWorkerHost = "127.0.0.1";
-const localWorkerPort = 3000;
-const tmallWorkflowHelperPort = 5791;
+const localWorkerPort = nativePort(3000);
+const tmallWorkflowHelperPort = nativePort(5791);
 const helperStableLifetimeMs = 30_000;
 const localScheduledTriggerUrl = `http://127.0.0.1:${localWorkerPort}/_teruisi/local/market-annotation-scheduled`;
 const localScheduledInitialDelayMs = 5_000;
@@ -113,7 +114,7 @@ export function parseLocalWorkerArguments(args = []) {
   };
 }
 
-export function isLocalWorkerPortInUse(port = 3000, host = "127.0.0.1") {
+export function isLocalWorkerPortInUse(port = localWorkerPort, host = "127.0.0.1") {
   return new Promise((resolvePort) => {
     const socket = createConnection({ port, host });
     let settled = false;

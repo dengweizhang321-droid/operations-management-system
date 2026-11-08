@@ -181,9 +181,10 @@ def gateway_capability(op):
     from .policy import AiError, mutation
     from .model_capabilities import options
     from .configuration import resolve_model
-    url = os.getenv("PI_GATEWAY_URL", "http://127.0.0.1:8112/api/ai/pi/gateway")
+    from pandas_runner.native_isolation import native_port
+    url = os.getenv("PI_GATEWAY_URL", f"http://127.0.0.1:{native_port(8112)}/api/ai/pi/gateway")
     parsed = urlsplit(url)
-    if (parsed.scheme != "http" or parsed.hostname != "127.0.0.1" or parsed.port != 8112
+    if (parsed.scheme != "http" or parsed.hostname != "127.0.0.1" or parsed.port != native_port(8112)
             or parsed.path != "/api/ai/pi/gateway" or parsed.query or parsed.fragment or parsed.username):
         raise AiError("Pi 网关必须使用独立精确回环路径", "service_unavailable", 503)
     token = secrets.token_urlsafe(48)

@@ -11,6 +11,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "native-isolation.ps1")
+$RuntimeRoot = Get-NativeRuntimeRoot "django" $RuntimeRoot ($PSBoundParameters.ContainsKey("RuntimeRoot"))
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
 $RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
@@ -36,8 +38,8 @@ $OrchestratedLifecycleAclToken = $RequestedOrchestratedLifecycleAclToken
 $NetshopCredentialPath = Join-Path $RuntimeRoot "secrets\netshop-credentials.dpapi.json"
 $NetshopReaderPidPath = Join-Path $RunDirectory "django-netshop-reader.pid.json"
 $NetshopWriterPidPath = Join-Path $RunDirectory "django-netshop-writer.pid.json"
-$NetshopReaderHealthUrl = "http://127.0.0.1:8021/health/ready"
-$NetshopWriterHealthUrl = "http://127.0.0.1:8022/health/ready"
+$NetshopReaderHealthUrl = "http://127.0.0.1:$($NativePorts[8021])/health/ready"
+$NetshopWriterHealthUrl = "http://127.0.0.1:$($NativePorts[8022])/health/ready"
 $NetshopStartupPath = Join-Path $RuntimeRoot "netshop-service-enabled.json"
 $NetshopReaderMaxBodyBytes = 1048576
 $NetshopWriterMaxBodyBytes = 134217728
@@ -55,7 +57,7 @@ function Assert-NetshopRuntimeEntry([string]$LifecycleAclToken = "") {
 }
 
 function Assert-NetshopPortsFree([string]$Operation) {
-  if (@(Get-PortListeners 8021).Count -gt 0 -or @(Get-PortListeners 8022).Count -gt 0) {
+  if (@(Get-PortListeners $NativePorts[8021]).Count -gt 0 -or @(Get-PortListeners $NativePorts[8022]).Count -gt 0) {
     throw "$Operation 前必须先停止 Django 网店 reader/writer"
   }
   if (Resolve-OwnedProcess "django-netshop-reader" $NetshopReaderPidPath $Waitress) {
@@ -349,17 +351,17 @@ print(json.dumps({
 
 function Start-NetshopReader([object]$RuntimeSecrets, [object]$NetshopSecrets, [switch]$DeferReady) {
   $arguments = @(
-    "--listen=127.0.0.1:8021", "--threads=6", "--connection-limit=60",
+    "--listen=127.0.0.1:$($NativePorts[8021])", "--threads=6", "--connection-limit=60",
     "--channel-timeout=35", "--cleanup-interval=30", "--ident=teruisi-django-netshop-reader",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$NetshopReaderMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-netshop-reader" $Waitress $arguments
   if (Resolve-OwnedProcess "django-netshop-reader" $NetshopReaderPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "netshop-reader" $NetshopReaderHealthUrl "127.0.0.1:8021"
+    Wait-DjangoReady "netshop-reader" $NetshopReaderHealthUrl "127.0.0.1:$($NativePorts[8021])"
     return $false
   }
-  if (@(Get-PortListeners 8021).Count -gt 0) { throw "端口 8021 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8021]).Count -gt 0) { throw "端口 8021 被非本部署服务占用" }
   Remove-OldServiceLogs "django-netshop-reader"
   $readerUrl = Database-Url `
     "teruisi_netshop_reader" $NetshopSecrets.ReaderPassword `
@@ -375,7 +377,7 @@ function Start-NetshopReader([object]$RuntimeSecrets, [object]$NetshopSecrets, [
   # The stack owns rollback after launch; its final readiness barrier remains mandatory.
   if ($DeferReady) { return $true }
   try {
-    Wait-DjangoReady "netshop-reader" $NetshopReaderHealthUrl "127.0.0.1:8021"
+    Wait-DjangoReady "netshop-reader" $NetshopReaderHealthUrl "127.0.0.1:$($NativePorts[8021])"
     return $true
   } catch {
     Stop-OwnedProcess "django-netshop-reader" $NetshopReaderPidPath $Waitress
@@ -391,17 +393,17 @@ function Start-NetshopWriter(
     throw "PostgreSQL 尚未成为网店唯一写入源；拒绝启动网店 writer"
   }
   $arguments = @(
-    "--listen=127.0.0.1:8022", "--threads=4", "--connection-limit=20",
+    "--listen=127.0.0.1:$($NativePorts[8022])", "--threads=4", "--connection-limit=20",
     "--channel-timeout=960", "--cleanup-interval=30", "--ident=teruisi-django-netshop-writer",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$NetshopWriterMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-netshop-writer" $Waitress $arguments
   if (Resolve-OwnedProcess "django-netshop-writer" $NetshopWriterPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "netshop-writer" $NetshopWriterHealthUrl "127.0.0.1:8022"
+    Wait-DjangoReady "netshop-writer" $NetshopWriterHealthUrl "127.0.0.1:$($NativePorts[8022])"
     return $false
   }
-  if (@(Get-PortListeners 8022).Count -gt 0) { throw "端口 8022 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8022]).Count -gt 0) { throw "端口 8022 被非本部署服务占用" }
   Remove-OldServiceLogs "django-netshop-writer"
   $writerUrl = Database-Url `
     "teruisi_netshop_writer" $NetshopSecrets.WriterPassword `
@@ -418,7 +420,7 @@ function Start-NetshopWriter(
   # The stack owns new-process rollback and the final readiness barrier.
   if ($DeferReady) { return $true }
   try {
-    Wait-DjangoReady "netshop-writer" $NetshopWriterHealthUrl "127.0.0.1:8022"
+    Wait-DjangoReady "netshop-writer" $NetshopWriterHealthUrl "127.0.0.1:$($NativePorts[8022])"
     return $true
   } catch {
     Stop-OwnedProcess "django-netshop-writer" $NetshopWriterPidPath $Waitress
@@ -457,10 +459,10 @@ function Start-NetshopStack([string]$LifecycleAclToken = "") {
     if ([string]$authority.status -ceq "postgres") {
       $writerStarted = Start-NetshopWriter $runtimeSecrets $netshopSecrets $authority -DeferReady
     }
-    Wait-DjangoReady "netshop-reader" $NetshopReaderHealthUrl "127.0.0.1:8021"
+    Wait-DjangoReady "netshop-reader" $NetshopReaderHealthUrl "127.0.0.1:$($NativePorts[8021])"
     if ([string]$authority.status -ceq "postgres") {
-      Wait-DjangoReady "netshop-writer" $NetshopWriterHealthUrl "127.0.0.1:8022"
-      Write-Output "Django 网店服务已就绪：reader=http://127.0.0.1:8021 writer=http://127.0.0.1:8022。"
+      Wait-DjangoReady "netshop-writer" $NetshopWriterHealthUrl "127.0.0.1:$($NativePorts[8022])"
+      Write-Output "Django 网店服务已就绪：reader=http://127.0.0.1:$($NativePorts[8021]) writer=http://127.0.0.1:$($NativePorts[8022])。"
     } else {
       Write-Output "Django 网店 reader 已就绪；PostgreSQL 网店写权尚未激活，writer 保持停止。"
     }
@@ -533,24 +535,24 @@ function Show-NetshopStatus {
   try {
     if (Resolve-OwnedProcess "django-netshop-reader" $NetshopReaderPidPath $Waitress) {
       $reader = "running"
-    } elseif (@(Get-PortListeners 8021).Count -gt 0) { $reader = "foreign_port_owner" }
+    } elseif (@(Get-PortListeners $NativePorts[8021]).Count -gt 0) { $reader = "foreign_port_owner" }
   } catch { $reader = "ownership_error" }
   try {
     if (Resolve-OwnedProcess "django-netshop-writer" $NetshopWriterPidPath $Waitress) {
       $writer = "running"
-    } elseif (@(Get-PortListeners 8022).Count -gt 0) { $writer = "foreign_port_owner" }
+    } elseif (@(Get-PortListeners $NativePorts[8022]).Count -gt 0) { $writer = "foreign_port_owner" }
   } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"
   $writerReady = "not_ready"
   try {
     if ((Invoke-WebRequest -UseBasicParsing -Uri $NetshopReaderHealthUrl -TimeoutSec 2 `
-          -Headers @{ Host = "127.0.0.1:8021" }).StatusCode -eq 200) {
+          -Headers @{ Host = "127.0.0.1:$($NativePorts[8021])" }).StatusCode -eq 200) {
       $readerReady = "ready"
     }
   } catch {}
   try {
     if ((Invoke-WebRequest -UseBasicParsing -Uri $NetshopWriterHealthUrl -TimeoutSec 2 `
-          -Headers @{ Host = "127.0.0.1:8022" }).StatusCode -eq 200) {
+          -Headers @{ Host = "127.0.0.1:$($NativePorts[8022])" }).StatusCode -eq 200) {
       $writerReady = "ready"
     }
   } catch {}

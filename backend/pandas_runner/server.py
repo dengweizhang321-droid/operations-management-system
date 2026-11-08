@@ -314,7 +314,8 @@ def main():
     broker = Broker(decode(private_file(args.config).read_bytes()))
     # Single execution slot and bounded socket reads; a second service instance
     # is prevented by the process lock, including after HTTP disconnects.
-    server = HTTPServer(("127.0.0.1", PORT), Handler)
+    from .native_isolation import native_port
+    server = HTTPServer(("127.0.0.1", native_port(PORT)), Handler)
     server.broker = broker
     server.pandas_stage_sink = journal_stage
     # Finish the current bounded request and its mandatory cleanup before exit.

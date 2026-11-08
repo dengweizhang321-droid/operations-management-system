@@ -5,6 +5,7 @@ import http.client
 import re
 import time
 import uuid
+from .native_isolation import native_port
 
 from .key_file import read_key
 from .protocol import HEALTH_PATH, PATH, PORT, decode, encode, signature, package_digest
@@ -19,7 +20,7 @@ def probe(key_file, image, *, self_test=False):
            "code": "result = pd.DataFrame([{'cents': int(frames['fixture']['cents'].sum())}])"}
     raw = encode(job) if self_test else b"{}"
     stamp, nonce = str(int(time.time())), uuid.uuid4().hex
-    connection = http.client.HTTPConnection("127.0.0.1", PORT, timeout=24 if self_test else 12)
+    connection = http.client.HTTPConnection("127.0.0.1", native_port(PORT), timeout=24 if self_test else 12)
     try:
         connection.request("POST", path, body=raw, headers={"Content-Type": "application/json",
             "X-Nonce": nonce, "X-Timestamp": stamp, "X-Signature": signature(key, stamp, nonce, raw, path=path)})

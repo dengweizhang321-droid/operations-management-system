@@ -13,7 +13,8 @@ from django.conf import settings
 from .policy import AiError, canonical
 
 PATH = "/v1/command"
-PORT = 8123
+from pandas_runner.native_isolation import native_port
+PORT = native_port(8123)
 MAX_RESPONSE = 13 * 1024 * 1024
 
 

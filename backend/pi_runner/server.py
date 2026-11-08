@@ -1358,8 +1358,10 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--config',required=True);parser.add_argument('--port',type=int,default=PORT)
+    from .native_isolation import PROFILE, native_port
+    parser=argparse.ArgumentParser();parser.add_argument('--config',required=True);parser.add_argument('--port',type=int,default=native_port(PORT))
     args=parser.parse_args()
+    if PROFILE and args.port != native_port(PORT):raise ValueError('isolated_port_binding_changed')
     if not 1024<=args.port<=65535:raise ValueError('invalid_port')
     broker=Broker(decode(private(args.config).read_bytes()))
     server=ThreadingHTTPServer(('127.0.0.1',args.port),Handler);server.broker=broker

@@ -11,6 +11,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "native-isolation.ps1")
+$RuntimeRoot = Get-NativeRuntimeRoot "django" $RuntimeRoot ($PSBoundParameters.ContainsKey("RuntimeRoot"))
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
 $RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
@@ -30,8 +32,8 @@ $OrchestratedLifecycleAclToken = $RequestedOrchestratedLifecycleAclToken
 $CustomerServiceCredentialPath = Join-Path $RuntimeRoot "secrets\customer-service-credentials.dpapi.json"
 $CustomerServiceReaderPidPath = Join-Path $RunDirectory "django-customer-service-reader.pid.json"
 $CustomerServiceWriterPidPath = Join-Path $RunDirectory "django-customer-service-writer.pid.json"
-$CustomerServiceReaderHealthUrl = "http://127.0.0.1:8071/health/ready"
-$CustomerServiceWriterHealthUrl = "http://127.0.0.1:8072/health/ready"
+$CustomerServiceReaderHealthUrl = "http://127.0.0.1:$($NativePorts[8071])/health/ready"
+$CustomerServiceWriterHealthUrl = "http://127.0.0.1:$($NativePorts[8072])/health/ready"
 $CustomerServiceStartupPath = Join-Path $RuntimeRoot "customer-service-enabled.json"
 $CustomerServiceReaderMaxBodyBytes = 1048576
 $CustomerServiceWriterMaxBodyBytes = 33554432
@@ -49,7 +51,7 @@ function Assert-CustomerServiceRuntimeEntry([string]$LifecycleAclToken = "") {
 }
 
 function Assert-CustomerServicePortsFree([string]$Operation) {
-  if (@(Get-PortListeners 8071).Count -gt 0 -or @(Get-PortListeners 8072).Count -gt 0) {
+  if (@(Get-PortListeners $NativePorts[8071]).Count -gt 0 -or @(Get-PortListeners $NativePorts[8072]).Count -gt 0) {
     throw "$Operation 前必须先停止 Django 客服 reader/writer"
   }
   if (Resolve-OwnedProcess "django-customer-service-reader" $CustomerServiceReaderPidPath $Waitress) {
@@ -242,16 +244,16 @@ print(json.dumps({
 
 function Start-CustomerServiceReader([object]$RuntimeSecrets, [object]$CustomerSecrets, [switch]$DeferReady) {
   $arguments = @(
-    "--listen=127.0.0.1:8071", "--threads=6", "--connection-limit=60", "--channel-timeout=35",
+    "--listen=127.0.0.1:$($NativePorts[8071])", "--threads=6", "--connection-limit=60", "--channel-timeout=35",
     "--cleanup-interval=30", "--ident=teruisi-django-customer-service-reader",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$CustomerServiceReaderMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-customer-service-reader" $Waitress $arguments
   if (Resolve-OwnedProcess "django-customer-service-reader" $CustomerServiceReaderPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "customer-service-reader" $CustomerServiceReaderHealthUrl "127.0.0.1:8071"; return $false
+    Wait-DjangoReady "customer-service-reader" $CustomerServiceReaderHealthUrl "127.0.0.1:$($NativePorts[8071])"; return $false
   }
-  if (@(Get-PortListeners 8071).Count -gt 0) { throw "端口 8071 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8071]).Count -gt 0) { throw "端口 8071 被非本部署服务占用" }
   Remove-OldServiceLogs "django-customer-service-reader"
   $readerUrl = Database-Url "teruisi_customer_service_reader" $CustomerSecrets.ReaderPassword "teruisi_customer_service_read" $ReaderStatementTimeoutMs
   Invoke-WithDjangoEnvironment $RuntimeSecrets $readerUrl "customer_service_reader" $true $CustomerServiceReaderMaxBodyBytes "" "" {
@@ -261,23 +263,23 @@ function Start-CustomerServiceReader([object]$RuntimeSecrets, [object]$CustomerS
   $readerUrl = $null
   # The stack owns rollback after launch; its final readiness barrier remains mandatory.
   if ($DeferReady) { return $true }
-  try { Wait-DjangoReady "customer-service-reader" $CustomerServiceReaderHealthUrl "127.0.0.1:8071"; return $true }
+  try { Wait-DjangoReady "customer-service-reader" $CustomerServiceReaderHealthUrl "127.0.0.1:$($NativePorts[8071])"; return $true }
   catch { Stop-OwnedProcess "django-customer-service-reader" $CustomerServiceReaderPidPath $Waitress; throw }
 }
 
 function Start-CustomerServiceWriter([object]$RuntimeSecrets, [object]$CustomerSecrets, [object]$Authority, [switch]$DeferReady) {
   if ([string]$Authority.status -cne "postgres") { throw "PostgreSQL 尚未成为客服唯一写入源；拒绝启动客服 writer" }
   $arguments = @(
-    "--listen=127.0.0.1:8072", "--threads=4", "--connection-limit=20", "--channel-timeout=960",
+    "--listen=127.0.0.1:$($NativePorts[8072])", "--threads=4", "--connection-limit=20", "--channel-timeout=960",
     "--cleanup-interval=30", "--ident=teruisi-django-customer-service-writer",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$CustomerServiceWriterMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-customer-service-writer" $Waitress $arguments
   if (Resolve-OwnedProcess "django-customer-service-writer" $CustomerServiceWriterPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "customer-service-writer" $CustomerServiceWriterHealthUrl "127.0.0.1:8072"; return $false
+    Wait-DjangoReady "customer-service-writer" $CustomerServiceWriterHealthUrl "127.0.0.1:$($NativePorts[8072])"; return $false
   }
-  if (@(Get-PortListeners 8072).Count -gt 0) { throw "端口 8072 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8072]).Count -gt 0) { throw "端口 8072 被非本部署服务占用" }
   Remove-OldServiceLogs "django-customer-service-writer"
   $writerUrl = Database-Url "teruisi_customer_service_writer" $CustomerSecrets.WriterPassword "teruisi_customer_service_write" $WriterStatementTimeoutMs
   Invoke-WithDjangoEnvironment $RuntimeSecrets $writerUrl "customer_service_writer" $false $CustomerServiceWriterMaxBodyBytes ([string]$Authority.authorityEpoch) ([string]$Authority.cutoverId) {
@@ -287,7 +289,7 @@ function Start-CustomerServiceWriter([object]$RuntimeSecrets, [object]$CustomerS
   $writerUrl = $null
   # The stack owns new-process rollback and the final readiness barrier.
   if ($DeferReady) { return $true }
-  try { Wait-DjangoReady "customer-service-writer" $CustomerServiceWriterHealthUrl "127.0.0.1:8072"; return $true }
+  try { Wait-DjangoReady "customer-service-writer" $CustomerServiceWriterHealthUrl "127.0.0.1:$($NativePorts[8072])"; return $true }
   catch { Stop-OwnedProcess "django-customer-service-writer" $CustomerServiceWriterPidPath $Waitress; throw }
 }
 
@@ -314,10 +316,10 @@ function Start-CustomerServiceStack([string]$LifecycleAclToken = "") {
     }
     $readerStarted = Start-CustomerServiceReader $runtimeSecrets $customerSecrets -DeferReady
     if ([string]$authority.status -ceq "postgres") { $writerStarted = Start-CustomerServiceWriter $runtimeSecrets $customerSecrets $authority -DeferReady }
-    Wait-DjangoReady "customer-service-reader" $CustomerServiceReaderHealthUrl "127.0.0.1:8071"
+    Wait-DjangoReady "customer-service-reader" $CustomerServiceReaderHealthUrl "127.0.0.1:$($NativePorts[8071])"
     if ([string]$authority.status -ceq "postgres") {
-      Wait-DjangoReady "customer-service-writer" $CustomerServiceWriterHealthUrl "127.0.0.1:8072"
-      Write-Output "Django 客服服务已就绪：reader=http://127.0.0.1:8071 writer=http://127.0.0.1:8072。"
+      Wait-DjangoReady "customer-service-writer" $CustomerServiceWriterHealthUrl "127.0.0.1:$($NativePorts[8072])"
+      Write-Output "Django 客服服务已就绪：reader=http://127.0.0.1:$($NativePorts[8071]) writer=http://127.0.0.1:$($NativePorts[8072])。"
     } else { Write-Output "Django 客服 reader 已就绪；PostgreSQL 客服写权尚未激活，writer 保持停止。" }
   } catch {
     $original = $_.Exception
@@ -366,11 +368,11 @@ function Disable-CustomerServiceStartup {
 
 function Show-CustomerServiceStatus {
   $reader = "stopped"; $writer = "stopped"
-  try { if (Resolve-OwnedProcess "django-customer-service-reader" $CustomerServiceReaderPidPath $Waitress) { $reader = "running" } elseif (@(Get-PortListeners 8071).Count -gt 0) { $reader = "foreign_port_owner" } } catch { $reader = "ownership_error" }
-  try { if (Resolve-OwnedProcess "django-customer-service-writer" $CustomerServiceWriterPidPath $Waitress) { $writer = "running" } elseif (@(Get-PortListeners 8072).Count -gt 0) { $writer = "foreign_port_owner" } } catch { $writer = "ownership_error" }
+  try { if (Resolve-OwnedProcess "django-customer-service-reader" $CustomerServiceReaderPidPath $Waitress) { $reader = "running" } elseif (@(Get-PortListeners $NativePorts[8071]).Count -gt 0) { $reader = "foreign_port_owner" } } catch { $reader = "ownership_error" }
+  try { if (Resolve-OwnedProcess "django-customer-service-writer" $CustomerServiceWriterPidPath $Waitress) { $writer = "running" } elseif (@(Get-PortListeners $NativePorts[8072]).Count -gt 0) { $writer = "foreign_port_owner" } } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"; $writerReady = "not_ready"
-  try { if ((Invoke-WebRequest -UseBasicParsing -Uri $CustomerServiceReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8071" }).StatusCode -eq 200) { $readerReady = "ready" } } catch {}
-  try { if ((Invoke-WebRequest -UseBasicParsing -Uri $CustomerServiceWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8072" }).StatusCode -eq 200) { $writerReady = "ready" } } catch {}
+  try { if ((Invoke-WebRequest -UseBasicParsing -Uri $CustomerServiceReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:$($NativePorts[8071])" }).StatusCode -eq 200) { $readerReady = "ready" } } catch {}
+  try { if ((Invoke-WebRequest -UseBasicParsing -Uri $CustomerServiceWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:$($NativePorts[8072])" }).StatusCode -eq 200) { $writerReady = "ready" } } catch {}
   $status = [pscustomobject][ordered]@{ CustomerServiceReader = $reader; CustomerServiceWriter = $writer; ReaderReadiness = $readerReady; WriterReadiness = $writerReady; CheckedAt = [DateTimeOffset]::UtcNow.ToString("o") }
   if ($RequestedJson) { Write-Output ($status | ConvertTo-Json -Compress) } else { $status | Format-List }
 }

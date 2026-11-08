@@ -1,3 +1,4 @@
+import { nativeIsolation, nativePort, nativePath } from "./native-isolation.mjs";
 import { spawn } from "node:child_process";
 import { mkdtempSync, openSync, closeSync, fstatSync, readSync, unlinkSync, rmdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -124,19 +125,19 @@ export async function readD1RetirementReceipt(manifest, releaseRoot, expected = 
 }
 
 
-export const workerRuntimeRoot = "D:\\teruisi-runtime\\teruisi-worker-sales";
+export const workerRuntimeRoot = nativePath("worker", "D:\\teruisi-runtime\\teruisi-worker-sales");
 // Existing immutable releases retain the original combined-tree provenance.
 // New successors are built only from the clean integration worktree so the
 // user's live development tree never has to be edited or moved for a release.
 export const workerLegacySourceRoot = "D:\\运营管理系统-django-sales-combined";
-export const workerSourceRoot = "D:\\运营管理系统-sales-django-release";
-export const workerProtectedSourceRoot = "D:\\运营管理系统";
-export const workerPersistRoot = "D:\\运营管理系统\\.wrangler\\state";
-export const workerDevVarsSource = "D:\\运营管理系统\\.dev.vars";
+export const workerSourceRoot = nativeIsolation?.sourceRoot ?? "D:\\运营管理系统-sales-django-release";
+export const workerProtectedSourceRoot = nativePath('vars', "D:\\运营管理系统");
+export const workerPersistRoot = nativePath("persist", "D:\\运营管理系统\\.wrangler\\state");
+export const workerDevVarsSource = nativePath("vars/.dev.vars", "D:\\运营管理系统\\.dev.vars");
 export const workerHost = "127.0.0.1";
-export const workerPort = 3000;
+export const workerPort = nativePort(3000);
 export const workerHelperHost = "127.0.0.1";
-export const workerHelperPort = 5791;
+export const workerHelperPort = nativePort(5791);
 export const releaseVersion = "teruisi-local-worker-release-v1";
 export const verificationVersion = "teruisi-local-worker-release-verification-v1";
 export const contractReceiptVersion = "teruisi-sales-retired-code-receipt-v1";
@@ -235,7 +236,14 @@ export const workerLegacyGuardEntrypointPaths = Object.freeze([
   "tools/worker-local-service.ps1",
   activationFenceRelativePath,
 ]);
-export const workerGuardEntrypointPaths = Object.freeze([...workerLegacyGuardEntrypointPaths, "tools/process-deadline.ps1"]);
+export const workerPreviousGuardEntrypointPaths = Object.freeze([...workerLegacyGuardEntrypointPaths, "tools/process-deadline.ps1"]);
+export const workerGuardEntrypointPaths = Object.freeze([...workerPreviousGuardEntrypointPaths, "tools/native-isolation.mjs", "tools/native-isolation.ps1"]);
+export function workerGuardPathsForManifest(manifest) {
+  const files = manifest?.artifacts?.keyFiles ?? [];
+  const present = ['tools/native-isolation.mjs', 'tools/native-isolation.ps1'].map(name => files.some(item => item.relativePath === name));
+  if (present[0] !== present[1] || (nativeIsolation && !present[0])) fail('Incomplete native isolation helper closure');
+  return present[0] ? workerGuardEntrypointPaths : workerPreviousGuardEntrypointPaths;
+}
 export const workerGuardCheckNames = Object.freeze([
   "packageScriptsControlled",
   "batchEntrypointControlled",
@@ -500,6 +508,7 @@ export function workerSourceRootForBatch(batch) {
 }
 
 export function assertWorkerManifestProvenance(manifest, { allowTestRuntimeRoot = false } = {}) {
+  if (nativeIsolation && (allowTestRuntimeRoot || manifest?.runtime?.nativeIsolationSha256 !== nativeIsolation.sha256)) fail('Worker native isolation binding changed');
   const source = assertPlainObject(manifest?.source, "manifest source provenance");
   const build = assertPlainObject(manifest?.build, "manifest build provenance");
   const runtime = assertPlainObject(manifest?.runtime, "manifest runtime provenance");
@@ -2166,6 +2175,7 @@ async function buildWorkerReleaseInternal({
         buildFingerprint,
       },
       runtime: {
+        ...(nativeIsolation ? { nativeIsolationSha256: nativeIsolation.sha256 } : {}),
         runtimeRootPathSha256: windowsPathSha256(runtimeRoot),
         releaseRootPathSha256: windowsPathSha256(releaseRoot),
         persistRootPathSha256: windowsPathSha256(persistRoot),
@@ -2765,7 +2775,7 @@ export async function validateGuardReceipt(manifest, releaseRoot, { verifyInstal
   assertExactKeys(receipt.checks, workerGuardCheckNames, "guard receipt checks");
   if (Object.values(receipt.checks).some((value) => value !== true)) fail("guard receipt 检查未全部通过");
   if (!Array.isArray(receipt.entrypoints)
-    || canonicalJson(receipt.entrypoints.map((item) => item?.relativePath)) !== canonicalJson([...workerGuardEntrypointPaths])
+    || canonicalJson(receipt.entrypoints.map((item) => item?.relativePath)) !== canonicalJson([...workerGuardPathsForManifest(manifest)])
     || canonicalJson(receipt.forbiddenLegacyDirectCommands) !== canonicalJson(workerGuardForbiddenScans)) {
     fail("guard receipt 证据集无效");
   }
@@ -2943,6 +2953,7 @@ async function verifyWorkerReleaseInternal({
     "helperRoot", "helperTree", "helperBuildEvidenceSha256", "buildFingerprint",
   ], "manifest build");
   assertExactKeys(manifest.runtime, [
+    ...(nativeIsolation ? ['nativeIsolationSha256'] : []),
     "runtimeRootPathSha256", "releaseRootPathSha256", "persistRootPathSha256", "sourceD1PathSha256", "host", "port",
     "persistRoot", "sourceD1Path", "protectedSourceRoot", "protectedSourceRootPathSha256", "cliOverridesAllowed", "helperMode",
     "helperHost", "helperPort", "helperMutableRoot", "helperMutableRootPathSha256", "devVars",

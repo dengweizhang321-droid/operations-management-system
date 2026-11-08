@@ -11,6 +11,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "native-isolation.ps1")
+$RuntimeRoot = Get-NativeRuntimeRoot "django" $RuntimeRoot ($PSBoundParameters.ContainsKey("RuntimeRoot"))
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
 $RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
@@ -36,8 +38,8 @@ $OrchestratedLifecycleAclToken = $RequestedOrchestratedLifecycleAclToken
 $MarketCredentialPath = Join-Path $RuntimeRoot "secrets\market-credentials.dpapi.json"
 $MarketReaderPidPath = Join-Path $RunDirectory "django-market-reader.pid.json"
 $MarketWriterPidPath = Join-Path $RunDirectory "django-market-writer.pid.json"
-$MarketReaderHealthUrl = "http://127.0.0.1:8031/health/ready"
-$MarketWriterHealthUrl = "http://127.0.0.1:8032/health/ready"
+$MarketReaderHealthUrl = "http://127.0.0.1:$($NativePorts[8031])/health/ready"
+$MarketWriterHealthUrl = "http://127.0.0.1:$($NativePorts[8032])/health/ready"
 $MarketStartupPath = Join-Path $RuntimeRoot "market-service-enabled.json"
 $MarketReaderMaxBodyBytes = 1048576
 $MarketWriterMaxBodyBytes = 134217728
@@ -55,7 +57,7 @@ function Assert-MarketRuntimeEntry([string]$LifecycleAclToken = "") {
 }
 
 function Assert-MarketPortsFree([string]$Operation) {
-  if (@(Get-PortListeners 8031).Count -gt 0 -or @(Get-PortListeners 8032).Count -gt 0) {
+  if (@(Get-PortListeners $NativePorts[8031]).Count -gt 0 -or @(Get-PortListeners $NativePorts[8032]).Count -gt 0) {
     throw "$Operation 前必须先停止 Django 市场 reader/writer"
   }
   if (Resolve-OwnedProcess "django-market-reader" $MarketReaderPidPath $Waitress) {
@@ -382,17 +384,17 @@ print(json.dumps({
 
 function Start-MarketReader([object]$RuntimeSecrets, [object]$MarketSecrets, [switch]$DeferReady) {
   $arguments = @(
-    "--listen=127.0.0.1:8031", "--threads=6", "--connection-limit=60",
+    "--listen=127.0.0.1:$($NativePorts[8031])", "--threads=6", "--connection-limit=60",
     "--channel-timeout=35", "--cleanup-interval=30", "--ident=teruisi-django-market-reader",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$MarketReaderMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-market-reader" $Waitress $arguments
   if (Resolve-OwnedProcess "django-market-reader" $MarketReaderPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "market-reader" $MarketReaderHealthUrl "127.0.0.1:8031"
+    Wait-DjangoReady "market-reader" $MarketReaderHealthUrl "127.0.0.1:$($NativePorts[8031])"
     return $false
   }
-  if (@(Get-PortListeners 8031).Count -gt 0) { throw "端口 8031 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8031]).Count -gt 0) { throw "端口 8031 被非本部署服务占用" }
   Remove-OldServiceLogs "django-market-reader"
   $readerUrl = Database-Url `
     "teruisi_market_reader" $MarketSecrets.ReaderPassword `
@@ -408,7 +410,7 @@ function Start-MarketReader([object]$RuntimeSecrets, [object]$MarketSecrets, [sw
   # The stack owns rollback after launch; its final readiness barrier remains mandatory.
   if ($DeferReady) { return $true }
   try {
-    Wait-DjangoReady "market-reader" $MarketReaderHealthUrl "127.0.0.1:8031"
+    Wait-DjangoReady "market-reader" $MarketReaderHealthUrl "127.0.0.1:$($NativePorts[8031])"
     return $true
   } catch {
     Stop-OwnedProcess "django-market-reader" $MarketReaderPidPath $Waitress
@@ -424,17 +426,17 @@ function Start-MarketWriter(
     throw "PostgreSQL 尚未成为市场唯一写入源；拒绝启动市场 writer"
   }
   $arguments = @(
-    "--listen=127.0.0.1:8032", "--threads=4", "--connection-limit=20",
+    "--listen=127.0.0.1:$($NativePorts[8032])", "--threads=4", "--connection-limit=20",
     "--channel-timeout=960", "--cleanup-interval=30", "--ident=teruisi-django-market-writer",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$MarketWriterMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-market-writer" $Waitress $arguments
   if (Resolve-OwnedProcess "django-market-writer" $MarketWriterPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "market-writer" $MarketWriterHealthUrl "127.0.0.1:8032"
+    Wait-DjangoReady "market-writer" $MarketWriterHealthUrl "127.0.0.1:$($NativePorts[8032])"
     return $false
   }
-  if (@(Get-PortListeners 8032).Count -gt 0) { throw "端口 8032 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8032]).Count -gt 0) { throw "端口 8032 被非本部署服务占用" }
   Remove-OldServiceLogs "django-market-writer"
   $writerUrl = Database-Url `
     "teruisi_market_writer" $MarketSecrets.WriterPassword `
@@ -451,7 +453,7 @@ function Start-MarketWriter(
   # The stack owns new-process rollback and the final readiness barrier.
   if ($DeferReady) { return $true }
   try {
-    Wait-DjangoReady "market-writer" $MarketWriterHealthUrl "127.0.0.1:8032"
+    Wait-DjangoReady "market-writer" $MarketWriterHealthUrl "127.0.0.1:$($NativePorts[8032])"
     return $true
   } catch {
     Stop-OwnedProcess "django-market-writer" $MarketWriterPidPath $Waitress
@@ -490,10 +492,10 @@ function Start-MarketStack([string]$LifecycleAclToken = "") {
     if ([string]$authority.status -ceq "postgres") {
       $writerStarted = Start-MarketWriter $runtimeSecrets $marketSecrets $authority -DeferReady
     }
-    Wait-DjangoReady "market-reader" $MarketReaderHealthUrl "127.0.0.1:8031"
+    Wait-DjangoReady "market-reader" $MarketReaderHealthUrl "127.0.0.1:$($NativePorts[8031])"
     if ([string]$authority.status -ceq "postgres") {
-      Wait-DjangoReady "market-writer" $MarketWriterHealthUrl "127.0.0.1:8032"
-      Write-Output "Django 市场服务已就绪：reader=http://127.0.0.1:8031 writer=http://127.0.0.1:8032。"
+      Wait-DjangoReady "market-writer" $MarketWriterHealthUrl "127.0.0.1:$($NativePorts[8032])"
+      Write-Output "Django 市场服务已就绪：reader=http://127.0.0.1:$($NativePorts[8031]) writer=http://127.0.0.1:$($NativePorts[8032])。"
     } else {
       Write-Output "Django 市场 reader 已就绪；PostgreSQL 市场写权尚未激活，writer 保持停止。"
     }
@@ -566,24 +568,24 @@ function Show-MarketStatus {
   try {
     if (Resolve-OwnedProcess "django-market-reader" $MarketReaderPidPath $Waitress) {
       $reader = "running"
-    } elseif (@(Get-PortListeners 8031).Count -gt 0) { $reader = "foreign_port_owner" }
+    } elseif (@(Get-PortListeners $NativePorts[8031]).Count -gt 0) { $reader = "foreign_port_owner" }
   } catch { $reader = "ownership_error" }
   try {
     if (Resolve-OwnedProcess "django-market-writer" $MarketWriterPidPath $Waitress) {
       $writer = "running"
-    } elseif (@(Get-PortListeners 8032).Count -gt 0) { $writer = "foreign_port_owner" }
+    } elseif (@(Get-PortListeners $NativePorts[8032]).Count -gt 0) { $writer = "foreign_port_owner" }
   } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"
   $writerReady = "not_ready"
   try {
     if ((Invoke-WebRequest -UseBasicParsing -Uri $MarketReaderHealthUrl -TimeoutSec 2 `
-          -Headers @{ Host = "127.0.0.1:8031" }).StatusCode -eq 200) {
+          -Headers @{ Host = "127.0.0.1:$($NativePorts[8031])" }).StatusCode -eq 200) {
       $readerReady = "ready"
     }
   } catch {}
   try {
     if ((Invoke-WebRequest -UseBasicParsing -Uri $MarketWriterHealthUrl -TimeoutSec 2 `
-          -Headers @{ Host = "127.0.0.1:8032" }).StatusCode -eq 200) {
+          -Headers @{ Host = "127.0.0.1:$($NativePorts[8032])" }).StatusCode -eq 200) {
       $writerReady = "ready"
     }
   } catch {}

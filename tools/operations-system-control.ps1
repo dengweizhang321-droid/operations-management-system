@@ -9,19 +9,20 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "native-isolation.ps1")
 . (Join-Path $PSScriptRoot "process-deadline.ps1")
 if ($Action -cne "Panel") { $env:TERUISI_PROCESS_DEADLINE_UNIX_MS = [string](Get-ProcessDeadline -TimeoutMilliseconds $(if ($Action -eq 'Start') { 1800000 } else { 600000 })) }
 Add-Type -AssemblyName System.Net.Http
 $UnifiedStartControlVersion = "teruisi-operations-system-control-v2"
-$SystemControlMutexName = "Local\TERUISI.Operations.SystemControl.v2"
+$SystemControlMutexName = Get-NativeMutexName "Local\TERUISI.Operations.SystemControl.v2"
 $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $ControllerPath = $PSCommandPath
-$ServerUrl = "http://localhost:3000/"
-$LivenessUrl = "http://127.0.0.1:3000/_teruisi/local/health/live"
-$ReadinessUrl = "http://127.0.0.1:3000/_teruisi/local/health/ready"
-$HelperHealthUrl = "http://127.0.0.1:5791/health"
+$ServerUrl = "http://localhost:$($NativePorts[3000])/"
+$LivenessUrl = "http://127.0.0.1:$($NativePorts[3000])/_teruisi/local/health/live"
+$ReadinessUrl = "http://127.0.0.1:$($NativePorts[3000])/_teruisi/local/health/ready"
+$HelperHealthUrl = "http://127.0.0.1:$($NativePorts[5791])/health"
 $LocalWorkerStarter = Join-Path $ProjectRoot "tools\worker-local-service.ps1"
-$DjangoRuntimeRoot = "D:\teruisi-runtime\django-sales"
+$DjangoRuntimeRoot = if ($NativeIsolation) { Join-Path $NativeIsolation.root "django" } else { "D:\teruisi-runtime\django-sales" }
 $DjangoRuntimeTools = Join-Path $DjangoRuntimeRoot "app\tools"
 $DjangoService = Join-Path $DjangoRuntimeTools "django-local-service.ps1"
 $DjangoNetshopService = Join-Path $DjangoRuntimeTools "django-netshop-service.ps1"

@@ -73,6 +73,7 @@ def validate_secret(name: str, value: str, *, required: bool) -> str:
 
 
 def database_from_url(value: str) -> dict[str, object]:
+    from pandas_runner.native_isolation import native_port
     parsed = urlparse(value)
     if parsed.scheme not in {"postgres", "postgresql"}:
         raise RuntimeError("TERUISI_DJANGO_DATABASE_URL 仅支持 postgresql://")
@@ -94,7 +95,7 @@ def database_from_url(value: str) -> dict[str, object]:
             or not configuration["USER"]
             or not configuration["PASSWORD"]
             or configuration["HOST"] != "127.0.0.1"
-            or configuration["PORT"] != "5432"
+            or configuration["PORT"] != str(native_port(5432))
         ):
             raise RuntimeError("生产 Django 数据库必须固定为带凭据的 127.0.0.1:5432 PostgreSQL")
     return configuration

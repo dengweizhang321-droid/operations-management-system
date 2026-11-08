@@ -24,6 +24,7 @@ param(
 # 全部 Stop/Restart 与桌面控制面板共用同一个系统互斥，避免面板启动与本脚本停止交错。
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "native-isolation.ps1")
 
 # 测试可设置 TERUISI_SYSTEM_SERVICE_LIBRARY_ONLY=1 只加载函数定义，不执行任何动作。
 $LibraryOnly = ($env:TERUISI_SYSTEM_SERVICE_LIBRARY_ONLY -eq "1")
@@ -32,15 +33,16 @@ if (-not $LibraryOnly -and -not $IsWindows -and $PSVersionTable.PSVersion.Major 
 }
 
 $ServiceVersion = "teruisi-operations-system-service-v1"
-$SystemControlMutexName = "Local\TERUISI.Operations.SystemControl.v2"
+$SystemControlMutexName = Get-NativeMutexName "Local\TERUISI.Operations.SystemControl.v2"
 $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $ControllerPath = Join-Path $ProjectRoot "tools\operations-system-control.ps1"
 $WorkerServicePath = Join-Path $ProjectRoot "tools\worker-local-service.ps1"
 # 运行目录固定在 D 盘；用字符串拼接而不是 Join-Path，便于在非 Windows 机器上以库模式加载做单元测试。
-$DjangoRuntimeRoot = "D:\teruisi-runtime\django-sales"
+$DjangoRuntimeRoot = if ($NativeIsolation) { Join-Path $NativeIsolation.root "django" } else { "D:\teruisi-runtime\django-sales" }
 $DjangoServicePath = "$DjangoRuntimeRoot\app\tools\django-local-service.ps1"
-$ServerUrl = "http://localhost:3000/"
+$ServerUrl = "http://localhost:$($NativePorts[3000])/"
 $LogRoot = Join-Path $ProjectRoot "tmp\system-service"
+if ($NativeIsolation) { $LogRoot = Join-Path $NativeIsolation.root 'logs\system-service' }
 $BackgroundReceiptPath = Join-Path $LogRoot "background.json"
 $LogRetention = 20
 

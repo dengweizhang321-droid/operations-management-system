@@ -22,6 +22,9 @@
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "native-isolation.ps1")
+$RuntimeRoot = Get-NativeRuntimeRoot "worker" $RuntimeRoot ($PSBoundParameters.ContainsKey("RuntimeRoot"))
+if ($NativeIsolation -and $AllowTestRuntimeRoot) { throw "Native isolation forbids synthetic test mode" }
 if ($RecoveryProofPath -or $RecoveryProofSha256) {
   if ([string]::IsNullOrWhiteSpace($RecoveryProofPath) -or $RecoveryProofSha256 -cnotmatch '^[a-f0-9]{64}$' -or
       $Action -cne 'EnterMaintenance' -or -not $KeepPostgres -or $AllowTestRuntimeRoot -or
@@ -38,12 +41,12 @@ if ($BackendStartPolicy -eq "RequireReady" -and $Action -ne "Start") { throw "Ba
 . (Join-Path $PSScriptRoot "process-deadline.ps1")
 $WorkerOperationDeadline = if ($Action -in @('Start','RestartFull','ObserveDingTalkStartup')) { Get-ProcessDeadline -TimeoutMilliseconds 1800000 } else { Get-ProcessDeadline }
 $script:WorkerStartPhases = [ordered]@{}
-$FixedRuntimeRoot = "D:\teruisi-runtime\teruisi-worker-sales"
-$FixedSourceRoot = "D:\运营管理系统-sales-django-release"
-$FixedProtectedRoot = "D:\运营管理系统"
-$FixedDevVarsSource = "D:\运营管理系统\.dev.vars"
-$FixedPersistRoot = "D:\运营管理系统\.wrangler\state"
-$FixedDjangoRuntimeRoot = "D:\teruisi-runtime\django-sales"
+$FixedRuntimeRoot = if ($NativeIsolation) { Join-Path $NativeIsolation.root "worker" } else { "D:\teruisi-runtime\teruisi-worker-sales" }
+$FixedSourceRoot = if ($NativeIsolation) { $NativeIsolation.sourceRoot } else { "D:\运营管理系统-sales-django-release" }
+$FixedProtectedRoot = if ($NativeIsolation) { Join-Path $NativeIsolation.root 'vars' } else { "D:\运营管理系统" }
+$FixedDevVarsSource = if ($NativeIsolation) { Join-Path $NativeIsolation.root "vars\.dev.vars" } else { "D:\运营管理系统\.dev.vars" }
+$FixedPersistRoot = if ($NativeIsolation) { Join-Path $NativeIsolation.root "persist" } else { "D:\运营管理系统\.wrangler\state" }
+$FixedDjangoRuntimeRoot = if ($NativeIsolation) { Join-Path $NativeIsolation.root "django" } else { "D:\teruisi-runtime\django-sales" }
 $DjangoRuntimeTools = Join-Path $FixedDjangoRuntimeRoot "app\tools"
 $DjangoService = Join-Path $DjangoRuntimeTools "django-local-service.ps1"
 $DjangoNetshopService = Join-Path $DjangoRuntimeTools "django-netshop-service.ps1"
@@ -55,9 +58,9 @@ $DjangoCustomerService = Join-Path $DjangoRuntimeTools "django-customer-service.
 $DjangoAccessControlService = Join-Path $DjangoRuntimeTools "django-access-control.ps1"
 $DjangoErpReferenceService = Join-Path $DjangoRuntimeTools "django-erp-reference.ps1"
 $DjangoBiService = Join-Path $DjangoRuntimeTools "django-bi-service.ps1"
-$WorkerPort = 3000
+$WorkerPort = $NativePorts[3000]
 $WorkerHost = "127.0.0.1"
-$HelperPort = 5791
+$HelperPort = $NativePorts[5791]
 $HelperHost = "127.0.0.1"
 $StatusVersion = "teruisi-local-worker-status-v1"
 $ProcessReceiptVersion = "teruisi-local-worker-process-v1"
@@ -105,7 +108,7 @@ namespace Teruisi {
 }
 
 function Get-WorkerServiceMutexName {
-  $name = "Local\TERUISI.Worker.LocalService.v1"
+  $name = Get-NativeMutexName "Local\TERUISI.Worker.LocalService.v1"
   if ($AllowTestRuntimeRoot -and [IO.Path]::GetFullPath($RuntimeRoot).TrimEnd('\') -ine $FixedRuntimeRoot) {
     $hash = [Security.Cryptography.SHA256]::Create()
     try { $name += ".test." + ([BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes([IO.Path]::GetFullPath($RuntimeRoot).ToLowerInvariant())))).Replace("-", "") }
@@ -238,7 +241,11 @@ function Invoke-WorkerStartPhase([string]$Phase, [scriptblock]$Body) {
 }
 
 function Start-IndependentDingTalkObservation([object]$Identity) {
-  if (Test-IsIsolatedTestRuntime) { return @{ status='skipped_isolated'; requiredForStart=$false } }
+  if ($NativeIsolation) {
+    if (Test-Path -LiteralPath (Join-Path $FixedDjangoRuntimeRoot 'config\dingtalk-startup.json')) { throw 'Native isolation forbids external receivers and schedules' }
+    return
+  }
+  if (-not $NativeIsolation -and (Test-IsIsolatedTestRuntime)) { return @{ status='skipped_isolated'; requiredForStart=$false } }
   if (-not (Test-Path -LiteralPath (Join-Path $FixedDjangoRuntimeRoot 'config\dingtalk-startup.json'))) {
     return @{ status='not_configured'; requiredForStart=$false }
   }
@@ -383,17 +390,18 @@ function Invoke-DjangoStartProcess(
 }
 
 function Start-SystemDingTalkReceiver {
+  if ($NativeIsolation) { throw 'Native isolation forbids external receivers and schedules' }
   $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
   $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
   $startupPhaseOutcome = 'completed'
   try {
-  if (Test-IsIsolatedTestRuntime) { return @{ status='skipped_isolated' } }
+  if (-not $NativeIsolation -and (Test-IsIsolatedTestRuntime)) { return @{ status='skipped_isolated' } }
   $startup = Join-Path $FixedDjangoRuntimeRoot "config\dingtalk-startup.json"
   if (-not (Test-Path -LiteralPath $startup)) { return @{ status='not_configured' } }
   $controller = Join-Path $DjangoRuntimeTools "django-ai.ps1"
   Assert-NoReparsePath $startup
   Assert-NoReparsePath $controller
-  $page = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:3000/" -TimeoutSec (Get-WorkerHttpTimeoutSeconds 10) -MaximumRedirection 0
+  $page = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$($NativePorts[3000])/" -TimeoutSec (Get-WorkerHttpTimeoutSeconds 10) -MaximumRedirection 0
   if ($page.StatusCode -ne 200) { throw "Worker HTTP is not ready for DingTalk automatic startup" }
   # The deployed AI operator owns configuration, authority, mutex and exact process identity.
   # Do not start from Django's pre-Worker phase: scheduled tools require the ready Worker.
@@ -460,7 +468,7 @@ function Get-DjangoSystemReadiness {
   $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
   $startupPhaseOutcome = 'completed'
   try {
-  if (Test-IsIsolatedTestRuntime) {
+  if (-not $NativeIsolation -and (Test-IsIsolatedTestRuntime)) {
     return [pscustomobject]@{ Ready = $true; Missing = @() }
   }
 
@@ -541,7 +549,7 @@ function Ensure-DjangoSystemReady([switch]$RequireReadyBackend) {
   $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
   $startupPhaseOutcome = 'completed'
   try {
-  if (Test-IsIsolatedTestRuntime) { return }
+  if (-not $NativeIsolation -and (Test-IsIsolatedTestRuntime)) { return }
 
   $readiness = Get-DjangoSystemReadiness
   if ($readiness.Ready) {
@@ -771,6 +779,7 @@ function Get-ManifestIdentity([string]$Path) {
   }
   $manifestRaw = [System.IO.File]::ReadAllBytes($Path)
   $manifest = ConvertFrom-ExactJson ([System.Text.UTF8Encoding]::new($false, $true).GetString($manifestRaw)) "Worker release manifest"
+  if ($NativeIsolation -and [string]$manifest.runtime.nativeIsolationSha256 -cne $env:TERUISI_NATIVE_ISOLATION_SHA256) { throw 'Worker native isolation binding changed' }
   Assert-ExactProperties $manifest @("version", "releaseId", "createdAt", "source", "build", "runtime", "artifacts", "processIdentity", "manifestPayloadSha256") "Worker release manifest"
   Assert-CanonicalJsonPayload $manifestRaw $manifest "manifestPayloadSha256" "Worker release manifest"
   if ($manifest.version -cne "teruisi-local-worker-release-v1" -or $manifest.releaseId -cne $releaseId) { throw "Worker release identity is invalid" }
@@ -1680,7 +1689,7 @@ function Start-VerifiedWorkerSupervisor(
       $detail = if ($logTail) { "; stderr=$logTail" } else { "" }
       throw "Immutable Worker/helper did not establish stable exact 3000/5791 ownership: state=$state$reason$detail"
     }
-    $helperHealth = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:5791/health" -TimeoutSec (Get-WorkerHttpTimeoutSeconds 15)
+    $helperHealth = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:$($NativePorts[5791])/health" -TimeoutSec (Get-WorkerHttpTimeoutSeconds 15)
     if (-not $helperHealth -or $helperHealth.ok -ne $true) { throw "Immutable helper /health did not report ready" }
     return [ordered]@{
       status = $ResultStatus
@@ -1839,9 +1848,9 @@ function Get-JoinedWorkerStartResult([object]$identity) {
   if (-not $readiness.Ready) {
     throw "Concurrent startup did not make the full backend ready; missing=$($readiness.Missing -join ',')"
   }
-  $page = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:3000/" -TimeoutSec (Get-WorkerHttpTimeoutSeconds 10) -MaximumRedirection 0
+  $page = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$($NativePorts[3000])/" -TimeoutSec (Get-WorkerHttpTimeoutSeconds 10) -MaximumRedirection 0
   if ($page.StatusCode -ne 200) { throw "Concurrent startup did not make the Worker homepage ready" }
-  $helperHealth = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:5791/health" -TimeoutSec (Get-WorkerHttpTimeoutSeconds 15)
+  $helperHealth = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:$($NativePorts[5791])/health" -TimeoutSec (Get-WorkerHttpTimeoutSeconds 15)
   if (-not $helperHealth -or $helperHealth.ok -ne $true) { throw "Concurrent startup did not make the helper ready" }
   return ([ordered]@{ status = "already_running"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256; supervisorProcessId = $status.Supervisor.ProcessId })
   } catch {
@@ -2025,12 +2034,12 @@ try {
     $remainingMilliseconds = $HotRestartBudgetMilliseconds - $hotRestartTimer.ElapsedMilliseconds
     if ($remainingMilliseconds -lt 1000) { throw "Hot restart exhausted its 30-second budget before HTTP readiness" }
     $pageTimeoutSeconds = [Math]::Max(1, [Math]::Min(10, [Math]::Floor($remainingMilliseconds / 1000)))
-    $page = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:3000/" -TimeoutSec $pageTimeoutSeconds
+    $page = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$($NativePorts[3000])/" -TimeoutSec $pageTimeoutSeconds
     if ($page.StatusCode -ne 200) { throw "Hot-restarted Worker homepage did not report HTTP 200" }
     $remainingMilliseconds = $HotRestartBudgetMilliseconds - $hotRestartTimer.ElapsedMilliseconds
     if ($remainingMilliseconds -lt 1000) { throw "Hot restart exhausted its 30-second budget before helper readiness" }
     $helperTimeoutSeconds = [Math]::Max(1, [Math]::Min(5, [Math]::Floor($remainingMilliseconds / 1000)))
-    $helperHealth = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:5791/health" -TimeoutSec $helperTimeoutSeconds
+    $helperHealth = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:$($NativePorts[5791])/health" -TimeoutSec $helperTimeoutSeconds
     if (-not $helperHealth -or $helperHealth.ok -ne $true) { throw "Immutable helper /health did not remain ready" }
     $hotRestartTimer.Stop()
     if ($hotRestartTimer.ElapsedMilliseconds -ge $HotRestartBudgetMilliseconds) {
@@ -2068,7 +2077,7 @@ try {
   if ($Action -eq 'EndWorkerDrain') {
     Assert-WorkerReleaseDrain $MaintenanceId
     if ((Get-WorkerStatusInternal $identity).State -cne 'exact_release') { throw 'Exact Worker must be running before ending its release drain' }
-    $helperHealth = Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:5791/health' -TimeoutSec (Get-WorkerHttpTimeoutSeconds 15)
+    $helperHealth = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:$($NativePorts[5791])/health" -TimeoutSec (Get-WorkerHttpTimeoutSeconds 15)
     if ($helperHealth.ok -cne $true -or $helperHealth.drainProtocol -cne 'teruisi-automation-drain-v1' -or $helperHealth.drain.id -cne $MaintenanceId -or $helperHealth.busy -cne $false -or @($helperHealth.storeExecutions).Count -ne 0) { throw 'New helper did not acknowledge the retained exact drain' }
     Invoke-DjangoLifecycleAction 'CancelDrain' $MaintenanceId
     if (Read-WorkerAutomationDrain) { throw 'Worker release drain was not cleared' }

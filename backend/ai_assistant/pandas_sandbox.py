@@ -184,7 +184,8 @@ def call_runner(job, configuration, diagnostic_stage=no_stage):
     broker_ref = reference(nonce)
     runner_stage = partial(diagnostic_stage, brokerRef=broker_ref)
     with runner_stage("runner_prepare"):
-        connection = http.client.HTTPConnection("127.0.0.1", PORT, timeout=transport.remaining_budget(22))
+        from pandas_runner.native_isolation import native_port
+        connection = http.client.HTTPConnection("127.0.0.1", native_port(PORT), timeout=transport.remaining_budget(22))
     try:
         # The preceding prepare event binds the nonce digest even if no response returns.
         with runner_stage("signed_send"):

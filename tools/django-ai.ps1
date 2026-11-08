@@ -26,6 +26,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "native-isolation.ps1")
+$RuntimeRoot = Get-NativeRuntimeRoot "django" $RuntimeRoot ($PSBoundParameters.ContainsKey("RuntimeRoot"))
 $RequestedAiEncryptionSource = $AiEncryptionSource
 $RequestedModelOriginAllowlist = $ModelOriginAllowlist
 $RequestedPandasImage = $PandasImage
@@ -58,8 +60,8 @@ $OrchestratedLifecycleAclToken = $RequestedOrchestratedLifecycleAclToken
 $AiCredentialPath = Join-Path $RuntimeRoot "secrets\ai-credentials.dpapi.json"
 $AiReaderPidPath = Join-Path $RunDirectory "django-ai-reader.pid.json"
 $AiWriterPidPath = Join-Path $RunDirectory "django-ai-writer.pid.json"
-$AiReaderHealthUrl = "http://127.0.0.1:8111/health/ready"
-$AiWriterHealthUrl = "http://127.0.0.1:8112/health/ready"
+$AiReaderHealthUrl = "http://127.0.0.1:$($NativePorts[8111])/health/ready"
+$AiWriterHealthUrl = "http://127.0.0.1:$($NativePorts[8112])/health/ready"
 $AiStartupPath = Join-Path $RuntimeRoot "ai-enabled.json"
 $DingTalkConfigPath = Join-Path $RuntimeRoot "config\dingtalk-ask.json"
 $DingTalkSchedulePidPath = Join-Path $RunDirectory "django-ai-dingtalk-schedule.pid.json"
@@ -74,7 +76,8 @@ $PandasConfigPath = Join-Path $RuntimeRoot "config\pandas-sandbox.json"
 $PandasKeyPath = Join-Path $RuntimeRoot "secrets\pandas-sandbox.dpapi.json"
 $PandasPidPath = Join-Path $RunDirectory "ai-pandas-wsl.pid.json"
 $PandasWsl = Join-Path $env:SystemRoot "System32\wsl.exe"
-$PandasKeepaliveArguments = @("-d", "TERUISI-Pandas", "-u", "teruisi-pandas", "--exec", "/usr/bin/sleep", "infinity")
+$PandasDistribution = if ($NativeIsolation) { $NativeIsolation.wslDistribution } else { "TERUISI-Pandas" }
+$PandasKeepaliveArguments = @("-d", $PandasDistribution, "-u", "teruisi-pandas", "--exec", "/usr/bin/sleep", "infinity")
 $PiConfigPath = Join-Path $RuntimeRoot "config\pi-agent.json"
 $PiKeyPath = Join-Path $RuntimeRoot "secrets\pi-agent.dpapi.json"
 $PiWorkerPidPath = Join-Path $RunDirectory "django-ai-pi-worker.pid.json"
@@ -639,7 +642,7 @@ function Assert-AiRuntimeEntry([string]$LifecycleAclToken = "") {
 }
 
 function Assert-AiPortsFree([string]$Operation) {
-  if (@(Get-PortListeners 8111).Count -gt 0 -or @(Get-PortListeners 8112).Count -gt 0) {
+  if (@(Get-PortListeners $NativePorts[8111]).Count -gt 0 -or @(Get-PortListeners $NativePorts[8112]).Count -gt 0) {
     throw "$Operation 前必须先停止 Django AI 助理 reader/writer"
   }
   if (Resolve-OwnedProcess "django-ai-reader" $AiReaderPidPath $Waitress) {
@@ -800,7 +803,7 @@ function Invoke-WithAiEnvironment(
   Invoke-WithDjangoEnvironment $RuntimeSecrets $DatabaseUrl $Role $ReadOnly $BodyBytes ([string]$Authority.authorityEpoch) ([string]$Authority.cutoverId) {
     $env:AI_SECRET_ENCRYPTION_KEY = if ($Role -ceq "ai_writer") { $AiSecrets.ModelEncryptionKey } else { "" }
     $env:AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST = $AiSecrets.ModelOriginAllowlist
-    $env:TERUISI_DJANGO_AI_EDGE_BASE_URL = "http://127.0.0.1:3000"
+    $env:TERUISI_DJANGO_AI_EDGE_BASE_URL = "http://127.0.0.1:$($NativePorts[3000])"
     if ($Role -ceq "ai_writer") {
       $env:TERUISI_PI_REPORT_DINGTALK_CONFIG = ""
       $env:TERUISI_DINGTALK_BOT_CREDENTIALS = ""
@@ -818,7 +821,7 @@ function Invoke-WithAiEnvironment(
       if ($null -ne $pi) {
         $env:PI_RUNNER_HMAC_KEY_FILE = $PiKeyPath
         $env:PI_SKILL_VERSION = [string]$pi.skillVersion
-        $env:PI_GATEWAY_URL = "http://127.0.0.1:8112/api/ai/pi/gateway"
+        $env:PI_GATEWAY_URL = "http://127.0.0.1:$($NativePorts[8112])/api/ai/pi/gateway"
       }
       $pandas = Read-PandasConfig
       if ($null -ne $pandas) {
@@ -832,16 +835,16 @@ function Invoke-WithAiEnvironment(
 
 function Start-AiReader([object]$RuntimeSecrets, [object]$AiSecrets, [object]$Authority, [switch]$DeferReady) {
   $arguments = @(
-    "--listen=127.0.0.1:8111", "--threads=2", "--connection-limit=30", "--channel-timeout=35",
+    "--listen=127.0.0.1:$($NativePorts[8111])", "--threads=2", "--connection-limit=30", "--channel-timeout=35",
     "--cleanup-interval=30", "--ident=teruisi-django-ai-reader",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$AiReaderMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-Sha256Text ((Get-ConfigFingerprint "django-ai-reader" $Waitress $arguments) + (Get-FileHash -LiteralPath $AiCredentialPath -Algorithm SHA256).Hash + [string]$Authority.authorityEpoch + [string]$Authority.cutoverId)
   if (Resolve-OwnedProcess "django-ai-reader" $AiReaderPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "ai-reader" $AiReaderHealthUrl "127.0.0.1:8111"; return $false
+    Wait-DjangoReady "ai-reader" $AiReaderHealthUrl "127.0.0.1:$($NativePorts[8111])"; return $false
   }
-  if (@(Get-PortListeners 8111).Count -gt 0) { throw "端口 8111 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8111]).Count -gt 0) { throw "端口 8111 被非本部署服务占用" }
   Remove-OldServiceLogs "django-ai-reader"
   $readerUrl = Database-Url "teruisi_ai_reader" $AiSecrets.ReaderPassword "teruisi_ai_read" $ReaderStatementTimeoutMs
   Invoke-WithAiEnvironment $RuntimeSecrets $AiSecrets $readerUrl "ai_reader" $true $AiReaderMaxBodyBytes $Authority {
@@ -851,14 +854,14 @@ function Start-AiReader([object]$RuntimeSecrets, [object]$AiSecrets, [object]$Au
   $readerUrl = $null
   # The stack owns rollback after launch; its final readiness barrier remains mandatory.
   if ($DeferReady) { return $true }
-  try { Wait-DjangoReady "ai-reader" $AiReaderHealthUrl "127.0.0.1:8111"; return $true }
+  try { Wait-DjangoReady "ai-reader" $AiReaderHealthUrl "127.0.0.1:$($NativePorts[8111])"; return $true }
   catch { Stop-OwnedProcess "django-ai-reader" $AiReaderPidPath $Waitress; throw }
 }
 
 function Start-AiWriter([object]$RuntimeSecrets, [object]$AiSecrets, [object]$Authority, [switch]$DeferReady) {
   if ([string]$Authority.status -cne "postgres") { throw "PostgreSQL 尚未成为AI 助理唯一写入源；拒绝启动AI 助理 writer" }
   $arguments = @(
-    "--listen=127.0.0.1:8112", "--threads=6", "--connection-limit=30", "--channel-timeout=320",
+    "--listen=127.0.0.1:$($NativePorts[8112])", "--threads=6", "--connection-limit=30", "--channel-timeout=320",
     "--cleanup-interval=30", "--ident=teruisi-django-ai-writer",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$AiWriterMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
@@ -867,9 +870,9 @@ function Start-AiWriter([object]$RuntimeSecrets, [object]$AiSecrets, [object]$Au
   if ($null -ne (Read-PandasConfig)) { $fingerprint = Get-Sha256Text ($fingerprint + (Get-FileHash -LiteralPath $PandasConfigPath -Algorithm SHA256).Hash) }
   if ($null -ne (Read-PiConfig)) { $fingerprint = Get-Sha256Text ($fingerprint + (Get-FileSha256 $PiConfigPath) + (Get-FileSha256 $PiKeyPath)) }
   if (Resolve-OwnedProcess "django-ai-writer" $AiWriterPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "ai-writer" $AiWriterHealthUrl "127.0.0.1:8112"; return $false
+    Wait-DjangoReady "ai-writer" $AiWriterHealthUrl "127.0.0.1:$($NativePorts[8112])"; return $false
   }
-  if (@(Get-PortListeners 8112).Count -gt 0) { throw "端口 8112 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8112]).Count -gt 0) { throw "端口 8112 被非本部署服务占用" }
   Remove-OldServiceLogs "django-ai-writer"
   $writerUrl = Database-Url "teruisi_ai_writer" $AiSecrets.WriterPassword "teruisi_ai_write" $WriterStatementTimeoutMs
   Invoke-WithAiEnvironment $RuntimeSecrets $AiSecrets $writerUrl "ai_writer" $false $AiWriterMaxBodyBytes $Authority {
@@ -879,7 +882,7 @@ function Start-AiWriter([object]$RuntimeSecrets, [object]$AiSecrets, [object]$Au
   $writerUrl = $null
   # The stack owns new-process rollback and the final readiness barrier.
   if ($DeferReady) { return $true }
-  try { Wait-DjangoReady "ai-writer" $AiWriterHealthUrl "127.0.0.1:8112"; return $true }
+  try { Wait-DjangoReady "ai-writer" $AiWriterHealthUrl "127.0.0.1:$($NativePorts[8112])"; return $true }
   catch { Stop-OwnedProcess "django-ai-writer" $AiWriterPidPath $Waitress; throw }
 }
 
@@ -917,10 +920,10 @@ function Start-AiStack([string]$LifecycleAclToken = "") {
     Start-PandasSandbox | Out-Null
     $readerStarted = Start-AiReader $runtimeSecrets $aiSecrets $authority -DeferReady
     $writerStarted = Start-AiWriter $runtimeSecrets $aiSecrets $authority -DeferReady
-    Wait-DjangoReady "ai-reader" $AiReaderHealthUrl "127.0.0.1:8111"
-    Wait-DjangoReady "ai-writer" $AiWriterHealthUrl "127.0.0.1:8112"
+    Wait-DjangoReady "ai-reader" $AiReaderHealthUrl "127.0.0.1:$($NativePorts[8111])"
+    Wait-DjangoReady "ai-writer" $AiWriterHealthUrl "127.0.0.1:$($NativePorts[8112])"
     $piStarted = Start-PiRuntime $runtimeSecrets $aiSecrets $authority
-    Write-Output "Django AI 助理服务已就绪：reader=http://127.0.0.1:8111 writer=http://127.0.0.1:8112。"
+    Write-Output "Django AI 助理服务已就绪：reader=http://127.0.0.1:$($NativePorts[8111]) writer=http://127.0.0.1:$($NativePorts[8112])。"
   } catch {
     $original = $_.Exception
     if ($piStarted) { try { Stop-PiRuntime } catch {} }
@@ -1145,7 +1148,7 @@ function Invoke-DingTalkReceiver([bool]$CheckOnly, [object]$StartupApproval = $n
       }
       return
     }
-    Wait-DjangoReady "ai-writer" $AiWriterHealthUrl "127.0.0.1:8112"
+    Wait-DjangoReady "ai-writer" $AiWriterHealthUrl "127.0.0.1:$($NativePorts[8112])"
     if (-not $Schedules) {
       Invoke-WithAiEnvironment $runtimeSecrets $aiSecrets $url "ai_writer" $false $AiWriterMaxBodyBytes $authority {
         Invoke-BoundedNativeProcess $Python @("-c", "import dingtalk_stream, websockets; print('receiver_dependencies_available')") $BackendRoot | Out-Null
@@ -1203,11 +1206,11 @@ function Get-DingTalkConnectionState([string]$ReceiverRunId) {
 
 function Show-AiStatus {
   $reader = "stopped"; $writer = "stopped"
-  try { if (Resolve-OwnedProcess "django-ai-reader" $AiReaderPidPath $Waitress) { $reader = "running" } elseif (@(Get-PortListeners 8111).Count -gt 0) { $reader = "foreign_port_owner" } } catch { $reader = "ownership_error" }
-  try { if (Resolve-OwnedProcess "django-ai-writer" $AiWriterPidPath $Waitress) { $writer = "running" } elseif (@(Get-PortListeners 8112).Count -gt 0) { $writer = "foreign_port_owner" } } catch { $writer = "ownership_error" }
+  try { if (Resolve-OwnedProcess "django-ai-reader" $AiReaderPidPath $Waitress) { $reader = "running" } elseif (@(Get-PortListeners $NativePorts[8111]).Count -gt 0) { $reader = "foreign_port_owner" } } catch { $reader = "ownership_error" }
+  try { if (Resolve-OwnedProcess "django-ai-writer" $AiWriterPidPath $Waitress) { $writer = "running" } elseif (@(Get-PortListeners $NativePorts[8112]).Count -gt 0) { $writer = "foreign_port_owner" } } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"; $writerReady = "not_ready"
-  try { if ((Invoke-WebRequest -UseBasicParsing -Uri $AiReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8111" }).StatusCode -eq 200) { $readerReady = "ready" } } catch {}
-  try { if ((Invoke-WebRequest -UseBasicParsing -Uri $AiWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8112" }).StatusCode -eq 200) { $writerReady = "ready" } } catch {}
+  try { if ((Invoke-WebRequest -UseBasicParsing -Uri $AiReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:$($NativePorts[8111])" }).StatusCode -eq 200) { $readerReady = "ready" } } catch {}
+  try { if ((Invoke-WebRequest -UseBasicParsing -Uri $AiWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:$($NativePorts[8112])" }).StatusCode -eq 200) { $writerReady = "ready" } } catch {}
   $pandasReady = "disabled"
   try {
     $pandas = Read-PandasConfig

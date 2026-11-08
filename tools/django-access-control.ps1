@@ -11,6 +11,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "native-isolation.ps1")
+$RuntimeRoot = Get-NativeRuntimeRoot "django" $RuntimeRoot ($PSBoundParameters.ContainsKey("RuntimeRoot"))
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
 $RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
@@ -30,8 +32,8 @@ $OrchestratedLifecycleAclToken = $RequestedOrchestratedLifecycleAclToken
 $AccessControlCredentialPath = Join-Path $RuntimeRoot "secrets\access-control-credentials.dpapi.json"
 $AccessControlReaderPidPath = Join-Path $RunDirectory "django-access-control-reader.pid.json"
 $AccessControlWriterPidPath = Join-Path $RunDirectory "django-access-control-writer.pid.json"
-$AccessControlReaderHealthUrl = "http://127.0.0.1:8101/health/ready"
-$AccessControlWriterHealthUrl = "http://127.0.0.1:8102/health/ready"
+$AccessControlReaderHealthUrl = "http://127.0.0.1:$($NativePorts[8101])/health/ready"
+$AccessControlWriterHealthUrl = "http://127.0.0.1:$($NativePorts[8102])/health/ready"
 $AccessControlStartupPath = Join-Path $RuntimeRoot "access-control-enabled.json"
 $AccessControlReaderMaxBodyBytes = 1048576
 $AccessControlWriterMaxBodyBytes = 1048576
@@ -49,7 +51,7 @@ function Assert-AccessControlRuntimeEntry([string]$LifecycleAclToken = "") {
 }
 
 function Assert-AccessControlPortsFree([string]$Operation) {
-  if (@(Get-PortListeners 8101).Count -gt 0 -or @(Get-PortListeners 8102).Count -gt 0) {
+  if (@(Get-PortListeners $NativePorts[8101]).Count -gt 0 -or @(Get-PortListeners $NativePorts[8102]).Count -gt 0) {
     throw "$Operation 前必须先停止 Django 权限 reader/writer"
   }
   if (Resolve-OwnedProcess "django-access-control-reader" $AccessControlReaderPidPath $Waitress) {
@@ -229,16 +231,16 @@ print(json.dumps({
 
 function Start-AccessControlReader([object]$RuntimeSecrets, [object]$AccessControlSecrets, [switch]$DeferReady) {
   $arguments = @(
-    "--listen=127.0.0.1:8101", "--threads=6", "--connection-limit=60", "--channel-timeout=35",
+    "--listen=127.0.0.1:$($NativePorts[8101])", "--threads=6", "--connection-limit=60", "--channel-timeout=35",
     "--cleanup-interval=30", "--ident=teruisi-django-access-control-reader",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$AccessControlReaderMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-access-control-reader" $Waitress $arguments
   if (Resolve-OwnedProcess "django-access-control-reader" $AccessControlReaderPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "access-control-reader" $AccessControlReaderHealthUrl "127.0.0.1:8101"; return $false
+    Wait-DjangoReady "access-control-reader" $AccessControlReaderHealthUrl "127.0.0.1:$($NativePorts[8101])"; return $false
   }
-  if (@(Get-PortListeners 8101).Count -gt 0) { throw "端口 8101 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8101]).Count -gt 0) { throw "端口 8101 被非本部署服务占用" }
   Remove-OldServiceLogs "django-access-control-reader"
   $readerUrl = Database-Url "teruisi_access_control_reader" $AccessControlSecrets.ReaderPassword "teruisi_access_control_read" $ReaderStatementTimeoutMs
   Invoke-WithDjangoEnvironment $RuntimeSecrets $readerUrl "access_control_reader" $true $AccessControlReaderMaxBodyBytes "" "" {
@@ -248,23 +250,23 @@ function Start-AccessControlReader([object]$RuntimeSecrets, [object]$AccessContr
   $readerUrl = $null
   # The stack owns rollback after launch; its final readiness barrier remains mandatory.
   if ($DeferReady) { return $true }
-  try { Wait-DjangoReady "access-control-reader" $AccessControlReaderHealthUrl "127.0.0.1:8101"; return $true }
+  try { Wait-DjangoReady "access-control-reader" $AccessControlReaderHealthUrl "127.0.0.1:$($NativePorts[8101])"; return $true }
   catch { Stop-OwnedProcess "django-access-control-reader" $AccessControlReaderPidPath $Waitress; throw }
 }
 
 function Start-AccessControlWriter([object]$RuntimeSecrets, [object]$AccessControlSecrets, [object]$Authority, [switch]$DeferReady) {
   if ([string]$Authority.status -cne "postgres") { throw "PostgreSQL 尚未成为权限唯一写入源；拒绝启动权限 writer" }
   $arguments = @(
-    "--listen=127.0.0.1:8102", "--threads=4", "--connection-limit=20", "--channel-timeout=960",
+    "--listen=127.0.0.1:$($NativePorts[8102])", "--threads=4", "--connection-limit=20", "--channel-timeout=960",
     "--cleanup-interval=30", "--ident=teruisi-django-access-control-writer",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$AccessControlWriterMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-access-control-writer" $Waitress $arguments
   if (Resolve-OwnedProcess "django-access-control-writer" $AccessControlWriterPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "access-control-writer" $AccessControlWriterHealthUrl "127.0.0.1:8102"; return $false
+    Wait-DjangoReady "access-control-writer" $AccessControlWriterHealthUrl "127.0.0.1:$($NativePorts[8102])"; return $false
   }
-  if (@(Get-PortListeners 8102).Count -gt 0) { throw "端口 8102 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8102]).Count -gt 0) { throw "端口 8102 被非本部署服务占用" }
   Remove-OldServiceLogs "django-access-control-writer"
   $writerUrl = Database-Url "teruisi_access_control_writer" $AccessControlSecrets.WriterPassword "teruisi_access_control_write" $WriterStatementTimeoutMs
   Invoke-WithDjangoEnvironment $RuntimeSecrets $writerUrl "access_control_writer" $false $AccessControlWriterMaxBodyBytes ([string]$Authority.authorityEpoch) ([string]$Authority.cutoverId) {
@@ -274,7 +276,7 @@ function Start-AccessControlWriter([object]$RuntimeSecrets, [object]$AccessContr
   $writerUrl = $null
   # The stack owns new-process rollback and the final readiness barrier.
   if ($DeferReady) { return $true }
-  try { Wait-DjangoReady "access-control-writer" $AccessControlWriterHealthUrl "127.0.0.1:8102"; return $true }
+  try { Wait-DjangoReady "access-control-writer" $AccessControlWriterHealthUrl "127.0.0.1:$($NativePorts[8102])"; return $true }
   catch { Stop-OwnedProcess "django-access-control-writer" $AccessControlWriterPidPath $Waitress; throw }
 }
 
@@ -301,10 +303,10 @@ function Start-AccessControlStack([string]$LifecycleAclToken = "") {
     }
     $readerStarted = Start-AccessControlReader $runtimeSecrets $accessControlSecrets -DeferReady
     if ([string]$authority.status -ceq "postgres") { $writerStarted = Start-AccessControlWriter $runtimeSecrets $accessControlSecrets $authority -DeferReady }
-    Wait-DjangoReady "access-control-reader" $AccessControlReaderHealthUrl "127.0.0.1:8101"
+    Wait-DjangoReady "access-control-reader" $AccessControlReaderHealthUrl "127.0.0.1:$($NativePorts[8101])"
     if ([string]$authority.status -ceq "postgres") {
-      Wait-DjangoReady "access-control-writer" $AccessControlWriterHealthUrl "127.0.0.1:8102"
-      Write-Output "Django 权限服务已就绪：reader=http://127.0.0.1:8101 writer=http://127.0.0.1:8102。"
+      Wait-DjangoReady "access-control-writer" $AccessControlWriterHealthUrl "127.0.0.1:$($NativePorts[8102])"
+      Write-Output "Django 权限服务已就绪：reader=http://127.0.0.1:$($NativePorts[8101]) writer=http://127.0.0.1:$($NativePorts[8102])。"
     } else { Write-Output "Django 权限 reader 已就绪；PostgreSQL 权限写权尚未激活，writer 保持停止。" }
   } catch {
     $original = $_.Exception
@@ -353,11 +355,11 @@ function Disable-AccessControlStartup {
 
 function Show-AccessControlStatus {
   $reader = "stopped"; $writer = "stopped"
-  try { if (Resolve-OwnedProcess "django-access-control-reader" $AccessControlReaderPidPath $Waitress) { $reader = "running" } elseif (@(Get-PortListeners 8101).Count -gt 0) { $reader = "foreign_port_owner" } } catch { $reader = "ownership_error" }
-  try { if (Resolve-OwnedProcess "django-access-control-writer" $AccessControlWriterPidPath $Waitress) { $writer = "running" } elseif (@(Get-PortListeners 8102).Count -gt 0) { $writer = "foreign_port_owner" } } catch { $writer = "ownership_error" }
+  try { if (Resolve-OwnedProcess "django-access-control-reader" $AccessControlReaderPidPath $Waitress) { $reader = "running" } elseif (@(Get-PortListeners $NativePorts[8101]).Count -gt 0) { $reader = "foreign_port_owner" } } catch { $reader = "ownership_error" }
+  try { if (Resolve-OwnedProcess "django-access-control-writer" $AccessControlWriterPidPath $Waitress) { $writer = "running" } elseif (@(Get-PortListeners $NativePorts[8102]).Count -gt 0) { $writer = "foreign_port_owner" } } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"; $writerReady = "not_ready"
-  try { if ((Invoke-WebRequest -UseBasicParsing -Uri $AccessControlReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8101" }).StatusCode -eq 200) { $readerReady = "ready" } } catch {}
-  try { if ((Invoke-WebRequest -UseBasicParsing -Uri $AccessControlWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8102" }).StatusCode -eq 200) { $writerReady = "ready" } } catch {}
+  try { if ((Invoke-WebRequest -UseBasicParsing -Uri $AccessControlReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:$($NativePorts[8101])" }).StatusCode -eq 200) { $readerReady = "ready" } } catch {}
+  try { if ((Invoke-WebRequest -UseBasicParsing -Uri $AccessControlWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:$($NativePorts[8102])" }).StatusCode -eq 200) { $writerReady = "ready" } } catch {}
   $status = [pscustomobject][ordered]@{ AccessControlReader = $reader; AccessControlWriter = $writer; ReaderReadiness = $readerReady; WriterReadiness = $writerReady; CheckedAt = [DateTimeOffset]::UtcNow.ToString("o") }
   if ($RequestedJson) { Write-Output ($status | ConvertTo-Json -Compress) } else { $status | Format-List }
 }

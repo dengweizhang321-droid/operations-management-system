@@ -13,6 +13,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "native-isolation.ps1")
+$RuntimeRoot = Get-NativeRuntimeRoot "django" $RuntimeRoot ($PSBoundParameters.ContainsKey("RuntimeRoot"))
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
 $RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
@@ -35,7 +37,7 @@ $ApprovedRunId = $RequestedApprovedRunId
 
 $BiCredentialPath = Join-Path $RuntimeRoot "secrets\bi-credentials.dpapi.json"
 $BiReaderPidPath = Join-Path $RunDirectory "django-bi-reader.pid.json"
-$BiReaderHealthUrl = "http://127.0.0.1:8081/health/ready"
+$BiReaderHealthUrl = "http://127.0.0.1:$($NativePorts[8081])/health/ready"
 $BiStartupPath = Join-Path $RuntimeRoot "bi-service-enabled.json"
 $BiReaderMaxBodyBytes = 1048576
 
@@ -52,7 +54,7 @@ function Assert-BiRuntimeEntry([string]$LifecycleAclToken = "") {
 }
 
 function Assert-BiPortFree([string]$Operation) {
-  if (@(Get-PortListeners 8081).Count -gt 0) { throw "$Operation 前必须先停止 Django BI reader" }
+  if (@(Get-PortListeners $NativePorts[8081]).Count -gt 0) { throw "$Operation 前必须先停止 Django BI reader" }
   if (Resolve-OwnedProcess "django-bi-reader" $BiReaderPidPath $Waitress) {
     throw "$Operation 前必须通过 Stop 停止 Django BI reader"
   }
@@ -276,17 +278,17 @@ function Invoke-BiMigration([ValidateSet("plan", "apply", "verify")][string]$Mod
 
 function Start-BiReader([object]$RuntimeSecrets, [object]$BiSecrets) {
   $arguments = @(
-    "--listen=127.0.0.1:8081", "--threads=6", "--connection-limit=60", "--channel-timeout=35",
+    "--listen=127.0.0.1:$($NativePorts[8081])", "--threads=6", "--connection-limit=60", "--channel-timeout=35",
     "--cleanup-interval=30", "--ident=teruisi-django-bi-reader",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$BiReaderMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-bi-reader" $Waitress $arguments
   if (Resolve-OwnedProcess "django-bi-reader" $BiReaderPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "bi-reader" $BiReaderHealthUrl "127.0.0.1:8081"
+    Wait-DjangoReady "bi-reader" $BiReaderHealthUrl "127.0.0.1:$($NativePorts[8081])"
     return $false
   }
-  if (@(Get-PortListeners 8081).Count -gt 0) { throw "端口 8081 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8081]).Count -gt 0) { throw "端口 8081 被非本部署服务占用" }
   Remove-OldServiceLogs "django-bi-reader"
   $readerUrl = Database-Url "teruisi_bi_reader" $BiSecrets.ReaderPassword "teruisi_django_bi_read" $ReaderStatementTimeoutMs
   Invoke-WithDjangoEnvironment $RuntimeSecrets $readerUrl "bi_reader" $true $BiReaderMaxBodyBytes "" "" {
@@ -295,7 +297,7 @@ function Start-BiReader([object]$RuntimeSecrets, [object]$BiSecrets) {
       (Join-Path $LogDirectory "django-bi-reader.$RunId.stderr.log") | Out-Null
   }
   $readerUrl = $null
-  try { Wait-DjangoReady "bi-reader" $BiReaderHealthUrl "127.0.0.1:8081"; return $true }
+  try { Wait-DjangoReady "bi-reader" $BiReaderHealthUrl "127.0.0.1:$($NativePorts[8081])"; return $true }
   catch { Stop-OwnedProcess "django-bi-reader" $BiReaderPidPath $Waitress; throw }
 }
 
@@ -322,8 +324,8 @@ function Start-BiStack([string]$LifecycleAclToken = "") {
       }
     }
     Start-BiReader $runtimeSecrets $biSecrets | Out-Null
-    Wait-DjangoReady "bi-reader" $BiReaderHealthUrl "127.0.0.1:8081"
-    Write-Output "Django BI reader 已就绪：http://127.0.0.1:8081。"
+    Wait-DjangoReady "bi-reader" $BiReaderHealthUrl "127.0.0.1:$($NativePorts[8081])"
+    Write-Output "Django BI reader 已就绪：http://127.0.0.1:$($NativePorts[8081])。"
   } finally { $runtimeSecrets = $null; $biSecrets = $null }
   } catch {
     $startupPhaseOutcome = 'failed'
@@ -367,12 +369,12 @@ function Show-BiStatus {
   $reader = "stopped"
   try {
     if (Resolve-OwnedProcess "django-bi-reader" $BiReaderPidPath $Waitress) { $reader = "running" }
-    elseif (@(Get-PortListeners 8081).Count -gt 0) { $reader = "foreign_port_owner" }
+    elseif (@(Get-PortListeners $NativePorts[8081]).Count -gt 0) { $reader = "foreign_port_owner" }
   } catch { $reader = "ownership_error" }
   $readiness = "not_ready"
   if ($reader -eq "running") {
     try {
-      if ((Invoke-WebRequest -UseBasicParsing -Uri $BiReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8081" }).StatusCode -eq 200) {
+      if ((Invoke-WebRequest -UseBasicParsing -Uri $BiReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:$($NativePorts[8081])" }).StatusCode -eq 200) {
         $readiness = "ready"
       }
     } catch {}
