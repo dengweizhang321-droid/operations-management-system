@@ -246,7 +246,7 @@ export const nativeIsolationControllerQualification=Object.freeze({
   'process-deadline.ps1':Object.freeze(['5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd','5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd']),
  }),
  helpers:Object.freeze({
-  'native-isolation.ps1':'2efe6738d9c0d963ad6d2dbc45584d702511889339b38fc82d8250f79db478c1',
+  'native-isolation.ps1':'a5499003d2e269b8a3d6cdb6bce70fcd2f02434c541620ccdaa151f0c7f52343',
   'native-isolation.mjs':'b4b54d559a12e79a24112fee3818a58f79444c1b7bf126fb5dc94ab6da1e662b',
  }),
 });

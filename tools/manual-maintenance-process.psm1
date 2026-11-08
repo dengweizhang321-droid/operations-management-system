@@ -42,7 +42,7 @@ function Assert-MaintenanceReadiness([object]$Readiness,[string]$DjangoRoot,[str
    'django:app/tools/django-local-service.ps1'='37c6dc571aeefe4954f977f5b3a64ec08516362a67775729f45f60b17bca99a6'
    'source:worker-local-service.ps1'='0e5459dd34c5dd5fa26109d3606117750bb61e11c5b66b510d13dfa889dc4516'
    'source:process-deadline.ps1'='5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd'
-   'source:native-isolation.ps1'='2efe6738d9c0d963ad6d2dbc45584d702511889339b38fc82d8250f79db478c1'
+   'source:native-isolation.ps1'='a5499003d2e269b8a3d6cdb6bce70fcd2f02434c541620ccdaa151f0c7f52343'
    'source:native-isolation.mjs'='b4b54d559a12e79a24112fee3818a58f79444c1b7bf126fb5dc94ab6da1e662b'
   }
   $qualified['worker:releases/'+$Readiness.releaseId+'/tools/worker-local-service.ps1']='1b8c5d4d61ba491d042f41ae91e9cc7b0d0c87a28536bac7b4c8a1e53fda761e'

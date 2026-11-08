@@ -39,7 +39,7 @@ foreach ($nativePort in @(3000,5791,5432,8001,8002,8011,8012,8021,8022,8031,8032
 function Get-NativeRuntimeRoot([string]$Role, [string]$Requested, [bool]$Explicit) {
   if ($Role -cnotin @('django','worker')) { throw 'Invalid native runtime role' }
   if ($NativeIsolation) {
-    if ($Action -notin @('Configure','ConfigureCredentials','ProvisionRoles','ProvisionFinanceRoles','EnableStartup','DisableStartup',
+    if ($Action -notin @('Configure','ProvisionRoles','ProvisionFinanceRoles','EnableStartup','DisableStartup',
         'PrepareApp','VerifyPreparedApp','DeployApp','HardenAcl','Start','Stop','Status','AggregateStatus','FinanceStatus',
         'StartFinance','StopFinance','Deploy','Verify','Restart','RestartFull','MaintenanceStatus','PiCheck','PandasCheck',
         'InstallStartup','VerifyStartup','RemoveStartup')) {
