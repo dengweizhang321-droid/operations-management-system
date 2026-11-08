@@ -197,6 +197,8 @@ def skills():
         raise AiError("Pi 技能配置未部署", "pi_skills_unavailable", 503)
     try:
         manifest = build(root)
+        if manifest != json.loads((root / "manifest.json").read_bytes()):
+            raise ValueError("skill_manifest_changed")
         items = []
         for item in manifest["skills"]:
             source = (root / item["id"] / "SKILL.md").read_text(encoding="utf-8")
@@ -214,10 +216,50 @@ def skills():
         raise AiError("Pi 技能发现失败，未加载技能", "pi_skills_unavailable", 503) from error
 
 
+def skill_selection(payload):
+    if "skillRefs" in payload and "skillIds" in payload:
+        raise AiError("请只提交一种技能选择")
+    refs = payload.get("skillRefs", [])
+    if not isinstance(refs, list) or len(refs) > 3:
+        raise AiError("技能版本选择无效")
+    for ref in refs:
+        required = {"id", "packageVersion", "sha256"}
+        fields(ref, required, required)
+        if not (isinstance(ref["id"], str)
+                and re.fullmatch(r"[a-z0-9-]{1,64}", ref["id"])
+                and isinstance(ref["packageVersion"], str)
+                and re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", ref["packageVersion"])
+                and isinstance(ref["sha256"], str)
+                and re.fullmatch(r"[0-9a-f]{64}", ref["sha256"])):
+            raise AiError("技能版本选择无效")
+    ids = payload.get("skillIds", [ref["id"] for ref in refs])
+    if (not isinstance(ids, list) or len(ids) > 3
+            or any(not isinstance(item, str) for item in ids) or len(set(ids)) != len(ids)):
+        raise AiError("技能标识无效")
+    return ids, refs
+
+
+def freeze_skills(ids, refs):
+    selected = [item for item in skills() if item["id"] in ids]
+    if refs:
+        by_id = {item["id"]: item for item in selected}
+        if any(
+            ref["id"] not in by_id
+            or any(ref[key] != by_id[ref["id"]][key] for key in ("packageVersion", "sha256"))
+            for ref in refs
+        ):
+            raise AiError("所选 Pi 技能包版本已变更或撤回，请刷新并重新选择", "pi_skill_version_changed", 409)
+    if len(selected) != len(ids):
+        raise AiError("所选技能不在当前审核资源包中")
+    if any(item["status"] != "available" for item in selected):
+        raise AiError("所选技能尚未安装", "service_unavailable", 503)
+    return selected
+
+
 def prompt(session_id, payload, principal):
     from . import pi_selection
     from . import pi_business
-    fields(payload, {"clientRequestId", "message", "modelId", "skillIds", "scope", "fileIds", "shopSelection", "businessExecution"}, {"clientRequestId", "message"})
+    fields(payload, {"clientRequestId", "message", "modelId", "skillIds", "skillRefs", "scope", "fileIds", "shopSelection", "businessExecution"}, {"clientRequestId", "message"})
     business_grants = pi_business.grants(payload.get("businessExecution"))
     key, message = identifier(payload["clientRequestId"], "clientRequestId"), text(payload["message"], "消息", 200000)
     existing_session = get_session(session_id, principal)
@@ -225,11 +267,10 @@ def prompt(session_id, payload, principal):
     if not valid_scope(scope) or not scope_covers(principal.scope, scope):
         raise AiError("本轮数据范围超出当前授权", "access_denied", 403)
     selection = pi_selection.normalize(payload.get("shopSelection", json.loads(existing_session.selection_json)), principal)
-    skill_ids, file_ids = payload.get("skillIds", []), payload.get("fileIds", [])
-    if (not isinstance(skill_ids, list) or len(skill_ids)>3
-            or any(not isinstance(item, str) for item in skill_ids) or len(set(skill_ids)) != len(skill_ids)
-            or not isinstance(file_ids, list) or len(file_ids)>16):
-        raise AiError("技能或文件标识无效")
+    skill_ids, skill_refs = skill_selection(payload)
+    file_ids = payload.get("fileIds", [])
+    if not isinstance(file_ids, list) or len(file_ids)>16:
+        raise AiError("文件标识无效")
     from . import configuration
     from .pi_models import PiWorkspace, PiControl
     binding = digest({"payload": payload, "scope": scope, "role": principal.role, "shopSelection": selection})
@@ -274,11 +315,7 @@ def prompt(session_id, payload, principal):
             files.append(f.id)
         if sum(PiFile.objects.get(id=f).size_bytes for f in files)>MAX_OUTPUT_FILE:
             raise AiError("本轮附件超过 8 MiB", "payload_too_large", 413)
-        selected = [item for item in skills() if item["id"] in skill_ids]
-        if len(selected) != len(skill_ids):
-            raise AiError("所选技能不在当前审核资源包中")
-        if any(item["status"] != "available" for item in selected):
-            raise AiError("所选技能尚未安装", "service_unavailable", 503)
+        selected = freeze_skills(skill_ids, skill_refs)
         session.operation_seq += 1
         if session.title == "新对话":
             session.title = " ".join(message.split())[:60]

@@ -4,13 +4,13 @@ from dataclasses import replace
 
 from django.utils import timezone
 
-from . import (chat, configuration, models, output_schemas, pi_gateway, pi_selection,
-               pi_sources, provider, skill_candidates)
+from . import (capability_probes, chat, configuration, models, output_schemas,
+               pi_gateway, pi_selection, pi_sources, provider, skill_candidates)
 from .model_capabilities import options, structured_output_parameters
 from .provider_contract import InvalidProviderResponse
-from .pi_models import PiDispatch, PiEvent, PiOperation
+from .pi_models import PiDispatch, PiEvent
 from .pi_workspace import effective_model
-from .policy import AiError, canonical, digest, fields, identifier, mutation, scope_covers, uid
+from .policy import AiError, canonical, digest, fields, identifier, mutation, uid
 from .transport import ProviderHttpError, ProviderTransportError, request_budget
 
 KIND = "skill_distillation"
@@ -22,7 +22,7 @@ SYSTEM = ("将已结束任务的报告、来源和用户确认修正提炼为可
 
 def snapshot(operation_id, principal, request_id=None):
     """Bounded, read-only receipts; never infer completion from HTTP errors."""
-    op = _operation(operation_id, principal)
+    op = skill_candidates.source_operation(operation_id, principal)
     rows = PiDispatch.objects.filter(operation=op, kind=KIND)
 
     def receipt(row):
@@ -34,18 +34,13 @@ def snapshot(operation_id, principal, request_id=None):
     requested = (rows.filter(request_id=identifier(request_id, "distillationRequestId")).first()
                  if request_id is not None else None)
     candidate = models.AiSkillCandidate.objects.filter(operation=op).order_by("-created_at", "id").first()
+    item = skill_candidates.record(candidate) if candidate else None
+    if candidate and candidate.status == "approved":
+        item["publication"] = skill_candidates.publication(candidate)
     return {"blocked": rows.filter(status__in=("prepared", "sent", "unknown")).exists(),
             "latest": receipt(rows.order_by("-created_at", "id").first()),
             "requested": receipt(requested),
-            "candidate": skill_candidates.record(candidate) if candidate else None}
-
-
-def _operation(operation_id, principal):
-    op = PiOperation.objects.select_related("session").filter(id=identifier(operation_id)).first()
-    if (op is None or op.session.owner_email.lower() != principal.email.lower()
-            or not scope_covers(principal.scope, op.scope_json) or op.actor_role != principal.role):
-        raise AiError("任务不存在或超出当前权限", "not_found", 404)
-    return op
+            "candidate": item}
 
 
 def _existing(op, key, binding):
@@ -90,30 +85,13 @@ def _material(op, principal, version, tools):
     })
 
 
-def _matches(value, schema):
-    # The bounded keyword set used by the registered Skill output contract.
-    kind = schema["type"]
-    if kind == "object":
-        return (isinstance(value, dict) and set(value) == set(schema["required"])
-                and all(_matches(v, schema["properties"][k]) for k, v in value.items()))
-    if kind == "array":
-        return (isinstance(value, list) and len(value) <= schema["maxItems"]
-                and all(_matches(v, schema["items"]) for v in value))
-    if kind == "string":
-        return (isinstance(value, str) and len(value) <= schema.get("maxLength", len(value))
-                and ("enum" not in schema or value in schema["enum"]))
-    if kind == "integer":
-        return type(value) is int and schema["minimum"] <= value <= schema["maximum"]
-    return kind == "boolean" and type(value) is bool
-
-
 def _content(result, schema, tools):
     try:
         raw = result["text"]
         if result["calls"] or result["truncated"] or len(raw.encode("utf-8")) > skill_candidates.MAX_CONTENT_BYTES:
             raise ValueError
         value = json.loads(raw)
-        if not _matches(value, schema) or len(canonical(value).encode("utf-8")) > skill_candidates.MAX_CONTENT_BYTES:
+        if not output_schemas.matches(value, schema) or len(canonical(value).encode("utf-8")) > skill_candidates.MAX_CONTENT_BYTES:
             raise ValueError
         if any(s["toolName"] and s["toolName"] not in tools for s in value["steps"]):
             raise ValueError
@@ -157,7 +135,7 @@ def distill(operation_id, body, principal):
     key = identifier(body["clientRequestId"], "clientRequestId")
     version = identifier(body["reportVersionDigest"], "reportVersionDigest")
     binding = digest({"operation": operation_id, "version": version})
-    op = _operation(operation_id, principal)
+    op = skill_candidates.source_operation(operation_id, principal)
     if "withdrawAuthorization" in body:
         if body["withdrawAuthorization"] is not True:
             raise AiError("撤回授权参数无效")
@@ -180,6 +158,7 @@ def distill(operation_id, body, principal):
         model = configuration.resolve_model(op.model_id)
         if model.version != op.model_version:
             raise AiError("任务使用的模型配置已变化", "conflict", 409)
+        capability_probes.require_structured(model, contract)
         model = effective_model(model, json.loads(op.payload_json).get("thinkingLevel", ""))
         structured_output_parameters(model, schema_name=structured["name"], schema=structured["schema"])
         chat.dispatch_budget(principal.email.lower(), model.id)

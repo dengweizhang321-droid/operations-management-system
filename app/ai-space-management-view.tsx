@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { probeAttempt } from "@/lib/ai/model-probe-request";
 
 import type { AppCurrentUser } from "./shell/view-contract";
 
@@ -18,6 +19,7 @@ type ImageProfile = {
   timeoutMs: number;
   lastSuccessResult: string | null;
   lastSuccessAt: string | null;
+  imageAdmissions?: { scene: SceneId; size: ImageSize; testedAt: string }[];
   createdAt: string;
   updatedAt: string;
 };
@@ -70,6 +72,10 @@ const sceneLabels: Record<SceneId, string> = {
   product_detail: "卖点详情",
   promotion: "活动视觉",
 };
+const sceneDefaultSizes: Record<SceneId, ImageSize> = {
+  product_main: "1024x1024", product_detail: "1024x1536", promotion: "1536x1024",
+};
+const imageSizes = Object.values(sceneDefaultSizes);
 
 function newProfileDraft(): ProfileDraft {
   return { name: "", modelName: "", baseUrl: "", apiKey: "", status: "enabled", timeoutMs: 90_000 };
@@ -110,6 +116,7 @@ export default function AiSpaceManagementView({ currentUser }: { currentUser: Ap
   const [tools, setTools] = useState<ToolCatalogItem[]>([]);
   const [profileDraft, setProfileDraft] = useState<ProfileDraft>(() => newProfileDraft());
   const [templateDraft, setTemplateDraft] = useState<TemplateDraft>(() => newTemplateDraft());
+  const [probe, setProbe] = useState<{ scene: SceneId; size: ImageSize }>({ scene: "product_main", size: "1024x1024" });
   const [loading, setLoading] = useState(canManage);
   const [saving, setSaving] = useState<"profile" | "template" | "">("");
   const [busyId, setBusyId] = useState("");
@@ -198,6 +205,34 @@ export default function AiSpaceManagementView({ currentUser }: { currentUser: Ap
     }
   };
 
+  const testProfile = async (item: ImageProfile) => {
+    const { scene, size } = probe;
+    if (!window.confirm(`确认测试“${item.name}”的${sceneLabels[scene]} ${size}？供应商可能对这张合成测试图计费。`)) return;
+    setBusyId(`probe:${item.id}`); setError(""); setNotice("");
+    try {
+      const attempt = await probeAttempt(currentUser?.email ?? "", `image:${item.id}:${item.version}:${scene}:${size}`);
+      const response = await fetch("/api/ai/space/profiles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "test", id: item.id, expectedVersion: item.version, clientRequestId: attempt.clientRequestId, scene, size }),
+      });
+      const result = await response.json().catch(() => null) as { ok?: boolean; message?: string; error?: string; code?: string } | null;
+      if (!response.ok) {
+        if (response.status < 500 && (response.status !== 409 || result?.code === "conflict")) attempt.finish();
+        throw new Error(result?.error || "图片模型测试失败");
+      }
+      if (typeof result?.ok !== "boolean") throw new Error("未取得图片模型测试回执");
+      attempt.finish();
+      if (!result.ok) throw new Error(result.message || "图片模型测试未通过");
+      setNotice(result.message || "当前场景和尺寸测试通过。");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "图片模型测试失败");
+    } finally {
+      await load();
+      setBusyId("");
+    }
+  };
+
   const remove = async (kind: "profile" | "template", id: string, name: string, version: number) => {
     if (!window.confirm(`确定删除“${name}”吗？已被模板或历史任务引用时，系统会拒绝删除。`)) return;
     setBusyId(`${kind}:${id}`); setError(""); setNotice("");
@@ -258,7 +293,15 @@ export default function AiSpaceManagementView({ currentUser }: { currentUser: Ap
         <label><span>请求超时（毫秒）</span><input type="number" min={3000} max={120000} step={1000} value={profileDraft.timeoutMs} onChange={(event) => setProfileDraft((current) => ({ ...current, timeoutMs: Number(event.target.value) }))} /></label>
         <div className="ai-form-actions"><button type="submit" className="primary-button" disabled={saving === "profile"}>{saving === "profile" ? "保存中…" : profileDraft.id ? "保存模型修改" : "新增图片模型"}</button></div>
       </form>
-      <div className="ai-config-list">{profiles.length === 0 && <p className="soft-text">暂无图片生成模型。AI 空间会保持只读，直到新增可用模型。</p>}{profiles.map((item) => <div key={item.id} className="ai-config-card"><div><strong>{item.name}</strong><small>OpenAI Images · {item.modelName} · v{item.version} · 密钥 {item.apiKeySuffix || "未配置"} · 超时 {item.timeoutMs}ms</small><small>{item.lastSuccessAt ? `最近真实成功：${localDateTime(item.lastSuccessAt)} · ${item.lastSuccessResult || "完成"}` : "尚无真实图片生成成功记录；保存配置不等于连接成功"}</small></div><span className={`status ${item.status === "enabled" ? "status-success" : "status-warning"}`}>{item.status === "enabled" ? "启用" : "停用"}</span><div className="ai-card-actions"><button type="button" className="row-action" onClick={() => editProfile(item)}>编辑</button><button type="button" className="row-action danger" disabled={busyId === `profile:${item.id}`} onClick={() => void remove("profile", item.id, item.name, item.version)}>{busyId === `profile:${item.id}` ? "删除中…" : "删除"}</button></div></div>)}</div>
+      {profiles.length > 0 && <div className="ai-config-form">
+        <label><span>测试场景</span><select value={probe.scene} disabled={Boolean(busyId)} onChange={(event) => {
+          const scene = event.target.value as SceneId;
+          setProbe({ scene, size: sceneDefaultSizes[scene] });
+        }}>{Object.entries(sceneLabels).map(([scene, label]) => <option key={scene} value={scene}>{label}</option>)}</select></label>
+        <label><span>测试尺寸</span><select value={probe.size} disabled={Boolean(busyId)} onChange={(event) => setProbe((current) => ({ ...current, size: event.target.value as ImageSize }))}>{imageSizes.map((size) => <option key={size} value={size}>{size}</option>)}</select></label>
+        <p className="soft-text ai-form-wide">在模型卡片上运行所选场景与尺寸的测试。AI 空间按配置版本和该组合开放生成。</p>
+      </div>}
+      <div className="ai-config-list">{profiles.length === 0 && <p className="soft-text">暂无图片生成模型。AI 空间会保持只读，直到新增可用模型。</p>}{profiles.map((item) => <div key={item.id} className="ai-config-card"><div><strong>{item.name}</strong><small>OpenAI Images · {item.modelName} · v{item.version} · 密钥 {item.apiKeySuffix || "未配置"} · 超时 {item.timeoutMs}ms</small><small>{item.lastSuccessAt ? `最近真实成功：${localDateTime(item.lastSuccessAt)} · ${item.lastSuccessResult || "完成"}` : "尚无业务图片生成成功记录"}</small><small>当前版本已通过：{item.imageAdmissions?.map(({ scene, size }) => `${sceneLabels[scene]} ${size}`).join(" · ") || "无"}</small></div><span className={`status ${item.status === "enabled" ? "status-success" : "status-warning"}`}>{item.status === "enabled" ? "启用" : "停用"}</span><div className="ai-card-actions"><button type="button" className="row-action" onClick={() => editProfile(item)}>编辑</button><button type="button" className="row-action" disabled={Boolean(busyId) || item.status !== "enabled"} onClick={() => void testProfile(item)}>{busyId === `probe:${item.id}` ? "测试中…" : "测试所选场景"}</button><button type="button" className="row-action danger" disabled={busyId === `profile:${item.id}`} onClick={() => void remove("profile", item.id, item.name, item.version)}>{busyId === `profile:${item.id}` ? "删除中…" : "删除"}</button></div></div>)}</div>
     </article>
 
     <article className="panel ai-admin-card">

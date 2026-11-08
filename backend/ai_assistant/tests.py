@@ -596,6 +596,8 @@ class AiDomainTests(TestCase):
                 "api_key_encrypted": "fixture",
                 "api_key_suffix": "ture",
                 "status": "enabled",
+                "last_success_result": canonical({"kind": space.IMAGE_ADMISSION_KIND, "version": 1,
+                    "items": [{"scene": "product_main", "size": "1024x1024", "testedAt": timezone.now().isoformat()}]}),
             },
         )
         template, _ = m.AiSpaceTemplates.objects.get_or_create(
@@ -766,7 +768,7 @@ class AiDomainTests(TestCase):
             with self.assertRaises(AiError):
                 knowledge.search("毛利", self.owner, limit)
 
-    def image_bytes(self):
+    def image_bytes(self, width=1024, height=1024):
         import struct
         import zlib
 
@@ -780,8 +782,8 @@ class AiDomainTests(TestCase):
 
         return (
             b"\x89PNG\r\n\x1a\n"
-            + chunk(b"IHDR", struct.pack(">IIBBBBB", 1024, 1024, 8, 2, 0, 0, 0))
-            + chunk(b"IDAT", zlib.compress((b"\0" + b"\xff\0\0" * 1024) * 1024))
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress((b"\0" + b"\xff\0\0" * width) * height))
             + chunk(b"IEND", b"")
         )
 

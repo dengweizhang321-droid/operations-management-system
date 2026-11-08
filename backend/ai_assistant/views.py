@@ -34,6 +34,7 @@ from .control_models import AiWriteReceipt, AiMutationAudit
 from .policy import (
     AiError,
     canonical,
+    cas,
     current_principal,
     digest,
     fields,
@@ -678,6 +679,17 @@ def _dispatch(request, path=""):
             and payload.get("action") == "test"
             or root == "consumer"
         )
+        if payload.get("action") == "test" and (parts == ["space", "profiles"]
+                or parts == ["models"] and payload.get("testMode") == "structured_output"):
+            fields(params, set())
+            key = payload.get("clientRequestId")
+            if request.method != "POST" or not isinstance(key, str) or not re.fullmatch(r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}", key):
+                raise AiError("模型能力测试请求标识无效")
+            binding = "\n".join((request.path, principal.email.lower(), key))
+            if request_id != "w10-probe-" + hashlib.sha256(binding.encode()).hexdigest():
+                raise AiError("模型能力测试请求标识绑定无效", "conflict", 409)
+            return write(request, principal,
+                         lambda: mutate_model_probe(parts, params, payload, principal, request_id), external=True)
         return write(
             request,
             principal,
@@ -784,7 +796,7 @@ def read(parts, params, principal):
             return {
                 "items": [
                     configuration.profile_record(r)
-                    for r in m.AiSpaceModelProfiles.objects.order_by("-updated_at")[
+                    for r in m.AiSpaceModelProfiles.objects.only(*configuration.IMAGE_PROFILE_ADMIN_COLUMNS).order_by("-updated_at")[
                         :100
                     ]
                 ]
@@ -815,6 +827,17 @@ def read(parts, params, principal):
     raise AiError("AI 接口不存在", "not_found", 404)
 
 
+def mutate_model_probe(parts, params, payload, principal, request_id):
+    from .capability_probes import probe_outcome_known
+
+    try:
+        return mutate(parts, params, payload, principal, request_id, "POST")
+    except AiError as error:
+        if not probe_outcome_known(error):
+            raise
+        return {"error": str(error), "code": error.code}, error.status
+
+
 def mutate(parts, params, payload, principal, request_id, method):
     root = parts[0]
     if root == "dingtalk-settings":
@@ -829,10 +852,14 @@ def mutate(parts, params, payload, principal, request_id, method):
         if payload.get("action") == "set_default":
             return {"item": configuration.set_default_model(payload, principal)}, 200
         if payload.get("action") == "test":
-            fields(payload, {"id", "action", "testMode"}, {"id", "action"})
+            mode = payload.get("testMode", "connection")
+            required = {"id", "action", "expectedVersion", "clientRequestId"} if mode == "structured_output" else {"id", "action"}
+            fields(payload, required | {"testMode"}, required)
             model = configuration.resolve_model(payload["id"])
+            if mode == "structured_output":
+                cas(model, payload["expectedVersion"])
             from . import capability_probes
-            return capability_probes.run(model, principal, request_id, payload.get("testMode", "connection")), 200
+            return capability_probes.run(model, principal, request_id, mode), 200
         return {"item": configuration.save_model(payload, principal)}, 200
     if root == "channels":
         if method == "DELETE":
@@ -872,6 +899,8 @@ def mutate(parts, params, payload, principal, request_id, method):
     if root == "space":
         section = parts[1]
         if section == "profiles":
+            if payload.get("action") == "test":
+                return space.test_profile(payload, principal, request_id), 200
             return (
                 configuration.delete_model(params, principal, image=True)
                 if method == "DELETE"

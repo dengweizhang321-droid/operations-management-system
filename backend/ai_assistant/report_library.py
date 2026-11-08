@@ -12,6 +12,7 @@ SHOP_CONVERSION_RULE = (
     "商品×日累计转化率须标明此口径。成交客户数与访客数均不能跨日或跨商品相加充当区间去重人数；"
     "没有同粒度的权威期间去重值时明确缺口，不用日转化率平均值或商品×日累计替代。"
 )
+DISTILLED_SKILL_ID = re.compile(r"candidate-[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}")
 DEFAULTS = {"skills": [
     {"id": "shop-diagnosis", "name": "网店经营诊断", "description": "复盘店铺经营变化与异常商品", "keywords": ["网店", "店铺", "周报", "转化"], "domains": ["netshop"], "enabled": True,
      "body": "先核对精确平台、店铺、SKU/SPU维度和日期覆盖，再拆解流量、转化、客单与商品结构。"
@@ -115,7 +116,7 @@ def read(principal, params):
     return {"item": snapshot(version), "scenes": SCENES, "domains": prompt_settings.DOMAINS, "history": history[:20], "hasMore": len(history) > 20}
 
 
-def save(body, principal):
+def save(body, principal, *, candidate_publication=False):
     current_principal(principal, admin=True)
     fields(body, {"kind", "item", "expectedVersion"}, {"kind", "item", "expectedVersion"})
     item = validate_item(body["kind"], body["item"])
@@ -128,6 +129,11 @@ def save(body, principal):
         config = old["config"]
         items = config[body["kind"]]
         existing = next((i for i, value in enumerate(items) if value["id"] == item["id"]), None)
+        if body["kind"] == "skills" and DISTILLED_SKILL_ID.fullmatch(item["id"]):
+            if existing is None and not candidate_publication:
+                raise AiError("提炼方法须通过已批准候选发布", "conflict", 409)
+            if existing is not None and item != {**items[existing], "enabled": item["enabled"]}:
+                raise AiError("已发布的提炼方法只允许调整启停", "conflict", 409)
         if existing is None:
             items.append(item)
         else:

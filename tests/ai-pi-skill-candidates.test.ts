@@ -97,6 +97,7 @@ test("Pi skill-candidate writes keep same-origin enforcement and forward their b
     ["operations/op_1/skill-candidates/distill", { clientRequestId: "request-1", reportVersionDigest: "a".repeat(64), withdrawAuthorization: true }],
     ["skill-candidates/c_1/review", { status: "approved", expectedVersion: 1, contentDigest: "b".repeat(64), note: "可以" }],
     ["skill-candidates/c_1/publish", { domains: ["netshop"], keywords: ["京东"], expectedLibraryVersion: 3 }],
+    ["skill-candidates/c_1/publish", { domains: ["netshop"], keywords: ["京东"], expectedLibraryVersion: 3, expectedVersion: 2, contentDigest: "b".repeat(64) }],
   ];
   for (const [path, body] of bodies) {
     assert.equal((await forwardAiRequest(post(path, body))).status, 200, path);
