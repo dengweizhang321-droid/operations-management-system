@@ -10,6 +10,7 @@ import {firstMaintenancePredecessor as k,assertFirstMaintenanceContinuation,cont
 import {publishPreparedMain} from '../tools/publish-prepared-main.mjs';
 import {aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256} from '../tools/manual-maintenance-continuation.mjs';
 import {readinessCopyControllerPair,pandasRotationControllerPair} from '../tools/manual-maintenance-continuation.mjs';
+import {releaseChainTripleFixDjangoScriptSha256,releaseChainTripleFixWorkerScriptSha256} from '../tools/manual-maintenance-continuation.mjs';
 // Execute the actual pure adapter declaration without importing release-impact's
 // TypeScript-dependent deployment analysis into this dependency-free fixture.
 async function loadProductionCommandArguments(){
@@ -59,7 +60,7 @@ test('A项: descendant CreationDate guard candidate is qualified; other names an
  // Both generations stay registered: forward (install old, ship new) and
  // backward (install new, ship old) must both be admissible so a rollback of
  // this change is not blocked by its own qualification entry.
- assert.deepEqual(pins,[piNativeCandidateDjangoScriptSha256,candidate,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256]);
+ assert.deepEqual(pins,[piNativeCandidateDjangoScriptSha256,candidate,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256,releaseChainTripleFixDjangoScriptSha256]);
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}));
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:candidate,expected:piNativeCandidateDjangoScriptSha256,candidateSha:piNativeCandidateDjangoScriptSha256}));
  // An unqualified byte sequence for this controller still fails closed.
@@ -72,7 +73,7 @@ test('Sales154: append exact qualification, retain old generation, and reject fo
  const old=aDescendantCreationGuardDjangoScriptSha256,candidate=sales154SchemaAdditionDjangoScriptSha256;
  assert.equal(old,'4ba1fcaf3cd1568a64098a9d2d32039f850ec2db1da4f81aa97fa3ab9530723a');
  assert.equal(candidate,'98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b');
- assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,old,candidate,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256]);
+ assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,old,candidate,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256,releaseChainTripleFixDjangoScriptSha256]);
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:old,expected:candidate,candidateSha:candidate}));
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:candidate,expected:old,candidateSha:old}));
  const changed=candidate.slice(0,-1)+(candidate.endsWith('0')?'1':'0');
@@ -89,7 +90,7 @@ test('batched status enumeration: append exact qualification, retain Sales154, a
  const old=sales154SchemaAdditionDjangoScriptSha256,candidate=batchedStatusEnumerationDjangoScriptSha256;
  assert.equal(old,'98028cb49195b7b145c74fdb5205e949e6152d065ce926265cd5773e8b00580b');
  assert.equal(candidate,'fbb62792eb0962cb91b76b0045a08812d29de0dabb0ab9056ac9ce235d76bddb');
- assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,old,candidate,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256]);
+ assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,old,candidate,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256,releaseChainTripleFixDjangoScriptSha256]);
  // Forward adoption (Sales154 installed, ship this) and backward rollback
  // (this installed, ship Sales154) must both be admissible, so reverting this
  // change is never blocked by its own qualification entry.
@@ -114,7 +115,7 @@ test('Workflow156: append exact qualification, retain every older generation, an
  const old=batchedStatusEnumerationDjangoScriptSha256,candidate=workflowAutomationSchemaAdditionDjangoScriptSha256;
  assert.equal(old,'fbb62792eb0962cb91b76b0045a08812d29de0dabb0ab9056ac9ce235d76bddb');
  assert.equal(candidate,'af6b3b4242f0863296f018d3908ce9d9e93a1d8ec89565e299c7dba16e6e279c');
- assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,old,candidate,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256]);
+ assert.deepEqual([...piNativeCandidateControllerSha256['django-local-service.ps1']],[piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,old,candidate,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256,releaseChainTripleFixDjangoScriptSha256]);
  // Forward adoption (batched-status installed, ship this) and backward
  // rollback (this installed, ship batched-status) must both be admissible, so
  // reverting this change is never blocked by its own qualification entry.
@@ -168,7 +169,7 @@ test('S05a: B1 worker controller is qualified per controller; other names still 
  // entry. The B1 hash must stay first so an installed B1-era worker controller
  // remains admissible; the set is asserted exactly, so any further worker
  // controller edit still fails closed until it is re-qualified.
- assert.deepEqual([...piNativeCandidateControllerSha256['worker-local-service.ps1']],[candidate,bWorkerJsonFailureCauseScriptSha256]);
+ assert.deepEqual([...piNativeCandidateControllerSha256['worker-local-service.ps1']],[candidate,bWorkerJsonFailureCauseScriptSha256,releaseChainTripleFixWorkerScriptSha256]);
  assert.doesNotThrow(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:candidate}));
  assert.throws(()=>assertMaintenanceControllerGeneration({name:'worker-local-service.ps1',installedSha:installed,expected:candidate,candidateSha:'c'.repeat(64)}),/实际原生控制器代际与候选不一致：worker-local-service\.ps1/);
  // Each name only owns its own hashes: the django generation is not a worker one, nor the reverse.
@@ -395,4 +396,100 @@ test('Q14: the pair keeps per-controller generation checks for every other contr
  fixture.options.sha=async file=>file===djangoTarget?piNativeCandidateDjangoScriptSha256:fixture.real(file);
  assert.equal((await maintenanceReadiness(fixture.options)).route,'native-exit-observer');
  await assert.rejects(maintenanceReadiness(await(async()=>{fixture.options.sha=fixture.real;return fixture.options;})()),/实际原生控制器代际与候选不一致：django-local-service\.ps1/);
+});
+
+// Release-chain triple fix (84292c70, 2026-11-08): Stop-AiStack now aggregates
+// failures across every stop step instead of abandoning later steps on the
+// first throw, changing django-ai.ps1's whole-file hash; the installed-side
+// django-local-service.ps1 and worker-local-service.ps1 bytes stay the
+// already-qualified aiUnifiedTasksDjangoScriptSha256/bWorkerJsonFailureCauseScriptSha256
+// generation, but their candidates also change (opt-in -IncludeRedactedText
+// and the real stderr cause respectively). These tests drive the real
+// maintenanceReadiness path with real files and the real SHA-256 reader, the
+// same way the Q14 block above does, so :302's old "no null branch" defect
+// (an unmatched releaseId silently asserting against
+// nativePiWorkspacePredecessor and failing for the wrong reason) cannot
+// regress unnoticed.
+import {nativePiReleaseChainTripleFixPredecessor as rct,isNativePiStopCapabilityPredecessor} from '../tools/manual-maintenance-continuation.mjs';
+const gitBlob2=(commit,file)=>execFileSync('git',['show',commit+':'+file],{windowsHide:true,maxBuffer:8*1024*1024});
+async function releaseChainFixture(t,{installedAi,sourceAi,installedDjango,sourceDjango,installedWorker,sourceWorker}={}){
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'release-chain-triple-fix-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const source=path.join(root,'source'),installed=path.join(root,'django/app'),runtime=path.join(root,'worker');
+ const write=async(file,data)=>{await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,data);};
+ for(const name of ['manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs','manual-maintenance-process.psm1','manual-maintenance-preflight.ps1'])await write(path.join(source,'tools',name),'source '+name);
+ await write(path.join(source,'tools/django-ai.ps1'),sourceAi??gitBlob2('HEAD','tools/django-ai.ps1'));
+ await write(path.join(installed,'tools/django-ai.ps1'),installedAi??gitBlob2('33043e9d','tools/django-ai.ps1'));
+ await write(path.join(source,'tools/django-local-service.ps1'),sourceDjango??rct.candidateDjangoScriptSha256);
+ await write(path.join(installed,'tools/django-local-service.ps1'),installedDjango??rct.djangoScriptSha256);
+ const releaseRoot=path.join(runtime,'releases',rct.releaseId);
+ await write(path.join(releaseRoot,'tools/worker-local-service.ps1'),sourceWorker??rct.candidateWorkerScriptSha256);
+ await write(path.join(source,'tools/worker-local-service.ps1'),sourceWorker??rct.candidateWorkerScriptSha256);
+ await write(path.join(releaseRoot,'tools/process-deadline.ps1'),rct.workerTransportSha256);
+ await write(path.join(source,'tools/process-deadline.ps1'),rct.workerTransportSha256);
+ await write(path.join(installed,'deployment.json'),rct.djangoManifestSha256);
+ await write(path.join(releaseRoot,'deployment-manifest.json'),rct.workerManifestSha256);
+ const values={'django-local-service.ps1':installedDjango??rct.djangoScriptSha256,'worker-local-service.ps1':installedWorker??rct.workerScriptSha256,'process-deadline.ps1':rct.workerTransportSha256,'deployment.json':rct.djangoManifestSha256,'deployment-manifest.json':rct.workerManifestSha256};
+ const sourceValues={'django-local-service.ps1':sourceDjango??rct.candidateDjangoScriptSha256,'worker-local-service.ps1':sourceWorker??rct.candidateWorkerScriptSha256,'process-deadline.ps1':rct.workerTransportSha256};
+ const sha=raw=>createHash('sha256').update(raw).digest('hex');
+ const digest=async file=>{
+  if(path.basename(file)==='django-ai.ps1')return sha(await fs.readFile(file));
+  const name=path.basename(file);
+  return file.startsWith(source)?(sourceValues[name]??sha(await fs.readFile(file))):(values[name]??sha(await fs.readFile(file)));
+ };
+ const options={source,installed,runtime,head:{releaseId:rct.releaseId,manifestSha256:rct.workerManifestSha256},djangoManifestSha256:rct.djangoManifestSha256,sha:digest};
+ return {options,source,installed,runtime};
+}
+test('release-chain triple fix: exact current predecessor qualifies the real candidate bytes',async t=>{
+ const {options}=await releaseChainFixture(t);
+ const result=await maintenanceReadiness(options);
+ assert.equal(result.route,'native-exit-observer');
+ assert.equal(result.pins.find(p=>p.root==='django'&&p.relative==='app/tools/django-ai.ps1').sha256,rct.djangoAiScriptSha256);
+ assert.equal(result.pins.find(p=>p.root==='source'&&p.relative==='django-ai.ps1').sha256,rct.candidateAiScriptSha256);
+});
+test('release-chain triple fix: selector returns this exact record for its releaseId and null otherwise',()=>{
+ assert.equal(isNativePiStopCapabilityPredecessor({releaseId:rct.releaseId}),rct);
+ assert.equal(isNativePiStopCapabilityPredecessor({releaseId:'unregistered-release-id'}),null);
+ assert.equal(isNativePiStopCapabilityPredecessor(undefined),null);
+ assert.equal(isNativePiStopCapabilityPredecessor({}),null);
+});
+test('release-chain triple fix: a releaseId that matches no registered generation is refused, not silently admitted to an unrelated one',async t=>{
+ // Before the :304 null-branch fix, an unmatched releaseId fell through to
+ // nativePiWorkspacePredecessor by default and failed with a pin mismatch
+ // instead of "no qualified generation applies". installedAi must differ
+ // from candidateAi so the fallback branch (not the same-AI loop) is reached.
+ const {options}=await releaseChainFixture(t);
+ options.head={...options.head,releaseId:'unregistered-release-id'};
+ await assert.rejects(maintenanceReadiness(options),/没有适用于实际前驱的原生Stop能力资格/);
+});
+test('release-chain triple fix: a releaseId match with a drifted manifestSha256 still fails closed',async t=>{
+ // head.manifestSha256 is pinned unconditionally against the worker release's
+ // own deployment-manifest.json before predecessor matching is even reached
+ // (the "资格核验后工具发生变化" early pin), so a caller-supplied drift is
+ // refused there rather than by isNativePiStopCapabilityPredecessor itself.
+ const {options}=await releaseChainFixture(t);
+ options.head={...options.head,manifestSha256:'f'.repeat(64)};
+ await assert.rejects(maintenanceReadiness(options),/维护资格核验后工具发生变化|维护前驱资格与最初读取字节不一致|没有适用于实际前驱/);
+});
+for(const field of ['djangoScriptSha256','workerScriptSha256'])
+ test('release-chain triple fix: installed '+field+' drift is rejected',async t=>{
+  const {options}=await releaseChainFixture(t,field==='djangoScriptSha256'?{installedDjango:'f'.repeat(64)}:{installedWorker:'f'.repeat(64)});
+  await assert.rejects(maintenanceReadiness(options),/维护前驱资格与最初读取字节不一致/);
+ });
+test('release-chain triple fix: installed workerTransportSha256 (process-deadline.ps1) drift is rejected',async t=>{
+ const {options}=await releaseChainFixture(t);
+ const original=options.sha;
+ options.sha=async file=>path.basename(file)==='process-deadline.ps1'&&!file.startsWith(options.source)?'f'.repeat(64):original(file);
+ await assert.rejects(maintenanceReadiness(options),/维护前驱资格与最初读取字节不一致/);
+});
+test('release-chain triple fix: candidate django-local-service.ps1 drift is rejected',async t=>{
+ const {options}=await releaseChainFixture(t,{sourceDjango:'f'.repeat(64)});
+ await assert.rejects(maintenanceReadiness(options),/候选生命周期控制器不在已审兼容资格内：django-local-service\.ps1/);
+});
+test('release-chain triple fix: candidate worker-local-service.ps1 drift is rejected',async t=>{
+ const {options}=await releaseChainFixture(t,{sourceWorker:'f'.repeat(64)});
+ await assert.rejects(maintenanceReadiness(options),/候选生命周期控制器不在已审兼容资格内：worker-local-service\.ps1/);
+});
+test('release-chain triple fix: candidate django-ai.ps1 that is not the registered candidate hash is rejected',async t=>{
+ const {options}=await releaseChainFixture(t,{sourceAi:Buffer.concat([gitBlob2('HEAD','tools/django-ai.ps1'),Buffer.from('\n')])});
+ await assert.rejects(maintenanceReadiness(options),/候选Pi控制器不在已审兼容资格内|维护前驱资格与最初读取字节不一致|没有适用于实际前驱/);
 });

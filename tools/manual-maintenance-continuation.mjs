@@ -38,6 +38,60 @@ export const nativePiBusinessPredecessor=Object.freeze({
  candidateAiScriptSha256:'3b0ae6c09b1bc49aa12fed622208fee711a387726ede709b2cd421fa1b04cad5',
  candidateDjangoScriptSha256:'d884882af114840ff1b0061c57439556cfc6a8fd7d0a751896363dd59eecde5d'
 });
+// Release-chain triple fix (84292c70, 2026-11-08): registers the actual
+// installed -> candidate predecessor for the current native Stop capability.
+// Stop-AiStack now runs every stop step and aggregates failures instead of
+// abandoning later steps on the first throw, which changes django-ai.ps1's
+// whole-file hash; django-local-service.ps1 gains an opt-in
+// -IncludeRedactedText parameter on Get-NativeFailureSummary (default string
+// unchanged) and worker-local-service.ps1 surfaces the real stderr failure
+// cause (84292c70 also touches backend/pi_runner/wsl_control.py and
+// tools/pandas_broker_rotation_linux.py, neither of which is a controller
+// qualified here). This is registering the actual current generation, not
+// re-reviewing the protocol: the Wait-PiWorkerExit -> Stop-PiRuntime and
+// Stop-PiRuntime -> Read-PandasConfig function-body hashes below are
+// unchanged from every earlier qualified generation, because Stop-AiStack's
+// diff only wraps the existing call to Stop-PiRuntime in a try/catch at the
+// orchestration level and never edits Wait-PiWorkerExit, Stop-PiRuntime or
+// any line between them. Verified against the actual installed runtime
+// (D:\teruisi-runtime\django-sales, release
+// 20261107T052340Z-a0cedca5d42d478a) and candidate commit cf9baddf.
+export const nativePiReleaseChainTripleFixPredecessor=Object.freeze({
+ releaseId:'20261107T052340Z-a0cedca5d42d478a',
+ workerManifestSha256:'4620f30878e57d9485096bfb8c0ae0e2c73e7deda1a924887a9cc27259e14a38',
+ djangoManifestSha256:'06d27651c30ca9d513711e8d3674f6da0b5fc72a1035294b25e4c87ac4663bcf',
+ workerScriptSha256:'1b8c5d4d61ba491d042f41ae91e9cc7b0d0c87a28536bac7b4c8a1e53fda761e',
+ djangoScriptSha256:'37c6dc571aeefe4954f977f5b3a64ec08516362a67775729f45f60b17bca99a6',
+ workerTransportSha256:'5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd',
+ djangoAiScriptSha256:'55b6701ac0f38e7aed6abea441085aa2b77f0a5f8d1a3f6c81651829ae6f9aba',
+ candidateAiScriptSha256:'fb4358db6b99403e8b4d44d8a44d01803d11184b0567233725bf65b422d142b5',
+ candidateDjangoScriptSha256:'dc856391affa2ae5a677bdc7ca7273c301eb604b7c1de8855d0c93be3233b005',
+ // Unlike nativePiBusinessPredecessor, this generation's candidate
+ // worker-local-service.ps1 also differs from the installed bytes (the real
+ // stderr failure cause surfaced in -Json mode); process-deadline.ps1 is
+ // unchanged on both sides.
+ candidateWorkerScriptSha256:'0e5459dd34c5dd5fa26109d3606117750bb61e11c5b66b510d13dfa889dc4516'
+});
+// Every registered installed -> candidate native-Stop-capability predecessor
+// that is matched by releaseId alone in the fallback branch below (not the
+// directional pandasRotation/nativeIsolationRotation pairs, which are matched
+// by AI-script byte pair instead), newest first so a fresh generation is
+// tried before older ones. Append-only: a new generation is added here, the
+// existing entries are never edited or removed, because they are predecessor
+// qualifications (audit records of what was reviewed), not a current
+// expectation to be kept in sync.
+export const nativePiStopCapabilityPredecessors=Object.freeze([nativePiReleaseChainTripleFixPredecessor,nativePiBusinessPredecessor,nativePiWorkspacePredecessor]);
+// Returns the one registered generation whose releaseId matches the actual
+// head, or null when none match. Selecting by releaseId alone (not by byte
+// equality) mirrors isPiMaintenancePredecessor/isFirstMaintenancePredecessor:
+// the caller still asserts every pinned byte against the returned record, so
+// a releaseId match with drifted bytes still fails closed via
+// assertPredecessorPins. Returning null instead of guessing a record lets the
+// caller refuse cleanly instead of asserting against a generation that can
+// never match.
+export function isNativePiStopCapabilityPredecessor(head){
+ return nativePiStopCapabilityPredecessors.find(k=>head?.releaseId===k.releaseId)??null;
+}
 // PiNative deliberately adds its 153 gate to django-local-service.ps1 without
 // changing django-ai.ps1. This reviewed candidate hash is the only same-AI
 // generation in which the candidate local-service may differ from the
@@ -173,9 +227,19 @@ export const bWorkerJsonFailureCauseScriptSha256='1b8c5d4d61ba491d042f41ae91e9cc
 export const aiTaskFeedbackCandidatesDjangoScriptSha256='f23314bc00541d14f72584973bc5bf0560b86cac4e3427ab0307adee22efdad8';
 // AI159: finite schema branch and copy-list only; PS5/PS7 AST evidence in docs/ai-p2-20261107.
 export const aiUnifiedTasksDjangoScriptSha256='37c6dc571aeefe4954f977f5b3a64ec08516362a67775729f45f60b17bca99a6';
+// Release-chain triple fix (84292c70): Get-NativeFailureSummary's opt-in
+// -IncludeRedactedText parameter (django-local-service.ps1) and the real
+// stderr failure cause (worker-local-service.ps1). Same generation as
+// nativePiReleaseChainTripleFixPredecessor above; registered here too so the
+// same-AI/dingtalkAcl per-controller loop and the repository byte tripwire in
+// tests/maintenance-controller-qualification.test.mjs admit these exact
+// bytes. Installed django-local-service.ps1 for this generation is already
+// aiUnifiedTasksDjangoScriptSha256 above; this is only the new candidate.
+export const releaseChainTripleFixDjangoScriptSha256='dc856391affa2ae5a677bdc7ca7273c301eb604b7c1de8855d0c93be3233b005';
+export const releaseChainTripleFixWorkerScriptSha256='0e5459dd34c5dd5fa26109d3606117750bb61e11c5b66b510d13dfa889dc4516';
 export const piNativeCandidateControllerSha256=Object.freeze({
- 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256]),
- 'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256]),
+ 'django-local-service.ps1':Object.freeze([piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256,releaseChainTripleFixDjangoScriptSha256]),
+ 'worker-local-service.ps1':Object.freeze(['83705551d9a9b2f3d2948d7b7eb8b41f3c6cfae5a8747949ffd8d6e3a4ee7058',bWorkerJsonFailureCauseScriptSha256,releaseChainTripleFixWorkerScriptSha256]),
  'process-deadline.ps1':Object.freeze([])
 });
 // Readiness helper packaging only: exact old/new controller bytes, no new stop route.
@@ -362,16 +426,30 @@ export async function maintenanceReadiness({source,head,djangoManifestSha256,ins
   }
  }
  if(!dingtalkAcl&&!pandasRotation&&!nativeIsolationRotation&&installedAi!==candidateAi){
-  const b=nativePiBusinessPredecessor;
-  const k=head?.releaseId===b.releaseId?b:nativePiWorkspacePredecessor;
+  // Unlike isPiMaintenancePredecessor/isFirstMaintenancePredecessor above,
+  // there was no null branch here: an unmatched releaseId used to fall
+  // through to nativePiWorkspacePredecessor by default and fail for the
+  // wrong reason (a pin mismatch against a generation that could never
+  // apply) instead of being refused as "no qualified generation applies". A
+  // real head that does not match any registered generation must be refused
+  // here, not silently admitted.
+  const k=isNativePiStopCapabilityPredecessor(head);
+  assert.ok(k,'没有适用于实际前驱的原生Stop能力资格');
   assertPredecessorPins(k);
   assert.equal(head?.releaseId,k.releaseId,'没有适用于实际前驱的原生Stop能力资格');assert.equal(head?.manifestSha256,k.workerManifestSha256);assert.equal(djangoManifestSha256,k.djangoManifestSha256);
   for(const [name,expected] of [['worker-local-service.ps1',k.workerScriptSha256],['process-deadline.ps1',k.workerTransportSha256]])assert.equal(await sha(path.join(runtime,'releases',head.releaseId,'tools',name)),expected);
   assert.equal(await sha(path.join(runtime,'releases',head.releaseId,'deployment-manifest.json')),k.workerManifestSha256);
   assert.equal(await sha(path.join(installed,'tools/django-local-service.ps1')),k.djangoScriptSha256);
   assert.equal(installedAi,k.djangoAiScriptSha256,'实际前驱缺少已验证的Pi退出观察器');assert.equal(candidateAi,k.candidateAiScriptSha256,'候选Pi控制器不在已审兼容资格内');
-  if(k===b){
-   for(const [name,expected] of [['worker-local-service.ps1',k.workerScriptSha256],['process-deadline.ps1',k.workerTransportSha256],['django-local-service.ps1',k.candidateDjangoScriptSha256]])assert.equal(sourcePins[name]??pins.find(p=>p.root==='source'&&p.relative===name)?.sha256,expected,'候选生命周期控制器不在已审兼容资格内：'+name);
+  // k.candidateDjangoScriptSha256 is only present on generations whose
+  // candidate django-local-service.ps1 differs from the installed bytes
+  // (nativePiBusinessPredecessor and nativePiReleaseChainTripleFixPredecessor);
+  // nativePiWorkspacePredecessor has no such field and skips this extra check.
+  if(k.candidateDjangoScriptSha256){
+   // candidateWorkerScriptSha256 defaults to the installed hash (no change on
+   // the candidate side) for generations such as nativePiBusinessPredecessor
+   // that never declared it.
+   for(const [name,expected] of [['worker-local-service.ps1',k.candidateWorkerScriptSha256??k.workerScriptSha256],['process-deadline.ps1',k.workerTransportSha256],['django-local-service.ps1',k.candidateDjangoScriptSha256]])assert.equal(sourcePins[name]??pins.find(p=>p.root==='source'&&p.relative===name)?.sha256,expected,'候选生命周期控制器不在已审兼容资格内：'+name);
    const actual=await fs.readFile(path.join(installed,'tools/django-ai.ps1'));
    assert.equal(createHash('sha256').update(actual).digest('hex'),installedAi,'维护资格核验后工具发生变化');
    const text=actual.toString('utf8').replaceAll('\r\n','\n');
