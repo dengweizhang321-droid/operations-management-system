@@ -399,13 +399,12 @@ def execute(payload, nonce):
                 dispatch.save()
             raise
         from .provider_contract import InvalidProviderResponse
+        from .diagnostics import error_summary
         # These classes construct fixed, content-free diagnostics. Never retain
         # an arbitrary exception body or supplier response in this public ledger.
-        diagnostics = ({key: value for key, value in error.diagnostics.items() if key in {
-            "adapterVersion", "stage", "reason", "protocol", "responseMode", "httpStatus",
-            "requestStarted", "resolverPhase", "finishReason", "hasReasoning", "completionUnits", "outputUnits", "sqlState", "cleanupComplete"}}
+        diagnostics = (error_summary(error)
             if isinstance(error, (InvalidProviderResponse, transport.ProviderTransportError,
-                transport.ProviderHttpError, provider.EmptyProviderResponse)) else {})
+                transport.ProviderHttpError, provider.EmptyProviderResponse, provider.ProviderCredentialError)) else {})
         with mutation():
             dispatch.status, dispatch.error_code, dispatch.completed_at = "unknown", getattr(error, "code", "pi_gateway_unknown"), timezone.now()
             dispatch.response_json = canonical({"responseDiagnostics": diagnostics}) if diagnostics else "{}"

@@ -6,9 +6,17 @@ from . import models as m, prompt_settings
 from .policy import AiError, canonical, current_principal, digest, fields, integer, mutation, text
 
 SCENES = {"weekly": "网店经营周报", "inventory": "库存健康报告", "promotion": "推广复盘"}
+SHOP_CONVERSION_RULE = (
+    "网店商品成交转化率＝成交客户数÷访客数，不用成交件数或订单数。优先引用同平台、店铺、SKU/SPU和期间的网店服务端转化率"
+    "（conversionRate 或 conversion），先核验两项字段与日期覆盖完整；分母为零或任一项缺失时写明不可计算。"
+    "商品×日累计转化率须标明此口径。成交客户数与访客数均不能跨日或跨商品相加充当区间去重人数；"
+    "没有同粒度的权威期间去重值时明确缺口，不用日转化率平均值或商品×日累计替代。"
+)
+DISTILLED_SKILL_ID = re.compile(r"candidate-[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}")
 DEFAULTS = {"skills": [
     {"id": "shop-diagnosis", "name": "网店经营诊断", "description": "复盘店铺经营变化与异常商品", "keywords": ["网店", "店铺", "周报", "转化"], "domains": ["netshop"], "enabled": True,
-     "body": "先核对精确平台、店铺、SKU/SPU维度和日期覆盖，再拆解流量、转化、客单与商品结构。访客人数不得跨日或跨SKU相加充当区间去重人数。环比必须同长度且覆盖完整；缺数写为缺数。把有证据的事实、可能原因和待验证假设分开。行动建议写清对象、依据和复查指标，不自动调整商品或推广。"},
+     "body": "先核对精确平台、店铺、SKU/SPU维度和日期覆盖，再拆解流量、转化、客单与商品结构。"
+             + SHOP_CONVERSION_RULE + "环比必须同长度且覆盖完整；缺数写为缺数。把有证据的事实、可能原因和待验证假设分开。行动建议写清对象、依据和复查指标，不自动调整商品或推广。"},
     {"id": "inventory-diagnosis", "name": "库存健康诊断", "description": "核查库存健康、库龄与备货建议", "keywords": ["库存", "库龄", "备货"], "domains": ["inventory"], "enabled": True,
      "body": "先检查当前库存快照与仓别。直接使用服务端健康分类和周转口径，区分手工健康、备货跟进与自动判断。库龄与库存周转是不同指标。只提出有销量、库存和到货周期依据的建议；依据不足时列待核实项，不编造补货数量。"},
     {"id": "promotion-diagnosis", "name": "推广效果复盘", "description": "复核推广费用、产出与异常计划", "keywords": ["推广", "ROI", "投产", "广告"], "domains": ["netshop"], "enabled": True,
@@ -108,7 +116,7 @@ def read(principal, params):
     return {"item": snapshot(version), "scenes": SCENES, "domains": prompt_settings.DOMAINS, "history": history[:20], "hasMore": len(history) > 20}
 
 
-def save(body, principal):
+def save(body, principal, *, candidate_publication=False):
     current_principal(principal, admin=True)
     fields(body, {"kind", "item", "expectedVersion"}, {"kind", "item", "expectedVersion"})
     item = validate_item(body["kind"], body["item"])
@@ -121,6 +129,11 @@ def save(body, principal):
         config = old["config"]
         items = config[body["kind"]]
         existing = next((i for i, value in enumerate(items) if value["id"] == item["id"]), None)
+        if body["kind"] == "skills" and DISTILLED_SKILL_ID.fullmatch(item["id"]):
+            if existing is None and not candidate_publication:
+                raise AiError("提炼方法须通过已批准候选发布", "conflict", 409)
+            if existing is not None and item != {**items[existing], "enabled": item["enabled"]}:
+                raise AiError("已发布的提炼方法只允许调整启停", "conflict", 409)
         if existing is None:
             items.append(item)
         else:
@@ -141,6 +154,9 @@ def guidance(question, context, tools, selected_ids=None, library=None):
                    set(s["domains"]) & allowed and any(k.lower() in query for k in s["keywords"]))][:3]
     evidence = {"version": library["version"], "digest": digest(library["config"]), "skills": [{"id": s["id"], "name": s["name"]} for s in skills]}
     prompt = "\n本次任务采用的方法（文字指导，不授权新工具、脚本或外部操作）：\n" + canonical(skills).replace("<", "\\u003c") if skills else ""
+    # Preserve stored versions; apply the authoritative rule to newly composed guidance.
+    if library["version"] and any(s["id"] == "shop-diagnosis" for s in skills):
+        prompt += "\n网店权威口径（方法正文与此冲突时以此为准）：" + SHOP_CONVERSION_RULE
     return prompt, evidence
 
 

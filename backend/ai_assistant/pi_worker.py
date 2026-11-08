@@ -88,6 +88,8 @@ def runner_dispatch(op, command, payload, *, request_id=None, terminal_control=F
             if prior.error_code == "pi_compact_create_rejected":
                 from .pi_transport import CompactCreateRejected
                 raise CompactCreateRejected()
+            if prior.error_code == "pi_session_limit":
+                raise pi_transport.SessionLimitRejected()
             from .secrets import decrypt
             return json.loads(decrypt(json.loads(prior.response_json)["encryptedRunnerResponse"]))
         dispatch = PiDispatch.objects.create(id=uid("pi-dispatch"), operation=op, kind="runner:"+command,
@@ -101,7 +103,7 @@ def runner_dispatch(op, command, payload, *, request_id=None, terminal_control=F
         return result
     except Exception as error:
         from .pi_transport import NativeImageUpgradeRequired, CompactCreateRejected
-        if isinstance(error, (NativeImageUpgradeRequired, CompactCreateRejected)):
+        if isinstance(error, (NativeImageUpgradeRequired, CompactCreateRejected, pi_transport.SessionLimitRejected)):
             with mutation():
                 dispatch.status, dispatch.error_code, dispatch.response_json, dispatch.completed_at = "completed", error.code, canonical({"rejected": True, "code": error.code}), timezone.now()
                 dispatch.save()
@@ -413,26 +415,37 @@ def handled(result):
 
 
 def fail_before_prompt(operation, error):
-    from .pi_models import PiOperation, PiSession, PiDispatch, PiWorkspace
+    from .pi_models import PiOperation, PiSession, PiDispatch, PiWorkspace, PiControl
     from . import pi_service as service
     from .policy import mutation, canonical
     with mutation():
         op = PiOperation.objects.select_for_update().get(pk=operation.pk)
         session = PiSession.objects.select_for_update().get(pk=op.session_id)
-        if op.status not in {"queued", "running"} or PiDispatch.objects.filter(operation=op, kind="runner:prompt").exists():
-            return
-        op.status, op.error_code = "failed", error.code
+        capacity = error.code == "pi_session_limit"
+        if (op.status not in {"queued", "running", "canceling"} or session.active_operation_id != op.id
+                or (session.epoch, session.generation) != (op.epoch, op.generation)
+                or session.status not in {"queued", "running", "canceling"}
+                or PiDispatch.objects.filter(operation=op, kind__in=["runner:prompt", "model"]).exists()
+                or capacity and not PiDispatch.objects.filter(operation=op, kind="runner:create", request_id="create",
+                    status="completed", error_code=error.code).exists()):
+            return False
+        op.status, op.error_code = "canceled" if op.cancel_requested else "failed", error.code
         op.capability_hash, op.lease_token, op.lease_expires_at = "", "", None
         op.save()
         session.status, session.active_operation_id = "idle", ""
         session.save(update_fields=["status", "active_operation_id"])
         workspace = PiWorkspace.objects.filter(session=session).first()
-        if workspace:
+        if workspace and not capacity:
             state = json.loads(workspace.state_json)
             state["capabilities"] = {**state.get("capabilities", {}), "nativeCapabilities": False, "needsImageUpgrade": True}
             workspace.state_json = canonical(state)
             workspace.save(update_fields=["state_json"])
-        service.event(session, "error", {"code": error.code, "status": "failed", "historyPreserved": True}, op)
+        if capacity and op.kind == "workspace:compact":
+            PiControl.objects.filter(operation=op, id=json.loads(op.payload_json).get("controlId"), status="queued").update(
+                status="failed", error_code=error.code,
+                result_json=canonical({"nativeCompactStarted": False, "source": "signed_create_rejection"}))
+        service.event(session, "error", {"code": error.code, "status": op.status, "historyPreserved": True}, op)
+        return True
 
 
 def finish_unstarted_compact(operation):
@@ -498,11 +511,13 @@ def perform(op, stopped=None):
         model_options = options(model)
         from .pi_native import model_binding as native_model_binding
         model_binding = native_model_binding(model, payload.get("thinkingLevel", ""))
-        version = selected[0]["version"] if selected else os.getenv("PI_SKILL_VERSION", "1.0.0")
+        version = selected[0].get("packageVersion", selected[0]["version"]) if selected else os.getenv("PI_SKILL_VERSION", "1.0.0")
         created = runner_dispatch(op, "create", {"admission": native_admission(op), "gateway": gateway, "skillIds": payload["skillIds"], "skillVersion": version,
             "model": model_binding, **({"compactControlId": payload["controlId"]} if op.kind == "workspace:compact" else {})})
         advertised = created.get("skills", created.get("state", {}).get("skills", []))
         if selected:
+            if any("packageVersion" in item for item in selected) and created.get("state", {}).get("skillVersion") != version:
+                raise AiError("Pi 运行器未确认所选技能包版本", "pi_skills_mismatch", 503)
             if not isinstance(advertised, list):
                 raise AiError("Pi 技能证明缺失", "pi_skills_mismatch", 503)
             available = {item.get("id"): item for item in advertised if isinstance(item, dict)}
@@ -515,7 +530,7 @@ def perform(op, stopped=None):
         from .policy import canonical, digest, mutation, uid
         from .pi_models import PiDispatch
         from django.utils import timezone
-        loaded = [{key: item[key] for key in ("id", "version", "sha256")} for item in selected]
+        loaded = [{key: item[key] for key in ("id", "packageVersion", "version", "sha256") if key in item} for item in selected]
         with mutation():
             session = PiSession.objects.select_for_update().get(pk=op.session_id)
             PiDispatch.objects.create(id=uid("pi-skills-loaded"), operation=op, kind="control:skills_loaded", request_id="skills",
@@ -643,8 +658,9 @@ def perform(op, stopped=None):
                     service.event(session, "status", {"status": current.status, "code": error.code, "nativeCompactStarted": False}, current)
                 else:
                     freeze(op, "pi_compact_create_rejection_unmatched")
-        elif getattr(error, "code", "") == "workspace_native_image_upgrade_required":
-            fail_before_prompt(op, error)
+        elif isinstance(error, (pi_transport.NativeImageUpgradeRequired, pi_transport.SessionLimitRejected)):
+            if not fail_before_prompt(op, error):
+                freeze(op, "pi_create_rejection_unmatched")
         elif getattr(error, "code", "") == "pi_canceled_before_prompt":
             try:
                 dispose_environment(op)
@@ -753,7 +769,7 @@ def main():
         secret()
         values = skills()
         print(json.dumps({"status": "verified", "queue": "pi", "providerCalls": 0,
-            "skillVersion": values[0]["version"] if values else None}, separators=(",", ":")))
+            "skillVersion": values[0]["packageVersion"] if values else None}, separators=(",", ":")))
         return
     stopped = threading.Event()
     if bool(args.control_file) != bool(args.control_token):

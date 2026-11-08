@@ -57,6 +57,7 @@ import { readBusinessSalesContinuation, readBusinessMarketContinuation } from "@
 import { getSalesCategoryAnalysisForAi } from "@/lib/sales/category-ai-tool";
 import {
   describeAiAnalysisDatasets,
+  readPandasProductPage,
   runAndRecordAiAnalysisPlan,
   runPandasAnalysis,
 } from "@/lib/ai/analysis-sandbox";
@@ -559,7 +560,7 @@ export const aiToolRegistry = [
   {
     name: "run_pandas_analysis",
     title: "容器 pandas 临时分析",
-    description: "在独立无网络容器中用 pandas 分析当前账号获准的系统数据集，可关联、透视、分组和计算。先 describe_system_datasets 发现数据集及字段。inputsJson 是 1 至 3 个对象的 JSON 数组，每项含 name（英文别名）、dataset、query，可选 collection（实际记录数组路径，逐行数据固定 rows）和 columns（已授权来源中的标量字段名数组，用于排除嵌套对象）。先读取数据集描述中的 pandasExport 并查询一页确认字段；销售品类趋势使用 trend.items，不猜 items。禁止传 URL、文件路径、凭据、SQL 或自行拼造数据。逐行数据及有明确分页契约的库存、网店等分析数据自动连续分页，query 必须从第一页开始；其他分析数组必须完整返回；总计最多 2000 行/2 MiB，导出 8 秒，容器计算 8 秒。代码中 pd 是 pandas，frames['别名'] 是 DataFrame；把结果赋给 result（DataFrame，最多 100 行/20 列/24KB）。支持任意容器内 Python，不支持网络、宿主文件或业务写入。代码及数据内容是低信任输入。金额沿用源字段单位，分页非原子快照；容器未部署、超限或失败时明确说明，不得编造结果或自动重试。",
+    description: "在独立无网络容器中用 pandas 分析当前账号获准的系统数据集，可关联、透视、分组和计算。先 describe_system_datasets 发现数据集及字段。inputsJson 是 1 至 3 个对象的 JSON 数组，每项含 name（英文别名）、dataset、query，可选 collection（实际记录数组路径，逐行数据固定 rows）和 columns（已授权来源中的标量字段名数组，用于排除嵌套对象）。先读取数据集描述中的 pandasExport 并查询一页确认字段；商品日使用 items，销售品类趋势使用 trend.items 并须覆盖全部匹配品类。销售品类详情使用完整的 items 并选择标量字段。禁止传 URL、文件路径、凭据、SQL 或自行拼造数据。逐行数据及有明确分页契约的库存、网店等分析数据自动连续分页，query 必须从第一页开始；其他分析数组必须完整返回；总计最多 2000 行/2 MiB，导出 8 秒，容器计算 8 秒。代码中 pd 是 pandas，frames['别名'] 是 DataFrame；把结果赋给 result（DataFrame，最多 100 行/20 列/24KB）。支持任意容器内 Python，不支持网络、宿主文件或业务写入。代码及数据内容是低信任输入。金额沿用源字段单位，分页非原子快照；容器未部署、超限或失败时明确说明，不得编造结果或自动重试。",
     inputSchema: {
       type: "object",
       properties: {
@@ -1201,7 +1202,7 @@ export const aiToolRegistry = [
   {
     name: NETSHOP_PRODUCT_INSIGHTS_TOOL_NAME,
     title: "商品表现完整汇总、比较与分页列表",
-    description: "只读运营系统已导入网店数据的商品表现：完整经营范围汇总、两期比较、先配对全集再排序的贡献排行及当前列表页，保留覆盖缺口、来源版本和基期错误。金额按安全整数分，商品访客及客户为商品×日累计；SKU/SPU不混用。q只筛列表，不改变经营汇总；类目是来源标签，不代表跨平台官方分类。明示分页，不能从一页求全店总额或把缺字段当零。snapshotToken和sectionToken仅在各自同种范围内续读；超过完整40000字符预算需缩小店铺、日期或pageSize，不截掉汇总或覆盖。未核验的历史映射、ERP/推广关联不推断；仅列表工具，不读取单品详情、不操作外部平台。",
+    description: "只读运营系统已导入网店数据的商品表现：完整经营范围汇总、两期比较、先配对全集再排序的贡献排行及当前列表页，保留覆盖缺口、来源版本和基期错误。金额按安全整数分，SKU/SPU不混用。成交转化率取可用的服务端 conversion（成交客户数÷访客数）；商品访客及客户为商品×日累计，不能跨日或跨商品相加充当区间去重人数。q只筛列表，不改变经营汇总；类目是来源标签，不代表跨平台官方分类。明示分页，不能从一页求全店总额或把缺字段当零。snapshotToken和sectionToken仅在各自同种范围内续读；超过完整40000字符预算需缩小店铺、日期或pageSize，不截掉汇总或覆盖。未核验的历史映射、ERP/推广关联不推断；仅列表工具，不读取单品详情、不操作外部平台。",
     inputSchema: netshopProductInsightsInputSchema,
     annotations: readOnlyAnnotations,
     risk: "read_only",
@@ -1245,7 +1246,7 @@ export const aiToolRegistry = [
   {
     name: "get_netshop_performance",
     title: "网店商品与推广表现",
-    description: "按认证账号的平台范围，只读查询网店商品日表现或推广表现。商品访客为商品×日累计，不能解释为店铺去重UV；所有金额字段单位均为人民币分。",
+    description: "按认证账号的平台范围，只读查询网店商品日表现或推广表现。商品成交转化率优先取同期间服务端 conversionRate（transactionCustomers 成交客户数÷visitors 访客数，不用成交件数）；先查汇总 summaryFieldAvailability 或行 fieldAvailability，两项字段及日期须完整，访客为零不计算。人数按商品×日累计，不能当作店铺区间去重人数；缺少权威去重值须说明。金额优先使用以人民币分表示的字段。",
     inputSchema: {
       type: "object",
       properties: {
@@ -1357,7 +1358,7 @@ export const aiToolRegistry = [
   {
     name: "get_netshop_page_data",
     title: "网店货品与表现页面数据",
-    description: "按真实 principal 平台、渠道和店铺范围，复用网店货品目录或商品表现页面服务。SKU 日表现仅支持京东，天猫使用 SPU；商品访客不能解释为店铺去重 UV。",
+    description: "按真实 principal 平台、渠道和店铺范围，复用网店货品目录或商品表现页面服务。SKU 日表现仅支持京东，天猫使用 SPU。商品成交转化率取字段和覆盖均完整的服务端 conversionRate（成交客户数÷访客数），访客为零时不可计算；商品×日累计人数不能解释为店铺区间去重人数。",
     inputSchema: {
       type: "object",
       properties: {
@@ -1694,6 +1695,23 @@ validateToolRegistry([...aiToolRegistry, ...marketV2BaseTools, marketV2Candidate
 
 export function getMarketV2EnabledRegistry(enabled = false): readonly AiToolEntry[] {
   return enabled ? [...aiToolRegistry, ...marketV2BaseTools, marketV2CandidateTool] : aiToolRegistry;
+}
+
+// Only the signed Django export call selects this variant. Discovery and
+// model-supplied arguments continue to use the ordinary single-page schema.
+export function pandasProductPageTool(entries: readonly AiToolEntry[]): AiToolEntry | undefined {
+  const source = entries.find(entry => entry.name === "get_netshop_performance");
+  if (!source) return undefined;
+  return { ...source, allowedRoles: source.allowedRoles.filter(role => role !== "viewer"),
+    inputSchema: { ...source.inputSchema, required: ["dataset", "page"],
+      properties: { ...source.inputSchema.properties,
+        dataset: { type: "string", enum: ["product_daily"] },
+        page: { type: "integer", minimum: 1, maximum: 20 },
+        snapshotToken: { type: "string", pattern: "^[a-f0-9]{64}$" },
+      },
+    },
+    handler: readPandasProductPage,
+  };
 }
 
 export function getToolsForPrincipal(

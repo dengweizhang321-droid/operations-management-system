@@ -43,31 +43,21 @@ export async function forwardAiRequest(request: Request) {
     }
     if (url.pathname === "/api/ai/chat" && request.method === "POST" && request.headers.get("accept")?.includes("text/event-stream")) {
       if (url.search || !payload || typeof payload.clientRequestId !== "string") throw new PublicApiError(400, "invalid_request", "AI 流式请求无效。");
-      return await requestDjangoAiStream(principal, payload, { signal: request.signal, onCancel: () => {
-        void requestDjangoAi(principal, { path: "/api/ai/chat/cancel", method: "POST", payload: { clientRequestId: payload.clientRequestId } }).catch(() => undefined);
-      } });
+      return await requestDjangoAiStream(principal, payload, { signal: request.signal });
     }
-    let cancellation: Promise<unknown> | undefined;
-    const abort = () => {
-      if (url.pathname === "/api/ai/chat" && request.method === "POST" && typeof payload?.clientRequestId === "string") {
-        cancellation = requestDjangoAi(principal, { path: "/api/ai/chat/cancel", method: "POST", payload: { clientRequestId: payload.clientRequestId } }).catch(() => undefined);
-      }
-    };
-    request.signal.addEventListener("abort", abort, { once: true });
-    try {
-      const result = await requestDjangoAi<Record<string, unknown>>(principal, { path: url.pathname, method: request.method as "GET" | "POST" | "PUT" | "PATCH" | "DELETE", query: url.searchParams, payload,
-        ...(url.pathname === "/api/ai/models" && request.method === "GET"
-          ? { service: "writer" as const }
-          : (marketSourceQualification || url.pathname === "/api/ai/business-plan/preview" || /^\/api\/ai\/(?:reports|business-evidence)\/[A-Za-z0-9_-]{1,160}\/budget-preview$/.test(url.pathname)) && request.method === "POST"
-            ? { service: "reader" as const }
-            : {}) }, { signal: request.signal });
-      const generatedContent = /^\/api\/ai\/(?:reports|space\/assets|pi\/files)\/[A-Za-z0-9_-]{1,160}\/content$/.test(url.pathname);
-      if (url.pathname.startsWith("/api/ai/artifacts/") || generatedContent) {
-        const file = result.data as { base64?: string; content?: string; mimeType: string; fileName: string };
-        const bytes = file.base64 ? Uint8Array.from(atob(file.base64), c => c.charCodeAt(0)) : new TextEncoder().encode(file.content ?? "");
-        return new Response(bytes, { headers: { "content-type": file.mimeType, "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.fileName)}`, "cache-control": "private, no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; sandbox", ...(generatedContent ? { "x-ai-generated": "true", "x-ai-review-required": "true" } : {}) } });
-      }
-      return aiJsonResponse(result.data, { status: result.status, headers: { "x-ai-revision": result.revision } });
-    } finally { request.signal.removeEventListener("abort", abort); if (cancellation) await cancellation; }
+    const chatStatus = read && url.pathname === "/api/ai/chat" && url.searchParams.has("clientRequestId");
+    const result = await requestDjangoAi<Record<string, unknown>>(principal, { path: url.pathname, method: request.method as "GET" | "POST" | "PUT" | "PATCH" | "DELETE", query: url.searchParams, payload,
+      ...(chatStatus || (url.pathname === "/api/ai/models" && read)
+        ? { service: "writer" as const }
+        : (marketSourceQualification || url.pathname === "/api/ai/business-plan/preview" || /^\/api\/ai\/(?:reports|business-evidence)\/[A-Za-z0-9_-]{1,160}\/budget-preview$/.test(url.pathname)) && request.method === "POST"
+          ? { service: "reader" as const }
+          : {}) }, { signal: request.signal });
+    const generatedContent = /^\/api\/ai\/(?:reports|space\/assets|pi\/files)\/[A-Za-z0-9_-]{1,160}\/content$/.test(url.pathname);
+    if (url.pathname.startsWith("/api/ai/artifacts/") || generatedContent) {
+      const file = result.data as { base64?: string; content?: string; mimeType: string; fileName: string };
+      const bytes = file.base64 ? Uint8Array.from(atob(file.base64), c => c.charCodeAt(0)) : new TextEncoder().encode(file.content ?? "");
+      return new Response(bytes, { headers: { "content-type": file.mimeType, "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.fileName)}`, "cache-control": "private, no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; sandbox", ...(generatedContent ? { "x-ai-generated": "true", "x-ai-review-required": "true" } : {}) } });
+    }
+    return aiJsonResponse(result.data, { status: result.status, headers: { "x-ai-revision": result.revision } });
   } catch (error) { return aiRouteErrorResponse(error, "AI 服务请求失败"); }
 }

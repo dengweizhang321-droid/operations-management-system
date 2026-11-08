@@ -223,6 +223,23 @@ export function isDingTalkScreenshotAclPair(installedAiSha256,candidateAiSha256)
  const q=dingtalkScreenshotAclQualification;
  return installedAiSha256===q.installedAiSha256&&candidateAiSha256===q.candidateAiSha256;
 }
+// The Pandas publication seam has its own directional qualification. Neither
+// new script is admitted alone; both sides retain the reviewed Pi stop.
+export const pandasRotationControllerPair=Object.freeze({
+ installedAiSha256:dingtalkScreenshotAclQualification.candidateAiSha256,
+ candidateAiSha256:'9ec12a53b008e5103ab27fe42f6904f74f8989bad3cc78627e512660f128312f',
+ installedDjangoSha256:aiUnifiedTasksDjangoScriptSha256,
+ candidateDjangoSha256:'a7f79bcb98e837e950dabbb0a5485743a774ead22bbeebf662486ec24c6abfbf',
+ workerSha256:bWorkerJsonFailureCauseScriptSha256,
+ transportSha256:piMaintenancePredecessor.workerTransportSha256,
+});
+function assertPandasPredecessorPiStop(actual){
+ const text=actual.toString('utf8').replaceAll('\r\n','\n');
+ for(const [start,end,expected] of [['Wait-PiWorkerExit','Stop-PiRuntime','4372d8872c46760d40f7aa346b6476932be8edba7415baba0ae21e9b73293fd3'],['Stop-PiRuntime','Read-PandasConfig','49725370782414b0c4bea2065161679ba50ed911cfd1439381b7b65d7259b3e6']]){
+  const body=text.split('function '+start)[1]?.split('\nfunction '+end)[0];
+  assert.equal(createHash('sha256').update(('function '+start+(body??'')).trimEnd()).digest('hex'),expected,'实际前驱Pi停止协议不在已审Pandas兼容资格内');
+ }
+}
 export const maintenanceSourceNames=['manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs','manual-maintenance-process.psm1','manual-maintenance-preflight.ps1'];
 /** Read-only static admission; the native engine still rechecks dynamic facts. */
 export async function maintenanceReadiness({source,head,djangoManifestSha256,installed='D:/teruisi-runtime/django-sales/app',runtime='D:/teruisi-runtime/teruisi-worker-sales',sha=async file=>createHash('sha256').update(await fs.readFile(file)).digest('hex')}={}){
@@ -286,9 +303,27 @@ export async function maintenanceReadiness({source,head,djangoManifestSha256,ins
  // protocol, so it is judged like the same-AI generation: every other
  // controller must still be the installed bytes or a registered candidate.
  const dingtalkAcl=installedAi!==candidateAi&&isDingTalkScreenshotAclPair(installedAi,candidateAi);
+ const pandas=pandasRotationControllerPair;
+ const pandasRotation=installedAi===pandas.installedAiSha256&&candidateAi===pandas.candidateAiSha256;
+ const pandasControllers={
+  'worker-local-service.ps1':[pandas.workerSha256,pandas.workerSha256],
+  'process-deadline.ps1':[pandas.transportSha256,pandas.transportSha256],
+  'django-local-service.ps1':[pandas.installedDjangoSha256,pandas.candidateDjangoSha256],
+ };
  for(const [name,root,relative] of [['worker-local-service.ps1','worker',`releases/${head.releaseId}/tools/worker-local-service.ps1`],['process-deadline.ps1','worker',`releases/${head.releaseId}/tools/process-deadline.ps1`],['django-local-service.ps1','django','app/tools/django-local-service.ps1']]){
   const expected=await pin('source',name,path.join(source,'tools'));
-  if(installedAi===candidateAi||dingtalkAcl)assertMaintenanceControllerGeneration({name,installedSha:pins.find(p=>p.root===root&&p.relative===relative)?.sha256,expected,candidateSha:await sha(path.join(source,'tools',name))});
+  const installedSha=pins.find(p=>p.root===root&&p.relative===relative)?.sha256;
+  if(pandasRotation){
+   const [before,after]=pandasControllers[name];
+   assert.equal(installedSha,before,'Pandas维护前驱控制器不在已审兼容资格内：'+name);
+   assert.equal(expected,after,'Pandas候选控制器不在已审兼容资格内：'+name);
+  }else if(installedAi===candidateAi||dingtalkAcl)assertMaintenanceControllerGeneration({name,installedSha,expected,candidateSha:await sha(path.join(source,'tools',name))});
+ }
+ if(pandasRotation){
+  const actual=await fs.readFile(path.join(installed,'tools/django-ai.ps1'));
+  assert.equal(createHash('sha256').update(actual).digest('hex'),installedAi,'维护资格核验后工具发生变化');
+  assert.equal(createHash('sha256').update(candidate).digest('hex'),candidateAi,'维护资格核验后工具发生变化');
+  assertPandasPredecessorPiStop(actual);
  }
  if(dingtalkAcl){
   // The installed bytes must still be the qualified ones and still carry the
@@ -301,7 +336,7 @@ export async function maintenanceReadiness({source,head,djangoManifestSha256,ins
    assert.equal(createHash('sha256').update(('function '+start+(body??'')).trimEnd()).digest('hex'),expected,'实际前驱Pi停止协议不在已审兼容资格内');
   }
  }
- if(!dingtalkAcl&&installedAi!==candidateAi){
+ if(!dingtalkAcl&&!pandasRotation&&installedAi!==candidateAi){
   const b=nativePiBusinessPredecessor;
   const k=head?.releaseId===b.releaseId?b:nativePiWorkspacePredecessor;
   assertPredecessorPins(k);

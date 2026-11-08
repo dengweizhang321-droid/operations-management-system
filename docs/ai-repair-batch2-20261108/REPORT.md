@@ -1,0 +1,37 @@
+# AI 修复第二批交付
+
+2026-11-08（Asia/Shanghai）。第二批开发、必要检查、对应专项验证、逐小任务独立 Astra 反审和最终 G02 固定检查均已完成，无剩余本批阻断。当前仅交开发分支，未合并 main 或上线。
+
+## 本批变化
+
+| 工作包 | 开发结果 | 独审与限制 |
+| --- | --- | --- |
+| W5 模型与报告 | DNS、连接、供应商HTTP、解析、工具和收尾分层诊断；三类报告可显式选择本次模型，沿原模型版本围栏。去重复用的别名请求号持久绑定原报告，终态及普通TTL后不会同号新建。 | Astra初审发现别名缺口，原执行者返修后原上下文通过。真实供应商长报告未新增调用，不宣称供应商稳定性已证明。 |
+| W6b pandas来源 | 商品日通过原 owning reader 与签名工具桥连续有界导出，保持scope/surface、来源版本、稳定排序、页数/行数/字节上限。销售品类趋势单独核验前8品类与3000行覆盖。 | 源码独审及真实DataFrame证据增量通过。两次历史失败内因仍未确定，分页/趋势缺口不倒作共同根因。 |
+| W6R Broker轮换 | 恢复已保全的内层阶段诊断；新增同一Pandas服务的专用不可变准备、单unit切换、原启动回执及只读完成观察，接回原发布入口，保留nonce ledger与未知围栏。 | 独立Astra通过39项来源/原件核验。真实隔离Linux与Windows原函数接缝分别验证；完整Windows应用栈未做冷启动。 |
+| W8 钉钉投递 | 区分凭据、取token、动态身份、发送、平台回执；只在真正消息POST前持久预留。平台受理、结果未知、送达/已读未核验分别展示。 | 独立Astra通过；没有真实外发、旧unknown重放、长期启用或双连接竞态验收。 |
+| W9 DAG等待 | 既有账本详情显示分阶段窗口；普通串行DAG确认已完成child后同轮推进下一节点或整轮完成。人工审批与容量限制保持。 | 两项P2返修后原Astra通过；同条件各10样本从6轮降4轮，均2次合成模型调用+1次人工批准，仅声明减少调度次数。 |
+
+实现与专项证据见 [W5](W5.md)、[W5返修](W5-R1.md)、[W6b](W6B.md)、[W6R](W6R.md)、[W8](W8.md)、[W9](W9.md)。分层计数、原失败及界面HTML入口见 [CHECKS.md](CHECKS.md)。
+
+## 来源、依赖与边界
+
+- 独立工作树：`D:/.codex/worktrees/3063/运营管理系统`；分支 `codex/ai-repair-batch2-20261108`。应用已建的干净 detached 工作树直接复用并建分支，没有在第一批树施工。
+- 开工及本批再次fetch的远端main均为 `0c7d0feb33f45cfc6ae1f283b81d401c873c5768`。
+- 已明确采用的未合并开发依赖：第一批 W6a `7caf36f05c2b239add960f559ec9642f0fb3a6f3` 完整cherry-pick为 `73f3b866`；W3 `79ac59cd22c45ff9fc659ae54d0090f1bee1929b` 仅 `transport.py` 默认无行为pre-send回调为 `ec71bd21`。其余第一批代码未静默叠入；第一批最终头 `265ef9bb7ad240dfbd9b92c18bdffd73a728040c` 仍未合main。
+- 本批应用源码冻结在 `638fd30db3e1fa670805878d060ee3894baa462d`。G02适配、真实固定报告与最终文档提交另行记录，不将较早的受检版本说成后续任意代码均通过。
+- 用户已授权方案内各批开发/对应验证/任务分支推送，要求逐小任务独立Astra并在批次完成后只新建下一批一个聊天。执行请求Sol High，复杂来源完整性、专用轮换及控制器接缝局部请求Sol XHigh；每项审查请求Astra High，工具没有独立回传底层型号。
+
+没有main合并、正式应用制品、上线、生产容器清理、生产配置/业务写入、真实供应商新增调用、钉钉外发或新增长期调度。独立WSL测试镜像和私有包夹具不属于正式生产制品。合并仍须针对具体结果明确授权，包含最终合并提交的制品准备；上线另授。
+
+## 验证和待收口项
+
+各应用小项独审：[W5](REVIEW-W5.md)、[W6b](REVIEW-W6B.md)、[W6R](REVIEW-W6R.md)、[W8](REVIEW-W8.md)、[W9](REVIEW-W9.md)。当前无剩余应用源码阻断。
+
+TypeScript候选与精确main的167条诊断逐项一致，新增0；不是全仓全绿。G02第一轮在无效owner参数已被PowerShell原生拒绝后，因长路径错误排版把参数名拆行而失败；原failed报告与输出保留，隔离候选已清理。只修复验证器对显示折行的适配，不改变生产参数检查。
+
+最终固定入口绑定 `9368676d81a175c86c0d7bd6f90d1de395765d67`、tree `b0da82f7639516fa9c3927b0758ea65aa024dba6`，四项检查均实际退出0。机器报告 SHA-256 `3ed9b8c46b4be6dfba7d62dde28df3b452f7f05f96c9698f1f6353ec2cb2e8a4`；`packageIntegrity=true`、`nativeEntryBoundary=true`，限定Pandas原生范围有实证，完整Windows栈 `nativeColdStart=false`。候选工作树已清理。原Astra核验8,486项载荷、5工具、8日志及全部引用后 [增量通过](REVIEW-G02.md)。之后仅任务文档/离线HTML收尾，运行字节未变；最终远端HEAD见外置 [DELIVERY.json](D:/codex-artifacts/ai-repair-batch2-20261108/DELIVERY.json)。
+
+可直接打开 [离线交付报告](REPORT.html)。本批专用测试发行版已验证四个试验unit停止、端口无监听、本域零容器，随后停止rootlessDocker并仅终止本批WSL实例。发行版和故障意图保留，生产实例未触碰；[环境收尾回执](D:/codex-artifacts/ai-repair-batch2-20261108/environment/FINAL-STATE.json)。
+
+后续第三批仅W10/W11/W12，按 [HANDOFF.md](HANDOFF.md) 另建一个独立项目聊天/worktree，不能在本聊天继续施工，也不能把连续开发授权当main或上线授权。

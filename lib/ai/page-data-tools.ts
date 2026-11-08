@@ -1079,6 +1079,14 @@ export async function getNetshopProductCatalogPageData(
   };
 }
 
+function projectConversionFieldAvailability(value: unknown) {
+  const fields = resultObject(value);
+  return {
+    transactionCustomers: pickScalars(fields.transactionCustomers, ["complete", "reasonCode"]),
+    visitors: pickScalars(fields.visitors, ["complete", "reasonCode"]),
+  };
+}
+
 function projectPerformanceItem(value: unknown) {
   const item = resultObject(value);
   return {
@@ -1089,6 +1097,7 @@ function projectPerformanceItem(value: unknown) {
       "transactionOrders", "transactionAmountCents", "transactionQuantity", "transactionCustomers", "favorites",
       "refundAmountCents", "searchVisitors", "searchTransactionCustomers", "uvValue", "conversionRate",
     ]),
+    fieldAvailability: projectConversionFieldAvailability(item.fieldAvailability),
     shopNames: boundedStrings(item.shopNames, 20),
   };
 }
@@ -1163,6 +1172,7 @@ export async function getNetshopProductPerformancePageData(
       "transactionOrders", "transactionAmountCents", "transactionQuantity", "transactionCustomers", "favorites",
       "refundAmountCents", "searchVisitors", "searchTransactionCustomers", "uvValue", "conversionRate",
     ]),
+    summaryFieldAvailability: projectConversionFieldAvailability(result.summaryFieldAvailability),
     shops: boundedRecords(result.shops, MAX_RESULT_ITEMS, ["shopName", "platform", "productCount"]),
     daily: boundedRecords(result.daily, 90, [
       "date", "pageViews", "visitors", "transactionCustomers", "transactionQuantity", "transactionAmountCents",

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { registerHooks } from "node:module";
 import test from "node:test";
 import { validateToolArguments, validateToolRegistry, type AiToolEntry } from "../lib/ai/tool-registry-contract";
@@ -9,6 +10,8 @@ registerHooks({ resolve(specifier, context, nextResolve) {
 } });
 const { aiToolRegistry, getOpenAiTools, getAnthropicTools, getToolsForPrincipal, executeRegisteredToolCall } = await import("../lib/ai/tool-registry");
 const { summarizeToolArguments } = await import("../lib/ai/tool-audit");
+const { canonicalAiEdge, handleAiEdge } = await import("../lib/ai/django-edge");
+const { aiHeaders } = await import("../lib/django/ai-service");
 const admin = { email: "pandas@example.invalid", displayName: "Fixture", role: "admin" as const, scope: null };
 const entry: AiToolEntry = aiToolRegistry.find(e => e.name === "run_pandas_analysis")!;
 
@@ -36,19 +39,28 @@ test("central handler uses writer, server invocation identity and fixed surface;
   Object.assign(process.env, env);
   t.after(() => { globalThis.fetch = originalFetch; for (const [k, v] of Object.entries(previous)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } });
   let dispatched = 0;
+  let auditedInvocation: string | undefined;
   globalThis.fetch = async (url, init) => {
     assert.equal(String(url), "http://127.0.0.1:18112/api/ai/consumer");
     const payload = JSON.parse(String(init?.body));
     assert.equal(payload.operation, "pandas-analysis");
     assert.equal(payload.surface, "dingtalk_chat");
-    assert.equal(new Headers(init?.headers).get("x-teruisi-request-id"), "fixture-invocation");
+    assert.equal(payload.parentRequestRef, createHash("sha256").update("fixture-request").digest("hex"));
+    assert.ok(!String(init?.body).includes("fixture-request"));
+    assert.ok(auditedInvocation);
+    assert.equal(new Headers(init?.headers).get("x-teruisi-request-id"), auditedInvocation);
     dispatched++;
     return Response.json({ items: [{ amount: 800 }], returned: 1, truncated: false }, { headers: { "x-ai-revision": "1" } });
   };
-  const result = await entry.handler({ inputsJson: "[]", code: "result = frames['sales']" },
-    { principal: admin, surface: "dingtalk_chat", requestId: "fixture-request", invocationId: "fixture-invocation" });
+  const result = await executeRegisteredToolCall(entry.name, { inputsJson: "[]", code: "result = frames['sales']" },
+    { principal: admin, surface: "dingtalk_chat", requestId: "fixture-request" }, { audit: async event => {
+      assert.equal(event.requestId, "fixture-request");
+      if (event.status === "started") auditedInvocation = event.invocationId;
+      else assert.equal(event.invocationId, auditedInvocation);
+    } });
   assert.equal(dispatched, 1);
-  assert.equal(result.returned, 1);
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal((result.data as { returned: number }).returned, 1);
   const summary = JSON.stringify(summarizeToolArguments({ code: "sensitive literal", inputsJson: "query literal" }));
   assert.ok(!summary.includes("sensitive literal"));
   assert.ok(!summary.includes("query literal"));
@@ -61,4 +73,100 @@ test("audit failure blocks isolated container dispatch", async () => {
     { entries: [{ ...entry, handler: async () => { calls++; return {}; } }], audit: async () => { throw new Error("unavailable"); } });
   assert.equal(result.ok, false);
   assert.equal(calls, 0);
+});
+
+test("signed pandas pages preserve surface and source fences without opening the normal tool schema", async t => {
+  const secret = "isolated-pandas-page-secret-abcdefghijklmnopqrstuvwxyz";
+  const environment = { TERUISI_DJANGO_INTERNAL_SECRET: secret,
+    TERUISI_DJANGO_AI_READER_BASE_URL: "http://127.0.0.1:18111", TERUISI_DJANGO_AI_WRITER_BASE_URL: "http://127.0.0.1:18112",
+    TERUISI_DJANGO_NETSHOP_READER_BASE_URL: "http://127.0.0.1:18113", TERUISI_DJANGO_NETSHOP_WRITER_BASE_URL: "http://127.0.0.1:18114" };
+  const previous = Object.fromEntries(Object.keys(environment).map(key => [key, process.env[key]]));
+  const originalFetch = globalThis.fetch;
+  Object.assign(process.env, environment);
+  t.after(() => { globalThis.fetch = originalFetch; for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
+
+  const name = "get_netshop_performance";
+  const ordinary = aiToolRegistry.find(tool => tool.name === name)!;
+  const revision = "3:0123456789ab", token = "a".repeat(64);
+  const scoped = { ...admin, role: "analyst" as const, scope: { platforms: ["京东"], channels: [], warehouses: [] } };
+  const argumentsFor = (page: number) => ({ dataset: "product_daily", page, limit: 1, platform: "京东", shop: "合成店",
+    startDate: "2026-09-10", endDate: "2026-09-11", ...(page === 1 ? {} : { snapshotToken: token }) });
+  assert.throws(() => validateToolArguments(argumentsFor(1), ordinary.inputSchema));
+
+  const reads: URLSearchParams[] = [];
+  const audits: Array<{ requestId: string; surface: string; status: string; arguments: Record<string, unknown> }> = [];
+  let stale = false, allowAudit = true;
+  globalThis.fetch = async (url, init) => {
+    const target = new URL(String(url));
+    if (target.pathname === "/api/ai/consumer") {
+      const request = JSON.parse(String(init?.body));
+      assert.equal(request.operation, "tool-audit");
+      audits.push(request.entry);
+      return Response.json({ ok: allowAudit }, { status: allowAudit ? 200 : 503, headers: { "x-ai-revision": "1" } });
+    }
+    assert.equal(target.pathname, "/api/netshop/product-performance");
+    assert.equal(target.port, "18113");
+    reads.push(target.searchParams);
+    if (stale) return Response.json({ code: "service_unavailable", reasonCode: "product_snapshot_changed" }, { status: 503 });
+    const page = Number(target.searchParams.get("page"));
+    return Response.json({ sourceRevision: revision, snapshotToken: token, items: [{ id: `synthetic-${page}` }],
+      pagination: { page, pageSize: 1, total: 2, returned: 1, truncated: page === 1 } }, { headers: { "x-netshop-data-revision": revision } });
+  };
+
+  const pathname = "/api/ai/internal/edge";
+  async function edge(body: Record<string, unknown>, principal: typeof admin | typeof scoped = scoped, sign = true) {
+    const raw = JSON.stringify(body);
+    const headers = sign ? await aiHeaders({ secret, principal, method: "POST", path: pathname, query: "", body: raw,
+      requestId: "synthetic-pandas-page" }) : undefined;
+    return handleAiEdge(new Request("https://synthetic.invalid" + pathname, { method: "POST", headers, body: raw }));
+  }
+  async function executeBody(surface: string, page: number, principal: typeof admin | typeof scoped = scoped) {
+    const catalog = await (await edge({ action: "catalog", surface }, principal)).json() as { entries: unknown[] };
+    return { action: "execute", name, surface, requestId: `synthetic-page-${page}`, arguments: argumentsFor(page),
+      policyDigest: createHash("sha256").update(canonicalAiEdge(catalog.entries)).digest("hex"), pandasProductPage: true };
+  }
+
+  const first = await executeBody("dingtalk_chat", 1);
+  const next = await executeBody("dingtalk_chat", 2);
+  for (const body of [first, next]) {
+    const result = await (await edge(body)).json() as { ok: boolean; data: { sourceRevision: string; snapshotToken: string } };
+    assert.equal(result.ok, true);
+    assert.equal(result.data.sourceRevision, revision);
+    assert.equal(result.data.snapshotToken, token);
+  }
+  assert.deepEqual(reads.map(query => [query.get("view"), query.get("page"), query.get("snapshotToken")]),
+    [["full", "1", null], ["page", "2", token]]);
+  for (const query of reads) {
+    assert.equal(query.get("dimension"), "spu");
+    assert.deepEqual(query.getAll("platform"), ["京东"]);
+    assert.equal(query.get("outlet"), "京东\x1f合成店");
+    assert.equal(query.get("startDate"), "2026-09-10");
+    assert.equal(query.get("endDate"), "2026-09-11");
+  }
+  assert.deepEqual(audits.map(event => [event.requestId, event.surface, event.status]), [
+    ["synthetic-page-1", "dingtalk_chat", "started"], ["synthetic-page-1", "dingtalk_chat", "succeeded"],
+    ["synthetic-page-2", "dingtalk_chat", "started"], ["synthetic-page-2", "dingtalk_chat", "succeeded"],
+  ]);
+  assert.equal(audits.at(-1)!.arguments.snapshotToken, "[redacted]");
+
+  for (const rejected of [{ ...first, policyDigest: "0".repeat(64) }, { ...first, pandasProductPage: "true" },
+    { ...first, name: "get_data_freshness" }, await executeBody("pi_agent", 1)]) {
+    assert.equal((await edge(rejected)).status, 403);
+  }
+  assert.equal((await edge(first, scoped, false)).status, 403);
+  const ordinaryCall = { ...first, pandasProductPage: undefined };
+  const crossPlatform = { ...first, arguments: { ...first.arguments, platform: "天猫" } };
+  const absentToken = { ...next, arguments: { ...next.arguments, snapshotToken: undefined } };
+  for (const [request, code] of [[ordinaryCall, "invalid_arguments"], [crossPlatform, "access_denied"], [absentToken, "invalid_arguments"]] as const) {
+    const result = await (await edge(request)).json() as { error: { code: string } };
+    assert.equal(result.error.code, code);
+  }
+  allowAudit = false;
+  const unavailable = await (await edge(first)).json() as { auditStatus: string };
+  assert.equal(unavailable.auditStatus, "unavailable");
+  assert.equal(reads.length, 2);
+  allowAudit = true;
+  stale = true;
+  const drift = await (await edge(next)).json() as { error: { code: string } };
+  assert.equal(drift.error.code, "source_revision_changed");
 });

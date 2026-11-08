@@ -9,6 +9,7 @@ import json
 from datetime import timedelta
 from django.utils import timezone
 from .policy import AiError, canonical, current_principal, digest, fields, identifier, integer, mutation, passive, text, uid
+from .schedule_core import is_missed_window
 from .task_models import TaskDefinition, TaskGrant, TaskIncident, TaskRevision, TaskRun
 
 TRIAGE_VERSION = "unified-task-triage-v1"
@@ -25,6 +26,13 @@ def require_executor():
     # Adoption needs a reviewed executor, trusted trigger/dependency adapters
     # and a new SQL admission branch. An environment flag cannot enable it.
     raise AiError("统一执行器尚未采用；内部派发入口关闭", "task_executor_not_adopted", 409)
+
+
+def require_daily_cycle(cycle):
+    from .task_daily_cycle import DailyCycle, require_isolated
+    require_isolated()
+    if type(cycle) is not DailyCycle:
+        require_executor()
 
 
 def evidence_record(run, raw):
@@ -85,7 +93,7 @@ def incident(run, error_class, evidence=None):
     return row
 
 
-def accept_occurrence(task_id, *, trigger_kind, occurrence_key, scheduled_at):
+def accept_occurrence(task_id, *, trigger_kind, occurrence_key, scheduled_at, _daily_cycle=None):
     """Trusted adapter only. No public body can assert a verified occurrence.
 
     Time uses the original scheduled instant; messages use tenant/app/event ID;
@@ -99,23 +107,31 @@ def accept_occurrence(task_id, *, trigger_kind, occurrence_key, scheduled_at):
         raise AiError("触发时点必须包含时区")
     with mutation():
         task = TaskDefinition.objects.select_for_update().get(pk=identifier(task_id))
+        now = timezone.now()
+        if _daily_cycle is not None:
+            require_daily_cycle(_daily_cycle)
+            revision, grant = _daily_cycle.admit(task, trigger_kind, key, scheduled_at, now)
         # Existing identities are returned before checking the latest revision:
         # editing a definition must not create another run for an old event.
         old = TaskRun.objects.filter(task=task, trigger_kind=trigger_kind, occurrence_key=key).first()
         if old:
+            if _daily_cycle is not None and (old.revision_id, old.grant_id) != (revision.id, grant.id):
+                raise AiError("原时点已绑定其他授权", "version_conflict", 409)
             return old, False
-        require_executor()
-        revision = TaskRevision.objects.get(task=task, revision=task.current_revision)
+        if _daily_cycle is None:
+            require_executor()
+            revision = TaskRevision.objects.get(task=task, revision=task.current_revision)
         spec = json.loads(revision.spec_json)
-        if not task.enabled or spec["trigger"]["kind"] != trigger_kind:
-            raise AiError("任务未启用或触发类型不符", "task_not_ready", 409)
-        now = timezone.now()
-        deadline = scheduled_at + timedelta(seconds=spec["trigger"]["windowSeconds"])
-        grant = TaskGrant.objects.filter(revision=revision, owner_email=task.owner_email,
-            revoked_at__isnull=True, expires_at__gt=now).order_by("-created_at", "id").first()
+        if _daily_cycle is None:
+            if not task.enabled or spec["trigger"]["kind"] != trigger_kind:
+                raise AiError("任务未启用或触发类型不符", "task_not_ready", 409)
+            grant = TaskGrant.objects.filter(revision=revision, owner_email=task.owner_email,
+                revoked_at__isnull=True, expires_at__gt=now).order_by("-created_at", "id").first()
         if not grant:
             raise AiError("原任务长期授权无效", "access_denied", 403)
-        status = "queued" if now <= deadline else "missed"
+        window = timedelta(seconds=spec["trigger"]["windowSeconds"])
+        deadline = scheduled_at + window
+        status = "missed" if is_missed_window(now, scheduled_at, window) else "queued"
         run = TaskRun.objects.create(id=uid("task-run"), task=task, revision=revision,
             grant=grant, rule_version=TRIAGE_VERSION,
             trigger_kind=trigger_kind, occurrence_key=key, scheduled_at=scheduled_at,
@@ -125,8 +141,10 @@ def accept_occurrence(task_id, *, trigger_kind, occurrence_key, scheduled_at):
         return run, True
 
 
-def claim(run_id, worker_id, *, now=None):
+def claim(run_id, worker_id, *, now=None, _daily_cycle=None):
     """A lease may resume pre-delegation work, never re-dispatch an old effect."""
+    if _daily_cycle is not None:
+        require_daily_cycle(_daily_cycle)
     now = now or timezone.now()
     worker_id = identifier(worker_id, "执行者")
     with mutation():
@@ -139,11 +157,10 @@ def claim(run_id, worker_id, *, now=None):
             return None
         if now < run.scheduled_at:
             return None
-        require_executor()
+        if _daily_cycle is None:
+            require_executor()
         current_owner(run)
-        grant = TaskGrant.objects.filter(pk=run.grant_id, revision=run.revision, owner_email=run.task.owner_email,
-            revoked_at__isnull=True, expires_at__gt=now).exists()
-        if not run.task.enabled or not grant:
+        if not authorized(run, now, _daily_cycle):
             run.status, run.error_code = "canceled", "task_disabled_or_grant_revoked"
         elif now > run.deadline_at:
             run.status, run.error_code = "expired", "original_window_expired"
@@ -162,11 +179,19 @@ def check_lease_identity(run, worker_id, fence, now):
         raise AiError("原执行租约已失效", "version_conflict", 409)
 
 
-def check_lease(run, worker_id, fence, now):
+def authorized(run, now, _daily_cycle=None):
+    if _daily_cycle is not None:
+        require_daily_cycle(_daily_cycle)
+        return _daily_cycle.authorizes(run, now)
+    return run.task.enabled and TaskGrant.objects.filter(
+        pk=run.grant_id, revision=run.revision, owner_email=run.task.owner_email,
+        revoked_at__isnull=True, expires_at__gt=now).exists()
+
+
+def check_lease(run, worker_id, fence, now, *, _daily_cycle=None):
     check_lease_identity(run, worker_id, fence, now)
     current_owner(run)
-    if not run.task.enabled or now < run.scheduled_at or now > run.deadline_at or not TaskGrant.objects.filter(
-            pk=run.grant_id, revision=run.revision, owner_email=run.task.owner_email, revoked_at__isnull=True, expires_at__gt=now).exists():
+    if not authorized(run, now, _daily_cycle):
         raise AiError("任务、原窗口或授权已失效", "access_denied", 403)
 
 
@@ -183,6 +208,9 @@ def operation_payload(run):
     context = {"taskId": run.task_id, "revisionId": run.revision_id, "revisionDigest": run.revision.spec_digest,
         "grantId": run.grant_id, "scheduledAt": run.scheduled_at.isoformat(), "occurrenceKey": run.occurrence_key,
         "parameters": spec["parameters"]}
+    frozen_sources = json.loads(run.evidence_json).get("dailySources")
+    if frozen_sources is not None:
+        context["dailySources"] = frozen_sources
     return {"clientRequestId": run.id, "message": spec["prompt"] + "\n固定任务上下文：" + canonical(context),
         "modelId": spec["modelId"], "skillIds": [spec["skill"]["id"]], "scope": json.loads(run.task.scope_json),
         "shopSelection": spec["shopSelection"], "fileIds": [], "businessExecution": {"allowedActions": []}}
@@ -215,17 +243,20 @@ def check_operation_binding(run, op):
         raise AiError("Pi Skill 版本或摘要与原任务不符", "access_denied", 403)
 
 
-def handoff(run_id, worker_id, fence, operation_id):
+def handoff(run_id, worker_id, fence, operation_id, *, _daily_cycle=None):
     """Bind an already existing Pi operation, under its original identity.
 
     No retry caller may replace it. The actual adapter must create that
     operation and call this function within the same authority transaction.
     """
-    require_executor()
+    if _daily_cycle is None:
+        require_executor()
+    else:
+        require_daily_cycle(_daily_cycle)
     from .pi_models import PiOperation
     with mutation():
         run = TaskRun.objects.select_for_update().select_related("task", "revision").get(pk=identifier(run_id))
-        check_lease(run, worker_id, fence, timezone.now())
+        check_lease(run, worker_id, fence, timezone.now(), _daily_cycle=_daily_cycle)
         op = PiOperation.objects.select_related("session").get(pk=identifier(operation_id))
         check_operation_binding(run, op)
         run.operation_id, run.status = op.id, "delegated"

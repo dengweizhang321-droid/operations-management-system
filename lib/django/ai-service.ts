@@ -112,7 +112,16 @@ export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
   const body = input.payload === undefined ? "" : JSON.stringify(input.payload);
   if (encoder.encode(body).length > 1024 * 1024 || method === "GET" && body) throw new PublicApiError(413, "payload_too_large", "AI 请求超过内部传输上限。");
   const query = input.query?.toString() ?? "";
-  const headers = await aiHeaders({ secret: environment.TERUISI_DJANGO_INTERNAL_SECRET ?? "", principal, method, path: input.path, query, body, requestId: options.requestId ?? crypto.randomUUID() });
+  let requestId = options.requestId;
+  if (input.payload?.action === "test" && (input.path === "/api/ai/space/profiles"
+    || input.path === "/api/ai/models" && input.payload.testMode === "structured_output")) {
+    const key = input.payload.clientRequestId;
+    if (method !== "POST" || service !== "writer" || query || typeof key !== "string" || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(key)) {
+      throw new PublicApiError(400, "invalid_request", "模型能力测试请求标识无效。");
+    }
+    requestId = "w10-probe-" + await aiSha256([input.path, principal.email.toLowerCase(), key].join("\n"));
+  }
+  const headers = await aiHeaders({ secret: environment.TERUISI_DJANGO_INTERNAL_SECRET ?? "", principal, method, path: input.path, query, body, requestId: requestId ?? crypto.randomUUID() });
   try {
     const result = await fetchBoundedJson({ url: new URL(input.path + (query ? `?${query}` : ""), base).toString(), init: { method, headers, ...(body ? { body } : {}), cache: "no-store" }, timeoutMs: v3SourceRead || marketV2Candidate || marketV2BaseCandidate ? 12_000 : (input.path === "/api/ai/chat" || input.path.endsWith("/skill-candidates/distill")) && method === "POST" ? AI_CHAT_RELAY_TIMEOUT_MS : input.path === "/api/ai/models" && input.payload?.action === "test" ? 630_000 : input.path === "/api/ai/scheduler" ? (input.payload?.queue === "files" ? 650_000 : 220_000) : input.payload?.operation === "analysis-reply" || input.payload?.action === "test" ? 130_000 : 40_000, maxBytes: v3SourceRead || promotionRead || promotionDispatch || marketObservationRead || marketV2Candidate || marketV2BaseCandidate ? 48000 : reportDetail ? REPORT_DETAIL_BYTES : input.path === "/api/ai/chat" ? 8 * 1024 * 1024 : piPath && /\/content$/.test(input.path) ? 12 * 1024 * 1024 : /\/content$/.test(input.path) ? 9 * 1024 * 1024 : piPath && /\/events$/.test(input.path) ? 4 * 1024 * 1024 : 2 * 1024 * 1024, fetcher: options.fetchImpl, signal: options.signal });
     if (reportDetail && !allowReportDetailBytes(result.data, result.responseBytes, result.response.ok)) throw unavailable();

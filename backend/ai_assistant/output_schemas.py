@@ -119,3 +119,20 @@ def resolve(reference):
         raise AiError("未登记的结构化输出 schema", "invalid_request", 400)
     return {"name": reference.replace(".", "-"), "schema": schema,
             "schemaDigest": digest(canonical(schema))}
+
+
+def matches(value, schema):
+    """Validate the bounded keyword set used by the registered output contract."""
+    kind = schema["type"]
+    if kind == "object":
+        return (isinstance(value, dict) and set(value) == set(schema["required"])
+                and all(matches(v, schema["properties"][k]) for k, v in value.items()))
+    if kind == "array":
+        return (isinstance(value, list) and len(value) <= schema["maxItems"]
+                and all(matches(v, schema["items"]) for v in value))
+    if kind == "string":
+        return (isinstance(value, str) and len(value) <= schema.get("maxLength", len(value))
+                and ("enum" not in schema or value in schema["enum"]))
+    if kind == "integer":
+        return type(value) is int and schema["minimum"] <= value <= schema["maximum"]
+    return kind == "boolean" and type(value) is bool

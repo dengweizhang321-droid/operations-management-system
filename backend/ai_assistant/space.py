@@ -1,16 +1,18 @@
 from __future__ import annotations
 import base64
 import hashlib
+import json
 import re
 import struct
 import zlib
 from datetime import timedelta
-from django.db.models import Q, Sum
+from django.db.models import JSONField, Q, Sum
+from django.db.models.functions import Cast
 from django.utils import timezone
 from sales.auth import Principal
 from . import models as m, transport
-from .chat import _day
-from .configuration import endpoint, profile_record
+from .chat import _day, audit
+from .configuration import endpoint
 from .policy import (
     AiError,
     authorize_owner,
@@ -54,6 +56,8 @@ SCENES = [
     },
 ]
 SIZES = ["1024x1024", "1024x1536", "1536x1024"]
+IMAGE_ADMISSION_KIND = "image-admission-v1"
+IMAGE_PROBE_AUDIT = "image_model_probe"
 LIMITS = {
     "minimumImages": 1,
     "maximumImages": 4,
@@ -71,6 +75,90 @@ LIMITS = {
     "leaseSeconds": 360,
 }
 SAFETY = "仅生成商品视觉草稿。不得补充未提供的参数、价格、折扣、销量、认证或功效，不生成真人背书或平台标识；所有输出均为 AI 草稿，发布前必须人工复核。"
+
+
+def image_admissions(profile):
+    try:
+        value = json.loads(profile.last_success_result or "")
+    except (TypeError, ValueError):
+        return []
+    if (not isinstance(value, dict) or value.get("kind") != IMAGE_ADMISSION_KIND
+            or value.get("version") != profile.version or not isinstance(value.get("items"), list)):
+        return []
+    return [
+        item for item in value["items"][:len(SCENES) * len(SIZES)]
+        if (isinstance(item, dict) and set(item) == {"scene", "size", "testedAt"}
+            and item["scene"] in [scene["id"] for scene in SCENES] and item["size"] in SIZES
+            and isinstance(item["testedAt"], str) and len(item["testedAt"]) <= 40)
+    ]
+
+
+def require_image_admission(profile, scene, size):
+    if not any(item["scene"] == scene and item["size"] == size for item in image_admissions(profile)):
+        raise AiError("当前图片模型版本尚未通过该场景和尺寸的生成测试", "image_capability_unverified", 409)
+
+
+def image_dispatch_budget(owner, profile_id):
+    day = _day()
+    jobs = m.AiSpaceDispatchReceipts.objects.filter(dispatched_at__gte=day)
+    probes = m.AiToolAuditLogs.objects.filter(created_at__gte=day, tool_name=IMAGE_PROBE_AUDIT, status="started")
+    profile_probes = probes.annotate(_args=Cast("arguments_json", JSONField())).filter(_args__modelId=profile_id)
+    if (jobs.count() + probes.count() >= LIMITS["maximumDailyDispatchesGlobal"]
+            or jobs.filter(owner_email=owner).count() + probes.filter(actor_email=owner).count() >= LIMITS["maximumDailyImagesPerOwner"]
+            or jobs.filter(model_profile_id=profile_id).count() + profile_probes.count() >= LIMITS["maximumDailyDispatchesPerProfile"]):
+        raise AiError("今日图片实际派发达到上限", "rate_limited", 429)
+
+
+def test_profile(body, principal, request_id):
+    from .capability_probes import check_probe_intent, probe_outcome_known
+
+    fields(body, {"action", "id", "expectedVersion", "clientRequestId", "scene", "size"},
+           {"action", "id", "expectedVersion", "clientRequestId", "scene", "size"})
+    scene = choice(body["scene"], [item["id"] for item in SCENES], "scene")
+    size = choice(body["size"], SIZES, "size")
+    profile_id = identifier(body["id"])
+    identifier(body["clientRequestId"], "clientRequestId")
+    with mutation(principal):
+        current_principal(principal, write=True, admin=True)
+        profile = m.AiSpaceModelProfiles.objects.filter(id=profile_id, status="enabled").first()
+        if not profile or not profile.api_key_encrypted:
+            raise AiError("图片模型不可用")
+        cas(profile, body["expectedVersion"])
+        endpoint(profile.base_url)
+        arguments = {"modelId": profile.id, "profileVersion": profile.version, "scene": scene, "size": size}
+        invocation_id = check_probe_intent(request_id, path="/api/ai/space/profiles", audit_name=IMAGE_PROBE_AUDIT,
+            intent=[IMAGE_PROBE_AUDIT, profile.id, profile.version, scene, size], legacy_args=arguments)
+        image_dispatch_budget(principal.email.lower(), profile.id)
+        audit(principal, request_id, IMAGE_PROBE_AUDIT, "started", arguments=arguments,
+              invocation_id=invocation_id, surface="ai_space")
+
+    description = next(item["description"] for item in SCENES if item["id"] == scene)
+    prompt = f"生成一张虚构的不锈钢厨具示意图，用于图片端点测试。构图要求：{description}。\n{SAFETY}"
+    try:
+        generate_image(profile, prompt, size)
+    except AiError as error:
+        known = probe_outcome_known(error)
+        with mutation():
+            audit(principal, request_id, IMAGE_PROBE_AUDIT, "failed", arguments=arguments,
+                  invocation_id=invocation_id,
+                  result={"status": "failed" if error.code == "invalid_image_generation_response" else "inconclusive"},
+                  error_code=error.code, surface="ai_space")
+        if known:
+            return {"ok": False, "message": str(error)}
+        raise
+
+    with mutation(principal):
+        current_principal(principal, write=True, admin=True)
+        current = m.AiSpaceModelProfiles.objects.filter(id=profile.id, version=profile.version, status="enabled").first()
+        if current is None:
+            raise AiError("图片配置已变化，本次测试不适用于当前配置", "profile_version_changed", 409)
+        observations = [item for item in image_admissions(current) if (item["scene"], item["size"]) != (scene, size)]
+        observations.append({"scene": scene, "size": size, "testedAt": timezone.now().isoformat()})
+        current.last_success_result = canonical({"kind": IMAGE_ADMISSION_KIND, "version": current.version, "items": observations})
+        current.save(update_fields=["last_success_result"])
+        audit(principal, request_id, IMAGE_PROBE_AUDIT, "succeeded", arguments=arguments,
+              invocation_id=invocation_id, surface="ai_space")
+    return {"ok": True, "message": "当前图片模型版本已通过该场景和尺寸的生成测试"}
 
 
 def template_record(row):
@@ -108,6 +196,7 @@ def meta(principal):
                     "name",
                     "size",
                     "version",
+                    "isEnabled",
                     "isDefault",
                     "modelProfileId",
                 }
@@ -117,14 +206,11 @@ def meta(principal):
             )[:100]
         ],
         "profiles": [
-            {
-                k: v
-                for k, v in profile_record(p).items()
-                if k in {"id", "name", "modelName", "lastSuccessAt"}
-            }
-            for p in m.AiSpaceModelProfiles.objects.filter(status="enabled").order_by(
-                "name"
-            )[:100]
+            {"id": p.id, "name": p.name, "modelName": p.model_name,
+             "lastSuccessAt": p.last_success_at, "imageAdmissions": image_admissions(p)}
+            for p in m.AiSpaceModelProfiles.objects.filter(status="enabled").only(
+                "id", "name", "model_name", "version", "last_success_at", "last_success_result"
+            ).order_by("name")[:100]
         ],
         "limits": LIMITS,
         "permissions": {
@@ -422,6 +508,7 @@ def create(body, principal):
         ).first()
         if not profile or not profile.api_key_encrypted:
             raise AiError("图片模型不可用")
+        require_image_admission(profile, scene, template.size)
         active = m.AiSpaceJobs.objects.filter(status__in=["queued", "running"])
         daily = (
             m.AiSpaceJobs.objects.filter(
@@ -581,6 +668,36 @@ def png(bytes_value):
     return width, height
 
 
+def generate_image(profile, prompt, size):
+    body = {"model": profile.model_name, "prompt": prompt, "n": 1, "size": size}
+    if re.fullmatch(r"dall-e-[23]", profile.model_name, re.I):
+        body["response_format"] = "b64_json"
+    base = endpoint(profile.base_url)
+    try:
+        key = decrypt(profile.api_key_encrypted)
+    except AiError as error:
+        from .provider import ProviderCredentialError
+        raise ProviderCredentialError(str(error), error.code, error.status) from error
+    result = transport.bounded_json(
+        base + "/images/generations",
+        body,
+        {"Authorization": "Bearer " + key},
+        timeout=profile.timeout_ms / 1000,
+        maximum=LIMITS["maximumProviderResponseBytes"],
+    )
+    try:
+        data = result["data"]
+        if not isinstance(data, list) or len(data) != 1:
+            raise ValueError
+        raw = base64.b64decode(data[0]["b64_json"], validate=True)
+        width, height = png(raw)
+        if f"{width}x{height}" != size:
+            raise ValueError
+    except (AiError, KeyError, TypeError, ValueError) as error:
+        raise AiError("供应商未返回符合请求尺寸的完整 PNG", "invalid_image_generation_response", 503) from error
+    return raw, width, height, result.get("usage", {})
+
+
 def download(asset_id, principal):
     asset = get_asset(asset_id, principal)
     payload = m.AiSpaceAssetPayload.objects.filter(asset_id=asset.id).first()
@@ -673,13 +790,8 @@ def tick():
             ):
                 raise AiError("图片配置已变化", "profile_version_changed", 409)
             endpoint(profile.base_url)
-            daily = m.AiSpaceDispatchReceipts.objects.filter(dispatched_at__gte=_day())
-            if (
-                daily.count() >= 200
-                or daily.filter(owner_email=job.owner_email).count() >= 40
-                or daily.filter(model_profile_id=profile.id).count() >= 100
-            ):
-                raise AiError("今日图片实际派发达到上限", "rate_limited", 429)
+            require_image_admission(profile, job.scene, job.size)
+            image_dispatch_budget(job.owner_email, profile.id)
         except AiError as e:
             item.status = "failed"
             item.error_code = e.code
@@ -713,27 +825,7 @@ def tick():
         lease = (item.id, item.lease_token, item.lease_epoch)
     object_key = None
     try:
-        body = {
-            "model": job.model_name,
-            "prompt": job.final_prompt,
-            "n": 1,
-            "size": job.size,
-        }
-        if re.fullmatch(r"dall-e-[23]", job.model_name, re.I):
-            body["response_format"] = "b64_json"
-        result = transport.bounded_json(
-            endpoint(profile.base_url) + "/images/generations",
-            body,
-            {"Authorization": "Bearer " + decrypt(profile.api_key_encrypted)},
-            timeout=profile.timeout_ms / 1000,
-            maximum=9 * 1024 * 1024,
-        )
-        if not isinstance(result.get("data"), list) or len(result["data"]) != 1:
-            raise AiError("图片生成结果无效")
-        raw = base64.b64decode(result["data"][0]["b64_json"], validate=True)
-        width, height = png(raw)
-        if f"{width}x{height}" != job.size:
-            raise AiError("生成尺寸与任务不一致")
+        raw, width, height, usage = generate_image(profile, job.final_prompt, job.size)
         sha = hashlib.sha256(raw).hexdigest()
         object_key = (
             f"ai-space/v1/{job.id}/{item.ordinal}-{item.lease_epoch}-{sha[:16]}.png"
@@ -758,7 +850,7 @@ def tick():
             m.AiSpaceDispatchResults.objects.create(
                 dispatch_id=dispatch.id,
                 status="succeeded",
-                usage_json=canonical(result.get("usage", {})),
+                usage_json=canonical(usage),
             )
             item.asset_id = asset.id
             item.status = "succeeded"
@@ -770,9 +862,8 @@ def tick():
             item.lease_expires_at = None
             item.save()
             refresh(job)
-            profile.last_success_result = "真实图片生成成功"
             profile.last_success_at = timezone.now()
-            profile.save(update_fields=["last_success_result", "last_success_at"])
+            profile.save(update_fields=["last_success_at"])
         return {"status": "succeeded", "jobId": job.id}
     except Exception as error:
         with mutation():

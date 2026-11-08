@@ -10,9 +10,10 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from urllib.parse import urlsplit
 from .configuration import endpoint, origin
+from .diagnostics import PhaseTimer, capture_timings, publish_timings
 from .policy import AiError, fields, passive
 from .secrets import decrypt
-from .transport import bounded_json, bounded_sse, ProviderTransportError
+from .transport import bounded_json, bounded_sse, ProviderHttpError, ProviderTransportError
 from .provider_stream import ProviderStream
 from .provider_contract import InvalidProviderResponse
 from .model_capabilities import options, provider_parameters, fit_context, structured_output_parameters, MAX_PROVIDER_BYTES
@@ -37,6 +38,11 @@ def conversation_session(identity):
 class ProviderCredentialError(AiError):
     """Local credential resolution failed before any provider request."""
 
+    def __init__(self, message, code, status):
+        super().__init__(message, code, status)
+        self.diagnostics = {"stage": "admission", "reason": "credentials_unavailable",
+                            "requestStarted": False}
+
 
 class EmptyProviderResponse(AiError):
     """A fully received, valid response with no public answer or tool call."""
@@ -47,7 +53,8 @@ class EmptyProviderResponse(AiError):
             "provider_output_limit" if truncated else "provider_empty_response", 503,
         )
         self.can_finalize = isinstance(finish_reason, str) and finish_reason in {"length", "stop", "max_tokens", "end_turn"}
-        self.diagnostics = {"finishReason": finish_reason if self.can_finalize else "other",
+        self.diagnostics = {"stage": "finalize", "reason": "empty_output", "requestStarted": True,
+                            "finishReason": finish_reason if self.can_finalize else "other",
                             "hasReasoning": has_reasoning}
         # No provider text, reasoning, request body or credentials enter audit.
         if isinstance(usage, dict):
@@ -66,6 +73,34 @@ def system_prompt(model, system):
 
 def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=None, preserve_context=False,
          tool_argument_limits=None, structured_output=None):
+    timer = PhaseTimer("admission")
+    failure = None
+    try:
+        with capture_timings() as timings:
+            return _turn(model, transcript, system, tools, timer, retain_reasoning=retain_reasoning,
+                         on_text=on_text, preserve_context=preserve_context,
+                         tool_argument_limits=tool_argument_limits, structured_output=structured_output)
+    except (InvalidProviderResponse, ProviderTransportError, ProviderHttpError,
+            ProviderCredentialError, EmptyProviderResponse) as error:
+        failure = error
+        raise
+    finally:
+        # The transport owns wire timing. The provider owns normalized frame,
+        # tool-argument and answer validation after the transport returns.
+        for stage, duration in timer.finish().items():
+            timings[stage] = timings.get(stage, 0) + duration
+        publish_timings(timings)
+        if failure is not None:
+            failure.diagnostics.update(timingsMs=timings, appStatus=failure.status)
+            if isinstance(failure, InvalidProviderResponse):
+                failure.diagnostics.setdefault("protocol", model.protocol)
+                failure.diagnostics.setdefault("responseMode", "json" if on_text is None else "sse")
+                if timer.stage != "provider":
+                    failure.diagnostics.setdefault("requestStarted", timer.stage != "admission")
+
+
+def _turn(model, transcript, system, tools, timer, *, retain_reasoning, on_text, preserve_context,
+          tool_argument_limits, structured_output):
     cfg = options(model)
     system = system_prompt(model, system)
     # Body-level JSON Schema constraint, declared by endpoint capability only.
@@ -97,21 +132,27 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
     wire_protocol = "openai_responses" if use_responses else model.protocol
     mode = "json" if on_text is None else "sse"
     def invalid(reason, *, stage="response"):
-        return InvalidProviderResponse(reason, stage=stage, protocol=model.protocol, mode=mode)
+        error = InvalidProviderResponse(reason, stage=stage, protocol=model.protocol, mode=mode)
+        error.diagnostics["requestStarted"] = True
+        return error
     def request(url, body, headers, *, timeout):
         if origin(base) == "https://opencode.ai" and urlsplit(base).path == "/zen/go/v1":
             headers = {**headers, "User-Agent": "xiaote/1.0",
                        "x-opencode-session": _conversation_session.get() or str(uuid.uuid4())}
         try:
+            timer.advance("provider")
             if on_text is None:
-                return bounded_json(url, body, headers, timeout=timeout, maximum=MAX_PROVIDER_BYTES)
-            if not use_responses and model.protocol == "openai_compatible" and cfg["includeStreamUsage"]:
-                body = {**body, "stream_options": {"include_usage": True}}
-            return bounded_sse(url, body, headers, timeout=timeout,
-                               collector=ProviderStream(wire_protocol, on_text))
-        except (InvalidProviderResponse, ProviderTransportError) as error:
+                result = bounded_json(url, body, headers, timeout=timeout, maximum=MAX_PROVIDER_BYTES)
+            else:
+                if not use_responses and model.protocol == "openai_compatible" and cfg["includeStreamUsage"]:
+                    body = {**body, "stream_options": {"include_usage": True}}
+                result = bounded_sse(url, body, headers, timeout=timeout,
+                                     collector=ProviderStream(wire_protocol, on_text))
+        except (InvalidProviderResponse, ProviderTransportError, ProviderHttpError) as error:
             error.diagnostics.update(protocol=model.protocol, responseMode=mode)
             raise
+        timer.advance("response_parse")
+        return result
     if model.protocol == "anthropic":
         params = provider_parameters(model)
         if "output_config" in extra_params:
@@ -238,6 +279,7 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
                 )
             except (KeyError, TypeError, ValueError, RecursionError) as e:
                 raise invalid("tool_arguments_json") from e
+    timer.advance("tool_calls")
     if (
         len(calls) > 8
         or any(
@@ -250,7 +292,7 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
         )
         or len({c["id"] for c in calls}) != len(calls)
     ):
-        raise invalid("tool_calls_bounds")
+        raise invalid("tool_calls_bounds", stage="tool_calls")
     for c in calls:
         # Honor the registered JSON-string input contract, including its JSON
         # escaping overhead. Other tools retain the existing 8 KB bound; the
@@ -278,6 +320,7 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
             passive(c["arguments"], limit)
         except AiError as error:
             raise invalid("tool_arguments_bounds", stage="tool_calls") from error
+    timer.advance("finalize")
     answer = "\n".join(texts).strip()
     truncated = (result.get("stop_reason") == "max_tokens" if model.protocol == "anthropic"
                  else choices[0].get("finish_reason") == "length")

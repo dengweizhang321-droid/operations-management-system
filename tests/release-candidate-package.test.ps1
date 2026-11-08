@@ -1,3 +1,4 @@
+param([switch]$AiRepairBatch2)
 $ErrorActionPreference='Stop'
 # Actual package copy, dependency closure, fingerprint, ACL and local R2 code.
 # Only stopped-process and production schema admission observations are replaced.
@@ -43,6 +44,17 @@ try {
   Assert-DeployedApplication
   Assert-RuntimeAclHardened
   Assert-WranglerLocalR2RoundTrip $InstalledAppRoot
+  if($AiRepairBatch2){
+    foreach($relative in @('tools/django-ai.ps1','tools/manual-maintenance-continuation.mjs',
+      'tools/pandas_broker_rotation.py','tools/pandas_broker_rotation_linux.py',
+      'tools/publish-main-pandas.mjs','backend/pandas_runner/diagnostics.py','backend/pandas_runner/server.py')){
+      $sourceFile=Join-Path $workspace $relative
+      $packFile=Join-Path $InstalledAppRoot $relative
+      if((Get-FileHash -LiteralPath $sourceFile).Hash -cne (Get-FileHash -LiteralPath $packFile).Hash){
+        throw "Pandas package closure differs from frozen source: $relative"
+      }
+    }
+  }
   foreach($relative in @('tools/django-local-service.ps1','tools/django-runtime-supervisor.ps1',
     'tools/bi_app_addition.py','tools/jackyun_audit_addition.py','tools/ai_schedule_addition.py',
     'tools/jd_logistics_addition.py','tools/jd_monitor_preferences_addition.py',

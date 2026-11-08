@@ -1,6 +1,7 @@
 """Administrator-defined Shanghai schedules; no missed-slot replay or ambiguous resend."""
 import base64
 import json
+import re
 from datetime import datetime, timedelta, timezone as utc
 from zoneinfo import ZoneInfo
 
@@ -9,6 +10,7 @@ from sales.auth import Principal
 
 from . import chat, dingtalk, dingtalk_settings, models as m, reports, scheduled_page_capture, schedule_monitor
 from .configuration import resolve_model
+from .dingtalk_transport import DingTalkDeliveryError
 from .model_capabilities import options as generation_options
 from .provider_contract import PROVIDER_ADAPTER_VERSION
 from .policy import AiError, current_principal, fields, identifier, integer, mutation, text, uid, digest, canonical
@@ -84,10 +86,6 @@ def save(body, principal):
         source_ref = identifier(source_ref) if content_type == "report_file" else source_ref
         if content_type == "screenshot" and source_ref not in scheduled_page_capture.PAGES:
             raise AiError("截图页面不在允许列表")
-        if content_type == "report_file":
-            report = reports.get(source_ref, principal)
-            if report.workflow.status != "completed" or report.workflow.dry_run:
-                raise AiError("报告尚未完成复核，不能定时投递", "conflict", 409)
     else:
         raise AiError("投递内容类型无效")
     cadence = body["cadence"]
@@ -103,10 +101,6 @@ def save(body, principal):
     sender = dingtalk.opaque(body["senderId"], "执行账号 staffId")
     if body["targetType"] == "person" and target != sender:
         raise AiError("个人投递只允许执行账号本人", "access_denied", 403)
-    if body["targetType"] == "group":
-        config = dingtalk_settings.read(principal)["config"]
-        if not config["configured"] or not config["enabled"] or target not in {g["id"] for g in config["groups"] if g["enabled"]}:
-            raise AiError("目标群尚未批准并启用", "access_denied", 403)
     now = timezone.now()
     with mutation(principal):
         if "id" in body:
@@ -120,6 +114,15 @@ def save(body, principal):
             if "expectedVersion" in body or m.AiDingTalkSchedule.objects.count() >= 100:
                 raise AiError("任务数量已达上限或版本无效")
             row = m.AiDingTalkSchedule(id=uid("ding-schedule"), owner_email=principal.email.lower())
+        # A dependency revocation cannot prevent stopping its existing task.
+        if content_type == "report_file" and (body["enabled"] or (row.content_type, row.source_ref) != (content_type, source_ref)):
+            report = reports.get(source_ref, principal)
+            if report.workflow.status != "completed" or report.workflow.dry_run:
+                raise AiError("报告尚未完成复核，不能定时投递", "conflict", 409)
+        if body["targetType"] == "group" and (body["enabled"] or (row.target_type, row.target_id) != ("group", target)):
+            config = dingtalk_settings.read(principal)["config"]
+            if not config["configured"] or not config["enabled"] or target not in {g["id"] for g in config["groups"] if g["enabled"]}:
+                raise AiError("目标群尚未批准并启用", "access_denied", 403)
         # Old clients may omit these fields when editing an existing task.
         # An explicit empty binding means resolve the default at each run.
         if "modelId" not in body and row.pk and row.model_id and content_type == "text":
@@ -162,18 +165,31 @@ def run_now(body, principal):
 def recover_interrupted():
     with mutation():
         stuck = m.AiDingTalkScheduleRun.objects.select_for_update().filter(status__in=IN_PROGRESS_STATUSES)
-        recover_interrupted_runs(stuck, stage)
+        for run in stuck:
+            delivery = json.loads(run.stage_details_json).get("delivery", {}).get("observation", {})
+            if run.status == "ready" and run.delivery_status == "running" and delivery.get("outcome") == "preparing":
+                # This version only enters sending under the final wire fence.
+                stage(run, "delivery", "failed", "dingtalk_preparation_interrupted",
+                      observation={"stage": "preparation", "outcome": "not_sent"})
+                run.status, run.error_code, run.completed_at = "failed", "dingtalk_preparation_interrupted", timezone.now()
+                run.save(update_fields=["status", "error_code", "completed_at"])
+            else:
+                recover_interrupted_runs((run,), stage)
 
 
-def stage(run, phase, status, code=""):
+def stage(run, phase, status, code="", *, observation=None):
     details = json.loads(run.stage_details_json)
     item = details.setdefault(phase, {})
     stamp = timezone.now().isoformat()
     if status == "running":
-        item["startedAt"] = stamp
+        item.setdefault("startedAt", stamp)
     else:
         item["completedAt"] = stamp
     item["errorCode"] = code
+    if observation is not None:
+        item["observation"] = observation
+    elif phase == "delivery" and status == "unknown" and "observation" in item:
+        item["observation"]["outcome"] = "unknown"
     setattr(run, phase + "_status", status)
     run.stage_details_json = canonical(details)
     with mutation():
@@ -190,6 +206,15 @@ def model_snapshot(model):
         "maxTokens": model.max_tokens, "maxToolRounds": model.max_tool_rounds,
         "maxTotalToolCalls": model.max_total_tool_calls, "taskTimeoutMs": cfg["taskTimeoutMs"],
         "contextWindowTokens": cfg["contextWindowTokens"]}
+
+
+def _accepted_delivery(receipt):
+    sha = receipt.get("receiptSha256") if isinstance(receipt, dict) else None
+    if (not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{64}", sha)
+            or receipt.get("platform") != "dingtalk" or receipt.get("state") != "accepted"):
+        raise AiError("未取得可确认的钉钉平台受理回执", "delivery_unknown", 503)
+    return {**receipt.get("delivery", {}), "stage": "receipt", "outcome": "accepted",
+            "receiptSha256": sha, "recipientObservation": "unavailable"}
 
 
 def step(config_reader, sender, media_sender=None):
@@ -242,7 +267,6 @@ def step(config_reader, sender, media_sender=None):
         if row.target_type == "group" and row.target_id not in {g["id"] for g in config["groups"]}:
             raise AiError("目标群已撤销", "access_denied", 403)
         return config, dingtalk.principal_for(config, row.sender_id)
-    sending = False
     active_phase = None
     bound_model = None
     snapshot = None
@@ -309,7 +333,6 @@ def step(config_reader, sender, media_sender=None):
                 "conversationId": session.conversation_id, "workspaceModule": "ai", "title": "志高助手 · 定时任务"},
                 principal, run.id, dingtalk_session=session, channel_guard=channel_guard, channel_time=run.scheduled_at,
                 **analysis_args)
-            channel_guard()
             content = dingtalk.plain_reply(schedule_monitor.render(facts, answer["reply"]), truncate=False) if facts else dingtalk.plain_reply(answer["reply"])
             stage(run, "analysis", "succeeded")
             attachment = None
@@ -329,65 +352,79 @@ def step(config_reader, sender, media_sender=None):
             attachment = (base64.b64decode(result["base64"], validate=True), "报告-" + run.id + ".xlsx", "file")
             stage(run, "data", "succeeded")
             stage(run, "analysis", "not_required")
-        channel_guard()
         active_phase = "delivery"
-        with mutation(principal):
-            run.status = "ready"
-            run.content_text = content
-            run.save(update_fields=["status", "content_text"])
         channel_guard()
+        with mutation(principal):
+            ready = m.AiDingTalkScheduleRun.objects.select_for_update().get(pk=run.id)
+            if ready.status != "running":
+                raise AiError("执行槽状态已变化", "access_denied", 403)
+            ready.status, ready.content_text = "ready", content
+            ready.save(update_fields=["status", "content_text"])
+            stage(ready, "delivery", "running", observation={"stage": "preparation", "outcome": "preparing"})
+
         def delivery_guard():
             channel_guard()
             if facts:
-                # Verify after destination preparation, immediately before the
-                # external wire call. No second generation or automatic resend.
                 current = schedule_monitor.collect(principal, run.id, facts["businessDate"], channel_guard, verify=True)
                 if current != facts:
                     raise AiError("来源在分析后变化，本次未投递", "schedule_source_changed", 409)
                 channel_guard()
-        # Commit the irreversible external-send reservation before calling DWS.
-        with mutation(principal):
-            locked = m.AiDingTalkScheduleRun.objects.select_for_update().get(pk=run.id)
-            if locked.status != "ready":
-                raise AiError("执行槽状态已变化", "access_denied", 403)
-            run.status = "sending"
-            run.save(update_fields=["status"])
-        sending = True
-        stage(run, "delivery", "running")
-        channel_guard()
+            # Serialize the final reservation against editing/stopping the task.
+            # Once committed, the caller may be writing bytes. A later stop
+            # fences future work without undoing this attempt or its receipt.
+            with mutation(principal):
+                task = m.AiDingTalkSchedule.objects.select_for_update().get(pk=row.id)
+                locked = m.AiDingTalkScheduleRun.objects.select_for_update().get(pk=run.id)
+                if not task.enabled or task.version != version or locked.status != "ready":
+                    raise AiError("任务或执行槽已变化", "access_denied", 403)
+                locked.status = "sending"
+                locked.save(update_fields=["status"])
+                stage(locked, "delivery", "running", observation={"stage": "send_request", "outcome": "in_flight"})
         if attachment is None:
-            sender(session, content, before_send=delivery_guard)
+            receipt = sender(session, content, before_send=delivery_guard)
         elif media_sender is None:
             raise AiError("机器人媒体投递器不可用", "channel_unavailable", 503)
+        elif row.content_type == "screenshot" and content:
+            receipt = media_sender(session, *attachment, content, before_send=delivery_guard)
         else:
-            if row.content_type == "screenshot" and content:
-                media_sender(session, *attachment, content, before_send=channel_guard)
+            receipt = media_sender(session, *attachment, before_send=delivery_guard)
+        observation = _accepted_delivery(receipt)
+        with mutation():
+            task = m.AiDingTalkSchedule.objects.select_for_update().get(pk=row.id)
+            locked = m.AiDingTalkScheduleRun.objects.select_for_update().get(pk=run.id)
+            if locked.status != "sending":
+                raise AiError("执行槽没有有效的投递预留", "delivery_unknown", 503)
+            stage(locked, "delivery", "succeeded", observation=observation)
+            locked.status, locked.completed_at = "sent", timezone.now()
+            locked.save(update_fields=["status", "completed_at"])
+            if task.last_run_at is None or task.last_run_at < run.scheduled_at:
+                task.last_run_at = run.scheduled_at
+                task.save(update_fields=["last_run_at"])
+    except Exception as error:
+        with mutation():
+            locked = m.AiDingTalkScheduleRun.objects.select_for_update().get(pk=run.id)
+            if locked.status not in IN_PROGRESS_STATUSES:
+                return True
+            known = isinstance(error, AiError)
+            code = error.code if known else "execution_result_unknown"
+            if isinstance(error, DingTalkDeliveryError):
+                observation = error.delivery
+                unknown = observation["outcome"] == "unknown"
             else:
-                media_sender(session, *attachment, before_send=channel_guard)
-        with mutation():
-            stage(run, "delivery", "succeeded")
-            run.status, run.completed_at = "sent", timezone.now()
-            run.save(update_fields=["status", "completed_at"])
-            row.last_run_at = run.scheduled_at
-            row.save(update_fields=["last_run_at"])
-    except AiError as error:
-        if active_phase:
-            stage(run, active_phase, "unknown" if sending or error.code in ("delivery_unknown", "ai_chat_result_unknown") else "failed", error.code)
-        for phase in DEFAULT_PHASES:
-            if getattr(run, phase + "_status") == "pending":
-                stage(run, phase, "not_required", "prior_stage_failed")
-        with mutation():
-            run.status = "unknown" if sending or error.code in ("delivery_unknown", "ai_chat_result_unknown") else "denied" if error.status == 403 else "failed"
-            run.error_code, run.completed_at = error.code, timezone.now()
-            run.save(update_fields=["status", "error_code", "completed_at"])
-    except Exception:
-        if active_phase:
-            stage(run, active_phase, "unknown", "execution_result_unknown")
-        for phase in DEFAULT_PHASES:
-            if getattr(run, phase + "_status") == "pending":
-                stage(run, phase, "not_required", "prior_stage_unknown")
-        with mutation():
-            run.status = "unknown"
-            run.error_code, run.completed_at = "execution_result_unknown", timezone.now()
-            run.save(update_fields=["status", "error_code", "completed_at"])
+                if active_phase == "delivery":
+                    unknown = locked.status == "sending" or code == "delivery_unknown"
+                    if not known and not unknown:
+                        code = "dingtalk_send_unavailable"
+                else:
+                    unknown = not known or code in ("delivery_unknown", "ai_chat_result_unknown")
+                observation = {"stage": "send_request" if unknown else "preparation", "outcome": "unknown" if unknown else "not_sent"}
+            if active_phase:
+                stage(locked, active_phase, "unknown" if unknown else "failed", code,
+                      observation=observation if active_phase == "delivery" else None)
+            for phase in DEFAULT_PHASES:
+                if getattr(locked, phase + "_status") == "pending":
+                    stage(locked, phase, "not_required", "prior_stage_unknown" if unknown else "prior_stage_failed")
+            locked.status = "unknown" if unknown else "denied" if known and error.status == 403 else "failed"
+            locked.error_code, locked.completed_at = code, timezone.now()
+            locked.save(update_fields=["status", "error_code", "completed_at"])
     return True

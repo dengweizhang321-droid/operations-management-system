@@ -228,7 +228,7 @@ class SchedulePilotTests(TestCase):
         def answer(body, *args, **kw):
             captured.append((body, kw["dingtalk_session"].id))
             return {"reply": "合成结果"}
-        sender = Mock()
+        sender = Mock(side_effect=fixture.accepted_delivery)
         with patch("ai_assistant.transport.edge", side_effect=fixture.background), patch.object(schedules.chat, "answer", side_effect=answer):
             schedules.step(lambda: dingtalk_settings.effective(self.config), sender)
             schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
@@ -255,7 +255,7 @@ class SchedulePilotTests(TestCase):
             if action == "authorize_background": return fixture.background()
             if action == "catalog": return {"entries": [{"name": "get_data_freshness"}, {"name": "get_inventory_page_data"}]}
             return bridge(fresh, data)(payload["name"])
-        sender = Mock(side_effect=lambda session, content, before_send: before_send())
+        sender = Mock(side_effect=fixture.accepted_delivery)
         with patch("ai_assistant.transport.edge", side_effect=edge), patch.object(schedules.chat, "answer", side_effect=answer) as paid:
             self.assertTrue(schedules.step(lambda: dingtalk_settings.effective(self.config), sender))
             self.assertFalse(schedules.step(lambda: dingtalk_settings.effective(self.config), sender))

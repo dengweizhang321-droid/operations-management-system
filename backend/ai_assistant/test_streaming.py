@@ -187,6 +187,7 @@ class StreamChatReceiptTests(TestCase):
         support.AiDomainTests.setUp(self)
 
     def streamed_request(self, url, body, headers, *, timeout, collector):
+        chat.transport.commit_provider_send()
         for chunk in [event(openai({"reasoning_content": "private-thinking"})), event(openai({"content": "有来源的回答"})), event(openai(reason="stop")), event("[DONE]")]:
             collector.feed(chunk)
         return collector.finish()
@@ -204,7 +205,11 @@ class StreamChatReceiptTests(TestCase):
             self.assertNotIn("private-thinking", canonical(seen))
 
     def test_stream_failure_leaves_unknown_receipt_and_does_not_replay(self):
-        with patch.object(chat.transport, "catalog", return_value=[]), patch.object(provider, "decrypt", return_value="fixture"), patch.object(provider, "bounded_sse", side_effect=AiError("断线", "provider_unavailable", 503)) as dispatch:
+        def disconnected(*args, **kwargs):
+            chat.transport.commit_provider_send()
+            raise AiError("断线", "provider_unavailable", 503)
+
+        with patch.object(chat.transport, "catalog", return_value=[]), patch.object(provider, "decrypt", return_value="fixture"), patch.object(provider, "bounded_sse", side_effect=disconnected) as dispatch:
             body = {"clientRequestId": "stream-failed", "message": "业务问题"}
             with self.assertRaises(AiError): chat.answer(body, self.owner, "fixture", on_event=lambda *_: None)
             self.assertEqual(m.AiChatRequestReceipts.objects.get(client_request_id="stream-failed").status, "unknown")
@@ -227,6 +232,35 @@ class StreamEndpointTransactionTests(TransactionTestCase):
     user = support.AiDomainTests.user
     setUp = support.AiDomainTests.setUp
     streamed_request = StreamChatReceiptTests.streamed_request
+
+    def test_signed_stream_reports_the_durable_unknown_after_provider_transport_failure(self):
+        from .transport import ProviderTransportError
+
+        def unavailable(*args, **kwargs):
+            chat.transport.commit_provider_send()
+            raise ProviderTransportError(stage="response_headers", reason="timeout", request_started=True)
+
+        body = {"clientRequestId": "threaded-stream-unknown", "message": "业务问题", "workspaceModule": "sales"}
+        with patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": "A-valid-isolated-signing-secret-13579-abcdefghijklmnopqrstuvwxyz"}), \
+             patch.object(chat.transport, "catalog", return_value=[]), \
+             patch.object(provider, "decrypt", return_value="fixture"), \
+             patch.object(provider, "bounded_sse", side_effect=unavailable) as dispatch:
+            headers = signed_headers("/api/ai/chat", body, self.owner, "threaded-stream-unknown")
+            headers["Accept"] = "text/event-stream"
+            response = self.client.post("/api/ai/chat", canonical(body), content_type="application/json", headers=headers)
+            self.assertEqual(response.status_code, 200)
+            wire = b"".join(response.streaming_content).decode()
+            response.ai_stream.thread.join(3)
+            self.assertFalse(response.ai_stream.thread.is_alive())
+            self.assertIn("event: failure", wire)
+            self.assertIn('"code":"ai_chat_result_unknown"', wire)
+            self.assertNotIn('"code":"provider_timeout"', wire)
+            receipt = m.AiChatRequestReceipts.objects.get(client_request_id=body["clientRequestId"])
+            self.assertEqual((receipt.status, receipt.cancel_requested), ("unknown", False))
+            self.assertEqual(m.AiToolAuditLogs.objects.get(
+                request_id="threaded-stream-unknown", tool_name="ai_chat_provider", status="failed"
+            ).error_code, "provider_timeout")
+            self.assertEqual(dispatch.call_count, 1)
 
     def test_signed_stream_commits_in_producer_before_terminal_receipt(self):
         body = {"clientRequestId": "threaded-stream-receipt", "message": "业务问题"}

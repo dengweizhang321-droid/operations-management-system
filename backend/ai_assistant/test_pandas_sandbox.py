@@ -27,7 +27,102 @@ def page(rows=None, more=False, cursor=None, **extra):
             "hasMore": more, "nextCursor": cursor, "truncated": more, "truncatedFields": [], "cellWindows": {}, **extra}}
 
 
+PRODUCT = {"name": "products", "dataset": "netshop_product_daily", "query": {"limit": 1}, "columns": ["spuId"]}
+PRODUCT_REVISION = "1:" + "a" * 12
+PRODUCT_SNAPSHOT = "c" * 64
+
+
+def product_page(number, total, product, shop="合成店甲"):
+    return {**page(), "dataCutoffDate": "2026-09-11" if number == 1 else None,
+            "data": {"items": [{"id": product, "spuId": product, "platform": "京东", "shopNames": [shop]}],
+                     "pagination": {"page": number, "pageSize": 1, "total": total, "returned": 1, "truncated": number < total},
+                     "sourceRevision": PRODUCT_REVISION, "snapshotToken": PRODUCT_SNAPSHOT}}
+
+
 class PandasExportTests(SimpleTestCase):
+    def test_diagnostics_distinguish_catalog_sources_and_omit_payloads(self):
+        from .pandas_diagnostics import reference
+
+        secret = "fixture-sensitive-content"
+        parent_ref = reference("parent-request")
+        cases = [
+            ("netshop_product_daily", "items", {"items": [{"sku": secret}], "truncated": True}, "source_pagination"),
+            ("sales_category", "trend.items", {"trend": {"other": secret}}, "source_collection"),
+        ]
+        for dataset, path, data, expected_failure in cases:
+            def reader(name, _args, _principal, **_kw):
+                return {"toolName": name, "ok": True, "data": {} if name == "get_data_freshness" else data}
+
+            payload = {**PAYLOAD, "parentRequestRef": parent_ref, "code": f"# {secret}",
+                       "inputsJson": canonical([{"name": "fixture", "dataset": dataset, "collection": path,
+                                                  "query": {"limit": 1}, "columns": [secret]}])}
+            invocation = f"invocation-{dataset}"
+            with self.subTest(dataset=dataset), patch.object(sandbox, "current_principal", return_value=ADMIN), \
+                    patch.object(sandbox, "config", return_value=(b"k" * 32, IMAGE)), \
+                    patch.object(datasets.transport, "catalog", return_value=catalog_fixture()), \
+                    patch.object(datasets.transport, "execute_tool", side_effect=reader), \
+                    patch.object(datasets.transport, "edge", return_value=reader("get_netshop_performance", {}, ADMIN)), \
+                    patch.object(sandbox, "call_runner") as runner, \
+                    self.assertLogs(sandbox.logger, "INFO") as logs, self.assertRaises(AiError):
+                sandbox.run(payload, ADMIN, invocation)
+            runner.assert_not_called()
+            events = [json.loads(line.partition("pandas_stage ")[2]) for line in logs.output]
+            self.assertTrue(all(event["requestRef"] == parent_ref and event["invocationRef"] == reference(invocation)
+                                and type(event["elapsedMs"]) is int and event["elapsedMs"] >= 0 for event in events))
+            self.assertIn((dataset, 1, expected_failure, "invalid_request"), [
+                (event.get("dataset"), event.get("page"), event["stage"], event.get("code"))
+                for event in events if event["status"] == "failed"])
+            self.assertNotIn(secret, str(logs.output))
+            self.assertNotIn(invocation, str(logs.output))
+            self.assertNotIn("parent-request", str(logs.output))
+
+    def test_django_channel_diagnostics_with_legacy_signed_broker(self):
+        from http.server import HTTPServer
+        from threading import Thread
+        from pandas_runner.server import Handler
+        from pandas_runner.test_runner import BrokerTests
+        from functools import partial
+        from .pandas_diagnostics import reference, stage
+
+        cases = [
+            {},
+            {"fail_start": True},
+            {"raw": b'{"fixture-sensitive-content":"invalid"}'},
+            {"fail_cleanup": True},
+        ]
+        for fault in cases:
+            broker = BrokerTests().broker(**fault)
+            broker.key = b"k" * 32
+            broker.reserve = lambda nonce, stamp: None
+            app_events = []
+            server = HTTPServer(("127.0.0.1", 0), Handler)
+            server.broker = broker
+            thread = Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                with self.subTest(fault=fault), patch.object(sandbox, "PORT", server.server_port):
+                    trace = partial(stage, app_events.append, sandbox.diagnostic_code, requestRef=reference("request"),
+                                    invocationRef=reference("invocation"))
+                    job = {"code": "# fixture-sensitive-content", "frames": {"sample": [{"secret": "fixture-sensitive-content"}]}}
+                    if fault:
+                        with self.assertRaises(AiError) as caught:
+                            sandbox.call_runner(job, (broker.key, IMAGE), trace)
+                        self.assertEqual(caught.exception.status, 503)
+                    else:
+                        self.assertIn("rows", sandbox.call_runner(job, (broker.key, IMAGE), trace))
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+            self.assertEqual(len({event["brokerRef"] for event in app_events}), 1)
+            self.assertEqual(len(app_events[0]["brokerRef"]), 64)
+            self.assertEqual([(event["stage"], event["status"]) for event in app_events], [
+                ("runner_prepare", "ok"), ("signed_send", "ok"), ("runner_reply_read", "ok"),
+                ("runner_reply_authentication", "ok"), ("runner_result_validation", "failed" if fault else "ok"),
+            ])
+            self.assertEqual(app_events[-1].get("code"), "signed_runner_failure" if fault else None)
+            self.assertNotIn("fixture-sensitive-content", str(app_events))
+
     def test_guangdong_total_pages_contract_does_not_require_invented_truncated_flag(self):
         item = {"name": "stock", "dataset": "inventory_guangdong", "query": {"limit": 1}}
         def response(number):
@@ -87,6 +182,70 @@ class PandasExportTests(SimpleTestCase):
                 "page": number, "pageSize": 1, "total": total, "truncated": number < total}}}
         with patch.object(datasets, "query", side_effect=[response(1, 2), response(2, 3)]), self.assertRaises(AiError):
             sandbox.export_frames([item], ADMIN, "native", "ai_chat")
+
+    def test_product_export_rechecks_catalog_scope_surface_and_pins_the_source(self):
+        principal = Principal("synthetic@example.invalid", "Synthetic", "analyst",
+                              {"warehouses": [], "channels": [], "platforms": ["京东"]})
+        catalog = catalog_fixture()
+        for tool in catalog:
+            tool["execution"]["allowedSurfaces"].append("dingtalk_chat")
+        pages = [product_page(1, 3, "相同SPU"), product_page(2, 3, "相同SPU", "合成店乙"), product_page(3, 3, "另一SPU")]
+        returns = [{"ok": True, "toolName": "get_netshop_performance", "data": value["data"]}
+                   for value in pages]
+        with patch.object(datasets.transport, "catalog", return_value=catalog) as discover, \
+                patch.object(datasets.transport, "execute_tool", return_value={"ok": True, "toolName": "get_data_freshness", "data": {}}), \
+                patch.object(datasets.transport, "edge", side_effect=returns) as source:
+            frames, sources = sandbox.export_frames([PRODUCT], principal, "fixture", "dingtalk_chat")
+        self.assertEqual(frames, {"products": [{"spuId": "相同SPU"}, {"spuId": "相同SPU"}, {"spuId": "另一SPU"}]})
+        self.assertEqual(discover.call_count, 3)
+        for index, call in enumerate(source.call_args_list, start=1):
+            action, body, actor = call.args
+            self.assertEqual((action, actor, body["surface"], body["pandasProductPage"]), ("execute", principal, "dingtalk_chat", True))
+            expected = {"dataset": "product_daily", "page": index, "limit": 1}
+            if index > 1:
+                expected["snapshotToken"] = PRODUCT_SNAPSHOT
+            self.assertEqual(body["arguments"], expected)
+        self.assertEqual((sources[0]["sourceRevision"], sources[0]["pages"], sources[0]["rows"], sources[0]["complete"]),
+                         (PRODUCT_REVISION, 3, 3, True))
+        self.assertNotIn(PRODUCT_SNAPSHOT, canonical(sources))
+
+    def test_product_export_rejects_bad_pages_and_never_dispatches_partial_rows(self):
+        first, last = product_page(1, 2, "first"), product_page(2, 2, "last")
+        data, paging, item = last["data"], last["data"]["pagination"], last["data"]["items"][0]
+        bad_values = [
+            {**data, "pagination": {**paging, "page": 3}},
+            {**data, "pagination": {**paging, "pageSize": 2}},
+            {**data, "pagination": {**paging, "total": 3}},
+            {**data, "pagination": {**paging, "returned": True}},
+            {**data, "pagination": {**paging, "truncated": True}},
+            {**data, "pagination": None},
+            {**data, "items": []},
+            {**data, "items": [{**item, "truncatedFields": ["spuId"]}]},
+            {**data, "items": first["data"]["items"]},
+            {**data, "sourceRevision": "2:" + "b" * 12},
+            {**data, "snapshotToken": "d" * 64},
+        ]
+        payload = {**PAYLOAD, "inputsJson": canonical([PRODUCT])}
+        for value in bad_values:
+            with self.subTest(value=value), patch.object(datasets, "query", side_effect=[first, {**last, "data": value}]), \
+                    patch.object(sandbox, "config", return_value=(b"k" * 32, IMAGE)), \
+                    patch.object(sandbox, "call_runner") as runner, self.assertRaises(AiError):
+                sandbox.run(payload, ADMIN, "fixture")
+            runner.assert_not_called()
+
+    def test_product_export_rejects_page_row_and_byte_limits_and_model_cursor(self):
+        for total, max_rows, max_input in [(21, sandbox.MAX_ROWS, sandbox.MAX_INPUT), (2, 1, sandbox.MAX_INPUT), (1, sandbox.MAX_ROWS, sandbox.MAX_CODE + 5)]:
+            with self.subTest(total=total, max_rows=max_rows, max_input=max_input), \
+                    patch.object(datasets, "query", return_value=product_page(1, total, "first")) as source, \
+                    patch.object(sandbox, "MAX_ROWS", max_rows), patch.object(sandbox, "MAX_INPUT", max_input), \
+                    self.assertRaises(AiError) as rejected:
+                sandbox.export_frames([PRODUCT], ADMIN, "fixture", "ai_chat")
+            self.assertEqual(rejected.exception.status, 413)
+            self.assertEqual(source.call_count, 1)
+        with patch.object(datasets.transport, "catalog", return_value=catalog_fixture()), \
+                patch.object(datasets.transport, "edge") as edge, self.assertRaises(AiError):
+            sandbox.export_frames([{**PRODUCT, "query": {"snapshotToken": PRODUCT_SNAPSHOT}}], ADMIN, "fixture", "ai_chat")
+        edge.assert_not_called()
 
     def test_broker_reply_signature_image_cleanup_and_shape_are_verified(self):
         from unittest.mock import Mock
@@ -150,13 +309,20 @@ class PandasExportTests(SimpleTestCase):
 
     def test_native_collection_requires_complete_evidence(self):
         item = {"name": "native", "dataset": "sales_category", "query": {}, "collection": "trend.items"}
-        for data in [{"trend": {"items": [{"x": 1}]}}, {"truncated": True, "trend": {"items": [], "truncated": False}},
-                     {"trend": {"items": [{"x": 1}], "truncated": False, "total": 4}}]:
+        rows = [{"category": "合成品类", "period": "2026-09", "x": 1}]
+        valid = {"categoryLimit": 8, "returned": 1, "truncated": False, "items": rows}
+        for data in [{"trend": {"items": rows}}, {"totalMatched": 9, "trend": valid},
+                     {"totalMatched": 2, "trend": valid}, {"totalMatched": 1, "trend": {**valid, "truncated": True}}]:
             with patch.object(datasets, "query", return_value={**page(), "data": data}), self.assertRaises(AiError):
                 sandbox.export_frames([item], ADMIN, "fixture", "ai_chat")
-        with patch.object(datasets, "query", return_value={**page(), "data": {"trend": {"items": [{"x": 1}], "truncated": False, "total": 1}}}):
+        with patch.object(datasets, "query", return_value={**page(), "data": {"totalMatched": 1, "truncated": True, "trend": valid}}):
             frames, _ = sandbox.export_frames([item], ADMIN, "fixture", "ai_chat")
-            self.assertEqual(frames["native"], [{"x": 1}])
+            self.assertEqual(frames["native"], rows)
+        data = {"totalMatched": 1, "returned": 1, "truncated": False, "items": [{"category": "合成品类", "trend": valid}],
+                "categoryOptions": {"truncated": True}}
+        with patch.object(datasets, "query", return_value={**page(), "data": data}):
+            frames, _ = sandbox.export_frames([{**item, "collection": "items", "columns": ["category"]}], ADMIN, "fixture", "ai_chat")
+            self.assertEqual(frames["native"], [{"category": "合成品类"}])
 
     def test_unavailable_or_denied_never_exports_or_calls_container(self):
         with patch.object(sandbox, "config", side_effect=sandbox.unavailable()), patch.object(datasets, "query") as source, self.assertRaises(AiError):

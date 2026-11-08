@@ -1,5 +1,9 @@
 # 任务记录目录
 
+[AI 三批整合与隔离真实启动](../ai-repair-integration-20261108/REPORT.md) · [离线 HTML](../ai-repair-integration-20261108/REPORT.html) · [最终独立反审](../ai-repair-integration-20261108/REVIEW-FINAL.md)（开发候选，原生冷启动缺口保留，未合并、未上线）。
+
+[AI 修复第一批开发与逐项 Astra 反审](../ai-repair-batch1-20261107/REPORT.md) · [小任务状态](../ai-repair-batch1-20261107/STATUS.md) · [批次交接](../ai-repair-batch1-20261107/HANDOFF.md)
+
 本轮候选：[Runner 升级 WAL 通用修复](../pi-upgrade-wal-fix-20261107/REPORT.md) · [逐项 Astra 反审](../pi-upgrade-wal-fix-20261107/REVIEW.md)（独立真实升级对照；未合并、未采用、未上线）。
 
 [AI 助理与 Claude 全部合并交接](../ai-finish-merge-20261107/REPORT.md)

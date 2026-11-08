@@ -57,7 +57,7 @@ class ScheduleStorageBoundsTests(TestCase):
         prompt = "\U0001f600" * 4000
         run = self.prepare(contentType="screenshot", sourceRef="inventory:overview", prompt=prompt)
         sender = Mock()
-        media = Mock(side_effect=lambda *a, before_send: before_send())
+        media = Mock(side_effect=fixture.accepted_delivery)
         with patch("ai_assistant.transport.edge", side_effect=fixture.background), \
                 patch.object(schedules.scheduled_page_capture, "capture", return_value=b"synthetic-image"):
             schedules.step(lambda: dingtalk_settings.effective(self.config), sender, media)
@@ -81,7 +81,7 @@ class ScheduleStorageBoundsTests(TestCase):
         run = self.prepare(modelId=self.model.id, prompt="\U0001f600" * 4000)
         # '<' and '@' expand from one to three UTF-8 bytes during sanitization;
         # the final length cap, rather than the provider's input size, applies.
-        sender = Mock(side_effect=lambda *a, before_send: before_send())
+        sender = Mock(side_effect=fixture.accepted_delivery)
         with patch("ai_assistant.transport.edge", side_effect=fixture.background), \
                 patch.object(schedules.chat, "answer", return_value={"reply": "<@\U0001f600" * 1000}):
             schedules.step(lambda: dingtalk_settings.effective(self.config), sender)
@@ -162,6 +162,9 @@ class ScheduleStorageBoundsTests(TestCase):
                 return {"entries": [{"name": "get_data_freshness"}, {"name": "get_inventory_page_data"}]}
             return monitor_fixture.bridge(fresh, data)(payload["name"], payload["arguments"])
         stamp = datetime.now(utc.utc).replace(microsecond=999999)
+        def interrupted(*args, before_send):
+            before_send()
+            raise SystemExit()
         # Simulate process exit after the actual send reservation, bypassing
         # Exception handling exactly as a killed process would.
         with patch.object(schedules.timezone, "now", return_value=stamp), \
@@ -169,7 +172,7 @@ class ScheduleStorageBoundsTests(TestCase):
                 patch.object(schedules.chat, "answer", side_effect=lambda *a, **kw:
                     {"reply": monitor_fixture.analysis(kw["scheduled_analysis"]["facts"])}):
             with self.assertRaises(SystemExit):
-                schedules.step(lambda: dingtalk_settings.effective(self.config), Mock(side_effect=SystemExit))
+                schedules.step(lambda: dingtalk_settings.effective(self.config), interrupted)
             schedules.recover_interrupted()
             run.refresh_from_db()
             before = run.stage_details_json
@@ -179,16 +182,17 @@ class ScheduleStorageBoundsTests(TestCase):
         self.assertEqual(run.error_code, "interrupted_result_unknown")
         details = json.loads(before)
         self.assertEqual(set(details), {"data", "analysis", "delivery"})
-        for value in details.values():
-            self.assertEqual(set(value), {"startedAt", "completedAt", "errorCode"})
+        for phase in ("data", "analysis"):
+            self.assertEqual(set(details[phase]), {"startedAt", "completedAt", "errorCode"})
         self.assertEqual(details["delivery"]["errorCode"], "interrupted_result_unknown")
-        self.assertEqual(len(before.encode()), 395)
+        self.assertEqual(details["delivery"]["observation"], {"stage": "send_request", "outcome": "unknown"})
+        self.assertLess(len(before.encode()), 600)
 
     def test_report_file_stores_no_attachment_bytes_or_unbounded_source_text(self):
         with patch.object(schedules.reports, "get", return_value=SimpleNamespace(
                 workflow=SimpleNamespace(status="completed", dry_run=False))):
             run = self.prepare(contentType="report_file", sourceRef="report-" + "a" * 153, prompt="")
-        media = Mock(side_effect=lambda *a, before_send: before_send())
+        media = Mock(side_effect=fixture.accepted_delivery)
         with patch("ai_assistant.transport.edge", side_effect=fixture.background), \
                 patch.object(schedules.reports, "download", return_value={"base64": "UEsDBA=="}):
             schedules.step(lambda: dingtalk_settings.effective(self.config), Mock(), media)

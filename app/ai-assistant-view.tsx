@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { normalizeAiPageContext, type AiPageModule, type AiPageContext } from "@/lib/ai/page-context";
-import { recoverAiWorkspaceRequest } from "@/lib/ai/workspace-recovery";
+import { recoverAiWorkspaceRequest, requestAiChatStop, type AiChatRequestReceipt } from "@/lib/ai/workspace-recovery";
 import { ApiError } from "@/lib/http/api-error";
 import type { AppCurrentUser } from "./shell/view-contract";
 import { SearchableSelect } from "./ui/searchable-select";
@@ -12,6 +12,7 @@ import { readAiChatStream, AiChatStreamError } from "@/lib/ai/chat-stream";
 
 import AiModelGenerationFields from "./ai-model-generation-fields";
 import { DEFAULT_AI_GENERATION, MAX_AI_REPLY_CHARACTERS, type AiGenerationOptions, type AiExecutionInfo } from "@/lib/ai/model-generation";
+import { probeAttempt } from "@/lib/ai/model-probe-request";
 
 type CurrentUser = AppCurrentUser;
 type AiModelProtocol = "openai_compatible" | "anthropic";
@@ -28,8 +29,8 @@ type AiMessagePagination = { pageSize: number; total: number; returned: number; 
 type AiConfigurationState = "idle" | "loading" | "ready" | "error";
 type AiFetch = (input: string, init?: RequestInit) => Promise<Response>;
 
-type AiCapabilityProbeStatus = "passed" | "failed" | "expired" | "unverified";
-const capabilityProbeLabel = (status?: AiCapabilityProbeStatus) => ({ passed: "通过", failed: "失败", expired: "已过期，需重测", unverified: "未验证" }[status || "unverified"]);
+type AiCapabilityProbeStatus = "passed" | "failed" | "inconclusive" | "expired" | "unverified";
+const capabilityProbeLabel = (status?: AiCapabilityProbeStatus) => ({ passed: "通过", failed: "失败", inconclusive: "未取得结论", expired: "已过期，需重测", unverified: "未验证" }[status || "unverified"]);
 
 type AiModelRecord = {
   id: string;
@@ -44,7 +45,7 @@ type AiModelRecord = {
   status: AiModelStatus;
   maxTokens: number;
   generationOptions: AiGenerationOptions;
-  capabilityProbe?: { adapterVersion: string; connection: { status: AiCapabilityProbeStatus }; nonStreaming: { status: AiCapabilityProbeStatus }; sse: { status: AiCapabilityProbeStatus } };
+  capabilityProbe?: { adapterVersion: string; connection: { status: AiCapabilityProbeStatus }; nonStreaming: { status: AiCapabilityProbeStatus }; sse: { status: AiCapabilityProbeStatus }; structuredOutput?: { status: AiCapabilityProbeStatus } };
   reasoningMode: AiModelReasoningMode;
   temperatureMilli: number;
   maxToolRounds: number;
@@ -154,7 +155,7 @@ export type PendingAiChatRequest = {
 export function resolvePendingAiChatRequest(
   current: PendingAiChatRequest | null,
   candidate: AiChatPostPayload,
-  createId: () => string = () => crypto.randomUUID(),
+  createId: () => string = () => `web-chat-v1-${Date.now()}-${crypto.randomUUID()}`,
 ): PendingAiChatRequest {
   // Conversation/model state can change after a lost response. The user's message and explicit
   // new-topic/model actions control rotation; otherwise retain the exact originally billed payload.
@@ -196,7 +197,7 @@ export function markPendingAiChatSynchronized(
 }
 
 export function shouldReleasePendingAiChatRequest(errorCode: string | undefined): boolean {
-  return errorCode === "ai_chat_not_dispatched" || errorCode === "ai_request_cancelled";
+  return errorCode === "ai_chat_not_dispatched" || errorCode === "ai_request_cancelled" || errorCode === "ai_chat_stopped_after_dispatch";
 }
 
 export async function requestAiConversationPage(
@@ -515,6 +516,7 @@ function AiAssistantView({
   const [configurationError, setConfigurationError] = useState("");
   const [configurationNotice, setConfigurationNotice] = useState("");
   const [sending, setSending] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [liveAnswer, setLiveAnswer] = useState<LiveAiAnswer | null>(null);
   const [busyConversationId, setBusyConversationId] = useState("");
   const [switchingModel, setSwitchingModel] = useState(false);
@@ -526,6 +528,7 @@ function AiAssistantView({
   const [loadingMoreConversations, setLoadingMoreConversations] = useState(false);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const sendControllerRef = useRef<AbortController | null>(null);
+  const stopRequestRef = useRef<{ controller: AbortController; active: boolean } | null>(null);
   const refreshControllerRef = useRef<AbortController | null>(null);
   const conversationControllerRef = useRef<AbortController | null>(null);
   const messageControllerRef = useRef<AbortController | null>(null);
@@ -537,15 +540,21 @@ function AiAssistantView({
   const configurationGenerationRef = useRef(0);
   const appliedContextPromptRef = useRef("");
   const mountedRef = useRef(true);
-  const [recoveryBlocked, setRecoveryBlocked] = useState(false);
+  const [recoveryBlocked, setRecoveryBlockedState] = useState(false);
+  const recoveryBlockedRef = useRef(false);
+  const setRecoveryBlocked = useCallback((blocked: boolean) => {
+    recoveryBlockedRef.current = blocked;
+    setRecoveryBlockedState(blocked);
+  }, []);
   const [activatingConversation, setActivatingConversation] = useState(false);
   const conversationMutationRef = useRef(false);
   const conversationLoadedRef = useRef(false);
   const navigationGenerationRef = useRef(0);
   const currentContextRef = useRef(initialPageContext);
   useEffect(() => { currentContextRef.current = initialPageContext; }, [initialPageContext]);
-  const conversationBusy = sending || chatLoading || activatingConversation || switchingModel || Boolean(busyConversationId);
-  const recoveryKey = workspaceModule && currentUser ? `teruisi.ai.pending.v1:${currentUser.email.toLowerCase()}:${workspaceModule}` : "";
+  const conversationBusy = sending || stopping || chatLoading || activatingConversation || switchingModel || Boolean(busyConversationId);
+  const chatModule = workspaceModule ?? "ai";
+  const recoveryKey = currentUser ? `teruisi.ai.pending.v1:${currentUser.email.toLowerCase()}:${chatModule}` : "";
   const rememberPending = useCallback((id: string | null) => {
     if (!recoveryKey) return;
     try { if (id) sessionStorage.setItem(recoveryKey, id); else sessionStorage.removeItem(recoveryKey); } catch { /* Server receipts remain authoritative. */ }
@@ -649,7 +658,7 @@ function AiAssistantView({
       options.signal?.removeEventListener("abort", relayAbort);
       if (conversationControllerRef.current === controller) conversationControllerRef.current = null;
     }
-  }, [currentUser, workspaceModule, rememberPending]);
+  }, [currentUser, workspaceModule, rememberPending, setRecoveryBlocked]);
 
   const loadMessages = useCallback(async (conversationId: string, options: { before?: number | null; appendOlder?: boolean } = {}) => {
     const generation = ++messageGenerationRef.current;
@@ -693,7 +702,7 @@ function AiAssistantView({
     } finally {
       if (messageControllerRef.current === controller) messageControllerRef.current = null;
     }
-  }, [workspaceModule, rememberPending]);
+  }, [workspaceModule, rememberPending, setRecoveryBlocked]);
 
   const expandMessage = async (id: string) => {
     const conversationId = activeConversationId;
@@ -712,33 +721,71 @@ function AiAssistantView({
     }
   };
 
-  const recoverPending = useCallback(async (signal: AbortSignal) => {
-    if (!recoveryKey || !workspaceModule) return;
-    let id: string | null = null;
-    try { id = sessionStorage.getItem(recoveryKey); } catch { return; }
+  const showUnfinishedReceipt = useCallback((receipt: AiChatRequestReceipt) => {
+    const notDispatched = receipt.status === "failed" && receipt.dispatchState === "not_sent";
+    const terminal = receipt.status === "cancelled" || receipt.status === "stopped" || notDispatched;
+    if (terminal) {
+      if (notDispatched) rememberPending(null);
+      pendingChatRequestRef.current = null;
+      setRecoveryBlocked(false);
+      setLiveAnswer(null);
+      if (receipt.conversationId) setActiveConversationId(receipt.conversationId);
+    } else {
+      setRecoveryBlocked(true);
+    }
+    switch (receipt.status) {
+      case "cancelled":
+        setNotice("已保存停止请求，未向模型发送。");
+        break;
+      case "stopped":
+        setNotice("已停止后续生成。已结束的模型调用和工具查询记录仍保留。");
+        break;
+      case "failed":
+        setNotice(notDispatched ? "原请求已经结束，未向模型发送。" : "原请求未确认，刷新可核对，也可新建对话。");
+        break;
+      case "stopping":
+        setNotice("已保存停止请求，正在核对可能已发送的模型调用。刷新可查看状态，也可新建对话。");
+        break;
+      case "unknown":
+        setNotice((receipt.cancelRequested ? "已保存停止请求。" : "") + "供应商执行结果未知。刷新可核对原请求，也可新建对话。");
+        break;
+      default:
+        setNotice("停止尚未确认。已保留原请求号，请刷新核对，也可新建对话。");
+    }
+  }, [rememberPending, setRecoveryBlocked]);
+
+  const recoverPending = useCallback(async (signal: AbortSignal, explicitId?: string) => {
+    let id = explicitId ?? null;
+    if (!id && recoveryKey) {
+      try { id = sessionStorage.getItem(recoveryKey); } catch { return; }
+    }
     if (!id) return;
     const generation = navigationGenerationRef.current;
     const isCurrent = () => {
       if (!mountedRef.current || generation !== navigationGenerationRef.current) return false;
+      if (explicitId) return pendingChatRequestRef.current?.clientRequestId === explicitId;
       try { return sessionStorage.getItem(recoveryKey) === id; } catch { return false; }
     };
     setRecoveryBlocked(true);
-    const recovered = await recoverAiWorkspaceRequest({ clientRequestId: id, module: workspaceModule, signal, isCurrent });
+    const recovered = await recoverAiWorkspaceRequest({ clientRequestId: id, module: chatModule, signal, isCurrent });
     if (signal.aborted || !isCurrent()) return;
-    if (recovered) {
+    if (recovered && "status" in recovered) {
+      showUnfinishedReceipt(recovered);
+    } else if (recovered) {
       rememberPending(null);
       pendingChatRequestRef.current = null;
       setRecoveryBlocked(false);
+      setMessageDraft("");
       setMessages([]);
       setActiveConversationId(recovered.conversationId);
       await loadMessages(recovered.conversationId);
       if (signal.aborted || !mountedRef.current || generation !== navigationGenerationRef.current) return;
       setNotice("上次回复已恢复，可继续提问。");
-    } else setNotice("上次请求尚未确认完成。请刷新查看结果；如需另开话题，请新建对话。系统不会自动重发。");
-  }, [recoveryKey, workspaceModule, rememberPending, loadMessages]);
+    } else setNotice("上次请求尚未确认完成。刷新可核对原请求，也可新建对话。");
+  }, [recoveryKey, chatModule, rememberPending, loadMessages, showUnfinishedReceipt, setRecoveryBlocked]);
 
   const refresh = useCallback(async () => {
-    if (sendControllerRef.current || conversationMutationRef.current) return;
+    if (sendControllerRef.current || stopRequestRef.current?.active || conversationMutationRef.current) return;
     const generation = ++refreshGenerationRef.current;
     refreshControllerRef.current?.abort();
     const controller = new AbortController();
@@ -802,9 +849,44 @@ function AiAssistantView({
     configurationGenerationRef.current += 1;
   }; }, []);
 
+  const stopMessage = async () => {
+    const controller = sendControllerRef.current;
+    const pending = pendingChatRequestRef.current;
+    if (!controller || !pending || stopRequestRef.current?.active) return;
+    const stop = { controller, active: true };
+    stopRequestRef.current = stop;
+    setStopping(true);
+    setNotice("正在保存停止请求…");
+    const current = () => mountedRef.current && stopRequestRef.current === stop
+      && pendingChatRequestRef.current?.clientRequestId === pending.clientRequestId;
+    try {
+      const receipt = await requestAiChatStop(pending.clientRequestId, pending.requestPayload.workspaceModule ?? "ai");
+      if (!current()) return;
+      controller.abort();
+      if (receipt.status === "succeeded") {
+        await recoverPending(new AbortController().signal, pending.clientRequestId);
+      } else {
+        showUnfinishedReceipt(receipt);
+        if ((receipt.status === "cancelled" || receipt.status === "stopped")
+          && receipt.conversationId && receipt.conversationId === activeConversationId) {
+          await loadMessages(receipt.conversationId).catch(() => undefined);
+        }
+      }
+    } catch {
+      if (!current()) return;
+      controller.abort();
+      setRecoveryBlocked(true);
+      setNotice("已停止等待，停止请求尚未确认。请刷新核对原请求，也可新建对话。");
+    } finally {
+      stop.active = false;
+      if (mountedRef.current && stopRequestRef.current === stop) setStopping(false);
+    }
+  };
+
   const sendMessage = async () => {
     const text = messageDraft.trim();
-    if (!text || conversationBusy || conversationMutationRef.current || sendControllerRef.current || recoveryBlocked || (contextError && pageContext) || !canChat) return;
+    if (!text || conversationBusy || conversationMutationRef.current || sendControllerRef.current || stopRequestRef.current?.active
+      || recoveryBlocked || recoveryBlockedRef.current || (contextError && pageContext) || !canChat) return;
     const requestPayload = {
       conversationId: activeConversationId || undefined,
       modelId: selectedModelId || undefined,
@@ -819,6 +901,8 @@ function AiAssistantView({
     const clientRequestId = pendingRequest.clientRequestId;
     const controller = new AbortController();
     sendControllerRef.current = controller;
+    stopRequestRef.current = null;
+    const stopWasRequested = () => stopRequestRef.current?.controller === controller;
     setSending(true); setError(""); setNotice("");
     setLiveAnswer({ prompt: text, content: "", stage: "正在连接", tools: [] });
     let deltaBuffer = "";
@@ -837,7 +921,7 @@ function AiAssistantView({
       });
       const payload = (response.ok && response.headers.get("content-type")?.includes("text/event-stream")
         ? await readAiChatStream(response, (event, value) => {
-          if (!mountedRef.current) return;
+          if (!mountedRef.current || stopWasRequested()) return;
           if (event === "delta") {
             deltaBuffer += value.content as string;
             if (!deltaTimer) deltaTimer = setTimeout(flushDelta, 80);
@@ -865,12 +949,7 @@ function AiAssistantView({
       } | null;
       if (!mountedRef.current) return;
       if (!response.ok) {
-        if (shouldReleasePendingAiChatRequest(payload?.code)
-          && pendingChatRequestRef.current?.clientRequestId === clientRequestId) {
-          pendingChatRequestRef.current = null;
-          rememberPending(null);
-        }
-        throw new Error(payload?.error || "发送失败");
+        throw new AiChatStreamError(payload?.error || "发送失败", payload?.code || "service_unavailable");
       }
       if (!payload?.conversationId || !payload.assistantMessageId || typeof payload.reply !== "string") {
         throw new Error("模型已响应，但服务端消息回执不完整；已保留请求号，请刷新后确认。");
@@ -912,15 +991,20 @@ function AiAssistantView({
     } catch (reason) {
       if (!mountedRef.current) { clearTimeout(deltaTimer); return; }
       flushDelta();
+      setLiveAnswer(current => current ? { ...current, incomplete: true, stage: "连接已结束" } : null);
+      if (stopWasRequested()) return;
       if (reason instanceof AiChatStreamError && shouldReleasePendingAiChatRequest(reason.code)) {
-        pendingChatRequestRef.current = null; rememberPending(null);
+        pendingChatRequestRef.current = null;
+        rememberPending(null);
+      } else {
+        // The browser cannot infer a durable outcome from a transport or
+        // stream error. Keep this request fenced until recovery or New.
+        setRecoveryBlocked(true);
+        setNotice("原请求结果尚未确认。刷新可核对原请求，也可新建对话。");
       }
-      setLiveAnswer(current => current ? { ...current, incomplete: true, stage: controller.signal.aborted ? "已停止生成" : "生成中断" } : null);
-      if (controller.signal.aborted) {
-        setNotice("已停止等待；请求号已保留，系统会阻止同一消息重复调用模型。请刷新对话记录确认结果。");
-        if (activeConversationId) await loadMessages(activeConversationId).catch(() => undefined);
-        await loadConversations().catch(() => undefined);
-      } else setError(reason instanceof Error ? reason.message : "发送失败");
+      if (!controller.signal.aborted && !(reason instanceof AiChatStreamError && reason.code === "ai_chat_result_unknown")) {
+        setError(reason instanceof Error ? reason.message : "发送失败");
+      }
     } finally {
       if (sendControllerRef.current === controller) sendControllerRef.current = null;
       if (mountedRef.current) setSending(false);
@@ -952,7 +1036,8 @@ function AiAssistantView({
     navigationGenerationRef.current += 1;
     messageControllerRef.current?.abort();
     messageGenerationRef.current += 1;
-    setError(""); setNotice("");
+    setError("");
+    if (!recoveryBlockedRef.current) setNotice("");
     try {
       if (workspaceModule && canChat) {
         const response = await fetch("/api/ai/conversations", {
@@ -962,8 +1047,12 @@ function AiAssistantView({
         if (!response.ok) throw new Error("未能保存本次会话选择，请重试。");
       }
       if (!mountedRef.current) return;
-      pendingChatRequestRef.current = null;
-      rememberPending(null); setRecoveryBlocked(false);
+      if (recoveryBlockedRef.current) {
+        setMessageDraft("");
+      } else {
+        pendingChatRequestRef.current = null;
+        rememberPending(null);
+      }
       setMessages([]);
       setMessagePagination({ pageSize: 30, total: 0, returned: 0, truncated: false, hasMore: false, nextBefore: null });
       setActiveConversationId(conversationId);
@@ -1000,7 +1089,7 @@ function AiAssistantView({
   };
 
   const changeConversationModel = async (modelId: string) => {
-    if (conversationBusy || conversationMutationRef.current || recoveryBlocked) return;
+    if (conversationBusy || conversationMutationRef.current || recoveryBlocked || recoveryBlockedRef.current) return;
     pendingChatRequestRef.current = null;
     rememberPending(null);
     if (!activeConversationId) {
@@ -1090,12 +1179,23 @@ function AiAssistantView({
     finally { setSavingChannel(false); }
   };
 
-  const testConfiguration = async (type: "model" | "channel", id: string, testMode = "connection") => {
+  const testConfiguration = async (type: "model" | "channel", id: string, testMode = "connection", expectedVersion?: number) => {
+    const native = type === "model" && testMode === "structured_output";
+    if (native && !window.confirm("确认测试 Skill 原生 JSON Schema？供应商可能对这次合成请求计费。")) return;
     setBusyConfigId(`${type}:${id}`); setConfigurationError(""); setConfigurationNotice("");
     try {
-      const response = await fetch(type === "model" ? "/api/ai/models" : "/api/ai/channels", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "test", id, ...(type === "model" ? { testMode } : {}) }) });
-      const payload = await response.json().catch(() => null) as { message?: string; error?: string } | null;
-      if (!response.ok) throw new Error(payload?.error || "连通性测试失败");
+      const attempt = native ? await probeAttempt(currentUser?.email ?? "", `schema:${id}:${expectedVersion}`) : null;
+      const response = await fetch(type === "model" ? "/api/ai/models" : "/api/ai/channels", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "test", id, ...(type === "model" ? { testMode } : {}), ...(attempt ? { expectedVersion, clientRequestId: attempt.clientRequestId } : {}) }) });
+      const payload = await response.json().catch(() => null) as { ok?: boolean; message?: string; error?: string; code?: string } | null;
+      if (!response.ok) {
+        if (response.status < 500 && (response.status !== 409 || payload?.code === "conflict")) attempt?.finish();
+        throw new Error(payload?.error || "连通性测试失败");
+      }
+      if (attempt) {
+        if (typeof payload?.ok !== "boolean") throw new Error("未取得模型测试回执");
+        attempt.finish();
+        if (!payload.ok) throw new Error(payload.message || "Skill 原生 JSON Schema 测试未通过");
+      }
       setConfigurationNotice(payload?.message || "连通性测试成功。");
       await loadConfiguration();
     } catch (reason) { setConfigurationError(reason instanceof Error ? reason.message : "能力测试失败"); await loadConfiguration(); }
@@ -1184,7 +1284,7 @@ function AiAssistantView({
       models={availableChatModels} selectedModelId={selectedModelId} canChat={canChat} busy={conversationBusy}
       sending={sending} loading={chatLoading} recoveryBlocked={recoveryBlocked} draft={messageDraft}
       error={error} notice={notice} context={pageContext} contextError={contextError} liveAnswer={liveAnswer}
-      onDraft={setMessageDraft} onSend={() => void sendMessage()} onStop={() => sendControllerRef.current?.abort()}
+      onDraft={setMessageDraft} onSend={() => void sendMessage()} onStop={() => void stopMessage()}
       onNew={startNewConversation} onOpen={id => { setLiveAnswer(null); void openConversation(id); }}
       onDelete={id => { const item = conversationItems.find(item => item.id === id); if (item) void deleteConversation(item); }}
       onModel={id => void changeConversationModel(id)} onMore={() => void loadMoreConversations()}
@@ -1218,7 +1318,7 @@ function AiAssistantView({
           <label className="ai-check-field"><input type="checkbox" checked={modelDraft.isDefaultTextModel} disabled={modelDraft.status !== "enabled"} onChange={(event) => setModelDraft((current) => ({ ...current, isDefaultTextModel: event.target.checked }))} /><span>设为默认对话模型</span></label>
           <div className="ai-form-actions"><button type="submit" className="primary-button" disabled={savingModel}>{savingModel ? "保存中…" : isEditingModel ? "保存修改" : "新增模型"}</button></div>
         </form>
-        <div className="ai-config-list">{modelItems.length === 0 && <p className="soft-text">暂无模型配置。新增并测试成功后，小特才能对话。</p>}{modelItems.map((item) => <div key={item.id} className="ai-config-card"><div><strong>{item.name}</strong><small>{aiModelTypeLabel(item.modelType)} · {item.protocol === "anthropic" ? "Anthropic" : item.generationOptions?.openaiApiMode === "responses" ? "OpenAI Responses" : "OpenAI 兼容"} · {item.modelName} · 密钥 {item.apiKeySuffix || "未配置"}</small>{<small>输出 {item.maxTokens} · 上下文 {(item.generationOptions?.contextWindowTokens ?? DEFAULT_AI_GENERATION.contextWindowTokens).toLocaleString()} · 推理 {item.reasoningMode === "disabled" ? "关闭" : item.generationOptions?.reasoningFormat && item.generationOptions.reasoningFormat !== "default" ? "自定义" : "供应商默认"} · 温度 {item.generationOptions?.temperatureMode === "default" ? "供应商默认" : (item.temperatureMilli / 1000).toFixed(2)} · 工具 {item.maxToolRounds} 轮/{item.maxTotalToolCalls} 次</small>}<small>{item.isDefaultTextModel ? "默认对话模型 · " : ""}{item.lastTestedAt ? `最近测试：${formatDateTime(item.lastTestedAt)} · ${item.lastTestResult || "完成"}` : "尚未测试"}</small><small>非流式工具闭环：{capabilityProbeLabel(item.capabilityProbe?.nonStreaming.status)} · SSE 工具闭环：{capabilityProbeLabel(item.capabilityProbe?.sse.status)}。普通连接成功不代表工具闭环通过。</small></div><span className={`status ${item.status === "enabled" ? "status-success" : "status-warning"}`}>{item.status === "enabled" ? "启用" : "停用"}</span><div className="ai-card-actions"><button type="button" className="row-action" onClick={() => editModel(item)}>编辑</button><button type="button" className="row-action" disabled={Boolean(busyConfigId) || item.status !== "enabled" || item.isDefaultTextModel} onClick={() => void setDefaultModel(item)}>{item.isDefaultTextModel ? "当前默认" : "设为默认"}</button><button type="button" className="row-action" disabled={busyConfigId === `model:${item.id}`} onClick={() => void testConfiguration("model", item.id)}>{busyConfigId === `model:${item.id}` ? "测试中…" : item.modelType === "vision" ? "测试图片识别" : "测试普通连接"}</button><button type="button" className="row-action" disabled={Boolean(busyConfigId)} onClick={() => void testConfiguration("model", item.id, "tool_roundtrip_json")}>测试非流式工具闭环</button><button type="button" className="row-action" disabled={Boolean(busyConfigId)} onClick={() => void testConfiguration("model", item.id, "tool_roundtrip_sse")}>测试 SSE 工具闭环</button><button type="button" className="row-action danger" disabled={busyConfigId === `model:${item.id}`} onClick={() => void deleteConfiguration("model", item.id, item.name, item.version)}>删除</button></div></div>)}</div>
+        <div className="ai-config-list">{modelItems.length === 0 && <p className="soft-text">暂无模型配置。新增并测试成功后，小特才能对话。</p>}{modelItems.map((item) => <div key={item.id} className="ai-config-card"><div><strong>{item.name}</strong><small>{aiModelTypeLabel(item.modelType)} · {item.protocol === "anthropic" ? "Anthropic" : item.generationOptions?.openaiApiMode === "responses" ? "OpenAI Responses" : "OpenAI 兼容"} · {item.modelName} · 密钥 {item.apiKeySuffix || "未配置"}</small>{<small>输出 {item.maxTokens} · 上下文 {(item.generationOptions?.contextWindowTokens ?? DEFAULT_AI_GENERATION.contextWindowTokens).toLocaleString()} · 推理 {item.reasoningMode === "disabled" ? "关闭" : item.generationOptions?.reasoningFormat && item.generationOptions.reasoningFormat !== "default" ? "自定义" : "供应商默认"} · 温度 {item.generationOptions?.temperatureMode === "default" ? "供应商默认" : (item.temperatureMilli / 1000).toFixed(2)} · 工具 {item.maxToolRounds} 轮/{item.maxTotalToolCalls} 次</small>}<small>{item.isDefaultTextModel ? "默认对话模型 · " : ""}{item.lastTestedAt ? `最近测试：${formatDateTime(item.lastTestedAt)} · ${item.lastTestResult || "完成"}` : "尚未测试"}</small><small>非流式工具闭环：{capabilityProbeLabel(item.capabilityProbe?.nonStreaming.status)} · SSE 工具闭环：{capabilityProbeLabel(item.capabilityProbe?.sse.status)}。</small><small>Skill 原生 JSON Schema：{capabilityProbeLabel(item.capabilityProbe?.structuredOutput?.status)}</small></div><span className={`status ${item.status === "enabled" ? "status-success" : "status-warning"}`}>{item.status === "enabled" ? "启用" : "停用"}</span><div className="ai-card-actions"><button type="button" className="row-action" onClick={() => editModel(item)}>编辑</button><button type="button" className="row-action" disabled={Boolean(busyConfigId) || item.status !== "enabled" || item.isDefaultTextModel} onClick={() => void setDefaultModel(item)}>{item.isDefaultTextModel ? "当前默认" : "设为默认"}</button><button type="button" className="row-action" disabled={busyConfigId === `model:${item.id}`} onClick={() => void testConfiguration("model", item.id)}>{busyConfigId === `model:${item.id}` ? "测试中…" : item.modelType === "vision" ? "测试图片识别" : "测试普通连接"}</button><button type="button" className="row-action" disabled={Boolean(busyConfigId)} onClick={() => void testConfiguration("model", item.id, "tool_roundtrip_json")}>测试非流式工具闭环</button><button type="button" className="row-action" disabled={Boolean(busyConfigId)} onClick={() => void testConfiguration("model", item.id, "tool_roundtrip_sse")}>测试 SSE 工具闭环</button><button type="button" className="row-action" disabled={Boolean(busyConfigId) || item.status !== "enabled" || item.generationOptions?.structuredOutputSupport !== "json_schema"} onClick={() => void testConfiguration("model", item.id, "structured_output", item.version)}>测试 Skill 原生 JSON Schema</button><button type="button" className="row-action danger" disabled={busyConfigId === `model:${item.id}`} onClick={() => void deleteConfiguration("model", item.id, item.name, item.version)}>删除</button></div></div>)}</div>
       </article>
       <article className="panel ai-admin-card data-refresh-region" aria-busy={configurationState === "loading"}>
         <div className="section-header"><div><h3>{isEditingChannel ? "编辑聊天渠道" : "新增聊天渠道"}</h3><p>钉钉和企业微信群机器人可主动发送测试消息；企业微信应用回调会验签、解密并只记录去重凭据，不会自动执行消息内容。</p></div>{isEditingChannel && <button type="button" className="text-button" onClick={() => setChannelDraft(newAiChannelDraft())}>取消编辑</button>}</div>

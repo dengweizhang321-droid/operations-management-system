@@ -1,4 +1,5 @@
 import json
+from contextlib import contextmanager
 from unittest.mock import Mock, patch
 from django.test import SimpleTestCase
 from types import SimpleNamespace
@@ -6,6 +7,48 @@ from . import dingtalk_transport as platform
 from .policy import AiError
 from . import transport
 from .test_transport import addresses as doh_addresses
+
+
+def endpoint_replies(replies):
+    responses = iter(replies)
+
+    def request(*args, **kwargs):
+        transport.commit_provider_send()
+        return next(responses)
+
+    return request
+
+
+@contextmanager
+def fake_dingtalk_wire(route, *, on_connect=None):
+    """Keep the real bounded transport, replacing only network I/O."""
+    posted = []
+    tls_socket = Mock()
+    tls_socket.connect.side_effect = on_connect
+
+    def connection(host, port, timeout):
+        client = Mock()
+        request = []
+
+        def send(method, path, body, headers):
+            request.extend((host, path, body))
+            posted.append(tuple(request))
+
+        def response():
+            status, reply = route(*request)
+            payload = json.dumps(reply).encode()
+            return Mock(status=status, getheader=Mock(return_value=None),
+                        isclosed=Mock(side_effect=(False, True)), read1=Mock(return_value=payload))
+
+        client.request.side_effect = send
+        client.getresponse.side_effect = response
+        return client
+
+    with patch.object(platform, "media_addresses", return_value=doh_addresses("8.8.8.8")), \
+            patch.object(transport.socket, "socket", return_value=tls_socket), \
+            patch.object(transport.ssl, "create_default_context", return_value=Mock(wrap_socket=Mock(return_value=tls_socket))), \
+            patch.object(transport.http.client, "HTTPConnection", side_effect=connection):
+        yield posted
 
 
 class DingTalkTransportTests(SimpleTestCase):
@@ -43,11 +86,43 @@ class DingTalkTransportTests(SimpleTestCase):
     config = {"profile": "corp:operator", "corpId": "corp", "unifiedAppId": "app", "robotCode": "bot",
               "robotName": "志高助手", "groups": [{"id": "group", "name": "测试群聊"}]}
 
+    def test_real_transport_distinguishes_pre_wire_abort_and_recipient_receipts(self):
+        session = SimpleNamespace(sender_id="fixture-staff", conversation_type="1", external_conversation_id="fixture-staff")
+        for reply, code, outcome in (
+            ({"invalidStaffIdList": ["fixture-staff"]}, "dingtalk_send_rejected", "rejected"),
+            ({"processQueryKey": "fixture-receipt", "invalidStaffIdList": ["fixture-staff"]}, "delivery_unknown", "unknown"),
+            ({"flowControlledStaffIdList": ["some-other-staff"]}, "delivery_unknown", "unknown"),
+        ):
+            def route(host, path, body):
+                if path.endswith("/accessToken"):
+                    return 200, {"accessToken": "synthetic-token"}
+                return 200, reply
+            with self.subTest(code=code), patch.object(platform, "guard"), \
+                    patch.object(platform, "credentials", return_value=("fixture", "fixture")), \
+                    fake_dingtalk_wire(route) as posted, self.assertRaises(platform.DingTalkDeliveryError) as raised:
+                platform.send(lambda: self.config, session, "fixture-text")
+            self.assertEqual((raised.exception.code, raised.exception.delivery["outcome"]), (code, outcome))
+            self.assertEqual(len(posted), 2)
+            self.assertNotIn("fixture-staff", json.dumps(raised.exception.delivery))
+
+    def test_dns_or_tls_failure_before_message_fence_is_not_sent(self):
+        session = SimpleNamespace(sender_id="fixture-staff", conversation_type="1", external_conversation_id="fixture-staff")
+        fence = Mock()
+        failure = transport.ProviderTransportError(stage="tls", reason="unavailable")
+        with patch.object(platform, "guard"), patch.object(platform, "credentials", return_value=("fixture", "fixture")), \
+                patch.object(platform, "media_addresses", return_value=[]), \
+                patch.object(transport, "_bounded_json", side_effect=[{"accessToken": "synthetic-token"}, failure]), \
+                self.assertRaises(platform.DingTalkDeliveryError) as raised:
+            platform.send(lambda: self.config, session, "fixture-text", before_send=fence)
+        fence.assert_not_called()
+        self.assertEqual((raised.exception.code, raised.exception.delivery["outcome"]), ("dingtalk_send_unavailable", "not_sent"))
+        self.assertEqual(raised.exception.delivery["transport"]["stage"], "tls")
+
     def test_bot_media_upload_and_send_are_separate_bounded_official_calls(self):
         session = SimpleNamespace(sender_id="bound-staff", conversation_type="2", external_conversation_id="group")
         image = b"\x89PNG\r\n\x1a\nfixture"
         replies = [{"accessToken": "opaque-token"}, {"errcode": 0, "media_id": "@media"}, {"processQueryKey": "receipt"}]
-        with patch.object(platform, "guard"), patch.object(platform, "credentials", return_value=("key", "secret")), patch.object(platform, "robot"), patch.object(platform, "verify_group"), patch.object(platform, "media_addresses", return_value=[(2, 1, 6, "", ("8.8.8.8", 443))]), patch.object(transport, "_bounded_json", side_effect=replies) as calls:
+        with patch.object(platform, "guard"), patch.object(platform, "credentials", return_value=("key", "secret")), patch.object(platform, "robot"), patch.object(platform, "verify_group"), patch.object(platform, "media_addresses", return_value=[(2, 1, 6, "", ("8.8.8.8", 443))]), patch.object(transport, "_bounded_json", side_effect=endpoint_replies(replies)) as calls:
             platform.send_media(lambda: self.config, session, image, "系统页面.png", "image")
         self.assertEqual(calls.call_count, 3)
         self.assertEqual(calls.call_args_list[0].args[0], platform.TOKEN_API)
@@ -68,7 +143,7 @@ class DingTalkTransportTests(SimpleTestCase):
             session = SimpleNamespace(sender_id="bound-staff", conversation_type=conversation_type, external_conversation_id="group")
             replies = [{"accessToken":"opaque-token"}, {"errcode":0,"media_id":"@media"}, {"processQueryKey":"receipt"}]
             guard = Mock()
-            with patch.object(platform,"guard"), patch.object(platform,"credentials",return_value=("key","secret")), patch.object(platform,"robot"), patch.object(platform,"verify_group"), patch.object(platform,"media_addresses",return_value=[]), patch.object(transport,"_bounded_json",side_effect=replies) as calls:
+            with patch.object(platform,"guard"), patch.object(platform,"credentials",return_value=("key","secret")), patch.object(platform,"robot"), patch.object(platform,"verify_group"), patch.object(platform,"media_addresses",return_value=[]), patch.object(transport,"_bounded_json",side_effect=endpoint_replies(replies)) as calls:
                 platform.send_media(lambda:self.config,session,b"\x89PNG\r\n\x1a\nfixture","页面.png","image","新品周销量趋势数据",before_send=guard)
             guard.assert_called_once()
             self.assertEqual(calls.call_count,3)
@@ -141,6 +216,7 @@ class DingTalkTransportTests(SimpleTestCase):
         for revoked in (True,False):
             replies=[{"accessToken":"opaque-token"},{"errcode":0,"media_id":"@media"},{"processQueryKey":"receipt","invalidStaffIdList":["bound-staff"]}]
             before=Mock(side_effect=AiError("配置已变化","access_denied",403) if revoked else None)
-            with patch.object(platform,"guard"), patch.object(platform,"credentials",return_value=("key","secret")), patch.object(platform,"robot"), patch.object(platform,"media_addresses",return_value=[]), patch.object(transport,"_bounded_json",side_effect=replies) as calls, self.assertRaises(AiError):
+            with patch.object(platform,"guard"), patch.object(platform,"credentials",return_value=("key","secret")), patch.object(platform,"robot"), patch.object(platform,"media_addresses",return_value=[]), patch.object(transport,"_bounded_json",side_effect=endpoint_replies(replies)) as calls, self.assertRaises(AiError):
                 platform.send_media(lambda:self.config,session,b"\x89PNG\r\n\x1a\nfixture","页面.png","image","标题",before_send=before)
-            self.assertEqual(calls.call_count,2 if revoked else 3)
+            self.assertEqual(calls.call_count,3)  # The final adapter is entered, but the fence may abort its POST.
+            before.assert_called_once()
