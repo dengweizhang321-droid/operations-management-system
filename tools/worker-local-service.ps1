@@ -18,10 +18,19 @@
   [string]$RecoveryProofPath,
   [string]$RecoveryProofSha256,
   [switch]$FunctionsOnly,
+  [string]$IsolationConfigPath,
+  [string]$IsolationConfigSha256,
   [ValidatePattern('^[a-f0-9]{32}$')][string]$StartupObservationId
 )
 
 $ErrorActionPreference = "Stop"
+if ($IsolationConfigPath -or $IsolationConfigSha256) {
+  if (-not $IsolationConfigPath -or $IsolationConfigSha256 -cnotmatch '^[a-f0-9]{64}$' -or
+      ($env:TERUISI_NATIVE_ISOLATION_FILE -and [IO.Path]::GetFullPath($env:TERUISI_NATIVE_ISOLATION_FILE) -ine [IO.Path]::GetFullPath($IsolationConfigPath)) -or
+      ($env:TERUISI_NATIVE_ISOLATION_SHA256 -and $env:TERUISI_NATIVE_ISOLATION_SHA256 -cne $IsolationConfigSha256)) { throw 'Conflicting native isolation selection' }
+  $env:TERUISI_NATIVE_ISOLATION_FILE = $IsolationConfigPath
+  $env:TERUISI_NATIVE_ISOLATION_SHA256 = $IsolationConfigSha256
+}
 . (Join-Path $PSScriptRoot "native-isolation.ps1")
 $RuntimeRoot = Get-NativeRuntimeRoot "worker" $RuntimeRoot ($PSBoundParameters.ContainsKey("RuntimeRoot"))
 if ($NativeIsolation -and $AllowTestRuntimeRoot) { throw "Native isolation forbids synthetic test mode" }
@@ -68,7 +77,10 @@ $StartupOwnershipGraceMilliseconds = 3000
 $HotRestartBudgetMilliseconds = 30000
 $ReleaseTool = Join-Path $PSScriptRoot "worker-local-release.mjs"
 $RotationTool = Join-Path $PSScriptRoot "worker-local-release-rotation.mjs"
-$StartupShortcut = if ([string]::IsNullOrWhiteSpace($StartupShortcutPath)) {
+$StartupShortcut = if ($NativeIsolation) {
+  if ($StartupShortcutPath) { throw 'Private startup shortcut is fixed by the native isolation binding' }
+  Join-Path $NativeIsolation.root 'startup\Worker.lnk'
+} elseif ([string]::IsNullOrWhiteSpace($StartupShortcutPath)) {
   Join-Path ([Environment]::GetFolderPath("Startup")) "TERUISI Operations Worker.lnk"
 } else {
   if (-not $AllowTestRuntimeRoot) { throw "StartupShortcutPath is test-only" }
@@ -1553,8 +1565,14 @@ function Remove-ExactProcessReceipt([object]$Identity) {
 function Test-IsControlledStartupShortcut([object]$Shortcut) {
   $powershellPath = (Get-Command "powershell.exe").Source
   if (-not $Shortcut -or -not ([string]$Shortcut.TargetPath).Equals($powershellPath, [System.StringComparison]::OrdinalIgnoreCase)) { return $false }
+  $shortcutArguments = [string]$Shortcut.Arguments
+  if ($NativeIsolation) {
+    $suffix = " -IsolationConfigPath `"$($env:TERUISI_NATIVE_ISOLATION_FILE)`" -IsolationConfigSha256 $($env:TERUISI_NATIVE_ISOLATION_SHA256)"
+    if (-not $shortcutArguments.EndsWith($suffix, [StringComparison]::Ordinal)) { return $false }
+    $shortcutArguments = $shortcutArguments.Substring(0, $shortcutArguments.Length - $suffix.Length)
+  }
   $match = [regex]::Match(
-    [string]$Shortcut.Arguments,
+    $shortcutArguments,
     '^-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "([^"]+\\worker-local-service\.ps1)" -Action Start -ManifestPath "([^"]+\\deployment-manifest\.json)"$'
   )
   if (-not $match.Success) { return $false }
@@ -2114,6 +2132,7 @@ try {
   $expectedTarget = (Get-Command "powershell.exe").Source
   $servicePath = Join-Path $identity.ReleaseRoot "tools\worker-local-service.ps1"
   $expectedArguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$servicePath`" -Action Start -ManifestPath `"$($identity.Path)`""
+  if ($NativeIsolation) { $expectedArguments += " -IsolationConfigPath `"$($env:TERUISI_NATIVE_ISOLATION_FILE)`" -IsolationConfigSha256 $($env:TERUISI_NATIVE_ISOLATION_SHA256)" }
   if ($Action -eq "InstallStartup") {
     if (Test-Path -LiteralPath $StartupShortcut -PathType Leaf) {
       Assert-NoReparsePath $StartupShortcut

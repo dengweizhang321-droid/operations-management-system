@@ -41,9 +41,11 @@ function Get-NativeRuntimeRoot([string]$Role, [string]$Requested, [bool]$Explici
   if ($NativeIsolation) {
     if ($Action -notin @('Configure','ConfigureCredentials','ProvisionRoles','ProvisionFinanceRoles','EnableStartup','DisableStartup',
         'PrepareApp','VerifyPreparedApp','DeployApp','HardenAcl','Start','Stop','Status','AggregateStatus','FinanceStatus',
-        'StartFinance','StopFinance','Deploy','Verify','Restart','RestartFull','MaintenanceStatus','PiCheck','PandasCheck')) {
+        'StartFinance','StopFinance','Deploy','Verify','Restart','RestartFull','MaintenanceStatus','PiCheck','PandasCheck',
+        'InstallStartup','VerifyStartup','RemoveStartup')) {
       throw 'Action is outside the private native lifecycle scope'
     }
+    if ($Role -cne 'worker' -and $Action -in @('InstallStartup','VerifyStartup','RemoveStartup')) { throw 'Private login startup is forbidden' }
     $expected = Join-Path $NativeIsolation.root $Role
     if (Test-Path -LiteralPath (Join-Path $NativeIsolation.root 'django\config\dingtalk-startup.json')) { throw 'Private native installation forbids external receivers and schedules' }
     if ($Explicit -and [IO.Path]::GetFullPath($Requested).TrimEnd('\') -ine $expected) { throw 'Isolation runtime does not match binding' }
