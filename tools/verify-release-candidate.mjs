@@ -334,7 +334,7 @@ export const nativeControlTailPins=Object.freeze({
  'tools/manual-maintenance-continuation.mjs':Object.freeze({blob:'97b69819e86adfbfb56a742b7841b837f62eff14',sha256:'dc8bd0e573c729309a771ffcd598ea04eb06dc2e7dbc138fa6ccc467dfe6e940'}),
  'tools/manual-maintenance-process.psm1':Object.freeze({blob:'d007b60858eb7e589b2dbb7129aea2433a08a53d',sha256:'cca4e66c4d07496c431d4e7e711bb189f2ecc4a33bb2951c52017879c4655796'}),
  'tools/native-isolation.ps1':Object.freeze({blob:'b5aca76d791c78e3c243cfc9c38edc68ed57a525',sha256:'a5499003d2e269b8a3d6cdb6bce70fcd2f02434c541620ccdaa151f0c7f52343'}),
- 'tools/verify-native-control-evidence.mjs':Object.freeze({blob:'6dd516d03da657a48c92f7d6fc1e6b64b7ae2af5',sha256:'f1a996db66cbe6ed998a183b1def5383c3d1f57cb3d51098a8036528ff5d6ebd'}),
+ 'tools/verify-native-control-evidence.mjs':Object.freeze({blob:'09b72be72c321c9114ead9efdc02c5fd5f517692',sha256:'25194605acd888c43a16039d44e32affa1b3e9d647de9542fed96aa39a7a8961'}),
  'tests/native-maintenance-pins.ps1':Object.freeze({blob:'ed32902261c687dcb26143a85bb5658e63c4f022',sha256:'61b9220177e528aca713f5cca020281bdf9a1bd2b252c230c439523a840c36f6'}),
  'tests/native-isolation-qualification.test.mjs':Object.freeze({blob:'0675b9ab5d8fc3b9f2caeba4c96cd75515aa9a46',sha256:'763ea38a4547be8b2601e908ae7934de1da569e33503165bb9f784f3fd2f2ef1'}),
  'tests/native-isolation-credential-gate.test.mjs':Object.freeze({blob:'eebfc9efa94f12e1c3245d2b8b2dce8a15239c02',sha256:'4c7544529c9f6fdeb532661d176e543464d2120a26aa690f08325b38baba5ec4'}),
@@ -1198,7 +1198,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   if(nativeAttached){try{await git(source,['worktree','remove',nativeApplication]);report.nativeApplicationWorktreeRemoved=true;}catch(error){report.nativeApplicationWorktreeRemoved=false;report.cleanupError=String(error.message);report.status='failed';}}
   if(attached){
    try{
-    if(nativeControl&&report.dependencies){const link=path.join(candidate,'node_modules','typescript');const info=await fs.lstat(link);assert.ok(info.isSymbolicLink());assert.equal(await fs.realpath(link),report.dependencies.physicalRoot);await fs.unlink(link);await fs.rmdir(path.dirname(link));}
+    if(nativeControl&&report.dependencies){const link=path.join(candidate,'node_modules','typescript');let info;try{info=await fs.lstat(link);}catch(error){if(error.code!=='ENOENT')throw error;}if(info){assert.ok(info.isSymbolicLink());assert.equal(await fs.realpath(link),report.dependencies.physicalRoot);await fs.unlink(link);}try{await fs.rmdir(path.dirname(link));}catch(error){if(error.code!=='ENOENT')throw error;}}
     const modules=path.join(candidate,'node_modules');try{if((await fs.lstat(modules)).isSymbolicLink())await fs.unlink(modules);}catch(e){if(e.code!=='ENOENT')throw e;}
     await git(source,['worktree','remove',candidate]);report.candidateWorktreeRemoved=true;
    }catch(error){report.candidateWorktreeRemoved=false;report.cleanupError=String(error.message);report.status='failed';}

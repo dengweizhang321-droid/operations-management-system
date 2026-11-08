@@ -14,6 +14,8 @@ export const nativeControlApplication=Object.freeze({
  evidencePath:'D:/codex-artifacts/ai-native-control-isolation-20261108/NATIVE-LIFECYCLE-EVIDENCE.json',
  helperBeforeSha256:'2efe6738d9c0d963ad6d2dbc45584d702511889339b38fc82d8250f79db478c1',
  helperAfterSha256:'a5499003d2e269b8a3d6cdb6bce70fcd2f02434c541620ccdaa151f0c7f52343',
+ typeScriptVersion:'5.9.3',
+ typeScriptTree:Object.freeze({algorithm:'sha256-ordinal-path-length-content-v1',fileCount:132,sha256:'5c4c3948060056c3cc4ce57222e7957ccef438c108791352af19c666a4c2a1a9'}),
 });
 const sha=raw=>createHash('sha256').update(raw).digest('hex');
 const normalized=value=>path.win32.normalize(value).toLowerCase();
@@ -52,9 +54,11 @@ export async function bindNativeTypeScript({dependencies,sourceRoot}={}){
  await assertNoReparsePoint(nativePackageRoot,{label:'private native TypeScript package'});
  const packageJson=JSON.parse(await bounded(path.join(physicalRoot,'package.json'),65536));
  assert.equal(packageJson.name,'typescript');assert.equal(packageJson.version,lock.packages['node_modules/typescript'].version);
+ assert.equal(packageJson.version,nativeControlApplication.typeScriptVersion);
  assert.equal(Object.keys(packageJson.dependencies??{}).length,0,'Unexpected transitive TypeScript check dependency');
  const [tree,nativeTree]=await Promise.all([hashTree(physicalRoot),hashTree(nativePackageRoot)]);
  assert.deepEqual(tree,nativeTree,'TypeScript check bytes differ from the native verified package');
+ assert.deepEqual(tree,nativeControlApplication.typeScriptTree,'TypeScript check package is outside its reviewed exact byte qualification');
  return {scope:'typescript-package-only',physicalRoot,tree,version:packageJson.version,nativePackageRoot,
   nativeManifestSha256:proof.manifestSha256,packageLockSha256:sha(lockRaw)};
 }
