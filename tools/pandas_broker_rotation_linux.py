@@ -103,6 +103,29 @@ def create_file(path, raw, mode=0o400):
     sync_dir(path.parent)
 
 
+def replace_file(path, raw, mode=0o600):
+    # Stage-then-replace, matching the one existing atomic-overwrite
+    # precedent in this module (Rotation.replace_unit below): safe to call
+    # repeatedly (e.g. a plan rechecked across several failing attempts)
+    # without O_EXCL colliding with a stale previous diagnostic.
+    stage = path.with_name("." + path.name + "." + secrets.token_hex(8) + ".pending")
+    create_file(stage, raw, mode)
+    os.replace(stage, path)
+    sync_dir(path.parent)
+
+
+def mismatched_fields(expected, actual):
+    """Field-level diff for a diagnostic, independent of the pass/fail check.
+
+    Both arguments are plain dicts of sha256 digests, uids, inode numbers,
+    fixed paths or an image id -- none are credentials. Returns a sorted
+    list of (field, expected, actual) triples; an empty list means the two
+    dicts are equal, matching plain `==`.
+    """
+    keys = sorted(set(expected) | set(actual))
+    return [(key, expected.get(key), actual.get(key)) for key in keys if expected.get(key) != actual.get(key)]
+
+
 def create_dir(path, mode):
     path.mkdir(mode=mode)
     sync_dir(path.parent)
@@ -298,8 +321,18 @@ StandardError=null
         raw = read_file(path / "plan.json", 0, 0o400)
         need(sha(raw) == path.name, "registered_plan_digest_changed")
         plan = decode(raw)
-        need(plan["binding"] == binding and plan["linux"] == self.config_identity(binding["image"]),
-             "registered_plan_binding_changed")
+        # Unchanged decision: the exact same expression, in the exact same
+        # short-circuit order (config_identity() is still only ever called
+        # when plan["binding"] == binding), still a plain `==` comparison.
+        verdict = plan["binding"] == binding and plan["linux"] == self.config_identity(binding["image"])
+        if not verdict:
+            # Diagnostics only, strictly after the real decision above is
+            # already final. A second, separately-guarded config_identity()
+            # call here is for the diagnostic alone; if it raises (e.g. the
+            # container moved under us between the two calls), that must not
+            # change or suppress the registered_plan_binding_changed below.
+            self.record_binding_mismatch(path, plan, binding)
+        need(verdict, "registered_plan_binding_changed")
         old = plan["predecessorSourceSha256"]
         new = binding["sourceSha256"]
         need(self.read_release(old) == plan["predecessorFiles"] and self.read_release(new) == plan["successorFiles"],
@@ -313,6 +346,37 @@ StandardError=null
         else:
             self.predecessor_process(old)
         return plan
+
+    def record_binding_mismatch(self, path, plan, binding):
+        """Best-effort diagnostic for a registered_plan_binding_changed
+        failure: write which of the 19 binding+linux fields differ, and
+        both sides' values, into the failing plan's own control directory.
+
+        None of these fields are credentials (sha256 digests, a uid, inode
+        numbers, fixed paths, a systemd unit name, a WSL distribution name
+        or an image id), so recording both sides is safe. Never allowed to
+        change, widen or suppress the real pass/fail decision in
+        checked_plan: any exception here is swallowed, because a failure to
+        write a diagnostic must not replace or mask the real Refused.
+        """
+        try:
+            mismatches = mismatched_fields(plan["binding"], binding)
+            try:
+                live_linux = self.config_identity(binding["image"])
+            except Exception as error:
+                live_linux = None
+                mismatches.append(("linux", None, "config_identity_unavailable: " + type(error).__name__))
+            else:
+                mismatches += [("linux." + field, expected, actual)
+                               for field, expected, actual in mismatched_fields(plan["linux"], live_linux)]
+            payload = encode({
+                "version": 1, "registeredPlanSha256": path.name,
+                "mismatchedFields": [{"field": field, "registered": registered, "live": live}
+                                     for field, registered, live in mismatches],
+            })
+            replace_file(path / "binding-mismatch-diagnostic.json", payload, 0o600)
+        except Exception:
+            pass
 
     def public(self, path, plan):
         keys = {"preparedAppId", "preparedAppSha256", "sourceCommit", "sourceSha256", "image"}

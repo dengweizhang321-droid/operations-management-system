@@ -59,6 +59,12 @@ def control(verb,config_path,key_file):
     if working!=root+'/backend' or ('/usr/bin/python3 -B -m pi_runner.server --config '+root+'/config.json') not in executable:
         raise ValueError('unit_binding_changed')
     if verb=='stop':
+        # A unit that is already inactive is a no-op success for stop
+        # semantics, not a failure: probing it would only reach a closed
+        # port (the runner's HTTP service is not listening) and raise
+        # urllib.error.URLError, which is not evidence of a failed stop.
+        if run(['show',unit,'--property=ActiveState','--value'])=='inactive':
+            return {'stopped':True,'image':image,'sourceSha256':digest}
         status=probe()
         verify_stop_readiness(status)
         run(['stop',unit])
@@ -78,4 +84,14 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('verb',choices=['start','stop','probe'])
     parser.add_argument('--config',required=True);parser.add_argument('--key-file',required=True);args=parser.parse_args()
     try:print(encode(control(args.verb,args.config,args.key_file)).decode())
-    except Exception:print('{"error":"pi_runner_lifecycle_failed_closed"}');raise SystemExit(1)
+    except Exception as error:
+        # stdout stays a fixed error-code string on purpose: it is the
+        # redaction boundary consumed by ConvertFrom-UniqueNativeJson. The
+        # real exception type and message are not secrets; they are written
+        # to stderr only, where the PowerShell caller already captures and
+        # redacts combined output (Invoke-BoundedNativeProcess merges
+        # stdout+stderr via 2>&1 before Get-BoundedNativeDiagnostic runs its
+        # credential/URI redaction), instead of being discarded.
+        import sys
+        print(f'{type(error).__name__}: {error}',file=sys.stderr)
+        print('{"error":"pi_runner_lifecycle_failed_closed"}');raise SystemExit(1)

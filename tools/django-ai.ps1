@@ -941,12 +941,29 @@ function Start-AiStack([string]$LifecycleAclToken = "") {
 
 function Stop-AiStack([string]$LifecycleAclToken = "") {
   Assert-AiRuntimeEntry $LifecycleAclToken
-  Stop-PiRuntime
-  Stop-OwnedProcess "django-ai-dingtalk-schedule" $DingTalkSchedulePidPath $Python
-  Stop-OwnedProcess "django-ai-dingtalk" $DingTalkPidPath $Python
-  Stop-OwnedProcess "django-ai-writer" $AiWriterPidPath $Waitress
-  Stop-OwnedProcess "django-ai-reader" $AiReaderPidPath $Waitress
-  Stop-PandasSandbox
+  # Every step below stops an independently owned process or unit; none reads
+  # another step's output. A prior step failing must not skip the rest, or a
+  # stop action can leave later components (e.g. the Pandas broker) running
+  # forever. Collect failures by step name and reason, then fail loudly.
+  $failures = [Collections.Generic.List[string]]::new()
+  $steps = [ordered]@{
+    "Stop-PiRuntime" = { Stop-PiRuntime }
+    "Stop-OwnedProcess(django-ai-dingtalk-schedule)" = { Stop-OwnedProcess "django-ai-dingtalk-schedule" $DingTalkSchedulePidPath $Python }
+    "Stop-OwnedProcess(django-ai-dingtalk)" = { Stop-OwnedProcess "django-ai-dingtalk" $DingTalkPidPath $Python }
+    "Stop-OwnedProcess(django-ai-writer)" = { Stop-OwnedProcess "django-ai-writer" $AiWriterPidPath $Waitress }
+    "Stop-OwnedProcess(django-ai-reader)" = { Stop-OwnedProcess "django-ai-reader" $AiReaderPidPath $Waitress }
+    "Stop-PandasSandbox" = { Stop-PandasSandbox }
+  }
+  foreach ($stepName in $steps.Keys) {
+    try {
+      & $steps[$stepName]
+    } catch {
+      $failures.Add("$stepName`: $($_.Exception.Message)")
+    }
+  }
+  if ($failures.Count -gt 0) {
+    throw "Stop-AiStack 未能停止全部组件（$($failures.Count) 处失败）：$([string]::Join(' | ', $failures))"
+  }
   Write-Output "Django AI 助理 reader/writer 已停止；其他业务域、ERP 与 PostgreSQL 未改变。"
 }
 
