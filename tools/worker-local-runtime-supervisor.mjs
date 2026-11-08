@@ -1,3 +1,4 @@
+import { nativeIsolation } from "./native-isolation.mjs";
 import { spawn } from "node:child_process";
 import { openSync, closeSync, fstatSync, ftruncateSync, writeSync } from "node:fs";
 import { freemem, totalmem } from "node:os";
@@ -497,6 +498,7 @@ export async function startImmutableWorker(argv = process.argv.slice(2), record 
   record("startup_validation", { phase: "manifest" });
   const { manifestPath, approvedManifestSha256 } = parseArguments(argv);
   const manifest = await readManifestIdentity(manifestPath, approvedManifestSha256);
+  if (nativeIsolation && manifest.runtime.nativeIsolationSha256 !== nativeIsolation.sha256) throw new Error('Worker native isolation binding changed');
   const runtimeRoot = path.resolve(releaseRoot, "..", "..");
   if (manifest.runtime.host !== workerHost || manifest.runtime.port !== workerPort || manifest.runtime.cliOverridesAllowed !== false) {
     throw new Error("Worker release 回环或 CLI 覆盖契约无效");
@@ -532,7 +534,7 @@ export async function startImmutableWorker(argv = process.argv.slice(2), record 
   const requestShutdown = (signal) => { record("signal_received", { signal }); shutdown.abort(); };
   process.once("SIGINT", requestShutdown);
   process.once("SIGTERM", requestShutdown);
-  scheduled.start();
+  if (!nativeIsolation) scheduled.start();
   try {
     await Promise.all([superviseImmutableWorker({
       releaseRoot,

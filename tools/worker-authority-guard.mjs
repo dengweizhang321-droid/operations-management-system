@@ -1,3 +1,4 @@
+import { nativePort, nativeIsolation } from "./native-isolation.mjs";
 import { lstat, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { resolveEffectiveReleaseChain } from "./worker-local-release-rotation.mjs";
@@ -12,6 +13,7 @@ import {
   sha256Canonical,
   workerGuardCheckNames,
   workerGuardEntrypointPaths,
+  workerGuardPathsForManifest,
   workerLegacyGuardEntrypointPaths,
   workerGuardForbiddenScans,
   workerRuntimeRoot,
@@ -147,10 +149,12 @@ async function readCurrentRelease(runtimeRoot = workerRuntimeRoot) {
   validatePayload(manifest, "manifestPayloadSha256", "Worker current manifest");
   if (manifest.version !== releaseVersion || manifest.releaseId !== pointer.releaseId) fail("Worker current manifest 身份无效");
   exactKeys(manifest.runtime, [
+    ...(nativeIsolation ? ['nativeIsolationSha256'] : []),
     "runtimeRootPathSha256", "releaseRootPathSha256", "persistRootPathSha256", "sourceD1PathSha256", "host", "port",
     "persistRoot", "sourceD1Path", "protectedSourceRoot", "protectedSourceRootPathSha256", "cliOverridesAllowed", "helperMode",
     "helperHost", "helperPort", "helperMutableRoot", "helperMutableRootPathSha256", "devVars",
   ], "Worker current manifest runtime");
+  if (nativeIsolation && manifest.runtime.nativeIsolationSha256 !== nativeIsolation.sha256) fail('Worker native isolation binding changed');
   if (manifest.runtime.runtimeRootPathSha256 !== windowsPathSha256(runtimeRoot)
     || manifest.runtime.releaseRootPathSha256 !== windowsPathSha256(path.dirname(manifestPath))
     || manifest.runtime.persistRootPathSha256 !== windowsPathSha256(manifest.runtime.persistRoot)
@@ -158,7 +162,7 @@ async function readCurrentRelease(runtimeRoot = workerRuntimeRoot) {
     || manifest.runtime.protectedSourceRootPathSha256 !== windowsPathSha256(manifest.runtime.protectedSourceRoot)
     || manifest.runtime.helperMutableRootPathSha256 !== windowsPathSha256(manifest.runtime.helperMutableRoot)
     || manifest.runtime.helperMode !== "supervisor_managed_immutable_bundle"
-    || manifest.runtime.helperHost !== "127.0.0.1" || manifest.runtime.helperPort !== 5791
+    || manifest.runtime.helperHost !== "127.0.0.1" || manifest.runtime.helperPort !== nativePort(5791)
     || manifest.runtime.helperMutableRoot !== manifest.runtime.protectedSourceRoot
     || manifest.runtime.helperMutableRootPathSha256 !== manifest.runtime.protectedSourceRootPathSha256) {
     fail("Worker current manifest runtime 路径绑定无效");
@@ -200,7 +204,7 @@ async function readAndVerifyGuardReceipt(current) {
   exactKeys(receipt.checks, workerGuardCheckNames, "legacy Worker guard checks");
   if (Object.values(receipt.checks).some((value) => value !== true)) fail("legacy Worker guard checks 未全部通过");
   if (!Array.isArray(receipt.entrypoints)
-    || (canonicalJson(receipt.entrypoints.map((item) => item?.relativePath)) !== canonicalJson([...workerGuardEntrypointPaths])
+    || (canonicalJson(receipt.entrypoints.map((item) => item?.relativePath)) !== canonicalJson([...workerGuardPathsForManifest(current.manifest)])
       && (canonicalJson(receipt.entrypoints.map((item) => item?.relativePath)) !== canonicalJson([...workerLegacyGuardEntrypointPaths])
         || current.manifest.artifacts.keyFiles.some(item=>item.relativePath === "tools/process-deadline.ps1")))) {
     fail("legacy Worker guard entrypoints 无效");

@@ -113,6 +113,8 @@ class ProviderRoundtripWireTests(SimpleTestCase):
             probes.tool_roundtrip(model, streaming=False, before_call=lambda _: None)
         self.assertEqual(caught.exception.diagnostics["reason"], "json_invalid")
         self.assertEqual(caught.exception.diagnostics["responseMode"], "json")
+        self.assertEqual(caught.exception.diagnostics["requestStarted"], True)
+        self.assertIn("response_parse", caught.exception.diagnostics["timingsMs"])
         self.assertNotIn("SECRET_BODY", canonical(caught.exception.diagnostics))
         self.assertEqual(wire.connection.request.call_count, 2)
 
@@ -158,6 +160,22 @@ class ProviderRoundtripWireTests(SimpleTestCase):
         self.assertEqual(caught.exception.diagnostics["reason"], "sse_incomplete")
         stream.feed(b"data: [DONE]\n\n")
         self.assertEqual(stream.finish()["choices"][0]["message"]["content"], "ok")
+
+    def test_malformed_sse_and_responses_fields_remain_parse_diagnostics(self):
+        from .diagnostics import error_summary
+        from .provider_stream import ProviderStream
+        for protocol, event in (
+            ("openai_compatible", {"choices": [{"delta": {}, "finish_reason": ["PRIVATE"]}]}),
+            ("openai_responses", {"type": ["PRIVATE"]}),
+            ("openai_responses", {"type": "response.incomplete", "response": {
+                "status": "incomplete", "incomplete_details": "PRIVATE",
+            }}),
+        ):
+            with self.subTest(protocol=protocol), self.assertRaises(InvalidProviderResponse) as caught:
+                ProviderStream(protocol, lambda _: None).feed(("data: " + canonical(event) + "\n\n").encode())
+            summary = error_summary(caught.exception)
+            self.assertEqual(summary["phase"], "response_parse")
+            self.assertNotIn("PRIVATE", canonical(summary))
 
     def test_unsafe_tool_argument_values_keep_policy_and_gain_safe_diagnostics(self):
         nested = {"value": "PRIVATE_ARGUMENT"}

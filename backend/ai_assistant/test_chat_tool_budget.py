@@ -20,11 +20,20 @@ class ChatToolBudgetTests(TestCase):
         self.entries[0]["execution"]["maxCallsPerRequest"] = 2
 
     def run_chat(self, responses, execute=None, request="budget"):
+        replies = iter(responses)
+
+        def answer_fixture(*args, **kwargs):
+            chat.transport.commit_provider_send()
+            value = next(replies)
+            if isinstance(value, BaseException):
+                raise value
+            return value
+
         return (
             patch.object(chat.transport, "catalog", return_value=self.entries),
             patch.object(chat.transport, "execute_tool", side_effect=execute or (lambda *args, **kwargs: {"ok": True, "data": {"through": "2026-09-09"}})),
             patch.object(provider, "decrypt", return_value="isolated-fixture-key"),
-            patch.object(provider, "bounded_json", side_effect=responses),
+            patch.object(provider, "bounded_json", side_effect=answer_fixture),
         )
 
     def test_parameter_failure_then_success_then_exhausted_tool_still_answers(self):
@@ -93,7 +102,8 @@ class ChatToolBudgetTests(TestCase):
         with patches[0], patches[1] as source, patches[2], patches[3]:
             with self.assertRaises(AiError) as error:
                 chat.answer({"clientRequestId": "denied", "message": "查询"}, self.owner, "denied")
-            self.assertEqual(error.exception.code, "access_denied")
+            self.assertEqual((error.exception.code, error.exception.status), ("ai_chat_result_unknown", 403))
+            self.assertEqual(error.exception.__cause__.code, "access_denied")
             source.assert_not_called()
         self.assertFalse(m.AiConversationMessages.objects.filter(role="assistant").exists())
         self.assertEqual(m.AiToolAuditLogs.objects.get(status="denied").error_code, "access_denied")
@@ -120,7 +130,8 @@ class ChatToolBudgetTests(TestCase):
         with patches[0], patches[1] as source, patches[2], patches[3] as http:
             with self.assertRaises(AiError) as error:
                 chat.answer({"clientRequestId": "stubborn", "message": "查询"}, self.owner, "stubborn")
-            self.assertEqual(error.exception.code, "tool_limit_exceeded")
+            self.assertEqual((error.exception.code, error.exception.status), ("ai_chat_result_unknown", 409))
+            self.assertEqual(error.exception.__cause__.code, "tool_limit_exceeded")
             self.assertEqual(source.call_count, 1)
             self.assertEqual(http.call_count, 2)
 
@@ -175,7 +186,8 @@ class ChatToolBudgetTests(TestCase):
             with patches[0], patches[1] as source, patches[2], patches[3] as http:
                 with self.assertRaises(AiError) as caught:
                     chat.answer({"clientRequestId": f"empty-{rounds}", "message": "查询"}, self.owner, f"empty-{rounds}")
-                self.assertEqual(caught.exception.code, "provider_empty_response")
+                self.assertEqual((caught.exception.code, caught.exception.status), ("ai_chat_result_unknown", 503))
+                self.assertEqual(caught.exception.__cause__.code, "provider_empty_response")
                 self.assertEqual(http.call_count, expected)
                 source.assert_not_called()
         self.assertFalse(m.AiConversationMessages.objects.filter(role="assistant").exists())

@@ -9,7 +9,7 @@ import {createHash} from 'node:crypto';
 import {firstMaintenancePredecessor as k,assertFirstMaintenanceContinuation,continueFirstMaintenance,isFirstMaintenancePredecessor,assertMaintenanceControllerGeneration,piNativeCandidateDjangoScriptSha256,aDescendantCreationGuardDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256,workflowAutomationSchemaAdditionDjangoScriptSha256,bWorkerJsonFailureCauseScriptSha256,piNativeCandidateControllerSha256} from '../tools/manual-maintenance-continuation.mjs';
 import {publishPreparedMain} from '../tools/publish-prepared-main.mjs';
 import {aiTaskFeedbackCandidatesDjangoScriptSha256,aiUnifiedTasksDjangoScriptSha256} from '../tools/manual-maintenance-continuation.mjs';
-import {readinessCopyControllerPair} from '../tools/manual-maintenance-continuation.mjs';
+import {readinessCopyControllerPair,pandasRotationControllerPair} from '../tools/manual-maintenance-continuation.mjs';
 // Execute the actual pure adapter declaration without importing release-impact's
 // TypeScript-dependent deployment analysis into this dependency-free fixture.
 async function loadProductionCommandArguments(){
@@ -30,13 +30,14 @@ test('finite old pair only; native Stop exit0 is not a precondition or inferred 
  value.durableCompleteCommit=true;assert.equal(assertFirstMaintenanceContinuation(value,expected),'coordinate-completed');
 });
 test('reviewed Django controller generations preserve historical exceptions and match current source',async()=>{
- // The exact readiness-copy pair is the newly reviewed current controller; earlier
- // batched-status-enumeration, Sales154, PiNative and descendant-guard
- // qualifications stay registered. Future byte changes must be reviewed explicitly rather
- // than accepted by this static tripwire, so this compares against the
- // registered constant and never recomputes it from the file.
+ // The current Pandas controller is only qualified as a pair. Historical
+ // generations still stay registered; byte changes require a new review.
  const source=await fs.readFile(new URL('../tools/django-local-service.ps1',import.meta.url));
- assert.equal(createHash('sha256').update(source).digest('hex'),aiUnifiedTasksDjangoScriptSha256);
+ assert.equal(createHash('sha256').update(source).digest('hex'),pandasRotationControllerPair.candidateDjangoSha256);
+ assert.equal(pandasRotationControllerPair.installedDjangoSha256,aiUnifiedTasksDjangoScriptSha256);
+ assert.ok(piNativeCandidateControllerSha256['django-local-service.ps1'].includes(aiUnifiedTasksDjangoScriptSha256));
+ assert.throws(()=>assertMaintenanceControllerGeneration({name:'django-local-service.ps1',installedSha:aiUnifiedTasksDjangoScriptSha256,
+  expected:pandasRotationControllerPair.candidateDjangoSha256,candidateSha:pandasRotationControllerPair.candidateDjangoSha256}),/不一致/);
  assert.equal(readinessCopyControllerPair.installedSha,workflowAutomationSchemaAdditionDjangoScriptSha256);
  assert.notEqual(workflowAutomationSchemaAdditionDjangoScriptSha256,batchedStatusEnumerationDjangoScriptSha256);
  assert.notEqual(batchedStatusEnumerationDjangoScriptSha256,sales154SchemaAdditionDjangoScriptSha256);

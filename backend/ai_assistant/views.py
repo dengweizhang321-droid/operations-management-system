@@ -34,6 +34,7 @@ from .control_models import AiWriteReceipt, AiMutationAudit
 from .policy import (
     AiError,
     canonical,
+    cas,
     current_principal,
     digest,
     fields,
@@ -288,6 +289,7 @@ def _dispatch(request, path=""):
         credential_read = root == "consumer" and payload.get("operation") in {
             "model-runtime", "model-list"}
         model_admin_read = root == "models" and request.method == "GET"
+        chat_status_read = path == "chat" and request.method == "GET" and "clientRequestId" in request.GET
         report_detail_shape = (request.method == "GET" and
             re.fullmatch(r"reports/[A-Za-z0-9_-]{1,160}", endpoint) is not None)
         # URLConf accepts a trailing slash in its generic capture. Do not let
@@ -301,7 +303,7 @@ def _dispatch(request, path=""):
         writer = (
             request.method != "GET" or root in {"artifacts"} or
             root == "reports" and parts[-1] == "content" or
-            model_admin_read or report_detail_read or human_cap_path
+            model_admin_read or chat_status_read or report_detail_read or human_cap_path
         ) and not consumer_read and root != "datasets"
         if re.fullmatch(r"(?:reports|business-evidence)/[A-Za-z0-9_-]{1,160}/budget-preview", endpoint) and request.method == "POST":
             writer = False
@@ -328,7 +330,7 @@ def _dispatch(request, path=""):
         params = request.GET.dict()
         if root not in {"callback", "scheduler"}:
             principal = current_principal(
-                principal, write=writer and not model_admin_read and
+                principal, write=writer and not (model_admin_read or chat_status_read) and
                     root not in {"consumer", "artifacts", "reports"}
             )
         if root in {"models", "channels", "prompt-settings", "dingtalk-settings", "dingtalk-schedules", "market-v2-cap-approvals"} or parts[:2] in [
@@ -643,6 +645,9 @@ def _dispatch(request, path=""):
             # process.  Keep it outside write() so it creates no mutation
             # receipt and cannot be replayed as a state-changing request.
             return response(consumer(payload, principal, request_id))
+        if chat_status_read:
+            # Only this scoped lookup needs access to the protected receipts.
+            return response(chat.messages(params, principal))
         if model_admin_read:
             # The existing administrator settings response includes a key
             # suffix and diagnostics.  It belongs to the credential process,
@@ -674,6 +679,17 @@ def _dispatch(request, path=""):
             and payload.get("action") == "test"
             or root == "consumer"
         )
+        if payload.get("action") == "test" and (parts == ["space", "profiles"]
+                or parts == ["models"] and payload.get("testMode") == "structured_output"):
+            fields(params, set())
+            key = payload.get("clientRequestId")
+            if request.method != "POST" or not isinstance(key, str) or not re.fullmatch(r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}", key):
+                raise AiError("模型能力测试请求标识无效")
+            binding = "\n".join((request.path, principal.email.lower(), key))
+            if request_id != "w10-probe-" + hashlib.sha256(binding.encode()).hexdigest():
+                raise AiError("模型能力测试请求标识绑定无效", "conflict", 409)
+            return write(request, principal,
+                         lambda: mutate_model_probe(parts, params, payload, principal, request_id), external=True)
         return write(
             request,
             principal,
@@ -780,7 +796,7 @@ def read(parts, params, principal):
             return {
                 "items": [
                     configuration.profile_record(r)
-                    for r in m.AiSpaceModelProfiles.objects.order_by("-updated_at")[
+                    for r in m.AiSpaceModelProfiles.objects.only(*configuration.IMAGE_PROFILE_ADMIN_COLUMNS).order_by("-updated_at")[
                         :100
                     ]
                 ]
@@ -811,6 +827,17 @@ def read(parts, params, principal):
     raise AiError("AI 接口不存在", "not_found", 404)
 
 
+def mutate_model_probe(parts, params, payload, principal, request_id):
+    from .capability_probes import probe_outcome_known
+
+    try:
+        return mutate(parts, params, payload, principal, request_id, "POST")
+    except AiError as error:
+        if not probe_outcome_known(error):
+            raise
+        return {"error": str(error), "code": error.code}, error.status
+
+
 def mutate(parts, params, payload, principal, request_id, method):
     root = parts[0]
     if root == "dingtalk-settings":
@@ -825,10 +852,14 @@ def mutate(parts, params, payload, principal, request_id, method):
         if payload.get("action") == "set_default":
             return {"item": configuration.set_default_model(payload, principal)}, 200
         if payload.get("action") == "test":
-            fields(payload, {"id", "action", "testMode"}, {"id", "action"})
+            mode = payload.get("testMode", "connection")
+            required = {"id", "action", "expectedVersion", "clientRequestId"} if mode == "structured_output" else {"id", "action"}
+            fields(payload, required | {"testMode"}, required)
             model = configuration.resolve_model(payload["id"])
+            if mode == "structured_output":
+                cas(model, payload["expectedVersion"])
             from . import capability_probes
-            return capability_probes.run(model, principal, request_id, payload.get("testMode", "connection")), 200
+            return capability_probes.run(model, principal, request_id, mode), 200
         return {"item": configuration.save_model(payload, principal)}, 200
     if root == "channels":
         if method == "DELETE":
@@ -854,13 +885,8 @@ def mutate(parts, params, payload, principal, request_id, method):
         )
         return result, 201 if result.get("created") else 200
     if root == "chat" and parts[1:] == ["cancel"]:
-        fields(payload, {"clientRequestId"}, {"clientRequestId"})
-        m.AiChatRequestReceipts.objects.filter(
-            owner_email=principal.email.lower(),
-            client_request_id=identifier(payload["clientRequestId"]),
-            status__in=["processing", "dispatched"],
-        ).update(cancel_requested=True)
-        return {"ok": True}, 200
+        fields(params, set())
+        return chat.cancel(payload, principal), 200
     if root in {"agent-jobs", "workflow-runs"}:
         if len(parts) == 5 and parts[2] == "nodes" and parts[4] == "review":
             return workflows.review(parts[1], parts[3], payload, principal), 200
@@ -873,6 +899,8 @@ def mutate(parts, params, payload, principal, request_id, method):
     if root == "space":
         section = parts[1]
         if section == "profiles":
+            if payload.get("action") == "test":
+                return space.test_profile(payload, principal, request_id), 200
             return (
                 configuration.delete_model(params, principal, image=True)
                 if method == "DELETE"

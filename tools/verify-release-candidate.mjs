@@ -1,5 +1,5 @@
 /** Run reviewed release compatibility checks on an exact, isolated candidate.
- * This does not publish, grant a startup permit, or claim a native cold start.
+ * Never publishes or grants startup; native cold starts require pinned original evidence.
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -13,7 +13,8 @@ import assert from 'node:assert/strict';
 import {makeReleasePlan} from './release-scope-plan.mjs';
 import {publisherEnvironment} from './publish-latest-main.mjs';
 import {hashTree} from './worker-local-release.mjs';
-import {dingtalkScreenshotAclQualification,aDescendantCreationGuardDjangoScriptSha256,piNativeCandidateDjangoScriptSha256,bWorkerJsonFailureCauseScriptSha256,readinessCopyControllerPair} from './manual-maintenance-continuation.mjs';
+import {nativeControlApplication,bindNativeTypeScript} from './verify-native-control-evidence.mjs';
+import {dingtalkScreenshotAclQualification,aDescendantCreationGuardDjangoScriptSha256,piNativeCandidateDjangoScriptSha256,bWorkerJsonFailureCauseScriptSha256,readinessCopyControllerPair,pandasRotationControllerPair} from './manual-maintenance-continuation.mjs';
 
 /** A 项 (2026-10-25): one exact installed -> candidate django-local-service.ps1
  * pair. The candidate changes only Get-VerifiedProcessDescendants (purely
@@ -111,9 +112,308 @@ export function compareReadinessMaintenancePairOnly(before,after){
   &&after.replace(declaration,'').replace(branch,'')===before;
 }
 
-export function candidateCompatibilityProfile(changes){
+export const aiRepairBatch1Qualification=Object.freeze({
+ base:'0c7d0feb33f45cfc6ae1f283b81d401c873c5768',
+ app:'eee39f9d315eaf9dd71f8390181879cdb6ba2c82',
+ tree:'18ce84ef8fe69ebd9128dc2b540ee5c67dc977ed',
+ reviewedBytesSha256:'ba7fbd961afa817b4f8991a04bd902eea00a429e55bbb6380c3b8b97f1a2d12b',
+});
+const aiRepairBatch1Reviewed=Object.freeze({
+ 'app/ai-assistant-view.tsx':'M',
+ 'app/api/ai/chat/cancel/route.ts':'A',
+ 'backend/ai_assistant/chat.py':'M',
+ 'backend/ai_assistant/chat_stream.py':'M',
+ 'backend/ai_assistant/datasets.py':'M',
+ 'backend/ai_assistant/management/commands/pi_reclaim_stopped.py':'A',
+ 'backend/ai_assistant/pandas_diagnostics.py':'A',
+ 'backend/ai_assistant/pandas_sandbox.py':'M',
+ 'backend/ai_assistant/pi_transport.py':'M',
+ 'backend/ai_assistant/pi_worker.py':'M',
+ 'backend/ai_assistant/pi_workspace.py':'M',
+ 'backend/ai_assistant/report_library.py':'M',
+ 'backend/ai_assistant/test_chat_stop.py':'A',
+ 'backend/ai_assistant/test_chat_tool_budget.py':'M',
+ 'backend/ai_assistant/test_pandas_sandbox.py':'M',
+ 'backend/ai_assistant/test_pi_retained_lifecycle.py':'A',
+ 'backend/ai_assistant/test_promotion_chat.py':'M',
+ 'backend/ai_assistant/test_shop_conversion_guidance.py':'A',
+ 'backend/ai_assistant/test_streaming.py':'M',
+ 'backend/ai_assistant/tests.py':'M',
+ 'backend/ai_assistant/transport.py':'M',
+ 'backend/ai_assistant/views.py':'M',
+ 'backend/pi_runner/server.py':'M',
+ 'backend/pi_runner/test_retained_lifecycle.py':'A',
+ 'backend/pi_runner/upgrade_linux.py':'M',
+ 'backend/pi_runner/workspace.py':'M',
+ 'containers/pi-agent/Dockerfile':'M',
+ 'containers/pi-agent/build_image.py':'M',
+ 'containers/pi-agent/gateway-extension.mjs':'M',
+ 'lib/ai/analysis-sandbox.ts':'M',
+ 'lib/ai/django-route.ts':'M',
+ 'lib/ai/page-data-tools.ts':'M',
+ 'lib/ai/tool-registry.ts':'M',
+ 'lib/ai/workspace-recovery.ts':'M',
+ 'lib/django/ai-stream.ts':'M',
+ 'lib/netshop/ai-tool.ts':'M',
+ 'tests/ai-chat-recovery-interaction.test.ts':'A',
+ 'tests/ai-chat-stop-route.test.ts':'A',
+ 'tests/ai-chat-stream.test.ts':'M',
+ 'tests/ai-page-data-tools.test.ts':'M',
+ 'tests/ai-workspace-recovery.test.ts':'M',
+ 'tests/netshop-product-insights-ai-tool.test.ts':'M',
+ 'tests/pandas-sandbox.test.ts':'M',
+ 'tests/publish-prepared-main.test.mjs':'M',
+ 'tools/publish-main-resume.mjs':'M',
+ 'tools/publish-prepared-main.mjs':'M',
+});
+const aiRepairBatch1Adapter=Object.freeze({
+ 'tools/verify-release-candidate.mjs':'M',
+ 'tests/verify-release-candidate.test.mjs':'M',
+ 'tests/ai-repair-batch1-compatibility.test.mjs':'A',
+ 'tests/ai-repair-batch1-pi-native-start.py':'A',
+});
+const aiRepairBatch1Docs=file=>file==='docs/任务记录/README.md'||
+ /^docs\/ai-repair-batch1-20261107\/[^/]+\.(?:md|html|json)$/.test(file);
+
+export function aiRepairBatch1ScopeMatches(changes,baseCommit){
+ if(baseCommit!==aiRepairBatch1Qualification.base)return false;
+ const expected=new Map(Object.entries({...aiRepairBatch1Reviewed,...aiRepairBatch1Adapter}));
+ for(const {path:file,before,status} of changes){
+  if(typeof file!=='string'||before)return false;
+  if(aiRepairBatch1Docs(file)&&['A','M'].includes(status))continue;
+  if(expected.get(file)!==status)return false;
+  expected.delete(file);
+ }
+ return expected.size===0;
+}
+
+export const aiRepairBatch2Qualification=Object.freeze({
+ base:'0c7d0feb33f45cfc6ae1f283b81d401c873c5768',
+ application:'638fd30db3e1fa670805878d060ee3894baa462d',
+ applicationTree:'116000d9b258178234ac489c3b24d445815bd672',
+ // Fixed application and adapter bytes, never supplied by a caller. The
+ // verifier itself cannot self-pin; review it with the full payload receipt.
+ reviewedBytesSha256:'69324e8df7b382016184b78ba448c50156a50dfe51e2adb952877c149f823eef',
+});
+export const aiRepairBatch2Reviewed=Object.freeze({
+ 'app/ai-dingtalk-schedules-view.tsx':'M',
+ 'app/ai-report-workbench-view.tsx':'M',
+ 'backend/ai_assistant/datasets.py':'M',
+ 'backend/ai_assistant/diagnostics.py':'A',
+ 'backend/ai_assistant/dingtalk_schedules.py':'M',
+ 'backend/ai_assistant/dingtalk_transport.py':'M',
+ 'backend/ai_assistant/pandas_diagnostics.py':'A',
+ 'backend/ai_assistant/pandas_sandbox.py':'M',
+ 'backend/ai_assistant/pi_gateway.py':'M',
+ 'backend/ai_assistant/provider.py':'M',
+ 'backend/ai_assistant/provider_responses.py':'M',
+ 'backend/ai_assistant/provider_stream.py':'M',
+ 'backend/ai_assistant/reports.py':'M',
+ 'backend/ai_assistant/test_dingtalk_enterprise.py':'M',
+ 'backend/ai_assistant/test_dingtalk_schedules.py':'M',
+ 'backend/ai_assistant/test_dingtalk_transport.py':'M',
+ 'backend/ai_assistant/test_pandas_sandbox.py':'M',
+ 'backend/ai_assistant/test_provider_roundtrip.py':'M',
+ 'backend/ai_assistant/test_report_library.py':'M',
+ 'backend/ai_assistant/test_schedule_monitor.py':'M',
+ 'backend/ai_assistant/test_schedule_storage_bounds.py':'M',
+ 'backend/ai_assistant/test_transport.py':'M',
+ 'backend/ai_assistant/test_workflow_timing.py':'A',
+ 'backend/ai_assistant/transport.py':'M',
+ 'backend/ai_assistant/workflow_timing.py':'A',
+ 'backend/ai_assistant/workflows.py':'M',
+ 'backend/netshop/query.py':'M',
+ 'backend/netshop/tests/test_insights_common.py':'M',
+ 'backend/pandas_runner/diagnostics.py':'A',
+ 'backend/pandas_runner/server.py':'M',
+ 'backend/pandas_runner/test_diagnostics.py':'A',
+ 'lib/ai/analysis-sandbox.ts':'M',
+ 'lib/ai/django-edge.ts':'M',
+ 'lib/ai/tool-registry.ts':'M',
+ 'tests/pandas-broker-rotation-native.py':'A',
+ 'tests/pandas-broker-rotation-ps.test.ps1':'A',
+ 'tests/pandas-broker-rotation-startup-fixture.py':'A',
+ 'tests/pandas-broker-rotation-startup-seam.test.ps1':'A',
+ 'tests/pandas-sandbox.test.ts':'M',
+ 'tests/publish-main-pandas.test.mjs':'A',
+ 'tests/publish-prepared-main.test.mjs':'M',
+ 'tools/django-ai.ps1':'M',
+ 'tools/django-local-service.ps1':'M',
+ 'tools/pandas_broker_rotation.py':'A',
+ 'tools/pandas_broker_rotation_linux.py':'A',
+ 'tools/publish-main-pandas.mjs':'A',
+ 'tools/publish-main-resume.mjs':'M',
+ 'tools/publish-main-tail.mjs':'M',
+ 'tools/publish-prepared-main.mjs':'M',
+});
+export const aiRepairBatch2Adapter=Object.freeze({
+ 'tools/manual-maintenance-continuation.mjs':'M',
+ 'tools/verify-release-candidate.mjs':'M',
+ 'tests/ai-repair-batch2-compatibility.test.mjs':'A',
+ 'tests/ai-repair-batch2-powershell-entry.ps1':'A',
+ 'tests/manual-maintenance-continuation.test.mjs':'M',
+ 'tests/release-candidate-package.test.ps1':'M',
+});
+const aiRepairBatch2Docs=file=>/^docs\/ai-repair-batch2-20261108\/[^/]+\.(?:md|html|json)$/.test(file)||
+ ['METRICS-DIAGNOSTICS.md','PANDAS-ADOPTION-PLAN.md','REVIEW-W6A.md'].some(name=>file==='docs/ai-repair-batch1-20261107/'+name);
+
+export function aiRepairBatch2ScopeMatches(changes,baseCommit){
+ if(baseCommit!==aiRepairBatch2Qualification.base)return false;
+ const expected=new Map(Object.entries({...aiRepairBatch2Reviewed,...aiRepairBatch2Adapter})),seen=new Set();
+ for(const {path:file,before,status} of changes){
+  if(typeof file!=='string'||before||seen.has(file))return false;
+  seen.add(file);
+  if(aiRepairBatch2Docs(file)&&['A','M'].includes(status))continue;
+  if(expected.get(file)!==status)return false;
+  expected.delete(file);
+ }
+ return expected.size===0;
+}
+
+export function assertAiRepairBatch1Bytes(payload){
+ const digestByPath=new Map(payload.map(member=>[member.path,member.sha256]));
+ const rows=Object.keys(aiRepairBatch1Reviewed).sort().map(file=>[file,digestByPath.get(file)]);
+ assert.equal(sha(Buffer.from(JSON.stringify(rows))),aiRepairBatch1Qualification.reviewedBytesSha256,
+  '第一批AI应用候选字节已变化，原有限资格不适用');
+}
+
+export function aiRepairBatch2BytesDigest(payload){
+ const byPath=new Map(payload.map(member=>[member.path,member.sha256]));
+ const statuses={...aiRepairBatch2Reviewed,...aiRepairBatch2Adapter};
+ const rows=Object.keys(statuses).filter(file=>file!=='tools/verify-release-candidate.mjs').sort().map(file=>{
+  const digest=byPath.get(file);
+  assert.match(digest??'',/^[a-f0-9]{64}$/,'第二批审查载荷缺少 '+file);
+  return [file,statuses[file],digest];
+ });
+ return sha(Buffer.from(JSON.stringify(rows)));
+}
+export function assertAiRepairBatch2Bytes(payload){
+ assert.equal(aiRepairBatch2BytesDigest(payload),aiRepairBatch2Qualification.reviewedBytesSha256,
+  '第二批AI应用候选字节已变化，原有限资格不适用');
+}
+
+const aiRepairBatch3Qualification=Object.freeze({
+ base:'0c7d0feb33f45cfc6ae1f283b81d401c873c5768',
+ application:'d9a148335ffeb6dc75328d81342d8f94e60297c5',
+ tree:'963ed7b88134eb8a9770981cacb2ce884b4c6780',
+});
+
+async function reviewedAiRepairBatch3(source,baseCommit,commit){
+ const q=aiRepairBatch3Qualification;
+ if(baseCommit!==q.base)return null;
+ try{
+  if(await git(source,['rev-parse',q.application+'^{tree}'])!==q.tree)return null;
+  await git(source,['merge-base','--is-ancestor',q.application,commit]);
+ }catch{return null;}
+ const delta=(await git(source,['diff','--name-status','--no-renames','-z',q.application,commit])).split('\0').filter(Boolean);
+ let verifierChanged=false;
+ for(let i=0;i<delta.length;i+=2){
+  const [status,file]=[delta[i],delta[i+1]];
+  if(status==='M'&&file==='tools/verify-release-candidate.mjs'){verifierChanged=true;continue;}
+  if(!['A','M'].includes(status)||!/^docs\/ai-repair-batch3-20261108\/[^/]+\.(?:md|html|json)$/.test(file??''))return null;
+ }
+ return verifierChanged?q:null;
+}
+
+export const aiRepairIntegrationQualification=Object.freeze({
+ base:'0c7d0feb33f45cfc6ae1f283b81d401c873c5768',
+ application:'557b497dc0fe42f3693a0c6c76320a4833b46b49',
+ tree:'277573157b4c0e4c41e72a329351639ac6cc80c3',
+ test:'tests/ai-repair-integration-compatibility.test.mjs',
+ testSha256:'ea207d31f2ddc51788cd1fe954c30719a1a3bf1a86175e9b41a96f15edd9c9cd',
+});
+
+export const nativeControlQualification=Object.freeze({
+ base:'0c7d0feb33f45cfc6ae1f283b81d401c873c5768',
+ application:nativeControlApplication.commit,tree:nativeControlApplication.tree,
+ evidenceSha256:nativeControlApplication.evidenceSha256,
+ test:'tests/native-control-compatibility.test.mjs',
+ testSha256:'d3ac369f89b73f1aeb10984a55465293e491a3dcc2fbb71fdee427dfc40bcfc2',
+});
+export const nativeControlTailPins=Object.freeze({
+ 'tools/manual-maintenance-continuation.mjs':Object.freeze({blob:'97b69819e86adfbfb56a742b7841b837f62eff14',sha256:'dc8bd0e573c729309a771ffcd598ea04eb06dc2e7dbc138fa6ccc467dfe6e940'}),
+ 'tools/manual-maintenance-process.psm1':Object.freeze({blob:'d007b60858eb7e589b2dbb7129aea2433a08a53d',sha256:'cca4e66c4d07496c431d4e7e711bb189f2ecc4a33bb2951c52017879c4655796'}),
+ 'tools/native-isolation.ps1':Object.freeze({blob:'b5aca76d791c78e3c243cfc9c38edc68ed57a525',sha256:'a5499003d2e269b8a3d6cdb6bce70fcd2f02434c541620ccdaa151f0c7f52343'}),
+ 'tools/verify-native-control-evidence.mjs':Object.freeze({blob:'09b72be72c321c9114ead9efdc02c5fd5f517692',sha256:'25194605acd888c43a16039d44e32affa1b3e9d647de9542fed96aa39a7a8961'}),
+ 'tests/native-maintenance-pins.ps1':Object.freeze({blob:'ed32902261c687dcb26143a85bb5658e63c4f022',sha256:'61b9220177e528aca713f5cca020281bdf9a1bd2b252c230c439523a840c36f6'}),
+ 'tests/native-isolation-qualification.test.mjs':Object.freeze({blob:'0675b9ab5d8fc3b9f2caeba4c96cd75515aa9a46',sha256:'763ea38a4547be8b2601e908ae7934de1da569e33503165bb9f784f3fd2f2ef1'}),
+ 'tests/native-isolation-credential-gate.test.mjs':Object.freeze({blob:'eebfc9efa94f12e1c3245d2b8b2dce8a15239c02',sha256:'4c7544529c9f6fdeb532661d176e543464d2120a26aa690f08325b38baba5ec4'}),
+ 'tests/native-control-compatibility.test.mjs':Object.freeze({blob:'c1d96ffabaeeca359b0111de6891e75bfafa1440',sha256:'d3ac369f89b73f1aeb10984a55465293e491a3dcc2fbb71fdee427dfc40bcfc2'}),
+ 'tests/worker-source-read-once.test.mjs':Object.freeze({blob:'5a4a3e493b1a8bc0b21618f516f3be81f159c5a2',sha256:'7f89e658370d0531e670e2aed539b90fe2d8d603ac4e9cd36e7e48f4fef3fcec'}),
+});
+export function nativeControlScopeMatches(records,baseCommit){
+ if(baseCommit!==nativeControlQualification.base||records.length%2)return false;
+ const required=new Map([
+  ['tools/manual-maintenance-continuation.mjs','M'],['tools/manual-maintenance-process.psm1','M'],
+  ['tools/native-isolation.ps1','M'],['tools/verify-release-candidate.mjs','M'],['tools/verify-native-control-evidence.mjs','A'],
+  ['tests/native-maintenance-pins.ps1','A'],['tests/native-isolation-qualification.test.mjs','A'],
+  ['tests/native-isolation-credential-gate.test.mjs','A'],['tests/native-control-compatibility.test.mjs','A'],
+  ['tests/worker-source-read-once.test.mjs','M'],
+ ]),seen=new Set();
+ for(let index=0;index<records.length;index+=2){
+  const [entry,file]=[records[index],records[index+1]];
+  const match=/^:(000000|100644) 100644 ([a-f0-9]{40}) ([a-f0-9]{40}) ([AM])$/.exec(entry);
+  if(!match||(match[1]==='000000')!==(match[4]==='A')||seen.has(file))return false;
+  seen.add(file);
+  if(required.has(file)){
+   if(required.get(file)!==match[4])return false;
+   if(file!=='tools/verify-release-candidate.mjs'&&nativeControlTailPins[file]?.blob!==match[3])return false;
+   continue;
+  }
+  if(file==='docs/任务记录/README.md')continue;
+  if(!/^docs\/ai-native-control-isolation-20261108\/[^/]+\.(?:md|html|json)$/.test(file))return false;
+ }
+ return [...required.keys()].every(file=>seen.has(file));
+}
+async function reviewedNativeControl(source,baseCommit,commit){
+ const q=nativeControlQualification;if(baseCommit!==q.base)return null;
+ try{if(await git(source,['rev-parse',q.application+'^{tree}'])!==q.tree)return null;await git(source,['merge-base','--is-ancestor',q.application,commit]);}catch{return null;}
+ const records=(await git(source,['diff','--raw','--no-abbrev','--no-renames','-z',q.application,commit])).split('\0');
+ assert.equal(records.pop(),'','Native qualification Git delta is not terminated');
+ return nativeControlScopeMatches(records,baseCommit)?q:null;
+}
+
+export function aiRepairIntegrationScopeMatches(records,baseCommit){
+ const q=aiRepairIntegrationQualification,seen=new Set();
+ if(baseCommit!==q.base||records.length%2)return false;
+ for(let i=0;i<records.length;i+=2){
+  const [entry,file]=[records[i],records[i+1]];
+  const match=/^:(000000|100644) 100644 [a-f0-9]{40} [a-f0-9]{40} ([AM])$/.exec(entry);
+  if(!match||(match[1]==='000000')!==(match[2]==='A')||seen.has(file))return false;
+  seen.add(file);
+  if(file==='tools/verify-release-candidate.mjs'&&match[2]==='M')continue;
+  if(file===q.test&&match[2]==='A')continue;
+  if(file==='docs/任务记录/README.md')continue;
+  if(!/^docs\/ai-repair-integration-20261108\/[^/]+\.(?:md|html|json)$/.test(file))return false;
+ }
+ return seen.has(q.test)&&seen.has('tools/verify-release-candidate.mjs');
+}
+
+async function reviewedAiRepairIntegration(source,baseCommit,commit){
+ const q=aiRepairIntegrationQualification;
+ if(baseCommit!==q.base)return null;
+ try{
+  if(await git(source,['rev-parse',q.application+'^{tree}'])!==q.tree)return null;
+  await git(source,['merge-base','--is-ancestor',q.application,commit]);
+ }catch{return null;}
+ const delta=(await git(source,['diff','--raw','--no-abbrev','--no-renames','-z',q.application,commit])).split('\0');
+ assert.equal(delta.pop(),'','组合候选Git差异未正确终止');
+ return aiRepairIntegrationScopeMatches(delta,baseCommit)?q:null;
+}
+
+export function candidateCompatibilityProfile(changes,{baseCommit}={}){
  const files=changes.flatMap(c=>[c.before,c.path].filter(Boolean));
  const paths=files.filter(f=>!f.startsWith('docs/')&&!f.startsWith('tests/')&&!['README.md','AGENTS.md'].includes(f));
+ if(aiRepairBatch1ScopeMatches(changes,baseCommit))return {
+  version:'ai-repair-batch1-compatibility-v1',aiRepairBatch1Only:true,paths,unsupported:[],
+  worker:true,django:true,publication:true,nativeColdStartPerformed:false,
+ };
+ if(aiRepairBatch2ScopeMatches(changes,baseCommit))return {
+  version:'ai-repair-batch2-compatibility-v1',aiRepairBatch2Only:true,paths,unsupported:[],
+  worker:true,django:true,publication:true,nativeColdStartPerformed:false,
+ };
+ if(files.some(file=>['tools/publish-main-pandas.mjs','tools/pandas_broker_rotation.py','tools/pandas_broker_rotation_linux.py'].includes(file)))
+  return {paths,unsupported:['第二批Pandas轮换需要完整精确差异与固定前驱']};
  const readinessAllowed=new Set([...readinessStabilityFiles,'tools/verify-release-candidate.mjs']);
  const readinessStabilityOnly=readinessStabilityFiles.every(p=>paths.includes(p))
   &&paths.includes('tools/verify-release-candidate.mjs')&&paths.every(p=>readinessAllowed.has(p));
@@ -258,6 +558,17 @@ export function compareMaintenanceInventoryOnly(before,after){
  return next.size===before.functions.length&&before.functions.every(f=>f.name==='Prepare-Application'?stripMaintenancePackageEntries(next.get(f.name))===normalize(f.text):next.get(f.name)===normalize(f.text));
 }
 export const piResumePackageEntries=['pi_agent_upgrade_status.py','publish-main-step.mjs','publish-main-pi-reconciliation.mjs','publish-main-owner.mjs','publish-main-tail.mjs','main-prebuild-task.mjs'];
+export const pandasRotationPackageEntries=Object.freeze(['pandas_broker_rotation.py','pandas_broker_rotation_linux.py','publish-main-pandas.mjs']);
+export function comparePandasRotationInventoryOnly(before,after){
+ const eol=before.includes('\r\n')?'\r\n':'\n';
+ let stripped=after;
+ for(const name of pandasRotationPackageEntries){
+  const line='      "tools\\'+name+'",'+eol;
+  if(stripped.split(line).length!==2)return false;
+  stripped=stripped.replace(line,'');
+ }
+ return stripped===before;
+}
 export function comparePiResumeInventoryOnly(before,after){
  const normalize=value=>value.replaceAll('\r\n','\n');
  if(JSON.stringify(before.other.map(normalize))!==JSON.stringify(after.other.map(normalize)))return false;
@@ -449,7 +760,22 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
  assert.ok(!within(source,directory),'验证输出必须在候选工作树之外');
  await fs.mkdir(directory,{recursive:false});
  const plan=makeReleasePlan({base:baseCommit,head:commit,cwd:source});
- const profile=candidateCompatibilityProfile(plan.changes);
+ const nativeControl=await reviewedNativeControl(source,baseCommit,commit);
+ const integration=nativeControl?null:await reviewedAiRepairIntegration(source,baseCommit,commit);
+ const batch3=(nativeControl||integration)?null:await reviewedAiRepairBatch3(source,baseCommit,commit);
+ const profile=nativeControl?{
+  version:'native-control-isolation-compatibility-v1',qualification:nativeControl,
+  paths:plan.changes.map(change=>change.path),unsupported:[],worker:true,django:true,publication:true,
+ }:integration?{
+  version:'ai-repair-integration-compatibility-v1',qualification:integration,
+  paths:plan.changes.map(change=>change.path),unsupported:[],
+  worker:true,django:true,publication:true,
+ }:batch3?{
+  version:'ai-repair-batch3-application-compatibility-v1',qualification:batch3,
+  paths:plan.changes.map(change=>change.path),unsupported:[],
+  worker:true,django:true,publication:false,nativeColdStartPerformed:false,
+ }:candidateCompatibilityProfile(plan.changes,{baseCommit});
+ const aiRepairBatch2Only=profile.aiRepairBatch2Only===true;
  const nativeAbandonmentOnly=profile.nativeAbandonmentOnly;
  const cleanedPreparationOnly=profile.cleanedPreparationOnly;
  if(cleanedPreparationOnly){
@@ -493,9 +819,14 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
  const reportFile=path.join(directory,'REPORT.json');
  const write=()=>fs.writeFile(reportFile,JSON.stringify(report,null,2)+'\n');
  await write();
- const candidate=path.join(directory,'candidate');let attached=false;
+ const candidate=path.join(directory,'candidate'),nativeApplication=path.join(directory,'native-application');let attached=false,nativeAttached=false;
  try{
   assert.equal(profile.unsupported.length,0,'本验证器没有覆盖这些变更，需补受影响兼容适配器：'+profile.unsupported.join(', '));
+  if(batch3||integration||nativeControl){
+   assert.deepEqual(plan.components,['worker','django']);
+   assert.equal(plan.scope,'full');
+   assert.equal(plan.migrate,false);
+  }
   const where=async name=>(await execute('C:/Windows/System32/where.exe',[name],{encoding:'utf8',windowsHide:true})).stdout.trim().split(/\r?\n/)[0];
   const shell5='C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',shell7=await where('pwsh.exe'),gitExe=await where('git.exe'),pythonExe=path.isAbsolute(python)?python:await where(python);
   const environment=candidateTestEnvironment({gitExe,shell5,shell7,pythonExe,directory});
@@ -506,7 +837,13 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   report.powerShellModules={root:environment.PSModulePath,tree:await hashTree(environment.PSModulePath)};
   await git(source,['worktree','add','--detach',candidate,commit]);attached=true;
   assert.ok(dependencies||(!profile.worker&&!profile.django&&!profile.publication),'该profile需要显式的只读依赖目录');
-  if(dependencies){
+  // This finite profile needs TypeScript for the original AST boundary check.
+  // Bind that complete package to the native installation, not the whole cache.
+  if(nativeControl){
+   report.dependencies=await bindNativeTypeScript({dependencies,sourceRoot:candidate});
+   await fs.mkdir(path.join(candidate,'node_modules'));
+   await fs.symlink(report.dependencies.physicalRoot,path.join(candidate,'node_modules','typescript'),'junction');
+  }else if(dependencies){
    assert.ok((await fs.stat(path.join(dependencies,'typescript','package.json'))).isFile(),'依赖不完整');
    await fs.symlink(path.resolve(dependencies),path.join(candidate,'node_modules'),'junction');
    const physicalRoot=await fs.realpath(dependencies);
@@ -522,6 +859,72 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   report.payload=[];
   for(const name of members){const file=path.join(candidate,name);assert.ok(!(await fs.lstat(file)).isSymbolicLink(),'候选包含链接：'+name);report.payload.push({path:name,sha256:sha(await fs.readFile(file))});}
   report.payloadSha256=sha(Buffer.from(JSON.stringify(report.payload)));
+  if(nativeControl){
+   assert.equal(report.payload.find(member=>member.path===nativeControl.test)?.sha256,nativeControl.testSha256,'Native scope checker bytes changed');
+   for(const [name,pin] of Object.entries(nativeControlTailPins))assert.equal(report.payload.find(member=>member.path===name)?.sha256,pin.sha256,'Native qualification tail bytes changed: '+name);
+   report.nativeQualificationTailPins=nativeControlTailPins;
+   report.applicationQualification=nativeControl;report.requiresNativeColdStart=true;
+   report.requiredNativeScopes=['windowsApplicationStack','piRunner','pandasBroker'];
+  }
+  if(integration){
+   assert.equal(report.payload.find(member=>member.path===integration.test)?.sha256,integration.testSha256,'组合检查器字节已变化');
+   report.applicationQualification=integration;
+   report.requiresNativeColdStart=true;
+   report.requiredNativeScopes=['windowsApplicationStack','piRunner','pandasBroker'];
+  }
+  if(profile.aiRepairBatch1Only){
+   const qualification=aiRepairBatch1Qualification;
+   assert.equal(await git(source,['rev-parse',qualification.app+'^{tree}']),qualification.tree);
+   await git(source,['merge-base','--is-ancestor',qualification.app,commit]);
+   assert.deepEqual(plan.components,['worker','django']);
+   assert.equal(plan.scope,'full');
+   assert.equal(plan.migrate,false);
+   assertAiRepairBatch1Bytes(report.payload);
+   report.applicationQualification=qualification;
+  }
+  if(aiRepairBatch2Only){
+   const q=aiRepairBatch2Qualification;
+   assert.equal(await git(source,['rev-parse',q.application+'^{tree}']),q.applicationTree);
+   await git(source,['merge-base','--is-ancestor',q.application,commit]);
+   assert.deepEqual(plan.components,['worker','django']);
+   assert.equal(plan.scope,'full');
+   assert.equal(plan.migrate,false);
+   assertAiRepairBatch2Bytes(report.payload);
+   const scopedPaths=Object.keys({...aiRepairBatch2Reviewed,...aiRepairBatch2Adapter});
+   const index=(await git(candidate,['ls-files','--stage','-z','--',...scopedPaths])).split('\0').filter(Boolean);
+   assert.equal(index.length,scopedPaths.length,'第二批Git索引成员不完整');
+   for(const record of index)assert.match(record,/^100644 [a-f0-9]{40} 0\t/,'第二批Git索引成员不是受审普通文件模式');
+   report.applicationQualification=q;
+   report.requiresNativeColdStart=true;
+   report.requiredNativeScopes=['pandasBroker'];
+  }
+  if(aiRepairBatch2Only||integration){
+   const files=['django-ai.ps1','django-local-service.ps1','worker-local-service.ps1','process-deadline.ps1'];
+   const pair=pandasRotationControllerPair,byController=[
+    [pair.installedAiSha256,pair.candidateAiSha256],
+    [pair.installedDjangoSha256,pair.candidateDjangoSha256],
+    [pair.workerSha256,pair.workerSha256],
+    [pair.transportSha256,pair.transportSha256],
+   ];
+   const originals={};
+   for(const [index,name] of files.entries()){
+    const raw=(await execute('git',['-C',source,'show',baseCommit+':tools/'+name],{encoding:'buffer',maxBuffer:8*1024*1024,windowsHide:true})).stdout;
+    const actual=await fs.readFile(path.join(candidate,'tools',name));
+    assert.deepEqual([sha(raw),sha(actual)],byController[index],'Pandas维护兼容控制器与冻结字节不符：'+name);
+    originals[name]=raw;
+    if(name==='django-local-service.ps1')assert.ok(comparePandasRotationInventoryOnly(raw.toString('utf8'),actual.toString('utf8')),'Django基础控制器只允许三项原位复制清单增量');
+   }
+   const originalAi=path.join(directory,'before-pandas-django-ai.ps1');
+   await fs.writeFile(originalAi,originals['django-ai.ps1']);
+   const [before,after]=await Promise.all([functionsOfExact(originalAi,shell7,environment),functionsOfExact(path.join(candidate,'tools/django-ai.ps1'),shell7,environment)]);
+   const stable=['Wait-PiWorkerExit','Stop-PiRuntime','Start-AiStack','Stop-AiStack','Stop-PandasSandbox','Invoke-PandasSystemctl'];
+   for(const name of stable){
+    const prior=before.functions.find(f=>f.name===name)?.text;
+    assert.ok(prior,'前驱缺少生命周期函数：'+name);
+    assert.equal(after.functions.find(f=>f.name===name)?.text,prior,'非本次Pandas接缝的生命周期函数已变化：'+name);
+   }
+   report.pandasControllerQualification={pair,unchangedFunctions:stable,runtimeObservedByVerifier:false};
+  }
   if(schemaAdmissionOnly){
    const mutable=new Set(profile.paths);for(const entry of preflightBaseline.payload)if(!entry.path.startsWith('docs/')&&!entry.path.startsWith('tests/')&&!mutable.has(entry.path))assert.equal(sha(await fs.readFile(path.join(candidate,entry.path))),entry.sha256,'前轮应用/生命周期字节变化：'+entry.path);
    await run('schema-current-proof-binding',pythonExe,['tests/release-chain-schema-binding.py'],'package-integrity');
@@ -547,7 +950,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    report.readinessDjangoCopyOnly=true;
    report.readinessControllerPair={installedSourceSha256:sha(old),candidateSha256:sha(current),runtimeObservedByVerifier:false};
   }
-  if(profile.django&&!profile.readinessStabilityOnly){
+  if(profile.django&&!profile.readinessStabilityOnly&&!profile.aiRepairBatch1Only&&!aiRepairBatch2Only&&!integration&&!nativeControl){
    const old=path.join(directory,'before-django.ps1');
    const bytes=(await execute('git',['-C',source,'show',baseCommit+':tools/django-local-service.ps1'],{encoding:'buffer',maxBuffer:8*1024*1024,windowsHide:true})).stdout;
    await fs.writeFile(old,bytes);
@@ -618,6 +1021,64 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    }catch(error){await fs.writeFile(output,error.stdout??Buffer.alloc(0));await fs.writeFile(errors,error.stderr??Buffer.alloc(0));item.error=String(error.message);item.exitCode=error.code??null;item.status='failed';throw error;}
    finally{item.elapsedMs=Date.now()-started;item.stdoutSha256=sha(await fs.readFile(output));item.stderrSha256=sha(await fs.readFile(errors));await write();}
   }
+  if(nativeControl){
+   await run('native-scope-maintenance-and-credential-boundaries',process.execPath,
+    ['--test','--test-reporter=tap',nativeControl.test,'tests/native-isolation-qualification.test.mjs','tests/native-isolation-credential-gate.test.mjs'],
+    'native-entry-boundary',{...environment,TERUISI_NATIVE_PS5:shell5,TERUISI_NATIVE_PS7:shell7});
+   await run('native-worker-integrity',process.execPath,
+    ['--test','--test-reporter=tap','tests/worker-source-read-once.test.mjs','tests/release-source-binding.test.mjs','tests/release-preparation-runtime-config.test.mjs'],'package-integrity');
+   await git(source,['worktree','add','--detach',nativeApplication,nativeControl.application]);nativeAttached=true;
+   const verified=path.join(directory,'native-verified.json');
+   await run('original-native-two-cycle-evidence',process.execPath,
+    ['tools/verify-native-control-evidence.mjs','--application-root',nativeApplication,'--candidate-root',candidate,'--out',verified],'native-lifecycle-evidence');
+   report.nativeVerification=JSON.parse(await fs.readFile(verified,'utf8'));
+   assert.equal(report.nativeVerification.nativeColdStart,true);assert.equal(report.nativeVerification.executedApplicationCommit,nativeControl.application);
+   assert.equal(report.nativeVerification.evidenceSha256,nativeControl.evidenceSha256);
+   report.nativeVerificationSha256=sha(await fs.readFile(verified));
+   report.dependencyValidation={mode:'native-runtime-evidence-and-bounded-typescript',checkDependencyScope:'typescript-package-only',...report.nativeVerification.nativeDependencyEvidence};
+  }else if(integration){
+   await run('ai-repair-integration-scope-and-entry',process.execPath,['--test',integration.test],'native-entry-boundary',
+    {...environment,TERUISI_AI_INTEGRATION_PS5:shell5,TERUISI_AI_INTEGRATION_PS7:shell7});
+   await run('ai-repair-integration-maintenance-admission',process.execPath,
+    ['--test','--test-name-pattern=^batch 2 maintenance |^reviewed Django controller generations',
+     'tests/ai-repair-batch2-compatibility.test.mjs','tests/manual-maintenance-continuation.test.mjs'],'isolated-functions');
+   await run('ai-repair-integration-publication',process.execPath,
+    ['--test','--test-concurrency=1','--test-name-pattern=Pandas|Pi image-input changes|interrupted Pi image build|Runner source-only release',
+     'tests/publish-main-pandas.test.mjs','tests/publish-prepared-main.test.mjs'],'isolated-functions');
+   await run('worker-integrity',process.execPath,['--test','tests/worker-source-read-once.test.mjs','tests/release-source-binding.test.mjs','tests/release-preparation-runtime-config.test.mjs'],'package-integrity');
+   await run('powershell-entry',pythonExe,['-m','unittest','discover','-s','tests','-p','test_pi150_recovery_entry.py'],'native-entry-boundary');
+   await run('actual-django-package',shell7,['-NoProfile','-NonInteractive','-File','tests/release-candidate-package.test.ps1','-AiRepairBatch2'],'package-integrity');
+  }else if(profile.aiRepairBatch1Only){
+   report.requiresNativeColdStart=true;
+   report.requiredNativeScopes=['piRunner'];
+   const output=path.join(directory,'ai-repair-batch1-verified-evidence.json');
+   await run('ai-repair-batch1-profile',process.execPath,['--test','--test-name-pattern=ai repair batch1','tests/verify-release-candidate.test.mjs'],'isolated-functions');
+   await run('ai-repair-batch1-compatibility',process.execPath,['--test','tests/ai-repair-batch1-compatibility.test.mjs'],'native-entry-boundary',
+    {...environment,TERUISI_AI_BATCH1_EVIDENCE_OUTPUT:output,TERUISI_AI_BATCH1_PYTHON:pythonExe});
+   const verified=JSON.parse(await fs.readFile(output,'utf8'));
+   assert.equal(verified.scopedNativeEvidence?.piRunner?.status,'passed','缺少本批Pi原入口启动证据');
+   report.reusedEvidence=verified.reusedEvidence;
+   report.scopedNativeEvidence=verified.scopedNativeEvidence;
+   report.frozenPublisherClosure=verified.frozenPublisherClosure;
+   report.unchangedControllers=verified.unchangedControllers;
+   report.piImageInputs=verified.imageInputs;
+   await run('powershell-entry',pythonExe,['-m','unittest','discover','-s','tests','-p','test_pi150_recovery_entry.py'],'native-entry-boundary');
+   await run('actual-django-package',shell7,['-NoProfile','-NonInteractive','-File','tests/release-candidate-package.test.ps1'],'package-integrity');
+  }else if(aiRepairBatch2Only){
+   const evidenceFile=path.join(directory,'ai-repair-batch2-verified-evidence.json');
+   await run('ai-repair-batch2-compatibility',process.execPath,['--test','--test-name-pattern=^batch 2 |^reviewed Django controller generations',
+    'tests/ai-repair-batch2-compatibility.test.mjs','tests/manual-maintenance-continuation.test.mjs'],'native-entry-boundary',
+    {...environment,TERUISI_AI_BATCH2_EVIDENCE_OUTPUT:evidenceFile,TERUISI_AI_BATCH2_PYTHON:pythonExe,
+     TERUISI_AI_BATCH2_PS5:shell5,TERUISI_AI_BATCH2_PS7:shell7});
+   const verified=JSON.parse(await fs.readFile(evidenceFile,'utf8'));
+   assert.equal(verified.scopedNativeEvidence?.pandasBroker?.status,'passed','缺少本批Pandas原生启动证据');
+   report.frozenPublisherClosure=verified.frozenPublisherClosure;
+   report.reusedEvidence=verified.reusedEvidence;
+   report.scopedNativeEvidence=verified.scopedNativeEvidence;
+   await run('ai-repair-batch2-publication',process.execPath,['--test','--test-name-pattern=Pandas','tests/publish-main-pandas.test.mjs','tests/publish-prepared-main.test.mjs'],'isolated-functions');
+   await run('powershell-entry',pythonExe,['-m','unittest','discover','-s','tests','-p','test_pi150_recovery_entry.py'],'native-entry-boundary');
+   await run('actual-django-package',shell7,['-NoProfile','-NonInteractive','-File','tests/release-candidate-package.test.ps1','-AiRepairBatch2'],'package-integrity');
+  }else{
   if(profile.readinessStabilityOnly){
    await run('readiness-profile',process.execPath,['--test','--test-name-pattern=readiness stability','tests/verify-release-candidate.test.mjs'],'isolated-functions');
    await run('readiness-entry-closures',process.execPath,['--test','tests/readiness-entry-compatibility.test.mjs'],'package-integrity');
@@ -686,6 +1147,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    if(!profile.readinessStabilityOnly)await run('powershell-entry',pythonExe,['-m','unittest','discover','-s','tests','-p','test_pi150_recovery_entry.py'],'native-entry-boundary');
    await run('actual-django-package',shell7,['-NoProfile','-NonInteractive','-File','tests/release-candidate-package.test.ps1'],'package-integrity');
   }
+  }
   assert.equal(await git(candidate,['status','--porcelain']),'','测试修改了候选工作树');
   for(const member of report.payload)assert.equal(sha(await fs.readFile(path.join(candidate,member.path))),member.sha256,'验证期间候选字节变化：'+member.path);
   if(report.dependencies)assert.deepEqual(await hashTree(report.dependencies.physicalRoot),report.dependencies.tree,'验证期间依赖字节发生变化');
@@ -693,17 +1155,50 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   assert.deepEqual(await hashTree(report.powerShellModules.root),report.powerShellModules.tree,'验证期间PowerShell模块发生变化');
   report.evidence.packageIntegrity=report.checks.some(c=>c.kind==='package-integrity');
   report.evidence.nativeEntryBoundary=report.checks.some(c=>c.kind==='native-entry-boundary');
+  if(nativeControl){report.evidence.nativeColdStart=report.nativeVerification.nativeColdStart;report.evidence.nativeIsolationCredentialGate=true;}
   if(fixedAdminOnly){report.evidence.unmodifiedApplicationAndPi=reusedBaseline.evidence;report.evidence.fixedAdminQueueResolution=true;}
   if(schemaAdmissionOnly){report.evidence.unmodifiedApplicationAndPi=preflightBaseline.evidence;report.evidence.fixedSchemaQueueResolution=true;}
   if(nativeAbandonmentOnly)report.evidence.fixedNativeAbandonmentResolution=true;
   if(cleanedPreparationOnly)report.evidence.fixedCleanedPreparationResolution=true;
   report.nativeColdStartReason=profile.readinessStabilityOnly?'Not executed: readiness budgets, bounded observations, direct caller and frozen/control import closures, and the exact old/new controller admission pair only; Django differs solely by the helper copy-list item. Package and isolated entry checks do not prove a native cold start.':profile.workerJsonFailureCauseOnly?'Not executed: exact AST-qualified terminal catch only; in -Json mode the real failure cause now reaches stderr while the stdout reconciliation key set is byte-identical. All 81 functions, the parameter block and the other 42 top-level statements are byte-identical, so no Start/Stop routing, maintenance, lock, drain, receipt or process-tree semantics changed.':profile.dingtalkScreenshotAclOnly?'Not executed: exact AST-qualified DingTalk screenshot ACL tolerance only (Assert-DingTalkScreenshotProfile plus one added helper); every other function and Start/Stop routing, including the Pi stop protocol, is byte-identical.':profile.piExitObservation?'Not executed: exact AST-qualified Windows Pi exit observer only; real private empty pi_worker.main and same-token Stop tested, fixed WSL runner lifecycle not executed.':'Not executed: profiles cover package digests, admission and native command boundaries; no Start/Stop routing semantics changed.';
-  report.status='passed';
+  if(profile.aiRepairBatch1Only){
+   report.evidenceScope={
+    packageIntegrity:'Private Django copy, dependencies, ACL and local Wrangler; frozen Pi image inputs. No formal Worker release.',
+    nativeEntryBoundary:'Frozen publisher import closure and actual PS entry parameters with probes stopped before the first side effect.',
+    nativeColdStart:'Original Pi Runner main and signed health passed in scope. Full Windows application stack cold start was not executed.',
+   };
+   report.nativeColdStartReason=report.evidenceScope.nativeColdStart;
+  }
+  if(aiRepairBatch2Only){
+   report.evidenceScope={
+    packageIntegrity:'Private Django copy, deployment manifest, ACL, dependency and local Wrangler checks with stopped-process and schema observations substituted; no formal Worker release.',
+    nativeEntryBoundary:'Frozen publisher import closure, private predecessor admission, and actual Windows PowerShell 5 and PowerShell 7 parameters up to the original mutex before effects.',
+    nativeColdStart:'Original Pandas Broker lifecycle, root-owned rotation and signed readiness were verified in the private WSL scope. Full Windows application stack cold start was not executed.',
+   };
+   report.nativeColdStartReason=report.evidenceScope.nativeColdStart;
+  }
+  if(integration){
+   report.evidenceScope={
+    packageIntegrity:'Worker source/dependency binding and private Django copy, deploy, ACL and local Wrangler checks; no formal release.',
+    nativeEntryBoundary:'Frozen publisher imports, private predecessor admission, and the actual PowerShell 5.1 and 7 parameter dispatcher up to its mutex. Publication ordering and recovery are checked with native action stand-ins.',
+    nativeColdStart:'Pending separate Windows application stack, Pi Runner and Pandas Broker evidence for the pinned combined application source.',
+   };
+   report.nativeColdStartReason=report.evidenceScope.nativeColdStart;
+  }
+  if(nativeControl){
+   report.evidenceScope={packageIntegrity:'Frozen application materialization matches the original native Worker source tree and 1655 deployed Django source files; native dependency and package checks reused by exact binding.',
+    nativeEntryBoundary:'Original system Start/Stop, native COM shortcut adoption, exact maintenance tuple/helper pins, and real PS5/PS7 credential-entry refusal. No publication.',
+    nativeColdStart:'Two original Windows full Start/Stop cycles on b728 with 23 real readiness responses and signed Pi/Pandas probes. Final helper differs only by the separately verified denial of an unused credential action.'};
+   report.nativeColdStartReason=report.evidenceScope.nativeColdStart;
+  }
+  report.status=integration?'native-cold-start-pending':'passed';
  }catch(error){report.status='failed';report.error=String(error.message);}
  finally{
   report.completedAt=new Date().toISOString();
+  if(nativeAttached){try{await git(source,['worktree','remove',nativeApplication]);report.nativeApplicationWorktreeRemoved=true;}catch(error){report.nativeApplicationWorktreeRemoved=false;report.cleanupError=String(error.message);report.status='failed';}}
   if(attached){
    try{
+    if(nativeControl&&report.dependencies){const link=path.join(candidate,'node_modules','typescript');let info;try{info=await fs.lstat(link);}catch(error){if(error.code!=='ENOENT')throw error;}if(info){assert.ok(info.isSymbolicLink());assert.equal(await fs.realpath(link),report.dependencies.physicalRoot);await fs.unlink(link);}try{await fs.rmdir(path.dirname(link));}catch(error){if(error.code!=='ENOENT')throw error;}}
     const modules=path.join(candidate,'node_modules');try{if((await fs.lstat(modules)).isSymbolicLink())await fs.unlink(modules);}catch(e){if(e.code!=='ENOENT')throw e;}
     await git(source,['worktree','remove',candidate]);report.candidateWorktreeRemoved=true;
    }catch(error){report.candidateWorktreeRemoved=false;report.cleanupError=String(error.message);report.status='failed';}

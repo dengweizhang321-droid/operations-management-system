@@ -6,9 +6,10 @@ import {createHash,randomUUID} from 'node:crypto';
 import {assertFrozenSource} from './frozen-main-source.mjs';
 import {createMainPublicationStep} from './publish-main-step.mjs';
 import {finishMainPublication} from './publish-main-tail.mjs';
+import {pandasRuntimeChanged} from './publish-main-pandas.mjs';
 import {reconcileMainPiUpgrade} from './publish-main-pi-reconciliation.mjs';
 import {assertPublicationRetired,capturePublicationOwner} from './publish-main-owner.mjs';
-import {releaseLeaseTtlMs,releaseLeaseVersion} from './publish-prepared-main.mjs';
+import {releaseLeaseTtlMs,releaseLeaseVersion,verifyPreparedPiImageSelection} from './publish-prepared-main.mjs';
 export const resumeProtocol='teruisi-pi-main-resume-v1';
 const hash=b=>createHash('sha256').update(b).digest('hex');
 const sha=async file=>hash(await fs.readFile(file));
@@ -51,6 +52,8 @@ export async function inspectMainPublication(attempt,context){
  const source=path.resolve(started.source),packet=path.dirname(source);
  assert.equal(out,path.join(packet,'publish-'+started.mainCommit.slice(0,12)),'原发布目录与来源不一致');
  const request=await read(path.join(packet,'main-release-request.json')),prepared=await read(path.join(out,'preparation/PREPARED.json'));
+ assert.ok(!pandasRuntimeChanged(request)&&!prepared.pandasBrokerRotation&&!started.pandasBrokerRotation,
+  'Pandas轮换保留原intent；Pi续接入口不能跳过本域原启动证明或自动重放切换');
  assert.equal(request.latestMainRelease,true);assert.equal(request.version,'teruisi-frozen-latest-main-request-v1');
  assert.equal(request.mainCommit,started.mainCommit);assert.equal(prepared.version,'teruisi-main-preparation-v1');
  assert.equal(hash(Buffer.from(JSON.stringify(request))),started.requestSha256);assert.equal(prepared.requestSha256,started.requestSha256);
@@ -63,6 +66,7 @@ export async function inspectMainPublication(attempt,context){
  assert.deepEqual(prepared.sourceIdentity,{commit:started.mainCommit,tree:started.sourceTree});
  const identity=await (context.sourceIdentity??(()=>assertFrozenSource({source,mainCommit:started.mainCommit,sourceTree:request.sourceTree})))();
  assert.deepEqual(identity,prepared.sourceIdentity,'原冻结来源发生变化');
+ await verifyPreparedPiImageSelection(request,prepared,path.join(out,'preparation'),identity);
  const failure=await exists(path.join(out,'FAILED.json'))?await read(path.join(out,'FAILED.json')):null;
  for(const file of [path.join(out,'SUCCESS.json'),path.join(resumed,'SUCCESS.json')])if(await exists(file)){
   const success=await read(file);assert.equal(success.status,'deployed_and_ready');assert.equal(success.mainCommit,request.mainCommit);

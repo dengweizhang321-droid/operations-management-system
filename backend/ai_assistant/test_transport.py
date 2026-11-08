@@ -251,7 +251,11 @@ class ModelDnsTests(SimpleTestCase):
                 with patch.object(transport, "resolve_addresses", return_value=addresses("8.8.4.4")):
                     with self.assertRaises(transport.ProviderHttpError) as caught:
                         transport.bounded_json(URL, {}, {"Authorization": "Bearer private-key-fixture"})
-                self.assertEqual(caught.exception.diagnostics, {"httpStatus": status})
+                self.assertEqual(caught.exception.diagnostics["httpStatus"], status)
+                self.assertEqual(caught.exception.diagnostics["appStatus"], 503)
+                self.assertEqual(caught.exception.diagnostics["stage"], "provider_http")
+                self.assertEqual(caught.exception.diagnostics["requestStarted"], True)
+                self.assertIn("provider_http", caught.exception.diagnostics["timingsMs"])
                 self.assertEqual(caught.exception.code, "provider_rate_limited" if status == 429 else "provider_error")
                 self.assertNotIn("private-", str(caught.exception))
                 connections[0].request.assert_called_once()
@@ -428,7 +432,7 @@ class ModelDnsTests(SimpleTestCase):
                 self.assertEqual(caught.exception.code, "provider_subscription_invalid")
                 self.assertIn("订阅", str(caught.exception))
                 self.assertNotIn("private-", str(caught.exception))
-                self.assertEqual(caught.exception.diagnostics, {"httpStatus": 400})
+                self.assertEqual(caught.exception.diagnostics["httpStatus"], 400)
                 connections[0].request.assert_called_once()
                 if streaming:
                     collector.feed.assert_not_called()
@@ -443,6 +447,61 @@ class ModelDnsTests(SimpleTestCase):
             self.assertNotIn("private", str(error))
         error = transport.ProviderHttpError(429, b'{"error":{"code":"InvalidSubscription"}}')
         self.assertEqual(error.code, "provider_rate_limited")
+
+    def test_http_429_never_reads_rejection_body_or_retries(self):
+        _, _, connections = self.wire({})
+        response = connections[0].getresponse.return_value
+        response.status = 429
+        response.read1.side_effect = TimeoutError("private-synthetic-body")
+        with patch.object(transport, "resolve_addresses", return_value=addresses("8.8.4.4")):
+            with self.assertRaises(transport.ProviderHttpError) as caught:
+                transport.bounded_json(URL, {}, {})
+        self.assertEqual(caught.exception.code, "provider_rate_limited")
+        response.read1.assert_not_called()
+        connections[0].request.assert_called_once()
+
+    def test_complete_json_prefix_is_rejected_when_content_length_is_incomplete(self):
+        _, _, connections = self.wire({"ok": True})
+        response = connections[0].getresponse.return_value
+        response.length = 20
+        with patch.object(transport, "resolve_addresses", return_value=addresses("8.8.4.4")):
+            with self.assertRaises(transport.InvalidProviderResponse) as caught:
+                transport.bounded_json(URL, {}, {})
+        self.assertEqual(caught.exception.diagnostics["reason"], "response_truncated")
+        self.assertTrue(caught.exception.diagnostics["requestStarted"])
+        connections[0].request.assert_called_once()
+
+    def test_rejection_projection_only_receives_complete_bounded_body(self):
+        for failure in ("partial", "oversized", "timeout", None):
+            with self.subTest(failure=failure):
+                _, _, connections = self.wire({})
+                response = connections[0].getresponse.return_value
+                response.status = 403
+                private = b'{"requestId":"private-fixture"}'
+                response.read1.side_effect = (
+                    [TimeoutError("private-body")] if failure == "timeout"
+                    else [b"x" * 16385] if failure == "oversized" else [private, b""]
+                )
+                response.length = 1 if failure == "partial" else 0
+                projection = MagicMock(return_value={
+                    "platformCode": "Forbidden",
+                    "platformCodeSha256": "a" * 64,
+                    "requestIdSha256": "private-fixture",
+                    "body": private,
+                })
+                with patch.object(transport, "resolve_addresses", return_value=addresses("8.8.4.4")):
+                    with self.assertRaises(transport.ProviderHttpError) as caught:
+                        transport._bounded_json(URL, {}, rejection_summary=projection)
+                self.assertEqual(caught.exception.diagnostics["httpStatus"], 403)
+                self.assertNotIn("private", repr(vars(caught.exception)))
+                if failure:
+                    projection.assert_not_called()
+                else:
+                    projection.assert_called_once_with(private)
+                    self.assertEqual(caught.exception.rejection_summary, {
+                        "platformCode": "Forbidden", "platformCodeSha256": "a" * 64,
+                    })
+                connections[0].request.assert_called_once()
 
     def test_oversized_error_body_stops_at_the_diagnostic_bound_without_retry(self):
         _, _, connections = self.wire({})

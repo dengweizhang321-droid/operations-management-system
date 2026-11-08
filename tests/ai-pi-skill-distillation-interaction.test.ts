@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createElement } from "react";
 import AiPiSkillDistillation from "../app/ai-pi-skill-distillation";
+import AiDistilledMethodPublication from "../app/ai-distilled-method-publication";
 
 // Install the matching renderer in an ignored, isolated directory. It resolves
 // this worktree's existing React; no browser or production dependency changes.
@@ -144,7 +145,7 @@ test("real component uses Unicode code points for every schema string boundary a
   for (const [, maximum, set] of boundaries) set(exact, "甲".repeat(maximum - 1) + "📊");
   assert.equal(exact.body.length, 2001);
   assert.equal(Array.from(exact.body).length, 2000);
-  const fixture = harness(); fixture.state.candidate = candidate(exact);
+  const fixture = harness(); fixture.state.version = newVersion; fixture.state.candidate = candidate(exact);
   const root = await fixture.mount();
   try {
     assert.doesNotMatch(text(root.toJSON()), /候选正文格式异常/);
@@ -165,4 +166,76 @@ test("real component uses Unicode code points for every schema string boundary a
       assert.equal(button(root, "退回候选").props.disabled, false, name);
     } finally { await act(() => root.unmount()); }
   }
+});
+
+test("approval cannot silently use a different report version", options, async () => {
+  const fixture = harness(); fixture.state.candidate = candidate();
+  const root = await fixture.mount();
+  try {
+    assert.match(text(root.toJSON()), /报告依据已有更新/);
+    assert.equal(button(root, "批准此版本").props.disabled, true);
+    await act(async () => { (button(root, "批准此版本").props.onClick as () => void)(); });
+    assert.equal(fixture.state.writes.length, 0);
+    await click(button(root, "退回候选"));
+    assert.equal(fixture.state.writes[0].status, "rejected");
+  } finally { await act(() => root.unmount()); }
+});
+
+test("publisher binds the approved candidate and library versions, recovers a lost reply by reading the exact candidate", options, async () => {
+  const chosen = {
+    id: "candidate", operationId: "synthetic-op", version: 7, contentDigest: "c".repeat(64), reportVersionDigest: newVersion,
+    reviewedBy: "owner@example.invalid", reviewedAt: null, reviewNote: "synthetic review", unverifiedRecommendations: 1,
+    method: { name: "合成方法", description: "合成目的", body: "按日期核对完整性。" },
+    publication: { state: "unpublished", skillId: "candidate-method", libraryVersion: 4, publishedLibraryVersion: null as number | null },
+  };
+  const reads: string[] = [];
+  const writes: unknown[] = [];
+  let finish!: () => void;
+  let changes = 0;
+  let loseRead = false;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(String(input), "https://isolated.invalid");
+    if (init.method === "POST") {
+      assert.equal(url.pathname, "/api/ai/pi/skill-candidates/candidate/publish");
+      writes.push(JSON.parse(String(init.body)));
+      await new Promise<void>(resolve => { finish = resolve; });
+      chosen.publication = { ...chosen.publication, state: "enabled", libraryVersion: 5, publishedLibraryVersion: 5 };
+      throw Error("connection lost after commit");
+    }
+    reads.push(url.search);
+    if (loseRead) { loseRead = false; return Response.json({ error: "unavailable" }, { status: 503 }); }
+    return Response.json({ items: [chosen], domains: { netshop: "网店" }, hasMore: false });
+  };
+  let root!: Root;
+  await act(async () => { root = create(createElement(AiDistilledMethodPublication, { onLibraryChange: () => { changes++; } })); });
+  try {
+    await click(button(root, "查看已批准候选"));
+    await click(button(root, "查看候选与发布记录"));
+    assert.deepEqual(reads, ["?publicationPage=1", "?publicationId=candidate"]);
+    assert.match(text(root.toJSON()), /按日期核对完整性/);
+    const submit = () => (root.root.findAllByType("form")[0].props.onSubmit as (event: unknown) => void)({ preventDefault() {} });
+    await act(async () => { submit(); });
+    assert.equal(writes.length, 0);
+    const change = (node: Node, target: unknown) => act(async () => { (node.props.onChange as (event: unknown) => void)({ target }); });
+    await change(root.root.findAllByType("input")[0], { checked: true });
+    await change(root.root.findAllByType("textarea")[0], { value: "合成触发" });
+    assert.equal(button(root, "发布为文字方法（基于 v4）").props.disabled, true);
+    await change(root.root.findAllByType("input")[1], { checked: true });
+    await act(async () => { submit(); submit(); });
+    assert.match(text(root.toJSON()), /正在提交此候选/);
+    assert.equal(writes.length, 1);
+    assert.deepEqual(writes[0], { expectedVersion: 7, contentDigest: chosen.contentDigest,
+      expectedLibraryVersion: 4, domains: ["netshop"], keywords: ["合成触发"] });
+    loseRead = true;
+    await act(async () => { finish(); });
+    assert.match(text(root.toJSON()), /发布状态待核实/);
+    assert.equal(button(root, "发布为文字方法（基于 v4）").props.disabled, true);
+    assert.equal(changes, 0);
+    await click(button(root, "刷新原候选"));
+    assert.equal(reads.at(-1), "?publicationId=candidate");
+    assert.match(text(root.toJSON()), /已发布 · 已启用.*发布版本 v5/);
+    assert.equal(root.root.findAllByType("form").length, 0);
+    assert.equal(writes.length, 1);
+    assert.equal(changes, 1);
+  } finally { await act(() => root.unmount()); }
 });

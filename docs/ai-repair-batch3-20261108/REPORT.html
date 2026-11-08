@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>TERUISI AI 修复第三批</title>
+<style>
+  :root{color-scheme:light;--ink:#1c2d32;--muted:#4b6268;--line:#cadbdc;--accent:#165c61;--paper:#f2f7f6}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.65 system-ui,"Microsoft YaHei",sans-serif}
+  main{max-width:960px;margin:auto;padding:34px 22px 52px}
+  h1{font-size:clamp(26px,5vw,42px);line-height:1.2;margin:4px 0 15px}
+  h2{margin:0 0 10px;font-size:23px}
+  p{margin:8px 0 14px}
+  .eyebrow{font-size:13px;font-weight:700;letter-spacing:.11em;color:var(--accent)}
+  .muted{color:var(--muted)}
+  .tabs{display:flex;flex-wrap:wrap;gap:8px;margin:24px 0 12px}
+  button,select{font:inherit;color:var(--ink);background:white;border:1px solid var(--line);border-radius:7px;padding:7px 11px}
+  button{cursor:pointer}
+  button[aria-selected="true"]{background:var(--accent);color:white;border-color:var(--accent)}
+  section{border:1px solid var(--line);border-radius:10px;background:white;padding:22px}
+  summary{cursor:pointer;font-weight:650;margin-top:12px;color:var(--accent)}
+  label{font-weight:650}
+  output{display:block;margin:12px 0;padding:10px 13px;border-left:3px solid var(--accent);background:var(--paper)}
+  code{overflow-wrap:anywhere}
+  a{color:var(--accent)}
+  :focus-visible{outline:3px solid #278792;outline-offset:3px}
+  @media(max-width:480px){main{padding:22px 12px}section{padding:15px}button,select{max-width:100%}}
+</style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">TERUISI 运营管理系统 · 2026-11-08</div>
+  <h1>AI 修复第三批</h1>
+  <p>模型能力准入、报告文字方法、受管 Pi 技能包和京东经营日报单周期。</p>
+  <p class="muted">本地审阅文件。选择器使用合成状态，可离线检查场景区分。此文件不会访问供应商、改变配置、发布技能或投递日报。</p>
+  <div class="tabs" role="tablist" aria-label="第三批交付">
+    <button type="button" id="tab-model" role="tab" aria-controls="model" aria-selected="true">模型准入</button>
+    <button type="button" id="tab-method" role="tab" aria-controls="method" aria-selected="false" tabindex="-1">文字方法</button>
+    <button type="button" id="tab-pi" role="tab" aria-controls="pi" aria-selected="false" tabindex="-1">Pi 技能包</button>
+    <button type="button" id="tab-daily" role="tab" aria-controls="daily" aria-selected="false" tabindex="-1">经营日报</button>
+  </div>
+  <section id="model" role="tabpanel" aria-labelledby="tab-model">
+    <h2>每个图片场景单独取得准入</h2>
+    <p>系统按图片配置版本、场景和尺寸核验。现有账户仍需提供实际生成证据。</p>
+    <label for="scene">查看图片场景</label>
+    <select id="scene">
+      <option value="product_main">商品主图</option>
+      <option value="product_detail">商品详情图</option>
+      <option value="promotion">活动图</option>
+    </select>
+    <output id="scene-result" for="scene" aria-live="polite">商品主图 · 1024×1024 · 待真实账户验证</output>
+    <details>
+      <summary>报告提炼模型的准入</summary>
+      <p>原生 JSON Schema 探测通过后，所选模型版本才可执行报告提炼。普通 JSON 回复和工具调用 schema 各有自己的能力记录。</p>
+    </details>
+  </section>
+  <section id="method" role="tabpanel" aria-labelledby="tab-method" hidden>
+    <h2>报告提炼为可选文字方法</h2>
+    <p>生成候选草稿 → 任务所有者审核 → 有权限的管理员明确发布 → 报告资源库记录版本。停用后，已经绑定该版本的任务继续使用原快照。</p>
+    <details>
+      <summary>查看发布回执边界</summary>
+      <p>响应丢失时按原候选查询发布记录。文字方法只用于授权范围内的报告指导，Pi 执行包由独立的受管包流程提供。</p>
+    </details>
+  </section>
+  <section id="pi" role="tabpanel" aria-labelledby="tab-pi" hidden>
+    <h2>按版本加载受管 Pi 技能包</h2>
+    <p>每次任务绑定所选技能 ID、包版本和资源摘要。新任务遇到版本变更或撤回时，需要重新选择。</p>
+    <details>
+      <summary>查看真实隔离产物</summary>
+      <p><code>excel-report</code> 包 1.3.0 在排队后保持原版本。真实容器通过签名链路加载它并生成 Excel，模型回复为合成夹具。</p>
+      <p><a href="file:///D:/codex-artifacts/ai-repair-batch3-20261108/w11b/w11-reviewed.xlsx">打开隔离测试工作簿</a></p>
+    </details>
+  </section>
+  <section id="daily" role="tabpanel" aria-labelledby="tab-daily" hidden>
+    <h2>京东志高商用设备旗舰店</h2>
+    <p>日报分别读取本店 ERP 净销售、计入仓库存。两项来源必须满足原时点和发布版本要求，缺数时在原时点等待。</p>
+    <details>
+      <summary>查看单周期验证</summary>
+      <p>同一时点形成一条运行。生成后确认原报告与本人目标，再观察原单聊回执。模型和钉钉响应使用合成夹具。停用后没有新增运行，生产调度待采用。</p>
+    </details>
+  </section>
+</main>
+<script>
+  const tabs = [...document.querySelectorAll('[role=tab]')];
+  function selectTab(active) {
+    for (const tab of tabs) {
+      const selected = tab === active;
+      tab.setAttribute('aria-selected', String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+      document.getElementById(tab.getAttribute('aria-controls')).hidden = !selected;
+    }
+  }
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => selectTab(tab));
+    tab.addEventListener('keydown', event => {
+      const direction = { ArrowLeft: -1, ArrowRight: 1 }[event.key];
+      if (!direction) return;
+      event.preventDefault();
+      const next = tabs[(index + direction + tabs.length) % tabs.length];
+      selectTab(next);
+      next.focus();
+    });
+  });
+  const scenes = {
+    product_main: ['商品主图', '1024×1024'],
+    product_detail: ['商品详情图', '1024×1536'],
+    promotion: ['活动图', '1536×1024'],
+  };
+  const scene = document.getElementById('scene');
+  scene.addEventListener('change', () => {
+    document.getElementById('scene-result').textContent = [...scenes[scene.value], '待真实账户验证'].join(' · ');
+  });
+  if (location.hash === '#offline-check') {
+    scene.value = 'product_detail';
+    scene.dispatchEvent(new Event('change'));
+    const detail = document.getElementById('scene-result').textContent.includes('1024×1536');
+    scene.value = 'promotion';
+    scene.dispatchEvent(new Event('change'));
+    const campaign = document.getElementById('scene-result').textContent.includes('1536×1024');
+    tabs[2].click();
+    document.querySelector('#pi summary').click();
+    const localFile = location.protocol === 'file:' && /^\/D:\//i.test(location.pathname);
+    const opened = !document.getElementById('pi').hidden && document.querySelector('#pi details').open;
+    document.documentElement.dataset.offlineCheck = localFile && detail && campaign && opened &&
+      document.documentElement.scrollWidth <= innerWidth &&
+      performance.getEntriesByType('resource').length === 0 ? 'passed' : 'failed';
+  }
+</script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { nativeIsolation, nativePath } from './native-isolation.mjs';
 import { createServer } from "node:net";
 import { randomUUID } from "node:crypto";
 import {
@@ -55,7 +56,7 @@ export const successorDirectoryName = "worker-release-successors";
 export const rotationPlanDirectoryName = "worker-release-rotation-plans";
 export const rotationConsumptionDirectoryName = "worker-release-rotation-consumptions";
 export const publicationStagingDirectoryName = "worker-release-publication-staging";
-export const djangoSalesRuntimeRoot = "D:\\teruisi-runtime\\django-sales";
+export const djangoSalesRuntimeRoot = nativePath('django', "D:\\teruisi-runtime\\django-sales");
 
 const modulePath = fileURLToPath(import.meta.url);
 const hex64 = /^[0-9a-f]{64}$/;
@@ -64,7 +65,7 @@ const cutoverIdPattern = /^[A-Za-z0-9._:-]{8,128}$/;
 // Reviewed bounded extension; retain and validate the complete original chain.
 // See docs/worker-successor-capacity-512-20261020/REPORT.md. No environment/CLI override is allowed.
 const maximumSuccessors = 512;
-const rotationLockPipe = "\\\\.\\pipe\\TERUISI.Worker.ReleaseRotation.v1";
+const rotationLockPipe = "\\\\.\\pipe\\TERUISI.Worker.ReleaseRotation.v1" + (nativeIsolation ? '.isolated.' + nativeIsolation.id : '');
 const rotationLeases = new WeakSet();
 export async function withRotationLock(operation, preparationWait) {
   const unlock = await acquireRotationLock(preparationWait);
@@ -656,6 +657,28 @@ export async function resolveEffectiveReleaseChain(options = {}) {
 }
 
 async function readCutoverEvidence(authority) {
+  if (nativeIsolation) {
+    const root = path.join(djangoSalesRuntimeRoot, 'audits', 'synthetic-native-bootstrap');
+    const lineage = await readStableJson(path.join(root, 'lineage.json'), 'private synthetic bootstrap lineage');
+    const value = lineage.value;
+    assertExactKeys(value, ['version','syntheticHistoricalPreconditions','historicalCutoverExecuted','nativeIsolationSha256',
+      'cutoverId','djangoDeploymentManifestSha256','workerReleaseManifestSha256','workerReleaseId','workerGuardReceiptSha256',
+      'workerSourceD1PathSha256','workerPersistRootPathSha256','workerAuthoritySha256','attestationPayloadSha256'], 'private bootstrap lineage');
+    if (value.version !== 'teruisi-isolated-bootstrap-lineage-v1' || value.syntheticHistoricalPreconditions !== true
+        || value.historicalCutoverExecuted !== false || value.nativeIsolationSha256 !== nativeIsolation.sha256
+        || value.cutoverId !== authority.cutoverId || value.djangoDeploymentManifestSha256 !== authority.djangoDeploymentManifestSha256
+        || value.workerReleaseManifestSha256 !== authority.workerReleaseManifestSha256 || value.workerReleaseId !== authority.workerReleaseId
+        || value.workerGuardReceiptSha256 !== authority.guardReceiptSha256 || value.workerSourceD1PathSha256 !== authority.sourceD1PathSha256
+        || value.workerPersistRootPathSha256 !== authority.persistRootPathSha256 || value.workerAuthoritySha256 !== authority.rawSha256) fail('Private synthetic bootstrap tuple changed');
+    const deployment = await readStableJson(path.join(djangoSalesRuntimeRoot, 'app', 'deployment.json'), 'private deployed Django manifest');
+    if (deployment.sha256 !== authority.djangoDeploymentManifestSha256) fail('Private Django installation changed');
+    const attestation = await readStableJson(path.join(root, 'attestation.json'), 'private generated attestation');
+    if (attestation.value.schemaVersion !== 'sales-cutover-attestation-v2' || attestation.value.payloadSha256 !== value.attestationPayloadSha256
+        || sha256Canonical(attestation.value.payload) !== value.attestationPayloadSha256 || attestation.value.payload.cutoverId !== authority.cutoverId) fail('Private generated attestation changed');
+    // The lineage protocol retains its historical field name; these bytes are
+    // explicitly synthetic preconditions, never a forward-recovery completion.
+    return { attestationPayloadSha256: value.attestationPayloadSha256, attestationFileSha256: attestation.sha256, forwardRecoverySha256: lineage.sha256 };
+  }
   const digest = sha256Bytes(Buffer.from(authority.cutoverId, "utf8")).slice(0, 24);
   const auditRoot = path.join(djangoSalesRuntimeRoot, "audits", "sales-cutover");
   await assertEntityDirectory(auditRoot, "Django sales cutover audit 根");
@@ -990,9 +1013,10 @@ export async function acquirePreparationRotationLock(pipe, policy, {now=Date.now
 }
 
 async function acquireWorkerServiceMutex() {
+  const mutexName = 'Local\\TERUISI.Worker.LocalService.v1' + (nativeIsolation ? '.isolated.' + nativeIsolation.id : '');
   const script = [
     "$ErrorActionPreference='Stop'",
-    "$mutex=[System.Threading.Mutex]::new($false,'Local\\TERUISI.Worker.LocalService.v1')",
+    "$mutex=[System.Threading.Mutex]::new($false,'" + mutexName + "')",
     "$acquired=$false",
     "try {",
     "  try { $acquired=$mutex.WaitOne([TimeSpan]::FromMinutes(30)) } catch [System.Threading.AbandonedMutexException] { $acquired=$true }",

@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import subprocess
 import time
+from .native_isolation import PROFILE, native_port
 
 from .client import command
 from .protocol import HEALTH_PATH, decode, encode
@@ -39,27 +40,32 @@ def control(verb,config_path,key_file):
     key=read_key(key_file)
     if hashlib.sha256(key).hexdigest()!=config.get('channelKeySha256'):raise ValueError('runner_channel_key_changed')
     root='/home/teruisi-pandas/.local/share/teruisi-pi-runner/releases/'+digest
+    if PROFILE:
+        root=PROFILE['linuxRoot']+'/pi/releases/'+digest
+    distribution=PROFILE['wslDistribution'] if PROFILE else 'TERUISI-Pandas'
+    unit=PROFILE['piUnit'] if PROFILE else 'teruisi-pi-runner.service'
+    namespace=PROFILE['namespace'] if PROFILE else 'pi-agent-v1'
     wsl=str(Path(os.environ['SystemRoot'])/'System32/wsl.exe')
-    prefix=[wsl,'-d','TERUISI-Pandas','-u','teruisi-pandas','--exec','/usr/bin/env','-i','HOME=/home/teruisi-pandas','PATH=/usr/bin:/bin',
+    prefix=[wsl,'-d',distribution,'-u','teruisi-pandas','--exec','/usr/bin/env','-i','HOME=/home/teruisi-pandas','PATH=/usr/bin:/bin',
             'XDG_RUNTIME_DIR=/run/user/1000','DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus','/usr/bin/systemctl','--user']
     env={k:v for k,v in os.environ.items() if k.upper() in {'SYSTEMROOT','WINDIR','TEMP','TMP','USERPROFILE','PATH'}}
     def run(args):return subprocess.run(prefix+args,env=env,capture_output=True,timeout=35,check=True).stdout.decode().strip()
     def probe():
-        result=command('http://127.0.0.1:8123',key,{},timeout=5,path=HEALTH_PATH)
-        return verify_probe(result,config)
+        result=command('http://127.0.0.1:'+str(native_port(8123)),key,{},timeout=5,path=HEALTH_PATH)
+        return verify_probe(result,config,namespace)
     if verb=='probe':return probe()
-    working=run(['show','teruisi-pi-runner.service','--property=WorkingDirectory','--value'])
-    executable=run(['show','teruisi-pi-runner.service','--property=ExecStart','--value'])
+    working=run(['show',unit,'--property=WorkingDirectory','--value'])
+    executable=run(['show',unit,'--property=ExecStart','--value'])
     if working!=root+'/backend' or ('/usr/bin/python3 -B -m pi_runner.server --config '+root+'/config.json') not in executable:
         raise ValueError('unit_binding_changed')
     if verb=='stop':
         status=probe()
         verify_stop_readiness(status)
-        run(['stop','teruisi-pi-runner.service'])
-        active=run(['show','teruisi-pi-runner.service','--property=ActiveState','--value'])
+        run(['stop',unit])
+        active=run(['show',unit,'--property=ActiveState','--value'])
         if active!='inactive':raise ValueError('runner_stop_unknown')
         return {'stopped':True,'image':image,'sourceSha256':digest}
-    run(['start','teruisi-pi-runner.service'])
+    run(['start',unit])
     deadline=time.monotonic()+15
     while True:
         try:return probe()

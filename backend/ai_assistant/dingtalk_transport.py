@@ -4,9 +4,12 @@ import html
 import ipaddress
 import secrets
 import re
+from contextlib import contextmanager
+from time import monotonic
 from urllib.parse import urlsplit
+from .diagnostics import elapsed_ms, error_summary, phase_timing
 from .dingtalk import guard
-from .policy import AiError
+from .policy import AiError, digest
 
 STREAM_API = "https://api.dingtalk.com/v1.0/gateway/connections/open"
 STREAM_SOCKET = "https://wss-open-connection.dingtalk.com/connect"
@@ -15,6 +18,89 @@ GROUP_MEDIA_API = "https://api.dingtalk.com/v1.0/robot/groupMessages/send"
 PERSON_MEDIA_API = "https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend"
 GROUP_BOTS_API = "https://api.dingtalk.com/v1.0/robot/groups/robots/query"
 UPLOAD_API = "https://oapi.dingtalk.com/media/upload"
+
+# All other platform codes are correlated by digest. Even a syntactically
+# valid but unexpected code could be an upstream echo of private input.
+_PUBLIC_CODES = frozenset({
+    "InvalidParameter", "InvalidAccessToken", "Forbidden.AccessDenied", "Throttling",
+    "TooManyRequests", "invalidParameter", "invalidAccessToken", "systemError",
+})
+
+
+def _platform_summary(reply):
+    summary = {}
+    code = reply.get("code", reply.get("errcode"))
+    if (type(code) is int and 0 < code <= 99999999) or (isinstance(code, str) and code in _PUBLIC_CODES):
+        summary["platformCode"] = str(code)
+    elif isinstance(code, str) and 0 < len(code) <= 256:
+        summary["platformCodeSha256"] = digest(json.dumps(code))
+    request_id = reply.get("requestId", reply.get("request_id"))
+    if isinstance(request_id, str) and 0 < len(request_id) <= 256:
+        summary["requestIdSha256"] = digest(json.dumps(request_id))
+    return summary
+
+
+def _rejection_summary(raw):
+    try:
+        reply = json.loads(raw)
+    except (ValueError, RecursionError):
+        return {}
+    return _platform_summary(reply) if isinstance(reply, dict) else {}
+
+
+class DingTalkDeliveryError(AiError):
+    """A definite stop/rejection or an ambiguous external message outcome."""
+    def __init__(self, message, code, status, delivery):
+        super().__init__(message, code, status)
+        self.delivery = delivery
+
+
+class _DeliveryAttempt:
+    def __init__(self):
+        self.started = monotonic()
+        self.timings = {}
+        self.request_started = False
+        self.platform = {}
+
+    def details(self, stage, outcome, **metadata):
+        return {"stage": stage, "outcome": outcome, "elapsedMs": elapsed_ms(self.started),
+                "timingsMs": dict(self.timings), **metadata}
+
+    @contextmanager
+    def phase(self, name):
+        from .transport import ProviderHttpError
+        try:
+            with phase_timing(self.timings, name):
+                yield
+        except DingTalkDeliveryError:
+            raise
+        except Exception as error:
+            summary = error_summary(error)
+            outcome = "not_sent"
+            if name == "send_request":
+                request_started = self.request_started and summary.get("requestStarted", True)
+                status = summary.get("httpStatus")
+                if request_started and isinstance(error, ProviderHttpError) and status in {400, 401, 403, 404, 405, 413, 415, 422, 429}:
+                    outcome = "rejected"
+                elif request_started:
+                    outcome = "unknown"
+            elif name == "receipt":
+                outcome = "rejected" if isinstance(error, AiError) and error.code == "dingtalk_send_rejected" else "unknown"
+            platform = getattr(error, "rejection_summary", {}) if isinstance(error, ProviderHttpError) else self.platform
+            if outcome == "unknown":
+                code, status = "delivery_unknown", 503
+            elif outcome == "rejected":
+                code, status = "dingtalk_send_rejected", 503
+            elif name == "identity" and isinstance(error, AiError) and not error.code.startswith("provider_"):
+                code, status = error.code, error.status
+            else:
+                code, status = {
+                    "credentials": "bot_credentials_unavailable", "token": "dingtalk_token_unavailable",
+                    "upload": "dingtalk_upload_unavailable", "identity": "dingtalk_identity_unavailable",
+                    "send_request": "dingtalk_send_unavailable",
+                }[name], 503
+            raise DingTalkDeliveryError("钉钉投递阶段未完成", code, status,
+                self.details(name, outcome, transport=summary, **platform)) from None
 
 
 def stream_addresses(url, *, exclude=frozenset()):
@@ -80,8 +166,7 @@ def image_markdown(caption, media_id):
 
 
 def send_media(config_reader, session, raw, file_name, kind, caption="", *, before_send=None):
-    """One bot-authored attachment. The caller reserves its run before this call."""
-    from . import transport
+    """Prepare one bot-authored attachment and gate the final recipient POST."""
     if not isinstance(caption, str) or len(caption) > 4000 or (caption and kind != "image"):
         raise AiError("图片附带文案无效")
     caption = caption.strip()
@@ -97,68 +182,29 @@ def send_media(config_reader, session, raw, file_name, kind, caption="", *, befo
                                    or extension == "xlsx" and not raw.startswith(b"PK\x03\x04")
                                    or extension == "pdf" and not raw.startswith(b"%PDF-"))):
         raise AiError("钉钉媒体格式无效")
-    config = config_reader()
-    guard(session, config)
-    token = access_token(config)
+    attempt = _DeliveryAttempt()
+    config, token = _prepare_delivery(config_reader, session, attempt)
     boundary = secrets.token_hex(16)
     name = file_name.encode("utf-8")
     body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"media\"; filename=\"".encode()
         + name + b"\"\r\nContent-Type: application/octet-stream\r\n\r\n" + raw
         + f"\r\n--{boundary}--\r\n".encode())
     upload_url = UPLOAD_API + "?access_token=" + token + "&type=" + kind
-    # before_send runs exactly once, immediately before the final send below
-    # (not here, before the upload that follows). This matches send()'s own
-    # convention: before_send only gates the last network call right before
-    # external delivery, not the preparatory calls ahead of it (there,
-    # access_token() and verify_group() are likewise unguarded). The upload
-    # here was briefly double-guarded by an isolated +2 hunk added in
-    # fbf4a6d4 ("Implement PiAgent phase three controlled business
-    # execution"); that duplicate call is what this fix removes.
-    # This is a trade-off, not a free win: the caller-supplied before_send is
-    # typically itself preceded by its own fresh guard (dingtalk_schedules.py
-    # channel_guard, pi_business_report.py check()), and dingtalk.guard() is
-    # re-read just above at the top of this function. So removing the
-    # upload-time call only widens the unguarded window by the one
-    # access_token() round-trip in between, not the whole preparation phase.
-    # It does NOT reduce the chance of an orphaned "uploaded but never sent"
-    # attachment on drift between upload and send -- there is no cleanup path
-    # for an uploaded media_id in this codebase, so that exposure is accepted
-    # here to stay consistent with send()'s existing guarding convention.
-    uploaded = transport._bounded_json(upload_url, body,
-        headers={"Content-Type": "multipart/form-data; boundary=" + boundary},
-        timeout=30, maximum=4096, fixed_addresses=media_addresses(upload_url),
-        resolver=lambda tried: media_addresses(upload_url, exclude=tried))
-    media_id = uploaded.get("media_id")
-    if uploaded.get("errcode") != 0 or not isinstance(media_id, str) or not media_id.startswith("@") or len(media_id) > 4096:
-        raise AiError("钉钉媒体上传未确认", "channel_unavailable", 503)
-    # Recheck the exact source and destination after upload, before external send.
-    guard(session, config_reader())
-    robot(config)
-    if session.conversation_type == "2":
-        group = next((g for g in config["groups"] if g["id"] == session.external_conversation_id), None)
-        if not group:
-            raise AiError("群聊已撤销授权", "access_denied", 403)
-        verify_group(config, group, token)
-        endpoint = GROUP_MEDIA_API
-        target = {"openConversationId": session.external_conversation_id}
-    else:
-        endpoint = PERSON_MEDIA_API
-        target = {"userIds": [session.sender_id]}
-    params = {"photoURL": media_id} if kind == "image" else {
-        "mediaId": media_id, "fileName": file_name, "fileType": extension}
-    message_key = "sampleImageMsg" if kind == "image" else "sampleFile"
-    if caption:
-        params = image_markdown(caption, media_id)
-        message_key = "sampleMarkdown"
-    if before_send is not None:
-        before_send()
-    reply = transport._bounded_json(endpoint, {"robotCode": config["robotCode"],
-        "msgKey": message_key,
-        "msgParam": json.dumps(params, ensure_ascii=False, separators=(",", ":")), **target},
-        headers={"x-acs-dingtalk-access-token": token},
-        timeout=30, maximum=8192, fixed_addresses=media_addresses(endpoint),
-        resolver=lambda tried: media_addresses(endpoint, exclude=tried))
-    return validate_receipt(reply)
+    # Upload is preparation. Its response cannot prove a recipient send.
+    with attempt.phase("upload"):
+        uploaded = _request_json(upload_url, body,
+            headers={"Content-Type": "multipart/form-data; boundary=" + boundary}, timeout=30, maximum=4096)
+        media_id = uploaded.get("media_id")
+        if type(uploaded.get("errcode")) is not int or uploaded["errcode"] != 0 or not isinstance(media_id, str) or not media_id.startswith("@") or len(media_id) > 4096:
+            attempt.platform = _platform_summary(uploaded)
+            raise AiError("钉钉媒体上传未确认", "channel_unavailable", 503)
+        params = {"photoURL": media_id} if kind == "image" else {
+            "mediaId": media_id, "fileName": file_name, "fileType": extension}
+        message_key = "sampleImageMsg" if kind == "image" else "sampleFile"
+        if caption:
+            params = image_markdown(caption, media_id)
+            message_key = "sampleMarkdown"
+    return _send_message(config_reader, config, session, token, message_key, params, before_send, attempt)
 
 
 def open_stream(key, secret):
@@ -181,28 +227,41 @@ def robot(config):
     credentials(config)
 
 
-def access_token(config):
+def _request_json(endpoint, body, *, send_fence=None, **kwargs):
     from . import transport
-    key, secret = credentials(config)
-    reply = transport._bounded_json(TOKEN_API, {"appKey": key, "appSecret": secret},
-        timeout=15, maximum=4096, fixed_addresses=media_addresses(TOKEN_API),
-        resolver=lambda tried: media_addresses(TOKEN_API, exclude=tried))
+
+    def resolve(tried):
+        with transport.provider_send_fence(None):
+            return media_addresses(endpoint, exclude=tried)
+
+    addresses = resolve(frozenset())
+    with transport.provider_send_fence(send_fence):
+        return transport._bounded_json(endpoint, body, fixed_addresses=addresses,
+            resolver=resolve, rejection_summary=_rejection_summary, **kwargs)
+
+
+def _fetch_token(key, secret, attempt=None):
+    reply = _request_json(TOKEN_API, {"appKey": key, "appSecret": secret}, timeout=15, maximum=4096)
     token = reply.get("accessToken")
     if not isinstance(token, str) or not 0 < len(token) <= 4096 or not re.fullmatch(r"[A-Za-z0-9._~-]+", token):
+        if attempt is not None:
+            attempt.platform = _platform_summary(reply)
         raise AiError("企业机器人应用认证失败", "channel_unavailable", 503)
     return token
 
 
+def access_token(config):
+    return _fetch_token(*credentials(config))
+
+
 def verify_group(config, group, token=None):
-    from . import transport
     if group not in config["groups"]:
         raise AiError("群聊已撤销授权", "access_denied", 403)
     headers = {"x-acs-dingtalk-access-token": token or access_token(config)}
     # The approved immutable openConversationId is the destination authority.
     # A mutable group display name is never resolved to a new recipient.
-    reply = transport._bounded_json(GROUP_BOTS_API, {"openConversationId": group["id"]},
-        headers=headers, timeout=15, maximum=65536, fixed_addresses=media_addresses(GROUP_BOTS_API),
-        resolver=lambda tried: media_addresses(GROUP_BOTS_API, exclude=tried))
+    reply = _request_json(GROUP_BOTS_API, {"openConversationId": group["id"]},
+        headers=headers, timeout=15, maximum=65536)
     bots = reply.get("chatbotInstanceVOList")
     if not isinstance(bots, list) or len(bots) > 100 or any(not isinstance(bot, dict) for bot in bots):
         raise AiError("群机器人列表无法确认", "access_denied", 403)
@@ -212,37 +271,72 @@ def verify_group(config, group, token=None):
 
 
 def send(config_reader, session, content, *, before_send=None):
-    from . import transport
-    config = config_reader()
-    guard(session, config)
     if not isinstance(content, str) or not content or len(content.encode("utf-8")) > 20000:
         raise AiError("钉钉文字内容无效或过长", "payload_too_large", 413)
-    token = access_token(config)
+    attempt = _DeliveryAttempt()
+    config, token = _prepare_delivery(config_reader, session, attempt)
+    return _send_message(config_reader, config, session, token, "sampleText", {"content": content}, before_send, attempt)
+
+
+def _prepare_delivery(config_reader, session, attempt):
+    with attempt.phase("identity"):
+        config = config_reader()
+        guard(session, config)
+    with attempt.phase("credentials"):
+        key, secret = credentials(config)
+    with attempt.phase("token"):
+        token = _fetch_token(key, secret, attempt)
+    return config, token
+
+
+def _send_message(config_reader, config, session, token, message_key, params, before_send, attempt):
+    from . import transport
     if session.conversation_type == "2":
-        group = next((g for g in config["groups"] if g["id"] == session.external_conversation_id), None)
-        if not group:
-            raise AiError("群聊已撤销授权", "access_denied", 403)
-        verify_group(config, group, token)
         endpoint, target = GROUP_MEDIA_API, {"openConversationId": session.external_conversation_id}
     else:
         endpoint, target = PERSON_MEDIA_API, {"userIds": [session.sender_id]}
-    guard(session, config_reader())
-    robot(config)  # Re-read the credential binding immediately before external send.
-    if before_send is not None:
-        before_send()
-    reply = transport._bounded_json(endpoint, {"robotCode": config["robotCode"], "msgKey": "sampleText",
-        "msgParam": json.dumps({"content": content}, ensure_ascii=False, separators=(",", ":")), **target},
-        headers={"x-acs-dingtalk-access-token": token}, timeout=30, maximum=8192,
-        fixed_addresses=media_addresses(endpoint),
-        resolver=lambda tried: media_addresses(endpoint, exclude=tried))
-    return validate_receipt(reply)
+    body = {"robotCode": config["robotCode"], "msgKey": message_key,
+            "msgParam": json.dumps(params, ensure_ascii=False, separators=(",", ":")), **target}
+
+    def fence(check_budget):
+        # Destination checks may themselves call a POST, e.g. a group bot
+        # query. Only the outer message POST can reserve the recipient send.
+        with transport.provider_send_fence(None), attempt.phase("identity"):
+            current = config_reader()
+            guard(session, current)
+            robot(current)
+            if session.conversation_type == "2":
+                group = next((g for g in current["groups"] if g["id"] == session.external_conversation_id), None)
+                if not group:
+                    raise AiError("群聊已撤销授权", "access_denied", 403)
+                verify_group(current, group, token)
+            if check_budget is not None:
+                check_budget()
+            if before_send is not None:
+                before_send()
+        if check_budget is not None:
+            check_budget()
+        attempt.request_started = True
+
+    with attempt.phase("send_request"):
+        reply = _request_json(endpoint, body, headers={"x-acs-dingtalk-access-token": token}, timeout=30, maximum=8192, send_fence=fence)
+    with attempt.phase("receipt"):
+        attempt.platform = _platform_summary(reply)
+        receipt = validate_receipt(reply, staff_id=session.sender_id if endpoint == PERSON_MEDIA_API else None)
+    return {**receipt, "delivery": attempt.details("receipt", "accepted", **attempt.platform)}
 
 
-def validate_receipt(reply):
-    if (not isinstance(reply.get("processQueryKey"), str) or not 0 < len(reply["processQueryKey"]) <= 4096
-            or reply.get("invalidStaffIdList") not in (None, [])
-            or reply.get("flowControlledStaffIdList") not in (None, [])):
+def validate_receipt(reply, *, staff_id=None):
+    key = reply.get("processQueryKey")
+    invalid = reply.get("invalidStaffIdList")
+    throttled = reply.get("flowControlledStaffIdList")
+    if (key in (None, "") and staff_id is not None
+            and ((invalid == [staff_id] and throttled in (None, [])) or (throttled == [staff_id] and invalid in (None, [])))):
+        raise AiError("钉钉明确拒绝本次收件人", "dingtalk_send_rejected", 503)
+    codes = (reply.get("code"), reply.get("errcode"))
+    if (not isinstance(key, str) or not re.fullmatch(r"[!-~]{1,4096}", key)
+            or invalid not in (None, []) or throttled not in (None, [])
+            or any(code is not None and not (type(code) is int and code == 0 or isinstance(code, str) and code in ("", "0")) for code in codes)):
         raise AiError("钉钉发送回执未确认", "delivery_unknown", 503)
     # Raw provider identifiers remain outside business records and logs.
-    from .policy import digest
-    return {"platform": "dingtalk", "state": "accepted", "receiptSha256": digest(reply["processQueryKey"])}
+    return {"platform": "dingtalk", "state": "accepted", "receiptSha256": digest(key)}

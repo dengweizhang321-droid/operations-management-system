@@ -11,6 +11,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "native-isolation.ps1")
+$RuntimeRoot = Get-NativeRuntimeRoot "django" $RuntimeRoot ($PSBoundParameters.ContainsKey("RuntimeRoot"))
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
 $RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
@@ -30,8 +32,8 @@ $OrchestratedLifecycleAclToken = $RequestedOrchestratedLifecycleAclToken
 $ErpReferenceCredentialPath = Join-Path $RuntimeRoot "secrets\erp-reference-credentials.dpapi.json"
 $ErpReferenceReaderPidPath = Join-Path $RunDirectory "django-erp-reference-reader.pid.json"
 $ErpReferenceWriterPidPath = Join-Path $RunDirectory "django-erp-reference-writer.pid.json"
-$ErpReferenceReaderHealthUrl = "http://127.0.0.1:8091/health/ready"
-$ErpReferenceWriterHealthUrl = "http://127.0.0.1:8092/health/ready"
+$ErpReferenceReaderHealthUrl = "http://127.0.0.1:$($NativePorts[8091])/health/ready"
+$ErpReferenceWriterHealthUrl = "http://127.0.0.1:$($NativePorts[8092])/health/ready"
 $ErpReferenceStartupPath = Join-Path $RuntimeRoot "erp-reference-enabled.json"
 $ErpReferenceReaderMaxBodyBytes = 1048576
 $ErpReferenceWriterMaxBodyBytes = 67108864
@@ -50,7 +52,7 @@ function Assert-ErpReferenceRuntimeEntry([string]$LifecycleAclToken = "") {
 }
 
 function Assert-ErpReferencePortsFree([string]$Operation) {
-  if (@(Get-PortListeners 8091).Count -gt 0 -or @(Get-PortListeners 8092).Count -gt 0) {
+  if (@(Get-PortListeners $NativePorts[8091]).Count -gt 0 -or @(Get-PortListeners $NativePorts[8092]).Count -gt 0) {
     throw "$Operation 前必须先停止 Django ERP 主数据 reader/writer"
   }
   if (Resolve-OwnedProcess "django-erp-reference-reader" $ErpReferenceReaderPidPath $Waitress) {
@@ -258,16 +260,16 @@ print(json.dumps({
 
 function Start-ErpReferenceReader([object]$RuntimeSecrets, [object]$ErpSecrets, [switch]$DeferReady) {
   $arguments = @(
-    "--listen=127.0.0.1:8091", "--threads=6", "--connection-limit=60", "--channel-timeout=35",
+    "--listen=127.0.0.1:$($NativePorts[8091])", "--threads=6", "--connection-limit=60", "--channel-timeout=35",
     "--cleanup-interval=30", "--ident=teruisi-django-erp-reference-reader",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$ErpReferenceReaderMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-erp-reference-reader" $Waitress $arguments
   if (Resolve-OwnedProcess "django-erp-reference-reader" $ErpReferenceReaderPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "erp-reference-reader" $ErpReferenceReaderHealthUrl "127.0.0.1:8091"; return $false
+    Wait-DjangoReady "erp-reference-reader" $ErpReferenceReaderHealthUrl "127.0.0.1:$($NativePorts[8091])"; return $false
   }
-  if (@(Get-PortListeners 8091).Count -gt 0) { throw "端口 8091 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8091]).Count -gt 0) { throw "端口 8091 被非本部署服务占用" }
   Remove-OldServiceLogs "django-erp-reference-reader"
   $readerUrl = Database-Url "teruisi_erp_reference_reader" $ErpSecrets.ReaderPassword "teruisi_erp_reference_read" $ReaderStatementTimeoutMs
   Invoke-WithDjangoEnvironment $RuntimeSecrets $readerUrl "erp_reference_reader" $true $ErpReferenceReaderMaxBodyBytes "" "" {
@@ -277,23 +279,23 @@ function Start-ErpReferenceReader([object]$RuntimeSecrets, [object]$ErpSecrets, 
   $readerUrl = $null
   # The stack owns rollback after launch; its final readiness barrier remains mandatory.
   if ($DeferReady) { return $true }
-  try { Wait-DjangoReady "erp-reference-reader" $ErpReferenceReaderHealthUrl "127.0.0.1:8091"; return $true }
+  try { Wait-DjangoReady "erp-reference-reader" $ErpReferenceReaderHealthUrl "127.0.0.1:$($NativePorts[8091])"; return $true }
   catch { Stop-OwnedProcess "django-erp-reference-reader" $ErpReferenceReaderPidPath $Waitress; throw }
 }
 
 function Start-ErpReferenceWriter([object]$RuntimeSecrets, [object]$ErpSecrets, [object]$Authority, [switch]$DeferReady) {
   if ([string]$Authority.status -cne "postgres") { throw "PostgreSQL 尚未成为ERP 主数据唯一写入源；拒绝启动ERP 主数据 writer" }
   $arguments = @(
-    "--listen=127.0.0.1:8092", "--threads=4", "--connection-limit=20", "--channel-timeout=960",
+    "--listen=127.0.0.1:$($NativePorts[8092])", "--threads=4", "--connection-limit=20", "--channel-timeout=960",
     "--cleanup-interval=30", "--ident=teruisi-django-erp-reference-writer",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$ErpReferenceWriterMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-erp-reference-writer" $Waitress $arguments
   if (Resolve-OwnedProcess "django-erp-reference-writer" $ErpReferenceWriterPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "erp-reference-writer" $ErpReferenceWriterHealthUrl "127.0.0.1:8092"; return $false
+    Wait-DjangoReady "erp-reference-writer" $ErpReferenceWriterHealthUrl "127.0.0.1:$($NativePorts[8092])"; return $false
   }
-  if (@(Get-PortListeners 8092).Count -gt 0) { throw "端口 8092 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8092]).Count -gt 0) { throw "端口 8092 被非本部署服务占用" }
   Remove-OldServiceLogs "django-erp-reference-writer"
   $writerUrl = Database-Url "teruisi_erp_reference_writer" $ErpSecrets.WriterPassword "teruisi_erp_reference_write" $WriterStatementTimeoutMs
   Invoke-WithDjangoEnvironment $RuntimeSecrets $writerUrl "erp_reference_writer" $false $ErpReferenceWriterMaxBodyBytes ([string]$Authority.authorityEpoch) ([string]$Authority.cutoverId) {
@@ -303,7 +305,7 @@ function Start-ErpReferenceWriter([object]$RuntimeSecrets, [object]$ErpSecrets, 
   $writerUrl = $null
   # The stack owns new-process rollback and the final readiness barrier.
   if ($DeferReady) { return $true }
-  try { Wait-DjangoReady "erp-reference-writer" $ErpReferenceWriterHealthUrl "127.0.0.1:8092"; return $true }
+  try { Wait-DjangoReady "erp-reference-writer" $ErpReferenceWriterHealthUrl "127.0.0.1:$($NativePorts[8092])"; return $true }
   catch { Stop-OwnedProcess "django-erp-reference-writer" $ErpReferenceWriterPidPath $Waitress; throw }
 }
 
@@ -330,10 +332,10 @@ function Start-ErpReferenceStack([string]$LifecycleAclToken = "") {
     }
     $readerStarted = Start-ErpReferenceReader $runtimeSecrets $erpSecrets -DeferReady
     if ([string]$authority.status -ceq "postgres") { $writerStarted = Start-ErpReferenceWriter $runtimeSecrets $erpSecrets $authority -DeferReady }
-    Wait-DjangoReady "erp-reference-reader" $ErpReferenceReaderHealthUrl "127.0.0.1:8091"
+    Wait-DjangoReady "erp-reference-reader" $ErpReferenceReaderHealthUrl "127.0.0.1:$($NativePorts[8091])"
     if ([string]$authority.status -ceq "postgres") {
-      Wait-DjangoReady "erp-reference-writer" $ErpReferenceWriterHealthUrl "127.0.0.1:8092"
-      Write-Output "Django ERP 主数据服务已就绪：reader=http://127.0.0.1:8091 writer=http://127.0.0.1:8092。"
+      Wait-DjangoReady "erp-reference-writer" $ErpReferenceWriterHealthUrl "127.0.0.1:$($NativePorts[8092])"
+      Write-Output "Django ERP 主数据服务已就绪：reader=http://127.0.0.1:$($NativePorts[8091]) writer=http://127.0.0.1:$($NativePorts[8092])。"
     } else { Write-Output "Django ERP 主数据 reader 已就绪；PostgreSQL ERP 主数据写权尚未激活，writer 保持停止。" }
   } catch {
     $original = $_.Exception
@@ -382,11 +384,11 @@ function Disable-ErpReferenceStartup {
 
 function Show-ErpReferenceStatus {
   $reader = "stopped"; $writer = "stopped"
-  try { if (Resolve-OwnedProcess "django-erp-reference-reader" $ErpReferenceReaderPidPath $Waitress) { $reader = "running" } elseif (@(Get-PortListeners 8091).Count -gt 0) { $reader = "foreign_port_owner" } } catch { $reader = "ownership_error" }
-  try { if (Resolve-OwnedProcess "django-erp-reference-writer" $ErpReferenceWriterPidPath $Waitress) { $writer = "running" } elseif (@(Get-PortListeners 8092).Count -gt 0) { $writer = "foreign_port_owner" } } catch { $writer = "ownership_error" }
+  try { if (Resolve-OwnedProcess "django-erp-reference-reader" $ErpReferenceReaderPidPath $Waitress) { $reader = "running" } elseif (@(Get-PortListeners $NativePorts[8091]).Count -gt 0) { $reader = "foreign_port_owner" } } catch { $reader = "ownership_error" }
+  try { if (Resolve-OwnedProcess "django-erp-reference-writer" $ErpReferenceWriterPidPath $Waitress) { $writer = "running" } elseif (@(Get-PortListeners $NativePorts[8092]).Count -gt 0) { $writer = "foreign_port_owner" } } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"; $writerReady = "not_ready"
-  try { if ((Invoke-WebRequest -UseBasicParsing -Uri $ErpReferenceReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8091" }).StatusCode -eq 200) { $readerReady = "ready" } } catch {}
-  try { if ((Invoke-WebRequest -UseBasicParsing -Uri $ErpReferenceWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8092" }).StatusCode -eq 200) { $writerReady = "ready" } } catch {}
+  try { if ((Invoke-WebRequest -UseBasicParsing -Uri $ErpReferenceReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:$($NativePorts[8091])" }).StatusCode -eq 200) { $readerReady = "ready" } } catch {}
+  try { if ((Invoke-WebRequest -UseBasicParsing -Uri $ErpReferenceWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:$($NativePorts[8092])" }).StatusCode -eq 200) { $writerReady = "ready" } } catch {}
   $status = [pscustomobject][ordered]@{ ErpReferenceReader = $reader; ErpReferenceWriter = $writer; ReaderReadiness = $readerReady; WriterReadiness = $writerReady; CheckedAt = [DateTimeOffset]::UtcNow.ToString("o") }
   if ($RequestedJson) { Write-Output ($status | ConvertTo-Json -Compress) } else { $status | Format-List }
 }

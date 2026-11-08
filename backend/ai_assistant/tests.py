@@ -298,12 +298,19 @@ class AiDomainTests(TestCase):
 
     def test_provider_unknown_cannot_be_replayed(self):
         body = {"clientRequestId": "uncertain", "message": "查询数据"}
+
+        def attempted_timeout(*args, **kwargs):
+            chat.transport.commit_provider_send()
+            raise TimeoutError
+
         with (
             patch.object(chat.transport, "catalog", return_value=CATALOG),
-            patch.object(chat.provider, "turn", side_effect=TimeoutError) as provider,
+            patch.object(chat.provider, "turn", side_effect=attempted_timeout) as provider,
         ):
-            with self.assertRaises(TimeoutError):
+            with self.assertRaises(AiError) as failed:
                 chat.answer(body, self.owner, "unknown-http")
+            self.assertEqual(failed.exception.code, "ai_chat_result_unknown")
+            self.assertIsInstance(failed.exception.__cause__, TimeoutError)
             with self.assertRaises(AiError):
                 chat.answer(body, self.owner, "unknown-retry")
             self.assertEqual(provider.call_count, 1)
@@ -532,21 +539,19 @@ class AiDomainTests(TestCase):
         self.assertTrue(any("SUBSTR" in q["sql"].upper() for q in captured))
 
     def test_nested_request_capacity_reserves_audit_and_cancel_threads(self):
+        client_id = chat.uid(f"web-chat-v1-{int(timezone.now().timestamp() * 1000)}")
         self.assertTrue(views._primary_slots.acquire(blocking=False))
         self.assertTrue(views._primary_slots.acquire(blocking=False))
         try:
             self.assertEqual(
                 self.call(
-                    "/api/ai/chat", {"clientRequestId": "capacity", "message": "test"}
+                    "/api/ai/chat", {"clientRequestId": client_id, "message": "test"}
                 ).status_code,
                 429,
             )
-            self.assertEqual(
-                self.call(
-                    "/api/ai/chat/cancel", {"clientRequestId": "capacity"}
-                ).status_code,
-                200,
-            )
+            stop = self.call("/api/ai/chat/cancel", {"clientRequestId": client_id, "workspaceModule": "ai"})
+            self.assertEqual(stop.status_code, 200)
+            self.assertEqual(stop.json()["request"]["status"], "cancelled")
             response = self.call(
                 "/api/ai/consumer",
                 {
@@ -591,6 +596,8 @@ class AiDomainTests(TestCase):
                 "api_key_encrypted": "fixture",
                 "api_key_suffix": "ture",
                 "status": "enabled",
+                "last_success_result": canonical({"kind": space.IMAGE_ADMISSION_KIND, "version": 1,
+                    "items": [{"scene": "product_main", "size": "1024x1024", "testedAt": timezone.now().isoformat()}]}),
             },
         )
         template, _ = m.AiSpaceTemplates.objects.get_or_create(
@@ -761,7 +768,7 @@ class AiDomainTests(TestCase):
             with self.assertRaises(AiError):
                 knowledge.search("毛利", self.owner, limit)
 
-    def image_bytes(self):
+    def image_bytes(self, width=1024, height=1024):
         import struct
         import zlib
 
@@ -775,8 +782,8 @@ class AiDomainTests(TestCase):
 
         return (
             b"\x89PNG\r\n\x1a\n"
-            + chunk(b"IHDR", struct.pack(">IIBBBBB", 1024, 1024, 8, 2, 0, 0, 0))
-            + chunk(b"IDAT", zlib.compress((b"\0" + b"\xff\0\0" * 1024) * 1024))
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress((b"\0" + b"\xff\0\0" * width) * height))
             + chunk(b"IEND", b"")
         )
 

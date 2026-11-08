@@ -6,6 +6,57 @@ import path from 'node:path';
 import {candidateCompatibilityProfile,assertPrivateCandidateLocation,compareFunctionOnlyChange,verifyReleaseCandidate,candidateTestEnvironment,usesGateTimingExemption,readinessStabilityFiles,compareReadinessDjangoCopyOnly,compareReadinessMaintenancePairOnly} from '../tools/verify-release-candidate.mjs';
 import {readinessCopyControllerPair,assertMaintenanceControllerGeneration,piNativeCandidateControllerSha256} from '../tools/manual-maintenance-continuation.mjs';
 import {execFileSync} from 'node:child_process';
+import {aiRepairBatch1Qualification,aiRepairBatch1ScopeMatches,assertAiRepairBatch1Bytes} from '../tools/verify-release-candidate.mjs';
+import {parseNameStatus} from '../tools/release-scope-plan.mjs';
+
+const batch1Changes=()=>{
+ const {base,app}=aiRepairBatch1Qualification;
+ return parseNameStatus(execFileSync('git',['diff','--name-status','-z',base,app],{encoding:'utf8',windowsHide:true}));
+};
+const batch1Adapter=[
+ {path:'tools/verify-release-candidate.mjs',status:'M'},
+ {path:'tests/verify-release-candidate.test.mjs',status:'M'},
+ {path:'tests/ai-repair-batch1-compatibility.test.mjs',status:'A'},
+ {path:'tests/ai-repair-batch1-pi-native-start.py',status:'A'},
+];
+
+test('ai repair batch1 accepts only the fixed base, full application delta and named adapter',()=>{
+ const {base,app}=aiRepairBatch1Qualification;
+ const original=batch1Changes();
+ assert.equal(original.filter(change=>!change.path.startsWith('docs/')&&!change.path.startsWith('tests/')).length,38);
+ const changes=[...original,...batch1Adapter,{path:'docs/ai-repair-batch1-20261107/G02-IMPLEMENTATION.md',status:'A'}];
+ const profile=candidateCompatibilityProfile(changes,{baseCommit:base});
+ assert.equal(profile.aiRepairBatch1Only,true);
+ assert.deepEqual([profile.worker,profile.django,profile.nativeColdStartPerformed],[true,true,false]);
+ assert.deepEqual(profile.unsupported,[]);
+ assert.equal(aiRepairBatch1ScopeMatches(changes,app),false);
+ assert.equal(aiRepairBatch1ScopeMatches(changes.filter(change=>change.path!=='backend/pi_runner/server.py'),base),false);
+ assert.equal(aiRepairBatch1ScopeMatches(original,base),false);
+});
+
+test('ai repair batch1 rejects unknown paths, renames, deletions and unqualified byte drift',()=>{
+ const {base,app}=aiRepairBatch1Qualification;
+ const original=batch1Changes();
+ const changes=[...original,...batch1Adapter];
+ const unapproved=['app/unreviewed.ts','tests/unknown.test.mjs','AGENTS.md','docs/规范/安全与AI工具.md',
+  'docs/ai-repair-batch1-20261107/entry.ps1','package-lock.json','backend/ai_assistant/migrations/9999_unknown.py',
+  'tools/django-ai.ps1','tools/worker-local-service.ps1','tools/django-runtime-supervisor.ps1'];
+ for(const file of unapproved){
+  const proposed=[...changes,{path:file,status:'M'}];
+  assert.equal(aiRepairBatch1ScopeMatches(proposed,base),false,file);
+  assert.ok(candidateCompatibilityProfile(proposed,{baseCommit:base}).unsupported.length,file);
+ }
+ for(const change of [{path:'backend/pi_runner/server.py',status:'D'},
+  {path:'backend/pi_runner/server.py',before:'backend/pi_runner/other.py',status:'R100'},
+  {path:'docs/ai-repair-batch1-20261107/renamed.md',before:'tools/django-ai.ps1',status:'R100'}]){
+  assert.equal(aiRepairBatch1ScopeMatches([...changes.filter(member=>member.path!==change.path),change],base),false);
+ }
+ const payload=original.filter(change=>!change.path.startsWith('docs/')).map(({path:file})=>({path:file,
+  sha256:createHash('sha256').update(execFileSync('git',['show',app+':'+file],{windowsHide:true})).digest('hex')}));
+ assert.doesNotThrow(()=>assertAiRepairBatch1Bytes(payload));
+ payload.find(entry=>entry.path==='tools/publish-main-resume.mjs').sha256='0'.repeat(64);
+ assert.throws(()=>assertAiRepairBatch1Bytes(payload),/候选字节已变化/);
+});
 
 test('readiness stability profile accepts only the complete finite task closure',()=>{
  const files=[...readinessStabilityFiles,'tools/verify-release-candidate.mjs'];

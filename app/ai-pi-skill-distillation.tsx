@@ -10,7 +10,8 @@ type CandidateContent = {
   steps: { order: number; action: string; toolName?: string; missingDataBranch: string }[];
   requiredTools: string[]; templateRefs: string[]; sourceEvidenceRefs: string[]; unverifiedRecommendations: string[]; openQuestions: string[];
 };
-type Candidate = { id: string; status: string; version: number; contentDigest: string; reportVersionDigest: string; unverifiedRecommendations: number; reviewNote?: string; content: unknown };
+type Candidate = { id: string; status: string; version: number; contentDigest: string; reportVersionDigest: string; unverifiedRecommendations: number; reviewNote?: string; content: unknown;
+  publication?: { state: "enabled" | "disabled" | "unavailable" | "unpublished"; skillId: string; libraryVersion: number; publishedLibraryVersion: number | null } };
 type Basis = { reportVersionDigest: string; reportVersion: { operationId: string; modelId: string; modelVersion: number }; confirmedFeedbackIds: string[]; citableExportIds: string[]; citableFileIds: string[]; coverage: { sourcesComplete: boolean; truncated: Record<string, boolean> }; distillation: { blocked: boolean; latest: Receipt | null; requested: Receipt | null; candidate: Candidate | null } };
 const statusLabels: Record<string, string> = { draft: "草稿", in_review: "审核中", approved: "已批准", rejected: "已退回", superseded: "已替代" };
 
@@ -129,6 +130,7 @@ function DistillationPanel({ operation, storageKey, writable, modelName }: { ope
     const candidate = basis?.distillation.candidate;
     if (!candidate || !writable || busyRef.current || stale || loading || !["draft", "in_review"].includes(candidate.status) || new TextEncoder().encode(note).length > 2000) return;
     if (status !== "rejected" && !candidateContent(candidate.content)) return;
+    if (status === "approved" && candidate.reportVersionDigest !== basis?.reportVersionDigest) return;
     busyRef.current = true; setBusy(true); setError(""); setNotice("");
     try {
       await request(`skill-candidates/${encodeURIComponent(candidate.id)}/review`, post({ status, expectedVersion: candidate.version, contentDigest: candidate.contentDigest, note }));
@@ -150,6 +152,7 @@ function DistillationPanel({ operation, storageKey, writable, modelName }: { ope
   }
   const candidate = basis?.distillation.candidate;
   const content = candidate && candidateContent(candidate.content) ? candidate.content : null;
+  const publication = candidate?.publication;
   const blocked = basis?.distillation.blocked;
   const latest = basis?.distillation.latest;
   const canStart = writable && storageOk && !busy && !loading && !stale && !pending && !blocked && !["draft", "in_review", "approved"].includes(candidate?.status ?? "");
@@ -171,10 +174,14 @@ function DistillationPanel({ operation, storageKey, writable, modelName }: { ope
         <h4>参数与口径</h4>{content.parameters.length ? <ul>{content.parameters.map((item, index) => <li key={index}><strong>{item.name} · {item.required ? "必填" : "可选"} · {item.kind}</strong><p>{item.meaning}<br />默认规则：{item.defaultRule || "待确认"}</p></li>)}</ul> : <p>无登记参数</p>}
         <h4>执行步骤</h4><ol>{content.steps.map((item, index) => <li key={index}>{item.action}<p>工具：{item.toolName || "无"}<br />缺数分支：{item.missingDataBranch || "待确认"}</p></li>)}</ol>
         {([["所需工具", content.requiredTools], ["模板引用", content.templateRefs], ["来源引用", content.sourceEvidenceRefs], ["未验证建议", content.unverifiedRecommendations], ["待确认问题", content.openQuestions]] as [string, string[]][]).map(([title, items]) => <div key={title}><h4>{title}</h4>{items.length ? <ul>{items.map((item, index) => <li key={index}>{item}</li>)}</ul> : <p>无</p>}</div>)}</> : <><p role="alert">候选正文格式异常，无法完整审阅。已禁止批准或标记审核中；可以查看原始正文并退回候选。</p><details open><summary>原始候选正文</summary><pre>{JSON.stringify(candidate.content, null, 2)}</pre></details></>}
-        <p>保留 {candidate.unverifiedRecommendations} 条未验证建议。批准方法不代表建议已验证；批准后仍需管理员通过资源库发布流程启用。</p>
-        {candidate.reportVersionDigest !== basis.reportVersionDigest && <p role="alert">候选绑定的报告版本与当前依据不同，请核对原版本再审核。</p>}
+        <p>保留 {candidate.unverifiedRecommendations} 条未验证建议。管理员在 AI 助理 → Skill 管理发布已批准的文字方法。</p>
+        {candidate.status === "approved" && <p role="status">
+          {publication?.state === "enabled" ? "文字方法已发布并启用。" : publication?.state === "disabled" ? "文字方法已发布，当前已停用。" : publication?.state === "unpublished" ? "已批准，待管理员发布文字方法。" : "文字方法发布状态待核实。"}
+          {publication?.publishedLibraryVersion != null && <> 发布版本 v{publication.publishedLibraryVersion} · 当前资源库 v{publication.libraryVersion} · <code>{publication.skillId}</code></>}
+        </p>}
+        {candidate.reportVersionDigest !== basis.reportVersionDigest && <p role="alert">{candidate.status === "approved" ? "此批准绑定原报告版本。当前报告依据已有更新。" : "报告依据已有更新。请退回该候选，再按当前版本提炼。"}</p>}
         <details><summary>候选版本</summary><p>{candidate.id} · 版本 {candidate.version}</p><p>内容：{candidate.contentDigest}<br />来源报告：{candidate.reportVersionDigest}</p>{candidate.reviewNote && <p>审核备注：{candidate.reviewNote}</p>}</details>
-        {["draft", "in_review"].includes(candidate.status) && <><label className="ai-pi-distillation-note">审核备注<textarea aria-label="Skill 候选审核备注" value={note} maxLength={2000} onChange={event => setNote(event.target.value)} disabled={!writable || busy} /></label><small>{new TextEncoder().encode(note).length} / 2000 字节</small><div className="ai-pi-actions">{candidate.status === "draft" && <button type="button" className="secondary-button" disabled={!content || !writable || busy || loading || stale} onClick={() => { void review("in_review"); }}>标记审核中</button>}<button type="button" className="secondary-button" disabled={!writable || busy || loading || stale || new TextEncoder().encode(note).length > 2000} onClick={() => { void review("rejected"); }}>退回候选</button><button type="button" className="primary-button" disabled={!content || !writable || busy || loading || stale || new TextEncoder().encode(note).length > 2000} onClick={() => { void review("approved"); }}>批准此版本</button></div></>}
+        {["draft", "in_review"].includes(candidate.status) && <><label className="ai-pi-distillation-note">审核备注<textarea aria-label="Skill 候选审核备注" value={note} maxLength={2000} onChange={event => setNote(event.target.value)} disabled={!writable || busy} /></label><small>{new TextEncoder().encode(note).length} / 2000 字节</small><div className="ai-pi-actions">{candidate.status === "draft" && <button type="button" className="secondary-button" disabled={!content || !writable || busy || loading || stale} onClick={() => { void review("in_review"); }}>标记审核中</button>}<button type="button" className="secondary-button" disabled={!writable || busy || loading || stale || new TextEncoder().encode(note).length > 2000} onClick={() => { void review("rejected"); }}>退回候选</button><button type="button" className="primary-button" disabled={!content || !writable || busy || loading || stale || candidate.reportVersionDigest !== basis.reportVersionDigest || new TextEncoder().encode(note).length > 2000} onClick={() => { void review("approved"); }}>批准此版本</button></div></>}
       </details>}
     </>}
   </div>;

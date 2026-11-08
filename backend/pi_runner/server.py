@@ -85,10 +85,12 @@ class Ledger:
             self.db.execute('ALTER TABLE sessions ADD COLUMN container_id TEXT')
         if 'image' not in {row[1] for row in self.db.execute('PRAGMA table_info(sessions)')}:
             self.db.execute('ALTER TABLE sessions ADD COLUMN image TEXT')
+        if 'workspace' not in {row[1] for row in self.db.execute('PRAGMA table_info(commands)')}:
+            self.db.execute('ALTER TABLE commands ADD COLUMN workspace TEXT')
         # A broker crash cannot be interpreted as no effect or automatic retry.
         self.db.execute("UPDATE commands SET status='unknown' WHERE status='dispatching'")
         self.db.execute("UPDATE gateway SET status='unknown' WHERE status='dispatching'")
-        self.db.execute("UPDATE sessions SET status='unknown' WHERE status IN ('creating','updating','freezing','dispatching','accepted','running','settling','unknown')")
+        self.db.execute("UPDATE sessions SET status='unknown' WHERE status IN ('creating','updating','freezing','reclaiming','dispatching','accepted','running','settling','unknown')")
         self.db.commit()
         if self.db.execute("SELECT value FROM metadata WHERE key='audit_redaction'").fetchone()!=('1',):
             with self.db:
@@ -121,7 +123,8 @@ class Ledger:
                 if old[1] in {"unknown", "dispatching"}:
                     raise ValueError("operation_unknown")
                 return decode(old[2])
-            self.db.execute("INSERT INTO commands VALUES (?,?,?,?,NULL)", (job['operationId'],job['command'],digest,'dispatching'))
+            self.db.execute("INSERT INTO commands (operation,command,digest,status,workspace) VALUES (?,?,?,?,?)",
+                (job['operationId'],job['command'],digest,'dispatching',workspace_key(job)))
         return None
 
     def finish(self, job, result, status='complete'):
@@ -157,10 +160,18 @@ class Session:
         self.local_calls={}
         self.pending_model_gateways={}
 
-    def start(self):
+    def image_labels(self):
         meta=decode(self.broker.docker_command(['image','inspect',self.image],maximum=128000))[0]
-        self.native_capabilities=meta.get('Config',{}).get('Labels',{}).get('teruisi.pi.native-capabilities')=='1'
-        if not self.native_capabilities:raise ValueError('workspace_native_image_upgrade_required')
+        labels=meta.get('Config',{}).get('Labels') or {}
+        if labels.get('teruisi.pi.native-capabilities')!='1':
+            raise ValueError('workspace_native_image_upgrade_required')
+        return labels
+
+    def start(self,labels=None,history=None):
+        if labels is None:labels=self.image_labels()
+        self.native_capabilities=True
+        self.local_restore_protocol=labels.get('teruisi.pi.local-restore')=='1'
+        self.local_bound=False
         proc = self.broker.popen(['start','--attach','--interactive',self.container])
         with self.lock:self.proc = proc
         threading.Thread(target=self.read,args=(proc,),daemon=True).start()
@@ -168,12 +179,25 @@ class Session:
         threading.Thread(target=self.drain_stderr,args=(proc,),daemon=True).start()
         from .workspace import value_get, register_session
         bootstrap={'type':'runner_init','skillVersion':self.skill_version,'skillIds':[s['id'] for s in self.skills]}
-        self.workspace_version=meta.get('Config',{}).get('Labels',{}).get('teruisi.pi.workspace')
-        if self.workspace_version=='2':bootstrap['sessionId']=value_get(self,'currentSessionId','conversation')
+        self.workspace_version=labels.get('teruisi.pi.workspace')
+        expected_session=value_get(self,'currentSessionId')
+        if self.workspace_version=='2':bootstrap['sessionId']=expected_session or 'conversation'
         self.write(bootstrap)
         state = self.rpc('get_state',{},timeout=35)
         if not state.get('success'):
             raise ValueError('pi_startup_failed')
+        if expected_session is not None:
+            expected_file=value_get(self,'sessions',{}).get(expected_session)
+            proof=history if history is not None else value_get(self,'stoppedHistory')
+            new=state['data']
+            empty=proof=={'sessionId':expected_session,'seq':self.last_seq,'empty':True} and new.get('messageCount')==0
+            if not empty and (new.get('sessionId')!=expected_session or expected_file and new.get('sessionFile')!=expected_file):
+                raise ValueError('workspace_history_identity_changed')
+            if empty and new.get('sessionId')!=expected_session:
+                from .workspace import value_set
+                registry=value_get(self,'sessions',{})
+                registry.pop(expected_session,None)
+                value_set(self,'sessions',registry)
         for command in [('set_auto_retry',{'enabled':False}),('set_auto_compaction',{'enabled':False})]:
             if not self.rpc(*command).get('success'):
                 raise ValueError('pi_settings_rejected')
@@ -333,6 +357,33 @@ class Session:
             raise ValueError('invalid_gateway_binding')
         if not isinstance(gateway['capability'],str) or not 16<=len(gateway['capability'])<=4096:
             raise ValueError('invalid_capability')
+        return self._bind_settings(gateway,model,admission)
+
+    def restore_local(self, admission, fallback_model=None):
+        from .admission import check
+        with self.metadata_lock:
+            if admission is None:raise ValueError('admission_required')
+            fence=check(self,admission)
+            if fence['mode']=='switching':raise ValueError('mode_switching')
+            if not getattr(self,'local_restore_protocol',False):raise ValueError('workspace_native_image_upgrade_required')
+            metadata=self.local_restore_model(fallback_model)
+            return self._bind_settings(None,metadata)
+
+    def local_restore_model(self,fallback_model=None):
+        from .workspace import value_get
+        metadata=value_get(self,'localModel')
+        if isinstance(metadata,dict):return metadata
+        model=fallback_model
+        fields={'contextWindow','maxTokens','reasoning','supportedThinkingLevels','thinkingLevel'}
+        if (not isinstance(model,dict) or set(model)!=fields or
+                any(type(model[k]) is not int or not 1<=model[k]<=9007199254740991 for k in ('contextWindow','maxTokens')) or
+                type(model['reasoning']) is not bool or not isinstance(model['supportedThinkingLevels'],list) or
+                any(level not in ('off','minimal','low','medium','high','xhigh','max') for level in model['supportedThinkingLevels']) or
+                model['thinkingLevel'] not in model['supportedThinkingLevels']):
+            raise ValueError('workspace_local_model_unavailable')
+        return model
+
+    def _bind_settings(self, gateway, model=None, admission=None):
         from .admission import install, check
         if admission is not None:install(self,admission)
         fence=check(self)
@@ -351,17 +402,23 @@ class Session:
             if requested is None:requested=previous if previous in supported else supported[-1]
             projected['thinkingLevelMap']={level:level if level in supported else None for level in ['off','minimal','low','medium','high','xhigh','max']}
         self.model=projected;self.gateway=gateway;self.provider_thinking_levels=supported
-        arg=base64.b64encode(encode({'capability':gateway['capability'],'model':self.model,'admission':fence,'thinkingLevel':requested})).decode()
-        response=self.rpc('prompt',{'message':'/runner-bind '+arg})
+        self.local_bound=False
+        settings={'model':projected,'admission':fence,'thinkingLevel':requested}
+        if gateway:settings['capability']=gateway['capability']
+        arg=base64.b64encode(encode(settings)).decode()
+        response=self.rpc('prompt',{'message':('/runner-bind ' if gateway else '/runner-restore ')+arg})
         if not response.get('success') or response.get('data',{}).get('disposition')!='handled':
             raise ValueError('capability_bind_failed')
         effective=self.rpc('get_state',{}).get('data',{}).get('model',{})
         if any(effective.get(k)!=v for k,v in self.model.items()):raise ValueError('model_metadata_not_effective')
         self.effective_model={k:effective[k] for k in ['contextWindow','maxTokens','reasoning']}
         if self.provider_thinking_levels is not None:self.effective_model['supportedThinkingLevels']=self.provider_thinking_levels
-        from .workspace import register_session
+        from .workspace import register_session, value_set
         actual=register_session(self)
         if requested is not None and actual.get('thinkingLevel')!=requested:raise ValueError('thinking_readback_unknown')
+        metadata={**projected,**({'supportedThinkingLevels':supported,'thinkingLevel':actual['thinkingLevel']} if supported is not None else {})}
+        value_set(self,'localModel',metadata)
+        self.local_bound=True
 
     def gateway_call(self, record, proc=None):
         with self.lock:
@@ -369,7 +426,7 @@ class Session:
             job = self.active
         request_id = record.get('id')
         try:
-            if not job or self.revoked or self.phase not in {'dispatching','accepted','running'}:
+            if not job or not self.gateway or self.revoked or self.phase not in {'dispatching','accepted','running'}:
                 raise ValueError('operation_revoked')
             payload=decode(record.get('placeholder',''))
             if not isinstance(payload,dict) or payload.get('capability')!=self.gateway['capability']:
@@ -530,7 +587,7 @@ class Broker:
                 if getattr(session,'workspace_maintenance',False):continue
                 if session.phase in {'disposed','unknown','frozen','stopped','updating','creating'} or session.proc is None:continue
                 try:
-                    from .workspace import value_get, apply_pending
+                    from .workspace import value_get, apply_pending, record_stop_history
                     if any(value_get(session,key) for key in ('pendingModel','pendingThinking','pendingSkillsReload')):apply_pending(session)
                     quota=self.transfer(session,{'action':'quota','bytes':self.limits['workspaceBytes'],'files':self.limits['workspaceFiles']})
                     if quota['exceeded']:
@@ -547,6 +604,7 @@ class Broker:
                         background=current-getattr(session,'baseline_processes',set())
                         session.background_process_count=len(background)
                         if background:continue
+                        record_stop_history(session)
                         with session.lock:old,session.proc=session.proc,None
                         if old is None:continue
                         old.stdin.close()
@@ -586,9 +644,11 @@ print(json.dumps(result))
         return raw.decode().split()
 
     def rebuild_unknown_references(self):
+        from .workspace import value_get
         with self.ledger.lock:
             rows=self.ledger.db.execute('SELECT workspace,identity,container,volume,status,seq,container_id,image FROM sessions').fetchall()
         known={row[2]:row for row in rows}
+        loaded=set()
         for container_id in self.managed_containers():
             meta=decode(self.docker_command(['inspect',container_id],maximum=128000))[0]
             name=meta.get('Name','').removeprefix('/')
@@ -614,6 +674,12 @@ print(json.dumps(result))
             session.container_id=saved_id
             session.image=saved_image or self.image
             session.skill_version=version;session.last_seq=seq
+            loaded.add(key)
+            if value_get(session,'retainedShell') and (status=='stopped' or saved_id is None):
+                # A name appeared after verified deletion. Never adopt it.
+                session.fail('retained_workspace_container_conflict')
+                self.sessions[key]=session
+                continue
             verified=self.inspect(session)
             if verified.get('Id')!=meta.get('Id'):raise ValueError('startup_container_identity_changed')
             if status in {'unknown','frozen'}:
@@ -634,7 +700,6 @@ print(json.dumps(result))
                 self.sessions[key]=session
                 self.save_session(session)
             elif status in {'idle','settled','handled','aborted','failed','stopped'}:
-                from .workspace import value_get
                 session.baseline_processes=set(value_get(session,'baselineProcesses',[]))
                 if verified.get('State',{}).get('Running'):
                     if verified.get('State',{}).get('Paused'):self.docker_command(['unpause',verified['Id']])
@@ -648,6 +713,26 @@ print(json.dumps(result))
                     session.revoked=bool(extra)
                 else:session.phase='stopped'
                 self.sessions[key]=session;self.save_session(session)
+        for key,raw,name,volume,status,seq,saved_id,saved_image in rows:
+            if key in loaded or status not in {'stopped','unknown'}:continue
+            identity=decode(raw)
+            session=Session(self,identity,name,volume,[])
+            marker=value_get(session,'retainedShell')
+            intent=value_get(session,'reclaimIntent') if status=='unknown' else None
+            hold=value_get(session,'resumeHold') if status=='unknown' else None
+            if not marker and not intent and not hold:continue
+            session.container_id=saved_id;session.image=saved_image
+            session.last_seq=seq;session.revoked=True;session.phase=status
+            try:
+                version=identity['skillVersion']
+                selected=identity['skillIds']
+                bundle=self.skill_bundles[version]
+                session.skills=[s for s in bundle['skills'] if s['id'] in selected]
+                if len(session.skills)!=len(selected):raise ValueError('persisted_skill_selection_changed')
+                session.skill_version=version
+                if marker:self.verify_retained(session)
+            except Exception:session.fail('retained_workspace_unverified')
+            self.sessions[key]=session
 
     def docker_command(self,args,raw=None,timeout=15,maximum=MAX_RESPONSE):
         proc=self.popen(args)
@@ -763,10 +848,13 @@ print(json.dumps(result))
 
     def save_session(self,session):
         with self.ledger.lock,self.ledger.db:
-            stored={**(session.active or session.identity),'skillVersion':getattr(session,'skill_version',None),'skillIds':[s['id'] for s in session.skills]}
-            stored={k:v for k,v in stored.items() if k in {*IDENTITY,'skillVersion','skillIds'}}
-            persisted_phase='frozen' if getattr(session,'frozen_workspace',False) and session.phase=='disposed' else session.phase
-            self.ledger.db.execute('INSERT OR REPLACE INTO sessions VALUES (?,?,?,?,?,?,?,?)',(session.key,encode(stored),session.container,session.volume,persisted_phase,session.last_seq,session.container_id,session.image))
+            self._save_session(session)
+
+    def _save_session(self,session):
+        stored={**(session.active or session.identity),'skillVersion':getattr(session,'skill_version',None),'skillIds':[s['id'] for s in session.skills]}
+        stored={k:v for k,v in stored.items() if k in {*IDENTITY,'skillVersion','skillIds'}}
+        persisted_phase='frozen' if getattr(session,'frozen_workspace',False) and session.phase=='disposed' else session.phase
+        self.ledger.db.execute('INSERT OR REPLACE INTO sessions VALUES (?,?,?,?,?,?,?,?)',(session.key,encode(stored),session.container,session.volume,persisted_phase,session.last_seq,session.container_id,session.image))
 
     def inspect(self,session):
         container=decode(self.docker_command(['inspect',session.container],maximum=128000))[0]
@@ -782,20 +870,191 @@ print(json.dumps(result))
                 or container['Config'].get('Labels',{}).get('teruisi.pi.workspace')!=session.key
                 or container['Config'].get('Labels',{}).get('teruisi.pi.namespace')!=self.namespace):
             raise ValueError('container_contract_mismatch')
+        self.inspect_volume(session)
+        session.container_id=container['Id']
+        return container
+
+    def inspect_volume(self,session):
         volume=decode(self.docker_command(['volume','inspect',session.volume],maximum=64000))[0]
         if (volume.get('Name')!=session.volume or volume.get('Driver')!='local' or volume.get('Options')
                 or volume.get('Labels',{}).get('teruisi.pi.workspace')!=session.key
                 or volume.get('Labels',{}).get('teruisi.pi.namespace')!=self.namespace):raise ValueError('volume_owner_mismatch')
-        session.container_id=container['Id']
-        return container
+        return volume
+
+    def shell_binding(self,session):
+        return {'workspaceId':session.key,'containerId':session.container_id,'image':session.image,
+                'volume':session.volume,'lastSeq':session.last_seq}
+
+    def container_exists(self,name,by_id=False):
+        return bool(self.docker_command(['ps','-aq','--filter',('id='+name) if by_id else ('name=^/'+name+'$')]).strip())
+
+    def verify_retained(self,session):
+        from .workspace import value_get
+        marker=value_get(session,'retainedShell')
+        if (not isinstance(marker,dict) or not re.fullmatch(r'[a-f0-9]{64}',marker.get('containerId',''))
+                or marker!={**self.shell_binding(session),'containerId':marker['containerId'],'volumeSha256':marker.get('volumeSha256')}
+                or session.container_id is not None or session.container!=self.namespace+'-'+session.key[:32]
+                or not re.fullmatch(r'sha256:[a-f0-9]{64}',session.image or '')
+                or self.container_exists(session.container) or self.container_exists(marker['containerId'],by_id=True)):
+            raise ValueError('retained_workspace_identity_changed')
+        if self.volume_sha256(session)!=marker['volumeSha256'] or self.volume_users(session):
+            raise ValueError('retained_workspace_volume_changed')
+        return marker
+
+    def volume_sha256(self,session):
+        volume=self.inspect_volume(session)
+        if not volume.get('CreatedAt') or not volume.get('Mountpoint'):raise ValueError('volume_identity_unverified')
+        return hashlib.sha256(encode({k:volume[k] for k in ('Name','CreatedAt','Mountpoint','Labels','Driver')})).hexdigest()
+
+    def volume_users(self,session):
+        return self.docker_command(['ps','-aq','--no-trunc','--filter','volume='+session.volume],maximum=10000).decode().split()
+
+    def container_args(self,session):
+        labels=['--label','teruisi.pi.namespace='+self.namespace,'--label','teruisi.pi.workspace='+session.key]
+        return ['create','--pull=never','--name',session.container,*labels,'--network=none','--read-only','--user=65532:65532','--cap-drop=ALL','--security-opt=no-new-privileges:true',
+                '--cpus=1','--memory=1g','--memory-swap=1g','--pids-limit=128','--ulimit=nofile=256:256','--ulimit=core=0:0','--ulimit=fsize=67108864:67108864',
+                '--restart=no','--log-driver=none','--ipc=private','--cgroupns=private','--shm-size=16m','--tmpfs=/tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777',
+                '--mount','type=volume,src='+session.volume+',dst=/workspace','--workdir=/workspace','--interactive',session.image]
+
+    def reclaim_stopped(self,session,control_id,expected,require_local=False):
+        from .workspace import Rejected, verify_stopped_history
+        from .upgrade_linux import retained_reference
+        with self.lock,session.lock:
+            if (getattr(self,'closing',False) or session.phase!='stopped' or session.proc is not None or
+                    not session.container_id or expected!=self.shell_binding(session)
+                    or session.container!=self.namespace+'-'+session.key[:32]
+                    or retained_reference(self,session.container,session.container_id)
+                    or self.workspace_unresolved(session,control_id)):
+                raise Rejected('reclaim_workspace_unverified')
+            if any(getattr(session,k,None) for k in ('gateway_pending','local_calls','ui_pending','queued_controls','bash_control',
+                    'executing_controls','workspace_maintenance','resource_installing')) or any(
+                        t.status in {'starting','running','unknown'} for t in session.terminals.values()):
+                raise Rejected('reclaim_workspace_active')
+            try:
+                labels=session.image_labels()
+                if require_local:self.require_local_restore(session,labels)
+            except ValueError as error:
+                if str(error) not in {'workspace_native_image_upgrade_required','workspace_local_model_unavailable'}:raise
+                raise Rejected(str(error)) from error
+            actual=self.inspect(session)
+            if actual.get('State',{}).get('Status')!='exited' or actual['State'].get('Running') is not False or actual['State'].get('Pid')!=0:
+                raise Rejected('reclaim_container_not_stopped')
+            if self.volume_users(session)!=[actual['Id']]:
+                raise Rejected('reclaim_volume_in_use')
+            verify_stopped_history(session)
+            marker={**expected,'volumeSha256':self.volume_sha256(session)}
+            # Intent survives a lost rm response and suppresses replays after a
+            # broker crash. No force, name-targeted delete or volume delete.
+            with self.ledger.lock,self.ledger.db:
+                session.phase='reclaiming';self._save_session(session)
+                self.ledger.db.execute('INSERT OR REPLACE INTO workspace_values VALUES (?,?,?)',(session.key,'reclaimIntent',encode(marker)))
+            self.docker_command(['rm',actual['Id']])
+            if self.container_exists(session.container) or self.container_exists(actual['Id'],by_id=True):
+                raise ValueError('reclaim_shell_absence_unverified')
+            if self.volume_sha256(session)!=marker['volumeSha256'] or self.volume_users(session):
+                raise ValueError('reclaim_volume_changed')
+            with self.ledger.lock,self.ledger.db:
+                session.container_id=None;session.phase='stopped';session.gateway=None;session.revoked=True
+                self._save_session(session)
+                self.ledger.db.execute('INSERT OR REPLACE INTO workspace_values VALUES (?,?,?)',(session.key,'retainedShell',encode(marker)))
+                self.ledger.db.execute('DELETE FROM workspace_values WHERE workspace=? AND name=?',(session.key,'reclaimIntent'))
+                result={**expected,'containerRemoved':True,'volumePreserved':True}
+                self.ledger.db.execute("UPDATE workspace_controls SET status='completed',result=? WHERE workspace=? AND id=?",
+                    (encode({'result':result}),session.key,control_id))
+            return result
+
+    def workspace_unresolved(self,session,control_id):
+        key=session.key
+        with self.ledger.lock:
+            return any(self.ledger.db.execute(sql,params).fetchone() for sql,params in (
+                ("SELECT 1 FROM workspace_controls WHERE workspace=? AND id!=? AND status NOT IN ('completed','handled','failed') LIMIT 1",(key,control_id)),
+                ("SELECT 1 FROM workspace_terminals WHERE workspace=? AND status IN ('starting','running','unknown') LIMIT 1",(key,)),
+                ("SELECT 1 FROM terminal_inputs WHERE workspace=? AND status IN ('dispatching','unknown') LIMIT 1",(key,)),
+                ("SELECT 1 FROM workspace_helpers WHERE workspace=? AND status!='complete' LIMIT 1",(key,)),
+                ("SELECT 1 FROM workspace_activities WHERE workspace=? AND status IN ('active','unknown') LIMIT 1",(key,)),
+                ("SELECT 1 FROM workspace_upgrades WHERE workspace=? AND status!='complete' LIMIT 1",(key,)),
+                ("SELECT 1 FROM commands WHERE status IN ('dispatching','unknown') AND (workspace=? OR operation=? OR operation IN (SELECT operation FROM events WHERE workspace=?)) LIMIT 1",
+                    (key,(session.active or session.identity)['operationId'],key)),
+                ("SELECT 1 FROM gateway WHERE status IN ('dispatching','unknown') AND (operation=? OR operation IN (SELECT operation FROM events WHERE workspace=?)) LIMIT 1",
+                    ((session.active or session.identity)['operationId'],key))))
+
+    def require_local_restore(self,session,labels,fallback_model=None):
+        if labels.get('teruisi.pi.local-restore')!='1':
+            raise ValueError('workspace_native_image_upgrade_required')
+        session.local_restore_model(fallback_model)
+
+    def preserve_resume_failure(self,session,reason,*,stop=False):
+        with session.lock,self.ledger.lock,self.ledger.db:
+            session.phase,session.error,session.revoked,session.gateway='unknown',reason,True,None
+            self._save_session(session)
+            hold={'reason':reason,**self.shell_binding(session)}
+            self.ledger.db.execute('INSERT OR REPLACE INTO workspace_values VALUES (?,?,?)',
+                (session.key,'resumeHold',encode(hold)))
+        if stop and session.container_id:
+            try:
+                actual=self.inspect(session)
+                if actual['State'].get('Running') is True:
+                    if actual['State'].get('Paused'):self.docker_command(['unpause',actual['Id']])
+                    self.docker_command(['stop','--time','2',actual['Id']],timeout=10)
+                session.restart_stop_verified=self.inspect(session)['State'].get('Running') is False
+            except Exception:
+                # The held identity remains unknown. Startup/readiness can
+                # observe it again, and no dispose can remove this shell.
+                pass
+
+    def start_stopped(self,session,*,admission=None,local=False,fallback_model=None):
+        from .admission import check
+        from .workspace import value_get, verify_stopped_history
+        with self.lock,session.metadata_lock:
+            if session.phase!='stopped':raise ValueError('workspace_busy')
+            labels=session.image_labels()
+            if local:
+                if admission is None:raise ValueError('admission_required')
+                if check(session,admission)['mode']=='switching':raise ValueError('mode_switching')
+                self.require_local_restore(session,labels,fallback_model)
+            retained=value_get(session,'retainedShell')
+            try:
+                if retained:self.verify_retained(session)
+                else:
+                    actual=self.inspect(session)
+                    if actual['State'].get('Running') is not False:raise ValueError('workspace_stop_unverified')
+            except Exception as error:
+                self.preserve_resume_failure(session,'workspace_resume_identity_unknown')
+                raise ValueError('workspace_resume_identity_unknown') from error
+            if retained and len(self.managed_containers())>=self.limits['maxSessions']:
+                raise ValueError('session_limit')
+            try:history=verify_stopped_history(session)
+            except Exception as error:
+                self.preserve_resume_failure(session,'workspace_resume_history_unknown')
+                raise ValueError('workspace_resume_history_unknown') from error
+            with session.lock:
+                session.phase='creating';session.gateway=None;session.revoked=True
+                self.save_session(session)
+            try:
+                if retained:
+                    self.docker_command(self.container_args(session))
+                    self.inspect(session)
+                    self.save_session(session)
+                    if self.volume_sha256(session)!=retained['volumeSha256'] or self.volume_users(session)!=[session.container_id]:
+                        raise ValueError('retained_workspace_volume_changed')
+                session.start(labels,history)
+                if local:session.restore_local(admission,fallback_model)
+                if session.phase!='creating':raise ValueError('workspace_resume_start_unknown')
+                with self.ledger.lock,self.ledger.db:
+                    session.phase='idle';session.last_activity=time.monotonic()
+                    self._save_session(session)
+                    if retained:self.ledger.db.execute("DELETE FROM workspace_values WHERE workspace=? AND name='retainedShell'",(session.key,))
+            except Exception as error:
+                self.preserve_resume_failure(session,'workspace_resume_unknown',stop=True)
+                raise ValueError('workspace_resume_unknown') from error
 
     def create(self,job):
         key=workspace_key(job)
         with self.lock:
             existing=self.sessions.get(key)
             if existing:
-                if existing.phase in {'unknown','disposed','frozen'}:raise ValueError('session_unavailable')
-                if existing.phase=='stopped':existing.start();existing.phase='idle';existing.last_activity=time.monotonic()
+                if existing.phase in {'unknown','disposed','frozen','creating','updating','reclaiming','freezing'}:raise ValueError('session_unavailable')
+                if existing.phase=='stopped':self.start_stopped(existing)
                 if existing.active and existing.active['operationId']!=job['operationId'] and existing.phase in {'dispatching','accepted','running','settling'}:raise ValueError('session_busy')
                 selected=job['payload'].get('skillIds',[s['id'] for s in existing.skills])
                 version=job['payload'].get('skillVersion',getattr(existing,'skill_version','1.0.0'))
@@ -804,66 +1063,53 @@ print(json.dumps(result))
                 return existing
             with self.ledger.lock:
                 previous=self.ledger.db.execute('SELECT identity,status,workspace,seq FROM sessions').fetchall()
-            restore_seq=0;restore_image=self.image;restore_volume=None
             for raw,status,old_key,old_seq in previous:
                 old=decode(raw)
-                if old_key==key and status=='frozen':raise ValueError('frozen_workspace_requires_generation')
+                if old_key==key:raise ValueError('persisted_workspace_unavailable')
                 if old['ownerId']==job['ownerId'] and old['conversationId']==job['conversationId'] and status not in {'disposed','frozen'}:
-                    if old_key==key and status in {'idle','settled','handled','aborted','failed','stopped'}:
-                        restore_seq=old_seq
-                        with self.ledger.lock:
-                            image_row=self.ledger.db.execute('SELECT image,volume FROM sessions WHERE workspace=?',(key,)).fetchone()
-                        restore_image=(image_row[0] if image_row else None) or self.image
-                        restore_volume=image_row[1] if image_row else None
-                    else:raise ValueError('unresolved_previous_session')
+                    raise ValueError('unresolved_previous_session')
             name=self.namespace+'-'+key[:32];volume=name+'-workspace'
-            if restore_volume:volume=restore_volume
-            physical=self.managed_containers()
-            if len(physical)>=self.limits['maxSessions']:
-                matching=self.docker_command(['ps','-aq','--filter','name=^/'+name+'$']).strip()
-                if not matching:raise ValueError('session_limit')
+            if self.container_exists(name):raise ValueError('unregistered_workspace_container')
+            if len(self.managed_containers())>=self.limits['maxSessions']:raise ValueError('session_limit')
+            session=Session(self,job,name,volume,[])
+            image_labels=session.image_labels()
             labels=['--label','teruisi.pi.namespace='+self.namespace,'--label','teruisi.pi.workspace='+key]
             known=self.docker_command(['volume','ls','-q','--filter','name=^'+volume+'$']).strip()
             if known:
                 meta=decode(self.docker_command(['volume','inspect',volume],maximum=64000))[0]
                 if meta.get('Labels',{}).get('teruisi.pi.workspace')!=key or meta.get('Labels',{}).get('teruisi.pi.namespace')!=self.namespace:raise ValueError('volume_owner_mismatch')
             else:self.docker_command(['volume','create',*labels,volume])
-            args=['create','--pull=never','--name',name,*labels,'--network=none','--read-only','--user=65532:65532','--cap-drop=ALL','--security-opt=no-new-privileges:true',
-                  '--cpus=1','--memory=1g','--memory-swap=1g','--pids-limit=128','--ulimit=nofile=256:256','--ulimit=core=0:0','--ulimit=fsize=67108864:67108864',
-                  '--restart=no','--log-driver=none','--ipc=private','--cgroupns=private','--shm-size=16m','--tmpfs=/tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777',
-                  '--mount','type=volume,src='+volume+',dst=/workspace','--workdir=/workspace','--interactive',restore_image]
             version=job['payload'].get('skillVersion','1.0.0')
             manifest=self.skill_bundles.get(version)
             if not manifest:raise ValueError('skill_version_unavailable')
             selected=job['payload'].get('skillIds',[s['id'] for s in manifest['skills']])
             if not isinstance(selected,list) or len(set(selected))!=len(selected) or not set(selected).issubset({s['id'] for s in manifest['skills']}):raise ValueError('invalid_skill_selection')
-            session=Session(self,job,name,volume,[s for s in manifest['skills'] if s['id'] in selected])
+            session.skills=[s for s in manifest['skills'] if s['id'] in selected]
             session.skill_version=version
             from .admission import install
             install(session,job['payload'].get('admission'))
-            session.image=restore_image
-            session.last_seq=restore_seq
             self.sessions[key]=session;self.save_session(session)
-        try:
-            old_container=self.docker_command(['ps','-aq','--filter','name=^/'+name+'$']).strip()
-            if old_container:
+            try:
+                # Serialize allocation with shell removal and reconstruction.
+                self.docker_command(self.container_args(session))
                 self.inspect(session)
-                self.docker_command(['rm','--force',name])
-                session.container_id=None
-            self.docker_command(args)
-            self.inspect(session)
+                self.save_session(session)
+            except Exception:
+                session.fail('session_create_unknown')
+                raise
+        try:
             # Start Pi first; get_state proves real process readiness. Manifest
             # is read only from the immutable image, not an application path.
-            session.start()
+            session.start(image_labels)
             actual=validate_manifest(self.transfer(session,{'action':'manifest','version':version}))
             if actual!=manifest:raise ValueError('image_skill_bundle_changed')
             session.bind(job['payload']['gateway'],job['payload'].get('model'))
             session.phase='idle';session.last_activity=time.monotonic()
             self.save_session(session)
             return session
-        except Exception:
+        except Exception as error:
             session.fail('session_create_unknown')
-            raise
+            raise ValueError('session_create_unknown') from error
 
     def update_skills(self,session,version,selected,force=False):
         with session.metadata_lock:
@@ -899,7 +1145,10 @@ print(json.dumps(result))
         session.skill_version=version
         self.save_session(session)
         session.start()
-        if session.gateway and metadata is not None:
+        if getattr(session,'local_restore_protocol',False) and metadata is not None:
+            from .admission import check
+            session.restore_local(check(session))
+        elif session.gateway and metadata is not None:
             session.bind(session.gateway,metadata)
         session.phase='idle'
 
@@ -929,7 +1178,7 @@ print(json.dumps(result))
                 if set(payload)-{'message','gateway','files','skillIds','skillVersion','model','timeoutMs','admission'} or not isinstance(payload.get('message'),str) or not 1<=len(payload['message'].encode())<=262144:raise ValueError('invalid_prompt')
                 timeout=payload.get('timeoutMs')
                 if type(timeout) is not int or not 1<=timeout<=9007199254740991:raise ValueError('operation_timeout_required')
-                if payload['message'].lstrip().startswith(('/runner-bind','/reload')):raise ValueError('reserved_command')
+                if payload['message'].lstrip().startswith(('/runner-bind','/runner-restore','/reload')):raise ValueError('reserved_command')
                 from .admission import install, check
                 install(session,payload.get('admission'))
                 if check(session)['mode']=='switching':raise ValueError('mode_switching')
@@ -982,17 +1231,25 @@ print(json.dumps(result))
                 # agent_settled event remains the terminal completion evidence.
                 self.save_session(session)
             elif command=='dispose':
-                from .workspace import close_terminals
-                close_terminals(session)
-                session.frozen_workspace=session.phase in {'unknown','frozen','freezing'}
-                session.revoked=True;session.phase='disposed';self.save_session(session)
-                self.docker_command(['rm','--force',session.container])
-                if self.docker_command(['ps','-aq','--filter','name=^/'+session.container+'$']).strip():raise ValueError('cleanup_unknown')
-                if session.proc:
-                    session.proc.stdin.close();session.proc.wait(timeout=5)
-                # Volume retained with immutable owner/fence identity. It is never
-                # attached to a different generation, even after scope changes.
-                self.sessions.pop(key,None)
+                from .workspace import close_terminals,value_get
+                with self.lock:
+                    if value_get(session,'resumeHold') or value_get(session,'reclaimIntent'):
+                        raise ValueError('workspace_preserved_for_recovery')
+                    close_terminals(session)
+                    retained=value_get(session,'retainedShell')
+                    if retained:
+                        if session.phase!='stopped':raise ValueError('retained_workspace_unavailable')
+                        self.verify_retained(session)
+                    session.frozen_workspace=session.phase in {'unknown','frozen','freezing'}
+                    session.revoked=True;session.phase='disposed';self.save_session(session)
+                    if not retained:
+                        self.docker_command(['rm','--force',session.container])
+                        if self.container_exists(session.container):raise ValueError('cleanup_unknown')
+                    if session.proc:
+                        session.proc.stdin.close();session.proc.wait(timeout=5)
+                    # Volume retained with immutable owner/fence identity. It is never
+                    # attached to a different generation, even after scope changes.
+                    self.sessions.pop(key,None)
             elif command=='skills':
                 if session.phase not in {'idle','settled','handled','aborted','failed'}:raise ValueError('skill_update_while_busy')
                 if payload:
@@ -1034,13 +1291,15 @@ print(json.dumps(result))
                     if saved_id and self.docker_command(['ps','-aq','--filter','id='+saved_id]).strip():raise ValueError('unknown_container_renamed')
                     safe+=1;continue
                 reference=Session(self,identity,name,volume,[]);reference.container_id=saved_id
+                from .workspace import value_get
+                if saved_id is None and value_get(reference,'retainedShell'):raise ValueError('retained_shell_identity_unknown')
                 reference.image=saved_image or self.image
                 actual=self.inspect(reference)
                 if actual.get('State',{}).get('Running') is not False:raise ValueError('unknown_still_running')
                 safe+=1
             except Exception:unsafe+=1
         return {'version':1,'image':self.image,'sourceSha256':source_digest(),'namespace':self.namespace,
-            'activeCount':sum(s.phase in {'dispatching','accepted','running','settling','creating','updating','freezing'} or self.workspace_active(s) for s in self.sessions.values()),
+            'activeCount':sum(s.phase in {'dispatching','accepted','running','settling','creating','updating','freezing','reclaiming'} or self.workspace_active(s) for s in self.sessions.values()),
             'unresolvedCount':len(unknown),'unsafeUnknownCount':unsafe,'unknownStoppedVerifiedCount':safe,'closing':getattr(self,'closing',False)}
 
     def shutdown(self):
@@ -1048,9 +1307,12 @@ print(json.dumps(result))
         waiting=[]
         for session in list(self.sessions.values()):
             if session.phase not in {'idle','settled','handled','aborted','failed'}:continue
-            from .workspace import close_terminals
+            from .workspace import close_terminals,record_stop_history
             close_terminals(session)
             if session.proc:
+                try:record_stop_history(session)
+                except Exception:
+                    session.fail('shutdown_history_unknown');continue
                 with session.lock:old,session.proc=session.proc,None
                 if old:old.stdin.close();waiting.append((session,old))
         deadline=time.monotonic()+20
@@ -1096,8 +1358,10 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--config',required=True);parser.add_argument('--port',type=int,default=PORT)
+    from .native_isolation import PROFILE, native_port
+    parser=argparse.ArgumentParser();parser.add_argument('--config',required=True);parser.add_argument('--port',type=int,default=native_port(PORT))
     args=parser.parse_args()
+    if PROFILE and args.port != native_port(PORT):raise ValueError('isolated_port_binding_changed')
     if not 1024<=args.port<=65535:raise ValueError('invalid_port')
     broker=Broker(decode(private(args.config).read_bytes()))
     server=ThreadingHTTPServer(('127.0.0.1',args.port),Handler);server.broker=broker

@@ -31,6 +31,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "native-isolation.ps1")
+$RuntimeRoot = Get-NativeRuntimeRoot "django" $RuntimeRoot ($PSBoundParameters.ContainsKey("RuntimeRoot"))
 if (($RecoveryProofPath -or $RecoveryProofSha256) -and
     ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -cne "1" -or [string]::IsNullOrWhiteSpace($RecoveryProofPath) -or $RecoveryProofSha256 -cnotmatch "^[a-f0-9]{64}$" -or
      -not $KeepPostgres -or $MaintenanceId -cnotin @('779dd3efea0e485aa58aac3acc9e324f','ca1bc9efd18d4263aeb298353ca93714') -or
@@ -108,17 +110,17 @@ $RetirementOperator = Join-Path $InstalledAppRoot "tools\sales-d1-retirement.ts"
 $RetirementMigration = Join-Path $InstalledAppRoot "drizzle\0092_sales_domain_retirement.sql"
 $Node = Join-Path ([Environment]::GetFolderPath("ProgramFiles")) "nodejs\node.exe"
 $LauncherLogPath = Join-Path $LogDirectory "launcher.jsonl"
-$DjangoReaderHealthUrl = "http://127.0.0.1:8001/health/ready"
-$DjangoWriterHealthUrl = "http://127.0.0.1:8002/health/ready"
-$DjangoFinanceReaderHealthUrl = "http://127.0.0.1:8011/health/ready"
-$DjangoFinanceWriterHealthUrl = "http://127.0.0.1:8012/health/ready"
-$DjangoCustomerServiceReaderHealthUrl = "http://127.0.0.1:8071/health/ready"
-$DjangoCustomerServiceWriterHealthUrl = "http://127.0.0.1:8072/health/ready"
-$DjangoAccessControlReaderHealthUrl = "http://127.0.0.1:8101/health/ready"
-$DjangoAccessControlWriterHealthUrl = "http://127.0.0.1:8102/health/ready"
-$DjangoAiReaderHealthUrl = "http://127.0.0.1:8111/health/ready"
-$DjangoAiWriterHealthUrl = "http://127.0.0.1:8112/health/ready"
-$DjangoBiReaderHealthUrl = "http://127.0.0.1:8081/health/ready"
+$DjangoReaderHealthUrl = "http://127.0.0.1:$($NativePorts[8001])/health/ready"
+$DjangoWriterHealthUrl = "http://127.0.0.1:$($NativePorts[8002])/health/ready"
+$DjangoFinanceReaderHealthUrl = "http://127.0.0.1:$($NativePorts[8011])/health/ready"
+$DjangoFinanceWriterHealthUrl = "http://127.0.0.1:$($NativePorts[8012])/health/ready"
+$DjangoCustomerServiceReaderHealthUrl = "http://127.0.0.1:$($NativePorts[8071])/health/ready"
+$DjangoCustomerServiceWriterHealthUrl = "http://127.0.0.1:$($NativePorts[8072])/health/ready"
+$DjangoAccessControlReaderHealthUrl = "http://127.0.0.1:$($NativePorts[8101])/health/ready"
+$DjangoAccessControlWriterHealthUrl = "http://127.0.0.1:$($NativePorts[8102])/health/ready"
+$DjangoAiReaderHealthUrl = "http://127.0.0.1:$($NativePorts[8111])/health/ready"
+$DjangoAiWriterHealthUrl = "http://127.0.0.1:$($NativePorts[8112])/health/ready"
+$DjangoBiReaderHealthUrl = "http://127.0.0.1:$($NativePorts[8081])/health/ready"
 $StartupShortcut = Join-Path ([Environment]::GetFolderPath("Startup")) "TERUISI Django Sales.lnk"
 $RunId = "{0}-{1}" -f (Get-Date -Format "yyyyMMdd-HHmmss"), ([Guid]::NewGuid().ToString("N").Substring(0, 8))
 $ReaderStatementTimeoutMs = 7000
@@ -573,7 +575,7 @@ function Database-Url(
   $escapedDatabase = [Uri]::EscapeDataString($DatabaseName)
   $idleTimeout = [Math]::Max($StatementTimeoutMilliseconds + 5000, 60000)
   $options = [Uri]::EscapeDataString("-c statement_timeout=$StatementTimeoutMilliseconds -c idle_in_transaction_session_timeout=$idleTimeout")
-  return "postgresql://${escapedUser}:${escapedPassword}@127.0.0.1:5432/${escapedDatabase}?sslmode=disable&application_name=${escapedApplication}&connect_timeout=5&options=${options}"
+  return "postgresql://${escapedUser}:${escapedPassword}@127.0.0.1:$($NativePorts[5432])/${escapedDatabase}?sslmode=disable&application_name=${escapedApplication}&connect_timeout=5&options=${options}"
 }
 
 function Resolve-ErpSourceD1([string]$Path, [switch]$MetadataOnly) {
@@ -600,13 +602,13 @@ function Get-ServiceConfig([switch]$RequireLegacyD1) {
     throw "Django 本机服务配置必须使用 django-postgresql"
   }
   if (
-    [string]$config.readerAddress -cne "127.0.0.1:8001" -or
-    [string]$config.writerAddress -cne "127.0.0.1:8002" -or
-    [string]$config.financeReaderAddress -cne "127.0.0.1:8011" -or
-    [string]$config.financeWriterAddress -cne "127.0.0.1:8012" -or
-    [string]$config.customerServiceReaderAddress -cne "127.0.0.1:8071" -or
-    [string]$config.customerServiceWriterAddress -cne "127.0.0.1:8072" -or
-    [string]$config.postgresAddress -cne "127.0.0.1:5432"
+    [string]$config.readerAddress -cne "127.0.0.1:$($NativePorts[8001])" -or
+    [string]$config.writerAddress -cne "127.0.0.1:$($NativePorts[8002])" -or
+    [string]$config.financeReaderAddress -cne "127.0.0.1:$($NativePorts[8011])" -or
+    [string]$config.financeWriterAddress -cne "127.0.0.1:$($NativePorts[8012])" -or
+    [string]$config.customerServiceReaderAddress -cne "127.0.0.1:$($NativePorts[8071])" -or
+    [string]$config.customerServiceWriterAddress -cne "127.0.0.1:$($NativePorts[8072])" -or
+    [string]$config.postgresAddress -cne "127.0.0.1:$($NativePorts[5432])"
   ) {
     throw "Django 本机服务地址配置不符合固定回环契约"
   }
@@ -2211,6 +2213,8 @@ function Prepare-Application {
     Copy-WranglerRuntimeClosure (Join-Path $staging "runtime-tools") | Out-Null
     Copy-Item -LiteralPath $PSCommandPath -Destination (Join-Path $staging "tools\django-local-service.ps1") -Force
     foreach ($relative in @(
+      "tools\native-isolation.ps1",
+      "tools\native-isolation.mjs",
       "tools\sales-d1-retirement.ts",
       "tools\sales-d1-write-authority.ts",
       "tools\sales-legacy-r2-cleanup.ts",
@@ -2308,6 +2312,8 @@ function Prepare-Application {
       "tools\pi_workspace_candidate.py",
       "tools\pi_agent_upgrade_runtime.py",
       "tools\pi_agent_upgrade_status.py",
+      "tools\pandas_broker_rotation.py",
+      "tools\pandas_broker_rotation_linux.py",
       "tools\pi_agent_addition.py",
       "tools\pi_agent_catalog.py",
       "tools\pi_agent_catalog.json",
@@ -2324,6 +2330,7 @@ function Prepare-Application {
       "tools\publish-main-pi-reconciliation.mjs",
       "tools\publish-main-owner.mjs",
       "tools\publish-main-tail.mjs",
+      "tools\publish-main-pandas.mjs",
       "tools\main-prebuild-task.mjs",
       "tools\publish-main-command.mjs",
       "tools\manual-maintenance-start.ps1",
@@ -2900,6 +2907,7 @@ function Get-ConfigFingerprint([string]$Service, [string]$Executable, [string[]]
     (Join-Path $BackendRoot "erp_reference\query.py"),
     (Join-Path $BackendRoot "erp_reference\views.py")
   )
+  if ($NativeIsolation) { $criticalFiles += $env:TERUISI_NATIVE_ISOLATION_FILE }
   $material = [ordered]@{
     service = $Service
     runtimeRoot = Get-CanonicalPath $RuntimeRoot
@@ -3114,27 +3122,27 @@ function Assert-DjangoSupervisorStopped([string]$Operation) {
 function Assert-ApplicationProcessesStopped([string]$Operation) {
   Assert-DjangoSupervisorStopped $Operation
   if (
-    @(Get-PortListeners 8001).Count -gt 0 -or
-    @(Get-PortListeners 8002).Count -gt 0 -or
-    @(Get-PortListeners 8011).Count -gt 0 -or
-    @(Get-PortListeners 8012).Count -gt 0 -or
-    @(Get-PortListeners 8021).Count -gt 0 -or
-    @(Get-PortListeners 8022).Count -gt 0 -or
-    @(Get-PortListeners 8031).Count -gt 0 -or
-    @(Get-PortListeners 8032).Count -gt 0 -or
-    @(Get-PortListeners 8041).Count -gt 0 -or
-    @(Get-PortListeners 8042).Count -gt 0 -or
-    @(Get-PortListeners 8051).Count -gt 0 -or
-    @(Get-PortListeners 8052).Count -gt 0 -or
-    @(Get-PortListeners 8061).Count -gt 0 -or
-    @(Get-PortListeners 8062).Count -gt 0 -or
-    @(Get-PortListeners 8071).Count -gt 0 -or
-    @(Get-PortListeners 8072).Count -gt 0 -or
-    @(Get-PortListeners 8081).Count -gt 0 -or
-    @(Get-PortListeners 8091).Count -gt 0 -or
-    @(Get-PortListeners 8092).Count -gt 0 -or
-    @(Get-PortListeners 8101).Count -gt 0 -or
-    @(Get-PortListeners 8102).Count -gt 0
+    @(Get-PortListeners $NativePorts[8001]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8002]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8011]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8012]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8021]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8022]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8031]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8032]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8041]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8042]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8051]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8052]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8061]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8062]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8071]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8072]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8081]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8091]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8092]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8101]).Count -gt 0 -or
+    @(Get-PortListeners $NativePorts[8102]).Count -gt 0
   ) {
     throw "$Operation 前必须停止全部 Django 业务域 reader/writer"
   }
@@ -3185,10 +3193,10 @@ function Assert-ApplicationProcessesStopped([string]$Operation) {
       throw "$Operation requires the owned DingTalk processes to be stopped"
     }
   }
-  if ((Resolve-OwnedProcess "django-ai-reader" $DjangoAiReaderPidPath $Waitress) -or (Resolve-OwnedProcess "django-ai-writer" $DjangoAiWriterPidPath $Waitress) -or @(Get-PortListeners 8111).Count -gt 0 -or @(Get-PortListeners 8112).Count -gt 0) {
+  if ((Resolve-OwnedProcess "django-ai-reader" $DjangoAiReaderPidPath $Waitress) -or (Resolve-OwnedProcess "django-ai-writer" $DjangoAiWriterPidPath $Waitress) -or @(Get-PortListeners $NativePorts[8111]).Count -gt 0 -or @(Get-PortListeners $NativePorts[8112]).Count -gt 0) {
     throw "$Operation 前必须通过 AI 控制器 Stop 停止 AI 服务并核验端口身份"
   }
-  if (@(Get-PortListeners 8121).Count -gt 0 -or (Resolve-OwnedProcess "ai-pandas-wsl" (Join-Path $RunDirectory "ai-pandas-wsl.pid.json") (Join-Path $env:SystemRoot "System32\wsl.exe"))) {
+  if (@(Get-PortListeners $NativePorts[8121]).Count -gt 0 -or (Resolve-OwnedProcess "ai-pandas-wsl" (Join-Path $RunDirectory "ai-pandas-wsl.pid.json") (Join-Path $env:SystemRoot "System32\wsl.exe"))) {
     throw "$Operation requires the pandas broker and owned WSL keepalive to be stopped"
   }
   if (Resolve-OwnedProcess "django-access-control-reader" $DjangoAccessControlReaderPidPath $Waitress) {
@@ -3230,7 +3238,7 @@ function Assert-ApplicationDeploymentStopped([string]$Operation) {
 
 function Assert-ServiceStackStopped([string]$Operation) {
   Assert-ApplicationProcessesStopped $Operation
-  if (@(Get-PortListeners 5432).Count -gt 0) {
+  if (@(Get-PortListeners $NativePorts[5432]).Count -gt 0) {
     throw "$Operation 前必须停止 PostgreSQL"
   }
   $pgCtl = Join-Path $PostgresBin "pg_ctl.exe"
@@ -3260,7 +3268,7 @@ function Get-PortListeners([int]$Port) {
 }
 
 function Assert-PostgresListenerOwnership {
-  $listeners = @(Get-PortListeners 5432)
+  $listeners = @(Get-PortListeners $NativePorts[5432])
   if ($listeners.Count -ne 1) { throw "PostgreSQL 5432 必须且只能有一个监听器" }
   $listener = $listeners[0]
   if ([string]$listener.LocalAddress -ne "127.0.0.1") { throw "PostgreSQL 未严格绑定 127.0.0.1" }
@@ -3282,7 +3290,7 @@ function Test-PostgresReady {
   $pgIsReady = Join-Path $PostgresBin "pg_isready.exe"
   if (-not (Test-Path -LiteralPath $pgIsReady -PathType Leaf)) { return $false }
   $readyRun = Invoke-BoundedNativeProcess $pgIsReady @(
-    "-q", "-h", "127.0.0.1", "-p", "5432"
+    "-q", "-h", "127.0.0.1", "-p", "$($NativePorts[5432])"
   ) $RuntimeRoot
   return $readyRun.ExitCode -eq 0
 }
@@ -3311,7 +3319,7 @@ function Start-Postgres {
   try {
   $pgCtl = Join-Path $PostgresBin "pg_ctl.exe"
   if (-not (Test-Path -LiteralPath $pgCtl -PathType Leaf)) { throw "缺少 PostgreSQL 17 运行文件" }
-  $listeners = @(Get-PortListeners 5432)
+  $listeners = @(Get-PortListeners $NativePorts[5432])
   if ($listeners.Count -gt 0) {
     Assert-PostgresListenerOwnership | Out-Null
     if (-not (Test-PostgresReady)) { throw "本部署 PostgreSQL 正在监听但未接受连接" }
@@ -3342,7 +3350,7 @@ function Start-Postgres {
 function Stop-Postgres {
   $pgCtl = Join-Path $PostgresBin "pg_ctl.exe"
   if (-not (Test-Path -LiteralPath $pgCtl -PathType Leaf)) { return }
-  $listeners = @(Get-PortListeners 5432)
+  $listeners = @(Get-PortListeners $NativePorts[5432])
   if ($listeners.Count -gt 0) { Assert-PostgresListenerOwnership | Out-Null }
   $statusRun = Invoke-BoundedNativeProcess $pgCtl @(
     "status", "-D", $PostgresData
@@ -3537,13 +3545,13 @@ function Invoke-WithDjangoEnvironment(
     $env:TERUISI_DJANGO_ENVIRONMENT = "production"
     $env:TERUISI_DJANGO_PROCESS_ROLE = $ProcessRole
     if ($ProcessRole -in @("netshop_reader", "bi_reader")) {
-      $env:TERUISI_DJANGO_SALES_READER_BASE_URL = "http://127.0.0.1:8001"
-      $env:TERUISI_DJANGO_FINANCE_READER_BASE_URL = "http://127.0.0.1:8011"
-      $env:TERUISI_DJANGO_WORKFLOW_READER_BASE_URL = "http://127.0.0.1:8061"
+      $env:TERUISI_DJANGO_SALES_READER_BASE_URL = "http://127.0.0.1:$($NativePorts[8001])"
+      $env:TERUISI_DJANGO_FINANCE_READER_BASE_URL = "http://127.0.0.1:$($NativePorts[8011])"
+      $env:TERUISI_DJANGO_WORKFLOW_READER_BASE_URL = "http://127.0.0.1:$($NativePorts[8061])"
     }
     if ($ProcessRole -eq "bi_reader") {
-      $env:TERUISI_DJANGO_INVENTORY_READER_BASE_URL = "http://127.0.0.1:8051"
-      $env:TERUISI_DJANGO_NETSHOP_READER_BASE_URL = "http://127.0.0.1:8021"
+      $env:TERUISI_DJANGO_INVENTORY_READER_BASE_URL = "http://127.0.0.1:$($NativePorts[8051])"
+      $env:TERUISI_DJANGO_NETSHOP_READER_BASE_URL = "http://127.0.0.1:$($NativePorts[8021])"
     }
     $env:TERUISI_DJANGO_EXPECT_READ_ONLY = if ($ExpectReadOnly) { "true" } else { "false" }
     $env:TERUISI_DJANGO_SALES_CACHE_SECONDS = if ($ProcessRole -eq "reader") { "300" } else { "0" }
@@ -4144,7 +4152,7 @@ function Wait-DjangoReady([string]$Label, [string]$HealthUrl, [string]$HostHeade
 function Start-DjangoReader([object]$Secrets, [switch]$DeferReady) {
   if (-not (Test-Path -LiteralPath $Waitress -PathType Leaf)) { throw "缺少 Waitress 运行文件" }
   $arguments = @(
-    "--listen=127.0.0.1:8001", "--threads=8", "--connection-limit=100",
+    "--listen=127.0.0.1:$($NativePorts[8001])", "--threads=8", "--connection-limit=100",
     "--channel-timeout=35", "--cleanup-interval=30", "--ident=teruisi-django-reader",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$ReaderMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
@@ -4152,10 +4160,10 @@ function Start-DjangoReader([object]$Secrets, [switch]$DeferReady) {
   $fingerprint = Get-ConfigFingerprint "django-reader" $Waitress $arguments
   $existing = Resolve-OwnedProcess "django-reader" $DjangoReaderPidPath $Waitress $arguments $fingerprint
   if ($existing) {
-    Wait-DjangoReady "reader" $DjangoReaderHealthUrl "127.0.0.1:8001"
+    Wait-DjangoReady "reader" $DjangoReaderHealthUrl "127.0.0.1:$($NativePorts[8001])"
     return $false
   }
-  if (@(Get-PortListeners 8001).Count -gt 0) { throw "端口 8001 被非本部署的服务占用" }
+  if (@(Get-PortListeners $NativePorts[8001]).Count -gt 0) { throw "端口 8001 被非本部署的服务占用" }
   Remove-OldServiceLogs "django-reader"
   $stdout = Join-Path $LogDirectory "django-reader.$RunId.stdout.log"
   $stderr = Join-Path $LogDirectory "django-reader.$RunId.stderr.log"
@@ -4167,7 +4175,7 @@ function Start-DjangoReader([object]$Secrets, [switch]$DeferReady) {
   # The stack owns rollback after launch; its final readiness barrier remains mandatory.
   if ($DeferReady) { return $true }
   try {
-    Wait-DjangoReady "reader" $DjangoReaderHealthUrl "127.0.0.1:8001"
+    Wait-DjangoReady "reader" $DjangoReaderHealthUrl "127.0.0.1:$($NativePorts[8001])"
     return $true
   } catch {
     Stop-OwnedProcess "django-reader" $DjangoReaderPidPath $Waitress
@@ -4178,7 +4186,7 @@ function Start-DjangoReader([object]$Secrets, [switch]$DeferReady) {
 function Start-DjangoWriter([object]$Secrets, [object]$Authority, [switch]$DeferReady) {
   if (-not (Test-Path -LiteralPath $Waitress -PathType Leaf)) { throw "缺少 Waitress 运行文件" }
   $arguments = @(
-    "--listen=127.0.0.1:8002", "--threads=4", "--connection-limit=20",
+    "--listen=127.0.0.1:$($NativePorts[8002])", "--threads=4", "--connection-limit=20",
     "--channel-timeout=960", "--cleanup-interval=30", "--ident=teruisi-django-writer",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$WriterMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
@@ -4186,10 +4194,10 @@ function Start-DjangoWriter([object]$Secrets, [object]$Authority, [switch]$Defer
   $fingerprint = Get-ConfigFingerprint "django-writer" $Waitress $arguments
   $existing = Resolve-OwnedProcess "django-writer" $DjangoWriterPidPath $Waitress $arguments $fingerprint
   if ($existing) {
-    Wait-DjangoReady "writer" $DjangoWriterHealthUrl "127.0.0.1:8002"
+    Wait-DjangoReady "writer" $DjangoWriterHealthUrl "127.0.0.1:$($NativePorts[8002])"
     return $false
   }
-  if (@(Get-PortListeners 8002).Count -gt 0) { throw "端口 8002 被非本部署的服务占用" }
+  if (@(Get-PortListeners $NativePorts[8002]).Count -gt 0) { throw "端口 8002 被非本部署的服务占用" }
   Remove-OldServiceLogs "django-writer"
   $stdout = Join-Path $LogDirectory "django-writer.$RunId.stdout.log"
   $stderr = Join-Path $LogDirectory "django-writer.$RunId.stderr.log"
@@ -4201,7 +4209,7 @@ function Start-DjangoWriter([object]$Secrets, [object]$Authority, [switch]$Defer
   # The stack owns new-process rollback and the final readiness barrier.
   if ($DeferReady) { return $true }
   try {
-    Wait-DjangoReady "writer" $DjangoWriterHealthUrl "127.0.0.1:8002"
+    Wait-DjangoReady "writer" $DjangoWriterHealthUrl "127.0.0.1:$($NativePorts[8002])"
     return $true
   } catch {
     Stop-OwnedProcess "django-writer" $DjangoWriterPidPath $Waitress
@@ -4212,7 +4220,7 @@ function Start-DjangoWriter([object]$Secrets, [object]$Authority, [switch]$Defer
 function Start-DjangoFinanceReader([object]$Secrets, [switch]$DeferReady) {
   if (-not (Test-Path -LiteralPath $Waitress -PathType Leaf)) { throw "缺少 Waitress 运行文件" }
   $arguments = @(
-    "--listen=127.0.0.1:8011", "--threads=6", "--connection-limit=60",
+    "--listen=127.0.0.1:$($NativePorts[8011])", "--threads=6", "--connection-limit=60",
     "--channel-timeout=35", "--cleanup-interval=30", "--ident=teruisi-django-finance-reader",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$ReaderMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
@@ -4220,10 +4228,10 @@ function Start-DjangoFinanceReader([object]$Secrets, [switch]$DeferReady) {
   $fingerprint = Get-ConfigFingerprint "django-finance-reader" $Waitress $arguments
   $existing = Resolve-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress $arguments $fingerprint
   if ($existing) {
-    Wait-DjangoReady "finance-reader" $DjangoFinanceReaderHealthUrl "127.0.0.1:8011"
+    Wait-DjangoReady "finance-reader" $DjangoFinanceReaderHealthUrl "127.0.0.1:$($NativePorts[8011])"
     return $false
   }
-  if (@(Get-PortListeners 8011).Count -gt 0) { throw "端口 8011 被非本部署的服务占用" }
+  if (@(Get-PortListeners $NativePorts[8011]).Count -gt 0) { throw "端口 8011 被非本部署的服务占用" }
   Remove-OldServiceLogs "django-finance-reader"
   $stdout = Join-Path $LogDirectory "django-finance-reader.$RunId.stdout.log"
   $stderr = Join-Path $LogDirectory "django-finance-reader.$RunId.stderr.log"
@@ -4235,7 +4243,7 @@ function Start-DjangoFinanceReader([object]$Secrets, [switch]$DeferReady) {
   # The stack owns rollback after launch; its final readiness barrier remains mandatory.
   if ($DeferReady) { return $true }
   try {
-    Wait-DjangoReady "finance-reader" $DjangoFinanceReaderHealthUrl "127.0.0.1:8011"
+    Wait-DjangoReady "finance-reader" $DjangoFinanceReaderHealthUrl "127.0.0.1:$($NativePorts[8011])"
     return $true
   } catch {
     Stop-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress
@@ -4249,7 +4257,7 @@ function Start-DjangoFinanceWriter([object]$Secrets, [object]$Authority, [switch
   }
   if (-not (Test-Path -LiteralPath $Waitress -PathType Leaf)) { throw "缺少 Waitress 运行文件" }
   $arguments = @(
-    "--listen=127.0.0.1:8012", "--threads=4", "--connection-limit=20",
+    "--listen=127.0.0.1:$($NativePorts[8012])", "--threads=4", "--connection-limit=20",
     "--channel-timeout=960", "--cleanup-interval=30", "--ident=teruisi-django-finance-writer",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$WriterMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
@@ -4257,10 +4265,10 @@ function Start-DjangoFinanceWriter([object]$Secrets, [object]$Authority, [switch
   $fingerprint = Get-ConfigFingerprint "django-finance-writer" $Waitress $arguments
   $existing = Resolve-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress $arguments $fingerprint
   if ($existing) {
-    Wait-DjangoReady "finance-writer" $DjangoFinanceWriterHealthUrl "127.0.0.1:8012"
+    Wait-DjangoReady "finance-writer" $DjangoFinanceWriterHealthUrl "127.0.0.1:$($NativePorts[8012])"
     return $false
   }
-  if (@(Get-PortListeners 8012).Count -gt 0) { throw "端口 8012 被非本部署的服务占用" }
+  if (@(Get-PortListeners $NativePorts[8012]).Count -gt 0) { throw "端口 8012 被非本部署的服务占用" }
   Remove-OldServiceLogs "django-finance-writer"
   $stdout = Join-Path $LogDirectory "django-finance-writer.$RunId.stdout.log"
   $stderr = Join-Path $LogDirectory "django-finance-writer.$RunId.stderr.log"
@@ -4272,7 +4280,7 @@ function Start-DjangoFinanceWriter([object]$Secrets, [object]$Authority, [switch
   # The stack owns new-process rollback and the final readiness barrier.
   if ($DeferReady) { return $true }
   try {
-    Wait-DjangoReady "finance-writer" $DjangoFinanceWriterHealthUrl "127.0.0.1:8012"
+    Wait-DjangoReady "finance-writer" $DjangoFinanceWriterHealthUrl "127.0.0.1:$($NativePorts[8012])"
     return $true
   } catch {
     Stop-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress
@@ -4289,13 +4297,13 @@ function Configure-Service {
     backend = "django-postgresql"
     configuredAt = [DateTimeOffset]::Now.ToString("o")
     configuredFrom = $ExecutionRoot
-    readerAddress = "127.0.0.1:8001"
-    writerAddress = "127.0.0.1:8002"
-    financeReaderAddress = "127.0.0.1:8011"
-    financeWriterAddress = "127.0.0.1:8012"
-    customerServiceReaderAddress = "127.0.0.1:8071"
-    customerServiceWriterAddress = "127.0.0.1:8072"
-    postgresAddress = "127.0.0.1:5432"
+    readerAddress = "127.0.0.1:$($NativePorts[8001])"
+    writerAddress = "127.0.0.1:$($NativePorts[8002])"
+    financeReaderAddress = "127.0.0.1:$($NativePorts[8011])"
+    financeWriterAddress = "127.0.0.1:$($NativePorts[8012])"
+    customerServiceReaderAddress = "127.0.0.1:$($NativePorts[8071])"
+    customerServiceWriterAddress = "127.0.0.1:$($NativePorts[8072])"
+    postgresAddress = "127.0.0.1:$($NativePorts[5432])"
     erpSourceD1 = $resolvedErpSource
   })
   Write-LauncherEvent "INFO" "service_configured"
@@ -4404,8 +4412,8 @@ function Invoke-RetireSalesD1 {
   $smokeReceipt = Resolve-RetirementJsonArtifact $SmokeReceiptPath "smoke receipt"
   $context = Get-RetirementRuntimeContext
   Assert-SalesRetirementWorkerStopped "D1 sales retirement execute 前"
-  Wait-DjangoReady "reader" $DjangoReaderHealthUrl "127.0.0.1:8001"
-  Wait-DjangoReady "writer" $DjangoWriterHealthUrl "127.0.0.1:8002"
+  Wait-DjangoReady "reader" $DjangoReaderHealthUrl "127.0.0.1:$($NativePorts[8001])"
+  Wait-DjangoReady "writer" $DjangoWriterHealthUrl "127.0.0.1:$($NativePorts[8002])"
   $secrets = Read-Secrets
   $previousManaged = [Environment]::GetEnvironmentVariable("TERUISI_DJANGO_RETIREMENT_MANAGED", "Process")
   try {
@@ -4467,8 +4475,8 @@ function Invoke-CreateSalesCutoverSmokeReceipt {
   Assert-RuntimeAclHardened
   Get-ServiceConfig | Out-Null
   Assert-SalesRetirementWorkerStopped "正式本机 sales smoke 前"
-  Wait-DjangoReady "reader" $DjangoReaderHealthUrl "127.0.0.1:8001"
-  Wait-DjangoReady "writer" $DjangoWriterHealthUrl "127.0.0.1:8002"
+  Wait-DjangoReady "reader" $DjangoReaderHealthUrl "127.0.0.1:$($NativePorts[8001])"
+  Wait-DjangoReady "writer" $DjangoWriterHealthUrl "127.0.0.1:$($NativePorts[8002])"
   $smokeParent = Assert-RuntimeChildPath (Join-Path $RetirementAuditDirectory "smoke")
   New-Item -ItemType Directory -Path $smokeParent -Force | Out-Null
   Assert-RuntimeAclHardened
@@ -4553,17 +4561,17 @@ function Start-ServiceStack {
     $authority = Get-ActiveWriteAuthority $secrets
     $readerStarted = Start-DjangoReader $secrets -DeferReady
     $writerStarted = Start-DjangoWriter $secrets $authority -DeferReady
-    Wait-DjangoReady "reader" $DjangoReaderHealthUrl "127.0.0.1:8001"
-    Wait-DjangoReady "writer" $DjangoWriterHealthUrl "127.0.0.1:8002"
+    Wait-DjangoReady "reader" $DjangoReaderHealthUrl "127.0.0.1:$($NativePorts[8001])"
+    Wait-DjangoReady "writer" $DjangoWriterHealthUrl "127.0.0.1:$($NativePorts[8002])"
     $salesCoreReady = $true
     $financeReaderStarted = Start-DjangoFinanceReader $secrets -DeferReady
     $financeAuthority = Get-FinanceWriteAuthority $secrets
     if ([string]$financeAuthority.status -ceq "postgres") {
       $financeWriterStarted = Start-DjangoFinanceWriter $secrets $financeAuthority -DeferReady
     }
-    Wait-DjangoReady "finance-reader" $DjangoFinanceReaderHealthUrl "127.0.0.1:8011"
+    Wait-DjangoReady "finance-reader" $DjangoFinanceReaderHealthUrl "127.0.0.1:$($NativePorts[8011])"
     if ([string]$financeAuthority.status -ceq "postgres") {
-      Wait-DjangoReady "finance-writer" $DjangoFinanceWriterHealthUrl "127.0.0.1:8012"
+      Wait-DjangoReady "finance-writer" $DjangoFinanceWriterHealthUrl "127.0.0.1:$($NativePorts[8012])"
     }
     Write-LauncherEvent "INFO" "service_stack_ready"
     $financeWriterState = if ([string]$financeAuthority.status -ceq "postgres") { "ready" } else { "not_active" }
@@ -4655,10 +4663,10 @@ function Start-FinanceStack {
     if ([string]$authority.status -ceq "postgres") {
       $writerStarted = Start-DjangoFinanceWriter $secrets $authority -DeferReady
     }
-    Wait-DjangoReady "finance-reader" $DjangoFinanceReaderHealthUrl "127.0.0.1:8011"
+    Wait-DjangoReady "finance-reader" $DjangoFinanceReaderHealthUrl "127.0.0.1:$($NativePorts[8011])"
     if ([string]$authority.status -ceq "postgres") {
-      Wait-DjangoReady "finance-writer" $DjangoFinanceWriterHealthUrl "127.0.0.1:8012"
-      Write-Output "Django 财务服务已就绪：reader=http://127.0.0.1:8011 writer=http://127.0.0.1:8012。"
+      Wait-DjangoReady "finance-writer" $DjangoFinanceWriterHealthUrl "127.0.0.1:$($NativePorts[8012])"
+      Write-Output "Django 财务服务已就绪：reader=http://127.0.0.1:$($NativePorts[8011]) writer=http://127.0.0.1:$($NativePorts[8012])。"
     } else {
       Write-Output "Django 财务 reader 已就绪；PostgreSQL 财务写权尚未激活，writer 保持停止。"
     }
@@ -4716,7 +4724,7 @@ function Get-CoreStatusReadinessProbe([string]$Uri, [string]$HostHeader) {
 function Show-ServiceStatus {
   $statusClock = [Diagnostics.Stopwatch]::StartNew()
   $postgres = "stopped"
-  if (@(Get-PortListeners 5432).Count -gt 0) {
+  if (@(Get-PortListeners $NativePorts[5432]).Count -gt 0) {
     try {
       Assert-PostgresListenerOwnership | Out-Null
       $postgres = if (Test-PostgresReady) { "running" } else { "not_ready" }
@@ -4727,23 +4735,23 @@ function Show-ServiceStatus {
   $reader = "stopped"
   try {
     if (Resolve-OwnedProcess "django-reader" $DjangoReaderPidPath $Waitress -ReadOnly) { $reader = "running" }
-    elseif (@(Get-PortListeners 8001).Count -gt 0) { $reader = "foreign_port_owner" }
+    elseif (@(Get-PortListeners $NativePorts[8001]).Count -gt 0) { $reader = "foreign_port_owner" }
   } catch { $reader = "ownership_error" }
   $writer = "stopped"
   try {
     if (Resolve-OwnedProcess "django-writer" $DjangoWriterPidPath $Waitress -ReadOnly) { $writer = "running" }
-    elseif (@(Get-PortListeners 8002).Count -gt 0) { $writer = "foreign_port_owner" }
+    elseif (@(Get-PortListeners $NativePorts[8002]).Count -gt 0) { $writer = "foreign_port_owner" }
   } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"
   $readerProbe = $null
   if ($reader -eq "running") {
-    $readerProbe = Get-CoreStatusReadinessProbe $DjangoReaderHealthUrl '127.0.0.1:8001'
+    $readerProbe = Get-CoreStatusReadinessProbe $DjangoReaderHealthUrl "127.0.0.1:$($NativePorts[8001])"
     $readerReady = $readerProbe.readiness
   }
   $writerReady = "not_ready"
   $writerProbe = $null
   if ($writer -eq "running") {
-    $writerProbe = Get-CoreStatusReadinessProbe $DjangoWriterHealthUrl '127.0.0.1:8002'
+    $writerProbe = Get-CoreStatusReadinessProbe $DjangoWriterHealthUrl "127.0.0.1:$($NativePorts[8002])"
     $writerReady = $writerProbe.readiness
   }
   # Status must stay operationally bounded even when retained backup/rehearsal
@@ -4776,24 +4784,24 @@ function Show-FinanceServiceStatus {
   $reader = "stopped"
   try {
     if (Resolve-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress -ReadOnly) { $reader = "running" }
-    elseif (@(Get-PortListeners 8011).Count -gt 0) { $reader = "foreign_port_owner" }
+    elseif (@(Get-PortListeners $NativePorts[8011]).Count -gt 0) { $reader = "foreign_port_owner" }
   } catch { $reader = "ownership_error" }
   $writer = "stopped"
   try {
     if (Resolve-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress -ReadOnly) { $writer = "running" }
-    elseif (@(Get-PortListeners 8012).Count -gt 0) { $writer = "foreign_port_owner" }
+    elseif (@(Get-PortListeners $NativePorts[8012]).Count -gt 0) { $writer = "foreign_port_owner" }
   } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"
   if ($reader -eq "running") {
     try {
-      $response = Invoke-WebRequest -UseBasicParsing -Uri $DjangoFinanceReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8011" }
+      $response = Invoke-WebRequest -UseBasicParsing -Uri $DjangoFinanceReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:$($NativePorts[8011])" }
       if ($response.StatusCode -eq 200) { $readerReady = "ready" }
     } catch {}
   }
   $writerReady = "not_ready"
   if ($writer -eq "running") {
     try {
-      $response = Invoke-WebRequest -UseBasicParsing -Uri $DjangoFinanceWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8012" }
+      $response = Invoke-WebRequest -UseBasicParsing -Uri $DjangoFinanceWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:$($NativePorts[8012])" }
       if ($response.StatusCode -eq 200) { $writerReady = "ready" }
     } catch {}
   }
@@ -4931,38 +4939,38 @@ function Show-AggregateServiceStatus {
   $finance = Invoke-InProcessJsonStatus { Show-FinanceServiceStatus } "Django 财务状态"
   $netshop = Get-SimpleDjangoDomainStatus `
     "django-netshop-reader" $DjangoNetshopReaderPidPath $DjangoNetshopWriterPidPath `
-    8021 8022 "http://127.0.0.1:8021/health/ready" "http://127.0.0.1:8022/health/ready" `
+    $NativePorts[8021] $NativePorts[8022] "http://127.0.0.1:$($NativePorts[8021])/health/ready" "http://127.0.0.1:$($NativePorts[8022])/health/ready" `
     "NetshopReader" "NetshopWriter"
   $market = Get-SimpleDjangoDomainStatus `
     "django-market-reader" $DjangoMarketReaderPidPath $DjangoMarketWriterPidPath `
-    8031 8032 "http://127.0.0.1:8031/health/ready" "http://127.0.0.1:8032/health/ready" `
+    $NativePorts[8031] $NativePorts[8032] "http://127.0.0.1:$($NativePorts[8031])/health/ready" "http://127.0.0.1:$($NativePorts[8032])/health/ready" `
     "MarketReader" "MarketWriter"
   $products = Get-SimpleDjangoDomainStatus `
     "django-products-reader" $DjangoProductsReaderPidPath $DjangoProductsWriterPidPath `
-    8041 8042 "http://127.0.0.1:8041/health/ready" "http://127.0.0.1:8042/health/ready" `
+    $NativePorts[8041] $NativePorts[8042] "http://127.0.0.1:$($NativePorts[8041])/health/ready" "http://127.0.0.1:$($NativePorts[8042])/health/ready" `
     "ProductsReader" "ProductsWriter"
   $inventory = Get-SimpleDjangoDomainStatus `
     "django-inventory-reader" $DjangoInventoryReaderPidPath $DjangoInventoryWriterPidPath `
-    8051 8052 "http://127.0.0.1:8051/health/ready" "http://127.0.0.1:8052/health/ready" `
+    $NativePorts[8051] $NativePorts[8052] "http://127.0.0.1:$($NativePorts[8051])/health/ready" "http://127.0.0.1:$($NativePorts[8052])/health/ready" `
     "InventoryReader" "InventoryWriter"
   $workflow = Get-SimpleDjangoDomainStatus `
     "django-workflow-reader" $DjangoWorkflowReaderPidPath $DjangoWorkflowWriterPidPath `
-    8061 8062 "http://127.0.0.1:8061/health/ready" "http://127.0.0.1:8062/health/ready" `
+    $NativePorts[8061] $NativePorts[8062] "http://127.0.0.1:$($NativePorts[8061])/health/ready" "http://127.0.0.1:$($NativePorts[8062])/health/ready" `
     "WorkflowReader" "WorkflowWriter"
   $customerService = Get-SimpleDjangoDomainStatus `
     "django-customer-service-reader" $DjangoCustomerServiceReaderPidPath $DjangoCustomerServiceWriterPidPath `
-    8071 8072 "http://127.0.0.1:8071/health/ready" "http://127.0.0.1:8072/health/ready" `
+    $NativePorts[8071] $NativePorts[8072] "http://127.0.0.1:$($NativePorts[8071])/health/ready" "http://127.0.0.1:$($NativePorts[8072])/health/ready" `
     "CustomerServiceReader" "CustomerServiceWriter"
   $accessControl = Get-SimpleDjangoDomainStatus `
     "django-access-control-reader" $DjangoAccessControlReaderPidPath $DjangoAccessControlWriterPidPath `
-    8101 8102 "http://127.0.0.1:8101/health/ready" "http://127.0.0.1:8102/health/ready" `
+    $NativePorts[8101] $NativePorts[8102] "http://127.0.0.1:$($NativePorts[8101])/health/ready" "http://127.0.0.1:$($NativePorts[8102])/health/ready" `
     "AccessControlReader" "AccessControlWriter"
   $erpReference = Get-SimpleDjangoDomainStatus `
     "django-erp-reference-reader" $DjangoErpReferenceReaderPidPath $DjangoErpReferenceWriterPidPath `
-    8091 8092 "http://127.0.0.1:8091/health/ready" "http://127.0.0.1:8092/health/ready" `
+    $NativePorts[8091] $NativePorts[8092] "http://127.0.0.1:$($NativePorts[8091])/health/ready" "http://127.0.0.1:$($NativePorts[8092])/health/ready" `
     "ErpReferenceReader" "ErpReferenceWriter"
   $ai = if (Test-Path -LiteralPath $AiStartupEnabledPath -PathType Leaf) {
-    Get-SimpleDjangoDomainStatus "django-ai-reader" $DjangoAiReaderPidPath $DjangoAiWriterPidPath 8111 8112 $DjangoAiReaderHealthUrl $DjangoAiWriterHealthUrl "AiReader" "AiWriter"
+    Get-SimpleDjangoDomainStatus "django-ai-reader" $DjangoAiReaderPidPath $DjangoAiWriterPidPath $NativePorts[8111] $NativePorts[8112] $DjangoAiReaderHealthUrl $DjangoAiWriterHealthUrl "AiReader" "AiWriter"
   } else { $null }
   if ($null -ne $ai -and (Test-Path -LiteralPath (Join-Path $RuntimeRoot "config\pandas-sandbox.json"))) {
     $pandasReadiness = "not_ready"
@@ -4979,7 +4987,7 @@ function Show-AggregateServiceStatus {
     if ($pandasReadiness -cne "ready") { $ai.WriterReadiness = "not_ready" }
   }
   $bi = Get-SimpleDjangoReaderStatus `
-    "django-bi-reader" $DjangoBiReaderPidPath 8081 $DjangoBiReaderHealthUrl "BiReader"
+    "django-bi-reader" $DjangoBiReaderPidPath $NativePorts[8081] $DjangoBiReaderHealthUrl "BiReader"
   } finally {
     # Scoped tightly to this status pass so no later lifecycle/termination
     # action in the same process can ever observe a stale enumeration.
@@ -5364,7 +5372,7 @@ function Wait-AutomationDrain([int]$TimeoutSeconds = 900) {
   $deadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
   if (-not $RecoveryProofPath) {
   do {
-    $health = Invoke-RestMethod -Uri 'http://127.0.0.1:5791/health' -TimeoutSec 5
+    $health = Invoke-RestMethod -Uri "http://127.0.0.1:$($NativePorts[5791])/health" -TimeoutSec 5
     if ($health.drainProtocol -cne 'teruisi-automation-drain-v1' -or $health.drain.id -cne $MaintenanceId -or $health.ok -ne $true) {
       throw 'Helper did not acknowledge exact drain; no service may be stopped'
     }

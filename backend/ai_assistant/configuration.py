@@ -92,6 +92,8 @@ MODEL_ADMIN_COLUMNS = ("id", "version", "name", "protocol", "model_type",
     "generation_options_json")
 MODEL_RUNTIME_READER_COLUMNS = tuple(column for column in MODEL_ADMIN_COLUMNS
     if column not in {"api_key_suffix", "last_test_result"})
+IMAGE_PROFILE_ADMIN_COLUMNS = ("id", "name", "protocol", "model_name", "base_url", "api_key_suffix",
+    "status", "version", "timeout_ms", "last_success_result", "last_success_at", "created_at", "updated_at")
 
 
 def model_record(row, *, available=False):
@@ -295,10 +297,12 @@ def save_model(body, principal, *, image=False):
 
 
 def profile_record(row):
-    return record(
-        row,
-        "id name protocol model_name base_url api_key_suffix status version timeout_ms last_success_result last_success_at created_at updated_at",
-    )
+    from .space import image_admissions
+
+    result = record(row, " ".join(IMAGE_PROFILE_ADMIN_COLUMNS))
+    result["lastSuccessResult"] = "真实图片生成成功" if row.last_success_at else None
+    result["imageAdmissions"] = image_admissions(row)
+    return result
 
 
 def delete_model(params, principal, *, image=False):

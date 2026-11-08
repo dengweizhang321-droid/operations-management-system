@@ -190,6 +190,8 @@ def open_bounded_bi_reader_request(request, *, deadline):
     url = urllib.parse.urlsplit(request.full_url)
     ports = {"/api/finance/erp-targets": 8011, "/api/workflow/bi-status": 8061,
              "/api/inventory/bi-cockpit": 8051, "/api/netshop/bi-flow": 8021}
+    from pandas_runner.native_isolation import native_port
+    ports = {route: native_port(port) for route, port in ports.items()}
     if (request.get_method() != "GET" or request.data is not None or url.scheme != "http"
             or url.hostname not in {"127.0.0.1", "localhost", "::1"}
             or url.path not in ports or url.port != ports[url.path]

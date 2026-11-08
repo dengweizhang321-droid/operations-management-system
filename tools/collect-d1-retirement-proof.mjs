@@ -1,5 +1,6 @@
 // One-time adoption only; never imported by the launch guard or supervisor.
 import { DatabaseSync } from "node:sqlite";
+import { nativeIsolation, nativePort, nativePath } from './native-isolation.mjs';
 import { lstat, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { canonicalProofJson, d1ProofVersion, d1RetiredDomains, proofBytesHash, proofHash, sealProof, validateD1RetirementProof } from "./d1-retirement-proof.mjs";
@@ -155,10 +156,11 @@ const postgresEvidenceFiles = ["app/deployment.json", "service.json", "netshop-s
   "products-service-enabled.json", "inventory-service-enabled.json", "workflow-service-enabled.json", "customer-service-enabled.json",
   "erp-reference-enabled.json", "access-control-enabled.json", "ai-enabled.json", "bi-service-enabled.json"];
 export async function inspectPostgresRetirementReadiness(runtimeRoot, { fetchImpl = fetch } = {}) {
+  if (nativeIsolation && path.resolve(runtimeRoot).toLowerCase() !== path.resolve(nativePath('django')).toLowerCase()) throw new Error('Private retirement proof requires its bound Django installation');
   const filesBefore = await Promise.all(postgresEvidenceFiles.map(async (file) => ({ file, sha256: proofBytesHash(await safeRead(path.join(runtimeRoot, file))) })));
   for (const [port, field, kind] of postgresDomains) {
     for (const [offset, role] of (kind === "readonly" ? [[0, "reader"]] : [[0, "reader"], [1, "writer"]])) {
-      const response = await fetchImpl(`http://127.0.0.1:${port + offset}/health/ready`, {
+      const response = await fetchImpl(`http://127.0.0.1:${nativePort(port + offset)}/health/ready`, {
         method: "GET", redirect: "error", cache: "no-store", signal: AbortSignal.timeout(4000),
       });
       if (response.status !== 200 || !response.headers.get("content-type")?.startsWith("application/json")) throw new Error("PostgreSQL adoption readiness failed");

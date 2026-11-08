@@ -13,7 +13,8 @@ from django.conf import settings
 from .policy import AiError, canonical
 
 PATH = "/v1/command"
-PORT = 8123
+from pandas_runner.native_isolation import native_port
+PORT = native_port(8123)
 MAX_RESPONSE = 13 * 1024 * 1024
 
 
@@ -27,6 +28,12 @@ class CompactCreateRejected(AiError):
     def __init__(self):
         self.reason = "skill_update_while_busy"
         super().__init__("原环境仍有活动，压缩尚未派发", "pi_compact_create_rejected", 409)
+
+
+class SessionLimitRejected(AiError):
+    """The current signed create was rejected before creating an environment."""
+    def __init__(self):
+        super().__init__("Pi 环境名额已满，本次环境创建未执行", "pi_session_limit", 409)
 
 
 def secret():
@@ -72,6 +79,8 @@ def command(value):
                 or reply.getheader("Content-Type", "").split(";")[0] != "application/json"
                 or not hmac.compare_digest(reply.getheader("X-Signature", ""), signature(key, stamp, nonce, body, "response"))):
             raise AiError("PiRunner 响应未知，禁止重发", "pi_runner_unknown", 503)
+        if reply.status == 400 and body == b'{"error":"session_limit"}' and value.get("command") == "create":
+            raise SessionLimitRejected()
         result = json.loads(body)
         if (reply.status == 400 and result == {"error":"skill_update_while_busy"}
                 and value.get("command") == "create" and isinstance(value.get("payload", {}).get("compactControlId"), str)):
@@ -79,7 +88,7 @@ def command(value):
         if reply.status == 400 and result == {"error": "workspace_native_image_upgrade_required"} and (
                 value.get("command") == "create" or value.get("command") == "workspace" and value.get("payload", {}).get("command") == "wake"):
             raise NativeImageUpgradeRequired()
-        if reply.status != 200:
+        if reply.status != 200 or not isinstance(result, dict):
             raise AiError("PiRunner 响应未知，禁止重发", "pi_runner_unknown", 503)
         for field in ("operationId", "ownerId", "conversationId", "epoch", "generation", "seq"):
             if result.get(field) != value[field]:

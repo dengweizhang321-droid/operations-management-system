@@ -26,23 +26,35 @@ function normalize(messages) {
   });
 }
 export default function(pi) {
-  let binding, ctx;
+  let binding, capability, ctx;
   pi.on('session_start',(_event,context)=>{ctx=context;});
+  async function bindLocal(value,context) {
+    if(!value?.admission||!['plan','execute','switching'].includes(value.admission.mode))throw Error('admission_required');
+    const settings=value.model;
+    if(!settings||!Number.isSafeInteger(settings.contextWindow)||settings.contextWindow<1||!Number.isSafeInteger(settings.maxTokens)||settings.maxTokens<1||typeof settings.reasoning!=='boolean') throw Error('invalid_model_metadata');
+    register(settings);
+    const model=context.modelRegistry.find('teruisi','operation-model');
+    if(!model || !await pi.setModel(model)) throw Error('model_bind_failed');
+    if(value.thinkingLevel!=null)pi.setThinkingLevel(value.thinkingLevel);
+    binding={admission:value.admission};ctx=context;
+  }
   pi.registerCommand('runner-bind',{
     description:'Internal capability binding; unavailable to the language model',
     handler:async(args,context)=>{
       const value=JSON.parse(Buffer.from(args,'base64').toString('utf8'));
-      if(!value || typeof value.capability!=='string' || value.capability.length>4096) throw Error('invalid_binding');
-      binding=value;ctx=context;
-      if(!value.admission||!['plan','execute','switching'].includes(value.admission.mode))throw Error('admission_required');
-      if(value.model) {
-        const settings=value.model;
-        if(!Number.isSafeInteger(settings.contextWindow)||settings.contextWindow<1||!Number.isSafeInteger(settings.maxTokens)||settings.maxTokens<1||typeof settings.reasoning!=='boolean') throw Error('invalid_model_metadata');
-        register(settings);
-        const model=context.modelRegistry.find('teruisi','operation-model');
-        if(!model || !await pi.setModel(model)) throw Error('model_bind_failed');
-        if(value.thinkingLevel!=null)pi.setThinkingLevel(value.thinkingLevel);
-      }
+      if(!value || typeof value.capability!=='string' || value.capability.length<16 || value.capability.length>4096) throw Error('invalid_binding');
+      capability=undefined;binding=undefined;
+      await bindLocal(value,context);
+      capability=value.capability;
+    },
+  });
+  pi.registerCommand('runner-restore',{
+    description:'Restore local settings without an operation capability',
+    handler:async(args,context)=>{
+      capability=undefined;binding=undefined;
+      const value=JSON.parse(Buffer.from(args,'base64').toString('utf8'));
+      if(!value||Object.keys(value).sort().join(',')!=='admission,model,thinkingLevel'||value.admission?.mode==='switching')throw Error('invalid_local_restore');
+      await bindLocal(value,context);
     },
   });
   pi.registerCommand('runner-ping',{description:'Inspect fixed runtime',handler:async()=>{}});
@@ -65,9 +77,9 @@ export default function(pi) {
     },
   });
   async function gateway(payload,signal) {
-    if(!binding||!ctx) throw Error('operation_capability_required');
+    if(!binding||!capability||!ctx) throw Error('operation_capability_required');
     if(signal?.aborted) throw Error('aborted');
-    const request={...payload,admission:binding.admission,requestId:randomUUID(),capability:binding.capability};
+    const request={...payload,admission:binding.admission,requestId:randomUUID(),capability};
     const answer=await ctx.ui.input('pi-gateway-v1',JSON.stringify(request),{signal});
     if(signal?.aborted||answer===undefined) throw Error('aborted');
     const parsed=JSON.parse(answer);

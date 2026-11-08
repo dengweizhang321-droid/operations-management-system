@@ -30,6 +30,7 @@ type NetshopAiPerformancePayload = {
   items: unknown[];
   pagination: { truncated: boolean };
   visitorAggregation?: unknown;
+  summaryFieldAvailability?: unknown;
 };
 
 export async function getNetshopPerformanceForAi(rawArgs: unknown, principal: AppPrincipal) {
@@ -78,6 +79,7 @@ export async function getNetshopPerformanceForAi(rawArgs: unknown, principal: Ap
     visitorAggregation: result.visitorAggregation,
     coverage: result.coverage,
     summary: result.summary,
+    summaryFieldAvailability: result.summaryFieldAvailability,
     returned: result.items.length,
     truncated: result.pagination.truncated,
     items: result.items,

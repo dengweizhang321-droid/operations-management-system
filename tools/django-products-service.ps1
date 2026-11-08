@@ -11,6 +11,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "native-isolation.ps1")
+$RuntimeRoot = Get-NativeRuntimeRoot "django" $RuntimeRoot ($PSBoundParameters.ContainsKey("RuntimeRoot"))
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
 $RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
@@ -36,8 +38,8 @@ $OrchestratedLifecycleAclToken = $RequestedOrchestratedLifecycleAclToken
 $ProductsCredentialPath = Join-Path $RuntimeRoot "secrets\products-credentials.dpapi.json"
 $ProductsReaderPidPath = Join-Path $RunDirectory "django-products-reader.pid.json"
 $ProductsWriterPidPath = Join-Path $RunDirectory "django-products-writer.pid.json"
-$ProductsReaderHealthUrl = "http://127.0.0.1:8041/health/ready"
-$ProductsWriterHealthUrl = "http://127.0.0.1:8042/health/ready"
+$ProductsReaderHealthUrl = "http://127.0.0.1:$($NativePorts[8041])/health/ready"
+$ProductsWriterHealthUrl = "http://127.0.0.1:$($NativePorts[8042])/health/ready"
 $ProductsStartupPath = Join-Path $RuntimeRoot "products-service-enabled.json"
 $ProductsReaderMaxBodyBytes = 1048576
 $ProductsWriterMaxBodyBytes = 33554432
@@ -56,7 +58,7 @@ function Assert-ProductsRuntimeEntry([string]$LifecycleAclToken = "") {
 }
 
 function Assert-ProductsPortsFree([string]$Operation) {
-  if (@(Get-PortListeners 8041).Count -gt 0 -or @(Get-PortListeners 8042).Count -gt 0) {
+  if (@(Get-PortListeners $NativePorts[8041]).Count -gt 0 -or @(Get-PortListeners $NativePorts[8042]).Count -gt 0) {
     throw "$Operation 前必须先停止 Django 商品经营 reader/writer"
   }
   if (Resolve-OwnedProcess "django-products-reader" $ProductsReaderPidPath $Waitress) {
@@ -382,17 +384,17 @@ print(json.dumps({
 
 function Start-ProductsReader([object]$RuntimeSecrets, [object]$ProductsSecrets, [switch]$DeferReady) {
   $arguments = @(
-    "--listen=127.0.0.1:8041", "--threads=6", "--connection-limit=60",
+    "--listen=127.0.0.1:$($NativePorts[8041])", "--threads=6", "--connection-limit=60",
     "--channel-timeout=35", "--cleanup-interval=30", "--ident=teruisi-django-products-reader",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$ProductsReaderMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-products-reader" $Waitress $arguments
   if (Resolve-OwnedProcess "django-products-reader" $ProductsReaderPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "products-reader" $ProductsReaderHealthUrl "127.0.0.1:8041"
+    Wait-DjangoReady "products-reader" $ProductsReaderHealthUrl "127.0.0.1:$($NativePorts[8041])"
     return $false
   }
-  if (@(Get-PortListeners 8041).Count -gt 0) { throw "端口 8041 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8041]).Count -gt 0) { throw "端口 8041 被非本部署服务占用" }
   Remove-OldServiceLogs "django-products-reader"
   $readerUrl = Database-Url `
     "teruisi_products_reader" $ProductsSecrets.ReaderPassword `
@@ -408,7 +410,7 @@ function Start-ProductsReader([object]$RuntimeSecrets, [object]$ProductsSecrets,
   # The stack owns rollback after launch; its final readiness barrier remains mandatory.
   if ($DeferReady) { return $true }
   try {
-    Wait-DjangoReady "products-reader" $ProductsReaderHealthUrl "127.0.0.1:8041"
+    Wait-DjangoReady "products-reader" $ProductsReaderHealthUrl "127.0.0.1:$($NativePorts[8041])"
     return $true
   } catch {
     Stop-OwnedProcess "django-products-reader" $ProductsReaderPidPath $Waitress
@@ -424,17 +426,17 @@ function Start-ProductsWriter(
     throw "PostgreSQL 尚未成为商品经营唯一写入源；拒绝启动商品经营 writer"
   }
   $arguments = @(
-    "--listen=127.0.0.1:8042", "--threads=4", "--connection-limit=20",
+    "--listen=127.0.0.1:$($NativePorts[8042])", "--threads=4", "--connection-limit=20",
     "--channel-timeout=960", "--cleanup-interval=30", "--ident=teruisi-django-products-writer",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$ProductsWriterMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-products-writer" $Waitress $arguments
   if (Resolve-OwnedProcess "django-products-writer" $ProductsWriterPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "products-writer" $ProductsWriterHealthUrl "127.0.0.1:8042"
+    Wait-DjangoReady "products-writer" $ProductsWriterHealthUrl "127.0.0.1:$($NativePorts[8042])"
     return $false
   }
-  if (@(Get-PortListeners 8042).Count -gt 0) { throw "端口 8042 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8042]).Count -gt 0) { throw "端口 8042 被非本部署服务占用" }
   Remove-OldServiceLogs "django-products-writer"
   $writerUrl = Database-Url `
     "teruisi_products_writer" $ProductsSecrets.WriterPassword `
@@ -451,7 +453,7 @@ function Start-ProductsWriter(
   # The stack owns new-process rollback and the final readiness barrier.
   if ($DeferReady) { return $true }
   try {
-    Wait-DjangoReady "products-writer" $ProductsWriterHealthUrl "127.0.0.1:8042"
+    Wait-DjangoReady "products-writer" $ProductsWriterHealthUrl "127.0.0.1:$($NativePorts[8042])"
     return $true
   } catch {
     Stop-OwnedProcess "django-products-writer" $ProductsWriterPidPath $Waitress
@@ -490,10 +492,10 @@ function Start-ProductsStack([string]$LifecycleAclToken = "") {
     if ([string]$authority.status -ceq "postgres") {
       $writerStarted = Start-ProductsWriter $runtimeSecrets $productsSecrets $authority -DeferReady
     }
-    Wait-DjangoReady "products-reader" $ProductsReaderHealthUrl "127.0.0.1:8041"
+    Wait-DjangoReady "products-reader" $ProductsReaderHealthUrl "127.0.0.1:$($NativePorts[8041])"
     if ([string]$authority.status -ceq "postgres") {
-      Wait-DjangoReady "products-writer" $ProductsWriterHealthUrl "127.0.0.1:8042"
-      Write-Output "Django 商品经营服务已就绪：reader=http://127.0.0.1:8041 writer=http://127.0.0.1:8042。"
+      Wait-DjangoReady "products-writer" $ProductsWriterHealthUrl "127.0.0.1:$($NativePorts[8042])"
+      Write-Output "Django 商品经营服务已就绪：reader=http://127.0.0.1:$($NativePorts[8041]) writer=http://127.0.0.1:$($NativePorts[8042])。"
     } else {
       Write-Output "Django 商品经营 reader 已就绪；PostgreSQL 商品经营写权尚未激活，writer 保持停止。"
     }
@@ -566,24 +568,24 @@ function Show-ProductsStatus {
   try {
     if (Resolve-OwnedProcess "django-products-reader" $ProductsReaderPidPath $Waitress) {
       $reader = "running"
-    } elseif (@(Get-PortListeners 8041).Count -gt 0) { $reader = "foreign_port_owner" }
+    } elseif (@(Get-PortListeners $NativePorts[8041]).Count -gt 0) { $reader = "foreign_port_owner" }
   } catch { $reader = "ownership_error" }
   try {
     if (Resolve-OwnedProcess "django-products-writer" $ProductsWriterPidPath $Waitress) {
       $writer = "running"
-    } elseif (@(Get-PortListeners 8042).Count -gt 0) { $writer = "foreign_port_owner" }
+    } elseif (@(Get-PortListeners $NativePorts[8042]).Count -gt 0) { $writer = "foreign_port_owner" }
   } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"
   $writerReady = "not_ready"
   try {
     if ((Invoke-WebRequest -UseBasicParsing -Uri $ProductsReaderHealthUrl -TimeoutSec 2 `
-          -Headers @{ Host = "127.0.0.1:8041" }).StatusCode -eq 200) {
+          -Headers @{ Host = "127.0.0.1:$($NativePorts[8041])" }).StatusCode -eq 200) {
       $readerReady = "ready"
     }
   } catch {}
   try {
     if ((Invoke-WebRequest -UseBasicParsing -Uri $ProductsWriterHealthUrl -TimeoutSec 2 `
-          -Headers @{ Host = "127.0.0.1:8042" }).StatusCode -eq 200) {
+          -Headers @{ Host = "127.0.0.1:$($NativePorts[8042])" }).StatusCode -eq 200) {
       $writerReady = "ready"
     }
   } catch {}

@@ -11,6 +11,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "native-isolation.ps1")
+$RuntimeRoot = Get-NativeRuntimeRoot "django" $RuntimeRoot ($PSBoundParameters.ContainsKey("RuntimeRoot"))
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
 $RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
@@ -36,8 +38,8 @@ $OrchestratedLifecycleAclToken = $RequestedOrchestratedLifecycleAclToken
 $InventoryCredentialPath = Join-Path $RuntimeRoot "secrets\inventory-credentials.dpapi.json"
 $InventoryReaderPidPath = Join-Path $RunDirectory "django-inventory-reader.pid.json"
 $InventoryWriterPidPath = Join-Path $RunDirectory "django-inventory-writer.pid.json"
-$InventoryReaderHealthUrl = "http://127.0.0.1:8051/health/ready"
-$InventoryWriterHealthUrl = "http://127.0.0.1:8052/health/ready"
+$InventoryReaderHealthUrl = "http://127.0.0.1:$($NativePorts[8051])/health/ready"
+$InventoryWriterHealthUrl = "http://127.0.0.1:$($NativePorts[8052])/health/ready"
 $InventoryStartupPath = Join-Path $RuntimeRoot "inventory-service-enabled.json"
 $InventoryReaderMaxBodyBytes = 1048576
 $InventoryWriterMaxBodyBytes = 67108864
@@ -56,7 +58,7 @@ function Assert-InventoryRuntimeEntry([string]$LifecycleAclToken = "") {
 }
 
 function Assert-InventoryPortsFree([string]$Operation) {
-  if (@(Get-PortListeners 8051).Count -gt 0 -or @(Get-PortListeners 8052).Count -gt 0) {
+  if (@(Get-PortListeners $NativePorts[8051]).Count -gt 0 -or @(Get-PortListeners $NativePorts[8052]).Count -gt 0) {
     throw "$Operation 前必须先停止 Django 库存 reader/writer"
   }
   if (Resolve-OwnedProcess "django-inventory-reader" $InventoryReaderPidPath $Waitress) {
@@ -433,17 +435,17 @@ print(json.dumps({
 
 function Start-InventoryReader([object]$RuntimeSecrets, [object]$InventorySecrets, [switch]$DeferReady) {
   $arguments = @(
-    "--listen=127.0.0.1:8051", "--threads=6", "--connection-limit=60",
+    "--listen=127.0.0.1:$($NativePorts[8051])", "--threads=6", "--connection-limit=60",
     "--channel-timeout=35", "--cleanup-interval=30", "--ident=teruisi-django-inventory-reader",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$InventoryReaderMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-inventory-reader" $Waitress $arguments
   if (Resolve-OwnedProcess "django-inventory-reader" $InventoryReaderPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "inventory-reader" $InventoryReaderHealthUrl "127.0.0.1:8051"
+    Wait-DjangoReady "inventory-reader" $InventoryReaderHealthUrl "127.0.0.1:$($NativePorts[8051])"
     return $false
   }
-  if (@(Get-PortListeners 8051).Count -gt 0) { throw "端口 8051 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8051]).Count -gt 0) { throw "端口 8051 被非本部署服务占用" }
   Remove-OldServiceLogs "django-inventory-reader"
   $readerUrl = Database-Url `
     "teruisi_inventory_reader" $InventorySecrets.ReaderPassword `
@@ -459,7 +461,7 @@ function Start-InventoryReader([object]$RuntimeSecrets, [object]$InventorySecret
   # The stack owns rollback after launch; its final readiness barrier remains mandatory.
   if ($DeferReady) { return $true }
   try {
-    Wait-DjangoReady "inventory-reader" $InventoryReaderHealthUrl "127.0.0.1:8051"
+    Wait-DjangoReady "inventory-reader" $InventoryReaderHealthUrl "127.0.0.1:$($NativePorts[8051])"
     return $true
   } catch {
     Stop-OwnedProcess "django-inventory-reader" $InventoryReaderPidPath $Waitress
@@ -475,17 +477,17 @@ function Start-InventoryWriter(
     throw "PostgreSQL 尚未成为库存唯一写入源；拒绝启动库存 writer"
   }
   $arguments = @(
-    "--listen=127.0.0.1:8052", "--threads=4", "--connection-limit=20",
+    "--listen=127.0.0.1:$($NativePorts[8052])", "--threads=4", "--connection-limit=20",
     "--channel-timeout=960", "--cleanup-interval=30", "--ident=teruisi-django-inventory-writer",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$InventoryWriterMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-inventory-writer" $Waitress $arguments
   if (Resolve-OwnedProcess "django-inventory-writer" $InventoryWriterPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "inventory-writer" $InventoryWriterHealthUrl "127.0.0.1:8052"
+    Wait-DjangoReady "inventory-writer" $InventoryWriterHealthUrl "127.0.0.1:$($NativePorts[8052])"
     return $false
   }
-  if (@(Get-PortListeners 8052).Count -gt 0) { throw "端口 8052 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8052]).Count -gt 0) { throw "端口 8052 被非本部署服务占用" }
   Remove-OldServiceLogs "django-inventory-writer"
   $writerUrl = Database-Url `
     "teruisi_inventory_writer" $InventorySecrets.WriterPassword `
@@ -502,7 +504,7 @@ function Start-InventoryWriter(
   # The stack owns new-process rollback and the final readiness barrier.
   if ($DeferReady) { return $true }
   try {
-    Wait-DjangoReady "inventory-writer" $InventoryWriterHealthUrl "127.0.0.1:8052"
+    Wait-DjangoReady "inventory-writer" $InventoryWriterHealthUrl "127.0.0.1:$($NativePorts[8052])"
     return $true
   } catch {
     Stop-OwnedProcess "django-inventory-writer" $InventoryWriterPidPath $Waitress
@@ -541,10 +543,10 @@ function Start-InventoryStack([string]$LifecycleAclToken = "") {
     if ([string]$authority.status -ceq "postgres") {
       $writerStarted = Start-InventoryWriter $runtimeSecrets $inventorySecrets $authority -DeferReady
     }
-    Wait-DjangoReady "inventory-reader" $InventoryReaderHealthUrl "127.0.0.1:8051"
+    Wait-DjangoReady "inventory-reader" $InventoryReaderHealthUrl "127.0.0.1:$($NativePorts[8051])"
     if ([string]$authority.status -ceq "postgres") {
-      Wait-DjangoReady "inventory-writer" $InventoryWriterHealthUrl "127.0.0.1:8052"
-      Write-Output "Django 库存服务已就绪：reader=http://127.0.0.1:8051 writer=http://127.0.0.1:8052。"
+      Wait-DjangoReady "inventory-writer" $InventoryWriterHealthUrl "127.0.0.1:$($NativePorts[8052])"
+      Write-Output "Django 库存服务已就绪：reader=http://127.0.0.1:$($NativePorts[8051]) writer=http://127.0.0.1:$($NativePorts[8052])。"
     } else {
       Write-Output "Django 库存 reader 已就绪；PostgreSQL 库存写权尚未激活，writer 保持停止。"
     }
@@ -617,24 +619,24 @@ function Show-InventoryStatus {
   try {
     if (Resolve-OwnedProcess "django-inventory-reader" $InventoryReaderPidPath $Waitress) {
       $reader = "running"
-    } elseif (@(Get-PortListeners 8051).Count -gt 0) { $reader = "foreign_port_owner" }
+    } elseif (@(Get-PortListeners $NativePorts[8051]).Count -gt 0) { $reader = "foreign_port_owner" }
   } catch { $reader = "ownership_error" }
   try {
     if (Resolve-OwnedProcess "django-inventory-writer" $InventoryWriterPidPath $Waitress) {
       $writer = "running"
-    } elseif (@(Get-PortListeners 8052).Count -gt 0) { $writer = "foreign_port_owner" }
+    } elseif (@(Get-PortListeners $NativePorts[8052]).Count -gt 0) { $writer = "foreign_port_owner" }
   } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"
   $writerReady = "not_ready"
   try {
     if ((Invoke-WebRequest -UseBasicParsing -Uri $InventoryReaderHealthUrl -TimeoutSec 2 `
-          -Headers @{ Host = "127.0.0.1:8051" }).StatusCode -eq 200) {
+          -Headers @{ Host = "127.0.0.1:$($NativePorts[8051])" }).StatusCode -eq 200) {
       $readerReady = "ready"
     }
   } catch {}
   try {
     if ((Invoke-WebRequest -UseBasicParsing -Uri $InventoryWriterHealthUrl -TimeoutSec 2 `
-          -Headers @{ Host = "127.0.0.1:8052" }).StatusCode -eq 200) {
+          -Headers @{ Host = "127.0.0.1:$($NativePorts[8052])" }).StatusCode -eq 200) {
       $writerReady = "ready"
     }
   } catch {}

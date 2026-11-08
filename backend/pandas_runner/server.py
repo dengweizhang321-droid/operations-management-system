@@ -8,6 +8,7 @@ import hmac
 import os
 from pathlib import Path
 import re
+import socket
 import sqlite3
 import signal
 import stat
@@ -15,12 +16,47 @@ import subprocess
 import threading
 import time
 import uuid
+from functools import partial
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from .diagnostics import no_stage, reference, stage
 from .protocol import MAX_INPUT, MAX_OUTPUT, PATH, HEALTH_PATH, PORT, decode, encode, signature, validate_job, validate_result, package_digest
 
 LABEL = "teruisi.pandas-broker=v1"
 NAME = re.compile(r"teruisi-pandas-[a-f0-9]{32}")
+
+# Only fixed broker/protocol codes may cross into diagnostics. Never print the
+# exception, Docker stderr, container output or request body.
+BROKER_DIAGNOSTIC_CODES = frozenset({
+    "request_replayed", "request_limit", "invalid_request_identity", "container_isolation_unavailable",
+    "unapproved_image", "unresolved_container_cleanup", "container_contract_mismatch",
+    "container_execution_failed", "execution_timeout", "output_limit", "cleanup_failed",
+    "invalid_job", "invalid_code", "invalid_frames", "invalid_frame", "invalid_row", "invalid_column",
+    "non_scalar_cell", "input_limit", "invalid_result", "invalid_result_row", "invalid_result_cell",
+})
+
+
+def diagnostic_code(error):
+    if isinstance(error, ValueError):
+        if len(error.args) == 1 and isinstance(error.args[0], str) and error.args[0] in BROKER_DIAGNOSTIC_CODES:
+            return error.args[0]
+        return "invalid_structure"
+    if isinstance(error, TimeoutError):
+        return "timeout"
+    if isinstance(error, OSError):
+        return "io_error"
+    return "unexpected_error"
+
+
+def journal_stage(event):
+    # The installed service discards stdio. Reuse the local journal socket
+    # without waiting for it or introducing a second ledger.
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as journal:
+            journal.setblocking(False)
+            journal.sendto(b"<14>teruisi-pandas: pandas_stage " + encode(event), "/dev/log")
+    except OSError:
+        pass  # Diagnostics cannot interfere with execution or mandatory cleanup.
 
 
 def private_file(path):
@@ -154,10 +190,11 @@ class Broker:
         if remaining.strip():
             raise ValueError("cleanup_failed")
 
-    def execute(self, job):
-        validate_job(job)
-        if self.poisoned:
-            raise ValueError("cleanup_failed")
+    def execute(self, job, diagnostic_stage=no_stage):
+        with diagnostic_stage("broker_admission"):
+            validate_job(job)
+            if self.poisoned:
+                raise ValueError("cleanup_failed")
         name = "teruisi-pandas-" + uuid.uuid4().hex
         args = ["create", "--pull=never", "--name", name, "--label", LABEL,
                 "--network=none", "--read-only", "--user=65532:65532", "--cap-drop=ALL",
@@ -169,34 +206,41 @@ class Broker:
                 "--workdir=/work", "--env=OPENBLAS_NUM_THREADS=1", "--env=OMP_NUM_THREADS=1", "-i", self.image]
         try:
             self.deadline = time.monotonic() + 14
-            self.preflight()
-            self.command(args)
-            # Rootless cgroup delegation can be misconfigured even when advertised.
-            config = decode(self.command(["inspect", name], maximum=64000))[0]
-            host = config["HostConfig"]
-            if (config["Image"] != self.image or config["Config"]["User"] != "65532:65532"
-                    or host.get("NetworkMode") != "none" or host.get("ReadonlyRootfs") is not True
-                    or host.get("Privileged") or host.get("Binds") or host.get("Devices")
-                    or set(host.get("CapDrop") or []) != {"ALL"}
-                    or host.get("SecurityOpt") != ["no-new-privileges:true"]
-                    or host.get("PidMode") not in {"", "private"} or host.get("IpcMode") != "private"
-                    or host.get("CgroupnsMode") != "private" or host.get("LogConfig", {}).get("Type") != "none"
-                    or any(v.get("Type") != "tmpfs" for v in config.get("Mounts", []))
-                    or host.get("Memory") != 536870912 or host.get("MemorySwap") != 536870912
-                    or host.get("NanoCpus") != 1000000000 or host.get("PidsLimit") != 64):
-                raise ValueError("container_contract_mismatch")
-            raw = self.command(["start", "--attach", "--interactive", name], raw=encode(job), timeout=8)
-            state = decode(self.command(["inspect", "--format", "{{json .State}}", name]))
-            if state.get("Running") or state.get("OOMKilled") or state.get("ExitCode") != 0:
-                raise ValueError("container_execution_failed")
-            result = validate_result(decode(raw))
+            with diagnostic_stage("container_preflight"):
+                self.preflight()
+            with diagnostic_stage("container_create"):
+                self.command(args)
+            with diagnostic_stage("container_isolation_check"):
+                # Rootless cgroup delegation can be misconfigured even when advertised.
+                config = decode(self.command(["inspect", name], maximum=64000))[0]
+                host = config["HostConfig"]
+                if (config["Image"] != self.image or config["Config"]["User"] != "65532:65532"
+                        or host.get("NetworkMode") != "none" or host.get("ReadonlyRootfs") is not True
+                        or host.get("Privileged") or host.get("Binds") or host.get("Devices")
+                        or set(host.get("CapDrop") or []) != {"ALL"}
+                        or host.get("SecurityOpt") != ["no-new-privileges:true"]
+                        or host.get("PidMode") not in {"", "private"} or host.get("IpcMode") != "private"
+                        or host.get("CgroupnsMode") != "private" or host.get("LogConfig", {}).get("Type") != "none"
+                        or any(v.get("Type") != "tmpfs" for v in config.get("Mounts", []))
+                        or host.get("Memory") != 536870912 or host.get("MemorySwap") != 536870912
+                        or host.get("NanoCpus") != 1000000000 or host.get("PidsLimit") != 64):
+                    raise ValueError("container_contract_mismatch")
+            with diagnostic_stage("container_execute"):
+                raw = self.command(["start", "--attach", "--interactive", name], raw=encode(job), timeout=8)
+                state = decode(self.command(["inspect", "--format", "{{json .State}}", name]))
+                if state.get("Running") or state.get("OOMKilled") or state.get("ExitCode") != 0:
+                    raise ValueError("container_execution_failed")
+            with diagnostic_stage("container_result_validation"):
+                result = validate_result(decode(raw))
         finally:
             self.deadline = time.monotonic() + 6
             try:
-                self.cleanup(name)
-            except Exception as error:
-                self.poisoned = True
-                raise ValueError("cleanup_failed") from error
+                with diagnostic_stage("container_cleanup"):
+                    try:
+                        self.cleanup(name)
+                    except Exception as error:
+                        self.poisoned = True
+                        raise ValueError("cleanup_failed") from error
             finally:
                 self.deadline = None
         return {"result": result, "image": self.image, "cleanupVerified": True}
@@ -217,6 +261,7 @@ class Handler(BaseHTTPRequestHandler):
         broker = self.server.broker
         nonce, stamp = self.headers.get("X-Nonce", ""), self.headers.get("X-Timestamp", "")
         authenticated = False
+        diagnostic_stage = no_stage
         try:
             if (self.path not in {PATH, HEALTH_PATH} or self.client_address[0] != "127.0.0.1"
                     or self.headers.get("Content-Type") != "application/json" or self.headers.get("Transfer-Encoding")
@@ -229,28 +274,36 @@ class Handler(BaseHTTPRequestHandler):
             if len(raw) != size or not hmac.compare_digest(signature(broker.key, stamp, nonce, raw, path=self.path), self.headers["X-Signature"]):
                 raise ValueError("invalid_signature")
             authenticated = True
-            broker.reserve(nonce, stamp)
+            sink = getattr(self.server, "pandas_stage_sink", None)
+            if sink is not None and self.path == PATH and re.fullmatch(r"[a-f0-9]{32}", nonce):
+                diagnostic_stage = partial(stage, sink, diagnostic_code,
+                                           component="broker", brokerRef=reference(nonce))
+            with diagnostic_stage("broker_receive"):
+                broker.reserve(nonce, stamp)
             if self.path == HEALTH_PATH:
                 if raw != b"{}" or broker.poisoned:
                     raise ValueError("not_ready")
                 broker.preflight()
                 result = {"status": "ready", "image": broker.image, "cleanupVerified": True, "runnerSha256": broker.package_digest}
             else:
-                result = broker.execute(decode(raw))
+                with diagnostic_stage("broker_job_decode"):
+                    job = decode(raw)
+                result = broker.execute(job, diagnostic_stage)
             status = 200
         except Exception:
             # Failure never becomes an empty successful result; unknown dispatches
             # and duplicate identities are not retried or reused automatically.
             result, status = {"error": "sandbox_failed"}, 503 if authenticated else 403
-        raw = encode(result)
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(raw)))
-        if authenticated:
-            self.send_header("X-Signature", signature(broker.key, stamp, nonce, raw, "response", path=self.path))
-        self.end_headers()
-        self.wfile.write(raw)
+        with diagnostic_stage("broker_reply"):
+            raw = encode(result)
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(raw)))
+            if authenticated:
+                self.send_header("X-Signature", signature(broker.key, stamp, nonce, raw, "response", path=self.path))
+            self.end_headers()
+            self.wfile.write(raw)
 
 
 def main():
@@ -261,8 +314,10 @@ def main():
     broker = Broker(decode(private_file(args.config).read_bytes()))
     # Single execution slot and bounded socket reads; a second service instance
     # is prevented by the process lock, including after HTTP disconnects.
-    server = HTTPServer(("127.0.0.1", PORT), Handler)
+    from .native_isolation import native_port
+    server = HTTPServer(("127.0.0.1", native_port(PORT)), Handler)
     server.broker = broker
+    server.pandas_stage_sink = journal_stage
     # Finish the current bounded request and its mandatory cleanup before exit.
     signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown, daemon=True).start())
     server.serve_forever()

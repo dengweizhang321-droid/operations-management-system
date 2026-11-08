@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 import json
+import logging
+import time
 from datetime import timedelta
 from django.conf import settings
-from django.db.models import Q, F, Sum, Min
+from django.db.models import Q, F, Sum, Min, OuterRef, Subquery
 from django.utils import timezone
 from sales.auth import Principal
 from . import models as m, provider, transport
 from .chat import SYSTEM, dispatch_budget
 from .configuration import resolve_model
+from .diagnostics import PhaseTimer, capture_timings, error_summary
 from .policy import (
     AiError,
     authorize_owner,
@@ -41,6 +44,7 @@ JSON_FIELDS = {
     "depends_on_json",
 }
 ACTIVE = ["queued", "running", "paused", "waiting_review"]
+logger = logging.getLogger(__name__)
 
 
 def mapping(row, detail=True):
@@ -53,9 +57,10 @@ def mapping(row, detail=True):
     )
     if detail and workflow:
         result["nodes"] = []
-        for node in m.AiWorkflowNodeRuns.objects.filter(run_id=row.id).order_by(
+        nodes = list(m.AiWorkflowNodeRuns.objects.filter(run_id=row.id).order_by(
             "position"
-        )[:24]:
+        )[:24])
+        for node in nodes:
             item = record(
                 node,
                 "id position instruction depends_on_json input_json output_json status version agent_job_id reviewer_email reviewed_at error_code error_message started_at completed_at",
@@ -63,6 +68,8 @@ def mapping(row, detail=True):
             )
             item.update(key=node.node_key, type=node.node_type)
             result["nodes"].append(item)
+        from .workflow_timing import summarize
+        result["timing"] = summarize(row, nodes)
     elif detail:
         result["checkpoints"] = [
             record(
@@ -515,6 +522,7 @@ def agent_candidates():
 
 
 def agent_tick(*, job_id=None):
+    claim_started = time.monotonic()
     eligible = agent_candidates()
     if job_id is not None:
         eligible = eligible.filter(pk=job_id)
@@ -523,7 +531,18 @@ def agent_tick(*, job_id=None):
         return {"status": "idle"}
     with mutation():
         now = timezone.now()
-        row = eligible.filter(pk=candidate.pk).first()
+        # Bind all phases to the original request at claim time without an
+        # extra round trip or copying the request into the child ledger.
+        original_report = m.AiReportRun.objects.filter(
+            workflow_id=OuterRef("workflow_run_id"), owner_email=OuterRef("owner_email")
+        ).values("client_request_id")
+        original_workflow = m.AiWorkflowRuns.objects.filter(
+            id=OuterRef("workflow_run_id"), owner_email=OuterRef("owner_email")
+        ).values("client_request_id")
+        row = eligible.filter(pk=candidate.pk).annotate(
+            original_report_request=Subquery(original_report[:1]),
+            original_workflow_request=Subquery(original_workflow[:1]),
+        ).first()
         if not row:
             return {"status": "idle"}
         if error:
@@ -544,11 +563,18 @@ def agent_tick(*, job_id=None):
         row.version += 1
         row.save()
         lease = (row.id, row.lease_token, row.lease_epoch)
+    timer = PhaseTimer("admission")
+    timer.timings["claim"] = max(0, int((time.monotonic() - claim_started) * 1000))
+    dispatch = failure = None
+    transport_timings = {}
+    request_id = row.original_report_request or row.original_workflow_request or row.client_request_id
     try:
         from . import business_reports
         surface = business_reports.execution_surface(row, principal)
         admitted, entries = (admission(principal, row.model_id) if surface == "ai_agent"
                              else admission(principal, row.model_id, surface=surface))
+        if admitted["model_version"] != row.model_version:
+            raise AiError("模型版本已变化", "model_version_changed", 409)
         if any(getattr(row, k) != v for k, v in admitted.items()):
             raise AiError("执行策略已变化", "executor_policy_changed", 409)
         from . import business_reports
@@ -656,11 +682,13 @@ def agent_tick(*, job_id=None):
             if current.version != row.model_version:
                 raise AiError("模型版本已变化", "model_version_changed", 409)
             if final is not None:
+                timer.advance("finalize")
                 return _complete(row, principal, final,
                     **({"screening_step":screening_step,"screening_answer":screening_answer} if screening_step is not None else {}),
                     **({"promotion_permission":promotion_permission,"promotion_answer":promotion_answer}
                         if promotion_step is not None else {}))
             if pending:
+                timer.advance("tool")
                 parent, call = pending
                 business_reports.validate_call(row, call, principal,
                     **({"screening_step":screening_step} if screening_step is not None else {}),
@@ -709,7 +737,8 @@ def agent_tick(*, job_id=None):
                     row.provider_dispatch_started_at or timezone.now()
                 )
                 row.save(update_fields=["provider_dispatch_started_at"])
-        with provider.conversation_session(row.id):
+        timer.advance("tool" if pending else "provider")
+        with capture_timings() as transport_timings, provider.conversation_session(row.id):
             result = (
                 transport.execute_tool(
                     call["name"],
@@ -723,8 +752,10 @@ def agent_tick(*, job_id=None):
                 if pending
                 else provider.turn(model, frames, SYSTEM + execution_guidance(row.id), entries)
             )
+        timer.advance("finalize")
         passive(result, 256 * 1024)
         if result.get("auditStatus") == "unavailable":
+            timer.advance("tool")
             raise AiError("工具审计不可用", "audit_unavailable", 503)
         if screening_step is not None and not pending and not result["calls"]:
             # Preserve the known external outcome before expensive owning
@@ -827,6 +858,8 @@ def agent_tick(*, job_id=None):
             event(row, principal, "checkpoint", "running")
             return {"status": "checkpoint", "jobId": row.id}
     except Exception as error:
+        timer.finish()
+        failure = error_summary(error)
         with mutation():
             try:
                 row = _leased(lease)
@@ -837,6 +870,22 @@ def agent_tick(*, job_id=None):
                 principal,
                 error.code if isinstance(error, AiError) else "execution_failed",
             )
+    finally:
+        timings = timer.finish()
+        event_data = {
+            "requestId": request_id, "jobId": lease[0], "workflowId": row.workflow_run_id,
+            "nodeKey": row.workflow_node_key, "dispatchId": dispatch.id if dispatch else None,
+            "stage": (failure or {}).get("phase", (failure or {}).get("stage", timer.stage)),
+            "timingsMs": timings, "outcome": "failed" if failure else "succeeded",
+        }
+        if transport_timings:
+            event_data["transportTimingsMs"] = transport_timings
+        if isinstance(dispatch, m.AiAgentToolDispatches):
+            event_data["toolInvocationId"] = dispatch.invocation_id
+        if failure:
+            event_data["error"] = failure
+        logger.log(logging.WARNING if failure else logging.INFO,
+                   "ai_execution_phase %s", canonical(event_data))
 
 
 def _leased(lease):
@@ -1004,6 +1053,7 @@ def workflow_tick():
             return business_parallel.workflow_step(row, principal, nodes)
         by_key = {n.node_key: n for n in nodes}
         active = next((n for n in nodes if n.status == "running"), None)
+        observed_child = False
         if active:
             child = m.AiAgentJobs.objects.get(id=active.agent_job_id)
             if child.status in {"queued", "running"}:
@@ -1018,6 +1068,12 @@ def workflow_tick():
                     row.save()
                     event(row, principal, "paused", "running")
                     return {"status": "paused", "runId": row.id}
+                active.status = "cancelled" if child.status == "cancelled" else "failed"
+                active.error_code = child.error_code or "child_agent_failed"
+                active.error_message = "步骤执行失败，请检查原请求诊断"
+                active.completed_at = child.completed_at or timezone.now()
+                active.version += 1
+                active.save()
                 return _fail(row, principal, "child_agent_failed")
             active.output_json = child.output_json
             active.status = "completed"
@@ -1025,7 +1081,11 @@ def workflow_tick():
             active.version += 1
             active.save()
             row.current_node_key = None
-        elif all(n.status in {"completed", "skipped"} for n in nodes):
+            observed_child = True
+        # Observing a known terminal child and advancing the existing DAG are
+        # local writes under this same mutation. Do not spend another scheduled
+        # tick between them. This never runs a provider or skips human review.
+        if all(n.status in {"completed", "skipped"} for n in nodes):
             output = {
                 n.node_key: json.loads(n.output_json) if n.output_json else None
                 for n in nodes
@@ -1078,7 +1138,14 @@ def workflow_tick():
                     or active_jobs.filter(owner_email=row.owner_email).count() >= 8
                 ):
                     row.updated_at = timezone.now()
-                    row.save(update_fields=["updated_at"])
+                    if observed_child:
+                        # Capacity can postpone the successor, but must not
+                        # discard the completed-child observation above.
+                        row.version += 1
+                        row.save(update_fields=["current_node_key", "version", "updated_at"])
+                        event(row, principal, "node_progressed", row.status, active.node_key)
+                    else:
+                        row.save(update_fields=["updated_at"])
                     return {"status": "waiting_capacity", "runId": row.id}
                 child = m.AiAgentJobs.objects.create(
                     id=uid("ai-agent"),

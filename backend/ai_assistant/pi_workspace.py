@@ -24,7 +24,9 @@ COMMANDS = {"steer", "follow_up", "clear_queue", "bash", "abort_bash", "tree", "
     "pause", "wake", "reset", "upgrade", "research_search", "research_read", "dependency_install", "skills_reload"}
 RUNNING_COMMANDS = {"steer", "follow_up", "clear_queue", "abort_bash", "ui_response", "pause", "terminal_input", "terminal_resize", "terminal_close", "model_set", "thinking_set", "skills_reload"}
 READ_COMMANDS = {"tree", "stats", "file_list", "file_read", "file_download", "export_html"}
-PRIVATE_KEYS = {"pendingGatewayRequests", "gateway", "capability", "capabilityHash", "thinking", "thinkingSignature", "providerFrame", "encryptedRunnerResponse"}
+LOCAL_MODEL_SNAPSHOT = "localModelSnapshot"
+PRIVATE_KEYS = {"pendingGatewayRequests", "gateway", "capability", "capabilityHash", "thinking", "thinkingSignature", "providerFrame", "encryptedRunnerResponse",
+    LOCAL_MODEL_SNAPSHOT}
 
 
 def public(value, depth=0):
@@ -61,6 +63,7 @@ def control_record(row, *, history=False):
 def workspace_record(session, workspace):
     frozen = session.status == "frozen"
     state = {} if frozen else json.loads(workspace.state_json)
+    state.pop(LOCAL_MODEL_SNAPSHOT, None)
     from .pi_native import snapshot
     return {"native": snapshot(session), "epoch": session.epoch, "generation": session.generation, "status": "frozen" if frozen else workspace.status,
         "initialized": workspace.status not in {"uninitialized", "frozen"}, "controlSeq": workspace.control_seq,
@@ -257,6 +260,17 @@ def _effective_readback(row, receipt, workspace):
         if result.get("thinkingLevel") != payload["level"]:
             raise AiError("实际思考等级未确认，不能标记切换成功", "pi_effective_thinking_unknown", 503)
         workspace.thinking_level = payload["level"]
+    if row.command == "wake":
+        from . import pi_native
+        pi_native.authorize(row.operation, kind="workspace", name="wake", lock=True, require_supplied=False)
+        if (result.get("localRestoreVersion") != 1 or result.get("generation") != row.generation
+                or not result.get("containerId") or result.get("admission") != payload.get("admission")
+                or result["admission"] != pi_native.admission(row.operation)):
+            raise AiError("Pi 唤醒缺少当前本地执行绑定证明", "pi_wake_unknown", 503)
+    if row.command == "reclaim_stopped":
+        if result != {**payload["expected"], "containerRemoved": True, "volumePreserved": True}:
+            raise AiError("回收缺少外壳删除与工作卷保留证明", "pi_reclaim_unknown", 409)
+        workspace.status = "paused" if payload["requireLocalRestore"] else "ready"
     if row.command == "upgrade":
         plans = json.loads(workspace.state_json).get("upgradePlans", [])
         plan = next((p for p in plans if isinstance(p, dict) and p.get("planId") == payload["planId"]), None)
@@ -280,6 +294,8 @@ def ingest(session, workspace, operation, result, *, snapshot=True):
                 continue
             row = PiControl.objects.filter(id=receipt.get("controlId", receipt.get("id")), session=session, generation=session.generation).first()
             if row:
+                if not snapshot and row.command in {"wake", "reclaim_stopped"}:
+                    continue
                 if snapshot:
                     _effective_readback(row, receipt, workspace)
                 _known_result(row, receipt)
@@ -321,6 +337,16 @@ def ingest(session, workspace, operation, result, *, snapshot=True):
     state["pendingUi"] = ui
     state.pop("pendingUIRequests", None)
     state.pop("controls", None)
+    if operation and state.get("environmentStatus") == "stopped":
+        # A stopped Runner reconstructed from SQLite has no process-local
+        # effective model. Keep the prior proof separate from live readback.
+        thinking = state.get("thinking")
+        missing = state.get("effectiveModel") is None and (thinking is None or
+            isinstance(thinking, dict) and thinking.get("effective") is None)
+        model_snapshot = _historical_local_model_snapshot(operation, workspace, session=session,
+            state=None if missing else state)
+        if model_snapshot:
+            state[LOCAL_MODEL_SNAPSHOT] = model_snapshot
     passive(state, 4 * 1024 * 1024)
     workspace.state_json, workspace.updated_at = canonical(state), timezone.now()
     unresolved = PiControl.objects.filter(session=session, generation=session.generation, status__in=["sent", "unknown"]).exists()
@@ -534,6 +560,68 @@ def _finish_init(operation):
             session.save()
 
 
+def _historical_local_model_snapshot(operation, workspace, *, session, state=None):
+    """Match passive model settings to this workspace's original authority."""
+    from . import configuration, pi_native
+    from .pi_models import PiDispatch
+    if (session.status != "idle" or session.active_operation_id or workspace.status not in {"ready", "paused"}
+            or (workspace.session_id, workspace.generation) != (session.id, session.generation)
+            or (operation.session_id, operation.epoch, operation.generation, operation.actor_role, operation.scope_json)
+            != (session.id, session.epoch, session.generation, session.actor_role, session.scope_json)):
+        return None
+    state = json.loads(workspace.state_json) if state is None else state
+    saved = state.get(LOCAL_MODEL_SNAPSHOT)
+    if saved is None:
+        projection = state.get("effectiveModel")
+        thinking = state.get("thinking")
+        level = thinking.get("effective") if isinstance(thinking, dict) else None
+    else:
+        if not isinstance(saved, dict) or not isinstance(saved.get("model"), dict):
+            return None
+        level = saved["model"].get("thinkingLevel")
+        projection = {key: value for key, value in saved["model"].items() if key != "thinkingLevel"}
+    if not isinstance(projection, dict) or not isinstance(level, str):
+        return None
+
+    model_id, version = workspace.model_id, workspace.model_version
+    if not model_id:
+        # A prompt may have initialized Pi before Django created a workspace
+        # record. An operation with only a rejected/unknown create proves no model.
+        known = PiDispatch.objects.filter(operation__session_id=operation.session_id,
+            operation__epoch=operation.epoch, operation__generation=operation.generation,
+            kind="runner:create", status="completed", error_code="").select_related("operation").order_by("-operation__seq").first()
+        if not known:
+            return None
+        model_id, version = known.operation.model_id, known.operation.model_version
+    if not model_id or version < 1:
+        return None
+    binding = digest({"owner": session.owner_email, "role": session.actor_role, "scope": session.scope_json,
+        "selection": session.selection_json, "session": session.id, "epoch": session.epoch, "generation": session.generation,
+        "modelId": model_id, "modelVersion": version})
+    if saved is not None and saved.get("binding") != binding:
+        return None
+    try:
+        model = configuration.resolve_model(model_id)
+        if model.version != version:
+            return None
+        bindings = [pi_native.model_binding(model, level)]
+        if level == "off" and model.reasoning_mode != "disabled":
+            bindings.append(pi_native.model_binding(effective_model(model, level), level))
+    except AiError:
+        return None
+    keys = ("contextWindow", "maxTokens", "reasoning", "supportedThinkingLevels")
+    for config in bindings:
+        expected = {key: config[key] for key in keys}
+        if projection == expected and level in config["supportedThinkingLevels"]:
+            return {"binding": binding, "model": {**expected, "thinkingLevel": level}}
+    return None
+
+
+def _historical_local_model(operation, workspace, *, session=None):
+    snapshot = _historical_local_model_snapshot(operation, workspace, session=session or workspace.session)
+    return snapshot["model"] if snapshot else None
+
+
 def control(session_id, body, principal):
     from . import pi_native
     if isinstance(body, dict) and body.get("command") in pi_native.COMMANDS:
@@ -566,8 +654,9 @@ def control(session_id, body, principal):
         if old:
             if old.request_digest != binding:
                 raise AiError("控制请求标识已绑定其他内容", "conflict", 409)
-            if (old.generation != session.generation and not (old.command in {"reset", "upgrade"} and old.status == "handled"
-                    and old.generation+1 == session.generation)) or session.status == "frozen":
+            rotated_capacity = old.command == "reset" and old.status == "failed" and old.error_code == "pi_session_limit" and json.loads(old.result_json).get("generationRotated") is True
+            if (old.generation != session.generation and not (old.command in {"reset", "upgrade"} and (old.status == "handled" or rotated_capacity)
+                    and old.generation+1 == session.generation and (not rotated_capacity or old.epoch+1 == session.epoch))) or session.status == "frozen":
                 raise AiError("旧环境控制已隔离", "access_denied", 403)
             return {**detail(session_id, {}, principal, poll=False), "control": control_record(old), "replayed": True}
         if session.status == "frozen":
@@ -576,8 +665,8 @@ def control(session_id, body, principal):
             raise AiError("原下载活动尚未确认结束，请观察原回执", "pi_activity_unknown", 409)
         if PiControl.objects.filter(session=session, generation=session.generation, status__in=["sent", "unknown"]).exists() and command != "pause":
             raise AiError("原控制效果尚未确认，请观察原回执", "pi_control_unknown", 409)
-        exclusive = {"dependency_install", "upgrade", "reset", "model_set", "session_new", "session_switch", "session_fork", "session_clone"}
-        if command not in READ_COMMANDS and PiControl.objects.filter(session=session, generation=session.generation,
+        exclusive = {"dependency_install", "upgrade", "reset", "model_set", "session_new", "session_switch", "session_fork", "session_clone", "reclaim_stopped"}
+        if (command not in READ_COMMANDS or command == "export_html") and PiControl.objects.filter(session=session, generation=session.generation,
                 command__in=exclusive, status__in=["prepared", "queued", "sent", "accepted", "unknown"]).exists():
             raise AiError("环境变更尚未确定完成，禁止新增写入或终端输入", "pi_control_active", 409)
         compatible = READ_COMMANDS | {"steer", "follow_up", "clear_queue", "abort_bash", "ui_response", "terminal_create", "terminal_input", "terminal_resize", "terminal_close", "thinking_set", "skills_reload"}
@@ -716,8 +805,20 @@ def control(session_id, body, principal):
                     activity_uncertain = False
                     raise
             from .pi_worker import identity
+            if command in {"wake", "upgrade"}:
+                with mutation(principal):
+                    locked = service.get_session(session_id, principal, lock=True)
+                    if (locked.epoch, locked.generation, locked.status) != (row.epoch, row.generation, session.status):
+                        raise AiError("Pi 本地环境的原会话状态已变化", "pi_tree_fenced", 409)
+                    pi_native.authorize(operation, kind="workspace", name=command, lock=True, require_supplied=False)
+                    model = _historical_local_model(operation, _workspace(locked), session=locked)
+                    row.payload_json = canonical({**payload, "admission": pi_native.admission(operation),
+                        **({"localModel": model} if model is not None else {})})
+                    row.save(update_fields=["payload_json"])
+                    payload = json.loads(row.payload_json)
+            else:
+                payload = {**payload, "admission": pi_native.admission(operation)}
             runner_sent = True
-            payload = {**payload, "admission": pi_native.admission(operation)}
             response = pi_transport.command({**identity(operation), "command": "workspace", "payload": {"action": "control",
                 "controlId": row.id, "controlSeq": row.control_seq, "command": "resource_install" if command == "dependency_install" else command, "payload": payload}})
             receipt = response.get("control", response.get("workspace", {}).get("control"))
@@ -743,6 +844,12 @@ def control(session_id, body, principal):
                 if command == "pause": workspace.status = "paused"
                 if command == "wake": workspace.status = "ready"
                 workspace.save()
+            elif command == "wake" and row.status == "failed" and response.get("workspace", {}).get("environmentStatus") == "stopped":
+                workspace.status = "paused"
+                workspace.save(update_fields=["status"])
+            elif command == "wake" and row.status == "unknown":
+                workspace.status = "unknown"
+                workspace.save(update_fields=["status"])
             # History reconciliation may append root events through a separately
             # loaded session instance under this same authority transaction.
             current.refresh_from_db(fields=["event_seq", "updated_at"])
@@ -751,7 +858,12 @@ def control(session_id, body, principal):
             _finish_init(operation)
         return {**detail(session_id, {}, principal, poll=False), "control": control_record(row), "replayed": False}
     except Exception as error:
-        # Diagnosability only: the status decision below is unchanged. This
+        from .pi_transport import SessionLimitRejected
+        known_capacity = False
+        if initialize and isinstance(error, SessionLimitRejected):
+            from .pi_worker import fail_before_prompt
+            known_capacity = fail_before_prompt(operation, error)
+        # The catch remains deliberately wide. This
         # catch is deliberately wide because `unknown` is a safety fence, not
         # error handling -- anything unexpected after the request may have
         # reached the Runner, so it must keep blocking an automatic resend.
@@ -780,7 +892,7 @@ def control(session_id, body, principal):
             row.refresh_from_db()
             if row.status not in {"completed", "handled", "failed"}:
                 known_upgrade = getattr(error, "code", "") == "workspace_native_image_upgrade_required"
-                known_unsent = known_upgrade or not runner_sent and environment_known and not activity_uncertain and command not in {"reset", "upgrade"}
+                known_unsent = known_capacity or known_upgrade or not runner_sent and environment_known and not activity_uncertain and command not in {"reset", "upgrade"}
                 row.status, row.error_code, row.updated_at = "failed" if known_unsent else "unknown", getattr(error, "code", "pi_control_unknown"), timezone.now()
                 row.save(update_fields=["status", "error_code", "updated_at"])
                 if not known_unsent:
@@ -791,7 +903,7 @@ def control(session_id, body, principal):
         if initialize and getattr(error, "code", "") == "workspace_native_image_upgrade_required":
             from .pi_worker import fail_before_prompt
             fail_before_prompt(operation, error)
-        elif initialize and (runner_sent or not environment_known or activity_uncertain):
+        elif initialize and not known_capacity and (runner_sent or not environment_known or activity_uncertain):
             from .pi_gateway import freeze
             freeze(operation, getattr(error, "code", "pi_control_unknown"))
         elif initialize:
@@ -799,6 +911,110 @@ def control(session_id, body, principal):
         if isinstance(error, AiError):
             raise
         raise AiError("Pi 控制结果未知，禁止自动重发", getattr(error, "code", "pi_control_unknown"), 503) from error
+
+
+def reclaim_stopped(session_id, principal, *, request_id=None, expected=None):
+    """Maintenance only. Observe with no request ID; apply one exact shell receipt."""
+    from . import pi_native
+    from .pi_models import PiBusinessAction, PiDispatch, PiExport
+    from .pi_worker import identity
+    from pi_runner.protocol import workspace_key
+
+    def eligible(session, *, lock=False):
+        operation = _operation(session)
+        workspace = PiWorkspace.objects.filter(session=session, generation=session.generation).first()
+        operations = PiOperation.objects.filter(session=session, epoch=session.epoch, generation=session.generation)
+        controls = PiControl.objects.filter(session=session, epoch=session.epoch, generation=session.generation)
+        if (session.status != "idle" or session.active_operation_id or not operation or operation.epoch != session.epoch
+                or not workspace or workspace.status not in {"ready", "paused"}
+                or operations.exclude(status__in=["succeeded", "failed", "canceled"]).exists()
+                or controls.exclude(status__in=["completed", "handled", "failed"]).exists()
+                or PiDispatch.objects.filter(operation__in=operations).exclude(status="completed").exists()
+                or PiExport.objects.filter(operation__in=operations, status__in=["queued", "running"]).exists()
+                or PiUiRequest.objects.filter(operation__in=operations, status="pending").exists()
+                or PiBusinessAction.objects.filter(parent_operation__in=operations, status__in=["prepared", "queued", "claimed", "dispatched", "unknown"]).exists()
+                or _unresolved_activity(session, json.loads(workspace.state_json))):
+            raise AiError("Django 会话或原回执尚未安全终结", "pi_reclaim_workspace_unverified", 409)
+        pi_native.authorize(operation, kind="workspace", name="wake", lock=lock, require_supplied=False)
+        return operation, workspace
+
+    if request_id is not None:
+        identifier(request_id, "requestId")
+        if (not isinstance(expected, dict) or set(expected) != {"containerId", "volume", "image", "lastSeq"}
+                or not re.fullmatch(r"[a-f0-9]{64}", expected.get("containerId", ""))
+                or not re.fullmatch(r"sha256:[a-f0-9]{64}", expected.get("image", ""))
+                or not re.fullmatch(r"[a-z0-9-]{1,128}", expected.get("volume", ""))
+                or type(expected["lastSeq"]) is not int or not 0 <= expected["lastSeq"] <= 9007199254740991):
+            raise AiError("必须提供拟回收外壳的精确绑定", "pi_reclaim_binding_required", 409)
+
+    current_principal(principal, write=True)
+    session = service.get_session(session_id, principal)
+    if request_id is not None:
+        prior = PiControl.objects.filter(session=session, client_request_id=request_id).first()
+        if prior:
+            if (prior.command != "reclaim_stopped" or prior.request_digest != digest(expected)
+                    or (prior.epoch, prior.generation) != (session.epoch, session.generation) or session.status == "frozen"):
+                raise AiError("回收请求已绑定其他内容或代际", "pi_reclaim_binding_changed", 409)
+            return {"control": control_record(prior), "replayed": True}
+    operation, workspace = eligible(session)
+    runner_identity = identity(operation)
+    state = pi_transport.command({**runner_identity, "command": "workspace", "payload": {"action": "state"}}).get("workspace", {})
+    shell = {k: state.get(k) for k in ("workspaceId", "containerId", "volume", "image", "lastSeq")}
+    if (state.get("environmentStatus") != "stopped" or state.get("retainedWorkspace") is not False
+            or shell["workspaceId"] != workspace_key(runner_identity) or state.get("generation") != session.generation
+            or not isinstance(shell["containerId"], str) or type(shell["lastSeq"]) is not int
+            or not 0 <= shell["lastSeq"] <= operation.seq
+            or state.get("admission") != pi_native.admission(operation)):
+        raise AiError("Runner 外壳、状态或准入不匹配", "pi_reclaim_binding_changed", 409)
+    if request_id is None:
+        return {"observed": shell, "epoch": session.epoch, "generation": session.generation}
+    if shell != {**expected, "workspaceId": workspace_key(runner_identity)}:
+        raise AiError("Runner 外壳已变化，须重新核对", "pi_reclaim_binding_changed", 409)
+    with mutation(principal):
+        current = service.get_session(session_id, principal, lock=True)
+        if PiControl.objects.filter(session=current, client_request_id=request_id).exists():
+            raise AiError("请读取原回收请求回执", "pi_control_active", 409)
+        latest, workspace = eligible(current, lock=True)
+        admission = pi_native.admission(latest)
+        if identity(latest) != runner_identity or admission != state["admission"]:
+            raise AiError("会话或准入已变化，须重新核对", "pi_reclaim_binding_changed", 409)
+        workspace.control_seq += 1
+        workspace.save(update_fields=["control_seq"])
+        row = PiControl.objects.create(id=uid("pi-control"), session=current, operation=latest, client_request_id=request_id,
+            request_digest=digest(expected), epoch=current.epoch, generation=current.generation, control_seq=workspace.control_seq,
+            command="reclaim_stopped", payload_json=canonical({"expected": shell, "admission": admission,
+                "requireLocalRestore": workspace.status == "paused"}), status="sent")
+    try:
+        response = pi_transport.command({**runner_identity, "command": "workspace", "payload": {"action": "control",
+            "controlId": row.id, "controlSeq": row.control_seq, "command": row.command, "payload": json.loads(row.payload_json)}})
+        receipt = response.get("control", {})
+        with mutation(principal):
+            current = service.get_session(session_id, principal, lock=True)
+            if (current.epoch, current.generation) != (row.epoch, row.generation) or current.status != "idle":
+                raise AiError("迟到的回收结果属于原代际", "pi_reclaim_unknown", 409)
+            if receipt.get("status") not in {"completed", "failed"} or receipt.get("command") != row.command:
+                raise AiError("回收效果待核原回执", "pi_reclaim_unknown", 409)
+            if receipt["status"] == "completed" and receipt.get("result") != {**shell, "containerRemoved": True, "volumePreserved": True}:
+                raise AiError("回收缺少外壳删除与工作卷保留证明", "pi_reclaim_unknown", 409)
+            _known_result(row, receipt)
+            if row.status == "completed":
+                workspace = _workspace(current)
+                ingest(current, workspace, latest, response)
+                workspace.status = "paused" if json.loads(row.payload_json)["requireLocalRestore"] else "ready"
+                workspace.save(update_fields=["status"])
+            service.event(current, "workspace_control", {"controlId": row.id, "command": row.command, "status": row.status}, latest)
+    except Exception as error:
+        with mutation():
+            row.refresh_from_db()
+            if row.status == "sent":
+                current = PiSession.objects.select_for_update().get(pk=session_id)
+                row.status, row.error_code = "unknown", "pi_reclaim_unknown"
+                row.save(update_fields=["status", "error_code"])
+                if (current.epoch, current.generation) == (row.epoch, row.generation) and current.status != "frozen":
+                    PiWorkspace.objects.filter(session=current, generation=row.generation).exclude(status="frozen").update(status="unknown")
+                service.event(current, "workspace_control_unknown", {"controlId": row.id, "command": row.command, "code": row.error_code}, latest)
+        raise AiError("回收结果未知，禁止重发；请观察原回执", "pi_reclaim_unknown", 409) from error
+    return {"control": control_record(row), "replayed": False}
 
 
 def _rotate(row, session, workspace, operation, principal):
@@ -818,7 +1034,23 @@ def _rotate(row, session, workspace, operation, principal):
         workspace.generation, workspace.status, workspace.state_json = current.generation, "uninitialized", "{}"
         workspace.save()
         new = _new_operation(current, workspace, principal, "workspace:init", {"controlId": row.id}, queued=False)
-    result = _create_environment(new)
+    from .pi_transport import SessionLimitRejected
+    try:
+        result = _create_environment(new)
+    except SessionLimitRejected as error:
+        if not pi_worker.fail_before_prompt(new, error):
+            from .pi_gateway import freeze
+            freeze(new, "pi_create_rejection_unmatched")
+            raise
+        with mutation():
+            row.status, row.error_code = "failed", error.code
+            row.result_json = canonical({"generation": current.generation, "epoch": current.epoch,
+                "preservedOldGeneration": True, "generationRotated": True, "replacementCreated": False})
+            row.save(update_fields=["status", "error_code", "result_json"])
+            locked = PiSession.objects.select_for_update().get(pk=current.pk)
+            service.event(locked, "workspace_control_failed", {"controlId": row.id, "command": "reset",
+                "status": "failed", "code": error.code, "generationRotated": True}, new)
+        raise
     with mutation():
         ingest(current, workspace, new, result)
         row.status, row.result_json = "handled", canonical({"generation": current.generation, "epoch": current.epoch, "preservedOldGeneration": True})

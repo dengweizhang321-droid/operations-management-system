@@ -12,6 +12,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "native-isolation.ps1")
+$RuntimeRoot = Get-NativeRuntimeRoot "django" $RuntimeRoot ($PSBoundParameters.ContainsKey("RuntimeRoot"))
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
 $RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
@@ -37,8 +39,8 @@ $OrchestratedLifecycleAclToken = $RequestedOrchestratedLifecycleAclToken
 $WorkflowCredentialPath = Join-Path $RuntimeRoot "secrets\workflow-credentials.dpapi.json"
 $WorkflowReaderPidPath = Join-Path $RunDirectory "django-workflow-reader.pid.json"
 $WorkflowWriterPidPath = Join-Path $RunDirectory "django-workflow-writer.pid.json"
-$WorkflowReaderHealthUrl = "http://127.0.0.1:8061/health/ready"
-$WorkflowWriterHealthUrl = "http://127.0.0.1:8062/health/ready"
+$WorkflowReaderHealthUrl = "http://127.0.0.1:$($NativePorts[8061])/health/ready"
+$WorkflowWriterHealthUrl = "http://127.0.0.1:$($NativePorts[8062])/health/ready"
 $WorkflowStartupPath = Join-Path $RuntimeRoot "workflow-service-enabled.json"
 $WorkflowReaderMaxBodyBytes = 1048576
 $WorkflowWriterMaxBodyBytes = 1048576
@@ -57,7 +59,7 @@ function Assert-WorkflowRuntimeEntry([string]$LifecycleAclToken = "") {
 }
 
 function Assert-WorkflowPortsFree([string]$Operation) {
-  if (@(Get-PortListeners 8061).Count -gt 0 -or @(Get-PortListeners 8062).Count -gt 0) {
+  if (@(Get-PortListeners $NativePorts[8061]).Count -gt 0 -or @(Get-PortListeners $NativePorts[8062]).Count -gt 0) {
     throw "$Operation 前必须先停止 Django 运营事务新品 reader/writer"
   }
   if (Resolve-OwnedProcess "django-workflow-reader" $WorkflowReaderPidPath $Waitress) {
@@ -388,17 +390,17 @@ print(json.dumps({
 
 function Start-WorkflowReader([object]$RuntimeSecrets, [object]$WorkflowSecrets, [switch]$DeferReady) {
   $arguments = @(
-    "--listen=127.0.0.1:8061", "--threads=6", "--connection-limit=60",
+    "--listen=127.0.0.1:$($NativePorts[8061])", "--threads=6", "--connection-limit=60",
     "--channel-timeout=35", "--cleanup-interval=30", "--ident=teruisi-django-workflow-reader",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$WorkflowReaderMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-workflow-reader" $Waitress $arguments
   if (Resolve-OwnedProcess "django-workflow-reader" $WorkflowReaderPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "workflow-reader" $WorkflowReaderHealthUrl "127.0.0.1:8061"
+    Wait-DjangoReady "workflow-reader" $WorkflowReaderHealthUrl "127.0.0.1:$($NativePorts[8061])"
     return $false
   }
-  if (@(Get-PortListeners 8061).Count -gt 0) { throw "端口 8061 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8061]).Count -gt 0) { throw "端口 8061 被非本部署服务占用" }
   Remove-OldServiceLogs "django-workflow-reader"
   $readerUrl = Database-Url `
     "teruisi_workflow_reader" $WorkflowSecrets.ReaderPassword `
@@ -414,7 +416,7 @@ function Start-WorkflowReader([object]$RuntimeSecrets, [object]$WorkflowSecrets,
   # The stack owns rollback after launch; its final readiness barrier remains mandatory.
   if ($DeferReady) { return $true }
   try {
-    Wait-DjangoReady "workflow-reader" $WorkflowReaderHealthUrl "127.0.0.1:8061"
+    Wait-DjangoReady "workflow-reader" $WorkflowReaderHealthUrl "127.0.0.1:$($NativePorts[8061])"
     return $true
   } catch {
     Stop-OwnedProcess "django-workflow-reader" $WorkflowReaderPidPath $Waitress
@@ -433,17 +435,17 @@ function Start-WorkflowWriter(
     throw "PostgreSQL 尚未成为运营事务完整板块唯一写入源；拒绝启动运营事务 writer"
   }
   $arguments = @(
-    "--listen=127.0.0.1:8062", "--threads=4", "--connection-limit=20",
+    "--listen=127.0.0.1:$($NativePorts[8062])", "--threads=4", "--connection-limit=20",
     "--channel-timeout=960", "--cleanup-interval=30", "--ident=teruisi-django-workflow-writer",
     "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$WorkflowWriterMaxBodyBytes",
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-ConfigFingerprint "django-workflow-writer" $Waitress $arguments
   if (Resolve-OwnedProcess "django-workflow-writer" $WorkflowWriterPidPath $Waitress $arguments $fingerprint) {
-    Wait-DjangoReady "workflow-writer" $WorkflowWriterHealthUrl "127.0.0.1:8062"
+    Wait-DjangoReady "workflow-writer" $WorkflowWriterHealthUrl "127.0.0.1:$($NativePorts[8062])"
     return $false
   }
-  if (@(Get-PortListeners 8062).Count -gt 0) { throw "端口 8062 被非本部署服务占用" }
+  if (@(Get-PortListeners $NativePorts[8062]).Count -gt 0) { throw "端口 8062 被非本部署服务占用" }
   Remove-OldServiceLogs "django-workflow-writer"
   $writerUrl = Database-Url `
     "teruisi_workflow_writer" $WorkflowSecrets.WriterPassword `
@@ -461,7 +463,7 @@ function Start-WorkflowWriter(
   # The stack owns new-process rollback and the final readiness barrier.
   if ($DeferReady) { return $true }
   try {
-    Wait-DjangoReady "workflow-writer" $WorkflowWriterHealthUrl "127.0.0.1:8062"
+    Wait-DjangoReady "workflow-writer" $WorkflowWriterHealthUrl "127.0.0.1:$($NativePorts[8062])"
     return $true
   } catch {
     Stop-OwnedProcess "django-workflow-writer" $WorkflowWriterPidPath $Waitress
@@ -508,13 +510,13 @@ function Start-WorkflowStack([string]$LifecycleAclToken = "") {
     ) {
       $writerStarted = Start-WorkflowWriter $runtimeSecrets $workflowSecrets $authority -DeferReady
     }
-    Wait-DjangoReady "workflow-reader" $WorkflowReaderHealthUrl "127.0.0.1:8061"
+    Wait-DjangoReady "workflow-reader" $WorkflowReaderHealthUrl "127.0.0.1:$($NativePorts[8061])"
     if (
       [string]$authority.status -ceq "postgres" -and
       [string]$authority.operationsStatus -ceq "postgres"
     ) {
-      Wait-DjangoReady "workflow-writer" $WorkflowWriterHealthUrl "127.0.0.1:8062"
-      Write-Output "Django 运营事务完整板块服务已就绪：reader=http://127.0.0.1:8061 writer=http://127.0.0.1:8062。"
+      Wait-DjangoReady "workflow-writer" $WorkflowWriterHealthUrl "127.0.0.1:$($NativePorts[8062])"
+      Write-Output "Django 运营事务完整板块服务已就绪：reader=http://127.0.0.1:$($NativePorts[8061]) writer=http://127.0.0.1:$($NativePorts[8062])。"
     } else {
       Write-Output "Django 运营事务 reader 已就绪；完整板块写权尚未全部激活，writer 保持停止。"
     }
@@ -762,24 +764,24 @@ function Show-WorkflowStatus {
   try {
     if (Resolve-OwnedProcess "django-workflow-reader" $WorkflowReaderPidPath $Waitress) {
       $reader = "running"
-    } elseif (@(Get-PortListeners 8061).Count -gt 0) { $reader = "foreign_port_owner" }
+    } elseif (@(Get-PortListeners $NativePorts[8061]).Count -gt 0) { $reader = "foreign_port_owner" }
   } catch { $reader = "ownership_error" }
   try {
     if (Resolve-OwnedProcess "django-workflow-writer" $WorkflowWriterPidPath $Waitress) {
       $writer = "running"
-    } elseif (@(Get-PortListeners 8062).Count -gt 0) { $writer = "foreign_port_owner" }
+    } elseif (@(Get-PortListeners $NativePorts[8062]).Count -gt 0) { $writer = "foreign_port_owner" }
   } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"
   $writerReady = "not_ready"
   try {
     if ((Invoke-WebRequest -UseBasicParsing -Uri $WorkflowReaderHealthUrl -TimeoutSec 2 `
-          -Headers @{ Host = "127.0.0.1:8061" }).StatusCode -eq 200) {
+          -Headers @{ Host = "127.0.0.1:$($NativePorts[8061])" }).StatusCode -eq 200) {
       $readerReady = "ready"
     }
   } catch {}
   try {
     if ((Invoke-WebRequest -UseBasicParsing -Uri $WorkflowWriterHealthUrl -TimeoutSec 2 `
-          -Headers @{ Host = "127.0.0.1:8062" }).StatusCode -eq 200) {
+          -Headers @{ Host = "127.0.0.1:$($NativePorts[8062])" }).StatusCode -eq 200) {
       $writerReady = "ready"
     }
   } catch {}

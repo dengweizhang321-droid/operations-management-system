@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI 修复第一批 · 交付记录</title>
+<style>
+:root{color-scheme:light;font:16px/1.65 system-ui,"Microsoft YaHei",sans-serif;color:#172033;background:#f2f5f9}*{box-sizing:border-box}body{max-width:1140px;margin:auto;padding:32px 24px}header,section{background:#fff;border:1px solid #dce3ed;border-radius:12px;padding:24px;margin-bottom:18px}h1{font-size:28px;margin:8px 0}h2{font-size:20px;margin:0 0 12px}p{margin:8px 0}.muted{color:#526176}.tag{font-size:13px;background:#e9eef6;border-radius:6px;padding:4px 8px;display:inline-block}.ok{color:#17613b}.pending{color:#815400}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;vertical-align:top;padding:12px 10px;border-bottom:1px solid #e5eaf1}th{background:#f5f7fb}code{font:13px/1.5 ui-monospace,Consolas,monospace;overflow-wrap:anywhere}a{color:#165ab0;text-underline-offset:3px}details{padding:12px 0;border-top:1px solid #e5eaf1}summary{cursor:pointer;font-weight:600}ul{padding-left:22px}.table{overflow:auto}footer{font-size:13px;color:#526176;padding:4px 12px}@media(max-width:680px){body{padding:12px}header,section{padding:16px}h1{font-size:23px}th,td{min-width:120px}}
+</style>
+<header>
+  <span class="tag">第一批 · 开发分支候选</span>
+  <h1>AI 修复第一批</h1>
+  <p class="muted">启动于 2026-11-07，更新于 2026-11-08（上海）。每个工作包分别由独立 Astra 反审；本页为离线交付记录，不连接生产接口。</p>
+  <p><strong id="batch-state">第一批开发、逐项独审及固定 G02 检查均已完成，最终回执增量复核通过。</strong></p>
+  <p>分支：<code>codex/ai-repair-batch1-20261107</code><br>开工 main 基线：<code>0c7d0feb33f45cfc6ae1f283b81d401c873c5768</code><br>应用源码：<code>eee39f9d</code> · 完整受检代码：<code>5d9090b7</code></p>
+  <p>未合并 main，未准备正式应用制品，未上线，未清理生产容器。</p>
+</header>
+<section>
+  <h2>工作包与证据</h2>
+  <div class="table"><table>
+    <thead><tr><th>工作包</th><th>交付行为</th><th>审查与状态</th><th>阅读</th></tr></thead>
+    <tbody>
+      <tr><td>W1 · Pi 容量与保卷</td><td>精确容量拒绝收尾；保留卷、历史、身份和未知回执；保护升级前驱。</td><td class="ok">原问题及恢复保全增量通过 · eee39f9d</td><td><a href="PI.md">实施</a> · <a href="REVIEW-W1.md">独审</a></td></tr>
+      <tr><td>W2 · 唤醒</td><td>本地执行绑定与网关授权分开；准备阶段绑定镜像，发布阶段复用回执。</td><td id="w2-state" class="ok">旧暂停会话返修通过原 Astra 增量复核</td><td><a href="PI.md">实施</a> · <a href="REVIEW-W2.md">独审</a></td></tr>
+      <tr><td>W3 · 持久停止</td><td>显式 Stop 可保存和刷新；普通断流不写停止；未知请求不能换号自动重放。</td><td class="ok">两项 P1 已闭合 · 79ac59cd</td><td><a href="CHAT.md">实施</a> · <a href="REVIEW-W3.md">独审</a></td></tr>
+      <tr><td>W4 · 问题分流</td><td>普通问数不误入推广；明确推广、可信续问和页面入口保留原权限。</td><td class="ok">四项问题已闭合 · e268b287</td><td><a href="W4.md">实施</a> · <a href="REVIEW-W4.md">独审</a></td></tr>
+      <tr><td>W7 · 转化率口径</td><td>成交客户数÷访客数；缺字段、零分母和期间去重限制明确保留。</td><td class="ok">独审通过 · 74061295 / cb741e62</td><td><a href="W7.md">实施</a> · <a href="REVIEW-W7.md">独审</a></td></tr>
+      <tr><td>W6a · 外层诊断</td><td>关联来源导出、权限分页、签名传输与被动结果阶段；Broker 内层后置。</td><td class="ok">拆包增量通过 · 7caf36f0</td><td><a href="METRICS-DIAGNOSTICS.md">实施</a> · <a href="REVIEW-W6A.md">独审</a></td></tr>
+    </tbody>
+  </table></div>
+</section>
+<section>
+  <h2>验证应如何理解</h2>
+  <p>私有 PostgreSQL、合成模型、真实隔离容器和生产整链是不同证据。本批没有新的真实供应商调用或生产整链验收，也不能承诺供应商已经停止执行。</p>
+  <details id="checks"><summary>查看代码检查与既有缺口</summary>
+    <ul><li>整包 TypeScript 与精确基线均为 167 条，逐项相同，无新增诊断。</li><li>后端边界检查有一项基线既有 n8n 资格摘要失败；相关源文件未改。</li><li>旧发布 profile 的一项清单检查在基线和候选均失败，未扩为无关整改。</li><li id="g02-state">G02 已在干净 5d9090b7 通过本批精确适配。私有包、PS入口与限定 Pi 原生启动已核验；完整 Windows 栈冷启动未验证。首次37路径拒绝原件保留。</li></ul>
+    <p><a href="CHECKS.md">完整分层检查记录</a></p>
+  </details>
+  <details id="pandas"><summary>为什么 Broker 内部诊断留到下一批</summary>
+    <p>新增 Broker 代码会改变严格源码摘要，而现有发布器没有其受控轮换步骤。本批恢复 Broker 的 8 个运行文件至原始基线，保留独立可用的 Worker/Django 诊断；原候选代码与证据完整归档。下一批须配套轮换和相应验证，不能放宽摘要探针。</p>
+    <p><a href="PANDAS-ADOPTION-PLAN.md">拆包与后续采用方案</a></p>
+  </details>
+  <details id="capacity"><summary>生产容量与旧环境</summary>
+    <p>此前的 8 个 exited 容器是历史观察。本轮未逐项盘点或清理，不能据此说当前名额已恢复，也不能认定这些容器可删除。任何生产处置仍需精确对象、保留内容、恢复路径和单独授权。</p>
+  </details>
+</section>
+<section>
+  <h2>交接与授权</h2>
+  <p>本批收口后只新建一个第二批聊天，使用独立工作树与分支，从届时最新 main 开始。对尚未合并的第一批成果，必须明确开发来源和依赖，不能默默叠加或声称 main 已包含。</p>
+  <p>合并 main 需用户针对具体交付明确授权，该授权包含从最终合并提交准备制品；上线另行授权。</p>
+  <p><a href="REPORT.md">总报告</a> · <a href="STATUS.md">小任务状态</a> · <a href="REVIEW-G02.md">最终兼容复核</a> · <a href="HANDOFF.md">下一批交接</a></p>
+</section>
+<footer>所有失败、反例和后续通过分别保留。原件目录：<code>D:/codex-artifacts/ai-repair-batch1-20261107/</code></footer>
+</html>
