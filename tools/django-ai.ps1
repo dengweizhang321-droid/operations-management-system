@@ -3,7 +3,7 @@ param(
   [ValidateSet(
     "ConfigureCredentials", "ProvisionRoles", "Start", "Stop", "Status",
     "EnableStartup", "DisableStartup", "DingTalkCheck", "StartDingTalk", "StopDingTalk",
-    "EnableDingTalkStartup", "DisableDingTalkStartup", "AutoStartDingTalk", "ConfigureDingTalkBotCredentials", "ConfigurePandas", "PandasCheck", "PreparePi", "PreparePiUpgrade", "PiUpgradeCheck", "UpgradePi", "ReconcilePiUpgrade", "PiUpgradeStatus", "VerifyPiUpgradeResult", "PiCheck"
+    "EnableDingTalkStartup", "DisableDingTalkStartup", "AutoStartDingTalk", "ConfigureDingTalkBotCredentials", "ConfigurePandas", "PandasCheck", "PreparePandasRotation", "PandasRotationCheck", "SwitchPandasRotation", "CompletePandasRotation", "PreparePi", "PreparePiUpgrade", "PiUpgradeCheck", "UpgradePi", "ReconcilePiUpgrade", "PiUpgradeStatus", "VerifyPiUpgradeResult", "PiCheck"
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
@@ -11,6 +11,12 @@ param(
   [string]$AiEncryptionSource = "D:\运营管理系统\.dev.vars",
   [string]$ModelOriginAllowlist = "",
   [string]$PandasImage = "",
+  [string]$PandasPreparedAppId = "",
+  [string]$PandasPreparedAppSha256 = "",
+  [string]$PandasPlanSha256 = "",
+  [string]$PandasSourceCommit = "",
+  [string]$PandasMaintenanceId = "",
+  [int]$PandasPublicationOwnerPid = 0,
   [string]$PiImage = "",
   [string]$PiSkillVersion = "1.0.0",
   [string]$PiUpgradePlanSha256 = "",
@@ -23,6 +29,11 @@ $ErrorActionPreference = "Stop"
 $RequestedAiEncryptionSource = $AiEncryptionSource
 $RequestedModelOriginAllowlist = $ModelOriginAllowlist
 $RequestedPandasImage = $PandasImage
+$RequestedPandasRotation = [pscustomobject]@{
+  preparedAppId = $PandasPreparedAppId; preparedAppSha256 = $PandasPreparedAppSha256
+  registeredPlanSha256 = $PandasPlanSha256; sourceCommit = $PandasSourceCommit
+  maintenanceId = $PandasMaintenanceId; publicationOwnerPid = $PandasPublicationOwnerPid
+}
 $RequestedPiImage = $PiImage
 $RequestedPiSkillVersion = $PiSkillVersion
 $RequestedPiUpgradePlanSha256 = $PiUpgradePlanSha256
@@ -190,11 +201,15 @@ function Get-PiUpgradePreparedExecutionRoot {
     Assert-AiRuntimeEntry
     return $InstalledAppRoot
   }
+  return Get-ReviewedPreparedExecutionRoot $RequestedPiPreparedAppId $RequestedPiPreparedAppSha256
+}
+
+function Get-ReviewedPreparedExecutionRoot([string]$Id, [string]$ReceiptSha256) {
   Assert-DeployedApplication
   Assert-RuntimeAclHardened
-  $prepared = Get-PreparedApplication $RequestedPiPreparedAppId $RequestedPiPreparedAppSha256
-  $manifest = Read-JsonFile (Join-Path $prepared 'deployment.json') 'Pi prepared application manifest'
-  if ((Get-CanonicalPath $manifest.sourceRoot) -cne (Get-CanonicalPath $ExecutionRoot)) { throw 'Pi prepared application belongs to a different source' }
+  $prepared = Get-PreparedApplication $Id $ReceiptSha256
+  $manifest = Read-JsonFile (Join-Path $prepared 'deployment.json') 'Prepared application manifest'
+  if ((Get-CanonicalPath $manifest.sourceRoot) -cne (Get-CanonicalPath $ExecutionRoot)) { throw 'Prepared application belongs to a different source' }
   $sourceBackend = Get-CanonicalPath (Join-Path $ExecutionRoot 'backend')
   $expected = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
   foreach ($file in Get-ChildItem -LiteralPath $sourceBackend -File -Recurse -Force) {
@@ -209,10 +224,10 @@ function Get-PiUpgradePreparedExecutionRoot {
       $relative = $file.FullName.Substring($prepared.Length + 1)
       if ($directory -ceq 'backend') { [void]$actual.Add($relative.Substring('backend\'.Length)) }
       $source = Join-Path $ExecutionRoot $relative
-      if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or (Get-FileSha256 $file.FullName) -cne (Get-FileSha256 $source)) { throw 'Pi prepared application differs from frozen source' }
+      if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or (Get-FileSha256 $file.FullName) -cne (Get-FileSha256 $source)) { throw 'Prepared application differs from frozen source' }
     }
   }
-  if (-not $expected.SetEquals($actual)) { throw 'Pi prepared backend inventory differs from frozen source' }
+  if (-not $expected.SetEquals($actual)) { throw 'Prepared backend inventory differs from frozen source' }
   return $prepared
 }
 
@@ -329,18 +344,229 @@ function Invoke-PandasSystemctl([string]$Verb) {
   ConvertFrom-UniqueNativeJson $nativeRun "pandas Linux service lifecycle" | Out-Null
 }
 
+function Assert-PandasRotationBinding([object]$Binding, [bool]$Plan, [bool]$Owner) {
+  if ([string]$Binding.preparedAppId -cnotmatch '^[a-f0-9]{32}$' -or
+      [string]$Binding.preparedAppSha256 -cnotmatch '^[a-f0-9]{64}$' -or
+      [string]$Binding.sourceCommit -cnotmatch '^[a-f0-9]{40}$' -or
+      ($Plan -and [string]$Binding.registeredPlanSha256 -cnotmatch '^[a-f0-9]{64}$') -or
+      ($Owner -and ([string]$Binding.maintenanceId -cnotmatch '^[a-f0-9]{32}$' -or
+        ($Binding.publicationOwnerPid -isnot [int] -and $Binding.publicationOwnerPid -isnot [long]) -or
+        $Binding.publicationOwnerPid -le 0))) { throw 'Invalid Pandas rotation binding' }
+}
+
+function Read-PandasRotationJson([string]$Path, [int]$MaxBytes = 8192) {
+  $entry = Get-Item -LiteralPath (Assert-RuntimeChildPath $Path) -Force -ErrorAction Stop
+  if ($entry.PSIsContainer -or $entry.Length -gt $MaxBytes -or
+      ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Unsafe Pandas rotation receipt' }
+  return Read-JsonFile $entry.FullName 'Pandas rotation receipt'
+}
+
+function Write-PandasRotationJson([string]$Path, [object]$Record) {
+  $bytes = $Utf8NoBom.GetBytes(($Record | ConvertTo-Json -Depth 8 -Compress))
+  if ($bytes.Length -gt 8192) { throw 'Pandas rotation receipt exceeds its bound' }
+  $stream = [IO.File]::Open((Assert-RuntimeChildPath $Path), [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+  try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) }
+  finally { $stream.Dispose() }
+}
+
+function Get-PandasRotationPath([string]$Plan, [string]$Suffix) {
+  if ($Plan -cnotmatch '^[a-f0-9]{64}$' -or $Suffix -cnotin @('pending','startup-attempt','startup','complete')) {
+    throw 'Invalid Pandas rotation record identity'
+  }
+  return Join-Path $RunDirectory ("pandas-rotation-" + $Plan + "." + $Suffix + ".json")
+}
+
+function Assert-SamePandasRotation([object]$Actual, [object]$Expected, [bool]$Owner) {
+  $keys = @('preparedAppId','preparedAppSha256','registeredPlanSha256','sourceCommit')
+  if ($Owner) { $keys += @('maintenanceId','publicationOwnerPid') }
+  foreach ($key in $keys) {
+    if ($Actual.$key -cne $Expected.$key) { throw 'Pandas rotation receipt belongs to another operation' }
+  }
+}
+
+function Get-PendingPandasRotation {
+  if (-not (Test-Path -LiteralPath $RunDirectory)) { return $null }
+  $entries = @(Get-ChildItem -LiteralPath $RunDirectory -Filter 'pandas-rotation-*.pending.json' -Force)
+  if ($entries.Count -gt 127) { throw 'Pandas rotation journal inventory exceeds its bound' }
+  $pending = $null
+  foreach ($entry in $entries) {
+    $record = Read-PandasRotationJson $entry.FullName
+    if (-not (Test-ExactObjectPropertyNames $record @('preparedAppId','preparedAppSha256','registeredPlanSha256','sourceCommit','maintenanceId','publicationOwnerPid'))) {
+      throw 'Pandas rotation intent is malformed'
+    }
+    Assert-PandasRotationBinding $record $true $true
+    if ($entry.FullName -cne (Get-PandasRotationPath $record.registeredPlanSha256 'pending')) { throw 'Pandas rotation intent filename mismatch' }
+    $complete = Get-PandasRotationPath $record.registeredPlanSha256 'complete'
+    if (Test-Path -LiteralPath $complete) {
+      $result = Read-PandasRotationJson $complete
+      Assert-SamePandasRotation $result $record $true
+      $startup = Get-PandasRotationPath $record.registeredPlanSha256 'startup'
+      $null = Read-PandasRotationJson $startup
+      if ($result.status -cne 'ready_verified' -or $result.completed -cne $true -or $result.postconditionsVerified -cne $true -or
+          [string]$result.intentSha256 -cnotmatch '^[a-f0-9]{64}$' -or
+          (Get-FileSha256 $startup) -cne $result.startupReceiptSha256) { throw 'Pandas rotation completion is invalid' }
+      continue
+    }
+    if ($null -ne $pending) { throw 'More than one Pandas rotation has an unresolved outcome' }
+    $pending = $record
+  }
+  return $pending
+}
+
+function Assert-PandasInstalledBinding([object]$Binding) {
+  $receiptPath = Join-Path $RuntimeRoot ('app.prepare-' + $Binding.preparedAppId + '.json')
+  $receipt = Read-PandasRotationJson $receiptPath 4096
+  if ((Get-FileSha256 $receiptPath) -cne $Binding.preparedAppSha256 -or
+      -not (Test-ExactObjectPropertyNames $receipt @('version','id','runtimeRoot','predecessorManifestSha256','candidateManifestSha256')) -or
+      $receipt.version -cne 'teruisi-django-prepared-app-v1' -or $receipt.id -cne $Binding.preparedAppId -or
+      $receipt.runtimeRoot -ine (Get-CanonicalPath $RuntimeRoot) -or
+      $receipt.candidateManifestSha256 -cne (Get-FileSha256 $DeploymentManifestPath)) {
+    throw 'Pandas rotation requires the original prepared Django app to be installed'
+  }
+}
+
+function Assert-PandasPublicationOwner([object]$Binding) {
+  $lease = Read-PandasRotationJson (Join-Path $RunDirectory 'release-publication-lease.json')
+  $owner = Get-Process -Id $Binding.publicationOwnerPid -ErrorAction Stop
+  $created = [DateTimeOffset]::Parse([string]$lease.createdAt)
+  $expires = [DateTimeOffset]::Parse([string]$lease.expiresAt)
+  if ($lease.version -cne 'teruisi-release-publication-lease-v1' -or
+      $lease.ownerPid -cne $Binding.publicationOwnerPid -or $lease.maintenanceId -cne $Binding.maintenanceId -or
+      $lease.mainCommit -cne $Binding.sourceCommit -or $owner.ProcessName -cne 'node' -or
+      [DateTimeOffset]$owner.StartTime -gt $created -or $expires -le [DateTimeOffset]::UtcNow) {
+    throw 'Pandas rotation requires the original live publication owner'
+  }
+}
+
+function Invoke-PandasRotationNative([string]$Verb, [string]$AppRoot, [object]$Binding, [object]$Config) {
+  $arguments = @('-I', '-B', (Join-Path $AppRoot 'tools\pandas_broker_rotation.py'), $Verb,
+    '--prepared-app-id', $Binding.preparedAppId, '--prepared-app-sha256', $Binding.preparedAppSha256,
+    '--source-commit', $Binding.sourceCommit, '--windows-config-sha256', (Get-FileSha256 $PandasConfigPath),
+    '--windows-key-sha256', (Get-FileSha256 $PandasKeyPath), '--image', [string]$Config.image)
+  if ($Verb -cne 'prepare') { $arguments += @('--plan-sha256', $Binding.registeredPlanSha256) }
+  if ($Verb -cnotin @('prepare','check')) {
+    $arguments += @('--maintenance-id', $Binding.maintenanceId, '--publication-owner-pid', [string]$Binding.publicationOwnerPid)
+  }
+  $result = ConvertFrom-UniqueNativeJson (Invoke-BoundedNativeProcess $Python $arguments (Join-Path $AppRoot 'backend')) 'Pandas Broker rotation'
+  if ($Verb -ceq 'prepare') {
+    if ($result.preparedAppId -cne $Binding.preparedAppId -or $result.preparedAppSha256 -cne $Binding.preparedAppSha256 -or
+        $result.sourceCommit -cne $Binding.sourceCommit) { throw 'Pandas preparation response binding mismatch' }
+  } else {
+    Assert-SamePandasRotation $result $Binding ($Verb -cne 'check')
+  }
+  if ($result.configured -cne $true -or $result.image -cne $Config.image -or
+      [string]$result.registeredPlanSha256 -cnotmatch '^[a-f0-9]{64}$' -or
+      [string]$result.sourceSha256 -cnotmatch '^[a-f0-9]{64}$' -or
+      [string]$result.predecessorSourceSha256 -cnotmatch '^[a-f0-9]{64}$') {
+    throw 'Pandas rotation result is not bound to the reviewed source and image'
+  }
+  return $result
+}
+
+function Invoke-PandasRotationPreparation([bool]$Check) {
+  $binding = $RequestedPandasRotation
+  Assert-PandasRotationBinding $binding $false $false
+  if ((Get-CanonicalPath $ExecutionRoot) -ieq (Get-CanonicalPath $InstalledAppRoot)) {
+    throw 'Pandas preparation requires the original frozen source controller'
+  }
+  $prepared = Get-ReviewedPreparedExecutionRoot $binding.preparedAppId $binding.preparedAppSha256
+  if ($null -ne (Get-PendingPandasRotation)) { throw 'The original Pandas rotation is still unresolved' }
+  $config = Read-PandasConfig
+  if ($null -eq $config) {
+    if ($binding.registeredPlanSha256) { throw 'Previously configured Pandas was removed after preparation' }
+    $native = Invoke-BoundedNativeProcess $Python @('-B','-c','from pandas_runner.protocol import package_digest; print(package_digest())') (Join-Path $prepared 'backend')
+    $source = [string](@($native.Output) -join '').Trim()
+    if ($native.ExitCode -ne 0 -or $source -cnotmatch '^[a-f0-9]{64}$') { throw 'Invalid Pandas candidate source identity' }
+    $result = [ordered]@{prepared=$true; started=$false; configured=$false; registeredPlanSha256=$null;
+      sourceSha256=$source; preparedAppId=$binding.preparedAppId; preparedAppSha256=$binding.preparedAppSha256; sourceCommit=$binding.sourceCommit}
+    if ($Check) { $result.checked = $true }
+    return $result | ConvertTo-Json -Compress
+  }
+  if ($Check) { Assert-PandasRotationBinding $binding $true $false }
+  $verb = if ($Check) { 'check' } else { 'prepare' }
+  $result = Invoke-PandasRotationNative $verb $prepared $binding $config
+  if ($result.prepared -cne $true -or $result.started -cne $false -or ($Check -and $result.checked -cne $true)) {
+    throw 'Pandas preparation outcome is not verified'
+  }
+  return $result | ConvertTo-Json -Compress
+}
+
+function Invoke-PandasRotationSwitch {
+  $binding = $RequestedPandasRotation
+  Assert-PandasRotationBinding $binding $true $true
+  Assert-AiRuntimeEntry
+  Assert-PandasInstalledBinding $binding
+  Assert-ProductionMaintenance 'SwitchPandasRotation'
+  $maintenance = Read-SystemMaintenance
+  if ($null -eq $maintenance -or $maintenance.id -cne $binding.maintenanceId) { throw 'Pandas maintenance identity changed' }
+  Assert-PandasPublicationOwner $binding
+  Assert-ApplicationDeploymentStopped 'SwitchPandasRotation'
+  Assert-AiPortsFree 'SwitchPandasRotation'
+  if ((Test-Path -LiteralPath $PandasPidPath) -or @(Get-PortListeners 8121).Count -ne 0) {
+    throw 'Original Pandas stop and keepalive removal are not proved'
+  }
+  if ($null -ne (Get-PendingPandasRotation)) { throw 'The original Pandas rotation is still unresolved' }
+  $config = Read-PandasConfig
+  if ($null -eq $config) { throw 'Original Pandas configuration is missing' }
+  Write-PandasRotationJson (Get-PandasRotationPath $binding.registeredPlanSha256 'pending') $binding
+  $result = Invoke-PandasRotationNative 'switch' $InstalledAppRoot $binding $config
+  if ($result.status -cne 'switched_stopped' -or $result.switched -cne $true -or $result.started -cne $false -or
+      [string]$result.intentSha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Pandas switch outcome is unknown' }
+  return $result | ConvertTo-Json -Compress
+}
+
+function Complete-PandasRotation {
+  $binding = $RequestedPandasRotation
+  Assert-PandasRotationBinding $binding $true $true
+  Assert-AiRuntimeEntry
+  Assert-PandasInstalledBinding $binding
+  $pending = Read-PandasRotationJson (Get-PandasRotationPath $binding.registeredPlanSha256 'pending')
+  Assert-SamePandasRotation $pending $binding $true
+  $config = Read-PandasConfig
+  if ($null -eq $config) { throw 'Original Pandas configuration is missing' }
+  $startup = Get-PandasRotationPath $binding.registeredPlanSha256 'startup'
+  $null = Read-PandasRotationJson $startup
+  $result = Invoke-PandasRotationNative 'complete' $InstalledAppRoot $binding $config
+  if ($result.status -cne 'ready_verified' -or $result.completed -cne $true -or $result.postconditionsVerified -cne $true -or
+      $result.startupReceiptSha256 -cne (Get-FileSha256 $startup)) { throw 'Pandas original startup is not proved' }
+  $completion = Get-PandasRotationPath $binding.registeredPlanSha256 'complete'
+  if (Test-Path -LiteralPath $completion) {
+    $original = Read-PandasRotationJson $completion
+    Assert-SamePandasRotation $original $result $true
+    if ($original.startupReceiptSha256 -cne $result.startupReceiptSha256 -or $original.intentSha256 -cne $result.intentSha256 -or
+        $original.status -cne 'ready_verified' -or $original.postconditionsVerified -cne $true -or $original.completed -cne $true) {
+      throw 'Original Windows Pandas completion receipt changed'
+    }
+  } else { Write-PandasRotationJson $completion $result }
+  return $result | ConvertTo-Json -Compress
+}
+
 function Start-PandasSandbox {
   $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
   $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
   $startupPhaseOutcome = 'completed'
   try {
   $config = Read-PandasConfig
-  if ($null -eq $config) { return $false }
+  $pending = Get-PendingPandasRotation
+  if ($null -eq $config) {
+    if ($null -ne $pending) { throw 'Pending Pandas rotation lost its configuration' }
+    return $false
+  }
   $fingerprint = Get-Sha256Text ((Get-ConfigFingerprint "ai-pandas-wsl" $PandasWsl $PandasKeepaliveArguments) +
     (Get-FileHash -LiteralPath $PandasConfigPath -Algorithm SHA256).Hash)
   if (Resolve-OwnedProcess "ai-pandas-wsl" $PandasPidPath $PandasWsl $PandasKeepaliveArguments $fingerprint) {
+    if ($null -ne $pending -and -not (Test-Path -LiteralPath (Get-PandasRotationPath $pending.registeredPlanSha256 'startup') -PathType Leaf)) {
+      throw 'Original Pandas startup outcome is unknown; preserve its attempt'
+    }
     Invoke-PandasProbe $config | Out-Null
     return $false
+  }
+  $switched = $null
+  if ($null -ne $pending) {
+    Assert-PandasInstalledBinding $pending
+    Assert-PandasPublicationOwner $pending
+    $switched = Invoke-PandasRotationNative 'startup-check' $InstalledAppRoot $pending $config
+    Write-PandasRotationJson (Get-PandasRotationPath $pending.registeredPlanSha256 'startup-attempt') $switched
   }
   $previousWslEnv = [Environment]::GetEnvironmentVariable("WSLENV", "Process")
   try {
@@ -348,8 +574,21 @@ function Start-PandasSandbox {
     Start-ManagedProcess "ai-pandas-wsl" $PandasWsl $PandasKeepaliveArguments $BackendRoot $PandasPidPath $fingerprint `
       (Join-Path $LogDirectory "ai-pandas-wsl.$RunId.stdout.log") (Join-Path $LogDirectory "ai-pandas-wsl.$RunId.stderr.log") | Out-Null
     Invoke-PandasSystemctl "start"
-    Invoke-PandasProbe $config | Out-Null
-    Invoke-PandasProbe $config $true | Out-Null
+    $before = if ($null -ne $pending) { Invoke-PandasRotationNative 'identity' $InstalledAppRoot $pending $config }
+    $signedStatus = Invoke-PandasProbe $config
+    $signedSelfTest = Invoke-PandasProbe $config $true
+    if ($null -ne $pending) {
+      $after = Invoke-PandasRotationNative 'identity' $InstalledAppRoot $pending $config
+      if ($before.intentSha256 -cne $switched.intentSha256 -or $after.intentSha256 -cne $switched.intentSha256 -or
+          $before.processIdentity.pid -ne $after.processIdentity.pid -or
+          $before.processIdentity.invocationId -cne $after.processIdentity.invocationId -or
+          $before.processIdentity.startTicks -cne $after.processIdentity.startTicks) {
+        throw 'Pandas broker changed during the original signed startup'
+      }
+      $startup = [ordered]@{version=1; switch=$switched; processIdentity=$before.processIdentity; signedStatus=$signedStatus;
+        signedSelfTest=$signedSelfTest; applicationManifestSha256=(Get-FileSha256 $DeploymentManifestPath)}
+      Write-PandasRotationJson (Get-PandasRotationPath $pending.registeredPlanSha256 'startup') $startup
+    }
     return $true
   } catch {
     # Preserve uncertain Linux state for inspection; never retry an unknown job.
@@ -1006,6 +1245,10 @@ try {
     "ConfigureCredentials" { Invoke-WithServiceMutex { Configure-AiCredentials } }
     "ConfigureDingTalkBotCredentials" { Invoke-WithServiceMutex { Configure-DingTalkBotCredentials } }
     "ConfigurePandas" { Invoke-WithServiceMutex { Configure-PandasSandbox } }
+    "PreparePandasRotation" { Invoke-WithServiceMutex { Invoke-PandasRotationPreparation $false } }
+    "PandasRotationCheck" { Invoke-WithServiceMutex { Invoke-PandasRotationPreparation $true } }
+    "SwitchPandasRotation" { Invoke-WithServiceMutex { Invoke-PandasRotationSwitch } }
+    "CompletePandasRotation" { Invoke-WithServiceMutex { Complete-PandasRotation } }
     "PreparePi" { Invoke-WithServiceMutex { Prepare-PiRuntime } }
     "PreparePiUpgrade" { Invoke-WithServiceMutex { Upgrade-PiRuntime $true } }
     "PiUpgradeCheck" { Invoke-WithServiceMutex { Check-PiUpgradePlan } }

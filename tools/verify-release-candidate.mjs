@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import {makeReleasePlan} from './release-scope-plan.mjs';
 import {publisherEnvironment} from './publish-latest-main.mjs';
 import {hashTree} from './worker-local-release.mjs';
-import {dingtalkScreenshotAclQualification,aDescendantCreationGuardDjangoScriptSha256,piNativeCandidateDjangoScriptSha256,bWorkerJsonFailureCauseScriptSha256,readinessCopyControllerPair} from './manual-maintenance-continuation.mjs';
+import {dingtalkScreenshotAclQualification,aDescendantCreationGuardDjangoScriptSha256,piNativeCandidateDjangoScriptSha256,bWorkerJsonFailureCauseScriptSha256,readinessCopyControllerPair,pandasRotationControllerPair} from './manual-maintenance-continuation.mjs';
 
 /** A 项 (2026-10-25): one exact installed -> candidate django-local-service.ps1
  * pair. The candidate changes only Get-VerifiedProcessDescendants (purely
@@ -186,11 +186,109 @@ export function aiRepairBatch1ScopeMatches(changes,baseCommit){
  return expected.size===0;
 }
 
+export const aiRepairBatch2Qualification=Object.freeze({
+ base:'0c7d0feb33f45cfc6ae1f283b81d401c873c5768',
+ application:'638fd30db3e1fa670805878d060ee3894baa462d',
+ applicationTree:'116000d9b258178234ac489c3b24d445815bd672',
+ // Fixed application and adapter bytes, never supplied by a caller. The
+ // verifier itself cannot self-pin; review it with the full payload receipt.
+ reviewedBytesSha256:'69324e8df7b382016184b78ba448c50156a50dfe51e2adb952877c149f823eef',
+});
+export const aiRepairBatch2Reviewed=Object.freeze({
+ 'app/ai-dingtalk-schedules-view.tsx':'M',
+ 'app/ai-report-workbench-view.tsx':'M',
+ 'backend/ai_assistant/datasets.py':'M',
+ 'backend/ai_assistant/diagnostics.py':'A',
+ 'backend/ai_assistant/dingtalk_schedules.py':'M',
+ 'backend/ai_assistant/dingtalk_transport.py':'M',
+ 'backend/ai_assistant/pandas_diagnostics.py':'A',
+ 'backend/ai_assistant/pandas_sandbox.py':'M',
+ 'backend/ai_assistant/pi_gateway.py':'M',
+ 'backend/ai_assistant/provider.py':'M',
+ 'backend/ai_assistant/provider_responses.py':'M',
+ 'backend/ai_assistant/provider_stream.py':'M',
+ 'backend/ai_assistant/reports.py':'M',
+ 'backend/ai_assistant/test_dingtalk_enterprise.py':'M',
+ 'backend/ai_assistant/test_dingtalk_schedules.py':'M',
+ 'backend/ai_assistant/test_dingtalk_transport.py':'M',
+ 'backend/ai_assistant/test_pandas_sandbox.py':'M',
+ 'backend/ai_assistant/test_provider_roundtrip.py':'M',
+ 'backend/ai_assistant/test_report_library.py':'M',
+ 'backend/ai_assistant/test_schedule_monitor.py':'M',
+ 'backend/ai_assistant/test_schedule_storage_bounds.py':'M',
+ 'backend/ai_assistant/test_transport.py':'M',
+ 'backend/ai_assistant/test_workflow_timing.py':'A',
+ 'backend/ai_assistant/transport.py':'M',
+ 'backend/ai_assistant/workflow_timing.py':'A',
+ 'backend/ai_assistant/workflows.py':'M',
+ 'backend/netshop/query.py':'M',
+ 'backend/netshop/tests/test_insights_common.py':'M',
+ 'backend/pandas_runner/diagnostics.py':'A',
+ 'backend/pandas_runner/server.py':'M',
+ 'backend/pandas_runner/test_diagnostics.py':'A',
+ 'lib/ai/analysis-sandbox.ts':'M',
+ 'lib/ai/django-edge.ts':'M',
+ 'lib/ai/tool-registry.ts':'M',
+ 'tests/pandas-broker-rotation-native.py':'A',
+ 'tests/pandas-broker-rotation-ps.test.ps1':'A',
+ 'tests/pandas-broker-rotation-startup-fixture.py':'A',
+ 'tests/pandas-broker-rotation-startup-seam.test.ps1':'A',
+ 'tests/pandas-sandbox.test.ts':'M',
+ 'tests/publish-main-pandas.test.mjs':'A',
+ 'tests/publish-prepared-main.test.mjs':'M',
+ 'tools/django-ai.ps1':'M',
+ 'tools/django-local-service.ps1':'M',
+ 'tools/pandas_broker_rotation.py':'A',
+ 'tools/pandas_broker_rotation_linux.py':'A',
+ 'tools/publish-main-pandas.mjs':'A',
+ 'tools/publish-main-resume.mjs':'M',
+ 'tools/publish-main-tail.mjs':'M',
+ 'tools/publish-prepared-main.mjs':'M',
+});
+export const aiRepairBatch2Adapter=Object.freeze({
+ 'tools/manual-maintenance-continuation.mjs':'M',
+ 'tools/verify-release-candidate.mjs':'M',
+ 'tests/ai-repair-batch2-compatibility.test.mjs':'A',
+ 'tests/ai-repair-batch2-powershell-entry.ps1':'A',
+ 'tests/manual-maintenance-continuation.test.mjs':'M',
+ 'tests/release-candidate-package.test.ps1':'M',
+});
+const aiRepairBatch2Docs=file=>/^docs\/ai-repair-batch2-20261108\/[^/]+\.(?:md|html|json)$/.test(file)||
+ ['METRICS-DIAGNOSTICS.md','PANDAS-ADOPTION-PLAN.md','REVIEW-W6A.md'].some(name=>file==='docs/ai-repair-batch1-20261107/'+name);
+
+export function aiRepairBatch2ScopeMatches(changes,baseCommit){
+ if(baseCommit!==aiRepairBatch2Qualification.base)return false;
+ const expected=new Map(Object.entries({...aiRepairBatch2Reviewed,...aiRepairBatch2Adapter})),seen=new Set();
+ for(const {path:file,before,status} of changes){
+  if(typeof file!=='string'||before||seen.has(file))return false;
+  seen.add(file);
+  if(aiRepairBatch2Docs(file)&&['A','M'].includes(status))continue;
+  if(expected.get(file)!==status)return false;
+  expected.delete(file);
+ }
+ return expected.size===0;
+}
+
 export function assertAiRepairBatch1Bytes(payload){
  const digestByPath=new Map(payload.map(member=>[member.path,member.sha256]));
  const rows=Object.keys(aiRepairBatch1Reviewed).sort().map(file=>[file,digestByPath.get(file)]);
  assert.equal(sha(Buffer.from(JSON.stringify(rows))),aiRepairBatch1Qualification.reviewedBytesSha256,
   '第一批AI应用候选字节已变化，原有限资格不适用');
+}
+
+export function aiRepairBatch2BytesDigest(payload){
+ const byPath=new Map(payload.map(member=>[member.path,member.sha256]));
+ const statuses={...aiRepairBatch2Reviewed,...aiRepairBatch2Adapter};
+ const rows=Object.keys(statuses).filter(file=>file!=='tools/verify-release-candidate.mjs').sort().map(file=>{
+  const digest=byPath.get(file);
+  assert.match(digest??'',/^[a-f0-9]{64}$/,'第二批审查载荷缺少 '+file);
+  return [file,statuses[file],digest];
+ });
+ return sha(Buffer.from(JSON.stringify(rows)));
+}
+export function assertAiRepairBatch2Bytes(payload){
+ assert.equal(aiRepairBatch2BytesDigest(payload),aiRepairBatch2Qualification.reviewedBytesSha256,
+  '第二批AI应用候选字节已变化，原有限资格不适用');
 }
 
 export function candidateCompatibilityProfile(changes,{baseCommit}={}){
@@ -200,6 +298,12 @@ export function candidateCompatibilityProfile(changes,{baseCommit}={}){
   version:'ai-repair-batch1-compatibility-v1',aiRepairBatch1Only:true,paths,unsupported:[],
   worker:true,django:true,publication:true,nativeColdStartPerformed:false,
  };
+ if(aiRepairBatch2ScopeMatches(changes,baseCommit))return {
+  version:'ai-repair-batch2-compatibility-v1',aiRepairBatch2Only:true,paths,unsupported:[],
+  worker:true,django:true,publication:true,nativeColdStartPerformed:false,
+ };
+ if(files.some(file=>['tools/publish-main-pandas.mjs','tools/pandas_broker_rotation.py','tools/pandas_broker_rotation_linux.py'].includes(file)))
+  return {paths,unsupported:['第二批Pandas轮换需要完整精确差异与固定前驱']};
  const readinessAllowed=new Set([...readinessStabilityFiles,'tools/verify-release-candidate.mjs']);
  const readinessStabilityOnly=readinessStabilityFiles.every(p=>paths.includes(p))
   &&paths.includes('tools/verify-release-candidate.mjs')&&paths.every(p=>readinessAllowed.has(p));
@@ -344,6 +448,17 @@ export function compareMaintenanceInventoryOnly(before,after){
  return next.size===before.functions.length&&before.functions.every(f=>f.name==='Prepare-Application'?stripMaintenancePackageEntries(next.get(f.name))===normalize(f.text):next.get(f.name)===normalize(f.text));
 }
 export const piResumePackageEntries=['pi_agent_upgrade_status.py','publish-main-step.mjs','publish-main-pi-reconciliation.mjs','publish-main-owner.mjs','publish-main-tail.mjs','main-prebuild-task.mjs'];
+export const pandasRotationPackageEntries=Object.freeze(['pandas_broker_rotation.py','pandas_broker_rotation_linux.py','publish-main-pandas.mjs']);
+export function comparePandasRotationInventoryOnly(before,after){
+ const eol=before.includes('\r\n')?'\r\n':'\n';
+ let stripped=after;
+ for(const name of pandasRotationPackageEntries){
+  const line='      "tools\\'+name+'",'+eol;
+  if(stripped.split(line).length!==2)return false;
+  stripped=stripped.replace(line,'');
+ }
+ return stripped===before;
+}
 export function comparePiResumeInventoryOnly(before,after){
  const normalize=value=>value.replaceAll('\r\n','\n');
  if(JSON.stringify(before.other.map(normalize))!==JSON.stringify(after.other.map(normalize)))return false;
@@ -536,6 +651,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
  await fs.mkdir(directory,{recursive:false});
  const plan=makeReleasePlan({base:baseCommit,head:commit,cwd:source});
  const profile=candidateCompatibilityProfile(plan.changes,{baseCommit});
+ const aiRepairBatch2Only=profile.aiRepairBatch2Only===true;
  const nativeAbandonmentOnly=profile.nativeAbandonmentOnly;
  const cleanedPreparationOnly=profile.cleanedPreparationOnly;
  if(cleanedPreparationOnly){
@@ -618,6 +734,47 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    assertAiRepairBatch1Bytes(report.payload);
    report.applicationQualification=qualification;
   }
+  if(aiRepairBatch2Only){
+   const q=aiRepairBatch2Qualification;
+   assert.equal(await git(source,['rev-parse',q.application+'^{tree}']),q.applicationTree);
+   await git(source,['merge-base','--is-ancestor',q.application,commit]);
+   assert.deepEqual(plan.components,['worker','django']);
+   assert.equal(plan.scope,'full');
+   assert.equal(plan.migrate,false);
+   assertAiRepairBatch2Bytes(report.payload);
+   const scopedPaths=Object.keys({...aiRepairBatch2Reviewed,...aiRepairBatch2Adapter});
+   const index=(await git(candidate,['ls-files','--stage','-z','--',...scopedPaths])).split('\0').filter(Boolean);
+   assert.equal(index.length,scopedPaths.length,'第二批Git索引成员不完整');
+   for(const record of index)assert.match(record,/^100644 [a-f0-9]{40} 0\t/,'第二批Git索引成员不是受审普通文件模式');
+   report.applicationQualification=q;
+   const files=['django-ai.ps1','django-local-service.ps1','worker-local-service.ps1','process-deadline.ps1'];
+   const pair=pandasRotationControllerPair,byController=[
+    [pair.installedAiSha256,pair.candidateAiSha256],
+    [pair.installedDjangoSha256,pair.candidateDjangoSha256],
+    [pair.workerSha256,pair.workerSha256],
+    [pair.transportSha256,pair.transportSha256],
+   ];
+   const originals={};
+   for(const [index,name] of files.entries()){
+    const raw=(await execute('git',['-C',source,'show',baseCommit+':tools/'+name],{encoding:'buffer',maxBuffer:8*1024*1024,windowsHide:true})).stdout;
+    const actual=await fs.readFile(path.join(candidate,'tools',name));
+    assert.deepEqual([sha(raw),sha(actual)],byController[index],'Pandas维护兼容控制器与冻结字节不符：'+name);
+    originals[name]=raw;
+    if(name==='django-local-service.ps1')assert.ok(comparePandasRotationInventoryOnly(raw.toString('utf8'),actual.toString('utf8')),'Django基础控制器只允许三项原位复制清单增量');
+   }
+   const originalAi=path.join(directory,'before-pandas-django-ai.ps1');
+   await fs.writeFile(originalAi,originals['django-ai.ps1']);
+   const [before,after]=await Promise.all([functionsOfExact(originalAi,shell7,environment),functionsOfExact(path.join(candidate,'tools/django-ai.ps1'),shell7,environment)]);
+   const stable=['Wait-PiWorkerExit','Stop-PiRuntime','Start-AiStack','Stop-AiStack','Stop-PandasSandbox','Invoke-PandasSystemctl'];
+   for(const name of stable){
+    const prior=before.functions.find(f=>f.name===name)?.text;
+    assert.ok(prior,'前驱缺少生命周期函数：'+name);
+    assert.equal(after.functions.find(f=>f.name===name)?.text,prior,'非本次Pandas接缝的生命周期函数已变化：'+name);
+   }
+   report.pandasControllerQualification={pair,unchangedFunctions:stable,runtimeObservedByVerifier:false};
+   report.requiresNativeColdStart=true;
+   report.requiredNativeScopes=['pandasBroker'];
+  }
   if(schemaAdmissionOnly){
    const mutable=new Set(profile.paths);for(const entry of preflightBaseline.payload)if(!entry.path.startsWith('docs/')&&!entry.path.startsWith('tests/')&&!mutable.has(entry.path))assert.equal(sha(await fs.readFile(path.join(candidate,entry.path))),entry.sha256,'前轮应用/生命周期字节变化：'+entry.path);
    await run('schema-current-proof-binding',pythonExe,['tests/release-chain-schema-binding.py'],'package-integrity');
@@ -643,7 +800,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    report.readinessDjangoCopyOnly=true;
    report.readinessControllerPair={installedSourceSha256:sha(old),candidateSha256:sha(current),runtimeObservedByVerifier:false};
   }
-  if(profile.django&&!profile.readinessStabilityOnly&&!profile.aiRepairBatch1Only){
+  if(profile.django&&!profile.readinessStabilityOnly&&!profile.aiRepairBatch1Only&&!aiRepairBatch2Only){
    const old=path.join(directory,'before-django.ps1');
    const bytes=(await execute('git',['-C',source,'show',baseCommit+':tools/django-local-service.ps1'],{encoding:'buffer',maxBuffer:8*1024*1024,windowsHide:true})).stdout;
    await fs.writeFile(old,bytes);
@@ -730,6 +887,20 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    report.piImageInputs=verified.imageInputs;
    await run('powershell-entry',pythonExe,['-m','unittest','discover','-s','tests','-p','test_pi150_recovery_entry.py'],'native-entry-boundary');
    await run('actual-django-package',shell7,['-NoProfile','-NonInteractive','-File','tests/release-candidate-package.test.ps1'],'package-integrity');
+  }else if(aiRepairBatch2Only){
+   const evidenceFile=path.join(directory,'ai-repair-batch2-verified-evidence.json');
+   await run('ai-repair-batch2-compatibility',process.execPath,['--test','--test-name-pattern=^batch 2 |^reviewed Django controller generations',
+    'tests/ai-repair-batch2-compatibility.test.mjs','tests/manual-maintenance-continuation.test.mjs'],'native-entry-boundary',
+    {...environment,TERUISI_AI_BATCH2_EVIDENCE_OUTPUT:evidenceFile,TERUISI_AI_BATCH2_PYTHON:pythonExe,
+     TERUISI_AI_BATCH2_PS5:shell5,TERUISI_AI_BATCH2_PS7:shell7});
+   const verified=JSON.parse(await fs.readFile(evidenceFile,'utf8'));
+   assert.equal(verified.scopedNativeEvidence?.pandasBroker?.status,'passed','缺少本批Pandas原生启动证据');
+   report.frozenPublisherClosure=verified.frozenPublisherClosure;
+   report.reusedEvidence=verified.reusedEvidence;
+   report.scopedNativeEvidence=verified.scopedNativeEvidence;
+   await run('ai-repair-batch2-publication',process.execPath,['--test','--test-name-pattern=Pandas','tests/publish-main-pandas.test.mjs','tests/publish-prepared-main.test.mjs'],'isolated-functions');
+   await run('powershell-entry',pythonExe,['-m','unittest','discover','-s','tests','-p','test_pi150_recovery_entry.py'],'native-entry-boundary');
+   await run('actual-django-package',shell7,['-NoProfile','-NonInteractive','-File','tests/release-candidate-package.test.ps1','-AiRepairBatch2'],'package-integrity');
   }else{
   if(profile.readinessStabilityOnly){
    await run('readiness-profile',process.execPath,['--test','--test-name-pattern=readiness stability','tests/verify-release-candidate.test.mjs'],'isolated-functions');
@@ -817,6 +988,14 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
     packageIntegrity:'Private Django copy, dependencies, ACL and local Wrangler; frozen Pi image inputs. No formal Worker release.',
     nativeEntryBoundary:'Frozen publisher import closure and actual PS entry parameters with probes stopped before the first side effect.',
     nativeColdStart:'Original Pi Runner main and signed health passed in scope. Full Windows application stack cold start was not executed.',
+   };
+   report.nativeColdStartReason=report.evidenceScope.nativeColdStart;
+  }
+  if(aiRepairBatch2Only){
+   report.evidenceScope={
+    packageIntegrity:'Private Django copy, deployment manifest, ACL, dependency and local Wrangler checks with stopped-process and schema observations substituted; no formal Worker release.',
+    nativeEntryBoundary:'Frozen publisher import closure, private predecessor admission, and actual Windows PowerShell 5 and PowerShell 7 parameters up to the original mutex before effects.',
+    nativeColdStart:'Original Pandas Broker lifecycle, root-owned rotation and signed readiness were verified in the private WSL scope. Full Windows application stack cold start was not executed.',
    };
    report.nativeColdStartReason=report.evidenceScope.nativeColdStart;
   }

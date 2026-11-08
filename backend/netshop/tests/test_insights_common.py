@@ -99,6 +99,24 @@ class InsightsFoundationTests(TestCase):
     def performance(self, start="2026-09-01", end="2026-09-01", **kwargs):
         return product_performance(dimension="sku", query="", page=1, page_size=50, platforms=["京东"], outlets=[], requested_period=period(start, end), view="full", expected_snapshot_token=None, **kwargs)
 
+    def test_product_performance_tied_spus_page_stably_and_reject_stale_scope_revision(self):
+        self.fact(shop="B", dataset_override="spu_daily")
+        self.fact(shop="A", dataset_override="spu_daily")
+        self.fact(shop="outside", platform="天猫")
+        options = dict(dimension="spu", query="", page_size=1, platforms=["京东"], outlets=[],
+                       requested_period=period("2026-09-01", "2026-09-01"))
+        first = product_performance(**options, page=1, view="full", expected_snapshot_token=None)
+        following = dict(page=2, view="page", expected_snapshot_token=first["snapshotToken"])
+        last = product_performance(**options, **following)
+        self.assertEqual([(page["items"][0]["id"], page["items"][0]["shopNames"]) for page in [first, last]],
+                         [("same-spu", ["A"]), ("same-spu", ["B"])])
+        self.assertEqual([page["pagination"]["truncated"] for page in [first, last]], [True, False])
+        self.assertEqual([page["pagination"]["total"] for page in [first, last]], [2, 2])
+        NetshopProductDailyScopeRevision.objects.update_or_create(platform="京东", shop_name="A", defaults={"data_version": 1})
+        with self.assertRaises(NetshopApiError) as rejected:
+            product_performance(**options, **following)
+        self.assertEqual(rejected.exception.payload["reasonCode"], "product_snapshot_changed")
+
     def test_context_has_all_sources_periods_fields_and_explicit_true_zero(self):
         self.fact(values={"transactionAmountCents": 0}); self.fact(promotion=True)
         result = read_context(self.principal, self.spec())

@@ -757,6 +757,7 @@ def product_performance(
             "商品日数据版本已变化，请重新加载",
             code="service_unavailable",
             status=503,
+            payload={"reasonCode": "product_snapshot_changed"},
         )
     identity_values = ("platform", "shop_name", identity_field)
     product_count = rows.values(*identity_values).distinct().count()
@@ -800,7 +801,7 @@ def product_performance(
         date_max=Max("business_date"),
         data_days=Count("business_date", distinct=True),
         **_sum_annotations(),
-    ).order_by("-transaction_amount_cents", "-visitors", identity_field)
+    ).order_by("-transaction_amount_cents", "-visitors", identity_field, "platform", "shop_name")
     offset = (page - 1) * page_size
     if view == "identities": offset, page_size = 0, len(identities)
     grouped_page = list(grouped[offset : offset + page_size])

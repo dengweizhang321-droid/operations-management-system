@@ -6,9 +6,11 @@ import { scheduleErrorLabel } from "@/lib/ai/schedule-presentation";
 type Schedule = { id: string; name: string; prompt: string; cadence: "daily" | "weekly" | "monthly"; hour: number; minute: number; day: number;
   modelId: string; executionMode: "open_analysis" | "guangdong_monitor";
   contentType: "text" | "screenshot" | "report_file"; sourceRef: string; targetType: "group" | "person"; targetId: string; senderId: string; enabled: boolean; version: number; nextRunAt: string | null; lastRunAt: string | null };
+type DeliveryObservation = { stage: string; outcome: string; elapsedMs?: number; platformCode?: string;
+  platformCodeSha256?: string; requestIdSha256?: string; receiptSha256?: string; transport?: { httpStatus?: number } };
 type Run = { id: string; scheduleId: string; scheduledAt: string; status: string; errorCode: string;
   dataStatus: string; analysisStatus: string; deliveryStatus: string;
-  stages: Record<string, { errorCode: string; startedAt?: string; completedAt?: string }>;
+  stages: Record<string, { errorCode: string; startedAt?: string; completedAt?: string; observation?: DeliveryObservation }>;
   modelSnapshot: { name?: string; version?: number; adapterVersion?: string } };
 type Draft = Pick<Schedule, "name" | "prompt" | "contentType" | "sourceRef" | "modelId" | "executionMode" | "cadence" | "hour" | "minute" | "day" | "targetType" | "targetId" | "senderId" | "enabled"> & { id?: string; expectedVersion?: number };
 type Model = { id: string; name: string; status: string; modelType: string };
@@ -23,7 +25,56 @@ const pages = [
 ] as const;
 const empty = (): Draft => ({ name: "", prompt: "", contentType: "text", sourceRef: "", modelId: "", executionMode: "open_analysis", cadence: "daily", hour: 9, minute: 0, day: 1, targetType: "person", targetId: "", senderId: "", enabled: false });
 const stageLabels: Record<string, string> = { pending: "待执行", running: "进行中", succeeded: "完成", failed: "失败", unknown: "结果未知", not_required: "未执行或不适用" };
-const labels: Record<string, string> = { queued: "等待接收器", running: "执行中", ready: "结果待发送", sending: "发送中", sent: "发送已确认", unknown: "结果不明，未重试", denied: "已拒绝或错过时段", failed: "执行失败" };
+const labels: Record<string, string> = { queued: "等待接收器", running: "执行中", ready: "准备投递", sending: "发送请求处理中", sent: "历史发送完成记录", unknown: "结果未知，未自动重发", denied: "已拒绝或错过时段", failed: "执行失败" };
+const deliveryLabels: Record<string, string> = { preparing: "准备投递", in_flight: "发送请求处理中", not_sent: "未发出消息请求", rejected: "平台拒绝投递", unknown: "平台受理结果未知，未自动重发", accepted: "平台已受理，送达及已读未核验" };
+const deliveryStages: Record<string, string> = { preparation: "准备投递", credentials: "读取机器人凭据", token: "获取应用令牌", upload: "上传媒体", identity: "核验投递身份", send_request: "发送消息请求", receipt: "解析平台回执" };
+const deliveryErrors: Record<string, string> = {
+  bot_credentials_unavailable: "读取机器人凭据失败。",
+  dingtalk_token_unavailable: "获取钉钉应用令牌失败。",
+  dingtalk_upload_unavailable: "媒体上传未确认，未发送到收件人。",
+  dingtalk_identity_unavailable: "发送前无法确认投递身份。",
+  dingtalk_send_unavailable: "钉钉消息请求未发出。",
+  dingtalk_send_rejected: "钉钉明确拒绝本次投递。",
+  dingtalk_preparation_interrupted: "投递准备中断，未发出消息请求。",
+};
+const errorLabel = (code: string) => deliveryErrors[code] || scheduleErrorLabel(code);
+const digestPrefix = (value: string | undefined) => value?.slice(0, 12);
+
+function DeliveryDetails({ observation }: { observation: DeliveryObservation }) {
+  const parts = [
+    deliveryStages[observation.stage],
+    observation.elapsedMs != null && `${observation.elapsedMs} ms`,
+    observation.transport?.httpStatus && `HTTP ${observation.transport.httpStatus}`,
+    observation.platformCode || (observation.platformCodeSha256 && `平台错误摘要 ${digestPrefix(observation.platformCodeSha256)}`),
+    observation.requestIdSha256 && `请求摘要 ${digestPrefix(observation.requestIdSha256)}`,
+    observation.receiptSha256 && `回执摘要 ${digestPrefix(observation.receiptSha256)}`,
+  ];
+  return <small>{parts.filter(Boolean).join(" · ")}</small>;
+}
+
+function ScheduleRunDetails({ run }: { run: Run }) {
+  const observation = run.stages?.delivery?.observation;
+  const delivery = observation && deliveryLabels[observation.outcome];
+  const status = run.errorCode === "schedule_no_alerts" ? "无预警，无需发送"
+    : run.errorCode === "caption_sent_image_unknown" ? "文案已发送，图片未确认，未重发"
+    : delivery ? "" : labels[run.status] || run.status;
+  const phases = [["data", "取数", run.dataStatus], ["analysis", "分析", run.analysisStatus], ["delivery", "投递", run.deliveryStatus]] as const;
+  return <>
+    {when(run.scheduledAt)}{status && ` · ${status}`}
+    {run.modelSnapshot?.name && <small>实际模型：{run.modelSnapshot.name} · v{run.modelSnapshot.version}</small>}
+    {Object.keys(run.stages || {}).length ? <div aria-label="分阶段执行状态">{phases.map(([key, title, phase]) => {
+      const detail = run.stages[key];
+      const withinAnalysis = key === "data" && detail?.errorCode === "data_within_open_analysis";
+      const result = withinAnalysis ? "随开放分析查询" : key === "analysis" && phase === "succeeded" ? "已生成"
+        : key === "delivery" && delivery ? delivery : stageLabels[phase] || phase;
+      return <small key={key} title={[detail?.startedAt, detail?.completedAt].filter(Boolean).join(" → ")}>{title}：{result}
+        {detail?.errorCode && detail.errorCode !== run.errorCode && !withinAnalysis && ` · ${errorLabel(detail.errorCode)}`}</small>;
+    })}</div> : <small>旧记录未分段</small>}
+    {observation && <DeliveryDetails observation={observation} />}
+    {run.errorCode && !(delivery && run.errorCode === "delivery_unknown") && <small role="status">{errorLabel(run.errorCode)}</small>}
+  </>;
+}
+
 const when = (value: string | null) => value ? new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value)) : "—";
 async function json<T>(response: Response): Promise<T> { const payload = await response.json() as T & { error?: string }; if (!response.ok) throw new Error(payload.error || "定时任务请求失败"); return payload; }
 
@@ -83,9 +134,7 @@ export default function AiDingTalkSchedulesView() {
     <div className="section-header"><div><h3>AI定时任务</h3><p>按上海时间发送只读 AI 结果、指定系统页面截图或已复核的 Excel 报告。截图和文件由机器人身份发送；创建任务不会直接发送。</p></div><div><button type="button" className="secondary-button" onClick={() => void load()} disabled={busy}>刷新状态</button><button type="button" className="secondary-button" onClick={() => { setDraft(empty()); setEditing(true); }} disabled={busy}>新增任务</button></div></div>
     {(error || notice) && <p role={error ? "alert" : "status"} className={error ? "ai-ding-error" : "ai-ding-notice"}>{error || notice}</p>}
     <div className="ai-ding-table-wrap"><table><thead><tr><th>名称</th><th>周期</th><th>执行内容</th><th>推送到</th><th>状态</th><th>下次执行</th><th>最近执行</th><th>操作</th></tr></thead><tbody>
-      {items.map(item => { const latest = runs.find(run => run.scheduleId === item.id); return <tr key={item.id}><td>{item.name}</td><td>{item.cadence === "daily" ? "每天" : item.cadence === "weekly" ? `每周${item.day}` : `每月${item.day}日`} {String(item.hour).padStart(2, "0")}:{String(item.minute).padStart(2, "0")}</td><td className="ai-ding-prompt" title={item.prompt || item.sourceRef}>{item.contentType === "screenshot" ? `图片：${pages.find(p => p[0] === item.sourceRef)?.[1] || item.sourceRef}${item.prompt ? `；文案：${item.prompt}` : ""}` : item.contentType === "report_file" ? `Excel 报告 · ${item.sourceRef}` : item.prompt}</td><td>{item.targetType === "group" ? groups.find(g => g.id === item.targetId)?.name || item.targetId : `本人 · ${item.targetId}`}</td><td>{item.enabled ? "启用" : "停用"}</td><td>{when(item.nextRunAt)}</td><td>{latest ? `${when(latest.scheduledAt)} · ${latest.errorCode === "schedule_no_alerts" ? "无预警，无需发送" : latest.errorCode === "caption_sent_image_unknown" ? "文案已发送，图片未确认，未重发" : labels[latest.status] || latest.status}` : "尚未执行"}{latest?.modelSnapshot?.name && <small>实际模型：{latest.modelSnapshot.name} · v{latest.modelSnapshot.version}</small>}
-        {latest && (Object.keys(latest.stages || {}).length ? <div aria-label="分阶段执行状态">{([["data", "取数", latest.dataStatus], ["analysis", "分析", latest.analysisStatus], ["delivery", "发送", latest.deliveryStatus]] as const).map(([key, title, status]) => <small key={key} title={[latest.stages[key]?.startedAt, latest.stages[key]?.completedAt].filter(Boolean).join(" → ")}>{title}：{key === "data" && latest.stages[key]?.errorCode === "data_within_open_analysis" ? "随开放分析查询" : stageLabels[status] || status}{latest.stages[key]?.errorCode && latest.stages[key].errorCode !== "data_within_open_analysis" && ` · ${scheduleErrorLabel(latest.stages[key].errorCode)}`}</small>)}</div> : <small>旧记录未分段</small>)}
-        {latest?.errorCode && <small role="status">{scheduleErrorLabel(latest.errorCode)}</small>}</td><td><button type="button" className="row-action" onClick={() => edit(item)}>编辑</button><button type="button" className="row-action" disabled={!item.enabled || busy} onClick={() => void run(item)}>立即执行</button></td></tr>; })}
+      {items.map(item => { const latest = runs.find(run => run.scheduleId === item.id); return <tr key={item.id}><td>{item.name}</td><td>{item.cadence === "daily" ? "每天" : item.cadence === "weekly" ? `每周${item.day}` : `每月${item.day}日`} {String(item.hour).padStart(2, "0")}:{String(item.minute).padStart(2, "0")}</td><td className="ai-ding-prompt" title={item.prompt || item.sourceRef}>{item.contentType === "screenshot" ? `图片：${pages.find(p => p[0] === item.sourceRef)?.[1] || item.sourceRef}${item.prompt ? `；文案：${item.prompt}` : ""}` : item.contentType === "report_file" ? `Excel 报告 · ${item.sourceRef}` : item.prompt}</td><td>{item.targetType === "group" ? groups.find(g => g.id === item.targetId)?.name || item.targetId : `本人 · ${item.targetId}`}</td><td>{item.enabled ? "启用" : "停用"}</td><td>{when(item.nextRunAt)}</td><td>{latest ? <ScheduleRunDetails run={latest} /> : "尚未执行"}</td><td><button type="button" className="row-action" onClick={() => edit(item)}>编辑</button><button type="button" className="row-action" disabled={!item.enabled || busy} onClick={() => void run(item)}>立即执行</button></td></tr>; })}
       {!items.length && <tr><td colSpan={8}>暂无定时任务；新增后默认停用，请核对目标和执行账号再启用。</td></tr>}
     </tbody></table></div>
     {editing && <div className="ai-ding-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setEditing(false); }}><div className="ai-ding-modal" role="dialog" aria-modal="true" aria-label={draft.id ? "编辑定时任务" : "新增定时任务"}>
@@ -107,7 +156,7 @@ export default function AiDingTalkSchedulesView() {
         <label><span>小时 · 上海时间</span><input type="number" min={0} max={23} value={draft.hour} onChange={e => setDraft({ ...draft, hour: Number(e.target.value) })} /></label>
         <label><span>分钟</span><input type="number" min={0} max={59} value={draft.minute} onChange={e => setDraft({ ...draft, minute: Number(e.target.value) })} /></label>
         <label><span>投递目标</span><select value={draft.targetType} onChange={e => setDraft({ ...draft, targetType: e.target.value as Draft["targetType"], targetId: e.target.value === "person" ? draft.senderId : "" })}><option value="person">执行账号本人私聊</option><option value="group">已批准的钉钉群</option></select></label>
-        {draft.targetType === "group" && <label><span>目标群</span><select required value={draft.targetId} onChange={e => setDraft({ ...draft, targetId: e.target.value })}><option value="">选择已启用群</option>{groups.filter(g => g.enabled).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label>}
+        {draft.targetType === "group" && <label><span>目标群</span><select required value={draft.targetId} onChange={e => setDraft({ ...draft, targetId: e.target.value })}><option value="">选择已启用群</option>{draft.targetId && !groups.some(g => g.id === draft.targetId && g.enabled) && <option value={draft.targetId}>当前目标群不可用</option>}{groups.filter(g => g.enabled).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label>}
         <label className="ai-form-wide"><span>执行账号 staffId（必须已绑定系统账号）</span><input required maxLength={160} value={draft.senderId} onChange={e => setDraft({ ...draft, senderId: e.target.value, targetId: draft.targetType === "person" ? e.target.value : draft.targetId })} /><small>文字任务按此人的现行权限查询。截图和报告要求该账号为创建任务的无范围限制管理员；个人投递仅发给该账号本人。</small></label>
         <label className="ai-check-field"><input type="checkbox" checked={draft.enabled} onChange={e => setDraft({ ...draft, enabled: e.target.checked })} /><span>启用定时执行</span></label>
         <div className="ai-form-actions"><button type="button" className="secondary-button" onClick={() => setEditing(false)}>取消</button><button className="primary-button" disabled={busy}>{busy ? "保存中…" : "保存任务"}</button></div>

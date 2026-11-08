@@ -66,6 +66,109 @@ async function fixture(t,components=['worker'],failAt=null){
  return {request,context,events,out,leaseFile,piConfig,get leaseReadings(){return leaseReadings;},get successes(){return successes;},set head(value){head=value;},set django(value){django=value;},set readyStatus(value){readyStatus=value;},set readyBody(value){readyBody=value;}};
 }
 const operations=events=>events.filter(e=>!['lock','ownership','head','identity','readiness','success'].includes(e));
+
+async function pandasFixture(t,{configured=true,failAt=null}={}){
+ const f=await fixture(t,['worker','django'],failAt);
+ f.request.releasePlan={changes:[{path:'backend/pandas_runner/server.py'}]};
+ const original=f.context.runStep;
+ const prepared={prepared:true,started:false,configured,sourceCommit:f.request.mainCommit,
+  preparedAppId:'8'.repeat(32),preparedAppSha256:'9'.repeat(64),sourceSha256:'d'.repeat(64),
+  registeredPlanSha256:configured?'c'.repeat(64):null,predecessorSourceSha256:configured?'e'.repeat(64):null,
+  image:configured?'sha256:'+'f'.repeat(64):null};
+ let switched;
+ f.context.runStep=async args=>{
+  const value=await original(args),extra=args.extra;
+  if(args.action==='PreparePandasRotation')return {...prepared};
+  if(args.action==='PandasRotationCheck')return {...prepared,checked:true};
+  if(args.action==='SwitchPandasRotation'){
+   switched={...prepared,switched:true,status:'switched_stopped',intentSha256:'1'.repeat(64),
+    maintenanceId:extra[extra.indexOf('-PandasMaintenanceId')+1],publicationOwnerPid:Number(extra[extra.indexOf('-PandasPublicationOwnerPid')+1])};
+   return switched;
+  }
+  if(args.action==='CompletePandasRotation')return {...switched,status:'ready_verified',completed:true,postconditionsVerified:true,startupReceiptSha256:'2'.repeat(64)};
+  return value;
+ };
+ return {...f,prepared};
+}
+
+test('Pandas preparation never switches; exact package switches before native Start and completes after VerifyStartup',async t=>{
+ const f=await pandasFixture(t);
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ assert.ok(f.events.includes('PreparePandasRotation')&&f.events.includes('PandasRotationCheck'));
+ assert.ok(!f.events.includes('SwitchPandasRotation')&&!f.events.includes('Start'));
+ const result=await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ assert.equal(result.pandasBrokerRotation.status,'ready_verified');
+ for(const [before,after] of [['DeployApp','HardenAcl'],['HardenAcl','SwitchPandasRotation'],['SwitchPandasRotation','Start'],['VerifyStartup','CompletePandasRotation'],['CompletePandasRotation','success']])
+  assert.ok(f.events.indexOf(before)<f.events.indexOf(after),before+' must precede '+after);
+ assert.equal(f.events.filter(e=>e==='PreparePandasRotation').length,1);
+ assert.equal(f.events.filter(e=>e==='SwitchPandasRotation').length,1);
+ const already=await publishPreparedMain(f.request,{...f.context,deployOnly:true});
+ assert.equal(already.status,'already-current');
+ assert.equal(f.events.filter(e=>e==='Start').length,1);
+});
+
+test('Pandas absent configuration is recorded and rechecked without a switch',async t=>{
+ const f=await pandasFixture(t,{configured:false});
+ const result=await publishPreparedMain(f.request,f.context);
+ assert.equal(result.pandasBrokerRotation.configured,false);
+ assert.ok(f.events.includes('PandasRotationCheck'));
+ assert.ok(!f.events.includes('SwitchPandasRotation')&&!f.events.includes('CompletePandasRotation'));
+});
+
+test('missing or drifted Pandas preparation fails before STARTED',async t=>{
+ const f=await pandasFixture(t);
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ const file=path.join(f.out,'preparation/PREPARED.json');
+ const value=JSON.parse(await fs.readFile(file,'utf8'));
+ delete value.pandasBrokerRotation;
+ await fs.writeFile(file,JSON.stringify(value));
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/Pandas/);
+ await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));
+ assert.ok(!f.events.includes('EnterMaintenance'));
+});
+
+test('Pandas configured state drift during reuse is rejected before maintenance',async t=>{
+ const f=await pandasFixture(t,{configured:false});
+ await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+ const original=f.context.runStep;
+ f.context.runStep=async args=>{
+  const result=await original(args);
+  return args.action==='PandasRotationCheck'?{...result,configured:true,registeredPlanSha256:'c'.repeat(64),predecessorSourceSha256:'e'.repeat(64),image:'sha256:'+'f'.repeat(64)}:result;
+ };
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/Pandas/);
+ assert.ok(!f.events.includes('EnterMaintenance'));
+ await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));
+});
+
+test('Pandas and Pi retain their separate native protocols in one publication',async t=>{
+ const f=await pandasFixture(t),original=f.context.runStep;
+ f.request.releasePlan.changes.push({path:'backend/pi_runner/server.py'});
+ const pi={prepared:true,started:false,registeredPlanSha256:'a'.repeat(64),sourceSha256:'b'.repeat(64),image:piNativeImage};
+ f.context.runStep=async args=>{
+  const result=await original(args);
+  if(args.action==='PreparePiUpgrade')return pi;
+  if(args.action==='PiUpgradeCheck')return {...pi,checked:true};
+  if(args.action==='UpgradePi')return {...pi,upgraded:true,windowsConfigUpdated:true,sameDpapiOwner:true};
+  return result;
+ };
+ const result=await publishPreparedMain(f.request,f.context);
+ assert.equal(result.piRunnerUpgrade.upgraded,true);
+ assert.equal(result.pandasBrokerRotation.status,'ready_verified');
+ assert.ok(f.events.indexOf('UpgradePi')<f.events.indexOf('SwitchPandasRotation'));
+ assert.equal(f.events.filter(e=>e==='Start').length,1);
+ assert.ok(!f.events.includes('ReconcilePiUpgrade'));
+});
+
+for(const phase of ['SwitchPandasRotation','CompletePandasRotation'])test('Pandas '+phase+' failure retains unknown and cannot write SUCCESS or replay',async t=>{
+ const f=await pandasFixture(t,{failAt:phase});
+ await assert.rejects(publishPreparedMain(f.request,f.context),/fixture failure/);
+ await assert.rejects(fs.access(path.join(f.out,'SUCCESS.json')));
+ assert.ok(await fs.stat(path.join(f.out,'FAILED.json')));
+ assert.equal(f.events.filter(e=>e===phase).length,1);
+ if(phase==='SwitchPandasRotation')assert.ok(!f.events.includes('Start'));
+ await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/STARTED/);
+ assert.equal(f.events.filter(e=>e==='SwitchPandasRotation').length,1);
+});
 test('missing maintenance material fails before STARTED and the same prepared package can recheck',async t=>{
  const f=await fixture(t,['django']),original=f.context.sha;let missing=true;
  f.context.sha=async file=>{if(missing&&file===path.join(f.context.workerRuntimeRoot,'state/worker-process.json'))throw Error('missing material');return original(file);};
