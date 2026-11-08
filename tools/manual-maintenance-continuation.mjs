@@ -233,6 +233,23 @@ export const pandasRotationControllerPair=Object.freeze({
  workerSha256:bWorkerJsonFailureCauseScriptSha256,
  transportSha256:piMaintenancePredecessor.workerTransportSha256,
 });
+// Exact default-production transition for the reviewed private-native adapter.
+// The isolation configuration is absent in production; this is byte admission,
+// never an unknown-operation recovery route or a general controller exception.
+export const nativeIsolationControllerQualification=Object.freeze({
+ version:'native-isolation-controller-20261108-v1',
+ installedAiSha256:'55b6701ac0f38e7aed6abea441085aa2b77f0a5f8d1a3f6c81651829ae6f9aba',
+ candidateAiSha256:'1b4a95bf7b76c4f8600df49b7cc67d98cac3073fd4de48ef28bd53397b2ced42',
+ controllers:Object.freeze({
+  'worker-local-service.ps1':Object.freeze(['1b8c5d4d61ba491d042f41ae91e9cc7b0d0c87a28536bac7b4c8a1e53fda761e','0e5459dd34c5dd5fa26109d3606117750bb61e11c5b66b510d13dfa889dc4516']),
+  'django-local-service.ps1':Object.freeze(['37c6dc571aeefe4954f977f5b3a64ec08516362a67775729f45f60b17bca99a6','93741e5537b30efa5e91b6cfebd6af44addf1104cadf91f8add108f8a3753044']),
+  'process-deadline.ps1':Object.freeze(['5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd','5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd']),
+ }),
+ helpers:Object.freeze({
+  'native-isolation.ps1':'2efe6738d9c0d963ad6d2dbc45584d702511889339b38fc82d8250f79db478c1',
+  'native-isolation.mjs':'b4b54d559a12e79a24112fee3818a58f79444c1b7bf126fb5dc94ab6da1e662b',
+ }),
+});
 function assertPandasPredecessorPiStop(actual){
  const text=actual.toString('utf8').replaceAll('\r\n','\n');
  for(const [start,end,expected] of [['Wait-PiWorkerExit','Stop-PiRuntime','4372d8872c46760d40f7aa346b6476932be8edba7415baba0ae21e9b73293fd3'],['Stop-PiRuntime','Read-PandasConfig','49725370782414b0c4bea2065161679ba50ed911cfd1439381b7b65d7259b3e6']]){
@@ -243,6 +260,7 @@ function assertPandasPredecessorPiStop(actual){
 export const maintenanceSourceNames=['manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs','manual-maintenance-process.psm1','manual-maintenance-preflight.ps1'];
 /** Read-only static admission; the native engine still rechecks dynamic facts. */
 export async function maintenanceReadiness({source,head,djangoManifestSha256,installed='D:/teruisi-runtime/django-sales/app',runtime='D:/teruisi-runtime/teruisi-worker-sales',sha=async file=>createHash('sha256').update(await fs.readFile(file)).digest('hex')}={}){
+ let nativeIsolationQualified=false;
  const sourcePins={};for(const name of maintenanceSourceNames)sourcePins[name]=await sha(path.join(source,'tools',name));
  const pins=Object.entries(sourcePins).map(([relative,sha256])=>({root:'source',relative,sha256}));
  const pin=async(root,relative,base,expected)=>{const sha256=await sha(path.join(base,relative));if(expected!==undefined)assert.equal(sha256,expected,'维护资格核验后工具发生变化');pins.push({root,relative,sha256});return sha256;};
@@ -255,6 +273,7 @@ export async function maintenanceReadiness({source,head,djangoManifestSha256,ins
  };
  const finish=async route=>{
   const result={version:'manual-maintenance-readiness-v1',preparedAt:new Date().toISOString(),releaseId:head.releaseId,route,sourcePins,pins,piWorkerReceiptSha256:null,piConfigurationSha256:null};
+  if(nativeIsolationQualified)result.controllerQualification=nativeIsolationControllerQualification.version;
   for(const [field,relative] of [['piWorkerReceiptSha256','run/django-ai-pi-worker.pid.json'],['piConfigurationSha256','config/pi-agent.json']]){
    const file=path.join(path.dirname(installed),relative);
    try{await fs.access(file);}catch(error){if(error.code==='ENOENT')continue;throw error;}
@@ -305,6 +324,8 @@ export async function maintenanceReadiness({source,head,djangoManifestSha256,ins
  const dingtalkAcl=installedAi!==candidateAi&&isDingTalkScreenshotAclPair(installedAi,candidateAi);
  const pandas=pandasRotationControllerPair;
  const pandasRotation=installedAi===pandas.installedAiSha256&&candidateAi===pandas.candidateAiSha256;
+ const nativeQualification=nativeIsolationControllerQualification;
+ const nativeIsolationRotation=installedAi===nativeQualification.installedAiSha256&&candidateAi===nativeQualification.candidateAiSha256;
  const pandasControllers={
   'worker-local-service.ps1':[pandas.workerSha256,pandas.workerSha256],
   'process-deadline.ps1':[pandas.transportSha256,pandas.transportSha256],
@@ -313,13 +334,17 @@ export async function maintenanceReadiness({source,head,djangoManifestSha256,ins
  for(const [name,root,relative] of [['worker-local-service.ps1','worker',`releases/${head.releaseId}/tools/worker-local-service.ps1`],['process-deadline.ps1','worker',`releases/${head.releaseId}/tools/process-deadline.ps1`],['django-local-service.ps1','django','app/tools/django-local-service.ps1']]){
   const expected=await pin('source',name,path.join(source,'tools'));
   const installedSha=pins.find(p=>p.root===root&&p.relative===relative)?.sha256;
-  if(pandasRotation){
-   const [before,after]=pandasControllers[name];
+  if(pandasRotation||nativeIsolationRotation){
+   const [before,after]=(nativeIsolationRotation?nativeQualification.controllers:pandasControllers)[name];
    assert.equal(installedSha,before,'Pandas维护前驱控制器不在已审兼容资格内：'+name);
    assert.equal(expected,after,'Pandas候选控制器不在已审兼容资格内：'+name);
   }else if(installedAi===candidateAi||dingtalkAcl)assertMaintenanceControllerGeneration({name,installedSha,expected,candidateSha:await sha(path.join(source,'tools',name))});
  }
- if(pandasRotation){
+ if(nativeIsolationRotation){
+  for(const [name,expected] of Object.entries(nativeQualification.helpers))await pin('source',name,path.join(source,'tools'),expected);
+  nativeIsolationQualified=true;
+ }
+ if(pandasRotation||nativeIsolationRotation){
   const actual=await fs.readFile(path.join(installed,'tools/django-ai.ps1'));
   assert.equal(createHash('sha256').update(actual).digest('hex'),installedAi,'维护资格核验后工具发生变化');
   assert.equal(createHash('sha256').update(candidate).digest('hex'),candidateAi,'维护资格核验后工具发生变化');
@@ -336,7 +361,7 @@ export async function maintenanceReadiness({source,head,djangoManifestSha256,ins
    assert.equal(createHash('sha256').update(('function '+start+(body??'')).trimEnd()).digest('hex'),expected,'实际前驱Pi停止协议不在已审兼容资格内');
   }
  }
- if(!dingtalkAcl&&!pandasRotation&&installedAi!==candidateAi){
+ if(!dingtalkAcl&&!pandasRotation&&!nativeIsolationRotation&&installedAi!==candidateAi){
   const b=nativePiBusinessPredecessor;
   const k=head?.releaseId===b.releaseId?b:nativePiWorkspacePredecessor;
   assertPredecessorPins(k);

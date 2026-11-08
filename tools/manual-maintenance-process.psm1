@@ -31,6 +31,24 @@ function Assert-MaintenanceReadiness([object]$Readiness,[string]$DjangoRoot,[str
  foreach($relative in @('tools/worker-local-service.ps1','tools/process-deadline.ps1','deployment-manifest.json')){$required+=('worker:releases/'+$Readiness.releaseId+'/'+$relative)}
  if($Readiness.route -cne 'legacy'){$required+='django:app/tools/django-ai.ps1'}
  if($Readiness.route -ceq 'native-exit-observer'){$required+=@('source:django-ai.ps1','source:worker-local-service.ps1','source:process-deadline.ps1','source:django-local-service.ps1')}
+ $qualification=$Readiness.PSObject.Properties['controllerQualification']
+ if($qualification){
+  if($qualification.Value -cne 'native-isolation-controller-20261108-v1' -or $Readiness.route -cne 'native-exit-observer'){throw 'Unknown controller dependency qualification'}
+  $required+=@('source:native-isolation.ps1','source:native-isolation.mjs')
+  $qualified=@{
+   'source:django-ai.ps1'='1b4a95bf7b76c4f8600df49b7cc67d98cac3073fd4de48ef28bd53397b2ced42'
+   'django:app/tools/django-ai.ps1'='55b6701ac0f38e7aed6abea441085aa2b77f0a5f8d1a3f6c81651829ae6f9aba'
+   'source:django-local-service.ps1'='93741e5537b30efa5e91b6cfebd6af44addf1104cadf91f8add108f8a3753044'
+   'django:app/tools/django-local-service.ps1'='37c6dc571aeefe4954f977f5b3a64ec08516362a67775729f45f60b17bca99a6'
+   'source:worker-local-service.ps1'='0e5459dd34c5dd5fa26109d3606117750bb61e11c5b66b510d13dfa889dc4516'
+   'source:process-deadline.ps1'='5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd'
+   'source:native-isolation.ps1'='2efe6738d9c0d963ad6d2dbc45584d702511889339b38fc82d8250f79db478c1'
+   'source:native-isolation.mjs'='b4b54d559a12e79a24112fee3818a58f79444c1b7bf126fb5dc94ab6da1e662b'
+  }
+  $qualified['worker:releases/'+$Readiness.releaseId+'/tools/worker-local-service.ps1']='1b8c5d4d61ba491d042f41ae91e9cc7b0d0c87a28536bac7b4c8a1e53fda761e'
+  $qualified['worker:releases/'+$Readiness.releaseId+'/tools/process-deadline.ps1']='5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd'
+  foreach($key in $qualified.Keys){$bound=@($Readiness.pins|Where-Object {($_.root+':'+$_.relative) -ceq $key});if($bound.Count -ne 1 -or $bound[0].sha256 -cne $qualified[$key]){throw 'Controller qualification tuple changed'}}
+ }
  $actual=@($Readiness.pins|ForEach-Object {$_.root+':'+$_.relative})
  if($actual.Count -ne $required.Count -or @($actual|Select-Object -Unique).Count -ne $required.Count -or (($actual|Sort-Object)-join '|') -cne (($required|Sort-Object)-join '|')){throw 'Incomplete or duplicated maintenance preflight pins'}
  foreach($pin in @($Readiness.pins)){
