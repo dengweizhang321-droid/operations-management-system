@@ -1,5 +1,5 @@
 /** Run reviewed release compatibility checks on an exact, isolated candidate.
- * This does not publish, grant a startup permit, or claim a native cold start.
+ * Never publishes or grants startup; native cold starts require pinned original evidence.
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -13,6 +13,7 @@ import assert from 'node:assert/strict';
 import {makeReleasePlan} from './release-scope-plan.mjs';
 import {publisherEnvironment} from './publish-latest-main.mjs';
 import {hashTree} from './worker-local-release.mjs';
+import {nativeControlApplication} from './verify-native-control-evidence.mjs';
 import {dingtalkScreenshotAclQualification,aDescendantCreationGuardDjangoScriptSha256,piNativeCandidateDjangoScriptSha256,bWorkerJsonFailureCauseScriptSha256,readinessCopyControllerPair,pandasRotationControllerPair} from './manual-maintenance-continuation.mjs';
 
 /** A 项 (2026-10-25): one exact installed -> candidate django-local-service.ps1
@@ -321,6 +322,40 @@ export const aiRepairIntegrationQualification=Object.freeze({
  test:'tests/ai-repair-integration-compatibility.test.mjs',
  testSha256:'ea207d31f2ddc51788cd1fe954c30719a1a3bf1a86175e9b41a96f15edd9c9cd',
 });
+
+export const nativeControlQualification=Object.freeze({
+ base:'0c7d0feb33f45cfc6ae1f283b81d401c873c5768',
+ application:nativeControlApplication.commit,tree:nativeControlApplication.tree,
+ evidenceSha256:nativeControlApplication.evidenceSha256,
+ test:'tests/native-control-compatibility.test.mjs',
+ testSha256:'d56aa01da62ca7739e59c0b80ff7e4dc88f3fa6f9b04f0ebad185f3db24a50e2',
+});
+export function nativeControlScopeMatches(records,baseCommit){
+ if(baseCommit!==nativeControlQualification.base||records.length%2)return false;
+ const required=new Map([
+  ['tools/manual-maintenance-continuation.mjs','M'],['tools/manual-maintenance-process.psm1','M'],
+  ['tools/native-isolation.ps1','M'],['tools/verify-release-candidate.mjs','M'],['tools/verify-native-control-evidence.mjs','A'],
+  ['tests/native-maintenance-pins.ps1','A'],['tests/native-isolation-qualification.test.mjs','A'],
+  ['tests/native-isolation-credential-gate.test.mjs','A'],['tests/native-control-compatibility.test.mjs','A'],
+ ]),seen=new Set();
+ for(let index=0;index<records.length;index+=2){
+  const [entry,file]=[records[index],records[index+1]];
+  const match=/^:(000000|100644) 100644 [a-f0-9]{40} [a-f0-9]{40} ([AM])$/.exec(entry);
+  if(!match||(match[1]==='000000')!==(match[2]==='A')||seen.has(file))return false;
+  seen.add(file);
+  if(required.has(file)){if(required.get(file)!==match[2])return false;continue;}
+  if(file==='docs/任务记录/README.md')continue;
+  if(!/^docs\/ai-native-control-isolation-20261108\/[^/]+\.(?:md|html|json)$/.test(file))return false;
+ }
+ return [...required.keys()].every(file=>seen.has(file));
+}
+async function reviewedNativeControl(source,baseCommit,commit){
+ const q=nativeControlQualification;if(baseCommit!==q.base)return null;
+ try{if(await git(source,['rev-parse',q.application+'^{tree}'])!==q.tree)return null;await git(source,['merge-base','--is-ancestor',q.application,commit]);}catch{return null;}
+ const records=(await git(source,['diff','--raw','--no-abbrev','--no-renames','-z',q.application,commit])).split('\0');
+ assert.equal(records.pop(),'','Native qualification Git delta is not terminated');
+ return nativeControlScopeMatches(records,baseCommit)?q:null;
+}
 
 export function aiRepairIntegrationScopeMatches(records,baseCommit){
  const q=aiRepairIntegrationQualification,seen=new Set();
@@ -709,9 +744,13 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
  assert.ok(!within(source,directory),'验证输出必须在候选工作树之外');
  await fs.mkdir(directory,{recursive:false});
  const plan=makeReleasePlan({base:baseCommit,head:commit,cwd:source});
- const integration=await reviewedAiRepairIntegration(source,baseCommit,commit);
- const batch3=integration?null:await reviewedAiRepairBatch3(source,baseCommit,commit);
- const profile=integration?{
+ const nativeControl=await reviewedNativeControl(source,baseCommit,commit);
+ const integration=nativeControl?null:await reviewedAiRepairIntegration(source,baseCommit,commit);
+ const batch3=(nativeControl||integration)?null:await reviewedAiRepairBatch3(source,baseCommit,commit);
+ const profile=nativeControl?{
+  version:'native-control-isolation-compatibility-v1',qualification:nativeControl,
+  paths:plan.changes.map(change=>change.path),unsupported:[],worker:true,django:true,publication:true,
+ }:integration?{
   version:'ai-repair-integration-compatibility-v1',qualification:integration,
   paths:plan.changes.map(change=>change.path),unsupported:[],
   worker:true,django:true,publication:true,
@@ -764,10 +803,10 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
  const reportFile=path.join(directory,'REPORT.json');
  const write=()=>fs.writeFile(reportFile,JSON.stringify(report,null,2)+'\n');
  await write();
- const candidate=path.join(directory,'candidate');let attached=false;
+ const candidate=path.join(directory,'candidate'),nativeApplication=path.join(directory,'native-application');let attached=false,nativeAttached=false;
  try{
   assert.equal(profile.unsupported.length,0,'本验证器没有覆盖这些变更，需补受影响兼容适配器：'+profile.unsupported.join(', '));
-  if(batch3||integration){
+  if(batch3||integration||nativeControl){
    assert.deepEqual(plan.components,['worker','django']);
    assert.equal(plan.scope,'full');
    assert.equal(plan.migrate,false);
@@ -781,8 +820,10 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   report.tools=await Promise.all([process.execPath,shell5,shell7,pythonExe,gitExe].map(async file=>({path:file,sha256:sha(await fs.readFile(file))})));
   report.powerShellModules={root:environment.PSModulePath,tree:await hashTree(environment.PSModulePath)};
   await git(source,['worktree','add','--detach',candidate,commit]);attached=true;
-  assert.ok(dependencies||(!profile.worker&&!profile.django&&!profile.publication),'该profile需要显式的只读依赖目录');
-  if(dependencies){
+  assert.ok(nativeControl||dependencies||(!profile.worker&&!profile.django&&!profile.publication),'该profile需要显式的只读依赖目录');
+  // This finite profile uses standard-library checks only and verifies the
+  // original native package/dependency proofs instead of rescanning a cache.
+  if(dependencies&&!nativeControl){
    assert.ok((await fs.stat(path.join(dependencies,'typescript','package.json'))).isFile(),'依赖不完整');
    await fs.symlink(path.resolve(dependencies),path.join(candidate,'node_modules'),'junction');
    const physicalRoot=await fs.realpath(dependencies);
@@ -798,6 +839,11 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   report.payload=[];
   for(const name of members){const file=path.join(candidate,name);assert.ok(!(await fs.lstat(file)).isSymbolicLink(),'候选包含链接：'+name);report.payload.push({path:name,sha256:sha(await fs.readFile(file))});}
   report.payloadSha256=sha(Buffer.from(JSON.stringify(report.payload)));
+  if(nativeControl){
+   assert.equal(report.payload.find(member=>member.path===nativeControl.test)?.sha256,nativeControl.testSha256,'Native scope checker bytes changed');
+   report.applicationQualification=nativeControl;report.requiresNativeColdStart=true;
+   report.requiredNativeScopes=['windowsApplicationStack','piRunner','pandasBroker'];
+  }
   if(integration){
    assert.equal(report.payload.find(member=>member.path===integration.test)?.sha256,integration.testSha256,'组合检查器字节已变化');
    report.applicationQualification=integration;
@@ -882,7 +928,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    report.readinessDjangoCopyOnly=true;
    report.readinessControllerPair={installedSourceSha256:sha(old),candidateSha256:sha(current),runtimeObservedByVerifier:false};
   }
-  if(profile.django&&!profile.readinessStabilityOnly&&!profile.aiRepairBatch1Only&&!aiRepairBatch2Only&&!integration){
+  if(profile.django&&!profile.readinessStabilityOnly&&!profile.aiRepairBatch1Only&&!aiRepairBatch2Only&&!integration&&!nativeControl){
    const old=path.join(directory,'before-django.ps1');
    const bytes=(await execute('git',['-C',source,'show',baseCommit+':tools/django-local-service.ps1'],{encoding:'buffer',maxBuffer:8*1024*1024,windowsHide:true})).stdout;
    await fs.writeFile(old,bytes);
@@ -953,7 +999,22 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    }catch(error){await fs.writeFile(output,error.stdout??Buffer.alloc(0));await fs.writeFile(errors,error.stderr??Buffer.alloc(0));item.error=String(error.message);item.exitCode=error.code??null;item.status='failed';throw error;}
    finally{item.elapsedMs=Date.now()-started;item.stdoutSha256=sha(await fs.readFile(output));item.stderrSha256=sha(await fs.readFile(errors));await write();}
   }
-  if(integration){
+  if(nativeControl){
+   await run('native-scope-maintenance-and-credential-boundaries',process.execPath,
+    ['--test','--test-reporter=tap',nativeControl.test,'tests/native-isolation-qualification.test.mjs','tests/native-isolation-credential-gate.test.mjs'],
+    'native-entry-boundary',{...environment,TERUISI_NATIVE_PS5:shell5,TERUISI_NATIVE_PS7:shell7});
+   await run('native-worker-integrity',process.execPath,
+    ['--test','--test-reporter=tap','tests/worker-source-read-once.test.mjs','tests/release-source-binding.test.mjs','tests/release-preparation-runtime-config.test.mjs'],'package-integrity');
+   await git(source,['worktree','add','--detach',nativeApplication,nativeControl.application]);nativeAttached=true;
+   const verified=path.join(directory,'native-verified.json');
+   await run('original-native-two-cycle-evidence',process.execPath,
+    ['tools/verify-native-control-evidence.mjs','--application-root',nativeApplication,'--candidate-root',candidate,'--out',verified],'native-lifecycle-evidence');
+   report.nativeVerification=JSON.parse(await fs.readFile(verified,'utf8'));
+   assert.equal(report.nativeVerification.nativeColdStart,true);assert.equal(report.nativeVerification.executedApplicationCommit,nativeControl.application);
+   assert.equal(report.nativeVerification.evidenceSha256,nativeControl.evidenceSha256);
+   report.nativeVerificationSha256=sha(await fs.readFile(verified));
+   report.dependencyValidation={mode:'original-native-package-evidence-reuse',checksUseStandardLibrariesOnly:true,...report.nativeVerification.nativeDependencyEvidence};
+  }else if(integration){
    await run('ai-repair-integration-scope-and-entry',process.execPath,['--test',integration.test],'native-entry-boundary',
     {...environment,TERUISI_AI_INTEGRATION_PS5:shell5,TERUISI_AI_INTEGRATION_PS7:shell7});
    await run('ai-repair-integration-maintenance-admission',process.execPath,
@@ -1072,6 +1133,7 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
   assert.deepEqual(await hashTree(report.powerShellModules.root),report.powerShellModules.tree,'验证期间PowerShell模块发生变化');
   report.evidence.packageIntegrity=report.checks.some(c=>c.kind==='package-integrity');
   report.evidence.nativeEntryBoundary=report.checks.some(c=>c.kind==='native-entry-boundary');
+  if(nativeControl){report.evidence.nativeColdStart=report.nativeVerification.nativeColdStart;report.evidence.nativeIsolationCredentialGate=true;}
   if(fixedAdminOnly){report.evidence.unmodifiedApplicationAndPi=reusedBaseline.evidence;report.evidence.fixedAdminQueueResolution=true;}
   if(schemaAdmissionOnly){report.evidence.unmodifiedApplicationAndPi=preflightBaseline.evidence;report.evidence.fixedSchemaQueueResolution=true;}
   if(nativeAbandonmentOnly)report.evidence.fixedNativeAbandonmentResolution=true;
@@ -1101,10 +1163,17 @@ export async function verifyReleaseCandidate({sourceRoot,base,head='HEAD',out,de
    };
    report.nativeColdStartReason=report.evidenceScope.nativeColdStart;
   }
+  if(nativeControl){
+   report.evidenceScope={packageIntegrity:'Frozen application materialization matches the original native Worker source tree and 1655 deployed Django source files; native dependency and package checks reused by exact binding.',
+    nativeEntryBoundary:'Original system Start/Stop, native COM shortcut adoption, exact maintenance tuple/helper pins, and real PS5/PS7 credential-entry refusal. No publication.',
+    nativeColdStart:'Two original Windows full Start/Stop cycles on b728 with 23 real readiness responses and signed Pi/Pandas probes. Final helper differs only by the separately verified denial of an unused credential action.'};
+   report.nativeColdStartReason=report.evidenceScope.nativeColdStart;
+  }
   report.status=integration?'native-cold-start-pending':'passed';
  }catch(error){report.status='failed';report.error=String(error.message);}
  finally{
   report.completedAt=new Date().toISOString();
+  if(nativeAttached){try{await git(source,['worktree','remove',nativeApplication]);report.nativeApplicationWorktreeRemoved=true;}catch(error){report.nativeApplicationWorktreeRemoved=false;report.cleanupError=String(error.message);report.status='failed';}}
   if(attached){
    try{
     const modules=path.join(candidate,'node_modules');try{if((await fs.lstat(modules)).isSymbolicLink())await fs.unlink(modules);}catch(e){if(e.code!=='ENOENT')throw e;}
