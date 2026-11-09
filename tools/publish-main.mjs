@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import {createReleaseProgress} from './publish-main-progress.mjs';
 import {knownResume,loadKnownResume} from './publish-main-known-resume.mjs';
 import {manualStepCommand} from './publish-main-command.mjs';
+import {writeNativePreparationFailure} from './publish-main-native-failure.mjs';
 
 const controlRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const resumeMode=process.argv.includes('--resume-premaintenance');
@@ -77,7 +78,22 @@ async function main(){
    assert.equal(path.dirname(resultFile),path.resolve(source,'..','invocations'),'调用结果必须写入本包独立记录目录');
    assert.equal(await exists(resultFile),false,'调用结果文件已存在，禁止覆盖或开始部署');
   }
-  const result=await publishPreparedMain(request,{source,out,progress,api,rotation,transport,...mode});
+  const preparationOut=path.join(out,'preparation');
+  const beforeFailureReceipts=mode.prepareOnly&&resultFile?new Set(await fs.readdir(preparationOut).catch(error=>{if(error.code==='ENOENT')return [];throw error;})):null;
+  let result;
+  try{result=await publishPreparedMain(request,{source,out,progress,api,rotation,transport,...mode});}
+  catch(error){
+   // Only a preparation-stage failure that provably never started publication
+   // gets a structured terminal here; any other outcome (publication already
+   // started, or the receipt is missing/ambiguous) leaves the plain rejection
+   // below so the queue keeps treating this as unknown and waits out the grace
+   // period rather than guessing at a process that may still be in flight.
+   if(mode.prepareOnly&&resultFile){
+    const {nativePreparationFailureVersion}=await import('./main-prebuild-queue.mjs');
+    await writeNativePreparationFailure({preparationOut,beforeNames:beforeFailureReceipts,resultFile,mainCommit:request.mainCommit,nativePreparationFailureVersion});
+   }
+   throw error;
+  }
   if(resultFile){
    await fs.writeFile(resultFile,JSON.stringify({status:result.status,mainCommit:request.mainCommit,publicationPerformed:result.status==='deployed_and_ready'})+'\n',{flag:'wx'});
   }

@@ -290,6 +290,60 @@ test('interrupted Pi image build keeps original preparation intent and is not re
  await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));
 });
 
+// The real (non-fixture) branch of buildPiImage spawns build_image.py directly;
+// these exercise its args construction without a real Python/WSL/Docker call.
+async function buildPiImageHarness(t,extra={}){
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'build-pi-image-'));
+ t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const directory=path.join(root,'preparation');await fs.mkdir(directory,{recursive:true});
+ const installed=path.join(root,'django','app');
+ const identity={commit:'a'.repeat(40),tree:'b'.repeat(40)};
+ const image='sha256:'+'f'.repeat(64);
+ let capturedArgs=null;
+ const api={runProcess:async(python,args)=>{
+  capturedArgs=args;
+  const output=args[args.indexOf('--output')+1];
+  await fs.writeFile(output,JSON.stringify({version:'teruisi-pi-image-build-v1',sourceCommit:identity.commit,sourceTree:identity.tree,
+   image,tag:args[args.indexOf('--tag')+1],inputsSha256:'e'.repeat(64),
+   labels:{'teruisi.pi.workspace':'2','teruisi.pi.native-capabilities':'1','teruisi.pi.local-restore':'1'}}),{flag:'wx'});
+  return {rawOutput:null,processEvidence:{fixture:true}};
+ }};
+ const transport={productionCommandArguments:(host,args)=>args,productionCommandEnvironment:()=>({})};
+ const {buildPiImage}=await import('../tools/publish-prepared-main.mjs');
+ const proof=await buildPiImage({source:root,identity,installed,directory,api,transport,...extra});
+ return {capturedArgs:()=>capturedArgs,proof};
+}
+
+test('buildPiImage omits cache flags when no asset directory or uv wheel is configured',async t=>{
+ const {capturedArgs,proof}=await buildPiImageHarness(t);
+ const args=capturedArgs();
+ assert.ok(!args.includes('--asset-directory'));assert.ok(!args.includes('--uv-wheel'));
+ assert.equal(proof.kind,'built');
+});
+
+test('buildPiImage passes both cache flags through unchanged when both are configured',async t=>{
+ const {capturedArgs}=await buildPiImageHarness(t,{assetDirectory:'D:/codex-isolated/pi-image-assets',uvWheel:'D:/codex-isolated/pi-image-assets/uv.whl'});
+ const args=capturedArgs();
+ assert.equal(args[args.indexOf('--asset-directory')+1],'D:/codex-isolated/pi-image-assets');
+ assert.equal(args[args.indexOf('--uv-wheel')+1],'D:/codex-isolated/pi-image-assets/uv.whl');
+});
+
+test('buildPiImage passes only the configured cache flag, independently of the other',async t=>{
+ const onlyAsset=await buildPiImageHarness(t,{assetDirectory:'D:/codex-isolated/pi-image-assets'});
+ const assetArgs=onlyAsset.capturedArgs();
+ assert.ok(assetArgs.includes('--asset-directory'));assert.ok(!assetArgs.includes('--uv-wheel'));
+ const onlyUv=await buildPiImageHarness(t,{uvWheel:'D:/codex-isolated/pi-image-assets/uv.whl'});
+ const uvArgs=onlyUv.capturedArgs();
+ assert.ok(!uvArgs.includes('--asset-directory'));assert.ok(uvArgs.includes('--uv-wheel'));
+});
+
+test('buildPiImage logs which dependency source it used without throwing when progress is absent',async t=>{
+ const logs=[];
+ await buildPiImageHarness(t,{assetDirectory:'D:/codex-isolated/pi-image-assets',uvWheel:'D:/codex-isolated/pi-image-assets/uv.whl',progress:{log:message=>logs.push(message)}});
+ assert.ok(logs.some(line=>line.includes('D:/codex-isolated/pi-image-assets')&&line.includes('uv wheel')));
+ await buildPiImageHarness(t,{});
+});
+
 for(const state of ['windows_complete','reconcile_available','blocked'])test('UpgradePi catch exact state '+state+' never reapplies the upgrade',async t=>{
  const f=await fixture(t,['worker','django']);f.request.releasePlan={changes:[{path:'backend/pi_runner/server.py'}]};
  const original=f.context.runStep,prepared={prepared:true,started:false,operationId:'e'.repeat(32),planSha256:'f'.repeat(64),registeredPlanSha256:'c'.repeat(64),sourceSha256:'d'.repeat(64),image:piNativeImage};
