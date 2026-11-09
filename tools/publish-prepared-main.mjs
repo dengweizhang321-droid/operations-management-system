@@ -71,7 +71,7 @@ async function activePiImage(installed){
  return {kind:'active-runner',image:config.runnerImage,configSha256:digest(raw)};
 }
 
-async function buildPiImage({source,identity,installed,directory,api,transport,buildImage}){
+export async function buildPiImage({source,identity,installed,directory,api,transport,buildImage,assetDirectory,uvWheel,progress}){
  const output=path.join(directory,piImageProofName);
  const tag='pi-main-'+identity.commit.slice(0,12)+':p'+randomUUID().replaceAll('-','');
  if(buildImage)await buildImage({source,identity,tag,output});
@@ -79,6 +79,14 @@ async function buildPiImage({source,identity,installed,directory,api,transport,b
   const python=path.join(path.dirname(installed),'venv','Scripts','python.exe');
   const script=path.join(source,'containers','pi-agent','build_image.py');
   const args=['-I','-B',script,'--tag',tag,'--output',output,'--source-commit',identity.commit,'--source-tree',identity.tree];
+  // Both flags are optional at the native script and each falls back to its
+  // own network fetch independently (build_image.py:62-75); only pass the
+  // ones this caller actually has a path for. The existing sizeBytes+sha256
+  // (uv) / integrity (node,npm) checks inside build_image.py are unchanged
+  // and still run regardless of whether the cache is used.
+  if(assetDirectory)args.push('--asset-directory',assetDirectory);
+  if(uvWheel)args.push('--uv-wheel',uvWheel);
+  try{progress?.log?.('Pi镜像依赖来源：'+(assetDirectory?'node/npm资产目录 '+assetDirectory:'联网下载node/npm')+'；'+(uvWheel?'uv wheel '+uvWheel:'联网下载uv'));}catch{}
   let process,failure;
   try{process=await api.runProcess(python,transport.productionCommandArguments(python,args),{cwd:source,
    env:transport.productionCommandEnvironment(python),timeoutMs:1800000,outputProtocol:'direct-exit-files',
@@ -321,7 +329,7 @@ export async function publishPreparedMain(request,context){
      if(piImageChanged){
       phase='构建Pi镜像';await refreshLease(phase);progress.begin(phase);
       assert.deepEqual(await sourceIdentity(),identity,'构建Pi镜像前冻结源码已变化');
-      piImageSelection=await buildPiImage({source,identity,installed,directory:preparationOut,api,transport,buildImage:context.buildPiImage});
+      piImageSelection=await buildPiImage({source,identity,installed,directory:preparationOut,api,transport,buildImage:context.buildPiImage,assetDirectory:context.piImageAssetDirectory,uvWheel:context.piImageUvWheel,progress});
       assert.deepEqual(await sourceIdentity(),identity,'构建Pi镜像期间冻结源码已变化');
       await refreshLease(phase);progress.complete();
      }else if(piRuntimeChanged&&!piSchemaKind){
