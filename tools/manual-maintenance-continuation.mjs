@@ -72,6 +72,38 @@ export const nativePiReleaseChainTripleFixPredecessor=Object.freeze({
  // unchanged on both sides.
  candidateWorkerScriptSha256:'0e5459dd34c5dd5fa26109d3606117750bb61e11c5b66b510d13dfa889dc4516'
 });
+// Pandas lease-timestamp fix (c7604df9..24cc8388, 1 file +33 -3, tools/django-ai.ps1
+// only): registers the actual installed -> candidate predecessor for the current
+// native Stop capability, left unqualified by the new Get-PandasLeaseTimestamps
+// helper. That helper changes how Assert-PandasPublicationOwner reads
+// release-publication-lease.json's createdAt/expiresAt (PS7's ConvertFrom-Json
+// auto-detects an ISO-8601 string as a [DateTime] and re-stringifies it in the
+// local time zone with no offset suffix, silently shifting a UTC instant by the
+// machine's UTC offset on a later [DateTimeOffset]::Parse; -DateKind String on
+// PS7, absent on PS5.1, keeps both engines reading the same field as the same
+// string), which changes django-ai.ps1's whole-file hash. This is registering the
+// actual current generation, not re-reviewing the protocol: the
+// Wait-PiWorkerExit -> Stop-PiRuntime and Stop-PiRuntime -> Read-PandasConfig
+// function-body hashes below are unchanged from every earlier qualified
+// generation, because the diff is confined to Get-PandasLeaseTimestamps (a new
+// function) and Assert-PandasPublicationOwner's lease-timestamp parsing, and
+// never touches Wait-PiWorkerExit, Stop-PiRuntime or any line between them. The
+// candidate django-local-service.ps1 and worker-local-service.ps1 bytes are
+// unchanged from the installed ones (only django-ai.ps1 differs in this range),
+// so this generation has no candidateDjangoScriptSha256/candidateWorkerScriptSha256
+// fields, like nativePiWorkspacePredecessor. Verified against the actual
+// installed runtime (D:\teruisi-runtime\django-sales, release
+// 20261110T081637Z-3b276c4b744f92be) and candidate commit 24cc8388.
+export const nativePiPandasLeaseFixPredecessor=Object.freeze({
+ releaseId:'20261110T081637Z-3b276c4b744f92be',
+ workerManifestSha256:'46da32a9c0efc9a3fd153068f1395438dd85ba56baf4f793b73e988c0e1f40d0',
+ djangoManifestSha256:'49ff2e8b97ec89f9fb7f51dc7fba72ec987f029ac3a799f57e7bade4d6dfbaa9',
+ workerScriptSha256:'0e5459dd34c5dd5fa26109d3606117750bb61e11c5b66b510d13dfa889dc4516',
+ djangoScriptSha256:'dc856391affa2ae5a677bdc7ca7273c301eb604b7c1de8855d0c93be3233b005',
+ workerTransportSha256:'5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd',
+ djangoAiScriptSha256:'fb4358db6b99403e8b4d44d8a44d01803d11184b0567233725bf65b422d142b5',
+ candidateAiScriptSha256:'b13cce9985ed093fe8e31c4cca5a7827af7b352aef991aeaeed1f4adcd4c39d8'
+});
 // Every registered installed -> candidate native-Stop-capability predecessor
 // that is matched by releaseId alone in the fallback branch below (not the
 // directional pandasRotation/nativeIsolationRotation pairs, which are matched
@@ -80,7 +112,7 @@ export const nativePiReleaseChainTripleFixPredecessor=Object.freeze({
 // existing entries are never edited or removed, because they are predecessor
 // qualifications (audit records of what was reviewed), not a current
 // expectation to be kept in sync.
-export const nativePiStopCapabilityPredecessors=Object.freeze([nativePiReleaseChainTripleFixPredecessor,nativePiBusinessPredecessor,nativePiWorkspacePredecessor]);
+export const nativePiStopCapabilityPredecessors=Object.freeze([nativePiPandasLeaseFixPredecessor,nativePiReleaseChainTripleFixPredecessor,nativePiBusinessPredecessor,nativePiWorkspacePredecessor]);
 // Returns the one registered generation whose releaseId matches the actual
 // head, or null when none match. Selecting by releaseId alone (not by byte
 // equality) mirrors isPiMaintenancePredecessor/isFirstMaintenancePredecessor:

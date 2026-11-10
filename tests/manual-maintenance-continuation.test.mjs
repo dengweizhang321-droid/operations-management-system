@@ -493,3 +493,94 @@ test('release-chain triple fix: candidate django-ai.ps1 that is not the register
  const {options}=await releaseChainFixture(t,{sourceAi:Buffer.concat([gitBlob2('HEAD','tools/django-ai.ps1'),Buffer.from('\n')])});
  await assert.rejects(maintenanceReadiness(options),/候选Pi控制器不在已审兼容资格内|维护前驱资格与最初读取字节不一致|没有适用于实际前驱/);
 });
+
+// Pandas lease-timestamp fix (c7604df9..24cc8388, 1 file +33 -3, tools/django-ai.ps1
+// only): registers the actual current installed -> candidate predecessor,
+// nativePiPandasLeaseFixPredecessor, left unqualified by the new
+// Get-PandasLeaseTimestamps helper (changes django-ai.ps1's whole-file hash;
+// Wait-PiWorkerExit/Stop-PiRuntime/Read-PandasConfig are untouched). Unlike
+// nativePiReleaseChainTripleFixPredecessor above, this generation's candidate
+// django-local-service.ps1 and worker-local-service.ps1 are byte-identical to
+// the installed ones (only django-ai.ps1 differs in this commit range), so
+// the record has no candidateDjangoScriptSha256/candidateWorkerScriptSha256 and
+// the extra :480 block never runs for it — same as nativePiWorkspacePredecessor.
+import {nativePiPandasLeaseFixPredecessor as plf} from '../tools/manual-maintenance-continuation.mjs';
+async function pandasLeaseFixFixture(t,{installedAi,sourceAi,installedDjango,installedWorker}={}){
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'pandas-lease-fix-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const source=path.join(root,'source'),installed=path.join(root,'django/app'),runtime=path.join(root,'worker');
+ const write=async(file,data)=>{await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,data);};
+ for(const name of ['manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs','manual-maintenance-process.psm1','manual-maintenance-preflight.ps1'])await write(path.join(source,'tools',name),'source '+name);
+ await write(path.join(source,'tools/django-ai.ps1'),sourceAi??gitBlob2('HEAD','tools/django-ai.ps1'));
+ await write(path.join(installed,'tools/django-ai.ps1'),installedAi??gitBlob2('c7604df9','tools/django-ai.ps1'));
+ await write(path.join(source,'tools/django-local-service.ps1'),plf.djangoScriptSha256);
+ await write(path.join(installed,'tools/django-local-service.ps1'),installedDjango??plf.djangoScriptSha256);
+ const releaseRoot=path.join(runtime,'releases',plf.releaseId);
+ await write(path.join(releaseRoot,'tools/worker-local-service.ps1'),installedWorker??plf.workerScriptSha256);
+ await write(path.join(source,'tools/worker-local-service.ps1'),plf.workerScriptSha256);
+ await write(path.join(releaseRoot,'tools/process-deadline.ps1'),plf.workerTransportSha256);
+ await write(path.join(source,'tools/process-deadline.ps1'),plf.workerTransportSha256);
+ await write(path.join(installed,'deployment.json'),plf.djangoManifestSha256);
+ await write(path.join(releaseRoot,'deployment-manifest.json'),plf.workerManifestSha256);
+ const values={'django-local-service.ps1':installedDjango??plf.djangoScriptSha256,'worker-local-service.ps1':installedWorker??plf.workerScriptSha256,'process-deadline.ps1':plf.workerTransportSha256,'deployment.json':plf.djangoManifestSha256,'deployment-manifest.json':plf.workerManifestSha256};
+ const sourceValues={'django-local-service.ps1':plf.djangoScriptSha256,'worker-local-service.ps1':plf.workerScriptSha256,'process-deadline.ps1':plf.workerTransportSha256};
+ const sha=raw=>createHash('sha256').update(raw).digest('hex');
+ const digest=async file=>{
+  if(path.basename(file)==='django-ai.ps1')return sha(await fs.readFile(file));
+  const name=path.basename(file);
+  return file.startsWith(source)?(sourceValues[name]??sha(await fs.readFile(file))):(values[name]??sha(await fs.readFile(file)));
+ };
+ const options={source,installed,runtime,head:{releaseId:plf.releaseId,manifestSha256:plf.workerManifestSha256},djangoManifestSha256:plf.djangoManifestSha256,sha:digest};
+ return {options,source,installed,runtime};
+}
+test('pandas lease fix: exact current predecessor qualifies the real candidate bytes',async t=>{
+ const {options}=await pandasLeaseFixFixture(t);
+ const result=await maintenanceReadiness(options);
+ assert.equal(result.route,'native-exit-observer');
+ assert.equal(result.pins.find(p=>p.root==='django'&&p.relative==='app/tools/django-ai.ps1').sha256,plf.djangoAiScriptSha256);
+ assert.equal(result.pins.find(p=>p.root==='source'&&p.relative==='django-ai.ps1').sha256,plf.candidateAiScriptSha256);
+});
+test('pandas lease fix: selector returns this exact record for its releaseId and null otherwise',()=>{
+ assert.equal(isNativePiStopCapabilityPredecessor({releaseId:plf.releaseId}),plf);
+ assert.equal(isNativePiStopCapabilityPredecessor({releaseId:'unregistered-release-id'}),null);
+ assert.equal(isNativePiStopCapabilityPredecessor(undefined),null);
+});
+test('pandas lease fix: a releaseId that matches no registered generation is refused, not silently admitted to an unrelated one',async t=>{
+ const {options}=await pandasLeaseFixFixture(t);
+ options.head={...options.head,releaseId:'unregistered-release-id'};
+ await assert.rejects(maintenanceReadiness(options),/没有适用于实际前驱的原生Stop能力资格/);
+});
+test('pandas lease fix: a releaseId match with a drifted manifestSha256 still fails closed',async t=>{
+ const {options}=await pandasLeaseFixFixture(t);
+ options.head={...options.head,manifestSha256:'f'.repeat(64)};
+ await assert.rejects(maintenanceReadiness(options),/维护资格核验后工具发生变化|维护前驱资格与最初读取字节不一致|没有适用于实际前驱/);
+});
+for(const field of ['djangoScriptSha256','workerScriptSha256'])
+ test('pandas lease fix: installed '+field+' drift is rejected',async t=>{
+  const {options}=await pandasLeaseFixFixture(t,field==='djangoScriptSha256'?{installedDjango:'f'.repeat(64)}:{installedWorker:'f'.repeat(64)});
+  await assert.rejects(maintenanceReadiness(options),/维护前驱资格与最初读取字节不一致/);
+ });
+test('pandas lease fix: installed workerTransportSha256 (process-deadline.ps1) drift is rejected',async t=>{
+ const {options}=await pandasLeaseFixFixture(t);
+ const original=options.sha;
+ options.sha=async file=>path.basename(file)==='process-deadline.ps1'&&!file.startsWith(options.source)?'f'.repeat(64):original(file);
+ await assert.rejects(maintenanceReadiness(options),/维护前驱资格与最初读取字节不一致/);
+});
+test('pandas lease fix: installed django-ai.ps1 that is not the registered installed hash is rejected',async t=>{
+ const {options}=await pandasLeaseFixFixture(t,{installedAi:Buffer.concat([gitBlob2('c7604df9','tools/django-ai.ps1'),Buffer.from('\n')])});
+ await assert.rejects(maintenanceReadiness(options),/实际前驱缺少已验证的Pi退出观察器/);
+});
+test('pandas lease fix: candidate django-ai.ps1 that is not the registered candidate hash is rejected',async t=>{
+ const {options}=await pandasLeaseFixFixture(t,{sourceAi:Buffer.concat([gitBlob2('HEAD','tools/django-ai.ps1'),Buffer.from('\n')])});
+ await assert.rejects(maintenanceReadiness(options),/候选Pi控制器不在已审兼容资格内|维护前驱资格与最初读取字节不一致|没有适用于实际前驱/);
+});
+test('pandas lease fix: Pi stop protocol function body altered in the candidate is rejected',async t=>{
+ // Alters the Wait-PiWorkerExit body in the candidate django-ai.ps1 while
+ // keeping the whole-file hash check from drifting first: the function-body
+ // hash assertion at :382-384 runs before predecessor selection and must
+ // catch this regardless of which generation would otherwise apply.
+ const raw=gitBlob2('HEAD','tools/django-ai.ps1').toString('utf8');
+ const replaced=raw.replace('    Wait-PiWorkerExit $owned $receiptSha256 (Get-FileSha256 $PiWorkerControlPath) $deadline','    # helper present but not invoked');
+ assert.notEqual(replaced,raw,'the Wait-PiWorkerExit call site must still exist verbatim in the candidate for this test to be meaningful');
+ const {options}=await pandasLeaseFixFixture(t,{sourceAi:Buffer.from(replaced,'utf8')});
+ await assert.rejects(maintenanceReadiness(options),/Pi Stop|没有适用于实际前驱的维护恢复材料/);
+});
