@@ -428,11 +428,41 @@ function Assert-PandasInstalledBinding([object]$Binding) {
   }
 }
 
+function Get-PandasLeaseTimestamps([string]$Path) {
+  # Windows PowerShell 5.1's ConvertFrom-Json always leaves an ISO 8601
+  # "...Z" string as a [string]. PowerShell 7's ConvertFrom-Json instead
+  # auto-detects the same string as a date literal and returns a bare
+  # [DateTime]; stringifying that [DateTime] again re-renders it in the
+  # local time zone with no offset suffix, so a later
+  # [DateTimeOffset]::Parse() on PS7 silently reinterprets a UTC instant as
+  # a local one -- an 8-hour error on this machine (UTC+8). Passing
+  # -DateKind String (PS7 only; the parameter does not exist on PS5.1) asks
+  # ConvertFrom-Json to leave the exact same field as the original string on
+  # both engines, so the two engines parse identical bytes identically.
+  # Re-reads the already-safety-checked path a second time, once, scoped to
+  # exactly these two fields; every structural/identity field is still read
+  # through the one shared Read-PandasRotationJson call in the caller.
+  if ($PSVersionTable.PSEdition -ceq 'Core') {
+    $raw = Get-Content -Raw -LiteralPath $Path -Encoding UTF8 | ConvertFrom-Json -DateKind String
+  } else {
+    $raw = Get-Content -Raw -LiteralPath $Path -Encoding UTF8 | ConvertFrom-Json
+  }
+  if ($raw.createdAt -isnot [string] -or $raw.expiresAt -isnot [string]) {
+    throw 'Pandas rotation lease timestamps did not parse as exact strings'
+  }
+  return [ordered]@{
+    createdAt = [DateTimeOffset]::Parse($raw.createdAt, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind)
+    expiresAt = [DateTimeOffset]::Parse($raw.expiresAt, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind)
+  }
+}
+
 function Assert-PandasPublicationOwner([object]$Binding) {
-  $lease = Read-PandasRotationJson (Join-Path $RunDirectory 'release-publication-lease.json')
+  $leasePath = Join-Path $RunDirectory 'release-publication-lease.json'
+  $lease = Read-PandasRotationJson $leasePath
   $owner = Get-Process -Id $Binding.publicationOwnerPid -ErrorAction Stop
-  $created = [DateTimeOffset]::Parse([string]$lease.createdAt)
-  $expires = [DateTimeOffset]::Parse([string]$lease.expiresAt)
+  $timestamps = Get-PandasLeaseTimestamps $leasePath
+  $created = $timestamps.createdAt
+  $expires = $timestamps.expiresAt
   if ($lease.version -cne 'teruisi-release-publication-lease-v1' -or
       $lease.ownerPid -cne $Binding.publicationOwnerPid -or $lease.maintenanceId -cne $Binding.maintenanceId -or
       $lease.mainCommit -cne $Binding.sourceCommit -or $owner.ProcessName -cne 'node' -or
