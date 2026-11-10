@@ -125,7 +125,7 @@ test('verifyPreconditions: every clause individually unmet refuses, nothing else
   {
     // rotation lock held.
     const {runtimeRoot, installedToolsRoot} = await makeRuntime({});
-    const result = await verifyPreconditions({runtimeRoot, installedToolsRoot, probeRotationLock: async () => true});
+    const result = await verifyPreconditions({runtimeRoot, installedToolsRoot, probeRotationLock: async () => false});
     assert.equal(result.ok, false);
     assert.ok(result.problems.some(p => p.includes('Worker rotation lock 仍被持有')));
     await cleanup(runtimeRoot, installedToolsRoot);
@@ -155,7 +155,7 @@ test('recover(): refused preconditions write evidence but perform zero further w
   const result = await recover({
     runtimeRoot, installedToolsRoot, evidenceDirectory, check: true,
     run: async () => { runCalled = true; throw new Error('run must not be called when preconditions are refused'); },
-    probeRotationLock: async () => false,
+    probeRotationLock: async () => true,
   });
   assert.equal(result.status, 'refused');
   assert.equal(result.productionExecuted, false);
@@ -197,7 +197,7 @@ test('recover(): a fully satisfying runtime executes extract then recovery scrip
 
   const result = await recover({
     runtimeRoot, installedToolsRoot, evidenceDirectory, check: true, run,
-    probeRotationLock: async () => false, known, failedReceiptPath: failedReceiptFile,
+    probeRotationLock: async () => true, known, failedReceiptPath: failedReceiptFile,
   });
 
   assert.equal(result.status, 'checked');
@@ -235,7 +235,7 @@ test('recover(): refuses when the extraction step reports a closure that does no
   };
 
   await assert.rejects(
-    recover({runtimeRoot, installedToolsRoot, evidenceDirectory, check: true, run, probeRotationLock: async () => false, known, failedReceiptPath: failedReceiptFile}),
+    recover({runtimeRoot, installedToolsRoot, evidenceDirectory, check: true, run, probeRotationLock: async () => true, known, failedReceiptPath: failedReceiptFile}),
     /实测闭包与本次驱动固定清单不符/,
   );
   assert.equal(calls, 1, 'must refuse after the one extraction call, never reach the recovery script');
@@ -264,7 +264,7 @@ test('recover(): a native failure on the second (recovery) call stops in place, 
   };
 
   await assert.rejects(
-    recover({runtimeRoot, installedToolsRoot, evidenceDirectory, check: false, run, probeRotationLock: async () => false, known, failedReceiptPath: failedReceiptFile}),
+    recover({runtimeRoot, installedToolsRoot, evidenceDirectory, check: false, run, probeRotationLock: async () => true, known, failedReceiptPath: failedReceiptFile}),
     /simulated: WSL keepalive failed to establish identity/,
   );
   assert.equal(calls, 2, 'must stop after the one failing native call, never retry');
@@ -279,7 +279,7 @@ test('recover(): a native failure on the second (recovery) call stops in place, 
   // Calling recover() again with the exact same (still-failed, unresolved) runtime must
   // refuse to overwrite the preserved evidence rather than silently retry over it.
   await assert.rejects(
-    recover({runtimeRoot, installedToolsRoot, evidenceDirectory, check: false, run, probeRotationLock: async () => false, known, failedReceiptPath: failedReceiptFile}),
+    recover({runtimeRoot, installedToolsRoot, evidenceDirectory, check: false, run, probeRotationLock: async () => true, known, failedReceiptPath: failedReceiptFile}),
     /EEXIST|exist/i,
   );
   await cleanup(runtimeRoot, installedToolsRoot, evidenceDirectory, failedReceiptPath);
@@ -310,7 +310,7 @@ test('recover(): a process_timeout on the recovery call writes UNKNOWN.json (nev
   };
 
   await assert.rejects(
-    recover({runtimeRoot, installedToolsRoot, evidenceDirectory, check: false, run, probeRotationLock: async () => false, known, failedReceiptPath: failedReceiptFile}),
+    recover({runtimeRoot, installedToolsRoot, evidenceDirectory, check: false, run, probeRotationLock: async () => true, known, failedReceiptPath: failedReceiptFile}),
     error => {
       assert.equal(error.status, 'unknown');
       assert.equal(error.processEvidence.code, 'process_timeout');
@@ -330,7 +330,7 @@ test('recover(): a process_timeout on the recovery call writes UNKNOWN.json (nev
 
   // Calling recover() again must still refuse to overwrite the preserved evidence.
   await assert.rejects(
-    recover({runtimeRoot, installedToolsRoot, evidenceDirectory, check: false, run, probeRotationLock: async () => false, known, failedReceiptPath: failedReceiptFile}),
+    recover({runtimeRoot, installedToolsRoot, evidenceDirectory, check: false, run, probeRotationLock: async () => true, known, failedReceiptPath: failedReceiptFile}),
     /EEXIST|exist/i,
   );
   await cleanup(runtimeRoot, installedToolsRoot, evidenceDirectory, failedReceiptPath);

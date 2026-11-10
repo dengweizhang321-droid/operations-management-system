@@ -367,7 +367,10 @@ export async function verifyPreconditions({runtimeRoot,installedToolsRoot,probeR
   // Same probe --adopt-live's own preflight uses (tools/publish-latest-main.mjs
   // probeRotationLock), reused rather than re-implemented, so "is the Worker
   // rotation lock held right now" has exactly one implementation in the repo.
-  const rotationLockHeld=await probeRotationLock();
+  // probeRotationLock() (publish-latest-main.mjs) returns TRUE when the lock
+  // could be taken and released now, i.e. the lock is FREE; --adopt-live uses
+  // it as `assert.ok(await probeRotation(), ...)`. Held is its negation.
+  const rotationLockHeld=(await probeRotationLock())!==true;
   if(rotationLockHeld)problems.push('Worker rotation lock 仍被持有，可能有发布或准备正在进行');
   return {ok:problems.length===0,problems,rotationLockHeld,paths:{pendingPath,startupAttemptPath,startupPath,completePath,leasePath,maintenancePath,drainPath,pandasPidPath,deploymentPath,aiScriptPath}};
 }
