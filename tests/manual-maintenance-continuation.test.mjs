@@ -584,3 +584,99 @@ test('pandas lease fix: Pi stop protocol function body altered in the candidate 
  const {options}=await pandasLeaseFixFixture(t,{sourceAi:Buffer.from(replaced,'utf8')});
  await assert.rejects(maintenanceReadiness(options),/Pi Stop|没有适用于实际前驱的维护恢复材料/);
 });
+
+// Maintenance-after-failure resume, first period (A1, codex/resume-after-
+// maintenance-phase1-20261111): registers the actual current installed ->
+// candidate predecessor, nativePiResumeAfterMaintenancePhase1Predecessor,
+// left unqualified by django-ai.ps1's new Assert-PandasPublicationOwner
+// resume branch (Assert-PandasResumePublicationOwner and its three new
+// helpers; Wait-PiWorkerExit/Stop-PiRuntime/Read-PandasConfig are
+// untouched, and the original branch's predicates are unchanged, only
+// relocated into Assert-PandasOriginalPublicationOwner). Installed bytes
+// are commit e3361f1c (the PS7 lease-timestamp fix, already the live
+// installed django-ai.ps1 by the time this branch cut from main); like
+// nativePiPandasLeaseFixPredecessor and nativePiWorkspacePredecessor, this
+// generation's candidate django-local-service.ps1 and worker-local-service.ps1
+// are byte-identical to the installed ones, so the record has no
+// candidateDjangoScriptSha256/candidateWorkerScriptSha256 and the extra :480
+// block never runs for it.
+import {nativePiResumeAfterMaintenancePhase1Predecessor as rap} from '../tools/manual-maintenance-continuation.mjs';
+async function resumeAfterMaintenancePhase1Fixture(t,{installedAi,sourceAi,installedDjango,installedWorker}={}){
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'resume-after-maintenance-phase1-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const source=path.join(root,'source'),installed=path.join(root,'django/app'),runtime=path.join(root,'worker');
+ const write=async(file,data)=>{await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,data);};
+ for(const name of ['manual-maintenance-start.ps1','manual-maintenance-lock.psm1','manual-maintenance-continuation.ps1','manual-maintenance-continuation.mjs','publish-prepared-main.mjs','publish-main-command.mjs','manual-maintenance-process.psm1','manual-maintenance-preflight.ps1'])await write(path.join(source,'tools',name),'source '+name);
+ await write(path.join(source,'tools/django-ai.ps1'),sourceAi??gitBlob2('HEAD','tools/django-ai.ps1'));
+ await write(path.join(installed,'tools/django-ai.ps1'),installedAi??gitBlob2('e3361f1c','tools/django-ai.ps1'));
+ await write(path.join(source,'tools/django-local-service.ps1'),rap.djangoScriptSha256);
+ await write(path.join(installed,'tools/django-local-service.ps1'),installedDjango??rap.djangoScriptSha256);
+ const releaseRoot=path.join(runtime,'releases',rap.releaseId);
+ await write(path.join(releaseRoot,'tools/worker-local-service.ps1'),installedWorker??rap.workerScriptSha256);
+ await write(path.join(source,'tools/worker-local-service.ps1'),rap.workerScriptSha256);
+ await write(path.join(releaseRoot,'tools/process-deadline.ps1'),rap.workerTransportSha256);
+ await write(path.join(source,'tools/process-deadline.ps1'),rap.workerTransportSha256);
+ await write(path.join(installed,'deployment.json'),rap.djangoManifestSha256);
+ await write(path.join(releaseRoot,'deployment-manifest.json'),rap.workerManifestSha256);
+ const values={'django-local-service.ps1':installedDjango??rap.djangoScriptSha256,'worker-local-service.ps1':installedWorker??rap.workerScriptSha256,'process-deadline.ps1':rap.workerTransportSha256,'deployment.json':rap.djangoManifestSha256,'deployment-manifest.json':rap.workerManifestSha256};
+ const sourceValues={'django-local-service.ps1':rap.djangoScriptSha256,'worker-local-service.ps1':rap.workerScriptSha256,'process-deadline.ps1':rap.workerTransportSha256};
+ const sha=raw=>createHash('sha256').update(raw).digest('hex');
+ const digest=async file=>{
+  if(path.basename(file)==='django-ai.ps1')return sha(await fs.readFile(file));
+  const name=path.basename(file);
+  return file.startsWith(source)?(sourceValues[name]??sha(await fs.readFile(file))):(values[name]??sha(await fs.readFile(file)));
+ };
+ const options={source,installed,runtime,head:{releaseId:rap.releaseId,manifestSha256:rap.workerManifestSha256},djangoManifestSha256:rap.djangoManifestSha256,sha:digest};
+ return {options,source,installed,runtime};
+}
+test('resume after maintenance phase1: exact current predecessor qualifies the real candidate bytes',async t=>{
+ const {options}=await resumeAfterMaintenancePhase1Fixture(t);
+ const result=await maintenanceReadiness(options);
+ assert.equal(result.route,'native-exit-observer');
+ assert.equal(result.pins.find(p=>p.root==='django'&&p.relative==='app/tools/django-ai.ps1').sha256,rap.djangoAiScriptSha256);
+ assert.equal(result.pins.find(p=>p.root==='source'&&p.relative==='django-ai.ps1').sha256,rap.candidateAiScriptSha256);
+});
+test('resume after maintenance phase1: selector returns this exact record for its releaseId and null otherwise',()=>{
+ assert.equal(isNativePiStopCapabilityPredecessor({releaseId:rap.releaseId}),rap);
+ assert.equal(isNativePiStopCapabilityPredecessor({releaseId:'unregistered-release-id'}),null);
+ assert.equal(isNativePiStopCapabilityPredecessor(undefined),null);
+});
+test('resume after maintenance phase1: a releaseId that matches no registered generation is refused, not silently admitted to an unrelated one',async t=>{
+ const {options}=await resumeAfterMaintenancePhase1Fixture(t);
+ options.head={...options.head,releaseId:'unregistered-release-id'};
+ await assert.rejects(maintenanceReadiness(options),/没有适用于实际前驱的原生Stop能力资格/);
+});
+test('resume after maintenance phase1: a releaseId match with a drifted manifestSha256 still fails closed',async t=>{
+ const {options}=await resumeAfterMaintenancePhase1Fixture(t);
+ options.head={...options.head,manifestSha256:'f'.repeat(64)};
+ await assert.rejects(maintenanceReadiness(options),/维护资格核验后工具发生变化|维护前驱资格与最初读取字节不一致|没有适用于实际前驱/);
+});
+for(const field of ['djangoScriptSha256','workerScriptSha256'])
+ test('resume after maintenance phase1: installed '+field+' drift is rejected',async t=>{
+  const {options}=await resumeAfterMaintenancePhase1Fixture(t,field==='djangoScriptSha256'?{installedDjango:'f'.repeat(64)}:{installedWorker:'f'.repeat(64)});
+  await assert.rejects(maintenanceReadiness(options),/维护前驱资格与最初读取字节不一致/);
+ });
+test('resume after maintenance phase1: installed workerTransportSha256 (process-deadline.ps1) drift is rejected',async t=>{
+ const {options}=await resumeAfterMaintenancePhase1Fixture(t);
+ const original=options.sha;
+ options.sha=async file=>path.basename(file)==='process-deadline.ps1'&&!file.startsWith(options.source)?'f'.repeat(64):original(file);
+ await assert.rejects(maintenanceReadiness(options),/维护前驱资格与最初读取字节不一致/);
+});
+test('resume after maintenance phase1: installed django-ai.ps1 that is not the registered installed hash is rejected',async t=>{
+ const {options}=await resumeAfterMaintenancePhase1Fixture(t,{installedAi:Buffer.concat([gitBlob2('e3361f1c','tools/django-ai.ps1'),Buffer.from('\n')])});
+ await assert.rejects(maintenanceReadiness(options),/实际前驱缺少已验证的Pi退出观察器/);
+});
+test('resume after maintenance phase1: candidate django-ai.ps1 that is not the registered candidate hash is rejected',async t=>{
+ const {options}=await resumeAfterMaintenancePhase1Fixture(t,{sourceAi:Buffer.concat([gitBlob2('HEAD','tools/django-ai.ps1'),Buffer.from('\n')])});
+ await assert.rejects(maintenanceReadiness(options),/候选Pi控制器不在已审兼容资格内|维护前驱资格与最初读取字节不一致|没有适用于实际前驱/);
+});
+test('resume after maintenance phase1: Pi stop protocol function body altered in the candidate is rejected',async t=>{
+ // Alters the Wait-PiWorkerExit body in the candidate django-ai.ps1 while
+ // keeping the whole-file hash check from drifting first: the function-body
+ // hash assertion at :382-384 runs before predecessor selection and must
+ // catch this regardless of which generation would otherwise apply.
+ const raw=gitBlob2('HEAD','tools/django-ai.ps1').toString('utf8');
+ const replaced=raw.replace('    Wait-PiWorkerExit $owned $receiptSha256 (Get-FileSha256 $PiWorkerControlPath) $deadline','    # helper present but not invoked');
+ assert.notEqual(replaced,raw,'the Wait-PiWorkerExit call site must still exist verbatim in the candidate for this test to be meaningful');
+ const {options}=await resumeAfterMaintenancePhase1Fixture(t,{sourceAi:Buffer.from(replaced,'utf8')});
+ await assert.rejects(maintenanceReadiness(options),/Pi Stop|没有适用于实际前驱的维护恢复材料/);
+});
