@@ -6,14 +6,20 @@
  * This tool recognizes ONLY this one release: every identity below is a
  * fixed, pre-measured pin. It never replays ExitMaintenance or Start (both
  * already completed for real, outside any evidence-capturing tool at
- * 19:45); it only completes the remaining tail steps (VerifyStartup, the
- * Pandas completion record, the readiness probe) and then writes
+ * 19:45); it only completes the remaining tail steps (VerifyStartup,
+ * CompletePandasRotation, the readiness probe) and then writes
  * SUCCESS.json + PUBLISHED-MAIN.json from MEASURED live values, the same
  * way publish-main-tail.mjs and publish-latest-main.mjs:911-923 would have,
- * had the normal tail completed. --check calls VerifyStartup (confirmed
- * read-only) but reads the Pandas completion record straight off disk
- * instead of re-invoking CompletePandasRotation, whose native path is not
- * fully auditable as read-only from here (see runReadOnlyTail).
+ * had the normal tail completed. --check calls the same VerifyStartup and
+ * CompletePandasRotation actions as --execute: both are confirmed read-only
+ * in the current state because the Windows complete.json (django-ai.ps1
+ * Complete-PandasRotation:536-543) and its WSL-side result.json
+ * (pandas_broker_rotation_linux.py complete():556-558) already exist, so
+ * both sides' native path only compares and returns, with no write and no
+ * re-check of the (possibly no-longer-running) successor process. This tool
+ * asserts both files exist before calling either mode, and refuses outright
+ * if the Windows complete.json is missing - it must never be the first
+ * writer of a Pandas completion.
  *
  * Precedent: tools/manual-startup-reconcile.mjs (2f875fb0 activated-startup
  * recovery) and tools/publish-main-resume.mjs (general Pi/Worker/Django tail
@@ -99,7 +105,8 @@ async function defaultLoadNative(config) {
   const api = await import(pathToFileURL(path.join(config.nativeToolsSource, 'tools/worker-local-release.mjs')));
   const rotation = await import(pathToFileURL(path.join(config.nativeToolsSource, 'tools/worker-local-release-rotation.mjs')));
   const transport = await import(pathToFileURL(path.join(config.nativeToolsSource, 'tools/release-batch.mjs')));
-  return { api, rotation, transport };
+  const pandas = await import(pathToFileURL(path.join(config.nativeToolsSource, 'tools/publish-main-pandas.mjs')));
+  return { api, rotation, transport, pandas };
 }
 
 /**
@@ -193,32 +200,38 @@ async function verifyIdentity(config, knownBatch) {
   return { started, failed, piUpgrade, pandasSwitch, prepared, request };
 }
 
-/** Shared identity assertions on a Pandas completion record, from either the real native call or the pre-existing on-disk file. */
-function assertPandasCompletion(pandasCompletion, knownBatch) {
-  assert.equal(pandasCompletion.status, 'ready_verified', 'Pandas原启动回执未核验，拒绝续接');
-  assert.equal(pandasCompletion.completed, true);
-  assert.equal(pandasCompletion.postconditionsVerified, true);
-  assert.equal(pandasCompletion.registeredPlanSha256, knownBatch.pandasRegisteredPlanSha256);
-  assert.equal(pandasCompletion.publicationOwnerPid, knownBatch.pandasPublicationOwnerPid);
+/**
+ * Refuse outright unless BOTH completion artifacts already exist: the
+ * Windows record (django-ai.ps1 reads this at :535-543) and - transitively,
+ * since only a byte-for-byte reconstruction could stand in for actually
+ * asking WSL - at minimum the Windows record's own startupReceiptSha256
+ * must match the real startup receipt file on disk. This tool must never be
+ * the first writer of a Pandas completion in either mode.
+ */
+async function assertPandasCompletionArtifactsExist(config, knownBatch) {
+  const completionFile = path.join(config.djangoRuntimeRoot, 'run', 'pandas-rotation-' + knownBatch.pandasRegisteredPlanSha256 + '.complete.json');
+  const startupFile = path.join(config.djangoRuntimeRoot, 'run', 'pandas-rotation-' + knownBatch.pandasRegisteredPlanSha256 + '.startup.json');
+  assert.equal(await exists(completionFile), true, 'Pandas完成回执尚不存在，本工具不能作为首次写入者，拒绝续接: ' + completionFile);
+  assert.equal(await exists(startupFile), true, 'Pandas原启动回执尚不存在，拒绝续接: ' + startupFile);
+  const completion = await readJson(completionFile);
+  assert.equal(await shaFile(startupFile), completion.startupReceiptSha256, 'Pandas完成回执记录的原启动回执摘要与磁盘实际文件不一致，拒绝续接');
+  return { completionFile, startupFile, completion };
 }
 
 /**
- * The remaining read-only tail steps: VerifyStartup (shortcut-only check, no
- * lifecycle action - confirmed read-only against worker-local-service.ps1's
- * own source), the readiness probe publish-main-tail.mjs itself performs
- * before SUCCESS, and the Pandas completion record.
- *
- * Pandas completion is intentionally NOT re-invoked here for --check: unlike
- * VerifyStartup, django-ai.ps1's Complete-PandasRotation always calls through
- * to the WSL-side native rotation operator before it even checks whether the
- * completion file already exists (django-ai.ps1:532 runs before the :536
- * Test-Path branch), and this tool cannot fully audit that WSL-side script
- * for read-only behaviour from here. "不确定就不调" (brief): for --check the
- * already-written pandas-rotation-*.complete.json is read directly off disk
- * instead - a pure filesystem read with the same identity assertions. Only
- * --execute calls CompletePandasRotation for real.
+ * The remaining tail steps: VerifyStartup (shortcut-only check, no lifecycle
+ * action - confirmed read-only against worker-local-service.ps1's own
+ * source), CompletePandasRotation (confirmed read-only in the CURRENT state
+ * only because both the Windows complete.json and its WSL-side result.json
+ * already exist - see assertPandasCompletionArtifactsExist and the file-
+ * level doc comment above), and the readiness probe publish-main-tail.mjs
+ * itself performs before SUCCESS. --check and --execute call the identical
+ * native actions; only the write at the very end of runTailReconcile
+ * differs.
  */
-async function runReadOnlyTail({ config, knownBatch, api, transport, rotation, identity, runNativeStep, fetchReady, check }) {
+async function runReadOnlyTail({ config, knownBatch, api, transport, pandas, rotation, identity, runNativeStep, fetchReady }) {
+  await assertPandasCompletionArtifactsExist(config, knownBatch);
+
   const targetWorkerScript = path.join(config.workerRuntimeRoot, 'releases', knownBatch.workerReleaseId, 'tools/worker-local-service.ps1');
   const startup = await runNativeStep({
     api, transport, script: targetWorkerScript, action: 'VerifyStartup',
@@ -228,25 +241,30 @@ async function runReadOnlyTail({ config, knownBatch, api, transport, rotation, i
   assert.equal(startup.releaseId, knownBatch.workerReleaseId);
   assert.equal(startup.manifestSha256, knownBatch.workerManifestSha256);
 
-  let pandasCompletion;
-  if (check) {
-    const completionFile = path.join(config.djangoRuntimeRoot, 'run', 'pandas-rotation-' + knownBatch.pandasRegisteredPlanSha256 + '.complete.json');
-    pandasCompletion = await readJson(completionFile);
-  } else {
-    const pandasArgs = [
-      '-PandasPreparedAppId', identity.prepared.pandasBrokerRotation.preparedAppId,
-      '-PandasPreparedAppSha256', identity.prepared.pandasBrokerRotation.preparedAppSha256,
-      '-PandasSourceCommit', knownBatch.mainCommit,
-      '-PandasPlanSha256', knownBatch.pandasRegisteredPlanSha256,
-      '-PandasMaintenanceId', knownBatch.maintenanceId,
-      '-PandasPublicationOwnerPid', String(knownBatch.pandasPublicationOwnerPid),
-    ];
-    pandasCompletion = await runNativeStep({
-      api, transport, script: path.join(config.installedAppRoot, 'tools/django-ai.ps1'), action: 'CompletePandasRotation',
-      extra: pandasArgs, label: 'c7604df9-tail-reconcile-CompletePandasRotation',
-    });
-  }
-  assertPandasCompletion(pandasCompletion, knownBatch);
+  const pandasArgs = [
+    '-PandasPreparedAppId', identity.prepared.pandasBrokerRotation.preparedAppId,
+    '-PandasPreparedAppSha256', identity.prepared.pandasBrokerRotation.preparedAppSha256,
+    '-PandasSourceCommit', knownBatch.mainCommit,
+    '-PandasPlanSha256', knownBatch.pandasRegisteredPlanSha256,
+    '-PandasMaintenanceId', knownBatch.maintenanceId,
+    '-PandasPublicationOwnerPid', String(knownBatch.pandasPublicationOwnerPid),
+  ];
+  const pandasCompletion = await runNativeStep({
+    api, transport, script: path.join(config.installedAppRoot, 'tools/django-ai.ps1'), action: 'CompletePandasRotation',
+    extra: pandasArgs, label: 'c7604df9-tail-reconcile-CompletePandasRotation',
+  });
+  // The real, fully-field verification: publish-main-pandas.mjs's own
+  // verifyPandasCompletion(value, prepared, switched), identical to the
+  // check a normal publish-prepared-main.mjs tail performs
+  // (publish-main-tail.mjs:65 / publish-prepared-main.mjs:247). This also
+  // checks intentSha256 against the real PandasRotation-switched.json and
+  // (inside verifyIdentity, same as verifyPandasPreparation) the switch's
+  // own identity fields.
+  pandas.verifyPandasCompletion(pandasCompletion, identity.prepared.pandasBrokerRotation, identity.pandasSwitch.value);
+  assert.equal(pandasCompletion.registeredPlanSha256, knownBatch.pandasRegisteredPlanSha256);
+  assert.equal(pandasCompletion.publicationOwnerPid, knownBatch.pandasPublicationOwnerPid);
+  const startupFile = path.join(config.djangoRuntimeRoot, 'run', 'pandas-rotation-' + knownBatch.pandasRegisteredPlanSha256 + '.startup.json');
+  assert.equal(await shaFile(startupFile), pandasCompletion.startupReceiptSha256, '原启动回执摘要与磁盘文件不一致');
 
   const chain = await rotation.resolveEffectiveReleaseChain({ verifyInstalledHead: true });
   assert.equal(chain.head.releaseId, knownBatch.workerReleaseId, '现役Worker版本不是本批次目标');
@@ -255,14 +273,19 @@ async function runReadOnlyTail({ config, knownBatch, api, transport, rotation, i
   const djangoManifestSha256 = await shaFile(path.join(config.installedAppRoot, 'deployment.json'));
   assert.equal(djangoManifestSha256, knownBatch.djangoManifestSha256, '现役后台manifest不是本批次目标');
 
+  await assertReady(fetchReady, config);
+
+  return { startup, pandasCompletion, chain, djangoManifestSha256 };
+}
+
+/** The one bounded readiness observation publish-main-tail.mjs itself performs before SUCCESS. */
+async function assertReady(fetchReady, config) {
   const readyResponse = await fetchReady(config);
   assert.equal(readyResponse.status, 200, '服务未就绪，拒绝续接');
   const health = await readyResponse.json();
   assert.equal(health.ok, true);
   assert.equal(health.status, 'ready');
   assert.deepEqual(health.unavailableServices ?? [], []);
-
-  return { startup, pandasCompletion, chain, djangoManifestSha256 };
 }
 
 /**
@@ -322,6 +345,15 @@ async function buildCatalog({ config, api, success, successRaw }) {
   };
 }
 
+/**
+ * SUCCESS.json already exists: this tool never replays its native steps or
+ * rewrites it. If the catalog write that should have followed it never
+ * landed (e.g. the post-SUCCESS re-check in runTailReconcile aborted before
+ * the catalog write), this reports catalogMatches:false rather than writing
+ * the catalog itself here - a second, un-audited write path for the same
+ * file would defeat the whole point of the re-check. advice explains the
+ * exact next step to an operator reading the tool's own output.
+ */
 async function alreadyCompleted(config, knownBatch) {
   const successRaw = await fs.readFile(path.join(config.attemptRoot, 'SUCCESS.json'));
   const success = JSON.parse(successRaw.toString('utf8'));
@@ -336,7 +368,17 @@ async function alreadyCompleted(config, knownBatch) {
     const catalog = await readJson(catalogFile);
     catalogMatches = catalog.receiptPath === path.join(config.attemptRoot, 'SUCCESS.json') && catalog.mainCommit === knownBatch.mainCommit;
   }
-  return { status: 'already-completed', mainCommit: knownBatch.mainCommit, receiptPath: path.join(config.attemptRoot, 'SUCCESS.json'), catalogMatches, productionExecuted: false };
+  const receiptPath = path.join(config.attemptRoot, 'SUCCESS.json');
+  if (catalogMatches) {
+    return { status: 'already-completed', mainCommit: knownBatch.mainCommit, receiptPath, catalogMatches, productionExecuted: false };
+  }
+  return {
+    status: 'already-completed', mainCommit: knownBatch.mainCommit, receiptPath, catalogMatches: false, productionExecuted: false,
+    advice: 'SUCCESS.json 已写入（' + receiptPath + '），但 PUBLISHED-MAIN.json 不指向它（可能是写入catalog前的复核发现现场已变化而中止，也可能从未运行到那一步）。' +
+      '本工具检测到已有SUCCESS后不会自动补写catalog，也不会重跑任何原生步骤。请人工核对：现役Worker版本/manifest、后台manifest、就绪探测是否仍与 ' + receiptPath +
+      ' 记录的一致。若一致，需要的是一次独立、经审查的catalog写入（可比照本工具buildCatalog的构造方式新写一小段，或交由熟悉该发布器的人处理），不要复用本工具的全量流程；' +
+      '若现场已变化（例如又发生了新的发布），说明当前catalog缺失已不再对应现役状态，需要走正常发布/承认流程人工核对，不要尝试用这份旧SUCCESS.json拼出新catalog。',
+  };
 }
 
 export async function runTailReconcile({
@@ -351,14 +393,14 @@ export async function runTailReconcile({
   const identity = await verifyIdentity(config, knownBatch);
   if (await exists(path.join(config.attemptRoot, 'SUCCESS.json'))) return alreadyCompleted(config, knownBatch);
 
-  const { api, rotation, transport } = await loadNative(config);
+  const { api, rotation, transport, pandas } = await loadNative(config);
   return rotation.withRotationLock(async () => {
     await rotation.assertActiveBatchOwnership(config.workerRuntimeRoot);
     // Re-check SUCCESS existence under the lock: another actor may have
     // completed this batch between the pre-lock check above and now.
     if (await exists(path.join(config.attemptRoot, 'SUCCESS.json'))) return alreadyCompleted(config, knownBatch);
 
-    const tail = await runReadOnlyTail({ config, knownBatch, api, transport, rotation, identity, runNativeStep, fetchReady, check });
+    const tail = await runReadOnlyTail({ config, knownBatch, api, transport, pandas, rotation, identity, runNativeStep, fetchReady });
     const at = now().toISOString();
     const success = buildSuccessReceipt({ config, knownBatch, at, tail, identity });
 
@@ -372,9 +414,26 @@ export async function runTailReconcile({
     }
 
     // SUCCESS.json: create-only, inside the original attempt directory, next
-    // to the untouched original STARTED.json/FAILED.json.
+    // to the untouched original STARTED.json/FAILED.json. Once this lands,
+    // the receipt is a true historical record of what was measured at this
+    // moment; it is never rolled back even if the catalog write below fails.
     await writeOnce(path.join(config.attemptRoot, 'SUCCESS.json'), success);
     const successRaw = await fs.readFile(path.join(config.attemptRoot, 'SUCCESS.json'));
+
+    // Re-verify the same three facts the SUCCESS receipt just asserted,
+    // against the live system again, right before writing the catalog that
+    // readLivePublication will trust on the next release. Nothing should
+    // have changed in the brief window since runReadOnlyTail observed them,
+    // but if it has, the catalog must not be written pointing at a receipt
+    // that no longer describes reality - SUCCESS.json stays (it is still an
+    // accurate record of the moment it was written), and the operator is
+    // told to re-run this tool, which will report already-completed with
+    // catalogMatches:false until the catalog is written successfully.
+    const after = await rotation.resolveEffectiveReleaseChain({ verifyInstalledHead: true });
+    assert.equal(after.head.releaseId, knownBatch.workerReleaseId, 'SUCCESS已写入，但目标版本在写入catalog前已变化，拒绝写入catalog');
+    assert.equal(after.head.manifestSha256, knownBatch.workerManifestSha256, 'SUCCESS已写入，但目标版本在写入catalog前已变化，拒绝写入catalog');
+    assert.equal(await shaFile(path.join(config.installedAppRoot, 'deployment.json')), knownBatch.djangoManifestSha256, 'SUCCESS已写入，但后台manifest在写入catalog前已变化，拒绝写入catalog');
+    await assertReady(fetchReady, config);
 
     // PUBLISHED-MAIN.json: back up whatever is there first, then
     // temp-file + rename (create-only on both the backup and the temp file).

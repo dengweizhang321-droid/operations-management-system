@@ -71,13 +71,20 @@ async function fixture(t, { git = true } = {}) {
   const pandasRegisteredPlanSha256 = 'a'.repeat(64);
   const pandasPublicationOwnerPid = 12345;
 
+  // Every field verifyPandasCompletion/verifyIdentity (publish-main-pandas.mjs)
+  // actually checks: configured, registeredPlanSha256, sourceSha256,
+  // predecessorSourceSha256, image, preparedAppId, preparedAppSha256,
+  // sourceCommit on the prepared binding; maintenanceId, publicationOwnerPid,
+  // intentSha256 on the switch receipt.
+  const pandasBrokerRotation = {
+    configured: true, preparedAppId: 'b'.repeat(32), preparedAppSha256: 'c'.repeat(64),
+    registeredPlanSha256: pandasRegisteredPlanSha256, sourceCommit: mainCommit, started: false,
+    sourceSha256: '1'.repeat(64), predecessorSourceSha256: '2'.repeat(64), image: 'sha256:' + 'e'.repeat(64),
+  };
   const started = {
     resumeProtocol: 'teruisi-pi-main-resume-v1', mainCommit, maintenanceId,
     components: ['worker', 'django'], source: sourceRoot, sourceTree: 'tree-fixture-01',
-    pandasBrokerRotation: {
-      configured: true, preparedAppId: 'b'.repeat(32), preparedAppSha256: 'c'.repeat(64),
-      registeredPlanSha256: pandasRegisteredPlanSha256, sourceCommit: mainCommit, started: false,
-    },
+    pandasBrokerRotation,
   };
   const startedSha256 = await write(path.join(attemptRoot, 'STARTED.json'), started);
 
@@ -91,19 +98,25 @@ async function fixture(t, { git = true } = {}) {
   const piUpgrade = { at: new Date().toISOString(), registeredPlanSha256: 'd'.repeat(64), value: { upgraded: true, image: 'sha256:' + 'e'.repeat(64) } };
   const piUpgradeCompletedSha256 = await write(path.join(attemptRoot, 'PiUpgrade-completed.json'), piUpgrade);
 
+  const intentSha256 = 'f'.repeat(64);
   const pandasSwitch = {
     at: new Date().toISOString(),
-    value: { status: 'switched_stopped', registeredPlanSha256: pandasRegisteredPlanSha256, publicationOwnerPid: pandasPublicationOwnerPid, intentSha256: 'f'.repeat(64) },
+    value: { status: 'switched_stopped', ...pandasBrokerRotation, maintenanceId, publicationOwnerPid: pandasPublicationOwnerPid, intentSha256 },
   };
   const pandasSwitchedSha256 = await write(path.join(attemptRoot, 'PandasRotation-switched.json'), pandasSwitch);
 
-  // The already-existing on-disk completion record --check reads directly,
-  // the same real file CompletePandasRotation itself would produce/compare.
+  // The real startup receipt file CompletePandasRotation's own startupReceiptSha256 is checked against.
+  const startupReceiptRaw = 'fixture-pandas-startup-receipt';
+  await fs.writeFile(path.join(djangoRuntimeRoot, 'run', 'pandas-rotation-' + pandasRegisteredPlanSha256 + '.startup.json'), startupReceiptRaw);
+  const startupReceiptSha256 = sha(Buffer.from(startupReceiptRaw));
+
+  // The already-existing on-disk completion record: the same shape
+  // Complete-PandasRotation itself would have written/compared, satisfying
+  // both the artifact-existence precheck and verifyPandasCompletion's fields.
   const pandasCompletionRecord = {
     status: 'ready_verified', completed: true, postconditionsVerified: true,
-    registeredPlanSha256: pandasRegisteredPlanSha256, publicationOwnerPid: pandasPublicationOwnerPid,
-    preparedAppId: 'b'.repeat(32), preparedAppSha256: 'c'.repeat(64),
-    sourceCommit: mainCommit, configured: true, image: 'sha256:' + 'e'.repeat(64),
+    ...pandasBrokerRotation, maintenanceId, publicationOwnerPid: pandasPublicationOwnerPid,
+    intentSha256, startupReceiptSha256,
   };
   await write(path.join(djangoRuntimeRoot, 'run', 'pandas-rotation-' + pandasRegisteredPlanSha256 + '.complete.json'), pandasCompletionRecord);
 
@@ -111,7 +124,7 @@ async function fixture(t, { git = true } = {}) {
     version: 'teruisi-main-preparation-v1', sourceIdentity: { commit: mainCommit, tree: 'tree-fixture-01' },
     djangoManifestSha256, djangoPackage: { id: '0'.repeat(32) },
     workerPlan: { candidateReleaseId: workerReleaseId, candidateManifestSha256: workerManifestSha256 },
-    pandasBrokerRotation: started.pandasBrokerRotation,
+    pandasBrokerRotation,
   };
   await write(path.join(attemptRoot, 'preparation/PREPARED.json'), prepared);
 
@@ -126,31 +139,26 @@ async function fixture(t, { git = true } = {}) {
 
   const config = { packetRoot, sourceRoot, attemptRoot, stateDirectory, nativeToolsSource: sourceRoot, workerRuntimeRoot, djangoRuntimeRoot, installedAppRoot, readyUrl: 'http://fixture.invalid/ready' };
 
-  // Fake native adapters: no real PowerShell/git subprocess for the lock,
-  // rotation chain or native step calls. api.hashRelativeFiles/listGitSourceFiles
-  // stay real (imported from the real module) so sourceTree computation is
-  // genuinely exercised with the real git repo above.
+  // Fake native adapters for the lock/rotation chain/native process launch,
+  // but api.hashRelativeFiles/listGitSourceFiles and the whole `pandas`
+  // module stay real (imported from the real modules) so sourceTree
+  // computation and Pandas completion verification are genuinely exercised.
   const realApi = await import(pathToFileURL(path.join(process.cwd(), 'tools/worker-local-release.mjs')));
+  const realPandas = await import(pathToFileURL(path.join(process.cwd(), 'tools/publish-main-pandas.mjs')));
   const nativeCalls = [];
   const api = { hashRelativeFiles: realApi.hashRelativeFiles, listGitSourceFiles: realApi.listGitSourceFiles };
+  let liveWorkerReleaseId = workerReleaseId, liveWorkerManifestSha256 = workerManifestSha256;
   const rotation = {
     withRotationLock: async (operation) => operation({}),
     assertActiveBatchOwnership: async () => {},
-    resolveEffectiveReleaseChain: async () => ({ head: { releaseId: workerReleaseId, manifestSha256: workerManifestSha256 } }),
+    resolveEffectiveReleaseChain: async () => ({ head: { releaseId: liveWorkerReleaseId, manifestSha256: liveWorkerManifestSha256 } }),
   };
   const transport = { productionCommandArguments: (host, args) => args, productionCommandEnvironment: () => ({}) };
-  const loadNative = async () => ({ api, rotation, transport });
+  const loadNative = async () => ({ api, rotation, transport, pandas: realPandas });
   const runNativeStep = async ({ action }) => {
     nativeCalls.push(action);
     if (action === 'VerifyStartup') return { status: 'verified', startupVerified: true, releaseId: workerReleaseId, manifestSha256: workerManifestSha256 };
-    if (action === 'CompletePandasRotation') {
-      return {
-        status: 'ready_verified', completed: true, postconditionsVerified: true,
-        registeredPlanSha256: pandasRegisteredPlanSha256, publicationOwnerPid: pandasPublicationOwnerPid,
-        preparedAppId: started.pandasBrokerRotation.preparedAppId, preparedAppSha256: started.pandasBrokerRotation.preparedAppSha256,
-        sourceCommit: mainCommit, configured: true, image: 'sha256:' + 'e'.repeat(64),
-      };
-    }
+    if (action === 'CompletePandasRotation') return { ...pandasCompletionRecord };
     throw Error('unexpected native action: ' + action);
   };
   const readyBody = (overrides = {}) => new Response(
@@ -159,7 +167,11 @@ async function fixture(t, { git = true } = {}) {
   );
   const fetchReady = async () => readyBody();
 
-  return { root, packetRoot, sourceRoot, attemptRoot, stateDirectory, config, knownBatch, loadNative, runNativeStep, fetchReady, readyBody, nativeCalls, mainCommit, workerReleaseId, workerManifestSha256, djangoManifestSha256 };
+  return {
+    root, packetRoot, sourceRoot, attemptRoot, stateDirectory, config, knownBatch, loadNative, runNativeStep, fetchReady, readyBody,
+    nativeCalls, mainCommit, workerReleaseId, workerManifestSha256, djangoManifestSha256, installedAppRoot,
+    setLiveWorkerRelease: (releaseId, manifestSha256) => { liveWorkerReleaseId = releaseId; liveWorkerManifestSha256 = manifestSha256; },
+  };
 }
 
 test('full success: writes SUCCESS.json and PUBLISHED-MAIN.json with the exact expected shape', async (t) => {
@@ -211,7 +223,7 @@ test('full success: writes SUCCESS.json and PUBLISHED-MAIN.json with the exact e
   assert.deepEqual(f.nativeCalls, ['VerifyStartup', 'CompletePandasRotation']);
 });
 
-test('--check produces a preview byte-identical to --execute (timestamps excluded), and never calls CompletePandasRotation', async (t) => {
+test('--check produces a preview byte-identical to --execute (timestamps excluded), calling the same native actions', async (t) => {
   const f = await fixture(t);
   const fixedNow = () => new Date('2026-11-10T20:00:00.000Z');
   const checked = await runTailReconcile({ check: true, config: f.config, knownBatch: f.knownBatch, loadNative: f.loadNative, runNativeStep: f.runNativeStep, fetchReady: f.fetchReady, now: fixedNow });
@@ -219,9 +231,10 @@ test('--check produces a preview byte-identical to --execute (timestamps exclude
   assert.equal(checked.productionExecuted, false);
   await assert.rejects(fs.access(path.join(f.attemptRoot, 'SUCCESS.json')), { code: 'ENOENT' });
   await assert.rejects(fs.access(path.join(f.stateDirectory, 'PUBLISHED-MAIN.json')), { code: 'ENOENT' });
-  // --check only ever calls the confirmed-read-only VerifyStartup; the
-  // Pandas completion preview comes straight off disk (see runReadOnlyTail).
-  assert.deepEqual(f.nativeCalls, ['VerifyStartup']);
+  // --check and --execute call the identical native actions: both are
+  // confirmed read-only in the current state (both completion artifacts
+  // already exist), so --check never needs a separate disk-only path.
+  assert.deepEqual(f.nativeCalls, ['VerifyStartup', 'CompletePandasRotation']);
   f.nativeCalls.length = 0;
 
   const executed = await runTailReconcile({ check: false, config: f.config, knownBatch: f.knownBatch, loadNative: f.loadNative, runNativeStep: f.runNativeStep, fetchReady: f.fetchReady, now: fixedNow });
@@ -231,11 +244,25 @@ test('--check produces a preview byte-identical to --execute (timestamps exclude
   const writtenCatalog = JSON.parse(await fs.readFile(path.join(f.stateDirectory, 'PUBLISHED-MAIN.json'), 'utf8'));
 
   // With the clock pinned, the preview must be byte-identical to what was
-  // actually written, including derived fields like receiptSha256. This
-  // holds only because the fixture's native CompletePandasRotation call and
-  // its on-disk completion record describe the identical real outcome.
+  // actually written, including derived fields like receiptSha256.
   assert.deepEqual(checked.successPreview, writtenSuccess);
   assert.deepEqual(checked.catalogPreview, writtenCatalog);
+});
+
+test('refuses outright when the Windows Pandas completion artifact does not exist yet (never the first writer)', async (t) => {
+  const f = await fixture(t);
+  const completionFile = path.join(f.config.djangoRuntimeRoot, 'run', 'pandas-rotation-' + f.knownBatch.pandasRegisteredPlanSha256 + '.complete.json');
+  await fs.rm(completionFile);
+  await assert.rejects(
+    runTailReconcile({ check: true, config: f.config, knownBatch: f.knownBatch, loadNative: f.loadNative, runNativeStep: f.runNativeStep, fetchReady: f.fetchReady }),
+    /Pandas完成回执尚不存在/,
+  );
+  assert.deepEqual(f.nativeCalls, [], '完成回执不存在时不得调用任何原生步骤');
+  await assert.rejects(
+    runTailReconcile({ check: false, config: f.config, knownBatch: f.knownBatch, loadNative: f.loadNative, runNativeStep: f.runNativeStep, fetchReady: f.fetchReady }),
+    /Pandas完成回执尚不存在/,
+  );
+  await assert.rejects(fs.access(path.join(f.attemptRoot, 'SUCCESS.json')), { code: 'ENOENT' });
 });
 
 test('already-completed: a second run neither re-runs native steps nor rewrites files', async (t) => {
@@ -298,6 +325,35 @@ test('an unready live service is rejected with zero writes', async (t) => {
   await assert.rejects(fs.access(path.join(f.attemptRoot, 'SUCCESS.json')), { code: 'ENOENT' });
 });
 
+test('a CompletePandasRotation result with a tampered intentSha256 is rejected by the REAL verifyPandasCompletion, zero writes', async (t) => {
+  const f = await fixture(t);
+  const runNativeStep = async ({ action, ...rest }) => {
+    const result = await f.runNativeStep({ action, ...rest });
+    if (action === 'CompletePandasRotation') return { ...result, intentSha256: 'f'.repeat(63) + '0' };
+    return result;
+  };
+  // This must fail inside the real, imported publish-main-pandas.mjs
+  // verifyPandasCompletion itself (its intentSha256 equality check), not
+  // inside this tool's own narrower checks - proving the full real
+  // verification function actually runs and actually checks this field.
+  await assert.rejects(
+    runTailReconcile({ check: false, config: f.config, knownBatch: f.knownBatch, loadNative: f.loadNative, runNativeStep, fetchReady: f.fetchReady }),
+    (error) => error.stack.includes('publish-main-pandas.mjs'),
+  );
+  await assert.rejects(fs.access(path.join(f.attemptRoot, 'SUCCESS.json')), { code: 'ENOENT' });
+});
+
+test('a CompletePandasRotation result whose startupReceiptSha256 does not match the real startup file on disk is rejected, zero writes', async (t) => {
+  const f = await fixture(t);
+  const runNativeStep = async ({ action, ...rest }) => {
+    const result = await f.runNativeStep({ action, ...rest });
+    if (action === 'CompletePandasRotation') return { ...result, startupReceiptSha256: '0'.repeat(64) };
+    return result;
+  };
+  await assert.rejects(runTailReconcile({ check: false, config: f.config, knownBatch: f.knownBatch, loadNative: f.loadNative, runNativeStep, fetchReady: f.fetchReady }));
+  await assert.rejects(fs.access(path.join(f.attemptRoot, 'SUCCESS.json')), { code: 'ENOENT' });
+});
+
 test('an existing PUBLISHED-MAIN.json is backed up before being replaced', async (t) => {
   const f = await fixture(t);
   const oldCatalog = { mainCommit: '0'.repeat(40), note: 'stale 11-07 catalog' };
@@ -307,6 +363,56 @@ test('an existing PUBLISHED-MAIN.json is backed up before being replaced', async
   assert.deepEqual(backup, oldCatalog);
   const newCatalog = JSON.parse(await fs.readFile(path.join(f.stateDirectory, 'PUBLISHED-MAIN.json'), 'utf8'));
   assert.equal(newCatalog.mainCommit, f.mainCommit);
+});
+
+test('drift between SUCCESS.json and the catalog write aborts before the catalog; SUCCESS stays; a rerun reports catalogMatches:false with advice', async (t) => {
+  const f = await fixture(t);
+  // The live Worker release drifts to something else exactly between
+  // runReadOnlyTail's own observation and the post-SUCCESS re-check: the
+  // fixture's resolveEffectiveReleaseChain answers correctly for the first
+  // call (inside runReadOnlyTail) and reports a different release from the
+  // second call onward (the post-SUCCESS re-check in runTailReconcile).
+  let calls = 0;
+  const driftingLoadNative = async (config) => {
+    const native = await f.loadNative(config);
+    return {
+      ...native,
+      rotation: {
+        ...native.rotation,
+        resolveEffectiveReleaseChain: async () => {
+          calls += 1;
+          if (calls === 1) return { head: { releaseId: f.workerReleaseId, manifestSha256: f.workerManifestSha256 } };
+          return { head: { releaseId: 'some-other-release', manifestSha256: '0'.repeat(64) } };
+        },
+      },
+    };
+  };
+
+  await assert.rejects(
+    runTailReconcile({ check: false, config: f.config, knownBatch: f.knownBatch, loadNative: driftingLoadNative, runNativeStep: f.runNativeStep, fetchReady: f.fetchReady }),
+    /目标版本在写入catalog前已变化/,
+  );
+  // SUCCESS.json was written and stays; the catalog was never written.
+  const success = JSON.parse(await fs.readFile(path.join(f.attemptRoot, 'SUCCESS.json'), 'utf8'));
+  assert.equal(success.mainCommit, f.mainCommit);
+  await assert.rejects(fs.access(path.join(f.stateDirectory, 'PUBLISHED-MAIN.json')), { code: 'ENOENT' });
+
+  // A rerun (even with the live system back to normal / using the original,
+  // non-drifting native loader) must not try to finish the job itself: it
+  // reports already-completed with catalogMatches:false and tells the
+  // operator what to check and that this tool will not auto-write the catalog.
+  const rerun = await runTailReconcile({ check: false, config: f.config, knownBatch: f.knownBatch, loadNative: f.loadNative, runNativeStep: f.runNativeStep, fetchReady: f.fetchReady });
+  assert.equal(rerun.status, 'already-completed');
+  assert.equal(rerun.productionExecuted, false);
+  assert.equal(rerun.catalogMatches, false);
+  assert.equal(rerun.receiptPath, path.join(f.attemptRoot, 'SUCCESS.json'));
+  assert.ok(typeof rerun.advice === 'string' && rerun.advice.length > 0);
+  assert.match(rerun.advice, /人工核对/);
+  await assert.rejects(fs.access(path.join(f.stateDirectory, 'PUBLISHED-MAIN.json')), { code: 'ENOENT' }, '已完成分支绝不应自己补写catalog');
+
+  const rerunChecked = await runTailReconcile({ check: true, config: f.config, knownBatch: f.knownBatch, loadNative: f.loadNative, runNativeStep: f.runNativeStep, fetchReady: f.fetchReady });
+  assert.equal(rerunChecked.status, 'already-completed');
+  assert.equal(rerunChecked.catalogMatches, false);
 });
 
 // --- Cross-check against the REAL readLivePublication and the REAL
