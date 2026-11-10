@@ -285,6 +285,57 @@ test('recover(): a native failure on the second (recovery) call stops in place, 
   await cleanup(runtimeRoot, installedToolsRoot, evidenceDirectory, failedReceiptPath);
 });
 
+test('recover(): a process_timeout on the recovery call writes UNKNOWN.json (never FAILED.json), tells the operator not to rerun --execute, and still refuses to retry', async () => {
+  const deploymentBytes = Buffer.from('synthetic-deployment-manifest-unknown');
+  const aiScriptBytes = Buffer.from('synthetic-django-ai-script-unknown');
+  const failedReceiptBytes = Buffer.from(JSON.stringify({phase: '启动服务', maintenanceStarted: true}));
+  const known = makeSyntheticKnown({deploymentBytes, aiScriptBytes, failedReceiptBytes});
+  const {runtimeRoot, installedToolsRoot} = await makeRuntime({deploymentBytes, aiScriptBytes});
+  const evidenceDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'teruisi-pandas-recovery-evidence-'));
+  const failedReceiptPath = await fs.mkdtemp(path.join(os.tmpdir(), 'teruisi-pandas-recovery-failed-'));
+  const failedReceiptFile = path.join(failedReceiptPath, 'FAILED.json');
+  await fs.writeFile(failedReceiptFile, failedReceiptBytes);
+
+  let calls = 0;
+  const run = async () => {
+    calls += 1;
+    if (calls === 1) return extractReply('# extracted');
+    // Simulates the real runPowerShell5Script's process_timeout classification:
+    // Start-PandasSandbox may have already started the keepalive and written
+    // its own receipts; this invocation simply never observed the exit.
+    const err = new Error('manual-pandas-startup-recovery超时：process_timeout');
+    err.unknownOutcome = true;
+    err.processEvidence = {version: 1, code: 'process_timeout', stage: 'output'};
+    throw err;
+  };
+
+  await assert.rejects(
+    recover({runtimeRoot, installedToolsRoot, evidenceDirectory, check: false, run, probeRotationLock: async () => false, known, failedReceiptPath: failedReceiptFile}),
+    error => {
+      assert.equal(error.status, 'unknown');
+      assert.equal(error.processEvidence.code, 'process_timeout');
+      return true;
+    },
+  );
+  assert.equal(calls, 2, 'must stop after the one timed-out call, never retry');
+  const evidenceFiles = (await fs.readdir(evidenceDirectory)).sort();
+  assert.deepEqual(evidenceFiles, ['01-preconditions.json', '02-extract-script.ps1.txt', '03-closure.json', '04-extracted-functions.ps1.txt', '05-recovery-script.ps1.txt', 'UNKNOWN.json']);
+  assert.ok(!evidenceFiles.includes('FAILED.json'), 'a timeout must never be recorded as FAILED');
+  assert.ok(!evidenceFiles.includes('SUCCESS.json') && !evidenceFiles.includes('CHECKED.json'));
+  const unknown = JSON.parse(await fs.readFile(path.join(evidenceDirectory, 'UNKNOWN.json'), 'utf8'));
+  assert.equal(unknown.status, 'unknown');
+  assert.match(unknown.reason, /禁止据此重跑 --execute/);
+  assert.match(unknown.reason, /startup-attempt/);
+  assert.match(unknown.reason, /launcher\.jsonl/);
+
+  // Calling recover() again must still refuse to overwrite the preserved evidence.
+  await assert.rejects(
+    recover({runtimeRoot, installedToolsRoot, evidenceDirectory, check: false, run, probeRotationLock: async () => false, known, failedReceiptPath: failedReceiptFile}),
+    /EEXIST|exist/i,
+  );
+  await cleanup(runtimeRoot, installedToolsRoot, evidenceDirectory, failedReceiptPath);
+});
+
 test('buildExtractScript: asserts the exact function-name inventory, computes and asserts the transitive closure, and prints them in the requested order', () => {
   const script = buildExtractScript('C:/fake/django-ai.ps1', ['Start-PandasSandbox', 'Complete-PandasRotation']);
   assert.match(script, /ParseFile\('C:\/fake\/django-ai\.ps1'/);

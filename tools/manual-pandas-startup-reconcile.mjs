@@ -64,6 +64,26 @@
  * in tests/manual-pandas-startup-reconcile-real-closure.test.mjs, which
  * runs this exact validation against the real installed production files
  * with no PowerShell mocking.
+ *
+ * Process spawning (see runPowerShell5Script): the actual --execute branch
+ * (Start-PandasSandbox) launches a long-lived grandchild -- the WSL
+ * keepalive, via Start-ManagedProcess's Start-Process
+ * -RedirectStandardOutput/-Error -- and on Windows that grandchild inherits
+ * every currently-inheritable handle in this driver's own PowerShell
+ * process, including a pipe-based stdout/stderr given to it by a plain
+ * node:child_process spawn. A pipe-based runner (execFile/spawn with
+ * stdio:'pipe') then never observes EOF until the grandchild itself exits,
+ * so it only ever settles via its own timeout, misreporting a possibly-
+ * successful startup as a hard failure. This driver instead runs every
+ * script through the real tools/worker-local-release.mjs runProcess
+ * (imported from the given frozen source), with
+ * outputProtocol:'direct-exit-files' and cleanup:'preserve' -- the
+ * identical mechanism tools/manual-startup-reconcile.mjs:116 already uses
+ * for every native lifecycle step, which snapshots real files on the
+ * DIRECT child's own exit event rather than waiting on a pipe. On a
+ * genuine process_timeout, recover() writes UNKNOWN.json (never
+ * FAILED.json) and tells the operator to consult the real run/ receipts,
+ * never to rerun --execute.
  */
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -550,24 +570,66 @@ export function nativeInvocation(scriptPath){
 }
 
 /**
- * Writes scriptText to a create-only file (default: a temp file; recover()
- * passes an evidence-directory path instead, see saveEvidence) and runs it
- * under Windows PowerShell 5.1 via -File. The file is UTF-8 with BOM --
- * PS5.1 needs the BOM to read a script containing non-ASCII (Chinese) text
- * correctly without an explicit -Encoding flag on Get-Content-free -File
- * execution (unlike -EncodedCommand, which carried the encoding in the
- * payload itself).
+ * Runs the PS5.1 script via the real tools/worker-local-release.mjs
+ * runProcess, imported from the exact frozen source tree this publication
+ * built from (nativeToolsSource), with outputProtocol:'direct-exit-files'
+ * and cleanup:'preserve' -- identical to how tools/manual-startup-
+ * reconcile.mjs:116 already runs every native lifecycle step. This is not
+ * optional polish: node:child_process execFile/spawn with stdio:'pipe'
+ * waits for the pipe to close (EOF), and on Windows, .NET's Process.Start
+ * marks ALL of this process's currently-inheritable handles -- including
+ * Node's own stdout/stderr pipe write ends -- as inheritable to ANY further
+ * child it launches with redirection (Start-PandasSandbox's
+ * Start-ManagedProcess -> Start-Process -RedirectStandardOutput/-Error,
+ * launching the long-lived `wsl.exe ... sleep infinity` keepalive). The
+ * keepalive then holds Node's own pipe open indefinitely, so execFile never
+ * sees EOF and the promise only ever settles via Node's own `timeout` kill
+ * -- reproduced here: an execFile-based run of a PS5.1 script that spawns
+ * exactly that kind of detached, redirected grandchild and exits
+ * immediately itself still took the full configured timeout (observed:
+ * 15028ms against a 15000ms timeout) before resolving, even though the
+ * script's own stdout was written and the script itself exited in well
+ * under a second. The same script run through runProcess's
+ * direct-exit-files protocol (real file descriptors, snapshotted on the
+ * DIRECT child's own exit event, never waiting on a pipe) resolved in
+ * 373ms. See tests/manual-pandas-startup-reconcile-process-output.test.mjs.
+ *
+ * outputProtocol:'direct-exit-files' writes the output files under a fresh
+ * temp directory and deletes them once read (runProcess's own `finish`),
+ * independent of the evidence-directory script file this function also
+ * writes via scriptPath -- that file is cleanup:'preserve', i.e. kept, same
+ * as the precedent.
  */
-export async function runPowerShell5Script(scriptText,{timeoutMs=1800000,scriptPath}={}){
+export async function runPowerShell5Script(scriptText,{timeoutMs=1800000,scriptPath,nativeToolsSource=frozenSourceRoot,runProcess}={}){
   const ownScriptPath=scriptPath??path.join(os.tmpdir(),'teruisi-pandas-recovery-'+digest(Buffer.from(scriptText)).slice(0,16)+'.ps1');
   const bom=Buffer.from([0xef,0xbb,0xbf]);
   await fs.writeFile(ownScriptPath,Buffer.concat([bom,Buffer.from(scriptText,'utf8')]),scriptPath?{flag:'wx'}:undefined);
   const invocation=nativeInvocation(ownScriptPath);
+  if(!runProcess){
+    const api=await import(pathToFileURL(path.join(nativeToolsSource,'tools/worker-local-release.mjs')));
+    runProcess=api.runProcess;
+  }
   try{
-    return await execute(invocation.host,invocation.args,{encoding:'utf8',windowsHide:true,timeout:timeoutMs,maxBuffer:16*1024*1024,env:invocation.env});
+    const result=await runProcess(invocation.host,invocation.args,{
+      cwd:path.dirname(ownScriptPath),env:invocation.env,timeoutMs,
+      outputProtocol:'direct-exit-files',cleanup:'preserve',label:'manual-pandas-startup-recovery',
+    });
+    return {stdout:result.stdout,stderr:result.stderr,processEvidence:result.processEvidence};
   }catch(error){
+    // error.processEvidence.code distinguishes an UNKNOWN outcome
+    // (process_timeout: the script may have completed its work -- the real
+    // Start-PandasSandbox/Complete-PandasRotation function bodies may have
+    // already written startup-attempt/startup/complete receipts -- but this
+    // invocation never observed a clean exit) from an actually-failed one
+    // (nonzero_exit/spawn_failed/output_limit: the script itself reported
+    // failure or never ran). recover() below reports these differently and
+    // never automatically retries either one.
     const wrapped=Error('PowerShell 5.1 invocation failed: '+error.message);
-    wrapped.stdout=error.stdout;wrapped.stderr=error.stderr;wrapped.code=error.code;wrapped.killed=error.killed;wrapped.signal=error.signal;
+    wrapped.stdout=error.processEvidence?undefined:error.stdout;
+    wrapped.stderr=error.processEvidence?undefined:error.stderr;
+    wrapped.processEvidence=error.processEvidence??null;
+    wrapped.unknownOutcome=error.processEvidence?.code==='process_timeout';
+    if(error.rawOutput){wrapped.stdout=error.rawOutput.stdout.toString('utf8');wrapped.stderr=error.rawOutput.stderr.toString('utf8');}
     throw wrapped;
   }finally{
     if(!scriptPath)await fs.unlink(ownScriptPath).catch(()=>{});
@@ -591,12 +653,18 @@ export async function saveEvidence(directory,name,value){
 export const originalAttemptDirectory='D:/codex-isolated/main-release-packages/c7604df99c55-d5a6a3fb-06d27651-r2/publish-c7604df99c55';
 export const originalFailedReceiptPath=originalAttemptDirectory+'/FAILED.json';
 
-export async function recover({runtimeRoot,installedToolsRoot,nativeToolsSource,evidenceDirectory,check=false,run=runPowerShell5Script,probeRotationLock,known=knownPandasStartup,failedReceiptPath=originalFailedReceiptPath}={}){
+export async function recover({runtimeRoot,installedToolsRoot,nativeToolsSource,evidenceDirectory,check=false,run,probeRotationLock,known=knownPandasStartup,failedReceiptPath=originalFailedReceiptPath}={}){
   const k=known;
   if(!probeRotationLock){
     const publisher=await import(pathToFileURL(path.join(nativeToolsSource,'tools/publish-latest-main.mjs')));
     probeRotationLock=publisher.probeRotationLock;
   }
+  // Default run() goes through the real runProcess (direct-exit-files), the
+  // same frozen-source tree nativeToolsSource already points at, so it is
+  // immune to the inherited-handle pipe hang Start-PandasSandbox's keepalive
+  // triggers under a plain execFile/pipe-based runner. Tests inject their
+  // own `run` to avoid spawning real PowerShell.
+  if(!run)run=(scriptText,options)=>runPowerShell5Script(scriptText,{...options,nativeToolsSource});
   const preconditions=await verifyPreconditions({runtimeRoot,installedToolsRoot,probeRotationLock,known});
   await saveEvidence(evidenceDirectory,'01-preconditions.json',{at:new Date().toISOString(),check,...preconditions});
   if(!preconditions.ok){
@@ -625,7 +693,25 @@ export async function recover({runtimeRoot,installedToolsRoot,nativeToolsSource,
     await saveEvidence(evidenceDirectory,check?'06-check-stdout.json':'06-recovery-stdout.json',execResult.stdout);
     result=lastJsonLine(execResult.stdout);
   }catch(error){
-    await saveEvidence(evidenceDirectory,'FAILED.json',{at:new Date().toISOString(),check,error:String(error.message).slice(0,4000),stdout:String(error.stdout??'').slice(0,4000),stderr:String(error.stderr??'').slice(0,4000)});
+    // process_timeout (unknownOutcome) means this invocation never observed
+    // the script's own exit -- the real Start-PandasSandbox/Complete-
+    // PandasRotation bodies may have already run to completion and written
+    // their own startup-attempt/startup/complete receipts under run/; those
+    // receipts, not this invocation's exit status, are the source of truth.
+    // Writing this as FAILED would be actively wrong: it would read as
+    // "nothing happened, safe to retry" when the opposite may be true.
+    // UNKNOWN.json never authorizes a retry; the operator must inspect the
+    // real run/ receipts (and launcher.jsonl) before deciding anything.
+    if(error.unknownOutcome){
+      await saveEvidence(evidenceDirectory,'UNKNOWN.json',{at:new Date().toISOString(),check,status:'unknown',
+        reason:'PowerShell未在超时内观察到脚本自身退出（原生 direct-exit-files 协议下仍超时）；Start-PandasSandbox/Complete-PandasRotation 的真实结果未知，可能已完整执行。禁止据此重跑 --execute；请先检查 run/ 下 pandas-rotation-<plan>.startup-attempt.json / .startup.json / .complete.json 及 launcher.jsonl，以这些原生回执为唯一依据判断下一步。',
+        processEvidence:error.processEvidence,error:String(error.message).slice(0,4000),
+        stdout:String(error.stdout??'').slice(0,4000),stderr:String(error.stderr??'').slice(0,4000)});
+      const unknownError=Error('恢复结果未知（process_timeout）：'+error.message);
+      unknownError.status='unknown';unknownError.processEvidence=error.processEvidence;
+      throw unknownError;
+    }
+    await saveEvidence(evidenceDirectory,'FAILED.json',{at:new Date().toISOString(),check,error:String(error.message).slice(0,4000),processEvidence:error.processEvidence??null,stdout:String(error.stdout??'').slice(0,4000),stderr:String(error.stderr??'').slice(0,4000)});
     throw error;
   }
   assert.equal(result.version,k.version,'恢复脚本返回版本不符');
