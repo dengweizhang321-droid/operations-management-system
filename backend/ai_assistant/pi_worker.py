@@ -485,6 +485,35 @@ def finish_unstarted_compact(operation):
         return True
 
 
+def _create_with_reclaim_retry(op, payload):
+    """Dispatch create; on a signed, side-effect-free session_limit rejection,
+    reclaim exactly one idle-longer-than-the-Runner-stop-timeout shell (never
+    this operation's own session) and retry create exactly once with a
+    different request id. Any other outcome -- no candidate, or the
+    candidate itself not reclaimable -- falls straight through to the
+    original rejection, so fail_before_prompt's existing capacity judgment
+    (keyed on the first, unmodified request_id="create" dispatch) still
+    reaches the caller unchanged.
+    """
+    from django.utils import timezone
+    from . import pi_transport
+    try:
+        return runner_dispatch(op, "create", payload)
+    except pi_transport.SessionLimitRejected:
+        from . import pi_workspace
+        idle_since = timezone.now() - timedelta(seconds=1800)  # Runner's own idleSeconds stop timeout.
+        candidates = pi_workspace.idle_reclaim_candidates(idle_since=idle_since, limit=1, exclude_session_id=op.session_id)
+        reclaimed = False
+        if candidates:
+            try:
+                reclaimed = pi_workspace.reclaim_one_idle_session(candidates[0].id)
+            except Exception:
+                logging.getLogger(__name__).exception("pi create-retry: reclaim attempt failed for session %s", candidates[0].id)
+        if not reclaimed:
+            raise
+        return runner_dispatch(op, "create", payload, request_id="create:after-reclaim")
+
+
 def perform(op, stopped=None):
     from .pi_models import PiOperation, PiFile, PiSession, PiDispatch
     from .pi_gateway import freeze
@@ -513,8 +542,9 @@ def perform(op, stopped=None):
         from .pi_native import model_binding as native_model_binding
         model_binding = native_model_binding(model, payload.get("thinkingLevel", ""))
         version = selected[0].get("packageVersion", selected[0]["version"]) if selected else os.getenv("PI_SKILL_VERSION", "1.0.0")
-        created = runner_dispatch(op, "create", {"admission": native_admission(op), "gateway": gateway, "skillIds": payload["skillIds"], "skillVersion": version,
-            "model": model_binding, **({"compactControlId": payload["controlId"]} if op.kind == "workspace:compact" else {})})
+        create_payload = {"admission": native_admission(op), "gateway": gateway, "skillIds": payload["skillIds"], "skillVersion": version,
+            "model": model_binding, **({"compactControlId": payload["controlId"]} if op.kind == "workspace:compact" else {})}
+        created = _create_with_reclaim_retry(op, create_payload)
         advertised = created.get("skills", created.get("state", {}).get("skills", []))
         if selected:
             if any("packageVersion" in item for item in selected) and created.get("state", {}).get("skillVersion") != version:
@@ -736,6 +766,45 @@ def _export_loop(stopped):
             stopped.wait(.5)
 
 
+def reclaim_settings():
+    """Bounded, validated knobs for the periodic stopped-shell reclaim sweep."""
+    interval = int(os.getenv("PI_RECLAIM_SWEEP_SECONDS", "900"))
+    idle_seconds = int(os.getenv("PI_RECLAIM_IDLE_SECONDS", str(24 * 3600)))
+    limit = int(os.getenv("PI_RECLAIM_BATCH_LIMIT", "4"))
+    if not 60 <= interval <= 24 * 3600:
+        raise SystemExit("PI_RECLAIM_SWEEP_SECONDS out of bounds")
+    if not 300 <= idle_seconds <= 30 * 24 * 3600:
+        raise SystemExit("PI_RECLAIM_IDLE_SECONDS out of bounds")
+    if not 1 <= limit <= 32:
+        raise SystemExit("PI_RECLAIM_BATCH_LIMIT out of bounds")
+    return interval, idle_seconds, limit
+
+
+def reclaim_loop(stopped):
+    from django.db import connections
+    try:
+        return _reclaim_loop(stopped)
+    finally:
+        connections.close_all()
+
+
+def _reclaim_loop(stopped):
+    from django.db import close_old_connections
+    interval, idle_seconds, limit = reclaim_settings()
+    while not stopped.wait(interval):
+        close_old_connections()
+        if not ensure_loop_connection(stopped):
+            break
+        try:
+            from . import pi_workspace
+            reclaimed = pi_workspace.auto_reclaim_idle(idle_seconds=idle_seconds, limit=limit)
+            if reclaimed:
+                logging.getLogger(__name__).info("pi auto-reclaim swept %d stopped shell(s)", reclaimed)
+        except Exception:
+            # One bad sweep must never stop future sweeps or the queue worker.
+            logging.getLogger(__name__).exception("pi auto-reclaim sweep failed")
+
+
 def lifecycle_control(path, token, stopped):
     while not stopped.wait(.25):
         try:
@@ -782,6 +851,8 @@ def main():
         threading.Thread(target=lifecycle_control, args=(path, args.control_token, stopped), name="pi-lifecycle-control", daemon=True).start()
     thread = threading.Thread(target=export_loop, args=(stopped,), name="pi-export-queue", daemon=True)
     thread.start()
+    reclaim_thread = threading.Thread(target=reclaim_loop, args=(stopped,), name="pi-reclaim-sweep", daemon=True)
+    reclaim_thread.start()
     try:
         running = {}
         def execute_operation(operation):
@@ -815,6 +886,7 @@ def main():
     finally:
         stopped.set()
         thread.join(timeout=5)
+        reclaim_thread.join(timeout=5)
         for worker in running.values():
             worker.join(timeout=5)
         if any(worker.is_alive() for worker in running.values()):

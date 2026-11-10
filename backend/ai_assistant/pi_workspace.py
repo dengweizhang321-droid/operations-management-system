@@ -1017,6 +1017,99 @@ def reclaim_stopped(session_id, principal, *, request_id=None, expected=None):
     return {"control": control_record(row), "replayed": False}
 
 
+def _reclaim_principal(session):
+    from sales.auth import Principal
+    return Principal(session.owner_email, session.owner_email, session.actor_role, json.loads(session.scope_json))
+
+
+def _reclaim_request_id(session, shell):
+    # Deterministic per (session generation, exact observed shell): a retry of
+    # the same candidate with the same observed binding reuses the identical
+    # request id and therefore the exact-receipt replay path in
+    # reclaim_stopped; a changed shell (new container after a race) mints a
+    # different id instead of colliding with a stale one.
+    return "auto-reclaim-" + digest({"session": session.id, "generation": session.generation, **shell})[:56]
+
+
+def idle_reclaim_candidates(*, idle_since, limit, exclude_session_id=None):
+    """Idle sessions whose current-generation workspace may hold a stopped shell.
+
+    Ordered oldest-activity-first. This is a cheap pre-filter only: the real
+    eligibility and binding checks still happen inside reclaim_stopped.
+    """
+    sessions = PiSession.objects.filter(status="idle", active_operation_id="", updated_at__lt=idle_since)
+    if exclude_session_id is not None:
+        sessions = sessions.exclude(id=exclude_session_id)
+    sessions = sessions.order_by("updated_at", "id")[:max(limit, 1) * 4]
+    candidates = []
+    for session in sessions:
+        workspace = PiWorkspace.objects.filter(session=session, generation=session.generation, status__in=["ready", "paused"]).first()
+        if workspace:
+            candidates.append(session)
+        if len(candidates) >= limit:
+            break
+    return candidates
+
+
+def reclaim_one_idle_session(session_id):
+    """Observe, then apply, one exact stopped-shell reclaim for one session.
+
+    Returns True if a shell was reclaimed, False if this candidate is simply
+    not currently reclaimable (a known rejection from reclaim_stopped, e.g.
+    the shell is not actually stopped, the workspace has unresolved activity,
+    or it needs a local-restore image upgrade). Re-raises AiError only for
+    pi_reclaim_unknown: that result is never retried or routed around, and
+    the caller must stop sweeping rather than move on to another candidate.
+    """
+    session = PiSession.objects.get(pk=session_id)
+    principal = _reclaim_principal(session)
+    try:
+        observed = reclaim_stopped(session_id, principal)
+    except AiError as error:
+        logger.info("pi auto-reclaim: session %s not observable for reclaim (%s)", session_id, error.code)
+        return False
+    shell = observed["observed"]
+    expected = {key: shell[key] for key in ("containerId", "image", "volume", "lastSeq")}
+    request_id = _reclaim_request_id(session, expected)
+    try:
+        result = reclaim_stopped(session_id, principal, request_id=request_id, expected=expected)
+    except AiError as error:
+        logger.info("pi auto-reclaim: session %s reclaim not completed (%s)", session_id, error.code)
+        if error.code == "pi_reclaim_unknown":
+            raise
+        return False
+    return result["control"]["status"] == "completed"
+
+
+def auto_reclaim_idle(*, idle_seconds, limit):
+    """Periodic sweep: reclaim stopped shells held by long-idle sessions.
+
+    Each candidate is independent, oldest-idle first. A known rejection on
+    one candidate only skips it. An unknown result stops this sweep round
+    entirely -- it is never retried or replayed, including on the next sweep,
+    since the observe step for that same session will keep failing the same
+    way (eligible() requires every control to be in a terminal state first).
+    """
+    from django.utils import timezone
+    from datetime import timedelta
+    idle_since = timezone.now() - timedelta(seconds=idle_seconds)
+    reclaimed = 0
+    for session in idle_reclaim_candidates(idle_since=idle_since, limit=limit):
+        try:
+            if reclaim_one_idle_session(session.id):
+                reclaimed += 1
+        except AiError as error:
+            if error.code == "pi_reclaim_unknown":
+                logger.warning("pi auto-reclaim: session %s result unknown, stopping this sweep", session.id)
+                break
+            logger.exception("pi auto-reclaim: unexpected AiError on session %s", session.id)
+            break
+        except Exception:
+            logger.exception("pi auto-reclaim: unexpected error on session %s", session.id)
+            break
+    return reclaimed
+
+
 def _rotate(row, session, workspace, operation, principal):
     from . import pi_worker
     # No active/unknown operation or unresolved control can be bypassed by a
