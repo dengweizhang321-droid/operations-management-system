@@ -34,8 +34,36 @@ const noProgress={begin(){},complete(){},log(){},success(){}};
 // skip path: a resume still calls CompletePandasRotation once through
 // finishMainPublication exactly as a first attempt would.
 const tailLabels=['WorkerApply','退出维护','启动服务','确认启动版本','核验Pandas Broker原启动回执'];
+// Steps safe to allow stage() to reclassify from 'unknown' to the narrower
+// 'failed_known' state (started, no result, but a KNOWN clean failure —
+// re-executing the controller action is provably safe, not merely assumed
+// safe) — never WorkerApply, 退出维护, or any Pandas/Pi step:
+// - '启动服务' (worker-local-service.ps1 Start): Invoke-WorkerSystemStart
+//   (:1882-1928) re-running on a partially-started stack is safe because
+//   Ensure-DjangoSystemReady (:559-599) returns immediately if
+//   Get-DjangoSystemReadiness already reports Ready (:566-570, no restart),
+//   and otherwise re-invokes Invoke-DjangoStartProcess -> django-local-service.ps1
+//   Start, whose own domain starters (Start-Postgres :3343-3368,
+//   Start-DjangoReader :4180-4204, Start-AiWriter and siblings, all via the
+//   same Resolve-OwnedProcess pattern) each independently return early/false
+//   when that exact domain is already running rather than erroring — so a
+//   second Start only starts what is still missing. The Worker's own
+//   supervisor Start (:1888-1921) only reaches SupervisorStart if its own
+//   status is 'stopped' (it never started in the 11-10 failure, since the
+//   throw happened inside DjangoEnsure, before SupervisorStart), so it
+//   proceeds normally; if the Worker supervisor itself were already
+//   running (status 'exact_release'), Start already returns 'already_running'
+//   (:1898-1901) rather than erroring, confirming the real c7604df9
+//   diagnosis (前端 never reached DjangoEnsure a second time because the
+//   whole process exited) is not the only safe case.
+// - '确认启动版本' (worker-local-service.ps1 VerifyStartup): :2153-2159 only
+//   calls Test-StartupShortcutExact (a read of the Startup shortcut file)
+//   and writes its own result; no process is started, no file outside its
+//   own result is written. Repeating it performs the identical read twice.
+const failedKnownAllowlist=new Set(['启动服务','确认启动版本']);
+const originalDirectExitFailureEvidence={outputProtocol:'direct-exit-files',code:'nonzero_exit',timeoutType:null,signal:null,treeCleanupPending:false};
 
-async function stage(original,resumed,label,{raw=false}={}){
+async function stage(original,resumed,label,{raw=false,failedKnownEligible=false,originalFailure=null}={}){
  const records=[];
  for(const root of [original,resumed]){
   const started=path.join(root,label+'-started.json'),result=path.join(root,label+'-result.json');
@@ -50,7 +78,29 @@ async function stage(original,resumed,label,{raw=false}={}){
     assert.equal(processEvidence.timeoutType,null,'步骤超时：'+label);
    }
    records.push({state:'completed',value:raw?record:record.value,entry,root,processEvidence});
-  }else if(await exists(started))records.push({state:'unknown',entry:await read(started),root});
+  }else if(await exists(started)){
+   const entry=await read(started);
+   let failedKnown=false,processEvidence=null,processSha256=null;
+   if(failedKnownEligible&&failedKnownAllowlist.has(label)&&root===original){
+    // Only the ORIGINAL attempt dir's own -process.json/FAILED.json pair is
+    // ever consulted here, never a resumed/ copy: a resume never writes a
+    // -process.json for an unknown step in the first place (it would only
+    // ever get this far by not retrying it), so this is the one and only
+    // piece of durable native-engine evidence that could exist.
+    const processFile=path.join(root,label+'-process.json');
+    if(await exists(processFile)){
+     processEvidence=(await read(processFile)).processEvidence;
+     processSha256=await sha(processFile);
+     const shapeMatches=processEvidence&&Number.isInteger(processEvidence.exitCode)&&processEvidence.exitCode!==0&&
+      Object.entries(originalDirectExitFailureEvidence).every(([key,value])=>processEvidence[key]===value);
+     if(shapeMatches&&originalFailure?.phase===label&&originalFailure.maintenanceStarted===true&&
+       originalFailure.processEvidence?.processId===processEvidence.processId){
+      failedKnown=true;
+     }
+    }
+   }
+   records.push({state:failedKnown?'failed_known':'unknown',entry,root,...(failedKnown?{processEvidence,processSha256}:{})});
+  }
  }
  assert.ok(records.length<=1,'同一步骤存在重复执行记录：'+label);
  return records[0]??{state:'not_started'};
@@ -140,10 +190,22 @@ export async function inspectMainPublication(attempt,context){
  }
  assert.equal(path.resolve(deployed.entry.script),path.join(source,'tools/django-local-service.ps1'));assert.equal(deployed.entry.extra[deployed.entry.extra.indexOf('-PreparedAppId')+1],prepared.djangoPackage.id);assert.equal(deployed.entry.extra[deployed.entry.extra.indexOf('-PreparedAppSha256')+1],prepared.djangoPackage.receiptSha256);
  assert.equal(path.resolve(acl.entry.script),path.join(installed,'tools/django-local-service.ps1'));
- const steps={},completed={};let preceding=true;
- for(const label of tailLabels){
-  const record=await stage(out,resumed,label,{raw:label==='WorkerApply'});steps[label]=record;
+ // "is it the LAST attempted step (no later step has any record)": checked
+ // once up front, independent of stage()'s own per-label scan, since a
+ // later label's mere presence (even 'not_started' is fine; only an actual
+ // -started.json counts) disqualifies an earlier label's failed_known
+ // reclassification regardless of what that later label's own state is.
+ const hasAnyRecord=async label=>(await exists(path.join(out,label+'-started.json')))||(await exists(path.join(resumed,label+'-started.json')));
+ const steps={},completed={};let preceding=true,failedKnownLabel=null;
+ for(const[index,label]of tailLabels.entries()){
+  const isLastAttempted=!(await Promise.all(tailLabels.slice(index+1).map(hasAnyRecord))).some(Boolean);
+  const record=await stage(out,resumed,label,{raw:label==='WorkerApply',failedKnownEligible:isLastAttempted,originalFailure:failure});
+  steps[label]=record;
   assert.notEqual(record.state,'unknown','步骤已开始但结果未知，不能重放：'+label);
+  if(record.state==='failed_known'){
+   assert.equal(preceding,true,'发布步骤不连续：'+label);assert.equal(failedKnownLabel,null,'同一次续接只能有一个已知失败步骤');
+   failedKnownLabel={label,processSha256:record.processSha256};preceding=false;continue;
+  }
   if(record.state==='completed'){
    assert.equal(preceding,true,'发布步骤不连续：'+label);completed[label]=record.value;
    if(label==='WorkerApply'){
@@ -184,7 +246,7 @@ export async function inspectMainPublication(attempt,context){
   canResume=pi.status==='windows_complete'||pi.status==='reconcile_available'&&!reconciliationAttempted;
   if(completed.WorkerApply)assert.equal(pi.status,'windows_complete','Worker已切换但Pi升级未完成');
  }else canResume=true;
- return {status:canResume?'resumable':'blocked',canResume,reason:canResume?null:reconciliationAttempted?'original_reconciliation_already_started':pi.reason,mainCommit:request.mainCommit,source,out,resumed,request,prepared,started,identity,installed,runtime,pi,steps,completed,chain,pandasSwitchReceipt};
+ return {status:canResume?'resumable':'blocked',canResume,reason:canResume?null:reconciliationAttempted?'original_reconciliation_already_started':pi.reason,mainCommit:request.mainCommit,source,out,resumed,request,prepared,started,identity,installed,runtime,pi,steps,completed,chain,pandasSwitchReceipt,failedKnownLabel};
 }
 
 export async function resumeMainPublication(attempt,context){
@@ -206,11 +268,16 @@ export async function resumeMainPublication(attempt,context){
   }
   assert.equal(state.canResume,true,state.reason??'发布不具备受限续接条件');
   await context.beforeResume?.(state);
-  const {out,resumed,request,prepared,started,source,identity,installed,completed,pandasSwitchReceipt}=state;
+  const {out,resumed,request,prepared,started,source,identity,installed,completed,pandasSwitchReceipt,failedKnownLabel}=state;
   await fs.mkdir(path.join(resumed,'attempts'),{recursive:true});const invocation=path.join(resumed,'attempts',randomUUID().replaceAll('-',''));await fs.mkdir(invocation);
   const save=(name,value)=>fs.writeFile(path.join(resumed,name),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
   const originalStartedSha256=await sha(path.join(out,'STARTED.json')),originalFailureSha256=await sha(path.join(out,'FAILED.json'));
-  await fs.writeFile(path.join(invocation,'STARTED.json'),JSON.stringify({at:new Date().toISOString(),originalStartedSha256,originalFailureSha256,owner:await (context.captureOwner??capturePublicationOwner)(),mainCommit:request.mainCommit,maintenanceId:started.maintenanceId})+'\n',{flag:'wx'});
+  // Record which label (if any) this invocation is re-executing despite its
+  // original native-process attempt having failed with a known, clean,
+  // non-timeout nonzero exit, and that attempt's own -process.json digest —
+  // an audit trail of the one targeted exception to "unknown always rejects",
+  // not a general replay permission.
+  await fs.writeFile(path.join(invocation,'STARTED.json'),JSON.stringify({at:new Date().toISOString(),originalStartedSha256,originalFailureSha256,owner:await (context.captureOwner??capturePublicationOwner)(),mainCommit:request.mainCommit,maintenanceId:started.maintenanceId,...(failedKnownLabel?{failedKnownLabel:failedKnownLabel.label,failedKnownOriginalProcessSha256:failedKnownLabel.processSha256}:{})})+'\n',{flag:'wx'});
   const leaseFile=path.join(path.dirname(installed),'run/release-publication-lease.json');let ownLease=null,phase='Pi升级对账';const createdAt=new Date().toISOString();
   // A1's resume lease form is written only while this attempt actually has a
   // configured Pandas rotation: that is the only consumer
@@ -237,7 +304,13 @@ export async function resumeMainPublication(attempt,context){
    await refreshLease(phase);
    // R2: no Pi upgrade in this preparation -> skip reconcileMainPiUpgrade entirely.
    const upgrade=prepared.piRunnerUpgrade?await reconcileMainPiUpgrade({prepared:prepared.piRunnerUpgrade,installed,out:invocation,intentRoot:out,step:observeStep,requireReconcileDirectExit:!context.runStep}):null;
-   const result=await finishMainPublication({request,components:{worker:true,django:true},source,identity,installed,out:resumed,api,rotation,rotationLease,before:{head:request.predecessorWorker},plan:prepared.workerPlan,pkg:prepared.djangoPackage,djangoExpected:prepared.djangoManifestSha256,maintenanceId:started.maintenanceId,schema:null,schemaReceipt:null,piUpgradeReceipt:upgrade,pandasBrokerRotation:prepared.pandasBrokerRotation??null,pandasSwitchReceipt,step,save,sha:context.sha??sha,ready:context.ready,refreshLease,endLease,progress,phase:value=>{phase=value;},completed,receiptExtra:{manualRecovery:true,automatedPublisherSuccess:false,originalAttempt:out,originalStartedSha256,originalFailureSha256}});
+   // finishMainPublication's own internal Switch re-check must be told the
+   // ORIGINAL Switch owner's pid (this process is the continuation, never
+   // that owner); assert the receipt actually belongs to that owner before
+   // ever passing it in, so a tampered/foreign pandasSwitchReceipt cannot
+   // be laundered through by supplying a matching pid here.
+   if(pandasSwitchReceipt)assert.equal(pandasSwitchReceipt.publicationOwnerPid,started.publisherOwner.processId,'Pandas Switch回执owner与原发布owner不一致');
+   const result=await finishMainPublication({request,components:{worker:true,django:true},source,identity,installed,out:resumed,api,rotation,rotationLease,before:{head:request.predecessorWorker},plan:prepared.workerPlan,pkg:prepared.djangoPackage,djangoExpected:prepared.djangoManifestSha256,maintenanceId:started.maintenanceId,schema:null,schemaReceipt:null,piUpgradeReceipt:upgrade,pandasBrokerRotation:prepared.pandasBrokerRotation??null,pandasSwitchReceipt,pandasSwitchOwnerPid:started.publisherOwner.processId,step,save,sha:context.sha??sha,ready:context.ready,refreshLease,endLease,progress,phase:value=>{phase=value;},completed,receiptExtra:{manualRecovery:true,automatedPublisherSuccess:false,originalAttempt:out,originalStartedSha256,originalFailureSha256}});
    await context.publishCatalog(result,state);
    await fs.writeFile(path.join(invocation,'COMPLETED.json'),JSON.stringify({at:new Date().toISOString(),status:result.status,receiptPath:result.receiptPath,receiptSha256:await sha(result.receiptPath)})+'\n',{flag:'wx'});return result;
   }catch(error){await fs.writeFile(path.join(invocation,'FAILED.json'),JSON.stringify({at:new Date().toISOString(),phase,error:String(error.message).slice(0,1200),processEvidence:error.processEvidence??null,automaticReplay:false})+'\n',{flag:'wx'});throw error;}

@@ -96,30 +96,16 @@ async function copyFixture(t,realDirName){
  return root;
 }
 
-// KNOWN DISCREPANCY (reported, not resolved here — see delivery report):
-// the task brief and design draft both expect this exact real fixture
-// (SUCCESS.json/reconciliation/ stripped, nothing else touched) to return
-// 'resumable' with remaining steps 启动服务 -> 确认启动版本 -> 核验Pandas
-// Broker原启动回执. The real on-disk evidence for this attempt is:
-// 启动服务-started.json exists, 启动服务-result.json does NOT exist, and
+// Fix 1 (coordinator-reviewed): the real c7604df9 fixture's own
 // 启动服务-process.json independently proves a clean, non-timeout nonzero
-// exit (code:'nonzero_exit', exitCode:1, timeoutType:null) — i.e. the
-// native engine knows exactly what happened, just not success. stage()'s
-// current, UNCHANGED logic ("-started.json present, -result.json absent"
-// = state 'unknown') never consults -process.json to tell a known clean
-// failure apart from a true timeout/ambiguous one, so it classifies this
-// step as 'unknown', and the brief itself requires (in two places, verbatim)
-// that ANY unknown step reject resumption unconditionally — explicitly NOT
-// something this task is allowed to loosen. The real one-off recovery tool
-// (tools/c7604df9-tail-reconcile.mjs) resolved this by never replaying
-// Start at all: its own comments confirm the underlying service had
-// actually come up despite 启动服务's own ambiguous-looking exit code, and
-// it starts its remaining tail at VerifyStartup, skipping Start/'启动服务'
-// entirely — a per-step business judgment call this generic tailLabels
-// mechanism has no way to express. This test documents and pins the real,
-// verified, current (and brief-mandated) behavior — a rejection — rather
-// than the brief's unverified expectation of 'resumable'.
-test('c7604df9 real fixture: failed-at-启动服务 attempt is rejected because 启动服务 is unknown (started, no result) per the unchanged unknown-always-rejects rule',async t=>{
+// exit (outputProtocol:'direct-exit-files', code:'nonzero_exit', exitCode:1,
+// timeoutType:null, signal:null, treeCleanupPending:false) with a processId
+// matching FAILED.json's own processEvidence.processId, and FAILED.json's
+// phase is exactly '启动服务' with maintenanceStarted:true — the narrow
+// failed_known predicate in stage() (tools/publish-main-resume.mjs), scoped
+// to the allowlisted, independently-idempotent '启动服务'/'确认启动版本'
+// controller actions only. This test exercises the real fixture end to end.
+async function buildC7604df9Fixture(t,{corruptTimeout=false}={}){
  const root=await copyFixture(t,'c7604df99c55-d5a6a3fb-06d27651-r2');
  const out=path.join(root,'publish-c7604df99c55');
  // Restore pristine failure state: SUCCESS.json and reconciliation/ were
@@ -133,9 +119,19 @@ test('c7604df9 real fixture: failed-at-启动服务 attempt is rejected because 
  // fails loudly here instead of this test silently testing the wrong thing.
  assert.equal(await exists(path.join(out,'启动服务-started.json')),true);
  assert.equal(await exists(path.join(out,'启动服务-result.json')),false);
- const startedProcessEvidence=(await read(path.join(out,'启动服务-process.json'))).processEvidence;
- assert.equal(startedProcessEvidence.code,'nonzero_exit');
- assert.equal(startedProcessEvidence.timeoutType,null);
+ const processFile=path.join(out,'启动服务-process.json');
+ const processRecord=await read(processFile);
+ assert.equal(processRecord.processEvidence.code,'nonzero_exit');
+ assert.equal(processRecord.processEvidence.timeoutType,null);
+
+ if(corruptTimeout){
+  // Negative variant: the same fixture, but with this one evidence field
+  // changed so it reads as an ambiguous/timeout outcome instead of a known
+  // clean failure. Must stay 'unknown' and be refused, same as before Fix 1.
+  processRecord.processEvidence.timeoutType='direct-exit';
+  processRecord.processEvidence.code='process_timeout';
+  await fs.writeFile(processFile,JSON.stringify(processRecord,null,2)+'\n');
+ }
 
  const prepared=await read(path.join(out,'preparation/PREPARED.json'));
  const request=await read(path.join(root,'main-release-request.json'));
@@ -159,13 +155,42 @@ test('c7604df9 real fixture: failed-at-启动服务 attempt is rejected because 
    return sha(await fs.readFile(file));
   },
   assertRetired:async()=>{},
-  observePi:async()=>{throw Error('must not be called: inspectMainPublication rejects for 启动服务=unknown before reaching observePi')},
+  // This real attempt DOES have a piRunnerUpgrade (confirmed: Pi genuinely
+  // upgraded in the 11-10 run, before the Pandas switch and the later
+  // 启动服务 failure -- PiUpgrade-completed.json on disk proves it). R2 only
+  // skips observePi when piRunnerUpgrade is absent from PREPARED; it is
+  // present here, so observePi legitimately runs. Report the real,
+  // already-completed Pi state (windows_complete) rather than throwing.
+  observePi:async upgrade=>({registeredPlanSha256:upgrade.registeredPlanSha256,sourceSha256:upgrade.sourceSha256,image:upgrade.image,status:'windows_complete',postconditionsVerified:true}),
   api:{workerRuntimeRoot:runtime},transport:{},
   rotation:{
    assertActiveBatchOwnership:async()=>{},
-   resolveEffectiveReleaseChain:async()=>({head:{...request.predecessorWorker},chainStateSha256:started.predecessorChainStateSha256}),
+   // WorkerApply is 'completed' in this fixture (real 11-10 state: the
+   // front end had already switched before 启动服务 failed), so the live
+   // chain this mock reports must be the NEW candidate release, matching
+   // inspectMainPublication's own :231 check -- not the old predecessor.
+   resolveEffectiveReleaseChain:async()=>({head:{releaseId:prepared.workerPlan.candidateReleaseId,manifestSha256:prepared.workerPlan.candidateManifestSha256},chainStateSha256:started.predecessorChainStateSha256}),
   },
  };
+ return {out,prepared,context};
+}
+test('c7604df9 real fixture: failed-at-启动服务 is now resumable, with 启动服务 reclassified as failed_known and the exact expected remaining plan',async t=>{
+ const {out,prepared,context}=await buildC7604df9Fixture(t);
+ const result=await inspectMainPublication(out,context);
+ assert.equal(result.status,'resumable');
+ assert.equal(result.canResume,true);
+ assert.equal(result.steps['启动服务'].state,'failed_known');
+ assert.match(result.steps['启动服务'].processSha256,/^[a-f0-9]{64}$/);
+ assert.equal(result.failedKnownLabel.label,'启动服务');
+ assert.match(result.failedKnownLabel.processSha256,/^[a-f0-9]{64}$/);
+ const remaining=Object.entries(result.steps).filter(([,v])=>v.state!=='completed').map(([label])=>label);
+ assert.deepEqual(remaining,['启动服务','确认启动版本','核验Pandas Broker原启动回执']);
+ assert.equal(result.steps['WorkerApply'].state,'completed');
+ assert.equal(result.steps['退出维护'].state,'completed');
+ assert.equal(result.pandasSwitchReceipt.status,'switched_stopped');
+});
+test('c7604df9 real fixture negative: 启动服务-process.json read as a timeout/ambiguous outcome stays unknown and is refused',async t=>{
+ const {out,context}=await buildC7604df9Fixture(t,{corruptTimeout:true});
  await assert.rejects(inspectMainPublication(out,context),/步骤已开始但结果未知，不能重放：启动服务/);
 });
 
