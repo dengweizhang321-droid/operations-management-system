@@ -61,8 +61,17 @@ if(process.argv.includes('--check-only')){
 await fs.mkdir(target,{recursive:false});
 await fs.copyFile(path.join(root,'tools/manual-pandas-startup-reconcile.mjs'),path.join(target,'manual-pandas-startup-reconcile.mjs'));
 
-for(const [name,mode] of [['检查Pandas首启补完.bat','--check'],['执行Pandas首启补完.bat','--execute']]){
-  const evidenceDirectory=path.join(target,'evidence');
+// Each mode gets its own evidence subdirectory. saveEvidence's create-only
+// (flag:'wx') writes are exactly what gives the no-rerun guarantee its
+// teeth -- but that only works if --check's own run doesn't collide with
+// --execute's: both modes write "01-preconditions.json" as their very
+// first file, so sharing one directory would make the recommended
+// check-then-execute sequence throw EEXIST on --execute before it does
+// anything, blocking the real recovery. Separate directories keep the
+// create-only refusal scoped to "this exact mode already ran once",
+// which is the actual invariant being protected.
+for(const [name,mode,subdirectory] of [['检查Pandas首启补完.bat','--check','evidence-check'],['执行Pandas首启补完.bat','--execute','evidence-execute']]){
+  const evidenceDirectory=path.join(target,subdirectory);
   const bat='@echo off\r\nrem TERUISI c7604df9 Pandas startup recovery entry (one-off)\r\nsetlocal\r\nchcp 65001 >nul\r\n"'+process.execPath+'" "%~dp0'+kitName+'\\manual-pandas-startup-reconcile.mjs" '+mode+' --evidence-directory "'+evidenceDirectory.replaceAll('\\','\\\\')+'" %*\r\nset "recovery_exit=%errorlevel%"\r\necho.\r\nif /i not "%~1"=="--no-pause" pause\r\nexit /b %recovery_exit%\r\n';
   try{
     const old=await fs.readFile(path.join(state,name),'utf8');
