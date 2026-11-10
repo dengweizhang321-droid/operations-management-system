@@ -1,0 +1,748 @@
+/**
+ * One-off completion of the Pandas Broker "first startup" step for the
+ * c7604df9 publication. That publication finished every step through
+ * SwitchPandasRotation (Linux side is switched_stopped) and then failed at
+ * phase "启动服务" because its original publication-owner node.exe process
+ * (pid 66644) had already exited by the time Start-PandasSandbox ran, so
+ * Assert-PandasPublicationOwner (tools/django-ai.ps1:431-442) could not find
+ * a live owner and threw "Pandas rotation requires the original live
+ * publication owner".
+ *
+ * This module binds to exactly one plan hash, by exact value (see
+ * knownPandasStartup below), and refuses every other input. It is a ONE-TIME
+ * tool: it must never be reused for a different rotation or a different
+ * failure, and it carries no generic "resume" capability.
+ *
+ * It never writes to, or modifies the bytes of: app/tools/django-ai.ps1, the
+ * Worker release tree, any control bundle, any frozen publish package,
+ * app/deployment.json, or the WSL systemd unit. Its only writes are:
+ *  - the normal protocol receipts tools/django-ai.ps1 itself writes under
+ *    run/ for a Pandas startup (pandas-rotation-<plan>.startup-attempt.json,
+ *    .startup.json, .complete.json) -- these are written by the REAL,
+ *    unmodified Start-PandasSandbox / Complete-PandasRotation function
+ *    bodies, exactly as a successful live run would write them;
+ *  - the normal operational tools/django-ai.ps1 launcher.jsonl log entries,
+ *    again written by the real, unmodified Write-LauncherEvent;
+ *  - this tool's own evidence directory under D:/codex-isolated/
+ *    main-manual-release-20261016/recovery-c7604df99c55-<hash>/.
+ *
+ * Reuse strategy (see buildRecoveryScript): the real installed
+ * tools/django-local-service.ps1 is dot-sourced as a library
+ * (TERUISI_DJANGO_SERVICE_LIBRARY_ONLY=1, exactly as tools/django-ai.ps1
+ * itself does at its own top), so every call to a function that base
+ * library actually defines (Assert-RuntimeChildPath, Start-ManagedProcess,
+ * Invoke-BoundedNativeProcess, Assert-DeployedApplication,
+ * Assert-RuntimeAclHardened, ...) goes through the real, unmodified body.
+ * But several functions Start-PandasSandbox/Complete-PandasRotation need --
+ * Read-PandasConfig, Invoke-PandasProbe, Invoke-PandasSystemctl,
+ * Assert-AiRuntimeEntry -- are defined only in django-ai.ps1 itself, not the
+ * base library, so the base library alone is NOT a complete closure. This
+ * driver instead computes the exact transitive call closure of
+ * Start-PandasSandbox + Complete-PandasRotation inside django-ai.ps1's own
+ * AST (buildExtractScript's closure computation), asserts it equals the
+ * pinned extractedFunctionNames list below (so a future rename/removal
+ * refuses instead of silently extracting an incomplete set), and only then
+ * extracts every one of those function bodies byte for byte into the same
+ * PowerShell scope -- the identical byte-extraction mechanism already used
+ * (and reviewed) by tests/pandas-broker-rotation-startup-seam.test.ps1 for
+ * its private Linux fixture, just computed rather than hand-picked. The ONE
+ * function this driver defines itself, instead of extracting, is
+ * Assert-PandasPublicationOwner: see ownerSubstitutePowerShell for the
+ * exact, narrower predicate it substitutes and why each clause only narrows
+ * (never relaxes) the original gate.
+ *
+ * Both --check and --execute additionally prove the composition is
+ * complete, in the same process, with no side effects and before either
+ * ever touches the real pending rotation: after loading the library +
+ * substitute + extracted bodies, they walk every CommandAst inside the
+ * extracted bodies and assert each name resolves via Get-Command, and
+ * assert every django-ai.ps1-top-level script-scoped variable the closure
+ * reads (PandasConfigPath, PandasKeyPath, PandasPidPath, PandasWsl,
+ * PandasKeepaliveArguments) is defined and non-null. See
+ * buildClosureProofStatements, and buildClosureOnlyScript for the
+ * standalone variant that stops right there -- used by the real-file test
+ * in tests/manual-pandas-startup-reconcile-real-closure.test.mjs, which
+ * runs this exact validation against the real installed production files
+ * with no PowerShell mocking.
+ *
+ * Process spawning (see runPowerShell5Script): the actual --execute branch
+ * (Start-PandasSandbox) launches a long-lived grandchild -- the WSL
+ * keepalive, via Start-ManagedProcess's Start-Process
+ * -RedirectStandardOutput/-Error -- and on Windows that grandchild inherits
+ * every currently-inheritable handle in this driver's own PowerShell
+ * process, including a pipe-based stdout/stderr given to it by a plain
+ * node:child_process spawn. A pipe-based runner (execFile/spawn with
+ * stdio:'pipe') then never observes EOF until the grandchild itself exits,
+ * so it only ever settles via its own timeout, misreporting a possibly-
+ * successful startup as a hard failure. This driver instead runs every
+ * script through the real tools/worker-local-release.mjs runProcess
+ * (imported from the given frozen source), with
+ * outputProtocol:'direct-exit-files' and cleanup:'preserve' -- the
+ * identical mechanism tools/manual-startup-reconcile.mjs:116 already uses
+ * for every native lifecycle step, which snapshots real files on the
+ * DIRECT child's own exit event rather than waiting on a pipe. On a
+ * genuine process_timeout, recover() writes UNKNOWN.json (never
+ * FAILED.json) and tells the operator to consult the real run/ receipts,
+ * never to rerun --execute.
+ */
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {execFile} from 'node:child_process';
+import {promisify,parseArgs} from 'node:util';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+
+const execute=promisify(execFile),self=fileURLToPath(import.meta.url);
+const digest=raw=>createHash('sha256').update(raw).digest('hex');
+const exists=async file=>{try{await fs.access(file);return true;}catch(e){if(e.code==='ENOENT')return false;throw e;}};
+const hash=async file=>digest(await fs.readFile(file));
+
+/** Every identity this tool recognizes. Any mismatch anywhere refuses, zero writes. */
+export const knownPandasStartup=Object.freeze({
+  version:'manual-pandas-startup-recovery-c7604df9-v1',
+  mainCommit:'c7604df99c552dfaa770f46980aec266f1047b30',
+  maintenanceId:'8fb21f03834e44f3a428ce9c8a7c6acb',
+  planSha256:'3f52a62675e41ff328928beb1f2233e0a6b94fffef770210472944118926b36a',
+  preparedAppId:'914540fa742c45ef90afee54c0e1a48a',
+  preparedAppSha256:'0ec274d41fa3b382cb9b23a40a43a5232fa583c8a70021df015efd717e5099fe',
+  image:'sha256:b3b657aa2ff87fe3d8cef0bc26872a3f4253fafe82f839980c82edb64c01cffe',
+  sourceSha256:'2c8147c570e0cb6113837bafc045adfa6d70c8bcb1d4248583f6b65c6a367188',
+  predecessorSourceSha256:'3173042892d14e6edcf8465b8ea97e878f307e08fdb1c81d2752f82e03dcc610',
+  publicationOwnerPid:66644,
+  publicationOwnerCreationDate:'2026-11-10T08:49:47.0834050Z',
+  deploymentManifestSha256:'49ff2e8b97ec89f9fb7f51dc7fba72ec987f029ac3a799f57e7bade4d6dfbaa9',
+  djangoAiScriptSha256:'fb4358db6b99403e8b4d44d8a44d01803d11184b0567233725bf65b422d142b5',
+  failedReceiptSha256:'c4e1529896a3077bb09d89aaf5d0f27dd2900c4a6392c4c171dbea6485bca8d5',
+  startedReceiptSha256:'b7b23b5ae360c69efaecc970eba569c50bcd1de46391f522e54566ee962bb0eb',
+  pandasSwitchedReceiptSha256:'2da737cd250ad8c9acea67fc1c1d67a7cff8631e1c091a05fd0e9926b874f4c4',
+  maintenanceFirstActorSha256:'6b9550accf6bd1f1df2d5b11e3fd263d98080aad1413a4f2c2054414a5fc90ce',
+  preparedReceiptSha256:'7fb8aa85040c6adc9379393e2b52458227a8c00f301ce184b7cab0a7e52bfadb',
+});
+
+export const windowsPowerShell5='C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe';
+
+/**
+ * Function bodies extracted byte-for-byte from the installed
+ * tools/django-ai.ps1, in the order the real Start-PandasSandbox pending
+ * branch (django-ai.ps1:567-600) needs them available. Nothing here is
+ * retyped from memory -- the PowerShell AST parser pulls the exact source
+ * ranges, and extractScript below asserts the count matches so a renamed or
+ * removed function refuses instead of silently extracting fewer bodies.
+ */
+/**
+ * The exact transitive call closure of Start-PandasSandbox +
+ * Complete-PandasRotation inside the installed django-ai.ps1's own AST,
+ * excluding Assert-PandasPublicationOwner (substituted, never extracted).
+ * Computed once by walking every CommandAst inside each function body,
+ * following only names that are themselves FunctionDefinitionAst nodes in
+ * django-ai.ps1 (a call to a base-library or cmdlet name is left alone --
+ * those resolve through the real dot-sourced library or PowerShell itself),
+ * repeating until no new names are discovered. Verified against the real
+ * installed file on 2026-11-10 (see buildExtractScript below, which
+ * recomputes and asserts equality against this exact list every time it
+ * runs, so a renamed/removed/newly-dependent function refuses instead of
+ * silently extracting an incomplete set):
+ *   Assert-AiRuntimeEntry, Assert-PandasInstalledBinding,
+ *   Assert-PandasRotationBinding, Assert-SamePandasRotation,
+ *   Complete-PandasRotation, Get-PandasRotationPath,
+ *   Get-PendingPandasRotation, Invoke-PandasProbe,
+ *   Invoke-PandasRotationNative, Invoke-PandasSystemctl, Read-PandasConfig,
+ *   Read-PandasRotationJson, Start-PandasSandbox, Write-PandasRotationJson.
+ * Assert-RuntimeChildPath is correctly NOT in this list: it is defined only
+ * in the real installed tools/django-local-service.ps1 (the base library
+ * this driver dot-sources for real, see buildRecoveryScript), not in
+ * django-ai.ps1's own AST, so the closure walk (which only follows names
+ * that resolve to a django-ai.ps1 FunctionDefinitionAst) never adds it --
+ * the dot-sourced base library provides it directly.
+ */
+export const extractedFunctionNames=[
+  'Assert-AiRuntimeEntry','Assert-PandasInstalledBinding','Assert-PandasRotationBinding',
+  'Assert-SamePandasRotation','Complete-PandasRotation','Get-PandasRotationPath',
+  'Get-PendingPandasRotation','Invoke-PandasProbe','Invoke-PandasRotationNative',
+  'Invoke-PandasSystemctl','Read-PandasConfig','Read-PandasRotationJson',
+  'Start-PandasSandbox','Write-PandasRotationJson',
+];
+
+/**
+ * PowerShell fragment that AST-parses the installed django-ai.ps1, computes
+ * the real transitive call closure of `seeds` (following only names that
+ * are themselves FunctionDefinitionAst nodes in the same file), asserts the
+ * computed closure equals `names` exactly (sorted comparison; a mismatch in
+ * either direction -- new dependency discovered, or a pinned name that no
+ * longer appears -- refuses), and prints the exact concatenated source text
+ * of every closure member in the pinned order. Run once, read-only, before
+ * anything else -- its output is what the recovery script actually
+ * executes, and the computed closure is itself saved to evidence
+ * (02-closure.json) independently of the extracted text
+ * (03-extracted-functions.ps1.txt).
+ */
+export function buildExtractScript(installedAiScriptPath,names,{seeds=['Start-PandasSandbox','Complete-PandasRotation']}={}){
+  const list=names.map(n=>"'"+n+"'").join(',');
+  const seedList=seeds.map(n=>"'"+n+"'").join(',');
+  return [
+    "$ErrorActionPreference='Stop'",
+    // django-ai.ps1's own function bodies contain Chinese throw/Write-Output
+    // text. PS5.1's default console OutputEncoding is the system codepage
+    // (GB2312 on this machine), not UTF-8; without this, Node's
+    // execFile(...,{encoding:'utf8'}) would decode this process's actual
+    // stdout bytes incorrectly, corrupting the extracted function text
+    // before it is ever embedded into the recovery script.
+    "$utf8=[Text.UTF8Encoding]::new($false);[Console]::OutputEncoding=$utf8",
+    "$tokens=$null;$parseErrors=$null",
+    "$ast=[System.Management.Automation.Language.Parser]::ParseFile('"+installedAiScriptPath.replaceAll('\\','/')+"',[ref]$tokens,[ref]$parseErrors)",
+    "if($parseErrors.Count){throw 'Cannot parse installed AI controller'}",
+    "$allFunctions=@($ast.FindAll({param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst]},$true))",
+    "$byName=@{};foreach($fn in $allFunctions){$byName[$fn.Name]=$fn}",
+    "function Get-CalledNames([System.Management.Automation.Language.FunctionDefinitionAst]$fn) {",
+    "  $calls=@($fn.Body.FindAll({param($n) $n -is [System.Management.Automation.Language.CommandAst]},$true))",
+    "  $out=@()",
+    "  foreach($c in $calls){",
+    "    $e=$c.CommandElements[0]",
+    "    if($e -is [System.Management.Automation.Language.StringConstantExpressionAst]){$out+=$e.Value}",
+    "  }",
+    "  return $out",
+    "}",
+    "$seeds=@("+seedList+")",
+    "$closure=New-Object 'System.Collections.Generic.HashSet[string]'",
+    "$queue=New-Object 'System.Collections.Generic.Queue[string]'",
+    "foreach($s in $seeds){[void]$closure.Add($s);$queue.Enqueue($s)}",
+    "while($queue.Count -gt 0){",
+    "  $current=$queue.Dequeue()",
+    "  if(-not $byName.ContainsKey($current)){continue}",
+    "  foreach($called in (Get-CalledNames $byName[$current])){",
+    "    if($called -ceq 'Assert-PandasPublicationOwner'){continue}", // substituted, never extracted
+    "    if($byName.ContainsKey($called) -and -not $closure.Contains($called)){[void]$closure.Add($called);$queue.Enqueue($called)}",
+    "  }",
+    "}",
+    "$computed=@($closure | Sort-Object)",
+    "$expected=@("+list+" | Sort-Object)",
+    "if(($computed -join ',') -cne ($expected -join ',')){throw 'Installed controller transitive closure changed: expected ['+($expected -join ',')+'] computed ['+($computed -join ',')+']'}",
+    "$names=@("+list+")",
+    "$functions=@($ast.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -cin $names},$false))",
+    "if($functions.Count -ne $names.Count){throw 'Installed controller function inventory changed: expected '+$names.Count+' got '+$functions.Count}",
+    "$byExtentName=@{};foreach($fn in $functions){$byExtentName[$fn.Name]=$fn.Extent.Text}",
+    "$ordered=foreach($n in $names){$byExtentName[$n]}",
+    "$closureRecord=[ordered]@{version='pandas-closure-v1';seeds=$seeds;computed=$computed}",
+    "[Console]::Error.WriteLine(($closureRecord | ConvertTo-Json -Compress))",
+    "[Console]::Out.Write(($ordered -join \"`n`n\"))",
+  ].join('\n');
+}
+
+/**
+ * The one deliberate substitution for Assert-PandasPublicationOwner. Returns
+ * PowerShell source text (not JSON passed across a process boundary) so the
+ * check runs inside the SAME PowerShell process, under the SAME
+ * Invoke-WithServiceMutex lock, as Start-PandasSandbox / Complete-
+ * PandasRotation -- there is no gap where a concurrent real Start/Stop could
+ * observe a different state than what this predicate just verified.
+ *
+ * Original assertion (tools/django-ai.ps1:431-442), what it actually checks:
+ *  - release-publication-lease.json exists, is well-formed, matches
+ *    Binding.maintenanceId/sourceCommit, and owner.ProcessName is 'node', AND
+ *  - the recorded owner pid is alive with StartTime <= lease.createdAt, AND
+ *  - lease.expiresAt is still in the future.
+ *
+ * Substitute, every clause narrower, never looser:
+ *  1. The lease file must NOT exist (original tolerates it existing with a
+ *     live owner; this refuses outright rather than accept any lease state).
+ *  2. The recorded owner pid (66644) must be provably not the original live
+ *     process: either no process holds pid 66644 right now ('absent'), or
+ *     a process does but its CreationDate differs from the one captured at
+ *     publication time (2026-11-10T08:49:47.0834050Z) ('recycled' -- an
+ *     unrelated later process was assigned the same pid by the OS). Both
+ *     branches proceed, matching the brief's own criterion ("不存在，或存在但
+ *     creationDate 与记录不同"): only an EXACT CreationDate match throws,
+ *     because that is the one case that actually means the original process
+ *     is still alive. Which branch fired, and the observed CreationDate
+ *     when a process was found, are recorded for evidence
+ *     ($script:PandasOwnerSubstituteEvidence).
+ *  3. system-maintenance.json and automation-drain.json must both be absent
+ *     (original has no opinion on these at all).
+ *  4. FAILED.json for this exact publish attempt must hash to the one
+ *     recorded value, with phase=='启动服务' and maintenanceStarted==true
+ *     (original has no opinion on any prior failure at all).
+ *  5. Binding identity (preparedAppId/Sha256/plan/sourceCommit/maintenanceId
+ *     /ownerPid) must equal the one hard-coded plan this tool recognizes --
+ *     so this substitute can never fire for any other pending rotation.
+ * Any clause failing throws the same message family the original uses, and
+ * -- because this function body runs in place of the original inside the
+ * same process -- Start-PandasSandbox's surrounding try/catch treats it
+ * exactly like the original throwing: zero further writes that call makes.
+ *
+ * The Worker rotation lock (clause 6 in the brief) is checked separately, in
+ * Node, immediately before this PowerShell process is launched, by calling
+ * the publisher's own exported probeRotationLock() from
+ * tools/publish-latest-main.mjs -- the exact same probe --adopt-live uses --
+ * instead of re-implementing a second, hand-written named-pipe probe here.
+ * See verifyPreconditions.
+ */
+export function ownerSubstitutePowerShell({failedReceiptPath,known=knownPandasStartup}){
+  const k=known;
+  return [
+    "function Assert-PandasPublicationOwner([object]$Binding) {",
+    "  if ($Binding.preparedAppId -cne '"+k.preparedAppId+"' -or $Binding.preparedAppSha256 -cne '"+k.preparedAppSha256+"' -or",
+    "      $Binding.registeredPlanSha256 -cne '"+k.planSha256+"' -or $Binding.sourceCommit -cne '"+k.mainCommit+"' -or",
+    "      $Binding.maintenanceId -cne '"+k.maintenanceId+"' -or $Binding.publicationOwnerPid -ne "+k.publicationOwnerPid+") {",
+    "    throw 'Pandas rotation owner substitute is bound to a single known plan; this binding does not match it'",
+    "  }",
+    "  $leasePath = Join-Path $RunDirectory 'release-publication-lease.json'",
+    "  if (Test-Path -LiteralPath $leasePath) { throw 'Pandas rotation requires the original live publication owner (lease file still present)' }",
+    // Per the brief's own criterion: pid 66644 is disqualified as a live
+    // owner either because no process holds it right now (branch 'absent'),
+    // or because a process does hold it but its CreationDate differs from
+    // the one captured at publication time (branch 'recycled' -- the brief
+    // treats this the same as an exited original process, since the pid was
+    // reassigned to something else by the OS). Only an EXACT CreationDate
+    // match throws (the original process, still actually alive). Every
+    // branch taken is recorded into $script:PandasOwnerSubstituteEvidence so
+    // the caller can surface which one fired, and the observed
+    // CreationDate, in evidence.
+    "  $script:PandasOwnerSubstituteEvidence = [ordered]@{ownerBranch=$null; observedCreationDateIso=$null}",
+    "  $ownerAbsent = $false",
+    "  try {",
+    "    $owner = Get-Process -Id "+k.publicationOwnerPid+" -ErrorAction Stop",
+    "    $observedCreationDateIso = ([DateTimeOffset]$owner.StartTime.ToUniversalTime()).ToString('yyyy-MM-ddTHH:mm:ss.fffffffZ')",
+    "    $script:PandasOwnerSubstituteEvidence.observedCreationDateIso = $observedCreationDateIso",
+    "    $sameCreation = $observedCreationDateIso -ceq '"+k.publicationOwnerCreationDate+"'",
+    "    if ($sameCreation) { throw 'Pandas rotation requires the original live publication owner (recorded owner pid is still the same live process)' }",
+    "    $script:PandasOwnerSubstituteEvidence.ownerBranch = 'recycled'",
+    "  } catch [Microsoft.PowerShell.Commands.ProcessCommandException] { $ownerAbsent = $true; $script:PandasOwnerSubstituteEvidence.ownerBranch = 'absent' }",
+    "  if (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'run\\system-maintenance.json')) { throw 'Pandas rotation owner substitute refuses while system-maintenance.json is present' }",
+    "  if (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'run\\automation-drain.json')) { throw 'Pandas rotation owner substitute refuses while automation-drain.json is present' }",
+    "  $failedPath = '"+failedReceiptPath.replaceAll('\\','/')+"'",
+    "  if (-not (Test-Path -LiteralPath $failedPath -PathType Leaf)) { throw 'Pandas rotation owner substitute requires the original FAILED.json to still be present' }",
+    "  $failedBytes = [IO.File]::ReadAllBytes($failedPath)",
+    "  $failedHash = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($failedBytes)).Replace('-','').ToLowerInvariant()",
+    "  if ($failedHash -cne '"+k.failedReceiptSha256+"') { throw 'Pandas rotation owner substitute requires the exact known FAILED.json bytes' }",
+    "  $failed = [Text.Encoding]::UTF8.GetString($failedBytes) | ConvertFrom-Json",
+    "  if ($failed.phase -cne '启动服务' -or $failed.maintenanceStarted -ne $true) { throw 'Pandas rotation owner substitute requires phase=启动服务 and maintenanceStarted=true' }",
+    "}",
+  ].join('\n');
+}
+
+/**
+ * The other half of Start-PandasSandbox's pending-branch precondition
+ * (django-ai.ps1:561-563): "if a pending rotation exists and its startup
+ * receipt is missing, the original startup outcome is unknown; preserve it".
+ * That clause only fires when Resolve-OwnedProcess finds an existing owned
+ * keepalive -- i.e. it protects an *already running* unknown attempt. This
+ * tool's extra preconditions (checked in Node before the PowerShell process
+ * is even started) are the ones from the task brief's full list; see
+ * verifyPreconditions.
+ */
+export async function verifyPreconditions({runtimeRoot,installedToolsRoot,probeRotationLock,known=knownPandasStartup}){
+  const k=known,runDirectory=path.join(runtimeRoot,'run');
+  const problems=[];
+  const pendingPath=path.join(runDirectory,'pandas-rotation-'+k.planSha256+'.pending.json');
+  const startupAttemptPath=path.join(runDirectory,'pandas-rotation-'+k.planSha256+'.startup-attempt.json');
+  const startupPath=path.join(runDirectory,'pandas-rotation-'+k.planSha256+'.startup.json');
+  const completePath=path.join(runDirectory,'pandas-rotation-'+k.planSha256+'.complete.json');
+  const leasePath=path.join(runDirectory,'release-publication-lease.json');
+  const maintenancePath=path.join(runDirectory,'system-maintenance.json');
+  const drainPath=path.join(runDirectory,'automation-drain.json');
+  const pandasPidPath=path.join(runDirectory,'ai-pandas-wsl.pid.json');
+  if(!await exists(pendingPath))problems.push('pending记录缺失: '+pendingPath);
+  else{
+    const pending=JSON.parse(await fs.readFile(pendingPath,'utf8'));
+    for(const [field,expected] of [['preparedAppId',k.preparedAppId],['preparedAppSha256',k.preparedAppSha256],
+      ['registeredPlanSha256',k.planSha256],['sourceCommit',k.mainCommit],['maintenanceId',k.maintenanceId],
+      ['publicationOwnerPid',k.publicationOwnerPid]])
+      if(pending[field]!==expected)problems.push('pending.'+field+' 不符: 期望 '+expected+' 实际 '+pending[field]);
+  }
+  if(await exists(startupAttemptPath))problems.push('startup-attempt 记录已存在，不是全新待处理状态: '+startupAttemptPath);
+  if(await exists(startupPath))problems.push('startup 记录已存在，原启动可能已完成: '+startupPath);
+  if(await exists(completePath))problems.push('complete 记录已存在，原轮换可能已完成: '+completePath);
+  if(await exists(leasePath))problems.push('release-publication-lease.json 仍存在: '+leasePath);
+  if(await exists(maintenancePath))problems.push('system-maintenance.json 仍存在: '+maintenancePath);
+  if(await exists(drainPath))problems.push('automation-drain.json 仍存在: '+drainPath);
+  if(await exists(pandasPidPath))problems.push('ai-pandas-wsl.pid.json 仍存在，keepalive 可能仍在: '+pandasPidPath);
+  const deploymentPath=path.join(runtimeRoot,'app/deployment.json');
+  const aiScriptPath=path.join(installedToolsRoot,'django-ai.ps1');
+  if(!await exists(deploymentPath))problems.push('deployment.json 缺失: '+deploymentPath);
+  else if(await hash(deploymentPath)!==k.deploymentManifestSha256)problems.push('deployment.json 字节不符');
+  if(!await exists(aiScriptPath))problems.push('django-ai.ps1 缺失: '+aiScriptPath);
+  else if(await hash(aiScriptPath)!==k.djangoAiScriptSha256)problems.push('django-ai.ps1 字节不符');
+  // Same probe --adopt-live's own preflight uses (tools/publish-latest-main.mjs
+  // probeRotationLock), reused rather than re-implemented, so "is the Worker
+  // rotation lock held right now" has exactly one implementation in the repo.
+  const rotationLockHeld=await probeRotationLock();
+  if(rotationLockHeld)problems.push('Worker rotation lock 仍被持有，可能有发布或准备正在进行');
+  return {ok:problems.length===0,problems,rotationLockHeld,paths:{pendingPath,startupAttemptPath,startupPath,completePath,leasePath,maintenancePath,drainPath,pandasPidPath,deploymentPath,aiScriptPath}};
+}
+
+/**
+ * The common prefix every recovery script needs: load the real base
+ * library, re-declare the AI-domain path variables (copying
+ * tools/django-ai.ps1:75-80 verbatim, including the real $PandasDistribution
+ * expression so it reads whatever $NativeIsolation the dot-sourced library
+ * actually set, never a hard-coded literal), load the owner substitute, and
+ * load the extracted real function bodies. Returns PowerShell statements
+ * only -- no mutex, no Get-PendingPandasRotation, nothing that reads or
+ * touches the real pending rotation. $pgResult is left as an [ordered]
+ * hashtable the caller can keep adding to.
+ */
+function buildCompositionPrefix({runtimeRoot,installedToolsRoot,extractedFunctionsText,failedReceiptPath,known}){
+  return [
+    "$ErrorActionPreference='Stop'",
+    "$utf8=[Text.UTF8Encoding]::new($false);[Console]::OutputEncoding=$utf8",
+    "$PreviousLibraryOnly=[Environment]::GetEnvironmentVariable('TERUISI_DJANGO_SERVICE_LIBRARY_ONLY','Process')",
+    "try {",
+    "  $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1'",
+    "  . '"+path.join(installedToolsRoot,'django-local-service.ps1').replaceAll('\\','/')+"' -RuntimeRoot '"+runtimeRoot.replaceAll('\\','/')+"'",
+    "} finally {",
+    "  [Environment]::SetEnvironmentVariable('TERUISI_DJANGO_SERVICE_LIBRARY_ONLY',$PreviousLibraryOnly,'Process')",
+    "}",
+    // django-local-service.ps1 already dot-sources native-isolation.ps1 at
+    // its own top (its line 34), which sets the script-scoped $NativeIsolation
+    // this process now holds (read-only verified: null in real production,
+    // since no TERUISI_NATIVE_ISOLATION_* env vars are set -- and this
+    // driver's own nativeInvocation() scrubs them regardless). Re-declaring
+    // $PandasDistribution as a hard-coded literal would silently diverge the
+    // moment that ever changes; instead this copies tools/django-ai.ps1:79's
+    // exact expression, which reads the real $NativeIsolation already in scope.
+    "$PandasDistributionEvidence = if ($NativeIsolation) { 'isolated:' + $NativeIsolation.wslDistribution } else { 'null' }",
+    // Re-declare the remaining AI-domain path variables django-ai.ps1 defines
+    // at its own top (tools/django-ai.ps1:75-80), copied verbatim -- never
+    // paraphrased -- because the installed file only exposes these as
+    // private script-scope variables, not through an extractable function.
+    "$PandasConfigPath = Join-Path $RuntimeRoot 'config\\pandas-sandbox.json'",
+    "$PandasKeyPath = Join-Path $RuntimeRoot 'secrets\\pandas-sandbox.dpapi.json'",
+    "$PandasPidPath = Join-Path $RunDirectory 'ai-pandas-wsl.pid.json'",
+    "$PandasWsl = Join-Path $env:SystemRoot 'System32\\wsl.exe'",
+    "$PandasDistribution = if ($NativeIsolation) { $NativeIsolation.wslDistribution } else { 'TERUISI-Pandas' }",
+    "$PandasKeepaliveArguments = @('-d', $PandasDistribution, '-u', 'teruisi-pandas', '--exec', '/usr/bin/sleep', 'infinity')",
+    ownerSubstitutePowerShell({failedReceiptPath,known}),
+    extractedFunctionsText,
+  ].join('\n');
+}
+
+/**
+ * Proves the composition is complete, with no side effects: re-parses the
+ * just-loaded extracted bodies (the same text just dot-executed by
+ * buildCompositionPrefix, via a second, independent AST parse of its own
+ * source text) and walks every CommandAst inside them. Every resolvable
+ * name must resolve via Get-Command (function, cmdlet or application) --
+ * this is exactly what would have caught defect 1 (Read-PandasConfig/
+ * Invoke-PandasProbe/Invoke-PandasSystemctl/Assert-AiRuntimeEntry missing
+ * from the base library) before ever reaching Start-PandasSandbox. Also
+ * asserts every django-ai.ps1-top-level script-scoped variable the closure
+ * reads (PandasConfigPath/PandasKeyPath/PandasPidPath/PandasWsl/
+ * PandasKeepaliveArguments) is defined and non-null in this scope. Touches
+ * nothing under run/ and never calls Get-PendingPandasRotation.
+ */
+function buildClosureProofStatements(extractedFunctionsText){
+  return [
+    "$pgClosureTokens=$null;$pgClosureErrors=$null",
+    "$pgClosureAst=[System.Management.Automation.Language.Parser]::ParseInput(@'",
+    extractedFunctionsText,
+    "'@,[ref]$pgClosureTokens,[ref]$pgClosureErrors)",
+    "if($pgClosureErrors.Count){throw 'Extracted function text failed to re-parse for closure validation'}",
+    "$pgClosureFunctions=@($pgClosureAst.FindAll({param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst]},$false))",
+    "$pgUnresolved=@()",
+    "foreach($pgFn in $pgClosureFunctions){",
+    "  $pgCalls=@($pgFn.Body.FindAll({param($n) $n -is [System.Management.Automation.Language.CommandAst]},$true))",
+    "  foreach($pgCall in $pgCalls){",
+    "    $pgElement=$pgCall.CommandElements[0]",
+    "    if($pgElement -isnot [System.Management.Automation.Language.StringConstantExpressionAst]){continue}",
+    "    $pgName=$pgElement.Value",
+    "    if($pgName -ceq 'Assert-PandasPublicationOwner'){continue}", // the one deliberate substitute
+    "    if(-not (Get-Command -Name $pgName -ErrorAction SilentlyContinue)){$pgUnresolved+=$pgFn.Name+'->'+$pgName}",
+    "  }",
+    "}",
+    "if($pgUnresolved.Count){throw 'Unresolved command names in the extracted closure: '+($pgUnresolved -join '; ')}",
+    "$pgRequiredVariables=@('PandasConfigPath','PandasKeyPath','PandasPidPath','PandasWsl','PandasKeepaliveArguments')",
+    "$pgMissingVariables=@($pgRequiredVariables | Where-Object { $null -eq (Get-Variable -Name $_ -Scope Script -ValueOnly -ErrorAction SilentlyContinue) })",
+    "if($pgMissingVariables.Count){throw 'Required django-ai.ps1-scoped variables are undefined or null: '+($pgMissingVariables -join ',')}",
+    "$pgClosureProof = [ordered]@{resolvedCommandCount=0; checkedVariables=$pgRequiredVariables}",
+    "foreach($pgFn in $pgClosureFunctions){foreach($pgCall in @($pgFn.Body.FindAll({param($n) $n -is [System.Management.Automation.Language.CommandAst]},$true))){if($pgCall.CommandElements[0] -is [System.Management.Automation.Language.StringConstantExpressionAst]){$pgClosureProof.resolvedCommandCount++}}}",
+  ].join('\n');
+}
+
+/**
+ * The read-only, side-effect-free script defect 2 requires: load the
+ * composition, prove the closure resolves and every required variable is
+ * live, print the proof and $PandasDistributionEvidence, and STOP -- never
+ * calls Get-PendingPandasRotation, never enters Invoke-WithServiceMutex,
+ * never touches run/. Safe to run against the real installed files with no
+ * mocking at any time, including while a real Start/Stop might be running
+ * elsewhere, because it never contends for the same mutex.
+ */
+export function buildClosureOnlyScript({runtimeRoot,installedToolsRoot,extractedFunctionsText,failedReceiptPath,known=knownPandasStartup}){
+  const k=known;
+  return [
+    buildCompositionPrefix({runtimeRoot,installedToolsRoot,extractedFunctionsText,failedReceiptPath,known}),
+    buildClosureProofStatements(extractedFunctionsText),
+    "$pgResult = [ordered]@{version='"+k.version+"'; closureOnly=$true; pandasDistributionEvidence=$PandasDistributionEvidence; closureProof=$pgClosureProof}",
+    "[Console]::Out.WriteLine(($pgResult | ConvertTo-Json -Depth 8 -Compress))",
+  ].join('\n');
+}
+
+/**
+ * Full PowerShell 5.1 recovery script: the composition prefix above, then
+ * the same closure proof (so --check and --execute both independently catch
+ * an incomplete composition before touching the real pending rotation),
+ * then exactly Start-PandasSandbox followed by Complete-PandasRotation
+ * under the real Invoke-WithServiceMutex -- the identical mutex name the
+ * installed django-ai.ps1 Start/CompletePandasRotation actions use, so this
+ * process and a concurrent real controller invocation serialize against
+ * each other.
+ */
+export function buildRecoveryScript({runtimeRoot,installedToolsRoot,extractedFunctionsText,failedReceiptPath,check,known=knownPandasStartup}){
+  const k=known;
+  return [
+    buildCompositionPrefix({runtimeRoot,installedToolsRoot,extractedFunctionsText,failedReceiptPath,known}),
+    buildClosureProofStatements(extractedFunctionsText),
+    "$RequestedPandasRotation = [pscustomobject]@{",
+    "  preparedAppId='"+k.preparedAppId+"'; preparedAppSha256='"+k.preparedAppSha256+"'",
+    "  registeredPlanSha256='"+k.planSha256+"'; sourceCommit='"+k.mainCommit+"'",
+    "  maintenanceId='"+k.maintenanceId+"'; publicationOwnerPid="+k.publicationOwnerPid,
+    "}",
+    "$pgResult = [ordered]@{version='"+k.version+"'; check="+(check?'$true':'$false')+"; pandasDistributionEvidence=$PandasDistributionEvidence; closureProof=$pgClosureProof}",
+    // The real Start/CompletePandasRotation dispatch entries both run under
+    // Invoke-WithServiceMutex with $Action already set by the installed
+    // script's own param-binding (django-ai.ps1's bottom switch sets $Action
+    // from -Action before calling Start-AiStack/Complete-PandasRotation).
+    // Dot-sourcing the base library here with only -RuntimeRoot leaves
+    // $Action at its "Status" default, which would silently skip
+    // Assert-NoSystemMaintenance inside Invoke-WithServiceMutex. Setting it
+    // to 'Start' here is not a relaxation -- Assert-NoSystemMaintenance is
+    // already independently enforced by Assert-PandasPublicationOwner's own
+    // system-maintenance.json / automation-drain.json checks above -- it is
+    // only so the mutex wait/behaviour matches the real Start action exactly.
+    "$Action = 'Start'",
+    "Invoke-WithServiceMutex {",
+    "  $pending = Get-PendingPandasRotation",
+    "  if ($null -eq $pending) { throw 'No pending Pandas rotation found at execution time' }",
+    "  Assert-SamePandasRotation $pending $RequestedPandasRotation $true",
+    (check?[
+    "  $pgResult.pendingBinding = $pending",
+    "  Assert-PandasInstalledBinding $pending",
+    "  Assert-PandasPublicationOwner $pending",
+    "  $pgResult.ownerSubstituteWouldPass = $true",
+    "  $pgResult.ownerSubstituteEvidence = $script:PandasOwnerSubstituteEvidence",
+    ].join('\n'):[
+    "  $started = Start-PandasSandbox",
+    "  if ($started -ne $true) { throw 'Start-PandasSandbox did not report a fresh start (status unexpectedly already running or disabled)' }",
+    "  $pgResult.startResult = $started",
+    "  $pgResult.ownerSubstituteEvidence = $script:PandasOwnerSubstituteEvidence",
+    "  $completed = Complete-PandasRotation | ConvertFrom-Json",
+    "  $pgResult.completeResult = $completed",
+    ].join('\n')),
+    "}",
+    "[Console]::Out.WriteLine(($pgResult | ConvertTo-Json -Depth 8 -Compress))",
+  ].join('\n');
+}
+
+/**
+ * Scrubbed environment for PS5.1, matching the existing manual-startup-
+ * reconcile.mjs precedent's nativeCommand(): clears the library-only/native-
+ * isolation env vars so this process can never silently inherit one from
+ * the caller, and fixes PSModulePath to the built-in Windows PowerShell
+ * module directory only.
+ */
+export function nativeEnvironment(){
+  const env={...process.env};
+  for(const key of Object.keys(env))if(['PSMODULEPATH','TERUISI_DJANGO_SERVICE_LIBRARY_ONLY','TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY','TERUISI_NATIVE_ISOLATION_FILE','TERUISI_NATIVE_ISOLATION_SHA256'].includes(key.toUpperCase()))delete env[key];
+  env.PSModulePath='C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\Modules';
+  return env;
+}
+
+/**
+ * Build the `-File` invocation for PS5.1. The recovery/closure scripts
+ * embed the full extracted django-ai.ps1 function text (once to dot-execute
+ * it, once more to re-parse it for the closure proof), which is tens of
+ * kilobytes -- comfortably over the ~32KB practical limit Windows places on
+ * a single process's command-line arguments. `-EncodedCommand` with a
+ * base64 payload hits that limit (observed: ENAMETOOLONG on a ~32KB source
+ * script / ~87KB base64 payload against the real installed django-ai.ps1).
+ * `-File` has no such limit: the script is written to disk first (in the
+ * caller's own evidence directory, so it is inspectable and never silently
+ * reused -- see runPowerShell5Script) and PowerShell reads it directly.
+ */
+export function nativeInvocation(scriptPath){
+  return {
+    host:windowsPowerShell5,
+    args:['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',scriptPath],
+    env:nativeEnvironment(),
+  };
+}
+
+/**
+ * Runs the PS5.1 script via the real tools/worker-local-release.mjs
+ * runProcess, imported from the exact frozen source tree this publication
+ * built from (nativeToolsSource), with outputProtocol:'direct-exit-files'
+ * and cleanup:'preserve' -- identical to how tools/manual-startup-
+ * reconcile.mjs:116 already runs every native lifecycle step. This is not
+ * optional polish: node:child_process execFile/spawn with stdio:'pipe'
+ * waits for the pipe to close (EOF), and on Windows, .NET's Process.Start
+ * marks ALL of this process's currently-inheritable handles -- including
+ * Node's own stdout/stderr pipe write ends -- as inheritable to ANY further
+ * child it launches with redirection (Start-PandasSandbox's
+ * Start-ManagedProcess -> Start-Process -RedirectStandardOutput/-Error,
+ * launching the long-lived `wsl.exe ... sleep infinity` keepalive). The
+ * keepalive then holds Node's own pipe open indefinitely, so execFile never
+ * sees EOF and the promise only ever settles via Node's own `timeout` kill
+ * -- reproduced here: an execFile-based run of a PS5.1 script that spawns
+ * exactly that kind of detached, redirected grandchild and exits
+ * immediately itself still took the full configured timeout (observed:
+ * 15028ms against a 15000ms timeout) before resolving, even though the
+ * script's own stdout was written and the script itself exited in well
+ * under a second. The same script run through runProcess's
+ * direct-exit-files protocol (real file descriptors, snapshotted on the
+ * DIRECT child's own exit event, never waiting on a pipe) resolved in
+ * 373ms. See tests/manual-pandas-startup-reconcile-process-output.test.mjs.
+ *
+ * outputProtocol:'direct-exit-files' writes the output files under a fresh
+ * temp directory and deletes them once read (runProcess's own `finish`),
+ * independent of the evidence-directory script file this function also
+ * writes via scriptPath -- that file is cleanup:'preserve', i.e. kept, same
+ * as the precedent.
+ */
+export async function runPowerShell5Script(scriptText,{timeoutMs=1800000,scriptPath,nativeToolsSource=frozenSourceRoot,runProcess}={}){
+  const ownScriptPath=scriptPath??path.join(os.tmpdir(),'teruisi-pandas-recovery-'+digest(Buffer.from(scriptText)).slice(0,16)+'.ps1');
+  const bom=Buffer.from([0xef,0xbb,0xbf]);
+  await fs.writeFile(ownScriptPath,Buffer.concat([bom,Buffer.from(scriptText,'utf8')]),scriptPath?{flag:'wx'}:undefined);
+  const invocation=nativeInvocation(ownScriptPath);
+  if(!runProcess){
+    const api=await import(pathToFileURL(path.join(nativeToolsSource,'tools/worker-local-release.mjs')));
+    runProcess=api.runProcess;
+  }
+  try{
+    const result=await runProcess(invocation.host,invocation.args,{
+      cwd:path.dirname(ownScriptPath),env:invocation.env,timeoutMs,
+      outputProtocol:'direct-exit-files',cleanup:'preserve',label:'manual-pandas-startup-recovery',
+    });
+    return {stdout:result.stdout,stderr:result.stderr,processEvidence:result.processEvidence};
+  }catch(error){
+    // error.processEvidence.code distinguishes an UNKNOWN outcome
+    // (process_timeout: the script may have completed its work -- the real
+    // Start-PandasSandbox/Complete-PandasRotation function bodies may have
+    // already written startup-attempt/startup/complete receipts -- but this
+    // invocation never observed a clean exit) from an actually-failed one
+    // (nonzero_exit/spawn_failed/output_limit: the script itself reported
+    // failure or never ran). recover() below reports these differently and
+    // never automatically retries either one.
+    const wrapped=Error('PowerShell 5.1 invocation failed: '+error.message);
+    wrapped.stdout=error.processEvidence?undefined:error.stdout;
+    wrapped.stderr=error.processEvidence?undefined:error.stderr;
+    wrapped.processEvidence=error.processEvidence??null;
+    wrapped.unknownOutcome=error.processEvidence?.code==='process_timeout';
+    if(error.rawOutput){wrapped.stdout=error.rawOutput.stdout.toString('utf8');wrapped.stderr=error.rawOutput.stderr.toString('utf8');}
+    throw wrapped;
+  }finally{
+    if(!scriptPath)await fs.unlink(ownScriptPath).catch(()=>{});
+  }
+}
+
+export function lastJsonLine(stdout){
+  const line=String(stdout).trim().split(/\r?\n/).filter(text=>text.trim().startsWith('{')).at(-1);
+  assert.ok(line,'PowerShell脚本没有返回JSON结果');
+  return JSON.parse(line);
+}
+
+export async function saveEvidence(directory,name,value){
+  await fs.mkdir(directory,{recursive:true});
+  const bytes=typeof value==='string'?Buffer.from(value,'utf8'):Buffer.from(JSON.stringify(value,null,2)+'\n','utf8');
+  await fs.writeFile(path.join(directory,name),bytes,{flag:'wx'});
+  return digest(bytes);
+}
+
+/** The exact publish attempt directory and FAILED.json this tool is pinned to. */
+export const originalAttemptDirectory='D:/codex-isolated/main-release-packages/c7604df99c55-d5a6a3fb-06d27651-r2/publish-c7604df99c55';
+export const originalFailedReceiptPath=originalAttemptDirectory+'/FAILED.json';
+
+export async function recover({runtimeRoot,installedToolsRoot,nativeToolsSource,evidenceDirectory,check=false,run,probeRotationLock,known=knownPandasStartup,failedReceiptPath=originalFailedReceiptPath}={}){
+  const k=known;
+  if(!probeRotationLock){
+    const publisher=await import(pathToFileURL(path.join(nativeToolsSource,'tools/publish-latest-main.mjs')));
+    probeRotationLock=publisher.probeRotationLock;
+  }
+  // Default run() goes through the real runProcess (direct-exit-files), the
+  // same frozen-source tree nativeToolsSource already points at, so it is
+  // immune to the inherited-handle pipe hang Start-PandasSandbox's keepalive
+  // triggers under a plain execFile/pipe-based runner. Tests inject their
+  // own `run` to avoid spawning real PowerShell.
+  if(!run)run=(scriptText,options)=>runPowerShell5Script(scriptText,{...options,nativeToolsSource});
+  const preconditions=await verifyPreconditions({runtimeRoot,installedToolsRoot,probeRotationLock,known});
+  await saveEvidence(evidenceDirectory,'01-preconditions.json',{at:new Date().toISOString(),check,...preconditions});
+  if(!preconditions.ok){
+    return {status:'refused',reason:'preconditions_not_met',problems:preconditions.problems,productionExecuted:false};
+  }
+  const extractScript=buildExtractScript(preconditions.paths.aiScriptPath,extractedFunctionNames);
+  const extractScriptPath=path.join(evidenceDirectory,'02-extract-script.ps1');
+  await saveEvidence(evidenceDirectory,'02-extract-script.ps1.txt',extractScript);
+  const extracted=await run(extractScript,{scriptPath:extractScriptPath});
+  const closureLine=String(extracted.stderr??'').trim().split(/\r?\n/).filter(text=>text.trim().startsWith('{')).at(-1);
+  assert.ok(closureLine,'提取脚本没有返回计算出的闭包记录');
+  const closure=JSON.parse(closureLine);
+  assert.equal(closure.version,'pandas-closure-v1');
+  assert.deepEqual([...closure.computed].sort(),[...extractedFunctionNames].sort(),'实测闭包与本次驱动固定清单不符');
+  await saveEvidence(evidenceDirectory,'03-closure.json',{at:new Date().toISOString(),...closure});
+  await saveEvidence(evidenceDirectory,'04-extracted-functions.ps1.txt',extracted.stdout);
+  const recoveryScript=buildRecoveryScript({
+    runtimeRoot,installedToolsRoot,extractedFunctionsText:extracted.stdout,
+    failedReceiptPath,check,known,
+  });
+  const recoveryScriptPath=path.join(evidenceDirectory,check?'05-check-script.ps1':'05-recovery-script.ps1');
+  await saveEvidence(evidenceDirectory,check?'05-check-script.ps1.txt':'05-recovery-script.ps1.txt',recoveryScript);
+  let result;
+  try{
+    const execResult=await run(recoveryScript,{scriptPath:recoveryScriptPath});
+    await saveEvidence(evidenceDirectory,check?'06-check-stdout.json':'06-recovery-stdout.json',execResult.stdout);
+    result=lastJsonLine(execResult.stdout);
+  }catch(error){
+    // process_timeout (unknownOutcome) means this invocation never observed
+    // the script's own exit -- the real Start-PandasSandbox/Complete-
+    // PandasRotation bodies may have already run to completion and written
+    // their own startup-attempt/startup/complete receipts under run/; those
+    // receipts, not this invocation's exit status, are the source of truth.
+    // Writing this as FAILED would be actively wrong: it would read as
+    // "nothing happened, safe to retry" when the opposite may be true.
+    // UNKNOWN.json never authorizes a retry; the operator must inspect the
+    // real run/ receipts (and launcher.jsonl) before deciding anything.
+    if(error.unknownOutcome){
+      await saveEvidence(evidenceDirectory,'UNKNOWN.json',{at:new Date().toISOString(),check,status:'unknown',
+        reason:'PowerShell未在超时内观察到脚本自身退出（原生 direct-exit-files 协议下仍超时）；Start-PandasSandbox/Complete-PandasRotation 的真实结果未知，可能已完整执行。禁止据此重跑 --execute；请先检查 run/ 下 pandas-rotation-<plan>.startup-attempt.json / .startup.json / .complete.json 及 launcher.jsonl，以这些原生回执为唯一依据判断下一步。',
+        processEvidence:error.processEvidence,error:String(error.message).slice(0,4000),
+        stdout:String(error.stdout??'').slice(0,4000),stderr:String(error.stderr??'').slice(0,4000)});
+      const unknownError=Error('恢复结果未知（process_timeout）：'+error.message);
+      unknownError.status='unknown';unknownError.processEvidence=error.processEvidence;
+      throw unknownError;
+    }
+    await saveEvidence(evidenceDirectory,'FAILED.json',{at:new Date().toISOString(),check,error:String(error.message).slice(0,4000),processEvidence:error.processEvidence??null,stdout:String(error.stdout??'').slice(0,4000),stderr:String(error.stderr??'').slice(0,4000)});
+    throw error;
+  }
+  assert.equal(result.version,k.version,'恢复脚本返回版本不符');
+  if(check){
+    await saveEvidence(evidenceDirectory,'CHECKED.json',{at:new Date().toISOString(),...result});
+    return {status:'checked',productionExecuted:false,...result};
+  }
+  await saveEvidence(evidenceDirectory,'SUCCESS.json',{at:new Date().toISOString(),...result});
+  return {status:'recovered',productionExecuted:true,...result};
+}
+
+/** The exact frozen source tree this publish attempt built from; read-only verified before import. */
+export const frozenSourceRoot='D:/codex-isolated/main-release-packages/c7604df99c55-d5a6a3fb-06d27651-r2/source';
+
+export async function assertFrozenSourceIdentity(sourceRoot,{git='git'}={}){
+  const head=(await execute(git,['-C',sourceRoot,'rev-parse','HEAD'],{encoding:'utf8',windowsHide:true,timeout:15000})).stdout.trim();
+  assert.equal(head,knownPandasStartup.mainCommit,'冻结来源HEAD与本次发布提交不符');
+  const status=(await execute(git,['-C',sourceRoot,'status','--porcelain'],{encoding:'utf8',windowsHide:true,timeout:15000})).stdout.trim();
+  assert.equal(status,'','冻结来源存在未提交改动，拒绝从其导入 probeRotationLock');
+}
+
+async function main(){
+  const {values}=parseArgs({options:{check:{type:'boolean'},execute:{type:'boolean'},'evidence-directory':{type:'string'}}});
+  assert.ok(Boolean(values.check)!==Boolean(values.execute),'只支持明确 --check 或 --execute');
+  const runtimeRoot='D:/teruisi-runtime/django-sales',installedToolsRoot=path.join(runtimeRoot,'app/tools');
+  const evidenceDirectory=values['evidence-directory']??path.join('D:/codex-isolated/main-manual-release-20261016','recovery-c7604df99c55-pandas-startup');
+  await assertFrozenSourceIdentity(frozenSourceRoot);
+  const result=await recover({runtimeRoot,installedToolsRoot,nativeToolsSource:frozenSourceRoot,evidenceDirectory,check:Boolean(values.check)});
+  console.log(JSON.stringify(result));
+}
+
+if(process.argv[1]&&path.resolve(process.argv[1])===self){
+  main().catch(error=>{console.error('恢复已停止：'+error.message);process.exitCode=1;});
+}
