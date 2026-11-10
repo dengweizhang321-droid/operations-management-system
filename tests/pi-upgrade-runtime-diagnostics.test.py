@@ -17,6 +17,7 @@ spec=importlib.util.spec_from_file_location('pi_upgrade_runtime',ROOT/'tools/pi_
 upgrade=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(upgrade)
 SECRET='synthetic-sensitive-key-customer-payload'
+_MISSING=object()
 
 
 class UpgradeDiagnosticsTests(unittest.TestCase):
@@ -383,9 +384,19 @@ class RebuildEvidenceWriting(unittest.TestCase):
         self.evidence_directory=Path(self.temp.name)/'evidence'
         self.plan={'operationId':'f'*32,'newSourceSha256':'b'*64,'newImage':'sha256:'+'1'*64}
 
+    def record(self):
+        return upgrade.rebuild_evidence_record('f'*32,self.plan,'sha256:'+'1'*64,'e'*64,'sha256:'+'2'*64)
+
+    def test_record_shape_matches_discarded_and_replacement_identity(self):
+        record=self.record()
+        self.assertEqual(record['discardedOldPlanImage'],'sha256:'+'1'*64)
+        self.assertEqual(record['replacementNewImage'],'sha256:'+'2'*64)
+        self.assertEqual(record['discardedPlanSha256'],'e'*64)
+        self.assertEqual(record['newSourceSha256'],'b'*64)
+
     def test_evidence_is_written_and_not_under_runtime_path(self):
         self.assertFalse(str(self.evidence_directory).startswith(r'D:\teruisi-runtime'))
-        path=upgrade.write_rebuild_evidence(self.evidence_directory,'f'*32,self.plan,'sha256:'+'1'*64,'e'*64,'sha256:'+'2'*64)
+        path=upgrade.write_rebuild_evidence(self.evidence_directory,'f'*32,self.record())
         self.assertTrue(path.exists())
         record=json.loads(path.read_text(encoding='utf-8'))
         self.assertEqual(record['discardedOldPlanImage'],'sha256:'+'1'*64)
@@ -394,9 +405,9 @@ class RebuildEvidenceWriting(unittest.TestCase):
         self.assertEqual(record['newSourceSha256'],'b'*64)
 
     def test_duplicate_operation_id_refuses_silent_overwrite(self):
-        upgrade.write_rebuild_evidence(self.evidence_directory,'f'*32,self.plan,'sha256:'+'1'*64,'e'*64,'sha256:'+'2'*64)
+        upgrade.write_rebuild_evidence(self.evidence_directory,'f'*32,self.record())
         with self.assertRaisesRegex(ValueError,'pi_upgrade_rebuild_evidence_exists'):
-            upgrade.write_rebuild_evidence(self.evidence_directory,'f'*32,self.plan,'sha256:'+'1'*64,'e'*64,'sha256:'+'2'*64)
+            upgrade.write_rebuild_evidence(self.evidence_directory,'f'*32,self.record())
 
 
 class RebuildReplacementEndToEndViaExtractedAction(unittest.TestCase):
@@ -436,11 +447,12 @@ class RebuildReplacementEndToEndViaExtractedAction(unittest.TestCase):
         self.prepared=self.plan_directory/'prepared.json'
         self.key_path=self.runtime/'secrets/pi-agent.dpapi.json'
 
-    def args(self,image,skill_version='1.1.0'):
+    def args(self,image,skill_version='1.1.0',rebuild_evidence_directory=_MISSING):
+        directory=str(self.evidence_directory) if rebuild_evidence_directory is _MISSING else rebuild_evidence_directory
         return argparse.Namespace(image=image,source_sha256=self.new_sha,skill_version=skill_version,
-            rebuild_evidence_directory=str(self.evidence_directory))
+            rebuild_evidence_directory=directory)
 
-    def prepare(self,image,linux_prepare_response=None,skill_version='1.1.0'):
+    def prepare(self,image,linux_prepare_response=None,skill_version='1.1.0',rebuild_evidence_directory=_MISSING):
         calls={'invoke':[],'remove':[]}
         def fake_invoke(value):
             calls['invoke'].append(value)
@@ -455,9 +467,11 @@ class RebuildReplacementEndToEndViaExtractedAction(unittest.TestCase):
         sys.modules['pi_runner.skills']=fake_skills
         try:
             with patch.object(upgrade,'invoke',fake_invoke), patch.object(upgrade,'remove_stale_linux_release',fake_remove), \
-                 patch('sys.stdout',new_callable=io.StringIO):
-                upgrade.run_prepare_action(self.runtime,self.fake_repo_root,self.args(image,skill_version),
+                 patch('sys.stdout',new_callable=io.StringIO) as stdout:
+                upgrade.run_prepare_action(self.runtime,self.fake_repo_root,
+                    self.args(image,skill_version,rebuild_evidence_directory),
                     self.config,self.old_raw,self.key,self.key_path,self.plan_directory,self.prepared,lambda:self.new_sha)
+                calls['stdout']=json.loads(stdout.getvalue())
         finally:
             sys.modules.pop('pi_runner.skills',None)
         return calls
@@ -468,7 +482,8 @@ class RebuildReplacementEndToEndViaExtractedAction(unittest.TestCase):
         self.prepare('sha256:'+'1'*64,{'prepared':True,'started':False,'plan':plan_a,
             'planSha256':upgrade.sha(json.dumps(plan_a).encode())})
         self.assertTrue(self.prepared.exists())
-        receipt_a=json.loads(self.prepared.read_bytes())
+        receipt_a_raw=self.prepared.read_bytes()
+        receipt_a=json.loads(receipt_a_raw)
         self.assertEqual(receipt_a['plan']['newImage'],'sha256:'+'1'*64)
 
         # Round 2: rebuild only changed the image id (B). Same source, same
@@ -485,6 +500,16 @@ class RebuildReplacementEndToEndViaExtractedAction(unittest.TestCase):
         self.assertEqual(len(list(self.evidence_directory.glob('*.json'))),1)
         for name in ('prepared.json.new','preparing.json.new'):
             self.assertFalse((self.plan_directory/name).exists())
+        # The replacement's final stdout JSON must carry the same evidence
+        # that was (also) written to the explicit --rebuild-evidence-directory,
+        # identifying the discarded old image/plan and the replacement image.
+        evidence_b=calls['stdout']['rebuiltImageEvidence']
+        self.assertEqual(evidence_b['operationId'],plan_a['operationId'])
+        self.assertEqual(evidence_b['discardedOldPlanImage'],'sha256:'+'1'*64)
+        self.assertEqual(evidence_b['replacementNewImage'],'sha256:'+'2'*64)
+        self.assertEqual(evidence_b['discardedPlanSha256'],upgrade.sha(receipt_a_raw))
+        on_disk_b=json.loads(next(self.evidence_directory.glob('*.json')).read_text(encoding='utf-8'))
+        self.assertEqual(on_disk_b,evidence_b)
 
         # Round 3: rebuild again (image C). Must behave identically; no
         # leftover directories/fragments accumulate from round 2.
@@ -494,6 +519,8 @@ class RebuildReplacementEndToEndViaExtractedAction(unittest.TestCase):
         self.assertEqual(calls['remove'],[self.new_sha])
         receipt_c=json.loads(self.prepared.read_bytes())
         self.assertEqual(receipt_c['plan']['newImage'],'sha256:'+'3'*64)
+        self.assertEqual(calls['stdout']['rebuiltImageEvidence']['discardedOldPlanImage'],'sha256:'+'2'*64)
+        self.assertEqual(calls['stdout']['rebuiltImageEvidence']['replacementNewImage'],'sha256:'+'3'*64)
         # preparing.json is written once per successful `prepare` and is never
         # cleaned up even on main's unmodified first-time-success path (it is
         # not part of this task); the no-orphans guarantee this fix owns is
@@ -502,6 +529,103 @@ class RebuildReplacementEndToEndViaExtractedAction(unittest.TestCase):
         self.assertEqual({p.name for p in self.plan_directory.iterdir()},{'prepared.json','preparing.json'},
             'no fragment or extra file should accumulate across rebuild-and-replace cycles')
         self.assertEqual(len(list(self.evidence_directory.glob('*.json'))),2)
+
+    def test_replacement_leaves_candidate_root_file_set_unchanged(self):
+        """Direct regression test for the incident: a replacement must never
+        add, remove or alter any file under the candidate app tree (`root`)
+        passed into this function -- that is the tree a prepare run against
+        a sealed `app.deploy-*` directory must not be able to perturb."""
+        plan_a={'operationId':'1'*32,'newSourceSha256':self.new_sha,'newImage':'sha256:'+'1'*64,
+                'releaseParent':'/home/teruisi-pandas/.local/share/teruisi-pi-runner/releases'}
+        self.prepare('sha256:'+'1'*64,{'prepared':True,'started':False,'plan':plan_a,
+            'planSha256':upgrade.sha(json.dumps(plan_a).encode())})
+        before={f:f.read_bytes() for f in self.fake_repo_root.rglob('*') if f.is_file()}
+        self.assertTrue(before,'fixture must contain at least one file under root to be a meaningful check')
+
+        plan_b={**plan_a,'operationId':'2'*32,'newImage':'sha256:'+'2'*64}
+        self.prepare('sha256:'+'2'*64,{'prepared':True,'started':False,'plan':plan_b,
+            'planSha256':upgrade.sha(json.dumps(plan_b).encode())},rebuild_evidence_directory=None)
+
+        after={f:f.read_bytes() for f in self.fake_repo_root.rglob('*') if f.is_file()}
+        self.assertEqual(before,after,'replacement must not add, remove or modify any file under root')
+
+    def test_no_rebuild_evidence_directory_writes_no_file_but_stdout_has_evidence(self):
+        """Without --rebuild-evidence-directory, the evidence must only reach
+        stdout (so the publisher's stdout.log captures it outside the runtime
+        tree); no default directory under `root` is ever written to."""
+        plan_a={'operationId':'1'*32,'newSourceSha256':self.new_sha,'newImage':'sha256:'+'1'*64,
+                'releaseParent':'/home/teruisi-pandas/.local/share/teruisi-pi-runner/releases'}
+        self.prepare('sha256:'+'1'*64,{'prepared':True,'started':False,'plan':plan_a,
+            'planSha256':upgrade.sha(json.dumps(plan_a).encode())})
+        before={f for f in self.fake_repo_root.rglob('*')}
+
+        plan_b={**plan_a,'operationId':'2'*32,'newImage':'sha256:'+'2'*64}
+        calls=self.prepare('sha256:'+'2'*64,{'prepared':True,'started':False,'plan':plan_b,
+            'planSha256':upgrade.sha(json.dumps(plan_b).encode())},rebuild_evidence_directory=None)
+
+        evidence=calls['stdout']['rebuiltImageEvidence']
+        self.assertEqual(evidence['discardedOldPlanImage'],'sha256:'+'1'*64)
+        self.assertEqual(evidence['replacementNewImage'],'sha256:'+'2'*64)
+        after={f for f in self.fake_repo_root.rglob('*')}
+        self.assertEqual(before,after,'no file may be created anywhere under root when no directory is requested')
+        self.assertFalse(self.evidence_directory.exists(),'no default evidence directory should be created at all')
+
+    def test_rebuild_evidence_directory_inside_root_is_rejected_without_writing(self):
+        sealed=self.fake_repo_root/'docs/运维/部署与启动/pi-upgrade-rebuilt-image-evidence'
+        plan_a={'operationId':'1'*32,'newSourceSha256':self.new_sha,'newImage':'sha256:'+'1'*64,
+                'releaseParent':'/home/teruisi-pandas/.local/share/teruisi-pi-runner/releases'}
+        self.prepare('sha256:'+'1'*64,{'prepared':True,'started':False,'plan':plan_a,
+            'planSha256':upgrade.sha(json.dumps(plan_a).encode())})
+
+        plan_b={**plan_a,'operationId':'2'*32,'newImage':'sha256:'+'2'*64}
+        with self.assertRaises(ValueError) as raised:
+            self.prepare('sha256:'+'2'*64,{'prepared':True,'started':False,'plan':plan_b,
+                'planSha256':upgrade.sha(json.dumps(plan_b).encode())},rebuild_evidence_directory=str(sealed))
+        self.assertEqual(str(raised.exception),'pi_upgrade_rebuild_evidence_directory_sealed')
+        self.assertFalse(sealed.exists(),'rejected directory must never be created')
+        # The original (round 1) plan must still be intact: a rejected
+        # evidence directory must abort before any deletion/replacement step.
+        receipt=json.loads(self.prepared.read_bytes())
+        self.assertEqual(receipt['plan']['newImage'],'sha256:'+'1'*64)
+
+    def test_rebuild_evidence_directory_inside_runtime_is_rejected_without_writing(self):
+        sealed=self.runtime/'some/nested/evidence'
+        plan_a={'operationId':'1'*32,'newSourceSha256':self.new_sha,'newImage':'sha256:'+'1'*64,
+                'releaseParent':'/home/teruisi-pandas/.local/share/teruisi-pi-runner/releases'}
+        self.prepare('sha256:'+'1'*64,{'prepared':True,'started':False,'plan':plan_a,
+            'planSha256':upgrade.sha(json.dumps(plan_a).encode())})
+
+        plan_b={**plan_a,'operationId':'2'*32,'newImage':'sha256:'+'2'*64}
+        with self.assertRaises(ValueError) as raised:
+            self.prepare('sha256:'+'2'*64,{'prepared':True,'started':False,'plan':plan_b,
+                'planSha256':upgrade.sha(json.dumps(plan_b).encode())},rebuild_evidence_directory=str(sealed))
+        self.assertEqual(str(raised.exception),'pi_upgrade_rebuild_evidence_directory_sealed')
+        self.assertFalse(sealed.exists(),'rejected directory must never be created')
+
+    def test_rebuild_evidence_directory_equal_to_root_is_rejected(self):
+        plan_a={'operationId':'1'*32,'newSourceSha256':self.new_sha,'newImage':'sha256:'+'1'*64,
+                'releaseParent':'/home/teruisi-pandas/.local/share/teruisi-pi-runner/releases'}
+        self.prepare('sha256:'+'1'*64,{'prepared':True,'started':False,'plan':plan_a,
+            'planSha256':upgrade.sha(json.dumps(plan_a).encode())})
+        plan_b={**plan_a,'operationId':'2'*32,'newImage':'sha256:'+'2'*64}
+        with self.assertRaises(ValueError) as raised:
+            self.prepare('sha256:'+'2'*64,{'prepared':True,'started':False,'plan':plan_b,
+                'planSha256':upgrade.sha(json.dumps(plan_b).encode())},rebuild_evidence_directory=str(self.fake_repo_root))
+        self.assertEqual(str(raised.exception),'pi_upgrade_rebuild_evidence_directory_sealed')
+
+    def test_rebuild_evidence_directory_outside_root_and_runtime_writes_matching_file(self):
+        outside=Path(self.temp.name)/'elsewhere-outside-both'
+        plan_a={'operationId':'1'*32,'newSourceSha256':self.new_sha,'newImage':'sha256:'+'1'*64,
+                'releaseParent':'/home/teruisi-pandas/.local/share/teruisi-pi-runner/releases'}
+        self.prepare('sha256:'+'1'*64,{'prepared':True,'started':False,'plan':plan_a,
+            'planSha256':upgrade.sha(json.dumps(plan_a).encode())})
+        plan_b={**plan_a,'operationId':'2'*32,'newImage':'sha256:'+'2'*64}
+        calls=self.prepare('sha256:'+'2'*64,{'prepared':True,'started':False,'plan':plan_b,
+            'planSha256':upgrade.sha(json.dumps(plan_b).encode())},rebuild_evidence_directory=str(outside))
+        files=list(outside.glob('*.json'))
+        self.assertEqual(len(files),1)
+        on_disk=json.loads(files[0].read_text(encoding='utf-8'))
+        self.assertEqual(on_disk,calls['stdout']['rebuiltImageEvidence'])
 
     def test_intent_present_still_raises_different_registered_upgrade_plan(self):
         plan_a={'operationId':'1'*32,'newSourceSha256':self.new_sha,'newImage':'sha256:'+'1'*64,

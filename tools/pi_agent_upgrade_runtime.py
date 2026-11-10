@@ -336,17 +336,26 @@ def remove_stale_linux_release(release_parent,source_sha,runner=subprocess.run):
     return record
 
 
-def write_rebuild_evidence(evidence_directory,operation_id,plan,old_image,old_registered_plan_sha256,new_image):
-    """Durable, non-runtime record of the image id this replacement discarded.
-
-    Never written under D:/teruisi-runtime; defaults to the same docs tree
-    pi_agent_upgrade_residue.py uses, overridable for tests/non-default runs.
-    """
-    evidence_directory.mkdir(parents=True,exist_ok=True)
-    record={'version':'teruisi-pi-upgrade-rebuilt-image-evidence-v1',
+def rebuild_evidence_record(operation_id,plan,old_image,old_registered_plan_sha256,new_image):
+    """Shape shared by the stdout `rebuiltImageEvidence` field and the
+    optional on-disk file: the image id a replacement discarded."""
+    return {'version':'teruisi-pi-upgrade-rebuilt-image-evidence-v1',
         'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'operationId':plan.get('operationId'),
         'newSourceSha256':plan.get('newSourceSha256'),'discardedOldPlanImage':old_image,'replacementNewImage':new_image,
         'discardedPlanSha256':old_registered_plan_sha256}
+
+
+def write_rebuild_evidence(evidence_directory,operation_id,record):
+    """Write the rebuild-evidence record to an explicitly requested directory.
+
+    Only called when the caller passed `--rebuild-evidence-directory`; the
+    caller is responsible for first rejecting any path that resolves inside
+    the candidate app tree or the runtime tree (see `run_prepare_action`).
+    There is no default directory: without the flag, the record only goes
+    into the stdout JSON (`rebuiltImageEvidence`), never onto disk, so a
+    prepare run against a sealed candidate app tree cannot add a file to it.
+    """
+    evidence_directory.mkdir(parents=True,exist_ok=True)
     path=evidence_directory/('pi-upgrade-rebuilt-image-'+operation_id+'.json')
     if path.exists():raise ValueError('pi_upgrade_rebuild_evidence_exists')
     path.write_text(json.dumps(record,indent=2,sort_keys=True,ensure_ascii=False)+'\n',encoding='utf-8')
@@ -363,6 +372,7 @@ def run_prepare_action(runtime,root,args,config,old_raw,key,key_path,plan_direct
     from pi_runner.skills import build
     build(root/'backend/pi_runner/bundled_skills'/skill_version)
     if args.source_sha256!=new_sha or not re.fullmatch(r'sha256:[a-f0-9]{64}',args.image or ''):raise ValueError('exact_source_image_required')
+    rebuilt_image_evidence=None
     if config['runnerSourceSha256']==new_sha and config['runnerImage']==args.image and config['skillVersion']==skill_version:
         value={'action':'current','namespace':'pi-agent-v1','unitName':'teruisi-pi-runner.service',
             'unitPath':'/home/teruisi-pandas/.config/systemd/user/teruisi-pi-runner.service',
@@ -376,8 +386,17 @@ def run_prepare_action(runtime,root,args,config,old_raw,key,key_path,plan_direct
                 or saved['newWindowsConfig']['skillVersion']!=skill_version):
             stale_plan=rebuilt_image_replacement_allowed(saved,old_raw,key_path,new_sha,args.image,skill_version,plan_directory)
             if stale_plan is None:raise ValueError('different_registered_upgrade_plan')
-            evidence_directory=Path(args.rebuild_evidence_directory) if args.rebuild_evidence_directory else root/'docs/运维/部署与启动/pi-upgrade-rebuilt-image-evidence'
-            write_rebuild_evidence(evidence_directory,stale_plan['operationId'],stale_plan,stale_plan['newImage'],sha(raw),args.image)
+            # The evidence record is fixed BEFORE the stale prepared.json is
+            # deleted below, so the discarded plan's identity can never be
+            # lost even if a later step in this same replacement fails.
+            rebuilt_image_evidence=rebuild_evidence_record(stale_plan['operationId'],stale_plan,stale_plan['newImage'],sha(raw),args.image)
+            if args.rebuild_evidence_directory:
+                evidence_directory=Path(args.rebuild_evidence_directory).resolve()
+                for sealed in (root.resolve(),runtime.resolve()):
+                    try:inside=evidence_directory==sealed or sealed in evidence_directory.parents
+                    except (OSError,ValueError):inside=False
+                    if inside:raise ValueError('pi_upgrade_rebuild_evidence_directory_sealed')
+                write_rebuild_evidence(evidence_directory,stale_plan['operationId'],rebuilt_image_evidence)
             if (rebuilt_image_replacement_allowed(saved,old_raw,key_path,new_sha,args.image,skill_version,plan_directory)
                     is None):raise ValueError('pi_upgrade_rebuild_eligibility_changed')
             remove_stale_linux_release(stale_plan['releaseParent'],new_sha)
@@ -410,7 +429,8 @@ def run_prepare_action(runtime,root,args,config,old_raw,key,key_path,plan_direct
     successor={**config,'runnerImage':args.image,'runnerSourceSha256':new_sha,'skillVersion':skill_version}
     receipt={**result,'newWindowsConfig':successor,'oldWindowsConfigSha256':sha(old_raw),'windowsKeyFileSha256':sha(key_path.read_bytes())}
     publish(prepared,receipt)
-    print(json.dumps({'prepared':True,'started':False,'operationId':operation,'registeredPlanSha256':sha(prepared.read_bytes()),'planSha256':result['planSha256'],'sourceSha256':new_sha,'image':args.image}))
+    print(json.dumps({'prepared':True,'started':False,'operationId':operation,'registeredPlanSha256':sha(prepared.read_bytes()),'planSha256':result['planSha256'],'sourceSha256':new_sha,'image':args.image,
+        **({'rebuiltImageEvidence':rebuilt_image_evidence} if rebuilt_image_evidence is not None else {})}))
 
 
 def main():
