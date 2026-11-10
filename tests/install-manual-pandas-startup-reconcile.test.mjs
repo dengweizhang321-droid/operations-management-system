@@ -66,14 +66,14 @@ test('install script: check-then-execute with installer-shaped paths does not co
   };
 
   // Step 1: the recommended sequence -- run --check first, exactly as the brief instructs.
-  const checkResult = await recover({runtimeRoot, installedToolsRoot, evidenceDirectory: checkEvidenceDirectory, check: true, run, probeRotationLock: async () => false, known, failedReceiptPath: failedReceiptFile});
+  const checkResult = await recover({runtimeRoot, installedToolsRoot, evidenceDirectory: checkEvidenceDirectory, check: true, run, probeRotationLock: async () => true, known, failedReceiptPath: failedReceiptFile});
   assert.equal(checkResult.status, 'checked');
 
   // Step 2: --execute, with its OWN evidence directory, must not collide with
   // --check's already-written 01-preconditions.json -- this is the exact
   // defect: before the fix, both pointed at the same directory and this
   // step would throw EEXIST before Start-PandasSandbox was ever reached.
-  const executeResult = await recover({runtimeRoot, installedToolsRoot, evidenceDirectory: executeEvidenceDirectory, check: false, run, probeRotationLock: async () => false, known, failedReceiptPath: failedReceiptFile});
+  const executeResult = await recover({runtimeRoot, installedToolsRoot, evidenceDirectory: executeEvidenceDirectory, check: false, run, probeRotationLock: async () => true, known, failedReceiptPath: failedReceiptFile});
   assert.equal(executeResult.status, 'recovered');
   assert.equal(executeResult.productionExecuted, true);
 
@@ -87,7 +87,7 @@ test('install script: check-then-execute with installer-shaped paths does not co
   // must still refuse -- the no-rerun guarantee is preserved per mode, not
   // lost by giving each mode its own directory.
   await assert.rejects(
-    recover({runtimeRoot, installedToolsRoot, evidenceDirectory: executeEvidenceDirectory, check: false, run, probeRotationLock: async () => false, known, failedReceiptPath: failedReceiptFile}),
+    recover({runtimeRoot, installedToolsRoot, evidenceDirectory: executeEvidenceDirectory, check: false, run, probeRotationLock: async () => true, known, failedReceiptPath: failedReceiptFile}),
     /EEXIST|exist/i,
   );
 
