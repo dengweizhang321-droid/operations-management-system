@@ -32,6 +32,13 @@ export function verifyPublisherRetired(owner,rows,actorPids=[]){
  return true;
 }
 export async function assertPublicationRetired({owner,actorPids,source,attempt,prepared}){
- const rows=await taskPowerShell(census,{subjectPid:owner.processId,selfPid:process.pid,actorPids,needles:[source,attempt,prepared.djangoPackage.id,prepared.piRunnerUpgrade.registeredPlanSha256]});
+ // Only identifiers that actually exist on this preparation are searched
+ // for in still-running command lines: a no-Pi resume has no
+ // piRunnerUpgrade, and an absent needle must not be turned into the
+ // literal string "undefined" (which could coincidentally match something
+ // unrelated in a live command line) or silently become an empty needle
+ // (which Expanded()/.Contains('') would make match everything).
+ const needles=[source,attempt,prepared.djangoPackage.id,prepared.piRunnerUpgrade?.registeredPlanSha256].filter(Boolean);
+ const rows=await taskPowerShell(census,{subjectPid:owner.processId,selfPid:process.pid,actorPids,needles});
  return verifyPublisherRetired(owner,rows,actorPids);
 }

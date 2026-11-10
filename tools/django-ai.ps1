@@ -456,19 +456,136 @@ function Get-PandasLeaseTimestamps([string]$Path) {
   }
 }
 
-function Assert-PandasPublicationOwner([object]$Binding) {
-  $leasePath = Join-Path $RunDirectory 'release-publication-lease.json'
-  $lease = Read-PandasRotationJson $leasePath
+function Get-PandasResumeJsonStringField([string]$Path, [string]$Field) {
+  # Same PS5.1/PS7 divergence as Get-PandasLeaseTimestamps: an ISO 8601
+  # "...Z" value is auto-detected as a date literal by PS7's ConvertFrom-Json
+  # and re-stringified in the local time zone, which breaks a later exact
+  # string compare. originalOwnerCreationDate (on the resume lease) and
+  # publisherOwner.creationDate (on the original STARTED.json) are both
+  # produced by the same CIM census (tools/publish-main-owner.mjs) and must
+  # compare as the exact same string on both engines. Re-reads the
+  # already-opened path a second time, scoped to exactly this one field.
+  if ($PSVersionTable.PSEdition -ceq 'Core') {
+    $raw = Get-Content -Raw -LiteralPath $Path -Encoding UTF8 | ConvertFrom-Json -DateKind String
+  } else {
+    $raw = Get-Content -Raw -LiteralPath $Path -Encoding UTF8 | ConvertFrom-Json
+  }
+  $value = $raw
+  foreach ($segment in $Field.Split('.')) { $value = $value.$segment }
+  if ($value -isnot [string]) { throw 'Pandas rotation requires the original live publication owner' }
+  return $value
+}
+
+function Get-PandasResumeOwnerProcess([int]$OriginalOwnerPid) {
+  # Same CIM census shape and precision as capturePublicationOwner/
+  # verifyPublisherRetired (tools/publish-main-owner.mjs): CreationDate read
+  # through Get-CimInstance Win32_Process and rendered
+  # .ToUniversalTime().ToString('o'), not .NET Process.StartTime. The two
+  # differ in precision/format (StartTime truncates and is local unless
+  # converted), and originalOwnerCreationDate on the lease is produced by
+  # that same Node-side census, so the comparison must use the matching
+  # shape or a live/dead pid at the same instant could read as different.
+  return Get-CimInstance Win32_Process -Filter ("ProcessId=" + $OriginalOwnerPid) -ErrorAction Stop
+}
+
+# Original branch (unchanged): the original publication process must still be
+# alive and holding its own lease. Every predicate below is exactly as it was
+# before the resume branch existed.
+function Assert-PandasOriginalPublicationOwner([object]$Binding, [object]$Lease, [string]$LeasePath) {
   $owner = Get-Process -Id $Binding.publicationOwnerPid -ErrorAction Stop
-  $timestamps = Get-PandasLeaseTimestamps $leasePath
+  $timestamps = Get-PandasLeaseTimestamps $LeasePath
   $created = $timestamps.createdAt
   $expires = $timestamps.expiresAt
-  if ($lease.version -cne 'teruisi-release-publication-lease-v1' -or
-      $lease.ownerPid -cne $Binding.publicationOwnerPid -or $lease.maintenanceId -cne $Binding.maintenanceId -or
-      $lease.mainCommit -cne $Binding.sourceCommit -or $owner.ProcessName -cne 'node' -or
+  if ($Lease.version -cne 'teruisi-release-publication-lease-v1' -or
+      $Lease.ownerPid -cne $Binding.publicationOwnerPid -or $Lease.maintenanceId -cne $Binding.maintenanceId -or
+      $Lease.mainCommit -cne $Binding.sourceCommit -or $owner.ProcessName -cne 'node' -or
       [DateTimeOffset]$owner.StartTime -gt $created -or $expires -le [DateTimeOffset]::UtcNow) {
     throw 'Pandas rotation requires the original live publication owner'
   }
+}
+
+# Resume branch: the original publication process has necessarily exited (a
+# resume only runs after assertPublicationRetired already proved that on the
+# Node side). In its place, a continuation process holds its OWN live lease
+# (version '...-resume'), and must prove — not merely assert — that the
+# specific original owner it replaces is the same one the pending/switched
+# Pandas record on disk was bound to, and that the original attempt's own
+# STARTED/FAILED receipts still match byte for byte. Every predicate here is
+# additional evidence; none of it replaces or loosens the original branch.
+function Assert-PandasResumePublicationOwner([object]$Binding, [object]$Lease, [string]$LeasePath) {
+  $expectedFields = @('version','ownerPid','phase','createdAt','updatedAt','expiresAt','mainCommit','maintenanceId','out',
+    'originalOwnerPid','originalOwnerCreationDate','originalStartedSha256','originalFailureSha256','originalAttempt')
+  if (-not (Test-ExactObjectPropertyNames $Lease $expectedFields)) { throw 'Pandas rotation requires the original live publication owner' }
+  $continuation = Get-Process -Id $Lease.ownerPid -ErrorAction Stop
+  $timestamps = Get-PandasLeaseTimestamps $LeasePath
+  $created = $timestamps.createdAt
+  $expires = $timestamps.expiresAt
+  if ($continuation.ProcessName -cne 'node' -or [DateTimeOffset]$continuation.StartTime -gt $created -or
+      $expires -le [DateTimeOffset]::UtcNow) { throw 'Pandas rotation requires the original live publication owner' }
+  if ($Lease.originalOwnerPid -cne $Binding.publicationOwnerPid -or
+      $Lease.mainCommit -cne $Binding.sourceCommit -or $Lease.maintenanceId -cne $Binding.maintenanceId) {
+    throw 'Pandas rotation requires the original live publication owner'
+  }
+  $originalOwnerCreationDate = Get-PandasResumeJsonStringField $LeasePath 'originalOwnerCreationDate'
+  $originalOwnerPid = [int]$Lease.originalOwnerPid
+  $stillAlive = $null
+  try { $stillAlive = Get-PandasResumeOwnerProcess $originalOwnerPid } catch { $stillAlive = $null }
+  if ($null -ne $stillAlive -and [string]$stillAlive.CreationDate.ToUniversalTime().ToString('o') -ceq $originalOwnerCreationDate) {
+    throw 'Pandas rotation requires the original live publication owner'
+  }
+  $attempt = [string]$Lease.originalAttempt
+  if (-not [IO.Path]::IsPathRooted($attempt)) { throw 'Pandas rotation requires the original live publication owner' }
+  $releasePackages = Get-CanonicalPath 'D:\codex-isolated\main-release-packages'
+  $attemptCanonical = Get-CanonicalPath $attempt
+  if (-not $attemptCanonical.StartsWith($releasePackages + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Pandas rotation requires the original live publication owner'
+  }
+  $cursor = $attempt
+  for (;;) {
+    $entry = Get-Item -LiteralPath $cursor -Force -ErrorAction Stop
+    if (($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Pandas rotation requires the original live publication owner' }
+    $parent = Split-Path -Parent $cursor
+    if ($parent -ceq $cursor -or [string]::IsNullOrEmpty($parent)) { break }
+    $cursor = $parent
+  }
+  $startedPath = Join-Path $attempt 'STARTED.json'
+  $failedPath = Join-Path $attempt 'FAILED.json'
+  $startedItem = Get-Item -LiteralPath $startedPath -Force -ErrorAction Stop
+  $failedItem = Get-Item -LiteralPath $failedPath -Force -ErrorAction Stop
+  if (($startedItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+      ($failedItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Pandas rotation requires the original live publication owner' }
+  if ((Get-FileSha256 $startedPath) -cne [string]$Lease.originalStartedSha256 -or
+      (Get-FileSha256 $failedPath) -cne [string]$Lease.originalFailureSha256) {
+    throw 'Pandas rotation requires the original live publication owner'
+  }
+  $started = Read-JsonFile $startedPath 'Original publication STARTED receipt'
+  $failed = Read-JsonFile $failedPath 'Original publication FAILED receipt'
+  $startedOwnerCreationDate = Get-PandasResumeJsonStringField $startedPath 'publisherOwner.creationDate'
+  if ($started.publisherOwner.processId -cne $originalOwnerPid -or
+      $startedOwnerCreationDate -cne $originalOwnerCreationDate -or
+      $failed.maintenanceStarted -cne $true -or [string]$failed.mainCommit -cne [string]$Binding.sourceCommit) {
+    throw 'Pandas rotation requires the original live publication owner'
+  }
+}
+
+function Assert-PandasPublicationOwner([object]$Binding, [switch]$AllowResume) {
+  $leasePath = Join-Path $RunDirectory 'release-publication-lease.json'
+  $lease = Read-PandasRotationJson $leasePath
+  if ($lease.version -ceq 'teruisi-release-publication-lease-v1-resume') {
+    # Scoped to the Start-PandasSandbox pending path only (see call sites
+    # below). A resume never re-runs SwitchPandasRotation — the first-period
+    # scope only continues a publication that already completed WorkerApply,
+    # which is strictly after the original Switch — so this branch is never
+    # reached from Invoke-PandasRotationSwitch's own call, and $AllowResume
+    # makes that an enforced precondition rather than an implicit one: a
+    # caller that forgets to pass it gets the same closed-by-default refusal
+    # as an unrecognized lease version, even if a resume lease happens to be
+    # on disk for an unrelated reason.
+    if (-not $AllowResume) { throw 'Pandas rotation requires the original live publication owner' }
+    Assert-PandasResumePublicationOwner $Binding $lease $leasePath
+    return
+  }
+  Assert-PandasOriginalPublicationOwner $Binding $lease $leasePath
 }
 
 function Invoke-PandasRotationNative([string]$Verb, [string]$AppRoot, [object]$Binding, [object]$Config) {
@@ -597,7 +714,7 @@ function Start-PandasSandbox {
   $switched = $null
   if ($null -ne $pending) {
     Assert-PandasInstalledBinding $pending
-    Assert-PandasPublicationOwner $pending
+    Assert-PandasPublicationOwner $pending -AllowResume
     $switched = Invoke-PandasRotationNative 'startup-check' $InstalledAppRoot $pending $config
     Write-PandasRotationJson (Get-PandasRotationPath $pending.registeredPlanSha256 'startup-attempt') $switched
   }
