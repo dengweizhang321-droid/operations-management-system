@@ -3,10 +3,20 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import {pandasRuntimeChanged,pandasArguments,verifyPandasPreparation,verifyPandasSwitch,verifyPandasCompletion} from './publish-main-pandas.mjs';
 
-export async function finishMainPublication({request,components,source,identity,installed,out,api,rotation,rotationLease,before,plan,pkg,djangoExpected,maintenanceId,schema,schemaReceipt,piUpgradeReceipt,pandasBrokerRotation,pandasSwitchReceipt,step,save,sha,ready,waitReady=ready,refreshLease,endLease,progress,phase,completed={},receiptExtra={}}){
+export async function finishMainPublication({request,components,source,identity,installed,out,api,rotation,rotationLease,before,plan,pkg,djangoExpected,maintenanceId,schema,schemaReceipt,piUpgradeReceipt,pandasBrokerRotation,pandasSwitchReceipt,pandasSwitchOwnerPid=process.pid,step,save,sha,ready,waitReady=ready,refreshLease,endLease,progress,phase,completed={},receiptExtra={}}){
  if(pandasRuntimeChanged(request)){
   verifyPandasPreparation(pandasBrokerRotation,{pkg,request});
-  if(pandasBrokerRotation.configured)verifyPandasSwitch(pandasSwitchReceipt,pandasBrokerRotation,maintenanceId,process.pid);
+  // pandasSwitchOwnerPid defaults to process.pid (the normal, non-resume
+  // path: Switch and this tail always run in the same process there, so
+  // the default reproduces the original check byte for byte). A resume
+  // passes the ORIGINAL Switch owner's pid instead, because the
+  // continuation process running this tail is never that owner — that is
+  // the entire premise of a resume — so checking against process.pid here
+  // would reject every Pandas resume unconditionally. The caller (resumeMainPublication)
+  // separately asserts pandasSwitchReceipt.publicationOwnerPid equals the
+  // value it passes here before ever calling this function, so this
+  // parameter cannot be used to smuggle in an unrelated pid.
+  if(pandasBrokerRotation.configured)verifyPandasSwitch(pandasSwitchReceipt,pandasBrokerRotation,maintenanceId,pandasSwitchOwnerPid);
  }
  const once=async(label,operation)=>Object.hasOwn(completed,label)?completed[label]:operation();
  if(plan){
