@@ -419,6 +419,49 @@ class PiAutoReclaimTests(TestCase):
             "admission": admission, "retainedWorkspace": False}
         return session, operation, admission, expected, shell, state
 
+    def no_workspace_row_stopped_shell(self, *, idle_hours=48):
+        """Real production shape: a chat-only session (prompt/claim/perform,
+        never the workspace panel, never pi_workspace.detail()/_workspace())
+        that has *no* PiWorkspace row at all for its current generation --
+        not merely one sitting at the model default "uninitialized". Nothing
+        on the plain prompt path ever calls PiWorkspace.objects.get_or_create
+        (that only happens in pi_workspace._workspace(), reached via the
+        workspace-panel GET/pi_workspace.detail(), pi_native's targeted
+        sub-agent control path, or reclaim_stopped's own success branch).
+
+        Same return shape as stopped_shell()/uninitialized_stopped_shell().
+        """
+        sid = self.session()
+        self.prompt(sid)
+        operation = pi_worker.claim()
+
+        def runner(request):
+            command = request["command"]
+            if command == "create":
+                return {"status": "idle", "state": {"commands": []}}
+            self.assertEqual(command, "prompt")
+            return {"status": "settled", "filesCollected": True, "files": [],
+                "events": [{**pi_worker.identity(operation), "eventSeq": 1, "type": "agent_settled"}],
+                "terminalReceipt": {"operationId": operation.id, "status": "settled", "eventSeq": 1, "files": []}}
+        with patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "no-workspace-row-fixture-cache-key-0123456789"}), \
+                patch.object(pi_worker, "heartbeat"), patch.object(pi_transport, "command", side_effect=runner):
+            pi_worker.perform(operation)
+        operation.refresh_from_db()
+        self.assertEqual(operation.status, "succeeded")
+        session = PiSession.objects.get(pk=sid)
+        self.assertEqual(session.status, "idle")
+        # The defining difference from uninitialized_stopped_shell(): no call
+        # to _workspace() here, so no row exists for this session at all.
+        self.assertFalse(PiWorkspace.objects.filter(session=session).exists())
+        PiSession.objects.filter(pk=sid).update(updated_at=timezone.now() - timedelta(hours=idle_hours))
+        admission = pi_native.admission(operation)
+        expected = {"containerId": secrets.token_hex(32), "image": "sha256:" + secrets.token_hex(32),
+            "volume": "pi-test-vol-" + secrets.token_hex(6), "lastSeq": operation.seq}
+        shell = {**expected, "workspaceId": workspace_key(pi_worker.identity(operation))}
+        state = {**shell, "environmentStatus": "stopped", "generation": session.generation,
+            "admission": admission, "retainedWorkspace": False}
+        return session, operation, admission, expected, shell, state
+
     def uninitialized_stopped_shell(self, *, idle_hours=48):
         """One idle session that only ever went through prompt/claim/perform --
         never the workspace panel/control path -- so Django's PiWorkspace row
@@ -970,4 +1013,104 @@ class PiAutoReclaimTests(TestCase):
         next_op.refresh_from_db()
         self.assertEqual(next_op.status, "succeeded")
         self.assertEqual(PiSession.objects.get(pk=session.id).status, "idle")
+
+    def test_sweep_selects_and_reclaims_session_with_no_workspace_row(self):
+        """idle_reclaim_candidates must not skip a session that has no
+        current-generation PiWorkspace row at all -- the real production
+        shape (confirmed: nothing on the plain prompt path ever creates that
+        row). The sweep must pick it up and reclaim_stopped must succeed for
+        it, materializing the row only as part of applying the reclaim.
+        """
+        session, operation, admission, expected, shell, state = self.no_workspace_row_stopped_shell(idle_hours=72)
+        candidates = pi_workspace.idle_reclaim_candidates(
+            idle_since=timezone.now() - timedelta(hours=1), scan_limit=4)
+        self.assertIn(session.id, [c.id for c in candidates])
+        fixtures = {session.id: (operation, admission, expected, shell, state)}
+        with patch.object(pi_transport, "command", side_effect=self.reclaim_runner(fixtures)):
+            reclaimed = pi_workspace.auto_reclaim_idle(idle_seconds=24 * 3600, limit=4)
+        self.assertEqual(reclaimed, 1)
+        self.assertEqual(PiWorkspace.objects.get(session=session).status, "ready")
+        self.assertEqual(PiControl.objects.get(session=session, command="reclaim_stopped").status, "completed")
+
+    @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "isolated-no-row-donor-create-retry-key-01234"})
+    def test_full_capacity_reclaims_donor_with_no_workspace_row_and_retries_create(self):
+        """The on-demand create-retry path (_create_with_reclaim_retry) must
+        treat a donor with no PiWorkspace row at all exactly like a "ready"
+        one: reclaim it and retry create exactly once.
+        """
+        donor, donor_op, donor_adm, donor_exp, donor_shell, donor_state = self.no_workspace_row_stopped_shell(idle_hours=48)
+        new_session_id = self.session()
+        self.prompt(new_session_id, clientRequestId="prompt-needs-capacity-no-row-donor")
+        new_op = pi_worker.claim()
+        fixtures = {donor.id: (donor_op, donor_adm, donor_exp, donor_shell, donor_state)}
+        create_calls = []
+
+        def runner(request):
+            if request["conversationId"] == donor.id:
+                return self.reclaim_runner(fixtures)(request)
+            self.assertEqual(request["conversationId"], new_session_id)
+            self.assertEqual(request["command"], "create")
+            create_calls.append(request)
+            if len(create_calls) == 1:
+                raise pi_transport.SessionLimitRejected()
+            return {**pi_worker.identity(new_op), "status": "accepted", "state": {}}
+        with patch.object(pi_transport, "command", side_effect=runner):
+            result = pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
+        self.assertEqual(result["status"], "accepted")
+        self.assertEqual(len(create_calls), 2)
+        dispatches = list(PiDispatch.objects.filter(operation=new_op, kind="runner:create").order_by("created_at").values_list("request_id", "status", "error_code"))
+        self.assertEqual(dispatches, [("create", "completed", "pi_session_limit"), ("create:after-reclaim", "completed", "")])
+        self.assertEqual(PiWorkspace.objects.get(session=donor).status, "ready")
+
+    @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "isolated-no-row-next-prompt-after-reclaim-01"})
+    def test_reclaimed_session_with_no_workspace_row_sends_next_prompt_through_runner_create(self):
+        """After a successful reclaim of a chat-only donor that had no
+        PiWorkspace row at all, the session must not be stuck: the next
+        prompt must reach perform() and dispatch a real "create" request to
+        the Runner, and the operation must complete normally.
+        """
+        session, operation, admission, expected, shell, state = self.no_workspace_row_stopped_shell(idle_hours=48)
+        fixtures = {session.id: (operation, admission, expected, shell, state)}
+        with patch.object(pi_transport, "command", side_effect=self.reclaim_runner(fixtures)):
+            self.assertTrue(pi_workspace.reclaim_one_idle_session(session.id))
+        self.assertEqual(PiWorkspace.objects.get(session=session).status, "ready")
+
+        self.prompt(session.id, clientRequestId="after-reclaim-prompt-no-row")
+        next_op = pi_worker.claim()
+        self.assertEqual(next_op.session_id, session.id)
+        create_requests = []
+        next_event_seq = PiSession.objects.get(pk=session.id).runner_event_seq + 1
+
+        def runner(request):
+            if request["command"] == "create":
+                create_requests.append(request)
+                return {"status": "idle", "state": {"commands": []}}
+            self.assertEqual(request["command"], "prompt")
+            return {"status": "settled", "filesCollected": True, "files": [],
+                "events": [{**pi_worker.identity(next_op), "eventSeq": next_event_seq, "type": "agent_settled"}],
+                "terminalReceipt": {"operationId": next_op.id, "status": "settled", "eventSeq": next_event_seq, "files": []}}
+        with patch.object(pi_worker, "heartbeat"), patch.object(pi_transport, "command", side_effect=runner):
+            pi_worker.perform(next_op)
+        self.assertEqual(len(create_requests), 1)
+        next_op.refresh_from_db()
+        self.assertEqual(next_op.status, "succeeded")
+        self.assertEqual(PiSession.objects.get(pk=session.id).status, "idle")
+
+    def test_non_idle_session_with_no_workspace_row_still_rejected(self):
+        """A session with no PiWorkspace row that is NOT idle (still has an
+        active operation) must still be rejected by eligible()'s own
+        session.status/active_operation_id checks -- the "no row" handling
+        only widens the workspace-status test, it must not bypass every
+        other condition eligible() already enforces.
+        """
+        session, operation, admission, expected, shell, state = self.no_workspace_row_stopped_shell(idle_hours=72)
+        with mutation():
+            PiOperation.objects.filter(pk=operation.pk).update(status="running")
+            PiSession.objects.filter(pk=session.id).update(status="running", active_operation_id=operation.id)
+        principal = pi_workspace._reclaim_principal(PiSession.objects.get(pk=session.id))
+        with patch.object(pi_transport, "command", side_effect=self.reclaim_runner({session.id: (operation, admission, expected, shell, state)})):
+            with self.assertRaises(AiError) as caught:
+                pi_workspace.reclaim_stopped(session.id, principal)
+        self.assertEqual(caught.exception.code, "pi_reclaim_workspace_unverified")
+        self.assertFalse(PiWorkspace.objects.filter(session=session).exists())
 
