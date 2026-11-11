@@ -304,7 +304,8 @@ def public_model_addresses(url, addresses, timeout, *, exclude=frozenset()):
     return _public_addresses(url, addresses, timeout, endpoint, exclude=exclude)
 
 
-def _recovery_answer(host, record_type, started, budget, ceiling, *, skip_resolvers=frozenset()):
+def _recovery_answer(host, record_type, started, budget, ceiling, *, skip_resolvers=frozenset(),
+                     primary_last=False):
     """Query the pinned resolvers in order; keep the first resolver's failure.
 
     A hijacking local proxy can break TLS to one fixed resolver while leaving
@@ -318,6 +319,12 @@ def _recovery_answer(host, record_type, started, budget, ceiling, *, skip_resolv
     again, so a caller re-resolving after a connect failure can still reach
     a resolver further down the pinned list within the same budget.
 
+    `primary_last` is set by a caller re-resolving after the addresses it was
+    given proved unreachable. The primary resolver (`_doh_resolvers[0]`) may
+    rotate its single answer between equally unreachable nodes, so asking it
+    again just yields another bad address; the other pinned resolvers are
+    asked first and the primary only as the last resort.
+
     Returns the resolver's address, the answer, and the extra time a
     fallback resolver was granted beyond the shared budget. The caller must
     add that to its own anchor, otherwise its budget check would discard an
@@ -325,10 +332,17 @@ def _recovery_answer(host, record_type, started, budget, ceiling, *, skip_resolv
     """
     first = None
     granted = 0.0
-    for index, (resolver, path) in enumerate(_doh_resolvers):
+    asked = False
+    order = _doh_resolvers[1:] + _doh_resolvers[:1] if primary_last else _doh_resolvers
+    for resolver, path in order:
         if resolver in skip_resolvers:
             continue
-        if index == 0:
+        # The shared budget belongs to the first resolver asked in this round.
+        # Once `skip_resolvers` is non-empty an earlier call already spent
+        # from the same anchor, so later resolvers use the fallback window
+        # (identical to the old `index == 0` rule when no rotation happens).
+        if not skip_resolvers and not asked:
+            asked = True
             remaining = budget - (time.monotonic() - started)
         else:
             # Fallback resolvers draw on their own small window. A resolver whose
@@ -444,7 +458,8 @@ def _public_addresses(url, addresses, timeout, origin_guard, *, exclude=frozense
             if remaining <= 0:
                 raise ProviderTransportError(stage="dns_recovery", reason="timeout")
             resolver, granted, answer = _recovery_answer(
-                host, record_type, started, budget, timeout, skip_resolvers=skip_resolvers
+                host, record_type, started, budget, timeout, skip_resolvers=skip_resolvers,
+                primary_last=bool(exclude),
             )
             # A fallback resolver ran past the shared budget by design. Without
             # extending the anchor, the checks below would read that as an expired
