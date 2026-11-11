@@ -86,16 +86,24 @@ class SalesCategoryExportEnvelopeTests(SimpleTestCase):
         self.assertEqual(rejected.exception.status, 413)
 
     def test_export_page_rejects_wrong_dataset_surface_page_and_combination(self):
-        with patch.object(datasets.transport, "edge") as edge:
-            for dataset, kwargs in [("sales_summary", {"surface": "ai_chat", "pandas_sales_page": 1}),
-                                    ("sales_category", {"surface": "pi_agent", "pandas_sales_page": 1}),
-                                    ("sales_category", {"surface": "ai_chat", "pandas_sales_page": 0}),
-                                    ("sales_category", {"surface": "ai_chat", "pandas_sales_page": 21}),
-                                    ("sales_category", {"surface": "ai_chat", "pandas_sales_page": True}),
-                                    ("sales_category", {"surface": "ai_chat", "pandas_sales_page": 1, "pandas_product_page": (1, None)})]:
-                with self.subTest(dataset=dataset, kwargs=kwargs), self.assertRaises(AiError):
-                    datasets.query(dataset, {"query": {}}, ADMIN, "fixture", **kwargs)
-        edge.assert_not_called()
+        # pi_agent must reach datasets.query's own surface check: make the dataset visible there first.
+        catalog = catalog_fixture()
+        for tool in catalog:
+            tool["execution"]["allowedSurfaces"].append("pi_agent")
+        with patch.object(datasets.transport, "catalog", return_value=catalog):
+            self.assertIn("sales_category", datasets.visible(ADMIN, "pi_agent")[1] and
+                          {d for d in datasets.DATASETS if datasets.allowed(d, ADMIN, datasets.visible(ADMIN, "pi_agent")[1])})
+            with patch.object(datasets.transport, "edge") as edge:
+                for dataset, kwargs in [("sales_summary", {"surface": "ai_chat", "pandas_sales_page": 1}),
+                                        ("sales_category", {"surface": "pi_agent", "pandas_sales_page": 1}),
+                                        ("sales_category", {"surface": "ai_chat", "pandas_sales_page": 0}),
+                                        ("sales_category", {"surface": "ai_chat", "pandas_sales_page": 21}),
+                                        ("sales_category", {"surface": "ai_chat", "pandas_sales_page": True}),
+                                        ("sales_category", {"surface": "ai_chat", "pandas_sales_page": 1, "pandas_product_page": (1, None)})]:
+                    with self.subTest(dataset=dataset, kwargs=kwargs), self.assertRaises(AiError) as rejected:
+                        datasets.query(dataset, {"query": {}}, ADMIN, "fixture", **kwargs)
+                    self.assertEqual(rejected.exception.status, 403)
+            edge.assert_not_called()
 
 
 class DatasetContractTests(SimpleTestCase):

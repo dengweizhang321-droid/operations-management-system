@@ -8,7 +8,7 @@ registerHooks({ resolve(specifier, context, nextResolve) {
   if (specifier === "cloudflare:workers") return { url: "data:text/javascript,export const env={};", shortCircuit: true };
   return nextResolve(specifier, context);
 } });
-const { aiToolRegistry, getOpenAiTools, getAnthropicTools, getToolsForPrincipal, executeRegisteredToolCall } = await import("../lib/ai/tool-registry");
+const { aiToolRegistry, getOpenAiTools, getAnthropicTools, getToolsForPrincipal, executeRegisteredToolCall, pandasSalesCategoryPageTool } = await import("../lib/ai/tool-registry");
 const { summarizeToolArguments } = await import("../lib/ai/tool-audit");
 const { canonicalAiEdge, handleAiEdge } = await import("../lib/ai/django-edge");
 const { aiHeaders } = await import("../lib/django/ai-service");
@@ -182,7 +182,6 @@ test("signed sales category pages use a slim paged variant without opening the m
   t.after(() => { globalThis.fetch = originalFetch; for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
 
   const name = "get_sales_category_analysis";
-  const { pandasSalesCategoryPageTool } = await import("../lib/ai/tool-registry");
   const ordinary = aiToolRegistry.find(tool => tool.name === name)!;
   const argumentsFor = (page: number) => ({ startDate: "2026-11-01", endDate: "2026-11-07", limit: 2, page });
   // The model-visible schemas never carry page; the export variant does.
@@ -252,4 +251,38 @@ test("signed sales category pages use a slim paged variant without opening the m
   const ordinaryCall = await (await edge({ ...first, pandasSalesCategoryPage: undefined })).json() as { error: { code: string } };
   assert.equal(ordinaryCall.error.code, "invalid_arguments");
   assert.equal(reads.length, 2);
+});
+
+
+test("sales category export page drops row trend and a full 50-row page fits the inherited result limit", async () => {
+  const { getSalesCategoryPageForExport } = await import("../lib/sales/category-ai-tool");
+  const ordinary = aiToolRegistry.find(tool => tool.name === "get_sales_category_analysis")!;
+  const variant = pandasSalesCategoryPageTool(aiToolRegistry)!;
+  assert.equal(variant.execution.maxResultCharacters, ordinary.execution.maxResultCharacters);
+  const row = (index: number) => ({ category: `合成品类名称${index}`, grossSalesCents: 123456789 + index, refundAmountCents: 12345678,
+    netSalesCents: 111111111, costAmountCents: 99999999, shareRate: 0.0123456789012345, positiveQuantity: 123456, returnQuantity: 1234,
+    netQuantity: 122222, refundRate: 0.0987654321098765, grossProfitCents: 11111112, grossMarginRate: 0.1076923076923077,
+    productCount: 1234, lineCount: 123456, currentWeekNetSalesCents: 12345678, previousWeekNetSalesCents: 11345678,
+    yearAgoNetSalesCents: 10345678, weekOverWeekRate: 0.0881410256410256, yearOverYearRate: null,
+    trend: { points: [{ period: "2026-10", netSalesCents: 1 }, { period: "2026-11", netSalesCents: 2 }], changeRate: 1, direction: "up" } });
+  let requested = "";
+  const route = async (options: { request: Request }) => {
+    requested = options.request.url;
+    return Response.json({ range: { startDate: "2026-11-01", endDate: "2026-11-07" }, dataCutoffDate: "2026-11-07",
+      filtersApplied: { categories: [] }, ranking: [], trend: { items: [], returned: 0, truncated: false },
+      filterOptions: { categories: [], totals: { categories: 0 } },
+      details: { items: Array.from({ length: 50 }, (_, index) => row(index)),
+        pagination: { page: 2, pageSize: 50, total: 120, returned: 50, truncated: true } } });
+  };
+  const result = await getSalesCategoryPageForExport({ startDate: "2026-11-01", endDate: "2026-11-07", limit: 50, page: 2 }, admin,
+    { route: route as never });
+  assert.equal(new URL(requested).searchParams.get("page"), "2");
+  assert.equal(result.items.length, 50);
+  for (const item of result.items as Array<Record<string, unknown>>) {
+    assert.ok(!("trend" in item));
+    for (const value of Object.values(item)) assert.ok(value === null || ["string", "number", "boolean"].includes(typeof value));
+  }
+  const size = JSON.stringify(result).length;
+  console.log(`sales category export page (50 rows, no trend): ${size} characters; inherited limit ${ordinary.execution.maxResultCharacters}`);
+  assert.ok(size < ordinary.execution.maxResultCharacters);
 });

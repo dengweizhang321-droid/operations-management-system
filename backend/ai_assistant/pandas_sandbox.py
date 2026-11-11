@@ -58,6 +58,7 @@ PAGED_DATASETS = frozenset({
     "workflow_launch_projects",
 })
 MAX_EXPORT_PAGES = 20
+SALES_EXPORT_PAGE_SIZE = 50
 
 
 def native_page(dataset, data, path, parent, rows, args, expected_total, *, paged_export=False):
@@ -278,8 +279,9 @@ def export_frames(inputs, principal, request_id, surface, diagnostic_stage=no_st
         if product_export or sales_export:
             args.pop("page", None)
         if sales_export:
-            # Page size is the source's 50 maximum unless the caller chose a smaller one.
-            args["limit"] = args.get("limit", 50)
+            # Page size is fixed by the server (the Worker caps it at 50); the caller's limit
+            # is ignored, completeness is proved by total/returned across pages.
+            args["limit"] = SALES_EXPORT_PAGE_SIZE
         sales_keys = set()
         product_version, product_keys = None, set()
         rows, cursors, pages, first, last = [], set(), 0, None, None

@@ -1723,7 +1723,6 @@ export function pandasSalesCategoryPageTool(entries: readonly AiToolEntry[]): Ai
     inputSchema: { ...source.inputSchema, required: [...(source.inputSchema.required ?? []), "page"],
       properties: { ...source.inputSchema.properties, page: { type: "integer", minimum: 1, maximum: 20 } },
     },
-    execution: { ...source.execution, maxResultCharacters: 120_000 },
     handler: (args, context) => getSalesCategoryPageForExport(args, context.principal),
   };
 }

@@ -116,7 +116,7 @@ def descriptor(dataset_id, entry, *, detail=False):
         if dataset_id == "netshop_product_daily":
             item["pandasExport"]["instructions"] += " 商品日 items 按平台、店铺和 SPU 汇总，访客为商品×日累计。导出自动连续翻页并核对来源版本；普通查询仍只返回第一页。"
         elif dataset_id == "sales_category":
-            item["pandasExport"]["instructions"] += " items 会自动连续翻页导出全部匹配品类（总计不超过行数、页数和体积上限，超出会明确拒绝，请先按品类等条件缩小范围）；明确选择标量列。trend.items 仍受来源品类上限，须覆盖全部匹配品类。"
+            item["pandasExport"]["instructions"] += " items 会自动连续翻页导出全部匹配品类（总计不超过行数、页数和体积上限，超出会明确拒绝，请先按品类等条件缩小范围）；导出的 items 不含行内 trend（其余均为标量列，可用 columns 选择），需要趋势请用 trend.items；导出忽略调用方 limit 和 page，由服务端固定页大小。trend.items 仍受来源品类上限，须覆盖全部匹配品类。"
     return item
 
 

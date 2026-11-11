@@ -141,7 +141,8 @@ export async function getSalesCategoryPageForExport(
     range: result.range,
     dataCutoffDate: result.dataCutoffDate,
     filtersApplied: result.filtersApplied,
-    items: details.items,
+    // Row-level trend is a nested object; the export is scalar-only (trend.items covers trends).
+    items: details.items.map(row => { const { trend: _trend, ...scalars } = record(row); void _trend; return scalars; }),
     pagination: {
       page: pagination.page, pageSize: pagination.pageSize, total: pagination.total,
       returned: pagination.returned, truncated: pagination.truncated,
