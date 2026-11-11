@@ -920,22 +920,64 @@ def reclaim_stopped(session_id, principal, *, request_id=None, expected=None):
     from .pi_worker import identity
     from pi_runner.protocol import workspace_key
 
-    def eligible(session, *, lock=False):
+    def eligible(session, *, lock=False, materialize=False):
         operation = _operation(session)
         workspace = PiWorkspace.objects.filter(session=session, generation=session.generation).first()
+        # No current-generation row at all is the same chat-only shape as a
+        # persisted "uninitialized" row (see idle_reclaim_candidates): a plain
+        # prompt/claim/perform session never calls _workspace()'s
+        # get_or_create. Treat a missing row exactly like {"status":
+        # "uninitialized", "state_json": "{}"} for every check below, without
+        # writing anything here -- this function runs both as a read-only
+        # pre-check (lock=False, called outside mutation()) and as the
+        # authoritative check right before the reclaim is applied (lock=True,
+        # called inside mutation()); creating a row on the read-only call
+        # would leave a bare, unlocked insert outside that transaction. Only
+        # the locked call (materialize=True, always passed together with
+        # lock=True by this function's caller) actually persists the row, via
+        # _workspace() under the surrounding mutation()'s lock.
+        status = workspace.status if workspace else "uninitialized"
+        state_json = workspace.state_json if workspace else "{}"
         operations = PiOperation.objects.filter(session=session, epoch=session.epoch, generation=session.generation)
         controls = PiControl.objects.filter(session=session, epoch=session.epoch, generation=session.generation)
+        # "uninitialized" (row present or absent) joins "ready"/"paused" here:
+        # a session that never went through ingest() (chat-only, no
+        # workspace-panel touch) stays "uninitialized" forever -- ingest() is
+        # the only thing that ever moves it off that value, and ingest() only
+        # runs when the Runner response carries a "workspace" or relevant
+        # "state" key. "frozen"/"unknown" are still rejected -- "frozen" is
+        # expressed purely on session.status (pi_service._freeze never
+        # touches PiWorkspace) and is already caught by the
+        # `session.status != "idle"` condition just below, independent of
+        # whether a row exists; "unknown" can only exist as a persisted row
+        # value, so a missing row can never read as "unknown". An
+        # "uninitialized" workspace (row present or absent) can never
+        # actually be "paused" (nothing sets "paused" without first passing
+        # through "ready"/ingest), so requireLocalRestore below -- computed
+        # from workspace.status == "paused" -- is correctly False for it
+        # without any extra condition.
         if (session.status != "idle" or session.active_operation_id or not operation or operation.epoch != session.epoch
-                or not workspace or workspace.status not in {"ready", "paused"}
+                or status not in {"ready", "paused", "uninitialized"}
                 or operations.exclude(status__in=["succeeded", "failed", "canceled"]).exists()
                 or controls.exclude(status__in=["completed", "handled", "failed"]).exists()
                 or PiDispatch.objects.filter(operation__in=operations).exclude(status="completed").exists()
                 or PiExport.objects.filter(operation__in=operations, status__in=["queued", "running"]).exists()
                 or PiUiRequest.objects.filter(operation__in=operations, status="pending").exists()
                 or PiBusinessAction.objects.filter(parent_operation__in=operations, status__in=["prepared", "queued", "claimed", "dispatched", "unknown"]).exists()
-                or _unresolved_activity(session, json.loads(workspace.state_json))):
+                or _unresolved_activity(session, json.loads(state_json))):
             raise AiError("Django 会话或原回执尚未安全终结", "pi_reclaim_workspace_unverified", 409)
         pi_native.authorize(operation, kind="workspace", name="wake", lock=lock, require_supplied=False)
+        # Only the caller that holds mutation()'s lock (lock=True,
+        # materialize=True together, see the second eligible() call below)
+        # actually persists a missing row -- via _workspace(), so the insert
+        # is covered by that transaction's lock, not a bare unlocked write
+        # from this read-only pre-check. The first (read-only) call's
+        # returned `workspace` is never read by its caller below (it is
+        # immediately reassigned by the second call before any field of it is
+        # used), so returning None there is harmless -- there is nothing left
+        # to materialize for a request that is only observing, not applying.
+        if not workspace and materialize:
+            workspace = _workspace(session)
         return operation, workspace
 
     if request_id is not None:
@@ -974,7 +1016,7 @@ def reclaim_stopped(session_id, principal, *, request_id=None, expected=None):
         current = service.get_session(session_id, principal, lock=True)
         if PiControl.objects.filter(session=current, client_request_id=request_id).exists():
             raise AiError("请读取原回收请求回执", "pi_control_active", 409)
-        latest, workspace = eligible(current, lock=True)
+        latest, workspace = eligible(current, lock=True, materialize=True)
         admission = pi_native.admission(latest)
         if identity(latest) != runner_identity or admission != state["admission"]:
             raise AiError("会话或准入已变化，须重新核对", "pi_reclaim_binding_changed", 409)
@@ -1068,8 +1110,35 @@ def idle_reclaim_candidates(*, idle_since, scan_limit, exclude_session_id=None):
     sessions = sessions.order_by("updated_at", "id")[:bound * 4]
     candidates = []
     for session in sessions:
-        workspace = PiWorkspace.objects.filter(session=session, generation=session.generation, status__in=["ready", "paused"]).first()
-        if workspace and not _already_reclaimed(session):
+        # "uninitialized" is included alongside "ready"/"paused": a session
+        # that only ever talked through prompt/claim/perform (never touched
+        # the workspace panel/control path) keeps its workspace row at the
+        # model default "uninitialized" forever -- ingest() is the only thing
+        # that ever moves it off that value, and ingest() only runs when the
+        # Runner response happens to carry a "workspace" or relevant "state"
+        # key. Excluding "uninitialized" here would make every chat-only
+        # session permanently unreclaimable even though its shell can be
+        # stopped exactly like a "ready" one. "frozen"/"unknown" stay excluded;
+        # eligible() inside reclaim_stopped still re-checks every other real
+        # condition (idle, no active op, operations/controls terminal, no
+        # unresolved activity, binding) before anything is actually reclaimed.
+        #
+        # A session can also have *no* current-generation PiWorkspace row at
+        # all: nothing on the plain prompt/claim/perform path ever creates
+        # one (_workspace()'s get_or_create is only reached via the
+        # workspace-panel GET, pi_native's targeted-control path, or
+        # reclaim_stopped's own success branch). "No row" is strictly weaker
+        # evidence than a persisted "uninitialized" row -- it is the same
+        # chat-only shape one GET-detail call away from looking identical --
+        # so it must be treated the same way here, not excluded. "frozen" is
+        # expressed purely on PiSession.status (pi_service._freeze, never
+        # touches PiWorkspace) and is already rejected by the session.status
+        # filter above this loop; a missing row cannot smuggle a frozen
+        # session past that.
+        has_workspace = PiWorkspace.objects.filter(session=session, generation=session.generation,
+            status__in=["ready", "paused", "uninitialized"]).exists() or not PiWorkspace.objects.filter(
+            session=session, generation=session.generation).exists()
+        if has_workspace and not _already_reclaimed(session):
             candidates.append(session)
         if len(candidates) >= bound:
             break
