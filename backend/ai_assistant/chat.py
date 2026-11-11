@@ -1483,6 +1483,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, dingtalk_unbou
                     # sent nothing. The final reply and artifacts are saved in
                     # one transaction with "succeeded", so nothing is visible.
                     # A retry cannot double-run a dispatch: a definite failure.
+                    # DingTalk receipts keep their original semantics.
                     row.error_code = "ai_chat_not_dispatched"
                 elif attempt is not None:
                     row.status = "unknown"
@@ -1500,7 +1501,11 @@ def answer(body, principal, request_id, *, dingtalk_session=None, dingtalk_unbou
                 and dingtalk_session is None and last_confirmed_dispatch is not None):
             # Earlier rounds were sent, so the original failure code would keep
             # the browser fenced. Report the definite, retryable failure.
-            raise AiError("本次回答未完成，未保存任何回复；已发出的模型调用均已结束，可重新发送。",
+            # An AiError message is fixed user-facing text (provider errors
+            # never carry upstream prose), the same text the caller saw before
+            # this classification; keep it so the cause is not hidden.
+            reason = str(error).strip().rstrip("。.!！ ") if isinstance(error, AiError) else ""
+            raise AiError((reason + "。" if reason else "") + "本次回答未保存，已发出的模型调用均已结束，可重新发送。",
                           "ai_chat_not_dispatched", error.status if isinstance(error, AiError) else 503) from error
         if row.status == "unknown" and (dingtalk_session is None or row.cancel_requested):
             message = ("已保存停止请求，供应商执行结果未确认" if row.cancel_requested
