@@ -1477,6 +1477,13 @@ def answer(body, principal, request_id, *, dingtalk_session=None, dingtalk_unbou
                     row.error_code = "ai_request_cancelled"
                 elif row.cancel_requested and attempt == last_confirmed_dispatch:
                     row.error_code = "ai_chat_stopped_after_dispatch"
+                elif attempt is not None and attempt == last_confirmed_dispatch and dingtalk_session is None:
+                    # Every dispatched round already returned and the failing
+                    # step (a later pre-send fence, DNS, tool, finalization)
+                    # sent nothing. The final reply and artifacts are saved in
+                    # one transaction with "succeeded", so nothing is visible.
+                    # A retry cannot double-run a dispatch: a definite failure.
+                    row.error_code = "ai_chat_not_dispatched"
                 elif attempt is not None:
                     row.status = "unknown"
                     row.error_code = "ai_chat_result_unknown"
@@ -1489,6 +1496,12 @@ def answer(body, principal, request_id, *, dingtalk_session=None, dingtalk_unbou
                 raise AiError("已保存停止请求，消息未派发", "ai_request_cancelled", 499) from error
             if row.error_code == "ai_chat_stopped_after_dispatch":
                 raise AiError("已停止后续生成，原调用已结束", "ai_chat_stopped_after_dispatch", 409) from error
+        if (row.status == "failed" and row.error_code == "ai_chat_not_dispatched"
+                and dingtalk_session is None and last_confirmed_dispatch is not None):
+            # Earlier rounds were sent, so the original failure code would keep
+            # the browser fenced. Report the definite, retryable failure.
+            raise AiError("本次回答未完成，未保存任何回复；已发出的模型调用均已结束，可重新发送。",
+                          "ai_chat_not_dispatched", error.status if isinstance(error, AiError) else 503) from error
         if row.status == "unknown" and (dingtalk_session is None or row.cancel_requested):
             message = ("已保存停止请求，供应商执行结果未确认" if row.cancel_requested
                        else "原请求结果未确认，已保留请求号，请刷新核对")

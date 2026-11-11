@@ -102,7 +102,7 @@ class ChatToolBudgetTests(TestCase):
         with patches[0], patches[1] as source, patches[2], patches[3]:
             with self.assertRaises(AiError) as error:
                 chat.answer({"clientRequestId": "denied", "message": "查询"}, self.owner, "denied")
-            self.assertEqual((error.exception.code, error.exception.status), ("ai_chat_result_unknown", 403))
+            self.assertEqual((error.exception.code, error.exception.status), ("ai_chat_not_dispatched", 403))
             self.assertEqual(error.exception.__cause__.code, "access_denied")
             source.assert_not_called()
         self.assertFalse(m.AiConversationMessages.objects.filter(role="assistant").exists())
@@ -130,7 +130,7 @@ class ChatToolBudgetTests(TestCase):
         with patches[0], patches[1] as source, patches[2], patches[3] as http:
             with self.assertRaises(AiError) as error:
                 chat.answer({"clientRequestId": "stubborn", "message": "查询"}, self.owner, "stubborn")
-            self.assertEqual((error.exception.code, error.exception.status), ("ai_chat_result_unknown", 409))
+            self.assertEqual((error.exception.code, error.exception.status), ("ai_chat_not_dispatched", 409))
             self.assertEqual(error.exception.__cause__.code, "tool_limit_exceeded")
             self.assertEqual(source.call_count, 1)
             self.assertEqual(http.call_count, 2)
@@ -186,7 +186,7 @@ class ChatToolBudgetTests(TestCase):
             with patches[0], patches[1] as source, patches[2], patches[3] as http:
                 with self.assertRaises(AiError) as caught:
                     chat.answer({"clientRequestId": f"empty-{rounds}", "message": "查询"}, self.owner, f"empty-{rounds}")
-                self.assertEqual((caught.exception.code, caught.exception.status), ("ai_chat_result_unknown", 503))
+                self.assertEqual((caught.exception.code, caught.exception.status), ("ai_chat_not_dispatched", 503))
                 self.assertEqual(caught.exception.__cause__.code, "provider_empty_response")
                 self.assertEqual(http.call_count, expected)
                 source.assert_not_called()
