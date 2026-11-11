@@ -383,6 +383,98 @@ StandardError=null
         return {key: plan["binding"][key] for key in keys} | {
             "configured": True, "registeredPlanSha256": path.name, "predecessorSourceSha256": plan["predecessorSourceSha256"]}
 
+    def stale_plan_for_takeover(self, exclude, old, new, inventory, before, linux):
+        """Narrow exception to `existing_release_requires_original_plan`.
+
+        Every round of `prepare()` embeds a fresh `preparedAppId` (and the
+        rest of `binding`) into `plan.json`, so the plan directory name (its
+        own sha256) changes even when the source tree does not. If a prior
+        round got as far as creating `releases/<new>` and then failed, or
+        never switched, before this round's new plan directory name, the
+        normal path at the `existing_release_requires_original_plan` check
+        wedges forever: the new plan directory never existed to begin with.
+
+        Returns the single eligible stale plan directory (a Path under
+        `self.control`) to take over, or None if zero or more than one
+        candidate qualifies, or any field disagrees -- callers must keep
+        raising `existing_release_requires_original_plan` on None. Never
+        mutates anything; the caller performs the actual takeover.
+
+        Caller must already know `releases/<new>` exists; this re-verifies
+        its content, ownership and mode match `inventory` exactly (the same
+        full check `read_release` does when a fresh release is created) as
+        one of the required conditions, not as a separate later step.
+        """
+        try:
+            release_matches = self.read_release(new) == inventory
+        except (Refused, OSError, ValueError, TypeError, KeyError):
+            release_matches = False
+        if not release_matches:
+            return None
+        candidates = []
+        for path in self.control.iterdir():
+            if path.name in {"rotation.lock", exclude.name}:
+                continue
+            if SHA.fullmatch(path.name) is None:
+                continue
+            try:
+                same_file(path, 0, 0o700, directory=True)
+                raw = read_file(path / "plan.json", 0, 0o400)
+                need(sha(raw) == path.name, "stale_plan_digest_changed")
+                plan = decode(raw)
+            except (Refused, OSError, ValueError, TypeError, KeyError):
+                continue
+            if (path / "intent.json").exists() or (path / "result.json").exists() or (path / "switched.json").exists():
+                continue
+            if (plan.get("binding") or {}).get("sourceSha256") != new:
+                continue
+            if plan.get("predecessorSourceSha256") != old or plan.get("successorFiles") != inventory:
+                continue
+            if plan.get("predecessorUnitSha256") != sha(before):
+                continue
+            try:
+                predecessor_unit = read_file(path / "predecessor.unit", 0, 0o400)
+            except (OSError, ValueError):
+                continue
+            if predecessor_unit != before:
+                continue
+            if plan.get("linux") != linux:
+                continue
+            candidates.append((path, plan))
+        if len(candidates) != 1:
+            return None
+        path, plan = candidates[0]
+        entries = {p.name for p in path.iterdir()}
+        if not entries <= {"plan.json", "predecessor.unit", "successor.unit", "binding-mismatch-diagnostic.json"}:
+            return None
+        if not {"plan.json", "predecessor.unit", "successor.unit"} <= entries:
+            return None
+        return path
+
+    def create_plan_directory(self, path, raw, before, after):
+        create_dir(path, 0o700)
+        create_file(path / "predecessor.unit", before)
+        create_file(path / "successor.unit", after)
+        create_file(path / "plan.json", raw)
+
+    def remove_stale_plan_directory(self, path):
+        """Delete exactly the files a never-dispatched `prepare()` round can
+        have left in a stale plan directory, then the now-empty directory
+        itself. Refuses (raises, leaving the directory as-is) if any other
+        entry is present -- callers must have already confirmed the entry
+        set is a subset of the expected names before calling this."""
+        entries = {p.name for p in path.iterdir()}
+        allowed = {"plan.json", "predecessor.unit", "successor.unit", "binding-mismatch-diagnostic.json"}
+        need(entries <= allowed, "stale_plan_unexpected_entries")
+        for name in ("binding-mismatch-diagnostic.json", "predecessor.unit", "successor.unit", "plan.json"):
+            target = path / name
+            if target.exists():
+                same_file(target, 0, 0o600 if name == "binding-mismatch-diagnostic.json" else 0o400)
+                os.remove(target)
+        sync_dir(path)
+        path.rmdir()
+        sync_dir(path.parent)
+
     def prepare(self, binding, request):
         old, new = request["predecessorSourceSha256"], binding["sourceSha256"]
         need(type(old) is str and SHA.fullmatch(old) is not None and old != new, "invalid_predecessor")
@@ -402,25 +494,39 @@ StandardError=null
         need(plan["linux"]["keySha256"] == binding["channelKeySha256"], "channel_key_identity_mismatch")
         raw = encode(plan)
         path = self.control / sha(raw)
+        replaced_stale_plan = None
         if path.exists():
             plan = self.checked_plan(path, binding, successor=False)
         else:
             release = self.releases / new
-            need(not os.path.lexists(release), "existing_release_requires_original_plan")
-            create_dir(path, 0o700)
-            package = release / "backend/pandas_runner"
-            for directory in (release, package.parent, package):
-                create_dir(directory, 0o755)
-            for name, content in sorted(files.items()):
-                create_file(package / name, content, 0o444)
-            for directory in (package, package.parent, release):
-                directory.chmod(0o555)
-                sync_dir(directory)
-            need(self.read_release(new) == inventory, "candidate_source_verification_failed")
-            create_file(path / "predecessor.unit", before)
-            create_file(path / "successor.unit", after)
-            create_file(path / "plan.json", raw)
-        return self.public(path, plan) | {"prepared": True, "started": False}
+            if os.path.lexists(release):
+                stale = self.stale_plan_for_takeover(path, old, new, inventory, before, plan["linux"])
+                need(stale is not None, "existing_release_requires_original_plan")
+                # Fix the discarded plan's identity (for the result only, never
+                # written to disk) before the destructive step below, so a
+                # later failure in this same takeover can never lose it.
+                stale_raw = read_file(stale / "plan.json", 0, 0o400)
+                stale_plan = decode(stale_raw)
+                replaced_stale_plan = {"registeredPlanSha256": stale.name, "planSha256": sha(stale_raw),
+                    "preparedAppId": stale_plan["binding"]["preparedAppId"],
+                    "sourceCommit": stale_plan["binding"]["sourceCommit"]}
+                self.remove_stale_plan_directory(stale)
+                self.create_plan_directory(path, raw, before, after)
+            else:
+                package = release / "backend/pandas_runner"
+                for directory in (release, package.parent, package):
+                    create_dir(directory, 0o755)
+                for name, content in sorted(files.items()):
+                    create_file(package / name, content, 0o444)
+                for directory in (package, package.parent, release):
+                    directory.chmod(0o555)
+                    sync_dir(directory)
+                need(self.read_release(new) == inventory, "candidate_source_verification_failed")
+                self.create_plan_directory(path, raw, before, after)
+        result = self.public(path, plan) | {"prepared": True, "started": False}
+        if replaced_stale_plan is not None:
+            result["replacedStalePlan"] = replaced_stale_plan
+        return result
 
     def stopped(self):
         effective = self.effective()
