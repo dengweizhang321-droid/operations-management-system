@@ -925,8 +925,17 @@ def reclaim_stopped(session_id, principal, *, request_id=None, expected=None):
         workspace = PiWorkspace.objects.filter(session=session, generation=session.generation).first()
         operations = PiOperation.objects.filter(session=session, epoch=session.epoch, generation=session.generation)
         controls = PiControl.objects.filter(session=session, epoch=session.epoch, generation=session.generation)
+        # "uninitialized" joins "ready"/"paused" here for the same reason as
+        # idle_reclaim_candidates above: a session that never went through
+        # ingest() (chat-only, no workspace-panel touch) stays "uninitialized"
+        # forever even though its Runner-side shell is an ordinary stopped
+        # shell. "frozen"/"unknown" are still rejected. An "uninitialized"
+        # workspace can never actually be "paused" (nothing sets "paused"
+        # without first passing through "ready"/ingest), so
+        # requireLocalRestore below -- computed from workspace.status ==
+        # "paused" -- is correctly False for it without any extra condition.
         if (session.status != "idle" or session.active_operation_id or not operation or operation.epoch != session.epoch
-                or not workspace or workspace.status not in {"ready", "paused"}
+                or not workspace or workspace.status not in {"ready", "paused", "uninitialized"}
                 or operations.exclude(status__in=["succeeded", "failed", "canceled"]).exists()
                 or controls.exclude(status__in=["completed", "handled", "failed"]).exists()
                 or PiDispatch.objects.filter(operation__in=operations).exclude(status="completed").exists()
@@ -1068,7 +1077,20 @@ def idle_reclaim_candidates(*, idle_since, scan_limit, exclude_session_id=None):
     sessions = sessions.order_by("updated_at", "id")[:bound * 4]
     candidates = []
     for session in sessions:
-        workspace = PiWorkspace.objects.filter(session=session, generation=session.generation, status__in=["ready", "paused"]).first()
+        # "uninitialized" is included alongside "ready"/"paused": a session
+        # that only ever talked through prompt/claim/perform (never touched
+        # the workspace panel/control path) keeps its workspace row at the
+        # model default "uninitialized" forever -- ingest() is the only thing
+        # that ever moves it off that value, and ingest() only runs when the
+        # Runner response happens to carry a "workspace" or relevant "state"
+        # key. Excluding "uninitialized" here would make every chat-only
+        # session permanently unreclaimable even though its shell can be
+        # stopped exactly like a "ready" one. "frozen"/"unknown" stay excluded;
+        # eligible() inside reclaim_stopped still re-checks every other real
+        # condition (idle, no active op, operations/controls terminal, no
+        # unresolved activity, binding) before anything is actually reclaimed.
+        workspace = PiWorkspace.objects.filter(session=session, generation=session.generation,
+            status__in=["ready", "paused", "uninitialized"]).first()
         if workspace and not _already_reclaimed(session):
             candidates.append(session)
         if len(candidates) >= bound:
