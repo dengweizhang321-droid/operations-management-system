@@ -542,6 +542,10 @@ class PiAutoReclaimTests(TestCase):
         with patch.object(pi_transport, "command", side_effect=self.reclaim_runner(fixtures)):
             self.assertTrue(pi_workspace.reclaim_one_idle_session(already.id))
         self.assertEqual(PiWorkspace.objects.get(session=already).status, "ready")
+        # reclaim_stopped's own event() bumped updated_at to now; push it back
+        # out past the idle threshold so this test actually exercises
+        # _already_reclaimed rather than the ordinary idle_since filter.
+        PiSession.objects.filter(pk=already.id).update(updated_at=timezone.now() - timedelta(hours=96))
 
         candidates = pi_workspace.idle_reclaim_candidates(
             idle_since=timezone.now() - timedelta(hours=1), scan_limit=4)
@@ -583,14 +587,31 @@ class PiAutoReclaimTests(TestCase):
             reclaimed = pi_workspace.auto_reclaim_idle(idle_seconds=24 * 3600, limit=4)
         self.assertEqual(reclaimed, 0)
         self.assertNotIn(second.id, calls)
+        self.assertEqual(PiControl.objects.filter(session=first, command="reclaim_stopped").count(), 1)
         control = PiControl.objects.get(session=first, command="reclaim_stopped")
         self.assertEqual(control.status, "unknown")
         self.assertEqual(control.error_code, "pi_reclaim_unknown")
         self.assertEqual(PiWorkspace.objects.get(session=first).status, "unknown")
-        # A second sweep must never resend the same uncertain request.
-        with patch.object(pi_transport, "command", side_effect=AssertionError("must not be called")):
+        # A second sweep must never resend the same uncertain request for
+        # `first` -- its own workspace status ("unknown") already excludes it
+        # as a fresh candidate, so this also exercises that exclusion holds.
+        # `second` is untouched by the first sweep (the scan stopped on
+        # `first` before reaching it) and is free to reclaim normally here.
+        # Assert on the recorded call log outside the mock, not by raising
+        # inside it: auto_reclaim_idle's own broad except would otherwise
+        # swallow a raised AssertionError and this would pass even if the
+        # uncertain request were replayed.
+        second_sweep_calls = []
+
+        def second_sweep(request):
+            second_sweep_calls.append(request["conversationId"])
+            return runner(request)
+        with patch.object(pi_transport, "command", side_effect=second_sweep):
             reclaimed_again = pi_workspace.auto_reclaim_idle(idle_seconds=24 * 3600, limit=4)
-        self.assertEqual(reclaimed_again, 0)
+        self.assertNotIn(first.id, second_sweep_calls)
+        self.assertIn(second.id, second_sweep_calls)
+        self.assertEqual(reclaimed_again, 1)
+        self.assertEqual(PiControl.objects.filter(session=first, command="reclaim_stopped").count(), 1)
         control.refresh_from_db()
         self.assertEqual(control.status, "unknown")
 
@@ -666,6 +687,52 @@ class PiAutoReclaimTests(TestCase):
         self.assertEqual(PiWorkspace.objects.get(session=donor).status, "ready")
         self.assertEqual(PiControl.objects.get(session=blocked, command="reclaim_stopped").status, "failed")
         self.assertEqual(PiControl.objects.get(session=donor, command="reclaim_stopped").status, "completed")
+
+    def test_session_limit_on_create_stops_candidate_scan_on_unknown_and_never_touches_the_next_one(self):
+        """The oldest candidate's reclaim apply gets an uncertain transport
+        result (pi_reclaim_unknown). create-retry must not route around that
+        by moving on to the second, genuinely reclaimable candidate: it
+        propagates the original SessionLimitRejected untouched, and the
+        second candidate's session is never contacted at all.
+        """
+        unknown_candidate, op_a, adm_a, exp_a, shell_a, state_a = self.stopped_shell(idle_hours=96)
+        second_candidate, op_b, adm_b, exp_b, shell_b, state_b = self.stopped_shell(idle_hours=48)
+        new_session_id = self.session()
+        self.prompt(new_session_id, clientRequestId="prompt-needs-capacity-unknown")
+        new_op = pi_worker.claim()
+        fixtures = {unknown_candidate.id: (op_a, adm_a, exp_a, shell_a, state_a),
+            second_candidate.id: (op_b, adm_b, exp_b, shell_b, state_b)}
+        create_calls = []
+        reclaim_calls = []
+
+        def runner(request):
+            sid = request["conversationId"]
+            if sid in fixtures:
+                reclaim_calls.append(sid)
+                if sid == unknown_candidate.id:
+                    operation, admission, expected, shell, state = fixtures[sid]
+                    args = request["payload"]
+                    if args["action"] == "state":
+                        return {"workspace": state}
+                    # The control (apply) step fails with a non-AiError, raw
+                    # transport exception -- exactly what makes
+                    # reclaim_stopped mark this pi_reclaim_unknown.
+                    raise ConnectionError("synthetic transport failure")
+                return self.reclaim_runner(fixtures)(request)
+            self.assertEqual(sid, new_session_id)
+            self.assertEqual(request["command"], "create")
+            create_calls.append(request)
+            raise pi_transport.SessionLimitRejected()
+        with patch.object(pi_transport, "command", side_effect=runner):
+            with self.assertRaises(pi_transport.SessionLimitRejected):
+                pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
+        self.assertNotIn(second_candidate.id, reclaim_calls)
+        self.assertEqual(len(create_calls), 1)
+        dispatches = list(PiDispatch.objects.filter(operation=new_op, kind="runner:create").values_list("request_id", "status", "error_code"))
+        self.assertEqual(dispatches, [("create", "completed", "pi_session_limit")])
+        control = PiControl.objects.get(session=unknown_candidate, command="reclaim_stopped")
+        self.assertEqual((control.status, control.error_code), ("unknown", "pi_reclaim_unknown"))
+        self.assertFalse(PiControl.objects.filter(session=second_candidate, command="reclaim_stopped").exists())
 
     def test_session_limit_on_create_with_no_candidate_fails_original_way_with_one_dispatch(self):
         new_session_id = self.session()
