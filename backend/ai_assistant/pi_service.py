@@ -65,7 +65,7 @@ def _owner(session, principal):
         raise AiError("Pi 会话不存在", "not_found", 404)
 
 
-def _freeze(session):
+def _freeze(session, reason="permission_changed", **extra):
     # Changing permissions must quarantine the old environment before any byte
     # or context is returned. Unknown effects retain the active session fence.
     if session.status != "frozen":
@@ -78,7 +78,7 @@ def _freeze(session):
             request_freeze(operation)
         session.status = "frozen"
         session.save(update_fields=["status"])
-        event(session, "environment_frozen", {"reason": "permission_changed"})
+        event(session, "environment_frozen", {"reason": reason, **extra})
 
 
 def request_freeze(operation):

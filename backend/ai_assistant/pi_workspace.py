@@ -1059,6 +1059,176 @@ def reclaim_stopped(session_id, principal, *, request_id=None, expected=None):
     return {"control": control_record(row), "replayed": False}
 
 
+def _quarantine_blocker(session):
+    """Read-only eligibility check for pi_quarantine_session.
+
+    Returns None when the session may be quarantined, or a (code, message)
+    pair naming the first blocking condition otherwise. Never calls
+    _workspace()/state_for()'s get_or_create paths -- this must stay safe to
+    call from the observe-only (no --apply) branch, which must not create any
+    row. PiAgent/PiNativeState membership is read directly for the same
+    reason reclaim_stopped's eligible() avoids pi_native.state_for() here.
+    """
+    from .pi_models import PiAgent, PiBusinessAction, PiControl, PiDispatch, PiExport, PiUiRequest
+    if session.status == "frozen":
+        return None
+    if session.status != "idle":
+        return "pi_quarantine_not_idle", "会话不是 idle 状态，禁止隔离"
+    if session.active_operation_id:
+        return "pi_quarantine_active_operation", "会话仍有活动操作，禁止隔离"
+    operations = PiOperation.objects.filter(session=session, generation=session.generation)
+    if operations.exclude(status__in=["succeeded", "failed", "canceled"]).exists():
+        return "pi_quarantine_operation_not_terminal", "当代仍有未终态操作，禁止隔离"
+    if PiControl.objects.filter(session=session, generation=session.generation).exclude(status="completed").exists():
+        return "pi_quarantine_control_unresolved", "存在未完成的工作区控制请求，禁止隔离"
+    # An existing control:freeze dispatch is checked separately below (with
+    # its own dedicated unknown-result error, per spec: completed is fine,
+    # unknown must block for manual review without a resend, and
+    # prepared/sent are simply not-yet-resolved like any other dispatch).
+    if PiDispatch.objects.filter(operation__in=operations).exclude(kind="control:freeze").exclude(status="completed").exists():
+        return "pi_quarantine_dispatch_unresolved", "存在未完成的派发请求，禁止隔离"
+    if PiExport.objects.filter(operation__in=operations, status__in=["queued", "running"]).exists():
+        return "pi_quarantine_export_active", "存在进行中的导出，禁止隔离"
+    if PiUiRequest.objects.filter(operation__in=operations, status="pending").exists():
+        return "pi_quarantine_ui_pending", "存在待回应的界面请求，禁止隔离"
+    if PiBusinessAction.objects.filter(parent_operation__in=operations,
+            status__in=["prepared", "queued", "claimed", "dispatched", "unknown"]).exists():
+        return "pi_quarantine_business_active", "存在未终结的业务动作，禁止隔离"
+    agent = PiAgent.objects.filter(session=session).first()
+    if agent is not None:
+        if agent.parent_session_id is not None:
+            return "pi_quarantine_child_agent", "子代理不允许单独隔离，须由父级或根会话处理"
+        if PiAgent.objects.filter(root_session_id=agent.root_session_id).exclude(session=session).exists():
+            return "pi_quarantine_tree_not_alone", "代理树中还有其他成员，禁止单独隔离"
+    freeze_dispatch = PiDispatch.objects.filter(operation__in=operations, kind="control:freeze").order_by("-created_at").first()
+    if freeze_dispatch and freeze_dispatch.status == "unknown":
+        return "pi_quarantine_freeze_unknown", "原停止请求结果未知，需人工核对，不重发"
+    if freeze_dispatch and freeze_dispatch.status in {"prepared", "sent"}:
+        return "pi_quarantine_dispatch_unresolved", "存在未完成的派发请求，禁止隔离"
+    return None
+
+
+def quarantine_observation(session_id, principal):
+    """Read-only inspection for the pi_quarantine_session maintenance command.
+
+    Never writes a row -- the caller may run this with no authorization to
+    apply anything. Deliberately avoids _workspace()/pi_native.state_for(),
+    whose get_or_create would materialize a PiWorkspace/PiNativeState/PiAgent
+    row purely from being observed.
+    """
+    from .pi_models import PiAgent, PiBusinessAction, PiControl, PiDispatch, PiExport, PiFile, PiUiRequest
+    current_principal(principal)
+    session = service.get_session(session_id, principal)
+    operations = PiOperation.objects.filter(session=session, generation=session.generation)
+    agent = PiAgent.objects.filter(session=session).first()
+    tree_member_count = PiAgent.objects.filter(root_session_id=agent.root_session_id).count() if agent else 0
+    freeze_dispatch = PiDispatch.objects.filter(operation__in=operations, kind="control:freeze").order_by("-created_at").first()
+    blocker = _quarantine_blocker(session)
+    return {
+        "sessionId": session.id,
+        "status": session.status,
+        "title": session.title if session.status != "frozen" else "已隔离会话",
+        "epoch": session.epoch,
+        "generation": session.generation,
+        "activeOperationId": session.active_operation_id,
+        "operations": [{"id": op.id, "status": op.status, "seq": op.seq} for op in operations.order_by("-seq")[:20]],
+        "hasActiveOrUnknownOperation": operations.filter(status__in=service.ACTIVE).exists(),
+        "pendingControls": list(PiControl.objects.filter(session=session, generation=session.generation)
+            .exclude(status="completed").values_list("id", "command", "status")),
+        "pendingDispatches": list(PiDispatch.objects.filter(operation__in=operations)
+            .exclude(status="completed").values_list("id", "kind", "status")),
+        "activeExports": list(PiExport.objects.filter(operation__in=operations, status__in=["queued", "running"])
+            .values_list("id", "status")),
+        "pendingBusinessActions": list(PiBusinessAction.objects.filter(parent_operation__in=operations,
+            status__in=["prepared", "queued", "claimed", "dispatched", "unknown"]).values_list("id", "action_type", "status")),
+        "pendingUiRequests": list(PiUiRequest.objects.filter(operation__in=operations, status="pending").values_list("id", flat=True)),
+        "isAgentTreeMember": agent is not None,
+        "isChildAgent": bool(agent and agent.parent_session_id is not None),
+        "agentTreeMemberCount": tree_member_count,
+        "inputFileCount": PiFile.objects.filter(session=session, generation=session.generation, direction="input").count(),
+        "outputFileCount": PiFile.objects.filter(session=session, generation=session.generation, direction="output").count(),
+        "freezeDispatch": {"id": freeze_dispatch.id, "status": freeze_dispatch.status} if freeze_dispatch else None,
+        "alreadyFrozen": session.status == "frozen",
+        "eligible": blocker is None,
+        "blockReason": None if blocker is None else blocker[0],
+        "blockMessage": None if blocker is None else blocker[1],
+    }
+
+
+def _quarantine_receipt(session, request_id):
+    """The one maintenance_quarantine PiEvent bound to this exact request_id
+    on this session, if any. Read-only; events are JSON-parsed in Python
+    (never substring-matched) so an unrelated key can never collide with
+    requestId. A session's event table is small and already capped at 100
+    elsewhere in this module for the same reason.
+    """
+    from .pi_models import PiEvent
+    for row in PiEvent.objects.filter(session=session, event_type="environment_frozen").order_by("-event_seq"):
+        data = json.loads(row.data_json)
+        if data.get("reason") == "maintenance_quarantine" and data.get("requestId") == request_id:
+            return row
+    return None
+
+
+def _quarantine_result(session, request_id):
+    from .pi_models import PiDispatch
+    freeze_dispatch = PiDispatch.objects.filter(operation__session=session, kind="control:freeze", request_id="dispose").order_by("-created_at").first()
+    return {"session": service.session_record(session), "requestId": request_id,
+        "freezeDispatch": {"id": freeze_dispatch.id, "status": freeze_dispatch.status} if freeze_dispatch else None}
+
+
+def pi_quarantine_session(session_id, principal, *, request_id):
+    """Maintenance-only: give up on one idle, independent Pi session's old
+    container shell and mark it frozen, exactly like a permission change,
+    then queue the one control:freeze dispatch that lets the worker's
+    existing dispose_environment path ask Runner to remove the container.
+
+    Never deletes a database row and never talks to Docker/Runner directly;
+    all of that stays in pi_worker._export_loop's existing pickup of
+    kind="control:freeze"/status="prepared" PiDispatch rows.
+    """
+    from .pi_models import PiDispatch
+    identifier(request_id, "requestId")
+    current_principal(principal, write=True)
+    session = service.get_session(session_id, principal)
+    if _quarantine_receipt(session, request_id):
+        return {**_quarantine_result(session, request_id), "replayed": True}
+    with mutation(principal):
+        current = service.get_session(session_id, principal, lock=True)
+        if _quarantine_receipt(current, request_id):
+            # Another concurrent call already completed under this exact
+            # request_id/session pair while this call was waiting for the
+            # lock; replay its result instead of writing a second audit event.
+            return {**_quarantine_result(current, request_id), "replayed": True}
+        if current.status == "frozen":
+            # Already quarantined (by this command or by an unrelated freeze
+            # path, e.g. a permission change) under a *different* request_id:
+            # idempotent in effect, but this exact request_id has never been
+            # recorded, so it is audited once against the session's current
+            # (frozen) state rather than silently treated as a replay.
+            service.event(current, "environment_frozen", {"reason": "maintenance_quarantine", "requestId": request_id, "alreadyFrozen": True})
+            return {**_quarantine_result(current, request_id), "replayed": False}
+        blocker = _quarantine_blocker(current)
+        if blocker is not None:
+            raise AiError(blocker[1], blocker[0], 409)
+        latest_operation = PiOperation.objects.filter(session=current, generation=current.generation).order_by("-seq").first()
+        # _freeze writes the sole environment_frozen audit event for this
+        # call, carrying requestId so _quarantine_receipt can find it again;
+        # no separate event is written here (that would create a second,
+        # redundant environment_frozen event per quarantine).
+        service._freeze(current, reason="maintenance_quarantine", requestId=request_id)
+        current.refresh_from_db()
+        if latest_operation is not None:
+            existing = PiDispatch.objects.filter(operation=latest_operation, kind="control:freeze", request_id="dispose").first()
+            if not existing or existing.status != "completed":
+                # _quarantine_blocker already proved any existing control:freeze
+                # dispatch on this generation is "completed" (not unknown,
+                # not prepared/sent) or absent -- this can only create a new
+                # one, never resend an already-prepared/unknown request.
+                service.request_freeze(latest_operation)
+        return {**_quarantine_result(current, request_id), "replayed": False}
+
+
 def _reclaim_principal(session):
     from sales.auth import Principal
     return Principal(session.owner_email, session.owner_email, session.actor_role, json.loads(session.scope_json))
