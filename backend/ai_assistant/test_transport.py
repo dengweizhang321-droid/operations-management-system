@@ -435,6 +435,37 @@ class ModelDnsTests(SimpleTestCase):
             self.assertTrue(urls[1].startswith(f"https://{second}/dns-query?"))
             self.assertEqual(timeouts, [5, 3])
 
+    def test_reresolution_slow_all_excluded_answer_leaves_last_resort_the_bounded_window(self):
+        # Re-resolution: tx is asked first with the shared budget and answers
+        # slowly (4.5s) with only an address that is already excluded, so it
+        # lands in skip_resolvers and _recovery_answer runs again. cf, asked
+        # last, must get the bounded fallback window min(3, 5 + 3 - 4.5, ...)
+        # = 3, not the 0.5s left of the shared budget. Pins the
+        # `not skip_resolvers` half of the shared-budget condition.
+        clock = [100.0]
+        timeouts = []
+        urls = []
+
+        def query(url, *args, **kwargs):
+            urls.append(url)
+            timeouts.append(kwargs["timeout"])
+            if "1.12.12.12" in url:
+                clock[0] += 4.5
+                return dns_answer(1, "161.117.107.66")
+            return dns_answer(1, "47.246.137.199")
+
+        with patch.object(
+            transport.time, "monotonic", side_effect=lambda: clock[0]
+        ), patch.object(transport, "_bounded_json", side_effect=query):
+            result = transport.public_model_addresses(
+                URL, addresses("198.18.0.9"), 60, exclude=frozenset({"161.117.107.66"})
+            )
+        self.assertEqual([row[4][0] for row in result], ["47.246.137.199"])
+        self.assertEqual(len(urls), 2)
+        self.assertTrue(urls[0].startswith("https://1.12.12.12/dns-query?"))
+        self.assertTrue(urls[1].startswith("https://1.1.1.1/dns-query?"))
+        self.assertEqual(timeouts, [5, 3])
+
     def test_multiple_addresses_first_fails_second_succeeds(self):
         # opencode.ai answers 4 IPs for one A query; only the first is
         # unreachable here, so the fix must move to the second address in
