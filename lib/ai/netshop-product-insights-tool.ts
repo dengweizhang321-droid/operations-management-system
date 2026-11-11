@@ -12,6 +12,8 @@ import { RegistryToolError, validateToolArguments, type AiToolExecutionContext, 
 export const NETSHOP_PRODUCT_INSIGHTS_TOOL_NAME = "get_netshop_product_insights";
 export const NETSHOP_PRODUCT_INSIGHTS_AI_TIMEOUT_MS = 30_000;
 export const NETSHOP_PRODUCT_INSIGHTS_AI_MAX_CHARACTERS = 40_000;
+/** AI-side default page size, measured so default responses (summary, comparisons, one full row) stay inside the 40000-character envelope after compaction. The owning reader still allows up to 20. */
+export const NETSHOP_PRODUCT_INSIGHTS_AI_DEFAULT_PAGE_SIZE = 1;
 
 export const netshopProductInsightsInputSchema = {
   type: "object",
@@ -20,7 +22,7 @@ export const netshopProductInsightsInputSchema = {
     q: { type: "string", maxLength: 120, description: "仅筛选主列表名称、精确ID或商家码；不改变上方经营汇总。" },
     category: { type: "string", maxLength: 120, description: "经营范围内的来源类目标签；不是跨平台官方分类ID。" },
     page: { type: "integer", minimum: 1, maximum: 10_000, default: 1 },
-    pageSize: { type: "integer", minimum: 1, maximum: 20, default: 5 },
+    pageSize: { type: "integer", minimum: 1, maximum: 20, default: NETSHOP_PRODUCT_INSIGHTS_AI_DEFAULT_PAGE_SIZE, description: "当前页行数，默认1：环比/同比和周报只需汇总与比较，不需要多行。调大会使完整响应更易超过40000字符被拒绝，当前页行不会被裁剪。" },
     sort: { type: "string", enum: [...productSorts], default: "payment_desc" },
     sectionToken: { type: "string", pattern: "^[a-f0-9]{64}$", description: "同一商品列表范围及排序分页的所属令牌；不得与其他类型令牌替换。" },
   },
@@ -48,7 +50,7 @@ export async function getNetshopProductInsightsForAi(args: Record<string, unknow
     query.set("startDate", String(args.startDate));
     query.set("endDate", String(args.endDate));
     query.set("page", String(args.page ?? 1));
-    query.set("pageSize", String(args.pageSize ?? 5));
+    query.set("pageSize", String(args.pageSize ?? NETSHOP_PRODUCT_INSIGHTS_AI_DEFAULT_PAGE_SIZE));
     query.set("sort", String(args.sort ?? "payment_desc"));
     for (const key of ["q", "category", "snapshotToken", "sectionToken"] as const) {
       if (args[key] !== undefined) query.set(key, String(args[key]));

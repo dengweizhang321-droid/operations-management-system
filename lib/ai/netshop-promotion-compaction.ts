@@ -1,27 +1,39 @@
-import { NetshopAiCompaction } from "./netshop-ai-compaction";
+import { NetshopAiCompaction, selectTopBy, SOURCE_REFS_OMITTED_RULE } from "./netshop-ai-compaction";
 
 /**
  * Promotion list view for the model. Input is a DTO the real decoder accepted.
  * Levels go from light to heavy; the caller takes the first level whose whole
  * envelope fits 40000 characters and refuses when none does.
+ *
+ * Source order facts (backend/netshop/promotion_insights.py):
+ *  - contributions.previous.*: sorted by the previous-period change in the named direction (line ~617),
+ *    so the first N are a real Top N.
+ *  - shops.items: built by iterating `names` (shop-name order, insights_common.py `sorted(effective)`);
+ *    NOT a business ranking, so a reduced set is re-ranked by spend.
+ *  - trend.items: chronological periods (line ~560); the newest N points are kept.
+ *  - items (current page): never reduced beyond sourceIds/coverageRef.
  */
 export type PromotionCompactionLevel = {
-  /** Top N per ranked contribution list and for shop rows. */
+  /** First N per ranked contribution list (source-ranked). */
   topN: number;
+  /** Shop rows kept; null keeps every shop. A reduced set is the top N by spend (re-ranked). */
+  shopsTop: number | null;
   /** Newest trend points kept (chronological). */
   trendPoints: number;
-  /** verbatim: current page untouched; strip: provenance fields omitted; lean: essential fields only. */
-  items: "verbatim" | "strip" | "lean";
-  /** Omit provenance-only fields from the scalar summary blocks. */
+  /** Current page rows: verbatim, or only sourceIds/coverageRef omitted. Never row-reduced. */
+  stripItems: boolean;
+  /** Omit sourceIds/coverageRef from summary/changes/matchedRange metrics. */
   stripScalars: boolean;
+  /** Ranked/shop rows also carry period comparisons for spend, attributedPayment, roas. */
+  rowComparisons: boolean;
 };
 
 export const promotionCompactionLadder: PromotionCompactionLevel[] = [
-  { topN: 5, trendPoints: 14, items: "verbatim", stripScalars: false },
-  { topN: 5, trendPoints: 14, items: "strip", stripScalars: true },
-  { topN: 3, trendPoints: 7, items: "strip", stripScalars: true },
-  { topN: 2, trendPoints: 3, items: "lean", stripScalars: true },
-  { topN: 1, trendPoints: 2, items: "lean", stripScalars: true },
+  { topN: 5, shopsTop: null, trendPoints: 14, stripItems: false, stripScalars: false, rowComparisons: true },
+  { topN: 5, shopsTop: null, trendPoints: 14, stripItems: true, stripScalars: true, rowComparisons: true },
+  { topN: 3, shopsTop: 10, trendPoints: 7, stripItems: true, stripScalars: true, rowComparisons: true },
+  { topN: 2, shopsTop: 5, trendPoints: 3, stripItems: true, stripScalars: true, rowComparisons: false },
+  { topN: 1, shopsTop: 3, trendPoints: 2, stripItems: true, stripScalars: true, rowComparisons: false },
 ];
 
 type Plain = Record<string, any>;
@@ -32,8 +44,9 @@ const pick = (source: Plain | null | undefined, keys: readonly string[]) => {
   return out;
 };
 const ROW_KEYS = ["rowKey", "id", "platform", "shopKey", "shopName", "objectKind", "identityKind", "title", "planId", "unitId", "matchType", "coverageRef", "drillable"] as const;
+/** Metrics kept on contribution / shop / trend rows. basis and aggregation stay on every metric. */
 const KEY_METRICS = ["spend", "attributedPayment", "roas"] as const;
-const PAY_COMPARISONS = ["spend", "attributedPayment"] as const;
+const PAY_KEYS = ["spend", "attributedPayment"] as const;
 
 export function compactPromotionInsightsForAi(data: Record<string, unknown>, level: PromotionCompactionLevel): Record<string, unknown> {
   const c = new NetshopAiCompaction();
@@ -42,56 +55,63 @@ export function compactPromotionInsightsForAi(data: Record<string, unknown>, lev
   const next: Plain = { ...source };
   const out: Plain = { ...sections };
 
-  /** Essential-fields projection used for ranked/aux rows; keeps ids, mapping state, key metrics and deltas. */
-  // Ranked/aux rows: identity, mapping state, key metric values and the ranking basis (changes.*.previous).
-  const leanRow = (row: Plain) => ({
+  /** Shop row: identity, spend/attributedPayment/roas (+ their comparisons) and both period payment deltas. */
+  const keyRow = (row: Plain) => ({
     ...pick(row, ROW_KEYS),
     mapping: row.mapping ? { status: row.mapping.status, linkIdentity: row.mapping.linkIdentity } : row.mapping,
     metrics: c.stripProvenance(pick(row.metrics, KEY_METRICS)),
-    changes: c.stripProvenance(Object.fromEntries(PAY_COMPARISONS.map(key => [key, { previous: row.changes?.[key]?.previous }]))),
+    ...(level.rowComparisons ? { comparisons: pick(row.comparisons, KEY_METRICS) } : {}),
+    changes: c.stripProvenance(row.changes),
   });
+  /** Contribution row: same, but changes keep only `previous`, which is the list's ranking basis. */
+  const contributionRow = (row: Plain) => {
+    const shaped = keyRow(row);
+    return { ...shaped, changes: c.stripProvenance(Object.fromEntries(PAY_KEYS.map(key => [key, { previous: row.changes?.[key]?.previous }]))) };
+  };
+  const keyRowRule = level.rowComparisons ? "rows_reduced_to_spend_attributedPayment_roas_with_comparisons" : "rows_reduced_to_spend_attributedPayment_roas";
 
-  // Ranked contribution lists: Top N in the owning reader's order, lean rows.
+  // Contribution lists: source-ranked by previous-period change, so the first N are a real Top N.
   const contributions = sections.contributions as Plain;
   const lists = contributions.previous as Record<string, Plain[]>;
   const keptLists: Record<string, Plain[]> = {};
   for (const [key, rows] of Object.entries(lists)) {
-    const top = c.keepTop(`sections.contributions.previous.${key}`, rows, level.topN);
-    keptLists[key] = top.map(leanRow);
-    if (rows.length > 0) c.record(`sections.contributions.previous.${key}[]`, rows.length, top.length, "lean_row_fields");
+    const top = rows.slice(0, level.topN);
+    keptLists[key] = top.map(contributionRow);
+    const trimmed = top.length < rows.length;
+    if (rows.length > 0) c.record(`sections.contributions.previous.${key}`, rows.length, top.length, `${trimmed ? `top_${level.topN}_source_ranked_by_previous_change; ` : ""}${keyRowRule}_previous_change_only`);
   }
   out.contributions = { ...contributions, previous: keptLists };
 
-  // Shops: Top N in source order, lean rows (matchedRange kept for its gap info).
-  // Shop and current-page rows keep their own period comparisons and both deltas.
-  const richRow = (row: Plain) => ({ ...leanRow(row), comparisons: pick(row.comparisons, PAY_COMPARISONS), changes: c.stripProvenance(row.changes), spendShare: c.stripProvenance(row.spendShare) });
+  // Shops: source order is shop-name order, not a ranking. Keep every shop when possible;
+  // otherwise choose by spend (desc, unknown last) and say so in the rule name.
   const shops = sections.shops as Plain;
   const shopRows = shops.items as Plain[];
-  const topShops = c.keepTop("sections.shops.items", shopRows, level.topN);
-  out.shops = { ...shops, items: topShops.map(shop => ({ ...richRow(shop), ...pick(shop, ["matchedRange"]) })) };
-  if (shopRows.length > 0) c.record("sections.shops.items[]", shopRows.length, topShops.length, "lean_row_fields");
+  const shopLimit = level.shopsTop ?? Math.max(shopRows.length, 1);
+  const trimmedShops = shopRows.length > shopLimit;
+  const keptShops = trimmedShops ? selectTopBy(shopRows, shopLimit, shop => (typeof shop.metrics?.spend?.value === "number" ? shop.metrics.spend.value : null)) : shopRows;
+  out.shops = { ...shops, items: keptShops.map(shop => ({ ...keyRow(shop), ...(level.rowComparisons ? {} : { comparisons: pick(shop.comparisons, PAY_KEYS) }), spendShare: c.stripProvenance(shop.spendShare), ...(shop.matchedRange ? { matchedRange: c.stripProvenance(shop.matchedRange) } : pick(shop, ["matchedRange"])) })) };
+  if (shopRows.length > 0) c.record("sections.shops.items", shopRows.length, keptShops.length, `${trimmedShops ? `top_${shopLimit}_by_spend_desc; ` : ""}${keyRowRule}`);
 
-  // Trend: newest points, key metrics only.
+  // Trend is chronological; the newest points are kept.
   const trend = sections.trend as Plain;
   const trendRows = trend.items as Plain[];
-  const latest = c.keepLatest("sections.trend.items", trendRows, level.trendPoints);
+  const latest = trendRows.slice(Math.max(0, trendRows.length - level.trendPoints));
   out.trend = { ...trend, items: latest.map(point => ({ ...pick(point, ["startDate", "endDate", "days", "truncatedPeriod", "coverageRef"]), metrics: c.stripProvenance(pick(point.metrics, KEY_METRICS)) })) };
-  if (trendRows.length > 0) c.record("sections.trend.items[]", trendRows.length, latest.length, "lean_row_fields");
+  if (trendRows.length > 0) c.record("sections.trend.items", trendRows.length, latest.length, `${latest.length < trendRows.length ? `latest_${level.trendPoints}_points; ` : ""}points_reduced_to_spend_attributedPayment_roas`);
 
   // Coverage: only complete, gap-free entries are folded; gaps stay whole.
   out.coverage = c.keepCoverageGaps("sections.coverage", sections.coverage);
   const context = source.context as Plain;
   next.context = { ...context, coverageBySource: c.keepCoverageGaps("context.coverageBySource", context.coverageBySource) };
 
-  // Current page: verbatim first, then provenance-free, last resort lean.
+  // Current page rows are never reduced; at most their sourceIds/coverageRef metric references go.
   const items = sections.items as Plain[];
-  if (level.items === "strip") out.items = c.stripProvenanceAt("sections.items[]", items, items.length);
-  if (level.items === "lean") { out.items = items.map(richRow); c.record("sections.items[]", items.length, items.length, "lean_row_fields"); }
+  if (level.stripItems) out.items = c.stripProvenanceAt("sections.items[]", items, items.length);
 
   if (level.stripScalars) {
     for (const key of ["summary", "changes"]) out[key] = c.stripProvenance(sections[key]);
-    c.record("sections.summary,changes", 2, 2, "metric_provenance_omitted");
-    if (sections.matchedRange) { out.matchedRange = { ...sections.matchedRange, metrics: c.stripProvenance(sections.matchedRange.metrics) }; c.record("sections.matchedRange.metrics", 1, 1, "metric_provenance_omitted"); }
+    c.record("sections.summary,changes", 2, 2, SOURCE_REFS_OMITTED_RULE);
+    if (sections.matchedRange) { out.matchedRange = { ...sections.matchedRange, metrics: c.stripProvenance(sections.matchedRange.metrics) }; c.record("sections.matchedRange.metrics", 1, 1, SOURCE_REFS_OMITTED_RULE); }
   }
 
   next.sections = out;

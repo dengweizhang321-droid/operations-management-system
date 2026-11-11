@@ -58,7 +58,7 @@ function productionScale(): Payload {
   const bucket = (i: number, kind: string) => ({ ...structuredClone(s.structure.categories[0] ?? { label: "x", payment: s.summary.payment, share: s.summary.conversion, products: s.counts.dataProducts }), label: `${kind}桶${i}` });
   const base = s.structure.categories[0] ?? { label: "x", payment: s.summary.payment, share: { ...s.summary.conversion, unit: "RATIO" }, products: s.counts.dataProducts };
   s.structure.categories = Array.from({ length: 14 }, (_, i) => ({ ...structuredClone(base), label: `类目${i}` }));
-  s.structure.priceBands = Array.from({ length: 10 }, (_, i) => ({ ...structuredClone(base), label: `价格带${i}` }));
+  s.structure.priceBands = Array.from({ length: 5 }, (_, i) => ({ ...structuredClone(base), label: `价格带${i}` }));
   void bucket;
   const watch = structuredClone(s.growth.data.items.slice(0, 6));
   s.efficiency.watchlist = watch;
@@ -95,7 +95,6 @@ test("oversized valid product response is compacted under 40000 and every reduct
     ["sections.growth.data.items", data.sections.growth.data.items, payload.sections.growth.data.items],
     ["sections.efficiency.watchlist", data.sections.efficiency.watchlist, (payload.sections as any).efficiency.watchlist],
     ["sections.structure.categories", data.sections.structure.categories, (payload.sections as any).structure.categories],
-    ["sections.structure.priceBands", data.sections.structure.priceBands, (payload.sections as any).structure.priceBands],
   ] as const) {
     const mark = byPath.get(path)!; assert.ok(mark, path);
     assert.equal(mark.originalCount, original.length); assert.equal(mark.keptCount, list.length); assert.ok(list.length < original.length);

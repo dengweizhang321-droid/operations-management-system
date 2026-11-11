@@ -9,7 +9,9 @@
  * never truncated as text.
  */
 
-export const NETSHOP_AI_COMPACTION_NOTE = "完整集合见网店页面或缩小范围重读；aiCompaction.sections 列出的路径只保留了部分条目或精简了字段，不得把保留的条目当作全集求和。";
+export const NETSHOP_AI_COMPACTION_NOTE = "完整集合见网店页面或缩小范围重读；aiCompaction.sections 列出的路径只保留了部分条目或精简了字段，不得把保留的条目当作全集求和。coverage / coverageBySource 中缺失的键表示该来源完整无缺口（缺口条目都完整保留）。";
+/** Appended when any list was re-ranked by a metric because the source order is not a business ranking. */
+export const NETSHOP_AI_RERANK_NOTE = "规则名含 by_payment_desc / by_spend_desc 的列表来源并非业务排序（按标签或店名排列），已按该指标降序重排后选取，不是来源顺序。";
 
 export type AiCompactionSection = { path: string; originalCount: number; keptCount: number; rule: string };
 export type AiCompactionMark = { applied: true; sections: AiCompactionSection[]; note: string };
@@ -17,8 +19,20 @@ export type AiCompactionMark = { applied: true; sections: AiCompactionSection[];
 type Plain = Record<string, unknown>;
 const isPlain = (value: unknown): value is Plain => value !== null && typeof value === "object" && !Array.isArray(value);
 
-/** Fields that only describe where a metric came from; value/unit/status/reason stay. */
-const PROVENANCE_KEYS = ["sourceIds", "basis", "aggregation", "coverageRef"] as const;
+/**
+ * Only references to where a metric came from. `basis` (product_day_sum / platform_attributed /
+ * unverified ...) and `aggregation` (sum / ratio_of_sums ...) are the metric's definition (口径)
+ * and always stay, as do value/unit/status/reasonCode.
+ */
+const PROVENANCE_KEYS = ["sourceIds", "coverageRef"] as const;
+export const SOURCE_REFS_OMITTED_RULE = "metric_source_refs_omitted";
+
+/** Top `limit` by a metric: descending, null last, stable on ties. Does not record anything. */
+export function selectTopBy<T>(list: readonly T[], limit: number, score: (item: T) => number | null): T[] {
+  const ranked = list.map((item, index) => ({ item, index, value: score(item) }));
+  ranked.sort((a, b) => (a.value === null ? 1 : 0) - (b.value === null ? 1 : 0) || (b.value ?? 0) - (a.value ?? 0) || a.index - b.index);
+  return ranked.slice(0, limit).map(entry => entry.item);
+}
 
 export class NetshopAiCompaction {
   readonly sections: AiCompactionSection[] = [];
@@ -27,18 +41,14 @@ export class NetshopAiCompaction {
     this.sections.push({ path, originalCount, keptCount, rule });
   }
 
-  /** Keep the first `limit` entries in source order (the owning reader's ranking). */
-  keepTop<T>(path: string, list: readonly T[], limit: number, rule = `top_${limit}_in_source_order`): T[] {
+  /**
+   * Keep `limit` entries chosen by a metric (descending, null last, stable). Use only where the
+   * source order is NOT a business ranking; the rule name must say so (…_by_<metric>_desc).
+   */
+  keepTopBy<T>(path: string, list: readonly T[], limit: number, score: (item: T) => number | null, rule: string): T[] {
     if (list.length <= limit) return [...list];
     this.record(path, list.length, limit, rule);
-    return list.slice(0, limit);
-  }
-
-  /** Keep the newest `limit` entries of a chronological list. */
-  keepLatest<T>(path: string, list: readonly T[], limit: number): T[] {
-    if (list.length <= limit) return [...list];
-    this.record(path, list.length, limit, `latest_${limit}_points`);
-    return list.slice(list.length - limit);
+    return selectTopBy(list, limit, score);
   }
 
   /**
@@ -58,7 +68,7 @@ export class NetshopAiCompaction {
     return kept;
   }
 
-  /** Drop provenance-only metric fields below `value`; returns a new tree. */
+  /** Drop source-reference fields (sourceIds, coverageRef) from metrics below `value`; returns a new tree. */
   stripProvenance<T>(value: T): T {
     if (Array.isArray(value)) return value.map(item => this.stripProvenance(item)) as T;
     if (!isPlain(value)) return value;
@@ -73,12 +83,13 @@ export class NetshopAiCompaction {
 
   /** Same as stripProvenance, but records the reduction for the path. */
   stripProvenanceAt<T>(path: string, value: T, count: number): T {
-    this.record(path, count, count, "metric_provenance_omitted");
+    this.record(path, count, count, SOURCE_REFS_OMITTED_RULE);
     return this.stripProvenance(value);
   }
 
   mark(): AiCompactionMark {
-    return { applied: true, sections: this.sections, note: NETSHOP_AI_COMPACTION_NOTE };
+    const reranked = this.sections.some(section => /by_(payment|spend)_desc/.test(section.rule));
+    return { applied: true, sections: this.sections, note: reranked ? `${NETSHOP_AI_COMPACTION_NOTE}${NETSHOP_AI_RERANK_NOTE}` : NETSHOP_AI_COMPACTION_NOTE };
   }
 }
 

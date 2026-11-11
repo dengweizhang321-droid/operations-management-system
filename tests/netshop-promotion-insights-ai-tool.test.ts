@@ -69,7 +69,7 @@ test("actual smallest owning product fixture fits the complete envelope and all 
   assert.ok(chars <= 40000); decodePromotionInsightsForQuery(payload, queryFor(args), owningRevision);
   for (const role of ["viewer", "analyst", "operator", "admin"] as const) {
     const data = await listEntry.handler(args, { ...context, principal: { ...principal, role } }); assert.deepEqual(data, payload);
-    const call = calls.at(-1)!; assert.equal(call.init?.method, "GET"); assert.equal(call.init?.body, undefined); assert.equal(call.url.searchParams.get("dimension"), "sku"); assert.equal(call.url.searchParams.get("pageSize"), "20");
+    const call = calls.at(-1)!; assert.equal(call.init?.method, "GET"); assert.equal(call.init?.body, undefined); assert.equal(call.url.searchParams.get("dimension"), "sku"); assert.equal(call.url.searchParams.get("pageSize"), String((payload as PromotionInsightsResponse).sections.pagination.pageSize));
     const headers = new Headers(call.init?.headers); assert.match(headers.get("X-Teruisi-Signature")!, /^v1=[a-f0-9]{64}$/); assert.equal(JSON.parse(Buffer.from(headers.get("X-Teruisi-Principal")!, "base64url").toString()).role, role);
   }
 });

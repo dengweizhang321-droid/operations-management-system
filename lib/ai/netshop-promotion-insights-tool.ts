@@ -14,6 +14,8 @@ export const NETSHOP_PROMOTION_DETAIL_TOOL_NAME = "get_netshop_promotion_object_
 export const NETSHOP_PROMOTION_AI_TIMEOUT_MS = 30_000;
 export const NETSHOP_PROMOTION_AI_MAX_CHARACTERS = 40_000;
 export const NETSHOP_PROMOTION_AI_MAX_SOURCE_BYTES = 2 * 1024 * 1024;
+/** AI-side default page size, measured so default responses stay inside the 40000-character envelope after compaction. The owning reader still allows up to 20. */
+export const NETSHOP_PROMOTION_AI_DEFAULT_PAGE_SIZE = 1;
 
 const sharedProperties = {
   platform: { type: "string", enum: ["京东", "天猫"], description: "唯一平台，归因定义分别保留；SKU/SPU维度由平台派生，不接受模型指定。" },
@@ -31,7 +33,7 @@ export const netshopPromotionInsightsInputSchema = {
   type: "object", properties: { ...sharedProperties,
     q: { type: "string", maxLength: 120, default: "", description: "仅搜索对象列表；全期汇总和完整贡献集合不随搜索变化。" },
     page: { type: "integer", minimum: 1, maximum: 10000, default: 1 },
-    pageSize: { type: "integer", minimum: 1, maximum: 20, default: 20 },
+    pageSize: { type: "integer", minimum: 1, maximum: 20, default: NETSHOP_PROMOTION_AI_DEFAULT_PAGE_SIZE, description: "对象列表当前页行数，默认1：环比/同比和周报只需整期汇总、比较与贡献排行，不需要多行对象。调大会使完整响应更易超过40000字符被拒绝，当前页行不会被裁剪。" },
     sort: { type: "string", enum: [...PROMOTION_SORTS], default: "spend_desc" },
   }, required: ["platform", "startDate", "endDate"], additionalProperties: false,
 } satisfies JsonSchema;
@@ -59,7 +61,7 @@ function promotionQuery(args: Record<string, unknown>, context: AiToolExecutionC
     if (detail) {
       query.set("objectId", String(args.objectId)); query.set("shopKey", String(args.shopKey));
     } else {
-      query.set("q", String(args.q ?? "")); query.set("page", String(args.page ?? 1)); query.set("pageSize", String(args.pageSize ?? 20)); query.set("sort", String(args.sort ?? "spend_desc"));
+      query.set("q", String(args.q ?? "")); query.set("page", String(args.page ?? 1)); query.set("pageSize", String(args.pageSize ?? NETSHOP_PROMOTION_AI_DEFAULT_PAGE_SIZE)); query.set("sort", String(args.sort ?? "spend_desc"));
     }
     const spec = validatePromotionQuery(query, detail);
     if (spec.context.shops.length !== outlets.length || spec.context.shops.some(shop => !outlets.includes(netshopOutletKey(shop.platform, shop.shopName)))) throw new RegistryToolError("invalid_arguments", "精确店铺身份不能重复或通过空格改变");

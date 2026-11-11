@@ -45,8 +45,8 @@ function fixture() {
   }])) as Record<typeof productMetricKeys[number], MetricValue>;
   const comparisons = Object.fromEntries(productMetricKeys.map(key => [key, { previous: compareMetrics(metrics[key], metrics[key]), yearAgo: compareMetrics(metrics[key], metrics[key]) }]));
   const item = { identity: { platform: "京东", shopName: "合成店A", dimension: "spu", id: "P01" }, title: "合成商品", category: null, imageUrl: null, imageStatus: "unverified", metrics, comparisons, baselineMetrics: { previous: metrics, yearAgo: metrics } };
-  const pagination = { page: 1, pageSize: 5, total: 1, returned: 1, hasMore: false, truncated: false };
-  return { schemaVersion: "netshop-product-insights-v1", context, sectionToken: "a".repeat(64), tableScope: { q: "", category: "", sort: "payment_desc", page: 1, pageSize: 5 }, joinedSourceRevisions: context.sourceRevisions, consistency: "revision_vector_checked", sections: { ...completeProductSectionsFixture(metrics), summary: metrics, comparisons, items: [item], pagination, baselineReads: { previous: { state: "ready", data: metrics }, yearAgo: { state: "ready", data: metrics } }, growth: { state: "ready", data: { collection: "paired_full_set_before_pagination", items: [item], pagination } } } };
+  const pagination = { page: 1, pageSize: 1, total: 1, returned: 1, hasMore: false, truncated: false };
+  return { schemaVersion: "netshop-product-insights-v1", context, sectionToken: "a".repeat(64), tableScope: { q: "", category: "", sort: "payment_desc", page: 1, pageSize: 1 }, joinedSourceRevisions: context.sourceRevisions, consistency: "revision_vector_checked", sections: { ...completeProductSectionsFixture(metrics), summary: metrics, comparisons, items: [item], pagination, baselineReads: { previous: { state: "ready", data: metrics }, yearAgo: { state: "ready", data: metrics } }, growth: { state: "ready", data: { collection: "paired_full_set_before_pagination", items: [item], pagination } } } };
 }
 let payload: ReturnType<typeof fixture>;
 function response(data: unknown = payload, status = 200, header: string | null = revision) {
@@ -125,7 +125,7 @@ test("all four roles sign the exact owning GET and retain the complete original 
     const request = calls.at(-1)!;
     assert.equal(request.init?.method, "GET"); assert.equal(request.init?.body, undefined);
     assert.deepEqual(request.url.searchParams.getAll("outlet"), ["京东\u001f合成店A"]);
-    assert.equal(request.url.searchParams.get("pageSize"), "5");
+    assert.equal(request.url.searchParams.get("pageSize"), "1");
     const headers = new Headers(request.init?.headers);
     const envelope = headers.get("X-Teruisi-Principal")!;
     assert.deepEqual(JSON.parse(Buffer.from(envelope, "base64url").toString()), actor);
