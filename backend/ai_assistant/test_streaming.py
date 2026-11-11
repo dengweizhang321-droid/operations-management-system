@@ -271,7 +271,9 @@ class StreamEndpointTransactionTests(TransactionTestCase):
                         "function": {"name": "unregistered_write", "arguments": "{}"}}]}}
 
         body = {"clientRequestId": "threaded-stream-definite", "message": "业务问题", "workspaceModule": "sales"}
-        with patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": "A-valid-isolated-signing-secret-13579-abcdefghijklmnopqrstuvwxyz"}),              patch.object(chat.transport, "catalog", return_value=[]),              patch.object(provider, "turn", side_effect=unregistered_tool_round):
+        with patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": "A-valid-isolated-signing-secret-13579-abcdefghijklmnopqrstuvwxyz"}), \
+             patch.object(chat.transport, "catalog", return_value=[]), \
+             patch.object(provider, "turn", side_effect=unregistered_tool_round):
             headers = signed_headers("/api/ai/chat", body, self.owner, "threaded-stream-definite")
             headers["Accept"] = "text/event-stream"
             response = self.client.post("/api/ai/chat", canonical(body), content_type="application/json", headers=headers)

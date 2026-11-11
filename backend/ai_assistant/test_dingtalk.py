@@ -222,9 +222,11 @@ class DingTalkTests(TestCase):
     def test_dingtalk_failure_after_confirmed_round_keeps_unknown_receipt(self):
         # DingTalk receipts keep the original semantics: the web-only definite
         # classification must not apply to this channel.
-        from .transport import ProviderTransportError
         self.accept(text={"content": "跨系统查询"})
-        with patch.object(chat.transport, "catalog", return_value=catalog()),                 patch.object(chat.transport, "execute_tool", return_value={"ok": True}),                 patch.object(provider, "decrypt", return_value="test"),                 patch.object(provider, "bounded_json", return_value=wire("openai_compatible", "search_personal_memory", {})):
+        with patch.object(chat.transport, "catalog", return_value=catalog()), \
+                patch.object(chat.transport, "execute_tool", return_value={"ok": True}), \
+                patch.object(provider, "decrypt", return_value="test"), \
+                patch.object(provider, "bounded_json", return_value=wire("openai_compatible", "search_personal_memory", {})):
             self.step()  # Round 1 returned; the unregistered tool is then denied.
         receipt = m.AiDingTalkReceipt.objects.get()
         chat_receipt = m.AiChatRequestReceipts.objects.get(client_request_id="ding-" + receipt.id)
@@ -235,7 +237,10 @@ class DingTalkTests(TestCase):
         self.accept(text={"content": "跨系统查询"})
         replies = [wire("openai_compatible", "get_sales_summary", {}),
                    ProviderTransportError(stage="system_dns", reason="timeout")]
-        with patch.object(chat.transport, "catalog", return_value=catalog()),                 patch.object(chat.transport, "execute_tool", return_value={"ok": True}),                 patch.object(provider, "decrypt", return_value="test"),                 patch.object(provider, "bounded_json", side_effect=replies):
+        with patch.object(chat.transport, "catalog", return_value=catalog()), \
+                patch.object(chat.transport, "execute_tool", return_value={"ok": True}), \
+                patch.object(provider, "decrypt", return_value="test"), \
+                patch.object(provider, "bounded_json", side_effect=replies):
             self.step()
         receipt = m.AiDingTalkReceipt.objects.get()
         chat_receipt = m.AiChatRequestReceipts.objects.get(client_request_id="ding-" + receipt.id)
