@@ -9,7 +9,7 @@
  * never truncated as text.
  */
 
-export const NETSHOP_AI_COMPACTION_NOTE = "完整集合见网店页面或缩小范围重读；aiCompaction.sections 列出的路径只保留了部分条目或精简了字段，不得把保留的条目当作全集求和。coverage / coverageBySource 中缺失的键表示该来源完整无缺口（缺口条目都完整保留）。";
+export const NETSHOP_AI_COMPACTION_NOTE = "完整集合见网店页面或缩小范围重读；aiCompaction.sections 列出的路径只保留了部分条目或精简了字段，不得把保留的条目当作全集求和。coverage / coverageBySource 中缺失的键表示该来源完整无缺口（缺口条目都保留）。缺口条目里的缺失日期改用 missingRanges（[{startDate,endDate,days}]，连续日期合并，左右端点都包含，可无损展开）表示。";
 /** Appended when any list was re-ranked by a metric because the source order is not a business ranking. */
 export const NETSHOP_AI_RERANK_NOTE = "规则名含 by_payment_desc / by_spend_desc 的列表来源并非业务排序（按标签或店名排列），已按该指标降序重排后选取，不是来源顺序。";
 
@@ -26,6 +26,23 @@ const isPlain = (value: unknown): value is Plain => value !== null && typeof val
  */
 const PROVENANCE_KEYS = ["sourceIds", "coverageRef"] as const;
 export const SOURCE_REFS_OMITTED_RULE = "metric_source_refs_omitted";
+
+export type DateRange = { startDate: string; endDate: string; days: number };
+/** Consecutive days merged into inclusive ranges (same output shape as the shared context projection's ranges). */
+export function datesToRanges(dates: readonly string[]): DateRange[] {
+  const result: DateRange[] = [];
+  for (const day of [...dates].sort()) {
+    const last = result.at(-1);
+    if (last && Date.parse(`${day}T00:00:00Z`) - Date.parse(`${last.endDate}T00:00:00Z`) === 86_400_000) { last.endDate = day; last.days++; }
+    else result.push({ startDate: day, endDate: day, days: 1 });
+  }
+  return result;
+}
+export function expandDateRanges(ranges: readonly DateRange[]): string[] {
+  const out: string[] = [];
+  for (const range of ranges) for (let i = 0; i < range.days; i++) out.push(new Date(Date.parse(`${range.startDate}T00:00:00Z`) + i * 86_400_000).toISOString().slice(0, 10));
+  return out;
+}
 
 /** Top `limit` by a metric: descending, null last, stable on ties. Does not record anything. */
 export function selectTopBy<T>(list: readonly T[], limit: number, score: (item: T) => number | null): T[] {
@@ -52,19 +69,25 @@ export class NetshopAiCompaction {
   }
 
   /**
-   * Fold only complete, gap-free coverage entries away. Any entry that is
-   * incomplete, has missing shop-dates or is truncated stays whole.
+   * Fold only complete, gap-free coverage entries away. Any entry that is incomplete, has missing
+   * shop-dates or is truncated stays; its missing dates become lossless inclusive ranges.
    */
   keepCoverageGaps(path: string, coverage: Record<string, unknown>): Record<string, unknown> {
     const kept: Record<string, unknown> = {};
     const entries = Object.entries(coverage);
+    let converted = 0;
     for (const [key, value] of entries) {
       const c = isPlain(value) ? value : null;
       const normal = c !== null && c.complete === true && Array.isArray(c.missingByShop) && c.missingByShop.length === 0 && c.truncated === false;
-      if (!normal) kept[key] = value;
+      if (normal) continue;
+      if (c !== null && Array.isArray(c.missingByShop) && c.missingByShop.every(m => isPlain(m) && Array.isArray(m.dates))) {
+        if (c.missingByShop.length > 0) converted++;
+        kept[key] = { ...c, missingByShop: c.missingByShop.map(m => { const { dates, ...rest } = m as Plain; return { ...rest, missingRanges: datesToRanges(dates as string[]) }; }) };
+      } else kept[key] = value;
     }
     const keptCount = Object.keys(kept).length;
     if (keptCount < entries.length) this.record(path, entries.length, keptCount, "complete_coverage_folded_gaps_kept");
+    if (converted > 0) this.record(`${path}.*.missingByShop[].dates`, converted, converted, "missing_dates_as_ranges");
     return kept;
   }
 
@@ -91,6 +114,15 @@ export class NetshopAiCompaction {
     const reranked = this.sections.some(section => /by_(payment|spend)_desc/.test(section.rule));
     return { applied: true, sections: this.sections, note: reranked ? `${NETSHOP_AI_COMPACTION_NOTE}${NETSHOP_AI_RERANK_NOTE}` : NETSHOP_AI_COMPACTION_NOTE };
   }
+}
+
+/** Ranking-basis view of a metric: value, unit, status, basis and a non-null reasonCode. */
+export function briefMetric(metric: unknown): Plain | null {
+  if (!isPlain(metric)) return null;
+  const out: Plain = { value: metric.value, unit: metric.unit, status: metric.status, basis: metric.basis };
+  if (metric.aggregation !== undefined) out.aggregation = metric.aggregation;
+  if (metric.reasonCode !== null && metric.reasonCode !== undefined) out.reasonCode = metric.reasonCode;
+  return out;
 }
 
 export function aiEnvelopeLength(toolName: string, data: unknown) {

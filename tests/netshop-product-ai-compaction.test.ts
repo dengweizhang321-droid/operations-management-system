@@ -3,6 +3,7 @@ import { registerHooks } from "node:module";
 import test, { afterEach, beforeEach } from "node:test";
 import type { AppPrincipal } from "../lib/auth/authorization";
 import type { MetricValue } from "../lib/netshop/insights-contract";
+import { expandDateRanges } from "../lib/ai/netshop-ai-compaction";
 import { completeProductSectionsFixture } from "./netshop-products-test-fixture";
 
 const environment = { TERUISI_DJANGO_NETSHOP_READER_BASE_URL: "https://product-compact.example.test", TERUISI_DJANGO_NETSHOP_WRITER_BASE_URL: "https://product-compact-writer.example.test", TERUISI_DJANGO_INTERNAL_SECRET: "synthetic-product-compact-secret-0123456789", TERUISI_DJANGO_NETSHOP_TIMEOUT_MS: "120000" };
@@ -96,8 +97,9 @@ test("oversized valid product response is compacted under 40000 and every reduct
     ["sections.efficiency.watchlist", data.sections.efficiency.watchlist, (payload.sections as any).efficiency.watchlist],
     ["sections.structure.categories", data.sections.structure.categories, (payload.sections as any).structure.categories],
   ] as const) {
-    const mark = byPath.get(path)!; assert.ok(mark, path);
-    assert.equal(mark.originalCount, original.length); assert.equal(mark.keptCount, list.length); assert.ok(list.length < original.length);
+    const mark = byPath.get(path)!;
+    if (!mark) { assert.equal(path, "sections.structure.categories"); assert.deepEqual(list.length, original.length); continue; }
+    assert.equal(mark.originalCount, original.length); assert.equal(mark.keptCount, list.length); assert.ok(list.length <= original.length);
   }
   // Pagination of a trimmed list still reports the source total, so Top N can't pass as the full set.
   assert.equal(data.sections.growth.data.pagination.total, payload.sections.growth.data.pagination.total);
@@ -109,7 +111,12 @@ test("product coverage gaps survive compaction whole; only complete context entr
   const data = await entry.handler(args, execution) as any;
   const gaps = Object.entries(payload.context.coverageBySource).filter(([, c]) => !c.complete);
   assert.ok(gaps.length >= 1);
-  for (const [ref, gap] of gaps) assert.deepEqual(data.context.coverageBySource[ref], gap);
+  for (const [ref, gap] of gaps) {
+    const kept = data.context.coverageBySource[ref]; assert.ok(kept, ref);
+    const { missingByShop: keptShops, ...keptRest } = kept; const { missingByShop: srcShops, ...srcRest } = gap as any;
+    assert.deepEqual(keptRest, srcRest);
+    (srcShops ?? []).forEach((e: any, i: number) => { const { dates, ...rest } = e; const { missingRanges, ...kRest } = keptShops[i]; assert.deepEqual(kRest, rest); assert.deepEqual(expandDateRanges(missingRanges), dates); });
+  }
   for (const value of Object.values<any>(data.context.coverageBySource)) assert.equal(value.complete, false);
   assert.deepEqual(data.context.calendar, payload.context.calendar);
   assert.deepEqual(data.context.capabilities, payload.context.capabilities);

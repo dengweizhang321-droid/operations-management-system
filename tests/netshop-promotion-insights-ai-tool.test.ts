@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test, { beforeEach, afterEach } from "node:test";
 import { readFile } from "node:fs/promises";
+import { datesToRanges } from "../lib/ai/netshop-ai-compaction";
 import { registerHooks } from "node:module";
 import type { AppPrincipal } from "../lib/auth/authorization";
 import type { AiToolEntry } from "../lib/ai/tool-registry-contract";
@@ -130,6 +131,7 @@ test("valid but mismatched scope/header/token/decoder operands never escape", as
 // Semantics changed on purpose: this fixture's complete envelope is over 40000, which used to be a
 // flat refusal. The decoder still accepts the whole body first; the tool now returns a marked
 // model-facing view in which every incomplete coverage entry stays whole.
+function asRanges(c: any) { return { ...c, missingByShop: (c.missingByShop ?? []).map(({ dates, ...rest }: any) => (dates ? { ...rest, missingRanges: datesToRanges(dates) } : rest)) }; }
 test("real misaligned-store fixture over 40k is compacted with every coverage gap kept and the reduction marked", async () => {
   payload = await fixture("misaligned"); owningRevision = payload.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision; const args = argsFor(payload);
   decodePromotionInsightsForQuery(payload, queryFor(args), owningRevision); assert.ok(JSON.stringify({ ok: true, toolName: listName, data: payload }).length > 40000);
@@ -137,8 +139,8 @@ test("real misaligned-store fixture over 40k is compacted with every coverage ga
   assert.deepEqual(payload, before); assert.equal(calls.length, 1);
   assert.ok(JSON.stringify({ ok: true, toolName: listName, data }).length <= 40000);
   assert.equal(data.aiCompaction.applied, true); assert.ok(data.aiCompaction.sections.length > 0);
-  for (const [ref, gap] of Object.entries(payload.sections.coverage).filter(([, c]) => !c.complete)) assert.deepEqual(data.sections.coverage[ref], gap);
-  for (const [ref, gap] of Object.entries(payload.context.coverageBySource).filter(([, c]) => !c.complete)) assert.deepEqual(data.context.coverageBySource[ref], gap);
+  for (const [ref, gap] of Object.entries(payload.sections.coverage).filter(([, c]) => !c.complete)) assert.deepEqual(data.sections.coverage[ref], asRanges(gap));
+  for (const [ref, gap] of Object.entries(payload.context.coverageBySource).filter(([, c]) => !c.complete)) assert.deepEqual(data.context.coverageBySource[ref], asRanges(gap));
   assert.deepEqual((data.sections as any).summary.spend.value, (payload as PromotionInsightsResponse).sections.summary.spend.value); assert.deepEqual((data.sections as any).comparisons, (payload as PromotionInsightsResponse).sections.comparisons); assert.deepEqual(data.sectionToken, payload.sectionToken);
 });
 test("reader status meanings stay safe, never retry or fall back to historical APIs", async () => {

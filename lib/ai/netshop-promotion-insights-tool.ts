@@ -33,7 +33,7 @@ export const netshopPromotionInsightsInputSchema = {
   type: "object", properties: { ...sharedProperties,
     q: { type: "string", maxLength: 120, default: "", description: "仅搜索对象列表；全期汇总和完整贡献集合不随搜索变化。" },
     page: { type: "integer", minimum: 1, maximum: 10000, default: 1 },
-    pageSize: { type: "integer", minimum: 1, maximum: 20, default: NETSHOP_PROMOTION_AI_DEFAULT_PAGE_SIZE, description: "对象列表当前页行数，默认1：环比/同比和周报只需整期汇总、比较与贡献排行，不需要多行对象。调大会使完整响应更易超过40000字符被拒绝，当前页行不会被裁剪。" },
+    pageSize: { type: "integer", minimum: 1, maximum: 20, default: NETSHOP_PROMOTION_AI_DEFAULT_PAGE_SIZE, description: "对象列表当前页行数，默认1：环比/同比和周报只需整期汇总、比较与贡献排行，不需要多行对象。调大会使完整响应更易超过40000字符被拒绝，当前页行在超预算时只能省略部分展示字段，不删指标。" },
     sort: { type: "string", enum: [...PROMOTION_SORTS], default: "spend_desc" },
   }, required: ["platform", "startDate", "endDate"], additionalProperties: false,
 } satisfies JsonSchema;

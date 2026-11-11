@@ -1,4 +1,4 @@
-import { NetshopAiCompaction, SOURCE_REFS_OMITTED_RULE } from "./netshop-ai-compaction";
+import { briefMetric, NetshopAiCompaction, SOURCE_REFS_OMITTED_RULE } from "./netshop-ai-compaction";
 
 /**
  * Product list view for the model. Input is a DTO the real decoder accepted.
@@ -16,24 +16,28 @@ import { NetshopAiCompaction, SOURCE_REFS_OMITTED_RULE } from "./netshop-ai-comp
  *    categories are kept whole when possible, else the top N by payment (re-ranked).
  */
 export type ProductCompactionLevel = {
-  /** First N rows of the source-ranked growth page and watchlist. */
-  topN: number;
+  /** First N ranking rows of the source-ranked growth page and watchlist; null keeps every row. */
+  topN: number | null;
   /** Category buckets kept; null keeps all. A reduced set is the top N by payment (re-ranked). */
   categoriesTop: number | null;
-  /** Current page rows: verbatim, or only sourceIds/coverageRef omitted. Never row-reduced. */
-  stripItems: boolean;
+  /** Current page rows: verbatim, or minimally slimmed. All metrics and comparisons stay. */
+  slimPage: boolean;
   /** Omit sourceIds/coverageRef from scalar summary blocks. */
   stripScalars: boolean;
-  /** Growth / watchlist rows drop baselineMetrics (comparisons already carry the deltas). */
-  leanSideRows: boolean;
 };
 
 export const productCompactionLadder: ProductCompactionLevel[] = [
-  { topN: 5, categoriesTop: null, stripItems: false, stripScalars: false, leanSideRows: false },
-  { topN: 5, categoriesTop: null, stripItems: true, stripScalars: true, leanSideRows: true },
-  { topN: 3, categoriesTop: 10, stripItems: true, stripScalars: true, leanSideRows: true },
-  { topN: 1, categoriesTop: 5, stripItems: true, stripScalars: true, leanSideRows: true },
+  { topN: null, categoriesTop: null, slimPage: false, stripScalars: false },
+  { topN: null, categoriesTop: null, slimPage: true, stripScalars: true },
+  { topN: null, categoriesTop: 10, slimPage: true, stripScalars: true },
+  { topN: null, categoriesTop: 5, slimPage: true, stripScalars: true },
+  { topN: 5, categoriesTop: 5, slimPage: true, stripScalars: true },
+  { topN: 3, categoriesTop: 5, slimPage: true, stripScalars: true },
+  { topN: 1, categoriesTop: 5, slimPage: true, stripScalars: true },
 ];
+
+export const PRODUCT_RANK_ROW_RULE = "ranking_rows(identity,title,rankBasis)";
+export const PRODUCT_PAGE_SLIM_RULE = "page_rows_slimmed(-baselineMetrics,-imageUrl,-productUrl,-categoryEvidence,-metric.sourceIds,-metric.coverageRef)";
 
 type Plain = Record<string, any>;
 const paymentOf = (bucket: Plain) => (typeof bucket.payment?.value === "number" ? bucket.payment.value : null);
@@ -45,25 +49,23 @@ export function compactProductInsightsForAi(data: Record<string, unknown>, level
   const out: Plain = { ...sections };
   const next: Plain = { ...source };
 
-  const sideRow = (row: Plain) => {
-    if (!level.leanSideRows) return row;
-    const { baselineMetrics: _omitted, ...rest } = row;
-    return c.stripProvenance(rest);
-  };
-  const keepRows = (path: string, rows: Plain[], rule: string) => {
-    const kept = rows.slice(0, level.topN);
-    if (rows.length > 0 && (kept.length < rows.length || level.leanSideRows)) c.record(path, rows.length, kept.length, `${kept.length < rows.length ? `${rule}; ` : ""}${level.leanSideRows ? `baseline_metrics_and_${SOURCE_REFS_OMITTED_RULE}` : ""}`.replace(/; $/, ""));
-    return kept.map(sideRow);
+  /** Ranking row: identity + title + the metrics the list is ordered/qualified by (the detail is the product page). */
+  const growthRank = (row: Plain) => ({ identity: row.identity, title: row.title, rankBasis: row.paymentDelta ? { paymentDelta: briefMetric(row.paymentDelta) } : { payment: briefMetric(row.metrics?.payment) } });
+  const watchRank = (row: Plain) => ({ identity: row.identity, title: row.title, rankBasis: { visitors: briefMetric(row.metrics?.visitors), conversion: briefMetric(row.metrics?.conversion) } });
+  const rank = (path: string, rows: Plain[], rule: string, build: (row: Plain) => Plain) => {
+    const kept = level.topN === null ? rows : rows.slice(0, level.topN);
+    if (rows.length > 0) c.record(path, rows.length, kept.length, `${kept.length < rows.length ? `${rule}; ` : ""}${PRODUCT_RANK_ROW_RULE}`);
+    return kept.map(build);
   };
 
   const growth = sections.growth as Plain | undefined;
   if (growth && growth.state === "ready" && growth.data) {
-    out.growth = { ...growth, data: { ...growth.data, items: keepRows("sections.growth.data.items", growth.data.items as Plain[], `first_${level.topN}_of_ranked_page_by_payment_delta`) } };
+    out.growth = { ...growth, data: { ...growth.data, items: rank("sections.growth.data.items", growth.data.items as Plain[], `first_${level.topN}_of_ranked_page_by_payment_delta`, growthRank) } };
   }
   const efficiency = sections.efficiency as Plain | undefined;
   if (efficiency) {
-    out.efficiency = { ...efficiency, watchlist: keepRows("sections.efficiency.watchlist", efficiency.watchlist as Plain[], `first_${level.topN}_of_ranked_page_by_visitors_desc`) };
-    if (level.stripScalars) { out.efficiency = c.stripProvenance(out.efficiency); c.record("sections.efficiency", 1, 1, SOURCE_REFS_OMITTED_RULE); }
+    out.efficiency = { ...efficiency, watchlist: rank("sections.efficiency.watchlist", efficiency.watchlist as Plain[], `first_${level.topN}_of_ranked_page_by_visitors_desc`, watchRank) };
+    if (level.stripScalars) { out.efficiency = { ...c.stripProvenance({ ...out.efficiency, watchlist: [] }), watchlist: out.efficiency.watchlist }; c.record("sections.efficiency", 1, 1, SOURCE_REFS_OMITTED_RULE); }
   }
   const structure = sections.structure as Plain | undefined;
   if (structure) {
@@ -77,14 +79,18 @@ export function compactProductInsightsForAi(data: Record<string, unknown>, level
     if (level.stripScalars) { out.structure = c.stripProvenance(out.structure); c.record("sections.structure", 1, 1, SOURCE_REFS_OMITTED_RULE); }
   }
 
-  // Coverage: only complete, gap-free entries are folded; gaps stay whole.
+  // Coverage: only complete, gap-free entries are folded; gaps stay (dates as ranges).
   const context = source.context as Plain;
   next.context = { ...context, coverageBySource: c.keepCoverageGaps("context.coverageBySource", context.coverageBySource) };
 
-  // Current page rows are never reduced; at most their sourceIds/coverageRef metric references go.
-  if (level.stripItems) {
+  // Current page rows: identity, every metric, every comparison, paymentDelta stay; only the listed duplicates go.
+  if (level.slimPage) {
     const items = sections.items as Plain[];
-    out.items = c.stripProvenanceAt("sections.items[]", items, items.length);
+    out.items = items.map(row => {
+      const { baselineMetrics: _baseline, imageUrl: _image, productUrl: _url, categoryEvidence: _evidence, ...rest } = row;
+      return c.stripProvenance(rest);
+    });
+    c.record("sections.items[]", items.length, items.length, PRODUCT_PAGE_SLIM_RULE);
   }
   if (level.stripScalars) {
     for (const key of ["summary", "counts", "dataQuality"]) if (sections[key] !== undefined) out[key] = c.stripProvenance(sections[key]);
