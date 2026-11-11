@@ -415,6 +415,64 @@ def handled(result):
         and event.get("data", event).get("disposition") == "handled" for event in result.get("events", []))
 
 
+CAPACITY_RETRY_SUFFIX = "-capacity-retry"
+
+
+def _capacity_retry_client_request_id(original):
+    """Deterministic derived clientRequestId for the one auto-requeued retry.
+
+    identifier() only allows [A-Za-z0-9_-]{1,160}; `original` already passed
+    that check when its own operation was created, so appending an all-"-"/
+    alnum suffix stays inside the same charset. The 160-char ceiling is
+    respected by trimming the original, not the suffix, so the suffix
+    (and therefore the only-once check in fail_before_prompt below, which
+    looks for this exact suffix) is always intact and never silently dropped.
+    """
+    budget = 160 - len(CAPACITY_RETRY_SUFFIX)
+    return original[:budget] + CAPACITY_RETRY_SUFFIX
+
+
+def _requeue_after_capacity_reclaim(op, session):
+    """Called only from inside fail_before_prompt's own mutation(), after it
+    has already moved the just-failed op/session into their terminal/idle
+    rows but before that transaction commits. Builds exactly one fresh
+    PiOperation that repeats op's own user request, so it gets a brand new
+    operationId to dispatch create against -- the Runner ledger that just
+    cached op's session_limit rejection is keyed on (operationId, command)
+    and can never be made to reconsider op itself (see
+    _create_with_reclaim_retry's docstring).
+
+    Must not be called more than once for the same original request: a new
+    op created here always carries a clientRequestId ending in
+    CAPACITY_RETRY_SUFFIX, so if op.client_request_id already carries that
+    suffix this returns None without creating anything, and the caller's own
+    SessionLimitRejected on the new op falls straight through to the normal
+    failure path instead of recursing.
+
+    Must not be called when op carries a businessExecution grant: the
+    PiBusinessIntent rows created in pi_service.prompt() are keyed to
+    parent_operation=op specifically (pi_business.create_intents), and
+    tool_prepare()/admit() re-derives authorization from that exact operation
+    id later. Rebinding those intents to a different operation, or creating a
+    second set for the new op, is a correctness question this change does not
+    take on -- callers must check that case before calling this and let the
+    original failure stand untouched when it is true.
+    """
+    from .pi_models import PiOperation
+    from .policy import uid
+    if op.client_request_id.endswith(CAPACITY_RETRY_SUFFIX):
+        return None
+    new_key = _capacity_retry_client_request_id(op.client_request_id)
+    session.operation_seq += 1
+    new_op = PiOperation.objects.create(id=uid("pi-op"), session=session, client_request_id=new_key,
+        request_digest=op.request_digest, kind=op.kind, epoch=op.epoch, generation=op.generation,
+        seq=session.operation_seq, actor_role=op.actor_role, scope_json=op.scope_json, model_id=op.model_id,
+        model_version=op.model_version, skills_json=op.skills_json, payload_json=op.payload_json)
+    session.active_operation_id, session.status = new_op.id, "queued"
+    session.save(update_fields=["active_operation_id", "status", "operation_seq"])
+    return new_op
+
+
 def fail_before_prompt(operation, error):
     from .pi_models import PiOperation, PiSession, PiDispatch, PiWorkspace, PiControl
     from . import pi_service as service
@@ -445,7 +503,23 @@ def fail_before_prompt(operation, error):
             PiControl.objects.filter(operation=op, id=json.loads(op.payload_json).get("controlId"), status="queued").update(
                 status="failed", error_code=error.code,
                 result_json=canonical({"nativeCompactStarted": False, "source": "signed_create_rejection"}))
-        service.event(session, "error", {"code": error.code, "status": op.status, "historyPreserved": True}, op)
+        requeued = None
+        # Auto-requeue is scoped to: a plain prompt op (never workspace:compact,
+        # which is bound to one specific PiControl row and handled above/by its
+        # own branch in perform()'s except block), a signed capacity rejection
+        # whose reclaim actually freed a shell (not a bare "no candidate"/"every
+        # candidate rejected" capacity failure), op.cancel_requested False (a
+        # canceled op must stay canceled, not come back as a new queued one),
+        # and no businessExecution grant on this op (see
+        # _requeue_after_capacity_reclaim's docstring for why).
+        if (capacity and op.kind == "prompt" and getattr(error, "reclaimed", False) and not op.cancel_requested
+                and not json.loads(op.payload_json).get("businessExecution", {}).get("allowedActions")):
+            requeued = _requeue_after_capacity_reclaim(op, session)
+        service.event(session, "error", {"code": error.code, "status": op.status, "historyPreserved": True,
+            **({"capacityRequeuedOperationId": requeued.id} if requeued else {})}, op)
+        if requeued:
+            service.event(session, "status", {"status": "queued", "code": "pi_session_limit_capacity_requeued",
+                "requeuedFromOperationId": op.id}, requeued)
         return True
 
 
@@ -489,20 +563,28 @@ def _create_with_reclaim_retry(op, payload):
     """Dispatch create; on a signed, side-effect-free session_limit rejection,
     try candidate idle shells in oldest-first order -- skipping any that are
     not actually reclaimable (wrong image, not really stopped, etc.) -- until
-    exactly one reclaim succeeds (never this operation's own session), then
-    retry create exactly once with a different request id. A pi_reclaim_unknown
-    result, or any other non-AiError exception, stops the candidate scan
-    immediately: it is never routed around by moving to the next candidate.
-    No candidate at all, or every scanned candidate rejected, falls straight
-    through to the original rejection, so fail_before_prompt's existing
-    capacity judgment (keyed on the first, unmodified request_id="create"
-    dispatch) still reaches the caller unchanged.
+    exactly one reclaim succeeds (never this operation's own session). A
+    pi_reclaim_unknown result, or any other non-AiError exception, stops the
+    candidate scan immediately: it is never routed around by moving to the
+    next candidate. No candidate at all, or every scanned candidate rejected,
+    leaves reclaimed False.
+
+    The Runner's own command ledger (pi_runner/server.py Ledger.reserve) is
+    keyed on (operationId, command) alone -- it has no notion of Django's
+    request_id. Re-dispatching "create" for this same op under any request_id
+    therefore just replays the cached session_limit rejection and can never
+    observe the capacity a successful reclaim just freed. So this never
+    retries create for op itself: it always re-raises the original
+    SessionLimitRejected (for fail_before_prompt's existing capacity judgment,
+    keyed on the first, unmodified request_id="create" dispatch), with
+    `reclaimed` set on the exception so the caller can decide whether to queue
+    a fresh operation that actually gets a new operationId to dispatch against.
     """
     from django.utils import timezone
     from . import pi_transport
     try:
         return runner_dispatch(op, "create", payload)
-    except pi_transport.SessionLimitRejected:
+    except pi_transport.SessionLimitRejected as rejection:
         from . import pi_workspace
         from .policy import AiError
         idle_since = timezone.now() - timedelta(seconds=1800)  # Runner's own idleSeconds stop timeout.
@@ -522,9 +604,8 @@ def _create_with_reclaim_retry(op, payload):
                 break
             if reclaimed:
                 break
-        if not reclaimed:
-            raise
-        return runner_dispatch(op, "create", payload, request_id="create:after-reclaim")
+        rejection.reclaimed = reclaimed
+        raise
 
 
 def perform(op, stopped=None):
