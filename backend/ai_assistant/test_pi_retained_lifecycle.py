@@ -8,8 +8,11 @@ import tempfile
 import threading
 from unittest.mock import patch
 
+from datetime import timedelta
+
 from django.db import close_old_connections, connection
 from django.test import TestCase, TransactionTestCase, override_settings
+from django.utils import timezone
 from pi_runner.protocol import encode, signature, workspace_key
 from . import pi_native, pi_transport, pi_worker, pi_workspace
 from .pi_models import PiControl, PiDispatch, PiOperation, PiSession, PiWorkspace
@@ -383,3 +386,394 @@ class PiReclaimRaceTests(TransactionTestCase):
         self.assertEqual(outcomes[0]["control"]["status"], "completed")
         self.assertEqual(PiWorkspace.objects.get(session=session).status, "ready")
         self.prompt(session.id, clientRequestId="authorized-resume")
+
+
+@override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
+class PiAutoReclaimTests(TestCase):
+    """Periodic sweep (pi_workspace.auto_reclaim_idle) and the on-demand
+    reclaim-then-retry-once path in pi_worker._create_with_reclaim_retry.
+    """
+    setUp = PiRuntimeTests.setUp
+    user = PiRuntimeTests.user
+    session = PiRuntimeTests.session
+    prompt = PiRuntimeTests.prompt
+
+    def stopped_shell(self, *, idle_hours=48, require_local_restore=False):
+        """One idle session whose current-generation workspace holds a stopped,
+        reclaimable shell, plus the fixed Runner state/receipt bodies for it.
+        """
+        sid = self.session()
+        self.prompt(sid)
+        operation = pi_worker.claim()
+        pi_workspace._finish_init(operation)
+        session = PiSession.objects.get(pk=sid)
+        with mutation():
+            PiWorkspace.objects.create(session=session, generation=session.generation,
+                status="paused" if require_local_restore else "ready")
+        PiSession.objects.filter(pk=sid).update(updated_at=timezone.now() - timedelta(hours=idle_hours))
+        admission = pi_native.admission(operation)
+        expected = {"containerId": secrets.token_hex(32), "image": "sha256:" + secrets.token_hex(32),
+            "volume": "pi-test-vol-" + secrets.token_hex(6), "lastSeq": operation.seq}
+        shell = {**expected, "workspaceId": workspace_key(pi_worker.identity(operation))}
+        state = {**shell, "environmentStatus": "stopped", "generation": session.generation,
+            "admission": admission, "retainedWorkspace": False}
+        return session, operation, admission, expected, shell, state
+
+    def reclaim_runner(self, fixtures, *, on_reclaim_result=None):
+        """fixtures: {session_id: (operation, admission, expected, shell, state)}.
+        Serves 'state' observation and 'reclaim_stopped' control for each
+        fixture's own session only; anything else is a test bug (assert).
+        """
+        def runner(request):
+            sid = request["conversationId"]
+            self.assertIn(sid, fixtures, "unexpected session in reclaim runner")
+            operation, admission, expected, shell, state = fixtures[sid]
+            args = request["payload"]
+            if args["action"] == "state":
+                return {"workspace": state}
+            self.assertEqual(args["command"], "reclaim_stopped")
+            self.assertEqual(args["payload"]["expected"], shell)
+            result = (on_reclaim_result or (lambda sid: "completed"))(sid)
+            if result == "completed":
+                return {"workspace": {**state, "containerId": None, "retainedWorkspace": True},
+                    "control": {"controlId": args["controlId"], "controlSeq": args["controlSeq"], "status": "completed",
+                        "command": args["command"], "result": {**shell, "containerRemoved": True, "volumePreserved": True}}}
+            return {"workspace": state, "control": {"controlId": args["controlId"], "controlSeq": args["controlSeq"],
+                "status": "failed", "command": args["command"], "errorCode": result}}
+        return runner
+
+    def test_sweep_reclaims_only_sessions_idle_past_threshold_oldest_first(self):
+        old_a, op_a, adm_a, exp_a, shell_a, state_a = self.stopped_shell(idle_hours=72)
+        old_b, op_b, adm_b, exp_b, shell_b, state_b = self.stopped_shell(idle_hours=48)
+        fresh, op_c, adm_c, exp_c, shell_c, state_c = self.stopped_shell(idle_hours=1)
+        # Make the 72h session the oldest by activity (lowest updated_at).
+        from django.utils import timezone
+        from datetime import timedelta
+        PiSession.objects.filter(pk=old_a.id).update(updated_at=timezone.now() - timedelta(hours=96))
+        PiSession.objects.filter(pk=old_b.id).update(updated_at=timezone.now() - timedelta(hours=48))
+        order = []
+        fixtures = {old_a.id: (op_a, adm_a, exp_a, shell_a, state_a), old_b.id: (op_b, adm_b, exp_b, shell_b, state_b),
+            fresh.id: (op_c, adm_c, exp_c, shell_c, state_c)}
+
+        def recorder(sid):
+            order.append(sid)
+            return "completed"
+        with patch.object(pi_transport, "command", side_effect=self.reclaim_runner(fixtures, on_reclaim_result=recorder)):
+            reclaimed = pi_workspace.auto_reclaim_idle(idle_seconds=24 * 3600, limit=4)
+        self.assertEqual(reclaimed, 2)
+        self.assertEqual(order, [old_a.id, old_b.id])
+        self.assertNotIn(fresh.id, order)
+        self.assertEqual(PiWorkspace.objects.get(session=old_a).status, "ready")
+        self.assertEqual(PiWorkspace.objects.get(session=old_b).status, "ready")
+
+    def test_sweep_skips_unreclaimable_candidate_without_affecting_the_next_one(self):
+        blocked, op_a, adm_a, exp_a, shell_a, state_a = self.stopped_shell(idle_hours=72, require_local_restore=True)
+        ok, op_b, adm_b, exp_b, shell_b, state_b = self.stopped_shell(idle_hours=48)
+        from django.utils import timezone
+        from datetime import timedelta
+        PiSession.objects.filter(pk=blocked.id).update(updated_at=timezone.now() - timedelta(hours=96))
+        fixtures = {blocked.id: (op_a, adm_a, exp_a, shell_a, state_a), ok.id: (op_b, adm_b, exp_b, shell_b, state_b)}
+
+        def outcome(sid):
+            return "workspace_native_image_upgrade_required" if sid == blocked.id else "completed"
+        with patch.object(pi_transport, "command", side_effect=self.reclaim_runner(fixtures, on_reclaim_result=outcome)):
+            reclaimed = pi_workspace.auto_reclaim_idle(idle_seconds=24 * 3600, limit=4)
+        self.assertEqual(reclaimed, 1)
+        self.assertEqual(PiWorkspace.objects.get(session=blocked).status, "paused")
+        self.assertEqual(PiWorkspace.objects.get(session=ok).status, "ready")
+
+    def test_sweep_does_not_starve_on_a_block_of_old_unreclaimable_shells(self):
+        """Production shape: the 5 oldest stopped shells are on a retired image
+        (Runner deterministically rejects every one with
+        workspace_native_image_upgrade_required); only the 3 newest are on the
+        current image and reclaimable. limit=4 must still reclaim all 3 --
+        "limit" bounds successes, not how many old rejects get scanned past.
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+        old_image_ages = [100, 99, 98, 97, 96]  # oldest first, all unreclaimable
+        new_image_ages = [10, 9, 8]              # oldest first, all reclaimable
+        fixtures = {}
+        blocked_ids, reclaimable_ids = [], []
+        for hours in old_image_ages:
+            session, op, adm, exp, shell, state = self.stopped_shell(idle_hours=hours)
+            PiSession.objects.filter(pk=session.id).update(updated_at=timezone.now() - timedelta(hours=hours))
+            fixtures[session.id] = (op, adm, exp, shell, state)
+            blocked_ids.append(session.id)
+        for hours in new_image_ages:
+            session, op, adm, exp, shell, state = self.stopped_shell(idle_hours=hours)
+            PiSession.objects.filter(pk=session.id).update(updated_at=timezone.now() - timedelta(hours=hours))
+            fixtures[session.id] = (op, adm, exp, shell, state)
+            reclaimable_ids.append(session.id)
+
+        def outcome(sid):
+            return "workspace_native_image_upgrade_required" if sid in blocked_ids else "completed"
+        with patch.object(pi_transport, "command", side_effect=self.reclaim_runner(fixtures, on_reclaim_result=outcome)):
+            # Threshold below the youngest fixture's idle time (8h) so every
+            # fixture here qualifies as idle; the point under test is scan
+            # depth past rejections, not the idle-threshold filter itself
+            # (already covered by test_sweep_reclaims_only_sessions_idle_past_threshold_oldest_first).
+            reclaimed = pi_workspace.auto_reclaim_idle(idle_seconds=3600, limit=4)
+        self.assertEqual(reclaimed, 3)
+        for sid in blocked_ids:
+            self.assertEqual(PiWorkspace.objects.get(session_id=sid).status, "ready")
+        for sid in reclaimable_ids:
+            self.assertEqual(PiWorkspace.objects.get(session_id=sid).status, "ready")
+        # The 3 reclaimable shells really were removed (not just left "ready"
+        # by coincidence): each one hit the completed reclaim_stopped control.
+        for sid in reclaimable_ids:
+            self.assertEqual(PiControl.objects.get(session_id=sid, command="reclaim_stopped").status, "completed")
+        for sid in blocked_ids:
+            self.assertEqual(PiControl.objects.get(session_id=sid, command="reclaim_stopped").status, "failed")
+
+    def test_sweep_does_not_let_an_already_reclaimed_session_block_younger_candidates(self):
+        """A session whose shell was already removed (reclaim_stopped completed,
+        no later successful create) stays idle with workspace status "ready"
+        or "paused" and would otherwise occupy a candidate slot forever.
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+        already, op_a, adm_a, exp_a, shell_a, state_a = self.stopped_shell(idle_hours=96)
+        younger, op_b, adm_b, exp_b, shell_b, state_b = self.stopped_shell(idle_hours=48)
+        PiSession.objects.filter(pk=already.id).update(updated_at=timezone.now() - timedelta(hours=96))
+        # Perform the already-reclaimed session's real reclaim up front, same
+        # as a prior sweep round would have, leaving its own PiControl trail.
+        fixtures = {already.id: (op_a, adm_a, exp_a, shell_a, state_a), younger.id: (op_b, adm_b, exp_b, shell_b, state_b)}
+        with patch.object(pi_transport, "command", side_effect=self.reclaim_runner(fixtures)):
+            self.assertTrue(pi_workspace.reclaim_one_idle_session(already.id))
+        self.assertEqual(PiWorkspace.objects.get(session=already).status, "ready")
+        # reclaim_stopped's own event() bumped updated_at to now; push it back
+        # out past the idle threshold so this test actually exercises
+        # _already_reclaimed rather than the ordinary idle_since filter.
+        PiSession.objects.filter(pk=already.id).update(updated_at=timezone.now() - timedelta(hours=96))
+
+        candidates = pi_workspace.idle_reclaim_candidates(
+            idle_since=timezone.now() - timedelta(hours=1), scan_limit=4)
+        self.assertNotIn(already.id, [c.id for c in candidates])
+        self.assertIn(younger.id, [c.id for c in candidates])
+
+        calls = []
+
+        def runner(request):
+            calls.append(request["conversationId"])
+            return self.reclaim_runner(fixtures)(request)
+        with patch.object(pi_transport, "command", side_effect=runner):
+            reclaimed = pi_workspace.auto_reclaim_idle(idle_seconds=24 * 3600, limit=4)
+        self.assertEqual(reclaimed, 1)
+        self.assertNotIn(already.id, calls)
+
+    def test_unknown_result_stops_sweep_and_is_never_replayed(self):
+        first, op_a, adm_a, exp_a, shell_a, state_a = self.stopped_shell(idle_hours=72)
+        second, op_b, adm_b, exp_b, shell_b, state_b = self.stopped_shell(idle_hours=48)
+        from django.utils import timezone
+        from datetime import timedelta
+        PiSession.objects.filter(pk=first.id).update(updated_at=timezone.now() - timedelta(hours=96))
+        fixtures = {first.id: (op_a, adm_a, exp_a, shell_a, state_a), second.id: (op_b, adm_b, exp_b, shell_b, state_b)}
+        calls = []
+
+        def runner(request):
+            sid = request["conversationId"]
+            calls.append(sid)
+            args = request["payload"]
+            operation, admission, expected, shell, state = fixtures[sid]
+            if args["action"] == "state":
+                return {"workspace": state}
+            if sid == first.id:
+                raise ConnectionError("synthetic transport failure")
+            return {"workspace": {**state, "containerId": None, "retainedWorkspace": True},
+                "control": {"controlId": args["controlId"], "controlSeq": args["controlSeq"], "status": "completed",
+                    "command": args["command"], "result": {**shell, "containerRemoved": True, "volumePreserved": True}}}
+        with patch.object(pi_transport, "command", side_effect=runner):
+            reclaimed = pi_workspace.auto_reclaim_idle(idle_seconds=24 * 3600, limit=4)
+        self.assertEqual(reclaimed, 0)
+        self.assertNotIn(second.id, calls)
+        self.assertEqual(PiControl.objects.filter(session=first, command="reclaim_stopped").count(), 1)
+        control = PiControl.objects.get(session=first, command="reclaim_stopped")
+        self.assertEqual(control.status, "unknown")
+        self.assertEqual(control.error_code, "pi_reclaim_unknown")
+        self.assertEqual(PiWorkspace.objects.get(session=first).status, "unknown")
+        # A second sweep must never resend the same uncertain request for
+        # `first` -- its own workspace status ("unknown") already excludes it
+        # as a fresh candidate, so this also exercises that exclusion holds.
+        # `second` is untouched by the first sweep (the scan stopped on
+        # `first` before reaching it) and is free to reclaim normally here.
+        # Assert on the recorded call log outside the mock, not by raising
+        # inside it: auto_reclaim_idle's own broad except would otherwise
+        # swallow a raised AssertionError and this would pass even if the
+        # uncertain request were replayed.
+        second_sweep_calls = []
+
+        def second_sweep(request):
+            second_sweep_calls.append(request["conversationId"])
+            return runner(request)
+        with patch.object(pi_transport, "command", side_effect=second_sweep):
+            reclaimed_again = pi_workspace.auto_reclaim_idle(idle_seconds=24 * 3600, limit=4)
+        self.assertNotIn(first.id, second_sweep_calls)
+        self.assertIn(second.id, second_sweep_calls)
+        self.assertEqual(reclaimed_again, 1)
+        self.assertEqual(PiControl.objects.filter(session=first, command="reclaim_stopped").count(), 1)
+        control.refresh_from_db()
+        self.assertEqual(control.status, "unknown")
+
+    def test_current_session_is_never_selected_as_its_own_reclaim_target(self):
+        session, operation, admission, expected, shell, state = self.stopped_shell(idle_hours=96)
+        # Without exclusion this session is a perfectly ordinary candidate --
+        # the fixture matches idle_reclaim_candidates' own filter exactly.
+        without_exclusion = pi_workspace.idle_reclaim_candidates(
+            idle_since=timezone.now() - timedelta(hours=1), scan_limit=4)
+        self.assertIn(session.id, [c.id for c in without_exclusion])
+        with_exclusion = pi_workspace.idle_reclaim_candidates(
+            idle_since=timezone.now() - timedelta(hours=1), scan_limit=4, exclude_session_id=session.id)
+        self.assertNotIn(session.id, [c.id for c in with_exclusion])
+
+    @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "isolated-create-retry-cache-key-123456789"})
+    def test_session_limit_on_create_reclaims_one_idle_shell_and_retries_once(self):
+        donor, donor_op, donor_adm, donor_exp, donor_shell, donor_state = self.stopped_shell(idle_hours=48)
+        new_session_id = self.session()
+        self.prompt(new_session_id, clientRequestId="prompt-needs-capacity")
+        new_op = pi_worker.claim()
+        fixtures = {donor.id: (donor_op, donor_adm, donor_exp, donor_shell, donor_state)}
+        create_calls = []
+
+        def runner(request):
+            if request["conversationId"] == donor.id:
+                return self.reclaim_runner(fixtures)(request)
+            self.assertEqual(request["conversationId"], new_session_id)
+            self.assertEqual(request["command"], "create")
+            create_calls.append(request)
+            if len(create_calls) == 1:
+                raise pi_transport.SessionLimitRejected()
+            return {**pi_worker.identity(new_op), "status": "accepted", "state": {}}
+        with patch.object(pi_transport, "command", side_effect=runner):
+            result = pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
+        self.assertEqual(result["status"], "accepted")
+        self.assertEqual(len(create_calls), 2)
+        dispatches = list(PiDispatch.objects.filter(operation=new_op, kind="runner:create").order_by("created_at").values_list("request_id", "status", "error_code"))
+        self.assertEqual(dispatches, [("create", "completed", "pi_session_limit"), ("create:after-reclaim", "completed", "")])
+        self.assertEqual(PiWorkspace.objects.get(session=donor).status, "ready")
+        self.assertTrue(pi_worker.fail_before_prompt is not None)  # sanity: capacity judgment helper still importable
+
+    @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "isolated-create-retry-scan-key-123456789"})
+    def test_session_limit_on_create_skips_oldest_rejected_donor_and_reclaims_the_next(self):
+        """Production shape for the create-retry path: the oldest idle
+        candidate is on a retired image and Runner rejects its reclaim; the
+        retry must move on to the next-oldest candidate instead of giving up.
+        """
+        blocked, op_a, adm_a, exp_a, shell_a, state_a = self.stopped_shell(idle_hours=96)
+        donor, op_b, adm_b, exp_b, shell_b, state_b = self.stopped_shell(idle_hours=48)
+        new_session_id = self.session()
+        self.prompt(new_session_id, clientRequestId="prompt-needs-capacity-scan")
+        new_op = pi_worker.claim()
+        fixtures = {blocked.id: (op_a, adm_a, exp_a, shell_a, state_a), donor.id: (op_b, adm_b, exp_b, shell_b, state_b)}
+        create_calls = []
+
+        def reclaim_outcome(sid):
+            return "workspace_native_image_upgrade_required" if sid == blocked.id else "completed"
+
+        def runner(request):
+            if request["conversationId"] in fixtures:
+                return self.reclaim_runner(fixtures, on_reclaim_result=reclaim_outcome)(request)
+            self.assertEqual(request["conversationId"], new_session_id)
+            self.assertEqual(request["command"], "create")
+            create_calls.append(request)
+            if len(create_calls) == 1:
+                raise pi_transport.SessionLimitRejected()
+            return {**pi_worker.identity(new_op), "status": "accepted", "state": {}}
+        with patch.object(pi_transport, "command", side_effect=runner):
+            result = pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
+        self.assertEqual(result["status"], "accepted")
+        self.assertEqual(len(create_calls), 2)
+        self.assertEqual(PiWorkspace.objects.get(session=blocked).status, "ready")
+        self.assertEqual(PiWorkspace.objects.get(session=donor).status, "ready")
+        self.assertEqual(PiControl.objects.get(session=blocked, command="reclaim_stopped").status, "failed")
+        self.assertEqual(PiControl.objects.get(session=donor, command="reclaim_stopped").status, "completed")
+
+    def test_session_limit_on_create_stops_candidate_scan_on_unknown_and_never_touches_the_next_one(self):
+        """The oldest candidate's reclaim apply gets an uncertain transport
+        result (pi_reclaim_unknown). create-retry must not route around that
+        by moving on to the second, genuinely reclaimable candidate: it
+        propagates the original SessionLimitRejected untouched, and the
+        second candidate's session is never contacted at all.
+        """
+        unknown_candidate, op_a, adm_a, exp_a, shell_a, state_a = self.stopped_shell(idle_hours=96)
+        second_candidate, op_b, adm_b, exp_b, shell_b, state_b = self.stopped_shell(idle_hours=48)
+        new_session_id = self.session()
+        self.prompt(new_session_id, clientRequestId="prompt-needs-capacity-unknown")
+        new_op = pi_worker.claim()
+        fixtures = {unknown_candidate.id: (op_a, adm_a, exp_a, shell_a, state_a),
+            second_candidate.id: (op_b, adm_b, exp_b, shell_b, state_b)}
+        create_calls = []
+        reclaim_calls = []
+
+        def runner(request):
+            sid = request["conversationId"]
+            if sid in fixtures:
+                reclaim_calls.append(sid)
+                if sid == unknown_candidate.id:
+                    operation, admission, expected, shell, state = fixtures[sid]
+                    args = request["payload"]
+                    if args["action"] == "state":
+                        return {"workspace": state}
+                    # The control (apply) step fails with a non-AiError, raw
+                    # transport exception -- exactly what makes
+                    # reclaim_stopped mark this pi_reclaim_unknown.
+                    raise ConnectionError("synthetic transport failure")
+                return self.reclaim_runner(fixtures)(request)
+            self.assertEqual(sid, new_session_id)
+            self.assertEqual(request["command"], "create")
+            create_calls.append(request)
+            raise pi_transport.SessionLimitRejected()
+        with patch.object(pi_transport, "command", side_effect=runner):
+            with self.assertRaises(pi_transport.SessionLimitRejected):
+                pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
+        self.assertNotIn(second_candidate.id, reclaim_calls)
+        self.assertEqual(len(create_calls), 1)
+        dispatches = list(PiDispatch.objects.filter(operation=new_op, kind="runner:create").values_list("request_id", "status", "error_code"))
+        self.assertEqual(dispatches, [("create", "completed", "pi_session_limit")])
+        control = PiControl.objects.get(session=unknown_candidate, command="reclaim_stopped")
+        self.assertEqual((control.status, control.error_code), ("unknown", "pi_reclaim_unknown"))
+        self.assertFalse(PiControl.objects.filter(session=second_candidate, command="reclaim_stopped").exists())
+
+    def test_session_limit_on_create_with_no_candidate_fails_original_way_with_one_dispatch(self):
+        new_session_id = self.session()
+        self.prompt(new_session_id, clientRequestId="prompt-no-capacity")
+        new_op = pi_worker.claim()
+        create_calls = []
+
+        def runner(request):
+            create_calls.append(request)
+            raise pi_transport.SessionLimitRejected()
+        with patch.object(pi_transport, "command", side_effect=runner):
+            with self.assertRaises(pi_transport.SessionLimitRejected):
+                pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
+        self.assertEqual(len(create_calls), 1)
+        dispatches = list(PiDispatch.objects.filter(operation=new_op, kind="runner:create").values_list("request_id", "status", "error_code"))
+        self.assertEqual(dispatches, [("create", "completed", "pi_session_limit")])
+        self.assertTrue(pi_worker.fail_before_prompt(new_op, pi_transport.SessionLimitRejected()))
+        new_op.refresh_from_db()
+        self.assertEqual((new_op.status, new_op.error_code), ("failed", "pi_session_limit"))
+
+    def test_retry_still_at_capacity_fails_with_exactly_two_create_dispatches(self):
+        donor, donor_op, donor_adm, donor_exp, donor_shell, donor_state = self.stopped_shell(idle_hours=48)
+        new_session_id = self.session()
+        self.prompt(new_session_id, clientRequestId="prompt-still-full")
+        new_op = pi_worker.claim()
+        fixtures = {donor.id: (donor_op, donor_adm, donor_exp, donor_shell, donor_state)}
+        create_calls = []
+
+        def runner(request):
+            if request["conversationId"] == donor.id:
+                return self.reclaim_runner(fixtures)(request)
+            create_calls.append(request)
+            raise pi_transport.SessionLimitRejected()
+        with patch.object(pi_transport, "command", side_effect=runner):
+            with self.assertRaises(pi_transport.SessionLimitRejected):
+                pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
+        self.assertEqual(len(create_calls), 2)
+        dispatches = list(PiDispatch.objects.filter(operation=new_op, kind="runner:create").order_by("created_at").values_list("request_id", "status", "error_code"))
+        self.assertEqual(dispatches, [("create", "completed", "pi_session_limit"), ("create:after-reclaim", "completed", "pi_session_limit")])
+        self.assertTrue(pi_worker.fail_before_prompt(new_op, pi_transport.SessionLimitRejected()))
+        new_op.refresh_from_db()
+        self.assertEqual((new_op.status, new_op.error_code), ("failed", "pi_session_limit"))
+        self.assertEqual(PiWorkspace.objects.get(session=donor).status, "ready")
+
