@@ -1202,7 +1202,7 @@ export const aiToolRegistry = [
   {
     name: NETSHOP_PRODUCT_INSIGHTS_TOOL_NAME,
     title: "商品表现完整汇总、比较与分页列表",
-    description: "只读运营系统已导入网店数据的商品表现：完整经营范围汇总、两期比较、先配对全集再排序的贡献排行及当前列表页，保留覆盖缺口、来源版本和基期错误。金额按安全整数分，SKU/SPU不混用。成交转化率取可用的服务端 conversion（成交客户数÷访客数）；商品访客及客户为商品×日累计，不能跨日或跨商品相加充当区间去重人数。q只筛列表，不改变经营汇总；类目是来源标签，不代表跨平台官方分类。明示分页，不能从一页求全店总额或把缺字段当零。snapshotToken和sectionToken仅在各自同种范围内续读；超过完整40000字符预算需缩小店铺、日期或pageSize，不截掉汇总或覆盖。未核验的历史映射、ERP/推广关联不推断；仅列表工具，不读取单品详情、不操作外部平台。",
+    description: "只读运营系统已导入网店数据的商品表现：完整经营范围汇总、两期比较、先配对全集再排序的贡献排行及当前列表页，保留覆盖缺口、来源版本和基期错误。金额按安全整数分，SKU/SPU不混用。成交转化率取可用的服务端 conversion（成交客户数÷访客数）；商品访客及客户为商品×日累计，不能跨日或跨商品相加充当区间去重人数。q只筛列表，不改变经营汇总；类目是来源标签，不代表跨平台官方分类。明示分页，不能从一页求全店总额或把缺字段当零。snapshotToken和sectionToken仅在各自同种范围内续读。完整响应不超过40000字符时原样返回；超过时解码校验通过后返回精简视图，顶层带aiCompaction（applied、sections[{path,originalCount,keptCount,rule}]、note），只有列出的路径被裁成Top N或省略来源字段（增长排行、关注清单、类目/价格带、基期等），裁剪后的列表不是全集、不能求和；汇总、比较、当前页、分页计数、令牌保留，覆盖缺口（不完整条目）完整保留仅折叠完整条目。精简后仍超40000则拒绝。未核验的历史映射、ERP/推广关联不推断；仅列表工具，不读取单品详情、不操作外部平台。",
     inputSchema: netshopProductInsightsInputSchema,
     annotations: readOnlyAnnotations,
     risk: "read_only",
@@ -1226,7 +1226,7 @@ export const aiToolRegistry = [
   {
     name: NETSHOP_PROMOTION_INSIGHTS_TOOL_NAME,
     title: "推广分析完整指标与有界对象列表",
-    description: "读取网店推广已导入事实的同源指标、真实本期/环比/同比日期、逐店逐日覆盖、完整贡献集合和最多20行对象。京东/天猫逐平台查询；维度由平台固定派生。表内q只影响对象列表，不改变整期汇总或贡献集合。ROI为平台归因成交/花费的倍数，不是ERP净销售、利润或增量效果。计划/单元/词继续由原管理员、原支持京东单店1—7天权限与源能力门禁控制；不扩大来源。超预算拒绝而不裁去覆盖或求页总。只读所属reader，不下载、导入、投放、调用模型或发消息。",
+    description: "读取网店推广已导入事实的同源指标、真实本期/环比/同比日期、逐店逐日覆盖、完整贡献集合和最多20行对象。京东/天猫逐平台查询；维度由平台固定派生。表内q只影响对象列表，不改变整期汇总或贡献集合。ROI为平台归因成交/花费的倍数，不是ERP净销售、利润或增量效果。计划/单元/词继续由原管理员、原支持京东单店1—7天权限与源能力门禁控制；不扩大来源。完整响应超过40000字符时，在解码校验通过后返回带aiCompaction（applied、sections[{path,originalCount,keptCount,rule}]、note）的精简视图：贡献排行、店铺行、趋势点只保留Top N/最新若干点并省略来源字段，裁剪后的列表不是全集、不能求和（comparedObjectCount为全集计数）；汇总、比较、当前页、分页、令牌保留，覆盖缺口（不完整条目）完整保留，只折叠完整条目。精简后仍超预算则拒绝。只读所属reader，不下载、导入、投放、调用模型或发消息。",
     inputSchema: netshopPromotionInsightsInputSchema,
     annotations: readOnlyAnnotations,
     risk: "read_only", allowedRoles: allRoles, scopePolicy: "principal_scope",

@@ -5,6 +5,8 @@ import { netshopOutletsForPrincipal, netshopPlatformsForPrincipal, requireSuppor
 import { periodKinds } from "@/lib/netshop/insights-contract";
 import { NetshopQueryError, netshopOutletKey } from "@/lib/netshop/query-contract";
 import { validatePromotionQuery, decodePromotionInsightsForQuery, decodePromotionDetailForQuery, PROMOTION_OBJECT_KINDS, PROMOTION_SORTS } from "@/lib/netshop/promotion-insights-contract";
+import { aiEnvelopeLength, fitNetshopAiResult } from "./netshop-ai-compaction";
+import { compactPromotionInsightsForAi, promotionCompactionLadder } from "./netshop-promotion-compaction";
 import { RegistryToolError, validateToolArguments, type AiToolExecutionContext, type JsonSchema } from "./tool-registry-contract";
 
 export const NETSHOP_PROMOTION_INSIGHTS_TOOL_NAME = "get_netshop_promotion_insights";
@@ -105,8 +107,15 @@ async function readPromotion(args: Record<string, unknown>, context: AiToolExecu
     throw new RegistryToolError("invalid_tool_result", "推广实际DTO、范围、对象或拥有方响应头不一致");
   }
   notCancelled(context.signal);
-  if (JSON.stringify({ ok: true, toolName: name, data }).length > NETSHOP_PROMOTION_AI_MAX_CHARACTERS) throw new RegistryToolError("tool_result_too_large", "完整推广信封超过40000字符，请缩小范围；未截断任何来源覆盖");
-  return { ...data };
+  // Detail keeps complete-or-refuse. The list may become a marked model-facing
+  // view, but only after the full decoder accepted the whole response above.
+  if (detail) {
+    if (aiEnvelopeLength(name, data) > NETSHOP_PROMOTION_AI_MAX_CHARACTERS) throw new RegistryToolError("tool_result_too_large", "完整推广信封超过40000字符，请缩小范围；未截断任何来源覆盖");
+    return { ...data };
+  }
+  const fitted = fitNetshopAiResult(name, data as Record<string, unknown>, NETSHOP_PROMOTION_AI_MAX_CHARACTERS, promotionCompactionLadder.map(level => (source: Record<string, unknown>) => compactPromotionInsightsForAi(source, level)));
+  if (fitted === null) throw new RegistryToolError("tool_result_too_large", "推广结果精简后仍超过40000字符，请缩小范围或减小每页条数；覆盖缺口未被裁去");
+  return fitted;
 }
 export function getNetshopPromotionInsightsForAi(args: Record<string, unknown>, context: AiToolExecutionContext) { return readPromotion(args, context, false); }
 export function getNetshopPromotionObjectDetailForAi(args: Record<string, unknown>, context: AiToolExecutionContext) { return readPromotion(args, context, true); }

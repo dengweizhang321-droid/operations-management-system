@@ -127,10 +127,19 @@ test("valid but mismatched scope/header/token/decoder operands never escape", as
     payload = structuredClone(good); owningRevision = good.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision; change(); await assert.rejects(listEntry.handler(args, context), e => e instanceof RegistryToolError && e.code === "invalid_tool_result");
   }
 });
-test("real misaligned-store fixture remains complete evidence and is refused over 40k without clipping", async () => {
+// Semantics changed on purpose: this fixture's complete envelope is over 40000, which used to be a
+// flat refusal. The decoder still accepts the whole body first; the tool now returns a marked
+// model-facing view in which every incomplete coverage entry stays whole.
+test("real misaligned-store fixture over 40k is compacted with every coverage gap kept and the reduction marked", async () => {
   payload = await fixture("misaligned"); owningRevision = payload.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision; const args = argsFor(payload);
   decodePromotionInsightsForQuery(payload, queryFor(args), owningRevision); assert.ok(JSON.stringify({ ok: true, toolName: listName, data: payload }).length > 40000);
-  const before = structuredClone(payload); await assert.rejects(listEntry.handler(args, context), e => e instanceof RegistryToolError && e.code === "tool_result_too_large"); assert.deepEqual(payload, before); assert.equal(calls.length, 1);
+  const before = structuredClone(payload); const data = await listEntry.handler(args, context) as PromotionInsightsResponse & { aiCompaction: { applied: boolean; sections: Array<{ path: string }> } };
+  assert.deepEqual(payload, before); assert.equal(calls.length, 1);
+  assert.ok(JSON.stringify({ ok: true, toolName: listName, data }).length <= 40000);
+  assert.equal(data.aiCompaction.applied, true); assert.ok(data.aiCompaction.sections.length > 0);
+  for (const [ref, gap] of Object.entries(payload.sections.coverage).filter(([, c]) => !c.complete)) assert.deepEqual(data.sections.coverage[ref], gap);
+  for (const [ref, gap] of Object.entries(payload.context.coverageBySource).filter(([, c]) => !c.complete)) assert.deepEqual(data.context.coverageBySource[ref], gap);
+  assert.deepEqual((data.sections as any).summary.spend.value, (payload as PromotionInsightsResponse).sections.summary.spend.value); assert.deepEqual((data.sections as any).comparisons, (payload as PromotionInsightsResponse).sections.comparisons); assert.deepEqual(data.sectionToken, payload.sectionToken);
 });
 test("reader status meanings stay safe, never retry or fall back to historical APIs", async () => {
   const args = argsFor(payload);

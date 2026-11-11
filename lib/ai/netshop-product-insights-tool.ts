@@ -5,6 +5,8 @@ import { PublicApiError } from "@/lib/http/api-error";
 import { netshopOutletsForPrincipal, netshopPlatformsForPrincipal, requireSupportedInsightScope } from "@/lib/netshop/access";
 import { NetshopQueryError, netshopOutletKey } from "@/lib/netshop/query-contract";
 import { netshopInsightsContextInputSchema } from "./netshop-insights-context-tool";
+import { fitNetshopAiResult } from "./netshop-ai-compaction";
+import { compactProductInsightsForAi, productCompactionLadder } from "./netshop-product-compaction";
 import { RegistryToolError, validateToolArguments, type AiToolExecutionContext, type JsonSchema } from "./tool-registry-contract";
 
 export const NETSHOP_PRODUCT_INSIGHTS_TOOL_NAME = "get_netshop_product_insights";
@@ -89,10 +91,11 @@ export async function getNetshopProductInsightsForAi(args: Record<string, unknow
     throw new RegistryToolError("invalid_tool_result", "商品表现回执、请求范围或所属来源版本不一致");
   }
   requireNotCancelled(context.signal);
-  if (JSON.stringify({ ok: true, toolName: NETSHOP_PRODUCT_INSIGHTS_TOOL_NAME, data }).length > NETSHOP_PRODUCT_INSIGHTS_AI_MAX_CHARACTERS) {
-    throw new RegistryToolError("tool_result_too_large", "完整商品表现超过40000字符信封预算，请缩小店铺、日期或每页范围");
-  }
-  // Preserve the owning DTO: no page-derived summary, compact coverage or new
-  // audit fields. The central runtime owns invocation limits and mandatory audit.
-  return { ...data };
+  // The owning DTO is returned unchanged whenever its complete envelope fits.
+  // Otherwise a marked model-facing view (aiCompaction) is built from the already
+  // decoded data; if even that does not fit, refuse rather than clip text.
+  // The central runtime owns invocation limits and mandatory audit.
+  const fitted = fitNetshopAiResult(NETSHOP_PRODUCT_INSIGHTS_TOOL_NAME, data as Record<string, unknown>, NETSHOP_PRODUCT_INSIGHTS_AI_MAX_CHARACTERS, productCompactionLadder.map(level => (source: Record<string, unknown>) => compactProductInsightsForAi(source, level)));
+  if (fitted === null) throw new RegistryToolError("tool_result_too_large", "商品表现精简后仍超过40000字符信封预算，请缩小店铺、日期或每页范围；覆盖缺口未被裁去");
+  return fitted;
 }
