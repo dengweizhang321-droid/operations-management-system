@@ -482,6 +482,82 @@ class PiAutoReclaimTests(TestCase):
         self.assertEqual(PiWorkspace.objects.get(session=blocked).status, "paused")
         self.assertEqual(PiWorkspace.objects.get(session=ok).status, "ready")
 
+    def test_sweep_does_not_starve_on_a_block_of_old_unreclaimable_shells(self):
+        """Production shape: the 5 oldest stopped shells are on a retired image
+        (Runner deterministically rejects every one with
+        workspace_native_image_upgrade_required); only the 3 newest are on the
+        current image and reclaimable. limit=4 must still reclaim all 3 --
+        "limit" bounds successes, not how many old rejects get scanned past.
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+        old_image_ages = [100, 99, 98, 97, 96]  # oldest first, all unreclaimable
+        new_image_ages = [10, 9, 8]              # oldest first, all reclaimable
+        fixtures = {}
+        blocked_ids, reclaimable_ids = [], []
+        for hours in old_image_ages:
+            session, op, adm, exp, shell, state = self.stopped_shell(idle_hours=hours)
+            PiSession.objects.filter(pk=session.id).update(updated_at=timezone.now() - timedelta(hours=hours))
+            fixtures[session.id] = (op, adm, exp, shell, state)
+            blocked_ids.append(session.id)
+        for hours in new_image_ages:
+            session, op, adm, exp, shell, state = self.stopped_shell(idle_hours=hours)
+            PiSession.objects.filter(pk=session.id).update(updated_at=timezone.now() - timedelta(hours=hours))
+            fixtures[session.id] = (op, adm, exp, shell, state)
+            reclaimable_ids.append(session.id)
+
+        def outcome(sid):
+            return "workspace_native_image_upgrade_required" if sid in blocked_ids else "completed"
+        with patch.object(pi_transport, "command", side_effect=self.reclaim_runner(fixtures, on_reclaim_result=outcome)):
+            # Threshold below the youngest fixture's idle time (8h) so every
+            # fixture here qualifies as idle; the point under test is scan
+            # depth past rejections, not the idle-threshold filter itself
+            # (already covered by test_sweep_reclaims_only_sessions_idle_past_threshold_oldest_first).
+            reclaimed = pi_workspace.auto_reclaim_idle(idle_seconds=3600, limit=4)
+        self.assertEqual(reclaimed, 3)
+        for sid in blocked_ids:
+            self.assertEqual(PiWorkspace.objects.get(session_id=sid).status, "ready")
+        for sid in reclaimable_ids:
+            self.assertEqual(PiWorkspace.objects.get(session_id=sid).status, "ready")
+        # The 3 reclaimable shells really were removed (not just left "ready"
+        # by coincidence): each one hit the completed reclaim_stopped control.
+        for sid in reclaimable_ids:
+            self.assertEqual(PiControl.objects.get(session_id=sid, command="reclaim_stopped").status, "completed")
+        for sid in blocked_ids:
+            self.assertEqual(PiControl.objects.get(session_id=sid, command="reclaim_stopped").status, "failed")
+
+    def test_sweep_does_not_let_an_already_reclaimed_session_block_younger_candidates(self):
+        """A session whose shell was already removed (reclaim_stopped completed,
+        no later successful create) stays idle with workspace status "ready"
+        or "paused" and would otherwise occupy a candidate slot forever.
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+        already, op_a, adm_a, exp_a, shell_a, state_a = self.stopped_shell(idle_hours=96)
+        younger, op_b, adm_b, exp_b, shell_b, state_b = self.stopped_shell(idle_hours=48)
+        PiSession.objects.filter(pk=already.id).update(updated_at=timezone.now() - timedelta(hours=96))
+        # Perform the already-reclaimed session's real reclaim up front, same
+        # as a prior sweep round would have, leaving its own PiControl trail.
+        fixtures = {already.id: (op_a, adm_a, exp_a, shell_a, state_a), younger.id: (op_b, adm_b, exp_b, shell_b, state_b)}
+        with patch.object(pi_transport, "command", side_effect=self.reclaim_runner(fixtures)):
+            self.assertTrue(pi_workspace.reclaim_one_idle_session(already.id))
+        self.assertEqual(PiWorkspace.objects.get(session=already).status, "ready")
+
+        candidates = pi_workspace.idle_reclaim_candidates(
+            idle_since=timezone.now() - timedelta(hours=1), scan_limit=4)
+        self.assertNotIn(already.id, [c.id for c in candidates])
+        self.assertIn(younger.id, [c.id for c in candidates])
+
+        calls = []
+
+        def runner(request):
+            calls.append(request["conversationId"])
+            return self.reclaim_runner(fixtures)(request)
+        with patch.object(pi_transport, "command", side_effect=runner):
+            reclaimed = pi_workspace.auto_reclaim_idle(idle_seconds=24 * 3600, limit=4)
+        self.assertEqual(reclaimed, 1)
+        self.assertNotIn(already.id, calls)
+
     def test_unknown_result_stops_sweep_and_is_never_replayed(self):
         first, op_a, adm_a, exp_a, shell_a, state_a = self.stopped_shell(idle_hours=72)
         second, op_b, adm_b, exp_b, shell_b, state_b = self.stopped_shell(idle_hours=48)
@@ -523,10 +599,10 @@ class PiAutoReclaimTests(TestCase):
         # Without exclusion this session is a perfectly ordinary candidate --
         # the fixture matches idle_reclaim_candidates' own filter exactly.
         without_exclusion = pi_workspace.idle_reclaim_candidates(
-            idle_since=timezone.now() - timedelta(hours=1), limit=4)
+            idle_since=timezone.now() - timedelta(hours=1), scan_limit=4)
         self.assertIn(session.id, [c.id for c in without_exclusion])
         with_exclusion = pi_workspace.idle_reclaim_candidates(
-            idle_since=timezone.now() - timedelta(hours=1), limit=4, exclude_session_id=session.id)
+            idle_since=timezone.now() - timedelta(hours=1), scan_limit=4, exclude_session_id=session.id)
         self.assertNotIn(session.id, [c.id for c in with_exclusion])
 
     @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "isolated-create-retry-cache-key-123456789"})
@@ -555,6 +631,41 @@ class PiAutoReclaimTests(TestCase):
         self.assertEqual(dispatches, [("create", "completed", "pi_session_limit"), ("create:after-reclaim", "completed", "")])
         self.assertEqual(PiWorkspace.objects.get(session=donor).status, "ready")
         self.assertTrue(pi_worker.fail_before_prompt is not None)  # sanity: capacity judgment helper still importable
+
+    @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "isolated-create-retry-scan-key-123456789"})
+    def test_session_limit_on_create_skips_oldest_rejected_donor_and_reclaims_the_next(self):
+        """Production shape for the create-retry path: the oldest idle
+        candidate is on a retired image and Runner rejects its reclaim; the
+        retry must move on to the next-oldest candidate instead of giving up.
+        """
+        blocked, op_a, adm_a, exp_a, shell_a, state_a = self.stopped_shell(idle_hours=96)
+        donor, op_b, adm_b, exp_b, shell_b, state_b = self.stopped_shell(idle_hours=48)
+        new_session_id = self.session()
+        self.prompt(new_session_id, clientRequestId="prompt-needs-capacity-scan")
+        new_op = pi_worker.claim()
+        fixtures = {blocked.id: (op_a, adm_a, exp_a, shell_a, state_a), donor.id: (op_b, adm_b, exp_b, shell_b, state_b)}
+        create_calls = []
+
+        def reclaim_outcome(sid):
+            return "workspace_native_image_upgrade_required" if sid == blocked.id else "completed"
+
+        def runner(request):
+            if request["conversationId"] in fixtures:
+                return self.reclaim_runner(fixtures, on_reclaim_result=reclaim_outcome)(request)
+            self.assertEqual(request["conversationId"], new_session_id)
+            self.assertEqual(request["command"], "create")
+            create_calls.append(request)
+            if len(create_calls) == 1:
+                raise pi_transport.SessionLimitRejected()
+            return {**pi_worker.identity(new_op), "status": "accepted", "state": {}}
+        with patch.object(pi_transport, "command", side_effect=runner):
+            result = pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
+        self.assertEqual(result["status"], "accepted")
+        self.assertEqual(len(create_calls), 2)
+        self.assertEqual(PiWorkspace.objects.get(session=blocked).status, "ready")
+        self.assertEqual(PiWorkspace.objects.get(session=donor).status, "ready")
+        self.assertEqual(PiControl.objects.get(session=blocked, command="reclaim_stopped").status, "failed")
+        self.assertEqual(PiControl.objects.get(session=donor, command="reclaim_stopped").status, "completed")
 
     def test_session_limit_on_create_with_no_candidate_fails_original_way_with_one_dispatch(self):
         new_session_id = self.session()
@@ -598,3 +709,4 @@ class PiAutoReclaimTests(TestCase):
         new_op.refresh_from_db()
         self.assertEqual((new_op.status, new_op.error_code), ("failed", "pi_session_limit"))
         self.assertEqual(PiWorkspace.objects.get(session=donor).status, "ready")
+

@@ -487,13 +487,16 @@ def finish_unstarted_compact(operation):
 
 def _create_with_reclaim_retry(op, payload):
     """Dispatch create; on a signed, side-effect-free session_limit rejection,
-    reclaim exactly one idle-longer-than-the-Runner-stop-timeout shell (never
-    this operation's own session) and retry create exactly once with a
-    different request id. Any other outcome -- no candidate, or the
-    candidate itself not reclaimable -- falls straight through to the
-    original rejection, so fail_before_prompt's existing capacity judgment
-    (keyed on the first, unmodified request_id="create" dispatch) still
-    reaches the caller unchanged.
+    try candidate idle shells in oldest-first order -- skipping any that are
+    not actually reclaimable (wrong image, not really stopped, etc.) -- until
+    exactly one reclaim succeeds (never this operation's own session), then
+    retry create exactly once with a different request id. A pi_reclaim_unknown
+    result, or any other non-AiError exception, stops the candidate scan
+    immediately: it is never routed around by moving to the next candidate.
+    No candidate at all, or every scanned candidate rejected, falls straight
+    through to the original rejection, so fail_before_prompt's existing
+    capacity judgment (keyed on the first, unmodified request_id="create"
+    dispatch) still reaches the caller unchanged.
     """
     from django.utils import timezone
     from . import pi_transport
@@ -501,14 +504,24 @@ def _create_with_reclaim_retry(op, payload):
         return runner_dispatch(op, "create", payload)
     except pi_transport.SessionLimitRejected:
         from . import pi_workspace
+        from .policy import AiError
         idle_since = timezone.now() - timedelta(seconds=1800)  # Runner's own idleSeconds stop timeout.
-        candidates = pi_workspace.idle_reclaim_candidates(idle_since=idle_since, limit=1, exclude_session_id=op.session_id)
+        candidates = pi_workspace.idle_reclaim_candidates(idle_since=idle_since,
+            scan_limit=pi_workspace.RECLAIM_SCAN_BOUND, exclude_session_id=op.session_id)
         reclaimed = False
-        if candidates:
+        for candidate in candidates:
             try:
-                reclaimed = pi_workspace.reclaim_one_idle_session(candidates[0].id)
+                reclaimed = pi_workspace.reclaim_one_idle_session(candidate.id)
+            except AiError as error:
+                logging.getLogger(__name__).info(
+                    "pi create-retry: session %s result unknown (%s), stopping candidate scan", candidate.id, error.code)
+                break
             except Exception:
-                logging.getLogger(__name__).exception("pi create-retry: reclaim attempt failed for session %s", candidates[0].id)
+                logging.getLogger(__name__).exception(
+                    "pi create-retry: unexpected error reclaiming session %s, stopping candidate scan", candidate.id)
+                break
+            if reclaimed:
+                break
         if not reclaimed:
             raise
         return runner_dispatch(op, "create", payload, request_id="create:after-reclaim")
@@ -780,17 +793,16 @@ def reclaim_settings():
     return interval, idle_seconds, limit
 
 
-def reclaim_loop(stopped):
+def reclaim_loop(stopped, interval, idle_seconds, limit):
     from django.db import connections
     try:
-        return _reclaim_loop(stopped)
+        return _reclaim_loop(stopped, interval, idle_seconds, limit)
     finally:
         connections.close_all()
 
 
-def _reclaim_loop(stopped):
+def _reclaim_loop(stopped, interval, idle_seconds, limit):
     from django.db import close_old_connections
-    interval, idle_seconds, limit = reclaim_settings()
     while not stopped.wait(interval):
         close_old_connections()
         if not ensure_loop_connection(stopped):
@@ -831,6 +843,7 @@ def main():
     from django.db import close_old_connections
     if settings.DJANGO_PROCESS_ROLE != "ai_writer":
         raise SystemExit("Pi worker requires the independent AI writer runtime configuration")
+    reclaim_interval, reclaim_idle_seconds, reclaim_limit = reclaim_settings()
     if args.check:
         from .pi_transport import secret
         from .pi_service import skills
@@ -851,7 +864,8 @@ def main():
         threading.Thread(target=lifecycle_control, args=(path, args.control_token, stopped), name="pi-lifecycle-control", daemon=True).start()
     thread = threading.Thread(target=export_loop, args=(stopped,), name="pi-export-queue", daemon=True)
     thread.start()
-    reclaim_thread = threading.Thread(target=reclaim_loop, args=(stopped,), name="pi-reclaim-sweep", daemon=True)
+    reclaim_thread = threading.Thread(target=reclaim_loop,
+        args=(stopped, reclaim_interval, reclaim_idle_seconds, reclaim_limit), name="pi-reclaim-sweep", daemon=True)
     reclaim_thread.start()
     try:
         running = {}

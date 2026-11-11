@@ -1031,22 +1031,47 @@ def _reclaim_request_id(session, shell):
     return "auto-reclaim-" + digest({"session": session.id, "generation": session.generation, **shell})[:56]
 
 
-def idle_reclaim_candidates(*, idle_since, limit, exclude_session_id=None):
+def _already_reclaimed(session):
+    """True only when Django's own ledger already proves this generation's
+    shell was removed and nothing has created a replacement since.
+
+    This is a pre-skip to avoid a wasted Runner round trip; it is never relied
+    on for correctness -- reclaim_stopped's own observation against the live
+    Runner state is still the sole source of truth for every candidate.
+    """
+    from .pi_models import PiDispatch
+    last_reclaim = PiControl.objects.filter(session=session, generation=session.generation,
+        command="reclaim_stopped", status="completed").order_by("-control_seq").first()
+    if not last_reclaim:
+        return False
+    return not PiDispatch.objects.filter(operation__session=session, operation__generation=session.generation,
+        kind="runner:create", status="completed", error_code="", created_at__gt=last_reclaim.created_at).exists()
+
+
+def idle_reclaim_candidates(*, idle_since, scan_limit, exclude_session_id=None):
     """Idle sessions whose current-generation workspace may hold a stopped shell.
 
-    Ordered oldest-activity-first. This is a cheap pre-filter only: the real
-    eligibility and binding checks still happen inside reclaim_stopped.
+    Ordered oldest-activity-first, up to scan_limit candidates. This is a
+    cheap pre-filter only: the real eligibility and binding checks still
+    happen inside reclaim_stopped. scan_limit bounds how many sessions this
+    looks at; it has no relationship to how many of them turn out reclaimable
+    -- callers that want "at most N successful reclaims" must keep walking
+    this list themselves (see auto_reclaim_idle).
     """
     sessions = PiSession.objects.filter(status="idle", active_operation_id="", updated_at__lt=idle_since)
     if exclude_session_id is not None:
         sessions = sessions.exclude(id=exclude_session_id)
-    sessions = sessions.order_by("updated_at", "id")[:max(limit, 1) * 4]
+    bound = max(scan_limit, 1)
+    # Fetch a wider raw window than scan_limit: sessions without a live-looking
+    # workspace, or already known reclaimed, are filtered out below and must
+    # not shrink how many real candidates this returns.
+    sessions = sessions.order_by("updated_at", "id")[:bound * 4]
     candidates = []
     for session in sessions:
         workspace = PiWorkspace.objects.filter(session=session, generation=session.generation, status__in=["ready", "paused"]).first()
-        if workspace:
+        if workspace and not _already_reclaimed(session):
             candidates.append(session)
-        if len(candidates) >= limit:
+        if len(candidates) >= bound:
             break
     return candidates
 
@@ -1081,20 +1106,35 @@ def reclaim_one_idle_session(session_id):
     return result["control"]["status"] == "completed"
 
 
+RECLAIM_SCAN_BOUND = 64  # Well above any real maxSessions; keeps one sweep bounded.
+
+
 def auto_reclaim_idle(*, idle_seconds, limit):
     """Periodic sweep: reclaim stopped shells held by long-idle sessions.
 
-    Each candidate is independent, oldest-idle first. A known rejection on
-    one candidate only skips it. An unknown result stops this sweep round
-    entirely -- it is never retried or replayed, including on the next sweep,
-    since the observe step for that same session will keep failing the same
-    way (eligible() requires every control to be in a terminal state first).
+    limit is the number of *successful* reclaims this call may make, not how
+    many candidates it looks at. A known rejection (image-upgrade-required,
+    binding already changed, workspace not actually idle/stopped, etc.) only
+    skips that one candidate and keeps scanning toward the next one, up to
+    RECLAIM_SCAN_BOUND candidates total -- otherwise a block of consecutive
+    unreclaimable old sessions (e.g. several stopped shells on a retired
+    image) would starve every younger, genuinely reclaimable one forever.
+
+    Only two things stop the scan before limit successes or the scan bound:
+    pi_reclaim_unknown (never retried or replayed, including on the next
+    sweep, since the observe step for that same session will keep failing
+    the same way -- eligible() requires every control to be in a terminal
+    state first) and any other non-AiError exception, which is as unproven
+    as unknown and must not be worked around either.
     """
     from django.utils import timezone
     from datetime import timedelta
     idle_since = timezone.now() - timedelta(seconds=idle_seconds)
+    candidates = idle_reclaim_candidates(idle_since=idle_since, scan_limit=RECLAIM_SCAN_BOUND)
     reclaimed = 0
-    for session in idle_reclaim_candidates(idle_since=idle_since, limit=limit):
+    for session in candidates:
+        if reclaimed >= limit:
+            break
         try:
             if reclaim_one_idle_session(session.id):
                 reclaimed += 1
