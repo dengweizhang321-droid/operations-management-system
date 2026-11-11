@@ -15,7 +15,7 @@ from django.test import TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 from pi_runner.protocol import encode, signature, workspace_key
 from . import pi_native, pi_transport, pi_worker, pi_workspace
-from .pi_models import PiControl, PiDispatch, PiOperation, PiSession, PiWorkspace
+from .pi_models import PiControl, PiDispatch, PiEvent, PiOperation, PiSession, PiWorkspace
 from .policy import AiError, mutation
 from .test_pi_runtime import PiRuntimeTests
 
@@ -550,6 +550,52 @@ class PiAutoReclaimTests(TestCase):
                 "status": "failed", "command": args["command"], "errorCode": result}}
         return runner
 
+    def ledger_runner(self, reclaim_fixtures, *, capacity, on_reclaim_result=None):
+        """Replicates pi_runner/server.py's real dedup semantics on top of the
+        same pi_transport.command patch point the other fixtures here use:
+        Ledger.reserve()/finish() cache the *first* result for each exact
+        (operationId, command) pair and replay it verbatim -- including a
+        cached rejection -- for any later request under that same pair,
+        regardless of Django's request_id (the real Ledger has no column for
+        it at all; see pi_runner/server.py Ledger.reserve, keyed only on
+        job['operationId'] and job['command']). This is what makes same-op
+        create retries (the old, now-removed behaviour) provably unable to
+        ever see capacity a reclaim just freed: this fixture is the test-side
+        proof of that, and capacity mutates for real as fixtures reclaim.
+
+        `capacity` is a mutable single-item list [int] standing in for the
+        Runner's live container count; reclaiming a fixture's donor session
+        decrements it by one, exactly like the real donor's Stop(). A create
+        call is rejected (and cached rejected) whenever capacity[0] <= 0 at
+        the moment the *new* operationId is first seen.
+        """
+        cache = {}
+
+        def runner(request):
+            sid = request["conversationId"]
+            if sid in reclaim_fixtures:
+                if request["payload"]["action"] != "state" and request["payload"]["command"] == "reclaim_stopped":
+                    result = (on_reclaim_result or (lambda _sid: "completed"))(sid)
+                    if result == "completed":
+                        capacity[0] += 1
+                return self.reclaim_runner(reclaim_fixtures, on_reclaim_result=on_reclaim_result)(request)
+            self.assertEqual(request["command"], "create")
+            key = (request["operationId"], request["command"])
+            if key in cache:
+                cached = cache[key]
+                if cached.get("error"):
+                    raise pi_transport.SessionLimitRejected()
+                return cached
+            if capacity[0] <= 0:
+                cache[key] = {"error": "session_limit"}
+                raise pi_transport.SessionLimitRejected()
+            capacity[0] -= 1
+            identity_keys = ("operationId", "ownerId", "conversationId", "epoch", "generation", "seq")
+            result = {**{k: request[k] for k in identity_keys}, "status": "accepted", "state": {}}
+            cache[key] = result
+            return result
+        return runner
+
     def test_sweep_reclaims_only_sessions_idle_past_threshold_oldest_first(self):
         old_a, op_a, adm_a, exp_a, shell_a, state_a = self.stopped_shell(idle_hours=72)
         old_b, op_b, adm_b, exp_b, shell_b, state_b = self.stopped_shell(idle_hours=48)
@@ -735,37 +781,42 @@ class PiAutoReclaimTests(TestCase):
         self.assertNotIn(session.id, [c.id for c in with_exclusion])
 
     @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "isolated-create-retry-cache-key-123456789"})
-    def test_session_limit_on_create_reclaims_one_idle_shell_and_retries_once(self):
+    def test_session_limit_on_create_reclaims_one_idle_shell_but_never_retries_the_same_op(self):
+        """Runner's own ledger (pi_runner/server.py Ledger.reserve) caches the
+        first result per (operationId, command) regardless of Django's
+        request_id -- a second create dispatch for this same op, even under a
+        different request_id, can only replay the cached session_limit
+        rejection. _create_with_reclaim_retry must therefore never attempt
+        that second dispatch at all: exactly one runner:create dispatch is
+        recorded, the reclaim still runs and succeeds, and the original
+        SessionLimitRejected is re-raised with .reclaimed=True so the caller
+        (fail_before_prompt) can queue a fresh operation instead.
+        """
         donor, donor_op, donor_adm, donor_exp, donor_shell, donor_state = self.stopped_shell(idle_hours=48)
         new_session_id = self.session()
         self.prompt(new_session_id, clientRequestId="prompt-needs-capacity")
         new_op = pi_worker.claim()
         fixtures = {donor.id: (donor_op, donor_adm, donor_exp, donor_shell, donor_state)}
-        create_calls = []
-
-        def runner(request):
-            if request["conversationId"] == donor.id:
-                return self.reclaim_runner(fixtures)(request)
-            self.assertEqual(request["conversationId"], new_session_id)
-            self.assertEqual(request["command"], "create")
-            create_calls.append(request)
-            if len(create_calls) == 1:
-                raise pi_transport.SessionLimitRejected()
-            return {**pi_worker.identity(new_op), "status": "accepted", "state": {}}
+        capacity = [0]  # No free slot until the donor's reclaim frees one.
+        runner = self.ledger_runner(fixtures, capacity=capacity)
         with patch.object(pi_transport, "command", side_effect=runner):
-            result = pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
-        self.assertEqual(result["status"], "accepted")
-        self.assertEqual(len(create_calls), 2)
+            with self.assertRaises(pi_transport.SessionLimitRejected) as caught:
+                pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
+        self.assertTrue(caught.exception.reclaimed)
         dispatches = list(PiDispatch.objects.filter(operation=new_op, kind="runner:create").order_by("created_at").values_list("request_id", "status", "error_code"))
-        self.assertEqual(dispatches, [("create", "completed", "pi_session_limit"), ("create:after-reclaim", "completed", "")])
+        self.assertEqual(dispatches, [("create", "completed", "pi_session_limit")])
         self.assertEqual(PiWorkspace.objects.get(session=donor).status, "ready")
+        self.assertEqual(capacity, [1])  # The freed slot is real, just never consumed by this same op.
         self.assertTrue(pi_worker.fail_before_prompt is not None)  # sanity: capacity judgment helper still importable
 
     @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "isolated-create-retry-scan-key-123456789"})
     def test_session_limit_on_create_skips_oldest_rejected_donor_and_reclaims_the_next(self):
         """Production shape for the create-retry path: the oldest idle
         candidate is on a retired image and Runner rejects its reclaim; the
-        retry must move on to the next-oldest candidate instead of giving up.
+        scan must move on to the next-oldest candidate instead of giving up.
+        Still exactly one create dispatch (see the "never retries the same
+        op" test above for why): this test is about candidate-scan depth,
+        not about a second create attempt.
         """
         blocked, op_a, adm_a, exp_a, shell_a, state_a = self.stopped_shell(idle_hours=96)
         donor, op_b, adm_b, exp_b, shell_b, state_b = self.stopped_shell(idle_hours=48)
@@ -773,24 +824,17 @@ class PiAutoReclaimTests(TestCase):
         self.prompt(new_session_id, clientRequestId="prompt-needs-capacity-scan")
         new_op = pi_worker.claim()
         fixtures = {blocked.id: (op_a, adm_a, exp_a, shell_a, state_a), donor.id: (op_b, adm_b, exp_b, shell_b, state_b)}
-        create_calls = []
 
         def reclaim_outcome(sid):
             return "workspace_native_image_upgrade_required" if sid == blocked.id else "completed"
 
-        def runner(request):
-            if request["conversationId"] in fixtures:
-                return self.reclaim_runner(fixtures, on_reclaim_result=reclaim_outcome)(request)
-            self.assertEqual(request["conversationId"], new_session_id)
-            self.assertEqual(request["command"], "create")
-            create_calls.append(request)
-            if len(create_calls) == 1:
-                raise pi_transport.SessionLimitRejected()
-            return {**pi_worker.identity(new_op), "status": "accepted", "state": {}}
+        runner = self.ledger_runner(fixtures, capacity=[0], on_reclaim_result=reclaim_outcome)
         with patch.object(pi_transport, "command", side_effect=runner):
-            result = pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
-        self.assertEqual(result["status"], "accepted")
-        self.assertEqual(len(create_calls), 2)
+            with self.assertRaises(pi_transport.SessionLimitRejected) as caught:
+                pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
+        self.assertTrue(caught.exception.reclaimed)
+        dispatches = list(PiDispatch.objects.filter(operation=new_op, kind="runner:create").values_list("request_id", "status", "error_code"))
+        self.assertEqual(dispatches, [("create", "completed", "pi_session_limit")])
         self.assertEqual(PiWorkspace.objects.get(session=blocked).status, "ready")
         self.assertEqual(PiWorkspace.objects.get(session=donor).status, "ready")
         self.assertEqual(PiControl.objects.get(session=blocked, command="reclaim_stopped").status, "failed")
@@ -861,29 +905,137 @@ class PiAutoReclaimTests(TestCase):
         new_op.refresh_from_db()
         self.assertEqual((new_op.status, new_op.error_code), ("failed", "pi_session_limit"))
 
-    def test_retry_still_at_capacity_fails_with_exactly_two_create_dispatches(self):
+    def test_retry_still_at_capacity_fails_with_exactly_one_create_dispatch(self):
+        """A reclaim can succeed while the Runner is still, in fact, full (a
+        third party took the freed slot, or this fixture's own donor reclaim
+        did not correspond to real freed capacity) -- _create_with_reclaim_retry
+        itself cannot distinguish that from the ordinary successful-reclaim
+        case; it always re-raises with .reclaimed=True and lets the caller
+        find out for real on the next operation's own create. Exactly one
+        runner:create dispatch is ever recorded against this op, never two.
+        """
         donor, donor_op, donor_adm, donor_exp, donor_shell, donor_state = self.stopped_shell(idle_hours=48)
         new_session_id = self.session()
         self.prompt(new_session_id, clientRequestId="prompt-still-full")
         new_op = pi_worker.claim()
         fixtures = {donor.id: (donor_op, donor_adm, donor_exp, donor_shell, donor_state)}
-        create_calls = []
 
         def runner(request):
             if request["conversationId"] == donor.id:
                 return self.reclaim_runner(fixtures)(request)
-            create_calls.append(request)
             raise pi_transport.SessionLimitRejected()
         with patch.object(pi_transport, "command", side_effect=runner):
-            with self.assertRaises(pi_transport.SessionLimitRejected):
+            with self.assertRaises(pi_transport.SessionLimitRejected) as caught:
                 pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
-        self.assertEqual(len(create_calls), 2)
+        self.assertTrue(caught.exception.reclaimed)
         dispatches = list(PiDispatch.objects.filter(operation=new_op, kind="runner:create").order_by("created_at").values_list("request_id", "status", "error_code"))
-        self.assertEqual(dispatches, [("create", "completed", "pi_session_limit"), ("create:after-reclaim", "completed", "pi_session_limit")])
-        self.assertTrue(pi_worker.fail_before_prompt(new_op, pi_transport.SessionLimitRejected()))
+        self.assertEqual(dispatches, [("create", "completed", "pi_session_limit")])
+        self.assertTrue(pi_worker.fail_before_prompt(new_op, caught.exception))
         new_op.refresh_from_db()
         self.assertEqual((new_op.status, new_op.error_code), ("failed", "pi_session_limit"))
         self.assertEqual(PiWorkspace.objects.get(session=donor).status, "ready")
+
+    @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "isolated-capacity-requeue-cache-key-123456789"})
+    def test_fail_before_prompt_requeues_once_after_a_successful_reclaim(self):
+        """End-to-end of the new behaviour: fail_before_prompt, given the
+        SessionLimitRejected that _create_with_reclaim_retry raised with
+        reclaimed=True, closes the original op as failed/pi_session_limit
+        (historyPreserved) *and*, in the same transaction, queues exactly one
+        fresh PiOperation repeating the same user request -- new id, seq+1,
+        same epoch/generation/payload -- with the session's active_operation_id
+        moved onto it and status back to "queued". Then proves that new
+        operation is real and dispatchable: claim() picks it up and its own
+        create succeeds now that the ledger_runner's capacity reflects the
+        donor's real reclaim.
+        """
+        donor, donor_op, donor_adm, donor_exp, donor_shell, donor_state = self.stopped_shell(idle_hours=48)
+        new_session_id = self.session()
+        self.prompt(new_session_id, clientRequestId="prompt-requeue-once")
+        new_op = pi_worker.claim()
+        original_payload = new_op.payload_json
+        fixtures = {donor.id: (donor_op, donor_adm, donor_exp, donor_shell, donor_state)}
+        capacity = [0]
+        runner = self.ledger_runner(fixtures, capacity=capacity)
+        with patch.object(pi_transport, "command", side_effect=runner):
+            with self.assertRaises(pi_transport.SessionLimitRejected) as caught:
+                pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
+            self.assertTrue(caught.exception.reclaimed)
+            self.assertTrue(pi_worker.fail_before_prompt(new_op, caught.exception))
+            new_op.refresh_from_db()
+            self.assertEqual((new_op.status, new_op.error_code), ("failed", "pi_session_limit"))
+            session = PiSession.objects.get(pk=new_session_id)
+            self.assertEqual(session.status, "queued")
+            self.assertNotEqual(session.active_operation_id, new_op.id)
+            requeued = PiOperation.objects.get(pk=session.active_operation_id)
+            self.assertEqual(requeued.status, "queued")
+            self.assertEqual(requeued.seq, new_op.seq + 1)
+            self.assertEqual((requeued.epoch, requeued.generation), (new_op.epoch, new_op.generation))
+            self.assertEqual(requeued.payload_json, original_payload)
+            self.assertEqual(requeued.client_request_id, "prompt-requeue-once" + pi_worker.CAPACITY_RETRY_SUFFIX)
+            error_events = [json.loads(e.data_json) for e in PiEvent.objects.filter(
+                session=session, operation=new_op, event_type="error")]
+            self.assertEqual(error_events[-1]["capacityRequeuedOperationId"], requeued.id)
+            status_events = [json.loads(e.data_json) for e in PiEvent.objects.filter(
+                session=session, operation=requeued, event_type="status")]
+            self.assertEqual(status_events[-1]["code"], "pi_session_limit_capacity_requeued")
+            self.assertEqual(status_events[-1]["requeuedFromOperationId"], new_op.id)
+            # The requeued operation is a real, dispatchable PiOperation: claim()
+            # picks it up by normal FIFO and its own create now succeeds, because
+            # ledger_runner's capacity was really incremented by the donor reclaim
+            # and this is a brand new operationId the ledger has never seen.
+            claimed = pi_worker.claim()
+            self.assertEqual(claimed.id, requeued.id)
+            result = pi_worker._create_with_reclaim_retry(claimed, {"admission": pi_native.admission(claimed)})
+            self.assertEqual(result["status"], "accepted")
+
+    @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "isolated-capacity-requeue-once-only-123456789"})
+    def test_requeued_operation_hitting_capacity_again_fails_without_a_third_operation(self):
+        """The requeued operation must not itself be auto-requeued again, even
+        if it also hits session_limit and a reclaim for *it* also succeeds:
+        its clientRequestId already carries CAPACITY_RETRY_SUFFIX, so
+        _requeue_after_capacity_reclaim's only-once guard refuses to create a
+        third operation and the requeued operation's own failure stands.
+        """
+        new_session_id = self.session()
+        self.prompt(new_session_id, clientRequestId="prompt-requeue-twice")
+        first_op = pi_worker.claim()
+        donor_one, donor_one_op, adm1, exp1, shell1, state1 = self.stopped_shell(idle_hours=72)
+        donor_two, donor_two_op, adm2, exp2, shell2, state2 = self.stopped_shell(idle_hours=48)
+        fixtures = {donor_one.id: (donor_one_op, adm1, exp1, shell1, state1),
+            donor_two.id: (donor_two_op, adm2, exp2, shell2, state2)}
+
+        def reclaim_passthrough(request):
+            return self.reclaim_runner(fixtures)(request)
+        capacity = [0]
+        ledger = self.ledger_runner(fixtures, capacity=capacity)
+
+        def runner(request):
+            if request["conversationId"] in fixtures:
+                return reclaim_passthrough(request)
+            return ledger(request)
+        with patch.object(pi_transport, "command", side_effect=runner):
+            with self.assertRaises(pi_transport.SessionLimitRejected) as first_caught:
+                pi_worker._create_with_reclaim_retry(first_op, {"admission": pi_native.admission(first_op)})
+            self.assertTrue(first_caught.exception.reclaimed)  # donor_one freed a slot.
+            self.assertTrue(pi_worker.fail_before_prompt(first_op, first_caught.exception))
+            session = PiSession.objects.get(pk=new_session_id)
+            second_op = PiOperation.objects.get(pk=session.active_operation_id)
+            self.assertEqual(second_op.client_request_id, "prompt-requeue-twice" + pi_worker.CAPACITY_RETRY_SUFFIX)
+            # A third party (not modelled here) consumes the freed slot before
+            # second_op's own create: capacity stays at 0 for it, and its own
+            # reclaim of donor_two succeeds too -- reclaimed=True again.
+            claimed_second = pi_worker.claim()
+            self.assertEqual(claimed_second.id, second_op.id)
+            with self.assertRaises(pi_transport.SessionLimitRejected) as second_caught:
+                pi_worker._create_with_reclaim_retry(claimed_second, {"admission": pi_native.admission(claimed_second)})
+            self.assertTrue(second_caught.exception.reclaimed)  # donor_two also freed a slot.
+            self.assertTrue(pi_worker.fail_before_prompt(claimed_second, second_caught.exception))
+        second_op.refresh_from_db()
+        self.assertEqual((second_op.status, second_op.error_code), ("failed", "pi_session_limit"))
+        session.refresh_from_db()
+        self.assertEqual(session.status, "idle")
+        self.assertEqual(session.active_operation_id, "")
+        self.assertEqual(PiOperation.objects.filter(session=session).count(), 2)
 
     def test_uninitialized_workspace_fixture_is_a_real_candidate(self):
         """Sanity check on the fixture itself: a chat-only session (never
@@ -904,33 +1056,31 @@ class PiAutoReclaimTests(TestCase):
         self.assertEqual(PiControl.objects.get(session=session, command="reclaim_stopped").status, "completed")
 
     @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "isolated-uninitialized-donor-cache-key-0123456"})
-    def test_full_capacity_reclaims_uninitialized_donor_and_retries_create(self):
+    def test_full_capacity_reclaims_uninitialized_donor_but_never_retries_create(self):
         """The on-demand create-retry path (_create_with_reclaim_retry) must
-        treat an "uninitialized" donor exactly like a "ready" one: reclaim it
-        and retry create exactly once. Covers requirement 4's second bullet.
+        treat an "uninitialized" donor exactly like a "ready" one: reclaim it,
+        but (per the ledger-dedup rationale covered above) never attempt a
+        second create dispatch for this same op. Covers requirement 4's
+        second bullet.
         """
         donor, donor_op, donor_adm, donor_exp, donor_shell, donor_state = self.uninitialized_stopped_shell(idle_hours=48)
         new_session_id = self.session()
         self.prompt(new_session_id, clientRequestId="prompt-needs-capacity-uninitialized-donor")
         new_op = pi_worker.claim()
         fixtures = {donor.id: (donor_op, donor_adm, donor_exp, donor_shell, donor_state)}
-        create_calls = []
+        capacity = [0]
+        runner = self.ledger_runner(fixtures, capacity=capacity)
 
-        def runner(request):
+        def with_reclaim(request):
             if request["conversationId"] == donor.id:
                 return self.reclaim_runner(fixtures)(request)
-            self.assertEqual(request["conversationId"], new_session_id)
-            self.assertEqual(request["command"], "create")
-            create_calls.append(request)
-            if len(create_calls) == 1:
-                raise pi_transport.SessionLimitRejected()
-            return {**pi_worker.identity(new_op), "status": "accepted", "state": {}}
-        with patch.object(pi_transport, "command", side_effect=runner):
-            result = pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
-        self.assertEqual(result["status"], "accepted")
-        self.assertEqual(len(create_calls), 2)
+            return runner(request)
+        with patch.object(pi_transport, "command", side_effect=with_reclaim):
+            with self.assertRaises(pi_transport.SessionLimitRejected) as caught:
+                pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
+        self.assertTrue(caught.exception.reclaimed)
         dispatches = list(PiDispatch.objects.filter(operation=new_op, kind="runner:create").order_by("created_at").values_list("request_id", "status", "error_code"))
-        self.assertEqual(dispatches, [("create", "completed", "pi_session_limit"), ("create:after-reclaim", "completed", "")])
+        self.assertEqual(dispatches, [("create", "completed", "pi_session_limit")])
         self.assertEqual(PiWorkspace.objects.get(session=donor).status, "ready")
 
     def test_frozen_or_unknown_workspace_still_rejected_even_when_otherwise_idle(self):
@@ -1033,33 +1183,31 @@ class PiAutoReclaimTests(TestCase):
         self.assertEqual(PiControl.objects.get(session=session, command="reclaim_stopped").status, "completed")
 
     @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "isolated-no-row-donor-create-retry-key-01234"})
-    def test_full_capacity_reclaims_donor_with_no_workspace_row_and_retries_create(self):
+    def test_full_capacity_reclaims_donor_with_no_workspace_row_but_never_retries_create(self):
         """The on-demand create-retry path (_create_with_reclaim_retry) must
         treat a donor with no PiWorkspace row at all exactly like a "ready"
-        one: reclaim it and retry create exactly once.
+        one: reclaim it, but never attempt a second create dispatch for this
+        same op (ledger dedup; see the two tests above this class's first
+        create-retry test for the full rationale).
         """
         donor, donor_op, donor_adm, donor_exp, donor_shell, donor_state = self.no_workspace_row_stopped_shell(idle_hours=48)
         new_session_id = self.session()
         self.prompt(new_session_id, clientRequestId="prompt-needs-capacity-no-row-donor")
         new_op = pi_worker.claim()
         fixtures = {donor.id: (donor_op, donor_adm, donor_exp, donor_shell, donor_state)}
-        create_calls = []
+        capacity = [0]
+        runner = self.ledger_runner(fixtures, capacity=capacity)
 
-        def runner(request):
+        def with_reclaim(request):
             if request["conversationId"] == donor.id:
                 return self.reclaim_runner(fixtures)(request)
-            self.assertEqual(request["conversationId"], new_session_id)
-            self.assertEqual(request["command"], "create")
-            create_calls.append(request)
-            if len(create_calls) == 1:
-                raise pi_transport.SessionLimitRejected()
-            return {**pi_worker.identity(new_op), "status": "accepted", "state": {}}
-        with patch.object(pi_transport, "command", side_effect=runner):
-            result = pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
-        self.assertEqual(result["status"], "accepted")
-        self.assertEqual(len(create_calls), 2)
+            return runner(request)
+        with patch.object(pi_transport, "command", side_effect=with_reclaim):
+            with self.assertRaises(pi_transport.SessionLimitRejected) as caught:
+                pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
+        self.assertTrue(caught.exception.reclaimed)
         dispatches = list(PiDispatch.objects.filter(operation=new_op, kind="runner:create").order_by("created_at").values_list("request_id", "status", "error_code"))
-        self.assertEqual(dispatches, [("create", "completed", "pi_session_limit"), ("create:after-reclaim", "completed", "")])
+        self.assertEqual(dispatches, [("create", "completed", "pi_session_limit")])
         self.assertEqual(PiWorkspace.objects.get(session=donor).status, "ready")
 
     @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "isolated-no-row-next-prompt-after-reclaim-01"})
@@ -1113,4 +1261,148 @@ class PiAutoReclaimTests(TestCase):
                 pi_workspace.reclaim_stopped(session.id, principal)
         self.assertEqual(caught.exception.code, "pi_reclaim_workspace_unverified")
         self.assertFalse(PiWorkspace.objects.filter(session=session).exists())
+
+    def test_fail_before_prompt_does_not_requeue_when_no_candidate_was_reclaimed(self):
+        """error.reclaimed is False (no candidate at all, or every scanned
+        candidate rejected) must leave fail_before_prompt's behaviour exactly
+        as before: the op fails, the session goes idle, and no new operation
+        is created.
+        """
+        new_session_id = self.session()
+        self.prompt(new_session_id, clientRequestId="prompt-no-capacity-no-requeue")
+        new_op = pi_worker.claim()
+        rejection = pi_transport.SessionLimitRejected()
+        rejection.reclaimed = False
+        PiDispatch.objects.create(id="pi-dispatch-synthetic-create", operation=new_op, kind="runner:create",
+            request_id="create", request_digest="synthetic", status="completed", error_code="pi_session_limit")
+        self.assertTrue(pi_worker.fail_before_prompt(new_op, rejection))
+        new_op.refresh_from_db()
+        self.assertEqual((new_op.status, new_op.error_code), ("failed", "pi_session_limit"))
+        session = PiSession.objects.get(pk=new_session_id)
+        self.assertEqual(session.status, "idle")
+        self.assertEqual(session.active_operation_id, "")
+        self.assertEqual(PiOperation.objects.filter(session=session).count(), 1)
+
+    def test_fail_before_prompt_does_not_requeue_a_canceled_operation(self):
+        """cancel_requested must win over an auto-requeue: a user-stopped
+        operation stays canceled and the session stays idle, even though the
+        SessionLimitRejected it was failed with carries reclaimed=True.
+        """
+        new_session_id = self.session()
+        self.prompt(new_session_id, clientRequestId="prompt-canceled-no-requeue")
+        new_op = pi_worker.claim()
+        PiDispatch.objects.create(id="pi-dispatch-synthetic-create-2", operation=new_op, kind="runner:create",
+            request_id="create", request_digest="synthetic", status="completed", error_code="pi_session_limit")
+        with mutation():
+            PiOperation.objects.filter(pk=new_op.pk).update(cancel_requested=True)
+        new_op.refresh_from_db()
+        rejection = pi_transport.SessionLimitRejected()
+        rejection.reclaimed = True
+        self.assertTrue(pi_worker.fail_before_prompt(new_op, rejection))
+        new_op.refresh_from_db()
+        self.assertEqual((new_op.status, new_op.error_code), ("canceled", "pi_session_limit"))
+        session = PiSession.objects.get(pk=new_session_id)
+        self.assertEqual(session.status, "idle")
+        self.assertEqual(session.active_operation_id, "")
+        self.assertEqual(PiOperation.objects.filter(session=session).count(), 1)
+
+    @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "isolated-capacity-requeue-business-skip-01"})
+    def test_fail_before_prompt_does_not_requeue_an_operation_with_business_grants(self):
+        """An op whose payload carries a non-empty businessExecution grant
+        must never be auto-requeued: pi_business.create_intents() keyed its
+        PiBusinessIntent rows to this exact parent_operation, and rebinding or
+        duplicating them for a second operation is outside this change's
+        scope (see _requeue_after_capacity_reclaim's docstring). The original
+        failure stands untouched, exactly like the no-candidate case.
+        """
+        operator = self.user("business-operator@example.invalid", "operator",
+            {"warehouses": ["A"], "channels": [], "platforms": ["京东"]})
+        new_session_id = self.session(actor=operator)
+        self.prompt(new_session_id, actor=operator, clientRequestId="prompt-business-no-requeue", message="创建工作计划",
+            businessExecution={"allowedActions": ["create_work_plan"]})
+        new_op = pi_worker.claim()
+        self.assertTrue(json.loads(new_op.payload_json)["businessExecution"]["allowedActions"])
+        donor, donor_op, donor_adm, donor_exp, donor_shell, donor_state = self.stopped_shell(idle_hours=48)
+        fixtures = {donor.id: (donor_op, donor_adm, donor_exp, donor_shell, donor_state)}
+
+        def runner(request):
+            if request["conversationId"] == donor.id:
+                return self.reclaim_runner(fixtures)(request)
+            raise pi_transport.SessionLimitRejected()
+        with patch.object(pi_transport, "command", side_effect=runner):
+            with self.assertRaises(pi_transport.SessionLimitRejected) as caught:
+                pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
+        self.assertTrue(caught.exception.reclaimed)
+        self.assertTrue(pi_worker.fail_before_prompt(new_op, caught.exception))
+        new_op.refresh_from_db()
+        self.assertEqual((new_op.status, new_op.error_code), ("failed", "pi_session_limit"))
+        session = PiSession.objects.get(pk=new_session_id)
+        self.assertEqual(session.status, "idle")
+        self.assertEqual(session.active_operation_id, "")
+        self.assertEqual(PiOperation.objects.filter(session=session).count(), 1)
+
+    @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "isolated-capacity-requeue-replay-key-0123456"})
+    def test_replaying_the_original_client_request_id_returns_the_original_operation(self):
+        """A caller that resends the user's own original clientRequestId
+        after an auto-requeue must get back the original (failed) operation's
+        receipt, marked replayed -- never the new queued one, and no third
+        operation is created. pi_service.prompt()'s existing
+        client_request_id lookup (keyed on session+client_request_id) already
+        provides this for free: the derived id is a different string, so it
+        never collides with the one the user actually holds.
+        """
+        donor, donor_op, donor_adm, donor_exp, donor_shell, donor_state = self.stopped_shell(idle_hours=48)
+        new_session_id = self.session()
+        self.prompt(new_session_id, clientRequestId="prompt-replay-original")
+        new_op = pi_worker.claim()
+        fixtures = {donor.id: (donor_op, donor_adm, donor_exp, donor_shell, donor_state)}
+
+        def runner(request):
+            if request["conversationId"] == donor.id:
+                return self.reclaim_runner(fixtures)(request)
+            raise pi_transport.SessionLimitRejected()
+        with patch.object(pi_transport, "command", side_effect=runner):
+            with self.assertRaises(pi_transport.SessionLimitRejected) as caught:
+                pi_worker._create_with_reclaim_retry(new_op, {"admission": pi_native.admission(new_op)})
+            self.assertTrue(pi_worker.fail_before_prompt(new_op, caught.exception))
+        replay = self.prompt(new_session_id, clientRequestId="prompt-replay-original")
+        self.assertTrue(replay["replayed"])
+        self.assertEqual(replay["operation"]["id"], new_op.id)
+        self.assertEqual(replay["operation"]["status"], "failed")
+        self.assertEqual(PiOperation.objects.filter(session_id=new_session_id).count(), 2)  # original + requeued only
+
+    def test_requeue_helper_refuses_a_second_call_for_the_same_original_operation(self):
+        """_requeue_after_capacity_reclaim's only-once guard (op.client_request_id
+        already ending in CAPACITY_RETRY_SUFFIX) must refuse to create a
+        third operation when called for the *requeued* operation itself --
+        the realistic call shape when the requeued op also hits capacity
+        (fail_before_prompt calls this helper with whichever op it is
+        currently failing, which after one requeue is the requeued op, not
+        the original). Calls the real helper directly (not a
+        reimplementation) against the original, then against the operation
+        it just created.
+        """
+        new_session_id = self.session()
+        self.prompt(new_session_id, clientRequestId="prompt-requeue-guard-direct")
+        new_op = pi_worker.claim()
+        with mutation():
+            op = PiOperation.objects.select_for_update().get(pk=new_op.pk)
+            session = PiSession.objects.select_for_update().get(pk=op.session_id)
+            op.status = "failed"
+            op.save()
+            session.status, session.active_operation_id = "idle", ""
+            session.save(update_fields=["status", "active_operation_id"])
+            first_requeue = pi_worker._requeue_after_capacity_reclaim(op, session)
+        self.assertIsNotNone(first_requeue)
+        self.assertEqual(PiOperation.objects.filter(session_id=new_session_id).count(), 2)
+        with mutation():
+            requeued = PiOperation.objects.select_for_update().get(pk=first_requeue.pk)
+            session.refresh_from_db()
+            requeued.status = "failed"
+            requeued.save()
+            session.status, session.active_operation_id = "idle", ""
+            session.save(update_fields=["status", "active_operation_id"])
+            second_requeue = pi_worker._requeue_after_capacity_reclaim(requeued, session)
+        self.assertIsNone(second_requeue)
+        self.assertEqual(PiOperation.objects.filter(session_id=new_session_id).count(), 2)
 
