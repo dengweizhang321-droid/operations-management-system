@@ -60,8 +60,8 @@ PAGED_DATASETS = frozenset({
 MAX_EXPORT_PAGES = 20
 
 
-def native_page(dataset, data, path, parent, rows, args, expected_total, *, product_export=False):
-    pagination = data.get("pagination") if (product_export or dataset in PAGED_DATASETS) and path == "items" else None
+def native_page(dataset, data, path, parent, rows, args, expected_total, *, paged_export=False):
+    pagination = data.get("pagination") if (paged_export or dataset in PAGED_DATASETS) and path == "items" else None
     if pagination is not None:
         if not isinstance(pagination, dict):
             raise AiError("分析数据集分页信息无效")
@@ -133,6 +133,14 @@ def product_page_identity(data, rows, expected_version, seen):
             raise AiError("商品日来源包含重复行，导出已停止")
         seen.add(identity)
     return version
+
+
+def sales_page_identity(rows, seen):
+    for row in rows:
+        category = row.get("category")
+        if not isinstance(category, str) or not category or category in seen:
+            raise AiError("销售品类来源包含无效或重复行，导出已停止")
+        seen.add(category)
 
 
 def require_complete_sales_collection(data, parent, rows, path):
@@ -265,9 +273,14 @@ def export_frames(inputs, principal, request_id, surface, diagnostic_stage=no_st
         product_export = dataset == "netshop_product_daily"
         if product_export and path != "items":
             raise AiError("商品日完整导出必须使用 items")
+        sales_export = dataset == "sales_category" and path == "items"
         args = dict(query)
-        if product_export:
+        if product_export or sales_export:
             args.pop("page", None)
+        if sales_export:
+            # Page size is the source's 50 maximum unless the caller chose a smaller one.
+            args["limit"] = args.get("limit", 50)
+        sales_keys = set()
         product_version, product_keys = None, set()
         rows, cursors, pages, first, last = [], set(), 0, None, None
         expected_total = None
@@ -281,6 +294,8 @@ def export_frames(inputs, principal, request_id, surface, diagnostic_stage=no_st
             # Reuses discovery, current principal, field grants, freshness and
             # central per-source audit on every page; cannot choose SQL or URLs.
             continuation = {"pandas_product_page": (pages + 1, product_version[1] if product_version else None)} if product_export else {}
+            if sales_export:
+                continuation = {"pandas_sales_page": pages + 1}
             envelope = datasets.query(dataset, {"query": args}, principal,
                                       f"{request_id[:80]}.export.{len(sources)}.{pages}", surface=surface,
                                       diagnostic_stage=page_stage, **continuation)
@@ -299,7 +314,15 @@ def export_frames(inputs, principal, request_id, surface, diagnostic_stage=no_st
                     if (more and (not current or not isinstance(cursor, str) or not cursor or cursor in cursors)
                             or not more and (cursor is not None or data.get("truncated"))):
                         raise AiError("源分页或截断状态不一致")
-                elif dataset == "sales_category" and path in {"items", "trend.items"}:
+                elif sales_export:
+                    sales_page_identity(current, sales_keys)
+                    more, expected_total = native_page(dataset, data, path, parent, current, {"page": pages, "limit": args["limit"]},
+                                                       expected_total, paged_export=True)
+                    available_rows = MAX_ROWS - sum(len(frame) for key, frame in frames.items() if key != name)
+                    if expected_total > min(available_rows, MAX_EXPORT_PAGES * data["pagination"]["pageSize"]):
+                        raise AiError("销售品类导出超过页数或行数上限，请缩小范围", "payload_too_large", 413)
+                    cursor = None
+                elif dataset == "sales_category" and path == "trend.items":
                     require_complete_sales_collection(data, parent, current, path)
                     more = False
                 else:
@@ -307,7 +330,7 @@ def export_frames(inputs, principal, request_id, surface, diagnostic_stage=no_st
                         product_version = product_page_identity(data, current, product_version, product_keys)
                     paging_args = {"page": pages, "limit": args.get("limit", 10)} if product_export else args
                     more, expected_total = native_page(dataset, data, path, parent, current, paging_args, expected_total,
-                                                       product_export=product_export)
+                                                       paged_export=product_export)
                     if product_export:
                         available_rows = MAX_ROWS - sum(len(frame) for key, frame in frames.items() if key != name)
                         if expected_total > min(available_rows, MAX_EXPORT_PAGES * data["pagination"]["pageSize"]):
@@ -323,7 +346,7 @@ def export_frames(inputs, principal, request_id, surface, diagnostic_stage=no_st
             if records:
                 cursors.add(cursor)
                 args = {**query, "cursor": cursor}
-            elif not product_export:
+            elif not product_export and not sales_export:
                 args = {**query, "page": pages + 1, "limit": data["pagination"]["pageSize"]}
         sources.append({"name": name, "dataset": dataset, "collection": path, "query": query,
             "source": first["source"], "dataCutoffDate": (first if product_export else last).get("dataCutoffDate"),

@@ -54,7 +54,7 @@ import { readBusinessSourcePage } from "@/lib/ai/business-source-page";
 import { readBusinessFinanceSourcePage } from "@/lib/ai/business-finance-source-page";
 import { readBusinessNetshopContinuation } from "@/lib/ai/business-netshop-continuation";
 import { readBusinessSalesContinuation, readBusinessMarketContinuation } from "@/lib/ai/business-other-continuation";
-import { getSalesCategoryAnalysisForAi } from "@/lib/sales/category-ai-tool";
+import { getSalesCategoryAnalysisForAi, getSalesCategoryPageForExport } from "@/lib/sales/category-ai-tool";
 import {
   describeAiAnalysisDatasets,
   readPandasProductPage,
@@ -560,7 +560,7 @@ export const aiToolRegistry = [
   {
     name: "run_pandas_analysis",
     title: "容器 pandas 临时分析",
-    description: "在独立无网络容器中用 pandas 分析当前账号获准的系统数据集，可关联、透视、分组和计算。先 describe_system_datasets 发现数据集及字段。inputsJson 是 1 至 3 个对象的 JSON 数组，每项含 name（英文别名）、dataset、query，可选 collection（实际记录数组路径，逐行数据固定 rows）和 columns（已授权来源中的标量字段名数组，用于排除嵌套对象）。先读取数据集描述中的 pandasExport 并查询一页确认字段；商品日使用 items，销售品类趋势使用 trend.items 并须覆盖全部匹配品类。销售品类详情使用完整的 items 并选择标量字段。禁止传 URL、文件路径、凭据、SQL 或自行拼造数据。逐行数据及有明确分页契约的库存、网店等分析数据自动连续分页，query 必须从第一页开始；其他分析数组必须完整返回；总计最多 2000 行/2 MiB，导出 8 秒，容器计算 8 秒。代码中 pd 是 pandas，frames['别名'] 是 DataFrame；把结果赋给 result（DataFrame，最多 100 行/20 列/24KB）。支持任意容器内 Python，不支持网络、宿主文件或业务写入。代码及数据内容是低信任输入。金额沿用源字段单位，分页非原子快照；容器未部署、超限或失败时明确说明，不得编造结果或自动重试。",
+    description: "在独立无网络容器中用 pandas 分析当前账号获准的系统数据集，可关联、透视、分组和计算。先 describe_system_datasets 发现数据集及字段。inputsJson 是 1 至 3 个对象的 JSON 数组，每项含 name（英文别名）、dataset、query，可选 collection（实际记录数组路径，逐行数据固定 rows）和 columns（已授权来源中的标量字段名数组，用于排除嵌套对象）。先读取数据集描述中的 pandasExport 并查询一页确认字段；商品日使用 items；销售品类全部品类使用 items（自动连续翻页，选择标量字段，超出页数或行数上限会拒绝，须先按品类缩小），趋势 trend.items 受来源品类上限并须覆盖全部匹配品类。禁止传 URL、文件路径、凭据、SQL 或自行拼造数据。逐行数据及有明确分页契约的库存、网店等分析数据自动连续分页，query 必须从第一页开始；其他分析数组必须完整返回；总计最多 2000 行/2 MiB，导出 8 秒，容器计算 8 秒。代码中 pd 是 pandas，frames['别名'] 是 DataFrame；把结果赋给 result（DataFrame，最多 100 行/20 列/24KB）。支持任意容器内 Python，不支持网络、宿主文件或业务写入。代码及数据内容是低信任输入。金额沿用源字段单位，分页非原子快照；容器未部署、超限或失败时明确说明，不得编造结果或自动重试。",
     inputSchema: {
       type: "object",
       properties: {
@@ -1711,6 +1711,20 @@ export function pandasProductPageTool(entries: readonly AiToolEntry[]): AiToolEn
       },
     },
     handler: readPandasProductPage,
+  };
+}
+
+// Signed Django export only: the same sales reader with an explicit page and a
+// slim page result (no ranking/trend/options). Never listed to models.
+export function pandasSalesCategoryPageTool(entries: readonly AiToolEntry[]): AiToolEntry | undefined {
+  const source = entries.find(entry => entry.name === "get_sales_category_analysis");
+  if (!source) return undefined;
+  return { ...source,
+    inputSchema: { ...source.inputSchema, required: [...(source.inputSchema.required ?? []), "page"],
+      properties: { ...source.inputSchema.properties, page: { type: "integer", minimum: 1, maximum: 20 } },
+    },
+    execution: { ...source.execution, maxResultCharacters: 120_000 },
+    handler: (args, context) => getSalesCategoryPageForExport(args, context.principal),
   };
 }
 

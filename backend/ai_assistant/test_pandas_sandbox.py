@@ -318,11 +318,66 @@ class PandasExportTests(SimpleTestCase):
         with patch.object(datasets, "query", return_value={**page(), "data": {"totalMatched": 1, "truncated": True, "trend": valid}}):
             frames, _ = sandbox.export_frames([item], ADMIN, "fixture", "ai_chat")
             self.assertEqual(frames["native"], rows)
-        data = {"totalMatched": 1, "returned": 1, "truncated": False, "items": [{"category": "合成品类", "trend": valid}],
-                "categoryOptions": {"truncated": True}}
-        with patch.object(datasets, "query", return_value={**page(), "data": data}):
-            frames, _ = sandbox.export_frames([{**item, "collection": "items", "columns": ["category"]}], ADMIN, "fixture", "ai_chat")
-            self.assertEqual(frames["native"], [{"category": "合成品类"}])
+
+    def test_sales_category_items_export_pages_all_categories(self):
+        item = {"name": "cats", "dataset": "sales_category", "query": {"startDate": "2026-11-01", "endDate": "2026-11-07"},
+                "collection": "items", "columns": ["category"]}
+        total, size = 5, 2
+        def response(number, total=total, names=None):
+            names = names or [f"品类{i}" for i in range((number - 1) * size, min(number * size, total))]
+            return {**page(), "dataCutoffDate": "2026-11-07", "data": {"items": [{"category": n, "trend": {"points": []}} for n in names],
+                "pagination": {"page": number, "pageSize": size, "total": total, "returned": len(names), "truncated": number * size < total}}}
+        item["query"]["limit"] = size
+        with patch.object(datasets, "query", side_effect=[response(1), response(2), response(3)]) as source:
+            frames, sources = sandbox.export_frames([item], ADMIN, "fixture", "dingtalk_chat")
+        self.assertEqual(frames["cats"], [{"category": f"品类{i}"} for i in range(5)])
+        self.assertEqual([c.kwargs["pandas_sales_page"] for c in source.call_args_list], [1, 2, 3])
+        for call in source.call_args_list:
+            self.assertEqual(call.args[1], {"query": item["query"]})
+            self.assertEqual(call.kwargs["surface"], "dingtalk_chat")
+        self.assertEqual((sources[0]["pages"], sources[0]["rows"], sources[0]["consistency"], sources[0]["complete"]),
+                         (3, 5, "live_per_page", True))
+        # default page size is the source maximum, and a caller page=1 is dropped
+        no_limit = {**item, "query": {"startDate": "2026-11-01", "endDate": "2026-11-07", "page": 1}}
+        one = {**response(1, 1, ["唯一"]), "data": {"items": [{"category": "唯一"}], "pagination": {
+            "page": 1, "pageSize": 50, "total": 1, "returned": 1, "truncated": False}}}
+        with patch.object(datasets, "query", return_value=one) as source:
+            sandbox.export_frames([no_limit], ADMIN, "fixture", "ai_chat")
+        self.assertEqual(source.call_args.args[1], {"query": {"startDate": "2026-11-01", "endDate": "2026-11-07", "limit": 50}})
+
+    def test_sales_category_items_export_rejects_inconsistent_pages(self):
+        item = {"name": "cats", "dataset": "sales_category", "query": {"limit": 1}, "collection": "items"}
+        def response(number, total, name):
+            return {**page(), "data": {"items": [{"category": name}], "pagination": {
+                "page": number, "pageSize": 1, "total": total, "returned": 1, "truncated": number < total}}}
+        for second in [response(2, 3, "乙"), response(2, 2, "甲"), response(3, 2, "乙"),
+                       {**response(2, 2, "乙"), "data": {"items": [{"category": ""}], "pagination": response(2, 2, "乙")["data"]["pagination"]}}]:
+            with self.subTest(second=second), patch.object(datasets, "query", side_effect=[response(1, 2, "甲"), second]),                     self.assertRaises(AiError):
+                sandbox.export_frames([item], ADMIN, "fixture", "ai_chat")
+        short = {**response(2, 2, "乙"), "data": {"items": [], "pagination": {**response(2, 2, "乙")["data"]["pagination"], "returned": 0}}}
+        with patch.object(datasets, "query", side_effect=[response(1, 2, "甲"), short]), self.assertRaises(AiError):
+            sandbox.export_frames([item], ADMIN, "fixture", "ai_chat")
+
+    def test_sales_category_items_export_rejects_page_and_row_limits(self):
+        item = {"name": "cats", "dataset": "sales_category", "query": {"limit": 1}, "collection": "items"}
+        def response(number, total):
+            return {**page(), "data": {"items": [{"category": f"c{number}"}], "pagination": {
+                "page": number, "pageSize": 1, "total": total, "returned": 1, "truncated": number < total}}}
+        with patch.object(datasets, "query", return_value=response(1, 21)) as source, self.assertRaises(AiError) as rejected:
+            sandbox.export_frames([item], ADMIN, "fixture", "ai_chat")
+        self.assertEqual((rejected.exception.status, source.call_count), (413, 1))
+        with patch.object(datasets, "query", return_value=response(1, 2)) as source, patch.object(sandbox, "MAX_ROWS", 1),                 self.assertRaises(AiError) as rejected:
+            sandbox.export_frames([item], ADMIN, "fixture", "ai_chat")
+        self.assertEqual((rejected.exception.status, source.call_count), (413, 1))
+
+    def test_sales_category_trend_export_keeps_single_response_rule(self):
+        item = {"name": "t", "dataset": "sales_category", "query": {}, "collection": "trend.items"}
+        rows = [{"category": "合成品类", "period": "2026-09", "x": 1}]
+        data = {"totalMatched": 1, "trend": {"categoryLimit": 8, "returned": 1, "truncated": False, "items": rows}}
+        with patch.object(datasets, "query", return_value={**page(), "data": data}) as source:
+            frames, _ = sandbox.export_frames([item], ADMIN, "fixture", "ai_chat")
+        self.assertEqual(frames["t"], rows)
+        self.assertNotIn("pandas_sales_page", source.call_args.kwargs)
 
     def test_unavailable_or_denied_never_exports_or_calls_container(self):
         with patch.object(sandbox, "config", side_effect=sandbox.unavailable()), patch.object(datasets, "query") as source, self.assertRaises(AiError):

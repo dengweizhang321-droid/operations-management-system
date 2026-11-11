@@ -170,3 +170,86 @@ test("signed pandas pages preserve surface and source fences without opening the
   const drift = await (await edge(next)).json() as { error: { code: string } };
   assert.equal(drift.error.code, "source_revision_changed");
 });
+
+test("signed sales category pages use a slim paged variant without opening the model-visible schema", async t => {
+  const secret = "isolated-pandas-sales-secret-abcdefghijklmnopqrstuvwxyz";
+  const environment = { TERUISI_DJANGO_INTERNAL_SECRET: secret,
+    TERUISI_DJANGO_AI_READER_BASE_URL: "http://127.0.0.1:18111", TERUISI_DJANGO_AI_WRITER_BASE_URL: "http://127.0.0.1:18112",
+    TERUISI_DJANGO_SALES_READER_BASE_URL: "http://127.0.0.1:18115" };
+  const previous = Object.fromEntries(Object.keys(environment).map(key => [key, process.env[key]]));
+  const originalFetch = globalThis.fetch;
+  Object.assign(process.env, environment);
+  t.after(() => { globalThis.fetch = originalFetch; for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
+
+  const name = "get_sales_category_analysis";
+  const { pandasSalesCategoryPageTool } = await import("../lib/ai/tool-registry");
+  const ordinary = aiToolRegistry.find(tool => tool.name === name)!;
+  const argumentsFor = (page: number) => ({ startDate: "2026-11-01", endDate: "2026-11-07", limit: 2, page });
+  // The model-visible schemas never carry page; the export variant does.
+  assert.equal(Object.hasOwn(ordinary.inputSchema.properties, "page"), false);
+  assert.throws(() => validateToolArguments(argumentsFor(1), ordinary.inputSchema));
+  for (const tools of [getOpenAiTools(admin, "ai_chat"), getAnthropicTools(admin, "dingtalk_chat")]) {
+    const listed = JSON.stringify(tools.find(tool => ("function" in tool ? tool.function.name : tool.name) === name));
+    assert.ok(listed && !listed.includes('"page"'));
+  }
+  const variant = pandasSalesCategoryPageTool(aiToolRegistry)!;
+  assert.deepEqual(variant.inputSchema.required, ["startDate", "endDate", "page"]);
+  assert.doesNotThrow(() => validateToolArguments(argumentsFor(20), variant.inputSchema));
+  for (const page of [0, 21, 1.5]) assert.throws(() => validateToolArguments(argumentsFor(page), variant.inputSchema));
+  assert.throws(() => validateToolArguments({ ...argumentsFor(1), snapshotToken: "x" }, variant.inputSchema));
+  assert.equal(pandasSalesCategoryPageTool([]), undefined);
+
+  const reads: URLSearchParams[] = [];
+  const audits: Array<{ surface: string; status: string }> = [];
+  globalThis.fetch = async (url, init) => {
+    const target = new URL(String(url));
+    if (target.pathname === "/api/ai/consumer") {
+      audits.push(JSON.parse(String(init?.body)).entry);
+      return Response.json({ ok: true }, { headers: { "x-ai-revision": "1" } });
+    }
+    assert.equal(target.pathname, "/api/sales/category-analysis");
+    assert.equal(target.port, "18115");
+    reads.push(target.searchParams);
+    const page = Number(target.searchParams.get("page"));
+    const categories = Array.from({ length: 200 }, (_, index) => `品类${index}`);
+    return Response.json({ range: { startDate: "2026-11-01", endDate: "2026-11-07" }, dataCutoffDate: "2026-11-07",
+      filtersApplied: { categories: [] }, ranking: [{ rank: 1 }], trend: { items: [], returned: 0, truncated: false },
+      filterOptions: { categories, totals: { categories: 300 } }, summary: { big: "x".repeat(5000) },
+      details: { items: [{ category: `品类${page}` }, { category: `品类${page + 100}` }],
+        pagination: { page, pageSize: 2, total: 4, returned: 2, truncated: page < 2 } } }, { headers: { "x-sales-data-revision": "1", "x-sales-source-revision": "1" } });
+  };
+
+  const pathname = "/api/ai/internal/edge";
+  async function edge(body: Record<string, unknown>, sign = true) {
+    const raw = JSON.stringify(body);
+    const headers = sign ? await aiHeaders({ secret, principal: admin, method: "POST", path: pathname, query: "", body: raw,
+      requestId: "synthetic-sales-page" }) : undefined;
+    return handleAiEdge(new Request("https://synthetic.invalid" + pathname, { method: "POST", headers, body: raw }));
+  }
+  async function executeBody(surface: string, page: number) {
+    const catalog = await (await edge({ action: "catalog", surface })).json() as { entries: unknown[] };
+    return { action: "execute", name, surface, requestId: `synthetic-sales-${page}`, arguments: argumentsFor(page),
+      policyDigest: createHash("sha256").update(canonicalAiEdge(catalog.entries)).digest("hex"), pandasSalesCategoryPage: true };
+  }
+
+  const first = await executeBody("dingtalk_chat", 1), second = await executeBody("dingtalk_chat", 2);
+  for (const [body, page] of [[first, 1], [second, 2]] as const) {
+    const result = await (await edge(body)).json() as { ok: boolean; data: Record<string, unknown> };
+    assert.equal(result.ok, true);
+    assert.deepEqual(Object.keys(result.data).sort(), ["dataCutoffDate", "filtersApplied", "items", "pagination", "range"]);
+    assert.deepEqual(result.data.pagination, { page, pageSize: 2, total: 4, returned: 2, truncated: page < 2 });
+  }
+  assert.deepEqual(reads.map(query => [query.get("page"), query.get("pageSize")]), [["1", "2"], ["2", "2"]]);
+  assert.ok(audits.length >= 4 && audits.every(event => event.surface === "dingtalk_chat"));
+
+  for (const rejected of [{ ...first, policyDigest: "0".repeat(64) }, { ...first, pandasSalesCategoryPage: "true" },
+    { ...first, name: "get_sales_summary" }, { ...first, pandasProductPage: true }, { ...first, extraKey: 1 },
+    await executeBody("pi_agent", 1)]) {
+    assert.equal((await edge(rejected)).status, 403);
+  }
+  assert.equal((await edge(first, false)).status, 403);
+  // An ordinary call with page is still refused by the ordinary schema.
+  const ordinaryCall = await (await edge({ ...first, pandasSalesCategoryPage: undefined })).json() as { error: { code: string } };
+  assert.equal(ordinaryCall.error.code, "invalid_arguments");
+  assert.equal(reads.length, 2);
+});

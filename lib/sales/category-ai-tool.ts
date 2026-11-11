@@ -37,11 +37,9 @@ function naturalDate(value: string): boolean {
     && parsed.getUTCDate() === day;
 }
 
-export async function getSalesCategoryAnalysisForAi(
-  rawArgs: unknown,
-  principal: AppPrincipal,
-  options: { route?: typeof routeDjangoSalesReadRequest } = {},
-) {
+type CategoryRoute = typeof routeDjangoSalesReadRequest;
+
+async function readCategoryAnalysis(rawArgs: unknown, principal: AppPrincipal, route: CategoryRoute | undefined, page: number) {
   const args = record(rawArgs);
   const startDate = text(args.startDate, 10);
   const endDate = text(args.endDate, 10);
@@ -59,7 +57,7 @@ export async function getSalesCategoryAnalysisForAi(
     granularity: "month",
     sortBy,
     direction: args.direction === "asc" ? "asc" : "desc",
-    page: "1",
+    page: String(page),
     pageSize: String(integer(args.limit, 20, 50)),
   });
   for (const value of list(args.categories, 20)) query.append("category", value);
@@ -67,7 +65,7 @@ export async function getSalesCategoryAnalysisForAi(
   for (const value of list(args.channels, 20)) query.append("channel", value);
   for (const value of list(args.platforms, 20)) query.append("platform", value);
   for (const value of list(args.productQueries, 20)) query.append("productQuery", value);
-  const response = await (options.route ?? routeDjangoSalesReadRequest)({
+  const response = await (route ?? routeDjangoSalesReadRequest)({
     request: new Request(`http://sales.internal/api/sales/category-analysis?${query.toString()}`),
     principal,
   });
@@ -75,7 +73,15 @@ export async function getSalesCategoryAnalysisForAi(
     await response.body?.cancel();
     throw new PublicApiError(503, "service_unavailable", "Django 销售读取服务暂时不可用，请稍后重试。");
   }
-  const result = await response.json().catch(() => null) as Record<string, unknown> | null;
+  return await response.json().catch(() => null) as Record<string, unknown> | null;
+}
+
+export async function getSalesCategoryAnalysisForAi(
+  rawArgs: unknown,
+  principal: AppPrincipal,
+  options: { route?: CategoryRoute } = {},
+) {
+  const result = await readCategoryAnalysis(rawArgs, principal, options.route, 1);
   const details = record(result?.details);
   const pagination = record(details.pagination);
   const trend = record(result?.trend);
@@ -109,5 +115,36 @@ export async function getSalesCategoryAnalysisForAi(
     totalMatched: pagination.total,
     returned: pagination.returned,
     truncated: pagination.truncated,
+  };
+}
+
+// Signed Django pandas export only. Returns just the requested page and its
+// pagination proof; the model-facing tool above is unchanged.
+export async function getSalesCategoryPageForExport(
+  rawArgs: unknown,
+  principal: AppPrincipal,
+  options: { route?: CategoryRoute } = {},
+) {
+  const page = record(rawArgs).page;
+  if (!Number.isSafeInteger(page) || Number(page) < 1 || Number(page) > 20) {
+    throw new PublicApiError(400, "invalid_request", "销售品类导出页码必须为 1 至 20。");
+  }
+  const result = await readCategoryAnalysis(rawArgs, principal, options.route, Number(page));
+  const details = record(result?.details);
+  const pagination = record(details.pagination);
+  if (!result || !Array.isArray(details.items) || !Number.isSafeInteger(pagination.page)
+    || !Number.isSafeInteger(pagination.pageSize) || !Number.isSafeInteger(pagination.total)
+    || !Number.isSafeInteger(pagination.returned) || typeof pagination.truncated !== "boolean") {
+    throw new PublicApiError(503, "service_unavailable", "Django 销售读取响应无效，请稍后重试。");
+  }
+  return {
+    range: result.range,
+    dataCutoffDate: result.dataCutoffDate,
+    filtersApplied: result.filtersApplied,
+    items: details.items,
+    pagination: {
+      page: pagination.page, pageSize: pagination.pageSize, total: pagination.total,
+      returned: pagination.returned, truncated: pagination.truncated,
+    },
   };
 }

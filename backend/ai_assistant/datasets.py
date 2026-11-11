@@ -105,7 +105,7 @@ def descriptor(dataset_id, entry, *, detail=False):
                 "consistency": "live_per_source：多次只读查询，不保证跨域或跨页原子快照。",
             },
             "pandasExport": {
-                "collection": "trend.items" if dataset_id == "sales_category" else (
+                "collection": "items" if dataset_id == "sales_category" else (
                     "items" if dataset_id in {"inventory_age", "inventory_inbound", "inventory_guangdong",
                     "inventory_health", "product_performance", "replenishment_plans", "finance_targets",
                     "netshop_catalog", "netshop_products", "netshop_product_daily", "customer_service", "workflow_operations", "workflow_tasks",
@@ -116,7 +116,7 @@ def descriptor(dataset_id, entry, *, detail=False):
         if dataset_id == "netshop_product_daily":
             item["pandasExport"]["instructions"] += " 商品日 items 按平台、店铺和 SPU 汇总，访客为商品×日累计。导出自动连续翻页并核对来源版本；普通查询仍只返回第一页。"
         elif dataset_id == "sales_category":
-            item["pandasExport"]["instructions"] += " trend.items 有来源品类上限，须覆盖全部匹配品类；完整详情可使用 items，明确选择标量列。"
+            item["pandasExport"]["instructions"] += " items 会自动连续翻页导出全部匹配品类（总计不超过行数、页数和体积上限，超出会明确拒绝，请先按品类等条件缩小范围）；明确选择标量列。trend.items 仍受来源品类上限，须覆盖全部匹配品类。"
     return item
 
 
@@ -179,8 +179,10 @@ def _result(value, expected_tool):
 
 
 def query(dataset_id, body, principal, request_id, *, surface=SURFACE, diagnostic_stage=no_stage,
-          pandas_product_page=None):
+          pandas_product_page=None, pandas_sales_page=None):
     identifier(dataset_id, "dataset")
+    if pandas_product_page is not None and pandas_sales_page is not None:
+        raise AiError("导出入口无效", "access_denied", 403)
     fields(body, {"query"})
     args = body.get("query", {})
     if not isinstance(args, dict):
@@ -210,7 +212,14 @@ def query(dataset_id, body, principal, request_id, *, surface=SURFACE, diagnosti
     with diagnostic_stage("source_freshness"):
         freshness = execute("get_data_freshness", {})
     with diagnostic_stage("source_reader"):
-        if pandas_product_page is None:
+        if pandas_sales_page is not None:
+            if (dataset_id != "sales_category" or surface not in {"ai_chat", "dingtalk_chat"}
+                    or type(pandas_sales_page) is not int or not 1 <= pandas_sales_page <= 20):
+                raise AiError("销售品类导出入口无效", "access_denied", 403)
+            data = _result(transport.edge("execute", {"name": tool, "arguments": {**args, **fixed, "page": pandas_sales_page},
+                           "surface": surface, "requestId": request_id, "policyDigest": policy_digest,
+                           "pandasSalesCategoryPage": True}, principal), tool)
+        elif pandas_product_page is None:
             data = execute(tool, {"dataset": dataset_id, "queryJson": canonical(args)} if record_spec else {**args, **fixed})
         else:
             if dataset_id != "netshop_product_daily" or surface not in {"ai_chat", "dingtalk_chat"}:
@@ -232,7 +241,9 @@ def query(dataset_id, body, principal, request_id, *, surface=SURFACE, diagnosti
     with diagnostic_stage("source_envelope"):
         encoded = canonical(result)
         # Reject, never slice JSON or silently drop source rows/totals to fit a budget.
-        if len(encoded) > MAX_RESULT_CHARACTERS or len(encoded.encode()) > MAX_RESULT_BYTES:
+        # Signed export pages feed the sandbox only, never the model context, so only the byte cap applies.
+        if ((pandas_sales_page is None and len(encoded) > MAX_RESULT_CHARACTERS)
+                or len(encoded.encode()) > MAX_RESULT_BYTES):
             raise AiError("结果超限，请缩小日期范围或分页大小", "payload_too_large", 413)
     return result
 

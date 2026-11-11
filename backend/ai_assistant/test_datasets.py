@@ -48,6 +48,56 @@ def source_result(name, args, principal, **kwargs):
          "returned": 1, "truncated": True, "dataCutoffDate": "2026-09-06"})}
 
 
+class SalesCategoryExportEnvelopeTests(SimpleTestCase):
+    def setUp(self):
+        catalog = catalog_fixture()
+        for tool in catalog:
+            tool["execution"]["allowedSurfaces"].append("dingtalk_chat")
+        for patcher in (patch.object(datasets.transport, "catalog", return_value=catalog),
+                        patch.object(datasets.transport, "execute_tool", side_effect=source_result)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    @staticmethod
+    def big(size):
+        return {"items": [{"category": "品类", "text": "字" * size}], "pagination": {
+            "page": 1, "pageSize": 1, "total": 1, "returned": 1, "truncated": False}}
+
+    def test_export_page_skips_character_cap_but_keeps_byte_cap_and_normal_path_is_unchanged(self):
+        wide = self.big(30000)  # ~39.8k CJK characters: > 39500 envelope characters, ~119 KB < 140000 bytes
+        wide["items"][0]["text"] = "字" * 39800
+        with patch.object(datasets.transport, "edge", return_value={"ok": True, "toolName": "get_sales_category_analysis", "data": wide}) as edge:
+            result = datasets.query("sales_category", {"query": {"limit": 1}}, ADMIN, "fixture", pandas_sales_page=2)
+        self.assertEqual(result["data"], wide)
+        action, body, _ = edge.call_args.args
+        self.assertEqual((action, body["arguments"], body["pandasSalesCategoryPage"], body["name"]),
+                         ("execute", {"limit": 1, "page": 2}, True, "get_sales_category_analysis"))
+        self.assertNotIn("pandasProductPage", body)
+        # ordinary query path: same payload shape still rejected at 39500 characters
+        ordinary = {"ok": True, "toolName": "get_sales_category_analysis", "data": wide}
+        with patch.object(datasets.transport, "execute_tool", side_effect=lambda name, *a, **k: ordinary if name == "get_sales_category_analysis" else source_result(name, *a, **k)),                 self.assertRaises(AiError) as rejected:
+            datasets.query("sales_category", {"query": {"limit": 1}}, ADMIN, "fixture")
+        self.assertEqual(rejected.exception.status, 413)
+        # export page is still bounded by bytes
+        huge = self.big(1)
+        huge["items"][0]["text"] = "字" * 50000  # 150000 bytes
+        with patch.object(datasets.transport, "edge", return_value={"ok": True, "toolName": "get_sales_category_analysis", "data": huge}),                 self.assertRaises(AiError) as rejected:
+            datasets.query("sales_category", {"query": {"limit": 1}}, ADMIN, "fixture", pandas_sales_page=1)
+        self.assertEqual(rejected.exception.status, 413)
+
+    def test_export_page_rejects_wrong_dataset_surface_page_and_combination(self):
+        with patch.object(datasets.transport, "edge") as edge:
+            for dataset, kwargs in [("sales_summary", {"surface": "ai_chat", "pandas_sales_page": 1}),
+                                    ("sales_category", {"surface": "pi_agent", "pandas_sales_page": 1}),
+                                    ("sales_category", {"surface": "ai_chat", "pandas_sales_page": 0}),
+                                    ("sales_category", {"surface": "ai_chat", "pandas_sales_page": 21}),
+                                    ("sales_category", {"surface": "ai_chat", "pandas_sales_page": True}),
+                                    ("sales_category", {"surface": "ai_chat", "pandas_sales_page": 1, "pandas_product_page": (1, None)})]:
+                with self.subTest(dataset=dataset, kwargs=kwargs), self.assertRaises(AiError):
+                    datasets.query(dataset, {"query": {}}, ADMIN, "fixture", **kwargs)
+        edge.assert_not_called()
+
+
 class DatasetContractTests(SimpleTestCase):
     def setUp(self):
         self.catalog = catalog_fixture()
