@@ -85,6 +85,12 @@ jobs:
         # and qualified before it can reach a maintenance window.
         run: node --test --test-timeout=30000 tests/maintenance-controller-qualification.test.mjs
 
+      - name: Schema addition enumeration consistency
+        # Structural-migration generation lists are hand-copied into several
+        # files; a missed copy only surfaces at release time. Read-only source
+        # text check: no runtime, database, artifact or lifecycle access.
+        run: node --test --test-timeout=30000 tests/schema-addition-enumeration-consistency.test.mjs
+
       - name: Current Ai158 schema recipe source bindings
         # Explicit current recipe only. Historical rehearsal recipes are not
         # silently renewed. Import the real inherited gate; never bind a parent,
