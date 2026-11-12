@@ -349,5 +349,36 @@ try{[IO.File]::WriteAllText($ReadyFile,'held');$until=[DateTimeOffset]::UtcNow.A
  $result=$null;$failed=$false;try{$result=Install-WatchdogSafely $sourceTools}catch{$failed=$true}
  Assert-Install (-not $failed -and $result.status -eq 'installed') 'a healthy snapshot must still install without needing the new parameter'
 
+ # Generator suite: all-or-none, no pre-generated driver beside it, node resolved and recorded.
+ $suiteNames=@('prepare-watchdog-status-driver.mjs','prepare-watchdog-native-status-driver.mjs','prepare-watchdog-supervisor-status-driver.mjs','watchdog-native-metadata.ps1','watchdog-driver-generate.mjs','watchdog-driver-closure.ps1')
+ function New-SuiteCandidate([string[]]$Names){
+  $candidate=Join-Path $fixtureBase ('suite-'+[guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path (Join-Path $candidate 'watchdog-launcher') -Force|Out-Null
+  foreach($name in (@('operations-system-watchdog.ps1','process-deadline.ps1','watchdog-install.ps1')+$Names)){Copy-Item -LiteralPath (Join-Path $sourceTools $name) -Destination (Join-Path $candidate $name) -Force}
+  Copy-Item -LiteralPath (Join-Path $sourceTools 'watchdog-launcher\NoConsoleLauncher.cs') -Destination (Join-Path $candidate 'watchdog-launcher\NoConsoleLauncher.cs') -Force
+  $candidate
+ }
+ Setup-Fixture 'suite-full'
+ $candidate=New-SuiteCandidate $suiteNames
+ $context=Get-WatchInstallContext $candidate
+ Assert-Install ($context.nodePath -and (Test-Path -LiteralPath $context.nodePath)) 'a full generator suite must resolve and report a node path'
+ Assert-Install (@($context.files.Keys|Where-Object {$_ -in $suiteNames}).Count -eq 6) 'all six suite files must be bound into the bundle'
+ Setup-Fixture 'suite-partial'
+ $candidate=New-SuiteCandidate $suiteNames[0..3]
+ $failure=$null;try{Get-WatchInstallContext $candidate|Out-Null}catch{$failure=$_.Exception.Message}
+ Assert-Install ($failure -eq 'incomplete_watchdog_generator_suite') 'a partial generator suite must be refused'
+ Setup-Fixture 'suite-with-driver'
+ $candidate=New-SuiteCandidate $suiteNames
+ foreach($name in @('watchdog-status-control.ps1','watchdog-status-backend.ps1','watchdog-core-overlay.ps1','driver-binding.json')){[IO.File]::WriteAllText((Join-Path $candidate $name),"'x'`n")}
+ $failure=$null;try{Get-WatchInstallContext $candidate|Out-Null}catch{$failure=$_.Exception.Message}
+ Assert-Install ($failure -eq 'incomplete_watchdog_generator_suite') 'a pre-generated driver beside the suite must be refused'
+ Setup-Fixture 'suite-no-node'
+ $candidate=New-SuiteCandidate $suiteNames
+ $realNodeCandidate=${function:Get-WatchNodeCandidatePath}
+ function Get-WatchNodeCandidatePath {Join-Path $fixtureBase 'no-such-node.exe'}
+ $failure=$null;try{Get-WatchInstallContext $candidate|Out-Null}catch{$failure=$_.Exception.Message}
+ Set-Item -Path function:Get-WatchNodeCandidatePath -Value $realNodeCandidate
+ Assert-Install ($failure -eq 'watchdog_node_missing') 'a missing node must refuse the install'
+
  @{passed=$script:checks;productionTouched=$false;actualScheduledTasksChanged=$false;actualMessagesSent=$false}|ConvertTo-Json -Compress
 }finally{if([IO.Path]::GetFullPath($fixtureBase).StartsWith([IO.Path]::GetTempPath()) -and (Split-Path $fixtureBase -Leaf) -match '^watchdog-install-tests-[0-9a-f]{32}$'){Remove-Item -LiteralPath $fixtureBase -Recurse -Force}}

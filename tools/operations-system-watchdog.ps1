@@ -12,6 +12,7 @@ param(
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'process-deadline.ps1')
 . (Join-Path $PSScriptRoot 'watchdog-install.ps1')
+. (Join-Path $PSScriptRoot 'watchdog-driver-closure.ps1')
 $WatchdogVersion='teruisi-operations-watchdog-v2'
 $TaskName='TERUISI Operations Watchdog'
 $ProjectRoot='D:\运营管理系统'
@@ -256,12 +257,229 @@ function Get-WatchProcessDiagnostic($Value){
 }
 function Get-WatchBindingDiagnostic([string]$Code,$Value){
   # Only fixed asset names are recorded. No file paths or hashes leave this function.
-  $codes=@('diagnostic_predecessor_changed','invalid_diagnostic_binding','diagnostic_driver_incomplete','invalid_diagnostic_bundle')
+  $codes=@('diagnostic_predecessor_changed','invalid_diagnostic_binding','diagnostic_driver_incomplete','invalid_diagnostic_bundle','diagnostic_regeneration_rejected','diagnostic_generator_unavailable','diagnostic_sources_changing')
   if($Code -cnotin $codes){return $null}
-  $assets=@(@($Value.assets)|Where-Object {$_ -is [string] -and $_ -cin @('control','worker','backend','transport')}|Sort-Object -Unique)
-  return @{valid=$false;code=$Code;assets=$assets;requiresRequalification=$true}
+  $assets=@(@($Value.assets)|Where-Object {$_ -is [string] -and $_ -cin @('control','worker','backend','transport','supervisor','isolation','backendIsolation')}|Sort-Object -Unique)
+  $result=@{valid=$false;code=$Code;assets=$assets;requiresRequalification=($Code -cnotin @('diagnostic_sources_changing','diagnostic_generator_unavailable'))}
+  # A fixed-enum reason only; anything else is dropped.
+  $reason=[string]$Value.reason
+  if($reason -and $reason -cin (@($WatchDriverRejectionReasons)+@($WatchDriverUnavailableReasons))){$result.reason=$reason}
+  return $result
 }
-function Resolve-WatchStatusControl {
+# ---- Automatic read-only driver regeneration (docs/watchdog-root-fix-20261112/DESIGN.md) ----
+# The diagnostic driver is a generated copy of the production status path, pinned to the exact
+# bytes of the pinned sources. After any merge or Django release those bytes change; instead of
+# going blind until a human requalifies the driver, this watchdog regenerates it with the
+# generator suite that was reviewed and frozen into this installation, and refuses (fail closed,
+# alert) whenever the generator proof, the transitive closure check or the call list check fails.
+$WatchGeneratorSuite=@('prepare-watchdog-status-driver.mjs','prepare-watchdog-native-status-driver.mjs','prepare-watchdog-supervisor-status-driver.mjs','watchdog-native-metadata.ps1','watchdog-driver-generate.mjs','watchdog-driver-closure.ps1')
+$WatchDriverFiles=@('watchdog-status-control.ps1','watchdog-status-backend.ps1','watchdog-core-overlay.ps1','driver-binding.json','native-isolation.ps1','process-deadline.ps1')
+$WatchDriverRejectionReasons=@('source_shape_changed','original_predicate_changed','unexpected_relative_dependency','capability_marker_missing','closure_forbidden_primitive','ownership_unlisted_command','ownership_function_missing','ownership_dynamic_call','closure_parse_failed','closure_analysis_failed','closure_entry_missing','generated_script_unparsable')
+$WatchDriverUnavailableReasons=@('node_missing','generator_timeout','generator_failed','generator_output_invalid','source_unreadable','staging_failed','binding_mismatch')
+$script:WatchDriverDirectory=$null
+$script:WatchNodePathOverride=$null
+function Get-WatchDriversRoot {Join-Path $WatchdogRoot 'drivers'}
+function Test-WatchDriverLayout {
+  # The generator suite is part of the installed bundle. Without it (an old flat or
+  # pre-generator layout) the driver stays whatever the installer put beside the script.
+  return @($WatchGeneratorSuite|Where-Object {Test-Path -LiteralPath (Join-Path $PSScriptRoot $_) -PathType Leaf}).Count -eq $WatchGeneratorSuite.Count
+}
+function Get-WatchDriverSources {
+  # Fixed paths, no external input. The main checkout files are the Worker rotation's protected
+  # entry points: the bytes production is using, so following them is correct.
+  return [ordered]@{
+    control=$ControlPath;worker=$WorkerPath
+    transport=(Join-Path $ProjectRoot 'tools\process-deadline.ps1')
+    isolation=(Join-Path $ProjectRoot 'tools\native-isolation.ps1')
+    backendIsolation=(Join-Path $BackendRoot 'app\tools\native-isolation.ps1')
+    backend=(Join-Path $BackendRoot 'app\tools\django-local-service.ps1')
+    supervisor=$SupervisorPath
+  }
+}
+function New-WatchDriverFailure([string]$Code,[string]$Reason='') {
+  # Carries a fixed-enum reason only: never a path or a hash.
+  $failure=[Exception]::new($Code)
+  $failure.Data['DiagnosticBinding']=@{code=$Code;assets=@();reason=$Reason}
+  return $failure
+}
+function Get-WatchSourceHash([string]$Path) {
+  $item=Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+  if($item.PSIsContainer -or $item.Length -gt 16777216 -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'source_unreadable'}
+  return Get-WatchHash $Path
+}
+function Get-WatchDriverDigest($SourceHashes,$SuiteHashes) {
+  $lines=@('layout=1')+@($SourceHashes.Keys|Sort-Object|ForEach-Object {'source:'+$_+'='+$SourceHashes[$_]})+@($SuiteHashes.Keys|Sort-Object|ForEach-Object {'suite:'+$_+'='+$SuiteHashes[$_]})
+  return Get-WatchTextHash ($lines -join "`n")
+}
+function Get-WatchNodeCandidatePath {'C:\Program Files\nodejs\node.exe'}
+function Resolve-WatchNodePath([string]$Candidate) {
+  # One resolver for install admission and runtime: the fixed location, present, not a reparse point.
+  if([string]::IsNullOrWhiteSpace($Candidate) -or [IO.Path]::GetFullPath($Candidate) -ine [IO.Path]::GetFullPath((Get-WatchNodeCandidatePath))){throw 'node_missing'}
+  $item=Get-Item -LiteralPath $Candidate -Force -ErrorAction Stop
+  if($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'node_missing'}
+  return [IO.Path]::GetFullPath($Candidate)
+}
+function Get-WatchNodePath {
+  try{
+    $candidate=if($script:WatchNodePathOverride){$script:WatchNodePathOverride}else{[string](Read-WatchJson (Join-Path $WatchdogRoot 'installation.json')).nodePath}
+    return Resolve-WatchNodePath $candidate
+  }catch{throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' 'node_missing')}
+}
+function Remove-WatchContainedTree([string]$Root,[string]$Path) {
+  # Best-effort removal strictly inside $Root; a reparse point at the top is never followed.
+  try{
+    Assert-WatchContainedDirectory $Root $Path
+    if(-not(Test-Path -LiteralPath $Path)){return}
+    $item=Get-Item -LiteralPath $Path -Force
+    if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){return}
+    if($item.PSIsContainer){[IO.Directory]::Delete($Path,$true)}else{[IO.File]::Delete($Path)}
+  }catch{}
+}
+function Remove-WatchStaleDrivers([string]$Root,[string]$KeepDigest) {
+  # Keep the driver in use and the 4 most recent others; abandoned staging older than an hour and
+  # old rejection records go too. Cleanup never fails the snapshot.
+  try{
+    $others=@(Get-ChildItem -LiteralPath $Root -Directory -Force|Where-Object {$_.Name -cmatch '^[0-9a-f]{64}$' -and $_.Name -cne $KeepDigest}|Sort-Object LastWriteTimeUtc -Descending)
+    foreach($directory in @($others|Select-Object -Skip 4)){Remove-WatchContainedTree $Root $directory.FullName}
+    foreach($directory in @(Get-ChildItem -LiteralPath $Root -Directory -Force|Where-Object {$_.Name -cmatch '^\.staging-[0-9a-f]{32}$' -and ([DateTime]::UtcNow-$_.LastWriteTimeUtc).TotalHours -ge 1})){Remove-WatchContainedTree $Root $directory.FullName}
+    $records=@(Get-ChildItem -LiteralPath $Root -File -Force|Where-Object {$_.Name -cmatch '^rejected-[0-9a-f]{64}\.json$'}|Sort-Object LastWriteTimeUtc -Descending)
+    foreach($record in @($records|Select-Object -Skip 8)){Remove-WatchContainedTree $Root $record.FullName}
+  }catch{}
+}
+function Test-WatchDriverDirectory([string]$Directory,[string]$Digest) {
+  # An existing directory is used only when it is exactly what generation wrote. A damaged one is
+  # reported, never silently deleted or repaired.
+  try{
+    Assert-WatchContainedDirectory (Get-WatchDriversRoot) $Directory
+    $manifest=Read-WatchJson (Join-Path $Directory 'driver-manifest.json')
+    if(-not $manifest -or $manifest.version -ne 1 -or $manifest.digest -cne $Digest){throw 'invalid_diagnostic_bundle'}
+    $expected=@($WatchDriverFiles)+@('driver-manifest.json')
+    $entries=@(Get-ChildItem -LiteralPath $Directory -Force)
+    if($entries.Count -ne $expected.Count -or @($entries|Where-Object {$_.Name -cnotin $expected -or $_.PSIsContainer -or ($_.Attributes -band [IO.FileAttributes]::ReparsePoint)}).Count){throw 'invalid_diagnostic_bundle'}
+    foreach($name in $WatchDriverFiles){if((Get-WatchHash (Join-Path $Directory $name)) -cne [string]$manifest.files.$name){throw 'invalid_diagnostic_bundle'}}
+    return $true
+  }catch{throw (New-WatchDriverFailure 'invalid_diagnostic_bundle')}
+}
+function Get-WatchDriverRejection([string]$Digest) {
+  $path=Join-Path (Get-WatchDriversRoot) "rejected-$Digest.json"
+  if(-not(Test-Path -LiteralPath $path -PathType Leaf)){return $null}
+  try{$record=Read-WatchJson $path}catch{return $null}
+  if($record -and $record.version -eq 1 -and $record.digest -ceq $Digest -and [string]$record.reason -cin $WatchDriverRejectionReasons){return [string]$record.reason}
+  return $null
+}
+function Set-WatchDriverRejection([string]$Root,[string]$Digest,[string]$Reason) {
+  # Only structured proof failures reach here: a transient failure must be retried, not cached.
+  Write-WatchJson (Join-Path $Root "rejected-$Digest.json") @{version=1;digest=$Digest;reason=$Reason;at=[DateTimeOffset]::UtcNow.ToString('o')}
+  throw (New-WatchDriverFailure 'diagnostic_regeneration_rejected' $Reason)
+}
+function New-WatchDriver([string]$Root,[string]$Digest,$Sources,$SourceHashes) {
+  $node=Get-WatchNodePath
+  $staging=Join-Path $Root ('.staging-'+[guid]::NewGuid().ToString('N'))
+  Assert-WatchContainedDirectory $WatchdogRoot $staging
+  try{
+    # 1. Freeze: the bytes that are hashed, generated from and pinned are one set of copies.
+    try{
+      [void][IO.Directory]::CreateDirectory((Join-Path $staging 'sources'))
+      foreach($name in $Sources.Keys){
+        $copy=Join-Path $staging ('sources\'+$name+'.ps1')
+        [IO.File]::Copy($Sources[$name],$copy)
+        if((Get-WatchHash $copy) -cne $SourceHashes[$name]){throw (New-WatchDriverFailure 'diagnostic_sources_changing')}
+      }
+    }catch{
+      if($_.Exception.Message -ceq 'diagnostic_sources_changing'){throw}
+      throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' 'staging_failed')
+    }
+    # 2. Generate with the frozen suite, through the direct-exit transport (no pipe, no background process).
+    $request=@{outputDirectory=(Join-Path $staging 'driver');readDirectory=(Join-Path $staging 'sources');bound=@{}}
+    foreach($name in $Sources.Keys){$request.bound[$name]=[string]$Sources[$name]}
+    $requestPath=Join-Path $staging 'request.json'
+    [IO.File]::WriteAllText($requestPath,($request|ConvertTo-Json -Depth 4),[Text.UTF8Encoding]::new($false))
+    try{
+      $capture=Invoke-DeadlineProcess -Executable $node -Arguments @((Join-Path $PSScriptRoot 'watchdog-driver-generate.mjs'),$requestPath) -WorkingDirectory $staging -Deadline (Get-ProcessDeadline 30000) -Cleanup Direct
+    }catch{
+      $evidence=$_.Exception.Data['ProcessEvidence']
+      throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' $(if($evidence -and $evidence.code -ceq 'process_deadline_exhausted'){'generator_timeout'}else{'generator_failed'}))
+    }
+    $generated=$null
+    try{$generated=$capture.Stdout.Trim()|ConvertFrom-Json -ErrorAction Stop}catch{}
+    if($capture.ExitCode -eq 3){
+      $reason=switch([string]$generated.code){'source_shape_changed'{'source_shape_changed'} 'original_predicate_changed'{'original_predicate_changed'} 'unexpected_relative_dependency'{'unexpected_relative_dependency'} 'capability_marker_missing'{'capability_marker_missing'} default{$null}}
+      if(-not $reason){throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' 'generator_output_invalid')}
+      Set-WatchDriverRejection $Root $Digest $reason
+    }
+    if($capture.ExitCode -ne 0){throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' 'generator_failed')}
+    if(-not $generated -or $generated.ok -ne $true){throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' 'generator_output_invalid')}
+    $driverDirectory=Join-Path $staging 'driver'
+    $names=@(Get-ChildItem -LiteralPath $driverDirectory -Force|ForEach-Object Name|Sort-Object)
+    if((@($names) -join '|') -cne ((@($WatchDriverFiles)|Sort-Object) -join '|')){throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' 'generator_output_invalid')}
+    # 3. Mechanical checks of what was generated.
+    foreach($name in @($WatchDriverFiles|Where-Object {$_ -like '*.ps1'})){
+      if(-not (Test-WatchScriptParses (Join-Path $driverDirectory $name))){Set-WatchDriverRejection $Root $Digest 'generated_script_unparsable'}
+    }
+    $check=Invoke-WatchDriverClosureCheck $driverDirectory (Join-Path $staging 'sources')
+    if(-not $check.ok){
+      $reason=@($check.reasons|Where-Object {$_ -cin $WatchDriverRejectionReasons}|Select-Object -First 1)
+      Set-WatchDriverRejection $Root $Digest $(if($reason.Count){[string]$reason[0]}else{'closure_analysis_failed'})
+    }
+    $binding=Read-WatchJson (Join-Path $driverDirectory 'driver-binding.json')
+    foreach($name in $Sources.Keys){if([string]$binding.assetHashes.$name -cne $SourceHashes[$name]){throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' 'binding_mismatch')}}
+    # 4. The production files must not have moved while the copies were being turned into a driver.
+    foreach($name in $Sources.Keys){
+      $now=try{Get-WatchSourceHash $Sources[$name]}catch{$null}
+      if($now -cne $SourceHashes[$name]){throw (New-WatchDriverFailure 'diagnostic_sources_changing')}
+    }
+    $files=[ordered]@{};foreach($name in $WatchDriverFiles){$files[$name]=Get-WatchHash (Join-Path $driverDirectory $name)}
+    Write-WatchJson (Join-Path $driverDirectory 'driver-manifest.json') @{version=1;digest=$Digest;createdAt=[DateTimeOffset]::UtcNow.ToString('o');sources=$SourceHashes;files=$files;generatorProofSha256=[string]$generated.proofSha256;closureExceptionsUsed=[int]$check.excepted}
+    # 5. Publish atomically; a concurrent generator that got there first wins.
+    $final=Join-Path $Root $Digest
+    try{[IO.Directory]::Move($driverDirectory,$final)}catch{if(-not(Test-Path -LiteralPath $final)){throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' 'staging_failed')}}
+    return $final
+  }finally{Remove-WatchContainedTree $Root $staging}
+}
+function Invoke-WatchDriverEnsure {
+  $root=Get-WatchDriversRoot
+  $sources=Get-WatchDriverSources
+  $sourceHashes=@{};$suiteHashes=@{}
+  try{foreach($name in $sources.Keys){$sourceHashes[$name]=Get-WatchSourceHash $sources[$name]}}catch{throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' 'source_unreadable')}
+  try{foreach($name in $WatchGeneratorSuite){$suiteHashes[$name]=Get-WatchSourceHash (Join-Path $PSScriptRoot $name)}}catch{throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' 'generator_failed')}
+  $digest=Get-WatchDriverDigest $sourceHashes $suiteHashes
+  Assert-WatchContainedDirectory $WatchdogRoot $root
+  $final=Join-Path $root $digest
+  if(Test-Path -LiteralPath $final){
+    [void](Test-WatchDriverDirectory $final $digest)
+    Remove-WatchStaleDrivers $root $digest
+    return @{directory=$final;digest=$digest;regenerated=$false}
+  }
+  $rejected=Get-WatchDriverRejection $digest
+  if($rejected){throw (New-WatchDriverFailure 'diagnostic_regeneration_rejected' $rejected)}
+  [void][IO.Directory]::CreateDirectory($root)
+  $final=New-WatchDriver $root $digest $sources $sourceHashes
+  [void](Test-WatchDriverDirectory $final $digest)
+  Remove-WatchStaleDrivers $root $digest
+  return @{directory=$final;digest=$digest;regenerated=$true}
+}
+function Initialize-WatchDriver {
+  # The generation budget (45s) is its own: it must not eat the 120s status snapshot parent.
+  $saved=$env:TERUISI_PROCESS_DEADLINE_UNIX_MS
+  try{
+    $env:TERUISI_PROCESS_DEADLINE_UNIX_MS=[string](Get-ProcessDeadline 45000)
+    return Invoke-WatchDriverEnsure
+  }finally{$env:TERUISI_PROCESS_DEADLINE_UNIX_MS=$saved}
+}
+function Invoke-WatchSupervisorStatus {
+  # Status goes through the generated read-only driver whenever one is resolved: the original
+  # supervisor script is never asked for Status in the driver layout.
+  if($script:WatchDriverDirectory){return Invoke-WatchScript (Join-Path $script:WatchDriverDirectory 'watchdog-status-backend.ps1') @('-Action','Status','-DiagnosticTarget','Supervisor')}
+  if(Test-WatchDriverLayout){throw 'supervisor_ownership_error'}
+  return Invoke-WatchScript $SupervisorPath @('-Action','Status')
+}
+function Resolve-WatchStatusControl($Driver=$null,$DriverFailure=$null) {
+  if(Test-WatchDriverLayout){
+    # Never a legacy controller in the driver layout: a missing driver is a closed failure.
+    if($DriverFailure){throw $DriverFailure}
+    if(-not $Driver){throw (New-WatchDriverFailure 'diagnostic_generator_unavailable' 'generator_failed')}
+    return @{path=(Join-Path $Driver.directory 'watchdog-status-control.ps1');mode='readonly_driver';reason=$(if($Driver.regenerated){'regenerated'}else{'cached'})}
+  }
   $driver=Join-Path $PSScriptRoot 'watchdog-status-control.ps1'
   $driverNames=@('watchdog-status-control.ps1','watchdog-status-backend.ps1','watchdog-core-overlay.ps1','driver-binding.json')
   $present=@($driverNames|Where-Object {Test-Path -LiteralPath (Join-Path $PSScriptRoot $_)})
@@ -295,6 +513,9 @@ function Get-WatchSnapshot {
   $snapshot=@{at=[DateTimeOffset]::UtcNow.ToString('o');admission=$admission;system='unprobed';backend='unprobed';worker='unprobed';supervisor='unprobed';supervisorHealth='unprobed';components=@{};ports=@();portsObservation=@{status='unknown';reason='not_checked'};probes=@{};stages=@{};healthy=$false;probeError=$false;processDiagnostic=$null}
   # Planned shutdown is quiet, and a corrupt gate must never be treated as permission.
   if($admission.mode -ne 'running'){return $snapshot}
+  # Driver regeneration has its own budget and runs before the 120s snapshot parent starts.
+  $driver=$null;$driverFailure=$null;$script:WatchDriverDirectory=$null
+  if(Test-WatchDriverLayout){try{$driver=Initialize-WatchDriver;$script:WatchDriverDirectory=$driver.directory}catch{$driverFailure=$_}}
   $savedDeadline=$env:TERUISI_PROCESS_DEADLINE_UNIX_MS
   # Measured driver run ~46-54s; control now also allows a 20s ready request.
   # Keep one 120s snapshot parent, with a 90s control child and other children at 60s.
@@ -303,7 +524,7 @@ function Get-WatchSnapshot {
   $probeStage='control'
   $stageClock=[Diagnostics.Stopwatch]::StartNew()
   try{
-    $selected=Resolve-WatchStatusControl
+    $selected=Resolve-WatchStatusControl $driver $driverFailure
     $snapshot.diagnosticMode=$selected.mode;$snapshot.diagnosticReason=$selected.reason
     $status=Invoke-WatchScript $selected.path @('-Action','Status','-Json') -Seconds 90
     [void](Get-ProcessRemaining ([long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS))
@@ -322,7 +543,7 @@ function Get-WatchSnapshot {
     $snapshot.stages.control=@{status='completed';elapsedMs=$stageClock.ElapsedMilliseconds}
     $probeStage='supervisor'
     $stageClock.Restart()
-    $supervisor=Invoke-WatchScript $SupervisorPath @('-Action','Status')
+    $supervisor=Invoke-WatchSupervisorStatus
     [void](Get-ProcessRemaining ([long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS))
     $snapshot.supervisor=[string]$supervisor.supervisorProcess;$snapshot.supervisorHealth=[string]$supervisor.health
     $snapshot.stages.supervisor=@{status='completed';elapsedMs=$stageClock.ElapsedMilliseconds}
@@ -336,7 +557,7 @@ function Get-WatchSnapshot {
     $snapshot.probeError=$true
     $snapshot.stages[$probeStage]=@{status='failed';elapsedMs=$stageClock.ElapsedMilliseconds}
     $code=if($_.Exception.Message -eq 'process_deadline_exhausted'){'process_deadline_exhausted'}
-      elseif($_.Exception.Message -cin @('diagnostic_predecessor_changed','invalid_diagnostic_binding','diagnostic_driver_incomplete','invalid_diagnostic_bundle')){$_.Exception.Message}
+      elseif($_.Exception.Message -cin @('diagnostic_predecessor_changed','invalid_diagnostic_binding','diagnostic_driver_incomplete','invalid_diagnostic_bundle','diagnostic_regeneration_rejected','diagnostic_generator_unavailable','diagnostic_sources_changing')){$_.Exception.Message}
       else{'probe_stage_failed'}
     $snapshot.processDiagnostic=@{stage=$probeStage;code=$code;process=Get-WatchProcessDiagnostic $_.Exception.Data['ProcessEvidence']}
     # The monitor cannot observe the system until its driver is requalified.
@@ -391,7 +612,7 @@ function Get-WatchBusinessHealth {
   return $result
 }
 function New-WatchState {
-  @{version=$WatchdogVersion;failures=0;lastCheck=$null;lastHealthy=$null;incident=$null;attempts=@();lastMode='unknown';lastFence=$null;notification=$null;notificationEscalations=0;lastNotificationEscalation=$null}
+  @{version=$WatchdogVersion;failures=0;lastCheck=$null;lastHealthy=$null;incident=$null;attempts=@();lastMode='unknown';lastFence=$null;notification=$null;notificationEscalations=0;lastNotificationEscalation=$null;notificationSuffix=$null;blindnessSeen=$false;incidentRecoveryFailures=0}
 }
 function Get-WatchDecision($Snapshot,$State,[DateTimeOffset]$Now) {
   if($Snapshot.admission.mode -in @('maintenance','stopped')){return 'suspended'}
@@ -400,6 +621,9 @@ function Get-WatchDecision($Snapshot,$State,[DateTimeOffset]$Now) {
   if($Snapshot.admission.mode -ne 'running' -or $Snapshot.probeError -or $Snapshot.supervisor -in @('ownership_error','ownership_check_failed','status_error') -or $Snapshot.worker -notin @('stopped','stale_or_invalid_receipt','exact_release')){return 'alert_only'}
   # Clean Worker Stop leaves the backend running: do not reverse that explicit action.
   if($Snapshot.worker -eq 'stopped' -and $Snapshot.backend -eq 'Ready'){return 'alert_only'}
+  # The same incident gets at most 3 recovery attempts in total (a supervisor that exits at once was
+  # re-launched every 5 minutes before); after that it is alert-only until the incident closes.
+  if([int]$State.incidentRecoveryFailures -ge 3){return 'recovery_exhausted'}
   $recent=@($State.attempts|Where-Object {($Now-[DateTimeOffset]$_).TotalMinutes -lt 15})
   if($recent.Count -ge 3){return 'budget_exhausted'}
   if($recent.Count -gt 0 -and ($Now-[DateTimeOffset]$recent[-1]).TotalMinutes -lt 5){return 'cooldown'}
@@ -413,7 +637,7 @@ function Restore-WatchSupervisor {
   try{$locked=$guard.WaitOne(0)}catch [Threading.AbandonedMutexException]{$locked=$true}
   if(-not $locked){throw 'django_lifecycle_busy'}
   $admission=Get-Admission;if($admission.mode -ne 'running'){throw 'supervisor_start_fenced'}
-  $status=Invoke-WatchScript $SupervisorPath @('-Action','Status')
+  $status=Invoke-WatchSupervisorStatus
   if($status.supervisorProcess -eq 'running'){return}
   if($status.supervisorProcess -ne 'stopped'){throw 'supervisor_ownership_error'}
   $old=$env:PSModulePath
@@ -522,16 +746,25 @@ function Get-WatchFailureText($Snapshot){
   $reasons=[Collections.Generic.List[string]]::new()
   if($Snapshot.diagnosticBinding -and $Snapshot.diagnosticBinding.valid -eq $false){
     # Say plainly that the monitor is blind, not that the system is unhealthy.
-    $names=@{control='总控脚本';worker='Worker 服务脚本';backend='Django 服务脚本';transport='进程传输脚本'}
+    $names=@{control='总控脚本';worker='Worker 服务脚本';backend='Django 服务脚本';transport='进程传输脚本';supervisor='Django 守护脚本';isolation='主检出隔离脚本';backendIsolation='Django 隔离脚本'}
     $assets=@(@($Snapshot.diagnosticBinding.assets)|ForEach-Object {$names[$_]}|Where-Object {$_})
-    $detail=switch($Snapshot.diagnosticBinding.code){
+    $reasonText=@{source_shape_changed='源文件结构已变化';original_predicate_changed='所有权判定函数已变化';unexpected_relative_dependency='出现新的相对依赖';capability_marker_missing='后端能力标记缺失';closure_forbidden_primitive='调用闭包出现结束进程或改写进程记录的操作';ownership_unlisted_command='所有权判定函数调用了未审过的代码';ownership_function_missing='所有权判定函数缺失';ownership_dynamic_call='所有权判定函数出现动态调用';closure_parse_failed='安全检查无法解析脚本';closure_analysis_failed='安全检查无法完成';closure_entry_missing='安全检查找不到驱动入口';generated_script_unparsable='生成的脚本无法解析';node_missing='找不到 Node.js';generator_timeout='生成超时';generator_failed='生成器运行失败';generator_output_invalid='生成器输出无效';source_unreadable='源文件无法读取';staging_failed='临时目录写入失败';binding_mismatch='生成结果与源文件不符'}
+    $reasonDetail=if($Snapshot.diagnosticBinding.reason -is [string] -and $reasonText.ContainsKey($Snapshot.diagnosticBinding.reason)){'：'+$reasonText[$Snapshot.diagnosticBinding.reason]}else{''}
+    $blind=switch($Snapshot.diagnosticBinding.code){
+      'diagnostic_regeneration_rejected'{"源码结构变化超出自动生成的安全范围，监控需人工复核$reasonDetail，本轮未能观测服务状态；这不代表服务异常"}
+      'diagnostic_generator_unavailable'{"监控的诊断驱动生成器不可用$reasonDetail，本轮未能观测服务状态；这不代表服务异常"}
+      'diagnostic_sources_changing'{'受监控的源文件在生成诊断驱动期间发生变化，下一轮自动重试，本轮未能观测服务状态；这不代表服务异常'}
+      default{$null}
+    }
+    if($blind){$reasons.Add($blind)}
+    $detail=if($blind){$null}else{switch($Snapshot.diagnosticBinding.code){
       'diagnostic_predecessor_changed'{if($assets.Count){'已变化：'+($assets -join '、')}else{'受钉源文件已变化'}}
       'invalid_diagnostic_binding'{'钉子文件无效'}
       'diagnostic_driver_incomplete'{'诊断驱动文件不完整'}
       'invalid_diagnostic_bundle'{'诊断包清单无效'}
       default{'诊断绑定无效'}
-    }
-    $reasons.Add("监控自身需要重新资格化（$detail），本轮未能观测服务状态；这不代表服务异常")
+    }}
+    if(-not $blind){$reasons.Add("监控自身需要重新资格化（$detail），本轮未能观测服务状态；这不代表服务异常")}
   }
   if($Snapshot.probeError){
     $stage=switch($Snapshot.processDiagnostic.stage){control{'系统状态'} supervisor{'后端守护'} monitor{'守护状态文件'} default{'整轮监控'}}
@@ -581,12 +814,18 @@ function Get-WatchMessage($State,$Snapshot,[string]$Outcome){
   if($Outcome -eq 'recovered'){
     $completed=if($Snapshot.completedAt){$Snapshot.completedAt}else{$Snapshot.at}
     $current=if($Snapshot.currentlyHealthy -eq $false){'当前另有异常，请查看最新运行提醒。'}else{'需要人工处理：否。'}
-    return "运营管理系统恢复提醒。故障首次发现：$time（北京时间）。该事件恢复确认：$(Get-WatchTimeText $completed)。确认时已通过两轮健康检查。确认时首页/后端状态：$($Snapshot.system)/$($Snapshot.backend)。确认时端口：$ports。$current"
+    $blindNote=if($State.blindnessSeen -eq $true){'其间包含监控失明时段，不等于服务故障。'}else{''}
+    return "运营管理系统恢复提醒。故障首次发现：$time（北京时间）。该事件恢复确认：$(Get-WatchTimeText $completed)。确认时已通过两轮健康检查。确认时首页/后端状态：$($Snapshot.system)/$($Snapshot.backend)。确认时端口：$ports。$blindNote$current"
   }
-  $label=switch($Outcome){recovery_failed{'自动恢复未通过'} budget_exhausted{'已达到本轮自动恢复次数上限'} cooldown{'等待下一次有间隔的安全恢复'} alert_only{'已告警，未自动重启'} default{'健康检查未通过'}}
+  $reminderNote=''
+  if([string]$State.notificationSuffix -cmatch '^-reminder(?<n>\d+)$'){
+    $reminderNote="持续提醒（第 $($Matches['n']) 次）：该事件自 $time 起未恢复。"
+    if($State.blindnessSeen -eq $true){$reminderNote+='其间包含监控失明时段，不等于服务故障。'}
+  }
+  $label=switch($Outcome){recovery_exhausted{'同一事件自动恢复已尝试3次未通过，不再自动拉起'} recovery_failed{'自动恢复未通过'} budget_exhausted{'已达到本轮自动恢复次数上限'} cooldown{'等待下一次有间隔的安全恢复'} alert_only{'已告警，未自动重启'} default{'健康检查未通过'}}
   $action=if($Snapshot.probeError){'待确认；如持续出现，请检查本机控制面板及本次监控记录。'}else{'是；请检查上述失败项，并在本机控制面板确认当前状态。'}
   $checked=if($Snapshot.completedAt){$Snapshot.completedAt}else{$Snapshot.at}
-  return "运营管理系统运行提醒。故障首次发现：$time（北京时间）。检查时间：$(Get-WatchTimeText $checked)。处理结果：$label。原因：$(Get-WatchFailureText $Snapshot)。首页/后端状态：$($Snapshot.system)/$($Snapshot.backend)。端口：$ports。需要人工处理：$action"
+  return "运营管理系统运行提醒。${reminderNote}故障首次发现：$time（北京时间）。检查时间：$(Get-WatchTimeText $checked)。处理结果：$label。原因：$(Get-WatchFailureText $Snapshot)。首页/后端状态：$($Snapshot.system)/$($Snapshot.backend)。端口：$ports。需要人工处理：$action"
 }
 function Save-WatchFailureEvidence($State,$Snapshot){
   if(-not $State.incident -or $Snapshot.healthy){return}
@@ -605,12 +844,21 @@ function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun,[swit
   # unconfirmed. Replaying the same alert is still forbidden; instead a bounded
   # number of later rounds may send a NEW record of their own. Escalation is
   # time-gated and never applies to recovery notices or a confirmed send.
+  # 2026-11-12: the 3-reminder cap is gone. While the incident stays open, a record in a terminal
+  # state (unknown, sent, sending left by a killed process, or identity_failed with its retries
+  # used up) is followed by a NEW record -reminder<N> every 24 hours. Old records are never
+  # replayed or overwritten; N continues from the existing counter.
   $escalation=0
-  if(-not $DryRun -and -not $Recovery -and $State[$slot] -ceq 'unknown' -and $State.incident){
-    $done=[int]$State['notificationEscalations']
-    $last=if($State['lastNotificationEscalation']){$State['lastNotificationEscalation']}else{$State[$timeSlot]}
-    $aged=(-not $last) -or ([DateTimeOffset]::UtcNow-[DateTimeOffset]$last).TotalHours -ge 24
-    if($done -lt 3 -and $aged){$escalation=$done+1}
+  if(-not $DryRun -and -not $Recovery -and $State.incident){
+    $current=[string]$State[$slot]
+    $terminal=$current -cin @('unknown','sent','sending') -or ($current -ceq 'identity_failed' -and [int]$State[$attemptSlot] -ge 3)
+    if($terminal){
+      $done=[int]$State['notificationEscalations']
+      $last=if($State['lastNotificationEscalation']){$State['lastNotificationEscalation']}else{$State[$timeSlot]}
+      # An unknown record with no timestamp at all is overdue; a sent/sending one needs a time to age from.
+      $aged=if($last){([DateTimeOffset]::UtcNow-[DateTimeOffset]$last).TotalHours -ge 24}else{$current -ceq 'unknown'}
+      if($aged){$escalation=$done+1}
+    }
   }
   if(-not $DryRun -and $State[$slot] -and -not $escalation){
     if($State[$slot] -ne 'identity_failed'){return}
@@ -626,7 +874,8 @@ function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun,[swit
     $minimumWaitMinutes=if($State[$codeSlot] -ceq 'nonzero_exit'){2}else{15}
     if($State[$timeSlot] -and ([DateTimeOffset]::UtcNow-[DateTimeOffset]$State[$timeSlot]).TotalMinutes -lt $minimumWaitMinutes){return}
   }
-  $suffix=if($Recovery){'-recovered'}elseif($escalation){"-escalation$escalation"}else{''}
+  # The current record's suffix lives in state so identity retries target the reminder record, not the base one.
+  $suffix=if($Recovery){'-recovered'}elseif($escalation){"-reminder$escalation"}elseif([string]$State['notificationSuffix'] -cmatch '^-reminder\d+$'){[string]$State['notificationSuffix']}else{''}
   $alertPath=Join-Path $WatchdogRoot "alerts\$($State.incident)$suffix.json"
   if(-not $DryRun){
     $previous=Read-WatchJson $alertPath
@@ -634,9 +883,9 @@ function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun,[swit
   }
   $alert=@{incident=$State.incident;at=[DateTimeOffset]::UtcNow.ToString('o');outcome=$Outcome;status='pending_identity';ports=$Snapshot.ports;businessData=$false}
   if($escalation){
-    $alert.escalation=$escalation
+    $alert.reminder=$escalation
     # Claim this round before sending, so a crash cannot reuse the same slot.
-    $State['notificationEscalations']=$escalation
+    $State['notificationEscalations']=$escalation;$State['notificationSuffix']=$suffix
     $State['lastNotificationEscalation']=[DateTimeOffset]::UtcNow.ToString('o')
     $State[$slot]=$null;$State[$attemptSlot]=0;$State[$codeSlot]=$null
     if(-not $DryRun){Write-WatchJson $ReservationPath $State}
@@ -705,7 +954,7 @@ function Confirm-WatchRecovery($State,$Snapshot){
   if((Test-Path -LiteralPath $pending) -or (Test-Path -LiteralPath $completed)){return}
   # Persist the new fact before the main incident is cleared. The outbox uses
   # its own reservation file, never replacing the live monitoring state.
-  Write-WatchJson $pending @{version=$WatchdogVersion;incident=$State.incident;firstFailure=$State.firstFailure;notification=$State.notification;recoveryNotification=$null;recoveryIdentityAttempts=0;lastRecoveryIdentityAttempt=$null;recoveryNotificationReason=$null}
+  Write-WatchJson $pending @{version=$WatchdogVersion;incident=$State.incident;firstFailure=$State.firstFailure;notification=$State.notification;recoveryNotification=$null;recoveryIdentityAttempts=0;lastRecoveryIdentityAttempt=$null;recoveryNotificationReason=$null;blindnessSeen=($State.blindnessSeen -eq $true)}
 }
 function Invoke-WatchRecoveryOutbox($CurrentSnapshot){
   if($CurrentSnapshot.admission.mode -ne 'running'){return}
@@ -761,7 +1010,9 @@ function Invoke-WatchCycle([switch]$Recover){
       $state.recoveryNotification=$null;$state.recoveryIdentityAttempts=0;$state.lastRecoveryIdentityAttempt=$null;$state.recoveryNotificationReason=$null
       $state.recoveryAttempt=$null
       $state.notificationEscalations=0;$state.lastNotificationEscalation=$null
+      $state.notificationSuffix=$null;$state.blindnessSeen=$false;$state.incidentRecoveryFailures=0
     }
+    if($snapshot.diagnosticBinding){$state.blindnessSeen=$true}
     $state.failures=[int]$state.failures+1
     Save-WatchFailureEvidence $state $snapshot
   }
@@ -795,6 +1046,7 @@ function Invoke-WatchCycle([switch]$Recover){
       $known=@('lifecycle_busy','desired_state_changed','desired_state_stopped','stale_pid_reused','django_lifecycle_busy','supervisor_start_fenced','supervisor_ownership_error','maintenance_active','process_deadline_exhausted')
       $state.recoveryAttempt=@{at=$now.ToString('o');status='recovery_failed';code=if($_.Exception.Message -cin $known){$_.Exception.Message}else{'recovery_operation_failed'};process=Get-WatchProcessDiagnostic $_.Exception.Data['ProcessEvidence']}
     }
+    if($decision -eq 'recovery_failed'){$state.incidentRecoveryFailures=[int]$state.incidentRecoveryFailures+1}
     Write-WatchJson (Join-Path $WatchdogRoot "evidence\$($state.incident)-recovery-attempt.json") $state.recoveryAttempt
     Save-WatchFailureEvidence $state $snapshot
   }
@@ -803,7 +1055,7 @@ function Invoke-WatchCycle([switch]$Recover){
     if($Recover -and [int]$state.failures -ge 2 -and $decision -notin @('confirm_failure','verification_pending','healthy','recovered')){Send-WatchAlert $state $snapshot $decision}
     if($decision -in @('healthy','recovered')){Confirm-WatchRecovery $state $snapshot}
   }
-  if($decision -in @('healthy','recovered')){$state.failures=0;$state.lastHealthy=[DateTimeOffset]::UtcNow.ToString('o');$state.incident=$null;$state.notification=$null;$state.notificationReason=$null;$state.identityAttempts=0;$state.lastIdentityAttempt=$null;$state.identityFailureCode=$null;$state.notificationEscalations=0;$state.lastNotificationEscalation=$null}
+  if($decision -in @('healthy','recovered')){$state.failures=0;$state.lastHealthy=[DateTimeOffset]::UtcNow.ToString('o');$state.incident=$null;$state.notification=$null;$state.notificationReason=$null;$state.identityAttempts=0;$state.lastIdentityAttempt=$null;$state.identityFailureCode=$null;$state.notificationEscalations=0;$state.lastNotificationEscalation=$null;$state.notificationSuffix=$null;$state.blindnessSeen=$false;$state.incidentRecoveryFailures=0}
   $state.lastMode=if($decision -eq 'verification_pending'){'verification_pending'}else{'running'}
   $state.lastFence=$snapshot.admission.fence;$state.decision=$decision
   Write-WatchJson $StatePath $state

@@ -94,18 +94,42 @@ try {
   Send-WatchAlert $open $snapshot 'alert_only'
   Assert-Binding ($script:sends -eq $before+1) 'a stale unknown delivery never escalated, leaving the incident silent'
   Assert-Binding ($open.notificationEscalations -eq 1) 'escalation round was not recorded'
-  Assert-Binding ((Test-Path -LiteralPath (Join-Path $root 'alerts\fixture-escalate-escalation1.json'))) 'escalation did not write its own record'
+  Assert-Binding ((Test-Path -LiteralPath (Join-Path $root 'alerts\fixture-escalate-reminder1.json'))) 'escalation did not write its own record'
   Assert-Binding ((Read-WatchJson (Join-Path $root 'alerts\fixture-escalate.json')) -eq $null) 'escalation overwrote the original unknown receipt'
   # Immediately afterwards the same round must not fire again.
   $before=$script:sends
   Send-WatchAlert $open $snapshot 'alert_only'
   Assert-Binding ($script:sends -eq $before) 'escalation replayed within its own time gate'
-  # The bound holds: a fourth escalation never happens.
+  # The old 3-reminder cap is gone: a 4th reminder is a NEW record and the earlier ones are untouched.
   $open.notificationEscalations=3;$open.notification='unknown'
   $open.lastNotificationEscalation=[DateTimeOffset]::UtcNow.AddDays(-9).ToString('o')
   $before=$script:sends
   Send-WatchAlert $open $snapshot 'alert_only'
-  Assert-Binding ($script:sends -eq $before) 'escalation exceeded its bound'
+  Assert-Binding ($script:sends -eq $before+1 -and $open.notificationEscalations -eq 4) 'reminders stayed capped, leaving a long incident silent'
+  Assert-Binding (Test-Path -LiteralPath (Join-Path $root 'alerts\fixture-escalate-reminder4.json')) 'the fourth reminder had no record of its own'
+
+  # --- 4b. Transitional: the state shape live on 2026-11-12 (cap already spent, identity retries spent) ---
+  $live=New-WatchState;$live.incident='fixture-live';$live.firstFailure=[DateTimeOffset]::UtcNow.AddDays(-12).ToString('o')
+  $live.notification='unknown';$live.notificationEscalations=3;$live.lastNotificationEscalation='2026-11-01T18:19:30.4082504+08:00'
+  $live.identityAttempts=1
+  $liveAlerts=Join-Path $root 'alerts'
+  $oldBodies=@{}
+  foreach($n in @('','-escalation1','-escalation2','-escalation3')){
+    $p=Join-Path $liveAlerts ("fixture-live$n.json")
+    $body=@{status=$(if($n){'identity_failed'}else{'unknown'});marker="old$n"}
+    ($body|ConvertTo-Json)|Set-Content -LiteralPath $p -Encoding UTF8
+    $oldBodies[$n]=Get-Content -LiteralPath $p -Raw
+  }
+  $before=$script:sends
+  Send-WatchAlert $live $snapshot 'alert_only'
+  Assert-Binding ($script:sends -eq $before+1 -and $live.notificationEscalations -eq 4) 'the live state shape did not produce a new numbered round'
+  Assert-Binding (Test-Path -LiteralPath (Join-Path $liveAlerts 'fixture-live-reminder4.json')) 'round 4 had no record of its own'
+  foreach($n in @('','-escalation1','-escalation2','-escalation3')){
+    Assert-Binding ((Get-Content -LiteralPath (Join-Path $liveAlerts "fixture-live$n.json") -Raw) -ceq $oldBodies[$n]) "old record '$n' was overwritten"
+  }
+  $before=$script:sends
+  Send-WatchAlert $live $snapshot 'alert_only'
+  Assert-Binding ($script:sends -eq $before) 'the same round was replayed'
   # A confirmed send is still terminal and is never escalated.
   $done=New-WatchState;$done.incident='fixture-done';$done.notification='sent'
   $before=$script:sends

@@ -17,6 +17,22 @@ try {
   $s.admission.mode='invalid';Assert-Watch ((Get-WatchDecision $s $state $now) -eq 'alert_only') 'malformed gate must not authorize recovery'
   $s.admission.mode='running';$s.worker='foreign_or_ambiguous';Assert-Watch ((Get-WatchDecision $s $state $now) -eq 'alert_only') 'unknown port owner must not be taken over'
   $s.worker='starting_exact_release';Assert-Watch ((Get-WatchDecision $s $state $now) -eq 'alert_only') 'in-flight startup must not be repeated'
+  # Recovery cap: 3 failed attempts for one incident, then alert-only until the incident closes.
+  $s=Fixture-Snapshot;$cap=New-WatchState;$cap.failures=5
+  foreach($n in 0,1,2){$cap.incidentRecoveryFailures=$n;Assert-Watch ((Get-WatchDecision $s $cap $now) -eq 'recover') "attempt $($n+1) must still be allowed"}
+  $cap.incidentRecoveryFailures=3;Assert-Watch ((Get-WatchDecision $s $cap $now) -eq 'recovery_exhausted') 'the 4th recovery of one incident must not start'
+  $cap.attempts=@();$cap.incidentRecoveryFailures=7;Assert-Watch ((Get-WatchDecision $s $cap $now.AddDays(3)) -eq 'recovery_exhausted') 'an empty 15-minute window must not reopen an exhausted incident'
+  Assert-Watch ((Get-WatchDecision (Fixture-Snapshot) (New-WatchState) $now) -eq 'confirm_failure') 'a fresh state keeps the confirmation round'
+  $legacy=@{version=$WatchdogVersion;failures=5;attempts=@()}
+  Assert-Watch ((Get-WatchDecision $s $legacy $now) -eq 'recover') 'a state saved before the cap existed must count from zero'
+  # Blindness wording and the new binding codes.
+  $blind=Fixture-Snapshot;$blind.probeError=$true;$blind.diagnosticBinding=Get-WatchBindingDiagnostic 'diagnostic_regeneration_rejected' @{assets=@('worker');reason='closure_forbidden_primitive'}
+  Assert-Watch ($blind.diagnosticBinding.reason -ceq 'closure_forbidden_primitive' -and $blind.diagnosticBinding.requiresRequalification) 'a rejection must carry its enum reason'
+  Assert-Watch ((Get-WatchFailureText $blind) -match '人工复核' -and (Get-WatchFailureText $blind) -match '这不代表服务异常') 'a rejected regeneration must say the monitor is blind'
+  $bad=Get-WatchBindingDiagnostic 'diagnostic_regeneration_rejected' @{reason='D:\PRIVATE_SECRET\x'}
+  Assert-Watch ($null -eq $bad.reason -and ($bad|ConvertTo-Json) -notmatch 'PRIVATE_SECRET') 'a free-text reason must be dropped'
+  $transient=Get-WatchBindingDiagnostic 'diagnostic_sources_changing' @{}
+  Assert-Watch ($transient.requiresRequalification -eq $false) 'a transient source change is not a requalification'
   $s=Fixture-Snapshot;$s.supervisor='ownership_error';Assert-Watch ((Get-WatchDecision $s $state $now) -eq 'alert_only') 'supervisor PID reuse must fail closed'
   $s=Fixture-Snapshot;$s.supervisor='ownership_check_failed';Assert-Watch ((Get-WatchDecision $s $state $now) -eq 'alert_only') 'a diagnostic that could not run must fail closed, same as a confirmed mismatch'
   Assert-Watch ((Get-WatchFailureText $s) -match '监控自身未能完成.*核验') 'an unexecuted ownership check must say the monitor is blind, not that the supervisor is broken'
