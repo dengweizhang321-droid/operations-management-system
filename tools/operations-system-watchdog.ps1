@@ -640,6 +640,22 @@ function Get-WatchDecision($Snapshot,$State,[DateTimeOffset]$Now) {
   if($Snapshot.worker -eq 'exact_release' -and $Snapshot.backend -eq 'Ready' -and $Snapshot.supervisor -eq 'running'){return 'alert_only'}
   return 'recover'
 }
+function Test-WatchSupervisorCandidatePresent {
+  # Read-only mirror of Get-DjangoSupervisorCandidates (django-local-service.ps1): a process whose command line
+  # references the supervisor script path and carries "-Action Run". Never touches the supervisor's own lock.
+  # Enumeration failure is not "no candidate": it is reported as supervisor_candidate_unknown.
+  try{$processes=@(Get-CimInstance Win32_Process -ErrorAction Stop)}catch{throw 'supervisor_candidate_unknown'}
+  $full=[IO.Path]::GetFullPath($SupervisorPath)
+  $variants=@($full,$full.Replace('\','/'))
+  foreach($p in $processes){
+    $cl=[string]$p.CommandLine
+    if(-not $cl){continue}
+    $hit=$false
+    foreach($v in $variants){if($cl.IndexOf($v,[StringComparison]::OrdinalIgnoreCase) -ge 0){$hit=$true;break}}
+    if($hit -and $cl -match '(?i)(?:^|\s|"|-)Action(?:\s+|"\s*)Run(?:\s|"|$)'){return $true}
+  }
+  return $false
+}
 function Restore-WatchSupervisor {
   $name='Local\TERUISI-DjangoSales-'+([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($BackendRoot))).ToLowerInvariant()).Substring(0,24)
   $guard=[Threading.Mutex]::new($false,$name);$locked=$false
@@ -650,6 +666,8 @@ function Restore-WatchSupervisor {
   $status=Invoke-WatchSupervisorStatus
   if($status.supervisorProcess -eq 'running'){return}
   if($status.supervisorProcess -ne 'stopped'){throw 'supervisor_ownership_error'}
+  # A supervisor launched moments ago (e.g. by Django Start) has not written its receipt yet: treat as starting.
+  if(Test-WatchSupervisorCandidatePresent){return}
   $old=$env:PSModulePath
   try{
     $env:PSModulePath=[Environment]::GetEnvironmentVariable('PSModulePath','Machine')
@@ -1059,8 +1077,8 @@ function Invoke-WatchCycle([switch]$Recover){
       $snapshot=$second
     }catch{
       $decision='recovery_failed'
-      if($_.Exception.Message -cin @('lifecycle_busy','django_lifecycle_busy','desired_state_changed','desired_state_stopped','supervisor_start_fenced','maintenance_active')){$countRecoveryFailure=$false}
-      $known=@('lifecycle_busy','desired_state_changed','desired_state_stopped','stale_pid_reused','django_lifecycle_busy','supervisor_start_fenced','supervisor_ownership_error','maintenance_active','process_deadline_exhausted')
+      if($_.Exception.Message -cin @('lifecycle_busy','django_lifecycle_busy','desired_state_changed','desired_state_stopped','supervisor_start_fenced','maintenance_active','supervisor_candidate_unknown')){$countRecoveryFailure=$false}
+      $known=@('lifecycle_busy','desired_state_changed','desired_state_stopped','stale_pid_reused','django_lifecycle_busy','supervisor_start_fenced','supervisor_ownership_error','maintenance_active','process_deadline_exhausted','supervisor_candidate_unknown')
       $state.recoveryAttempt=@{at=$now.ToString('o');status='recovery_failed';code=if($_.Exception.Message -cin $known){$_.Exception.Message}else{'recovery_operation_failed'};process=Get-WatchProcessDiagnostic $_.Exception.Data['ProcessEvidence']}
     }
     if($decision -eq 'recovery_failed' -and $countRecoveryFailure){$state.incidentRecoveryFailures=[int]$state.incidentRecoveryFailures+1}

@@ -251,3 +251,27 @@
 ### 发布范围（只读核查 `tools/release-scope-plan.mjs --base f7e5713d`）
 
 本分支改动文件按 `scope=non-production`、`components=[]` 归类（各 tools 文件在应用复制清单中均为「neither」），不会把下一次 Django/Worker 发布变成完整组件流程。
+
+### 防重复拉起守护
+
+背景：`Invoke-WatchRecovery` 先经 `Invoke-WorkerSystemStart` 触发 Django Start；Start 末尾的 `Invoke-DjangoSupervisorRelaunch` 请求拉起守护后不等其写回执（约 38 秒）就放锁。看门狗随即在 `Restore-WatchSupervisor` 拿到同一把锁，读到守护 Status 为 `stopped`，再拉起一个。守护自带单实例锁，最终只剩一个，但会多出一个立即退出的进程和一份 err 日志。
+
+判定规则（`tools/operations-system-watchdog.ps1`，新增 `Test-WatchSupervisorCandidatePresent`，第 643 行；调用点在 `Restore-WatchSupervisor`，第 659 行起、第 670 行）：
+
+- 顺序：拿到生命周期锁 → admission 为 running → Status 为 `stopped` → 候选进程检查 → `Start-Process`。Status 为 `running` 直接返回，不查候选；其他状态仍抛 `supervisor_ownership_error`。
+- 候选进程：枚举 `Win32_Process`（只读 CIM），命令行含看门狗已有的 `$SupervisorPath`（反斜杠或正斜杠写法，忽略大小写），且匹配 `(?i)(?:^|\s|"|-)Action(?:\s+|"\s*)Run(?:\s|"|$)`。
+- 发现候选：视为守护正在拉起，不启动，正常返回。
+- 枚举失败或结果不确定：不启动，抛固定码 `supervisor_candidate_unknown`。该码已加入 `Invoke-WatchCycle` 恢复失败的「不计入 `incidentRecoveryFailures`」数组与 `$known` 白名单——它没有真正执行恢复动作。
+- 不读写守护自己的单实例锁（`Local\TERUISI-DjangoRuntimeSupervisor-…`），也不调用 django-local-service.ps1 的任何函数。
+
+与 Django 侧的对应（`tools/django-local-service.ps1`）：
+
+| 看门狗 | Django 侧 |
+| --- | --- |
+| `Test-WatchSupervisorCandidatePresent` 的 CIM 枚举与命令行匹配 | `Get-DjangoSupervisorCandidates`（3093 行）：同样枚举 `Win32_Process`，以 `Test-CommandLineReferencesPath`（2916 行）匹配路径并要求 `-Action Run` |
+| 发现候选则不启动 | `Get-DjangoSupervisorRelaunchPlan`（3216 行）里 `Reason = supervisor_candidate_present`（3259 行起） |
+| 枚举失败抛 `supervisor_candidate_unknown` | `Get-DjangoSupervisorCandidates` 枚举失败时抛错、拒绝继续 |
+
+差异：Django 侧匹配的是 `$InstalledAppRoot` 下的守护脚本，看门狗匹配 `$SupervisorPath`（`$BackendRoot\app\tools\django-runtime-supervisor.ps1`）；Django 侧另先看回执状态（`Get-DjangoSupervisorReceiptState`，3181 行），看门狗这一步已由 Status 的 `supervisorProcess` 覆盖。
+
+测试：`tests/watchdog-supervisor-relaunch-dedupe.test.ps1`（假 `Get-CimInstance`、`Start-Process`、`Invoke-WatchSupervisorStatus`、`Get-Admission`，不触碰生产）。
