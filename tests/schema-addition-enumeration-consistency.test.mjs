@@ -43,8 +43,9 @@ const MIN = {
   gateDbPairs: 15,
   localPairs: 15,
   backupInstalled: 10,
-  backupReturnPairs: 13,
-  backupEquals: 3,
+  backupReturnPairs: 14, // 实测：return 链 15 项，末项是无条件兜底，其余 14 项都是「N if x_installed」配对
+  // 146、147 两代永远是 `==`（它们不是 finite[] 终止代数）；最新代可写成 == 也可写成元组，所以不把它计入下限。
+  backupEquals: 2,
   localChain: 15,
   localMarkers: 15,
   localCopy: 140,
@@ -532,7 +533,13 @@ export function checkBackup(s) {
   };
   for (const to of tos) {
     const pair = returnPairs.find((p) => p.n === to);
-    if (!pair) continue; // 缺项由规则 B 报
+    if (!pair) {
+      // 链里没有这个代数：规则 B 已报。链里有、却没解析出配对：写法超出提取器，不能静默放过（否则备份可能把旧库报成这一代）。
+      if (returnChain.includes(to)) {
+        v.push('generation' + to + '（' + kindsAt(to) + '）: tools/postgres_no_key_backup.py 末尾 return 链里 ' + to + ' 这一项不是「' + to + ' if <单个变量名>_installed」的形状（例如带括号或 and 组合），提取器识别不了配对。补：改成 `' + to + ' if <x>_installed`，把组合条件先赋给一个 *_installed 变量');
+      }
+      continue;
+    }
     const min = minGenOf(pair.variable);
     if (min === null) {
       v.push('generation' + to + '（' + kindsAt(to) + '）: tools/postgres_no_key_backup.py return 链里 ' + to + ' 配的 ' + pair.variable + ' 找不到定义（写法超出提取器）');
@@ -633,6 +640,21 @@ const RELATIONS = {checkRecipes, checkFiles, checkChain, checkBiAdopt, checkLoca
 
 const s = snapshot();
 const spec = (kind) => s.specs.find((x) => x.kind === kind);
+// 按终止代数从大到小的 kind。反向用例需要「最新一代」时从这里取，不写死 159 之类的字面文本，否则合法新增一代后反向用例自己会失效。
+const kindsDesc = [...new Set([...s.specs].sort((a, b) => b.to - a.to).map((x) => x.kind))];
+const latestSpec = [...s.specs].sort((a, b) => b.to - a.to)[0];
+const latestKind = latestSpec.kind;
+const prevTo = Math.max(...s.specs.filter((x) => x.to < latestSpec.to).map((x) => x.to));
+const backupDefOf = (variable) => {
+  const m = s.backup.match(new RegExp('^[ ]*' + variable + ' = receipts (?:==|in) .*$', 'm'));
+  assert.ok(m, '反向用例找不到 ' + variable + ' 的定义行');
+  return m[0];
+};
+const pairVarOf = (to) => {
+  const p = extractBackup(s).returnPairs.find((x) => x.n === to);
+  assert.ok(p, '反向用例找不到 return 链里 ' + to + ' 的配对');
+  return p.variable;
+};
 
 test('测量表（ENUM_TRIPWIRE_REPORT=1 时打印各抄写位置的实测集合）', () => {
   const bi = extractBi(s);
@@ -730,9 +752,10 @@ test('反向 1b：迁移/binder/addition/catalog 文件缺失，steps 与 migrat
 
 test('反向 2：步骤数与代数差不符，起始代数接不上链', () => {
   // 用链尾（没有后继以它的终止代数为起点），改动它不会连带影响别的规格。
-  const edit = (patch) => ({...s, specs: s.specs.map((x) => (x.kind === 'AiUnifiedTasks' ? {...x, ...patch} : x))});
-  only(checkChain(edit({steps: []})), 'AiUnifiedTasks', 'steps');
-  only(checkChain(edit({from: 999, to: 1000})), 'AiUnifiedTasks', '999');
+  // 最新一代从规格表取（不写死代际名），按对象身份改。
+  const edit = (patch) => ({...s, specs: s.specs.map((x) => (x === latestSpec ? {...x, ...patch} : x))});
+  only(checkChain(edit({steps: []})), latestKind, 'steps');
+  only(checkChain(edit({from: 999, to: 1000})), latestKind, '999');
   const binder = {...s, specs: s.specs.map((x) => (x.recipe === 'config/main-schema-releases/inventory-0017-from148.json' ? {...x, binder: 'pi_native_candidate.py'} : x))};
   only(checkChain(binder), 'TmallWarehouse', 'binder');
 });
@@ -790,30 +813,39 @@ test('反向 7：分支链顺序、标记-模块配对、跨链一致（纯函�
     return text.slice(text.lastIndexOf(NL, at) + 1, at) + needle;
   };
   // py 链：每个分支是「if ... marker.exists():」+「from X import fn」两行，以 if 行起始。
+  // 不写死代际名：取 finite[] 里终止代数最大的前三个 kind（链顶部三段），新增一代后自动跟着变。
+  const [k1, k2, k3] = kindsDesc;
+  const [stem1, stem2, stem3] = [k1, k2, k3].map((k) => stemOfKind(s, k));
+  const markerOf = (stem) => activeOf(s, stem);
   const gateSwap = (region, before, after, third) => {
     const base = s.gate.indexOf(region);
-    const startOf = (name) => lineStartOf(s.gate, Q + name + '-addition-active.json' + Q, base);
+    const startOf = (stem) => lineStartOf(s.gate, Q + markerOf(stem) + Q, base);
     return swapAdjacent(s.gate, startOf(before), startOf(after), startOf(third), base);
   };
   // 相邻对调：第 1、2 代（AiUnifiedTasks / AiTaskFeedbackCandidates）在 verify_release。
-  const verifyOrder = gateSwap('def verify_release(', 'ai-unified-tasks', 'ai-task-feedback-candidates', 'workflow-automation');
-  hit(checkChainOrder({...s, gate: verifyOrder}), 'verify_release', 'ai_task_feedback_candidates');
-  const dbOrder = gateSwap('def verify_database_complete(', 'ai-unified-tasks', 'ai-task-feedback-candidates', 'workflow-automation');
-  hit(checkChainOrder({...s, gate: dbOrder}), 'verify_database_complete', 'ai_task_feedback_candidates');
+  const verifyOrder = gateSwap('def verify_release(', stem1, stem2, stem3);
+  hit(checkChainOrder({...s, gate: verifyOrder}), 'verify_release', stem2);
+  const dbOrder = gateSwap('def verify_database_complete(', stem1, stem2, stem3);
+  hit(checkChainOrder({...s, gate: dbOrder}), 'verify_database_complete', stem2);
   // ps1 闸链：同样把前两代的整段对调（变量定义随段走，配对不变，只破坐顺序）。
-  const localSwap = swapAdjacent(s.local, '$aiUnifiedTasksGate = Join-Path', '$aiTaskFeedbackCandidatesGate = Join-Path', '$workflowAutomationGate = Join-Path');
+  const varOf = (stem) => {
+    const m = s.local.match(new RegExp('[$]([A-Za-z0-9]+) = Join-Path [$]candidateRoot ' + String.fromCharCode(39) + 'tools[/]' + stem + '_addition[.]py'));
+    assert.ok(m, '反向用例找不到 ' + stem + ' 的闸变量定义');
+    return '$' + m[1] + ' = Join-Path';
+  };
+  const localSwap = swapAdjacent(s.local, varOf(stem1), varOf(stem2), varOf(stem3));
   assert.notEqual(localSwap, s.local);
-  hit(checkChainOrder({...s, local: localSwap}), 'Assert-NoUnapprovedProtectedAiMigration', 'ai_task_feedback_candidates');
+  hit(checkChainOrder({...s, local: localSwap}), 'Assert-NoUnapprovedProtectedAiMigration', stem2);
   // 最新代整个挪到 bi_app 之后（链尾）：会同时触发「比 finite[] 更早代际在前」和跨链不一致。
   const latest = (() => {
     const base = s.gate.indexOf('def verify_release(');
-    const a = s.gate.lastIndexOf(NL, s.gate.indexOf(Q + 'ai-unified-tasks-addition-active.json' + Q, base)) + 1;
-    const b = s.gate.lastIndexOf(NL, s.gate.indexOf(Q + 'ai-task-feedback-candidates-addition-active.json' + Q, base)) + 1;
+    const a = s.gate.lastIndexOf(NL, s.gate.indexOf(Q + markerOf(stem1) + Q, base)) + 1;
+    const b = s.gate.lastIndexOf(NL, s.gate.indexOf(Q + markerOf(stem2) + Q, base)) + 1;
     const e = s.gate.indexOf(NL, s.gate.indexOf('from bi_app_addition import verify_active', base)) + 1;
     return s.gate.slice(0, a) + s.gate.slice(b, e) + s.gate.slice(a, b) + s.gate.slice(e);
   })();
   const moved = checkChainOrder({...s, gate: latest});
-  assert.ok(moved.some((x) => x.includes('verify_release') && x.includes('AiUnifiedTasks')), '最新代挪到链尾应被抓到: ' + JSON.stringify(moved));
+  assert.ok(moved.some((x) => x.includes('verify_release') && x.includes(k1)), '最新代挪到链尾应被抓到: ' + JSON.stringify(moved));
   assert.ok(moved.some((x) => x.includes('不一致')), '跨链顺序不一致应被抓到: ' + JSON.stringify(moved));
   // 标记与模块配对对调（形式上顺序不变）。
   const pa = Q + 'pi-agent-addition-active.json' + Q;
@@ -826,7 +858,7 @@ test('反向 7：分支链顺序、标记-模块配对、跨链一致（纯函�
   const base = gateText.indexOf('def verify_release(');
   const sa = gateText.lastIndexOf(NL, gateText.indexOf(Q + 'ai-schedule-addition-active.json' + Q, base)) + 1;
   const se = gateText.lastIndexOf(NL, gateText.indexOf(Q + 'jackyun-audit-addition-active.json' + Q, base)) + 1;
-  const firstBranch = gateText.lastIndexOf(NL, gateText.indexOf(Q + 'ai-unified-tasks-addition-active.json' + Q, base)) + 1;
+  const firstBranch = gateText.lastIndexOf(NL, gateText.indexOf(Q + markerOf(stem1) + Q, base)) + 1;
   const older = gateText.slice(0, firstBranch) + gateText.slice(sa, se) + gateText.slice(firstBranch, sa) + gateText.slice(se);
   const olderViolations = checkChainOrder({...s, gate: older});
   assert.ok(olderViolations.some((x) => x.includes('ai_schedule') && x.includes('更早代际')), JSON.stringify(olderViolations));
@@ -867,30 +899,51 @@ test('反向 6：ai_assistant 代际不在 Pi 运行账本权限名单；例外�
 
 test('反向 5c：备份判定元组与 return 链必须纳入最新代', () => {
   // 只从某一个判定元组里去掉最新代（tmall_installed 那行）。
-  const line = 'tmall_installed = receipts in (generation149, generation150, generation151, generation152, generation153, generation154, generation156, generation158, generation159)';
-  const dropped = replaceNth(s.backup, line, line.replace(', generation159', ''));
-  only(checkBackup({...s, backup: dropped}), 'generation159', '判定元组');
+  // 最新一代的代数从规格表取，判定行从备份文件里现读（不写死 159）。
+  const latest = 'generation' + latestSpec.to;
+  const line = backupDefOf('tmall_installed');
+  assert.ok(line.includes(', ' + latest), 'tmall_installed 元组里应已有 ' + latest);
+  const dropped = replaceNth(s.backup, line, line.replace(', ' + latest, ''));
+  only(checkBackup({...s, backup: dropped}), latest, '判定元组');
   // 只从 return 链里去掉最新代。
-  hit(checkBackup({...s, backup: replaceNth(s.backup, 'return 159 if unified_tasks_installed else ', 'return ')}), 'generation159', 'return 链');
+  const lead = 'return ' + latestSpec.to + ' if ' + pairVarOf(latestSpec.to) + ' else ';
+  hit(checkBackup({...s, backup: replaceNth(s.backup, lead, 'return ')}), latest, 'return 链');
 });
 
 test('反向 5d：备份 == 判定必须是最新一代；return 链配对的判定变量必须匹配', () => {
-  const eqLatest = '    unified_tasks_installed = receipts == generation159';
-  const tupleLine = '    feedback_candidates_installed = receipts in (generation158, generation159)';
+  // 最新代、上一代的代数与它们在 return 链里配的变量都现取，不写死；定义行可能是 == 也可能是元组，新增一代后会变。
+  const latestN = latestSpec.to;
+  const eqLatest = backupDefOf(pairVarOf(latestN));
+  const tupleLine = backupDefOf(pairVarOf(prevTo));
+  const indentOf = (l) => l.slice(0, l.length - l.trimStart().length);
   // 最新代的 == 判定改成上一代。
   // 会同时触发规则 C（== 判定不是最新代）和规则 D（return 链 159 配的变量最小代数是 158），两条都要报。
-  const edited = checkBackup({...s, backup: replaceNth(s.backup, eqLatest, eqLatest.replace('generation159', 'generation158'))});
+  const asEq = (line, n) => indentOf(line) + line.trim().split(' = ')[0] + ' = receipts == generation' + n;
+  const edited = checkBackup({...s, backup: replaceNth(s.backup, eqLatest, asEq(eqLatest, prevTo))});
   assert.equal(edited.length, 2, JSON.stringify(edited));
-  hit(edited, 'generation158', '== generation158', '最新一代是 generation159');
-  hit(edited, 'generation159', 'return 链', '最小代数是 158');
-  // 一条元组判定改成 == 且 N 不是最新代（审查者的注入）。
-  hit(checkBackup({...s, backup: replaceNth(s.backup, tupleLine, '    feedback_candidates_installed = receipts == generation158')}), 'generation158', '== generation158');
+  hit(edited, 'generation' + prevTo, '== generation' + prevTo, '最新一代是 generation' + latestN);
+  hit(edited, 'generation' + latestN, 'return 链', '最小代数是 ' + prevTo);
+  //一条元组判定改成 == 且 N 不是最新代（审查者的注入）。
+  hit(checkBackup({...s, backup: replaceNth(s.backup, tupleLine, asEq(tupleLine, prevTo))}), 'generation' + prevTo, '== generation' + prevTo);
   // 146/147 不是 finite[] 终止代数，不受约束（当前主干即如此，无违规）。
   assert.deepEqual(checkBackup(s), []);
   // return 链：156 配的变量换成相邻一代的判定。
   only(checkBackup({...s, backup: replaceNth(s.backup, '156 if workflow_automation_installed', '156 if sales_preflight_installed')}), 'generation156', 'sales_preflight_installed', '最小代数是 154');
   // 配对变量没有定义：不能默认通过。
   only(checkBackup({...s, backup: replaceNth(s.backup, '156 if workflow_automation_installed', '156 if ghost_installed')}), 'generation156', 'ghost_installed', '找不到定义');
+});
+
+test('反向 5e：return 链里的配对写法超出提取器时必须报错，不能静默跳过', () => {
+  // 审查者的注入：158 改配成带括号的变量。数字 158 仍在链里（规则 B 通过），但超出「N if 单个变量名」的形状。
+  only(checkBackup({...s, backup: replaceNth(s.backup, '158 if feedback_candidates_installed', '158 if (workflow_automation_installed)')}), 'generation158', 'return 链', '形状');
+  // and 组合形状。
+  only(checkBackup({...s, backup: replaceNth(s.backup, '154 if sales_preflight_installed', '154 if sales_preflight_installed and native_installed')}), 'generation154', 'return 链', '形状');
+  // 最新一代的配对同样要报（现取，不写死）。
+  const lastVar = pairVarOf(latestSpec.to);
+  only(checkBackup({...s, backup: replaceNth(s.backup, latestSpec.to + ' if ' + lastVar, latestSpec.to + ' if (' + lastVar + ')')}), 'generation' + latestSpec.to, '形状');
+  // 代数整个不在链里：只报规则 B，不重复报「形状」。
+  const gone = checkBackup({...s, backup: replaceNth(s.backup, '154 if sales_preflight_installed else ', '')});
+  assert.ok(gone.length >= 1 && gone.every((x) => !x.includes('形状')), JSON.stringify(gone));
 });
 
 test('反向 4c：automation/ 逐文件复制清单缺项；未知前缀必须报错；backend/ 整目录不逐文件检查', () => {
