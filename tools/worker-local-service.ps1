@@ -1188,6 +1188,30 @@ function Get-StopHelperOwnershipContext([object[]]$Tree, [object]$Identity, [int
   return [pscustomobject]@{ Helper = $null; Helpers = @($helpers.Process); HelperIds = $helperIds; DescendantIds = $descendants }
 }
 
+function Test-BlankProcessText([object]$Value) {
+  return [string]::IsNullOrWhiteSpace([string]$Value)
+}
+
+function Test-ExitingProcessMetadataLoss([object]$Current, [object]$Known) {
+  # A process that is exiting can stay enumerable with its exact PID, parent,
+  # name and creation time while Win32 already reports empty ExecutablePath /
+  # CommandLine.  Only that narrow case may fall back to the complete snapshot
+  # recorded in the controlled-stop ledger; everything else stays strict.
+  if (-not $Current -or -not $Known) { return $false }
+  if (-not (Test-SameProcessIdentity $Current $Known)) { return $false }
+  if (([string]$Current.Name) -cne ([string]$Known.Name)) { return $false }
+  if ([int]$Current.ParentProcessId -ne [int]$Known.ParentProcessId) { return $false }
+  $pathLost = (Test-BlankProcessText $Current.ExecutablePath) -and -not (Test-BlankProcessText $Known.ExecutablePath)
+  $commandLost = (Test-BlankProcessText $Current.CommandLine) -and -not (Test-BlankProcessText $Known.CommandLine)
+  if (-not ($pathLost -or $commandLost)) { return $false }
+  # Any field that is still readable must agree with the ledger.
+  if (-not (Test-BlankProcessText $Current.ExecutablePath) -and
+      -not ([string]$Current.ExecutablePath).Equals([string]$Known.ExecutablePath, [System.StringComparison]::OrdinalIgnoreCase)) { return $false }
+  if (-not (Test-BlankProcessText $Current.CommandLine) -and
+      ([string]$Current.CommandLine) -cne ([string]$Known.CommandLine)) { return $false }
+  return $true
+}
+
 function Get-ControlledStopSweep(
   [object]$Identity,
   [object]$SupervisorSnapshot,
@@ -1211,7 +1235,16 @@ function Get-ControlledStopSweep(
     $knownById[$id] = $process
   }
 
-  $augmented = @($Processes)
+  $script:ControlledStopRejection = $null
+  $augmented = @()
+  foreach ($process in $Processes) {
+    $id = [int]$process.ProcessId
+    if ($knownById.ContainsKey($id) -and (Test-ExitingProcessMetadataLoss $process $knownById[$id])) {
+      $augmented += $knownById[$id]
+    } else {
+      $augmented += $process
+    }
+  }
   foreach ($id in @($knownById.Keys)) {
     if ($currentById.ContainsKey($id)) {
       if (-not (Test-SameProcessIdentity $knownById[$id] $currentById[$id])) {
@@ -1233,6 +1266,15 @@ function Get-ControlledStopSweep(
       throw "A process claiming the stopped supervisor was created after its termination fence"
     }
     if (-not (Test-AllowedTreeProcess $process $Identity $supervisorId $helperContext)) {
+      $script:ControlledStopRejection = [ordered]@{
+        name = [string]$process.Name
+        pid = [int]$process.ProcessId
+        ppid = [int]$process.ParentProcessId
+        creationDate = Get-CreationIdentity $process
+        executablePathPresent = -not (Test-BlankProcessText $process.ExecutablePath)
+        commandLinePresent = -not (Test-BlankProcessText $process.CommandLine)
+        inLedger = [bool]$knownById.ContainsKey([int]$process.ProcessId)
+      }
       throw "Controlled stop discovered an unapproved process in the immutable supervisor lineage"
     }
     $id = [int]$process.ProcessId
@@ -1468,7 +1510,7 @@ function Restart-ExactWorkerChild([object]$Internal, [datetime]$DeadlineUtc) {
   return $readyStatus
 }
 
-function Write-WorkerStopDiagnostic([object]$Internal, [string]$Phase) {
+function Write-WorkerStopDiagnostic([object]$Internal, [string]$Phase, [object]$RejectedProcess = $null) {
   # Observational only. The exact process snapshot and original mutex remain
   # authoritative; this record must never authorize a later stop or recovery.
   $temporary = $null
@@ -1486,6 +1528,7 @@ function Write-WorkerStopDiagnostic([object]$Internal, [string]$Phase) {
       supervisorCreationDate = Get-CreationIdentity $Internal.Supervisor
       manifestSha256 = $Internal.Identity.Sha256
     }
+    if ($RejectedProcess) { $record['rejectedProcess'] = $RejectedProcess }
     $temporary = "$target.tmp-$([Guid]::NewGuid().ToString('N'))"
     $bytes = [Text.UTF8Encoding]::new($false).GetBytes(($record | ConvertTo-Json -Compress) + "`n")
     $stream = [IO.FileStream]::new($temporary, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
@@ -1532,7 +1575,15 @@ function Stop-ExactWorkerSnapshot([object]$Internal) {
   $stableEmptySweeps = 0
   for ($attempt = 0; $attempt -lt 100; $attempt++) {
     $processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)
-    $sweep = Get-ControlledStopSweep $Internal.Identity $supervisor $knownSnapshots $processes $directChildCutoffTicks
+    try {
+      $sweep = Get-ControlledStopSweep $Internal.Identity $supervisor $knownSnapshots $processes $directChildCutoffTicks
+    } catch {
+      if ($script:ControlledStopRejection -and
+          [string]$_.Exception.Message -ceq 'Controlled stop discovered an unapproved process in the immutable supervisor lineage') {
+        Write-WorkerStopDiagnostic $Internal 'unapproved_process' $script:ControlledStopRejection
+      }
+      throw
+    }
     $knownSnapshots = @($sweep.KnownSnapshots)
     $live = @($sweep.LiveEntries | Where-Object { [int]$_.Process.ProcessId -ne $supervisorId })
     if ($live.Count -eq 0) {

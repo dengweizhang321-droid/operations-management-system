@@ -2291,3 +2291,107 @@ if (-not $lateFailed) { throw 'post-fence child was not rejected' }
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "verified");
 });
+
+test("PowerShell Stop sweep tolerates exiting processes with unreadable metadata only when the ledger proves identity", () => {
+  const servicePath = path.resolve("tools/worker-local-service.ps1").replaceAll("'", "''");
+  const fixture = `
+$ErrorActionPreference = 'Stop'
+$testRoot = Join-Path ([IO.Path]::GetTempPath()) ('worker-exiting-' + [guid]::NewGuid().ToString('N'))
+[IO.Directory]::CreateDirectory((Join-Path $testRoot 'state')) | Out-Null
+try {
+. '${servicePath}' -FunctionsOnly -RuntimeRoot $testRoot -AllowTestRuntimeRoot
+$node = Get-NodeExecutable
+$nodeName = Split-Path -Leaf $node
+$releaseRoot = 'D:\\controlled worker\\releases\\20260830T130000Z-fedcba9876543210'
+$manifestPath = Join-Path $releaseRoot 'deployment-manifest.json'
+$sha = 'a' * 64
+$supervisorPath = Join-Path $releaseRoot 'tools\\worker-local-runtime-supervisor.mjs'
+$wranglerPath = Join-Path $releaseRoot 'node_modules\\wrangler\\bin\\wrangler.js'
+$workerdPath = Join-Path $releaseRoot 'node_modules\\@cloudflare\\workerd-windows-64\\bin\\workerd.exe'
+$identity = [pscustomobject]@{
+  ReleaseRoot = $releaseRoot; Path = $manifestPath; Sha256 = $sha
+  Manifest = [pscustomobject]@{ processIdentity = [pscustomobject]@{
+    fixedWranglerArguments = @('dev'); fixedHelperArguments = @('serve', '--port', '5791')
+    helperEntrypoint = 'helper/tmall-workflow-helper.mjs' } }
+}
+function New-Proc($id, $parent, $created, $name, $path, $command) {
+  [pscustomobject]@{ ProcessId = $id; ParentProcessId = $parent; CreationDate = [datetime]$created
+    Name = $name; ExecutablePath = $path; CommandLine = $command }
+}
+$supervisor = New-Proc 100 1 '2026-08-30T12:00:00Z' $nodeName $node ('"' + $node + '" "' + $supervisorPath + '" --manifest "' + $manifestPath + '" --approved-manifest-sha256 ' + $sha)
+$wrangler = New-Proc 102 100 '2026-08-30T12:00:01Z' $nodeName $node ('"' + $node + '" "' + $wranglerPath + '" dev')
+$workerd = New-Proc 103 102 '2026-08-30T12:00:02Z' 'workerd.exe' $workerdPath ('"' + $workerdPath + '" serve')
+$cutoff = ([datetime]'2026-08-30T12:00:05Z').ToUniversalTime().Ticks
+$ledger = @($supervisor, $wrangler, $workerd)
+function Get-Rejection([scriptblock]$Run) {
+  try { & $Run | Out-Null; return $null } catch { return $_.Exception.Message }
+}
+$unapproved = 'Controlled stop discovered an unapproved process in the immutable supervisor lineage'
+
+# 1. Exiting processes: identity intact, metadata unreadable -> admitted from the ledger.
+$blindWrangler = New-Proc 102 100 '2026-08-30T12:00:01Z' $nodeName '' ''
+$blindWorkerd = New-Proc 103 102 '2026-08-30T12:00:02Z' 'workerd.exe' $null ' '
+$sweep = Get-ControlledStopSweep $identity $supervisor $ledger @($blindWrangler, $blindWorkerd) $cutoff
+if (($sweep.LiveEntries.Process.ProcessId -join ',') -cne '102,103') { throw 'exiting processes were not kept live' }
+$known = @{}; foreach ($item in $sweep.KnownSnapshots) { $known[[int]$item.ProcessId] = $item }
+if ($known[103].ExecutablePath -cne $workerdPath -or $known[102].CommandLine -cne $wrangler.CommandLine) { throw 'ledger was overwritten by blank metadata' }
+$again = Get-ControlledStopSweep $identity $supervisor $sweep.KnownSnapshots @($blindWrangler, $blindWorkerd) $cutoff
+if (($again.LiveEntries.Process.ProcessId -join ',') -cne '102,103') { throw 'second sweep lost the exiting processes' }
+$halfBlind = New-Proc 102 100 '2026-08-30T12:00:01Z' $nodeName $node ''
+$half = Get-ControlledStopSweep $identity $supervisor $ledger @($halfBlind, $workerd) $cutoff
+if (($half.LiveEntries.Process.ProcessId -join ',') -cne '102,103') { throw 'partial metadata loss was not admitted' }
+$gone = Get-ControlledStopSweep $identity $supervisor $ledger @() $cutoff
+if ($gone.LiveEntries.Count -ne 0) { throw 'absent processes reported live' }
+
+# 2. Not in the ledger -> still rejected, even though the metadata is empty.
+$stranger = New-Proc 107 102 '2026-08-30T12:00:03Z' 'workerd.exe' '' ''
+if ((Get-Rejection { Get-ControlledStopSweep $identity $supervisor $ledger @($wrangler, $workerd, $stranger) $cutoff }) -cne $unapproved) { throw 'unledgered blank process admitted' }
+$rejection = $script:ControlledStopRejection
+if ($rejection.pid -ne 107 -or $rejection.inLedger -ne $false -or $rejection.executablePathPresent -ne $false -or $rejection.commandLinePresent -ne $false) { throw 'rejection detail wrong' }
+
+# 3. Same PID, different creation time -> existing reuse rejection.
+$reused = New-Proc 103 102 '2026-08-30T12:00:03Z' 'workerd.exe' '' ''
+if ((Get-Rejection { Get-ControlledStopSweep $identity $supervisor $ledger @($wrangler, $reused) $cutoff }) -notmatch 'was reused') { throw 'reused PID admitted' }
+
+# 4. Same identity but Name or ParentProcessId differs while metadata is empty.
+$renamed = New-Proc 103 102 '2026-08-30T12:00:02Z' 'other.exe' '' ''
+if ((Get-Rejection { Get-ControlledStopSweep $identity $supervisor $ledger @($wrangler, $renamed) $cutoff }) -cne $unapproved) { throw 'renamed blank process admitted' }
+$reparented = New-Proc 103 100 '2026-08-30T12:00:02Z' 'workerd.exe' '' ''
+if ((Get-Rejection { Get-ControlledStopSweep $identity $supervisor $ledger @($wrangler, $reparented) $cutoff }) -cne $unapproved) { throw 'reparented blank process admitted' }
+$moved = New-Proc 103 102 '2026-08-30T12:00:02Z' 'workerd.exe' 'D:\\foreign\\workerd.exe' ''
+if ((Get-Rejection { Get-ControlledStopSweep $identity $supervisor $ledger @($wrangler, $moved) $cutoff }) -cne $unapproved) { throw 'foreign readable path admitted' }
+$thinLedger = @($supervisor, $wrangler, (New-Proc 103 102 '2026-08-30T12:00:02Z' 'workerd.exe' '' ''))
+if ((Get-Rejection { Get-ControlledStopSweep $identity $supervisor $thinLedger @($wrangler, $blindWorkerd) $cutoff }) -cne $unapproved) { throw 'thin ledger admitted blank process' }
+
+# 5. Rejection leaves a diagnostic and rethrows the unchanged message.
+$Action = 'EnterMaintenance'
+$script:processes = @($stranger)
+function Get-ExactCurrentProcess { return $null }
+function Get-CimInstance { return $script:processes }
+$internal = [pscustomobject]@{ State = 'exact_release'; Supervisor = $supervisor; Identity = $identity
+  Tree = @([pscustomobject]@{ Process = $supervisor; Depth = 0 }, [pscustomobject]@{ Process = $wrangler; Depth = 1 }) }
+if ((Get-Rejection { Stop-ExactWorkerSnapshot $internal }) -cne $unapproved) { throw 'stop did not rethrow the original message' }
+$text = [IO.File]::ReadAllText((Join-Path $testRoot 'state\\worker-last-controlled-stop.json'))
+$record = $text | ConvertFrom-Json
+$detail = $record.rejectedProcess
+if ($record.phase -cne 'unapproved_process' -or $detail.name -cne 'workerd.exe' -or $detail.pid -ne 107 -or $detail.ppid -ne 102 -or
+    $detail.inLedger -ne $false -or $detail.executablePathPresent -ne $false -or $detail.commandLinePresent -ne $false -or
+    -not $detail.creationDate) { throw 'diagnostic detail missing' }
+if ($text -match 'serve|--manifest') { throw 'diagnostic leaked a command line' }
+} finally {
+  if ([IO.Path]::GetDirectoryName($testRoot) -ne [IO.Path]::GetTempPath().TrimEnd([char]92)) { throw 'Unsafe fixture cleanup' }
+  Remove-Item -LiteralPath $testRoot -Recurse -Force
+}
+[Console]::Out.WriteLine('verified')
+`;
+  let ran = 0;
+  for (const shell of ["powershell.exe", "pwsh.exe"]) {
+    const probe = spawnSync(shell, ["-NoProfile", "-Command", "exit 0"], { windowsHide: true });
+    if (probe.error) continue;
+    ran += 1;
+    const result = spawnSync(shell, ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", fixture], { encoding: "utf8", windowsHide: true });
+    assert.equal(result.status, 0, `${shell}: ${result.stderr}${result.stdout}`);
+    assert.equal(result.stdout.trim(), "verified");
+  }
+  assert.ok(ran >= 1);
+});
