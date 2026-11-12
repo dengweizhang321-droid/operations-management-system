@@ -23,10 +23,13 @@
 #
 # Output is fixed-enum codes only.
 
-$script:WatchClosureProcessCommands=@('stop-process','spps','stop-service','kill','start-process','saps','start','invoke-item','ii')
+# CIM/WMI mutators are listed whatever method or instance they act on.
+$script:WatchClosureProcessCommands=@('stop-process','spps','stop-service','kill','start-process','saps','start','invoke-item','ii','invoke-cimmethod','remove-ciminstance','set-ciminstance','invoke-wmimethod','remove-wmiobject')
 $script:WatchClosureDeleteCommands=@('remove-item','ri','rm','rmdir','del','erase','rd','move-item','mi','mv','move','rename-item','ren','rni','clear-content','clc')
-$script:WatchClosureWriteCommands=@('set-content','sc','add-content','ac','out-file')
+$script:WatchClosureWriteCommands=@('set-content','sc','add-content','ac','out-file','new-item','ni','copy-item','cpi','copy','cp')
 $script:WatchClosureDynamicCommands=@('invoke-expression','iex','invoke-command','icm')
+# Commands that read a function out of the function table by name: `Get-Command Name`, `Get-Item function:Name`.
+$script:WatchClosureFunctionLookupCommands=@('get-command','gcm','get-item','gi','get-childitem','gci','dir','ls')
 $script:WatchClosureRecordCommands=@('remove-previousbootprocessrecordifsafe','remove-ownsupervisorreceipt')
 $script:WatchClosureToolString='(?i)taskkill|\bwmic(\.exe)?\b|\bpskill(\.exe)?\b'
 # 'any': a write-class primitive is a hit whatever it writes. 'pid-related': only when the target
@@ -68,8 +71,14 @@ $script:WatchOwnershipLibraryAllowlist=@(
 #   parameter    its parameter name; the argument (named, else first positional) must be absent or a
 #                string literal listed in `allowed`; variables, splats and other values void the exception
 #   onlyCallers  the only functions allowed to call the hit function itself
-#   guardCaller  function holding the call to the hit function; the innermost `if` around that call
-#                must keep the pinned text (sha256 of the whitespace-normalised statement)
+#   hitParameter parameter of the hit function that must receive a script block literal { ... } at every
+#                reached call site (a variable, `${function:X}` or other value voids the exception)
+#   pinFunction/pinSha256  a function whose whole definition (parameter defaults and gate included) must
+#                keep the pinned text (sha256 of the whitespace-normalised definition)
+# Parameter names at call sites are bound like PowerShell does (unique case-insensitive prefix,
+# positional by declaration order); anything that cannot be bound with certainty voids the exception.
+# A function named without being called (`${function:X}`, Get-Command X, Get-Item function:X) counts as
+# a reference site, which also voids any call-site condition on X.
 function New-WatchClosureException([string]$Script,[string]$Function,[string]$Primitive,$Pins,[string]$Reason,$Callsite=$null){
   return @{script=$Script;function=$Function;primitive=$Primitive;pins=@($Pins|ForEach-Object {@{sha256=$_[0];count=[int]$_[1]}});reason=$Reason;callsite=$Callsite}
 }
@@ -77,14 +86,15 @@ $script:WatchClosureExceptions=@(
   (New-WatchClosureException 'transport' 'Invoke-DeadlineProcess' '.kill()' @(,@('9bd9e6f70e013f0bbcc68a2e573f77a8df1be04c2479e4b042f1f7e4ec4c2cb0',1)) 'process-deadline.ps1:192 kills only the Process object it started itself (direct-exit probe), never a looked-up pid'),
   (New-WatchClosureException 'transport' 'Invoke-DeadlineProcess' 'io-delete' @(@('a8bd4f4a40dda2c5dd3f618a1e8540b254b153b163a48c930a84c7514471cd75',1),@('981e51765bcb6e089334a0aa60697e5cbcce5a8da31c6bde42f2cba42790ede4',1)) 'process-deadline.ps1:199-200 removes the probe stdout/stderr scratch files and directory it created'),
   (New-WatchClosureException 'transport' 'Invoke-DeadlineProcess' 'io-write' @(,@('392faf6bc9f5fc69da5ff75cea1182ca3c36f7018872cdd070675105e98a96ef',1)) 'process-deadline.ps1:140 creates its own scratch directory'),
-  (New-WatchClosureException 'backend' 'Invoke-BoundedNativeProcess' 'dynamic-call' @(,@('e75ee64698b36b1cc310898df3ed105f7310c402c488044b91cf963bdc45c9d7',1)) 'django-local-service.ps1:300 runs a scriptblock passed by its callers (Test-PostgresReady, Get-FinanceWriteAuthority, Show-AggregateServiceStatus), all read-only probes'),
-  (New-WatchClosureException 'backend' 'Invoke-InProcessJsonStatus' 'dynamic-call' @(,@('a66f7ab990955a3983114e79a96cd179b116132e1f363c223b1278c5eecd0357',1)) 'django-local-service.ps1:4867 invokes the status scriptblock handed in by the read-only status action'),
-  (New-WatchClosureException 'backend' 'Invoke-WithDjangoEnvironment' 'dynamic-call' @(,@('a66f7ab990955a3983114e79a96cd179b116132e1f363c223b1278c5eecd0357',1)) 'django-local-service.ps1:3758 invokes the scriptblock handed in after setting the process-local Django environment'),
+  (New-WatchClosureException 'backend' 'Invoke-BoundedNativeProcess' 'dynamic-call' @(,@('e75ee64698b36b1cc310898df3ed105f7310c402c488044b91cf963bdc45c9d7',1)) 'django-local-service.ps1:300 runs a scriptblock passed by its callers (Test-PostgresReady, Get-FinanceWriteAuthority, Show-AggregateServiceStatus), all read-only probes' @{onlyCallers=@('Show-AggregateServiceStatus','Test-PostgresReady','Get-FinanceWriteAuthority')}),
+  (New-WatchClosureException 'backend' 'Invoke-InProcessJsonStatus' 'dynamic-call' @(,@('a66f7ab990955a3983114e79a96cd179b116132e1f363c223b1278c5eecd0357',1)) 'django-local-service.ps1:4867 invokes the status scriptblock handed in by the read-only status action' @{hitParameter='Operation'}),
+  (New-WatchClosureException 'backend' 'Invoke-WithDjangoEnvironment' 'dynamic-call' @(,@('a66f7ab990955a3983114e79a96cd179b116132e1f363c223b1278c5eecd0357',1)) 'django-local-service.ps1:3758 invokes the scriptblock handed in after setting the process-local Django environment' @{hitParameter='Operation'}),
   (New-WatchClosureException 'backend' 'Rotate-LauncherLog' 'remove-item' @(,@('d26f00110b4476a5ef49e4731b4cebd3448dbe6fd5f0c5dce04123305652278e',1)) 'django-local-service.ps1:403 drops the oldest rotated launcher log (LauncherLogPath.N), not a pid/receipt file'),
   (New-WatchClosureException 'backend' 'Rotate-LauncherLog' 'move-item' @(@('eaedc45119725c11fdcff6186ecbd83d48f75bd66d60883029a6d92947596415',1),@('54cbdcbb88881fa02f3974b634e1436ba507ed4b1beb4a9d2ada7216a3cb1d19',1)) 'django-local-service.ps1:405,409 rotate launcher log files'),
   (New-WatchClosureException 'backend' 'Write-LauncherEvent' 'io-write' @(,@('a017f5b007d3beec5cdc7af93b16967f0e125b5c06adf8928b953689eaffccea',1)) 'django-local-service.ps1:424 appends one line to the launcher log'),
-  (New-WatchClosureException 'overlay' 'Invoke-ReadonlyMetadataObservation' 'dynamic-call' @(,@('ef292c89b41eeff5952c89c3a664b83d9dca67ed4a40d5a09046d98667b0be88',1)) 'overlay :246 runs the scriptblock of a read-only metadata observation (callers are overlay functions)'),
-  (New-WatchClosureException 'supervisor' 'Move-SupervisorStatePreviousGeneration' 'move-item' @(,@('874defdb43814757434d94222cd6b21e95efd306129288b23e3be9f434c95fc0',1)) 'django-runtime-supervisor.ps1:364 archives state.json, reached only through Read-SupervisorState behind the Mode gate (:327, ArchivePreviousStopped); the sole caller passing it is Invoke-SupervisorRun (:832), the watchdog status block passes AllowPreviousStopped (:1140)' @{target='Read-SupervisorState';parameter='Mode';allowed=@('Strict','AllowPreviousStopped');onlyCallers=@('Read-SupervisorState');guardCaller='Read-SupervisorState';guardSha256='1e58504eb4de09c132d2c32cad7119dc7a833d23f0f0356aa89aa82647e46a10'})
+  (New-WatchClosureException 'overlay' 'Invoke-ReadonlyMetadataObservation' 'dynamic-call' @(,@('ef292c89b41eeff5952c89c3a664b83d9dca67ed4a40d5a09046d98667b0be88',1)) 'overlay :246 runs the scriptblock of a read-only metadata observation (callers are overlay functions)' @{hitParameter='ReadStatus'}),
+  (New-WatchClosureException 'supervisor' 'Move-SupervisorStatePreviousGeneration' 'move-item' @(,@('874defdb43814757434d94222cd6b21e95efd306129288b23e3be9f434c95fc0',1)) 'django-runtime-supervisor.ps1:364 archives state.json, reached only through Read-SupervisorState behind the Mode gate (:327, ArchivePreviousStopped); the sole caller passing it is Invoke-SupervisorRun (:832), the watchdog status block passes AllowPreviousStopped (:1140)' @{target='Read-SupervisorState';parameter='Mode';allowed=@('Strict','AllowPreviousStopped');onlyCallers=@('Read-SupervisorState');pinFunction='Read-SupervisorState';pinSha256='8473c0eb5138591f9f66c0373b13ebb324c4997007a795ff44d2a29672fd3a85'}),
+  (New-WatchClosureException 'backend' 'Write-LauncherEvent' 'new-item' @(,@('8803831504c8e6e4f2866f9bf0f622248aefaf9083603afad607ccd313fe2133',1)) 'django-local-service.ps1:414 makes sure the launcher log directory exists before appending one line')
 )
 
 function Get-WatchClosureAst([string]$Path){
@@ -210,6 +220,14 @@ function Get-WatchClosureScan($Node,[string]$Script,[string]$Function,$Spec,$Tab
   $hits=[Collections.Generic.List[object]]::new();$calls=[Collections.Generic.List[string]]::new();$sites=[Collections.Generic.List[object]]::new()
   $add={param($primitive,$ast) $hits.Add(@{profile=$Spec.name;script=$Script;function=$Function;primitive=$primitive;line=$ast.Extent.StartLineNumber;sha=(Get-WatchClosureNodeHash $ast)})}
   $addWrite={param($primitive,$ast) if($script:WatchClosureWriteScope -ne 'pid-related' -or (Test-WatchClosureTargetsPid $ast)){&$add $primitive $ast}}
+  # A function named without being called (`${function:X}`, `Get-Command X`, `Get-Item function:X`) can be
+  # invoked later, so it counts as a call to X; a name that is itself a forbidden primitive is a hit.
+  $reference={param($refName,$ast)
+    $l=([string]$refName).ToLowerInvariant()
+    if($Table.ContainsKey($l)){$calls.Add($l);$sites.Add(@{name=$l;caller=$Function;ast=$ast;reference=$true})}
+    if($l -in $script:WatchClosureProcessCommands -or $l -in $script:WatchClosureDeleteCommands -or $l -in $script:WatchClosureDynamicCommands -or $l -in $script:WatchClosureRecordCommands){&$add $l $ast}
+    elseif($l -in $script:WatchClosureWriteCommands){&$addWrite $l $ast}
+  }
   $T=[Management.Automation.Language.CommandAst]
   foreach($c in (Find-WatchClosureNodes $Node $T)){
     if(Test-WatchClosureExcluded $c $Excluded){continue}
@@ -225,6 +243,22 @@ function Get-WatchClosureScan($Node,[string]$Script,[string]$Function,$Spec,$Tab
     }
     $lower=$name.ToLowerInvariant()
     if($Table.ContainsKey($lower)){$calls.Add($lower);$sites.Add(@{name=$lower;caller=$Function;ast=$c})}
+    if($lower -in $script:WatchClosureFunctionLookupCommands){
+      $isCommand=$lower -in @('get-command','gcm')
+      foreach($e in @($c.CommandElements|Select-Object -Skip 1)){
+        if($e -is [Management.Automation.Language.CommandParameterAst]){continue}
+        $literal=if($e -is [Management.Automation.Language.StringConstantExpressionAst]){[string]$e.Value}else{$null}
+        if($null -ne $literal){
+          if($isCommand){&$reference $literal $c}
+          elseif($literal -imatch '^function:(?<n>.+)$'){&$reference $Matches['n'] $c}
+        }elseif(-not $isCommand -and $e.Extent.Text -imatch 'function:'){&$add 'dynamic-call' $c}
+        elseif($isCommand){
+          # (Get-Command $x).ScriptBlock hands a function body to the caller.
+          $up=$c.Parent;while($up -and $up -isnot [Management.Automation.Language.MemberExpressionAst] -and ($up -isnot [Management.Automation.Language.StatementAst] -or $up -is [Management.Automation.Language.PipelineBaseAst])){$up=$up.Parent}
+          if($up -is [Management.Automation.Language.MemberExpressionAst] -and $up.Member.Extent.Text -imatch '^ScriptBlock$'){&$add 'dynamic-call' $c}
+        }
+      }
+    }
     if($lower -in $script:WatchClosureProcessCommands -or $lower -in $script:WatchClosureDeleteCommands -or $lower -in $script:WatchClosureDynamicCommands -or $lower -in $script:WatchClosureRecordCommands){&$add $lower $c}
     elseif($lower -in $script:WatchClosureWriteCommands){&$addWrite $lower $c}
     elseif($lower -ceq 'tee-object' -and @($c.CommandElements|Where-Object {$_ -is [Management.Automation.Language.CommandParameterAst] -and $_.ParameterName -imatch '^v'}).Count -eq 0){&$addWrite 'tee-object' $c}
@@ -236,7 +270,9 @@ function Get-WatchClosureScan($Node,[string]$Script,[string]$Function,$Spec,$Tab
     $lm=$member.ToLowerInvariant()
     $type=if($m.Static -and $m.Expression -is [Management.Automation.Language.TypeExpressionAst]){$m.Expression.TypeName.FullName}else{''}
     if($lm -in @('kill','terminate')){&$add '.kill()' $m;continue}
-    if($lm -ceq 'invokescript'){&$add 'dynamic-exec' $m;continue}
+    if($lm -in @('invokescript','addscript')){&$add 'dynamic-exec' $m;continue}
+    if($type -imatch '^(System\.Management\.Automation\.)?PowerShell$' -and $lm -ceq 'create'){&$add 'dynamic-exec' $m;continue}
+    if($type -imatch '^(System\.Management\.Automation\.Runspaces\.)?RunspaceFactory$'){&$add 'dynamic-exec' $m;continue}
     if($type -imatch '^(System\.)?Diagnostics\.Process$' -and $lm -ceq 'start'){&$add 'process-start' $m;continue}
     if($type -imatch '^(System\.Management\.Automation\.)?ScriptBlock$' -and $lm -ceq 'create'){&$add 'dynamic-exec' $m;continue}
     if($type -imatch '^(System\.)?IO\.(File|Directory)$'){
@@ -255,6 +291,7 @@ function Get-WatchClosureScan($Node,[string]$Script,[string]$Function,$Spec,$Tab
   foreach($v in (Find-WatchClosureNodes $Node ([Management.Automation.Language.VariableExpressionAst]))){
     if(Test-WatchClosureExcluded $v $Excluded){continue}
     if($v.VariablePath.UserPath -ieq 'ExecutionContext'){&$add 'dynamic-exec' $v}
+    if($v.VariablePath.UserPath -imatch '^function:(?<n>.+)$'){&$reference $Matches['n'] $v}
   }
   foreach($r in (Find-WatchClosureNodes $Node ([Management.Automation.Language.FileRedirectionAst]))){
     if(Test-WatchClosureExcluded $r $Excluded){continue}
@@ -262,43 +299,69 @@ function Get-WatchClosureScan($Node,[string]$Script,[string]$Function,$Spec,$Tab
   }
   return @{hits=$hits.ToArray();calls=$calls.ToArray();sites=$sites.ToArray()}
 }
+function Resolve-WatchClosureArgument($Site,$FunctionAst,[string]$Parameter){
+  # Binds the arguments of one call site to the declared parameters of the called function the way
+  # PowerShell does for plain calls: named arguments by case-insensitive unique prefix, the rest by
+  # position in declaration order. Returns @{ok;present;value}; ok=$false means it cannot be bound
+  # with certainty (splat, unknown/ambiguous parameter), which callers treat as a violation.
+  $unresolved=@{ok=$false;present=$false;value=$null}
+  $declared=@(if($FunctionAst.Parameters){$FunctionAst.Parameters}elseif($FunctionAst.Body.ParamBlock){$FunctionAst.Body.ParamBlock.Parameters})
+  $names=@($declared|ForEach-Object {[string]$_.Name.VariablePath.UserPath})
+  if($site.reference){return $unresolved}
+  $elements=@($Site.ast.CommandElements|Select-Object -Skip 1)
+  $bound=@{};$consumed=@{}
+  for($i=0;$i -lt $elements.Count;$i++){
+    $e=$elements[$i]
+    if($e -is [Management.Automation.Language.VariableExpressionAst] -and $e.Splatted){return $unresolved}
+    if($e -isnot [Management.Automation.Language.CommandParameterAst]){continue}
+    $exact=@($names|Where-Object {$_ -ieq $e.ParameterName})
+    $matches2=@(if($exact.Count -eq 1){$exact}else{$names|Where-Object {$_.StartsWith($e.ParameterName,[StringComparison]::OrdinalIgnoreCase)}})
+    if($matches2.Count -ne 1){return $unresolved}
+    $consumed[$i]=1
+    if($e.Argument){$bound[$matches2[0]]=$e.Argument}
+    elseif($i+1 -lt $elements.Count -and $elements[$i+1] -isnot [Management.Automation.Language.CommandParameterAst]){$bound[$matches2[0]]=$elements[$i+1];$consumed[$i+1]=1}
+    else{$bound[$matches2[0]]=$null}
+  }
+  $free=@($names|Where-Object {-not $bound.ContainsKey($_)})
+  $slot=0
+  for($i=0;$i -lt $elements.Count;$i++){
+    if($consumed.ContainsKey($i) -or $elements[$i] -is [Management.Automation.Language.CommandParameterAst]){continue}
+    if($slot -ge $free.Count){return $unresolved}
+    $bound[$free[$slot]]=$elements[$i];$slot++
+  }
+  $key=@($names|Where-Object {$_ -ieq $Parameter})
+  if($key.Count -ne 1){return $unresolved}
+  return @{ok=$true;present=$bound.ContainsKey($key[0]);value=$bound[$key[0]]}
+}
+# Conditional exceptions (see New-WatchClosureException). True only when every reached call site and
+# the pinned function text keep the conditions the exception's reason depends on.
 function Test-WatchClosureCallsite($Constraint,$Entry,$Table,$Sites){
-  # True only when every reached call site satisfies the exception's call-site condition.
-  $target=([string]$Constraint.target).ToLowerInvariant();$hitFunction=([string]$Entry.function).ToLowerInvariant()
+  $hitFunction=([string]$Entry.function).ToLowerInvariant()
+  $target=if($Constraint.target){([string]$Constraint.target).ToLowerInvariant()}else{$null}
+  $allowedCallers=@($Constraint.onlyCallers|ForEach-Object {([string]$_).ToLowerInvariant()})
   foreach($site in $Sites){
     if($site.name -ceq $hitFunction){
-      if(([string]$site.caller).ToLowerInvariant() -cnotin @($Constraint.onlyCallers|ForEach-Object {([string]$_).ToLowerInvariant()})){return $false}
-    }
-    if($site.name -ceq $target){
-      $elements=@($site.ast.CommandElements|Select-Object -Skip 1)
-      $value=$null;$present=$false
-      for($i=0;$i -lt $elements.Count;$i++){
-        $e=$elements[$i]
-        if($e -is [Management.Automation.Language.CommandParameterAst]){
-          if($e.ParameterName -ieq $Constraint.parameter){
-            $present=$true
-            $value=if($e.Argument){$e.Argument}elseif($i+1 -lt $elements.Count){$elements[$i+1]}else{$null}
-            break
-          }
-          # Another named parameter: its value (if separate) is not positional.
-          if(-not $e.Argument -and $i+1 -lt $elements.Count -and $elements[$i+1] -isnot [Management.Automation.Language.CommandParameterAst]){$i++}
-          continue
-        }
-        if(-not $present){$present=$true;$value=$e;break}
+      if($Constraint.onlyCallers -and ([string]$site.caller).ToLowerInvariant() -cnotin $allowedCallers){return $false}
+      if($Constraint.hitParameter){
+        $a=Resolve-WatchClosureArgument $site $Table[$hitFunction].ast ([string]$Constraint.hitParameter)
+        if(-not $a.ok -or -not $a.present -or $a.value -isnot [Management.Automation.Language.ScriptBlockExpressionAst]){return $false}
       }
-      if($present){
-        if($value -isnot [Management.Automation.Language.StringConstantExpressionAst]){return $false}
-        if([string]$value.Value -cnotin @($Constraint.allowed)){return $false}
+    }
+    if($target -and $site.name -ceq $target){
+      $a=Resolve-WatchClosureArgument $site $Table[$target].ast ([string]$Constraint.parameter)
+      if(-not $a.ok){return $false}
+      if($a.present){
+        if($a.value -isnot [Management.Automation.Language.StringConstantExpressionAst]){return $false}
+        if([string]$a.value.Value -cnotin @($Constraint.allowed)){return $false}
       }
     }
   }
-  $caller=$Table[([string]$Constraint.guardCaller).ToLowerInvariant()]
-  if(-not $caller){return $false}
-  $sinks=@(Find-WatchClosureNodes $caller.ast.Body ([Management.Automation.Language.CommandAst])|Where-Object {$_.GetCommandName() -and $_.GetCommandName().ToLowerInvariant() -ceq $hitFunction})
-  if($sinks.Count -ne 1){return $false}
-  $if=$sinks[0];while($if -and $if -isnot [Management.Automation.Language.IfStatementAst]){$if=$if.Parent}
-  if(-not $if){return $false}
-  return ((Get-WatchClosureNodeHash $if) -ceq [string]$Constraint.guardSha256)
+  if($Constraint.pinFunction){
+    $pinned=$Table[([string]$Constraint.pinFunction).ToLowerInvariant()]
+    if(-not $pinned){return $false}
+    return ((Get-WatchClosureNodeHash $pinned.ast) -ceq [string]$Constraint.pinSha256)
+  }
+  return $true
 }
 function Test-WatchClosureOwnership($Table,[string[]]$Names){
   # Names of unlisted commands are kept for local diagnosis only; callers report the enum code.
@@ -340,7 +403,7 @@ function Invoke-WatchDriverClosureCheck([string]$DriverDirectory,[string]$Source
   $reasons=[Collections.Generic.List[string]]::new();$violations=@{};$excepted=0
   try{
     # Local diagnosis only (tests, design notes): unlisted command names, reached function sets, load order.
-    $script:WatchClosureLastUnlisted=@();$script:WatchClosureReached=@{};$script:WatchClosureLoadOrder=@{}
+    $script:WatchClosureLastUnlisted=@();$script:WatchClosureReached=@{};$script:WatchClosureLoadOrder=@{};$script:WatchClosureSites=@{}
     foreach($spec in (Get-WatchClosureProfileSpecs)){
       $exec=Get-WatchClosureExecution $spec $asts
       $table=$exec.table;$script:WatchClosureLoadOrder[$spec.name]=$exec.order
@@ -349,6 +412,7 @@ function Invoke-WatchDriverClosureCheck([string]$DriverDirectory,[string]$Source
       foreach($root in $exec.roots){$queue.Enqueue($root)}
       $script:WatchClosureReached[$spec.name]=$seen
       $sites=[Collections.Generic.List[object]]::new();$conditional=[Collections.Generic.List[object]]::new()
+      $script:WatchClosureSites[$spec.name]=$sites
       while($queue.Count){
         $item=$queue.Dequeue()
         $scan=Get-WatchClosureScan $item.node $item.script $item.function $spec $table $asts $item.excluded

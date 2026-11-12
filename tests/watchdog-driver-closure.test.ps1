@@ -154,6 +154,10 @@ try{
       @{name='ArchivePreviousStopped literal';replacement='Read-SupervisorState "ArchivePreviousStopped"'},
       @{name='variable mode';replacement='$m = "ArchivePreviousStopped"; Read-SupervisorState $m'},
       @{name='named variable mode';replacement='Read-SupervisorState -Mode $env:X'},
+      @{name='parameter-name prefix';replacement='Read-SupervisorState -Mo ArchivePreviousStopped'},
+      @{name='one-letter parameter-name prefix';replacement='Read-SupervisorState -M ArchivePreviousStopped'},
+      @{name='unknown parameter name carrying the mode';replacement='Read-SupervisorState -X ArchivePreviousStopped'},
+      @{name='unknown parameter name with a colon argument';replacement='Read-SupervisorState -X:ArchivePreviousStopped'},
       @{name='direct caller of the archive function';replacement='Move-SupervisorStatePreviousGeneration "x"; Read-SupervisorState "AllowPreviousStopped"'}
     )){
       [IO.File]::WriteAllText($wrapperPath,$wrapperOriginal)
@@ -167,6 +171,17 @@ try{
       Edit-File $wrapperPath 'Read-SupervisorState "AllowPreviousStopped"' $allowed
       Assert-Closure ((Invoke-WatchDriverClosureCheck $run.out $sources).ok) ('an allowed call form was refused: '+$allowed)
     }
+    # Round 3, item 2: the pin covers the whole Read-SupervisorState definition, not just the gate.
+    foreach($case in @(
+      @{name='default mode changed to Archive';pattern='(\[string\]\$Mode = )"Strict"';replacement='$1"ArchivePreviousStopped"'},
+      @{name='Mode reassigned before the gate';pattern='(\[string\]\$Mode = "Strict"\r?\n\) \{)';replacement='$1 $Mode = "ArchivePreviousStopped";'}
+    )){
+      [IO.File]::WriteAllText($supervisorPath,$supervisorOriginal)
+      Edit-File $supervisorPath $case.pattern $case.replacement
+      $r=Invoke-WatchDriverClosureCheck $run.out $sources
+      Assert-Closure ((-not $r.ok) -and (& $archiveHits $r) -ge 1) ('the archive exception must not apply when: '+$case.name)
+    }
+    [IO.File]::WriteAllText($supervisorPath,$supervisorOriginal)
     # Removing the Mode gate inside Read-SupervisorState would make AllowPreviousStopped archive.
     [IO.File]::WriteAllText($wrapperPath,$wrapperOriginal)
     Edit-File $supervisorPath '(?s)if \(\$Mode -ceq "ArchivePreviousStopped"\) \{(\s*Move-SupervisorStatePreviousGeneration)' 'if ($true) {$1'
@@ -176,6 +191,60 @@ try{
     [IO.File]::WriteAllText($wrapperPath,$wrapperOriginal);[IO.File]::WriteAllText($supervisorPath,$supervisorOriginal)
   }
   Assert-Closure ((Invoke-WatchDriverClosureCheck $run.out $sources).ok) 'restoring after call-site tests did not restore a passing check'
+
+  # 3g. Round 3, item 1: the dynamic-call exceptions only hold while every reached call site hands in a
+  # script block literal, and a function named without being called counts as a call to it.
+  $viaDynamic='Invoke-InProcessJsonStatus ${function:Remove-PreviousBootProcessRecordIfSafe} ''x'''
+  foreach($case in @(
+    @('${function:} reference passed as the script block',$viaDynamic),
+    @('$function: reference passed as the script block','Invoke-InProcessJsonStatus $function:Remove-PreviousBootProcessRecordIfSafe ''x'''),
+    @('(Get-Command X).ScriptBlock passed as the script block','Invoke-InProcessJsonStatus (Get-Command Remove-PreviousBootProcessRecordIfSafe).ScriptBlock ''x'''),
+    @('(Get-Item function:X).ScriptBlock passed as the script block','Invoke-InProcessJsonStatus (Get-Item function:Remove-PreviousBootProcessRecordIfSafe).ScriptBlock ''x'''),
+    @('script block held in a variable (Invoke-InProcessJsonStatus)','$sb={ 1 }; Invoke-InProcessJsonStatus $sb ''x'''),
+    @('named script block variable (Invoke-InProcessJsonStatus)','$sb={ 1 }; Invoke-InProcessJsonStatus -Operation $sb -Label ''x'''),
+    @('script block variable (Invoke-ReadonlyMetadataObservation)','$sb={ 1 }; Invoke-ReadonlyMetadataObservation $sb'),
+    @('(Get-Command $name).ScriptBlock with a computed name','$n=''Remove-X''; $z=(Get-Command $n).ScriptBlock')
+  )){
+    $r=Test-Refused $overlay $original $obs $case[1] $case[0]
+  }
+  # A literal script block stays accepted.
+  [IO.File]::WriteAllText($overlay,$original);Add-Injection $overlay $obs 'Invoke-InProcessJsonStatus { 1 } ''x'''
+  $literal=Invoke-WatchDriverClosureCheck $run.out $sources
+  [IO.File]::WriteAllText($overlay,$original)
+  Assert-Closure $literal.ok 'a literal script block argument was refused'
+  # A reference alone (never called) pulls the referenced function into the scan.
+  $dangerousRef='function Test-LoadOrderProbe { Remove-Item -LiteralPath x }'
+  try{
+    [IO.File]::WriteAllText($backendPath,$backendOriginal+"`n"+$dangerousRef+"`n")
+    Add-Injection $overlay $obs '$f=${function:Test-LoadOrderProbe}'
+    $ref=Invoke-WatchDriverClosureCheck $run.out $sources
+    Assert-Closure ((-not $ref.ok) -and @($ref.hits|Where-Object {$_.function -ceq 'Test-LoadOrderProbe'}).Count -ge 1) 'a function reference must put the referenced function into the closure'
+    [IO.File]::WriteAllText($overlay,$original)
+    Add-Injection $overlay $obs '$f=(Get-Command Test-LoadOrderProbe)'
+    $ref2=Invoke-WatchDriverClosureCheck $run.out $sources
+    Assert-Closure ((-not $ref2.ok) -and @($ref2.hits|Where-Object {$_.function -ceq 'Test-LoadOrderProbe'}).Count -ge 1) 'Get-Command X must put the referenced function into the closure'
+  }finally{
+    [IO.File]::WriteAllText($overlay,$original);[IO.File]::WriteAllText($backendPath,$backendOriginal)
+  }
+  Assert-Closure ((Invoke-WatchDriverClosureCheck $run.out $sources).ok) 'restoring after reference tests did not restore a passing check'
+  # An extra caller of Invoke-BoundedNativeProcess voids its exception (the executable is not checkable).
+  [void](Test-Refused $overlay $original $obs 'Invoke-BoundedNativeProcess ''C:\x.exe'' @()' 'new caller of Invoke-BoundedNativeProcess')
+
+  # 3h. Round 3, item 3: further process / CIM / WMI / write / dynamic-execution forms.
+  foreach($case in @(
+    @('Invoke-CimMethod','Invoke-CimMethod -ClassName Win32_Process -MethodName Terminate'),
+    @('Remove-CimInstance','Get-CimInstance Win32_Process | Remove-CimInstance'),
+    @('Set-CimInstance','Set-CimInstance -InputObject $x'),
+    @('Invoke-WmiMethod','Invoke-WmiMethod -Class Win32_Process -Name Create'),
+    @('Remove-WmiObject','Remove-WmiObject -InputObject $x'),
+    @('New-Item','New-Item -ItemType File -Path x'),
+    @('Copy-Item','Copy-Item -LiteralPath a -Destination b'),
+    @('[powershell]::Create','[powershell]::Create()'),
+    @('.AddScript(','$p.AddScript(''1'')'),
+    @('[runspacefactory]','[runspacefactory]::CreateRunspace()')
+  )){
+    [void](Test-Refused $overlay $original $obs $case[1] $case[0])
+  }
 
   # 4. Generator rejections are structured (exit 3) and unrelated failures are not.
   $shape=New-Sources 'shape'
