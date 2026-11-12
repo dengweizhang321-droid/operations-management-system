@@ -83,6 +83,54 @@ try {
   $r=Invoke-WatchCycle -Recover
   Assert-Watch ($r.status -eq 'healthy' -and -not (Read-WatchJson $StatePath).marketFailureOpen) 'fresh successes are required to close the query incident'
 
+  # Per-incident recovery cap through the real cycle (items 5b/8): only failures that really ran recovery count.
+  function Reset-RecoveryWindow {$st=Read-WatchJson $StatePath;$st.attempts=@();Write-WatchJson $StatePath $st}
+  function Get-WatchSnapshot {return (Fixture-Snapshot)}
+  function Get-WatchBusinessHealth {@{status='unknown';reason='synthetic_no_observation'}}
+  $script:recoveries=0
+  Write-WatchJson $StatePath (New-WatchState)
+  $r=Invoke-WatchCycle -Recover
+  Assert-Watch ($r.status -eq 'confirm_failure') 'cap test: confirmation round expected'
+  foreach($n in 1,2,3){
+    $r=Invoke-WatchCycle -Recover
+    Assert-Watch ($r.status -eq 'recovery_failed' -and $script:recoveries -eq $n -and (Read-WatchJson $StatePath).incidentRecoveryFailures -eq $n) "cap test: attempt $n must run and be counted"
+    Reset-RecoveryWindow
+  }
+  $r=Invoke-WatchCycle -Recover
+  Assert-Watch ($r.status -eq 'recovery_exhausted' -and $script:recoveries -eq 3) 'cap test: the 4th attempt of one incident started or was not recovery_exhausted'
+  Reset-RecoveryWindow
+  $r=Invoke-WatchCycle -Recover
+  Assert-Watch ($r.status -eq 'recovery_exhausted' -and $script:recoveries -eq 3) 'cap test: an empty 15-minute window reopened an exhausted incident'
+  $notRun=@('lifecycle_busy','django_lifecycle_busy','desired_state_changed','desired_state_stopped','supervisor_start_fenced','maintenance_active')
+  $script:throwCode=$null
+  function Invoke-WatchRecovery {$script:recoveries++;throw $script:throwCode}
+  foreach($code in $notRun){
+    $script:throwCode=$code;Write-WatchJson $StatePath (New-WatchState)
+    $null=Invoke-WatchCycle -Recover
+    foreach($i in 1..4){$null=Invoke-WatchCycle -Recover;Reset-RecoveryWindow}
+    $st=Read-WatchJson $StatePath
+    Assert-Watch ($st.incidentRecoveryFailures -eq 0 -and $st.recoveryAttempt.code -ceq $code) "cap test: $code counted towards the cap although it never ran recovery"
+  }
+  foreach($code in @('stale_pid_reused','supervisor_ownership_error','some_unexpected_failure')){
+    $script:throwCode=$code;Write-WatchJson $StatePath (New-WatchState)
+    $null=Invoke-WatchCycle -Recover
+    $null=Invoke-WatchCycle -Recover
+    Assert-Watch ((Read-WatchJson $StatePath).incidentRecoveryFailures -eq 1) "cap test: $code ran recovery and must count"
+  }
+  function Invoke-WatchRecovery {$script:recoveries++}
+
+  # An open incident from a state without blindnessSeen is treated as possibly blind (item 9).
+  $legacy=New-WatchState;$legacy.Remove('blindnessSeen');$legacy.incident='legacy-open-incident';$legacy.firstFailure=[DateTimeOffset]::UtcNow.AddDays(-20).ToString('o');$legacy.failures=3
+  Write-WatchJson $StatePath $legacy
+  $null=Invoke-WatchCycle -Recover
+  Assert-Watch ((Read-WatchJson $StatePath).blindnessSeen -eq $true) 'an open incident without blindnessSeen was not treated as possibly blind'
+  $known=New-WatchState;$known.incident='known-not-blind';$known.firstFailure=[DateTimeOffset]::UtcNow.AddDays(-2).ToString('o');$known.failures=3
+  Write-WatchJson $StatePath $known
+  $null=Invoke-WatchCycle -Recover
+  Assert-Watch ((Read-WatchJson $StatePath).blindnessSeen -eq $false) 'an explicit blindnessSeen=false was overridden'
+  Write-WatchJson $StatePath (New-WatchState)
+  Assert-Watch ($null -eq (Read-WatchJson $StatePath).incident -and (Read-WatchJson $StatePath).blindnessSeen -eq $false) 'a fresh state must not claim blindness'
+
   # Re-load the real delivery function to verify at-most-once admission even when remote result is unknown.
   $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot '..\tools\operations-system-watchdog.ps1'),[ref]$null,[ref]$null)
   $function=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Send-WatchAlert'},$true)

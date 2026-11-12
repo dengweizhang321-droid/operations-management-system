@@ -1001,6 +1001,9 @@ function Invoke-WatchCycle([switch]$Recover){
   $previous=Read-WatchJson $StatePath
   $state=if($previous){$previous|ConvertTo-Json -Depth 10|ConvertFrom-Json -AsHashtable}else{New-WatchState}
   if($state.version -cne $WatchdogVersion){throw 'watchdog_state_invalid'}
+  # State written before blindnessSeen existed: an open incident may well have been blind already, so the
+  # reminder must not claim it was not. Unknown is treated as seen (the safe, hedged wording).
+  if($state.incident -and -not $state.ContainsKey('blindnessSeen')){$state.blindnessSeen=$true}
   $snapshot=Get-WatchSnapshot;$now=[DateTimeOffset]::UtcNow
   if($snapshot.admission.mode -eq 'running'){
     $snapshot.business=Get-WatchBusinessHealth
@@ -1041,6 +1044,9 @@ function Invoke-WatchCycle([switch]$Recover){
     $state.attempts=@($state.attempts|Where-Object {($now-[DateTimeOffset]$_).TotalMinutes -lt 15})+@($now.ToString('o'))
     Write-WatchJson $StatePath $state
     Write-WatchJson (Join-Path $WatchdogRoot "evidence\$($state.incident)-before.json") (Get-WatchEvidence $snapshot)
+    # Only a failure that really ran the recovery action counts towards the per-incident cap; a refused or
+    # fenced attempt (another lifecycle owner, changed desired state, maintenance) did nothing to the service.
+    $countRecoveryFailure=$true
     try{
       $state.recoveryAttempt=@{at=$now.ToString('o');status='started';code=$null}
       Write-WatchJson $StatePath $state
@@ -1053,10 +1059,11 @@ function Invoke-WatchCycle([switch]$Recover){
       $snapshot=$second
     }catch{
       $decision='recovery_failed'
+      if($_.Exception.Message -cin @('lifecycle_busy','django_lifecycle_busy','desired_state_changed','desired_state_stopped','supervisor_start_fenced','maintenance_active')){$countRecoveryFailure=$false}
       $known=@('lifecycle_busy','desired_state_changed','desired_state_stopped','stale_pid_reused','django_lifecycle_busy','supervisor_start_fenced','supervisor_ownership_error','maintenance_active','process_deadline_exhausted')
       $state.recoveryAttempt=@{at=$now.ToString('o');status='recovery_failed';code=if($_.Exception.Message -cin $known){$_.Exception.Message}else{'recovery_operation_failed'};process=Get-WatchProcessDiagnostic $_.Exception.Data['ProcessEvidence']}
     }
-    if($decision -eq 'recovery_failed'){$state.incidentRecoveryFailures=[int]$state.incidentRecoveryFailures+1}
+    if($decision -eq 'recovery_failed' -and $countRecoveryFailure){$state.incidentRecoveryFailures=[int]$state.incidentRecoveryFailures+1}
     Write-WatchJson (Join-Path $WatchdogRoot "evidence\$($state.incident)-recovery-attempt.json") $state.recoveryAttempt
     Save-WatchFailureEvidence $state $snapshot
   }

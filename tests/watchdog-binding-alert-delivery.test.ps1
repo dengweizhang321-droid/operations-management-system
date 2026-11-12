@@ -130,6 +130,26 @@ try {
   $before=$script:sends
   Send-WatchAlert $live $snapshot 'alert_only'
   Assert-Binding ($script:sends -eq $before) 'the same round was replayed'
+  # --- 4c. An identity retry sticks to the current -reminderN record and never touches the base record ---
+  $idRoot=Join-Path $root 'alerts'
+  $stick=New-WatchState;$stick.incident='fixture-stick';$stick.firstFailure=[DateTimeOffset]::UtcNow.AddDays(-5).ToString('o')
+  $stick.notification='unknown';$stick.lastIdentityAttempt=[DateTimeOffset]::UtcNow.AddDays(-4).ToString('o')
+  $basePath=Join-Path $idRoot 'fixture-stick.json'
+  (@{status='unknown';marker='base-stick'}|ConvertTo-Json)|Set-Content -LiteralPath $basePath -Encoding UTF8
+  $baseBody=Get-Content -LiteralPath $basePath -Raw
+  function Get-WatchRecipient {throw 'owner_mismatch'}
+  Send-WatchAlert $stick $snapshot 'alert_only'
+  Assert-Binding ($stick.notification -eq 'identity_failed' -and $stick.notificationEscalations -eq 1 -and $stick.notificationSuffix -ceq '-reminder1') 'the reminder round did not fail at identity as arranged'
+  Assert-Binding ((Read-WatchJson (Join-Path $idRoot 'fixture-stick-reminder1.json')).status -eq 'identity_failed') 'the failed reminder identity was not recorded on its own record'
+  $stick.lastIdentityAttempt=[DateTimeOffset]::UtcNow.AddMinutes(-20).ToString('o')
+  function Get-WatchRecipient {@{profile='fixture';user='fixture';bot='fixture'}}
+  $before=$script:sends
+  Send-WatchAlert $stick $snapshot 'alert_only'
+  Assert-Binding ($script:sends -eq $before+1 -and $stick.notification -eq 'sent') 'the identity retry did not send'
+  Assert-Binding ((Read-WatchJson (Join-Path $idRoot 'fixture-stick-reminder1.json')).status -eq 'sent') 'the retry did not land in the same -reminder1 record'
+  Assert-Binding ((Get-Content -LiteralPath $basePath -Raw) -ceq $baseBody) 'the retry touched the base record'
+  Assert-Binding ($stick.notificationEscalations -eq 1 -and -not (Test-Path -LiteralPath (Join-Path $idRoot 'fixture-stick-reminder2.json'))) 'the retry consumed a new reminder number'
+
   # A confirmed send is still terminal and is never escalated.
   $done=New-WatchState;$done.incident='fixture-done';$done.notification='sent'
   $before=$script:sends
